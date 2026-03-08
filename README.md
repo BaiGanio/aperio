@@ -127,8 +127,7 @@ aperio/
 ├── db/
 │   └── migrations/
 │       ├── 001_init.sql          # Core schema, indexes, seed data
-│       ├── 002_pgvector.sql      # pgvector extension + HNSW index
-│       └── 003_drop_projects.sql # Simplified to one table
+│       └── 002_pgvector.sql      # pgvector extension + HNSW index
 ├── mcp/
 │   └── index.js                  # MCP server — 9 tools, all memory ops
 ├── prompts/
