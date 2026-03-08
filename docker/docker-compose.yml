@@ -1,0 +1,23 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16    # pgvector-enabled Postgres 16
+    container_name: aperio_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: aperio
+      POSTGRES_USER: aperio
+      POSTGRES_PASSWORD: aperio_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - aperio_data:/var/lib/postgresql/data
+      - ../db/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aperio -d aperio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  aperio_data:
+    name: aperio_data

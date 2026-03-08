@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: light dark;">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Aperio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <!-- Prism syntax highlighting - theme swaps with dark/aurora -->
+  <link id="prism-theme" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+  <style>
+    /* ── Reset & tokens ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --font-mono: "Berkeley Mono", "Fira Code", monospace;
+      --font-sans: "DM Sans", system-ui, sans-serif;
+      --radius: 10px;
+      --radius-sm: 6px;
+      --transition: 160ms ease;
+    }
+
+    /* ── THEME: Light (default) ──────────────────────────────── */
+    [data-theme="light"] {
+      color-scheme: light;
+      --bg:          #f5f4f0;
+      --bg-panel:    #ffffff;
+      --bg-input:    #ffffff;
+      --bg-hover:    #f0efe9;
+      --bg-msg-user: #1a1a1a;
+      --bg-msg-ai:   #ffffff;
+      --border:      #e2e0d8;
+      --text:        #1a1a1a;
+      --text-muted:  #7a7870;
+      --text-user:   #ffffff;
+      --accent:      #2563eb;
+      --accent-soft: #eff4ff;
+      --tag-bg:      #f0efe9;
+      --tag-text:    #6b6860;
+      --shadow:      0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
+      --shadow-lg:   0 8px 32px rgba(0,0,0,.10);
+      --dot-color:   #d4d0c8;
+    }
+
+    /* ── THEME: Dark ─────────────────────────────────────────── */
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg:          #141414;
+      --bg-panel:    #1e1e1e;
+      --bg-input:    #252525;
+      --bg-hover:    #2a2a2a;
+      --bg-msg-user: #2563eb;
+      --bg-msg-ai:   #252525;
+      --border:      #2e2e2e;
+      --text:        #e8e6e0;
+      --text-muted:  #6b6860;
+      --text-user:   #ffffff;
+      --accent:      #3b82f6;
+      --accent-soft: #1e2a3d;
+      --tag-bg:      #2a2a2a;
+      --tag-text:    #8a8880;
+      --shadow:      0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+      --shadow-lg:   0 8px 32px rgba(0,0,0,.4);
+      --dot-color:   #2a2a2a;
+    }
+
+    /* ── THEME: Aurora (indigo-pink) ─────────────────────────── */
+    [data-theme="aurora"] {
+      color-scheme: dark;
+      --bg:          #0f0b1e;
+      --bg-panel:    #17112e;
+      --bg-input:    #1e1638;
+      --bg-hover:    #261d42;
+      --bg-msg-user: #7c3aed;
+      --bg-msg-ai:   #1e1638;
+      --border:      #2e2252;
+      --text:        #ede9f8;
+      --text-muted:  #8b7fb8;
+      --text-user:   #ffffff;
+      --accent:      #a855f7;
+      --accent-soft: #2d1b4e;
+      --tag-bg:      #261d42;
+      --tag-text:    #a78bdb;
+      --shadow:      0 1px 3px rgba(0,0,0,.4), 0 4px 12px rgba(120,50,255,.15);
+      --shadow-lg:   0 8px 32px rgba(120,50,255,.25);
+      --dot-color:   #1e1638;
+      --gradient-accent: linear-gradient(135deg, #7c3aed, #ec4899);
+    }
+
+    /* ── System default fallback ─────────────────────────────── */
+    @media (prefers-color-scheme: light) {
+      [data-theme="system"] {
+        color-scheme: light;
+        --bg:          #f5f4f0;
+        --bg-panel:    #ffffff;
+        --bg-input:    #ffffff;
+        --bg-hover:    #f0efe9;
+        --bg-msg-user: #1a1a1a;
+        --bg-msg-ai:   #ffffff;
+        --border:      #e2e0d8;
+        --text:        #1a1a1a;
+        --text-muted:  #7a7870;
+        --text-user:   #ffffff;
+        --accent:      #2563eb;
+        --accent-soft: #eff4ff;
+        --tag-bg:      #f0efe9;
+        --tag-text:    #6b6860;
+        --shadow:      0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
+        --shadow-lg:   0 8px 32px rgba(0,0,0,.10);
+        --dot-color:   #d4d0c8;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      [data-theme="system"] {
+        color-scheme: dark;
+        --bg:          #141414;
+        --bg-panel:    #1e1e1e;
+        --bg-input:    #252525;
+        --bg-hover:    #2a2a2a;
+        --bg-msg-user: #2563eb;
+        --bg-msg-ai:   #252525;
+        --border:      #2e2e2e;
+        --text:        #e8e6e0;
+        --text-muted:  #6b6860;
+        --text-user:   #ffffff;
+        --accent:      #3b82f6;
+        --accent-soft: #1e2a3d;
+        --tag-bg:      #2a2a2a;
+        --tag-text:    #8a8880;
+        --shadow:      0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+        --shadow-lg:   0 8px 32px rgba(0,0,0,.4);
+        --dot-color:   #2a2a2a;
+      }
+    }
+
+    html, body { height: 100%; overflow: hidden; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+      background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* ── Theme switcher ──────────────────────────────────────── */
+    .theme-switcher {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px;
+      margin-left: auto;
+    }
+
+    .theme-btn {
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      transition: all var(--transition);
+      background: none;
+      color: var(--text-muted);
+      position: relative;
+    }
+
+    .theme-btn:hover { background: var(--bg-panel); color: var(--text); }
+
+    .theme-btn.active {
+      border-color: var(--accent);
+      background: var(--bg-panel);
+      color: var(--accent);
+    }
+
+    .theme-btn[data-theme="aurora"].active {
+      border-color: #a855f7;
+      color: #a855f7;
+    }
+
+    /* Aurora special glow on logo */
+    [data-theme="aurora"] .logo-icon {
+      background: linear-gradient(135deg, #7c3aed, #ec4899);
+    }
+
+    [data-theme="aurora"] .send-btn {
+      background: linear-gradient(135deg, #7c3aed, #ec4899);
+    }
+
+    [data-theme="aurora"] .status-dot.connected { background: #a855f7; }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 52px 1fr;
+      height: 100vh;
+      gap: 0;
+      transition: grid-template-columns 220ms ease;
+    }
+
+    .app.sidebar-collapsed {
+      grid-template-columns: 0px 1fr;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      z-index: 10;
+    }
+
+    .logo {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--text);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--bg-hover);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #9ca3af;
+      transition: background var(--transition);
+    }
+    .status-dot.connected { background: #22c55e; }
+    .status-dot.thinking  { background: #f59e0b; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .3; }
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    .sidebar {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 220ms ease, opacity 220ms ease;
+    }
+
+    .app.sidebar-collapsed .sidebar {
+      transform: translateX(-100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* Toggle button — sits in header */
+    .sidebar-toggle {
+      width: 30px; height: 30px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+
+    .sidebar-toggle:hover {
+      background: var(--bg-panel);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    .sidebar-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 10px 7px 30px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      color: var(--text);
+      outline: none;
+      transition: border-color var(--transition);
+    }
+
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box input::placeholder { color: var(--text-muted); }
+
+    .search-icon {
+      position: absolute;
+      left: 9px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 13px;
+      pointer-events: none;
+    }
+
+    .memories-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .memories-list::-webkit-scrollbar { width: 4px; }
+    .memories-list::-webkit-scrollbar-track { background: transparent; }
+    .memories-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .type-group { margin-bottom: 4px; }
+
+    .type-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: background var(--transition);
+      user-select: none;
+    }
+
+    .type-header:hover { background: var(--bg-hover); }
+
+    .type-chevron {
+      margin-left: auto;
+      font-size: 11px;
+      transition: transform 200ms ease;
+      color: var(--text-muted);
+    }
+
+    .type-chevron.open { transform: rotate(90deg); }
+
+    .type-group-body {
+      overflow: hidden;
+      transition: all 200ms ease;
+    }
+
+    .type-group-body.collapsed { display: none; }
+
+    .type-count {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+
+    .memory-card {
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 2px;
+      cursor: default;
+      transition: background var(--transition);
+      border: 1px solid transparent;
+    }
+
+    .memory-card:hover {
+      background: var(--bg-hover);
+      border-color: var(--border);
+    }
+
+    .memory-title {
+      font-size: 12.5px;
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .memory-preview {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .memory-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 5px;
+    }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .importance-bar {
+      display: flex;
+      gap: 2px;
+      margin-top: 5px;
+    }
+
+    .importance-pip {
+      width: 14px; height: 3px;
+      border-radius: 2px;
+      background: var(--border);
+    }
+    .importance-pip.filled { background: var(--accent); }
+
+    .memory-ts {
+      margin-left: auto;
+      font-size: 10px;
+      color: var(--text-muted);
+      opacity: .7;
+      font-family: var(--font-mono);
+    }
+
+    .memory-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .memory-title {
+      flex: 1;
+    }
+
+    .delete-btn {
+      opacity: 0;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0 2px;
+      font-size: 13px;
+      line-height: 1;
+      border-radius: 4px;
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+
+    .memory-card:hover .delete-btn { opacity: 1; }
+    .delete-btn:hover { color: #ef4444; background: rgba(239,68,68,.1); }
+
+    .show-more-btn {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: left;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition);
+      letter-spacing: 0.06em;
+    }
+    .show-more-btn:hover { background: var(--bg-hover); color: var(--accent); }
+
+    .empty-state {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    /* ── Chat area ───────────────────────────────────────────── */
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .message {
+      display: flex;
+      gap: 10px;
+      max-width: 780px;
+      animation: fadeUp .2s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .avatar {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .avatar.ai {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    .avatar.user {
+      background: var(--accent);
+      color: white;
+    }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.65;
+      max-width: calc(100% - 44px);
+      box-shadow: var(--shadow);
+    }
+
+    .message.ai .bubble {
+      background: var(--bg-msg-ai);
+      border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+    }
+
+    .message.user .bubble {
+      background: var(--bg-msg-user);
+      color: var(--text-user);
+      border-top-right-radius: 4px;
+    }
+
+    /* Markdown-ish in bubbles */
+    .bubble code {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      background: var(--bg-hover);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .message.user .bubble code {
+      background: rgba(255,255,255,.15);
+    }
+
+    .code-block {
+      margin: 8px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .code-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 10px;
+      background: var(--bg-hover);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-lang {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: lowercase;
+    }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .copy-btn.copied { color: #22c55e; border-color: #22c55e; }
+
+    .bubble pre {
+      background: var(--bg) !important;
+      padding: 12px !important;
+      overflow-x: auto;
+      margin: 0 !important;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.6 !important;
+    }
+
+    /* Prism token overrides per theme */
+    [data-theme="light"] .token.keyword,
+    [data-theme="system"] .token.keyword  { color: #7c3aed; }
+    [data-theme="light"] .token.string,
+    [data-theme="system"] .token.string   { color: #059669; }
+    [data-theme="light"] .token.comment,
+    [data-theme="system"] .token.comment  { color: #9ca3af; font-style: italic; }
+    [data-theme="light"] .token.function,
+    [data-theme="system"] .token.function { color: #2563eb; }
+    [data-theme="light"] .token.number,
+    [data-theme="system"] .token.number   { color: #d97706; }
+    [data-theme="light"] .token.operator,
+    [data-theme="system"] .token.operator { color: #db2777; }
+
+    [data-theme="dark"] .token.keyword  { color: #a78bfa; }
+    [data-theme="dark"] .token.string   { color: #34d399; }
+    [data-theme="dark"] .token.comment  { color: #6b7280; font-style: italic; }
+    [data-theme="dark"] .token.function { color: #60a5fa; }
+    [data-theme="dark"] .token.number   { color: #fbbf24; }
+    [data-theme="dark"] .token.operator { color: #f472b6; }
+
+    [data-theme="aurora"] .token.keyword  { color: #c084fc; }
+    [data-theme="aurora"] .token.string   { color: #34d399; }
+    [data-theme="aurora"] .token.comment  { color: #6b5e8a; font-style: italic; }
+    [data-theme="aurora"] .token.function { color: #818cf8; }
+    [data-theme="aurora"] .token.number   { color: #f9a8d4; }
+    [data-theme="aurora"] .token.operator { color: #e879f9; }
+
+    .bubble strong { font-weight: 600; }
+    .bubble em { font-style: italic; opacity: .85; }
+    .bubble p { margin-bottom: 6px; }
+    .bubble p:last-child { margin-bottom: 0; }
+
+    /* Memory suggestion block */
+    .memory-suggestion {
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-top: 10px;
+    }
+
+    .memory-suggestion-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .suggestion-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 13px;
+    }
+
+    .suggestion-num {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .suggestion-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover { opacity: .88; }
+
+    .btn-ghost {
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); }
+
+    /* Tool indicator */
+    .tool-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      align-self: flex-start;
+      animation: fadeUp .15s ease;
+    }
+
+    .tool-spinner {
+      width: 10px; height: 10px;
+      border: 1.5px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin .6s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Streaming cursor */
+    .cursor {
+      display: inline-block;
+      animation: blink .7s step-end infinite;
+      color: var(--accent);
+      font-weight: 300;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0; }
+    }
+
+    /* Thinking indicator */
+    .thinking {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      animation: fadeUp .2s ease;
+    }
+
+    .thinking-dots {
+      display: flex;
+      gap: 4px;
+      padding: 12px 14px;
+      background: var(--bg-msg-ai);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      border-top-left-radius: 4px;
+      box-shadow: var(--shadow);
+    }
+
+    .thinking-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      animation: bounce 1.2s ease infinite;
+    }
+    .thinking-dot:nth-child(2) { animation-delay: .15s; }
+    .thinking-dot:nth-child(3) { animation-delay: .3s; }
+
+    @keyframes bounce {
+      0%, 60%, 100% { transform: translateY(0); }
+      30%            { transform: translateY(-5px); }
+    }
+
+    /* ── Input bar ───────────────────────────────────────────── */
+    .input-bar {
+      padding: 16px 24px;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+    }
+
+    .input-wrap {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 10px 10px 16px;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .input-wrap:focus-within {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+    }
+
+    textarea {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      font-family: var(--font-sans);
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.5;
+      max-height: 140px;
+      min-height: 22px;
+    }
+
+    textarea::placeholder { color: var(--text-muted); }
+
+    .send-btn {
+      width: 34px; height: 34px;
+      border-radius: 8px;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      transition: all var(--transition);
+      color: white;
+    }
+
+    .send-btn:hover { opacity: .88; transform: scale(1.04); }
+    .send-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+    .input-hint {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 7px;
+      padding: 0 4px;
+    }
+
+    /* ── Type icons & colors ─────────────────────────────────── */
+    .type-icon { font-size: 12px; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🧠</div>
+      Aperio
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar (⌘B)">
+      <i class="bi bi-layout-sidebar"></i>
+    </button>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <i class="bi bi-cpu" style="font-size:11px;color:var(--text-muted)"></i>
+      <span id="statusText">connecting…</span>
+    </div>
+    <div class="theme-switcher">
+      <button class="theme-btn" data-theme="light"  title="Light">☀️</button>
+      <button class="theme-btn" data-theme="dark"   title="Dark">🌙</button>
+      <button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
+      <button class="theme-btn active" data-theme="system" title="System">⊙</button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div style="display:flex; align-items:center; margin-bottom:10px;">
+        <div class="sidebar-title" style="margin-bottom:0">Memories <span id="memoryCount" style="font-weight:400;opacity:.5"></span></div>
+        <button id="exportBtn" title="Export brain to JSON"
+          style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer;
+                 color:var(--text-muted); font-size:12px; border-radius:4px;
+                 transition:all var(--transition); opacity:.4;"
+          onmouseover="this.style.opacity='1';this.style.color='var(--accent)'"
+          onmouseout="this.style.opacity='.4';this.style.color='var(--text-muted)'">
+          <i class="bi bi-download"></i>
+        </button>
+      </div>
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" placeholder="Search memories…" />
+      </div>
+    </div>
+    <div class="memories-list" id="memoriesList">
+      <div class="empty-state">Loading memories…</div>
+    </div>
+  </aside>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="messages" id="messages"></div>
+    <div class="input-bar">
+      <div class="input-wrap">
+        <textarea
+          id="chatInput"
+          placeholder="Ask anything — or say 'scan my project at ~/…'"
+          rows="1"
+        ></textarea>
+        <button class="send-btn" id="sendBtn" disabled title="Send (⌘↵)">
+          <i class="bi bi-send-fill" style="font-size:13px"></i>
+        </button>
+      </div>
+      <div class="input-hint">⌘↵ to send &nbsp;·&nbsp; Shift↵ for newline</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Type config ──────────────────────────────────────────────
+const TYPE_CONFIG = {
+  fact:       { icon: "◈", label: "Facts" },
+  preference: { icon: "◎", label: "Preferences" },
+  project:    { icon: "◱", label: "Projects" },
+  decision:   { icon: "◇", label: "Decisions" },
+  solution:   { icon: "◈", label: "Solutions" },
+  source:     { icon: "◉", label: "Sources" },
+  person:     { icon: "◯", label: "People" },
+};
+
+// ── State ────────────────────────────────────────────────────
+let ws, pendingSuggestion = null, isThinking = false;
+let allMemories = [];
+
+// ── DOM refs ─────────────────────────────────────────────────
+const messagesEl   = document.getElementById("messages");
+const chatInput    = document.getElementById("chatInput");
+const sendBtn      = document.getElementById("sendBtn");
+const statusDot    = document.getElementById("statusDot");
+const statusText   = document.getElementById("statusText");
+const memoriesList = document.getElementById("memoriesList");
+const searchInput  = document.getElementById("searchInput");
+
+// ── WebSocket ────────────────────────────────────────────────
+function connect() {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(`${proto}//${location.host}`);
+
+  ws.onopen = () => {
+    setStatus("connected", "connected");
+    ws.send(JSON.stringify({ type: "init" }));
+  };
+
+  ws.onclose = () => {
+    setStatus("", "disconnected");
+    sendBtn.disabled = true;
+    setTimeout(connect, 3000);
+  };
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+    handleMessage(msg);
+  };
+}
+
+function setStatus(cls, text) {
+  statusDot.className = "status-dot " + cls;
+  statusText.textContent = text;
+}
+
+// ── Message handler ──────────────────────────────────────────
+let streamingBubble = null;
+let streamingText = "";
+
+function handleMessage(msg) {
+
+  if (msg.type === "status") {
+    // initial connection ack
+  }
+
+  if (msg.type === "thinking") {
+    removeThinking();
+    setStatus("thinking", "thinking…");
+    addThinking();
+    sendBtn.disabled = true;
+  }
+
+  if (msg.type === "tool") {
+    removeThinking();
+    removeToolIndicator();
+    addToolIndicator(msg.name);
+  }
+
+  if (msg.type === "stream_start") {
+    removeThinking();
+    removeToolIndicator();
+    setStatus("thinking", "typing…");
+    // Create a streaming bubble
+    streamingText = "";
+    streamingBubble = createStreamingBubble();
+  }
+
+  if (msg.type === "token") {
+    streamingText += msg.text;
+    if (streamingBubble) {
+      updateStreamingBubble(streamingBubble, streamingText);
+    }
+  }
+
+  if (msg.type === "stream_end") {
+    // Finalize the bubble with full rendered markdown
+    if (streamingBubble) {
+      finalizeStreamingBubble(streamingBubble, msg.text || streamingText);
+      streamingBubble = null;
+      streamingText = "";
+    }
+    setStatus("connected", "connected");
+    sendBtn.disabled = false;
+    scrollToBottom();
+  }
+
+  if (msg.type === "memories") {
+    parseAndRenderMemories(msg.raw);
+  }
+
+  if (msg.type === "deleted") {
+    allMemories = allMemories.filter(m => m.id !== msg.id);
+    renderMemories(allMemories);
+  }
+
+  if (msg.type === "error") {
+    removeThinking();
+    removeToolIndicator();
+    setStatus("connected", "error");
+    sendBtn.disabled = false;
+    addMessage("ai", `⚠️ ${msg.text}`);
+  }
+}
+
+function createStreamingBubble() {
+  const wrap = document.createElement("div");
+  wrap.className = "message ai";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar ai";
+  avatar.textContent = "🧠";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble streaming";
+  bubble.innerHTML = '<span class="cursor">▋</span>';
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubble);
+  messagesEl.appendChild(wrap);
+  scrollToBottom();
+  return { wrap, bubble };
+}
+
+function updateStreamingBubble(ref, text) {
+  // Show plain text while streaming (fast, no markdown processing)
+  ref.bubble.textContent = text;
+  ref.bubble.innerHTML += '<span class="cursor">▋</span>';
+  scrollToBottom();
+}
+
+function finalizeStreamingBubble(ref, fullText) {
+  ref.bubble.classList.remove("streaming");
+
+  if (fullText.includes("🧠 **Memory suggestions**")) {
+    const [before, after] = fullText.split("🧠 **Memory suggestions**");
+    ref.bubble.innerHTML = renderMarkdown(before.trim());
+    ref.bubble.appendChild(parseSuggestionBlock(after));
+  } else {
+    ref.bubble.innerHTML = renderMarkdown(fullText);
+  }
+  highlightAll();
+}
+
+// ── Chat UI ──────────────────────────────────────────────────
+function addMessage(role, text) {
+  const wrap = document.createElement("div");
+  wrap.className = `message ${role === "user" ? "user" : "ai"}`;
+
+  const avatar = document.createElement("div");
+  avatar.className = `avatar ${role === "user" ? "user" : "ai"}`;
+  avatar.textContent = role === "user" ? "U" : "🧠";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+
+  // Check for memory suggestion block
+  if (text.includes("🧠 **Memory suggestions**")) {
+    const [before, after] = text.split("🧠 **Memory suggestions**");
+    bubble.innerHTML = renderMarkdown(before.trim());
+
+    const suggBlock = parseSuggestionBlock(after);
+    bubble.appendChild(suggBlock);
+  } else {
+    bubble.innerHTML = renderMarkdown(text);
+  }
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubble);
+  messagesEl.appendChild(wrap);
+  scrollToBottom();
+}
+
+function renderMarkdown(text) {
+  return text
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+      const id = "cb-" + Math.random().toString(36).slice(2, 8);
+      const label = lang || "code";
+      const langClass = lang ? ` class="language-${lang}"` : "";
+      return `<div class="code-block"><div class="code-toolbar"><span class="code-lang">${label}</span><button class="copy-btn" onclick="copyCode('${id}')"><i class="bi bi-clipboard"></i> copy</button></div><pre><code id="${id}"${langClass}>${code.trim()}</code></pre></div>`;
+    })
+    .replace(/\`([^\`]+)\`/g, "<code>$1</code>")
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*(.+?)\*/g, "<em>$1</em>")
+    .replace(/\n/g, "<br>").replace(/<br>(<div)/g, "$1");
+}
+
+// Re-run Prism highlighting after markdown renders
+function highlightAll() {
+  if (window.Prism) Prism.highlightAll();
+}
+
+function copyCode(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  navigator.clipboard.writeText(el.innerText).then(() => {
+    const btn = el.closest(".code-block")?.querySelector(".copy-btn");
+    if (!btn) return;
+    btn.innerHTML = '<i class="bi bi-clipboard-check"></i> copied!';
+    btn.classList.add("copied");
+    setTimeout(() => {
+      btn.innerHTML = '<i class="bi bi-clipboard"></i> copy';
+      btn.classList.remove("copied");
+    }, 2000);
+  });
+}
+
+function parseSuggestionBlock(text) {
+  const div = document.createElement("div");
+  div.className = "memory-suggestion";
+
+  const title = document.createElement("div");
+  title.className = "memory-suggestion-title";
+  title.textContent = "🧠 Memory suggestions";
+  div.appendChild(title);
+
+  // Extract numbered items
+  const lines = text.split("\n").filter(l => /^\d+\./.test(l.trim()));
+  pendingSuggestion = { lines, indices: [] };
+
+  lines.forEach((line, i) => {
+    const item = document.createElement("div");
+    item.className = "suggestion-item";
+    item.innerHTML = `<div class="suggestion-num">${i+1}</div><span>${renderMarkdown(line.replace(/^\d+\.\s*/, ""))}</span>`;
+    div.appendChild(item);
+  });
+
+  const actions = document.createElement("div");
+  actions.className = "suggestion-actions";
+
+  const saveAll = document.createElement("button");
+  saveAll.className = "btn btn-primary";
+  saveAll.textContent = "Save all";
+  saveAll.onclick = () => sendSuggestionResponse("all", lines.map((_, i) => i+1));
+
+  const none = document.createElement("button");
+  none.className = "btn btn-ghost";
+  none.textContent = "Skip";
+  none.onclick = () => sendSuggestionResponse("none", []);
+
+  // Individual save buttons
+  lines.forEach((_, i) => {
+    const btn = document.createElement("button");
+    btn.className = "btn btn-ghost";
+    btn.textContent = `Save ${i+1}`;
+    btn.onclick = () => sendSuggestionResponse("pick", [i+1]);
+    actions.appendChild(btn);
+  });
+
+  actions.prepend(none);
+  actions.prepend(saveAll);
+  div.appendChild(actions);
+
+  return div;
+}
+
+function sendSuggestionResponse(mode, nums) {
+  if (!ws) return;
+  const text = mode === "none" ? "none" : nums.join(" ");
+  addMessage("user", mode === "none" ? "Skip — don't save" : `Save suggestions: ${nums.join(", ")}`);
+  ws.send(JSON.stringify({ type: "chat", text: `Please save memory suggestions: ${text}` }));
+  pendingSuggestion = null;
+}
+
+function addThinking() {
+  const el = document.createElement("div");
+  el.className = "thinking";
+  el.id = "thinking";
+  el.innerHTML = `
+    <div class="avatar ai">🧠</div>
+    <div class="thinking-dots">
+      <div class="thinking-dot"></div>
+      <div class="thinking-dot"></div>
+      <div class="thinking-dot"></div>
+    </div>`;
+  messagesEl.appendChild(el);
+  scrollToBottom();
+}
+
+function removeThinking() {
+  document.getElementById("thinking")?.remove();
+}
+
+let toolEl = null;
+const TOOL_LABELS = {
+  recall:             "Searching memories…",
+  remember:           "Saving memory…",
+  forget:             "Deleting memory…",
+  update_memory:      "Updating memory…",
+  backfill_embeddings:"Generating embeddings…",
+  dedup_memories:     "Checking for duplicates…",
+  read_file:          "Reading file…",
+  scan_project:       "Scanning project…",
+  fetch_url:          "Fetching URL…",
+};
+
+function addToolIndicator(name) {
+  removeToolIndicator();
+  toolEl = document.createElement("div");
+  toolEl.className = "tool-indicator";
+  const label = TOOL_LABELS[name] || `Using ${name}…`;
+  toolEl.innerHTML = `<div class="tool-spinner"></div> ${label}`;
+  messagesEl.appendChild(toolEl);
+  scrollToBottom();
+}
+
+function removeToolIndicator() {
+  toolEl?.remove();
+  toolEl = null;
+}
+
+function isNearBottom() {
+  return messagesEl.scrollHeight - messagesEl.scrollTop - messagesEl.clientHeight < 120;
+}
+
+function scrollToBottom(force = false) {
+  if (force || isNearBottom()) {
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+}
+
+// ── Send ─────────────────────────────────────────────────────
+function send() {
+  const text = chatInput.value.trim();
+  if (!text || isThinking || !ws) return;
+  addMessage("user", text);
+  messagesEl.scrollTop = messagesEl.scrollHeight; // always scroll on user send
+  ws.send(JSON.stringify({ type: "chat", text }));
+  chatInput.value = "";
+  autoResize();
+}
+
+sendBtn.onclick = send;
+
+chatInput.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+    e.preventDefault();
+    send();
+  }
+});
+
+chatInput.addEventListener("input", () => {
+  autoResize();
+  sendBtn.disabled = chatInput.value.trim() === "" || isThinking;
+});
+
+function autoResize() {
+  chatInput.style.height = "auto";
+  chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + "px";
+}
+
+// ── Memories sidebar ─────────────────────────────────────────
+function parseAndRenderMemories(raw) {
+  if (!raw || raw === "No memories found.") {
+    allMemories = [];
+    renderMemories([]);
+    return;
+  }
+
+  // Parse the text format returned by recall tool
+  const blocks = raw.split("---").filter(b => b.trim());
+  allMemories = blocks.map(block => {
+    const lines = block.trim().split("\n");
+    const header = lines[0] || "";
+    const typeMatch = header.match(/\[(\w+)\]/);
+    const titleMatch = header.match(/\] (.+?) \(importance:/);
+    const importanceMatch = header.match(/importance: (\d)/);
+    const contentLine = lines[1] || "";
+    const tagsLine = lines.find(l => l.startsWith("Tags:")) || "";
+    const tags = tagsLine.replace("Tags:", "").trim().split(",").map(t => t.trim()).filter(Boolean);
+
+    const idLine = lines.find(l => l.startsWith("ID:")) || "";
+    const id = idLine.replace("ID:", "").trim() || null;
+    const dateLine = lines.find(l => l.startsWith("Created:") || l.startsWith("Saved:")) || "";
+    const createdAt = dateLine.split(":").slice(1).join(":").trim() || null;
+    return {
+      type: typeMatch?.[1]?.toLowerCase() || "fact",
+      title: titleMatch?.[1] || "Untitled",
+      content: contentLine,
+      tags: tags[0] === "none" ? [] : tags,
+      importance: parseInt(importanceMatch?.[1] || "3"),
+      id,
+      createdAt,
+    };
+  });
+
+  renderMemories(allMemories);
+}
+
+const PREVIEW_COUNT = 3;
+const expandedGroups = new Set();   // tracks "show all" within a group
+const collapsedGroups = new Set(Object.keys(TYPE_CONFIG)); // all collapsed by default
+
+function renderMemories(memories) {
+  if (!memories.length) {
+    memoriesList.innerHTML = `<div class="empty-state">No memories yet.<br>Start chatting!</div>`;
+    return;
+  }
+
+  // Group by type
+  const grouped = {};
+  memories.forEach(m => {
+    if (!grouped[m.type]) grouped[m.type] = [];
+    grouped[m.type].push(m);
+  });
+
+  memoriesList.innerHTML = "";
+  const countEl = document.getElementById("memoryCount");
+  if (countEl) countEl.textContent = memories.length ? `(${memories.length})` : "";
+
+  Object.entries(grouped).forEach(([type, items]) => {
+    const cfg = TYPE_CONFIG[type] || { icon: '<i class="bi bi-circle"></i>', label: type };
+    const isCollapsed = collapsedGroups.has(type);
+    const isExpanded = expandedGroups.has(type);
+    const visible = isExpanded ? items : items.slice(0, PREVIEW_COUNT);
+    const hasMore = items.length > PREVIEW_COUNT;
+
+    const group = document.createElement("div");
+    group.className = "type-group";
+
+    // ── Header (click to collapse/expand whole group) ──
+    const header = document.createElement("div");
+    header.className = "type-header";
+    header.innerHTML = `
+      <span class="type-icon">${cfg.icon}</span>
+      <span>${cfg.label}</span>
+      <span class="type-count">${items.length}</span>
+      <i class="bi bi-chevron-right type-chevron ${isCollapsed ? "" : "open"}"></i>`;
+    header.onclick = () => {
+      if (collapsedGroups.has(type)) collapsedGroups.delete(type);
+      else collapsedGroups.add(type);
+      renderMemories(allMemories);
+    };
+    group.appendChild(header);
+
+    // ── Body (hidden when collapsed) ──
+    const body = document.createElement("div");
+    body.className = `type-group-body ${isCollapsed ? "collapsed" : ""}`;
+
+    visible.forEach(m => body.appendChild(makeMemoryCard(m)));
+
+    if (hasMore) {
+      const btn = document.createElement("button");
+      btn.className = "show-more-btn";
+      if (isExpanded) {
+        btn.textContent = "▴ show less";
+        btn.onclick = (e) => { e.stopPropagation(); expandedGroups.delete(type); renderMemories(allMemories); };
+      } else {
+        btn.textContent = `▾ ${items.length - PREVIEW_COUNT} more`;
+        btn.onclick = (e) => { e.stopPropagation(); expandedGroups.add(type); renderMemories(allMemories); };
+      }
+      body.appendChild(btn);
+    }
+
+    group.appendChild(body);
+    memoriesList.appendChild(group);
+  });
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (isNaN(date)) return "";
+  const diff = Math.floor((Date.now() - date) / 1000);
+  if (diff < 60)    return "just now";
+  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`;
+  return date.toLocaleDateString();
+}
+
+function makeMemoryCard(m) {
+  const card = document.createElement("div");
+  card.className = "memory-card";
+
+  const pips = Array.from({ length: 5 }, (_, i) =>
+    `<div class="importance-pip ${i < m.importance ? "filled" : ""}"></div>`
+  ).join("");
+
+  const ts = timeAgo(m.createdAt);
+
+  card.innerHTML = `
+    <div class="memory-card-header">
+      <div class="memory-title">${escapeHtml(m.title)}</div>
+      <button class="delete-btn" title="Delete memory"><i class="bi bi-trash3"></i></button>
+    </div>
+    <div class="memory-preview">${escapeHtml(m.content)}</div>
+    ${m.tags.length ? `<div class="memory-tags">${m.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+    <div class="importance-bar">
+      ${pips}
+      ${ts ? `<span class="memory-ts">${ts}</span>` : ""}
+    </div>`;
+
+  // Delete button handler
+  card.querySelector(".delete-btn").onclick = (e) => {
+    e.stopPropagation();
+    if (!m.id) return;
+    if (!confirm(`Delete "${m.title}"?`)) return;
+    card.style.opacity = "0.4";
+    card.style.pointerEvents = "none";
+    ws.send(JSON.stringify({ type: "delete_memory", id: m.id }));
+  };
+
+  return card;
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+// ── Search ───────────────────────────────────────────────────
+searchInput.addEventListener("input", () => {
+  const q = searchInput.value.toLowerCase().trim();
+  if (!q) {
+    // restore all groups to collapsed when search is cleared
+    Object.keys(TYPE_CONFIG).forEach(t => collapsedGroups.add(t));
+    renderMemories(allMemories);
+    return;
+  }
+  const filtered = allMemories.filter(m =>
+    m.title.toLowerCase().includes(q) ||
+    m.content.toLowerCase().includes(q) ||
+    m.tags.some(t => t.toLowerCase().includes(q))
+  );
+  // auto-expand groups that have matches
+  const matchedTypes = new Set(filtered.map(m => m.type));
+  Object.keys(TYPE_CONFIG).forEach(t => {
+    if (matchedTypes.has(t)) collapsedGroups.delete(t);
+    else collapsedGroups.add(t);
+  });
+  renderMemories(filtered);
+});
+
+// ── Export brain ─────────────────────────────────────────────
+document.getElementById("exportBtn").addEventListener("click", () => {
+  if (!allMemories.length) return;
+  if (!confirm(`Export ${allMemories.length} memories to JSON?`)) return;
+  const data = JSON.stringify(allMemories, null, 2);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `aperio-export-${new Date().toISOString().slice(0,10)}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// ── Sidebar toggle ───────────────────────────────────────────
+const appEl = document.querySelector(".app");
+const sidebarToggleBtn = document.getElementById("sidebarToggle");
+let sidebarOpen = localStorage.getItem("aperio-sidebar") !== "closed";
+
+function applySidebar() {
+  appEl.classList.toggle("sidebar-collapsed", !sidebarOpen);
+  sidebarToggleBtn.title = sidebarOpen ? "Hide sidebar (⌘B)" : "Show sidebar (⌘B)";
+  sidebarToggleBtn.querySelector("i").className = sidebarOpen
+    ? "bi bi-layout-sidebar"
+    : "bi bi-layout-sidebar-reverse";
+  localStorage.setItem("aperio-sidebar", sidebarOpen ? "open" : "closed");
+}
+
+sidebarToggleBtn.addEventListener("click", () => {
+  sidebarOpen = !sidebarOpen;
+  applySidebar();
+});
+
+// ⌘B keyboard shortcut
+document.addEventListener("keydown", (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === "b") {
+    e.preventDefault();
+    sidebarOpen = !sidebarOpen;
+    applySidebar();
+  }
+});
+
+applySidebar();
+
+// ── Theme ────────────────────────────────────────────────────
+const THEMES = ["light", "dark", "aurora", "system"];
+let currentTheme = localStorage.getItem("aperio-theme") || "system";
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  document.querySelectorAll(".theme-btn").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.theme === theme);
+  });
+  currentTheme = theme;
+  localStorage.setItem("aperio-theme", theme);
+}
+
+document.querySelectorAll(".theme-btn").forEach(btn => {
+  btn.addEventListener("click", () => applyTheme(btn.dataset.theme));
+});
+
+applyTheme(currentTheme);
+
+// ── Boot ─────────────────────────────────────────────────────
+connect();
+</script>
+</body>
+</html>
