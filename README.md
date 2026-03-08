@@ -265,7 +265,7 @@ cd docker && docker compose up -d
 ```
 
 ### 4. Run migrations
-
+Go back to root
 ```bash
 # Core schema
 docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql
@@ -277,6 +277,7 @@ docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.s
 ### 5. Start Aperio
 
 ```bash
+lsof -ti :3000 | xargs kill -9
 npm start
 # → http://localhost:3000
 ```

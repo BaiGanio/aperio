@@ -242,7 +242,11 @@
       background: var(--text);
       border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--bg);
+      letter-spacing: -0.02em;
     }
 
     .status-pill {
@@ -578,6 +582,9 @@
     .avatar.ai {
       background: var(--text);
       color: var(--bg);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 13px;
     }
 
     .avatar.user {
@@ -915,7 +922,7 @@
   <!-- Header -->
   <header>
     <div class="logo">
-      <div class="logo-icon">🧠</div>
+      <div class="logo-icon">A</div>
       Aperio
     </div>
     <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar (⌘B)">
@@ -968,11 +975,11 @@
           placeholder="Ask anything — or say 'scan my project at ~/…'"
           rows="1"
         ></textarea>
-        <button class="send-btn" id="sendBtn" disabled title="Send (⌘↵)">
+        <button class="send-btn" id="sendBtn" disabled id="sendBtnTitle" title="Send (⌘↵)">
           <i class="bi bi-send-fill" style="font-size:13px"></i>
         </button>
       </div>
-      <div class="input-hint">⌘↵ to send &nbsp;·&nbsp; Shift↵ for newline</div>
+      <div class="input-hint" id="inputHint">⌘↵ to send &nbsp;·&nbsp; Shift↵ for newline</div>
     </div>
   </div>
 
@@ -1105,7 +1112,7 @@ function createStreamingBubble() {
 
   const avatar = document.createElement("div");
   avatar.className = "avatar ai";
-  avatar.textContent = "🧠";
+  avatar.textContent = "A";
 
   const bubble = document.createElement("div");
   bubble.className = "bubble streaming";
@@ -1145,7 +1152,7 @@ function addMessage(role, text) {
 
   const avatar = document.createElement("div");
   avatar.className = `avatar ${role === "user" ? "user" : "ai"}`;
-  avatar.textContent = role === "user" ? "U" : "🧠";
+  avatar.textContent = role === "user" ? "U" : "A";
 
   const bubble = document.createElement("div");
   bubble.className = "bubble";
@@ -1208,7 +1215,7 @@ function parseSuggestionBlock(text) {
 
   const title = document.createElement("div");
   title.className = "memory-suggestion-title";
-  title.textContent = "🧠 Memory suggestions";
+  title.textContent = "✦ Memory suggestions";
   div.appendChild(title);
 
   // Extract numbered items
@@ -1264,7 +1271,7 @@ function addThinking() {
   el.className = "thinking";
   el.id = "thinking";
   el.innerHTML = `
-    <div class="avatar ai">🧠</div>
+    <div class="avatar ai">A</div>
     <div class="thinking-dots">
       <div class="thinking-dot"></div>
       <div class="thinking-dot"></div>
@@ -1541,6 +1548,16 @@ document.getElementById("exportBtn").addEventListener("click", () => {
   a.click();
   URL.revokeObjectURL(url);
 });
+
+// ── OS-aware shortcut labels ─────────────────────────────────
+const isMac = navigator.platform.toUpperCase().includes("MAC") ||
+              navigator.userAgent.toUpperCase().includes("MAC");
+const cmdKey = isMac ? "⌘" : "Ctrl";
+
+const inputHint = document.getElementById("inputHint");
+const sendBtnEl = document.getElementById("sendBtnTitle");
+if (inputHint) inputHint.innerHTML = `${cmdKey}↵ to send &nbsp;·&nbsp; Shift↵ for newline`;
+if (sendBtnEl) sendBtnEl.title = `Send (${cmdKey}+Enter)`;
 
 // ── Sidebar toggle ───────────────────────────────────────────
 const appEl = document.querySelector(".app");
