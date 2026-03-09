@@ -1,4 +1,3 @@
-
 ---
 
 <div align="center">
@@ -58,7 +57,7 @@ Aperio is a self-hosted personal memory layer that sits between you and any AI t
 ```
 You ──→ Aperio Web UI ──→ Claude API (cloud)
               │         └─ Ollama    (local)
-       MCP Server (9 tools)
+       MCP Server (11 tools)
               │
        Postgres + pgvector
        (your permanent brain)
@@ -75,7 +74,7 @@ Browser (localhost:3000)
     ↕  WebSocket (streaming)
 Express Server (server.js)
     ↕  stdio
-MCP Server (mcp/index.js)          9 tools
+MCP Server (mcp/index.js)          11 tools
     ↕
 Postgres 16 + pgvector             memories table
     ↕
@@ -120,6 +119,9 @@ One-click JSON export of all your memories. Discrete icon next to the memory cou
 ### 🗑️ Delete Memories
 Hover any memory card to reveal a trash icon. Confirmation before delete. No page reload needed.
 
+### 📝 File Editing
+Aperio can read, write, and append files directly on your filesystem. Ask it to scan a project, edit a file, or add to a document — it works on real files, not simulations.
+
 ---
 
 ## Project Structure
@@ -134,7 +136,7 @@ aperio/
 │       ├── 002_pgvector.sql      # pgvector extension + HNSW index
 │       └── 003_drop_projects.sql # Simplified to one table
 ├── mcp/
-│   └── index.js                  # MCP server — 9 tools, all memory ops
+│   └── index.js                  # MCP server — 11 tools, all memory + file ops
 ├── prompts/
 │   └── system_prompt.md          # ← Claude's brain instructions (edit this!)
 ├── scripts/
@@ -283,7 +285,7 @@ One table. Everything lives here. Projects, decisions, people — all memories.
 
 ---
 
-## MCP Tools (9)
+## MCP Tools (11)
 
 | Tool | Description |
 |---|---|
@@ -294,6 +296,8 @@ One table. Everything lives here. Projects, decisions, people — all memories.
 | `backfill_embeddings` | Generate embeddings for memories that don't have one |
 | `dedup_memories` | Find near-duplicates via cosine similarity, merge or report |
 | `read_file` | Read any file from disk (max 500 lines, safe extensions only) |
+| `write_file` | Overwrite a file on disk with new content |
+| `append_file` | Add content to the end of a file without touching the rest |
 | `scan_project` | Scan a folder tree, read key files, infer project context |
 | `fetch_url` | Fetch a URL, strip HTML, truncate at 15k chars |
 
@@ -404,6 +408,27 @@ Reply with numbers to save, or "none".
 | `solution` | Bugs fixed, problems solved — never debug the same thing twice |
 | `source` | Papers, docs, repos, articles worth returning to |
 | `person` | People you work with — roles, context, relationship |
+
+---
+
+## File Operations
+
+Aperio can work directly with files on your filesystem via three tools:
+
+```
+scan_project ~/myapp     → understand the structure
+read_file ~/myapp/server.js  → read a specific file
+write_file               → overwrite with new content
+append_file              → add to the end without touching existing content
+```
+
+Example workflows:
+
+- *"Scan my aperio project and add a summary to the bottom of the README"*
+- *"Read my server.js and fix the timeout on line 42"*
+- *"Append my new API route to routes/index.js"*
+
+`append_file` always reports before/after line counts so you can verify nothing was lost.
 
 ---
 
@@ -550,7 +575,7 @@ Aperio's MCP server works with any MCP-compatible editor. Point your editor at t
 
 **Windsurf** — add to `~/.windsurf/mcp_config.json` with the same format.
 
-Restart your editor. Aperio's 9 memory tools are now available to Cursor/Windsurf agent — same memories, same brain, different interface.
+Restart your editor. Aperio's 11 memory + file tools are now available to Cursor/Windsurf agent — same memories, same brain, different interface.
 
 ---
 
