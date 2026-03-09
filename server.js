@@ -202,6 +202,11 @@ async function runAnthropicLoop(messages, ws) {
       continue;
     }
 
+    // No tool use - just push text if any
+    if (fullText.trim()) {
+      messages.push({ role: "assistant", content: contentBlocks.filter(b => b.type === "text" && b.text?.trim()) });
+    }
+    
     return fullText;
   }
 }

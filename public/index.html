@@ -8,8 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
-  <!-- Prism syntax highlighting - theme swaps with dark/aurora -->
-  <link id="prism-theme" rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism.min.css" />
+  <!-- Prism syntax highlighting — NO external theme CSS (causes font override on dark themes) -->
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
   <style>
@@ -711,36 +710,54 @@
       line-height: 1.6 !important;
     }
 
-    /* Prism token overrides per theme */
-    /* Force mono font on all Prism tokens — prevents serif bleed-through */
+    /* ── Prism token colours — theme-aware, no external stylesheet ── */
+    /* Force mono font — prevents Prism injecting serif fallbacks */
+    code[class*="language-"], pre[class*="language-"] {
+      font-family: var(--font-mono) !important;
+      background: none !important;
+      text-shadow: none !important;
+    }
     .token { font-family: var(--font-mono) !important; }
 
+    /* Light / system */
     [data-theme="light"] .token.keyword,
-    [data-theme="system"] .token.keyword  { color: #7c3aed; }
+    [data-theme="system"] .token.keyword    { color: #7c3aed; }
     [data-theme="light"] .token.string,
-    [data-theme="system"] .token.string   { color: #059669; }
+    [data-theme="system"] .token.string     { color: #059669; }
     [data-theme="light"] .token.comment,
-    [data-theme="system"] .token.comment  { color: #9ca3af; font-style: italic; }
+    [data-theme="system"] .token.comment    { color: #9ca3af; font-style: italic; }
     [data-theme="light"] .token.function,
-    [data-theme="system"] .token.function { color: #2563eb; }
+    [data-theme="system"] .token.function   { color: #2563eb; }
     [data-theme="light"] .token.number,
-    [data-theme="system"] .token.number   { color: #d97706; }
+    [data-theme="system"] .token.number     { color: #d97706; }
     [data-theme="light"] .token.operator,
-    [data-theme="system"] .token.operator { color: #db2777; }
+    [data-theme="system"] .token.operator   { color: #db2777; }
+    [data-theme="light"] .token.class-name,
+    [data-theme="system"] .token.class-name { color: #dc2626; }
+    [data-theme="light"] .token.builtin,
+    [data-theme="system"] .token.builtin    { color: #7c3aed; }
 
-    [data-theme="dark"] .token.keyword  { color: #a78bfa; }
-    [data-theme="dark"] .token.string   { color: #34d399; }
-    [data-theme="dark"] .token.comment  { color: #6b7280; font-style: italic; }
-    [data-theme="dark"] .token.function { color: #60a5fa; }
-    [data-theme="dark"] .token.number   { color: #fbbf24; }
-    [data-theme="dark"] .token.operator { color: #f472b6; }
+    /* Dark */
+    [data-theme="dark"] .token.keyword    { color: #a78bfa; }
+    [data-theme="dark"] .token.string     { color: #34d399; }
+    [data-theme="dark"] .token.comment    { color: #6b7280; font-style: italic; }
+    [data-theme="dark"] .token.function   { color: #60a5fa; }
+    [data-theme="dark"] .token.number     { color: #fbbf24; }
+    [data-theme="dark"] .token.operator   { color: #f472b6; }
+    [data-theme="dark"] .token.class-name { color: #f87171; }
+    [data-theme="dark"] .token.builtin    { color: #a78bfa; }
+    [data-theme="dark"] .token.punctuation{ color: #94a3b8; }
 
-    [data-theme="aurora"] .token.keyword  { color: #c084fc; }
-    [data-theme="aurora"] .token.string   { color: #34d399; }
-    [data-theme="aurora"] .token.comment  { color: #6b5e8a; font-style: italic; }
-    [data-theme="aurora"] .token.function { color: #818cf8; }
-    [data-theme="aurora"] .token.number   { color: #f9a8d4; }
-    [data-theme="aurora"] .token.operator { color: #e879f9; }
+    /* Aurora */
+    [data-theme="aurora"] .token.keyword    { color: #c084fc; }
+    [data-theme="aurora"] .token.string     { color: #34d399; }
+    [data-theme="aurora"] .token.comment    { color: #6b5e8a; font-style: italic; }
+    [data-theme="aurora"] .token.function   { color: #818cf8; }
+    [data-theme="aurora"] .token.number     { color: #f9a8d4; }
+    [data-theme="aurora"] .token.operator   { color: #e879f9; }
+    [data-theme="aurora"] .token.class-name { color: #f472b6; }
+    [data-theme="aurora"] .token.builtin    { color: #c084fc; }
+    [data-theme="aurora"] .token.punctuation{ color: #8b7fb8; }
 
     .bubble strong { font-weight: 600; }
     .bubble em { font-style: italic; opacity: .85; }
@@ -859,7 +876,6 @@
       display: flex;
       gap: 10px;
       align-items: flex-start;
-      /* no fade-in — dots must be instantly visible */
     }
 
     .thinking-dots {
@@ -913,7 +929,7 @@
       opacity: 0.5;
       pointer-events: none;
     }
-    .input-locked .input-hint {
+    .input-locked .input-hint .input-warning{
       color: var(--accent);
       opacity: 0.8;
     }
@@ -984,11 +1000,18 @@
     .char-counter.long    { color: #f59e0b; }
     .char-counter.verylong { color: #ef4444; }
 
-    .input-hint {
+    .input-hint{
       font-size: 11.5px;
       color: var(--text-muted);
       margin-top: 7px;
       padding: 0 4px;
+    }
+    .input-warning{
+      font-size: 11.5px;
+      color: var(--text-muted);
+      margin-top: 7px;
+      padding: 0 4px;
+      text-align: center;
     }
 
     /* ── Type icons & colors ─────────────────────────────────── */
@@ -1081,6 +1104,7 @@
         </button>
       </div>
       <div class="input-hint" id="inputHint">⌘↵ to send &nbsp;·&nbsp; Shift↵ for newline</div>
+      <div class="input-warning" id="inputWarning">Your AI agent is not almighty. Don't trust the output blindly! </div>
     </div>
   </div>
 
@@ -1124,7 +1148,6 @@ function connect() {
       addThinking();
       ws.send(JSON.stringify({ type: "init" }));
     } else {
-      // Reconnect — don't re-init, just restore status
       setStatus("connected", "reconnected");
       sendBtn.disabled = chatInput.value.trim() === "" || isThinking;
     }
@@ -1158,7 +1181,7 @@ const titleDots = ["", ".", "..", "..."];
 let titleDotIdx = 0;
 
 function startTitleAnimation() {
-  if (titleAnimFrame) return; // already running
+  if (titleAnimFrame) return;
   titleDotIdx = 0;
   titleAnimFrame = setInterval(() => {
     document.title = "● Aperio is thinking" + titleDots[titleDotIdx % titleDots.length];
@@ -1186,7 +1209,6 @@ function handleMessage(msg) {
     const badge = document.getElementById("providerBadge");
     if (badge) {
       const isOllama = msg.name === "ollama";
-      // Short label for display
       let label;
       if (isOllama) {
         label = `⬡ ${msg.model}`;
@@ -1197,21 +1219,18 @@ function handleMessage(msg) {
       badge.textContent = label;
       badge.title = `${msg.name} — ${msg.model}`;
       badge.style.display = "inline";
-      // Color: green for local, blue for cloud
       badge.style.background = isOllama ? "rgba(34,197,94,.15)" : "var(--accent-soft)";
       badge.style.color      = isOllama ? "#22c55e"             : "var(--accent)";
     }
   }
 
   if (msg.type === "thinking") {
-    // Server confirmed thinking — just update status, don't flicker the dots
     setStatus("thinking", "thinking…");
     sendBtn.disabled = true;
     if (!document.getElementById("thinking")) addThinking();
   }
 
   if (msg.type === "tool") {
-    // Update the thinking label in-place instead of removing dots
     removeToolIndicator();
     const label = document.querySelector("#thinking .thinking-label");
     const TOOL_LABELS_MAP = {
@@ -1229,7 +1248,6 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "stream_start") {
-    // Keep dots visible — update label to show we're about to type
     const label = document.querySelector("#thinking .thinking-label");
     if (label) label.textContent = "typing…";
     setStatus("thinking", "typing…");
@@ -1238,9 +1256,8 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "token") {
-    if (msg.text) { // ignore empty tokens
+    if (msg.text) {
       if (!streamingBubble) {
-        // First real token — NOW remove dots and show bubble
         removeThinking();
         removeToolIndicator();
         streamingBubble = createStreamingBubble();
@@ -1311,21 +1328,17 @@ function updateStreamingBubble(ref, text) {
   const hasOpenFence = fenceCount % 2 !== 0;
 
   if (hasOpenFence) {
-    // There is an open code fence mid-stream
     const lastFence = text.lastIndexOf("```");
     const before = text.slice(0, lastFence);
-    const inProgress = text.slice(lastFence + 3); // content after the opening ```
+    const inProgress = text.slice(lastFence + 3);
 
-    // Extract language hint from first line of in-progress block
     const firstNewline = inProgress.indexOf("\n");
     const lang = firstNewline > 0 ? inProgress.slice(0, firstNewline).trim() : "";
     const codeContent = firstNewline > 0 ? inProgress.slice(firstNewline + 1) : inProgress;
 
-    // Escape the partial code content
     const escaped = codeContent
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-    // Render completed content before + a proper-looking in-progress code block
     const beforeHtml = before ? renderMarkdown(before) : "";
     const label = lang || "code";
     const langClass = lang ? ` class="language-${lang}"` : "";
@@ -1337,7 +1350,6 @@ function updateStreamingBubble(ref, text) {
 
     ref.bubble.innerHTML = beforeHtml + blockHtml + '<span class="cursor">▋</span>';
   } else {
-    // All code blocks complete — render full markdown
     ref.bubble.innerHTML = renderMarkdown(text) + '<span class="cursor">▋</span>';
     highlightAll();
   }
@@ -1367,7 +1379,6 @@ function finalizeStreamingBubble(ref, fullText) {
 }
 
 // ── Chat UI ──────────────────────────────────────────────────
-// Try to get user initial from a stored name memory, fallback to "U"
 function getUserInitial() {
   const nameMem = allMemories.find(m =>
     m.type === "person" && (m.title.toLowerCase().includes("my name") || m.tags?.includes("self"))
@@ -1390,13 +1401,10 @@ function addMessage(role, text) {
   const bubble = document.createElement("div");
   bubble.className = "bubble";
 
-  // Check for memory suggestion block
   if (text.includes("🧠 **Memory suggestions**")) {
     const [before, after] = text.split("🧠 **Memory suggestions**");
     bubble.innerHTML = renderMarkdown(before.trim());
-
-    const suggBlock = parseSuggestionBlock(after);
-    bubble.appendChild(suggBlock);
+    bubble.appendChild(parseSuggestionBlock(after));
   } else {
     bubble.innerHTML = renderMarkdown(text);
   }
@@ -1434,7 +1442,6 @@ function renderMarkdown(text) {
   return text;
 }
 
-// Re-run Prism highlighting after markdown renders
 function highlightAll() {
   if (window.Prism) Prism.highlightAll();
 }
@@ -1463,7 +1470,6 @@ function parseSuggestionBlock(text) {
   title.textContent = "✦ Memory suggestions";
   div.appendChild(title);
 
-  // Extract numbered items
   const lines = text.split("\n").filter(l => /^\d+\./.test(l.trim()));
   pendingSuggestion = { lines, indices: [] };
 
@@ -1487,7 +1493,6 @@ function parseSuggestionBlock(text) {
   none.textContent = "Skip";
   none.onclick = () => sendSuggestionResponse("none", []);
 
-  // Individual save buttons
   lines.forEach((_, i) => {
     const btn = document.createElement("button");
     btn.className = "btn btn-ghost";
@@ -1526,17 +1531,14 @@ function addThinking() {
       <div class="thinking-label">thinking…</div>
     </div>`;
   messagesEl.appendChild(el);
-  // Lock input visually
   document.querySelector(".input-bar")?.classList.add("input-locked");
   document.getElementById("inputHint").textContent = "Aperio is thinking…";
-  // Force scroll — always show the dots, no proximity check
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
 function removeThinking() {
   document.getElementById("thinking")?.remove();
   document.querySelector(".input-bar")?.classList.remove("input-locked");
-  // Restore OS-aware hint
   const inputHint = document.getElementById("inputHint");
   if (inputHint) inputHint.innerHTML = `${cmdKey}↵ to send &nbsp;·&nbsp; Shift↵ for newline`;
 }
@@ -1589,7 +1591,6 @@ function send() {
   autoResize();
   sendBtn.disabled = true;
   isThinking = true;
-  // Use rAF — guarantees dots paint on screen before WS message is sent
   requestAnimationFrame(() => {
     removeThinking();
     setStatus("thinking", "thinking…");
@@ -1615,7 +1616,6 @@ chatInput.addEventListener("input", () => {
 function autoResize() {
   chatInput.style.height = "auto";
   chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + "px";
-  // Character counter — only show when typing something substantial
   const counter = document.getElementById("charCounter");
   if (counter) {
     const len = chatInput.value.length;
@@ -1636,7 +1636,6 @@ function parseAndRenderMemories(raw) {
     return;
   }
 
-  // Parse the text format returned by recall tool
   const blocks = raw.split("---").filter(b => b.trim());
   allMemories = blocks.map(block => {
     const lines = block.trim().split("\n");
@@ -1667,8 +1666,8 @@ function parseAndRenderMemories(raw) {
 }
 
 const PREVIEW_COUNT = 3;
-const expandedGroups = new Set();   // tracks "show all" within a group
-const collapsedGroups = new Set(Object.keys(TYPE_CONFIG)); // all collapsed by default
+const expandedGroups = new Set();
+const collapsedGroups = new Set(Object.keys(TYPE_CONFIG));
 
 function renderMemories(memories) {
   if (!memories.length) {
@@ -1684,7 +1683,6 @@ function renderMemories(memories) {
     return;
   }
 
-  // Group by type
   const grouped = {};
   memories.forEach(m => {
     if (!grouped[m.type]) grouped[m.type] = [];
@@ -1705,7 +1703,6 @@ function renderMemories(memories) {
     const group = document.createElement("div");
     group.className = "type-group";
 
-    // ── Header (click to collapse/expand whole group) ──
     const header = document.createElement("div");
     header.className = "type-header";
     header.innerHTML = `
@@ -1720,7 +1717,6 @@ function renderMemories(memories) {
     };
     group.appendChild(header);
 
-    // ── Body (hidden when collapsed) ──
     const body = document.createElement("div");
     body.className = `type-group-body ${isCollapsed ? "collapsed" : ""}`;
 
@@ -1778,7 +1774,6 @@ function makeMemoryCard(m) {
       ${ts ? `<span class="memory-ts">${ts}</span>` : ""}
     </div>`;
 
-  // Delete button handler
   card.querySelector(".delete-btn").onclick = (e) => {
     e.stopPropagation();
     if (!m.id) return;
@@ -1799,7 +1794,6 @@ function escapeHtml(str) {
 searchInput.addEventListener("input", () => {
   const q = searchInput.value.toLowerCase().trim();
   if (!q) {
-    // restore all groups to collapsed when search is cleared
     Object.keys(TYPE_CONFIG).forEach(t => collapsedGroups.add(t));
     renderMemories(allMemories);
     return;
@@ -1809,7 +1803,6 @@ searchInput.addEventListener("input", () => {
     m.content.toLowerCase().includes(q) ||
     m.tags.some(t => t.toLowerCase().includes(q))
   );
-  // auto-expand groups that have matches
   const matchedTypes = new Set(filtered.map(m => m.type));
   Object.keys(TYPE_CONFIG).forEach(t => {
     if (matchedTypes.has(t)) collapsedGroups.delete(t);
@@ -1861,7 +1854,6 @@ sidebarToggleBtn.addEventListener("click", () => {
   applySidebar();
 });
 
-// ⌘B keyboard shortcut
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "b") {
     e.preventDefault();
