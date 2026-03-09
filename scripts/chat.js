@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+// import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+// import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { readFileSync } from "fs";
 import { createInterface } from "readline";
 import { fileURLToPath } from "url";
