@@ -561,7 +561,7 @@
     /* ══════════════════════════════════════════════════════════
        SETUP
     ══════════════════════════════════════════════════════════ */
-    .steps-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:56px;text-align:left;}
+    .steps-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:56px;text-align:left;}
     @media(max-width:900px){.steps-grid{grid-template-columns:repeat(2,1fr);}}
     @media(max-width:500px){.steps-grid{grid-template-columns:1fr;}}
     .step-card{background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:26px 24px;transition:border-color 0.2s,background 0.3s;}
@@ -953,9 +953,12 @@
         <div class="step-title">Clone & install</div>
         <div class="code-block">
           <div class="c"># clone the repo</div>
-          <div class="s">git clone github.com/</div>
-          <div class="s">&nbsp;&nbsp;BaiGanio/aperio</div>
+          <div class="s">git clone https://github.com/BaiGanio/aperio.git/</div>
+          <div>&nbsp;</div>
+          <div class="c"># move into project</div>
           <div class="s">cd aperio</div>
+          <div>&nbsp;</div>
+          <div class="c"># install dependencies</div>
           <div class="s">npm install</div>
         </div>
       </div>
@@ -963,11 +966,15 @@
         <div class="step-num">02</div>
         <div class="step-title">Configure .env</div>
         <div class="code-block">
+          <div class="c"># copy the example</div>
           <div class="s">cp .env.example .env</div>
           <div>&nbsp;</div>
-          <div class="c"># add your keys</div>
+          <div class="c"># Cloud AI: add your keys</div>
           <div><span class="k">ANTHROPIC_API_KEY</span>=<span class="v">sk-ant-...</span></div>
           <div><span class="k">VOYAGE_API_KEY</span>=<span class="v">pa-...</span></div>
+          <div>&nbsp;</div>
+          <div class="c"># Local AI: switch provider</div>
+          <div><span class="k">AI_PROVIDER=ollama</span></div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.16s">
@@ -978,7 +985,8 @@
           <div class="s">docker compose up -d</div>
           <div class="s">cd ..</div>
           <div class="c"># run migrations</div>
-          <div class="s">docker exec -i ...</div>
+          <div class="s">docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql</div>
+          <div class="s">docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql</div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
@@ -989,6 +997,7 @@
           <div class="s">npm run start:cloud</div>
           <div>&nbsp;</div>
           <div class="c"># local (Ollama)</div>
+          <div class="s">ollama serve</div>          
           <div class="s">npm run start:local</div>
         </div>
       </div>
