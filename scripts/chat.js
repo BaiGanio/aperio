@@ -1,120 +1,126 @@
-import Anthropic from "@anthropic-ai/sdk";
-// import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-// import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { readFileSync } from "fs";
+import { WebSocket } from "ws";
 import { createInterface } from "readline";
-import { fileURLToPath } from "url";
-import { dirname, resolve } from "path";
-import dotenv from "dotenv";
 
-// ─── Load .env ────────────────────────────────────────────────────────────────
-const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, "../.env") });
+const PORT = process.env.PORT || 3000;
+const ws = new WebSocket(`ws://localhost:${PORT}`);
 
-// ─── Load system prompt ───────────────────────────────────────────────────────
-const systemPrompt = readFileSync(
-  resolve(__dirname, "../prompts/system_prompt.md"),
-  "utf-8"
-);
-
-// ─── Anthropic client ─────────────────────────────────────────────────────────
-const client = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-
-// ─── MCP server config ────────────────────────────────────────────────────────
-const mcpConfig = {
-  command: "node",
-  args: [resolve(__dirname, "../mcp/index.js")],
-};
-
-// ─── Terminal chat interface ──────────────────────────────────────────────────
 const rl = createInterface({
   input: process.stdin,
   output: process.stdout,
 });
 
-const question = (prompt) =>
-  new Promise((resolve) => rl.question(prompt, resolve));
+let waitingForResponse = false;
+let needsLabel = false;
+let hasVisibleText = false;
 
-// ─── Main chat loop ───────────────────────────────────────────────────────────
+// ─── Thinking animation ──────────────────────────────────────────────────────
+let thinkingTimer = null;
+let dotCount = 0;
+const THINKING_PREFIX = "🧠 Thinking";
+
+function startThinking() {
+  dotCount = 0;
+  process.stdout.write(`\r${THINKING_PREFIX}`);
+  thinkingTimer = setInterval(() => {
+    dotCount = (dotCount % 3) + 1;
+    const dots = ".".repeat(dotCount);
+    const pad = " ".repeat(3 - dotCount);
+    process.stdout.write(`\r${THINKING_PREFIX}${dots}${pad}`);
+  }, 500);
+}
+
+function stopThinking() {
+  if (thinkingTimer) {
+    clearInterval(thinkingTimer);
+    thinkingTimer = null;
+    // Clear the thinking line
+    process.stdout.write(`\r${" ".repeat(THINKING_PREFIX.length + 4)}\r`);
+  }
+}
+
+// ─── Chat ─────────────────────────────────────────────────────────────────────
 async function chat() {
   console.log("\n🧠 Aperio Chat");
   console.log("─────────────────────────────────────");
   console.log("Your AI assistant with persistent memory");
   console.log('Type "exit" to quit\n');
 
-  const messages = [];
-
-  // Initial recall — load core context silently
-  messages.push({
-    role: "user",
-    content: "Hello! Please load my core context from Aperio and then greet me briefly.",
+  await new Promise((resolve, reject) => {
+    ws.on("open", () => {
+      console.log("✅ Connected to Aperio server\n");
+      startThinking();
+      resolve();
+    });
+    ws.on("error", (err) => {
+      console.error("❌ Connection failed:", err.message);
+      reject(err);
+    });
   });
 
-  while (true) {
-    const userInput = messages[messages.length - 1].role === "user"
-      ? null  // already have a message queued
-      : await question("You: ");
-
-    if (userInput === "exit") {
-      console.log("\nGoodbye! Your memories are safe in Aperio. 🧠");
-      rl.close();
-      break;
-    }
-
-    if (userInput !== null) {
-      messages.push({ role: "user", content: userInput });
-    }
-
+  ws.on("message", (raw) => {
     try {
-      // Call Claude with MCP server attached
-      const response = await client.beta.messages.create({
-        model: "claude-opus-4-5",
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages,
-        mcp_servers: [
-          {
-            type: "stdio",
-            ...mcpConfig,
-            name: "aperio",
-          },
-        ],
-        betas: ["mcp-client-2025-04-04"],
-      });
+      const msg = JSON.parse(raw.toString());
 
-      // Extract text response
-      const assistantMessage = response.content
-        .filter((block) => block.type === "text")
-        .map((block) => block.text)
-        .join("\n");
-
-      console.log(`\nClaude: ${assistantMessage}\n`);
-
-      // Add assistant response to history
-      messages.push({
-        role: "assistant",
-        content: response.content,
-      });
-
-      // Check if Claude is suggesting memories to store
-      if (assistantMessage.includes("🧠 **Memory suggestions**")) {
-        const answer = await question("Your choice (numbers or 'none'): ");
-
-        if (answer.toLowerCase() !== "none" && answer.trim() !== "") {
-          messages.push({
-            role: "user",
-            content: `Please save memory suggestions: ${answer}`,
-          });
-          continue; // loop back to process the save
+      if (msg.type === "stream_start") {
+        waitingForResponse = true;
+        needsLabel = true;
+        hasVisibleText = false;
+      } else if (msg.type === "token") {
+        if (needsLabel) {
+          stopThinking();
+          process.stdout.write("\x1b[36mClaude:\x1b[0m " + msg.text);
+          needsLabel = false;
+          hasVisibleText = true;
+        } else {
+          process.stdout.write(msg.text);
+          hasVisibleText = true;
+        }
+      } else if (msg.type === "stream_end") {
+        needsLabel = false;
+        if (hasVisibleText) {
+          stopThinking();
+          console.log("\n");
+          waitingForResponse = false;
+          promptUser();
         }
       }
-
     } catch (err) {
-      console.error("❌ Error:", err.message);
+      console.error("Parse error:", err.message);
     }
+  });
+
+  ws.on("close", () => {
+    stopThinking();
+    console.log("\n🔌 Disconnected");
+    process.exit(0);
+  });
+
+  function promptUser() {
+    rl.question("\x1b[33mYou:\x1b[0m ", (input) => {
+      const trimmed = input.trim();
+
+      if (trimmed.toLowerCase() === "exit") {
+        console.log("Goodbye! 🧠");
+        ws.close();
+        rl.close();
+        process.exit(0);
+      }
+
+      if (!trimmed) {
+        promptUser();
+        return;
+      }
+
+      waitingForResponse = true;
+      startThinking();
+      ws.send(JSON.stringify({ type: "chat", text: trimmed }));
+    });
   }
+
+  ws.send(JSON.stringify({ type: "init" }));
 }
 
-chat();
+chat().catch((err) => {
+  console.error("Fatal error:", err.message);
+  process.exit(1);
+});
