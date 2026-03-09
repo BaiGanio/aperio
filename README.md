@@ -1,3 +1,6 @@
+
+---
+
 <div align="center">
 
 ```
@@ -14,8 +17,9 @@
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?style=flat-square&logo=postgresql&logoColor=white)
 ![pgvector](https://img.shields.io/badge/pgvector-semantic_search-green?style=flat-square)
 ![Claude](https://img.shields.io/badge/Claude-Haiku-orange?style=flat-square)
+![Ollama](https://img.shields.io/badge/Ollama-local_AI-black?style=flat-square)
 ![MCP](https://img.shields.io/badge/MCP-v1-blue?style=flat-square)
-![Node](https://img.shields.io/badge/Node_Js-green?style=flat-square&logo=node.js)
+![Node](https://img.shields.io/badge/NodeJS-brightgreen?style=flat-square&logo=node.js)
 
 </div>
 
@@ -52,8 +56,8 @@ Every AI conversation starts from zero. You re-explain your stack, your preferen
 Aperio is a self-hosted personal memory layer that sits between you and any AI tool. It stores structured memories about you — facts, preferences, projects, decisions, solutions — and reveals them to Claude (or any MCP-compatible agent) automatically at the start of every conversation.
 
 ```
-You ──→ Aperio Web UI ──→ Claude API
-              │
+You ──→ Aperio Web UI ──→ Claude API (cloud)
+              │         └─ Ollama    (local)
        MCP Server (9 tools)
               │
        Postgres + pgvector
@@ -127,7 +131,8 @@ aperio/
 ├── db/
 │   └── migrations/
 │       ├── 001_init.sql          # Core schema, indexes, seed data
-│       └── 002_pgvector.sql      # pgvector extension + HNSW index
+│       ├── 002_pgvector.sql      # pgvector extension + HNSW index
+│       └── 003_drop_projects.sql # Simplified to one table
 ├── mcp/
 │   └── index.js                  # MCP server — 9 tools, all memory ops
 ├── prompts/
@@ -165,26 +170,91 @@ prompts/system_prompt.md
 
 ---
 
-## Model Configuration
+## AI Providers
 
-Aperio ships with Haiku — fast and cheap for daily use. Switch models in `server.js` by uncommenting one line:
+Aperio supports two providers — switch with a single line in `.env`. No code changes needed.
 
-```js
-// ─── Model config ─────────────────────────────────────────
-// const MODEL = "claude-opus-4-6";        // Most capable — higher cost
-// const MODEL = "claude-sonnet-4-6";      // Balanced — recommended for power users
-const MODEL = "claude-haiku-4-5-20251001"; // Fast + cheap — default ✓
+```env
+AI_PROVIDER=anthropic   # default — Claude via Anthropic API
+AI_PROVIDER=ollama      # local — runs on your machine, free
 ```
 
-### Which model should I use?
+---
+
+### ✦ Anthropic (Cloud)
+
+The default. Best tool use support, most reliable memory operations.
+
+```env
+AI_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-xxxxxxxx
+ANTHROPIC_MODEL=claude-haiku-4-5-20251001
+```
 
 | Model | Best for | Cost |
 |---|---|---|
-| **Haiku** | Daily use, quick questions, memory ops | ~$0.01/session |
-| **Sonnet** | Complex reasoning, long documents, coding | ~$0.05/session |
-| **Opus** | Deep research, nuanced decisions | ~$0.20/session |
+| `claude-haiku-4-5-20251001` | Daily use, fast, cheap | ~$0.01/session |
+| `claude-sonnet-4-6` | Complex reasoning, coding | ~$0.05/session |
+| `claude-opus-4-6` | Deep research, nuanced decisions | ~$0.20/session |
 
-> **Tip:** Start with Haiku. Switch to Sonnet when you notice it missing context or giving shallow answers. Opus is rarely needed for memory-backed conversations since the context does a lot of the heavy lifting.
+> **Tip:** Start with Haiku. Switch to Sonnet when you need deeper reasoning. Opus is rarely needed — memory context does a lot of the heavy lifting.
+
+---
+
+### ⬡ Ollama (Local)
+
+Run entirely on your machine. Free, private, no API key needed.
+
+**1. Install Ollama**
+```bash
+# macOS
+brew install ollama
+
+# Linux
+curl -fsSL https://ollama.com/install.sh | sh
+
+# Windows — download from ollama.com
+```
+
+**2. Pull a model**
+```bash
+ollama pull llama3.1        # recommended — best tool use support
+ollama pull mistral         # good alternative, lighter
+ollama pull qwen2.5         # fast and capable
+```
+
+**3. Switch provider in `.env`**
+```env
+AI_PROVIDER=ollama
+OLLAMA_MODEL=llama3.1
+OLLAMA_BASE_URL=http://localhost:11434
+```
+
+**4. Start Ollama and Aperio**
+```bash
+ollama serve   # in one terminal
+npm start      # in another
+```
+
+| Model | RAM needed | Tool use |
+|---|---|---|
+| `llama3.1` (8B) | 8GB | ✅ Good |
+| `llama3.1` (70B) | 48GB | ✅ Excellent |
+| `mistral` (7B) | 8GB | ⚠️ Partial |
+| `qwen2.5` (7B) | 8GB | ✅ Good |
+
+> **Note:** Local models are improving fast but tool use (memory save/recall) works best with `llama3.1`. Smaller models may occasionally miss a tool call — Aperio handles this gracefully and falls back to a plain response.
+
+---
+
+### Switching providers
+
+The active provider and model are shown in the UI status bar. To switch:
+
+1. Change `AI_PROVIDER` in `.env`
+2. Restart with `npm start`
+
+That's it. Your memories, your MCP tools, your UI — everything else stays the same.
 
 ---
 
@@ -262,29 +332,30 @@ PORT=3000
 
 ```bash
 cd docker && docker compose up -d
+cd ..   # return to project root — migrations must run from here
 ```
 
 ### 4. Run migrations
-Go back to root
-```bash
-# Core schema
-docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql
 
-# pgvector (semantic search)
+```bash
+# Run from the project root (aperio/)
+docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql
 docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql
 ```
 
 ### 5. Start Aperio
 
 ```bash
-lsof -ti :3000 | xargs kill -9
-npm start
-# → http://localhost:3000
+npm start              # uses AI_PROVIDER from .env (default: anthropic)
+npm run start:cloud    # force Claude (Anthropic)
+npm run start:local    # force Ollama (local) — runs on port 3001
 ```
+
+Both instances can run simultaneously and share the same memory database.
 
 ### 6. Seed your brain
 
-Tell Claude what it should know about you:
+Tell Aperio what it should know about you:
 
 - *"Remember that I'm building a SaaS in Next.js with Supabase"*
 - *"Remember I prefer TypeScript over JavaScript always"*
@@ -293,7 +364,9 @@ Tell Claude what it should know about you:
 Or use the terminal client for a focused seeding session:
 
 ```bash
-npm run chat
+npm run chat          # uses .env provider
+npm run chat:cloud    # force Claude
+npm run chat:local    # force Ollama
 ```
 
 ---
@@ -301,14 +374,14 @@ npm run chat
 ## How Memory Works
 
 ### At conversation start
-Claude silently calls `recall` to load your core context. It uses this naturally without announcing it. You'll never see "I found 12 memories" — Claude just *knows*.
+Aperio silently loads your memories via `recall` before the first response. The agent uses this context naturally — you'll never see "I found 12 memories". It just *knows*.
 
 ### During conversation
-If you say **"remember that..."** → Claude saves it immediately.
-If a memory becomes outdated → Claude notices and asks if you want to update it.
+If you say **"remember that..."** → the agent saves it immediately.
+If a memory becomes outdated → it notices and asks if you want to update it.
 
 ### At conversation end
-Claude reviews what was discussed and suggests memories worth saving:
+The agent reviews what was discussed and suggests memories worth saving:
 
 ```
 🧠 Memory suggestions — should I remember any of these?
@@ -348,7 +421,7 @@ Found 2 near-duplicate pair(s):
   B: [fact] "My MacBook setup"   (uuid-b)
 ```
 
-**Dry run by default** — it logs, never acts. To merge duplicates, tell Claude:
+**Dry run by default** — it logs, never acts. To merge duplicates, tell Aperio:
 
 ```
 run dedup with dry_run false
@@ -358,7 +431,7 @@ run dedup with dry_run false
 
 ## Semantic Search
 
-Memories are embedded using Voyage AI's `voyage-3` model (1024 dimensions) and stored in pgvector with an HNSW index. Claude searches by meaning first, falls back to full-text if no vectors exist.
+Memories are embedded using Voyage AI's `voyage-3` model (1024 dimensions) and stored in pgvector with an HNSW index. Aperio searches by meaning first, falls back to full-text if no vectors exist.
 
 ```
 Query: "what database stuff have I worked on?"
@@ -401,11 +474,91 @@ Query: "what database stuff have I worked on?"
 
 ---
 
+## Local AI with Ollama
+
+Aperio runs fully local — no API keys, no cloud, no cost. Just install [Ollama](https://ollama.ai) and pull a model.
+
+### Setup
+
+```bash
+# Install Ollama (ollama.ai) then pull a model
+ollama pull llama3.1
+
+# Start Aperio with local AI
+npm run start:local
+```
+
+### Startup commands
+
+| Command | Provider | Use when |
+|---|---|---|
+| `npm start` | whatever `.env` says | default |
+| `npm run start:cloud` | Anthropic (Claude) | you want cloud regardless of `.env` |
+| `npm run start:local` | Ollama (local) | you want local regardless of `.env` |
+| `npm run chat:cloud` | Anthropic | terminal chat, cloud |
+| `npm run chat:local` | Ollama | terminal chat, local |
+
+### Recommended models
+
+| Model | Size | Best for |
+|---|---|---|
+| `llama3.1` | 8B | Best tool-calling support — recommended |
+| `qwen2.5` | 7B | Fast, capable, good reasoning |
+| `mistral` | 7B | Good alternative, well-rounded |
+| `gemma2` | 9B | Google's model, strong at coding |
+| `phi3` | 3.8B | Ultra fast, lighter hardware |
+
+Set any model name in `.env`:
+```env
+OLLAMA_MODEL=qwen2.5
+```
+
+### Cloud vs Local
+
+| | Claude (cloud) | Ollama (local) |
+|---|---|---|
+| **Cost** | ~$0.01/session | Free |
+| **Privacy** | Data leaves your machine | 100% local |
+| **Tool calling** | Excellent | Good (model dependent) |
+| **Speed** | Fast | Depends on hardware |
+| **Best for** | Daily use, complex tasks | Privacy, offline, experimentation |
+
+> **Tip:** The header badge shows which provider is active — `✦ haiku` for Claude, `⬡ llama3.1` for Ollama.
+
+---
+
+## Cursor / Windsurf Integration
+
+Aperio's MCP server works with any MCP-compatible editor. Point your editor at the same `mcp/index.js` and it shares the exact same brain as the web UI.
+
+**Cursor** — add to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "aperio": {
+      "command": "node",
+      "args": ["/absolute/path/to/aperio/mcp/index.js"],
+      "env": {
+        "DATABASE_URL": "postgresql://aperio:aperio_secret@localhost:5432/aperio",
+        "VOYAGE_API_KEY": "pa-..."
+      }
+    }
+  }
+}
+```
+
+**Windsurf** — add to `~/.windsurf/mcp_config.json` with the same format.
+
+Restart your editor. Aperio's 9 memory tools are now available to Cursor/Windsurf agent — same memories, same brain, different interface.
+
+---
+
 ## What's Next
 
-- **Cursor / Windsurf integration** — point your editor's MCP config at `mcp/index.js` and share the same brain across tools
-- **ngrok tunnel** — one command to access Aperio from any device
+- **ngrok tunnel** — one command to access Aperio from any device remotely
 - **Memory analytics** — a view showing your brain growing over time
+- **Multi-user support** — separate memory spaces per user
 
 ---
 

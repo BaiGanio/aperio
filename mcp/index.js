@@ -116,7 +116,8 @@ server.registerTool(
       search_mode: z.enum(["semantic", "fulltext", "auto"]).optional().describe("Force search mode. Default: auto (semantic if available)"),
     },
   },
-  async ({ query, type, tags, limit, search_mode = "auto" }) => {
+  async ({ query, type, tags, limit: _limit, search_mode = "auto" }) => {
+    const limit = _limit !== undefined ? parseInt(_limit, 10) : undefined;
     const maxResults = limit ?? 10;
     let rows = [];
 
@@ -401,7 +402,8 @@ server.registerTool(
       max_chars: z.number().min(500).max(15000).optional().describe("Max characters, default 15000"),
     },
   },
-  async ({ url, max_chars }) => {
+  async ({ url, max_chars: _max_chars }) => {
+    const max_chars = _max_chars !== undefined ? parseInt(_max_chars, 10) : undefined;
     try {
       const response = await fetch(url, {
         headers: { "User-Agent": "Aperio/2.0" },
