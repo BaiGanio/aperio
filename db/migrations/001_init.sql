@@ -28,21 +28,6 @@ CREATE TABLE memories (
 );
 
 -- ============================================================
--- PROJECTS
--- Richer context for codebases and research projects
--- ============================================================
-CREATE TABLE projects (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  memory_id    UUID REFERENCES memories(id) ON DELETE CASCADE,
-  name         TEXT NOT NULL,
-  stack        TEXT[],
-  repo_url     TEXT,
-  status       TEXT DEFAULT 'active' CHECK (status IN ('active', 'paused', 'archived')),
-  conventions  TEXT,
-  notes        TEXT
-);
-
--- ============================================================
 -- INDEXES
 -- ============================================================
 CREATE INDEX idx_memories_type       ON memories(type);
