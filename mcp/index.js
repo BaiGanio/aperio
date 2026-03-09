@@ -72,14 +72,14 @@ server.registerTool(
   "remember",
   {
     description: "Save a new memory to Aperio. Automatically generates embeddings for semantic search.",
-    inputSchema: {
+    inputSchema: z.object({
       type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person"]).describe("Category of memory"),
       title: z.string().describe("Short label for this memory"),
       content: z.string().describe("Full memory in plain English"),
       tags: z.array(z.string()).optional().describe("Optional tags"),
       importance: z.number().min(1).max(5).optional().describe("1=low to 5=high, default 3"),
       expires_at: z.string().optional().describe("Optional ISO date when this memory expires"),
-    },
+    }),
   },
   async ({ type, title, content, tags, importance, expires_at }) => {
     // Generate embedding from title + content combined
@@ -108,13 +108,13 @@ server.registerTool(
   "recall",
   {
     description: "Search memories. Uses semantic similarity search when a query is provided (finds related concepts, not just matching words). Falls back to full-text search if needed.",
-    inputSchema: {
+    inputSchema: z.object({
       query: z.string().optional().describe("Natural language search — finds semantically related memories"),
       type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person"]).optional().describe("Filter by type"),
       tags: z.array(z.string()).optional().describe("Filter by tags"),
       limit: z.number().min(1).max(50).optional().describe("Max results, default 10"),
       search_mode: z.enum(["semantic", "fulltext", "auto"]).optional().describe("Force search mode. Default: auto (semantic if available)"),
-    },
+    }),
   },
   async ({ query, type, tags, limit: _limit, search_mode = "auto" }) => {
     const limit = _limit !== undefined ? parseInt(_limit, 10) : undefined;
@@ -201,13 +201,13 @@ server.registerTool(
   "update_memory",
   {
     description: "Update an existing memory by ID. Regenerates embedding if content changes.",
-    inputSchema: {
+    inputSchema: z.object({
       id: z.string().uuid().describe("UUID of the memory to update"),
       title: z.string().optional(),
       content: z.string().optional(),
       tags: z.array(z.string()).optional(),
       importance: z.number().min(1).max(5).optional(),
-    },
+    }),
   },
   async ({ id, title, content, tags, importance }) => {
     // Fetch current memory to regenerate embedding if needed
@@ -246,7 +246,7 @@ server.registerTool(
   "forget",
   {
     description: "Delete a memory from Aperio by ID",
-    inputSchema: { id: z.string().uuid().describe("UUID of the memory to delete") },
+    inputSchema: z.object({ id: z.string().uuid().describe("UUID of the memory to delete") }),
   },
   async ({ id }) => {
     const result = await db.query(`DELETE FROM memories WHERE id = $1 RETURNING title`, [id]);
@@ -260,9 +260,9 @@ server.registerTool(
   "backfill_embeddings",
   {
     description: "Generate embeddings for all memories that don't have one yet. Run this once after enabling pgvector.",
-    inputSchema: {
+    inputSchema: z.object({
       limit: z.number().min(1).max(100).optional().describe("Max memories to backfill at once, default 20"),
-    },
+    }),
   },
   async ({ limit = 20 }) => {
     if (!vectorEnabled) return { content: [{ type: "text", text: "❌ pgvector not enabled." }] };
@@ -306,10 +306,10 @@ server.registerTool(
   "read_file",
   {
     description: "Read a file from disk. Max 500 lines. Only reads code and text files.",
-    inputSchema: {
+    inputSchema: z.object({
       path: z.string().describe("Absolute path to the file"),
       max_lines: z.number().min(1).max(500).optional().describe("Max lines to read, default 500"),
-    },
+    }),
   },
   async ({ path: filePath, max_lines }) => {
     const ext = extname(filePath).toLowerCase();
@@ -341,10 +341,10 @@ server.registerTool(
   "scan_project",
   {
     description: "Scan a project folder. Returns file tree + reads key files. Skips node_modules, .git, build folders.",
-    inputSchema: {
+    inputSchema: z.object({
       path: z.string().describe("Absolute path to the project root"),
       read_key_files: z.boolean().optional().describe("Read key file contents, default true"),
-    },
+    }),
   },
   async ({ path: projectPath, read_key_files = true }) => {
     if (!existsSync(projectPath))
@@ -397,10 +397,10 @@ server.registerTool(
   "fetch_url",
   {
     description: "Fetch content from a URL. Strips HTML, truncates at 15,000 characters.",
-    inputSchema: {
+    inputSchema: z.object({
       url: z.string().url().describe("The URL to fetch"),
       max_chars: z.number().min(500).max(15000).optional().describe("Max characters, default 15000"),
-    },
+    }),
   },
   async ({ url, max_chars: _max_chars }) => {
     const max_chars = _max_chars !== undefined ? parseInt(_max_chars, 10) : undefined;
@@ -443,10 +443,10 @@ server.registerTool(
   "dedup_memories",
   {
     description: "Find near-duplicate memories using pgvector cosine similarity. In dry_run mode just reports duplicates. When dry_run=false, merges them.",
-    inputSchema: {
+    inputSchema: z.object({
       threshold: z.number().min(0.5).max(1.0).optional().describe("Similarity threshold 0-1, default 0.97"),
       dry_run: z.boolean().optional().describe("If true, only report duplicates without merging. Default true."),
-    },
+    }),
   },
   async ({ threshold = 0.97, dry_run = true }) => {
     if (!vectorEnabled)
