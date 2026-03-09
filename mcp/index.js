@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, resolve, join, extname, basename } from "path";
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
+import fs from "fs/promises";
 
 // ─── Load .env ────────────────────────────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -14,7 +15,6 @@ dotenv.config({ path: resolve(__dirname, "../.env") });
 
 // ─── Clients ──────────────────────────────────────────────────────────────────
 const db = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-
 
 try {
   await db.query("SELECT 1");
@@ -25,7 +25,6 @@ try {
 }
 
 // ─── Embeddings ───────────────────────────────────────────────────────────────
-// Check if pgvector is available
 let vectorEnabled = false;
 try {
   await db.query("SELECT 'vector'::regtype");
@@ -82,7 +81,6 @@ server.registerTool(
     }),
   },
   async ({ type, title, content, tags, importance, expires_at }) => {
-    // Generate embedding from title + content combined
     const textToEmbed = `${title}. ${content}`;
     const embedding = await generateEmbedding(textToEmbed);
 
@@ -121,7 +119,6 @@ server.registerTool(
     const maxResults = limit ?? 10;
     let rows = [];
 
-    // ── Semantic search (pgvector) ──────────────────────────────
     const useSemanticSearch =
       query &&
       vectorEnabled &&
@@ -151,7 +148,6 @@ server.registerTool(
       }
     }
 
-    // ── Full-text search fallback ───────────────────────────────
     if (!rows.length) {
       let conditions = ["(expires_at IS NULL OR expires_at > now())"];
       let params = [];
@@ -210,7 +206,6 @@ server.registerTool(
     }),
   },
   async ({ id, title, content, tags, importance }) => {
-    // Fetch current memory to regenerate embedding if needed
     const current = await db.query(`SELECT title, content FROM memories WHERE id = $1`, [id]);
     if (!current.rowCount) return { content: [{ type: "text", text: `❌ No memory found: ${id}` }] };
 
@@ -222,7 +217,6 @@ server.registerTool(
     if (importance) { fields.push(`importance = $${idx++}`); params.push(importance); }
     if (!fields.length) return { content: [{ type: "text", text: "❌ No fields to update." }] };
 
-    // Regenerate embedding if title or content changed
     if ((title || content) && vectorEnabled) {
       const newTitle   = title   ?? current.rows[0].title;
       const newContent = content ?? current.rows[0].content;
@@ -437,7 +431,6 @@ server.registerTool(
   }
 );
 
-
 // ─── TOOL: dedup_memories ─────────────────────────────────────────────────────
 server.registerTool(
   "dedup_memories",
@@ -452,7 +445,6 @@ server.registerTool(
     if (!vectorEnabled)
       return { content: [{ type: "text", text: "❌ pgvector not enabled — dedup requires embeddings." }] };
 
-    // Find pairs of memories with similarity above threshold
     const result = await db.query(
       `SELECT
          a.id AS id_a, a.title AS title_a, a.type AS type_a,
@@ -480,7 +472,6 @@ server.registerTool(
       report += `  B: [${row.type_b}] "${row.title_b}" (${row.id_b})\n\n`;
 
       if (!dry_run) {
-        // Keep A (older), delete B, append B's content to A if different
         const details = await db.query(
           `SELECT content FROM memories WHERE id = $1`, [row.id_b]
         );
@@ -490,7 +481,6 @@ server.registerTool(
         );
         const contentA = detailsA.rows[0]?.content || "";
 
-        // Merge content if meaningfully different
         if (contentB && !contentA.includes(contentB.slice(0, 40))) {
           await db.query(
             `UPDATE memories SET content = content || ' | ' || $1 WHERE id = $2`,
@@ -509,6 +499,81 @@ server.registerTool(
     }
 
     return { content: [{ type: "text", text: report }] };
+  }
+);
+
+// ─── TOOL: write_file ─────────────────────────────────────────────────────────
+server.registerTool(
+  "write_file",
+  {
+    description: "Write content to a file on disk. Creates the file if it doesn't exist, overwrites if it does. Use read_file first to inspect before editing.",
+    inputSchema: z.object({
+      path: z.string().describe("Absolute or ~ path to the file to write"),
+      content: z.string().describe("Full content to write to the file"),
+      create_dirs: z.boolean().optional().describe("Create parent directories if they don't exist. Default true."),
+    }),
+  },
+  async ({ path: filePath, content, create_dirs = true }) => {
+    try {
+      const resolved = filePath.startsWith("~")
+        ? filePath.replace("~", process.env.HOME || "/root")
+        : filePath;
+
+      if (create_dirs) {
+        const dir = resolved.substring(0, resolved.lastIndexOf("/"));
+        if (dir) await fs.mkdir(dir, { recursive: true });
+      }
+
+      let existingSize = null;
+      try {
+        const stat = await fs.stat(resolved);
+        existingSize = stat.size;
+      } catch { /* file doesn't exist yet */ }
+
+      await fs.writeFile(resolved, content, "utf8");
+
+      const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
+      const msg = existingSize !== null
+        ? `✅ Overwrote ${resolved} (${sizeKb} KB, was ${(existingSize / 1024).toFixed(1)} KB)`
+        : `✅ Created ${resolved} (${sizeKb} KB)`;
+
+      return { content: [{ type: "text", text: msg }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `❌ write_file failed: ${err.message}` }] };
+    }
+  }
+);
+
+// ─── TOOL: append_file ────────────────────────────────────────────────────────
+server.registerTool(
+  "append_file",
+  {
+    description: "Append content to the end of an existing file without touching the rest. Use this for 'add to', 'append', 'write at the bottom' requests. Returns before/after line count and the last 5 lines as proof.",
+    inputSchema: z.object({
+      path: z.string().describe("Absolute path to the file"),
+      content: z.string().describe("Content to append (added at the end of the file)"),
+    }),
+  },
+  async ({ path: filePath, content }) => {
+    try {
+      const resolved = filePath.startsWith("~")
+        ? filePath.replace("~", process.env.HOME || "/root")
+        : filePath;
+
+      if (!existsSync(resolved))
+        return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
+
+      const before = (await fs.readFile(resolved, "utf8")).split("\n");
+      await fs.appendFile(resolved, content, "utf8");
+      const after = (await fs.readFile(resolved, "utf8")).split("\n");
+
+      const tail = after.slice(-5).join("\n");
+      return {
+        content: [{ type: "text", text: `✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}` }]
+      };
+    } catch (err) {
+      return { content: [{ type: "text", text: `❌ append_file failed: ${err.message}` }] };
+    }
   }
 );
 

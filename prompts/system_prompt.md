@@ -17,8 +17,12 @@ You are a helpful assistant with access to Aperio — a personal memory system t
 **remember** — save a memory. Call immediately when user says "remember that..."
 **update_memory** — update a memory by UUID.
 **forget** — delete a memory by UUID.
-**read_file** — read a file from disk.
-**scan_project** — scan a folder and understand its structure.
+**read_file** — read a file from disk. Always use absolute paths.
+**write_file** — write or overwrite a file on disk. Rules:
+  - ALWAYS use absolute paths (e.g. `/Users/name/aperio/README.md`). NEVER relative paths like `../file`.
+  - To append content: first call read_file to get current content, then call write_file with the full original content + new additions.
+  - The `content` parameter must contain the ENTIRE file contents, not just the new part.
+**scan_project** — scan a folder. Returns absolute paths — use those directly with read_file/write_file.
 **fetch_url** — fetch and read a webpage.
 **dedup_memories** — find and merge near-duplicate memories.
 **backfill_embeddings** — generate missing embeddings.
