@@ -1,0 +1,1262 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aperio — One brain. Every agent. Nothing forgotten.</title>
+  <meta name="description" content="A self-hosted personal memory layer for AI agents. Postgres + pgvector + MCP. Your context, always available." />
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+
+  <!-- Bootstrap 5 + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+
+  <style>
+    /* ── Variables ───────────────────────────────────────────── */
+    :root {
+      --mono: "Berkeley Mono", "Fira Code", monospace;
+      --serif: "Instrument Serif", Georgia, serif;
+      --sans: "DM Sans", system-ui, sans-serif;
+
+      --bg:        #0a0a0f;
+      --bg-card:   #111118;
+      --bg-raised: #16161f;
+      --border:    #1e1e2e;
+      --border-hi: #2e2252;
+
+      --text:      #e8e6f0;
+      --muted:     #6b6880;
+      --dim:       #3a3850;
+
+      --purple:    #a855f7;
+      --indigo:    #818cf8;
+      --pink:      #ec4899;
+      --green:     #34d399;
+      --amber:     #fbbf24;
+
+      --aurora: linear-gradient(135deg, #7c3aed, #a855f7, #ec4899);
+      --aurora-text: linear-gradient(90deg, #a855f7, #ec4899);
+    }
+
+    /* ── Reset ───────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 15px;
+      line-height: 1.65;
+      overflow-x: hidden;
+    }
+
+    /* ── Dot grid background ─────────────────────────────────── */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background-image: radial-gradient(#1e1e2e 1px, transparent 1px);
+      background-size: 28px 28px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Aurora glow blobs ───────────────────────────────────── */
+    .glow {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(120px);
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .glow-1 { width: 600px; height: 600px; background: #7c3aed; top: -200px; right: -100px; }
+    .glow-2 { width: 400px; height: 400px; background: #ec4899; bottom: 20%; left: -150px; }
+    .glow-3 { width: 300px; height: 300px; background: #818cf8; top: 50%; right: 10%; }
+
+    /* ── Utility ─────────────────────────────────────────────── */
+    .mono { font-family: var(--mono); }
+    .serif { font-family: var(--serif); }
+    section { position: relative; z-index: 1; }
+
+    .aurora-text {
+      background: var(--aurora-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .badge-pill {
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border-hi);
+      color: var(--purple);
+      background: rgba(124, 58, 237, 0.08);
+    }
+
+    /* ── Navbar ──────────────────────────────────────────────── */
+    .navbar {
+      background: rgba(10, 10, 15, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 0;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .navbar-brand {
+      font-family: var(--mono);
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text) !important;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-mark {
+      width: 32px; height: 32px;
+      background: var(--aurora);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      color: white;
+      font-family: var(--mono);
+      flex-shrink: 0;
+    }
+
+    .nav-link {
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      color: var(--muted) !important;
+      text-transform: uppercase;
+      transition: color 0.15s;
+      padding: 6px 14px !important;
+    }
+    .nav-link:hover { color: var(--text) !important; }
+
+    .btn-nav {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 8px 20px;
+      border-radius: 8px;
+      background: var(--aurora);
+      color: white;
+      border: none;
+      text-decoration: none;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .btn-nav:hover { opacity: 0.88; transform: translateY(-1px); color: white; }
+
+    /* ── Hero ────────────────────────────────────────────────── */
+    #hero {
+      min-height: 90vh;
+      display: flex;
+      align-items: center;
+      padding: 80px 0 60px;
+    }
+
+    .eyebrow {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--purple);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .eyebrow::before {
+      content: "";
+      display: inline-block;
+      width: 24px; height: 1px;
+      background: var(--purple);
+    }
+
+    h1.hero-title {
+      font-family: var(--serif);
+      font-size: clamp(3rem, 6vw, 5.5rem);
+      line-height: 1.08;
+      font-weight: 400;
+      letter-spacing: -0.01em;
+      margin-bottom: 28px;
+    }
+
+    .hero-subtitle {
+      font-size: 17px;
+      color: var(--muted);
+      max-width: 520px;
+      line-height: 1.7;
+      margin-bottom: 40px;
+    }
+
+    .hero-cta-group {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .btn-primary-aurora {
+      background: var(--aurora);
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 10px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      transition: opacity 0.15s, transform 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-primary-aurora:hover { opacity: 0.88; transform: translateY(-2px); color: white; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 14px 32px;
+      border-radius: 10px;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-decoration: none;
+      transition: border-color 0.15s, color 0.15s, transform 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-ghost:hover { border-color: var(--purple); color: var(--purple); transform: translateY(-2px); }
+
+    /* Hero terminal mockup */
+    .hero-terminal {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,58,237,0.1);
+      position: relative;
+    }
+
+    .terminal-bar {
+      background: var(--bg-raised);
+      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .terminal-dot {
+      width: 11px; height: 11px;
+      border-radius: 50%;
+    }
+    .td-red    { background: #ff5f57; }
+    .td-yellow { background: #ffbd2e; }
+    .td-green  { background: #28c840; }
+
+    .terminal-title {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      margin-left: 8px;
+    }
+
+    .terminal-body {
+      padding: 24px 28px;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      line-height: 2;
+    }
+
+    .t-prompt { color: var(--purple); }
+    .t-cmd    { color: var(--text); }
+    .t-out    { color: var(--muted); }
+    .t-ok     { color: var(--green); }
+    .t-mem    { color: var(--indigo); }
+    .t-val    { color: var(--amber); }
+    .t-cursor {
+      display: inline-block;
+      width: 8px; height: 14px;
+      background: var(--purple);
+      vertical-align: middle;
+      animation: blink 0.9s step-end infinite;
+    }
+
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    /* ── Stats row ───────────────────────────────────────────── */
+    .stats-row {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 40px 0;
+      margin: 0;
+    }
+
+    .stat-item {
+      text-align: center;
+      padding: 20px;
+      border-right: 1px solid var(--border);
+    }
+    .stat-item:last-child { border-right: none; }
+
+    .stat-number {
+      font-family: var(--mono);
+      font-size: 2.4rem;
+      font-weight: 700;
+      background: var(--aurora-text);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 6px;
+    }
+
+    .stat-label {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: var(--mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    /* ── Section titles ──────────────────────────────────────── */
+    .section-label {
+      font-family: var(--mono);
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--purple);
+      margin-bottom: 14px;
+    }
+
+    h2.section-title {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 400;
+      line-height: 1.15;
+      margin-bottom: 16px;
+    }
+
+    .section-desc {
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 540px;
+      line-height: 1.7;
+    }
+
+    /* ── Feature cards ───────────────────────────────────────── */
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px 28px;
+      height: 100%;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(135deg, rgba(124,58,237,0.04), transparent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-hi);
+      transform: translateY(-4px);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    }
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-icon {
+      width: 44px; height: 44px;
+      border-radius: 10px;
+      background: rgba(124,58,237,0.12);
+      border: 1px solid rgba(124,58,237,0.2);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+      margin-bottom: 20px;
+      color: var(--purple);
+    }
+
+    .feature-title {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 10px;
+      letter-spacing: -0.01em;
+    }
+
+    .feature-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    /* ── Architecture diagram ────────────────────────────────── */
+    .arch-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      font-family: var(--mono);
+      font-size: 13px;
+      line-height: 2.2;
+      position: relative;
+    }
+
+    .arch-layer {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 16px;
+      border-radius: 8px;
+      margin-bottom: 4px;
+      transition: background 0.15s;
+    }
+    .arch-layer:hover { background: var(--bg-raised); }
+
+    .arch-icon { font-size: 18px; width: 28px; text-align: center; }
+    .arch-name { color: var(--text); font-weight: 600; min-width: 180px; }
+    .arch-desc { color: var(--muted); font-size: 12px; }
+
+    .arch-arrow {
+      color: var(--dim);
+      padding-left: 30px;
+      font-size: 18px;
+      line-height: 1;
+      margin: 2px 0;
+    }
+
+    /* ── Tools table ─────────────────────────────────────────── */
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .tool-chip {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      transition: border-color 0.15s, transform 0.15s;
+    }
+    .tool-chip:hover { border-color: var(--border-hi); transform: translateY(-2px); }
+
+    .tool-chip-icon {
+      font-size: 18px;
+      color: var(--purple);
+      margin-top: 1px;
+      flex-shrink: 0;
+    }
+
+    .tool-name {
+      font-family: var(--mono);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--indigo);
+      margin-bottom: 4px;
+    }
+
+    .tool-desc {
+      font-size: 12.5px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    /* ── Setup steps ─────────────────────────────────────────── */
+    .step-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 28px;
+      position: relative;
+    }
+
+    .step-number {
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      color: var(--purple);
+      background: rgba(124,58,237,0.1);
+      border: 1px solid rgba(124,58,237,0.2);
+      border-radius: 6px;
+      padding: 3px 10px;
+      display: inline-block;
+      margin-bottom: 14px;
+    }
+
+    .step-title {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .code-snippet {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 16px;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--green);
+      margin-top: 12px;
+      overflow-x: auto;
+      line-height: 1.8;
+    }
+
+    .code-snippet .comment { color: var(--dim); }
+    .code-snippet .cmd     { color: var(--text); }
+
+    /* ── Comparison ──────────────────────────────────────────── */
+    .compare-table {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .compare-table table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    .compare-table th {
+      font-family: var(--mono);
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .compare-table td {
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      color: var(--muted);
+    }
+
+    .compare-table tr:last-child td { border-bottom: none; }
+    .compare-table td:first-child { color: var(--text); font-weight: 500; }
+    .compare-table td.yes { color: var(--green); font-family: var(--mono); font-size: 13px; }
+    .compare-table td.no  { color: var(--dim); font-family: var(--mono); font-size: 13px; }
+
+    .col-aperio { background: rgba(124,58,237,0.04); }
+
+    /* ── Memory type pills ───────────────────────────────────── */
+    .type-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .type-pill {
+      font-family: var(--mono);
+      font-size: 12px;
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.15s;
+    }
+    .type-pill:hover { border-color: var(--purple); color: var(--text); }
+    .type-pill .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--purple); }
+
+    /* ── Philosophy quote ────────────────────────────────────── */
+    .quote-block {
+      border-left: 3px solid var(--purple);
+      padding: 24px 32px;
+      background: var(--bg-card);
+      border-radius: 0 14px 14px 0;
+      margin: 0;
+    }
+
+    .quote-text {
+      font-family: var(--serif);
+      font-size: 1.5rem;
+      font-style: italic;
+      color: var(--text);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    .quote-attr {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* ── CTA section ─────────────────────────────────────────── */
+    .cta-section {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 80px 60px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .cta-section::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(124,58,237,0.08) 0%, transparent 70%);
+    }
+
+    .cta-title {
+      font-family: var(--serif);
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      font-weight: 400;
+      margin-bottom: 16px;
+      position: relative;
+    }
+
+    .cta-sub {
+      color: var(--muted);
+      font-size: 16px;
+      margin-bottom: 36px;
+      position: relative;
+    }
+
+    /* ── Footer ──────────────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 40px 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .footer-logo {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-decoration: none;
+      margin-bottom: 8px;
+    }
+
+    .footer-tagline {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--dim);
+      letter-spacing: 0.06em;
+    }
+
+    .footer-link {
+      color: var(--muted);
+      text-decoration: none;
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.06em;
+      transition: color 0.15s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .footer-link:hover { color: var(--purple); }
+
+    /* ── Animations ──────────────────────────────────────────── */
+    .fade-up {
+      opacity: 0;
+      transform: translateY(24px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .fade-up.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* ── Responsive ──────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      #hero { min-height: auto; padding: 60px 0 40px; }
+      .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
+      .stat-item:last-child { border-bottom: none; }
+      .cta-section { padding: 50px 24px; }
+      .hero-terminal { margin-top: 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Glow blobs -->
+<div class="glow glow-1"></div>
+<div class="glow glow-2"></div>
+<div class="glow glow-3"></div>
+
+<!-- ── Navbar ──────────────────────────────────────────────── -->
+<nav class="navbar navbar-expand-lg">
+  <div class="container">
+    <a class="navbar-brand" href="#">
+      <div class="logo-mark">A</div>
+      Aperio
+    </a>
+    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu"
+      style="color:var(--muted)">
+      <i class="bi bi-list" style="font-size:22px"></i>
+    </button>
+    <div class="collapse navbar-collapse" id="navMenu">
+      <ul class="navbar-nav ms-auto align-items-center gap-1">
+        <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
+        <li class="nav-item"><a class="nav-link" href="#how-it-works">How it works</a></li>
+        <li class="nav-item"><a class="nav-link" href="#tools">Tools</a></li>
+        <li class="nav-item"><a class="nav-link" href="#setup">Setup</a></li>
+        <li class="nav-item ms-2">
+          <a class="btn-nav" href="https://github.com/BaiGanio/aperio" target="_blank">
+            <i class="bi bi-github me-1"></i> GitHub
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Hero ────────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="container">
+    <div class="row align-items-center g-5">
+      <div class="col-lg-6">
+        <div class="eyebrow">Open Source · Self-Hosted · MCP-Compatible</div>
+        <h1 class="hero-title">
+          One brain.<br>
+          Every agent.<br>
+          <em class="aurora-text">Nothing forgotten.</em>
+        </h1>
+        <p class="hero-subtitle">
+          Aperio is a personal memory layer for AI agents. Built on Postgres + pgvector + MCP.
+          Your context lives in your database — available to Claude, Cursor, Windsurf, anything.
+        </p>
+        <div class="hero-cta-group">
+          <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-primary-aurora">
+            <i class="bi bi-github"></i> View on GitHub
+          </a>
+          <a href="#how-it-works" class="btn-ghost">
+            <i class="bi bi-play-circle"></i> How it works
+          </a>
+        </div>
+
+        <div class="mt-4 d-flex gap-3 flex-wrap">
+          <span class="badge-pill"><i class="bi bi-database me-1"></i> Postgres 16</span>
+          <span class="badge-pill"><i class="bi bi-cpu me-1"></i> pgvector</span>
+          <span class="badge-pill"><i class="bi bi-plug me-1"></i> MCP</span>
+          <span class="badge-pill"><i class="bi bi-box me-1"></i> Ollama</span>
+        </div>
+      </div>
+
+      <div class="col-lg-6">
+        <div class="hero-terminal fade-up">
+          <div class="terminal-bar">
+            <div class="terminal-dot td-red"></div>
+            <div class="terminal-dot td-yellow"></div>
+            <div class="terminal-dot td-green"></div>
+            <span class="terminal-title">aperio — chat</span>
+          </div>
+          <div class="terminal-body">
+            <div><span class="t-ok">✅</span> <span class="t-out">Connected to Aperio database</span></div>
+            <div><span class="t-ok">✅</span> <span class="t-out">pgvector enabled — semantic search active</span></div>
+            <div><span class="t-ok">✅</span> <span class="t-out">Loaded 24 memories</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-prompt">You</span> <span class="t-out">→</span> <span class="t-cmd">what's my preferred stack?</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-mem">[recall]</span> <span class="t-out">searching memories…</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-prompt">A</span> <span class="t-out">→</span> <span class="t-cmd">Based on your memories:</span></div>
+            <div><span class="t-out">&nbsp;&nbsp;You prefer </span><span class="t-val">TypeScript</span><span class="t-out"> over JS</span></div>
+            <div><span class="t-out">&nbsp;&nbsp;Primary stack: </span><span class="t-val">Node · Postgres · Docker</span></div>
+            <div><span class="t-out">&nbsp;&nbsp;Editor: </span><span class="t-val">Cursor</span><span class="t-out"> with MCP enabled</span></div>
+            <div>&nbsp;</div>
+            <div><span class="t-prompt">You</span> <span class="t-out">→</span> <span class="t-cmd">remember I switched to pnpm<span class="t-cursor"></span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats ────────────────────────────────────────────────── -->
+<div class="stats-row position-relative z-1">
+  <div class="container">
+    <div class="row g-0">
+      <div class="col-6 col-md-3 stat-item fade-up">
+        <div class="stat-number">11</div>
+        <div class="stat-label">MCP Tools</div>
+      </div>
+      <div class="col-6 col-md-3 stat-item fade-up" style="transition-delay:0.1s">
+        <div class="stat-number">7</div>
+        <div class="stat-label">Memory Types</div>
+      </div>
+      <div class="col-6 col-md-3 stat-item fade-up" style="transition-delay:0.2s">
+        <div class="stat-number">1024</div>
+        <div class="stat-label">Embedding Dims</div>
+      </div>
+      <div class="col-6 col-md-3 stat-item fade-up" style="transition-delay:0.3s">
+        <div class="stat-number">$0</div>
+        <div class="stat-label">Vendor Lock-in</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ─────────────────────────────────────────────── -->
+<section id="features" class="py-5 mt-5">
+  <div class="container">
+    <div class="row mb-5">
+      <div class="col-lg-8">
+        <div class="section-label">Features</div>
+        <h2 class="section-title">Everything you need.<br>Nothing you don't.</h2>
+        <p class="section-desc">Built for developers who want AI that actually knows them — without giving up their data or their stack.</p>
+      </div>
+    </div>
+    <div class="row g-4">
+
+      <div class="col-md-6 col-lg-4 fade-up">
+        <div class="feature-card">
+          <div class="feature-icon"><i class="bi bi-database-fill-check"></i></div>
+          <div class="feature-title">Persistent Memory</div>
+          <p class="feature-desc">Memories survive every conversation, every tool, every session. 7 structured types keep things organized — facts, decisions, solutions and more.</p>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.1s">
+        <div class="feature-card">
+          <div class="feature-icon"><i class="bi bi-search-heart"></i></div>
+          <div class="feature-title">Semantic Search</div>
+          <p class="feature-desc">Powered by pgvector + Voyage AI. Ask for "my TypeScript projects" and get results by <em>meaning</em>, not just keyword matching.</p>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.2s">
+        <div class="feature-card">
+          <div class="feature-icon"><i class="bi bi-plug-fill"></i></div>
+          <div class="feature-title">MCP Compatible</div>
+          <p class="feature-desc">One brain shared across every agent. Claude, Cursor, Windsurf — they all connect to the same Postgres database via the MCP protocol.</p>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.05s">
+        <div class="feature-card">
+          <div class="feature-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+          <div class="feature-title">Real-time Streaming</div>
+          <p class="feature-desc">Responses stream token by token. Blinking cursor, live code rendering, markdown processed on completion. No waiting.</p>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.15s">
+        <div class="feature-card">
+          <div class="feature-icon"><i class="bi bi-box-fill"></i></div>
+          <div class="feature-title">Cloud & Local AI</div>
+          <p class="feature-desc">Switch between Claude (cloud) and Ollama (local) with one env var. No code changes. Same memory, same tools, different provider.</p>
+        </div>
+      </div>
+
+      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.25s">
+        <div class="feature-card">
+          <div class="feature-icon"><i class="bi bi-broom-fill"></i></div>
+          <div class="feature-title">Auto Deduplication</div>
+          <p class="feature-desc">Background job every 10 minutes finds near-duplicate memories using cosine similarity. Dry-run by default — you stay in control.</p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── How it works ──────────────────────────────────────────── -->
+<section id="how-it-works" class="py-5 mt-3">
+  <div class="container">
+    <div class="row g-5 align-items-start">
+      <div class="col-lg-5">
+        <div class="section-label">Architecture</div>
+        <h2 class="section-title">Simple stack.<br>Serious power.</h2>
+        <p class="section-desc mb-4">One database. One MCP server. Two AI providers. Your brain is just a Postgres table with vectors.</p>
+
+        <div class="type-pills fade-up">
+          <div class="type-pill"><span class="pip"></span> fact</div>
+          <div class="type-pill"><span class="pip"></span> preference</div>
+          <div class="type-pill"><span class="pip"></span> project</div>
+          <div class="type-pill"><span class="pip"></span> decision</div>
+          <div class="type-pill"><span class="pip"></span> solution</div>
+          <div class="type-pill"><span class="pip"></span> source</div>
+          <div class="type-pill"><span class="pip"></span> person</div>
+        </div>
+
+        <div class="quote-block mt-5 fade-up">
+          <div class="quote-text">"The best memory system is one you forget about."</div>
+          <div class="quote-attr">— Aperio Philosophy</div>
+        </div>
+      </div>
+
+      <div class="col-lg-7 fade-up">
+        <div class="arch-box">
+          <div class="arch-layer">
+            <span class="arch-icon">🌐</span>
+            <span class="arch-name">Web UI</span>
+            <span class="arch-desc">localhost:3000 · 4 themes · streaming</span>
+          </div>
+          <div class="arch-arrow">↕ WebSocket</div>
+          <div class="arch-layer">
+            <span class="arch-icon">⚡</span>
+            <span class="arch-name">Express Server</span>
+            <span class="arch-desc">server.js · agent loop · streaming</span>
+          </div>
+          <div class="arch-arrow">↕ stdio</div>
+          <div class="arch-layer">
+            <span class="arch-icon">🔧</span>
+            <span class="arch-name">MCP Server</span>
+            <span class="arch-desc">mcp/index.js · 11 tools</span>
+          </div>
+          <div class="arch-arrow">↕</div>
+          <div class="arch-layer">
+            <span class="arch-icon">🐘</span>
+            <span class="arch-name">Postgres 16 + pgvector</span>
+            <span class="arch-desc">memories table · HNSW index</span>
+          </div>
+          <div class="arch-arrow">↕</div>
+          <div class="arch-layer">
+            <span class="arch-icon">✦</span>
+            <span class="arch-name">Voyage AI</span>
+            <span class="arch-desc">voyage-3 · 1024 dims · 50M free tokens</span>
+          </div>
+          <div style="height:16px"></div>
+          <div class="d-flex gap-3">
+            <div class="arch-layer flex-fill" style="background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.2);border-radius:8px;">
+              <span class="arch-icon">✦</span>
+              <div>
+                <div style="color:var(--purple);font-size:12px;font-weight:600">Claude API</div>
+                <div style="color:var(--dim);font-size:11px">cloud</div>
+              </div>
+            </div>
+            <div class="arch-layer flex-fill" style="background:rgba(52,211,153,0.04);border:1px solid rgba(52,211,153,0.15);border-radius:8px;">
+              <span class="arch-icon">⬡</span>
+              <div>
+                <div style="color:var(--green);font-size:12px;font-weight:600">Ollama</div>
+                <div style="color:var(--dim);font-size:11px">local · free</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Tools ─────────────────────────────────────────────────── -->
+<section id="tools" class="py-5 mt-3">
+  <div class="container">
+    <div class="row mb-5">
+      <div class="col-lg-8">
+        <div class="section-label">MCP Tools</div>
+        <h2 class="section-title">11 tools. One brain.</h2>
+        <p class="section-desc">Every tool is available to Claude, Cursor, Windsurf — any MCP-compatible agent. Memory ops, file ops, web fetching.</p>
+      </div>
+    </div>
+    <div class="tools-grid">
+      <div class="tool-chip fade-up">
+        <i class="bi bi-bookmark-plus-fill tool-chip-icon"></i>
+        <div><div class="tool-name">remember</div><div class="tool-desc">Save a memory with auto-generated embedding</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-search tool-chip-icon"></i>
+        <div><div class="tool-name">recall</div><div class="tool-desc">Semantic search with similarity scores</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-pencil-square tool-chip-icon"></i>
+        <div><div class="tool-name">update_memory</div><div class="tool-desc">Edit by UUID, regenerates embedding</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-trash3 tool-chip-icon"></i>
+        <div><div class="tool-name">forget</div><div class="tool-desc">Delete a memory by UUID</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-cpu tool-chip-icon"></i>
+        <div><div class="tool-name">backfill_embeddings</div><div class="tool-desc">Generate missing embeddings in batch</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-intersect tool-chip-icon"></i>
+        <div><div class="tool-name">dedup_memories</div><div class="tool-desc">Find near-duplicates via cosine similarity</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-file-earmark-text tool-chip-icon"></i>
+        <div><div class="tool-name">read_file</div><div class="tool-desc">Read any file from disk safely</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-file-earmark-arrow-up tool-chip-icon"></i>
+        <div><div class="tool-name">write_file</div><div class="tool-desc">Overwrite a file with new content</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-file-earmark-plus tool-chip-icon"></i>
+        <div><div class="tool-name">append_file</div><div class="tool-desc">Add to end of file without touching the rest</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-folder2-open tool-chip-icon"></i>
+        <div><div class="tool-name">scan_project</div><div class="tool-desc">Scan a folder tree, read key files</div></div>
+      </div>
+      <div class="tool-chip fade-up">
+        <i class="bi bi-globe tool-chip-icon"></i>
+        <div><div class="tool-name">fetch_url</div><div class="tool-desc">Fetch a URL, strip HTML, truncate</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── vs Mem0 ───────────────────────────────────────────────── -->
+<section class="py-5 mt-3">
+  <div class="container">
+    <div class="row mb-5">
+      <div class="col-lg-8">
+        <div class="section-label">Comparison</div>
+        <h2 class="section-title">Aperio vs the cloud.</h2>
+        <p class="section-desc">Commercial memory services are great products. Aperio is a different choice — your data, your infrastructure, your rules.</p>
+      </div>
+    </div>
+    <div class="compare-table fade-up">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:30%">Feature</th>
+            <th class="col-aperio" style="width:35%">✦ Aperio</th>
+            <th style="width:35%">Cloud Services</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Data ownership</td>
+            <td class="col-aperio yes">✅ 100% yours</td>
+            <td class="no">✗ Vendor's servers</td>
+          </tr>
+          <tr>
+            <td>Cost</td>
+            <td class="col-aperio yes">✅ Free (self-hosted)</td>
+            <td class="no">$ Monthly subscription</td>
+          </tr>
+          <tr>
+            <td>Local AI support</td>
+            <td class="col-aperio yes">✅ Ollama built-in</td>
+            <td class="no">✗ Cloud only</td>
+          </tr>
+          <tr>
+            <td>File system access</td>
+            <td class="col-aperio yes">✅ read / write / append</td>
+            <td class="no">✗ Not available</td>
+          </tr>
+          <tr>
+            <td>Customizable</td>
+            <td class="col-aperio yes">✅ Full source access</td>
+            <td class="no">✗ Fixed API</td>
+          </tr>
+          <tr>
+            <td>MCP integration</td>
+            <td class="col-aperio yes">✅ Native</td>
+            <td class="no">⚠ Varies</td>
+          </tr>
+          <tr>
+            <td>Offline capable</td>
+            <td class="col-aperio yes">✅ With Ollama</td>
+            <td class="no">✗ Requires internet</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ── Setup ─────────────────────────────────────────────────── -->
+<section id="setup" class="py-5 mt-3">
+  <div class="container">
+    <div class="row mb-5">
+      <div class="col-lg-8">
+        <div class="section-label">Quick Start</div>
+        <h2 class="section-title">Up in 5 minutes.</h2>
+        <p class="section-desc">Node 18+, Docker, an Anthropic key and a Voyage AI key (free tier). That's all.</p>
+      </div>
+    </div>
+    <div class="row g-4">
+      <div class="col-md-6 col-lg-3 fade-up">
+        <div class="step-card">
+          <div class="step-number">01</div>
+          <div class="step-title">Clone & install</div>
+          <div class="code-snippet">
+            <div class="comment"># clone the repo</div>
+            <div class="cmd">git clone github.com/<br>BaiGanio/aperio</div>
+            <div class="cmd">cd aperio && npm i</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3 fade-up" style="transition-delay:0.1s">
+        <div class="step-card">
+          <div class="step-number">02</div>
+          <div class="step-title">Configure .env</div>
+          <div class="code-snippet">
+            <div class="cmd">cp .env.example .env</div>
+            <div>&nbsp;</div>
+            <div class="comment"># add your keys</div>
+            <div class="cmd">ANTHROPIC_API_KEY=...</div>
+            <div class="cmd">VOYAGE_API_KEY=...</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3 fade-up" style="transition-delay:0.2s">
+        <div class="step-card">
+          <div class="step-number">03</div>
+          <div class="step-title">Start database</div>
+          <div class="code-snippet">
+            <div class="cmd">cd docker</div>
+            <div class="cmd">docker compose up -d</div>
+            <div class="cmd">cd ..</div>
+            <div class="comment"># run migrations</div>
+            <div class="cmd">docker exec -i ...</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6 col-lg-3 fade-up" style="transition-delay:0.3s">
+        <div class="step-card">
+          <div class="step-number">04</div>
+          <div class="step-title">Launch Aperio</div>
+          <div class="code-snippet">
+            <div class="comment"># cloud (Claude)</div>
+            <div class="cmd">npm run start:cloud</div>
+            <div>&nbsp;</div>
+            <div class="comment"># local (Ollama)</div>
+            <div class="cmd">npm run start:local</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ───────────────────────────────────────────────────── -->
+<section class="py-5 mt-3">
+  <div class="container">
+    <div class="cta-section fade-up">
+      <h2 class="cta-title">
+        Your AI has been amnesiac.<br>
+        <em class="aurora-text">Fix that today.</em>
+      </h2>
+      <p class="cta-sub">Open source. Self-hosted. Takes 5 minutes.</p>
+      <div class="d-flex gap-3 justify-content-center flex-wrap" style="position:relative">
+        <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-primary-aurora">
+          <i class="bi bi-github"></i> Star on GitHub
+        </a>
+        <a href="https://github.com/BaiGanio/aperio#readme" target="_blank" class="btn-ghost">
+          <i class="bi bi-book"></i> Read the docs
+        </a>
+      </div>
+
+      <div class="mt-4" style="position:relative">
+        <span class="badge-pill">From Latin <em>aperire</em> — to open, to reveal, to bring into the light</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ────────────────────────────────────────────────── -->
+<footer class="mt-5">
+  <div class="container">
+    <div class="row align-items-center">
+      <div class="col-md-4 mb-3 mb-md-0">
+        <a href="#" class="footer-logo">
+          <div class="logo-mark" style="width:24px;height:24px;font-size:11px;border-radius:6px">A</div>
+          Aperio
+        </a>
+        <div class="footer-tagline">One brain. Every agent. Nothing forgotten.</div>
+      </div>
+      <div class="col-md-4 text-md-center mb-3 mb-md-0">
+        <div class="footer-tagline">Built with ☕ and pgvector</div>
+      </div>
+      <div class="col-md-4">
+        <div class="d-flex gap-4 justify-content-md-end">
+          <a href="https://github.com/BaiGanio/aperio" target="_blank" class="footer-link">
+            <i class="bi bi-github"></i> GitHub
+          </a>
+          <a href="https://github.com/BaiGanio/aperio#readme" target="_blank" class="footer-link">
+            <i class="bi bi-book"></i> Docs
+          </a>
+          <a href="https://github.com/BaiGanio/aperio/blob/master/LICENSE" target="_blank" class="footer-link">
+            <i class="bi bi-file-text"></i> License
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // Intersection observer for fade-up animations
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(el => {
+      if (el.isIntersecting) {
+        el.target.classList.add('visible');
+        observer.unobserve(el.target);
+      }
+    });
+  }, { threshold: 0.12 });
+
+  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
+
+  // Smooth active nav link highlighting
+  const sections = document.querySelectorAll('section[id]');
+  const navLinks = document.querySelectorAll('.nav-link[href^="#"]');
+
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 100) current = s.id;
+    });
+    navLinks.forEach(l => {
+      l.style.color = l.getAttribute('href') === '#' + current
+        ? 'var(--purple)'
+        : '';
+    });
+  }, { passive: true });
+</script>
+</body>
+</html>
