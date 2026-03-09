@@ -11,7 +11,7 @@
 ╚═╝  ╚═╝╚═╝     ╚══════╝╚═╝  ╚═╝╚═╝ ╚═════╝
 ```
 
-**One brain. Every agent. Nothing forgotten.**
+**Open Brain architecture for AI systems**
 
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?style=flat-square&logo=postgresql&logoColor=white)
 ![pgvector](https://img.shields.io/badge/pgvector-semantic_search-green?style=flat-square)

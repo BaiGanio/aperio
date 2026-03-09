@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -8,46 +8,49 @@
 
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
 
   <!-- Bootstrap 5 + Icons -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
 
   <style>
-    /* ── Variables ───────────────────────────────────────────── */
+    /* ─── Aperio Design Tokens (matches app exactly) ─────────── */
     :root {
-      --mono: "Berkeley Mono", "Fira Code", monospace;
-      --serif: "Instrument Serif", Georgia, serif;
-      --sans: "DM Sans", system-ui, sans-serif;
+      --font-orbitron: 'Orbitron', 'Courier New', monospace;
+      --font-sans:     'DM Sans', system-ui, sans-serif;
+      --font-mono:     'Berkeley Mono', 'Fira Code', 'Courier New', monospace;
 
-      --bg:        #0a0a0f;
-      --bg-card:   #111118;
-      --bg-raised: #16161f;
-      --border:    #1e1e2e;
-      --border-hi: #2e2252;
+      --bg:        #0d0d14;
+      --bg-card:   #12121c;
+      --bg-raised: #17172a;
+      --bg-input:  #0a0a12;
 
-      --text:      #e8e6f0;
+      --border:    #1e1e35;
+      --border-hi: #3b2d6e;
+
+      --text:      #e8e6f5;
       --muted:     #6b6880;
-      --dim:       #3a3850;
+      --dim:       #323050;
+      --subtle:    #9d9ab0;
 
       --purple:    #a855f7;
       --indigo:    #818cf8;
       --pink:      #ec4899;
+      --violet:    #7c3aed;
       --green:     #34d399;
       --amber:     #fbbf24;
 
-      --aurora: linear-gradient(135deg, #7c3aed, #a855f7, #ec4899);
-      --aurora-text: linear-gradient(90deg, #a855f7, #ec4899);
+      --aurora:      linear-gradient(135deg, #7c3aed 0%, #a855f7 50%, #ec4899 100%);
+      --aurora-text: linear-gradient(90deg, #a855f7 0%, #c084fc 40%, #ec4899 100%);
+      --aurora-glow: 0 0 40px rgba(168,85,247,0.2), 0 0 80px rgba(124,58,237,0.1);
     }
 
-    /* ── Reset ───────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; }
-
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
 
     body {
-      font-family: var(--sans);
+      font-family: var(--font-sans);
       background: var(--bg);
       color: var(--text);
       font-size: 15px;
@@ -55,34 +58,33 @@
       overflow-x: hidden;
     }
 
-    /* ── Dot grid background ─────────────────────────────────── */
+    /* dot grid */
     body::before {
       content: "";
       position: fixed;
       inset: 0;
-      background-image: radial-gradient(#1e1e2e 1px, transparent 1px);
+      background-image: radial-gradient(circle, #1e1e35 1px, transparent 1px);
       background-size: 28px 28px;
       pointer-events: none;
       z-index: 0;
+      opacity: 0.7;
     }
 
-    /* ── Aurora glow blobs ───────────────────────────────────── */
-    .glow {
+    /* aurora orbs */
+    .orb {
       position: fixed;
       border-radius: 50%;
-      filter: blur(120px);
-      opacity: 0.12;
+      filter: blur(130px);
       pointer-events: none;
       z-index: 0;
+      animation: orb-drift 12s ease-in-out infinite alternate;
     }
-    .glow-1 { width: 600px; height: 600px; background: #7c3aed; top: -200px; right: -100px; }
-    .glow-2 { width: 400px; height: 400px; background: #ec4899; bottom: 20%; left: -150px; }
-    .glow-3 { width: 300px; height: 300px; background: #818cf8; top: 50%; right: 10%; }
+    .orb-1 { width:700px;height:700px;background:#7c3aed;opacity:.09;top:-280px;right:-180px;animation-delay:0s; }
+    .orb-2 { width:500px;height:500px;background:#ec4899;opacity:.07;bottom:10%;left:-180px;animation-delay:-4s; }
+    .orb-3 { width:350px;height:350px;background:#818cf8;opacity:.08;top:55%;right:5%;animation-delay:-8s; }
+    @keyframes orb-drift { from{transform:translate(0,0) scale(1)} to{transform:translate(30px,20px) scale(1.08)} }
 
-    /* ── Utility ─────────────────────────────────────────────── */
-    .mono { font-family: var(--mono); }
-    .serif { font-family: var(--serif); }
-    section { position: relative; z-index: 1; }
+    .z1 { position: relative; z-index: 1; }
 
     .aurora-text {
       background: var(--aurora-text);
@@ -91,895 +93,405 @@
       background-clip: text;
     }
 
-    .badge-pill {
-      font-family: var(--mono);
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      padding: 4px 12px;
-      border-radius: 20px;
-      border: 1px solid var(--border-hi);
-      color: var(--purple);
-      background: rgba(124, 58, 237, 0.08);
-    }
-
-    /* ── Navbar ──────────────────────────────────────────────── */
-    .navbar {
-      background: rgba(10, 10, 15, 0.85);
-      backdrop-filter: blur(20px);
+    /* ─── Navbar ─────────────────────────────────────────────── */
+    .aperio-nav {
+      position: sticky; top: 0; z-index: 200;
+      background: rgba(13,13,20,0.82);
+      backdrop-filter: blur(24px) saturate(180%);
       border-bottom: 1px solid var(--border);
-      padding: 14px 0;
-      position: sticky;
-      top: 0;
-      z-index: 100;
     }
-
-    .navbar-brand {
-      font-family: var(--mono);
-      font-size: 17px;
-      font-weight: 600;
-      color: var(--text) !important;
-      letter-spacing: -0.02em;
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px; max-width: 1140px; margin: 0 auto; padding: 0 24px;
     }
-
+    .brand { display:flex;align-items:center;gap:10px;text-decoration:none; }
     .logo-mark {
-      width: 32px; height: 32px;
-      background: var(--aurora);
-      border-radius: 9px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
-      font-weight: 700;
-      color: white;
-      font-family: var(--mono);
-      flex-shrink: 0;
+      width:34px;height:34px;background:var(--aurora);border-radius:9px;
+      display:flex;align-items:center;justify-content:center;
+      font-family:var(--font-orbitron);font-size:15px;font-weight:800;color:white;
+      box-shadow:var(--aurora-glow);
+    }
+    .brand-name { font-family:var(--font-orbitron);font-size:15px;font-weight:700;color:var(--text);letter-spacing:.08em; }
+    .nav-links { display:flex;align-items:center;gap:4px;list-style:none; }
+    .nav-links a {
+      font-family:var(--font-orbitron);font-size:9.5px;font-weight:500;
+      letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-decoration:none;
+      padding:6px 14px;border-radius:6px;transition:color .15s,background .15s;
+    }
+    .nav-links a:hover { color:var(--text);background:var(--bg-raised); }
+    .btn-github {
+      font-family:var(--font-orbitron);font-size:9px;font-weight:700;
+      letter-spacing:.12em;text-transform:uppercase;padding:9px 18px;border-radius:8px;
+      background:var(--aurora);color:white;text-decoration:none;
+      display:inline-flex;align-items:center;gap:7px;
+      transition:opacity .15s,transform .15s,box-shadow .15s;
+      box-shadow:0 0 20px rgba(124,58,237,.3);
+    }
+    .btn-github:hover { opacity:.88;transform:translateY(-1px);color:white;box-shadow:0 0 30px rgba(124,58,237,.5); }
+    .nav-toggle { display:none;background:none;border:1px solid var(--border);border-radius:6px;color:var(--muted);padding:6px 10px;cursor:pointer;font-size:18px; }
+    @media(max-width:768px){
+      .nav-toggle{display:block;}
+      .nav-links{display:none;flex-direction:column;position:absolute;top:60px;left:0;right:0;background:var(--bg-card);border-bottom:1px solid var(--border);padding:12px 0;}
+      .nav-links.open{display:flex;}
+      .btn-github{display:none;}
     }
 
-    .nav-link {
-      font-family: var(--mono);
-      font-size: 12px;
-      letter-spacing: 0.06em;
-      color: var(--muted) !important;
-      text-transform: uppercase;
-      transition: color 0.15s;
-      padding: 6px 14px !important;
-    }
-    .nav-link:hover { color: var(--text) !important; }
+    /* ─── Section wrapper ────────────────────────────────────── */
+    .section { position:relative;z-index:1;padding:90px 0; }
+    .section-inner { max-width:860px;margin:0 auto;padding:0 24px;text-align:center; }
+    .section-inner.wide { max-width:1100px; }
 
-    .btn-nav {
-      font-family: var(--mono);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      padding: 8px 20px;
-      border-radius: 8px;
-      background: var(--aurora);
-      color: white;
-      border: none;
-      text-decoration: none;
-      transition: opacity 0.15s, transform 0.15s;
-    }
-    .btn-nav:hover { opacity: 0.88; transform: translateY(-1px); color: white; }
-
-    /* ── Hero ────────────────────────────────────────────────── */
-    #hero {
-      min-height: 90vh;
-      display: flex;
-      align-items: center;
-      padding: 80px 0 60px;
-    }
-
+    /* eyebrow */
     .eyebrow {
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: var(--purple);
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+      font-family:var(--font-orbitron);font-size:9px;font-weight:600;
+      letter-spacing:.2em;text-transform:uppercase;color:var(--purple);
+      margin-bottom:18px;display:inline-flex;align-items:center;gap:10px;
     }
+    .eyebrow::before,.eyebrow::after { content:"";display:inline-block;width:20px;height:1px; }
+    .eyebrow::before { background:linear-gradient(90deg,transparent,var(--purple)); }
+    .eyebrow::after  { background:linear-gradient(90deg,var(--purple),transparent); }
 
-    .eyebrow::before {
-      content: "";
-      display: inline-block;
-      width: 24px; height: 1px;
-      background: var(--purple);
+    /* headings */
+    h1.hero-heading {
+      font-family:var(--font-orbitron);font-size:clamp(2.2rem,5.5vw,4.2rem);
+      font-weight:900;line-height:1.1;letter-spacing:-.01em;margin-bottom:24px;
     }
-
-    h1.hero-title {
-      font-family: var(--serif);
-      font-size: clamp(3rem, 6vw, 5.5rem);
-      line-height: 1.08;
-      font-weight: 400;
-      letter-spacing: -0.01em;
-      margin-bottom: 28px;
+    h2.section-heading {
+      font-family:var(--font-orbitron);font-size:clamp(1.6rem,3.5vw,2.5rem);
+      font-weight:800;line-height:1.15;letter-spacing:-.01em;margin-bottom:16px;
     }
+    .lead-text { font-size:17px;color:var(--subtle);line-height:1.75;max-width:560px;margin:0 auto 40px; }
 
-    .hero-subtitle {
-      font-size: 17px;
-      color: var(--muted);
-      max-width: 520px;
-      line-height: 1.7;
-      margin-bottom: 40px;
-    }
-
-    .hero-cta-group {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
+    /* buttons */
     .btn-primary-aurora {
-      background: var(--aurora);
-      color: white;
-      border: none;
-      padding: 14px 32px;
-      border-radius: 10px;
-      font-family: var(--mono);
-      font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.06em;
-      text-decoration: none;
-      transition: opacity 0.15s, transform 0.15s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+      background:var(--aurora);color:white;border:none;padding:14px 34px;border-radius:10px;
+      font-family:var(--font-orbitron);font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+      text-decoration:none;display:inline-flex;align-items:center;gap:8px;
+      transition:opacity .15s,transform .15s,box-shadow .15s;
+      box-shadow:0 0 24px rgba(124,58,237,.35);
     }
-    .btn-primary-aurora:hover { opacity: 0.88; transform: translateY(-2px); color: white; }
-
-    .btn-ghost {
-      background: transparent;
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 14px 32px;
-      border-radius: 10px;
-      font-family: var(--mono);
-      font-size: 13px;
-      font-weight: 500;
-      letter-spacing: 0.06em;
-      text-decoration: none;
-      transition: border-color 0.15s, color 0.15s, transform 0.15s;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
+    .btn-primary-aurora:hover { opacity:.88;transform:translateY(-2px);color:white;box-shadow:0 0 40px rgba(124,58,237,.55); }
+    .btn-outline-aurora {
+      background:transparent;color:var(--text);border:1px solid var(--border-hi);padding:14px 34px;border-radius:10px;
+      font-family:var(--font-orbitron);font-size:10px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;
+      text-decoration:none;display:inline-flex;align-items:center;gap:8px;
+      transition:border-color .15s,color .15s,transform .15s,background .15s;
     }
-    .btn-ghost:hover { border-color: var(--purple); color: var(--purple); transform: translateY(-2px); }
+    .btn-outline-aurora:hover { border-color:var(--purple);color:var(--purple);transform:translateY(-2px);background:rgba(168,85,247,.06); }
+    .cta-group { display:flex;gap:14px;justify-content:center;flex-wrap:wrap; }
 
-    /* Hero terminal mockup */
-    .hero-terminal {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
-      box-shadow: 0 40px 100px rgba(0,0,0,0.6), 0 0 0 1px rgba(124,58,237,0.1);
-      position: relative;
+    /* tech badges */
+    .badge-row { display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:36px; }
+    .tech-badge {
+      font-family:var(--font-orbitron);font-size:8.5px;font-weight:600;
+      letter-spacing:.14em;text-transform:uppercase;padding:6px 14px;border-radius:20px;
+      border:1px solid var(--border-hi);color:var(--purple);background:rgba(124,58,237,.08);
     }
 
-    .terminal-bar {
-      background: var(--bg-raised);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
-      display: flex;
-      align-items: center;
-      gap: 8px;
+    /* ─── Terminal ───────────────────────────────────────────── */
+    .terminal-wrap { max-width:680px;margin:60px auto 0; }
+    .terminal {
+      background:var(--bg-card);border:1px solid var(--border);border-radius:14px;overflow:hidden;
+      box-shadow:0 40px 100px rgba(0,0,0,.7),0 0 0 1px rgba(168,85,247,.08),inset 0 1px 0 rgba(255,255,255,.03);
     }
-
-    .terminal-dot {
-      width: 11px; height: 11px;
-      border-radius: 50%;
-    }
-    .td-red    { background: #ff5f57; }
-    .td-yellow { background: #ffbd2e; }
-    .td-green  { background: #28c840; }
-
-    .terminal-title {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--muted);
-      margin-left: 8px;
-    }
-
-    .terminal-body {
-      padding: 24px 28px;
-      font-family: var(--mono);
-      font-size: 12.5px;
-      line-height: 2;
-    }
-
-    .t-prompt { color: var(--purple); }
-    .t-cmd    { color: var(--text); }
-    .t-out    { color: var(--muted); }
-    .t-ok     { color: var(--green); }
-    .t-mem    { color: var(--indigo); }
-    .t-val    { color: var(--amber); }
-    .t-cursor {
-      display: inline-block;
-      width: 8px; height: 14px;
-      background: var(--purple);
-      vertical-align: middle;
-      animation: blink 0.9s step-end infinite;
-    }
-
+    .terminal-bar { background:var(--bg-raised);border-bottom:1px solid var(--border);padding:13px 18px;display:flex;align-items:center;gap:7px; }
+    .dot { width:11px;height:11px;border-radius:50%; }
+    .dot-r{background:#ff5f57;} .dot-y{background:#ffbd2e;} .dot-g{background:#28c840;}
+    .t-title { font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-left:10px; }
+    .terminal-body { padding:24px 28px 28px;font-family:var(--font-mono);font-size:12.5px;line-height:2;text-align:left; }
+    .t-ok{color:var(--green);} .t-out{color:var(--muted);}
+    .t-prompt{color:var(--purple);font-weight:600;} .t-cmd{color:var(--text);}
+    .t-tool{color:var(--indigo);} .t-val{color:var(--amber);}
+    .t-cursor { display:inline-block;width:8px;height:15px;background:var(--purple);vertical-align:middle;animation:blink .9s step-end infinite; }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-    /* ── Stats row ───────────────────────────────────────────── */
-    .stats-row {
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-      padding: 40px 0;
-      margin: 0;
+    /* ─── Stats bar ──────────────────────────────────────────── */
+    .stats-bar { position:relative;z-index:1;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg-card); }
+    .stats-inner { max-width:900px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr); }
+    .stat { padding:36px 20px;text-align:center;border-right:1px solid var(--border); }
+    .stat:last-child { border-right:none; }
+    .stat-num {
+      font-family:var(--font-orbitron);font-size:2.2rem;font-weight:800;
+      background:var(--aurora-text);-webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      background-clip:text;line-height:1;margin-bottom:8px;
+    }
+    .stat-lbl { font-family:var(--font-orbitron);font-size:8px;font-weight:500;letter-spacing:.16em;text-transform:uppercase;color:var(--muted); }
+    @media(max-width:576px){
+      .stats-inner{grid-template-columns:repeat(2,1fr);}
+      .stat:nth-child(2){border-right:none;}
+      .stat:nth-child(3){border-right:1px solid var(--border);border-top:1px solid var(--border);}
+      .stat:nth-child(4){border-top:1px solid var(--border);}
     }
 
-    .stat-item {
-      text-align: center;
-      padding: 20px;
-      border-right: 1px solid var(--border);
+    /* ─── Feature cards ──────────────────────────────────────── */
+    .features-grid { display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-top:56px;text-align:left; }
+    @media(max-width:900px){.features-grid{grid-template-columns:repeat(2,1fr);}}
+    @media(max-width:540px){.features-grid{grid-template-columns:1fr;}}
+    .feat-card {
+      background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:28px 26px;
+      transition:border-color .2s,transform .2s,box-shadow .2s;position:relative;overflow:hidden;
     }
-    .stat-item:last-child { border-right: none; }
+    .feat-card::after { content:"";position:absolute;top:0;left:0;right:0;height:1px;background:var(--aurora);opacity:0;transition:opacity .2s; }
+    .feat-card:hover { border-color:var(--border-hi);transform:translateY(-5px);box-shadow:0 20px 50px rgba(0,0,0,.5),0 0 0 1px rgba(168,85,247,.1); }
+    .feat-card:hover::after { opacity:1; }
+    .feat-icon { width:46px;height:46px;border-radius:11px;background:rgba(124,58,237,.1);border:1px solid rgba(124,58,237,.2);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:18px;color:var(--purple); }
+    .feat-title { font-family:var(--font-orbitron);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text);margin-bottom:10px; }
+    .feat-desc { font-size:13.5px;color:var(--muted);line-height:1.7; }
 
-    .stat-number {
-      font-family: var(--mono);
-      font-size: 2.4rem;
-      font-weight: 700;
-      background: var(--aurora-text);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-      line-height: 1;
-      margin-bottom: 6px;
+    /* ─── Architecture ───────────────────────────────────────── */
+    .arch-card { background:var(--bg-card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:56px;text-align:left; }
+    .arch-header { background:var(--bg-raised);border-bottom:1px solid var(--border);padding:16px 24px;font-family:var(--font-mono);font-size:11px;color:var(--muted);display:flex;align-items:center;gap:8px; }
+    .arch-body { padding:32px;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start; }
+    @media(max-width:700px){.arch-body{grid-template-columns:1fr;}}
+    .arch-layers { display:flex;flex-direction:column;gap:4px; }
+    .arch-row { display:flex;align-items:center;gap:14px;padding:12px 16px;border-radius:9px;transition:background .15s;cursor:default; }
+    .arch-row:hover { background:var(--bg-raised); }
+    .arch-icon { font-size:19px;flex-shrink:0;width:28px;text-align:center; }
+    .arch-name { font-family:var(--font-orbitron);font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--text); }
+    .arch-sub  { font-family:var(--font-mono);font-size:11px;color:var(--dim);margin-top:2px; }
+    .arch-connector { font-family:var(--font-mono);color:var(--dim);font-size:16px;padding-left:28px;line-height:1.2;margin:2px 0; }
+    .provider-chips { display:flex;flex-direction:column;gap:12px; }
+    .provider-chip { border:1px solid var(--border);border-radius:10px;padding:16px 20px;display:flex;align-items:center;gap:14px;transition:border-color .15s; }
+    .provider-chip:hover { border-color:var(--border-hi); }
+    .chip-icon { font-size:22px; }
+    .provider-label { font-family:var(--font-orbitron);font-size:10.5px;font-weight:700;letter-spacing:.06em;margin-bottom:3px; }
+    .provider-desc  { font-family:var(--font-mono);font-size:11px;color:var(--muted); }
+    .chip-cloud { border-color:rgba(168,85,247,.25);background:rgba(124,58,237,.05); }
+    .chip-cloud .provider-label { color:var(--purple); }
+    .chip-local { border-color:rgba(52,211,153,.2);background:rgba(52,211,153,.04); }
+    .chip-local .provider-label { color:var(--green); }
+    .mem-types { margin-top:20px;display:flex;flex-wrap:wrap;gap:8px; }
+    .mem-type { font-family:var(--font-orbitron);font-size:8px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;padding:6px 14px;border-radius:20px;border:1px solid var(--border);color:var(--indigo);background:rgba(129,140,248,.06); }
+    .arch-section-label { font-family:var(--font-orbitron);font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:16px; }
+
+    /* ─── Tools ──────────────────────────────────────────────── */
+    .tools-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-top:56px;text-align:left; }
+    .tool-chip { background:var(--bg-card);border:1px solid var(--border);border-radius:11px;padding:18px 20px;display:flex;align-items:flex-start;gap:14px;transition:border-color .15s,transform .15s,box-shadow .15s; }
+    .tool-chip:hover { border-color:var(--border-hi);transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.4); }
+    .tool-icon { font-size:19px;color:var(--purple);flex-shrink:0;margin-top:2px; }
+    .tool-name { font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--indigo);margin-bottom:5px; }
+    .tool-desc { font-size:12.5px;color:var(--muted);line-height:1.55; }
+
+    /* ─── Comparison ─────────────────────────────────────────── */
+    .compare-wrap { background:var(--bg-card);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-top:56px; }
+    .compare-wrap table { width:100%;border-collapse:collapse;font-size:14px; }
+    .compare-wrap th { font-family:var(--font-orbitron);font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding:18px 28px;border-bottom:1px solid var(--border);text-align:left; }
+    th.col-aperio { background:rgba(124,58,237,.07);color:var(--purple); }
+    .compare-wrap td { padding:14px 28px;border-bottom:1px solid var(--border);color:var(--muted); }
+    .compare-wrap tr:last-child td { border-bottom:none; }
+    .compare-wrap td:first-child { color:var(--subtle);font-weight:500; }
+    td.col-aperio { background:rgba(124,58,237,.04); }
+    .tick { font-family:var(--font-mono);font-size:13px;color:var(--green); }
+    .cross { font-family:var(--font-mono);font-size:13px;color:var(--dim); }
+
+    /* ─── Setup ──────────────────────────────────────────────── */
+    .steps-grid { display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:56px;text-align:left; }
+    @media(max-width:900px){.steps-grid{grid-template-columns:repeat(2,1fr);}}
+    @media(max-width:500px){.steps-grid{grid-template-columns:1fr;}}
+    .step-card { background:var(--bg-card);border:1px solid var(--border);border-radius:14px;padding:26px 24px;transition:border-color .2s; }
+    .step-card:hover { border-color:var(--border-hi); }
+    .step-num { font-family:var(--font-orbitron);font-size:9px;font-weight:700;letter-spacing:.14em;color:var(--purple);background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.2);border-radius:6px;padding:4px 10px;display:inline-block;margin-bottom:14px; }
+    .step-title { font-family:var(--font-orbitron);font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--text);margin-bottom:14px; }
+    .code-block { background:var(--bg-input);border:1px solid var(--border);border-radius:8px;padding:14px 16px;font-family:var(--font-mono);font-size:11.5px;line-height:1.9;overflow-x:auto; }
+    .code-block .c{color:var(--dim);} .code-block .s{color:var(--green);} .code-block .k{color:var(--indigo);} .code-block .v{color:var(--amber);}
+
+    /* ─── CTA ────────────────────────────────────────────────── */
+    .cta-wrap {
+      background:var(--bg-card);border:1px solid var(--border);border-radius:20px;
+      padding:90px 40px;text-align:center;position:relative;overflow:hidden;
     }
+    .cta-wrap::before { content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 0%,rgba(124,58,237,.12) 0%,transparent 65%); }
+    .cta-wrap::after  { content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--aurora); }
+    .cta-tagline { font-family:var(--font-mono);font-size:11px;color:var(--purple);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;position:relative; }
+    .cta-heading { font-family:var(--font-orbitron);font-size:clamp(1.8rem,4vw,3rem);font-weight:900;line-height:1.15;margin-bottom:16px;position:relative; }
+    .cta-sub { color:var(--muted);font-size:16px;margin-bottom:40px;position:relative; }
+    .origin-note { margin-top:36px;font-family:var(--font-mono);font-size:11.5px;color:var(--dim);position:relative; }
+    .origin-note em { color:var(--muted);font-style:italic; }
 
-    .stat-label {
-      font-size: 12px;
-      color: var(--muted);
-      font-family: var(--mono);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
+    /* ─── Footer ─────────────────────────────────────────────── */
+    footer { border-top:1px solid var(--border);padding:36px 0;position:relative;z-index:1; }
+    .footer-inner { max-width:1100px;margin:0 auto;padding:0 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:20px; }
+    .footer-brand { display:flex;align-items:center;gap:10px;text-decoration:none; }
+    .footer-logo-mark { width:26px;height:26px;background:var(--aurora);border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--font-orbitron);font-size:11px;font-weight:800;color:white; }
+    .footer-name { font-family:var(--font-orbitron);font-size:12px;font-weight:700;color:var(--text);letter-spacing:.1em; }
+    .footer-sub  { font-family:var(--font-mono);font-size:10.5px;color:var(--dim);letter-spacing:.06em;margin-top:2px; }
+    .footer-links { display:flex;gap:24px;align-items:center; }
+    .footer-link { font-family:var(--font-orbitron);font-size:8.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:6px;transition:color .15s; }
+    .footer-link:hover { color:var(--purple); }
+    .footer-copy { font-family:var(--font-mono);font-size:10.5px;color:var(--dim); }
 
-    /* ── Section titles ──────────────────────────────────────── */
-    .section-label {
-      font-family: var(--mono);
-      font-size: 10px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--purple);
-      margin-bottom: 14px;
-    }
-
-    h2.section-title {
-      font-family: var(--serif);
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: 400;
-      line-height: 1.15;
-      margin-bottom: 16px;
-    }
-
-    .section-desc {
-      color: var(--muted);
-      font-size: 16px;
-      max-width: 540px;
-      line-height: 1.7;
-    }
-
-    /* ── Feature cards ───────────────────────────────────────── */
-    .feature-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 32px 28px;
-      height: 100%;
-      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .feature-card::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, rgba(124,58,237,0.04), transparent);
-      opacity: 0;
-      transition: opacity 0.2s;
-    }
-
-    .feature-card:hover {
-      border-color: var(--border-hi);
-      transform: translateY(-4px);
-      box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-    }
-    .feature-card:hover::before { opacity: 1; }
-
-    .feature-icon {
-      width: 44px; height: 44px;
-      border-radius: 10px;
-      background: rgba(124,58,237,0.12);
-      border: 1px solid rgba(124,58,237,0.2);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 20px;
-      margin-bottom: 20px;
-      color: var(--purple);
-    }
-
-    .feature-title {
-      font-family: var(--mono);
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      margin-bottom: 10px;
-      letter-spacing: -0.01em;
-    }
-
-    .feature-desc {
-      font-size: 14px;
-      color: var(--muted);
-      line-height: 1.65;
-    }
-
-    /* ── Architecture diagram ────────────────────────────────── */
-    .arch-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 32px;
-      font-family: var(--mono);
-      font-size: 13px;
-      line-height: 2.2;
-      position: relative;
-    }
-
-    .arch-layer {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 10px 16px;
-      border-radius: 8px;
-      margin-bottom: 4px;
-      transition: background 0.15s;
-    }
-    .arch-layer:hover { background: var(--bg-raised); }
-
-    .arch-icon { font-size: 18px; width: 28px; text-align: center; }
-    .arch-name { color: var(--text); font-weight: 600; min-width: 180px; }
-    .arch-desc { color: var(--muted); font-size: 12px; }
-
-    .arch-arrow {
-      color: var(--dim);
-      padding-left: 30px;
-      font-size: 18px;
-      line-height: 1;
-      margin: 2px 0;
-    }
-
-    /* ── Tools table ─────────────────────────────────────────── */
-    .tools-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 12px;
-    }
-
-    .tool-chip {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 16px 20px;
-      display: flex;
-      align-items: flex-start;
-      gap: 14px;
-      transition: border-color 0.15s, transform 0.15s;
-    }
-    .tool-chip:hover { border-color: var(--border-hi); transform: translateY(-2px); }
-
-    .tool-chip-icon {
-      font-size: 18px;
-      color: var(--purple);
-      margin-top: 1px;
-      flex-shrink: 0;
-    }
-
-    .tool-name {
-      font-family: var(--mono);
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--indigo);
-      margin-bottom: 4px;
-    }
-
-    .tool-desc {
-      font-size: 12.5px;
-      color: var(--muted);
-      line-height: 1.5;
-    }
-
-    /* ── Setup steps ─────────────────────────────────────────── */
-    .step-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 28px;
-      position: relative;
-    }
-
-    .step-number {
-      font-family: var(--mono);
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      color: var(--purple);
-      background: rgba(124,58,237,0.1);
-      border: 1px solid rgba(124,58,237,0.2);
-      border-radius: 6px;
-      padding: 3px 10px;
-      display: inline-block;
-      margin-bottom: 14px;
-    }
-
-    .step-title {
-      font-family: var(--mono);
-      font-size: 14px;
-      font-weight: 600;
-      margin-bottom: 10px;
-    }
-
-    .code-snippet {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 16px;
-      font-family: var(--mono);
-      font-size: 12px;
-      color: var(--green);
-      margin-top: 12px;
-      overflow-x: auto;
-      line-height: 1.8;
-    }
-
-    .code-snippet .comment { color: var(--dim); }
-    .code-snippet .cmd     { color: var(--text); }
-
-    /* ── Comparison ──────────────────────────────────────────── */
-    .compare-table {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      overflow: hidden;
-    }
-
-    .compare-table table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 14px;
-    }
-
-    .compare-table th {
-      font-family: var(--mono);
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--muted);
-      padding: 16px 24px;
-      border-bottom: 1px solid var(--border);
-      text-align: left;
-    }
-
-    .compare-table td {
-      padding: 14px 24px;
-      border-bottom: 1px solid var(--border);
-      color: var(--muted);
-    }
-
-    .compare-table tr:last-child td { border-bottom: none; }
-    .compare-table td:first-child { color: var(--text); font-weight: 500; }
-    .compare-table td.yes { color: var(--green); font-family: var(--mono); font-size: 13px; }
-    .compare-table td.no  { color: var(--dim); font-family: var(--mono); font-size: 13px; }
-
-    .col-aperio { background: rgba(124,58,237,0.04); }
-
-    /* ── Memory type pills ───────────────────────────────────── */
-    .type-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    .type-pill {
-      font-family: var(--mono);
-      font-size: 12px;
-      padding: 8px 18px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: var(--bg-card);
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      transition: all 0.15s;
-    }
-    .type-pill:hover { border-color: var(--purple); color: var(--text); }
-    .type-pill .pip { width: 6px; height: 6px; border-radius: 50%; background: var(--purple); }
-
-    /* ── Philosophy quote ────────────────────────────────────── */
-    .quote-block {
-      border-left: 3px solid var(--purple);
-      padding: 24px 32px;
-      background: var(--bg-card);
-      border-radius: 0 14px 14px 0;
-      margin: 0;
-    }
-
-    .quote-text {
-      font-family: var(--serif);
-      font-size: 1.5rem;
-      font-style: italic;
-      color: var(--text);
-      line-height: 1.5;
-      margin-bottom: 12px;
-    }
-
-    .quote-attr {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--muted);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-
-    /* ── CTA section ─────────────────────────────────────────── */
-    .cta-section {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 80px 60px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .cta-section::before {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse at center, rgba(124,58,237,0.08) 0%, transparent 70%);
-    }
-
-    .cta-title {
-      font-family: var(--serif);
-      font-size: clamp(2rem, 4vw, 3.2rem);
-      font-weight: 400;
-      margin-bottom: 16px;
-      position: relative;
-    }
-
-    .cta-sub {
-      color: var(--muted);
-      font-size: 16px;
-      margin-bottom: 36px;
-      position: relative;
-    }
-
-    /* ── Footer ──────────────────────────────────────────────── */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 40px 0;
-      color: var(--muted);
-      font-size: 13px;
-    }
-
-    .footer-logo {
-      font-family: var(--mono);
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--text);
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      text-decoration: none;
-      margin-bottom: 8px;
-    }
-
-    .footer-tagline {
-      font-family: var(--mono);
-      font-size: 11px;
-      color: var(--dim);
-      letter-spacing: 0.06em;
-    }
-
-    .footer-link {
-      color: var(--muted);
-      text-decoration: none;
-      font-family: var(--mono);
-      font-size: 12px;
-      letter-spacing: 0.06em;
-      transition: color 0.15s;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .footer-link:hover { color: var(--purple); }
-
-    /* ── Animations ──────────────────────────────────────────── */
-    .fade-up {
-      opacity: 0;
-      transform: translateY(24px);
-      transition: opacity 0.5s ease, transform 0.5s ease;
-    }
-    .fade-up.visible {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /* ── Responsive ──────────────────────────────────────────── */
-    @media (max-width: 768px) {
-      #hero { min-height: auto; padding: 60px 0 40px; }
-      .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
-      .stat-item:last-child { border-bottom: none; }
-      .cta-section { padding: 50px 24px; }
-      .hero-terminal { margin-top: 40px; }
-    }
+    /* ─── Scroll reveal ──────────────────────────────────────── */
+    .reveal { opacity:0;transform:translateY(28px);transition:opacity .55s ease,transform .55s ease; }
+    .reveal.in { opacity:1;transform:translateY(0); }
   </style>
 </head>
 <body>
 
-<!-- Glow blobs -->
-<div class="glow glow-1"></div>
-<div class="glow glow-2"></div>
-<div class="glow glow-3"></div>
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
 
-<!-- ── Navbar ──────────────────────────────────────────────── -->
-<nav class="navbar navbar-expand-lg">
-  <div class="container">
-    <a class="navbar-brand" href="#">
+<!-- ── Navbar ─────────────────────────────────────────────────── -->
+<nav class="aperio-nav">
+  <div class="nav-inner">
+    <a href="#" class="brand">
       <div class="logo-mark">A</div>
-      Aperio
+      <span class="brand-name">Aperio</span>
     </a>
-    <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu"
-      style="color:var(--muted)">
-      <i class="bi bi-list" style="font-size:22px"></i>
-    </button>
-    <div class="collapse navbar-collapse" id="navMenu">
-      <ul class="navbar-nav ms-auto align-items-center gap-1">
-        <li class="nav-item"><a class="nav-link" href="#features">Features</a></li>
-        <li class="nav-item"><a class="nav-link" href="#how-it-works">How it works</a></li>
-        <li class="nav-item"><a class="nav-link" href="#tools">Tools</a></li>
-        <li class="nav-item"><a class="nav-link" href="#setup">Setup</a></li>
-        <li class="nav-item ms-2">
-          <a class="btn-nav" href="https://github.com/BaiGanio/aperio" target="_blank">
-            <i class="bi bi-github me-1"></i> GitHub
-          </a>
-        </li>
-      </ul>
-    </div>
+    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#architecture">Stack</a></li>
+      <li><a href="#tools">Tools</a></li>
+      <li><a href="#setup">Setup</a></li>
+    </ul>
+    <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-github">
+      <i class="bi bi-github"></i> GitHub
+    </a>
   </div>
 </nav>
 
-<!-- ── Hero ────────────────────────────────────────────────── -->
-<section id="hero">
-  <div class="container">
-    <div class="row align-items-center g-5">
-      <div class="col-lg-6">
-        <div class="eyebrow">Open Source · Self-Hosted · MCP-Compatible</div>
-        <h1 class="hero-title">
-          One brain.<br>
-          Every agent.<br>
-          <em class="aurora-text">Nothing forgotten.</em>
-        </h1>
-        <p class="hero-subtitle">
-          Aperio is a personal memory layer for AI agents. Built on Postgres + pgvector + MCP.
-          Your context lives in your database — available to Claude, Cursor, Windsurf, anything.
-        </p>
-        <div class="hero-cta-group">
-          <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-primary-aurora">
-            <i class="bi bi-github"></i> View on GitHub
-          </a>
-          <a href="#how-it-works" class="btn-ghost">
-            <i class="bi bi-play-circle"></i> How it works
-          </a>
-        </div>
+<!-- ── Hero ───────────────────────────────────────────────────── -->
+<section class="section" id="hero" style="padding:100px 0 80px">
+  <div class="section-inner">
+    <div class="eyebrow reveal">Open Source · Self-Hosted · MCP-Compatible</div>
+    <h1 class="hero-heading reveal">
+      One brain.<br>
+      Every agent.<br>
+      <span class="aurora-text">Nothing forgotten.</span>
+    </h1>
+    <p class="lead-text reveal">
+      A personal memory layer for AI agents — built on Postgres, pgvector and the MCP protocol.
+      Your context lives in your own database, available to Claude, Cursor, Windsurf and any MCP-compatible tool.
+    </p>
+    <div class="cta-group reveal">
+      <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-primary-aurora">
+        <i class="bi bi-github"></i> View on GitHub
+      </a>
+      <a href="#architecture" class="btn-outline-aurora">
+        <i class="bi bi-layers"></i> See the stack
+      </a>
+    </div>
+    <div class="badge-row reveal">
+      <span class="tech-badge"><i class="bi bi-database me-1"></i> Postgres 16</span>
+      <span class="tech-badge"><i class="bi bi-cpu me-1"></i> pgvector</span>
+      <span class="tech-badge"><i class="bi bi-plug me-1"></i> MCP Protocol</span>
+      <span class="tech-badge"><i class="bi bi-box me-1"></i> Ollama</span>
+      <span class="tech-badge"><i class="bi bi-stars me-1"></i> Voyage AI</span>
+    </div>
 
-        <div class="mt-4 d-flex gap-3 flex-wrap">
-          <span class="badge-pill"><i class="bi bi-database me-1"></i> Postgres 16</span>
-          <span class="badge-pill"><i class="bi bi-cpu me-1"></i> pgvector</span>
-          <span class="badge-pill"><i class="bi bi-plug me-1"></i> MCP</span>
-          <span class="badge-pill"><i class="bi bi-box me-1"></i> Ollama</span>
+    <div class="terminal-wrap reveal">
+      <div class="terminal">
+        <div class="terminal-bar">
+          <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
+          <span class="t-title">aperio — personal memory layer</span>
         </div>
-      </div>
-
-      <div class="col-lg-6">
-        <div class="hero-terminal fade-up">
-          <div class="terminal-bar">
-            <div class="terminal-dot td-red"></div>
-            <div class="terminal-dot td-yellow"></div>
-            <div class="terminal-dot td-green"></div>
-            <span class="terminal-title">aperio — chat</span>
-          </div>
-          <div class="terminal-body">
-            <div><span class="t-ok">✅</span> <span class="t-out">Connected to Aperio database</span></div>
-            <div><span class="t-ok">✅</span> <span class="t-out">pgvector enabled — semantic search active</span></div>
-            <div><span class="t-ok">✅</span> <span class="t-out">Loaded 24 memories</span></div>
-            <div>&nbsp;</div>
-            <div><span class="t-prompt">You</span> <span class="t-out">→</span> <span class="t-cmd">what's my preferred stack?</span></div>
-            <div>&nbsp;</div>
-            <div><span class="t-mem">[recall]</span> <span class="t-out">searching memories…</span></div>
-            <div>&nbsp;</div>
-            <div><span class="t-prompt">A</span> <span class="t-out">→</span> <span class="t-cmd">Based on your memories:</span></div>
-            <div><span class="t-out">&nbsp;&nbsp;You prefer </span><span class="t-val">TypeScript</span><span class="t-out"> over JS</span></div>
-            <div><span class="t-out">&nbsp;&nbsp;Primary stack: </span><span class="t-val">Node · Postgres · Docker</span></div>
-            <div><span class="t-out">&nbsp;&nbsp;Editor: </span><span class="t-val">Cursor</span><span class="t-out"> with MCP enabled</span></div>
-            <div>&nbsp;</div>
-            <div><span class="t-prompt">You</span> <span class="t-out">→</span> <span class="t-cmd">remember I switched to pnpm<span class="t-cursor"></span></span></div>
-          </div>
+        <div class="terminal-body">
+          <div><span class="t-ok">✅</span> <span class="t-out">Connected to Aperio database</span></div>
+          <div><span class="t-ok">✅</span> <span class="t-out">pgvector enabled — semantic search active</span></div>
+          <div><span class="t-ok">✅</span> <span class="t-out">Loaded 24 memories · 11 tools ready</span></div>
+          <div>&nbsp;</div>
+          <div><span class="t-prompt">You</span> <span class="t-out">›</span> <span class="t-cmd">what's my preferred stack?</span></div>
+          <div>&nbsp;</div>
+          <div><span class="t-tool">[recall]</span> <span class="t-out">searching memories… cosine similarity 0.94</span></div>
+          <div>&nbsp;</div>
+          <div><span class="t-prompt"> A </span> <span class="t-out">›</span> <span class="t-cmd">Based on your memories:</span></div>
+          <div><span class="t-out">&nbsp;&nbsp;&nbsp;› Language: </span><span class="t-val">TypeScript</span></div>
+          <div><span class="t-out">&nbsp;&nbsp;&nbsp;› Backend:  </span><span class="t-val">Node · Postgres · Docker</span></div>
+          <div><span class="t-out">&nbsp;&nbsp;&nbsp;› Editor:   </span><span class="t-val">Cursor</span><span class="t-out"> with MCP enabled</span></div>
+          <div>&nbsp;</div>
+          <div><span class="t-prompt">You</span> <span class="t-out">›</span> <span class="t-cmd">remember I switched to pnpm<span class="t-cursor"></span></span></div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── Stats ────────────────────────────────────────────────── -->
-<div class="stats-row position-relative z-1">
-  <div class="container">
-    <div class="row g-0">
-      <div class="col-6 col-md-3 stat-item fade-up">
-        <div class="stat-number">11</div>
-        <div class="stat-label">MCP Tools</div>
-      </div>
-      <div class="col-6 col-md-3 stat-item fade-up" style="transition-delay:0.1s">
-        <div class="stat-number">7</div>
-        <div class="stat-label">Memory Types</div>
-      </div>
-      <div class="col-6 col-md-3 stat-item fade-up" style="transition-delay:0.2s">
-        <div class="stat-number">1024</div>
-        <div class="stat-label">Embedding Dims</div>
-      </div>
-      <div class="col-6 col-md-3 stat-item fade-up" style="transition-delay:0.3s">
-        <div class="stat-number">$0</div>
-        <div class="stat-label">Vendor Lock-in</div>
-      </div>
-    </div>
+<!-- ── Stats ───────────────────────────────────────────────────── -->
+<div class="stats-bar z1">
+  <div class="stats-inner">
+    <div class="stat reveal"><div class="stat-num">11</div><div class="stat-lbl">MCP Tools</div></div>
+    <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">7</div><div class="stat-lbl">Memory Types</div></div>
+    <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">1024</div><div class="stat-lbl">Vector Dims</div></div>
+    <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl">Vendor Lock-in</div></div>
   </div>
 </div>
 
-<!-- ── Features ─────────────────────────────────────────────── -->
-<section id="features" class="py-5 mt-5">
-  <div class="container">
-    <div class="row mb-5">
-      <div class="col-lg-8">
-        <div class="section-label">Features</div>
-        <h2 class="section-title">Everything you need.<br>Nothing you don't.</h2>
-        <p class="section-desc">Built for developers who want AI that actually knows them — without giving up their data or their stack.</p>
+<!-- ── Features ───────────────────────────────────────────────── -->
+<section class="section" id="features">
+  <div class="section-inner wide">
+    <div class="eyebrow reveal">Features</div>
+    <h2 class="section-heading reveal">Everything you need.<br>Nothing you don't.</h2>
+    <p class="lead-text reveal">Built for developers who want AI that actually knows them — without giving up their data or their infrastructure.</p>
+    <div class="features-grid">
+      <div class="feat-card reveal">
+        <div class="feat-icon"><i class="bi bi-database-fill-check"></i></div>
+        <div class="feat-title">Persistent Memory</div>
+        <p class="feat-desc">Memories survive every conversation, every tool, every session. 7 structured types keep things organized — facts, decisions, solutions and more.</p>
       </div>
-    </div>
-    <div class="row g-4">
-
-      <div class="col-md-6 col-lg-4 fade-up">
-        <div class="feature-card">
-          <div class="feature-icon"><i class="bi bi-database-fill-check"></i></div>
-          <div class="feature-title">Persistent Memory</div>
-          <p class="feature-desc">Memories survive every conversation, every tool, every session. 7 structured types keep things organized — facts, decisions, solutions and more.</p>
-        </div>
+      <div class="feat-card reveal" style="transition-delay:.07s">
+        <div class="feat-icon"><i class="bi bi-search-heart"></i></div>
+        <div class="feat-title">Semantic Search</div>
+        <p class="feat-desc">Powered by pgvector + Voyage AI embeddings. Ask about "my TypeScript projects" and get results matched by meaning, not just keywords.</p>
       </div>
-
-      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.1s">
-        <div class="feature-card">
-          <div class="feature-icon"><i class="bi bi-search-heart"></i></div>
-          <div class="feature-title">Semantic Search</div>
-          <p class="feature-desc">Powered by pgvector + Voyage AI. Ask for "my TypeScript projects" and get results by <em>meaning</em>, not just keyword matching.</p>
-        </div>
+      <div class="feat-card reveal" style="transition-delay:.14s">
+        <div class="feat-icon"><i class="bi bi-plug-fill"></i></div>
+        <div class="feat-title">MCP Native</div>
+        <p class="feat-desc">One brain shared across every agent. Claude, Cursor, Windsurf — all connect to the same Postgres database through the MCP protocol.</p>
       </div>
-
-      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.2s">
-        <div class="feature-card">
-          <div class="feature-icon"><i class="bi bi-plug-fill"></i></div>
-          <div class="feature-title">MCP Compatible</div>
-          <p class="feature-desc">One brain shared across every agent. Claude, Cursor, Windsurf — they all connect to the same Postgres database via the MCP protocol.</p>
-        </div>
+      <div class="feat-card reveal" style="transition-delay:.05s">
+        <div class="feat-icon"><i class="bi bi-lightning-charge-fill"></i></div>
+        <div class="feat-title">Real-time Streaming</div>
+        <p class="feat-desc">Responses stream token by token via WebSocket. Live code rendering, markdown on completion, smart auto-scroll. No waiting.</p>
       </div>
-
-      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.05s">
-        <div class="feature-card">
-          <div class="feature-icon"><i class="bi bi-lightning-charge-fill"></i></div>
-          <div class="feature-title">Real-time Streaming</div>
-          <p class="feature-desc">Responses stream token by token. Blinking cursor, live code rendering, markdown processed on completion. No waiting.</p>
-        </div>
+      <div class="feat-card reveal" style="transition-delay:.12s">
+        <div class="feat-icon"><i class="bi bi-box-fill"></i></div>
+        <div class="feat-title">Cloud & Local AI</div>
+        <p class="feat-desc">Switch between Claude and Ollama with one environment variable. Same memory, same tools, different provider. Fully offline-capable.</p>
       </div>
-
-      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.15s">
-        <div class="feature-card">
-          <div class="feature-icon"><i class="bi bi-box-fill"></i></div>
-          <div class="feature-title">Cloud & Local AI</div>
-          <p class="feature-desc">Switch between Claude (cloud) and Ollama (local) with one env var. No code changes. Same memory, same tools, different provider.</p>
-        </div>
+      <div class="feat-card reveal" style="transition-delay:.19s">
+        <div class="feat-icon"><i class="bi bi-broom-fill"></i></div>
+        <div class="feat-title">Auto Deduplication</div>
+        <p class="feat-desc">Background job finds near-duplicate memories every 10 minutes using cosine similarity. Dry-run by default — you stay in control.</p>
       </div>
-
-      <div class="col-md-6 col-lg-4 fade-up" style="transition-delay:0.25s">
-        <div class="feature-card">
-          <div class="feature-icon"><i class="bi bi-broom-fill"></i></div>
-          <div class="feature-title">Auto Deduplication</div>
-          <p class="feature-desc">Background job every 10 minutes finds near-duplicate memories using cosine similarity. Dry-run by default — you stay in control.</p>
-        </div>
-      </div>
-
     </div>
   </div>
 </section>
 
-<!-- ── How it works ──────────────────────────────────────────── -->
-<section id="how-it-works" class="py-5 mt-3">
-  <div class="container">
-    <div class="row g-5 align-items-start">
-      <div class="col-lg-5">
-        <div class="section-label">Architecture</div>
-        <h2 class="section-title">Simple stack.<br>Serious power.</h2>
-        <p class="section-desc mb-4">One database. One MCP server. Two AI providers. Your brain is just a Postgres table with vectors.</p>
-
-        <div class="type-pills fade-up">
-          <div class="type-pill"><span class="pip"></span> fact</div>
-          <div class="type-pill"><span class="pip"></span> preference</div>
-          <div class="type-pill"><span class="pip"></span> project</div>
-          <div class="type-pill"><span class="pip"></span> decision</div>
-          <div class="type-pill"><span class="pip"></span> solution</div>
-          <div class="type-pill"><span class="pip"></span> source</div>
-          <div class="type-pill"><span class="pip"></span> person</div>
+<!-- ── Architecture ────────────────────────────────────────────── -->
+<section class="section" id="architecture">
+  <div class="section-inner wide">
+    <div class="eyebrow reveal">Architecture</div>
+    <h2 class="section-heading reveal">Simple stack.<br>Serious power.</h2>
+    <p class="lead-text reveal">One database. One MCP server. Two AI providers.<br>Your brain is just a Postgres table with vectors.</p>
+    <div class="arch-card reveal">
+      <div class="arch-header"><i class="bi bi-diagram-3 me-1"></i> aperio / system architecture</div>
+      <div class="arch-body">
+        <div>
+          <div class="arch-layers">
+            <div class="arch-row"><span class="arch-icon">🌐</span><div><div class="arch-name">Web UI</div><div class="arch-sub">localhost:3000 · 4 themes · streaming</div></div></div>
+            <div class="arch-connector">↕ WebSocket</div>
+            <div class="arch-row"><span class="arch-icon">⚡</span><div><div class="arch-name">Express Server</div><div class="arch-sub">server.js · agent loop</div></div></div>
+            <div class="arch-connector">↕ stdio</div>
+            <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name">MCP Server</div><div class="arch-sub">mcp/index.js · 11 tools</div></div></div>
+            <div class="arch-connector">↕</div>
+            <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">Postgres 16 + pgvector</div><div class="arch-sub">memories table · HNSW index</div></div></div>
+            <div class="arch-connector">↕</div>
+            <div class="arch-row"><span class="arch-icon">✦</span><div><div class="arch-name">Voyage AI</div><div class="arch-sub">voyage-3 · 1024 dims · 50M free tokens</div></div></div>
+          </div>
         </div>
-
-        <div class="quote-block mt-5 fade-up">
-          <div class="quote-text">"The best memory system is one you forget about."</div>
-          <div class="quote-attr">— Aperio Philosophy</div>
-        </div>
-      </div>
-
-      <div class="col-lg-7 fade-up">
-        <div class="arch-box">
-          <div class="arch-layer">
-            <span class="arch-icon">🌐</span>
-            <span class="arch-name">Web UI</span>
-            <span class="arch-desc">localhost:3000 · 4 themes · streaming</span>
+        <div>
+          <div class="arch-section-label">AI Providers</div>
+          <div class="provider-chips">
+            <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">Claude API</div><div class="provider-desc">cloud · haiku · sonnet · opus</div></div></div>
+            <div class="provider-chip chip-local"><span class="chip-icon">⬡</span><div><div class="provider-label">Ollama</div><div class="provider-desc">local · free · offline capable</div></div></div>
           </div>
-          <div class="arch-arrow">↕ WebSocket</div>
-          <div class="arch-layer">
-            <span class="arch-icon">⚡</span>
-            <span class="arch-name">Express Server</span>
-            <span class="arch-desc">server.js · agent loop · streaming</span>
-          </div>
-          <div class="arch-arrow">↕ stdio</div>
-          <div class="arch-layer">
-            <span class="arch-icon">🔧</span>
-            <span class="arch-name">MCP Server</span>
-            <span class="arch-desc">mcp/index.js · 11 tools</span>
-          </div>
-          <div class="arch-arrow">↕</div>
-          <div class="arch-layer">
-            <span class="arch-icon">🐘</span>
-            <span class="arch-name">Postgres 16 + pgvector</span>
-            <span class="arch-desc">memories table · HNSW index</span>
-          </div>
-          <div class="arch-arrow">↕</div>
-          <div class="arch-layer">
-            <span class="arch-icon">✦</span>
-            <span class="arch-name">Voyage AI</span>
-            <span class="arch-desc">voyage-3 · 1024 dims · 50M free tokens</span>
-          </div>
-          <div style="height:16px"></div>
-          <div class="d-flex gap-3">
-            <div class="arch-layer flex-fill" style="background:rgba(124,58,237,0.06);border:1px solid rgba(124,58,237,0.2);border-radius:8px;">
-              <span class="arch-icon">✦</span>
-              <div>
-                <div style="color:var(--purple);font-size:12px;font-weight:600">Claude API</div>
-                <div style="color:var(--dim);font-size:11px">cloud</div>
-              </div>
-            </div>
-            <div class="arch-layer flex-fill" style="background:rgba(52,211,153,0.04);border:1px solid rgba(52,211,153,0.15);border-radius:8px;">
-              <span class="arch-icon">⬡</span>
-              <div>
-                <div style="color:var(--green);font-size:12px;font-weight:600">Ollama</div>
-                <div style="color:var(--dim);font-size:11px">local · free</div>
-              </div>
-            </div>
+          <div class="arch-section-label" style="margin-top:28px">Memory Types</div>
+          <div class="mem-types">
+            <span class="mem-type">fact</span><span class="mem-type">preference</span>
+            <span class="mem-type">project</span><span class="mem-type">decision</span>
+            <span class="mem-type">solution</span><span class="mem-type">source</span>
+            <span class="mem-type">person</span>
           </div>
         </div>
       </div>
@@ -987,275 +499,174 @@
   </div>
 </section>
 
-<!-- ── Tools ─────────────────────────────────────────────────── -->
-<section id="tools" class="py-5 mt-3">
-  <div class="container">
-    <div class="row mb-5">
-      <div class="col-lg-8">
-        <div class="section-label">MCP Tools</div>
-        <h2 class="section-title">11 tools. One brain.</h2>
-        <p class="section-desc">Every tool is available to Claude, Cursor, Windsurf — any MCP-compatible agent. Memory ops, file ops, web fetching.</p>
-      </div>
-    </div>
+<!-- ── Tools ───────────────────────────────────────────────────── -->
+<section class="section" id="tools">
+  <div class="section-inner wide">
+    <div class="eyebrow reveal">MCP Tools</div>
+    <h2 class="section-heading reveal">11 tools. One brain.</h2>
+    <p class="lead-text reveal">Every tool is available to Claude, Cursor, Windsurf — any MCP-compatible agent. Memory ops, file ops, web fetching.</p>
     <div class="tools-grid">
-      <div class="tool-chip fade-up">
-        <i class="bi bi-bookmark-plus-fill tool-chip-icon"></i>
-        <div><div class="tool-name">remember</div><div class="tool-desc">Save a memory with auto-generated embedding</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-search tool-chip-icon"></i>
-        <div><div class="tool-name">recall</div><div class="tool-desc">Semantic search with similarity scores</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-pencil-square tool-chip-icon"></i>
-        <div><div class="tool-name">update_memory</div><div class="tool-desc">Edit by UUID, regenerates embedding</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-trash3 tool-chip-icon"></i>
-        <div><div class="tool-name">forget</div><div class="tool-desc">Delete a memory by UUID</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-cpu tool-chip-icon"></i>
-        <div><div class="tool-name">backfill_embeddings</div><div class="tool-desc">Generate missing embeddings in batch</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-intersect tool-chip-icon"></i>
-        <div><div class="tool-name">dedup_memories</div><div class="tool-desc">Find near-duplicates via cosine similarity</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-file-earmark-text tool-chip-icon"></i>
-        <div><div class="tool-name">read_file</div><div class="tool-desc">Read any file from disk safely</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-file-earmark-arrow-up tool-chip-icon"></i>
-        <div><div class="tool-name">write_file</div><div class="tool-desc">Overwrite a file with new content</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-file-earmark-plus tool-chip-icon"></i>
-        <div><div class="tool-name">append_file</div><div class="tool-desc">Add to end of file without touching the rest</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-folder2-open tool-chip-icon"></i>
-        <div><div class="tool-name">scan_project</div><div class="tool-desc">Scan a folder tree, read key files</div></div>
-      </div>
-      <div class="tool-chip fade-up">
-        <i class="bi bi-globe tool-chip-icon"></i>
-        <div><div class="tool-name">fetch_url</div><div class="tool-desc">Fetch a URL, strip HTML, truncate</div></div>
-      </div>
+      <div class="tool-chip reveal"><i class="bi bi-bookmark-plus-fill tool-icon"></i><div><div class="tool-name">remember</div><div class="tool-desc">Save a memory with auto-generated embedding</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.04s"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">recall</div><div class="tool-desc">Semantic search with cosine similarity scores</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.08s"><i class="bi bi-pencil-square tool-icon"></i><div><div class="tool-name">update_memory</div><div class="tool-desc">Edit by UUID, regenerates embedding automatically</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.12s"><i class="bi bi-trash3 tool-icon"></i><div><div class="tool-name">forget</div><div class="tool-desc">Delete a specific memory by UUID</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.16s"><i class="bi bi-cpu tool-icon"></i><div><div class="tool-name">backfill_embeddings</div><div class="tool-desc">Generate missing embeddings in batch</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.20s"><i class="bi bi-intersect tool-icon"></i><div><div class="tool-name">dedup_memories</div><div class="tool-desc">Find near-duplicates via cosine similarity</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-file-earmark-text tool-icon"></i><div><div class="tool-name">read_file</div><div class="tool-desc">Read any file from disk (max 500 lines)</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.04s"><i class="bi bi-file-earmark-arrow-up tool-icon"></i><div><div class="tool-name">write_file</div><div class="tool-desc">Overwrite a file completely (absolute paths)</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.08s"><i class="bi bi-file-earmark-plus tool-icon"></i><div><div class="tool-name">append_file</div><div class="tool-desc">Add to end of file with before/after verification</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.12s"><i class="bi bi-folder2-open tool-icon"></i><div><div class="tool-name">scan_project</div><div class="tool-desc">Scan folder tree up to 3 levels deep</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.16s"><i class="bi bi-globe tool-icon"></i><div><div class="tool-name">fetch_url</div><div class="tool-desc">Fetch a URL, strip HTML, truncate to 15k chars</div></div></div>
     </div>
   </div>
 </section>
 
-<!-- ── vs Mem0 ───────────────────────────────────────────────── -->
-<section class="py-5 mt-3">
-  <div class="container">
-    <div class="row mb-5">
-      <div class="col-lg-8">
-        <div class="section-label">Comparison</div>
-        <h2 class="section-title">Aperio vs the cloud.</h2>
-        <p class="section-desc">Commercial memory services are great products. Aperio is a different choice — your data, your infrastructure, your rules.</p>
-      </div>
-    </div>
-    <div class="compare-table fade-up">
+<!-- ── Comparison ──────────────────────────────────────────────── -->
+<section class="section">
+  <div class="section-inner wide">
+    <div class="eyebrow reveal">Why Aperio</div>
+    <h2 class="section-heading reveal">Your data. Your rules.</h2>
+    <p class="lead-text reveal">Commercial memory services are great products. Aperio is a different choice — self-hosted, open source, fully customizable.</p>
+    <div class="compare-wrap reveal">
       <table>
         <thead>
           <tr>
-            <th style="width:30%">Feature</th>
-            <th class="col-aperio" style="width:35%">✦ Aperio</th>
-            <th style="width:35%">Cloud Services</th>
+            <th style="width:34%">Feature</th>
+            <th class="col-aperio" style="width:33%">✦ Aperio</th>
+            <th style="width:33%">Cloud Services</th>
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>Data ownership</td>
-            <td class="col-aperio yes">✅ 100% yours</td>
-            <td class="no">✗ Vendor's servers</td>
-          </tr>
-          <tr>
-            <td>Cost</td>
-            <td class="col-aperio yes">✅ Free (self-hosted)</td>
-            <td class="no">$ Monthly subscription</td>
-          </tr>
-          <tr>
-            <td>Local AI support</td>
-            <td class="col-aperio yes">✅ Ollama built-in</td>
-            <td class="no">✗ Cloud only</td>
-          </tr>
-          <tr>
-            <td>File system access</td>
-            <td class="col-aperio yes">✅ read / write / append</td>
-            <td class="no">✗ Not available</td>
-          </tr>
-          <tr>
-            <td>Customizable</td>
-            <td class="col-aperio yes">✅ Full source access</td>
-            <td class="no">✗ Fixed API</td>
-          </tr>
-          <tr>
-            <td>MCP integration</td>
-            <td class="col-aperio yes">✅ Native</td>
-            <td class="no">⚠ Varies</td>
-          </tr>
-          <tr>
-            <td>Offline capable</td>
-            <td class="col-aperio yes">✅ With Ollama</td>
-            <td class="no">✗ Requires internet</td>
-          </tr>
+          <tr><td>Data ownership</td><td class="col-aperio"><span class="tick">✅</span> 100% yours — own Postgres</td><td><span class="cross">✗</span> Vendor's servers</td></tr>
+          <tr><td>Monthly cost</td><td class="col-aperio"><span class="tick">✅</span> Free (self-hosted)</td><td><span class="cross">✗</span> $20–100 / month</td></tr>
+          <tr><td>Local AI support</td><td class="col-aperio"><span class="tick">✅</span> Ollama built-in</td><td><span class="cross">✗</span> Cloud only</td></tr>
+          <tr><td>File system tools</td><td class="col-aperio"><span class="tick">✅</span> read · write · append</td><td><span class="cross">✗</span> Not available</td></tr>
+          <tr><td>Full source access</td><td class="col-aperio"><span class="tick">✅</span> Open source — fork it</td><td><span class="cross">✗</span> Closed API</td></tr>
+          <tr><td>MCP integration</td><td class="col-aperio"><span class="tick">✅</span> Native protocol</td><td><span class="cross">⚠</span> Varies</td></tr>
+          <tr><td>Works offline</td><td class="col-aperio"><span class="tick">✅</span> With Ollama</td><td><span class="cross">✗</span> Requires internet</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 </section>
 
-<!-- ── Setup ─────────────────────────────────────────────────── -->
-<section id="setup" class="py-5 mt-3">
-  <div class="container">
-    <div class="row mb-5">
-      <div class="col-lg-8">
-        <div class="section-label">Quick Start</div>
-        <h2 class="section-title">Up in 5 minutes.</h2>
-        <p class="section-desc">Node 18+, Docker, an Anthropic key and a Voyage AI key (free tier). That's all.</p>
-      </div>
-    </div>
-    <div class="row g-4">
-      <div class="col-md-6 col-lg-3 fade-up">
-        <div class="step-card">
-          <div class="step-number">01</div>
-          <div class="step-title">Clone & install</div>
-          <div class="code-snippet">
-            <div class="comment"># clone the repo</div>
-            <div class="cmd">git clone github.com/<br>BaiGanio/aperio</div>
-            <div class="cmd">cd aperio && npm i</div>
-          </div>
+<!-- ── Setup ───────────────────────────────────────────────────── -->
+<section class="section" id="setup">
+  <div class="section-inner wide">
+    <div class="eyebrow reveal">Quick Start</div>
+    <h2 class="section-heading reveal">Up in 5 minutes.</h2>
+    <p class="lead-text reveal">Node 18+, Docker, an Anthropic API key and a free Voyage AI key. That's all.</p>
+    <div class="steps-grid">
+      <div class="step-card reveal">
+        <div class="step-num">01</div>
+        <div class="step-title">Clone & install</div>
+        <div class="code-block">
+          <div class="c"># clone the repo</div>
+          <div class="s">git clone github.com/</div>
+          <div class="s">&nbsp;&nbsp;BaiGanio/aperio</div>
+          <div class="s">cd aperio</div>
+          <div class="s">npm install</div>
         </div>
       </div>
-      <div class="col-md-6 col-lg-3 fade-up" style="transition-delay:0.1s">
-        <div class="step-card">
-          <div class="step-number">02</div>
-          <div class="step-title">Configure .env</div>
-          <div class="code-snippet">
-            <div class="cmd">cp .env.example .env</div>
-            <div>&nbsp;</div>
-            <div class="comment"># add your keys</div>
-            <div class="cmd">ANTHROPIC_API_KEY=...</div>
-            <div class="cmd">VOYAGE_API_KEY=...</div>
-          </div>
+      <div class="step-card reveal" style="transition-delay:.08s">
+        <div class="step-num">02</div>
+        <div class="step-title">Configure .env</div>
+        <div class="code-block">
+          <div class="s">cp .env.example .env</div>
+          <div>&nbsp;</div>
+          <div class="c"># add your keys</div>
+          <div><span class="k">ANTHROPIC_API_KEY</span>=<span class="v">sk-ant-...</span></div>
+          <div><span class="k">VOYAGE_API_KEY</span>=<span class="v">pa-...</span></div>
         </div>
       </div>
-      <div class="col-md-6 col-lg-3 fade-up" style="transition-delay:0.2s">
-        <div class="step-card">
-          <div class="step-number">03</div>
-          <div class="step-title">Start database</div>
-          <div class="code-snippet">
-            <div class="cmd">cd docker</div>
-            <div class="cmd">docker compose up -d</div>
-            <div class="cmd">cd ..</div>
-            <div class="comment"># run migrations</div>
-            <div class="cmd">docker exec -i ...</div>
-          </div>
+      <div class="step-card reveal" style="transition-delay:.16s">
+        <div class="step-num">03</div>
+        <div class="step-title">Start database</div>
+        <div class="code-block">
+          <div class="s">cd docker</div>
+          <div class="s">docker compose up -d</div>
+          <div class="s">cd ..</div>
+          <div class="c"># run migrations</div>
+          <div class="s">docker exec -i ...</div>
         </div>
       </div>
-      <div class="col-md-6 col-lg-3 fade-up" style="transition-delay:0.3s">
-        <div class="step-card">
-          <div class="step-number">04</div>
-          <div class="step-title">Launch Aperio</div>
-          <div class="code-snippet">
-            <div class="comment"># cloud (Claude)</div>
-            <div class="cmd">npm run start:cloud</div>
-            <div>&nbsp;</div>
-            <div class="comment"># local (Ollama)</div>
-            <div class="cmd">npm run start:local</div>
-          </div>
+      <div class="step-card reveal" style="transition-delay:.24s">
+        <div class="step-num">04</div>
+        <div class="step-title">Launch Aperio</div>
+        <div class="code-block">
+          <div class="c"># cloud (Claude)</div>
+          <div class="s">npm run start:cloud</div>
+          <div>&nbsp;</div>
+          <div class="c"># local (Ollama)</div>
+          <div class="s">npm run start:local</div>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ── CTA ───────────────────────────────────────────────────── -->
-<section class="py-5 mt-3">
-  <div class="container">
-    <div class="cta-section fade-up">
-      <h2 class="cta-title">
-        Your AI has been amnesiac.<br>
-        <em class="aurora-text">Fix that today.</em>
+<!-- ── CTA ─────────────────────────────────────────────────────── -->
+<section class="section">
+  <div class="section-inner">
+    <div class="cta-wrap reveal">
+      <div class="cta-tagline">Open source · free forever</div>
+      <h2 class="cta-heading">
+        Your AI has been<br>
+        <span class="aurora-text">amnesiac.</span><br>
+        Fix that today.
       </h2>
-      <p class="cta-sub">Open source. Self-hosted. Takes 5 minutes.</p>
-      <div class="d-flex gap-3 justify-content-center flex-wrap" style="position:relative">
+      <p class="cta-sub">Self-hosted. Takes 5 minutes.</p>
+      <div class="cta-group" style="position:relative">
         <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-primary-aurora">
           <i class="bi bi-github"></i> Star on GitHub
         </a>
-        <a href="https://github.com/BaiGanio/aperio#readme" target="_blank" class="btn-ghost">
+        <a href="https://github.com/BaiGanio/aperio#readme" target="_blank" class="btn-outline-aurora">
           <i class="bi bi-book"></i> Read the docs
         </a>
       </div>
-
-      <div class="mt-4" style="position:relative">
-        <span class="badge-pill">From Latin <em>aperire</em> — to open, to reveal, to bring into the light</span>
-      </div>
+      <div class="origin-note">From Latin <em>aperire</em> — to open, to reveal, to bring into the light</div>
     </div>
   </div>
 </section>
 
-<!-- ── Footer ────────────────────────────────────────────────── -->
-<footer class="mt-5">
-  <div class="container">
-    <div class="row align-items-center">
-      <div class="col-md-4 mb-3 mb-md-0">
-        <a href="#" class="footer-logo">
-          <div class="logo-mark" style="width:24px;height:24px;font-size:11px;border-radius:6px">A</div>
-          Aperio
-        </a>
-        <div class="footer-tagline">One brain. Every agent. Nothing forgotten.</div>
-      </div>
-      <div class="col-md-4 text-md-center mb-3 mb-md-0">
-        <div class="footer-tagline">Built with ☕ and pgvector</div>
-      </div>
-      <div class="col-md-4">
-        <div class="d-flex gap-4 justify-content-md-end">
-          <a href="https://github.com/BaiGanio/aperio" target="_blank" class="footer-link">
-            <i class="bi bi-github"></i> GitHub
-          </a>
-          <a href="https://github.com/BaiGanio/aperio#readme" target="_blank" class="footer-link">
-            <i class="bi bi-book"></i> Docs
-          </a>
-          <a href="https://github.com/BaiGanio/aperio/blob/master/LICENSE" target="_blank" class="footer-link">
-            <i class="bi bi-file-text"></i> License
-          </a>
-        </div>
-      </div>
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-inner">
+    <a href="#" class="footer-brand">
+      <div class="footer-logo-mark">A</div>
+      <div><div class="footer-name">Aperio</div><div class="footer-sub">One brain. Every agent. Nothing forgotten.</div></div>
+    </a>
+    <div class="footer-links">
+      <a href="https://github.com/BaiGanio/aperio" target="_blank" class="footer-link"><i class="bi bi-github"></i> GitHub</a>
+      <a href="https://github.com/BaiGanio/aperio#readme" target="_blank" class="footer-link"><i class="bi bi-book"></i> Docs</a>
+      <a href="https://github.com/BaiGanio/aperio/blob/master/LICENSE" target="_blank" class="footer-link"><i class="bi bi-file-text"></i> License</a>
     </div>
+    <div class="footer-copy">Built with ☕ and pgvector</div>
   </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-  // Intersection observer for fade-up animations
+  // Mobile nav
+  document.getElementById('navToggle').addEventListener('click', () => {
+    document.getElementById('navLinks').classList.toggle('open');
+  });
+
+  // Scroll reveal
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(el => {
-      if (el.isIntersecting) {
-        el.target.classList.add('visible');
-        observer.unobserve(el.target);
-      }
+      if (el.isIntersecting) { el.target.classList.add('in'); observer.unobserve(el.target); }
     });
-  }, { threshold: 0.12 });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
-  document.querySelectorAll('.fade-up').forEach(el => observer.observe(el));
-
-  // Smooth active nav link highlighting
+  // Active nav highlight
   const sections = document.querySelectorAll('section[id]');
-  const navLinks = document.querySelectorAll('.nav-link[href^="#"]');
-
+  const navAs = document.querySelectorAll('.nav-links a[href^="#"]');
   window.addEventListener('scroll', () => {
     let current = '';
-    sections.forEach(s => {
-      if (window.scrollY >= s.offsetTop - 100) current = s.id;
-    });
-    navLinks.forEach(l => {
-      l.style.color = l.getAttribute('href') === '#' + current
-        ? 'var(--purple)'
-        : '';
-    });
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) current = s.id; });
+    navAs.forEach(a => { a.style.color = a.getAttribute('href') === '#' + current ? 'var(--purple)' : ''; });
   }, { passive: true });
 </script>
 </body>
