@@ -123,6 +123,7 @@ brew install ollama          # macOS
 
 # 2. Pull a model
 ollama pull llama3.1         # recommended — best tool-calling support
+ollama pull deepseek-r1:14b  # supports native thinking tokens (14b fits perfectly in MacBook M1 Pro 32GB)
 
 # 3. Switch provider in .env
 AI_PROVIDER=ollama
