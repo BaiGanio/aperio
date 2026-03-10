@@ -33,7 +33,6 @@ function stopThinking() {
   if (thinkingTimer) {
     clearInterval(thinkingTimer);
     thinkingTimer = null;
-    // Clear the thinking line
     process.stdout.write(`\r${" ".repeat(THINKING_PREFIX.length + 4)}\r`);
   }
 }
@@ -43,19 +42,23 @@ async function chat() {
   console.log("\n🧠 Aperio Chat");
   console.log("─────────────────────────────────────");
   console.log("Your AI assistant with persistent memory");
+  console.log(`Provider: ${process.env.AI_PROVIDER || "anthropic"} · Port: ${PORT}`);
   console.log('Type "exit" to quit\n');
 
   await new Promise((resolve, reject) => {
     ws.on("open", () => {
       console.log("✅ Connected to Aperio server\n");
-      startThinking();
       resolve();
     });
     ws.on("error", (err) => {
-      console.error("❌ Connection failed:", err.message);
+      const reason = err.message || err.code || String(err);
+      console.error(`❌ Connection failed: ${reason}`);
+      console.error(`   → Is the server running? Try: npm run start:local`);
       reject(err);
     });
   });
+
+  startThinking();
 
   ws.on("message", (raw) => {
     try {
@@ -68,7 +71,7 @@ async function chat() {
       } else if (msg.type === "token") {
         if (needsLabel) {
           stopThinking();
-          process.stdout.write("\x1b[36mClaude:\x1b[0m " + msg.text);
+          process.stdout.write("\x1b[36mAperio:\x1b[0m " + msg.text);
           needsLabel = false;
           hasVisibleText = true;
         } else {
@@ -121,6 +124,7 @@ async function chat() {
 }
 
 chat().catch((err) => {
-  console.error("Fatal error:", err.message);
+  const reason = err.message || err.code || String(err);
+  console.error("Fatal error:", reason);
   process.exit(1);
 });
