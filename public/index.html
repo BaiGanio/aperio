@@ -1342,7 +1342,11 @@ function handleMessage(msg) {
         label = `✦ ${m.includes("haiku") ? "haiku" : m.includes("sonnet") ? "sonnet" : m.includes("opus") ? "opus" : m}`;
       }
       badge.textContent = label;
-      badge.title = `${msg.name} — ${msg.model}`;
+      badge.title = `${msg.name} — ${msg.model}${msg.nativeReasoning ? ' ⚡ native reasoning' : ''}`;
+      if (msg.nativeReasoning) {
+        const rt = document.getElementById('reasoningToggle');
+        if (rt) { rt.title = 'DeepSeek R1 — native reasoning active'; rt.style.borderColor = 'var(--accent)'; }
+      }
       badge.style.display = "inline";
       badge.style.background = isOllama ? "rgba(34,197,94,.15)" : "var(--accent-soft)";
       badge.style.color      = isOllama ? "#22c55e"             : "var(--accent)";
