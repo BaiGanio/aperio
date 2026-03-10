@@ -14,7 +14,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, ".env") });
 
 const systemPromptBase = readFileSync(resolve(__dirname, "prompts/system_prompt.md"), "utf-8");
-// Injected at runtime so the model knows its own identity
 const getSystemPrompt = () => `${systemPromptBase}
 
 ---
@@ -22,37 +21,14 @@ You are running as: ${PROVIDER === "ollama" ? `Ollama (${OLLAMA_MODEL})` : `Anth
 If asked which model or AI you are, answer accurately using the above.`;
 
 // ─── Provider config ──────────────────────────────────────────────────────────
-//
-// Switch AI provider by setting AI_PROVIDER in your .env:
-//
-//   AI_PROVIDER=anthropic   → Claude via Anthropic API (default)
-//   AI_PROVIDER=ollama      → Local model via Ollama (free, no API key)
-//
-// Anthropic models:
-//   claude-haiku-4-5-20251001   fast + cheap (default)
-//   claude-sonnet-4-6           balanced
-//   claude-opus-4-6             most capable
-//
-// Ollama models (must be pulled first via `ollama pull <model>`):
-//   llama3.1        recommended — best tool use support
-//   mistral         good alternative
-//   qwen2.5         fast and capable
-//
-const PROVIDER     = process.env.AI_PROVIDER?.toLowerCase() || "anthropic";
+const PROVIDER        = process.env.AI_PROVIDER?.toLowerCase() || "anthropic";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || "llama3.1";
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 
-// ─── Provider boot ────────────────────────────────────────────────────────────
 let provider;
-
 if (PROVIDER === "ollama") {
-  // Ollama exposes an OpenAI-compatible API — no extra SDK needed
-  provider = {
-    name: "ollama",
-    model: OLLAMA_MODEL,
-    baseURL: `${OLLAMA_BASE_URL}/v1`,
-  };
+  provider = { name: "ollama", model: OLLAMA_MODEL, baseURL: `${OLLAMA_BASE_URL}/v1` };
   console.log(`🤖 Provider: Ollama (${OLLAMA_MODEL}) @ ${OLLAMA_BASE_URL}`);
 } else {
   provider = {
@@ -73,6 +49,7 @@ await mcp.connect(transport);
 console.log("✅ MCP server connected");
 
 const { tools: mcpTools } = await mcp.listTools();
+const mcpToolNames = new Set(mcpTools.map(t => t.name));
 
 // Anthropic tool format
 const anthropicTools = mcpTools.map((t) => ({
@@ -81,48 +58,57 @@ const anthropicTools = mcpTools.map((t) => ({
   input_schema: t.inputSchema,
 }));
 
-// OpenAI-compatible tool format (for Ollama)
-// Simplified schemas — local models struggle with complex optional enums
-const simplifySchema = (name, schema) => {
-  if (name === "recall") {
-    return {
-      type: "object",
-      properties: {
-        query: { type: "string", description: "What to search for (optional — omit to load all memories)" },
-        limit: { type: "number", description: "Max results (default 10, max 50)" },
-      },
-    };
-  }
-  if (name === "remember") {
-    return {
-      type: "object",
-      required: ["type", "title", "content"],
-      properties: {
-        type:       { type: "string", enum: ["fact","preference","project","decision","solution","source","person"] },
-        title:      { type: "string", description: "Short title" },
-        content:    { type: "string", description: "Full memory content in plain English" },
-        importance: { type: "number", description: "1-5 (default 3)" },
-        tags:       { type: "array", items: { type: "string" } },
-      },
-    };
-  }
-  return schema;
+// OpenAI-compatible tool format (for Ollama) — simplified schemas
+const simplifySchema = (name) => {
+  if (name === "recall") return {
+    type: "object",
+    properties: {
+      query: { type: "string", description: "What to search for (optional — omit to load all memories)" },
+      limit: { type: "number", description: "Max results (default 10, max 50)" },
+    },
+  };
+  if (name === "remember") return {
+    type: "object",
+    required: ["type", "title", "content"],
+    properties: {
+      type:       { type: "string", enum: ["fact","preference","project","decision","solution","source","person"] },
+      title:      { type: "string", description: "Short title" },
+      content:    { type: "string", description: "Full memory content in plain English" },
+      importance: { type: "number", description: "1-5 (default 3)" },
+      tags:       { type: "array", items: { type: "string" } },
+    },
+  };
+  return { type: "object", properties: {} };
 };
 
 const ollamaTools = mcpTools.map((t) => ({
   type: "function",
-  function: {
-    name: t.name,
-    description: t.description,
-    parameters: simplifySchema(t.name, t.inputSchema),
-  },
+  function: { name: t.name, description: t.description, parameters: simplifySchema(t.name) },
 }));
 
 async function callTool(name, input) {
-  // Local models sometimes wrap args in a "parameters" key — unwrap it
   const args = input?.parameters !== undefined ? input.parameters : (input ?? {});
   const result = await mcp.callTool({ name, arguments: args });
   return result.content?.[0]?.text ?? "No result";
+}
+
+// ─── Tool-call text interceptor (for Ollama models that ignore tool API) ──────
+// Some local models print raw JSON tool calls as text instead of using tool_calls.
+// This detects patterns like: {"name": "recall", "parameters": {...}}
+// and re-routes them as real tool executions.
+function extractTextToolCall(text) {
+  // Match JSON object containing a "name" field that is a known tool
+  const match = text.match(/\{[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*?\}/);
+  if (!match) return null;
+  const toolName = match[1];
+  if (!mcpToolNames.has(toolName)) return null;
+  try {
+    const parsed = JSON.parse(match[0]);
+    const params = parsed.parameters ?? parsed.input ?? parsed.arguments ?? {};
+    return { name: toolName, input: params };
+  } catch {
+    return null;
+  }
 }
 
 // ─── Streaming agent loop — Anthropic ─────────────────────────────────────────
@@ -202,12 +188,6 @@ async function runAnthropicLoop(messages, ws) {
       continue;
     }
 
-    // No tool use - just push text if any
-    const textContent = contentBlocks.filter(b => b.type === "text" && b.text?.trim());
-    if (textContent.length > 0) {
-      messages.push({ role: "assistant", content: textContent });
-    }
-
     return fullText;
   }
 }
@@ -219,26 +199,18 @@ async function runOllamaLoop(messages, ws) {
       ? [messages[0], ...messages.slice(-(MAX_HISTORY - 1))]
       : messages;
 
-    // Convert Anthropic-style messages to OpenAI format
     const openaiMessages = [
       { role: "system", content: getSystemPrompt() },
       ...trimmed.map(m => {
-        // tool_result → tool message
         if (Array.isArray(m.content) && m.content[0]?.type === "tool_result") {
-          return {
-            role: "tool",
-            tool_call_id: m.content[0].tool_use_id,
-            content: m.content[0].content,
-          };
+          return { role: "tool", tool_call_id: m.content[0].tool_use_id, content: m.content[0].content };
         }
-        // assistant with tool_use blocks
         if (Array.isArray(m.content)) {
           const text = m.content.filter(b => b.type === "text").map(b => b.text).join("");
           const toolCalls = m.content
             .filter(b => b.type === "tool_use")
             .map(b => ({
-              id: b.id,
-              type: "function",
+              id: b.id, type: "function",
               function: { name: b.name, arguments: JSON.stringify(b.input) },
             }));
           return { role: m.role, content: text || null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) };
@@ -247,27 +219,19 @@ async function runOllamaLoop(messages, ws) {
       }),
     ];
 
-    ws.send(JSON.stringify({ type: "stream_start" }));
-
-    let fullText = "";
-    let toolCalls = [];
-    let currentCall = null;
-
-    // ── Check Ollama is running before attempting ──────────────
+    // ── Health check ──────────────────────────────────────────────────────────
     try {
       const health = await fetch(`${OLLAMA_BASE_URL}/api/tags`, { signal: AbortSignal.timeout(3000) });
       if (!health.ok) throw new Error("Ollama not ready");
     } catch {
-      const msg = `Ollama is not running at ${OLLAMA_BASE_URL}.\n\nFix:\n1. Install Ollama at https://ollama.ai\n2. Run: ollama serve\n3. Pull a model: ollama pull ${OLLAMA_MODEL}\n4. Restart Aperio`;
+      const msg = `Ollama is not running at ${OLLAMA_BASE_URL}.\n\nFix:\n1. Install Ollama: https://ollama.ai\n2. Run: ollama serve\n3. Pull model: ollama pull ${OLLAMA_MODEL}\n4. Restart Aperio`;
       ws.send(JSON.stringify({ type: "stream_start" }));
       ws.send(JSON.stringify({ type: "token", text: "⚠️ **Ollama not reachable**\n\n" + msg }));
-      ws.send(JSON.stringify({ type: "stream_end", text: "⚠️ **Ollama not reachable**\n\n" + msg }));
-      ws.send(JSON.stringify({ type: "connected", text: "connected" }));
-      sendBtn && (sendBtn.disabled = false);
-      return "Ollama not reachable";
+      ws.send(JSON.stringify({ type: "stream_end", text: msg }));
+      return msg;
     }
 
-    // Ollama streaming via fetch (OpenAI-compatible SSE)
+    // ── Request ───────────────────────────────────────────────────────────────
     let response;
     try {
       response = await fetch(`${provider.baseURL}/chat/completions`, {
@@ -284,7 +248,7 @@ async function runOllamaLoop(messages, ws) {
       const msg = `Could not connect to Ollama: ${fetchErr.message}\n\nMake sure Ollama is running: ollama serve`;
       ws.send(JSON.stringify({ type: "stream_start" }));
       ws.send(JSON.stringify({ type: "token", text: "⚠️ " + msg }));
-      ws.send(JSON.stringify({ type: "stream_end", text: "⚠️ " + msg }));
+      ws.send(JSON.stringify({ type: "stream_end", text: msg }));
       return msg;
     }
 
@@ -293,9 +257,15 @@ async function runOllamaLoop(messages, ws) {
       const msg = `Ollama error ${response.status}: ${errText}\n\nIs the model pulled? Run: ollama pull ${OLLAMA_MODEL}`;
       ws.send(JSON.stringify({ type: "stream_start" }));
       ws.send(JSON.stringify({ type: "token", text: "⚠️ " + msg }));
-      ws.send(JSON.stringify({ type: "stream_end", text: "⚠️ " + msg }));
+      ws.send(JSON.stringify({ type: "stream_end", text: msg }));
       return msg;
     }
+
+    // ── Stream ────────────────────────────────────────────────────────────────
+    ws.send(JSON.stringify({ type: "stream_start" }));
+
+    let fullText = "";
+    let toolCalls = [];
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -313,13 +283,11 @@ async function runOllamaLoop(messages, ws) {
           const delta = data.choices?.[0]?.delta;
           if (!delta) continue;
 
-          // Text token
           if (delta.content) {
             fullText += delta.content;
             ws.send(JSON.stringify({ type: "token", text: delta.content }));
           }
 
-          // Tool call delta
           if (delta.tool_calls) {
             for (const tc of delta.tool_calls) {
               if (tc.index !== undefined) {
@@ -333,7 +301,6 @@ async function runOllamaLoop(messages, ws) {
             }
           }
 
-          // Finish reason
           const finish = data.choices?.[0]?.finish_reason;
           if (finish === "stop" || finish === "tool_calls") {
             ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
@@ -342,15 +309,40 @@ async function runOllamaLoop(messages, ws) {
       }
     }
 
-    // Build assistant message for history
+    // ── Text tool-call interception ───────────────────────────────────────────
+    // If model printed a tool call as text instead of using tool_calls API,
+    // detect it, suppress the text from the UI, and execute it as a real call.
+    if (toolCalls.length === 0 && fullText.trim()) {
+      const intercepted = extractTextToolCall(fullText);
+      if (intercepted) {
+        console.log(`[ollama] intercepted text tool call: ${intercepted.name}`);
+        ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
+        // Suppress the raw JSON from the chat — send a corrected stream_end with no text
+        ws.send(JSON.stringify({ type: "stream_end", text: "" }));
+
+        const result = await callTool(intercepted.name, intercepted.input);
+        const fakeId = `intercept_${Date.now()}`;
+
+        messages.push({ role: "assistant", content: [
+          { type: "tool_use", id: fakeId, name: intercepted.name, input: intercepted.input }
+        ]});
+        messages.push({ role: "user", content: [
+          { type: "tool_result", tool_use_id: fakeId, content: result }
+        ]});
+        continue; // re-run loop so model responds with the tool result
+      }
+    }
+
+    // ── Build history ─────────────────────────────────────────────────────────
     const assistantMsg = { role: "assistant", content: [] };
     if (fullText) assistantMsg.content.push({ type: "text", text: fullText });
     toolCalls.forEach(tc => assistantMsg.content.push({
-      type: "tool_use", id: tc.id, name: tc.name, input: (() => { try { return JSON.parse(tc.args || "{}"); } catch { return {}; } })(),
+      type: "tool_use", id: tc.id, name: tc.name,
+      input: (() => { try { return JSON.parse(tc.args || "{}"); } catch { return {}; } })(),
     }));
     messages.push(assistantMsg);
 
-    // Execute tool calls
+    // ── Execute real tool calls ───────────────────────────────────────────────
     if (toolCalls.length > 0) {
       const toolResults = [];
       for (const tc of toolCalls) {
@@ -369,10 +361,9 @@ async function runOllamaLoop(messages, ws) {
 
 // ─── Unified agent loop ───────────────────────────────────────────────────────
 async function runAgentLoop(messages, ws) {
-  if (provider.name === "ollama") {
-    return runOllamaLoop(messages, ws);
-  }
-  return runAnthropicLoop(messages, ws);
+  return provider.name === "ollama"
+    ? runOllamaLoop(messages, ws)
+    : runAnthropicLoop(messages, ws);
 }
 
 // ─── Express + WebSocket ──────────────────────────────────────────────────────
@@ -387,7 +378,6 @@ wss.on("connection", (ws) => {
   const messages = [];
   let initialized = false;
 
-  // Send provider info to UI on connect
   ws.send(JSON.stringify({ type: "status", text: "connected" }));
   ws.send(JSON.stringify({ type: "provider", name: provider.name, model: provider.model }));
 
@@ -410,18 +400,15 @@ wss.on("connection", (ws) => {
         await init();
         return;
       }
-
       if (data.type === "chat") {
         messages.push({ role: "user", content: data.text });
         ws.send(JSON.stringify({ type: "thinking" }));
         await runAgentLoop(messages, ws);
         await sendMemories(ws);
       }
-
       if (data.type === "get_memories") {
         await sendMemories(ws);
       }
-
       if (data.type === "delete_memory") {
         try {
           await callTool("forget", { id: data.id });
@@ -436,7 +423,7 @@ wss.on("connection", (ws) => {
   });
 });
 
-// ─── Fetch memories ───────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 async function sendMemories(ws) {
   try {
     const result = await callTool("recall", { limit: 50 });
@@ -446,7 +433,7 @@ async function sendMemories(ws) {
   }
 }
 
-// ─── Memory deduplication job ─────────────────────────────────────────────────
+// ─── Memory dedup job ─────────────────────────────────────────────────────────
 const DEDUP_INTERVAL_MS = 10 * 60 * 1000;
 const DEDUP_THRESHOLD   = 0.97;
 

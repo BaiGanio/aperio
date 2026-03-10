@@ -9,8 +9,8 @@
     "start:cloud": "AI_PROVIDER=anthropic PORT=3000 node server.js",
     "start:local": "AI_PROVIDER=ollama PORT=3001 node server.js",
     "chat": "node scripts/chat.js",
-    "chat:cloud": "AI_PROVIDER=anthropic node scripts/chat.js",
-    "chat:local": "AI_PROVIDER=ollama node scripts/chat.js",
+    "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node scripts/chat.js",
+    "chat:local": "AI_PROVIDER=ollama PORT=3001 node scripts/chat.js",
     "mcp": "node mcp/index.js"
   },
   "dependencies": {
