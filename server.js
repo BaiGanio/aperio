@@ -18,13 +18,26 @@ const getSystemPrompt = () => `${systemPromptBase}
 
 ---
 You are running as: ${PROVIDER === "ollama" ? `Ollama (${OLLAMA_MODEL})` : `Anthropic Claude (${ANTHROPIC_MODEL})`}
-If asked which model or AI you are, answer accurately using the above.`;
+If asked which model or AI you are, answer accurately using the above.
+${PROVIDER === "ollama" ? (IS_DEEPSEEK_R1 ? `
+You are DeepSeek R1 — a reasoning model. Your <think> blocks are handled automatically and shown to the user as collapsible reasoning. You do NOT need to narrate tool calls in your visible response.
+- Call tools using the tool_calls API — do NOT print JSON tool syntax in your response.
+- After a tool runs, respond naturally with the result.` : `
+CRITICAL — OLLAMA RULES (non-negotiable):
+- NEVER write text before calling a tool. Call the tool first, silently.
+- NEVER narrate what you are about to do. Just do it.
+- NEVER explain your reasoning before a tool call.
+- NEVER print JSON tool call syntax as text. Use the tool_calls API only.
+- Your FIRST action in every response that needs a tool must be the tool call itself — zero text before it.`) : ""}`;
 
 // ─── Provider config ──────────────────────────────────────────────────────────
 const PROVIDER        = process.env.AI_PROVIDER?.toLowerCase() || "anthropic";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
 const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || "llama3.1";
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+
+// DeepSeek R1 emits native <think>...</think> blocks — detect by model name
+const IS_DEEPSEEK_R1  = OLLAMA_MODEL.toLowerCase().includes("deepseek-r1");
 
 let provider;
 if (PROVIDER === "ollama") {
@@ -63,8 +76,8 @@ const simplifySchema = (name) => {
   if (name === "recall") return {
     type: "object",
     properties: {
-      query: { type: "string", description: "What to search for (optional — omit to load all memories)" },
-      limit: { type: "number", description: "Max results (default 10, max 50)" },
+      query: { type: "string", description: "Search query. OMIT entirely to load all memories. Do NOT pass null, None, or empty string." },
+      limit: { type: "integer", description: "Max results. Must be an integer. Default 10, max 50." },
     },
   };
   if (name === "remember") return {
@@ -97,15 +110,21 @@ async function callTool(name, input) {
 // This detects patterns like: {"name": "recall", "parameters": {...}}
 // and re-routes them as real tool executions.
 function extractTextToolCall(text) {
+  // Strip backtick code fences — models often wrap tool calls in ```json ... ```
+  const stripped = text.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
   // Match JSON object containing a "name" field that is a known tool
-  const match = text.match(/\{[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*?\}/);
+  const match = stripped.match(/\{[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*?\}/);
   if (!match) return null;
   const toolName = match[1];
   if (!mcpToolNames.has(toolName)) return null;
   try {
     const parsed = JSON.parse(match[0]);
     const params = parsed.parameters ?? parsed.input ?? parsed.arguments ?? {};
-    return { name: toolName, input: params };
+    // Clean "None"/"null" string values — model sometimes emits these for optional fields
+    const cleaned = Object.fromEntries(
+      Object.entries(params).filter(([_, v]) => v !== "None" && v !== "null" && v !== null && v !== undefined && v !== "")
+    );
+    return { name: toolName, input: cleaned };
   } catch {
     return null;
   }
@@ -261,14 +280,18 @@ async function runOllamaLoop(messages, ws) {
       return msg;
     }
 
-    // ── Stream ────────────────────────────────────────────────────────────────
-    ws.send(JSON.stringify({ type: "stream_start" }));
-
+    // ── Live stream with retract fallback ────────────────────────────────────
+    // Stream tokens live for typewriter feel, buffer in parallel.
+    // If a text tool call pattern is detected mid-stream, stop emitting tokens.
+    // On stream end: retract + execute if it was a tool call, finalize if real.
     let fullText = "";
     let toolCalls = [];
+    let suppressTokens = false; // set true once we detect an incoming tool call
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
+
+    ws.send(JSON.stringify({ type: "stream_start" }));
 
     while (true) {
       const { done, value } = await reader.read();
@@ -285,7 +308,23 @@ async function runOllamaLoop(messages, ws) {
 
           if (delta.content) {
             fullText += delta.content;
-            ws.send(JSON.stringify({ type: "token", text: delta.content }));
+            // DeepSeek R1: suppress tokens while inside <think>...</think>
+            if (IS_DEEPSEEK_R1) {
+              const inThink = (fullText.split('<think>').length - 1) > (fullText.split('</think>').length - 1);
+              // Also suppress the opening/closing tags themselves
+              const isTag = delta.content.includes('<think>') || delta.content.includes('</think>');
+              if (!inThink && !isTag) {
+                ws.send(JSON.stringify({ type: "token", text: delta.content }));
+              }
+            } else {
+              // Non-R1: stop streaming once a text tool call JSON is detected
+              if (!suppressTokens && extractTextToolCall(fullText)) {
+                suppressTokens = true;
+              }
+              if (!suppressTokens) {
+                ws.send(JSON.stringify({ type: "token", text: delta.content }));
+              }
+            }
           }
 
           if (delta.tool_calls) {
@@ -300,38 +339,70 @@ async function runOllamaLoop(messages, ws) {
               }
             }
           }
-
-          const finish = data.choices?.[0]?.finish_reason;
-          if (finish === "stop" || finish === "tool_calls") {
-            ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
-          }
         } catch {}
       }
     }
 
+    // ── DeepSeek R1 — extract native <think> reasoning block ────────────────
+    // R1 emits <think>...</think> wrapping its internal chain-of-thought.
+    // We pull it out, send it as reasoning, and stream only the clean response.
+    if (IS_DEEPSEEK_R1 && toolCalls.length === 0 && fullText.includes('<think>')) {
+      const thinkMatch = fullText.match(/<think>([\s\S]*?)<\/think>/);
+      if (thinkMatch) {
+        const reasoning = thinkMatch[1].trim();
+        const cleanText = fullText.replace(/<think>[\s\S]*?<\/think>\s*/, '').trim();
+        if (reasoning && cleanText) {
+          // Retract the streamed bubble (which had raw <think> tags)
+          ws.send(JSON.stringify({ type: "retract", reasoning }));
+          // Re-stream only the clean response
+          ws.send(JSON.stringify({ type: "stream_start" }));
+          for (let i = 0; i < cleanText.length; i += 8) {
+            ws.send(JSON.stringify({ type: "token", text: cleanText.slice(i, i + 8) }));
+          }
+          ws.send(JSON.stringify({ type: "stream_end", text: cleanText }));
+          // Update history with clean text only
+          if (messages.at(-1)?.role === "assistant") {
+            messages[messages.length - 1] = {
+              role: "assistant",
+              content: [{ type: "text", text: cleanText }]
+            };
+          } else {
+            messages.push({ role: "assistant", content: [{ type: "text", text: cleanText }] });
+          }
+          return cleanText;
+        }
+      }
+    }
+
     // ── Text tool-call interception ───────────────────────────────────────────
-    // If model printed a tool call as text instead of using tool_calls API,
-    // detect it, suppress the text from the UI, and execute it as a real call.
+    // Model narrated a tool call instead of using the API.
+    // Retract the streamed bubble, execute the tool, loop for real response.
     if (toolCalls.length === 0 && fullText.trim()) {
       const intercepted = extractTextToolCall(fullText);
       if (intercepted) {
         console.log(`[ollama] intercepted text tool call: ${intercepted.name}`);
+        // Send retract with the reasoning text — UI decides whether to show it
+        // Only pass the human-readable part as reasoning — strip the JSON tool call
+        const jsonStart = fullText.search(/[`{]/);
+        const reasoningText = jsonStart > 0 ? fullText.slice(0, jsonStart).trim() : '';
+        ws.send(JSON.stringify({ type: "retract", reasoning: reasoningText }));
+        ws.send(JSON.stringify({ type: "stream_start" }));
         ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
-        // Suppress the raw JSON from the chat — send a corrected stream_end with no text
         ws.send(JSON.stringify({ type: "stream_end", text: "" }));
 
         const result = await callTool(intercepted.name, intercepted.input);
         const fakeId = `intercept_${Date.now()}`;
-
         messages.push({ role: "assistant", content: [
           { type: "tool_use", id: fakeId, name: intercepted.name, input: intercepted.input }
         ]});
         messages.push({ role: "user", content: [
           { type: "tool_result", tool_use_id: fakeId, content: result }
         ]});
-        continue; // re-run loop so model responds with the tool result
+        continue;
       }
     }
+
+    ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
 
     // ── Build history ─────────────────────────────────────────────────────────
     const assistantMsg = { role: "assistant", content: [] };
@@ -344,13 +415,16 @@ async function runOllamaLoop(messages, ws) {
 
     // ── Execute real tool calls ───────────────────────────────────────────────
     if (toolCalls.length > 0) {
+      ws.send(JSON.stringify({ type: "stream_start" }));
       const toolResults = [];
       for (const tc of toolCalls) {
+        ws.send(JSON.stringify({ type: "tool", name: tc.name }));
         let input = {};
         try { input = JSON.parse(tc.args || "{}"); } catch {}
         const result = await callTool(tc.name, input);
         toolResults.push({ type: "tool_result", tool_use_id: tc.id, content: result });
       }
+      ws.send(JSON.stringify({ type: "stream_end", text: "" }));
       messages.push({ role: "user", content: toolResults });
       continue;
     }
@@ -358,7 +432,6 @@ async function runOllamaLoop(messages, ws) {
     return fullText;
   }
 }
-
 // ─── Unified agent loop ───────────────────────────────────────────────────────
 async function runAgentLoop(messages, ws) {
   return provider.name === "ollama"
@@ -379,7 +452,7 @@ wss.on("connection", (ws) => {
   let initialized = false;
 
   ws.send(JSON.stringify({ type: "status", text: "connected" }));
-  ws.send(JSON.stringify({ type: "provider", name: provider.name, model: provider.model }));
+  ws.send(JSON.stringify({ type: "provider", name: provider.name, model: provider.model, nativeReasoning: IS_DEEPSEEK_R1 }));
 
   async function init() {
     messages.push({
