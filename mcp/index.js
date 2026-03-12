@@ -36,7 +36,33 @@ try {
 
 async function generateEmbedding(text, inputType = "document") {
   if (!vectorEnabled) return null;
-  if (!process.env.VOYAGE_API_KEY) return null;
+
+  const provider = (process.env.EMBEDDING_PROVIDER || "voyage").toLowerCase();
+
+  // ─── Ollama (fully local, air-gapped) ──────────────────────────────────────
+  if (provider === "ollama") {
+    const model = process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text";
+    const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    try {
+      const response = await fetch(`${baseUrl}/api/embeddings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ model, prompt: text }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      return data.embedding;
+    } catch (err) {
+      console.error("⚠️  Ollama embedding failed:", err.message);
+      return null;
+    }
+  }
+
+  // ─── Voyage AI (default) ────────────────────────────────────────────────────
+  if (!process.env.VOYAGE_API_KEY) {
+    console.error("⚠️  VOYAGE_API_KEY not set — skipping embedding");
+    return null;
+  }
   try {
     const response = await fetch("https://api.voyageai.com/v1/embeddings", {
       method: "POST",
@@ -54,7 +80,7 @@ async function generateEmbedding(text, inputType = "document") {
     const data = await response.json();
     return data.data[0].embedding;
   } catch (err) {
-    console.error("⚠️  Embedding generation failed:", err.message);
+    console.error("⚠️  Voyage embedding failed:", err.message);
     return null;
   }
 }
