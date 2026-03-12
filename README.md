@@ -283,7 +283,7 @@ If you want complete privacy with no external API calls at all, swap Voyage for 
 ollama pull nomic-embed-text
 ```
 
-Then update your `.env`:
+Then uncomment in your `.env`. That is it. It will be used as default ebmedding:
 
 ```env
 EMBEDDING_PROVIDER=ollama
