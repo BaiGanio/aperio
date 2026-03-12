@@ -139,6 +139,21 @@ npm run start:local          # terminal 2
 
 ---
 
+## DeepSeek R1 — Local Reasoning
+
+Aperio has special handling for DeepSeek R1's `<think>` blocks:
+
+- Reasoning is extracted, stripped from the final response, and shown in a collapsible UI panel
+- Tool calls are intercepted from R1's text output (R1 doesn't support the tools API natively)
+- Fully local — 9GB model, runs well on 16GB+ RAM (tested on M1 32GB)
+
+```bash
+ollama pull deepseek-r1:14b   # recommended
+ollama pull deepseek-r1:7b    # lighter option
+```
+
+---
+
 ## npm Scripts
 
 | Command | Provider | Port |
@@ -206,7 +221,7 @@ Restart your editor. All 11 memory tools are now available to your editor agent 
 
 ## Project Structure
 
-```
+```txt
 aperio/
 ├── docker/
 │   └── docker-compose.yml        # pgvector/pgvector:pg16
@@ -225,7 +240,57 @@ aperio/
 └── .env                          # Your keys — never commit this
 ```
 
-> **Tip:** `prompts/system_prompt.md` controls how Claude handles memories. It's the most impactful file to customize.
+> **Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
+
+---
+
+## Privacy & Embeddings
+
+### What leaves your machine
+
+By default, Aperio uses **Voyage AI** to generate embeddings. Here's exactly what happens:
+
+```
+You save a memory 
+  → text is sent to Voyage AI API
+  → Voyage returns a vector (1024 numbers)
+  → vector + original text stored in YOUR Postgres
+  → nothing else ever leaves your machine
+```
+
+**What Voyage AI receives:** only the raw text of the memory being saved.
+
+**What Voyage AI never receives:**
+- Your conversations with the AI
+- Your other memories
+- Any personal files or system information
+
+### What an embedding actually is
+
+An embedding converts your text into a list of numbers that represent its meaning:
+
+```text
+"I chose Postgres because of pgvector" → [0.023, -0.847, 0.331, ... ×1024]
+```
+
+Two semantically similar sentences produce vectors that are mathematically close — that's how `recall` finds the right memory even when you phrase the question differently.
+
+### Go fully air-gapped — zero data leaves your machine
+
+If you want complete privacy with no external API calls at all, swap Voyage for a local embedding model:
+
+```bash
+ollama pull nomic-embed-text
+```
+
+Then update your `.env`:
+
+```env
+EMBEDDING_PROVIDER=ollama
+OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+```
+
+`nomic-embed-text` runs fully locally, produces 768-dimensional vectors, works natively with pgvector, and generates embeddings in ~15–50ms. No API key. No data leaving your machine. Ever.
 
 ---
 
