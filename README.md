@@ -48,7 +48,7 @@ aperio/
 ├── mcp/
 │   └── index.js                  # MCP server — 11 tools
 ├── prompts/
-│   └── system_prompt.md          # ← Claude's instructions (edit this!)
+│   └── system_prompt.md          # ← Ai agents instructions (edit this!)
 ├── scripts/
 │   └── chat.js                   # Terminal chat client
 ├── public/
