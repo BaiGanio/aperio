@@ -596,19 +596,21 @@
     .footer-link{font-family:var(--font-ui);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:6px;transition:color 0.15s;}
     .footer-link:hover{color:var(--purple);}
     .footer-warning {
-      margin-top: 1.5rem;
+      width: 100%;
+      text-align: center;
+      padding-top: 16px;
+      border-top: 1px solid var(--border);
       font-size: 0.7rem;
-      color: var(--text-muted);
+      color: var(--muted);
       opacity: 0.45;
       font-style: italic;
       letter-spacing: 0.01em;
-      margin-inline: auto;
       line-height: 1.5;
+      transition: opacity 0.3s ease;
     }
 
     .footer-warning:hover {
       opacity: 0.9;
-      transition: opacity 0.3s ease;
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -1055,10 +1057,10 @@
       <a href="https://github.com/BaiGanio/aperio#readme" target="_blank" class="footer-link"><i class="bi bi-book"></i> Docs</a>
       <a href="https://github.com/BaiGanio/aperio?tab=Apache-2.0-1-ov-file" target="_blank" class="footer-link"><i class="bi bi-file-text"></i> License</a>
     </div>
-    <div class="footer-warning">
-      ⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, 
-      leading to irreversible stupidity. Use responsibly.
-    </div>
+  </div>
+  <div class="footer-warning">
+    ⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, 
+    leading to irreversible stupidity. Use responsibly.
   </div>
 </footer>
 
