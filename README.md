@@ -173,6 +173,8 @@ ollama serve                 # terminal 1
 npm run start:local          # terminal 2
 ```
 
+Open your browser → `http://localhost:3001`
+
 > **TIP:**`llama3.1` has the best tool-use support. `qwen2.5` and `mistral` are good alternatives on lighter hardware.
 
 <p align="right">
