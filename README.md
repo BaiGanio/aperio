@@ -3,15 +3,15 @@
 <p align="center">
   [ <a href="#setup">Setup</a> ]
   · · ·
-  [ <a href="#-Local-AI-(Ollama)">Local AI (Ollama)</a> ]  
+  [ <a href="#local-ai-ollama">Local AI (Ollama)</a> ]  
   · · ·
-  [ <a href="#-npm-scripts">npm Scripts</a> ]
+  [ <a href="#npm-scripts">npm Scripts</a> ]
   · · ·
-  [ <a href="#How-Memory-Works">How Memory Works</a> ] 
+  [ <a href="#how-memory-works">How Memory Works</a> ] 
    · · ·
-  [ <a href="#MCP-Tools">MCP Tools</a> ]
+  [ <a href="#mcp-tools-11">MCP Tools</a> ]
   · · ·
-  [ <a href="#Privacy-&-Embeddings">Privacy & Embeddings</a> ]  
+  [ <a href="#privacy--embeddings">Privacy & Embeddings</a> ]  
 </p>
 
 ---
