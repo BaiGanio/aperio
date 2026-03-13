@@ -1500,6 +1500,31 @@ function handleMessage(msg) {
     return;
   }
 
+  if (msg.type === "retract") {
+    const reasoningText = msg.reasoning || "";
+    if (streamingBubble) {
+      streamingBubble.wrap.remove();
+      streamingBubble = null;
+    }
+    streamingText = "";
+    const showReasoning = localStorage.getItem("aperio-reasoning") !== "false";
+    if (showReasoning && reasoningText.trim()) {
+      const details = document.createElement("details");
+      details.style.cssText = "margin:4px 0 0 38px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;opacity:0.8;max-width:780px;";
+      const summary = document.createElement("summary");
+      summary.style.cssText = "padding:5px 10px;cursor:pointer;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);background:var(--bg-hover);border-bottom:1px solid var(--border);list-style:none;user-select:none;";
+      summary.textContent = "🧠 Reasoning";
+      const pre = document.createElement("pre");
+      pre.style.cssText = "margin:0;padding:10px 12px;font-family:var(--font-mono);font-size:11.5px;line-height:1.6;color:var(--text-muted);background:var(--bg-panel);white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;";
+      pre.textContent = reasoningText;
+      details.appendChild(summary);
+      details.appendChild(pre);
+      messagesEl.appendChild(details);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    return;
+  }
+
   if (msg.type === "memories") {
     parseAndRenderMemories(msg.raw);
   }
@@ -2101,6 +2126,22 @@ document.querySelectorAll(".theme-btn").forEach(btn => {
 });
 
 applyTheme(currentTheme);
+
+// ── Reasoning toggle ─────────────────────────────────────────
+(function() {
+  const btn   = document.getElementById("reasoningToggle");
+  const label = document.getElementById("reasoningLabel");
+  let on = localStorage.getItem("aperio-reasoning") !== "false";
+  function apply() {
+    label.textContent     = on ? "reasoning on"       : "reasoning off";
+    btn.style.color       = on ? "var(--accent)"      : "var(--text-muted)";
+    btn.style.borderColor = on ? "var(--accent)"      : "var(--border)";
+    btn.style.background  = on ? "var(--accent-soft)" : "var(--bg-hover)";
+    localStorage.setItem("aperio-reasoning", on ? "true" : "false");
+  }
+  btn.addEventListener("click", () => { on = !on; apply(); });
+  apply();
+})();
 
 // ── Reasoning toggle ─────────────────────────────────────────
 (function() {
