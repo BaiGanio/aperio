@@ -3,9 +3,9 @@
 <p align="center">
   [ <a href="#setup">Setup</a> ]
   · · ·
-  [ <a href="#Local AI (Ollama)">Local AI (Ollama)</a> ]  
+  [ <a href="#-Local-AI-(Ollama)">Local AI (Ollama)</a> ]  
   · · ·
-  [ <a href="#npm-scripts">npm Scripts</a> ]
+  [ <a href="#-npm-scripts">npm Scripts</a> ]
   · · ·
   [ <a href="#How-Memory-Works">How Memory Works</a> ] 
    · · ·
@@ -152,6 +152,9 @@ Remember I'm building a SaaS with Next.js and Supabase
 Scan my project at ~/projects/myapp
 ```
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
 
 ## Local AI (Ollama)
@@ -179,6 +182,9 @@ npm run start:local          # terminal 2
 
 > **TIP:**`llama3.1` has the best tool-use support. `qwen2.5` and `mistral` are good alternatives on lighter hardware.
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
 
 ## npm Scripts
@@ -191,6 +197,9 @@ npm run start:local          # terminal 2
 | `npm run chat:cloud` | Anthropic — terminal only | — |
 | `npm run chat:local` | Ollama — terminal only | — |
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
 
 ## How Memory Works
@@ -203,6 +212,9 @@ npm run start:local          # terminal 2
 
 `fact` · `preference` · `project` · `decision` · `solution` · `source` · `person`
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
 
 ## MCP Tools (11)
@@ -221,6 +233,9 @@ npm run start:local          # terminal 2
 | `scan_project` | Scan a folder tree, infer project context |
 | `fetch_url` | Fetch a URL, strip HTML, truncate at 15k chars |
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
 
 ## Reading Files with Local AI
@@ -266,6 +281,9 @@ Change it to whatever your use case needs.
 - *"Read my .env.example and tell me which variables I still need to fill in"*
 - *"Append a TODO comment to the bottom of mcp/index.js"*
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
 
 ## Privacy & Embeddings
@@ -316,6 +334,9 @@ OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 
 `nomic-embed-text` runs fully locally, produces 768-dimensional vectors, works natively with pgvector, and generates embeddings in ~15–50ms. No API key. No data leaving your machine. Ever.
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
 
 ## Build On Top
@@ -331,8 +352,10 @@ Aperio is a foundation. The source is fully open — fork it and extend it:
 
 PRs and forks welcome.
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
-
 
 ## DeepSeek R1 — Local Reasoning
 
@@ -346,6 +369,10 @@ Aperio has special handling for DeepSeek R1's `<think>` blocks:
 ollama pull deepseek-r1:14b   # recommended
 ollama pull deepseek-r1:7b    # lighter option
 ```
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
 
 ## Cursor / Windsurf (MCP)
@@ -369,6 +396,9 @@ Add to `~/.cursor/mcp.json` (or `~/.windsurf/mcp_config.json`):
 
 Restart your editor. All 11 memory tools are now available to your editor agent — same brain, different interface.
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 ---
 
 
