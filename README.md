@@ -219,6 +219,49 @@ Restart your editor. All 11 memory tools are now available to your editor agent 
 
 ---
 
+## Reading Files with Local AI
+
+Ollama itself has no file system access — it's purely an inference engine.
+Aperio's MCP layer bridges the gap.
+
+When you ask the AI to read a file, here's what actually happens:
+```
+You       →  "read /path/to/server.js and explain the WebSocket handler"
+MCP Server →  calls read_file tool, loads the file from disk
+Ollama    →  receives the file contents as context, reasons over it
+You       ←  answer based on your actual code
+```
+
+The model never touches your file system directly.
+Aperio reads the file and injects the content into the conversation.
+
+### Available file tools
+
+| Tool | What it does |
+|---|---|
+| `read_file` | Read any file from disk (max 500 lines by default) |
+| `write_file` | Overwrite a file completely |
+| `append_file` | Add content to the end of a file |
+| `scan_project` | Scan a folder tree up to 3 levels deep |
+
+### Raising the line limit
+
+The default cap is 500 lines. To increase it, find this in `mcp/index.js`:
+```js
+const MAX_LINES = 500;
+```
+
+Change it to whatever your use case needs.
+
+### Example prompts that just work
+
+- *"Read my server.js and tell me what the WebSocket handler does"*
+- *"Scan my project and give me an overview of the structure"*
+- *"Read my .env.example and tell me which variables I still need to fill in"*
+- *"Append a TODO comment to the bottom of mcp/index.js"*
+
+---
+
 ## Project Structure
 
 ```txt
