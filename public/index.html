@@ -1344,7 +1344,17 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "reasoning_start") {
-    if (reasoningBubble) return;
+    // Close any previous bubble cleanly before starting a new one
+    if (reasoningBubble) {
+      reasoningBubble.details.removeAttribute("open");
+      reasoningBubble.statusSpan.textContent = "done";
+      reasoningBubble.statusSpan.style.animation = "none";
+      reasoningBubble.statusSpan.style.opacity = "0.4";
+      reasoningBubble = null;
+      reasoningText = "";
+    }
+    // Respect toggle — if off, don't create a bubble
+    if (localStorage.getItem("aperio-reasoning") === "false") return;
     removeThinking();
     removeToolIndicator();
     reasoningText = "";
@@ -1380,7 +1390,7 @@ function handleMessage(msg) {
     return;
   }
 
-  if (msg.type === "retract_done") {
+  if (msg.type === "reasoning_done") {
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
       reasoningBubble.statusSpan.textContent = "done";
@@ -1390,11 +1400,20 @@ function handleMessage(msg) {
     }
     reasoningText = "";
     streamingText = "";
+    streamingText = "";
     streamingBubble = null;
     return;
   }
 
   if (msg.type === "stream_start") {
+    // Safety net: collapse reasoning bubble if still open
+    if (reasoningBubble) {
+      reasoningBubble.details.removeAttribute("open");
+      reasoningBubble.statusSpan.textContent = "done";
+      reasoningBubble.statusSpan.style.animation = "none";
+      reasoningBubble.statusSpan.style.opacity = "0.4";
+      reasoningBubble = null;
+    }
     const label = document.querySelector("#thinking .thinking-label");
     if (label) label.textContent = "typing…";
     setStatus("thinking", "typing…");
