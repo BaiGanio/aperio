@@ -1082,6 +1082,13 @@
         text-transform:uppercase; display:none;
       "></span>
     </div>
+    <button id="reasoningToggle" onclick="toggleReasoning()"
+      style="height:28px;padding:0 10px;border-radius:var(--radius-sm);border:1px solid var(--accent);
+             background:var(--bg-hover);color:var(--accent);cursor:pointer;
+             font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.06em;
+             display:flex;align-items:center;gap:5px;flex-shrink:0;transition:all var(--transition);">
+      🧠 <span id="reasoningToggleLabel">reasoning on</span>
+    </button>
     <div class="theme-switcher">
       <button class="theme-btn" data-theme="light"  title="Light">☀️</button>
       <button class="theme-btn" data-theme="dark"   title="Dark">🌙</button>
@@ -1177,6 +1184,52 @@ const memoriesList = document.getElementById("memoriesList");
 const searchInput  = document.getElementById("searchInput");
 
 // ── WebSocket ────────────────────────────────────────────────
+function toggleReasoning() {
+  const btn = document.getElementById("reasoningToggle");
+  const cur = localStorage.getItem("aperio-reasoning") !== "false";
+  localStorage.setItem("aperio-reasoning", cur ? "false" : "true");
+  const on = !cur;
+  if (btn) {
+    btn.style.borderColor = on ? "var(--accent)" : "var(--border)";
+    btn.style.color       = on ? "var(--accent)" : "var(--text-muted)";
+    btn.style.opacity     = on ? "1" : "0.5";
+    btn.title = on ? "Reasoning visible (click to hide)" : "Reasoning hidden (click to show)";
+  }
+}
+
+// Init toggle button state on page load
+(function() {
+  const on = localStorage.getItem("aperio-reasoning") !== "false";
+  window.addEventListener("DOMContentLoaded", () => {
+    const btn = document.getElementById("reasoningToggle");
+    if (!btn) return;
+    btn.style.borderColor = on ? "var(--accent)" : "var(--border)";
+    btn.style.color       = on ? "var(--accent)" : "var(--text-muted)";
+    btn.style.opacity     = on ? "1" : "0.5";
+    btn.title = on ? "Reasoning visible (click to hide)" : "Reasoning hidden (click to show)";
+  });
+})();
+
+function toggleReasoning() {
+  const cur = localStorage.getItem("aperio-reasoning") !== "false";
+  localStorage.setItem("aperio-reasoning", cur ? "false" : "true");
+  updateReasoningBtn();
+}
+
+function updateReasoningBtn() {
+  const on = localStorage.getItem("aperio-reasoning") !== "false";
+  const btn = document.getElementById("reasoningToggle");
+  const lbl = document.getElementById("reasoningToggleLabel");
+  if (!btn) return;
+  btn.style.borderColor = on ? "var(--accent)" : "var(--border)";
+  btn.style.color       = on ? "var(--accent)" : "var(--text-muted)";
+  btn.style.opacity     = on ? "1" : "0.5";
+  if (lbl) lbl.textContent = on ? "reasoning on" : "reasoning off";
+  btn.title = on ? "Click to hide reasoning" : "Click to show reasoning";
+}
+
+window.addEventListener("DOMContentLoaded", updateReasoningBtn);
+
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
   ws = new WebSocket(`${proto}//${location.host}`);
@@ -1291,6 +1344,7 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "reasoning_start") {
+    if (reasoningBubble) return;
     removeThinking();
     removeToolIndicator();
     reasoningText = "";
