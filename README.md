@@ -1,6 +1,7 @@
 <a id="top"></a>
 <!-- HEADER --> 
 <p align="center">
+  · · ·
   [ <a href="#philosophy">Philosophy</a> ] 
   · · ·
   [ <a href="#architecture">Architecture</a> ] 
@@ -9,6 +10,8 @@
   · · ·
   [ <a href="#getting-started">Getting Started</a> ]  
   · · ·
+  <br>
+  · · ·
   [ <a href="#ai-providers">AI Providers</a> ]
   · · ·
   [ <a href="#commands">Commands</a> ]
@@ -16,6 +19,7 @@
   [ <a href="#mcp-tools-11">MCP Tools</a> ]
   · · ·
   [ <a href="#privacy--embeddings">Privacy</a> ]  
+  · · ·
 </p>
 
 ---
