@@ -14,12 +14,14 @@
   <br>
   · · ·
   [ <a href="#ai-providers">AI Providers</a> ]
+   · · ·
+  [ <a href="#local-vs-vloud">Local vs Cloud</a> ]
   · · ·
   [ <a href="#commands">Commands</a> ]
-   · · ·
-  [ <a href="#mcp-tools-11">MCP Tools</a> ]
   · · ·
-  [ <a href="#privacy--embeddings">Privacy</a> ]  
+  [ <a href="#mcp-tools-11">MCP Tools</a> ]  
+  · · ·
+  [ <a href="#privacy">Privacy</a> ]  
   · · ·
 </p>
 
@@ -339,7 +341,9 @@ The same tools are available to the chat UI, Cursor, Windsurf, or any MCP-compat
 
 ---
 
-## Reading Files with Local AI
+## Privacy
+
+### Reading Files with Local AI
 
 Ollama itself has no file system access — it's purely an inference engine.
 Aperio's MCP layer bridges the gap.
@@ -355,7 +359,7 @@ You       ←  answer based on your actual code
 The model never touches your file system directly.
 Aperio reads the file and injects the content into the conversation.
 
-### Available file tools
+#### Available file tools
 
 | Tool | What it does |
 |---|---|
@@ -364,7 +368,7 @@ Aperio reads the file and injects the content into the conversation.
 | `append_file` | Add content to the end of a file |
 | `scan_project` | Scan a folder tree up to 3 levels deep |
 
-### Raising the line limit
+#### Raising the line limit
 
 The default cap is 500 lines. To increase it, find this in `mcp/index.js`:
 ```js
@@ -375,22 +379,33 @@ const MAX_LINES = 500;
 
 Change it to whatever your use case needs.
 
-### Example prompts that just work
+#### Example prompts that just work
 
 - *"Read my server.js and tell me what the WebSocket handler does"*
 - *"Scan my project and give me an overview of the structure"*
 - *"Read my .env.example and tell me which variables I still need to fill in"*
 - *"Append a TODO comment to the bottom of mcp/index.js"*
 
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
+### Embeddings
 
----
+#### What an embedding actually is
 
-## Privacy & Embeddings
+An embedding converts your text into a list of numbers that represent its meaning:
 
-### What leaves your machine if choose Voyage AI
+```text
+"I chose Postgres because of pgvector" → [0.023, -0.847, 0.331, ... ×768] # or x1024 with Voyage AI
+```
+
+Two semantically similar sentences produce vectors that are mathematically close — that's how `recall` finds the right memory even when you phrase the question differently.
+
+#### Aperio is fully air-gapped — zero data leaves your machine
+
+Complete privacy with no external API calls at all - thanks to the local embedding model:
+
+
+`nomic-embed-text` runs fully locally, produces 768-dimensional vectors, works natively with pgvector, and generates embeddings in ~15–50ms. No API key. No data leaving your machine. Ever.
+
+#### What leaves your machine if choose Voyage AI
 
 If Aperio uses **Voyage AI** to generate embeddings. Here's exactly what happens:
 
@@ -408,23 +423,6 @@ You save a memory
 - Your conversations with the AI
 - Your other memories
 - Any personal files or system information
-
-### What an embedding actually is
-
-An embedding converts your text into a list of numbers that represent its meaning:
-
-```text
-"I chose Postgres because of pgvector" → [0.023, -0.847, 0.331, ... ×768] # or x1024 with Voyage AI
-```
-
-Two semantically similar sentences produce vectors that are mathematically close — that's how `recall` finds the right memory even when you phrase the question differently.
-
-### Aperio is fully air-gapped — zero data leaves your machine
-
-Complete privacy with no external API calls at all - thanks to the local embedding model:
-
-
-`nomic-embed-text` runs fully locally, produces 768-dimensional vectors, works natively with pgvector, and generates embeddings in ~15–50ms. No API key. No data leaving your machine. Ever.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
