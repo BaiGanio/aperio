@@ -13,55 +13,96 @@ import dotenv from "dotenv";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, ".env") });
 
+// ─── Provider config ──────────────────────────────────────────────────────────
+//
+// Switch AI provider by setting AI_PROVIDER in your .env:
+//
+//   AI_PROVIDER=anthropic   → Claude via Anthropic API (default)
+//   AI_PROVIDER=ollama      → Local model via Ollama (free, no API key)
+//
+// Anthropic models (reasoning supported on sonnet + opus):
+//   claude-haiku-4-5-20251001   fast + cheap (default, no reasoning)
+//   claude-sonnet-4-6           balanced (reasoning supported)
+//   claude-opus-4-6             most capable (reasoning supported)
+//
+// Ollama models:
+//   llama3.1        recommended — best tool use support
+//   mistral         good alternative
+//   qwen2.5         fast and capable
+//   deepseek-r1     native <think> reasoning
+//   qwen3           native think: true reasoning
+//
+const PROVIDER        = process.env.AI_PROVIDER?.toLowerCase() || "anthropic";
+const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
+const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || "llama3.1";
+const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+
+// ─── Reasoning capability detection ──────────────────────────────────────────
+//
+// Three reasoning paths:
+//
+//   1. Claude sonnet/opus  → Anthropic extended thinking API (thinking content blocks)
+//   2. DeepSeek R1         → Native <think>...</think> tags in text stream
+//   3. Qwen3 / other think → Ollama `think: true` param → delta.thinking field
+//
+const IS_DEEPSEEK_R1 = OLLAMA_MODEL.toLowerCase().includes("deepseek-r1") 
+                    || OLLAMA_MODEL.toLowerCase().includes("qwen3");
+const IS_QWEN3        = OLLAMA_MODEL.toLowerCase().includes("qwen3");
+const OLLAMA_THINKS   = IS_DEEPSEEK_R1 || IS_QWEN3; // Ollama models with native reasoning
+
+// Claude models that support extended thinking (haiku does not)
+const CLAUDE_THINKS   = PROVIDER === "anthropic" &&
+  ["claude-sonnet-4-6", "claude-opus-4-6"].some(m => ANTHROPIC_MODEL.includes(m));
+
+// ─── System prompt ────────────────────────────────────────────────────────────
 const systemPromptBase = readFileSync(resolve(__dirname, "prompts/system_prompt.md"), "utf-8");
+
 const getSystemPrompt = () => `${systemPromptBase}
 
 ---
 You are running as: ${PROVIDER === "ollama" ? `Ollama (${OLLAMA_MODEL})` : `Anthropic Claude (${ANTHROPIC_MODEL})`}
 If asked which model or AI you are, answer accurately using the above.
 ${PROVIDER === "ollama" ? (IS_DEEPSEEK_R1 ? `
-You are DeepSeek R1 — a reasoning model. Your <think> blocks are shown as collapsible reasoning.
-You do NOT have access to a tool_calls API. Instead, call tools by outputting ONLY a raw JSON object like this:
+You are DeepSeek R1 — a reasoning model. Your <think> blocks are shown as collapsible reasoning in the UI.
+You do NOT have access to a tool_calls API. Instead, call tools by outputting ONLY a raw JSON object:
 {"name": "tool_name", "parameters": {...}}
 
 Available tools:
-- recall: {"name": "recall", "parameters": {"limit": 50}} — load memories (omit query to load all)
-- recall with search: {"name": "recall", "parameters": {"query": "search term", "limit": 10}}
-- remember: {"name": "remember", "parameters": {"type": "fact|preference|project|decision|solution|source|person", "title": "...", "content": "...", "importance": 1-5, "tags": ["..."]}}
-- forget: {"name": "forget", "parameters": {"id": "uuid"}}
+- recall:        {"name": "recall", "parameters": {"limit": 50}}
+- recall search: {"name": "recall", "parameters": {"query": "search term", "limit": 10}}
+- remember:      {"name": "remember", "parameters": {"type": "fact|preference|project|decision|solution|source|person", "title": "...", "content": "...", "importance": 1-5, "tags": ["..."]}}
+- forget:        {"name": "forget", "parameters": {"id": "uuid"}}
 - update_memory: {"name": "update_memory", "parameters": {"id": "uuid", "content": "new content"}}
-- read_file: {"name": "read_file", "parameters": {"path": "/absolute/path"}}
-- write_file: {"name": "write_file", "parameters": {"path": "/absolute/path", "content": "..."}}
-- scan_project: {"name": "scan_project", "parameters": {"path": "/absolute/path"}}
-- fetch_url: {"name": "fetch_url", "parameters": {"url": "https://..."}}
+- read_file:     {"name": "read_file", "parameters": {"path": "/absolute/path"}}
+- write_file:    {"name": "write_file", "parameters": {"path": "/absolute/path", "content": "..."}}
+- scan_project:  {"name": "scan_project", "parameters": {"path": "/absolute/path"}}
+- fetch_url:     {"name": "fetch_url", "parameters": {"url": "https://..."}}
 
 CRITICAL RULES:
-- When calling a tool, output ONLY the JSON object — nothing before it, nothing after it.
+- When calling a tool, output ONLY the JSON object — nothing before or after it.
 - Do NOT wrap in backticks or markdown.
 - Do NOT explain what you are about to do before calling a tool.
-- After a tool result is returned to you, respond based ONLY on what the tool actually returned.
-- If recall returns "No memories found" or an empty result — you have NO information about the user. Say so honestly. NEVER invent or hallucinate memories. NEVER make up facts, preferences, projects, or personal details that were not in the tool result.
-- If the user asks what you know about them and recall returned nothing — say "I don't have any memories about you yet."` : `
+- After a tool result, respond ONLY based on what the tool actually returned.
+- NEVER hallucinate memories. If recall returned nothing — say so honestly.` : `
 CRITICAL — OLLAMA RULES (non-negotiable):
 - NEVER write text before calling a tool. Call the tool first, silently.
 - NEVER narrate what you are about to do. Just do it.
 - NEVER explain your reasoning before a tool call.
 - NEVER print JSON tool call syntax as text. Use the tool_calls API only.
-- Your FIRST action in every response that needs a tool must be the tool call itself — zero text before it.`) : ""}`;
+- Your FIRST action in every response that needs a tool must be the tool call itself.`) : ""}`;
 
-// ─── Provider config ──────────────────────────────────────────────────────────
-const PROVIDER        = process.env.AI_PROVIDER?.toLowerCase() || "anthropic";
-const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
-const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || "llama3.1";
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-
-// DeepSeek R1 emits native <think>...</think> blocks — detect by model name
-const IS_DEEPSEEK_R1  = OLLAMA_MODEL.toLowerCase().includes("deepseek-r1");
-
+// ─── Provider boot ────────────────────────────────────────────────────────────
 let provider;
+
 if (PROVIDER === "ollama") {
-  provider = { name: "ollama", model: OLLAMA_MODEL, baseURL: `${OLLAMA_BASE_URL}/v1` };
+  provider = {
+    name: "ollama",
+    model: OLLAMA_MODEL,
+    baseURL: `${OLLAMA_BASE_URL}/v1`,
+  };
   console.log(`🤖 Provider: Ollama (${OLLAMA_MODEL}) @ ${OLLAMA_BASE_URL}`);
+  if (IS_DEEPSEEK_R1) console.log("🧠 Reasoning: DeepSeek R1 <think> tags");
+  else if (IS_QWEN3)  console.log("🧠 Reasoning: Qwen3 think parameter");
 } else {
   provider = {
     name: "anthropic",
@@ -69,6 +110,7 @@ if (PROVIDER === "ollama") {
     client: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
   };
   console.log(`🤖 Provider: Anthropic (${ANTHROPIC_MODEL})`);
+  if (CLAUDE_THINKS) console.log("🧠 Reasoning: Claude extended thinking enabled");
 }
 
 // ─── MCP Client ───────────────────────────────────────────────────────────────
@@ -95,8 +137,8 @@ const simplifySchema = (name) => {
   if (name === "recall") return {
     type: "object",
     properties: {
-      query: { type: "string", description: "Search query. OMIT entirely to load all memories. Do NOT pass null, None, or empty string." },
-      limit: { type: "integer", description: "Max results. Must be an integer. Default 10, max 50." },
+      query: { type: "string", description: "Search query. OMIT entirely to load all memories. Do NOT pass null or empty string." },
+      limit: { type: "integer", description: "Max results. Default 10, max 50." },
     },
   };
   if (name === "remember") return {
@@ -118,23 +160,21 @@ const ollamaTools = mcpTools.map((t) => ({
   function: { name: t.name, description: t.description, parameters: simplifySchema(t.name) },
 }));
 
+// ─── Tool caller ──────────────────────────────────────────────────────────────
 async function callTool(name, input) {
   const args = input?.parameters !== undefined ? input.parameters : (input ?? {});
   console.log(`[callTool] ${name}`, JSON.stringify(args));
   const result = await mcp.callTool({ name, arguments: args });
   const text = result.content?.[0]?.text ?? "No result";
-  console.log(`[callTool] ${name} → ${text.slice(0, 120).replace(/\n/g, ' ')}`);
+  console.log(`[callTool] ${name} → ${text.slice(0, 120).replace(/\n/g, " ")}`);
   return text;
 }
 
-// ─── Tool-call text interceptor (for Ollama models that ignore tool API) ──────
-// Some local models print raw JSON tool calls as text instead of using tool_calls.
-// This detects patterns like: {"name": "recall", "parameters": {...}}
-// and re-routes them as real tool executions.
+// ─── Text tool-call interceptor ───────────────────────────────────────────────
+// Some local models (and DeepSeek R1) output tool calls as raw JSON text
+// instead of using the tool_calls API. This detects and reroutes them.
 function extractTextToolCall(text) {
-  // Strip backtick code fences — models often wrap tool calls in ```json ... ```
-  const stripped = text.replace(/```(?:json)?\s*([\s\S]*?)```/g, '$1').trim();
-  // Match JSON object containing a "name" field that is a known tool
+  const stripped = text.replace(/```(?:json)?\s*([\s\S]*?)```/g, "$1").trim();
   const match = stripped.match(/\{[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*?\}/);
   if (!match) return null;
   const toolName = match[1];
@@ -142,9 +182,10 @@ function extractTextToolCall(text) {
   try {
     const parsed = JSON.parse(match[0]);
     const params = parsed.parameters ?? parsed.input ?? parsed.arguments ?? {};
-    // Clean "None"/"null" string values — model sometimes emits these for optional fields
     const cleaned = Object.fromEntries(
-      Object.entries(params).filter(([_, v]) => v !== "None" && v !== "null" && v !== null && v !== undefined && v !== "")
+      Object.entries(params).filter(([_, v]) =>
+        v !== "None" && v !== "null" && v !== null && v !== undefined && v !== ""
+      )
     );
     return { name: toolName, input: cleaned };
   } catch {
@@ -161,31 +202,40 @@ async function runAnthropicLoop(messages, ws) {
       ? [messages[0], ...messages.slice(-(MAX_HISTORY - 1))]
       : messages;
 
-    let fullText = "";
-    let toolUses = [];
+    let fullText    = "";
+    let thinkingText = "";
+    let toolUses    = [];
     let currentToolUse = null;
-    let inputJson = "";
-    let stopReason = null;
+    let inputJson   = "";
+    let stopReason  = null;
     let contentBlocks = [];
 
-    const stream = provider.client.messages.stream({
-      model: provider.model,
-      max_tokens: 4096,
-      system: getSystemPrompt(),
-      tools: anthropicTools,
+    const streamParams = {
+      model:   provider.model,
+      // thinking requires max_tokens > budget_tokens — use 16k, else 4k
+      max_tokens: CLAUDE_THINKS ? 16000 : 4096,
+      system:  getSystemPrompt(),
+      tools:   anthropicTools,
       messages: trimmed,
-    });
+      // Extended thinking — only on sonnet/opus, not haiku
+      ...(CLAUDE_THINKS ? { thinking: { type: "enabled", budget_tokens: 8000 } } : {}),
+    };
+
+    const stream = provider.client.messages.stream(streamParams);
 
     ws.send(JSON.stringify({ type: "stream_start" }));
 
     for await (const event of stream) {
       if (event.type === "content_block_start") {
-        if (event.content_block.type === "text") {
+        if (event.content_block.type === "thinking") {
+          // Claude thinking block — collect silently, don't stream to UI yet
+          contentBlocks.push({ type: "thinking", thinking: "" });
+        } else if (event.content_block.type === "text") {
           contentBlocks.push({ type: "text", text: "" });
         } else if (event.content_block.type === "tool_use") {
           currentToolUse = {
             type: "tool_use",
-            id: event.content_block.id,
+            id:   event.content_block.id,
             name: event.content_block.name,
             input: {},
           };
@@ -194,25 +244,45 @@ async function runAnthropicLoop(messages, ws) {
           ws.send(JSON.stringify({ type: "tool", name: event.content_block.name }));
         }
       }
+
       if (event.type === "content_block_delta") {
-        if (event.delta.type === "text_delta") {
+        if (event.delta.type === "thinking_delta") {
+          // Accumulate thinking — send to UI as retract after stream ends
+          thinkingText += event.delta.thinking;
+          const last = contentBlocks[contentBlocks.length - 1];
+          if (last?.type === "thinking") last.thinking += event.delta.thinking;
+
+        } else if (event.delta.type === "text_delta") {
           const token = event.delta.text;
           fullText += token;
           ws.send(JSON.stringify({ type: "token", text: token }));
           const last = contentBlocks[contentBlocks.length - 1];
           if (last?.type === "text") last.text += token;
+
         } else if (event.delta.type === "input_json_delta") {
           inputJson += event.delta.partial_json;
         }
       }
+
       if (event.type === "content_block_stop" && currentToolUse) {
         try { currentToolUse.input = JSON.parse(inputJson || "{}"); } catch {}
         toolUses.push({ ...currentToolUse });
         currentToolUse = null;
         inputJson = "";
       }
+
       if (event.type === "message_delta") {
         stopReason = event.delta.stop_reason;
+      }
+    }
+
+    // Send reasoning to UI — same retract pattern as R1, UI handles it identically
+    if (thinkingText) {
+      ws.send(JSON.stringify({ type: "retract", reasoning: thinkingText }));
+      ws.send(JSON.stringify({ type: "stream_start" }));
+      // Re-stream the actual response text after retracting
+      for (let i = 0; i < fullText.length; i += 8) {
+        ws.send(JSON.stringify({ type: "token", text: fullText.slice(i, i + 8) }));
       }
     }
 
@@ -222,6 +292,7 @@ async function runAnthropicLoop(messages, ws) {
     if (stopReason === "tool_use" && toolUses.length > 0) {
       const toolResults = [];
       for (const tool of toolUses) {
+        ws.send(JSON.stringify({ type: "tool", name: tool.name }));
         const result = await callTool(tool.name, tool.input);
         toolResults.push({ type: "tool_result", tool_use_id: tool.id, content: result });
       }
@@ -237,6 +308,7 @@ async function runAnthropicLoop(messages, ws) {
 async function runOllamaLoop(messages, ws) {
   let loopCount = 0;
   const MAX_LOOPS = 6;
+
   while (true) {
     if (++loopCount > MAX_LOOPS) {
       const msg = "⚠️ Agent loop limit reached — the model may be stuck. Try rephrasing your request.";
@@ -245,10 +317,12 @@ async function runOllamaLoop(messages, ws) {
       ws.send(JSON.stringify({ type: "stream_end", text: msg }));
       return msg;
     }
+
     const trimmed = messages.length > MAX_HISTORY
       ? [messages[0], ...messages.slice(-(MAX_HISTORY - 1))]
       : messages;
 
+    // Convert Anthropic-style message history to OpenAI format for Ollama
     const openaiMessages = [
       { role: "system", content: getSystemPrompt() },
       ...trimmed.map(m => {
@@ -288,10 +362,12 @@ async function runOllamaLoop(messages, ws) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: provider.model,
+          model:    provider.model,
           messages: openaiMessages,
-          // DeepSeek R1 doesn't support the tools API — omit entirely, use text interceptor
+          // DeepSeek R1 doesn't support the tools API — omit, use text interceptor
           ...(IS_DEEPSEEK_R1 ? {} : { tools: ollamaTools }),
+          // Qwen3 and other think-capable models — enable reasoning
+          ...(OLLAMA_THINKS ? { think: true } : {}),
           stream: true,
         }),
       });
@@ -312,15 +388,13 @@ async function runOllamaLoop(messages, ws) {
       return msg;
     }
 
-    // ── Live stream with retract fallback ────────────────────────────────────
-    // Stream tokens live for typewriter feel, buffer in parallel.
-    // If a text tool call pattern is detected mid-stream, stop emitting tokens.
-    // On stream end: retract + execute if it was a tool call, finalize if real.
-    let fullText = "";
-    let toolCalls = [];
-    let suppressTokens = false; // set true once we detect an incoming tool call
+    // ── Stream ────────────────────────────────────────────────────────────────
+    let fullText     = "";
+    let thinkingText = "";
+    let toolCalls    = [];
+    let suppressTokens = false; // set true when we detect an incoming text tool call
 
-    const reader = response.body.getReader();
+    const reader  = response.body.getReader();
     const decoder = new TextDecoder();
 
     ws.send(JSON.stringify({ type: "stream_start" }));
@@ -334,26 +408,36 @@ async function runOllamaLoop(messages, ws) {
 
       for (const line of lines) {
         try {
-          const data = JSON.parse(line.slice(6));
+          const data  = JSON.parse(line.slice(6));
           const delta = data.choices?.[0]?.delta;
           if (!delta) continue;
 
+          // ── Reasoning delta (Qwen3 / Ollama think: true) ──────────────────
+          // Ollama returns delta.thinking for think-capable models.
+          // Collect silently — send to UI as retract after stream ends.
+          if (delta.thinking) {
+            thinkingText += delta.thinking;
+          }
+
+          // ── Text delta ────────────────────────────────────────────────────
           if (delta.content) {
             fullText += delta.content;
-            // DeepSeek R1: suppress <think> tokens AND tool call JSON tokens
+
             if (IS_DEEPSEEK_R1) {
-              const openThinks  = fullText.split('<think>').length - 1;
-              const closeThinks = fullText.split('</think>').length - 1;
-              const inThink = openThinks > closeThinks;
-              const isTag   = delta.content.includes('<think>') || delta.content.includes('</think>');
-              // After </think>, also suppress if what follows looks like a tool call
-              const afterThink = fullText.replace(/<think>[\s\S]*?<\/think>\s*/g, '').trim();
+              // R1 embeds <think>...</think> inline in content —
+              // suppress thinking tokens and tool call JSON tokens from the UI
+              const openThinks  = fullText.split("<think>").length - 1;
+              const closeThinks = fullText.split("</think>").length - 1;
+              const inThink     = openThinks > closeThinks;
+              const isTag       = delta.content.includes("<think>") || delta.content.includes("</think>");
+              const afterThink  = fullText.replace(/<think>[\s\S]*?<\/think>\s*/g, "").trim();
               const isToolCall  = afterThink.length > 0 && extractTextToolCall(afterThink) !== null;
+
               if (!inThink && !isTag && !isToolCall) {
                 ws.send(JSON.stringify({ type: "token", text: delta.content }));
               }
             } else {
-              // Non-R1: stop streaming once a text tool call JSON is detected
+              // Non-R1: suppress once a text-mode tool call pattern is detected mid-stream
               if (!suppressTokens && extractTextToolCall(fullText)) {
                 suppressTokens = true;
               }
@@ -363,6 +447,7 @@ async function runOllamaLoop(messages, ws) {
             }
           }
 
+          // ── Tool call delta (OpenAI-format tool_calls) ────────────────────
           if (delta.tool_calls) {
             for (const tc of delta.tool_calls) {
               if (tc.index !== undefined) {
@@ -370,7 +455,7 @@ async function runOllamaLoop(messages, ws) {
                   toolCalls[tc.index] = { id: tc.id || `call_${tc.index}`, name: "", args: "" };
                   ws.send(JSON.stringify({ type: "tool", name: tc.function?.name || "thinking…" }));
                 }
-                if (tc.function?.name) toolCalls[tc.index].name = tc.function.name;
+                if (tc.function?.name)      toolCalls[tc.index].name  = tc.function.name;
                 if (tc.function?.arguments) toolCalls[tc.index].args += tc.function.arguments;
               }
             }
@@ -379,35 +464,30 @@ async function runOllamaLoop(messages, ws) {
       }
     }
 
-    // ── DeepSeek R1 — extract native <think> reasoning block ────────────────
-    // R1 wraps chain-of-thought in <think>...</think> before the actual output.
-    // The "actual output" might be a tool call JSON or a real response.
-    // We always strip <think> first, then route cleanText appropriately.
-    if (IS_DEEPSEEK_R1 && toolCalls.length === 0 && fullText.includes('<think>')) {
+    // ── DeepSeek R1 — extract <think> block and route ─────────────────────────
+    // R1 puts chain-of-thought inside <think>...</think> before its actual output.
+    // Strip it, then either intercept a tool call or re-stream the clean response.
+    if (IS_DEEPSEEK_R1 && toolCalls.length === 0 && fullText.includes("<think>")) {
       const thinkMatch = fullText.match(/<think>([\s\S]*?)<\/think>/);
       if (thinkMatch) {
-        const reasoning = thinkMatch[1].trim();
-        const cleanText = fullText.replace(/<think>[\s\S]*?<\/think>\s*/, '').trim();
-
-        // Case A: cleanText is a tool call — intercept it
+        const reasoning  = thinkMatch[1].trim();
+        const cleanText  = fullText.replace(/<think>[\s\S]*?<\/think>\s*/, "").trim();
         const intercepted = cleanText ? extractTextToolCall(cleanText) : null;
+
+        // Case A: tool call hidden after <think>
         if (intercepted) {
-          console.log(`[deepseek-r1] intercepted tool call after <think>: ${intercepted.name}`);
+          console.log(`[r1] intercepted tool call after <think>: ${intercepted.name}`);
           ws.send(JSON.stringify({ type: "retract", reasoning }));
           ws.send(JSON.stringify({ type: "stream_start" }));
           ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
           ws.send(JSON.stringify({ type: "stream_end", text: "" }));
           const result = await callTool(intercepted.name, intercepted.input);
-          // R1 is text-only — inject result as a plain user message
-          // Use a clear SYSTEM-style wrapper so R1 treats this as ground truth
           messages.push({ role: "assistant", content: JSON.stringify({ name: intercepted.name, parameters: intercepted.input }) });
-          messages.push({ role: "user", content: `TOOL_RESULT[${intercepted.name}]: ${result}
-
-IMPORTANT: The above is the ACTUAL data from your memory database. Use ONLY this data to answer. Do NOT call recall again. Do NOT hallucinate anything not in the result.` });
+          messages.push({ role: "user", content: `TOOL_RESULT[${intercepted.name}]: ${result}\n\nIMPORTANT: Use ONLY this data. Do NOT call recall again.` });
           continue;
         }
 
-        // Case B: cleanText is a real response — retract raw stream, re-stream clean
+        // Case B: real response — retract raw stream, re-stream clean text
         if (reasoning && cleanText) {
           ws.send(JSON.stringify({ type: "retract", reasoning }));
           ws.send(JSON.stringify({ type: "stream_start" }));
@@ -425,45 +505,43 @@ IMPORTANT: The above is the ACTUAL data from your memory database. Use ONLY this
       }
     }
 
-    // ── Text tool-call interception ───────────────────────────────────────────
-    // Model narrated a tool call instead of using the API.
-    // Retract the streamed bubble, execute the tool, loop for real response.
+    // ── Qwen3 / think: true — retract and re-stream ───────────────────────────
+    // Ollama separates reasoning into delta.thinking, so fullText is already clean.
+    // Just retract with the accumulated thinking and re-stream the text response.
+    if (OLLAMA_THINKS && !IS_DEEPSEEK_R1 && thinkingText && fullText && toolCalls.length === 0) {
+      ws.send(JSON.stringify({ type: "retract", reasoning: thinkingText }));
+      ws.send(JSON.stringify({ type: "stream_start" }));
+      for (let i = 0; i < fullText.length; i += 8) {
+        ws.send(JSON.stringify({ type: "token", text: fullText.slice(i, i + 8) }));
+      }
+      ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
+      messages.push({ role: "assistant", content: [{ type: "text", text: fullText }] });
+      return fullText;
+    }
+
+    // ── Text tool-call interception (non-R1 models that ignore the tools API) ──
+    // Model narrated a tool call as text instead of using tool_calls.
     if (toolCalls.length === 0 && fullText.trim()) {
       const intercepted = extractTextToolCall(fullText);
       if (intercepted) {
         console.log(`[ollama] intercepted text tool call: ${intercepted.name}`);
-        // Send retract with the reasoning text — UI decides whether to show it
-        // Only pass the human-readable part as reasoning — strip the JSON tool call
-        const jsonStart = fullText.search(/[`{]/);
-        const reasoningText = jsonStart > 0 ? fullText.slice(0, jsonStart).trim() : '';
+        const jsonStart   = fullText.search(/[`{]/);
+        const reasoningText = jsonStart > 0 ? fullText.slice(0, jsonStart).trim() : "";
         ws.send(JSON.stringify({ type: "retract", reasoning: reasoningText }));
         ws.send(JSON.stringify({ type: "stream_start" }));
         ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
         ws.send(JSON.stringify({ type: "stream_end", text: "" }));
-
-        const result = await callTool(intercepted.name, intercepted.input);
-        if (IS_DEEPSEEK_R1) {
-          // R1 is text-only — plain text injection
-          messages.push({ role: "assistant", content: JSON.stringify({ name: intercepted.name, parameters: intercepted.input }) });
-          messages.push({ role: "user", content: `TOOL_RESULT[${intercepted.name}]: ${result}
-
-IMPORTANT: The above is the ACTUAL data from your memory database. Use ONLY this data to answer. Do NOT call recall again. Do NOT hallucinate anything not in the result.` });
-        } else {
-          const fakeId = `intercept_${Date.now()}`;
-          messages.push({ role: "assistant", content: [
-            { type: "tool_use", id: fakeId, name: intercepted.name, input: intercepted.input }
-          ]});
-          messages.push({ role: "user", content: [
-            { type: "tool_result", tool_use_id: fakeId, content: result }
-          ]});
-        }
+        const result  = await callTool(intercepted.name, intercepted.input);
+        const fakeId  = `intercept_${Date.now()}`;
+        messages.push({ role: "assistant", content: [{ type: "tool_use", id: fakeId, name: intercepted.name, input: intercepted.input }] });
+        messages.push({ role: "user",      content: [{ type: "tool_result", tool_use_id: fakeId, content: result }] });
         continue;
       }
     }
 
     ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
 
-    // ── Build history ─────────────────────────────────────────────────────────
+    // ── Build assistant history entry ─────────────────────────────────────────
     const assistantMsg = { role: "assistant", content: [] };
     if (fullText) assistantMsg.content.push({ type: "text", text: fullText });
     toolCalls.forEach(tc => assistantMsg.content.push({
@@ -472,7 +550,7 @@ IMPORTANT: The above is the ACTUAL data from your memory database. Use ONLY this
     }));
     messages.push(assistantMsg);
 
-    // ── Execute real tool calls ───────────────────────────────────────────────
+    // ── Execute real tool_calls (OpenAI-format) ───────────────────────────────
     if (toolCalls.length > 0) {
       ws.send(JSON.stringify({ type: "stream_start" }));
       const toolResults = [];
@@ -491,6 +569,7 @@ IMPORTANT: The above is the ACTUAL data from your memory database. Use ONLY this
     return fullText;
   }
 }
+
 // ─── Unified agent loop ───────────────────────────────────────────────────────
 async function runAgentLoop(messages, ws) {
   return provider.name === "ollama"
@@ -507,11 +586,17 @@ const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 
 wss.on("connection", (ws) => {
-  const messages = [];
+  const messages  = [];
   let initialized = false;
 
   ws.send(JSON.stringify({ type: "status", text: "connected" }));
-  ws.send(JSON.stringify({ type: "provider", name: provider.name, model: provider.model, nativeReasoning: IS_DEEPSEEK_R1 }));
+  ws.send(JSON.stringify({
+    type: "provider",
+    name: provider.name,
+    model: provider.model,
+    // Tell the UI whether this session has reasoning — drives the reasoning toggle
+    reasoning: CLAUDE_THINKS || OLLAMA_THINKS,
+  }));
 
   async function init() {
     messages.push({
@@ -574,7 +659,7 @@ const DEDUP_THRESHOLD   = 0.97;
 async function runDedup() {
   try {
     const result = await callTool("dedup_memories", { threshold: DEDUP_THRESHOLD, dry_run: true });
-    const lines = result.split("\n").filter(l => l.trim());
+    const lines  = result.split("\n").filter(l => l.trim());
     if (lines.length > 1) console.log(`\n🧹 Dedup report:\n${result}`);
   } catch {}
 }
@@ -583,7 +668,7 @@ setTimeout(() => { runDedup(); setInterval(runDedup, DEDUP_INTERVAL_MS); }, 30_0
 
 // ─── REST ─────────────────────────────────────────────────────────────────────
 app.get("/api/provider", (req, res) => {
-  res.json({ provider: provider.name, model: provider.model });
+  res.json({ provider: provider.name, model: provider.model, reasoning: CLAUDE_THINKS || OLLAMA_THINKS });
 });
 
 app.get("/api/memories", async (req, res) => {
