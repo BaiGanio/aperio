@@ -397,7 +397,9 @@ async function runOllamaLoop(messages, ws) {
     const reader  = response.body.getReader();
     const decoder = new TextDecoder();
 
-    ws.send(JSON.stringify({ type: "stream_start" }));
+    // stream_start fires after reasoning completes (retract_done path)
+    // or on first content token if there is no reasoning
+    let streamStarted = false;
 
     while (true) {
       const { done, value } = await reader.read();
@@ -412,11 +414,11 @@ async function runOllamaLoop(messages, ws) {
           const delta = data.choices?.[0]?.delta;
           if (!delta) continue;
 
-          // ── Reasoning delta (Qwen3 / Ollama think: true) ──────────────────
-          // Ollama returns delta.thinking for think-capable models.
-          // Collect silently — send to UI as retract after stream ends.
-          if (delta.thinking) {
-            thinkingText += delta.thinking;
+          // ── Reasoning delta (delta.reasoning — Ollama native thinking API) ──
+          if (delta.reasoning) {
+            if (!thinkingText) ws.send(JSON.stringify({ type: "reasoning_start" }));
+            thinkingText += delta.reasoning;
+            ws.send(JSON.stringify({ type: "reasoning_token", text: delta.reasoning }));
           }
 
           // ── Text delta ────────────────────────────────────────────────────
@@ -437,12 +439,16 @@ async function runOllamaLoop(messages, ws) {
                 ws.send(JSON.stringify({ type: "token", text: delta.content }));
               }
             } else {
-              // Non-R1: suppress once a text-mode tool call pattern is detected mid-stream
-              if (!suppressTokens && extractTextToolCall(fullText)) {
-                suppressTokens = true;
-              }
-              if (!suppressTokens) {
-                ws.send(JSON.stringify({ type: "token", text: delta.content }));
+              // Suppress content tokens while reasoning is still streaming
+              if (thinkingText && !streamStarted) {
+                // reasoning in progress — buffer content, don't stream yet
+              } else {
+                if (!streamStarted) {
+                  streamStarted = true;
+                  ws.send(JSON.stringify({ type: "stream_start" }));
+                }
+                if (!suppressTokens && extractTextToolCall(fullText)) suppressTokens = true;
+                if (!suppressTokens) ws.send(JSON.stringify({ type: "token", text: delta.content }));
               }
             }
           }
@@ -505,11 +511,10 @@ async function runOllamaLoop(messages, ws) {
       }
     }
 
-    // ── Qwen3 / think: true — retract and re-stream ───────────────────────────
-    // Ollama separates reasoning into delta.thinking, so fullText is already clean.
-    // Just retract with the accumulated thinking and re-stream the text response.
-    if (OLLAMA_THINKS && !IS_DEEPSEEK_R1 && thinkingText && fullText && toolCalls.length === 0) {
-      ws.send(JSON.stringify({ type: "retract", reasoning: thinkingText }));
+    // ── Ollama native reasoning (delta.reasoning) — finalize and stream response
+    if (OLLAMA_THINKS && thinkingText && fullText && toolCalls.length === 0) {
+      // Reasoning streamed live. Close reasoning bubble, then stream response fresh.
+      ws.send(JSON.stringify({ type: "retract_done" }));
       ws.send(JSON.stringify({ type: "stream_start" }));
       for (let i = 0; i < fullText.length; i += 8) {
         ws.send(JSON.stringify({ type: "token", text: fullText.slice(i, i + 8) }));
@@ -517,6 +522,11 @@ async function runOllamaLoop(messages, ws) {
       ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
       messages.push({ role: "assistant", content: [{ type: "text", text: fullText }] });
       return fullText;
+    }
+    // No reasoning — ensure stream_start fired (it fires on first token above,
+    // but if model sent no content tokens at all, send it now)
+    if (!streamStarted && fullText) {
+      ws.send(JSON.stringify({ type: "stream_start" }));
     }
 
     // ── Text tool-call interception (non-R1 models that ignore the tools API) ──
@@ -528,7 +538,6 @@ async function runOllamaLoop(messages, ws) {
         const jsonStart   = fullText.search(/[`{]/);
         const reasoningText = jsonStart > 0 ? fullText.slice(0, jsonStart).trim() : "";
         ws.send(JSON.stringify({ type: "retract", reasoning: reasoningText }));
-        ws.send(JSON.stringify({ type: "stream_start" }));
         ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
         ws.send(JSON.stringify({ type: "stream_end", text: "" }));
         const result  = await callTool(intercepted.name, intercepted.input);
