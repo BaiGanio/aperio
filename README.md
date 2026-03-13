@@ -32,9 +32,9 @@ Postgres + pgvector + MCP. Your context, always available.
 
 - Node.js 18+
 - Docker Desktop
-- [Anthropic API key](https://console.anthropic.com) — or Ollama for local AI
-- [Voyage AI API key](https://dash.voyageai.com) — free, 50M tokens/month
-
+- Ollama (free)
+- [Anthropic API key](https://console.anthropic.com) — (optional) or Ollama for local AI
+- [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
 ---
 
 ### 1. Clone & install
