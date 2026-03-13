@@ -11,7 +11,7 @@
    · · ·
   [ <a href="#mcp-tools-11">MCP Tools</a> ]
   · · ·
-  [ <a href="#privacy--embeddings">Privacy & Embeddings</a> ]  
+  [ <a href="#privacy--embeddings">Privacy</a> ]  
 </p>
 
 ---
