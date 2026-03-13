@@ -37,6 +37,30 @@ Postgres + pgvector + MCP. Your context, always available.
 - [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
 ---
 
+## Project Structure
+
+```txt
+aperio/
+├── docker/
+│   └── docker-compose.yml        # pgvector/pgvector:pg16
+├── db/
+│   └── migrations/               # 001_init · 002_pgvector
+├── mcp/
+│   └── index.js                  # MCP server — 11 tools
+├── prompts/
+│   └── system_prompt.md          # ← Claude's instructions (edit this!)
+├── scripts/
+│   └── chat.js                   # Terminal chat client
+├── public/
+│   └── index.html                # Web UI — themes, streaming, sidebar
+├── server.js                     # Express + WebSocket + agent loop
+├── package.json
+└── .env                          # Your keys — never commit this
+```
+
+> **Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
+---
+
 ### 1. Clone & install
 
 ```bash
@@ -135,22 +159,7 @@ ollama serve                 # terminal 1
 npm run start:local          # terminal 2
 ```
 
-> `llama3.1` has the best tool-use support. `qwen2.5` and `mistral` are good alternatives on lighter hardware.
-
----
-
-## DeepSeek R1 — Local Reasoning
-
-Aperio has special handling for DeepSeek R1's `<think>` blocks:
-
-- Reasoning is extracted, stripped from the final response, and shown in a collapsible UI panel
-- Tool calls are intercepted from R1's text output (R1 doesn't support the tools API natively)
-- Fully local — 9GB model, runs well on 16GB+ RAM (tested on M1 32GB)
-
-```bash
-ollama pull deepseek-r1:14b   # recommended
-ollama pull deepseek-r1:7b    # lighter option
-```
+> **TIP:**`llama3.1` has the best tool-use support. `qwen2.5` and `mistral` are good alternatives on lighter hardware.
 
 ---
 
@@ -163,29 +172,6 @@ ollama pull deepseek-r1:7b    # lighter option
 | `npm run start:local` | Ollama | 3001 |
 | `npm run chat:cloud` | Anthropic — terminal only | — |
 | `npm run chat:local` | Ollama — terminal only | — |
-
----
-
-## Cursor / Windsurf (MCP)
-
-Add to `~/.cursor/mcp.json` (or `~/.windsurf/mcp_config.json`):
-
-```json
-{
-  "mcpServers": {
-    "aperio": {
-      "command": "node",
-      "args": ["/absolute/path/to/aperio/mcp/index.js"],
-      "env": {
-        "DATABASE_URL": "postgresql://aperio:aperio_secret@localhost:5432/aperio",
-        "VOYAGE_API_KEY": "pa-..."
-      }
-    }
-  }
-}
-```
-
-Restart your editor. All 11 memory tools are now available to your editor agent — same brain, different interface.
 
 ---
 
@@ -251,7 +237,7 @@ The default cap is 500 lines. To increase it, find this in `mcp/index.js`:
 const MAX_LINES = 500;
 ```
 
-> NOTE: If you ask it to read a large file it'll truncate. For big files you'd either need to raise that limit or use `scan_project` first to find the right file, then `read_file` on the specific section you need.
+> **NOTE**: If you ask it to read a large file it'll truncate. For big files you'd either need to raise that limit or use `scan_project` first to find the right file, then `read_file` on the specific section you need.
 
 Change it to whatever your use case needs.
 
@@ -261,31 +247,6 @@ Change it to whatever your use case needs.
 - *"Scan my project and give me an overview of the structure"*
 - *"Read my .env.example and tell me which variables I still need to fill in"*
 - *"Append a TODO comment to the bottom of mcp/index.js"*
-
----
-
-## Project Structure
-
-```txt
-aperio/
-├── docker/
-│   └── docker-compose.yml        # pgvector/pgvector:pg16
-├── db/
-│   └── migrations/               # 001_init · 002_pgvector · 003_drop_projects
-├── mcp/
-│   └── index.js                  # MCP server — 11 tools
-├── prompts/
-│   └── system_prompt.md          # ← Claude's instructions (edit this!)
-├── scripts/
-│   └── chat.js                   # Terminal chat client
-├── public/
-│   └── index.html                # Web UI — themes, streaming, sidebar
-├── server.js                     # Express + WebSocket + agent loop
-├── package.json
-└── .env                          # Your keys — never commit this
-```
-
-> **Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
 
 ---
 
@@ -353,6 +314,45 @@ Aperio is a foundation. The source is fully open — fork it and extend it:
 PRs and forks welcome.
 
 ---
+
+
+## DeepSeek R1 — Local Reasoning
+
+Aperio has special handling for DeepSeek R1's `<think>` blocks:
+
+- Reasoning is extracted, stripped from the final response, and shown in a collapsible UI panel
+- Tool calls are intercepted from R1's text output (R1 doesn't support the tools API natively)
+- Fully local — 9GB model, runs well on 16GB+ RAM (tested on M1 32GB)
+
+```bash
+ollama pull deepseek-r1:14b   # recommended
+ollama pull deepseek-r1:7b    # lighter option
+```
+---
+
+## Cursor / Windsurf (MCP)
+
+Add to `~/.cursor/mcp.json` (or `~/.windsurf/mcp_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "aperio": {
+      "command": "node",
+      "args": ["/absolute/path/to/aperio/mcp/index.js"],
+      "env": {
+        "DATABASE_URL": "postgresql://aperio:aperio_secret@localhost:5432/aperio",
+        "VOYAGE_API_KEY": "pa-..."
+      }
+    }
+  }
+}
+```
+
+Restart your editor. All 11 memory tools are now available to your editor agent — same brain, different interface.
+
+---
+
 
 <div align="center">
 
