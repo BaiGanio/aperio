@@ -10,6 +10,7 @@
 *.userosscache
 *.sln.docstates
 *.env
+*.linkedin-carousel.pptx
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
