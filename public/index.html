@@ -1014,7 +1014,48 @@
       text-align: center;
     }
 
-    /* ── Type icons & colors ─────────────────────────────────── */
+    /* ── Reasoning bubble ───────────────────────────────────────── */
+  .reasoning-wrap {
+    margin: 0 0 0 38px;
+    max-width: 780px;
+    animation: fadeUp .2s ease;
+  }
+  .reasoning-bubble {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    opacity: 0.85;
+  }
+  .reasoning-bubble summary {
+    padding: 5px 10px;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    background: var(--bg-hover);
+    border-bottom: 1px solid var(--border);
+    list-style: none;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .reasoning-bubble summary::-webkit-details-marker { display: none; }
+  .reasoning-bubble pre {
+    margin: 0;
+    padding: 10px 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.55;
+    color: var(--text-muted);
+    background: var(--bg-panel);
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 220px;
+    overflow-y: auto;
+  }
+
+  /* ── Type icons & colors ─────────────────────────────────── */
     .type-icon { font-size: 12px; }
   </style>
 </head>
@@ -1195,6 +1236,8 @@ function stopTitleAnimation() {
 }
 
 // ── Message handler ──────────────────────────────────────────
+let reasoningBubble = null;
+let reasoningText = "";
 let streamingBubble = null;
 let streamingText = "";
 
@@ -1247,6 +1290,56 @@ function handleMessage(msg) {
     if (label) label.textContent = TOOL_LABELS_MAP[msg.name] || "Working…";
   }
 
+  if (msg.type === "reasoning_start") {
+    removeThinking();
+    removeToolIndicator();
+    reasoningText = "";
+    const wrap = document.createElement("div");
+    wrap.className = "reasoning-wrap";
+    const details = document.createElement("details");
+    details.setAttribute("open", "");
+    const summary = document.createElement("summary");
+    const statusSpan = document.createElement("span");
+    statusSpan.style.cssText = "font-size:10px;opacity:0.5;animation:labelFade 1.8s ease infinite";
+    statusSpan.textContent = "thinking…";
+    summary.appendChild(document.createTextNode("🧠 Reasoning "));
+    summary.appendChild(statusSpan);
+    const pre = document.createElement("pre");
+    details.appendChild(summary);
+    details.appendChild(pre);
+    const bubble = document.createElement("div");
+    bubble.className = "reasoning-bubble";
+    bubble.appendChild(details);
+    wrap.appendChild(bubble);
+    messagesEl.appendChild(wrap);
+    scrollToBottom();
+    reasoningBubble = { wrap, pre, details, statusSpan };
+    return;
+  }
+
+  if (msg.type === "reasoning_token") {
+    if (reasoningBubble && msg.text) {
+      reasoningText += msg.text;
+      reasoningBubble.pre.textContent = reasoningText;
+      reasoningBubble.pre.scrollTop = reasoningBubble.pre.scrollHeight;
+    }
+    return;
+  }
+
+  if (msg.type === "retract_done") {
+    if (reasoningBubble) {
+      reasoningBubble.details.removeAttribute("open");
+      reasoningBubble.statusSpan.textContent = "done";
+      reasoningBubble.statusSpan.style.animation = "none";
+      reasoningBubble.statusSpan.style.opacity = "0.4";
+      reasoningBubble = null;
+    }
+    reasoningText = "";
+    streamingText = "";
+    streamingBubble = null;
+    return;
+  }
+
   if (msg.type === "stream_start") {
     const label = document.querySelector("#thinking .thinking-label");
     if (label) label.textContent = "typing…";
@@ -1265,6 +1358,23 @@ function handleMessage(msg) {
       streamingText += msg.text;
       updateStreamingBubble(streamingBubble, streamingText);
     }
+  }
+
+  if (msg.type === "retract") {
+    // Remove any streaming bubble that showed tool call JSON
+    if (streamingBubble) {
+      streamingBubble.wrap?.remove();
+      streamingBubble = null;
+      streamingText = "";
+    }
+    // Also remove the last AI message bubble if it contains JSON
+    const lastAI = [...messagesEl.querySelectorAll('.message.ai')].at(-1);
+    if (lastAI) {
+      const bubble = lastAI.querySelector('.bubble');
+      const text = bubble?.textContent || "";
+      if (text.trim().startsWith("{") || text.includes('"name"')) lastAI.remove();
+    }
+    return;
   }
 
   if (msg.type === "stream_end") {
