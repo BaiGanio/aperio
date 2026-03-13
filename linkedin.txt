@@ -1,0 +1,96 @@
+# ── LinkedIn ───────────────────────────────────────────────────
+# Personal story of neither a philosopher, neither a software engineer. But a bit of both.
+
+# 10 years writing code.
+# 3 years teaching it at university.
+
+# I thought I had figured out this industry.
+
+# Then I got fired.
+
+# Then life did what life does.
+# Hit hard. From multiple directions. At the same time.
+
+# I won't go into details — some things don't belong on LinkedIn.
+# But I will say this: there was a stretch where I genuinely didn't know if I was coming back to tech at all.
+
+# Over a year out of the loop...
+
+# When I finally started opening my laptop again, everyone was saying the same thing:
+# "AI is going to replace developers."
+
+# So I thought — fine.
+# Let me build a tool that replaces the AI.
+
+# (He-he ;/ Kind of.)
+
+# —
+
+# Here's the actual problem I was solving.
+
+# Every AI I opened had no idea who I was.
+# Every session started from zero.
+
+# "I'm a developer."
+# "I work with TypeScript and Node."
+# "I'm building a project called..."
+
+# Over and over. Like introducing myself to the same person every morning.
+
+# After a year away, I had zero patience for that.
+
+# So I built Aperio — a personal memory layer that sits between me and any AI.
+
+# Not a SaaS. Not a subscription. Not someone else's cloud.
+# Just my own brain. Running on my machine. Knowing my context.
+
+# Here's what it actually does:
+
+# 🧠  Remembers everything across sessions
+#      My stack, my decisions, my preferences — permanently.
+#      No more re-explaining myself.
+
+# 🔍  Finds the right memory when I need it
+#      Semantic search powered by pgvector.
+#      Ask "why did I choose Postgres?" — it tells me.
+
+# 🔌  Plugs into any AI agent via MCP
+#      Built on the Model Context Protocol.
+#      Future-proof. Any agent that supports MCP can use my memory.
+
+# ⬡  Runs 100% local & free with Ollama
+#      Zero API costs. Zero data leaving my machine.
+#      My context is mines.
+
+# 💬  Clean chat UI with visible reasoning
+#      Watch the AI think. See why it said what it said.
+
+# After 2 weeks using it daily:
+
+# The AI greeted me by name.
+# It remembered why I chose Postgres.
+# It knew what I was working on.
+
+# It stopped feeling like a tool.
+# It started feeling like a colleague.
+
+# And finishing it — shipping something real after a year of nothing —
+# was proof to myself that I still had it.
+# That the hard year hadn't taken that away.
+
+# —
+
+# If you're tired of re-explaining yourself to every AI, every session:
+
+# Site: 🔗 baiganio.github.io/aperio
+# Repo: 🔗 github.com/BaiGanio/aperio
+# Open source. MIT. Clone it. Run it. Make it yours.
+# "Setup takes 5 minutes. Seriously. Dev to dev — no gibberish, no 47-step prerequisites."
+
+# And if you've had a hard year, and you're wondering if you still have it —
+
+# You do.
+# Build something. Even something small.
+# That's still the best answer I know.
+
+# #AI #LocalAI #OpenSource #MCP #DeepSeek #BuildInPublic #BackToBuilding #SideProject #JobSeeking
