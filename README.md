@@ -220,6 +220,23 @@ One-click JSON export of all your memories. Confirmation before download.
 ### 🗑️ Delete Memories
 Hover any memory card to reveal a trash icon. No page reload needed.
 
+### 🧠 Reasoning
+
+Aperio has special handling for DeepSeek R1's  and Qwen3`<think>` blocks:
+
+- Reasoning is extracted, stripped from the final response, and shown in a collapsible UI panel
+- Tool calls are intercepted from R1's text output (R1 doesn't support the tools API natively)
+- Fully local — 9GB model, runs well on 16GB+ RAM (tested on M1 32GB)
+
+```bash
+ollama pull deepseek-r1:14b   # recommended
+ollama pull deepseek-r1:7b    # lighter option
+ollama pull qwen3
+```
+
+> **Important note:** Due to the limitations of my M1 Pro 32GB, I CAN NOT confirm that Aperio handels the model behaviour. Still working on it.
+
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
@@ -444,27 +461,6 @@ Aperio is a foundation. The source is fully open — fork it and extend it:
 - **Multi-agent sharing** — research agent, coding agent, writing agent — one brain
 
 PRs and forks welcome.
-
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
-
----
-
-## DeepSeek R1 — Local Reasoning
-
-Aperio has special handling for DeepSeek R1's `<think>` blocks:
-
-- Reasoning is extracted, stripped from the final response, and shown in a collapsible UI panel
-- Tool calls are intercepted from R1's text output (R1 doesn't support the tools API natively)
-- Fully local — 9GB model, runs well on 16GB+ RAM (tested on M1 32GB)
-
-```bash
-ollama pull deepseek-r1:14b   # recommended
-ollama pull deepseek-r1:7b    # lighter option
-```
-
-> **Important note:** Due to the limitations of my M1 Pro 32GB, I CAN NOT confirm that Aperio handels the model behaviour. Still working on it.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
