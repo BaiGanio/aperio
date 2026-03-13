@@ -1,3 +1,21 @@
+<a id="top"></a>
+<!-- HEADER --> 
+<p align="center">
+  [ <a href="#setup">Setup</a> ]
+  · · ·
+  [ <a href="#Local AI (Ollama)">Local AI (Ollama)</a> ]  
+  · · ·
+  [ <a href="#npm-scripts">npm Scripts</a> ]
+  · · ·
+  [ <a href="#How-Memory-Works">How Memory Works</a> ] 
+   · · ·
+  [ <a href="#MCP-Tools">MCP Tools</a> ]
+  · · ·
+  [ <a href="#Privacy-&-Embeddings">Privacy & Embeddings</a> ]  
+</p>
+
+---
+
 <div align="center">
 
 ```
@@ -26,17 +44,6 @@ Postgres + pgvector + MCP. Your context, always available.
 
 ---
 
-## Setup
-
-### Prerequisites
-
-- Node.js 18+
-- Docker Desktop
-- Ollama (free)
-- [Anthropic API key](https://console.anthropic.com) — (optional) or Ollama for local AI
-- [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
----
-
 ## Project Structure
 
 ```txt
@@ -59,6 +66,17 @@ aperio/
 ```
 
 > **Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
+---
+
+## Setup
+
+### Prerequisites
+
+- Node.js 18+
+- Docker Desktop
+- Ollama (free)
+- [Anthropic API key](https://console.anthropic.com) — (optional) or Ollama for local AI
+- [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
 ---
 
 ### 1. Clone & install
