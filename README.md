@@ -3,7 +3,7 @@
 <p align="center">
   [ <a href="#setup">Setup</a> ]
   · · ·
-  [ <a href="#local-ai-ollama">Local AI (Ollama)</a> ]  
+  [ <a href="#local-ai-ollama">Local AI</a> ]  
   · · ·
   [ <a href="#npm-scripts">npm Scripts</a> ]
   · · ·
