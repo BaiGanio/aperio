@@ -1046,8 +1046,6 @@
       background: var(--text-muted);
       transition: background var(--transition);
     }
-    .reasoning-toggle.active .reasoning-toggle-dot { background: var(--accent); }
-
     /* ── Reasoning block (collapsible, sits above response) ──── */
     .reasoning-block {
       margin-bottom: 10px;
@@ -1127,6 +1125,9 @@
     <button class="reasoning-toggle" id="reasoningToggle" title="Toggle reasoning display">
       <div class="reasoning-dot"></div>
       reasoning
+    </button>
+    <button id="reasoningToggle" title="Toggle reasoning display" style="height:26px;padding:0 10px;border-radius:20px;border:1px solid var(--border);background:var(--bg-hover);color:var(--text-muted);font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.06em;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all var(--transition);white-space:nowrap;">
+      🧠 <span id="reasoningLabel">reasoning off</span>
     </button>
     <div class="theme-switcher">
       <button class="theme-btn" data-theme="light"  title="Light">☀️</button>
@@ -1427,10 +1428,19 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "stream_end") {
-    if (streamingBubble && streamingText.trim()) {
-      finalizeStreamingBubble(streamingBubble, msg.text || streamingText);
-    } else if (streamingBubble) {
+    const finalText = msg.text || streamingText;
+    if (streamingBubble && finalText.trim()) {
+      // Normal path — tokens streamed, finalize the bubble
+      finalizeStreamingBubble(streamingBubble, finalText);
+    } else if (streamingBubble && !finalText.trim()) {
+      // Empty response — remove the empty bubble
       streamingBubble.wrap?.remove();
+    } else if (!streamingBubble && finalText.trim()) {
+      // No tokens streamed but msg.text has content (R1 without <think>, fast models)
+      // Remove thinking dots and render the message directly
+      removeThinking();
+      removeToolIndicator();
+      addMessage("ai", finalText);
     }
     streamingBubble = null;
     streamingText = "";
@@ -1438,6 +1448,56 @@ function handleMessage(msg) {
     setStatus("connected", "connected");
     sendBtn.disabled = chatInput.value.trim() === "";
     scrollToBottom();
+  }
+
+  if (msg.type === "retract") {
+    const reasoningText = msg.reasoning || "";
+    if (streamingBubble) {
+      streamingBubble.wrap.remove();
+      streamingBubble = null;
+    }
+    streamingText = "";
+    const showReasoning = localStorage.getItem("aperio-reasoning") !== "false";
+    if (showReasoning && reasoningText.trim()) {
+      const details = document.createElement("details");
+      details.style.cssText = "margin:4px 0 0 38px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;opacity:0.8;max-width:780px;";
+      const summary = document.createElement("summary");
+      summary.style.cssText = "padding:5px 10px;cursor:pointer;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);background:var(--bg-hover);border-bottom:1px solid var(--border);list-style:none;user-select:none;";
+      summary.textContent = "🧠 Reasoning";
+      const pre = document.createElement("pre");
+      pre.style.cssText = "margin:0;padding:10px 12px;font-family:var(--font-mono);font-size:11.5px;line-height:1.6;color:var(--text-muted);background:var(--bg-panel);white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;";
+      pre.textContent = reasoningText;
+      details.appendChild(summary);
+      details.appendChild(pre);
+      messagesEl.appendChild(details);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    return;
+  }
+
+  if (msg.type === "retract") {
+    const reasoningText = msg.reasoning || "";
+    if (streamingBubble) {
+      streamingBubble.wrap.remove();
+      streamingBubble = null;
+    }
+    streamingText = "";
+    const showReasoning = localStorage.getItem("aperio-reasoning") !== "false";
+    if (showReasoning && reasoningText.trim()) {
+      const details = document.createElement("details");
+      details.style.cssText = "margin:4px 0 0 38px;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;opacity:0.8;max-width:780px;";
+      const summary = document.createElement("summary");
+      summary.style.cssText = "padding:5px 10px;cursor:pointer;font-family:var(--font-mono);font-size:11px;color:var(--text-muted);background:var(--bg-hover);border-bottom:1px solid var(--border);list-style:none;user-select:none;";
+      summary.textContent = "🧠 Reasoning";
+      const pre = document.createElement("pre");
+      pre.style.cssText = "margin:0;padding:10px 12px;font-family:var(--font-mono);font-size:11.5px;line-height:1.6;color:var(--text-muted);background:var(--bg-panel);white-space:pre-wrap;word-break:break-word;max-height:300px;overflow-y:auto;";
+      pre.textContent = reasoningText;
+      details.appendChild(summary);
+      details.appendChild(pre);
+      messagesEl.appendChild(details);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+    return;
   }
 
   if (msg.type === "memories") {
@@ -2041,6 +2101,38 @@ document.querySelectorAll(".theme-btn").forEach(btn => {
 });
 
 applyTheme(currentTheme);
+
+// ── Reasoning toggle ─────────────────────────────────────────
+(function() {
+  const btn   = document.getElementById("reasoningToggle");
+  const label = document.getElementById("reasoningLabel");
+  let on = localStorage.getItem("aperio-reasoning") !== "false";
+  function apply() {
+    label.textContent     = on ? "reasoning on"       : "reasoning off";
+    btn.style.color       = on ? "var(--accent)"      : "var(--text-muted)";
+    btn.style.borderColor = on ? "var(--accent)"      : "var(--border)";
+    btn.style.background  = on ? "var(--accent-soft)" : "var(--bg-hover)";
+    localStorage.setItem("aperio-reasoning", on ? "true" : "false");
+  }
+  btn.addEventListener("click", () => { on = !on; apply(); });
+  apply();
+})();
+
+// ── Reasoning toggle ─────────────────────────────────────────
+(function() {
+  const btn   = document.getElementById("reasoningToggle");
+  const label = document.getElementById("reasoningLabel");
+  let on = localStorage.getItem("aperio-reasoning") !== "false";
+  function apply() {
+    label.textContent     = on ? "reasoning on"       : "reasoning off";
+    btn.style.color       = on ? "var(--accent)"      : "var(--text-muted)";
+    btn.style.borderColor = on ? "var(--accent)"      : "var(--border)";
+    btn.style.background  = on ? "var(--accent-soft)" : "var(--bg-hover)";
+    localStorage.setItem("aperio-reasoning", on ? "true" : "false");
+  }
+  btn.addEventListener("click", () => { on = !on; apply(); });
+  apply();
+})();
 
 // ── Boot ─────────────────────────────────────────────────────
 connect();
