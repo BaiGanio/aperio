@@ -155,6 +155,7 @@ Scan my project at ~/projects/myapp
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 ## Local AI (Ollama)
@@ -185,6 +186,7 @@ npm run start:local          # terminal 2
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 ## npm Scripts
@@ -200,6 +202,7 @@ npm run start:local          # terminal 2
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 ## How Memory Works
@@ -236,6 +239,7 @@ npm run start:local          # terminal 2
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 ## Reading Files with Local AI
@@ -284,6 +288,7 @@ Change it to whatever your use case needs.
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 ## Privacy & Embeddings
@@ -337,6 +342,7 @@ OLLAMA_EMBEDDING_MODEL=nomic-embed-text
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 ## Build On Top
@@ -355,6 +361,7 @@ PRs and forks welcome.
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 ## DeepSeek R1 — Local Reasoning
@@ -399,6 +406,7 @@ Restart your editor. All 11 memory tools are now available to your editor agent 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 
