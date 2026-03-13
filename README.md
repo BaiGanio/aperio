@@ -225,16 +225,8 @@ Hover any memory card to reveal a trash icon. No page reload needed.
 Aperio has special handling for DeepSeek R1's  and Qwen3`<think>` blocks:
 
 - Reasoning is extracted, stripped from the final response, and shown in a collapsible UI panel
-- Tool calls are intercepted from R1's text output (R1 doesn't support the tools API natively)
-- Fully local — 9GB model, runs well on 16GB+ RAM (tested on M1 32GB)
 
-```bash
-ollama pull deepseek-r1:14b   # recommended
-ollama pull deepseek-r1:7b    # lighter option
-ollama pull qwen3
-```
-
-> **Important note:** Due to the limitations of my M1 Pro 32GB, I CAN NOT confirm that Aperio handels the model behaviour. Still working on it.
+> **Important note:** Due to the limitations of my M1 Pro 32GB, I CAN NOT confirm that Aperio handles the models reasoning behavior perfectly. Still working on it.
 
 
 <p align="right">
@@ -426,7 +418,7 @@ Complete privacy with no external API calls at all - thanks to the local embeddi
 
 #### What leaves your machine if choose Voyage AI
 
-If Aperio uses **Voyage AI** to generate embeddings. Here's exactly what happens:
+If Aperio uses **Voyage AI** to generate embeddings, here's exactly what happens:
 
 ```
 You save a memory 
