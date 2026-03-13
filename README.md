@@ -218,6 +218,7 @@ npm run start:local          # terminal 2
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 ## MCP Tools (11)
@@ -377,9 +378,12 @@ ollama pull deepseek-r1:14b   # recommended
 ollama pull deepseek-r1:7b    # lighter option
 ```
 
+> **Important note:** Due to the limitations of my M1 Pro 32GB, I CAN NOT confirm that Aperio handels the model behaviour. Still working on it.
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
+
 ---
 
 ## Cursor / Windsurf (MCP)
