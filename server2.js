@@ -242,9 +242,13 @@ async function runOllamaLoop(messages, ws) {
         continue;
       }
 
-      // Normal response — signal reasoning done, send full text instantly
+      // Normal response — signal reasoning done, then stream answer token by token
       if (sentReasoningStart) ws.send(JSON.stringify({ type: "reasoning_done" }));
       ws.send(JSON.stringify({ type: "stream_start" }));
+      for (const char of fullText) {
+        ws.send(JSON.stringify({ type: "token", text: char }));
+        await new Promise(r => setTimeout(r, 2));
+      }
       ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
       messages.push({ role: "assistant", content: [{ type: "text", text: fullText }] });
       return fullText;
