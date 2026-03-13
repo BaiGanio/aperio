@@ -251,6 +251,8 @@ The default cap is 500 lines. To increase it, find this in `mcp/index.js`:
 const MAX_LINES = 500;
 ```
 
+> NOTE: If you ask it to read a large file it'll truncate. For big files you'd either need to raise that limit or use `scan_project` first to find the right file, then `read_file` on the specific section you need.
+
 Change it to whatever your use case needs.
 
 ### Example prompts that just work
