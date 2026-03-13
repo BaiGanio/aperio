@@ -1,17 +1,17 @@
 <a id="top"></a>
 <!-- HEADER --> 
 <p align="center">
-  [ <a href="#setup">Setup</a> ]
-   · · ·
   [ <a href="#philosophy">Philosophy</a> ] 
   · · ·
-  [ <a href="#architecture">Architecture</a> ]  
+  [ <a href="#architecture">Architecture</a> ] 
+  · · ·
+  [ <a href="#features">Features</a> ]  
   · · ·
   [ <a href="#getting-started">Getting Started</a> ]  
   · · ·
-  [ <a href="#npm-scripts">npm Scripts</a> ]
+  [ <a href="#ai-providers">AI Providers</a> ]
   · · ·
-  [ <a href="#how-memory-works">How Memory Works</a> ] 
+  [ <a href="#commands">Commands</a> ]
    · · ·
   [ <a href="#mcp-tools-11">MCP Tools</a> ]
   · · ·
@@ -40,6 +40,31 @@ Postgres + pgvector + MCP. Your context, always available.
 
 ---
 
+## Project Structure
+
+```txt
+aperio/
+├── docker/
+│   └── docker-compose.yml        # pgvector/pgvector:pg16
+├── db/
+│   └── migrations/               # 001_init · 002_pgvector
+├── mcp/
+│   └── index.js                  # MCP server — 11 tools
+├── prompts/
+│   └── system_prompt.md          # ← AI agents instructions (edit this!)
+├── scripts/
+│   └── chat.js                   # Terminal chat client
+├── public/
+│   └── index.html                # Web UI — themes, streaming, sidebar
+├── server.js                     # Express + WebSocket + agent loop
+├── package.json
+└── .env                          # Your keys — never commit this
+```
+
+> **Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
+
+---
+
 ## Philosophy
 
 Aperio is open source and self-hosted because **your memory is yours.**
@@ -53,6 +78,10 @@ It runs entirely on your machine by default — no API keys, no data leaving you
 | 🧠 **Your brain, your data** | Postgres lives on your machine. You own it. |
 | 🔌 **MCP-native** | Any MCP-compatible agent plugs in — Cursor, Windsurf, etc. |
 | 🆓 **Free to run** | No subscription. No per-message cost. Just your hardware. |
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 
 ---
 
@@ -79,6 +108,40 @@ Anthropic + Voyage AI           — optional cloud upgrade
 | **Node ESM** | Single runtime, clean imports, no build step |
 | **Claude** *(optional)* | Anthropic API for complex reasoning tasks |
 | **Voyage AI** *(optional)* | Highest embedding quality for power users |
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
+## Features
+
+### 🧠 Persistent Memory
+7 structured types survive every conversation, every tool, every session:
+`fact` `preference` `project` `decision` `solution` `source` `person`
+
+### 🔍 Semantic Search
+Powered by pgvector + embeddings. Ask for *"my TypeScript projects"* and get results by meaning, not keywords. Full-text search as fallback when no embeddings exist.
+
+### ⚡ Real-time Streaming
+Responses stream live. Reasoning models (`qwen3`, `deepseek-r1`) show a collapsible thinking bubble — toggle it on/off in the header.
+
+### 🎨 4 Themes
+Light · Dark · Aurora (indigo-pink) · System. Persisted in localStorage.
+
+### 🧹 Auto-Deduplication
+Background job every 10 minutes finds near-duplicate memories via cosine similarity (97% threshold). Dry-run by default.
+
+### 📤 Brain Export
+One-click JSON export of all your memories. Confirmation before download.
+
+### 🗑️ Delete Memories
+Hover any memory card to reveal a trash icon. No page reload needed.
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
 
 ---
 
@@ -148,6 +211,10 @@ Scan my project at ~/projects/myapp
 
 That's it. No API keys. No cloud. Full semantic memory on your machine.
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
 ---
 
 ## AI Providers
@@ -201,6 +268,10 @@ VOYAGE_API_KEY=pa-...
 | **Ollama** *(default)* | `nomic-embed-text` — zero external calls, 768 dims |
 | **Voyage AI** *(optional)* | `voyage-3` — 1024 dims, highest quality, 50M free tokens/month |
 
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
 ---
 
 ## Local vs Cloud
@@ -239,32 +310,6 @@ VOYAGE_API_KEY=pa-...
 
 ---
 
-## Features
-
-### 🧠 Persistent Memory
-7 structured types survive every conversation, every tool, every session:
-`fact` `preference` `project` `decision` `solution` `source` `person`
-
-### 🔍 Semantic Search
-Powered by pgvector + embeddings. Ask for *"my TypeScript projects"* and get results by meaning, not keywords. Full-text search as fallback when no embeddings exist.
-
-### ⚡ Real-time Streaming
-Responses stream live. Reasoning models (`qwen3`, `deepseek-r1`) show a collapsible thinking bubble — toggle it on/off in the header.
-
-### 🎨 4 Themes
-Light · Dark · Aurora (indigo-pink) · System. Persisted in localStorage.
-
-### 🧹 Auto-Deduplication
-Background job every 10 minutes finds near-duplicate memories via cosine similarity (97% threshold). Dry-run by default.
-
-### 📤 Brain Export
-One-click JSON export of all your memories. Confirmation before download.
-
-### 🗑️ Delete Memories
-Hover any memory card to reveal a trash icon. No page reload needed.
-
----
-
 ## MCP Tools (11)
 
 The same tools are available to the chat UI, Cursor, Windsurf, or any MCP-compatible agent.
@@ -286,32 +331,6 @@ The same tools are available to the chat UI, Cursor, Windsurf, or any MCP-compat
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
-
----
-
-## Project Structure
-
-```txt
-aperio/
-├── docker/
-│   └── docker-compose.yml        # pgvector/pgvector:pg16
-├── db/
-│   └── migrations/               # 001_init · 002_pgvector
-├── mcp/
-│   └── index.js                  # MCP server — 11 tools
-├── prompts/
-│   └── system_prompt.md          # ← AI agents instructions (edit this!)
-├── scripts/
-│   └── chat.js                   # Terminal chat client
-├── public/
-│   └── index.html                # Web UI — themes, streaming, sidebar
-├── server.js                     # Express + WebSocket + agent loop
-├── package.json
-└── .env                          # Your keys — never commit this
-```
-
-> **Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
-
 
 ---
 
@@ -390,7 +409,7 @@ You save a memory
 An embedding converts your text into a list of numbers that represent its meaning:
 
 ```text
-"I chose Postgres because of pgvector" → [0.023, -0.847, 0.331, ... ×1024]
+"I chose Postgres because of pgvector" → [0.023, -0.847, 0.331, ... ×768] # or x1024 with Voyage AI
 ```
 
 Two semantically similar sentences produce vectors that are mathematically close — that's how `recall` finds the right memory even when you phrase the question differently.
