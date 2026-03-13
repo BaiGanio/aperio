@@ -395,7 +395,7 @@ Change it to whatever your use case needs.
 An embedding converts your text into a list of numbers that represent its meaning:
 
 ```text
-"I chose Postgres because of pgvector" → [0.023, -0.847, 0.331, ... ×768] # or x1024 with Voyage AI
+"I chose Postgres because of pgvector" → [0.023, -0.847, 0.331, ... ×768]
 ```
 
 Two semantically similar sentences produce vectors that are mathematically close — that's how `recall` finds the right memory even when you phrase the question differently.
