@@ -6,9 +6,9 @@
   · · ·
   [ <a href="#architecture">Architecture</a> ] 
   · · ·
-  [ <a href="#features">Features</a> ]  
-  · · ·
   [ <a href="#getting-started">Getting Started</a> ]  
+  · · ·
+  [ <a href="#features">Features</a> ]  
   · · ·
   <br>
   <br>
@@ -122,36 +122,6 @@ Anthropic + Voyage AI           — optional cloud upgrade
 
 ---
 
-## Features
-
-### 🧠 Persistent Memory
-7 structured types survive every conversation, every tool, every session:
-`fact` `preference` `project` `decision` `solution` `source` `person`
-
-### 🔍 Semantic Search
-Powered by pgvector + embeddings. Ask for *"my TypeScript projects"* and get results by meaning, not keywords. Full-text search as fallback when no embeddings exist.
-
-### ⚡ Real-time Streaming
-Responses stream live. Reasoning models (`qwen3`, `deepseek-r1`) show a collapsible thinking bubble — toggle it on/off in the header.
-
-### 🎨 4 Themes
-Light · Dark · Aurora (indigo-pink) · System. Persisted in localStorage.
-
-### 🧹 Auto-Deduplication
-Background job every 10 minutes finds near-duplicate memories via cosine similarity (97% threshold). Dry-run by default.
-
-### 📤 Brain Export
-One-click JSON export of all your memories. Confirmation before download.
-
-### 🗑️ Delete Memories
-Hover any memory card to reveal a trash icon. No page reload needed.
-
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
-
----
-
 ## Getting Started 
 
 The fastest path. Runs 100% on your machine. No API Keys.
@@ -160,6 +130,8 @@ The fastest path. Runs 100% on your machine. No API Keys.
 - Node.js 18+
 - Docker Desktop
 - [Ollama](https://ollama.ai)
+- [Anthropic API key](https://console.anthropic.com) — (optional) or Ollama for local AI
+- [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
 
 ### 2. Clone & install
 ```bash
@@ -224,6 +196,36 @@ That's it. No API keys. No cloud. Full semantic memory on your machine.
 
 ---
 
+## Features
+
+### 🧠 Persistent Memory
+7 structured types survive every conversation, every tool, every session:
+`fact` `preference` `project` `decision` `solution` `source` `person`
+
+### 🔍 Semantic Search
+Powered by pgvector + embeddings. Ask for *"my TypeScript projects"* and get results by meaning, not keywords. Full-text search as fallback when no embeddings exist.
+
+### ⚡ Real-time Streaming
+Responses stream live. Reasoning models (`qwen3`, `deepseek-r1`) show a collapsible thinking bubble — toggle it on/off in the header.
+
+### 🎨 4 Themes
+Light · Dark · Aurora (indigo-pink) · System. Persisted in localStorage.
+
+### 🧹 Auto-Deduplication
+Background job every 10 minutes finds near-duplicate memories via cosine similarity (97% threshold). Dry-run by default.
+
+### 📤 Brain Export
+One-click JSON export of all your memories. Confirmation before download.
+
+### 🗑️ Delete Memories
+Hover any memory card to reveal a trash icon. No page reload needed.
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
 ## AI Providers
 
 Switch with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
@@ -262,7 +264,7 @@ ANTHROPIC_MODEL=claude-haiku-4-5-20251001
 
 ### Embeddings
 ```env
-# Local (default)
+# Local (default) - comment both lines if choose of Voyage AI
 EMBEDDING_PROVIDER=ollama
 OLLAMA_EMBED_MODEL=nomic-embed-text
 
