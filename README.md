@@ -26,7 +26,7 @@
   <br>
   <br>
   · · ·
-  [ <a href="https://github.com/BaiGanio/aperio/issues/3">Contributors Note</a> ]
+  [ <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors Note</a> ]
    · · ·
 </p>
 
