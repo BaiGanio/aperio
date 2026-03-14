@@ -600,10 +600,10 @@
       text-align: center;
       padding-top: 16px;
       border-top: 1px solid var(--border);
-      font-size: 0.7rem;
-      color: var(--muted);
+      font-size: 0.9rem;
+      /* color: var(--muted); */
       opacity: 0.45;
-      font-style: italic;
+      /* font-style: italic; */
       letter-spacing: 0.01em;
       line-height: 1.5;
       transition: opacity 0.3s ease;
@@ -611,6 +611,7 @@
 
     .footer-warning:hover {
       opacity: 0.9;
+      cursor:pointer;
     }
 
     /* ══════════════════════════════════════════════════════════
@@ -761,12 +762,12 @@
         <p class="feat-desc">Runs fully on your machine with Ollama — free, private, offline-capable. Switch to Claude with one env variable when you need more power.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.19s">
-        <div class="feat-icon"><i class="bi bi-broom-fill"></i></div>
+        <div class="feat-icon"><i class="bi bi-eraser-fill"></i></div>
         <div class="feat-title">Auto Deduplication</div>
         <p class="feat-desc">Background job finds near-duplicate memories every 10 minutes using cosine similarity. Dry-run by default — you stay in control.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.24s">
-        <div class="feat-icon"><i class="bi bi-brain"></i></div>
+        <div class="feat-icon"><i class="bi bi-robot"></i></div>
         <div class="feat-title">Reasoning Models</div>
         <p class="feat-desc">Native support for thinking models — qwen3, deepseek-r1. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.</p>
       </div>
