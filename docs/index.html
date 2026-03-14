@@ -190,9 +190,9 @@
       animation: orb-drift 14s ease-in-out infinite alternate;
       transition: background 0.4s, opacity 0.4s;
     }
-    .orb-1 { width:700px;height:700px;background:var(--orb-1-color);opacity:var(--orb-1-op);top:-280px;right:-180px;animation-delay:0s; }
-    .orb-2 { width:500px;height:500px;background:var(--orb-2-color);opacity:var(--orb-2-op);bottom:10%;left:-180px;animation-delay:-5s; }
-    .orb-3 { width:350px;height:350px;background:var(--orb-3-color);opacity:var(--orb-3-op);top:55%;right:5%;animation-delay:-10s; }
+    .orb-1 { width:700px;height:700px;background:var(--orb-1-color);opacity:var(--orb-1-op);top:-280px;right:-180px;animation-delay:0s;will-change:transform; }
+    .orb-2 { width:500px;height:500px;background:var(--orb-2-color);opacity:var(--orb-2-op);bottom:10%;left:-180px;animation-delay:-5s;will-change:transform; }
+    .orb-3 { width:350px;height:350px;background:var(--orb-3-color);opacity:var(--orb-3-op);top:55%;right:5%;animation-delay:-10s;will-change:transform; }
     @keyframes orb-drift { from{transform:translate(0,0)scale(1)} to{transform:translate(32px,22px)scale(1.09)} }
 
     .z1 { position: relative; z-index: 1; }
@@ -209,6 +209,7 @@
       position: sticky; top: 0; z-index: 200;
       background: var(--nav-bg);
       backdrop-filter: blur(24px) saturate(180%);
+      will-change: transform;
       border-bottom: 1px solid var(--border);
       transition: background 0.3s, border-color 0.3s;
     }
