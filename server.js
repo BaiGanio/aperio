@@ -61,15 +61,26 @@ async function callTool(name, input) {
 }
 
 function extractTextToolCall(text) {
-  const stripped = text.replace(/```(?:json)?\s*([\s\S]*?)```/g, "$1").trim();
-  const match = stripped.match(/\{[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*?\}/);
+  // Match a JSON block (with or without fences) that looks like a tool call
+  const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  const jsonStr = fenceMatch ? fenceMatch[1].trim() : text.trim();
+  const match = jsonStr.match(/\{[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*?\}/);
   if (!match) return null;
   if (!mcpToolNames.has(match[1])) return null;
   try {
     const parsed = JSON.parse(match[0]);
     const params = parsed.parameters ?? parsed.input ?? parsed.arguments ?? {};
     const cleaned = Object.fromEntries(Object.entries(params).filter(([,v]) => v != null && v !== "" && v !== "None" && v !== "null"));
-    return { name: match[1], input: cleaned };
+    // Extract any text after the JSON block / fences as a trailing response
+    let trailing = "";
+    if (fenceMatch) {
+      trailing = text.slice(text.indexOf(fenceMatch[0]) + fenceMatch[0].length).trim();
+    } else {
+      trailing = text.slice(text.indexOf(match[0]) + match[0].length).trim();
+    }
+    // Strip common model artifacts like "Response: " prefix
+    trailing = trailing.replace(/^[-–—\s]*(?:Response|Result|Answer|Output)\s*:\s*/i, "").trim();
+    return { name: match[1], input: cleaned, trailing };
   } catch { return null; }
 }
 
@@ -156,7 +167,7 @@ async function runOllamaLoop(messages, ws) {
     try {
       response = await fetch(`${provider.baseURL}/chat/completions`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: provider.model, messages: openaiMessages, tools: ollamaTools, stream: true }),
+        body: JSON.stringify({ model: provider.model, messages: openaiMessages, ...(OLLAMA_THINKS ? {} : { tools: ollamaTools }), stream: true }),
       });
     } catch (e) {
       ws.send(JSON.stringify({ type: "stream_start" }));
@@ -193,10 +204,10 @@ async function runOllamaLoop(messages, ws) {
           ws.send(JSON.stringify({ type: "reasoning_token", text: delta.reasoning }));
         }
 
-        // Content — buffer only for thinking models
+        // Content — always stream live; client decides whether to show or discard
         if (delta.content) {
           fullText += delta.content;
-          if (!OLLAMA_THINKS) ws.send(JSON.stringify({ type: "token", text: delta.content }));
+          ws.send(JSON.stringify({ type: "token", text: delta.content }));
         }
 
         // Tool calls
@@ -212,6 +223,7 @@ async function runOllamaLoop(messages, ws) {
       }
     }
 
+    console.log("🔍 thinking post-stream | fullText:", fullText.substring(0,80), "| toolCalls:", toolCalls.length);
     // ── Thinking model post-stream ─────────────────────────────
     if (OLLAMA_THINKS) {
       const intercepted = fullText.trim() ? extractTextToolCall(fullText) : null;
@@ -220,12 +232,19 @@ async function runOllamaLoop(messages, ws) {
         // Text-mode tool call (Qwen3 ignores tools API)
         if (sentReasoningStart) ws.send(JSON.stringify({ type: "reasoning_done" }));
         ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
-        ws.send(JSON.stringify({ type: "stream_end", text: "" }));
+       //ws.send(JSON.stringify({ type: "stream_end", text: "" }));
         const result = await callTool(intercepted.name, intercepted.input);
         const id = `intercept_${Date.now()}`;
         messages.push({ role: "assistant", content: [{ type: "tool_use", id, name: intercepted.name, input: intercepted.input }] });
         messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: id, content: result }] });
         sentReasoningStart = false;
+        // If model already provided a response after the tool call, use it directly
+        if (intercepted.trailing) {
+          ws.send(JSON.stringify({ type: "stream_start" }));
+          ws.send(JSON.stringify({ type: "stream_end", text: intercepted.trailing }));
+          messages.push({ role: "assistant", content: [{ type: "text", text: intercepted.trailing }] });
+          return intercepted.trailing;
+        }
         continue;
       }
 
@@ -241,43 +260,63 @@ async function runOllamaLoop(messages, ws) {
         sentReasoningStart = false;
         continue;
       }
-
+      console.log("🟢 THINKING normal response");
       // Normal response — signal reasoning done, send full text instantly
       if (sentReasoningStart) ws.send(JSON.stringify({ type: "reasoning_done" }));
       ws.send(JSON.stringify({ type: "stream_start" }));
+      for (const word of fullText.split(" ")) {
+      ws.send(JSON.stringify({ type: "token", text: word + " " }));
+      await new Promise(r => setTimeout(r, 28));
+      }
+    
       ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
       messages.push({ role: "assistant", content: [{ type: "text", text: fullText }] });
       return fullText;
     }
 
+    console.log("🔍 post-stream | fullText:", fullText.substring(0,80), "| toolCalls:", toolCalls.length);
     // ── Non-thinking model post-stream ─────────────────────────
-    if (toolCalls.length === 0 && fullText.trim()) {
-      const intercepted = extractTextToolCall(fullText);
-      if (intercepted) {
-        ws.send(JSON.stringify({ type: "retract" }));
-        ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
-        ws.send(JSON.stringify({ type: "stream_end", text: "" }));
-        const result = await callTool(intercepted.name, intercepted.input);
-        const id = `intercept_${Date.now()}`;
-        messages.push({ role: "assistant", content: [{ type: "tool_use", id, name: intercepted.name, input: intercepted.input }] });
-        messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: id, content: result }] });
-        continue;
-      }
-    }
 
-    ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
-    const am = { role: "assistant", content: [] };
-    if (fullText) am.content.push({ type: "text", text: fullText });
-    toolCalls.forEach(tc => am.content.push({ type: "tool_use", id: tc.id, name: tc.name, input: (() => { try { return JSON.parse(tc.args||"{}"); } catch { return {}; } })() }));
-    messages.push(am);
-
+    // API tool calls — execute silently and loop
     if (toolCalls.length > 0) {
+      const am = { role: "assistant", content: [] };
+      if (fullText) am.content.push({ type: "text", text: fullText });
+      toolCalls.forEach(tc => am.content.push({ type: "tool_use", id: tc.id, name: tc.name, input: (() => { try { return JSON.parse(tc.args||"{}"); } catch { return {}; } })() }));
+      messages.push(am);
       const results = [];
-      for (const tc of toolCalls) { let inp = {}; try { inp = JSON.parse(tc.args||"{}"); } catch {} results.push({ type: "tool_result", tool_use_id: tc.id, content: await callTool(tc.name, inp) }); }
+      for (const tc of toolCalls) {
+        let inp = {}; try { inp = JSON.parse(tc.args||"{}"); } catch {}
+        results.push({ type: "tool_result", tool_use_id: tc.id, content: await callTool(tc.name, inp) });
+      }
       messages.push({ role: "user", content: results });
       continue;
     }
 
+    // Text-mode tool call (model output JSON instead of using tools API)
+    if (fullText.trim()) {
+      const intercepted = extractTextToolCall(fullText);
+      if (intercepted) {
+        ws.send(JSON.stringify({ type: "retract" })); // remove any streamed JSON from UI
+        ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
+        const result = await callTool(intercepted.name, intercepted.input);
+        const id = `intercept_${Date.now()}`;
+        messages.push({ role: "assistant", content: [{ type: "tool_use", id, name: intercepted.name, input: intercepted.input }] });
+        messages.push({ role: "user", content: [{ type: "tool_result", tool_use_id: id, content: result }] });
+        // If model already provided a response after the tool call, use it directly
+        if (intercepted.trailing) {
+          ws.send(JSON.stringify({ type: "stream_start" }));
+          ws.send(JSON.stringify({ type: "stream_end", text: intercepted.trailing }));
+          messages.push({ role: "assistant", content: [{ type: "text", text: intercepted.trailing }] });
+          return intercepted.trailing;
+        }
+        continue;
+      }
+    }
+    console.log("🟡 NON-THINKING normal response");
+    // Normal response — stream to UI
+    ws.send(JSON.stringify({ type: "stream_start" }));
+    ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
+    messages.push({ role: "assistant", content: [{ type: "text", text: fullText }] });
     return fullText;
   }
 }
@@ -302,7 +341,21 @@ wss.on("connection", (ws) => {
 
   async function init() {
     await sendMemories(ws); // load sidebar immediately
-    messages.push({ role: "user", content: "Load my core memories silently, then greet me in one short sentence. Do not repeat or summarize the memories back to me." });
+
+    // Load memories server-side and inject directly — no tool calls needed on init
+    let memoriesContext = "";
+    try {
+      const raw = await callTool("recall", { limit: 50 });
+      if (raw && raw.trim() && !raw.includes("No memories")) {
+        memoriesContext = `\n\nHere is what you know about the user:\n${raw}`;
+      }
+    } catch {}
+
+    messages.push({
+      role: "user",
+      content: `Greet me in one short friendly sentence. Do not use any tools.${memoriesContext}`
+    });
+
     ws.send(JSON.stringify({ type: "thinking" }));
     await runAgentLoop(messages, ws);
     await sendMemories(ws);

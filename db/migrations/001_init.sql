@@ -74,9 +74,16 @@ INSERT INTO memories (type, title, content, tags, importance) VALUES
   4
 ),
 (
+  'preference',
+  'File write confirmation preference',
+  'Always ask for confirmation before writing any file and show the path.',
+  ARRAY['safety', 'file-io'],
+  5
+),
+(
   'project',
   'Aperio',
   'A personal memory layer for AI tools. Built with Postgres + MCP. Currently in early development.',
   ARRAY['mcp', 'postgres', 'ai', 'personal'],
-  5
+  6
 );

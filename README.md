@@ -220,15 +220,6 @@ One-click JSON export of all your memories. Confirmation before download.
 ### 🗑️ Delete Memories
 Hover any memory card to reveal a trash icon. No page reload needed.
 
-### 🧠 Reasoning
-
-Aperio has special handling for DeepSeek R1's  and Qwen3`<think>` blocks:
-
-- Reasoning is extracted, stripped from the final response, and shown in a collapsible UI panel
-
-> **Important note:** Due to the limitations of my M1 Pro 32GB, I CAN NOT confirm that Aperio handles the models reasoning behavior perfectly. Still working on it.
-
-
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>

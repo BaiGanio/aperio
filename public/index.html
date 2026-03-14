@@ -554,8 +554,9 @@
 
     .message {
       display: flex;
-      gap: 10px;
-      max-width: 780px;
+      gap: 16px;
+      width: 100%;
+      max-width: 860px;
       animation: fadeUp .2s ease;
     }
 
@@ -1015,11 +1016,13 @@
     }
 
     /* ── Reasoning bubble ───────────────────────────────────────── */
-  .reasoning-wrap {
-    margin: 0 0 0 38px;
-    max-width: 780px;
-    animation: fadeUp .2s ease;
-  }
+    .reasoning-wrap {
+      width: 100%;
+      max-width: 860px;
+      padding-left: 38px;
+      box-sizing: border-box;
+      animation: fadeUp .2s ease;
+    }
   .reasoning-bubble {
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
@@ -1293,6 +1296,7 @@ let reasoningBubble = null;
 let reasoningText = "";
 let streamingBubble = null;
 let streamingText = "";
+let isReasoningActive = false; // true while model is inside <think> / reasoning phase
 
 function handleMessage(msg) {
 
@@ -1344,6 +1348,7 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "reasoning_start") {
+    isReasoningActive = true;
     // Close any previous bubble cleanly before starting a new one
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
@@ -1376,7 +1381,7 @@ function handleMessage(msg) {
     bubble.appendChild(details);
     wrap.appendChild(bubble);
     messagesEl.appendChild(wrap);
-    scrollToBottom();
+    scrollToBottom(true);
     reasoningBubble = { wrap, pre, details, statusSpan };
     return;
   }
@@ -1386,11 +1391,13 @@ function handleMessage(msg) {
       reasoningText += msg.text;
       reasoningBubble.pre.textContent = reasoningText;
       reasoningBubble.pre.scrollTop = reasoningBubble.pre.scrollHeight;
+      scrollToBottom(true);
     }
     return;
   }
 
   if (msg.type === "reasoning_done") {
+    isReasoningActive = false;
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
       reasoningBubble.statusSpan.textContent = "done";
@@ -1399,13 +1406,13 @@ function handleMessage(msg) {
       reasoningBubble = null;
     }
     reasoningText = "";
-    streamingText = "";
-    streamingText = "";
-    streamingBubble = null;
+    // streamingText = "";
+    // streamingBubble = null;
     return;
   }
 
   if (msg.type === "stream_start") {
+    isReasoningActive = false; // reasoning phase is over, answer is coming
     // Safety net: collapse reasoning bubble if still open
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
@@ -1417,12 +1424,15 @@ function handleMessage(msg) {
     const label = document.querySelector("#thinking .thinking-label");
     if (label) label.textContent = "typing…";
     setStatus("thinking", "typing…");
-    streamingText = "";
-    streamingBubble = null;
+    // NOTE: do NOT null streamingBubble here — tokens may arrive after this
   }
 
   if (msg.type === "token") {
     if (msg.text) {
+      const reasoningOn = localStorage.getItem("aperio-reasoning") !== "false";
+      // If reasoning toggle is ON and model is still in reasoning phase, discard content tokens
+      // (the answer will arrive via stream_end after reasoning completes)
+      if (isReasoningActive && reasoningOn && reasoningBubble) return;
       if (!streamingBubble) {
         removeThinking();
         removeToolIndicator();
@@ -1430,10 +1440,11 @@ function handleMessage(msg) {
       }
       streamingText += msg.text;
       updateStreamingBubble(streamingBubble, streamingText);
+      requestAnimationFrame(() => scrollToBottom(true));
     }
   }
 
-  if (msg.type === "retract") {
+  if (msg.type === "retract") { console.log("RETRACT fired!");
     // Remove any streaming bubble that showed tool call JSON
     if (streamingBubble) {
       streamingBubble.wrap?.remove();
@@ -1455,13 +1466,19 @@ function handleMessage(msg) {
       finalizeStreamingBubble(streamingBubble, msg.text || streamingText);
     } else if (streamingBubble) {
       streamingBubble.wrap?.remove();
+    } else if (msg.text?.trim()) {
+      // Buffered response (no token streaming) — render directly
+      // console.error("addMessage fallback firing, text:", msg.text.substring(0,50));
+      removeThinking();
+      removeToolIndicator();
+      addMessage("ai", msg.text);
     }
     streamingBubble = null;
     streamingText = "";
     isThinking = false;
     setStatus("connected", "connected");
     sendBtn.disabled = chatInput.value.trim() === "";
-    scrollToBottom();
+    scrollToBottom(true);
   }
 
   if (msg.type === "memories") {
