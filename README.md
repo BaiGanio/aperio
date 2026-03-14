@@ -54,21 +54,20 @@ Postgres + pgvector + MCP. Your context, always available.
 
 ---
 
-## Project Structure
-
+## 🏗️ Project Structure
 ```txt
-aperio/
-├── docker/
+📂 aperio/          <---=  You are here 
+├── 📂 docker/
 │   └── docker-compose.yml        # pgvector/pgvector:pg16
-├── db/
-│   └── migrations/               # 001_init · 002_pgvector
-├── mcp/
+├── 📂 db/
+│   └── 📂 migrations/            # 001_init · 002_pgvector
+├── 📂 mcp/
 │   └── index.js                  # MCP server — 11 tools
-├── prompts/
+├── 📂 prompts/
 │   └── system_prompt.md          # ← AI agents instructions (edit this!)
-├── scripts/
+├── 📂 scripts/
 │   └── chat.js                   # Terminal chat client
-├── public/
+├── 📂 public/
 │   └── index.html                # Web UI — themes, streaming, sidebar
 ├── server.js                     # Express + WebSocket + agent loop
 ├── package.json
