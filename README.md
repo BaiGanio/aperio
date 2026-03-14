@@ -15,11 +15,11 @@
   · · ·
   [ <a href="#ai-providers">AI Providers</a> ]
    · · ·
-  [ <a href="#local-vs-cloud">Local vs Cloud</a> ]
-  · · ·
   [ <a href="#commands">Commands</a> ]
   · · ·
   [ <a href="#mcp-tools-11">MCP Tools</a> ]  
+  · · ·
+  [ <a href="#how-to-use">How to Use?</a> ]
   · · ·
   [ <a href="#privacy">Privacy</a> ]  
   · · ·
@@ -282,13 +282,7 @@ VOYAGE_API_KEY=pa-...
 | **Ollama** *(default)* | `nomic-embed-text` — zero external calls, 768 dims |
 | **Voyage AI** *(optional)* | `voyage-3` — 1024 dims, highest quality, 50M free tokens/month |
 
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
-
----
-
-## Local vs Cloud
+### Local vs Cloud
 
 | | ⬡ Ollama (Local) | ✦ Claude (Cloud) |
 |---|---|---|
@@ -341,6 +335,156 @@ The same tools are available to the chat UI, Cursor, Windsurf, or any MCP-compat
 | `fetch_url` | Fetch a URL, strip HTML, truncate at 15k chars |
 | `get_stats` | Memory count, type distribution, embedding coverage |
 | `search_by_tag` | Filter memories by one or more tags |
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
+## How to Use?
+### 🛠️ Aperio MCP Tools Guide
+Aperio exposes 11 tools for memory management, file operations, and web fetching.
+Just type naturally in the chat — no commands, no syntax to remember.
+
+#### `remember` — Save a memory
+
+Saves structured context about you — facts, decisions, preferences, projects, people, solutions, sources.
+```
+Remember that I'm building a SaaS called Launchpad using Next.js, Supabase, and Stripe
+```
+```
+Remember that I prefer tabs over spaces and always use TypeScript strict mode
+```
+```
+Remember that I decided to use Fly.io over Railway — better pricing for always-on workloads
+```
+
+#### `recall` — Search memories
+
+Searches your memory by meaning. Called automatically on every startup — you rarely need to trigger this manually.
+```
+What do you know about my projects?
+```
+```
+What stack am I using for Launchpad?
+```
+```
+Do you remember any infrastructure decisions I made?
+```
+
+#### `update_memory` — Update an existing memory
+
+Use when something has changed and a memory is outdated.
+```
+Update my Launchpad memory — we switched from Supabase to PlanetScale
+```
+```
+The Fly.io memory is wrong — update it, we moved to Railway after all
+```
+```
+Update my name memory, I go by Lyu not Lyuben
+```
+
+#### `forget` — Delete a memory
+
+Deletes a memory permanently. You can also use the trash icon in the sidebar.
+```
+Forget everything about the old Stripe integration
+```
+```
+Delete the memory about project Alpha — it's cancelled
+```
+```
+Remove the memory about John from accounting
+```
+
+#### `backfill_embeddings` — Generate missing embeddings
+
+Run this once after first setup or if semantic search isn't returning relevant results.
+```
+Backfill embeddings for all my memories
+```
+```
+Run backfill — semantic search isn't finding things correctly
+```
+
+#### `dedup_memories` — Find and remove duplicates
+
+Finds near-duplicate memories using cosine similarity. Dry run by default — safe to run anytime.
+```
+Run dedup and show me what duplicates exist
+```
+```
+Check for duplicate memories — dry run only
+```
+```
+Run dedup with dry_run false and merge the duplicates
+```
+
+### 📁 File Tools
+
+#### `read_file` — Read a file from disk
+
+Reads any file up to 500 lines. Use absolute paths.
+```
+Read ~/Projects/launchpad/README.md
+```
+```
+Read /Users/lk/Projects/aperio/mcp/index.js and explain what it does
+```
+```
+Read ~/Projects/myapp/.env.example
+```
+
+#### `scan_project` — Scan a project folder
+
+Scans a directory tree, reads key files, and infers project context. Great for onboarding Aperio to a new codebase.
+```
+Scan my project at ~/Projects/launchpad and remember the stack
+```
+```
+Scan ~/Projects/aperio and save a memory about the architecture
+```
+```
+Scan ~/Projects/myapp — what tech stack is it using?
+```
+
+#### `write_file` — Write to a file
+
+Writes content to a file on disk. Always asks for confirmation before writing.
+```
+Write a basic .gitignore for a Node.js project to ~/Projects/launchpad/.gitignore
+```
+```
+Save this SQL migration to ~/Projects/myapp/db/migrations/004_add_tags.sql
+```
+```
+Write the updated README content to ~/Projects/aperio/README.md
+```
+
+### 🌐 Web Tools
+
+#### `fetch_url` — Fetch a webpage
+
+Fetches a URL, strips HTML, and returns clean text. Useful for summarizing docs, articles, or repos.
+```
+Fetch https://docs.supabase.com/guides/auth and summarize the auth options
+```
+```
+Fetch https://github.com/BaiGanio/aperio and tell me what the project does
+```
+```
+Fetch https://fly.io/docs/pricing and compare their plans
+```
+
+### 💡 Tips
+
+- **Be explicit when saving** — say "remember that..." or "save this as a memory" to trigger `remember` immediately
+- **Semantic search is powerful** — ask about topics, not exact titles. "my database decisions" finds more than "postgres"
+- **Scan before you ask** — run `scan_project` on a new codebase before asking questions about it
+- **Dedup regularly** — run `dedup_memories` after a few sessions to keep your brain clean
+- **Embeddings matter** — if recall feels off, run `backfill_embeddings` to fix semantic search -AZ
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
