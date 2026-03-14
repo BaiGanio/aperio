@@ -641,7 +641,8 @@
       <li><a href="#features">Features</a></li>
       <li><a href="#architecture">Stack</a></li>
       <li><a href="#tools">Tools</a></li>
-      <li><a href="#build">Build</a></li>
+      <li><a href="#team">Team</a>
+          <a href="#build">Build</a></li>
       <li><a href="#setup">Setup</a></li>
     </ul>
 
@@ -663,15 +664,15 @@
 <!-- ── Hero ───────────────────────────────────────────────────── -->
 <section class="section" id="hero" style="padding:100px 0 80px">
   <div class="section-inner">
-    <div class="eyebrow reveal">Open Source · Self-Hosted · MCP-Compatible</div>
+    <div class="eyebrow reveal">Open Source · Self-Hosted · Privacy-First · Local by Default</div>
     <h1 class="hero-heading reveal">
       One brain.<br>
       Every agent.<br>
       <span class="aurora-text">Nothing forgotten.</span>
     </h1>
     <p class="lead-text reveal">
-      A personal memory layer for AI agents — built on Postgres, pgvector and the MCP protocol.
-      Your context lives in your own database, available to Claude, Cursor, Windsurf and any MCP-compatible tool.
+      A self-hosted personal memory layer for AI agents — built on Postgres, pgvector and MCP.
+      Runs 100% local by default. No API keys. No cloud dependency. Your data never leaves your machine.
     </p>
     <div class="cta-group reveal">
       <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-primary-aurora">
@@ -686,18 +687,19 @@
       <span class="tech-badge"><i class="bi bi-cpu me-1"></i> pgvector</span>
       <span class="tech-badge"><i class="bi bi-plug me-1"></i> MCP Protocol</span>
       <span class="tech-badge"><i class="bi bi-box me-1"></i> Ollama</span>
-      <span class="tech-badge"><i class="bi bi-stars me-1"></i> Voyage AI</span>
+      <span class="tech-badge"><i class="bi bi-hdd-fill me-1"></i> Local Embeddings</span>
     </div>
     <div class="terminal-wrap reveal">
       <div class="terminal">
         <div class="terminal-bar">
           <div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div>
-          <span class="t-title">aperio — personal memory layer</span>
+          <span class="t-title">aperio — local · private · yours</span>
         </div>
         <div class="terminal-body">
           <div><span class="t-ok">✅</span> <span class="t-out">Connected to Aperio database</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out">pgvector enabled — semantic search active</span></div>
-          <div><span class="t-ok">✅</span> <span class="t-out">Loaded 24 memories · 11 tools ready</span></div>
+          <div><span class="t-ok">✅</span> <span class="t-out">Ollama connected · llama3.1 · 11 tools ready</span></div>
+          <div><span class="t-ok">✅</span> <span class="t-out">Loaded 24 memories · nomic-embed-text active</span></div>
           <div>&nbsp;</div>
           <div><span class="t-prompt">You</span> <span class="t-out">›</span> <span class="t-cmd">what's my preferred stack?</span></div>
           <div>&nbsp;</div>
@@ -720,7 +722,7 @@
   <div class="stats-inner">
     <div class="stat reveal"><div class="stat-num">11</div><div class="stat-lbl">MCP Tools</div></div>
     <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">7</div><div class="stat-lbl">Memory Types</div></div>
-    <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">1024</div><div class="stat-lbl">Vector Dims</div></div>
+    <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">0</div><div class="stat-lbl">API Keys Required</div></div>
     <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl">Vendor Lock-in</div></div>
   </div>
 </div>
@@ -740,7 +742,7 @@
       <div class="feat-card reveal" style="transition-delay:.07s">
         <div class="feat-icon"><i class="bi bi-search-heart"></i></div>
         <div class="feat-title">Semantic Search</div>
-        <p class="feat-desc">Powered by pgvector + Voyage AI embeddings. Ask about your projects and get results matched by meaning, not just keywords.</p>
+        <p class="feat-desc">Powered by pgvector + local embeddings (nomic-embed-text). Ask about your projects and get results matched by meaning, not keywords. Voyage AI optional.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.14s">
         <div class="feat-icon"><i class="bi bi-plug-fill"></i></div>
@@ -754,13 +756,23 @@
       </div>
       <div class="feat-card reveal" style="transition-delay:.12s">
         <div class="feat-icon"><i class="bi bi-box-fill"></i></div>
-        <div class="feat-title">Cloud & Local AI</div>
-        <p class="feat-desc">Switch between Claude and Ollama with one environment variable. Same memory, same tools, different provider. Fully offline-capable.</p>
+        <div class="feat-title">Local by Default</div>
+        <p class="feat-desc">Runs fully on your machine with Ollama — free, private, offline-capable. Switch to Claude with one env variable when you need more power.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.19s">
         <div class="feat-icon"><i class="bi bi-broom-fill"></i></div>
         <div class="feat-title">Auto Deduplication</div>
         <p class="feat-desc">Background job finds near-duplicate memories every 10 minutes using cosine similarity. Dry-run by default — you stay in control.</p>
+      </div>
+      <div class="feat-card reveal" style="transition-delay:.24s">
+        <div class="feat-icon"><i class="bi bi-brain"></i></div>
+        <div class="feat-title">Reasoning Models</div>
+        <p class="feat-desc">Native support for thinking models — qwen3, deepseek-r1. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.</p>
+      </div>
+      <div class="feat-card reveal" style="transition-delay:.28s">
+        <div class="feat-icon"><i class="bi bi-people-fill"></i></div>
+        <div class="feat-title">Team Ready</div>
+        <p class="feat-desc">Since you own the database, Aperio scales from personal to shared team brain with two changes — update the system prompt and seed team memories. One brain for the whole team.</p>
       </div>
     </div>
   </div>
@@ -784,13 +796,14 @@
           <div class="arch-connector">↕</div>
           <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">Postgres 16 + pgvector</div><div class="arch-sub">memories table · HNSW index</div></div></div>
           <div class="arch-connector">↕</div>
-          <div class="arch-row"><span class="arch-icon">✦</span><div><div class="arch-name">Voyage AI</div><div class="arch-sub">voyage-3 · 1024 dims · 50M free tokens</div></div></div>
+          <div class="arch-row"><span class="arch-icon">⬡</span><div><div class="arch-name">Ollama Embeddings</div><div class="arch-sub">nomic-embed-text · 768 dims · zero external calls</div></div></div>
+          <div class="arch-row"><span class="arch-icon">✦</span><div><div class="arch-name">Voyage AI</div><div class="arch-sub">optional · voyage-3 · 1024 dims · cloud upgrade</div></div></div>
         </div>
         <div>
           <div class="arch-section-label">AI Providers</div>
           <div class="provider-chips">
-            <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">Claude API</div><div class="provider-desc">cloud · haiku · sonnet · opus</div></div></div>
-            <div class="provider-chip chip-local"><span class="chip-icon">⬡</span><div><div class="provider-label">Ollama</div><div class="provider-desc">local · free · offline capable</div></div></div>
+            <div class="provider-chip chip-local"><span class="chip-icon">⬡</span><div><div class="provider-label">Ollama</div><div class="provider-desc">default · local · free · offline capable</div></div></div>
+            <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">Claude API</div><div class="provider-desc">optional · cloud upgrade · haiku · sonnet · opus</div></div></div>
           </div>
           <div class="arch-section-label" style="margin-top:28px">Memory Types</div>
           <div class="mem-types">
@@ -822,6 +835,74 @@
       <div class="tool-chip reveal" style="transition-delay:.08s"><i class="bi bi-file-earmark-plus tool-icon"></i><div><div class="tool-name">append_file</div><div class="tool-desc">Add to end of file with before/after verification</div></div></div>
       <div class="tool-chip reveal" style="transition-delay:.12s"><i class="bi bi-folder2-open tool-icon"></i><div><div class="tool-name">scan_project</div><div class="tool-desc">Scan folder tree up to 3 levels deep</div></div></div>
       <div class="tool-chip reveal" style="transition-delay:.16s"><i class="bi bi-globe tool-icon"></i><div><div class="tool-name">fetch_url</div><div class="tool-desc">Fetch a URL, strip HTML, truncate to 15k chars</div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════════
+     TEAM SECTION
+══════════════════════════════════════════════════════════════ -->
+<section class="section" id="team">
+  <div class="section-inner wide">
+    <div class="eyebrow reveal">Team Ready</div>
+    <h2 class="section-heading reveal">Personal brain.<br>Or shared team brain.<br><span class="aurora-text">You decide.</span></h2>
+    <p class="lead-text reveal">Aperio is personal by default — but since <strong>you own the database</strong>, it can become a shared team brain with minimal changes. Every agent, every teammate, every tool — all drawing from the same memory pool.</p>
+
+    <div class="features-grid reveal" style="margin-top:40px;text-align:left">
+      <div class="feat-card">
+        <div class="feat-icon">📋</div>
+        <div class="feat-title">Shared Decisions</div>
+        <p class="feat-desc">"We chose Fly.io over Railway in Q3 2024 because of better pricing for always-on workloads."</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🗂️</div>
+        <div class="feat-title">Project Knowledge</div>
+        <p class="feat-desc">"Project Atlas uses Next.js, PlanetScale, and Stripe. PM is Sara. Lead dev is John."</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🚀</div>
+        <div class="feat-title">Onboarding</div>
+        <p class="feat-desc">"New devs should read X, set up Y, ask Z about access. Deploy on merge to main."</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">📖</div>
+        <div class="feat-title">Runbooks</div>
+        <p class="feat-desc">"When the DB goes down: check pgvector index first, then connection pool, then restart."</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">👥</div>
+        <div class="feat-title">People Context</div>
+        <p class="feat-desc">"John handles DevOps, prefers async comms, UTC+2. Sara owns the product roadmap."</p>
+      </div>
+      <div class="feat-card">
+        <div class="feat-icon">🔍</div>
+        <div class="feat-title">Cross-Project Search</div>
+        <p class="feat-desc">"Which projects use Stripe?" · "Who owns the analytics pipeline?" · "What's our infra stack?"</p>
+      </div>
+    </div>
+
+    <div class="arch-card reveal" style="margin-top:48px;text-align:left">
+      <div class="arch-header"><i class="bi bi-people me-1"></i> team setup — 2 changes only</div>
+      <div style="padding:28px 32px;display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+        <div>
+          <div class="arch-section-label">1. Update prompts/system_prompt.md</div>
+          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:9px;padding:14px 16px;font-family:var(--font-mono);font-size:11.5px;color:var(--subtle);line-height:1.8;margin-top:10px;">
+            You are a helpful <span style="color:var(--amber)">team</span> assistant with access to Aperio<br>
+            — a <span style="color:var(--amber)">shared</span> memory system that stores context<br>
+            about your <span style="color:var(--amber)">team</span>, projects, and decisions.
+          </div>
+        </div>
+        <div>
+          <div class="arch-section-label">2. Seed team memories in 001_init.sql</div>
+          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:9px;padding:14px 16px;font-family:var(--font-mono);font-size:11px;color:var(--subtle);line-height:1.9;margin-top:10px;">
+            <span style="color:var(--indigo)">INSERT INTO</span> memories (type, title, content)<br>
+            <span style="color:var(--indigo)">VALUES</span><br>
+            &nbsp;&nbsp;(<span style="color:var(--green)">'project'</span>, <span style="color:var(--green)">'Atlas'</span>, <span style="color:var(--green)">'Next.js + PlanetScale...'</span>),<br>
+            &nbsp;&nbsp;(<span style="color:var(--green)">'person'</span>, <span style="color:var(--green)">'Sara'</span>, <span style="color:var(--green)">'PM for Atlas...'</span>),<br>
+            &nbsp;&nbsp;(<span style="color:var(--green)">'decision'</span>, <span style="color:var(--green)">'Fly.io'</span>, <span style="color:var(--green)">'Chosen Q3 2024...'</span>);
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -868,7 +949,7 @@
       <div class="build-card reveal" style="transition-delay:.04s">
         <div class="build-tag">AI Layer</div>
         <div class="build-title">Swap the Embedding Model</div>
-        <p class="build-desc">Voyage AI is the default, but the embedding call is a single swappable function. Drop in OpenAI, Cohere, a local nomic-embed model via Ollama, or any provider with a vectors API.</p>
+        <p class="build-desc">nomic-embed-text via Ollama is the default — zero external calls. Swap in Voyage AI for higher quality, or drop in OpenAI, Cohere, or any provider with a vectors API.</p>
         <div class="build-ideas">
           <span class="build-idea">openai/text-embedding-3</span>
           <span class="build-idea">cohere-embed</span>
@@ -897,6 +978,18 @@
           <span class="build-idea">memory heatmap</span>
           <span class="build-idea">topic clusters</span>
           <span class="build-idea">decay scoring</span>
+        </div>
+      </div>
+
+      <div class="build-card reveal" style="transition-delay:.10s">
+        <div class="build-tag">Team Layer</div>
+        <div class="build-title">Team Shared Memory</div>
+        <p class="build-desc">Since you own the database, Aperio scales from personal to team brain with two changes: update the system prompt to team context, seed team memories in 001_init.sql.</p>
+        <div class="build-ideas">
+          <span class="build-idea">shared decisions</span>
+          <span class="build-idea">project knowledge</span>
+          <span class="build-idea">onboarding</span>
+          <span class="build-idea">runbooks</span>
         </div>
       </div>
 
@@ -951,6 +1044,7 @@
           <tr><td>Full source access</td><td class="col-aperio"><span class="tick">✅</span> Open source — fork it</td><td><span class="cross">✗</span> Closed API</td></tr>
           <tr><td>MCP integration</td><td class="col-aperio"><span class="tick">✅</span> Native protocol</td><td><span class="cross">⚠</span> Varies</td></tr>
           <tr><td>Works offline</td><td class="col-aperio"><span class="tick">✅</span> With Ollama</td><td><span class="cross">✗</span> Requires internet</td></tr>
+          <tr><td>Team memory</td><td class="col-aperio"><span class="tick">✅</span> Shared DB — one brain for the team</td><td><span class="cross">⚠</span> Varies by plan</td></tr>
         </tbody>
       </table>
     </div>
@@ -962,7 +1056,7 @@
   <div class="section-inner wide">
     <div class="eyebrow reveal">Quick Start</div>
     <h2 class="section-heading reveal">Up in 5 minutes.</h2>
-    <p class="lead-text reveal">Node 18+, Docker, an Anthropic API key and a free Voyage AI key.<br>Or just Ollama.<br>That's all.</p>
+    <p class="lead-text reveal">Node 18+, Docker, and Ollama.<br>No API keys. No cloud. 100% local.<br>Or add Claude + Voyage AI when you need more power.</p>
     <div class="steps-grid">
       <div class="step-card reveal">
         <div class="step-num">01</div>
@@ -985,12 +1079,13 @@
           <div class="c"># copy the example</div>
           <div class="s">cp .env.example .env</div>
           <div>&nbsp;</div>
-          <div class="c"># Cloud AI: add your keys</div>
-          <div><span class="k">ANTHROPIC_API_KEY</span>=<span class="v">sk-ant-...</span></div>
-          <div><span class="k">VOYAGE_API_KEY</span>=<span class="v">pa-...</span></div>
+          <div class="c"># Local AI (default)</div>
+          <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
+          <div><span class="k">OLLAMA_MODEL</span>=<span class="v">llama3.1</span></div>
           <div>&nbsp;</div>
-          <div class="c"># Local AI: switch provider</div>
-          <div><span class="k">AI_PROVIDER=ollama</span></div>
+          <div class="c"># Cloud upgrade (optional)</div>
+          <div><span class="k">AI_PROVIDER</span>=<span class="v">anthropic</span></div>
+          <div><span class="k">ANTHROPIC_API_KEY</span>=<span class="v">sk-ant-...</span></div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.16s">
@@ -1029,7 +1124,7 @@
 <section class="section">
   <div class="section-inner">
     <div class="cta-wrap reveal">
-      <div class="cta-tagline">Open source · free forever</div>
+      <div class="cta-tagline">Open source · local by default · free forever</div>
       <h2 class="cta-heading">
         Your AI has been<br>
         <span class="aurora-text">amnesiac?</span><br>
