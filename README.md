@@ -448,6 +448,10 @@ Aperio is a foundation. The source is fully open — fork it and extend it:
 - **Memory analytics** — query your own brain, visualize growth over time
 - **Multi-agent sharing** — research agent, coding agent, writing agent — one brain
 
+Since you own the database, Aperio could quickly become from personal memory layer to shared team memory layer:
+ - **system_prompt.md** - "You are a helpful team assistant with access to various projects — a shared memory system that stores context about the users across conversations."
+ - **001_init.sql** - seed you own memories for projects, people etc.
+
 PRs and forks welcome.
 
 <p align="right">
