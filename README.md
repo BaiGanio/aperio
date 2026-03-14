@@ -15,7 +15,7 @@
   · · ·
   [ <a href="#ai-providers">AI Providers</a> ]
    · · ·
-  [ <a href="#local-vs-vloud">Local vs Cloud</a> ]
+  [ <a href="#local-vs-cloud">Local vs Cloud</a> ]
   · · ·
   [ <a href="#commands">Commands</a> ]
   · · ·
@@ -23,6 +23,11 @@
   · · ·
   [ <a href="#privacy">Privacy</a> ]  
   · · ·
+  <br>
+  <br>
+  · · ·
+  [ <a href="https://github.com/BaiGanio/aperio/issues/3">Contributors Note</a> ]
+   · · ·
 </p>
 
 ---
