@@ -25,6 +25,8 @@
   · · ·
   <br>
   <br>
+  · · · 
+   [ <a href="#build-on-top">Build On Top</a> ] 
   · · ·
   [ <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors Note</a> ]
    · · ·
@@ -73,7 +75,7 @@ aperio/
 └── .env                          # Your keys — never commit this
 ```
 
-> **Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
+> **💡 Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
 
 ---
 
@@ -250,7 +252,7 @@ OLLAMA_MODEL=llama3.1
 | `mistral` (7B) | 8 GB | Lightweight alternative |
 | `phi3` (3.8B) | 6 GB | Ultra-fast, minimal hardware |
 
-> **Tip:** Start with `llama3.1`. Upgrade to `qwen3` or `deepseek-r1` when you want reasoning transparency.
+> **💡 Tip:** Start with `llama3.1`. Upgrade to `qwen3` or `deepseek-r1` when you want reasoning transparency.
 
 ### ✦ Anthropic Claude (Optional — Cloud Upgrade)
 
@@ -310,7 +312,7 @@ VOYAGE_API_KEY=pa-...
 | `npm run chat:cloud` | Anthropic — terminal only | — |
 | `npm run chat:local` | Ollama — terminal only | — |
 
-> **Tip:** Both instances can run simultaneously and share the same memory database.
+> **💡 Tip:** Both instances can run simultaneously and share the same memory database.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
@@ -592,45 +594,92 @@ Aperio is a foundation. The source is fully open — fork it and extend it:
 - **Memory analytics** — query your own brain, visualize growth over time
 - **Multi-agent sharing** — research agent, coding agent, writing agent — one brain
 
-Since you own the database, Aperio could quickly become from personal memory layer to shared team memory layer:
- - **system_prompt.md** - "You are a helpful team assistant with access to various projects — a shared memory system that stores context about the users across conversations."
- - **001_init.sql** - seed you own memories for projects, people etc.
+### 🏢 Team Shared Memory — Extend Aperio for Your Team
 
-PRs and forks welcome.
+Aperio is personal by default — but since **you own the database**, it can become a shared team brain with minimal changes.
 
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
+Every agent, every teammate, every tool — all drawing from the same memory pool.
 
----
+#### The idea
 
-## Cursor / Windsurf (MCP)
+Right now Aperio stores *your* context. But the same architecture works for a team:
 
-Add to `~/.cursor/mcp.json` (or `~/.windsurf/mcp_config.json`):
+- Shared decisions — *"We chose Fly.io over Railway in Q3 2024 because..."*
+- Project knowledge — *"Project Atlas uses Next.js, PlanetScale, and Stripe. PM is Sara."*
+- People context — *"John handles DevOps, prefers async communication, timezone UTC+2"*
+- Onboarding — *"New devs should read X, set up Y, ask Z about access"*
+- Runbooks — *"When the DB goes down: check pgvector index first, then..."*
 
+Any agent connected to the MCP server reads all of this automatically.
+
+#### How to set it up
+
+**1. Update `prompts/system_prompt.md`**
+
+Change the identity line to reflect a team context:
+```
+You are a helpful team assistant with access to Aperio — a shared memory system
+that stores context about your team, projects, and decisions across conversations.
+```
+
+**2. Seed team memories in `db/migrations/001_init.sql`**
+
+Add your team's baseline context as seed data:
+```sql
+INSERT INTO memories (type, title, content, tags, importance, source) VALUES
+  ('project', 'Project Atlas', 'Next.js frontend, PlanetScale DB, Stripe payments. Repo: github.com/team/atlas. PM: Sara. Lead dev: John.', ARRAY['atlas','nextjs','stripe'], 5, 'manual'),
+  ('project', 'Project Beacon', 'Internal analytics dashboard. React + FastAPI + ClickHouse. Owned by data team.', ARRAY['beacon','analytics','clickhouse'], 4, 'manual'),
+  ('person', 'Sara — Product Manager', 'PM for Atlas and Beacon. Handles roadmap, stakeholder comms. Prefers Slack over email.', ARRAY['sara','pm','atlas'], 4, 'manual'),
+  ('person', 'John — DevOps Lead', 'Manages infra on Fly.io. Primary contact for deployment issues. UTC+2.', ARRAY['john','devops','infra'], 4, 'manual'),
+  ('decision', 'Chose Fly.io over Railway', 'Decided Q3 2024. Better pricing for always-on workloads, easier multi-region. Revisit if team grows past 10.', ARRAY['infra','flyio','railway'], 5, 'manual'),
+  ('fact', 'Stack conventions', 'TypeScript everywhere. Tabs not spaces. All PRs require one review. Deploys on merge to main.', ARRAY['conventions','typescript','git'], 5, 'manual'),
+  ('solution', 'pgvector HNSW index fix', 'Drop and recreate index after bulk insert. Run: DROP INDEX memories_embedding_idx; then recreate.', ARRAY['postgres','pgvector','fix'], 4, 'manual');
+```
+
+**3. Connect your team to the same MCP server**
+
+Point everyone's Cursor / Windsurf / Claude at the same `mcp/index.js`:
 ```json
 {
   "mcpServers": {
-    "aperio": {
+    "aperio-team": {
       "command": "node",
-      "args": ["/absolute/path/to/aperio/mcp/index.js"],
+      "args": ["/shared/path/to/aperio/mcp/index.js"],
       "env": {
-        "DATABASE_URL": "postgresql://aperio:aperio_secret@localhost:5432/aperio",
-        "VOYAGE_API_KEY": "pa-..."
+        "DATABASE_URL": "postgresql://aperio:secret@your-db-host:5432/aperio"
       }
     }
   }
 }
 ```
 
-Restart your editor. All 11 memory tools are now available to your editor agent — same brain, different interface.
+Everyone reads and writes to the same brain.
+
+#### What this unlocks
+
+| Use case | Example |
+|---|---|
+| **Onboarding** | *"What do I need to know to start contributing to Atlas?"* |
+| **Project context** | *"What's the current stack for Beacon?"* |
+| **Decision history** | *"Why did we choose Fly.io?"* |
+| **People finder** | *"Who owns the analytics pipeline?"* |
+| **Runbooks** | *"What do we do when the DB goes down?"* |
+| **Cross-project search** | *"Which projects use Stripe?"* |
+
+#### What's coming
+
+- **Per-user memory spaces** — personal context alongside shared team context
+- **Memory ownership** — tag memories by who created them
+- **Access control** — read-only vs read-write roles
+- **Audit log** — see who saved or changed what and when
+
+> **💡 Tip:** The database is yours. The memory is yours. Scale it however you need.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
 
 ---
-
 
 <div align="center">
 
