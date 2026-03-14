@@ -44,7 +44,7 @@ async function generateEmbedding(text, inputType = "document") {
     const model = process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text";
     const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
     try {
-      const response = await fetch(`${baseUrl}/api/embeddings`, {
+      const response = await fetch(`${baseUrl}/api/embed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model, prompt: text }),
