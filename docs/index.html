@@ -1063,7 +1063,7 @@
         <div class="step-title">Clone & install</div>
         <div class="code-block">
           <div class="c"># clone the repo</div>
-          <div class="s">git clone https://github.com/BaiGanio/aperio.git/</div>
+          <div class="s">git clone https://github.com/BaiGanio/aperio.git</div>
           <div>&nbsp;</div>
           <div class="c"># move into project</div>
           <div class="s">cd aperio</div>
@@ -1074,18 +1074,16 @@
       </div>
       <div class="step-card reveal" style="transition-delay:.08s">
         <div class="step-num">02</div>
-        <div class="step-title">Configure .env</div>
+        <div class="step-title">Minimum .env for a fully local setup</div>
         <div class="code-block">
           <div class="c"># copy the example</div>
           <div class="s">cp .env.example .env</div>
           <div>&nbsp;</div>
-          <div class="c"># Local AI (default)</div>
+          <div><span class="k">DATABASE_URL</span>=<span class="v">postgresql://aperio:xxx-xxx-xxx</span></div>
           <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
           <div><span class="k">OLLAMA_MODEL</span>=<span class="v">llama3.1</span></div>
-          <div>&nbsp;</div>
-          <div class="c"># Cloud upgrade (optional)</div>
-          <div><span class="k">AI_PROVIDER</span>=<span class="v">anthropic</span></div>
-          <div><span class="k">ANTHROPIC_API_KEY</span>=<span class="v">sk-ant-...</span></div>
+          <div><span class="k">EMBEDDING_PROVIDER</span>=<span class="v">ollama</span></div>
+          <div><span class="k">OLLAMA_EMBED_MODEL</span>=<span class="v">nomic-embed-text</span></div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.16s">
@@ -1102,18 +1100,39 @@
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
         <div class="step-num">04</div>
+        <div class="step-title">Pull the models</div>
+        <div class="code-block">
+          <div class="c"># LLM — best tool-calling support</div>
+          <div class="s">ollama pull llama3.1 </div>
+          <div>&nbsp;</div>
+          <div class="c"># LLM with reasoning</div>
+          <div class="s">ollama pull qwen3</div>   
+           <div>&nbsp;</div>
+          <div class="c"># embeddings — local semantic search</div>
+          <div class="s">ollama pull nomic-embed-text</div>   
+        </div>
+      </div>
+      <div class="step-card reveal" style="transition-delay:.24s">
+        <div class="step-num">05</div>
         <div class="step-title">Launch Aperio Web UI</div>
         <div class="code-block">
-          <div class="c"># cloud (Claude) -> localhost:3000</div>
-          <div class="s">npm run start:cloud</div>
-          <div>&nbsp;</div>
           <div class="c"># local (Ollama) -> localhost:3001</div>
           <div class="s">ollama serve</div>          
           <div class="s">npm run start:local</div>
-           <div>&nbsp;</div>
-          <div class="c"># Or use the terminal</div>
-          <div class="s">npm run chat:cloud (Anthropic)</div>     
-          <div class="s">npm run chat:local (Ollama)</div>
+           <div>&nbsp;</div> 
+           <div class="c"># cloud (Claude) -> localhost:3000</div>
+          <div class="s">npm run start:cloud</div>
+        </div>
+      </div>
+       <div class="step-card reveal" style="transition-delay:.24s">
+        <div class="step-num">06</div>
+        <div class="step-title">Use Aperio chat in the terminal</div>
+        <div class="code-block">  
+           <div class="c"># local (Ollama)</div>
+          <div class="s">npm run chat:local</div>
+          <div>&nbsp;</div>
+           <div class="c"># cloud (Anthropic)</div>
+          <div class="s">npm run chat:cloud</div>  
         </div>
       </div>
     </div>
