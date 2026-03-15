@@ -37,7 +37,7 @@
 ---
 
 <div align="center">
-<h1>✦ Aperio</h1>
+<h1>✨ Aperio</h1>
 
 **One brain. Every agent. Nothing forgotten.**
 
