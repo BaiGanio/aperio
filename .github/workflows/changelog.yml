@@ -73,16 +73,16 @@ jobs:
 
           print(f"Added to {section}: {entry}")
           PYEOF
-                  env:
-                    ENTRY: "- ${{ github.event.head_commit.message }} ([\`$(git log -1 --pretty=%h)\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}))"
-                    SECTION: ${{ env.SECTION }}
+          env:
+            ENTRY: "- ${{ github.event.head_commit.message }} ([\`$(git log -1 --pretty=%h)\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}))"
+            SECTION: ${{ env.SECTION }}
 
-                - name: Commit changelog update
-                  run: |
-                    git config user.name "github-actions[bot]"
-                    git config user.email "github-actions[bot]@users.noreply.github.com"
-                    git diff --quiet CHANGELOG.md || (
-                      git add CHANGELOG.md &&
-                      git commit -m "chore: update changelog [skip ci]" &&
-                      git push
-                    )
+          - name: Commit changelog update
+            run: |
+              git config user.name "github-actions[bot]"
+              git config user.email "github-actions[bot]@users.noreply.github.com"
+              git diff --quiet CHANGELOG.md || (
+                git add CHANGELOG.md &&
+                git commit -m "chore: update changelog [skip ci]" &&
+                git push
+              )
