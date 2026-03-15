@@ -183,7 +183,16 @@ ollama serve            # terminal 1
 npm run start:local     # terminal 2  →  localhost:3001
 ```
 
-### 8. Seed your brain
+### 8. Backfill embeddings (first run only)
+Once Aperio is running, open the chat and type:
+
+```text
+backfill my embeddings
+```
+
+This generates semantic vectors for all your memories. Without this step, search falls back to full-text only. You only need to do this once — new memories are embedded automatically.
+
+### 9. Seed your brain
 
 Tell Aperio what it should know about you:
 
