@@ -23,6 +23,8 @@
   · · ·
   [ <a href="#privacy">Privacy</a> ]  
   · · ·
+  [ <a href="#security-notes">Security Notes</a> ]  
+  · · ·
   <br>
   <br>
   · · · 
@@ -616,6 +618,37 @@ You save a memory
 - Your conversations with the AI
 - Your other memories
 - Any personal files or system information
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
+## Security Notes
+Aperio runs on your machine and has access to your file system through the `write_file`, `append_file`, and `read_file` tools. By default, file operations are restricted to your home directory.
+
+**File system access**
+The `write_file`, `append_file`, and `read_file` tools can access any absolute path on your machine that the Node.js process has permission to read or write. This is intentional for power users but means:
+
+- Only run Aperio on a machine you trust
+- Do not expose the MCP server or web UI to the public internet without authentication
+- Be cautious with `write_file` — it overwrites files completely with no undo
+- The AI model can be prompted (or hallucinate) to write to sensitive paths — always review before confirming
+
+**Restrict file access further** by setting `APERIO_ALLOWED_PATHS` in your `.env`:
+```env
+# Allow only specific directories (comma-separated)
+APERIO_ALLOWED_PATHS=/Users/yourname/projects,/Users/yourname/documents
+```
+
+If a model attempts to write outside the allowed paths, the operation is blocked and an error is returned.
+
+**General recommendations:**
+- Do not expose Aperio's web UI or MCP server to the public internet without authentication
+- Review any file write operations before confirming them — `write_file` overwrites completely with no undo
+- Be cautious with AI-suggested file paths — models can hallucinate paths
+- Never commit your `.env` file — it contains your database URL and API keys
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
