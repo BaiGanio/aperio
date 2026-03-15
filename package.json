@@ -5,6 +5,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "test": "echo \"No tests yet\" && exit 0",
     "start": "node server.js",
     "start:cloud": "AI_PROVIDER=anthropic PORT=3000 node server.js",
     "start:local": "AI_PROVIDER=ollama PORT=3001 node server.js",
@@ -12,7 +13,6 @@
     "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node scripts/chat.js",
     "chat:local": "AI_PROVIDER=ollama PORT=3001 node scripts/chat.js",
     "mcp": "node mcp/index.js",
-    "test": "echo \"No tests yet\" && exit 0",
     "prepare": "husky"
   },
   "dependencies": {
