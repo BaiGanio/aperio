@@ -17,10 +17,7 @@ jobs:
         run: |
           COMMIT_MSG=$(git log -1 --pretty=%s)
           COMMIT_HASH=$(git log -1 --pretty=%h)
-          COMMIT_DATE=$(date +%Y-%m-%d)
-          AUTHOR=$(git log -1 --pretty=%an)
 
-          # Determine section based on commit prefix
           if [[ "$COMMIT_MSG" == feat:* ]]; then
             SECTION="Added"
           elif [[ "$COMMIT_MSG" == fix:* ]]; then
@@ -34,55 +31,51 @@ jobs:
             exit 0
           fi
 
-          ENTRY="- ${COMMIT_MSG} ([\`${COMMIT_HASH}\`](https://github.com/${{ github.repository }}/commit/${COMMIT_HASH}))"
+          ENTRY="- ${COMMIT_MSG} (\`${COMMIT_HASH}\`)"
 
-          # Insert under the correct section in [Unreleased]
-          python3 - <<'PYEOF'
-          import re, os
+          python3 - <<PYEOF
+import os
 
-          entry = os.environ.get("ENTRY", "")
-          section = os.environ.get("SECTION", "")
+entry = """$ENTRY"""
+section = "$SECTION"
 
-          with open("CHANGELOG.md", "r") as f:
-              content = f.read()
+with open("CHANGELOG.md", "r") as f:
+    content = f.read()
 
-          section_header = f"### {section}"
-          unreleased = "## [Unreleased]"
+section_header = f"### {section}"
+unreleased = "## [Unreleased]"
 
-          if unreleased not in content:
-              print("No [Unreleased] section found")
-              exit(0)
+if unreleased not in content:
+    print("No [Unreleased] section found")
+    exit(0)
 
-          if section_header in content.split(unreleased)[1].split("## [")[0]:
-              # Section exists — insert after header
-              content = content.replace(
-                  f"{section_header}\n",
-                  f"{section_header}\n{entry}\n",
-                  1
-              )
-          else:
-              # Section doesn't exist — add it after [Unreleased]
-              content = content.replace(
-                  f"{unreleased}\n",
-                  f"{unreleased}\n\n{section_header}\n{entry}\n",
-                  1
-              )
+unreleased_block = content.split(unreleased)[1].split("## [")[0]
 
-          with open("CHANGELOG.md", "w") as f:
-              f.write(content)
+if section_header in unreleased_block:
+    content = content.replace(
+        f"{section_header}\n",
+        f"{section_header}\n{entry}\n",
+        1
+    )
+else:
+    content = content.replace(
+        f"{unreleased}\n",
+        f"{unreleased}\n\n{section_header}\n{entry}\n",
+        1
+    )
 
-          print(f"Added to {section}: {entry}")
-          PYEOF
-          env:
-            ENTRY: "- ${{ github.event.head_commit.message }} ([\`$(git log -1 --pretty=%h)\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}))"
-            SECTION: ${{ env.SECTION }}
+with open("CHANGELOG.md", "w") as f:
+    f.write(content)
 
-          - name: Commit changelog update
-            run: |
-              git config user.name "github-actions[bot]"
-              git config user.email "github-actions[bot]@users.noreply.github.com"
-              git diff --quiet CHANGELOG.md || (
-                git add CHANGELOG.md &&
-                git commit -m "chore: update changelog [skip ci]" &&
-                git push
-              )
+print(f"Added to {section}: {entry}")
+PYEOF
+
+      - name: Commit changelog update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet CHANGELOG.md || (
+            git add CHANGELOG.md &&
+            git commit -m "chore: update changelog [skip ci]" &&
+            git push
+          )
