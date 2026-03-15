@@ -24,6 +24,18 @@ try {
   process.exit(1);
 }
 
+// ─── Path safety ──────────────────────────────────────────────────────────────
+const ALLOWED_PATHS = (process.env.APERIO_ALLOWED_PATHS || process.env.HOME || "/root")
+  .split(",")
+  .map(p => p.trim().replace(/^~/, process.env.HOME || "/root"));
+
+function isPathAllowed(filePath) {
+  const resolved = filePath.startsWith("~")
+    ? filePath.replace("~", process.env.HOME || "/root")
+    : filePath;
+  return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed));
+}
+
 // ─── Embeddings ───────────────────────────────────────────────────────────────
 let vectorEnabled = true;
 const { rows: embRows } = await db.query("SELECT COUNT(*) as c FROM memories WHERE embedding IS NOT NULL");
@@ -552,6 +564,10 @@ server.registerTool(
         ? filePath.replace("~", process.env.HOME || "/root")
         : filePath;
 
+      if (!isPathAllowed(filePath)) {
+        return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
+      }
+
       if (create_dirs) {
         const dir = resolved.substring(0, resolved.lastIndexOf("/"));
         if (dir) await fs.mkdir(dir, { recursive: true });
@@ -592,6 +608,10 @@ server.registerTool(
       const resolved = filePath.startsWith("~")
         ? filePath.replace("~", process.env.HOME || "/root")
         : filePath;
+
+      if (!isPathAllowed(filePath)) {
+        return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
+      }
 
       if (!existsSync(resolved))
         return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
