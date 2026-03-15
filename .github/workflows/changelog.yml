@@ -36,26 +36,26 @@ jobs:
           HASH: ${{ steps.section.outputs.hash }}
         run: |
           python3 -c "
-import os
-section = os.environ['SECTION']
-msg = os.environ['MSG']
-hashval = os.environ['HASH']
-entry = f'- {msg} ({hashval})'
-section_header = f'### {section}'
-unreleased = '## [Unreleased]'
-with open('CHANGELOG.md', 'r') as f:
-    content = f.read()
-if unreleased not in content:
-    exit(0)
-unreleased_block = content.split(unreleased)[1].split('## [')[0]
-if section_header in unreleased_block:
-    content = content.replace(section_header + '\n', section_header + '\n' + entry + '\n', 1)
-else:
-    content = content.replace(unreleased + '\n', unreleased + '\n\n' + section_header + '\n' + entry + '\n', 1)
-with open('CHANGELOG.md', 'w') as f:
-    f.write(content)
-print(f'Added to {section}: {entry}')
-"
+          import os
+          section = os.environ['SECTION']
+          msg = os.environ['MSG']
+          hashval = os.environ['HASH']
+          entry = f'- {msg} ({hashval})'
+          section_header = f'### {section}'
+          unreleased = '## [Unreleased]'
+          with open('CHANGELOG.md', 'r') as f:
+              content = f.read()
+          if unreleased not in content:
+              exit(0)
+          unreleased_block = content.split(unreleased)[1].split('## [')[0]
+          if section_header in unreleased_block:
+              content = content.replace(section_header + '\n', section_header + '\n' + entry + '\n', 1)
+          else:
+              content = content.replace(unreleased + '\n', unreleased + '\n\n' + section_header + '\n' + entry + '\n', 1)
+          with open('CHANGELOG.md', 'w') as f:
+              f.write(content)
+          print(f'Added to {section}: {entry}')
+          "
 
       - name: Commit changelog update
         if: steps.section.outputs.section != 'skip'
