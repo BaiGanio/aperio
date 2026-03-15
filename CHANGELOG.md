@@ -31,6 +31,7 @@ All notable changes to Aperio are documented here.
 - `llama3.1` JSON tool call interception with trailing response support
 
 ### Changed
+- chore: updated setup with CMD for migrations (bc619fa)
 - chore: landing page update (fdf1237)
 - chore: ... (c6f2504)
 - Default provider is now Ollama (local) — Claude and Voyage AI are optional upgrades
