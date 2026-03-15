@@ -699,10 +699,11 @@
           <span class="t-title">aperio — local · private · yours</span>
         </div>
         <div class="terminal-body">
+          <div><span class="t-ok">🤖</span> <span class="t-out">Provider: Ollama (deepseek-r1:7b)</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out">Connected to Aperio database</span></div>
-          <div><span class="t-ok">✅</span> <span class="t-out">pgvector enabled — semantic search active</span></div>
-          <div><span class="t-ok">✅</span> <span class="t-out">Ollama connected · llama3.1 · 11 tools ready</span></div>
-          <div><span class="t-ok">✅</span> <span class="t-out">Loaded 24 memories · nomic-embed-text active</span></div>
+          <div><span class="t-ok">✅</span> <span class="t-out">pgvector enabled — semantic search active (16/16 memories embedded)</span></div>
+          <div><span class="t-ok">🧠</span> <span class="t-out">Aperio MCP server v2.0 running</span></div>
+          <div><span class="t-ok">✅</span> <span class="t-out">MCP server connected</span></div>
           <div>&nbsp;</div>
           <div><span class="t-prompt">You</span> <span class="t-out">›</span> <span class="t-cmd">what's my preferred stack?</span></div>
           <div>&nbsp;</div>
@@ -745,7 +746,7 @@
       <div class="feat-card reveal" style="transition-delay:.07s">
         <div class="feat-icon"><i class="bi bi-search-heart"></i></div>
         <div class="feat-title">Semantic Search</div>
-        <p class="feat-desc">Powered by pgvector + local embeddings (nomic-embed-text). Ask about your projects and get results matched by meaning, not keywords. Voyage AI optional.</p>
+        <p class="feat-desc">Powered by pgvector + local embeddings (mxbai-embed-large). Ask about your projects and get results matched by meaning, not keywords. Voyage AI optional.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.14s">
         <div class="feat-icon"><i class="bi bi-plug-fill"></i></div>
@@ -799,7 +800,7 @@
           <div class="arch-connector">↕</div>
           <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">Postgres 16 + pgvector</div><div class="arch-sub">memories table · HNSW index</div></div></div>
           <div class="arch-connector">↕</div>
-          <div class="arch-row"><span class="arch-icon">⬡</span><div><div class="arch-name">Ollama Embeddings</div><div class="arch-sub">nomic-embed-text · 768 dims · zero external calls</div></div></div>
+          <div class="arch-row"><span class="arch-icon">⬡</span><div><div class="arch-name">Ollama Embeddings</div><div class="arch-sub">mxbai-embed-large · 1024 dims · zero external calls</div></div></div>
           <div class="arch-row"><span class="arch-icon">✦</span><div><div class="arch-name">Voyage AI</div><div class="arch-sub">optional · voyage-3 · 1024 dims · cloud upgrade</div></div></div>
         </div>
         <div>
@@ -1098,7 +1099,7 @@
           <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
           <div><span class="k">OLLAMA_MODEL</span>=<span class="v">llama3.1</span></div>
           <div><span class="k">EMBEDDING_PROVIDER</span>=<span class="v">ollama</span></div>
-          <div><span class="k">OLLAMA_EMBED_MODEL</span>=<span class="v">nomic-embed-text</span></div>
+          <div><span class="k">OLLAMA_EMBED_MODEL</span>=<span class="v">mxbai-embed-large</span></div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.16s">
@@ -1124,7 +1125,7 @@
           <div class="s">ollama pull qwen3</div>   
            <div>&nbsp;</div>
           <div class="c"># embeddings — local semantic search</div>
-          <div class="s">ollama pull nomic-embed-text</div>   
+          <div class="s">ollama pull mxbai-embed-large</div>   
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
