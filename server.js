@@ -26,6 +26,7 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 
 // Models that stream reasoning in delta.reasoning
 const OLLAMA_THINKS = ["deepseek-r1", "qwen3"].some(m => OLLAMA_MODEL.toLowerCase().includes(m));
+const OLLAMA_NO_TOOLS = ["deepseek-r1"].some(m => OLLAMA_MODEL.toLowerCase().includes(m));
 
 let provider;
 if (PROVIDER === "ollama") {
@@ -167,7 +168,7 @@ async function runOllamaLoop(messages, ws) {
     try {
       response = await fetch(`${provider.baseURL}/chat/completions`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: provider.model, messages: openaiMessages, ...(OLLAMA_THINKS ? {} : { tools: ollamaTools }), stream: true }),
+        body: JSON.stringify({ model: provider.model, messages: openaiMessages, ...(OLLAMA_NO_TOOLS ? {} : { tools: ollamaTools }),stream: true }),
       });
     } catch (e) {
       ws.send(JSON.stringify({ type: "stream_start" }));
