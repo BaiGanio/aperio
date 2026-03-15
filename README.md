@@ -306,6 +306,28 @@ VOYAGE_API_KEY=pa-...
 | **Offline** | ✅ Yes | ❌ No |
 | **Best for** | Daily use, privacy, experiments | Heavy research, complex agents |
 
+
+### Model Selection Guide
+
+| Model | Best for | Avoid |
+|---|---|---|
+| `llama3.1` | Quick questions, tool calling (remember/recall), short answers | Long documents, reasoning tasks, code generation |
+| `qwen2.5` | Code generation, structured output, markdown files | Deep reasoning, complex multi-step tasks |
+| `qwen3` | Everything — reasoning + tool calling + code + documents | Nothing major, just slower than llama3.1 |
+| `deepseek-r1:7b` | Reasoning, analysis, debugging, decisions | Document generation, long code blocks, tool calling |
+| `deepseek-r1:14b` | Same as 7b but better — complex reasoning, architecture decisions | Same limitations, needs 16GB RAM |
+
+#### Examples
+
+- **"Remember that I prefer tabs"** → `llama3.1` or `qwen3`
+- **"Give me a C# hello world"** → `qwen2.5` or `qwen3`
+- **"What are the tradeoffs between Postgres and MongoDB?"** → `deepseek-r1` or `qwen3`
+- **"Output this file as copy-paste markdown"** → `qwen3` only
+- **"Scan my project and summarize it"** → `qwen3` or `llama3.1`
+- **"Why is my pgvector query slow?"** → `deepseek-r1:14b` or `qwen3`
+
+> **TL;DR:** Use `qwen3` as your daily driver. Switch to `deepseek-r1:14b` when you need deep reasoning and have the RAM. `llama3.1` for fast responses when reasoning isn't needed.
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
