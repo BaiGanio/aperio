@@ -17,25 +17,30 @@ jobs:
         id: section
         run: |
           MSG=$(git log -1 --pretty=%s)
-          if [[ "$MSG" == feat:* ]]; then echo "section=Added" >> $GITHUB_OUTPUT
-          elif [[ "$MSG" == fix:* ]]; then echo "section=Fixed" >> $GITHUB_OUTPUT
-          elif [[ "$MSG" == chore:* || "$MSG" == refactor:* ]]; then echo "section=Changed" >> $GITHUB_OUTPUT
-          elif [[ "$MSG" == docs:* ]]; then echo "section=Docs" >> $GITHUB_OUTPUT
-          else echo "section=skip" >> $GITHUB_OUTPUT
+          HASH=$(git log -1 --pretty=%h)
+          if [[ "$MSG" == feat:* ]]; then SECTION="Added"
+          elif [[ "$MSG" == fix:* ]]; then SECTION="Fixed"
+          elif [[ "$MSG" == chore:* || "$MSG" == refactor:* ]]; then SECTION="Changed"
+          elif [[ "$MSG" == docs:* ]]; then SECTION="Docs"
+          else SECTION="skip"
           fi
+          echo "section=$SECTION" >> $GITHUB_OUTPUT
           echo "msg=$MSG" >> $GITHUB_OUTPUT
-          echo "hash=$(git log -1 --pretty=%h)" >> $GITHUB_OUTPUT
+          echo "hash=$HASH" >> $GITHUB_OUTPUT
 
       - name: Update CHANGELOG.md
         if: steps.section.outputs.section != 'skip'
         env:
           SECTION: ${{ steps.section.outputs.section }}
-          ENTRY: "- ${{ steps.section.outputs.msg }} (`${{ steps.section.outputs.hash }}`)"
+          MSG: ${{ steps.section.outputs.msg }}
+          HASH: ${{ steps.section.outputs.hash }}
         run: |
           python3 -c "
 import os
-entry = os.environ['ENTRY']
 section = os.environ['SECTION']
+msg = os.environ['MSG']
+hashval = os.environ['HASH']
+entry = f'- {msg} ({hashval})'
 section_header = f'### {section}'
 unreleased = '## [Unreleased]'
 with open('CHANGELOG.md', 'r') as f:
