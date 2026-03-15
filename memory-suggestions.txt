@@ -1,9 +1,0 @@
-ADD MEMORY:
-Remember that when I ask for file content as copy-paste ready markdown, always preserve all newlines and formatting exactly, and wrap the output in a single ```markdown code block
-
-THEN:
-check this url: https://raw.githubusercontent.com/BaiGanio/unkindled/refs/heads/master/README.md
-
-Output the raw content exactly as fetched — preserve all newlines, headings, and formatting. Do not modify anything. Wrap the entire output in a single markdown code block.
-
----
