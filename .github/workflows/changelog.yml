@@ -35,27 +35,29 @@ jobs:
           MSG: ${{ steps.section.outputs.msg }}
           HASH: ${{ steps.section.outputs.hash }}
         run: |
-          python3 << 'PYEOF'
-          import os
-          section = os.environ["SECTION"]
-          msg = os.environ["MSG"]
-          hashval = os.environ["HASH"]
-          entry = "- " + msg + " (" + hashval + ")"
-          section_header = "### " + section
-          unreleased = "## [Unreleased]"
-          with open("CHANGELOG.md", "r") as f:
-              content = f.read()
-          if unreleased not in content:
-              exit(0)
-          unreleased_block = content.split(unreleased)[1].split("## [")[0]
-          if section_header in unreleased_block:
-              content = content.replace(section_header + "\n", section_header + "\n" + entry + "\n", 1)
-          else:
-              content = content.replace(unreleased + "\n", unreleased + "\n\n" + section_header + "\n" + entry + "\n", 1)
-          with open("CHANGELOG.md", "w") as f:
-              f.write(content)
-          print("Added to " + section + ": " + entry)
-          PYEOF
+          if [ ! -f CHANGELOG.md ]; then
+            echo "CHANGELOG.md not found — skipping"
+            exit 0
+          fi
+          node -e "
+          const fs = require('fs');
+          const section = process.env.SECTION;
+          const msg = process.env.MSG;
+          const hash = process.env.HASH;
+          const entry = '- ' + msg + ' (' + hash + ')';
+          const sectionHeader = '### ' + section;
+          const unreleased = '## [Unreleased]';
+          let content = fs.readFileSync('CHANGELOG.md', 'utf8');
+          if (!content.includes(unreleased)) process.exit(0);
+          const unreleasedBlock = content.split(unreleased)[1].split('## [')[0];
+          if (unreleasedBlock.includes(sectionHeader)) {
+            content = content.replace(sectionHeader + '\n', sectionHeader + '\n' + entry + '\n');
+          } else {
+            content = content.replace(unreleased + '\n', unreleased + '\n\n' + sectionHeader + '\n' + entry + '\n');
+          }
+          fs.writeFileSync('CHANGELOG.md', content);
+          console.log('Added to ' + section + ': ' + entry);
+          "
 
       - name: Commit changelog update
         if: steps.section.outputs.section != 'skip'
