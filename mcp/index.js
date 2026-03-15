@@ -113,10 +113,11 @@ server.registerTool(
 
     const result = await db.query(
       `INSERT INTO memories (type, title, content, tags, importance, expires_at, source, embedding)
-       VALUES ($1, $2, $3, $4, $5, $6, 'claude', $7) RETURNING id, title, type`,
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, title, type`,
       [
         type, title, content,
         tags ?? [], importance ?? 3, expires_at ?? null,
+        process.env.AI_PROVIDER === "ollama" ? (process.env.OLLAMA_MODEL || "ollama") : (process.env.ANTHROPIC_MODEL || "claude"),
         embedding ? embeddingToSQL(embedding) : null,
       ]
     );
