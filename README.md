@@ -94,6 +94,15 @@ It runs entirely on your machine by default — no API keys, no data leaving you
 | 🔌 **MCP-native** | Any MCP-compatible agent plugs in — Cursor, Windsurf, etc. |
 | 🆓 **Free to run** | No subscription. No per-message cost. Just your hardware. |
 
+### What Aperio is NOT
+
+- ❌ **Not a cloud service** — there is no hosted version, no SaaS, no managed infrastructure
+- ❌ **Not a managed product** — no support contracts, no SLAs, no guaranteed uptime
+- ❌ **Not a plugin or extension** — it's a self-hosted server you run yourself
+- ❌ **Not a replacement for your AI tool** — it's a memory layer that sits alongside Claude, Cursor, Windsurf etc.
+- ❌ **Not plug-and-play for non-developers** — you need Node.js, Docker, and basic terminal comfort
+- ❌ **Not production-hardened** — it's early software, built in the open, improving fast
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
