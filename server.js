@@ -323,6 +323,16 @@ async function runOllamaLoop(messages, ws, opts = {}) {
   }
 }
 
+async function handleRememberIntent(text, ws) {
+  try {
+    const content = text.replace(/^remember\s+that\s*/i, "").trim();
+    await callTool("remember", { type: "preference", title: content.substring(0, 60), content });
+    ws.send(JSON.stringify({ type: "tool", name: "remember" }));
+  } catch (err) {
+    console.error("handleRememberIntent failed:", err.message);
+  }
+}
+
 async function runAgentLoop(messages, ws) {
   return provider.name === "ollama" ? runOllamaLoop(messages, ws) : runAnthropicLoop(messages, ws);
 }
@@ -371,7 +381,17 @@ wss.on("connection", (ws) => {
     try {
       const data = JSON.parse(raw.toString());
       if (data.type === "init" && !initialized) { initialized = true; await init(); return; }
-      if (data.type === "chat") { messages.push({ role: "user", content: data.text }); ws.send(JSON.stringify({ type: "thinking" })); await runAgentLoop(messages, ws); await sendMemories(ws); }
+      if (data.type === "chat") {
+        messages.push({ role: "user", content: data.text });
+        ws.send(JSON.stringify({ type: "thinking" }));
+        // For no-tools models, intercept "remember that..." server-side
+        if (OLLAMA_NO_TOOLS && /^remember\s+that\b/i.test(data.text.trim())) {
+          console.log("🧠 remember intent | OLLAMA_NO_TOOLS:", OLLAMA_NO_TOOLS, "| text:", data.text.substring(0,40));
+          await handleRememberIntent(data.text, ws);
+        }
+        await runAgentLoop(messages, ws);
+        await sendMemories(ws);
+      }
       if (data.type === "get_memories") await sendMemories(ws);
       if (data.type === "delete_memory") {
         try { await callTool("forget", { id: data.id }); ws.send(JSON.stringify({ type: "deleted", id: data.id })); }
