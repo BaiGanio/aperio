@@ -599,6 +599,7 @@
       line-height: 1.65;
       max-width: 100%;
       box-shadow: var(--shadow);
+      position: relative;
     }
 
 
@@ -764,6 +765,30 @@
     .bubble em { font-style: italic; opacity: .85; }
     .bubble p { margin-bottom: 6px; }
     .bubble p:last-child { margin-bottom: 0; }
+
+    /* .bubble-actions {
+      position: absolute;
+      bottom: 6px;
+      right: 8px;
+    }
+    .msg-copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-muted);
+      font-size: 11px;
+      font-family: var(--font-mono);
+      padding: 3px 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      opacity: 0;
+      transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+    } */
+    /* .message:hover .msg-copy-btn { opacity: 1; }
+    .msg-copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .msg-copy-btn.copied { color: #22c55e; border-color: #22c55e; opacity: 1; } */
 
     /* Memory suggestion block */
     .memory-suggestion {
@@ -1054,7 +1079,7 @@
     background: var(--bg-panel);
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 220px;
+    max-height: 160px;
     overflow-y: auto;
   }
 
@@ -1297,6 +1322,7 @@ let reasoningText = "";
 let streamingBubble = null;
 let streamingText = "";
 let isReasoningActive = false; // true while model is inside <think> / reasoning phase
+let suggestionShown = false;
 
 function handleMessage(msg) {
 
@@ -1325,6 +1351,7 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "thinking") {
+    suggestionShown = false;
     setStatus("thinking", "thinking…");
     sendBtn.disabled = true;
     if (!document.getElementById("thinking")) addThinking();
@@ -1408,6 +1435,8 @@ function handleMessage(msg) {
     reasoningText = "";
     // streamingText = "";
     // streamingBubble = null;
+    removeThinking();
+    addThinking();
     return;
   }
 
@@ -1556,10 +1585,12 @@ function updateStreamingBubble(ref, text) {
   scrollToBottom();
 }
 
+// ── Chat UI ──────────────────────────────────────────────────
 function finalizeStreamingBubble(ref, fullText) {
   ref.bubble.classList.remove("streaming");
 
-  if (fullText.includes("🧠 **Memory suggestions**")) {
+  if (fullText.includes("🧠 **Memory suggestions**") && !suggestionShown) {
+    suggestionShown = true;
     const [before, after] = fullText.split("🧠 **Memory suggestions**");
     ref.bubble.innerHTML = renderMarkdown(before.trim());
     ref.bubble.appendChild(parseSuggestionBlock(after));
@@ -1578,7 +1609,6 @@ function finalizeStreamingBubble(ref, fullText) {
   highlightAll();
 }
 
-// ── Chat UI ──────────────────────────────────────────────────
 function getUserInitial() {
   const nameMem = allMemories.find(m =>
     m.type === "person" && (m.title.toLowerCase().includes("my name") || m.tags?.includes("self"))
@@ -1601,7 +1631,8 @@ function addMessage(role, text) {
   const bubble = document.createElement("div");
   bubble.className = "bubble";
 
-  if (text.includes("🧠 **Memory suggestions**")) {
+  if (text.includes("🧠 **Memory suggestions**") && !suggestionShown) {
+    suggestionShown = true;
     const [before, after] = text.split("🧠 **Memory suggestions**");
     bubble.innerHTML = renderMarkdown(before.trim());
     bubble.appendChild(parseSuggestionBlock(after));
@@ -1680,6 +1711,8 @@ function parseSuggestionBlock(text) {
     div.appendChild(item);
   });
 
+  // if (fullText.includes("🧠 **Memory suggestions**")) return;
+  // if (ref.bubble.querySelector(".copy-btn")) return;
   const actions = document.createElement("div");
   actions.className = "suggestion-actions";
 

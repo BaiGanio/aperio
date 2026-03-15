@@ -93,7 +93,7 @@ async function runAnthropicLoop(messages, ws) {
     const trimmed = messages.length > MAX_HISTORY ? [messages[0], ...messages.slice(-(MAX_HISTORY-1))] : messages;
     let fullText = "", toolUses = [], currentToolUse = null, inputJson = "", stopReason = null, contentBlocks = [];
 
-    const stream = provider.client.messages.stream({ model: provider.model, max_tokens: 4096, system: getSystemPrompt(), tools: anthropicTools, messages: trimmed });
+    const stream = provider.client.messages.stream({ model: provider.model, max_tokens: 8192, system: getSystemPrompt(), tools: anthropicTools, messages: trimmed });
     ws.send(JSON.stringify({ type: "stream_start" }));
 
     for await (const event of stream) {
@@ -131,6 +131,13 @@ async function runAnthropicLoop(messages, ws) {
     }
     return fullText;
   }
+}
+
+// ─── This counts backtick fences — if odd number, the last one is unclosed, so it appends the closing fence. ────────
+function fixUnclosedFence(text) {
+  const fences = text.match(/```/g) || [];
+  if (fences.length % 2 !== 0) return text + "\n```";
+  return text;
 }
 
 // ─── Ollama loop ──────────────────────────────────────────────────────────────
@@ -232,7 +239,9 @@ async function runOllamaLoop(messages, ws, opts = {}) {
       if (intercepted) {
         // Text-mode tool call (Qwen3 ignores tools API)
         if (sentReasoningStart) ws.send(JSON.stringify({ type: "reasoning_done" }));
-        ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
+        ws.send(JSON.stringify({ type: "stream_start" }));
+        ws.send(JSON.stringify({ type: "stream_end", text: fixUnclosedFence(fullText) }));
+        //ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
        //ws.send(JSON.stringify({ type: "stream_end", text: "" }));
         const result = await callTool(intercepted.name, intercepted.input);
         const id = `intercept_${Date.now()}`;
