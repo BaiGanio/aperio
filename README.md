@@ -317,28 +317,6 @@ VOYAGE_API_KEY=pa-...
 | **Offline** | ✅ Yes | ❌ No |
 | **Best for** | Daily use, privacy, experiments | Heavy research, complex agents |
 
-
-### Model Selection Guide
-
-| Model | Best for | Avoid |
-|---|---|---|
-| `llama3.1` | Quick questions, tool calling (remember/recall), short answers | Long documents, reasoning tasks, code generation |
-| `qwen2.5` | Code generation, structured output, markdown files | Deep reasoning, complex multi-step tasks |
-| `qwen3` | Everything — reasoning + tool calling + code + documents | Nothing major, just slower than llama3.1 |
-| `deepseek-r1:7b` | Reasoning, analysis, debugging, decisions | Document generation, long code blocks, tool calling |
-| `deepseek-r1:14b` | Same as 7b but better — complex reasoning, architecture decisions | Same limitations, needs 16GB RAM |
-
-#### Examples
-
-- **"Remember that I prefer tabs"** → `llama3.1` or `qwen3`
-- **"Give me a C# hello world"** → `qwen2.5` or `qwen3`
-- **"What are the tradeoffs between Postgres and MongoDB?"** → `deepseek-r1` or `qwen3`
-- **"Output this file as copy-paste markdown"** → `qwen3` only
-- **"Scan my project and summarize it"** → `qwen3` or `llama3.1`
-- **"Why is my pgvector query slow?"** → `deepseek-r1:14b` or `qwen3`
-
-> **TL;DR:** Use `qwen3` as your daily driver. Switch to `deepseek-r1:14b` when you need deep reasoning and have the RAM. `llama3.1` for fast responses when reasoning isn't needed.
-
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
@@ -767,6 +745,93 @@ Everyone reads and writes to the same brain.
 - `nomic-embed-text` → 768 dims — incompatible with default `vector(1024)` schema
 - `mxbai-embed-large` → 1024 dims — use this for local embeddings
 - Voyage AI → 1024 dims — compatible out of the box
+
+### Port already in use
+```bash
+# Kill whatever is running on the port
+lsof -ti:3001 | xargs kill -9   # local
+lsof -ti:3000 | xargs kill -9   # cloud
+```
+Or change the port in `.env`:
+```env
+PORT=3002
+```
+
+### Ollama not running
+```
+Error: Ollama is not running at http://localhost:11434
+```
+Fix:
+```bash
+ollama serve          # start Ollama
+ollama pull llama3.1  # make sure your model is pulled
+```
+
+### pgvector extension missing
+```
+⚠️  pgvector not found — using full-text search only
+```
+Fix — the Docker image includes pgvector by default. If you're using a custom Postgres instance:
+```bash
+# Inside your Postgres container
+CREATE EXTENSION IF NOT EXISTS vector;
+```
+Or restart with the correct image:
+```bash
+cd docker && docker compose down && docker compose up -d
+```
+
+### Database connection failed
+```
+Error: connect ECONNREFUSED 127.0.0.1:5432
+```
+Fix:
+```bash
+cd docker && docker compose up -d
+# Wait a few seconds, then retry
+```
+
+### MCP server not connecting
+```
+Error: spawn node ENOENT
+```
+Fix — Node.js is not in PATH or not installed:
+```bash
+node --version  # should be 18+
+```
+
+### What a healthy startup looks like
+```
+🤖 Provider: Ollama (qwen3) @ http://localhost:11434
+✅ Connected to Aperio database
+✅ pgvector enabled — semantic search active (12/12 memories embedded)
+🧠 Aperio MCP server v2.0 running
+✅ MCP server connected
+✦ Aperio running at http://localhost:3001
+```
+If all five lines appear — you're good.
+
+
+### Model selection guide
+
+| Model | Best for | Avoid |
+|---|---|---|
+| `llama3.1` | Quick questions, tool calling, short answers | Long documents, reasoning, code generation |
+| `qwen2.5` | Code generation, structured output, markdown | Deep reasoning, complex multi-step tasks |
+| `qwen3` | Everything — reasoning + tools + code + docs | Nothing major, just slower than llama3.1 |
+| `deepseek-r1:7b` | Reasoning, analysis, debugging, decisions | Document generation, long code blocks |
+| `deepseek-r1:14b` | Complex reasoning, architecture decisions | Same limitations, needs 16GB RAM |
+
+#### Examples
+
+- **"Remember that I prefer tabs"** → `llama3.1` or `qwen3`
+- **"Give me a C# hello world"** → `qwen2.5` or `qwen3`
+- **"What are the tradeoffs between Postgres and MongoDB?"** → `deepseek-r1` or `qwen3`
+- **"Output this file as copy-paste markdown"** → `qwen3` only
+- **"Scan my project and summarize it"** → `qwen3` or `llama3.1`
+- **"Why is my pgvector query slow?"** → `deepseek-r1:14b` or `qwen3`
+
+> **TL;DR:** Use `qwen3` as your daily driver. Switch to `deepseek-r1:14b` for deep reasoning. `llama3.1` for fast responses when reasoning isn't needed.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
