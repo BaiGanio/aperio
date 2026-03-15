@@ -49,7 +49,7 @@ const anthropicTools = mcpTools.map(t => ({ name: t.name, description: t.descrip
 
 const simplifySchema = (name) => {
   if (name === "recall") return { type: "object", properties: { query: { type: "string" }, limit: { type: "number" } } };
-  if (name === "remember") return { type: "object", required: ["type","title","content"], properties: { type: { type: "string", enum: ["fact","preference","project","decision","solution","source","person"] }, title: { type: "string" }, content: { type: "string" }, importance: { type: "number" }, tags: { type: "array", items: { type: "string" } } } };
+  if (name === "remember") return { type: "object", required: ["type","title","content"], properties: { type: { type: "string", enum: ["fact","preference","project","decision","solution","source","person"] }, title: { type: "string", description: "Short title" }, content: { type: "string", description: "Full memory content" }, importance: { type: "integer", description: "1 to 5, use 3 as default" }, tags: { type: "array", items: { type: "string" }, description: "Optional list of tags, use empty array [] if none" } } };
   return mcpTools.find(t => t.name === name)?.inputSchema ?? {};
 };
 
@@ -64,8 +64,8 @@ async function callTool(name, input) {
 function extractTextToolCall(text) {
   // Match a JSON block (with or without fences) that looks like a tool call
   const fenceMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  const jsonStr = fenceMatch ? fenceMatch[1].trim() : text.trim();
-  const match = jsonStr.match(/\{[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*?\}/);
+  const searchIn = fenceMatch ? fenceMatch[1].trim() : text;
+  const match = searchIn.match(/\{[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*?\}/);
   if (!match) return null;
   if (!mcpToolNames.has(match[1])) return null;
   try {
@@ -134,7 +134,7 @@ async function runAnthropicLoop(messages, ws) {
 }
 
 // ─── Ollama loop ──────────────────────────────────────────────────────────────
-async function runOllamaLoop(messages, ws) {
+async function runOllamaLoop(messages, ws, opts = {}) {
   while (true) {
     const trimmed = messages.length > MAX_HISTORY ? [messages[0], ...messages.slice(-(MAX_HISTORY-1))] : messages;
 
@@ -168,7 +168,7 @@ async function runOllamaLoop(messages, ws) {
     try {
       response = await fetch(`${provider.baseURL}/chat/completions`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: provider.model, messages: openaiMessages, ...(OLLAMA_NO_TOOLS ? {} : { tools: ollamaTools }),stream: true }),
+        body: JSON.stringify({ model: provider.model, messages: openaiMessages, ...(OLLAMA_NO_TOOLS || opts.noTools ? {} : { tools: ollamaTools }), stream: true }),
       });
     } catch (e) {
       ws.send(JSON.stringify({ type: "stream_start" }));
@@ -296,6 +296,7 @@ async function runOllamaLoop(messages, ws) {
     // Text-mode tool call (model output JSON instead of using tools API)
     if (fullText.trim()) {
       const intercepted = extractTextToolCall(fullText);
+      console.log("🔍 intercept result:", intercepted ? intercepted.name : "null", "| fullText len:", fullText.length);
       if (intercepted) {
         ws.send(JSON.stringify({ type: "retract" })); // remove any streamed JSON from UI
         ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
@@ -357,8 +358,12 @@ wss.on("connection", (ws) => {
       content: `Greet me in one short friendly sentence. Do not use any tools.${memoriesContext}`
     });
 
-    ws.send(JSON.stringify({ type: "thinking" }));
-    await runAgentLoop(messages, ws);
+    // For ollama: call without tools for init greeting
+    if (provider.name === "ollama") {
+      await runOllamaLoop(messages, ws, { noTools: true });
+    } else {
+      await runAgentLoop(messages, ws);
+    }
     await sendMemories(ws);
   }
 
