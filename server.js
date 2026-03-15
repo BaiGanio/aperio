@@ -430,4 +430,4 @@ app.get("/api/provider", (_, res) => res.json({ provider: provider.name, model: 
 app.get("/api/memories", async (_, res) => { try { res.json({ raw: await callTool("recall", { limit: 50 }) }); } catch (e) { res.status(500).json({ error: e.message }); } });
 
 const PORT = process.env.PORT ?? 3000;
-httpServer.listen(PORT, () => console.log(`\n✦ Aperio running at http://localhost:${PORT}\n`));
+httpServer.listen(PORT, () => console.log(`\n✨ Aperio running at http://localhost:${PORT}\n`));
