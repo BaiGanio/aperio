@@ -38,51 +38,51 @@ jobs:
 
           # Insert under the correct section in [Unreleased]
           python3 - <<'PYEOF'
-import re, os
+          import re, os
 
-entry = os.environ.get("ENTRY", "")
-section = os.environ.get("SECTION", "")
+          entry = os.environ.get("ENTRY", "")
+          section = os.environ.get("SECTION", "")
 
-with open("CHANGELOG.md", "r") as f:
-    content = f.read()
+          with open("CHANGELOG.md", "r") as f:
+              content = f.read()
 
-section_header = f"### {section}"
-unreleased = "## [Unreleased]"
+          section_header = f"### {section}"
+          unreleased = "## [Unreleased]"
 
-if unreleased not in content:
-    print("No [Unreleased] section found")
-    exit(0)
+          if unreleased not in content:
+              print("No [Unreleased] section found")
+              exit(0)
 
-if section_header in content.split(unreleased)[1].split("## [")[0]:
-    # Section exists — insert after header
-    content = content.replace(
-        f"{section_header}\n",
-        f"{section_header}\n{entry}\n",
-        1
-    )
-else:
-    # Section doesn't exist — add it after [Unreleased]
-    content = content.replace(
-        f"{unreleased}\n",
-        f"{unreleased}\n\n{section_header}\n{entry}\n",
-        1
-    )
+          if section_header in content.split(unreleased)[1].split("## [")[0]:
+              # Section exists — insert after header
+              content = content.replace(
+                  f"{section_header}\n",
+                  f"{section_header}\n{entry}\n",
+                  1
+              )
+          else:
+              # Section doesn't exist — add it after [Unreleased]
+              content = content.replace(
+                  f"{unreleased}\n",
+                  f"{unreleased}\n\n{section_header}\n{entry}\n",
+                  1
+              )
 
-with open("CHANGELOG.md", "w") as f:
-    f.write(content)
+          with open("CHANGELOG.md", "w") as f:
+              f.write(content)
 
-print(f"Added to {section}: {entry}")
-PYEOF
-        env:
-          ENTRY: "- ${{ github.event.head_commit.message }} ([\`$(git log -1 --pretty=%h)\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}))"
-          SECTION: ${{ env.SECTION }}
+          print(f"Added to {section}: {entry}")
+          PYEOF
+                  env:
+                    ENTRY: "- ${{ github.event.head_commit.message }} ([\`$(git log -1 --pretty=%h)\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}))"
+                    SECTION: ${{ env.SECTION }}
 
-      - name: Commit changelog update
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git diff --quiet CHANGELOG.md || (
-            git add CHANGELOG.md &&
-            git commit -m "chore: update changelog [skip ci]" &&
-            git push
-          )
+                - name: Commit changelog update
+                  run: |
+                    git config user.name "github-actions[bot]"
+                    git config user.email "github-actions[bot]@users.noreply.github.com"
+                    git diff --quiet CHANGELOG.md || (
+                      git add CHANGELOG.md &&
+                      git commit -m "chore: update changelog [skip ci]" &&
+                      git push
+                    )
