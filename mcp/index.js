@@ -36,6 +36,18 @@ function isPathAllowed(filePath) {
   return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed));
 }
 
+// ─── Warning: Path safety - tools can access any absolute path on your machine ─────────
+// const ALLOWED_PATHS = (process.env.APERIO_ALLOWED_PATHS || process.env.HOME || "/root")
+//   .split(",")
+//   .map(p => p.trim().replace(/^~/, process.env.HOME || "/root"));
+
+// function isPathAllowed(filePath) {
+//   const resolved = filePath.startsWith("~")
+//     ? filePath.replace("~", process.env.HOME || "/root")
+//     : filePath;
+//   return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed));
+// }
+
 // ─── Embeddings ───────────────────────────────────────────────────────────────
 let vectorEnabled = true;
 const { rows: embRows } = await db.query("SELECT COUNT(*) as c FROM memories WHERE embedding IS NOT NULL");
@@ -562,6 +574,7 @@ server.registerTool(
     try {
       const resolved = filePath.startsWith("~")
         ? filePath.replace("~", process.cwd())
+        // ? filePath.replace("~", process.env.HOME || "/root") // Warning: Path safety - this allows access to the entire home directory.
         : filePath;
 
       if (!isPathAllowed(filePath)) {
@@ -607,6 +620,7 @@ server.registerTool(
     try {
       const resolved = filePath.startsWith("~")
         ? filePath.replace("~", process.cwd())
+        // ? filePath.replace("~", process.env.HOME || "/root") // Warning: Path safety - this allows access to the entire home directory.
         : filePath;
 
       if (!isPathAllowed(filePath)) {

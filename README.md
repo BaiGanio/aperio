@@ -642,6 +642,8 @@ The `write_file`, `append_file`, and `read_file` tools can access any absolute p
 - Be cautious with `write_file` — it overwrites files completely with no undo
 - The AI model can be prompted (or hallucinate) to write to sensitive paths — always review before confirming
 
+If you know what you are doing - search with `Warning: Path safety` in `mpc/index.js` and swap the lines.
+
 **Restrict file access further** by setting `APERIO_ALLOWED_PATHS` in your `.env`:
 ```env
 # Allow only specific directories (comma-separated)
