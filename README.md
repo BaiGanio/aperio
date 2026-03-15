@@ -185,9 +185,15 @@ cd docker && docker compose up -d && cd ..
 ```
 
 ### 6. Run migrations
+- MacOS/Linux
 ```bash
 docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql
 docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql
+```
+- Windows
+```powershell
+cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql"
+cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql"
 ```
 
 ### 7. Start Aperio
