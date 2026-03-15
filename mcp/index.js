@@ -47,11 +47,12 @@ async function generateEmbedding(text, inputType = "document") {
       const response = await fetch(`${baseUrl}/api/embed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, prompt: text }),
+        body: JSON.stringify({ model, input: text }),
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      return data.embedding;
+      //console.error("🔍 embed raw:", JSON.stringify(data).substring(0, 300));
+      return data.embeddings?.[0];
     } catch (err) {
       console.error("⚠️  Ollama embedding failed:", err.message);
       return null;
