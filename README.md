@@ -30,6 +30,8 @@
   · · ·
   [ <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors Note</a> ]
    · · ·
+   [ <a href="#troubleshooting">Troubleshooting</a> ]
+   · · ·
 </p>
 
 ---
@@ -681,6 +683,26 @@ Everyone reads and writes to the same brain.
 - **Audit log** — see who saved or changed what and when
 
 > **💡 Tip:** The database is yours. The memory is yours. Scale it however you need.
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
+## Troubleshooting
+
+**Semantic search not working / full-text fallback**
+- Run `backfill my embeddings` in the chat after first launch
+- Check that your embedding model is pulled: `ollama pull mxbai-embed-large`
+- Verify `.env` has: `OLLAMA_EMBEDDING_MODEL=mxbai-embed-large`
+- At startup you should see: `✅ pgvector enabled — semantic search active (X/Y memories embedded)`
+- If you see `⚠️ no embeddings yet` — run backfill
+
+**Embeddings dimension mismatch**
+- `nomic-embed-text` → 768 dims — incompatible with default `vector(1024)` schema
+- `mxbai-embed-large` → 1024 dims — use this for local embeddings
+- Voyage AI → 1024 dims — compatible out of the box
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
