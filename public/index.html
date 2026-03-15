@@ -1376,6 +1376,7 @@ function handleMessage(msg) {
 
   if (msg.type === "reasoning_start") {
     isReasoningActive = true;
+    document.getElementById("preparing-answer")?.remove();
     // Close any previous bubble cleanly before starting a new one
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
@@ -1432,11 +1433,26 @@ function handleMessage(msg) {
       reasoningBubble.statusSpan.style.opacity = "0.4";
       reasoningBubble = null;
     }
+    // Fallback: collapse any unclosed reasoning bubble still in DOM
+    const lastWrap = [...messagesEl.querySelectorAll(".reasoning-wrap")].at(-1);
+    if (lastWrap) {
+      const details = lastWrap.querySelector("details");
+      const span = lastWrap.querySelector(".reasoning-bubble summary span");
+      if (details) details.removeAttribute("open");
+      if (span) { span.textContent = "done"; span.style.animation = "none"; span.style.opacity = "0.4"; }
+    }
     reasoningText = "";
     // streamingText = "";
     // streamingBubble = null;
     removeThinking();
-    addThinking();
+    // Show "preparing answer" indicator
+    document.getElementById("preparing-answer")?.remove();
+    const prep = document.createElement("div");
+    prep.id = "preparing-answer";
+    prep.style.cssText = "padding:6px 0 0 38px;font-size:11px;font-family:var(--font-mono);color:var(--text-muted);opacity:0.6;animation:labelFade 1.8s ease infinite";
+    prep.textContent = "✦ preparing answer…";
+    messagesEl.appendChild(prep);
+    scrollToBottom(true);
     return;
   }
 
@@ -1502,6 +1518,7 @@ function handleMessage(msg) {
       removeToolIndicator();
       addMessage("ai", msg.text);
     }
+    document.getElementById("preparing-answer")?.remove();
     streamingBubble = null;
     streamingText = "";
     isThinking = false;
@@ -1772,6 +1789,7 @@ function addThinking() {
 function removeThinking() {
   document.getElementById("thinking")?.remove();
   document.querySelector(".input-bar")?.classList.remove("input-locked");
+  document.getElementById("preparing-answer")?.remove();
   const inputHint = document.getElementById("inputHint");
   if (inputHint) inputHint.innerHTML = `${cmdKey}↵ to send &nbsp;·&nbsp; Shift↵ for newline`;
 }

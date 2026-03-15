@@ -208,13 +208,18 @@ async function runOllamaLoop(messages, ws, opts = {}) {
         // Reasoning tokens
         if (OLLAMA_THINKS && delta.reasoning) {
           reasoningText += delta.reasoning;
-          if (!sentReasoningStart) { sentReasoningStart = true; ws.send(JSON.stringify({ type: "reasoning_start" })); }
+          if (!sentReasoningStart) { sentReasoningStart = true; console.log("🧠 sending reasoning_start"); ws.send(JSON.stringify({ type: "reasoning_start" })); }
           ws.send(JSON.stringify({ type: "reasoning_token", text: delta.reasoning }));
         }
 
         // Content — always stream live; client decides whether to show or discard
         if (delta.content) {
           fullText += delta.content;
+          // Reasoning → content transition: collapse reasoning bubble immediately
+          if (sentReasoningStart) {
+            ws.send(JSON.stringify({ type: "reasoning_done" }));
+            sentReasoningStart = false;
+          }
           ws.send(JSON.stringify({ type: "token", text: delta.content }));
         }
 
@@ -326,7 +331,7 @@ async function runOllamaLoop(messages, ws, opts = {}) {
     console.log("🟡 NON-THINKING normal response");
     // Normal response — stream to UI
     ws.send(JSON.stringify({ type: "stream_start" }));
-    ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
+    ws.send(JSON.stringify({ type: "stream_end", text: fixUnclosedFence(fullText) }));
     messages.push({ role: "assistant", content: [{ type: "text", text: fullText }] });
     return fullText;
   }
