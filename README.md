@@ -116,7 +116,7 @@ Anthropic + Voyage AI           — optional cloud upgrade
 |---|---|
 | **Postgres + pgvector** | Battle-tested, self-hosted, semantic search built in |
 | **Ollama** | Local LLM inference — llama3.1, qwen3, deepseek-r1 and more |
-| **nomic-embed-text** | Local embeddings via Ollama — no external calls |
+| **mxbai-embed-large** | Local embeddings via Ollama — no external calls |
 | **MCP** | Any MCP-compatible agent shares the same brain |
 | **Node ESM** | Single runtime, clean imports, no build step |
 | **Claude** *(optional)* | Anthropic API for complex reasoning tasks |
@@ -157,13 +157,13 @@ DATABASE_URL=postgresql://aperio:aperio_secret@localhost:5432/aperio
 AI_PROVIDER=ollama
 OLLAMA_MODEL=llama3.1
 EMBEDDING_PROVIDER=ollama
-OLLAMA_EMBED_MODEL=nomic-embed-text
+OLLAMA_EMBED_MODEL=mxbai-embed-large
 ```
 
 ### 4. Pull Ollama models
 ```bash
 ollama pull llama3.1           # LLM — best tool-calling support
-ollama pull nomic-embed-text   # embeddings — local semantic search
+ollama pull mxbai-embed-large   # embeddings — local semantic search
 ```
 
 ### 5. Start the database
@@ -272,7 +272,7 @@ ANTHROPIC_MODEL=claude-haiku-4-5-20251001
 ```env
 # Local (default) - comment both lines if choose of Voyage AI
 EMBEDDING_PROVIDER=ollama
-OLLAMA_EMBED_MODEL=nomic-embed-text
+OLLAMA_EMBED_MODEL=mxbai-embed-large
 
 # Cloud upgrade
 VOYAGE_API_KEY=pa-...
@@ -280,7 +280,7 @@ VOYAGE_API_KEY=pa-...
 
 | Provider | Details |
 |---|---|
-| **Ollama** *(default)* | `nomic-embed-text` — zero external calls, 768 dims |
+| **Ollama** *(default)* | `mxbai-embed-large` — zero external calls, 1024 dims |
 | **Voyage AI** *(optional)* | `voyage-3` — 1024 dims, highest quality, 50M free tokens/month |
 
 ### Local vs Cloud
@@ -554,8 +554,7 @@ Two semantically similar sentences produce vectors that are mathematically close
 
 Complete privacy with no external API calls at all - thanks to the local embedding model:
 
-
-`nomic-embed-text` runs fully locally, produces 768-dimensional vectors, works natively with pgvector, and generates embeddings in ~15–50ms. No API key. No data leaving your machine. Ever.
+`mxbai-embed-large` runs fully locally, produces 1024-dimensional vectors, works natively with pgvector, and generates embeddings in ~15–50ms. No API key. No data leaving your machine. Ever.
 
 #### What leaves your machine if choose Voyage AI
 
