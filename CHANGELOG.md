@@ -31,6 +31,7 @@ All notable changes to Aperio are documented here.
 - `llama3.1` JSON tool call interception with trailing response support
 
 ### Changed
+- chore: ... (c6f2504)
 - Default provider is now Ollama (local) — Claude and Voyage AI are optional upgrades
 - Memory source now reflects actual model name instead of hardcoded `claude`
 - Init no longer triggers tool calls — memories injected server-side
