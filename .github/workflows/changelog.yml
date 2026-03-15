@@ -1,0 +1,88 @@
+name: Update Changelog
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate changelog entry from commit
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=%s)
+          COMMIT_HASH=$(git log -1 --pretty=%h)
+          COMMIT_DATE=$(date +%Y-%m-%d)
+          AUTHOR=$(git log -1 --pretty=%an)
+
+          # Determine section based on commit prefix
+          if [[ "$COMMIT_MSG" == feat:* ]]; then
+            SECTION="Added"
+          elif [[ "$COMMIT_MSG" == fix:* ]]; then
+            SECTION="Fixed"
+          elif [[ "$COMMIT_MSG" == chore:* ]] || [[ "$COMMIT_MSG" == refactor:* ]]; then
+            SECTION="Changed"
+          elif [[ "$COMMIT_MSG" == docs:* ]]; then
+            SECTION="Docs"
+          else
+            echo "No conventional commit prefix — skipping changelog update"
+            exit 0
+          fi
+
+          ENTRY="- ${COMMIT_MSG} ([\`${COMMIT_HASH}\`](https://github.com/${{ github.repository }}/commit/${COMMIT_HASH}))"
+
+          # Insert under the correct section in [Unreleased]
+          python3 - <<'PYEOF'
+import re, os
+
+entry = os.environ.get("ENTRY", "")
+section = os.environ.get("SECTION", "")
+
+with open("CHANGELOG.md", "r") as f:
+    content = f.read()
+
+section_header = f"### {section}"
+unreleased = "## [Unreleased]"
+
+if unreleased not in content:
+    print("No [Unreleased] section found")
+    exit(0)
+
+if section_header in content.split(unreleased)[1].split("## [")[0]:
+    # Section exists — insert after header
+    content = content.replace(
+        f"{section_header}\n",
+        f"{section_header}\n{entry}\n",
+        1
+    )
+else:
+    # Section doesn't exist — add it after [Unreleased]
+    content = content.replace(
+        f"{unreleased}\n",
+        f"{unreleased}\n\n{section_header}\n{entry}\n",
+        1
+    )
+
+with open("CHANGELOG.md", "w") as f:
+    f.write(content)
+
+print(f"Added to {section}: {entry}")
+PYEOF
+        env:
+          ENTRY: "- ${{ github.event.head_commit.message }} ([\`$(git log -1 --pretty=%h)\`](https://github.com/${{ github.repository }}/commit/${{ github.sha }}))"
+          SECTION: ${{ env.SECTION }}
+
+      - name: Commit changelog update
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet CHANGELOG.md || (
+            git add CHANGELOG.md &&
+            git commit -m "chore: update changelog [skip ci]" &&
+            git push
+          )
