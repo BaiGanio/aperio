@@ -37,7 +37,7 @@ if (PROVIDER === "ollama") {
   console.log(`🤖 Provider: Anthropic (${ANTHROPIC_MODEL})`);
 }
 
-const transport = new StdioClientTransport({ command: "node", args: [resolve(__dirname, "mcp/index.js")] });
+const transport = new StdioClientTransport({ command: "node", args: [resolve(__dirname, "mcp/index.js")], env: { ...process.env } });
 const mcp = new Client({ name: "aperio-server", version: "1.0.0" });
 await mcp.connect(transport);
 console.log("✅ MCP server connected");

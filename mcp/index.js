@@ -25,13 +25,16 @@ try {
 }
 
 // ─── Embeddings ───────────────────────────────────────────────────────────────
-let vectorEnabled = false;
-try {
-  await db.query("SELECT 'vector'::regtype");
-  vectorEnabled = true;
-  console.error("✅ pgvector enabled — semantic search active");
-} catch {
-  console.error("⚠️  pgvector not found — using full-text search only");
+let vectorEnabled = true;
+const { rows: embRows } = await db.query("SELECT COUNT(*) as c FROM memories WHERE embedding IS NOT NULL");
+const embCount = parseInt(embRows[0].c);
+const { rows: totalRows } = await db.query("SELECT COUNT(*) as c FROM memories");
+const total = parseInt(totalRows[0].c);
+if (embCount === 0) {
+  console.error(`✅ pgvector enabled — ⚠️  no embeddings yet (${total} memories) — using full-text search.`);
+  console.error(`✅ pgvector enabled — ⚠️  Call 'backfill my embeddings' to generate embeddings for existing memories.`);
+} else {
+  console.error(`✅ pgvector enabled — semantic search active (${embCount}/${total} memories embedded)`);
 }
 
 async function generateEmbedding(text, inputType = "document") {
@@ -42,7 +45,9 @@ async function generateEmbedding(text, inputType = "document") {
   // ─── Ollama (fully local, air-gapped) ──────────────────────────────────────
   if (provider === "ollama") {
     const model = process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text";
+    // console.error("🔍 embedding model:", model, "| provider:", provider);
     const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    // console.error("🔍 embedding model:", model, "| base:", baseUrl);
     try {
       const response = await fetch(`${baseUrl}/api/embed`, {
         method: "POST",
@@ -54,7 +59,7 @@ async function generateEmbedding(text, inputType = "document") {
       //console.error("🔍 embed raw:", JSON.stringify(data).substring(0, 300));
       return data.embeddings?.[0];
     } catch (err) {
-      console.error("⚠️  Ollama embedding failed:", err.message);
+      console.error("⚠️  Ollama embedding failed:", err.message, "| model:", model, "| url:", baseUrl);
       return null;
     }
   }
@@ -204,7 +209,7 @@ server.registerTool(
 
     const searchMode = useSemanticSearch && rows[0]?.similarity !== undefined
       ? "semantic" : "full-text";
-
+    console.log(`🔍 recall: ${useSemanticSearch ? "semantic" : "full-text"} | results: ${rows.length}`);
     const formatted = rows.map(m => {
       const simNote = m.similarity !== undefined
         ? ` [similarity: ${(m.similarity * 100).toFixed(0)}%]` : "";
