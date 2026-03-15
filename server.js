@@ -141,10 +141,15 @@ function fixUnclosedFence(text) {
 }
 
 // ─── Ollama loop ──────────────────────────────────────────────────────────────
-async function runOllamaLoop(messages, ws, opts = {}) {
+async function runOllamaLoop(messages, ws, opts = {}, getAbort = () => null, setAbort = () => {}) {
   while (true) {
     const trimmed = messages.length > MAX_HISTORY ? [messages[0], ...messages.slice(-(MAX_HISTORY-1))] : messages;
 
+    if (getAbort()?.signal?.aborted) {
+      ws.send(JSON.stringify({ type: "stream_end", text: "" }));
+      return "";
+    }
+    
     const openaiMessages = [
       { role: "system", content: getSystemPrompt() },
       ...trimmed.map(m => {
@@ -161,7 +166,9 @@ async function runOllamaLoop(messages, ws, opts = {}) {
 
     // Health check
     try {
-      const h = await fetch(`${OLLAMA_BASE_URL}/api/tags`, { signal: AbortSignal.timeout(3000) });
+      const controller = new AbortController();
+      setAbort(controller);
+      const h = await fetch(`${OLLAMA_BASE_URL}/api/tags`, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(3000)]) });
       if (!h.ok) throw new Error();
     } catch {
       const msg = `Ollama is not running. Fix:\n1. ollama serve\n2. ollama pull ${OLLAMA_MODEL}`;
@@ -173,9 +180,12 @@ async function runOllamaLoop(messages, ws, opts = {}) {
 
     let response;
     try {
-      response = await fetch(`${provider.baseURL}/chat/completions`, {
+      const controller = new AbortController();
+      setAbort(controller);
+       response = await fetch(`${provider.baseURL}/chat/completions`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: provider.model, messages: openaiMessages, ...(OLLAMA_NO_TOOLS || opts.noTools ? {} : { tools: ollamaTools }), stream: true }),
+        signal: controller.signal,
       });
     } catch (e) {
       ws.send(JSON.stringify({ type: "stream_start" }));
@@ -197,7 +207,16 @@ async function runOllamaLoop(messages, ws, opts = {}) {
     let fullText = "", reasoningText = "", toolCalls = [], sentReasoningStart = false;
 
     while (true) {
-      const { done, value } = await reader.read();
+      let done, value;
+      try {
+        ({ done, value } = await reader.read());
+      } catch (e) {
+        if (e.name === "AbortError") {
+          ws.send(JSON.stringify({ type: "stream_end", text: "" }));
+          return "";
+        }
+        throw e;
+      }
       if (done) break;
       const lines = decoder.decode(value).split("\n").filter(l => l.startsWith("data: ") && l !== "data: [DONE]");
       for (const line of lines) {
@@ -347,8 +366,8 @@ async function handleRememberIntent(text, ws) {
   }
 }
 
-async function runAgentLoop(messages, ws) {
-  return provider.name === "ollama" ? runOllamaLoop(messages, ws) : runAnthropicLoop(messages, ws);
+async function runAgentLoop(messages, ws, getAbort, setAbort) {
+  return provider.name === "ollama" ? runOllamaLoop(messages, ws, {}, getAbort, setAbort) : runAnthropicLoop(messages, ws);
 }
 
 // ─── Express + WebSocket ──────────────────────────────────────────────────────
@@ -361,6 +380,7 @@ const wss = new WebSocketServer({ server: httpServer });
 wss.on("connection", (ws) => {
   const messages = [];
   let initialized = false;
+  let abortController = null;
 
   ws.send(JSON.stringify({ type: "status", text: "connected" }));
   ws.send(JSON.stringify({ type: "provider", name: provider.name, model: provider.model }));
@@ -383,10 +403,12 @@ wss.on("connection", (ws) => {
     });
 
     // For ollama: call without tools for init greeting
+    const getAbort = () => abortController;
+    const setAbort = (c) => { abortController = c; };
     if (provider.name === "ollama") {
-      await runOllamaLoop(messages, ws, { noTools: true });
+      await runOllamaLoop(messages, ws, { noTools: true }, getAbort, setAbort);
     } else {
-      await runAgentLoop(messages, ws);
+      await runAgentLoop(messages, ws, getAbort, setAbort);
     }
     await sendMemories(ws);
   }
@@ -403,8 +425,15 @@ wss.on("connection", (ws) => {
           console.log("🧠 remember intent | OLLAMA_NO_TOOLS:", OLLAMA_NO_TOOLS, "| text:", data.text.substring(0,40));
           await handleRememberIntent(data.text, ws);
         }
-        await runAgentLoop(messages, ws);
+        const getAbort = () => abortController;
+        const setAbort = (c) => { abortController = c; };
+        await runAgentLoop(messages, ws, getAbort, setAbort);
         await sendMemories(ws);
+      }
+      if (data.type === "stop") {
+        if (abortController) { abortController.abort(); abortController = null; }
+        ws.send(JSON.stringify({ type: "stream_end", text: "" }));
+        return;
       }
       if (data.type === "get_memories") await sendMemories(ws);
       if (data.type === "delete_memory") {

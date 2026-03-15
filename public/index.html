@@ -1014,6 +1014,22 @@
     .send-btn:hover { opacity: .88; transform: scale(1.04); }
     .send-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
 
+    .stop-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: none;
+      cursor: pointer;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 14px;
+      flex-shrink: 0;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .stop-btn:hover { opacity: 0.85; transform: scale(1.05); }
+
     .char-counter {
       font-size: 11px;
       color: var(--text-muted);
@@ -1178,6 +1194,7 @@
         <button class="send-btn" id="sendBtn" disabled id="sendBtnTitle" title="Send (⌘↵)">
           <i class="bi bi-send-fill" style="font-size:13px"></i>
         </button>
+        <button class="stop-btn" id="stopBtn" title="Stop generating">■</button>
       </div>
       <div class="input-hint" id="inputHint">⌘↵ to send &nbsp;·&nbsp; Shift↵ for newline</div>
       <div class="input-warning" id="inputWarning">Your AI agent is not almighty. Do not trust the output blindly!</div>
@@ -1206,6 +1223,7 @@ let allMemories = [];
 const messagesEl   = document.getElementById("messages");
 const chatInput    = document.getElementById("chatInput");
 const sendBtn      = document.getElementById("sendBtn");
+const stopBtn      = document.getElementById("stopBtn");
 const statusDot    = document.getElementById("statusDot");
 const statusText   = document.getElementById("statusText");
 const memoriesList = document.getElementById("memoriesList");
@@ -1524,6 +1542,8 @@ function handleMessage(msg) {
     isThinking = false;
     setStatus("connected", "connected");
     sendBtn.disabled = chatInput.value.trim() === "";
+    sendBtn.style.display = "";
+    stopBtn.style.display = "none";
     scrollToBottom(true);
   }
 
@@ -1542,6 +1562,8 @@ function handleMessage(msg) {
     isThinking = false;
     setStatus("connected", "error");
     sendBtn.disabled = chatInput.value.trim() === "";
+    sendBtn.style.display = "";
+    stopBtn.style.display = "none";
     addMessage("ai", `⚠️ ${msg.text}`);
   }
 }
@@ -1612,7 +1634,10 @@ function finalizeStreamingBubble(ref, fullText) {
     ref.bubble.innerHTML = renderMarkdown(before.trim());
     ref.bubble.appendChild(parseSuggestionBlock(after));
   } else {
-    ref.bubble.innerHTML = renderMarkdown(fullText);
+    const rendered = renderMarkdown(fullText);
+    if (ref.bubble.innerHTML !== rendered) {
+      ref.bubble.innerHTML = rendered;
+    }
   }
 
   // Add timestamp below bubble
@@ -1842,6 +1867,8 @@ function send() {
   autoResize();
   sendBtn.disabled = true;
   isThinking = true;
+  sendBtn.style.display = "none";
+  stopBtn.style.display = "flex";
   requestAnimationFrame(() => {
     removeThinking();
     setStatus("thinking", "thinking…");
@@ -1851,6 +1878,16 @@ function send() {
 }
 
 sendBtn.onclick = send;
+stopBtn.onclick = () => {
+  if (ws) ws.send(JSON.stringify({ type: "stop" }));
+  removeThinking();
+  removeToolIndicator();
+  document.getElementById("preparing-answer")?.remove();
+  isThinking = false;
+  sendBtn.style.display = "";
+  stopBtn.style.display = "none";
+  sendBtn.disabled = chatInput.value.trim() === "";
+};
 
 chatInput.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
