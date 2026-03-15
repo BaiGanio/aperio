@@ -632,7 +632,7 @@ You save a memory
 ---
 
 ## Security Notes
-Aperio runs on your machine and has access to your file system through the `write_file`, `append_file`, and `read_file` tools. By default, file operations are restricted to your home directory.
+Aperio runs on your machine and has access to your file system through the `write_file`, `append_file`, and `read_file` tools. By default, file operations are restricted to the directory where the process was started from — which will be the Aperio project root when you run `npm run start:local`.
 
 **File system access**
 The `write_file`, `append_file`, and `read_file` tools can access any absolute path on your machine that the Node.js process has permission to read or write. This is intentional for power users but means:
