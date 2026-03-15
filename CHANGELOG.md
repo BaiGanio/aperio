@@ -7,6 +7,7 @@ All notable changes to Aperio are documented here.
 ## [Unreleased]
 
 ### Added
+- feat: reverted back absolute path access by choice for power users (4d0f130)
 - feat: Restrict file operations to specific directories (comma-separated) (deb1490)
 - Reasoning model support — qwen3 and deepseek-r1 with collapsible thinking bubble
 - Reasoning toggle — show/hide reasoning bubble from the header
