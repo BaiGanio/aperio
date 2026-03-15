@@ -25,13 +25,13 @@ try {
 }
 
 // ─── Path safety ──────────────────────────────────────────────────────────────
-const ALLOWED_PATHS = (process.env.APERIO_ALLOWED_PATHS || process.env.HOME || "/root")
+const ALLOWED_PATHS = (process.env.APERIO_ALLOWED_PATHS || process.cwd())
   .split(",")
-  .map(p => p.trim().replace(/^~/, process.env.HOME || "/root"));
+  .map(p => p.trim().replace(/^~/, process.cwd()));
 
 function isPathAllowed(filePath) {
   const resolved = filePath.startsWith("~")
-    ? filePath.replace("~", process.env.HOME || "/root")
+    ? filePath.replace("~", process.cwd())
     : filePath;
   return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed));
 }
@@ -561,7 +561,7 @@ server.registerTool(
   async ({ path: filePath, content, create_dirs = true }) => {
     try {
       const resolved = filePath.startsWith("~")
-        ? filePath.replace("~", process.env.HOME || "/root")
+        ? filePath.replace("~", process.cwd())
         : filePath;
 
       if (!isPathAllowed(filePath)) {
@@ -606,7 +606,7 @@ server.registerTool(
   async ({ path: filePath, content }) => {
     try {
       const resolved = filePath.startsWith("~")
-        ? filePath.replace("~", process.env.HOME || "/root")
+        ? filePath.replace("~", process.cwd())
         : filePath;
 
       if (!isPathAllowed(filePath)) {
