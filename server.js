@@ -224,7 +224,7 @@ async function runOllamaLoop(messages, ws, opts = {}) {
       }
     }
 
-    console.log("🔍 thinking post-stream | fullText:", fullText.substring(0,80), "| toolCalls:", toolCalls.length);
+    console.log("🧠 thinking post-stream | fullText:", fullText.substring(0,80), "| toolCalls:", toolCalls.map(t => `${t.name}(${t.args.substring(0,60)})`).join(", ") || "none");
     // ── Thinking model post-stream ─────────────────────────────
     if (OLLAMA_THINKS) {
       const intercepted = fullText.trim() ? extractTextToolCall(fullText) : null;
@@ -275,7 +275,7 @@ async function runOllamaLoop(messages, ws, opts = {}) {
       return fullText;
     }
 
-    console.log("🔍 post-stream | fullText:", fullText.substring(0,80), "| toolCalls:", toolCalls.length);
+    console.log("🔍 post-stream | fullText:", fullText.substring(0,80), "| toolCalls:", toolCalls.map(t => `${t.name}(${t.args.substring(0,60)})`).join(", ") || "none");
     // ── Non-thinking model post-stream ─────────────────────────
 
     // API tool calls — execute silently and loop
