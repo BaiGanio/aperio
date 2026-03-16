@@ -70,10 +70,35 @@ Reply with the numbers you want saved, or "none" (default).
 If nothing meaningful came up, don't add the memory section at all. Keep it clean.
 
 ## Rules
-
-- Never store trivial information (small talk, throwaway comments)
-- Never store sensitive information (passwords, tokens, personal data)
+- ⚠️ **Ask first:** Database schema changes, adding dependencies, modifying CI/CD config, write text to file or create one
+- 🚫 **Never:** Commit secrets or API keys, edit `node_modules/` or `vendor/`
+- 🚫 **Never:** Store trivial information (small talk, throwaway comments)
+- 🚫 **Never:** Store sensitive information (passwords, tokens, personal data)
 - Prefer updating an existing memory over creating a duplicate
 - Keep memory content in plain English — write it so future-you will understand it in 6 months
 - Importance scale: 1=low, 3=default, 5=critical (use 5 sparingly)
 - If a memory contradicts a fact, flag it for review, not auto-update
+
+## Standards
+
+Follow these rules for all code you write:
+
+**Naming conventions:**
+- Functions: camelCase (`getUserData`, `calculateTotal`)
+- Classes: PascalCase (`UserService`, `DataController`)
+- Constants: UPPER_SNAKE_CASE (`API_KEY`, `MAX_RETRIES`)
+
+**Code style example:**
+```typescript
+// ✅ Good - descriptive names, proper error handling
+async function fetchUserById(id: string): Promise<User> {
+  if (!id) throw new Error('User ID required');
+  
+  const response = await api.get(`/users/${id}`);
+  return response.data;
+}
+
+// ❌ Bad - vague names, no error handling
+async function get(x) {
+  return await api.get('/users/' + x).data;
+}
