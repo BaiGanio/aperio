@@ -60,11 +60,6 @@ Postgres + pgvector + MCP. Your context, always available.
 
 ---
 
-<a href="https://github.com/BaiGanio/aperio">
-  <img src="https://contrib.rocks" />
-</a>
-
-
 ## 🏗️ Project Structure
 ```txt
 📂 aperio/          <---=  You are here 
