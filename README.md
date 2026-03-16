@@ -43,12 +43,14 @@
 
 **One brain. Every agent. Nothing forgotten.**
 
+![Node](https://img.shields.io/badge/NodeJS-brightgreen?style=flat-square&logo=node.js)
+![Docker](https://img.shields.io/badge/Docker-blue?style=flat-square&logo=docker)
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?style=flat-square&logo=postgresql&logoColor=white)
 ![pgvector](https://img.shields.io/badge/pgvector-semantic_search-green?style=flat-square)
-![Claude](https://img.shields.io/badge/Claude-Haiku-orange?style=flat-square)
 ![Ollama](https://img.shields.io/badge/Ollama-local_AI-black?style=flat-square)
 ![MCP](https://img.shields.io/badge/MCP-v1-blue?style=flat-square)
-![Node](https://img.shields.io/badge/NodeJS-brightgreen?style=flat-square&logo=node.js)
+![Claude](https://img.shields.io/badge/Claude-Haiku-orange?style=flat-square)
+![GitHub contributors](https://img.shields.io/github/contributors/baiganio/aperio)
 
 A self-hosted personal memory layer for AI agents.  
 Postgres + pgvector + MCP. Your context, always available.
@@ -57,6 +59,11 @@ Postgres + pgvector + MCP. Your context, always available.
 </div>
 
 ---
+
+<a href="https://github.com/BaiGanio/aperio">
+  <img src="https://contrib.rocks" />
+</a>
+
 
 ## 🏗️ Project Structure
 ```txt
