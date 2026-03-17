@@ -265,6 +265,8 @@ VOYAGE_API_KEY=pa-...
 Aperio exposes 11 tools for memory management, file operations, and web fetching.
 Just type naturally in the chat — no commands, no syntax to remember.
 
+💡 Check out our wiki page [MPC Tools](https://github.com/BaiGanio/aperio/wiki/MPC-Tools) for more details.
+
 #### `remember` — Save a memory
 
 Saves structured context about you — facts, decisions, preferences, projects, people, solutions, sources.
