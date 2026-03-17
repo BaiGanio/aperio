@@ -1,41 +1,4 @@
 <a id="top"></a>
-<!-- HEADER --> 
-<p align="center">
-  • 
-  [ <a href="#philosophy">Philosophy</a> ] 
-  • 
-  [ <a href="#architecture">Architecture</a> ] 
-  • 
-  [ <a href="#getting-started">Getting Started</a> ]  
-  • 
-  [ <a href="#features">Features</a> ]  
-  • 
-  [ <a href="#ai-providers">AI Providers</a> ]
-  • 
-  [ <a href="#commands">Commands</a> ]
-  • 
-  <br>
-  <br>
-  •   
-  [ <a href="#mcp-tools-11">MCP Tools</a> ]  
-  • 
-  [ <a href="#how-to-use">How to Use?</a> ]
-  •   
-  [ <a href="#privacy">Privacy</a> ]  
-  • 
-  [ <a href="#security-notes">Security Notes</a> ]  
-  • 
-  [ <a href="#build-on-top">Build On Top</a> ] 
-  • 
-  [ <a href="#troubleshooting">Troubleshooting</a> ]
-  • 
-</p>
-<p align="center">
-  <sub>Special Note: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a></sub>
-</p>
-
----
-
 <div align="center">
 <h1>✨ Aperio</h1>
 
@@ -57,8 +20,45 @@ Postgres + pgvector + MCP. Your context, always available.
 🌐 **[aperio.dev](https://baiganio.github.io/aperio)** 
 </div>
 
----
+<!-- HEADER --> 
+<p align="center">
+  • 
+  [ <a href="#philosophy">Philosophy</a> ] 
+  • 
+  [ <a href="#architecture">Architecture</a> ] 
+  • 
+  [ <a href="#getting-started">Getting Started</a> ]  
+  • 
+  [ <a href="#features">Features</a> ]  
+  • 
+  [ <a href="#ai-providers">AI Providers</a> ]
+  • 
+  <br>
+  <br>
+  •   
+  [ <a href="#commands">Commands</a> ]
+  • 
+  [ <a href="#mcp-tools-11">MCP Tools</a> ]  
+  • 
+  [ <a href="#how-to-use">How to Use?</a> ]
+  •  
+  <br>
+  <br>
+  •    
+  [ <a href="#privacy">Privacy</a> ]  
+  • 
+  [ <a href="#security-notes">Security Notes</a> ]  
+  • 
+  [ <a href="#build-on-top">Build On Top</a> ] 
+  • 
+  [ <a href="#troubleshooting">Troubleshooting</a> ]
+  • 
+</p>
+<p align="center">
+  <sub>Special Note: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a></sub>
+</p>
 
+---
 ## 🏗️ Project Structure
 ```txt
 📂 aperio/          <---=  You are here 
