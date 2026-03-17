@@ -31,7 +31,7 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#features">Features</a> 
   • 
-  <a href="#ai-providers">AI Providers</a>
+  <a href="#ai-providers--embeddings">AI Providers & Embeddings</a>
   • 
   <a href="#mcp-tools-11">MCP Tools</a> 
   • 
@@ -217,7 +217,6 @@ Remember I'm building a SaaS with Next.js and Supabase
 Scan my project at ~/projects/myapp
 ```
 
-
 That's it. No API keys. No cloud. Full semantic memory on your machine.
 
 #### Commands
@@ -268,8 +267,7 @@ Hover any memory card to reveal a trash icon. No page reload needed.
 
 ---
 
-## AI Providers
-
+## AI Providers & Embeddings
 Switch with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
 
 ### ⬡ Ollama (Default — Local, Free, Private)
@@ -278,7 +276,7 @@ AI_PROVIDER=ollama
 OLLAMA_MODEL=llama3.1
 ```
 
-> **💡 Tip:** Start with `llama3.1`. Upgrade to `qwen3` or `deepseek-r1` when you want reasoning transparency.
+> **💡 Tip:** Use `qwen3` as your daily driver. Switch to `deepseek-r1:14b` for deep reasoning. `llama3.1` for fast responses when reasoning isn't needed.
 
 ### ✦ Anthropic Claude (Optional — Cloud Upgrade)
 
@@ -287,15 +285,6 @@ For heavy research, complex multi-step reasoning, or the strongest tool-calling 
 AI_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-haiku-4-5-20251001
-```
-
-### Embeddings
-```env
-# Local (default) - comment both lines if choose of Voyage AI
-EMBEDDING_PROVIDER=ollama
-OLLAMA_EMBED_MODEL=mxbai-embed-large
-
-# Cloud upgrade
 VOYAGE_API_KEY=pa-...
 ```
 
@@ -304,26 +293,7 @@ VOYAGE_API_KEY=pa-...
 | **Ollama** *(default)* | `mxbai-embed-large` — zero external calls, 1024 dims |
 | **Voyage AI** *(optional)* | `voyage-3` — 1024 dims, highest quality, 50M free tokens/month |
 
-### Model selection guide
-
-| Model | Best for | Avoid |
-|---|---|---|
-| `llama3.1` | Quick questions, tool calling, short answers | Long documents, reasoning, code generation |
-| `qwen2.5` | Code generation, structured output, markdown | Deep reasoning, complex multi-step tasks |
-| `qwen3` | Everything — reasoning + tools + code + docs | Nothing major, just slower than llama3.1 |
-| `deepseek-r1:7b` | Reasoning, analysis, debugging, decisions | Document generation, long code blocks |
-| `deepseek-r1:14b` | Complex reasoning, architecture decisions | Same limitations, needs 16GB RAM |
-
-#### Examples
-
-- **"Remember that I prefer tabs"** → `llama3.1` or `qwen3`
-- **"Give me a C# hello world"** → `qwen2.5` or `qwen3`
-- **"What are the tradeoffs between Postgres and MongoDB?"** → `deepseek-r1` or `qwen3`
-- **"Output this file as copy-paste markdown"** → `qwen3` only
-- **"Scan my project and summarize it"** → `qwen3` or `llama3.1`
-- **"Why is my pgvector query slow?"** → `deepseek-r1:14b` or `qwen3`
-
-> **TL;DR:** Use `qwen3` as your daily driver. Switch to `deepseek-r1:14b` for deep reasoning. `llama3.1` for fast responses when reasoning isn't needed.
+<sub>💡 Check out our wiki page [AI Providers](https://github.com/BaiGanio/aperio/wiki/AI-Providers) for more details.</sub>
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
