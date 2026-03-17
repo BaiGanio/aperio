@@ -271,7 +271,9 @@ Aperio exposes 11 tools for memory management, file operations, and web fetching
 
 Just type naturally in the chat — no commands, no syntax to remember.
 
-### 🧠 Memory Management
+<sub>NOTE: Chevrons are expandable. Click each for quick examples.</sub>
+
+### 🧠 Memory Management Tools
 
 <details>
   <summary><strong>remember</strong> — Save a memory</summary>
