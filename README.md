@@ -43,7 +43,7 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#security">Security</a>
   • 
-  <a href="#troubleshooting">Troubleshooting</a>
+  <a href="https://github.com/BaiGanio/aperio/wiki/Troubleshooting">Troubleshooting</a>
   • 
 </p>
 <p align="center">
