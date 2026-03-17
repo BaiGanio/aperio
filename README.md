@@ -33,11 +33,6 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#ai-providers">AI Providers</a>
   • 
-  <br>
-  <br>
-  •   
-  <a href="#commands">Commands</a> 
-  • 
   <a href="#mcp-tools-11">MCP Tools</a> 
   • 
   <a href="#how-to-use">How to Use?</a> 
@@ -225,6 +220,18 @@ Scan my project at ~/projects/myapp
 
 That's it. No API keys. No cloud. Full semantic memory on your machine.
 
+#### Commands
+
+| Command | Provider | Port |
+|---|---|---|
+| `npm start` | whatever `.env` says | 3000 |
+| `npm run start:cloud` | Anthropic (Claude) | 3000 |
+| `npm run start:local` | Ollama | 3001 |
+| `npm run chat:cloud` | Anthropic — terminal only | — |
+| `npm run chat:local` | Ollama — terminal only | — |
+
+> **💡 Tip:** Both instances can run simultaneously and share the same memory database.
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
@@ -345,24 +352,6 @@ VOYAGE_API_KEY=pa-...
 - **"Why is my pgvector query slow?"** → `deepseek-r1:14b` or `qwen3`
 
 > **TL;DR:** Use `qwen3` as your daily driver. Switch to `deepseek-r1:14b` for deep reasoning. `llama3.1` for fast responses when reasoning isn't needed.
-
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
-
----
-
-## Commands
-
-| Command | Provider | Port |
-|---|---|---|
-| `npm start` | whatever `.env` says | 3000 |
-| `npm run start:cloud` | Anthropic (Claude) | 3000 |
-| `npm run start:local` | Ollama | 3001 |
-| `npm run chat:cloud` | Anthropic — terminal only | — |
-| `npm run chat:local` | Ollama — terminal only | — |
-
-> **💡 Tip:** Both instances can run simultaneously and share the same memory database.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
