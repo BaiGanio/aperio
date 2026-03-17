@@ -50,7 +50,7 @@ Postgres + pgvector + MCP. Your context, always available.
   💡 <b>Pro Tip:</b> Visit the <a href="https://github.com/BaiGanio/aperio/wiki">Aperio Wiki</a> for extensive documentation on advanced topics.
 </p>
 <p align="center">
-  Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="[wiki/Topics](https://github.com/BaiGanio/aperio/discussions)">Discussions</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a></sub>
+  <sub>Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="[wiki/Topics](https://github.com/BaiGanio/aperio/discussions)">Discussions</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a></sub>
 </p>
 
 ---
