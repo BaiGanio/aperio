@@ -243,7 +243,7 @@ server.registerTool(
     return {
       content: [{
         type: "text",
-        text: `Found ${rows.length} memories (${searchMode} search):\n\n${formatted}`
+        text: `${formatted}`
       }]
     };
   }
