@@ -43,8 +43,9 @@
 
 **One brain. Every agent. Nothing forgotten.**
 
-![Node](https://img.shields.io/badge/NodeJS-brightgreen?style=flat-square&logo=node.js)
-![Docker](https://img.shields.io/badge/Docker-blue?style=flat-square&logo=docker)
+![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=node.js&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
+![Kubernetes](https://img.shields.io/badge/Kubernetes-326CE5?style=flat-square&logo=kubernetes&logoColor=white)
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?style=flat-square&logo=postgresql&logoColor=white)
 ![pgvector](https://img.shields.io/badge/pgvector-semantic_search-green?style=flat-square)
 ![Ollama](https://img.shields.io/badge/Ollama-local_AI-black?style=flat-square)
