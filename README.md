@@ -31,7 +31,7 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#features">Features</a> 
   • 
-  <a href="#ai-providers--embeddings">AI Providers & Embeddings</a>
+  <a href="#ai-providers">AI Providers</a>
   • 
   <a href="https://github.com/BaiGanio/aperio/wiki/MPC-Tools">MCP Tools</a> 
   • 
@@ -47,10 +47,8 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
 </p>
 <p align="center">
-  💡 <b>Pro Tip:</b> Visit the <a href="https://github.com/BaiGanio/aperio/wiki">Aperio Wiki</a> for extensive documentation on advanced topics.
-</p>
-<p align="center">
-  <sub>Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="[wiki/Topics](https://github.com/BaiGanio/aperio/discussions)">Discussions</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a></sub>
+  💡 <b>Pro Tip:</b> Visit the <a href="https://github.com/BaiGanio/aperio/wiki">Aperio Wiki</a> for extensive documentation on advanced topics.<br>
+   <sub>Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a></sub>
 </p>
 
 ---
@@ -267,7 +265,7 @@ Hover any memory card to reveal a trash icon. No page reload needed.
 
 ---
 
-## AI Providers & Embeddings
+## AI Providers
 Switch with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
 
 ### ⬡ Ollama (Default — Local, Free, Private)
