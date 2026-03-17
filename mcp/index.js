@@ -352,6 +352,8 @@ const ALLOWED_EXTENSIONS = new Set([
   ".json", ".yaml", ".yml", ".toml", ".md", ".txt", ".html",
   ".css", ".sql", ".sh", ".env.example"
 ]);
+export const READ_FILE_CHUNK_SIZE = 500;   // max lines per read_file call
+export const READ_FILE_MAX_OFFSET = 10_000; // safety ceiling for chunked reads
 
 server.registerTool(
   "read_file",
@@ -359,10 +361,13 @@ server.registerTool(
     description: "Read a file from disk. Max 500 lines. Only reads code and text files.",
     inputSchema: z.object({
       path: z.string().describe("Absolute path to the file"),
-      max_lines: z.number().min(1).max(500).optional().describe("Max lines to read, default 500"),
+       max_lines: z.number().min(1).max(READ_FILE_CHUNK_SIZE).optional()
+        .describe(`Max lines to read, default ${READ_FILE_CHUNK_SIZE}`),
+      offset: z.number().min(0).max(READ_FILE_MAX_OFFSET).optional()
+        .describe("Line number to start reading from, default 0"),
     }),
   },
-  async ({ path: filePath, max_lines }) => {
+  async ({ path: filePath, max_lines, offset = 0 }) => {
     const ext = extname(filePath).toLowerCase();
     if (!ALLOWED_EXTENSIONS.has(ext))
       return { content: [{ type: "text", text: `❌ File type not allowed: ${ext}` }] };
@@ -370,14 +375,21 @@ server.registerTool(
       return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
     const stat = statSync(filePath);
     if (stat.size > 500_000)
-      return { content: [{ type: "text", text: `❌ File too large (${Math.round(stat.size/1024)}KB). Max 500KB.` }] };
+      return { content: [{ type: "text", text: `❌ File too large (${Math.round(stat.size / 1024)}KB). Max 500KB.` }] };
+
     const lines = readFileSync(filePath, "utf-8").split("\n");
-    const limit = Math.min(max_lines ?? 500, 500);
-    const truncated = lines.length > limit;
+    const limit = Math.min(max_lines ?? READ_FILE_CHUNK_SIZE, READ_FILE_CHUNK_SIZE);
+
+    // WHY: clamp offset so we never read past the safety ceiling or end of file
+    const start = Math.min(offset, lines.length, READ_FILE_MAX_OFFSET);
+    const end = start + limit;
+    const chunk = lines.slice(start, end);
+    const truncated = end < lines.length;
+
     return {
       content: [{
         type: "text",
-        text: `📄 ${filePath} (${lines.length} lines):\n\n${lines.slice(0, limit).join("\n")}${truncated ? `\n\n⚠️ Truncated at ${limit} lines.` : ""}`
+        text: `📄 ${filePath} (${lines.length} lines):\n\n${chunk.join("\n")}${truncated ? `\n\n⚠️ Truncated at line ${end}. Use offset: ${end} to continue.` : ""}`
       }]
     };
   }
