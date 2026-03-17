@@ -10,23 +10,20 @@
   • 
   [ <a href="#features">Features</a> ]  
   • 
-  <br>
-  <br>
-  • 
   [ <a href="#ai-providers">AI Providers</a> ]
   • 
   [ <a href="#commands">Commands</a> ]
   • 
+  <br>
+  <br>
+  •   
   [ <a href="#mcp-tools-11">MCP Tools</a> ]  
   • 
   [ <a href="#how-to-use">How to Use?</a> ]
-  • 
+  •   
   [ <a href="#privacy">Privacy</a> ]  
   • 
   [ <a href="#security-notes">Security Notes</a> ]  
-  • 
-  <br>
-  <br>
   • 
   [ <a href="#build-on-top">Build On Top</a> ] 
   • 
