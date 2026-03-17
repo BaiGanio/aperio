@@ -29,8 +29,6 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#getting-started">Getting Started</a>
   • 
-  <a href="#features">Features</a> 
-  • 
   <a href="#ai-providers">AI Providers</a>
   • 
   <a href="https://github.com/BaiGanio/aperio/wiki/MPC-Tools">MCP Tools</a> 
@@ -228,36 +226,6 @@ That's it. No API keys. No cloud. Full semantic memory on your machine.
 | `npm run chat:local` | Ollama — terminal only | — |
 
 > **💡 Tip:** Both instances can run simultaneously and share the same memory database.
-
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
-
----
-
-## Features
-
-### 🧠 Persistent Memory
-7 structured types survive every conversation, every tool, every session:
-`fact` `preference` `project` `decision` `solution` `source` `person`
-
-### 🔍 Semantic Search
-Powered by pgvector + embeddings. Ask for *"my TypeScript projects"* and get results by meaning, not keywords. Full-text search as fallback when no embeddings exist.
-
-### ⚡ Real-time Streaming
-Responses stream live. Reasoning models (`qwen3`, `deepseek-r1`) show a collapsible thinking bubble — toggle it on/off in the header.
-
-### 🎨 4 Themes
-Light · Dark · Aurora (indigo-pink) · System. Persisted in localStorage.
-
-### 🧹 Auto-Deduplication
-Background job every 10 minutes finds near-duplicate memories via cosine similarity (97% threshold). Dry-run by default.
-
-### 📤 Brain Export
-One-click JSON export of all your memories. Confirmation before download.
-
-### 🗑️ Delete Memories
-Hover any memory card to reveal a trash icon. No page reload needed.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
