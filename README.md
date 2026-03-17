@@ -288,12 +288,7 @@ ANTHROPIC_MODEL=claude-haiku-4-5-20251001
 VOYAGE_API_KEY=pa-...
 ```
 
-| Provider | Details |
-|---|---|
-| **Ollama** *(default)* | `mxbai-embed-large` — zero external calls, 1024 dims |
-| **Voyage AI** *(optional)* | `voyage-3` — 1024 dims, highest quality, 50M free tokens/month |
-
-<sub>💡 Check out our wiki page [AI Providers](https://github.com/BaiGanio/aperio/wiki/AI-Providers) for more details.</sub>
+💡 Check out our wiki page [AI Providers](https://github.com/BaiGanio/aperio/wiki/AI-Providers) or [Embeddings](https://github.com/BaiGanio/aperio/wiki/Embeddings) for more details.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
@@ -520,43 +515,6 @@ Change it to whatever your use case needs.
 - *"Scan my project and give me an overview of the structure"*
 - *"Read my .env.example and tell me which variables I still need to fill in"*
 - *"Append a TODO comment to the bottom of mcp/index.js"*
-
-### Embeddings
-
-#### What an embedding actually is
-
-An embedding converts your text into a list of numbers that represent its meaning:
-
-```text
-"I chose Postgres because of pgvector" → [0.023, -0.847, 0.331, ... ×768]
-```
-
-Two semantically similar sentences produce vectors that are mathematically close — that's how `recall` finds the right memory even when you phrase the question differently.
-
-#### Aperio is fully air-gapped — zero data leaves your machine
-
-Complete privacy with no external API calls at all - thanks to the local embedding model:
-
-`mxbai-embed-large` runs fully locally, produces 1024-dimensional vectors, works natively with pgvector, and generates embeddings in ~15–50ms. No API key. No data leaving your machine. Ever.
-
-#### What leaves your machine if choose Voyage AI
-
-If Aperio uses **Voyage AI** to generate embeddings, here's exactly what happens:
-
-```
-You save a memory 
-  → text is sent to Voyage AI API
-  → Voyage returns a vector (1024 numbers)
-  → vector + original text stored in YOUR Postgres
-  → nothing else ever leaves your machine
-```
-
-**What Voyage AI receives:** only the raw text of the memory being saved.
-
-**What Voyage AI never receives:**
-- Your conversations with the AI
-- Your other memories
-- Any personal files or system information
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
