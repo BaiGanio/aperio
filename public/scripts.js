@@ -951,7 +951,6 @@ applySidebar();
 function showPreview(memory) {
     try {
         const mem = JSON.parse(memory);
-        console.log(mem);
         // Fill Title & Content
         document.querySelector('.mtitle').textContent = mem.title;
         document.querySelector('.mcontent').textContent = mem.content;
@@ -968,8 +967,6 @@ function showPreview(memory) {
                 starHTML += '<i class="bi bi-star"></i>';
             }
         }
-
-        console.log(mem.tags);
         document.querySelector('.importance-rating').innerHTML = `Importance: <span class="stars">${starHTML}</span>`;
 
         // Tags (Chips)
