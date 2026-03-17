@@ -38,7 +38,6 @@ Postgres + pgvector + MCP. Your context, always available.
   <a href="#how-to-use">How to Use?</a> 
   •  
   <br>
-  <br>
   •    
   <a href="#privacy">Privacy</a> 
   • 
