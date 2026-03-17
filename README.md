@@ -500,26 +500,29 @@ Aperio reads the file and injects the content into the conversation.
 ---
 
 ## Security
-Aperio runs on your machine and has access to your file system through the `write_file`, `append_file`, and `read_file` tools. By default, file operations are restricted to the directory where the process was started from — which will be the Aperio project root when you run `npm run start:local`.
+Aperio runs on your machine and has access to your file system through the `scan_project`, `write_file`, `append_file`, and `read_file` tools. By default, file operations are restricted to the directory where the process was started from — which will be the Aperio project root when you run `npm run start:local`.
 
 **File system access**
-The `write_file`, `append_file`, and `read_file` tools can access any absolute path on your machine that the Node.js process has permission to read or write. This is intentional for power users but means:
 
+The `scan_project`, `write_file`, `append_file`, and `read_file` tools can access any absolute path on your machine that the Node.js process has permission to read or write. 
+
+📄 Take a notes:
 - Only run Aperio on a machine you trust
 - Do not expose the MCP server or web UI to the public internet without authentication
 - Review any file write operations before confirming them — `write_file` overwrites completely with no undo
 - The AI model can be prompted (or hallucinate) to write to sensitive paths — always review before confirming
 - Never commit your `.env` file — it contains your database URL and API keys
 
-If you know what you are doing - search with `Warning: Path safety` in `mpc/index.js` and swap the lines.
+**Customize file access further** by setting `APERIO_ALLOWED_PATHS` in your `.env`:
 
-**Restrict file access further** by setting `APERIO_ALLOWED_PATHS` in your `.env`:
 ```env
 # Allow only specific directories (comma-separated)
 APERIO_ALLOWED_PATHS=/Users/yourname/projects,/Users/yourname/documents
 ```
 
 If a model attempts to write outside the allowed paths, the operation is blocked and an error is returned.
+
+💡 Check out our wiki page [Path safety](https://github.com/BaiGanio/aperio/wiki/Path-Safety) for more details.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
