@@ -278,15 +278,6 @@ AI_PROVIDER=ollama
 OLLAMA_MODEL=llama3.1
 ```
 
-| Model | RAM | Notes |
-|---|---|---|
-| `llama3.1` (8B) | 8 GB | Best tool-calling — recommended default |
-| `llama3.1` (70B) | 48 GB | Excellent — for high-end machines |
-| `qwen3` | 8 GB | Strong reasoning, thinking mode support |
-| `deepseek-r1:14b` | 16 GB | Deep reasoning with visible thought process |
-| `mistral` (7B) | 8 GB | Lightweight alternative |
-| `phi3` (3.8B) | 6 GB | Ultra-fast, minimal hardware |
-
 > **💡 Tip:** Start with `llama3.1`. Upgrade to `qwen3` or `deepseek-r1` when you want reasoning transparency.
 
 ### ✦ Anthropic Claude (Optional — Cloud Upgrade)
@@ -297,12 +288,6 @@ AI_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 ANTHROPIC_MODEL=claude-haiku-4-5-20251001
 ```
-
-| Model | Cost | Best for |
-|---|---|---|
-| `claude-haiku-4-5-20251001` | ~$0.01/session | Fast, cheap, daily use |
-| `claude-sonnet-4-6` | ~$0.05/session | Complex coding & research |
-| `claude-opus-4-6` | ~$0.20/session | Maximum capability, deep work |
 
 ### Embeddings
 ```env
@@ -318,19 +303,6 @@ VOYAGE_API_KEY=pa-...
 |---|---|
 | **Ollama** *(default)* | `mxbai-embed-large` — zero external calls, 1024 dims |
 | **Voyage AI** *(optional)* | `voyage-3` — 1024 dims, highest quality, 50M free tokens/month |
-
-### Local vs Cloud
-
-| | ⬡ Ollama (Local) | ✦ Claude (Cloud) |
-|---|---|---|
-| **Cost** | Free | ~$0.01–0.20/session |
-| **Privacy** | 100% local | Data sent to Anthropic |
-| **Tool calling** | Good (model dependent) | Excellent |
-| **Reasoning** | qwen3 / deepseek thinking mode | Claude Sonnet / Opus |
-| **Speed** | Depends on hardware | Fast |
-| **Offline** | ✅ Yes | ❌ No |
-| **Best for** | Daily use, privacy, experiments | Heavy research, complex agents |
-
 
 ### Model selection guide
 
