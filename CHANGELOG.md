@@ -24,6 +24,7 @@ All notable changes to Aperio are documented here.
 - Model selection guide in Troubleshooting
 
 ### Fixed
+- fix: #6 The first memory in the sidebar is always "Untitled" (cebae7c)
 - Double memory suggestion block on reasoning models
 - Duplicate stream_end causing double output
 - Embeddings not saving — wrong API endpoint and response field for Ollama
