@@ -352,8 +352,8 @@ const ALLOWED_EXTENSIONS = new Set([
   ".json", ".yaml", ".yml", ".toml", ".md", ".txt", ".html",
   ".css", ".sql", ".sh", ".env.example"
 ]);
-export const READ_FILE_CHUNK_SIZE = 500;   // max lines per read_file call
-export const READ_FILE_MAX_OFFSET = 10_000; // safety ceiling for chunked reads
+const READ_FILE_CHUNK_SIZE = 500;   // max lines per read_file call
+const READ_FILE_MAX_OFFSET = 10_000; // safety ceiling for chunked reads
 
 server.registerTool(
   "read_file",
