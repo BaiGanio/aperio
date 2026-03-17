@@ -31,8 +31,6 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#ai-providers">AI Providers</a>
   • 
-  <a href="https://github.com/BaiGanio/aperio/wiki/MPC-Tools">MCP Tools</a> 
-  • 
   <a href="#how-to-use">How to Use?</a> 
   •  
   <br>
@@ -41,12 +39,10 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#security">Security</a>
   • 
-  <a href="https://github.com/BaiGanio/aperio/wiki/Troubleshooting">Troubleshooting</a>
-  • 
 </p>
 <p align="center">
   💡 <b>Pro Tip:</b> Visit the <a href="https://github.com/BaiGanio/aperio/wiki">Aperio Wiki</a> for extensive documentation on advanced topics.<br>
-   <sub>Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a></sub>
+   <sub>Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a> • <a href="https://github.com/BaiGanio/aperio/wiki/Troubleshooting">Troubleshooting</a></sub>
 </p>
 
 ---
