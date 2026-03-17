@@ -30,8 +30,6 @@
   • 
   [ <a href="#build-on-top">Build On Top</a> ] 
   • 
-  [ <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors Note</a> ]
-  • 
   [ <a href="#troubleshooting">Troubleshooting</a> ]
   • 
 </p>
