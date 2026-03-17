@@ -23,35 +23,35 @@ Postgres + pgvector + MCP. Your context, always available.
 <!-- HEADER --> 
 <p align="center">
   • 
-  [ <a href="#philosophy">Philosophy</a> ] 
+  <a href="#philosophy">Philosophy</a>
   • 
-  [ <a href="#architecture">Architecture</a> ] 
+  <a href="#architecture">Architecture</a>
   • 
-  [ <a href="#getting-started">Getting Started</a> ]  
+  <a href="#getting-started">Getting Started</a>
   • 
-  [ <a href="#features">Features</a> ]  
+  <a href="#features">Features</a> 
   • 
-  [ <a href="#ai-providers">AI Providers</a> ]
+  <a href="#ai-providers">AI Providers</a>
   • 
   <br>
   <br>
   •   
-  [ <a href="#commands">Commands</a> ]
+  <a href="#commands">Commands</a> 
   • 
-  [ <a href="#mcp-tools-11">MCP Tools</a> ]  
+  <a href="#mcp-tools-11">MCP Tools</a> 
   • 
-  [ <a href="#how-to-use">How to Use?</a> ]
+  <a href="#how-to-use">How to Use?</a> 
   •  
   <br>
   <br>
   •    
-  [ <a href="#privacy">Privacy</a> ]  
+  <a href="#privacy">Privacy</a> 
   • 
-  [ <a href="#security-notes">Security Notes</a> ]  
+  <a href="#security-notes">Security Notes</a>
   • 
-  [ <a href="#build-on-top">Build On Top</a> ] 
+  <a href="#build-on-top">Build On Top</a> 
   • 
-  [ <a href="#troubleshooting">Troubleshooting</a> ]
+  <a href="#troubleshooting">Troubleshooting</a>
   • 
 </p>
 <p align="center">
