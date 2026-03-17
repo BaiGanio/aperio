@@ -42,7 +42,7 @@ Postgres + pgvector + MCP. Your context, always available.
   •    
   <a href="#privacy">Privacy</a> 
   • 
-  <a href="#security-notes">Security Notes</a>
+  <a href="#security">Security</a>
   • 
   <a href="#build-on-top">Build On Top</a> 
   • 
@@ -621,7 +621,7 @@ You save a memory
 
 ---
 
-## Security Notes
+## Security
 Aperio runs on your machine and has access to your file system through the `write_file`, `append_file`, and `read_file` tools. By default, file operations are restricted to the directory where the process was started from — which will be the Aperio project root when you run `npm run start:local`.
 
 **File system access**
