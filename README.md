@@ -274,6 +274,8 @@ Switch with a single line in `.env`. Everything else — memories, tools, UI —
 ```env
 AI_PROVIDER=ollama
 OLLAMA_MODEL=llama3.1
+EMBEDDING_PROVIDER=ollama
+OLLAMA_EMBEDDING_MODEL=mxbai-embed-large
 ```
 
 > **💡 Tip:** Use `qwen3` as your daily driver. Switch to `deepseek-r1:14b` for deep reasoning. `llama3.1` for fast responses when reasoning isn't needed.
