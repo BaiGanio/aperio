@@ -7,6 +7,7 @@ All notable changes to Aperio are documented here.
 ## [Unreleased]
 
 ### Added
+- feat: included READ_FILE_CHUNK_SIZE and READ_FILE_MAX_OFFSET (e7a2a1d)
 - feat: #8 (2e3c3d2)
 - feat: reverted back absolute path access by choice for power users (4d0f130)
 - feat: Restrict file operations to specific directories (comma-separated) (deb1490)
