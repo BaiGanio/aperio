@@ -43,8 +43,6 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#security">Security</a>
   • 
-  <a href="#build-on-top">Build On Top</a> 
-  • 
   <a href="#troubleshooting">Troubleshooting</a>
   • 
 </p>
