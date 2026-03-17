@@ -33,7 +33,7 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#ai-providers--embeddings">AI Providers & Embeddings</a>
   • 
-  <a href="#mcp-tools-11">MCP Tools</a> 
+  <a href="https://github.com/BaiGanio/aperio/wiki/MPC-Tools">MCP Tools</a> 
   • 
   <a href="#how-to-use">How to Use?</a> 
   •  
@@ -298,30 +298,6 @@ VOYAGE_API_KEY=pa-...
 
 ---
 
-## MCP Tools (11)
-
-The same tools are available to the chat UI, Cursor, Windsurf, or any MCP-compatible agent.
-
-| Tool | Description |
-|---|---|
-| `remember` | Save a memory + auto-generate embedding |
-| `recall` | Semantic search with similarity scores, full-text fallback |
-| `update_memory` | Edit by UUID — regenerates embedding if content changes |
-| `forget` | Delete by UUID |
-| `backfill_embeddings` | Generate embeddings for memories that don't have one |
-| `dedup_memories` | Find near-duplicates via cosine similarity — merge or report |
-| `read_file` | Read any file from disk (max 500 lines, safe extensions only) |
-| `scan_project` | Scan a folder tree, read key files, infer project context |
-| `fetch_url` | Fetch a URL, strip HTML, truncate at 15k chars |
-| `get_stats` | Memory count, type distribution, embedding coverage |
-| `search_by_tag` | Filter memories by one or more tags |
-
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
-
----
-
 ## How to Use?
 ### 🛠️ Aperio MCP Tools Guide
 Aperio exposes 11 tools for memory management, file operations, and web fetching.
@@ -490,33 +466,7 @@ You       ←  answer based on your actual code
 The model never touches your file system directly.
 Aperio reads the file and injects the content into the conversation.
 
-#### Available file tools
-
-| Tool | What it does |
-|---|---|
-| `read_file` | Read any file from disk (max 500 lines by default) |
-| `write_file` | Overwrite a file completely |
-| `append_file` | Add content to the end of a file |
-| `scan_project` | Scan a folder tree up to 3 levels deep |
-
-#### Raising the line limit
-
-The default cap is 500 lines. To increase it, find this in `mcp/index.js`:
-```js
-const READ_FILE_CHUNK_SIZE = 500;   // max lines per read_file call
-const READ_FILE_MAX_OFFSET = 10_000; // safety ceiling for chunked reads
-```
-
-> **NOTE**: If you ask it to read a large file it'll truncate. For big files you'd either need to raise that limit or use `scan_project` first to find the right file, then `read_file` on the specific section you need.
-
-Change it to whatever your use case needs.
-
-#### Example prompts that just work
-
-- *"Read my server.js and tell me what the WebSocket handler does"*
-- *"Scan my project and give me an overview of the structure"*
-- *"Read my .env.example and tell me which variables I still need to fill in"*
-- *"Append a TODO comment to the bottom of mcp/index.js"*
+💡 Check out our wiki page [MPC Tools](https://github.com/BaiGanio/aperio/wiki/MPC-Tools) for more details.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
