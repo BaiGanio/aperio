@@ -1,3 +1,6 @@
+## [2.0.1] - 2026-03-18
+- chore: release 2.0.1 [skip ci]
+
 # Changelog
 
 All notable changes to Aperio are documented here.
