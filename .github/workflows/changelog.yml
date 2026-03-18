@@ -3,6 +3,8 @@ name: Update Changelog & Versioning
 # Note on Major Versions:
 # This script currently handles feat (minor) and fix (patch). 
 # If you ever want to release a Major version (2.0.0), you would just manually run 'npm version major' on your machine and push.
+# Step 1: `npm version major -m "feat!: breaking change description"`
+# Step 2: `git push origin master --follow-tags`
 
 on:
   push:
