@@ -52,7 +52,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ├── 📂 docker/
 │   └── docker-compose.yml        # pgvector/pgvector:pg16
 ├── 📂 docs/
-│   └── index.html                # Aperio landing page for GitHub Pages
+│   └── index.html                # Landing page for GitHub Pages (delete at will)
 ├── 📂 mcp/
 │   └── index.js                  # MCP server — 11 tools
 ├── 📂 prompts/
