@@ -38,3 +38,10 @@ let current = '';
 sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) current = s.id; });
 navAs.forEach(a => { a.style.color = a.getAttribute('href') === '#' + current ? 'var(--purple)' : ''; });
 }, { passive: true });
+
+/* ── Version ── */
+fetch('/api/version')
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById('version-display').innerText = data.version;
+  });
