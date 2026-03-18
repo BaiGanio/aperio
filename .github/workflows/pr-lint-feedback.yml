@@ -1,0 +1,59 @@
+name: PR Lint Feedback
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  check-format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Check Commit Format
+        id: lint
+        run: |
+          # Get the message of the latest commit in the PR
+          MSG=$(git log -1 --pretty=%s)
+          
+          if [[ "$MSG" =~ ^(feat|fix|chore|refactor|docs): ]]; then
+            echo "valid=true" >> $GITHUB_OUTPUT
+          else
+            echo "valid=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Find and Update Comment
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: 'github-actions[bot]'
+          body-includes: '<!-- commit-lint-checker -->'
+
+      - name: Create or Update Comment
+        if: steps.lint.outputs.valid == 'false'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            <!-- commit-lint-checker -->
+            ⚠️ **Commit Format Notice**
+            Your latest commit message (`${{ github.event.pull_request.head.sha }}`) does not follow the convention:
+            - Use `feat:`, `fix:`, `chore:`, `refactor:`, or `docs:`
+            - Current message: *${{ github.event.pull_request.head.title }}*
+            
+            This commit will be **skipped** from the automated CHANGELOG upon merge.
+          edit-mode: replace
+
+      - name: Delete Comment if Fixed
+        if: steps.lint.outputs.valid == 'true' && steps.fc.outputs.comment-id != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --delete "${{ steps.fc.outputs.comment-id }}"
