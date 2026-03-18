@@ -26,6 +26,7 @@ All notable changes to Aperio are documented here.
 - Model selection guide in Troubleshooting
 
 ### Fixed
+- fix: scripts.js (9ad5565)
 - fix: #6 The first memory in the sidebar is always "Untitled" (cebae7c)
 - Double memory suggestion block on reasoning models
 - Duplicate stream_end causing double output
