@@ -1,5 +1,8 @@
 name: Update Changelog & Versioning
 
+# Note on Major Versions:
+# This script currently handles feat (minor) and fix (patch). 
+# If you ever want to release a Major version (2.0.0), you would just manually run 'npm version major' on your machine and push.
 on:
   push:
     branches: [master]
@@ -121,5 +124,7 @@ jobs:
         run: |
           git add CHANGELOG.md
           git commit --amend --no-edit # Adds changelog to the version commit
+          # Pull the latest changes to avoid the [rejected] error
+          git pull --rebase origin master
           git push origin master --follow-tags
   
