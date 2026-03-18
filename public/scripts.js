@@ -1038,7 +1038,7 @@ applyTheme(currentTheme);
 fetch('/api/version')
   .then(res => res.json())
   .then(data => {
-    document.getElementById('version-display').innerText = data.version;
+    document.getElementById('version-display').innerText = 'v' + data.version;
   });
 
 // ── Boot ─────────────────────────────────────────────────────

@@ -311,6 +311,14 @@
       color: var(--text-muted);
       margin-bottom: 10px;
     }
+    .sidebar-footer {
+      padding: 15px;
+      border-top: 1px solid var(--border);
+      font-size: 0.8rem;
+      letter-spacing: 0.12em;
+      color: var(--text);
+      text-align: center;
+    }
 
     .search-box {
       position: relative;

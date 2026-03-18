@@ -8,6 +8,10 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import dotenv from "dotenv";
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
+const { version } = require('./package.json');
+
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, ".env") });
@@ -38,7 +42,7 @@ if (PROVIDER === "ollama") {
 }
 
 const transport = new StdioClientTransport({ command: "node", args: [resolve(__dirname, "mcp/index.js")], env: { ...process.env } });
-const mcp = new Client({ name: "aperio-server", version: "1.0.0" });
+const mcp = new Client({ name: "aperio-server", version: version });
 await mcp.connect(transport);
 console.log("✅ MCP server connected");
 
@@ -372,7 +376,6 @@ async function runAgentLoop(messages, ws, getAbort, setAbort) {
 
 // ─── Express + WebSocket ──────────────────────────────────────────────────────
 const app = express();
-const { version } = require('./package.json'); // Import version once
 app.use(express.json());
 app.use(express.static(resolve(__dirname, "public")));
 app.get('/api/version', (req, res) => {
