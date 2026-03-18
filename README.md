@@ -47,21 +47,23 @@ Postgres + pgvector + MCP. Your context, always available.
 ## 🏗️ Project Structure
 ```txt
 📂 aperio/          <---=  You are here 
-├── 📂 docker/
-│   └── docker-compose.yml        # pgvector/pgvector:pg16
 ├── 📂 db/
 │   └── 📂 migrations/            # 001_init · 002_pgvector
+├── 📂 docker/
+│   └── docker-compose.yml        # pgvector/pgvector:pg16
+├── 📂 docs/
+│   └── index.html                # Aperio on GitHub pages
 ├── 📂 mcp/
 │   └── index.js                  # MCP server — 11 tools
 ├── 📂 prompts/
-│   └── system_prompt.md          # ← AI agents instructions (edit this!)
-├── 📂 scripts/
-│   └── chat.js                   # Terminal chat client
+│   └── system_prompt.md          # Instructions for AI agents (edit this!)
 ├── 📂 public/
 │   └── index.html                # Web UI — themes, streaming, sidebar
-├── server.js                     # Express + WebSocket + agent loop
+├── 📂 scripts/
+│   └── chat.js                   # Terminal chat client
+├── .env                          # Your keys — never commit this
 ├── package.json
-└── .env                          # Your keys — never commit this
+└── server.js                     # Express + WebSocket + agent loop
 ```
 
 > **💡 Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
