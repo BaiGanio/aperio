@@ -372,8 +372,12 @@ async function runAgentLoop(messages, ws, getAbort, setAbort) {
 
 // ─── Express + WebSocket ──────────────────────────────────────────────────────
 const app = express();
+const { version } = require('./package.json'); // Import version once
 app.use(express.json());
 app.use(express.static(resolve(__dirname, "public")));
+app.get('/api/version', (req, res) => {
+  res.json({ version: require('./package.json').version });
+});
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 

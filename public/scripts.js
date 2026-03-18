@@ -1034,6 +1034,13 @@ document.querySelectorAll(".theme-btn").forEach(btn => {
 
 applyTheme(currentTheme);
 
+// ── Version ─────────────────────────────────────────────────────
+fetch('/api/version')
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById('version-display').innerText = data.version;
+  });
+
 // ── Boot ─────────────────────────────────────────────────────
 connect();
 
