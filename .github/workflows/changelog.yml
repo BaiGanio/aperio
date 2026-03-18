@@ -10,6 +10,10 @@ permissions:
 jobs:
   changelog:
     runs-on: ubuntu-latest
+    # Added a check to skip the job if the commit message contains [skip ci] 
+    # or is the automated changelog update itself
+    if: "!contains(github.event.head_commit.message, 'skip ci')"
+    
     steps:
       - uses: actions/checkout@v4
         with:
