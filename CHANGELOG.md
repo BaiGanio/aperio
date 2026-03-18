@@ -28,6 +28,7 @@ All notable changes to Aperio are documented here.
 - Model selection guide in Troubleshooting
 
 ### Fixed
+- fix: git pull rebase on version (e20d169)
 - fix: scripts.js (9ad5565)
 - fix: #6 The first memory in the sidebar is always "Untitled" (cebae7c)
 - Double memory suggestion block on reasoning models
