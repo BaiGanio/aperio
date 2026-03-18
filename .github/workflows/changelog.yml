@@ -3,6 +3,7 @@ name: Update Changelog & Versioning
 # Note on Major Versions:
 # This script currently handles feat (minor) and fix (patch). 
 # If you ever want to release a Major version (2.0.0), you would just manually run 'npm version major' on your machine and push.
+
 on:
   push:
     branches: [master]
@@ -11,120 +12,82 @@ permissions:
   contents: write
 
 jobs:
-  changelog:
+  release:
     runs-on: ubuntu-latest
-    # Added a check to skip the job if the commit message contains [skip ci] 
-    # or is the automated changelog update itself
+    # Prevent infinite loops from bot commits
     if: "!contains(github.event.head_commit.message, 'skip ci')"
     
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Determine section
-        id: section
+      - name: Analyze Commit & Determine Bump
+        id: info
         run: |
           MSG=$(git log -1 --pretty=%s)
           HASH=$(git log -1 --pretty=%h)
-          if [[ "$MSG" == feat:* ]]; then SECTION="Added"
-          elif [[ "$MSG" == fix:* ]]; then SECTION="Fixed"
-          elif [[ "$MSG" == chore:* || "$MSG" == refactor:* ]]; then SECTION="Changed"
-          elif [[ "$MSG" == docs:* ]]; then SECTION="Docs"
-          else SECTION="skip"
+          
+          # 1. Determine Changelog Section
+          if [[ "$MSG" =~ ^feat: ]]; then SECTION="Added"; BUMP="minor"
+          elif [[ "$MSG" =~ ^fix: ]]; then SECTION="Fixed"; BUMP="patch"
+          elif [[ "$MSG" =~ ^(chore|refactor): ]]; then SECTION="Changed"; BUMP="patch"
+          elif [[ "$MSG" =~ ^docs: ]]; then SECTION="Docs"; BUMP="patch"
+          else SECTION="skip"; BUMP="skip"
           fi
+          
           echo "section=$SECTION" >> $GITHUB_OUTPUT
+          echo "bump=$BUMP" >> $GITHUB_OUTPUT
           echo "msg=$MSG" >> $GITHUB_OUTPUT
           echo "hash=$HASH" >> $GITHUB_OUTPUT
 
-      - name: Update CHANGELOG.md
-        if: steps.section.outputs.section != 'skip'
-        env:
-          SECTION: ${{ steps.section.outputs.section }}
-          MSG: ${{ steps.section.outputs.msg }}
-          HASH: ${{ steps.section.outputs.hash }}
-        run: |
-          if [ ! -f CHANGELOG.md ]; then
-            echo "CHANGELOG.md not found — skipping"
-            exit 0
-          fi
-          node -e "
-          const fs = require('fs');
-          const section = process.env.SECTION;
-          const msg = process.env.MSG;
-          const hash = process.env.HASH;
-          const entry = '- ' + msg + ' (' + hash + ')';
-          const sectionHeader = '### ' + section;
-          const unreleased = '## [Unreleased]';
-          let content = fs.readFileSync('CHANGELOG.md', 'utf8');
-          if (!content.includes(unreleased)) process.exit(0);
-          const unreleasedBlock = content.split(unreleased)[1].split('## [')[0];
-          if (unreleasedBlock.includes(sectionHeader)) {
-            content = content.replace(sectionHeader + '\n', sectionHeader + '\n' + entry + '\n');
-          } else {
-            content = content.replace(unreleased + '\n', unreleased + '\n\n' + sectionHeader + '\n' + entry + '\n');
-          }
-          fs.writeFileSync('CHANGELOG.md', content);
-          console.log('Added to ' + section + ': ' + entry);
-          "
-
-      - name: Commit changelog update
-        if: steps.section.outputs.section != 'skip'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git diff --quiet CHANGELOG.md || (
-            git add CHANGELOG.md &&
-            git commit -m "chore: update changelog [skip ci]" &&
-            git push
-          )
-
-  release:
-    runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'skip ci')"
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Determine bump type
-        id: bump
-        run: |
-          MSG=$(git log -1 --pretty=%s)
-          # Logic: feat = minor, fix = patch, others = skip
-          if [[ "$MSG" =~ ^feat: ]]; then BUMP="minor"
-          elif [[ "$MSG" =~ ^fix: ]]; then BUMP="patch"
-          else BUMP="skip"
-          fi
-          echo "type=$BUMP" >> $GITHUB_OUTPUT
-
       - name: Configure Git
-        if: steps.bump.outputs.type != 'skip'
+        if: steps.info.outputs.bump != 'skip'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Bump Version and Tag
-        if: steps.bump.outputs.type != 'skip'
+      - name: Bump Version
+        id: versioning
+        if: steps.info.outputs.bump != 'skip'
         run: |
-          # This updates package.json and creates a local git tag
-          npm version ${{ steps.bump.outputs.type }} -m "chore: release %s [skip ci]"
+          OLD_V=$(node -p "require('./package.json').version")
+          # Use npm to bump version but don't commit yet so we can bundle the changelog
+          npm version ${{ steps.info.outputs.bump }} --no-git-tag-version
+          NEW_V=$(node -p "require('./package.json').version")
+          
+          echo "old_v=$OLD_V" >> $GITHUB_OUTPUT
+          echo "new_v=$NEW_V" >> $GITHUB_OUTPUT
 
       - name: Update CHANGELOG.md
-        if: steps.bump.outputs.type != 'skip'
+        if: steps.info.outputs.bump != 'skip'
         run: |
-          # Your existing simple node script logic here to append the message
-          # (Keeping your original logic for the file edit)
-          VERSION=$(node -p "require('./package.json').version")
-          echo -e "## [$VERSION] - $(date +'%Y-%m-%d')\n- $(git log -1 --pretty=%s)\n\n$(cat CHANGELOG.md)" > CHANGELOG.md
+          NEW_V="${{ steps.versioning.outputs.new_v }}"
+          OLD_V="${{ steps.versioning.outputs.old_v }}"
+          OLD_MAJOR=$(echo $OLD_V | cut -d. -f1)
+          NEW_MAJOR=$(echo $NEW_V | cut -d. -f1)
+          DATE=$(date +'%Y-%m-%d')
+          ENTRY="- ${{ steps.info.outputs.msg }} (${{ steps.info.outputs.hash }})"
+
+          # Ensure file exists
+          if [ ! -f CHANGELOG.md ]; then echo -e "# Changelog\n\n## [Unreleased]" > CHANGELOG.md; fi
+
+          if [ "$NEW_MAJOR" -gt "$OLD_MAJOR" ]; then
+            # MAJOR BUMP: Archive old content in <details>
+            # Keep header and Unreleased, insert new version, then wrap the rest
+            sed -i "/## \[Unreleased\]/a \\\n## [$NEW_V] - $DATE\n### ${{ steps.info.outputs.section }}\n$ENTRY\n\n<details>\n<summary>Archive v$OLD_MAJOR.x.x</summary>" CHANGELOG.md
+            echo -e "\n</details>" >> CHANGELOG.md
+          else
+            # MINOR/PATCH BUMP: Standard append under Unreleased
+            sed -i "/## \[Unreleased\]/a \\\n## [$NEW_V] - $DATE\n### ${{ steps.info.outputs.section }}\n$ENTRY" CHANGELOG.md
+          fi
 
       - name: Commit and Push
-        if: steps.bump.outputs.type != 'skip'
+        if: steps.info.outputs.bump != 'skip'
         run: |
-          git add CHANGELOG.md
-          git commit --amend --no-edit # Adds changelog to the version commit
-          # Pull the latest changes to avoid the [rejected] error
+          NEW_V="${{ steps.versioning.outputs.new_v }}"
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "chore: release $NEW_V [skip ci]"
+          git tag "v$NEW_V"
           git pull --rebase origin master
           git push origin master --follow-tags
-  
