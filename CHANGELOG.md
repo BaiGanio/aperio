@@ -38,6 +38,7 @@ All notable changes to Aperio are documented here.
 - `llama3.1` JSON tool call interception with trailing response support
 
 ### Changed
+- refactor: removed husky (ba1ea6f)
 - chore: readme update (cb14a71)
 - chore: simplified readme as extracting in repo wiki (93bbfcc)
 - chore: removed console.log() (d047605)
