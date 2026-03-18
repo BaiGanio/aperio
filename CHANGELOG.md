@@ -7,6 +7,7 @@ All notable changes to Aperio are documented here.
 ## [Unreleased]
 
 ### Added
+- feat: versioning (539f0c8)
 - feat: pr lint on PRs (cec60fd)
 - feat: team ready out of the box on landing page (4094e29)
 - feat: included READ_FILE_CHUNK_SIZE and READ_FILE_MAX_OFFSET (e7a2a1d)
