@@ -9,6 +9,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-03-18
+### Added
+- feat: show version number from package.json (2ae49e9)
+
 ### Added
 - feat: versioning (539f0c8)
 - feat: pr lint on PRs (cec60fd)
