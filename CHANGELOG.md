@@ -9,6 +9,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-03-18
+### Fixed
+- fix: missing version in sidebar (a1ed646)
+
 ## [2.1.0] - 2026-03-18
 ### Added
 - feat: show version number from package.json (2ae49e9)
