@@ -1,4 +1,4 @@
-name: Update Changelog
+name: Update Changelog & Versioning
 
 on:
   push:
@@ -76,3 +76,50 @@ jobs:
             git commit -m "chore: update changelog [skip ci]" &&
             git push
           )
+
+  release:
+    runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, 'skip ci')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine bump type
+        id: bump
+        run: |
+          MSG=$(git log -1 --pretty=%s)
+          # Logic: feat = minor, fix = patch, others = skip
+          if [[ "$MSG" =~ ^feat: ]]; then BUMP="minor"
+          elif [[ "$MSG" =~ ^fix: ]]; then BUMP="patch"
+          else BUMP="skip"
+          fi
+          echo "type=$BUMP" >> $GITHUB_OUTPUT
+
+      - name: Configure Git
+        if: steps.bump.outputs.type != 'skip'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump Version and Tag
+        if: steps.bump.outputs.type != 'skip'
+        run: |
+          # This updates package.json and creates a local git tag
+          npm version ${{ steps.bump.outputs.type }} -m "chore: release %s [skip ci]"
+
+      - name: Update CHANGELOG.md
+        if: steps.bump.outputs.type != 'skip'
+        run: |
+          # Your existing simple node script logic here to append the message
+          # (Keeping your original logic for the file edit)
+          VERSION=$(node -p "require('./package.json').version")
+          echo -e "## [$VERSION] - $(date +'%Y-%m-%d')\n- $(git log -1 --pretty=%s)\n\n$(cat CHANGELOG.md)" > CHANGELOG.md
+
+      - name: Commit and Push
+        if: steps.bump.outputs.type != 'skip'
+        run: |
+          git add CHANGELOG.md
+          git commit --amend --no-edit # Adds changelog to the version commit
+          git push origin master --follow-tags
+  
