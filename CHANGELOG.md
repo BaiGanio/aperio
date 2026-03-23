@@ -9,6 +9,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-03-23
+### Changed
+- chore: tests added (f12e45d)
+
 ## [2.1.1] - 2026-03-18
 ### Fixed
 - fix: missing version in sidebar (a1ed646)
