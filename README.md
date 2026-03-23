@@ -188,7 +188,7 @@ cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pg
 ### 7. Start Aperio
 ```bash
 ollama serve            # terminal 1
-npm run start:local     # terminal 2  →  localhost:3000
+npm run start:local     # terminal 2  →  localhost:3001
 ```
 
 ### 8. Backfill embeddings (first run only)
