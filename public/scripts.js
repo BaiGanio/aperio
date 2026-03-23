@@ -25,32 +25,6 @@ const searchInput  = document.getElementById("searchInput");
 
 // ── WebSocket ────────────────────────────────────────────────
 function toggleReasoning() {
-  const btn = document.getElementById("reasoningToggle");
-  const cur = localStorage.getItem("aperio-reasoning") !== "false";
-  localStorage.setItem("aperio-reasoning", cur ? "false" : "true");
-  const on = !cur;
-  if (btn) {
-    btn.style.borderColor = on ? "var(--accent)" : "var(--border)";
-    btn.style.color       = on ? "var(--accent)" : "var(--text-muted)";
-    btn.style.opacity     = on ? "1" : "0.5";
-    btn.title = on ? "Reasoning visible (click to hide)" : "Reasoning hidden (click to show)";
-  }
-}
-
-// Init toggle button state on page load
-(function() {
-  const on = localStorage.getItem("aperio-reasoning") !== "false";
-  window.addEventListener("DOMContentLoaded", () => {
-    const btn = document.getElementById("reasoningToggle");
-    if (!btn) return;
-    btn.style.borderColor = on ? "var(--accent)" : "var(--border)";
-    btn.style.color       = on ? "var(--accent)" : "var(--text-muted)";
-    btn.style.opacity     = on ? "1" : "0.5";
-    btn.title = on ? "Reasoning visible (click to hide)" : "Reasoning hidden (click to show)";
-  });
-})();
-
-function toggleReasoning() {
   const cur = localStorage.getItem("aperio-reasoning") !== "false";
   localStorage.setItem("aperio-reasoning", cur ? "false" : "true");
   updateReasoningBtn();
@@ -172,18 +146,7 @@ function handleMessage(msg) {
   if (msg.type === "tool") {
     removeToolIndicator();
     const label = document.querySelector("#thinking .thinking-label");
-    const TOOL_LABELS_MAP = {
-      recall:             "Searching memories…",
-      remember:           "Saving memory…",
-      forget:             "Deleting memory…",
-      update_memory:      "Updating memory…",
-      backfill_embeddings:"Generating embeddings…",
-      dedup_memories:     "Checking for duplicates…",
-      read_file:          "Reading file…",
-      scan_project:       "Scanning project…",
-      fetch_url:          "Fetching URL…",
-    };
-    if (label) label.textContent = TOOL_LABELS_MAP[msg.name] || "Working…";
+    if (label) label.textContent = TOOL_LABELS[msg.name] || "Working…";
   }
 
   if (msg.type === "reasoning_start") {
@@ -231,7 +194,7 @@ function handleMessage(msg) {
       reasoningText += msg.text;
       reasoningBubble.pre.textContent = reasoningText;
       reasoningBubble.pre.scrollTop = reasoningBubble.pre.scrollHeight;
-      scrollToBottom(true);
+      scrollToBottom();
     }
     return;
   }
@@ -246,6 +209,7 @@ function handleMessage(msg) {
       reasoningBubble = null;
     }
     // Fallback: collapse any unclosed reasoning bubble still in DOM
+
     const lastWrap = [...messagesEl.querySelectorAll(".reasoning-wrap")].at(-1);
     if (lastWrap) {
       const details = lastWrap.querySelector("details");
@@ -254,8 +218,6 @@ function handleMessage(msg) {
       if (span) { span.textContent = "done"; span.style.animation = "none"; span.style.opacity = "0.4"; }
     }
     reasoningText = "";
-    // streamingText = "";
-    // streamingBubble = null;
     removeThinking();
     // Show "preparing answer" indicator
     document.getElementById("preparing-answer")?.remove();
@@ -264,7 +226,7 @@ function handleMessage(msg) {
     prep.style.cssText = "padding:6px 0 0 38px;font-size:11px;font-family:var(--font-mono);color:var(--text-muted);opacity:0.6;animation:labelFade 1.8s ease infinite";
     prep.textContent = "✦ preparing answer…";
     messagesEl.appendChild(prep);
-    scrollToBottom(true);
+    scrollToBottom();
     return;
   }
 
@@ -297,11 +259,11 @@ function handleMessage(msg) {
       }
       streamingText += msg.text;
       updateStreamingBubble(streamingBubble, streamingText);
-      requestAnimationFrame(() => scrollToBottom(true));
+      requestAnimationFrame(() => scrollToBottom());
     }
   }
 
-  if (msg.type === "retract") { console.log("RETRACT fired!");
+  if (msg.type === "retract") {
     // Remove any streaming bubble that showed tool call JSON
     if (streamingBubble) {
       streamingBubble.wrap?.remove();
@@ -320,12 +282,12 @@ function handleMessage(msg) {
 
   if (msg.type === "stream_end") {
     if (streamingBubble && streamingText.trim()) {
-      finalizeStreamingBubble(streamingBubble, msg.text || streamingText);
+      // Tokens were streamed — finalize the existing bubble, ignore msg.text entirely
+      finalizeStreamingBubble(streamingBubble, streamingText);
     } else if (streamingBubble) {
       streamingBubble.wrap?.remove();
-    } else if (msg.text?.trim()) {
-      // Buffered response (no token streaming) — render directly
-      // console.error("addMessage fallback firing, text:", msg.text.substring(0,50));
+    } else if (!streamingText && msg.text?.trim()) {
+      // Truly buffered response: no tokens ever arrived, render msg.text directly
       removeThinking();
       removeToolIndicator();
       addMessage("ai", msg.text);
@@ -338,7 +300,7 @@ function handleMessage(msg) {
     sendBtn.disabled = chatInput.value.trim() === "";
     sendBtn.style.display = "";
     stopBtn.style.display = "none";
-    scrollToBottom(true);
+    scrollToBottom();
   }
 
   if (msg.type === "memories") {
@@ -422,16 +384,14 @@ function updateStreamingBubble(ref, text) {
 function finalizeStreamingBubble(ref, fullText) {
   ref.bubble.classList.remove("streaming");
 
+  ref.bubble.innerHTML = "";
   if (fullText.includes("🧠 **Memory suggestions**") && !suggestionShown) {
     suggestionShown = true;
     const [before, after] = fullText.split("🧠 **Memory suggestions**");
     ref.bubble.innerHTML = renderMarkdown(before.trim());
     ref.bubble.appendChild(parseSuggestionBlock(after));
   } else {
-    const rendered = renderMarkdown(fullText);
-    if (ref.bubble.innerHTML !== rendered) {
-      ref.bubble.innerHTML = rendered;
-    }
+    ref.bubble.innerHTML = renderMarkdown(fullText);
   }
 
   // Add timestamp below bubble
@@ -547,8 +507,6 @@ function parseSuggestionBlock(text) {
     div.appendChild(item);
   });
 
-  // if (fullText.includes("🧠 **Memory suggestions**")) return;
-  // if (ref.bubble.querySelector(".copy-btn")) return;
   const actions = document.createElement("div");
   actions.className = "suggestion-actions";
 
@@ -914,7 +872,7 @@ const isMac = navigator.platform.toUpperCase().includes("MAC") ||
 const cmdKey = isMac ? "⌘" : "Ctrl";
 
 const inputHint = document.getElementById("inputHint");
-const sendBtnEl = document.getElementById("sendBtnTitle");
+const sendBtnEl = document.getElementById("sendBtn");
 if (inputHint) inputHint.innerHTML = `${cmdKey}↵ to send &nbsp;·&nbsp; Shift↵ for newline`;
 if (sendBtnEl) sendBtnEl.title = `Send (${cmdKey}+Enter)`;
 

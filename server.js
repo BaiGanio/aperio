@@ -299,15 +299,9 @@ async function runOllamaLoop(messages, ws, opts = {}, getAbort = () => null, set
         continue;
       }
       console.log("🟢 THINKING normal response");
-      // Normal response — signal reasoning done, send full text instantly
+      // Tokens already streamed live — just close reasoning if open and signal completion
       if (sentReasoningStart) ws.send(JSON.stringify({ type: "reasoning_done" }));
-      ws.send(JSON.stringify({ type: "stream_start" }));
-      for (const word of fullText.split(" ")) {
-      ws.send(JSON.stringify({ type: "token", text: word + " " }));
-      await new Promise(r => setTimeout(r, 28));
-      }
-    
-      ws.send(JSON.stringify({ type: "stream_end", text: fullText }));
+      ws.send(JSON.stringify({ type: "stream_end", text: "" }));
       messages.push({ role: "assistant", content: [{ type: "text", text: fullText }] });
       return fullText;
     }
@@ -352,9 +346,8 @@ async function runOllamaLoop(messages, ws, opts = {}, getAbort = () => null, set
       }
     }
     console.log("🟡 NON-THINKING normal response");
-    // Normal response — stream to UI
-    ws.send(JSON.stringify({ type: "stream_start" }));
-    ws.send(JSON.stringify({ type: "stream_end", text: fixUnclosedFence(fullText) }));
+    // Tokens already streamed live — just signal completion
+    ws.send(JSON.stringify({ type: "stream_end", text: "" }));
     messages.push({ role: "assistant", content: [{ type: "text", text: fullText }] });
     return fullText;
   }
