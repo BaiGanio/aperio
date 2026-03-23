@@ -85,5 +85,5 @@ INSERT INTO memories (type, title, content, tags, importance) VALUES
   'Aperio',
   'A personal memory layer for AI tools. Built with Postgres + MCP. Currently in early development.',
   ARRAY['mcp', 'postgres', 'ai', 'personal'],
-  6
+  2
 );
