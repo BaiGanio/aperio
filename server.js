@@ -209,6 +209,9 @@ async function runOllamaLoop(messages, ws, opts = {}, getAbort = () => null, set
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullText = "", reasoningText = "", toolCalls = [], sentReasoningStart = false;
+    // For non-thinking models only: buffer tokens that look like a JSON tool call
+    // Thinking models (Qwen3) never output raw JSON tool calls, so skip buffering for them
+    let tokenBuffer = "", mightBeToolCall = false;
 
     while (true) {
       let done, value;
@@ -235,15 +238,28 @@ async function runOllamaLoop(messages, ws, opts = {}, getAbort = () => null, set
           ws.send(JSON.stringify({ type: "reasoning_token", text: delta.reasoning }));
         }
 
-        // Content — always stream live; client decides whether to show or discard
+        // Content tokens
         if (delta.content) {
           fullText += delta.content;
-          // Reasoning → content transition: collapse reasoning bubble immediately
           if (sentReasoningStart) {
             ws.send(JSON.stringify({ type: "reasoning_done" }));
             sentReasoningStart = false;
           }
-          ws.send(JSON.stringify({ type: "token", text: delta.content }));
+          if (OLLAMA_THINKS) {
+            // Thinking models: always stream live, they don't output raw JSON tool calls
+            ws.send(JSON.stringify({ type: "token", text: delta.content }));
+          } else {
+            // Non-thinking models: buffer if response looks like a JSON tool call
+            const trimmed = fullText.trimStart();
+            if (!mightBeToolCall && (trimmed.startsWith("{") || trimmed.startsWith("```"))) {
+              mightBeToolCall = true;
+            }
+            if (mightBeToolCall) {
+              tokenBuffer += delta.content;
+            } else {
+              ws.send(JSON.stringify({ type: "token", text: delta.content }));
+            }
+          }
         }
 
         // Tool calls
@@ -329,6 +345,7 @@ async function runOllamaLoop(messages, ws, opts = {}, getAbort = () => null, set
       const intercepted = extractTextToolCall(fullText);
       console.log("🔍 intercept result:", intercepted ? intercepted.name : "null", "| fullText len:", fullText.length);
       if (intercepted) {
+        tokenBuffer = ""; // discard buffered JSON — confirmed tool call, never show it
         ws.send(JSON.stringify({ type: "retract" })); // remove any streamed JSON from UI
         ws.send(JSON.stringify({ type: "tool", name: intercepted.name }));
         const result = await callTool(intercepted.name, intercepted.input);
@@ -346,6 +363,12 @@ async function runOllamaLoop(messages, ws, opts = {}, getAbort = () => null, set
       }
     }
     console.log("🟡 NON-THINKING normal response");
+    // If content was buffered (looked like JSON but wasn't a tool call), flush it now
+    if (tokenBuffer) {
+      ws.send(JSON.stringify({ type: "stream_start" }));
+      ws.send(JSON.stringify({ type: "token", text: tokenBuffer }));
+      tokenBuffer = "";
+    }
     // Tokens already streamed live — just signal completion
     ws.send(JSON.stringify({ type: "stream_end", text: "" }));
     messages.push({ role: "assistant", content: [{ type: "text", text: fullText }] });
@@ -444,9 +467,38 @@ wss.on("connection", (ws) => {
   });
 });
 
+function parseMemoriesRaw(raw) {
+  if (!raw || raw.trim() === "No memories found." || raw.trim() === "No result") return [];
+  return raw.split("---").filter(b => b.trim()).map(block => {
+    const lines = block.trim().split("\n");
+    const header = lines[0] || "";
+    const typeMatch = header.match(/\[(\w+)\]/);
+    const titleMatch = header.match(/\] (.+?) \(importance:/);
+    const importanceMatch = header.match(/importance: (\d)/);
+    const contentLine = lines[1] || "";
+    const tagsLine = lines.find(l => l.startsWith("Tags:")) || "";
+    const tags = tagsLine.replace("Tags:", "").trim().split(",").map(t => t.trim()).filter(Boolean);
+    const idLine = lines.find(l => l.startsWith("ID:")) || "";
+    const id = idLine.replace("ID:", "").trim() || null;
+    const dateLine = lines.find(l => l.startsWith("Created:") || l.startsWith("Saved:")) || "";
+    const createdAt = dateLine.split(":").slice(1).join(":").trim() || null;
+    return {
+      type: typeMatch?.[1]?.toLowerCase() || "fact",
+      title: titleMatch?.[1] || "Untitled",
+      content: contentLine,
+      tags: tags[0] === "none" ? [] : tags,
+      importance: parseInt(importanceMatch?.[1] || "3"),
+      id,
+      createdAt,
+    };
+  });
+}
+
 async function sendMemories(ws) {
-  try { ws.send(JSON.stringify({ type: "memories", raw: await callTool("recall", { limit: 50 }) })); }
-  catch (err) { console.error("Failed to fetch memories:", err.message); }
+  try {
+    const raw = await callTool("recall", { limit: 50 });
+    ws.send(JSON.stringify({ type: "memories", memories: parseMemoriesRaw(raw) }));
+  } catch (err) { console.error("Failed to fetch memories:", err.message); }
 }
 
 const DEDUP_INTERVAL_MS = 10 * 60 * 1000;
