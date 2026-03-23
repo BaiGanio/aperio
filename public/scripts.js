@@ -184,7 +184,7 @@ function handleMessage(msg) {
     bubble.appendChild(details);
     wrap.appendChild(bubble);
     messagesEl.appendChild(wrap);
-    scrollToBottom(true);
+    scrollToBottom();
     reasoningBubble = { wrap, pre, details, statusSpan };
     return;
   }
@@ -842,8 +842,9 @@ document.getElementById("exportBtn").addEventListener("click", () => {
 });
 
 // ── OS-aware shortcut labels ─────────────────────────────────
-const isMac = navigator.platform.toUpperCase().includes("MAC") ||
-              navigator.userAgent.toUpperCase().includes("MAC");
+const isMac = navigator.userAgentData
+  ? navigator.userAgentData.platform.toUpperCase().includes("MAC")
+  : navigator.userAgent.toUpperCase().includes("MAC");
 const cmdKey = isMac ? "⌘" : "Ctrl";
 
 const inputHint = document.getElementById("inputHint");
@@ -858,7 +859,7 @@ let sidebarOpen = localStorage.getItem("aperio-sidebar") !== "closed";
 
 function applySidebar() {
   appEl.classList.toggle("sidebar-collapsed", !sidebarOpen);
-  sidebarToggleBtn.title = sidebarOpen ? "Hide sidebar (⌘B)" : "Show sidebar (⌘B)";
+  sidebarToggleBtn.title = sidebarOpen ? `Hide sidebar (${cmdKey}B)` : `Show sidebar (${cmdKey}B)`;
   sidebarToggleBtn.querySelector("i").className = sidebarOpen
     ? "bi bi-layout-sidebar"
     : "bi bi-layout-sidebar-reverse";
@@ -972,7 +973,8 @@ fetch('/api/version')
   .then(res => res.json())
   .then(data => {
     document.getElementById('version-display').innerText = 'v' + data.version;
-  });
+  })
+  .catch(() => {});
 
 // ── Boot ─────────────────────────────────────────────────────
 connect();

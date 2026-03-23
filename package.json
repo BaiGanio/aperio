@@ -5,6 +5,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "test": "node --test tests/mcp-tools.test.js",
     "start": "node server.js",
     "start:cloud": "AI_PROVIDER=anthropic PORT=3000 node server.js",
     "start:local": "AI_PROVIDER=ollama PORT=3001 node server.js",
