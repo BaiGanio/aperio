@@ -33,7 +33,7 @@ function isPathAllowed(filePath) {
   const resolved = filePath.startsWith("~")
     ? filePath.replace("~", process.cwd())
     : filePath;
-  return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed));
+  return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed + "/") || resolved === allowed);
 }
 
 // ─── Warning: Path safety - tools can access any absolute path on your machine ─────────
@@ -45,7 +45,7 @@ function isPathAllowed(filePath) {
 //   const resolved = filePath.startsWith("~")
 //     ? filePath.replace("~", process.env.HOME || "/root")
 //     : filePath;
-//   return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed));
+//   return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed + "/") || resolved === allowed);
 // }
 
 // ─── Embeddings ───────────────────────────────────────────────────────────────
