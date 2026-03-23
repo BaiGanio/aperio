@@ -9,6 +9,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.2.1] - 2026-03-23
+### Changed
+- chore: updated readme.md (741e515)
+
 ## [2.2.0] - 2026-03-23
 ### Added
 - feat: architecture.md (66f1cca)
