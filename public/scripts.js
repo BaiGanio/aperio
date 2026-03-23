@@ -304,7 +304,7 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "memories") {
-    parseAndRenderMemories(msg.raw);
+    renderMemoriesFromMessage(msg.memories);
   }
 
   if (msg.type === "deleted") {
@@ -464,6 +464,7 @@ function renderMarkdown(text) {
     .replace(/`([^`\n]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^\n*]+?)\*\*/g, "<strong>$1</strong>")
     .replace(/(?<!\*)\*([^\n*]+?)\*(?!\*)/g, "<em>$1</em>")
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/\n/g, "<br>").replace(/<br>(<div)/g, "$1");
   text = text.replace(/\x00(\d+)\x00/g, (_, i) => blocks[parseInt(i)]);
   return text;
@@ -609,6 +610,11 @@ function scrollToBottom(force = false) {
   }
 }
 
+// ── WebSocket safe send ──────────────────────────────────────
+function safeSend(data) {
+  if (ws?.readyState === WebSocket.OPEN) ws.send(data);
+}
+
 // ── Send ─────────────────────────────────────────────────────
 function send() {
   const text = chatInput.value.trim();
@@ -625,13 +631,13 @@ function send() {
     removeThinking();
     setStatus("thinking", "thinking…");
     addThinking();
-    ws.send(JSON.stringify({ type: "chat", text }));
+    safeSend(JSON.stringify({ type: "chat", text }));
   });
 }
 
 sendBtn.onclick = send;
 stopBtn.onclick = () => {
-  if (ws) ws.send(JSON.stringify({ type: "stop" }));
+  safeSend(JSON.stringify({ type: "stop" }));
   removeThinking();
   removeToolIndicator();
   document.getElementById("preparing-answer")?.remove();
@@ -669,39 +675,8 @@ function autoResize() {
 }
 
 // ── Memories sidebar ─────────────────────────────────────────
-function parseAndRenderMemories(raw) {
-  if (!raw || raw === "No memories found.") {
-    allMemories = [];
-    renderMemories([]);
-    return;
-  }
-
-  const blocks = raw.split("---").filter(b => b.trim());
-  allMemories = blocks.map(block => {
-    const lines = block.trim().split("\n");
-    const header = lines[0] || "";
-    const typeMatch = header.match(/\[(\w+)\]/);
-    const titleMatch = header.match(/\] (.+?) \(importance:/);
-    const importanceMatch = header.match(/importance: (\d)/);
-    const contentLine = lines[1] || "";
-    const tagsLine = lines.find(l => l.startsWith("Tags:")) || "";
-    const tags = tagsLine.replace("Tags:", "").trim().split(",").map(t => t.trim()).filter(Boolean);
-
-    const idLine = lines.find(l => l.startsWith("ID:")) || "";
-    const id = idLine.replace("ID:", "").trim() || null;
-    const dateLine = lines.find(l => l.startsWith("Created:") || l.startsWith("Saved:")) || "";
-    const createdAt = dateLine.split(":").slice(1).join(":").trim() || null;
-    return {
-      type: typeMatch?.[1]?.toLowerCase() || "fact",
-      title: titleMatch?.[1] || "Untitled",
-      content: contentLine,
-      tags: tags[0] === "none" ? [] : tags,
-      importance: parseInt(importanceMatch?.[1] || "3"),
-      id,
-      createdAt,
-    };
-  });
-
+function renderMemoriesFromMessage(memories) {
+  allMemories = Array.isArray(memories) ? memories : [];
   renderMemories(allMemories);
 }
 
@@ -821,14 +796,14 @@ function makeMemoryCard(m) {
     if (!confirm(`Delete "${m.title}"?`)) return;
     card.style.opacity = "0.4";
     card.style.pointerEvents = "none";
-    ws.send(JSON.stringify({ type: "delete_memory", id: m.id }));
+    safeSend(JSON.stringify({ type: "delete_memory", id: m.id }));
   };
 
   return card;
 }
 
 function escapeHtml(str) {
-  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
 // ── Search ───────────────────────────────────────────────────
