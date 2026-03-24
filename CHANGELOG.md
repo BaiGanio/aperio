@@ -6,6 +6,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.5.0] - 2026-03-24
+### Added
+- feat: Silent Enforcement: Unlike the previous version, it doesn't ping the blocked user with a reply, which often prevents bot loops (d6bd246)
+
 ## [2.4.0] - 2026-03-24
 ### Added
 - feat: skipped changelog sections (d7a04a0)
