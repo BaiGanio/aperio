@@ -49,5 +49,16 @@ Once your work is merged, follow these steps:
 
 ---
 
+### 🏷️ Bounty Label Guide
+
+| Label Name | Color | Description | Payout |
+| :--- | :--- | :--- | :--- |
+| `bounty: starter` | `#7CFC00` | Documentation, typos, simple CSS. | **$0 - $5** |
+| `bounty: standard` | `#1E90FF` | Bug fixes, new UI components, tests. | **$0 - $0** |
+| `bounty: advanced` | `#FFA500` | Complex logic, API refactors, features. | **$0 - $0** |
+| `bounty: critical` | `#FF4500` | Security patches, core architecture. | **$0+** |
+| `status: claimed` | `#808080` | Work is in progress. Do not start. | — |
+| `status: funded` | `#FFD700` | Budget is confirmed for this issue. | — |
+
 ---
 <p align="center">Thank you for contributing! Your work helps keep this project open and sustainable.<p>
