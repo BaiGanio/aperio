@@ -70,6 +70,18 @@ The flat schema is not a simplification of a knowledge graph. It is a different 
 
 **What's genuinely missing:** explicit causal and temporal relationships. "This decision was made because of that context" cannot be represented. That is a real limitation, and the honest answer is that it's an accepted tradeoff — not an oversight. A `memory_links` join table (`source_id`, `target_id`, `relation_type`) would address this without abandoning the core model, and is the natural next evolution.
 
+> **💡Tip:**
+ 
+> Start with vector search for semantic retrieval of relevant facts and preferences.
+
+> Add graph structures only when your agent needs to understand explicit relationships between memories.   
+> This includes connecting:   
+> - user preferences to specific entities
+> - tracking how facts evolve over time
+> - or moving through hierarchical dependencies
+        
+> Most implementations don't require graph complexity initially.
+
 ---
 
 ## Why Dual Provider Support (Anthropic + Ollama)
@@ -130,4 +142,4 @@ Each of these is an incremental addition. None of them require rebuilding the fo
 
 ---
 
-*Aperio is small enough to understand completely and focused enough to do its job well. In a field full of platforms trying to be everything, that is a considered choice.*
+#### ✨ Aperio is small enough to understand completely and focused enough to do its job well. In a field full of platforms trying to be everything, that is a considered choice.
