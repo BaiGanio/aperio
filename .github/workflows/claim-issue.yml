@@ -1,15 +1,16 @@
-name: Issue Auto-Claim (Max 3)
+name: Issue Auto-Claim (Max 3) — with Blocklist
+
 on:
   issue_comment:
     types: [created]
 
 jobs:
   check_and_claim:
-    # Only run if the comment contains /claim
     if: contains(github.event.comment.body, '/claim')
     runs-on: ubuntu-latest
     permissions:
       issues: write
+
     steps:
       - name: Process Claim Request
         uses: actions/github-script@v7
@@ -20,19 +21,42 @@ jobs:
             const repo = context.repo.repo;
             const issueNumber = context.issue.number;
 
-            // 1. Find all issues currently claimed by this user
+            // 1. Fetch the issue to inspect its labels
+            const issue = await github.rest.issues.get({
+              owner, repo, issue_number: issueNumber
+            });
+
+            const labels = issue.data.labels.map(l => l.name.toLowerCase());
+
+            // 2. BOUNTY GUARD — reject claim if no bounty label is present
+            const hasBounty = labels.some(l => l.startsWith('bounty') || l.includes('$'));
+            if (!hasBounty) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: `> [!WARNING]\n> @${username} This issue does not have a bounty label and is not available for claiming. Only labeled bounty issues can be claimed.`
+              });
+              return;
+            }
+
+            // 3. ALREADY CLAIMED GUARD — reject if issue is already assigned
+            if (issue.data.assignee) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: `> [!WARNING]\n> @${username} This issue is already claimed by @${issue.data.assignee.login}.`
+              });
+              return;
+            }
+
+            // 4. MAX CLAIMS GUARD — reject if user already has 3 active claims
             const claimedIssues = await github.rest.issues.listForRepo({
               owner,
               repo,
               labels: 'status: claimed',
               state: 'open'
             });
-
-            const userClaims = claimedIssues.data.filter(issue => 
+            const userClaims = claimedIssues.data.filter(issue =>
               issue.assignee && issue.assignee.login === username
             );
-
-            // 2. Enforcement Logic
             if (userClaims.length >= 3) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
@@ -41,18 +65,16 @@ jobs:
               return;
             }
 
-            // 3. Assign and Label the issue
+            // 5. All checks passed — assign and label
             await github.rest.issues.addLabels({
               owner, repo, issue_number: issueNumber,
               labels: ['status: claimed']
             });
-
             await github.rest.issues.update({
               owner, repo, issue_number: issueNumber,
               assignees: [username]
             });
-
             await github.rest.issues.createComment({
               owner, repo, issue_number: issueNumber,
-              body: `> [!SUCCESS]\n> **Claimed!** @${username}, this issue is now yours. You can start working immediately. Please link this issue in your Pull Request once done.`
+              body: `> [!NOTE]\n> ✅ **Claimed!** @${username}, this issue is now yours. A PR is expected within **7 days** — if none is submitted, the issue will be reopened for others. Please link this issue in your Pull Request when done.`
             });
