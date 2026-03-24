@@ -23,7 +23,7 @@ When the project has sufficient funding and requires deep, ongoing focus (like a
 ---
 
 ## 🚦 Current Funding Status
-*   **Status:** [🟢 ACTIVE / 🟡 LIMITED / 🔴 PAUSED]
+*   **Status:** 🟢 ACTIVE 🟡 LIMITED 🔴 PAUSED
 *   **Current Balance:** Check the [HCB Ledger](https://hcb.hackclub.comprojects/YOUR-PROJECT-SLUG) before starting work. If the balance is low, Tier 2 bounties and time-based tasks may require pre-approval.
 
 ---
