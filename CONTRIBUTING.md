@@ -14,8 +14,8 @@ Thanks for your interest in contributing. Aperio is early-stage and moving fast 
 
 This project pays contributors through a **bounty model** — look for labeled issues on GitHub to see reward amounts.
 
-- 📄 [Payment & Bounty Policy](./PAYMENT.md) — how to claim, get paid, and what each tier earns
-- 🧭 [Project Lead Policy](./PROJECT_LEAD_POLICY.md) — the Lead's rate, cap, and the fair share values behind it
+- 📄 [Payment & Bounty Policy](https://github.com/BaiGanio/aperio/discussions/22) — how to claim, get paid, and what each tier earns
+- 🧭 [Project Lead Policy](https://github.com/BaiGanio/aperio/discussions/23) — the Lead's rate, cap, and the fair share values behind it
 
 > Funded through [HCB](https://hcb.hackclub.com). All finances are publicly transparent.
 
