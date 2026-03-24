@@ -33,8 +33,6 @@ jobs:
           # 1. Determine Changelog Section
           if [[ "$MSG" =~ ^feat: ]]; then SECTION="Added"; BUMP="minor"
           elif [[ "$MSG" =~ ^fix: ]]; then SECTION="Fixed"; BUMP="patch"
-          elif [[ "$MSG" =~ ^(chore|refactor): ]]; then SECTION="Changed"; BUMP="patch"
-          elif [[ "$MSG" =~ ^docs: ]]; then SECTION="Docs"; BUMP="patch"
           else SECTION="skip"; BUMP="skip"
           fi
           
