@@ -9,6 +9,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.2.3] - 2026-03-24
+### Changed
+- chore: bounties, claims and pr guards on issues (a3dbca0)
+
 ## [2.2.2] - 2026-03-24
 ### Changed
 - chore: mds (95cfc4b)
