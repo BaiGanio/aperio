@@ -20,7 +20,20 @@ jobs:
             const daysToStale = 7;
             const msPerDay = 24 * 60 * 60 * 1000;
             const thresholdDate = new Date(Date.now() - (daysToStale * msPerDay));
+            
+            // 1. INITIALIZE & LOAD BLOCKLIST
+            let blockedUsers = [];
+            try {
+              if (fs.existsSync('.github/blocklist.json')) {
+                const data = JSON.parse(fs.readFileSync('.github/blocklist.json', 'utf8'));
+                blockedUsers = (data.blocked || []).map(u => u.toLowerCase());
+                console.log(`Loaded ${blockedUsers.length} blocked users.`);
+              }
+            } catch (e) {
+              console.log('Error reading blocklist.json:', e.message);
+            }
 
+            // 2. FETCH ALL OPEN ISSUES
             const issues = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -33,7 +46,7 @@ jobs:
               const assignee = issue.assignee ? issue.assignee.login.toLowerCase() : null;
 
               // --- LOGIC: NUKE BLOCKED USERS ---
-              if (assignee && blockedUsers.includes(assignee)) {
+              if (blockedUsers.length > 0 && assignee && blockedUsers.includes(assignee)) {
                 console.log(`Nuking blocked user @${assignee} from Issue #${issue.number}`);
                 
                 // Unassign and remove claim label
