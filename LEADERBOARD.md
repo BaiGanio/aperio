@@ -17,8 +17,8 @@ This document tracks all contributions to the project.
 ---
 
 ## ⚖️ Valuation Methodology
-*   **🛡️ (Bounty Track):** Direct correlation to immediate or pending payout values ($1 per 1 XP).
-*   **🏹 (Robin Hood Track):** Voluntary contributions tracked for future retrospective funding.
+*   **☠️ (Bounty Track):** Direct correlation to immediate or pending payout values (like $1).
+*   **🛡️ (Robin Hood Track):** Voluntary contributions tracked for future retrospective funding.
 *   **Audit Trail:** All XP is verified via merged Pull Requests and tagged GitHub Issues.
 
 > [!IMPORTANT]
