@@ -1,19 +1,15 @@
-# This is a basic workflow to help you get started with Actions
+name: Deploy to GitHub Pages
 
-name: CI
-
-# Controls when the workflow will run
 on:
-  # Triggers the workflow on push or pull request events but only for the "master" branch
   push:
-    branches: [ "master" ]
-    # Only trigger if files in the 'docs' folder or the workflow itself change
+    branches: ["master"]
+    # Only trigger if files in the 'docs' folder or the workflow change
     paths:
       - 'docs/**'
       - '.github/workflows/deploy.yml'
-
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+
 # Allow only one concurrent deployment
 concurrency:
   group: "pages"
@@ -25,18 +21,22 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     steps:
       - name: Checkout
-        uses: [actions/checkout@v4](https://github.com)
+        uses: actions/checkout@v4
       
       - name: Setup Pages
-        uses: [actions/configure-pages@v4](https://github.com)
+        uses: actions/configure-pages@v4
       
       - name: Upload artifact
-        uses: [actions/upload-pages-artifact@v3](https://github.com)
+        uses: actions/upload-pages-artifact@v3
         with:
-          path: './docs' # Path to your static files
+          path: './docs'
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: [actions/deploy-pages@v4](https://github.com)
+        uses: actions/deploy-pages@v4
