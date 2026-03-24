@@ -22,6 +22,12 @@ When the project has sufficient funding and requires deep, ongoing focus (like a
 
 ---
 
+## 🚦 Current Funding Status
+*   **Status:** [🟢 ACTIVE / 🟡 LIMITED / 🔴 PAUSED]
+*   **Current Balance:** Check the [HCB Ledger](https://hcb.hackclub.comprojects/YOUR-PROJECT-SLUG) before starting work. If the balance is low, Tier 2 bounties and time-based tasks may require pre-approval.
+
+---
+
 ## 🧾 How to Claim & Get Paid
 Once your work is merged, follow these steps:
 
@@ -37,6 +43,8 @@ Once your work is merged, follow these steps:
 *   **Fair Share:** We pay for value. If you solve a $500 problem, you get $500, regardless of your seniority level.
 *   **Public Record:** Every dollar leaving this fund is visible to our donors. By requesting payment, you agree to this public transparency.
 *   **Final Say**: The Project Lead has the final say on whether a bounty's requirements were met.
+
+---
 
 ---
 *Thank you for contributing! Your work helps keep this project open and sustainable.*
