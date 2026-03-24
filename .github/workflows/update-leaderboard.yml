@@ -1,0 +1,85 @@
+name: Update Leaderboard
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  update_rankings:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Update Leaderboard File
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const prAuthor = context.payload.pull_request.user.login;
+            const labels = context.payload.pull_request.labels.map(l => l.name.toLowerCase());
+
+            // 1. Calculate Points
+            let points = 0;
+            const isBounty = labels.some(l => l.includes('bounty') || l.includes('$'));
+            const isRobin = labels.some(l => l.includes('robin-hood') || l.includes('🛡️'));
+
+            labels.forEach(label => {
+              // Extract number from labels like "$15" or "50xp"
+              const match = label.match(/(\d+)/);
+              if (match) { points += parseInt(match[1]); }
+            });
+            if (labels.includes('status: point-of-interest')) points += 25;
+
+            if (points === 0 || (!isBounty && !isRobin)) return; // Skip if no point-bearing labels
+
+            const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+
+            // 2. PARSE AND UPDATE
+            let content = fs.readFileSync('LEADERBOARD.md', 'utf8');
+            let lines = content.split('\n');
+            const startMarker = '<!-- LEDGER_ROWS_START -->';
+            const endMarker = '<!-- LEDGER_ROWS_END -->';
+            const startIndex = lines.findIndex(l => l.includes(startMarker));
+            const endIndex = lines.findIndex(l => l.includes(endMarker));
+
+            let rows = lines.slice(startIndex + 1, endIndex).filter(r => r.includes('|'));
+            let userFound = false;
+
+            let updatedRows = rows.map(row => {
+              let cols = row.split('|').map(c => c.trim()).filter(c => c !== "");
+              // Expected Cols: [Rank, User, XP, Tasks, Role, Date]
+              if (cols[1] === `@${prAuthor}`) {
+                userFound = true;
+                cols[2] = parseInt(cols[2]) + points; // Add XP
+                cols[3] = parseInt(cols[3]) + 1;      // Add Task
+                cols[5] = today;                      // Update Date
+                
+                // Update Role Icon
+                if (isRobin && !cols[4].includes('🏹')) cols[4] = "🏹 Robin Hood";
+                if (isBounty && !cols[4].includes('⚔️')) cols[4] = "⚔️ Bounty Hunter";
+              }
+              return cols.join(' | ');
+            });
+
+            if (!userFound) {
+              const userClass = isRobin ? "🏹 Robin Hood" : "⚔️ Bounty Hunter";
+              updatedRows.push(` | @${prAuthor} | ${points} | 1 | ${userClass} | ${today}`);
+            }
+
+            // 3. RE-SORT BY XP
+            updatedRows.sort((a, b) => parseInt(b.split('|')[2]) - parseInt(a.split('|')[2]));
+
+            // 4. RE-RANK
+            const finalRows = updatedRows.map((row, i) => `| ${i + 1} | ${row} |`);
+
+            // 5. SAVE
+            const newContent = [...lines.slice(0, startIndex + 1), ...finalRows, ...lines.slice(endIndex)].join('\n');
+            fs.writeFileSync('LEADERBOARD.md', newContent);
+
+      - name: Commit changes
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update Leaderboard: Awarded points to @${{ github.event.pull_request.user.login }}"
