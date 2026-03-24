@@ -10,6 +10,15 @@ Thanks for your interest in contributing. Aperio is early-stage and moving fast 
 - 🧪 **Test on your hardware** — run the community testing issue and leave a comment with your results
 - 📖 **Improve docs** — fix typos, clarify setup steps, add examples
 
+## 💸 Compensation
+
+This project pays contributors through a **bounty model** — look for labeled issues on GitHub to see reward amounts.
+
+- 📄 [Payment & Bounty Policy](./PAYMENT.md) — how to claim, get paid, and what each tier earns
+- 🧭 [Project Lead Policy](./PROJECT_LEAD_POLICY.md) — the Lead's rate, cap, and the fair share values behind it
+
+> Funded through [HCB](https://hcb.hackclub.com). All finances are publicly transparent.
+
 ## Before opening a PR
 
 - Keep changes focused — one fix or feature per PR
@@ -20,19 +29,6 @@ Thanks for your interest in contributing. Aperio is early-stage and moving fast 
 ## Questions?
 
 Open an issue or start a discussion. There are no stupid questions here.
-
----
-
-### 🏷️ Bounty Label Guide
-
-| Label Name | Color | Description | Payout |
-| :--- | :--- | :--- | :--- |
-| `bounty: starter` | `#7CFC00` | Documentation, typos, simple CSS. | **$5 - $10** |
-| `bounty: standard` | `#1E90FF` | Bug fixes, new UI components, tests. | **$25 - $75** |
-| `bounty: advanced` | `#FFA500` | Complex logic, API refactors, features. | **$100 - $250** |
-| `bounty: critical` | `#FF4500` | Security patches, core architecture. | **$300+** |
-| `status: claimed` | `#808080` | Work is in progress. Do not start. | — |
-| `status: funded` | `#FFD700` | Budget is confirmed for this issue. | — |
 
 ---
 

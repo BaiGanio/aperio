@@ -4,6 +4,9 @@
 
 **One brain. Every agent. Nothing forgotten.**
 
+[![Bounties Available](https://img.shields.io/badge/bounties-active-brightgreen)](./PAYMENT.md)
+[![Lead Policy](https://img.shields.io/badge/lead%20policy-transparent-blue)](./PROJECT_LEAD_POLICY.md)
+
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=node.js&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?style=flat-square&logo=postgresql&logoColor=white)
