@@ -23,7 +23,7 @@ jobs:
             const fs = require('fs');
             const { owner, repo } = context.repo;
             
-            // 1. INITIALIZE & LOAD BLOCKLIST
+            // 1. LOAD BLOCKLIST
             let blockedUsers = [];
             try {
               if (fs.existsSync('.github/blocklist.json')) {
@@ -34,74 +34,74 @@ jobs:
             } catch (e) {
               console.log('Error reading blocklist.json:', e.message);
             }
-
-            // 2. FETCH ALL OPEN ISSUES
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'status: claimed',
-              state: 'open'
+            
+            // 2. FETCH ALL OPEN ISSUES (Broad search to find comments anywhere)
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner, repo, state: 'open'
             });
 
-            for (const issue of issues.data) {
-              const labels = issue.labels.map(l => l.name);;
+            for (const issue of issues) {
+              const issueNumber = issue.number;
+              const labels = issue.labels.map(l => l.name);
               const assignee = issue.assignee ? issue.assignee.login.toLowerCase() : null;
-
-              // --- LOGIC: NUKE BLOCKED USERS ---
-              if (blockedUsers.length > 0 && assignee && blockedUsers.includes(assignee)) {
-                console.log(`Nuking blocked user @${assignee} from Issue #${issue.number}`);
-                
-                // Unassign and remove claim label
-                await github.rest.issues.update({
-                  owner, repo, issue_number: issue.number, assignees: []
-                });
-                if (labels.includes('status: claimed')) {
-                  await github.rest.issues.removeLabel({
-                    owner, repo, issue_number: issue.number, name: 'status: claimed'
-                  }).catch(() => {});
-                }
-
-                // Delete all comments by this blocked user on this issue
+            
+              // --- TASK 1: NUKE ANY BLOCKED USER COMMENTS ---
+              // We do this for EVERY open issue, even if not assigned to a blocked user
+              if (blockedUsers.length > 0) {
                 const comments = await github.rest.issues.listComments({
-                  owner, repo, issue_number: issue.number
+                  owner, repo, issue_number: issueNumber
                 });
+                
                 for (const comment of comments.data) {
-                  if (blockedUsers.includes(comment.user.login.toLowerCase())) {
+                  const commenter = comment.user.login.toLowerCase();
+                  if (blockedUsers.includes(commenter)) {
+                    console.log(`Deleting comment ${comment.id} by @${commenter} on Issue #${issueNumber}`);
                     await github.rest.issues.deleteComment({
                       owner, repo, comment_id: comment.id
-                    });
+                    }).catch(e => console.log(`Failed to delete: ${e.message}`));
+            
+                    // If the blocked user happens to be the assignee, kick them off
+                    if (assignee === commenter) {
+                      console.log(`Unassigning blocked user @${commenter} from #${issueNumber}`);
+                      await github.rest.issues.update({
+                        owner, repo, issue_number: issueNumber, assignees: []
+                      });
+                      if (labels.includes('status: claimed')) {
+                        await github.rest.issues.removeLabel({
+                          owner, repo, issue_number: issueNumber, name: 'status: claimed'
+                        }).catch(() => {});
+                      }
+                    }
                   }
                 }
-                continue; // Move to next issue
               }
 
-              // LOGIC: GUARD CHECK — Skip if 'status: point-of-interest' exists
-              if (labels.includes('status: point-of-interest')) {
-                console.log(`Skipping Issue #${issue.number} - Marked as Point of Interest.`);
-                continue; 
-              }
+            // --- TASK 2: STALE CLAIM CLEANUP (Original Logic) ---
+            if (labels.includes('status: claimed') && !labels.includes('status: point-of-interest') && issue.assignee) {
+              // Re-check assignee here in case they were just nuked above
+              const currentAssignee = issue.assignee ? issue.assignee.login : null;
+              if (!currentAssignee) continue;
+          
               const lastUpdated = new Date(issue.updated_at);
               if (lastUpdated < thresholdDate) {
-                const previousOwner = issue.assignee.login;
-
-                // 2. Remove Claim and Assignee, ADD COOLDOWN
+                console.log(`Cleaning up stale claim on #${issueNumber} for @${currentAssignee}`);
+                
                 await github.rest.issues.removeLabel({
-                  owner: context.repo.owner, repo: context.repo.repo,
-                  issue_number: issue.number, name: 'status: claimed'
-                });
+                  owner, repo, issue_number: issueNumber, name: 'status: claimed'
+                }).catch(() => {});
+                
                 await github.rest.issues.addLabels({
-                  owner: context.repo.owner, repo: context.repo.repo,
-                  issue_number: issue.number, labels: ['status: cooldown']
+                  owner, repo, issue_number: issueNumber, labels: ['status: cooldown']
                 });
+          
                 await github.rest.issues.update({
-                  owner: context.repo.owner, repo: context.repo.repo,
-                  issue_number: issue.number, assignees: []
+                  owner, repo, issue_number: issueNumber, assignees: []
                 });
-                // 3. Post "Missed It" Comment
+          
                 await github.rest.issues.createComment({
-                  owner: context.repo.owner, repo: context.repo.repo,
-                  issue_number: issue.number,
-                  body: `> [!CAUTION]\n> **Claim Expired.** @${previousOwner}, you missed the 7-day window. \n>\n> Per our Fair Share policy, the previous holder cannot re-claim this immediately. The issue is now open for **new** contributors. Better luck next time!`
+                  owner, repo, issue_number: issueNumber,
+                  body: `> [!CAUTION]\n> **Claim Expired.** @${currentAssignee}, you missed the 7-day window.`
                 });
               }
             }
+          }
