@@ -9,6 +9,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-03-24
+### Added
+- feat: audit on contribution (4b67987)
+
 ## [2.2.3] - 2026-03-24
 ### Changed
 - chore: bounties, claims and pr guards on issues (a3dbca0)
