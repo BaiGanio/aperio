@@ -9,6 +9,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.4.0] - 2026-03-24
+### Added
+- feat: skipped changelog sections (d7a04a0)
+
 ## [2.3.0] - 2026-03-24
 ### Added
 - feat: audit on contribution (4b67987)
