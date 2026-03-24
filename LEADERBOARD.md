@@ -22,4 +22,4 @@ This document tracks all contributions to the project.
 *   **Audit Trail:** All XP is verified via merged Pull Requests and tagged GitHub Issues.
 
 > [!IMPORTANT]
-> This ledger is updated automatically. Errors in XP attribution should be reported via a GitHub Issue with a link to the relevant PR.
+> This ledger is updated automatically. Errors in XP attribution should be reported via a GitHub Issue with a link to the relevant PR if needed.
