@@ -6,6 +6,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.6.0] - 2026-03-24
+### Added
+- feat: The Nuke Loop: If an assignee is on the blocklist (af91ab9)
+
 ## [2.5.0] - 2026-03-24
 ### Added
 - feat: Silent Enforcement: Unlike the previous version, it doesn't ping the blocked user with a reply, which often prevents bot loops (d6bd246)
