@@ -20,12 +20,6 @@ When the project has sufficient funding and requires deep, ongoing focus (like a
     - are involved in server maintenance and security monitoring
     - plan the strategic long-term roadmap of the project
 
-**The Process:**
-1.  **Claim**: Comment on the issue to claim it. A maintainer must acknowledge you before you start.
-2.  **Code**: Submit a Pull Request (PR) referencing the issue.
-3.  **Merge**: Once the PR is reviewed and merged, you are eligible for payment.
-4.  **Invoice**: Request payment via our HCB dashboard and **must** include the link to your merged PR.
-
 ---
 
 ## 🧾 How to Claim & Get Paid
@@ -34,7 +28,7 @@ Once your work is merged, follow these steps:
 1.  **Join the Org**: Ask the Lead for an invite to the HCB organization.
 2.  **Claiming:** Comment `/claim` on an issue. If there is a baunty price tag a maintainer must confirm before you begin. Else - it's yours and within a week PR is expected, otherwise issue is available for claiming with it's price tag.
 3.  **Submission:** Reference the Issue ID in your Pull Request (PR).
-4.  **Approval:** Once the PR is merged, go to our [HCB Payout Page](https://hcb.hackclub.comprojects/YOUR-PROJECT-SLUG/payouts).
+4.  **Approval:** Once the PR is reviewed and merged, you are eligible for payment. Go to our [HCB Payout Page](https://hcb.hackclub.comprojects/YOUR-PROJECT-SLUG/payouts).
 6.  **Attach Proof**: Upload a simple PDF invoice and **link the GitHub PR/Issue** in the description or a summary of maintenance hours.
 7.  **Approval**: The Project Lead will review and approve within 48–72 hours.
 
