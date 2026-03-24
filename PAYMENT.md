@@ -14,7 +14,7 @@ Most work is paid per "Issue Solved." We value the **solution**, not the title o
 
 ### 2. Hourly Maintenance & Oversight (Time-Based)
 When the project has sufficient funding and requires deep, ongoing focus (like a "Lead" or "Senior" maintainer role), we may offer hourly compensation to ensure project stability.
-*   **Maintenance Rate:** **$40/hr**, capped at **5 hours/week**.
+*   **Maintenance Rate:** **$40+/hr**, capped at **5 hours/week**.
 *   **Eligibility:** Reserved for core maintainers which:
 *   - are handling PR reviews, community management and junior developers
     - are involved in server maintenance and security monitoring
