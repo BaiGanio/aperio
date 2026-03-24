@@ -55,7 +55,7 @@ Once your work is merged, follow these steps:
 | :--- | :--- | :--- | :--- |
 | `bounty: starter` | `#7CFC00` | Documentation, typos, simple CSS, bug fixes, new UI components, tests. | **$5 - $15** |
 | `bounty: standard` | `#1E90FF` | Complex logic, API refactors, features. | **$25 - $35** |
-| `bounty: advanced` | `#FFA500` | Security patches, core architecture, junior devs help, project roadmap maintenance. | **$40+** |
+| `bounty: advanced` | `#FFA500` | Security patches, core architecture, PRs handling, project roadmap maintenance. | **$40+** |
 | `status: claimed` | `#808080` | Work is in progress. Do not start. | — |
 | `status: funded` | `#FFD700` | Budget is confirmed for this issue. | — |
 
