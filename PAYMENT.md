@@ -35,7 +35,6 @@ Once your work is merged, follow these steps:
 2.  **Claiming:** Comment `/claim` on an issue. If there is a baunty price tag a maintainer must confirm before you begin. Else - it's yours and within a week PR is expected, otherwise issue is available for claiming with it's price tag.
 3.  **Submission:** Reference the Issue ID in your Pull Request (PR).
 4.  **Approval:** Once the PR is merged, go to our [HCB Payout Page](https://hcb.hackclub.comprojects/YOUR-PROJECT-SLUG/payouts).
-5.  **Submit Request**: Go to our [HCB Payout Page](https://hcb.hackclub.comprojects/YOUR-PROJECT-SLUG/payouts).
 6.  **Attach Proof**: Upload a simple PDF invoice and **link the GitHub PR/Issue** in the description or a summary of maintenance hours.
 7.  **Approval**: The Project Lead will review and approve within 48–72 hours.
 
