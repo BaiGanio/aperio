@@ -1,4 +1,4 @@
-name: Issue Auto-Claim (Max 3) — with Blocklist
+name: Issue Auto-Claim (Max 3)
 
 on:
   issue_comment:
@@ -10,25 +10,45 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      contents: read
 
     steps:
+      - name: Checkout repo (for blocklist)
+        uses: actions/checkout@v4
+
       - name: Process Claim Request
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require('fs');
             const username = context.payload.comment.user.login;
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const issueNumber = context.issue.number;
 
-            // 1. Fetch the issue to inspect its labels
+            // 1. BLOCKLIST GUARD
+            let blockedUsers = [];
+            try {
+              const raw = fs.readFileSync('.github/blocklist.json', 'utf8');
+              blockedUsers = JSON.parse(raw).blocked.map(u => u.toLowerCase());
+            } catch (e) {
+              console.log('No blocklist found or failed to parse — skipping block check.');
+            }
+            if (blockedUsers.includes(username.toLowerCase())) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: `> [!CAUTION]\n> @${username} You are not permitted to claim issues on this project.`
+              });
+              return;
+            }
+
+            // 2. Fetch the issue to inspect its labels
             const issue = await github.rest.issues.get({
               owner, repo, issue_number: issueNumber
             });
-
             const labels = issue.data.labels.map(l => l.name.toLowerCase());
 
-            // 2. BOUNTY GUARD — reject claim if no bounty label is present
+            // 3. BOUNTY GUARD — reject claim if no bounty label is present
             const hasBounty = labels.some(l => l.startsWith('bounty') || l.includes('$'));
             if (!hasBounty) {
               await github.rest.issues.createComment({
@@ -38,7 +58,7 @@ jobs:
               return;
             }
 
-            // 3. ALREADY CLAIMED GUARD — reject if issue is already assigned
+            // 4. ALREADY CLAIMED GUARD — reject if issue is already assigned
             if (issue.data.assignee) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
@@ -47,15 +67,15 @@ jobs:
               return;
             }
 
-            // 4. MAX CLAIMS GUARD — reject if user already has 3 active claims
+            // 5. MAX CLAIMS GUARD
             const claimedIssues = await github.rest.issues.listForRepo({
               owner,
               repo,
               labels: 'status: claimed',
               state: 'open'
             });
-            const userClaims = claimedIssues.data.filter(issue =>
-              issue.assignee && issue.assignee.login === username
+            const userClaims = claimedIssues.data.filter(i =>
+              i.assignee && i.assignee.login === username
             );
             if (userClaims.length >= 3) {
               await github.rest.issues.createComment({
@@ -65,7 +85,7 @@ jobs:
               return;
             }
 
-            // 5. All checks passed — assign and label
+            // 6. All checks passed — assign and label
             await github.rest.issues.addLabels({
               owner, repo, issue_number: issueNumber,
               labels: ['status: claimed']

@@ -1,4 +1,4 @@
-name: Require Linked Issue on PR — with Blocklist
+name: Require Linked Issue on PR— with Blocklist
 
 on:
   pull_request:
