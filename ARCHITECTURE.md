@@ -1,4 +1,4 @@
-# ✨Aperio — Architecture & Design Decisions
+# ✨ Aperio — Architecture & Design Decisions
 
 > *"Any fool can build a complex system. It takes a genius to build a simple one."*
 
