@@ -54,5 +54,5 @@ jobs:
 
             await github.rest.issues.createComment({
               owner, repo, issue_number: issueNumber,
-              body: `> [!SUCCESS]\n> **Claimed!** @${username}, this issue is now yours. You can start working immediately. Please link this issue in your Pull Request for payment.`
+              body: `> [!SUCCESS]\n> **Claimed!** @${username}, this issue is now yours. You can start working immediately. Please link this issue in your Pull Request once done.`
             });
