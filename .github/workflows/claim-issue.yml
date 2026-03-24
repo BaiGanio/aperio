@@ -1,0 +1,58 @@
+name: Issue Auto-Claim (Max 3)
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  check_and_claim:
+    # Only run if the comment contains /claim
+    if: contains(github.event.comment.body, '/claim')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Process Claim Request
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const username = context.payload.comment.user.login;
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issueNumber = context.issue.number;
+
+            // 1. Find all issues currently claimed by this user
+            const claimedIssues = await github.rest.issues.listForRepo({
+              owner,
+              repo,
+              labels: 'status: claimed',
+              state: 'open'
+            });
+
+            const userClaims = claimedIssues.data.filter(issue => 
+              issue.assignee && issue.assignee.login === username
+            );
+
+            // 2. Enforcement Logic
+            if (userClaims.length >= 3) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: `> [!CAUTION]\n> Sorry @${username}, you already have **3 active claims**. Please submit a PR for your existing tasks before claiming more.`
+              });
+              return;
+            }
+
+            // 3. Assign and Label the issue
+            await github.rest.issues.addLabels({
+              owner, repo, issue_number: issueNumber,
+              labels: ['status: claimed']
+            });
+
+            await github.rest.issues.update({
+              owner, repo, issue_number: issueNumber,
+              assignees: [username]
+            });
+
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: issueNumber,
+              body: `> [!SUCCESS]\n> **Claimed!** @${username}, this issue is now yours. You can start working immediately. Please link this issue in your Pull Request for payment.`
+            });
