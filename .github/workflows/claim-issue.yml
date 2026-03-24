@@ -35,11 +35,27 @@ jobs:
               console.log('No blocklist found or failed to parse — skipping block check.');
             }
             if (blockedUsers.includes(username.toLowerCase())) {
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: issueNumber,
-                body: `> [!CAUTION]\n> @${username} You are not permitted to claim issues on this project.`
+              const commentId = context.payload.comment.id;
+              console.log(`Blocking and deleting comment from ${username}`);
+
+              // Minimize the comment first (marks it as spam/inappropriate in the UI history)
+              // Note: This requires the 'minimize' capability which is part of the GraphQL API or specialized REST endpoints
+              try {
+                await github.rest.reactions.createForIssueComment({
+                  owner, repo, comment_id: commentId, content: 'thumbs_down'
+                });
+              } catch (e) { console.log("Couldn't add reaction"); }
+              
+              // Delete the comment immediately
+              await github.rest.issues.deleteComment({
+                owner,
+                repo,
+                comment_id: commentId
               });
-              return;
+
+              // Optional: Log a private message to the Action logs
+              console.log(`Successfully nuked claim attempt from blocked user: ${username}`);
+              return; // Stop execution here
             }
 
             // 2. Fetch the issue to inspect its labels
