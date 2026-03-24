@@ -9,6 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
+      contents: read # Required to read the blocklist file
     steps:
       - name: Remove stale claims
         uses: actions/github-script@v7
@@ -26,9 +27,38 @@ jobs:
             });
 
             for (const issue of issues.data) {
-              const labels = issue.labels.map(l => l.name);
-              
-              // 1. GUARD CHECK — Skip if 'status: point-of-interest' exists
+              const labels = issue.labels.map(l => l.name);;
+              const assignee = issue.assignee ? issue.assignee.login.toLowerCase() : null;
+
+              // --- LOGIC: NUKE BLOCKED USERS ---
+              if (assignee && blockedUsers.includes(assignee)) {
+                console.log(`Nuking blocked user @${assignee} from Issue #${issue.number}`);
+                
+                // Unassign and remove claim label
+                await github.rest.issues.update({
+                  owner, repo, issue_number: issue.number, assignees: []
+                });
+                if (labels.includes('status: claimed')) {
+                  await github.rest.issues.removeLabel({
+                    owner, repo, issue_number: issue.number, name: 'status: claimed'
+                  }).catch(() => {});
+                }
+
+                // Delete all comments by this blocked user on this issue
+                const comments = await github.rest.issues.listComments({
+                  owner, repo, issue_number: issue.number
+                });
+                for (const comment of comments.data) {
+                  if (blockedUsers.includes(comment.user.login.toLowerCase())) {
+                    await github.rest.issues.deleteComment({
+                      owner, repo, comment_id: comment.id
+                    });
+                  }
+                }
+                continue; // Move to next issue
+              }
+
+              // LOGIC: GUARD CHECK — Skip if 'status: point-of-interest' exists
               if (labels.includes('status: point-of-interest')) {
                 console.log(`Skipping Issue #${issue.number} - Marked as Point of Interest.`);
                 continue; 
