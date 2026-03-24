@@ -26,27 +26,35 @@ jobs:
             });
 
             for (const issue of issues.data) {
+              const labels = issue.labels.map(l => l.name);
+              
+              // 1. GUARD CHECK — Skip if 'status: point-of-interest' exists
+              if (labels.includes('status: point-of-interest')) {
+                console.log(`Skipping Issue #${issue.number} - Marked as Point of Interest.`);
+                continue; 
+              }
               const lastUpdated = new Date(issue.updated_at);
               if (lastUpdated < thresholdDate) {
-                // 1. Remove Label and Assignee
+                const previousOwner = issue.assignee.login;
+
+                // 2. Remove Claim and Assignee, ADD COOLDOWN
                 await github.rest.issues.removeLabel({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issue.number,
-                  name: 'status: claimed'
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: issue.number, name: 'status: claimed'
+                });
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: issue.number, labels: ['status: cooldown']
                 });
                 await github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issue.number,
-                  assignees: []
+                  owner: context.repo.owner, repo: context.repo.repo,
+                  issue_number: issue.number, assignees: []
                 });
-                // 2. Post Comment
+                // 3. Post "Missed It" Comment
                 await github.rest.issues.createComment({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
+                  owner: context.repo.owner, repo: context.repo.repo,
                   issue_number: issue.number,
-                  body: `> [!NOTE]\n> This claim has expired after ${daysToStale} days of inactivity. The issue is now open for others to claim. @${issue.assignee.login}, feel free to re-claim if you are still working on it!`
+                  body: `> [!CAUTION]\n> **Claim Expired.** @${previousOwner}, you missed the 7-day window. \n>\n> Per our Fair Share policy, the previous holder cannot re-claim this immediately. The issue is now open for **new** contributors. Better luck next time!`
                 });
               }
             }

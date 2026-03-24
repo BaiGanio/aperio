@@ -48,12 +48,13 @@ jobs:
             });
             const labels = issue.data.labels.map(l => l.name.toLowerCase());
 
-            // 3. BOUNTY GUARD — reject claim if no bounty label is present
-            const hasBounty = labels.some(l => l.startsWith('bounty') || l.includes('$'));
-            if (!hasBounty) {
+            // 3. BOUNTY & ROBIN-HOOD GUARD — reject claim if no valid label is present
+            const isRobinHood = labels.includes('robin-hood');
+            const isBounty = labels.some(l => l.startsWith('bounty') || l.includes('$'));
+            if (!isBounty && !isRobinHood) {
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
-                body: `> [!WARNING]\n> @${username} This issue does not have a bounty label and is not available for claiming. Only labeled bounty issues can be claimed.`
+                body: `> [!WARNING]\n> @${username} This issue does not have a bounty label and is not available for claiming. Only issues labeled with a **bounty** or **robin-hood** can be claimed.`
               });
               return;
             }
@@ -65,6 +66,21 @@ jobs:
                 body: `> [!WARNING]\n> @${username} This issue is already claimed by @${issue.data.assignee.login}.`
               });
               return;
+            }
+            if (labels.includes('status: cooldown')) {
+              // Get the last comment to see who the previous owner was
+              const comments = await github.rest.issues.listComments({
+                owner, repo, issue_number: issueNumber
+              });
+              const lastComment = comments.data.reverse().find(c => c.body.includes('Claim Expired'));
+              
+              if (lastComment && lastComment.body.includes(`@${username}`)) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issueNumber,
+                  body: `> [!STOP]\n> @${username}, you previously held this claim and let it expire. You must wait for someone else to take a shot or wait until a maintainer resets the cooldown.`
+                });
+                return;
+              }
             }
 
             // 5. MAX CLAIMS GUARD
@@ -94,7 +110,14 @@ jobs:
               owner, repo, issue_number: issueNumber,
               assignees: [username]
             });
+            // CUSTOM WELCOME LOGIC
+            let welcomeMessage = "";
+            if (isRobinHood) {
+              welcomeMessage = `> [!IMPORTANT]\n> 🏹 **Robin Hood Claimed!** @${username}, thank you for contributing your skills to the project! \n>\n> Since this is a **Robin Hood** task, you are working as a volunteer contributor. Your contribution will be tracked in our leaderboard for future rewards and recognition. Welcome to the forest! 🌲`;
+            } else {
+              welcomeMessage = `> [!NOTE]\n> ✅ **Bounty Claimed!** @${username}, this issue is now yours. A PR is expected within **7 days** for the listed bounty. Please link this issue in your Pull Request to trigger the payout process.`;
+            }
             await github.rest.issues.createComment({
               owner, repo, issue_number: issueNumber,
-              body: `> [!NOTE]\n> ✅ **Claimed!** @${username}, this issue is now yours. A PR is expected within **7 days** — if none is submitted, the issue will be reopened for others. Please link this issue in your Pull Request when done.`
+              body: welcomeMessage
             });
