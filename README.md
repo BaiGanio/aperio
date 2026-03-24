@@ -39,7 +39,7 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#security">Security</a>
   •  
-  <a href="https://github.com/BaiGanio/aperio/blob/master/ARCHITECTURE.md">Design Decisions</a>
+  <a href="https://github.com/BaiGanio/aperio/wiki/Architecture">Design Decisions</a>
   • 
 </p>
 <p align="center">
