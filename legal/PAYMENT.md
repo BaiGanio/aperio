@@ -1,4 +1,5 @@
 # 💸 Payment & Bounty Policy
+- NOTE: we are still working on this idea and we are still waiting for **[HCB](https://hcb.hackclub.com)** approval. No money flow exist at the moment you read this. Once it is official - will be announced officially.
 
 This project is fiscally sponsored by **[HCB](https://hcb.hackclub.com)**. Our finances are **100% transparent** and can be viewed by the public at our [Transparency Dashboard](https://hcb.hackclub.comprojects/YOUR-PROJECT-SLUG).
 
@@ -19,6 +20,8 @@ When the project has sufficient funding and requires deep, ongoing focus (like a
 *   - are handling PR reviews, community management and junior developers
     - are involved in server maintenance and security monitoring
     - plan the strategic long-term roadmap of the project
+*   **Eligibility:** Reserved for core maintainers which:
+*   - are handling PR reviews, community management and junior 
 
 ---
 
@@ -47,4 +50,4 @@ Once your work is merged, follow these steps:
 ---
 
 ---
-*Thank you for contributing! Your work helps keep this project open and sustainable.*
+<p align="center">Thank you for contributing! Your work helps keep this project open and sustainable.<p>
