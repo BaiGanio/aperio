@@ -92,7 +92,13 @@ export class LanceDBStore {
 
   async counts() {
     await this.refreshCache();
-    const withEmbedding = this.cache.filter(r => r.vector?.some(v => v !== 0)).length;
+    // Convert to Array if it's a typed array, or check for existence first
+    const withEmbedding = this.cache.filter(r => {
+      if (!r.vector) return false;
+      // Convert any typed array or buffer to a standard array
+      const vec = Array.from(r.vector); 
+      return vec.some(v => v !== 0);
+    }).length;;
     return { total: this.cache.length, embedded: withEmbedding };
   }
 
