@@ -70,6 +70,7 @@ jobs:
               const allComments = await github.paginate(github.rest.issues.listComments, {
                 owner, repo, issue_number: prNumber, per_page: 100
               });
+              console.log(`Found ${allComments.length} total issue comments.`);
               for (const comment of allComments) {
                 if (comment.user.login.toLowerCase() === username.toLowerCase()) {
                   // Use a try-catch for each deletion to prevent one failure from stopping the script
@@ -85,6 +86,7 @@ jobs:
               const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
                 owner, repo, pull_number: prNumber, per_page: 100
               });
+              console.log(`Found ${reviewComments.length} total review comments.`);
               for (const comment of reviewComments) {
                 if (comment.user.login.toLowerCase() === username.toLowerCase()) {
                   try {
@@ -96,7 +98,10 @@ jobs:
               }
                 
               // 3. Close PR
-              await github.rest.pulls.update({ owner, repo, pull_number: prNumber, state: 'closed' });
+              await github.rest.pulls.update({ 
+                owner, repo, pull_number: prNumber, state: 'closed', 
+                body: "This PR was NUKED due to policy violations." 
+              });
             };
 
             // ── 1. BLOCKLIST GUARD ──────────────────────────────────────────────
