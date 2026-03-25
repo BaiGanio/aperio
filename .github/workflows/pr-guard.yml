@@ -46,7 +46,8 @@ jobs:
             const fs = require('fs');
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-
+            const prData = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            
             // ── Resolve PR context ──────────────────────────────────────────────
             let prNumber, username;
             if (context.eventName === 'issue_comment') {
@@ -55,7 +56,7 @@ jobs:
             } else if (context.eventName === 'workflow_dispatch') {
               prNumber = parseInt(context.payload.inputs.pr_number);
               const dispatchedPr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-              username = dispatchedPr.data.user.login;
+              username = prData.data.user.login;
               console.log(`Manual dispatch: re-checking PR #${prNumber} by @${username}`);
             } else {
               prNumber = context.payload.pull_request.number;
@@ -83,14 +84,14 @@ jobs:
               }
 
               // 2. Delete Review comments by this user
-              const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
+              const reviewComments = await github.paginate(prData.listReviewComments, {
                 owner, repo, pull_number: prNumber, per_page: 100
               });
               console.log(`Found ${reviewComments.length} total review comments.`);
               for (const comment of reviewComments) {
                 if (comment.user.login.toLowerCase() === username.toLowerCase()) {
                   try {
-                    await github.rest.pulls.deleteReviewComment({ owner, repo, comment_id: comment.id });
+                    prData.deleteReviewComment({ owner, repo, comment_id: comment.id });
                   } catch (e) {
                     console.log(`Failed to delete review comment ${comment.id}: ${e.message}`);
                   }
@@ -98,9 +99,10 @@ jobs:
               }
                 
               // 3. Close PR
-              await github.rest.pulls.update({ 
+              await prData.update({ 
                 owner, repo, pull_number: prNumber, state: 'closed', 
-                body: "This PR was NUKED due to policy violations." 
+                body: "This PR was NUKED due to policy violations.",
+                title: `[REMOVED] PR #${prNumber}` 
               });
             };
 
@@ -118,7 +120,7 @@ jobs:
             }
 
             // ── 2. LINKED ISSUE GUARD & ASSIGNEE GUARD ──────────────────────────────────
-            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const pr = prData.get({ owner, repo, pull_number: prNumber });
             const title = pr.data.title || '';
             const linkRegex = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/i;
             const match = title.match(linkRegex);
