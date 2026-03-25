@@ -14,12 +14,13 @@ Thanks for your interest in contributing. Aperio is early-stage and moving fast 
 
 This project pays contributors through a **bounty model** — look for labeled issues on GitHub to see reward amounts.
 
+- ✍️ Please read [Contributor Agreement](https://github.com/BaiGanio/aperio/blob/master/.github/CONTRIBUTOR_AGREEMENT.md) and accept the terms by commenting in [Contributor Agreement Sign-On](https://github.com/BaiGanio/aperio/issues/36)
 - 📄 [Payment & Bounty Policy](https://github.com/BaiGanio/aperio/discussions/22) — how to claim, get paid, and what each tier earns
 - 🧭 [Project Lead Policy](https://github.com/BaiGanio/aperio/discussions/23) — the Lead's rate, cap, and the fair share values behind it
 
 > Funded through [HCB](https://hcb.hackclub.com). All finances are publicly transparent.
 
-## Before opening a PR
+## Before submitting your first PR
 
 - Keep changes focused — one fix or feature per PR
 - Test your changes locally with at least one model
