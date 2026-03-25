@@ -2,7 +2,16 @@ name: Require Linked Issue on PR— with Blocklist
 
 on:
   pull_request:
-    types: [opened]
+    types: [opened, synchronize, closed]
+    # Do not trigger if ONLY these files are changed
+    paths-ignore:
+      - 'package-lock.json'
+      - 'yarn.lock'
+      - 'pnpm-lock.yaml'
+      - '.gitignore'
+      - '.prettierrc'
+      - '.editorconfig'
+      - 'LEADERBOARD.md'
 
 jobs:
   check_pr:

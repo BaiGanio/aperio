@@ -18,10 +18,10 @@ jobs:
       - name: Check Commit Format
         id: lint
         run: |
-          # Get the message of the latest commit in the PR
-          MSG=$(git log -1 --pretty=%s)
+          # Use the PR Title instead of the git log
+          TITLE="${{ github.event.pull_request.title }}"
           
-          if [[ "$MSG" =~ ^(feat|fix|chore|refactor|docs): ]]; then
+          if [[ "$TITLE" =~ ^(feat|fix|chore|refactor|docs): ]]; then
             echo "valid=true" >> $GITHUB_OUTPUT
           else
             echo "valid=false" >> $GITHUB_OUTPUT
