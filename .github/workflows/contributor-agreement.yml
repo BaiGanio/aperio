@@ -1,19 +1,15 @@
 name: Contributor Agreement
 
 on:
-  pull_request_target:
-    types: [opened, reopened]
   issue_comment:
     types: [created]
 
 jobs:
   agreement:
-    # Run on new PRs, or on PR comments containing "I agree"
+    # Run on issue comments containing "I agree"
     if: |
-      github.event_name == 'pull_request_target' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.pull_request != null &&
-       contains(github.event.comment.body, 'I agree'))
+      github.event.issue.pull_request == null &&
+      contains(github.event.comment.body, 'I agree')
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -81,7 +77,6 @@ jobs:
             );
 
             if (!hasAgreed) {
-              // Prompt once per PR
               const alreadyPrompted = comments.some(
                 c => c.user.login === 'github-actions[bot]' &&
                      c.body.includes('Contributor Agreement')
@@ -114,9 +109,9 @@ jobs:
             } catch (e) { /* use username as fallback */ }
 
             const today  = new Date().toISOString().split('T')[0];
-            const newRow = `| ${fullName} | @${username} | #${prNumber} | ${today} | ${currentVersion} |\n`;
+            const newRow = `| ${fullName} | @${username} | #${issue_number} | ${today} | ${currentVersion} |\n`;
             const header =
-              `| Name | GitHub | Sign-on PR | Date | Agreement Version |\n` +
+              `| Name | GitHub | Sign-on Issue | Date | Agreement Version |\n` +
               `|------|--------|------------|------|-------------------|\n`;
 
             if (!contributorsContent) {
