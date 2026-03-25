@@ -9,9 +9,8 @@ This document tracks all contributions to the project.
 | Rank | Contributor | Total XP | Tasks Completed | Primary Role | Last Active |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 <!-- LEDGER_ROWS_START -->
-
-
 | 1 | @[YourName] | 5000 | 120 | Lead Architect | 2026-03-24 |
+| 2 | @BaiGanio | 100 | 1 | 🏹 Robin Hood | 2026-03-25 |
 <!-- LEDGER_ROWS_END -->
 
 ---
