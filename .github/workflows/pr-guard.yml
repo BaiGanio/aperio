@@ -94,7 +94,7 @@ jobs:
               for (const comment of reviewComments) {
                 if (comment.user && comment.user.login.toLowerCase() === username.toLowerCase()) {
                   try {
-                    prData.deleteReviewComment({ owner, repo, comment_id: comment.id });
+                    await github.rest.pulls.deleteReviewComment({ owner, repo, comment_id: comment.id });
                   } catch (e) {
                     console.log(`Failed to delete review comment ${comment.id}: ${e.message}`);
                   }
@@ -162,8 +162,25 @@ jobs:
               return;
             }
 
-            // ── 4. CONTRIBUTOR AGREEMENT GUARD ─────────────────────────────────
+            // ── 3.5 AUTO-LABEL FOR RELEASE NOTES ────────────────────────────────
+            const prTitle = prData.title.toLowerCase();
+            let autoLabel = "";
 
+            if (prTitle.startsWith("feat")) autoLabel = "feat";
+            else if (prTitle.startsWith("fix")) autoLabel = "fix";
+            else if (prTitle.startsWith("chore")) autoLabel = "chore";
+            else if (prTitle.startsWith("docs")) autoLabel = "docs";
+
+            if (autoLabel) {
+              console.log(`Auto-labeling PR as: ${autoLabel}`);
+              await github.rest.issues.addLabels({
+                owner, repo,
+                issue_number: prNumber,
+                labels: [autoLabel]
+              });
+            }
+
+            // ── 4. CONTRIBUTOR AGREEMENT GUARD ─────────────────────────────────
             // -- Read current agreement version from CONTRIBUTOR_AGREEMENT.md
             let currentVersion = '1.0';
             try {
