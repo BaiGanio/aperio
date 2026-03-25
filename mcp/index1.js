@@ -1,20 +1,28 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import pg from "pg";
 
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import { dirname, resolve, join, extname, basename } from "path";
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import fs from "fs/promises";
-import { createVectorStore } from '../db/index.js';
 
 // ─── Load .env ────────────────────────────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, "../.env") });
 
-// ─── DB ───────────────────────────────────────────────────────────────────────
-const store = await createVectorStore();
+// ─── Clients ──────────────────────────────────────────────────────────────────
+const db = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+
+try {
+  await db.query("SELECT 1");
+  console.error("✅ Connected to Aperio database");
+} catch (err) {
+  console.error("❌ Database connection failed:", err.message);
+  process.exit(1);
+}
 
 // ─── Path safety ──────────────────────────────────────────────────────────────
 const ALLOWED_PATHS = (process.env.APERIO_ALLOWED_PATHS || process.cwd())
@@ -28,15 +36,29 @@ function isPathAllowed(filePath) {
   return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed + "/") || resolved === allowed);
 }
 
+// ─── Warning: Path safety - tools can access any absolute path on your machine ─────────
+// const ALLOWED_PATHS = (process.env.APERIO_ALLOWED_PATHS || process.env.HOME || "/root")
+//   .split(",")
+//   .map(p => p.trim().replace(/^~/, process.env.HOME || "/root"));
+
+// function isPathAllowed(filePath) {
+//   const resolved = filePath.startsWith("~")
+//     ? filePath.replace("~", process.env.HOME || "/root")
+//     : filePath;
+//   return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed + "/") || resolved === allowed);
+// }
+
 // ─── Embeddings ───────────────────────────────────────────────────────────────
 let vectorEnabled = true;
-const { total, embedded: embCount } = await store.counts();
-
+const { rows: embRows } = await db.query("SELECT COUNT(*) as c FROM memories WHERE embedding IS NOT NULL");
+const embCount = parseInt(embRows[0].c);
+const { rows: totalRows } = await db.query("SELECT COUNT(*) as c FROM memories");
+const total = parseInt(totalRows[0].c);
 if (embCount === 0) {
-  console.error(`✅ Vector store ready — ⚠️  no embeddings yet (${total} memories) — using full-text search.`);
-  console.error(`✅ Call 'backfill my embeddings' to generate embeddings for existing memories.`);
+  console.error(`✅ pgvector enabled — ⚠️  no embeddings yet (${total} memories) — using full-text search.`);
+  console.error(`✅ pgvector enabled — ⚠️  Call 'backfill my embeddings' to generate embeddings for existing memories.`);
 } else {
-  console.error(`✅ Vector store ready — semantic search active (${embCount}/${total} memories embedded)`);
+  console.error(`✅ pgvector enabled — semantic search active (${embCount}/${total} memories embedded)`);
 }
 
 async function generateEmbedding(text, inputType = "document") {
@@ -47,7 +69,9 @@ async function generateEmbedding(text, inputType = "document") {
   // ─── Ollama (fully local, air-gapped) ──────────────────────────────────────
   if (provider === "ollama") {
     const model = process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text";
+    // console.error("🔍 embedding model:", model, "| provider:", provider);
     const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    // console.error("🔍 embedding model:", model, "| base:", baseUrl);
     try {
       const response = await fetch(`${baseUrl}/api/embed`, {
         method: "POST",
@@ -56,6 +80,7 @@ async function generateEmbedding(text, inputType = "document") {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
+      //console.error("🔍 embed raw:", JSON.stringify(data).substring(0, 300));
       return data.embeddings?.[0];
     } catch (err) {
       console.error("⚠️  Ollama embedding failed:", err.message, "| model:", model, "| url:", baseUrl);
@@ -90,6 +115,10 @@ async function generateEmbedding(text, inputType = "document") {
   }
 }
 
+function embeddingToSQL(embedding) {
+  return `[${embedding.join(",")}]`;
+}
+
 // ─── MCP Server ───────────────────────────────────────────────────────────────
 const server = new McpServer({ name: "aperio", version: "2.0.0" });
 
@@ -108,17 +137,20 @@ server.registerTool(
     }),
   },
   async ({ type, title, content, tags, importance, expires_at }) => {
-    const embedding = await generateEmbedding(`${title}. ${content}`);
-    const source = process.env.AI_PROVIDER === "ollama"
-      ? (process.env.OLLAMA_MODEL || "ollama")
-      : (process.env.ANTHROPIC_MODEL || "claude");
+    const textToEmbed = `${title}. ${content}`;
+    const embedding = await generateEmbedding(textToEmbed);
 
-    const mem = await store.insert(
-      { type, title, content, tags: tags ?? [], importance: importance ?? 3,
-        expires_at: expires_at ? new Date(expires_at) : undefined, source },
-      embedding
+    const result = await db.query(
+      `INSERT INTO memories (type, title, content, tags, importance, expires_at, source, embedding)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id, title, type`,
+      [
+        type, title, content,
+        tags ?? [], importance ?? 3, expires_at ?? null,
+        process.env.AI_PROVIDER === "ollama" ? (process.env.OLLAMA_MODEL || "ollama") : (process.env.ANTHROPIC_MODEL || "claude"),
+        embedding ? embeddingToSQL(embedding) : null,
+      ]
     );
-
+    const mem = result.rows[0];
     const embeddingNote = embedding ? " (with semantic embedding)" : "";
     return {
       content: [{ type: "text", text: `✅ Memory saved [${mem.type}] "${mem.title}"${embeddingNote} (id: ${mem.id})` }],
@@ -140,27 +172,80 @@ server.registerTool(
     }),
   },
   async ({ query, type, tags, limit: _limit, search_mode = "auto" }) => {
-    const limit = _limit !== undefined ? parseInt(_limit, 10) : 10;
+    const limit = _limit !== undefined ? parseInt(_limit, 10) : undefined;
+    const maxResults = limit ?? 10;
+    let rows = [];
 
-    const queryEmbedding = (query && vectorEnabled && search_mode !== "fulltext")
-      ? await generateEmbedding(query, "query")
-      : null;
+    const useSemanticSearch =
+      query &&
+      vectorEnabled &&
+      (search_mode === "semantic" || search_mode === "auto");
 
-    const rows = await store.recall({ query, queryEmbedding, type, tags, limit, mode: search_mode });
+    if (useSemanticSearch) {
+      const queryEmbedding = await generateEmbedding(query, "query");
+      if (queryEmbedding) {
+        let conditions = ["(expires_at IS NULL OR expires_at > now())", "embedding IS NOT NULL"];
+        let params = [embeddingToSQL(queryEmbedding)];
+        let idx = 2;
+
+        if (type)             { conditions.push(`type = $${idx++}`);  params.push(type); }
+        if (tags?.length > 0) { conditions.push(`tags && $${idx++}`); params.push(tags); }
+
+        params.push(maxResults);
+        const result = await db.query(
+          `SELECT id, type, title, content, tags, importance, created_at,
+                  1 - (embedding <=> $1::vector) AS similarity
+           FROM memories
+           WHERE ${conditions.join(" AND ")}
+           ORDER BY embedding <=> $1::vector
+           LIMIT $${idx}`,
+          params
+        );
+        rows = result.rows;
+      }
+    }
+
+    if (!rows.length) {
+      let conditions = ["(expires_at IS NULL OR expires_at > now())"];
+      let params = [];
+      let idx = 1;
+
+      if (type)             { conditions.push(`type = $${idx++}`);  params.push(type); }
+      if (tags?.length > 0) { conditions.push(`tags && $${idx++}`); params.push(tags); }
+
+      if (query) {
+        conditions.push(`to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', $${idx++})`);
+        params.push(query);
+      }
+
+      params.push(maxResults);
+      const result = await db.query(
+        `SELECT id, type, title, content, tags, importance, created_at
+         FROM memories WHERE ${conditions.join(" AND ")}
+         ORDER BY importance DESC, created_at DESC LIMIT $${idx}`,
+        params
+      );
+      rows = result.rows;
+    }
 
     if (!rows.length)
       return { content: [{ type: "text", text: "No memories found." }] };
 
-    const usedSemantic = rows[0]?.similarity !== undefined;
-    console.error(`🔍 recall: ${usedSemantic ? "semantic" : "full-text"} | results: ${rows.length}`);
-
+    const searchMode = useSemanticSearch && rows[0]?.similarity !== undefined
+      ? "semantic" : "full-text";
+    console.log(`🔍 recall: ${useSemanticSearch ? "semantic" : "full-text"} | results: ${rows.length}`);
     const formatted = rows.map(m => {
       const simNote = m.similarity !== undefined
         ? ` [similarity: ${(m.similarity * 100).toFixed(0)}%]` : "";
       return `[${m.type.toUpperCase()}] ${m.title}${simNote} (importance: ${m.importance})\n${m.content}\nTags: ${(m.tags||[]).join(", ")||"none"}\nID: ${m.id}`;
     }).join("\n---\n");
 
-    return { content: [{ type: "text", text: formatted }] };
+    return {
+      content: [{
+        type: "text",
+        text: `${formatted}`
+      }]
+    };
   }
 );
 
@@ -178,26 +263,32 @@ server.registerTool(
     }),
   },
   async ({ id, title, content, tags, importance }) => {
-    const current = await store.getById(id);
-    if (!current) return { content: [{ type: "text", text: `❌ No memory found: ${id}` }] };
+    const current = await db.query(`SELECT title, content FROM memories WHERE id = $1`, [id]);
+    if (!current.rowCount) return { content: [{ type: "text", text: `❌ No memory found: ${id}` }] };
 
-    const input = {};
-    if (title)      input.title      = title;
-    if (content)    input.content    = content;
-    if (tags)       input.tags       = tags;
-    if (importance) input.importance = importance;
-    if (!Object.keys(input).length)
-      return { content: [{ type: "text", text: "❌ No fields to update." }] };
+    const fields = [], params = [];
+    let idx = 1;
+    if (title)      { fields.push(`title = $${idx++}`);      params.push(title); }
+    if (content)    { fields.push(`content = $${idx++}`);    params.push(content); }
+    if (tags)       { fields.push(`tags = $${idx++}`);       params.push(tags); }
+    if (importance) { fields.push(`importance = $${idx++}`); params.push(importance); }
+    if (!fields.length) return { content: [{ type: "text", text: "❌ No fields to update." }] };
 
-    let embedding;
     if ((title || content) && vectorEnabled) {
-      const newTitle   = title   ?? current.title;
-      const newContent = content ?? current.content;
-      embedding = await generateEmbedding(`${newTitle}. ${newContent}`);
+      const newTitle   = title   ?? current.rows[0].title;
+      const newContent = content ?? current.rows[0].content;
+      const embedding  = await generateEmbedding(`${newTitle}. ${newContent}`);
+      if (embedding) {
+        fields.push(`embedding = $${idx++}`);
+        params.push(embeddingToSQL(embedding));
+      }
     }
 
-    const updated = await store.update(id, input, embedding);
-    return { content: [{ type: "text", text: `✅ Updated: "${updated.title}"` }] };
+    params.push(id);
+    const result = await db.query(
+      `UPDATE memories SET ${fields.join(", ")} WHERE id = $${idx} RETURNING title`, params
+    );
+    return { content: [{ type: "text", text: `✅ Updated: "${result.rows[0].title}"` }] };
   }
 );
 
@@ -209,9 +300,9 @@ server.registerTool(
     inputSchema: z.object({ id: z.string().uuid().describe("UUID of the memory to delete") }),
   },
   async ({ id }) => {
-    const title = await store.delete(id);
-    if (!title) return { content: [{ type: "text", text: `❌ No memory found: ${id}` }] };
-    return { content: [{ type: "text", text: `🗑️ Forgotten: "${title}"` }] };
+    const result = await db.query(`DELETE FROM memories WHERE id = $1 RETURNING title`, [id]);
+    if (!result.rowCount) return { content: [{ type: "text", text: `❌ No memory found: ${id}` }] };
+    return { content: [{ type: "text", text: `🗑️ Forgotten: "${result.rows[0].title}"` }] };
   }
 );
 
@@ -227,15 +318,19 @@ server.registerTool(
   async ({ limit = 20 }) => {
     if (!vectorEnabled) return { content: [{ type: "text", text: "❌ pgvector not enabled." }] };
 
-    const pending = (await store.listWithoutEmbeddings()).slice(0, limit);
-    if (!pending.length)
+    const result = await db.query(
+      `SELECT id, title, content FROM memories WHERE embedding IS NULL LIMIT $1`, [limit]
+    );
+
+    if (!result.rowCount)
       return { content: [{ type: "text", text: "✅ All memories already have embeddings!" }] };
 
     let success = 0, failed = 0;
-    for (const row of pending) {
+    for (const row of result.rows) {
       const embedding = await generateEmbedding(`${row.title}. ${row.content}`);
       if (embedding) {
-        await store.setEmbedding(row.id, embedding);
+        await db.query(`UPDATE memories SET embedding = $1 WHERE id = $2`,
+          [embeddingToSQL(embedding), row.id]);
         success++;
       } else {
         failed++;
@@ -245,51 +340,9 @@ server.registerTool(
     return {
       content: [{
         type: "text",
-        text: `✅ Backfill complete: ${success} embedded, ${failed} failed. ${pending.length - success - failed} remaining.`
+        text: `✅ Backfill complete: ${success} embedded, ${failed} failed. ${result.rowCount - success - failed} remaining.`
       }]
     };
-  }
-);
-
-// ─── TOOL: dedup_memories ─────────────────────────────────────────────────────
-server.registerTool(
-  "dedup_memories",
-  {
-    description: "Find near-duplicate memories using cosine similarity. In dry_run mode just reports duplicates. When dry_run=false, merges them.",
-    inputSchema: z.object({
-      threshold: z.number().min(0.5).max(1.0).optional().describe("Similarity threshold 0-1, default 0.97"),
-      dry_run: z.boolean().optional().describe("If true, only report duplicates without merging. Default true."),
-    }),
-  },
-  async ({ threshold = 0.97, dry_run = true }) => {
-    if (!vectorEnabled)
-      return { content: [{ type: "text", text: "❌ Vector search not enabled — dedup requires embeddings." }] };
-
-    const pairs = await store.findDuplicates(threshold);
-    if (!pairs.length)
-      return { content: [{ type: "text", text: `✅ No duplicates found above ${(threshold * 100).toFixed(0)}% similarity.` }] };
-
-    let report = `Found ${pairs.length} near-duplicate pair(s):\n\n`;
-    let merged = 0;
-
-    for (const row of pairs) {
-      report += `[${(row.similarity * 100).toFixed(1)}% similar]\n`;
-      report += `  A: [${row.type_a}] "${row.title_a}" (${row.id_a})\n`;
-      report += `  B: [${row.type_b}] "${row.title_b}" (${row.id_b})\n\n`;
-
-      if (!dry_run) {
-        await store.mergeDuplicate(row.id_a, row.id_b);
-        merged++;
-      }
-    }
-
-    if (!dry_run) {
-      report += `\n🧹 Merged ${merged} duplicate(s).`;
-    } else {
-      report += `Run with dry_run=false to merge these automatically.`;
-    }
-
-    return { content: [{ type: "text", text: report }] };
   }
 );
 
@@ -299,8 +352,8 @@ const ALLOWED_EXTENSIONS = new Set([
   ".json", ".yaml", ".yml", ".toml", ".md", ".txt", ".html",
   ".css", ".sql", ".sh", ".env.example"
 ]);
-const READ_FILE_CHUNK_SIZE  = 500;
-const READ_FILE_MAX_OFFSET  = 10_000;
+const READ_FILE_CHUNK_SIZE = 500;   // max lines per read_file call
+const READ_FILE_MAX_OFFSET = 10_000; // safety ceiling for chunked reads
 
 server.registerTool(
   "read_file",
@@ -308,7 +361,7 @@ server.registerTool(
     description: "Read a file from disk. Max 500 lines. Only reads code and text files.",
     inputSchema: z.object({
       path: z.string().describe("Absolute path to the file"),
-      max_lines: z.number().min(1).max(READ_FILE_CHUNK_SIZE).optional()
+       max_lines: z.number().min(1).max(READ_FILE_CHUNK_SIZE).optional()
         .describe(`Max lines to read, default ${READ_FILE_CHUNK_SIZE}`),
       offset: z.number().min(0).max(READ_FILE_MAX_OFFSET).optional()
         .describe("Line number to start reading from, default 0"),
@@ -326,8 +379,10 @@ server.registerTool(
 
     const lines = readFileSync(filePath, "utf-8").split("\n");
     const limit = Math.min(max_lines ?? READ_FILE_CHUNK_SIZE, READ_FILE_CHUNK_SIZE);
+
+    // WHY: clamp offset so we never read past the safety ceiling or end of file
     const start = Math.min(offset, lines.length, READ_FILE_MAX_OFFSET);
-    const end   = start + limit;
+    const end = start + limit;
     const chunk = lines.slice(start, end);
     const truncated = end < lines.length;
 
@@ -341,9 +396,9 @@ server.registerTool(
 );
 
 // ─── TOOL: scan_project ───────────────────────────────────────────────────────
-const SKIP_DIRS  = new Set(["node_modules", ".git", ".next", "dist", "build", "coverage", "__pycache__", ".venv", "venv"]);
-const KEY_FILES  = new Set(["package.json", "README.md", "readme.md", "pyproject.toml", "Cargo.toml", "go.mod", "docker-compose.yml"]);
-const CODE_EXTS  = new Set([".js", ".ts", ".py", ".go", ".rs", ".java", ".jsx", ".tsx"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", ".next", "dist", "build", "coverage", "__pycache__", ".venv", "venv"]);
+const KEY_FILES = new Set(["package.json", "README.md", "readme.md", "pyproject.toml", "Cargo.toml", "go.mod", "docker-compose.yml"]);
+const CODE_EXTS = new Set([".js", ".ts", ".py", ".go", ".rs", ".java", ".jsx", ".tsx"]);
 
 server.registerTool(
   "scan_project",
@@ -445,11 +500,82 @@ server.registerTool(
   }
 );
 
+// ─── TOOL: dedup_memories ─────────────────────────────────────────────────────
+server.registerTool(
+  "dedup_memories",
+  {
+    description: "Find near-duplicate memories using pgvector cosine similarity. In dry_run mode just reports duplicates. When dry_run=false, merges them.",
+    inputSchema: z.object({
+      threshold: z.number().min(0.5).max(1.0).optional().describe("Similarity threshold 0-1, default 0.97"),
+      dry_run: z.boolean().optional().describe("If true, only report duplicates without merging. Default true."),
+    }),
+  },
+  async ({ threshold = 0.97, dry_run = true }) => {
+    if (!vectorEnabled)
+      return { content: [{ type: "text", text: "❌ pgvector not enabled — dedup requires embeddings." }] };
+
+    const result = await db.query(
+      `SELECT
+         a.id AS id_a, a.title AS title_a, a.type AS type_a,
+         b.id AS id_b, b.title AS title_b, b.type AS type_b,
+         1 - (a.embedding <=> b.embedding) AS similarity
+       FROM memories a
+       JOIN memories b ON a.id < b.id
+       WHERE a.embedding IS NOT NULL
+         AND b.embedding IS NOT NULL
+         AND 1 - (a.embedding <=> b.embedding) >= $1
+       ORDER BY similarity DESC
+       LIMIT 20`,
+      [threshold]
+    );
+
+    if (!result.rows.length)
+      return { content: [{ type: "text", text: `✅ No duplicates found above ${(threshold * 100).toFixed(0)}% similarity.` }] };
+
+    let report = `Found ${result.rows.length} near-duplicate pair(s):\n\n`;
+    let merged = 0;
+
+    for (const row of result.rows) {
+      report += `[${(row.similarity * 100).toFixed(1)}% similar]\n`;
+      report += `  A: [${row.type_a}] "${row.title_a}" (${row.id_a})\n`;
+      report += `  B: [${row.type_b}] "${row.title_b}" (${row.id_b})\n\n`;
+
+      if (!dry_run) {
+        const details = await db.query(
+          `SELECT content FROM memories WHERE id = $1`, [row.id_b]
+        );
+        const contentB = details.rows[0]?.content || "";
+        const detailsA = await db.query(
+          `SELECT content FROM memories WHERE id = $1`, [row.id_a]
+        );
+        const contentA = detailsA.rows[0]?.content || "";
+
+        if (contentB && !contentA.includes(contentB.slice(0, 40))) {
+          await db.query(
+            `UPDATE memories SET content = content || ' | ' || $1 WHERE id = $2`,
+            [contentB, row.id_a]
+          );
+        }
+        await db.query(`DELETE FROM memories WHERE id = $1`, [row.id_b]);
+        merged++;
+      }
+    }
+
+    if (!dry_run) {
+      report += `\n🧹 Merged ${merged} duplicate(s).`;
+    } else {
+      report += `Run with dry_run=false to merge these automatically.`;
+    }
+
+    return { content: [{ type: "text", text: report }] };
+  }
+);
+
 // ─── TOOL: write_file ─────────────────────────────────────────────────────────
 server.registerTool(
   "write_file",
   {
-    description: "Write content to a file on disk. Creates the file if it doesn't exist, overwrites if it does.",
+    description: "Write content to a file on disk. Creates the file if it doesn't exist, overwrites if it does. Use read_file first to inspect before editing.",
     inputSchema: z.object({
       path: z.string().describe("Absolute or ~ path to the file to write"),
       content: z.string().describe("Full content to write to the file"),
@@ -459,7 +585,9 @@ server.registerTool(
   async ({ path: filePath, content, create_dirs = true }) => {
     try {
       const resolved = filePath.startsWith("~")
-        ? filePath.replace("~", process.cwd()) : filePath;
+        ? filePath.replace("~", process.cwd())
+        // ? filePath.replace("~", process.env.HOME || "/root") // Warning: Path safety - this allows access to the entire home directory.
+        : filePath;
 
       if (!isPathAllowed(filePath)) {
         return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
@@ -471,9 +599,13 @@ server.registerTool(
       }
 
       let existingSize = null;
-      try { existingSize = (await fs.stat(resolved)).size; } catch {}
+      try {
+        const stat = await fs.stat(resolved);
+        existingSize = stat.size;
+      } catch { /* file doesn't exist yet */ }
 
       await fs.writeFile(resolved, content, "utf8");
+
       const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
       const msg = existingSize !== null
         ? `✅ Overwrote ${resolved} (${sizeKb} KB, was ${(existingSize / 1024).toFixed(1)} KB)`
@@ -490,7 +622,7 @@ server.registerTool(
 server.registerTool(
   "append_file",
   {
-    description: "Append content to the end of an existing file without touching the rest.",
+    description: "Append content to the end of an existing file without touching the rest. Use this for 'add to', 'append', 'write at the bottom' requests. Returns before/after line count and the last 5 lines as proof.",
     inputSchema: z.object({
       path: z.string().describe("Absolute path to the file"),
       content: z.string().describe("Content to append (added at the end of the file)"),
@@ -499,19 +631,22 @@ server.registerTool(
   async ({ path: filePath, content }) => {
     try {
       const resolved = filePath.startsWith("~")
-        ? filePath.replace("~", process.cwd()) : filePath;
+        ? filePath.replace("~", process.cwd())
+        // ? filePath.replace("~", process.env.HOME || "/root") // Warning: Path safety - this allows access to the entire home directory.
+        : filePath;
 
       if (!isPathAllowed(filePath)) {
         return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
       }
+
       if (!existsSync(resolved))
         return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
 
       const before = (await fs.readFile(resolved, "utf8")).split("\n");
       await fs.appendFile(resolved, content, "utf8");
       const after = (await fs.readFile(resolved, "utf8")).split("\n");
-      const tail  = after.slice(-5).join("\n");
 
+      const tail = after.slice(-5).join("\n");
       return {
         content: [{ type: "text", text: `✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}` }]
       };

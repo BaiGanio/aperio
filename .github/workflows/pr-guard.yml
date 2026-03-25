@@ -50,37 +50,40 @@ jobs:
             }
 
             // 2. LINKED ISSUE GUARD
-            const body = context.payload.pull_request.body || '';
-            const hasLink = /(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#\d+/i.test(body);
-            if (!hasLink) {
+            const title = context.payload.pull_request.title || '';
+            // Regex to find "Closes #123", "Fixes #456", etc. in the title
+            const linkRegex = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/i;
+            const match = title.match(linkRegex);
+
+            if (!match) {
               await closeAndComment(
-                `> [!CAUTION]\n> This PR has been closed — it does not reference a claimed issue.\n> Please claim an issue first using \`/claim\`, then link it in your PR with \`Closes #123\`.`
+                `> [!CAUTION]\n> This PR has been closed because the **title** does not reference a claimed issue.\n> Please rename your PR to include the issue link, e.g., \`feat: add login logic (Closes #123)\`.`
               );
               return;
             }
 
-            // 3. CLAIMED BY THIS USER GUARD — extract issue number and verify ownership
-            const match = body.match(/(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#(\d+)/i);
-            if (match) {
-              const linkedIssueNumber = parseInt(match[3]);
-              try {
-                const linkedIssue = await github.rest.issues.get({
-                  owner, repo, issue_number: linkedIssueNumber
-                });
-                const assignee = linkedIssue.data.assignee?.login;
-                if (!assignee) {
-                  await closeAndComment(
-                    `> [!CAUTION]\n> @${username} Issue #${linkedIssueNumber} has not been claimed. Please comment \`/claim\` on the issue before submitting a PR.`
-                  );
-                  return;
-                }
-                if (assignee.toLowerCase() !== username.toLowerCase()) {
-                  await closeAndComment(
-                    `> [!CAUTION]\n> @${username} Issue #${linkedIssueNumber} is claimed by @${assignee}, not you. You can only submit PRs for issues you have claimed.`
-                  );
-                  return;
-                }
-              } catch (e) {
-                console.log(`Could not fetch linked issue #${linkedIssueNumber}:`, e.message);
+            // 3. CLAIMED BY THIS USER GUARD — Extract ID from the title match
+            const linkedIssueNumber = parseInt(match[1]);
+            try {
+              const linkedIssue = await github.rest.issues.get({
+                owner, repo, issue_number: linkedIssueNumber
+              });
+              
+              const assignee = linkedIssue.data.assignee?.login;
+              
+              if (!assignee) {
+                await closeAndComment(
+                  `> [!CAUTION]\n> @${username} Issue #${linkedIssueNumber} (referenced in title) has not been claimed. Please comment \`/claim\` on the issue first.`
+                );
+                return;
               }
+
+              if (assignee.toLowerCase() !== username.toLowerCase()) {
+                await closeAndComment(
+                  `> [!CAUTION]\n> @${username} Issue #${linkedIssueNumber} is claimed by @${assignee}. You can only submit PRs for issues you have claimed.`
+                );
+                return;
+              }
+            } catch (e) {
+              console.log(`Could not fetch linked issue #${linkedIssueNumber}:`, e.message);
             }

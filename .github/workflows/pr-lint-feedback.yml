@@ -56,4 +56,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --delete "${{ steps.fc.outputs.comment-id }}"
+          gh api -X DELETE /repos/${{ github.repository }}/issues/comments/${{ steps.fc.outputs.comment-id }}
