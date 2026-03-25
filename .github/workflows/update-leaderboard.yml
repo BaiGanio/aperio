@@ -1,5 +1,10 @@
 name: Update Leaderboard
 on:
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR Number to manually award XP for'
+        required: true
   pull_request:
     types: [closed]
     # Removed the branches: [master] filter to catch EVERY merge
@@ -24,7 +29,16 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
+            const fs = require('fs');              
+            const prAuthor = context.payload.pull_request.user.login;
+            const labels = context.payload.pull_request.labels.map(l => l.name.toLowerCase());
+            const prNumber = context.payload.pull_request?.number || context.payload.inputs?.pr_number;
+
+            // Fetch files in this PR
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner, repo, pull_number: prNumber
+            });
+
             // 1. FILES TO IGNORE (XP-Grinder Filter)
             const noiseFiles = [
               'package-lock.json',
@@ -36,10 +50,6 @@ jobs:
               '.editorconfig',
               'LEADERBOARD.md' // Prevent recursion
             ];
-            // Fetch files in this PR
-            const { data: files } = await github.rest.pulls.listFiles({
-              owner, repo, pull_number: prNumber
-            });
 
             const fileNames = files.map(f => f.filename);
 
@@ -50,9 +60,6 @@ jobs:
               console.log("XP Filter: PR contains only lockfiles or configs. Skipping leaderboard.");
               return; 
             }
-              
-            const prAuthor = context.payload.pull_request.user.login;
-            const labels = context.payload.pull_request.labels.map(l => l.name.toLowerCase());
 
             // 1. Calculate Points
             let points = 0;
