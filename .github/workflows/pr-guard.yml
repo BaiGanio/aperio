@@ -104,6 +104,19 @@ jobs:
                 body: "This PR was NUKED due to policy violations.",
                 title: `[REMOVED] PR #${prNumber}` 
               });
+
+              // Optional: Delete the branch (only if it's NOT a fork)
+              try {
+                if (!prData.data.head.repo.fork) {
+                  const branchName = prData.data.head.ref;
+                  await github.rest.git.deleteRef({
+                    owner, repo, ref: `heads/${branchName}`
+                  });
+                  console.log(`Branch ${branchName} deleted.`);
+                }
+              } catch (e) {
+                console.log("Could not delete branch (likely a fork or already gone).");
+              }
             };
 
             // ── 1. BLOCKLIST GUARD ──────────────────────────────────────────────
