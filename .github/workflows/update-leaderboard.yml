@@ -126,12 +126,7 @@ jobs:
 
             if (startIndex === -1 || endIndex === -1) {
               throw new Error("Markers not found in LEADERBOARD.md");
-            }              
-            // Headers that MUST stay at the top of the table
-            const tableHeader = [
-              '| Rank | Contributor | Total XP | Tasks Completed | Primary Role | Last Active |',
-              '| :--- | :--- | :--- | :--- | :--- | :--- |'
-            ];
+            }   
 
             // Extract ONLY data rows (skipping headers)
             let rows = lines.slice(startIndex + 1, endIndex)
@@ -167,7 +162,8 @@ jobs:
             const finalTable = [
               startMarker,
               "", // Space for Markdown rendering
-              tableHeader,
+              '| Rank | Contributor | Total XP | Tasks Completed | Primary Role | Last Active |',
+              '| :--- | :--- | :--- | :--- | :--- | :--- |'
               ...finalRows,
               "", // Mandatory empty line for Markdown parsing
               endMarker
