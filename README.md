@@ -530,6 +530,8 @@ If a model attempts to write outside the allowed paths, the operation is blocked
 
 💡 Check out our wiki page [Path safety](https://github.com/BaiGanio/aperio/wiki/Path-Safety) for more details.
 
+> DELETE-ME
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
