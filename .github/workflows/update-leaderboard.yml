@@ -136,22 +136,32 @@ jobs:
               let cols = row.split('|').map(c => c.trim()).filter(c => c !== "");
               if (cols[1] === `@${prAuthor}`) {
                 userFound = true;
-                cols[2] = (parseInt(cols[2]) || 0) + points;
-                cols[3] = (parseInt(cols[3]) || 0) + 1;
-                cols[5] = today;
-                if (isRobin && !cols[4].includes('🏹')) cols[4] = "🏹 Robin Hood";
-                if (isBounty && !cols[4].includes('⚔️')) cols[4] = "⚔️ Bounty Hunter";
+                let currentXP = parseInt(cols[2]) || 0;
+                let currentBounty = parseInt(cols[3]) || 0;
+                
+                // Award points to the correct column
+                if (isRobin) currentXP += points;
+                if (isBounty) currentBounty += points;
+
+                return [
+                  `@${prAuthor}`, 
+                  currentXP, 
+                  currentBounty, 
+                  (parseInt(cols[4]) || 0) + 1, 
+                  today
+                ];
               }
               return cols.slice(1); // Keep [User, XP, Tasks, Role, Date]
             });
 
             if (!userFound) {
-              const userClass = isRobin ? "🏹 Robin Hood" : "⚔️ Bounty Hunter";
-              dataRows.push([`@${prAuthor}`, points, 1, userClass, today]);
+              const startXP = isRobin ? points : 0;
+              const startBounty = isBounty ? points : 0;
+              dataRows.push([`@${prAuthor}`, startXP, startBounty, 1, today]);
             }
 
-            // 3. RE-SORT BY XP (XP is at index 1 in our 'dataRows' format)
-            dataRows.sort((a, b) => parseInt(b[1]) - parseInt(a[1]));
+            // 3. RE-SORT BY TOTAL (XP + Bounty)
+            dataRows.sort((a, b) => (parseInt(b[1]) + parseInt(b[2])) - (parseInt(a[1]) + parseInt(a[2])));
 
             // 4. RE-RANK AND FORMAT
             const finalRows = dataRows.map((cols, i) => 
@@ -162,8 +172,8 @@ jobs:
             const finalTable = [
               startMarker,
               "", // Space for Markdown rendering
-              '| Rank | Contributor | Total XP | Tasks Completed | Primary Role | Last Active |',
-              '| :--- | :--- | :--- | :--- | :--- | :--- |',
+              '| Rank | Contributor | 🛡️ XP | ☠️ Bounty | Tasks Completed | Last Active |',
+              '| :--- | :--- | :--- | :--- | :--- | :--- |'
               ...finalRows,
               "", // Mandatory empty line for Markdown parsing
               endMarker
