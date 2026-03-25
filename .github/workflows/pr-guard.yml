@@ -1,4 +1,4 @@
-name: Require Linked Issue on PR— with Blocklist
+name: PR GUARD - linked issue with Blocklist
 on:
   pull_request_target:
     types: [opened, synchronize, closed, reopened]
