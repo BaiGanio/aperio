@@ -1,3 +1,7 @@
+<!-- version: 1.0 -->
+
+<!-- The workflow reads that version at sign-on time and logs it alongside the contributor entry. If bump to `1.1`, anyone with `1.0` in `CONTRIBUTORS.md` gets prompted again automatically on their next PR. -->
+
 # 📄 Open Source Contributor Agreement
 
 This agreement is between **[Aperio]** (via HCB Fiscal Sponsorship) and the **Contributor** (Signatory below).
