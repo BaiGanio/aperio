@@ -6,9 +6,8 @@ This document tracks all contributions to the project.
 ## 📈 Aggregated Contributions
 <!-- LEDGER_ROWS_START -->
 
-| Rank | Contributor | Total XP | Tasks Completed | Primary Role | Last Active |
+| Rank | Contributor | 🛡️ XP | ☠️ Bounty | Tasks Completed | Last Active |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | @BaiGanio | 100 | 1 | 🏹 Robin Hood | 2026-03-25 |
 
 <!-- LEDGER_ROWS_END -->
 
