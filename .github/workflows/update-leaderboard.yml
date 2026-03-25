@@ -126,28 +126,28 @@ jobs:
 
             if (startIndex === -1 || endIndex === -1) {
               throw new Error("Markers not found in LEADERBOARD.md");
-            }
-              
-            // Extract existing data rows between markers
-            let rows = lines.slice(startIndex + 1, endIndex).filter(r => r.trim().startsWith('|'));
+            }              
+            // Headers that MUST stay at the top of the table
+            const tableHeader = [
+              '| Rank | Contributor | Total XP | Tasks Completed | Primary Role | Last Active |',
+              '| :--- | :--- | :--- | :--- | :--- | :--- |'
+            ];
+
+            // Extract ONLY data rows (skipping headers)
+            let rows = lines.slice(startIndex + 1, endIndex)
+                        .filter(r => r.includes('|') && !r.includes(':---') && !r.toLowerCase().includes('rank'));
             let userFound = false;
             let dataRows = rows.map(row => {
-              // Split by | and clean up. 
-              // Resulting array: ['', Rank, User, XP, Tasks, Role, Date, '']
-              let cols = row.split('|').map(c => c.trim());
-              
-              if (cols[2] === `@${prAuthor}`) {
+              let cols = row.split('|').map(c => c.trim()).filter(c => c !== "");
+              if (cols[1] === `@${prAuthor}`) {
                 userFound = true;
-                cols[3] = (parseInt(cols[3]) || 0) + points; // Add XP
-                cols[4] = (parseInt(cols[4]) || 0) + 1;      // Add Task
-                cols[6] = today;                             // Update Date
-                
-                // Role handling
-                if (isRobin && !cols[5].includes('🏹')) cols[5] = "🏹 Robin Hood";
-                if (isBounty && !cols[5].includes('⚔️')) cols[5] = "⚔️ Bounty Hunter";
+                cols[2] = (parseInt(cols[2]) || 0) + points;
+                cols[3] = (parseInt(cols[3]) || 0) + 1;
+                cols[5] = today;
+                if (isRobin && !cols[4].includes('🏹')) cols[4] = "🏹 Robin Hood";
+                if (isBounty && !cols[4].includes('⚔️')) cols[4] = "⚔️ Bounty Hunter";
               }
-              // Return just the data part (User, XP, Tasks, Role, Date)
-              return cols.slice(2, 7); 
+              return cols.slice(1); // Keep [User, XP, Tasks, Role, Date]
             });
 
             if (!userFound) {
@@ -163,8 +163,17 @@ jobs:
               `| ${i + 1} | ${cols.join(' | ')} |`
             );
 
+            // 5. ASSEMBLE (Header + Data + Empty Line)
+            const finalTable = [
+              startMarker,
+              ...tableHeader,
+              ...finalRows,
+              "", // Mandatory empty line for Markdown parsing
+              endMarker
+            ].join('\n');
+
             // 5. SAVE
-            const newContent = [...lines.slice(0, startIndex + 1), ...finalRows, ...lines.slice(endIndex)].join('\n');
+            const newContent = [...lines.slice(0, startIndex), ...finalTable, ...lines.slice(endIndex + 1)].join('\n');
             fs.writeFileSync('LEADERBOARD.md', newContent);
             
             console.log(`✅ Successfully updated leaderboard for @${prAuthor}`);

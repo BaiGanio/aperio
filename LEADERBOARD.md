@@ -4,13 +4,11 @@ This document tracks all contributions to the project.
 **🛡️ Bounty XP** represents high-prestige voluntary contributions for future recognition. This data serves as the primary record for future financial distributions and project equity.
 
 ## 📈 Aggregated Contributions
-
+<!-- LEDGER_ROWS_START -->
 
 | Rank | Contributor | Total XP | Tasks Completed | Primary Role | Last Active |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-<!-- LEDGER_ROWS_START -->
-| 1 | @[YourName] | 5000 | 120 | Lead Architect | 2026-03-24 |
-| 2 | @BaiGanio | 200 | 2 | 🏹 Robin Hood | 2026-03-25 |
+
 <!-- LEDGER_ROWS_END -->
 
 ---
