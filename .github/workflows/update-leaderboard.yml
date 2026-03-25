@@ -166,6 +166,7 @@ jobs:
             // 5. ASSEMBLE (Header + Data + Empty Line)
             const finalTable = [
               startMarker,
+              "", // Space for Markdown rendering
               ...tableHeader,
               ...finalRows,
               "", // Mandatory empty line for Markdown parsing
