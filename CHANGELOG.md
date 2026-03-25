@@ -6,6 +6,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.7.2] - 2026-03-25
+### Fixed
+- fix: updated leaderboard script structure (5b3d99d)
+
 ## [2.7.1] - 2026-03-25
 ### Fixed
 - fix: updated leaderboard (ed7950e)
