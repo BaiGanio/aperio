@@ -1,8 +1,8 @@
 name: Cleanup Stale Claims
 on:
   schedule:
-    - cron: '0 0 * * *' # Runs every day at midnight
-  workflow_dispatch: # Allows you to run it manually
+    - cron: '0 0 * * *' # Every day at midnight
+  workflow_dispatch:
 
 jobs:
   stale_cleanup:
@@ -14,90 +14,77 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Remove stale claims and nuke blocked users
+      - name: Process Stale Issues
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.MY_PAT }}
           script: |
             const daysToStale = 7;
-            const msPerDay = 24 * 60 * 60 * 1000;
-            const thresholdDate = new Date(Date.now() - (daysToStale * msPerDay));
-            const fs = require('fs');
-            const { owner, repo } = context.repo;
-            
-            // 1. LOAD BLOCKLIST
-            let blockedUsers = [];
-            try {
-              if (fs.existsSync('.github/blocklist.json')) {
-                const data = JSON.parse(fs.readFileSync('.github/blocklist.json', 'utf8'));
-                blockedUsers = (data.blocked || []).map(u => u.toLowerCase());
-                console.log(`Loaded ${blockedUsers.length} blocked users.`);
-              }
-            } catch (e) {
-              console.log('Error reading blocklist.json:', e.message);
-            }
+            const thresholdDate = new Date(Date.now() - (daysToStale * 24 * 60 * 60 * 1000));
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
 
-            // 2. FETCH ALL OPEN ISSUES
+            // 1. Fetch all open issues
             const issues = await github.paginate(github.rest.issues.listForRepo, {
               owner, repo, state: 'open'
             });
 
+            console.log(`Checking ${issues.length} open issues for stale claims...`);
+
             for (const issue of issues) {
+              // Skip Pull Requests (GitHub API treats PRs as issues in listForRepo)
+              if (issue.pull_request) continue;
+
               const labels = issue.labels.map(l => l.name);
-              const assignee = issue.assignee ? issue.assignee.login.toLowerCase() : null;
+              const lastUpdated = new Date(issue.updated_at);
+              const currentAssignee = issue.assignee ? issue.assignee.login : null;
 
-              // --- TASK A: NUKE BLOCKED USER COMMENTS & ASSIGNMENTS ---
-              if (blockedUsers.length > 0) {
-                const comments = await github.rest.issues.listComments({
-                  owner, repo, issue_number: issue.number
-                });
+              // 2. STALE CLAIM CHECK
+              // Criteria: Has 'status: claimed', NOT 'point-of-interest', and older than 7 days
+              if (labels.includes('status: claimed') && 
+                  !labels.includes('point-of-interest') && 
+                  lastUpdated < thresholdDate) {
                 
-                for (const comment of comments.data) {
-                  const commenter = comment.user.login.toLowerCase();
-                  if (blockedUsers.includes(commenter)) {
-                    console.log(`Deleting comment ${comment.id} by @${commenter} on Issue #${issue.number}`);
-                    await github.rest.issues.deleteComment({
-                      owner, repo, comment_id: comment.id
-                    }).catch(e => console.log(`Failed to delete: ${e.message}`));
+                console.log(`Issue #${issue.number} is stale. Cleaning up...`);
 
-                    // If they are assigned, remove them
-                    if (assignee === commenter) {
-                      await github.rest.issues.update({
-                        owner, repo, issue_number: issue.number, assignees: []
-                      });
-                      if (labels.includes('status: claimed')) {
-                        await github.rest.issues.removeLabel({
-                          owner, repo, issue_number: issue.number, name: 'status: claimed'
-                        }).catch(() => {});
-                      }
-                    }
-                  }
-                }
+                // A. Remove 'claimed' and Add 'cooldown'
+                await github.rest.issues.removeLabel({
+                  owner, repo, issue_number: issue.number, name: 'status: claimed'
+                }).catch(() => {});
+                
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: issue.number, labels: ['status: cooldown']
+                });
+
+                // B. Unassign the user
+                await github.rest.issues.update({
+                  owner, repo, issue_number: issue.number, assignees: []
+                });
+
+                // C. Post expiry message
+                const mention = currentAssignee ? `@${currentAssignee}` : 'Contributor';
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issue.number,
+                  body: `> [!CAUTION]\n> **Claim Expired.** ${mention}, you missed the ${daysToStale}-day window to complete the PR. The issue is now in cooldown.`
+                });
+
+                // D. Lock the issue to prevent immediate re-claiming during cooldown
+                await github.rest.issues.lock({ 
+                  owner, repo, issue_number: issue.number, 
+                  lock_reason: 'resolved' 
+                }).catch(e => console.log(`Lock failed: ${e.message}`));
               }
 
-              // --- TASK B: STALE CLAIM CHECK (Only for non-blocked users) ---
-              if (labels.includes('status: claimed') && !labels.includes('status: point-of-interest') && issue.assignee) {
-                // If we just unassigned a blocked user, issue.assignee might be null now
-                const currentAssignee = issue.assignee ? issue.assignee.login : null;
-                if (!currentAssignee || blockedUsers.includes(currentAssignee.toLowerCase())) continue;
-
+              // 3. UNLOCKING STALE ISSUES POST-COOLDOWN
+              // Criteria: Has 'status: cooldown' and 'abandoned' older than 1 day
+              if (labels.includes('status: cooldown') && labels.includes('abandoned')) {
                 const lastUpdated = new Date(issue.updated_at);
-                if (lastUpdated < thresholdDate) {
-                  await github.rest.issues.removeLabel({
-                    owner, repo, issue_number: issue.number, name: 'status: claimed'
-                  }).catch(() => {});
-                  
-                  await github.rest.issues.addLabels({
-                    owner, repo, issue_number: issue.number, labels: ['status: cooldown']
-                  });
+                const oneDayAgo = new Date(Date.now() - (24 * 60 * 60 * 1000));
 
-                  await github.rest.issues.update({
-                    owner, repo, issue_number: issue.number, assignees: []
-                  });
-
-                  await github.rest.issues.createComment({
-                    owner, repo, issue_number: issue.number,
-                    body: `> [!CAUTION]\n> **Claim Expired.** @${currentAssignee}, you missed the 7-day window.`
-                  });
+                if (lastUpdated < oneDayAgo) {
+                  await github.rest.issues.removeLabel({ owner, repo, issue_number: issue.number, name: 'status: cooldown' });
+                  await github.rest.issues.unlock({ owner, repo, issue_number: issue.number });
+                  console.log(`Unlocked Issue #${issue.number} - Cooldown finished.`);
                 }
               }
             }
