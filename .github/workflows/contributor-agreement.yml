@@ -140,12 +140,18 @@ jobs:
             fs.writeFileSync(contributorsPath, contributorsContent);
 
             const { execSync } = require('child_process');
+            // A. Configure Git
             execSync('git config user.name "github-actions[bot]"');
             execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
+            // B. Stage and Commit
             execSync(`git add ${contributorsPath}`);
             execSync(`git commit -m "chore: log @${username} agreement v${currentVersion} (PR #${prNumber})"`);
-            execSync('git push');
-
+            // C. Push using the PAT for authentication
+            // C.1 We use the 'MY_PAT' secret you already passed into the action
+            const pat = process.env.INPUT_GITHUB_TOKEN; 
+            execSync(`git push https://x-access-token:${pat}@://github.com{owner}/${repo}.git HEAD:master`);
+            console.log(`Successfully logged agreement for @${username}`);
+            
             const isRenewal = signedVersion !== null;
             await github.rest.issues.createComment({
               owner, repo, issue_number: prNumber,
