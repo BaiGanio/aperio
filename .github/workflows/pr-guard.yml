@@ -1,7 +1,7 @@
 name: Require Linked Issue on PR— with Blocklist
 on:
   pull_request:
-    types: [opened, synchronize, closed]
+    types: [opened, synchronize, closed, reopened]
     paths-ignore:
       - 'package-lock.json'
       - 'yarn.lock'
@@ -61,13 +61,32 @@ jobs:
               username = context.payload.pull_request.user.login;
             }
 
-            const closeAndComment = async (message) => {
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: prNumber, body: message
+            // ── HELPER: SILENT NUKE ─────────────────────────────────────────────
+            const silentNuke = async () => {
+              console.log(`Nuking PR #${prNumber} by @${username} silently.`);
+              
+              // 1. Delete Issue/PR comments by this user
+              const allComments = await github.paginate(github.rest.issues.listComments, {
+                owner, repo, issue_number: prNumber, per_page: 100
               });
-              await github.rest.pulls.update({
-                owner, repo, pull_number: prNumber, state: 'closed'
+              for (const comment of allComments) {
+                if (comment.user.login.toLowerCase() === username.toLowerCase()) {
+                  await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id }).catch(() => {});
+                }
+              }
+
+              // 2. Delete Review comments by this user
+              const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
+                owner, repo, pull_number: prNumber, per_page: 100
               });
+              for (const comment of reviewComments) {
+                if (comment.user.login.toLowerCase() === username.toLowerCase()) {
+                  await github.rest.pulls.deleteReviewComment({ owner, repo, comment_id: comment.id }).catch(() => {});
+                }
+              }
+
+              // 3. Close PR
+              await github.rest.pulls.update({ owner, repo, pull_number: prNumber, state: 'closed' });
             };
 
             // ── 1. BLOCKLIST GUARD ──────────────────────────────────────────────
@@ -79,90 +98,36 @@ jobs:
               console.log('No blocklist found or failed to parse — skipping block check.');
             }
             if (blockedUsers.includes(username.toLowerCase())) {
-              console.log(`Blocked user @${username} — nuking PR #${prNumber} silently.`);
-
-              // Delete all issue/PR comments by the blocked user
-              try {
-                const allComments = await github.paginate(github.rest.issues.listComments, {
-                  owner, repo, issue_number: prNumber, per_page: 100
-                });
-                for (const comment of allComments) {
-                  if (comment.user.login.toLowerCase() === username.toLowerCase()) {
-                    try {
-                      await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id });
-                      console.log(`Deleted comment ${comment.id} by @${username}`);
-                    } catch (e) {
-                      console.log(`Could not delete comment ${comment.id}: ${e.message}`);
-                    }
-                  }
-                }
-              } catch (e) {
-                console.log(`Could not list comments: ${e.message}`);
-              }
-
-              // Delete all review (inline) comments by the blocked user
-              try {
-                const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
-                  owner, repo, pull_number: prNumber, per_page: 100
-                });
-                for (const comment of reviewComments) {
-                  if (comment.user.login.toLowerCase() === username.toLowerCase()) {
-                    try {
-                      await github.rest.pulls.deleteReviewComment({ owner, repo, comment_id: comment.id });
-                      console.log(`Deleted review comment ${comment.id} by @${username}`);
-                    } catch (e) {
-                      console.log(`Could not delete review comment ${comment.id}: ${e.message}`);
-                    }
-                  }
-                }
-              } catch (e) {
-                console.log(`Could not list review comments: ${e.message}`);
-              }
-
-              // Close the PR silently — no comment posted
-              try {
-                await github.rest.pulls.update({ owner, repo, pull_number: prNumber, state: 'closed' });
-                console.log(`PR #${prNumber} closed silently.`);
-              } catch (e) {
-                console.log(`Could not close PR: ${e.message}`);
-              }
-
+              await silentNuke();
               return;
             }
 
-            // ── 2. LINKED ISSUE GUARD ───────────────────────────────────────────
+            // ── 2. LINKED ISSUE GUARD & ASSIGNEE GUARD ──────────────────────────────────
             const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
             const title = pr.data.title || '';
             const linkRegex = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/i;
             const match = title.match(linkRegex);
+            // If no linked issue in title -> NUKE
             if (!match) {
-              await closeAndComment(
-                `> [!CAUTION]\n> This PR has been closed because the **title** does not reference a claimed issue.\n> Please rename your PR to include the issue link, e.g., \`feat: add login logic (Closes #123)\`.`
-              );
+              await silentNuke();
               return;
             }
 
             // ── 3. CLAIMED BY THIS USER GUARD ──────────────────────────────────
             const linkedIssueNumber = parseInt(match[1]);
             try {
-              const linkedIssue = await github.rest.issues.get({
-                owner, repo, issue_number: linkedIssueNumber
-              });
+              const linkedIssue = await github.rest.issues.get({ owner, repo, issue_number: linkedIssueNumber });
               const assignee = linkedIssue.data.assignee?.login;
-              if (!assignee) {
-                await closeAndComment(
-                  `> [!CAUTION]\n> @${username} Issue #${linkedIssueNumber} has not been claimed. Please comment \`/claim\` on the issue first.`
-                );
-                return;
-              }
-              if (assignee.toLowerCase() !== username.toLowerCase()) {
-                await closeAndComment(
-                  `> [!CAUTION]\n> @${username} Issue #${linkedIssueNumber} is claimed by @${assignee}. You can only submit PRs for issues you have claimed.`
-                );
+
+              // If no assignee OR assignee is NOT the PR author -> NUKE
+              if (!assignee || assignee.toLowerCase() !== username.toLowerCase()) {
+                await silentNuke();
                 return;
               }
             } catch (e) {
-              console.log(`Could not fetch linked issue #${linkedIssueNumber}:`, e.message);
+              // If issue doesn't exist -> NUKE
+              await silentNuke();
+              return;
             }
 
             // ── 4. CONTRIBUTOR AGREEMENT GUARD ─────────────────────────────────
