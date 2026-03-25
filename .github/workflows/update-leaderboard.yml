@@ -30,12 +30,30 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');              
-            const prAuthor = context.payload.pull_request.user.login;
-            const labels = context.payload.pull_request.labels.map(l => l.name.toLowerCase());
-            const prNumber = context.payload.pull_request?.number || context.payload.inputs?.pr_number;
+            const fs = require('fs'); 
+            const { owner, repo } = context.repo;  
+            
+            let prData;
+            let prNumber;
 
-            // Fetch files in this PR
+            // 1. Determine PR Number and Fetch Data
+            if (context.eventName === 'workflow_dispatch') {
+              prNumber = context.payload.inputs.pr_number;
+              const response = await github.rest.pulls.get({
+                owner, repo, pull_number: parseInt(prNumber)
+              });
+              prData = response.data;
+            } else {
+              prData = context.payload.pull_request;
+              prNumber = prData.number;
+            }
+            
+            const prAuthor = prData.login;
+            const labels = prData.labels.map(l => l.name.toLowerCase());
+
+            console.log(`Processing PR #${prNumber} by @${prAuthor}`);
+
+            // 3. XP-GRINDER FILTER (Check for noise files)
             const { data: files } = await github.rest.pulls.listFiles({
               owner, repo, pull_number: prNumber
             });
