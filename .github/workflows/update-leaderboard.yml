@@ -167,11 +167,11 @@ jobs:
             const finalTable = [
               startMarker,
               "", // Space for Markdown rendering
-              ...tableHeader,
+              tableHeader,
               ...finalRows,
               "", // Mandatory empty line for Markdown parsing
               endMarker
-            ].join('\n');
+            ];
 
             // 5. SAVE
             const newContent = [...lines.slice(0, startIndex), ...finalTable, ...lines.slice(endIndex + 1)].join('\n');
