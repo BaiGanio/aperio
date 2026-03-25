@@ -103,6 +103,29 @@ jobs:
               await github.rest.issues.addAssignees({
                 owner, repo, issue_number: issueNumber, assignees: [username]
               });
+              
+              // ── Read CONTRIBUTORS.md to see if they've signed ────────────────
+              const contributorsPath = '.github/CONTRIBUTORS.md';
+              let signed = false;
+              try {
+                const content = fs.readFileSync(contributorsPath, 'utf8');
+                signed = new RegExp(`@${username}\\s*\\|`, 'i').test(content);
+              } catch (e) {}
+
+              if (!signed) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: issueNumber,
+                  body: `> [!IMPORTANT]\n> @${username} since this is your first contribution, please read our [Contributor Agreement](../blob/master/.github/CONTRIBUTOR_AGREEMENT.md) and reply here with \`I agree\` to finalize the claim.`
+                });
+              }
+              // ── Lock the Issue Conversation ──────────────────────────────────────────
+              try {
+                await github.rest.issues.lock({ owner, repo, issue_number: issueNumber, lock_reason: 'resolved' });
+                console.log(`Issue #${issueNumber} locked successfully.`);
+              } catch (e) {
+                console.log(`Failed to lock issue: ${e.message}`);
+              }
+
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
                 body: messages.claim_success
