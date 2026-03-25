@@ -163,7 +163,7 @@ jobs:
               startMarker,
               "", // Space for Markdown rendering
               '| Rank | Contributor | Total XP | Tasks Completed | Primary Role | Last Active |',
-              '| :--- | :--- | :--- | :--- | :--- | :--- |'
+              '| :--- | :--- | :--- | :--- | :--- | :--- |',
               ...finalRows,
               "", // Mandatory empty line for Markdown parsing
               endMarker
