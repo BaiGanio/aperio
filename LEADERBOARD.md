@@ -17,7 +17,7 @@ This document tracks all contributions to the project.
 ## ⚖️ Valuation Methodology
 *   **☠️ (Bounty Track):** Direct correlation to immediate or pending payout values (like $1).
 *   **🛡️ (Robin Hood Track):** Voluntary contributions tracked for future retrospective funding.
-*   **Audit Trail:** All XP is verified via merged Pull Requests and tagged GitHub Issues.
+*   **Audit Trail:** All XPs and Bounties are verified via merged Pull Requests and tagged GitHub Issues.
 
 > [!IMPORTANT]
 > This ledger is updated automatically. Errors in XP attribution should be reported via a GitHub Issue with a link to the relevant PR if needed.
