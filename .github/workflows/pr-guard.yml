@@ -13,11 +13,17 @@ on:
   issue_comment:
     types: [created]
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to re-check'
+        required: true
+        type: number
 
 jobs:
   check_pr:
     if: |
       github.event_name == 'pull_request' ||
+      github.event_name == 'workflow_dispatch' ||
       (github.event_name == 'issue_comment' &&
        github.event.issue.pull_request != null &&
        contains(github.event.comment.body, 'I agree'))
@@ -45,6 +51,11 @@ jobs:
             if (context.eventName === 'issue_comment') {
               prNumber = context.payload.issue.number;
               username = context.payload.comment.user.login;
+            } else if (context.eventName === 'workflow_dispatch') {
+              prNumber = parseInt(context.payload.inputs.pr_number);
+              const dispatchedPr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              username = dispatchedPr.data.user.login;
+              console.log(`Manual dispatch: re-checking PR #${prNumber} by @${username}`);
             } else {
               prNumber = context.payload.pull_request.number;
               username = context.payload.pull_request.user.login;
@@ -70,7 +81,7 @@ jobs:
             if (blockedUsers.includes(username.toLowerCase())) {
               console.log(`Blocked user @${username} — nuking PR #${prNumber} silently.`);
 
-              // Delete every comment on the PR made by the blocked user
+              // Delete all issue/PR comments by the blocked user
               try {
                 const allComments = await github.paginate(github.rest.issues.listComments, {
                   owner, repo, issue_number: prNumber, per_page: 100
@@ -78,9 +89,7 @@ jobs:
                 for (const comment of allComments) {
                   if (comment.user.login.toLowerCase() === username.toLowerCase()) {
                     try {
-                      await github.rest.issues.deleteComment({
-                        owner, repo, comment_id: comment.id
-                      });
+                      await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id });
                       console.log(`Deleted comment ${comment.id} by @${username}`);
                     } catch (e) {
                       console.log(`Could not delete comment ${comment.id}: ${e.message}`);
@@ -91,7 +100,7 @@ jobs:
                 console.log(`Could not list comments: ${e.message}`);
               }
 
-              // Delete every review comment on the PR made by the blocked user
+              // Delete all review (inline) comments by the blocked user
               try {
                 const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
                   owner, repo, pull_number: prNumber, per_page: 100
@@ -99,9 +108,7 @@ jobs:
                 for (const comment of reviewComments) {
                   if (comment.user.login.toLowerCase() === username.toLowerCase()) {
                     try {
-                      await github.rest.pulls.deleteReviewComment({
-                        owner, repo, comment_id: comment.id
-                      });
+                      await github.rest.pulls.deleteReviewComment({ owner, repo, comment_id: comment.id });
                       console.log(`Deleted review comment ${comment.id} by @${username}`);
                     } catch (e) {
                       console.log(`Could not delete review comment ${comment.id}: ${e.message}`);
@@ -112,11 +119,9 @@ jobs:
                 console.log(`Could not list review comments: ${e.message}`);
               }
 
-              // Close the PR silently — no comment
+              // Close the PR silently — no comment posted
               try {
-                await github.rest.pulls.update({
-                  owner, repo, pull_number: prNumber, state: 'closed'
-                });
+                await github.rest.pulls.update({ owner, repo, pull_number: prNumber, state: 'closed' });
                 console.log(`PR #${prNumber} closed silently.`);
               } catch (e) {
                 console.log(`Could not close PR: ${e.message}`);
@@ -163,7 +168,7 @@ jobs:
             // ── 4. CONTRIBUTOR AGREEMENT GUARD ─────────────────────────────────
 
             // -- Read current agreement version from CONTRIBUTOR_AGREEMENT.md
-            let currentVersion = '1.0'; // fallback if no version tag found
+            let currentVersion = '1.0';
             try {
               const agreementContent = fs.readFileSync('.github/CONTRIBUTOR_AGREEMENT.md', 'utf8');
               const versionMatch = agreementContent.match(/<!--\s*version:\s*([\d.]+)\s*-->/);
@@ -182,7 +187,6 @@ jobs:
             }
 
             // -- Check if this user has already signed the CURRENT version
-            // Row format: | Full Name | @username | #PR | YYYY-MM-DD | version |
             const userRowRegex = new RegExp(
               `\\|[^|]*\\|\\s*@${username}\\s*\\|[^|]*\\|[^|]*\\|\\s*([\\d.]+)\\s*\\|`,
               'i'
@@ -248,7 +252,6 @@ jobs:
               `|------|--------|------------|------|-------------------|\n`;
 
             if (!contributorsContent) {
-              // Create file from scratch
               contributorsContent =
                 `# Contributor Agreement Signatories\n\n` +
                 `> This file is auto-maintained by the PR workflow. Do not edit manually.\n` +
@@ -256,13 +259,11 @@ jobs:
                 tableHeader +
                 newRow;
             } else if (signedVersion !== null) {
-              // User exists but signed an old version — update their row in place
               contributorsContent = contributorsContent.replace(
                 new RegExp(`\\|[^|]*\\|\\s*@${username}[^\\n]*\\n`, 'i'),
                 newRow
               );
             } else {
-              // New contributor — append row to existing table
               if (!contributorsContent.includes('| Name | GitHub |')) {
                 contributorsContent += `\n${tableHeader}`;
               }
@@ -276,9 +277,7 @@ jobs:
             execSync('git config user.name "github-actions[bot]"');
             execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
             execSync(`git add ${contributorsPath}`);
-            execSync(
-              `git commit -m "chore: log @${username} agreement v${currentVersion} (PR #${prNumber})"`
-            );
+            execSync(`git commit -m "chore: log @${username} agreement v${currentVersion} (PR #${prNumber})"`);
             execSync('git push');
 
             // -- Confirm to contributor
