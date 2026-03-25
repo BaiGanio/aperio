@@ -8,50 +8,48 @@ permissions:
   pull-requests: write
 
 jobs:
-  check-format:
+  lint-title:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
-      - name: Check Commit Format
+      - name: Check PR Title Format
         id: lint
         run: |
-          # Use the PR Title instead of the git log
           TITLE="${{ github.event.pull_request.title }}"
-          
           if [[ "$TITLE" =~ ^(feat|fix|chore|refactor|docs): ]]; then
             echo "valid=true" >> $GITHUB_OUTPUT
           else
             echo "valid=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Find and Update Comment
+      - name: Find Existing Lint Comment
         uses: peter-evans/find-comment@v3
         id: fc
         with:
           issue-number: ${{ github.event.pull_request.number }}
           comment-author: 'github-actions[bot]'
-          body-includes: '<!-- commit-lint-checker -->'
+          body-includes: '<!-- pr-lint -->'
 
-      - name: Create or Update Comment
+      - name: Post or Update Warning
         if: steps.lint.outputs.valid == 'false'
         uses: peter-evans/create-or-update-comment@v4
         with:
           comment-id: ${{ steps.fc.outputs.comment-id }}
           issue-number: ${{ github.event.pull_request.number }}
-          body: |
-            <!-- commit-lint-checker -->
-            ⚠️ **Commit Format Notice**
-            Your latest commit message (`${{ github.event.pull_request.head.sha }}`) does not follow the convention:
-            - Use `feat:`, `fix:`, `chore:`, `refactor:`, or `docs:`
-            - Current message: *${{ github.event.pull_request.head.title }}*
-            
-            This commit will be **skipped** from the automated CHANGELOG upon merge.
           edit-mode: replace
+          body: |
+            <!-- pr-lint -->
+            ⚠️ **PR Title Format Warning**
 
-      - name: Delete Comment if Fixed
+            Your PR title does not follow the required convention:
+            ```
+            feat: ...   fix: ...   chore: ...   refactor: ...   docs: ...
+            ```
+            **Current title:** *${{ github.event.pull_request.title }}*
+
+            PRs with non-conforming titles will be **skipped in the automated CHANGELOG** upon merge.
+            Please update the title to proceed.
+
+      - name: Remove Warning if Fixed
         if: steps.lint.outputs.valid == 'true' && steps.fc.outputs.comment-id != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

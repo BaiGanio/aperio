@@ -1,0 +1,153 @@
+name: Issue Claim Guard
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  handle_claim:
+    # Only fire on issue comments (not PR comments) containing /claim
+    if: |
+      github.event.issue.pull_request == null &&
+      contains(github.event.comment.body, '/claim')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Evaluate Claim
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.MY_PAT }}
+          script: |
+            const fs = require('fs');
+            const owner  = context.repo.owner;
+            const repo   = context.repo.repo;
+            const issueNumber = context.payload.issue.number;
+            const username    = context.payload.comment.user.login;
+
+            // ── Load tier config ────────────────────────────────────────────────
+            let config;
+            try {
+              config = JSON.parse(fs.readFileSync('.github/seniority-tiers.json', 'utf8'));
+            } catch (e) {
+              console.log('Could not load seniority-tiers.json — aborting claim guard.');
+              return;
+            }
+
+            const { tiers, bounty_labels, messages, blocked_below_years } = config;
+
+            // ── Helper: reject — post message, delete /claim comment ────────────
+            const reject = async (body) => {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber, body
+              });
+              try {
+                await github.rest.issues.deleteComment({
+                  owner, repo, comment_id: context.payload.comment.id
+                });
+              } catch (e) {
+                console.log(`Could not delete /claim comment: ${e.message}`);
+              }
+            };
+
+            // ── Get claimant's GitHub account age (needed for all paths) ────────
+            let accountCreatedAt, accountAgeYears;
+            try {
+              const userProfile = await github.rest.users.getByUsername({ username });
+              accountCreatedAt  = new Date(userProfile.data.created_at);
+              const now         = new Date();
+              accountAgeYears   = (now - accountCreatedAt) / (1000 * 60 * 60 * 24 * 365.25);
+            } catch (e) {
+              console.log(`Could not fetch profile for ${username}: ${e.message}`);
+              return;
+            }
+
+            const accountCreatedFormatted = accountCreatedAt.toISOString().split('T')[0];
+
+            // ── 1. HARD BLOCK: account younger than minimum threshold ────────────
+            if (accountAgeYears < blocked_below_years) {
+              await reject(
+                messages.newcomer_blocked
+                  .replace('{username}',            username)
+                  .replace('{account_created}',     accountCreatedFormatted)
+                  .replace('{account_age_years}',   accountAgeYears.toFixed(1))
+                  .replace('{blocked_below_years}', blocked_below_years)
+              );
+              return;
+            }
+
+            // ── 2. Determine user's tier ────────────────────────────────────────
+            const currentTier = tiers
+              .slice()
+              .reverse()
+              .find(t => accountAgeYears >= t.min_years);
+
+            if (!currentTier) {
+              // Shouldn't happen after the block above, but guard anyway
+              console.log(`No tier found for ${username} (age: ${accountAgeYears.toFixed(2)}y) — aborting.`);
+              return;
+            }
+
+            // ── 3. Get issue labels ─────────────────────────────────────────────
+            const issueLabels = context.payload.issue.labels.map(l => l.name.toLowerCase());
+            const bountyLabel = issueLabels.find(l =>
+              bounty_labels.map(b => b.toLowerCase()).includes(l)
+            );
+
+            // No bounty label → tier check is irrelevant, assign freely
+            if (!bountyLabel) {
+              await github.rest.issues.addAssignees({
+                owner, repo, issue_number: issueNumber, assignees: [username]
+              });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: messages.claim_success
+                  .replace('{username}',          username)
+                  .replace('{user_tier}',         currentTier.name)
+                  .replace('{account_age_years}', accountAgeYears.toFixed(1))
+              });
+              return;
+            }
+
+            // ── 4. Check if bounty label is within this tier's allowlist ────────
+            const allowedLabels = currentTier.allowed_labels.map(l => l.toLowerCase());
+            const isAllowed     = allowedLabels.includes(bountyLabel.toLowerCase());
+
+            if (isAllowed) {
+              // ✅ Eligible
+              await github.rest.issues.addAssignees({
+                owner, repo, issue_number: issueNumber, assignees: [username]
+              });
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: issueNumber,
+                body: messages.claim_success
+                  .replace('{username}',          username)
+                  .replace('{user_tier}',         currentTier.name)
+                  .replace('{account_age_years}', accountAgeYears.toFixed(1))
+              });
+              return;
+            }
+
+            // ❌ Tier mismatch — find the minimum tier that allows this label
+            const requiredTier        = tiers.find(t =>
+              t.allowed_labels.map(l => l.toLowerCase()).includes(bountyLabel.toLowerCase())
+            );
+            const allowedLabelsFormatted = currentTier.allowed_labels
+              .map(l => `\`${l}\``)
+              .join(', ') || '_none — your account does not yet qualify for any bounty_';
+
+            await reject(
+              messages.tier_mismatch
+                .replace('{username}',          username)
+                .replace('{label}',             bountyLabel)
+                .replace('{required_tier}',     requiredTier ? requiredTier.name : 'a higher tier')
+                .replace('{min_years}',         requiredTier ? requiredTier.min_years : '?')
+                .replace('{account_created}',   accountCreatedFormatted)
+                .replace('{user_tier}',         currentTier.name)
+                .replace('{account_age_years}', accountAgeYears.toFixed(1))
+                .replace('{allowed_labels}',    allowedLabelsFormatted)
+            );
