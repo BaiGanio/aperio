@@ -62,7 +62,9 @@ jobs:
               username = context.payload.pull_request.user.login;
             }
 
-            const prData = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            // Get the PR data once at the start to check for forks/branch names
+            const prResponse = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const prData = prResponse.data; // This is the actual data object            
             
             // ── HELPER: SILENT NUKE ─────────────────────────────────────────────
             const silentNuke = async () => {
@@ -134,8 +136,7 @@ jobs:
             }
 
             // ── 2. LINKED ISSUE GUARD & ASSIGNEE GUARD ──────────────────────────────────
-            const pr = prData.get({ owner, repo, pull_number: prNumber });
-            const title = pr.data.title || '';
+            const title = prData.title || ''; // Use prData from our earlier fetch
             const linkRegex = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/i;
             const match = title.match(linkRegex);
             // If no linked issue in title -> NUKE
