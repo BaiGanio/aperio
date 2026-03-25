@@ -76,7 +76,7 @@ jobs:
               });
               console.log(`Found ${allComments.length} total issue comments.`);
               for (const comment of allComments) {
-                if (comment.user.login.toLowerCase() === username.toLowerCase()) {
+                if (comment.user && comment.user.login.toLowerCase() === username.toLowerCase()) {
                   // Use a try-catch for each deletion to prevent one failure from stopping the script
                   try {
                     await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id });
@@ -87,12 +87,12 @@ jobs:
               }
 
               // 2. Delete Review comments by this user
-              const reviewComments = await github.paginate(prData.listReviewComments, {
+              const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
                 owner, repo, pull_number: prNumber, per_page: 100
               });
               console.log(`Found ${reviewComments.length} total review comments.`);
               for (const comment of reviewComments) {
-                if (comment.user.login.toLowerCase() === username.toLowerCase()) {
+                if (comment.user && comment.user.login.toLowerCase() === username.toLowerCase()) {
                   try {
                     prData.deleteReviewComment({ owner, repo, comment_id: comment.id });
                   } catch (e) {
