@@ -46,7 +46,6 @@ jobs:
             const fs = require('fs');
             const owner = context.repo.owner;
             const repo = context.repo.repo;
-            const prData = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
             
             // ── Resolve PR context ──────────────────────────────────────────────
             let prNumber, username;
@@ -56,13 +55,15 @@ jobs:
             } else if (context.eventName === 'workflow_dispatch') {
               prNumber = parseInt(context.payload.inputs.pr_number);
               const dispatchedPr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-              username = prData.data.user.login;
+              username = dispatchedPr.data.user.login;
               console.log(`Manual dispatch: re-checking PR #${prNumber} by @${username}`);
             } else {
               prNumber = context.payload.pull_request.number;
               username = context.payload.pull_request.user.login;
             }
 
+            const prData = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            
             // ── HELPER: SILENT NUKE ─────────────────────────────────────────────
             const silentNuke = async () => {
               console.log(`Nuking PR #${prNumber} by @${username} silently.`);
