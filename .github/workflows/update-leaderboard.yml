@@ -127,42 +127,46 @@ jobs:
             if (startIndex === -1 || endIndex === -1) {
               throw new Error("Markers not found in LEADERBOARD.md");
             }
-
-            // Get existing data rows
-            let rows = lines.slice(startIndex + 1, endIndex).filter(r => r.includes('|'));
-            let userFound = false;
-
-            let updatedRows = rows.map(row => {
-              let cols = row.split('|').map(c => c.trim()).filter(c => c !== "");
-              // Expected Cols: [Rank, User, XP, Tasks, Role, Date]
-              if (cols[1] === `@${prAuthor}`) {
+              
+            // Extract existing data rows between markers
+            let dataRows = rows.map(row => {
+              // Split by | and clean up. 
+              // Resulting array: ['', Rank, User, XP, Tasks, Role, Date, '']
+              let cols = row.split('|').map(c => c.trim());
+              
+              if (cols[2] === `@${prAuthor}`) {
                 userFound = true;
-                cols[2] = (parseInt(cols[2]) || 0) + points; 
-                cols[3] = (parseInt(cols[3]) || 0) + 1;      
-                cols[5] = today;                      
+                cols[3] = (parseInt(cols[3]) || 0) + points; // Add XP
+                cols[4] = (parseInt(cols[4]) || 0) + 1;      // Add Task
+                cols[6] = today;                             // Update Date
                 
-                if (isRobin && !cols[4].includes('🏹')) cols[4] = "🏹 Robin Hood";
-                if (isBounty && !cols[4].includes('⚔️')) cols[4] = "⚔️ Bounty Hunter";
+                // Role handling
+                if (isRobin && !cols[5].includes('🏹')) cols[5] = "🏹 Robin Hood";
+                if (isBounty && !cols[5].includes('⚔️')) cols[5] = "⚔️ Bounty Hunter";
               }
-              // Return the internal columns joined by pipes
-              return cols.slice(1).join(' | ');
+              // Return just the data part (User, XP, Tasks, Role, Date)
+              return cols.slice(2, 7); 
             });
 
             if (!userFound) {
               const userClass = isRobin ? "🏹 Robin Hood" : "⚔️ Bounty Hunter";
-              updatedRows.push(`@${prAuthor} | ${points} | 1 | ${userClass} | ${today}`);
+              dataRows.push([`@${prAuthor}`, points, 1, userClass, today]);
             }
 
-            // 3. RE-SORT BY XP (XP is at index 1 in our 'updatedRows' format)
-            updatedRows.sort((a, b) => parseInt(b.split('|')[1]) - parseInt(a.split('|')[1]));
+            // 3. RE-SORT BY XP (XP is at index 1 in our 'dataRows' format)
+            dataRows.sort((a, b) => parseInt(b[1]) - parseInt(a[1]));
 
-            // 4. RE-RANK AND WRAP IN PIPES
-            const finalRows = updatedRows.map((row, i) => `| ${i + 1} | ${row} |`);
+            // 4. RE-RANK AND FORMAT
+            const finalRows = dataRows.map((cols, i) => 
+              `| ${i + 1} | ${cols.join(' | ')} |`
+            );
 
             // 5. SAVE
             const newContent = [...lines.slice(0, startIndex + 1), ...finalRows, ...lines.slice(endIndex)].join('\n');
             fs.writeFileSync('LEADERBOARD.md', newContent);
-
+            
+            console.log(`✅ Successfully updated leaderboard for @${prAuthor}`);
+            
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
