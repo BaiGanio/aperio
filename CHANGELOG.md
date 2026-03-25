@@ -6,6 +6,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-03-25
+### Added
+- feat: silentNuke Helper (597c4bc)
+
 ## [2.8.0] - 2026-03-25
 ### Added
 - feat: nuked blocked users with the pr-guard (4bfb832)
