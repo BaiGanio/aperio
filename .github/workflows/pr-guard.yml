@@ -38,6 +38,7 @@ jobs:
             const { execSync } = require('child_process');
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
+            const nuke = require('./.github/scripts/nuke.js');
 
             // ── Resolve PR Context ──────────────────────────────────────────────
             let prNumber, username;
@@ -52,67 +53,21 @@ jobs:
               prNumber = context.payload.pull_request.number;
               username = context.payload.pull_request.user.login;
             }
-
+            // ── 🛡️ REPO OWNER PROTECTION ──────────────────────────────────────────
+            if (targetUser.toLowerCase() === owner.toLowerCase()) {
+              console.log(`[SAFEGUARD] @${targetUser} is the Repo Owner. Nuke cancelled.`);
+              return; // Exit immediately
+            }
             const { data: prData } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-
-            // ── 0. THE SMART NUKE & BAN ────────────────────────────────────────
-            const smartNuke = async (targetUser) => {
-              const isPrOwner = targetUser.toLowerCase() === prData.user.login.toLowerCase();
-              console.log(`Banning @${targetUser}. PR Owner? ${isPrOwner}`);
-
-              // 1. Add to blocklist.json
-              const blocklistPath = '.github/blocklist.json';
-              let blocklist = { blocked: [] };
-              try { blocklist = JSON.parse(fs.readFileSync(blocklistPath, 'utf8')); } catch (e) {}
-              
-              if (!blocklist.blocked.map(u => u.toLowerCase()).includes(targetUser.toLowerCase())) {
-                blocklist.blocked.push(targetUser);
-                fs.writeFileSync(blocklistPath, JSON.stringify(blocklist, null, 2));
-                
-                const { execSync } = require('child_process');
-                execSync('git config user.name "github-actions[bot]"');
-                execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
-                execSync(`git add ${blocklistPath}`);
-                execSync(`git commit -m "chore: ban @${targetUser} for spam [skip ci]"`);
-                const pat = process.env.INPUT_GITHUB_TOKEN;
-                execSync(`git push https://x-access-token:${pat}@://github.com{owner}/${repo}.git HEAD:master`);
-              }
-
-              // 2. Delete ALL comments by the banned user on THIS PR
-              const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber });
-              for (const c of comments) {
-                if (c.user.login.toLowerCase() === targetUser.toLowerCase()) {
-                  await github.rest.issues.deleteComment({ owner, repo, comment_id: c.id }).catch(() => {});
-                }
-              }
-
-              // 3. IF target is the PR Owner -> SHUT DOWN THE PR
-              if (isPrOwner) {
-                await github.rest.pulls.update({ 
-                  owner, repo, pull_number: prNumber, 
-                  state: 'closed', 
-                  title: `[REMOVED] Policy Violation by Author`,
-                  body: "This PR was closed and the author was banned due to repeated command spam." 
-                });
-                if (!prData.head.repo?.fork) {
-                  await github.rest.git.deleteRef({ owner, repo, ref: `heads/${prData.head.ref}` }).catch(() => {});
-                }
-              } else {
-                // Just a random user? Leave a note for the PR owner
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: prNumber,
-                  body: `> [!NOTE]\n> A comment from @${targetUser} was removed and the user has been banned for repeated spam. This PR remains open.`
-                });
-              }
-            };
 
             // ── I. SPAM CHECK (3 Strikes) ───────────────────────────────────────
             const allComments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber });
             const userComments = allComments.filter(c => c.user.login.toLowerCase() === username.toLowerCase());
             const spamCount = userComments.filter(c => c.body.includes('/claim') || c.body.toLowerCase().includes('i agree')).length;
 
-            if (spamCount > 3) {
-              await nukeAndBan();
+            if (spamCount > 3 && username.toLowerCase() !== owner.toLowerCase()) {
+              console.log(`Nuking blocked user @${commenter} on Issue #${issue.number}`);
+              await nuke({ github, context, targetUser: username.toLowerCase(), issueNumber: issue.number, silent: false });
               return;
             }
 
@@ -123,14 +78,14 @@ jobs:
             } catch (e) {}
 
             if (blockedUsers.includes(username.toLowerCase())) {
-               // Reuse your existing silentNuke function logic here to close/clean
-               return;
+              await nuke({ github, context, targetUser: username.toLowerCase(), issueNumber: issue.number, silent: true });
+              return;
             }
 
             // ── III. COMMENT STRIKE SYSTEM ──────────────────────────────────────
             if (context.eventName === 'issue_comment') {
               const body = context.payload.comment.body.trim().toLowerCase();
-              if (body.includes('/claim') || body.includes('i agree')) {
+              if (body.includes('/claim') || body.includes('I agree')) {
                 const allComments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber });
                 
                 // Count warnings sent SPECIFICALLY to this commenter
@@ -141,13 +96,13 @@ jobs:
                 ).length + 1;
 
                 if (strikes >= 4) {
-                  await smartNuke(username);
+                  await nuke({ github, context, targetUser: username.toLowerCase(), issueNumber: issue.number, silent: false });
                   return;
                 }
 
                 await github.rest.issues.createComment({
                   owner, repo, issue_number: prNumber,
-                  body: `> 🚫 [!WARNING]\n> @${username}, [STRIKE ${strikes}] Commands like \`/claim\` don't work here. Please use the original issue thread.\n> *Final ban at Strike 4/4*`
+                  body: `> 🚫 [!WARNING]\n> @${username}, [STRIKE ${strikes}] Commands like \`/claim\` and \`I agree\` do not work here. Please use the original issue thread.\n> *NUKE at STRIKE 4/4*`
                 });
                 
                 // Remove the spam comment immediately
