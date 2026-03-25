@@ -6,6 +6,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.7.1] - 2026-03-25
+### Fixed
+- fix: updated leaderboard (ed7950e)
+
 ## [2.7.0] - 2026-03-25
 ### Added
 - feat: #25 - Aperio lite db split with lancedb (#26) (36e0f61)
