@@ -2,11 +2,18 @@ name: Update Leaderboard
 on:
   pull_request:
     types: [closed]
-    branches: [main]
+    # Removed the branches: [master] filter to catch EVERY merge
 
 jobs:
   update_rankings:
-    if: github.event.pull_request.merged == true
+    # 1. Must be merged
+    # 2. Author must NOT be a bot (Dependabot, etc.)
+    # 3. Author must NOT end in [bot]
+    if: >
+      github.event.pull_request.merged == true && 
+      github.event.pull_request.user.type != 'Bot' &&
+      !endsWith(github.event.pull_request.user.login, '[bot]') &&
+      github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -18,6 +25,32 @@ jobs:
         with:
           script: |
             const fs = require('fs');
+            // 1. FILES TO IGNORE (XP-Grinder Filter)
+            const noiseFiles = [
+              'package-lock.json',
+              'yarn.lock',
+              'pnpm-lock.yaml',
+              'bun.lockb',
+              '.gitignore',
+              '.prettierrc',
+              '.editorconfig',
+              'LEADERBOARD.md' // Prevent recursion
+            ];
+            // Fetch files in this PR
+            const { data: files } = await github.rest.pulls.listFiles({
+              owner, repo, pull_number: prNumber
+            });
+
+            const fileNames = files.map(f => f.filename);
+
+            // 2. LOGIC: Is this a "No-Value" PR?
+            const isOnlyNoise = fileNames.every(file => noiseFiles.includes(file));
+
+            if (isOnlyNoise) {
+              console.log("XP Filter: PR contains only lockfiles or configs. Skipping leaderboard.");
+              return; 
+            }
+              
             const prAuthor = context.payload.pull_request.user.login;
             const labels = context.payload.pull_request.labels.map(l => l.name.toLowerCase());
 
@@ -27,15 +60,18 @@ jobs:
             const isRobin = labels.some(l => l.includes('robin-hood') || l.includes('🛡️'));
 
             labels.forEach(label => {
-              // Extract number from labels like "$15" or "50xp"
               const match = label.match(/(\d+)/);
               if (match) { points += parseInt(match[1]); }
             });
             if (labels.includes('status: point-of-interest')) points += 25;
 
-            if (points === 0 || (!isBounty && !isRobin)) return; // Skip if no point-bearing labels
+            // Skip if no point-bearing labels
+            if (points === 0 || (!isBounty && !isRobin)) {
+              console.log("No points awarded for this PR. Skipping leaderboard update.");
+              return;
+            }
 
-            const today = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+            const today = new Date().toISOString().split('T')[0];
 
             // 2. PARSE AND UPDATE
             let content = fs.readFileSync('LEADERBOARD.md', 'utf8');
@@ -45,6 +81,11 @@ jobs:
             const startIndex = lines.findIndex(l => l.includes(startMarker));
             const endIndex = lines.findIndex(l => l.includes(endMarker));
 
+            if (startIndex === -1 || endIndex === -1) {
+              throw new Error("Markers not found in LEADERBOARD.md");
+            }
+
+            // Get existing data rows
             let rows = lines.slice(startIndex + 1, endIndex).filter(r => r.includes('|'));
             let userFound = false;
 
@@ -53,26 +94,26 @@ jobs:
               // Expected Cols: [Rank, User, XP, Tasks, Role, Date]
               if (cols[1] === `@${prAuthor}`) {
                 userFound = true;
-                cols[2] = parseInt(cols[2]) + points; // Add XP
-                cols[3] = parseInt(cols[3]) + 1;      // Add Task
-                cols[5] = today;                      // Update Date
+                cols[2] = (parseInt(cols[2]) || 0) + points; 
+                cols[3] = (parseInt(cols[3]) || 0) + 1;      
+                cols[5] = today;                      
                 
-                // Update Role Icon
                 if (isRobin && !cols[4].includes('🏹')) cols[4] = "🏹 Robin Hood";
                 if (isBounty && !cols[4].includes('⚔️')) cols[4] = "⚔️ Bounty Hunter";
               }
-              return cols.join(' | ');
+              // Return the internal columns joined by pipes
+              return cols.slice(1).join(' | ');
             });
 
             if (!userFound) {
               const userClass = isRobin ? "🏹 Robin Hood" : "⚔️ Bounty Hunter";
-              updatedRows.push(` | @${prAuthor} | ${points} | 1 | ${userClass} | ${today}`);
+              updatedRows.push(`@${prAuthor} | ${points} | 1 | ${userClass} | ${today}`);
             }
 
-            // 3. RE-SORT BY XP
-            updatedRows.sort((a, b) => parseInt(b.split('|')[2]) - parseInt(a.split('|')[2]));
+            // 3. RE-SORT BY XP (XP is at index 1 in our 'updatedRows' format)
+            updatedRows.sort((a, b) => parseInt(b.split('|')[1]) - parseInt(a.split('|')[1]));
 
-            // 4. RE-RANK
+            // 4. RE-RANK AND WRAP IN PIPES
             const finalRows = updatedRows.map((row, i) => `| ${i + 1} | ${row} |`);
 
             // 5. SAVE
