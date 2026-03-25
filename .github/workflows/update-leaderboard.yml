@@ -50,9 +50,25 @@ jobs:
             }
             
             const prAuthor = prData.user.login;
-            const labels = prData.labels.map(l => l.name.toLowerCase());
+            const prTitle = prData.title;
 
             console.log(`Processing PR #${prNumber} by @${prAuthor}`);
+
+            // 1. FIND LINKED ISSUE
+            const match = prTitle.match(/(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/i);
+            if (!match) {
+              console.log("No linked issue found in PR title. Skipping.");
+              return;
+            }
+            const issueNumber = parseInt(match[1]);
+
+            // 2. FETCH LABELS FROM THE ISSUE (Not the PR)
+            const issue = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
+            const labels = issue.data.labels.map(l => l.name.toLowerCase());
+            
+            console.log(`Processing PR #${prData.number} linked to Issue #${issueNumber}`);
+            console.log(`Labels found on Issue #${issueNumber}: ${labels.join(', ')}`);
+
 
             // 3. XP-GRINDER FILTER (Check for noise files)
             const { data: files } = await github.rest.pulls.listFiles({
