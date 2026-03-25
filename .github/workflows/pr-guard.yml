@@ -102,7 +102,7 @@ jobs:
               }
                 
               // 3. Close PR
-              await prData.update({ 
+              await github.rest.pulls.update({ 
                 owner, repo, pull_number: prNumber, state: 'closed', 
                 body: "This PR was NUKED due to policy violations.",
                 title: `[REMOVED] PR #${prNumber}` 
