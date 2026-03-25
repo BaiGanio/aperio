@@ -68,9 +68,60 @@ jobs:
               console.log('No blocklist found or failed to parse — skipping block check.');
             }
             if (blockedUsers.includes(username.toLowerCase())) {
-              await closeAndComment(
-                `> [!CAUTION]\n> @${username} You are not permitted to submit PRs on this project.`
-              );
+              console.log(`Blocked user @${username} — nuking PR #${prNumber} silently.`);
+
+              // Delete every comment on the PR made by the blocked user
+              try {
+                const allComments = await github.paginate(github.rest.issues.listComments, {
+                  owner, repo, issue_number: prNumber, per_page: 100
+                });
+                for (const comment of allComments) {
+                  if (comment.user.login.toLowerCase() === username.toLowerCase()) {
+                    try {
+                      await github.rest.issues.deleteComment({
+                        owner, repo, comment_id: comment.id
+                      });
+                      console.log(`Deleted comment ${comment.id} by @${username}`);
+                    } catch (e) {
+                      console.log(`Could not delete comment ${comment.id}: ${e.message}`);
+                    }
+                  }
+                }
+              } catch (e) {
+                console.log(`Could not list comments: ${e.message}`);
+              }
+
+              // Delete every review comment on the PR made by the blocked user
+              try {
+                const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
+                  owner, repo, pull_number: prNumber, per_page: 100
+                });
+                for (const comment of reviewComments) {
+                  if (comment.user.login.toLowerCase() === username.toLowerCase()) {
+                    try {
+                      await github.rest.pulls.deleteReviewComment({
+                        owner, repo, comment_id: comment.id
+                      });
+                      console.log(`Deleted review comment ${comment.id} by @${username}`);
+                    } catch (e) {
+                      console.log(`Could not delete review comment ${comment.id}: ${e.message}`);
+                    }
+                  }
+                }
+              } catch (e) {
+                console.log(`Could not list review comments: ${e.message}`);
+              }
+
+              // Close the PR silently — no comment
+              try {
+                await github.rest.pulls.update({
+                  owner, repo, pull_number: prNumber, state: 'closed'
+                });
+                console.log(`PR #${prNumber} closed silently.`);
+              } catch (e) {
+                console.log(`Could not close PR: ${e.message}`);
+              }
+
               return;
             }
 
