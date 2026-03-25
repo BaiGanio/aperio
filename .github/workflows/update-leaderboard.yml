@@ -2,7 +2,7 @@ name: Update Leaderboard
 on:
   pull_request:
     types: [closed]
-    branches: [main]
+    branches: [master]
 
 jobs:
   update_rankings:
