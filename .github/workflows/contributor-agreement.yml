@@ -1,0 +1,155 @@
+name: Contributor Agreement
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+  issue_comment:
+    types: [created]
+
+jobs:
+  agreement:
+    # Run on new PRs, or on PR comments containing "I agree"
+    if: |
+      github.event_name == 'pull_request_target' ||
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request != null &&
+       contains(github.event.comment.body, 'I agree'))
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
+      issues: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.MY_PAT }}
+
+      - name: Process Agreement
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.MY_PAT }}
+          script: |
+            const fs = require('fs');
+            const owner = context.repo.owner;
+            const repo  = context.repo.repo;
+
+            const prNumber = context.eventName === 'issue_comment'
+              ? context.payload.issue.number
+              : context.payload.pull_request.number;
+            const username = context.eventName === 'issue_comment'
+              ? context.payload.comment.user.login
+              : context.payload.pull_request.user.login;
+
+            // ── Read current agreement version ──────────────────────────────────
+            let currentVersion = '1.0';
+            try {
+              const content = fs.readFileSync('.github/CONTRIBUTOR_AGREEMENT.md', 'utf8');
+              const m = content.match(/<!--\s*version:\s*([\d.]+)\s*-->/);
+              if (m) currentVersion = m[1];
+            } catch (e) {
+              console.log('CONTRIBUTOR_AGREEMENT.md not found — using version 1.0');
+            }
+
+            // ── Read contributors log ───────────────────────────────────────────
+            const contributorsPath = '.github/CONTRIBUTORS.md';
+            let contributorsContent = '';
+            try {
+              contributorsContent = fs.readFileSync(contributorsPath, 'utf8');
+            } catch (e) { /* will be created below */ }
+
+            // ── Check if already signed this version ────────────────────────────
+            const userRowRegex = new RegExp(
+              `\\|[^|]*\\|\\s*@${username}\\s*\\|[^|]*\\|[^|]*\\|\\s*([\\d.]+)\\s*\\|`, 'i'
+            );
+            const existingRow   = contributorsContent.match(userRowRegex);
+            const signedVersion = existingRow ? existingRow[1].trim() : null;
+
+            if (signedVersion === currentVersion) {
+              console.log(`@${username} already signed v${currentVersion}. Nothing to do.`);
+              return;
+            }
+
+            // ── Check for "I agree" comment ─────────────────────────────────────
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number: prNumber, per_page: 100
+            });
+
+            const hasAgreed = comments.some(
+              c => c.user.login.toLowerCase() === username.toLowerCase() &&
+                   c.body.trim().toLowerCase().includes('i agree')
+            );
+
+            if (!hasAgreed) {
+              // Prompt once per PR
+              const alreadyPrompted = comments.some(
+                c => c.user.login === 'github-actions[bot]' &&
+                     c.body.includes('Contributor Agreement')
+              );
+              if (alreadyPrompted) return;
+
+              const isRenewal   = signedVersion !== null;
+              const renewalNote = isRenewal
+                ? `\n> The agreement has been updated from **v${signedVersion}** → **v${currentVersion}**. Please review the changes before agreeing.`
+                : '';
+
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: prNumber,
+                body:
+                  `> [!IMPORTANT]\n>` +
+                  (isRenewal
+                    ? ` @${username} our Contributor Agreement has been updated! 📋`
+                    : ` @${username} welcome to your first contribution! 👋`) +
+                  `\n>${renewalNote}\n>` +
+                  `\n> Please read [Contributor Agreement v${currentVersion}](../blob/master/.github/CONTRIBUTOR_AGREEMENT.md) and reply with exactly:\n>\n> \`I agree\`\n>\n> Your sign-on will be automatically logged in \`.github/CONTRIBUTORS.md\`.`
+              });
+              return;
+            }
+
+            // ── Log the agreement ───────────────────────────────────────────────
+            let fullName = username;
+            try {
+              const { data: profile } = await github.rest.users.getByUsername({ username });
+              if (profile.name) fullName = profile.name;
+            } catch (e) { /* use username as fallback */ }
+
+            const today  = new Date().toISOString().split('T')[0];
+            const newRow = `| ${fullName} | @${username} | #${prNumber} | ${today} | ${currentVersion} |\n`;
+            const header =
+              `| Name | GitHub | Sign-on PR | Date | Agreement Version |\n` +
+              `|------|--------|------------|------|-------------------|\n`;
+
+            if (!contributorsContent) {
+              contributorsContent =
+                `# Contributor Agreement Signatories\n\n` +
+                `> This file is auto-maintained by the PR workflow. Do not edit manually.\n` +
+                `> All contributors have agreed to the [Contributor Agreement](CONTRIBUTOR_AGREEMENT.md).\n\n` +
+                header + newRow;
+            } else if (signedVersion !== null) {
+              // Update existing row (version renewal)
+              contributorsContent = contributorsContent.replace(
+                new RegExp(`\\|[^|]*\\|\\s*@${username}[^\\n]*\\n`, 'i'), newRow
+              );
+            } else {
+              if (!contributorsContent.includes('| Name | GitHub |')) {
+                contributorsContent += `\n${header}`;
+              }
+              contributorsContent += newRow;
+            }
+
+            fs.writeFileSync(contributorsPath, contributorsContent);
+
+            const { execSync } = require('child_process');
+            execSync('git config user.name "github-actions[bot]"');
+            execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
+            execSync(`git add ${contributorsPath}`);
+            execSync(`git commit -m "chore: log @${username} agreement v${currentVersion} (PR #${prNumber})"`);
+            execSync('git push');
+
+            const isRenewal = signedVersion !== null;
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: isRenewal
+                ? `> [!NOTE]\n> ✅ @${username} your agreement has been updated to **v${currentVersion}** in [\`.github/CONTRIBUTORS.md\`](../blob/main/.github/CONTRIBUTORS.md).`
+                : `> [!NOTE]\n> ✅ @${username} your agreement **v${currentVersion}** has been recorded in [\`.github/CONTRIBUTORS.md\`](../blob/main/.github/CONTRIBUTORS.md). Welcome to the project! 🎉`
+            });

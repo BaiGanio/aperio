@@ -1,7 +1,8 @@
-name: PR GUARD - linked issue with Blocklist
+name: PR Guard
+
 on:
   pull_request_target:
-    types: [opened, synchronize, closed, reopened]
+    types: [opened, synchronize, reopened]
     paths-ignore:
       - 'package-lock.json'
       - 'yarn.lock'
@@ -10,8 +11,6 @@ on:
       - '.prettierrc'
       - '.editorconfig'
       - 'LEADERBOARD.md'
-  issue_comment:
-    types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
@@ -21,12 +20,6 @@ on:
 
 jobs:
   check_pr:
-    if: |
-      github.event_name == 'pull_request' ||
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.pull_request != null &&
-       contains(github.event.comment.body, 'I agree'))
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
@@ -41,264 +34,121 @@ jobs:
       - name: Validate PR
         uses: actions/github-script@v7
         with:
-          github-token: ${{ secrets.MY_PAT }} # CRITICAL: This allows deleting others' comments
+          github-token: ${{ secrets.MY_PAT }}
           script: |
             const fs = require('fs');
             const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            
+            const repo  = context.repo.repo;
+
             // ── Resolve PR context ──────────────────────────────────────────────
             let prNumber, username;
-            if (context.eventName === 'issue_comment') {
-              prNumber = context.payload.issue.number;
-              username = context.payload.comment.user.login;
-            } else if (context.eventName === 'workflow_dispatch') {
+            if (context.eventName === 'workflow_dispatch') {
               prNumber = parseInt(context.payload.inputs.pr_number);
-              const dispatchedPr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-              username = dispatchedPr.data.user.login;
+              const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+              username = pr.data.user.login;
               console.log(`Manual dispatch: re-checking PR #${prNumber} by @${username}`);
             } else {
               prNumber = context.payload.pull_request.number;
               username = context.payload.pull_request.user.login;
             }
 
-            // Get the PR data once at the start to check for forks/branch names
-            const prResponse = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
-            const prData = prResponse.data; // This is the actual data object            
-            
-            // ── HELPER: SILENT NUKE ─────────────────────────────────────────────
+            const { data: prData } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+
+            // ── HELPER: Silent nuke ─────────────────────────────────────────────
+            // Removes user's comments, closes PR, optionally deletes branch.
+            // Used for policy violations where no explanation is warranted
+            // (blocklist, no linked issue, unowned issue).
             const silentNuke = async () => {
-              console.log(`Nuking PR #${prNumber} by @${username} silently.`);
-              
-              // 1. Delete Issue/PR comments by this user
-              const allComments = await github.paginate(github.rest.issues.listComments, {
+              console.log(`Nuking PR #${prNumber} by @${username}`);
+
+              // Delete issue/PR comments by this user
+              const issueComments = await github.paginate(github.rest.issues.listComments, {
                 owner, repo, issue_number: prNumber, per_page: 100
               });
-              console.log(`Found ${allComments.length} total issue comments.`);
-              for (const comment of allComments) {
-                if (comment.user && comment.user.login.toLowerCase() === username.toLowerCase()) {
-                  // Use a try-catch for each deletion to prevent one failure from stopping the script
-                  try {
-                    await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id });
-                  } catch (e) {
-                    console.log(`Failed to delete comment ${comment.id}: ${e.message}`);
-                  }
+              for (const c of issueComments) {
+                if (c.user?.login?.toLowerCase() === username.toLowerCase()) {
+                  try { await github.rest.issues.deleteComment({ owner, repo, comment_id: c.id }); }
+                  catch (e) { console.log(`Could not delete comment ${c.id}: ${e.message}`); }
                 }
               }
 
-              // 2. Delete Review comments by this user
+              // Delete review comments by this user
               const reviewComments = await github.paginate(github.rest.pulls.listReviewComments, {
                 owner, repo, pull_number: prNumber, per_page: 100
               });
-              console.log(`Found ${reviewComments.length} total review comments.`);
-              for (const comment of reviewComments) {
-                if (comment.user && comment.user.login.toLowerCase() === username.toLowerCase()) {
-                  try {
-                    await github.rest.pulls.deleteReviewComment({ owner, repo, comment_id: comment.id });
-                  } catch (e) {
-                    console.log(`Failed to delete review comment ${comment.id}: ${e.message}`);
-                  }
+              for (const c of reviewComments) {
+                if (c.user?.login?.toLowerCase() === username.toLowerCase()) {
+                  try { await github.rest.pulls.deleteReviewComment({ owner, repo, comment_id: c.id }); }
+                  catch (e) { console.log(`Could not delete review comment ${c.id}: ${e.message}`); }
                 }
               }
-                
-              // 3. Close PR
-              await github.rest.pulls.update({ 
-                owner, repo, pull_number: prNumber, state: 'closed', 
-                body: "This PR was NUKED due to policy violations.",
-                title: `[REMOVED] PR #${prNumber}` 
+
+              // Close and retitle the PR
+              await github.rest.pulls.update({
+                owner, repo, pull_number: prNumber,
+                state: 'closed',
+                title: `[REMOVED] PR #${prNumber}`,
+                body: 'This PR was removed due to policy violations.'
               });
 
-              // Optional: Delete the branch (only if it's NOT a fork)
-              try {
-                if (!prData.data.head.repo.fork) {
-                  const branchName = prData.data.head.ref;
-                  await github.rest.git.deleteRef({
-                    owner, repo, ref: `heads/${branchName}`
-                  });
-                  console.log(`Branch ${branchName} deleted.`);
+              // Delete branch if not a fork
+              if (!prData.head.repo?.fork) {
+                try {
+                  await github.rest.git.deleteRef({ owner, repo, ref: `heads/${prData.head.ref}` });
+                  console.log(`Branch ${prData.head.ref} deleted.`);
+                } catch (e) {
+                  console.log(`Could not delete branch: ${e.message}`);
                 }
-              } catch (e) {
-                console.log("Could not delete branch (likely a fork or already gone).");
               }
             };
 
-            // ── 1. BLOCKLIST GUARD ──────────────────────────────────────────────
+            // ── 1. BLOCKLIST ────────────────────────────────────────────────────
             let blockedUsers = [];
             try {
               const raw = fs.readFileSync('.github/blocklist.json', 'utf8');
               blockedUsers = JSON.parse(raw).blocked.map(u => u.toLowerCase());
             } catch (e) {
-              console.log('No blocklist found or failed to parse — skipping block check.');
+              console.log('No blocklist found — skipping.');
             }
             if (blockedUsers.includes(username.toLowerCase())) {
               await silentNuke();
               return;
             }
 
-            // ── 2. LINKED ISSUE GUARD & ASSIGNEE GUARD ──────────────────────────────────
-            const title = prData.title || ''; // Use prData from our earlier fetch
+            // ── 2. LINKED ISSUE IN TITLE ────────────────────────────────────────
+            // Title must contain e.g. "closes #42", "fixes #7", "resolves #100"
             const linkRegex = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/i;
-            const match = title.match(linkRegex);
-            // If no linked issue in title -> NUKE
+            const match = prData.title.match(linkRegex);
             if (!match) {
               await silentNuke();
               return;
             }
 
-            // ── 3. CLAIMED BY THIS USER GUARD ──────────────────────────────────
+            // ── 3. ISSUE MUST BE ASSIGNED TO PR AUTHOR ──────────────────────────
             const linkedIssueNumber = parseInt(match[1]);
             try {
-              const linkedIssue = await github.rest.issues.get({ owner, repo, issue_number: linkedIssueNumber });
-              const assignee = linkedIssue.data.assignee?.login;
-
-              // If no assignee OR assignee is NOT the PR author -> NUKE
+              const { data: linkedIssue } = await github.rest.issues.get({
+                owner, repo, issue_number: linkedIssueNumber
+              });
+              const assignee = linkedIssue.assignee?.login;
               if (!assignee || assignee.toLowerCase() !== username.toLowerCase()) {
                 await silentNuke();
                 return;
               }
             } catch (e) {
-              // If issue doesn't exist -> NUKE
+              // Issue doesn't exist
               await silentNuke();
               return;
             }
 
-            // ── 3.5 AUTO-LABEL FOR RELEASE NOTES ────────────────────────────────
-            const prTitle = prData.title.toLowerCase();
-            let autoLabel = "";
-
-            if (prTitle.startsWith("feat")) autoLabel = "feat";
-            else if (prTitle.startsWith("fix")) autoLabel = "fix";
-            else if (prTitle.startsWith("chore")) autoLabel = "chore";
-            else if (prTitle.startsWith("docs")) autoLabel = "docs";
-
-            if (autoLabel) {
-              console.log(`Auto-labeling PR as: ${autoLabel}`);
+            // ── 4. AUTO-LABEL FROM TITLE PREFIX ─────────────────────────────────
+            const prefix = prData.title.toLowerCase().split(':')[0].trim();
+            const validLabels = ['feat', 'fix', 'chore', 'docs', 'refactor'];
+            if (validLabels.includes(prefix)) {
               await github.rest.issues.addLabels({
-                owner, repo,
-                issue_number: prNumber,
-                labels: [autoLabel]
+                owner, repo, issue_number: prNumber, labels: [prefix]
               });
+              console.log(`Auto-labeled PR as: ${prefix}`);
             }
 
-            // ── 4. CONTRIBUTOR AGREEMENT GUARD ─────────────────────────────────
-            // -- Read current agreement version from CONTRIBUTOR_AGREEMENT.md
-            let currentVersion = '1.0';
-            try {
-              const agreementContent = fs.readFileSync('.github/CONTRIBUTOR_AGREEMENT.md', 'utf8');
-              const versionMatch = agreementContent.match(/<!--\s*version:\s*([\d.]+)\s*-->/);
-              if (versionMatch) currentVersion = versionMatch[1];
-            } catch (e) {
-              console.log('Could not read CONTRIBUTOR_AGREEMENT.md — using default version 1.0');
-            }
-
-            // -- Read current .github/CONTRIBUTORS.md
-            const contributorsPath = '.github/CONTRIBUTORS.md';
-            let contributorsContent = '';
-            try {
-              contributorsContent = fs.readFileSync(contributorsPath, 'utf8');
-            } catch (e) {
-              // File doesn't exist yet — will be created below
-            }
-
-            // -- Check if this user has already signed the CURRENT version
-            const userRowRegex = new RegExp(
-              `\\|[^|]*\\|\\s*@${username}\\s*\\|[^|]*\\|[^|]*\\|\\s*([\\d.]+)\\s*\\|`,
-              'i'
-            );
-            const existingRow = contributorsContent.match(userRowRegex);
-            const signedVersion = existingRow ? existingRow[1].trim() : null;
-
-            if (signedVersion === currentVersion) {
-              console.log(`@${username} already signed agreement v${currentVersion}. Skipping.`);
-              return;
-            }
-
-            // -- Check if they've commented "I agree" on this PR
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner, repo, issue_number: prNumber, per_page: 100
-            });
-
-            const agreed = comments.some(
-              c => c.user.login.toLowerCase() === username.toLowerCase() &&
-                   c.body.trim().toLowerCase().includes('i agree')
-            );
-
-            if (!agreed) {
-              // Only prompt once per PR
-              const alreadyPrompted = comments.some(
-                c => c.user.login === 'github-actions[bot]' &&
-                     c.body.includes('Contributor Agreement')
-              );
-              if (!alreadyPrompted) {
-                const isRenewal = signedVersion !== null;
-                const renewalNote = isRenewal
-                  ? `\n> The agreement has been updated from **v${signedVersion}** → **v${currentVersion}**. Please review the changes before agreeing.`
-                  : '';
-                await github.rest.issues.createComment({
-                  owner, repo, issue_number: prNumber,
-                  body:
-                    `> [!IMPORTANT]\n>` +
-                    (isRenewal
-                      ? ` @${username} our Contributor Agreement has been updated! 📋`
-                      : ` @${username} this appears to be your first contribution! 👋`) +
-                    `\n>${renewalNote}\n>` +
-                    `\n> Please read [Contributor Agreement v${currentVersion}](../blob/master/.github/CONTRIBUTOR_AGREEMENT.md) and reply with exactly:\n>\n> \`I agree\`\n>\n> Your sign-on will be automatically logged in \`.github/CONTRIBUTORS.md\`.`
-                });
-              }
-              return;
-            }
-
-            // -- They agreed — fetch full name from GitHub profile
-            let fullName = username;
-            try {
-              const userProfile = await github.rest.users.getByUsername({ username });
-              if (userProfile.data.name) fullName = userProfile.data.name;
-            } catch (e) {
-              console.log(`Could not fetch profile for ${username}, using username as name.`);
-            }
-
-            // -- Build the new row
-            const today = new Date().toISOString().split('T')[0];
-            const newRow = `| ${fullName} | @${username} | #${prNumber} | ${today} | ${currentVersion} |\n`;
-
-            const tableHeader =
-              `| Name | GitHub | Sign-on PR | Date | Agreement Version |\n` +
-              `|------|--------|------------|------|-------------------|\n`;
-
-            if (!contributorsContent) {
-              contributorsContent =
-                `# Contributor Agreement Signatories\n\n` +
-                `> This file is auto-maintained by the PR workflow. Do not edit manually.\n` +
-                `> All contributors have agreed to the [Contributor Agreement](CONTRIBUTOR_AGREEMENT.md).\n\n` +
-                tableHeader +
-                newRow;
-            } else if (signedVersion !== null) {
-              contributorsContent = contributorsContent.replace(
-                new RegExp(`\\|[^|]*\\|\\s*@${username}[^\\n]*\\n`, 'i'),
-                newRow
-              );
-            } else {
-              if (!contributorsContent.includes('| Name | GitHub |')) {
-                contributorsContent += `\n${tableHeader}`;
-              }
-              contributorsContent += newRow;
-            }
-
-            fs.writeFileSync(contributorsPath, contributorsContent);
-
-            // -- Commit and push
-            const { execSync } = require('child_process');
-            execSync('git config user.name "github-actions[bot]"');
-            execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
-            execSync(`git add ${contributorsPath}`);
-            execSync(`git commit -m "chore: log @${username} agreement v${currentVersion} (PR #${prNumber})"`);
-            execSync('git push');
-
-            // -- Confirm to contributor
-            const isRenewal = signedVersion !== null;
-            await github.rest.issues.createComment({
-              owner, repo, issue_number: prNumber,
-              body: isRenewal
-                ? `> [!NOTE]\n> ✅ @${username} your agreement has been updated to **v${currentVersion}** in [\`.github/CONTRIBUTORS.md\`](../blob/main/.github/CONTRIBUTORS.md).`
-                : `> [!NOTE]\n> ✅ @${username} your agreement **v${currentVersion}** has been recorded in [\`.github/CONTRIBUTORS.md\`](../blob/main/.github/CONTRIBUTORS.md). Welcome to the project! 🎉`
-            });
+            console.log(`PR #${prNumber} passed all guards.`);
