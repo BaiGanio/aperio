@@ -12,6 +12,7 @@ on:
       - 'LEADERBOARD.md'
   issue_comment:
     types: [created]
+  workflow_dispatch:
 
 jobs:
   check_pr:
