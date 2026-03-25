@@ -1,10 +1,4 @@
-name: Update Changelog & Versioning
-
-# Note on Major Versions:
-# This script currently handles feat (minor) and fix (patch). 
-# If you ever want to release a Major version (2.0.0), you would just manually run 'npm version major' on your machine and push.
-# Step 1: `npm version major -m "feat!: breaking change description"`
-# Step 2: `git push origin master --follow-tags`
+name: Release & Versioning (No Changelog)
 
 on:
   push:
@@ -16,7 +10,6 @@ permissions:
 jobs:
   release:
     runs-on: ubuntu-latest
-    # Prevent infinite loops from bot commits
     if: "!contains(github.event.head_commit.message, 'skip ci')"
     
     steps:
@@ -24,22 +17,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Analyze Commit & Determine Bump
+      - name: Analyze Commit
         id: info
         run: |
           MSG=$(git log -1 --pretty=%s)
-          HASH=$(git log -1 --pretty=%h)
-          
-          # 1. Determine Changelog Section
-          if [[ "$MSG" =~ ^feat: ]]; then SECTION="Added"; BUMP="minor"
-          elif [[ "$MSG" =~ ^fix: ]]; then SECTION="Fixed"; BUMP="patch"
-          else SECTION="skip"; BUMP="skip"
+          if [[ "$MSG" =~ ^feat: ]]; then BUMP="minor"
+          elif [[ "$MSG" =~ ^fix: ]]; then BUMP="patch"
+          else BUMP="skip"
           fi
-          
-          echo "section=$SECTION" >> $GITHUB_OUTPUT
           echo "bump=$BUMP" >> $GITHUB_OUTPUT
-          echo "msg=$MSG" >> $GITHUB_OUTPUT
-          echo "hash=$HASH" >> $GITHUB_OUTPUT
 
       - name: Configure Git
         if: steps.info.outputs.bump != 'skip'
@@ -51,43 +37,25 @@ jobs:
         id: versioning
         if: steps.info.outputs.bump != 'skip'
         run: |
-          OLD_V=$(node -p "require('./package.json').version")
-          # Use npm to bump version but don't commit yet so we can bundle the changelog
           npm version ${{ steps.info.outputs.bump }} --no-git-tag-version
           NEW_V=$(node -p "require('./package.json').version")
-          
-          echo "old_v=$OLD_V" >> $GITHUB_OUTPUT
           echo "new_v=$NEW_V" >> $GITHUB_OUTPUT
 
-      - name: Update CHANGELOG.md
+      - name: Commit Version Bump
         if: steps.info.outputs.bump != 'skip'
         run: |
           NEW_V="${{ steps.versioning.outputs.new_v }}"
-          OLD_V="${{ steps.versioning.outputs.old_v }}"
-          OLD_MAJOR=$(echo $OLD_V | cut -d. -f1)
-          NEW_MAJOR=$(echo $NEW_V | cut -d. -f1)
-          DATE=$(date +'%Y-%m-%d')
-          ENTRY="- ${{ steps.info.outputs.msg }} (${{ steps.info.outputs.hash }})"
+          git add package.json package-lock.json
+          git commit -m "chore: release v$NEW_V [skip ci]"
+          git push origin master
 
-          # Ensure file exists
-          if [ ! -f CHANGELOG.md ]; then echo -e "# Changelog\n\n## [Unreleased]" > CHANGELOG.md; fi
-
-          if [ "$NEW_MAJOR" -gt "$OLD_MAJOR" ]; then
-            # MAJOR BUMP: Archive old content in <details>
-            # Keep header and Unreleased, insert new version, then wrap the rest
-            sed -i "/## \[Unreleased\]/a \\\n## [$NEW_V] - $DATE\n### ${{ steps.info.outputs.section }}\n$ENTRY\n\n<details>\n<summary>Archive v$OLD_MAJOR.x.x</summary>" CHANGELOG.md
-            echo -e "\n</details>" >> CHANGELOG.md
-          else
-            # MINOR/PATCH BUMP: Standard append under Unreleased
-            sed -i "/## \[Unreleased\]/a \\\n## [$NEW_V] - $DATE\n### ${{ steps.info.outputs.section }}\n$ENTRY" CHANGELOG.md
-          fi
-
-      - name: Commit and Push
+      - name: Create GitHub Release
         if: steps.info.outputs.bump != 'skip'
-        run: |
-          NEW_V="${{ steps.versioning.outputs.new_v }}"
-          git add package.json package-lock.json CHANGELOG.md
-          git commit -m "chore: release $NEW_V [skip ci]"
-          git tag "v$NEW_V"
-          git pull --rebase origin master
-          git push origin master --follow-tags
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.versioning.outputs.new_v }}
+          name: Release v${{ steps.versioning.outputs.new_v }}
+          # This is the magic: GitHub builds the changelog for you!
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
