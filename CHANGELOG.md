@@ -6,6 +6,10 @@ All notable changes to Aperio are documented here.
 
 ## [Unreleased]
 
+## [2.7.0] - 2026-03-25
+### Added
+- feat: #25 - Aperio lite db split with lancedb (#26) (36e0f61)
+
 ## [2.6.0] - 2026-03-24
 ### Added
 - feat: The Nuke Loop: If an assignee is on the blocklist (af91ab9)
