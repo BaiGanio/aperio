@@ -129,6 +129,8 @@ jobs:
             }
               
             // Extract existing data rows between markers
+            let rows = lines.slice(startIndex + 1, endIndex).filter(r => r.trim().startsWith('|'));
+            let userFound = false;
             let dataRows = rows.map(row => {
               // Split by | and clean up. 
               // Resulting array: ['', Rank, User, XP, Tasks, Role, Date, '']
@@ -166,7 +168,7 @@ jobs:
             fs.writeFileSync('LEADERBOARD.md', newContent);
             
             console.log(`✅ Successfully updated leaderboard for @${prAuthor}`);
-            
+
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
