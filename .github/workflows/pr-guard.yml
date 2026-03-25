@@ -1,6 +1,6 @@
 name: Require Linked Issue on PR— with Blocklist
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, closed, reopened]
     paths-ignore:
       - 'package-lock.json'
@@ -71,7 +71,12 @@ jobs:
               });
               for (const comment of allComments) {
                 if (comment.user.login.toLowerCase() === username.toLowerCase()) {
-                  await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id }).catch(() => {});
+                  // Use a try-catch for each deletion to prevent one failure from stopping the script
+                  try {
+                    await github.rest.issues.deleteComment({ owner, repo, comment_id: comment.id });
+                  } catch (e) {
+                    console.log(`Failed to delete comment ${comment.id}: ${e.message}`);
+                  }
                 }
               }
 
@@ -81,10 +86,14 @@ jobs:
               });
               for (const comment of reviewComments) {
                 if (comment.user.login.toLowerCase() === username.toLowerCase()) {
-                  await github.rest.pulls.deleteReviewComment({ owner, repo, comment_id: comment.id }).catch(() => {});
+                  try {
+                    await github.rest.pulls.deleteReviewComment({ owner, repo, comment_id: comment.id });
+                  } catch (e) {
+                    console.log(`Failed to delete review comment ${comment.id}: ${e.message}`);
+                  }
                 }
               }
-
+                
               // 3. Close PR
               await github.rest.pulls.update({ owner, repo, pull_number: prNumber, state: 'closed' });
             };
