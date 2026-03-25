@@ -19,6 +19,3 @@ By submitting code to this project, you agree that all contributions are license
 All payments are public. By accepting payment, you consent to your name and the amount paid being listed on the [HCB Public Ledger](https://hcb.hackclub.com).
 
 ---
-**Accepted by:**  
-Name: __________________________  
-Date: ___________________________
