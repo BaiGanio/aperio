@@ -144,8 +144,8 @@ jobs:
 
                 return [
                   `@${prAuthor}`, 
-                  currentXP, 
-                  currentBounty, 
+                  `XP ${currentXP}`, 
+                  `$ ${currentBounty}`, 
                   (parseInt(cols[4]) || 0) + 1, 
                   today
                 ];
@@ -171,7 +171,7 @@ jobs:
             const finalTable = [
               startMarker,
               "", // Space for Markdown rendering
-              '| Rank | Contributor | 🛡️ XP | ☠️ Bounty | Tasks Completed | Last Active |',
+              '| Rank | Contributor | 🛡️ | ☠️ | Tasks Completed | Last Active |',
               '| :--- | :--- | :--- | :--- | :--- | :--- |',
               ...finalRows,
               "", // Mandatory empty line for Markdown parsing
