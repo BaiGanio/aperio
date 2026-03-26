@@ -103,6 +103,7 @@ jobs:
                 });
                 return;
               }
+            }
 
             // ── 2. CONFIG & SENIORITY ───────────────────────────────────────────
             const config = JSON.parse(fs.readFileSync(seniorityTiersPath, 'utf8'));
