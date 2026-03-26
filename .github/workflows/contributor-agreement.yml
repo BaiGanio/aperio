@@ -23,6 +23,8 @@ jobs:
 
       - name: Process Agreement
         uses: actions/github-script@v7
+        env:
+          MY_PAT: ${{ secrets.MY_PAT }}
         with:
           github-token: ${{ secrets.MY_PAT }}
           script: |
@@ -114,7 +116,7 @@ jobs:
             } catch (e) { /* use username as fallback */ }
 
             const today  = new Date().toISOString().split('T')[0];
-            const newRow = `| ${fullName} | @${username} | #${issue_number} | ${today} | ${currentVersion} |\n`;
+            const newRow = `| ${fullName} | @${username} | #${prNumber} | ${today} | ${currentVersion} |\n`;
             const header =
               `| Name | GitHub | Sign-on Issue | Date | Agreement Version |\n` +
               `|------|--------|------------|------|-------------------|\n`;
@@ -148,7 +150,7 @@ jobs:
             execSync(`git commit -m "chore: log @${username} agreement v${currentVersion} (PR #${prNumber})"`);
             // C. Push using the PAT for authentication
             // C.1 We use the 'MY_PAT' secret you already passed into the action
-            const pat = process.env.INPUT_GITHUB_TOKEN; 
+            const pat = process.env.MY_PAT; 
             execSync(`git push https://x-access-token:${pat}@://github.com{owner}/${repo}.git HEAD:master`);
             console.log(`Successfully logged agreement for @${username}`);
             
