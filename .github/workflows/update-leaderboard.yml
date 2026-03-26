@@ -83,8 +83,7 @@ jobs:
               'bun.lockb',
               '.gitignore',
               '.prettierrc',
-              '.editorconfig',
-              'LEADERBOARD.md' // Prevent recursion
+              '.editorconfig'
             ];
 
             const fileNames = files.map(f => f.filename);
