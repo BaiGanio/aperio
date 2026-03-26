@@ -23,12 +23,8 @@ jobs:
 
       - name: Copy and Push to Wiki
         run: |
-          // Get the absolute path to the root of the repo
-          const rootDir = process.cwd();
-          const LEADERBOARD_RELATIVE_PATH = '.github/LEADERBOARD.md';
-          const leaderBoardPath = path.join(process.cwd(), LEADERBOARD_RELATIVE_PATH);
-          #  Copy from the .github folder to the wiki folder
-          cp leaderBoardPath wiki-repo/LEADERBOARD.md
+          const LEADERBOARD_PATH = '.github/LEADERBOARD.md';
+          cp "$LEADERBOARD_PATH" wiki-repo/LEADERBOARD.md
           
           cd wiki-repo
           git config user.name "github-actions[bot]"
