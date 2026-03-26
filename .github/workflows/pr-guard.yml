@@ -60,7 +60,7 @@ jobs:
             }
             // ── 🛡️ REPO OWNER PROTECTION ──────────────────────────────────────────
             if (username.toLowerCase() === owner.toLowerCase()) {
-              console.log(`[SAFEGUARD] @${targetUser} is the Repo Owner. Nuke cancelled.`);
+              console.log(`[SAFEGUARD] @${username} is the Repo Owner. Nuke cancelled.`);
               return; // Exit immediately
             }
             const { data: prData } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
