@@ -25,6 +25,7 @@ jobs:
           github-token: ${{ secrets.MY_PAT }}
           script: |
             const fs = require('fs');
+            const path = require('path');
             const { owner, repo } = context.repo;
             const issueNumber = context.payload.issue.number;
             const commentBody = context.payload.comment.body.trim();
@@ -90,7 +91,7 @@ jobs:
             }
 
             // ── CHECK: THE RE-CLAIM BLOCK ──────────────────────────────────────────
-            if (body === '/claim') {
+            if (commentBody === '/claim') {
               const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: issueNumber });
               const hasQuitBefore = comments.some(c => 
                 c.user.login === username && c.body.trim() === 'I quit'
@@ -103,6 +104,7 @@ jobs:
                 });
                 return;
               }
+            }
 
             // ── 2. CONFIG & SENIORITY ───────────────────────────────────────────
             const config = JSON.parse(fs.readFileSync(seniorityTiersPath, 'utf8'));
