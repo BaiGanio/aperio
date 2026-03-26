@@ -16,7 +16,8 @@ module.exports = async ({ github, context, targetUser,  prData = null, issueNumb
   console.log(`[NUKE] Banning @${targetUser}. PR Owner? ${isPrOwner}`);
 
   // 1. Update blocklist.json
-  const blocklistPath = '.github/blocklist.json';
+  // Move up one folder from 'scripts', then into 'data'
+  const blocklistPath = path.join(__dirname, '..', 'data', 'blocklist.json');
   let blocklist = { blocked: [] };
   try {
     blocklist = JSON.parse(fs.readFileSync(blocklistPath, 'utf8'));

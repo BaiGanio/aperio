@@ -1,0 +1,40 @@
+name: Sync LEADERBOARD to Wiki
+on:
+  push:
+    branches:
+      - master  # Trigger on pushes to main
+    paths:
+      - '.github/LEADERBOARD.md' # Only run if this specific file changes
+  workflow_dispatch:
+
+jobs:
+  sync-wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Source Repo
+        uses: actions/checkout@v4
+
+      - name: Checkout Wiki Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki-repo
+          token: ${{ secrets.MY_PAT }}
+
+      - name: Copy and Push to Wiki
+        run: |
+          #  Copy from the .github folder to the wiki folder
+          cp LEADERBOARD.md wiki-repo/LEADERBOARD.md
+          
+          cd wiki-repo
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are actual changes to commit
+          if [ -n "$(git status --porcelain)" ]; then
+            git add .
+            git commit -m "Update LEADERBOARD from main repository"
+            git push
+          else
+            echo "No changes to sync."
+          fi

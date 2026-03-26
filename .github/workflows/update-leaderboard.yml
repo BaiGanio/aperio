@@ -117,7 +117,7 @@ jobs:
             const today = new Date().toISOString().split('T')[0];
 
             // 2. PARSE AND UPDATE
-            let content = fs.readFileSync('LEADERBOARD.md', 'utf8');
+            let content = fs.readFileSync('.github/LEADERBOARD.md', 'utf8');
             let lines = content.split('\n');
             const startMarker = '<!-- LEDGER_ROWS_START -->';
             const endMarker = '<!-- LEDGER_ROWS_END -->';
@@ -181,7 +181,7 @@ jobs:
 
             // 5. SAVE
             const newContent = [...lines.slice(0, startIndex), ...finalTable, ...lines.slice(endIndex + 1)].join('\n');
-            fs.writeFileSync('LEADERBOARD.md', newContent);
+            fs.writeFileSync('.github/LEADERBOARD.md', newContent);
             
             console.log(`✅ Successfully updated leaderboard for @${prAuthor}`);
 
