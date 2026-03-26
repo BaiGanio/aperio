@@ -1,0 +1,50 @@
+name: Issue Moderation Workflow
+on:
+  issues:
+    types: [opened, unlabeled]
+
+jobs:
+  # STEP 1: AUTO-LOCK ON OPEN
+  lock_on_open:
+    if: github.event.action == 'opened'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Label, Lock, and Notify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo, number } = context.issue;
+            
+            await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels: ['muted'] });
+            
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: number,
+              body: "### 🛡️ Automated Notice\nTo ensure a focused review and prevent automated spam, this conversation is **temporarily locked** while we clarify the final path. We appreciate your patience!"
+            });
+
+            await github.rest.issues.lock({ owner, repo, issue_number: number, lock_reason: 'spam' });
+
+  # STEP 2: AUTO-UNLOCK MUTED(With 10s Delay)
+  unlock_muted:
+    if: github.event.action == 'unlabeled' && github.event.label.name == 'muted'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Wait for 3 seconds
+        run: sleep 3
+
+      - name: Unlock and Notify
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo, number } = context.issue;
+
+            await github.rest.issues.unlock({ owner, repo, issue_number: number });
+
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: number,
+              body: "### ✅ Discussion Open\nThe review period is complete. This thread is now **unlocked** and open for community contributions. Please keep the discussion constructive and on-topic!"
+            });
