@@ -4,8 +4,12 @@
 
 import { connect } from '@lancedb/lancedb';
 import { v4 as uuidv4 } from 'uuid';
+import path from 'path';
+import fs from 'fs';
+import { randomUUID } from 'node:crypto'; // Built-in Node.js UUID generator
 
-const DB_PATH = process.env.LANCEDB_PATH ?? './.lancedb';
+const RELATIVE_PATH = process.env.LANCEDB_PATH ?? './.lancedb';
+const DB_PATH = path.resolve(process.cwd(), RELATIVE_PATH);
 const TABLE   = 'memories';
 const DIMS    = 1024; // voyage-3 / nomic dimensions
 
@@ -63,6 +67,11 @@ export class LanceDBStore {
   }
 
   static async init() {
+    // Force create the parent directory if it doesn't exist
+    if (!fs.existsSync(DB_PATH)) {
+        fs.mkdirSync(DB_PATH, { recursive: true });
+    }
+    console.log(`🌱 Seeding fresh table: ${TABLE}`);
     const store = new LanceDBStore();
     const db = await connect(DB_PATH);
     const existing = await db.tableNames();
@@ -70,12 +79,40 @@ export class LanceDBStore {
     if (existing.includes(TABLE)) {
       store.table = await db.openTable(TABLE);
     } else {
-      const placeholder = toRow('__init__', {
-        type: 'fact', title: '', content: '',
-        tags: [], importance: 3, source: 'system',
-      }, new Array(DIMS).fill(0));
-      store.table = await db.createTable(TABLE, [placeholder]);
-      await store.table.delete(`id = '__init__'`);
+      const seedData = [
+        {
+          type: 'preference', 
+          title: 'Code style preference', 
+          content: 'I prefer clean, readable code over clever one-liners. Comments should explain WHY, not WHAT.', 
+          tags: ['coding', 'style'], 
+          importance: 4
+        },
+        {
+          type: 'project', 
+          title: 'Aperio', 
+          content: 'A personal memory layer for AI tools. Built with Postgres + MCP. Currently in early development.', 
+          tags: ['mcp', 'lancedb', 'ai', 'personal'], 
+          importance: 2
+        }
+      ];
+      
+      // Map to your internal row format using actual UUIDs
+      const rows = seedData.map(metadata => 
+        toRow(
+          randomUUID(), // Generate a unique ID for every seed entry
+          { ...metadata, source: 'system' }, 
+          new Array(DIMS).fill(0)
+        )
+      );
+
+      console.log(`✨ Creating table: ${TABLE}`);
+      store.table = await db.createTable(TABLE, rows);
+    }
+    // ALWAYS open the table using openTable (don't rely on the createTable return)
+    try {
+        store.table = await db.openTable(TABLE);
+    } catch (err) {
+        console.error("[aperio:db] Table created but failed to open. Retrying...");
     }
 
     await store.refreshCache();
@@ -167,7 +204,13 @@ export class LanceDBStore {
 
     // ── Fulltext fallback ──────────────────────────────────────────────────
     const lower = query?.toLowerCase() ?? '';
-    return this.cache
+    // IF CACHE IS EMPTY, FETCH FROM TABLE DIRECTLY
+    let source = this.cache;
+    if (source.length === 0) {
+        console.error("🔍 Cache empty, fetching from table...");
+        source = await this.table.query().limit(limit).toArray();
+    }
+    return source
       .filter(notExpired)
       .filter(r => !type || r.type === type)
       .filter(r => !tags?.length || tags.some(t => JSON.parse(r.tags || '[]').includes(t)))

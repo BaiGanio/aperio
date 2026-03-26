@@ -7,14 +7,22 @@ import { fileURLToPath } from "url";
 import { dirname, resolve, join, extname, basename } from "path";
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import fs from "fs/promises";
-import { createVectorStore } from '../db/index.js';
+import { getStore } from '../db/index.js';
 
 // ─── Load .env ────────────────────────────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, "../.env") });
 
 // ─── DB ───────────────────────────────────────────────────────────────────────
-const store = await createVectorStore();
+const store = await getStore();
+// 2. Later on line 74...
+if (!store) {
+    console.error("❌ MCP Error: Store failed to initialize.");
+    // Handle error or return 0s
+} else {
+    const { total, embedded: embCount } = await store.counts();
+    console.error(`📊 Database Stats: ${total} total, ${embCount} embedded`);
+}
 
 // ─── Path safety ──────────────────────────────────────────────────────────────
 const ALLOWED_PATHS = (process.env.APERIO_ALLOWED_PATHS || process.cwd())

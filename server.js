@@ -9,12 +9,16 @@ import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import dotenv from "dotenv";
 import { createRequire } from 'module';
+import { getStore } from './db/index.js';
 const require = createRequire(import.meta.url);
 const { version } = require('./package.json');
 
+const app = express();
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, ".env") });
+
+const store = await getStore(); 
 
 const systemPromptBase = readFileSync(resolve(__dirname, "prompts/system_prompt.md"), "utf-8");
 const getSystemPrompt = () => `${systemPromptBase}
@@ -23,9 +27,41 @@ const getSystemPrompt = () => `${systemPromptBase}
 You are running as: ${PROVIDER === "ollama" ? `Ollama (${OLLAMA_MODEL})` : `Anthropic Claude (${ANTHROPIC_MODEL})`}
 If asked which model or AI you are, answer accurately using the above.`;
 
-const PROVIDER        = process.env.AI_PROVIDER?.toLowerCase() || "anthropic";
+// Aperio-lite needs to check the available RAM, so it can propose solutions that fit within the user's limits.
+// 1. Function to determine the best Qwen model based on RAM
+function getRecommendedModel() {
+    const totalRamGB = os.totalmem() / (1024 ** 3);
+    
+    // Tier 5: Flagship (64GB+)
+    if (totalRamGB >= 60) return "qwen2.5:72b-instruct-q4_K_M"; 
+    
+    // Tier 4: High-End / MoE (32GB - 64GB)
+    if (totalRamGB >= 30) return "qwen3.5:35b-instruct-q4_K_M"; 
+    
+    // Tier 3: Advanced Reasoning (16GB - 32GB)
+    if (totalRamGB >= 14) return "qwen2.5:14b-instruct-q8_0"; 
+    
+    // Tier 2: Mainstream (8GB - 16GB)
+    if (totalRamGB >= 8)  return "qwen3.5:7b-instruct-q4_K_M"; 
+    
+    // Tier 1: Lite (Under 8GB)
+    return "qwen3.5:3b-instruct-q4_0" || "deepseek-r1:1.5b" || "qwen2.5-coder:3b";
+}
+
+// 2. Logic to choose the model
+let selectedModel = process.env.OLLAMA_MODEL;
+
+if (!selectedModel) {
+    if (process.env.CHECK_RAM === "true") {
+        selectedModel = getRecommendedModel();
+        console.log(`[System] CHECK_RAM is true. Auto-selected: ${selectedModel}`);
+    } else {
+        selectedModel = "llama3.1"; // Your original default fallback
+    }
+}
+const PROVIDER = process.env.AI_PROVIDER?.toLowerCase() || "anthropic";
 const ANTHROPIC_MODEL = process.env.ANTHROPIC_MODEL || "claude-haiku-4-5-20251001";
-const OLLAMA_MODEL    = process.env.OLLAMA_MODEL    || "llama3.1";
+const OLLAMA_MODEL = selectedModel;
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
 
 // Models that stream reasoning in delta.reasoning
@@ -391,12 +427,33 @@ async function runAgentLoop(messages, ws, getAbort, setAbort) {
 }
 
 // ─── Express + WebSocket ──────────────────────────────────────────────────────
-const app = express();
-app.use(express.json());
-app.use(express.static(resolve(__dirname, "public")));
 app.get('/api/version', (req, res) => {
   res.json({ version: require('./package.json').version });
 });
+app.get("/api/provider", (_, res) => res.json({ provider: provider.name, model: provider.model }));
+app.get("/api/config", (req, res) => {
+    // This tells the frontend which database we are actually using
+    res.json({ 
+        backend: process.env.DB_BACKEND || 'lancedb' 
+    });
+});
+
+app.get("/api/memories", async (req, res) => {
+    try {
+        const records = await store.table.query().limit(500).toArray();
+        return res.json({ raw: records }); 
+    } catch (e) {
+      console.error("Server Error:", e);
+      // Check if we already sent headers to avoid the crash
+      if (!res.headersSent) {
+        return res.status(500).json({ error: e.message });
+      }
+    }
+});
+
+app.use(express.json());
+app.use(express.static(resolve(__dirname, "public")));
+
 const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 
@@ -507,8 +564,7 @@ async function runDedup() {
 }
 setTimeout(() => { runDedup(); setInterval(runDedup, DEDUP_INTERVAL_MS); }, 30_000);
 
-app.get("/api/provider", (_, res) => res.json({ provider: provider.name, model: provider.model }));
-app.get("/api/memories", async (_, res) => { try { res.json({ raw: await callTool("recall", { limit: 50 }) }); } catch (e) { res.status(500).json({ error: e.message }); } });
-
+console.error("✅ Server is running from:", process.cwd());
+console.error("✅ UI static file path:", resolve(__dirname, "public"));
 const PORT = process.env.PORT ?? 3000;
 httpServer.listen(PORT, () => console.log(`\n✨ Aperio running at http://localhost:${PORT}\n`));
