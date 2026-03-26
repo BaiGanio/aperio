@@ -25,6 +25,7 @@ jobs:
           github-token: ${{ secrets.MY_PAT }}
           script: |
             const fs = require('fs');
+            const path = require('path');
             const { owner, repo } = context.repo;
             const issueNumber = context.payload.issue.number;
             const commentBody = context.payload.comment.body.trim();
