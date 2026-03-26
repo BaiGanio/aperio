@@ -29,6 +29,11 @@ jobs:
             const fs = require('fs');
             const owner = context.repo.owner;
             const repo  = context.repo.repo;
+            const rootDir = process.cwd();
+            const AGREEMENT_RELATIVE_PATH = '.github/contributors/CONTRIBUTOR_AGREEMENT.md';
+            const agreementPath = path.join(process.cwd(), AGREEMENT_RELATIVE_PATH);
+            const CONTRIBUTORS_RELATIVE_PATH = '.github/contributors/CONTRIBUTORS.md';
+            const contributorsPath = path.join(process.cwd(), CONTRIBUTORS_RELATIVE_PATH);
 
             const prNumber = context.eventName === 'issue_comment'
               ? context.payload.issue.number
@@ -40,7 +45,7 @@ jobs:
             // ── Read current agreement version ──────────────────────────────────
             let currentVersion = '1.0';
             try {
-              const content = fs.readFileSync('.github/CONTRIBUTOR_AGREEMENT.md', 'utf8');
+              const content = fs.readFileSync(agreementPath, 'utf8');
               const m = content.match(/<!--\s*version:\s*([\d.]+)\s*-->/);
               if (m) currentVersion = m[1];
             } catch (e) {
@@ -48,7 +53,6 @@ jobs:
             }
 
             // ── Read contributors log ───────────────────────────────────────────
-            const contributorsPath = '.github/CONTRIBUTORS.md';
             let contributorsContent = '';
             try {
               contributorsContent = fs.readFileSync(contributorsPath, 'utf8');
@@ -96,7 +100,7 @@ jobs:
                     ? ` @${username} our Contributor Agreement has been updated! 📋`
                     : ` @${username} welcome to your first contribution! 👋`) +
                   `\n>${renewalNote}\n>` +
-                  `\n> Please read [Contributor Agreement v${currentVersion}](../blob/master/.github/CONTRIBUTOR_AGREEMENT.md) and reply with exactly:\n>\n> \`I agree\`\n>\n> Your sign-on will be automatically logged in \`.github/CONTRIBUTORS.md\`.`
+                  `\n> Please read [Contributor Agreement v${currentVersion}](${AGREEMENT_RELATIVE_PATH}) and reply with exactly:\n>\n> \`I agree\`\n>\n> Your sign-on will be automatically logged in \`.github/contributors/CONTRIBUTORS.md\`.`
               });
               return;
             }
@@ -118,7 +122,7 @@ jobs:
               contributorsContent =
                 `# Contributor Agreement Signatories\n\n` +
                 `> This file is auto-maintained by the PR workflow. Do not edit manually.\n` +
-                `> All contributors have agreed to the [Contributor Agreement](CONTRIBUTOR_AGREEMENT.md).\n\n` +
+                `> All contributors have agreed to the [Contributor Agreement](${AGREEMENT_RELATIVE_PATH}).\n\n` +
                 header + newRow;
             } else if (signedVersion !== null) {
               // Update existing row (version renewal)
@@ -151,6 +155,6 @@ jobs:
             await github.rest.issues.createComment({
               owner, repo, issue_number: prNumber,
               body: isRenewal
-                ? `> [!NOTE]\n> ✅ @${username} your agreement has been updated to **v${currentVersion}** in [\`.github/CONTRIBUTORS.md\`](../blob/main/.github/CONTRIBUTORS.md).`
-                : `> [!NOTE]\n> ✅ @${username} your agreement **v${currentVersion}** has been recorded in [\`.github/CONTRIBUTORS.md\`](../blob/main/.github/CONTRIBUTORS.md). Welcome to the project! 🎉`
+                ? `> [!NOTE]\n> ✅ @${username} your agreement has been updated to **v${currentVersion}** in [\`.github/contributors/CONTRIBUTORS.md\`](CONTRIBUTORS_RELATIVE_PATH).`
+                : `> [!NOTE]\n> ✅ @${username} your agreement **v${currentVersion}** has been recorded in [\`.github/contributors/CONTRIBUTORS.md\`](CONTRIBUTORS_RELATIVE_PATH). Welcome to the project! 🎉`
             });

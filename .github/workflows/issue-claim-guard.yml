@@ -29,6 +29,13 @@ jobs:
             const issueNumber = context.payload.issue.number;
             const commentBody = context.payload.comment.body.trim();
             const username = context.payload.comment.user.login;
+            const rootDir = process.cwd();
+            const AGREEMENT_RELATIVE_PATH = '.github/contributors/CONTRIBUTOR_AGREEMENT.md';
+            const agreementPath = path.join(process.cwd(), AGREEMENT_RELATIVE_PATH);
+            const CONTRIBUTORS_RELATIVE_PATH = '.github/contributors/CONTRIBUTORS.md';
+            const contributorsPath = path.join(process.cwd(), CONTRIBUTORS_RELATIVE_PATH);
+            const SENIORITY_TIERS_RELATIVE_PATH = '.github/data/seniority-tiers.json';
+            const seniorityTiersPath = path.join(process.cwd(), SENIORITY_TIERS_RELATIVE_PATH);
 
             // ── 0. HELPERS ──────────────────────────────────────────────────────
             const finalizeClaim = async (targetUser) => {
@@ -36,11 +43,11 @@ jobs:
               await github.rest.issues.addAssignees({ owner, repo, issue_number: issueNumber, assignees: [targetUser] });
               
               // Check Agreement
-              const signed = fs.readFileSync('.github/CONTRIBUTORS.md', 'utf8').includes(`@${targetUser}`);
+              const signed = fs.readFileSync(contributorsPath, 'utf8').includes(`@${targetUser}`);
               if (!signed) {
                 await github.rest.issues.createComment({
                   owner, repo, issue_number: issueNumber,
-                  body: `> [!IMPORTANT]\n> @${targetUser} please reply with \`I agree\` to sign the [Agreement](../blob/master/.github/CONTRIBUTOR_AGREEMENT.md).`
+                  body: `> [!IMPORTANT]\n> @${targetUser} please reply with \`I agree\` to sign the [Contributor Agreement](AGREEMENT_RELATIVE_PATH).`
                 });
               }
 
@@ -98,7 +105,7 @@ jobs:
               }
 
             // ── 2. CONFIG & SENIORITY ───────────────────────────────────────────
-            const config = JSON.parse(fs.readFileSync('.github/seniority-tiers.json', 'utf8'));
+            const config = JSON.parse(fs.readFileSync(seniorityTiersPath, 'utf8'));
             const { tiers, bounty_labels, messages, blocked_below_years } = config;
 
             const userProfile = await github.rest.users.getByUsername({ username });

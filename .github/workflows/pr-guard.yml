@@ -37,8 +37,12 @@ jobs:
             const fs = require('fs');
             const { execSync } = require('child_process');
             const owner = context.repo.owner;
-            const repo  = context.repo.repo;
-            const nuke = require('./.github/scripts/nuke.js');
+            const repo  = context.repo.repo;            
+            // Get the absolute path to the root of the repo
+            const rootDir = process.cwd();
+            // Build the path to the blocklist
+            const blocklistPath = path.join(rootDir, '.github', 'data', 'blocklist.json');
+            const nuke = require(path.join(rootDir, '.github', 'scripts', 'nuke.js'));
 
             // ── Resolve PR Context ──────────────────────────────────────────────
             let prNumber, username;
@@ -74,7 +78,7 @@ jobs:
             // ── II. BLOCKLIST CHECK ──────────────────────────────────────────────
             let blockedUsers = [];
             try {
-              blockedUsers = JSON.parse(fs.readFileSync('.github/blocklist.json', 'utf8')).blocked.map(u => u.toLowerCase());
+              blockedUsers = JSON.parse(fs.readFileSync('blocklistPath, 'utf8')).blocked.map(u => u.toLowerCase());
             } catch (e) {}
 
             if (blockedUsers.includes(username.toLowerCase())) {
