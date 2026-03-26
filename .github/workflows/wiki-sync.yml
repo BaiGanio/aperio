@@ -23,7 +23,7 @@ jobs:
 
       - name: Copy and Push to Wiki
         run: |
-          const LEADERBOARD_PATH = '.github/LEADERBOARD.md';
+          LEADERBOARD_PATH = '.github/LEADERBOARD.md';
           cp "$LEADERBOARD_PATH" wiki-repo/LEADERBOARD.md
           
           cd wiki-repo
