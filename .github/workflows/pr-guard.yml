@@ -35,6 +35,7 @@ jobs:
           github-token: ${{ secrets.MY_PAT }}
           script: |
             const fs = require('fs');
+            const path = require('path');
             const { execSync } = require('child_process');
             const owner = context.repo.owner;
             const repo  = context.repo.repo;            
