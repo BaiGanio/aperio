@@ -58,7 +58,7 @@ jobs:
               username = context.payload.pull_request.user.login;
             }
             // ── 🛡️ REPO OWNER PROTECTION ──────────────────────────────────────────
-            if (targetUser.toLowerCase() === owner.toLowerCase()) {
+            if (username.toLowerCase() === owner.toLowerCase()) {
               console.log(`[SAFEGUARD] @${targetUser} is the Repo Owner. Nuke cancelled.`);
               return; // Exit immediately
             }
@@ -70,19 +70,19 @@ jobs:
             const spamCount = userComments.filter(c => c.body.includes('/claim') || c.body.toLowerCase().includes('i agree')).length;
 
             if (spamCount > 3 && username.toLowerCase() !== owner.toLowerCase()) {
-              console.log(`Nuking blocked user @${commenter} on Issue #${issue.number}`);
-              await nuke({ github, context, targetUser: username.toLowerCase(), issueNumber: issue.number, silent: false });
+              console.log(`Nuking blocked user @${username} on Issue #${prNumber}`);
+              await nuke({ github, context, targetUser: username.toLowerCase(), issueNumber: prNumber, silent: false });
               return;
             }
 
             // ── II. BLOCKLIST CHECK ──────────────────────────────────────────────
             let blockedUsers = [];
             try {
-              blockedUsers = JSON.parse(fs.readFileSync('blocklistPath, 'utf8')).blocked.map(u => u.toLowerCase());
+              blockedUsers = JSON.parse(fs.readFileSync(blocklistPath, 'utf8')).blocked.map(u => u.toLowerCase());
             } catch (e) {}
 
             if (blockedUsers.includes(username.toLowerCase())) {
-              await nuke({ github, context, targetUser: username.toLowerCase(), issueNumber: issue.number, silent: true });
+              await nuke({ github, context, targetUser: username.toLowerCase(), issueNumber: prNumber, silent: true });
               return;
             }
 
@@ -92,7 +92,7 @@ jobs:
               if (body.includes('/claim') || body.includes('I agree')) {
                 const allComments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number: prNumber });
                 
-                // Count warnings sent SPECIFICALLY to this commenter
+                // Count warnings sent SPECIFICALLY to this username
                 const strikes = allComments.filter(c => 
                   c.user.login === 'github-actions[bot]' && 
                   c.body.includes(`@${username}`) && 
@@ -100,7 +100,7 @@ jobs:
                 ).length + 1;
 
                 if (strikes >= 4) {
-                  await nuke({ github, context, targetUser: username.toLowerCase(), issueNumber: issue.number, silent: false });
+                  await nuke({ github, context, targetUser: username.toLowerCase(), issueNumber: prNumber, silent: false });
                   return;
                 }
 
