@@ -125,17 +125,23 @@ jobs:
 
             if (!bountyLabel || currentTier.allowed_labels.some(l => l.toLowerCase() === bountyLabel)) {
               await finalizeClaim(username);
+              
+              // SUCCESS RESPONSE
+              const successBody = `✅ Issue claimed by @${username} (${currentTier.name}, account age: ${ageDisplay} years). Good luck!`;
+              
               await github.rest.issues.createComment({ 
                 owner, repo, issue_number: issueNumber, 
-                body: messages.claim_success.replace('{username}', username) 
+                body: successBody 
               });
             } else {
               // ── 4. APPEAL PATH (Tier Mismatch) ──────────────────────────────
               await github.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: ['point-of-interest'] });
+              
+              const appealBody = `> [!NOTE]\n> @${username}, your seniority tier (**${currentTier.name}**) is currently below the requirement for this bounty (Account age: ${ageDisplay} years).\n>\n> **Appeal Window Open:** Please reply with your motivation. If the owner approves with \`Yes\`, the claim will proceed.`;
+              
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
-                body: `> [!NOTE]\n> @${username} your seniority tier (**${currentTier.name}**) is below the requirement for this bounty.\n>\n> **Appeal Window Open:** You have 24 hours to reply here with your motivation. If the owner approves with \`Yes\`, the claim will proceed.`
+                body: appealBody
               });
-              // Lock so only owner and appellant can speak (if Repo settings allow)
               await github.rest.issues.lock({ owner, repo, issue_number: issueNumber, lock_reason: 'resolved' });
             }
