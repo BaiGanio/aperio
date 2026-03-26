@@ -59,10 +59,11 @@
         <button id="exportBtn" title="Export brain to JSON"
           style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer;
                  color:var(--text-muted); font-size:12px; border-radius:4px;
-                 transition:all var(--transition); opacity:.4;"
-          onmouseover="this.style.opacity='1';this.style.color='var(--accent)'"
-          onmouseout="this.style.opacity='.4';this.style.color='var(--text-muted)'">
-          <i class="bi bi-download"></i>
+                 transition:all var(--transition);"
+          onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
+          <i class="bi bi-download"></i> Export
+        </button>
+        <button id="view-memories-btn" title="Show Memories" onclick="toggleMemoryView()" style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer; color:var(--text-muted); font-size:12px; border-radius:4px; transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">📂 Show
         </button>
       </div>
       <div class="search-box">
@@ -115,6 +116,38 @@
   </div>
 
 </div>
+ <!-- The Modal Backdrop -->
+<!-- THE MODAL (Place this at the bottom of index.html) -->
+<div id="memoryModal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
+    <div style="background:var(--bg-primary, white); color:var(--text-primary, black); margin:50px auto; padding:20px; width:90%; max-width:1000px; max-height:95vh; overflow-y:auto; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); position:relative; border:1px solid var(--border-color, #ccc);">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:15px; margin-bottom:15px;">
+            <hh3 style="margin:0; font-size:18px;">🧠 Simple Database Explorer</hh3>
+            <button onclick="closeModal()" style="background:none; border:none; font-size:28px; cursor:pointer; color:var(--text-muted);">&times;</button>
+        </div>
+
+        <!-- 🔍 NEW SEARCH BAR -->
+        <div style="margin-bottom: 20px;">
+            <input type="text" id="memory-search" oninput="handleSearch()" placeholder="Search title, content or tags..." 
+                   style="width:100%; padding:10px; border-radius:var(--radius, 8px); border:1px solid var(--border-color, #ccc); background-color: #ffffff !important; 
+                  color: #333333 !important; 
+                  font-family: inherit;">
+        </div>
+        
+        <div id="table-wrapper" style="min-height:200px;">
+            <!-- Data injected here -->
+        </div>
+        
+       <div id="pagination-controls" style="display:none; justify-content:center; align-items:center; gap:15px; margin-top:20px; padding-top:15px;">
+            <button id="prev-page" onclick="changePage(-1)" style="padding:6px 12px; cursor:pointer; border-radius:4px; border:1px solid #ccc;">&laquo; Prev</button>
+            <span id="page-info" style="font-family:monospace; font-weight:bold;"></span>
+            <button id="next-page" onclick="changePage(1)" style="padding:6px 12px; cursor:pointer; border-radius:4px; border:1px solid #ccc;">Next &raquo;</button>
+        </div>
+    </div>
+</div>
+
+
+
+
 <div class="preview-modal">
   <div class="preview-content">
   <div class="modal-header">

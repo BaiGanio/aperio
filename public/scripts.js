@@ -11,7 +11,9 @@ const TYPE_CONFIG = {
 
 // ── State ────────────────────────────────────────────────────
 let ws, pendingSuggestion = null, isThinking = false, hasInitialized = false;
-let allMemories = [];
+let allMemories = []; // Global store for the current modal session
+let currentPage = 1;
+const recordsPerPage = 3;
 
 // ── DOM refs ─────────────────────────────────────────────────
 const messagesEl   = document.getElementById("messages");
@@ -947,6 +949,178 @@ document.addEventListener('keydown', (e) => {
     document.querySelector('.preview-modal')?.classList.remove('active');
   }
 });
+
+async function toggleMemoryView() {
+    const modal = document.getElementById('memoryModal');
+    if (!modal) {
+        console.error("❌ memoryModal not found in this page's HTML.");
+        return; 
+    }
+    modal.style.display = 'block'; // Show Modal
+    await refreshMemories();
+}
+
+function closeModal() {
+    document.getElementById('memoryModal').style.display = 'none';
+}
+
+async function refreshMemories() {
+    try {
+        const res = await fetch('/api/memories');
+        const data = await res.json();
+        
+        // Save to both arrays initially
+        allMemories = Array.isArray(data.raw) ? data.raw : [];
+        filteredMemories = [...allMemories]; 
+        
+        // Reset search input
+        const searchInput = document.getElementById('memory-search');
+        if (searchInput) searchInput.value = '';
+        currentPage = 1;
+        renderTablePage();
+    } catch (err) {
+        document.getElementById('table-wrapper').innerHTML = `<p style="color:red;">${err.message}</p>`;
+    }
+}
+
+function handleSearch() {
+    const searchInput = document.getElementById('memory-search');
+    if (!searchInput) return;
+    
+    const term = searchInput.value.toLowerCase();
+    
+    filteredMemories = allMemories.filter(m => {
+        const meta = m.metadata || m;
+        
+        // --- SAFE TAG CONVERSION ---
+        let tagsString = "";
+        if (Array.isArray(meta.tags)) {
+            tagsString = meta.tags.join(' ');
+        } else if (typeof meta.tags === 'string') {
+            tagsString = meta.tags;
+        }
+
+        // Combine all searchable text
+        const searchBlob = `${meta.title || ''} ${meta.content || ''} ${tagsString}`.toLowerCase();
+        
+        return searchBlob.includes(term);
+    });
+
+    currentPage = 1;
+    renderTablePage();
+}
+
+
+function renderTablePage() {
+    // 1. Re-define the elements so this function can see them
+    const wrapper = document.getElementById('table-wrapper');
+    const pageInfo = document.getElementById('page-info');
+    const controls = document.getElementById('pagination-controls'); // THIS WAS MISSING
+    
+    // Safety check: if we aren't on a page with a modal, stop
+    if (!wrapper || !controls) return;
+
+    if (filteredMemories.length === 0) {
+        wrapper.innerHTML = '<p style="text-align:center; padding:20px; opacity:0.6;">no_results_found</p>';
+        controls.style.display = 'none';
+        return;
+    }
+
+    const start = (currentPage - 1) * recordsPerPage;
+    const end = start + recordsPerPage;
+    const pageItems = filteredMemories.slice(start, end);
+    const totalPages = Math.ceil(filteredMemories.length / recordsPerPage) || 1;
+
+    // 2. Now 'controls' is defined and won't crash
+    controls.style.display = 'flex';
+    if (pageInfo) {
+        pageInfo.innerText = `page ${currentPage}/${totalPages} (${filteredMemories.length} results)`;
+    }
+
+    let html = `<table style="width:100%; border-collapse:collapse; font-size:14px;">
+        <thead style="background:#f4f4f4;">
+            <tr>
+                <th style="padding:10px; text-align:left; width:80px;">Type</th>
+                <th style="padding:10px; text-align:left;">Memory</th>
+                <th style="padding:10px; text-align:center; width:40px;">Importance</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    html += pageItems.map(m => {
+        const meta = m.metadata || m;
+        // Convert importance (1-5) into star symbols
+        // We use Math.min/max to ensure it stays between 1 and 5 stars
+        const importance = Math.min(Math.max(parseInt(meta.importance) || 1, 1), 5);
+        const stars = "⭐".repeat(importance);
+        // --- BULLETPROOF TAGS ---
+        let tagsArray = [];
+        if (Array.isArray(meta.tags)) {
+            tagsArray = meta.tags;
+        } else if (typeof meta.tags === 'string') {
+            // If it's a string, try to parse it or just split it
+            try {
+                const parsed = JSON.parse(meta.tags);
+                tagsArray = Array.isArray(parsed) ? parsed : [meta.tags];
+            } catch {
+                tagsArray = meta.tags.split(',').map(t => t.trim());
+            }
+        }
+
+        return `<tr style="border-bottom:1px solid #eee;">
+            <td style="padding:8px; vertical-align:top;"><code>${meta.type || 'fact'}</code></td>
+            <td style="padding:8px;">
+                <div style="font-weight:bold; margin-bottom:4px;">${meta.title || 'Untitled'}</div>
+                <div style="color:#555;">${meta.content || ''}</div>
+                <div style="margin-top:5px;"><small style="color:#888;">🏷️ ${tagsArray.join(', ')}</small></div>
+            </td>
+            <!-- ⭐ Updated Importance Column -->
+            <td style="padding: 10px; text-align: center; vertical-align: top; white-space: nowrap; font-size: 14px;">
+                <span title="Importance: ${importance}/5">${stars}</span>
+            </td>
+        </tr>`;
+    }).join('');
+
+    html += '</tbody></table>';
+    wrapper.innerHTML = html;
+
+    document.getElementById('prev-page').disabled = currentPage === 1;
+    document.getElementById('next-page').disabled = currentPage === totalPages;
+}
+
+
+function changePage(step) {
+    currentPage += step;
+    renderTablePage();
+    // Scroll modal to top when changing page
+    document.querySelector('#memoryModal > div').scrollTop = 0;
+}
+
+async function checkDatabaseBackend() {
+  const btn = document.getElementById('view-memories-btn');
+  if (!btn) return;
+
+  try {
+    const res = await fetch('/api/config');
+    const config = await res.json();
+
+    // ONLY show if it's LanceDB. Hide if it's Postgres or anything else.
+    if (config.backend === 'lancedb') {
+        btn.style.display = 'inline-block';
+    } else {
+        btn.style.display = 'none';
+    }
+  } catch (err) {
+    // Fallback: Hide if we can't determine the backend
+    btn.style.display = 'none';
+  }
+}
+
+// Run the check when the page loads
+document.addEventListener('DOMContentLoaded', checkDatabaseBackend);
+
+
+
 
 
 // ── Theme ────────────────────────────────────────────────────

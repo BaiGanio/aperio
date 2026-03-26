@@ -9,6 +9,49 @@
 import { execSync } from 'child_process';
 import { PostgresStore } from './postgres.js';
 import { LanceDBStore }  from './lancedb.js';
+let instance = null;
+let initializationPromise = null;
+
+export async function getStore() {
+  // --- Start Caller Detection ---
+  // We create a dummy error to grab the stack trace
+  const stack = new Error().stack;
+  const stackLines = stack.split('\n');
+  
+  // Line 0 is 'Error', Line 1 is getStore, Line 2 is the caller
+  const callerLine = stackLines[2] || ''; 
+  // Clean up the path to show just the filename
+  const fileName = callerLine.match(/([^\/]+)\.js/)?.[0] || 'unknown';
+  console.error(`[aperio:db] 📥 getStore() called by: ${fileName}`);
+  // --- End Caller Detection ---
+
+  // 1. If already initialized, return the instance immediately
+  if (instance) return instance;
+
+  // 2. If initialization is already in progress, wait for that same promise
+  if (initializationPromise) return initializationPromise;
+
+  // 3. Otherwise, start initialization and save the promise
+  initializationPromise = (async () => {
+    const backend = resolveBackend();
+
+    if (backend === 'postgres') {
+      try {
+        instance = await PostgresStore.init();
+        console.error('✅ Connected to Aperio database (Postgres)');
+        return instance;
+      } catch (err) {
+        console.error('[aperio:db] Postgres failed — falling back to LanceDB:', err.message);
+      }
+    }
+
+    instance = await LanceDBStore.init();
+    console.error('✅ Connected to Aperio database (LanceDB)');
+    return instance;
+  })();
+
+  return initializationPromise;
+}
 
 function isDockerAvailable() {
   try {

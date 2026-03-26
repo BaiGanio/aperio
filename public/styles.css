@@ -603,17 +603,13 @@
   margin-top: 10px;
 }
 
-.mtags {
-  font-size: 14px;
-  color: #6b7280; /* Subtle grey for tags */
-}
-
 .importance-rating {
   font-weight: 600; /* "A bit bold" as requested */
   color: var(--text);
   display: flex;
   align-items: center;
   gap: 8px;         /* Space between text and stars */
+  user-select: none; 
 }
 
 .stars {
@@ -623,14 +619,9 @@
   text-shadow: 0 0 1px rgba(251, 191, 36, 0.3); /* Subtle glow vibe */
 }
 
-/* Optional: Make the empty stars (☆) look more subtle */
-.importance-rating {
-  /* This targets the empty stars specifically if you want them faded */
-  user-select: none; 
-}
-
 /* The Container */
 .mtags {
+  font-size: 14px;
   display: flex;
   flex-wrap: wrap; /* Allows tags to wrap to the next line if there are many */
   gap: 8px;        /* Spacing between tags */
@@ -654,12 +645,6 @@
   display: inline-block;    /* Ensures padding is respected */
   transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
   transform-origin: center; /* Ensures it grows from the middle */
-}
-
-/* Optional: remove the border entirely for an even cleaner look */
-.mtags span {
-  border: none;
-  background-color: #f1f5f9;
 }
 .mtags span:hover, .mtags .tag:hover {
   transform: scale(1.15);    /* Makes it 15% bigger */
