@@ -151,7 +151,7 @@ jobs:
             // C. Push using the PAT for authentication
             // C.1 We use the 'MY_PAT' secret you already passed into the action
             const pat = process.env.MY_PAT; 
-            execSync(`git push https://x-access-token:${pat}@github.com{owner}/${repo}.git HEAD:master`);
+            execSync(`git push https://x-access-token:${pat}@github.com/${owner}/${repo}.git HEAD:master`);
             console.log(`Successfully logged agreement for @${username}`);
             
             const isRenewal = signedVersion !== null;
