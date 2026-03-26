@@ -6,9 +6,9 @@ This document tracks all contributions to the project.
 ## 📈 Aggregated Contributions
 <!-- LEDGER_ROWS_START -->
 
-| Rank | Contributor | 🛡️ XP | ☠️ Bounty | Tasks Completed | Last Active |
+| Rank | Contributor | 🛡️ | ☠️ | Tasks Completed | Last Active |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | @BaiGanio | 150 | 0 | 2 | 2026-03-26 |
+| 1 | @BaiGanio | XP 200 | $ 0 | 3 | 2026-03-26 |
 
 <!-- LEDGER_ROWS_END -->
 
