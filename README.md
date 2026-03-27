@@ -137,21 +137,21 @@ Anthropic + Voyage AI           — optional cloud upgrade
 
 The fastest path. Runs 100% on your machine. No API Keys.
 
-### Step 1. Prerequisites
+### Prerequisites
 - Node.js 18+
 - Docker Desktop — (optional)
 - [Ollama](https://ollama.ai)
 - [Anthropic API key](https://console.anthropic.com) — (optional) or Ollama for local AI
 - [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
 
-### Step 2. Clone & install
+### Step 1. Clone & install
 ```bash
 git clone https://github.com/BaiGanio/aperio
 cd aperio
 npm install
 ```
 
-### Step 3. Configure environment
+### Step 2. Configure environment
 #### **Option `lite`**
 What each package does:
 - `@lancedb/lancedb`: This is the database engine that will store and search your private files.
@@ -177,12 +177,12 @@ OLLAMA_EMBED_MODEL=mxbai-embed-large
 npm install ollama
 ```
 
-### Step 4. Start the database
+### Step 3. Start the database
 ```bash
 cd docker && docker compose up -d && cd ..
 ```
 
-### Step 5. Run migrations
+### Step 4. Run migrations
 - MacOS/Linux
 ```bash
 docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql
@@ -193,13 +193,13 @@ docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.s
 cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql"
 cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql"
 ```
-### Step 6. Pull Ollama models
+### Step 5. Pull Ollama models
 ```bash
 ollama pull llama3.1           # LLM — best tool-calling support
 ollama pull qwen3              # LLM — strong reasoning, thinking mode support
 ollama pull mxbai-embed-large  # embeddings — local semantic search
 ```
-### Step 7. Start Aperio
+### Step 6. Start Aperio
 ```bash
 ollama serve            # terminal 1
 npm run start:local     # terminal 2  →  localhost:31337 → if option is developer
@@ -214,10 +214,15 @@ Once Aperio is running, open the chat and type:
 backfill my embeddings # (first run only)
 ```
   
-> This generates semantic vectors for all your memories. Without this step, search falls back to full-text only.   
-> You only need to do this once — new memories are embedded automatically.
+This generates semantic vectors for all your memories. 
+- Without this step, search falls back to full-text only.
+- You only need to do this once — new memories are embedded automatically.
 
-> 💡 Jump to [How to Use?](#how-to-use) section for extended examples ot check our wiki page [Commands](https://github.com/BaiGanio/aperio/wiki/Commands) for more details.
+>💡 If you get stuck on your installation steps - check our [Troubleshooting](https://github.com/BaiGanio/aperio/wiki/Troubleshooting) wiki page.
+
+>💡 Jump to [How to Use?](#how-to-use) section for extended examples.
+
+>💡 Check our wiki page [Commands](https://github.com/BaiGanio/aperio/wiki/Commands) for details on the available options to run the app.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
