@@ -210,6 +210,7 @@ npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
   <summary><strong>Backfill embeddings (first run only)</strong> </summary>
   <br>
   <p>Once Aperio is running, open the chat and type:</p>
+  
 ```bash
 backfill my embeddings
 ```
