@@ -64,8 +64,7 @@ jobs:
             "docker/*" \
             "docs/*" \
             "scripts/*" \
-            "tests/*" \
-            "*START.ps1/*"  
+            "tests/*"  
           
           # 3. Generate SHA256 and store it as an output
           SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')
