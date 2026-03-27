@@ -207,20 +207,15 @@ npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
 ```
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
-> 
+
 ### Now what?
-<details>
-  <summary><strong>Backfill embeddings (first run only)</strong> </summary>
-  <br>
-  <p>Once Aperio is running, open the chat and type:</p>
-  
+- Once Aperio is running, open the chat and type:
 ```bash
-backfill my embeddings
+backfill my embeddings # (first run only)
 ```
   
-> This generates semantic vectors for all your memories. Without this step, search falls back to full-text only. You only need to do this once — new memories are embedded automatically.
----
-</details>
+> This generates semantic vectors for all your seeded memories. Without this step, search falls back to full-text only.   
+> You only need to do this once — new memories are embedded automatically.
 
 - Jump to [How to Use?](#how-to-use) section for extended examples
 
