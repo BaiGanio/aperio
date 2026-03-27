@@ -33,7 +33,7 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#ai-providers">AI Providers</a>
   • 
-  <a href="#how-to-use">How to Use?</a> 
+  <a href="https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide" target="_blank">Aperio MCP Tools Guide</a> 
   •  
   <a href="#privacy">Privacy</a> 
   • 
@@ -209,20 +209,19 @@ npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
 ### Now what?
-Once Aperio is running, open the chat and type:
+(1st run only) - Once Aperio is running, open the chat in the browser at `localhost:31337` and type:
 ```bash
-backfill my embeddings # (first run only)
+backfill my embeddings
 ```
   
-This generates semantic vectors for all your memories. 
+ This generates semantic vectors for all your memories. 
 - Without this step, search falls back to full-text only.
 - You only need to do this once — new memories are embedded automatically.
 
 >💡 If you get stuck on your installation steps - check our [Troubleshooting](https://github.com/BaiGanio/aperio/wiki/Troubleshooting) wiki page.
 
->💡 Jump to [How to Use?](#how-to-use) section for extended examples.
-
->💡 Check our wiki page [Commands](https://github.com/BaiGanio/aperio/wiki/Commands) for details on the available options to run the app.
+>💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples.   
+>💡 Check our wiki page [Commands](https://github.com/BaiGanio/aperio/wiki/Commands) for the available options to run the app.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
@@ -254,214 +253,6 @@ VOYAGE_API_KEY=pa-...
 ```
 
 💡 Check out our wiki pages [AI Providers](https://github.com/BaiGanio/aperio/wiki/AI-Providers) & [Embeddings](https://github.com/BaiGanio/aperio/wiki/Embeddings) for more details.
-
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
-
----
-
-## How to Use?
-### 🛠️ Aperio MCP Tools Guide
-Aperio exposes 11 tools for memory management, file operations, and web fetching.
-
-Just type naturally in the chat — no commands, no syntax to remember.
-
-<sub>NOTE: Chevrons are expandable. Click each for quick examples.</sub>
-
-### 🧠 Memory Management Tools
-
-<details>
-  <summary><strong>remember</strong> — Save a memory</summary>
-  <br>
-  <p>Saves structured context about you — facts, decisions, preferences, projects, people, solutions, sources.</p>
-
-```
-Remember that I'm building a SaaS called Launchpad using Next.js, Supabase, and Stripe
-```
-```
-Remember that I prefer tabs over spaces and always use TypeScript strict mode
-```
-```
-Remember that I decided to use Fly.io over Railway — better pricing for always-on workloads
-```
----
-
-</details>
-<details>
-  <summary><strong>recall</strong>  — Search memories</summary>
-  <br>
-  <p>Searches your memory by meaning. Called automatically on every startup — you rarely need to trigger this manually.</p>
-
-```
-What do you know about my projects?
-```
-```
-What stack am I using for Launchpad?
-```
-```
-Do you remember any infrastructure decisions I made?
-```
----
-
-</details>
-<details>
-  <summary><strong>update_memory</strong>  — Update an existing memory</summary>
-  <br>
-  <p>Use when something has changed and a memory is outdated.</p>
-
-```
-Update my Launchpad memory — we switched from Supabase to PlanetScale
-```
-```
-The Fly.io memory is wrong — update it, we moved to Railway after all
-```
-```
-Update my name memory, I go by Lyu not Lyuben
-```
----
-
-</details>
-<details>
-  <summary><strong>forget</strong>  — Delete a memory</summary>
-  <br>
-  <p>Deletes a memory permanently. You can also use the trash icon in the sidebar.</p>
-
-```
-Forget everything about the old Stripe integration
-```
-```
-Delete the memory about project Alpha — it's cancelled
-```
-```
-Remove the memory about John from accounting
-```
----
-
-</details>
-<details>
-  <summary><strong>backfill_embeddings</strong>  — Generate missing embeddings</summary>
-  <br>
-  <p>Run this once after first setup or if semantic search isn't returning relevant results.</p>
-
-```
-Backfill embeddings for all my memories
-```
-```
-Run backfill — semantic search isn't finding things correctly
-```
----
-
-</details>
-<details>
-  <summary><strong>dedup_memories</strong>  — Find and remove duplicates</summary>
-  <br>
-  <p>Finds near-duplicate memories using cosine similarity. Dry run by default — safe to run anytime.</p>
-
-```
-Run dedup and show me what duplicates exist
-```
-```
-Check for duplicate memories — dry run only
-```
-```
-Run dedup with dry_run false and merge the duplicates
-```
----
-
-</details>
-
-### 📁 File Tools
-
-<details>
-  <summary><strong>read_file</strong>  — Read a file from disk</summary>
-  <br>
-  <p>Reads any file up to 500 lines. Use absolute paths.</p>
-
-```
-Read ~/Projects/launchpad/README.md
-```
-```
-Read /Users/lk/Projects/aperio/mcp/index.js and explain what it does
-```
-```
-Read ~/Projects/myapp/.env.example
-```
----
-
-</details>
-<details>
-  <summary><strong>scan_project</strong>  — Scan a project folder</summary>
-  <br>
-  <p>Scans a directory tree, reads key files, and infers project context. Great for onboarding Aperio to a new codebase.</p>
-
-```
-Scan my project at ~/Projects/launchpad and remember the stack
-```
-```
-Scan ~/Projects/aperio and save a memory about the architecture
-```
-```
-Scan ~/Projects/myapp — what tech stack is it using?
-```
----
-
-</details>
-<details>
-  <summary><strong>write_file</strong>  — Write to a file</summary>
-  <br>
-  <p>Writes content to a file on disk. Always asks for confirmation before writing.</p>
-
-```
-Write a basic .gitignore for a Node.js project to ~/Projects/launchpad/.gitignore
-```
-```
-Save this SQL migration to ~/Projects/myapp/db/migrations/004_add_tags.sql
-```
-```
-Write the updated README content to ~/Projects/aperio/README.md
-```
----
-
-</details>
-<details>
-  <summary><strong>append_file</strong>  — Append content to the end of an existing file</summary>
-  <br>
-  <p>Use this for 'add to', 'append', 'write at the bottom' requests. Returns before/after line count and the last 5 lines as proof.</p>
-
----
-
-</details>
-
-### 🌐 Web Tools
-
-<details>
-  <summary><strong>fetch_url</strong>  — Fetch a webpage</summary>
-  <br>
-  <p>Fetches a URL, strips HTML, and returns clean text. Useful for summarizing docs, articles, or repos.</p>
-
-```
-Fetch https://docs.supabase.com/guides/auth and summarize the auth options
-```
-```
-Fetch https://github.com/BaiGanio/aperio and tell me what the project does
-```
-```
-Fetch https://fly.io/docs/pricing and compare their plans
-```
----
-
-</details>
-
-#### 📄 Take a notes
-
-- **Be explicit when saving** — say "remember that..." or "save this as a memory" to trigger `remember` immediately
-- **Semantic search is powerful** — ask about topics, not exact titles. "my database decisions" finds more than "postgres"
-- **Scan before you ask** — run `scan_project` on a new codebase before asking questions about it
-- **Dedup regularly** — run `dedup_memories` after a few sessions to keep your brain clean
-- **Embeddings matter** — if recall feels off, run `backfill_embeddings` to fix semantic search -AZ
-
-💡 Check out our wiki page [MPC Tools](https://github.com/BaiGanio/aperio/wiki/MPC-Tools) for more details.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
