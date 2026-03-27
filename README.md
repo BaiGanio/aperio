@@ -26,11 +26,11 @@ Postgres + pgvector + MCP. Your context, always available.
 <!-- HEADER --> 
 <p align="center">
   • 
+  <a href="#getting-started">Getting Started</a>
+  • 
   <a href="#philosophy">Philosophy</a>
   • 
   <a href="#architecture">Architecture</a>
-  • 
-  <a href="#getting-started">Getting Started</a>
   • 
   <a href="#ai-providers">AI Providers</a>
   • 
@@ -73,24 +73,6 @@ Postgres + pgvector + MCP. Your context, always available.
 ```
 
 > **💡 Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
-
----
-
-## Philosophy
-<img alt="Aperio philosophy" width="100%" srcs="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
-
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
-
----
-
-## Architecture
-<img alt="Aperio architecture" srcs="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
-
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
 
 ---
 
@@ -202,6 +184,24 @@ backfill my embeddings
 
 >💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples.   
 >💡 Check our wiki page [Commands](https://github.com/BaiGanio/aperio/wiki/Commands) for the available options to run the app.
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
+## Philosophy
+<img alt="Aperio philosophy" width="100%" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
+## Architecture
+<img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
