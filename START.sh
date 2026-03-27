@@ -1,8 +1,16 @@
 #!/bin/bash +x
 
-# This forces the script to "see" the folder it is sitting in
-cd "$(dirname "$0")"
-echo "📍 Current Directory: $(pwd)"
+# This finds the real location of the script, even if run via an alias
+SOURCE=${BASH_SOURCE[0]}
+while [ -L "$SOURCE" ]; do
+  DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+  SOURCE=$(readlink "$SOURCE")
+  [[ $SOURCE != /* ]] && SOURCE=$DIR/$SOURCE
+done
+DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
+
+cd "$DIR"
+echo "📍 Working in: $(pwd)"
 
 # Exit on error and print the line number
 set -e
