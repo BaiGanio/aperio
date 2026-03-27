@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="680" viewBox="0 0 680 580" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif">
+
+  <!-- Background -->
+  <rect width="680" height="580" fill="#ffffff"/>
+
+  <!-- Intro text -->
+  <text x="24" y="32" font-size="13" fill="#5f5e5a" font-weight="400">Aperio is open source and self-hosted because</text>
+  <text x="24" y="32" font-size="13" fill="#5f5e5a">
+    <tspan>Aperio is open source and self-hosted because </tspan>
+    <tspan font-weight="500" fill="#2c2c2a">your memory is yours.</tspan>
+  </text>
+  <text x="24" y="52" font-size="13" fill="#5f5e5a">It runs entirely on your machine — no API keys, no data leaving your network, no cloud dependency.</text>
+  <text x="24" y="70" font-size="13" fill="#5f5e5a">The default is always private. Cloud AI is available as a power upgrade, but never forced.</text>
+
+  <!-- ── WHAT IT IS — 5 cards, 2-col layout ── -->
+  <!-- Card 1: Local by default  x=24 y=90 w=198 h=72 -->
+  <rect x="24" y="90" width="198" height="72" rx="8" fill="#f4f3ef" stroke="none"/>
+  <!-- lock icon -->
+  <rect x="40" y="102" width="20" height="20" rx="4" fill="#EEEDFE"/>
+  <rect x="44" y="107" width="12" height="9" rx="2" fill="none" stroke="#534AB7" stroke-width="1.2"/>
+  <path d="M47 107v-2a3 3 0 0 1 6 0v2" fill="none" stroke="#534AB7" stroke-width="1.2" stroke-linecap="round"/>
+  <text x="66" y="112" font-size="12" font-weight="500" fill="#1c1c1a">Local by default</text>
+  <text x="40" y="132" font-size="11" fill="#5f5e5a">Ollama + local embeddings —</text>
+  <text x="40" y="147" font-size="11" fill="#5f5e5a">zero external calls</text>
+
+  <!-- Card 2: Cloud as upgrade  x=234 y=90 w=198 h=72 -->
+  <rect x="234" y="90" width="198" height="72" rx="8" fill="#f4f3ef" stroke="none"/>
+  <!-- cloud icon -->
+  <rect x="250" y="102" width="20" height="20" rx="4" fill="#E1F5EE"/>
+  <path d="M254 115a3 3 0 0 1 2.5-3 4 4 0 0 1 7.5 1h.5a2.5 2.5 0 0 1 0 5H254" fill="none" stroke="#0F6E56" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="276" y="112" font-size="12" font-weight="500" fill="#1c1c1a">Cloud as upgrade</text>
+  <text x="250" y="132" font-size="11" fill="#5f5e5a">Claude + Voyage AI for deep</text>
+  <text x="250" y="147" font-size="11" fill="#5f5e5a">research &amp; heavy tasks</text>
+
+  <!-- Card 3: Your brain, your data  x=444 y=90 w=212 h=72 -->
+  <rect x="444" y="90" width="212" height="72" rx="8" fill="#f4f3ef" stroke="none"/>
+  <!-- db icon -->
+  <rect x="460" y="102" width="20" height="20" rx="4" fill="#FAEEDA"/>
+  <ellipse cx="470" cy="107" rx="5" ry="2.5" fill="none" stroke="#854F0B" stroke-width="1.2"/>
+  <path d="M465 107v6c0 1.4 2.2 2.5 5 2.5s5-1.1 5-2.5v-6" fill="none" stroke="#854F0B" stroke-width="1.2"/>
+  <line x1="465" y1="110" x2="475" y2="110" stroke="#854F0B" stroke-width="1.2"/>
+  <text x="486" y="112" font-size="12" font-weight="500" fill="#1c1c1a">Your brain, your data</text>
+  <text x="460" y="132" font-size="11" fill="#5f5e5a">Postgres lives on your machine.</text>
+  <text x="460" y="147" font-size="11" fill="#5f5e5a">You own it.</text>
+
+  <!-- Card 4: MCP-native  x=24 y=172 w=198 h=72 -->
+  <rect x="24" y="172" width="198" height="72" rx="8" fill="#f4f3ef" stroke="none"/>
+  <!-- plug icon -->
+  <rect x="40" y="184" width="20" height="20" rx="4" fill="#E1F5EE"/>
+  <rect x="46" y="185" width="8" height="6" rx="1" fill="none" stroke="#0F6E56" stroke-width="1.2"/>
+  <path d="M50 191v4M47 195h6M48 186v-1.5M52 186v-1.5" fill="none" stroke="#0F6E56" stroke-width="1.2" stroke-linecap="round"/>
+  <text x="66" y="194" font-size="12" font-weight="500" fill="#1c1c1a">MCP-native</text>
+  <text x="40" y="214" font-size="11" fill="#5f5e5a">Any MCP agent plugs in —</text>
+  <text x="40" y="229" font-size="11" fill="#5f5e5a">Cursor, Windsurf, etc.</text>
+
+  <!-- Card 5: Free to run  x=234 y=172 w=198 h=72 -->
+  <rect x="234" y="172" width="198" height="72" rx="8" fill="#f4f3ef" stroke="none"/>
+  <!-- check icon -->
+  <rect x="250" y="184" width="20" height="20" rx="4" fill="#EAF3DE"/>
+  <circle cx="260" cy="194" r="6" fill="none" stroke="#3B6D11" stroke-width="1.2"/>
+  <path d="M257 194l2 2 4-4" fill="none" stroke="#3B6D11" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="276" y="194" font-size="12" font-weight="500" fill="#1c1c1a">Free to run</text>
+  <text x="250" y="214" font-size="11" fill="#5f5e5a">No subscription. No per-message</text>
+  <text x="250" y="229" font-size="11" fill="#5f5e5a">cost. Just your hardware.</text>
+
+  <!-- ── DIVIDER ── -->
+  <line x1="24" y1="262" x2="656" y2="262" stroke="#e8e6e0" stroke-width="0.5"/>
+  <text x="24" y="280" font-size="10" fill="#888780" font-weight="500" letter-spacing="0.05em">WHAT APERIO IS NOT</text>
+
+  <!-- ── NOT cards — 2 col grid, 3 rows ── -->
+  <!-- Row 1 -->
+  <!-- Not 1: Not a cloud service  x=24 y=292 w=304 h=54 -->
+  <rect x="24" y="292" width="304" height="54" rx="7" fill="#ffffff" stroke="#e8e6e0" stroke-width="0.5"/>
+  <circle cx="43" cy="319" r="9" fill="#FCEBEB"/>
+  <path d="M39.5 315.5l7 7M46.5 315.5l-7 7" fill="none" stroke="#A32D2D" stroke-width="1.2" stroke-linecap="round"/>
+  <text x="60" y="314" font-size="12" font-weight="500" fill="#1c1c1a">Not a cloud service</text>
+  <text x="60" y="330" font-size="11" fill="#5f5e5a">No hosted version, no SaaS, no managed infra</text>
+
+  <!-- Not 2: Not a managed product  x=340 y=292 w=316 h=54 -->
+  <rect x="340" y="292" width="316" height="54" rx="7" fill="#ffffff" stroke="#e8e6e0" stroke-width="0.5"/>
+  <circle cx="359" cy="319" r="9" fill="#FCEBEB"/>
+  <path d="M355.5 315.5l7 7M362.5 315.5l-7 7" fill="none" stroke="#A32D2D" stroke-width="1.2" stroke-linecap="round"/>
+  <text x="376" y="314" font-size="12" font-weight="500" fill="#1c1c1a">Not a managed product</text>
+  <text x="376" y="330" font-size="11" fill="#5f5e5a">No support contracts, SLAs, or guaranteed uptime</text>
+
+  <!-- Row 2 -->
+  <!-- Not 3: Not a plugin  x=24 y=354 w=304 h=54 -->
+  <rect x="24" y="354" width="304" height="54" rx="7" fill="#ffffff" stroke="#e8e6e0" stroke-width="0.5"/>
+  <circle cx="43" cy="381" r="9" fill="#FCEBEB"/>
+  <path d="M39.5 377.5l7 7M46.5 377.5l-7 7" fill="none" stroke="#A32D2D" stroke-width="1.2" stroke-linecap="round"/>
+  <text x="60" y="376" font-size="12" font-weight="500" fill="#1c1c1a">Not a plugin or extension</text>
+  <text x="60" y="392" font-size="11" fill="#5f5e5a">It's a self-hosted server you run yourself</text>
+
+  <!-- Not 4: Not a replacement  x=340 y=354 w=316 h=54 -->
+  <rect x="340" y="354" width="316" height="54" rx="7" fill="#ffffff" stroke="#e8e6e0" stroke-width="0.5"/>
+  <circle cx="359" cy="381" r="9" fill="#FCEBEB"/>
+  <path d="M355.5 377.5l7 7M362.5 377.5l-7 7" fill="none" stroke="#A32D2D" stroke-width="1.2" stroke-linecap="round"/>
+  <text x="376" y="376" font-size="12" font-weight="500" fill="#1c1c1a">Not a replacement for your AI</text>
+  <text x="376" y="392" font-size="11" fill="#5f5e5a">A memory layer alongside Claude, Cursor, etc.</text>
+
+  <!-- Row 3 -->
+  <!-- Not 5: Not plug-and-play  x=24 y=416 w=304 h=54 -->
+  <rect x="24" y="416" width="304" height="54" rx="7" fill="#ffffff" stroke="#e8e6e0" stroke-width="0.5"/>
+  <circle cx="43" cy="443" r="9" fill="#FCEBEB"/>
+  <path d="M39.5 439.5l7 7M46.5 439.5l-7 7" fill="none" stroke="#A32D2D" stroke-width="1.2" stroke-linecap="round"/>
+  <text x="60" y="438" font-size="12" font-weight="500" fill="#1c1c1a">Not plug-and-play</text>
+  <text x="60" y="454" font-size="11" fill="#5f5e5a">Needs Node.js, Docker, and basic terminal comfort</text>
+
+  <!-- Not 6: Not production-hardened  x=340 y=416 w=316 h=54 -->
+  <rect x="340" y="416" width="316" height="54" rx="7" fill="#ffffff" stroke="#e8e6e0" stroke-width="0.5"/>
+  <circle cx="359" cy="443" r="9" fill="#FCEBEB"/>
+  <path d="M355.5 439.5l7 7M362.5 439.5l-7 7" fill="none" stroke="#A32D2D" stroke-width="1.2" stroke-linecap="round"/>
+  <text x="376" y="438" font-size="12" font-weight="500" fill="#1c1c1a">Not production-hardened</text>
+  <text x="376" y="454" font-size="11" fill="#5f5e5a">Early software, built in the open, improving fast</text>
+
+</svg>
