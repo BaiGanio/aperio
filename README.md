@@ -80,22 +80,7 @@ Aperio is open source and self-hosted because **your memory is yours.**
 
 It runs entirely on your machine by default — no API keys, no data leaving your network, no cloud dependency. We believe the default should always be private. Cloud AI (Claude, Voyage AI) is available as a power upgrade for heavy lifting — but you should never be forced to use it.
 
-| | |
-|---|---|
-| 🔒 **Local by default** | Ollama + local embeddings — zero external calls |
-| ☁️ **Cloud as upgrade** | Claude + Voyage AI for deep research & heavy tasks |
-| 🧠 **Your brain, your data** | Postgres lives on your machine. You own it. |
-| 🔌 **MCP-native** | Any MCP-compatible agent plugs in — Cursor, Windsurf, etc. |
-| 🆓 **Free to run** | No subscription. No per-message cost. Just your hardware. |
-
-### What Aperio is NOT
-
-- ❌ **Not a cloud service** — there is no hosted version, no SaaS, no managed infrastructure
-- ❌ **Not a managed product** — no support contracts, no SLAs, no guaranteed uptime
-- ❌ **Not a plugin or extension** — it's a self-hosted server you run yourself
-- ❌ **Not a replacement for your AI tool** — it's a memory layer that sits alongside Claude, Cursor, Windsurf etc.
-- ❌ **Not plug-and-play for non-developers** — you need Node.js, Docker, and basic terminal comfort
-- ❌ **Not production-hardened** — it's early software, built in the open, improving fast
+<img alt="Aperio philosophy" src="https://github.com/user-attachments/assets/557aa931-b9cc-4c63-9cf5-f3c3ceffff23" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
