@@ -80,7 +80,7 @@ Aperio is open source and self-hosted because **your memory is yours.**
 
 It runs entirely on your machine by default — no API keys, no data leaving your network, no cloud dependency. We believe the default should always be private. Cloud AI (Claude, Voyage AI) is available as a power upgrade for heavy lifting — but you should never be forced to use it.
 
-<img alt="Aperio philosophy" src="https://github.com/user-attachments/assets/557aa931-b9cc-4c63-9cf5-f3c3ceffff23" />
+<img alt="Aperio philosophy" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.svg" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
