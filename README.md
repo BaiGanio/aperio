@@ -117,6 +117,7 @@ cd aperio
 - Open terminal in the project root
 - Run `chmod START.sh` - grant permission to the main script just in case
 - Follow the installation instructions - (one-time setup)
+- Open browser at `http://localhost:31337`
 - Future use: Just double-click the file in Finder like a normal app!
 
 >💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples. 
