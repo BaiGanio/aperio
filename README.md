@@ -137,21 +137,21 @@ Anthropic + Voyage AI           — optional cloud upgrade
 
 The fastest path. Runs 100% on your machine. No API Keys.
 
-### 1. Prerequisites
+### Step 1. Prerequisites
 - Node.js 18+
 - Docker Desktop — (optional)
 - [Ollama](https://ollama.ai)
 - [Anthropic API key](https://console.anthropic.com) — (optional) or Ollama for local AI
 - [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
 
-### 2. Clone & install
+### Step 2. Clone & install
 ```bash
 git clone https://github.com/BaiGanio/aperio
 cd aperio
 npm install
 ```
 
-### 3. Configure environment
+### Step 3. Configure environment
 #### **Option `lite`**
 What each package does:
 - `@lancedb/lancedb`: This is the database engine that will store and search your private files.
@@ -160,7 +160,7 @@ What each package does:
 ```bash
 npm install @lancedb/lancedb uuid ollama
 ```
->❗ NOTE: Skip other steps all way down to step **6**
+>❗ NOTE: If you choose the `lite` option, skip other steps all the way down to step **6**.
 #### **Option `developer`**
 Minimum `.env` for a fully local setup:
 ```bash
@@ -177,12 +177,12 @@ OLLAMA_EMBED_MODEL=mxbai-embed-large
 npm install ollama
 ```
 
-### 4. Start the database
+### Step 4. Start the database
 ```bash
 cd docker && docker compose up -d && cd ..
 ```
 
-### 5. Run migrations
+### Step 5. Run migrations
 - MacOS/Linux
 ```bash
 docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql
@@ -193,13 +193,13 @@ docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.s
 cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql"
 cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql"
 ```
-### 6. Pull Ollama models
+### Step 6. Pull Ollama models
 ```bash
 ollama pull llama3.1           # LLM — best tool-calling support
 ollama pull qwen3              # LLM — strong reasoning, thinking mode support
 ollama pull mxbai-embed-large  # embeddings — local semantic search
 ```
-### 7. Start Aperio
+### Step 7. Start Aperio
 ```bash
 ollama serve            # terminal 1
 npm run start:local     # terminal 2  →  localhost:31337 → if option is developer
