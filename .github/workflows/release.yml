@@ -58,7 +58,7 @@ jobs:
           # -r means recursive, -x excludes files you don't want
           
           # 1. Define what to EXCLUDE here for better readability
-          EXCLUDES="*/.git/* */.github/* */.gitignore* *node_modules/* *db/migrations/* *docker/* *docs/* *scripts/* *tests/* *start.ps1*"
+          EXCLUDES="*.git* *.github* *.gitignore* *node_modules* *db/migrations* */docker* */docs/* *scripts/* *tests/* *start.ps1*"
 
           # 2. Create the zip
           zip -r aperio-lite.zip . -x $EXCLUDES
