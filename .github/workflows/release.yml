@@ -57,15 +57,15 @@ jobs:
           # -r means recursive, -x excludes files you don't want          
           # Define what to EXCLUDE here for better readability
           zip -r aperio-lite.zip . -x \
-            "*.git*" \
-            "*.github*" \
-            "*.gitignore*" \
-            "node_modules*" \
-            "db/migrations*" \
-            "docker*" \
-            "docs*" \
-            "scripts*" \
-            "tests*" \
+            "*.git/*" \
+            "*.github/*" \
+            "*.gitignore*/" \
+            "node_modules/*" \
+            "db/migrations/*" \
+            "docker/*" \
+            "docs/*" \
+            "scripts/*" \
+            "tests/*" \
             "start.ps1"  
           
           # 3. Generate SHA256 and store it as an output
