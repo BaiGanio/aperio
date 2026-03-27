@@ -104,77 +104,9 @@ It runs entirely on your machine by default — no API keys, no data leaving you
 ---
 
 ## Architecture
-```mermaid
-flowchart TD
-    Browser["Browser
-    localhost:31337 · cloud:3000"]
-    note1["Full-duplex WebSocket —
-    streaming without polling"]
+<img width="1440" height="1822" alt="image" src="https://github.com/user-attachments/assets/32797386-67d5-4c46-8d66-f0326b0a2ce5" />
 
-    Express["Express server · server.js"]
-    note2["Only process on the network.
-    Routes messages, manages sessions."]
 
-    MCP["MCP server · mcp/index.js · 11 tools"]
-    note3["Any MCP-compatible agent
-    shares the same brain."]
-
-    subgraph DB ["Database layer"]
-        Postgres[("Postgres 16 + pgvector")]
-        note4["Battle-tested, self-hosted.
-        Semantic search built in."]
-        LanceDB[("LanceDB")]
-        note5["Embedded vector DB.
-        Zero infra, fast local search."]
-    end
-
-    subgraph AI ["AI layer"]
-        Ollama["Ollama"]
-        note6["Local inference — llama3.1,
-        qwen3, deepseek-r1 and more."]
-        Embeddings["mxbai-embed-large"]
-        note7["Local embeddings via Ollama.
-        No external API calls."]
-    end
-
-    subgraph Cloud ["Optional cloud upgrade"]
-        Claude["Claude · Anthropic API"]
-        note8["Drop-in for complex
-        reasoning tasks."]
-        Voyage["Voyage AI"]
-        note9["Highest embedding quality
-        for power users."]
-    end
-
-    Browser <-->|"WebSocket · streaming"| Express
-    Express <-->|stdio| MCP
-    MCP <--> Postgres
-    MCP <--> LanceDB
-    MCP <--> Ollama
-    Ollama --> Embeddings
-    Ollama -. swap in .-> Claude
-    Embeddings -. swap in .-> Voyage
-
-    Browser ~~~ note1
-    Express ~~~ note2
-    MCP ~~~ note3
-    Postgres ~~~ note4
-    LanceDB ~~~ note5
-    Ollama ~~~ note6
-    Embeddings ~~~ note7
-    Claude ~~~ note8
-    Voyage ~~~ note9
-
-    style note1 fill:#fafaf8,stroke:#d3d1c7,color:#5f5e5a,font-size:11px
-    style note2 fill:#fafaf8,stroke:#d3d1c7,color:#5f5e5a,font-size:11px
-    style note3 fill:#fafaf8,stroke:#d3d1c7,color:#5f5e5a,font-size:11px
-    style note4 fill:#fafaf8,stroke:#d3d1c7,color:#5f5e5a,font-size:11px
-    style note5 fill:#fafaf8,stroke:#d3d1c7,color:#5f5e5a,font-size:11px
-    style note6 fill:#fafaf8,stroke:#d3d1c7,color:#5f5e5a,font-size:11px
-    style note7 fill:#fafaf8,stroke:#d3d1c7,color:#5f5e5a,font-size:11px
-    style note8 fill:#fafaf8,stroke:#d3d1c7,color:#5f5e5a,font-size:11px
-    style note9 fill:#fafaf8,stroke:#d3d1c7,color:#5f5e5a,font-size:11px
-```
 
 | Component | Why |
 |---|---|
