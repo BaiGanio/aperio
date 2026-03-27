@@ -213,6 +213,7 @@ npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
 ```bash
 backfill my embeddings
 ```
+  
 > This generates semantic vectors for all your memories. Without this step, search falls back to full-text only. You only need to do this once — new memories are embedded automatically.
 ---
 </details>
@@ -225,6 +226,7 @@ Remember that I prefer TypeScript over JavaScript
 Remember I'm building a SaaS with Next.js and Supabase
 Scan my project at ~/projects/myapp
 ```
+  
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 ---
 </details>
