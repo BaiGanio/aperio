@@ -1,15 +1,15 @@
-[Download Latest Release](https://github.com/BaiGanio/aperio/releases/latest/)   
-![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
-![Latest Tag](https://img.shields.io/github/v/tag/BaiGanio/aperio)
 <a id="top"></a>
 <div align="center">
 <h1>✨ Aperio</h1>
 
 **One brain. Every agent. Nothing forgotten.**
 
-[![Bounties Available](https://img.shields.io/badge/bounties-active-brightgreen)](./PAYMENT.md)
-[![Lead Policy](https://img.shields.io/badge/lead%20policy-transparent-blue)](./PROJECT_LEAD_POLICY.md)
+**👉 [Aperio Lite](https://github.com/BaiGanio/repository/releases/latest/download/aperio-lite.zip)** Latest Version (ZIP) 
 
+![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
+[![Bounties Available](https://img.shields.io/badge/bounties-disabled-black)](./PAYMENT.md)
+[![Lead Policy](https://img.shields.io/badge/lead%20policy-transparent-blue)](./PROJECT_LEAD_POLICY.md)
+<!-- [![Bounties Available](https://img.shields.io/badge/bounties-active-brightgreen)](./PAYMENT.md) --> 
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=node.js&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?style=flat-square&logo=postgresql&logoColor=white)
