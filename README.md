@@ -1,3 +1,6 @@
+[Download Latest Release](https://github.com/BaiGanio/aperio/releases/latest/)   
+![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
+![Latest Tag](https://img.shields.io/github/v/tag/BaiGanio/aperio)
 <a id="top"></a>
 <div align="center">
 <h1>✨ Aperio</h1>
@@ -115,7 +118,7 @@ cd aperio
 > Saves structured context about you — facts, decisions, preferences, projects, people, solutions, sources.
 
 ```
-[Download Latest Release](https://github.com/BaiGanio/aperio/releases/latest)   
+
 ```
 ```
 Remember that I prefer tabs over spaces and always use TypeScript strict mode
