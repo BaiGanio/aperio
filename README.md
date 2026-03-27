@@ -75,12 +75,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 
 ## Philosophy
-
-Aperio is open source and self-hosted because **your memory is yours.**
-
-It runs entirely on your machine by default — no API keys, no data leaving your network, no cloud dependency. We believe the default should always be private. Cloud AI (Claude, Voyage AI) is available as a power upgrade for heavy lifting — but you should never be forced to use it.
-
-<img alt="Aperio philosophy" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.svg" />
+<img alt="Aperio philosophy" width="100%" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.svg" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
