@@ -152,28 +152,29 @@ npm install
 ```
 
 ### 3. Configure environment
-```bash
-cp .env.example .env
-```
-
-- **Option `lite`**
+#### **Option `lite`**
 What each package does:
 - `@lancedb/lancedb`: This is the database engine that will store and search your private files.
 - `uuid`: Generates "Universally Unique Identifiers" (random IDs)s for every piece of information you save in your database, preventing data overwrites.
 - `ollama`: This is the JavaScript library that lets your code send questions to the Qwen3 model and get reasoning-based answers back
-```
+```bash
 npm install @lancedb/lancedb uuid ollama
 ```
-No need to touch `.env`
-> NOTE: Skip other steps all way down to step **7**
-- **Option `developer`**
+> NOTE: Skip other steps all way down to step **6**
+#### **Option `developer`**
 Minimum `.env` for a fully local setup:
+```bash
+cp .env.example .env
+```
 ```env
 DATABASE_URL=postgresql://aperio:aperio_secret@localhost:5432/aperio
 AI_PROVIDER=ollama
 OLLAMA_MODEL=qwen3
 EMBEDDING_PROVIDER=ollama
 OLLAMA_EMBED_MODEL=mxbai-embed-large
+```
+```bash
+npm install ollama
 ```
 
 ### 4. Start the database
@@ -192,53 +193,57 @@ docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.s
 cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql"
 cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql"
 ```
-
 ### 6. Pull Ollama models
 ```bash
 ollama pull llama3.1           # LLM — best tool-calling support
-ollama pull mxbai-embed-large   # embeddings — local semantic search
+ollama pull qwen3              # LLM — strong reasoning, thinking mode support
+ollama pull mxbai-embed-large  # embeddings — local semantic search
 ```
-
 ### 7. Start Aperio
 ```bash
 ollama serve            # terminal 1
 npm run start:local     # terminal 2  →  localhost:31337 → if option is developer
 npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
 ```
-
-### 8. Backfill embeddings (first run only)
-Once Aperio is running, open the chat and type:
-
-```text
+### Now what?
+<details>
+  <summary><strong>Backfill embeddings (first run only)</strong> </summary>
+  <br>
+  <p>Once Aperio is running, open the chat and type:</p>
+```bash
 backfill my embeddings
 ```
-
-This generates semantic vectors for all your memories. Without this step, search falls back to full-text only. You only need to do this once — new memories are embedded automatically.
-
-### 9. Seed your brain
-
-Tell Aperio what it should know about you:
-
-```
+> This generates semantic vectors for all your memories. Without this step, search falls back to full-text only. You only need to do this once — new memories are embedded automatically.
+---
+</details>
+<details>
+  <summary><strong>Seed your brain</strong></summary>
+  <br>
+  <p>Tell Aperio what it should know about you:</p>
+```bash
 Remember that I prefer TypeScript over JavaScript
 Remember I'm building a SaaS with Next.js and Supabase
 Scan my project at ~/projects/myapp
 ```
-
-That's it. No API keys. No cloud. Full semantic memory on your machine.
+> That's it. No API keys. No cloud. Full semantic memory on your machine.
+---
+</details>
 
 #### Commands
 ```
 npm start # whatever .env says | 3000
 ```
 ```
-npm run start:local # Ollama | 3001
+npm run start:local # Ollama | 31337 | Developers
 ```
 ```
-npm run start:cloud # Anthropic (Claude) | 3000
+npm run start:lite  # Ollama | 31337 | Non-technical users
 ```
 ```
 npm run chat:local # Ollama — terminal only
+```
+```
+npm run start:cloud # Anthropic (Claude) | 3000
 ```
 ```
 npm run chat:cloud # Anthropic — terminal only
