@@ -4,7 +4,7 @@
 
 **One brain. Every agent. Nothing forgotten.**
 
-**👉 [Aperio Lite](https://github.com/BaiGanio/repository/releases/latest/download/aperio-lite.zip)** Latest Version (ZIP) 
+👉 [Aperio-lite](https://github.com/BaiGanio/repository/releases/latest/download/aperio-lite.zip) - small tool for big ideas 🧐
 
 ![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
 [![Bounties Available](https://img.shields.io/badge/bounties-disabled-black)](./PAYMENT.md)
@@ -79,7 +79,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 
 ## Philosophy
-<img alt="Aperio philosophy" width="100%" srcs="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
+<img alt="Aperio philosophy" width="100%" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
@@ -88,7 +88,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 
 ## Architecture
-<img alt="Aperio architecture" srcs="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
+<img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
