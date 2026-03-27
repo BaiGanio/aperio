@@ -75,7 +75,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 
 ## Philosophy
-<img alt="Aperio philosophy" width="100%" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.svg" />
+<img alt="Aperio philosophy" width="100%" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
