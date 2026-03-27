@@ -14,6 +14,26 @@ OLLAMA_MODEL="qwen3"
 EMBED_MODEL="mxbai-embed-large"
 PORT=31337
 
+# --- PORT AVAILABILITY CHECK ---
+# Check if something is already listening on your PORT (31337)
+if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
+    echo "------------------------------------------"
+    echo "⚠️  PORT CONFLICT DETECTED"
+    echo "------------------------------------------"
+    echo "The port $PORT is already in use by another process."
+    echo "This usually means the server is already running."
+    echo "------------------------------------------"
+    read -p "Port $PORT is busy. Kill existing process and restart? (y/n): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        lsof -ti :$PORT | xargs kill -9
+        sleep 1
+        echo "✅ Port cleared."
+    else
+        exit 1
+    fi
+fi
+
 echo "🔍 Starting Aperio-lite environment check..."
 
 # Check if we are running in a Windows-like environment (Git Bash / MSYS)

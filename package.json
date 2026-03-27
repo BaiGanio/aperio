@@ -12,7 +12,7 @@
     "chat": "node scripts/chat.js",
     "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node scripts/chat.js",
     "chat:local": "AI_PROVIDER=ollama PORT=31338 node scripts/chat.js",
-    "start:lite": "AI_PROVIDER=ollama PORT=31337 DB_BACKEND=lancedb CHECK_RAM=true node server.js",
+    "start:lite": "AI_PROVIDER=ollama PORT=31337 DB_BACKEND=lancedb CHECK_RAM=false node server.js",
     "mcp": "node mcp/index.js"
   },
   "dependencies": {

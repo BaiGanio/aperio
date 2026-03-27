@@ -113,13 +113,15 @@ The fastest path. Runs 100% on your machine. No API Keys.
 git clone https://github.com/BaiGanio/aperio
 cd aperio
 ```
-**Option `Aperio-lite`** - (MacOS/Linux)
+**Option `Aperio-lite` for non-technical users** - (MacOS/Linux)
 - Open terminal in the project root
-- Run `chmod START.sh` (one-time setup)
+- Run `chmod START.sh` - grant permission to the main script just in case
+- Follow the installation instructions - (one-time setup)
 - Future use: Just double-click the file in Finder like a normal app!
+
 >💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples. 
 
->❗ NOTE: Skip the rest of the steps in **Getting Started** section
+>❗ NOTE: You can skip the rest of the steps in **Getting Started** section if `Aperio-lite` is your choice
 
 ### 2. Configure environment - `Aperio` for developers
 Minimum `.env` for a fully local setup:
