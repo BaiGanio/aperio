@@ -54,10 +54,8 @@ jobs:
         id: packer
         if: steps.info.outputs.bump != 'skip'
         run: |
-          # Replace 'folder1' 'file1.txt' with your actual files
-          # -r means recursive, -x excludes files you don't want
-          
-          # 1. Define what to EXCLUDE here for better readability
+          # -r means recursive, -x excludes files you don't want          
+          # Define what to EXCLUDE here for better readability
           zip -r aperio-lite.zip . -x \
             "*.git*" \
             "*.github*" \
@@ -68,10 +66,7 @@ jobs:
             "docs*" \
             "scripts*" \
             "tests*" \
-            "start.ps1"   
-          
-          # 2. Create the zip
-          zip -r aperio-lite.zip . -x $EXCLUDES
+            "start.ps1"  
           
           # 3. Generate SHA256 and store it as an output
           SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')
