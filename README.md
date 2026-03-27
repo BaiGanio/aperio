@@ -20,7 +20,7 @@
 A self-hosted personal memory layer for AI agents.  
 Postgres + pgvector + MCP. Your context, always available.
 
-🌐 **[aperio.dev](https://baiganio.github.io/aperio)** 
+🌐 **[aperio.web](https://baiganio.github.io/aperio)** 
 </div>
 
 <!-- HEADER --> 
@@ -45,7 +45,8 @@ Postgres + pgvector + MCP. Your context, always available.
 </p>
 <p align="center">
   <sub>💡 <b>Pro Tip:</b> Visit the <a href="https://github.com/BaiGanio/aperio/wiki">Aperio Wiki</a> for extensive documentation on advanced topics.<br>
-   Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a> • <a href="https://github.com/BaiGanio/aperio/wiki/Troubleshooting">Troubleshooting</a></sub>
+   Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a> • <a href="https://github.com/BaiGanio/aperio/wiki/Troubleshooting">Troubleshooting</a><br>
+ ⬇️ <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip">Aperio-lite</a> - small tool for big ideas.</sub>
 </p>
 
 ---
@@ -78,7 +79,7 @@ Postgres + pgvector + MCP. Your context, always available.
 
 ## Getting Started 
 
-👉 [Aperio-lite](https://github.com/BaiGanio/repository/releases/latest/download/aperio-lite.zip) - for non-code users.
+👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) - for non-code users.
 - Small tool for big ideas 🧐
 - The fastest path. Runs 100% on your machine. No API Keys.
 
