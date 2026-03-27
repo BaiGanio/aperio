@@ -124,7 +124,7 @@ cd aperio
 
 >❗ NOTE: You can skip the rest of the steps in **Getting Started** section if `Aperio-lite` is your choice
 
-### 2. Configure environment - `Aperio` for developers
+### Step 2. Configure environment
 Minimum `.env` for a fully local setup:
 ```bash
 cp .env.example .env
