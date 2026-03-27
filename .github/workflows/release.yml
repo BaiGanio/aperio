@@ -55,14 +55,24 @@ jobs:
         run: |
           # Replace 'folder1' 'file1.txt' with your actual files
           # -r means recursive, -x excludes files you don't want
-          zip -r aperio-lite.zip db/ mcp/ prompts/ public/ .env.example -x "*.git*" "*.github*" "*.gitignore*" "*node_modules*" "*docker*" "*docs*" "*START.ps1*"
-          
+          # Define what to EXCLUDE here for better readability
+          EXCLUDES="*.git* *.github* *.gitignore* *node_modules* *db/migrations* *docker* *docs* *scripts* *start.ps1*"
+          zip -r aperio-lite.zip . -x $EXCLUDES
+          # Generate SHA256 and store it as an output
+          CHECKSUM=$(shasum -a 256 aperio-lite.zip | cut -d ' ' -f 1)
+          echo "sha=$CHECKSUM" >> $GITHUB_OUTPUT
+      
       - name: Create GitHub Release
         if: steps.info.outputs.bump != 'skip'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.versioning.outputs.new_v }}
           name: Release v${{ steps.versioning.outputs.new_v }}
+          # Appends the checksum to the bottom of the auto-generated notes
+          body: |
+            ### 🔐 Verify Authenticity
+            **aperio-lite.zip SHA256:**
+            `${{ steps.packer.outputs.sha }}`
           generate_release_notes: true
           # --- NEW LINE: This uploads your zip to the release ---
           files: aperio-lite.zip
