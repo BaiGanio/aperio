@@ -110,7 +110,7 @@ Postgres + pgvector + MCP. Your context, always available.
 > - Mark it, right click on it and select `Make Alias`.
 > - Name the new file `Aperio` or by your choice.
 > - Drag the alias to the Desktop folder on the left sidebar in Finder.
->  - ❗Just dragging it to the Desktop itself wont work. Should be in Finder app.
+>   - ❗Dragging to the Desktop itself wont work. Should be in Finder app.
 > - Just double-click the file on the Desktop like a normal app!
 > - Follow the installation instructions - (one-time setup)
 > - The application will automatically open the default browser at `http://localhost:31337`
