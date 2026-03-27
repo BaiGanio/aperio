@@ -44,7 +44,7 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
 </p>
 <p align="center">
-  <sub>💡 <b>Pro Tip:</b> Visit the <a href="https://github.com/BaiGanio/aperio/wiki">Aperio Wiki</a> for extensive documentation on advanced topics.<br>
+  <sub>💡 <b>Pro Tip:</b> Visit the <a href="https://github.com/BaiGanio/aperio/wiki">Aperio Wiki</a> or <a href="https://github.com/BaiGanio/aperio/discussions">Discussions</a> for extensive documentation on advanced topics.<br>
    Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a> • <a href="https://github.com/BaiGanio/aperio/wiki/Troubleshooting">Troubleshooting</a><br>
  ⬇️ <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip">(Aperio-lite)</a> - small tool for big ideas.</sub>
 </p>
