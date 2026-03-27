@@ -69,7 +69,7 @@ Postgres + pgvector + MCP. Your context, always available.
 │   └── chat.js                   # Terminal chat client
 ├── .env                          # Your keys — never commit this
 ├── START.sh                      # Aperio (lite) for MacOS/Linux
-├── start.ps1                     # Aperio (lite) for Windows
+├── START.ps1                     # Aperio (lite) for Windows
 ├── package.json
 └── server.js                     # Express + WebSocket + agent loop
 ```
