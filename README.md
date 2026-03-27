@@ -104,19 +104,7 @@ It runs entirely on your machine by default — no API keys, no data leaving you
 ---
 
 ## Architecture
-<img width="1440" height="1822" alt="image" src="https://github.com/user-attachments/assets/32797386-67d5-4c46-8d66-f0326b0a2ce5" />
-
-
-
-| Component | Why |
-|---|---|
-| **Postgres + pgvector** | Battle-tested, self-hosted, semantic search built in |
-| **Ollama** | Local LLM inference — llama3.1, qwen3, deepseek-r1 and more |
-| **mxbai-embed-large** | Local embeddings via Ollama — no external calls |
-| **MCP** | Any MCP-compatible agent shares the same brain |
-| **Node ESM** | Single runtime, clean imports, no build step |
-| **Claude** *(optional)* | Anthropic API for complex reasoning tasks |
-| **Voyage AI** *(optional)* | Highest embedding quality for power users |
+<img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
