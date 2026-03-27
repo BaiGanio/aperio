@@ -112,20 +112,16 @@ The fastest path. Runs 100% on your machine. No API Keys.
 ```bash
 git clone https://github.com/BaiGanio/aperio
 cd aperio
-npm install
 ```
+**Option `Aperio-lite`** - (MacOS/Linux)
+- Open terminal in the project root
+- Run `chmod START.sh` (one-time setup)
+- Future use: Just double-click the file in Finder like a normal app!
+>💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples. 
 
-### Step 2. Configure environment
-#### **Option `lite`**
-What each package does:
-- `@lancedb/lancedb`: This is the database engine that will store and search your private files.
-- `uuid`: Generates "Universally Unique Identifiers" (random IDs)s for every piece of information you save in your database, preventing data overwrites.
-- `ollama`: This is the JavaScript library that lets your code send questions to the Qwen3 model and get reasoning-based answers back
-```bash
-npm install @lancedb/lancedb uuid ollama
-```
->❗ NOTE: If you choose the `lite` option, skip other steps all the way down to step **6**.
-#### **Option `developer`**
+>❗ NOTE: Skip the rest of the steps in **Getting Started** section
+
+### 2. Configure environment - `Aperio` for developers
 Minimum `.env` for a fully local setup:
 ```bash
 cp .env.example .env
@@ -137,15 +133,11 @@ OLLAMA_MODEL=qwen3
 EMBEDDING_PROVIDER=ollama
 OLLAMA_EMBED_MODEL=mxbai-embed-large
 ```
-```bash
-npm install ollama
-```
 
 ### Step 3. Start the database
 ```bash
 cd docker && docker compose up -d && cd ..
 ```
-
 ### Step 4. Run migrations
 - MacOS/Linux
 ```bash
@@ -159,13 +151,17 @@ cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pg
 ```
 ### Step 5. Pull Ollama models
 ```bash
+npm install ollama
+ollama serve 
+```
+```bash
 ollama pull llama3.1           # LLM — best tool-calling support
 ollama pull qwen3              # LLM — strong reasoning, thinking mode support
 ollama pull mxbai-embed-large  # embeddings — local semantic search
 ```
 ### Step 6. Start Aperio
 ```bash
-ollama serve            # terminal 1
+npm install             # terminal 1
 npm run start:local     # terminal 2  →  localhost:31337 → if option is developer
 npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
 ```
