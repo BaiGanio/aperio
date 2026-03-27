@@ -59,14 +59,13 @@ jobs:
           zip -r aperio-lite.zip . -x \
             "*.git/*" \
             "*.github/*" \
-            "*.gitignore/*" \
             "node_modules/*" \
             "db/migrations/*" \
             "docker/*" \
             "docs/*" \
             "scripts/*" \
             "tests/*" \
-            "*start.ps1/*"  
+            "*START.ps1/*"  
           
           # 3. Generate SHA256 and store it as an output
           SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')
