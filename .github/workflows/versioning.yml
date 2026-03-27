@@ -48,6 +48,28 @@ jobs:
           git add package.json package-lock.json
           git commit -m "chore: release v$NEW_V [skip ci]"
           git push origin master
+          
+      # --- NEW STEP: Create the Lite Zip ---
+      - name: Create Lite Zip
+        if: steps.info.outputs.bump != 'skip'
+        run: |
+          # Replace 'folder1' 'file1.txt' with your actual files
+          # -r means recursive, -x excludes files you don't want
+          zip -r aperio-lite.zip db/ mcp/ prompts/ public/ .env.example -x "*.git*" "*.github*" "*.gitignore*" "*node_modules*" "*docker*" "*docs*" "*START.ps1*"
+          
+      - name: Create GitHub Release
+        if: steps.info.outputs.bump != 'skip'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.versioning.outputs.new_v }}
+          name: Release v${{ steps.versioning.outputs.new_v }}
+          generate_release_notes: true
+          # --- NEW LINE: This uploads your zip to the release ---
+          files: aperio-lite.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
 
       - name: Create GitHub Release
         if: steps.info.outputs.bump != 'skip'
