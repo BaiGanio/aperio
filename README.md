@@ -205,6 +205,9 @@ ollama serve            # terminal 1
 npm run start:local     # terminal 2  →  localhost:31337 → if option is developer
 npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
 ```
+
+> That's it. No API keys. No cloud. Full semantic memory on your machine.
+> 
 ### Now what?
 <details>
   <summary><strong>Backfill embeddings (first run only)</strong> </summary>
@@ -218,19 +221,8 @@ backfill my embeddings
 > This generates semantic vectors for all your memories. Without this step, search falls back to full-text only. You only need to do this once — new memories are embedded automatically.
 ---
 </details>
-<details>
-  <summary><strong>Seed your brain</strong></summary>
-  <br>
-  <p>Tell Aperio what it should know about you:</p>
-```bash
-Remember that I prefer TypeScript over JavaScript
-Remember I'm building a SaaS with Next.js and Supabase
-Scan my project at ~/projects/myapp
-```
-  
-> That's it. No API keys. No cloud. Full semantic memory on your machine.
----
-</details>
+
+- Jump to [How to Use?](#how-to-use) section for extended examples
 
 #### Commands
 ```
