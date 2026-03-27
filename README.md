@@ -76,7 +76,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 
 ## Philosophy
-<img alt="Aperio philosophy" width="100%" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
+<img alt="Aperio philosophy" width="100%" srcs="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
@@ -85,7 +85,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 
 ## Architecture
-<img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
+<img alt="Aperio architecture" srcs="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
@@ -109,6 +109,24 @@ The fastest path. Runs 100% on your machine. No API Keys.
 git clone https://github.com/BaiGanio/aperio
 cd aperio
 ```
+<details>
+  <summary><h4 align="center">Aperio-lite for non-technical users - (MacOS/Linux) <- click it!</h4></summary><br>
+
+> Saves structured context about you — facts, decisions, preferences, projects, people, solutions, sources.
+
+```
+[Download Latest Release](https://github.com/BaiGanio/aperio/releases/latest)   
+```
+```
+Remember that I prefer tabs over spaces and always use TypeScript strict mode
+```
+```
+Remember that I decided to use Fly.io over Railway — better pricing for always-on workloads
+```
+---
+
+</details>
+
 **Option `Aperio-lite` for non-technical users** - (MacOS/Linux)
 - Open terminal in the project root
 - Run `chmod +x START.sh` - grant permission to the main script just in case
