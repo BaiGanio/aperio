@@ -49,7 +49,7 @@ jobs:
           git commit -m "chore: release v$NEW_V [skip ci]"
           git push origin master
           
-      # --- NEW STEP: Create the Lite Zip ---
+      # --- NEW STEP: Create the Lite Zip wtf---
       - name: Create Lite Zip
         id: packer
         if: steps.info.outputs.bump != 'skip'
