@@ -209,37 +209,15 @@ npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
 ### Now what?
-- Once Aperio is running, open the chat and type:
+Once Aperio is running, open the chat and type:
 ```bash
 backfill my embeddings # (first run only)
 ```
   
-> This generates semantic vectors for all your seeded memories. Without this step, search falls back to full-text only.   
+> This generates semantic vectors for all your memories. Without this step, search falls back to full-text only.   
 > You only need to do this once — new memories are embedded automatically.
 
-- Jump to [How to Use?](#how-to-use) section for extended examples
-
-#### Commands
-```
-npm start # whatever .env says | 3000
-```
-```
-npm run start:local # Ollama | 31337 | Developers
-```
-```
-npm run start:lite  # Ollama | 31337 | Non-technical users
-```
-```
-npm run chat:local # Ollama — terminal only
-```
-```
-npm run start:cloud # Anthropic (Claude) | 3000
-```
-```
-npm run chat:cloud # Anthropic — terminal only
-```
-
-💡 Both instances can run simultaneously and share the same memory database.
+> 💡 Jump to [How to Use?](#how-to-use) section for extended examples ot check our wiki page [Commands](https://github.com/BaiGanio/aperio/wiki/Commands) for more details.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
