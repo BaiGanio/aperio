@@ -160,7 +160,7 @@ What each package does:
 ```bash
 npm install @lancedb/lancedb uuid ollama
 ```
-> NOTE: Skip other steps all way down to step **6**
+>❗ NOTE: Skip other steps all way down to step **6**
 #### **Option `developer`**
 Minimum `.env` for a fully local setup:
 ```bash
