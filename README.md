@@ -4,8 +4,6 @@
 
 **One brain. Every agent. Nothing forgotten.**
 
-👉 [Aperio-lite](https://github.com/BaiGanio/repository/releases/latest/download/aperio-lite.zip) - small tool for big ideas 🧐
-
 ![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
 [![Bounties Available](https://img.shields.io/badge/bounties-disabled-black)](./PAYMENT.md)
 [![Lead Policy](https://img.shields.io/badge/lead%20policy-transparent-blue)](./PROJECT_LEAD_POLICY.md)
@@ -79,7 +77,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 
 ## Philosophy
-<img alt="Aperio philosophy" width="100%" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
+<img alt="Aperio philosophy" width="100%" srcs="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
@@ -88,7 +86,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 
 ## Architecture
-<img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
+<img alt="Aperio architecture" srcs="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
@@ -98,7 +96,43 @@ Postgres + pgvector + MCP. Your context, always available.
 
 ## Getting Started 
 
-The fastest path. Runs 100% on your machine. No API Keys.
+👉 [Aperio-lite](https://github.com/BaiGanio/repository/releases/latest/download/aperio-lite.zip) - for non-code users.
+- Small tool for big ideas 🧐
+- The fastest path. Runs 100% on your machine. No API Keys.
+
+<details>
+  <summary>Instructions (MacOS/Linux) <- click it!</summary><br>
+
+> OPTION: EASY
+
+> - Download the latest version, unzip and open in `Finder`.
+> - Look for file name called `start.sh`.
+> - Mark it, right click on it and select `Make Alias`.
+> - Name the new file `Aperio` or by your choice.
+> - Drag the alias to the Desktop folder on the left sidebar in Finder.
+>  - ❗Just dragging it to the Desktop itself wont work. Should be in Finder app.
+> - Just double-click the file on the Desktop like a normal app!
+> - Follow the installation instructions - (one-time setup)
+> - The application will automatically open the default browser at `http://localhost:31337`
+
+---
+
+> OPTION: TECHNICAL
+
+> Open terminal in the project root
+> Run `chmod +x START.sh` - grant permission to the main script just in case
+> Follow the installation instructions - (one-time setup)
+> Open browser at `http://localhost:31337`
+
+> Q: Future use?
+> - Just double-click the file in Finder like a normal app!
+> - For a terminal geeks - `./start.sh` in the project root
+
+>💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples. 
+
+---
+
+</details>
 
 ### Prerequisites
 - Node.js 18+
@@ -107,47 +141,12 @@ The fastest path. Runs 100% on your machine. No API Keys.
 - [Anthropic API key](https://console.anthropic.com) — (optional) or Ollama for local AI
 - [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
 
-### Step 1. Clone & install
+### Step 1. Clone & Configure Environment Variables
 ```bash
 git clone https://github.com/BaiGanio/aperio
 cd aperio
 ```
-<details>
-  <summary><h4 align="center">Aperio-lite for non-technical users - (MacOS/Linux) <- click it!</h4></summary><br>
-
-> Saves structured context about you — facts, decisions, preferences, projects, people, solutions, sources.
-
-```
-
-```
-```
-Remember that I prefer tabs over spaces and always use TypeScript strict mode
-```
-```
-Remember that I decided to use Fly.io over Railway — better pricing for always-on workloads
-```
----
-
-</details>
-
-**Option `Aperio-lite` for non-technical users** - (MacOS/Linux)
-- Open terminal in the project root
-- Run `chmod +x START.sh` - grant permission to the main script just in case
-- Follow the installation instructions - (one-time setup)
-- Open browser at `http://localhost:31337`
-- Future use:
-  - Just double-click the file in Finder like a normal app!
-  - For a terminal geeks - `./start.sh` in the project root
-
->💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples. 
-
->❗ NOTE: You can skip the rest of the steps in **Getting Started** section if `Aperio-lite` is your choice
-
-### Step 2. Configure environment
-Minimum `.env` for a fully local setup:
-```bash
-cp .env.example .env
-```
+> Minimum `.env.example` for a fully local setup:
 ```env
 DATABASE_URL=postgresql://aperio:aperio_secret@localhost:5432/aperio
 AI_PROVIDER=ollama
@@ -156,11 +155,10 @@ EMBEDDING_PROVIDER=ollama
 OLLAMA_EMBED_MODEL=mxbai-embed-large
 ```
 
-### Step 3. Start the database
+### Step 2. Start The Database & Run migrations
 ```bash
 cd docker && docker compose up -d && cd ..
 ```
-### Step 4. Run migrations
 - MacOS/Linux
 ```bash
 docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql
@@ -171,7 +169,7 @@ docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.s
 cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql"
 cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql"
 ```
-### Step 5. Pull Ollama models
+### Step 3. Install Ollama & Pull Models
 ```bash
 npm install ollama
 ollama serve 
@@ -181,9 +179,9 @@ ollama pull llama3.1           # LLM — best tool-calling support
 ollama pull qwen3              # LLM — strong reasoning, thinking mode support
 ollama pull mxbai-embed-large  # embeddings — local semantic search
 ```
-### Step 6. Start Aperio
+### Step 4. Start Aperio
 ```bash
-npm install             # terminal 1
+npm install             # terminal 1  →  restore dependencies
 npm run start:local     # terminal 2  →  localhost:31337 → if option is developer
 npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
 ```
