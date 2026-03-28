@@ -36,10 +36,10 @@ jobs:
             tests
           )
           for item in "${files[@]}"; do
-            if [ -e "$item" ]; then
-              cp -r "$item" dev-files/
+            if [ -e "${{ github.workspace }}/$item" ]; then
+                cp -r "${{ github.workspace }}/$item" dev-files/
             else
-              echo "Warning: $item not found"
+                echo "Warning: $item not found in source"
             fi
           done
 
