@@ -22,6 +22,7 @@ jobs:
           files=(
             CONTRIBUTING.md
             LICENCE
+            .env.example
             package.json
             package-lock.json
             README.md
