@@ -92,25 +92,48 @@ jobs:
       #    zip -u aperio-lite.zip temp/custom-docs/index.html temp/custom-docs/version.txt
       #    rm -rf temp  
 #
+      # --- NEW STEP: Create Developer Zip ---
+      - name: Create Developer Zip
+        if: steps.info.outputs.bump != 'skip'
+        run: |
+          zip -r aperio-dev.zip . -x \
+            "*.git/*" \
+            ".github/*" \
+            "node_modules/*" \
+            "docker/*" \
+            "tests/*" \
+            "*.ps1" \
+            "*unstable*" \
+            # Use !*/path/to/file to force-include specific files or folders that would otherwise be excluded.
+            "!.github/data/how-to-install.txt" \
+            "!docs/index.html" \
+            "!docs/assets/version.txt"
+
+            # Optional: Add SHA256
+            SHA_DEV=$(shasum -a 256 aperio-dev.zip | awk '{print $1}')
+            echo "sha_dev=$SHA_DEV" >> $GITHUB_OUTPUT
+
+      # --- UPDATE Release Step: Upload Both Files ---
       - name: Create GitHub Release
         if: steps.info.outputs.bump != 'skip'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v${{ steps.versioning.outputs.new_v }}
           name: Release v${{ steps.versioning.outputs.new_v }}
-          # Appends the checksum to the bottom of the auto-generated notes
           body: |
+            ### 📦 Downloads
+            - `aperio-lite.zip` - Non-code users (includes install guide)
+            - `aperio-dev.zip` - For developers (includes docs)
+        
             ### 🔐 Verify Authenticity
-            **aperio-lite.zip SHA256:**  
-            `${{ steps.packer.outputs.sha }}`
-
+            **aperio-lite.zip SHA256:** `${{ steps.packer.outputs.sha }}`  
+            **aperio-dev.zip SHA256:** `${{ steps.dev_zip.outputs.sha_dev }}`
+        
             ---
-            **Signed by:**  
-            🏆 **Project Lead** - L.K. (Repo Owner)
-
-            ✅ This release was automatically signed and published by the project owner.   
+            **Signed by:** 🏆 Project Lead - L.K.
           generate_release_notes: true
-          # --- NEW LINE: This uploads your zip to the release ---
-          files: aperio-lite.zip
+          files: |
+            aperio-lite.zip
+            aperio-dev.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
