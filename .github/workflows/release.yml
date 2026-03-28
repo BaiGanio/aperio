@@ -71,6 +71,7 @@ jobs:
             "docs/*" \
             "scripts/*" \
             "tests/*" \
+            "*.ps1" \
             "*unstable*"
           
           # 3. Generate SHA256 and store it as an output
