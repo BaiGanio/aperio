@@ -60,10 +60,10 @@ jobs:
         if: steps.info.outputs.bump != 'skip'
         run: |
           # -r means recursive, -x excludes files you don't want          
-          # Define what to EXCLUDE here for better readability
+          # 1. Define what to EXCLUDE here for better readability
           zip -r aperio-lite.zip . -x \
             "*.git/*" \
-            "*.github/*" \
+            ".github/*" \
             "node_modules/*" \
             "db/migrations/*" \
             "db/postgres.js" \
@@ -74,12 +74,24 @@ jobs:
             "*.ps1" \
             "*unstable*"
           
+          # Step 2: Add specific files back (e.g., docs/index.html, docs/assets/version.txt)
+          zip -u aperio-lite.zip .github/data/how-to-install.txt       
+
           # 3. Generate SHA256 and store it as an output
           SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')
           
           # 4. Explicitly write to GITHUB_OUTPUT
           echo "sha=${SHA_VALUE}" >> "$GITHUB_OUTPUT"
-      
+
+       # This places both files under a custom-docs/ folder inside the archive, regardless of their original location. 
+      #- name: Add file to specific folder in zip
+      #  run: |
+      #    mkdir -p temp/custom-docs
+      #    cp docs/index.html temp/custom-docs/
+      #    cp docs/assets/version.txt temp/custom-docs/
+      #    zip -u aperio-lite.zip temp/custom-docs/index.html temp/custom-docs/version.txt
+      #    rm -rf temp  
+#
       - name: Create GitHub Release
         if: steps.info.outputs.bump != 'skip'
         uses: softprops/action-gh-release@v2

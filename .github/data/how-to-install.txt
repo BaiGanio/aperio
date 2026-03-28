@@ -1,9 +1,11 @@
 ╔══════════════════════════════════════════════════════════════════╗
-║              APERIO-LITE  —  HOW TO INSTALL & USE                ║
+║. APERIO-LITE (SMALL TOOL FOR BIG IDEAS) — HOW TO INSTALL & USE   ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 Everything runs locally on your machine.
 No cloud. No subscriptions. No data leaving your computer.
+What if I have follow up questions? 
+- FAQ: https://github.com/BaiGanio/aperio/discussions/14
 
 ──────────────────────────────────────────────────────────────────
   BEFORE YOU START — WHAT YOU NEED
@@ -23,13 +25,32 @@ No cloud. No subscriptions. No data leaving your computer.
   RAM:                4 GB minimum. More RAM = smarter AI model selected
                       automatically.
 
+  NOTE
+  ────────────────────────────────────────────
   No technical knowledge required. The script handles everything.
 
 
 ──────────────────────────────────────────────────────────────────
   HOW TO RUN IT — FIRST TIME
 ──────────────────────────────────────────────────────────────────
+  
+  OPTION: EASY (MacOS/Linux) — NON-CODE USERS
+  ───────────────────────────────────────────
+  1. Look for a filename called START.sh
 
+  2. Mark it, right-click on it and select Make Alias
+
+  3. Name it Aperio or by your choice
+
+  4. Double-click the file and follow the one-time installation instructions
+
+  That's it. 
+  The script takes over from here.
+  Aperio UI will be automatically open in the default browser.
+
+
+  OPTION: TECHNICAL (MacOS/Linux) — DEVELOPERS
+  ────────────────────────────────────────────
   1. Open a Terminal window.
 
   2. Navigate to the folder where START.sh lives:
@@ -41,9 +62,10 @@ No cloud. No subscriptions. No data leaving your computer.
   4. Run it:
        ./START.sh
 
-  That's it. The script takes over from here. Read below to
-  understand exactly what it does and why.
-
+  
+  NOTE
+  ────────────────────────────────────────────
+  Read below to understand exactly what it does and why.
 
 ──────────────────────────────────────────────────────────────────
   WHAT HAPPENS ON FIRST RUN  (step by step)
@@ -304,3 +326,4 @@ No cloud. No subscriptions. No data leaving your computer.
   script patches itself again with the new choice.
 
 ══════════════════════════════════════════════════════════════════
+
