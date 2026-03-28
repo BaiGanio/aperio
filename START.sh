@@ -60,6 +60,10 @@ fi
 # ============================================================
 if [ -n "$OLLAMA_MODEL" ] && ollama list 2>/dev/null | grep -qF "$OLLAMA_MODEL"; then
     echo "✨ Model '$OLLAMA_MODEL' already configured and present locally."
+    if [ ! -d "node_modules" ]; then
+        echo "📦 Missing dependencies. Installing..."
+        npm install
+    fi
     echo "⏩ Skipping setup — launching server..."
 
     PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
