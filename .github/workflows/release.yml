@@ -96,6 +96,8 @@ jobs:
       - name: Update dev branch with specific files
         if: steps.info.outputs.bump != 'skip'
         run: |
+          # Remove untracked files (like ZIPs) that block checkout
+          git clean -fd
           git fetch origin dev
           git checkout dev
 
