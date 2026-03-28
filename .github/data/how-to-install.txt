@@ -1,0 +1,306 @@
+╔══════════════════════════════════════════════════════════════════╗
+║              APERIO-LITE  —  HOW TO INSTALL & USE                ║
+╚══════════════════════════════════════════════════════════════════╝
+
+Everything runs locally on your machine.
+No cloud. No subscriptions. No data leaving your computer.
+
+──────────────────────────────────────────────────────────────────
+  BEFORE YOU START — WHAT YOU NEED
+──────────────────────────────────────────────────────────────────
+
+  Operating system:   macOS or Linux
+                      (Windows users: run START.ps1 in PowerShell instead)
+
+  Internet:           Required only during first-time setup to download
+                      the AI model and dependencies. After that, everything
+                      works fully offline.
+
+  Disk space:         Between 3 GB and 20 GB free, depending on the AI
+                      model the script selects for your machine (see the
+                      Model Tiers section below).
+
+  RAM:                4 GB minimum. More RAM = smarter AI model selected
+                      automatically.
+
+  No technical knowledge required. The script handles everything.
+
+
+──────────────────────────────────────────────────────────────────
+  HOW TO RUN IT — FIRST TIME
+──────────────────────────────────────────────────────────────────
+
+  1. Open a Terminal window.
+
+  2. Navigate to the folder where START.sh lives:
+       cd /path/to/aperio-lite
+
+  3. Make the script executable (one time only):
+       chmod +x START.sh
+
+  4. Run it:
+       ./START.sh
+
+  That's it. The script takes over from here. Read below to
+  understand exactly what it does and why.
+
+
+──────────────────────────────────────────────────────────────────
+  WHAT HAPPENS ON FIRST RUN  (step by step)
+──────────────────────────────────────────────────────────────────
+
+  STEP 1 — PORT CHECK
+  ─────────────────────
+  The app runs on port 31337. The script checks whether anything
+  else is already using that port.
+
+  If the port is busy, you'll be asked:
+    "Kill existing process and restart? (y/n)"
+
+  Choosing Y stops the conflicting process and continues.
+  Choosing N exits safely so you can investigate first.
+
+  Why: Two servers can't share the same port. This prevents a
+  silent failure where the app starts but is unreachable.
+
+
+  STEP 2 — NODE.JS CHECK
+  ────────────────────────
+  The app's server is written in JavaScript, so it needs Node.js
+  (version 18 or newer) to run.
+
+  If Node.js is missing, you'll be asked if you want to install it.
+  Choosing Y installs it automatically using your system's package
+  manager (Homebrew on macOS, NodeSource on Linux).
+
+  Why: Node.js is the runtime engine — without it, the server
+  simply cannot start.
+
+
+  STEP 3 — OLLAMA CHECK
+  ───────────────────────
+  Ollama is the tool that runs AI language models locally on your
+  machine. It's what allows Aperio-lite to work completely offline
+  after setup.
+
+  If Ollama is missing, you'll be asked if you want to install it.
+  Choosing Y runs the official Ollama installer automatically.
+
+  Why: Ollama is the engine that powers all AI features. It manages
+  downloading, running, and communicating with the language model.
+
+
+  STEP 4 — STARTING THE OLLAMA SERVER
+  ──────────────────────────────────────
+  Once Ollama is installed, its background service needs to be
+  running before any model can be used. The script checks if it's
+  already active by pinging it on port 11434.
+
+  If it's not running, the script starts it automatically and waits
+  up to 20 seconds for it to become ready.
+
+  Why: Ollama operates as a local API server. The app sends requests
+  to it just like a web request, so it must be listening before
+  anything else can happen.
+
+
+  STEP 5 — HARDWARE ANALYSIS & MODEL SELECTION
+  ──────────────────────────────────────────────
+  The script reads your total RAM and free disk space, then suggests
+  the best AI model your machine can run comfortably.
+
+  The tiers are:
+
+    RAM          Model selected          Download size
+    ──────────   ─────────────────────   ─────────────
+    4 GB or less   qwen2.5:3b            ~2 GB
+    5 – 8 GB       llama3.1:8b           ~5 GB
+    9 – 12 GB      qwen3:8b              ~5 GB
+    16 – 31 GB     qwen3:14b             ~9 GB
+    32 GB+         deepseek-r1:32b       ~19 GB
+
+  You'll see a hardware summary and be asked:
+    "Use the Best Fit model? (y/n)"
+
+  Choosing Y proceeds with the recommended model.
+  Choosing N opens a manual selection menu where you can pick any
+  tier yourself. If you pick a model larger than your RAM supports,
+  the script will warn you that it will run very slowly and ask
+  for confirmation before continuing.
+
+  Why: Running a model that's too large for your RAM forces the
+  system to use slow disk swap, making the AI essentially unusable.
+  The auto-selection ensures a good experience out of the box.
+
+
+  STEP 6 — DOWNLOADING THE AI MODEL
+  ────────────────────────────────────
+  The selected language model is downloaded via:
+    ollama pull <model-name>
+
+  This is a one-time download. Progress is shown in the terminal.
+  Depending on your internet speed and the model size, this can
+  take anywhere from a few minutes to half an hour.
+
+  Why: The model file is the AI's "brain". It must be stored locally
+  so the app can run it without any internet connection after setup.
+
+
+  STEP 7 — DOWNLOADING THE EMBEDDING MODEL
+  ──────────────────────────────────────────
+  A second, smaller model called mxbai-embed-large is also
+  downloaded. This is the "vector engine" — it converts text into
+  mathematical representations used for search and memory features.
+
+  Why: Language models answer questions, but they can't search
+  efficiently on their own. The embedding model enables semantic
+  search: finding relevant information by meaning, not just
+  keyword matching. This powers LanceDB, the local vector database
+  used internally by Aperio-lite.
+
+
+  STEP 8 — INSTALLING APP DEPENDENCIES
+  ───────────────────────────────────────
+  The script runs:
+    npm install @lancedb/lancedb uuid ollama
+
+  These are the JavaScript packages the app needs:
+    - @lancedb/lancedb  Vector database for local semantic search
+    - uuid              Generates unique IDs for internal records
+    - ollama            JavaScript client to talk to the Ollama server
+
+  Why: These packages are what connect the app's interface to the
+  AI model and the search engine running on your machine.
+
+
+  STEP 9 — SELF-PATCH (the smart bit)
+  ─────────────────────────────────────
+  After everything is installed successfully, the script writes your
+  chosen model name directly back into itself:
+
+    Before:   OLLAMA_MODEL=""
+    After:    OLLAMA_MODEL="qwen3:14b"   ← (or whatever was chosen)
+
+  Why: The next time you run START.sh, it reads this value, confirms
+  the model is already installed locally, and skips the entire setup
+  flow — going straight to launching the server. No questions, no
+  downloads, no waiting. Just instant startup every time after the
+  first run.
+
+
+  STEP 10 — LAUNCH
+  ──────────────────
+  The app server starts in the background and your browser opens
+  automatically to:
+
+    http://localhost:31337
+
+  The terminal window keeps the server alive. Do not close it
+  while you're using the app.
+
+
+──────────────────────────────────────────────────────────────────
+  EVERY RUN AFTER THE FIRST
+──────────────────────────────────────────────────────────────────
+
+  Just double-click START.sh or run ./START.sh in the terminal.
+
+  The script will:
+    1. Check the port (as always, just in case)
+    2. See that OLLAMA_MODEL is already set in the file
+    3. Confirm the model is installed locally
+    4. Skip everything else
+    5. Start the server and open the browser
+
+  Total time from running the script to the app being open:
+  typically 3–5 seconds.
+
+  Nothing is re-downloaded. Nothing is re-installed.
+  No questions are asked.
+
+
+──────────────────────────────────────────────────────────────────
+  HOW TO STOP THE APP
+──────────────────────────────────────────────────────────────────
+
+  In the terminal window where START.sh is running:
+
+    Press Enter once   → begins shutdown
+    Press any key      → closes the terminal window
+
+  Or simply close the terminal window directly.
+  The app will stop automatically when the terminal closes.
+
+
+──────────────────────────────────────────────────────────────────
+  TROUBLESHOOTING
+──────────────────────────────────────────────────────────────────
+
+  "Port 31337 is already in use"
+  → The app is probably already running. Open your browser and go
+    to http://localhost:31337. If you want a fresh restart, choose
+    Y when the script asks to kill the existing process.
+
+  "Ollama failed to start after 20 seconds"
+  → Try starting Ollama manually first:
+      ollama serve
+    Wait for it to print "Listening on 127.0.0.1:11434", then
+    run START.sh again in a new terminal tab.
+
+  "Error: pull model manifest: file does not exist"
+  → The model name stored in START.sh may be outdated. Open
+    START.sh in a text editor, find the line OLLAMA_MODEL="..."
+    and clear it back to OLLAMA_MODEL="" — this forces the
+    setup flow to run again and re-select a valid model.
+
+  "It runs but the AI responses are extremely slow"
+  → You may have manually selected a model too large for your RAM.
+    Reset OLLAMA_MODEL="" in START.sh as described above and let
+    the auto-selection pick a better fit.
+
+  "npm: command not found" after Node.js was installed
+  → Close your terminal and open a fresh one. The PATH update from
+    the Node.js installer only takes effect in new terminal sessions.
+
+
+──────────────────────────────────────────────────────────────────
+  WHAT GETS INSTALLED ON YOUR SYSTEM
+──────────────────────────────────────────────────────────────────
+
+  Tool          Where                         Can be removed?
+  ────────────  ────────────────────────────  ──────────────────
+  Node.js       System-wide (/usr/local)      Yes, via brew or apt
+  Ollama        System-wide (/usr/local/bin)  Yes, via uninstall script
+  AI model      ~/.ollama/models/             Yes, delete the folder
+  Embed model   ~/.ollama/models/             Yes, same folder
+  node_modules  Inside the app folder         Yes, delete the folder
+
+  Nothing is sent to any external server after the initial download.
+  All AI processing happens on your own hardware.
+
+
+──────────────────────────────────────────────────────────────────
+  WANT TO SWITCH TO A DIFFERENT MODEL LATER?
+──────────────────────────────────────────────────────────────────
+
+  Open START.sh in any text editor and find this line near the top:
+
+    OLLAMA_MODEL="qwen3:14b"   ← (or whatever is currently set)
+
+  Change it back to:
+
+    OLLAMA_MODEL=""
+
+  Or to check what models you have installed, run in your terminal:
+    ollama serve 
+    ollama list
+
+  Include preferable model from that list:
+
+    OLLAMA_MODEL="qwen3:8b" - or whatever you have downloaded
+
+  Save the file and run ./START.sh again. The full setup flow will
+  run once more, letting you pick a new model. After that, the
+  script patches itself again with the new choice.
+
+══════════════════════════════════════════════════════════════════
