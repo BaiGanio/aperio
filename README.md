@@ -134,6 +134,7 @@ Postgres + pgvector + MCP. Your context, always available.
 
 ### Step 1. Clone & Configure Environment Variables
 ```bash
+git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git # not stable yet
 git clone https://github.com/BaiGanio/aperio
 cd aperio
 ```
