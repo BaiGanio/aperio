@@ -66,11 +66,12 @@ jobs:
             "*.github/*" \
             "node_modules/*" \
             "db/migrations/*" \
+            "db/postgres.js" \
             "docker/*" \
             "docs/*" \
             "scripts/*" \
             "tests/*" \
-            "*.ps1"
+            "*unstable*"
           
           # 3. Generate SHA256 and store it as an output
           SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')
