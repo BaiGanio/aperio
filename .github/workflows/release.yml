@@ -97,22 +97,25 @@ jobs:
       - name: Create Developer Zip
         if: steps.info.outputs.bump != 'skip'
         run: |
-          zip -r aperio-dev.zip . -x \
-            "*.git/*" \
-            ".github/*" \
-            "node_modules/*" \
-            "docker/*" \
-            "tests/*" \
-            "*.ps1" \
-            "*unstable*" \
-            # Use !*/path/to/file to force-include specific files or folders that would otherwise be excluded.
-            "!.github/data/how-to-install.txt" \
-            "!docs/index.html" \
-            "!docs/assets/version.txt"
+          # Create zip, exclude unwanted directories
+          zip -r aperio-dev.zip . \
+            -x "*.git/*" \
+            -x ".github/*" \
+            -x "node_modules/*" \
+            -x "docker/*" \
+            -x "tests/*" \
+            -x "*.ps1" \
+            -x "*unstable*"
 
-            # Optional: Add SHA256
-            SHA_DEV=$(shasum -a 256 aperio-dev.zip | awk '{print $1}')
-            echo "sha_dev=$SHA_DEV" >> $GITHUB_OUTPUT
+          # Now add the specific files back (they will be included even if previously excluded)
+          zip -u aperio-dev.zip \
+            .github/data/how-to-install.txt \
+            docs/index.html \
+            docs/assets/version.txt
+
+          # Generate SHA256
+          SHA_DEV=$(shasum -a 256 aperio-dev.zip | awk '{print $1}')
+          echo "sha_dev=$SHA_DEV" >> $GITHUB_OUTPUT   
 
       - name: Update dev branch with specific files
         if: steps.info.outputs.bump != 'skip'
