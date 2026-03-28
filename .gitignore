@@ -10,10 +10,10 @@
 *.userosscache
 *.sln.docstates
 *.env
-**.lancedb/
+*.lancedb/
 *linkedin-carousel.pptx
 *linkedin.txt
-*keys.txt
+*notes.txt
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
