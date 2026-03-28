@@ -2,6 +2,9 @@
 const root = document.documentElement;
 const btns = document.querySelectorAll('.theme-btn');
 const STORAGE_KEY = 'aperio-landing-theme';
+const version = '0.0.0'
+/* ── Version ── */
+document.getElementById('version-display').innerText = version;   
 
 function setTheme(theme) {
 root.setAttribute('data-theme', theme);
@@ -39,9 +42,4 @@ sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) current = s.id; 
 navAs.forEach(a => { a.style.color = a.getAttribute('href') === '#' + current ? 'var(--purple)' : ''; });
 }, { passive: true });
 
-/* ── Version ── */
-fetch('/version.txt')
-  .then(res => res.text())
-  .then(version => {
-    document.getElementById('version-display').innerText = version;
-  });   
+
