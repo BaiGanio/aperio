@@ -34,7 +34,7 @@ Postgres + pgvector + MCP. Your context, always available.
   • 
   <a href="#ai-providers">AI Providers</a>
   • 
-  <a href="https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide" target="_blank">Aperio MCP Tools Guide</a> 
+  <a href="https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide" target="_blank">How To Use?</a> 
   •  
   <a href="#privacy">Privacy</a> 
   • 
