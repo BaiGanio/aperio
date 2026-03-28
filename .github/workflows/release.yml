@@ -129,7 +129,6 @@ jobs:
           # Copy only desired files
           cp .github/data/how-to-install.txt ./
           cp docs/index.html ./docs/ || mkdir -p docs && cp docs/index.html ./docs/
-          cp docs/assets/version.txt ./docs/assets/ || mkdir -p docs/assets && cp docs/assets/version.txt ./docs/assets/
 
           # Commit and push
           git config user.name "github-actions[bot]"
