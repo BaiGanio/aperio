@@ -71,6 +71,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ├── .env                          # Your keys — never commit this
 ├── START.sh                      # Aperio-lite (MacOS/Linux installation script)
 ├── START.ps1                     # Aperio-lite (Windows installation script)
+├── package-lock.json
 ├── package.json
 └── server.js                     # Express + WebSocket + agent loop
 ```
