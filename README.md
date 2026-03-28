@@ -133,9 +133,9 @@ Postgres + pgvector + MCP. Your context, always available.
 - [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
 
 ### Step 1. Clone & Configure Environment Variables
+Dedicated `dev` branch stripped from the file/folder noise. Only what's needed.
 ```bash
-git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git # not stable yet
-git clone https://github.com/BaiGanio/aperio
+git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git
 cd aperio
 ```
 > Minimum `.env.example` for a fully local setup:
