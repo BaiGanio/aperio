@@ -172,7 +172,6 @@ ollama pull mxbai-embed-large  # embeddings — local semantic search
 ```bash
 npm install             # terminal 1  →  restore dependencies
 npm run start:local     # terminal 2  →  localhost:31337 → if option is developer
-npm run start:lite      # terminal 2  →  localhost:31337 → if option is lite
 ```
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
