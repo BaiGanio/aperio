@@ -51,4 +51,4 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Update dev branch for v$(node -p "require('../package.json').version")"
-          git push https://x-access-token:${{ secrets.MY_PAT }}@github.com/BaiGanio/aperio.git dev --force   
+          git push -f https://x-access-token:${{ secrets.MY_PAT }}@github.com/BaiGanio/aperio.git HEAD:dev   
