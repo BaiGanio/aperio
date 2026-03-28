@@ -3,6 +3,7 @@
 <h1>✨ Aperio</h1>
 
 **One brain. Every agent. Nothing forgotten.**
+<p align="center">• Download 👉 <b><a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip">Aperio-lite</a></b> for non-code users. • The small tool for big the ideas •</p>
 
 ![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
 [![Bounties Available](https://img.shields.io/badge/bounties-disabled-black)](./PAYMENT.md)
@@ -20,8 +21,7 @@
 A self-hosted personal memory layer for AI agents.  
 Postgres + pgvector + MCP. Your context, always available.
 
-• 🌐 Site: **[https://baiganio.github.io/aperio/](https://baiganio.github.io/aperio)**  • Download 👉 **[Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip)** - small tool for big ideas •
-</div>
+• 🌐 Site: **[https://baiganio.github.io/aperio/](https://baiganio.github.io/aperio)** •</div>
 
 <!-- HEADER --> 
 <p align="center">
