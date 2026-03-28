@@ -86,9 +86,9 @@ Postgres + pgvector + MCP. Your context, always available.
 >💡 Check our wiki page [Aperio-lite Installation Guide](https://github.com/BaiGanio/aperio/wiki/Aperio%E2%80%90lite-Installation-Guide) for more clarifications. 
 
 <details>
-  <summary>Instructions (MacOS/Linux) <- click it!</summary><br>
+  <summary>Quick Instructions <- click it!</summary><br>
 
-> OPTION: EASY
+> OPTION: EASY (MacOS/Linux)
 
 > - Download the latest version, unzip and open in `Finder`.
 > - Look for file name called `start.sh`.
@@ -102,7 +102,7 @@ Postgres + pgvector + MCP. Your context, always available.
 
 ---
 
-> OPTION: TECHNICAL
+> OPTION: TECHNICAL (MacOS/Linux)
 
 > Open terminal in the project root
 > Run `chmod +x START.sh` - grant permission to the main script just in case
