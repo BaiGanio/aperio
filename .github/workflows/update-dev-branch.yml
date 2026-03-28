@@ -1,0 +1,54 @@
+name: Update Dev Branch
+on:
+  workflow_run:
+    workflows: ["Release & Versioning (No Changelog)"]
+    types: [completed]
+
+jobs:
+  update-dev:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          token: ${{ secrets.MY_PAT }}
+
+      - name: Create dev files
+        run: |
+          mkdir -p dev-files
+          # Now copy only the files you want
+          files=(
+            CONTRIBUTING.md
+            LICENCE
+            package.json
+            package-lock.json
+            README.md
+            server.js
+            START.ps1
+            START.sh
+            favicon.ico
+            db
+            docker
+            mcp
+            prompts
+            tests
+          )
+          for item in "${files[@]}"; do
+            if [ -e "$item" ]; then
+              cp -r "$item" dev-files/
+            else
+              echo "Warning: $item not found"
+            fi
+          done
+
+      - name: Push to dev branch
+        run: |
+          cd dev-files
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Update dev branch for v$(node -p "require('../package.json').version")"
+          git push https://x-access-token:${{ secrets.MY_PAT }}@github.com/BaiGanio/aperio.git dev --force   

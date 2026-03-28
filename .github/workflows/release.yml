@@ -83,15 +83,6 @@ jobs:
           
           # 4. Explicitly write to GITHUB_OUTPUT
           echo "sha=${SHA_VALUE}" >> "$GITHUB_OUTPUT"
-
-       # This places both files under a custom-docs/ folder inside the archive, regardless of their original location. 
-      #- name: Add file to specific folder in zip
-      #  run: |
-      #    mkdir -p temp/custom-docs
-      #    cp docs/index.html temp/custom-docs/
-      #    cp docs/assets/version.txt temp/custom-docs/
-      #    zip -u aperio-lite.zip temp/custom-docs/index.html temp/custom-docs/version.txt
-      #    rm -rf temp  
         
       # --- UPDATE Release Step: Upload Both Files ---
       - name: Create GitHub Release
@@ -103,62 +94,14 @@ jobs:
           body: |
             ### 📦 Downloads
             - `aperio-lite.zip` - Non-code users (includes install guide)
-            - `aperio-dev.zip` - For developers (includes docs)
         
             ### 🔐 Verify Authenticity
             **aperio-lite.zip SHA256:** `${{ steps.packer.outputs.sha }}`  
-            **aperio-dev.zip SHA256:** `${{ steps.dev_zip.outputs.sha_dev }}`
         
             ---
             **Signed by:** 🏆 Project Lead - L.K.
           generate_release_notes: true
           files: |
             aperio-lite.zip
-            aperio-dev.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
-
-        
-    
-      - name: Update dev branch with specific files
-        if: steps.info.outputs.bump != 'skip'
-        run: |
-          # Remove untracked files (like ZIPs) that block checkout
-          git clean -fd
-          git fetch origin dev
-          git checkout dev
-
-          # Clear all files
-          git rm -rf . || true
-
-          # Now copy only the files you want
-          files=(
-            CONTRIBUTING.md
-            LICENCE
-            package.json
-            package-lock.json
-            README.md
-            server.js
-            START.ps1
-            START.sh
-            favicon.ico
-            db
-            docker
-            mcp
-            prompts
-            tests
-          )
-          for item in "${files[@]}"; do
-            if [ -e "$item" ]; then
-              cp -r "$item" ./
-            else
-              echo "Warning: $item not found"
-            fi
-          done
-
-          # Commit and push
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add .
-          git commit -m "Update dev branch for v${{ steps.versioning.outputs.new_v }}" || exit 0
-          git push https://x-access-token:${{ secrets.MY_PAT }}@github.com/BaiGanio/aperio.git dev  
