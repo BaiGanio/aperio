@@ -3,7 +3,7 @@
 <h1>✨ Aperio</h1>
 
 **One brain. Every agent. Nothing forgotten.**
-<p align="center">• Download 👉 <b><a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip">Aperio-lite</a></b> for non-code users. • The small tool for big the ideas •</p>
+<p align="center">• Download 👉 <b><a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip">Aperio-lite</a></b> for non-code users. • Small tool for big ideas •</p>
 
 ![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
 [![Bounties Available](https://img.shields.io/badge/bounties-disabled-black)](./PAYMENT.md)
