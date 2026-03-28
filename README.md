@@ -20,7 +20,7 @@
 A self-hosted personal memory layer for AI agents.  
 Postgres + pgvector + MCP. Your context, always available.
 
-• 🌐 Landing Page: **[https://baiganio.github.io/aperio/](https://baiganio.github.io/aperio)**  • Download 👉 **[Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip)** - small tool for big ideas •
+• 🌐 Site: **[https://baiganio.github.io/aperio/](https://baiganio.github.io/aperio)**  • Download 👉 **[Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip)** - small tool for big ideas •
 </div>
 
 <!-- HEADER --> 
