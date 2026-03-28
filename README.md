@@ -5,10 +5,6 @@
 **One brain. Every agent. Nothing forgotten.**
 <p align="center">• Download 👉 <b><a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip">Aperio-lite</a></b> for non-code users. • Small tool for big ideas •</p>
 
-![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
-[![Bounties Available](https://img.shields.io/badge/bounties-disabled-black)](./PAYMENT.md)
-[![Lead Policy](https://img.shields.io/badge/lead%20policy-transparent-blue)](./PROJECT_LEAD_POLICY.md)
-<!-- [![Bounties Available](https://img.shields.io/badge/bounties-active-brightgreen)](./PAYMENT.md) --> 
 ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=node.js&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)
 ![Postgres](https://img.shields.io/badge/Postgres-16-336791?style=flat-square&logo=postgresql&logoColor=white)
@@ -17,11 +13,15 @@
 ![MCP](https://img.shields.io/badge/MCP-v1-blue?style=flat-square)
 ![Claude](https://img.shields.io/badge/Claude-Haiku-orange?style=flat-square)
 ![GitHub contributors](https://img.shields.io/github/contributors/baiganio/aperio)
+<!-- [![Bounties Available](https://img.shields.io/badge/bounties-active-brightgreen)](./PAYMENT.md) --> 
+![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
+[![Bounties Available](https://img.shields.io/badge/bounties-disabled-black)](./PAYMENT.md)
+[![Lead Policy](https://img.shields.io/badge/lead%20policy-transparent-blue)](./PROJECT_LEAD_POLICY.md)
 
 A self-hosted personal memory layer for AI agents.  
 Postgres + pgvector + MCP. Your context, always available.
 
-• 🌐 Site: **[https://baiganio.github.io/aperio/](https://baiganio.github.io/aperio)** •</div>
+• 🌐 Site: **[https://baiganio.github.io/aperio](https://baiganio.github.io/aperio)** •</div>
 
 <!-- HEADER --> 
 <p align="center">
@@ -43,9 +43,10 @@ Postgres + pgvector + MCP. Your context, always available.
   <a href="https://github.com/BaiGanio/aperio/discussions/24">Design Decisions</a>
   • 
 </p>
+<p align="center">  <sub>💡 <b>Pro Tip:</b> Visit <a href="https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F">How to Install & Use Aperio‐lite?</a> for extensive documentation.</sub></p>
 <p align="center">
   <sub>💡 <b>Pro Tip:</b> Visit the <a href="https://github.com/BaiGanio/aperio/wiki">Aperio Wiki</a> or <a href="https://github.com/BaiGanio/aperio/discussions">Discussions</a> for extensive documentation on advanced topics.<br>
-   Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a> • <a href="https://github.com/BaiGanio/aperio/wiki/Troubleshooting">Troubleshooting</a>
+   🔍 Explore more: <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a> • <a href="https://github.com/BaiGanio/aperio/wiki/Troubleshooting">Troubleshooting</a>
 </p>
 
 ---
