@@ -21,7 +21,7 @@ jobs:
           # Now copy only the files you want
           files=(
             CONTRIBUTING.md
-            LICENCE
+            LICENSE
             .env.example
             package.json
             package-lock.json
