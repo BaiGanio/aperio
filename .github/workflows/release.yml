@@ -92,6 +92,33 @@ jobs:
       #    cp docs/assets/version.txt temp/custom-docs/
       #    zip -u aperio-lite.zip temp/custom-docs/index.html temp/custom-docs/version.txt
       #    rm -rf temp  
+        
+      # --- UPDATE Release Step: Upload Both Files ---
+      - name: Create GitHub Release
+        if: steps.info.outputs.bump != 'skip'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.versioning.outputs.new_v }}
+          name: Release v${{ steps.versioning.outputs.new_v }}
+          body: |
+            ### 📦 Downloads
+            - `aperio-lite.zip` - Non-code users (includes install guide)
+            - `aperio-dev.zip` - For developers (includes docs)
+        
+            ### 🔐 Verify Authenticity
+            **aperio-lite.zip SHA256:** `${{ steps.packer.outputs.sha }}`  
+            **aperio-dev.zip SHA256:** `${{ steps.dev_zip.outputs.sha_dev }}`
+        
+            ---
+            **Signed by:** 🏆 Project Lead - L.K.
+          generate_release_notes: true
+          files: |
+            aperio-lite.zip
+            aperio-dev.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
+
+        
     
       - name: Update dev branch with specific files
         if: steps.info.outputs.bump != 'skip'
@@ -135,28 +162,3 @@ jobs:
           git add .
           git commit -m "Update dev branch for v${{ steps.versioning.outputs.new_v }}" || exit 0
           git push https://x-access-token:${{ secrets.MY_PAT }}@github.com/BaiGanio/aperio.git dev  
-        
-      # --- UPDATE Release Step: Upload Both Files ---
-      - name: Create GitHub Release
-        if: steps.info.outputs.bump != 'skip'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.versioning.outputs.new_v }}
-          name: Release v${{ steps.versioning.outputs.new_v }}
-          body: |
-            ### 📦 Downloads
-            - `aperio-lite.zip` - Non-code users (includes install guide)
-            - `aperio-dev.zip` - For developers (includes docs)
-        
-            ### 🔐 Verify Authenticity
-            **aperio-lite.zip SHA256:** `${{ steps.packer.outputs.sha }}`  
-            **aperio-dev.zip SHA256:** `${{ steps.dev_zip.outputs.sha_dev }}`
-        
-            ---
-            **Signed by:** 🏆 Project Lead - L.K.
-          generate_release_notes: true
-          files: |
-            aperio-lite.zip
-            aperio-dev.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
