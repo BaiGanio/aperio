@@ -92,31 +92,7 @@ jobs:
       #    cp docs/assets/version.txt temp/custom-docs/
       #    zip -u aperio-lite.zip temp/custom-docs/index.html temp/custom-docs/version.txt
       #    rm -rf temp  
-#
-      # --- NEW STEP: Create Developer Zip ---
-      - name: Create Developer Zip
-        if: steps.info.outputs.bump != 'skip'
-        run: |
-          # Create zip, exclude unwanted directories
-          zip -r aperio-dev.zip . \
-            -x "*.git/*" \
-            -x ".github/*" \
-            -x "node_modules/*" \
-            -x "docker/*" \
-            -x "tests/*" \
-            -x "*.ps1" \
-            -x "*unstable*"
-
-          # Now add the specific files back (they will be included even if previously excluded)
-          zip -u aperio-dev.zip \
-            .github/data/how-to-install.txt \
-            docs/index.html \
-            docs/assets/version.txt
-
-          # Generate SHA256
-          SHA_DEV=$(shasum -a 256 aperio-dev.zip | awk '{print $1}')
-          echo "sha_dev=$SHA_DEV" >> $GITHUB_OUTPUT   
-
+    
       - name: Update dev branch with specific files
         if: steps.info.outputs.bump != 'skip'
         run: |
@@ -143,13 +119,11 @@ jobs:
             prompts
             tests
           )
-          for item in "${items[@]}"; do
-            if [ -d "$item" ]; then
-              # Copy directory recursively
+          for item in "${files[@]}"; do
+            if [ -e "$item" ]; then
               cp -r "$item" ./
             else
-              # Copy file
-              cp "$item" ./
+              echo "Warning: $item not found"
             fi
           done
 
