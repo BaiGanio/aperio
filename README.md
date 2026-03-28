@@ -84,6 +84,8 @@ Postgres + pgvector + MCP. Your context, always available.
 - Small tool for big ideas 🧐
 - The fastest path. Runs 100% on your machine. No API Keys.
 
+>💡 Check our wiki page [Aperio-lite Installation Guide](https://github.com/BaiGanio/aperio/wiki/Aperio%E2%80%90lite-Installation-Guide) for more clarifications. 
+
 <details>
   <summary>Instructions (MacOS/Linux) <- click it!</summary><br>
 
