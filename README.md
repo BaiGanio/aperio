@@ -81,9 +81,8 @@ Postgres + pgvector + MCP. Your context, always available.
 
 👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) - for non-code users.
 - Small tool for big ideas 🧐
-- The fastest path. Runs 100% on your machine. No API Keys.
-
->💡 Check our wiki page [Aperio-lite Installation Guide](https://github.com/BaiGanio/aperio/wiki/Aperio%E2%80%90lite-Installation-Guide) for more clarifications. 
+- The fastest path. Runs 100% on your machine. 
+- No API Keys. No gibberish.
 
 <details>
   <summary>Quick Instructions <- click it!</summary><br>
@@ -110,7 +109,9 @@ Postgres + pgvector + MCP. Your context, always available.
 > Open browser at `http://localhost:31337`
 
 > Q: Future use?
+
 > - Just double-click the file in Finder like a normal app!
+> - If you have made an Alias, same - double click from Desktop
 > - For a terminal geeks - `./start.sh` in the project root
 
 >💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples. 
@@ -118,6 +119,9 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 
 </details>
+<br>
+
+>💡 Check our wiki page [Aperio-lite Installation Guide](https://github.com/BaiGanio/aperio/wiki/Aperio%E2%80%90lite-Installation-Guide) for more clarifications. 
 
 ### Prerequisites
 - Node.js 18+
