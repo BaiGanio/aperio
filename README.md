@@ -121,7 +121,7 @@ Postgres + pgvector + MCP. Your context, always available.
 </details>
 <br>
 
->💡 Check our wiki page [Aperio-lite Installation Guide](https://github.com/BaiGanio/aperio/wiki/Aperio%E2%80%90lite-Installation-Guide) for more clarifications. 
+>💡 Check our wiki page [Aperio-lite Installation Guide](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) for more clarifications. 
 
 ### Prerequisites
 - Node.js 18+
