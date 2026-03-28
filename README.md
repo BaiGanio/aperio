@@ -51,7 +51,7 @@ Postgres + pgvector + MCP. Your context, always available.
 ---
 ## 🏗️ Project Structure
 ```txt
-📂 aperio/          <---=  You are here 
+📂 aperio/          <---=  You are here if You are Developer. He-he ;/
 ├── 📂 db/
 │   └── 📂 migrations/            # 001_init · 002_pgvector
 ├── 📂 docker/
@@ -67,8 +67,8 @@ Postgres + pgvector + MCP. Your context, always available.
 ├── 📂 scripts/
 │   └── chat.js                   # Terminal chat client
 ├── .env                          # Your keys — never commit this
-├── START.sh                      # Aperio (lite) for MacOS/Linux
-├── START.ps1                     # Aperio (lite) for Windows
+├── START.sh                      # Aperio-lite (MacOS/Linux installation script)
+├── START.ps1                     # Aperio-lite (Windows installation script)
 ├── package.json
 └── server.js                     # Express + WebSocket + agent loop
 ```
