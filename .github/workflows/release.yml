@@ -126,9 +126,32 @@ jobs:
           # Clear all files
           git rm -rf . || true
 
-          # Copy only desired files
-          cp .github/data/how-to-install.txt ./
-          cp docs/index.html ./docs/ || mkdir -p docs && cp docs/index.html ./docs/
+          # Now copy only the files you want
+          files=(
+            CONTRIBUTING.md
+            LICENCE
+            package.json
+            package-lock.json
+            README.md
+            server.js
+            START.ps1
+            START.sh
+            favicon.ico
+            db
+            docker
+            mcp
+            prompts
+            tests
+          )
+          for item in "${items[@]}"; do
+            if [ -d "$item" ]; then
+              # Copy directory recursively
+              cp -r "$item" ./
+            else
+              # Copy file
+              cp "$item" ./
+            fi
+          done
 
           # Commit and push
           git config user.name "github-actions[bot]"
