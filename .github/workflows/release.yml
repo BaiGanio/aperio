@@ -44,7 +44,7 @@ jobs:
       - name: Write version for landing page
         if: steps.info.outputs.bump != 'skip'
         run: |
-          echo "const version = 'v' + ${{ steps.versioning.outputs.new_v }}" > scripts.js  
+          sed -i "s/const version = '.*';/const version = '${{ steps.versioning.outputs.new_v }}';/" docs/scripts.js     
 
       - name: Commit Version Bump
         if: steps.info.outputs.bump != 'skip'
