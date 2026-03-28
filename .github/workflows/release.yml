@@ -133,7 +133,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
           git commit -m "Update dev branch for v${{ steps.versioning.outputs.new_v }}" || exit 0
-          git push https://x-access-token:${{ secrets.MY_PAT }}@github.com/BaiGanio/aperio.git HEAD:dev  
+          git push https://x-access-token:${{ secrets.MY_PAT }}@github.com/BaiGanio/aperio.git dev  
 
       # git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git   
       # --- UPDATE Release Step: Upload Both Files ---
