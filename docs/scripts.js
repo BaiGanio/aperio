@@ -40,8 +40,8 @@ navAs.forEach(a => { a.style.color = a.getAttribute('href') === '#' + current ? 
 }, { passive: true });
 
 /* ── Version ── */
-fetch('/api/version')
-  .then(res => res.json())
-  .then(data => {
-    document.getElementById('version-display').innerText = data.version;
-  });
+fetch('/version.txt')
+  .then(res => res.text())
+  .then(version => {
+    document.getElementById('version-display').innerText = version;
+  });   

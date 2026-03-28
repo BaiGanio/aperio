@@ -41,6 +41,11 @@ jobs:
           NEW_V=$(node -p "require('./package.json').version")
           echo "new_v=$NEW_V" >> $GITHUB_OUTPUT
 
+      - name: Write version for landing page
+        if: steps.info.outputs.bump != 'skip'
+        run: |
+          echo "${{ steps.versioning.outputs.new_v }}" > assets/version.txt   
+
       - name: Commit Version Bump
         if: steps.info.outputs.bump != 'skip'
         run: |
@@ -81,8 +86,14 @@ jobs:
           # Appends the checksum to the bottom of the auto-generated notes
           body: |
             ### 🔐 Verify Authenticity
-            **aperio-lite.zip SHA256:**
+            **aperio-lite.zip SHA256:**  
             `${{ steps.packer.outputs.sha }}`
+
+            ---
+            **Signed by:**  
+            🏆 **Project Lead** - L.K. (Repo Owner)
+
+            ✅ This release was automatically signed and published by the project owner.   
           generate_release_notes: true
           # --- NEW LINE: This uploads your zip to the release ---
           files: aperio-lite.zip
