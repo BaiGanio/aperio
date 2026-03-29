@@ -64,7 +64,7 @@ jobs:
           # 1. Define what to EXCLUDE here for better readability
           zip -r aperio-lite.zip . -x \
             "*.git/*" \
-            ".github/*" \
+            "*.github/*" \
             "node_modules/*" \
             "db/migrations/*" \
             "db/postgres.js" \
@@ -72,7 +72,6 @@ jobs:
             "docs/*" \
             "scripts/*" \
             "tests/*" \
-            "*.ps1" \
             "*unstable*" \
             "aperio-dev.zip"
           
@@ -121,6 +120,7 @@ jobs:
         
             ---
             **Signed by:** 🏆 Project Lead - L.K.
+            ---
           generate_release_notes: true
           files: |
             aperio-lite.zip
