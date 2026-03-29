@@ -201,72 +201,10 @@ body::before {
     transition: background 0.3s, border-color 0.3s;
 }
 
-/* ── 3-zone navbar layout ── */
 .nav-inner {
-    display: grid !important;
-    grid-template-columns: 1fr auto 1fr !important;
-    align-items: center;
-    height: 62px;
-    max-width: 1360px;
-    margin: 0 auto;
-    padding: 0 24px;
-    gap: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 62px; max-width: 1160px; margin: 0 auto; padding: 0 24px; gap: 12px;
 }
-.nav-left   { display: flex; align-items: center; justify-content: flex-start; }
-.nav-center { display: flex; align-items: center; gap: 12px; justify-content: center; white-space: nowrap; }
-.nav-right  { display: flex; align-items: center; gap: 10px; justify-content: flex-end; }
-
-/* ── Lang switcher — mirrors .theme-switcher grouping ── */
-.lang-switcher {
-    display: flex;
-    align-items: center;
-    background: var(--bg-raised);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 3px;
-    gap: 1px;
-    flex-shrink: 0;
-    transition: background 0.3s, border-color 0.3s;
-}
-.lang-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    height: 28px;
-    width: 58px;          /* fixed — keeps EN and BG identical width */
-    padding: 0;
-    border-radius: 7px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    /* DM Sans has Cyrillic; Electrolize does not */
-    font-family: 'DM Sans', system-ui, sans-serif;
-    font-size: 13px;
-    font-weight: 600;
-    letter-spacing: 0.05em;
-    color: var(--muted);
-    transition: background 0.15s, color 0.15s;
-    line-height: 1;
-    white-space: nowrap;
-}
-.lang-btn .flag { font-size: 14px; line-height: 1; display: block; width: 16px; text-align: center; }
-.lang-btn:hover { background: var(--bg-card); color: var(--text); }
-.lang-btn.active { background: var(--aurora); color: white; }
-
-/* ── Bump small descriptive text sizes globally ── */
-.feat-desc   { font-size: 14.5px !important; }
-.build-desc  { font-size: 14.5px !important; }
-.tool-desc   { font-size: 13.5px !important; }
-.lead-text   { font-size: 17px   !important; }
-.compare-wrap table { font-size: 15px !important; }
-.cta-sub     { font-size: 17px   !important; }
-.origin-note { font-size: 13px   !important; }
-.footer-warning { font-size: 14px !important; }
-.build-cta-sub  { font-size: 14.5px !important; }
-.arch-sub    { font-size: 12px   !important; }
-.provider-desc { font-size: 12px !important; }
-.step-title  { font-size: 12px   !important; }
 
 .brand { display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0; }
 .logo-mark {
@@ -285,7 +223,7 @@ body::before {
 /* nav links */
 .nav-links { display:flex;align-items:center;gap:2px;list-style:none;flex-shrink:0; }
 .nav-links a {
-    font-size:13px;font-weight:400;
+    font-family:var(--font-ui);font-size:11px;font-weight:400;
     letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);text-decoration:none;
     padding:6px 13px;border-radius:6px;transition:color 0.15s,background 0.15s;
 }
@@ -367,7 +305,7 @@ body::before {
 
 /* eyebrow */
 .eyebrow {
-    font-family:var(--font-sans);font-size:13px;letter-spacing:0.2em;text-transform:uppercase;
+    font-family:var(--font-ui);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
     color:var(--purple);margin-bottom:18px;display:inline-flex;align-items:center;gap:10px;
 }
 .eyebrow::before,.eyebrow::after { content:"";display:inline-block;width:22px;height:1px; }
