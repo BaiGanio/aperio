@@ -20,22 +20,19 @@ jobs:
           mkdir -p dev-files
           # Now copy only the files you want
           files=(
+            README.md
             CONTRIBUTING.md
             LICENSE
             .env.example
             package.json
             package-lock.json
-            README.md
             server.js
-            script.ps1
-            START.bat
-            START.sh
-            favicon.ico
             db
             docker
+            how-to-install
+            lib
             mcp
             prompts
-            tests
             public
           )
           for item in "${files[@]}"; do
