@@ -5,7 +5,7 @@ cd /d "%~dp0"
 echo 📍 Working Directory: %cd%
 
 :: 2. Launch PowerShell, bypass execution restrictions, and run the .ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File "start.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "lib/start.ps1"
 
 :: 3. Keep the window open if the script finishes or crashes
 echo.
