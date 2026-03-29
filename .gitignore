@@ -11,9 +11,7 @@
 *.sln.docstates
 *.env
 *.lancedb/
-*linkedin-carousel.pptx
-*linkedin.txt
-*notes.txt
+*quick-notes.txt
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
