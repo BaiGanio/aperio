@@ -67,7 +67,6 @@ jobs:
             "*.github/*" \
             "node_modules/*" \
             "db/migrations/*" \
-            "db/postgres.js" \
             "docker/*" \
             "docs/*" \
             "scripts/*" \
@@ -76,7 +75,8 @@ jobs:
             "aperio-dev.zip"
           
           # Step 2: Add specific files back (e.g., docs/index.html, docs/assets/version.txt)
-          zip -u aperio-lite.zip .github/data/how-to-install.txt       
+          zip -u aperio-lite.zip \
+            ".github/data/how-to-install.txt"       
 
           # 3. Generate SHA256 and store it as an output
           SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')

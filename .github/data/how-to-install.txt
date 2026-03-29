@@ -4,19 +4,19 @@
 
 Everything runs locally on your machine.
 No cloud. No subscriptions. No data leaving your computer.
-What if I have follow up questions? 
-- FAQ: https://github.com/BaiGanio/aperio/discussions/14
+
 
 ──────────────────────────────────────────────────────────────────
   BEFORE YOU START — WHAT YOU NEED
 ──────────────────────────────────────────────────────────────────
 
-  Operating system:   macOS or Linux
-                      (Windows users: run START.ps1 in PowerShell instead)
+  Operating system:   macOS or Linux or Windows
 
   Internet:           Required only during first-time setup to download
-                      the AI model and dependencies. After that, everything
-                      works fully offline.
+                      the AI model and dependencies. 
+                      
+  No Internet?:       No worries, everything can work fully offline.
+                      Only 'fetch_url' won't work
 
   Disk space:         Between 3 GB and 20 GB free, depending on the AI
                       model the script selects for your machine (see the
@@ -28,7 +28,10 @@ What if I have follow up questions?
   NOTE
   ────────────────────────────────────────────
   No technical knowledge required. The script handles everything.
-
+  How to download new release/version? 
+   - Visit: https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip.
+  What if I have follow up questions? 
+   - Visit: https://github.com/BaiGanio/aperio/discussions/14
 
 ──────────────────────────────────────────────────────────────────
   HOW TO RUN IT — FIRST TIME
@@ -37,7 +40,7 @@ What if I have follow up questions?
   OPTION: EASY (Windows) — NON-CODE USERS
   ───────────────────────────────────────────
   
-  1. Locate START.bat file .
+  1. Locate START.bat file.
 
   2. Mark it, right-click on it → Send to → Desktop (create shortcut) 
 
