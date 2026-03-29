@@ -60,6 +60,7 @@ jobs:
         id: packer_lite
         if: steps.info.outputs.bump != 'skip'
         run: |
+          (cd .github/data && zip ../../aperio-lite.zip how-to-install.txt)
           # -r means recursive, -x excludes files you don't want          
           # 1. Define what to EXCLUDE here for better readability
           zip -r aperio-lite.zip . -x \
@@ -71,12 +72,7 @@ jobs:
             "docker/*" \
             "docs/*" \
             "scripts/*" \
-            "tests/*" \
-            "*unstable*" \
-            "aperio-dev.zip"
-          
-          # Step 2: Add specific files back (e.g., docs/index.html, docs/assets/version.txt)
-          zip -u aperio-lite.zip .github/data/how-to-install.txt      
+            "tests/*" 
 
           # 3. Generate SHA256 and store it as an output
           SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')
@@ -95,8 +91,6 @@ jobs:
             "node_modules/*" \
             "docs/*" \
             "scripts/*" \
-            "*unstable*" \
-            "aperio-lite.zip"
 
           # Generate SHA
           SHA_VALUE=$(shasum -a 256 aperio-dev.zip | awk '{print $1}')
