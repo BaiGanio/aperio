@@ -83,7 +83,7 @@ jobs:
           SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')
           
           # 4. Explicitly write to GITHUB_OUTPUT
-          echo "sha=${SHA_VALUE}" >> "$GITHUB_OUTPUT"
+          echo "sha_lite=${SHA_VALUE}" >> "$GITHUB_OUTPUT"
        
       - name: Create Dev Zip
         id: packer_dev
@@ -116,7 +116,7 @@ jobs:
             - `aperio-dev.zip` - For developers
         
             ### 🔐 Verify Authenticity
-            **aperio-lite.zip SHA256:** `${{ steps.packer_lite.outputs.sha }}`
+            **aperio-lite.zip SHA256:** `${{ steps.packer_lite.outputs.sha_lite }}`
             **aperio-dev.zip SHA256:** `${{ steps.packer_dev.outputs.sha_dev }}`  
         
             ---
