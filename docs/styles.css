@@ -583,25 +583,7 @@ footer{border-top:1px solid var(--border);padding:36px 0;position:relative;z-ind
 .footer-links{display:flex;gap:24px;align-items:center;}
 .footer-link{font-family:var(--font-ui);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:6px;transition:color 0.15s;}
 .footer-link:hover{color:var(--purple);}
-.footer-warning {
-    width: 100%;
-    text-align: center;
-    padding-top: 16px;
-    border-top: 1px solid var(--border);
-    font-size: 0.9rem;
-    /* color: var(--muted); */
-    opacity: 0.45;
-    /* font-style: italic; */
-    letter-spacing: 0.01em;
-    line-height: 1.5;
-    transition: opacity 0.3s ease;
-}
-
-.footer-warning:hover {
-    opacity: 0.9;
-    cursor:pointer;
-}
-
+.footer-warning {width: 100%;text-align: center;font-size: 1.0rem;letter-spacing: 0.01em;line-height: 1.5;}
 /* ══════════════════════════════════════════════════════════
     SCROLL REVEAL
 ══════════════════════════════════════════════════════════ */
