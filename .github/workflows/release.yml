@@ -116,8 +116,8 @@ jobs:
             - `aperio-dev.zip` - For developers
         
             ### 🔐 Verify Authenticity
-            **aperio-lite.zip SHA256:** `${{ steps.packer.outputs.sha }}
-            **aperio-dev.zip SHA256:** `${{ steps.dev_zip.outputs.sha_dev }}``  
+            **aperio-lite.zip SHA256:** `${{ steps.packer.outputs.sha }}`
+            **aperio-dev.zip SHA256:** `${{ steps.dev_zip.outputs.sha_dev }}`  
         
             ---
             **Signed by:** 🏆 Project Lead - L.K.
