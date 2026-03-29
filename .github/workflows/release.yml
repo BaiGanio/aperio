@@ -92,7 +92,7 @@ jobs:
           zip -r aperio-dev.zip . -x \
             "*.git/*" \
             ".github/*" \
-            "node_modules/*" 
+            "node_modules/*" \
             "docs/*" \
             "scripts*" \
             "*unstable*"
