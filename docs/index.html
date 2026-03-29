@@ -106,9 +106,9 @@
     <p class="lead-text reveal">
       A self-hosted personal memory layer for AI agents — built on Postgres, pgvector and MCP.<br>
       Runs 100% local by default. No API keys. No cloud dependency. Your data never leaves your machine.<br>
-      <span style="opacity:.7">Not a developer?</span>
-      <a href="#aperio-lite" style="color:var(--accent);text-decoration:none;font-weight:500"> ✦ Try Aperio-lite →</a>
-      <span style="opacity:.5;font-size:.9em"> — double-click and go, no terminal needed.</span>
+      <span>Not a developer?</span>
+      <a href="#aperio-lite" style="color:var(--accent);text-decoration:none;font-weight:500"> ✦ Try Aperio-lite</a>
+      <span style="font-size:.9em"> — double-click and go, no terminal needed.</span>
     </p>
     <div class="cta-group reveal">
       <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-primary-aurora">
@@ -117,9 +117,13 @@
       <a href="#architecture" class="btn-outline-aurora">
         <i class="bi bi-layers"></i> See the stack
       </a>
+      <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip" target="_blank" class="btn-primary-aurora">
+        <i class="bi bi-download"></i> Download Aperio-lite
+      </a>
     </div>
     <div class="badge-row reveal">
       <span class="tech-badge"><i class="bi bi-database me-1"></i> Postgres 16</span>
+      <span class="tech-badge"><i class="bi bi-database me-1"></i> LanceDb</span>
       <span class="tech-badge"><i class="bi bi-cpu me-1"></i> pgvector</span>
       <span class="tech-badge"><i class="bi bi-plug me-1"></i> MCP Protocol</span>
       <span class="tech-badge"><i class="bi bi-box me-1"></i> Ollama</span>
@@ -512,10 +516,9 @@
         <div class="step-num">01</div>
         <div class="step-title">Clone & install</div>
         <div class="code-block">
-          <div class="c"># clone the repo</div>
-          <div class="s">git clone https://github.com/BaiGanio/aperio.git</div>
-          <div>&nbsp;</div>
-          <div class="c"># move into project</div>
+          <div class="c"># clone the dedicated developer branch</div>
+          <div class="c"># no extra - only the files needed</div>
+          <div class="s">git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git</div>
           <div class="s">cd aperio</div>
           <div>&nbsp;</div>
           <div class="c"># install dependencies</div>
