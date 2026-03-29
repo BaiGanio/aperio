@@ -65,6 +65,7 @@ jobs:
           zip -r aperio-lite.zip . -x \
             "*.git/*" \
             "*.github/*" \
+            "*.lancedb/*" \
             "node_modules/*" \
             "db/migrations/*" \
             "docker/*" \

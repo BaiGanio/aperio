@@ -1,4 +1,4 @@
-#!/bin/bash +x
+#!/bin/bash
 
 # This finds the real location of the script, even if run via an alias
 SOURCE=${BASH_SOURCE[0]}
@@ -54,45 +54,63 @@ fi
 
 # ============================================================
 # FAST PATH: OLLAMA_MODEL is already set (script patched itself
-# on first run) AND the model is present locally — skip all
-# installation questions and jump straight to launch.
+# on first run) AND the model is present locally.
+# Ask the user if they want to keep it or reconfigure.
 # grep -F treats the string literally (safe with colons/dots).
 # ============================================================
 if [ -n "$OLLAMA_MODEL" ] && ollama list 2>/dev/null | grep -qF "$OLLAMA_MODEL"; then
-    echo "✨ Model '$OLLAMA_MODEL' already configured and present locally."
-    if [ ! -d "node_modules" ]; then
-        echo "📦 Missing dependencies. Installing..."
-        npm install
+    echo "------------------------------------------"
+    echo "✨ EXISTING CONFIGURATION FOUND"
+    echo "------------------------------------------"
+    echo "   Model:  $OLLAMA_MODEL"
+    echo "   Port:   $PORT"
+    echo "------------------------------------------"
+    read -p "▶  Launch with this model? (y = start now / n = reconfigure): " -n 1 -r
+    echo
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        if [ ! -d "node_modules" ]; then
+            echo "📦 Missing dependencies. Installing..."
+            npm install
+        fi
+        echo "⏩ Launching server..."
+
+        PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+        cd "$PROJECT_ROOT"
+        echo "------------------------------------------"
+        echo "🚀 Starting server with model: $OLLAMA_MODEL"
+        echo "------------------------------------------"
+        OLLAMA_MODEL=$OLLAMA_MODEL npm run start:lite &
+
+        echo "Waiting for server to start..."
+        sleep 3
+
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            open "http://localhost:$PORT"
+        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            xdg-open "http://localhost:$PORT" 2>/dev/null || true
+        fi
+
+        echo "------------------------------------------"
+        echo "✅ App is running at http://localhost:$PORT"
+        echo "------------------------------------------"
+        echo "📡 Server is active."
+        echo "For EXIT - press [Enter] TWICE!"
+        echo "Once to shut down the server."
+        echo "Twice to close this window."
+        echo "------------------------------------------"
+        read
+        read -n 1 -s
+        exit 0
+    else
+        # User wants to reconfigure — reset the saved model and fall through
+        # to full setup so they can pick a different one.
+        echo "⚙️  Entering reconfiguration mode..."
+        SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+        sedi "s|^OLLAMA_MODEL=\"[^\"]*\"|OLLAMA_MODEL=\"\"|" "$SCRIPT_PATH"
+        OLLAMA_MODEL=""
+        echo "✅ Configuration reset. Continuing to setup..."
+        echo
     fi
-    echo "⏩ Skipping setup — launching server..."
-
-    PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    cd "$PROJECT_ROOT"
-    echo "------------------------------------------"
-    echo "🚀 Starting server with model: $OLLAMA_MODEL"
-    echo "------------------------------------------"
-    OLLAMA_MODEL=$OLLAMA_MODEL npm run start:lite &
-
-    echo "Waiting for server to start..."
-    sleep 3
-
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        open "http://localhost:$PORT"
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        xdg-open "http://localhost:$PORT" 2>/dev/null || true
-    fi
-
-    echo "------------------------------------------"
-    echo "✅ App is running at http://localhost:$PORT"
-    echo "---------------------------------------"
-    echo "📡 Server is active."
-    echo "For EXIT - press [Enter] TWICE!"
-    echo "Once to shut down the server."
-    echo "Twice to close this window."
-    echo "---------------------------------------"
-    read
-    read -n 1 -s
-    exit 0
 fi
 
 # ============================================================
@@ -171,6 +189,10 @@ fi
 
 # --- DYNAMIC MODEL SELECTION ---
 # All model names verified against ollama.com/library (March 2026)
+#
+# Strategy: recommend ONE TIER BELOW the system's maximum capacity.
+# This keeps the system responsive and avoids hogging all RAM.
+# Users can always manually pick a higher tier if they want.
 if [[ "$OSTYPE" == "darwin"* ]]; then
     RAM_GB=$(($(sysctl -n hw.memsize) / 1024 / 1024 / 1024))
 else
@@ -178,25 +200,29 @@ else
 fi
 
 if [ "$RAM_GB" -le 4 ]; then
-    # Tier 1: ~2GB download, runs in 4GB RAM
+    # Only one option at this RAM level — no room to go lower
     OLLAMA_MODEL="qwen2.5:3b"
-    echo "💡 Low RAM detected. Using Qwen 2.5 (3B)."
+    echo "💡 Low RAM detected (${RAM_GB}GB). Using the lightest model: Qwen 2.5 (3B)."
 elif [ "$RAM_GB" -le 8 ]; then
-    # Tier 2: ~4.7GB download, runs in 8GB RAM
-    OLLAMA_MODEL="llama3.1:8b"
-    echo "⚖️  Balanced performance. Using Llama 3.1 (8B)."
+    # Can handle 8B, recommend 3B (one tier down) to keep system responsive
+    OLLAMA_MODEL="qwen2.5:3b"
+    echo "⚖️  ${RAM_GB}GB RAM — recommending Qwen 2.5 (3B) to keep your system comfortable."
+    echo "   (Your system could handle an 8B model, but lighter = snappier experience.)"
 elif [ "$RAM_GB" -ge 32 ]; then
-    # Tier 4: ~19GB download, needs 32GB+ RAM
-    OLLAMA_MODEL="deepseek-r1:32b"
-    echo "🧠 High RAM detected. Using DeepSeek-R1 (32B)."
-elif [ "$RAM_GB" -ge 16 ]; then
-    # Tier 3b: ~9.3GB download, needs 16GB RAM
+    # Can handle 32B, recommend 14B (one tier down)
     OLLAMA_MODEL="qwen3:14b"
-    echo "🧠 Advanced RAM detected. Using Qwen3 (14B)."
-else
-    # Tier 3a: ~5.2GB download, needs 9-12GB RAM
+    echo "🧠 ${RAM_GB}GB RAM — recommending Qwen3 (14B) for a smooth experience."
+    echo "   (Your system could handle DeepSeek-R1 32B, but 14B leaves headroom for other apps.)"
+elif [ "$RAM_GB" -ge 16 ]; then
+    # Can handle 14B, recommend 8B (one tier down)
     OLLAMA_MODEL="qwen3:8b"
-    echo "🧠 Good RAM detected. Using Qwen3 (8B)."
+    echo "🧠 ${RAM_GB}GB RAM — recommending Qwen3 (8B) for a balanced experience."
+    echo "   (Your system could handle a 14B model, but 8B is faster and leaves RAM free.)"
+else
+    # 9–15GB: can handle qwen3:8b, recommend llama3.1:8b as the lighter 8B variant
+    OLLAMA_MODEL="llama3.1:8b"
+    echo "🧠 ${RAM_GB}GB RAM — recommending Llama 3.1 (8B) for a stable experience."
+    echo "   (A good balance between capability and system breathing room.)"
 fi
 
 # --- DISK SPACE CHECK ---
@@ -225,15 +251,15 @@ fi
 echo "------------------------------------------"
 echo "🖥️  HARDWARE ANALYSIS"
 echo "------------------------------------------"
-echo "👽 OS Detected:  $OSTYPE"
-echo "📊 Total RAM:    ${RAM_GB} GB"
-echo "💾 Free Disk:    ${FREE_GB} GB"
-echo "🥇 Best Fit:     $OLLAMA_MODEL"
-echo "🤖 Embeddings:   $EMBED_MODEL"
-echo "✨ Port:         $PORT"
+echo "👽 OS Detected:   $OSTYPE"
+echo "📊 Total RAM:     ${RAM_GB} GB"
+echo "💾 Free Disk:     ${FREE_GB} GB"
+echo "✅ Recommended:   $OLLAMA_MODEL  ← one tier below max, for comfort"
+echo "🤖 Embeddings:    $EMBED_MODEL"
+echo "✨ Port:          $PORT"
 echo "------------------------------------------"
 
-read -p "👉 Use the 'Best Fit' model above? (y/n): " -n 1 -r
+read -p "👉 Use the recommended model above? (y/n): " -n 1 -r
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     echo "⚙️  Entering Manual Selection..."
