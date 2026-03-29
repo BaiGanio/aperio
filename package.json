@@ -9,14 +9,13 @@
     "start": "node server.js",
     "start:cloud": "AI_PROVIDER=anthropic PORT=3000 node server.js",
     "start:local": "AI_PROVIDER=ollama PORT=31337 node server.js",
-    "chat": "node scripts/chat.js",
-    "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node scripts/chat.js",
-    "chat:local": "AI_PROVIDER=ollama PORT=31338 node scripts/chat.js",
+    "chat": "node lib/chat.js",
+    "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node lib/chat.js",
+    "chat:local": "AI_PROVIDER=ollama PORT=31338 node lib/chat.js",
     "start:lite": "AI_PROVIDER=ollama PORT=31337 DB_BACKEND=lancedb CHECK_RAM=false node server.js",
     "mcp": "node mcp/index.js"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.78.0",
     "@lancedb/lancedb": "^0.27.1",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "dotenv": "^16.4.0",
@@ -26,8 +25,5 @@
     "uuid": "^13.0.0",
     "ws": "^8.17.0",
     "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "cross-env": "^7.0.3"
   }
 }

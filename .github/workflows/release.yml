@@ -71,7 +71,6 @@ jobs:
             "db/migrations/*" \
             "docker/*" \
             "docs/*" \
-            "scripts/*" \
             "tests/*" 
 
           # 3. Generate SHA256 and store it as an output
@@ -90,7 +89,6 @@ jobs:
             ".github/*" \
             "node_modules/*" \
             "docs/*" \
-            "scripts/*" \
 
           # Generate SHA
           SHA_VALUE=$(shasum -a 256 aperio-dev.zip | awk '{print $1}')
