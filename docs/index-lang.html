@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <!-- Primary Meta Tags -->
-  <title>Aperio | Self-Hosted AI Memory Layer & MCP Server</title>
+  <title>Aperio | Self-Hosted AI Memory Layer &amp; MCP Server</title>
   <meta name="description" content="Aperio is an open-source, self-hosted AI memory layer. Run local embeddings with Ollama & Postgres. MCP-native, private by default. Includes Aperio-lite for non-code users." />   
   <meta name="keywords" content="Aperio, MCP-native, self-hosted AI, Ollama, local embeddings, Postgres, private AI, AI memory layer" />
 
@@ -22,8 +22,8 @@
   <meta name="twitter:description" content="Local by default. Cloud as an upgrade. No API keys, no subscriptions, no data leaving your network." />
   <meta name="twitter:image" content="https://baiganio.github.io/aperio/assets/favicon.ico" />
 
-  <!-- Canonical URL (update with actual page URL) -->
-  <link rel="canonical" href=https://baiganio.github.io/aperio" />
+  <!-- Canonical URL -->
+  <link rel="canonical" href="https://baiganio.github.io/aperio" />
 
   <!-- Preconnect -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -33,7 +33,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles-lang.css" />
 
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
@@ -61,35 +61,48 @@
 <nav class="aperio-nav">
   <div class="nav-inner">
 
-    <a href="#" class="brand">
-      <div class="logo-mark">A</div>
-      <span class="brand-name">Aperio</span>
-    </a>
-
-    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
-
-    <ul class="nav-links" id="navLinks">
-      <li><a href="#features">Features</a></li>
-      <li><a href="#architecture">Stack</a></li>
-      <li><a href="#tools">Tools</a></li>
-      <li><a href="#team">Team</a></li>
-      <li><a href="#build">Build</a></li>
-      <li><a href="#webui">Web UI</a></li>
-      <li><a href="#setup">Setup</a></li>
-      <li><a href="#aperio-lite">Aperio-lite</a></li>
-    </ul>
-
-    <!-- Theme switcher -->
-    <div class="theme-switcher" id="themeSwitcher">
-      <button class="theme-btn active" data-theme="dark"   title="Dark">🌙</button>
-      <button class="theme-btn"        data-theme="light"  title="Light">☀️</button>
-      <button class="theme-btn"        data-theme="aurora" title="Aurora">✦</button>
-      <button class="theme-btn"        data-theme="system" title="System">⊙</button>
+    <!-- LEFT: lang switcher — fixed 1fr, anchors left edge -->
+    <div class="nav-left">
+      <div class="lang-switcher" id="langSwitcher">
+        <button class="lang-btn active" data-lang="en" title="English">
+          <span class="flag">🇬🇧</span> EN
+        </button>
+        <button class="lang-btn" data-lang="bg" title="Български">
+          <span class="flag">🇧🇬</span> BG
+        </button>
+      </div>
     </div>
 
-    <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-github">
-      <i class="bi bi-github"></i> GitHub
-    </a>
+    <!-- CENTER: brand + nav links — auto width, always centered -->
+    <div class="nav-center">
+      <a href="#" class="brand">
+        <div class="logo-mark">A</div>
+        <span class="brand-name">Aperio</span>
+      </a>
+      <ul class="nav-links" id="navLinks">
+        <li><a href="#features"     data-i18n="nav_features">Features</a></li>
+        <li><a href="#architecture" data-i18n="nav_stack">Stack</a></li>
+        <li><a href="#tools"        data-i18n="nav_tools">Tools</a></li>
+        <li><a href="#team"         data-i18n="nav_team">Team</a></li>
+        <li><a href="#build"        data-i18n="nav_build">Build</a></li>
+        <li><a href="#webui"        data-i18n="nav_webui">Web UI</a></li>
+        <li><a href="#setup"        data-i18n="nav_setup">Setup</a></li>
+        <li><a href="#aperio-lite"  data-i18n="nav_aperio_lite">Aperio-lite</a></li>
+      </ul>
+    </div>
+
+    <!-- RIGHT: theme + github — fixed 1fr, anchors right edge -->
+    <div class="nav-right">
+      <div class="theme-switcher" id="themeSwitcher">
+        <button class="theme-btn active" data-theme="dark"   title="Dark">🌙</button>
+        <button class="theme-btn"        data-theme="light"  title="Light">☀️</button>
+        <button class="theme-btn"        data-theme="aurora" title="Aurora">✦</button>
+        <button class="theme-btn"        data-theme="system" title="System">⊙</button>
+      </div>
+    </div>
+
+    <!-- mobile toggle sits outside the grid -->
+    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
 
   </div>
 </nav>
@@ -97,28 +110,27 @@
 <!-- ── Hero ───────────────────────────────────────────────────── -->
 <section class="section" id="hero" style="padding:100px 0 80px">
   <div class="section-inner">
-    <div class="eyebrow reveal">Open Source · Self-Hosted · Privacy-First · Local by Default</div>
+    <div class="eyebrow reveal" data-i18n="hero_eyebrow">Open Source · Self-Hosted · Privacy-First · Local by Default</div>
     <h1 class="hero-heading reveal">
-      One brain.<br>
-      Every agent.<br>
-      <span class="aurora-text">Nothing forgotten.</span>
+      <span data-i18n="hero_h1_line1">One brain.</span><br>
+      <span data-i18n="hero_h1_line2">Every agent.</span><br>
+      <span class="aurora-text" data-i18n="hero_h1_line3">Nothing forgotten.</span>
     </h1>
     <p class="lead-text reveal">
-      A self-hosted personal memory layer for AI agents — built on Postgres, pgvector and MCP.<br>
-      Runs 100% local by default. No API keys. No cloud dependency. Your data never leaves your machine.<br>
-      <span>Not a developer?</span>
-      <a href="#aperio-lite" style="color:var(--accent);text-decoration:none;font-weight:500"> ✦ Try Aperio-lite</a>
-      <span style="font-size:.9em"> — double-click and go, no terminal needed.</span>
+      <span data-i18n-html="hero_lead">A self-hosted personal memory layer for AI agents — built on Postgres, pgvector and MCP.<br>Runs 100% local by default. No API keys. No cloud dependency. Your data never leaves your machine.</span><br>
+      <span data-i18n="hero_not_dev">Not a developer?</span>
+      <a href="#aperio-lite" style="color:var(--accent);text-decoration:none;font-weight:500"> <span data-i18n="hero_try_lite">✦ Try Aperio-lite</span></a>
+      <span style="font-size:.9em" data-i18n="hero_no_terminal"> — double-click and go, no terminal needed.</span>
     </p>
     <div class="cta-group reveal">
       <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-dev.zip" class="btn-primary-aurora">
-        <i class="bi bi-download"></i> Download Aperio-dev
+        <i class="bi bi-download"></i> <span data-i18n="hero_dl_dev">Download Aperio-dev</span>
       </a>
       <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip" target="_blank" class="btn-primary-aurora">
-        <i class="bi bi-download"></i> Download Aperio-lite
+        <i class="bi bi-download"></i> <span data-i18n="hero_dl_lite">Download Aperio-lite</span>
       </a>
       <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-outline-aurora">
-        <i class="bi bi-github"></i> View on GitHub
+        <i class="bi bi-github"></i> <span data-i18n="hero_github">View on GitHub</span>
       </a>
     </div>
     <div class="badge-row reveal">
@@ -163,59 +175,59 @@
 <!-- ── Stats ───────────────────────────────────────────────────── -->
 <div class="stats-bar z1">
   <div class="stats-inner">
-    <div class="stat reveal"><div class="stat-num">11</div><div class="stat-lbl">MCP Tools</div></div>
-    <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">7</div><div class="stat-lbl">Memory Types</div></div>
-    <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">0</div><div class="stat-lbl">API Keys Required</div></div>
-    <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl">Vendor Lock-in</div></div>
+    <div class="stat reveal"><div class="stat-num">11</div><div class="stat-lbl" data-i18n="stat_mcp_tools">MCP Tools</div></div>
+    <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">7</div><div class="stat-lbl" data-i18n="stat_memory_types">Memory Types</div></div>
+    <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">0</div><div class="stat-lbl" data-i18n="stat_api_keys">API Keys Required</div></div>
+    <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl" data-i18n="stat_vendor_lock">Vendor Lock-in</div></div>
   </div>
 </div>
 
 <!-- ── Features ───────────────────────────────────────────────── -->
 <section class="section" id="features">
   <div class="section-inner wide">
-    <div class="eyebrow reveal">Features</div>
-    <h2 class="section-heading reveal">Everything you need.<br>Nothing you don't.</h2>
-    <p class="lead-text reveal">Built for developers who want AI that actually knows them. Without giving up their data or their infrastructure.</p>
+    <div class="eyebrow reveal" data-i18n="features_eyebrow">Features</div>
+    <h2 class="section-heading reveal" data-i18n-html="features_h2">Everything you need.<br>Nothing you don't.</h2>
+    <p class="lead-text reveal" data-i18n="features_lead">Built for developers who want AI that actually knows them. Without giving up their data or their infrastructure.</p>
     <div class="features-grid">
       <div class="feat-card reveal">
         <div class="feat-icon"><i class="bi bi-database-fill-check"></i></div>
-        <div class="feat-title">Persistent Memory</div>
-        <p class="feat-desc">Memories survive every conversation, every tool, every session. 7 structured types keep things organized — facts, decisions, solutions and more.</p>
+        <div class="feat-title" data-i18n="feat_memory_title">Persistent Memory</div>
+        <p class="feat-desc" data-i18n="feat_memory_desc">Memories survive every conversation, every tool, every session. 7 structured types keep things organized — facts, decisions, solutions and more.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.07s">
         <div class="feat-icon"><i class="bi bi-search-heart"></i></div>
-        <div class="feat-title">Semantic Search</div>
-        <p class="feat-desc">Powered by pgvector + local embeddings (mxbai-embed-large). Ask about your projects and get results matched by meaning, not keywords. Voyage AI optional.</p>
+        <div class="feat-title" data-i18n="feat_search_title">Semantic Search</div>
+        <p class="feat-desc" data-i18n="feat_search_desc">Powered by pgvector + local embeddings (mxbai-embed-large). Ask about your projects and get results matched by meaning, not keywords. Voyage AI optional.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.14s">
         <div class="feat-icon"><i class="bi bi-plug-fill"></i></div>
-        <div class="feat-title">MCP Native</div>
-        <p class="feat-desc">One brain shared across every agent. Claude, Cursor, Windsurf — all connect to the same Postgres database through the MCP protocol.</p>
+        <div class="feat-title" data-i18n="feat_mcp_title">MCP Native</div>
+        <p class="feat-desc" data-i18n="feat_mcp_desc">One brain shared across every agent. Claude, Cursor, Windsurf — all connect to the same Postgres database through the MCP protocol.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.05s">
         <div class="feat-icon"><i class="bi bi-lightning-charge-fill"></i></div>
-        <div class="feat-title">Real-time Streaming</div>
-        <p class="feat-desc">Responses stream token by token via WebSocket. Live code rendering, markdown on completion, smart auto-scroll. No waiting.</p>
+        <div class="feat-title" data-i18n="feat_stream_title">Real-time Streaming</div>
+        <p class="feat-desc" data-i18n="feat_stream_desc">Responses stream token by token via WebSocket. Live code rendering, markdown on completion, smart auto-scroll. No waiting.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.12s">
         <div class="feat-icon"><i class="bi bi-box-fill"></i></div>
-        <div class="feat-title">Local by Default</div>
-        <p class="feat-desc">Runs fully on your machine with Ollama — free, private, offline-capable. Switch to Claude with one env variable when you need more power.</p>
+        <div class="feat-title" data-i18n="feat_local_title">Local by Default</div>
+        <p class="feat-desc" data-i18n="feat_local_desc">Runs fully on your machine with Ollama — free, private, offline-capable. Switch to Claude with one env variable when you need more power.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.19s">
         <div class="feat-icon"><i class="bi bi-eraser-fill"></i></div>
-        <div class="feat-title">Auto Deduplication</div>
-        <p class="feat-desc">Background job finds near-duplicate memories every 10 minutes using cosine similarity. Dry-run by default — you stay in control.</p>
+        <div class="feat-title" data-i18n="feat_dedup_title">Auto Deduplication</div>
+        <p class="feat-desc" data-i18n="feat_dedup_desc">Background job finds near-duplicate memories every 10 minutes using cosine similarity. Dry-run by default — you stay in control.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.24s">
         <div class="feat-icon"><i class="bi bi-robot"></i></div>
-        <div class="feat-title">Reasoning Models</div>
-        <p class="feat-desc">Native support for thinking models — qwen3, deepseek-r1. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.</p>
+        <div class="feat-title" data-i18n="feat_reason_title">Reasoning Models</div>
+        <p class="feat-desc" data-i18n="feat_reason_desc">Native support for thinking models — qwen3, deepseek-r1. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.28s">
         <div class="feat-icon"><i class="bi bi-people-fill"></i></div>
-        <div class="feat-title">Team Ready</div>
-        <p class="feat-desc">Since you own the database, Aperio scales from personal to shared team brain with two changes — update the system prompt and seed team memories. One brain for the whole team.</p>
+        <div class="feat-title" data-i18n="feat_team_title">Team Ready</div>
+        <p class="feat-desc" data-i18n="feat_team_desc">Since you own the database, Aperio scales from personal to shared team brain with two changes — update the system prompt and seed team memories. One brain for the whole team.</p>
       </div>
     </div>
   </div>
@@ -224,9 +236,9 @@
 <!-- ── Architecture ────────────────────────────────────────────── -->
 <section class="section" id="architecture">
   <div class="section-inner wide">
-    <div class="eyebrow reveal">Architecture</div>
-    <h2 class="section-heading reveal">Simple stack.<br>Serious power.</h2>
-    <p class="lead-text reveal">One database. One MCP server. Two AI providers. Your brain is just a Postgres table with vectors.</p>
+    <div class="eyebrow reveal" data-i18n="arch_eyebrow">Architecture</div>
+    <h2 class="section-heading reveal" data-i18n-html="arch_h2">Simple stack.<br>Serious power.</h2>
+    <p class="lead-text reveal" data-i18n="arch_lead">One database. One MCP server. Two AI providers. Your brain is just a Postgres table with vectors.</p>
     <div class="arch-card reveal">
       <div class="arch-header"><i class="bi bi-diagram-3 me-1"></i> aperio / system architecture</div>
       <div class="arch-body">
@@ -263,21 +275,21 @@
 <!-- ── MCP Tools ───────────────────────────────────────────────── -->
 <section class="section" id="tools">
   <div class="section-inner wide">
-    <div class="eyebrow reveal">MCP Tools</div>
-    <h2 class="section-heading reveal">11 tools. One brain.</h2>
-    <p class="lead-text reveal">Every tool is available to any MCP-compatible agent (Claude, Cursor, Windsurf).<br>Memory ops, file ops, web fetching.</p>
+    <div class="eyebrow reveal" data-i18n="tools_eyebrow">MCP Tools</div>
+    <h2 class="section-heading reveal" data-i18n="tools_h2">11 tools. One brain.</h2>
+    <p class="lead-text reveal" data-i18n-html="tools_lead">Every tool is available to any MCP-compatible agent (Claude, Cursor, Windsurf).<br>Memory ops, file ops, web fetching.</p>
     <div class="tools-grid">
-      <div class="tool-chip reveal"><i class="bi bi-bookmark-plus-fill tool-icon"></i><div><div class="tool-name">remember</div><div class="tool-desc">Save a memory with auto-generated embedding</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.04s"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">recall</div><div class="tool-desc">Semantic search with cosine similarity scores</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.08s"><i class="bi bi-pencil-square tool-icon"></i><div><div class="tool-name">update_memory</div><div class="tool-desc">Edit by UUID, regenerates embedding automatically</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.12s"><i class="bi bi-trash3 tool-icon"></i><div><div class="tool-name">forget</div><div class="tool-desc">Delete a specific memory by UUID</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.16s"><i class="bi bi-cpu tool-icon"></i><div><div class="tool-name">backfill_embeddings</div><div class="tool-desc">Generate missing embeddings in batch</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.20s"><i class="bi bi-intersect tool-icon"></i><div><div class="tool-name">dedup_memories</div><div class="tool-desc">Find near-duplicates via cosine similarity</div></div></div>
-      <div class="tool-chip reveal"><i class="bi bi-file-earmark-text tool-icon"></i><div><div class="tool-name">read_file</div><div class="tool-desc">Read any file from disk (max 500 lines)</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.04s"><i class="bi bi-file-earmark-arrow-up tool-icon"></i><div><div class="tool-name">write_file</div><div class="tool-desc">Overwrite a file completely with absolute paths</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.08s"><i class="bi bi-file-earmark-plus tool-icon"></i><div><div class="tool-name">append_file</div><div class="tool-desc">Add to end of file with before/after verification</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.12s"><i class="bi bi-folder2-open tool-icon"></i><div><div class="tool-name">scan_project</div><div class="tool-desc">Scan folder tree up to 3 levels deep</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.16s"><i class="bi bi-globe tool-icon"></i><div><div class="tool-name">fetch_url</div><div class="tool-desc">Fetch a URL, strip HTML, truncate to 15k chars</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-bookmark-plus-fill tool-icon"></i><div><div class="tool-name">remember</div><div class="tool-desc" data-i18n="tool_remember_desc">Save a memory with auto-generated embedding</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.04s"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">recall</div><div class="tool-desc" data-i18n="tool_recall_desc">Semantic search with cosine similarity scores</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.08s"><i class="bi bi-pencil-square tool-icon"></i><div><div class="tool-name">update_memory</div><div class="tool-desc" data-i18n="tool_update_memory_desc">Edit by UUID, regenerates embedding automatically</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.12s"><i class="bi bi-trash3 tool-icon"></i><div><div class="tool-name">forget</div><div class="tool-desc" data-i18n="tool_forget_desc">Delete a specific memory by UUID</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.16s"><i class="bi bi-cpu tool-icon"></i><div><div class="tool-name">backfill_embeddings</div><div class="tool-desc" data-i18n="tool_backfill_desc">Generate missing embeddings in batch</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.20s"><i class="bi bi-intersect tool-icon"></i><div><div class="tool-name">dedup_memories</div><div class="tool-desc" data-i18n="tool_dedup_desc">Find near-duplicates via cosine similarity</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-file-earmark-text tool-icon"></i><div><div class="tool-name">read_file</div><div class="tool-desc" data-i18n="tool_read_file_desc">Read any file from disk (max 500 lines)</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.04s"><i class="bi bi-file-earmark-arrow-up tool-icon"></i><div><div class="tool-name">write_file</div><div class="tool-desc" data-i18n="tool_write_file_desc">Overwrite a file completely with absolute paths</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.08s"><i class="bi bi-file-earmark-plus tool-icon"></i><div><div class="tool-name">append_file</div><div class="tool-desc" data-i18n="tool_append_file_desc">Add to end of file with before/after verification</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.12s"><i class="bi bi-folder2-open tool-icon"></i><div><div class="tool-name">scan_project</div><div class="tool-desc" data-i18n="tool_scan_project_desc">Scan folder tree up to 3 levels deep</div></div></div>
+      <div class="tool-chip reveal" style="transition-delay:.16s"><i class="bi bi-globe tool-icon"></i><div><div class="tool-name">fetch_url</div><div class="tool-desc" data-i18n="tool_fetch_url_desc">Fetch a URL, strip HTML, truncate to 15k chars</div></div></div>
     </div>
   </div>
 </section>
@@ -287,40 +299,44 @@
 ══════════════════════════════════════════════════════════════ -->
 <section class="section" id="team">
   <div class="section-inner wide">
-    <div class="eyebrow reveal">Team Ready out of the box</div>
-    <h2 class="section-heading reveal">Personal brain.<br>Or shared team brain.<br><span class="aurora-text">You decide.</span></h2>
-    <p class="lead-text reveal">Aperio is personal by default.<br>But since <strong>you own the database</strong>, it can become a shared team brain with minimal changes. <br>Every agent, every teammate, every tool — all drawing from the same memory pool.</p>
+    <div class="eyebrow reveal" data-i18n="team_eyebrow">Team Ready out of the box</div>
+    <h2 class="section-heading reveal">
+      <span data-i18n="team_h2_line1">Personal brain.</span><br>
+      <span data-i18n="team_h2_line2">Or shared team brain.</span><br>
+      <span class="aurora-text" data-i18n="team_h2_line3">You decide.</span>
+    </h2>
+    <p class="lead-text reveal" data-i18n-html="team_lead">Aperio is personal by default.<br>But since <strong>you own the database</strong>, it can become a shared team brain with minimal changes. <br>Every agent, every teammate, every tool — all drawing from the same memory pool.</p>
 
     <div class="features-grid reveal" style="margin-top:40px;text-align:left">
       <div class="feat-card">
         <div class="feat-icon">📋</div>
-        <div class="feat-title">Shared Decisions</div>
-        <p class="feat-desc">"We chose Fly.io over Railway in Q3 2024 because of better pricing for always-on workloads."</p>
+        <div class="feat-title" data-i18n="team_feat_decisions_title">Shared Decisions</div>
+        <p class="feat-desc" data-i18n="team_feat_decisions_desc">"We chose Fly.io over Railway in Q3 2024 because of better pricing for always-on workloads."</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">🗂️</div>
-        <div class="feat-title">Project Knowledge</div>
-        <p class="feat-desc">"Project Atlas uses Next.js, PlanetScale, and Stripe. PM is Sara. Lead dev is John."</p>
+        <div class="feat-title" data-i18n="team_feat_project_title">Project Knowledge</div>
+        <p class="feat-desc" data-i18n="team_feat_project_desc">"Project Atlas uses Next.js, PlanetScale, and Stripe. PM is Sara. Lead dev is John."</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">🚀</div>
-        <div class="feat-title">Onboarding</div>
-        <p class="feat-desc">"New devs should read X, set up Y, ask Z about access. Deploy on merge to main."</p>
+        <div class="feat-title" data-i18n="team_feat_onboard_title">Onboarding</div>
+        <p class="feat-desc" data-i18n="team_feat_onboard_desc">"New devs should read X, set up Y, ask Z about access. Deploy on merge to main."</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">📖</div>
-        <div class="feat-title">Runbooks</div>
-        <p class="feat-desc">"When the DB goes down: check pgvector index first, then connection pool, then restart."</p>
+        <div class="feat-title" data-i18n="team_feat_runbook_title">Runbooks</div>
+        <p class="feat-desc" data-i18n="team_feat_runbook_desc">"When the DB goes down: check pgvector index first, then connection pool, then restart."</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">👥</div>
-        <div class="feat-title">People Context</div>
-        <p class="feat-desc">"John handles DevOps, prefers async comms, UTC+2. Sara owns the product roadmap."</p>
+        <div class="feat-title" data-i18n="team_feat_people_title">People Context</div>
+        <p class="feat-desc" data-i18n="team_feat_people_desc">"John handles DevOps, prefers async comms, UTC+2. Sara owns the product roadmap."</p>
       </div>
       <div class="feat-card">
         <div class="feat-icon">🔍</div>
-        <div class="feat-title">Cross-Project Search</div>
-        <p class="feat-desc">"Which projects use Stripe?" · "Who owns the analytics pipeline?" · "What's our infra stack?"</p>
+        <div class="feat-title" data-i18n="team_feat_search_title">Cross-Project Search</div>
+        <p class="feat-desc" data-i18n="team_feat_search_desc">"Which projects use Stripe?" · "Who owns the analytics pipeline?" · "What's our infra stack?"</p>
       </div>
     </div>
 
@@ -355,18 +371,16 @@
 ══════════════════════════════════════════════════════════════ -->
 <section class="section" id="build">
   <div class="section-inner wide">
-    <div class="eyebrow reveal">Extensibility</div>
-    <h2 class="section-heading reveal">Build on top.<br>Make it yours.</h2>
-    <p class="lead-text reveal">
-      Aperio is a foundation, not a finished product. The source is fully open — fork it, extend it, repurpose it.<br>Here's what you can build on top.
-    </p>
+    <div class="eyebrow reveal" data-i18n="build_eyebrow">Extensibility</div>
+    <h2 class="section-heading reveal" data-i18n-html="build_h2">Build on top.<br>Make it yours.</h2>
+    <p class="lead-text reveal" data-i18n-html="build_lead">Aperio is a foundation, not a finished product. The source is fully open — fork it, extend it, repurpose it.<br>Here's what you can build on top.</p>
 
     <div class="build-grid">
 
       <div class="build-card reveal">
-        <div class="build-tag">Memory Layer</div>
-        <div class="build-title">Custom Memory Types</div>
-        <p class="build-desc">The schema is yours to extend. Add new memory types, extra metadata columns, TTL logic, or per-project namespacing. Postgres gives you full flexibility.</p>
+        <div class="build-tag" data-i18n="build_mem_tag">Memory Layer</div>
+        <div class="build-title" data-i18n="build_mem_title">Custom Memory Types</div>
+        <p class="build-desc" data-i18n="build_mem_desc">The schema is yours to extend. Add new memory types, extra metadata columns, TTL logic, or per-project namespacing. Postgres gives you full flexibility.</p>
         <div class="build-ideas">
           <span class="build-idea">mood_log</span>
           <span class="build-idea">habit_tracker</span>
@@ -377,9 +391,9 @@
       </div>
 
       <div class="build-card reveal" style="transition-delay:.08s">
-        <div class="build-tag">MCP Layer</div>
-        <div class="build-title">New MCP Tools</div>
-        <p class="build-desc">Adding a tool is just a new entry in <code style="font-family:var(--font-mono);color:var(--indigo);font-size:12px">mcp/index.js</code>. Expose calendar access, email drafting, browser control — any action you want your agents to take.</p>
+        <div class="build-tag" data-i18n="build_mcp_tag">MCP Layer</div>
+        <div class="build-title" data-i18n="build_mcp_title">New MCP Tools</div>
+        <p class="build-desc" data-i18n="build_mcp_desc">Adding a tool is just a new entry in <code style="font-family:var(--font-mono);color:var(--indigo);font-size:12px">mcp/index.js</code>. Expose calendar access, email drafting, browser control — any action you want your agents to take.</p>
         <div class="build-ideas">
           <span class="build-idea">calendar_tool</span>
           <span class="build-idea">send_email</span>
@@ -390,9 +404,9 @@
       </div>
 
       <div class="build-card reveal" style="transition-delay:.04s">
-        <div class="build-tag">AI Layer</div>
-        <div class="build-title">Swap the Embedding Model</div>
-        <p class="build-desc">mxbai-embed-large via Ollama is the default — zero external calls. Swap in Voyage AI for higher quality, or drop in OpenAI, Cohere, or any provider with a vectors API.</p>
+        <div class="build-tag" data-i18n="build_ai_tag">AI Layer</div>
+        <div class="build-title" data-i18n="build_ai_title">Swap the Embedding Model</div>
+        <p class="build-desc" data-i18n="build_ai_desc">mxbai-embed-large via Ollama is the default — zero external calls. Swap in Voyage AI for higher quality, or drop in OpenAI, Cohere, or any provider with a vectors API.</p>
         <div class="build-ideas">
           <span class="build-idea">openai/text-embedding-3</span>
           <span class="build-idea">cohere-embed</span>
@@ -401,9 +415,9 @@
       </div>
 
       <div class="build-card reveal" style="transition-delay:.12s">
-        <div class="build-tag">UI Layer</div>
-        <div class="build-title">Replace or Extend the UI</div>
-        <p class="build-desc">The web interface is a standalone HTML file with WebSocket. Rip it out and build a VS Code extension, a mobile app, a CLI, a Chrome sidebar — the server API stays the same.</p>
+        <div class="build-tag" data-i18n="build_ui_tag">UI Layer</div>
+        <div class="build-title" data-i18n="build_ui_title">Replace or Extend the UI</div>
+        <p class="build-desc" data-i18n="build_ui_desc">The web interface is a standalone HTML file with WebSocket. Rip it out and build a VS Code extension, a mobile app, a CLI, a Chrome sidebar — the server API stays the same.</p>
         <div class="build-ideas">
           <span class="build-idea">vscode extension</span>
           <span class="build-idea">raycast plugin</span>
@@ -413,9 +427,9 @@
       </div>
 
       <div class="build-card reveal" style="transition-delay:.06s">
-        <div class="build-tag">Data Layer</div>
-        <div class="build-title">Memory Analytics & Insights</div>
-        <p class="build-desc">Query your own memory graph. Build dashboards showing what topics you think about most, decision patterns over time, knowledge gaps, or memory growth by week.</p>
+        <div class="build-tag" data-i18n="build_data_tag">Data Layer</div>
+        <div class="build-title" data-i18n="build_data_title">Memory Analytics &amp; Insights</div>
+        <p class="build-desc" data-i18n="build_data_desc">Query your own memory graph. Build dashboards showing what topics you think about most, decision patterns over time, knowledge gaps, or memory growth by week.</p>
         <div class="build-ideas">
           <span class="build-idea">knowledge graph</span>
           <span class="build-idea">memory heatmap</span>
@@ -425,9 +439,9 @@
       </div>
 
       <div class="build-card reveal" style="transition-delay:.10s">
-        <div class="build-tag">Team Layer</div>
-        <div class="build-title">Team Shared Memory</div>
-        <p class="build-desc">Since you own the database, Aperio scales from personal to team brain with two changes: update the system prompt to team context, seed team memories in 001_init.sql.</p>
+        <div class="build-tag" data-i18n="build_team_tag">Team Layer</div>
+        <div class="build-title" data-i18n="build_team_title">Team Shared Memory</div>
+        <p class="build-desc" data-i18n="build_team_desc">Since you own the database, Aperio scales from personal to team brain with two changes: update the system prompt to team context, seed team memories in 001_init.sql.</p>
         <div class="build-ideas">
           <span class="build-idea">shared decisions</span>
           <span class="build-idea">project knowledge</span>
@@ -437,9 +451,9 @@
       </div>
 
       <div class="build-card reveal" style="transition-delay:.14s">
-        <div class="build-tag">Agent Layer</div>
-        <div class="build-title">Multi-Agent Memory Sharing</div>
-        <p class="build-desc">Run multiple specialized agents that all share one brain. A research agent stores findings, a coding agent reads context, a writing agent pulls preferences — all from the same database.</p>
+        <div class="build-tag" data-i18n="build_agent_tag">Agent Layer</div>
+        <div class="build-title" data-i18n="build_agent_title">Multi-Agent Memory Sharing</div>
+        <p class="build-desc" data-i18n="build_agent_desc">Run multiple specialized agents that all share one brain. A research agent stores findings, a coding agent reads context, a writing agent pulls preferences — all from the same database.</p>
         <div class="build-ideas">
           <span class="build-idea">research agent</span>
           <span class="build-idea">coding agent</span>
@@ -451,11 +465,11 @@
     <!-- Contribution CTA -->
     <div class="build-cta-box reveal">
       <div class="build-cta-text">
-        <div class="build-cta-title">Got an idea? Build it and share it.</div>
-        <div class="build-cta-sub">Open a PR, open an issue, or fork it and take it somewhere new. Aperio is a starting point.</div>
+        <div class="build-cta-title" data-i18n="build_cta_title">Got an idea? Build it and share it.</div>
+        <div class="build-cta-sub" data-i18n="build_cta_sub">Open a PR, open an issue, or fork it and take it somewhere new. Aperio is a starting point.</div>
       </div>
       <a href="https://github.com/BaiGanio/aperio/fork" target="_blank" class="btn-primary-aurora">
-        <i class="bi bi-git"></i> Fork on GitHub
+        <i class="bi bi-git"></i> <span data-i18n="build_fork_btn">Fork on GitHub</span>
       </a>
     </div>
 
@@ -465,28 +479,64 @@
 <!-- ── Comparison ──────────────────────────────────────────────── -->
 <section class="section">
   <div class="section-inner wide">
-    <div class="eyebrow reveal">Why Aperio</div>
-    <h2 class="section-heading reveal">Your data. Your rules.</h2>
-    <p class="lead-text reveal">Commercial memory services are great products.<br>Aperio is a different choice — self-hosted, open source, fully customizable.</p>
+    <div class="eyebrow reveal" data-i18n="compare_eyebrow">Why Aperio</div>
+    <h2 class="section-heading reveal" data-i18n="compare_h2">Your data. Your rules.</h2>
+    <p class="lead-text reveal" data-i18n-html="compare_lead">Commercial memory services are great products.<br>Aperio is a different choice — self-hosted, open source, fully customizable.</p>
     <div class="compare-wrap reveal">
       <table>
         <thead>
           <tr>
-            <th style="width:34%">Feature</th>
+            <th style="width:34%" data-i18n="compare_th_feature">Feature</th>
             <th class="col-aperio" style="width:33%">✦ Aperio</th>
-            <th style="width:33%">Cloud Services</th>
+            <th style="width:33%" data-i18n="compare_th_cloud">Cloud Services</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td>Data ownership</td><td class="col-aperio"><span class="tick">✅</span> 100% yours — own Postgres</td><td><span class="cross">✗</span> Vendor's servers</td></tr>
-          <tr><td>Monthly cost</td><td class="col-aperio"><span class="tick">✅</span> Free (self-hosted)</td><td><span class="cross">✗</span> $20–100 / month</td></tr>
-          <tr><td>Local AI support</td><td class="col-aperio"><span class="tick">✅</span> Ollama built-in</td><td><span class="cross">✗</span> Cloud only</td></tr>
-          <tr><td>File system tools</td><td class="col-aperio"><span class="tick">✅</span> read · write · append</td><td><span class="cross">✗</span> Not available</td></tr>
-          <tr><td>Full source access</td><td class="col-aperio"><span class="tick">✅</span> Open source — fork it</td><td><span class="cross">✗</span> Closed API</td></tr>
-          <tr><td>MCP integration</td><td class="col-aperio"><span class="tick">✅</span> Native protocol</td><td><span class="cross">⚠</span> Varies</td></tr>
-          <tr><td>Works offline</td><td class="col-aperio"><span class="tick">✅</span> With Ollama</td><td><span class="cross">✗</span> Requires internet</td></tr>
-          <tr><td>Non-developer friendly</td><td class="col-aperio"><span class="tick">✅</span> Aperio-lite — double-click &amp; go</td><td><span class="cross">✗</span> Requires dev setup</td></tr>
-          <tr><td>Team memory</td><td class="col-aperio"><span class="tick">✅</span> Shared DB — one brain for the team</td><td><span class="cross">⚠</span> Varies by plan</td></tr>
+          <tr>
+            <td data-i18n="compare_row_ownership">Data ownership</td>
+            <td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_ownership">100% yours — own Postgres</span></td>
+            <td><span class="cross">✗</span> <span data-i18n="compare_cl_ownership">Vendor's servers</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="compare_row_cost">Monthly cost</td>
+            <td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_cost">Free (self-hosted)</span></td>
+            <td><span class="cross">✗</span> <span data-i18n="compare_cl_cost">$20–100 / month</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="compare_row_local_ai">Local AI support</td>
+            <td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_local_ai">Ollama built-in</span></td>
+            <td><span class="cross">✗</span> <span data-i18n="compare_cl_local_ai">Cloud only</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="compare_row_fs_tools">File system tools</td>
+            <td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_fs_tools">read · write · append</span></td>
+            <td><span class="cross">✗</span> <span data-i18n="compare_cl_fs_tools">Not available</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="compare_row_source">Full source access</td>
+            <td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_source">Open source — fork it</span></td>
+            <td><span class="cross">✗</span> <span data-i18n="compare_cl_source">Closed API</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="compare_row_mcp">MCP integration</td>
+            <td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_mcp">Native protocol</span></td>
+            <td><span class="cross">⚠</span> <span data-i18n="compare_cl_mcp">Varies</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="compare_row_offline">Works offline</td>
+            <td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_offline">With Ollama</span></td>
+            <td><span class="cross">✗</span> <span data-i18n="compare_cl_offline">Requires internet</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="compare_row_nodev">Non-developer friendly</td>
+            <td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_nodev">Aperio-lite — double-click &amp; go</span></td>
+            <td><span class="cross">✗</span> <span data-i18n="compare_cl_nodev">Requires dev setup</span></td>
+          </tr>
+          <tr>
+            <td data-i18n="compare_row_team">Team memory</td>
+            <td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_team">Shared DB — one brain for the team</span></td>
+            <td><span class="cross">⚠</span> <span data-i18n="compare_cl_team">Varies by plan</span></td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -496,9 +546,9 @@
 <!-- ── App Preview ─────────────────────────────────────────────── -->
 <section class="section" id="webui">
   <div class="section-inner wide">
-    <div class="eyebrow reveal">Web UI</div>
-    <h2 class="section-heading reveal">See it in action.</h2>
-    <p class="lead-text reveal">Local AI · persistent memory · streaming responses · 4 themes.</p>
+    <div class="eyebrow reveal" data-i18n="webui_eyebrow">Web UI</div>
+    <h2 class="section-heading reveal" data-i18n="webui_h2">See it in action.</h2>
+    <p class="lead-text reveal" data-i18n="webui_lead">Local AI · persistent memory · streaming responses · 4 themes.</p>
     <div class="reveal" style="margin-top:40px;border-radius:16px;overflow:hidden;border:1px solid var(--border);box-shadow:0 40px 100px rgba(0,0,0,0.5),0 0 0 1px rgba(168,85,247,0.08);">
       <img src="assets/aperio.jpeg" alt="Aperio Web UI — chat interface with memory sidebar" style="width:100%;display:block;" />
     </div>
@@ -508,13 +558,13 @@
 <!-- ── Setup ───────────────────────────────────────────────────── -->
 <section class="section" id="setup">
   <div class="section-inner wide">
-    <div class="eyebrow reveal">Quick Start</div>
-    <h2 class="section-heading reveal">Up in 5 minutes.</h2>
-    <p class="lead-text reveal">Node 18+, Docker, and Ollama. No API keys. No cloud. 100% local.<br>Or add Claude + Voyage AI when you need more power.</p>
+    <div class="eyebrow reveal" data-i18n="setup_eyebrow">Quick Start</div>
+    <h2 class="section-heading reveal" data-i18n="setup_h2">Up in 5 minutes.</h2>
+    <p class="lead-text reveal" data-i18n-html="setup_lead">Node 18+, Docker, and Ollama. No API keys. No cloud. 100% local.<br>Or add Claude + Voyage AI when you need more power.</p>
     <div class="steps-grid">
       <div class="step-card reveal">
-        <div class="step-num">01</div>
-        <div class="step-title">Clone & install</div>
+        <div class="step-num" data-i18n="step1_num">01</div>
+        <div class="step-title" data-i18n="step1_title">Clone &amp; install</div>
         <div class="code-block">
           <div class="c"># clone the dedicated developer branch</div>
           <div class="c"># no extra - only the files needed</div>
@@ -526,8 +576,8 @@
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.08s">
-        <div class="step-num">02</div>
-        <div class="step-title">Minimum .env for a fully local setup</div>
+        <div class="step-num" data-i18n="step2_num">02</div>
+        <div class="step-title" data-i18n="step2_title">Minimum .env for a fully local setup</div>
         <div class="code-block">
           <div class="c"># cp .env.example .env</div>
           <div>&nbsp;</div>
@@ -539,52 +589,52 @@
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.16s">
-        <div class="step-num">03</div>
-        <div class="step-title">Start database</div>
+        <div class="step-num" data-i18n="step3_num">03</div>
+        <div class="step-title" data-i18n="step3_title">Start database</div>
         <div class="code-block">
           <div class="s">cd docker</div>
           <div class="s">docker compose up -d</div>
           <div class="s">cd ..</div>
           <div class="c"># run migrations</div>
-          <div class="s">docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql</div>
-          <div class="s">docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql</div>
+          <div class="s">docker exec -i aperio_db psql -U aperio -d aperio &lt; db/migrations/001_init.sql</div>
+          <div class="s">docker exec -i aperio_db psql -U aperio -d aperio &lt; db/migrations/002_pgvector.sql</div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
-        <div class="step-num">04</div>
-        <div class="step-title">Pull the models</div>
+        <div class="step-num" data-i18n="step4_num">04</div>
+        <div class="step-title" data-i18n="step4_title">Pull the models</div>
         <div class="code-block">
           <div class="c"># LLM — best tool-calling support</div>
           <div class="s">ollama pull llama3.1 </div>
           <div>&nbsp;</div>
           <div class="c"># LLM with reasoning</div>
-          <div class="s">ollama pull qwen3</div>   
-           <div>&nbsp;</div>
+          <div class="s">ollama pull qwen3</div>
+          <div>&nbsp;</div>
           <div class="c"># embeddings — local semantic search</div>
-          <div class="s">ollama pull mxbai-embed-large</div>   
+          <div class="s">ollama pull mxbai-embed-large</div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
-        <div class="step-num">05</div>
-        <div class="step-title">Launch Aperio Web UI</div>
+        <div class="step-num" data-i18n="step5_num">05</div>
+        <div class="step-title" data-i18n="step5_title">Launch Aperio Web UI</div>
         <div class="code-block">
           <div class="c"># local (Ollama) -> localhost:31337</div>
-          <div class="s">ollama serve</div>          
+          <div class="s">ollama serve</div>
           <div class="s">npm run start:local</div>
-           <div>&nbsp;</div> 
-           <div class="c"># cloud (Claude) -> localhost:3000</div>
+          <div>&nbsp;</div>
+          <div class="c"># cloud (Claude) -> localhost:3000</div>
           <div class="s">npm run start:cloud</div>
         </div>
       </div>
-       <div class="step-card reveal" style="transition-delay:.24s">
-        <div class="step-num">06</div>
-        <div class="step-title">Use Aperio chat in the terminal</div>
-        <div class="code-block">  
-           <div class="c"># local (Ollama)</div>
+      <div class="step-card reveal" style="transition-delay:.24s">
+        <div class="step-num" data-i18n="step6_num">06</div>
+        <div class="step-title" data-i18n="step6_title">Use Aperio chat in the terminal</div>
+        <div class="code-block">
+          <div class="c"># local (Ollama)</div>
           <div class="s">npm run chat:local</div>
           <div>&nbsp;</div>
-           <div class="c"># cloud (Anthropic)</div>
-          <div class="s">npm run chat:cloud</div>  
+          <div class="c"># cloud (Anthropic)</div>
+          <div class="s">npm run chat:cloud</div>
         </div>
       </div>
     </div>
@@ -594,16 +644,12 @@
 <!-- ── Aperio-lite ──────────────────────────────────────────────── -->
 <section class="section" id="aperio-lite">
   <div class="section-inner wide">
-    <div class="eyebrow reveal">Aperio-lite · For non-code humans</div>
+    <div class="eyebrow reveal" data-i18n="lite_eyebrow">Aperio-lite · For non-code humans</div>
     <h2 class="section-heading reveal">
-      Small tool. Big ideas. 🧐<br>
-      <span class="aurora-text">No coding skills required.</span>
+      <span data-i18n="lite_h2_line1">Small tool. Big ideas. 🧐</span><br>
+      <span class="aurora-text" data-i18n="lite_h2_line2">No coding skills required.</span>
     </h2>
-    <p class="lead-text reveal">
-      The fastest path to your own private AI.<br>
-      Runs 100% on your machine. No Money. No Cloud. No gibberish.<br>
-      <strong>Download → unzip → double-click. That's it.</strong>
-    </p>
+    <p class="lead-text reveal" data-i18n-html="lite_lead">The fastest path to your own private AI.<br>Runs 100% on your machine. No Money. No Cloud. No gibberish.<br><strong>Download → unzip → double-click. That's it.</strong></p>
 
     <!-- Pills row -->
     <div class="badge-row reveal" style="margin-bottom:48px">
@@ -637,7 +683,7 @@
 
       <!-- Easy option -->
       <div class="step-card reveal">
-        <div class="step-title">Easy — macOS / Linux</div>
+        <div class="step-title" data-i18n="lite_step_easy_title">Easy — macOS / Linux</div>
         <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
           <div>1. Download the latest version, unzip, open in Finder</div>
           <div>2. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">start.sh</code> → right-click → <strong>Make Alias</strong></div>
@@ -649,9 +695,9 @@
         </div>
       </div>
 
-      <!-- Future use / Windows -->
+      <!-- Windows -->
       <div class="step-card reveal" style="transition-delay:.1s">
-        <div class="step-title">Windows &amp; future launches</div>
+        <div class="step-title" data-i18n="lite_step_win_title">Windows &amp; future launches</div>
         <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
           <div><strong>Windows</strong></div>
           <div>1. Unzip → right-click <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.ps1</code> → <strong>Create Shortcut</strong></div>
@@ -664,8 +710,10 @@
           <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">./start.sh</code></div>
         </div>
       </div>
+
+      <!-- Uninstall -->
       <div class="step-card reveal" style="transition-delay:.2s">
-        <div class="step-title">Uninstall — any OS</div>
+        <div class="step-title" data-i18n="lite_step_uninstall_title">Uninstall — any OS</div>
         <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
           <div>1. Delete the Desktop alias / shortcut</div>
           <div>2. Delete the unzipped folder</div>
@@ -680,17 +728,15 @@
         </div>
       </div>
     </div>
+
     <!-- Tagline foot -->
-    <p class="lead-text reveal" style="margin-top:48px;font-size:15px;opacity:.7">
-      No Tech skill. No databases. No config files.<br>
-      Just AI that remembers — running quietly on your own machine.
-    </p>
+    <p class="lead-text reveal" style="margin-top:48px;font-size:15px;opacity:.7" data-i18n-html="lite_tagline">No Tech skill. No databases. No config files.<br>Just AI that remembers — running quietly on your own machine.</p>
     <div class="cta-group reveal" style="margin-top:24px">
       <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip" target="_blank" class="btn-primary-aurora">
-        <i class="bi bi-download"></i> Download Aperio-lite
+        <i class="bi bi-download"></i> <span data-i18n="lite_dl_btn">Download Aperio-lite</span>
       </a>
       <a href="#setup" class="btn-outline-aurora">
-        <i class="bi bi-terminal"></i> I prefer the terminal
+        <i class="bi bi-terminal"></i> <span data-i18n="lite_terminal_btn">I prefer the terminal</span>
       </a>
     </div>
   </div>
@@ -700,35 +746,37 @@
 <section class="section">
   <div class="section-inner">
     <div class="cta-wrap reveal">
-      <div class="cta-tagline">Open source · local by default · free forever</div>
+      <div class="cta-tagline" data-i18n="cta_tagline">Open source · local by default · free forever</div>
       <h2 class="cta-heading">
-        Your AI has been<br>
-        <span class="aurora-text">amnesiac?</span><br>
-        Fix that today.
+        <span data-i18n="cta_h2_line1">Your AI has been</span><br>
+        <span class="aurora-text" data-i18n="cta_h2_line2">amnesiac?</span><br>
+        <span data-i18n="cta_h2_line3">Fix that today.</span>
       </h2>
-      <p class="cta-sub">Self-hosted. Takes 5 minutes.</p>
+      <p class="cta-sub" data-i18n="cta_sub">Self-hosted. Takes 5 minutes.</p>
       <div class="cta-group" style="position:relative">
         <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-primary-aurora">
-          <i class="bi bi-github"></i> Star on GitHub
+          <i class="bi bi-github"></i> <span data-i18n="cta_star">Star on GitHub</span>
         </a>
         <a href="https://github.com/BaiGanio/aperio/blob/master/README.md" target="_blank" class="btn-outline-aurora">
-          <i class="bi bi-book"></i> Read the docs
+          <i class="bi bi-book"></i> <span data-i18n="cta_docs">Read the docs</span>
         </a>
       </div>
-      <div class="origin-note">From Latin <em>aperire</em> — to open, to reveal, to bring into the light ✨</div>
+      <div class="origin-note" data-i18n-html="cta_origin">From Latin <em>aperire</em> — to open, to reveal, to bring into the light ✨</div>
     </div>
   </div>
 </section>
 
 <!-- ── Footer ─────────────────────────────────────────────────── -->
 <footer>
-  <div class="footer-warning">
+  <div class="footer-warning" data-i18n="footer_warning">
     ⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, 
     leading to irreversible stupidity. Use responsibly.
   </div>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- i18n must load before scripts.js so t() is available if needed -->
+<script src="translations.js"></script>
 <script src="scripts.js"></script>
 </body>
 </html>
