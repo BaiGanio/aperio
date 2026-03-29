@@ -33,14 +33,18 @@ What if I have follow up questions?
 ──────────────────────────────────────────────────────────────────
   HOW TO RUN IT — FIRST TIME
 ──────────────────────────────────────────────────────────────────
-  Use the .bat file for the desktop shortcut.
-Here's why: when you create a shortcut to a .bat file, Windows runs it directly with no security prompts, no right-click menus, no extra steps. A shortcut to a .ps1 file will either do nothing or throw a security error, depending on the machine's execution policy.
-How to set it up:
 
-Right-click START.bat → Send to → Desktop (create shortcut)
-Optionally right-click the shortcut → Properties → Change Icon to give it a custom icon
+  OPTION: EASY (Windows) — NON-CODE USERS
+  ───────────────────────────────────────────
+  
+  1. Locate START.bat file .
 
-That's it — double-click the desktop icon and it launches everything.
+  2. Mark it, right-click on it → Send to → Desktop (create shortcut) 
+
+  3. Double-click the file and follow the one-time installation instructions
+  
+  That's it — double-click the desktop icon and it launches everything.
+  Aperio UI will be automatically open in the default browser.
 
 
   OPTION: EASY (MacOS/Linux) — NON-CODE USERS
@@ -53,8 +57,7 @@ That's it — double-click the desktop icon and it launches everything.
 
   4. Double-click the file and follow the one-time installation instructions
 
-  That's it. 
-  The script takes over from here.
+  That's it. The script takes over from here.
   Aperio UI will be automatically open in the default browser.
 
 
