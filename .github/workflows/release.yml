@@ -60,7 +60,6 @@ jobs:
         id: packer_lite
         if: steps.info.outputs.bump != 'skip'
         run: |
-          (cd .github/data && zip ../../aperio-lite.zip how-to-install.txt)
           # -r means recursive, -x excludes files you don't want          
           # 1. Define what to EXCLUDE here for better readability
           zip -r aperio-lite.zip . -x \
