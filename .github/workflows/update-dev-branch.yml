@@ -27,7 +27,8 @@ jobs:
             package-lock.json
             README.md
             server.js
-            START.ps1
+            script.ps1
+            START.bat
             START.sh
             favicon.ico
             db
