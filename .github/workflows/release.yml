@@ -57,7 +57,7 @@ jobs:
           
       # --- NEW STEP: Create the Lite Zip ---
       - name: Create Lite Zip
-        id: packer
+        id: packer_lite
         if: steps.info.outputs.bump != 'skip'
         run: |
           # -r means recursive, -x excludes files you don't want          
@@ -83,7 +83,24 @@ jobs:
           
           # 4. Explicitly write to GITHUB_OUTPUT
           echo "sha=${SHA_VALUE}" >> "$GITHUB_OUTPUT"
-        
+       
+      - name: Create Dev Zip
+        id: packer_dev
+        if: steps.info.outputs.bump != 'skip'
+        run: |
+          # Create dev zip with different exclusions
+          zip -r aperio-dev.zip . -x \
+            "*.git/*" \
+            ".github/*" \
+            "node_modules/*" 
+            "docs/*" \
+            "scripts*" \
+            "*unstable*"
+
+          # Generate SHA
+          SHA_VALUE=$(shasum -a 256 aperio-dev.zip | awk '{print $1}')
+          echo "sha_dev=${SHA_VALUE}" >> "$GITHUB_OUTPUT"       
+
       # --- UPDATE Release Step: Upload Both Files ---
       - name: Create GitHub Release
         if: steps.info.outputs.bump != 'skip'
@@ -93,15 +110,18 @@ jobs:
           name: Release v${{ steps.versioning.outputs.new_v }}
           body: |
             ### 📦 Downloads
-            - `aperio-lite.zip` - Non-code users (includes install guide)
+            - `aperio-lite.zip` - Non-code users
+            - `aperio-dev.zip` - For developers
         
             ### 🔐 Verify Authenticity
-            **aperio-lite.zip SHA256:** `${{ steps.packer.outputs.sha }}`  
+            **aperio-lite.zip SHA256:** `${{ steps.packer.outputs.sha }}
+            **aperio-dev.zip SHA256:** `${{ steps.dev_zip.outputs.sha_dev }}``  
         
             ---
             **Signed by:** 🏆 Project Lead - L.K.
           generate_release_notes: true
           files: |
             aperio-lite.zip
+            aperio-dev.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}   
