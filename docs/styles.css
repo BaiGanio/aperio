@@ -300,8 +300,8 @@ body::before {
     LAYOUT
 ══════════════════════════════════════════════════════════ */
 .section { position:relative;z-index:1;padding:90px 0; }
-.section-inner { max-width:860px;margin:0 auto;padding:0 24px;text-align:center; }
-.section-inner.wide { max-width:1100px; }
+.section-inner { max-width:960px;margin:0 auto;padding:0 24px;text-align:center; }
+.section-inner.wide { max-width:1300px; }
 
 /* eyebrow */
 .eyebrow {
