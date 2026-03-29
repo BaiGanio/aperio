@@ -73,7 +73,8 @@ jobs:
             "scripts/*" \
             "tests/*" \
             "*.ps1" \
-            "*unstable*"
+            "*unstable*" \
+            "aperio-dev.zip"
           
           # Step 2: Add specific files back (e.g., docs/index.html, docs/assets/version.txt)
           zip -u aperio-lite.zip .github/data/how-to-install.txt       
@@ -95,7 +96,8 @@ jobs:
             "node_modules/*" \
             "docs/*" \
             "scripts*" \
-            "*unstable*"
+            "*unstable*" \
+            "aperio-lite.zip"
 
           # Generate SHA
           SHA_VALUE=$(shasum -a 256 aperio-dev.zip | awk '{print $1}')
