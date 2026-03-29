@@ -27,7 +27,8 @@ const searchInput  = document.getElementById("searchInput");
 
 // ── WebSocket ────────────────────────────────────────────────
 function toggleReasoning() {
-  const cur = localStorage.getItem("aperio-reasoning") !== "false";
+  // It only becomes true if the storage specifically says "true".
+  const cur = localStorage.getItem("aperio-reasoning") === "true";
   localStorage.setItem("aperio-reasoning", cur ? "false" : "true");
   updateReasoningBtn();
 }

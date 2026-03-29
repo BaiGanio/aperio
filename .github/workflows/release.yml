@@ -95,7 +95,7 @@ jobs:
             ".github/*" \
             "node_modules/*" \
             "docs/*" \
-            "scripts*" \
+            "scripts/*" \
             "*unstable*" \
             "aperio-lite.zip"
 
