@@ -78,7 +78,7 @@ jobs:
                 }
                 }
             }
-            `, { owner: 'BaiGanio', repo: 'aperio', number: 18 });
+            `, { owner: 'BaiGanio', repo: 'aperio' });
 
             console.log(response.repository.projectsV2.nodes);
 
