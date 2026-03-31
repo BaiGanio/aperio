@@ -62,6 +62,24 @@ jobs:
             const [owner, repo] = process.env.REPO.split("/");
             const projectNumber  = parseInt(process.env.PROJECT_NUMBER);
 
+
+            
+            const response = await octokit.graphql(`
+            query($owner: String!) {
+                user(login: $owner) {
+                projectsV2(first: 20) {
+                    nodes {
+                    number
+                    title
+                    }
+                }
+                }
+            }
+            `, { owner: 'BaiGanio' });
+
+            console.log(response.user.projectsV2.nodes);
+
+
             // get project ID and date field IDs
             const projectQuery = await github.graphql(`
               query($owner: String!, $number: Int!) {
