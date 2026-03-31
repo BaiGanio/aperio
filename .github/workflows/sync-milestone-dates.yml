@@ -1,0 +1,304 @@
+name: Sync milestone dates to roadmap
+
+on:
+  milestone:
+    types: [created, edited]
+  issues:
+    types: [milestoned, demilestoned]
+  workflow_dispatch:
+
+jobs:
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 1 — Stamp Start/Target date fields on project issues
+  # ──────────────────────────────────────────────────────────
+  sync-dates:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      repository-projects: write
+
+    env:
+      GH_TOKEN: ${{ secrets.MY_PAT }}
+      PROJECT_NUMBER: 1          # ← your project number (in the URL)
+      REPO: ${{ github.repository }}
+
+    steps:
+      - name: Sync milestone date fields to all issues
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.MY_PAT }}
+          script: |
+
+            // ─────────────────────────────────────────
+            // YOUR 4 MILESTONES — edit titles and dates
+            // ─────────────────────────────────────────
+            const milestones = [
+              {
+                title: "Release 2.0 - initial push",
+                start: "2026-01-01",
+                end:   "2026-04-01"
+              },
+              {
+                title: "Release 3.0 - Aperio Feedback Changes",
+                start: "2026-04-02",
+                end:   "2026-06-14"
+              },
+              {
+                title: "Release 4.0 - Aperio as Team Ready out of the box",
+                start: "2026-06-15",
+                end:   "2026-12-08"
+              },
+              {
+                title: "Release 5.0 - Aperio-live",
+                start: "2026-12-09",
+                end:   "2027-04-01"
+              },
+            ];
+            // ─────────────────────────────────────────
+
+            const today = new Date().toISOString().split("T")[0];
+
+            const [owner, repo] = process.env.REPO.split("/");
+            const projectNumber  = parseInt(process.env.PROJECT_NUMBER);
+
+            // get project ID and date field IDs
+            const projectQuery = await github.graphql(`
+              query($owner: String!, $number: Int!) {
+                user(login: $owner) {
+                  projectV2(number: $number) {
+                    id
+                    fields(first: 20) {
+                      nodes {
+                        ... on ProjectV2FieldCommon { id name }
+                      }
+                    }
+                  }
+                }
+              }`, { owner, number: projectNumber });
+
+            const project    = projectQuery.user.projectV2;
+            const projectId  = project.id;
+            const fields     = project.fields.nodes;
+
+            const startField  = fields.find(f => f.name === "Start date");
+            const targetField = fields.find(f => f.name === "Target date");
+
+            if (!startField || !targetField) {
+              core.setFailed(
+                "Could not find 'Start date' or 'Target date' fields in your project. " +
+                "Make sure you created both custom date fields first."
+              );
+              return;
+            }
+
+            for (const ms of milestones) {
+
+              // ── Option A: skip past milestones ──────────────
+              if (ms.end < today) {
+                console.log(`Skipping past milestone: ${ms.title} (ended ${ms.end})`);
+                continue;
+              }
+              // ────────────────────────────────────────────────
+
+              const { data: repoMilestones } = await github.rest.issues.listMilestones({
+                owner, repo, state: "open", per_page: 100
+              });
+
+              const milestone = repoMilestones.find(m => m.title === ms.title);
+              if (!milestone) {
+                console.log(`Milestone not found in repo, skipping: ${ms.title}`);
+                continue;
+              }
+
+              const { data: issues } = await github.rest.issues.listForRepo({
+                owner, repo,
+                milestone: milestone.number,
+                state: "all",
+                per_page: 100
+              });
+
+              console.log(`${ms.title} — ${issues.length} issues found`);
+
+              for (const issue of issues) {
+
+                const itemQuery = await github.graphql(`
+                  query($owner: String!, $repo: String!, $issue: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                      issue(number: $issue) {
+                        projectItems(first: 10) {
+                          nodes { id project { id } }
+                        }
+                      }
+                    }
+                  }`, { owner, repo, issue: issue.number });
+
+                const projectItem = itemQuery.repository.issue.projectItems.nodes
+                  .find(n => n.project.id === projectId);
+
+                if (!projectItem) {
+                  console.log(`  Issue #${issue.number} not in project, skipping`);
+                  continue;
+                }
+
+                await github.graphql(`
+                  mutation($project: ID!, $item: ID!, $field: ID!, $value: Date!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $project
+                      itemId:    $item
+                      fieldId:   $field
+                      value:     { date: $value }
+                    }) { projectV2Item { id } }
+                  }`, { project: projectId, item: projectItem.id, field: startField.id,  value: ms.start });
+
+                await github.graphql(`
+                  mutation($project: ID!, $item: ID!, $field: ID!, $value: Date!) {
+                    updateProjectV2ItemFieldValue(input: {
+                      projectId: $project
+                      itemId:    $item
+                      fieldId:   $field
+                      value:     { date: $value }
+                    }) { projectV2Item { id } }
+                  }`, { project: projectId, item: projectItem.id, field: targetField.id, value: ms.end });
+
+                console.log(`  ✓ #${issue.number} — ${ms.start} → ${ms.end}`);
+              }
+            }
+
+            console.log("Done — roadmap dates updated.");
+
+
+  # ──────────────────────────────────────────────────────────
+  # JOB 2 — Generate Mermaid Gantt chart and push to wiki
+  # ──────────────────────────────────────────────────────────
+  update-wiki:
+    runs-on: ubuntu-latest
+    needs: sync-dates          # runs after job 1 completes
+    permissions:
+      contents: write
+      issues: read
+
+    steps:
+      - name: Checkout wiki
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.MY_PAT }}
+
+      - name: Generate roadmap wiki page
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.MY_PAT }}
+          script: |
+            const fs   = require("fs");
+            const path = require("path");
+
+            // ─────────────────────────────────────────
+            // SAME MILESTONES — keep in sync with job 1
+            // ─────────────────────────────────────────
+            const milestones = [
+              {
+                title: "Release 2.0 - initial push",
+                start: "2026-01-01",
+                end:   "2026-04-01"
+              },
+              {
+                title: "Release 3.0 - Aperio Feedback Changes",
+                start: "2026-04-02",
+                end:   "2026-06-14"
+              },
+              {
+                title: "Release 4.0 - Aperio as Team Ready out of the box",
+                start: "2026-06-15",
+                end:   "2026-12-08"
+              },
+              {
+                title: "Release 5.0 - Aperio-live",
+                start: "2026-12-08",
+                end:   "2027-04-01"
+              },
+            ];
+            // ─────────────────────────────────────────
+
+            const today = new Date().toISOString().split("T")[0];
+            const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
+
+            let ganttSections = "";
+            let summaryRows   = "";
+
+            for (const ms of milestones) {
+
+              const isPast      = ms.end < today;
+              const isActive    = ms.start <= today && !isPast;
+              const status      = isPast ? "✅ Done" : isActive ? "🔄 In progress" : "🔜 Upcoming";
+
+              const { data: repoMilestones } = await github.rest.issues.listMilestones({
+                owner, repo, state: "all", per_page: 100
+              });
+
+              const milestone = repoMilestones.find(m => m.title === ms.title);
+
+              const allIssues = milestone
+                ? (await github.rest.issues.listForRepo({
+                    owner, repo, milestone: milestone.number,
+                    state: "all", per_page: 100
+                  })).data : [];
+
+              const openIssues = milestone
+                ? (await github.rest.issues.listForRepo({
+                    owner, repo, milestone: milestone.number,
+                    state: "open", per_page: 100
+                  })).data : [];
+
+              const closed = allIssues.length - openIssues.length;
+
+              // Mermaid tag — past = done, current = active, future = plain
+              const ganttTag  = isPast ? "done, " : isActive ? "active, " : "";
+              const safeTitle = ms.title.replace(/[^\w\s\-\.]/g, "");
+
+              ganttSections += `
+                section ${safeTitle}
+                ${safeTitle} : ${ganttTag}${ms.start}, ${ms.end}`;
+
+              summaryRows += `| ${status} | ${ms.title} | ${ms.start} | ${ms.end} | ${closed} / ${allIssues.length} |\n`;
+            }
+
+            const page = `# 🗺 Project roadmap
+
+            > Auto-generated by GitHub Actions — last updated ${today}
+
+            ## Timeline
+
+            \`\`\`mermaid
+            gantt
+            title Project roadmap
+            dateFormat YYYY-MM-DD
+            excludes weekends
+            ${ganttSections}
+            \`\`\`
+
+            ## Milestones
+
+            | Status | Milestone | Start | End | Issues closed |
+            |--------|-----------|-------|-----|---------------|
+            ${summaryRows}
+            ## Notes
+
+            - ✅ Past milestones are shown in the chart but skipped when syncing project date fields
+            - 🔄 The current active milestone is highlighted in the Gantt chart
+            - This page updates automatically whenever a milestone is edited or an issue is assigned to one
+            - To trigger manually: Actions → _Sync milestone dates to roadmap_ → Run workflow
+            `;
+
+            fs.writeFileSync(path.join("wiki", "Roadmap.md"), page);
+            console.log("Roadmap.md written");
+
+      - name: Commit and push wiki
+        run: |
+          cd wiki
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Roadmap.md
+          git diff --cached --quiet || git commit -m "chore: update roadmap [skip ci]"
+          git push
