@@ -212,108 +212,105 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const fs   = require("fs");
-            const path = require("path");
+            const [owner, repo] = process.env.REPO.split("/");
+            const projectNumber = parseInt(process.env.PROJECT_NUMBER, 10);
 
-            // ─────────────────────────────────────────
-            // SAME MILESTONES — keep in sync with job 1
-            // ─────────────────────────────────────────
             const milestones = [
-              {
-                title: "Release 2.0 - initial push",
-                start: "2026-01-01",
-                end:   "2026-04-01"
-              },
-              {
-                title: "Release 3.0 - Aperio Feedback Changes",
-                start: "2026-04-02",
-                end:   "2026-06-14"
-              },
-              {
-                title: "Release 4.0 - Aperio as Team Ready out of the box",
-                start: "2026-06-15",
-                end:   "2026-12-08"
-              },
-              {
-                title: "Release 5.0 - Aperio-live",
-                start: "2026-12-08",
-                end:   "2027-04-01"
-              },
+            { title: "Release 2.0 - initial push",                        start: "2026-01-01", end: "2026-04-01" },
+            { title: "Release 3.0 - Aperio Feedback Changes",             start: "2026-04-02", end: "2026-06-14" },
+            { title: "Release 4.0 - Aperio as Team Ready out of the box", start: "2026-06-15", end: "2026-12-08" },
+            { title: "Release 5.0 - Aperio-live",                         start: "2026-12-09", end: "2027-04-01" },
             ];
-            // ─────────────────────────────────────────
 
             const today = new Date().toISOString().split("T")[0];
-            const [owner, repo] = process.env.GITHUB_REPOSITORY.split("/");
 
-            let ganttSections = "";
-            let summaryRows   = "";
+            // ── Get project ID and fields ──────────────────────────────
+            const projectQuery = await github.graphql(`
+            query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                projectV2(number: $number) {
+                    id
+                    fields(first: 20) {
+                    nodes {
+                        ... on ProjectV2FieldCommon { id name }
+                    }
+                    }
+                }
+                }
+            }`, { owner, repo, number: projectNumber });
 
-            for (const ms of milestones) {
+            const project    = projectQuery.repository.projectV2;
+            const projectId  = project.id;
+            const fields     = project.fields.nodes;
 
-              const isPast      = ms.end < today;
-              const isActive    = ms.start <= today && !isPast;
-              const status      = isPast ? "✅ Done" : isActive ? "🔄 In progress" : "🔜 Upcoming";
+            console.log("Project ID:", projectId);
+            console.log("Fields:", fields.map(f => f.name));
 
-              const { data: repoMilestones } = await github.rest.issues.listMilestones({
-                owner, repo, state: "all", per_page: 100
-              });
+            const startField  = fields.find(f => f.name === "Start date");
+            const targetField = fields.find(f => f.name === "Target date");
 
-              const milestone = repoMilestones.find(m => m.title === ms.title);
-
-              const allIssues = milestone
-                ? (await github.rest.issues.listForRepo({
-                    owner, repo, milestone: milestone.number,
-                    state: "all", per_page: 100
-                  })).data : [];
-
-              const openIssues = milestone
-                ? (await github.rest.issues.listForRepo({
-                    owner, repo, milestone: milestone.number,
-                    state: "open", per_page: 100
-                  })).data : [];
-
-              const closed = allIssues.length - openIssues.length;
-
-              // Mermaid tag — past = done, current = active, future = plain
-              const ganttTag  = isPast ? "done, " : isActive ? "active, " : "";
-              const safeTitle = ms.title.replace(/[^\w\s\-\.]/g, "");
-
-              ganttSections += `
-                section ${safeTitle}
-                ${safeTitle} : ${ganttTag}${ms.start}, ${ms.end}`;
-
-              summaryRows += `| ${status} | ${ms.title} | ${ms.start} | ${ms.end} | ${closed} / ${allIssues.length} |\n`;
+            if (!startField || !targetField) {
+            core.setFailed("Could not find 'Start date' or 'Target date' fields.");
+            return;
             }
 
-            const page = `# 🗺 Project roadmap
+            // ── Loop milestones ────────────────────────────────────────
+            for (const ms of milestones) {
+            if (ms.end < today) {
+                console.log(`Skipping past milestone: ${ms.title}`);
+                continue;
+            }
 
-            > Auto-generated by GitHub Actions — last updated ${today}
+            const { data: repoMilestones } = await github.rest.issues.listMilestones({
+                owner, repo, state: "open", per_page: 100
+            });
 
-            ## Timeline
+            const milestone = repoMilestones.find(m => m.title === ms.title);
+            if (!milestone) {
+                console.log(`Milestone not found, skipping: ${ms.title}`);
+                continue;
+            }
 
-            \`\`\`mermaid
-            gantt
-            title Project roadmap
-            dateFormat YYYY-MM-DD
-            excludes weekends
-            ${ganttSections}
-            \`\`\`
+            const { data: issues } = await github.rest.issues.listForRepo({
+                owner, repo, milestone: milestone.number, state: "all", per_page: 100
+            });
 
-            ## Milestones
+            console.log(`${ms.title} — ${issues.length} issues`);
 
-            | Status | Milestone | Start | End | Issues closed |
-            |--------|-----------|-------|-----|---------------|
-            ${summaryRows}
-            ## Notes
+            for (const issue of issues) {
+                const itemQuery = await github.graphql(`
+                query($owner: String!, $repo: String!, $issue: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                        issue(number: $issue) {
+                            projectItems(first: 10) {
+                                nodes { id project { id } }
+                            }
+                        }
+                    }
+                }`, { owner, repo, issue: issue.number });
 
-            - ✅ Past milestones are shown in the chart but skipped when syncing project date fields
-            - 🔄 The current active milestone is highlighted in the Gantt chart
-            - This page updates automatically whenever a milestone is edited or an issue is assigned to one
-            - To trigger manually: Actions → _Sync milestone dates to roadmap_ → Run workflow
-            `;
+                const projectItem = itemQuery.repository.issue.projectItems.nodes
+                .find(n => n.project.id === projectId);
 
-            fs.writeFileSync(path.join("wiki", "Roadmap.md"), page);
-            console.log("Roadmap.md written");
+                if (!projectItem) {
+                    console.log(`  Issue #${issue.number} not in project, skipping`);
+                    continue;
+                }
+
+                for (const [fieldId, value] of [[startField.id, ms.start], [targetField.id, ms.end]]) {
+                await github.graphql(`
+                    mutation($project: ID!, $item: ID!, $field: ID!, $value: Date!) {
+                        updateProjectV2ItemFieldValue(input: {
+                            projectId: $project, itemId: $item, fieldId: $field, value: { date: $value }
+                        }) { projectV2Item { id } }
+                    }`, { project: projectId, item: projectItem.id, field: fieldId, value });
+                    }
+
+                    console.log(`  ✓ #${issue.number} — ${ms.start} → ${ms.end}`);
+                }
+            }
+
+            console.log("Done.");
 
       - name: Commit and push wiki
         run: |
