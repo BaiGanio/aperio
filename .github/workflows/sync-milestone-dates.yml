@@ -227,8 +227,8 @@ jobs:
 
             // ── Get project ID and fields ──────────────────────────────
             const projectQuery = await github.graphql(`
-                query($owner: String!, $repo: String!, $number: Int!) {
-                    repository(owner: $owner, name: $repo) {
+                query($owner: String!, $number: Int!) {
+                    user(login: $owner) {
                         projectV2(number: $number) {
                             id
                             fields(first: 20) {
@@ -238,8 +238,21 @@ jobs:
                         }
                     }
                 }
-                }`, { owner, repo, number: number });
+                }`, { owner, number });
 
+
+            // Run this once to find the right number
+            const listQuery = await github.graphql(`
+            query($owner: String!) {
+                user(login: $owner) {
+                projectsV2(first: 20) {
+                    nodes { number title }
+                }
+                }
+            }`, { owner });
+
+            console.log("Your projects:", JSON.stringify(listQuery.user.projectsV2.nodes));    
+            
             const project    = projectQuery.repository.projectV2;
             const projectId  = project.id;
             const fields     = project.fields.nodes;
@@ -251,8 +264,8 @@ jobs:
             const targetField = fields.find(f => f.name === "Target date");
 
             if (!startField || !targetField) {
-            core.setFailed("Could not find 'Start date' or 'Target date' fields.");
-            return;
+                core.setFailed("Could not find 'Start date' or 'Target date' fields.");
+                return;
             }
 
             // ── Loop milestones ────────────────────────────────────────
