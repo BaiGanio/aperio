@@ -78,7 +78,7 @@ jobs:
                     }
                 }
             }
-            `, { owner: 'BaiGanio', number: $number });
+            `, { owner: 'BaiGanio', number });
 
             console.log(response.repository.projectsV2.nodes);
 
