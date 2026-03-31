@@ -235,7 +235,10 @@ jobs:
                         }
                     }
                     }`, { owner });
-                console.log("Your projects:", JSON.stringify(listQuery.user.projectsV2.nodes));
+
+                const whoami = await github.graphql(`query { viewer { login } }`);
+                console.log("Token belongs to:", whoami.viewer.login);
+                console.log("RAW listQuery:", JSON.stringify(listQuery));
                 // TEMP: comment out everything below this line
                 return; // ← add this so it stops here
                 // ── Get project ID and fields ──
