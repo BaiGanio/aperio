@@ -224,7 +224,18 @@ jobs:
             ];
 
             const today = new Date().toISOString().split("T")[0];
+             // Run this once to find the right number
+            const listQuery = await github.graphql(`
+            query($owner: String!) {
+                user(login: $owner) {
+                projectsV2(first: 20) {
+                    nodes { number title }
+                }
+                }
+            }`, { owner });
 
+            console.log("Your projects:", JSON.stringify(listQuery.user.projectsV2.nodes));    
+            
             // ── Get project ID and fields ──────────────────────────────
             const projectQuery = await github.graphql(`
                 query($owner: String!, $number: Int!) {
@@ -238,21 +249,8 @@ jobs:
                         }
                     }
                 }
-                }`, { owner, number });
+                }`, { owner, number });           
 
-
-            // Run this once to find the right number
-            const listQuery = await github.graphql(`
-            query($owner: String!) {
-                user(login: $owner) {
-                projectsV2(first: 20) {
-                    nodes { number title }
-                }
-                }
-            }`, { owner });
-
-            console.log("Your projects:", JSON.stringify(listQuery.user.projectsV2.nodes));    
-            
             const project    = projectQuery.repository.projectV2;
             const projectId  = project.id;
             const fields     = project.fields.nodes;
