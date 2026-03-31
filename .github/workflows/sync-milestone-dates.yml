@@ -237,7 +237,8 @@ jobs:
                     }
                     }`, { owner });
                 console.log("Your projects:", JSON.stringify(listQuery.user.projectsV2.nodes));
-
+                // TEMP: comment out everything below this line
+                return; // ← add this so it stops here
                 // ── Get project ID and fields ──
                 const projectQuery = await github.graphql(`
                     query($owner: String!, $number: Int!) {
