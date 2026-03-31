@@ -212,8 +212,8 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const [owner, repo] = process.env.REPO.split("/");
-            const projectNumber = parseInt(process.env.PROJECT_NUMBER, 10);
+            const projectNumber = parseInt("${{ env.PROJECT_NUMBER }}", 10);  // ← inject directly
+            const [owner, repo] = "${{ env.REPO }}".split("/");
 
             const milestones = [
             { title: "Release 2.0 - initial push",                        start: "2026-01-01", end: "2026-04-01" },
