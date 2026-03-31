@@ -65,24 +65,22 @@ jobs:
 
             
             const response = await octokit.graphql(`
-            query {
-                viewer {
-                organizations(first: 10) {
+            query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                projectV2(number: $number) {
+                    id
+                    title
+                    fields(first: 20) {
                     nodes {
-                    login
-                    projectsV2(first: 20) {
-                        nodes {
-                        number
-                        title
-                        }
+                        ... on ProjectV2FieldCommon { id name }
                     }
                     }
                 }
                 }
             }
-            `);
+            `, { owner: 'BaiGanio', repo: 'aperio', number: 18 });
 
-            console.log(JSON.stringify(response, null, 2));
+            console.log(response);
 
 
             // get project ID and date field IDs
