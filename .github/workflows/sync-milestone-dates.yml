@@ -158,8 +158,8 @@ jobs:
                   .find(n => n.project.id === projectId);
 
                 if (!projectItem) {
-                  console.log(`  Issue #${issue.number} not in project, skipping`);
-                  continue;
+                    console.log(`  Issue #${issue.number} not in project, skipping`);
+                    continue;
                 }
 
                 await github.graphql(`
@@ -212,7 +212,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const number = parseInt("${{ env.PROJECT_NUMBER }}", 10);  // ← inject directly
+            const number = parseInt("${{ env.PROJECT_NUMBER }}", 18);  // ← inject directly
             const [owner, repo] = "${{ env.REPO }}".split("/");
 
             const milestones = [
@@ -226,18 +226,18 @@ jobs:
 
             // ── Get project ID and fields ──────────────────────────────
             const projectQuery = await github.graphql(`
-            query($owner: String!, $repo: String!, $number: Int!) {
-                repository(owner: $owner, name: $repo) {
-                projectV2(number: $number) {
-                    id
-                    fields(first: 20) {
-                    nodes {
-                        ... on ProjectV2FieldCommon { id name }
-                    }
+                query($owner: String!, $repo: String!, $number: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                        projectV2(number: $number) {
+                            id
+                            fields(first: 20) {
+                            nodes {
+                                ... on ProjectV2FieldCommon { id name }
+                            }
+                        }
                     }
                 }
-                }
-            }`, { owner, repo, number: number });
+                }`, { owner, repo, number: number });
 
             const project    = projectQuery.repository.projectV2;
             const projectId  = project.id;
