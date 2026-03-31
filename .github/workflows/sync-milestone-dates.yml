@@ -65,17 +65,17 @@ jobs:
 
             
             const response = await octokit.graphql(`
-            query($owner: String!, $repo: String!, $number: Int!) {
-                repository(owner: $owner, name: $repo) {
-                projectV2(number: $number) {
-                    id
-                    title
-                    fields(first: 20) {
-                    nodes {
-                        ... on ProjectV2FieldCommon { id name }
+            query($owner: String!, $number: Int!) {
+                    user(login: $owner) {
+                    projectV2(number: $number) {
+                        id
+                        title
+                        fields(first: 20) {
+                            nodes {
+                                ... on ProjectV2FieldCommon { id name }
+                            }
+                        }
                     }
-                    }
-                }
                 }
             }
             `, { owner: 'BaiGanio', repo: 'aperio' });
@@ -144,8 +144,8 @@ jobs:
               for (const issue of issues) {
 
                 const itemQuery = await github.graphql(`
-                  query($owner: String!, $repo: String!, $issue: Int!) {
-                    repository(owner: $owner, name: $repo) {
+                  query($owner: String!, $number: Int!) {
+                    user(login: $owner) {
                       issue(number: $issue) {
                         projectItems(first: 10) {
                           nodes { id project { id } }
@@ -235,7 +235,7 @@ jobs:
             }`, { owner });
 
             console.log("Your projects:", JSON.stringify(listQuery.user.projectsV2.nodes));    
-            
+
             // ── Get project ID and fields ──────────────────────────────
             const projectQuery = await github.graphql(`
                 query($owner: String!, $number: Int!) {
@@ -291,8 +291,8 @@ jobs:
 
             for (const issue of issues) {
                 const itemQuery = await github.graphql(`
-                query($owner: String!, $repo: String!, $issue: Int!) {
-                    repository(owner: $owner, name: $repo) {
+                query($owner: String!, $number: Int!) {
+                    user(login: $owner) {
                         issue(number: $issue) {
                             projectItems(first: 10) {
                                 nodes { id project { id } }
