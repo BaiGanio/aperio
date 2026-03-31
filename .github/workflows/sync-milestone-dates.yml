@@ -57,11 +57,11 @@ jobs:
             console.log("Project ID:", projectId);
             console.log("Fields:", fields.map(f => f.name));
 
-            const startField  = fields.find(f => f.name === "Start date");
-            const targetField = fields.find(f => f.name === "Target date");
+            const startField  = fields.find(f => f.name === "Start Date");
+            const targetField = fields.find(f => f.name === "Target Date");
 
             if (!startField || !targetField) {
-              core.setFailed("Could not find 'Start date' or 'Target date' fields.");
+              core.setFailed("Could not find 'Start Date' or 'Target Date' fields.");
               return;
             }
 
