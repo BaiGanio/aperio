@@ -60,7 +60,7 @@ jobs:
             const today = new Date().toISOString().split("T")[0];
 
             const [owner, repo] = process.env.REPO.split("/");
-            const projectNumber  = parseInt(process.env.PROJECT_NUMBER);
+            const number  = parseInt(process.env.PROJECT_NUMBER);
 
 
             
@@ -96,7 +96,7 @@ jobs:
                     }
                   }
                 }
-              }`, { owner, number: projectNumber });
+              }`, { owner, number: number });
 
             const project    = projectQuery.user.projectV2;
             const projectId  = project.id;
@@ -212,7 +212,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const projectNumber = parseInt("${{ env.PROJECT_NUMBER }}", 10);  // ← inject directly
+            const number = parseInt("${{ env.PROJECT_NUMBER }}", 10);  // ← inject directly
             const [owner, repo] = "${{ env.REPO }}".split("/");
 
             const milestones = [
@@ -237,7 +237,7 @@ jobs:
                     }
                 }
                 }
-            }`, { owner, repo, number: projectNumber });
+            }`, { owner, repo, number: number });
 
             const project    = projectQuery.repository.projectV2;
             const projectId  = project.id;
