@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
-    "test": "node --test tests/mcp-tools.test.js",
+    "mcp": "node mcp/index.js",
     "start": "node server.js",
     "start:cloud": "AI_PROVIDER=anthropic PORT=3000 node server.js",
     "start:local": "AI_PROVIDER=ollama PORT=31337 node server.js",
@@ -13,7 +13,9 @@
     "chat": "node lib/chat.js",
     "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node lib/chat.js",
     "chat:local": "AI_PROVIDER=ollama PORT=31338 node lib/chat.js",
-    "mcp": "node mcp/index.js"
+    "test": "node --test tests/mcp-tools.test.js",
+    "test:skills": "node tests/testSkills.js",
+    "test:skill": "node -e \"const t = require('./tests/testSkills'); t.testLoadSingleSkill(process.argv[1])\" "
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",
