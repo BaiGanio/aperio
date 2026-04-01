@@ -87,7 +87,7 @@ Postgres + pgvector + MCP. Your context, always available.
 👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) - for non-code users.
 - Small tool for big ideas 🧐
 - The fastest path. Runs 100% on your machine. 
-- No API Keys. No Cloud. No registration here and
+- No API Keys. No Cloud. No registration here and there.
 
 <details>
   <summary>Quick Instructions <- click it!</summary><br>
@@ -119,14 +119,12 @@ Postgres + pgvector + MCP. Your context, always available.
 > - If you have made an Alias, same - double click from Desktop
 > - For a terminal geeks - `./start.sh` in the project root
 
+>💡 Check our wiki page [Aperio-lite Installation Guide](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) for more clarifications.    
 >💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples. 
 
 ---
 
 </details>
-<br>
-
->💡 Check our wiki page [Aperio-lite Installation Guide](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) for more clarifications. 
 
 ### Prerequisites
 - Node.js 18+
@@ -138,20 +136,29 @@ Postgres + pgvector + MCP. Your context, always available.
 ### Step 1. Clone & Configure Environment Variables
 Dedicated `dev` branch stripped from the file/folder noise. Only what's needed.
 ```bash
+# dedicated developer branch - no extra files
 git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git
 cd aperio
+
+# restore dependencies
+npm install
 ```
-> Minimum `.env.example` for a fully local setup:
+> Ready to use `.env.example` for a fully local setup:
 ```env
 DATABASE_URL=postgresql://aperio:aperio_secret@localhost:5432/aperio
 AI_PROVIDER=ollama
-OLLAMA_MODEL=qwen3
+OLLAMA_MODEL=llama3.1
 EMBEDDING_PROVIDER=ollama
 OLLAMA_EMBED_MODEL=mxbai-embed-large
 ```
 
-### Step 2. Start The Database & Run migrations
+### Step 2. Databases & Migrations
 ```bash
+# vector database for lite mode when Docker is stopped
+npm install @lancedb/lancedb uuid 
+```
+```bash
+# DEV-MODE - start the database and run migrations
 cd docker && docker compose up -d && cd ..
 ```
 - MacOS/Linux
@@ -166,18 +173,17 @@ cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pg
 ```
 ### Step 3. Install Ollama & Pull Models
 ```bash
-npm install ollama
-ollama serve 
+npm install ollama      # run only if not previosly installed
+ollama serve            # use separate terminal
 ```
 ```bash
-ollama pull llama3.1           # LLM — best tool-calling support
-ollama pull qwen3              # LLM — strong reasoning, thinking mode support
-ollama pull mxbai-embed-large  # embeddings — local semantic search
+ollama pull llama3.1             # LLM — best tool-calling support ! Noreasoning
+# ollama pull qwen3              # LLM — strong reasoning, thinking mode support
+ollama pull mxbai-embed-large    # embeddings — local semantic search
 ```
 ### Step 4. Start Aperio
 ```bash
-npm install             # terminal 1  →  restore dependencies
-npm run start:local     # terminal 2  →  localhost:31337 → if option is developer
+npm run start:local      # localhost:31337 → browser opens automatically
 ```
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
