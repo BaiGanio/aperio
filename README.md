@@ -189,7 +189,7 @@ npm run start:local              # localhost:31337 → browser opens automatical
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
-### Now what?
+### Step 5. Now what?
 
 >💡 Stuck on the installation steps? - check [Troubleshooting](https://github.com/BaiGanio/aperio/wiki/Troubleshooting) wiki.
 
@@ -203,7 +203,12 @@ npm run start:local              # localhost:31337 → browser opens automatical
 ---
 
 ## Philosophy
-<img alt="Aperio philosophy" width="100%" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-philosophy.png" />
+Aperio is open source and self-hosted because **your memories is yours**.
+- It runs entirely on your machine - no API keys, no data leaving your network, no cloud dependency.   
+- Default is local and private. The option - self-hosted. The price - free forever.   
+- Cloud AI is available as a power upgrade, but you will be never forced to use it.    
+
+<img alt="Aperio philosophy" src="https://github.com/user-attachments/assets/cc129c2f-174e-49c6-9804-6a1264964546" />
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
