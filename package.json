@@ -13,7 +13,7 @@
     "chat": "node lib/chat.js",
     "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node lib/chat.js",
     "chat:local": "AI_PROVIDER=ollama PORT=31338 node lib/chat.js",
-    "test": "node --test tests/mcp-tools.test.js",
+    "test": "node --test --test-reporter=spec tests/mcp-tools.test.js",
     "test:skills": "node tests/testSkills.js",
     "test:skill": "node -e \"import('./tests/testSkills.js').then(t => t.testLoadSingleSkill(process.argv.pop()))\" --"
   },

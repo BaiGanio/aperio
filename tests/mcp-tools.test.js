@@ -353,3 +353,288 @@ describe("recall tool", () => {
     assert.ok(result.content[0].text.includes("Tags: none"));
   });
 });
+
+// ─── Store method helpers under test ─────────────────────────────────────────
+// Mirror the store interface used by backfill logic. Tests use a mock store
+// instead of a real DB so no Postgres or LanceDB connection is needed.
+
+function makeMockStore({ counts, withoutEmbeddings = [], setEmbeddingFn } = {}) {
+  const setEmbeddingCalls = [];
+  return {
+    async counts() {
+      return counts;
+    },
+    async listWithoutEmbeddings() {
+      return withoutEmbeddings;
+    },
+    async setEmbedding(id, embedding) {
+      setEmbeddingCalls.push({ id, embedding });
+      if (setEmbeddingFn) await setEmbeddingFn(id, embedding);
+    },
+    _setEmbeddingCalls: setEmbeddingCalls,
+  };
+}
+
+// Mirrors the backfill_embeddings tool handler from mcp/index.js.
+// Accepts store + generateEmbedding as params so both can be swapped in tests.
+async function backfillTool(store, generateEmbedding, { limit = 20 } = {}) {
+  const pending = (await store.listWithoutEmbeddings()).slice(0, limit);
+  if (!pending.length)
+    return { content: [{ type: "text", text: "✅ All memories already have embeddings!" }] };
+
+  let success = 0, failed = 0;
+  for (const row of pending) {
+    const embedding = await generateEmbedding(`${row.title}. ${row.content}`);
+    if (embedding) {
+      await store.setEmbedding(row.id, embedding);
+      success++;
+    } else {
+      failed++;
+    }
+  }
+
+  return {
+    content: [{
+      type: "text",
+      text: `✅ Backfill complete: ${success} embedded, ${failed} failed. ${pending.length - success - failed} remaining.`,
+    }],
+  };
+}
+
+// Mirrors the silent auto-backfill startup branch from mcp/index.js.
+// Returns which branch was taken so tests can assert on it cleanly.
+async function runStartupBackfillBranch(store, generateEmbedding) {
+  const { total, embedded: embCount } = await store.counts();
+
+  if (embCount === 0 && total > 0) {
+    // Has memories but no embeddings — backfill silently
+    const pending = await store.listWithoutEmbeddings();
+    let success = 0, failed = 0;
+    for (const row of pending) {
+      const embedding = await generateEmbedding(`${row.title}. ${row.content}`);
+      if (embedding) { await store.setEmbedding(row.id, embedding); success++; }
+      else failed++;
+    }
+    return { branch: "backfilled", success, failed };
+  }
+
+  if (embCount === 0 && total === 0) {
+    return { branch: "empty" };
+  }
+
+  return { branch: "ready" };
+}
+
+// ─── counts() ────────────────────────────────────────────────────────────────
+
+describe("counts()", () => {
+  test("returns total and embedded counts", async () => {
+    const store = makeMockStore({ counts: { total: 5, embedded: 3 } });
+    const result = await store.counts();
+    assert.equal(result.total, 5);
+    assert.equal(result.embedded, 3);
+  });
+
+  test("returns zeros for an empty store", async () => {
+    const store = makeMockStore({ counts: { total: 0, embedded: 0 } });
+    const result = await store.counts();
+    assert.equal(result.total, 0);
+    assert.equal(result.embedded, 0);
+  });
+
+  test("embedded can equal total when all are embedded", async () => {
+    const store = makeMockStore({ counts: { total: 4, embedded: 4 } });
+    const { total, embedded } = await store.counts();
+    assert.equal(total, embedded);
+  });
+});
+
+// ─── listWithoutEmbeddings() ─────────────────────────────────────────────────
+
+describe("listWithoutEmbeddings()", () => {
+  test("returns rows missing embeddings", async () => {
+    const pending = [
+      { id: "1", title: "Fact A", content: "Content A" },
+      { id: "2", title: "Fact B", content: "Content B" },
+    ];
+    const store = makeMockStore({ counts: { total: 2, embedded: 0 }, withoutEmbeddings: pending });
+    const result = await store.listWithoutEmbeddings();
+    assert.equal(result.length, 2);
+    assert.equal(result[0].id, "1");
+    assert.equal(result[1].title, "Fact B");
+  });
+
+  test("returns empty array when all memories are embedded", async () => {
+    const store = makeMockStore({ counts: { total: 3, embedded: 3 }, withoutEmbeddings: [] });
+    const result = await store.listWithoutEmbeddings();
+    assert.equal(result.length, 0);
+  });
+
+  test("returns only id, title, content fields", async () => {
+    const pending = [{ id: "abc", title: "T", content: "C" }];
+    const store = makeMockStore({ counts: { total: 1, embedded: 0 }, withoutEmbeddings: pending });
+    const [row] = await store.listWithoutEmbeddings();
+    assert.ok("id" in row);
+    assert.ok("title" in row);
+    assert.ok("content" in row);
+  });
+});
+
+// ─── setEmbedding() ──────────────────────────────────────────────────────────
+
+describe("setEmbedding()", () => {
+  test("records the id and embedding vector", async () => {
+    const store = makeMockStore({ counts: { total: 1, embedded: 0 } });
+    const vec = [0.1, 0.2, 0.3];
+    await store.setEmbedding("id-1", vec);
+    assert.equal(store._setEmbeddingCalls.length, 1);
+    assert.equal(store._setEmbeddingCalls[0].id, "id-1");
+    assert.deepEqual(store._setEmbeddingCalls[0].embedding, vec);
+  });
+
+  test("records multiple calls independently", async () => {
+    const store = makeMockStore({ counts: { total: 2, embedded: 0 } });
+    await store.setEmbedding("id-1", [0.1]);
+    await store.setEmbedding("id-2", [0.9]);
+    assert.equal(store._setEmbeddingCalls.length, 2);
+    assert.equal(store._setEmbeddingCalls[1].id, "id-2");
+  });
+});
+
+// ─── backfill_embeddings tool ─────────────────────────────────────────────────
+
+describe("backfill_embeddings tool", () => {
+  const fakeEmbedding = [0.1, 0.2, 0.3];
+  const alwaysSucceeds = async () => fakeEmbedding;
+  const alwaysFails    = async () => null;
+
+  test("reports all already embedded when nothing is pending", async () => {
+    const store = makeMockStore({ counts: { total: 3, embedded: 3 }, withoutEmbeddings: [] });
+    const result = await backfillTool(store, alwaysSucceeds);
+    assert.ok(result.content[0].text.includes("All memories already have embeddings"));
+  });
+
+  test("embeds all pending memories on success", async () => {
+    const pending = [
+      { id: "1", title: "A", content: "Content A" },
+      { id: "2", title: "B", content: "Content B" },
+    ];
+    const store = makeMockStore({ counts: { total: 2, embedded: 0 }, withoutEmbeddings: pending });
+    const result = await backfillTool(store, alwaysSucceeds);
+    assert.ok(result.content[0].text.includes("2 embedded"));
+    assert.ok(result.content[0].text.includes("0 failed"));
+    assert.equal(store._setEmbeddingCalls.length, 2);
+  });
+
+  test("counts failures when embedding provider returns null", async () => {
+    const pending = [
+      { id: "1", title: "A", content: "Content A" },
+      { id: "2", title: "B", content: "Content B" },
+    ];
+    const store = makeMockStore({ counts: { total: 2, embedded: 0 }, withoutEmbeddings: pending });
+    const result = await backfillTool(store, alwaysFails);
+    assert.ok(result.content[0].text.includes("0 embedded"));
+    assert.ok(result.content[0].text.includes("2 failed"));
+    assert.equal(store._setEmbeddingCalls.length, 0);
+  });
+
+  test("handles partial failures — some succeed, some fail", async () => {
+    const pending = [
+      { id: "1", title: "A", content: "Content A" },
+      { id: "2", title: "B", content: "Content B" },
+      { id: "3", title: "C", content: "Content C" },
+    ];
+    const store = makeMockStore({ counts: { total: 3, embedded: 0 }, withoutEmbeddings: pending });
+    let call = 0;
+    const flakyEmbedding = async () => (++call % 2 === 0 ? null : fakeEmbedding);
+    const result = await backfillTool(store, flakyEmbedding);
+    assert.ok(result.content[0].text.includes("embedded"));
+    assert.ok(result.content[0].text.includes("failed"));
+    // Only successful ones should call setEmbedding
+    assert.ok(store._setEmbeddingCalls.length < pending.length);
+  });
+
+  test("respects the limit parameter", async () => {
+    const pending = Array.from({ length: 10 }, (_, i) => ({
+      id: String(i), title: `T${i}`, content: `C${i}`,
+    }));
+    const store = makeMockStore({ counts: { total: 10, embedded: 0 }, withoutEmbeddings: pending });
+    await backfillTool(store, alwaysSucceeds, { limit: 3 });
+    assert.equal(store._setEmbeddingCalls.length, 3);
+  });
+
+  test("calls setEmbedding with the correct id and vector", async () => {
+    const pending = [{ id: "target-id", title: "My title", content: "My content" }];
+    const store = makeMockStore({ counts: { total: 1, embedded: 0 }, withoutEmbeddings: pending });
+    await backfillTool(store, alwaysSucceeds);
+    assert.equal(store._setEmbeddingCalls[0].id, "target-id");
+    assert.deepEqual(store._setEmbeddingCalls[0].embedding, fakeEmbedding);
+  });
+});
+
+// ─── silent auto-backfill startup logic ──────────────────────────────────────
+
+describe("silent auto-backfill (startup branch)", () => {
+  const fakeEmbedding = [0.1, 0.2, 0.3];
+  const alwaysSucceeds = async () => fakeEmbedding;
+  const alwaysFails    = async () => null;
+
+  test("takes 'backfilled' branch when memories exist but none are embedded", async () => {
+    const pending = [{ id: "1", title: "A", content: "C" }];
+    const store = makeMockStore({ counts: { total: 1, embedded: 0 }, withoutEmbeddings: pending });
+    const result = await runStartupBackfillBranch(store, alwaysSucceeds);
+    assert.equal(result.branch, "backfilled");
+  });
+
+  test("takes 'empty' branch on a fresh install with no memories", async () => {
+    const store = makeMockStore({ counts: { total: 0, embedded: 0 }, withoutEmbeddings: [] });
+    const result = await runStartupBackfillBranch(store, alwaysSucceeds);
+    assert.equal(result.branch, "empty");
+  });
+
+  test("takes 'ready' branch when embeddings already exist", async () => {
+    const store = makeMockStore({ counts: { total: 5, embedded: 5 }, withoutEmbeddings: [] });
+    const result = await runStartupBackfillBranch(store, alwaysSucceeds);
+    assert.equal(result.branch, "ready");
+  });
+
+  test("takes 'ready' branch when embeddings are partially present", async () => {
+    const store = makeMockStore({ counts: { total: 5, embedded: 3 }, withoutEmbeddings: [] });
+    const result = await runStartupBackfillBranch(store, alwaysSucceeds);
+    assert.equal(result.branch, "ready");
+  });
+
+  test("reports correct success count after silent backfill", async () => {
+    const pending = [
+      { id: "1", title: "A", content: "C" },
+      { id: "2", title: "B", content: "D" },
+    ];
+    const store = makeMockStore({ counts: { total: 2, embedded: 0 }, withoutEmbeddings: pending });
+    const result = await runStartupBackfillBranch(store, alwaysSucceeds);
+    assert.equal(result.success, 2);
+    assert.equal(result.failed, 0);
+  });
+
+  test("reports failures gracefully when embedding provider is down", async () => {
+    const pending = [{ id: "1", title: "A", content: "C" }];
+    const store = makeMockStore({ counts: { total: 1, embedded: 0 }, withoutEmbeddings: pending });
+    const result = await runStartupBackfillBranch(store, alwaysFails);
+    assert.equal(result.branch, "backfilled");
+    assert.equal(result.success, 0);
+    assert.equal(result.failed, 1);
+    // setEmbedding must not be called on failure
+    assert.equal(store._setEmbeddingCalls.length, 0);
+  });
+
+  test("does not call setEmbedding on the 'empty' branch", async () => {
+    const store = makeMockStore({ counts: { total: 0, embedded: 0 }, withoutEmbeddings: [] });
+    await runStartupBackfillBranch(store, alwaysSucceeds);
+    assert.equal(store._setEmbeddingCalls.length, 0);
+  });
+
+  test("does not call setEmbedding on the 'ready' branch", async () => {
+    const store = makeMockStore({ counts: { total: 3, embedded: 3 }, withoutEmbeddings: [] });
+    await runStartupBackfillBranch(store, alwaysSucceeds);
+    assert.equal(store._setEmbeddingCalls.length, 0);
+  });
+});
