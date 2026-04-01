@@ -154,9 +154,10 @@ OLLAMA_EMBED_MODEL=mxbai-embed-large
 
 ### Step 2. Databases & Migrations
 ```bash
-# vector database for lite mode when Docker is stopped
+# vector database for lite mode when Docker is optional
 npm install @lancedb/lancedb uuid 
 ```
+> 💡 If no Docker is installed (dev-lite mode)- skip below commands and go directly to `Step 3`.
 ```bash
 # DEV-MODE - start the database and run migrations
 cd docker && docker compose up -d && cd ..
