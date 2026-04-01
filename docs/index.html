@@ -515,6 +515,7 @@
     <div class="eyebrow reveal">Quick Start</div>
     <h2 class="section-heading reveal">Up in 5 minutes.</h2>
     <p class="lead-text reveal">Node 18+, Docker, and Ollama. No API keys. No cloud. 100% local.<br>Or add Claude + Voyage AI when you need more power.</p>
+    
     <div class="steps-grid">
       <div class="step-card reveal">
         <div class="step-num">01</div>
@@ -535,7 +536,7 @@
         <div class="code-block" style="position:relative">
           <div><span class="k">DATABASE_URL</span>=<span class="v">postgresql://aperio:xxx-xxx-xxx</span></div>
           <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
-          <div><span class="k">OLLAMA_MODEL</span>=<span class="v">llama3.1</span></div>
+          <div><span class="k">OLLAMA_MODEL</span>=<span class="v">llama3.1:8b</span></div>
           <div><span class="k">EMBEDDING_PROVIDER</span>=<span class="v">ollama</span></div>
           <div><span class="k">OLLAMA_EMBED_MODEL</span>=<span class="v">mxbai-embed-large</span></div>
         </div>
@@ -561,8 +562,10 @@
         <div class="step-num">04</div>
         <div class="step-title">Pull the models</div>
         <div class="code-block" style="position:relative">
-          <button class="copy-btn" data-target=".s">Copy</button>
-          <div class="c"># LLM — best on low budget</div>
+          <button class="copy-btn" data-target=".s">Copy</button> 
+          <div class="c"># start the engine from separate terminal</div>
+          <div class="s">ollama serve</div>       
+          <div class="c"># best LLM on low budget</div>
           <div class="s">ollama pull llama3.1:8b</div>
           <div>&nbsp;</div>
           <div class="v"> Available options: </div>
@@ -573,7 +576,7 @@
           <div class="k">pro - deepseek-r1:32b (~32GB RAM, ~19GB disk)</div> 
           <div>&nbsp;</div>
           <div class="c"># embeddings — local semantic search</div>
-          <div class="s">ollama pull mxbai-embed-large</div>   
+          <div class="s">ollama pull mxbai-embed-large</div>  
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
@@ -581,12 +584,12 @@
         <div class="step-title">Launch Aperio Web UI</div>
         <div class="code-block" style="position:relative">
           <button class="copy-btn" data-target=".s">Copy</button>
-          <div class="c"># local (Ollama) -> localhost:31337</div>
-          <div class="s">ollama serve</div>          
+          <div class="c"># start from the project root</div>   
+          <div class="c"># opens at localhost:31337</div> 
           <div class="s">npm run start:local</div>
            <div>&nbsp;</div> 
            <div class="c"># cloud (Claude) -> localhost:3000</div>
-          <div class="c"># npm run start:cloud</div>
+          <div class="k"># npm run start:cloud</div>
         </div>
       </div>
        <div class="step-card reveal" style="transition-delay:.24s">
@@ -599,9 +602,14 @@
           <div class="s">npm run chat:local</div>
           <div>&nbsp;</div>
            <div class="c"># cloud (Anthropic)</div>
-          <div class="c">npm run chat:cloud</div>  
+          <div class="k">npm run chat:cloud</div>  
         </div>
       </div>
+      </div>
+    </div>
+      <!-- Tagline foot -->
+    <div class="reveal" style="margin-top:48px;display:flex;justify-content:center;gap:8px">
+    ✅ Tip: Check out project <a href="https://github.com/BaiGanio/aperio/blob/master/README.md" target="_blank" style="font-weight: 700;"> README.md</a> for extensive documentation, troubleshooting, and advanced configuration options.
     </div>
   </div>
 </section>
