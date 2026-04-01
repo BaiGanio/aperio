@@ -15,7 +15,7 @@
     "chat:local": "AI_PROVIDER=ollama PORT=31338 node lib/chat.js",
     "test": "node --test tests/mcp-tools.test.js",
     "test:skills": "node tests/testSkills.js",
-    "test:skill": "node -e \"const t = require('./tests/testSkills'); t.testLoadSingleSkill(process.argv[1])\" "
+    "test:skill": "node -e \"import('./tests/testSkills.js').then(t => t.testLoadSingleSkill(process.argv.pop()))\" --"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.80.0",

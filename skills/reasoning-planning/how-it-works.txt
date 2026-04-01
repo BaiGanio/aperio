@@ -1,0 +1,5 @@
+1. Structure the Skill Execution
+- Each skill folder (e.g., skills/reasoning-planning/) should contain an index.js file that exports a standard run function.
+- Example skills/reasoning-planning/index.js:
+2. Create the Executor Logic
+- In lib/skills.js, add an executeSkill function. This function will resolve the path to the skill's index.js and call its run method.

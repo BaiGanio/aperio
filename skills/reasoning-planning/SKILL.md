@@ -1,7 +1,12 @@
 ---
 name: reasoning-planning
-description: Break down complex problems into steps, create execution plans, handle uncertainty
+description: Break down complex problems into steps, create execution plans, and handle uncertainty.
+metadata:
+  keywords: "breakdown, decomposition, strategy, logic, steps, analyze, planning, problem-solving"
+  category: "logic-processing"
 ---
+
+
 
 # Reasoning & Planning Skill
 
