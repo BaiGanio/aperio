@@ -174,8 +174,8 @@ cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pg
 ```
 ### Step 3. Install Ollama & Pull Models
 ```bash
-npm install ollama      # run only if not previosly installed
-ollama serve            # use separate terminal
+npm install ollama               # run only if not previosly installed
+ollama serve                     # use separate terminal
 ```
 ```bash
 ollama pull llama3.1             # LLM — best tool-calling support ! Noreasoning
@@ -184,25 +184,17 @@ ollama pull mxbai-embed-large    # embeddings — local semantic search
 ```
 ### Step 4. Start Aperio
 ```bash
-npm run start:local      # localhost:31337 → browser opens automatically
+npm run start:local              # localhost:31337 → browser opens automatically
 ```
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
 ### Now what?
-(1st run only) - Once Aperio is running, open the chat in the browser at `localhost:31337` and type:
-```bash
-backfill my embeddings
-```
-  
- This generates semantic vectors for all your memories. 
-- Without this step, search falls back to full-text only.
-- You only need to do this once — new memories are embedded automatically.
 
->💡 If you get stuck on your installation steps - check our [Troubleshooting](https://github.com/BaiGanio/aperio/wiki/Troubleshooting) wiki page.
+>💡 Stuck on the installation steps? - check [Troubleshooting](https://github.com/BaiGanio/aperio/wiki/Troubleshooting) wiki.
 
->💡 Check our wiki page [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for extended examples.   
->💡 Check our wiki page [Commands](https://github.com/BaiGanio/aperio/wiki/Commands) for the available options to run the app.
+>💡 Check [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) wiki for extended examples.   
+>💡 Check [Commands](https://github.com/BaiGanio/aperio/wiki/Commands) wiki for the available options to run the app.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
