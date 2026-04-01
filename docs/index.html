@@ -106,9 +106,13 @@
     <p class="lead-text reveal">
       A self-hosted personal memory layer for AI agents — built on Postgres, pgvector and MCP.<br>
       Runs 100% local by default. No API keys. No cloud dependency. Your data never leaves your machine.<br>
-      <span>Not a developer?</span>
+      <span>You are a software developer?</span>
+       <a href="#setup" style="color:var(--accent);text-decoration:none;font-weight:500"> ✦ Try Aperio-dev</a>
+      <span style="font-size:.9em"> — basic terminal comfort required. He-he ;/</span>
+      <br>
+      <span>You are a normal human?</span>
       <a href="#aperio-lite" style="color:var(--accent);text-decoration:none;font-weight:500"> ✦ Try Aperio-lite</a>
-      <span style="font-size:.9em"> — double-click and go, no terminal needed.</span>
+      <span style="font-size:.9em"> — double-click and go, no tech skills needed.</span>
     </p>
     <div class="cta-group reveal">
       <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-dev.zip" class="btn-primary-aurora">
@@ -696,44 +700,42 @@
           <div class="step-title">No tech skills required</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
             <div><strong>Nothing to configure.</strong></div>
-            <div>No databases to set up. No config files to edit. No environment variables. No package managers.</div>
+            <div>✅ No databases to set up.<br>✅ No config files to edit.<br>✅ No environment variables.<br>✅ No package managers.</div>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
             <div><strong>Just download and double-click.</strong></div>
-            <div>First run installs everything automatically in the background. You'll see a terminal window — that's normal. It closes when ready.</div>
-            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-            <div><strong>Every run after that?</strong></div>
-            <div>Double-click the desktop shortcut. That's it.</div>
-            <div style="color:var(--accent);margin-top:6px">✅ If you can open a browser, you can run Aperio.</div>
+            <div>First run installs everything automatically in the background.<br>You'll see a terminal window — that's normal.<br> The terminal is yours GOD EYE on what is happening.</div>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
           </div>
         </div>
 
         <!-- Feature launches / subsequent runs -->
         <div class="step-card reveal" style="transition-delay:.3s">
-          <div class="step-title">Feature launches &amp; subsequent runs</div>
+          <div class="step-title">Feature updates</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
-            <div><strong>Every run after the first run?</strong></div>
-            <div>Just double-click</div>
-            <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">./start.sh</code></div>
+            <div><strong>Download the latest release.</strong></div>
+            <div>✅ Windows<br>- Right-click on the zip and select "Extract All..."<br>- In the dialog, specify your <code>aperio-lite</code> folder.<br>✅ macOS/Linux (Terminal - fastest)<br>- <code>unzip aperio-lite.zip -d ~/aperio-lite</code></div>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-            <div><strong>Updates</strong></div>
-            <div>Download the latest release, unzip alongside the old folder, run once. Your data stays untouched.</div>
+            <div><strong>Your data stays untouched.</strong></div>            
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-            <div><strong>Port already in use?</strong></div>
-            <div>Another app is on <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">31337</code>.<br>Quit it or set <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">PORT=</code> in <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">.env</code></div>
+            <div><strong>❗ Might want to export your memories first.</strong></div>
+            <div>- You'll have your data even if the update fails</div>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
           </div>
         </div>
 
         <!-- Uninstall -->
         <div class="step-card reveal" style="transition-delay:.5s">
-          <div class="step-title"><i class="bi bi-trash me-1"></i> Uninstall</div>
+          <div class="step-title"><i class="bi bi-trash me-1"></i>subsequent runs &amp; Uninstall</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
+            <div><strong>Every run after the first run?</strong></div>
+            <div>Double-click the desktop shortcut. That's it.</div>
+            <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">./start.sh</code></div>
+            <div style="color:var(--accent);margin-top:6px">✅ If you can open a browser, you can run Aperio.</div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+            <div><strong>How to remove it if I do not like it?</strong></div>
             <div>1. Delete the Desktop alias / shortcut</div>
             <div>2. Delete the unzipped folder</div>
-            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-            <div style="color:var(--accent);font-weight:500">That's it. Completely gone.</div>
-            <div style="opacity:.6;font-size:12px;margin-top:4px">No uninstaller. No registry entries.<br>No hidden files. No traces. Nothing.</div>
+            <div style="color:var(--accent);margin-top:6px">✅ That's it. Completely gone.<br>- No registry entries. No hidden files.<br>- No traces. Nothing.</div>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
           </div>
         </div>
@@ -745,7 +747,7 @@
         <i class="bi bi-download"></i> Download Aperio-lite
       </a>
       <a href="#setup" class="btn-outline-aurora" style="width:fit-content">
-        <i class="bi bi-terminal"></i> I prefer the terminal
+        <i class="bi bi-terminal"></i> I prefer the terminal (Aperio-dev)
       </a>
     </div>
   </div>
