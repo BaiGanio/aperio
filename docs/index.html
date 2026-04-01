@@ -637,46 +637,52 @@
 
       <!-- Easy option -->
       <div class="step-card reveal">
-        <div class="step-title">Easy — macOS / Linux</div>
+        <div class="step-title">macOS</div>
         <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
-          <div>1. Download the latest version, unzip, open in Finder</div>
-          <div>2. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">start.sh</code> → right-click → <strong>Make Alias</strong></div>
-          <div>3. Rename the alias to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio</code></div>
-          <div>4. Drag alias to the <strong>Desktop folder</strong> in Finder's sidebar</div>
+          <div>1. Download, unzip, open in Finder</div>
+          <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → double-click it</div>
+          <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.sh</code> → right-click → <strong>Make Alias</strong></div>
+          <div>4. Rename the alias to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio</code></div>
+          <div>5.A Drag alias to <strong>Desktop folder</strong> in Finder's sidebar</div>
           <div style="opacity:.6;font-size:12px">❗ Sidebar item — not the Desktop surface itself</div>
-          <div>5. Double-click from Desktop — follow one-time setup</div>
-          <div style="color:var(--accent);margin-top:6px">✅ Browser opens at <code style="font-family:var(--font-mono);font-size:11px">http://localhost:31337</code></div>
+          <div>5.B Canonical shortcut to <strong>Desktop</strong></div>
+          <div style="opacity:.6;font-size:12px">❗ Hold <strong>⌥ Option + ⌘ Cmd</strong> and drag START.sh directly onto the desktop → rename it there</div>
+          <div>6. Double-click → one-time setup → done</div>
+          <div style="color:var(--accent);margin-top:6px">✅ Default browser opens automatically at <code style="font-family:var(--font-mono);font-size:11px">http://localhost:31337</code></div>
+          <div style="border-top:1px solid var(--border);margin:12px 0"></div>
         </div>
       </div>
 
       <!-- Future use / Windows -->
       <div class="step-card reveal" style="transition-delay:.1s">
-        <div class="step-title">Windows &amp; future launches</div>
+        <div class="step-title">Windows</div>
         <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
-          <div><strong>Windows</strong></div>
-          <div>1. Unzip → right-click <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.ps1</code> → <strong>Create Shortcut</strong></div>
-          <div>2. Move shortcut to Desktop</div>
-          <div>3. Double-click → one-time setup → done</div>
-          <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-          <div><strong>Every run after that</strong></div>
-          <div>Double-click the alias in Finder</div>
-          <div>Double-click from Desktop</div>
-          <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">./start.sh</code></div>
+          <div>1. Download, unzip, open in File Explorer</div>
+          <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → double-click it</div>
+          <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.bat</code> → right-click → <strong>Rename</strong></div>
+          <div>4. Rename the file to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio.bat</code></div>
+          <div>5.A Move shortcut to Desktop</div>
+          <div>5.B Canonical shortcut to <strong>Desktop</strong></div>
+          <div style="opacity:.6;font-size:12px">❗ Hold <strong>Alt</strong> and drag START.bat directly onto the desktop → rename it there</div>
+          <div>6. Double-click → one-time setup → done</div>
+          <div style="color:var(--accent);margin-top:6px">✅ Default browser opens automatically at <code style="font-family:var(--font-mono);font-size:11px">http://localhost:31337</code></div>
+          <div style="border-top:1px solid var(--border);margin:12px 0"></div> 
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.2s">
-        <div class="step-title">Uninstall — any OS</div>
+        <div class="step-title"> Feature launches &amp; Uninstall</div>
         <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
+          <div><strong>Every run after the first run?</strong></div>          
+          <div>Just double-click</div>
+          <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">./start.sh</code></div>
+          <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+          <div><strong>Uninstall</strong></div>     
           <div>1. Delete the Desktop alias / shortcut</div>
           <div>2. Delete the unzipped folder</div>
           <div style="border-top:1px solid var(--border);margin:12px 0"></div>
           <div style="color:var(--accent);font-weight:500">That's it. Completely gone.</div>
-          <div style="opacity:.6;font-size:12px;margin-top:4px">No uninstaller. No registry entries.<br>No hidden files. No traces. Nothing to sudo.</div>
+          <div style="opacity:.6;font-size:12px;margin-top:4px">No uninstaller. No registry entries.<br>No hidden files. No traces. Nothing.</div>
           <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-          <div style="opacity:.5;font-size:12px">
-            Finder → drag both to Trash<br>
-            Select both → Delete<br>
-          </div>
         </div>
       </div>
     </div>
