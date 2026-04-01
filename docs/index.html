@@ -518,7 +518,7 @@
     <div class="steps-grid">
       <div class="step-card reveal">
         <div class="step-num">01</div>
-        <div class="step-title">Clone & install</div>
+        <div class="step-title">Clone & install dependencies</div>
         <div class="code-block" style="position:relative">
           <button class="copy-btn" data-target=".s">Copy</button>
           <div class="c"># dedicated developer branch - no extra files</div>
@@ -562,11 +562,15 @@
         <div class="step-title">Pull the models</div>
         <div class="code-block" style="position:relative">
           <button class="copy-btn" data-target=".s">Copy</button>
-          <div class="c"># LLM — best tool-calling support</div>
-          <div class="s">ollama pull llama3.1 </div>
+          <div class="c"># LLM — best on low budget</div>
+          <div class="s">ollama pull llama3.1:8b</div>
           <div>&nbsp;</div>
-          <div class="c"># LLM with reasoning</div>
-          <div class="c">ollama pull qwen3:14b</div>            
+          <div class="v"> Available options: </div>
+          <div class="k">lite - qwen2.5:3b  (~4GB RAM,  ~2GB disk)</div>
+          <div class="k">medium - llama3.1:8b (~8GB RAM,  ~5GB disk)</div>           
+          <div class="k">smart - qwen3:8b (~10GB RAM, ~5GB disk)</div>  
+          <div class="k">reasoning - qwen3:14b (~16GB RAM, ~9GB disk)</div>   
+          <div class="k">pro - deepseek-r1:32b (~32GB RAM, ~19GB disk)</div> 
           <div>&nbsp;</div>
           <div class="c"># embeddings — local semantic search</div>
           <div class="s">ollama pull mxbai-embed-large</div>   
