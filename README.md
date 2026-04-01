@@ -64,6 +64,10 @@ Postgres + pgvector + MCP. Your context, always available.
 │   └── index.js                  # MCP server — 11 tools
 ├── 📂 prompts/
 │   └── system_prompt.md          # Instructions for AI agents (edit this!)
+├── skills/
+│   ├── reasoning-planning/
+│   ├── tool-integration/
+│   └── memory-learning/
 ├── 📂 public/
 │   └── index.html                # Web UI — themes, streaming, sidebar
 ├── 📂 scripts/
