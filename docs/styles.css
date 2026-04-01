@@ -352,6 +352,19 @@ h2.section-heading {
     transition: border-color 0.3s, color 0.3s, background 0.3s;
 }
 
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 11px;
+  padding: 2px 8px;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg-raised);
+  color: var(--accent);
+}
+
 /* ══════════════════════════════════════════════════════════
     TERMINAL
 ══════════════════════════════════════════════════════════ */

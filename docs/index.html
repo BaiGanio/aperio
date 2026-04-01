@@ -515,9 +515,9 @@
       <div class="step-card reveal">
         <div class="step-num">01</div>
         <div class="step-title">Clone & install</div>
-        <div class="code-block">
-          <div class="c"># clone the dedicated developer branch</div>
-          <div class="c"># no extra - only the files needed</div>
+        <div class="code-block" style="position:relative">
+          <button class="copy-btn" data-target=".s">Copy</button>
+          <div class="c"># dedicated developer branch - no extra files</div>
           <div class="s">git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git</div>
           <div class="s">cd aperio</div>
           <div>&nbsp;</div>
@@ -527,10 +527,8 @@
       </div>
       <div class="step-card reveal" style="transition-delay:.08s">
         <div class="step-num">02</div>
-        <div class="step-title">Minimum .env for a fully local setup</div>
-        <div class="code-block">
-          <div class="c"># cp .env.example .env</div>
-          <div>&nbsp;</div>
+        <div class="step-title">Ready for use .env.example in the project folder</div>
+        <div class="code-block" style="position:relative">
           <div><span class="k">DATABASE_URL</span>=<span class="v">postgresql://aperio:xxx-xxx-xxx</span></div>
           <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
           <div><span class="k">OLLAMA_MODEL</span>=<span class="v">llama3.1</span></div>
@@ -540,11 +538,16 @@
       </div>
       <div class="step-card reveal" style="transition-delay:.16s">
         <div class="step-num">03</div>
-        <div class="step-title">Start database</div>
-        <div class="code-block">
+        <div class="step-title">Databases</div>
+        <div class="code-block" style="position:relative">
+          <button class="copy-btn" data-target=".s">Copy</button>
+          <div class="c"># Vector database for lite mode when Docker is not in use</div>
+          <div class="s">npm install @lancedb/lancedb uuid </div>  
+          <div>&nbsp;</div>
           <div class="s">cd docker</div>
           <div class="s">docker compose up -d</div>
           <div class="s">cd ..</div>
+          <div>&nbsp;</div>
           <div class="c"># run migrations</div>
           <div class="s">docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql</div>
           <div class="s">docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql</div>
@@ -553,13 +556,14 @@
       <div class="step-card reveal" style="transition-delay:.24s">
         <div class="step-num">04</div>
         <div class="step-title">Pull the models</div>
-        <div class="code-block">
+        <div class="code-block" style="position:relative">
+          <button class="copy-btn" data-target=".s">Copy</button>
           <div class="c"># LLM — best tool-calling support</div>
           <div class="s">ollama pull llama3.1 </div>
           <div>&nbsp;</div>
           <div class="c"># LLM with reasoning</div>
-          <div class="s">ollama pull qwen3</div>   
-           <div>&nbsp;</div>
+          <div class="c">ollama pull qwen3:14b</div>            
+          <div>&nbsp;</div>
           <div class="c"># embeddings — local semantic search</div>
           <div class="s">ollama pull mxbai-embed-large</div>   
         </div>
@@ -567,24 +571,27 @@
       <div class="step-card reveal" style="transition-delay:.24s">
         <div class="step-num">05</div>
         <div class="step-title">Launch Aperio Web UI</div>
-        <div class="code-block">
+        <div class="code-block" style="position:relative">
+          <button class="copy-btn" data-target=".s">Copy</button>
           <div class="c"># local (Ollama) -> localhost:31337</div>
           <div class="s">ollama serve</div>          
           <div class="s">npm run start:local</div>
            <div>&nbsp;</div> 
            <div class="c"># cloud (Claude) -> localhost:3000</div>
-          <div class="s">npm run start:cloud</div>
+          <div class="c"># npm run start:cloud</div>
         </div>
       </div>
        <div class="step-card reveal" style="transition-delay:.24s">
         <div class="step-num">06</div>
         <div class="step-title">Use Aperio chat in the terminal</div>
-        <div class="code-block">  
-           <div class="c"># local (Ollama)</div>
+        <div class="code-block" style="position:relative">  
+          <button class="copy-btn" data-target=".s">Copy</button>
+          <div class="c"># local (Ollama)</div>
+          <div class="c"># Feat: auto-detect if Docker is stopped - uses LanceDb as fallback</div>
           <div class="s">npm run chat:local</div>
           <div>&nbsp;</div>
            <div class="c"># cloud (Anthropic)</div>
-          <div class="s">npm run chat:cloud</div>  
+          <div class="c">npm run chat:cloud</div>  
         </div>
       </div>
     </div>
@@ -599,9 +606,9 @@
       Small tool. Big ideas. 🧐<br>
       <span class="aurora-text">No coding skills required.</span>
     </h2>
-    <p class="lead-text reveal">
+    <code class="lead-text reveal">
       The fastest path to your own private AI.<br>
-      Runs 100% on your machine. No Money. No Cloud. No gibberish.<br>
+      Runs 100% on your machine. No Money. No Cloud. No <code>register your email</code> here and there.<br>
       <strong>Download → unzip → double-click. That's it.</strong>
     </p>
 
@@ -626,76 +633,118 @@
         <span style="color:var(--accent);font-size:16px">→</span>
         <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">🖥️ Drop on Desktop</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">✓ Double-click → done</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">Double-click → (one-time) setup</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">🗑️ Delete if do not like</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">Browser opens automatically</span>
       </div>
     </div>
 
-    <!-- 3-column instruction cards -->
-    <div class="steps-grid" style="grid-template-columns:repeat(3,1fr)">
+    <!-- START: 6-column instruction cards -->
+    <div class="steps-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px">
 
-      <!-- Easy option -->
-      <div class="step-card reveal">
-        <div class="step-title">macOS</div>
-        <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
-          <div>1. Download, unzip, open in Finder</div>
-          <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → double-click it</div>
-          <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.sh</code> → right-click → <strong>Make Alias</strong></div>
-          <div>4. Rename the alias to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio</code></div>
-          <div>5.A Drag alias to <strong>Desktop folder</strong> in Finder's sidebar</div>
-          <div style="opacity:.6;font-size:12px">❗ Sidebar item — not the Desktop surface itself</div>
-          <div>5.B Canonical shortcut to <strong>Desktop</strong></div>
-          <div style="opacity:.6;font-size:12px">❗ Hold <strong>⌥ Option + ⌘ Cmd</strong> and drag START.sh directly onto the desktop → rename it there</div>
-          <div>6. Double-click → one-time setup → done</div>
-          <div style="color:var(--accent);margin-top:6px">✅ Default browser opens automatically at <code style="font-family:var(--font-mono);font-size:11px">http://localhost:31337</code></div>
-          <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+        <!-- macOS -->
+        <div class="step-card reveal">
+          <div class="step-title"><i class="bi bi-apple me-1"></i> macOS</div>
+          <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
+            <div>1. Download, unzip, open in Finder</div>
+            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → double-click it</div>
+            <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.sh</code> → right-click → <strong>Make Alias</strong></div>
+            <div>4. Rename the alias to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio</code></div>
+            <div>5.A Drag alias to <strong>Desktop folder</strong> in Finder's sidebar</div>
+            <div style="opacity:.6;font-size:12px">❗ Sidebar item — not the Desktop surface itself</div>
+            <div>5.B Hold <strong>⌥ Option + ⌘ Cmd</strong> and drag START.sh directly onto the desktop → rename it there</div>
+            <div>6. Double-click → one-time setup → done</div>
+            <div style="color:var(--accent);margin-top:6px">✅ Default browser opens automatically at<br><code style="font-family:var(--font-mono);font-size:11px">http://localhost:31337</code></div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+          </div>
         </div>
-      </div>
 
-      <!-- Future use / Windows -->
-      <div class="step-card reveal" style="transition-delay:.1s">
-        <div class="step-title">Windows</div>
-        <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
-          <div>1. Download, unzip, open in File Explorer</div>
-          <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → double-click it</div>
-          <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.bat</code> → right-click → <strong>Rename</strong></div>
-          <div>4. Rename the file to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio.bat</code></div>
-          <div>5.A Move shortcut to Desktop</div>
-          <div>5.B Canonical shortcut to <strong>Desktop</strong></div>
-          <div style="opacity:.6;font-size:12px">❗ Hold <strong>Alt</strong> and drag START.bat directly onto the desktop → rename it there</div>
-          <div>6. Double-click → one-time setup → done</div>
-          <div style="color:var(--accent);margin-top:6px">✅ Default browser opens automatically at <code style="font-family:var(--font-mono);font-size:11px">http://localhost:31337</code></div>
-          <div style="border-top:1px solid var(--border);margin:12px 0"></div> 
+        <!-- Windows -->
+        <div class="step-card reveal" style="transition-delay:.1s">
+          <div class="step-title"><i class="bi bi-windows me-1"></i> Windows</div>
+          <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
+            <div>1. Download, unzip, open in File Explorer</div>
+            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → double-click it</div>
+            <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.bat</code> → right-click → <strong>Rename</strong></div>
+            <div>4. Rename the file to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio.bat</code></div>
+            <div>5.A Move shortcut to Desktop</div>
+            <div>5.B Hold <strong>Alt</strong> and drag START.bat directly onto the desktop → rename it there</div>
+            <div>6. Double-click → one-time setup → done</div>
+            <div style="color:var(--accent);margin-top:6px">✅ Default browser opens automatically at<br> <code style="font-family:var(--font-mono);font-size:11px">http://localhost:31337</code></div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+          </div>
         </div>
-      </div>
-      <div class="step-card reveal" style="transition-delay:.2s">
-        <div class="step-title"> Feature launches &amp; Uninstall</div>
-        <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
-          <div><strong>Every run after the first run?</strong></div>          
-          <div>Just double-click</div>
-          <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">./start.sh</code></div>
-          <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-          <div><strong>Uninstall</strong></div>     
-          <div>1. Delete the Desktop alias / shortcut</div>
-          <div>2. Delete the unzipped folder</div>
-          <div style="border-top:1px solid var(--border);margin:12px 0"></div>
-          <div style="color:var(--accent);font-weight:500">That's it. Completely gone.</div>
-          <div style="opacity:.6;font-size:12px;margin-top:4px">No uninstaller. No registry entries.<br>No hidden files. No traces. Nothing.</div>
-          <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+
+        <!-- Linux -->
+        <div class="step-card reveal" style="transition-delay:.2s">
+          <div class="step-title"><i class="bi bi-ubuntu me-1"></i> Linux</div>
+          <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
+            <div>1. Download, unzip, open in your file manager</div>
+            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → open it</div>
+            <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.sh</code> → right-click → <strong>Properties → Permissions</strong></div>
+            <div>4. Enable <strong>Allow executing file as program</strong> → close</div>
+            <div>5. Right-click <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.sh</code> → <strong>Copy to Desktop</strong> → rename to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio</code></div>
+            <div style="opacity:.6;font-size:12px">❗ Menu labels vary by distro (Nautilus, Dolphin, etc.)</div>
+            <div>6. Double-click → one-time setup → done</div>
+            <div style="color:var(--accent);margin-top:6px">✅ Default browser opens automatically at<br> <code style="font-family:var(--font-mono);font-size:11px">http://localhost:31337</code></div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+          </div>
+        </div>   
+
+        <!-- No tech skills required -->
+        <div class="step-card reveal" style="transition-delay:.3s">
+          <div class="step-title">No tech skills required</div>
+          <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
+            <div><strong>Nothing to configure.</strong></div>
+            <div>No databases to set up. No config files to edit. No environment variables. No package managers.</div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+            <div><strong>Just download and double-click.</strong></div>
+            <div>First run installs everything automatically in the background. You'll see a terminal window — that's normal. It closes when ready.</div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+            <div><strong>Every run after that?</strong></div>
+            <div>Double-click the desktop shortcut. That's it.</div>
+            <div style="color:var(--accent);margin-top:6px">✅ If you can open a browser, you can run Aperio.</div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+          </div>
         </div>
-      </div>
+
+        <!-- Feature launches / subsequent runs -->
+        <div class="step-card reveal" style="transition-delay:.3s">
+          <div class="step-title">Feature launches &amp; subsequent runs</div>
+          <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
+            <div><strong>Every run after the first run?</strong></div>
+            <div>Just double-click</div>
+            <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">./start.sh</code></div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+            <div><strong>Updates</strong></div>
+            <div>Download the latest release, unzip alongside the old folder, run once. Your data stays untouched.</div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+            <div><strong>Port already in use?</strong></div>
+            <div>Another app is on <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">31337</code>.<br>Quit it or set <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">PORT=</code> in <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">.env</code></div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+          </div>
+        </div>
+
+        <!-- Uninstall -->
+        <div class="step-card reveal" style="transition-delay:.5s">
+          <div class="step-title"><i class="bi bi-trash me-1"></i> Uninstall</div>
+          <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
+            <div>1. Delete the Desktop alias / shortcut</div>
+            <div>2. Delete the unzipped folder</div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+            <div style="color:var(--accent);font-weight:500">That's it. Completely gone.</div>
+            <div style="opacity:.6;font-size:12px;margin-top:4px">No uninstaller. No registry entries.<br>No hidden files. No traces. Nothing.</div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+          </div>
+        </div>
     </div>
+  
     <!-- Tagline foot -->
-    <p class="lead-text reveal" style="margin-top:48px;font-size:15px;opacity:.7">
-      No Tech skill. No databases. No config files.<br>
-      Just AI that remembers — running quietly on your own machine.
-    </p>
-    <div class="cta-group reveal" style="margin-top:24px">
-      <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip" target="_blank" class="btn-primary-aurora">
+    <div class="reveal" style="margin-top:48px;display:flex;justify-content:center;gap:48px">
+      <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip" target="_blank" class="btn-primary-aurora" style="width:fit-content">
         <i class="bi bi-download"></i> Download Aperio-lite
       </a>
-      <a href="#setup" class="btn-outline-aurora">
+      <a href="#setup" class="btn-outline-aurora" style="width:fit-content">
         <i class="bi bi-terminal"></i> I prefer the terminal
       </a>
     </div>
