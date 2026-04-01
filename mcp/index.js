@@ -40,9 +40,25 @@ function isPathAllowed(filePath) {
 let vectorEnabled = true;
 const { total, embedded: embCount } = await store.counts();
 
-if (embCount === 0) {
-  console.error(`✅ Vector store ready — ⚠️  no embeddings yet (${total} memories) — using full-text search.`);
-  console.error(`✅ Call 'backfill my embeddings' to generate embeddings for existing memories.`);
+if (embCount === 0 && total > 0) {
+  console.error(`✅ Vector store ready — ⚠️  no embeddings yet (${total} memories) — auto-backfilling silently…`);
+  // Fire-and-forget: runs after server is up, never blocks startup
+  setImmediate(async () => {
+    try {
+      const pending = await store.listWithoutEmbeddings();
+      let success = 0, failed = 0;
+      for (const row of pending) {
+        const embedding = await generateEmbedding(`${row.title}. ${row.content}`);
+        if (embedding) { await store.setEmbedding(row.id, embedding); success++; }
+        else failed++;
+      }
+      console.error(`✅ Auto-backfill complete: ${success} embedded${failed ? `, ${failed} failed` : ""}.`);
+    } catch (err) {
+      console.error(`⚠️  Auto-backfill error: ${err.message}`);
+    }
+  });
+} else if (embCount === 0 && total === 0) {
+  console.error(`✅ Vector store ready — no memories yet, embeddings will be generated automatically.`);
 } else {
   console.error(`✅ Vector store ready — semantic search active (${embCount}/${total} memories embedded)`);
 }
