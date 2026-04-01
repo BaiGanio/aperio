@@ -68,13 +68,10 @@ Postgres + pgvector + MCP. Your context, always available.
 │   └── system_prompt.md          # Instructions for AI agents (edit this!)
 ├── 📂 public/
 │   └── index.html                # Web UI — themes, streaming, sidebar
-├── skills/
-│   ├── 📂 reasoning-planning/
-│   ├── 📂 tool-integration/
-│   └── 📂 memory-learning/
+├── 📂 skills/                    # Memory, reasoning, tools, etc.
 ├── .env.example                  # Pre-set quick configuration
 ├── package-lock.json
-├── package.json
+├── package.json                  # Dependencies
 └── server.js                     # Express + WebSocket + agent loop
 ```
 
