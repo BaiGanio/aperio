@@ -1,8 +1,9 @@
 import { loadSkillIndex, matchSkill } from '../lib/skills.js';
-import { resolve } from 'path';
 import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
-const __dirname = fileURLToPath(new URL('.', import.meta.url)).slice(0, -6); // Go up one level
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 const rootDir = resolve(__dirname, '..');
 
 /**
@@ -208,10 +209,28 @@ function runAllTests() {
   return passCount === results.length;
 }
 
+/**
+ * Test: Load a single skill by name
+ */
+function testLoadSingleSkill(skillName) {
+  console.log(`\n🔍 Testing: Load Single Skill "${skillName}"\n`);
+  const skillsDir = resolve(rootDir, 'skills');
+  const index = loadSkillIndex(skillsDir);
+  const skill = index.find(s => s.name === skillName);
+
+  if (skill) {
+    console.log(`✅ Found: ${skill.name}`);
+    return true;
+  } else {
+    console.log(`❌ Skill not found: ${skillName}`);
+    return false;
+  }
+}
+
 // Run tests if executed directly
 if (import.meta.url === `file://${process.argv[1]}`) {
   const allPassed = runAllTests();
   process.exit(allPassed ? 0 : 1);
 }
 
-export { testLoadSkills, testMatchSkill, testSkillStructure, testSkillContent, runAllTests };
+export { testLoadSkills, testMatchSkill, testSkillStructure, testSkillContent, runAllTests, testLoadSingleSkill};
