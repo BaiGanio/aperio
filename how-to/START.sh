@@ -10,120 +10,11 @@ done
 DIR=$( cd -P "$( dirname "$SOURCE" )" >/dev/null 2>&1 && pwd )
 
 cd "$DIR"
+echo "📍 Working in: $(pwd)"
 
-# ============================================================
-# DRY RUN MODE
-# Set DRY_RUN=true  → simulate the full flow, nothing installed.
-# Set DRY_RUN=false → normal run, exactly as any user would see.
-# ============================================================
-DRY_RUN=false
-
-# ============================================================
-# INSTALLATION TRACKER
-# Every component installed is recorded in .aperio_installed.log
-# so that uninstall.sh can remove exactly what landed here.
-#
-# Models use the key OLLAMA_MODELS (plural) and are kept as a
-# space-separated list so pulling a second or third model just
-# appends to the existing list rather than overwriting it.
-# ============================================================
-INSTALL_LOG="$DIR/.aperio_installed.log"
-
-track_install() {
-    # Usage: track_install KEY VALUE
-    # OLLAMA_MODELS → additive (appends if not already present)
-    # all other keys → replace (last-write wins)
-    local key="$1"
-    local val="$2"
-
-    [ "$DRY_RUN" = true ] && return
-
-    if [ "$key" = "OLLAMA_MODELS" ]; then
-        local existing=""
-        if [ -f "$INSTALL_LOG" ]; then
-            existing=$(grep "^OLLAMA_MODELS=" "$INSTALL_LOG" 2>/dev/null | cut -d= -f2- || true)
-        fi
-        # Skip if already tracked
-        echo "$existing" | grep -qF "$val" && return
-        local updated
-        [ -z "$existing" ] && updated="$val" || updated="$existing $val"
-        if [ -f "$INSTALL_LOG" ]; then
-            grep -v "^OLLAMA_MODELS=" "$INSTALL_LOG" > "${INSTALL_LOG}.tmp" \
-                && mv "${INSTALL_LOG}.tmp" "$INSTALL_LOG" 2>/dev/null || true
-        fi
-        echo "OLLAMA_MODELS=${updated}" >> "$INSTALL_LOG"
-    else
-        if [ -f "$INSTALL_LOG" ]; then
-            grep -v "^${key}=" "$INSTALL_LOG" > "${INSTALL_LOG}.tmp" \
-                && mv "${INSTALL_LOG}.tmp" "$INSTALL_LOG" 2>/dev/null || true
-        fi
-        echo "${key}=${val}" >> "$INSTALL_LOG"
-    fi
-}
-
-# ============================================================
-# COLOUR / STYLE HELPERS
-#
-# Using $'...' literals so escape characters are baked in at
-# assignment time.  This avoids the "i: command not found" crash
-# that happened on macOS bash 3.2 when \033 strings were passed
-# through echo -e and then re-evaluated by set -e.
-# ============================================================
-if [ -t 1 ] && [ "${TERM:-dumb}" != "dumb" ]; then
-    printf '\e[8;40;100t' 2>/dev/null || true   # widen terminal to ~100 cols
-
-    R=$'\033[0m'      # reset
-    B=$'\033[1m'      # bold
-    D=$'\033[2m'      # dim
-
-    CY=$'\033[96m'    # cyan
-    GR=$'\033[92m'    # green
-    YL=$'\033[93m'    # yellow
-    RD=$'\033[91m'    # red
-    MG=$'\033[95m'    # magenta
-    WH=$'\033[97m'    # white
-    BL=$'\033[94m'    # blue
-else
-    R=''; B=''; D=''
-    CY=''; GR=''; YL=''; RD=''; MG=''; WH=''; BL=''
-fi
-
-ok()   { printf "  ${GR}${B}✔${R}  %s\n"          "$*"; }
-warn() { printf "  ${YL}${B}⚠${R}  %s\n"          "$*"; }
-info() { printf "  ${CY}●${R}  %s\n"               "$*"; }
-die()  { printf "  ${RD}${B}✖  %s${R}\n"           "$*"; }
-dry()  { printf "  ${MG}${B}[DRY-RUN]${R}  ${D}%s${R}\n" "$*"; }
-
-section() {
-    printf "\n  ${B}${BL}┌─────────────────────────────────────────────────┐${R}\n"
-    printf   "  ${B}${BL}│  ${WH}${B}  %-47s${R}${B}${BL}│${R}\n" "$1"
-    printf   "  ${B}${BL}└─────────────────────────────────────────────────┘${R}\n\n"
-}
-
-# run "description" "shell command"
-# In DRY_RUN mode prints what it would do; otherwise executes.
-run() {
-    local desc="$1"; shift
-    if [ "$DRY_RUN" = true ]; then
-        dry "$desc  →  $*"
-    else
-        eval "$@"
-    fi
-}
-
-print_banner() {
-    printf "\n"
-    printf "  ${B}${CY}┌──────────────────────────────────────┐${R}\n"
-    printf "  ${B}${CY}│                                      │${R}\n"
-    printf "  ${B}${CY}│   ${WH}${B}Aperio-lite${R}  ${D}· local AI setup${R}    ${B}${CY}│${R}\n"
-    printf "  ${B}${CY}│                                      │${R}\n"
-    printf "  ${B}${CY}└──────────────────────────────────────┘${R}\n"
-    printf "\n"
-}
-
-# Exit on error; print line number
+# Exit on error and print the line number
 set -e
-trap 'die "Error on line $LINENO — press any key to exit..."; read -rn 1' ERR
+trap 'echo "❌ Error on line $LINENO. Press any key to exit..."; read -n 1' ERR
 
 # --- CONFIGURATION ---
 MIN_NODE_VERSION=18
@@ -131,6 +22,9 @@ OLLAMA_MODEL=""
 EMBED_MODEL="mxbai-embed-large"
 PORT=31337
 
+# --- CROSS-PLATFORM sed -i WRAPPER ---
+# macOS (BSD sed) requires an explicit empty-string backup arg: sed -i ''
+# Linux (GNU sed) takes no argument:                             sed -i
 sedi() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
         sed -i '' "$@"
@@ -139,189 +33,166 @@ sedi() {
     fi
 }
 
-# ============================================================
-# PRE-INSTALL MANIFEST  (first-time runs only)
-# ============================================================
-print_pre_install_manifest() {
-    print_banner
-
-    if [ "$DRY_RUN" = true ]; then
-        printf "  ${MG}${B}╔══════════════════════════════════════════════╗${R}\n"
-        printf "  ${MG}${B}║       🧪  DRY-RUN MODE IS ACTIVE            ║${R}\n"
-        printf "  ${MG}${B}║  Nothing will be installed or downloaded.   ║${R}\n"
-        printf "  ${MG}${B}║  Set  DRY_RUN=false  to run for real.       ║${R}\n"
-        printf "  ${MG}${B}╚══════════════════════════════════════════════╝${R}\n\n"
-    fi
-
-    section "WHAT THIS INSTALLER WILL SET UP"
-
-    printf "  ${WH}${B}Everything that may land on your Mac — nothing hidden, nothing extra.${R}\n\n"
-
-    printf "  ${B}${CY}  %-22s  %-42s  %s${R}\n" "COMPONENT" "WHERE ON YOUR MAC" "SIZE"
-    printf "  ${D}  %s${R}\n" "───────────────────────────────────────────────────────────────────────────────"
-    printf "  ${GR}${B}  %-22s${R}  %-42s  %s\n" "Node.js + npm"     "via Homebrew  (if not present)"              "~80 MB"
-    printf "  ${GR}${B}  %-22s${R}  %-42s  %s\n" "Ollama"            "/usr/local/bin/ollama  (if not present)"     "~50 MB"
-    printf "  ${GR}${B}  %-22s${R}  %-42s  %s\n" "AI language model" "~/.ollama/models/"                          "3–20 GB"
-    printf "  ${GR}${B}  %-22s${R}  %-42s  %s\n" "Embedding model"   "~/.ollama/models/  ($EMBED_MODEL)"          "~670 MB"
-    printf "  ${GR}${B}  %-22s${R}  %-42s  %s\n" "npm packages"      "./node_modules/"                            "~50 MB"
-    printf "  ${GR}${B}  %-22s${R}  %-42s  %s\n" "Install log"       "./.aperio_installed.log"                    "< 1 KB"
-    printf "  ${D}  %s${R}\n" "───────────────────────────────────────────────────────────────────────────────"
-    printf "\n  ${YL}${B}  Total (estimate):${R}  4–21 GB depending on the AI model you choose.\n"
-    printf "\n  ${WH}  To remove Aperio-lite completely later, just run:${R}\n"
-    printf   "  ${CY}${B}      ./uninstall.sh${R}\n"
-    printf   "  ${D}  It reads the install log and removes only what this script placed here.${R}\n\n"
-}
-
-if [ -z "$OLLAMA_MODEL" ]; then
-    print_pre_install_manifest
-    printf "  ${WH}${B}Ready to continue?${R}\n"
-    read -rp "  Press [Enter] to start setup, or Ctrl-C to cancel... " _DUMMY
-    printf "\n"
-fi
-
 # --- PORT AVAILABILITY CHECK ---
 if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null 2>/dev/null; then
-    printf "\n  ${YL}${B}⚠  PORT CONFLICT DETECTED${R}\n"
-    printf "  Port ${B}%s${R} is already in use — the server may already be running.\n\n" "$PORT"
-    read -rp "  Kill existing process and restart? (y/n): " -n 1 REPLY
-    printf "\n"
+    echo "------------------------------------------"
+    echo "⚠️  PORT CONFLICT DETECTED"
+    echo "------------------------------------------"
+    echo "The port $PORT is already in use by another process."
+    echo "This usually means the server is already running."
+    echo "------------------------------------------"
+    read -p "Port $PORT is busy. Kill existing process and restart? (y/n): " -n 1 -r
+    echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        run "Kill process on port $PORT" "lsof -ti :$PORT | xargs kill -9"
+        lsof -ti :$PORT | xargs kill -9
         sleep 1
-        ok "Port cleared."
+        echo "✅ Port cleared."
     else
         exit 1
     fi
 fi
 
 # ============================================================
-# FAST PATH — already configured from a previous run
+# FAST PATH: OLLAMA_MODEL is already set (script patched itself
+# on first run) AND the model is present locally.
+# Ask the user if they want to keep it or reconfigure.
+# grep -F treats the string literally (safe with colons/dots).
 # ============================================================
 if [ -n "$OLLAMA_MODEL" ] && ollama list 2>/dev/null | grep -qF "$OLLAMA_MODEL"; then
-    print_banner
-    printf "  ${GR}${B}✨  Existing configuration found${R}\n\n"
-    info "Model : ${B}$OLLAMA_MODEL${R}"
-    info "Port  : ${B}$PORT${R}"
-    printf "\n"
-    read -rp "  ▶  Launch with this model? (y = start now / n = reconfigure): " -n 1 REPLY
-    printf "\n"
+    echo "------------------------------------------"
+    echo "✨ EXISTING CONFIGURATION FOUND"
+    echo "------------------------------------------"
+    echo "   Model:  $OLLAMA_MODEL"
+    echo "   Port:   $PORT"
+    echo "------------------------------------------"
+    read -p "▶  Launch with this model? (y = start now / n = reconfigure): " -n 1 -r
+    echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         if [ ! -d "node_modules" ]; then
-            warn "Missing dependencies — installing..."
-            run "npm install" "npm install"
+            echo "📦 Missing dependencies. Installing..."
+            npm install
         fi
+        echo "⏩ Launching server..."
+
         PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
         cd "$PROJECT_ROOT"
-        section "STARTING  ·  $OLLAMA_MODEL  ·  port $PORT"
-        run "Start server" "OLLAMA_MODEL=$OLLAMA_MODEL npm run start:lite &"
-        info "Waiting for server to start..."
+        echo "------------------------------------------"
+        echo "🚀 Starting server with model: $OLLAMA_MODEL"
+        echo "------------------------------------------"
+        OLLAMA_MODEL=$OLLAMA_MODEL npm run start:lite &
+
+        echo "Waiting for server to start..."
         sleep 3
-        if [ "$DRY_RUN" = false ]; then
-            if [[ "$OSTYPE" == "darwin"* ]]; then
-                open "http://localhost:$PORT"
-            elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-                xdg-open "http://localhost:$PORT" 2>/dev/null || true
-            fi
+
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            open "http://localhost:$PORT"
+        elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            xdg-open "http://localhost:$PORT" 2>/dev/null || true
         fi
-        printf "\n"
-        ok "App is running at  ${CY}http://localhost:$PORT${R}"
-        printf "\n  ${D}For EXIT — press [Enter] TWICE\n  Once to shut down, twice to close this window.${R}\n\n"
-        read -r
-        read -rn 1
+
+        echo "------------------------------------------"
+        echo "✅ App is running at http://localhost:$PORT"
+        echo "------------------------------------------"
+        echo "📡 Server is active."
+        echo "For EXIT - press [Enter] TWICE!"
+        echo "Once to shut down the server."
+        echo "Twice to close this window."
+        echo "------------------------------------------"
+        read
+        read -n 1 -s
         exit 0
     else
-        warn "Entering reconfiguration mode..."
+        # User wants to reconfigure — reset the saved model and fall through
+        # to full setup so they can pick a different one.
+        echo "⚙️  Entering reconfiguration mode..."
         SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-        run "Reset OLLAMA_MODEL in script" \
-            "sedi 's|^OLLAMA_MODEL=\"[^\"]*\"|OLLAMA_MODEL=\"\"|' \"$SCRIPT_PATH\""
+        sedi "s|^OLLAMA_MODEL=\"[^\"]*\"|OLLAMA_MODEL=\"\"|" "$SCRIPT_PATH"
         OLLAMA_MODEL=""
-        ok "Configuration reset — continuing to setup..."
-        printf "\n"
+        echo "✅ Configuration reset. Continuing to setup..."
+        echo
     fi
 fi
 
 # ============================================================
-# FIRST-TIME SETUP
+# FIRST-TIME SETUP — runs only when OLLAMA_MODEL is empty
 # ============================================================
-section "ENVIRONMENT CHECK"
 
+echo "🔍 Starting Aperio-lite environment check..."
+
+# Check if we are running in a Windows-like environment (Git Bash / MSYS)
 if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]]; then
-    die "Windows detected! Please run './START.ps1' in PowerShell instead."
+    echo "🪟 Windows detected! Please run './START.ps1' in PowerShell for the best experience."
     exit 1
 fi
 
+# Function to install Node.js & NPM
 install_node() {
+    echo "📦 Installing Node.js and NPM..."
     if [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        run "Install Node.js (Linux)" \
-            "curl -fsSL https://deb.nodesource.com | sudo -E bash - && sudo apt-get install -y nodejs"
+        curl -fsSL https://deb.nodesource.com | sudo -E bash -
+        sudo apt-get install -y nodejs
     elif [[ "$OSTYPE" == "darwin"* ]]; then
         if ! command -v brew &> /dev/null; then
-            run "Install Homebrew" \
-                '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"'
-            track_install HOMEBREW true
+            /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
         fi
-        run "Install Node.js (macOS)" "brew install node@$MIN_NODE_VERSION"
-        track_install NODEJS "node@${MIN_NODE_VERSION}_brew"
+        brew install node@$MIN_NODE_VERSION
     fi
 }
 
-# 1. Node.js
+# 1. Check/Install Node.js & NPM
 if ! command -v node &> /dev/null; then
-    warn "Node.js is not installed."
-    read -rp "  Install Node.js $MIN_NODE_VERSION and NPM now? (y/n) " -n 1 REPLY
-    printf "\n"
+    echo "⚠️  Node.js is missing."
+    read -p "Would you like to install Node.js $MIN_NODE_VERSION and NPM now? (y/n) " -n 1 -r
+    echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         install_node
     else
-        die "Exiting: Node.js is required." && exit 1
+        echo "Exiting: Node.js is required." && exit 1
     fi
-else
-    ok "Node.js found: $(node -v)"
 fi
 
-# 2. Ollama
+# 2. Check/Install Ollama
 if ! command -v ollama &> /dev/null; then
-    warn "Ollama is not installed."
-    read -rp "  Install Ollama now? (y/n) " -n 1 REPLY
-    printf "\n"
+    echo "⚠️  Ollama is missing."
+    read -p "Would you like to install Ollama now? (y/n) " -n 1 -r
+    echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        run "Install Ollama" "curl -fsSL https://ollama.com/install.sh | sh"
-        track_install OLLAMA true
+        curl -fsSL https://ollama.com/install.sh | sh
     else
-        die "Exiting: Ollama is required for AI features." && exit 1
+        echo "Exiting: Ollama is required for the LLM features." && exit 1
     fi
-else
-    ok "Ollama found: $(ollama --version 2>/dev/null || printf 'installed')"
 fi
 
-# 3. Ollama server
+# 3. Check if the Ollama server is actually responding
 if ! curl -s http://localhost:11434/api/tags > /dev/null; then
-    info "Ollama server not responding — starting it..."
+    echo "🚀 Ollama server not responding. Starting it..."
+
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        run "Start ollama serve" "ollama serve > /dev/null 2>&1 &"
+        ollama serve > /dev/null 2>&1 &
     else
-        run "Start ollama serve" "nohup ollama serve > /dev/null 2>&1 &"
+        nohup ollama serve > /dev/null 2>&1 &
     fi
-    info "Waiting for Ollama on port 11434..."
-    MAX_RETRIES=10; COUNT=0
+
+    echo "⏳ Waiting for Ollama to respond on port 11434..."
+    MAX_RETRIES=10
+    COUNT=0
     while ! curl -s http://localhost:11434/api/tags > /dev/null; do
         sleep 2
         COUNT=$((COUNT + 1))
-        if [ "$COUNT" -ge "$MAX_RETRIES" ]; then
-            die "Ollama failed to start after 20 seconds."
+        if [ $COUNT -ge $MAX_RETRIES ]; then
+            echo "❌ Error: Ollama failed to start after 20 seconds."
             exit 1
         fi
     done
-    ok "Ollama is awake!"
-else
-    ok "Ollama server is already running."
+    echo "✅ Ollama is awake!"
 fi
 
-# ============================================================
-# HARDWARE ANALYSIS & MODEL SELECTION
-# ============================================================
-section "HARDWARE ANALYSIS"
-
+# --- DYNAMIC MODEL SELECTION ---
+# All model names verified against ollama.com/library (March 2026)
+#
+# Strategy: recommend ONE TIER BELOW the system's maximum capacity.
+# This keeps the system responsive and avoids hogging all RAM.
+# Users can always manually pick a higher tier if they want.
 if [[ "$OSTYPE" == "darwin"* ]]; then
     RAM_GB=$(($(sysctl -n hw.memsize) / 1024 / 1024 / 1024))
 else
@@ -329,28 +200,38 @@ else
 fi
 
 if [ "$RAM_GB" -le 4 ]; then
+    # Only one option at this RAM level — no room to go lower
     OLLAMA_MODEL="qwen2.5:3b"
-    info "${RAM_GB}GB RAM — using lightest model: ${B}Qwen 2.5 (3B)${R}"
+    echo "💡 Low RAM detected (${RAM_GB}GB). Using the lightest model: Qwen 2.5 (3B)."
 elif [ "$RAM_GB" -le 8 ]; then
+    # Can handle 8B, recommend 3B (one tier down) to keep system responsive
     OLLAMA_MODEL="qwen2.5:3b"
-    info "${RAM_GB}GB RAM — recommending ${B}Qwen 2.5 (3B)${R} to keep your system comfortable."
+    echo "⚖️  ${RAM_GB}GB RAM — recommending Qwen 2.5 (3B) to keep your system comfortable."
+    echo "   (Your system could handle an 8B model, but lighter = snappier experience.)"
 elif [ "$RAM_GB" -ge 32 ]; then
+    # Can handle 32B, recommend 14B (one tier down)
     OLLAMA_MODEL="qwen3:14b"
-    info "${RAM_GB}GB RAM — recommending ${B}Qwen3 (14B)${R} for a smooth experience."
+    echo "🧠 ${RAM_GB}GB RAM — recommending Qwen3 (14B) for a smooth experience."
+    echo "   (Your system could handle DeepSeek-R1 32B, but 14B leaves headroom for other apps.)"
 elif [ "$RAM_GB" -ge 16 ]; then
+    # Can handle 14B, recommend 8B (one tier down)
     OLLAMA_MODEL="qwen3:8b"
-    info "${RAM_GB}GB RAM — recommending ${B}Qwen3 (8B)${R} for a balanced experience."
+    echo "🧠 ${RAM_GB}GB RAM — recommending Qwen3 (8B) for a balanced experience."
+    echo "   (Your system could handle a 14B model, but 8B is faster and leaves RAM free.)"
 else
+    # 9–15GB: can handle qwen3:8b, recommend llama3.1:8b as the lighter 8B variant
     OLLAMA_MODEL="llama3.1:8b"
-    info "${RAM_GB}GB RAM — recommending ${B}Llama 3.1 (8B)${R} for a stable experience."
+    echo "🧠 ${RAM_GB}GB RAM — recommending Llama 3.1 (8B) for a stable experience."
+    echo "   (A good balance between capability and system breathing room.)"
 fi
 
+# --- DISK SPACE CHECK ---
 case $OLLAMA_MODEL in
-    *"32b"*) REQ_GB=20 ;;
-    *"14b"*) REQ_GB=10 ;;
-    *"8b"*)  REQ_GB=6  ;;
-    *"3b"*)  REQ_GB=3  ;;
-    *)       REQ_GB=6  ;;
+    *"32b"*)   REQ_GB=20 ;;
+    *"14b"*)   REQ_GB=10 ;;
+    *"8b"*)    REQ_GB=6  ;;
+    *"3b"*)    REQ_GB=3  ;;
+    *)         REQ_GB=6  ;;
 esac
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -360,107 +241,152 @@ else
 fi
 
 if [ "$FREE_GB" -lt "$REQ_GB" ]; then
-    die "Not enough disk space — need ${REQ_GB}GB free, you have ${FREE_GB}GB."
-    die "Free up space and try again."
-    read -rp "  Press any key to exit..." -n 1
+    echo "❌ ERROR: Not enough disk space! You need at least ${REQ_GB}GB free."
+    echo "Please clean up your drive and try again."
+    read -p "Press any key to exit..." -n 1 -s
     exit 1
 fi
 
-printf "\n"
-printf "  ${B}${CY}  %-20s  %s${R}\n" "ITEM" "VALUE"
-printf "  ${D}  %s${R}\n" "────────────────────────────────────────────"
-printf "  ${CY}  %-20s${R}  %s\n"  "OS"          "$OSTYPE"
-printf "  ${CY}  %-20s${R}  %s\n"  "Total RAM"   "${RAM_GB} GB"
-printf "  ${CY}  %-20s${R}  %s\n"  "Free Disk"   "${FREE_GB} GB"
-printf "  ${CY}  %-20s${R}  ${GR}${B}%s${R}  ${D}← one tier below max${R}\n" "Recommended AI" "$OLLAMA_MODEL"
-printf "  ${CY}  %-20s${R}  %s\n"  "Embeddings"  "$EMBED_MODEL"
-printf "  ${CY}  %-20s${R}  %s\n"  "Port"        "$PORT"
-printf "  ${D}  %s${R}\n\n" "────────────────────────────────────────────"
+# --- HARDWARE SUMMARY & USER CONFIRMATION ---
+echo "------------------------------------------"
+echo "🖥️  HARDWARE ANALYSIS"
+echo "------------------------------------------"
+echo "👽 OS Detected:   $OSTYPE"
+echo "📊 Total RAM:     ${RAM_GB} GB"
+echo "💾 Free Disk:     ${FREE_GB} GB"
+echo "✅ Recommended:   $OLLAMA_MODEL  ← one tier below max, for comfort"
+echo "🤖 Embeddings:    $EMBED_MODEL"
+echo "✨ Port:          $PORT"
+echo "------------------------------------------"
 
-ok "Auto-selected model: ${B}$OLLAMA_MODEL${R}"
-printf "\n"
-
-read -rp "  🤔  Proceed with install? (y/n): " -n 1 REPLY
-printf "\n"
+read -p "👉 Use the recommended model above? (y/n): " -n 1 -r
+echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    die "Installation cancelled."
+    echo "⚙️  Entering Manual Selection..."
+    echo "Choose a model size that fits your needs:"
+    echo "1) Lite      (3B  - qwen2.5:3b)      [Needs ~4GB RAM,  ~2GB disk]"
+    echo "2) Medium    (8B  - llama3.1:8b)      [Needs ~8GB RAM,  ~5GB disk]"
+    echo "3) Smart     (8B  - qwen3:8b)         [Needs ~10GB RAM, ~5GB disk]"
+    echo "4) Reasoning (14B - qwen3:14b)        [Needs ~16GB RAM, ~9GB disk]"
+    echo "5) Pro       (32B - deepseek-r1:32b)  [Needs ~32GB RAM, ~19GB disk]"
+    echo "6) Quit"
+
+    while true; do
+        read -p "Select a number [1-6]: " choice
+        case $choice in
+            1) OLLAMA_MODEL="qwen2.5:3b";       REQ_RAM=4;  break ;;
+            2) OLLAMA_MODEL="llama3.1:8b";      REQ_RAM=8;  break ;;
+            3) OLLAMA_MODEL="qwen3:8b";         REQ_RAM=10; break ;;
+            4) OLLAMA_MODEL="qwen3:14b";        REQ_RAM=16; break ;;
+            5) OLLAMA_MODEL="deepseek-r1:32b";  REQ_RAM=32; break ;;
+            6) echo "❌ Exiting..."; exit 1 ;;
+            *) echo "Invalid selection. Please choose 1-6."; continue ;;
+        esac
+    done
+
+    # --- THE SAFETY WARNING ---
+    if [ "$RAM_GB" -lt "$REQ_RAM" ]; then
+        echo "⚠️  WARNING: Your system has ${RAM_GB}GB RAM, but $OLLAMA_MODEL needs at least ${REQ_RAM}GB."
+        echo "It will run EXTREMELY slowly (approx. 1 word per minute)."
+        read -p "🤔 Are you SURE you want to force this model? (y/n): " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "Restarting selection..."
+            exec "$0"
+        fi
+    fi
+fi
+
+echo "🚀 Selected Model: $OLLAMA_MODEL. Starting setup..."
+
+read -p "🤔 Based on your RAM, this is the best setup you can get. Proceed with install? (y/n): " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo "❌ Installation cancelled by user. exiting..."
     exit 1
 fi
 
-set +e  # From here on, don't exit on error — we want to always reach the final pause
+echo "------------------------------------------"
+echo "🧠 PREPARING AI MODEL"
+echo "------------------------------------------"
+echo "🤖 Model: $OLLAMA_MODEL"
+echo "📦 Task:  Downloading AI model..."
+echo "🚀 Starting setup..."
 
-# ── Pull AI model ─────────────────────────────────────────────────────────────
-section "DOWNLOADING AI MODEL  —  $OLLAMA_MODEL"
+ollama pull "$OLLAMA_MODEL"
 
-run "Pull $OLLAMA_MODEL" "ollama pull '$OLLAMA_MODEL'"
-if [ "$DRY_RUN" = false ]; then
-    ok "AI model ready!"
+if [ $? -eq 0 ]; then
+    echo "✅ AI model is ready!"
+else
+    echo "❌ Error: Could not download $OLLAMA_MODEL. Check your internet connection."
+    exit 1
 fi
-track_install OLLAMA_MODELS "$OLLAMA_MODEL"
 
-# ── Pull embedding model ──────────────────────────────────────────────────────
-section "DOWNLOADING EMBEDDING MODEL  —  $EMBED_MODEL"
+echo "------------------------------------------"
+echo "🧠 PREPARING VECTOR ENGINE"
+echo "------------------------------------------"
+echo "🤖 Model: $EMBED_MODEL"
+echo "📦 Task:  Downloading embeddings for LanceDB..."
 
-run "Pull $EMBED_MODEL" "ollama pull '$EMBED_MODEL'"
-if [ "$DRY_RUN" = false ]; then
-    ok "Embeddings ready!"
+ollama pull "$EMBED_MODEL"
+
+if [ $? -eq 0 ]; then
+    echo "✅ Embeddings ready!"
+else
+    echo "❌ Error: Could not download $EMBED_MODEL. Check your internet connection."
+    exit 1
 fi
-track_install OLLAMA_MODELS "$EMBED_MODEL"
 
-# ── npm dependencies ──────────────────────────────────────────────────────────
-section "INSTALLING APP DEPENDENCIES"
-
-run "npm install core packages" "npm install @lancedb/lancedb uuid ollama"
-track_install NPM_PACKAGES "@lancedb/lancedb uuid ollama"
+echo "------------------------------------------"
+echo "📦 UPDATING SPECIFIC DEPENDENCIES"
+echo "------------------------------------------"
+npm install @lancedb/lancedb uuid ollama
 
 if [ ! -d "node_modules" ]; then
-    run "npm install (full)" "npm install --production"
+    echo "📦 Installing app dependencies (LanceDB, Vector utils)..."
+    npm install --production
 fi
 
-if [ "$DRY_RUN" = false ]; then
-    ok "Dependencies installed."
-fi
+# ============================================================
+# SELF-PATCH: Write the chosen model back into this script so
+# the next run hits the fast path with no prompts.
+#
+# Targets exactly the line:  OLLAMA_MODEL=""
+# Replaces it with:          OLLAMA_MODEL="<chosen-model>"
+#
+# Uses the sedi() wrapper so it works on both macOS and Linux.
+# ============================================================
+SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
+sedi "s|^OLLAMA_MODEL=\"\"|OLLAMA_MODEL=\"$OLLAMA_MODEL\"|" "$SCRIPT_PATH"
+echo "✅ Script updated — future runs will skip setup automatically."
 
-# ── Self-patch ────────────────────────────────────────────────────────────────
-if [ "$DRY_RUN" = false ]; then
-    SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-    sedi "s|^OLLAMA_MODEL=\"\"|OLLAMA_MODEL=\"$OLLAMA_MODEL\"|" "$SCRIPT_PATH"
-    ok "Script updated — future runs skip setup automatically."
-else
-    dry "Would self-patch OLLAMA_MODEL=\"$OLLAMA_MODEL\" into this script."
-fi
-
-# ── Final launch ──────────────────────────────────────────────────────────────
+# 5. Final Launch
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$PROJECT_ROOT"
+echo "------------------------------------------"
+echo "📍 Working in: ${PROJECT_ROOT}"
+echo "🚀 Environment ready! Starting server..."
+echo "------------------------------------------"
+OLLAMA_MODEL=$OLLAMA_MODEL npm run start:lite &
+SERVER_PID=$!
 
-section "LAUNCHING  ·  $OLLAMA_MODEL  ·  port $PORT"
+echo "Waiting for server to start..."
+sleep 3
 
-run "Start server" "OLLAMA_MODEL=$OLLAMA_MODEL npm run start:lite &"
-info "Waiting for server to start..."
-
-if [ "$DRY_RUN" = false ]; then
-    sleep 3
-
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        open "http://localhost:$PORT"
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        xdg-open "http://localhost:$PORT" 2>/dev/null || true
-    fi
-
-    printf "\n"
-    ok "App is running at  ${CY}${B}http://localhost:$PORT${R}"
-    printf "\n  ${D}For EXIT — press [Enter] TWICE\n  Once to shut down, twice to close this window.${R}\n\n"
-    read -r
-    read -rn 1
-else
-    printf "\n"
-    dry "Server would start at  http://localhost:$PORT"
-    dry "Browser would open automatically."
-    printf "\n"
-    ok "Dry-run complete — nothing was changed on your system."
-    printf "\n"
-    printf "  Press [Enter] to close..."
-    read -r _DUMMY
-    printf "\n"
+if [[ "$OSTYPE" == "darwin"* ]]; then
+    open "http://localhost:$PORT"
+elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    xdg-open "http://localhost:$PORT" 2>/dev/null || true
 fi
+
+echo "------------------------------------------"
+echo "✅ App is running at http://localhost:$PORT"
+echo "------------------------------------------"
+echo "---------------------------------------"
+echo "📡 Server is active."
+echo "For EXIT - press [Enter] TWICE!"
+echo "Once to shut down the server."
+echo "Twice to close this window."
+echo "---------------------------------------"
+read
+read -n 1 -s
