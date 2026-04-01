@@ -51,7 +51,7 @@ Postgres + pgvector + MCP. Your context, always available.
 </p>
 
 ---
-## 🏗️ Project Structure    # Under Construction
+## 🏗️ Project Structure   
 ```txt
 📂 aperio/          <---=  You are here if You are Developer. He-he ;/
 ├── 📂 db/
@@ -60,21 +60,20 @@ Postgres + pgvector + MCP. Your context, always available.
 │   └── docker-compose.yml        # pgvector/pgvector:pg16
 ├── 📂 docs/
 │   └── index.html                # Landing page for GitHub Pages
+├── 📂 how-to/                    # Installation scripts and instructions
+├── 📂 lib/
+│   └── chat.js                   # Terminal chat client
 ├── 📂 mcp/
 │   └── index.js                  # MCP server — 11 tools
 ├── 📂 prompts/
 │   └── system_prompt.md          # Instructions for AI agents (edit this!)
-├── skills/
-│   ├── reasoning-planning/
-│   ├── tool-integration/
-│   └── memory-learning/
 ├── 📂 public/
 │   └── index.html                # Web UI — themes, streaming, sidebar
-├── 📂 scripts/
-│   └── chat.js                   # Terminal chat client
-├── .env                          # Your keys — never commit this
-├── START.sh                      # Aperio-lite (MacOS/Linux installation script)
-├── START.ps1                     # Aperio-lite (Windows installation script)
+├── skills/
+│   ├── 📂 reasoning-planning/
+│   ├── 📂 tool-integration/
+│   └── 📂 memory-learning/
+├── .env.example                  # Pre-set quick configuration
 ├── package-lock.json
 ├── package.json
 └── server.js                     # Express + WebSocket + agent loop
