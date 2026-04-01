@@ -42,4 +42,16 @@ sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) current = s.id; 
 navAs.forEach(a => { a.style.color = a.getAttribute('href') === '#' + current ? 'var(--purple)' : ''; });
 }, { passive: true });
 
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.copy-btn');
+  if (!btn) return;
+  const selector = btn.dataset.target;
+  const cmds = [...btn.closest('.code-block').querySelectorAll(selector)]
+    .map(el => el.textContent)
+    .join('\n');
+  navigator.clipboard.writeText(cmds);
+  btn.textContent = '✓ Copied';
+  setTimeout(() => btn.textContent = 'Copy', 2000);
+});
+
 
