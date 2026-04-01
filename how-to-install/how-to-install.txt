@@ -28,9 +28,20 @@ No cloud. No subscriptions. No data leaving your computer.
   NOTE
   ────────────────────────────────────────────
   No technical knowledge required. The script handles everything.
-  How to download new release/version? 
+  Installation takes 5–15 minutes depending on your machine, internet speed, and model size. 
+  Larger or reasoning models download more files, potentially extending this time on slower connections.
+
+  Example:
+  1) Lite      (3B  - qwen2.5:3b)       [Needs ~4GB RAM,  ~2GB disk]
+  2) Medium    (8B  - llama3.1:8b)      [Needs ~8GB RAM,  ~5GB disk]
+  3) Smart     (8B  - qwen3:8b)         [Needs ~10GB RAM, ~5GB disk]
+  4) Reasoning (14B - qwen3:14b)        [Needs ~16GB RAM, ~9GB disk]
+  5) Pro       (32B - deepseek-r1:32b)  [Needs ~32GB RAM, ~19GB disk]
+
+
+  Download Aperio new release/version: 
    - Visit: https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip.
-  What if I have follow up questions? 
+  Follow up questions: 
    - Visit: https://github.com/BaiGanio/aperio/discussions/14
 
 ──────────────────────────────────────────────────────────────────

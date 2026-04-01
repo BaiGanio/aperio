@@ -18,7 +18,7 @@ trap 'echo "❌ Error on line $LINENO. Press any key to exit..."; read -n 1' ERR
 
 # --- CONFIGURATION ---
 MIN_NODE_VERSION=18
-OLLAMA_MODEL="qwen3:14b"
+OLLAMA_MODEL=""
 EMBED_MODEL="mxbai-embed-large"
 PORT=31337
 

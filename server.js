@@ -1,7 +1,7 @@
 import express from "express";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import dotenv from "dotenv";
@@ -11,7 +11,10 @@ import { createAgent, makeWsEmitter, parseMemoriesRaw } from "./lib/agent.js";
 
 const require   = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, ".env") });
+const envPath = existsSync(resolve(__dirname, ".env")) 
+  ? resolve(__dirname, ".env") 
+  : resolve(__dirname, ".env.example");
+dotenv.config({ path: envPath });
 
 const { version } = require("./package.json");
 
