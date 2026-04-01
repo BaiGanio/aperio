@@ -29,11 +29,13 @@ jobs:
             server.js
             db
             docker
-            how-to-install
+            how-to
             lib
             mcp
             prompts
             public
+            skills
+            tests
           )
           for item in "${files[@]}"; do
             if [ -e "${{ github.workspace }}/$item" ]; then

@@ -51,7 +51,7 @@ Postgres + pgvector + MCP. Your context, always available.
 </p>
 
 ---
-## 🏗️ Project Structure
+## 🏗️ Project Structure    # Under Construction
 ```txt
 📂 aperio/          <---=  You are here if You are Developer. He-he ;/
 ├── 📂 db/
