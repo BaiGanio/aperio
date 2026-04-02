@@ -12,8 +12,6 @@ Your context, always available.
 [![Downloads](https://img.shields.io/github/downloads/baiganio/aperio/total?style=flat-square)](https://github.com/baiganio/aperio/releases)
 ![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
 ![GitHub contributors](https://img.shields.io/github/contributors/baiganio/aperio)
-[![Bounties Available](https://img.shields.io/badge/bounties-disabled-black)](./PAYMENT.md)
-[![Lead Policy](https://img.shields.io/badge/lead%20policy-transparent-blue)](./PROJECT_LEAD_POLICY.md)
 
 </div>
 
@@ -39,11 +37,20 @@ Your context, always available.
 </p>
 
 <p align="center">
-  <sub>💡 <b>Pro Tip:</b> Visit the <a href="https://github.com/BaiGanio/aperio/wiki">Aperio Wiki</a> for extensive documentation on advanced topics.<br>
-   🔍 <b>Explore:</b> <a href="https://github.com/BaiGanio/aperio/issues/3">Early Testing Contributors</a> • <a href="https://github.com/BaiGanio/aperio/discussions">Discussions</a> • <a href="https://github.com/BaiGanio/aperio/discussions/14">FAQ</a> • <a href="https://github.com/BaiGanio/aperio/wiki/Troubleshooting">Troubleshooting</a><br>
+  <sub>
     <b>• 🌐 Site:  <a href="https://baiganio.github.io/aperio">https://baiganio.github.io/aperio</a> •</b>
   </sub>
 </p>    
+
+<div align="center">
+  
+[![CodeQL](https://github.com/baiganio/aperio/actions/workflows/codeql.yml/badge.svg)](https://github.com/baiganio/aperio/actions/workflows/codeql.yml)
+[![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/baiganio/aperio/security/dependabot)
+[![Security Policy](https://img.shields.io/badge/security-policy-green?logo=github)](https://github.com/baiganio/aperio/security/policy)
+[![License](https://img.shields.io/github/license/baiganio/aperio)](LICENSE)
+[![Last Commit](https://img.shields.io/github/last-commit/baiganio/aperio)](https://github.com/baiganio/aperio)
+
+</div>
 
 ---
 ## 🏗️ Project Structure   
