@@ -127,9 +127,17 @@ trap 'die "Error on line $LINENO — press any key to exit..."; read -rn 1' ERR
 
 # --- CONFIGURATION ---
 MIN_NODE_VERSION=18
-OLLAMA_MODEL=""
 EMBED_MODEL="mxbai-embed-large"
 PORT=31337
+
+# Load the active model from the install log (single source of truth)
+# The log stores OLLAMA_MODEL=<name> written at the end of a successful install.
+OLLAMA_MODEL=""
+RECONFIGURE=false
+if [ -f "$INSTALL_LOG" ]; then
+    _logged=$(grep "^OLLAMA_MODEL=" "$INSTALL_LOG" 2>/dev/null | cut -d= -f2- || true)
+    [ -n "$_logged" ] && OLLAMA_MODEL="$_logged"
+fi
 
 sedi() {
     if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -197,7 +205,7 @@ fi
 # ============================================================
 # FAST PATH — already configured from a previous run
 # ============================================================
-if [ -n "$OLLAMA_MODEL" ] && ollama list 2>/dev/null | grep -qF "$OLLAMA_MODEL"; then
+if [ -n "$OLLAMA_MODEL" ]; then
     print_banner
     printf "  ${GR}${B}✨  Existing configuration found${R}\n\n"
     info "Model : ${B}$OLLAMA_MODEL${R}"
@@ -231,10 +239,16 @@ if [ -n "$OLLAMA_MODEL" ] && ollama list 2>/dev/null | grep -qF "$OLLAMA_MODEL";
         exit 0
     else
         warn "Entering reconfiguration mode..."
-        SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-        run "Reset OLLAMA_MODEL in script" \
-            "sedi 's|^OLLAMA_MODEL=\"[^\"]*\"|OLLAMA_MODEL=\"\"|' \"$SCRIPT_PATH\""
+        if [ "$DRY_RUN" = true ]; then
+            dry "Would remove OLLAMA_MODEL from $INSTALL_LOG"
+        else
+            if [ -f "$INSTALL_LOG" ]; then
+                grep -v "^OLLAMA_MODEL=" "$INSTALL_LOG" > "${INSTALL_LOG}.tmp" \
+                    && mv "${INSTALL_LOG}.tmp" "$INSTALL_LOG" 2>/dev/null || true
+            fi
+        fi
         OLLAMA_MODEL=""
+        RECONFIGURE=true
         ok "Configuration reset — continuing to setup..."
         printf "\n"
     fi
@@ -302,17 +316,22 @@ if ! curl -s http://localhost:11434/api/tags > /dev/null; then
     else
         run "Start ollama serve" "nohup ollama serve > /dev/null 2>&1 &"
     fi
-    info "Waiting for Ollama on port 11434..."
-    MAX_RETRIES=10; COUNT=0
-    while ! curl -s http://localhost:11434/api/tags > /dev/null; do
-        sleep 2
-        COUNT=$((COUNT + 1))
-        if [ "$COUNT" -ge "$MAX_RETRIES" ]; then
-            die "Ollama failed to start after 20 seconds."
-            exit 1
-        fi
-    done
-    ok "Ollama is awake!"
+    if [ "$DRY_RUN" = true ]; then
+        dry "Would wait for Ollama on port 11434..."
+        dry "Ollama is awake! (simulated)"
+    else
+        info "Waiting for Ollama on port 11434..."
+        MAX_RETRIES=10; COUNT=0
+        while ! curl -s http://localhost:11434/api/tags > /dev/null; do
+            sleep 2
+            COUNT=$((COUNT + 1))
+            if [ "$COUNT" -ge "$MAX_RETRIES" ]; then
+                die "Ollama failed to start after 20 seconds."
+                exit 1
+            fi
+        done
+        ok "Ollama is awake!"
+    fi
 else
     ok "Ollama server is already running."
 fi
@@ -380,10 +399,32 @@ printf "  ${D}  %s${R}\n\n" "─────────────────
 ok "Auto-selected model: ${B}$OLLAMA_MODEL${R}"
 printf "\n"
 
+# ── Manual model picker (reconfigure path) ────────────────────────────────────
+if [ "$RECONFIGURE" = true ]; then
+    printf "  ${WH}${B}Choose a model to install:${R}\n\n"
+    printf "  ${CY}  1)${R}  qwen2.5:3b   ${D}~2 GB   — lightest, fast${R}\n"
+    printf "  ${CY}  2)${R}  qwen3:8b     ${D}~5 GB   — balanced${R}\n"
+    printf "  ${CY}  3)${R}  qwen3:14b    ${D}~9 GB   — recommended for 32 GB RAM${R}\n"
+    printf "  ${CY}  4)${R}  llama3.1:8b  ${D}~5 GB   — stable alternative${R}\n"
+    printf "  ${D}  (press Enter to keep the auto-selected: ${B}$OLLAMA_MODEL${R}${D})${R}\n\n"
+    read -rp "  Your choice [1-4]: " -n 1 MODEL_CHOICE
+    printf "\n"
+    case "$MODEL_CHOICE" in
+        1) OLLAMA_MODEL="qwen2.5:3b"  ;;
+        2) OLLAMA_MODEL="qwen3:8b"    ;;
+        3) OLLAMA_MODEL="qwen3:14b"   ;;
+        4) OLLAMA_MODEL="llama3.1:8b" ;;
+        *) info "Keeping auto-selected model: ${B}$OLLAMA_MODEL${R}" ;;
+    esac
+    ok "Selected model: ${B}$OLLAMA_MODEL${R}"
+    printf "\n"
+fi
+
 read -rp "  🤔  Proceed with install? (y/n): " -n 1 REPLY
 printf "\n"
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     die "Installation cancelled."
+    read -rp "  Press any key to exit..." -n 1
     exit 1
 fi
 
@@ -397,6 +438,7 @@ if [ "$DRY_RUN" = false ]; then
     ok "AI model ready!"
 fi
 track_install OLLAMA_MODELS "$OLLAMA_MODEL"
+track_install OLLAMA_MODEL "$OLLAMA_MODEL"
 
 # ── Pull embedding model ──────────────────────────────────────────────────────
 section "DOWNLOADING EMBEDDING MODEL  —  $EMBED_MODEL"
@@ -419,15 +461,6 @@ fi
 
 if [ "$DRY_RUN" = false ]; then
     ok "Dependencies installed."
-fi
-
-# ── Self-patch ────────────────────────────────────────────────────────────────
-if [ "$DRY_RUN" = false ]; then
-    SCRIPT_PATH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
-    sedi "s|^OLLAMA_MODEL=\"\"|OLLAMA_MODEL=\"$OLLAMA_MODEL\"|" "$SCRIPT_PATH"
-    ok "Script updated — future runs skip setup automatically."
-else
-    dry "Would self-patch OLLAMA_MODEL=\"$OLLAMA_MODEL\" into this script."
 fi
 
 # ── Final launch ──────────────────────────────────────────────────────────────
