@@ -683,6 +683,16 @@ function renderMemoriesFromMessage(memories) {
   renderMemories(allMemories);
 }
 
+// Simple HTML-escaping helper to prevent XSS when rendering untrusted content
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const PREVIEW_COUNT = 3;
 const expandedGroups = new Set();
 const collapsedGroups = new Set(Object.keys(TYPE_CONFIG));
@@ -1068,12 +1078,18 @@ function renderTablePage() {
             }
         }
 
+        // Escape user-controlled fields before injecting into HTML
+        const safeType = escapeHtml(meta.type || 'fact');
+        const safeTitle = escapeHtml(meta.title || 'Untitled');
+        const safeContent = escapeHtml(meta.content || '');
+        const safeTags = tagsArray.map(t => escapeHtml(t)).join(', ');
+
         return `<tr style="border-bottom:1px solid #eee;">
-            <td style="padding:8px; vertical-align:top;"><code>${meta.type || 'fact'}</code></td>
+            <td style="padding:8px; vertical-align:top;"><code>${safeType}</code></td>
             <td style="padding:8px;">
-                <div style="font-weight:bold; margin-bottom:4px;">${meta.title || 'Untitled'}</div>
-                <div style="color:#555;">${meta.content || ''}</div>
-                <div style="margin-top:5px;"><small style="color:#888;">🏷️ ${tagsArray.join(', ')}</small></div>
+                <div style="font-weight:bold; margin-bottom:4px;">${safeTitle}</div>
+                <div style="color:#555;">${safeContent}</div>
+                <div style="margin-top:5px;"><small style="color:#888;">🏷️ ${safeTags}</small></div>
             </td>
             <!-- ⭐ Updated Importance Column -->
             <td style="padding: 10px; text-align: center; vertical-align: top; white-space: nowrap; font-size: 14px;">
