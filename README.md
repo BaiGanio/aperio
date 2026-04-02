@@ -276,7 +276,7 @@ Aperio reads the file and injects the content into the conversation.
 ---
 
 ## Security
-Aperio runs on your machine and has access to your file system through the `scan_project`, `write_file`, `append_file`, and `read_file` tools. By default, file operations are restricted to the directory where the process was started from — which will be the Aperio project root when you run `npm run start:local`.
+Aperio runs on your machine and has access to your file system through the `scan_project`, `write_file`, `append_file`, and `read_file` tools. By default, file operations are restricted to the directory where the process was started from — which will be the Aperio project root when you run `npm run start:local` or double-clicked `START.sh`.
 
 **File system access**
 
@@ -308,7 +308,6 @@ If a model attempts to write outside the allowed paths, the operation is blocked
 
 <div align="center">
 
-Built with ☕ and pgvector  
 **One brain. Every agent. Nothing forgotten.**
 
 *From Latin* aperire *— to open, to reveal, to bring into the light.*
