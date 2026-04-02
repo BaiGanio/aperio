@@ -1072,8 +1072,12 @@ function renderTablePage() {
     html += pageItems.map(m => {
         const meta = m.metadata || m;
         // Convert importance (1-5) into star symbols
-        // We use Math.min/max to ensure it stays between 1 and 5 stars
-        const importance = Math.min(Math.max(parseInt(meta.importance) || 1, 1), 5);
+        // Ensure importance is a safe integer between 1 and 5 (inclusive)
+        let rawImportance = parseInt(meta.importance, 10);
+        if (!Number.isFinite(rawImportance) || isNaN(rawImportance)) {
+            rawImportance = 1;
+        }
+        const importance = Math.min(Math.max(Math.floor(rawImportance), 1), 5);
         const stars = "⭐".repeat(importance);
         // --- BULLETPROOF TAGS ---
         let tagsArray = [];
