@@ -1,12 +1,12 @@
 import express from "express";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
-import { readFileSync, existsSync } from "fs";
+import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import dotenv from "dotenv";
 import { createRequire } from "module";
-import { getStore } from "./db/index.js";
+import { getStore, isDockerAvailable } from "./db/index.js";
 import { exec } from "child_process";
 import { createAgent, makeWsEmitter, parseMemoriesRaw } from "./lib/agent.js";
 
@@ -65,7 +65,12 @@ wss.on("connection", (ws) => {
   const emitter = makeWsEmitter(ws);
 
   ws.send(JSON.stringify({ type: "status",   text: "connected" }));
-  ws.send(JSON.stringify({ type: "provider", name: provider.name, model: provider.model }));
+  ws.send(JSON.stringify({
+    type: "provider", 
+    name: provider.name, 
+    model: provider.model, 
+    db: isDockerAvailable() ? "postgres" : "lancedb",
+  }));
 
   async function init() {
     // Push memories to sidebar immediately
