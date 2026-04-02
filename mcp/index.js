@@ -80,7 +80,14 @@ async function generateEmbedding(text, inputType = "document") {
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const data = await response.json();
-      return data.embeddings?.[0];
+      // /api/embed  (Ollama >= 0.1.26) → { embeddings: [[...]] }
+      // /api/embeddings (older)        → { embedding: [...] }
+      const vec = data.embeddings?.[0] ?? data.embedding ?? null;
+      if (!Array.isArray(vec) || vec.length === 0) {
+        console.error("⚠️  Ollama returned unexpected embedding shape:", JSON.stringify(data).slice(0, 120));
+        return null;
+      }
+      return vec;
     } catch (err) {
       console.error("⚠️  Ollama embedding failed:", err.message, "| model:", model, "| url:", baseUrl);
       return null;
