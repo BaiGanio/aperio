@@ -83,8 +83,8 @@ Your context, always available.
 - Node.js 18+
 - Docker Desktop — (optional)
 - [Ollama](https://ollama.ai)
-- [Anthropic API key](https://console.anthropic.com) — (optional) or Ollama for local AI
-- [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month or `nomic-embed-text` for local embeddings
+- [Anthropic API key](https://console.anthropic.com) — (optional)
+- [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month 
 
 ### Step 1. Clone & Configure Environment Variables
 Dedicated `dev` branch stripped from the file/folder noise. Only what's needed.
@@ -110,7 +110,7 @@ OLLAMA_EMBED_MODEL=mxbai-embed-large
 # vector database for lite mode when Docker is optional
 npm install @lancedb/lancedb uuid 
 ```
-> 💡 If no Docker is installed (dev-lite mode)- skip below commands and go directly to `Step 3`.
+> 💡 If no Docker is installed - skip the below commands and go directly to **`Step 3`**.   
 ```bash
 # DEV-MODE - start the database and run migrations
 cd docker && docker compose up -d && cd ..
@@ -131,18 +131,22 @@ npm install ollama               # run only if not previosly installed
 ollama serve                     # use separate terminal
 ```
 ```bash
-ollama pull llama3.1             # LLM — best tool-calling support ! Noreasoning
-# ollama pull qwen3              # LLM — strong reasoning, thinking mode support
+ollama pull llama3.1             # LLM — best tool-calling support ! No reasoning
+# ollama pull qwen3:14b          # LLM — strong reasoning, thinking mode support
 ollama pull mxbai-embed-large    # embeddings — local semantic search
 ```
-### Step 4. Start Aperio
+### Step 4. Start Aperio Web UI
 ```bash
 npm run start:local              # localhost:31337 → browser opens automatically
+```
+### Step 5. Start Aperio terminal chat
+```bash
+npm run chat:local  # runs as proxy or a standalone if Docker is stopped or missing
 ```
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
-### Step 5. Now what?
+### Now what?
 
 >💡 Stuck on the installation steps? - check [Troubleshooting](https://github.com/BaiGanio/aperio/wiki/Troubleshooting) wiki.
 
