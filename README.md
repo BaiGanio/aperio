@@ -8,11 +8,6 @@ Your context, always available.
 
 ##### • Download 👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) for non-code users. • Small tool for big ideas • [How to Install & Use?](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) •      
 
-<!-- [![Bounties Available](https://img.shields.io/badge/bounties-active-brightgreen)](./PAYMENT.md) --> 
-[![Downloads](https://img.shields.io/github/downloads/baiganio/aperio/total?style=flat-square)](https://github.com/baiganio/aperio/releases)
-![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
-![GitHub contributors](https://img.shields.io/github/contributors/baiganio/aperio)
-
 </div>
 
 <!-- HEADER --> 
@@ -35,20 +30,17 @@ Your context, always available.
   <a href="https://github.com/BaiGanio/aperio/discussions/24">Design Decisions</a>
   • 
 </p>
+<div align="center">   
 
-<p align="center">
-  <sub>
-    <b>• 🌐 Site:  <a href="https://baiganio.github.io/aperio">https://baiganio.github.io/aperio</a> •</b>
-  </sub>
-</p>    
-
-<div align="center">
-  
+##### • 🌐 Site: [https://baiganio.github.io/aperio](https://baiganio.github.io/aperio) •
+<!-- [![Bounties Available](https://img.shields.io/badge/bounties-active-brightgreen)](./PAYMENT.md) --> 
+[![Downloads](https://img.shields.io/github/downloads/baiganio/aperio/total?style=flat-square)](https://github.com/baiganio/aperio/releases)
+![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
+![GitHub contributors](https://img.shields.io/github/contributors/baiganio/aperio)
+[![Last Commit](https://img.shields.io/github/last-commit/baiganio/aperio)](https://github.com/baiganio/aperio)
 [![CodeQL](https://github.com/baiganio/aperio/actions/workflows/codeql.yml/badge.svg)](https://github.com/baiganio/aperio/actions/workflows/codeql.yml)
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/baiganio/aperio/security/dependabot)
 [![Security Policy](https://img.shields.io/badge/security-policy-green?logo=github)](https://github.com/baiganio/aperio/security/policy)
-[![License](https://img.shields.io/github/license/baiganio/aperio)](LICENSE)
-[![Last Commit](https://img.shields.io/github/last-commit/baiganio/aperio)](https://github.com/baiganio/aperio)
 
 </div>
 
