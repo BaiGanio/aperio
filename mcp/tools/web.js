@@ -2,6 +2,7 @@
 // Web tools: fetch_url.
 
 import { z } from "zod";
+import sanitizeHtml from "sanitize-html";
 
 export function register(server, _ctx) {
 
@@ -28,20 +29,14 @@ export function register(server, _ctx) {
         let text = await response.text();
         const contentType = response.headers.get("content-type") ?? "";
         if (contentType.includes("html")) {
-          // Iteratively strip <script> and <style> blocks to avoid incomplete multi-character sanitization
-          let previousText;
-          do {
-            previousText = text;
-            text = text
-              .replace(/<script\b[\s\S]*?<\/script(?:\s[^>]*)?>/gi, "")
-              .replace(/<style[\s\S]*?<\/style>/gi, "");
-          } while (text !== previousText);
-
-          text = text
-            .replace(/<[^>]+>/g, " ")
-            .replace(/&nbsp;/g, " ").replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">").replace(/&amp;/g, "&")
-            .replace(/\s{3,}/g, "\n\n").trim();
+          // Use sanitize-html to safely strip all HTML, including script and style content
+          text = sanitizeHtml(text, {
+            allowedTags: [],
+            allowedAttributes: {},
+          })
+            .replace(/&nbsp;/g, " ")
+            .replace(/\s{3,}/g, "\n\n")
+            .trim();
         }
 
         const limit     = Math.min(max_chars ?? 15_000, 15_000);
