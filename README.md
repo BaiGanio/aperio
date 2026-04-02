@@ -65,10 +65,13 @@ Your context, always available.
 ├── 📂 public/
 │   └── index.html                # Web UI — themes, streaming, sidebar
 ├── 📂 skills/                    # Memory, reasoning, tools, etc.
+├── 📂 tests/                     
 ├── .env.example                  # Pre-set quick configuration
 ├── package-lock.json
 ├── package.json                  # Dependencies
-└── server.js                     # Express + WebSocket + agent loop
+├── server.js                     # Express + WebSocket + agent loop
+├── START.bat                     
+└── START.sh                     
 ```
 
 > **💡 Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
