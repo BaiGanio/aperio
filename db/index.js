@@ -6,7 +6,7 @@
 //   2. Auto-detect       — ping Docker; Postgres if reachable, else LanceDB
 //   3. Safety fallback   — LanceDB (always works, zero config)
 
-import { existsSync } from 'fs';
+import { spawnSync } from "child_process";
 import { PostgresStore } from './postgres.js';
 import { LanceDBStore }  from './lancedb.js';
 let instance = null;
@@ -55,8 +55,11 @@ export async function getStore() {
 
 export function isDockerAvailable() {
   try {
-    // Check Docker socket directly — instant, no subprocess needed
-    return existsSync('/var/run/docker.sock');
+    const result = spawnSync("docker", ["info"], {
+      timeout: 2000,
+      stdio: "pipe",   // suppress output
+    });
+    return result.status === 0;
   } catch {
     return false;
   }
