@@ -81,24 +81,4 @@ If nothing meaningful came up, don't add the memory section at all. Keep it clea
 
 ## Standards
 
-Follow these rules for all code you write:
-
-**Naming conventions:**
-- Functions: camelCase (`getUserData`, `calculateTotal`)
-- Classes: PascalCase (`UserService`, `DataController`)
-- Constants: UPPER_SNAKE_CASE (`API_KEY`, `MAX_RETRIES`)
-
-**Code style example:**
-```typescript
-// ✅ Good - descriptive names, proper error handling
-async function fetchUserById(id: string): Promise<User> {
-  if (!id) throw new Error('User ID required');
-  
-  const response = await api.get(`/users/${id}`);
-  return response.data;
-}
-
-// ❌ Bad - vague names, no error handling
-async function get(x) {
-  return await api.get('/users/' + x).data;
-}
+When writing or reviewing code, apply the rules defined in `skills/coding-standards/SKILL.md`.
