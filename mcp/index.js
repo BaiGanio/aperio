@@ -18,10 +18,7 @@ const store = await getStore();
 // 2. Later on line 74...
 if (!store) {
     console.error("❌ MCP Error: Store failed to initialize.");
-    // Handle error or return 0s
-} else {
-    const { total, embedded: embCount } = await store.counts();
-    console.error(`📊 Database Stats: ${total} total, ${embCount} embedded`);
+    process.exit(1); // can't run without a store
 }
 
 // ─── Path safety ──────────────────────────────────────────────────────────────
@@ -39,6 +36,7 @@ function isPathAllowed(filePath) {
 // ─── Embeddings ───────────────────────────────────────────────────────────────
 let vectorEnabled = true;
 const { total, embedded: embCount } = await store.counts();
+console.error(`📊 Database Stats: ${total} total, ${embCount} embedded`);
 
 if (embCount === 0 && total > 0) {
   console.error(`✅ Vector store ready — ⚠️  no embeddings yet (${total} memories) — auto-backfilling silently…`);
