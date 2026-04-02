@@ -125,6 +125,20 @@ print_banner() {
 set -e
 trap 'die "Error on line $LINENO — press any key to exit..."; read -rn 1' ERR
 
+SERVER_STARTED=false
+
+cleanup() {
+    if [ "$SERVER_STARTED" = true ]; then
+        local pids
+        pids=$(lsof -ti :$PORT 2>/dev/null || true)
+        if [ -n "$pids" ]; then
+            echo "$pids" | xargs kill -9 2>/dev/null || true
+            ok "Server on port $PORT stopped."
+        fi
+    fi
+}
+trap cleanup EXIT SIGHUP SIGTERM SIGINT
+
 # --- CONFIGURATION ---
 MIN_NODE_VERSION=18
 EMBED_MODEL="mxbai-embed-large"
@@ -222,6 +236,7 @@ if [ -n "$OLLAMA_MODEL" ]; then
         cd "$PROJECT_ROOT"
         section "STARTING  ·  $OLLAMA_MODEL  ·  port $PORT"
         run "Start server" "OLLAMA_MODEL=$OLLAMA_MODEL npm run start:lite &"
+        SERVER_STARTED=true
         info "Waiting for server to start..."
         sleep 3
         if [ "$DRY_RUN" = false ]; then
@@ -233,9 +248,10 @@ if [ -n "$OLLAMA_MODEL" ]; then
         fi
         printf "\n"
         ok "App is running at  ${CY}http://localhost:$PORT${R}"
-        printf "\n  ${D}For EXIT — press [Enter] TWICE\n  Once to shut down, twice to close this window.${R}\n\n"
+        printf "\n  ${D}Press [Enter] TWICE to stop the server and close this window.${R}\n\n"
         read -r
-        read -rn 1
+        read -r
+        cleanup
         exit 0
     else
         warn "Entering reconfiguration mode..."
@@ -470,6 +486,7 @@ cd "$PROJECT_ROOT"
 section "LAUNCHING  ·  $OLLAMA_MODEL  ·  port $PORT"
 
 run "Start server" "OLLAMA_MODEL=$OLLAMA_MODEL npm run start:lite &"
+SERVER_STARTED=true
 info "Waiting for server to start..."
 
 if [ "$DRY_RUN" = false ]; then
@@ -483,9 +500,10 @@ if [ "$DRY_RUN" = false ]; then
 
     printf "\n"
     ok "App is running at  ${CY}${B}http://localhost:$PORT${R}"
-    printf "\n  ${D}For EXIT — press [Enter] TWICE\n  Once to shut down, twice to close this window.${R}\n\n"
+    printf "\n  ${D}Press [Enter] TWICE to stop the server and close this window.${R}\n\n"
     read -r
-    read -rn 1
+    read -r
+    cleanup
 else
     printf "\n"
     dry "Server would start at  http://localhost:$PORT"
