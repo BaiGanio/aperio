@@ -2,11 +2,11 @@
 // Zero-config embedded backend — no Docker, no server.
 // Data lives in LANCEDB_PATH (default: ./.lancedb)
 
-import { connect } from '@lancedb/lancedb';
-import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
-import fs from 'fs';
-import { randomUUID } from 'node:crypto'; // Built-in Node.js UUID generator
+import { connect }          from '@lancedb/lancedb';
+import { v4 as uuidv4 }     from 'uuid';
+import path                 from 'path';
+import fs                   from 'fs';
+import { randomUUID }       from 'node:crypto'; // Built-in Node.js UUID generator
 
 const RELATIVE_PATH = process.env.LANCEDB_PATH ?? './.lancedb';
 const DB_PATH = path.resolve(process.cwd(), RELATIVE_PATH);
