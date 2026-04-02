@@ -7,6 +7,9 @@ on:
       - '.github/LEADERBOARD.md' # Only run if this specific file changes
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   sync-wiki:
     runs-on: ubuntu-latest
