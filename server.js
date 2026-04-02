@@ -8,7 +8,7 @@ import dotenv from "dotenv";
 import { createRequire } from "module";
 import { getStore, isDockerAvailable } from "./db/index.js";
 import { exec } from "child_process";
-import { createAgent, makeWsEmitter, parseMemoriesRaw } from "./lib/agent.js";
+import { createAgent, makeWsEmitter } from "./lib/agent.js";
 
 const require   = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
