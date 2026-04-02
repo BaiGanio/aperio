@@ -29,7 +29,7 @@ export function register(server, _ctx) {
         const contentType = response.headers.get("content-type") ?? "";
         if (contentType.includes("html")) {
           text = text
-            .replace(/<script[\s\S]*?<\/script>/gi, "")
+            .replace(/<script\b[\s\S]*?<\/script(?:\s[^>]*)?>/gi, "")
             .replace(/<style[\s\S]*?<\/style>/gi, "")
             .replace(/<[^>]+>/g, " ")
             .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
