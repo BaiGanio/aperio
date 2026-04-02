@@ -350,6 +350,15 @@ function createStreamingBubble() {
   return { wrap, bubble, col };
 }
 
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function updateStreamingBubble(ref, text) {
   const fenceCount = (text.match(/```/g) || []).length;
   const hasOpenFence = fenceCount % 2 !== 0;
@@ -367,11 +376,13 @@ function updateStreamingBubble(ref, text) {
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     const beforeHtml = before ? renderMarkdown(before) : "";
-    const label = lang || "code";
-    const langClass = lang ? ` class="language-${lang}"` : "";
+    const rawLabel = lang || "code";
+    const safeLabel = escapeHtml(rawLabel);
+    const safeLangForClass = (lang && /^[a-zA-Z0-9_+-]+$/.test(lang)) ? lang : "";
+    const langClass = safeLangForClass ? ` class="language-${safeLangForClass}"` : "";
     const blockHtml =
       `<div class="code-block">` +
-      `<div class="code-toolbar"><span class="code-lang">${label}</span>` +
+      `<div class="code-toolbar"><span class="code-lang">${safeLabel}</span>` +
       `<span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)">streaming…</span></div>` +
       `<pre><code${langClass}>${escaped}</code></pre></div>`;
 
