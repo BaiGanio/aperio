@@ -121,7 +121,7 @@ export class LanceDBStore {
 
   async refreshCache() {
     const results = await this.table
-      .search(new Array(DIMS).fill(0))
+      .query()
       .limit(10_000)
       .toArray();
     this.cache = results.filter(r => r.id !== '__init__');
@@ -133,8 +133,8 @@ export class LanceDBStore {
     const withEmbedding = this.cache.filter(r => {
       if (!r.vector) return false;
       // Convert any typed array or buffer to a standard array
-      const vec = Array.from(r.vector); 
-      return vec.some(v => v !== 0);
+      if (typeof r.vector.every !== 'function') return false;
+      return r.vector.some(v => v !== 0);
     }).length;;
     return { total: this.cache.length, embedded: withEmbedding };
   }
@@ -222,7 +222,13 @@ export class LanceDBStore {
 
   async listWithoutEmbeddings() {
     return this.cache
-      .filter(r => !r.vector || r.vector.every(v => v === 0))
+      .filter(r => {
+        if (!r.vector) return true;
+        // LanceDB may return Float32Array or plain Array — both support .every()
+        // but guard against unexpected shapes (Buffer, object, etc.)
+        if (typeof r.vector.every !== 'function') return true;
+        return r.vector.every(v => v === 0);
+      })
       .map(r => ({ id: r.id, title: r.title, content: r.content }));
   }
 
