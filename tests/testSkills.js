@@ -1,6 +1,7 @@
 import { loadSkillIndex, matchSkill } from '../lib/skills.js';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { readFileSync, existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -189,6 +190,84 @@ function runAllTests() {
     passed: testSkillContent('reasoning-planning', 'When to Use'),
   });
 
+  // Test 5: coding-standards skill — load & match
+  results.push({
+    name: 'Load coding-standards',
+    passed: testLoadSingleSkill('coding-standards'),
+  });
+
+  results.push({
+    name: 'Match coding-standards: "naming conventions"',
+    passed: testMatchSkill('naming conventions', 'coding-standards'),
+  });
+
+  results.push({
+    name: 'Match coding-standards: "code style review"',
+    passed: testMatchSkill('code style review', 'coding-standards'),
+  });
+
+  results.push({
+    name: 'Match coding-standards: "camelCase"',
+    passed: testMatchSkill('should I use camelCase here?', 'coding-standards'),
+  });
+
+  // Test 6: coding-standards skill — content checks
+  results.push({
+    name: 'coding-standards has "When to Use"',
+    passed: testSkillContent('coding-standards', 'When to Use'),
+  });
+
+  results.push({
+    name: 'coding-standards has camelCase rule',
+    passed: testSkillContent('coding-standards', 'camelCase'),
+  });
+
+  results.push({
+    name: 'coding-standards has PascalCase rule',
+    passed: testSkillContent('coding-standards', 'PascalCase'),
+  });
+
+  results.push({
+    name: 'coding-standards has UPPER_SNAKE_CASE rule',
+    passed: testSkillContent('coding-standards', 'UPPER_SNAKE_CASE'),
+  });
+
+  results.push({
+    name: 'coding-standards has error handling rule',
+    passed: testSkillContent('coding-standards', 'error handling'),
+  });
+
+  results.push({
+    name: 'coding-standards has good/bad examples',
+    passed: testSkillContent('coding-standards', '✅ Good'),
+  });
+
+  // Test 7: system_prompt validation
+  results.push({
+    name: 'system_prompt: loads and has content',
+    passed: testSystemPrompt('has-content'),
+  });
+
+  results.push({
+    name: 'system_prompt: references coding-standards skill',
+    passed: testSystemPrompt('references-skill'),
+  });
+
+  results.push({
+    name: 'system_prompt: defines recall tool',
+    passed: testSystemPrompt('has-recall'),
+  });
+
+  results.push({
+    name: 'system_prompt: defines memory lifecycle',
+    passed: testSystemPrompt('has-lifecycle'),
+  });
+
+  results.push({
+    name: 'system_prompt: no inline coding rules (clean separation)',
+    passed: testSystemPrompt('no-inline-coding-rules'),
+  });
+
   // Summary
   console.log('\n');
   console.log('╔' + '═'.repeat(58) + '╗');
@@ -207,6 +286,77 @@ function runAllTests() {
   console.log('╚' + '═'.repeat(58) + '╝\n');
 
   return passCount === results.length;
+}
+
+/**
+ * Test: Validate system_prompt.md integrity
+ * Checks structural guarantees — not content accuracy.
+ * assertion types:
+ *   'has-content'            — file exists and is non-empty
+ *   'references-skill'       — delegates coding rules to the skill file
+ *   'has-recall'             — recall tool is defined
+ *   'has-lifecycle'          — conversation lifecycle sections are present
+ *   'no-inline-coding-rules' — naming convention details are NOT inlined
+ */
+function testSystemPrompt(assertion) {
+  const promptPath = resolve(rootDir, 'prompts', 'system_prompt.md');
+  console.log(`\n📋 Testing system_prompt [${assertion}]\n`);
+  console.log('─'.repeat(60));
+
+  if (!existsSync(promptPath)) {
+    console.log(`❌ system_prompt.md not found at: ${promptPath}`);
+    console.log('─'.repeat(60));
+    return false;
+  }
+
+  const content = readFileSync(promptPath, 'utf-8');
+  let passed = false;
+  let reason = '';
+
+  switch (assertion) {
+    case 'has-content':
+      passed = content.trim().length > 100;
+      reason = passed ? 'File loaded with content' : 'File missing or too short';
+      break;
+
+    case 'references-skill':
+      passed = content.includes('coding-standards');
+      reason = passed
+        ? 'References coding-standards skill'
+        : 'Missing reference to coding-standards/SKILL.md';
+      break;
+
+    case 'has-recall':
+      passed = content.includes('recall');
+      reason = passed ? 'recall tool defined' : 'recall tool missing';
+      break;
+
+    case 'has-lifecycle':
+      passed =
+        content.includes('START of every conversation') &&
+        content.includes('END of every conversation');
+      reason = passed ? 'Lifecycle sections present' : 'Missing START or END lifecycle section';
+      break;
+
+    case 'no-inline-coding-rules': {
+      const hasInlineNaming =
+        content.includes('camelCase') ||
+        content.includes('PascalCase') ||
+        content.includes('UPPER_SNAKE_CASE');
+      passed = !hasInlineNaming;
+      reason = passed
+        ? 'No inline naming conventions — correctly delegated to skill'
+        : 'Inline naming conventions found — should be in coding-standards skill instead';
+      break;
+    }
+
+    default:
+      reason = `Unknown assertion: ${assertion}`;
+  }
+
+  console.log(passed ? `✅ ${reason}` : `❌ ${reason}`);
+  console.log('─'.repeat(60));
+  return passed;
 }
 
 /**
@@ -233,4 +383,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   process.exit(allPassed ? 0 : 1);
 }
 
-export { testLoadSkills, testMatchSkill, testSkillStructure, testSkillContent, runAllTests, testLoadSingleSkill};
+export { testLoadSkills, testMatchSkill, testSkillStructure, testSkillContent, runAllTests, testLoadSingleSkill, testSystemPrompt };
