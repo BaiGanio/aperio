@@ -18,6 +18,9 @@
 [![Bounties Available](https://img.shields.io/badge/bounties-disabled-black)](./PAYMENT.md)
 [![Lead Policy](https://img.shields.io/badge/lead%20policy-transparent-blue)](./PROJECT_LEAD_POLICY.md)
 
+[![Downloads](https://img.shields.io/github/downloads/baiganio/aperio/total?style=flat-square)](https://github.com/baiganio/aperio/releases)
+
+
 A self-hosted personal memory layer for AI agents.  
 Postgres + pgvector + MCP. Your context, always available.
 
