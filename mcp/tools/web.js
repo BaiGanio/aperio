@@ -28,9 +28,16 @@ export function register(server, _ctx) {
         let text = await response.text();
         const contentType = response.headers.get("content-type") ?? "";
         if (contentType.includes("html")) {
+          // Iteratively strip <script> and <style> blocks to avoid incomplete multi-character sanitization
+          let previousText;
+          do {
+            previousText = text;
+            text = text
+              .replace(/<script\b[\s\S]*?<\/script(?:\s[^>]*)?>/gi, "")
+              .replace(/<style[\s\S]*?<\/style>/gi, "");
+          } while (text !== previousText);
+
           text = text
-            .replace(/<script\b[\s\S]*?<\/script(?:\s[^>]*)?>/gi, "")
-            .replace(/<style[\s\S]*?<\/style>/gi, "")
             .replace(/<[^>]+>/g, " ")
             .replace(/&nbsp;/g, " ").replace(/&lt;/g, "<")
             .replace(/&gt;/g, ">").replace(/&amp;/g, "&")
