@@ -7,6 +7,7 @@ import { dirname, resolve } from "path";
 import dotenv from "dotenv";
 import { createRequire } from "module";
 import { getStore } from "./db/index.js";
+import { exec } from "child_process";
 import { createAgent, makeWsEmitter, parseMemoriesRaw } from "./lib/agent.js";
 
 const require   = createRequire(import.meta.url);
@@ -155,4 +156,12 @@ console.error("✅ Server is running from:", process.cwd());
 console.error("✅ UI static file path:", resolve(__dirname, "public"));
 
 const PORT = process.env.PORT ?? 3000;
-httpServer.listen(PORT, () => console.log(`\n✨ Aperio running at http://localhost:${PORT}\n`));
+httpServer.listen(PORT, () => {
+  const url = `http://localhost:${PORT}`;
+  console.log(`\n✨ Aperio running at ${url}\n`);
+  // Auto-open browser — works whether launched via shell script or npm directly
+  const cmd = process.platform === "darwin" ? `open "${url}"`
+             : process.platform === "win32"  ? `start "${url}"`
+             : `xdg-open "${url}"`;
+  exec(cmd, (err) => { if (err) console.error("⚠️  Could not open browser:", err.message); });
+});
