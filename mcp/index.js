@@ -1,13 +1,14 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer }          from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { z } from "zod";
+import dotenv                   from "dotenv";
+import { fileURLToPath }        from "url";
+import { dirname, resolve }     from "path";
+import { getStore }             from "../db/index.js";
 
-import dotenv from "dotenv";
-import { fileURLToPath } from "url";
-import { dirname, resolve, join, extname, basename } from "path";
-import { readFileSync, readdirSync, statSync, existsSync } from "fs";
-import fs from "fs/promises";
-import { getStore } from '../db/index.js';
+import { register as registerMemory }  from "./tools/memory.js";
+import { register as registerFiles }   from "./tools/files.js";
+import { register as registerWeb }     from "./tools/web.js";
+import { register as registerImage }   from "./tools/image.js";
 
 // ─── Load .env ────────────────────────────────────────────────────────────────
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -15,32 +16,66 @@ dotenv.config({ path: resolve(__dirname, "../.env") });
 
 // ─── DB ───────────────────────────────────────────────────────────────────────
 const store = await getStore();
-// 2. Later on line 74...
 if (!store) {
-    console.error("❌ MCP Error: Store failed to initialize.");
-    process.exit(1); // can't run without a store
-}
-
-// ─── Path safety ──────────────────────────────────────────────────────────────
-const ALLOWED_PATHS = (process.env.APERIO_ALLOWED_PATHS || process.cwd())
-  .split(",")
-  .map(p => p.trim().replace(/^~/, process.cwd()));
-
-function isPathAllowed(filePath) {
-  const resolved = filePath.startsWith("~")
-    ? filePath.replace("~", process.cwd())
-    : filePath;
-  return ALLOWED_PATHS.some(allowed => resolved.startsWith(allowed + "/") || resolved === allowed);
+  console.error("❌ MCP Error: Store failed to initialize.");
+  process.exit(1);
 }
 
 // ─── Embeddings ───────────────────────────────────────────────────────────────
-let vectorEnabled = true;
 const { total, embedded: embCount } = await store.counts();
 console.error(`📊 Database Stats: ${total} total, ${embCount} embedded`);
 
+let vectorEnabled = true;
+
+async function generateEmbedding(text, inputType = "document") {
+  if (!vectorEnabled) return null;
+
+  const provider = (process.env.EMBEDDING_PROVIDER || "voyage").toLowerCase();
+
+  if (provider === "ollama") {
+    const model   = process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text";
+    const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
+    try {
+      const res  = await fetch(`${baseUrl}/api/embed`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ model, input: text }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const vec  = data.embeddings?.[0] ?? data.embedding ?? null;
+      if (!Array.isArray(vec) || vec.length === 0) {
+        console.error("⚠️  Ollama returned unexpected embedding shape:", JSON.stringify(data).slice(0, 120));
+        return null;
+      }
+      return vec;
+    } catch (err) {
+      console.error("⚠️  Ollama embedding failed:", err.message);
+      return null;
+    }
+  }
+
+  if (!process.env.VOYAGE_API_KEY) {
+    console.error("⚠️  VOYAGE_API_KEY not set — skipping embedding");
+    return null;
+  }
+  try {
+    const res = await fetch("https://api.voyageai.com/v1/embeddings", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.VOYAGE_API_KEY}` },
+      body:    JSON.stringify({ model: "voyage-3", input: [text], input_type: inputType }),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return data.data[0].embedding;
+  } catch (err) {
+    console.error("⚠️  Voyage embedding failed:", err.message);
+    return null;
+  }
+}
+
 if (embCount === 0 && total > 0) {
   console.error(`✅ Vector store ready — ⚠️  no embeddings yet (${total} memories) — auto-backfilling silently…`);
-  // Fire-and-forget: runs after server is up, never blocks startup
   setImmediate(async () => {
     try {
       const pending = await store.listWithoutEmbeddings();
@@ -56,501 +91,33 @@ if (embCount === 0 && total > 0) {
     }
   });
 } else if (embCount === 0 && total === 0) {
-  console.error(`✅ Vector store ready — no memories yet, embeddings will be generated automatically.`);
+  console.error(`✅ Vector store ready — no memories yet.`);
 } else {
   console.error(`✅ Vector store ready — semantic search active (${embCount}/${total} memories embedded)`);
 }
 
-async function generateEmbedding(text, inputType = "document") {
-  if (!vectorEnabled) return null;
+// ─── Path safety (shared across file tools) ───────────────────────────────────
+const ALLOWED_PATHS = (process.env.APERIO_ALLOWED_PATHS || process.cwd())
+  .split(",")
+  .map(p => p.trim().replace(/^~/, process.cwd()));
 
-  const provider = (process.env.EMBEDDING_PROVIDER || "voyage").toLowerCase();
-
-  // ─── Ollama (fully local, air-gapped) ──────────────────────────────────────
-  if (provider === "ollama") {
-    const model = process.env.OLLAMA_EMBEDDING_MODEL || "nomic-embed-text";
-    const baseUrl = process.env.OLLAMA_BASE_URL || "http://localhost:11434";
-    try {
-      const response = await fetch(`${baseUrl}/api/embed`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model, input: text }),
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const data = await response.json();
-      // /api/embed  (Ollama >= 0.1.26) → { embeddings: [[...]] }
-      // /api/embeddings (older)        → { embedding: [...] }
-      const vec = data.embeddings?.[0] ?? data.embedding ?? null;
-      if (!Array.isArray(vec) || vec.length === 0) {
-        console.error("⚠️  Ollama returned unexpected embedding shape:", JSON.stringify(data).slice(0, 120));
-        return null;
-      }
-      return vec;
-    } catch (err) {
-      console.error("⚠️  Ollama embedding failed:", err.message, "| model:", model, "| url:", baseUrl);
-      return null;
-    }
-  }
-
-  // ─── Voyage AI (default) ────────────────────────────────────────────────────
-  if (!process.env.VOYAGE_API_KEY) {
-    console.error("⚠️  VOYAGE_API_KEY not set — skipping embedding");
-    return null;
-  }
-  try {
-    const response = await fetch("https://api.voyageai.com/v1/embeddings", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.VOYAGE_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "voyage-3",
-        input: [text],
-        input_type: inputType,
-      }),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    return data.data[0].embedding;
-  } catch (err) {
-    console.error("⚠️  Voyage embedding failed:", err.message);
-    return null;
-  }
+function isPathAllowed(filePath) {
+  const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
+  return ALLOWED_PATHS.some(a => resolved.startsWith(a + "/") || resolved === a);
 }
+
+// ─── Shared context passed to every tool module ───────────────────────────────
+const ctx = { store, generateEmbedding, vectorEnabled: () => vectorEnabled, isPathAllowed, ALLOWED_PATHS };
 
 // ─── MCP Server ───────────────────────────────────────────────────────────────
 const server = new McpServer({ name: "aperio", version: "2.0.0" });
 
-// ─── TOOL: remember ───────────────────────────────────────────────────────────
-server.registerTool(
-  "remember",
-  {
-    description: "Save a new memory to Aperio. Automatically generates embeddings for semantic search.",
-    inputSchema: z.object({
-      type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person"]).describe("Category of memory"),
-      title: z.string().describe("Short label for this memory"),
-      content: z.string().describe("Full memory in plain English"),
-      tags: z.array(z.string()).optional().describe("Optional tags"),
-      importance: z.number().min(1).max(5).optional().describe("1=low to 5=high, default 3"),
-      expires_at: z.string().optional().describe("Optional ISO date when this memory expires"),
-    }),
-  },
-  async ({ type, title, content, tags, importance, expires_at }) => {
-    const embedding = await generateEmbedding(`${title}. ${content}`);
-    const source = process.env.AI_PROVIDER === "ollama"
-      ? (process.env.OLLAMA_MODEL || "ollama")
-      : (process.env.ANTHROPIC_MODEL || "claude");
+registerMemory(server, ctx);
+registerFiles(server, ctx);
+registerWeb(server, ctx);
+registerImage(server, ctx);
 
-    const mem = await store.insert(
-      { type, title, content, tags: tags ?? [], importance: importance ?? 3,
-        expires_at: expires_at ? new Date(expires_at) : undefined, source },
-      embedding
-    );
-
-    const embeddingNote = embedding ? " (with semantic embedding)" : "";
-    return {
-      content: [{ type: "text", text: `✅ Memory saved [${mem.type}] "${mem.title}"${embeddingNote} (id: ${mem.id})` }],
-    };
-  }
-);
-
-// ─── TOOL: recall ─────────────────────────────────────────────────────────────
-server.registerTool(
-  "recall",
-  {
-    description: "Search memories. Uses semantic similarity search when a query is provided (finds related concepts, not just matching words). Falls back to full-text search if needed.",
-    inputSchema: z.object({
-      query: z.string().optional().describe("Natural language search — finds semantically related memories"),
-      type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person"]).optional().describe("Filter by type"),
-      tags: z.array(z.string()).optional().describe("Filter by tags"),
-      limit: z.number().min(1).max(50).optional().describe("Max results, default 10"),
-      search_mode: z.enum(["semantic", "fulltext", "auto"]).optional().describe("Force search mode. Default: auto (semantic if available)"),
-    }),
-  },
-  async ({ query, type, tags, limit: _limit, search_mode = "auto" }) => {
-    const limit = _limit !== undefined ? parseInt(_limit, 10) : 10;
-
-    const queryEmbedding = (query && vectorEnabled && search_mode !== "fulltext")
-      ? await generateEmbedding(query, "query")
-      : null;
-
-    const rows = await store.recall({ query, queryEmbedding, type, tags, limit, mode: search_mode });
-
-    if (!rows.length)
-      return { content: [{ type: "text", text: "No memories found." }] };
-
-    const usedSemantic = rows[0]?.similarity !== undefined;
-    console.error(`🔍 recall: ${usedSemantic ? "semantic" : "full-text"} | results: ${rows.length}`);
-
-    const formatted = rows.map(m => {
-      const simNote = m.similarity !== undefined
-        ? ` [similarity: ${(m.similarity * 100).toFixed(0)}%]` : "";
-      return `[${m.type.toUpperCase()}] ${m.title}${simNote} (importance: ${m.importance})\n${m.content}\nTags: ${(m.tags||[]).join(", ")||"none"}\nID: ${m.id}`;
-    }).join("\n---\n");
-
-    return { content: [{ type: "text", text: formatted }] };
-  }
-);
-
-// ─── TOOL: update_memory ──────────────────────────────────────────────────────
-server.registerTool(
-  "update_memory",
-  {
-    description: "Update an existing memory by ID. Regenerates embedding if content changes.",
-    inputSchema: z.object({
-      id: z.string().uuid().describe("UUID of the memory to update"),
-      title: z.string().optional(),
-      content: z.string().optional(),
-      tags: z.array(z.string()).optional(),
-      importance: z.number().min(1).max(5).optional(),
-    }),
-  },
-  async ({ id, title, content, tags, importance }) => {
-    const current = await store.getById(id);
-    if (!current) return { content: [{ type: "text", text: `❌ No memory found: ${id}` }] };
-
-    const input = {};
-    if (title)      input.title      = title;
-    if (content)    input.content    = content;
-    if (tags)       input.tags       = tags;
-    if (importance) input.importance = importance;
-    if (!Object.keys(input).length)
-      return { content: [{ type: "text", text: "❌ No fields to update." }] };
-
-    let embedding;
-    if ((title || content) && vectorEnabled) {
-      const newTitle   = title   ?? current.title;
-      const newContent = content ?? current.content;
-      embedding = await generateEmbedding(`${newTitle}. ${newContent}`);
-    }
-
-    const updated = await store.update(id, input, embedding);
-    return { content: [{ type: "text", text: `✅ Updated: "${updated.title}"` }] };
-  }
-);
-
-// ─── TOOL: forget ─────────────────────────────────────────────────────────────
-server.registerTool(
-  "forget",
-  {
-    description: "Delete a memory from Aperio by ID",
-    inputSchema: z.object({ id: z.string().uuid().describe("UUID of the memory to delete") }),
-  },
-  async ({ id }) => {
-    const title = await store.delete(id);
-    if (!title) return { content: [{ type: "text", text: `❌ No memory found: ${id}` }] };
-    return { content: [{ type: "text", text: `🗑️ Forgotten: "${title}"` }] };
-  }
-);
-
-// ─── TOOL: backfill_embeddings ────────────────────────────────────────────────
-server.registerTool(
-  "backfill_embeddings",
-  {
-    description: "Generate embeddings for all memories that don't have one yet. Run this once after enabling pgvector.",
-    inputSchema: z.object({
-      limit: z.number().min(1).max(100).optional().describe("Max memories to backfill at once, default 20"),
-    }),
-  },
-  async ({ limit = 20 }) => {
-    if (!vectorEnabled) return { content: [{ type: "text", text: "❌ pgvector not enabled." }] };
-
-    const pending = (await store.listWithoutEmbeddings()).slice(0, limit);
-    if (!pending.length)
-      return { content: [{ type: "text", text: "✅ All memories already have embeddings!" }] };
-
-    let success = 0, failed = 0;
-    for (const row of pending) {
-      const embedding = await generateEmbedding(`${row.title}. ${row.content}`);
-      if (embedding) {
-        await store.setEmbedding(row.id, embedding);
-        success++;
-      } else {
-        failed++;
-      }
-    }
-
-    return {
-      content: [{
-        type: "text",
-        text: `✅ Backfill complete: ${success} embedded, ${failed} failed. ${pending.length - success - failed} remaining.`
-      }]
-    };
-  }
-);
-
-// ─── TOOL: dedup_memories ─────────────────────────────────────────────────────
-server.registerTool(
-  "dedup_memories",
-  {
-    description: "Find near-duplicate memories using cosine similarity. In dry_run mode just reports duplicates. When dry_run=false, merges them.",
-    inputSchema: z.object({
-      threshold: z.number().min(0.5).max(1.0).optional().describe("Similarity threshold 0-1, default 0.97"),
-      dry_run: z.boolean().optional().describe("If true, only report duplicates without merging. Default true."),
-    }),
-  },
-  async ({ threshold = 0.97, dry_run = true }) => {
-    if (!vectorEnabled)
-      return { content: [{ type: "text", text: "❌ Vector search not enabled — dedup requires embeddings." }] };
-
-    const pairs = await store.findDuplicates(threshold);
-    if (!pairs.length)
-      return { content: [{ type: "text", text: `✅ No duplicates found above ${(threshold * 100).toFixed(0)}% similarity.` }] };
-
-    let report = `Found ${pairs.length} near-duplicate pair(s):\n\n`;
-    let merged = 0;
-
-    for (const row of pairs) {
-      report += `[${(row.similarity * 100).toFixed(1)}% similar]\n`;
-      report += `  A: [${row.type_a}] "${row.title_a}" (${row.id_a})\n`;
-      report += `  B: [${row.type_b}] "${row.title_b}" (${row.id_b})\n\n`;
-
-      if (!dry_run) {
-        await store.mergeDuplicate(row.id_a, row.id_b);
-        merged++;
-      }
-    }
-
-    if (!dry_run) {
-      report += `\n🧹 Merged ${merged} duplicate(s).`;
-    } else {
-      report += `Run with dry_run=false to merge these automatically.`;
-    }
-
-    return { content: [{ type: "text", text: report }] };
-  }
-);
-
-// ─── TOOL: read_file ──────────────────────────────────────────────────────────
-const ALLOWED_EXTENSIONS = new Set([
-  ".js", ".ts", ".jsx", ".tsx", ".py", ".go", ".rs", ".java",
-  ".json", ".yaml", ".yml", ".toml", ".md", ".txt", ".html",
-  ".css", ".sql", ".sh", ".env.example"
-]);
-const READ_FILE_CHUNK_SIZE  = 500;
-const READ_FILE_MAX_OFFSET  = 10_000;
-
-server.registerTool(
-  "read_file",
-  {
-    description: "Read a file from disk. Max 500 lines. Only reads code and text files.",
-    inputSchema: z.object({
-      path: z.string().describe("Absolute path to the file"),
-      max_lines: z.number().min(1).max(READ_FILE_CHUNK_SIZE).optional()
-        .describe(`Max lines to read, default ${READ_FILE_CHUNK_SIZE}`),
-      offset: z.number().min(0).max(READ_FILE_MAX_OFFSET).optional()
-        .describe("Line number to start reading from, default 0"),
-    }),
-  },
-  async ({ path: filePath, max_lines, offset = 0 }) => {
-    const ext = extname(filePath).toLowerCase();
-    if (!ALLOWED_EXTENSIONS.has(ext))
-      return { content: [{ type: "text", text: `❌ File type not allowed: ${ext}` }] };
-    if (!existsSync(filePath))
-      return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
-    const stat = statSync(filePath);
-    if (stat.size > 500_000)
-      return { content: [{ type: "text", text: `❌ File too large (${Math.round(stat.size / 1024)}KB). Max 500KB.` }] };
-
-    const lines = readFileSync(filePath, "utf-8").split("\n");
-    const limit = Math.min(max_lines ?? READ_FILE_CHUNK_SIZE, READ_FILE_CHUNK_SIZE);
-    const start = Math.min(offset, lines.length, READ_FILE_MAX_OFFSET);
-    const end   = start + limit;
-    const chunk = lines.slice(start, end);
-    const truncated = end < lines.length;
-
-    return {
-      content: [{
-        type: "text",
-        text: `📄 ${filePath} (${lines.length} lines):\n\n${chunk.join("\n")}${truncated ? `\n\n⚠️ Truncated at line ${end}. Use offset: ${end} to continue.` : ""}`
-      }]
-    };
-  }
-);
-
-// ─── TOOL: scan_project ───────────────────────────────────────────────────────
-const SKIP_DIRS  = new Set(["node_modules", ".git", ".next", "dist", "build", "coverage", "__pycache__", ".venv", "venv"]);
-const KEY_FILES  = new Set(["package.json", "README.md", "readme.md", "pyproject.toml", "Cargo.toml", "go.mod", "docker-compose.yml"]);
-const CODE_EXTS  = new Set([".js", ".ts", ".py", ".go", ".rs", ".java", ".jsx", ".tsx"]);
-
-server.registerTool(
-  "scan_project",
-  {
-    description: "Scan a project folder. Returns file tree + reads key files. Skips node_modules, .git, build folders.",
-    inputSchema: z.object({
-      path: z.string().describe("Absolute path to the project root"),
-      read_key_files: z.boolean().optional().describe("Read key file contents, default true"),
-    }),
-  },
-  async ({ path: projectPath, read_key_files = true }) => {
-    if (!existsSync(projectPath))
-      return { content: [{ type: "text", text: `❌ Path not found: ${projectPath}` }] };
-    if (!statSync(projectPath).isDirectory())
-      return { content: [{ type: "text", text: `❌ Not a directory: ${projectPath}` }] };
-
-    let fileCount = 0;
-    const keyFileContents = [];
-
-    function buildTree(dir, depth = 0) {
-      if (depth > 3 || fileCount > 50) return "";
-      let tree = "";
-      let entries;
-      try { entries = readdirSync(dir); } catch { return ""; }
-      for (const entry of entries.sort()) {
-        if (fileCount > 50) { tree += `${"  ".repeat(depth)}...\n`; break; }
-        const fullPath = join(dir, entry);
-        let s;
-        try { s = statSync(fullPath); } catch { continue; }
-        if (s.isDirectory()) {
-          if (SKIP_DIRS.has(entry)) continue;
-          tree += `${"  ".repeat(depth)}📁 ${entry}/\n`;
-          tree += buildTree(fullPath, depth + 1);
-        } else {
-          fileCount++;
-          const icon = CODE_EXTS.has(extname(entry).toLowerCase()) ? "📄" : "📋";
-          tree += `${"  ".repeat(depth)}${icon} ${entry}\n`;
-          if (read_key_files && KEY_FILES.has(entry)) {
-            try {
-              const content = readFileSync(fullPath, "utf-8").split("\n").slice(0, 100).join("\n");
-              keyFileContents.push(`\n--- ${entry} ---\n${content}`);
-            } catch {}
-          }
-        }
-      }
-      return tree;
-    }
-
-    const tree = buildTree(projectPath);
-    let output = `🗂️ Project: ${basename(projectPath)}\nPath: ${projectPath}\nFiles: ${fileCount}\n\n${tree}`;
-    if (keyFileContents.length) output += `\n\n📋 Key files:${keyFileContents.join("\n")}`;
-    output += `\n\n💡 Use read_file to dive into specific files.`;
-    return { content: [{ type: "text", text: output }] };
-  }
-);
-
-// ─── TOOL: fetch_url ──────────────────────────────────────────────────────────
-server.registerTool(
-  "fetch_url",
-  {
-    description: "Fetch content from a URL. Strips HTML, truncates at 15,000 characters.",
-    inputSchema: z.object({
-      url: z.string().url().describe("The URL to fetch"),
-      max_chars: z.number().min(500).max(15000).optional().describe("Max characters, default 15000"),
-    }),
-  },
-  async ({ url, max_chars: _max_chars }) => {
-    const max_chars = _max_chars !== undefined ? parseInt(_max_chars, 10) : undefined;
-    try {
-      const response = await fetch(url, {
-        headers: { "User-Agent": "Aperio/2.0" },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!response.ok)
-        return { content: [{ type: "text", text: `❌ HTTP ${response.status}: ${response.statusText}` }] };
-
-      let text = await response.text();
-      const contentType = response.headers.get("content-type") ?? "";
-      if (contentType.includes("html")) {
-        text = text
-          .replace(/<script[\s\S]*?<\/script>/gi, "")
-          .replace(/<style[\s\S]*?<\/style>/gi, "")
-          .replace(/<[^>]+>/g, " ")
-          .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
-          .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
-          .replace(/\s{3,}/g, "\n\n").trim();
-      }
-      const limit = Math.min(max_chars ?? 15_000, 15_000);
-      const truncated = text.length > limit;
-      return {
-        content: [{
-          type: "text",
-          text: `🌐 ${url}\n\n${text.slice(0, limit)}${truncated ? "\n\n⚠️ Truncated. Ask for more if needed." : ""}`
-        }]
-      };
-    } catch (err) {
-      return { content: [{ type: "text", text: `❌ Fetch failed: ${err.message}` }] };
-    }
-  }
-);
-
-// ─── TOOL: write_file ─────────────────────────────────────────────────────────
-server.registerTool(
-  "write_file",
-  {
-    description: "Write content to a file on disk. Creates the file if it doesn't exist, overwrites if it does.",
-    inputSchema: z.object({
-      path: z.string().describe("Absolute or ~ path to the file to write"),
-      content: z.string().describe("Full content to write to the file"),
-      create_dirs: z.boolean().optional().describe("Create parent directories if they don't exist. Default true."),
-    }),
-  },
-  async ({ path: filePath, content, create_dirs = true }) => {
-    try {
-      const resolved = filePath.startsWith("~")
-        ? filePath.replace("~", process.cwd()) : filePath;
-
-      if (!isPathAllowed(filePath)) {
-        return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
-      }
-
-      if (create_dirs) {
-        const dir = resolved.substring(0, resolved.lastIndexOf("/"));
-        if (dir) await fs.mkdir(dir, { recursive: true });
-      }
-
-      let existingSize = null;
-      try { existingSize = (await fs.stat(resolved)).size; } catch {}
-
-      await fs.writeFile(resolved, content, "utf8");
-      const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
-      const msg = existingSize !== null
-        ? `✅ Overwrote ${resolved} (${sizeKb} KB, was ${(existingSize / 1024).toFixed(1)} KB)`
-        : `✅ Created ${resolved} (${sizeKb} KB)`;
-
-      return { content: [{ type: "text", text: msg }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `❌ write_file failed: ${err.message}` }] };
-    }
-  }
-);
-
-// ─── TOOL: append_file ────────────────────────────────────────────────────────
-server.registerTool(
-  "append_file",
-  {
-    description: "Append content to the end of an existing file without touching the rest.",
-    inputSchema: z.object({
-      path: z.string().describe("Absolute path to the file"),
-      content: z.string().describe("Content to append (added at the end of the file)"),
-    }),
-  },
-  async ({ path: filePath, content }) => {
-    try {
-      const resolved = filePath.startsWith("~")
-        ? filePath.replace("~", process.cwd()) : filePath;
-
-      if (!isPathAllowed(filePath)) {
-        return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
-      }
-      if (!existsSync(resolved))
-        return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
-
-      const before = (await fs.readFile(resolved, "utf8")).split("\n");
-      await fs.appendFile(resolved, content, "utf8");
-      const after = (await fs.readFile(resolved, "utf8")).split("\n");
-      const tail  = after.slice(-5).join("\n");
-
-      return {
-        content: [{ type: "text", text: `✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}` }]
-      };
-    } catch (err) {
-      return { content: [{ type: "text", text: `❌ append_file failed: ${err.message}` }] };
-    }
-  }
-);
-
-// ─── Start server ─────────────────────────────────────────────────────────────
+// ─── Start ────────────────────────────────────────────────────────────────────
 const transport = new StdioServerTransport();
 await server.connect(transport);
 console.error("🧠 Aperio MCP server v2.0 running");
