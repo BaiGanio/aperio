@@ -32,8 +32,8 @@ export function register(server, _ctx) {
             .replace(/<script\b[\s\S]*?<\/script(?:\s[^>]*)?>/gi, "")
             .replace(/<style[\s\S]*?<\/style>/gi, "")
             .replace(/<[^>]+>/g, " ")
-            .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&")
-            .replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+            .replace(/&nbsp;/g, " ").replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">").replace(/&amp;/g, "&")
             .replace(/\s{3,}/g, "\n\n").trim();
         }
 
