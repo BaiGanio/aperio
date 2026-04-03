@@ -114,7 +114,6 @@ let isReasoningActive = false; // true while model is inside <think> / reasoning
 let suggestionShown = false;
 
 function handleMessage(msg) {
-
   if (msg.type === "status") {
     // initial connection ack
   }
@@ -164,7 +163,9 @@ function handleMessage(msg) {
       reasoningBubble = null;
       reasoningText = "";
     }
-    // Respect toggle — if off, don't create a bubble
+    // Respect toggle — if off, track the state but don't create a bubble.
+    // isReasoningActive must stay true so content tokens are held back while
+    // the model is inside its thinking block (applies to all reasoning models).
     if (localStorage.getItem("aperio-reasoning") === "false") return;
     removeThinking();
     removeToolIndicator();
@@ -252,9 +253,11 @@ function handleMessage(msg) {
   if (msg.type === "token") {
     if (msg.text) {
       const reasoningOn = localStorage.getItem("aperio-reasoning") !== "false";
-      // If reasoning toggle is ON and model is still in reasoning phase, discard content tokens
-      // (the answer will arrive via stream_end after reasoning completes)
-      if (isReasoningActive && reasoningOn && reasoningBubble) return;
+      // If reasoning toggle is ON and model is still in reasoning phase, discard content tokens.
+      // NOTE: do NOT also check reasoningBubble here — for inline-tag models like Gemma 4,
+      // content tokens arrive while reasoningBubble is still open (the splitter interleaves them).
+      // isReasoningActive is the only correct signal for "we are inside a thinking block".
+      if (isReasoningActive && reasoningOn) return;
       if (!streamingBubble) {
         removeThinking();
         removeToolIndicator();
