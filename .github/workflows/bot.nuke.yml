@@ -1,4 +1,4 @@
-name: Nuke Blocklist
+name: bot Nuke Blocklist
 
 on:
   workflow_dispatch:

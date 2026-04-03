@@ -1,4 +1,4 @@
-name: Update Leaderboard
+name: community Update Leaderboard
 on:
   workflow_dispatch:
     inputs:

@@ -1,4 +1,4 @@
-name: Cleanup Stale Claims
+name: bot Clean Stale Claims
 on:
   schedule:
     - cron: '0 0 * * *' # Every day at midnight
