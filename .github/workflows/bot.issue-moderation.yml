@@ -1,4 +1,4 @@
-name: bot Issue Moderation
+name: (bot) Issue Moderation
 on:
   issues:
     types: [opened, unlabeled]

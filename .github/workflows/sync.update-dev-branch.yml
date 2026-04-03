@@ -1,4 +1,4 @@
-name: sync Dev Branch
+name: (sync) Dev Branch
 permissions:
   contents: read
 on:

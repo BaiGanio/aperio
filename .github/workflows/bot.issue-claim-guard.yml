@@ -1,4 +1,4 @@
-name: bot Issue Claim Guard
+name: (bot) Issue Claim Guard
 
 on:
   issue_comment:
