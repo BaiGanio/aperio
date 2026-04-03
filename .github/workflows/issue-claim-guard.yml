@@ -127,6 +127,12 @@ jobs:
               await finalizeClaim(username);
               
               // SUCCESS RESPONSE
+              const ms = new Date() - new Date(userProfile.data.created_at);
+              const years = Math.floor(ms / (1000 * 60 * 60 * 24 * 365.25));
+              const months = Math.floor((ms % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30.44));
+              
+              const accountAge = `${years} years, ${months} months`;
+              // → "11 years, 2 months"
               const successBody = `✅ Issue claimed by @${username} (${currentTier.name}, account age: ${accountAgeYears} years). Good luck!`;
               
               await github.rest.issues.createComment({ 
