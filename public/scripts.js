@@ -857,7 +857,7 @@ searchInput.addEventListener("input", () => {
 // ── Export brain ─────────────────────────────────────────────
 document.getElementById("exportBtn").addEventListener("click", () => {
   if (!allMemories.length) return;
-  if (!confirm(`Export ${allMemories.length} memories to JSON?`)) return;
+  if (!confirm(`Aperio will export ${allMemories.length} memories in JSON file?`)) return;
   const data = JSON.stringify(allMemories, null, 2);
   const blob = new Blob([data], { type: "application/json" });
   const url = URL.createObjectURL(blob);
@@ -975,15 +975,15 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-async function toggleMemoryView() {
-    const modal = document.getElementById('memoryModal');
-    if (!modal) {
-        console.error("❌ memoryModal not found in this page's HTML.");
-        return; 
-    }
-    modal.style.display = 'block'; // Show Modal
-    await refreshMemories();
-}
+// async function toggleMemoryView() {
+//     const modal = document.getElementById('memoryModal');
+//     if (!modal) {
+//         console.error("❌ memoryModal not found in this page's HTML.");
+//         return; 
+//     }
+//     modal.style.display = 'block'; // Show Modal
+//     await refreshMemories();
+// }
 
 function closeModal() {
     document.getElementById('memoryModal').style.display = 'none';
