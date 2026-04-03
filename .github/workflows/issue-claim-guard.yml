@@ -127,7 +127,7 @@ jobs:
               await finalizeClaim(username);
               
               // SUCCESS RESPONSE
-              const successBody = `✅ Issue claimed by @${username} (${currentTier.name}, account age: ${ageDisplay} years). Good luck!`;
+              const successBody = `✅ Issue claimed by @${username} (${currentTier.name}, account age: ${accountAgeYears} years). Good luck!`;
               
               await github.rest.issues.createComment({ 
                 owner, repo, issue_number: issueNumber, 
@@ -137,7 +137,7 @@ jobs:
               // ── 4. APPEAL PATH (Tier Mismatch) ──────────────────────────────
               await github.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: ['point-of-interest'] });
               
-              const appealBody = `> [!NOTE]\n> @${username}, your seniority tier (**${currentTier.name}**) is currently below the requirement for this bounty (Account age: ${ageDisplay} years).\n>\n> **Appeal Window Open:** Please reply with your motivation. If the owner approves with \`Yes\`, the claim will proceed.`;
+              const appealBody = `> [!NOTE]\n> @${username}, your seniority tier (**${currentTier.name}**) is currently below the requirement for this bounty (Account age: ${accountAgeYears} years).\n>\n> **Appeal Window Open:** Please reply with your motivation. If the owner approves with \`Yes\`, the claim will proceed.`;
               
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
