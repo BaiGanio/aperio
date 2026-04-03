@@ -1,4 +1,13 @@
-# These are supported funding model platforms
+# 🌍 Mission: Free tools for everyone, forever.
+# Every project targets fundamental human needs —
+# built in public, community-driven, no exceptions.
+#
+# Your support keeps it free for those who need it most.
+# ─────────────────────────────────────────────────────
+# Supported funding platforms:
 
 github: BaiGanio
-custom: # Replace with up to 4 custom sponsorship URLs e.g., ['link1', 'link2']
+
+custom:
+  - 'https://hcb.hackclub.com/donations/start/your-slug'  # 💰 Donate (tax-deductible via HCB)
+  - 'https://hcb.hackclub.com/your-slug'                  # 📊 View transparent fund ledger
