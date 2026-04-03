@@ -1,4 +1,4 @@
-name: cd Release & Versioning (No Changelog)
+name: (cd) Release & Versioning (No Changelog)
 #
 on:
   push:
