@@ -24,13 +24,13 @@ const store = await getStore();
 
 // ─── Agent ────────────────────────────────────────────────────────────────────
 const agent = await createAgent({ root: __dirname, version, clientName: "aperio-server" });
-const { provider, callTool, runAgentLoop, handleRememberIntent, fetchMemories, buildGreeting, OLLAMA_NO_TOOLS } = agent;
+const { provider, callTool, runAgentLoop, handleRememberIntent, fetchMemories, buildGreeting, OLLAMA_NO_TOOLS, reasoningAdapter } = agent;
 
-console.log(
-  provider.name === "ollama"
-    ? `🤖 Provider: Ollama (${provider.model})`
-    : `🤖 Provider: Anthropic (${provider.model})`
-);
+const providerLabel = provider.name === "anthropic"
+  ? `Anthropic (${provider.model})`
+  : `Ollama (${provider.model})${reasoningAdapter.match !== "__noop__" ? ` · thinking via ${reasoningAdapter.match}` : ""}`;
+
+console.log(`🤖 Provider: ${providerLabel}`);
 console.log("✅ MCP server connected");
 
 // ─── Express ──────────────────────────────────────────────────────────────────
