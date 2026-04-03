@@ -1,4 +1,4 @@
-name: Sync milestone dates to roadmap
+name: sync Milestone Dates to Roadmap
 
 on:
   milestone:

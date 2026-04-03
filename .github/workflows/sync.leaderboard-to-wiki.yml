@@ -1,4 +1,4 @@
-name: Sync LEADERBOARD to Wiki
+name: sync LEADERBOARD to Wiki
 on:
   push:
     branches:

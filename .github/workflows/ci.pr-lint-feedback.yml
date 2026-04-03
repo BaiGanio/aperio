@@ -1,4 +1,4 @@
-name: PR Lint Feedback
+name: ci PR Lint
 
 on:
   pull_request:
