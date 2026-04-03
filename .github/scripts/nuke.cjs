@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 module.exports = async ({ github, context, targetUser, prData = null, issueNumber = null, silent = false, isOrg = false }) => {
   const owner = context.repo.owner;
@@ -37,13 +37,15 @@ module.exports = async ({ github, context, targetUser, prData = null, issueNumbe
     });
     fs.writeFileSync(blocklistPath, JSON.stringify(blocklist, null, 2));
 
-    execSync('git config user.name "github-actions[bot]"');
-    execSync('git config user.email "github-actions[bot]@users.noreply.github.com"');
-    execSync(`git add ${blocklistPath}`);
-    execSync(`git commit -m "chore: ban @${targetUser} (${targetType}) for spam [skip ci]"`);
+    execFileSync('git', ['config', 'user.name', 'github-actions[bot]']);
+    execFileSync('git', ['config', 'user.email', 'github-actions[bot]@users.noreply.github.com']);
+    execFileSync('git', ['add', blocklistPath]);
+    const commitMessage = `chore: ban @${targetUser} (${targetType}) for spam [skip ci]`;
+    execFileSync('git', ['commit', '-m', commitMessage]);
     
     const pat = process.env.INPUT_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
-    execSync(`git push https://x-access-token:${pat}@github.com/${owner}/${repo}.git HEAD:master`);
+    const remoteUrl = `https://x-access-token:${pat}@github.com/${owner}/${repo}.git`;
+    execFileSync('git', ['push', remoteUrl, 'HEAD:master']);
   }
 
   // 2. Delete comments from this user/org
