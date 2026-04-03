@@ -1,7 +1,7 @@
 changelog:
   exclude:
     labels:
-      - skip-changeloog
+      - skip-changelog
     authors:
       - github-actions[bot]
   categories:
