@@ -1,0 +1,122 @@
+name: Nuke Blocklist
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_type:
+        description: 'What to nuke: "all", "users", or "orgs"'
+        required: true
+        type: choice
+        options:
+          - all
+          - users
+          - orgs
+      dry_run:
+        description: 'Dry run (preview changes without executing)'
+        required: false
+        type: boolean
+        default: true
+
+jobs:
+  nuke_blocklist:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.MY_PAT }}
+
+      - name: Execute Nuke
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.MY_PAT }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const { execSync } = require('child_process');
+
+            const rootDir = process.cwd();
+            const blocklistPath = path.join(rootDir, '.github', 'data', 'blocklist.json');
+            const nuke = require(path.join(rootDir, '.github', 'scripts', 'nuke.cjs'));
+
+            const targetType = '${{ github.event.inputs.target_type }}';
+            const dryRun = ${{ github.event.inputs.dry_run }};
+
+            console.log(`🔥 Starting Nuke Operation`);
+            console.log(`Target Type: ${targetType}`);
+            console.log(`Dry Run: ${dryRun}`);
+
+            let blocklist = [];
+            try {
+              blocklist = JSON.parse(fs.readFileSync(blocklistPath, 'utf8')).blocked || [];
+            } catch (e) {
+              console.error('❌ Failed to read blocklist:', e.message);
+              process.exit(1);
+            }
+
+            console.log(`📋 Found ${blocklist.length} entries in blocklist`);
+
+            let targets = blocklist;
+            if (targetType === 'users') {
+              targets = blocklist.filter(entry => !entry.isOrg);
+            } else if (targetType === 'orgs') {
+              targets = blocklist.filter(entry => entry.isOrg);
+            }
+
+            console.log(`🎯 Targeting ${targets.length} ${targetType}`);
+
+            if (dryRun) {
+              console.log('\n📊 DRY RUN - Preview of targets:');
+              targets.forEach((target, i) => {
+                console.log(`  ${i + 1}. ${target.name || target} (${target.isOrg ? 'org' : 'user'})`);
+              });
+              console.log('\n✅ Dry run complete. No changes made.');
+              return;
+            }
+
+            console.log('\n⚠️  EXECUTING NUKE...\n');
+            let nuked = 0;
+            let failed = 0;
+
+            for (const target of targets) {
+              const targetName = target.name || target;
+              try {
+                console.log(`🗑️  Nuking @${targetName}...`);
+                await nuke({ 
+                  github, 
+                  context, 
+                  targetUser: targetName.toLowerCase(), 
+                  issueNumber: null,
+                  silent: false 
+                });
+                nuked++;
+              } catch (e) {
+                console.error(`❌ Failed to nuke @${targetName}:`, e.message);
+                failed++;
+              }
+            }
+
+            console.log(`\n✅ Nuke operation complete!`);
+            console.log(`   Nuked: ${nuked}`);
+            console.log(`   Failed: ${failed}`);
+
+      - name: Post Summary
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.MY_PAT }}
+          script: |
+            const dryRun = ${{ github.event.inputs.dry_run }};
+            const status = dryRun ? '📊 DRY RUN COMPLETED' : '🔥 NUKE EXECUTED';
+            
+            await github.rest.actions.createWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+
+            console.log(`${status}`);
