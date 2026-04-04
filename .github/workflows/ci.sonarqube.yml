@@ -24,7 +24,7 @@
 # Feel free to take a look at our documentation (https://docs.sonarqube.org/latest/analysis/github-integration/)
 # or reach out to our community forum if you need some help (https://community.sonarsource.com/c/sq/10)
 
-name: SonarQube analysis
+name: (ci) SonarQube analysis
 
 on:
   push:
