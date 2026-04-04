@@ -13,7 +13,8 @@
     "chat": "node lib/chat.js",
     "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node lib/chat.js",
     "chat:local": "AI_PROVIDER=ollama PORT=31338 node lib/chat.js",
-    "test": "node --test --test-reporter=spec tests/mcp-tools.test.js",
+    "test": "c8 --all --src ./src node --test --test-reporter=spec tests/mcp-tools.test.js",
+    "coverage": "c8 report --reporter=lcov",
     "test:skills": "node tests/testSkills.js",
     "test:skill": "node -e \"import('./tests/testSkills.js').then(t => t.testLoadSingleSkill(process.argv.pop()))\" --"
   },
@@ -25,9 +26,12 @@
     "express": "^5.2.1",
     "ollama": "^0.6.3",
     "pg": "^8.20.0",
+    "sanitize-html": "^2.17.2",
     "uuid": "^13.0.0",
     "ws": "^8.20.0",
-    "zod": "^4.3.6",
-    "sanitize-html": "^2.17.2"
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "c8": "^11.0.0"
   }
 }
