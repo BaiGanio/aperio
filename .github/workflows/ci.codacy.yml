@@ -54,9 +54,17 @@ jobs:
           # This will handover control about PR rejection to the GitHub side
           max-allowed-issues: 2147483647
 
-      # Upload the SARIF file generated in the previous step
+      # 2. Split the multi-run SARIF into individual files
+      - name: Split SARIF
+        uses: advanced-security/sarif-tools@v1
+        with:
+          command: split
+          input: results.sarif
+          output: sarif-results
+
+      # 3. Upload the resulting directory (GitHub will handle the unique categories)
       - name: Upload SARIF results file
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: results.sarif
-          category: codacy-analysis
+          sarif_file: sarif-results
+          # Removing manual category lets the splitter's logic define them
