@@ -160,6 +160,9 @@ _TeamCity*
 .axoCover/*
 !.axoCover/settings.json
 
+# c8 / Istanbul coverage output
+coverage/
+
 # Coverlet is a free, cross platform Code Coverage Tool
 coverage*.json
 coverage*.xml
