@@ -1,0 +1,32 @@
+name: (ci) Codecov Run tests and upload coverage
+
+on: 
+  push:
+    branches: [ "master"]
+  pull_request:
+    # The branches below must be a subset of the branches above
+    branches: [ "master" ]
+
+jobs:
+  test:
+    name: Run tests and collect coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npx jest --coverage
+
+      - name: Upload results to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
