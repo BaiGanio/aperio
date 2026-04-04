@@ -38,7 +38,8 @@ Your context, always available.
 ![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
 ![GitHub contributors](https://img.shields.io/github/contributors/baiganio/aperio)
 [![Last Commit](https://img.shields.io/github/last-commit/baiganio/aperio)](https://github.com/baiganio/aperio)
-[![CodeQL](https://github.com/baiganio/aperio/actions/workflows/codeql.yml/badge.svg)](https://github.com/baiganio/aperio/actions/workflows/codeql.yml)
+[![CodeQL](https://github.com/baiganio/aperio/actions/workflows/codeql.yml/badge.svg)](https://github.com/baiganio/aperio/actions/workflows/ci.codeql.yml)
+[![codecov](https://codecov.io/github/BaiGanio/aperio/graph/badge.svg?token=WUIXIYJBR2)](https://codecov.io/github/BaiGanio/aperio)
 [![Dependabot](https://img.shields.io/badge/dependabot-enabled-025E8C?logo=dependabot)](https://github.com/baiganio/aperio/security/dependabot)
 [![Security Policy](https://img.shields.io/badge/security-policy-green?logo=github)](https://github.com/baiganio/aperio/security/policy)
 
