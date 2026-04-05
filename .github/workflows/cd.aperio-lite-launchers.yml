@@ -45,7 +45,7 @@ jobs:
             --allow-net --allow-env --allow-run \
             --allow-read --allow-write --allow-sys \
             --output ${{ matrix.artifact }}${{ matrix.ext }} \
-            src/main.ts
+            lite/src/main.ts
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
