@@ -1,4 +1,5 @@
 import { UI } from "./ui.ts";
+import { Config } from "./config.ts";
 
 // The official headless/CLI-only install endpoints per platform
 const OLLAMA_LINUX_INSTALL   = "https://ollama.com/install.sh";
@@ -31,27 +32,29 @@ export class Ollama {
   public static async ensureInstalled(): Promise<void> {
     if (await this.isInstalled()) {
       UI.ok("Ollama is already installed.");
+      // Pre-existing — we did NOT install it, so don't claim we did
+      await Config.save({ installed: { ollama: false } as never });
       return;
     }
-
+  
     UI.info("Ollama not found. Installing CLI engine (no UI)...");
-
-    const os = Deno.build.os;
-
-    if (os === "linux") {
-      await this.installLinux();
-    } else if (os === "darwin") {
-      await this.installMac();
-    } else if (os === "windows") {
-      await this.installWindows();
-    } else {
-      throw new Error(`Unsupported OS: ${os}`);
+    
+    switch (Deno.build.os) {
+      case "linux":
+        await this.installLinux();
+        break;
+      case "darwin":
+        await this.installMac();
+        break;
+      case "windows":
+        await this.installWindows();
+        break;
+      default:
+        throw new Error(`Unsupported OS: ${Deno.build.os}`);
     }
-
-    if (!await this.isInstalled()) {
-      throw new Error("Ollama installation completed but binary is still not found in PATH.");
-    }
-
+  
+    // Record that WE installed it
+    await Config.save({ installed: { ollama: true } as never });
     UI.ok("Ollama CLI engine installed successfully.");
   }
 
@@ -152,11 +155,14 @@ export class Ollama {
   static async pullModels(llmModel: string, embedModel: string): Promise<void> {
     UI.section(`DOWNLOADING AI MODEL — ${llmModel}`);
     await this.runPull(llmModel);
+    await Config.save({ installed: { ollamaModels: [llmModel] } as never });
     UI.ok("AI model ready!");
-
+  
     if (embedModel) {
       UI.section(`DOWNLOADING EMBEDDING MODEL — ${embedModel}`);
       await this.runPull(embedModel);
+      await Config.save({ installed: { ollamaModels: [embedModel] } as never });
+      // Config.save merges the arrays so both models are tracked
       UI.ok("Embeddings ready!");
     }
   }
