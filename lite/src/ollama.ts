@@ -1,116 +1,173 @@
 import { UI } from "./ui.ts";
 
+// The official headless/CLI-only install endpoints per platform
+const OLLAMA_LINUX_INSTALL   = "https://ollama.com/install.sh";
+const OLLAMA_WIN_INSTALLER   = "https://github.com/ollama/ollama/releases/latest/download/OllamaSetup.exe";
+// macOS: we install only the CLI binary from the official tgz release, NOT the .app
+const OLLAMA_MAC_ARM_TGZ     = "https://github.com/ollama/ollama/releases/latest/download/ollama-darwin-arm64.tgz";
+const OLLAMA_MAC_INTEL_TGZ   = "https://github.com/ollama/ollama/releases/latest/download/ollama-darwin-amd64.tgz";
+const OLLAMA_API             = "http://127.0.0.1:11434";
+
 export class Ollama {
-  /**
-   * Orchestrates silent install and ensures the daemon is running.
-   */
   static async ensureReady(): Promise<void> {
     await this.ensureInstalled();
     await this.ensureDaemonRunning();
   }
 
+  // ─── Detection ────────────────────────────────────────────────────────────
+
   private static async isInstalled(): Promise<boolean> {
-    const checkCmd = Deno.build.os === "windows" ? "where" : "which";
-    const cmd = new Deno.Command(checkCmd, { args: ["ollama"], stdout: "null", stderr: "null" });
-    const { success } = await cmd.output();
+    const check = Deno.build.os === "windows" ? "where" : "which";
+    const { success } = await new Deno.Command(check, {
+      args: ["ollama"],
+      stdout: "null",
+      stderr: "null",
+    }).output();
     return success;
   }
 
+  // ─── Install (headless / CLI only) ────────────────────────────────────────
+
   public static async ensureInstalled(): Promise<void> {
-    if (await this.isInstalled()){
+    if (await this.isInstalled()) {
       UI.ok("Ollama is already installed.");
       return;
-    } 
-    UI.info("Ollama missing. Installing silently... This may take a few minutes.");
+    }
+
+    UI.info("Ollama not found. Installing CLI engine (no UI)...");
 
     const os = Deno.build.os;
-    let installCmd: Deno.Command;
 
     if (os === "linux") {
-      // Official silent install for Linux
-      installCmd = new Deno.Command("bash", {
-        args: ["-c", "curl -fsSL https://ollama.com | sh"],
-      });
+      await this.installLinux();
     } else if (os === "darwin") {
-      // Mac silent: Download, unzip, and move to Applications
-      installCmd = new Deno.Command("bash", {
-        args: ["-c", "curl -L https://ollama.com -o ollama.zip && unzip -qq ollama.zip && mv Ollama.app /Applications/ && rm ollama.zip"],
-      });
+      await this.installMac();
     } else if (os === "windows") {
-      // Windows silent: Download and run installer with /silent flag
-      installCmd = new Deno.Command("powershell", {
-        args: ["-NoProfile", "-Command", "Invoke-WebRequest -Uri https://ollama.com -OutFile OllamaSetup.exe; Start-Process -FilePath ./OllamaSetup.exe -ArgumentList '/silent' -Wait; Remove-Item OllamaSetup.exe"],
-      });
+      await this.installWindows();
     } else {
-      throw new Error("Unsupported OS");
+      throw new Error(`Unsupported OS: ${os}`);
     }
 
-    const { success } = await installCmd.output();
-    if (!success) throw new Error("Silent installation failed.");
-    UI.ok("Ollama successfully installed.");
+    if (!await this.isInstalled()) {
+      throw new Error("Ollama installation completed but binary is still not found in PATH.");
+    }
+
+    UI.ok("Ollama CLI engine installed successfully.");
   }
 
-  /**
-   * Ensures the Ollama serve (daemon) is active so we can pull models.
-   */
-  private static async ensureDaemonRunning(): Promise<void> {
-    // Check if API is already responsive
+  private static async installLinux(): Promise<void> {
+    // Official one-liner — pipes directly into sh, no GUI involved
+    const { success } = await new Deno.Command("bash", {
+      args: ["-c", `curl -fsSL ${OLLAMA_LINUX_INSTALL} | sh`],
+      stdout: "inherit",
+      stderr: "inherit",
+    }).output();
+
+    if (!success) throw new Error("Linux Ollama install failed.");
+  }
+
+  private static async installMac(): Promise<void> {
+    // Detect architecture
+    const archResult = await new Deno.Command("uname", { args: ["-m"], stdout: "piped" }).output();
+    const arch = new TextDecoder().decode(archResult.stdout).trim(); // "arm64" or "x86_64"
+    const tgzUrl = arch === "arm64" ? OLLAMA_MAC_ARM_TGZ : OLLAMA_MAC_INTEL_TGZ;
+
+    // Download the tgz, extract just the `ollama` binary, install to /usr/local/bin
+    // This gives you ONLY the CLI — no Ollama.app, no menu bar icon, no GUI at all
+    const script = [
+      `curl -fsSL "${tgzUrl}" -o /tmp/ollama.tgz`,
+      `tar -xzf /tmp/ollama.tgz -C /tmp`,
+      `chmod +x /tmp/ollama`,
+      `sudo mv /tmp/ollama /usr/local/bin/ollama`,
+      `rm -f /tmp/ollama.tgz`,
+    ].join(" && ");
+
+    const { success } = await new Deno.Command("bash", {
+      args: ["-c", script],
+      stdout: "inherit",
+      stderr: "inherit",
+    }).output();
+
+    if (!success) throw new Error("macOS Ollama CLI install failed.");
+  }
+
+  private static async installWindows(): Promise<void> {
+    // Downloads the official installer and runs it with /VERYSILENT to suppress all UI
+    // Inno Setup flags: /VERYSILENT suppresses everything including the tray icon setup
+    const script = [
+      `$tmp = "$env:TEMP\\OllamaSetup.exe"`,
+      `Invoke-WebRequest -Uri "${OLLAMA_WIN_INSTALLER}" -OutFile $tmp`,
+      `Start-Process -FilePath $tmp -ArgumentList '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART' -Wait`,
+      `Remove-Item $tmp`,
+    ].join("; ");
+
+    const { success } = await new Deno.Command("powershell", {
+      args: ["-NoProfile", "-NonInteractive", "-Command", script],
+      stdout: "inherit",
+      stderr: "inherit",
+    }).output();
+
+    if (!success) throw new Error("Windows Ollama install failed.");
+  }
+
+  // ─── Daemon ───────────────────────────────────────────────────────────────
+
+  private static async isDaemonRunning(): Promise<boolean> {
     try {
-      const res = await fetch("http://127.0.0");
-      if (res.ok) return;
+      const res = await fetch(`${OLLAMA_API}/api/tags`);
+      return res.ok;
     } catch {
-      UI.info("Starting Ollama background service...");
+      return false;
+    }
+  }
+
+  private static async ensureDaemonRunning(): Promise<void> {
+    if (await this.isDaemonRunning()) {
+      UI.ok("Ollama daemon already running.");
+      return;
     }
 
-    // Spawn the daemon as a detached sidecar process
-    const cmd = new Deno.Command("ollama", {
+    UI.info("Starting Ollama background service...");
+
+    new Deno.Command("ollama", {
       args: ["serve"],
       stdout: "null",
       stderr: "null",
-    });
-    
-    cmd.spawn(); // Do not 'await' this; it needs to stay running in background
+    }).spawn(); // intentionally not awaited — runs as sidecar
 
-    // Poll until the server is ready (max 10 seconds)
-    for (let i = 0; i < 20; i++) {
-      try {
-        const res = await fetch("http://127.0.0");
-        if (res.ok) return;
-      } catch {
-        await new Promise(r => setTimeout(r, 500));
+    // Poll the real API endpoint, not the root
+    for (let i = 0; i < 30; i++) {
+      if (await this.isDaemonRunning()) {
+        UI.ok("Ollama daemon is ready.");
+        return;
       }
+      await new Promise(r => setTimeout(r, 500));
     }
-    throw new Error("Ollama daemon failed to start.");
+
+    throw new Error("Ollama daemon failed to start within 15 seconds.");
   }
 
-  /**
-   * Replicates flow_pull_models for both LLM and Embeddings.
-   */
+  // ─── Model pulling ────────────────────────────────────────────────────────
+
   static async pullModels(llmModel: string, embedModel: string): Promise<void> {
-    // 1. Primary AI Model
-    UI.section(`DOWNLOADING AI MODEL  —  ${llmModel}`);
+    UI.section(`DOWNLOADING AI MODEL — ${llmModel}`);
     await this.runPull(llmModel);
     UI.ok("AI model ready!");
 
-    // 2. Embedding Model
-    UI.section(`DOWNLOADING EMBEDDING MODEL  —  ${embedModel}`);
-    await this.runPull(embedModel);
-    UI.ok("Embeddings ready!");
+    if (embedModel) {
+      UI.section(`DOWNLOADING EMBEDDING MODEL — ${embedModel}`);
+      await this.runPull(embedModel);
+      UI.ok("Embeddings ready!");
+    }
   }
 
-  /**
-   * Internal helper to execute the 'ollama pull' command.
-   */
   private static async runPull(modelName: string): Promise<void> {
-    const cmd = new Deno.Command("ollama", {
+    const { success } = await new Deno.Command("ollama", {
       args: ["pull", modelName],
-      stdout: "inherit", // Shows the live progress bar to the user
+      stdout: "inherit",
       stderr: "inherit",
-    });
+    }).output();
 
-    const { success } = await cmd.output();
-    if (!success) {
-      throw new Error(`Failed to pull model: ${modelName}`);
-    }
+    if (!success) throw new Error(`Failed to pull model: ${modelName}`);
   }
 }
