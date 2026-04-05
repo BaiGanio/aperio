@@ -58,22 +58,33 @@ export class UI {
     console.log(`  ${this.B(this.BL("└─────────────────────────────────────────────────┘"))}\n`);
   }
 
-  static async showModelPicker(currentModel: string): Promise<string> {
+   static async showModelPicker(currentModel: string): Promise<string> {
     console.log(`\n  ${this.WH(this.B("Choose a model to install:"))}\n`);
 
-    // Select.prompt IS async, so this stays async
+    // Build options from MODEL_TIERS env var if available,
+    // otherwise fall back to hardcoded defaults
+    const tiersEnv = Deno.env.get("MODEL_TIERS") || "";
+    const options = tiersEnv
+      ? tiersEnv.split(",").map(entry => {
+          const idx = entry.indexOf(":");
+          const ram = entry.slice(0, idx);
+          const model = entry.slice(idx + 1); // preserves colons in model names like qwen3:8b
+          return { name: model, value: ram };
+        })
+      : [
+          { name: "qwen2.5:3b   ~2 GB — lightest, fast",          value: "qwen2.5:3b"   },
+          { name: "qwen3:8b     ~5 GB — balanced",                 value: "qwen3:8b"     },
+          { name: "qwen3:14b    ~9 GB — recommended for 32GB RAM", value: "qwen3:14b"    },
+          { name: "llama3.1:8b  ~5 GB — stable alternative",       value: "llama3.1:8b"  },
+        ];
+
     const selected = await Select.prompt({
-      message: `Select model`,
+      message: "Select model",
       default: currentModel,
-      options: [
-        { name: "qwen2.5:3b   ~2 GB — lightest, fast", value: "qwen2.5:3b" },
-        { name: "qwen3:8b     ~5 GB — balanced", value: "qwen3:8b" },
-        { name: "qwen3:14b    ~9 GB — recommended for 32 GB RAM", value: "qwen3:14b" },
-        { name: "llama3.1:8b  ~5 GB — stable alternative", value: "llama3.1:8b" },
-      ],
+      options,
     });
 
-    console.log(""); 
+    console.log("");
     this.ok(`Selected model: ${this.B(selected)}`);
     return selected;
   }

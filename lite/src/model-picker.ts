@@ -1,5 +1,5 @@
 import { UI } from "./ui.ts";
-import { HardwareStats } from "./hardware.ts";
+import type { HardwareStats } from "./hardware.ts";
 
 export class ModelPicker {
   /**

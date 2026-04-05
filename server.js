@@ -50,6 +50,10 @@ app.get("/api/memories", async (req, res) => {
   }
 });
 
+app.get('/api/heartbeat', (_req, res) => {
+  res.json({ ok: true, ts: Date.now() });
+});
+
 app.use(express.json());
 app.use(express.static(resolve(__dirname, "public")));
 

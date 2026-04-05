@@ -7,73 +7,86 @@ import { Ollama } from "./ollama.ts";
 import { NPM } from "./npm.ts";
 import { Server } from "./server.ts";
 import { Setup } from "./setup.ts";
-import process from "node:process";
+import { load } from "@std/dotenv";
+import * as path from "node:path";
 
-// At the top of src/main.ts
-const flags = Deno.args;
-const isDebug = flags.includes("--debug") || flags.includes("-d");
-const PORT = Number(process.env.PORT) || 3000;
-const EMBEDDING_MODEL = process.env.OLLAMA_EMBEDDING_MODEL || "";
+const binDir = path.dirname(Deno.execPath());
+await load({ export: true, envPath: path.join(binDir, ".env.lite") });
+
+const PORT            = Number(Deno.env.get("PORT")) || 3000;
+const EMBEDDING_MODEL = Deno.env.get("OLLAMA_EMBEDDING_MODEL") || "nomic-embed-text";
+const FORCED_MODEL    = Deno.env.get("OLLAMA_MODEL") || "";
+const flags           = Deno.args;
+const isDebug         = flags.includes("--debug") || flags.includes("-d");
 
 async function main() {
   UI.printBanner();
 
   try {
-    const stats = await Hardware.getStats();
-
+    // 1. Port
     UI.section("CHECKING PORT AVAILABILITY...");
     await Port.forceFree(PORT);
-    if (!await Port.isAvailable(PORT)) {
+    if (!Port.isAvailable(PORT)) {
       UI.die(`Port ${PORT} is still locked by the OS. Please close apps using it.`);
     }
-    
     UI.info(`Using port: ${PORT}`);
 
-    // 2. Load Configuration (Fast Path)
+    // 2. Hardware (needed for recommendation either way)
+    const stats = await Hardware.getStats();
+
+    // 3. Model selection
     let config = await Config.load();
-    
-    if (config.ollamaModel) {
-      UI.info(`Fast-path: Found saved model ${config.ollamaModel}`);
+
+    if (FORCED_MODEL) {
+      // .env.lite hard-override — skip all prompts
+      config = await Config.save({ ...config, ollamaModel: FORCED_MODEL });
+      UI.info(`Model forced by .env.lite: ${FORCED_MODEL}`);
+
+    } else if (config.ollamaModel) {
+      // Returning user — ask if they want to keep or change
+      UI.info(`Current model: ${UI.B(config.ollamaModel)}`);
+      const keep = confirm(`  Keep this model and continue? (n to pick a different one)`);
+
+      if (!keep) {
+        const selectedModel = await ModelPicker.showMenu(stats);
+        config = await Config.save({ ...config, ollamaModel: selectedModel });
+      }
+
     } else {
-      // 3. Pre-install Manifest & Interaction
+      // First run — go through full picker
       UI.printPreInstallManifest(isDebug, EMBEDDING_MODEL);
       await UI.confirmOrExit("Ready to start setup?");
 
-      // 4. Hardware Analysis
-      UI.startSpinner("Analyzing hardware...");
-      const stats = await Hardware.getStats();
-      UI.stopSpinner(`Hardware detected: ${stats.cpuCores} Cores, ${stats.ramGB}GB RAM, ${stats.gpuVramGB}GB VRAM`);
-
-      // 5. Model Picker
       const selectedModel = await ModelPicker.showMenu(stats);
       config = await Config.save({ ...config, ollamaModel: selectedModel });
     }
 
+    // 4. Ollama
     UI.section("CHECKING OLLAMA");
-    await Ollama.ensureReady();   
-    await Ollama.pullModels(config.ollamaModel || stats.recommendedModel, EMBEDDING_MODEL);
+    await Ollama.ensureReady();
+    await Ollama.pullModels(config.ollamaModel!, EMBEDDING_MODEL);
 
+    // 5. Node + npm
     UI.section("VERIFIES NODE AND INSTALL DEPENDENCIES");
     await NPM.ensureReady();
 
+    // 6. Uninstall scripts
     UI.section("GENERATING UNINSTALL SCRIPTS");
-    await Setup.generateUninstalls();
+    await Setup.generateUninstalls(config); 
     UI.ok("Maintenance scripts generated.");
 
-    // 7. Launch Express Server
+    // 7. Launch
     UI.section("LAUNCHING SERVER");
     UI.info("Starting Aperio-lite server...");
 
     const serverProcess = await Server.start(PORT, config, isDebug);
 
-    // Graceful Shutdown Handler
     Deno.addSignalListener("SIGINT", async () => {
       UI.warn("\nShutting down safely...");
       await Server.stop();
       Deno.exit(0);
     });
 
-    // Keep the process alive while the server runs
     await serverProcess.status;
 
   } catch (error) {
