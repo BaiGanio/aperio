@@ -1,0 +1,21 @@
+{
+  "name": "aperio-lite",
+  "version": "1.0.0",
+  "imports": {
+    "@std/colors": "jsr:@std/fmt@^1.0.0/colors",
+    "@cliffy/prompt": "jsr:@cliffy/prompt@^1.0.0-rc.7",
+    "node:process": "node:process",
+    "node:path": "node:path"
+  },
+  "compilerOptions": {
+    "lib": ["deno.ns", "dom"]
+  },
+  "tasks": {
+    "start": "deno run --allow-net --allow-env --allow-run --allow-read --allow-write --allow-sys src/main.ts",
+    "build:windows":      "deno compile --target x86_64-pc-windows-msvc    --allow-net --allow-env --allow-run --allow-read --allow-write --allow-sys --output bin/aperio-win.exe    src/main.ts",
+    "build:macos-arm":    "deno compile --target aarch64-apple-darwin       --allow-net --allow-env --allow-run --allow-read --allow-write --allow-sys --output bin/aperio-mac-arm   src/main.ts",
+    "build:macos-intel":  "deno compile --target x86_64-apple-darwin        --allow-net --allow-env --allow-run --allow-read --allow-write --allow-sys --output bin/aperio-mac-intel src/main.ts",
+    "build:linux":        "deno compile --target x86_64-unknown-linux-gnu   --allow-net --allow-env --allow-run --allow-read --allow-write --allow-sys --output bin/aperio-linux     src/main.ts",
+    "build:all": "deno task build:windows && deno task build:macos-arm && deno task build:macos-intel && deno task build:linux"
+  }
+}
