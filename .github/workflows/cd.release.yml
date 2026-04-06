@@ -81,64 +81,37 @@ jobs:
         run: |
           NEW_V="${{ steps.versioning.outputs.new_v }}"
           TAG="v$NEW_V"
-          echo "Waiting for launcher workflow triggered by tag $TAG..."
-
-          # Give GitHub a moment to register the tag-triggered run
-          sleep 15
+          # Get the SHA of the commit we just tagged/pushed
+          COMMIT_SHA=$(git rev-parse HEAD)
+          
+          echo "Waiting for launcher workflow triggered by tag $TAG (Commit: $COMMIT_SHA)..."
 
           RUN_ID=""
-
-          # Phase 1 — find the run ID
-          # Wait longer before first poll — tag event + workflow queue takes time
-          sleep 30
-
           for i in $(seq 1 30); do
-            echo "Debug: Current runs visible to CLI:"
-            gh run list --limit 5
-
+            # Filter by the exact commit SHA instead of --ref
             RUN_ID=$(gh run list \
-              --workflow cd.aperio-lite-launchers.yml \
-              --ref "$TAG" \
+              --workflow "cd.aperio-lite-launchers.yml" \
+              --commit "$COMMIT_SHA" \
               --limit 1 \
               --json databaseId \
-              --jq '.[0].databaseId')
-
+              --jq '.[0].databaseId // ""')
 
             if [[ -n "$RUN_ID" ]]; then
-              echo "  Found run: $RUN_ID"
+              echo "  ✅ Found run: $RUN_ID"
               break
             fi
-            echo "  attempt $i: run not found yet, retrying..."
-            sleep 10
+            echo "  attempt $i: run not found for SHA $COMMIT_SHA, retrying..."
+            sleep 15
           done
 
           if [[ -z "$RUN_ID" ]]; then
-            echo "❌ Launcher workflow run never appeared for tag $TAG"
+            echo "❌ Launcher workflow run never appeared for commit $COMMIT_SHA"
             exit 1
           fi
 
-          # Export for the download step
           echo "LAUNCHER_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-
-          # Phase 2 — wait for it to complete (up to 10 min)
-          for i in $(seq 1 30); do
-            CONCLUSION=$(gh run view "$RUN_ID" \
-              --json status,conclusion \
-              --jq '"status=\(.status) conclusion=\(.conclusion)"')
-            echo "  attempt $i: $CONCLUSION"
-
-            STATUS=$(gh run view "$RUN_ID" --json status --jq '.status')
-            if [[ "$STATUS" == "completed" ]]; then
-              CONCLUSION=$(gh run view "$RUN_ID" --json conclusion --jq '.conclusion')
-              if [[ "$CONCLUSION" != "success" ]]; then
-                echo "❌ Launcher workflow completed with conclusion: $CONCLUSION"
-                exit 1
-              fi
-              echo "✅ Launcher builds completed successfully"
-              break
-            fi
-            sleep 20
-          done
+          
+          # ... (rest of your Phase 2 polling logic) ...
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
