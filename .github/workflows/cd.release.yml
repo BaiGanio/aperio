@@ -76,44 +76,26 @@ jobs:
       # headBranch is empty for tag-triggered runs — filter on headSha or the
       # displayTitle instead. We use `--event push` + the tag ref to narrow it,
       # then check `conclusion` (not `status`) to know it actually succeeded.
-      - name: Wait for launcher builds
+      - name: Trigger Launcher and Wait
         if: steps.info.outputs.bump != 'skip'
         run: |
           NEW_V="${{ steps.versioning.outputs.new_v }}"
           TAG="v$NEW_V"
-          # Get the SHA of the commit we just tagged/pushed
-          COMMIT_SHA=$(git rev-parse HEAD)
-          
-          echo "Waiting for launcher workflow triggered by tag $TAG (Commit: $COMMIT_SHA)..."
 
-          RUN_ID=""
-          for i in $(seq 1 30); do
-            # Filter by the exact commit SHA instead of --ref
-            RUN_ID=$(gh run list \
-              --workflow "cd.aperio-lite-launchers.yml" \
-              --commit "$COMMIT_SHA" \
-              --limit 1 \
-              --json databaseId \
-              --jq '.[0].databaseId // ""')
+          echo "🚀 Explicitly triggering launcher workflow for $TAG..."
+          gh workflow run cd.aperio-lite-launchers.yml --ref "$TAG"
 
-            if [[ -n "$RUN_ID" ]]; then
-              echo "  ✅ Found run: $RUN_ID"
-              break
-            fi
-            echo "  attempt $i: run not found for SHA $COMMIT_SHA, retrying..."
-            sleep 15
-          done
+          # Give a few seconds to initialize the run
+          sleep 10
 
-          if [[ -z "$RUN_ID" ]]; then
-            echo "❌ Launcher workflow run never appeared for commit $COMMIT_SHA"
-            exit 1
-          fi
-
+          # Get the ID of the run we just started
+          RUN_ID=$(gh run list --workflow cd.aperio-lite-launchers.yml --limit 1 --json databaseId --jq '.[0].databaseId')
           echo "LAUNCHER_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-          
-          # ... (rest of your Phase 2 polling logic) ...
+
+          echo "⏳ Waiting for run $RUN_ID to complete..."
+          gh run watch "$RUN_ID"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.MY_PAT }} # Use your PAT here to ensure it has permission
 
       - name: Download launcher binaries
         if: steps.info.outputs.bump != 'skip'
