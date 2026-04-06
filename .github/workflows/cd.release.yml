@@ -92,14 +92,14 @@ jobs:
           # Wait longer before first poll — tag event + workflow queue takes time
           sleep 30
 
-          echo "--- DEBUG: all recent runs ---"
-          gh run list             --repo "${{ github.repository }}"             --limit=10             --json databaseId,headBranch,displayTitle,status,event,workflowName             --jq '.[] | {id:.databaseId, workflow:.workflowName, branch:.headBranch, title:.displayTitle, status:.status, event:.event}'             || true
-          echo "--- DEBUG: tag exists on remote? ---"
-          git ls-remote --tags origin | grep "$TAG" || echo "  ❌ tag NOT found on remote"
-          echo "--- END DEBUG ---"
-
           for i in $(seq 1 30); do
-            RUN_ID=$(gh run list               --repo "${{ github.repository }}"               --workflow=cd.aperio-lite-launchers.yml               --limit=10               --json databaseId,headBranch,displayTitle,status               --jq ".[] | select(.headBranch == \"$TAG\") | .databaseId"               | head -1)
+            RUN_ID=$(gh run list \
+            --repo "${{ github.repository }}" \
+            --workflow=cd.aperio-lite-launchers.yml \
+            --limit=10 \
+            --json databaseId,headBranch,displayTitle,status,event \
+            --jq ".[] | select(.event == \"push\") | .databaseId" \
+            | head -1)
 
             if [[ -n "$RUN_ID" ]]; then
               echo "  Found run: $RUN_ID"
