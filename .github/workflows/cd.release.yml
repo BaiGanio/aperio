@@ -93,13 +93,16 @@ jobs:
           sleep 30
 
           for i in $(seq 1 30); do
+            echo "Debug: Current runs visible to CLI:"
+            gh run list --limit 5
+
             RUN_ID=$(gh run list \
-            --repo "${{ github.repository }}" \
-            --workflow=cd.aperio-lite-launchers.yml \
-            --limit=10 \
-            --json databaseId,headBranch,displayTitle,status,event \
-            --jq ".[] | select(.event == \"push\") | .databaseId" \
-            | head -1)
+              --workflow cd.aperio-lite-launchers.yml \
+              --ref "$TAG" \
+              --limit 1 \
+              --json databaseId \
+              --jq '.[0].databaseId')
+
 
             if [[ -n "$RUN_ID" ]]; then
               echo "  Found run: $RUN_ID"
