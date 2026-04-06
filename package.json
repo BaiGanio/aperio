@@ -1,6 +1,6 @@
 {
   "name": "aperio",
-  "version": "2.39.8",
+  "version": "2.39.9",
   "description": "Personal AI memory layer — Postgres + MCP + Claude",
   "type": "module",
   "license": "MIT",
