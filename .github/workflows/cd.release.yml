@@ -54,24 +54,68 @@ jobs:
           NEW_V="${{ steps.versioning.outputs.new_v }}"
           git add package.json package-lock.json docs/scripts.js
           git commit -m "chore: release v$NEW_V [skip ci]"
-          git tag "v$NEW_V"          # ← this tag triggers the launchers workflow
+          git tag "v$NEW_V"
           git push origin master
           git push origin "v$NEW_V"
 
-      # Wait for the launchers workflow (triggered by the tag above) to finish
+      # ── Wait for the launcher workflow triggered by the tag above ─────────────
+      # headBranch is empty for tag-triggered runs — filter on headSha or the
+      # displayTitle instead. We use `--event push` + the tag ref to narrow it,
+      # then check `conclusion` (not `status`) to know it actually succeeded.
       - name: Wait for launcher builds
         if: steps.info.outputs.bump != 'skip'
         run: |
           NEW_V="${{ steps.versioning.outputs.new_v }}"
-          echo "Waiting for launcher builds for tag v$NEW_V..."
-          for i in $(seq 1 30); do
-            STATUS=$(gh run list \
+          TAG="v$NEW_V"
+          echo "Waiting for launcher workflow triggered by tag $TAG..."
+
+          # Give GitHub a moment to register the tag-triggered run
+          sleep 15
+
+          RUN_ID=""
+
+          # Phase 1 — find the run ID (up to 2 min)
+          for i in $(seq 1 24); do
+            RUN_ID=$(gh run list \
               --workflow=cd.aperio-lite-launchers.yml \
-              --json status,headBranch \
-              --jq ".[] | select(.headBranch == \"v$NEW_V\") | .status" \
+              --event=push \
+              --json databaseId,headBranch,displayTitle,status \
+              --jq ".[] | select(.displayTitle | test(\"$TAG\"; \"i\")) | .databaseId" \
               | head -1)
-            echo "  attempt $i: status=$STATUS"
-            if [[ "$STATUS" == "completed" ]]; then break; fi
+
+            if [[ -n "$RUN_ID" ]]; then
+              echo "  Found run: $RUN_ID"
+              break
+            fi
+            echo "  attempt $i: run not found yet, retrying..."
+            sleep 5
+          done
+
+          if [[ -z "$RUN_ID" ]]; then
+            echo "❌ Launcher workflow run never appeared for tag $TAG"
+            exit 1
+          fi
+
+          # Export for the download step
+          echo "LAUNCHER_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+
+          # Phase 2 — wait for it to complete (up to 10 min)
+          for i in $(seq 1 30); do
+            CONCLUSION=$(gh run view "$RUN_ID" \
+              --json status,conclusion \
+              --jq '"status=\(.status) conclusion=\(.conclusion)"')
+            echo "  attempt $i: $CONCLUSION"
+
+            STATUS=$(gh run view "$RUN_ID" --json status --jq '.status')
+            if [[ "$STATUS" == "completed" ]]; then
+              CONCLUSION=$(gh run view "$RUN_ID" --json conclusion --jq '.conclusion')
+              if [[ "$CONCLUSION" != "success" ]]; then
+                echo "❌ Launcher workflow completed with conclusion: $CONCLUSION"
+                exit 1
+              fi
+              echo "✅ Launcher builds completed successfully"
+              break
+            fi
             sleep 20
           done
         env:
@@ -82,18 +126,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: dist/
+          # Download artifacts from the launcher run specifically
+          run-id: ${{ env.LAUNCHER_RUN_ID }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create Lite Zip (source + binaries)
         id: packer_lite
         if: steps.info.outputs.bump != 'skip'
         run: |
-          # Copy binaries into a launchers/ folder inside the zip
           mkdir -p launchers
           find dist/ -type f | while read f; do
             cp "$f" launchers/
           done
 
-          # Pull the install guide out of the excluded lite/ folder
           cp lite/how-to-install.md README.md
 
           zip -r aperio-lite.zip . -x \
@@ -108,8 +153,7 @@ jobs:
             "lite/*" \
             "deno.json" \
             "deno.lock" \
-            "dist/*"           # exclude the raw download folder
-
+            "dist/*"
 
           SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')
           echo "sha_lite=${SHA_VALUE}" >> "$GITHUB_OUTPUT"
@@ -130,7 +174,7 @@ jobs:
             ---
             **Signed by:** 🏆 Project Lead - L.K.
             ---
-          generate_release_notes: false   # ← your own changelog, no auto-generation
+          generate_release_notes: false
           files: aperio-lite.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
