@@ -2,6 +2,7 @@
   "name": "aperio-lite",
   "version": "1.0.0", 
   "exports": "./lite/src/main.ts",
+  "nodeModulesDir": "auto",
   "imports": {
     "@std/dotenv": "jsr:@std/dotenv@^0.225.0",
     "@std/colors": "jsr:@std/fmt@^1.0.0/colors",
