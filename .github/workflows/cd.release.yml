@@ -106,33 +106,54 @@ jobs:
           run-id: ${{ env.LAUNCHER_RUN_ID }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Lite Zip (source + binaries)
+      - name: Create Dedicated Launcher Zips
         id: packer_lite
         if: steps.info.outputs.bump != 'skip'
         run: |
-          mkdir -p launchers
-          find dist/ -type f | while read f; do
-            cp "$f" launchers/
-          done
-
+          # 1. Prepare base source (excluding binaries/git)
+          mkdir -p .source_tmp
           cp lite/how-to-install.md README.md
+          
+          # Create a list of files for the "base" zip to avoid repeating the zip logic
+          # We'll use this as a template
+          
+          # 2. Iterate through each platform artifact folder in dist/
+          # Expecting dist/windows, dist/linux, dist/macos etc.
+          cd dist/
+          for platform in *; do
+            if [ -d "$platform" ]; then
+              echo "Processing platform: $platform"
+              ZIP_NAME="aperio-lite-$platform.zip"
+              
+              # Create zip: include the binary from the platform folder + root source files
+              # We go back up one level to get the project files
+              zip -r "../$ZIP_NAME" ../ -x \
+                "../.git/*" "../.github/*" "../.lancedb/*" "../node_modules/*" \
+                "../db/migrations/*" "../docker/*" "../docs/*" "../tests/*" \
+                "../lite/*" "../deno.json" "../deno.lock" "../dist/*" \
+                "../launchers/*"
+              
+              # Add the specific launcher binary into the root of this specific zip
+              cd "$platform"
+              zip "../../$ZIP_NAME" *
+              cd ..
+              
+              # Calculate SHA
+              SHA_VALUE=$(shasum -a 256 "../$ZIP_NAME" | awk '{print $1}')
+              echo "$ZIP_NAME SHA: $SHA_VALUE"
+              
+              # Append to a summary file for the release body
+              echo "- \`$ZIP_NAME\` (SHA256: \`$SHA_VALUE\`)" >> ../release_summary.txt
+            fi
+          done
+          cd ..
+          # 3. Export the summary for the next step using GitHub's HEREDOC syntax
+          {
+            echo 'RELEASE_BODY<<EOF'
+            cat release_summary.txt
+            echo 'EOF'
+          } >> "$GITHUB_OUTPUT"
 
-          zip -r aperio-lite.zip . -x \
-            "*.git/*" \
-            "*.github/*" \
-            "*.lancedb/*" \
-            "node_modules/*" \
-            "db/migrations/*" \
-            "docker/*" \
-            "docs/*" \
-            "tests/*" \
-            "lite/*" \
-            "deno.json" \
-            "deno.lock" \
-            "dist/*"
-
-          SHA_VALUE=$(shasum -a 256 aperio-lite.zip | awk '{print $1}')
-          echo "sha_lite=${SHA_VALUE}" >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
         if: steps.info.outputs.bump != 'skip'
@@ -142,7 +163,7 @@ jobs:
           name: Release v${{ steps.versioning.outputs.new_v }}
           body: |
             ### 📦 Downloads
-            - `aperio-lite.zip` — includes launcher binaries for all platforms
+            ${{ steps.packer_lite.outputs.RELEASE_BODY }}
 
             ### 🔐 Verify Authenticity
             **aperio-lite.zip SHA256:** `${{ steps.packer_lite.outputs.sha_lite }}`
@@ -151,6 +172,6 @@ jobs:
             **Signed by:** 🏆 Project Lead - L.K.
             ---
           generate_release_notes: false
-          files: aperio-lite.zip
+          files: aperio-lite-*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
