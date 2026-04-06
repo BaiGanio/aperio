@@ -82,8 +82,8 @@ jobs:
           # Wait longer before first poll — tag event + workflow queue takes time
           sleep 30
 
-          echo "--- DEBUG: gh run list (no filter) ---"
-          gh run list             --repo "${{ github.repository }}"             --workflow=cd.aperio-lite-launchers.yml             --limit=5             --json databaseId,headBranch,displayTitle,status,event             --jq '.[] | {id:.databaseId, branch:.headBranch, title:.displayTitle, status:.status, event:.event}'             || true
+          echo "--- DEBUG: all recent runs (no workflow filter) ---"
+          gh run list             --repo "${{ github.repository }}"             --limit=10             --json databaseId,headBranch,displayTitle,status,event,workflowName             --jq '.[] | {id:.databaseId, workflow:.workflowName, branch:.headBranch, title:.displayTitle, status:.status, event:.event}'             || true
           echo "--- END DEBUG ---"
 
           for i in $(seq 1 30); do
