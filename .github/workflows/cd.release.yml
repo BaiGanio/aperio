@@ -1,4 +1,4 @@
-# cd.release.yml — now downloads binaries and packs them into the zip...
+# cd.release.yml — now downloads binaries and packs them into the zip
 name: (cd) Release & Versioning
 
 on:
@@ -78,27 +78,23 @@ jobs:
 
           RUN_ID=""
 
-          # Phase 1 — find the run ID (up to 2 min)
-          # Debug first: dump raw list so we can see what displayTitle/headBranch look like
-          echo "--- DEBUG: raw gh run list ---"
-          gh run list             --workflow=cd.aperio-lite-launchers.yml             --limit=5             --json databaseId,headBranch,displayTitle,status,event             --jq '.[] | {id:.databaseId, branch:.headBranch, title:.displayTitle, status:.status, event:.event}'             || true
+          # Phase 1 — find the run ID
+          # Wait longer before first poll — tag event + workflow queue takes time
+          sleep 30
+
+          echo "--- DEBUG: gh run list (no filter) ---"
+          gh run list             --repo "${{ github.repository }}"             --workflow=cd.aperio-lite-launchers.yml             --limit=5             --json databaseId,headBranch,displayTitle,status,event             --jq '.[] | {id:.databaseId, branch:.headBranch, title:.displayTitle, status:.status, event:.event}'             || true
           echo "--- END DEBUG ---"
 
-          for i in $(seq 1 24); do
-            # Try displayTitle containing the tag
-            RUN_ID=$(gh run list               --workflow=cd.aperio-lite-launchers.yml               --limit=10               --json databaseId,headBranch,displayTitle,status               --jq ".[] | select(.displayTitle | test(\"$TAG\"; \"i\")) | .databaseId"               | head -1)
-
-            # Fallback: headBranch sometimes holds the tag ref
-            if [[ -z "$RUN_ID" ]]; then
-              RUN_ID=$(gh run list                 --workflow=cd.aperio-lite-launchers.yml                 --limit=10                 --json databaseId,headBranch,displayTitle,status                 --jq ".[] | select(.headBranch == \"$TAG\") | .databaseId"                 | head -1)
-            fi
+          for i in $(seq 1 30); do
+            RUN_ID=$(gh run list               --repo "${{ github.repository }}"               --workflow=cd.aperio-lite-launchers.yml               --limit=10               --json databaseId,headBranch,displayTitle,status               --jq ".[] | select(.headBranch == \"$TAG\") | .databaseId"               | head -1)
 
             if [[ -n "$RUN_ID" ]]; then
               echo "  Found run: $RUN_ID"
               break
             fi
             echo "  attempt $i: run not found yet, retrying..."
-            sleep 5
+            sleep 10
           done
 
           if [[ -z "$RUN_ID" ]]; then
