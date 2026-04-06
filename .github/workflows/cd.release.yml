@@ -135,6 +135,8 @@ jobs:
               zip -u "$ZIP_NAME" README.md
 
               # Add the launcher executable(s) from the platform folder
+              # Ensure the binary has executable permissions BEFORE zipping
+              chmod +x "$platform_path"/*
               # -j (junk paths) strips "dist/windows/" and puts "launcher.exe" at the zip root
               zip -j "$ZIP_NAME" "$platform_path"/*
 
