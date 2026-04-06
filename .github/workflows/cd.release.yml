@@ -1,4 +1,4 @@
-# cd.release.yml — now downloads binaries and packs them into the zip
+# cd.release.yml — now downloads binaries and packs them into the zip...
 name: (cd) Release & Versioning
 
 on:
