@@ -1,11 +1,10 @@
 name: (ci) Codecov Run tests and upload coverage
 
-on: 
+on:
   push:
-    branches: [ "master"]
+    branches: ["master"]
   pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [ "master" ]
+    branches: ["master"]
 
 jobs:
   test:
@@ -19,15 +18,18 @@ jobs:
 
       - name: Set up Node
         uses: actions/setup-node@v4
+        with:
+          node-version: 22        # pin to a version that ships node:test + V8 coverage
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci               # ci is faster and safer than install in CI
 
-      - name: Run Tests with Coverage
-        run: npm test
+      - name: Run tests with coverage
+        run: npm run test:ci      # runs c8 + all test files, writes coverage/lcov.info
 
       - name: Upload results to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
+          fail_ci_if_error: true  # don't silently pass if upload fails

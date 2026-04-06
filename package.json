@@ -13,10 +13,15 @@
     "chat": "node lib/chat.js",
     "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node lib/chat.js",
     "chat:local": "AI_PROVIDER=ollama PORT=31338 node lib/chat.js",
-    "test": "c8 --all --src ./src node --test --test-reporter=spec tests/mcp-tools.test.js",
-    "coverage": "c8 report --reporter=lcov",
-    "test:skills": "node tests/testSkills.js",
-    "test:skill": "node -e \"import('./tests/testSkills.js').then(t => t.testLoadSingleSkill(process.argv.pop()))\" --"
+    "test:skills":    "node --test tests/skills/skills.test.js",
+    "test:execution": "node --test tests/skills/execution.test.js",
+    "test:store":     "node --test tests/store/store.test.js",
+    "test:backfill":  "node --test tests/store/backfill.test.js",
+    "test:memory":    "node --test tests/tools/memory.test.js",
+    "test:only":      "node --test --test-name-pattern",
+    "test":           "node --test 'tests/**/*.test.js'",
+    "test:ci":        "c8 node --test 'tests/**/*.test.js'",
+    "coverage":       "c8 report --reporter=lcov --reporter=text"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.81.0",

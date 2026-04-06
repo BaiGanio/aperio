@@ -1,10 +1,10 @@
 // mcp/tools/files.js
 // File-system tools: read_file, write_file, append_file, scan_project.
 
-import { z }                                          from "zod";
+import { z }                                               from "zod";
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
-import fs                                             from "fs/promises";
-import { join, extname, basename }                    from "path";
+import fs                                                  from "fs/promises";
+import { join, extname, basename }                         from "path";
 
 const ALLOWED_EXTENSIONS = new Set([
   ".js", ".ts", ".jsx", ".tsx", ".py", ".go", ".rs", ".java",
@@ -14,13 +14,140 @@ const ALLOWED_EXTENSIONS = new Set([
 const READ_FILE_CHUNK_SIZE = 500;
 const READ_FILE_MAX_OFFSET = 10_000;
 
-const SKIP_DIRS = new Set(["node_modules",".git",".next","dist","build","coverage","__pycache__",".venv","venv"]);
-const KEY_FILES = new Set(["package.json","README.md","readme.md","pyproject.toml","Cargo.toml","go.mod","docker-compose.yml"]);
-const CODE_EXTS = new Set([".js",".ts",".py",".go",".rs",".java",".jsx",".tsx"]);
+const SKIP_DIRS  = new Set(["node_modules",".git",".next","dist","build","coverage","__pycache__",".venv","venv"]);
+const KEY_FILES  = new Set(["package.json","README.md","readme.md","pyproject.toml","Cargo.toml","go.mod","docker-compose.yml"]);
+const CODE_EXTS  = new Set([".js",".ts",".py",".go",".rs",".java",".jsx",".tsx"]);
 
-export function register(server, { isPathAllowed, ALLOWED_PATHS }) {
+// ─── Pure handler functions ───────────────────────────────────────────────────
 
-  // ─── read_file ───────────────────────────────────────────────────────────────
+export async function readFileHandler({ path: filePath, max_lines, offset = 0 }) {
+  const ext = extname(filePath).toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(ext))
+    return { content: [{ type: "text", text: `❌ File type not allowed: ${ext}` }] };
+  if (!existsSync(filePath))
+    return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
+
+  const stat = statSync(filePath);
+  if (stat.size > 500_000)
+    return { content: [{ type: "text", text: `❌ File too large (${Math.round(stat.size / 1024)}KB). Max 500KB.` }] };
+
+  const lines    = readFileSync(filePath, "utf-8").split("\n");
+  const limit    = Math.min(max_lines ?? READ_FILE_CHUNK_SIZE, READ_FILE_CHUNK_SIZE);
+  const start    = Math.min(offset, lines.length, READ_FILE_MAX_OFFSET);
+  const end      = start + limit;
+  const chunk    = lines.slice(start, end);
+  const truncated = end < lines.length;
+
+  return {
+    content: [{
+      type: "text",
+      text: `📄 ${filePath} (${lines.length} lines):\n\n${chunk.join("\n")}${truncated ? `\n\n⚠️ Truncated at line ${end}. Use offset: ${end} to continue.` : ""}`,
+    }],
+  };
+}
+
+export async function writeFileHandler(ctx, { path: filePath, content, create_dirs = true }) {
+  const { isPathAllowed, ALLOWED_PATHS } = ctx;
+  try {
+    const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
+
+    if (!isPathAllowed(filePath))
+      return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
+
+    if (create_dirs) {
+      const dir = resolved.substring(0, resolved.lastIndexOf("/"));
+      if (dir) await fs.mkdir(dir, { recursive: true });
+    }
+
+    let existingSize = null;
+    try { existingSize = (await fs.stat(resolved)).size; } catch {}
+
+    await fs.writeFile(resolved, content, "utf8");
+    const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
+    const msg    = existingSize !== null
+      ? `✅ Overwrote ${resolved} (${sizeKb} KB, was ${(existingSize / 1024).toFixed(1)} KB)`
+      : `✅ Created ${resolved} (${sizeKb} KB)`;
+
+    return { content: [{ type: "text", text: msg }] };
+  } catch (err) {
+    return { content: [{ type: "text", text: `❌ write_file failed: ${err.message}` }] };
+  }
+}
+
+export async function appendFileHandler(ctx, { path: filePath, content }) {
+  const { isPathAllowed, ALLOWED_PATHS } = ctx;
+  try {
+    const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
+
+    if (!isPathAllowed(filePath))
+      return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
+    if (!existsSync(resolved))
+      return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
+
+    const before = (await fs.readFile(resolved, "utf8")).split("\n");
+    await fs.appendFile(resolved, content, "utf8");
+    const after = (await fs.readFile(resolved, "utf8")).split("\n");
+    const tail  = after.slice(-5).join("\n");
+
+    return {
+      content: [{ type: "text", text: `✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}` }],
+    };
+  } catch (err) {
+    return { content: [{ type: "text", text: `❌ append_file failed: ${err.message}` }] };
+  }
+}
+
+export async function scanProjectHandler({ path: projectPath, read_key_files = true }) {
+  if (!existsSync(projectPath))
+    return { content: [{ type: "text", text: `❌ Path not found: ${projectPath}` }] };
+  if (!statSync(projectPath).isDirectory())
+    return { content: [{ type: "text", text: `❌ Not a directory: ${projectPath}` }] };
+
+  let fileCount = 0;
+  const keyFileContents = [];
+
+  function buildTree(dir, depth = 0) {
+    if (depth > 3 || fileCount > 50) return "";
+    let tree = "";
+    let entries;
+    try { entries = readdirSync(dir); } catch { return ""; }
+    for (const entry of entries.sort()) {
+      if (fileCount > 50) { tree += `${"  ".repeat(depth)}...\n`; break; }
+      const fullPath = join(dir, entry);
+      let s;
+      try { s = statSync(fullPath); } catch { continue; }
+      if (s.isDirectory()) {
+        if (SKIP_DIRS.has(entry)) continue;
+        tree += `${"  ".repeat(depth)}📁 ${entry}/\n`;
+        tree += buildTree(fullPath, depth + 1);
+      } else {
+        fileCount++;
+        const icon = CODE_EXTS.has(extname(entry).toLowerCase()) ? "📄" : "📋";
+        tree += `${"  ".repeat(depth)}${icon} ${entry}\n`;
+        if (read_key_files && KEY_FILES.has(entry)) {
+          try {
+            const content = readFileSync(fullPath, "utf-8").split("\n").slice(0, 100).join("\n");
+            keyFileContents.push(`\n--- ${entry} ---\n${content}`);
+          } catch {}
+        }
+      }
+    }
+    return tree;
+  }
+
+  const tree = buildTree(projectPath);
+  let output = `🗂️ Project: ${basename(projectPath)}\nPath: ${projectPath}\nFiles: ${fileCount}\n\n${tree}`;
+  if (keyFileContents.length) output += `\n\n📋 Key files:${keyFileContents.join("\n")}`;
+  output += `\n\n💡 Use read_file to dive into specific files.`;
+
+  return { content: [{ type: "text", text: output }] };
+}
+
+// ─── MCP registration ─────────────────────────────────────────────────────────
+
+export function register(server, ctx) {
+  const { isPathAllowed, ALLOWED_PATHS } = ctx;
+
   server.registerTool(
     "read_file",
     {
@@ -31,34 +158,9 @@ export function register(server, { isPathAllowed, ALLOWED_PATHS }) {
         offset:    z.number().min(0).max(READ_FILE_MAX_OFFSET).optional().describe("Line number to start reading from, default 0"),
       }),
     },
-    async ({ path: filePath, max_lines, offset = 0 }) => {
-      const ext = extname(filePath).toLowerCase();
-      if (!ALLOWED_EXTENSIONS.has(ext))
-        return { content: [{ type: "text", text: `❌ File type not allowed: ${ext}` }] };
-      if (!existsSync(filePath))
-        return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
-
-      const stat = statSync(filePath);
-      if (stat.size > 500_000)
-        return { content: [{ type: "text", text: `❌ File too large (${Math.round(stat.size / 1024)}KB). Max 500KB.` }] };
-
-      const lines    = readFileSync(filePath, "utf-8").split("\n");
-      const limit    = Math.min(max_lines ?? READ_FILE_CHUNK_SIZE, READ_FILE_CHUNK_SIZE);
-      const start    = Math.min(offset, lines.length, READ_FILE_MAX_OFFSET);
-      const end      = start + limit;
-      const chunk    = lines.slice(start, end);
-      const truncated = end < lines.length;
-
-      return {
-        content: [{
-          type: "text",
-          text: `📄 ${filePath} (${lines.length} lines):\n\n${chunk.join("\n")}${truncated ? `\n\n⚠️ Truncated at line ${end}. Use offset: ${end} to continue.` : ""}`,
-        }],
-      };
-    }
+    readFileHandler
   );
 
-  // ─── write_file ──────────────────────────────────────────────────────────────
   server.registerTool(
     "write_file",
     {
@@ -69,35 +171,9 @@ export function register(server, { isPathAllowed, ALLOWED_PATHS }) {
         create_dirs: z.boolean().optional().describe("Create parent directories if they don't exist. Default true."),
       }),
     },
-    async ({ path: filePath, content, create_dirs = true }) => {
-      try {
-        const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
-
-        if (!isPathAllowed(filePath))
-          return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
-
-        if (create_dirs) {
-          const dir = resolved.substring(0, resolved.lastIndexOf("/"));
-          if (dir) await fs.mkdir(dir, { recursive: true });
-        }
-
-        let existingSize = null;
-        try { existingSize = (await fs.stat(resolved)).size; } catch {}
-
-        await fs.writeFile(resolved, content, "utf8");
-        const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
-        const msg    = existingSize !== null
-          ? `✅ Overwrote ${resolved} (${sizeKb} KB, was ${(existingSize / 1024).toFixed(1)} KB)`
-          : `✅ Created ${resolved} (${sizeKb} KB)`;
-
-        return { content: [{ type: "text", text: msg }] };
-      } catch (err) {
-        return { content: [{ type: "text", text: `❌ write_file failed: ${err.message}` }] };
-      }
-    }
+    (args) => writeFileHandler(ctx, args)
   );
 
-  // ─── append_file ─────────────────────────────────────────────────────────────
   server.registerTool(
     "append_file",
     {
@@ -107,30 +183,9 @@ export function register(server, { isPathAllowed, ALLOWED_PATHS }) {
         content: z.string().describe("Content to append (added at the end of the file)"),
       }),
     },
-    async ({ path: filePath, content }) => {
-      try {
-        const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
-
-        if (!isPathAllowed(filePath))
-          return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
-        if (!existsSync(resolved))
-          return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
-
-        const before = (await fs.readFile(resolved, "utf8")).split("\n");
-        await fs.appendFile(resolved, content, "utf8");
-        const after = (await fs.readFile(resolved, "utf8")).split("\n");
-        const tail  = after.slice(-5).join("\n");
-
-        return {
-          content: [{ type: "text", text: `✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}` }],
-        };
-      } catch (err) {
-        return { content: [{ type: "text", text: `❌ append_file failed: ${err.message}` }] };
-      }
-    }
+    (args) => appendFileHandler(ctx, args)
   );
 
-  // ─── scan_project ────────────────────────────────────────────────────────────
   server.registerTool(
     "scan_project",
     {
@@ -140,50 +195,6 @@ export function register(server, { isPathAllowed, ALLOWED_PATHS }) {
         read_key_files: z.boolean().optional().describe("Read key file contents, default true"),
       }),
     },
-    async ({ path: projectPath, read_key_files = true }) => {
-      if (!existsSync(projectPath))
-        return { content: [{ type: "text", text: `❌ Path not found: ${projectPath}` }] };
-      if (!statSync(projectPath).isDirectory())
-        return { content: [{ type: "text", text: `❌ Not a directory: ${projectPath}` }] };
-
-      let fileCount = 0;
-      const keyFileContents = [];
-
-      function buildTree(dir, depth = 0) {
-        if (depth > 3 || fileCount > 50) return "";
-        let tree = "";
-        let entries;
-        try { entries = readdirSync(dir); } catch { return ""; }
-        for (const entry of entries.sort()) {
-          if (fileCount > 50) { tree += `${"  ".repeat(depth)}...\n`; break; }
-          const fullPath = join(dir, entry);
-          let s;
-          try { s = statSync(fullPath); } catch { continue; }
-          if (s.isDirectory()) {
-            if (SKIP_DIRS.has(entry)) continue;
-            tree += `${"  ".repeat(depth)}📁 ${entry}/\n`;
-            tree += buildTree(fullPath, depth + 1);
-          } else {
-            fileCount++;
-            const icon = CODE_EXTS.has(extname(entry).toLowerCase()) ? "📄" : "📋";
-            tree += `${"  ".repeat(depth)}${icon} ${entry}\n`;
-            if (read_key_files && KEY_FILES.has(entry)) {
-              try {
-                const content = readFileSync(fullPath, "utf-8").split("\n").slice(0, 100).join("\n");
-                keyFileContents.push(`\n--- ${entry} ---\n${content}`);
-              } catch {}
-            }
-          }
-        }
-        return tree;
-      }
-
-      const tree = buildTree(projectPath);
-      let output = `🗂️ Project: ${basename(projectPath)}\nPath: ${projectPath}\nFiles: ${fileCount}\n\n${tree}`;
-      if (keyFileContents.length) output += `\n\n📋 Key files:${keyFileContents.join("\n")}`;
-      output += `\n\n💡 Use read_file to dive into specific files.`;
-
-      return { content: [{ type: "text", text: output }] };
-    }
+    scanProjectHandler
   );
 }
