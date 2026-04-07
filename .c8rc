@@ -1,6 +1,6 @@
 {
   "reporter": ["lcov", "text"],
-  "include": ["lib/**/*.js", "mcp/**/*.js"],
+  "include": ["lib/**/*.js", "mcp/**/*.js", "skills/**/*.js"],
   "exclude": ["tests/**", "node_modules/**"],
   "all": true
 }

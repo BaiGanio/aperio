@@ -60,12 +60,17 @@ describe("readFileHandler", () => {
   });
 
   test("respects offset parameter", async () => {
-    const lines = Array.from({ length: 10 }, (_, i) => `line${i + 1}`).join("\n");
-    const p = tmpFile("offset.js", lines);
-    const result = await readFileHandler({ path: p, offset: 5 });
-    assert.ok(result.content[0].text.includes("line6"));
-    assert.ok(!result.content[0].text.includes("line1"));
+    // Use unique strings so line10 doesn't contain line1
+    const lines = ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape"].join("\n");
+    const p = tmpFile("offset_test.js", lines);
+    
+    const result = await readFileHandler({ path: p, offset: 3 }); // Start at 'date'
+    const text = result.content[0].text;
+    
+    assert.ok(text.includes("date"), "Should include the line at offset");
+    assert.ok(!text.includes("apple"), "Should not include lines before offset");
   });
+
 
   test("truncates and adds notice when content exceeds max_lines", async () => {
     const lines = Array.from({ length: 600 }, (_, i) => `// line ${i}`).join("\n");
