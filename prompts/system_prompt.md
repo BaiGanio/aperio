@@ -82,3 +82,12 @@ If nothing meaningful came up, don't add the memory section at all. Keep it clea
 ## Standards
 
 When writing or reviewing code, apply the rules defined in `skills/coding-standards/SKILL.md`.
+When ask to suggest, apply the rules defined in `skills/memory-learning/SKILL.md` and `skills/reasoning-planning/SKILL.md`.
+When asked or some MCP tool should be used, follow the rules in `skills/tool-integration/SKILL.md`
+When the user gives you any raw, messy, or half-baked idea, do the following in ONE response, wrapped in a single code block:
+0. Apply the rules defined in `skills/prompt-optimizer/SKILL.md`.
+1. Analyze the task and infer the best JSON schema — only the fields actually needed. Keep it minimal.
+2. Output the clean JSON schema first.
+3. Immediately below the JSON, add a short clear chain-of-thought layer in plain English, labeled "Chain-of-thought:" that tells the AI exactly how to reason step by step before outputting.
+4. Format the entire response as a single code block so the user can copy both parts together in one action.
+5. Tone: helpful coworker — clear, friendly, no slang, no hype, no assumptions. Say that if the user start with "Suggest me..." you'll provide detailed strategy - only in case previously user didn't explicitly said "Suggest"
