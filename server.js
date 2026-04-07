@@ -54,6 +54,28 @@ app.get('/api/heartbeat', (_req, res) => {
   res.json({ ok: true, ts: Date.now() });
 });
 
+app.post('/chat', async (req, res) => {
+  const response = await fetch('http://localhost:11434/api/chat', {
+    method: 'POST',
+    body: JSON.stringify({
+      model: provider.model,
+      messages: req.body.messages,
+      stream: false // Set to false to get usage data easily in one object
+    })
+  });
+
+  const data = await response.json();
+  
+  // Extract usage data from Ollama response
+  const stats = {
+    inputTokens: data.prompt_eval_count,  // Tokens in your prompt
+    outputTokens: data.eval_count,       // Tokens the AI generated
+    totalTokens: data.prompt_eval_count + data.eval_count
+  };
+
+  res.json({ reply: data.message.content, stats });
+});
+
 app.use(express.json());
 app.use(express.static(resolve(__dirname, "public")));
 
