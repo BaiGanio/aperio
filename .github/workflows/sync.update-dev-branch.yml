@@ -31,7 +31,6 @@ jobs:
             server.js
             db
             docker
-            how-to
             lib
             mcp
             prompts
