@@ -13,7 +13,7 @@ import {
   writeFileHandler,
   appendFileHandler,
   scanProjectHandler,
-} from "../../mcp/tools/files.js";
+} from "../../../mcp/tools/files.js";
 
 // ─── Temp workspace ───────────────────────────────────────────────────────────
 
