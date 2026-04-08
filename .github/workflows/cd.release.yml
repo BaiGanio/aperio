@@ -132,7 +132,7 @@ jobs:
       - name: Prepare README
         run: |
           mkdir -p how-to 
-          cp cp lite/{how-to-install.pdf,README.md} how-to/
+          cp lite/{how-to-install.pdf,README.md} how-to/
 
       - name: Build aperio-lite.zip
         run: |
