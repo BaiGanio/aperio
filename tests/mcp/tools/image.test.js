@@ -8,7 +8,7 @@ import fs from "fs/promises";
 import { writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
-import { detectMime, readImageHandler } from "../../mcp/tools/image.js";
+import { detectMime, readImageHandler } from "../../../mcp/tools/image.js";
 
 // ─── Temp workspace ───────────────────────────────────────────────────────────
 
