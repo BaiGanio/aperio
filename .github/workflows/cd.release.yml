@@ -26,7 +26,7 @@ env:
   ZIP_EXCLUDES: >-
     .git/* .github/* .lancedb/* node_modules/*
     db/migrations/* docker/* docs/* tests/*
-    lite/* deno.json deno.lock dist/*
+    lite/* deno.json deno.lock .c8rc dist/*
     launchers/* release_summary.txt README.md how-to/*
 
 # =============================================================================
