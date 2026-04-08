@@ -46,6 +46,15 @@
              display:flex;align-items:center;gap:5px;flex-shrink:0;transition:all var(--transition);">
       🧠 <span id="reasoningToggleLabel">reasoning on</span>
     </button>
+    <div class="ctx-window" id="ctxWindow">
+      <div class="ctx-header">
+        <span class="ctx-label">context</span>
+        <span class="ctx-value" id="ctxText">— / —</span>
+      </div>
+      <div class="ctx-track">
+        <div class="ctx-fill" id="ctxFill"></div>
+      </div>
+    </div>
     <div class="theme-switcher">
       <button class="theme-btn" data-theme="light"  title="Light">☀️</button>
       <button class="theme-btn" data-theme="dark"   title="Dark">🌙</button>

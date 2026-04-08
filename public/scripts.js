@@ -14,6 +14,8 @@ let ws, pendingSuggestion = null, isThinking = false, hasInitialized = false;
 let allMemories = []; // Global store for the current modal session
 let currentPage = 1;
 const recordsPerPage = 3;
+// The practical ceiling depends on your RAM — 128k at fp16 needs roughly 16–20 GB. A safe starting bump for most setups is 32768 (32k), 65536 (64k) if you have ample RAM and want to experiment. Remember to also update num_ctx in your Ollama model config!
+const maxCtx = 32768; // match whatever num_ctx you set in Ollama
 
 // ── DOM refs ─────────────────────────────────────────────────
 const messagesEl   = document.getElementById("messages");
@@ -307,6 +309,11 @@ function handleMessage(msg) {
     sendBtn.style.display = "";
     stopBtn.style.display = "none";
     scrollToBottom();
+    // ✅ ADD THIS — update context bar when response is complete
+    if (msg.usage) {
+      const used = (msg.usage.input_tokens ?? 0) + (msg.usage.output_tokens ?? 0);
+      updateContextBar(used, maxCtx);
+    }
   }
 
   if (msg.type === "memories") {
@@ -1244,3 +1251,19 @@ setInterval(() => {
   ping();
   start();
 })();
+
+function updateContextBar(used, max) {
+  const text = document.getElementById("ctxText");
+  const fill = document.getElementById("ctxFill");
+  if (!text || !fill) return;
+
+  if (!max || max <= 0) {
+    text.textContent = `${used.toLocaleString()} / —`;
+    fill.style.width = "0%";
+    return;
+  }
+
+  const pct = Math.min(100, (used / max) * 100);
+  text.textContent = `${used.toLocaleString()} / ${max.toLocaleString()}`;
+  fill.style.width = `${pct}%`;
+}
