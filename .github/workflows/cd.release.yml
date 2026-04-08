@@ -1,4 +1,16 @@
-# cd.release.yml — now downloads binaries and packs them into the zip
+# cd.release.yml
+#
+# Release & Versioning
+# ─────────────────────────────────────────────────────────────────────────────
+# Commit message conventions
+#   feat: …              → minor bump, source-only zip
+#   fix: …               → patch bump, source-only zip
+#   feat(launchers): …   → minor bump + per-platform launcher zips
+#   fix(launchers): …    → patch bump + per-platform launcher zips
+#
+# Anything else (or a message containing "skip ci") → no-op.
+# ─────────────────────────────────────────────────────────────────────────────
+
 name: (cd) Release & Versioning
 
 on:
@@ -8,10 +20,28 @@ on:
 permissions:
   contents: write
 
+# ── Excluded paths that never belong in any release zip ──────────────────────
+# Defined once here and reused in both packaging jobs via env.
+env:
+  ZIP_EXCLUDES: >-
+    .git/* .github/* .lancedb/* node_modules/*
+    db/migrations/* docker/* docs/* tests/*
+    lite/* deno.json deno.lock dist/*
+    launchers/* release_summary.txt README.md
+
+# =============================================================================
 jobs:
-  release:
+
+  # ── 1. Analyze commit & bump version ───────────────────────────────────────
+  version:
+    name: Analyze & Bump Version
     runs-on: ubuntu-latest
     if: "!contains(github.event.head_commit.message, 'skip ci')"
+
+    outputs:
+      new_v:        ${{ steps.versioning.outputs.new_v }}
+      bump:         ${{ steps.info.outputs.bump }}
+      with_launchers: ${{ steps.info.outputs.with_launchers }}
 
     steps:
       - uses: actions/checkout@v4
@@ -19,20 +49,28 @@ jobs:
           token: ${{ secrets.MY_PAT }}
           fetch-depth: 0
 
+      # Determine bump type and whether launcher binaries are requested.
+      # Convention: feat(launchers): or fix(launchers): opts into the binary path.
       - name: Analyze Commit
         id: info
         run: |
           MSG=$(git log -1 --pretty=%s)
-          if [[ "$MSG" =~ ^feat: ]]; then BUMP="minor"
-          elif [[ "$MSG" =~ ^fix: ]]; then BUMP="patch"
-          else BUMP="skip"
+
+          if   [[ "$MSG" =~ ^feat\(launchers\): ]]; then BUMP="minor"; WITH_LAUNCHERS="true"
+          elif [[ "$MSG" =~ ^fix\(launchers\):  ]]; then BUMP="patch"; WITH_LAUNCHERS="true"
+          elif [[ "$MSG" =~ ^feat:              ]]; then BUMP="minor"; WITH_LAUNCHERS="false"
+          elif [[ "$MSG" =~ ^fix:               ]]; then BUMP="patch"; WITH_LAUNCHERS="false"
+          else                                          BUMP="skip";  WITH_LAUNCHERS="false"
           fi
-          echo "bump=$BUMP" >> $GITHUB_OUTPUT
+
+          echo "bump=$BUMP"                   >> "$GITHUB_OUTPUT"
+          echo "with_launchers=$WITH_LAUNCHERS" >> "$GITHUB_OUTPUT"
+          echo "→ bump=$BUMP  with_launchers=$WITH_LAUNCHERS"
 
       - name: Configure Git
         if: steps.info.outputs.bump != 'skip'
         run: |
-          git config user.name "github-actions[bot]"
+          git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Bump Version
@@ -41,7 +79,7 @@ jobs:
         run: |
           npm version ${{ steps.info.outputs.bump }} --no-git-tag-version
           NEW_V=$(node -p "require('./package.json').version")
-          echo "new_v=$NEW_V" >> $GITHUB_OUTPUT
+          echo "new_v=$NEW_V" >> "$GITHUB_OUTPUT"
 
       - name: Write version for landing page
         if: steps.info.outputs.bump != 'skip'
@@ -53,16 +91,18 @@ jobs:
         run: |
           set -euo pipefail
           NEW_V="${{ steps.versioning.outputs.new_v }}"
+
           git add package.json package-lock.json docs/scripts.js
           git commit -m "chore: release v$NEW_V [skip ci]"
 
-          # Use MY_PAT — GITHUB_TOKEN pushes never trigger downstream workflows
-          git remote set-url origin https://x-access-token:${{ secrets.MY_PAT }}@github.com/${{ github.repository }}
+          # MY_PAT is required — GITHUB_TOKEN pushes never trigger downstream workflows
+          git remote set-url origin \
+            https://x-access-token:${{ secrets.MY_PAT }}@github.com/${{ github.repository }}
 
           echo "→ creating tag v$NEW_V..."
           git tag "v$NEW_V"
 
-          echo "→ pushing tag first (triggers launcher workflow)..."
+          echo "→ pushing tag..."
           git push origin "v$NEW_V"
 
           echo "→ pushing master..."
@@ -72,84 +112,137 @@ jobs:
           git ls-remote --tags origin "refs/tags/v$NEW_V"
           echo "✅ tag confirmed on remote"
 
-      # ── Wait for the launcher workflow triggered by the tag above ─────────────
-      # headBranch is empty for tag-triggered runs — filter on headSha or the
-      # displayTitle instead. We use `--event push` + the tag ref to narrow it,
-      # then check `conclusion` (not `status`) to know it actually succeeded.
-      - name: Trigger Launcher and Wait
-        if: steps.info.outputs.bump != 'skip'
-        run: |
-          NEW_V="${{ steps.versioning.outputs.new_v }}"
-          TAG="v$NEW_V"
 
-          echo "🚀 Explicitly triggering launcher workflow for $TAG..."
+  # ── 2a. Source-only release (default) ──────────────────────────────────────
+  package-source:
+    name: Package — Source Only
+    needs: version
+    runs-on: ubuntu-latest
+    if: |
+      needs.version.outputs.bump != 'skip' &&
+      needs.version.outputs.with_launchers == 'false'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.MY_PAT }}
+          # Check out the tagged commit so the zip reflects the bumped version
+          ref: v${{ needs.version.outputs.new_v }}
+
+      - name: Prepare README
+        run: cp lite/how-to-install.md README.md
+
+      - name: Build aperio-lite.zip
+        run: |
+          ZIP_NAME="aperio-lite.zip"
+
+          zip -r "$ZIP_NAME" . -x ${{ env.ZIP_EXCLUDES }} "$ZIP_NAME"
+          zip -u "$ZIP_NAME" README.md   # ensure README lands at root
+
+          SHA=$(shasum -a 256 "$ZIP_NAME" | awk '{print $1}')
+          echo "RELEASE_BODY=- \`$ZIP_NAME\` (SHA256: \`$SHA\`)" >> "$GITHUB_ENV"
+
+          echo "✅ Created $ZIP_NAME"
+          unzip -l "$ZIP_NAME" | head -30
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version.outputs.new_v }}
+          name:     Release v${{ needs.version.outputs.new_v }}
+          body: |
+            ### 📦 Downloads
+            ${{ env.RELEASE_BODY }}
+
+            ---
+            **Signed by:** 🏆 Project Lead - L.K.
+          generate_release_notes: false
+          files: aperio-lite.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+
+  # ── 2b. Launcher-binary release (opt-in) ───────────────────────────────────
+  package-launchers:
+    name: Package — With Launcher Binaries
+    needs: version
+    runs-on: ubuntu-latest
+    if: |
+      needs.version.outputs.bump != 'skip' &&
+      needs.version.outputs.with_launchers == 'true'
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.MY_PAT }}
+          ref: v${{ needs.version.outputs.new_v }}
+
+      # Trigger the launcher build workflow and wait for it to finish.
+      # headBranch is empty for tag-triggered runs, so we trigger explicitly
+      # and then watch the run by its ID rather than filtering on branch name.
+      - name: Trigger Launcher Workflow & Wait
+        id: launcher
+        run: |
+          TAG="v${{ needs.version.outputs.new_v }}"
+
+          echo "🚀 Triggering launcher workflow for $TAG..."
           gh workflow run cd.aperio-lite-launchers.yml --ref "$TAG"
 
-          # Give a few seconds to initialize the run
+          # Allow a few seconds for the run to register
           sleep 10
 
-          # Get the ID of the run we just started
-          RUN_ID=$(gh run list --workflow cd.aperio-lite-launchers.yml --limit 1 --json databaseId --jq '.[0].databaseId')
-          echo "LAUNCHER_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          RUN_ID=$(gh run list \
+            --workflow cd.aperio-lite-launchers.yml \
+            --limit 1 \
+            --json databaseId \
+            --jq '.[0].databaseId')
 
-          echo "⏳ Waiting for run $RUN_ID to complete..."
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "⏳ Waiting for launcher run $RUN_ID..."
           gh run watch "$RUN_ID"
         env:
-          GH_TOKEN: ${{ secrets.MY_PAT }} # Use your PAT here to ensure it has permission
+          GH_TOKEN: ${{ secrets.MY_PAT }}
 
-      - name: Download launcher binaries
-        if: steps.info.outputs.bump != 'skip'
+      - name: Download Launcher Binaries
         uses: actions/download-artifact@v4
         with:
           path: dist/
-          # Download artifacts from the launcher run specifically
-          run-id: ${{ env.LAUNCHER_RUN_ID }}
+          run-id: ${{ steps.launcher.outputs.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Dedicated Launcher Zips
-        id: packer_lite
-        if: steps.info.outputs.bump != 'skip'
+      - name: Prepare README
+        run: cp lite/how-to-install.md README.md
+
+      - name: Build Per-Platform Zips
+        id: packer
         run: |
-          # 1. Prepare README for the zip
-          cp lite/how-to-install.md README.md
-          
-          # Initialize the summary file
           touch release_summary.txt
 
-          # 2. Loop through each platform directory in dist/
-          for platform_path in dist/*; do
-            if [ -d "$platform_path" ]; then
-              platform=$(basename "$platform_path")
-              ZIP_NAME="aperio-lite-$platform.zip"
-              echo "📦 Packaging platform: $platform..."
+          for platform_path in dist/*/; do
+            [ -d "$platform_path" ] || continue
 
-              # Create the base zip with source code (run from root)
-              # Exclude patterns are now correctly relative to '.'
-              zip -r "$ZIP_NAME" . -x \
-                ".git/*" ".github/*" ".lancedb/*" "node_modules/*" \
-                "db/migrations/*" "docker/*" "docs/*" "tests/*" \
-                "lite/*" "deno.json" "deno.lock" "dist/*" \
-                "launchers/*" "$ZIP_NAME" "release_summary.txt" "README.md"
+            platform=$(basename "$platform_path")
+            ZIP_NAME="aperio-lite-$platform.zip"
+            echo "📦 Packaging $platform..."
 
-              # Add the README specifically (to ensure it's at root)
-              zip -u "$ZIP_NAME" README.md
+            # Base source zip
+            zip -r "$ZIP_NAME" . -x ${{ env.ZIP_EXCLUDES }} "$ZIP_NAME"
 
-              # Add the launcher executable(s) from the platform folder
-              # Ensure the binary has executable permissions BEFORE zipping
-              chmod +x "$platform_path"/*
-              # -j (junk paths) strips "dist/windows/" and puts "launcher.exe" at the zip root
-              zip -j "$ZIP_NAME" "$platform_path"/*
+            # README at root
+            zip -u "$ZIP_NAME" README.md
 
-              # Calculate SHA256
-              SHA_VALUE=$(shasum -a 256 "$ZIP_NAME" | awk '{print $1}')
-              echo "- \`$ZIP_NAME\` (SHA256: \`$SHA_VALUE\`)" >> release_summary.txt
-              
-              echo "✅ Created $ZIP_NAME"
-              unzip -l "$ZIP_NAME" | grep -E "README.md|$platform" # Debug: show contents
-            fi
+            # Binary/launcher — strip the dist/platform/ prefix with -j
+            chmod +x "$platform_path"/*
+            zip -j "$ZIP_NAME" "$platform_path"/*
+
+            SHA=$(shasum -a 256 "$ZIP_NAME" | awk '{print $1}')
+            echo "- \`$ZIP_NAME\` (SHA256: \`$SHA\`)" >> release_summary.txt
+
+            echo "✅ Created $ZIP_NAME"
+            unzip -l "$ZIP_NAME" | grep -E "README\.md|$(basename "$platform_path"/*)".
           done
 
-          # 3. Export the summary for the release body
+          # Export multiline summary as a step output
           {
             echo 'RELEASE_BODY<<EOF'
             cat release_summary.txt
@@ -157,18 +250,16 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        if: steps.info.outputs.bump != 'skip'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.versioning.outputs.new_v }}
-          name: Release v${{ steps.versioning.outputs.new_v }}
+          tag_name: v${{ needs.version.outputs.new_v }}
+          name:     Release v${{ needs.version.outputs.new_v }}
           body: |
             ### 📦 Dedicated Launcher Downloads
-            ${{ steps.packer_lite.outputs.RELEASE_BODY }}
+            ${{ steps.packer.outputs.RELEASE_BODY }}
 
             ---
             **Signed by:** 🏆 Project Lead - L.K.
-            ---
           generate_release_notes: false
           files: aperio-lite-*.zip
         env:
