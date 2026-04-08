@@ -44,7 +44,7 @@ jobs:
             else
                 echo "Warning: $item not found in source"
             fi
-          donex
+          done
 
       - name: Push to dev branch
         run: |
