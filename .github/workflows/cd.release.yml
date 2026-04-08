@@ -27,7 +27,7 @@ env:
     .git/* .github/* .lancedb/* node_modules/*
     db/migrations/* docker/* docs/* tests/*
     lite/* deno.json deno.lock dist/*
-    launchers/* release_summary.txt README.md
+    launchers/* release_summary.txt README.md how-to/*
 
 # =============================================================================
 jobs:
@@ -130,7 +130,7 @@ jobs:
           ref: v${{ needs.version.outputs.new_v }}
 
       - name: Prepare README
-        run: cp lite/how-to-install.md README.md
+        run: cp cp lite/{how-to-install.pdf,README.md} how-to/
 
       - name: Build aperio-lite.zip
         run: |
