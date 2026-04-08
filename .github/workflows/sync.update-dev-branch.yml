@@ -44,11 +44,13 @@ jobs:
             else
                 echo "Warning: $item not found in source"
             fi
-          done
+          donex
 
       - name: Push to dev branch
         run: |
-          cd dev-files
+          zip -r "$ZIP_NAME" dev-files/
+          # or with junk-paths to strip the dev-files/ prefix:
+          cd dev-files && zip -r "../$ZIP_NAME" .
           git init
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
