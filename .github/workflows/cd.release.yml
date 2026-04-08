@@ -130,7 +130,9 @@ jobs:
           ref: v${{ needs.version.outputs.new_v }}
 
       - name: Prepare README
-        run: cp cp lite/{how-to-install.pdf,README.md} how-to/
+        run: |
+          mkdir -p how-to 
+          cp cp lite/{how-to-install.pdf,README.md} how-to/
 
       - name: Build aperio-lite.zip
         run: |
