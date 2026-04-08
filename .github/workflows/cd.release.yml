@@ -138,7 +138,12 @@ jobs:
         run: |
           ZIP_NAME="aperio-lite.zip"
 
-          zip -r "$ZIP_NAME" . -x ${{ env.ZIP_EXCLUDES }} "$ZIP_NAME"
+          zip -r "$ZIP_NAME" . \
+            -x ".git/*" ".github/*" ".lancedb/*" "node_modules/*" \
+            -x "db/migrations/*" "docker/*" "docs/*" "tests/*" \
+            -x "lite/*" "deno.json" "deno.lock" "dist/*" \
+            -x "launchers/*" "release_summary.txt" "README.md" "how-to/*" ".c8rc" \
+            -x "$ZIP_NAME"
           zip -u "$ZIP_NAME" how-to/*
 
           SHA=$(shasum -a 256 "$ZIP_NAME" | awk '{print $1}')
