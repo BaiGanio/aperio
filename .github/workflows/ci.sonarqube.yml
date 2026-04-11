@@ -1,10 +1,6 @@
 name: (ci) SonarQube analysis
 
 on:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
   workflow_run:
     workflows: ["(ci) Codecov Run tests and upload coverage"]
     types:
