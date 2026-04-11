@@ -12,6 +12,7 @@ const TYPE_CONFIG = {
 // ── State ────────────────────────────────────────────────────
 let ws, pendingSuggestion = null, isThinking = false, hasInitialized = false;
 let allMemories = []; // Global store for the current modal session
+filteredMemories = []; // Subset of allMemories matching the current search query in the modal
 let currentPage = 1;
 const recordsPerPage = 3;
 // The practical ceiling depends on your RAM — 128k at fp16 needs roughly 16–20 GB. A safe starting bump for most setups is 32768 (32k), 65536 (64k) if you have ample RAM and want to experiment. Remember to also update num_ctx in your Ollama model config!
@@ -981,16 +982,6 @@ document.addEventListener('keydown', (e) => {
     document.querySelector('.preview-modal')?.classList.remove('active');
   }
 });
-
-// async function toggleMemoryView() {
-//     const modal = document.getElementById('memoryModal');
-//     if (!modal) {
-//         console.error("❌ memoryModal not found in this page's HTML.");
-//         return; 
-//     }
-//     modal.style.display = 'block'; // Show Modal
-//     await refreshMemories();
-// }
 
 function closeModal() {
     document.getElementById('memoryModal').style.display = 'none';
