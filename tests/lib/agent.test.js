@@ -1,8 +1,6 @@
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { mock } from "node:test";
 import os from "node:os";
-import * as childProcess from "node:child_process";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import * as StdioTransportModule from "@modelcontextprotocol/sdk/client/stdio.js";
 import {
@@ -232,16 +230,6 @@ describe("createAgent initialization", () => {
     const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
 
     assert.ok(agent, "createAgent should return an agent object");
-
-    const connectMock = Client.prototype.connect[Symbol.for("nodejs.mock.original")]
-      ? Client.prototype.connect
-      : null;
-
-    // Verify the mocked connect & listTools were each called once
-    const connectCallCount  = t.mock.calls?.connect  ?? 
-      // fallback: check via the mock reference we set in stubMcpTransport
-      Client.prototype.connect.mock?.callCount();
-    const listToolsCallCount = Client.prototype.listTools.mock?.callCount();
 
     // node:test attaches .mock to the method after t.mock.method()
     assert.strictEqual(Client.prototype.connect.mock.callCount(), 1,    "connect() should be called once");

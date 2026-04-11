@@ -7,7 +7,7 @@ import sanitizeHtml from "sanitize-html";
 // ─── Pure handler ─────────────────────────────────────────────────────────────
 
 export async function fetchUrlHandler({ url, max_chars: _max }) {
-  const max_chars = _max !== undefined ? parseInt(_max, 10) : undefined;
+  const max_chars = _max !== undefined ? Number.parseInt(_max, 10) : undefined;
   try {
     const response = await fetch(url, {
       headers: { "User-Agent": "Aperio/2.0" },
