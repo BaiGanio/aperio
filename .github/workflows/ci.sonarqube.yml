@@ -32,3 +32,4 @@ jobs:
             -Dsonar.organization=baiganio
             -Dsonar.scm.provider=git
             -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info
+            -Dsonar.exclusions=**/*.sql
