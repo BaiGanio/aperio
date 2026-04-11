@@ -64,18 +64,18 @@ export class Hardware {
             "(Get-CimInstance Win32_VideoController | Sort-Object AdapterRAM -Descending | Select-Object -First 1).AdapterRAM / 1GB"],
           stdout: "piped", stderr: "null",
         }).output();
-        const val = parseFloat(new TextDecoder().decode(stdout).trim());
-        return isNaN(val) ? 0 : Math.round(val);
+        const val = Number.parseFloat(new TextDecoder().decode(stdout).trim());
+        return Number.isNaN(val) ? 0 : Math.round(val);
       }
 
       const { stdout } = await new Deno.Command("bash", {
         args: ["-c", script],
         stdout: "piped", stderr: "null",
       }).output();
-      const val = parseFloat(new TextDecoder().decode(stdout).trim());
+      const val = Number.parseFloat(new TextDecoder().decode(stdout).trim());
       // nvidia-smi returns MB, macOS returns GB
-      if (os === "linux") return isNaN(val) ? 0 : Math.round(val / 1024);
-      return isNaN(val) ? 0 : Math.round(val);
+      if (os === "linux") return Number.isNaN(val) ? 0 : Math.round(val / 1024);
+      return Number.isNaN(val) ? 0 : Math.round(val);
     } catch {
       return 0;
     }
@@ -88,8 +88,8 @@ export class Hardware {
           args: ["-NoProfile", "-Command", "((Get-PSDrive C).Free / 1GB)"],
           stdout: "piped", stderr: "null",
         }).output();
-        const val = parseFloat(new TextDecoder().decode(stdout).trim());
-        return isNaN(val) ? 0 : Math.floor(val);
+        const val = Number.parseFloat(new TextDecoder().decode(stdout).trim());
+        return Number.isNaN(val) ? 0 : Math.floor(val);
       } else {
         // Works on both macOS and Linux
         // df -k gives kilobytes, 4th column is available
@@ -100,7 +100,7 @@ export class Hardware {
         const lines = new TextDecoder().decode(stdout).trim().split("\n");
         const parts = lines[1].trim().split(/\s+/);
         const availableKB = parseInt(parts[3]);
-        return isNaN(availableKB) ? 0 : Math.floor(availableKB / (1024 ** 2));
+        return Number.isNaN(availableKB) ? 0 : Math.floor(availableKB / (1024 ** 2));
       }
     } catch {
       return 0;
@@ -121,7 +121,7 @@ export class Hardware {
             model: entry.slice(idx + 1),   // everything after first colon
           };
         })
-        .filter(t => !isNaN(t.ram))
+        .filter(t => !Number.isNaN(t.ram))
         .sort((a, b) => b.ram - a.ram);   // highest RAM threshold first
 
       for (const tier of sorted) {

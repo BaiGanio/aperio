@@ -792,7 +792,7 @@ function renderMemories(memories) {
 function timeAgo(dateStr) {
   if (!dateStr) return "";
   const date = new Date(dateStr);
-  if (isNaN(date)) return "";
+  if (Number.isNaN(date)) return "";
   const diff = Math.floor((Date.now() - date) / 1000);
   if (diff < 60)    return "just now";
   if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
@@ -1084,7 +1084,7 @@ function renderTablePage() {
         // Convert importance (1-5) into star symbols
         // Ensure importance is a safe integer between 1 and 5 (inclusive)
         let rawImportance = parseInt(meta.importance, 10);
-        if (!Number.isFinite(rawImportance) || isNaN(rawImportance)) {
+        if (!Number.isFinite(rawImportance) || Number.isNaN(rawImportance)) {
             rawImportance = 1;
         }
         const importance = Math.min(Math.max(Math.floor(rawImportance), 1), 5);
