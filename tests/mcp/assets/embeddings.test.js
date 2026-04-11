@@ -125,7 +125,7 @@ describe("generateEmbedding — Ollama", () => {
   test("uses custom OLLAMA_BASE_URL and OLLAMA_EMBEDDING_MODEL", () =>
     withEnv({
       EMBEDDING_PROVIDER:     "ollama",
-      OLLAMA_BASE_URL:        "http://my-host:9999",
+      OLLAMA_BASE_URL:        "https://my-host:9999",
       OLLAMA_EMBEDDING_MODEL: "mxbai-embed-large",
     }, () => {
       let capturedUrl, capturedBody;
@@ -135,7 +135,7 @@ describe("generateEmbedding — Ollama", () => {
         return { ok: true, json: async () => ({ embeddings: [[0.1]] }) };
       }, async () => {
         await generateEmbedding("test");
-        assert.equal(capturedUrl, "http://my-host:9999/api/embed");
+        assert.equal(capturedUrl, "https://my-host:9999/api/embed");
         assert.equal(capturedBody.model, "mxbai-embed-large");
         assert.equal(capturedBody.input, "test");
       });
