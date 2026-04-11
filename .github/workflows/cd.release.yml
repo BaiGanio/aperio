@@ -1,27 +1,9 @@
-# cd.release.yml
-#
-# Release & Versioning
-# ─────────────────────────────────────────────────────────────────────────────
-# Commit message conventions
-#   feat: …              → minor bump, source-only zip
-#   fix: …               → patch bump, source-only zip
-#   feat(launchers): …   → minor bump + per-platform launcher zips
-#   fix(launchers): …    → patch bump + per-platform launcher zips
-#
-# Anything else (or a message containing "skip ci") → no-op.
-# ─────────────────────────────────────────────────────────────────────────────
-
 name: (cd) Release & Versioning
 
 on:
   push:
     branches: [master]
 
-permissions:
-  contents: write
-
-# ── Excluded paths that never belong in any release zip ──────────────────────
-# Defined once here and reused in both packaging jobs via env.
 env:
   ZIP_EXCLUDES: >-
     .git/* .github/* .lancedb/* node_modules/*
@@ -32,10 +14,11 @@ env:
 # =============================================================================
 jobs:
 
-  # ── 1. Analyze commit & bump version ───────────────────────────────────────
   version:
     name: Analyze & Bump Version
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: "!contains(github.event.head_commit.message, 'skip ci')"
 
     outputs:
@@ -112,12 +95,12 @@ jobs:
           git ls-remote --tags origin "refs/tags/v$NEW_V"
           echo "✅ tag confirmed on remote"
 
-
-  # ── 2a. Source-only release (default) ──────────────────────────────────────
   package-source:
     name: Package — Source Only
     needs: version
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: |
       needs.version.outputs.bump != 'skip' &&
       needs.version.outputs.with_launchers == 'false'
@@ -126,7 +109,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.MY_PAT }}
-          # Check out the tagged commit so the zip reflects the bumped version
           ref: v${{ needs.version.outputs.new_v }}
 
       - name: Prepare README
@@ -168,12 +150,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-
-  # ── 2b. Launcher-binary release (opt-in) ───────────────────────────────────
   package-launchers:
     name: Package — With Launcher Binaries
     needs: version
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: |
       needs.version.outputs.bump != 'skip' &&
       needs.version.outputs.with_launchers == 'true'
@@ -184,9 +166,6 @@ jobs:
           token: ${{ secrets.MY_PAT }}
           ref: v${{ needs.version.outputs.new_v }}
 
-      # Trigger the launcher build workflow and wait for it to finish.
-      # headBranch is empty for tag-triggered runs, so we trigger explicitly
-      # and then watch the run by its ID rather than filtering on branch name.
       - name: Trigger Launcher Workflow & Wait
         id: launcher
         run: |
