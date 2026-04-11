@@ -124,7 +124,7 @@ export class PostgresStore {
         params
       );
       if (rows.length) {
-        return rows.map(r => ({ ...rowToMemory(r), similarity: parseFloat(r.similarity) }));
+        return rows.map(r => ({ ...rowToMemory(r), similarity: Number.parseFloat(r.similarity) }));
       }
     }
 
@@ -175,7 +175,7 @@ export class PostgresStore {
        LIMIT 20`,
       [threshold]
     );
-    return rows.map(r => ({ ...r, similarity: parseFloat(r.similarity) }));
+    return rows.map(r => ({ ...r, similarity: Number.parseFloat(r.similarity) }));
   }
 
   async mergeDuplicate(id_a, id_b) {
