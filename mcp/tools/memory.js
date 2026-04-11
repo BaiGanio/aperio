@@ -37,7 +37,7 @@ export async function rememberHandler(ctx, { type, title, content, tags, importa
 export async function recallHandler(ctx, { query, type, tags, limit: _limit, search_mode = "auto" }) {
   const { store, generateEmbedding, vectorEnabled } = ctx;
 
-  const limit = _limit !== undefined ? parseInt(_limit, 10) : 10;
+  const limit = _limit !== undefined ? Number.parseInt(_limit, 10) : 10;
 
   const queryEmbedding = (query && vectorEnabled() && search_mode !== "fulltext")
     ? await generateEmbedding(query, "query")

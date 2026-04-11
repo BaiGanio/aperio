@@ -99,7 +99,7 @@ export class Hardware {
         }).output();
         const lines = new TextDecoder().decode(stdout).trim().split("\n");
         const parts = lines[1].trim().split(/\s+/);
-        const availableKB = parseInt(parts[3]);
+        const availableKB = Number.parseInt(parts[3]);
         return Number.isNaN(availableKB) ? 0 : Math.floor(availableKB / (1024 ** 2));
       }
     } catch {
@@ -117,7 +117,7 @@ export class Hardware {
         .map(entry => {
           const idx = entry.indexOf(":");
           return {
-            ram: parseInt(entry.slice(0, idx)),
+            ram: Number.parseInt(entry.slice(0, idx)),
             model: entry.slice(idx + 1),   // everything after first colon
           };
         })

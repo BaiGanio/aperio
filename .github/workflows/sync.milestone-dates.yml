@@ -34,7 +34,7 @@ jobs:
 
             const today  = new Date().toISOString().split("T")[0];
             const [owner, repo] = process.env.REPO.split("/");
-            const number = parseInt(process.env.PROJECT_NUMBER, 10);
+            const number = Number.parseInt(process.env.PROJECT_NUMBER, 10);
 
             const projectQuery = await github.graphql(`
               query($owner: String!, $number: Int!) {

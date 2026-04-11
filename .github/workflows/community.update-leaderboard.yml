@@ -41,7 +41,7 @@ jobs:
               prNumber = context.payload.inputs.pr_number;
               console.log(`Manual trigger for PR #${prNumber}`);
               const response = await github.rest.pulls.get({
-                owner, repo, pull_number: parseInt(prNumber)
+                owner, repo, pull_number: Number.parseInt(prNumber)
               });
               prData = response.data;
             } else {
@@ -60,7 +60,7 @@ jobs:
               console.log("No linked issue found in PR title. Skipping.");
               return;
             }
-            const issueNumber = parseInt(match[1]);
+            const issueNumber = Number.parseInt(match[1]);
 
             // 2. FETCH LABELS FROM THE ISSUE (Not the PR)
             const issue = await github.rest.issues.get({ owner, repo, issue_number: issueNumber });
@@ -103,7 +103,7 @@ jobs:
 
             labels.forEach(label => {
               const match = label.match(/(\d+)/);
-              if (match) { points += parseInt(match[1]); }
+              if (match) { points += Number.parseInt(match[1]); }
             });
             if (labels.includes('status: point-of-interest')) points += 25;
 
@@ -135,8 +135,8 @@ jobs:
               let cols = row.split('|').map(c => c.trim()).filter(c => c !== "");
               if (cols[1] === `@${prAuthor}`) {
                 userFound = true;
-                let currentXP = parseInt(cols[2]) || 0;
-                let currentBounty = parseInt(cols[3]) || 0;
+                let currentXP = Number.parseInt(cols[2]) || 0;
+                let currentBounty = Number.parseInt(cols[3]) || 0;
                 
                 // Award points to the correct column
                 if (isRobin) currentXP += points;
@@ -146,7 +146,7 @@ jobs:
                   `@${prAuthor}`, 
                   `XP ${currentXP}`, 
                   `$ ${currentBounty}`, 
-                  (parseInt(cols[4]) || 0) + 1, 
+                  (Number.parseInt(cols[4]) || 0) + 1, 
                   today
                 ];
               }
@@ -160,7 +160,7 @@ jobs:
             }
 
             // 3. RE-SORT BY TOTAL (XP + Bounty)
-            dataRows.sort((a, b) => (parseInt(b[1]) + parseInt(b[2])) - (parseInt(a[1]) + parseInt(a[2])));
+            dataRows.sort((a, b) => (Number.parseInt(b[1]) + Number.parseInt(b[2])) - (Number.parseInt(a[1]) + Number.parseInt(a[2])));
 
             // 4. RE-RANK AND FORMAT
             const finalRows = dataRows.map((cols, i) => 

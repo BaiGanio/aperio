@@ -490,7 +490,7 @@ function renderMarkdown(text) {
     .replace(/(?<!\*)\*([^\n*]+?)\*(?!\*)/g, "<em>$1</em>")
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
     .replace(/\n/g, "<br>").replace(/<br>(<div)/g, "$1");
-  text = text.replace(/\x00(\d+)\x00/g, (_, i) => blocks[parseInt(i)]);
+  text = text.replace(/\x00(\d+)\x00/g, (_, i) => blocks[Number.parseInt(i)]);
   return text;
 }
 
@@ -1083,7 +1083,7 @@ function renderTablePage() {
         const meta = m.metadata || m;
         // Convert importance (1-5) into star symbols
         // Ensure importance is a safe integer between 1 and 5 (inclusive)
-        let rawImportance = parseInt(meta.importance, 10);
+        let rawImportance = Number.parseInt(meta.importance, 10);
         if (!Number.isFinite(rawImportance) || Number.isNaN(rawImportance)) {
             rawImportance = 1;
         }
@@ -1198,7 +1198,7 @@ connect();
 // Update timestamps every 30s
 setInterval(() => {
   document.querySelectorAll(".msg-timestamp[data-ts]").forEach(el => {
-    const diff = Math.floor((Date.now() - parseInt(el.dataset.ts)) / 1000);
+    const diff = Math.floor((Date.now() - Number.parseInt(el.dataset.ts)) / 1000);
     if (diff < 60)        el.textContent = "just now";
     else if (diff < 3600) el.textContent = Math.floor(diff/60) + "m ago";
     else                  el.textContent = Math.floor(diff/3600) + "h ago";

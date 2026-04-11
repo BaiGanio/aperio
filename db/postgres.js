@@ -40,8 +40,8 @@ export class PostgresStore {
       `SELECT COUNT(*) AS total, COUNT(embedding) AS embedded FROM memories`
     );
     return {
-      total:    parseInt(rows[0].total),
-      embedded: parseInt(rows[0].embedded),
+      total:    Number.parseInt(rows[0].total),
+      embedded: Number.parseInt(rows[0].embedded),
     };
   }
 

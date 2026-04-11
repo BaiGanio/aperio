@@ -51,7 +51,7 @@ jobs:
               prNumber = context.payload.issue.number;
               username = context.payload.comment.user.login;
             } else if (context.eventName === 'workflow_dispatch') {
-              prNumber = parseInt(context.payload.inputs.pr_number);
+              prNumber = Number.parseInt(context.payload.inputs.pr_number);
               const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
               username = pr.user.login;
             } else {
