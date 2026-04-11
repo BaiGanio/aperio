@@ -13,9 +13,10 @@ jobs:
     steps:
       - name: Check PR Title Format
         id: lint
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
-          TITLE="${{ github.event.pull_request.title }}"
-          if [[ "$TITLE" =~ ^(feat|fix|chore|refactor|docs): ]]; then
+          if [[ "$PR_TITLE" =~ ^(feat|fix|chore|refactor|docs): ]]; then
             echo "valid=true" >> $GITHUB_OUTPUT
           else
             echo "valid=false" >> $GITHUB_OUTPUT
