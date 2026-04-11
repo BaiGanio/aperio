@@ -61,7 +61,7 @@ describe("skills.js", () => {
         assert.ok(!index.find(s => s.name === "locked"));
       } finally {
         // Restore so 'after' hook can delete it
-        fs.chmodSync(p, 0o644);
+        fs.chmodSync(p, 0o770);
       }
     });
 
