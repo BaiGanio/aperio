@@ -1,11 +1,3 @@
-// tests/skills.test.js
-// Structural tests for all skills + system_prompt integrity.
-// Run: node --test tests/skills.test.js
-//
-// Tests are data-driven — adding a new skill folder auto-discovers it.
-// Only add an entry to SKILL_FIXTURES when you want to assert specific
-// content or matching behaviour for that skill.
-
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, existsSync } from "fs";
@@ -15,32 +7,8 @@ import { fileURLToPath } from "url";
 import { loadSkillIndex, matchSkill } from "../../lib/skills.js";
 
 const __dirname  = dirname(fileURLToPath(import.meta.url));
-// File lives at tests/skills/skills.test.js — go up twice to reach project root
 const ROOT       = resolve(__dirname, "..", "..");
 const SKILLS_DIR = resolve(ROOT, "skills");
-
-// ─── Per-skill fixtures ───────────────────────────────────────────────────────
-// Add an entry here when you want to assert on a specific skill's matching
-// keywords or required content strings. You do NOT need to touch runAllTests()
-// or any loop — the describe blocks below pick these up automatically.
-//
-// Shape:
-//   [skillName]: {
-//     matchPhrases:    string[]  — phrases that MUST match this skill
-//     noMatchPhrases:  string[]  — phrases that must NOT match this skill
-//     requiredContent: string[]  — substrings that must appear in SKILL.md
-//   }
-
-// ─── How matchSkill() works (from lib/skills.js) ──────────────────────────────
-// 1. NAME MATCH   — every hyphen-split word of the skill name must appear in
-//                   the message. e.g. "tool-integration" needs both "tool" AND
-//                   "integration" somewhere in the phrase.
-// 2. KEYWORD SCORE — description words >3 chars are scored against the message;
-//                   threshold is 2 hits. Short or uncommon words won't score.
-//
-// Write matchPhrases accordingly: use the skill's own hyphen words, or enough
-// description keywords to clear the threshold. Do NOT use phrases that rely on
-// semantic understanding — the matcher is purely lexical.
 
 const SKILL_FIXTURES = {
   "reasoning-planning": {
@@ -90,8 +58,6 @@ const SKILL_FIXTURES = {
   },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function loadIndex() {
   return loadSkillIndex(SKILLS_DIR);
 }
@@ -102,8 +68,6 @@ function discoverSkillNames() {
     .filter(d => d.isDirectory())
     .map(d => d.name);
 }
-
-// ─── 1. Discovery ─────────────────────────────────────────────────────────────
 
 describe("skill discovery", () => {
   test("skills directory exists", () => {
@@ -123,8 +87,6 @@ describe("skill discovery", () => {
     }
   });
 });
-
-// ─── 2. Structural validation (runs for every skill automatically) ────────────
 
 describe("skill structure", () => {
   const index = loadIndex();
@@ -152,8 +114,6 @@ describe("skill structure", () => {
     });
   }
 });
-
-// ─── 3. Per-skill fixture tests (only for skills listed in SKILL_FIXTURES) ────
 
 describe("skill matching", () => {
   const index = loadIndex();
@@ -205,8 +165,6 @@ describe("skill content", () => {
     });
   }
 });
-
-// ─── 4. system_prompt.md integrity ───────────────────────────────────────────
 
 describe("system_prompt.md", () => {
   const PROMPT_PATH = resolve(ROOT, "prompts", "system_prompt.md");
