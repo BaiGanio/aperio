@@ -191,8 +191,10 @@ httpServer.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
   console.log(`\n✨ Aperio running at ${url}\n`);
   // Auto-open browser — works whether launched via shell script or npm directly
-  const cmd = process.platform === "darwin" ? `open "${url}"`
-             : process.platform === "win32"  ? `start "${url}"`
-             : `xdg-open "${url}"`;
-  exec(cmd, (err) => { if (err) console.error("⚠️  Could not open browser:", err.message); });
+  const [cmd, ...args] = process.platform === "darwin"  ? ["open", url]
+                     : process.platform === "win32"   ? ["cmd", "/c", "start", url]
+                     : ["xdg-open", url];
+  execFile(cmd, args, (err) => {
+    if (err) console.error("⚠️  Could not open browser:", err.message);
+  });
 });
