@@ -35,4 +35,5 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
-          fail_ci_if_error: true  # don't silently pass if upload fails
+          exclude: ./coverage/tmp/
+          fail_ci_if_error: true
