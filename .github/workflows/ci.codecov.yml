@@ -25,7 +25,7 @@ jobs:
           node-version: 22        # pin to a version that ships node:test + V8 coverage
 
       - name: Install dependencies
-        run: npm ci               # ci is faster and safer than install in CI
+        run: npm ci --ignore-scripts
 
       - name: Run tests with coverage
         run: npm run test:ci      # runs c8 + all test files, writes coverage/lcov.info
