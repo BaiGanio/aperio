@@ -11,6 +11,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: pin-actions-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   pin:
     runs-on: ubuntu-latest
@@ -38,4 +42,5 @@ jobs:
           git diff --quiet && exit 0
           git add .github/workflows/
           git commit -m "ci: pin actions to full SHAs [skip ci]"
+          git pull --rebase
           git push
