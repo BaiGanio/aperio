@@ -1,5 +1,4 @@
-# build only, no release
-name: Build Aperio Launchers
+name: (cd) Build Launchers
 
 on:
   push:
