@@ -1,0 +1,40 @@
+name: (bot) Pin SHAs to Actions
+
+on:
+  push:
+    paths:
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+
+permissions:
+  contents: write
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
+        with:
+          token: ${{ secrets.WORKFLOWS_PAT }}
+          ref: ${{ github.head_ref || github.ref_name }}
+
+      - name: Install pin-github-action
+        run: npm install -g pin-github-action
+
+      - name: Pin all workflow SHAs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          find .github/workflows -name '*.yml' -o -name '*.yaml' | \
+            xargs -I{} pin-github-action {}
+
+      - name: Commit if anything changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git diff --quiet && exit 0
+          git add .github/workflows/
+          git commit -m "ci: pin actions to full SHAs [skip ci]"
+          git push
