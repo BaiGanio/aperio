@@ -3,7 +3,10 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { startServer } from "../../mcp/index.js";
+import os from "node:os";
+import path from "node:path";
 
+const TMP = path.join(os.tmpdir(), "aperio-test");
 // ─── shared mock factories ────────────────────────────────────────────────────
 function makeTransport() {
   return {
@@ -120,31 +123,31 @@ describe("startServer — ALLOWED_PATHS / isPathAllowed", () => {
   }
 
   test("allows a path that is exactly an allowed root", () => {
-    const isAllowed = makeIsPathAllowed("/tmp/project");
-    assert.equal(isAllowed("/tmp/project"), true);
+    const isAllowed = makeIsPathAllowed(TMP);
+    assert.equal(isAllowed(TMP), true);
   });
 
   test("allows a path nested under an allowed root", () => {
-    const isAllowed = makeIsPathAllowed("/tmp/project");
-    assert.equal(isAllowed("/tmp/project/src/file.js"), true);
+    const isAllowed = makeIsPathAllowed(TMP);
+    assert.equal(isAllowed(`${TMP}/src/file.js`), true);
   });
 
   test("rejects a path outside all allowed roots", () => {
-    const isAllowed = makeIsPathAllowed("/tmp/project");
+    const isAllowed = makeIsPathAllowed(TMP);
     assert.equal(isAllowed("/etc/passwd"), false);
   });
 
   test("rejects a path that merely starts with an allowed root string but is not under it", () => {
-    const isAllowed = makeIsPathAllowed("/tmp/project");
+    const isAllowed = makeIsPathAllowed(TMP);
     // '/tmp/project-evil' should NOT match '/tmp/project'
-    assert.equal(isAllowed("/tmp/project-evil/file.js"), false);
+    assert.equal(isAllowed(`${TMP}-evil/file.js`), false);
   });
 
   test("supports multiple comma-separated allowed paths", () => {
-    const isAllowed = makeIsPathAllowed("/tmp/a, /tmp/b");
-    assert.equal(isAllowed("/tmp/a/file.txt"), true);
-    assert.equal(isAllowed("/tmp/b/file.txt"), true);
-    assert.equal(isAllowed("/tmp/c/file.txt"), false);
+    const isAllowed = makeIsPathAllowed(`${TMP}/a, ${TMP}/b`);
+    assert.equal(isAllowed(`${TMP}/a/file.txt`), true);
+    assert.equal(isAllowed(`${TMP}/b/file.txt`), true);
+    assert.equal(isAllowed(`${TMP}/c/file.txt`), false);
   });
 
   test("expands leading ~ to cwd", () => {
