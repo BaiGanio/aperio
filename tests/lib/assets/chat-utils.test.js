@@ -455,8 +455,8 @@ describe("ollamaBase", () => {
 
   test("returns OLLAMA_BASE_URL env var when set", () => {
     const orig = process.env.OLLAMA_BASE_URL;
-    process.env.OLLAMA_BASE_URL = "http://custom:9999";
-    assert.equal(ollamaBase(11434), "http://custom:9999");
+    process.env.OLLAMA_BASE_URL = "https://custom:9999";
+    assert.equal(ollamaBase(11434), "https://custom:9999");
     if (orig !== undefined) process.env.OLLAMA_BASE_URL = orig;
     else delete process.env.OLLAMA_BASE_URL;
   });
@@ -646,7 +646,7 @@ describe("printMemories", () => {
     const cap = captureConsole();
     printMemories([{ title: "T", content: "C", importance: 3, tags: [] }]);
     cap.restore();
-    assert.ok(!cap.lines.some(l => /\[.+\]/.test(l)));
+    assert.ok(!cap.lines.some(l => /\[[^\]]*\]/.test(l)));
   });
 
   test("multiple memories all printed", () => {
