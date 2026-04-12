@@ -25,7 +25,7 @@ jobs:
           ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Install pin-github-action
-        run: npm install -g pin-github-action
+        run: npm install --ignore-scripts -g pin-github-action
 
       - name: Pin all workflow SHAs
         run: |
