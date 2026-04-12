@@ -24,11 +24,12 @@ jobs:
         run: npm install -g pin-github-action
 
       - name: Pin all workflow SHAs
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          find .github/workflows -name '*.yml' -o -name '*.yaml' | \
-            xargs -I{} pin-github-action {}
+          find .github/workflows -name '*.yml' -o -name '*.yaml' | while read f; do
+            pin-github-action "$f" || echo "⚠️ Could not pin some actions in $f, skipping"
+          done
+        env:
+          GITHUB_TOKEN: ${{ secrets.MY_PAT }}
 
       - name: Commit if anything changed
         run: |
