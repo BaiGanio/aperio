@@ -27,7 +27,7 @@ jobs:
       with_launchers: ${{ steps.info.outputs.with_launchers }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           token: ${{ secrets.MY_PAT }}
           fetch-depth: 0
@@ -106,7 +106,7 @@ jobs:
       needs.version.outputs.with_launchers == 'false'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           token: ${{ secrets.MY_PAT }}
           ref: v${{ needs.version.outputs.new_v }}
@@ -135,7 +135,7 @@ jobs:
           unzip -l "$ZIP_NAME" | head -30
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ needs.version.outputs.new_v }}
           name:     Release v${{ needs.version.outputs.new_v }}
@@ -161,7 +161,7 @@ jobs:
       needs.version.outputs.with_launchers == 'true'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           token: ${{ secrets.MY_PAT }}
           ref: v${{ needs.version.outputs.new_v }}
@@ -190,7 +190,7 @@ jobs:
           GH_TOKEN: ${{ secrets.MY_PAT }}
 
       - name: Download Launcher Binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           path: dist/
           run-id: ${{ steps.launcher.outputs.run_id }}
@@ -236,7 +236,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ needs.version.outputs.new_v }}
           name:     Release v${{ needs.version.outputs.new_v }}
