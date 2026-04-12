@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4
         with:
-          token: ${{ secrets.WORKFLOWS_PAT }}
+          token: ${{ secrets.MY_PAT }}
           ref: ${{ github.head_ref || github.ref_name }}
 
       - name: Install pin-github-action
