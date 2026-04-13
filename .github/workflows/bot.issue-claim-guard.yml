@@ -133,7 +133,7 @@ jobs:
             const blockNewcomers = `🚫 **Account Too New to Claim Issues**\n\nHey @${username} — your GitHub account was created on **${userProfile.data.created_at}** (${accountAgeYears} ago) and does not yet meet this project's minimum contribution longevity requirement of **${blocked_below_years} years**.\n\n> This project uses GitHub account age as a basic anti-spam and anti-bot measure. Genuine contributors build a history over time. If you believe this is an error, please contact a maintainer directly.`
 
             if (accountAge < blocked_below_years) {
-              await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: messages.newcomer_blocked });
+              await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: blockNewcomers });
               return;
             }
 
