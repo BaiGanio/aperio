@@ -7,7 +7,7 @@ import { dirname, resolve } from "path";
 import dotenv from "dotenv";
 import { createRequire } from "module";
 import { getStore, isDockerAvailable } from "./db/index.js";
-import { exec } from "child_process";
+import { execFile } from "child_process";
 import { createAgent, makeWsEmitter } from "./lib/agent.js";
 
 const require   = createRequire(import.meta.url);
