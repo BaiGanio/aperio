@@ -33,6 +33,7 @@ Your context, always available.
 <div align="center">   
 
 #### • 🌐 Site: [https://baiganio.github.io/aperio](https://baiganio.github.io/aperio) •
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/b7bcca2849b644f49c69bd0998caa133)](https://app.codacy.com/gh/BaiGanio/aperio?utm_source=github.com&utm_medium=referral&utm_content=BaiGanio/aperio&utm_campaign=Badge_Grade)
 <!-- [![Bounties Available](https://img.shields.io/badge/bounties-active-brightgreen)](./PAYMENT.md) --> 
 [![Downloads](https://img.shields.io/github/downloads/baiganio/aperio/total?style=flat-square)](https://github.com/baiganio/aperio/releases)
 ![Latest Release](https://img.shields.io/github/v/release/BaiGanio/aperio) 
