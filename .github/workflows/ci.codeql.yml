@@ -8,7 +8,7 @@ on:
     paths:
       - 'src/**'
       - 'lib/**'
-      - '.github/workflows/reusable/**'
+      - '.github/workflows/**'
   pull_request:
     branches: [ "master" ]
     paths:
@@ -19,7 +19,7 @@ on:
 
 jobs:
   call-security-template:
-    uses: .github/workflows/reusable.security-scan.yml@master
+    uses: './.github/workflows/reusable.security-scan.yml'
     with:
       # Defines the matrix configuration here (The "What")
       languages: '[{"language": "actions", "build-mode": "none"}, {"language": "javascript-typescript", "build-mode": "none"}]'
