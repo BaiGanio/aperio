@@ -57,6 +57,23 @@ jobs:
               await github.rest.issues.lock({ owner, repo, issue_number: issueNumber, lock_reason: 'resolved' });
             };
 
+            function formatAccountAge(createdAt) {
+              const now = new Date();
+              const created = new Date(createdAt);
+              
+              let years = now.getFullYear() - created.getFullYear();
+              let months = now.getMonth() - created.getMonth();
+              
+              if (months < 0) {
+                years--;
+                months += 12;
+              }
+              
+              if (years === 0) return `${months} month${months !== 1 ? 's' : ''}`;
+              if (months === 0) return `${years} year${years !== 1 ? 's' : ''}`;
+              return `${years} year${years !== 1 ? 's' : ''} & ${months} month${months !== 1 ? 's' : ''}`;
+            }
+
             // ── CHECK: THE "I QUIT" PATH ───────────────────────────────────────────
             if (commentBody === 'I quit') {
               const isAssignee = context.payload.issue.assignee?.login === username;
@@ -111,7 +128,7 @@ jobs:
             const { tiers, bounty_labels, messages, blocked_below_years } = config;
 
             const userProfile = await github.rest.users.getByUsername({ username });
-            const accountAgeYears = (new Date() - new Date(userProfile.data.created_at)) / (1000 * 60 * 60 * 24 * 365.25);
+            const accountAgeYears = formatAccountAge(userProfile.data.created_at);
 
             if (accountAgeYears < blocked_below_years) {
               await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: messages.newcomer_blocked });
@@ -122,27 +139,11 @@ jobs:
             const currentTier = tiers.slice().reverse().find(t => accountAgeYears >= t.min_years);
             const issueLabels = context.payload.issue.labels.map(l => l.name.toLowerCase());
             const bountyLabel = issueLabels.find(l => bounty_labels.map(b => b.toLowerCase()).includes(l));
-            function formatAccountAge(createdAt) {
-              const now = new Date();
-              const created = new Date(createdAt);
-              
-              let years = now.getFullYear() - created.getFullYear();
-              let months = now.getMonth() - created.getMonth();
-              
-              if (months < 0) {
-                years--;
-                months += 12;
-              }
-              
-              if (years === 0) return `${months} month${months !== 1 ? 's' : ''}`;
-              if (months === 0) return `${years} year${years !== 1 ? 's' : ''}`;
-              return `${years} year${years !== 1 ? 's' : ''} & ${months} month${months !== 1 ? 's' : ''}`;
-            }
+            
             if (!bountyLabel || currentTier.allowed_labels.some(l => l.toLowerCase() === bountyLabel)) {
               await finalizeClaim(username);
               
-              const accountAge = formatAccountAge(userProfile.data.created_at);
-              const successBody = `✅ Issue claimed by @${username} (${currentTier.name}, account age: ${accountAgeYears} years). Good luck!`;
+              const successBody = `✅ Issue claimed by @${username} (${currentTier.name}, account age: ${accountAgeYears}). Good luck!`;
               
               await github.rest.issues.createComment({ 
                 owner, repo, issue_number: issueNumber, 
@@ -152,7 +153,7 @@ jobs:
               // ── 4. APPEAL PATH (Tier Mismatch) ──────────────────────────────
               await github.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: ['point-of-interest'] });
               
-              const appealBody = `> [!NOTE]\n> @${username}, your seniority tier (**${currentTier.name}**) is currently below the requirement for this bounty (Account age: ${accountAgeYears} years).\n>\n> **Appeal Window Open:** Please reply with your motivation. If the owner approves with \`Yes\`, the claim will proceed.`;
+              const appealBody = `> [!NOTE]\n> @${username}, your seniority tier (**${currentTier.name}**) is currently below the requirement for this bounty (Account age: ${accountAgeYears}).\n>\n> **Appeal Window Open:** Please reply with your motivation. If the owner approves with \`Yes\`, the claim will proceed.`;
               
               await github.rest.issues.createComment({
                 owner, repo, issue_number: issueNumber,
