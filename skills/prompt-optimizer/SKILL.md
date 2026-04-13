@@ -1,77 +1,98 @@
 ---
 name: prompt-optimizer
-description: Neutral, professional prompt optimizer.
+description: >
+  Use this skill when a user provides a vague, rough, or underdeveloped idea
+  and wants it turned into a clear, structured, actionable prompt or plan.
+  Triggers: "help me structure this", "I have an idea but don't know where to start",
+  "make this into a proper prompt", or any half-formed concept needing decomposition.
 ---
 
 # Prompt Optimizer Skill
 
 ## Purpose
-Transforms raw, messy, or vague user ideas into highly structured, actionable JSON schemas paired with a logical reasoning layer (Chain-of-thought).
+Transforms raw, vague, or disorganized user ideas into structured, actionable plans
+using clean markdown — not JSON. The output is meant to be read by humans and acted
+on immediately.
 
 ## When to Use
-- When a user provides a "half-baked" or unorganized concept.
-- When a task needs to be decomposed into measurable inputs and outputs.
-- When you need to create standardized templates for task execution.
+- User provides a rough concept and needs it decomposed into clear steps.
+- A task needs measurable inputs, outputs, and reasoning laid out plainly.
+- User asks to "turn this into a proper prompt" or "help me structure this idea."
 
-## Instructions
+## When NOT to Use
+- The input is already well-structured — refine, don't over-engineer.
+- The request is for code generation, document creation, or research (use other skills).
 
-1. **Analyze & Infer**: Deconstruct the raw input to identify the core goal. Determine the minimum necessary `inputs_needed` and the desired `output_format`. Keep the JSON schema minimal.
-2. **Structure the JSON**: Output a clean JSON object containing the inferred fields.
-3. **Apply Reasoning (Chain-of-thought)**: Immediately below the JSON, provide a plain-English "Chain-of-thought:" section. 
-   - Detail the step-by-step logic used to arrive at the schema.
-   - Explain *why* certain constraints or inputs were prioritized.
-4. **Formatting**: 
-   - The entire response (JSON + Chain-of-thought) **must** be wrapped in a single, continuous code block.
-   - Use a professional, "helpful coworker" tone: clear, friendly, and devoid of hype.
-5. **Constraint**: Do not add any text, commentary, or markdown outside of that single code block.
+## Output Format
 
-## Examples
+Respond in clean markdown with these four sections:
 
-#### Example 1
-**Raw input**: "I want to learn how to play guitar but I'm a complete beginner and I don't have a lot of time."
+### 🎯 Goal
+One crisp sentence stating the core objective. Strip all vagueness.
 
-{
-  "goal": "create a beginner guitar learning plan",
-  "inputs_needed": ["available practice time per week", "music style preference", "access to instrument", "budget for lessons or apps"],
-  "output_format": ["weekly practice schedule", "skill milestones", "recommended resources", "first songs to learn"]
-}
+### 📥 Inputs Needed
+A short table:
 
-**Chain-of-thought:**
-Establish available time before building any schedule — time is the real constraint here, not skill.
-Match music style preference to the learning path early — classical and rock require different foundational techniques.
-Recommend free resources first unless budget is confirmed.
-First songs should be achievable within two weeks — early wins matter more than technical difficulty at this stage.
+| Input | Why It Matters |
+|-------|----------------|
+| ... | ... |
+
+Only list inputs that *genuinely change the output*. Omit obvious or derivable ones.
+
+### 📤 Output Format
+Bullet list of concrete deliverables. Each item should be specific enough that
+the user knows exactly what they'll get.
+
+### 🧠 Chain-of-Thought
+3–5 plain-English statements explaining the reasoning. Each statement must:
+- Start with the *constraint or decision* being addressed
+- End with *why* that choice was made
+- Be one sentence, no filler
+
+## Reasoning Priorities (for Chain-of-Thought)
+Always reason in this order:
+1. **Core constraint first** — what is the single biggest limiting factor?
+2. **Audience/context** — who is this for, and what do they already know?
+3. **Scope boundary** — what is explicitly out of scope to prevent bloat?
+4. **Success signal** — how will the user know the output worked?
+
+## Edge Cases
+- **Input too vague to infer anything**: Ask one clarifying question before proceeding.
+- **Input already well-structured**: State that briefly, then suggest only refinements.
+- **Multiple goals detected**: Pick the primary one, note the others under Goal.
+
+## Formatting Rules
+- Use markdown headers, tables, and bullets — never JSON.
+- Keep the entire response scannable in under 30 seconds.
+- No preamble, no sign-off, no meta-commentary outside the four sections.
+- Tone: clear, direct, helpful coworker — not a consultant writing a report.
+
+## Example
+
+**Raw input:** "I want to make a web app for tracking my gym progress."
 
 ---
 
-#### Example 2
-**Raw input:** "I'm thinking about starting a podcast. What should I do first?"
+### 🎯 Goal
+Build and launch a workout tracking web app with user accounts and progress visualization.
 
-{
-  "goal": "create a podcast launch plan",
-  "inputs_needed": ["topic or niche", "target audience", "publishing frequency", "budget for equipment"],
-  "output_format": ["show format recommendation", "episode structure", "equipment list by budget tier", "launch timeline", "first five episode ideas"]
-}
+### 📥 Inputs Needed
 
-**Chain-of-thought:**
-Start with audience clarity before any format decisions — who this is for determines everything else.
-Match equipment recommendation to stated budget — no over-engineering for a first show.
-First five episode ideas should validate the niche before committing to production.
-Launch timeline assumes zero existing audience — build for discoverability first, growth second.
+| Input | Why It Matters |
+|-------|----------------|
+| Preferred tech stack | Determines architecture before any code is written |
+| Key features (weights, cardio, body metrics?) | Defines the data model and MVP scope |
+| Target platform (mobile, desktop, both?) | Affects framework and UI decisions |
+| Authentication method | Foundational — hard to change later |
 
----
+### 📤 Output Format
+- MVP feature list ranked by priority
+- Recommended database schema (table/collection names + key fields)
+- Tech stack recommendation with brief rationale
+- 4-week development roadmap with weekly milestones
 
-#### Example 3
-**Raw input:** "I want to make a web app for tracking my gym progress and seeing my stats. I'm not sure about the tech stack yet, but I want it to be modern and handle user logins."
-
-{
-  "goal": "create a technical implementation plan for a workout tracking web app",
-  "inputs_needed": ["preferred tech stack", "target platforms", "key features (e.g., weights, reps, cardio)", "authentication requirements", "data persistence needs"],
-  "output_format": ["feature requirements document", "database schema design", "recommended API architecture", "initial development roadmap", "MVP scope definition"]
-}
-
-**Chain-of-thought:**
-Identify the tech stack first — the choice of framework (e.g., React vs. Next.js) dictates the entire frontend architecture.
-Determine the complexity of data tracking — deciding between relational (Postgres) or document (MongoDB) depends on how deeply nested/relational the workout logs are.
-Define the MVP (Minimum Viable Product) features early — prevent scope creep by focusing on the core loop of 'log activity' -> 'view history'.
-Include authentication requirements in the architecture plan — security and user session management are foundational architectural pillars.
+### 🧠 Chain-of-Thought
+Tech stack must be decided first — it constrains every subsequent architectural choice.
+Authentication is a foundational pillar, not a feature — design for it from day one.
+The data model depends on feature scope — log complexity (sets/reps vs. cardio intervals) determines relational vs. document storage.
+MVP scope should be defined before the roadmap — prevents the roadmap from expanding to fill available time.
