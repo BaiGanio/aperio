@@ -1,7 +1,7 @@
 {
   "_comment": "Account age is calculated from GitHub account creation date to today. Tiers are exclusive upper bounds. Edit this file to adjust tier names, age thresholds, or allowed labels without touching any workflow YAML.",
 
-  "blocked_below_years": 2,
+  "blocked_below_years": 20,
   "_blocked_note": "Accounts younger than blocked_below_years cannot claim ANY issue, bounty-labeled or not. Raise or lower this threshold here.",
 
   "tiers": [
@@ -29,7 +29,7 @@
     {
       "name": "The Old Dogs",
       "min_years": 10,
-      "max_years": 9999,
+      "max_years": 19,
       "allowed_labels": ["bounty: starter", "bounty: standard", "bounty: advanced", "bounty: critical"],
       "description": "Account is 10+ years old. All bounty tiers accessible. Veteran contributor."
     }
