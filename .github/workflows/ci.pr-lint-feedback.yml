@@ -10,6 +10,9 @@ permissions:
 jobs:
   lint-title:
     runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.user.login != 'dependabot[bot]' &&
+      github.event.pull_request.user.login != 'imgbot[bot]'
     steps:
       - name: Check PR Title Format
         id: lint

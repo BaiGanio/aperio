@@ -3,20 +3,8 @@ name: (ci) Codecov Run tests and upload coverage
 on:
   push:
     branches: ["master"]
-    paths:
-      - 'lib/**'
-      - 'mcp/**'
-      - 'public/**'
-      - 'skills/**'
-      - 'server.js'
   pull_request:
     branches: [ "master" ]
-    paths:
-      - 'lib/**'
-      - 'mcp/**'
-      - 'public/**'
-      - 'skills/**'
-      - 'server.js'
 
 permissions:
   contents: read
