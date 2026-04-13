@@ -311,10 +311,10 @@ function handleMessage(msg) {
     stopBtn.style.display = "none";
     scrollToBottom();
     // ✅ ADD THIS — update context bar when response is complete
-    if (msg.usage) {
-      const used = (msg.usage.input_tokens ?? 0) + (msg.usage.output_tokens ?? 0);
-      updateContextBar(used, maxCtx);
-    }
+    // if (msg.usage) {
+    //   const used = (msg.usage.input_tokens ?? 0) + (msg.usage.output_tokens ?? 0);
+    //   updateContextBar(used, maxCtx);
+    // }
   }
 
   if (msg.type === "memories") {
