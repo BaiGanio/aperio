@@ -1,6 +1,0 @@
-Next Steps to Customize
-
-Adjust triggers — Modify "When to Use" sections based on your agent's actual tasks
-Add examples — Replace generic examples with your specific use cases
-Add supporting files — Create scripts/ or templates/ folders with code snippets
-Test incrementally — Load one skill, test it, then add the next
