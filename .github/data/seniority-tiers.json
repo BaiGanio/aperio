@@ -40,6 +40,6 @@
   "messages": {
     "newcomer_blocked": "🚫 **Account Too New to Claim Issues**\n\nHey @{username} — your GitHub account was created on **{account_created}** ({account_age_years} years ago) and does not yet meet this project's minimum contribution longevity requirement of **{blocked_below_years} years**.\n\n> This project uses GitHub account age as a basic anti-spam and anti-bot measure. Genuine contributors build a history over time. If you believe this is an error, please contact a maintainer directly.",
     "tier_mismatch": "🔒 **Contribution Seniority Requirement Not Met**\n\nHey @{username} — this issue is tagged `{label}` which requires a (**${currentTier.name}**) or above (GitHub account age: {min_years}+ years).\n\nYour account was created on **{account_created}**, placing you in the **{user_tier}** tier ({account_age_years} years old). You are not eligible to claim this issue at this time.\n\n> This project uses GitHub account longevity as a basic anti-spam measure. Real contributors build reputation over time — bots and throwaway accounts don't. If you believe this is an error, please contact a maintainer.\n\nYou are welcome to work on issues labeled: {allowed_labels}. **Appeal Window Open:** Please reply with your motivation. If the owner approves with **`Yes`**, the claim will proceed.",
-    "claim_success": "✅ Issue claimed by @{username} (**{currentTier.name}**, account age: {accountAgeYears}). Good luck!"
+    "claim_success": "✅ Issue claimed by @${username} (**${currentTier.name}**, account age: ${accountAgeYears}). Good luck!"
   }
 }
