@@ -33,7 +33,5 @@
       "allowed_labels": ["bounty: starter", "bounty: standard", "bounty: advanced", "bounty: critical"],
       "description": "Account is 10+ years old. All bounty tiers accessible. Veteran contributor."
     }
-  ],
-
-  "bounty_labels": ["bounty: starter", "bounty: standard", "bounty: advanced", "bounty: critical"]
+  ]
 }

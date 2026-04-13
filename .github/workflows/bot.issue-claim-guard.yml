@@ -108,7 +108,7 @@ jobs:
 
             // ── 2. CONFIG & SENIORITY ───────────────────────────────────────────
             const config = JSON.parse(fs.readFileSync(seniorityTiersPath, 'utf8'));
-            const { tiers, bounty_labels, messages, blocked_below_years } = config;
+            const { tiers, messages, blocked_below_years } = config;
 
             function formatAccountAge(createdAt) {
               const now = new Date();
@@ -140,7 +140,7 @@ jobs:
             // ── 3. VALIDATION ───────────────────────────────────────────────────
             const currentTier = tiers.slice().reverse().find(t => accountAgeYears >= t.min_years);
             const issueLabels = context.payload.issue.labels.map(l => l.name.toLowerCase());
-            const bountyLabel = issueLabels.find(l => bounty_labels.map(b => b.toLowerCase()).includes(l));
+            const bountyLabel = issueLabels.find(l => currentTier.allowed_labels.map(b => b.toLowerCase()).includes(l));
             
             if (!bountyLabel || currentTier.allowed_labels.some(l => l.toLowerCase() === bountyLabel)) {
               await finalizeClaim(username);
@@ -155,7 +155,7 @@ jobs:
               // ── 4. APPEAL PATH (Tier Mismatch) ──────────────────────────────
               await github.rest.issues.addLabels({ owner, repo, issue_number: issueNumber, labels: ['point-of-interest'] });
               
-              const appealBody = `> [!IMPORTANT]\n 🔒 **Contribution Seniority Requirement Not Met**\n> @${username}, your seniority tier (**${currentTier.name}**) is currently below the requirement for this bounty (Account age: ${currentTier.min_years}+ years).\n>\n> You are not eligible to claim this issue at this time. You are welcome to work on issues labeled: ${bountyLabel}.\n **Appeal Window Open:** Please reply in a comment with your motivation, if you still think and insist you can handle the work. Once the owner approves with **Yes**, the claim will proceed. Otherwise, you will receive explanation on why You can not work on this issue.\n\n> [!NOTE]\n This project uses GitHub account longevity as a basic anti-spam measure. Real contributors build reputation over time — bots and throwaway accounts don't. If you believe this is an error, please contact a maintainer.\n\n`;
+              const appealBody = `> [!IMPORTANT]\n 🔒 **Contribution Seniority Requirement Not Met**\n> @${username}, your seniority tier (**${currentTier.name}**) is currently below the requirement for this bounty (Account age: ${currentTier.min_years}+ years).\n>\n> You are not eligible to claim this issue at this time. You are welcome to work on issues labeled: ${currentTier.allowed_labels}.\n **Appeal Window Open:** Please reply in a comment with your motivation, if you still think and insist you can handle the work. Once the owner approves with **Yes**, the claim will proceed. Otherwise, you will receive explanation on why You can not work on this issue.\n\n> [!NOTE]\n This project uses GitHub account longevity as a basic anti-spam measure. Real contributors build reputation over time — bots and throwaway accounts don't. If you believe this is an error, please contact a maintainer.\n\n`;
               
 
               await github.rest.issues.createComment({
