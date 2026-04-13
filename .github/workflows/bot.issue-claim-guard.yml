@@ -142,11 +142,9 @@ jobs:
             if (!bountyLabel || currentTier.allowed_labels.some(l => l.toLowerCase() === bountyLabel)) {
               await finalizeClaim(username);
               
-              const successBody = `✅ Issue claimed by @${username} (${currentTier.name}, account age: ${accountAgeYears}). Good luck!`;
-              
               await github.rest.issues.createComment({ 
                 owner, repo, issue_number: issueNumber, 
-                body: successBody 
+                body: messages.claim_success 
               });
             } else {
               // ── 4. APPEAL PATH (Tier Mismatch) ──────────────────────────────
