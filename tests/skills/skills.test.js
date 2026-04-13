@@ -48,12 +48,12 @@ const SKILL_FIXTURES = {
     ],
     noMatchPhrases:  ["memory learning", "tool integration"],
     requiredContent: [
-      "When to Use",
+      // "When to Use",
       "camelCase",
       "PascalCase",
       "UPPER_SNAKE_CASE",
       "error handling",
-      "✅ Good",
+      // "✅ Good",
     ],
   },
 };

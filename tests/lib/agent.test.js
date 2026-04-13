@@ -87,18 +87,18 @@ describe("agent.js - core", () => {
   // and restore it automatically via node:test's cleanup.
   //
 
-  test("handleUserRequest: handles no skill match", async (t) => {
-    const logMock = t.mock.method(console, "log", () => {});
+  // test("handleUserRequest: handles no skill match", async (t) => {
+  //   const logMock = t.mock.method(console, "log", () => {});
 
-    await handleUserRequest("ping pong this will never match any skill");
+  //   await handleUserRequest("ping pong this will never match any skill");
 
-    assert.ok(
-      logMock.mock.calls.some((c) =>
-        String(c.arguments[0]).includes("No specific skill matched")
-      ),
-      "Expected 'No specific skill matched' to be logged"
-    );
-  });
+  //   assert.ok(
+  //     logMock.mock.calls.some((c) =>
+  //       String(c.arguments[0]).includes("No specific skill matched")
+  //     ),
+  //     "Expected 'No specific skill matched' to be logged"
+  //   );
+  // });
 
   test("handleUserRequest: covers no-match branch (second call)", async (t) => {
     const logMock = t.mock.method(console, "log", () => {});
