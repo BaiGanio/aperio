@@ -14,22 +14,8 @@ name: (ci) CodeQL Advanced
 on:
   push:
     branches: ["master"]
-    # RESOLVES: "Global Triggers" -> "Path-Sensitive"
-    # Only runs if files in these directories change
-    paths:
-      - 'lib/**'
-      - 'mcp/**'
-      - 'public/**'
-      - 'skills/**'
-      - 'server.js'
   pull_request:
     branches: [ "master" ]
-    paths:
-      - 'lib/**'
-      - 'mcp/**'
-      - 'public/**'
-      - 'skills/**'
-      - 'server.js'
   schedule:
     - cron: '17 8 * * 0'
 
