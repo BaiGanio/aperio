@@ -142,7 +142,7 @@ jobs:
             const issueLabels = context.payload.issue.labels.map(l => l.name.toLowerCase());
             const bountyLabel = issueLabels.find(l => currentTier.allowed_labels.map(b => b.toLowerCase()).includes(l));
             
-            if (!bountyLabel || !currentTier.allowed_labels.some(l => l.toLowerCase() === bountyLabel)) {
+            if (bountyLabel && currentTier.allowed_labels.some(l => l.toLowerCase() === bountyLabel)) {
               await finalizeClaim(username);
               
               const successBody = `✅ Issue claimed by @${username} (${currentTier.name}, account age: ${accountAgeYears}). Good luck!`;
