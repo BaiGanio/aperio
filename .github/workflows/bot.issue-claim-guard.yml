@@ -57,23 +57,6 @@ jobs:
               await github.rest.issues.lock({ owner, repo, issue_number: issueNumber, lock_reason: 'resolved' });
             };
 
-            function formatAccountAge(createdAt) {
-              const now = new Date();
-              const created = new Date(createdAt);
-              
-              let years = now.getFullYear() - created.getFullYear();
-              let months = now.getMonth() - created.getMonth();
-              
-              if (months < 0) {
-                years--;
-                months += 12;
-              }
-              
-              if (years === 0) return `${months} month${months !== 1 ? 's' : ''}`;
-              if (months === 0) return `${years} year${years !== 1 ? 's' : ''}`;
-              return `${years} year${years !== 1 ? 's' : ''} & ${months} month${months !== 1 ? 's' : ''}`;
-            }
-
             // ── CHECK: THE "I QUIT" PATH ───────────────────────────────────────────
             if (commentBody === 'I quit') {
               const isAssignee = context.payload.issue.assignee?.login === username;
@@ -127,10 +110,26 @@ jobs:
             const config = JSON.parse(fs.readFileSync(seniorityTiersPath, 'utf8'));
             const { tiers, bounty_labels, messages, blocked_below_years } = config;
 
+            function formatAccountAge(createdAt) {
+              const now = new Date();
+              const created = new Date(createdAt);
+              
+              let years = now.getFullYear() - created.getFullYear();
+              let months = now.getMonth() - created.getMonth();
+              
+              if (months < 0) {
+                years--;
+                months += 12;
+              }
+              
+              if (years === 0) return `${months} month${months !== 1 ? 's' : ''}`;
+              if (months === 0) return `${years} year${years !== 1 ? 's' : ''}`;
+              return `${years} year${years !== 1 ? 's' : ''} & ${months} month${months !== 1 ? 's' : ''}`;
+            }
             const userProfile = await github.rest.users.getByUsername({ username });
             const accountAgeYears = formatAccountAge(userProfile.data.created_at);
-
-            if (accountAgeYears < blocked_below_years) {
+            const accountAge = (new Date() - new Date(userProfile.data.created_at)) / (1000 * 60 * 60 * 24 * 365.25);
+            if (accountAge < blocked_below_years) {
               await github.rest.issues.createComment({ owner, repo, issue_number: issueNumber, body: messages.newcomer_blocked });
               return;
             }
