@@ -1,13 +1,9 @@
 ---
 name: express-skills
 description: >
-  Instantly explain what skills are available in the current session — what each
-  skill does, when it triggers, and a quick usage example. Use this skill whenever
-  the user asks things like "what skills do you have?", "show me your skills",
-  "what skills are loaded?", "express skills", "what can your skills do?",
-  "list skills", or any variation of wanting to discover installed skills.
-  Also trigger when the user asks "can you make a Word doc / PDF / presentation?"
-  — surface the relevant skill so they know it's available.
+  Use this skill whenever the user asks things like "what skills do you have?", "show me your skills", "what skills are loaded?",
+  "express skills", "what can your skills do?", "list skills", or any variation of wanting to discover installed skills.
+  Also trigger when the user asks "can you make a Word doc / PDF / presentation?" — surface the relevant skill so they know it's available.
 metadata:
   keywords: "skills, list skills, what can you do, capabilities, installed, available, show skills, express skills, menu"
   category: "meta"
@@ -22,8 +18,8 @@ exactly how to use each one.
 
 ## Important: How Skills Are Discovered
 
-Skills in this agent are **loaded dynamically** — there is no static list in
-context. What you know about available skills comes from two sources:
+Skills in this agent are **loaded dynamically** — there is no static list in context.
+What you know about available skills comes from two sources:
 
 1. **This session's injected skill** — whichever skill was matched and injected
    for the current message is the one you can describe in full detail right now.

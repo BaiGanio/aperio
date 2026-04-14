@@ -1,9 +1,9 @@
 ---
 name: coding-examples
 description: >
-  Use this skill alongside coding-standards when actively writing or
-  reviewing code. Provides annotated good/bad examples for each supported
-  language. Depends on coding-standards — do not inject without it.
+  Use this skill alongside coding-standards when actively writing or reviewing code. 
+  Provides annotated good/bad examples for each supported language. 
+  Depends on coding-standards — do not inject without it.
 metadata:
   keywords: "examples, code review, good practice, bad practice, writing code, refactor, typescript, javascript, python, go, rust, java, csharp"
   category: "code-quality"
