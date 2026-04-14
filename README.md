@@ -118,7 +118,7 @@ OLLAMA_EMBED_MODEL=mxbai-embed-large
 # vector database for lite mode when Docker is optional
 npm install @lancedb/lancedb uuid 
 ```
-> 💡 If no Docker is installed - skip the below commands and go directly to **`Step 3`**.   
+> **💡 Tip:** If `NO` Docker is installed - skip the below commands and go directly to **`Step 3`**.   
 ```bash
 # DEV-MODE - start the database and run migrations
 cd docker && docker compose up -d && cd ..
@@ -154,7 +154,7 @@ npm run chat:local  # runs as proxy or a standalone if Docker is stopped or miss
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
-### Now what?
+### Q: Now what?
 
 >💡 Stuck on the installation steps? - check [Troubleshooting](https://github.com/BaiGanio/aperio/wiki/Troubleshooting) wiki.
 
@@ -184,7 +184,7 @@ Aperio is open source and self-hosted because **your memories is yours**.
 ## Architecture
 <img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
 
-#### Feels too short?
+#### Q: Feels too short?
 > **💡 Tip:** Visit [Architecture & Design](https://github.com/BaiGanio/aperio/discussions/24) for more **in-depth** explanations.
 
 <p align="right">
@@ -226,7 +226,7 @@ VOYAGE_API_KEY=pa-...
 | **Offline** | ✅ Yes | ❌ No |
 | **Best for** | Daily use, privacy, experiments | Heavy research, complex agents |
 
-#### Is that all?
+#### Q: Is that all?
 > **💡 Tip:** Check out our wiki pages [AI Agents Comparison](https://github.com/BaiGanio/aperio/wiki/AI-Agents-Comparison) & [Embeddings](https://github.com/BaiGanio/aperio/wiki/Embeddings) for more details.
 
 <p align="right">
@@ -253,7 +253,8 @@ You       ←  answer based on your actual code
 The model never touches your file system directly.
 Aperio reads the file and injects the content into the conversation.
 
-💡 Check out our wiki page [MPC Tools](https://github.com/BaiGanio/aperio/wiki/MPC-Tools) for more details.
+#### Q: You call this privacy?
+> 💡 Check out our wiki page [MPC Tools](https://github.com/BaiGanio/aperio/wiki/MPC-Tools) for more details.  
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
