@@ -63,8 +63,8 @@ Your context, always available.
 │   └── docker-compose.yml        # pgvector/pgvector:pg16
 ├── 📂 docs/
 │   └── index.html                # Landing page for GitHub Pages
-├── 📂 how-to/                    # Installation scripts and instructions
 ├── 📂 lib/
+│   ├── agent.js               
 │   └── chat.js                   # Terminal chat client
 ├── 📂 mcp/
 │   └── index.js                  # MCP server — 11 tools
@@ -77,9 +77,8 @@ Your context, always available.
 ├── .env.example                  # Pre-set quick configuration
 ├── package-lock.json
 ├── package.json                  # Dependencies
-├── server.js                     # Express + WebSocket + agent loop
-├── START.bat                     
-└── START.sh                     
+└── server.js                     # Express + WebSocket + agent loop
+ 
 ```
 
 > **💡 Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
