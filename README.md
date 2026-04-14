@@ -54,7 +54,7 @@ Your context, always available.
 </p>
 
 ---
-## 🏗️ Project Structure   
+## 🏗️ (Quick) Project Structure 
 ```txt
 📂 aperio/          <---=  You are here if You are Developer. He-he ;/
 ├── 📂 db/
