@@ -13,8 +13,9 @@ This project uses **two layers** of automated security monitoring:
 |------|-------------|
 | 🤖 **Dependabot** | Automatically scans dependencies and opens PRs for vulnerable packages |
 | 🔬 **CodeQL Advanced** | Static code analysis that detects vulnerabilities in the source code itself |
-
-Both run continuously on every push and pull request to `main`.
+| 📊 **SonarQube** | Analyzes code quality, detects bugs, code smells, and security hot spots; provides detailed reports on maintainability and test coverage |
+| 🎯 **Codacy** | Automated code reviews that check for style issues, complexity, and best practices; integrates with PRs to flag problems before merge |
+| 📈 **Codecov** | Tracks code coverage metrics and reports on test coverage; ensures your test suite covers critical code paths and prevents regressions |
 
 ---
 
@@ -24,13 +25,10 @@ Only the versions below actively receive security patches:
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| 5.1.x   | ✅ Yes    | Current stable — fully supported |
-| 5.0.x   | ❌ No     | Superseded by 5.1.x — please upgrade |
-| 4.0.x   | ✅ Yes    | LTS — security patches only |
-| < 4.0   | ❌ No     | End of life — no longer maintained |
+| 2.42.5   | ✅ Yes    | Current stable — fully supported |
 
-> **Recommendation:** Use `5.1.x` for the latest features and security fixes,
-> or `4.0.x` if you need long-term stability.
+> **Recommendation:** Use `2.42.x` for the latest features and security fixes,
+> or `2.0.x` if you need long-term stability.
 
 ---
 
