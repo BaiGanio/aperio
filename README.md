@@ -150,7 +150,7 @@ npm run start:local              # localhost:31337 → browser opens automatical
 ```
 ### Step 5. Start Aperio terminal chat
 ```bash
-npm run chat:local  # runs as proxy or a standalone if Docker is stopped or not installed
+npm run chat:local               # runs as proxy or standalone
 ```
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
