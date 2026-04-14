@@ -163,13 +163,14 @@ jobs:
           prerelease: ${{ contains(needs.version.outputs.new_v, 'beta') }}
           files: aperio-lite-v${{ needs.version.outputs.new_v }}.zip
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}      
 
-      - name: Upload ZIP Asset
+      - name: Upload ZIP fixed-name alias for stable URL
         run: |
+          cp "aperio-lite-v${{ needs.version.outputs.new_v }}.zip" "aperio-lite.zip"
           gh release upload \
             "v${{ needs.version.outputs.new_v }}" \
-            "aperio-lite-v${{ needs.version.outputs.new_v }}.zip" \
+            "aperio-lite.zip" \
             --clobber
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
