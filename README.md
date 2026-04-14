@@ -5,9 +5,9 @@
 **One brain. Every agent. Nothing forgotten.**     
 A self-hosted personal memory layer for AI agents. Docker + Postgres + pgvector + MCP + Ollama.   
 Your context, always available.  
-
+<!-- 
 ##### • Download 👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) for non-code users. • Small tool for big ideas • [How to Install & Use?](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) •      
-
+--> 
 </div>
 
 <!-- HEADER --> 
