@@ -67,7 +67,7 @@ Your context, always available.
 │   ├── agent.js               
 │   └── chat.js                   # Terminal chat client
 ├── 📂 mcp/
-│   └── index.js                  # MCP server — 11 tools
+│   └── index.js                  # MCP server — 11+ tools
 ├── 📂 prompts/
 │   └── system_prompt.md          # Instructions for AI agents (edit this!)
 ├── 📂 public/
@@ -75,7 +75,6 @@ Your context, always available.
 ├── 📂 skills/                    # Memory, reasoning, tools, etc.
 ├── 📂 tests/                     
 ├── .env.example                  # Pre-set quick configuration
-├── package-lock.json
 ├── package.json                  # Dependencies
 └── server.js                     # Express + WebSocket + agent loop
  
