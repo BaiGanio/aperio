@@ -173,7 +173,7 @@ npm run chat:local  # runs as proxy or a standalone if Docker is stopped or not 
 <img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
 
 #### Q: Feel a need to read more?
-> **💡 Tip:** Visit [Architecture & Design](https://github.com/BaiGanio/aperio/discussions/24) for more **in-depth** explanations.
+> **💡 Tip:** Visit [Architecture & Design](https://github.com/BaiGanio/aperio/discussions/24) for **in-depth** explanations.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
