@@ -184,6 +184,9 @@ Aperio is open source and self-hosted because **your memories is yours**.
 ## Architecture
 <img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
 
+#### Feels too short?
+> **💡 Tip:** Visit [Architecture & Design](https://github.com/BaiGanio/aperio/discussions/24) for more **in-depth** explanations.
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
@@ -223,6 +226,7 @@ VOYAGE_API_KEY=pa-...
 | **Offline** | ✅ Yes | ❌ No |
 | **Best for** | Daily use, privacy, experiments | Heavy research, complex agents |
 
+#### Is that all?
 > **💡 Tip:** Check out our wiki pages [AI Agents Comparison](https://github.com/BaiGanio/aperio/wiki/AI-Agents-Comparison) & [Embeddings](https://github.com/BaiGanio/aperio/wiki/Embeddings) for more details.
 
 <p align="right">
