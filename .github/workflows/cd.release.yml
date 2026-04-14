@@ -146,7 +146,8 @@ jobs:
           echo "✅ Created $ZIP_NAME"
           unzip -l "$ZIP_NAME" | head -30
 
-      - name: Create GitHub Release
+      - name: Create GitHub Release (draft)
+        id: create_release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ needs.version.outputs.new_v }}
@@ -158,8 +159,25 @@ jobs:
             ---
             **Signed by:** 🏆 Project Lead - L.K.
           generate_release_notes: false
+          draft: true  
           prerelease: ${{ contains(needs.version.outputs.new_v, 'beta') }}
           files: aperio-lite-v${{ needs.version.outputs.new_v }}.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload ZIP Asset
+        run: |
+          gh release upload \
+            "v${{ needs.version.outputs.new_v }}" \
+            "aperio-lite-v${{ needs.version.outputs.new_v }}.zip" \
+            --clobber
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish Release
+        run: |
+          gh release edit "v${{ needs.version.outputs.new_v }}" \
+            --draft=false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
