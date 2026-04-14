@@ -60,7 +60,7 @@ jobs:
         if: steps.info.outputs.bump != 'skip'
         run: |
           # If this is a beta release, append -beta.1
-          if [ "${{ github.ref }}" == "refs/heads/beta" ]; then
+          if [[ "${{ github.ref_name }}" == beta-m* ]]; then
             # Get last tag to increment beta number
             LAST_BETA=$(git tag -l "*-beta*" --sort=-version:refname | head -1)
             
@@ -116,8 +116,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: |
-      needs.version.outputs.bump != 'skip'
+    if: needs.version.outputs.new_v != ''
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -127,7 +126,7 @@ jobs:
       - name: Prepare README
         run: |
           mkdir -p how-to 
-          cp .github/lite/{how-to-install.pdf, uninstall.sh} how-to/
+          cp .github/lite/{how-to-install.pdf,uninstall.sh} how-to/
 
       - name: Build ZIP
         run: |
