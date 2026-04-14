@@ -80,7 +80,8 @@ Your context, always available.
  
 ```
 
-> **💡 Tip:** `prompts/system_prompt.md` controls how AI agents handles memories. It's the most impactful file to customize.
+> **💡 Tip:** **`system_prompt.md`** controls how AI agents handles memories.    
+> - It is the most impactful file to customize.
 
 ---
 
