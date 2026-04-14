@@ -1,9 +1,7 @@
 name: (bot) Pin SHAs to Actions
 
 on:
-  push:
-    paths:
-      - '.github/workflows/**'
+  workflow_dispatch:
   pull_request:
     paths:
       - '.github/workflows/**'
