@@ -2,7 +2,7 @@ name: (cd) Release & Versioning
 
 on:
   push:
-    branches: [master, beta]
+    branches: [master, beta-m*]
 
 env:
   ZIP_EXCLUDES: >-
