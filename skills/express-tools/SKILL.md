@@ -1,14 +1,10 @@
 ---
 name: express-tools
 description: >
-  Instantly explain what tools are available in the current MCP/agent session —
-  what each tool does, what inputs it expects, and a quick example call. Use this
-  skill whenever the user asks things like "what tools do you have?", "show me
-  your tools", "what can you do?", "list available tools", "what MCP tools are
-  connected?", "express tools", or any variation of wanting to discover or
-  understand the tools in the current session. Also trigger when the user seems
-  confused about capabilities or asks "can you do X?" — surface the relevant
-  tool expressly.
+  Use this skill whenever the user asks things like "what tools do you have?", "show me your tools", "what can you do?", 
+  "list available tools", "what MCP tools are connected?", "express tools", 
+  or any variation of wanting to discover or understand the tools in the current session. 
+  Also trigger when the user seems confused about capabilities or asks "can you do X?" — surface the relevant tool expressly.
 metadata:
   keywords: "tools, list tools, what can you do, capabilities, mcp, connected, available, show tools, express tools, functions"
   category: "meta"
