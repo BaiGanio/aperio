@@ -191,7 +191,7 @@ Aperio is open source and self-hosted because **your memories is yours**.
 ---
 
 ## AI Providers
-Switch with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
+Switch with a single line in `.env.example`. Everything else — memories, tools, UI — stays identical.
 
 ### ⬡ Ollama (Default — Local, Free, Private)
 ```env
@@ -200,8 +200,6 @@ OLLAMA_MODEL=llama3.1
 EMBEDDING_PROVIDER=ollama
 OLLAMA_EMBEDDING_MODEL=mxbai-embed-large
 ```
-
-> **💡 Tip:** Use `qwen3` as your daily driver. Switch to `deepseek-r1:14b` for deep reasoning. `llama3.1` for fast responses when reasoning isn't needed.
 
 ### ✦ Anthropic Claude (Optional — Cloud Upgrade)
 
@@ -213,7 +211,19 @@ ANTHROPIC_MODEL=claude-haiku-4-5-20251001
 VOYAGE_API_KEY=pa-...
 ```
 
-💡 Check out our wiki pages [AI Providers](https://github.com/BaiGanio/aperio/wiki/AI-Providers) & [Embeddings](https://github.com/BaiGanio/aperio/wiki/Embeddings) for more details.
+### Local vs Cloud
+
+| | ⬡ Ollama (Local) | ✦ Claude (Cloud) |
+|---|---|---|
+| **Cost** | Free | ~$0.01–0.20/session |
+| **Privacy** | 100% local | Data sent to Anthropic |
+| **Tool calling** | Good (model dependent) | Excellent |
+| **Reasoning** | qwen3 / deepseek thinking mode | Claude Sonnet / Opus |
+| **Speed** | Depends on hardware | Fast |
+| **Offline** | ✅ Yes | ❌ No |
+| **Best for** | Daily use, privacy, experiments | Heavy research, complex agents |
+
+> **💡 Tip:** Check out our wiki pages [AI Agents Comparison](https://github.com/BaiGanio/aperio/wiki/AI-Agents-Comparison) & [Embeddings](https://github.com/BaiGanio/aperio/wiki/Embeddings) for more details.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
