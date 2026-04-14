@@ -24,7 +24,6 @@ jobs:
     outputs:
       new_v:        ${{ steps.versioning.outputs.new_v }}
       bump:         ${{ steps.info.outputs.bump }}
-      with_launchers: ${{ steps.info.outputs.with_launchers }}
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -60,7 +59,23 @@ jobs:
         id: versioning
         if: steps.info.outputs.bump != 'skip'
         run: |
-          npm version ${{ steps.info.outputs.bump }} --no-git-tag-version
+          # If this is a beta release, append -beta.1
+          if [ "${{ github.ref }}" == "refs/heads/beta" ]; then
+            # Get last tag to increment beta number
+            LAST_BETA=$(git tag -l "*-beta*" --sort=-version:refname | head -1)
+            
+            if [[ $LAST_BETA =~ -beta\.([0-9]+)$ ]]; then
+              BETA_NUM=$((${BASH_REMATCH[1]} + 1))
+            else
+              BETA_NUM=1
+            fi
+            
+            BASE_VERSION=$(node -p "require('./package.json').version" | sed 's/-beta.*//')
+            BETA_VERSION="${BASE_VERSION}-beta.${BETA_NUM}"
+            npm version $BETA_VERSION --no-git-tag-version
+          else
+            npm version ${{ steps.info.outputs.bump }} --no-git-tag-version
+          fi
           NEW_V=$(node -p "require('./package.json').version")
           echo "new_v=$NEW_V" >> "$GITHUB_OUTPUT"
 
@@ -102,9 +117,7 @@ jobs:
     permissions:
       contents: write
     if: |
-      needs.version.outputs.bump != 'skip' &&
-      needs.version.outputs.with_launchers == 'false'
-
+      needs.version.outputs.bump != 'skip'
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -116,9 +129,9 @@ jobs:
           mkdir -p how-to 
           cp lite/{how-to-install.pdf,README.md} how-to/
 
-      - name: Build aperio-lite.zip
+      - name: Build ZIP
         run: |
-          ZIP_NAME="aperio-lite.zip"
+          ZIP_NAME="aperio-lite-v${{ needs.version.outputs.new_v }}.zip"
 
           zip -r "$ZIP_NAME" . \
             -x ".git/*" ".github/*" ".lancedb/*" "node_modules/*" \
@@ -138,7 +151,7 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: v${{ needs.version.outputs.new_v }}
-          name:     Release v${{ needs.version.outputs.new_v }}
+          name: Release v${{ needs.version.outputs.new_v }}${{ contains(needs.version.outputs.new_v, 'beta') && ' (Beta)' || '' }}
           body: |
             ### 📦 Downloads
             ${{ env.RELEASE_BODY }}
@@ -146,107 +159,9 @@ jobs:
             ---
             **Signed by:** 🏆 Project Lead - L.K.
           generate_release_notes: false
-          files: aperio-lite.zip
+          prerelease: ${{ contains(needs.version.outputs.new_v, 'beta') }}
+          files: aperio-lite-v${{ needs.version.outputs.new_v }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  package-launchers:
-    name: Package — With Launcher Binaries
-    needs: version
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    if: |
-      needs.version.outputs.bump != 'skip' &&
-      needs.version.outputs.with_launchers == 'true'
-
-    steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          token: ${{ secrets.MY_PAT }}
-          ref: v${{ needs.version.outputs.new_v }}
-
-      - name: Trigger Launcher Workflow & Wait
-        id: launcher
-        run: |
-          TAG="v${{ needs.version.outputs.new_v }}"
-
-          echo "🚀 Triggering launcher workflow for $TAG..."
-          gh workflow run cd.aperio-lite-launchers.yml --ref "$TAG"
-
-          # Allow a few seconds for the run to register
-          sleep 10
-
-          RUN_ID=$(gh run list \
-            --workflow cd.aperio-lite-launchers.yml \
-            --limit 1 \
-            --json databaseId \
-            --jq '.[0].databaseId')
-
-          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
-          echo "⏳ Waiting for launcher run $RUN_ID..."
-          gh run watch "$RUN_ID"
-        env:
-          GH_TOKEN: ${{ secrets.MY_PAT }}
-
-      - name: Download Launcher Binaries
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
-        with:
-          path: dist/
-          run-id: ${{ steps.launcher.outputs.run_id }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Prepare README
-        run: cp lite/how-to-install.md README.md
-
-      - name: Build Per-Platform Zips
-        id: packer
-        run: |
-          touch release_summary.txt
-
-          for platform_path in dist/*/; do
-            [ -d "$platform_path" ] || continue
-
-            platform=$(basename "$platform_path")
-            ZIP_NAME="aperio-lite-$platform.zip"
-            echo "📦 Packaging $platform..."
-
-            # Base source zip
-            zip -r "$ZIP_NAME" . -x ${{ env.ZIP_EXCLUDES }} "$ZIP_NAME"
-
-            # README at root
-            zip -u "$ZIP_NAME" README.md
-
-            # Binary/launcher — strip the dist/platform/ prefix with -j
-            chmod +x "$platform_path"/*
-            zip -j "$ZIP_NAME" "$platform_path"/*
-
-            SHA=$(shasum -a 256 "$ZIP_NAME" | awk '{print $1}')
-            echo "- \`$ZIP_NAME\` (SHA256: \`$SHA\`)" >> release_summary.txt
-
-            echo "✅ Created $ZIP_NAME"
-            unzip -l "$ZIP_NAME" | grep -E "README\.md|$(basename "$platform_path"/*)".
-          done
-
-          # Export multiline summary as a step output
-          {
-            echo 'RELEASE_BODY<<EOF'
-            cat release_summary.txt
-            echo 'EOF'
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
-        with:
-          tag_name: v${{ needs.version.outputs.new_v }}
-          name:     Release v${{ needs.version.outputs.new_v }}
-          body: |
-            ### 📦 Dedicated Launcher Downloads
-            ${{ steps.packer.outputs.RELEASE_BODY }}
-
-            ---
-            **Signed by:** 🏆 Project Lead - L.K.
-          generate_release_notes: false
-          files: aperio-lite-*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+   
