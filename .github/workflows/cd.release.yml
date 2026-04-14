@@ -59,7 +59,6 @@ jobs:
         id: versioning
         if: steps.info.outputs.bump != 'skip'
         run: |
-          git fetch --tags
           # If this is a beta release, append -beta.1
           if [[ "${{ github.ref_name }}" == beta-m* ]]; then
             # Get last tag to increment beta number
@@ -78,10 +77,6 @@ jobs:
             npm version ${{ steps.info.outputs.bump }} --no-git-tag-version
           fi
           NEW_V=$(node -p "require('./package.json').version")
-          # If this tag already exists, don't re-bump — just reuse it
-          if git rev-parse "v$NEW_V" >/dev/null 2>&1; then
-            echo "⚠️  Tag v$NEW_V already exists — skipping bump, reusing version"
-          fi
           echo "new_v=$NEW_V" >> "$GITHUB_OUTPUT"
 
       - name: Write version for landing page
@@ -103,10 +98,10 @@ jobs:
             https://x-access-token:${{ secrets.MY_PAT }}@github.com/${{ github.repository }}
 
           echo "→ creating tag v$NEW_V..."
-          git tag "v$NEW_V"
+          git tag -f "v$NEW_V"
 
           echo "→ pushing tag..."
-          git push origin "v$NEW_V"
+          git push origin "v$NEW_V" --force
 
           echo "→ pushing branch..."
           git push origin HEAD:${{ github.ref_name }}
@@ -185,5 +180,3 @@ jobs:
             --draft=false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-   
