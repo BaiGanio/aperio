@@ -106,6 +106,8 @@ npm install
 ```
 > Ready to use `.env.example` for a fully local setup:
 ```env
+# cp .env.example .env
+
 DATABASE_URL=postgresql://aperio:aperio_secret@localhost:5432/aperio
 AI_PROVIDER=ollama
 OLLAMA_MODEL=llama3.1
