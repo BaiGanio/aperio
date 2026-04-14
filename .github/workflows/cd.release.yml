@@ -103,8 +103,8 @@ jobs:
           echo "→ pushing tag..."
           git push origin "v$NEW_V"
 
-          echo "→ pushing master..."
-          git push origin master
+          echo "→ pushing branch..."
+          git push origin HEAD:${{ github.ref_name }}
 
           echo "→ verifying tag exists on remote..."
           git ls-remote --tags origin "refs/tags/v$NEW_V"
