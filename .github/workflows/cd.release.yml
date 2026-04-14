@@ -5,6 +5,7 @@ on:
     branches: [master, beta-m*]
 
 env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
   ZIP_EXCLUDES: >-
     .git/* .github/* .lancedb/* node_modules/*
     db/migrations/* docker/* docs/* tests/*
