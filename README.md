@@ -245,18 +245,6 @@ ANTHROPIC_MODEL=claude-haiku-4-5-20251001
 VOYAGE_API_KEY=pa-...
 ```
 
-### Local vs Cloud
-
-| | ⬡ Ollama (Local) | ✦ Claude (Cloud) |
-|---|---|---|
-| **Cost** | Free | ~$0.01–0.20/session |
-| **Privacy** | 100% local | Data sent to Anthropic |
-| **Tool calling** | Good (model dependent) | Excellent |
-| **Reasoning** | qwen3 / deepseek thinking mode | Claude Sonnet / Opus |
-| **Speed** | Depends on hardware | Fast |
-| **Offline** | ✅ Yes | ❌ No |
-| **Best for** | Daily use, privacy, experiments | Heavy research, complex agents |
-
 #### Q: Is that all?
 > **💡 Tip:** Check out our wiki pages [AI Agents Comparison](https://github.com/BaiGanio/aperio/wiki/AI-Agents-Comparison) & [Embeddings](https://github.com/BaiGanio/aperio/wiki/Embeddings) for more details.
 
