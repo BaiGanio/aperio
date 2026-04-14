@@ -175,32 +175,37 @@ Aperio is open source and self-hosted because **your memories is yours**.
 - Default is local and private. The option - self-hosted. The price - free forever.   
 - Cloud AI is available as a power upgrade, but you will be never forced to use it.    
 
-
-# Aperio Features
-
 | | |
 |---|---|
 | 🔒 **Local by default** | ☁️ **Cloud as upgrade** |
 | Ollama + local embeddings — zero external calls | Claude + Voyage AI for deep research & heavy tasks |
-| 🗄️ **Your brain, your data** | 🖥️ **MCP-native** |
-| Postgres lives on your machine. You own it. | Any MCP agent plugs in — Cursor, Windsurf, etc. |
-| ✅ **Free to run** | |
-| No subscription. No per-message cost. Just your hardware. | |
-
----
-
-#### What Aperio Is Not
 
 | | |
 |---|---|
-| ❌ **Not a cloud service** | ❌ **Not a managed product** |
-| No hosted version, no SaaS, no managed infra | No support contracts, SLAs, or guaranteed uptime |
-| ❌ **Not a plugin or extension** | ❌ **Not a replacement for your AI** |
-| It's a self-hosted server you run yourself | A memory layer alongside Claude, Cursor, etc. |
-| ❌ **Not plug-and-play** | ❌ **Not production-hardened** |
-| Needs Node.js, Docker, and basic terminal comfort | Early software, built in the open, improving fast |
+| 🗄️ **Your brain, your data** | 🖥️ **MCP-native** |
+| Postgres lives on your machine. You own it. | Any MCP agent plugs in — Cursor, Windsurf, etc. |
 
-<img alt="Aperio philosophy" src="https://github.com/user-attachments/assets/cc129c2f-174e-49c6-9804-6a1264964546" />
+| |
+|---|
+| ✅ **Free to run** | |
+| No subscription. No per-message cost. Just your hardware. | |
+
+> #### ‼️ What Aperio Is Not!
+
+| | |
+|---|---|
+| 🚫 **Not a cloud service** | 🚫 **Not a managed product** |
+| No hosted version, no SaaS, no managed infra | No support contracts, SLAs, or guaranteed uptime |
+
+| | |
+|---|---|
+| 🚫 **Not a plugin or extension** | 🚫 **Not a replacement for your AI** |
+| It's a self-hosted server you run yourself | A memory layer alongside Claude, Cursor, etc. |
+
+| | |
+|---|---|
+| 🚫 **Not plug-and-play** | 🚫 **Not production-hardened** |
+| Needs Node.js, Docker, and basic terminal comfort | Early software, built in the open, improving fast |
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
