@@ -304,7 +304,8 @@ APERIO_ALLOWED_PATHS=/Users/yourname/projects,/Users/yourname/documents
 
 If a model attempts to write outside the allowed paths, the operation is blocked and an error is returned.
 
-💡 Check out our wiki page [Path safety](https://github.com/BaiGanio/aperio/wiki/Path-Safety) for more details.
+#### Q: And this is it?
+> 💡 Check out our wiki page [Path safety](https://github.com/BaiGanio/aperio/wiki/Path-Safety) for more details.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
