@@ -15,9 +15,9 @@ Your context, always available.
   • 
   <a href="#getting-started">Getting Started</a>
   • 
-  <a href="#philosophy">Philosophy</a>
-  • 
   <a href="#architecture">Architecture</a>
+  • 
+  <a href="#philosophy">Philosophy</a>
   • 
   <a href="#ai-providers">AI Providers</a>
   • 
@@ -169,6 +169,18 @@ npm run chat:local  # runs as proxy or a standalone if Docker is stopped or not 
 
 ---
 
+## Architecture
+<img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
+
+#### Q: Feel a need for more knowldege?
+> **💡 Tip:** Visit [Architecture & Design](https://github.com/BaiGanio/aperio/discussions/24) for more **in-depth** explanations.
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
 ## Philosophy
 Aperio is open source and self-hosted because **your memories is yours**.
 - It runs entirely on your machine - no API keys, no data leaving your network, no cloud dependency.   
@@ -206,18 +218,6 @@ Aperio is open source and self-hosted because **your memories is yours**.
 |---|---|
 | 🚫 **Not plug-and-play** | 🚫 **Not production-hardened** |
 | Needs Node.js, Docker, and basic terminal comfort | Early software, built in the open, improving fast |
-
-<p align="right">
-  [<a href="#top">Back to top ↑</a>]
-</p>
-
----
-
-## Architecture
-<img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
-
-#### Q: Feels too short?
-> **💡 Tip:** Visit [Architecture & Design](https://github.com/BaiGanio/aperio/discussions/24) for more **in-depth** explanations.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
