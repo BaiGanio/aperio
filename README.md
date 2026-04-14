@@ -171,7 +171,7 @@ npm run chat:local               # runs as proxy or standalone
 ## Architecture
 <img alt="Aperio architecture" src="https://raw.githubusercontent.com/BaiGanio/aperio/master/.github/images/aperio-architecture.png" />
 
-#### Q: Feel a need to read more?
+#### Q: Feel a need to read?
 > **💡 Tip:** Visit [Architecture & Design](https://github.com/BaiGanio/aperio/discussions/24) for **in-depth** explanations.
 
 <p align="right">
