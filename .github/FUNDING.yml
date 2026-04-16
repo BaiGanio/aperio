@@ -6,8 +6,5 @@
 # ─────────────────────────────────────────────────────
 # Supported funding platforms:
 
-github: BaiGanio
-open_collective: baiganio
-#custom:
-# - 'https://opencollective.com/aperio'  # 💰 Donate (tax-deductible via HCB)
-#  - 'https://hcb.hackclub.com/your-slug'                  # 📊 View transparent fund ledger...
+#github: BaiGanio
+open_collective: aperio
