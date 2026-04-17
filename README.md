@@ -68,19 +68,19 @@ Your context, always available.
 │   └── chat.js                   # Terminal chat client
 ├── 📂 mcp/
 │   └── index.js                  # MCP server — 11+ tools
-├── 📂 prompts/
-│   └── system_prompt.md          # Instructions for AI agents (edit this!)
 ├── 📂 public/
 │   └── index.html                # Web UI — themes, streaming, sidebar
 ├── 📂 skills/                    # Memory, reasoning, tools, etc.
 ├── 📂 tests/                     
+├── 📂 whoami/
+│   └── whoami.md                 # Instructions for AI agent identity (edit this!)
 ├── .env.example                  # Pre-set quick configuration
 ├── package.json                  # Dependencies
 └── server.js                     # Express + WebSocket + agent loop
  
 ```
 
-> **💡 Tip:** **`system_prompt.md`** controls how AI agents handles memories.    
+> **💡 Tip:** **`whoami.md`** controls the identity of the AI agent.    
 > - It is the most impactful file to customize.
 
 ---
