@@ -167,7 +167,7 @@ describe("skill content", () => {
 });
 
 describe("system_prompt.md", () => {
-  const PROMPT_PATH = resolve(ROOT, "prompts", "system_prompt.md");
+  const PROMPT_PATH = resolve(ROOT, "prompts", "whoami.md");
 
   test("file exists", () => {
     assert.ok(existsSync(PROMPT_PATH), `system_prompt.md not found at ${PROMPT_PATH}`);
