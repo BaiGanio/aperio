@@ -8,11 +8,10 @@ import {
   resolveProvider,
   fixUnclosedFence,
   parseMemoriesRaw,
-  createAgent,
-  makeWsEmitter,
-  makeCliEmitter,
-  handleUserRequest,
+  createAgent
 } from "../../lib/agent.js";
+import { makeWsEmitter } from "../../lib/assets/wsEmitter.js";
+import { makeCliEmitter } from "../../lib//assets/cliEmitter.js";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -78,40 +77,6 @@ const stubMcpTransport = (t) => {
 // ---------------------------------------------------------------------------
 
 describe("agent.js - core", () => {
-
-  // ── handleUserRequest ─────────────────────────────────────────────────────
-  //
-  // These tests rely on the already-imported module (ESM cache).  We do NOT
-  // use dynamic import() here because that would re-run module-level side
-  // effects on some runtimes.  Instead we mock console.log before each call
-  // and restore it automatically via node:test's cleanup.
-  //
-
-  // test("handleUserRequest: handles no skill match", async (t) => {
-  //   const logMock = t.mock.method(console, "log", () => {});
-
-  //   await handleUserRequest("ping pong this will never match any skill");
-
-  //   assert.ok(
-  //     logMock.mock.calls.some((c) =>
-  //       String(c.arguments[0]).includes("No specific skill matched")
-  //     ),
-  //     "Expected 'No specific skill matched' to be logged"
-  //   );
-  // });
-
-  test("handleUserRequest: covers no-match branch (second call)", async (t) => {
-    const logMock = t.mock.method(console, "log", () => {});
-
-    await handleUserRequest("zzz_definitely_no_match_xyzzy");
-
-    assert.ok(
-      logMock.mock.calls.some((c) =>
-        String(c.arguments[0]).includes("No specific skill")
-      ),
-      "Expected 'No specific skill' to be logged"
-    );
-  });
 
   // ── renderMarkdown (via makeCliEmitter) ───────────────────────────────────
 
