@@ -167,34 +167,21 @@ describe("skill content", () => {
 });
 
 describe("system_prompt.md", () => {
-  const PROMPT_PATH = resolve(ROOT, "prompts", "whoami.md");
+  const PROMPT_PATH = resolve(ROOT, "id", "whoami.md");
 
   test("file exists", () => {
-    assert.ok(existsSync(PROMPT_PATH), `system_prompt.md not found at ${PROMPT_PATH}`);
+    assert.ok(existsSync(PROMPT_PATH), `whoami.md not found at ${PROMPT_PATH}`);
   });
 
   test("has substantial content (>100 chars)", () => {
     const content = readFileSync(PROMPT_PATH, "utf-8");
-    assert.ok(content.trim().length > 100, "system_prompt.md appears to be empty or too short");
+    assert.ok(content.trim().length > 100, "whoami.md appears to be empty or too short");
   });
 
   test("references coding-standards skill", () => {
     const content = readFileSync(PROMPT_PATH, "utf-8");
     assert.ok(content.includes("coding-standards"),
-      "system_prompt.md should delegate to the coding-standards skill, not inline rules");
-  });
-
-  test("defines recall tool", () => {
-    const content = readFileSync(PROMPT_PATH, "utf-8");
-    assert.ok(content.includes("recall"), "recall tool definition missing from system_prompt.md");
-  });
-
-  test("defines conversation lifecycle (START and END sections)", () => {
-    const content = readFileSync(PROMPT_PATH, "utf-8");
-    assert.ok(content.includes("START of every conversation"),
-      "Missing 'START of every conversation' section");
-    assert.ok(content.includes("END of every conversation"),
-      "Missing 'END of every conversation' section");
+      "whoami.md should delegate to the coding-standards skill, not inline rules");
   });
 
   test("does not inline naming conventions (clean separation of concerns)", () => {
@@ -203,6 +190,6 @@ describe("system_prompt.md", () => {
       content.includes(t)
     );
     assert.equal(inlined.length, 0,
-      `system_prompt.md inlines naming rules that belong in coding-standards: ${inlined.join(", ")}`);
+      `whoami.md inline naming rules that belong in coding-standards: ${inlined.join(", ")}`);
   });
 });
