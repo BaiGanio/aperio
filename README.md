@@ -63,6 +63,8 @@ Your context, always available.
 │   └── docker-compose.yml        # pgvector/pgvector:pg16
 ├── 📂 docs/
 │   └── index.html                # Landing page for GitHub Pages
+├── 📂 id/
+│   └── whoami.md                 # Instructions for AI agent identity (edit this!)
 ├── 📂 lib/
 │   ├── agent.js               
 │   └── chat.js                   # Terminal chat client
@@ -71,9 +73,7 @@ Your context, always available.
 ├── 📂 public/
 │   └── index.html                # Web UI — themes, streaming, sidebar
 ├── 📂 skills/                    # Memory, reasoning, tools, etc.
-├── 📂 tests/                     
-├── 📂 whoami/
-│   └── whoami.md                 # Instructions for AI agent identity (edit this!)
+├── 📂 tests/      
 ├── .env.example                  # Pre-set quick configuration
 ├── package.json                  # Dependencies
 └── server.js                     # Express + WebSocket + agent loop
