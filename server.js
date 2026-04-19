@@ -9,7 +9,7 @@ import { createRequire } from "module";
 import { getStore, isDockerAvailable } from "./db/index.js";
 import { execFile } from "child_process";
 import { createAgent } from "./lib/agent.js";
-import { makeWsEmitter } from "./lib/wsEmitter.js";
+import { makeWsEmitter } from "./lib/assets/wsEmitter.js";
 
 const require   = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
