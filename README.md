@@ -136,7 +136,6 @@ cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pg
 ```
 ### Step 3. Install Ollama & Pull Models
 ```bash
-npm install ollama               # run only if not previosly installed
 ollama serve                     # use separate terminal
 ```
 ```bash
