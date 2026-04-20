@@ -72,11 +72,12 @@
       <li><a href="#features">Features</a></li>
       <li><a href="#architecture">Stack</a></li>
       <li><a href="#tools">Tools</a></li>
-      <li><a href="#team">Team</a></li>
+      <!-- <li><a href="#team">Team</a></li> -->
       <li><a href="#build">Build</a></li>
+      <li><a href="#why-aperio">Why Aperio?</a></li>
       <li><a href="#webui">Web UI</a></li>
       <li><a href="#setup">Setup</a></li>
-      <li><a href="#aperio-lite">Aperio-lite</a></li>
+      <!-- <li><a href="#aperio-lite">Aperio-lite</a></li> -->
     </ul>
 
     <!-- Theme switcher -->
@@ -87,9 +88,9 @@
       <button class="theme-btn"        data-theme="system" title="System">⊙</button>
     </div>
 
-    <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-github">
+    <!-- <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-github">
       <i class="bi bi-github"></i> GitHub
-    </a>
+    </a> -->
 
   </div>
 </nav>
@@ -106,21 +107,21 @@
     <p class="lead-text reveal">
       A self-hosted personal memory layer for AI agents — built on Postgres, pgvector and MCP.<br>
       Runs 100% local by default. No API keys. No cloud dependency. Your data never leaves your machine.<br>
-      <span>You are a software developer?</span>
+      <!-- <span>You are a software developer?</span>
        <a href="#setup" style="color:var(--accent);text-decoration:none;font-weight:500"> ✦ Try Aperio-dev</a>
       <span style="font-size:.9em"> — basic terminal comfort is required.</span>
       <br>
       <span>You are a normal human?</span>
       <a href="#aperio-lite" style="color:var(--accent);text-decoration:none;font-weight:500"> ✦ Try Aperio-lite</a>
-      <span style="font-size:.9em"> — double-click and go, no tech skills needed.</span>
+      <span style="font-size:.9em"> — double-click and go, no tech skills needed.</span> -->
     </p>
     <div class="cta-group reveal">
-      <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-dev.zip" class="btn-primary-aurora">
+      <!-- <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-dev.zip" class="btn-primary-aurora">
         <i class="bi bi-download"></i> Download Aperio-dev
       </a>
       <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip" target="_blank" class="btn-primary-aurora">
         <i class="bi bi-download"></i> Download Aperio-lite
-      </a>
+      </a> -->
       <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-outline-aurora">
         <i class="bi bi-github"></i> View on GitHub
       </a>
@@ -140,7 +141,7 @@
           <span class="t-title">aperio — local · private · yours</span>
         </div>
         <div class="terminal-body">
-          <div><span class="t-ok">🤖</span> <span class="t-out">Provider: Ollama (deepseek-r1:7b)</span></div>
+          <div><span class="t-ok">🤖</span> <span class="t-out">Provider: Ollama (gemma4:26b)</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out">Connected to Aperio database</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out">pgvector enabled — semantic search active (16/16 memories embedded)</span></div>
           <div><span class="t-ok">🧠</span> <span class="t-out">Aperio MCP server v2.0 running</span></div>
@@ -289,7 +290,7 @@
 <!-- ══════════════════════════════════════════════════════════════
      TEAM SECTION
 ══════════════════════════════════════════════════════════════ -->
-<section class="section" id="team">
+<!-- <section class="section" id="team">
   <div class="section-inner wide">
     <div class="eyebrow reveal">Team Ready out of the box</div>
     <h2 class="section-heading reveal">Personal brain.<br>Or shared team brain.<br><span class="aurora-text">You decide.</span></h2>
@@ -352,7 +353,7 @@
       </div>
     </div>
   </div>
-</section>
+</section> -->
 
 <!-- ══════════════════════════════════════════════════════════════
      BUILD ON TOP SECTION
@@ -467,7 +468,7 @@
 </section>
 
 <!-- ── Comparison ──────────────────────────────────────────────── -->
-<section class="section">
+<section class="section" id="why-aperio">
   <div class="section-inner wide">
     <div class="eyebrow reveal">Why Aperio</div>
     <h2 class="section-heading reveal">Your data. Your rules.</h2>
@@ -536,7 +537,7 @@
         <div class="code-block" style="position:relative">
           <div><span class="k">DATABASE_URL</span>=<span class="v">postgresql://aperio:xxx-xxx-xxx</span></div>
           <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
-          <div><span class="k">OLLAMA_MODEL</span>=<span class="v">llama3.1:8b</span></div>
+          <div><span class="k">OLLAMA_MODEL</span>=<span class="v">qwen2.5:3b</span></div>
           <div><span class="k">EMBEDDING_PROVIDER</span>=<span class="v">ollama</span></div>
           <div><span class="k">OLLAMA_EMBED_MODEL</span>=<span class="v">mxbai-embed-large</span></div>
         </div>
@@ -598,7 +599,7 @@
         <div class="code-block" style="position:relative">  
           <button class="copy-btn" data-target=".s">Copy</button>
           <div class="c"># local (Ollama)</div>
-          <div class="c"># Feat: auto-detect if Docker is stopped - uses LanceDb as fallback</div>
+          <div class="c"># auto-detect if any Docker - uses LanceDb as fallback</div>
           <div class="s">npm run chat:local</div>
           <div>&nbsp;</div>
            <div class="c"># cloud (Anthropic)</div>
@@ -616,7 +617,7 @@
 </section>
 
 <!-- ── Aperio-lite ──────────────────────────────────────────────── -->
-<section class="section" id="aperio-lite">
+<!-- <section class="section" id="aperio-lite">
   <div class="section-inner wide">
     <div class="eyebrow reveal">Aperio-lite · For non-code humans</div>
     <h2 class="section-heading reveal">
@@ -629,7 +630,6 @@
       <strong>Download → unzip → double-click. That's it.</strong>
     </p>
 
-    <!-- Pills row -->
     <div class="badge-row reveal" style="margin-bottom:48px">
       <span class="tech-badge"><i class="bi bi-mouse me-1"></i> Double-click Launch</span>
       <span class="tech-badge"><i class="bi bi-apple me-1"></i> macOS</span>
@@ -638,7 +638,6 @@
       <span class="tech-badge"><i class="bi bi-trash me-1"></i> Delete to uninstall</span>
     </div>
 
-    <!-- Flow strip -->
     <div class="arch-card reveal" style="margin-bottom:40px">
       <div class="arch-header"><i class="bi bi-play-circle me-1"></i> the whole flow — once is enough</div>
       <div style="padding:24px 32px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-family:var(--font-mono);font-size:12px;">
@@ -656,10 +655,8 @@
       </div>
     </div>
 
-    <!-- START: 6-column instruction cards -->
     <div class="steps-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:16px">
 
-        <!-- macOS -->
         <div class="step-card reveal">
           <div class="step-title"><i class="bi bi-apple me-1"></i> macOS</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
@@ -676,7 +673,6 @@
           </div>
         </div>
 
-        <!-- Windows -->
         <div class="step-card reveal" style="transition-delay:.1s">
           <div class="step-title"><i class="bi bi-windows me-1"></i> Windows</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
@@ -692,7 +688,6 @@
           </div>
         </div>
 
-        <!-- Linux -->
         <div class="step-card reveal" style="transition-delay:.2s">
           <div class="step-title"><i class="bi bi-ubuntu me-1"></i> Linux</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
@@ -708,7 +703,6 @@
           </div>
         </div>   
 
-        <!-- No tech skills required -->
         <div class="step-card reveal" style="transition-delay:.3s">
           <div class="step-title">No tech skills required</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
@@ -721,7 +715,6 @@
           </div>
         </div>
 
-        <!-- Feature launches / subsequent runs -->
         <div class="step-card reveal" style="transition-delay:.3s">
           <div class="step-title">Feature updates</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
@@ -736,7 +729,6 @@
           </div>
         </div>
 
-        <!-- Uninstall -->
         <div class="step-card reveal" style="transition-delay:.5s">
           <div class="step-title"><i class="bi bi-trash me-1"></i>subsequent runs &amp; Uninstall</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
@@ -754,7 +746,6 @@
         </div>
     </div>
   
-    <!-- Tagline foot -->
    <div class="setup-cta-box reveal" style="gap:8%; max-width: 60%;">
       <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip" target="_blank" class="btn-primary-aurora">
         <i class="bi bi-download"></i> Download Aperio-lite
@@ -764,7 +755,7 @@
       </a>
     </div>
   </div>
-</section>
+</section>  -->
 
 <!-- ── CTA ─────────────────────────────────────────────────────── -->
 <section class="section">
