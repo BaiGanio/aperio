@@ -87,11 +87,11 @@ Your context, always available.
 
 ## Getting Started 
 ### Prerequisites
-- Node.js 18+
-- Docker Desktop — (optional)
-- [Ollama](https://ollama.ai)
+- Node.js 18+ - download form [https://nodejs.org/en/download](https://nodejs.org/en/download)
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) — (optional)
+- Ollama- download from [https://ollama.com/download](https://ollama.com/download)
 - [Anthropic API key](https://console.anthropic.com) — (optional)
-- [Voyage AI API key](https://dash.voyageai.com) — (optional) free, 50M tokens/month 
+- [Voyage AI API key](https://www.voyageai.com/) — (optional)
 
 ### Step 1. Clone & Configure Environment Variables
 Dedicated `dev` branch stripped from the file/folder noise. Only what's needed.
