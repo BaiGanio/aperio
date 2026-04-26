@@ -726,20 +726,8 @@ async function checkDatabaseBackend() {
 // Run the check when the page loads
 document.addEventListener('DOMContentLoaded', checkDatabaseBackend);
 
-
-
-
-
-
-
-
-
 // ── Boot ─────────────────────────────────────────────────────
 connect();
-
-
-
-
 
 
 function updateContextBar(used, max) {
