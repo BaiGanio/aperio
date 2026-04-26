@@ -1,3 +1,12 @@
+#chatInput {
+  /* This is the most important line */
+  box-sizing: border-box; 
+  
+  /* Ensure overflow is hidden so you don't see scrollbars inside the bar */
+  overflow: hidden; 
+  
+  /* ... your other styles ... */
+}
 .input-bar {
     padding: 16px 24px;
     background: var(--bg-panel);

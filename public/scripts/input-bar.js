@@ -1,4 +1,4 @@
-let attachedFiles = [];
+window.attachedFiles = [];
 
 const fileInput    = document.getElementById('fileInput');
 const attachPreview = document.getElementById('attachPreview');
@@ -41,14 +41,14 @@ function renderPreviews() {
   });
 }
 
-// document.getElementById('attachBtn').addEventListener('click', () => fileInput.click());
+document.getElementById('attachBtn').addEventListener('click', () => fileInput.click());
 
-// fileInput.addEventListener('change', (e) => {
-//   attachedFiles.push(...Array.from(e.target.files));
-//   fileInput.value = ''; // reset so same file can be re-added
-//   renderPreviews();
-//   updateSendBtn();
-// });
+fileInput.addEventListener('change', (e) => {
+  attachedFiles.push(...Array.from(e.target.files));
+  fileInput.value = ''; // reset so same file can be re-added
+  renderPreviews();
+  updateSendBtn();
+});
 
 // hook into your existing input listener — just add updateSendBtn() there
 chatInput.addEventListener('input', updateSendBtn);
