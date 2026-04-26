@@ -215,10 +215,30 @@ function safeSend(data) {
 }
 
 // ── Send ─────────────────────────────────────────────────────
-function send() {
+async function send() {
   const text = chatInput.value.trim();
-  if (!text || isThinking || !ws) return;
-  addMessage("user", text);
+  const files = window.attachedFiles || []; // Access the global array
+  if (!text && files.length === 0 || isThinking || !ws) return;
+
+  // Prepare attachments payload
+  const attachments = [];
+
+  // Process each file
+  for (const file of files) {
+    const base64 = await fileToBase64(file);
+    attachments.push({
+      name: file.name,
+      type: file.type,
+      data: base64
+    });
+  }
+
+  addMessage("user", text || (files.length > 0 ? `Uploaded ${files.length} file(s)` : ""));
+
+  // Reset the global files array so the preview chips disappear
+  window.attachedFiles = []; 
+  renderPreviews(); // Clear the file preview chips
+
   messagesEl.scrollTop = messagesEl.scrollHeight;
   chatInput.value = "";
   autoResize();
@@ -230,7 +250,7 @@ function send() {
     removeThinking();
     setStatus("thinking", "thinking…");
     addThinking();
-    safeSend(JSON.stringify({ type: "chat", text }));
+    safeSend(JSON.stringify({ type: "chat", text, attachments }));
   });
 }
 
@@ -259,8 +279,15 @@ chatInput.addEventListener("input", () => {
 });
 
 function autoResize() {
-  chatInput.style.height = "auto";
-  chatInput.style.height = Math.min(chatInput.scrollHeight, 140) + "px";
+  const el = chatInput;
+  
+  // 1. Reset height to allow it to shrink if text was deleted
+  el.style.height = "auto";
+  // 2. Get the new scrollHeight
+  const newHeight = el.scrollHeight;
+  // 3. Apply the height with a cap, 
+  // but we use 'border-box' logic so it stays within 140px total
+  el.style.height = Math.min(newHeight, 140) + "px";
   const counter = document.getElementById("charCounter");
   if (counter) {
     const len = chatInput.value.length;
@@ -271,6 +298,16 @@ function autoResize() {
       counter.className = "char-counter";
     }
   }
+}
+
+// Helper function to read files as Base64
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result.split(',')[1]); // Remove the data:image/png;base64, prefix
+    reader.onerror = error => reject(error);
+  });
 }
 
 // ── Memories sidebar ─────────────────────────────────────────

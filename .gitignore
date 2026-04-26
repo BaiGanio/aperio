@@ -11,6 +11,7 @@
 *.sln.docstates
 *.env
 *.lancedb/
+uploads/
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)
