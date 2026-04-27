@@ -48,7 +48,7 @@ forget(uuid)
 
 - Only call when the user explicitly asks to forget something.
 
-### dedup_memories
+### deduplicate_memories
 Find and merge near-duplicate memories.
 
 - Call periodically or when you notice redundancy in recalled memories.

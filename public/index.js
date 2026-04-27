@@ -178,7 +178,7 @@ const TOOL_LABELS = {
   forget:             "Deleting memory…",
   update_memory:      "Updating memory…",
   backfill_embeddings:"Generating embeddings…",
-  dedup_memories:     "Checking for duplicates…",
+  deduplicate_memories:     "Checking for duplicates…",
   read_file:          "Reading file…",
   scan_project:       "Scanning project…",
   fetch_url:          "Fetching URL…",

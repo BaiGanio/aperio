@@ -10,7 +10,8 @@ import dotenv from "dotenv";
 
 import { getStore } from "./db/index.js";
 import { createAgent } from "./lib/agent.js";
-import { ensureOllama } from "./lib/utils/startOllama.js";
+import { ensureOllama } from "./lib/helpers/startOllama.js";
+import { deduplicateMemories } from "./lib/workers/deduplicate.js";
 import { makeWsHandler } from "./lib/emitters/handlers/wsHandler.js";
 import { apiRouter } from "./lib/routes/api.js";
 
@@ -53,16 +54,8 @@ const httpServer = createServer(app);
 const wss = new WebSocketServer({ server: httpServer });
 wss.on("connection", makeWsHandler({ agent, store, __dirname }));
 
-// ─── Background dedup ─────────────────────────────────────────────────────────
-const DEDUP_INTERVAL_MS = 10 * 60 * 1000;
-
-async function runDedup() {
-  try {
-    const r = await callTool("dedup_memories", { threshold: 0.97, dry_run: true });
-    if (r.split("\n").filter(l => l.trim()).length > 1) console.log(`🧹 Dedup:\n${r}`);
-  } catch {}
-}
-setTimeout(() => { runDedup(); setInterval(runDedup, DEDUP_INTERVAL_MS); }, 30_000);
+// ─── Background jobs ─────────────────────────────────────────────────────────
+deduplicateMemories(callTool);
 
 // ─── Start ────────────────────────────────────────────────────────────────────
 console.log("✅ Server root:", process.cwd());
