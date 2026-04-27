@@ -4,7 +4,7 @@ import dotenv                   from "dotenv";
 import { fileURLToPath }        from "url";
 import { dirname, resolve }     from "path";
 import { getStore }             from "../db/index.js";
-import { generateEmbedding, initEmbeddings } from "./assets/embeddings.js";
+import { generateEmbedding, initEmbeddings } from "../lib/helpers/embeddings.js";
 import packageJson from "../package.json" with { type: "json" };
 
 // Tool Registrations
