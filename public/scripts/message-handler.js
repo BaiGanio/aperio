@@ -304,7 +304,7 @@ function finalizeStreamingBubble(ref, fullText) {
     suggestionShown = true;
     const [before, after] = fullText.split("🧠 **Memory suggestions**");
     ref.bubble.innerHTML = renderMarkdown(before.trim());
-    ref.bubble.appendChild(parseSuggestionBlock(after));
+    // ref.bubble.appendChild(parseSuggestionBlock(after));
   } else {
     ref.bubble.innerHTML = renderMarkdown(fullText);
   }
@@ -424,3 +424,29 @@ function updateReasoningBtn() {
 }
 
 window.addEventListener("DOMContentLoaded", updateReasoningBtn);
+
+/**
+* New helper to render a single content block.
+* @param {HTMLElement} container - The bubble element to append to.
+* @param {Object} block - The block object { type: 'text'|'image', text?: string, source?: { data?: string } }
+*/
+function renderBlock(container, block) {
+  if (block.type === 'text') {
+    const textSpan = document.createElement('span');
+    textSpan.innerHTML = renderMarkdown(block.text || "");
+    container.appendChild(textSpan);
+  } else if (block.type === 'image') {
+    const img = document.createElement('img');
+    // If the server sent base64, we use it directly.
+    // If it's a URL, we use that.
+    if (block.source?.type === 'base64') {
+      img.src = `data:${block.source.media_type};base64,${block.source.data}`;
+    } else {
+      img.src = block.source.url;
+    }
+    img.className = 'attachment-preview-image';
+    img.alt = "Uploaded attachment";
+    container.appendChild(img);
+  }
+}
+
