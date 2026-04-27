@@ -45,6 +45,8 @@ app.get("/api/version",  (_, res) => res.json({ version }));
 app.get("/api/provider", (_, res) => res.json({ provider: provider.name, model: provider.model }));
 app.get("/api/config",   (_, res) => res.json({ backend: process.env.DB_BACKEND || "lancedb" }));
 
+app.get('/api/heartbeat', (_req, res) => { res.json({ ok: true, ts: Date.now() }); });
+
 app.get("/api/memories", async (req, res) => {
   try {
     const records = await store.table.query().limit(500).toArray();
@@ -53,10 +55,6 @@ app.get("/api/memories", async (req, res) => {
     console.error("Server Error:", e);
     if (!res.headersSent) return res.status(500).json({ error: e.message });
   }
-});
-
-app.get('/api/heartbeat', (_req, res) => {
-  res.json({ ok: true, ts: Date.now() });
 });
 
 app.post('/chat', async (req, res) => {
@@ -89,13 +87,13 @@ const httpServer = createServer(app);
 const wss        = new WebSocketServer({ server: httpServer });
 
 wss.on("connection", (ws) => {
-  const messages        = [];
-  let   initialized     = false;
-  let   abortController = null;
+  const messages = [];
+  let initialized = false;
+  let abortController = null;
 
   const emitter = makeWsEmitter(ws);
 
-  ws.send(JSON.stringify({ type: "status",   text: "connected" }));
+  ws.send(JSON.stringify({ type: "status", text: "connected" }));
   ws.send(JSON.stringify({
     type: "provider", 
     name: provider.name, 
