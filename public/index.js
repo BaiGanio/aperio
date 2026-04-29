@@ -233,10 +233,10 @@ async function send() {
     });
   }
 
-  addMessage("user", text || (files.length > 0 ? `Uploaded ${files.length} file(s)` : ""));
-
-  // Reset the global files array so the preview chips disappear
-  window.attachedFiles = []; 
+  // AFTER
+  const attachmentCards = getAttachmentsSnapshot();
+  addUserMessage(text || (files.length > 0 ? `Uploaded ${files.length} file(s)` : ""), attachmentCards); // ← new
+  window.attachedFiles = [];   // must stay AFTER snapshot
   renderPreviews(); // Clear the file preview chips
 
   messagesEl.scrollTop = messagesEl.scrollHeight;

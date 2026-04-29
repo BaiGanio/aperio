@@ -44,11 +44,35 @@ function renderPreviews() {
 document.getElementById('attachBtn').addEventListener('click', () => fileInput.click());
 
 fileInput.addEventListener('change', (e) => {
-  attachedFiles.push(...Array.from(e.target.files));
+  const incoming = Array.from(e.target.files);
   fileInput.value = ''; // reset so same file can be re-added
-  renderPreviews();
-  updateSendBtn();
+
+  // Read each file into a data URL so the message bubble can render thumbnails
+  // without a second async read at send time.
+  incoming.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      file._dataUrl = ev.target.result; // attach dataUrl directly on the File object
+      attachedFiles.push(file);
+      renderPreviews();
+      updateSendBtn();
+    };
+    reader.readAsDataURL(file);
+  });
 });
 
 // hook into your existing input listener — just add updateSendBtn() there
 chatInput.addEventListener('input', updateSendBtn);
+
+/**
+ * Call this at the start of your send handler (before clearing attachedFiles)
+ * to get a plain snapshot for addUserMessage().
+ * @returns {{ name: string, type: string, dataUrl: string }[]}
+ */
+window.getAttachmentsSnapshot = function() {
+  return attachedFiles.map(f => ({
+    name: f.name,
+    type: f.type,
+    dataUrl: f._dataUrl || null,
+  }));
+};
