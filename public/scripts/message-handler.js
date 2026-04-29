@@ -373,26 +373,23 @@ function addMessage(role, text, attachments) {
 
 /**
  * Build a single attachment card for the message bubble.
- * Clicking the pill toggles an inline preview panel below it.
+ * - Images: pill + inline toggle preview below
+ * - Text/code files: pill → opens a full modal viewer
  * @param {{ name: string, type: string, dataUrl?: string }} att
  */
 function buildAttachmentCard(att) {
   const isImage = att.type && att.type.startsWith("image/");
 
-  // Wrapper holds both the pill and the collapsible preview
   const wrapper = document.createElement("div");
   wrapper.className = "msg-attach-wrapper";
 
   const card = document.createElement("div");
   card.className = "msg-attach-card msg-attach-file";
   card.style.cursor = "pointer";
-  card.title = "Click to preview";
 
-  const chevron = document.createElement("span");
-  chevron.className = "msg-attach-chevron";
-  chevron.innerHTML = '<i class="bi bi-chevron-down"></i>';
-
+  // ── Build pill contents ───────────────────────────────────
   if (isImage && att.dataUrl) {
+    card.title = "Click to expand";
     const thumb = document.createElement("div");
     thumb.className = "msg-attach-thumb";
     const img = document.createElement("img");
@@ -413,12 +410,17 @@ function buildAttachmentCard(att) {
     badge.className = "msg-attach-meta";
     badge.textContent = ext;
 
+    const chevron = document.createElement("span");
+    chevron.className = "msg-attach-chevron";
+    chevron.innerHTML = '<i class="bi bi-chevron-down"></i>';
+
     info.appendChild(name);
     info.appendChild(badge);
     card.appendChild(thumb);
     card.appendChild(info);
     card.appendChild(chevron);
   } else {
+    card.title = "Click to view file";
     const icon = document.createElement("div");
     icon.className = "msg-attach-icon";
     icon.innerHTML = getFileIcon(att.name, att.type);
@@ -434,59 +436,135 @@ function buildAttachmentCard(att) {
     meta.className = "msg-attach-meta";
     meta.textContent = getFileTypeLabelFromMime(att.type);
 
+    const openIcon = document.createElement("span");
+    openIcon.className = "msg-attach-chevron";
+    openIcon.innerHTML = '<i class="bi bi-box-arrow-up-right"></i>';
+
     info.appendChild(name);
     info.appendChild(meta);
     card.appendChild(icon);
     card.appendChild(info);
-    card.appendChild(chevron);
+    card.appendChild(openIcon);
   }
 
-  // ── Inline preview panel (hidden until clicked) ───────────
-  const preview = document.createElement("div");
-  preview.className = "msg-attach-preview";
-
+  // ── Image: inline toggle preview ─────────────────────────
   if (isImage && att.dataUrl) {
+    const preview = document.createElement("div");
+    preview.className = "msg-attach-preview";
+
     const img = document.createElement("img");
     img.src = att.dataUrl;
     img.alt = att.name || "image";
     img.className = "msg-attach-preview-img";
     preview.appendChild(img);
-  } else if (att.dataUrl) {
-    try {
-      const base64Data = att.dataUrl.split(",")[1] || "";
-      const decoded = atob(base64Data);
-      const pre = document.createElement("pre");
-      pre.className = "msg-attach-preview-code";
-      const code = document.createElement("code");
-      const ext = (att.name || "").split(".").pop().toLowerCase();
-      const langMap = { js:"javascript", ts:"typescript", jsx:"javascript",
-                        tsx:"typescript", py:"python", html:"html", css:"css",
-                        json:"json", md:"markdown" };
-      if (langMap[ext]) code.className = `language-${langMap[ext]}`;
-      code.textContent = decoded.length > 6000
-        ? decoded.slice(0, 6000) + "\n\n… (truncated)"
-        : decoded;
-      pre.appendChild(code);
-      preview.appendChild(pre);
-    } catch (_) {
-      preview.textContent = "Preview unavailable.";
-    }
+
+    card.addEventListener("click", () => {
+      const open = preview.classList.toggle("open");
+      const chevIcon = card.querySelector(".msg-attach-chevron i");
+      if (chevIcon) chevIcon.className = open ? "bi bi-chevron-up" : "bi bi-chevron-down";
+      requestAnimationFrame(() => scrollToBottom());
+    });
+
+    wrapper.appendChild(card);
+    wrapper.appendChild(preview);
+
+  // ── Text/code: open modal ─────────────────────────────────
   } else {
-    preview.textContent = "No preview available.";
+    card.addEventListener("click", () => openFileModal(att));
+    wrapper.appendChild(card);
   }
 
-  // ── Toggle on pill click ──────────────────────────────────
-  card.addEventListener("click", () => {
-    const open = preview.classList.toggle("open");
-    const icon = card.querySelector(".msg-attach-chevron i");
-    if (icon) icon.className = open ? "bi bi-chevron-up" : "bi bi-chevron-down";
-    if (open && !isImage) requestAnimationFrame(() => highlightAll());
-    requestAnimationFrame(() => scrollToBottom());
+  return wrapper;
+}
+
+// ── File preview modal ────────────────────────────────────────
+// Single shared modal injected once; reused for every file open.
+function ensureFileModal() {
+  if (document.getElementById("file-preview-modal")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "file-preview-modal";
+  overlay.className = "fpm-overlay";
+  overlay.innerHTML = `
+    <div class="fpm-dialog">
+      <div class="fpm-header">
+        <div class="fpm-title-group">
+          <span class="fpm-icon"></span>
+          <span class="fpm-filename"></span>
+          <span class="fpm-ext-badge"></span>
+        </div>
+        <div class="fpm-actions">
+          <button class="fpm-copy-btn" title="Copy content">
+            <i class="bi bi-clipboard"></i> Copy
+          </button>
+          <button class="fpm-close-btn" title="Close (Esc)">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+      </div>
+      <div class="fpm-body">
+        <pre class="fpm-pre"><code class="fpm-code"></code></pre>
+      </div>
+    </div>`;
+
+  // Close on overlay click or Esc
+  overlay.addEventListener("click", e => {
+    if (e.target === overlay) closeFileModal();
+  });
+  overlay.querySelector(".fpm-close-btn").addEventListener("click", closeFileModal);
+  overlay.querySelector(".fpm-copy-btn").addEventListener("click", () => {
+    const text = overlay.querySelector(".fpm-code").textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = overlay.querySelector(".fpm-copy-btn");
+      btn.innerHTML = '<i class="bi bi-clipboard-check"></i> Copied!';
+      setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy', 2000);
+    });
   });
 
-  wrapper.appendChild(card);
-  wrapper.appendChild(preview);
-  return wrapper;
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeFileModal();
+  });
+
+  document.body.appendChild(overlay);
+}
+
+function openFileModal(att) {
+  ensureFileModal();
+  const modal = document.getElementById("file-preview-modal");
+
+  // Populate header
+  modal.querySelector(".fpm-icon").innerHTML = getFileIcon(att.name, att.type);
+  modal.querySelector(".fpm-filename").textContent =
+    (att.name || "file").replace(/\.[^.]+$/, "");
+  const ext = (att.name || "").split(".").pop().toUpperCase() || "FILE";
+  modal.querySelector(".fpm-ext-badge").textContent = ext;
+
+  // Decode and insert content
+  const codeEl = modal.querySelector(".fpm-code");
+  codeEl.className = "fpm-code"; // reset any old language class
+  try {
+    const base64 = (att.dataUrl || "").split(",")[1] || "";
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    codeEl.textContent = new TextDecoder("utf-8").decode(bytes) || "Empty file.";
+  } catch (_) {
+    codeEl.textContent = "Could not decode file content.";
+  }
+
+  // Apply Prism language class
+  const fileExt = (att.name || "").split(".").pop().toLowerCase();
+  const langMap = { js:"javascript", ts:"typescript", jsx:"javascript", tsx:"typescript",
+                    py:"python", html:"html", css:"css", json:"json", md:"markdown" };
+  if (langMap[fileExt]) codeEl.className = `fpm-code language-${langMap[fileExt]}`;
+
+  modal.classList.add("open");
+  requestAnimationFrame(() => {
+    if (window.Prism) Prism.highlightElement(codeEl);
+    modal.querySelector(".fpm-body").scrollTop = 0;
+  });
+}
+
+function closeFileModal() {
+  document.getElementById("file-preview-modal")?.classList.remove("open");
 }
 
 function getFileIcon(name, mime) {
