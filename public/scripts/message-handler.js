@@ -373,16 +373,26 @@ function addMessage(role, text, attachments) {
 
 /**
  * Build a single attachment card for the message bubble.
+ * Clicking the pill toggles an inline preview panel below it.
  * @param {{ name: string, type: string, dataUrl?: string }} att
  */
 function buildAttachmentCard(att) {
   const isImage = att.type && att.type.startsWith("image/");
 
-  if (isImage && att.dataUrl) {
-    // Compact pill: small thumbnail + filename + extension badge
-    const card = document.createElement("div");
-    card.className = "msg-attach-card msg-attach-file"; // reuse file pill layout
+  // Wrapper holds both the pill and the collapsible preview
+  const wrapper = document.createElement("div");
+  wrapper.className = "msg-attach-wrapper";
 
+  const card = document.createElement("div");
+  card.className = "msg-attach-card msg-attach-file";
+  card.style.cursor = "pointer";
+  card.title = "Click to preview";
+
+  const chevron = document.createElement("span");
+  chevron.className = "msg-attach-chevron";
+  chevron.innerHTML = '<i class="bi bi-chevron-down"></i>';
+
+  if (isImage && att.dataUrl) {
     const thumb = document.createElement("div");
     thumb.className = "msg-attach-thumb";
     const img = document.createElement("img");
@@ -395,10 +405,9 @@ function buildAttachmentCard(att) {
 
     const name = document.createElement("div");
     name.className = "msg-attach-name";
-    // Strip extension from display name
     name.textContent = (att.name || "image").replace(/\.[^.]+$/, "");
 
-    const ext = (att.name || "").split(".").pop().toUpperCase() || 
+    const ext = (att.name || "").split(".").pop().toUpperCase() ||
                 (att.type || "").replace("image/", "").toUpperCase() || "IMG";
     const badge = document.createElement("div");
     badge.className = "msg-attach-meta";
@@ -408,12 +417,8 @@ function buildAttachmentCard(att) {
     info.appendChild(badge);
     card.appendChild(thumb);
     card.appendChild(info);
-    return card;
+    card.appendChild(chevron);
   } else {
-    // File pill card
-    const card = document.createElement("div");
-    card.className = "msg-attach-card msg-attach-file";
-
     const icon = document.createElement("div");
     icon.className = "msg-attach-icon";
     icon.innerHTML = getFileIcon(att.name, att.type);
@@ -433,8 +438,55 @@ function buildAttachmentCard(att) {
     info.appendChild(meta);
     card.appendChild(icon);
     card.appendChild(info);
-    return card;
+    card.appendChild(chevron);
   }
+
+  // ── Inline preview panel (hidden until clicked) ───────────
+  const preview = document.createElement("div");
+  preview.className = "msg-attach-preview";
+
+  if (isImage && att.dataUrl) {
+    const img = document.createElement("img");
+    img.src = att.dataUrl;
+    img.alt = att.name || "image";
+    img.className = "msg-attach-preview-img";
+    preview.appendChild(img);
+  } else if (att.dataUrl) {
+    try {
+      const base64Data = att.dataUrl.split(",")[1] || "";
+      const decoded = atob(base64Data);
+      const pre = document.createElement("pre");
+      pre.className = "msg-attach-preview-code";
+      const code = document.createElement("code");
+      const ext = (att.name || "").split(".").pop().toLowerCase();
+      const langMap = { js:"javascript", ts:"typescript", jsx:"javascript",
+                        tsx:"typescript", py:"python", html:"html", css:"css",
+                        json:"json", md:"markdown" };
+      if (langMap[ext]) code.className = `language-${langMap[ext]}`;
+      code.textContent = decoded.length > 6000
+        ? decoded.slice(0, 6000) + "\n\n… (truncated)"
+        : decoded;
+      pre.appendChild(code);
+      preview.appendChild(pre);
+    } catch (_) {
+      preview.textContent = "Preview unavailable.";
+    }
+  } else {
+    preview.textContent = "No preview available.";
+  }
+
+  // ── Toggle on pill click ──────────────────────────────────
+  card.addEventListener("click", () => {
+    const open = preview.classList.toggle("open");
+    const icon = card.querySelector(".msg-attach-chevron i");
+    if (icon) icon.className = open ? "bi bi-chevron-up" : "bi bi-chevron-down";
+    if (open && !isImage) requestAnimationFrame(() => highlightAll());
+    requestAnimationFrame(() => scrollToBottom());
+  });
+
+  wrapper.appendChild(card);
+  wrapper.appendChild(preview);
+  return wrapper;
 }
 
 function getFileIcon(name, mime) {
