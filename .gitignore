@@ -12,6 +12,7 @@
 *.env
 *.lancedb/
 uploads/
+ai-trash/
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)

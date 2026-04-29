@@ -1,10 +1,13 @@
-// mcp/tools/files.js
-// File-system tools: read_file, write_file, append_file, scan_project.
-
 import { z }                                               from "zod";
 import { readFileSync, readdirSync, statSync, existsSync } from "fs";
 import fs                                                  from "fs/promises";
 import { join, extname, basename }                         from "path";
+import {
+  isReadPathAllowed,
+  isWritePathAllowed,
+  ALLOWED_READ_PATHS,
+  ALLOWED_WRITE_PATHS,
+} from "../../lib/routes/paths.js";
 
 const ALLOWED_EXTENSIONS = new Set([
   ".js", ".ts", ".jsx", ".tsx", ".py", ".go", ".rs", ".java",
@@ -14,13 +17,16 @@ const ALLOWED_EXTENSIONS = new Set([
 const READ_FILE_CHUNK_SIZE = 500;
 const READ_FILE_MAX_OFFSET = 10_000;
 
-const SKIP_DIRS  = new Set(["node_modules",".git",".next","dist","build","coverage","__pycache__",".venv","venv"]);
-const KEY_FILES  = new Set(["package.json","README.md","readme.md","pyproject.toml","Cargo.toml","go.mod","docker-compose.yml"]);
-const CODE_EXTS  = new Set([".js",".ts",".py",".go",".rs",".java",".jsx",".tsx"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", ".next", "dist", "build", "coverage", "__pycache__", ".venv", "venv"]);
+const KEY_FILES = new Set(["package.json", "README.md", "readme.md", "pyproject.toml", "Cargo.toml", "go.mod", "docker-compose.yml"]);
+const CODE_EXTS = new Set([".js", ".ts", ".py", ".go", ".rs", ".java", ".jsx", ".tsx"]);
 
 // ─── Pure handler functions ───────────────────────────────────────────────────
 
 export async function readFileHandler({ path: filePath, max_lines, offset = 0 }) {
+  if (!isReadPathAllowed(filePath))
+    return { content: [{ type: "text", text: `❌ Read not allowed: ${filePath}\nAllowed read paths: ${ALLOWED_READ_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS_TO_READ in .env to configure.` }] };
+
   const ext = extname(filePath).toLowerCase();
   if (!ALLOWED_EXTENSIONS.has(ext))
     return { content: [{ type: "text", text: `❌ File type not allowed: ${ext}` }] };
@@ -31,11 +37,11 @@ export async function readFileHandler({ path: filePath, max_lines, offset = 0 })
   if (stat.size > 500_000)
     return { content: [{ type: "text", text: `❌ File too large (${Math.round(stat.size / 1024)}KB). Max 500KB.` }] };
 
-  const lines    = readFileSync(filePath, "utf-8").split("\n");
-  const limit    = Math.min(max_lines ?? READ_FILE_CHUNK_SIZE, READ_FILE_CHUNK_SIZE);
-  const start    = Math.min(offset, lines.length, READ_FILE_MAX_OFFSET);
-  const end      = start + limit;
-  const chunk    = lines.slice(start, end);
+  const lines     = readFileSync(filePath, "utf-8").split("\n");
+  const limit     = Math.min(max_lines ?? READ_FILE_CHUNK_SIZE, READ_FILE_CHUNK_SIZE);
+  const start     = Math.min(offset, lines.length, READ_FILE_MAX_OFFSET);
+  const end       = start + limit;
+  const chunk     = lines.slice(start, end);
   const truncated = end < lines.length;
 
   return {
@@ -47,12 +53,11 @@ export async function readFileHandler({ path: filePath, max_lines, offset = 0 })
 }
 
 export async function writeFileHandler(ctx, { path: filePath, content, create_dirs = true }) {
-  const { isPathAllowed, ALLOWED_PATHS } = ctx;
-  try {
-    const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
+  if (!isWritePathAllowed(filePath))
+    return { content: [{ type: "text", text: `❌ Write not allowed: ${filePath}\nAllowed write paths: ${ALLOWED_WRITE_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS_TO_WRITE in .env to configure.` }] };
 
-    if (!isPathAllowed(filePath))
-      return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
+  try {
+    const resolved = filePath.replace(/^~/, process.cwd());
 
     if (create_dirs) {
       const dir = resolved.substring(0, resolved.lastIndexOf("/"));
@@ -75,19 +80,19 @@ export async function writeFileHandler(ctx, { path: filePath, content, create_di
 }
 
 export async function appendFileHandler(ctx, { path: filePath, content }) {
-  const { isPathAllowed, ALLOWED_PATHS } = ctx;
-  try {
-    const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
+  if (!isWritePathAllowed(filePath))
+    return { content: [{ type: "text", text: `❌ Write not allowed: ${filePath}\nAllowed write paths: ${ALLOWED_WRITE_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS_TO_WRITE in .env to configure.` }] };
 
-    if (!isPathAllowed(filePath))
-      return { content: [{ type: "text", text: `❌ Path not allowed: ${resolved}\nAllowed paths: ${ALLOWED_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS in .env to configure.` }] };
+  try {
+    const resolved = filePath.replace(/^~/, process.cwd());
+
     if (!existsSync(resolved))
       return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
 
     const before = (await fs.readFile(resolved, "utf8")).split("\n");
     await fs.appendFile(resolved, content, "utf8");
-    const after = (await fs.readFile(resolved, "utf8")).split("\n");
-    const tail  = after.slice(-5).join("\n");
+    const after  = (await fs.readFile(resolved, "utf8")).split("\n");
+    const tail   = after.slice(-5).join("\n");
 
     return {
       content: [{ type: "text", text: `✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}` }],
@@ -97,7 +102,12 @@ export async function appendFileHandler(ctx, { path: filePath, content }) {
   }
 }
 
+// scanProjectHandler is read-only; it only traverses the FS and doesn't
+// expose file contents outside of KEY_FILES, so it uses the read guard.
 export async function scanProjectHandler({ path: projectPath, read_key_files = true }) {
+  if (!isReadPathAllowed(projectPath))
+    return { content: [{ type: "text", text: `❌ Read not allowed: ${projectPath}\nAllowed read paths: ${ALLOWED_READ_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS_TO_READ in .env to configure.` }] };
+
   if (!existsSync(projectPath))
     return { content: [{ type: "text", text: `❌ Path not found: ${projectPath}` }] };
   if (!statSync(projectPath).isDirectory())
@@ -144,10 +154,10 @@ export async function scanProjectHandler({ path: projectPath, read_key_files = t
 }
 
 // ─── MCP registration ─────────────────────────────────────────────────────────
+// ctx is kept for backward compatibility but path guards are now handled
+// directly via the imported validators above.
 
 export function register(server, ctx) {
-  const { isPathAllowed, ALLOWED_PATHS } = ctx;
-
   server.registerTool(
     "read_file",
     {
