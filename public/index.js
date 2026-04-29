@@ -573,12 +573,10 @@ function closePreview() {
 document.addEventListener('click', (e) => {
   const modal = document.querySelector('.preview-modal');
   
-  // 1. Handle Closing
-  if (modal.classList.contains('active') && !e.target.closest('.preview-content')) {
+  if (modal?.classList.contains('active') && !e.target.closest('.preview-content')) {
     closePreview();
   }
-
-  // 2. Handle Opening
+  
   const target = e.target.closest('.memory-preview');
   if (target) {
     const jsonStr = decodeURIComponent(escape(atob(target.dataset.memory)));
