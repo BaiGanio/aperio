@@ -16,6 +16,7 @@
   <link rel="stylesheet" href="index.css" />
   <link rel="stylesheet" href="styles/input-bar.css" />
   <link rel="stylesheet" href="styles/tool-and-thinking-indicators.css" />
+  <link rel="stylesheet" href="styles/msg-attachments.css" />
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
 </head>
 <body>
@@ -135,50 +136,6 @@
   </div>
 
 </div>
-
-<!-- Memory Modal Experimental
-
-<div id="memoryModal" style="display:none; position:fixed; z-index:9999; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); align-items:center; justify-content:center;">
-    <div style="background:var(--bg-primary, white); color:var(--text-primary, black); margin:50px auto; padding:20px; width:90%; max-width:1000px; max-height:95vh; overflow-y:auto; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,0.5); position:relative; border:1px solid var(--border-color, #ccc);">
-        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #eee; padding-bottom:15px; margin-bottom:15px;">
-            <hh3 style="margin:0; font-size:18px;">🧠 Simple Database Explorer</hh3>
-            <button onclick="closeModal()" style="background:none; border:none; font-size:28px; cursor:pointer; color:var(--text-muted);">&times;</button>
-        </div>
-        
-        <div style="margin-bottom: 20px;">
-            <input type="text" id="memory-search" oninput="handleSearch()" placeholder="Search title, content or tags..." 
-                   style="width:100%; padding:10px; border-radius:var(--radius, 8px); border:1px solid var(--border-color, #ccc); background-color: #ffffff !important; 
-                  color: #333333 !important; 
-                  font-family: inherit;">
-        </div>
-        
-        <div id="table-wrapper" style="min-height:200px;"></div>
-        
-       <div id="pagination-controls" style="display:none; justify-content:center; align-items:center; gap:15px; margin-top:20px; padding-top:15px;">
-            <button id="prev-page" onclick="changePage(-1)" style="padding:6px 12px; cursor:pointer; border-radius:4px; border:1px solid #ccc;">&laquo; Prev</button>
-            <span id="page-info" style="font-family:monospace; font-weight:bold;"></span>
-            <button id="next-page" onclick="changePage(1)" style="padding:6px 12px; cursor:pointer; border-radius:4px; border:1px solid #ccc;">Next &raquo;</button>
-        </div>
-    </div>
-</div>
-
-<div class="preview-modal">
-  <div class="preview-content">
-  <div class="modal-header">
-    <span class="type-badge"></span>
-    <button class="close-btn" onclick="closePreview()">&times;</button>
-  </div>    
-  <h2 class="mtitle"></h2>    
-  <hr class="modal-divider">
-  <div class="mcontent"></div>    
-  <hr class="modal-divider">
-  <div class="modal-footer">
-    <p class="mtags"></p>
-    <div class="importance-rating">High Priority</div>
-  </div>  
-  </div>
-</div>
--->
 
 <script src="index.js"></script>
 <script src="scripts/api.js"></script>

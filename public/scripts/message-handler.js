@@ -331,7 +331,7 @@ function getUserInitial() {
   return "U";
 }
 
-function addMessage(role, text) {
+function addMessage(role, text, attachments) {
   const wrap = document.createElement("div");
   wrap.className = `message ${role === "user" ? "user" : "ai"}`;
 
@@ -345,16 +345,133 @@ function addMessage(role, text) {
   if (text.includes("🧠 **Memory suggestions**") && !suggestionShown) {
     suggestionShown = true;
     const [before, after] = text.split("🧠 **Memory suggestions**");
-    bubble.innerHTML = renderMarkdown(before.trim());
+    const textNode = document.createElement("div");
+    textNode.innerHTML = renderMarkdown(before.trim());
+    bubble.appendChild(textNode);
     bubble.appendChild(parseSuggestionBlock(after));
-  } else {
-    bubble.innerHTML = renderMarkdown(text);
+  } else if (text.trim()) {
+    const textNode = document.createElement("div");
+    textNode.innerHTML = renderMarkdown(text);
+    bubble.appendChild(textNode);
+  }
+
+  // Render attachment cards below the text
+  if (role === "user" && attachments && attachments.length > 0) {
+    const attachRow = document.createElement("div");
+    attachRow.className = "msg-attachments";
+    attachments.forEach(att => {
+      attachRow.appendChild(buildAttachmentCard(att));
+    });
+    bubble.appendChild(attachRow);
   }
 
   wrap.appendChild(avatar);
   wrap.appendChild(bubble);
   messagesEl.appendChild(wrap);
   scrollToBottom();
+}
+
+/**
+ * Build a single attachment card for the message bubble.
+ * @param {{ name: string, type: string, dataUrl?: string }} att
+ */
+function buildAttachmentCard(att) {
+  const isImage = att.type && att.type.startsWith("image/");
+
+  if (isImage && att.dataUrl) {
+    // Compact pill: small thumbnail + filename + extension badge
+    const card = document.createElement("div");
+    card.className = "msg-attach-card msg-attach-file"; // reuse file pill layout
+
+    const thumb = document.createElement("div");
+    thumb.className = "msg-attach-thumb";
+    const img = document.createElement("img");
+    img.src = att.dataUrl;
+    img.alt = att.name || "image";
+    thumb.appendChild(img);
+
+    const info = document.createElement("div");
+    info.className = "msg-attach-info";
+
+    const name = document.createElement("div");
+    name.className = "msg-attach-name";
+    // Strip extension from display name
+    name.textContent = (att.name || "image").replace(/\.[^.]+$/, "");
+
+    const ext = (att.name || "").split(".").pop().toUpperCase() || 
+                (att.type || "").replace("image/", "").toUpperCase() || "IMG";
+    const badge = document.createElement("div");
+    badge.className = "msg-attach-meta";
+    badge.textContent = ext;
+
+    info.appendChild(name);
+    info.appendChild(badge);
+    card.appendChild(thumb);
+    card.appendChild(info);
+    return card;
+  } else {
+    // File pill card
+    const card = document.createElement("div");
+    card.className = "msg-attach-card msg-attach-file";
+
+    const icon = document.createElement("div");
+    icon.className = "msg-attach-icon";
+    icon.innerHTML = getFileIcon(att.name, att.type);
+
+    const info = document.createElement("div");
+    info.className = "msg-attach-info";
+
+    const name = document.createElement("div");
+    name.className = "msg-attach-name";
+    name.textContent = att.name || "file";
+
+    const meta = document.createElement("div");
+    meta.className = "msg-attach-meta";
+    meta.textContent = getFileTypeLabelFromMime(att.type);
+
+    info.appendChild(name);
+    info.appendChild(meta);
+    card.appendChild(icon);
+    card.appendChild(info);
+    return card;
+  }
+}
+
+function getFileIcon(name, mime) {
+  if (mime === "application/pdf") return '<i class="bi bi-file-earmark-pdf"></i>';
+  if (mime && mime.startsWith("image/")) return '<i class="bi bi-image"></i>';
+  if (mime === "application/json" || (name && name.endsWith(".json"))) return '<i class="bi bi-braces"></i>';
+  if (name && /\.(js|ts|jsx|tsx)$/.test(name)) return '<i class="bi bi-filetype-js"></i>';
+  if (name && /\.(py)$/.test(name)) return '<i class="bi bi-filetype-py"></i>';
+  if (name && /\.(html|htm)$/.test(name)) return '<i class="bi bi-filetype-html"></i>';
+  if (name && /\.(css|scss)$/.test(name)) return '<i class="bi bi-filetype-css"></i>';
+  if (name && /\.(md)$/.test(name)) return '<i class="bi bi-file-earmark-text"></i>';
+  return '<i class="bi bi-file-earmark"></i>';
+}
+
+function getFileTypeLabelFromMime(mime) {
+  if (!mime) return "File";
+  if (mime === "application/pdf") return "PDF";
+  if (mime.startsWith("image/")) return mime.replace("image/", "").toUpperCase();
+  if (mime === "application/json") return "JSON";
+  if (mime.includes("javascript")) return "JavaScript";
+  if (mime.includes("html")) return "HTML";
+  if (mime.includes("css")) return "CSS";
+  if (mime.includes("python")) return "Python";
+  if (mime.includes("plain")) return "Text";
+  if (mime.includes("markdown")) return "Markdown";
+  return "File";
+}
+
+/**
+ * Public helper — call this from input-bar.js / index.js when sending a message.
+ * Captures the attachment list and renders it in the bubble before clearing.
+ *
+ * @param {string} text          — the message text
+ * @param {Array}  attachments   — array of { name, type, dataUrl } built from File objects
+ */
+function addUserMessage(text, attachments) {
+  addMessage("user", text, attachments);
 }
 
 function renderMarkdown(text) {
@@ -449,4 +566,3 @@ function renderBlock(container, block) {
     container.appendChild(img);
   }
 }
-
