@@ -6,49 +6,17 @@ fetch('/api/version')
   })
   .catch(() => {});
 
+// Pings /api/heartbeat every 10 s unconditionally.
+// The server shuts itself (and Ollama) down if no ping arrives for 30 s —
+// which happens naturally when every tab is closed. No beforeunload needed.
+(async function startHeartbeat() {
+  const { heartbeatIntervalSeconds } = await fetch('/api/config/client').then(r => r.json());
+  const INTERVAL_MS = heartbeatIntervalSeconds * 1000;
 
-// It runs a keepalive ping every 10 seconds while the tab is visible,
-// and sends a final ping on beforeunload so the launcher knows immediately
-// when the user closes or navigates away.
-
-(function startHeartbeat() {
-  const INTERVAL_MS = 10_000;
-  let timer = null;
-
-  async function ping() {
-    try {
-      await fetch('/api/heartbeat');
-    } catch {
-      // ignore — server may be shutting down
-    }
+  function ping() {
+    fetch('/api/heartbeat').catch(() => {}); // ignore — server may be stopping
   }
 
-  function start() {
-    if (!timer) timer = setInterval(ping, INTERVAL_MS);
-  }
-
-  function stop() {
-    clearInterval(timer);
-    timer = null;
-  }
-
-  // Pause when tab is hidden, resume when visible again
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      ping();   // immediate ping on return
-      start();
-    } else {
-      stop();
-    }
-  });
-
-  // Final ping on close/navigate — uses sendBeacon so it actually fires
-  window.addEventListener('beforeunload', () => {
-    navigator.sendBeacon('/api/heartbeat');
-    stop();
-  });
-
-  // Kick off on load
-  ping();
-  start();
+  setInterval(ping, INTERVAL_MS);
+  ping(); // immediate ping on load
 })();
