@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: light dark;">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Aperio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <!-- Prism syntax highlighting — NO external theme CSS (causes font override on dark themes) -->
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+  <link rel="stylesheet" href="index.css" />
+  <link rel="stylesheet" href="styles/input-bar.css" />
+  <link rel="stylesheet" href="styles/tool-and-thinking-indicators.css" />
+  <link rel="stylesheet" href="styles/msg-attachments.css" />
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">A</div>
+      Aperio
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar (⌘B)">
+      <i class="bi bi-layout-sidebar"></i>
+    </button>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <i class="bi bi-cpu" style="font-size:11px;color:var(--text-muted)"></i>
+      <span id="statusText">connecting…</span>
+      <span id="providerBadge" style="
+        font-family:var(--font-mono); font-size:9px; font-weight:600;
+        background:var(--tag-bg); color:var(--tag-text);
+        padding:1px 6px; border-radius:8px; letter-spacing:0.06em;
+        text-transform:uppercase; display:none;
+      "></span>
+    </div>
+    <button id="reasoningToggle" onclick="toggleReasoning()"
+      style="height:28px;padding:0 10px;border-radius:var(--radius-sm);border:1px solid var(--accent);
+             background:var(--bg-hover);color:var(--accent);cursor:pointer;
+             font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.06em;
+             display:flex;align-items:center;gap:5px;flex-shrink:0;transition:all var(--transition);">
+      🧠 <span id="reasoningToggleLabel">reasoning on</span>
+    </button>
+    <div class="ctx-window" id="ctxWindow">
+      <div class="ctx-header">
+        <span class="ctx-label">context</span>
+        <span class="ctx-value" id="ctxText">— / —</span>
+      </div>
+      <div class="ctx-track">
+        <div class="ctx-fill" id="ctxFill"></div>
+      </div>
+    </div>
+    <div class="theme-switcher">
+      <button class="theme-btn" data-theme="light"  title="Light">☀️</button>
+      <button class="theme-btn" data-theme="dark"   title="Dark">🌙</button>
+      <button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
+      <button class="theme-btn active" data-theme="system" title="System">⊙</button>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div style="display:flex; align-items:center; margin-bottom:10px;">
+        <div class="sidebar-title" style="margin-bottom:0">Memories <span id="memoryCount" style="font-weight:400;opacity:.5"></span></div>
+        <button id="exportBtn" title="Export brain to JSON"
+          style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer;
+                 color:var(--text-muted); font-size:12px; border-radius:4px;
+                 transition:all var(--transition);"
+          onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
+          <i class="bi bi-download"></i> Export
+        </button>
+        <!-- <button id="view-memories-btn" title="Show Memories" onclick="toggleMemoryView()" style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer; color:var(--text-muted); font-size:12px; border-radius:4px; transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">📂 Show
+        </button> -->
+      </div>
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" placeholder="Search memories…" />
+      </div>
+    </div>
+    <div class="memories-list" id="memoriesList">
+      <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
+        <div style="font-size:22px; margin-bottom:8px; opacity:.4">◈</div>
+        <div style="font-size:12px; color:var(--text-muted)">Loading memories…</div>
+      </div>
+    </div>
+    <div class="sidebar-footer">
+      <span id="version-display"></span>
+    </div>
+  </aside>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="messages" id="messages">
+      <div class="thinking" id="startup-thinking">
+        <div class="avatar ai">A</div>
+        <div class="thinking-dots">
+          <div class="thinking-dots-row">
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+          </div>
+          <div class="thinking-label">loading…</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="attach-preview" id="attachPreview"></div>
+      <div class="input-wrap">
+        <button class="attach-btn" id="attachBtn" title="Attach file or image">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+        <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md,.js,.py,.html,.css,.json,.docx,.pptx" multiple hidden>
+        <textarea
+          id="chatInput"
+          placeholder="Ask anything — or say 'scan my project at ~/…'"
+          rows="1"
+        ></textarea>
+        <span class="char-counter" id="charCounter"></span>
+        <button class="send-btn" id="sendBtn" disabled title="Send (⌘↵)">
+          <i class="bi bi-send-fill" style="font-size:13px"></i>
+        </button>
+        <button class="stop-btn" id="stopBtn" title="Stop generating">■</button>
+      </div>
+      <div class="input-hint" id="inputHint">⌘↵ to send &nbsp;·&nbsp; Shift↵ for newline</div>
+      <div class="input-warning" id="inputWarning">Your AI agent is not almighty. Do not trust the output blindly!</div>
+    </div>
+  </div>
+
+</div>
+
+<script src="scripts/api.js"></script>
+<script src="scripts/input-bar.js"></script>
+<script src="scripts/theme-and-timestamp.js"></script>
+<script src="scripts/message-handler.js"></script>
+<script src="index.js"></script>
+</body>
+</html>

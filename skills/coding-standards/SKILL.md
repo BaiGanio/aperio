@@ -1,0 +1,150 @@
+---
+name: coding-standards
+description: >
+  Use this skill whenever writing, reviewing, or modifying any code in any
+  programming language. Enforces universal principles first, then applies
+  language-specific naming conventions. Detect language from context (file
+  extension, user statement, existing code). If ambiguous, ask before writing
+  significant code. For annotated good/bad examples per language, also match
+  coding-standards-examples.
+metadata:
+  keywords: "naming, conventions, style, code quality, error handling, typescript, javascript, python, go, rust, java, csharp, multi-language, coding, writing code, code review"
+  category: "code-quality"
+  load: "on-demand"
+---
+
+# Coding Standards — Core
+
+## Layer 1 — Universal Principles (all languages, always)
+
+### Naming
+- Names must read like plain English. Avoid `x`, `tmp`, `data`, `res`, `obj` unless scope is 2–3 lines.
+- Booleans: prefix with `is`, `has`, `can`, `should`.
+- Event handlers: prefix with `handle` or `on`.
+- If you can't name it clearly, the function is probably doing too much.
+
+### Functions
+- One responsibility per function. If it does two things, split it.
+- Guard clauses first — validate inputs at the top, return or throw early.
+- No silent failures — errors must be caught, propagated, or explicitly ignored with a comment.
+- Aim for ~30 lines max.
+
+### Constants & Values
+- No magic numbers or magic strings — extract into named constants.
+- Group related constants together.
+
+### Comments
+- Explain WHY, not WHAT. The code shows what; comments show intent.
+- Never restate the line below in a comment.
+- Mark workarounds explicitly: `// Workaround: API returns null instead of 404`
+
+### File & Module Structure
+- One class or logical unit per file (except small utility collections).
+- Imports at the top, grouped: standard library → external → internal.
+- Split files when they grow large — one responsibility per file.
+
+### Deviation Policy
+If the user's existing codebase uses different conventions, match their style and note it:
+> "Matched your existing `snake_case` convention for consistency with surrounding code."
+Never silently mix conventions within a single file.
+
+---
+
+## Layer 2 — Naming Conventions by Language
+
+### JavaScript / TypeScript
+| Construct | Style |
+|-----------|-------|
+| Functions | camelCase |
+| Classes | PascalCase |
+| Constants | UPPER_SNAKE_CASE |
+| Variables | camelCase |
+| Types / Interfaces | PascalCase |
+| Files | kebab-case |
+
+- Prefer `const` over `let`; never `var`
+- Always try/catch or propagate in async functions
+- Explicit return types in TypeScript
+
+### Python
+| Construct | Style |
+|-----------|-------|
+| Functions | snake_case |
+| Classes | PascalCase |
+| Constants | UPPER_SNAKE_CASE |
+| Variables | snake_case |
+| Private members | _snake_case |
+| Files / Modules | snake_case |
+
+- PEP 8: 4-space indent, 79-char line limit
+- Type hints on all function signatures
+- f-strings preferred over `.format()` or `%`
+
+### Go
+| Construct | Style |
+|-----------|-------|
+| Functions (exported) | PascalCase |
+| Functions (unexported) | camelCase |
+| Variables | camelCase |
+| Constants | PascalCase or camelCase |
+| Interfaces | PascalCase noun/adjective |
+| Files | snake_case |
+
+- Always handle returned errors — never `_` unless intentional and commented
+- Prefer flat over nested
+
+### Rust
+| Construct | Style |
+|-----------|-------|
+| Functions | snake_case |
+| Types / Structs / Enums | PascalCase |
+| Constants | UPPER_SNAKE_CASE |
+| Variables | snake_case |
+| Modules / Files | snake_case |
+
+- `Result<T, E>` for all fallible operations — no `.unwrap()` in production
+- Use `?` to propagate errors
+
+### Java
+| Construct | Style |
+|-----------|-------|
+| Methods | camelCase |
+| Classes | PascalCase |
+| Constants | UPPER_SNAKE_CASE |
+| Variables | camelCase |
+| Packages | lowercase.dot.separated |
+| Files | PascalCase (matches class) |
+
+- One public class per file; filename must match class name
+- Never swallow exceptions with empty catch blocks
+
+### C#
+| Construct | Style |
+|-----------|-------|
+| Methods | PascalCase |
+| Classes | PascalCase |
+| Constants | PascalCase |
+| Private fields | _camelCase |
+| Local variables | camelCase |
+| Files | PascalCase (matches class) |
+
+- Never `.Result` or `.Wait()` on tasks — always `async`/`await`
+- Follow Microsoft .NET naming guidelines
+
+---
+
+## Fallback — Unlisted Languages
+1. Find the language's official style guide (PSR for PHP, Swift API Design Guidelines, etc.)
+2. Apply that guide's naming conventions
+3. Apply all Layer 1 universal principles without exception
+4. State which style guide is being followed at the top of your response
+
+---
+
+## Relationship to Other Skills
+| Skill | Role |
+|-------|------|
+| coding-standards | Naming conventions and universal principles — matched for any coding task |
+| coding-examples | Annotated good/bad examples per language — matched alongside core when writing or reviewing code |
+| tool-integration | API/tool execution patterns — must also follow these standards |
+| reasoning-planning | Use before writing complex code to map structure first |
