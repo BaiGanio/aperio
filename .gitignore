@@ -13,6 +13,7 @@
 *.lancedb/
 uploads/
 ai-trash/
+logs/
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)

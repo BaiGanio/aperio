@@ -16,6 +16,7 @@ import { createWatchdog } from "./lib/helpers/shutdownGuard.js";
 import { deduplicateMemories } from "./lib/workers/deduplicate.js";
 import { makeWsHandler } from "./lib/emitters/handlers/wsHandler.js";
 import { apiRouter } from "./lib/routes/api.js";
+import logger from "./lib/helpers/logger.js";
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 const require   = createRequire(import.meta.url);
@@ -27,7 +28,7 @@ const envPath = existsSync(resolve(__dirname, ".env"))
 dotenv.config({ path: envPath });
 
 const { version } = require("./package.json");
-console.log(`🚀 Starting Aperio server (version ${version})...`);
+logger.info(`🚀 Starting Aperio server (version ${version})...`);
 
 // ─── DB ───────────────────────────────────────────────────────────────────────
 const store = await getStore();
@@ -51,8 +52,8 @@ const providerLabel = provider.name === "anthropic"
   ? `Anthropic (${provider.model})`
   : `Ollama (${provider.model})${agent.reasoningAdapter.match !== "__noop__" ? ` · thinking via ${agent.reasoningAdapter.match}` : ""}`;
 
-console.log(`🤖 Provider: ${providerLabel}`);
-console.log("✅ MCP server connected");
+logger.info(`🤖 Provider: ${providerLabel}`);
+logger.info("✅ MCP server connected");
 
 // ─── Express ──────────────────────────────────────────────────────────────────
 const app = express();
@@ -73,18 +74,18 @@ process.on("SIGTERM", () => { watchdog.stop(); process.exit(0); });
 process.on("SIGINT",  () => { watchdog.stop(); process.exit(0); });
 
 // ─── Start ────────────────────────────────────────────────────────────────────
-console.log("✅ Server root:", process.cwd());
-console.log("✅ Static files:", resolve(__dirname, "public"));
+logger.debug("✅ Server root:", process.cwd());
+logger.debug("✅ Static files:", resolve(__dirname, "public"));
 
 httpServer.listen(PORT, () => {
   const url = `http://localhost:${PORT}`;
-  console.log(`\n✨ Aperio running at ${url}\n`);
+  logger.warn(`\n✨ Aperio running at ${url}\n`);
 
   const [cmd, ...args] =
     process.platform === "darwin" ? ["open",    url]
     : process.platform === "win32"  ? ["cmd", "/c", "start", url]
     : ["xdg-open", url];
   execFile(cmd, args, (err) => {
-    if (err) console.error("⚠️  Could not open browser:", err.message);
+    if (err) logger.error("⚠️  Could not open browser:", err.message);
   });
 });
