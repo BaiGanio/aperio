@@ -24,7 +24,7 @@
     "coverage": "c8 report --reporter=lcov --reporter=text"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.81.0",
+    "@anthropic-ai/sdk": "^0.91.1",
     "@lancedb/lancedb": "^0.27.2",
     "@modelcontextprotocol/sdk": "^1.28.0",
     "adm-zip": "^0.5.17",
