@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: light dark;">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Aperio — Setup</title>
+
+  <!-- Same fonts as index.html -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+  <!-- Pull in the app's CSS variables (accent, font-mono, radius-sm, etc.) -->
+
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+
+<style>
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.setup-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px 48px;
+  gap: 0;
+}
+
+/* ── Intro copy ───────────────────────────────────────────────────────────── */
+.setup-intro {
+  text-align: center;
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: su-fade 0.4s 0.12s ease both;
+}
+.setup-intro h1 {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.setup-intro p {
+  font-size: 13px;
+  color: var(--text-muted, #888);
+  line-height: 1.65;
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────────────── */
+.setup-progress-wrap {
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 20px;
+  opacity: 0;
+  animation: su-fade 0.4s 0.18s ease both;
+}
+.setup-progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono, "Berkeley Mono", monospace);
+  font-size: 10px;
+  color: var(--text-muted, #888);
+  margin-bottom: 6px;
+}
+.setup-progress-track {
+  height: 2px;
+  background: var(--border, rgba(128,128,128,0.15));
+  border-radius: 2px;
+  overflow: hidden;
+}
+.setup-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent, #7c6aff);
+  border-radius: 2px;
+  transition: width 0.55s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Cards stack ──────────────────────────────────────────────────────────── */
+.setup-cards {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Individual step card ─────────────────────────────────────────────────── */
+.step-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  border-radius: var(--radius, 12px);
+  border: 1px solid var(--border, rgba(128,128,128,0.15));
+  background: var(--bg-surface, var(--bg, #fff));
+  transition: border-color 0.25s, background 0.25s, opacity 0.25s;
+  /* cards start invisible and slide up when they become active */
+  opacity: 0.38;
+  transform: translateY(0);
+}
+
+/* Pop-in animation when a card first becomes active */
+@keyframes card-arrive {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.step-card[data-status="running"] {
+  opacity: 1;
+  border-color: var(--accent, #7c6aff);
+  background: var(--bg-hover, rgba(124,106,255,0.04));
+  animation: card-arrive 0.3s ease both;
+}
+.step-card[data-status="done"],
+.step-card[data-status="skipped"] {
+  opacity: 1;
+  border-color: var(--border, rgba(128,128,128,0.15));
+  background: transparent;
+}
+.step-card[data-status="error"] {
+  opacity: 1;
+  border-color: var(--danger, #e05252);
+  background: var(--bg-hover, rgba(224,82,82,0.04));
+}
+
+/* ── Icon cell ────────────────────────────────────────────────────────────── */
+.step-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border, rgba(128,128,128,0.15));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 15px;
+  color: var(--text-muted, #888);
+  transition: border-color 0.25s, color 0.25s, background 0.25s;
+}
+.step-card[data-status="running"] .step-icon-wrap {
+  border-color: var(--accent, #7c6aff);
+  color: var(--accent, #7c6aff);
+  background: var(--bg-hover, rgba(124,106,255,0.07));
+}
+.step-card[data-status="done"] .step-icon-wrap,
+.step-card[data-status="skipped"] .step-icon-wrap {
+  color: var(--success, #4caf85);
+  border-color: var(--success, #4caf85);
+}
+.step-card[data-status="error"] .step-icon-wrap {
+  color: var(--danger, #e05252);
+  border-color: var(--danger, #e05252);
+}
+
+/* ── Text cell ────────────────────────────────────────────────────────────── */
+.step-text {
+  flex: 1;
+  min-width: 0;
+}
+.step-label {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-detail {
+  font-family: var(--font-mono, "Berkeley Mono", monospace);
+  font-size: 10.5px;
+  color: var(--text-muted, #888);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 14px;
+  transition: color 0.2s;
+}
+.step-card[data-status="running"] .step-detail { color: var(--accent, #7c6aff); }
+.step-card[data-status="done"]    .step-detail,
+.step-card[data-status="skipped"] .step-detail { color: var(--success, #4caf85); }
+.step-card[data-status="error"]   .step-detail { color: var(--danger, #e05252); }
+
+/* ── Right badge ──────────────────────────────────────────────────────────── */
+.step-badge {
+  font-family: var(--font-mono, "Berkeley Mono", monospace);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 3px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.badge-idle    { color: var(--text-muted, #888); border-color: var(--border, rgba(128,128,128,0.2)); }
+.badge-running { color: var(--accent, #7c6aff);  border-color: var(--accent, #7c6aff); background: var(--bg-hover, rgba(124,106,255,0.07)); }
+.badge-done    { color: var(--success, #4caf85); border-color: var(--success, #4caf85); }
+.badge-skipped { color: var(--success, #4caf85); border-color: var(--success, #4caf85); opacity: 0.7; }
+.badge-error   { color: var(--danger, #e05252);  border-color: var(--danger, #e05252); }
+
+/* ── Spinner (replaces icon when running) ─────────────────────────────────── */
+.step-spinner {
+  display: none;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid color-mix(in srgb, var(--accent, #7c6aff) 25%, transparent);
+  border-top-color: var(--accent, #7c6aff);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.step-card[data-status="running"] .step-spinner { display: block; }
+.step-card[data-status="running"] .step-bi-icon  { display: none; }
+
+/* ── Log tail ─────────────────────────────────────────────────────────────── */
+.setup-log {
+  width: 100%;
+  max-width: 480px;
+  margin-top: 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border, rgba(128,128,128,0.15));
+  background: var(--bg-surface, var(--bg, #fff));
+  font-family: var(--font-mono, "Berkeley Mono", monospace);
+  font-size: 10.5px;
+  color: var(--text-muted, #888);
+  line-height: 1.75;
+  height: 72px;
+  overflow-y: auto;
+  opacity: 0;
+  animation: su-fade 0.4s 0.3s ease both;
+}
+.setup-log::-webkit-scrollbar { width: 3px; }
+.setup-log::-webkit-scrollbar-thumb { background: var(--border, rgba(128,128,128,0.2)); border-radius: 2px; }
+.log-line { animation: su-fade 0.15s ease both; }
+
+/* ── Done / error banners ─────────────────────────────────────────────────── */
+.setup-done, .setup-error {
+  width: 100%;
+  max-width: 480px;
+  margin-top: 12px;
+  padding: 13px 16px;
+  border-radius: var(--radius-sm, 8px);
+  font-size: 13px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  animation: su-fade 0.35s ease both;
+}
+.setup-done.show  { display: flex; border: 1px solid var(--success, #4caf85); color: var(--success, #4caf85); }
+.setup-error.show { display: flex; border: 1px solid var(--danger, #e05252); color: var(--danger, #e05252); }
+
+.setup-launch {
+  display: none;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--accent, #7c6aff);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  font-family: var(--font-sans, "DM Sans", sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  transition: opacity 0.2s;
+}
+.setup-launch:hover { opacity: 0.88; }
+.setup-launch.show  { display: block; animation: su-fade 0.35s 0.1s ease both; }
+
+/* ── Shared keyframe ──────────────────────────────────────────────────────── */
+@keyframes su-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+</style>
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+ 
+
+<div class="setup-root">
+<header>
+    <div class="logo">
+      <div class="logo-icon">A</div>
+      Aperio
+    </div>    
+  </header>
+
+  <!-- Intro -->
+  <div class="setup-intro">
+    <h1>One-time setup</h1>
+    <p>Installing dependencies — this only happens once.<br>Future starts are instant.</p>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="setup-progress-wrap">
+    <div class="setup-progress-row">
+      <span id="progressLabel">Starting…</span>
+      <span id="progressFrac">0 / 5</span>
+    </div>
+    <div class="setup-progress-track">
+      <div class="setup-progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <!-- Step cards -->
+  <div class="setup-cards" id="cardList"></div>
+
+  <!-- Log tail -->
+  <div class="setup-log" id="logBox"></div>
+
+  <!-- Done banner + launch button -->
+  <div class="setup-done" id="doneBanner">
+    <i class="bi bi-check-circle"></i>
+    Setup complete — Aperio is ready.
+  </div>
+  <button class="setup-launch" id="launchBtn" onclick="window.location='/'">
+    Open Aperio <i class="bi bi-arrow-right"></i>
+  </button>
+
+  <!-- Error banner -->
+  <div class="setup-error" id="errorBanner">
+    <i class="bi bi-exclamation-triangle"></i>
+    <span id="errorText">Setup failed. Check bootstrap.log for details.</span>
+  </div>
+
+</div><!-- /.setup-root -->
+
+<script>
+// ── Step definitions (must mirror bootstrap.js STEPS) ─────────────────────
+const STEPS = [
+  { id: "node",    label: "Node.js & npm",          icon: "bi-filetype-js" },
+  { id: "deps",    label: "Dependencies",            icon: "bi-box-seam"    },
+  { id: "ollama",  label: "Ollama",                  icon: "bi-cpu"         },
+  { id: "model",   label: `AI Model`,                icon: "bi-stars"       },
+  { id: "lancedb", label: "LanceDB & Embeddings",    icon: "bi-database"    },
+];
+
+const state = Object.fromEntries(STEPS.map(s => [s.id, { status: "idle", detail: "Waiting…" }]));
+let doneCount = 0;
+
+// ── Build cards ───────────────────────────────────────────────────────────
+const cardList = document.getElementById("cardList");
+
+STEPS.forEach(s => {
+  const card = document.createElement("div");
+  card.className = "step-card";
+  card.dataset.status = "idle";
+  card.id = `card-${s.id}`;
+  card.innerHTML = `
+    <div class="step-icon-wrap">
+      <i class="bi ${s.icon} step-bi-icon"></i>
+    </div>
+    <div class="step-text">
+      <div class="step-label">${s.label}</div>
+      <div class="step-detail" id="detail-${s.id}">Waiting…</div>
+    </div>
+    <div class="step-spinner"></div>
+    <span class="step-badge badge-idle" id="badge-${s.id}">waiting</span>
+  `;
+  cardList.appendChild(card);
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────
+const BADGE_LABELS = { idle: "waiting", running: "running…", done: "done", skipped: "ready", error: "error" };
+
+function applyStep(id, status, detail) {
+  const card  = document.getElementById(`card-${id}`);
+  const badge = document.getElementById(`badge-${id}`);
+  const det   = document.getElementById(`detail-${id}`);
+  if (!card) return;
+
+  card.dataset.status  = status;
+  badge.className      = `step-badge badge-${status}`;
+  badge.textContent    = BADGE_LABELS[status] ?? status;
+  if (detail) det.textContent = detail;
+}
+
+function updateProgress(done, total) {
+  document.getElementById("progressFill").style.width  = `${Math.round(done / total * 100)}%`;
+  document.getElementById("progressFrac").textContent  = `${done} / ${total}`;
+  document.getElementById("progressLabel").textContent =
+    done === total ? "All done" : `Step ${done + 1} of ${total}`;
+}
+
+function appendLog(msg) {
+  const box  = document.getElementById("logBox");
+  const line = document.createElement("div");
+  line.className   = "log-line";
+  line.textContent = msg;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+  while (box.children.length > 80) box.removeChild(box.firstChild);
+}
+
+function showDone() {
+  document.getElementById("progressFill").style.width          = "100%";
+  document.getElementById("progressFrac").textContent          = `${STEPS.length} / ${STEPS.length}`;
+  document.getElementById("progressLabel").textContent         = "All done";
+  document.getElementById("doneBanner").classList.add("show");
+  document.getElementById("launchBtn").classList.add("show");
+}
+
+function showError(msg) {
+  document.getElementById("errorText").textContent = `Setup failed: ${msg}`;
+  document.getElementById("errorBanner").classList.add("show");
+}
+
+// ── Hydrate from current server state (handles page refresh) ─────────────
+fetch("/api/bootstrap/state")
+  .then(r => r.json())
+  .then(data => {
+    if (data.bootstrapped) { window.location = "/"; return; }
+    let done = 0;
+    (data.steps ?? []).forEach(s => {
+      applyStep(s.id, s.status, "");
+      if (s.status === "done" || s.status === "skipped") done++;
+    });
+    doneCount = done;
+    updateProgress(done, STEPS.length);
+  });
+
+// ── SSE ───────────────────────────────────────────────────────────────────
+const es = new EventSource("/api/bootstrap/stream");
+
+es.addEventListener("snapshot", e => {
+  const { steps } = JSON.parse(e.data);
+  let done = 0;
+  steps.forEach(s => {
+    applyStep(s.id, s.status, "");
+    if (s.status === "done" || s.status === "skipped") done++;
+  });
+  doneCount = done;
+  updateProgress(done, STEPS.length);
+});
+
+es.addEventListener("step", e => {
+  const { id, status, detail } = JSON.parse(e.data);
+  applyStep(id, status, detail);
+  if (status === "done" || status === "skipped") {
+    doneCount++;
+    updateProgress(doneCount, STEPS.length);
+  }
+});
+
+es.addEventListener("progress", e => {
+  appendLog(JSON.parse(e.data).message);
+});
+
+es.addEventListener("complete", () => {
+  es.close();
+  showDone();
+});
+
+es.addEventListener("error", function(e) {
+  try { showError(JSON.parse(e.data).message); }
+  catch (_e) { /* SSE connection drop — browser will retry automatically */ }
+});
+</script>
+<script src="index.js"></script>
+</body>
+</html>

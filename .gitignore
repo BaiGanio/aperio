@@ -11,6 +11,8 @@
 *.sln.docstates
 *.env
 *.lancedb/
+*.bootstrap.lock
+bootstrap.log
 uploads/
 ai-trash/
 logs/
