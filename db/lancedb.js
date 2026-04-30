@@ -71,7 +71,7 @@ export class LanceDBStore {
     if (!fs.existsSync(DB_PATH)) {
         fs.mkdirSync(DB_PATH, { recursive: true });
     }
-    console.log(`🌱 Seeding fresh table: ${TABLE}`);
+    // console.log(`🌱 Seeding fresh table: ${TABLE}`);
     const store = new LanceDBStore();
     const db = await connect(DB_PATH);
     const existing = await db.tableNames();

@@ -6,6 +6,7 @@ import { dirname, resolve }     from "path";
 import { getStore }             from "../db/index.js";
 import { generateEmbedding, initEmbeddings } from "../lib/helpers/embeddings.js";
 import packageJson from "../package.json" with { type: "json" };
+import logger from "../lib/helpers/logger.js";
 
 // Tool Registrations
 import { register as registerMemory }  from "./tools/memory.js";
@@ -40,7 +41,7 @@ async function createContext(store, opts) {
 export async function startServer(opts = {}) {
   const store = opts.store || await getStore();
   if (!store) {
-    console.error("❌ MCP Error: Store failed to initialize.");
+    logger.error("❌ MCP Error: Store failed to initialize.");
     if (process.env.NODE_ENV !== 'test') process.exit(1);
     throw new Error("Store failed");
   }
@@ -63,7 +64,7 @@ export async function startServer(opts = {}) {
   const transport = opts.transport || new StdioServerTransport();
   await server.connect(transport);  
   
-  console.error(`✨ ${packageJson.name} MCP server ${packageJson.version} running`);
+  logger.info(`✨ ${packageJson.name} MCP server ${packageJson.version} running`);
   
   return { server, transport };
 }
@@ -71,7 +72,7 @@ export async function startServer(opts = {}) {
 // Execution Guard
 if (import.meta.url === `file://${process.argv[1]}` && process.env.NODE_ENV !== 'test') {
   startServer().catch(err => {
-    console.error("Failed to start MCP server:", err);
+    logger.error("Failed to start MCP server:", err);
     process.exit(1);
   });
 }

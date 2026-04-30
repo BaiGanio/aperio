@@ -9,27 +9,30 @@
 import { spawnSync } from "child_process";
 import { PostgresStore } from './postgres.js';
 import { LanceDBStore }  from './lancedb.js';
+import logger from '../lib/helpers/logger.js';
+
 let instance = null;
 let initializationPromise = null;
 
 export async function getStore() {
-  // --- Start Caller Detection ---
-  // We create a dummy error to grab the stack trace
-  const stack = new Error().stack;
-  const stackLines = stack.split('\n');
-  
-  // Line 0 is 'Error', Line 1 is getStore, Line 2 is the caller
-  const callerLine = stackLines[2] || ''; 
-  // Clean up the path to show just the filename
-  const fileName = callerLine.match(/([^\/]+)\.js/)?.[0] || 'unknown';
-  console.error(`[aperio:db] 📥 getStore() called by: ${fileName}`);
-  // --- End Caller Detection ---
-
   // 1. If already initialized, return the instance immediately
   if (instance) return instance;
 
   // 2. If initialization is already in progress, wait for that same promise
-  if (initializationPromise) return initializationPromise;
+  if (initializationPromise) {return initializationPromise}
+  else {
+    // --- Start Caller Detection ---
+    // We create a dummy error to grab the stack trace
+    const stack = new Error().stack;
+    const stackLines = stack.split('\n');
+    
+    // Line 0 is 'Error', Line 1 is getStore, Line 2 is the caller
+    const callerLine = stackLines[2] || ''; 
+    // Clean up the path to show just the filename
+    const fileName = callerLine.match(/([^\/]+)\.js/)?.[0] || 'unknown';
+    logger.info(`[aperio:db] 📥 getStore() called by: ${fileName}`);
+    // --- End Caller Detection ---
+  }
 
   // 3. Otherwise, start initialization and save the promise
   initializationPromise = (async () => {
@@ -38,15 +41,15 @@ export async function getStore() {
     if (backend === 'postgres') {
       try {
         instance = await PostgresStore.init();
-        console.error('✅ Connected to Aperio database (Postgres)');
+        logger.info('✅ Connected to Aperio database (Postgres)');
         return instance;
       } catch (err) {
-        console.error('[aperio:db] Postgres failed — falling back to LanceDB:', err.message);
+        logger.warning('[aperio:db] Postgres failed — falling back to LanceDB:', err.message);
       }
     }
 
     instance = await LanceDBStore.init();
-    console.error('✅ Connected to Aperio database (LanceDB)');
+    logger.info('✅ Connected to Aperio database (LanceDB)');
     return instance;
   })();
 
@@ -69,19 +72,19 @@ function resolveBackend() {
   const explicit = process.env.DB_BACKEND?.toLowerCase();
 
   if (explicit === 'postgres' || explicit === 'lancedb') {
-    console.error(`[aperio:db] Backend set via DB_BACKEND: ${explicit}`);
+    logger.info(`[aperio:db] Backend set via DB_BACKEND: ${explicit}`);
     return explicit;
   }
   if (explicit) {
-    console.error(`[aperio:db] Unknown DB_BACKEND "${explicit}" — falling back to auto-detect`);
+    logger.warning(`[aperio:db] Unknown DB_BACKEND "${explicit}" — falling back to auto-detect`);
   }
 
   if (isDockerAvailable()) {
-    console.error('[aperio:db] Docker detected → using Postgres (pgvector)');
+    logger.info('[aperio:db] Docker detected → using Postgres (pgvector)');
     return 'postgres';
   }
 
-  console.error('[aperio:db] Docker not found → using LanceDB (no setup required)');
+  logger.info('[aperio:db] Docker not found → using LanceDB (no setup required)');
   return 'lancedb';
 }
 
@@ -91,14 +94,14 @@ export async function createVectorStore() {
   if (backend === 'postgres') {
     try {
       const store = await PostgresStore.init();
-      console.error('✅ Connected to Aperio database (Postgres)');
+      logger.info('✅ Connected to Aperio database (Postgres)');
       return store;
     } catch (err) {
-      console.error('[aperio:db] Postgres failed — falling back to LanceDB:', err.message);
+      logger.warning('[aperio:db] Postgres failed — falling back to LanceDB:', err.message);
     }
   }
 
   const store = await LanceDBStore.init();
-  console.error('✅ Connected to Aperio database (LanceDB)');
+  logger.info('✅ Connected to Aperio database (LanceDB)');
   return store;
 }
