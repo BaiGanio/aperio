@@ -7,11 +7,11 @@
   "scripts": {
     "mcp": "node mcp/index.js",
     "start": "node server.js",
-    "start:cloud": "AI_PROVIDER=anthropic PORT=3000 node server.js",
+    "start:cloud": "PORT=3000 node server.js",
     "start:local": "AI_PROVIDER=ollama PORT=31337 node server.js",
     "start:lite": "AI_PROVIDER=ollama PORT=31337 DB_BACKEND=lancedb node server.js",
     "chat": "node lib/chat.js",
-    "chat:cloud": "AI_PROVIDER=anthropic PORT=3000 node lib/terminal.js",
+    "chat:cloud": "PORT=3000 node lib/terminal.js",
     "chat:local": "AI_PROVIDER=ollama PORT=31338 node lib/terminal.js",
     "test:skills": "node --test tests/skills/skills.test.js",
     "test:execution": "node --test tests/skills/execution.test.js",

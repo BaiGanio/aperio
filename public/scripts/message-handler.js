@@ -15,10 +15,13 @@ function handleMessage(msg) {
     document.getElementById("startup-thinking")?.remove();
     const badge = document.getElementById("providerBadge");
     if (badge) {
-      const isOllama = msg.name === "ollama";
+      const isOllama   = msg.name === "ollama";
+      const isDeepSeek = msg.name === "deepseek";
       let label;
       if (isOllama) {
         label = `⬡ ${msg.model}`;
+      } else if (isDeepSeek) {
+        label = `◈ ${msg.model}`;
       } else {
         const m = msg.model;
         label = `✦ ${m.includes("haiku") ? "haiku" : m.includes("sonnet") ? "sonnet" : m.includes("opus") ? "opus" : m}`;
@@ -26,9 +29,14 @@ function handleMessage(msg) {
       badge.textContent = label;
       badge.title = `${msg.name} — ${msg.model}`;
       badge.style.display = "inline";
-      badge.style.background = isOllama ? "rgba(34,197,94,.15)" : "var(--accent-soft)";
-      badge.style.color      = isOllama ? "#22c55e"             : "var(--accent)";
+      badge.style.background = isOllama   ? "rgba(34,197,94,.15)"  :
+                               isDeepSeek ? "rgba(59,130,246,.15)"  : "var(--accent-soft)";
+      badge.style.color      = isOllama   ? "#22c55e"               :
+                               isDeepSeek ? "#3b82f6"               : "var(--accent)";
     }
+
+    const toggle = document.getElementById("reasoningToggle");
+    if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
   }
 
   if (msg.type === "thinking") {
