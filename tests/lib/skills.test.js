@@ -4,7 +4,7 @@ import fs from "node:fs";
 import fsPromises from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { loadSkillIndex, matchSkill, executeSkill } from "../../lib/skills.js";
+import { loadSkillIndex, matchSkill, executeSkill } from "../../lib/workers/skills.js";
 
 const TMP = join(tmpdir(), `aperio-skills-test-${process.pid}`);
 

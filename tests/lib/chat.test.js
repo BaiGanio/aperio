@@ -35,7 +35,7 @@ import {
   createMessageQueue,
   getQueueLength,
   getMessageFromQueue,
-} from "../../lib/chat.js";
+} from "../../lib/terminal.js";
 
 // ─── Command Detection Tests ────────────────────────────────────────────────
 describe("Command Detection", () => {

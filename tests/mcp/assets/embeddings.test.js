@@ -3,7 +3,7 @@
 // Imports directly from embeddings.js — no inline copies.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { generateEmbedding, initEmbeddings } from "../../../mcp/assets/embeddings.js";
+import { generateEmbedding, initEmbeddings } from "../../../lib/helpers/embeddings.js";
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
 function withMockFetch(mockFn, testFn) {
