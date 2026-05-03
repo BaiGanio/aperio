@@ -9,7 +9,7 @@
     "start": "node server.js",
     "start:cloud": "PORT=3000 node server.js",
     "start:local": "AI_PROVIDER=ollama PORT=31337 node server.js",
-    "start:lite": "AI_PROVIDER=ollama PORT=31337 DB_BACKEND=lancedb node server.js",
+    "start:lite": "AI_PROVIDER=ollama PORT=31337 DB_BACKEND=lancedb EMBEDDING_PROVIDER=transformers node server.js",
     "chat": "node lib/chat.js",
     "chat:cloud": "PORT=3000 node lib/terminal.js",
     "chat:local": "AI_PROVIDER=ollama PORT=31338 node lib/terminal.js",
@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
+    "@huggingface/transformers": "^3.3.0",
     "@lancedb/lancedb": "^0.27.2",
     "@modelcontextprotocol/sdk": "^1.28.0",
     "adm-zip": "^0.5.17",
