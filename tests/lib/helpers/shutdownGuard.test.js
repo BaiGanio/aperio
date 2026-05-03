@@ -187,21 +187,22 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     });
 
     let exitCalled = false;
+    let ollamaStopped = false;
     t.mock.method(process, "exit", () => { exitCalled = true; });
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     createWatchdog({
-      enabled:    true,
-      timeoutMs:  500,
-      models:     ["our-model"],      // our model — so foreign list is empty
-      httpServer: makeMockHttpServer(),
+      enabled:      true,
+      timeoutMs:    500,
+      models:       ["our-model"],
+      httpServer:   makeMockHttpServer(),
+      _stopOllama:  async () => { ollamaStopped = true; },
     });
 
     t.mock.timers.tick(501);
-    // Allow the full async chain (wss close → http close → isSafeToStop → stopOllama → exit)
-    // stopOllama uses real exec — wait longer for it to complete
-    for (let i = 0; i < 20; i++) await new Promise(r => setImmediate(r));
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
 
+    assert.equal(ollamaStopped, true, "stopOllama should be called");
     assert.equal(exitCalled, true, "process.exit should be called after stopping Ollama");
   });
 

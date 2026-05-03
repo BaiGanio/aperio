@@ -4,12 +4,14 @@ import assert from "node:assert/strict";
 import os from "node:os";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { z } from "zod";
 import {
   getRecommendedModel,
   resolveProvider,
   fixUnclosedFence,
   parseMemoriesRaw,
-  createAgent
+  createAgent,
+  zodToJsonSchema,
 } from "../../lib/agent.js";
 import { makeWsEmitter } from "../../lib/emitters/wsEmitter.js";
 import { makeCliEmitter } from "../../lib/emitters/cliEmitter.js";
@@ -670,12 +672,111 @@ describe("Agent Integration with Emitter", () => {
 describe("zodToJsonSchema", () => {
   // Import the function (may need to export it from agent.js for testing)
   // For now, we test indirectly through tool creation
-  
+
   test("handles null/undefined schema gracefully", async (t) => {
     stubMcpTransport(t);
     // This should not throw
     const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
     assert.ok(agent);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// zodToJsonSchema direct tests
+// ---------------------------------------------------------------------------
+
+describe("zodToJsonSchema direct", () => {
+  test("returns empty schema for null input", () => {
+    const result = zodToJsonSchema(null);
+    assert.deepStrictEqual(result, { type: "object", properties: {}, required: [] });
+  });
+
+  test("returns empty schema for undefined input", () => {
+    const result = zodToJsonSchema(undefined);
+    assert.deepStrictEqual(result, { type: "object", properties: {}, required: [] });
+  });
+
+  test("maps z.string() field to string type", () => {
+    const schema = z.object({ name: z.string() });
+    const result = zodToJsonSchema(schema);
+    assert.strictEqual(result.properties.name.type, "string");
+  });
+
+  test("maps z.number() field to number type", () => {
+    const schema = z.object({ age: z.number() });
+    const result = zodToJsonSchema(schema);
+    assert.strictEqual(result.properties.age.type, "number");
+  });
+
+  test("maps z.boolean() field to boolean type", () => {
+    const schema = z.object({ active: z.boolean() });
+    const result = zodToJsonSchema(schema);
+    assert.strictEqual(result.properties.active.type, "boolean");
+  });
+
+  test("maps z.array(z.string()) field to array type", () => {
+    const schema = z.object({ tags: z.array(z.string()) });
+    const result = zodToJsonSchema(schema);
+    assert.strictEqual(result.properties.tags.type, "array");
+  });
+
+  test('maps z.enum(["a","b"]) field to string type', () => {
+    const schema = z.object({ color: z.enum(["a", "b"]) });
+    const result = zodToJsonSchema(schema);
+    assert.strictEqual(result.properties.color.type, "string");
+  });
+
+  test("marks required fields (non-optional) in the required array", () => {
+    const schema = z.object({ name: z.string() });
+    const result = zodToJsonSchema(schema);
+    assert.ok(result.required.includes("name"));
+  });
+
+  test("does NOT mark optional fields as required", () => {
+    const schema = z.object({ nickname: z.string().optional() });
+    const result = zodToJsonSchema(schema);
+    assert.ok(!result.required.includes("nickname"));
+  });
+
+  test("handles a schema with mixed required and optional fields", () => {
+    const schema = z.object({
+      name: z.string(),
+      age: z.number(),
+      nickname: z.string().optional(),
+    });
+    const result = zodToJsonSchema(schema);
+    assert.ok(result.required.includes("name"));
+    assert.ok(result.required.includes("age"));
+    assert.ok(!result.required.includes("nickname"));
+    assert.strictEqual(result.properties.name.type, "string");
+    assert.strictEqual(result.properties.age.type, "number");
+    assert.strictEqual(result.properties.nickname.type, "string");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Provider resolution – DeepSeek
+// ---------------------------------------------------------------------------
+
+describe("Provider resolution - DeepSeek", () => {
+  const originalEnv = { ...process.env };
+
+  afterEach(() => {
+    process.env = { ...originalEnv };
+  });
+
+  test("resolves deepseek provider with correct fields", () => {
+    process.env.AI_PROVIDER = "deepseek";
+    process.env.DEEPSEEK_MODEL = "deepseek-coder";
+    process.env.DEEPSEEK_API_KEY = "sk-test";
+
+    const p = resolveProvider();
+    assert.strictEqual(p.name, "deepseek");
+    assert.strictEqual(p.model, "deepseek-coder");
+    assert.strictEqual(p.baseURL, "https://api.deepseek.com/v1");
+    assert.strictEqual(p.apiKey, "sk-test");
+    assert.strictEqual(p.vision, false);
+    assert.strictEqual(p.ollamaBaseURL, null);
   });
 });
 
