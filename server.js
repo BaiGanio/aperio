@@ -170,9 +170,11 @@ async function bootApp() {
 
   const providerLabel = provider.name === "anthropic"
     ? `Anthropic (${provider.model})`
-    : `Ollama (${provider.model})${
-        agent.reasoningAdapter.match !== "__noop__"
-          ? ` · thinking via ${agent.reasoningAdapter.match}` : ""}`;
+    : provider.name === "deepseek"
+      ? `DeepSeek (${provider.model})`
+      : `Ollama (${provider.model})${
+          agent.reasoningAdapter.match !== "__noop__"
+            ? ` · thinking via ${agent.reasoningAdapter.match}` : ""}`;
 
   logger.info(`🤖 Provider: ${providerLabel}`);
   logger.info("✅ MCP server connected");
