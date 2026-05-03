@@ -40,6 +40,15 @@ import {
   parseServerPort, parseOllamaPort,
 } from "../../../lib/utils/chat-utils.js";
 
+// Import the test helpers
+import { 
+  setupSecureTestEnvironment, 
+  mockProcessKill, 
+  mockPortScanner,
+  mockCommandExecution,
+  mockFetch 
+} from "./security-mocks.js";
+
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
 function captureStdout() {
