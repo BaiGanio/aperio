@@ -10,6 +10,7 @@
 import { z }                                    from "zod";
 import { readFileSync, existsSync, statSync }   from "fs";
 import { extname }                              from "path";
+import logger                                   from "../../lib/helpers/logger.js";
 import { preprocessImage, preprocessBase64 }   from "../../lib/handlers/attachments/workers/preprocessImage.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────

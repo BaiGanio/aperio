@@ -65,22 +65,28 @@ const stubMcpTransport = (t) => {
   // Make Client.listTools() return a predictable tool list with proper schema
   t.mock.method(Client.prototype, "listTools", async () => ({
     tools: [
-      { 
-        name: "test_tool", 
-        description: "A test tool", 
-        inputSchema: { type: "object", properties: {} } 
+      {
+        name: "test_tool",
+        description: "A test tool",
+        inputSchema: { type: "object", properties: {} }
       },
-      { 
-        name: "recall", 
-        description: "Recall memories", 
-        inputSchema: { type: "object", properties: { query: { type: "string" } } } 
+      {
+        name: "recall",
+        description: "Recall memories",
+        inputSchema: { type: "object", properties: { query: { type: "string" } } }
       },
-      { 
-        name: "remember", 
-        description: "Save memory", 
-        inputSchema: { type: "object", properties: { content: { type: "string" } } } 
+      {
+        name: "remember",
+        description: "Save memory",
+        inputSchema: { type: "object", properties: { content: { type: "string" } } }
       }
     ],
+  }));
+
+  // Make Client.callTool() succeed with a neutral "no memories" response so
+  // internal callTool closures don't throw "Not connected".
+  t.mock.method(Client.prototype, "callTool", async () => ({
+    content: [{ type: "text", text: "No memories found." }],
   }));
 };
 
@@ -347,12 +353,14 @@ describe("Ollama Loop Logic - Health Check", () => {
   test("handles non-ok response from Ollama", async (t) => {
     stubMcpTransport(t);
 
-    t.mock.method(globalThis, "fetch", () =>
-      Promise.resolve({
+    t.mock.method(globalThis, "fetch", (url) => {
+      // Let the health check (/api/tags) pass so the chat request is attempted
+      if (String(url).includes("/api/tags")) return Promise.resolve({ ok: true });
+      return Promise.resolve({
         ok: false,
-        text: () => Promise.stringify({ error: "Model not found" }),
-      })
-    );
+        text: () => Promise.resolve(JSON.stringify({ error: "Model not found" })),
+      });
+    });
 
     process.env.AI_PROVIDER = "ollama";
     process.env.OLLAMA_MODEL = "nonexistent-model";
@@ -625,17 +633,16 @@ describe("Agent Integration with Emitter", () => {
 
   test("buildGreeting handles memory injection", async (t) => {
     stubMcpTransport(t);
-    
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
-    
-    // Mock recall to return memories
-    t.mock.method(agent, "callTool", async (name) => {
-      if (name === "recall") {
-        return "[fact] User name is John\n[preference] Likes Node.js";
-      }
-      return "No result";
+
+    // Override Client.prototype.callTool so the internal recall closure returns memories
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "recall")
+        return { content: [{ type: "text", text: "[fact] User name is John\n[preference] Likes Node.js" }] };
+      return { content: [{ type: "text", text: "OK" }] };
     });
-    
+
+    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+
     const greeting = await agent.buildGreeting();
     
     assert.ok(greeting.includes("Greet me"));

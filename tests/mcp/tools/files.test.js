@@ -7,40 +7,7 @@ import assert from "node:assert/strict";
 import fs from "fs/promises";
 import { existsSync, writeFileSync, mkdirSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 
-// ─── Mock path validation modules ───────────────────────────────────────────
-// These need to be mocked BEFORE importing the handlers
-
-const mockReadPaths = new Set();
-const mockWritePaths = new Set();
-let mockIsReadPathAllowed = true;
-let mockIsWritePathAllowed = true;
-
-// Create mock functions
-const mockIsReadPathAllowedFn = (path) => {
-  // Check if path starts with any allowed read path
-  for (const allowed of mockReadPaths) {
-    if (path.startsWith(allowed)) return true;
-  }
-  return mockIsReadPathAllowed;
-};
-
-const mockIsWritePathAllowedFn = (path) => {
-  for (const allowed of mockWritePaths) {
-    if (path.startsWith(allowed)) return true;
-  }
-  return mockIsWritePathAllowed;
-};
-
-// Mock the entire paths module
-import { mock } from "node:test";
-mock.method("../../lib/routes/paths.js", "isReadPathAllowed", mockIsReadPathAllowedFn);
-mock.method("../../lib/routes/paths.js", "isWritePathAllowed", mockIsWritePathAllowedFn);
-mock.method("../../lib/routes/paths.js", "ALLOWED_READ_PATHS", ["/tmp", "/var/tmp"]);
-mock.method("../../lib/routes/paths.js", "ALLOWED_WRITE_PATHS", ["/tmp", "/var/tmp"]);
-
-// Now import handlers after mocks are set up
 import {
   readFileHandler,
   writeFileHandler,
@@ -48,32 +15,18 @@ import {
   scanProjectHandler,
 } from "../../../mcp/tools/files.js";
 
-// Also import the actual validation module to reset later
-import * as pathsModule from "../../lib/routes/paths.js";
-
 // ─── Temp workspace ───────────────────────────────────────────────────────────
-const TMP = join(tmpdir(), `aperio-test-${process.pid}`);
-const ALLOWED_TMP = TMP; // TMP is within /tmp which is allowed
+// Place TMP under process.cwd() so the real path validation in paths.js allows
+// access. Tests that need to verify "path denied" behaviour use /tmp directly,
+// which is outside the default ALLOWED_READ/WRITE_PATHS (= cwd).
+const TMP = join(process.cwd(), ".test-tmp", String(process.pid));
 
 before(async () => {
   await fs.mkdir(TMP, { recursive: true });
-  // Set up allowed paths for tests
-  mockReadPaths.clear();
-  mockWritePaths.clear();
-  mockReadPaths.add(ALLOWED_TMP);
-  mockWritePaths.add(ALLOWED_TMP);
-  mockIsReadPathAllowed = true;
-  mockIsWritePathAllowed = true;
 });
 
 after(async () => {
   await fs.rm(TMP, { recursive: true, force: true });
-});
-
-beforeEach(() => {
-  // Reset permission flags before each test
-  mockIsReadPathAllowed = true;
-  mockIsWritePathAllowed = true;
 });
 
 afterEach(() => {
@@ -91,23 +44,6 @@ function createNestedDir(path) {
   return path;
 }
 
-// ─── Helper to override path permissions temporarily ─────────────────────────
-function withPathPermission(action, fn) {
-  const originalRead = mockIsReadPathAllowed;
-  const originalWrite = mockIsWritePathAllowed;
-  
-  if (action === "deny-read") mockIsReadPathAllowed = false;
-  if (action === "deny-write") mockIsWritePathAllowed = false;
-  if (action === "allow-read") mockIsReadPathAllowed = true;
-  if (action === "allow-write") mockIsWritePathAllowed = true;
-  
-  try {
-    return fn();
-  } finally {
-    mockIsReadPathAllowed = originalRead;
-    mockIsWritePathAllowed = originalWrite;
-  }
-}
 
 // ─── readFileHandler Tests ────────────────────────────────────────────────────
 
@@ -148,8 +84,8 @@ describe("readFileHandler", () => {
     
     const result = await readFileHandler({ path: p, max_lines: 10 });
     const text = result.content[0].text;
-    const lineCount = (text.match(/line \d+/g) || []).length;
-    
+    const lineCount = (text.match(/^line \d+$/gm) || []).length;
+
     assert.ok(lineCount <= 10, `Expected ≤10 lines, got ${lineCount}`);
   });
 
@@ -172,7 +108,7 @@ describe("readFileHandler", () => {
     const p = tmpFile("default.js", lines);
     const result = await readFileHandler({ path: p });
     const text = result.content[0].text;
-    const lineMatches = text.match(/line \d+/g);
+    const lineMatches = text.match(/^line \d+$/gm);
     assert.ok(lineMatches.length <= 500, `Expected ≤500 lines, got ${lineMatches.length}`);
   });
 
@@ -194,10 +130,8 @@ describe("readFileHandler", () => {
   });
 
   test("returns error when read path is not allowed", async () => {
-    const p = tmpFile("blocked.js", "content");
-    const result = await withPathPermission("deny-read", () => 
-      readFileHandler({ path: p })
-    );
+    // /tmp is outside ALLOWED_READ_PATHS (defaults to cwd), so validation rejects it
+    const result = await readFileHandler({ path: "/tmp/aperio-deny-read-test.js" });
     assert.ok(result.content[0].text.includes("❌ Read not allowed"));
     assert.ok(result.content[0].text.includes("Allowed read paths:"));
   });
@@ -243,10 +177,8 @@ describe("writeFileHandler", () => {
   });
 
   test("returns error when write path is not allowed", async () => {
-    const p = join(TMP, "blocked.js");
-    const result = await withPathPermission("deny-write", () =>
-      writeFileHandler(ctx, { path: p, content: "x" })
-    );
+    // /tmp is outside ALLOWED_WRITE_PATHS (defaults to cwd), so validation rejects it
+    const result = await writeFileHandler(ctx, { path: "/tmp/aperio-deny-write-test.js", content: "x" });
     assert.ok(result.content[0].text.includes("❌ Write not allowed"));
     assert.ok(result.content[0].text.includes("Allowed write paths:"));
   });
@@ -315,10 +247,8 @@ describe("appendFileHandler", () => {
   });
 
   test("returns error when write path is not allowed", async () => {
-    const p = tmpFile("append-blocked.js");
-    const result = await withPathPermission("deny-write", () =>
-      appendFileHandler(ctx, { path: p, content: "x" })
-    );
+    // /tmp is outside ALLOWED_WRITE_PATHS (defaults to cwd), so validation rejects it
+    const result = await appendFileHandler(ctx, { path: "/tmp/aperio-deny-append-test.js", content: "x" });
     assert.ok(result.content[0].text.includes("❌ Write not allowed"));
   });
 
@@ -371,11 +301,8 @@ describe("scanProjectHandler", () => {
   });
 
   test("returns error when read path is not allowed", async () => {
-    const dir = join(TMP, "blocked-project");
-    await fs.mkdir(dir, { recursive: true });
-    const result = await withPathPermission("deny-read", () =>
-      scanProjectHandler({ path: dir })
-    );
+    // /tmp is outside ALLOWED_READ_PATHS (defaults to cwd), so validation rejects it
+    const result = await scanProjectHandler({ path: "/tmp" });
     assert.ok(result.content[0].text.includes("❌ Read not allowed"));
   });
 
@@ -457,7 +384,7 @@ describe("scanProjectHandler", () => {
   });
 
   test("skips other common directories", async () => {
-    const dir = join(TMP, "project-with-build");
+    const dir = join(TMP, "skip-dirs-check");
     await fs.mkdir(join(dir, "dist"), { recursive: true });
     await fs.mkdir(join(dir, "build"), { recursive: true });
     await fs.mkdir(join(dir, "__pycache__"), { recursive: true });
