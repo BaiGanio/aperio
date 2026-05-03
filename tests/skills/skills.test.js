@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
-import { loadSkillIndex, matchSkill } from "../../lib/skills.js";
+import { loadSkillIndex, matchSkill } from "../../lib/workers/skills.js";
 
 const __dirname  = dirname(fileURLToPath(import.meta.url));
 const ROOT       = resolve(__dirname, "..", "..");

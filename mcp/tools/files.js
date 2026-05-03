@@ -21,11 +21,13 @@ const SKIP_DIRS = new Set(["node_modules", ".git", ".next", "dist", "build", "co
 const KEY_FILES = new Set(["package.json", "README.md", "readme.md", "pyproject.toml", "Cargo.toml", "go.mod", "docker-compose.yml"]);
 const CODE_EXTS = new Set([".js", ".ts", ".py", ".go", ".rs", ".java", ".jsx", ".tsx"]);
 
-// ─── Pure handler functions ───────────────────────────────────────────────────
+function formatPathError(action, filePath, allowedPaths) {
+  return { content: [{ type: "text", text: `❌ ${action} not allowed: ${filePath}\nAllowed ${action.toLowerCase()} paths: ${allowedPaths.join(", ")}` }] };
+}
 
 export async function readFileHandler({ path: filePath, max_lines, offset = 0 }) {
   if (!isReadPathAllowed(filePath))
-    return { content: [{ type: "text", text: `❌ Read not allowed: ${filePath}\nAllowed read paths: ${ALLOWED_READ_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS_TO_READ in .env to configure.` }] };
+    return formatPathError("Read", filePath, ALLOWED_READ_PATHS);
 
   const ext = extname(filePath).toLowerCase();
   if (!ALLOWED_EXTENSIONS.has(ext))
@@ -54,7 +56,7 @@ export async function readFileHandler({ path: filePath, max_lines, offset = 0 })
 
 export async function writeFileHandler(ctx, { path: filePath, content, create_dirs = true }) {
   if (!isWritePathAllowed(filePath))
-    return { content: [{ type: "text", text: `❌ Write not allowed: ${filePath}\nAllowed write paths: ${ALLOWED_WRITE_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS_TO_WRITE in .env to configure.` }] };
+    return formatPathError("Write", filePath, ALLOWED_WRITE_PATHS);
 
   try {
     const resolved = filePath.replace(/^~/, process.cwd());
@@ -81,7 +83,7 @@ export async function writeFileHandler(ctx, { path: filePath, content, create_di
 
 export async function appendFileHandler(ctx, { path: filePath, content }) {
   if (!isWritePathAllowed(filePath))
-    return { content: [{ type: "text", text: `❌ Write not allowed: ${filePath}\nAllowed write paths: ${ALLOWED_WRITE_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS_TO_WRITE in .env to configure.` }] };
+    return formatPathError("Write", filePath, ALLOWED_WRITE_PATHS);
 
   try {
     const resolved = filePath.replace(/^~/, process.cwd());
@@ -106,7 +108,7 @@ export async function appendFileHandler(ctx, { path: filePath, content }) {
 // expose file contents outside of KEY_FILES, so it uses the read guard.
 export async function scanProjectHandler({ path: projectPath, read_key_files = true }) {
   if (!isReadPathAllowed(projectPath))
-    return { content: [{ type: "text", text: `❌ Read not allowed: ${projectPath}\nAllowed read paths: ${ALLOWED_READ_PATHS.join(", ")}\nSet APERIO_ALLOWED_PATHS_TO_READ in .env to configure.` }] };
+    return formatPathError("Read", projectPath, ALLOWED_READ_PATHS);
 
   if (!existsSync(projectPath))
     return { content: [{ type: "text", text: `❌ Path not found: ${projectPath}` }] };

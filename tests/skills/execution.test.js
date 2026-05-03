@@ -11,7 +11,7 @@ import { existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { pathToFileURL, fileURLToPath } from "url";
 
-import { loadSkillIndex, matchSkill } from "../../lib/skills.js";
+import { loadSkillIndex, matchSkill } from "../../lib/workers/skills.js";
 
 const __dirname  = dirname(fileURLToPath(import.meta.url));
 // File lives at tests/skills/execution.test.js — go up twice to reach project root

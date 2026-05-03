@@ -61,7 +61,7 @@ export async function readImageHandler({ path: filePath, data: rawData, mime_typ
     const buffer = readFileSync(resolved);
     mimeType     = mime_type ?? detectMime(buffer, ext);
     base64       = buffer.toString("base64");
-    console.error(`🖼️  read_image: ${resolved} (${Math.round(stat.size / 1024)}KB, ${mimeType})`);
+    logger.warn(`🖼️ read_image: ${resolved} (${Math.round(stat.size / 1024)}KB, ${mimeType})`);
 
   } else {
     const headerMatch = rawData.match(/^data:([^;]+);base64,(.+)$/s);
@@ -79,7 +79,7 @@ export async function readImageHandler({ path: filePath, data: rawData, mime_typ
     if (approxBytes > MAX_BYTES)
       return { content: [{ type: "text", text: `❌ Image too large (~${Math.round(approxBytes / 1024 / 1024)}MB). Max 20MB.` }] };
 
-    console.error(`🖼️  read_image: base64 data (${Math.round(approxBytes / 1024)}KB, ${mimeType})`);
+    logger.warn(`🖼️  read_image: base64 data (${Math.round(approxBytes / 1024)}KB, ${mimeType})`);
   }
 
   const content = [];
@@ -129,7 +129,7 @@ export async function preprocessImageHandler({
 
       const buffer = await preprocessImage(resolved, { size, background });
       base64 = buffer.toString("base64");
-      console.error(`🔧 preprocess_image: ${resolved} → RGB ${size}×${size} PNG`);
+      logger.warn(`🔧 preprocess_image: ${resolved} → RGB ${size}×${size} PNG`);
 
     } else if (rawData) {
       // ── Base64 input ─────────────────────────────────────────────────────────
@@ -138,7 +138,7 @@ export async function preprocessImageHandler({
         return { content: [{ type: "text", text: `❌ Image too large (~${Math.round(approxBytes / 1024 / 1024)}MB). Max 20MB.` }] };
 
       base64 = await preprocessBase64(rawData, { size, background });
-      console.error(`🔧 preprocess_image: base64 input → RGB ${size}×${size} PNG`);
+      logger.warn(`🔧 preprocess_image: base64 input → RGB ${size}×${size} PNG`);
 
     } else {
       return { content: [{ type: "text", text: "❌ Provide either 'path' or 'data'." }] };
@@ -161,7 +161,7 @@ export async function preprocessImageHandler({
     };
 
   } catch (err) {
-    console.error("❌ preprocess_image error:", err);
+    logger.error("❌ preprocess_image error:", err);
     return { content: [{ type: "text", text: `❌ preprocess_image failed: ${err.message}` }] };
   }
 }
