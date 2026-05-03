@@ -2,7 +2,7 @@
 // Tests for readFileHandler, writeFileHandler, appendFileHandler, scanProjectHandler.
 // Uses proper mocking of path validation functions.
 
-import { test, describe, before, after, beforeEach, afterEach } from "node:test";
+import { test, describe, before, after, beforeEach, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs/promises";
 import { existsSync, writeFileSync, mkdirSync } from "fs";
@@ -22,6 +22,11 @@ import {
 const TMP = join(process.cwd(), ".test-tmp", String(process.pid));
 
 before(async () => {
+  // Guard: process.exit/kill are dangerous in a test runner context.
+  // fs and process.chdir are intentionally real — these tests exercise actual file I/O
+  // and the ~ expansion feature requires changing cwd (protected by try/finally in each test).
+  mock.method(process, "exit", () => { throw new Error("Mocked exit - use sandbox for specific tests"); });
+  mock.method(process, "kill", () => { throw new Error("Mocked kill - use t.mock.method for specific tests"); });
   await fs.mkdir(TMP, { recursive: true });
 });
 

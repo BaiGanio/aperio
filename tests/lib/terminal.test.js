@@ -6,7 +6,11 @@
  */
 
 import assert from "assert";
-import { describe, test, afterEach } from "node:test";
+import { describe, test, afterEach, after } from "node:test";
+import { setupSecureTestEnvironment } from "../helpers/sandbox.js";
+
+const cleanupSandbox = setupSecureTestEnvironment();
+after(cleanupSandbox);
 
 // Import all exported functions from chat.js
 import {
@@ -532,11 +536,6 @@ describe("Integration Scenarios", () => {
   });
 });
 
-// ─── Force clean exit ────────────────────────────────────────────────────────
 afterEach(() => {
   // Cleanup after each test
 });
-
-setTimeout(() => {
-  process.exit(0);
-}, 100);

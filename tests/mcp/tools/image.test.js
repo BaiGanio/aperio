@@ -4,15 +4,16 @@
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import fs from "fs/promises";
-import { writeFileSync, mkdirSync } from "fs";
+import { writeFileSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
 import { detectMime, readImageHandler } from "../../../mcp/tools/image.js";
+import { createIsolatedTestDir } from "../../helpers/sandbox.js";
 
 // ─── Temp workspace ───────────────────────────────────────────────────────────
 
-const TMP = join(tmpdir(), `aperio-image-test-${process.pid}`);
+let sandbox;
+before(() => { sandbox = createIsolatedTestDir(); });
+after(() => sandbox.restore());
 
 // Minimal valid file signatures (magic bytes)
 const PNG_HEADER  = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
@@ -20,11 +21,8 @@ const JPEG_HEADER = Buffer.from([0xFF, 0xD8, 0xFF, 0xE0]);
 const GIF_HEADER  = Buffer.from([0x47, 0x49, 0x46, 0x38]);
 const WEBP_HEADER = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50]);
 
-before(() => mkdirSync(TMP, { recursive: true }));
-after(() => fs.rm(TMP, { recursive: true, force: true }));
-
 function writeTmp(name, buf) {
-  const p = join(TMP, name);
+  const p = join(sandbox.root, name);
   writeFileSync(p, buf);
   return p;
 }
@@ -94,7 +92,7 @@ describe("readImageHandler (file path)", () => {
   });
 
   test("returns error when file does not exist", async () => {
-    const result = await readImageHandler({ path: join(TMP, "ghost.png") });
+    const result = await readImageHandler({ path: join(sandbox.root, "ghost.png") });
     assert.ok(result.content[0].text.includes("❌ File not found"));
   });
 
@@ -112,7 +110,7 @@ describe("readImageHandler (file path)", () => {
     // exists and is covered by the guard at line 37.
     // We can verify with a real oversized file only if disk space allows;
     // skip silently if allocation fails.
-    const bigPath = join(TMP, "big.png");
+    const bigPath = join(sandbox.root, "big.png");
     try {
       writeFileSync(bigPath, Buffer.alloc(21 * 1024 * 1024)); // 21 MB
       const result = await readImageHandler({ path: bigPath });
