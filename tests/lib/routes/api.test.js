@@ -1,6 +1,16 @@
-import { test, describe } from "node:test";
+import { test, describe, mock, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { apiRouter } from "../../../lib/routes/api.js";
+import logger from "../../../lib/helpers/logger.js";
+
+before(() => {
+  mock.method(logger, "error", () => {});
+  mock.method(logger, "warn",  () => {});
+  mock.method(logger, "info",  () => {});
+  mock.method(logger, "debug", () => {});
+});
+
+after(() => mock.restoreAll());
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

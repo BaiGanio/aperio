@@ -5,7 +5,8 @@
       "Bash(node *)",
       "Bash(npm install *)",
       "Bash(echo \"EXIT: $?\")",
-      "Bash(jobs)"
+      "Bash(jobs)",
+      "Bash(grep -v \".test.js$\")"
     ]
   }
 }
