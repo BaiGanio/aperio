@@ -161,10 +161,9 @@ async function bootApp() {
   if (provider.name === "ollama") await ensureOllama();
 
   // Watchdog
-  const ownedModels = [process.env.OLLAMA_EMBEDDING_MODEL, process.env.OLLAMA_MODEL];
   const watchdog = createWatchdog({
     enabled:   provider.name === "ollama",
-    models:    [provider.model, ...ownedModels],
+    models:    [provider.model, process.env.OLLAMA_MODEL],
     timeoutMs: Number(process.env.IDLE_TIMEOUT_SECONDS) * 1000,
   });
 

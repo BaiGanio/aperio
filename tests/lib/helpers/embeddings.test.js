@@ -3,7 +3,7 @@
 // Imports directly from embeddings.js — no inline copies.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { generateEmbedding, initEmbeddings } from "../../../lib/helpers/embeddings.js";
+import { generateEmbedding, initEmbeddings, _setTransformersPipeline } from "../../../lib/helpers/embeddings.js";
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
 function withMockFetch(mockFn, testFn) {
@@ -96,91 +96,65 @@ describe("generateEmbedding — Voyage (default)", () => {
 });
 
 // =============================================================================
-describe("generateEmbedding — Ollama", () => {
+// ─── pipeline mock helper ─────────────────────────────────────────────────────
+function withTransformersPipeline(mockPipeline, testFn) {
+  _setTransformersPipeline(mockPipeline);
+  return testFn().finally(() => _setTransformersPipeline(null));
+}
 
-  test("returns embedding from embeddings[0] field", () =>
-    withEnv({ EMBEDDING_PROVIDER: "ollama" }, () =>
-      withMockFetch(async () => ({
-        ok:   true,
-        json: async () => ({ embeddings: [[0.4, 0.5, 0.6]] }),
-      }), async () => {
-        const result = await generateEmbedding("hello");
-        assert.deepEqual(result, [0.4, 0.5, 0.6]);
-      })
+describe("generateEmbedding — Transformers (default)", () => {
+
+  test("returns embedding array on success", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers" }, () =>
+      withTransformersPipeline(
+        async (_text, _opts) => ({ data: new Float32Array([0.1, 0.2, 0.3]) }),
+        async () => {
+          const result = await generateEmbedding("hello world");
+          assert.deepEqual(result, Array.from(new Float32Array([0.1, 0.2, 0.3])));
+        }
+      )
     )
   );
 
-  test("falls back to embedding field when embeddings is absent", () =>
-    withEnv({ EMBEDDING_PROVIDER: "ollama" }, () =>
-      withMockFetch(async () => ({
-        ok:   true,
-        json: async () => ({ embedding: [0.7, 0.8] }),
-      }), async () => {
-        const result = await generateEmbedding("hello");
-        assert.deepEqual(result, [0.7, 0.8]);
-      })
+  test("is used when EMBEDDING_PROVIDER is unset", () =>
+    withEnv({ EMBEDDING_PROVIDER: undefined }, () =>
+      withTransformersPipeline(
+        async () => ({ data: new Float32Array([0.5, 0.6]) }),
+        async () => {
+          const result = await generateEmbedding("hello");
+          assert.deepEqual(result, Array.from(new Float32Array([0.5, 0.6])));
+        }
+      )
     )
   );
 
-  test("uses custom OLLAMA_BASE_URL and OLLAMA_EMBEDDING_MODEL", () =>
-    withEnv({
-      EMBEDDING_PROVIDER:     "ollama",
-      OLLAMA_BASE_URL:        "https://my-host:9999",
-      OLLAMA_EMBEDDING_MODEL: "mxbai-embed-large",
-    }, () => {
-      let capturedUrl, capturedBody;
-      return withMockFetch(async (url, opts) => {
-        capturedUrl  = url;
-        capturedBody = JSON.parse(opts.body);
-        return { ok: true, json: async () => ({ embeddings: [[0.1]] }) };
-      }, async () => {
-        await generateEmbedding("test");
-        assert.equal(capturedUrl, "https://my-host:9999/api/embed");
-        assert.equal(capturedBody.model, "mxbai-embed-large");
-        assert.equal(capturedBody.input, "test");
-      });
+  test("passes text and pooling options to the pipeline", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers" }, () => {
+      let capturedText, capturedOpts;
+      return withTransformersPipeline(
+        async (text, opts) => {
+          capturedText = text;
+          capturedOpts = opts;
+          return { data: new Float32Array([0.1]) };
+        },
+        async () => {
+          await generateEmbedding("test input", "query");
+          assert.equal(capturedText, "test input");
+          assert.deepEqual(capturedOpts, { pooling: 'cls', normalize: true });
+        }
+      );
     })
   );
 
-  test("returns null when embedding shape is unexpected", () =>
-    withEnv({ EMBEDDING_PROVIDER: "ollama" }, () =>
-      withMockFetch(async () => ({
-        ok:   true,
-        json: async () => ({ something_else: true }),
-      }), async () => {
-        const result = await generateEmbedding("hello");
-        assert.equal(result, null);
-      })
-    )
-  );
-
-  test("returns null when embedding array is empty", () =>
-    withEnv({ EMBEDDING_PROVIDER: "ollama" }, () =>
-      withMockFetch(async () => ({
-        ok:   true,
-        json: async () => ({ embeddings: [[]] }),
-      }), async () => {
-        const result = await generateEmbedding("hello");
-        assert.equal(result, null);
-      })
-    )
-  );
-
-  test("returns null on HTTP error", () =>
-    withEnv({ EMBEDDING_PROVIDER: "ollama" }, () =>
-      withMockFetch(async () => ({ ok: false, status: 503 }), async () => {
-        const result = await generateEmbedding("hello");
-        assert.equal(result, null);
-      })
-    )
-  );
-
-  test("returns null on network failure", () =>
-    withEnv({ EMBEDDING_PROVIDER: "ollama" }, () =>
-      withMockFetch(async () => { throw new Error("connection refused"); }, async () => {
-        const result = await generateEmbedding("hello");
-        assert.equal(result, null);
-      })
+  test("returns null when pipeline throws", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers" }, () =>
+      withTransformersPipeline(
+        async () => { throw new Error("ONNX runtime error"); },
+        async () => {
+          const result = await generateEmbedding("hello");
+          assert.equal(result, null);
+        }
+      )
     )
   );
 });
