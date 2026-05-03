@@ -3,7 +3,9 @@
     "allow": [
       "Bash(npm test *)",
       "Bash(node *)",
-      "Bash(npm install *)"
+      "Bash(npm install *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(jobs)"
     ]
   }
 }
