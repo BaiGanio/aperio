@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { resolveReasoningAdapter, REASONING_ADAPTERS } from "../../lib/workers/reasoning.js";
+import { resolveReasoningAdapter, REASONING_ADAPTERS } from "../../../lib/workers/reasoning.js";
 
 describe("reasoning.js", () => {
   
