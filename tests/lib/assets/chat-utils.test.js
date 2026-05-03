@@ -38,7 +38,7 @@ import {
   // misc
   detectMightThink, makeStderrShim,
   parseServerPort, parseOllamaPort,
-} from "../../../lib/assets/chat-utils.js";
+} from "../../../lib/utils/chat-utils.js";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
