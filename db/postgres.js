@@ -129,6 +129,13 @@ export class PostgresStore {
     );
   }
 
+  async listAll() {
+    const { rows } = await this.pool.query(
+      `SELECT * FROM memories WHERE (expires_at IS NULL OR expires_at > NOW()) ORDER BY importance DESC`
+    );
+    return rows.map(rowToMemory);
+  }
+
   async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto' }) {
     const useVector = queryEmbedding && (mode === 'semantic' || mode === 'auto');
 

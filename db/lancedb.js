@@ -228,6 +228,15 @@ export class LanceDBStore {
       .map(rowToMemory);
   }
 
+  async listAll() {
+    const results = await this.table.query().limit(10_000).toArray();
+    return results
+      .filter(r => r.id !== '__init__')
+      .filter(notExpired)
+      .map(rowToMemory)
+      .sort((a, b) => b.importance - a.importance);
+  }
+
   async listWithoutEmbeddings() {
     return this.cache
       .filter(r => {

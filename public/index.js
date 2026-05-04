@@ -477,7 +477,8 @@ searchInput.addEventListener("input", () => {
 document.getElementById("exportBtn").addEventListener("click", () => {
   if (!allMemories.length) return;
   if (!confirm(`Aperio will export ${allMemories.length} memories in JSON file?`)) return;
-  const data = JSON.stringify(allMemories, null, 2);
+  const exportData = allMemories.map(({ id, createdAt, ...rest }) => rest);
+  const data = JSON.stringify(exportData, null, 2);
   const blob = new Blob([data], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -527,7 +528,17 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
       : `Imported ${data.imported} memor${data.imported === 1 ? "y" : "ies"} successfully.`;
     alert(msg);
 
-    if (data.imported > 0) safeSend(JSON.stringify({ type: "get_memories" }));
+    if (data.imported > 0) {
+      // Fetch directly from REST — avoids the MCP subprocess cache which
+      // doesn't know about memories written by the REST import endpoint.
+      try {
+        const memRes = await fetch("/api/memories");
+        const memData = await memRes.json();
+        renderMemoriesFromMessage(Array.isArray(memData.raw) ? memData.raw : []);
+      } catch {
+        safeSend(JSON.stringify({ type: "get_memories" }));
+      }
+    }
   } catch (err) {
     alert(`Import error: ${err.message}`);
   }
