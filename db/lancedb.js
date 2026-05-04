@@ -147,6 +147,14 @@ export class LanceDBStore {
     return rowToMemory(row);
   }
 
+  async bulkInsert(inputs) {
+    if (!inputs.length) return [];
+    const rows = inputs.map(input => toRow(uuidv4(), input, null));
+    await this.table.add(rows);
+    this.cache.push(...rows);
+    return rows.map(rowToMemory);
+  }
+
   async getById(id) {
     const row = this.cache.find(r => r.id === id);
     return row ? rowToMemory(row) : null;
