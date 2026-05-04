@@ -1,52 +1,61 @@
-// tests/tools/files.test.js
+// tests/mcp/tools/files.test.js
 // Tests for readFileHandler, writeFileHandler, appendFileHandler, scanProjectHandler.
-// Uses proper mocking of path validation functions.
+// Uses mock.module() to stub path validators so all I/O stays in OS tmpdir,
+// never touching the project directory.
 
-import { test, describe, before, after, beforeEach, afterEach, mock } from "node:test";
+import { test, describe, before, after, beforeEach, mock } from "node:test";
 import assert from "node:assert/strict";
 import fs from "fs/promises";
-import { existsSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, writeFileSync, mkdirSync, mkdtempSync } from "fs";
 import { join } from "path";
-
-import {
-  readFileHandler,
-  writeFileHandler,
-  appendFileHandler,
-  scanProjectHandler,
-} from "../../../mcp/tools/files.js";
+import { tmpdir } from "os";
 
 // ─── Temp workspace ───────────────────────────────────────────────────────────
-// Place TMP under process.cwd() so the real path validation in paths.js allows
-// access. Tests that need to verify "path denied" behaviour use /tmp directly,
-// which is outside the default ALLOWED_READ/WRITE_PATHS (= cwd).
-const TMP = join(process.cwd(), ".test-tmp", String(process.pid));
+// OS tmpdir — never the project directory.
+const TMP = mkdtempSync(join(tmpdir(), "aperio-test-"));
 
-before(async () => {
-  // Guard: process.exit/kill are dangerous in a test runner context.
-  // fs and process.chdir are intentionally real — these tests exercise actual file I/O
-  // and the ~ expansion feature requires changing cwd (protected by try/finally in each test).
+// Mock path validators BEFORE importing files.js.
+// paths.js freezes BASE_DIR = process.cwd() at module load time, so the only
+// way to let an OS-tmpdir path pass validation without modifying production code
+// is to replace the validators via mock.module() before the first import.
+mock.module(new URL("../../../lib/routes/paths.js", import.meta.url).href, {
+  namedExports: {
+    ALLOWED_READ_PATHS: [TMP],
+    ALLOWED_WRITE_PATHS: [TMP],
+    isReadPathAllowed: (p) => {
+      const abs = p.replace(/^~/, TMP);
+      return abs === TMP || abs.startsWith(TMP + "/");
+    },
+    isWritePathAllowed: (p) => {
+      // Empty string resolves to cwd in the real validator — let the fs layer reject it
+      if (!p) return true;
+      const abs = p.replace(/^~/, TMP);
+      return abs === TMP || abs.startsWith(TMP + "/");
+    },
+  },
+});
+
+// Dynamic import so the mock above is active when files.js loads paths.js.
+const { readFileHandler, writeFileHandler, appendFileHandler, scanProjectHandler } =
+  await import("../../../mcp/tools/files.js");
+
+// ─── Lifecycle ────────────────────────────────────────────────────────────────
+
+before(() => {
   mock.method(process, "exit", () => { throw new Error("Mocked exit - use sandbox for specific tests"); });
   mock.method(process, "kill", () => { throw new Error("Mocked kill - use t.mock.method for specific tests"); });
-  await fs.mkdir(TMP, { recursive: true });
 });
 
 after(async () => {
   await fs.rm(TMP, { recursive: true, force: true });
 });
 
-afterEach(() => {
-  // Clean up any extra files
-});
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function tmpFile(name, content = "line1\nline2\nline3\n") {
   const p = join(TMP, name);
   writeFileSync(p, content, "utf8");
   return p;
-}
-
-function createNestedDir(path) {
-  mkdirSync(path, { recursive: true });
-  return path;
 }
 
 
@@ -75,10 +84,10 @@ describe("readFileHandler", () => {
   test("respects offset parameter", async () => {
     const lines = ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape"].join("\n");
     const p = tmpFile("offset_test.js", lines);
-    
+
     const result = await readFileHandler({ path: p, offset: 3 });
     const text = result.content[0].text;
-    
+
     assert.ok(text.includes("date"), "Should include the line at offset");
     assert.ok(!text.includes("apple"), "Should not include lines before offset");
   });
@@ -86,7 +95,7 @@ describe("readFileHandler", () => {
   test("respects max_lines parameter", async () => {
     const lines = Array.from({ length: 100 }, (_, i) => `line ${i}`).join("\n");
     const p = tmpFile("maxlines.js", lines);
-    
+
     const result = await readFileHandler({ path: p, max_lines: 10 });
     const text = result.content[0].text;
     const lineCount = (text.match(/^line \d+$/gm) || []).length;
@@ -135,7 +144,7 @@ describe("readFileHandler", () => {
   });
 
   test("returns error when read path is not allowed", async () => {
-    // /tmp is outside ALLOWED_READ_PATHS (defaults to cwd), so validation rejects it
+    // /tmp directly (not our TMP subdir) is outside the mocked ALLOWED_READ_PATHS
     const result = await readFileHandler({ path: "/tmp/aperio-deny-read-test.js" });
     assert.ok(result.content[0].text.includes("❌ Read not allowed"));
     assert.ok(result.content[0].text.includes("Allowed read paths:"));
@@ -182,7 +191,7 @@ describe("writeFileHandler", () => {
   });
 
   test("returns error when write path is not allowed", async () => {
-    // /tmp is outside ALLOWED_WRITE_PATHS (defaults to cwd), so validation rejects it
+    // /tmp directly (not our TMP subdir) is outside the mocked ALLOWED_WRITE_PATHS
     const result = await writeFileHandler(ctx, { path: "/tmp/aperio-deny-write-test.js", content: "x" });
     assert.ok(result.content[0].text.includes("❌ Write not allowed"));
     assert.ok(result.content[0].text.includes("Allowed write paths:"));
@@ -207,7 +216,7 @@ describe("writeFileHandler", () => {
     const testDir = join(TMP, "tilde-expand");
     await fs.mkdir(testDir, { recursive: true });
     process.chdir(testDir);
-    
+
     try {
       const p = "~/test-file.js";
       const expectedPath = join(testDir, "test-file.js");
@@ -238,7 +247,7 @@ describe("appendFileHandler", () => {
     assert.ok(text.includes("✅ Appended"));
     assert.ok(text.includes("Last 5 lines"));
     assert.ok(text.includes("line4"));
-    
+
     const content = await fs.readFile(p, "utf8");
     assert.equal(content, "line1\nline2\nline3\nline4\n");
   });
@@ -252,7 +261,7 @@ describe("appendFileHandler", () => {
   });
 
   test("returns error when write path is not allowed", async () => {
-    // /tmp is outside ALLOWED_WRITE_PATHS (defaults to cwd), so validation rejects it
+    // /tmp directly (not our TMP subdir) is outside the mocked ALLOWED_WRITE_PATHS
     const result = await appendFileHandler(ctx, { path: "/tmp/aperio-deny-append-test.js", content: "x" });
     assert.ok(result.content[0].text.includes("❌ Write not allowed"));
   });
@@ -270,14 +279,14 @@ describe("appendFileHandler", () => {
     const testDir = join(TMP, "append-tilde");
     await fs.mkdir(testDir, { recursive: true });
     process.chdir(testDir);
-    
+
     try {
       const filePath = join(testDir, "append-test.js");
       writeFileSync(filePath, "initial\n");
-      
+
       const result = await appendFileHandler(ctx, { path: "~/append-test.js", content: "appended\n" });
       assert.ok(result.content[0].text.includes("✅ Appended"));
-      
+
       const content = await fs.readFile(filePath, "utf8");
       assert.equal(content, "initial\nappended\n");
     } finally {
@@ -306,7 +315,7 @@ describe("scanProjectHandler", () => {
   });
 
   test("returns error when read path is not allowed", async () => {
-    // /tmp is outside ALLOWED_READ_PATHS (defaults to cwd), so validation rejects it
+    // /tmp directly (not our TMP subdir) is outside the mocked ALLOWED_READ_PATHS
     const result = await scanProjectHandler({ path: "/tmp" });
     assert.ok(result.content[0].text.includes("❌ Read not allowed"));
   });
@@ -331,7 +340,7 @@ describe("scanProjectHandler", () => {
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(join(dir, "app.js"), "// code");
     await fs.writeFile(join(dir, "data.json"), "{}");
-    
+
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
     // Code files should have 📄, data files 📋
@@ -358,7 +367,7 @@ describe("scanProjectHandler", () => {
     await fs.mkdir(dir, { recursive: true });
     const longContent = Array.from({ length: 200 }, (_, i) => `Line ${i}`).join("\n");
     await fs.writeFile(join(dir, "README.md"), longContent);
-    
+
     const result = await scanProjectHandler({ path: dir, read_key_files: true });
     const text = result.content[0].text;
     const lineMatches = (text.match(/Line \d+/g) || []).length;
@@ -412,7 +421,7 @@ describe("scanProjectHandler", () => {
     const deep = join(dir, "level1", "level2", "level3", "level4", "level5");
     await fs.mkdir(deep, { recursive: true });
     await fs.writeFile(join(deep, "deep-file.js"), "// deep");
-    
+
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
     // Should show up to level3 but not level4/5
@@ -429,7 +438,7 @@ describe("scanProjectHandler", () => {
     for (let i = 0; i < 60; i++) {
       await fs.writeFile(join(dir, `file-${i}.js`), `// file ${i}`);
     }
-    
+
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
     const fileMatches = (text.match(/📄 file-\d+\.js/g) || []).length;
@@ -441,7 +450,7 @@ describe("scanProjectHandler", () => {
     const dir = join(TMP, "no-permission");
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(join(dir, "readable.js"), "// readable");
-    
+
     // Just verify it doesn't crash - the function catches errors internally
     const result = await scanProjectHandler({ path: dir });
     assert.ok(result.content[0].text.includes("readable.js"));
@@ -453,7 +462,7 @@ describe("scanProjectHandler", () => {
     await fs.writeFile(join(dir, "a.js"), "// a");
     await fs.writeFile(join(dir, "b.js"), "// b");
     await fs.writeFile(join(dir, "c.js"), "// c");
-    
+
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
     assert.ok(text.includes("Files: 3"));
@@ -473,20 +482,20 @@ describe("Integration: File workflow", () => {
 
   test("complete CRUD workflow: write → read → append → read", async () => {
     const filePath = join(testDir, "workflow.js");
-    
+
     // 1. Write initial content
     const writeResult = await writeFileHandler(ctx, { path: filePath, content: "line1\nline2\n" });
     assert.ok(writeResult.content[0].text.includes("✅ Created"));
-    
+
     // 2. Read back
     const readResult = await readFileHandler({ path: filePath });
     assert.ok(readResult.content[0].text.includes("line1"));
     assert.ok(readResult.content[0].text.includes("line2"));
-    
+
     // 3. Append more content
     const appendResult = await appendFileHandler(ctx, { path: filePath, content: "line3\nline4\n" });
     assert.ok(appendResult.content[0].text.includes("✅ Appended"));
-    
+
     // 4. Read again to verify
     const finalRead = await readFileHandler({ path: filePath });
     const finalText = finalRead.content[0].text;
@@ -501,12 +510,12 @@ describe("Integration: File workflow", () => {
     await fs.mkdir(dir, { recursive: true });
     await fs.writeFile(join(dir, "package.json"), JSON.stringify({ name: "test-app", version: "1.0.0" }));
     await fs.writeFile(join(dir, "index.js"), 'console.log("hello");');
-    
+
     // 1. Scan to find key files
     const scanResult = await scanProjectHandler({ path: dir });
     assert.ok(scanResult.content[0].text.includes("test-app"));
     assert.ok(scanResult.content[0].text.includes("index.js"));
-    
+
     // 2. Read the actual file
     const readResult = await readFileHandler({ path: join(dir, "index.js") });
     assert.ok(readResult.content[0].text.includes('console.log("hello")'));
