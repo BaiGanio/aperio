@@ -1,7 +1,14 @@
 // tests/lib/helpers/startOllama.test.js
-import { describe, test, afterEach } from "node:test";
+import { describe, test, afterEach, mock } from "node:test";
 import assert from "node:assert/strict";
+import child_process from "node:child_process";
 import { ensureOllama } from "../../../lib/helpers/startOllama.js";
+
+// Prevent real ollama binary from being spawned in any environment
+mock.method(child_process, "spawn", () => ({
+  on: mock.fn(),
+  unref: mock.fn(),
+}));
 
 // fetch is a global in the module under test — we can replace it directly
 const originalFetch = globalThis.fetch;
