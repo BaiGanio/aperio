@@ -142,16 +142,18 @@ httpServer.listen(PORT, async () => {
 // ─── Full app init ────────────────────────────────────────────────────────────
 // All heavy imports are dynamic so they don't run until we know deps exist.
 async function bootApp() {
-  const { getStore }            = await import("./db/index.js");
-  const { createAgent }         = await import("./lib/agent.js");
-  const { ensureOllama }        = await import("./lib/helpers/startOllama.js");
-  const { createWatchdog }      = await import("./lib/helpers/shutdownGuard.js");
-  const { deduplicateMemories } = await import("./lib/workers/deduplicate.js");
-  const { makeWsHandler }       = await import("./lib/emitters/handlers/wsHandler.js");
-  const { apiRouter }           = await import("./lib/routes/api.js");
+  const { getStore }                      = await import("./db/index.js");
+  const { createAgent }                   = await import("./lib/agent.js");
+  const { ensureOllama }                  = await import("./lib/helpers/startOllama.js");
+  const { createWatchdog }                = await import("./lib/helpers/shutdownGuard.js");
+  const { deduplicateMemories }           = await import("./lib/workers/deduplicate.js");
+  const { makeWsHandler }                 = await import("./lib/emitters/handlers/wsHandler.js");
+  const { apiRouter }                     = await import("./lib/routes/api.js");
+  const { generateEmbedding, initEmbeddings } = await import("./lib/helpers/embeddings.js");
 
   // DB
   const store = await getStore();
+  await initEmbeddings(store, generateEmbedding);
 
   // Agent
   const agent = await createAgent({ root: __dirname, version, clientName: "aperio-server" });
