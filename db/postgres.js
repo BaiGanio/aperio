@@ -61,6 +61,36 @@ export class PostgresStore {
     return rowToMemory(rows[0]);
   }
 
+  async bulkInsert(inputs) {
+    if (!inputs.length) return [];
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const results = [];
+      for (const input of inputs) {
+        const { rows } = await client.query(
+          `INSERT INTO memories
+             (type, title, content, tags, importance, expires_at, source)
+           VALUES ($1,$2,$3,$4,$5,$6,$7)
+           RETURNING *`,
+          [
+            input.type, input.title, input.content,
+            input.tags ?? [], input.importance ?? 3,
+            input.expires_at ?? null, input.source ?? 'import',
+          ]
+        );
+        results.push(rowToMemory(rows[0]));
+      }
+      await client.query('COMMIT');
+      return results;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   async getById(id) {
     const { rows } = await this.pool.query(
       `SELECT * FROM memories WHERE id = $1`, [id]

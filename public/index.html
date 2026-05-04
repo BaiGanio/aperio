@@ -74,10 +74,16 @@
         <button id="exportBtn" title="Export brain to JSON"
           style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer;
                  color:var(--text-muted); font-size:12px; border-radius:4px;
-                 transition:all var(--transition);"
-          onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
+                 transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
           <i class="bi bi-download"></i> Export
         </button>
+        <button id="importBtn" title="Import memories from JSON"
+          style="margin-left:4px; background:none; border:none; padding:2px 4px; cursor:pointer;
+                 color:var(--text-muted); font-size:12px; border-radius:4px;
+                 transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
+          <i class="bi bi-upload"></i> Import
+        </button>
+        <input type="file" id="importFileInput" accept=".json" hidden>
         <!-- <button id="view-memories-btn" title="Show Memories" onclick="toggleMemoryView()" style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer; color:var(--text-muted); font-size:12px; border-radius:4px; transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">📂 Show
         </button> -->
       </div>

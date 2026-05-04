@@ -487,6 +487,52 @@ document.getElementById("exportBtn").addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
+// ── Import brain ─────────────────────────────────────────────
+document.getElementById("importBtn").addEventListener("click", () => {
+  document.getElementById("importFileInput").click();
+});
+
+document.getElementById("importFileInput").addEventListener("change", async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = "";
+  if (!file) return;
+
+  let memories;
+  try {
+    const text = await file.text();
+    memories = JSON.parse(text);
+  } catch {
+    alert("Could not parse file — make sure it is a valid Aperio JSON export.");
+    return;
+  }
+
+  if (!Array.isArray(memories) || memories.length === 0) {
+    alert("The file does not contain a valid memories array.");
+    return;
+  }
+
+  if (!confirm(`Import ${memories.length} memor${memories.length === 1 ? "y" : "ies"} from "${file.name}"?`)) return;
+
+  try {
+    const res = await fetch("/api/memories/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ memories }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Import failed");
+
+    const msg = data.errors?.length
+      ? `Imported ${data.imported} memor${data.imported === 1 ? "y" : "ies"}. ${data.errors.length} skipped.`
+      : `Imported ${data.imported} memor${data.imported === 1 ? "y" : "ies"} successfully.`;
+    alert(msg);
+
+    if (data.imported > 0) safeSend(JSON.stringify({ type: "get_memories" }));
+  } catch (err) {
+    alert(`Import error: ${err.message}`);
+  }
+});
+
 // ── OS-aware shortcut labels ─────────────────────────────────
 const isMac = navigator.userAgentData
   ? navigator.userAgentData.platform.toUpperCase().includes("MAC")
