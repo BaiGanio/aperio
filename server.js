@@ -153,7 +153,7 @@ async function bootApp() {
 
   // DB
   const store = await getStore();
-  await initEmbeddings(store, generateEmbedding);
+  const { shutdown: shutdownEmbeddings } = await initEmbeddings(store, generateEmbedding);
 
   // Agent
   const agent = await createAgent({ root: __dirname, version, clientName: "aperio-server" });
@@ -187,11 +187,40 @@ async function bootApp() {
   wss.on("connection", makeWsHandler({ agent, store, __dirname }));
 
   // Background jobs
-  deduplicateMemories(callTool);
+  const dedup = deduplicateMemories(callTool);
 
   // Graceful shutdown
-  process.on("SIGTERM", () => { watchdog.stop(); process.exit(0); });
-  process.on("SIGINT",  () => { watchdog.stop(); process.exit(0); });
+  // We intentionally avoid process.exit() — calling it while LanceDB's Tokio
+  // runtime or ONNX Runtime threads are active destroys their mutexes mid-use,
+  // causing the "mutex lock failed: Invalid argument" abort. Instead we close
+  // every open handle so Node drains the event loop and exits cleanly on its own.
+  let shuttingDown = false;
+  async function gracefulShutdown() {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    // 1. Stop timers so the event loop can drain
+    watchdog.stop();
+    dedup.stop();
+
+    // 2. Let the current ONNX inference finish, then stop the backfill loop
+    await shutdownEmbeddings();
+
+    // 3. Terminate WebSocket clients and close the WS server
+    for (const client of wss.clients) client.terminate();
+    await new Promise(resolve => wss.close(resolve));
+
+    // 4. Stop accepting requests and drain existing connections
+    httpServer.closeAllConnections?.();
+    await new Promise(resolve => httpServer.close(resolve));
+
+    // 5. Release the DB connection pool (Postgres only; LanceDB is embedded)
+    await store.close?.();
+
+    // Node will now exit naturally — no process.exit() needed.
+  }
+  process.on("SIGTERM", gracefulShutdown);
+  process.on("SIGINT",  gracefulShutdown);
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
