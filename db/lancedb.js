@@ -124,7 +124,14 @@ export class LanceDBStore {
       .query()
       .limit(10_000)
       .toArray();
-    this.cache = results.filter(r => r.id !== '__init__');
+    this.cache = results
+      .filter(r => r.id !== '__init__')
+      .map(r => ({
+        ...r,
+        // LanceDB returns FloatVector<Float> which lacks .every()/.some().
+        // Normalize to Float32Array so downstream embedding checks work correctly.
+        vector: r.vector?.toArray?.() ?? r.vector ?? new Array(DIMS).fill(0),
+      }));
   }
 
   async counts() {
