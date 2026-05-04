@@ -660,8 +660,7 @@ function copyCode(id) {
 }
 
 function toggleReasoning() {
-  // It only becomes true if the storage specifically says "true".
-  const cur = localStorage.getItem("aperio-reasoning") === "true";
+  const cur = localStorage.getItem("aperio-reasoning") !== "false";
   localStorage.setItem("aperio-reasoning", cur ? "false" : "true");
   updateReasoningBtn();
 }
