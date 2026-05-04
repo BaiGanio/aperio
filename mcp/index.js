@@ -31,10 +31,8 @@ async function createContext(store, opts) {
 
   return {
     store,
-    embeddings: {
-      generate: generateEmbedding,
-      vectorEnabled: () => vectorEnabled
-    }
+    generateEmbedding,
+    vectorEnabled: () => vectorEnabled,
   };
 }
 
