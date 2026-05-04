@@ -2,6 +2,8 @@ name: (ci) Codecov Run tests and upload coverage
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
 
