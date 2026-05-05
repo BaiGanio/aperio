@@ -1,65 +1,188 @@
 // tests/mcp/tools/files.test.js
 // Tests for readFileHandler, writeFileHandler, appendFileHandler, scanProjectHandler.
-// Uses mock.module() to stub path validators so all I/O stays in OS tmpdir,
-// never touching the project directory.
+//
+// Zero real disk access. Strategy:
+//   1. Build an in-memory VFS (Map) with mock implementations for every fs
+//      method that files.js uses.
+//   2. Patch the underlying CJS module objects via createRequire() BEFORE
+//      dynamically importing files.js — Node.js reads named-export values from
+//      the CJS cache at first-import time, so the patches take effect.
+//   3. Mock process.cwd() at module level (before the dynamic import) so that
+//      paths.js computes BASE_DIR = TMP when it loads.  This means
+//      ALLOWED_*_PATHS defaults to [TMP] with no env-var tricks, and ~ paths
+//      are validated against TMP rather than the project directory.
+//   4. Mock process.chdir() to update a virtualCwd variable; the ~ expansion
+//      tests update virtualCwd without touching the real process cwd.
 
-import { test, describe, before, after, beforeEach, mock } from "node:test";
+import { mock, test, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import fs from "fs/promises";
-import { existsSync, writeFileSync, mkdirSync, mkdtempSync } from "fs";
 import { join } from "path";
-import { tmpdir } from "os";
+import { createRequire } from "module";
 
-// ─── Temp workspace ───────────────────────────────────────────────────────────
-// OS tmpdir — never the project directory.
-const TMP = mkdtempSync(join(tmpdir(), "aperio-test-"));
+// ─── In-memory VFS ────────────────────────────────────────────────────────────
 
-// Mock path validators BEFORE importing files.js.
-// paths.js freezes BASE_DIR = process.cwd() at module load time, so the only
-// way to let an OS-tmpdir path pass validation without modifying production code
-// is to replace the validators via mock.module() before the first import.
-mock.module(new URL("../../../lib/routes/paths.js", import.meta.url).href, {
-  namedExports: {
-    ALLOWED_READ_PATHS: [TMP],
-    ALLOWED_WRITE_PATHS: [TMP],
-    isReadPathAllowed: (p) => {
-      const abs = p.replace(/^~/, TMP);
-      return abs === TMP || abs.startsWith(TMP + "/");
-    },
-    isWritePathAllowed: (p) => {
-      // Empty string resolves to cwd in the real validator — let the fs layer reject it
-      if (!p) return true;
-      const abs = p.replace(/^~/, TMP);
-      return abs === TMP || abs.startsWith(TMP + "/");
-    },
-  },
-});
+const vfs = new Map(); // path → { type: "file"|"dir", content: string }
 
-// Dynamic import so the mock above is active when files.js loads paths.js.
+function vfsSetupDir(path) {
+  path.split("/").filter(Boolean).reduce((acc, part) => {
+    const p = `${acc}/${part}`;
+    if (!vfs.has(p)) vfs.set(p, { type: "dir", content: "" });
+    return p;
+  }, "");
+}
+
+function vfsSetupFile(path, content) {
+  const parent = path.substring(0, path.lastIndexOf("/"));
+  if (parent) vfsSetupDir(parent);
+  vfs.set(path, { type: "file", content });
+}
+
+const vfsRead   = (path) => vfs.get(path)?.content ?? null;
+const vfsExists = (path) => vfs.has(path);
+
+// ─── Virtual cwd and TMP ─────────────────────────────────────────────────────
+
+const TMP = "/vfs/aperio-test";
+vfsSetupDir(TMP);
+let virtualCwd = TMP;
+
+// ─── Mock implementations ─────────────────────────────────────────────────────
+
+function mockExistsSync(path)   { return vfs.has(path); }
+function mockStatSync(path) {
+  const e = vfs.get(path);
+  if (!e) throw Object.assign(new Error(`ENOENT: stat '${path}'`), { code: "ENOENT" });
+  return {
+    size: e.type === "file" ? Buffer.byteLength(e.content, "utf8") : 0,
+    isDirectory: () => e.type === "dir",
+    isFile:      () => e.type === "file",
+  };
+}
+function mockReadFileSync(path) {
+  const e = vfs.get(path);
+  if (!e || e.type !== "file")
+    throw Object.assign(new Error(`ENOENT: open '${path}'`), { code: "ENOENT" });
+  return e.content;
+}
+function mockReaddirSync(path) {
+  const e = vfs.get(path);
+  if (!e || e.type !== "dir")
+    throw Object.assign(new Error(`ENOENT: scandir '${path}'`), { code: "ENOENT" });
+  const children = new Set();
+  for (const key of vfs.keys())
+    if (key.startsWith(path + "/")) {
+      const segment = key.slice(path.length + 1).split("/")[0];
+      if (segment) children.add(segment);
+    }
+  return [...children].sort();
+}
+
+async function mockWriteFile(path, content) {
+  if (!path)
+    throw Object.assign(new Error(`ENOENT: open ''`), { code: "ENOENT" });
+  const e = vfs.get(path);
+  if (e?.type === "dir")
+    throw Object.assign(new Error(`EISDIR: open '${path}'`), { code: "EISDIR" });
+  const parent = path.substring(0, path.lastIndexOf("/"));
+  if (parent && !vfs.has(parent))
+    throw Object.assign(new Error(`ENOENT: open '${path}'`), { code: "ENOENT" });
+  vfs.set(path, { type: "file", content });
+}
+async function mockReadFile(path) {
+  const e = vfs.get(path);
+  if (!e || e.type !== "file") {
+    const msg = e ? `EISDIR: open '${path}'` : `ENOENT: open '${path}'`;
+    throw Object.assign(new Error(msg), { code: e ? "EISDIR" : "ENOENT" });
+  }
+  return e.content;
+}
+async function mockAppendFile(path, content) {
+  const e = vfs.get(path);
+  if (!e)
+    throw Object.assign(new Error(`ENOENT: open '${path}'`), { code: "ENOENT" });
+  if (e.type === "dir")
+    throw Object.assign(new Error(`EISDIR: open '${path}'`), { code: "EISDIR" });
+  vfs.set(path, { type: "file", content: e.content + content });
+}
+async function mockMkdir(path, opts) {
+  if (opts?.recursive)
+    path.split("/").filter(Boolean).reduce((acc, part) => {
+      const p = `${acc}/${part}`;
+      if (!vfs.has(p)) vfs.set(p, { type: "dir", content: "" });
+      return p;
+    }, "");
+  else
+    vfs.set(path, { type: "dir", content: "" });
+}
+async function mockStat(path) {
+  const e = vfs.get(path);
+  if (!e) throw Object.assign(new Error(`ENOENT: stat '${path}'`), { code: "ENOENT" });
+  return {
+    size: e.type === "file" ? Buffer.byteLength(e.content, "utf8") : 0,
+    isDirectory: () => e.type === "dir",
+  };
+}
+async function mockRm(path, opts) {
+  if (opts?.recursive)
+    for (const key of [...vfs.keys()])
+      if (key === path || key.startsWith(path + "/")) vfs.delete(key);
+  else
+    vfs.delete(path);
+}
+
+// ─── Patch CJS module objects BEFORE importing files.js ───────────────────────
+// Node.js reads named-export values from the CJS module cache at the moment an
+// ESM module first imports them. Patching before the dynamic import below
+// ensures files.js sees our mocks for every fs call it makes.
+
+const require  = createRequire(import.meta.url);
+const fsSync   = require("fs");
+const fsAsync  = require("fs/promises");
+
+// Mocking process.cwd here (before files.js / paths.js load) causes paths.js
+// to set BASE_DIR = TMP, so ALLOWED_*_PATHS = [TMP] with no env-var changes.
+mock.method(process, "cwd",   () => virtualCwd);
+mock.method(process, "chdir", (dir) => { virtualCwd = dir.startsWith("/") ? dir : join(virtualCwd, dir); });
+
+mock.method(fsSync, "existsSync",   mockExistsSync);
+mock.method(fsSync, "statSync",     mockStatSync);
+mock.method(fsSync, "readFileSync", mockReadFileSync);
+mock.method(fsSync, "readdirSync",  mockReaddirSync);
+
+mock.method(fsAsync, "writeFile",  mockWriteFile);
+mock.method(fsAsync, "readFile",   mockReadFile);
+mock.method(fsAsync, "appendFile", mockAppendFile);
+mock.method(fsAsync, "mkdir",      mockMkdir);
+mock.method(fsAsync, "stat",       mockStat);
+mock.method(fsAsync, "rm",         mockRm);
+
+// Dynamic import: files.js loads here and binds to our patched functions.
+// paths.js also loads here and computes BASE_DIR = process.cwd() = TMP.
 const { readFileHandler, writeFileHandler, appendFileHandler, scanProjectHandler } =
   await import("../../../mcp/tools/files.js");
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
 before(() => {
-  mock.method(process, "exit", () => { throw new Error("Mocked exit - use sandbox for specific tests"); });
-  mock.method(process, "kill", () => { throw new Error("Mocked kill - use t.mock.method for specific tests"); });
+  mock.method(process, "exit", () => { throw new Error("Mocked exit"); });
+  mock.method(process, "kill", () => { throw new Error("Mocked kill"); });
 });
 
-after(async () => {
-  await fs.rm(TMP, { recursive: true, force: true });
+after(() => {
+  vfs.clear();
+  mock.restoreAll();
 });
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Test helper ─────────────────────────────────────────────────────────────
 
 function tmpFile(name, content = "line1\nline2\nline3\n") {
   const p = join(TMP, name);
-  writeFileSync(p, content, "utf8");
+  vfsSetupFile(p, content);
   return p;
 }
 
 
-// ─── readFileHandler Tests ────────────────────────────────────────────────────
+// ─── readFileHandler ──────────────────────────────────────────────────────────
 
 describe("readFileHandler", () => {
   test("returns file content for an allowed extension", async () => {
@@ -82,30 +205,27 @@ describe("readFileHandler", () => {
   });
 
   test("respects offset parameter", async () => {
-    const lines = ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape"].join("\n");
-    const p = tmpFile("offset_test.js", lines);
+    const p = tmpFile("offset_test.js",
+      ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape"].join("\n"));
 
     const result = await readFileHandler({ path: p, offset: 3 });
     const text = result.content[0].text;
-
-    assert.ok(text.includes("date"), "Should include the line at offset");
+    assert.ok(text.includes("date"),   "Should include the line at offset");
     assert.ok(!text.includes("apple"), "Should not include lines before offset");
   });
 
   test("respects max_lines parameter", async () => {
-    const lines = Array.from({ length: 100 }, (_, i) => `line ${i}`).join("\n");
-    const p = tmpFile("maxlines.js", lines);
+    const p = tmpFile("maxlines.js",
+      Array.from({ length: 100 }, (_, i) => `line ${i}`).join("\n"));
 
     const result = await readFileHandler({ path: p, max_lines: 10 });
-    const text = result.content[0].text;
-    const lineCount = (text.match(/^line \d+$/gm) || []).length;
-
+    const lineCount = (result.content[0].text.match(/^line \d+$/gm) || []).length;
     assert.ok(lineCount <= 10, `Expected ≤10 lines, got ${lineCount}`);
   });
 
   test("truncates and adds notice when content exceeds max_lines", async () => {
-    const lines = Array.from({ length: 600 }, (_, i) => `// line ${i}`).join("\n");
-    const p = tmpFile("big.js", lines);
+    const p = tmpFile("big.js",
+      Array.from({ length: 600 }, (_, i) => `// line ${i}`).join("\n"));
     const result = await readFileHandler({ path: p, max_lines: 10 });
     assert.ok(result.content[0].text.includes("⚠️ Truncated"));
     assert.ok(result.content[0].text.includes("Use offset:"));
@@ -118,60 +238,52 @@ describe("readFileHandler", () => {
   });
 
   test("defaults max_lines to READ_FILE_CHUNK_SIZE (500)", async () => {
-    const lines = Array.from({ length: 600 }, (_, i) => `line ${i}`).join("\n");
-    const p = tmpFile("default.js", lines);
+    const p = tmpFile("default.js",
+      Array.from({ length: 600 }, (_, i) => `line ${i}`).join("\n"));
     const result = await readFileHandler({ path: p });
-    const text = result.content[0].text;
-    const lineMatches = text.match(/^line \d+$/gm);
+    const lineMatches = result.content[0].text.match(/^line \d+$/gm);
     assert.ok(lineMatches.length <= 500, `Expected ≤500 lines, got ${lineMatches.length}`);
   });
 
   test("caps offset at READ_FILE_MAX_OFFSET (10,000)", async () => {
-    const lines = Array.from({ length: 15000 }, (_, i) => `line ${i}`).join("\n");
-    const p = tmpFile("bigoffset.js", lines);
-    // Requesting offset beyond max should be capped
+    const p = tmpFile("bigoffset.js",
+      Array.from({ length: 15000 }, (_, i) => `line ${i}`).join("\n"));
     const result = await readFileHandler({ path: p, offset: 20000 });
-    // Should still return something (won't crash)
     assert.ok(result.content[0].text.includes("line"));
   });
 
   test("returns error for files larger than 500KB", async () => {
-    const largeContent = "x".repeat(600 * 1024); // ~600KB
-    const p = tmpFile("large.js", largeContent);
+    const p = tmpFile("large.js", "x".repeat(600 * 1024));
     const result = await readFileHandler({ path: p });
     assert.ok(result.content[0].text.includes("❌ File too large"));
     assert.ok(result.content[0].text.includes("Max 500KB"));
   });
 
   test("returns error when read path is not allowed", async () => {
-    // /tmp directly (not our TMP subdir) is outside the mocked ALLOWED_READ_PATHS
+    // /tmp directly is outside ALLOWED_READ_PATHS ([TMP]), so validation rejects it
     const result = await readFileHandler({ path: "/tmp/aperio-deny-read-test.js" });
     assert.ok(result.content[0].text.includes("❌ Read not allowed"));
     assert.ok(result.content[0].text.includes("Allowed read paths:"));
   });
 
-  test("handles absolute paths with ~ expansion", async () => {
+  test("handles absolute paths (read does not expand ~)", async () => {
     const p = tmpFile("tilde.js", "content");
-    // ~ expansion happens in write/append, read doesn't expand ~
-    // Just verify normal path works
     const result = await readFileHandler({ path: p });
     assert.ok(result.content[0].text.includes(p));
   });
 });
 
-// ─── writeFileHandler Tests ───────────────────────────────────────────────────
+// ─── writeFileHandler ─────────────────────────────────────────────────────────
 
 describe("writeFileHandler", () => {
-  // Create a minimal ctx object (only used for compatibility)
   const ctx = {};
 
   test("creates a new file and reports its size", async () => {
     const p = join(TMP, "new-file.js");
     const result = await writeFileHandler(ctx, { path: p, content: "const x = 42;\n" });
     assert.ok(result.content[0].text.includes("✅ Created"));
-    assert.ok(existsSync(p));
-    const content = await fs.readFile(p, "utf8");
-    assert.equal(content, "const x = 42;\n");
+    assert.ok(vfsExists(p));
+    assert.equal(vfsRead(p), "const x = 42;\n");
   });
 
   test("overwrites an existing file and reports old size", async () => {
@@ -179,19 +291,17 @@ describe("writeFileHandler", () => {
     const result = await writeFileHandler(ctx, { path: p, content: "new content\n" });
     assert.ok(result.content[0].text.includes("✅ Overwrote"));
     assert.ok(result.content[0].text.includes("was"));
-    const content = await fs.readFile(p, "utf8");
-    assert.equal(content, "new content\n");
+    assert.equal(vfsRead(p), "new content\n");
   });
 
   test("reports correct file size in KB", async () => {
     const p = join(TMP, "size-test.js");
-    const content = "x".repeat(2048); // 2KB
-    const result = await writeFileHandler(ctx, { path: p, content });
+    const result = await writeFileHandler(ctx, { path: p, content: "x".repeat(2048) });
     assert.ok(result.content[0].text.includes("2.0 KB"));
   });
 
   test("returns error when write path is not allowed", async () => {
-    // /tmp directly (not our TMP subdir) is outside the mocked ALLOWED_WRITE_PATHS
+    // /tmp directly is outside ALLOWED_WRITE_PATHS ([TMP]), so validation rejects it
     const result = await writeFileHandler(ctx, { path: "/tmp/aperio-deny-write-test.js", content: "x" });
     assert.ok(result.content[0].text.includes("❌ Write not allowed"));
     assert.ok(result.content[0].text.includes("Allowed write paths:"));
@@ -201,41 +311,39 @@ describe("writeFileHandler", () => {
     const p = join(TMP, "deep", "nested", "file.js");
     const result = await writeFileHandler(ctx, { path: p, content: "// deep\n" });
     assert.ok(result.content[0].text.includes("✅ Created"));
-    assert.ok(existsSync(p));
+    assert.ok(vfsExists(p));
   });
 
   test("does NOT create parent directories when create_dirs is false", async () => {
     const p = join(TMP, "nonexistent-dir", "file.js");
     const result = await writeFileHandler(ctx, { path: p, content: "x", create_dirs: false });
     assert.ok(result.content[0].text.includes("❌ write_file failed"));
-    assert.ok(!existsSync(p));
+    assert.ok(!vfsExists(p));
   });
 
   test("expands ~ to process.cwd()", async () => {
-    const originalCwd = process.cwd();
-    const testDir = join(TMP, "tilde-expand");
-    await fs.mkdir(testDir, { recursive: true });
-    process.chdir(testDir);
+    const savedCwd = virtualCwd;
+    const testDir  = join(TMP, "tilde-expand");
+    vfsSetupDir(testDir);
+    process.chdir(testDir); // updates virtualCwd via mock
 
     try {
-      const p = "~/test-file.js";
       const expectedPath = join(testDir, "test-file.js");
-      const result = await writeFileHandler(ctx, { path: p, content: "content\n" });
+      const result = await writeFileHandler(ctx, { path: "~/test-file.js", content: "content\n" });
       assert.ok(result.content[0].text.includes("✅ Created"));
-      assert.ok(existsSync(expectedPath));
+      assert.ok(vfsExists(expectedPath));
     } finally {
-      process.chdir(originalCwd);
+      process.chdir(savedCwd);
     }
   });
 
   test("handles write errors gracefully", async () => {
-    // Pass an invalid path (empty string) to cause an error
     const result = await writeFileHandler(ctx, { path: "", content: "x" });
     assert.ok(result.content[0].text.includes("❌ write_file failed"));
   });
 });
 
-// ─── appendFileHandler Tests ──────────────────────────────────────────────────
+// ─── appendFileHandler ────────────────────────────────────────────────────────
 
 describe("appendFileHandler", () => {
   const ctx = {};
@@ -247,60 +355,50 @@ describe("appendFileHandler", () => {
     assert.ok(text.includes("✅ Appended"));
     assert.ok(text.includes("Last 5 lines"));
     assert.ok(text.includes("line4"));
-
-    const content = await fs.readFile(p, "utf8");
-    assert.equal(content, "line1\nline2\nline3\nline4\n");
+    assert.equal(vfsRead(p), "line1\nline2\nline3\nline4\n");
   });
 
   test("shows tail (last 5 lines) after append", async () => {
-    const p = tmpFile("tail-test.js", Array.from({ length: 10 }, (_, i) => `line ${i}`).join("\n"));
+    const p = tmpFile("tail-test.js",
+      Array.from({ length: 10 }, (_, i) => `line ${i}`).join("\n"));
     const result = await appendFileHandler(ctx, { path: p, content: "line10\nline11\n" });
-    const text = result.content[0].text;
-    // Should include last 5 lines of the new content
-    assert.ok(text.includes("Last 5 lines"));
+    assert.ok(result.content[0].text.includes("Last 5 lines"));
   });
 
   test("returns error when write path is not allowed", async () => {
-    // /tmp directly (not our TMP subdir) is outside the mocked ALLOWED_WRITE_PATHS
     const result = await appendFileHandler(ctx, { path: "/tmp/aperio-deny-append-test.js", content: "x" });
     assert.ok(result.content[0].text.includes("❌ Write not allowed"));
   });
 
   test("returns error when file does not exist", async () => {
-    const result = await appendFileHandler(ctx, {
-      path: join(TMP, "no-such-file.js"),
-      content: "x",
-    });
+    const result = await appendFileHandler(ctx, { path: join(TMP, "no-such-file.js"), content: "x" });
     assert.ok(result.content[0].text.includes("❌ File not found"));
   });
 
   test("expands ~ to process.cwd()", async () => {
-    const originalCwd = process.cwd();
-    const testDir = join(TMP, "append-tilde");
-    await fs.mkdir(testDir, { recursive: true });
+    const savedCwd = virtualCwd;
+    const testDir  = join(TMP, "append-tilde");
+    const filePath = join(testDir, "append-test.js");
+    vfsSetupFile(filePath, "initial\n");
     process.chdir(testDir);
 
     try {
-      const filePath = join(testDir, "append-test.js");
-      writeFileSync(filePath, "initial\n");
-
       const result = await appendFileHandler(ctx, { path: "~/append-test.js", content: "appended\n" });
       assert.ok(result.content[0].text.includes("✅ Appended"));
-
-      const content = await fs.readFile(filePath, "utf8");
-      assert.equal(content, "initial\nappended\n");
+      assert.equal(vfsRead(filePath), "initial\nappended\n");
     } finally {
-      process.chdir(originalCwd);
+      process.chdir(savedCwd);
     }
   });
 
   test("returns error message on fs failure (append to directory)", async () => {
+    // TMP itself is a directory; appendFile on a dir throws EISDIR
     const result = await appendFileHandler(ctx, { path: TMP, content: "x" });
     assert.ok(result.content[0].text.includes("❌ append_file failed"));
   });
 });
 
-// ─── scanProjectHandler Tests ─────────────────────────────────────────────────
+// ─── scanProjectHandler ───────────────────────────────────────────────────────
 
 describe("scanProjectHandler", () => {
   test("returns error when path does not exist", async () => {
@@ -315,17 +413,15 @@ describe("scanProjectHandler", () => {
   });
 
   test("returns error when read path is not allowed", async () => {
-    // /tmp directly (not our TMP subdir) is outside the mocked ALLOWED_READ_PATHS
     const result = await scanProjectHandler({ path: "/tmp" });
     assert.ok(result.content[0].text.includes("❌ Read not allowed"));
   });
 
   test("returns tree and file count for a valid directory", async () => {
     const dir = join(TMP, "project");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(join(dir, "index.js"), "// entry\n");
-    await fs.writeFile(join(dir, "README.md"), "# Project\n");
-    await fs.writeFile(join(dir, "config.json"), '{"key":"value"}\n');
+    vfsSetupFile(join(dir, "index.js"),    "// entry\n");
+    vfsSetupFile(join(dir, "README.md"),   "# Project\n");
+    vfsSetupFile(join(dir, "config.json"), '{"key":"value"}\n');
 
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
@@ -337,23 +433,20 @@ describe("scanProjectHandler", () => {
 
   test("uses correct icon for code files vs other files", async () => {
     const dir = join(TMP, "icons-test");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(join(dir, "app.js"), "// code");
-    await fs.writeFile(join(dir, "data.json"), "{}");
+    vfsSetupFile(join(dir, "app.js"),    "// code");
+    vfsSetupFile(join(dir, "data.json"), "{}");
 
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
-    // Code files should have 📄, data files 📋
-    assert.ok(text.includes("📄 app.js") || text.includes("📄 app.js"));
+    assert.ok(text.includes("📄 app.js"));
     assert.ok(text.includes("📋 data.json"));
   });
 
   test("reads key file contents when read_key_files is true", async () => {
     const dir = join(TMP, "project-with-pkg");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(join(dir, "package.json"), '{"name":"test-pkg","version":"1.0.0"}');
-    await fs.writeFile(join(dir, "README.md"), "# Test Project\n\nDescription here.");
-    await fs.writeFile(join(dir, "index.js"), "// main");
+    vfsSetupFile(join(dir, "package.json"), '{"name":"test-pkg","version":"1.0.0"}');
+    vfsSetupFile(join(dir, "README.md"),    "# Test Project\n\nDescription here.");
+    vfsSetupFile(join(dir, "index.js"),     "// main");
 
     const result = await scanProjectHandler({ path: dir, read_key_files: true });
     const text = result.content[0].text;
@@ -364,20 +457,17 @@ describe("scanProjectHandler", () => {
 
   test("limits key file content to 100 lines", async () => {
     const dir = join(TMP, "big-readme");
-    await fs.mkdir(dir, { recursive: true });
-    const longContent = Array.from({ length: 200 }, (_, i) => `Line ${i}`).join("\n");
-    await fs.writeFile(join(dir, "README.md"), longContent);
+    vfsSetupFile(join(dir, "README.md"),
+      Array.from({ length: 200 }, (_, i) => `Line ${i}`).join("\n"));
 
     const result = await scanProjectHandler({ path: dir, read_key_files: true });
-    const text = result.content[0].text;
-    const lineMatches = (text.match(/Line \d+/g) || []).length;
+    const lineMatches = (result.content[0].text.match(/Line \d+/g) || []).length;
     assert.ok(lineMatches <= 100, `Expected ≤100 lines from README, got ${lineMatches}`);
   });
 
   test("skips key file contents when read_key_files is false", async () => {
     const dir = join(TMP, "project-no-key");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(join(dir, "package.json"), '{"name":"hidden-pkg"}');
+    vfsSetupFile(join(dir, "package.json"), '{"name":"hidden-pkg"}');
 
     const result = await scanProjectHandler({ path: dir, read_key_files: false });
     assert.ok(!result.content[0].text.includes("hidden-pkg"));
@@ -386,9 +476,9 @@ describe("scanProjectHandler", () => {
 
   test("skips node_modules directory", async () => {
     const dir = join(TMP, "project-with-skips");
-    await fs.mkdir(join(dir, "node_modules", "some-pkg"), { recursive: true });
-    await fs.mkdir(join(dir, ".git"), { recursive: true });
-    await fs.writeFile(join(dir, "index.js"), "// ok\n");
+    vfsSetupDir(join(dir, "node_modules", "some-pkg"));
+    vfsSetupDir(join(dir, ".git"));
+    vfsSetupFile(join(dir, "index.js"), "// ok\n");
 
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
@@ -399,12 +489,12 @@ describe("scanProjectHandler", () => {
 
   test("skips other common directories", async () => {
     const dir = join(TMP, "skip-dirs-check");
-    await fs.mkdir(join(dir, "dist"), { recursive: true });
-    await fs.mkdir(join(dir, "build"), { recursive: true });
-    await fs.mkdir(join(dir, "__pycache__"), { recursive: true });
-    await fs.mkdir(join(dir, ".venv"), { recursive: true });
-    await fs.mkdir(join(dir, "venv"), { recursive: true });
-    await fs.writeFile(join(dir, "src.js"), "// source");
+    vfsSetupDir(join(dir, "dist"));
+    vfsSetupDir(join(dir, "build"));
+    vfsSetupDir(join(dir, "__pycache__"));
+    vfsSetupDir(join(dir, ".venv"));
+    vfsSetupDir(join(dir, "venv"));
+    vfsSetupFile(join(dir, "src.js"), "// source");
 
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
@@ -417,27 +507,22 @@ describe("scanProjectHandler", () => {
   });
 
   test("limits tree depth to 3 levels", async () => {
-    const dir = join(TMP, "deep-tree");
+    const dir  = join(TMP, "deep-tree");
     const deep = join(dir, "level1", "level2", "level3", "level4", "level5");
-    await fs.mkdir(deep, { recursive: true });
-    await fs.writeFile(join(deep, "deep-file.js"), "// deep");
+    vfsSetupFile(join(deep, "deep-file.js"), "// deep");
 
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
-    // Should show up to level3 but not level4/5
     assert.ok(text.includes("level1/"));
     assert.ok(text.includes("level2/"));
     assert.ok(text.includes("level3/"));
-    // level4 may appear as truncated or not
   });
 
   test("limits total files shown to 50", async () => {
     const dir = join(TMP, "many-files");
-    await fs.mkdir(dir, { recursive: true });
-    // Create 60 files
-    for (let i = 0; i < 60; i++) {
-      await fs.writeFile(join(dir, `file-${i}.js`), `// file ${i}`);
-    }
+    vfsSetupDir(dir);
+    for (let i = 0; i < 60; i++)
+      vfsSetupFile(join(dir, `file-${i}.js`), `// file ${i}`);
 
     const result = await scanProjectHandler({ path: dir });
     const text = result.content[0].text;
@@ -446,57 +531,48 @@ describe("scanProjectHandler", () => {
     assert.ok(text.includes("..."), "Should show ellipsis when truncated");
   });
 
-  test("handles directories with permission errors gracefully", async () => {
+  test("handles directories gracefully", async () => {
     const dir = join(TMP, "no-permission");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(join(dir, "readable.js"), "// readable");
-
-    // Just verify it doesn't crash - the function catches errors internally
+    vfsSetupFile(join(dir, "readable.js"), "// readable");
     const result = await scanProjectHandler({ path: dir });
     assert.ok(result.content[0].text.includes("readable.js"));
   });
 
   test("shows correct file count", async () => {
     const dir = join(TMP, "count-test");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(join(dir, "a.js"), "// a");
-    await fs.writeFile(join(dir, "b.js"), "// b");
-    await fs.writeFile(join(dir, "c.js"), "// c");
+    vfsSetupFile(join(dir, "a.js"), "// a");
+    vfsSetupFile(join(dir, "b.js"), "// b");
+    vfsSetupFile(join(dir, "c.js"), "// c");
 
     const result = await scanProjectHandler({ path: dir });
-    const text = result.content[0].text;
-    assert.ok(text.includes("Files: 3"));
+    assert.ok(result.content[0].text.includes("Files: 3"));
   });
 });
 
-// ─── Integration Tests ────────────────────────────────────────────────────────
+// ─── Integration ──────────────────────────────────────────────────────────────
 
 describe("Integration: File workflow", () => {
   const ctx = {};
   let testDir;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     testDir = join(TMP, `workflow-${Date.now()}`);
-    await fs.mkdir(testDir, { recursive: true });
+    vfsSetupDir(testDir);
   });
 
   test("complete CRUD workflow: write → read → append → read", async () => {
     const filePath = join(testDir, "workflow.js");
 
-    // 1. Write initial content
     const writeResult = await writeFileHandler(ctx, { path: filePath, content: "line1\nline2\n" });
     assert.ok(writeResult.content[0].text.includes("✅ Created"));
 
-    // 2. Read back
     const readResult = await readFileHandler({ path: filePath });
     assert.ok(readResult.content[0].text.includes("line1"));
     assert.ok(readResult.content[0].text.includes("line2"));
 
-    // 3. Append more content
     const appendResult = await appendFileHandler(ctx, { path: filePath, content: "line3\nline4\n" });
     assert.ok(appendResult.content[0].text.includes("✅ Appended"));
 
-    // 4. Read again to verify
     const finalRead = await readFileHandler({ path: filePath });
     const finalText = finalRead.content[0].text;
     assert.ok(finalText.includes("line1"));
@@ -507,16 +583,13 @@ describe("Integration: File workflow", () => {
 
   test("scan → read_key_file → read_file workflow", async () => {
     const dir = join(testDir, "app");
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(join(dir, "package.json"), JSON.stringify({ name: "test-app", version: "1.0.0" }));
-    await fs.writeFile(join(dir, "index.js"), 'console.log("hello");');
+    vfsSetupFile(join(dir, "package.json"), JSON.stringify({ name: "test-app", version: "1.0.0" }));
+    vfsSetupFile(join(dir, "index.js"),     'console.log("hello");');
 
-    // 1. Scan to find key files
     const scanResult = await scanProjectHandler({ path: dir });
     assert.ok(scanResult.content[0].text.includes("test-app"));
     assert.ok(scanResult.content[0].text.includes("index.js"));
 
-    // 2. Read the actual file
     const readResult = await readFileHandler({ path: join(dir, "index.js") });
     assert.ok(readResult.content[0].text.includes('console.log("hello")'));
   });
