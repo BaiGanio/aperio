@@ -37,6 +37,8 @@ function handleMessage(msg) {
 
     const toggle = document.getElementById("reasoningToggle");
     if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
+
+    if (msg.contextWindow) maxCtx = msg.contextWindow;
   }
 
   if (msg.type === "thinking") {
@@ -210,8 +212,7 @@ function handleMessage(msg) {
     scrollToBottom();
     // ✅ ADD THIS — update context bar when response is complete
     if (msg.usage) {
-      const used = (msg.usage.input_tokens ?? 0) + (msg.usage.output_tokens ?? 0);
-      updateContextBar(used, maxCtx);
+      updateContextBar(msg.usage.input_tokens ?? 0, maxCtx);
     }
   }
 
