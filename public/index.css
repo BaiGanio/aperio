@@ -730,6 +730,16 @@
     }
     .message:hover .msg-timestamp { opacity: 1; }
 
+    .msg-stats {
+      font-size: 10px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+      opacity: 0.4;
+      transition: opacity var(--transition);
+    }
+    .message:hover .msg-stats { opacity: 0.75; }
+
     .message.user .bubble {
       background: var(--bg-msg-user);
       color: var(--text-user);
