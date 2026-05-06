@@ -15,8 +15,8 @@ let allMemories = []; // Global store for the current modal session
 filteredMemories = []; // Subset of allMemories matching the current search query in the modal
 let currentPage = 1;
 const recordsPerPage = 3;
-// The practical ceiling depends on your RAM — 128k at fp16 needs roughly 16–20 GB. A safe starting bump for most setups is 32768 (32k), 65536 (64k) if you have ample RAM and want to experiment. Remember to also update num_ctx in your Ollama model config!
-const maxCtx = 32768; // match whatever num_ctx you set in Ollama
+// Set by the provider message on connection; updated if the model changes at runtime.
+let maxCtx = 0;
 
 // ── DOM refs ─────────────────────────────────────────────────
 const messagesEl   = document.getElementById("messages");
