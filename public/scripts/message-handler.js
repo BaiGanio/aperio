@@ -725,13 +725,58 @@ function renderMarkdown(text) {
     );
     return "\x00" + idx + "\x00";
   });
+
   text = text
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/`([^`\n]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^\n*]+?)\*\*/g, "<strong>$1</strong>")
     .replace(/(?<!\*)\*([^\n*]+?)\*(?!\*)/g, "<em>$1</em>")
-    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>')
-    .replace(/\n/g, "<br>").replace(/<br>(<div)/g, "$1");
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // Block-level: headings and lists
+  const lines = text.split("\n");
+  const output = [];
+  let listItems = [];
+  let listType = null;
+
+  function flushList() {
+    if (!listItems.length) return;
+    output.push(`<${listType}>${listItems.map(li => `<li>${li}</li>`).join("")}</${listType}>`);
+    listItems = [];
+    listType = null;
+  }
+
+  for (const line of lines) {
+    const hMatch = line.match(/^(#{1,6}) (.+)$/);
+    if (hMatch) {
+      flushList();
+      output.push(`<h${hMatch[1].length}>${hMatch[2]}</h${hMatch[1].length}>`);
+      continue;
+    }
+    const ulMatch = line.match(/^[-*+] (.+)$/);
+    if (ulMatch) {
+      if (listType === "ol") flushList();
+      listType = "ul";
+      listItems.push(ulMatch[1]);
+      continue;
+    }
+    const olMatch = line.match(/^\d+\. (.+)$/);
+    if (olMatch) {
+      if (listType === "ul") flushList();
+      listType = "ol";
+      listItems.push(olMatch[1]);
+      continue;
+    }
+    flushList();
+    output.push(line);
+  }
+  flushList();
+
+  text = output.join("\n")
+    .replace(/\n/g, "<br>")
+    .replace(/<br>(<(?:div|[uo]l|h[1-6])\b)/g, "$1")
+    .replace(/(<\/(?:[uo]l|h[1-6]|div)>)<br>/g, "$1");
+
   text = text.replace(/\x00(\d+)\x00/g, (_, i) => blocks[Number.parseInt(i)]);
   return text;
 }
