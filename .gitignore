@@ -16,6 +16,7 @@ bootstrap.log
 uploads/
 ai-trash/
 logs/
+sessions/
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)

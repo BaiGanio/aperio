@@ -20,7 +20,13 @@ Context Window Support — Follow-up Work
    to an even number since assistant + tool-result pairs always come in twos.
    Odd minimums can leave a half-pair at the floor.
 
-5. UI CONTEXT PRESSURE NOTIFICATION (see notes below)
-   Emit SSE events at two thresholds so the user can act before silent trimming:
-   - Warning (60 %): banner appears with options (Summarize / Clear / Dismiss)
-   - Trim (75 %): notification that older messages were dropped
+5. UI CONTEXT PRESSURE NOTIFICATION — DONE
+   Two-threshold SSE events implemented:
+   - Warning (60 %): banner with [Summarize] [Dismiss]
+   - Trim (75 %): amber banner after messages are dropped
+   Summarize banner routes through handleSummarize() — saves to session file + DB.
+
+6. EXPLICIT SUMMARIZE INTENT FROM CHAT — DONE
+   User typing "summarize our conversation", "recap", "tl;dr", etc. is detected
+   via SUMMARIZE_RE in wsHandler.js and routes through handleSummarize() directly,
+   same path as the banner button. Result is saved to session file + memory DB.

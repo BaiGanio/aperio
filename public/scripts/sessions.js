@@ -52,26 +52,38 @@ function makeSessionCard(s) {
     : "in progress";
 
   card.innerHTML = `
-    <div class="session-card-header">
-      <div class="session-card-title">${escapeHtml(s.title ?? "Untitled")}</div>
+    <div class="session-card-title-row" onclick="toggleSessionCard(this)">
+      <span class="session-card-title">${escapeHtml(s.title ?? "Untitled")}</span>
+      <i class="bi bi-chevron-right session-card-chevron"></i>
+    </div>
+    <div class="session-card-details">
       <div class="session-card-meta">${date} · ${duration}</div>
       <div class="session-card-stats">
         <span><i class="bi bi-chat-left-dots"></i> ${s.messageCount}</span>
         <span><i class="bi bi-file-text"></i> ${s.summaryCount} ${s.summaryCount === 1 ? "summary" : "summaries"}</span>
         <span class="session-card-model">${escapeHtml(s.model ?? "")}</span>
       </div>
-    </div>
-    <div class="session-card-body" style="display:none;"></div>
-    <div class="session-card-actions">
-      <button class="session-btn session-btn--expand" onclick="expandSession(event, '${s.id}')">
-        <i class="bi bi-chevron-down"></i> Summaries
-      </button>
-      <button class="session-btn session-btn--resume" onclick="resumeSession('${s.id}')">
-        <i class="bi bi-arrow-counterclockwise"></i> Resume
-      </button>
+      <div class="session-card-actions">
+        <button class="session-btn session-btn--expand" onclick="expandSession(event, '${s.id}')">
+          <i class="bi bi-chevron-down"></i> Summaries
+        </button>
+        <button class="session-btn session-btn--resume" onclick="resumeSession('${s.id}')">
+          <i class="bi bi-arrow-counterclockwise"></i> Resume
+        </button>
+      </div>
+      <div class="session-card-body"></div>
     </div>`;
 
   return card;
+}
+
+function toggleSessionCard(titleRow) {
+  const card    = titleRow.closest(".session-card");
+  const details = card.querySelector(".session-card-details");
+  const chevron = titleRow.querySelector(".session-card-chevron");
+  const open    = card.classList.toggle("session-card--open");
+  details.style.display = open ? "block" : "none";
+  chevron.style.transform = open ? "rotate(90deg)" : "";
 }
 
 async function expandSession(e, id) {
@@ -79,7 +91,7 @@ async function expandSession(e, id) {
   const card = btn.closest(".session-card");
   const body = card.querySelector(".session-card-body");
 
-  if (body.style.display === "block") {
+  if (body.style.display === "flex") {
     body.style.display = "none";
     btn.innerHTML = `<i class="bi bi-chevron-down"></i> Summaries`;
     return;
@@ -108,11 +120,11 @@ async function expandSession(e, id) {
       }
     }
 
-    body.style.display = "block";
+    body.style.display = "flex";
     btn.innerHTML = `<i class="bi bi-chevron-up"></i> Summaries`;
   } catch {
     body.innerHTML = `<div class="session-no-summaries" style="color:var(--error,#ef4444)">Failed to load.</div>`;
-    body.style.display = "block";
+    body.style.display = "flex";
     btn.innerHTML = `<i class="bi bi-chevron-down"></i> Summaries`;
   } finally {
     btn.disabled = false;
