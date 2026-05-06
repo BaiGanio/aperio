@@ -70,6 +70,9 @@ function makeSessionCard(s) {
         <button class="session-btn session-btn--resume" onclick="resumeSession('${s.id}')">
           <i class="bi bi-arrow-counterclockwise"></i> Resume
         </button>
+        <button class="session-btn session-btn--delete" onclick="deleteSession(event, '${s.id}')">
+          <i class="bi bi-trash3"></i>
+        </button>
       </div>
       <div class="session-card-body"></div>
     </div>`;
@@ -135,6 +138,32 @@ function resumeSession(id) {
   toggleSessionsPanel();
   if (typeof safeSend === "function") {
     safeSend(JSON.stringify({ type: "resume_session", id }));
+  }
+}
+
+async function deleteSession(e, id) {
+  e.stopPropagation();
+  const card = e.currentTarget.closest(".session-card");
+  const title = card?.querySelector(".session-card-title")?.textContent ?? "Untitled";
+
+  if (!confirm(`Delete session "${title}"?\nThis cannot be undone.`)) return;
+
+  // Dim the card while deleting
+  if (card) card.style.opacity = "0.35";
+
+  try {
+    const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+    if (!res.ok) throw new Error(await res.text());
+    // Remove the card on success
+    if (card) card.remove();
+    // If no more sessions, show empty state
+    const list = document.getElementById("sessions-list");
+    if (list && !list.querySelector(".session-card")) {
+      list.innerHTML = `<div class="sessions-empty">No past sessions yet.<br>Conversations are saved when you close the tab.</div>`;
+    }
+  } catch (err) {
+    if (card) card.style.opacity = "1";
+    alert(`Failed to delete session: ${err.message}`);
   }
 }
 
