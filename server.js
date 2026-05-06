@@ -217,7 +217,10 @@ async function bootApp() {
     // 5. Release the DB connection pool (Postgres only; LanceDB is embedded)
     await store.close?.();
 
-    // Node will now exit naturally — no process.exit() needed.
+    // ONNX/LanceDB native threads outlive the JS event loop — Node won't drain
+    // on its own. By this point shutdownEmbeddings() has already waited for any
+    // in-flight ONNX call to finish, so calling exit here is safe.
+    process.exit(0);
   }
   process.on("SIGTERM", gracefulShutdown);
   process.on("SIGINT",  gracefulShutdown);
