@@ -1140,6 +1140,15 @@
   to   { opacity: 1; transform: translateY(0); }
 }
 
+.suggestions-saved-note {
+  padding: 4px 14px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  opacity: 0.75;
+  animation: fadeDown .3s ease both;
+}
+
 /* ── Sessions panel ──────────────────────────────────────────── */
 .sessions-backdrop {
   position: fixed;
