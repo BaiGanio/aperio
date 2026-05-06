@@ -50,6 +50,26 @@ metadata:
 - If multiple isolated fixes are needed, make them one at a time with targeted replacements — not a full-file overwrite.
 - When a file exceeds ~100 lines, treat a full rewrite as a last resort. The default is always: locate the error, patch the error, verify the patch.
 
+**Patch size tiers — pick the lightest that works:**
+
+| Fix size | Method |
+|----------|--------|
+| 1–2 lines | Inline markdown patch block (no file write needed) |
+| 3–20 lines | `str_replace` on the exact changed block |
+| 20+ lines or structural refactor | Targeted file edit or rewrite with `view` verification first |
+
+**Inline patch format** (for 1–2 line fixes): return a markdown code block with an explicit instruction naming the file, the line number or the exact existing code to find, and the replacement. Example:
+
+> In `auth_service.py`, replace line 42:
+> ```python
+> # Before
+> user = db.query(User).filter(User.id == id).first()
+> # After
+> user = db.get(User, id)  # Use get() for PK lookups — avoids full scan
+> ```
+
+Always include both the **before** and **after** snippets so the target is unambiguous even if line numbers shift. Explain *why* on the same line as the fix, not in a separate paragraph.
+
 > "Rewriting a large file from memory to fix one bug is how one bug becomes ten."
 
 ### Deviation Policy
