@@ -123,13 +123,13 @@
       }
     }
 
-    html, body { height: 100%; overflow: hidden; }
+    html, body { height: 100%; overflow: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
     body {
       font-family: var(--font-sans);
       background: var(--bg);
       color: var(--text);
-      font-size: 14px;
+      font-size: 16px;
       line-height: 1.6;
       background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
       background-size: 24px 24px;
@@ -213,7 +213,7 @@
 
     .logo {
       font-family: var(--font-mono);
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 600;
       letter-spacing: -0.02em;
       color: var(--text);
@@ -239,7 +239,7 @@
       align-items: center;
       gap: 6px;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-muted);
       background: var(--bg-hover);
       padding: 4px 10px;
@@ -304,7 +304,7 @@
 
     .sidebar-title {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -331,7 +331,7 @@
       border-radius: var(--radius-sm);
       padding: 7px 10px 7px 30px;
       font-family: var(--font-sans);
-      font-size: 13px;
+      font-size: 14px;
       color: var(--text);
       outline: none;
       transition: border-color var(--transition);
@@ -367,7 +367,7 @@
       gap: 6px;
       padding: 6px 8px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 600;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -420,7 +420,7 @@
     }
 
     .memory-title {
-      font-size: 12.5px;
+      font-size: 14px;
       font-weight: 500;
       color: var(--text);
       margin-bottom: 3px;
@@ -431,7 +431,7 @@
     }
 
     .memory-preview {
-      font-size: 11.5px;
+      font-size: 13px;
       color: var(--text-muted);
       line-height: 1.4;
       display: -webkit-box;
@@ -510,7 +510,7 @@
       border: none;
       padding: 5px 8px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 12px;
       color: var(--text-muted);
       cursor: pointer;
       text-align: left;
@@ -706,7 +706,7 @@
     .bubble {
       padding: 10px 14px;
       border-radius: 12px;
-      font-size: 14px;
+      font-size: 16px;
       line-height: 1.65;
       max-width: 100%;
       box-shadow: var(--shadow);
@@ -721,7 +721,7 @@
     }
 
     .msg-timestamp {
-      font-size: 10px;
+      font-size: 12px;
       color: var(--text-muted);
       font-family: var(--font-mono);
       margin-top: 3px;
@@ -731,14 +731,14 @@
     .message:hover .msg-timestamp { opacity: 1; }
 
     .msg-stats {
-      font-size: 10px;
+      font-size: 12px;
       color: var(--text-muted);
       font-family: var(--font-mono);
       margin-top: 2px;
-      opacity: 0.4;
+      opacity: 0.75;
       transition: opacity var(--transition);
     }
-    .message:hover .msg-stats { opacity: 0.75; }
+    .message:hover .msg-stats { opacity: 1; }
 
     .message.user .bubble {
       background: var(--bg-msg-user);
@@ -881,6 +881,11 @@
     .bubble em { font-style: italic; opacity: .85; }
     .bubble p { margin-bottom: 6px; }
     .bubble p:last-child { margin-bottom: 0; }
+    .bubble ol, .bubble ul { padding-left: 1.4em; margin-bottom: 6px; }
+    .bubble ol { list-style: decimal; }
+    .bubble ul { list-style: disc; }
+    .bubble li { margin-bottom: 3px; padding-left: 0.2em; }
+    .bubble li:last-child { margin-bottom: 0; }
 
     /* Memory suggestion block */
     .memory-suggestion {
@@ -906,7 +911,7 @@
       align-items: center;
       gap: 8px;
       padding: 4px 0;
-      font-size: 13px;
+      font-size: 14px;
     }
 
     .suggestion-num {
@@ -930,7 +935,7 @@
       padding: 6px 14px;
       border-radius: var(--radius-sm);
       font-family: var(--font-sans);
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 500;
       cursor: pointer;
       border: none;
@@ -1028,7 +1033,7 @@
       outline: none;
       background: transparent;
       font-family: var(--font-sans);
-      font-size: 14px;
+      font-size: 16px;
       color: var(--text);
       resize: none;
       line-height: 1.5;
@@ -1135,7 +1140,7 @@
 
     .thinking-label {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 12px;
       color: var(--text-muted);
       letter-spacing: 0.05em;
     }
@@ -1146,7 +1151,7 @@
       align-items: center;
       gap: 8px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 12px;
       color: var(--text-muted);
       padding: 4px 14px;
       animation: fadeUp .2s ease;
@@ -1183,7 +1188,7 @@
       padding: 5px 10px;
       cursor: pointer;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-muted);
       background: var(--bg-hover);
       border-bottom: 1px solid var(--border);
@@ -1198,14 +1203,16 @@
       margin: 0;
       padding: 10px 12px;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 13px;
       line-height: 1.55;
       color: var(--text-muted);
       background: var(--bg-panel);
       white-space: pre-wrap;
       word-break: break-word;
-      max-height: 160px;
+      max-height: 60vh;
       overflow-y: auto;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
     }
     .reasoning-flat {
       border: 1px solid var(--border);
@@ -1217,7 +1224,7 @@
       display: block;
       padding: 4px 10px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 12px;
       color: var(--text-muted);
       background: var(--bg-hover);
       border-bottom: 1px solid var(--border);
@@ -1229,12 +1236,14 @@
       margin: 0;
       padding: 8px 12px;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: 13px;
       line-height: 1.55;
       color: var(--text-muted);
       background: var(--bg-panel);
       white-space: pre-wrap;
       word-break: break-word;
+      -webkit-text-size-adjust: 100%;
+      text-size-adjust: 100%;
     }
 
     /* ── Type icons & colors ─────────────────────────────────── */
@@ -1256,7 +1265,7 @@
     }
     .ctx-label {
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 600;
       letter-spacing: 0.07em;
       text-transform: uppercase;
@@ -1264,7 +1273,7 @@
     }
     .ctx-value {
       font-family: var(--font-mono);
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--text);
       transition: color 0.3s;
@@ -1380,7 +1389,7 @@
     }
     .sessions-panel-title {
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
@@ -1436,7 +1445,7 @@
     .session-card-title-row:hover { background: var(--bg-hover); }
     .session-card-title {
       flex: 1;
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 600;
       color: var(--text);
       white-space: nowrap;
@@ -1541,7 +1550,7 @@
       font-style: italic;
     }
     .session-summary {
-      font-size: 12px;
+      font-size: 13px;
     }
     .session-summary-meta {
       font-family: var(--font-mono);
