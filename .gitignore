@@ -11,12 +11,8 @@
 *.sln.docstates
 *.env
 *.lancedb/
-*.bootstrap.lock
-bootstrap.log
-uploads/
+var/
 ai-trash/
-logs/
-sessions/
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)

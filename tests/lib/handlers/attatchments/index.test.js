@@ -7,17 +7,15 @@ import { processAttachments } from "../../../../lib/handlers/attachments/index.j
 
 // ─── Stubs ────────────────────────────────────────────────────────────────────
 
-const stub = (label) => async () => ({ blocks: [{ type: "text", text: label }], hint: `[${label}]` });
+const stub = (label) => async () => ({ blocks: [{ type: "text", text: label }], hint: `[${label}]`, meta: { name: `${label}.file`, type: "text/plain" } });
 
 const mockHandleImage = mock.fn(stub("image"));
 const mockHandleText  = mock.fn(stub("text"));
 const mockHandlePdf   = mock.fn(stub("pdf"));
 const mockHandleDocx  = mock.fn(stub("docx"));
 const mockHandlePptx  = mock.fn(stub("pptx"));
-const mockMkdir       = mock.fn(async () => undefined);
 
 const deps = {
-  _fs:          { mkdir: mockMkdir },
   _handleImage: mockHandleImage,
   _handleText:  mockHandleText,
   _handlePdf:   mockHandlePdf,
@@ -26,7 +24,7 @@ const deps = {
 };
 
 function resetAll() {
-  [mockHandleImage, mockHandleText, mockHandlePdf, mockHandleDocx, mockHandlePptx, mockMkdir]
+  [mockHandleImage, mockHandleText, mockHandlePdf, mockHandleDocx, mockHandlePptx]
     .forEach(fn => fn.mock.resetCalls());
 }
 
@@ -47,14 +45,11 @@ describe("processAttachments", () => {
     assert.equal(hint, "");
   });
 
-  test("calls mkdir for the uploads directory", async () => {
+  test("returns attachmentMeta array with one entry per attachment", async () => {
     resetAll();
-    await processAttachments([att("file.txt")], DIR, deps);
+    const { attachmentMeta } = await processAttachments([att("file.txt"), att("doc.pdf")], DIR, deps);
 
-    assert.equal(mockMkdir.mock.calls.length, 1);
-    const [dirPath, opts] = mockMkdir.mock.calls[0].arguments;
-    assert.ok(dirPath.endsWith("uploads"));
-    assert.deepEqual(opts, { recursive: true });
+    assert.equal(attachmentMeta.length, 2);
   });
 
   test("routes .jpg to handleImage", async () => {

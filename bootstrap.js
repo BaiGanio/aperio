@@ -1,6 +1,6 @@
 // bootstrap.js
 import { spawn, execSync, exec } from 'child_process';
-import { createWriteStream, existsSync, writeFileSync, readFileSync } from 'fs';
+import { createWriteStream, existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
 import { EventEmitter } from 'events';
 import { promisify } from 'util';
 
@@ -9,7 +9,8 @@ const execAsync = promisify(exec);
 export const bootstrapEvents = new EventEmitter();
 bootstrapEvents.setMaxListeners(50);
 
-const logStream = createWriteStream('./bootstrap.log', { flags: 'a' });
+mkdirSync('./var', { recursive: true });
+const logStream = createWriteStream('./var/bootstrap.log', { flags: 'a' });
 
 const logger = (msg, level = 'info') => {
   const line = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${msg}`;
@@ -164,7 +165,7 @@ export const runBootstrap = async ({ model = 'gemma3:4b' } = {}) => {
     await checkLanceDB();
 
     logger('=== Bootstrap complete ===');
-    writeFileSync('.bootstrap.lock', JSON.stringify({
+    writeFileSync('var/bootstrap.lock', JSON.stringify({
       completedAt: new Date().toISOString(),
       model,
     }));
@@ -175,11 +176,11 @@ export const runBootstrap = async ({ model = 'gemma3:4b' } = {}) => {
   }
 };
 
-export const isBootstrapped = () => existsSync('.bootstrap.lock');
+export const isBootstrapped = () => existsSync('var/bootstrap.lock');
 
 export const getBootstrapMeta = () => {
   try {
-    return JSON.parse(readFileSync('.bootstrap.lock', 'utf8'));
+    return JSON.parse(readFileSync('var/bootstrap.lock', 'utf8'));
   } catch (_e) {
     return null;
   }
