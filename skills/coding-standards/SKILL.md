@@ -54,7 +54,7 @@ metadata:
 
 | Fix size | Method |
 |----------|--------|
-| 1–2 lines | Inline markdown patch block (no file write needed) |
+| 1-2 lines | Inline markdown patch block (no file write needed) |
 | 3–20 lines | `str_replace` on the exact changed block |
 | 20+ lines or structural refactor | Targeted file edit or rewrite with `view` verification first |
 
@@ -69,6 +69,8 @@ metadata:
 > ```
 
 Always include both the **before** and **after** snippets so the target is unambiguous even if line numbers shift. Explain *why* on the same line as the fix, not in a separate paragraph.
+
+> **For non-code files (Markdown, DOCX, PDF, configs), also match `working-with-files`.**
 
 > "Rewriting a large file from memory to fix one bug is how one bug becomes ten."
 
@@ -177,3 +179,4 @@ Never silently mix conventions within a single file.
 | coding-examples | Annotated good/bad examples per language — matched alongside core when writing or reviewing code |
 | tool-integration | API/tool execution patterns — must also follow these standards |
 | reasoning-planning | Use before writing complex code to map structure first |
+| working-with-files | Surgical editing for non-code files — match when target is Markdown, DOCX, PDF, config, etc. |

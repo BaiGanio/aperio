@@ -20,11 +20,11 @@ const mockWriteFile = mock.fn(async () => undefined);
 
 const deps = {
   _extractPdfText: mockExtractPdfText,
-  _fs: { writeFile: mockWriteFile },
+  _fs: { writeFile: mockWriteFile, mkdir: mock.fn(async () => undefined) },
 };
 
 function makeAtt(data = "ZmFrZXBkZg==") {
-  return { data };
+  return { data, type: "application/pdf" };
 }
 
 function setExtractResult(overrides) {
@@ -130,13 +130,37 @@ describe("handlePdf", () => {
     assert.ok(result.blocks[0].text.includes("Annual Report"));
   });
 
-  test("writeFile is called once with a .pdf filename", async () => {
-    setExtractResult({});
-    await handlePdf(makeAtt(), "save.pdf", "/tmp/uploads", deps);
+  test("writeFile is NOT called for type=text (processed in memory)", async () => {
+    setExtractResult({ type: "text", text: "content" });
+    await handlePdf(makeAtt(), "text.pdf", "/tmp/uploads", deps);
+
+    assert.equal(mockWriteFile.mock.calls.length, 0);
+  });
+
+  test("writeFile is called for type=scanned with a .pdf filename", async () => {
+    setExtractResult({ type: "scanned", text: "", pageCount: 1, scannedPages: [1] });
+    await handlePdf(makeAtt(), "scan.pdf", "/tmp/uploads", deps);
 
     assert.equal(mockWriteFile.mock.calls.length, 1);
     const [filePath] = mockWriteFile.mock.calls[0].arguments;
     assert.ok(filePath.endsWith(".pdf"));
+  });
+
+  test("writeFile is called for type=mixed with a .pdf filename", async () => {
+    setExtractResult({ type: "mixed", text: "partial", pageCount: 2, scannedPages: [2] });
+    await handlePdf(makeAtt(), "mixed.pdf", "/tmp/uploads", deps);
+
+    assert.equal(mockWriteFile.mock.calls.length, 1);
+    const [filePath] = mockWriteFile.mock.calls[0].arguments;
+    assert.ok(filePath.endsWith(".pdf"));
+  });
+
+  test("meta.name and meta.type are set on success", async () => {
+    setExtractResult({ type: "text", text: "content" });
+    const result = await handlePdf(makeAtt(), "report.pdf", "/tmp/uploads", deps);
+
+    assert.equal(result.meta.name, "report.pdf");
+    assert.equal(result.meta.type, "application/pdf");
   });
 
   test("extractPdfText failure returns empty blocks and error hint", async () => {

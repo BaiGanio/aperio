@@ -25,7 +25,7 @@ const { version } = require("./package.json");
 logger.info(`🚀 Starting Aperio server (version ${version})...`);
 
 const PORT      = Number(process.env.PORT ?? 3000);
-const LOCK_FILE = resolve(__dirname, ".bootstrap.lock");
+const LOCK_FILE = resolve(__dirname, "var/bootstrap.lock");
 
 const isBootstrapped  = () => existsSync(LOCK_FILE);
 const getBootstrapMeta = () => {
