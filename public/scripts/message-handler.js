@@ -169,6 +169,17 @@ function handleMessage(msg) {
   if (msg.type === "stream_start") {
     streamStartTime = Date.now();
     isReasoningActive = false; // reasoning phase is over, answer is coming
+    // Finalize any bubble left over from a prior agent round that ended without
+    // a stream_end (e.g. a thinking-model tool call that had preamble text).
+    if (streamingBubble) {
+      if (streamingText.trim()) {
+        finalizeStreamingBubble(streamingBubble, streamingText, null);
+      } else {
+        streamingBubble.wrap?.remove();
+      }
+      streamingBubble = null;
+      streamingText = "";
+    }
     // Safety net: collapse reasoning bubble if still open
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
@@ -180,7 +191,6 @@ function handleMessage(msg) {
     const label = document.querySelector("#thinking .thinking-label");
     if (label) label.textContent = "typing…";
     setStatus("thinking", "typing…");
-    // NOTE: do NOT null streamingBubble here — tokens may arrive after this
   }
 
   if (msg.type === "token") {
