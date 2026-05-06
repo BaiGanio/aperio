@@ -31,6 +31,7 @@ let reasoningBubble = null;
 let reasoningText = "";
 let streamingBubble = null;
 let streamingText = "";
+let streamStartTime = null;
 let isReasoningActive = false; // true while model is inside <think> / reasoning phase
 let suggestionShown = false;
 
@@ -166,6 +167,7 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "stream_start") {
+    streamStartTime = Date.now();
     isReasoningActive = false; // reasoning phase is over, answer is coming
     // Safety net: collapse reasoning bubble if still open
     if (reasoningBubble) {
@@ -218,9 +220,14 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "stream_end") {
+    const elapsedSec = streamStartTime ? (Date.now() - streamStartTime) / 1000 : null;
+    streamStartTime = null;
+    const responseStats = (elapsedSec && msg.usage?.output_tokens)
+      ? { outputTokens: msg.usage.output_tokens, thinkingTokens: msg.usage.thinking_tokens ?? 0, elapsedSec }
+      : null;
     if (streamingBubble && streamingText.trim()) {
       // Tokens were streamed — finalize the existing bubble, ignore msg.text entirely
-      finalizeStreamingBubble(streamingBubble, streamingText);
+      finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
     } else if (streamingBubble) {
       streamingBubble.wrap?.remove();
     } else if (!streamingText && msg.text?.trim()) {
@@ -368,7 +375,7 @@ function updateStreamingBubble(ref, text) {
 }
 
 // ── Chat UI ──────────────────────────────────────────────────
-function finalizeStreamingBubble(ref, fullText) {
+function finalizeStreamingBubble(ref, fullText, stats) {
   ref.bubble.classList.remove("streaming");
 
   ref.bubble.innerHTML = "";
@@ -381,13 +388,28 @@ function finalizeStreamingBubble(ref, fullText) {
     ref.bubble.innerHTML = renderMarkdown(fullText);
   }
 
+  const col = ref.wrap.querySelector("div[style]") || ref.wrap;
+
   // Add timestamp below bubble
   const ts = document.createElement("div");
   ts.className = "msg-timestamp";
   ts.textContent = "just now";
   ts.dataset.ts = Date.now();
-  ref.wrap.querySelector("div[style]")?.appendChild(ts) ||
-    ref.wrap.appendChild(ts);
+  col.appendChild(ts);
+
+  // Add response stats badge
+  if (stats) {
+    const answerTok = stats.outputTokens - (stats.thinkingTokens || 0);
+    const tokPerSec = (answerTok / stats.elapsedSec).toFixed(1);
+    const secLabel = stats.elapsedSec.toFixed(1) + "s";
+    const badge = document.createElement("div");
+    badge.className = "msg-stats";
+    let label = `${answerTok} tok`;
+    if (stats.thinkingTokens > 0) label += ` · +${stats.thinkingTokens} thinking`;
+    label += ` · ${tokPerSec} tok/s · ${secLabel}`;
+    badge.textContent = label;
+    col.appendChild(badge);
+  }
 
   highlightAll();
 }
