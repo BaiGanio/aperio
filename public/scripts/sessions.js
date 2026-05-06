@@ -1,5 +1,7 @@
 // ── Sessions panel ────────────────────────────────────────────
 let sessionsPanelOpen = false;
+let totalPages = 1;
+const PAGE_SIZE = 10;
 
 function toggleSessionsPanel() {
   sessionsPanelOpen = !sessionsPanelOpen;
@@ -14,16 +16,20 @@ function toggleSessionsPanel() {
     btn.style.color       = sessionsPanelOpen ? "var(--accent)" : "var(--text-muted)";
   }
 
-  if (sessionsPanelOpen) loadSessions();
+  if (sessionsPanelOpen) loadSessions(1);
 }
 
-async function loadSessions() {
+async function loadSessions(page) {
+  currentPage = page;
   const list = document.getElementById("sessions-list");
   list.innerHTML = `<div class="sessions-empty">Loading…</div>`;
 
   try {
-    const res = await fetch("/api/sessions");
-    const sessions = await res.json();
+    const res = await fetch(`/api/sessions?page=${page}&limit=${PAGE_SIZE}`);
+    const data = await res.json();
+
+    const sessions = Array.isArray(data) ? data : data.sessions;
+    totalPages = data.pages ?? 1;
 
     if (!sessions.length) {
       list.innerHTML = `<div class="sessions-empty">No past sessions yet.<br>Conversations are saved when you close the tab.</div>`;
@@ -34,9 +40,59 @@ async function loadSessions() {
     for (const s of sessions) {
       list.appendChild(makeSessionCard(s));
     }
+
+    if (totalPages > 1) {
+      list.appendChild(makePaginationControls());
+    }
   } catch (err) {
     list.innerHTML = `<div class="sessions-empty" style="color:var(--error,#ef4444)">Failed to load sessions.</div>`;
   }
+}
+
+function makePaginationControls() {
+  const wrap = document.createElement("div");
+  wrap.className = "sessions-pagination";
+
+  const prevBtn = document.createElement("button");
+  prevBtn.className = "page-btn";
+  prevBtn.innerHTML = `<i class="bi bi-chevron-left"></i>`;
+  prevBtn.disabled = currentPage <= 1;
+  prevBtn.addEventListener("click", () => loadSessions(currentPage - 1));
+
+  const pages = getPageRange(currentPage, totalPages);
+  const pageBtns = pages.map(p => {
+    const btn = document.createElement("button");
+    btn.className = "page-btn" + (p === currentPage ? " page-btn--active" : "") + (p === "..." ? " page-btn--ellipsis" : "");
+    btn.textContent = p;
+    if (p !== "...") {
+      btn.addEventListener("click", () => loadSessions(p));
+    } else {
+      btn.disabled = true;
+    }
+    return btn;
+  });
+
+  const nextBtn = document.createElement("button");
+  nextBtn.className = "page-btn";
+  nextBtn.innerHTML = `<i class="bi bi-chevron-right"></i>`;
+  nextBtn.disabled = currentPage >= totalPages;
+  nextBtn.addEventListener("click", () => loadSessions(currentPage + 1));
+
+  wrap.append(prevBtn, ...pageBtns, nextBtn);
+  return wrap;
+}
+
+function getPageRange(current, total) {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, "...", total];
+  }
+  if (current >= total - 3) {
+    return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
 }
 
 function makeSessionCard(s) {
@@ -148,18 +204,19 @@ async function deleteSession(e, id) {
 
   if (!confirm(`Delete session "${title}"?\nThis cannot be undone.`)) return;
 
-  // Dim the card while deleting
   if (card) card.style.opacity = "0.35";
 
   try {
     const res = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
     if (!res.ok) throw new Error(await res.text());
-    // Remove the card on success
+
     if (card) card.remove();
-    // If no more sessions, show empty state
-    const list = document.getElementById("sessions-list");
-    if (list && !list.querySelector(".session-card")) {
-      list.innerHTML = `<div class="sessions-empty">No past sessions yet.<br>Conversations are saved when you close the tab.</div>`;
+    const remaining = document.querySelectorAll(".session-card").length;
+
+    if (remaining === 0 && currentPage > 1) {
+      loadSessions(currentPage - 1);
+    } else {
+      loadSessions(currentPage);
     }
   } catch (err) {
     if (card) card.style.opacity = "1";
@@ -174,7 +231,6 @@ function formatDuration(ms) {
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
 }
 
-// Handle session_resumed event from the server
 function handleSessionResumed(msg) {
   const banner = document.createElement("div");
   banner.className = "ctx-banner";

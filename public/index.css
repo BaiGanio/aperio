@@ -1514,3 +1514,54 @@
       color: var(--text);
       line-height: 1.6;
     }
+    /* ── Sessions pagination ────────────────────────────────────── */
+    .sessions-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 12px 4px 4px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .page-btn {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+      user-select: none;
+      line-height: 1;
+    }
+    .page-btn:hover:not(:disabled):not(.page-btn--active) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .page-btn:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+    .page-btn--active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .page-btn--ellipsis {
+      border: none;
+      background: none;
+      min-width: 16px;
+      color: var(--text-muted);
+      cursor: default;
+      opacity: 0.5;
+    }
