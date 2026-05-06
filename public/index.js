@@ -839,8 +839,20 @@ function updateContextBar(used, max) {
   }
 
   const pct = Math.min(100, (used / max) * 100);
+  const roundedPct = Math.round(pct);
   text.textContent = `${used.toLocaleString()} / ${max.toLocaleString()}`;
   fill.style.width = `${pct}%`;
+
+  // Keep the context banner in sync while a conversation is active
+  if (typeof ctxBannerEl !== "undefined" && ctxBannerEl) {
+    const textEl = ctxBannerEl.querySelector(".ctx-banner-text");
+    if (textEl) {
+      const isTrimmed = ctxBannerEl.classList.contains("ctx-banner--trimmed");
+      textEl.textContent = isTrimmed
+        ? `Older messages were dropped to fit context (${roundedPct}% full).`
+        : `Context is ${roundedPct}% full — older messages will be dropped soon.`;
+    }
+  }
 }
 
 

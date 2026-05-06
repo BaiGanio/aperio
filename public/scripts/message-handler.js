@@ -121,7 +121,7 @@ function handleMessage(msg) {
     wrap.appendChild(bubble);
     messagesEl.appendChild(wrap);
     scrollToBottom();
-    reasoningBubble = { wrap, pre, details, statusSpan };
+    reasoningBubble = { wrap, pre, details, statusSpan, bubble };
     return;
   }
 
@@ -137,15 +137,35 @@ function handleMessage(msg) {
 
   if (msg.type === "reasoning_done") {
     isReasoningActive = false;
+    const SHORT_THRESHOLD = 280;
+    function reasoningTitle(text) {
+      const first = text.split(/[.!?\n]/)[0].trim();
+      return first.length > 58 ? first.slice(0, 55) + "…" : (first || "Reasoning");
+    }
     if (reasoningBubble) {
-      reasoningBubble.details.removeAttribute("open");
-      reasoningBubble.statusSpan.textContent = "done";
-      reasoningBubble.statusSpan.style.animation = "none";
-      reasoningBubble.statusSpan.style.opacity = "0.4";
+      if (reasoningText.length <= SHORT_THRESHOLD) {
+        // Short: replace collapsible with a flat inline block
+        const flat = document.createElement("div");
+        flat.className = "reasoning-flat";
+        const lbl = document.createElement("span");
+        lbl.className = "reasoning-flat-label";
+        lbl.textContent = "✍️ Reasoning";
+        flat.appendChild(lbl);
+        flat.appendChild(reasoningBubble.pre);
+        reasoningBubble.bubble.replaceChild(flat, reasoningBubble.details);
+      } else {
+        // Long: collapse with a meaningful title from first sentence
+        const title = reasoningTitle(reasoningText);
+        const summary = reasoningBubble.details.querySelector("summary");
+        summary.firstChild.textContent = "🧠 " + title + " ";
+        reasoningBubble.details.removeAttribute("open");
+        reasoningBubble.statusSpan.textContent = "done";
+        reasoningBubble.statusSpan.style.animation = "none";
+        reasoningBubble.statusSpan.style.opacity = "0.4";
+      }
       reasoningBubble = null;
     }
     // Fallback: collapse any unclosed reasoning bubble still in DOM
-
     const lastWrap = [...messagesEl.querySelectorAll(".reasoning-wrap")].at(-1);
     if (lastWrap) {
       const details = lastWrap.querySelector("details");
@@ -169,6 +189,11 @@ function handleMessage(msg) {
   if (msg.type === "stream_start") {
     streamStartTime = Date.now();
     isReasoningActive = false; // reasoning phase is over, answer is coming
+    // Re-arm stop button in case a previous stream_end hid it (multi-round tool calls)
+    isThinking = true;
+    sendBtn.disabled = true;
+    sendBtn.style.display = "none";
+    stopBtn.style.display = "flex";
     // Finalize any bubble left over from a prior agent round that ended without
     // a stream_end (e.g. a thinking-model tool call that had preamble text).
     if (streamingBubble) {
@@ -414,9 +439,12 @@ function finalizeStreamingBubble(ref, fullText, stats) {
     const secLabel = stats.elapsedSec.toFixed(1) + "s";
     const badge = document.createElement("div");
     badge.className = "msg-stats";
-    let label = `${answerTok} tok`;
-    if (stats.thinkingTokens > 0) label += ` · +${stats.thinkingTokens} thinking`;
-    label += ` · ${tokPerSec} tok/s · ${secLabel}`;
+    let label;
+    if (stats.thinkingTokens > 0) {
+      label = `${stats.outputTokens} tok total -> ${answerTok} response · +${stats.thinkingTokens} thinking · ${tokPerSec} tok/s · ${secLabel}`;
+    } else {
+      label = `${answerTok} tok · ${tokPerSec} tok/s · ${secLabel}`;
+    }
     badge.textContent = label;
     col.appendChild(badge);
   }

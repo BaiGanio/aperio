@@ -667,7 +667,7 @@
       display: flex;
       gap: 16px;
       width: 100%;
-      max-width: 860px;
+      max-width: 1100px;
       animation: fadeUp .2s ease;
     }
 
@@ -1150,7 +1150,7 @@
       color: var(--text-muted);
       padding: 4px 14px;
       animation: fadeUp .2s ease;
-      max-width: 860px;
+      max-width: 1100px;
     }
 
     .tool-spinner {
@@ -1168,7 +1168,7 @@
     /* ── Reasoning bubble ───────────────────────────────────────── */
     .reasoning-wrap {
       width: 100%;
-      max-width: 860px;
+      max-width: 1100px;
       padding-left: 38px;
       box-sizing: border-box;
       animation: fadeUp .2s ease;
@@ -1206,6 +1206,35 @@
       word-break: break-word;
       max-height: 160px;
       overflow-y: auto;
+    }
+    .reasoning-flat {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      opacity: 0.75;
+    }
+    .reasoning-flat-label {
+      display: block;
+      padding: 4px 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      background: var(--bg-hover);
+      border-bottom: 1px solid var(--border);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      user-select: none;
+    }
+    .reasoning-flat pre {
+      margin: 0;
+      padding: 8px 12px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.55;
+      color: var(--text-muted);
+      background: var(--bg-panel);
+      white-space: pre-wrap;
+      word-break: break-word;
     }
 
     /* ── Type icons & colors ─────────────────────────────────── */
