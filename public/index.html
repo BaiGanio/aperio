@@ -49,6 +49,13 @@
              display:none;align-items:center;gap:5px;flex-shrink:0;transition:all var(--transition);">
       🧠 <span id="reasoningToggleLabel">reasoning on</span>
     </button>
+    <button id="historyBtn" onclick="toggleSessionsPanel()" title="Conversation history"
+      style="height:28px;padding:0 10px;border-radius:var(--radius-sm);border:1px solid var(--border);
+             background:var(--bg-hover);color:var(--text-muted);cursor:pointer;
+             font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.06em;
+             display:flex;align-items:center;gap:5px;flex-shrink:0;transition:all var(--transition);">
+      <i class="bi bi-clock-history"></i> History
+    </button>
     <div class="ctx-window" id="ctxWindow">
       <div class="ctx-header">
         <span class="ctx-label">context</span>
@@ -143,10 +150,24 @@
 
 </div>
 
+<div id="sessions-panel" class="sessions-panel" style="display:none;">
+  <div class="sessions-panel-header">
+    <span class="sessions-panel-title"><i class="bi bi-clock-history"></i> History</span>
+    <button class="sessions-panel-close" onclick="toggleSessionsPanel()">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+  <div class="sessions-panel-body" id="sessions-list">
+    <div class="sessions-empty">Loading…</div>
+  </div>
+</div>
+<div id="sessions-backdrop" class="sessions-backdrop" style="display:none;" onclick="toggleSessionsPanel()"></div>
+
 <script src="scripts/api.js"></script>
 <script src="scripts/input-bar.js"></script>
 <script src="scripts/theme-and-timestamp.js"></script>
 <script src="scripts/message-handler.js"></script>
+<script src="scripts/sessions.js"></script>
 <script src="index.js"></script>
 </body>
 </html>

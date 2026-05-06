@@ -1,0 +1,26 @@
+Context Window Support — Follow-up Work
+=========================================
+
+1. PAIR-AWARE DROPPING
+   Currently messages are dropped individually. A robust version drops complete
+   conversation turns (assistant + its following tool-result) as a unit so we
+   never produce partial exchanges even under extreme pressure.
+
+2. APPLY TO runAnthropicLoop
+   The Anthropic loop has the same count-based MAX_HISTORY trimming. Anthropic's
+   API is more forgiving at 200 k, but at high usage it can still drift.
+   Apply trimByTokens + dropOrphanedToolResults there as well.
+
+3. LOG WHEN TRIMMING FIRES
+   Add a logger.info call inside trimByTokens whenever messages are actually
+   dropped. Helps diagnose context issues in production without guessing.
+
+4. CTX_MIN_MESSAGES SHOULD RESPECT TOOL PAIRS
+   The current minimum of 4 is a plain message count. It should be rounded up
+   to an even number since assistant + tool-result pairs always come in twos.
+   Odd minimums can leave a half-pair at the floor.
+
+5. UI CONTEXT PRESSURE NOTIFICATION (see notes below)
+   Emit SSE events at two thresholds so the user can act before silent trimming:
+   - Warning (60 %): banner appears with options (Summarize / Clear / Dismiss)
+   - Trim (75 %): notification that older messages were dropped
