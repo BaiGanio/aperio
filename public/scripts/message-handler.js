@@ -267,6 +267,14 @@ function handleMessage(msg) {
     }
   }
 
+  if (msg.type === "suggestions_saved") {
+    const note = document.createElement("div");
+    note.className = "suggestions-saved-note";
+    note.textContent = `✓ ${msg.saved} suggestion${msg.saved !== 1 ? "s" : ""} saved to memory`;
+    document.querySelector(".chat-area")?.appendChild(note);
+    setTimeout(() => note.remove(), 3000);
+  }
+
   if (msg.type === "session_resumed") {
     handleSessionResumed(msg);
   }
@@ -368,7 +376,7 @@ function finalizeStreamingBubble(ref, fullText) {
     suggestionShown = true;
     const [before, after] = fullText.split("🧠 **Memory suggestions**");
     ref.bubble.innerHTML = renderMarkdown(before.trim());
-    // ref.bubble.appendChild(parseSuggestionBlock(after));
+    ref.bubble.appendChild(parseSuggestionBlock(after));
   } else {
     ref.bubble.innerHTML = renderMarkdown(fullText);
   }

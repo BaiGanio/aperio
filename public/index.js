@@ -136,11 +136,16 @@ function parseSuggestionBlock(text) {
 }
 
 function sendSuggestionResponse(mode, nums) {
-  if (!ws) return;
-  const text = mode === "none" ? "none" : nums.join(" ");
-  addMessage("user", mode === "none" ? "Skip — don't save" : `Save suggestions: ${nums.join(", ")}`);
-  ws.send(JSON.stringify({ type: "chat", text: `Please save memory suggestions: ${text}` }));
+  const lines = pendingSuggestion?.lines ?? [];
   pendingSuggestion = null;
+  document.querySelector(".memory-suggestion")?.remove();
+  if (mode === "none") return;
+  const items = nums
+    .map(n => lines[n - 1])
+    .filter(Boolean)
+    .map(l => ({ text: l.replace(/^\d+\.\s*/, "").trim() }));
+  if (!items.length) return;
+  safeSend(JSON.stringify({ type: "save_suggestions", items }));
 }
 
 function addThinking() {

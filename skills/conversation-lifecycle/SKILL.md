@@ -3,6 +3,9 @@ name: conversation-lifecycle
 
 description: >
   This skill defines what to do at the start and end of every conversation. Load it alongside `memory-protocol/SKILL.md`.
+
+metadata:
+  load: always
 ---
 
 ## At the START of every conversation
@@ -35,12 +38,10 @@ Before the conversation closes, review what was discussed. Identify anything wor
 If you found something worth storing, end your final message with exactly this block:
 
 ---
-🧠 **Memory suggestions** — should I remember any of these?
+🧠 **Memory suggestions**
 
 1. [type] **Title** — one-line summary
 2. [type] **Title** — one-line summary
-
-Reply with the numbers you want saved, or "none".
 
 ---
 
