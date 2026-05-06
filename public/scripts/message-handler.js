@@ -34,6 +34,8 @@ let streamingText = "";
 let streamStartTime = null;
 let isReasoningActive = false; // true while model is inside <think> / reasoning phase
 let suggestionShown = false;
+let accThinkingTokens = 0;
+let accOutputTokens = 0;
 
 function handleMessage(msg) {
   if (msg.type === "status") {
@@ -257,12 +259,15 @@ function handleMessage(msg) {
   if (msg.type === "stream_end") {
     const elapsedSec = streamStartTime ? (Date.now() - streamStartTime) / 1000 : null;
     streamStartTime = null;
+    accThinkingTokens += msg.usage?.thinking_tokens ?? 0;
+    accOutputTokens += msg.usage?.output_tokens ?? 0;
     const responseStats = (elapsedSec && msg.usage?.output_tokens)
-      ? { outputTokens: msg.usage.output_tokens, thinkingTokens: msg.usage.thinking_tokens ?? 0, elapsedSec }
+      ? { outputTokens: accOutputTokens, thinkingTokens: accThinkingTokens, elapsedSec }
       : null;
     if (streamingBubble && streamingText.trim()) {
       // Tokens were streamed — finalize the existing bubble, ignore msg.text entirely
       finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
+      accThinkingTokens = 0; accOutputTokens = 0;
     } else if (streamingBubble) {
       streamingBubble.wrap?.remove();
     } else if (!streamingText && msg.text?.trim()) {
@@ -270,6 +275,7 @@ function handleMessage(msg) {
       removeThinking();
       removeToolIndicator();
       addMessage("ai", msg.text);
+      accThinkingTokens = 0; accOutputTokens = 0;
     }
     document.getElementById("preparing-answer")?.remove();
     streamingBubble = null;
@@ -441,9 +447,9 @@ function finalizeStreamingBubble(ref, fullText, stats) {
     badge.className = "msg-stats";
     let label;
     if (stats.thinkingTokens > 0) {
-      label = `${stats.outputTokens} tok total -> ${answerTok} response · +${stats.thinkingTokens} thinking · ${tokPerSec} tok/s · ${secLabel}`;
+      label = `${stats.outputTokens} 🪙 total tokens → ${answerTok} response · +${stats.thinkingTokens} thinking · speed: ${tokPerSec} tok/s · completed: ${secLabel}`;
     } else {
-      label = `${answerTok} tok · ${tokPerSec} tok/s · ${secLabel}`;
+      label = `${answerTok} 🪙 tokens · speed: ${tokPerSec} tok/s · completed: ${secLabel}`;
     }
     badge.textContent = label;
     col.appendChild(badge);
