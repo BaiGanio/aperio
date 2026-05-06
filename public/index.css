@@ -1216,24 +1216,47 @@
   overflow: hidden;
   transition: border-color var(--transition);
 }
-.session-card:hover { border-color: var(--accent); }
-.session-card-header {
-  padding: 10px 12px 8px;
+.session-card:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+.session-card--open { border-color: var(--accent); }
+
+/* Title row — always visible, acts as the toggle */
+.session-card-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition);
 }
+.session-card-title-row:hover { background: var(--bg-hover); }
 .session-card-title {
+  flex: 1;
   font-size: 13px;
   font-weight: 600;
   color: var(--text);
-  margin-bottom: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.session-card-chevron {
+  font-size: 11px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: transform .15s ease;
+}
+
+/* Details — hidden until card is opened */
+.session-card-details {
+  display: none;
+  border-top: 1px solid var(--border);
+  padding: 8px 12px 10px;
 }
 .session-card-meta {
   font-family: var(--font-mono);
   font-size: 10px;
   color: var(--text-muted);
-  margin-bottom: 5px;
+  margin-bottom: 6px;
 }
 .session-card-stats {
   display: flex;
@@ -1242,6 +1265,7 @@
   font-size: 10px;
   color: var(--text-muted);
   align-items: center;
+  margin-bottom: 8px;
 }
 .session-card-model {
   margin-left: auto;
@@ -1259,7 +1283,7 @@
 .session-card-actions {
   display: flex;
   gap: 6px;
-  padding: 0 10px 10px;
+  margin-bottom: 2px;
 }
 .session-btn {
   flex: 1;
@@ -1286,10 +1310,13 @@
 }
 .session-btn--resume:hover { opacity: 0.85; color: #fff; }
 .session-card-body {
+  display: none;
+  margin-top: 8px;
   border-top: 1px solid var(--border);
-  padding: 10px 12px;
+  padding-top: 8px;
   background: var(--bg-hover);
-  display: flex;
+  border-radius: var(--radius-sm);
+  padding: 8px;
   flex-direction: column;
   gap: 10px;
 }
