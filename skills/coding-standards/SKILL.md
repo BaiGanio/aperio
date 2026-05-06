@@ -43,6 +43,15 @@ metadata:
 - Imports at the top, grouped: standard library → external → internal.
 - Split files when they grow large — one responsibility per file.
 
+### Surgical File Editing
+- **Never rewrite a file wholesale to fix a small problem.** Large files rewritten from memory accumulate transcription errors — each rewrite risks introducing new bugs.
+- Before editing any file, **read the current state on disk first** (`view` or `cat`), then identify exactly which lines are wrong.
+- Apply the smallest possible diff: change only the lines that are broken. Leave everything else untouched.
+- If multiple isolated fixes are needed, make them one at a time with targeted replacements — not a full-file overwrite.
+- When a file exceeds ~100 lines, treat a full rewrite as a last resort. The default is always: locate the error, patch the error, verify the patch.
+
+> "Rewriting a large file from memory to fix one bug is how one bug becomes ten."
+
 ### Deviation Policy
 If the user's existing codebase uses different conventions, match their style and note it:
 > "Matched your existing `snake_case` convention for consistency with surrounding code."
