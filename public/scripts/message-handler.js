@@ -1,3 +1,31 @@
+// ── Context banner ───────────────────────────────────────────
+let ctxBannerEl = null;
+
+function showContextBanner(pct, mode) {
+  if (ctxBannerEl) return;
+  const banner = document.createElement("div");
+  banner.className = "ctx-banner" + (mode === "trimmed" ? " ctx-banner--trimmed" : "");
+  const msg = mode === "trimmed"
+    ? `Older messages were dropped to fit context (${pct}% full).`
+    : `Context is ${pct}% full — older messages will be dropped soon.`;
+  banner.innerHTML =
+    `<span class="ctx-banner-text">${msg}</span>` +
+    `<button class="ctx-banner-btn ctx-banner-btn--primary" onclick="sendSummarize()">Summarize</button>` +
+    `<button class="ctx-banner-btn" onclick="dismissContextBanner()">Dismiss</button>`;
+  document.querySelector(".chat-area")?.prepend(banner);
+  ctxBannerEl = banner;
+}
+
+function dismissContextBanner() {
+  ctxBannerEl?.remove();
+  ctxBannerEl = null;
+}
+
+function sendSummarize() {
+  dismissContextBanner();
+  safeSend(JSON.stringify({ type: "summarize" }));
+}
+
 // ── Message handler ──────────────────────────────────────────
 let reasoningBubble = null;
 let reasoningText = "";
@@ -214,6 +242,33 @@ function handleMessage(msg) {
     if (msg.usage) {
       updateContextBar(msg.usage.input_tokens ?? 0, maxCtx);
     }
+  }
+
+  if (msg.type === "context_warning") {
+    showContextBanner(msg.pct, "warning");
+  }
+
+  if (msg.type === "context_trimmed") {
+    showContextBanner(msg.pct, "trimmed");
+  }
+
+  if (msg.type === "context_summarized") {
+    dismissContextBanner();
+    if (!msg.ok) {
+      addMessage("ai", `⚠ Could not summarize: ${msg.reason}`);
+    } else if (!msg.saved) {
+      // Summary streamed fine but memory write failed — warn without another full message
+      const note = document.createElement("div");
+      note.className = "ctx-banner ctx-banner--trimmed";
+      note.style.cssText = "font-size:10px;opacity:0.75;";
+      note.innerHTML = `<span class="ctx-banner-text">Summary generated but could not be saved to memory — it will be lost on refresh.</span>` +
+        `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">Dismiss</button>`;
+      document.querySelector(".chat-area")?.prepend(note);
+    }
+  }
+
+  if (msg.type === "session_resumed") {
+    handleSessionResumed(msg);
   }
 
   if (msg.type === "memories") {
