@@ -1565,3 +1565,12 @@
       cursor: default;
       opacity: 0.5;
     }
+
+/* ── Fix: scrollable summary content ──────────────────────────── */
+.session-card-body:not([style*="none"]) {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.session-card-body::-webkit-scrollbar { width: 4px; }
+.session-card-body::-webkit-scrollbar-track { background: transparent; }
+.session-card-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
