@@ -1,0 +1,51 @@
+{
+  "name": "Aperio",
+  "version": "0.48.4",
+  "description": "Personal AI memory layer — Postgres + MCP + Claude",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "mcp": "node mcp/index.js",
+    "start": "node server.js",
+    "start:cloud": "PORT=3000 node server.js",
+    "start:local": "AI_PROVIDER=ollama PORT=31337 node server.js",
+    "start:lite": "AI_PROVIDER=ollama PORT=31337 DB_BACKEND=lancedb EMBEDDING_PROVIDER=transformers node server.js",
+    "chat": "node lib/chat.js",
+    "chat:cloud": "PORT=3000 node lib/terminal.js",
+    "chat:local": "AI_PROVIDER=ollama PORT=31338 node lib/terminal.js",
+    "test:skills": "NODE_ENV=test node --test tests/skills/skills.test.js",
+    "test:execution": "NODE_ENV=test node --test tests/skills/execution.test.js",
+    "test:store": "NODE_ENV=test node --test tests/store/store.test.js",
+    "test:backfill": "NODE_ENV=test node --test tests/store/backfill.test.js",
+    "test:memory": "NODE_ENV=test node --test tests/tools/memory.test.js",
+    "test:only": "NODE_ENV=test node --test --test-name-pattern",
+    "test": "NODE_ENV=test node --test 'tests/**/*.test.js'",
+    "test:ci": "NODE_ENV=test c8 node --test 'tests/**/*.test.js'",
+    "coverage": "c8 report --reporter=lcov --reporter=text"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.1",
+    "@huggingface/transformers": "^3.3.0",
+    "@lancedb/lancedb": "^0.27.2",
+    "@modelcontextprotocol/sdk": "^1.28.0",
+    "adm-zip": "^0.5.17",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "fast-xml-parser": "^5.7.2",
+    "gpt-tokenizer": "^3.4.0",
+    "mammoth": "^1.12.0",
+    "ollama": "^0.6.3",
+    "open": "^11.0.0",
+    "pdfjs-dist": "^5.6.205",
+    "pg": "^8.20.0",
+    "sanitize-html": "^2.17.3",
+    "sharp": "^0.34.5",
+    "uuid": "^14.0.0",
+    "winston": "^3.19.0",
+    "ws": "^8.20.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "c8": "^11.0.0"
+  }
+}
