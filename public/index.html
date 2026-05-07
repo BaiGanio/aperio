@@ -42,20 +42,20 @@
         text-transform:uppercase; display:none;
       "></span>
     </div>
-    <button id="reasoningToggle" onclick="toggleReasoning()"
-      style="height:28px;padding:0 10px;border-radius:var(--radius-sm);border:1px solid var(--accent);
-             background:var(--bg-hover);color:var(--accent);cursor:pointer;
-             font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.06em;
-             display:none;align-items:center;gap:5px;flex-shrink:0;transition:all var(--transition);">
-      🧠 <span id="reasoningToggleLabel">reasoning on</span>
-    </button>
-    <button id="historyBtn" onclick="toggleSessionsPanel()" title="Conversation history"
-      style="height:28px;padding:0 10px;border-radius:var(--radius-sm);border:1px solid var(--border);
-             background:var(--bg-hover);color:var(--text-muted);cursor:pointer;
-             font-family:var(--font-mono);font-size:10px;font-weight:600;letter-spacing:0.06em;
-             display:flex;align-items:center;gap:5px;flex-shrink:0;transition:all var(--transition);">
-      <i class="bi bi-clock-history"></i> History
-    </button>
+    <div class="nav-actions-pill">
+      <button id="reasoningToggle" class="nav-action-btn" onclick="toggleReasoning()"
+        title="Enable reasoning" style="display:none;">
+        🧠 <span id="reasoningToggleLabel">on</span>
+      </button>
+      <button id="historyBtn" class="nav-action-btn nav-action-btn--text" onclick="toggleSessionsPanel()"
+        title="Conversation history">
+        💬 chats
+      </button>
+      <button id="pathsBtn" class="nav-action-btn nav-action-btn--text" onclick="openPathsPanel()"
+        title="Allowed paths">
+        📂 paths
+      </button>
+    </div>
     <div class="ctx-window" id="ctxWindow">
       <div class="ctx-header">
         <span class="ctx-label">context</span>
@@ -143,7 +143,7 @@
         </button>
         <button class="stop-btn" id="stopBtn" title="Stop generating">■</button>
       </div>
-      <div class="input-hint" id="inputHint">⌘↵ to send &nbsp;·&nbsp; Shift↵ for newline</div>
+      <div class="input-hint" id="inputHint">⌘ + ↵ to send &nbsp;·&nbsp; ↵ for newline</div>
       <div class="input-warning" id="inputWarning">Your AI agent is not almighty. Do not trust the output blindly!</div>
     </div>
   </div>
@@ -180,11 +180,62 @@
 </div>
 <div id="sessions-backdrop" class="sessions-backdrop" style="display:none;" onclick="toggleSessionsPanel()"></div>
 
+<!-- Paths configuration modal -->
+<div id="paths-modal" class="paths-modal" style="display:none;">
+  <div class="paths-modal-content">
+    <div class="paths-modal-header">
+      <span class="paths-modal-title"><i class="bi bi-folder2-open"></i> Allowed Paths</span>
+      <button class="paths-modal-close" onclick="closePathsPanel()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="paths-modal-body">
+      <div class="paths-section">
+        <div class="paths-section-hd">
+          <span class="paths-section-label">Read Paths</span>
+          <span class="paths-section-hint">Folders the AI can read files from</span>
+        </div>
+        <div class="paths-chips" id="read-paths-chips"></div>
+        <div class="paths-add-row">
+          <input type="text" id="read-path-input" class="paths-text-input" placeholder="/Users/you/your-project" />
+          <button class="paths-pick-btn" onclick="_pickFolder('read')" title="Browse for folder (opens Finder)">
+            <i class="bi bi-folder2-open"></i>
+          </button>
+          <button class="paths-add-btn" onclick="addPathChip('read')"><i class="bi bi-plus-lg"></i></button>
+        </div>
+      </div>
+      <div class="paths-section">
+        <div class="paths-section-hd">
+          <span class="paths-section-label">Write Paths</span>
+          <span class="paths-section-hint">Folders the AI can write files to</span>
+        </div>
+        <div class="paths-chips" id="write-paths-chips"></div>
+        <div class="paths-add-row">
+          <input type="text" id="write-path-input" class="paths-text-input" placeholder="/Users/you/your-project" />
+          <button class="paths-pick-btn" onclick="_pickFolder('write')" title="Browse for folder (opens Finder)">
+            <i class="bi bi-folder2-open"></i>
+          </button>
+          <button class="paths-add-btn" onclick="addPathChip('write')"><i class="bi bi-plus-lg"></i></button>
+        </div>
+      </div>
+      <div class="paths-session-note">
+        <i class="bi bi-info-circle"></i> Changes apply to this session only — not saved to disk.
+      </div>
+    </div>
+    <div class="paths-modal-footer">
+      <button class="paths-cancel-btn" onclick="closePathsPanel()">Cancel</button>
+      <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> Apply</button>
+    </div>
+  </div>
+</div>
+<!-- Hidden folder inputs for browser fallback picker -->
+<input type="file" id="read-folder-input" webkitdirectory hidden>
+<input type="file" id="write-folder-input" webkitdirectory hidden>
+
 <script src="scripts/api.js"></script>
 <script src="scripts/input-bar.js"></script>
 <script src="scripts/theme-and-timestamp.js"></script>
 <script src="scripts/message-handler.js"></script>
 <script src="scripts/sessions.js"></script>
+<script src="scripts/paths-panel.js"></script>
 <script src="index.js"></script>
 </body>
 </html>
