@@ -31,7 +31,7 @@ async function createContext(store, opts) {
 
   return {
     store,
-    generateEmbedding,
+    generateEmbedding: (text, inputType) => vectorEnabled ? generateEmbedding(text, inputType) : null,
     vectorEnabled: () => vectorEnabled,
   };
 }

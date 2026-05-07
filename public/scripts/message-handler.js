@@ -1,5 +1,7 @@
 // ── Context banner ───────────────────────────────────────────
 let ctxBannerEl = null;
+let _preloadSkills = [];
+let _preloadToolCount = 0;
 
 function showContextBanner(pct, mode) {
   if (ctxBannerEl) return;
@@ -36,6 +38,18 @@ let isReasoningActive = false; // true while model is inside <think> / reasoning
 let suggestionShown = false;
 let accThinkingTokens = 0;
 let accOutputTokens = 0;
+let lastUserMsgWrap = null;
+let lastReasoningWrapForTok = null;
+let prevInputTokens = 0;
+let startupBannerShown = false;
+let pendingUserTokenEstimate = 0;
+
+function estimateTokens(text) {
+  if (!text || !text.trim()) return 0;
+  return Math.max(1, Math.ceil(text.trim().length / 4));
+}
+
+function setUserTokenEstimate(n) { pendingUserTokenEstimate = n; }
 
 function handleMessage(msg) {
   if (msg.type === "status") {
@@ -70,6 +84,20 @@ function handleMessage(msg) {
     if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
 
     if (msg.contextWindow) maxCtx = msg.contextWindow;
+    if (Array.isArray(msg.skills)) _preloadSkills = msg.skills;
+    if (msg.toolCount) _preloadToolCount = msg.toolCount;
+  }
+
+  if (msg.type === "session_created") {
+    if (typeof setCurrentSessionId === "function") setCurrentSessionId(msg.id);
+  }
+
+  if (msg.type === "paths_restored") {
+    const note = document.createElement("div");
+    note.className = "suggestions-saved-note";
+    note.innerHTML = `<i class="bi bi-folder-check"></i> Paths restored from previous session`;
+    document.getElementById("messages")?.appendChild(note);
+    setTimeout(() => note.remove(), 4000);
   }
 
   if (msg.type === "thinking") {
@@ -165,10 +193,12 @@ function handleMessage(msg) {
         reasoningBubble.statusSpan.style.animation = "none";
         reasoningBubble.statusSpan.style.opacity = "0.4";
       }
+      lastReasoningWrapForTok = reasoningBubble.wrap;
       reasoningBubble = null;
     }
     // Fallback: collapse any unclosed reasoning bubble still in DOM
     const lastWrap = [...messagesEl.querySelectorAll(".reasoning-wrap")].at(-1);
+    if (!lastReasoningWrapForTok) lastReasoningWrapForTok = lastWrap || null;
     if (lastWrap) {
       const details = lastWrap.querySelector("details");
       const span = lastWrap.querySelector(".reasoning-bubble summary span");
@@ -267,6 +297,8 @@ function handleMessage(msg) {
     if (streamingBubble && streamingText.trim()) {
       // Tokens were streamed — finalize the existing bubble, ignore msg.text entirely
       finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
+      _maybeShowStartupBanner(msg.usage?.input_tokens);
+      _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
     } else if (streamingBubble) {
       streamingBubble.wrap?.remove();
@@ -275,6 +307,8 @@ function handleMessage(msg) {
       removeThinking();
       removeToolIndicator();
       addMessage("ai", msg.text);
+      _maybeShowStartupBanner(msg.usage?.input_tokens);
+      _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
     }
     document.getElementById("preparing-answer")?.remove();
@@ -286,9 +320,8 @@ function handleMessage(msg) {
     sendBtn.style.display = "";
     stopBtn.style.display = "none";
     scrollToBottom();
-    // ✅ ADD THIS — update context bar when response is complete
     if (msg.usage) {
-      updateContextBar(msg.usage.input_tokens ?? 0, maxCtx);
+      updateContextBar(msg.usage.input_tokens ?? 0, maxCtx, msg.usage.output_tokens ?? 0);
     }
   }
 
@@ -447,9 +480,9 @@ function finalizeStreamingBubble(ref, fullText, stats) {
     badge.className = "msg-stats";
     let label;
     if (stats.thinkingTokens > 0) {
-      label = `${stats.outputTokens} 🪙 total tokens → ${answerTok} response · +${stats.thinkingTokens} thinking · speed: ${tokPerSec} tok/s · completed: ${secLabel}`;
+      label = `🪙 ${stats.outputTokens} total tokens → ✍️ ${answerTok} response · 🧠 +${stats.thinkingTokens} thinking · 🚙 speed: ${tokPerSec} tok/s · ⏱️ completed: ${secLabel}`;
     } else {
-      label = `${answerTok} 🪙 tokens · speed: ${tokPerSec} tok/s · completed: ${secLabel}`;
+      label = `🪙 ${answerTok} tokens · 🚙 speed: ${tokPerSec} tok/s · ⏱️ completed: ${secLabel}`;
     }
     badge.textContent = label;
     col.appendChild(badge);
@@ -506,6 +539,16 @@ function addMessage(role, text, attachments) {
   wrap.appendChild(avatar);
   wrap.appendChild(bubble);
   messagesEl.appendChild(wrap);
+  if (role === "user") {
+    lastUserMsgWrap = wrap;
+    if (text.trim()) {
+      const est = estimateTokens(text);
+      const chip = document.createElement("div");
+      chip.className = "msg-stats msg-stats--user";
+      chip.textContent = `↑ ~${est.toLocaleString()} tokens`;
+      wrap.after(chip);
+    }
+  }
   scrollToBottom();
 }
 
@@ -834,6 +877,38 @@ function copyCode(id) {
   });
 }
 
+function _maybeShowStartupBanner(inputTok) {
+  if (startupBannerShown) return;
+  startupBannerShown = true;
+  const memCount = Array.isArray(allMemories) ? allMemories.length : 0;
+  if (memCount === 0 && !_preloadSkills.length && !_preloadToolCount) return;
+  const parts = [];
+  if (inputTok) parts.push(`${inputTok.toLocaleString()} tokens preloaded from`);
+  if (memCount) parts.push(`${memCount} memor${memCount === 1 ? 'y' : 'ies'}`);
+  if (_preloadSkills.length) parts.push(`${_preloadSkills.length} skill${_preloadSkills.length !== 1 ? 's' : ''}`);
+  if (_preloadToolCount) parts.push(`${_preloadToolCount} tools`);
+  const banner = document.createElement("div");
+  banner.className = "ctx-banner ctx-banner--memories";
+  banner.innerHTML =
+    `<span class="ctx-banner-text">${parts.join(' · ')}</span>` +
+    `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">Dismiss</button>`;
+  document.querySelector(".chat-area")?.prepend(banner);
+}
+
+function _annotateTokenBadges(inputTok, thinkTok) {
+  lastUserMsgWrap = null;
+  if (inputTok) prevInputTokens = inputTok;
+  if (lastReasoningWrapForTok && thinkTok > 0) {
+    const tok = document.createElement("span");
+    tok.className = "reasoning-tok";
+    tok.textContent = `🧠 +${thinkTok.toLocaleString()}`;
+    const flatLabel = lastReasoningWrapForTok.querySelector(".reasoning-flat-label");
+    const summary   = lastReasoningWrapForTok.querySelector("summary");
+    (flatLabel || summary)?.appendChild(tok);
+    lastReasoningWrapForTok = null;
+  }
+}
+
 function toggleReasoning() {
   const cur = localStorage.getItem("aperio-reasoning") !== "false";
   localStorage.setItem("aperio-reasoning", cur ? "false" : "true");
@@ -841,15 +916,14 @@ function toggleReasoning() {
 }
 
 function updateReasoningBtn() {
-  const on = localStorage.getItem("aperio-reasoning") !== "false";
+  const on  = localStorage.getItem("aperio-reasoning") !== "false";
   const btn = document.getElementById("reasoningToggle");
   const lbl = document.getElementById("reasoningToggleLabel");
   if (!btn) return;
-  btn.style.borderColor = on ? "var(--accent)" : "var(--border)";
-  btn.style.color       = on ? "var(--accent)" : "var(--text-muted)";
-  btn.style.opacity     = on ? "1" : "0.5";
-  if (lbl) lbl.textContent = on ? "reasoning on" : "reasoning off";
-  btn.title = on ? "Click to hide reasoning" : "Click to show reasoning";
+  btn.style.color   = on ? "var(--text)"       : "var(--text-muted)";
+  btn.style.opacity = on ? "1"                 : "0.45";
+  if (lbl) lbl.textContent = on ? "on" : "off";
+  btn.title = on ? "Disable reasoning" : "Enable reasoning";
 }
 
 window.addEventListener("DOMContentLoaded", updateReasoningBtn);

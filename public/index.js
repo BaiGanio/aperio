@@ -173,7 +173,7 @@ function removeThinking() {
   document.querySelector(".input-bar")?.classList.remove("input-locked");
   document.getElementById("preparing-answer")?.remove();
   const inputHint = document.getElementById("inputHint");
-  if (inputHint) inputHint.innerHTML = `${cmdKey}↵ to send &nbsp;·&nbsp; Shift↵ for newline`;
+  if (inputHint) inputHint.innerHTML = `${cmdKey} + ↵ to send &nbsp;·&nbsp; ↵ for newline`;
 }
 
 let toolEl = null;
@@ -827,23 +827,30 @@ document.addEventListener('DOMContentLoaded', checkDatabaseBackend);
 connect();
 
 
-function updateContextBar(used, max) {
+let _ctxHWM = 0; // high-water mark — only advances, never drops
+
+function updateContextBar(used, max, outputTok = 0) {
   const text = document.getElementById("ctxText");
   const fill = document.getElementById("ctxFill");
   if (!text || !fill) return;
 
+  // Take the higher of the API's reported input_tokens vs our running total,
+  // then always add output_tokens — those tokens are now in context for the next call.
+  _ctxHWM = Math.max(_ctxHWM, used) + outputTok;
+  const display = _ctxHWM;
+
   if (!max || max <= 0) {
-    text.textContent = `${used.toLocaleString()} / —`;
+    text.textContent = `${display.toLocaleString()} / —`;
     fill.style.width = "0%";
     return;
   }
 
-  const pct = Math.min(100, (used / max) * 100);
+  const pct = Math.min(100, (display / max) * 100);
   const roundedPct = Math.round(pct);
-  text.textContent = `${used.toLocaleString()} / ${max.toLocaleString()}`;
+  text.textContent = `${display.toLocaleString()} / ${max.toLocaleString()}`;
   fill.style.width = `${pct}%`;
 
-  // Keep the context banner in sync while a conversation is active
+  // Keep the context pressure banner in sync
   if (typeof ctxBannerEl !== "undefined" && ctxBannerEl) {
     const textEl = ctxBannerEl.querySelector(".ctx-banner-text");
     if (textEl) {
