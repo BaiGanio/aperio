@@ -25,6 +25,8 @@ const TRANSLATIONS = {
     nav_setup:        "Setup",
     nav_aperio_lite:  "Aperio-lite",
     nav_github:       "GitHub",
+    nav_theme:        "Theme",
+    nav_language:     "Language",
 
     /* ── Hero ──────────────────────────────────── */
     hero_eyebrow:     "Open Source · Self-Hosted · Privacy-First · Local by Default",
@@ -236,6 +238,8 @@ const TRANSLATIONS = {
     nav_setup:        "Инсталация",
     nav_aperio_lite:  "Aperio-lite",
     nav_github:       "GitHub",
+    nav_theme:        "Тема",
+    nav_language:     "Език",
 
     /* ── Hero ──────────────────────────────────── */
     hero_eyebrow:     "Отворен код · Самостоятелен · Поверителност · Локален по подразбиране",
@@ -476,16 +480,28 @@ function setLang(lang) {
   localStorage.setItem(I18N_STORAGE_KEY, lang);
   applyTranslations();
   // Update active state on switcher buttons
-  document.querySelectorAll('.lang-btn').forEach(btn => {
+  document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === lang);
   });
+  // Update dropdown toggle (if present)
+  const langToggle = document.getElementById('langDropdown');
+  if (langToggle) {
+    const sel = document.querySelector(`.lang-btn[data-lang="${lang}"]`);
+    if (sel) langToggle.innerHTML = sel.innerHTML;
+  }
 }
 
 // Run once the DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
   applyTranslations();
-  document.querySelectorAll('.lang-btn').forEach(btn => {
+  document.querySelectorAll('.lang-btn[data-lang]').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === currentLang);
     btn.addEventListener('click', () => setLang(btn.dataset.lang));
   });
+  // Initialize dropdown toggle label if present
+  const langToggle = document.getElementById('langDropdown');
+  if (langToggle) {
+    const sel = document.querySelector(`.lang-btn[data-lang="${currentLang}"]`);
+    if (sel) langToggle.innerHTML = sel.innerHTML;
+  }
 });

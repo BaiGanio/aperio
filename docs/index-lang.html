@@ -27,10 +27,12 @@
 
   <!-- Preconnect -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 
   <!-- Fonts & Styles -->
-  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Sofia+Sans:ital,wght@0,1..1000;1,1..1000&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="styles-lang.css" />
@@ -61,15 +63,16 @@
 <nav class="aperio-nav">
   <div class="nav-inner">
 
-    <!-- LEFT: lang switcher — fixed 1fr, anchors left edge -->
-    <div class="nav-left">
-      <div class="lang-switcher" id="langSwitcher">
-        <button class="lang-btn active" data-lang="en" title="English">
+    <!-- LEFT: lang switcher — fixed 1fr, anchors left edge (desktop-only) -->
+    <div class="nav-left d-none d-xl-flex">
+      <div class="dropdown-switcher dropdown d-none d-xl-flex" id="langSwitcher">
+        <button class="dropdown-toggle" id="langDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="Language">
           <span class="flag">🇬🇧</span> EN
         </button>
-        <button class="lang-btn" data-lang="bg" title="Български">
-          <span class="flag">🇧🇬</span> BG
-        </button>
+        <ul class="dropdown-menu" aria-labelledby="langDropdown">
+          <li><button class="dropdown-item lang-btn" data-lang="en" type="button"><span class="flag">🇬🇧</span> EN</button></li>
+          <li><button class="dropdown-item lang-btn" data-lang="bg" type="button"><span class="flag">🇧🇬</span> BG</button></li>
+        </ul>
       </div>
     </div>
 
@@ -80,6 +83,31 @@
         <span class="brand-name">Aperio</span>
       </a>
       <ul class="nav-links" id="navLinks">
+        <!-- Mobile-only language & theme entries (collapsible dropdowns inside hamburger menu) -->
+        <li class="d-xl-none d-flex justify-content-between w-100">
+          <div class="mobile-dropdown" style="padding:8px 18px;">
+            <button class="mobile-dropdown-toggle no-close" type="button" aria-expanded="false">
+              <span class="mobile-section-label" style="font-weight:600" data-i18n="nav_language">Language</span>
+              <i class="bi bi-chevron-down ms-2" aria-hidden="true"></i>
+            </button>
+            <ul class="mobile-submenu" hidden>
+              <li><button class="dropdown-item lang-btn" data-lang="en" type="button">🇬🇧 English</button></li>
+              <li><button class="dropdown-item lang-btn" data-lang="bg" type="button">🇧🇬 Български</button></li>
+            </ul>
+          </div>
+          <div class="mobile-dropdown" style="padding:8px 18px;">
+            <button class="mobile-dropdown-toggle no-close" type="button" aria-expanded="false">
+              <span class="mobile-section-label" style="font-weight:600" data-i18n="nav_theme">Theme</span>
+              <i class="bi bi-chevron-down ms-2" aria-hidden="true"></i>
+            </button>
+            <ul class="mobile-submenu" hidden>
+              <li><button class="dropdown-item lh-1" data-theme-choice="dark" type="button">🌙 Dark</button></li>
+              <li><button class="dropdown-item lh-1" data-theme-choice="light" type="button">☀️ Light</button></li>
+              <li><button class="dropdown-item lh-1" data-theme-choice="aurora" type="button">✨ Aurora</button></li>
+              <li><button class="dropdown-item lh-1" data-theme-choice="system" type="button">📀 System</button></li>
+            </ul>
+          </div>
+        </li>
         <li><a href="#features"     data-i18n="nav_features">Features</a></li>
         <li><a href="#architecture" data-i18n="nav_stack">Stack</a></li>
         <li><a href="#tools"        data-i18n="nav_tools">Tools</a></li>
@@ -91,20 +119,23 @@
       </ul>
     </div>
 
-    <!-- RIGHT: theme + github — fixed 1fr, anchors right edge -->
-    <div class="nav-right">
-      <div class="theme-switcher" id="themeSwitcher">
-        <button class="theme-btn active" data-theme="dark"   title="Dark">🌙</button>
-        <button class="theme-btn"        data-theme="light"  title="Light">☀️</button>
-        <button class="theme-btn"        data-theme="aurora" title="Aurora">✦</button>
-        <button class="theme-btn"        data-theme="system" title="System">⊙</button>
+    <!-- RIGHT: theme (desktop-only) -->
+    <div class="nav-right d-none d-xl-flex">
+      <div class="dropdown-switcher dropdown d-none d-xl-flex" id="themeSwitcher">
+        <button class="dropdown-toggle" id="themeDropdown" data-bs-toggle="dropdown" aria-expanded="false" title="">🌙</button>
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="themeDropdown">
+          <li><button class="dropdown-item" data-theme-choice="dark" type="button">🌙 Dark</button></li>
+          <li><button class="dropdown-item" data-theme-choice="light" type="button">☀️ Light</button></li>
+          <li><button class="dropdown-item" data-theme-choice="aurora" type="button">✨ Aurora</button></li>
+          <li><button class="dropdown-item" data-theme-choice="system" type="button">📀 System</button></li>
+        </ul>
       </div>
     </div>
 
-    <!-- mobile toggle sits outside the grid -->
-    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
-
   </div>
+  <!-- mobile toggle sits outside the grid -->
+  <button class="nav-toggle d-xl-none" id="navToggle"><i class="bi bi-list"></i></button>
+
 </nav>
 
 <!-- ── Hero ───────────────────────────────────────────────────── -->
@@ -342,7 +373,7 @@
 
     <div class="arch-card reveal" style="margin-top:48px;text-align:left">
       <div class="arch-header"><i class="bi bi-people me-1"></i> team setup — 2 changes only</div>
-      <div style="padding:28px 32px;display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+      <div style="padding:28px 32px;display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:32px;">
         <div>
           <div class="arch-section-label">1. Update prompts/system_prompt.md</div>
           <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:9px;padding:14px 16px;font-family:var(--font-mono);font-size:11.5px;color:var(--subtle);line-height:1.8;margin-top:10px;">
@@ -679,7 +710,7 @@
     </div>
 
     <!-- 3-column instruction cards -->
-    <div class="steps-grid" style="grid-template-columns:repeat(3,1fr)">
+    <div class="steps-grid">
 
       <!-- Easy option -->
       <div class="step-card reveal">
