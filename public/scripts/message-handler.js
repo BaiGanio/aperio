@@ -481,9 +481,9 @@ function finalizeStreamingBubble(ref, fullText, stats) {
     badge.className = "msg-stats";
     let label;
     if (stats.thinkingTokens > 0) {
-      label = `🪙 ${stats.outputTokens} total tokens → ✍️ ${answerTok} response · 🧠 +${stats.thinkingTokens} thinking · 🚙 speed: ${tokPerSec} tok/s · ⏱️ completed: ${secLabel}`;
+      label = t("stats_with_thinking", { total: stats.outputTokens, answer: answerTok, thinking: stats.thinkingTokens, speed: tokPerSec, sec: secLabel });
     } else {
-      label = `🪙 ${answerTok} tokens · 🚙 speed: ${tokPerSec} tok/s · ⏱️ completed: ${secLabel}`;
+      label = t("stats_plain", { answer: answerTok, speed: tokPerSec, sec: secLabel });
     }
     badge.textContent = label;
     col.appendChild(badge);
