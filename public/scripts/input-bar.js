@@ -64,6 +64,27 @@ fileInput.addEventListener('change', (e) => {
 // hook into your existing input listener — just add updateSendBtn() there
 chatInput.addEventListener('input', updateSendBtn);
 
+// Paste images/files directly into the chat input with Cmd+V / Ctrl+V
+document.addEventListener('paste', (e) => {
+  const items = Array.from(e.clipboardData?.items || []);
+  const fileItems = items.filter(it => it.kind === 'file');
+  if (!fileItems.length) return;
+
+  e.preventDefault();
+  fileItems.forEach(item => {
+    const file = item.getAsFile();
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      file._dataUrl = ev.target.result;
+      attachedFiles.push(file);
+      renderPreviews();
+      updateSendBtn();
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
 /**
  * Call this at the start of your send handler (before clearing attachedFiles)
  * to get a plain snapshot for addUserMessage().

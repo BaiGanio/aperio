@@ -170,8 +170,19 @@
 <div id="sessions-panel" class="sessions-panel" style="display:none;">
   <div class="sessions-panel-header">
     <span class="sessions-panel-title"><i class="bi bi-clock-history"></i> History</span>
-    <button class="sessions-panel-close" onclick="toggleSessionsPanel()">
-      <i class="bi bi-x-lg"></i>
+    <div class="sessions-panel-header-actions">
+      <button id="sessionsSelectBtn" class="sessions-select-toggle" onclick="toggleSelectMode()" title="Select sessions">
+        <i class="bi bi-check2-square"></i> Select
+      </button>
+      <button class="sessions-panel-close" onclick="toggleSessionsPanel()">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+  </div>
+  <div id="sessions-select-bar" class="sessions-select-bar" style="display:none;">
+    <span id="sessions-select-count" class="sessions-select-count">0 selected</span>
+    <button id="sessions-bulk-delete-btn" class="session-btn session-btn--bulk-delete" onclick="bulkDeleteSessions()" disabled>
+      <i class="bi bi-trash3"></i> Delete selected
     </button>
   </div>
   <div class="sessions-panel-body" id="sessions-list">

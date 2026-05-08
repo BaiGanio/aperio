@@ -2,6 +2,8 @@
 let sessionsPanelOpen = false;
 let totalPages = 1;
 const PAGE_SIZE = 10;
+let selectMode = false;
+const selectedIds = new Set();
 
 function toggleSessionsPanel() {
   sessionsPanelOpen = !sessionsPanelOpen;
@@ -16,7 +18,86 @@ function toggleSessionsPanel() {
     btn.style.color       = sessionsPanelOpen ? "var(--accent)" : "var(--text-muted)";
   }
 
+  if (!sessionsPanelOpen && selectMode) exitSelectMode();
   if (sessionsPanelOpen) loadSessions(1);
+}
+
+function toggleSelectMode() {
+  selectMode ? exitSelectMode() : enterSelectMode();
+}
+
+function enterSelectMode() {
+  selectMode = true;
+  selectedIds.clear();
+  document.getElementById("sessions-select-bar").style.display = "flex";
+  const toggleBtn = document.getElementById("sessionsSelectBtn");
+  if (toggleBtn) {
+    toggleBtn.classList.add("sessions-select-toggle--active");
+    toggleBtn.innerHTML = `<i class="bi bi-x"></i> Cancel`;
+  }
+  document.querySelectorAll(".session-card").forEach(card => addCheckbox(card));
+  updateSelectBar();
+}
+
+function exitSelectMode() {
+  selectMode = false;
+  selectedIds.clear();
+  document.getElementById("sessions-select-bar").style.display = "none";
+  const toggleBtn = document.getElementById("sessionsSelectBtn");
+  if (toggleBtn) {
+    toggleBtn.classList.remove("sessions-select-toggle--active");
+    toggleBtn.innerHTML = `<i class="bi bi-check2-square"></i> Select`;
+  }
+  document.querySelectorAll(".session-card-checkbox").forEach(el => el.remove());
+  document.querySelectorAll(".session-card").forEach(card => card.classList.remove("session-card--selected"));
+}
+
+function addCheckbox(card) {
+  const titleRow = card.querySelector(".session-card-title-row");
+  if (!titleRow || titleRow.querySelector(".session-card-checkbox")) return;
+  const cb = document.createElement("input");
+  cb.type = "checkbox";
+  cb.className = "session-card-checkbox";
+  cb.checked = selectedIds.has(card.dataset.id);
+  cb.addEventListener("change", (e) => {
+    e.stopPropagation();
+    if (cb.checked) {
+      selectedIds.add(card.dataset.id);
+      card.classList.add("session-card--selected");
+    } else {
+      selectedIds.delete(card.dataset.id);
+      card.classList.remove("session-card--selected");
+    }
+    updateSelectBar();
+  });
+  titleRow.insertBefore(cb, titleRow.firstChild);
+}
+
+function updateSelectBar() {
+  const n = selectedIds.size;
+  const countEl = document.getElementById("sessions-select-count");
+  const deleteBtn = document.getElementById("sessions-bulk-delete-btn");
+  if (countEl) countEl.textContent = n === 1 ? "1 selected" : `${n} selected`;
+  if (deleteBtn) deleteBtn.disabled = n === 0;
+}
+
+async function bulkDeleteSessions() {
+  const ids = [...selectedIds];
+  if (!ids.length) return;
+  const n = ids.length;
+  if (!confirm(`Delete ${n} session${n > 1 ? "s" : ""}?\nThis cannot be undone.`)) return;
+
+  const deleteBtn = document.getElementById("sessions-bulk-delete-btn");
+  if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.innerHTML = `<i class="bi bi-hourglass-split"></i> Deleting…`; }
+
+  const results = await Promise.allSettled(
+    ids.map(id => fetch(`/api/sessions/${id}`, { method: "DELETE" }))
+  );
+
+  const failed = results.filter(r => r.status === "rejected" || !r.value?.ok).length;
+  exitSelectMode();
+  loadSessions(currentPage);
+  if (failed) alert(`${failed} session${failed > 1 ? "s" : ""} could not be deleted.`);
 }
 
 async function loadSessions(page) {
@@ -38,8 +119,11 @@ async function loadSessions(page) {
 
     list.innerHTML = "";
     for (const s of sessions) {
-      list.appendChild(makeSessionCard(s));
+      const card = makeSessionCard(s);
+      if (selectMode) addCheckbox(card);
+      list.appendChild(card);
     }
+    if (selectMode) updateSelectBar();
 
     if (totalPages > 1) {
       list.appendChild(makePaginationControls());
@@ -103,8 +187,8 @@ function makeSessionCard(s) {
   const date = new Date(s.startedAt).toLocaleDateString("en-GB", {
     day: "2-digit", month: "short", year: "numeric",
   });
-  const duration = s.endedAt
-    ? formatDuration(new Date(s.endedAt) - new Date(s.startedAt))
+  const timeLabel = s.endedAt
+    ? new Date(s.endedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : "in progress";
 
   card.innerHTML = `
@@ -113,7 +197,7 @@ function makeSessionCard(s) {
       <i class="bi bi-chevron-right session-card-chevron"></i>
     </div>
     <div class="session-card-details">
-      <div class="session-card-meta">${date} · ${duration}</div>
+      <div class="session-card-meta">${date} · ${timeLabel}</div>
       <div class="session-card-stats">
         <span><i class="bi bi-chat-left-dots"></i> ${s.messageCount}</span>
         <span><i class="bi bi-file-text"></i> ${s.summaryCount} ${s.summaryCount === 1 ? "summary" : "summaries"}</span>
@@ -137,6 +221,15 @@ function makeSessionCard(s) {
 }
 
 function toggleSessionCard(titleRow) {
+  if (selectMode) {
+    const card = titleRow.closest(".session-card");
+    const cb = titleRow.querySelector(".session-card-checkbox");
+    if (cb) {
+      cb.checked = !cb.checked;
+      cb.dispatchEvent(new Event("change"));
+    }
+    return;
+  }
   const card    = titleRow.closest(".session-card");
   const details = card.querySelector(".session-card-details");
   const chevron = titleRow.querySelector(".session-card-chevron");
