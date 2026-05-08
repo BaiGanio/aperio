@@ -39,7 +39,83 @@ await ensurePort(PORT);
 // ─── Express (always starts immediately — serves setup UI right away) ─────────
 const app = express();
 app.use(express.json());
-app.use(express.static(resolve(__dirname, "public")));
+
+// ─── Locale detection (Accept-Language + cookie) ──────────────────────────────
+// Supported EU locales — must mirror public/scripts/i18n.js.
+const SUPPORTED_LOCALES = new Set([
+  "en", "bg", "de", "fr", "es", "it", "pt", "nl", "pl", "ro",
+  "el", "sv", "da", "fi", "cs", "sk", "sl", "hr", "hu", "et",
+  "lv", "lt", "mt", "ga",
+]);
+const I18N_COOKIE = "aperio_lang";
+
+function readCookieFromHeader(header, name) {
+  if (!header) return null;
+  const match = header.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+// Parses an Accept-Language header and picks the highest-quality supported tag.
+function pickLocaleFromHeader(header) {
+  if (!header) return null;
+  const candidates = header.split(",").map(part => {
+    const [tag, ...params] = part.trim().split(";");
+    const q = params.find(p => p.trim().startsWith("q="));
+    const quality = q ? parseFloat(q.split("=")[1]) : 1;
+    return { tag: tag.toLowerCase(), q: Number.isFinite(quality) ? quality : 1 };
+  }).sort((a, b) => b.q - a.q);
+  for (const { tag } of candidates) {
+    const base = tag.split("-")[0];
+    if (SUPPORTED_LOCALES.has(base)) return base;
+  }
+  return null;
+}
+
+function detectLocale(req) {
+  const fromCookie = readCookieFromHeader(req.headers.cookie, I18N_COOKIE);
+  if (fromCookie && SUPPORTED_LOCALES.has(fromCookie)) return fromCookie;
+  return pickLocaleFromHeader(req.headers["accept-language"]) || "en";
+}
+
+// Inject `window.__APERIO_LANG__ = "<lang>"` into HTML responses so the i18n
+// engine has a server-detected default before localStorage/navigator kick in.
+// Cached on first read so repeated requests don't hit disk.
+let _indexHtmlCache = null;
+let _setupHtmlCache = null;
+function readHtml(file) {
+  if (file === "index.html") {
+    if (_indexHtmlCache == null) _indexHtmlCache = readFileSync(resolve(__dirname, "public", file), "utf8");
+    return _indexHtmlCache;
+  }
+  if (file === "setup.html") {
+    if (_setupHtmlCache == null) _setupHtmlCache = readFileSync(resolve(__dirname, "public", file), "utf8");
+    return _setupHtmlCache;
+  }
+  return readFileSync(resolve(__dirname, "public", file), "utf8");
+}
+
+function renderHtmlWithLocale(file, lang) {
+  const html = readHtml(file);
+  const inject =
+    `<script>window.__APERIO_LANG__=${JSON.stringify(lang)};</script>`;
+  // Inject right before the i18n script tag so it sees the value.
+  return html.replace(
+    /(<script[^>]+src="scripts\/i18n\.js"><\/script>)/,
+    `${inject}\n  $1`
+  );
+}
+
+// `/` and `/setup` need locale injection. Everything else (CSS, JS, assets)
+// is served by express.static below.
+app.get(["/", "/index.html"], (req, res) => {
+  if (!isBootstrapped()) return res.redirect("/setup");
+  const lang = detectLocale(req);
+  res.cookie?.(I18N_COOKIE, lang, { path: "/", maxAge: 365 * 24 * 3600 * 1000, sameSite: "Lax" });
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(renderHtmlWithLocale("index.html", lang));
+});
+
+app.use(express.static(resolve(__dirname, "public"), { index: false }));
 
 // ─── Bootstrap guard middleware ───────────────────────────────────────────────
 // Until .bootstrap.lock exists every request redirects to /setup,
@@ -65,7 +141,15 @@ app.use((req, res, next) => {
 // ─── Setup page ───────────────────────────────────────────────────────────────
 app.get("/setup", (req, res) => {
   if (isBootstrapped()) return res.redirect("/");
-  res.sendFile(resolve(__dirname, "public", "setup.html"));
+  const lang = detectLocale(req);
+  res.cookie?.(I18N_COOKIE, lang, { path: "/", maxAge: 365 * 24 * 3600 * 1000, sameSite: "Lax" });
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(renderHtmlWithLocale("setup.html", lang));
+});
+
+// Tiny info endpoint so clients can read the server-detected default.
+app.get("/api/locale", (req, res) => {
+  res.json({ lang: detectLocale(req), supported: [...SUPPORTED_LOCALES] });
 });
 
 // ─── Bootstrap state snapshot (handles page-refresh mid-run) ─────────────────

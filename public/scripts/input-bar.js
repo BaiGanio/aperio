@@ -29,7 +29,7 @@ function renderPreviews() {
     const rm = document.createElement('button');
     rm.className = 'remove-file';
     rm.textContent = '×';
-    rm.title = 'Remove';
+    rm.title = (typeof t === "function") ? t('chat_attach_remove') : 'Remove';
     rm.addEventListener('click', () => {
       attachedFiles.splice(i, 1);
       renderPreviews();

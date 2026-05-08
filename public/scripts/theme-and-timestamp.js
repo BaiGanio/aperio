@@ -21,8 +21,8 @@ applyTheme(currentTheme);
 setInterval(() => {
   document.querySelectorAll(".msg-timestamp[data-ts]").forEach(el => {
     const diff = Math.floor((Date.now() - Number.parseInt(el.dataset.ts)) / 1000);
-    if (diff < 60)        el.textContent = "just now";
-    else if (diff < 3600) el.textContent = Math.floor(diff/60) + "m ago";
-    else                  el.textContent = Math.floor(diff/3600) + "h ago";
+    if (diff < 60)        el.textContent = t("mem_just_now");
+    else if (diff < 3600) el.textContent = t("mem_min_ago",  { n: Math.floor(diff/60) });
+    else                  el.textContent = t("mem_hour_ago", { n: Math.floor(diff/3600) });
   });
 }, 30_000);

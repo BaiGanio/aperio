@@ -18,6 +18,9 @@
   <link rel="stylesheet" href="styles/tool-and-thinking-indicators.css" />
   <link rel="stylesheet" href="styles/msg-attachments.css" />
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <!-- i18n must load before any other UI script so t() and applyTranslations() are ready
+       before scripts that build DOM nodes referring to translations. -->
+  <script src="scripts/i18n.js"></script>
 </head>
 <body>
 <div class="app">
@@ -34,7 +37,7 @@
     <div class="status-pill">
       <div class="status-dot" id="statusDot"></div>
       <i class="bi bi-cpu" style="font-size:11px;color:var(--text-muted)"></i>
-      <span id="statusText">connecting…</span>
+      <span id="statusText" data-i18n="status_connecting">connecting…</span>
       <span id="providerBadge" style="
         font-family:var(--font-mono); font-size:9px; font-weight:600;
         background:var(--tag-bg); color:var(--tag-text);
@@ -44,32 +47,41 @@
     </div>
     <div class="nav-actions-pill">
       <button id="reasoningToggle" class="nav-action-btn" onclick="toggleReasoning()"
-        title="Enable reasoning" style="display:none;">
-        🧠 <span id="reasoningToggleLabel">on</span>
+        data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning" style="display:none;">
+        🧠 <span id="reasoningToggleLabel" data-i18n="nav_reasoning_on">on</span>
       </button>
       <button id="historyBtn" class="nav-action-btn nav-action-btn--text" onclick="toggleSessionsPanel()"
-        title="Conversation history">
-        💬 chats
+        data-i18n-attr-title="nav_chats_title" title="Conversation history">
+        <span data-i18n="nav_chats">💬 chats</span>
       </button>
       <button id="pathsBtn" class="nav-action-btn nav-action-btn--text" onclick="openPathsPanel()"
-        title="Allowed paths">
-        📂 paths
+        data-i18n-attr-title="nav_paths_title" title="Allowed paths">
+        <span data-i18n="nav_paths">📂 paths</span>
       </button>
     </div>
     <div class="ctx-window" id="ctxWindow">
       <div class="ctx-header">
-        <span class="ctx-label">context</span>
+        <span class="ctx-label" data-i18n="ctx_label">context</span>
         <span class="ctx-value" id="ctxText">— / —</span>
       </div>
       <div class="ctx-track">
         <div class="ctx-fill" id="ctxFill"></div>
       </div>
     </div>
+    <!-- Language switcher (populated by lang-switcher.js once DOM is ready) -->
+    <div class="lang-switcher" id="langSwitcher" data-i18n-attr-title="nav_lang_title" title="Language">
+      <button type="button" class="lang-trigger" id="langTrigger" aria-haspopup="listbox" aria-expanded="false">
+        <span class="lang-flag" id="langTriggerFlag">🇬🇧</span>
+        <span class="lang-code" id="langTriggerCode">EN</span>
+        <span class="lang-caret">▾</span>
+      </button>
+      <div class="lang-popover" id="langPopover" role="listbox"></div>
+    </div>
     <div class="theme-switcher">
-      <button class="theme-btn" data-theme="light"  title="Light">☀️</button>
-      <button class="theme-btn" data-theme="dark"   title="Dark">🌙</button>
-      <button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
-      <button class="theme-btn active" data-theme="system" title="System">⊙</button>
+      <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">☀️</button>
+      <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">🌙</button>
+      <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">✦</button>
+      <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">⊙</button>
     </div>
   </header>
 
@@ -77,32 +89,30 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <div style="display:flex; align-items:center; margin-bottom:10px;">
-        <div class="sidebar-title" style="margin-bottom:0">Memories <span id="memoryCount" style="font-weight:400;opacity:.5"></span></div>
-        <button id="exportBtn" title="Export brain to JSON"
+        <div class="sidebar-title" style="margin-bottom:0"><span data-i18n="sidebar_memories">Memories</span> <span id="memoryCount" style="font-weight:400;opacity:.5"></span></div>
+        <button id="exportBtn" data-i18n-attr-title="sidebar_export_title" title="Export brain to JSON"
           style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer;
                  color:var(--text-muted); font-size:12px; border-radius:4px;
                  transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
-          <i class="bi bi-download"></i> Export
+          <i class="bi bi-download"></i> <span data-i18n="sidebar_export">Export</span>
         </button>
-        <button id="importBtn" title="Import memories from JSON"
+        <button id="importBtn" data-i18n-attr-title="sidebar_import_title" title="Import memories from JSON"
           style="margin-left:4px; background:none; border:none; padding:2px 4px; cursor:pointer;
                  color:var(--text-muted); font-size:12px; border-radius:4px;
                  transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
-          <i class="bi bi-upload"></i> Import
+          <i class="bi bi-upload"></i> <span data-i18n="sidebar_import">Import</span>
         </button>
         <input type="file" id="importFileInput" accept=".json" hidden>
-        <!-- <button id="view-memories-btn" title="Show Memories" onclick="toggleMemoryView()" style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer; color:var(--text-muted); font-size:12px; border-radius:4px; transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">📂 Show
-        </button> -->
       </div>
       <div class="search-box">
         <span class="search-icon">⌕</span>
-        <input type="text" id="searchInput" placeholder="Search memories…" />
+        <input type="text" id="searchInput" data-i18n-attr-placeholder="sidebar_search" placeholder="Search memories…" />
       </div>
     </div>
     <div class="memories-list" id="memoriesList">
       <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
         <div style="font-size:22px; margin-bottom:8px; opacity:.4">◈</div>
-        <div style="font-size:12px; color:var(--text-muted)">Loading memories…</div>
+        <div style="font-size:12px; color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
       </div>
     </div>
     <div class="sidebar-footer">
@@ -121,19 +131,20 @@
             <div class="thinking-dot"></div>
             <div class="thinking-dot"></div>
           </div>
-          <div class="thinking-label">loading…</div>
+          <div class="thinking-label" data-i18n="chat_loading_label">loading…</div>
         </div>
       </div>
     </div>
     <div class="input-bar">
       <div class="attach-preview" id="attachPreview"></div>
       <div class="input-wrap">
-        <button class="attach-btn" id="attachBtn" title="Attach file or image">
+        <button class="attach-btn" id="attachBtn" data-i18n-attr-title="chat_attach_title" title="Attach file or image">
           <i class="bi bi-plus-lg"></i>
         </button>
         <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md,.js,.py,.html,.css,.json,.docx,.pptx" multiple hidden>
         <textarea
           id="chatInput"
+          data-i18n-attr-placeholder="chat_placeholder"
           placeholder="Ask anything — or say 'scan my project at ~/…'"
           rows="1"
         ></textarea>
@@ -141,10 +152,10 @@
         <button class="send-btn" id="sendBtn" disabled title="Send (⌘↵)">
           <i class="bi bi-send-fill" style="font-size:13px"></i>
         </button>
-        <button class="stop-btn" id="stopBtn" title="Stop generating">■</button>
+        <button class="stop-btn" id="stopBtn" data-i18n-attr-title="chat_stop_title" title="Stop generating">■</button>
       </div>
       <div class="input-hint" id="inputHint">⌘ + ↵ to send &nbsp;·&nbsp; ↵ for newline</div>
-      <div class="input-warning" id="inputWarning">Your AI agent is not almighty. Do not trust the output blindly!</div>
+      <div class="input-warning" id="inputWarning" data-i18n="chat_input_warning">Your AI agent is not almighty. Do not trust the output blindly!</div>
     </div>
   </div>
 
@@ -169,10 +180,10 @@
 
 <div id="sessions-panel" class="sessions-panel" style="display:none;">
   <div class="sessions-panel-header">
-    <span class="sessions-panel-title"><i class="bi bi-clock-history"></i> History</span>
+    <span class="sessions-panel-title"><i class="bi bi-clock-history"></i> <span data-i18n="sessions_title">History</span></span>
     <div class="sessions-panel-header-actions">
       <button id="sessionsSelectBtn" class="sessions-select-toggle" onclick="toggleSelectMode()" title="Select sessions">
-        <i class="bi bi-check2-square"></i> Select
+        <i class="bi bi-check2-square"></i> <span data-i18n="sessions_select">Select</span>
       </button>
       <button class="sessions-panel-close" onclick="toggleSessionsPanel()">
         <i class="bi bi-x-lg"></i>
@@ -182,11 +193,11 @@
   <div id="sessions-select-bar" class="sessions-select-bar" style="display:none;">
     <span id="sessions-select-count" class="sessions-select-count">0 selected</span>
     <button id="sessions-bulk-delete-btn" class="session-btn session-btn--bulk-delete" onclick="bulkDeleteSessions()" disabled>
-      <i class="bi bi-trash3"></i> Delete selected
+      <i class="bi bi-trash3"></i> <span data-i18n="sessions_bulk_delete">Delete selected</span>
     </button>
   </div>
   <div class="sessions-panel-body" id="sessions-list">
-    <div class="sessions-empty">Loading…</div>
+    <div class="sessions-empty" data-i18n="sessions_loading">Loading…</div>
   </div>
 </div>
 <div id="sessions-backdrop" class="sessions-backdrop" style="display:none;" onclick="toggleSessionsPanel()"></div>
@@ -195,19 +206,19 @@
 <div id="paths-modal" class="paths-modal" style="display:none;">
   <div class="paths-modal-content">
     <div class="paths-modal-header">
-      <span class="paths-modal-title"><i class="bi bi-folder2-open"></i> Allowed Paths</span>
+      <span class="paths-modal-title"><i class="bi bi-folder2-open"></i> <span data-i18n="paths_title">Allowed Paths</span></span>
       <button class="paths-modal-close" onclick="closePathsPanel()"><i class="bi bi-x-lg"></i></button>
     </div>
     <div class="paths-modal-body">
       <div class="paths-section">
         <div class="paths-section-hd">
-          <span class="paths-section-label">Read Paths</span>
-          <span class="paths-section-hint">Folders the AI can read files from</span>
+          <span class="paths-section-label" data-i18n="paths_read_label">Read Paths</span>
+          <span class="paths-section-hint" data-i18n="paths_read_hint">Folders the AI can read files from</span>
         </div>
         <div class="paths-chips" id="read-paths-chips"></div>
         <div class="paths-add-row">
-          <input type="text" id="read-path-input" class="paths-text-input" placeholder="/Users/you/your-project" />
-          <button class="paths-pick-btn" onclick="_pickFolder('read')" title="Browse for folder (opens Finder)">
+          <input type="text" id="read-path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
+          <button class="paths-pick-btn" onclick="_pickFolder('read')" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
             <i class="bi bi-folder2-open"></i>
           </button>
           <button class="paths-add-btn" onclick="addPathChip('read')"><i class="bi bi-plus-lg"></i></button>
@@ -215,25 +226,25 @@
       </div>
       <div class="paths-section">
         <div class="paths-section-hd">
-          <span class="paths-section-label">Write Paths</span>
-          <span class="paths-section-hint">Folders the AI can write files to</span>
+          <span class="paths-section-label" data-i18n="paths_write_label">Write Paths</span>
+          <span class="paths-section-hint" data-i18n="paths_write_hint">Folders the AI can write files to</span>
         </div>
         <div class="paths-chips" id="write-paths-chips"></div>
         <div class="paths-add-row">
-          <input type="text" id="write-path-input" class="paths-text-input" placeholder="/Users/you/your-project" />
-          <button class="paths-pick-btn" onclick="_pickFolder('write')" title="Browse for folder (opens Finder)">
+          <input type="text" id="write-path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
+          <button class="paths-pick-btn" onclick="_pickFolder('write')" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
             <i class="bi bi-folder2-open"></i>
           </button>
           <button class="paths-add-btn" onclick="addPathChip('write')"><i class="bi bi-plus-lg"></i></button>
         </div>
       </div>
-      <div class="paths-session-note">
+      <div class="paths-session-note" data-i18n-html="paths_session_note_html">
         <i class="bi bi-info-circle"></i> Changes apply to this session only — not saved to disk.
       </div>
     </div>
     <div class="paths-modal-footer">
-      <button class="paths-cancel-btn" onclick="closePathsPanel()">Cancel</button>
-      <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> Apply</button>
+      <button class="paths-cancel-btn" onclick="closePathsPanel()" data-i18n="paths_cancel">Cancel</button>
+      <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Apply</span></button>
     </div>
   </div>
 </div>
@@ -247,6 +258,7 @@
 <script src="scripts/message-handler.js"></script>
 <script src="scripts/sessions.js"></script>
 <script src="scripts/paths-panel.js"></script>
+<script src="scripts/lang-switcher.js"></script>
 <script src="index.js"></script>
 </body>
 </html>

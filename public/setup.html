@@ -17,6 +17,7 @@
   <!-- Pull in the app's CSS variables (accent, font-mono, radius-sm, etc.) -->
 
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <script src="scripts/i18n.js"></script>
 
 <style>
 /* ── Layout ───────────────────────────────────────────────────────────────── */
@@ -297,14 +298,14 @@
 
   <!-- Intro -->
   <div class="setup-intro">
-    <h1>One-time setup</h1>
-    <p>Installing dependencies — this only happens once.<br>Future starts are instant.</p>
+    <h1 data-i18n="setup_intro_h1">One-time setup</h1>
+    <p data-i18n-html="setup_intro_p_html">Installing dependencies — this only happens once.<br>Future starts are instant.</p>
   </div>
 
   <!-- Progress bar -->
   <div class="setup-progress-wrap">
     <div class="setup-progress-row">
-      <span id="progressLabel">Starting…</span>
+      <span id="progressLabel" data-i18n="setup_starting">Starting…</span>
       <span id="progressFrac">0 / 5</span>
     </div>
     <div class="setup-progress-track">
@@ -321,16 +322,16 @@
   <!-- Done banner + launch button -->
   <div class="setup-done" id="doneBanner">
     <i class="bi bi-check-circle"></i>
-    Setup complete — Aperio is ready.
+    <span data-i18n="setup_done_banner">Setup complete — Aperio is ready.</span>
   </div>
   <button class="setup-launch" id="launchBtn" onclick="window.location='/'">
-    Open Aperio <i class="bi bi-arrow-right"></i>
+    <span data-i18n="setup_open_aperio">Open Aperio</span> <i class="bi bi-arrow-right"></i>
   </button>
 
   <!-- Error banner -->
   <div class="setup-error" id="errorBanner">
     <i class="bi bi-exclamation-triangle"></i>
-    <span id="errorText">Setup failed. Check bootstrap.log for details.</span>
+    <span id="errorText" data-i18n="setup_error_default">Setup failed. Check bootstrap.log for details.</span>
   </div>
 
 </div><!-- /.setup-root -->
@@ -338,14 +339,16 @@
 <script>
 // ── Step definitions (must mirror bootstrap.js STEPS) ─────────────────────
 const STEPS = [
-  { id: "node",    label: "Node.js & npm",          icon: "bi-filetype-js" },
-  { id: "deps",    label: "Dependencies",            icon: "bi-box-seam"    },
-  { id: "ollama",  label: "Ollama",                  icon: "bi-cpu"         },
-  { id: "model",   label: `AI Model`,                icon: "bi-stars"       },
-  { id: "lancedb", label: "LanceDB & Embeddings",    icon: "bi-database"    },
+  { id: "node",    labelKey: "setup_step_node",    icon: "bi-filetype-js" },
+  { id: "deps",    labelKey: "setup_step_deps",    icon: "bi-box-seam"    },
+  { id: "ollama",  labelKey: "setup_step_ollama",  icon: "bi-cpu"         },
+  { id: "model",   labelKey: "setup_step_model",   icon: "bi-stars"       },
+  { id: "lancedb", labelKey: "setup_step_lancedb", icon: "bi-database"    },
 ];
 
-const state = Object.fromEntries(STEPS.map(s => [s.id, { status: "idle", detail: "Waiting…" }]));
+const _t = (k, p) => (window.t ? window.t(k, p) : k);
+
+const state = Object.fromEntries(STEPS.map(s => [s.id, { status: "idle", detail: _t("setup_detail_waiting") }]));
 let doneCount = 0;
 
 // ── Build cards ───────────────────────────────────────────────────────────
@@ -361,17 +364,17 @@ STEPS.forEach(s => {
       <i class="bi ${s.icon} step-bi-icon"></i>
     </div>
     <div class="step-text">
-      <div class="step-label">${s.label}</div>
-      <div class="step-detail" id="detail-${s.id}">Waiting…</div>
+      <div class="step-label" data-i18n="${s.labelKey}">${_t(s.labelKey)}</div>
+      <div class="step-detail" id="detail-${s.id}" data-i18n="setup_detail_waiting">${_t("setup_detail_waiting")}</div>
     </div>
     <div class="step-spinner"></div>
-    <span class="step-badge badge-idle" id="badge-${s.id}">waiting</span>
+    <span class="step-badge badge-idle" id="badge-${s.id}" data-i18n="setup_badge_idle">${_t("setup_badge_idle")}</span>
   `;
   cardList.appendChild(card);
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────
-const BADGE_LABELS = { idle: "waiting", running: "running…", done: "done", skipped: "ready", error: "error" };
+const BADGE_KEYS = { idle: "setup_badge_idle", running: "setup_badge_running", done: "setup_badge_done", skipped: "setup_badge_skipped", error: "setup_badge_error" };
 
 function applyStep(id, status, detail) {
   const card  = document.getElementById(`card-${id}`);
@@ -381,15 +384,25 @@ function applyStep(id, status, detail) {
 
   card.dataset.status  = status;
   badge.className      = `step-badge badge-${status}`;
-  badge.textContent    = BADGE_LABELS[status] ?? status;
-  if (detail) det.textContent = detail;
+  badge.dataset.i18n   = BADGE_KEYS[status] || "setup_badge_idle";
+  badge.textContent    = _t(BADGE_KEYS[status] || "setup_badge_idle");
+  if (detail) {
+    det.textContent = detail;
+    delete det.dataset.i18n; // dynamic detail from server isn't translatable
+  }
 }
 
 function updateProgress(done, total) {
   document.getElementById("progressFill").style.width  = `${Math.round(done / total * 100)}%`;
   document.getElementById("progressFrac").textContent  = `${done} / ${total}`;
-  document.getElementById("progressLabel").textContent =
-    done === total ? "All done" : `Step ${done + 1} of ${total}`;
+  const labelEl = document.getElementById("progressLabel");
+  if (done === total) {
+    labelEl.dataset.i18n = "setup_all_done";
+    labelEl.textContent = _t("setup_all_done");
+  } else {
+    delete labelEl.dataset.i18n;
+    labelEl.textContent = _t("setup_step_of", { n: done + 1, total });
+  }
 }
 
 function appendLog(msg) {
@@ -411,7 +424,7 @@ function showDone() {
 }
 
 function showError(msg) {
-  document.getElementById("errorText").textContent = `Setup failed: ${msg}`;
+  document.getElementById("errorText").textContent = _t("setup_error_prefix", { msg });
   document.getElementById("errorBanner").classList.add("show");
 }
 

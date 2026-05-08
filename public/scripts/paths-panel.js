@@ -28,7 +28,7 @@ function _renderPathChips(type) {
   const el   = document.getElementById(`${type}-paths-chips`);
   if (!el) return;
   if (list.length === 0) {
-    el.innerHTML = `<span class="paths-empty-hint">No paths configured</span>`;
+    el.innerHTML = `<span class="paths-empty-hint">${t("paths_empty")}</span>`;
     return;
   }
   el.innerHTML = "";
@@ -37,7 +37,7 @@ function _renderPathChips(type) {
     const chip = document.createElement("div");
     chip.className = "path-chip";
     chip.innerHTML = `<span class="path-chip-text" title="${p}">${p}</span>
-      <button class="path-chip-del" title="Remove">×</button>`;
+      <button class="path-chip-del" title="${t("paths_remove_title")}">×</button>`;
     chip.querySelector(".path-chip-del").onclick = () => {
       list.splice(i, 1);
       _renderPathChips(type);
@@ -97,7 +97,7 @@ async function applyPaths() {
   const applyBtn = document.querySelector(".paths-apply-btn");
   const origHTML = applyBtn.innerHTML;
   applyBtn.disabled = true;
-  applyBtn.textContent = "Applying…";
+  applyBtn.textContent = t("paths_applying");
   try {
     const res = await fetch("/api/paths", {
       method:  "POST",
@@ -106,10 +106,10 @@ async function applyPaths() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Unknown error");
-    applyBtn.innerHTML = '<i class="bi bi-check-lg"></i> Applied!';
+    applyBtn.innerHTML = `<i class="bi bi-check-lg"></i> ${t("paths_applied")}`;
     setTimeout(closePathsPanel, 700);
   } catch (err) {
-    alert("Failed to apply paths: " + err.message);
+    alert(t("paths_apply_failed", { error: err.message }));
     applyBtn.disabled = false;
     applyBtn.innerHTML = origHTML;
   }
