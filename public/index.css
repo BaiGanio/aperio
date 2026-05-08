@@ -1287,10 +1287,11 @@
     .attach-preview {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 6px;
+      gap: 8px;
+      margin-bottom: 8px;
     }
 
+    /* legacy .file-chip (kept for any old references) */
     .attach-preview .file-chip {
       display: flex;
       align-items: center;
@@ -1303,7 +1304,6 @@
       font-size: 10px;
       color: var(--text-muted);
     }
-
     .attach-preview .file-chip .remove-chip {
       cursor: pointer;
       color: var(--text-muted);
@@ -1311,6 +1311,76 @@
       line-height: 1;
     }
     .attach-preview .file-chip .remove-chip:hover { color: #ef4444; }
+
+    /* new attach-chip used by input-bar.js */
+    .attach-chip {
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      max-width: 200px;
+      overflow: hidden;
+    }
+
+    .attach-chip span {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .attach-chip.is-image {
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 0;
+      width: 220px;
+      max-width: 220px;
+    }
+
+    .attach-chip.is-image img {
+      width: 220px;
+      height: 180px;
+      object-fit: cover;
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+      display: block;
+    }
+
+    .attach-chip.is-image span {
+      padding: 5px 8px;
+      font-size: 11px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .attach-chip .remove-file {
+      position: absolute;
+      top: 4px;
+      right: 4px;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 18px;
+      height: 18px;
+      font-size: 12px;
+      line-height: 18px;
+      text-align: center;
+      cursor: pointer;
+      padding: 0;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .attach-chip:hover .remove-file { opacity: 1; }
+    .attach-chip .remove-file:hover { background: #ef4444; }
 
     .input-wrap {
       display: flex;
@@ -1714,6 +1784,62 @@
       border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
+    .sessions-panel-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sessions-select-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .sessions-select-toggle:hover { border-color: var(--accent); color: var(--accent); }
+    .sessions-select-toggle--active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+    .sessions-select-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .sessions-select-count {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .session-btn--bulk-delete {
+      flex: 0 0 auto;
+      background: rgba(239,68,68,.1);
+      border-color: rgba(239,68,68,.3);
+      color: #ef4444;
+    }
+    .session-btn--bulk-delete:not(:disabled):hover {
+      background: rgba(239,68,68,.2);
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    .session-btn--bulk-delete:disabled { opacity: 0.35; cursor: default; }
+    .session-card-checkbox {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
     .sessions-panel-title {
       font-family: var(--font-mono);
       font-size: 13px;
@@ -1756,9 +1882,11 @@
       border-radius: var(--radius);
       overflow: hidden;
       transition: border-color var(--transition);
+      flex-shrink: 0;
     }
     .session-card:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
     .session-card--open { border-color: var(--accent); }
+    .session-card--selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--bg)); }
 
     .session-card-title-row {
       display: flex;
