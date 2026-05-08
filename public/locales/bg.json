@@ -68,6 +68,9 @@
   "chat_chars":               "{n} знака",
   "chat_attach_remove":       "Премахни",
 
+  "stats_with_thinking":      "🪙 {total} жетона общо → ✍️ {answer} отговор · 🧠 +{thinking} разсъждение · 🚙 скорост: {speed} жет/с · ⏱️ завършено: {sec}",
+  "stats_plain":              "🪙 {answer} жетона · 🚙 скорост: {speed} жет/с · ⏱️ завършено: {sec}",
+
   "msg_preparing_answer":     "✦ подготвям отговор…",
   "msg_reasoning_done":       "готово",
   "msg_reasoning_header":     "🧠 Разсъждение",
