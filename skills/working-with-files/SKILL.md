@@ -76,6 +76,20 @@ PDFs are presentation-layer documents, not editable text:
 
 ---
 
+## When only a full-file write tool is available (e.g., `write_file`)
+
+Some environments have no `str_replace` or `Edit` tool — only a full-overwrite `write_file`. In these cases:
+
+1. **Read first, always.** Call `read_file` and capture the full current content before touching anything.
+2. **Compute the change in context.** Identify the exact characters to change. Do not reconstruct the rest of the file from memory — copy it verbatim from `read_file` output.
+3. **Write exactly once.** Produce the corrected full content and call `write_file` a single time. Never make multiple passes for the same fix.
+4. **Re-read to verify.** After writing, call `read_file` and confirm the change landed correctly.
+5. **If verification fails, do not re-write blindly.** Identify specifically what is wrong, then write again with a precise fix.
+
+The most common failure pattern: rewriting the file from memory without reading first — introducing new typos while fixing the original one. Always read, modify the minimal section, then write back.
+
+---
+
 ## When to Use Which Skill
 
 | File type | Skill to match |
