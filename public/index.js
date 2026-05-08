@@ -44,6 +44,8 @@ function connect() {
     } else {
       setStatus("connected", t("status_reconnected"));
       sendBtn.disabled = chatInput.value.trim() === "" || isThinking;
+      const lang = window.Aperio.getCurrentLang();
+      if (lang !== "en") ws.send(JSON.stringify({ type: "set_lang", lang }));
     }
   };
 
