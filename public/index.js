@@ -868,8 +868,8 @@ function updateContextBar(used, max, outputTok = 0) {
     if (textEl) {
       const isTrimmed = ctxBannerEl.classList.contains("ctx-banner--trimmed");
       textEl.textContent = isTrimmed
-        ? `Older messages were dropped to fit context (${roundedPct}% full).`
-        : `Context is ${roundedPct}% full — older messages will be dropped soon.`;
+        ? t("ctx_trimmed", { pct: roundedPct })
+        : t("ctx_warn", { pct: roundedPct });
     }
   }
 }

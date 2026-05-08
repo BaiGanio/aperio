@@ -418,7 +418,7 @@ function appendLog(msg) {
 function showDone() {
   document.getElementById("progressFill").style.width          = "100%";
   document.getElementById("progressFrac").textContent          = `${STEPS.length} / ${STEPS.length}`;
-  document.getElementById("progressLabel").textContent         = "All done";
+  document.getElementById("progressLabel").textContent         = _t("setup_all_done");
   document.getElementById("doneBanner").classList.add("show");
   document.getElementById("launchBtn").classList.add("show");
 }

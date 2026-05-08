@@ -120,7 +120,7 @@ function handleMessage(msg) {
     // Close any previous bubble cleanly before starting a new one
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
-      reasoningBubble.statusSpan.textContent = "done";
+      reasoningBubble.statusSpan.textContent = t("msg_reasoning_done");
       reasoningBubble.statusSpan.style.animation = "none";
       reasoningBubble.statusSpan.style.opacity = "0.4";
       reasoningBubble = null;
@@ -140,8 +140,8 @@ function handleMessage(msg) {
     const summary = document.createElement("summary");
     const statusSpan = document.createElement("span");
     statusSpan.style.cssText = "font-size:10px;opacity:0.5;animation:labelFade 1.8s ease infinite";
-    statusSpan.textContent = "thinking…";
-    summary.appendChild(document.createTextNode("🧠 Reasoning "));
+    statusSpan.textContent = t("chat_thinking_label");
+    summary.appendChild(document.createTextNode(t("msg_reasoning_header") + " "));
     summary.appendChild(statusSpan);
     const pre = document.createElement("pre");
     details.appendChild(summary);
@@ -171,7 +171,7 @@ function handleMessage(msg) {
     const SHORT_THRESHOLD = 280;
     function reasoningTitle(text) {
       const first = text.split(/[.!?\n]/)[0].trim();
-      return first.length > 58 ? first.slice(0, 55) + "…" : (first || "Reasoning");
+      return first.length > 58 ? first.slice(0, 55) + "…" : (first || t("msg_reasoning_header"));
     }
     if (reasoningBubble) {
       if (reasoningText.length <= SHORT_THRESHOLD) {
@@ -180,7 +180,7 @@ function handleMessage(msg) {
         flat.className = "reasoning-flat";
         const lbl = document.createElement("span");
         lbl.className = "reasoning-flat-label";
-        lbl.textContent = "✍️ Reasoning";
+        lbl.textContent = t("msg_reasoning_flat");
         flat.appendChild(lbl);
         flat.appendChild(reasoningBubble.pre);
         reasoningBubble.bubble.replaceChild(flat, reasoningBubble.details);
@@ -190,7 +190,7 @@ function handleMessage(msg) {
         const summary = reasoningBubble.details.querySelector("summary");
         summary.firstChild.textContent = "🧠 " + title + " ";
         reasoningBubble.details.removeAttribute("open");
-        reasoningBubble.statusSpan.textContent = "done";
+        reasoningBubble.statusSpan.textContent = t("msg_reasoning_done");
         reasoningBubble.statusSpan.style.animation = "none";
         reasoningBubble.statusSpan.style.opacity = "0.4";
       }
@@ -204,7 +204,7 @@ function handleMessage(msg) {
       const details = lastWrap.querySelector("details");
       const span = lastWrap.querySelector(".reasoning-bubble summary span");
       if (details) details.removeAttribute("open");
-      if (span) { span.textContent = "done"; span.style.animation = "none"; span.style.opacity = "0.4"; }
+      if (span) { span.textContent = t("msg_reasoning_done"); span.style.animation = "none"; span.style.opacity = "0.4"; }
     }
     reasoningText = "";
     removeThinking();
@@ -213,7 +213,7 @@ function handleMessage(msg) {
     const prep = document.createElement("div");
     prep.id = "preparing-answer";
     prep.style.cssText = "padding:6px 0 0 38px;font-size:11px;font-family:var(--font-mono);color:var(--text-muted);opacity:0.6;animation:labelFade 1.8s ease infinite";
-    prep.textContent = "✦ preparing answer…";
+    prep.textContent = t("msg_preparing_answer");
     messagesEl.appendChild(prep);
     scrollToBottom();
     return;
@@ -241,7 +241,7 @@ function handleMessage(msg) {
     // Safety net: collapse reasoning bubble if still open
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
-      reasoningBubble.statusSpan.textContent = "done";
+      reasoningBubble.statusSpan.textContent = t("msg_reasoning_done");
       reasoningBubble.statusSpan.style.animation = "none";
       reasoningBubble.statusSpan.style.opacity = "0.4";
       reasoningBubble = null;
@@ -337,14 +337,14 @@ function handleMessage(msg) {
   if (msg.type === "context_summarized") {
     dismissContextBanner();
     if (!msg.ok) {
-      addMessage("ai", `⚠ Could not summarize: ${msg.reason}`);
+      addMessage("ai", t("ctx_summarize_failed", { reason: msg.reason }));
     } else if (!msg.saved) {
       // Summary streamed fine but memory write failed — warn without another full message
       const note = document.createElement("div");
       note.className = "ctx-banner ctx-banner--trimmed";
       note.style.cssText = "font-size:10px;opacity:0.75;";
-      note.innerHTML = `<span class="ctx-banner-text">Summary generated but could not be saved to memory — it will be lost on refresh.</span>` +
-        `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">Dismiss</button>`;
+      note.innerHTML = `<span class="ctx-banner-text">${t("ctx_summarize_no_save")}</span>` +
+        `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("ctx_dismiss")}</button>`;
       document.querySelector(".chat-area")?.prepend(note);
     }
   }
@@ -352,7 +352,7 @@ function handleMessage(msg) {
   if (msg.type === "suggestions_saved") {
     const note = document.createElement("div");
     note.className = "suggestions-saved-note";
-    note.textContent = `✓ ${msg.saved} suggestion${msg.saved !== 1 ? "s" : ""} saved to memory`;
+    note.textContent = msg.saved === 1 ? t("ctx_suggestions_saved_one") : t("ctx_suggestions_saved_many", { n: msg.saved });
     document.querySelector(".chat-area")?.appendChild(note);
     setTimeout(() => note.remove(), 3000);
   }
@@ -438,7 +438,7 @@ function updateStreamingBubble(ref, text) {
     const blockHtml =
       `<div class="code-block">` +
       `<div class="code-toolbar"><span class="code-lang">${safeLabel}</span>` +
-      `<span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)">streaming…</span></div>` +
+      `<span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)">${t("msg_streaming")}</span></div>` +
       `<pre><code${langClass}>${escaped}</code></pre></div>`;
 
     ref.bubble.innerHTML = beforeHtml + blockHtml + '<span class="cursor">▋</span>';
@@ -468,7 +468,7 @@ function finalizeStreamingBubble(ref, fullText, stats) {
   // Add timestamp below bubble
   const ts = document.createElement("div");
   ts.className = "msg-timestamp";
-  ts.textContent = "just now";
+  ts.textContent = t("mem_just_now");
   ts.dataset.ts = Date.now();
   col.appendChild(ts);
 
@@ -884,15 +884,15 @@ function _maybeShowStartupBanner(inputTok) {
   const memCount = Array.isArray(allMemories) ? allMemories.length : 0;
   if (memCount === 0 && !_preloadSkills.length && !_preloadToolCount) return;
   const parts = [];
-  if (inputTok) parts.push(`${inputTok.toLocaleString()} tokens preloaded from`);
-  if (memCount) parts.push(`${memCount} memor${memCount === 1 ? 'y' : 'ies'}`);
-  if (_preloadSkills.length) parts.push(`${_preloadSkills.length} skill${_preloadSkills.length !== 1 ? 's' : ''}`);
-  if (_preloadToolCount) parts.push(`${_preloadToolCount} tools`);
+  if (inputTok) parts.push(t("startup_tokens_from", { n: inputTok.toLocaleString() }));
+  if (memCount) parts.push(memCount === 1 ? t("startup_memory_one") : t("startup_memory_many", { n: memCount }));
+  if (_preloadSkills.length) parts.push(_preloadSkills.length === 1 ? t("startup_skill_one") : t("startup_skill_many", { n: _preloadSkills.length }));
+  if (_preloadToolCount) parts.push(_preloadToolCount === 1 ? t("startup_tool_one") : t("startup_tool_many", { n: _preloadToolCount }));
   const banner = document.createElement("div");
   banner.className = "ctx-banner ctx-banner--memories";
   banner.innerHTML =
     `<span class="ctx-banner-text">${parts.join(' · ')}</span>` +
-    `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">Dismiss</button>`;
+    `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("ctx_dismiss")}</button>`;
   document.querySelector(".chat-area")?.prepend(banner);
 }
 

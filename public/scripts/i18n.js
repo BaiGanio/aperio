@@ -130,6 +130,22 @@ const TRANSLATIONS = {
     chat_chars:               "{n} chars",
     chat_attach_remove:       "Remove",
 
+    /* Message UI (dynamic strings in message-handler.js) */
+    msg_preparing_answer:     "✦ preparing answer…",
+    msg_reasoning_done:       "done",
+    msg_reasoning_header:     "🧠 Reasoning",
+    msg_reasoning_flat:       "✍️ Reasoning",
+    msg_streaming:            "streaming…",
+
+    /* Startup context banner */
+    startup_tokens_from:      "{n} tokens preloaded from",
+    startup_memory_one:       "1 memory",
+    startup_memory_many:      "{n} memories",
+    startup_skill_one:        "1 skill",
+    startup_skill_many:       "{n} skills",
+    startup_tool_one:         "1 tool",
+    startup_tool_many:        "{n} tools",
+
     /* Tool indicators */
     tool_recall:              "Searching memories…",
     tool_remember:            "Saving memory…",
@@ -212,6 +228,10 @@ const TRANSLATIONS = {
     ctx_trimmed:              "Older messages were dropped to fit context ({pct}% full).",
     ctx_summarize:            "Summarize",
     ctx_dismiss:              "Dismiss",
+    ctx_summarize_failed:     "⚠ Could not summarize: {reason}",
+    ctx_summarize_no_save:    "Summary generated but could not be saved to memory — it will be lost on refresh.",
+    ctx_suggestions_saved_one:  "✓ 1 suggestion saved to memory",
+    ctx_suggestions_saved_many: "✓ {n} suggestions saved to memory",
 
     /* Setup / bootstrap */
     setup_page_title:         "Aperio — Setup",
@@ -315,6 +335,22 @@ const TRANSLATIONS = {
     chat_chars:               "{n} знака",
     chat_attach_remove:       "Премахни",
 
+    /* Динамични UI низове */
+    msg_preparing_answer:     "✦ подготвям отговор…",
+    msg_reasoning_done:       "готово",
+    msg_reasoning_header:     "🧠 Разсъждение",
+    msg_reasoning_flat:       "✍️ Разсъждение",
+    msg_streaming:            "поточно…",
+
+    /* Начален контекстен банер */
+    startup_tokens_from:      "{n} токена предварително заредени от",
+    startup_memory_one:       "1 спомен",
+    startup_memory_many:      "{n} спомена",
+    startup_skill_one:        "1 умение",
+    startup_skill_many:       "{n} умения",
+    startup_tool_one:         "1 инструмент",
+    startup_tool_many:        "{n} инструмента",
+
     /* Индикатори за инструменти */
     tool_recall:              "Търсене в спомените…",
     tool_remember:            "Запазване на спомен…",
@@ -397,6 +433,10 @@ const TRANSLATIONS = {
     ctx_trimmed:              "Стари съобщения бяха премахнати, за да се поберат в контекста ({pct}% пълен).",
     ctx_summarize:            "Резюмирай",
     ctx_dismiss:              "Затвори",
+    ctx_summarize_failed:     "⚠ Не можах да резюмирам: {reason}",
+    ctx_summarize_no_save:    "Резюмето е генерирано, но не можа да се запише в паметта — ще бъде загубено при опресняване.",
+    ctx_suggestions_saved_one:  "✓ 1 предложение записано в паметта",
+    ctx_suggestions_saved_many: "✓ {n} предложения записани в паметта",
 
     /* Първоначална настройка */
     setup_page_title:         "Aperio — Настройка",
