@@ -8,7 +8,7 @@
   "nav_paths":                "📂 Pfade",
   "nav_chats_title":          "Gesprächsverlauf",
   "nav_paths_title":          "Erlaubte Pfade",
-  "nav_reasoning_title":      "Reasoning aktivieren",
+  "nav_reasoning_title":      "Überlegung aktivieren",
   "nav_reasoning_on":         "an",
   "nav_reasoning_off":        "aus",
   "nav_lang_title":           "Sprache",
@@ -55,7 +55,7 @@
   "mem_hour_ago":             "vor {n} Std.",
   "mem_day_ago":              "vor {n} Tagen",
 
-  "chat_placeholder":         "Frag etwas — oder sag ‚scan my project at ~/…'",
+  "chat_placeholder":         "Frag etwas — oder sag ‚scanne mein Projekt unter ~/…'",
   "chat_send_title":          "Senden ({key}+Enter)",
   "chat_stop_title":          "Generieren stoppen",
   "chat_attach_title":        "Datei oder Bild anhängen",
@@ -68,7 +68,7 @@
   "chat_chars":               "{n} Zeichen",
   "chat_attach_remove":       "Entfernen",
 
-  "stats_with_thinking":      "🪙 {total} Tokens insgesamt → ✍️ {answer} Antwort · 🧠 +{thinking} Reasoning · 🚙 Geschw.: {speed} Tok/s · ⏱️ Dauer: {sec}",
+  "stats_with_thinking":      "🪙 {total} Tokens insgesamt → ✍️ {answer} Antwort · 🧠 +{thinking} Überlegung · 🚙 Geschw.: {speed} Tok/s · ⏱️ Dauer: {sec}",
   "stats_plain":              "🪙 {answer} Tokens · 🚙 Geschw.: {speed} Tok/s · ⏱️ Dauer: {sec}",
 
   "msg_preparing_answer":     "✦ Antwort wird vorbereitet…",
@@ -134,7 +134,7 @@
   "paths_write_label":        "Schreib-Pfade",
   "paths_write_hint":         "Ordner, in die die KI Dateien schreiben darf",
   "paths_pick_title":         "Ordner auswählen (öffnet Finder)",
-  "paths_input_placeholder":  "/Users/you/your-project",
+  "paths_input_placeholder":  "/Users/du/dein-Projekt",
   "paths_session_note_html":  "<i class=\"bi bi-info-circle\"></i> Änderungen gelten nur für diese Sitzung — werden nicht gespeichert.",
   "paths_cancel":             "Abbrechen",
   "paths_apply":              "Anwenden",
