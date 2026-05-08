@@ -7,13 +7,11 @@ function showContextBanner(pct, mode) {
   if (ctxBannerEl) return;
   const banner = document.createElement("div");
   banner.className = "ctx-banner" + (mode === "trimmed" ? " ctx-banner--trimmed" : "");
-  const msg = mode === "trimmed"
-    ? `Older messages were dropped to fit context (${pct}% full).`
-    : `Context is ${pct}% full — older messages will be dropped soon.`;
+  const msg = mode === "trimmed" ? t("ctx_trimmed", { pct }) : t("ctx_warn", { pct });
   banner.innerHTML =
     `<span class="ctx-banner-text">${msg}</span>` +
-    `<button class="ctx-banner-btn ctx-banner-btn--primary" onclick="sendSummarize()">Summarize</button>` +
-    `<button class="ctx-banner-btn" onclick="dismissContextBanner()">Dismiss</button>`;
+    `<button class="ctx-banner-btn ctx-banner-btn--primary" onclick="sendSummarize()">${t("ctx_summarize")}</button>` +
+    `<button class="ctx-banner-btn" onclick="dismissContextBanner()">${t("ctx_dismiss")}</button>`;
   document.querySelector(".chat-area")?.prepend(banner);
   ctxBannerEl = banner;
 }
@@ -95,14 +93,14 @@ function handleMessage(msg) {
   if (msg.type === "paths_restored") {
     const note = document.createElement("div");
     note.className = "suggestions-saved-note";
-    note.innerHTML = `<i class="bi bi-folder-check"></i> Paths restored from previous session`;
+    note.innerHTML = t("sessions_paths_restored");
     document.getElementById("messages")?.appendChild(note);
     setTimeout(() => note.remove(), 4000);
   }
 
   if (msg.type === "thinking") {
     suggestionShown = false;
-    setStatus("thinking", "thinking…");
+    setStatus("thinking", t("status_thinking"));
     sendBtn.disabled = true;
     if (!document.getElementById("thinking")) addThinking();
   }
@@ -110,7 +108,10 @@ function handleMessage(msg) {
   if (msg.type === "tool") {
     removeToolIndicator();
     const label = document.querySelector("#thinking .thinking-label");
-    if (label) label.textContent = TOOL_LABELS[msg.name] || "Working…";
+    if (label) {
+      const key = TOOL_LABEL_KEYS && TOOL_LABEL_KEYS[msg.name];
+      label.textContent = key ? t(key) : t("tool_generic", { name: msg.name });
+    }
   }
 
   if (msg.type === "reasoning_start") {
@@ -246,8 +247,8 @@ function handleMessage(msg) {
       reasoningBubble = null;
     }
     const label = document.querySelector("#thinking .thinking-label");
-    if (label) label.textContent = "typing…";
-    setStatus("thinking", "typing…");
+    if (label) label.textContent = t("status_typing");
+    setStatus("thinking", t("status_typing"));
   }
 
   if (msg.type === "token") {
@@ -315,7 +316,7 @@ function handleMessage(msg) {
     streamingBubble = null;
     streamingText = "";
     isThinking = false;
-    setStatus("connected", "connected");
+    setStatus("connected", t("status_connected"));
     sendBtn.disabled = chatInput.value.trim() === "";
     sendBtn.style.display = "";
     stopBtn.style.display = "none";

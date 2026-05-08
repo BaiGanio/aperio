@@ -33,7 +33,7 @@ function enterSelectMode() {
   const toggleBtn = document.getElementById("sessionsSelectBtn");
   if (toggleBtn) {
     toggleBtn.classList.add("sessions-select-toggle--active");
-    toggleBtn.innerHTML = `<i class="bi bi-x"></i> Cancel`;
+    toggleBtn.innerHTML = `<i class="bi bi-x"></i> ${t("sessions_cancel")}`;
   }
   document.querySelectorAll(".session-card").forEach(card => addCheckbox(card));
   updateSelectBar();
@@ -46,7 +46,7 @@ function exitSelectMode() {
   const toggleBtn = document.getElementById("sessionsSelectBtn");
   if (toggleBtn) {
     toggleBtn.classList.remove("sessions-select-toggle--active");
-    toggleBtn.innerHTML = `<i class="bi bi-check2-square"></i> Select`;
+    toggleBtn.innerHTML = `<i class="bi bi-check2-square"></i> ${t("sessions_select")}`;
   }
   document.querySelectorAll(".session-card-checkbox").forEach(el => el.remove());
   document.querySelectorAll(".session-card").forEach(card => card.classList.remove("session-card--selected"));
@@ -77,7 +77,7 @@ function updateSelectBar() {
   const n = selectedIds.size;
   const countEl = document.getElementById("sessions-select-count");
   const deleteBtn = document.getElementById("sessions-bulk-delete-btn");
-  if (countEl) countEl.textContent = n === 1 ? "1 selected" : `${n} selected`;
+  if (countEl) countEl.textContent = n === 1 ? t("sessions_count_one") : t("sessions_count_many", { n });
   if (deleteBtn) deleteBtn.disabled = n === 0;
 }
 
@@ -85,10 +85,10 @@ async function bulkDeleteSessions() {
   const ids = [...selectedIds];
   if (!ids.length) return;
   const n = ids.length;
-  if (!confirm(`Delete ${n} session${n > 1 ? "s" : ""}?\nThis cannot be undone.`)) return;
+  if (!confirm(t("sessions_delete_many", { n }))) return;
 
   const deleteBtn = document.getElementById("sessions-bulk-delete-btn");
-  if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.innerHTML = `<i class="bi bi-hourglass-split"></i> Deleting…`; }
+  if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.innerHTML = `<i class="bi bi-hourglass-split"></i> ${t("sessions_deleting")}`; }
 
   const results = await Promise.allSettled(
     ids.map(id => fetch(`/api/sessions/${id}`, { method: "DELETE" }))
@@ -97,13 +97,13 @@ async function bulkDeleteSessions() {
   const failed = results.filter(r => r.status === "rejected" || !r.value?.ok).length;
   exitSelectMode();
   loadSessions(currentPage);
-  if (failed) alert(`${failed} session${failed > 1 ? "s" : ""} could not be deleted.`);
+  if (failed) alert(t("sessions_delete_n_failed", { n: failed }));
 }
 
 async function loadSessions(page) {
   currentPage = page;
   const list = document.getElementById("sessions-list");
-  list.innerHTML = `<div class="sessions-empty">Loading…</div>`;
+  list.innerHTML = `<div class="sessions-empty">${t("sessions_loading")}</div>`;
 
   try {
     const res = await fetch(`/api/sessions?page=${page}&limit=${PAGE_SIZE}`);
@@ -113,7 +113,7 @@ async function loadSessions(page) {
     totalPages = data.pages ?? 1;
 
     if (!sessions.length) {
-      list.innerHTML = `<div class="sessions-empty">No past sessions yet.<br>Conversations are saved when you close the tab.</div>`;
+      list.innerHTML = `<div class="sessions-empty">${t("sessions_empty_html")}</div>`;
       return;
     }
 
@@ -129,7 +129,7 @@ async function loadSessions(page) {
       list.appendChild(makePaginationControls());
     }
   } catch (err) {
-    list.innerHTML = `<div class="sessions-empty" style="color:var(--error,#ef4444)">Failed to load sessions.</div>`;
+    list.innerHTML = `<div class="sessions-empty" style="color:var(--error,#ef4444)">${t("sessions_load_failed")}</div>`;
   }
 }
 
@@ -184,31 +184,34 @@ function makeSessionCard(s) {
   card.className = "session-card";
   card.dataset.id = s.id;
 
-  const date = new Date(s.startedAt).toLocaleDateString("en-GB", {
+  const lang = window.Aperio?.getCurrentLang?.() || "en";
+  const date = new Date(s.startedAt).toLocaleDateString(lang, {
     day: "2-digit", month: "short", year: "numeric",
   });
   const timeLabel = s.endedAt
     ? new Date(s.endedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : "in progress";
+    : t("sessions_in_progress");
+
+  const summaryWord = s.summaryCount === 1 ? t("sessions_summary_one") : t("sessions_summary_many");
 
   card.innerHTML = `
     <div class="session-card-title-row" onclick="toggleSessionCard(this)">
-      <span class="session-card-title">${escapeHtml(s.title ?? "Untitled")}</span>
+      <span class="session-card-title">${escapeHtml(s.title ?? t("sessions_untitled"))}</span>
       <i class="bi bi-chevron-right session-card-chevron"></i>
     </div>
     <div class="session-card-details">
       <div class="session-card-meta">${date} · ${timeLabel}</div>
       <div class="session-card-stats">
         <span><i class="bi bi-chat-left-dots"></i> ${s.messageCount}</span>
-        <span><i class="bi bi-file-text"></i> ${s.summaryCount} ${s.summaryCount === 1 ? "summary" : "summaries"}</span>
+        <span><i class="bi bi-file-text"></i> ${s.summaryCount} ${summaryWord}</span>
         <span class="session-card-model">${escapeHtml(s.model ?? "")}</span>
       </div>
       <div class="session-card-actions">
         <button class="session-btn session-btn--expand" onclick="expandSession(event, '${s.id}')">
-          <i class="bi bi-chevron-down"></i> Summaries
+          <i class="bi bi-chevron-down"></i> ${t("sessions_summaries")}
         </button>
         <button class="session-btn session-btn--resume" onclick="resumeSession('${s.id}')">
-          <i class="bi bi-arrow-counterclockwise"></i> Resume
+          <i class="bi bi-arrow-counterclockwise"></i> ${t("sessions_resume")}
         </button>
         <button class="session-btn session-btn--delete" onclick="deleteSession(event, '${s.id}')">
           <i class="bi bi-trash3"></i>
@@ -245,11 +248,11 @@ async function expandSession(e, id) {
 
   if (body.style.display === "flex") {
     body.style.display = "none";
-    btn.innerHTML = `<i class="bi bi-chevron-down"></i> Summaries`;
+    btn.innerHTML = `<i class="bi bi-chevron-down"></i> ${t("sessions_summaries")}`;
     return;
   }
 
-  btn.innerHTML = `<i class="bi bi-hourglass-split"></i> Loading…`;
+  btn.innerHTML = `<i class="bi bi-hourglass-split"></i> ${t("sessions_loading_short")}`;
   btn.disabled = true;
 
   try {
@@ -259,25 +262,25 @@ async function expandSession(e, id) {
     body.innerHTML = "";
 
     if (!session.summaries?.length) {
-      body.innerHTML = `<div class="session-no-summaries">No summaries yet for this session.</div>`;
+      body.innerHTML = `<div class="session-no-summaries">${t("sessions_no_summaries")}</div>`;
     } else {
       for (const sum of session.summaries) {
         const el = document.createElement("div");
         el.className = "session-summary";
         const ts = new Date(sum.generatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
         el.innerHTML =
-          `<div class="session-summary-meta">${ts} · ${sum.messageCount} messages at checkpoint</div>` +
+          `<div class="session-summary-meta">${t("sessions_summary_meta", { time: ts, n: sum.messageCount })}</div>` +
           `<div class="session-summary-content">${renderMarkdown(sum.content)}</div>`;
         body.appendChild(el);
       }
     }
 
     body.style.display = "flex";
-    btn.innerHTML = `<i class="bi bi-chevron-up"></i> Summaries`;
+    btn.innerHTML = `<i class="bi bi-chevron-up"></i> ${t("sessions_summaries")}`;
   } catch {
-    body.innerHTML = `<div class="session-no-summaries" style="color:var(--error,#ef4444)">Failed to load.</div>`;
+    body.innerHTML = `<div class="session-no-summaries" style="color:var(--error,#ef4444)">${t("sessions_load_failed")}</div>`;
     body.style.display = "flex";
-    btn.innerHTML = `<i class="bi bi-chevron-down"></i> Summaries`;
+    btn.innerHTML = `<i class="bi bi-chevron-down"></i> ${t("sessions_summaries")}`;
   } finally {
     btn.disabled = false;
   }
@@ -293,9 +296,9 @@ function resumeSession(id) {
 async function deleteSession(e, id) {
   e.stopPropagation();
   const card = e.currentTarget.closest(".session-card");
-  const title = card?.querySelector(".session-card-title")?.textContent ?? "Untitled";
+  const title = card?.querySelector(".session-card-title")?.textContent ?? t("sessions_untitled");
 
-  if (!confirm(`Delete session "${title}"?\nThis cannot be undone.`)) return;
+  if (!confirm(t("sessions_delete_one", { title }))) return;
 
   if (card) card.style.opacity = "0.35";
 
@@ -313,7 +316,7 @@ async function deleteSession(e, id) {
     }
   } catch (err) {
     if (card) card.style.opacity = "1";
-    alert(`Failed to delete session: ${err.message}`);
+    alert(t("sessions_delete_failed", { error: err.message }));
   }
 }
 
@@ -329,7 +332,7 @@ function handleSessionResumed(msg) {
   banner.className = "ctx-banner";
   banner.style.cssText = "background:color-mix(in srgb,var(--accent) 8%,var(--bg));";
   banner.innerHTML =
-    `<span class="ctx-banner-text"><i class="bi bi-arrow-counterclockwise"></i> Resumed: <strong>${escapeHtml(msg.title ?? "session")}</strong></span>` +
-    `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">Dismiss</button>`;
+    `<span class="ctx-banner-text">${t("sessions_resumed_html", { title: escapeHtml(msg.title ?? t("sessions_untitled")) })}</span>` +
+    `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("sessions_dismiss")}</button>`;
   document.querySelector(".chat-area")?.prepend(banner);
 }

@@ -1,12 +1,13 @@
 // ── Type config ──────────────────────────────────────────────
+// Labels are looked up via t() at render time so they follow the active locale.
 const TYPE_CONFIG = {
-  fact:       { icon: "◈", label: "Facts" },
-  preference: { icon: "◎", label: "Preferences" },
-  project:    { icon: "◱", label: "Projects" },
-  decision:   { icon: "◇", label: "Decisions" },
-  solution:   { icon: "◈", label: "Solutions" },
-  source:     { icon: "◉", label: "Sources" },
-  person:     { icon: "◯", label: "People" },
+  fact:       { icon: "◈", labelKey: "type_facts" },
+  preference: { icon: "◎", labelKey: "type_preferences" },
+  project:    { icon: "◱", labelKey: "type_projects" },
+  decision:   { icon: "◇", labelKey: "type_decisions" },
+  solution:   { icon: "◈", labelKey: "type_solutions" },
+  source:     { icon: "◉", labelKey: "type_sources" },
+  person:     { icon: "◯", labelKey: "type_people" },
 };
 
 // ── State ────────────────────────────────────────────────────
@@ -37,17 +38,17 @@ function connect() {
     document.getElementById("startup-thinking")?.remove();
     if (!hasInitialized) {
       hasInitialized = true;
-      setStatus("thinking", "loading…");
+      setStatus("thinking", t("status_loading"));
       addThinking();
-      ws.send(JSON.stringify({ type: "init" }));
+      ws.send(JSON.stringify({ type: "init", lang: window.Aperio.getCurrentLang() }));
     } else {
-      setStatus("connected", "reconnected");
+      setStatus("connected", t("status_reconnected"));
       sendBtn.disabled = chatInput.value.trim() === "" || isThinking;
     }
   };
 
   ws.onclose = () => {
-    setStatus("", "disconnected");
+    setStatus("", t("status_disconnected"));
     sendBtn.disabled = true;
     setTimeout(connect, 3000);
   };
@@ -77,14 +78,14 @@ function startTitleAnimation() {
   if (titleAnimFrame) return;
   titleDotIdx = 0;
   titleAnimFrame = setInterval(() => {
-    document.title = "● Aperio is thinking" + titleDots[titleDotIdx % titleDots.length];
+    document.title = t("title_thinking") + titleDots[titleDotIdx % titleDots.length];
     titleDotIdx++;
   }, 400);
 }
 
 function stopTitleAnimation() {
   if (titleAnimFrame) { clearInterval(titleAnimFrame); titleAnimFrame = null; }
-  document.title = "Aperio";
+  document.title = t("page_title");
 }
 
 
@@ -94,7 +95,7 @@ function parseSuggestionBlock(text) {
 
   const title = document.createElement("div");
   title.className = "memory-suggestion-title";
-  title.textContent = "✦ Memory suggestions";
+  title.textContent = t("sug_title");
   div.appendChild(title);
 
   const lines = text.split("\n").filter(l => /^\d+\./.test(l.trim()));
@@ -112,18 +113,18 @@ function parseSuggestionBlock(text) {
 
   const saveAll = document.createElement("button");
   saveAll.className = "btn btn-primary";
-  saveAll.textContent = "Save all";
+  saveAll.textContent = t("sug_save_all");
   saveAll.onclick = () => sendSuggestionResponse("all", lines.map((_, i) => i+1));
 
   const none = document.createElement("button");
   none.className = "btn btn-ghost";
-  none.textContent = "Skip";
+  none.textContent = t("sug_skip");
   none.onclick = () => sendSuggestionResponse("none", []);
 
   lines.forEach((_, i) => {
     const btn = document.createElement("button");
     btn.className = "btn btn-ghost";
-    btn.textContent = `Save ${i+1}`;
+    btn.textContent = t("sug_save_n", { n: i + 1 });
     btn.onclick = () => sendSuggestionResponse("pick", [i+1]);
     actions.appendChild(btn);
   });
@@ -160,11 +161,11 @@ function addThinking() {
         <div class="thinking-dot"></div>
         <div class="thinking-dot"></div>
       </div>
-      <div class="thinking-label">thinking…</div>
+      <div class="thinking-label" data-i18n="chat_thinking_label">${t("chat_thinking_label")}</div>
     </div>`;
   messagesEl.appendChild(el);
   document.querySelector(".input-bar")?.classList.add("input-locked");
-  document.getElementById("inputHint").textContent = "Aperio is thinking…";
+  document.getElementById("inputHint").textContent = t("chat_input_thinking");
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
@@ -173,27 +174,30 @@ function removeThinking() {
   document.querySelector(".input-bar")?.classList.remove("input-locked");
   document.getElementById("preparing-answer")?.remove();
   const inputHint = document.getElementById("inputHint");
-  if (inputHint) inputHint.innerHTML = `${cmdKey} + ↵ to send &nbsp;·&nbsp; ↵ for newline`;
+  if (inputHint) inputHint.innerHTML = t("chat_input_hint_html", { key: cmdKey });
 }
 
 let toolEl = null;
-const TOOL_LABELS = {
-  recall:             "Searching memories…",
-  remember:           "Saving memory…",
-  forget:             "Deleting memory…",
-  update_memory:      "Updating memory…",
-  backfill_embeddings:"Generating embeddings…",
-  deduplicate_memories:     "Checking for duplicates…",
-  read_file:          "Reading file…",
-  scan_project:       "Scanning project…",
-  fetch_url:          "Fetching URL…",
+// Tool labels — maps MCP tool name → translation key. Looked up via t() at render
+// time so the indicator follows the active language.
+const TOOL_LABEL_KEYS = {
+  recall:               "tool_recall",
+  remember:             "tool_remember",
+  forget:               "tool_forget",
+  update_memory:        "tool_update_memory",
+  backfill_embeddings:  "tool_backfill_embeddings",
+  deduplicate_memories: "tool_deduplicate_memories",
+  read_file:            "tool_read_file",
+  scan_project:         "tool_scan_project",
+  fetch_url:            "tool_fetch_url",
 };
 
 function addToolIndicator(name) {
   removeToolIndicator();
   toolEl = document.createElement("div");
   toolEl.className = "tool-indicator";
-  const label = TOOL_LABELS[name] || `Using ${name}…`;
+  const key = TOOL_LABEL_KEYS[name];
+  const label = key ? t(key) : t("tool_generic", { name });
   toolEl.innerHTML = `<div class="tool-spinner"></div> ${label}`;
   messagesEl.appendChild(toolEl);
   scrollToBottom();
@@ -240,7 +244,7 @@ async function send() {
 
   // AFTER
   const attachmentCards = getAttachmentsSnapshot();
-  addUserMessage(text || (files.length > 0 ? `Uploaded ${files.length} file(s)` : ""), attachmentCards); // ← new
+  addUserMessage(text || (files.length > 0 ? t("chat_uploaded_files", { n: files.length }) : ""), attachmentCards); // ← new
   window.attachedFiles = [];   // must stay AFTER snapshot
   renderPreviews(); // Clear the file preview chips
 
@@ -253,7 +257,7 @@ async function send() {
   stopBtn.style.display = "flex";
   requestAnimationFrame(() => {
     removeThinking();
-    setStatus("thinking", "thinking…");
+    setStatus("thinking", t("status_thinking"));
     addThinking();
     safeSend(JSON.stringify({ type: "chat", text, attachments }));
   });
@@ -340,11 +344,8 @@ function renderMemories(memories) {
     memoriesList.innerHTML = `
       <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
         <div style="font-size:22px; margin-bottom:8px; opacity:.4">◈</div>
-        <div style="font-weight:500; margin-bottom:6px; color:var(--text)">No memories yet</div>
-        <div style="font-size:12px; color:var(--text-muted)">
-          Tell Aperio something worth keeping.<br>
-          Try: <em>"Remember that I prefer TypeScript"</em>
-        </div>
+        <div style="font-weight:500; margin-bottom:6px; color:var(--text)" data-i18n="sidebar_empty_title">${t("sidebar_empty_title")}</div>
+        <div style="font-size:12px; color:var(--text-muted)" data-i18n-html="sidebar_empty_hint_html">${t("sidebar_empty_hint_html")}</div>
       </div>`;
     return;
   }
@@ -360,7 +361,8 @@ function renderMemories(memories) {
   if (countEl) countEl.textContent = memories.length ? `(${memories.length})` : "";
 
   Object.entries(grouped).forEach(([type, items]) => {
-    const cfg = TYPE_CONFIG[type] || { icon: '<i class="bi bi-circle"></i>', label: type };
+    const cfg = TYPE_CONFIG[type] || { icon: '<i class="bi bi-circle"></i>', labelKey: null };
+    const label = cfg.labelKey ? t(cfg.labelKey) : type;
     const isCollapsed = collapsedGroups.has(type);
     const isExpanded = expandedGroups.has(type);
     const visible = isExpanded ? items : items.slice(0, PREVIEW_COUNT);
@@ -373,7 +375,7 @@ function renderMemories(memories) {
     header.className = "type-header";
     header.innerHTML = `
       <span class="type-icon">${cfg.icon}</span>
-      <span>${cfg.label}</span>
+      <span>${escapeHtml(label)}</span>
       <span class="type-count">${items.length}</span>
       <i class="bi bi-chevron-right type-chevron ${isCollapsed ? "" : "open"}"></i>`;
     header.onclick = () => {
@@ -392,10 +394,10 @@ function renderMemories(memories) {
       const btn = document.createElement("button");
       btn.className = "show-more-btn";
       if (isExpanded) {
-        btn.textContent = "▴ show less";
+        btn.textContent = t("sidebar_show_less");
         btn.onclick = (e) => { e.stopPropagation(); expandedGroups.delete(type); renderMemories(allMemories); };
       } else {
-        btn.textContent = `▾ ${items.length - PREVIEW_COUNT} more`;
+        btn.textContent = t("sidebar_show_more", { n: items.length - PREVIEW_COUNT });
         btn.onclick = (e) => { e.stopPropagation(); expandedGroups.add(type); renderMemories(allMemories); };
       }
       body.appendChild(btn);
@@ -411,11 +413,11 @@ function timeAgo(dateStr) {
   const date = new Date(dateStr);
   if (Number.isNaN(date)) return "";
   const diff = Math.floor((Date.now() - date) / 1000);
-  if (diff < 60)    return "just now";
-  if (diff < 3600)  return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  if (diff < 86400 * 30) return `${Math.floor(diff / 86400)}d ago`;
-  return date.toLocaleDateString();
+  if (diff < 60)    return t("mem_just_now");
+  if (diff < 3600)  return t("mem_min_ago",  { n: Math.floor(diff / 60) });
+  if (diff < 86400) return t("mem_hour_ago", { n: Math.floor(diff / 3600) });
+  if (diff < 86400 * 30) return t("mem_day_ago", { n: Math.floor(diff / 86400) });
+  return date.toLocaleDateString(window.Aperio.getCurrentLang());
 }
 
 function makeMemoryCard(m) {
@@ -432,10 +434,10 @@ function makeMemoryCard(m) {
   card.innerHTML = `
     <div class="memory-card-header">
       <div class="memory-title">${escapeHtml(m.title)}</div>
-      <button class="delete-btn" title="Delete memory"><i class="bi bi-trash3"></i></button>
+      <button class="delete-btn" title="${escapeHtml(t("mem_delete_title"))}"><i class="bi bi-trash3"></i></button>
     </div>
     <div class="memory-preview" data-memory='${base64Data}'>${escapeHtml(m.content)}</div>
-    ${m.tags.length ? `<div class="memory-tags">${m.tags.map(t => `<span class="tag">${escapeHtml(t)}</span>`).join("")}</div>` : ""}
+    ${m.tags.length ? `<div class="memory-tags">${m.tags.map(tg => `<span class="tag">${escapeHtml(tg)}</span>`).join("")}</div>` : ""}
     <div class="importance-bar">
       ${pips}
       ${ts ? `<span class="memory-ts">${ts}</span>` : ""}
@@ -444,7 +446,7 @@ function makeMemoryCard(m) {
   card.querySelector(".delete-btn").onclick = (e) => {
     e.stopPropagation();
     if (!m.id) return;
-    if (!confirm(`Delete "${m.title}"?`)) return;
+    if (!confirm(t("mem_delete_confirm", { title: m.title }))) return;
     card.style.opacity = "0.4";
     card.style.pointerEvents = "none";
     safeSend(JSON.stringify({ type: "delete_memory", id: m.id }));
@@ -481,7 +483,7 @@ searchInput.addEventListener("input", () => {
 // ── Export brain ─────────────────────────────────────────────
 document.getElementById("exportBtn").addEventListener("click", () => {
   if (!allMemories.length) return;
-  if (!confirm(`Aperio will export ${allMemories.length} memories in JSON file?`)) return;
+  if (!confirm(t("export_confirm", { n: allMemories.length }))) return;
   const exportData = allMemories.map(({ id, createdAt, ...rest }) => rest);
   const data = JSON.stringify(exportData, null, 2);
   const blob = new Blob([data], { type: "application/json" });
@@ -508,16 +510,17 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
     const text = await file.text();
     memories = JSON.parse(text);
   } catch {
-    alert("Could not parse file — make sure it is a valid Aperio JSON export.");
+    alert(t("import_parse_failed"));
     return;
   }
 
   if (!Array.isArray(memories) || memories.length === 0) {
-    alert("The file does not contain a valid memories array.");
+    alert(t("import_invalid_array"));
     return;
   }
 
-  if (!confirm(`Import ${memories.length} memor${memories.length === 1 ? "y" : "ies"} from "${file.name}"?`)) return;
+  const confirmKey = memories.length === 1 ? "import_confirm_one" : "import_confirm_many";
+  if (!confirm(t(confirmKey, { n: memories.length, file: file.name }))) return;
 
   try {
     const res = await fetch("/api/memories/import", {
@@ -529,8 +532,8 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
     if (!res.ok) throw new Error(data.error || "Import failed");
 
     const msg = data.errors?.length
-      ? `Imported ${data.imported} memor${data.imported === 1 ? "y" : "ies"}. ${data.errors.length} skipped.`
-      : `Imported ${data.imported} memor${data.imported === 1 ? "y" : "ies"} successfully.`;
+      ? t("import_done_with_errors", { n: data.imported, e: data.errors.length })
+      : t(data.imported === 1 ? "import_done_one" : "import_done_many", { n: data.imported });
     alert(msg);
 
     if (data.imported > 0) {
@@ -545,7 +548,7 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
       }
     }
   } catch (err) {
-    alert(`Import error: ${err.message}`);
+    alert(t("import_error", { error: err.message }));
   }
 });
 
@@ -557,8 +560,17 @@ const cmdKey = isMac ? "⌘" : "Ctrl";
 
 const inputHint = document.getElementById("inputHint");
 const sendBtnEl = document.getElementById("sendBtn");
-if (inputHint) inputHint.innerHTML = `${cmdKey}↵ to send &nbsp;·&nbsp; Shift↵ for newline`;
-if (sendBtnEl) sendBtnEl.title = `Send (${cmdKey}+Enter)`;
+if (inputHint) inputHint.innerHTML = t("chat_input_hint_html", { key: cmdKey });
+if (sendBtnEl) sendBtnEl.title = t("chat_send_title", { key: cmdKey });
+
+// Re-apply the dynamic key/title strings whenever the language changes.
+document.addEventListener("aperio:lang-changed", () => {
+  if (inputHint) inputHint.innerHTML = t("chat_input_hint_html", { key: cmdKey });
+  if (sendBtnEl) sendBtnEl.title = t("chat_send_title", { key: cmdKey });
+  applySidebar();
+  // Re-render the memory sidebar so type group labels follow the new language.
+  if (Array.isArray(allMemories) && allMemories.length) renderMemories(allMemories);
+});
 
 // ── Sidebar toggle ───────────────────────────────────────────
 const appEl = document.querySelector(".app");
@@ -567,7 +579,7 @@ let sidebarOpen = localStorage.getItem("aperio-sidebar") !== "closed";
 
 function applySidebar() {
   appEl.classList.toggle("sidebar-collapsed", !sidebarOpen);
-  sidebarToggleBtn.title = sidebarOpen ? `Hide sidebar (${cmdKey}B)` : `Show sidebar (${cmdKey}B)`;
+  sidebarToggleBtn.title = t(sidebarOpen ? "nav_toggle_sidebar_hide" : "nav_toggle_sidebar_show", { key: cmdKey });
   sidebarToggleBtn.querySelector("i").className = sidebarOpen
     ? "bi bi-layout-sidebar"
     : "bi bi-layout-sidebar-reverse";
