@@ -25,6 +25,7 @@ const { version } = require("./package.json");
 logger.info(`🚀 Starting Aperio server (version ${version})...`);
 
 const PORT      = Number(process.env.PORT ?? 3000);
+const HOST      = process.env.HOST ?? "127.0.0.1";
 const LOCK_FILE = resolve(__dirname, "var/bootstrap.lock");
 
 const isBootstrapped  = () => existsSync(LOCK_FILE);
@@ -200,19 +201,22 @@ app.get("/api/bootstrap/stream", (req, res) => {
 // ─── HTTP server starts immediately — setup UI is reachable before bootApp() ──
 const httpServer = createServer(app);
 
-httpServer.listen(PORT, async () => {
-  const url = `http://localhost:${PORT}`;
+httpServer.listen(PORT, HOST, async () => {
+  const url = `http://${HOST}:${PORT}`;
   logger.warn(`\n✨ Aperio running at ${url}\n`);
+  if (HOST !== "127.0.0.1" && HOST !== "::1" && HOST !== "localhost") {
+    logger.warn("⚠️  Server is bound to a non-loopback address. Do not expose to untrusted networks.");
+  }
 
   if (isBootstrapped()) {
     // Already set up: skip straight to full app init
     logger.info("✓ Already bootstrapped — starting app.");
     await bootApp();
-    openBrowser(url);
+    openBrowser(`http://localhost:${PORT}`);
   } else {
     // First run: open the setup page, run bootstrap in the background
     logger.info("First run — opening setup UI.");
-    openBrowser(`${url}/setup`);
+    openBrowser(`http://localhost:${PORT}/setup`);
     runBootstrap({ model: process.env.OLLAMA_MODEL ?? "gemma3:4b" });
 
     // Wire the full app once bootstrap finishes (no restart needed)
@@ -267,7 +271,19 @@ async function bootApp() {
   // Mount API routes and WebSocket *after* everything is ready
   app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog }));
 
-  const wss = new WebSocketServer({ server: httpServer });
+  const allowedHosts = new Set(["localhost", "127.0.0.1", "::1", HOST]);
+  const wss = new WebSocketServer({
+    server: httpServer,
+    verifyClient: ({ origin }, cb) => {
+      if (!origin) return cb(true); // non-browser clients (curl, native WS libs)
+      try {
+        const { hostname } = new URL(origin);
+        cb(allowedHosts.has(hostname), 403, "Forbidden");
+      } catch {
+        cb(false, 400, "Bad Request");
+      }
+    },
+  });
   wss.on("connection", makeWsHandler({ agent, store, __dirname }));
 
   // Background jobs

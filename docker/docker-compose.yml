@@ -4,11 +4,11 @@ services:
     container_name: aperio_db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: aperio
-      POSTGRES_USER: aperio
-      POSTGRES_PASSWORD: aperio_secret
+      POSTGRES_DB: ${POSTGRES_DB:-aperio}
+      POSTGRES_USER: ${POSTGRES_USER:-aperio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - aperio_data:/var/lib/postgresql/data
       - ../db/migrations:/docker-entrypoint-initdb.d
