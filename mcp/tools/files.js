@@ -1,5 +1,5 @@
 import { z }                                               from "zod";
-import { readFileSync, readdirSync, statSync, existsSync } from "fs";
+import { readFileSync, readdirSync, statSync, lstatSync, existsSync } from "fs";
 import fs                                                  from "fs/promises";
 import { join, extname, basename }                         from "path";
 import {
@@ -127,7 +127,8 @@ export async function scanProjectHandler({ path: projectPath, read_key_files = t
       if (fileCount > 50) { tree += `${"  ".repeat(depth)}...\n`; break; }
       const fullPath = join(dir, entry);
       let s;
-      try { s = statSync(fullPath); } catch { continue; }
+      try { s = lstatSync(fullPath); } catch { continue; }
+      if (s.isSymbolicLink()) continue;
       if (s.isDirectory()) {
         if (SKIP_DIRS.has(entry)) continue;
         tree += `${"  ".repeat(depth)}📁 ${entry}/\n`;

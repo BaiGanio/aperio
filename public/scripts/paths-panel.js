@@ -3,16 +3,32 @@ let _pathsReadList    = [];
 let _pathsWriteList   = [];
 let _currentSessionId = null;
 
+// Last-known per-connection paths, updated by paths_updated / paths_restored.
+// null means no WS update has arrived yet — fall back to GET /api/paths.
+let _liveReadPaths  = null;
+let _liveWritePaths = null;
+
 function setCurrentSessionId(id) { _currentSessionId = id; }
 
+// Called from message-handler.js when the server confirms a path change.
+function notifyPathsChanged(readPaths, writePaths) {
+  _liveReadPaths  = readPaths;
+  _liveWritePaths = writePaths;
+}
+
 async function openPathsPanel() {
-  try {
-    const data = await fetch("/api/paths").then(r => r.json());
-    _pathsReadList  = [...(data.readPaths  || [])];
-    _pathsWriteList = [...(data.writePaths || [])];
-  } catch {
-    _pathsReadList  = [];
-    _pathsWriteList = [];
+  if (_liveReadPaths !== null) {
+    _pathsReadList  = [..._liveReadPaths];
+    _pathsWriteList = [..._liveWritePaths];
+  } else {
+    try {
+      const data = await fetch("/api/paths").then(r => r.json());
+      _pathsReadList  = [...(data.readPaths  || [])];
+      _pathsWriteList = [...(data.writePaths || [])];
+    } catch {
+      _pathsReadList  = [];
+      _pathsWriteList = [];
+    }
   }
   _renderPathChips("read");
   _renderPathChips("write");
@@ -93,26 +109,24 @@ async function _pickFolder(type) {
   fileInput.click();
 }
 
-async function applyPaths() {
+function applyPaths() {
   const applyBtn = document.querySelector(".paths-apply-btn");
   const origHTML = applyBtn.innerHTML;
   applyBtn.disabled = true;
   applyBtn.textContent = t("paths_applying");
-  try {
-    const res = await fetch("/api/paths", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({ readPaths: _pathsReadList, writePaths: _pathsWriteList, sessionId: _currentSessionId }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Unknown error");
-    applyBtn.innerHTML = `<i class="bi bi-check-lg"></i> ${t("paths_applied")}`;
-    setTimeout(closePathsPanel, 700);
-  } catch (err) {
-    alert(t("paths_apply_failed", { error: err.message }));
-    applyBtn.disabled = false;
-    applyBtn.innerHTML = origHTML;
-  }
+
+  // Send per-connection path update via WebSocket so paths are scoped to this
+  // tab's connection and don't bleed into other open tabs.
+  safeSend(JSON.stringify({
+    type:       "set_paths",
+    readPaths:  _pathsReadList,
+    writePaths: _pathsWriteList,
+    sessionId:  _currentSessionId,
+  }));
+
+  // Optimistically close — paths_updated from the server confirms the change.
+  applyBtn.innerHTML = `<i class="bi bi-check-lg"></i> ${t("paths_applied")}`;
+  setTimeout(closePathsPanel, 700);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

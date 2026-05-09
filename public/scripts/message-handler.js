@@ -91,11 +91,16 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "paths_restored") {
+    if (typeof notifyPathsChanged === "function") notifyPathsChanged(msg.readPaths, msg.writePaths);
     const note = document.createElement("div");
     note.className = "suggestions-saved-note";
     note.innerHTML = t("sessions_paths_restored");
     document.getElementById("messages")?.appendChild(note);
     setTimeout(() => note.remove(), 4000);
+  }
+
+  if (msg.type === "paths_updated") {
+    if (typeof notifyPathsChanged === "function") notifyPathsChanged(msg.readPaths, msg.writePaths);
   }
 
   if (msg.type === "thinking") {

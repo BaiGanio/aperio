@@ -25,10 +25,9 @@ Only the versions below actively receive security patches:
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| 2.42.5   | ✅ Yes    | Current stable — fully supported |
+| 0.48.3   | ✅ Yes    | Current stable — fully supported |
 
-> **Recommendation:** Use `2.42.x` for the latest features and security fixes,
-> or `2.0.x` if you need long-term stability.
+> **Recommendation:** Always use the latest `0.48.x` release for the most recent features and security fixes.
 
 ---
 
@@ -38,8 +37,7 @@ Only the versions below actively receive security patches:
 
 ### How to report
 
-1. Go to the **[Security Advisories](../../security/advisories/new)** tab and open a private advisory, **or**
-2. Email us directly at **security@yourproject.com**
+1. Go to the **[Security Advisories](../../security/advisories/new)** tab and open a private advisory
 
 ### What to include
 
