@@ -12,19 +12,21 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- The core table. Every piece of context lives here.
 -- ============================================================
 CREATE TABLE memories (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  type         TEXT NOT NULL CHECK (type IN (
-                 'fact', 'preference', 'project',
-                 'decision', 'solution', 'source', 'person'
-               )),
-  title        TEXT NOT NULL,
-  content      TEXT NOT NULL,
-  tags         TEXT[],
-  importance   INT DEFAULT 3 CHECK (importance BETWEEN 1 AND 5),
-  created_at   TIMESTAMPTZ DEFAULT now(),
-  updated_at   TIMESTAMPTZ DEFAULT now(),
-  expires_at   TIMESTAMPTZ,
-  source       TEXT DEFAULT 'manual'
+  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type          TEXT NOT NULL CHECK (type IN (
+                  'fact', 'preference', 'project',
+                  'decision', 'solution', 'source', 'person'
+                )),
+  title         TEXT NOT NULL,
+  content       TEXT NOT NULL,
+  tags          TEXT[],
+  importance    INT DEFAULT 3 CHECK (importance BETWEEN 1 AND 5),
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  updated_at    TIMESTAMPTZ DEFAULT now(),
+  expires_at    TIMESTAMPTZ,
+  source        TEXT DEFAULT 'manual',
+  lang          TEXT NOT NULL DEFAULT 'english',
+  search_vector TSVECTOR
 );
 
 -- ============================================================
@@ -34,10 +36,21 @@ CREATE INDEX idx_memories_type       ON memories(type);
 CREATE INDEX idx_memories_tags       ON memories USING GIN(tags);
 CREATE INDEX idx_memories_importance ON memories(importance DESC);
 
--- Full-text search across title + content
-CREATE INDEX idx_memories_fts ON memories USING GIN(
-  to_tsvector('english', title || ' ' || content)
-);
+-- Full-text search — trigger maintains search_vector per row language
+CREATE OR REPLACE FUNCTION update_search_vector()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.search_vector := to_tsvector(COALESCE(NEW.lang, 'simple')::regconfig,
+                                   NEW.title || ' ' || NEW.content);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_memories_search_vector
+BEFORE INSERT OR UPDATE OF title, content, lang ON memories
+FOR EACH ROW EXECUTE FUNCTION update_search_vector();
+
+CREATE INDEX idx_memories_fts ON memories USING GIN(search_vector);
 
 -- ============================================================
 -- AUTO-UPDATE updated_at ON CHANGE

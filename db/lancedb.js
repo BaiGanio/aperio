@@ -3,6 +3,7 @@
 // Data lives in LANCEDB_PATH (default: ./.lancedb)
 
 import { connect }          from '@lancedb/lancedb';
+import logger               from '../lib/helpers/logger.js';
 import { v4 as uuidv4 }     from 'uuid';
 import path                 from 'path';
 import fs                   from 'fs';
@@ -175,14 +176,14 @@ export class LanceDBStore {
         )
       );
 
-      console.log(`✨ Creating table: ${TABLE}`);
+      logger.info(`✨ Creating table: ${TABLE}`);
       store.table = await db.createTable(TABLE, rows);
     }
     // ALWAYS open the table using openTable (don't rely on the createTable return)
     try {
         store.table = await db.openTable(TABLE);
     } catch (err) {
-        console.error("[aperio:db] Table created but failed to open. Retrying...");
+        logger.error("[aperio:db] Table created but failed to open. Retrying...");
     }
 
     await store.refreshCache();

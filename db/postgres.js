@@ -1,9 +1,24 @@
 // db/postgres.js
 // Power-user backend — requires Docker + pgvector.
-// Matches migrations 001_init.sql + 002_pgvector.sql exactly.
+// Matches migrations 001_init.sql + 002_pgvector.sql + 003_fts_lang.sql exactly.
 
 import pg from 'pg';
 import { runMigrations } from './migrate.js';
+
+// Maps locale codes to PostgreSQL text-search config names.
+// Languages without a native pg config fall back to 'simple' (no stemming,
+// but tokenises correctly for any script).
+export const LOCALE_TO_PG_CONFIG = {
+  en: 'english', de: 'german',  fr: 'french',  es: 'spanish',
+  it: 'italian', nl: 'dutch',   da: 'danish',  fi: 'finnish',
+  pt: 'portuguese', sv: 'swedish',
+  // no native pg config — use language-agnostic tokeniser
+  bg: 'simple', cs: 'simple', pl: 'simple', sk: 'simple', sl: 'simple',
+};
+
+export function localeToPgConfig(locale) {
+  return LOCALE_TO_PG_CONFIG[locale] ?? 'english';
+}
 
 function toVec(embedding) {
   return `[${embedding.join(',')}]`;
@@ -21,6 +36,7 @@ function rowToMemory(row) {
     updated_at: new Date(row.updated_at),
     expires_at: row.expires_at ? new Date(row.expires_at) : undefined,
     source:     row.source ?? 'manual',
+    lang:       row.lang ?? 'english',
   };
 }
 
@@ -48,14 +64,15 @@ export class PostgresStore {
   async insert(input, embedding) {
     const { rows } = await this.pool.query(
       `INSERT INTO memories
-         (type, title, content, tags, importance, expires_at, source, embedding)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+         (type, title, content, tags, importance, expires_at, source, embedding, lang)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING *`,
       [
         input.type, input.title, input.content,
         input.tags ?? [], input.importance ?? 3,
         input.expires_at ?? null, input.source ?? 'manual',
         embedding ? toVec(embedding) : null,
+        input.lang ?? 'english',
       ]
     );
     return rowToMemory(rows[0]);
@@ -102,7 +119,7 @@ export class PostgresStore {
     const sets = [], params = [];
     let idx = 1;
 
-    for (const f of ['type','title','content','tags','importance','expires_at','source']) {
+    for (const f of ['type','title','content','tags','importance','expires_at','source','lang']) {
       if (input[f] !== undefined) { sets.push(`${f} = $${idx++}`); params.push(input[f]); }
     }
     if (embedding !== undefined) {
@@ -136,7 +153,7 @@ export class PostgresStore {
     return rows.map(rowToMemory);
   }
 
-  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto' }) {
+  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', lang = 'english' }) {
     const useVector = !!queryEmbedding && mode !== 'fulltext';
     const useText   = !!query          && mode !== 'semantic';
 
@@ -161,13 +178,12 @@ export class PostgresStore {
         ),
         fts_ranked AS (
           SELECT id, ROW_NUMBER() OVER (
-            ORDER BY ts_rank(to_tsvector('english', title || ' ' || content),
-                             plainto_tsquery('english', $2)) DESC
+            ORDER BY ts_rank(search_vector,
+                             plainto_tsquery('${lang}', $2)) DESC
           ) AS rank
           FROM memories
           WHERE ${base}
-            AND to_tsvector('english', title || ' ' || content)
-                @@ plainto_tsquery('english', $2)
+            AND search_vector @@ plainto_tsquery('${lang}', $2)
           LIMIT 60
         ),
         fused AS (
@@ -223,7 +239,7 @@ export class PostgresStore {
     if (tags?.length) { conditions.push(`tags && $${idx++}`); params.push(tags); }
     if (query) {
       conditions.push(
-        `to_tsvector('english', title || ' ' || content) @@ plainto_tsquery('english', $${idx++})`
+        `search_vector @@ plainto_tsquery('${lang}', $${idx++})`
       );
       params.push(query);
     }
