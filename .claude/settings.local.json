@@ -9,11 +9,7 @@
       "Bash(grep -v \".test.js$\")",
       "Bash(grep -n \"^\\\\.env\\\\|^\\\\.env$\" .gitignore)",
       "Bash(python3 *)",
-      "Bash(xargs ls *)",
-      "Bash(git -C /Users/lk/Projects/BaiGanio/aperio diff HEAD -- public/index.js)",
-      "Bash(git -C /Users/lk/Projects/BaiGanio/aperio show HEAD:public/index.js)",
-      "Bash(awk 'NR>=325 && NR<=332' /Users/lk/Projects/BaiGanio/aperio/public/index.js)",
-      "Bash(awk 'NR>=456 && NR<=462' /Users/lk/Projects/BaiGanio/aperio/public/index.js)"
+      "Bash(xargs ls *)"
     ]
   }
 }

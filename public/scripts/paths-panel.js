@@ -10,7 +10,7 @@ let _liveWritePaths = null;
 
 function setCurrentSessionId(id) { _currentSessionId = id; }
 
-// Called from message-handler.js when the server confirms a path change.
+// Called from streaming.js when the server confirms a path change.
 function notifyPathsChanged(readPaths, writePaths) {
   _liveReadPaths  = readPaths;
   _liveWritePaths = writePaths;
