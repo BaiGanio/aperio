@@ -12,6 +12,18 @@ import { ensurePort } from "./lib/helpers/ensurePort.js";
 import logger from "./lib/helpers/logger.js";
 import { runBootstrap, bootstrapEvents, stepState, STEPS } from "./bootstrap.js";
 
+// ─── Global error guards ──────────────────────────────────────────────────────
+// Prevent a per-connection exception from crashing the whole server.
+// uncaughtException covers sync throws inside EventEmitter callbacks (e.g. the
+// ws "connection" handler); unhandledRejection covers async leaks (e.g. an
+// await inside a ws "message" callback whose rejection escaped the try/catch).
+process.on("uncaughtException", (err) => {
+  logger.error("Uncaught exception:", err);
+});
+process.on("unhandledRejection", (err) => {
+  logger.error("Unhandled rejection:", err);
+});
+
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 const require   = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));

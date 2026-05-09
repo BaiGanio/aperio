@@ -1,6 +1,10 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import os from "os";
 import { makeWsHandler } from "../../../../lib/emitters/handlers/wsHandler.js";
+import logger from "../../../../lib/helpers/logger.js";
+
+const TEST_DIR = os.tmpdir();
 
 // ─── Test helpers ──────────────────────────────────────────────────────────────
 
@@ -30,7 +34,7 @@ function sentOf(ws, type) {
 
 function makeAgent(overrides = {}) {
   return {
-    provider:             { name: "anthropic", model: "claude-haiku-4-5" },
+    provider:             { name: "anthropic", model: "claude-haiku-4-5", contextWindow: 200000 },
     callTool:             async () => "OK",
     runAgentLoop:         async () => "",
     handleRememberIntent: async () => {},
@@ -38,6 +42,8 @@ function makeAgent(overrides = {}) {
     buildGreeting:        async () => "Greet me",
     OLLAMA_NO_TOOLS:      false,
     OLLAMA_THINKS:        false,
+    mcpTools:             [],
+    alwaysOnSkillNames:   [],
     ...overrides,
   };
 }
@@ -46,7 +52,7 @@ function makeHandler(agentOverrides = {}) {
   return makeWsHandler({
     agent:      makeAgent(agentOverrides),
     store:      {},
-    __dirname:  "/test",
+    __dirname:  TEST_DIR,
   });
 }
 
@@ -103,7 +109,7 @@ describe("message type: init", () => {
         fetchMemories:  async () => ({ raw: "", parsed: [{ id: "1" }] }),
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -126,13 +132,13 @@ describe("message type: init", () => {
         runAgentLoop:   async (msgs, _emitter, opts) => { loopArgs.push(opts); return ""; },
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
     await ws.emit({ type: "init" });
 
-    assert.deepStrictEqual(loopArgs[0], { noTools: true });
+    assert.deepStrictEqual(loopArgs[0], { noTools: true, lang: "en" });
   });
 
   test("passes empty opts to runAgentLoop for the anthropic provider", async (t) => {
@@ -145,13 +151,13 @@ describe("message type: init", () => {
         runAgentLoop: async (msgs, _emitter, opts) => { loopArgs.push(opts); return ""; },
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
     await ws.emit({ type: "init" });
 
-    assert.deepStrictEqual(loopArgs[0], {});
+    assert.deepStrictEqual(loopArgs[0], { lang: "en" });
   });
 
   test("ignores subsequent init messages (runs only once)", async (t) => {
@@ -160,7 +166,7 @@ describe("message type: init", () => {
     const handler = makeWsHandler({
       agent: makeAgent({ buildGreeting: async () => { spy.push(1); return "Hi"; } }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -182,7 +188,7 @@ describe("message type: init", () => {
       },
     });
 
-    makeWsHandler({ agent, store: {}, __dirname: "/test" })(ws);
+    makeWsHandler({ agent, store: {}, __dirname: TEST_DIR })(ws);
     await ws.emit({ type: "init" });
 
     const providerMsgs = sentOf(ws, "provider");
@@ -212,7 +218,7 @@ describe("message type: chat", () => {
         runAgentLoop: async (msgs) => { loopMsgs.push([...msgs]); return ""; },
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -231,7 +237,7 @@ describe("message type: chat", () => {
         runAgentLoop: async () => { order.push("loop"); return ""; },
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -251,7 +257,7 @@ describe("message type: chat", () => {
 
     const handler2 = makeWsHandler({
       agent: makeAgent({ runAgentLoop: async () => { sentOrder.push("loop"); return ""; } }),
-      store: {}, __dirname: "/test",
+      store: {}, __dirname: TEST_DIR,
     });
     handler2(ws2);
     await ws2.emit({ type: "chat", text: "hi" });
@@ -272,7 +278,7 @@ describe("message type: chat", () => {
         handleRememberIntent: async (text) => rememberCalls.push(text),
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -292,7 +298,7 @@ describe("message type: chat", () => {
         handleRememberIntent: async (text) => rememberCalls.push(text),
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -311,7 +317,7 @@ describe("message type: chat", () => {
         handleRememberIntent: async (text) => rememberCalls.push(text),
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -329,7 +335,7 @@ describe("message type: chat", () => {
         fetchMemories: async () => { fetchSpy.push(1); return { raw: "", parsed: [] }; },
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -365,7 +371,7 @@ describe("message type: stop", () => {
         },
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -392,7 +398,7 @@ describe("message type: get_memories", () => {
     const handler = makeWsHandler({
       agent: makeAgent({ fetchMemories: async () => ({ raw: "", parsed: records }) }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -417,7 +423,7 @@ describe("message type: delete_memory", () => {
         callTool: async (name, args) => { toolCalls.push({ name, args }); return "OK"; },
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -440,7 +446,7 @@ describe("message type: delete_memory", () => {
         callTool: async () => { throw new Error("store unreachable"); },
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);
@@ -477,14 +483,14 @@ describe("error handling", () => {
   test("does not send a ws error when fetchMemories fails — only logs", async (t) => {
     const ws    = makeWs(t);
     const logged = [];
-    t.mock.method(console, "error", (...a) => logged.push(a.join(" ")));
+    t.mock.method(logger, "error", (...a) => logged.push(a.map(String).join(" ")));
 
     const handler = makeWsHandler({
       agent: makeAgent({
         fetchMemories: async () => { throw new Error("db down"); },
       }),
       store:     {},
-      __dirname: "/test",
+      __dirname: TEST_DIR,
     });
 
     handler(ws);

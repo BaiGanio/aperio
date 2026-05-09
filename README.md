@@ -208,7 +208,7 @@ npm run chat:local               # runs as proxy or standalone
 
 ## MCP Tools
 
-Aperio exposes **12 tools** over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
+Aperio exposes **13 tools** over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
 
 | Category | Tool | What it does |
 |----------|------|-------------|
@@ -223,8 +223,8 @@ Aperio exposes **12 tools** over MCP. Any MCP-compatible agent (Cursor, Windsurf
 | | `append_file` | Append content to an existing file without touching the rest |
 | | `scan_project` | Traverse a project folder — returns a file tree and reads key files |
 | **Web** | `fetch_url` | Fetch a URL, strip HTML, truncate at 15 000 characters |
-| **Image** | `read_image` | Load an image (file path or base64) for the agent to analyse |
-| | `preprocess_image` | Normalise an image to RGB PNG before sending to a local VLM (strips alpha, letterboxes to 896×896) |
+| **Image** | `read_image` | Load an image (file path or base64) for the agent to analyze |
+| | `preprocess_image` | Normalize an image to RGB PNG before sending to a local VLM (strips alpha, letterboxes to 896×896) |
 
 > **💡 Tip:** Check [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for call examples.
 

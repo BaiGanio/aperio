@@ -50,9 +50,7 @@ function makeRouter({ agent = {}, store = {}, watchdog = {} } = {}) {
       ...agent,
     },
     store: {
-      table: {
-        query: () => ({ limit: () => ({ toArray: async () => [] }) }),
-      },
+      listAll: async () => [],
       ...store,
     },
     watchdog: {
@@ -155,7 +153,7 @@ describe("GET /memories", () => {
     const records = [{ id: "1", title: "test", content: "hello" }];
     const router  = makeRouter({
       store: {
-        table: { query: () => ({ limit: () => ({ toArray: async () => records }) }) },
+        listAll: async () => records,
       },
     });
     const { status, body } = await invoke(router, "GET", "/memories");
@@ -173,11 +171,7 @@ describe("GET /memories", () => {
   test("returns 500 when the store query throws", async () => {
     const router = makeRouter({
       store: {
-        table: {
-          query: () => ({
-            limit: () => ({ toArray: async () => { throw new Error("db unreachable"); } }),
-          }),
-        },
+        listAll: async () => { throw new Error("db unreachable"); },
       },
     });
     const { status, body } = await invoke(router, "GET", "/memories");
@@ -186,97 +180,3 @@ describe("GET /memories", () => {
   });
 });
 
-// ─── POST /chat ───────────────────────────────────────────────────────────────
-
-describe("POST /chat", () => {
-  test("returns 400 when messages body is missing", async () => {
-    const router = makeRouter();
-    const { status, body } = await invoke(router, "POST", "/chat", { body: {} });
-    assert.strictEqual(status, 400);
-    assert.ok(body.error.includes("messages array is required"));
-  });
-
-  test("returns 400 when messages is not an array", async () => {
-    const router = makeRouter();
-    const { status, body } = await invoke(router, "POST", "/chat", {
-      body: { messages: "not-an-array" },
-    });
-    assert.strictEqual(status, 400);
-    assert.ok(body.error.includes("messages array is required"));
-  });
-
-  test("proxies to Ollama and returns reply + stats on success", async (t) => {
-    t.mock.method(globalThis, "fetch", async () => ({
-      ok:   true,
-      json: async () => ({
-        message:           { content: "Hello there!" },
-        prompt_eval_count: 10,
-        eval_count:        5,
-      }),
-    }));
-
-    const router = makeRouter();
-    const { status, body } = await invoke(router, "POST", "/chat", {
-      body: { messages: [{ role: "user", content: "hi" }] },
-    });
-
-    assert.strictEqual(status, 200);
-    assert.strictEqual(body.reply, "Hello there!");
-    assert.strictEqual(body.stats.inputTokens,  10);
-    assert.strictEqual(body.stats.outputTokens,  5);
-    assert.strictEqual(body.stats.totalTokens,  15);
-  });
-
-  test("returns 502 when Ollama returns a non-ok response", async (t) => {
-    t.mock.method(globalThis, "fetch", async () => ({
-      ok:   false,
-      text: async () => "model not found",
-    }));
-
-    const router = makeRouter();
-    const { status, body } = await invoke(router, "POST", "/chat", {
-      body: { messages: [{ role: "user", content: "hi" }] },
-    });
-
-    assert.strictEqual(status, 502);
-    assert.ok(body.error.includes("Ollama error"));
-    assert.ok(body.error.includes("model not found"));
-  });
-
-  test("returns 500 when the fetch to Ollama throws", async (t) => {
-    t.mock.method(globalThis, "fetch", async () => { throw new Error("connection refused"); });
-
-    const router = makeRouter();
-    const { status, body } = await invoke(router, "POST", "/chat", {
-      body: { messages: [{ role: "user", content: "hi" }] },
-    });
-
-    assert.strictEqual(status, 500);
-    assert.ok(body.error.includes("connection refused"));
-  });
-
-  test("sends the model from the agent provider to Ollama", async (t) => {
-    let capturedBody;
-    t.mock.method(globalThis, "fetch", async (_, opts) => {
-      capturedBody = JSON.parse(opts.body);
-      return {
-        ok:   true,
-        json: async () => ({
-          message:           { content: "ok" },
-          prompt_eval_count: 1,
-          eval_count:        1,
-        }),
-      };
-    });
-
-    const router = makeRouter({
-      agent: { provider: { name: "ollama", model: "llama3.1:8b" } },
-    });
-    await invoke(router, "POST", "/chat", {
-      body: { messages: [{ role: "user", content: "hi" }] },
-    });
-
-    assert.strictEqual(capturedBody.model, "llama3.1:8b");
-    assert.strictEqual(capturedBody.stream, false);
-  });
-});

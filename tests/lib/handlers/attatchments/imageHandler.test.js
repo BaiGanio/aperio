@@ -3,6 +3,7 @@
 
 import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
+import os from "os";
 import { handleImage } from "../../../../lib/handlers/attachments/imageHandler.js";
 
 // ─── Stubs ────────────────────────────────────────────────────────────────────
@@ -11,6 +12,7 @@ const mockPreprocessBase64  = mock.fn(async () => "bW9ja2VkYmFzZTY0");
 const mockGenerateThumbnail = mock.fn(async () => "dGh1bWJuYWls");
 
 const deps = {
+  uploadDir:          os.tmpdir(),
   _preprocessBase64:  mockPreprocessBase64,
   _generateThumbnail: mockGenerateThumbnail,
 };
@@ -30,28 +32,27 @@ function reset(returnValue) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("handleImage", () => {
-  test("returns one image content block on success", async () => {
+  test("returns one text content block on success", async () => {
     reset();
     const result = await handleImage(makeAtt(), "photo.png", deps);
 
     assert.equal(result.blocks.length, 1);
-    assert.equal(result.blocks[0].type, "image");
+    assert.equal(result.blocks[0].type, "text");
   });
 
-  test("image block source type is base64 with media_type image/png", async () => {
+  test("text block includes the filename", async () => {
     reset();
     const result = await handleImage(makeAtt(), "shot.jpg", deps);
 
-    const src = result.blocks[0].source;
-    assert.equal(src.type, "base64");
-    assert.equal(src.media_type, "image/png");
+    assert.ok(result.blocks[0].text.includes("shot.jpg"));
   });
 
-  test("image block data equals what preprocessBase64 returned", async () => {
+  test("meta.savedPath is set after a successful save", async () => {
     reset("dGVzdGltYWdlZGF0YQ==");
     const result = await handleImage(makeAtt(), "img.webp", deps);
 
-    assert.equal(result.blocks[0].source.data, "dGVzdGltYWdlZGF0YQ==");
+    assert.ok(typeof result.meta.savedPath === "string");
+    assert.ok(result.meta.savedPath.length > 0);
   });
 
   test("hint contains the original filename", async () => {
@@ -118,7 +119,7 @@ describe("handleImage", () => {
     const result = await handleImage(makeAtt(), "bad.png", deps);
 
     assert.equal(result.blocks.length, 0);
-    assert.ok(result.hint.includes("Failed to process image"));
+    assert.ok(result.hint.includes("Failed to save image"));
     assert.ok(result.hint.includes("bad.png"));
     assert.ok(result.hint.includes("sharp failed"));
   });
