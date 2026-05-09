@@ -54,8 +54,9 @@ function mockStatSync(path) {
   if (!e) throw Object.assign(new Error(`ENOENT: stat '${path}'`), { code: "ENOENT" });
   return {
     size: e.type === "file" ? Buffer.byteLength(e.content, "utf8") : 0,
-    isDirectory: () => e.type === "dir",
-    isFile:      () => e.type === "file",
+    isDirectory:    () => e.type === "dir",
+    isFile:         () => e.type === "file",
+    isSymbolicLink: () => false,
   };
 }
 function mockReadFileSync(path) {
@@ -146,6 +147,7 @@ mock.method(process, "chdir", (dir) => { virtualCwd = dir.startsWith("/") ? dir 
 
 mock.method(fsSync, "existsSync",   mockExistsSync);
 mock.method(fsSync, "statSync",     mockStatSync);
+mock.method(fsSync, "lstatSync",    mockStatSync);
 mock.method(fsSync, "readFileSync", mockReadFileSync);
 mock.method(fsSync, "readdirSync",  mockReaddirSync);
 

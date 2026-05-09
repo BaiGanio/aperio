@@ -1,6 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { deduplicateMemories } from "../../../lib/workers/deduplicate.js";
+import logger from "../../../lib/helpers/logger.js";
 
 const INITIAL_DELAY = 30_000;
 const INTERVAL      = 10 * 60 * 1000;
@@ -84,7 +85,7 @@ describe("deduplicateMemories", () => {
     t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
 
     const logged = [];
-    t.mock.method(console, "log", (...args) => logged.push(args.join(" ")));
+    t.mock.method(logger, "info", (...args) => logged.push(args.map(String).join(" ")));
 
     deduplicateMemories(async () => "duplicate pair found\nid: aaa\nid: bbb");
 

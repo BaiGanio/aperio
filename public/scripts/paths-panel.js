@@ -75,8 +75,8 @@ function addPathChip(type) {
   input.focus();
 }
 
-// Open native Finder folder picker (macOS) via server-side osascript,
-// falling back to browser <input webkitdirectory> on other platforms.
+// Open a native folder picker via the server (osascript/zenity/kdialog/PowerShell),
+// falling back to browser <input webkitdirectory> if the server has no picker available.
 async function _pickFolder(type) {
   try {
     const res  = await fetch("/api/pick-folder");

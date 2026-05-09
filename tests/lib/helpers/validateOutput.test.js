@@ -1,234 +1,106 @@
 // tests/lib/helpers/validateOutput.test.js
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { z } from "zod";
 import {
-  cleanAndParse,
-  callWithValidation,
-  validateRaw,
+  fixUnclosedFence,
+  validateOutput,
+  validateOutputSafe,
 } from "../../../lib/helpers/validateOutput.js";
 
-// ─── Shared schemas ────────────────────────────────────────────────────────────
-const PersonSchema = z.object({
-  name: z.string(),
-  age:  z.number(),
-});
-
-const TagsSchema = z.object({
-  tags: z.array(z.string()),
-});
-
 // =============================================================================
-describe("cleanAndParse", () => {
+describe("fixUnclosedFence", () => {
 
-  test("parses plain JSON object", () => {
-    const result = cleanAndParse('{"name":"Alice","age":30}');
-    assert.deepEqual(result, { name: "Alice", age: 30 });
+  test("returns text unchanged when fences are balanced", () => {
+    const text = "hello\n```js\ncode\n```\nworld";
+    assert.equal(fixUnclosedFence(text), text);
   });
 
-  test("parses plain JSON array", () => {
-    const result = cleanAndParse('[1,2,3]');
-    assert.deepEqual(result, [1, 2, 3]);
+  test("appends closing fence when one fence is open", () => {
+    const text = "hello\n```js\ncode";
+    const result = fixUnclosedFence(text);
+    assert.ok(result.endsWith("```"));
   });
 
-  test("strips ```json ... ``` fences", () => {
-    const raw = '```json\n{"name":"Bob","age":25}\n```';
-    assert.deepEqual(cleanAndParse(raw), { name: "Bob", age: 25 });
+  test("returns text unchanged with no fences", () => {
+    const text = "just plain text";
+    assert.equal(fixUnclosedFence(text), text);
   });
 
-  test("strips bare ``` ... ``` fences", () => {
-    const raw = '```\n{"name":"Carol","age":40}\n```';
-    assert.deepEqual(cleanAndParse(raw), { name: "Carol", age: 40 });
+  test("returns text unchanged when already ends with fence", () => {
+    const text = "```js\ncode\n```";
+    assert.equal(fixUnclosedFence(text), text);
   });
 
-  test("strips ```JSON (uppercase) fences", () => {
-    const raw = '```JSON\n{"name":"Dan","age":50}\n```';
-    assert.deepEqual(cleanAndParse(raw), { name: "Dan", age: 50 });
-  });
-
-  test("strips preamble text before first {", () => {
-    const raw = 'Here is the JSON:\n{"name":"Eve","age":22}';
-    assert.deepEqual(cleanAndParse(raw), { name: "Eve", age: 22 });
-  });
-
-  test("strips preamble text before first [", () => {
-    const raw = 'Sure, here is your list: [1, 2, 3]';
-    assert.deepEqual(cleanAndParse(raw), [1, 2, 3]);
-  });
-
-  test("handles fences and preamble combined", () => {
-    const raw = 'Of course!\n```json\n{"name":"Frank","age":35}\n```';
-    assert.deepEqual(cleanAndParse(raw), { name: "Frank", age: 35 });
-  });
-
-  test("handles extra whitespace around fences", () => {
-    const raw = '  ```json\n{"x":1}\n```  ';
-    assert.deepEqual(cleanAndParse(raw), { x: 1 });
-  });
-
-  test("throws SyntaxError on invalid JSON", () => {
-    assert.throws(() => cleanAndParse("{invalid}"), SyntaxError);
-  });
-
-  test("throws SyntaxError on truncated JSON", () => {
-    assert.throws(() => cleanAndParse('{"name": "Alice"'), SyntaxError);
-  });
-
-  test("throws SyntaxError on empty fenced block", () => {
-    assert.throws(() => cleanAndParse("```json\n```"), SyntaxError);
+  test("handles multiple balanced fence pairs", () => {
+    const text = "```a\ncode\n```\n```b\nmore\n```";
+    assert.equal(fixUnclosedFence(text), text);
   });
 });
 
 // =============================================================================
-describe("validateRaw", () => {
+describe("validateOutput", () => {
 
-  test("returns success:true with parsed data on valid input", () => {
-    const raw = '{"name":"Alice","age":30}';
-    const result = validateRaw(raw, PersonSchema);
-    assert.equal(result.success, true);
-    assert.deepEqual(result.data, { name: "Alice", age: 30 });
+  test("returns empty string for empty input", () => {
+    assert.equal(validateOutput(""), "");
   });
 
-  test("returns success:true for valid fenced input", () => {
-    const raw = '```json\n{"name":"Bob","age":25}\n```';
-    const result = validateRaw(raw, PersonSchema);
-    assert.equal(result.success, true);
-    assert.equal(result.data.name, "Bob");
+  test("returns empty string for null input", () => {
+    assert.equal(validateOutput(null), "");
   });
 
-  test("returns success:false with error string on invalid JSON", () => {
-    const result = validateRaw("not json at all", PersonSchema);
-    assert.equal(result.success, false);
-    assert.equal(typeof result.error, "string");
-    assert.ok(result.error.length > 0);
+  test("passes through clean markdown unchanged", () => {
+    const text = "# Hello\n\nSome **bold** text.";
+    assert.equal(validateOutput(text), text);
   });
 
-  test("returns success:false with error string on schema mismatch", () => {
-    const raw = '{"name":"Alice"}'; // missing 'age'
-    const result = validateRaw(raw, PersonSchema);
-    assert.equal(result.success, false);
-    assert.ok(result.error.includes("age") || result.error.includes("Required") || result.error.length > 0);
+  test("strips script tags outside code blocks", () => {
+    const text = "Click here <script>alert(1)</script> to continue";
+    const result = validateOutput(text);
+    assert.ok(!result.includes("<script>"));
+    assert.ok(!result.includes("</script>"));
   });
 
-  test("returns success:false when field has wrong type", () => {
-    const raw = '{"name":"Alice","age":"not-a-number"}';
-    const result = validateRaw(raw, PersonSchema);
-    assert.equal(result.success, false);
-    assert.ok(result.error.length > 0);
+  test("strips iframe tags", () => {
+    const result = validateOutput("before <iframe src='x'></iframe> after");
+    assert.ok(!result.includes("<iframe"));
   });
 
-  test("handles nested schema validation failure", () => {
-    const raw = '{"tags":"not-an-array"}';
-    const result = validateRaw(raw, TagsSchema);
-    assert.equal(result.success, false);
-    assert.ok(result.error.length > 0);
+  test("strips event handler attributes", () => {
+    const result = validateOutput('<img src="x" onerror="alert(1)">');
+    assert.ok(!result.includes("onerror"));
   });
 
-  test("success result has no error field and failure has no data field", () => {
-    const ok  = validateRaw('{"name":"X","age":1}', PersonSchema);
-    const err = validateRaw("bad", PersonSchema);
-    assert.equal("error" in ok,  false);
-    assert.equal("data"  in err, false);
+  test("preserves code block content from XSS stripping", () => {
+    const text = "```html\n<script>alert(1)</script>\n```";
+    const result = validateOutput(text);
+    assert.ok(result.includes("<script>"));
+  });
+
+  test("fixes unclosed fence in output", () => {
+    const text = "Here is code:\n```js\nconst x = 1;";
+    const result = validateOutput(text);
+    assert.ok(result.endsWith("```"));
+  });
+
+  test("returns string for string input", () => {
+    assert.equal(typeof validateOutput("text"), "string");
   });
 });
 
 // =============================================================================
-describe("callWithValidation", () => {
+describe("validateOutputSafe", () => {
 
-  test("returns parsed data on first successful attempt", async () => {
-    const modelFn = async () => '{"name":"Alice","age":30}';
-    const result = await callWithValidation("prompt", modelFn, PersonSchema);
-    assert.deepEqual(result, { name: "Alice", age: 30 });
+  test("returns same result as validateOutput for clean text", () => {
+    const text = "Clean markdown text with **bold**.";
+    assert.equal(validateOutputSafe(text), validateOutput(text));
   });
 
-  test("parses fenced JSON on first attempt", async () => {
-    const modelFn = async () => '```json\n{"name":"Bob","age":25}\n```';
-    const result = await callWithValidation("prompt", modelFn, PersonSchema);
-    assert.equal(result.name, "Bob");
+  test("returns same result as validateOutput for dirty text", () => {
+    const text = "bad <script>x</script> content";
+    assert.equal(validateOutputSafe(text), validateOutput(text));
   });
 
-  test("retries on schema validation failure and succeeds on second attempt", async () => {
-    let call = 0;
-    const modelFn = async () => {
-      call++;
-      if (call === 1) return '{"name":"Alice"}'; // missing age
-      return '{"name":"Alice","age":30}';
-    };
-    const result = await callWithValidation("prompt", modelFn, PersonSchema, { maxRetries: 3 });
-    assert.equal(call, 2);
-    assert.deepEqual(result, { name: "Alice", age: 30 });
-  });
-
-  test("retries on invalid JSON and succeeds on second attempt", async () => {
-    let call = 0;
-    const modelFn = async () => {
-      call++;
-      if (call === 1) return "sorry, here is the data";
-      return '{"name":"Carol","age":40}';
-    };
-    const result = await callWithValidation("initial", modelFn, PersonSchema, { maxRetries: 2 });
-    assert.equal(call, 2);
-    assert.equal(result.name, "Carol");
-  });
-
-  test("throws after exhausting all retries", async () => {
-    const modelFn = async () => "always bad json !!!";
-    await assert.rejects(
-      () => callWithValidation("prompt", modelFn, PersonSchema, { maxRetries: 2, label: "test" }),
-      (err) => {
-        assert.ok(err.message.includes("test"));
-        assert.ok(err.message.includes("2 attempts"));
-        return true;
-      }
-    );
-  });
-
-  test("throws after 3 retries by default", async () => {
-    let calls = 0;
-    const modelFn = async () => { calls++; return "invalid"; };
-    await assert.rejects(
-      () => callWithValidation("prompt", modelFn, PersonSchema)
-    );
-    assert.equal(calls, 3);
-  });
-
-  test("uses maxRetries option", async () => {
-    let calls = 0;
-    const modelFn = async () => { calls++; return "bad"; };
-    await assert.rejects(
-      () => callWithValidation("prompt", modelFn, PersonSchema, { maxRetries: 5 })
-    );
-    assert.equal(calls, 5);
-  });
-
-  test("passes repair prompt on retry (prompt changes after failure)", async () => {
-    const seenPrompts = [];
-    const modelFn = async (prompt) => {
-      seenPrompts.push(prompt);
-      if (seenPrompts.length === 1) return "bad json";
-      return '{"name":"X","age":1}';
-    };
-    await callWithValidation("initial-prompt", modelFn, PersonSchema, { maxRetries: 2 });
-    assert.equal(seenPrompts[0], "initial-prompt");
-    assert.notEqual(seenPrompts[1], "initial-prompt");
-    assert.ok(seenPrompts[1].includes("Fix it") || seenPrompts[1].includes("broken") || seenPrompts[1].length > 0);
-  });
-
-  test("error message includes last raw output on exhaustion", async () => {
-    const modelFn = async () => "THE_BROKEN_OUTPUT";
-    await assert.rejects(
-      () => callWithValidation("p", modelFn, PersonSchema, { maxRetries: 1 }),
-      (err) => {
-        assert.ok(err.message.includes("THE_BROKEN_OUTPUT"));
-        return true;
-      }
-    );
-  });
-
-  test("succeeds on attempt 1 without logging retry message", async () => {
-    const modelFn = async () => '{"name":"Alice","age":30}';
-    // Should not throw, no retry needed
-    const result = await callWithValidation("prompt", modelFn, PersonSchema, { maxRetries: 1 });
-    assert.ok(result);
+  test("accepts a label parameter without throwing", () => {
+    assert.doesNotThrow(() => validateOutputSafe("text", "myLabel"));
   });
 });
