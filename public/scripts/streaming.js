@@ -13,7 +13,6 @@ let lastReasoningWrapForTok = null;
 let prevInputTokens = 0;
 let startupBannerShown = false;
 let pendingUserTokenEstimate = 0;
-let _preloadSkills = [];
 let _preloadToolCount = 0;
 
 function estimateTokens(text) {
@@ -56,7 +55,6 @@ function handleMessage(msg) {
     if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
 
     if (msg.contextWindow) maxCtx = msg.contextWindow;
-    if (Array.isArray(msg.skills)) _preloadSkills = msg.skills;
     if (msg.toolCount) _preloadToolCount = msg.toolCount;
   }
 
@@ -442,11 +440,10 @@ function _maybeShowStartupBanner(inputTok) {
   if (startupBannerShown) return;
   startupBannerShown = true;
   const memCount = Array.isArray(allMemories) ? allMemories.length : 0;
-  if (memCount === 0 && !_preloadSkills.length && !_preloadToolCount) return;
+  if (memCount === 0 && !_preloadToolCount) return;
   const parts = [];
   if (inputTok) parts.push(t("startup_tokens_from", { n: inputTok.toLocaleString() }));
   if (memCount) parts.push(memCount === 1 ? t("startup_memory_one") : t("startup_memory_many", { n: memCount }));
-  if (_preloadSkills.length) parts.push(_preloadSkills.length === 1 ? t("startup_skill_one") : t("startup_skill_many", { n: _preloadSkills.length }));
   if (_preloadToolCount) parts.push(_preloadToolCount === 1 ? t("startup_tool_one") : t("startup_tool_many", { n: _preloadToolCount }));
   const banner = document.createElement("div");
   banner.className = "ctx-banner ctx-banner--memories";

@@ -3,6 +3,7 @@
 // Data lives in LANCEDB_PATH (default: ./.lancedb)
 
 import { connect }          from '@lancedb/lancedb';
+import { Schema, Field, Utf8, Float32, Float64, Int32, List, FixedSizeList } from 'apache-arrow';
 import logger               from '../lib/helpers/logger.js';
 import { v4 as uuidv4 }     from 'uuid';
 import path                 from 'path';
@@ -14,41 +15,73 @@ const DB_PATH = path.resolve(process.cwd(), RELATIVE_PATH);
 const TABLE   = 'memories';
 const DIMS    = parseInt(process.env.EMBEDDING_DIMS ?? '1024', 10);
 
+// Explicit schema so nullable fields like expires_at don't cause type-inference failures.
+const makeSchema = (dims) => new Schema([
+  new Field('id',         new Utf8(),                        false),
+  new Field('type',       new Utf8(),                        false),
+  new Field('title',      new Utf8(),                        false),
+  new Field('content',    new Utf8(),                        false),
+  new Field('tags',       new Utf8(),                        false),
+  new Field('importance', new Int32(),                       false),
+  new Field('created_at', new Utf8(),                        false),
+  new Field('updated_at', new Utf8(),                        false),
+  new Field('expires_at', new Utf8(),                        true),
+  new Field('source',     new Utf8(),                        false),
+  new Field('valid_from', new Utf8(),                        false),
+  new Field('valid_until',new Utf8(),                        true),
+  new Field('confidence', new Float64(),                     false),
+  new Field('vector',     new FixedSizeList(dims, new Field('item', new Float32(), false)), false),
+]);
+
 function rowToMemory(row) {
   return {
-    id:         row.id,
-    type:       row.type,
-    title:      row.title,
-    content:    row.content,
-    tags:       JSON.parse(row.tags || '[]'),
-    importance: row.importance,
-    created_at: new Date(row.created_at),
-    updated_at: new Date(row.updated_at),
-    expires_at: row.expires_at ? new Date(row.expires_at) : undefined,
-    source:     row.source,
-    embedding:  row.vector,
+    id:          row.id,
+    type:        row.type,
+    title:       row.title,
+    content:     row.content,
+    tags:        JSON.parse(row.tags || '[]'),
+    importance:  row.importance,
+    created_at:  new Date(row.created_at),
+    updated_at:  new Date(row.updated_at),
+    expires_at:  row.expires_at ? new Date(row.expires_at) : undefined,
+    valid_from:  new Date(row.valid_from ?? row.created_at),
+    valid_until: row.valid_until ? new Date(row.valid_until) : null,
+    confidence:  row.confidence ?? 1.0,
+    source:      row.source,
+    embedding:   row.vector,
   };
 }
 
-function toRow(id, input, embedding, createdAt) {
+function toRow(id, input, embedding, createdAt, validFrom) {
   const now = new Date();
   return {
     id,
-    type:       input.type,
-    title:      input.title,
-    content:    input.content,
-    tags:       JSON.stringify(input.tags ?? []),
-    importance: input.importance ?? 3,
-    created_at: (createdAt ?? now).toISOString(),
-    updated_at: now.toISOString(),
-    expires_at: input.expires_at ? new Date(input.expires_at).toISOString() : null,
-    source:     input.source ?? 'manual',
-    vector:     embedding ?? new Array(DIMS).fill(0),
+    type:        input.type,
+    title:       input.title,
+    content:     input.content,
+    tags:        JSON.stringify(input.tags ?? []),
+    importance:  input.importance ?? 3,
+    created_at:  (createdAt ?? now).toISOString(),
+    updated_at:  now.toISOString(),
+    expires_at:  input.expires_at ? new Date(input.expires_at).toISOString() : null,
+    source:      input.source ?? 'manual',
+    valid_from:  (validFrom ?? now).toISOString(),
+    valid_until: null,
+    confidence:  input.confidence ?? 1.0,
+    vector:      embedding ?? new Array(DIMS).fill(0),
   };
 }
 
 function notExpired(row) {
   return !row.expires_at || new Date(row.expires_at) > new Date();
+}
+
+function isCurrent(row, asOf) {
+  if (asOf) {
+    const t = new Date(asOf);
+    return new Date(row.valid_from) <= t && (!row.valid_until || new Date(row.valid_until) > t);
+  }
+  return !row.valid_until;
 }
 
 function cosineSimilarity(a, b) {
@@ -133,6 +166,7 @@ async function assertDims(table, expected) {
 export class LanceDBStore {
   constructor() {
     this.table  = null;
+    this.db     = null;
     this.cache  = []; // in-memory cache for filter/dedup ops
   }
 
@@ -141,14 +175,19 @@ export class LanceDBStore {
     if (!fs.existsSync(DB_PATH)) {
         fs.mkdirSync(DB_PATH, { recursive: true });
     }
-    // console.log(`🌱 Seeding fresh table: ${TABLE}`);
     const store = new LanceDBStore();
     const db = await connect(DB_PATH);
+    store.db = db;
     const existing = await db.tableNames();
 
     if (existing.includes(TABLE)) {
       store.table = await db.openTable(TABLE);
       await assertDims(store.table, DIMS);
+      // Migrate to temporal schema if needed (adds valid_from/valid_until/confidence)
+      const schema = await store.table.schema();
+      if (!schema.fields.some(f => f.name === 'valid_from')) {
+        await store._migrateToTemporal();
+      }
     } else {
       const seedData = [
         {
@@ -177,7 +216,7 @@ export class LanceDBStore {
       );
 
       logger.info(`✨ Creating table: ${TABLE}`);
-      store.table = await db.createTable(TABLE, rows);
+      store.table = await db.createTable(TABLE, rows, { schema: makeSchema(DIMS) });
     }
     // ALWAYS open the table using openTable (don't rely on the createTable return)
     try {
@@ -203,6 +242,22 @@ export class LanceDBStore {
         // Normalize to Float32Array so downstream embedding checks work correctly.
         vector: r.vector?.toArray?.() ?? r.vector ?? new Array(DIMS).fill(0),
       }));
+  }
+
+  async _migrateToTemporal() {
+    logger.info('[lancedb] Migrating to temporal schema (adding valid_from / valid_until / confidence)…');
+    const raw = await this.table.query().limit(100_000).toArray();
+    const migrated = raw.map(r => ({
+      ...r,
+      vector:      r.vector?.toArray?.() ?? r.vector ?? new Array(DIMS).fill(0),
+      valid_from:  r.created_at ?? new Date().toISOString(),
+      valid_until: null,
+      confidence:  1.0,
+    }));
+    await this.db.dropTable(TABLE);
+    this.table = await this.db.createTable(TABLE, migrated);
+    this.table = await this.db.openTable(TABLE);
+    logger.info(`[lancedb] Migration complete: ${migrated.length} row(s) updated`);
   }
 
   async counts() {
@@ -241,6 +296,7 @@ export class LanceDBStore {
   async update(id, input, embedding) {
     const existing = this.cache.find(r => r.id === id);
     if (!existing) throw new Error(`Memory ${id} not found`);
+    if (existing.valid_until) throw new Error(`Memory ${id} has been superseded`);
 
     const merged = {
       type:       input.type       ?? existing.type,
@@ -249,15 +305,25 @@ export class LanceDBStore {
       tags:       input.tags       ?? JSON.parse(existing.tags || '[]'),
       importance: input.importance ?? existing.importance,
       expires_at: input.expires_at ?? (existing.expires_at ? new Date(existing.expires_at) : undefined),
-      source:     input.source     ?? existing.source,
+      source:     existing.source,
+      confidence: input.confidence ?? (existing.confidence ?? 1.0),
     };
 
-    const newVec = embedding !== undefined ? embedding : existing.vector;
-    const newRow = toRow(id, merged, newVec, new Date(existing.created_at));
+    const now = new Date().toISOString();
 
+    // Tombstone the existing row
+    const tombstoned = { ...existing, valid_until: now, updated_at: now };
     await this.table.delete(`id = '${id}'`);
+    await this.table.add([tombstoned]);
+    this.cache = this.cache.map(r => r.id === id ? tombstoned : r);
+
+    // Insert new version
+    const newVec = embedding !== undefined ? embedding : existing.vector;
+    const newId  = uuidv4();
+    const newRow = toRow(newId, merged, newVec, new Date(existing.created_at), new Date(now));
+
     await this.table.add([newRow]);
-    this.cache = this.cache.map(r => r.id === id ? newRow : r);
+    this.cache.push(newRow);
     return rowToMemory(newRow);
   }
 
@@ -265,13 +331,14 @@ export class LanceDBStore {
     await this.update(id, {}, embedding);
   }
 
-  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto' }) {
+  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', asOf = null }) {
     const useVector = !!queryEmbedding && mode !== 'fulltext';
     const useText   = !!query          && mode !== 'semantic';
 
     const filterRow = r =>
       r.id !== '__init__' &&
       notExpired(r) &&
+      isCurrent(r, asOf) &&
       (!type || r.type === type) &&
       (!tags?.length || tags.some(t => JSON.parse(r.tags || '[]').includes(t)));
 
@@ -327,7 +394,7 @@ export class LanceDBStore {
   async listAll() {
     const results = await this.table.query().limit(10_000).toArray();
     return results
-      .filter(r => r.id !== '__init__')
+      .filter(r => r.id !== '__init__' && !r.valid_until)
       .filter(notExpired)
       .map(rowToMemory)
       .sort((a, b) => b.importance - a.importance);
@@ -336,6 +403,7 @@ export class LanceDBStore {
   async listWithoutEmbeddings() {
     return this.cache
       .filter(r => {
+        if (r.valid_until) return false; // skip tombstoned rows
         if (!r.vector) return true;
         // LanceDB may return Float32Array or plain Array — both support .every()
         // but guard against unexpected shapes (Buffer, object, etc.)
@@ -346,7 +414,7 @@ export class LanceDBStore {
   }
 
   async findDuplicates(threshold) {
-    const rows  = this.cache.filter(r => r.vector?.some(v => v !== 0));
+    const rows  = this.cache.filter(r => !r.valid_until && r.vector?.some(v => v !== 0));
     const pairs = [];
 
     for (let i = 0; i < rows.length; i++) {
