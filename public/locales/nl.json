@@ -185,5 +185,7 @@
   "setup_badge_done":         "gereed",
   "setup_badge_skipped":      "klaar",
   "setup_badge_error":        "fout",
-  "setup_detail_waiting":     "Wachten…"
+  "setup_detail_waiting":     "Wachten…",
+
+  "agent_greeting":           "Begroet me met een korte vriendelijke zin. Gebruik geen tools."
 }

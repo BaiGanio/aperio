@@ -185,5 +185,7 @@
   "setup_badge_done":         "done",
   "setup_badge_skipped":      "ready",
   "setup_badge_error":        "error",
-  "setup_detail_waiting":     "Waiting…"
+  "setup_detail_waiting":     "Waiting…",
+
+  "agent_greeting":           "Greet me in one short friendly sentence. Do not use any tools."
 }

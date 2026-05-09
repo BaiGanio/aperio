@@ -185,5 +185,7 @@
   "setup_badge_done":         "готово",
   "setup_badge_skipped":      "пропуснато",
   "setup_badge_error":        "грешка",
-  "setup_detail_waiting":     "Чакам…"
+  "setup_detail_waiting":     "Чакам…",
+
+  "agent_greeting":           "Поздрави ме с едно кратко приятелско изречение. Не използвай инструменти."
 }
