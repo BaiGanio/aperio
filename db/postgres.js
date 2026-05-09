@@ -26,17 +26,20 @@ function toVec(embedding) {
 
 function rowToMemory(row) {
   return {
-    id:         row.id,
-    type:       row.type,
-    title:      row.title,
-    content:    row.content,
-    tags:       row.tags ?? [],
-    importance: row.importance,
-    created_at: new Date(row.created_at),
-    updated_at: new Date(row.updated_at),
-    expires_at: row.expires_at ? new Date(row.expires_at) : undefined,
-    source:     row.source ?? 'manual',
-    lang:       row.lang ?? 'english',
+    id:          row.id,
+    type:        row.type,
+    title:       row.title,
+    content:     row.content,
+    tags:        row.tags ?? [],
+    importance:  row.importance,
+    created_at:  new Date(row.created_at),
+    updated_at:  new Date(row.updated_at),
+    expires_at:  row.expires_at ? new Date(row.expires_at) : undefined,
+    valid_from:  new Date(row.valid_from ?? row.created_at),
+    valid_until: row.valid_until ? new Date(row.valid_until) : null,
+    confidence:  row.confidence ?? 1.0,
+    source:      row.source ?? 'manual',
+    lang:        row.lang ?? 'english',
   };
 }
 
@@ -64,8 +67,8 @@ export class PostgresStore {
   async insert(input, embedding) {
     const { rows } = await this.pool.query(
       `INSERT INTO memories
-         (type, title, content, tags, importance, expires_at, source, embedding, lang)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+         (type, title, content, tags, importance, expires_at, source, embedding, lang, confidence, valid_from)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
        RETURNING *`,
       [
         input.type, input.title, input.content,
@@ -73,6 +76,7 @@ export class PostgresStore {
         input.expires_at ?? null, input.source ?? 'manual',
         embedding ? toVec(embedding) : null,
         input.lang ?? 'english',
+        input.confidence ?? 1.0,
       ]
     );
     return rowToMemory(rows[0]);
@@ -87,13 +91,14 @@ export class PostgresStore {
       for (const input of inputs) {
         const { rows } = await client.query(
           `INSERT INTO memories
-             (type, title, content, tags, importance, expires_at, source)
-           VALUES ($1,$2,$3,$4,$5,$6,$7)
+             (type, title, content, tags, importance, expires_at, source, confidence, valid_from)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
            RETURNING *`,
           [
             input.type, input.title, input.content,
             input.tags ?? [], input.importance ?? 3,
             input.expires_at ?? null, input.source ?? 'import',
+            input.confidence ?? 1.0,
           ]
         );
         results.push(rowToMemory(rows[0]));
@@ -116,27 +121,49 @@ export class PostgresStore {
   }
 
   async update(id, input, embedding) {
-    const sets = [], params = [];
-    let idx = 1;
+    const existing = await this.getById(id);
+    if (!existing) throw new Error(`Memory ${id} not found`);
+    if (existing.valid_until) throw new Error(`Memory ${id} has been superseded`);
 
-    for (const f of ['type','title','content','tags','importance','expires_at','source','lang']) {
-      if (input[f] !== undefined) { sets.push(`${f} = $${idx++}`); params.push(input[f]); }
+    const merged = {
+      type:       input.type       ?? existing.type,
+      title:      input.title      ?? existing.title,
+      content:    input.content    ?? existing.content,
+      tags:       input.tags       ?? existing.tags,
+      importance: input.importance ?? existing.importance,
+      expires_at: existing.expires_at ?? null,
+      source:     existing.source,
+      lang:       existing.lang,
+      confidence: input.confidence ?? existing.confidence,
+    };
+
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        `UPDATE memories SET valid_until = now() WHERE id = $1`, [id]
+      );
+      const { rows } = await client.query(
+        `INSERT INTO memories
+           (type, title, content, tags, importance, expires_at, source, embedding, lang, confidence, valid_from)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
+         RETURNING *`,
+        [
+          merged.type, merged.title, merged.content,
+          merged.tags, merged.importance,
+          merged.expires_at, merged.source,
+          embedding ? toVec(embedding) : null,
+          merged.lang, merged.confidence,
+        ]
+      );
+      await client.query('COMMIT');
+      return rowToMemory(rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-    if (embedding !== undefined) {
-      sets.push(`embedding = $${idx++}`);
-      params.push(embedding ? toVec(embedding) : null);
-    }
-    if (!sets.length) {
-      const existing = await this.getById(id);
-      if (!existing) throw new Error(`Memory ${id} not found`);
-      return existing;
-    }
-    params.push(id);
-    const { rows } = await this.pool.query(
-      `UPDATE memories SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
-      params
-    );
-    return rowToMemory(rows[0]);
   }
 
   async setEmbedding(id, embedding) {
@@ -148,21 +175,43 @@ export class PostgresStore {
 
   async listAll() {
     const { rows } = await this.pool.query(
-      `SELECT * FROM memories WHERE (expires_at IS NULL OR expires_at > NOW()) ORDER BY importance DESC`
+      `SELECT * FROM memories
+       WHERE valid_until IS NULL AND (expires_at IS NULL OR expires_at > NOW())
+       ORDER BY importance DESC`
     );
     return rows.map(rowToMemory);
   }
 
-  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', lang = 'english' }) {
+  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', lang = 'english', asOf = null }) {
     const useVector = !!queryEmbedding && mode !== 'fulltext';
     const useText   = !!query          && mode !== 'semantic';
 
+    // Temporal filter — "current" by default, point-in-time when asOf is set.
+    // asOf is pushed once as a parameter even though it appears twice in the SQL;
+    // Postgres allows reusing $N in the same query.
+    const buildTemporalFilter = (paramIdx) => {
+      if (!asOf) return { sql: `valid_until IS NULL`, params: [], nextIdx: paramIdx };
+      return {
+        sql: `(valid_from <= $${paramIdx}::timestamptz AND (valid_until IS NULL OR valid_until > $${paramIdx}::timestamptz))`,
+        params: [asOf],
+        nextIdx: paramIdx + 1,
+      };
+    };
+
     // ── Hybrid path (RRF) ────────────────────────────────────────────────────
     if (useVector && useText) {
-      const baseConditions = [`(expires_at IS NULL OR expires_at > now())`];
       // $1 = vector, $2 = query text; optional filters start at $3
       const params = [toVec(queryEmbedding), query];
       let idx = 3;
+
+      const temporal = buildTemporalFilter(idx);
+      idx = temporal.nextIdx;
+      params.push(...temporal.params);
+
+      const baseConditions = [
+        `(expires_at IS NULL OR expires_at > now())`,
+        temporal.sql,
+      ];
 
       if (type)         { baseConditions.push(`type = $${idx++}`);  params.push(type); }
       if (tags?.length) { baseConditions.push(`tags && $${idx++}`); params.push(tags); }
@@ -206,12 +255,18 @@ export class PostgresStore {
 
     // ── Semantic-only path ───────────────────────────────────────────────────
     if (useVector) {
-      const conditions = [
-        `(expires_at IS NULL OR expires_at > now())`,
-        `embedding IS NOT NULL`,
-      ];
       const params = [toVec(queryEmbedding)];
       let idx = 2;
+
+      const temporal = buildTemporalFilter(idx);
+      idx = temporal.nextIdx;
+      params.push(...temporal.params);
+
+      const conditions = [
+        `(expires_at IS NULL OR expires_at > now())`,
+        temporal.sql,
+        `embedding IS NOT NULL`,
+      ];
 
       if (type)         { conditions.push(`type = $${idx++}`);  params.push(type); }
       if (tags?.length) { conditions.push(`tags && $${idx++}`); params.push(tags); }
@@ -231,9 +286,17 @@ export class PostgresStore {
     }
 
     // ── Fulltext-only path ───────────────────────────────────────────────────
-    const conditions = [`(expires_at IS NULL OR expires_at > now())`];
     const params = [];
     let idx = 1;
+
+    const temporal = buildTemporalFilter(idx);
+    idx = temporal.nextIdx;
+    params.push(...temporal.params);
+
+    const conditions = [
+      `(expires_at IS NULL OR expires_at > now())`,
+      temporal.sql,
+    ];
 
     if (type)         { conditions.push(`type = $${idx++}`);  params.push(type); }
     if (tags?.length) { conditions.push(`tags && $${idx++}`); params.push(tags); }
@@ -257,7 +320,7 @@ export class PostgresStore {
 
   async listWithoutEmbeddings() {
     const { rows } = await this.pool.query(
-      `SELECT id, title, content FROM memories WHERE embedding IS NULL`
+      `SELECT id, title, content FROM memories WHERE embedding IS NULL AND valid_until IS NULL`
     );
     return rows;
   }
@@ -272,6 +335,8 @@ export class PostgresStore {
        JOIN memories b ON a.id < b.id
        WHERE a.embedding IS NOT NULL
          AND b.embedding IS NOT NULL
+         AND a.valid_until IS NULL
+         AND b.valid_until IS NULL
          AND 1 - (a.embedding <=> b.embedding) >= $1
        ORDER BY similarity DESC
        LIMIT 20`,

@@ -247,6 +247,7 @@ async function bootApp() {
   const { ensureOllama }                  = await import("./lib/helpers/startOllama.js");
   const { createWatchdog }                = await import("./lib/helpers/shutdownGuard.js");
   const { deduplicateMemories }           = await import("./lib/workers/deduplicate.js");
+  const { inferMemories }                 = await import("./lib/workers/infer.js");
   const { makeWsHandler }                 = await import("./lib/emitters/handlers/wsHandler.js");
   const { apiRouter }                     = await import("./lib/routes/api.js");
   const { generateEmbedding, initEmbeddings } = await import("./lib/helpers/embeddings.js");
@@ -299,7 +300,8 @@ async function bootApp() {
   wss.on("connection", makeWsHandler({ agent, store, __dirname }));
 
   // Background jobs
-  const dedup = deduplicateMemories(callTool);
+  const dedup  = deduplicateMemories(callTool);
+  const infer  = inferMemories(callTool);
 
   // Graceful shutdown
   // We intentionally avoid process.exit() — calling it while LanceDB's Tokio
@@ -314,6 +316,7 @@ async function bootApp() {
     // 1. Stop timers so the event loop can drain
     watchdog.stop();
     dedup.stop();
+    infer.stop();
 
     // 2. Let the current ONNX inference finish, then stop the backfill loop
     await shutdownEmbeddings();

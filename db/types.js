@@ -1,7 +1,7 @@
 // src/db/types.js
 
 /**
- * @typedef {'fact' | 'preference' | 'project' | 'decision' | 'solution' | 'source' | 'person'} MemoryType
+ * @typedef {'fact' | 'preference' | 'project' | 'decision' | 'solution' | 'source' | 'person' | 'inference'} MemoryType
  */
 
 /**
@@ -15,12 +15,15 @@
  * @property {Date} created_at
  * @property {Date} updated_at
  * @property {Date} [expires_at]
+ * @property {Date} valid_from
+ * @property {Date | null} valid_until
+ * @property {number} confidence
  * @property {string} source
  * @property {number[]} [embedding]
  */
 
 /**
- * @typedef {Omit<Memory, 'id' | 'created_at' | 'updated_at'>} MemoryInput
+ * @typedef {Omit<Memory, 'id' | 'created_at' | 'updated_at' | 'valid_from' | 'valid_until'>} MemoryInput
  */
 
 /**
@@ -31,6 +34,7 @@
  * @property {string[]} [tags]
  * @property {number} [limit]
  * @property {'semantic' | 'fulltext' | 'auto'} [mode]
+ * @property {string} [asOf]   ISO 8601 timestamp for point-in-time recall
  */
 
 /**
