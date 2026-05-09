@@ -1,0 +1,9 @@
+node_modules
+.env
+var/
+.lancedb/
+ai-trash/
+coverage/
+tests/
+.git
+*.md
