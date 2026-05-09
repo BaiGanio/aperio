@@ -1,0 +1,136 @@
+  /* ── Reset & tokens ─────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --font-mono: "Berkeley Mono", "Fira Code", monospace;
+      --font-sans: "DM Sans", system-ui, sans-serif;
+      --radius: 10px;
+      --radius-sm: 6px;
+      --transition: 160ms ease;
+    }
+
+    /* ── THEME: Light (default) ──────────────────────────────── */
+    [data-theme="light"] {
+      color-scheme: light;
+      --bg:          #f5f4f0;
+      --bg-panel:    #ffffff;
+      --bg-input:    #ffffff;
+      --bg-hover:    #f0efe9;
+      --bg-msg-user: #1a1a1a;
+      --bg-msg-ai:   #ffffff;
+      --border:      #e2e0d8;
+      --text:        #1a1a1a;
+      --text-muted:  #7a7870;
+      --text-user:   #ffffff;
+      --accent:      #2563eb;
+      --accent-soft: #eff4ff;
+      --tag-bg:      #f0efe9;
+      --tag-text:    #6b6860;
+      --shadow:      0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
+      --shadow-lg:   0 8px 32px rgba(0,0,0,.10);
+      --dot-color:   #d4d0c8;
+    }
+
+    /* ── THEME: Dark ─────────────────────────────────────────── */
+    [data-theme="dark"] {
+      color-scheme: dark;
+      --bg:          #141414;
+      --bg-panel:    #1e1e1e;
+      --bg-input:    #252525;
+      --bg-hover:    #2a2a2a;
+      --bg-msg-user: #2563eb;
+      --bg-msg-ai:   #252525;
+      --border:      #2e2e2e;
+      --text:        #e8e6e0;
+      --text-muted:  #6b6860;
+      --text-user:   #ffffff;
+      --accent:      #3b82f6;
+      --accent-soft: #1e2a3d;
+      --tag-bg:      #2a2a2a;
+      --tag-text:    #8a8880;
+      --shadow:      0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+      --shadow-lg:   0 8px 32px rgba(0,0,0,.4);
+      --dot-color:   #2a2a2a;
+    }
+
+    /* ── THEME: Aurora (indigo-pink) ─────────────────────────── */
+    [data-theme="aurora"] {
+      color-scheme: dark;
+      --bg:          #0f0b1e;
+      --bg-panel:    #17112e;
+      --bg-input:    #1e1638;
+      --bg-hover:    #261d42;
+      --bg-msg-user: #7c3aed;
+      --bg-msg-ai:   #1e1638;
+      --border:      #2e2252;
+      --text:        #ede9f8;
+      --text-muted:  #8b7fb8;
+      --text-user:   #ffffff;
+      --accent:      #a855f7;
+      --accent-soft: #2d1b4e;
+      --tag-bg:      #261d42;
+      --tag-text:    #a78bdb;
+      --shadow:      0 1px 3px rgba(0,0,0,.4), 0 4px 12px rgba(120,50,255,.15);
+      --shadow-lg:   0 8px 32px rgba(120,50,255,.25);
+      --dot-color:   #1e1638;
+      --gradient-accent: linear-gradient(135deg, #7c3aed, #ec4899);
+    }
+
+    /* ── System default fallback ─────────────────────────────── */
+    @media (prefers-color-scheme: light) {
+      [data-theme="system"] {
+        color-scheme: light;
+        --bg:          #f5f4f0;
+        --bg-panel:    #ffffff;
+        --bg-input:    #ffffff;
+        --bg-hover:    #f0efe9;
+        --bg-msg-user: #1a1a1a;
+        --bg-msg-ai:   #ffffff;
+        --border:      #e2e0d8;
+        --text:        #1a1a1a;
+        --text-muted:  #7a7870;
+        --text-user:   #ffffff;
+        --accent:      #2563eb;
+        --accent-soft: #eff4ff;
+        --tag-bg:      #f0efe9;
+        --tag-text:    #6b6860;
+        --shadow:      0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
+        --shadow-lg:   0 8px 32px rgba(0,0,0,.10);
+        --dot-color:   #d4d0c8;
+      }
+    }
+
+    @media (prefers-color-scheme: dark) {
+      [data-theme="system"] {
+        color-scheme: dark;
+        --bg:          #141414;
+        --bg-panel:    #1e1e1e;
+        --bg-input:    #252525;
+        --bg-hover:    #2a2a2a;
+        --bg-msg-user: #2563eb;
+        --bg-msg-ai:   #252525;
+        --border:      #2e2e2e;
+        --text:        #e8e6e0;
+        --text-muted:  #6b6860;
+        --text-user:   #ffffff;
+        --accent:      #3b82f6;
+        --accent-soft: #1e2a3d;
+        --tag-bg:      #2a2a2a;
+        --tag-text:    #8a8880;
+        --shadow:      0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
+        --shadow-lg:   0 8px 32px rgba(0,0,0,.4);
+        --dot-color:   #2a2a2a;
+      }
+    }
+
+    html, body { height: 100%; overflow: hidden; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1.6;
+      background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
+      background-size: 24px 24px;
+    }

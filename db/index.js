@@ -19,20 +19,7 @@ export async function getStore() {
   if (instance) return instance;
 
   // 2. If initialization is already in progress, wait for that same promise
-  if (initializationPromise) {return initializationPromise}
-  else {
-    // --- Start Caller Detection ---
-    // We create a dummy error to grab the stack trace
-    const stack = new Error().stack;
-    const stackLines = stack.split('\n');
-    
-    // Line 0 is 'Error', Line 1 is getStore, Line 2 is the caller
-    const callerLine = stackLines[2] || ''; 
-    // Clean up the path to show just the filename
-    const fileName = callerLine.match(/([^\/]+)\.js/)?.[0] || 'unknown';
-    logger.info(`[aperio:db] 📥 getStore() called by: ${fileName}`);
-    // --- End Caller Detection ---
-  }
+  if (initializationPromise) return initializationPromise;
 
   // 3. Otherwise, start initialization and save the promise
   initializationPromise = (async () => {

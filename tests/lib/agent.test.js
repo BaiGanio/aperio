@@ -8,11 +8,11 @@ import { z } from "zod";
 import {
   getRecommendedModel,
   resolveProvider,
-  fixUnclosedFence,
   parseMemoriesRaw,
   createAgent,
   zodToJsonSchema,
 } from "../../lib/agent.js";
+import { fixUnclosedFence } from "../../lib/helpers/validateOutput.js";
 import { makeWsEmitter } from "../../lib/emitters/wsEmitter.js";
 import { makeCliEmitter } from "../../lib/emitters/cliEmitter.js";
 
