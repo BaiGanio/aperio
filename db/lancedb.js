@@ -11,7 +11,7 @@ import { randomUUID }       from 'node:crypto'; // Built-in Node.js UUID generat
 const RELATIVE_PATH = process.env.LANCEDB_PATH ?? './.lancedb';
 const DB_PATH = path.resolve(process.cwd(), RELATIVE_PATH);
 const TABLE   = 'memories';
-const DIMS    = 1024; // voyage-3 / nomic dimensions
+const DIMS    = parseInt(process.env.EMBEDDING_DIMS ?? '1024', 10);
 
 function rowToMemory(row) {
   return {
@@ -40,7 +40,7 @@ function toRow(id, input, embedding, createdAt) {
     importance: input.importance ?? 3,
     created_at: (createdAt ?? now).toISOString(),
     updated_at: now.toISOString(),
-    expires_at: input.expires_at ? new Date(input.expires_at).toISOString() : '',
+    expires_at: input.expires_at ? new Date(input.expires_at).toISOString() : null,
     source:     input.source ?? 'manual',
     vector:     embedding ?? new Array(DIMS).fill(0),
   };
@@ -58,6 +58,19 @@ function cosineSimilarity(a, b) {
     magB += b[i] * b[i];
   }
   return dot / (Math.sqrt(magA) * Math.sqrt(magB) || 1);
+}
+
+async function assertDims(table, expected) {
+  const schema = await table.schema();
+  const vectorField = schema.fields.find(f => f.name === 'vector');
+  if (!vectorField) return;
+  const actual = vectorField.type.listSize;
+  if (actual !== expected) {
+    throw new Error(
+      `LanceDB vector dimension mismatch: table has ${actual}D but EMBEDDING_DIMS=${expected}. ` +
+      `Either set EMBEDDING_DIMS=${actual} or delete the .lancedb directory to start fresh.`
+    );
+  }
 }
 
 export class LanceDBStore {
@@ -78,6 +91,7 @@ export class LanceDBStore {
 
     if (existing.includes(TABLE)) {
       store.table = await db.openTable(TABLE);
+      await assertDims(store.table, DIMS);
     } else {
       const seedData = [
         {

@@ -3,6 +3,7 @@
 // Matches migrations 001_init.sql + 002_pgvector.sql exactly.
 
 import pg from 'pg';
+import { runMigrations } from './migrate.js';
 
 function toVec(embedding) {
   return `[${embedding.join(',')}]`;
@@ -30,8 +31,7 @@ export class PostgresStore {
 
   static async init() {
     const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
-    const client = await pool.connect();
-    client.release();
+    await runMigrations(pool);
     return new PostgresStore(pool);
   }
 

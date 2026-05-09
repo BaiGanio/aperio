@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aperio}
+      POSTGRES_USER: ${POSTGRES_USER:-aperio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}
+    volumes:
+      - aperio_data:/var/lib/postgresql/data
+      - ../db/migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aperio} -d ${POSTGRES_DB:-aperio}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  aperio:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DB_BACKEND: postgres
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aperio}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aperio}
+      AI_PROVIDER: ${AI_PROVIDER:-anthropic}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-voyage}
+      VOYAGE_API_KEY: ${VOYAGE_API_KEY}
+      APERIO_ALLOWED_PATHS_TO_READ: /app
+      APERIO_ALLOWED_PATHS_TO_WRITE: /app/var
+    volumes:
+      - aperio_var:/app/var
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  aperio_data:
+    name: aperio_data
+  aperio_var:
+    name: aperio_var
