@@ -27,9 +27,9 @@ metadata:
 
 | Fix size | Method |
 |----------|--------|
-| 1–2 lines/blocks | Inline markdown patch block (no write needed) |
-| 3–20 lines | Targeted replacement on the exact changed section |
-| 20+ lines or structural refactor | Full read verification first, then edit in stages |
+| 1–10 lines/blocks | Inline markdown patch block (no write needed) |
+| 11–30 lines | Targeted replacement on the exact changed section |
+| 30+ lines or structural refactor | Full read verification first, then edit in stages |
 
 ### Verify After Every Edit
 - Re-read the affected section after writing to confirm correctness.

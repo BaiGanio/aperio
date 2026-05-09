@@ -156,6 +156,42 @@ export async function scanProjectHandler({ path: projectPath, read_key_files = t
   return { content: [{ type: "text", text: output }] };
 }
 
+export async function editFileHandler(ctx, { path: filePath, old_string, new_string, replace_all = false }) {
+  if (!isWritePathAllowed(filePath))
+    return formatPathError("Write", filePath, ALLOWED_WRITE_PATHS);
+
+  const ext = extname(filePath).toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(ext))
+    return { content: [{ type: "text", text: `❌ File type not allowed: ${ext}` }] };
+  if (!existsSync(filePath))
+    return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
+
+  try {
+    const original = await fs.readFile(filePath, "utf8");
+
+    const occurrences = original.split(old_string).length - 1;
+    if (occurrences === 0)
+      return { content: [{ type: "text", text: `❌ old_string not found in ${filePath}` }] };
+    if (!replace_all && occurrences > 1)
+      return { content: [{ type: "text", text: `❌ old_string matches ${occurrences} times. Provide more context to make it unique, or set replace_all: true.` }] };
+
+    const updated = replace_all
+      ? original.split(old_string).join(new_string)
+      : original.replace(old_string, new_string);
+
+    await fs.writeFile(filePath, updated, "utf8");
+
+    const linesBefore = original.split("\n").length;
+    const linesAfter  = updated.split("\n").length;
+    const replaced    = replace_all ? occurrences : 1;
+    return {
+      content: [{ type: "text", text: `✅ Edited ${filePath} (replaced ${replaced} occurrence${replaced > 1 ? "s" : ""}, ${linesBefore} → ${linesAfter} lines)` }],
+    };
+  } catch (err) {
+    return { content: [{ type: "text", text: `❌ edit_file failed: ${err.message}` }] };
+  }
+}
+
 // ─── MCP registration ─────────────────────────────────────────────────────────
 // ctx is kept for backward compatibility but path guards are now handled
 // directly via the imported validators above.
@@ -197,6 +233,20 @@ export function register(server, ctx) {
       }),
     },
     (args) => appendFileHandler(ctx, args)
+  );
+
+  server.registerTool(
+    "edit_file",
+    {
+      description: "Replace an exact string in a file. Fails if old_string appears more than once unless replace_all is true. Use read_file first to confirm the exact text.",
+      inputSchema: z.object({
+        path:        z.string().describe("Absolute path to the file"),
+        old_string:  z.string().describe("Exact text to find (must be unique in the file unless replace_all is true)"),
+        new_string:  z.string().describe("Text to replace it with"),
+        replace_all: z.boolean().optional().describe("Replace every occurrence of old_string. Default false."),
+      }),
+    },
+    (args) => editFileHandler(ctx, args)
   );
 
   server.registerTool(
