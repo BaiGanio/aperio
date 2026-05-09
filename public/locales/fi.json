@@ -185,5 +185,7 @@
   "setup_badge_done":         "valmis",
   "setup_badge_skipped":      "valmiina",
   "setup_badge_error":        "virhe",
-  "setup_detail_waiting":     "Odotetaan…"
+  "setup_detail_waiting":     "Odotetaan…",
+
+  "agent_greeting":           "Tervehdi minua lyhyellä ystävällisellä lauseella. Älä käytä mitään työkaluja."
 }

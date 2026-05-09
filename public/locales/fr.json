@@ -185,5 +185,7 @@
   "setup_badge_done":         "fait",
   "setup_badge_skipped":      "prêt",
   "setup_badge_error":        "erreur",
-  "setup_detail_waiting":     "Attente…"
+  "setup_detail_waiting":     "Attente…",
+
+  "agent_greeting":           "Salue-moi en une courte phrase amicale. N'utilise aucun outil."
 }

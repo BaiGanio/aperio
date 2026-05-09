@@ -185,5 +185,7 @@
   "setup_badge_done":         "klart",
   "setup_badge_skipped":      "redo",
   "setup_badge_error":        "fel",
-  "setup_detail_waiting":     "Väntar…"
+  "setup_detail_waiting":     "Väntar…",
+
+  "agent_greeting":           "Hälsa på mig med en kort vänlig mening. Använd inga verktyg."
 }

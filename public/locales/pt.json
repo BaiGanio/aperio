@@ -185,5 +185,7 @@
   "setup_badge_done":         "concluído",
   "setup_badge_skipped":      "pronto",
   "setup_badge_error":        "erro",
-  "setup_detail_waiting":     "Aguardando…"
+  "setup_detail_waiting":     "Aguardando…",
+
+  "agent_greeting":           "Cumprimente-me com uma frase curta e amigável. Não use nenhuma ferramenta."
 }
