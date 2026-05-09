@@ -137,9 +137,58 @@ export class PostgresStore {
   }
 
   async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto' }) {
-    const useVector = queryEmbedding && (mode === 'semantic' || mode === 'auto');
+    const useVector = !!queryEmbedding && mode !== 'fulltext';
+    const useText   = !!query          && mode !== 'semantic';
 
-    // ── Semantic path ────────────────────────────────────────────────────────
+    // ── Hybrid path (RRF) ────────────────────────────────────────────────────
+    if (useVector && useText) {
+      const baseConditions = [`(expires_at IS NULL OR expires_at > now())`];
+      // $1 = vector, $2 = query text; optional filters start at $3
+      const params = [toVec(queryEmbedding), query];
+      let idx = 3;
+
+      if (type)         { baseConditions.push(`type = $${idx++}`);  params.push(type); }
+      if (tags?.length) { baseConditions.push(`tags && $${idx++}`); params.push(tags); }
+      params.push(limit);
+
+      const base = baseConditions.join(' AND ');
+      const { rows } = await this.pool.query(`
+        WITH vector_ranked AS (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY embedding <=> $1::vector) AS rank
+          FROM memories
+          WHERE ${base} AND embedding IS NOT NULL
+          LIMIT 60
+        ),
+        fts_ranked AS (
+          SELECT id, ROW_NUMBER() OVER (
+            ORDER BY ts_rank(to_tsvector('english', title || ' ' || content),
+                             plainto_tsquery('english', $2)) DESC
+          ) AS rank
+          FROM memories
+          WHERE ${base}
+            AND to_tsvector('english', title || ' ' || content)
+                @@ plainto_tsquery('english', $2)
+          LIMIT 60
+        ),
+        fused AS (
+          SELECT
+            COALESCE(v.id, f.id) AS id,
+            COALESCE(1.0 / (60 + v.rank), 0.0)
+              + COALESCE(1.0 / (60 + f.rank), 0.0) AS rrf_score
+          FROM vector_ranked v
+          FULL OUTER JOIN fts_ranked f ON v.id = f.id
+        )
+        SELECT m.*, fu.rrf_score
+        FROM fused fu
+        JOIN memories m ON m.id = fu.id
+        ORDER BY fu.rrf_score DESC
+        LIMIT $${idx}
+      `, params);
+
+      return rows.map(r => ({ ...rowToMemory(r), similarity: Number.parseFloat(r.rrf_score) }));
+    }
+
+    // ── Semantic-only path ───────────────────────────────────────────────────
     if (useVector) {
       const conditions = [
         `(expires_at IS NULL OR expires_at > now())`,
@@ -165,7 +214,7 @@ export class PostgresStore {
       }
     }
 
-    // ── Fulltext fallback ────────────────────────────────────────────────────
+    // ── Fulltext-only path ───────────────────────────────────────────────────
     const conditions = [`(expires_at IS NULL OR expires_at > now())`];
     const params = [];
     let idx = 1;

@@ -60,6 +60,62 @@ function cosineSimilarity(a, b) {
   return dot / (Math.sqrt(magA) * Math.sqrt(magB) || 1);
 }
 
+// Rank docs by BM25 against a free-text query. Returns docs sorted by score (desc),
+// zeros excluded. k1=1.5, b=0.75 are standard Okapi BM25 defaults.
+function bm25Rank(query, docs, { k1 = 1.5, b = 0.75 } = {}) {
+  const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (!terms.length || !docs.length) return [];
+
+  const getText = r => `${r.title} ${r.content}`.toLowerCase();
+  const texts   = docs.map(getText);
+  const avgDl   = texts.reduce((s, t) => s + t.length, 0) / texts.length;
+  const N       = docs.length;
+
+  const idf = Object.fromEntries(terms.map(term => {
+    const df = texts.filter(t => t.includes(term)).length;
+    return [term, Math.log((N - df + 0.5) / (df + 0.5) + 1)];
+  }));
+
+  const re = term => new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+
+  return docs
+    .map((doc, i) => {
+      const text = texts[i];
+      const dl   = text.length;
+      let score  = 0;
+      for (const term of terms) {
+        const tf = (text.match(re(term)) ?? []).length;
+        if (tf === 0) continue;
+        score += idf[term] * (tf * (k1 + 1)) / (tf + k1 * (1 - b + b * dl / avgDl));
+      }
+      return { doc, score };
+    })
+    .filter(({ score }) => score > 0)
+    .sort((a, bScore) => bScore.score - a.score)
+    .map(({ doc }) => doc);
+}
+
+// Reciprocal Rank Fusion over two pre-ranked arrays of rows.
+// k=60 is the standard constant that dampens the impact of high ranks.
+function rrfMerge(vectorRanked, textRanked, limit, k = 60) {
+  const scores = new Map();
+  const byId   = new Map();
+
+  vectorRanked.forEach((row, i) => {
+    scores.set(row.id, (scores.get(row.id) ?? 0) + 1 / (k + i + 1));
+    byId.set(row.id, row);
+  });
+  textRanked.forEach((row, i) => {
+    scores.set(row.id, (scores.get(row.id) ?? 0) + 1 / (k + i + 1));
+    byId.set(row.id, row);
+  });
+
+  return [...scores.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
+    .map(([id, rrf_score]) => ({ ...rowToMemory(byId.get(id)), similarity: rrf_score }));
+}
+
 async function assertDims(table, expected) {
   const schema = await table.schema();
   const vectorField = schema.fields.find(f => f.name === 'vector');
@@ -209,19 +265,36 @@ export class LanceDBStore {
   }
 
   async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto' }) {
-    // ── Semantic path ──────────────────────────────────────────────────────
-    if (queryEmbedding && mode !== 'fulltext') {
-      const results = await this.table
-        .search(queryEmbedding)
-        .limit(limit * 3)
-        .toArray();
+    const useVector = !!queryEmbedding && mode !== 'fulltext';
+    const useText   = !!query          && mode !== 'semantic';
 
-      const filtered = results
-        .filter(r => r.id !== '__init__')
-        .filter(notExpired)
-        .filter(r => !type || r.type === type)
-        .filter(r => !tags?.length || tags.some(t => JSON.parse(r.tags || '[]').includes(t)))
-        .slice(0, limit);
+    const filterRow = r =>
+      r.id !== '__init__' &&
+      notExpired(r) &&
+      (!type || r.type === type) &&
+      (!tags?.length || tags.some(t => JSON.parse(r.tags || '[]').includes(t)));
+
+    // ── Hybrid path (RRF) ────────────────────────────────────────────────────
+    if (useVector && useText) {
+      const [vectorResults, cacheSource] = await Promise.all([
+        this.table.search(queryEmbedding).limit(60).toArray(),
+        Promise.resolve(
+          this.cache.length > 0
+            ? this.cache
+            : this.table.query().limit(10_000).toArray()
+        ),
+      ]);
+
+      const vectorRanked = vectorResults.filter(filterRow);
+      const textRanked   = bm25Rank(query, cacheSource.filter(filterRow));
+
+      return rrfMerge(vectorRanked, textRanked, limit);
+    }
+
+    // ── Semantic-only path ───────────────────────────────────────────────────
+    if (useVector) {
+      const results  = await this.table.search(queryEmbedding).limit(limit * 3).toArray();
+      const filtered = results.filter(filterRow).slice(0, limit);
 
       if (filtered.length) {
         return filtered.map(r => ({
@@ -231,19 +304,20 @@ export class LanceDBStore {
       }
     }
 
-    // ── Fulltext fallback ──────────────────────────────────────────────────
-    const lower = query?.toLowerCase() ?? '';
-    // IF CACHE IS EMPTY, FETCH FROM TABLE DIRECTLY
+    // ── Fulltext-only path ───────────────────────────────────────────────────
     let source = this.cache;
     if (source.length === 0) {
-        console.error("🔍 Cache empty, fetching from table...");
-        source = await this.table.query().limit(limit).toArray();
+      source = await this.table.query().limit(10_000).toArray();
     }
-    return source
-      .filter(notExpired)
-      .filter(r => !type || r.type === type)
-      .filter(r => !tags?.length || tags.some(t => JSON.parse(r.tags || '[]').includes(t)))
-      .filter(r => !lower || r.title.toLowerCase().includes(lower) || r.content.toLowerCase().includes(lower))
+
+    const pool = source.filter(filterRow);
+
+    if (query) {
+      const ranked = bm25Rank(query, pool);
+      return ranked.slice(0, limit).map(rowToMemory);
+    }
+
+    return pool
       .sort((a, b) => b.importance - a.importance)
       .slice(0, limit)
       .map(rowToMemory);
