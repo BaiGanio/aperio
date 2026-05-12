@@ -1,9 +1,11 @@
 import { readdir, readFile } from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import pg from 'pg';
 import logger from '../lib/helpers/logger.js';
 
-const MIGRATIONS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), 'migrations');
+const __filename = fileURLToPath(import.meta.url);
+const MIGRATIONS_DIR = path.join(path.dirname(__filename), 'migrations');
 
 export async function runMigrations(pool) {
   await pool.query(`
@@ -19,7 +21,10 @@ export async function runMigrations(pool) {
   const applied  = new Set(rows.map(r => r.version));
   const pending  = files.filter(f => !applied.has(f));
 
-  if (!pending.length) return;
+  if (!pending.length) {
+    logger.info('[migrate] Nothing to apply.');
+    return;
+  }
 
   for (const file of pending) {
     const sql    = await readFile(path.join(MIGRATIONS_DIR, file), 'utf8');
@@ -36,5 +41,23 @@ export async function runMigrations(pool) {
     } finally {
       client.release();
     }
+  }
+}
+
+if (process.argv[1] === __filename) {
+  const { config } = await import('dotenv');
+  config();
+  if (!process.env.DATABASE_URL) {
+    console.error('[migrate] DATABASE_URL is not set.');
+    process.exit(1);
+  }
+  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+  try {
+    await runMigrations(pool);
+  } catch (err) {
+    console.error(err.message);
+    process.exit(1);
+  } finally {
+    await pool.end();
   }
 }
