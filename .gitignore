@@ -11,8 +11,10 @@
 *.sln.docstates
 *.env
 *.lancedb/
+*.claude/
 var/
 ai-trash/
+
 
 
 # User-specific files (MonoDevelop/Xamarin Studio)

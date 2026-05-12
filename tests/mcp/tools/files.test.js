@@ -163,6 +163,10 @@ mock.method(fsAsync, "rm",         mockRm);
 const { readFileHandler, writeFileHandler, appendFileHandler, scanProjectHandler } =
   await import("../../../mcp/tools/files.js");
 
+// paths.js is already cached from the files.js import above; this re-export
+// gives us the same pathStorage instance so runWithPaths affects the guards.
+const { runWithPaths } = await import("../../../lib/routes/paths.js");
+
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
 before(() => {
@@ -548,6 +552,80 @@ describe("scanProjectHandler", () => {
 
     const result = await scanProjectHandler({ path: dir });
     assert.ok(result.content[0].text.includes("Files: 3"));
+  });
+});
+
+// ─── Per-connection path isolation ───────────────────────────────────────────
+// These tests verify that a runWithPaths context for client A never leaks into
+// client B — the core guarantee that prevents tabs from merging path configs.
+
+describe("Per-connection path isolation", () => {
+  const ctx = {};
+
+  test("client A context allows its own paths and rejects client B paths", async () => {
+    const dirA = join(TMP, "iso-client-a");
+    const dirB = join(TMP, "iso-client-b");
+    vfsSetupFile(join(dirA, "a.js"), "// client A");
+    vfsSetupFile(join(dirB, "b.js"), "// client B");
+
+    const [okA, rejectB] = await runWithPaths([dirA], [dirA], () =>
+      Promise.all([
+        readFileHandler({ path: join(dirA, "a.js") }),
+        readFileHandler({ path: join(dirB, "b.js") }),
+      ])
+    );
+
+    assert.ok(okA.content[0].text.includes("client A"),    "A can read its own file");
+    assert.ok(rejectB.content[0].text.includes("❌ Read not allowed"), "A cannot read B's file");
+  });
+
+  test("client B context allows its own paths and rejects client A paths", async () => {
+    const dirA = join(TMP, "iso-b-a");
+    const dirB = join(TMP, "iso-b-b");
+    vfsSetupFile(join(dirA, "a.js"), "// client A");
+    vfsSetupFile(join(dirB, "b.js"), "// client B");
+
+    const [rejectA, okB] = await runWithPaths([dirB], [dirB], () =>
+      Promise.all([
+        readFileHandler({ path: join(dirA, "a.js") }),
+        readFileHandler({ path: join(dirB, "b.js") }),
+      ])
+    );
+
+    assert.ok(rejectA.content[0].text.includes("❌ Read not allowed"), "B cannot read A's file");
+    assert.ok(okB.content[0].text.includes("client B"),    "B can read its own file");
+  });
+
+  test("concurrent contexts do not bleed into each other", async () => {
+    const dirA = join(TMP, "concur-a");
+    const dirB = join(TMP, "concur-b");
+    vfsSetupFile(join(dirA, "a.js"), "// A");
+    vfsSetupFile(join(dirB, "b.js"), "// B");
+
+    const [resultA, resultB] = await Promise.all([
+      runWithPaths([dirA], [dirA], () => readFileHandler({ path: join(dirB, "b.js") })),
+      runWithPaths([dirB], [dirB], () => readFileHandler({ path: join(dirA, "a.js") })),
+    ]);
+
+    assert.ok(resultA.content[0].text.includes("❌ Read not allowed"), "A context rejects B's path");
+    assert.ok(resultB.content[0].text.includes("❌ Read not allowed"), "B context rejects A's path");
+  });
+
+  test("write guard is also isolated per context", async () => {
+    const dirA = join(TMP, "write-iso-a");
+    const dirB = join(TMP, "write-iso-b");
+    vfsSetupDir(dirA);
+    vfsSetupDir(dirB);
+
+    const [okWrite, rejectWrite] = await runWithPaths([dirA], [dirA], () =>
+      Promise.all([
+        writeFileHandler(ctx, { path: join(dirA, "new.js"), content: "x" }),
+        writeFileHandler(ctx, { path: join(dirB, "new.js"), content: "x" }),
+      ])
+    );
+
+    assert.ok(okWrite.content[0].text.includes("✅"), "A context can write to dirA");
+    assert.ok(rejectWrite.content[0].text.includes("❌ Write not allowed"), "A context cannot write to dirB");
   });
 });
 
