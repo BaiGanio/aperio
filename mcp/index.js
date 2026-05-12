@@ -5,6 +5,7 @@ import { fileURLToPath }        from "url";
 import { dirname, resolve }     from "path";
 import { getStore }             from "../db/index.js";
 import { generateEmbedding, initEmbeddings } from "../lib/helpers/embeddings.js";
+import { createEmbeddingQueue } from "../lib/helpers/embedding-queue.js";
 import packageJson from "../package.json" with { type: "json" };
 import logger from "../lib/helpers/logger.js";
 
@@ -29,10 +30,14 @@ async function createContext(store, opts) {
     vectorEnabled ? generateEmbedding(text, inputType) : null
   );
 
+  const embeddingFn = (text, inputType) => vectorEnabled ? generateEmbedding(text, inputType) : null;
+  const embeddingQueue = createEmbeddingQueue({ store, generateEmbedding: embeddingFn });
+
   return {
     store,
-    generateEmbedding: (text, inputType) => vectorEnabled ? generateEmbedding(text, inputType) : null,
+    generateEmbedding: embeddingFn,
     vectorEnabled: () => vectorEnabled,
+    embeddingQueue,
   };
 }
 
