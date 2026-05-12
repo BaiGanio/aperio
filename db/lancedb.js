@@ -9,6 +9,7 @@ import { v4 as uuidv4 }     from 'uuid';
 import path                 from 'path';
 import fs                   from 'fs';
 import { randomUUID }       from 'node:crypto'; // Built-in Node.js UUID generator
+import { deserialiseRow }   from './types.js';
 
 const RELATIVE_PATH = process.env.LANCEDB_PATH ?? './.lancedb';
 const DB_PATH = path.resolve(process.cwd(), RELATIVE_PATH);
@@ -33,24 +34,6 @@ const makeSchema = (dims) => new Schema([
   new Field('vector',     new FixedSizeList(dims, new Field('item', new Float32(), false)), false),
 ]);
 
-function rowToMemory(row) {
-  return {
-    id:          row.id,
-    type:        row.type,
-    title:       row.title,
-    content:     row.content,
-    tags:        JSON.parse(row.tags || '[]'),
-    importance:  row.importance,
-    created_at:  new Date(row.created_at),
-    updated_at:  new Date(row.updated_at),
-    expires_at:  row.expires_at ? new Date(row.expires_at) : undefined,
-    valid_from:  new Date(row.valid_from ?? row.created_at),
-    valid_until: row.valid_until ? new Date(row.valid_until) : null,
-    confidence:  row.confidence ?? 1.0,
-    source:      row.source,
-    embedding:   row.vector,
-  };
-}
 
 function toRow(id, input, embedding, createdAt, validFrom) {
   const now = new Date();
@@ -147,7 +130,7 @@ function rrfMerge(vectorRanked, textRanked, limit, k = 60) {
   return [...scores.entries()]
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
-    .map(([id, rrf_score]) => ({ ...rowToMemory(byId.get(id)), similarity: rrf_score }));
+    .map(([id, rrf_score]) => ({ ...deserialiseRow(byId.get(id)), similarity: rrf_score }));
 }
 
 async function assertDims(table, expected) {
@@ -276,7 +259,7 @@ export class LanceDBStore {
     const row = toRow(id, input, embedding);
     await this.table.add([row]);
     this.cache.push(row);
-    return rowToMemory(row);
+    return deserialiseRow(row);
   }
 
   async bulkInsert(inputs) {
@@ -284,12 +267,12 @@ export class LanceDBStore {
     const rows = inputs.map(input => toRow(uuidv4(), input, null));
     await this.table.add(rows);
     this.cache.push(...rows);
-    return rows.map(rowToMemory);
+    return rows.map(deserialiseRow);
   }
 
   async getById(id) {
     const row = this.cache.find(r => r.id === id);
-    return row ? rowToMemory(row) : null;
+    return row ? deserialiseRow(row) : null;
   }
 
   async update(id, input, embedding) {
@@ -323,7 +306,7 @@ export class LanceDBStore {
 
     await this.table.add([newRow]);
     this.cache.push(newRow);
-    return rowToMemory(newRow);
+    return deserialiseRow(newRow);
   }
 
   async setEmbedding(id, embedding) {
@@ -367,7 +350,7 @@ export class LanceDBStore {
 
       if (filtered.length) {
         return filtered.map(r => ({
-          ...rowToMemory(r),
+          ...deserialiseRow(r),
           similarity: 1 - (r._distance ?? 0),
         }));
       }
@@ -383,13 +366,13 @@ export class LanceDBStore {
 
     if (query) {
       const ranked = bm25Rank(query, pool);
-      return ranked.slice(0, limit).map(rowToMemory);
+      return ranked.slice(0, limit).map(deserialiseRow);
     }
 
     return pool
       .sort((a, b) => b.importance - a.importance)
       .slice(0, limit)
-      .map(rowToMemory);
+      .map(deserialiseRow);
   }
 
   async listAll() {
@@ -397,7 +380,7 @@ export class LanceDBStore {
     return results
       .filter(r => r.id !== '__init__' && !r.valid_until)
       .filter(notExpired)
-      .map(rowToMemory)
+      .map(deserialiseRow)
       .sort((a, b) => b.importance - a.importance);
   }
 

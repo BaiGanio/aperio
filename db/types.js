@@ -14,7 +14,7 @@
  * @property {1 | 2 | 3 | 4 | 5} importance
  * @property {Date} created_at
  * @property {Date} updated_at
- * @property {Date} [expires_at]
+ * @property {Date | null} expires_at
  * @property {Date} valid_from
  * @property {Date | null} valid_until
  * @property {number} confidence
@@ -53,8 +53,26 @@
  */
 
 /**
- * @interface VectorStore
+ * Deserialise a raw database row from either LanceDB or Postgres into a Memory object.
+ * LanceDB stores tags as a JSON string; Postgres stores them as a native array.
+ * expires_at is always Date | null — never undefined.
+ * @param {Object} row
+ * @returns {Memory}
  */
-// In JS, we just export an empty object or nothing if it's a type-only file.
-// This prevents "Module not found" errors during imports.
-export {};
+export function deserialiseRow(row) {
+  return {
+    id:          row.id,
+    type:        row.type,
+    title:       row.title,
+    content:     row.content,
+    tags:        Array.isArray(row.tags) ? row.tags : JSON.parse(row.tags || '[]'),
+    importance:  row.importance,
+    created_at:  new Date(row.created_at),
+    updated_at:  new Date(row.updated_at),
+    expires_at:  row.expires_at ? new Date(row.expires_at) : null,
+    valid_from:  new Date(row.valid_from ?? row.created_at),
+    valid_until: row.valid_until ? new Date(row.valid_until) : null,
+    confidence:  row.confidence ?? 1.0,
+    source:      row.source ?? 'manual',
+  };
+}
