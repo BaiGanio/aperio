@@ -85,13 +85,42 @@ jobs:
         run: |
           sed -i "s/const version = '.*';/const version = '${{ steps.versioning.outputs.new_v }}';/" docs/scripts.js
 
+      - name: Update CHANGELOG
+        if: steps.info.outputs.bump != 'skip'
+        env:
+          NEW_V: ${{ steps.versioning.outputs.new_v }}
+          BUMP:  ${{ steps.info.outputs.bump }}
+        run: |
+          MSG=$(git log -1 --pretty=%s)
+          export CL_DESC="${MSG#*: }"   # strip feat:/fix:/etc. prefix
+          export CL_DATE=$(date -u +%Y-%m-%d)
+          export CL_SECTION=$([ "$BUMP" = "minor" ] && echo "### Added" || echo "### Fixed")
+
+          python3 - <<'PYEOF'
+          import re, os
+          new_v   = os.environ['NEW_V']
+          date    = os.environ['CL_DATE']
+          section = os.environ['CL_SECTION']
+          desc    = os.environ['CL_DESC']
+          entry   = f"## [{new_v}] — {date}\n\n{section}\n- {desc}\n\n---"
+          path    = "CHANGELOG.md"
+          content = open(path).read()
+          content = re.sub(
+              r'(## \[Unreleased\]\n)',
+              r'\1\n' + entry + '\n\n',
+              content,
+              count=1,
+          )
+          open(path, 'w').write(content)
+          PYEOF
+
       - name: Commit & Tag Version Bump
         if: steps.info.outputs.bump != 'skip'
         run: |
           set -euo pipefail
           NEW_V="${{ steps.versioning.outputs.new_v }}"
 
-          git add package.json package-lock.json docs/scripts.js
+          git add package.json package-lock.json docs/scripts.js CHANGELOG.md
           git commit -m "chore: release v$NEW_V [skip ci]"
 
           # MY_PAT is required — GITHUB_TOKEN pushes never trigger downstream workflows
