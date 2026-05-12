@@ -4,6 +4,7 @@
 
 import pg from 'pg';
 import { runMigrations } from './migrate.js';
+import { deserialiseRow } from './types.js';
 
 // Maps locale codes to PostgreSQL text-search config names.
 // Languages without a native pg config fall back to 'simple' (no stemming,
@@ -25,22 +26,7 @@ function toVec(embedding) {
 }
 
 function rowToMemory(row) {
-  return {
-    id:          row.id,
-    type:        row.type,
-    title:       row.title,
-    content:     row.content,
-    tags:        row.tags ?? [],
-    importance:  row.importance,
-    created_at:  new Date(row.created_at),
-    updated_at:  new Date(row.updated_at),
-    expires_at:  row.expires_at ? new Date(row.expires_at) : undefined,
-    valid_from:  new Date(row.valid_from ?? row.created_at),
-    valid_until: row.valid_until ? new Date(row.valid_until) : null,
-    confidence:  row.confidence ?? 1.0,
-    source:      row.source ?? 'manual',
-    lang:        row.lang ?? 'english',
-  };
+  return { ...deserialiseRow(row), lang: row.lang ?? 'english' };
 }
 
 export class PostgresStore {
