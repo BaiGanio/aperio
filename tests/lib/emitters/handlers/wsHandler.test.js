@@ -459,6 +459,61 @@ describe("message type: delete_memory", () => {
   });
 });
 
+// ─── "set_paths" message ──────────────────────────────────────────────────────
+
+describe("message type: set_paths", () => {
+  test("sends paths_updated when valid arrays are supplied", async (t) => {
+    const ws      = makeWs(t);
+    const tmpdir  = os.tmpdir();
+    makeHandler()(ws);
+
+    await ws.emit({ type: "set_paths", readPaths: [tmpdir], writePaths: [tmpdir] });
+
+    const updated = sentOf(ws, "paths_updated");
+    assert.ok(updated.length >= 1, "paths_updated was sent");
+  });
+
+  test("is silently ignored when readPaths is not an array", async (t) => {
+    const ws = makeWs(t);
+    makeHandler()(ws);
+
+    await ws.emit({ type: "set_paths", readPaths: "/not-an-array", writePaths: [] });
+
+    assert.strictEqual(sentOf(ws, "paths_updated").length, 0);
+  });
+
+  test("is silently ignored when writePaths is not an array", async (t) => {
+    const ws = makeWs(t);
+    makeHandler()(ws);
+
+    await ws.emit({ type: "set_paths", readPaths: [], writePaths: null });
+
+    assert.strictEqual(sentOf(ws, "paths_updated").length, 0);
+  });
+
+  test("two connections maintain independent path state", async (t) => {
+    const wsA    = makeWs(t);
+    const wsB    = makeWs(t);
+    const tmpdir = os.tmpdir();
+    const handler = makeHandler();
+    handler(wsA);
+    handler(wsB);
+
+    await wsA.emit({ type: "set_paths", readPaths: [tmpdir], writePaths: [tmpdir] });
+    await wsB.emit({ type: "set_paths", readPaths: [tmpdir], writePaths: [tmpdir] });
+
+    // Both connections get their own paths_updated event — neither sees the other's
+    const aUpdated = sentOf(wsA, "paths_updated");
+    const bUpdated = sentOf(wsB, "paths_updated");
+    assert.strictEqual(aUpdated.length, 1, "A got exactly one paths_updated");
+    assert.strictEqual(bUpdated.length, 1, "B got exactly one paths_updated");
+
+    // B's update did not inject a second paths_updated into A's message stream
+    assert.strictEqual(wsA.sent.filter(m => m.type === "paths_updated").length, 1);
+    assert.strictEqual(wsB.sent.filter(m => m.type === "paths_updated").length, 1);
+  });
+});
+
 // ─── Error handling ───────────────────────────────────────────────────────────
 
 describe("error handling", () => {

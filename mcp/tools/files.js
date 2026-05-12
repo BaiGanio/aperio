@@ -5,8 +5,7 @@ import { join, extname, basename }                         from "path";
 import {
   isReadPathAllowed,
   isWritePathAllowed,
-  ALLOWED_READ_PATHS,
-  ALLOWED_WRITE_PATHS,
+  getActivePaths,
 } from "../../lib/routes/paths.js";
 
 const ALLOWED_EXTENSIONS = new Set([
@@ -21,13 +20,15 @@ const SKIP_DIRS = new Set(["node_modules", ".git", ".next", "dist", "build", "co
 const KEY_FILES = new Set(["package.json", "README.md", "readme.md", "pyproject.toml", "Cargo.toml", "go.mod", "docker-compose.yml"]);
 const CODE_EXTS = new Set([".js", ".ts", ".py", ".go", ".rs", ".java", ".jsx", ".tsx"]);
 
-function formatPathError(action, filePath, allowedPaths) {
-  return { content: [{ type: "text", text: `❌ ${action} not allowed: ${filePath}\nAllowed ${action.toLowerCase()} paths: ${allowedPaths.join(", ")}` }] };
+function formatPathError(action, filePath) {
+  const active = getActivePaths();
+  const paths  = action === "Read" ? active.readPaths : active.writePaths;
+  return { content: [{ type: "text", text: `❌ ${action} not allowed: ${filePath}\nAllowed ${action.toLowerCase()} paths: ${paths.join(", ")}` }] };
 }
 
 export async function readFileHandler({ path: filePath, max_lines, offset = 0 }) {
   if (!isReadPathAllowed(filePath))
-    return formatPathError("Read", filePath, ALLOWED_READ_PATHS);
+    return formatPathError("Read", filePath);
 
   const ext = extname(filePath).toLowerCase();
   if (!ALLOWED_EXTENSIONS.has(ext))
@@ -55,11 +56,11 @@ export async function readFileHandler({ path: filePath, max_lines, offset = 0 })
 }
 
 export async function writeFileHandler(ctx, { path: filePath, content, create_dirs = true }) {
-  if (!isWritePathAllowed(filePath))
-    return formatPathError("Write", filePath, ALLOWED_WRITE_PATHS);
+  const resolved = filePath.replace(/^~/, process.cwd());
+  if (!isWritePathAllowed(resolved))
+    return formatPathError("Write", resolved);
 
   try {
-    const resolved = filePath.replace(/^~/, process.cwd());
 
     if (create_dirs) {
       const dir = resolved.substring(0, resolved.lastIndexOf("/"));
@@ -82,11 +83,11 @@ export async function writeFileHandler(ctx, { path: filePath, content, create_di
 }
 
 export async function appendFileHandler(ctx, { path: filePath, content }) {
-  if (!isWritePathAllowed(filePath))
-    return formatPathError("Write", filePath, ALLOWED_WRITE_PATHS);
+  const resolved = filePath.replace(/^~/, process.cwd());
+  if (!isWritePathAllowed(resolved))
+    return formatPathError("Write", resolved);
 
   try {
-    const resolved = filePath.replace(/^~/, process.cwd());
 
     if (!existsSync(resolved))
       return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
@@ -108,7 +109,7 @@ export async function appendFileHandler(ctx, { path: filePath, content }) {
 // expose file contents outside of KEY_FILES, so it uses the read guard.
 export async function scanProjectHandler({ path: projectPath, read_key_files = true }) {
   if (!isReadPathAllowed(projectPath))
-    return formatPathError("Read", projectPath, ALLOWED_READ_PATHS);
+    return formatPathError("Read", projectPath);
 
   if (!existsSync(projectPath))
     return { content: [{ type: "text", text: `❌ Path not found: ${projectPath}` }] };
@@ -158,7 +159,7 @@ export async function scanProjectHandler({ path: projectPath, read_key_files = t
 
 export async function editFileHandler(ctx, { path: filePath, old_string, new_string, replace_all = false }) {
   if (!isWritePathAllowed(filePath))
-    return formatPathError("Write", filePath, ALLOWED_WRITE_PATHS);
+    return formatPathError("Write", filePath);
 
   const ext = extname(filePath).toLowerCase();
   if (!ALLOWED_EXTENSIONS.has(ext))

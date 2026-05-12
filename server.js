@@ -51,7 +51,7 @@ await ensurePort(PORT);
 
 // ─── Express (always starts immediately — serves setup UI right away) ─────────
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
 
 // ─── Locale detection (Accept-Language + cookie) ──────────────────────────────
 // Supported EU locales — must mirror public/scripts/i18n.js.
