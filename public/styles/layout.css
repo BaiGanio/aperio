@@ -249,3 +249,14 @@
       opacity: 0.55;
       margin-top: 2px;
     }
+
+    #metrics-display {
+      display: block;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      opacity: 0.45;
+      margin-top: 3px;
+    }
