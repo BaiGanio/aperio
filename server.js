@@ -250,7 +250,7 @@ async function bootApp() {
   const { inferMemories }                 = await import("./lib/workers/infer.js");
   const { makeWsHandler }                 = await import("./lib/emitters/handlers/wsHandler.js");
   const { apiRouter }                     = await import("./lib/routes/api.js");
-  const { generateEmbedding, initEmbeddings } = await import("./lib/helpers/embeddings.js");
+  const { generateEmbedding, initEmbeddings, disposeEmbeddings } = await import("./lib/helpers/embeddings.js");
 
   // DB
   const store = await getStore();
@@ -304,10 +304,9 @@ async function bootApp() {
   const infer  = inferMemories(callTool);
 
   // Graceful shutdown
-  // We intentionally avoid process.exit() — calling it while LanceDB's Tokio
-  // runtime or ONNX Runtime threads are active destroys their mutexes mid-use,
-  // causing the "mutex lock failed: Invalid argument" abort. Instead we close
-  // every open handle so Node drains the event loop and exits cleanly on its own.
+  // Order matters: ONNX and LanceDB native runtimes must be torn down via their
+  // own APIs before process.exit() runs global C++ destructors. Calling exit()
+  // while those runtimes have live threads causes "mutex lock failed: Invalid argument".
   let shuttingDown = false;
   async function gracefulShutdown() {
     if (shuttingDown) return;
@@ -329,12 +328,14 @@ async function bootApp() {
     httpServer.closeAllConnections?.();
     await new Promise(resolve => httpServer.close(resolve));
 
-    // 5. Release the DB connection pool (Postgres only; LanceDB is embedded)
+    // 5. Dispose the ONNX inference session — releases its thread pool so the
+    //    global destructor sequence won't try to lock already-destroyed mutexes.
+    await disposeEmbeddings();
+
+    // 6. Close the LanceDB table then the connection — shuts down the Tokio
+    //    runtime cleanly before process.exit() tears down native memory.
     await store.close?.();
 
-    // ONNX/LanceDB native threads outlive the JS event loop — Node won't drain
-    // on its own. By this point shutdownEmbeddings() has already waited for any
-    // in-flight ONNX call to finish, so calling exit here is safe.
     process.exit(0);
   }
   process.on("SIGTERM", gracefulShutdown);

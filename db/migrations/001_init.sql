@@ -1,21 +1,18 @@
 -- ============================================================
 -- Aperio - Initial Schema
--- Migration: 001_init.sql
--- Runs automatically on first docker compose up
 -- ============================================================
 
--- Enable UUID generation
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+CREATE EXTENSION IF NOT EXISTS vector;
 
 -- ============================================================
 -- MEMORIES
--- The core table. Every piece of context lives here.
 -- ============================================================
 CREATE TABLE memories (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type          TEXT NOT NULL CHECK (type IN (
                   'fact', 'preference', 'project',
-                  'decision', 'solution', 'source', 'person'
+                  'decision', 'solution', 'source', 'person', 'inference'
                 )),
   title         TEXT NOT NULL,
   content       TEXT NOT NULL,
@@ -26,7 +23,11 @@ CREATE TABLE memories (
   expires_at    TIMESTAMPTZ,
   source        TEXT DEFAULT 'manual',
   lang          TEXT NOT NULL DEFAULT 'english',
-  search_vector TSVECTOR
+  search_vector TSVECTOR,
+  embedding     vector(1024),
+  valid_from    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  valid_until   TIMESTAMPTZ,
+  confidence    FLOAT NOT NULL DEFAULT 1.0 CHECK (confidence BETWEEN 0.0 AND 1.0)
 );
 
 -- ============================================================
@@ -35,8 +36,16 @@ CREATE TABLE memories (
 CREATE INDEX idx_memories_type       ON memories(type);
 CREATE INDEX idx_memories_tags       ON memories USING GIN(tags);
 CREATE INDEX idx_memories_importance ON memories(importance DESC);
+CREATE INDEX idx_memories_fts        ON memories USING GIN(search_vector);
+CREATE INDEX idx_memories_temporal   ON memories(valid_from, valid_until);
+CREATE INDEX idx_memories_current    ON memories(id) WHERE valid_until IS NULL;
+CREATE INDEX idx_memories_embedding
+  ON memories USING hnsw (embedding vector_cosine_ops)
+  WITH (m = 16, ef_construction = 64);
 
--- Full-text search — trigger maintains search_vector per row language
+-- ============================================================
+-- FUNCTIONS & TRIGGERS
+-- ============================================================
 CREATE OR REPLACE FUNCTION update_search_vector()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -50,11 +59,6 @@ CREATE TRIGGER trg_memories_search_vector
 BEFORE INSERT OR UPDATE OF title, content, lang ON memories
 FOR EACH ROW EXECUTE FUNCTION update_search_vector();
 
-CREATE INDEX idx_memories_fts ON memories USING GIN(search_vector);
-
--- ============================================================
--- AUTO-UPDATE updated_at ON CHANGE
--- ============================================================
 CREATE OR REPLACE FUNCTION update_updated_at()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -68,8 +72,15 @@ BEFORE UPDATE ON memories
 FOR EACH ROW EXECUTE FUNCTION update_updated_at();
 
 -- ============================================================
--- SEED: A few starter memories so the DB isn't empty
--- Edit these to reflect your actual setup!
+-- VIEWS
+-- ============================================================
+CREATE OR REPLACE VIEW memories_without_embeddings AS
+SELECT id, title, content, type, tags
+FROM memories
+WHERE embedding IS NULL;
+
+-- ============================================================
+-- SEED
 -- ============================================================
 INSERT INTO memories (type, title, content, tags, importance) VALUES
 (

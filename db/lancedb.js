@@ -201,8 +201,8 @@ export class LanceDBStore {
           type: 'project', 
           title: 'Aperio', 
           content: 'A personal memory layer for AI tools. Built with Postgres + MCP. Currently in early development.', 
-          tags: ['mcp', 'lancedb', 'ai', 'personal'], 
-          importance: 2
+          tags: ['mcp', 'lancedb', 'ai', 'personal', 'docker'], 
+          importance: 4
         }
       ];
       
@@ -262,14 +262,13 @@ export class LanceDBStore {
 
   async counts() {
     await this.refreshCache();
-    // Convert to Array if it's a typed array, or check for existence first
-    const withEmbedding = this.cache.filter(r => {
+    const active = this.cache.filter(r => !r.valid_until);
+    const withEmbedding = active.filter(r => {
       if (!r.vector) return false;
-      // Convert any typed array or buffer to a standard array
       if (typeof r.vector.every !== 'function') return false;
       return r.vector.some(v => v !== 0);
-    }).length;;
-    return { total: this.cache.length, embedded: withEmbedding };
+    }).length;
+    return { total: active.length, embedded: withEmbedding };
   }
 
   async insert(input, embedding) {
@@ -328,7 +327,9 @@ export class LanceDBStore {
   }
 
   async setEmbedding(id, embedding) {
-    await this.update(id, {}, embedding);
+    await this.table.update({ where: `id = '${id}'`, values: { vector: embedding } });
+    const row = this.cache.find(r => r.id === id);
+    if (row) row.vector = embedding;
   }
 
   async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', asOf = null }) {
@@ -452,6 +453,7 @@ export class LanceDBStore {
   }
 
   async close() {
-    // Embedded — nothing to close
+    try { await this.table?.close(); } catch {}
+    try { await this.db?.close(); } catch {}
   }
 }

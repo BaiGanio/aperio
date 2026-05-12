@@ -6,6 +6,19 @@ fetch('/api/version')
   })
   .catch(() => {});
 
+// ── Metrics ──────────────────────────────────────────────────────
+function refreshMetrics() {
+  fetch('/api/metrics')
+    .then(res => res.json())
+    .then(({ rss, heap, cpu }) => {
+      document.getElementById('metrics-display').innerText =
+        `RSS ${rss}MB · heap ${heap}MB · CPU ${cpu}%`;
+    })
+    .catch(() => {});
+}
+refreshMetrics();
+setInterval(refreshMetrics, 5000);
+
 // Pings /api/heartbeat every 10 s unconditionally.
 // The server shuts itself (and Ollama) down if no ping arrives for 30 s —
 // which happens naturally when every tab is closed. No beforeunload needed.
