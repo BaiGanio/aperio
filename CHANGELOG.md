@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.49.0] — 2026-05-12
+
+### Added
+- e2e test
+
+---
+
+
 ### Added
 - Embedding retry queue for resilient vector writes
 - Score tracking
