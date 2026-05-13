@@ -352,8 +352,9 @@ function renderMemories(memories) {
     return;
   }
 
+  const pinned  = memories.filter(m => m.pinned);
   const grouped = {};
-  memories.forEach(m => {
+  memories.filter(m => !m.pinned).forEach(m => {
     if (!grouped[m.type]) grouped[m.type] = [];
     grouped[m.type].push(m);
   });
@@ -361,6 +362,30 @@ function renderMemories(memories) {
   memoriesList.innerHTML = "";
   const countEl = document.getElementById("memoryCount");
   if (countEl) countEl.textContent = memories.length ? `(${memories.length})` : "";
+
+  if (pinned.length) {
+    const group = document.createElement("div");
+    group.className = "type-group";
+    const header = document.createElement("div");
+    header.className = "type-header";
+    const isPinnedCollapsed = collapsedGroups.has("__pinned__");
+    header.innerHTML = `
+      <span class="type-icon">📌</span>
+      <span>${escapeHtml(t("mem_pinned_group"))}</span>
+      <span class="type-count">${pinned.length}</span>
+      <i class="bi bi-chevron-right type-chevron ${isPinnedCollapsed ? "" : "open"}"></i>`;
+    header.onclick = () => {
+      if (collapsedGroups.has("__pinned__")) collapsedGroups.delete("__pinned__");
+      else collapsedGroups.add("__pinned__");
+      renderMemories(allMemories);
+    };
+    group.appendChild(header);
+    const body = document.createElement("div");
+    body.className = `type-group-body ${isPinnedCollapsed ? "collapsed" : ""}`;
+    pinned.forEach(m => body.appendChild(makeMemoryCard(m)));
+    group.appendChild(body);
+    memoriesList.appendChild(group);
+  }
 
   Object.entries(grouped).forEach(([type, items]) => {
     const cfg = TYPE_CONFIG[type] || { icon: '<i class="bi bi-circle"></i>', labelKey: null };
@@ -436,6 +461,9 @@ function makeMemoryCard(m) {
   card.innerHTML = `
     <div class="memory-card-header">
       <div class="memory-title">${escapeHtml(m.title)}</div>
+      <button class="memory-pin-btn${m.pinned ? " memory-pin-btn--active" : ""}" title="${escapeHtml(m.pinned ? t("mem_unpin") : t("mem_pin"))}">
+        <i class="bi ${m.pinned ? "bi-pin-fill" : "bi-pin"}"></i>
+      </button>
       <button class="delete-btn" title="${escapeHtml(t("mem_delete_title"))}"><i class="bi bi-trash3"></i></button>
     </div>
     <div class="memory-preview" data-memory='${base64Data}'>${escapeHtml(m.content)}</div>
@@ -444,6 +472,22 @@ function makeMemoryCard(m) {
       ${pips}
       ${ts ? `<span class="memory-ts">${ts}</span>` : ""}
     </div>`;
+
+  card.querySelector(".memory-pin-btn").onclick = async (e) => {
+    e.stopPropagation();
+    if (!m.id) return;
+    const pinned = !m.pinned;
+    try {
+      const res = await fetch(`/api/memories/${m.id}/pin`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinned }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      allMemories = allMemories.map(mem => mem.id === m.id ? { ...mem, pinned } : mem);
+      renderMemories(allMemories);
+    } catch { /* silent */ }
+  };
 
   card.querySelector(".delete-btn").onclick = (e) => {
     e.stopPropagation();

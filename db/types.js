@@ -19,6 +19,7 @@
  * @property {Date | null} valid_until
  * @property {number} confidence
  * @property {string} source
+ * @property {boolean} pinned
  * @property {number[]} [embedding]
  */
 
@@ -74,5 +75,6 @@ export function deserialiseRow(row) {
     valid_until: row.valid_until ? new Date(row.valid_until) : null,
     confidence:  row.confidence ?? 1.0,
     source:      row.source ?? 'manual',
+    pinned:      row.pinned === true || row.pinned === 1,
   };
 }

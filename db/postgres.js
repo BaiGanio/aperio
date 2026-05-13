@@ -163,9 +163,17 @@ export class PostgresStore {
     const { rows } = await this.pool.query(
       `SELECT * FROM memories
        WHERE valid_until IS NULL AND (expires_at IS NULL OR expires_at > NOW())
-       ORDER BY importance DESC`
+       ORDER BY pinned DESC, importance DESC`
     );
     return rows.map(rowToMemory);
+  }
+
+  async setPin(id, pinned) {
+    const { rows } = await this.pool.query(
+      `UPDATE memories SET pinned = $1 WHERE id = $2 AND valid_until IS NULL RETURNING id`,
+      [!!pinned, id]
+    );
+    return rows.length > 0;
   }
 
   async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', lang = 'english', asOf = null }) {

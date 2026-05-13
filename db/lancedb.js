@@ -375,13 +375,35 @@ export class LanceDBStore {
       .map(deserialiseRow);
   }
 
+  _pinsPath() { return path.join(DB_PATH, 'pins.json'); }
+
+  _loadPins() {
+    try { return new Set(JSON.parse(fs.readFileSync(this._pinsPath(), 'utf8'))); }
+    catch { return new Set(); }
+  }
+
+  _savePins(ids) {
+    fs.writeFileSync(this._pinsPath(), JSON.stringify([...ids]));
+  }
+
+  async setPin(id, pinned) {
+    const ids = this._loadPins();
+    if (pinned) ids.add(id); else ids.delete(id);
+    this._savePins(ids);
+    return true;
+  }
+
   async listAll() {
+    const pinnedIds = this._loadPins();
     const results = await this.table.query().limit(10_000).toArray();
     return results
       .filter(r => r.id !== '__init__' && !r.valid_until)
       .filter(notExpired)
-      .map(deserialiseRow)
-      .sort((a, b) => b.importance - a.importance);
+      .map(r => ({ ...deserialiseRow(r), pinned: pinnedIds.has(r.id) }))
+      .sort((a, b) => {
+        if (b.pinned !== a.pinned) return b.pinned ? 1 : -1;
+        return b.importance - a.importance;
+      });
   }
 
   async listWithoutEmbeddings() {
