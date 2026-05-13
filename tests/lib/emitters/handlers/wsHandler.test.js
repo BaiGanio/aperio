@@ -53,7 +53,7 @@ function makeAgent(overrides = {}) {
 function makeHandler(agentOverrides = {}) {
   return makeWsHandler({
     agent:      makeAgent(agentOverrides),
-    store:      {},
+    store:      { listAll: async () => [] },
     __dirname:  TEST_DIR,
   });
 }
@@ -108,9 +108,8 @@ describe("message type: init", () => {
       agent: makeAgent({
         buildGreeting:  async () => { greetSpy.push(1); return "Hello!"; },
         runAgentLoop:   async () => { loopSpy.push(1); return ""; },
-        fetchMemories:  async () => ({ raw: "", parsed: [{ id: "1" }] }),
       }),
-      store:     {},
+      store:     { listAll: async () => [{ id: "1", type: "fact", title: "t", content: "c", tags: [], importance: 3, created_at: null, pinned: false }] },
       __dirname: TEST_DIR,
     });
 
@@ -330,20 +329,18 @@ describe("message type: chat", () => {
 
   test("sends memories after the agent loop completes", async (t) => {
     const ws        = makeWs(t);
-    const fetchSpy  = [];
+    const listAllSpy = [];
 
     const handler = makeWsHandler({
-      agent: makeAgent({
-        fetchMemories: async () => { fetchSpy.push(1); return { raw: "", parsed: [] }; },
-      }),
-      store:     {},
+      agent: makeAgent(),
+      store:     { listAll: async () => { listAllSpy.push(1); return []; } },
       __dirname: TEST_DIR,
     });
 
     handler(ws);
     await ws.emit({ type: "chat", text: "hi" });
 
-    assert.ok(fetchSpy.length >= 1);
+    assert.ok(listAllSpy.length >= 1);
     assert.ok(sentOf(ws, "memories").length >= 1);
   });
 });
@@ -393,23 +390,23 @@ describe("message type: stop", () => {
 // ─── "get_memories" message ───────────────────────────────────────────────────
 
 describe("message type: get_memories", () => {
-  test("calls fetchMemories and emits a memories event", async (t) => {
-    const ws      = makeWs(t);
-    const records = [{ id: "a", title: "test" }];
+  test("calls store.listAll and emits a memories event", async (t) => {
+    const ws   = makeWs(t);
+    const rows = [{ id: "a", type: "fact", title: "test", content: "c", tags: ["x"], importance: 4, created_at: null, pinned: true }];
+    const expected = [{ id: "a", type: "fact", title: "test", content: "c", tags: ["x"], importance: 4, createdAt: null, pinned: true }];
 
     const handler = makeWsHandler({
-      agent: makeAgent({ fetchMemories: async () => ({ raw: "", parsed: records }) }),
-      store:     {},
+      agent: makeAgent(),
+      store:     { listAll: async () => rows },
       __dirname: TEST_DIR,
     });
 
     handler(ws);
-    const before = ws.sent.length;
     await ws.emit({ type: "get_memories" });
 
     const mems = sentOf(ws, "memories");
     assert.ok(mems.length > 0);
-    assert.deepStrictEqual(mems[mems.length - 1].memories, records);
+    assert.deepStrictEqual(mems[mems.length - 1].memories, expected);
   });
 });
 
@@ -537,16 +534,14 @@ describe("error handling", () => {
     assert.ok(errors.length > 0);
   });
 
-  test("does not send a ws error when fetchMemories fails — only logs", async (t) => {
+  test("does not send a ws error when store.listAll fails — only logs", async (t) => {
     const ws    = makeWs(t);
     const logged = [];
     t.mock.method(logger, "error", (...a) => logged.push(a.map(String).join(" ")));
 
     const handler = makeWsHandler({
-      agent: makeAgent({
-        fetchMemories: async () => { throw new Error("db down"); },
-      }),
-      store:     {},
+      agent: makeAgent(),
+      store:     { listAll: async () => { throw new Error("db down"); } },
       __dirname: TEST_DIR,
     });
 
