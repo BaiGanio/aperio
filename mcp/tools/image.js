@@ -206,6 +206,17 @@ function stopOllama() {
   });
 }
 
+async function isSafeToStopOllama() {
+  try {
+    const r = await fetch(`${OLLAMA_HOST}/api/ps`, { signal: AbortSignal.timeout(3000) });
+    if (!r.ok) return false;
+    const { models = [] } = await r.json();
+    return models.length === 0;
+  } catch {
+    return false;
+  }
+}
+
 // ─── describe_image handler ────────────────────────────────────────────────────
 
 /**
@@ -275,17 +286,18 @@ export async function describeImageHandler({
   }
 
   // ── 3. Call the VLM ────────────────────────────────────────────────────────
-  try {
-    const vlmModel = model || OLLAMA_VLM_MODEL;
-    const vlmPrompt = prompt || "Describe this image in detail.";
+  const vlmModel  = model  || OLLAMA_VLM_MODEL;
+  const vlmPrompt = prompt || "Describe this image in detail.";
 
+  try {
     logger.info(`🤖 describe_image → ${vlmModel} (${Math.round(base64.length * 0.75 / 1024)}KB image)`);
 
     const result = await ollamaClient.generate({
-      model:  vlmModel,
-      prompt: vlmPrompt,
-      images: [base64],
-      stream: false,
+      model:      vlmModel,
+      prompt:     vlmPrompt,
+      images:     [base64],
+      stream:     false,
+      keep_alive: 0,  // unload model from VRAM immediately after response
     });
 
     const description = result.response || "";
@@ -298,18 +310,22 @@ export async function describeImageHandler({
 
   } catch (err) {
     logger.error("❌ describe_image VLM error:", err);
-    const model = model || OLLAMA_VLM_MODEL;
     const hint = err.message?.includes("not found") || err.message?.includes("unknown model")
-      ? `\n\n💡 Model "${model}" may not be pulled. Try: ollama pull ${model}`
+      ? `\n\n💡 Model "${vlmModel}" may not be pulled. Try: ollama pull ${vlmModel}`
       : "";
     return { content: [{ type: "text", text: `❌ VLM call failed: ${err.message}${hint}` }] };
 
   } finally {
-    // ── 4. Stop Ollama only if we started it ───────────────────────────────
-    if (!wasRunning) {
-      logger.info("🦙 Stopping Ollama (was started by describe_image)…");
+    // ── 4. Stop Ollama if nothing else is loaded ───────────────────────────
+    // keep_alive: 0 already unloaded the VLM from VRAM; check /api/ps —
+    // if no other models are still loaded, shut down the server too.
+    const safeToStop = await isSafeToStopOllama();
+    if (safeToStop) {
+      logger.info(`🦙 Stopping Ollama (${wasRunning ? "was running but now idle" : "was started for VLM"})…`);
       await stopOllama();
       logger.info("✅ Ollama stopped.");
+    } else if (!wasRunning) {
+      logger.info("🦙 Leaving Ollama running (other models in use).");
     }
   }
 }
