@@ -213,6 +213,9 @@ function makeSessionCard(s) {
         <button class="session-btn session-btn--resume" onclick="resumeSession('${s.id}')">
           <i class="bi bi-arrow-counterclockwise"></i> ${t("sessions_resume")}
         </button>
+        <button class="session-btn session-btn--pin${s.pinned ? " session-btn--pin-active" : ""}" title="${s.pinned ? t("sessions_unpin") : t("sessions_pin")}" onclick="togglePinSession(event, '${s.id}', this)">
+          <i class="bi ${s.pinned ? "bi-pin-fill" : "bi-pin"}"></i>
+        </button>
         <button class="session-btn session-btn--delete" onclick="deleteSession(event, '${s.id}')">
           <i class="bi bi-trash3"></i>
         </button>
@@ -325,6 +328,27 @@ function formatDuration(ms) {
   if (s < 60)   return `${s}s`;
   if (s < 3600) return `${Math.floor(s / 60)}m`;
   return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+}
+
+async function togglePinSession(e, id, btn) {
+  e.stopPropagation();
+  const pinned = !btn.classList.contains("session-btn--pin-active");
+  btn.disabled = true;
+  try {
+    const res = await fetch(`/api/sessions/${id}/pin`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pinned }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    btn.classList.toggle("session-btn--pin-active", pinned);
+    btn.title = pinned ? t("sessions_unpin") : t("sessions_pin");
+    btn.querySelector("i").className = `bi ${pinned ? "bi-pin-fill" : "bi-pin"}`;
+  } catch {
+    // silently restore — non-critical action
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 function handleSessionResumed(msg) {

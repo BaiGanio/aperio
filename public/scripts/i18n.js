@@ -180,6 +180,8 @@ const TRANSLATIONS = {
     sessions_deleting:        "Deleting…",
     sessions_loading_short:   "Loading…",
     sessions_untitled:        "Untitled",
+    sessions_pin:             "Pin",
+    sessions_unpin:           "Unpin",
 
     paths_title:              "Allowed Paths",
     paths_read_label:         "Read Paths",
