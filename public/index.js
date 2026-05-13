@@ -265,6 +265,8 @@ async function send() {
   });
 }
 
+window.send       = send;
+window.autoResize = autoResize;
 sendBtn.onclick = send;
 stopBtn.onclick = () => {
   safeSend(JSON.stringify({ type: "stop" }));
