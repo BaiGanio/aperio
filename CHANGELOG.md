@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.50.0] — 2026-05-13
+
+### Added
+- excluded files
+
+---
+
+
 ## [0.49.0] — 2026-05-12
 
 ### Added
