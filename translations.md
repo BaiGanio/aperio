@@ -131,6 +131,7 @@ keys in under an hour.
 | 2 | `it` `pt` `nl` | High | ~360 | No |
 | 3 | `sv` `da` `fi` | Good–Weak | ~360 | fi: yes |
 | 4 | `pl` `cs` `sk` `sl` | Good | ~480 | Recommended |
+-- Needs audit
 | 5 | `hr` `ro` `el` | Good–Weak | ~360 | el: yes |
 | 6 | `lv` `lt` | Weak | ~240 | Yes |
 | 7 | `hu` | Decent | ~120 | Recommended |

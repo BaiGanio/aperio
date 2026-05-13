@@ -4,6 +4,8 @@
 ## Get latest from https://github.com/github/gitignore/blob/main/VisualStudio.gitignore
 
 # User-specific files
+*.deepseek/
+*.claude/
 *.rsuser
 *.suo
 *.user
@@ -11,7 +13,6 @@
 *.sln.docstates
 *.env
 *.lancedb/
-*.claude/
 var/
 ai-trash/
 
