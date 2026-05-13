@@ -359,4 +359,53 @@ function handleSessionResumed(msg) {
     `<span class="ctx-banner-text">${t("sessions_resumed_html", { title: escapeHtml(msg.title ?? t("sessions_untitled")) })}</span>` +
     `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("sessions_dismiss")}</button>`;
   document.querySelector(".chat-area")?.prepend(banner);
+
+  // Fetch the session and render the last few messages so the user can see the prior context.
+  fetch(`/api/sessions/${msg.id}`)
+    .then(r => r.json())
+    .then(session => {
+      if (!session.messages?.length) return;
+      const tail = session.messages.slice(-6);
+      const divider = document.createElement("div");
+      divider.className = "session-history-divider";
+      divider.textContent = `— ${escapeHtml(session.title ?? t("sessions_untitled"))} —`;
+      messagesEl?.prepend(divider);
+      for (let i = tail.length - 1; i >= 0; i--) {
+        const m = tail[i];
+        const attachments = (m.attachments ?? []).map(att => ({
+          ...att,
+          dataUrl: att.dataUrl || att.url || (att.thumbnail ? `data:image/jpeg;base64,${att.thumbnail}` : null),
+        }));
+        const el = buildHistoryMessage(m.role, m.content || "", attachments);
+        divider.after(el);
+      }
+    })
+    .catch(() => { /* non-fatal — banner already shown */ });
+}
+
+function buildHistoryMessage(role, text, attachments) {
+  const wrap = document.createElement("div");
+  wrap.className = `message ${role === "user" ? "user" : "ai"} session-history-msg`;
+
+  const avatar = document.createElement("div");
+  avatar.className = `avatar ${role === "user" ? "user" : "ai"}`;
+  avatar.textContent = role === "user" ? getUserInitial() : "A";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  if (text.trim()) {
+    const textNode = document.createElement("div");
+    textNode.innerHTML = renderMarkdown(text);
+    bubble.appendChild(textNode);
+  }
+  if (role === "user" && attachments?.length) {
+    const attachRow = document.createElement("div");
+    attachRow.className = "msg-attachments";
+    attachments.forEach(att => attachRow.appendChild(buildAttachmentCard(att)));
+    bubble.appendChild(attachRow);
+  }
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(bubble);
+  return wrap;
 }

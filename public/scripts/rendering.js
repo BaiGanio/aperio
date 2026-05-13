@@ -88,6 +88,15 @@ function addMessage(role, text, attachments) {
 function buildAttachmentCard(att) {
   const isImage = att.type && att.type.startsWith("image/");
 
+  // Resolve the best available image source:
+  // - dataUrl: from a live upload (browser File → base64)
+  // - url:     from a restored session (server-side static file)
+  // - thumbnail: base64 JPEG thumbnail stored in session JSON
+  const thumbDataUrl = att.dataUrl
+    || (att.thumbnail ? `data:image/jpeg;base64,${att.thumbnail}` : null);
+  const fullImageUrl = att.url || att.dataUrl;
+  const imageDataUrl = thumbDataUrl || fullImageUrl;
+
   const wrapper = document.createElement("div");
   wrapper.className = "msg-attach-wrapper";
 
@@ -95,12 +104,12 @@ function buildAttachmentCard(att) {
   card.className = "msg-attach-card msg-attach-file";
   card.style.cursor = "pointer";
 
-  if (isImage && att.dataUrl) {
+  if (isImage && imageDataUrl) {
     card.title = "Click to expand";
     const thumb = document.createElement("div");
     thumb.className = "msg-attach-thumb";
     const img = document.createElement("img");
-    img.src = att.dataUrl;
+    img.src = thumbDataUrl || fullImageUrl;
     img.alt = att.name || "image";
     thumb.appendChild(img);
 
@@ -154,12 +163,12 @@ function buildAttachmentCard(att) {
     card.appendChild(openIcon);
   }
 
-  if (isImage && att.dataUrl) {
+  if (isImage && imageDataUrl) {
     const preview = document.createElement("div");
     preview.className = "msg-attach-preview";
 
     const img = document.createElement("img");
-    img.src = att.dataUrl;
+    img.src = fullImageUrl || thumbDataUrl;
     img.alt = att.name || "image";
     img.className = "msg-attach-preview-img";
     preview.appendChild(img);

@@ -129,6 +129,7 @@ app.get(["/", "/index.html"], (req, res) => {
 });
 
 app.use(express.static(resolve(__dirname, "public"), { index: false }));
+app.use("/uploads", express.static(resolve(__dirname, "var/uploads")));
 
 // ─── Bootstrap guard middleware ───────────────────────────────────────────────
 // Until .bootstrap.lock exists every request redirects to /setup,
