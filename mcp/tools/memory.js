@@ -23,14 +23,14 @@ const createBoundHandlers = (ctx) => ({
 const TOOLS = [
   {
     name: "remember",
-    description: "Save a new memory to Aperio. Automatically generates embeddings for semantic search.",
+    description: "Save a new memory to Aperio. Automatically generates embeddings for semantic search. For time-sensitive information, propose a TTL via expires_at: 1–7 days for session/today context (current task, meeting agenda, temp credentials), 7–30 days for sprint or phase info, 30–90 days for temporary project decisions. Omit expires_at for stable facts, long-term preferences, and permanent knowledge.",
     schema: {
       type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person", "inference"]),
       title: z.string(),
       content: z.string(),
       tags: z.array(z.string()).optional(),
       importance: z.number().min(1).max(5).optional(),
-      expires_at: z.string().optional(),
+      expires_at: z.string().optional().describe("ISO 8601 expiry datetime for ephemeral memories. Suggest a TTL when the information is time-bound: e.g. new Date(Date.now() + 7*86400000).toISOString() for 7 days. Omit for permanent memories."),
       lang: z.string().optional().describe("BCP-47 locale of the content (e.g. 'en', 'de', 'fr'). Defaults to 'en'."),
       confidence: z.number().min(0).max(1).optional().describe("Confidence in this memory (0.0–1.0). Defaults to 1.0 for stated facts; use ~0.6 for inferred patterns."),
     },

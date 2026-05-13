@@ -176,6 +176,14 @@ export class PostgresStore {
     return rows.length > 0;
   }
 
+  async setExpiry(id, expiresAt) {
+    const { rows } = await this.pool.query(
+      `UPDATE memories SET expires_at = $1 WHERE id = $2 AND valid_until IS NULL RETURNING id`,
+      [expiresAt ? new Date(expiresAt) : null, id]
+    );
+    return rows.length > 0;
+  }
+
   async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', lang = 'english', asOf = null }) {
     const useVector = !!queryEmbedding && mode !== 'fulltext';
     const useText   = !!query          && mode !== 'semantic';
