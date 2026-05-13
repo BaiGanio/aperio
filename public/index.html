@@ -43,6 +43,10 @@
       "></span>
     </div>
     <div class="nav-actions-pill">
+      <button id="ttsToggle" class="nav-action-btn" onclick="window.Aperio?.tts?.toggle()"
+        title="Voice responses off — click to enable" style="opacity:0.45;color:var(--text-muted);">
+        🔊 <span id="ttsToggleLabel">off</span>
+      </button>
       <button id="reasoningToggle" class="nav-action-btn" onclick="toggleReasoning()"
         data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning" style="display:none;">
         🧠 <span id="reasoningToggleLabel" data-i18n="nav_reasoning_on">on</span>
@@ -257,6 +261,7 @@
 <script src="scripts/api.js"></script>
 <script src="scripts/input-bar.js"></script>
 <script src="scripts/voice.js"></script>
+<script src="scripts/tts.js"></script>
 <script src="scripts/theme-and-timestamp.js"></script>
 <script src="scripts/markdown.js"></script>
 <script src="scripts/rendering.js"></script>
