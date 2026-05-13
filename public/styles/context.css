@@ -188,6 +188,24 @@
       to   { opacity: 1; transform: translateY(0); }
     }
 
+    /* ── Session history (shown on resume) ───────────────────── */
+    .session-history-divider {
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      padding: 6px 0 4px;
+      opacity: 0.6;
+      flex-shrink: 0;
+    }
+    .session-history-msg {
+      opacity: 0.55;
+    }
+    .session-history-msg:hover {
+      opacity: 0.8;
+      transition: opacity .15s;
+    }
+
     .suggestions-saved-note {
       padding: 4px 14px;
       font-size: 11px;
