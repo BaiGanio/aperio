@@ -90,19 +90,9 @@ export async function readImageHandler({ path: filePath, data: rawData, mime_typ
 }
 
 /**
- * preprocess_image — new tool.
- *
- * Normalises an image before sending it to a local VLM (Ollama).
- * Local models assume RGB input at a fixed resolution. This tool:
- *   1. Strips alpha — fills transparency with white or dark background
- *   2. Converts to sRGB — handles CMYK, palette, greyscale
- *   3. Resizes with letterboxing — preserves aspect ratio, pads to square
- *   4. Returns normalised base64 PNG — always RGB, always target_size×target_size
- *
- * Typical workflow:
- *   preprocess_image → read_image (with the normalised output) → model analysis
- *
- * Or use the returned base64 directly if you're calling Ollama from the agent loop.
+ * preprocess_image — normalises an image before vision analysis.
+ * Strips alpha, converts to sRGB, resizes with letterboxing.
+ * Returns a normalised base64 PNG ready for the model to analyse.
  */
 export async function preprocessImageHandler({
   path: filePath,
@@ -151,7 +141,7 @@ export async function preprocessImageHandler({
       content: [
         {
           type: "text",
-          text: `✅ Preprocessed to RGB PNG ${size}×${size} (background: ${background}). Ready for VLM analysis.`,
+          text: `✅ Preprocessed to RGB PNG ${size}×${size} (background: ${background}). Ready for analysis.`,
         },
         {
           type:     "image",
@@ -179,7 +169,7 @@ export function register(server, _ctx) {
         "Load an image so the AI can see and analyse it. " +
         "Provide either a local file path OR pre-encoded base64 data (from the UI uploader). " +
         "Supported formats: JPEG, PNG, GIF, WebP. " +
-        "Tip: run preprocess_image first if the model struggles with transparency or unusual formats.",
+        "Note: images attached by the user in the chat are already visible inline — only call this tool to load additional images from disk.",
       inputSchema: z.object({
         path: z.string().optional().describe(
           "Absolute (or ~-prefixed) path to a local image file."
@@ -205,12 +195,12 @@ export function register(server, _ctx) {
     "preprocess_image",
     {
       description:
-        "Normalise an image before sending it to a local vision model (Ollama). " +
+        "Normalise an image before vision analysis. " +
         "Strips alpha channels, fills transparency with a solid background, converts to RGB, " +
         "and resizes to a square with letterboxing (default 896×896). " +
-        "Returns a normalised PNG the model can reliably process. " +
-        "Use this before read_image when working with: RGBA/transparent PNGs, WebP with alpha, " +
-        "GIFs, CMYK images, or any image that causes VLM errors.",
+        "Returns a normalised PNG the model can reliably analyse. " +
+        "Use this when working with: RGBA/transparent PNGs, WebP with alpha, " +
+        "GIFs, CMYK images, or any image where colours or transparency may cause issues.",
       inputSchema: z.object({
         path: z.string().optional().describe(
           "Absolute (or ~-prefixed) path to a local image file."

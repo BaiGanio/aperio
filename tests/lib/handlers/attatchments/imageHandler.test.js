@@ -32,12 +32,15 @@ function reset(returnValue) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 describe("handleImage", () => {
-  test("returns one text content block on success", async () => {
+  test("returns text block followed by image block on success", async () => {
     reset();
     const result = await handleImage(makeAtt(), "photo.png", deps);
 
-    assert.equal(result.blocks.length, 1);
+    assert.equal(result.blocks.length, 2);
     assert.equal(result.blocks[0].type, "text");
+    assert.equal(result.blocks[1].type, "image");
+    assert.equal(result.blocks[1].source.type, "base64");
+    assert.equal(result.blocks[1].source.media_type, "image/png");
   });
 
   test("text block includes the filename", async () => {

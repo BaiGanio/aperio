@@ -44,6 +44,8 @@ function makeAgent(overrides = {}) {
     OLLAMA_THINKS:        false,
     mcpTools:             [],
     alwaysOnSkillNames:   [],
+    greetingToolCount:    0,
+    getToolCount:         () => 0,
     ...overrides,
   };
 }
