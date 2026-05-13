@@ -27,8 +27,35 @@ function handleMessage(msg) {
     // initial connection ack
   }
 
+  if (msg.type === "tool_count") {
+    _preloadToolCount = msg.count ?? 0;
+    const badge = document.getElementById("toolCountBadge");
+    if (badge) {
+      if (_preloadToolCount > 0) {
+        badge.textContent = `${_preloadToolCount}t`;
+        badge.style.display = "inline";
+        badge.title = `${_preloadToolCount} tool${_preloadToolCount === 1 ? "" : "s"} loaded`;
+      } else {
+        badge.style.display = "none";
+      }
+    }
+  }
+
   if (msg.type === "provider") {
     document.getElementById("startup-thinking")?.remove();
+    if (msg.toolCount !== undefined) {
+      _preloadToolCount = msg.toolCount;
+      const toolBadge = document.getElementById("toolCountBadge");
+      if (toolBadge) {
+        if (_preloadToolCount > 0) {
+          toolBadge.textContent = `${_preloadToolCount}t`;
+          toolBadge.style.display = "inline";
+          toolBadge.title = `${_preloadToolCount} tool${_preloadToolCount === 1 ? "" : "s"} loaded`;
+        } else {
+          toolBadge.style.display = "none";
+        }
+      }
+    }
     const badge = document.getElementById("providerBadge");
     if (badge) {
       const isOllama   = msg.name === "ollama";
@@ -55,7 +82,6 @@ function handleMessage(msg) {
     if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
 
     if (msg.contextWindow) maxCtx = msg.contextWindow;
-    if (msg.toolCount) _preloadToolCount = msg.toolCount;
   }
 
   if (msg.type === "session_created") {
