@@ -282,6 +282,7 @@ function handleMessage(msg) {
       : null;
     if (streamingBubble && streamingText.trim()) {
       finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
+      window.Aperio?.tts?.speak(streamingText);
       _maybeShowStartupBanner(msg.usage?.input_tokens);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
@@ -291,6 +292,7 @@ function handleMessage(msg) {
       removeThinking();
       removeToolIndicator();
       addMessage("ai", msg.text);
+      window.Aperio?.tts?.speak(msg.text);
       _maybeShowStartupBanner(msg.usage?.input_tokens);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
