@@ -213,6 +213,9 @@ export class LanceDBStore {
   }
 
   async refreshCache() {
+    // Advance to the latest table version so we pick up rows written by the
+    // MCP subprocess (which runs in a separate Node process).
+    await this.table.checkoutLatest();
     const results = await this.table
       .query()
       .limit(10_000)
@@ -393,7 +396,23 @@ export class LanceDBStore {
     return true;
   }
 
+  async setExpiry(id, expiresAt) {
+    let row = this.cache.find(r => r.id === id && !r.valid_until);
+    if (!row) {
+      // Row may have been inserted by the MCP subprocess — refresh before giving up.
+      await this.refreshCache();
+      row = this.cache.find(r => r.id === id && !r.valid_until);
+    }
+    if (!row) return false;
+    const val = expiresAt ? new Date(expiresAt).toISOString() : null;
+    await this.table.update({ where: `id = '${id}'`, values: { expires_at: val } });
+    row.expires_at = val;
+    return true;
+  }
+
   async listAll() {
+    // Advance to latest version so rows written by the MCP subprocess are visible.
+    await this.table.checkoutLatest();
     const pinnedIds = this._loadPins();
     const results = await this.table.query().limit(10_000).toArray();
     return results

@@ -144,6 +144,13 @@ const TRANSLATIONS = {
     recall_pill_one:          "Recalled 1 memory",
     recall_pill_many:         "Recalled {n} memories",
 
+    ttl_chip_in_days:         "expires in {n} days",
+    ttl_chip_tomorrow:        "expires tomorrow",
+    ttl_chip_expired:         "already expired",
+    ttl_chip_keep:            "Keep expiry",
+    ttl_chip_permanent:       "Never expire",
+    ttl_chip_removing:        "Removing…",
+
     tool_recall:              "Searching memories…",
     tool_remember:            "Saving memory…",
     tool_forget:              "Deleting memory…",

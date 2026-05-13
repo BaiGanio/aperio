@@ -358,6 +358,11 @@ function handleMessage(msg) {
     return;
   }
 
+  if (msg.type === "ttl_chip") {
+    _renderTtlChip(msg);
+    return;
+  }
+
   if (msg.type === "error") {
     removeThinking();
     removeToolIndicator();
@@ -517,6 +522,48 @@ function updateReasoningBtn() {
 }
 
 window.addEventListener("DOMContentLoaded", updateReasoningBtn);
+
+function _humanExpiry(isoStr) {
+  const days = Math.round((new Date(isoStr) - Date.now()) / 86400000);
+  if (days <= 0) return t("ttl_chip_expired");
+  if (days === 1) return t("ttl_chip_tomorrow");
+  return t("ttl_chip_in_days", { n: days });
+}
+
+function _renderTtlChip({ id, memType, title, expires_at }) {
+  const chip = document.createElement("div");
+  chip.className = "ttl-chip";
+  chip.innerHTML =
+    `<span class="ttl-chip-icon">⏳</span>` +
+    `<div class="ttl-chip-info">` +
+      `<span class="ttl-chip-type">${escapeHtml(memType)}</span>` +
+      `<span class="ttl-chip-title">${escapeHtml(title)}</span>` +
+      `<span class="ttl-chip-expiry">${_humanExpiry(expires_at)}</span>` +
+    `</div>` +
+    `<div class="ttl-chip-actions">` +
+      `<button class="ttl-btn ttl-btn--confirm">${t("ttl_chip_keep")}</button>` +
+      `<button class="ttl-btn ttl-btn--remove">${t("ttl_chip_permanent")}</button>` +
+    `</div>`;
+
+  chip.querySelector(".ttl-btn--confirm").onclick = () => chip.remove();
+
+  chip.querySelector(".ttl-btn--remove").onclick = async () => {
+    const btn = chip.querySelector(".ttl-btn--remove");
+    btn.disabled = true;
+    btn.textContent = t("ttl_chip_removing");
+    try {
+      await fetch(`/api/memories/${id}/expiry`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ expires_at: null }),
+      });
+    } catch { /* silent — chip still dismisses */ }
+    chip.remove();
+  };
+
+  messagesEl.appendChild(chip);
+  scrollToBottom();
+}
 
 function _parseRecallText(text) {
   return text.split("---").filter(b => b.trim()).map(block => {
