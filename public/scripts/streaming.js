@@ -352,6 +352,12 @@ function handleMessage(msg) {
     renderMemories(allMemories);
   }
 
+  if (msg.type === "recall_result") {
+    const items = _parseRecallText(msg.text);
+    if (items.length) _renderRecallPill(items);
+    return;
+  }
+
   if (msg.type === "error") {
     removeThinking();
     removeToolIndicator();
@@ -511,3 +517,69 @@ function updateReasoningBtn() {
 }
 
 window.addEventListener("DOMContentLoaded", updateReasoningBtn);
+
+function _parseRecallText(text) {
+  return text.split("---").filter(b => b.trim()).map(block => {
+    const lines     = block.trim().split("\n");
+    const firstLine = lines[0];
+    const titleMatch = firstLine.match(/^\[\w+\]\s+(.+?)(?:\s+\[(?:similarity|confidence):|\s+\(importance:)/);
+    const simMatch   = firstLine.match(/\[similarity:\s*(\d+)%\]/);
+    const tagsLine   = lines.find(l => l.startsWith("Tags:")) || "";
+    const tags       = tagsLine.replace("Tags:", "").trim();
+    const content    = lines[1]?.trim() || "";
+    return {
+      title:      titleMatch?.[1]?.trim() || "",
+      similarity: simMatch ? parseInt(simMatch[1], 10) : null,
+      content,
+      tags:       tags && tags !== "none" ? tags : "",
+    };
+  }).filter(m => m.title);
+}
+
+function _renderRecallPill(items) {
+  const pill = document.createElement("div");
+  pill.className = "recall-pill";
+
+  const n = items.length;
+  const label = n === 1 ? t("recall_pill_one") : t("recall_pill_many", { n });
+  const topScores = items
+    .filter(m => m.similarity !== null)
+    .slice(0, 3)
+    .map(m => `${m.similarity}%`)
+    .join(" · ");
+
+  const toggle = document.createElement("button");
+  toggle.className = "recall-pill-toggle";
+  toggle.innerHTML =
+    `<span class="recall-asterisk">✦</span>` +
+    `<span class="recall-pill-label">${label}</span>` +
+    (topScores ? `<span class="recall-pill-scores">${topScores}</span>` : "") +
+    `<span class="recall-pill-chevron">▾</span>`;
+  pill.appendChild(toggle);
+
+  const details = document.createElement("div");
+  details.className = "recall-pill-details";
+  items.forEach(m => {
+    const item = document.createElement("details");
+    item.className = "recall-memory";
+    item.innerHTML =
+      `<summary>` +
+        `<span class="recall-memory-title">${escapeHtml(m.title)}</span>` +
+        (m.similarity !== null ? `<span class="recall-score">${m.similarity}%</span>` : "") +
+      `</summary>` +
+      `<div class="recall-memory-body">` +
+        (m.content ? `<div class="recall-memory-content">${escapeHtml(m.content)}</div>` : "") +
+        (m.tags ? `<div class="recall-memory-tags">${escapeHtml(m.tags)}</div>` : "") +
+      `</div>`;
+    details.appendChild(item);
+  });
+  pill.appendChild(details);
+
+  toggle.onclick = () => {
+    const open = details.classList.toggle("open");
+    toggle.querySelector(".recall-pill-chevron").textContent = open ? "▴" : "▾";
+  };
+
+  messagesEl.appendChild(pill);
+  scrollToBottom();
+}

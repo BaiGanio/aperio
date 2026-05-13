@@ -89,6 +89,22 @@
       text-size-adjust: 100%;
     }
 
+    /* ── Memory pin button ───────────────────────────────────── */
+    .memory-pin-btn {
+      background: none;
+      border: none;
+      padding: 2px 3px;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 11px;
+      opacity: 0;
+      transition: opacity var(--transition), color var(--transition);
+      line-height: 1;
+    }
+    .memory-card:hover .memory-pin-btn { opacity: 0.6; }
+    .memory-pin-btn:hover { color: var(--accent) !important; opacity: 1 !important; }
+    .memory-pin-btn--active { color: var(--accent) !important; opacity: 1 !important; }
+
     /* ── Type icons & colors ─────────────────────────────────── */
     .type-icon { font-size: 12px; }
 

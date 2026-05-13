@@ -103,6 +103,9 @@ const TRANSLATIONS = {
     mem_delete_title:         "Delete memory",
     mem_delete_confirm:       "Delete \"{title}\"?",
     mem_importance:           "Importance",
+    mem_pin:                  "Pin memory",
+    mem_unpin:                "Unpin memory",
+    mem_pinned_group:         "Pinned",
     mem_just_now:             "just now",
     mem_min_ago:              "{n}m ago",
     mem_hour_ago:             "{n}h ago",
@@ -137,6 +140,9 @@ const TRANSLATIONS = {
     startup_skill_many:       "{n} skills",
     startup_tool_one:         "1 tool",
     startup_tool_many:        "{n} tools",
+
+    recall_pill_one:          "Recalled 1 memory",
+    recall_pill_many:         "Recalled {n} memories",
 
     tool_recall:              "Searching memories…",
     tool_remember:            "Saving memory…",
