@@ -304,6 +304,9 @@ export async function describeImageHandler({
 
     if (!description.trim()) {
       logger.warn("⚠️  describe_image: VLM returned empty response");
+    } else {
+      const preview = description.length > 300 ? description.slice(0, 300) + "…" : description;
+      logger.info(`[VLM] ${vlmModel} raw output:\n${preview}`);
     }
 
     return { content: [{ type: "text", text: description || "(The model returned an empty response.)" }] };
