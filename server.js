@@ -248,6 +248,7 @@ async function bootApp() {
   const { createWatchdog }                = await import("./lib/helpers/shutdownGuard.js");
   const { deduplicateMemories }           = await import("./lib/workers/deduplicate.js");
   const { inferMemories }                 = await import("./lib/workers/infer.js");
+  const { createSessionPruner }           = await import("./lib/workers/session-prune.js");
   const { makeWsHandler }                 = await import("./lib/emitters/handlers/wsHandler.js");
   const { apiRouter }                     = await import("./lib/routes/api.js");
   const { generateEmbedding, initEmbeddings, disposeEmbeddings } = await import("./lib/helpers/embeddings.js");
@@ -300,8 +301,9 @@ async function bootApp() {
   wss.on("connection", makeWsHandler({ agent, store, __dirname }));
 
   // Background jobs
-  const dedup  = deduplicateMemories(callTool);
-  const infer  = inferMemories(callTool);
+  const dedup   = deduplicateMemories(callTool);
+  const infer   = inferMemories(callTool);
+  const pruner  = createSessionPruner();
 
   // Graceful shutdown
   // Order matters: ONNX and LanceDB native runtimes must be torn down via their
@@ -316,6 +318,7 @@ async function bootApp() {
     watchdog.stop();
     dedup.stop();
     infer.stop();
+    pruner.stop();
 
     // 2. Let the current ONNX inference finish, then stop the backfill loop
     await shutdownEmbeddings();
