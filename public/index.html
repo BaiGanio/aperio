@@ -144,9 +144,12 @@
         <button class="attach-btn" id="attachBtn" data-i18n-attr-title="chat_attach_title" title="Attach file or image">
           <i class="bi bi-plus-lg"></i>
         </button>
-        <button class="mic-btn" id="micBtn" title="Voice input" style="display:none;">
-          <i class="bi bi-mic"></i>
-        </button>
+        <div class="mic-wrap" id="micWrap" style="display:none;">
+          <button class="mic-btn" id="micBtn" title="Voice input">
+            <i class="bi bi-mic"></i>
+          </button>
+          <button class="mic-continuous-chip" id="micContinuousChip" type="button" title="Continuous voice mode">∞</button>
+        </div>
         <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md,.js,.py,.html,.css,.json,.docx,.pptx" multiple hidden>
         <textarea
           id="chatInput"

@@ -160,6 +160,45 @@ textarea::placeholder { color: var(--text-muted); }
   50%       { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
 }
 
+.mic-wrap {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.mic-continuous-chip {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 8px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition);
+  padding: 0;
+  line-height: 1;
+}
+
+.mic-continuous-chip:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.mic-continuous-chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
 .attach-preview {
   display: flex;
   flex-wrap: wrap;

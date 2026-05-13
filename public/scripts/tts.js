@@ -39,6 +39,7 @@
     if (!clean) return;
     const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = getLang();
+    utterance.onend = () => window.Aperio?.voice?.onTtsEnd?.();
     window.speechSynthesis.speak(utterance);
   }
 

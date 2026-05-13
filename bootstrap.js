@@ -10,10 +10,11 @@ export const bootstrapEvents = new EventEmitter();
 bootstrapEvents.setMaxListeners(50);
 
 mkdirSync('./var', { recursive: true });
-const logStream = createWriteStream('./var/bootstrap.log', { flags: 'a' });
+let logStream = null;
 
 const logger = (msg, level = 'info') => {
   const line = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${msg}`;
+  if (!logStream) logStream = createWriteStream('./var/bootstrap.log', { flags: 'a' });
   logStream.write(line + '\n');
   bootstrapEvents.emit('progress', { message: msg, level, ts: Date.now() });
 };
