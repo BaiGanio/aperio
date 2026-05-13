@@ -1,15 +1,18 @@
 // mcp/tools/image.js
-// Image tools: read_image, preprocess_image.
+// Image tools: read_image, preprocess_image, describe_image.
 //
-// read_image     — existing tool, unchanged. Loads raw image for the agent to see.
-// preprocess_image — new tool. Normalizes any image to RGB PNG before VLM analysis:
-//                    strips alpha, fills transparency, resizes with aspect-ratio padding.
+// read_image       — loads raw image for the agent to see.
+// preprocess_image — normalizes any image to RGB PNG before VLM analysis.
+// describe_image   — sends a (preprocessed) image to a local Ollama VLM
+//                    and returns its text description.
 //
-// Requires: npm install sharp
+// Requires: npm install sharp  npm install ollama
 
 import { z }                                    from "zod";
 import { readFileSync, existsSync, statSync }   from "fs";
 import { extname }                              from "path";
+import { spawn, exec }                          from "child_process";
+import { Ollama }                               from "ollama";
 import logger                                   from "../../lib/helpers/logger.js";
 import { preprocessImage, preprocessBase64 }   from "../../lib/handlers/attachments/workers/preprocessImage.js";
 
@@ -24,6 +27,14 @@ const MIME = {
 };
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20 MB — same limit as before
+
+// ─── Ollama / VLM config ──────────────────────────────────────────────────────
+
+const OLLAMA_HOST      = process.env.OLLAMA_BASE_URL || process.env.OLLAMA_HOST || "http://localhost:11434";
+const OLLAMA_VLM_MODEL = process.env.OLLAMA_VLM_MODEL || "qwen2.5vl:3b";
+const OLLAMA_START_MS  = 30_000; // max wait for ollama serve to become ready
+
+const ollamaClient = new Ollama({ host: OLLAMA_HOST });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -157,6 +168,152 @@ export async function preprocessImageHandler({
   }
 }
 
+// ─── Ollama lifecycle helpers ─────────────────────────────────────────────────
+
+async function isOllamaUp() {
+  try {
+    const r = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: AbortSignal.timeout(2000) });
+    return r.ok;
+  } catch { return false; }
+}
+
+async function startOllama() {
+  logger.info("🦙 Starting Ollama in background…");
+  const proc = spawn("ollama", ["serve"], {
+    detached: true,
+    stdio:    "ignore",
+  });
+  proc.on("error", () => {}); // suppress ENOENT; poll will time out
+  proc.unref();
+
+  const deadline = Date.now() + OLLAMA_START_MS;
+  while (Date.now() < deadline) {
+    await new Promise(r => setTimeout(r, 500));
+    if (await isOllamaUp()) {
+      logger.info("✅ Ollama ready");
+      return;
+    }
+  }
+  throw new Error("Ollama did not start within 30 s — is it installed? (https://ollama.com)");
+}
+
+function stopOllama() {
+  return new Promise(resolve => {
+    const cmd = process.platform === "win32"
+      ? "taskkill /F /IM ollama.exe"
+      : "killall ollama";
+    exec(cmd, () => resolve());
+  });
+}
+
+// ─── describe_image handler ────────────────────────────────────────────────────
+
+/**
+ * describe_image — sends a (preprocessed) image to a local Ollama VLM
+ * and returns its text description.
+ *
+ * Lifecycle:
+ *   1. Preprocess image → 896×896 RGB PNG base64
+ *   2. Check if Ollama is already running
+ *   3. If not → start it, use it, stop it afterwards
+ *   4. If already running → use it, leave it running
+ */
+export async function describeImageHandler({
+  path: filePath,
+  data: rawData,
+  prompt,
+  model,
+}) {
+  // ── 1. Resolve image to base64 PNG ─────────────────────────────────────────
+  let base64;
+
+  try {
+    if (filePath) {
+      const resolved = filePath.startsWith("~") ? filePath.replace("~", process.cwd()) : filePath;
+
+      if (!existsSync(resolved))
+        return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
+
+      const stat = statSync(resolved);
+      if (stat.size > MAX_BYTES)
+        return { content: [{ type: "text", text: `❌ Image too large (${Math.round(stat.size / 1024 / 1024)}MB). Max 20MB.` }] };
+
+      const ext = extname(resolved).toLowerCase();
+      if (!MIME[ext])
+        return { content: [{ type: "text", text: `❌ Unsupported format: ${ext}. Supported: jpg, png, gif, webp.` }] };
+
+      const buffer = await preprocessImage(resolved, { size: 896, background: "white" });
+      base64 = buffer.toString("base64");
+      logger.info(`🖼️  describe_image: ${resolved} → RGB 896×896 PNG`);
+
+    } else if (rawData) {
+      const approxBytes = Math.ceil(rawData.replace(/^data:[^;]+;base64,/i, "").length * 0.75);
+      if (approxBytes > MAX_BYTES)
+        return { content: [{ type: "text", text: `❌ Image too large (~${Math.round(approxBytes / 1024 / 1024)}MB). Max 20MB.` }] };
+
+      base64 = await preprocessBase64(rawData, { size: 896, background: "white" });
+      logger.info("🖼️  describe_image: base64 input → RGB 896×896 PNG");
+
+    } else {
+      return { content: [{ type: "text", text: "❌ Provide either 'path' or 'data'." }] };
+    }
+  } catch (err) {
+    logger.error("❌ describe_image preprocessing error:", err);
+    return { content: [{ type: "text", text: `❌ Image preprocessing failed: ${err.message}` }] };
+  }
+
+  // ── 2. Ollama lifecycle — start only if not already running ────────────────
+  const wasRunning = await isOllamaUp();
+
+  if (!wasRunning) {
+    try {
+      logger.info("🦙 Ollama not running — starting…");
+      await startOllama();
+    } catch (err) {
+      return { content: [{ type: "text", text: `❌ ${err.message}` }] };
+    }
+  }
+
+  // ── 3. Call the VLM ────────────────────────────────────────────────────────
+  try {
+    const vlmModel = model || OLLAMA_VLM_MODEL;
+    const vlmPrompt = prompt || "Describe this image in detail.";
+
+    logger.info(`🤖 describe_image → ${vlmModel} (${Math.round(base64.length * 0.75 / 1024)}KB image)`);
+
+    const result = await ollamaClient.generate({
+      model:  vlmModel,
+      prompt: vlmPrompt,
+      images: [base64],
+      stream: false,
+    });
+
+    const description = result.response || "";
+
+    if (!description.trim()) {
+      logger.warn("⚠️  describe_image: VLM returned empty response");
+    }
+
+    return { content: [{ type: "text", text: description || "(The model returned an empty response.)" }] };
+
+  } catch (err) {
+    logger.error("❌ describe_image VLM error:", err);
+    const model = model || OLLAMA_VLM_MODEL;
+    const hint = err.message?.includes("not found") || err.message?.includes("unknown model")
+      ? `\n\n💡 Model "${model}" may not be pulled. Try: ollama pull ${model}`
+      : "";
+    return { content: [{ type: "text", text: `❌ VLM call failed: ${err.message}${hint}` }] };
+
+  } finally {
+    // ── 4. Stop Ollama only if we started it ───────────────────────────────
+    if (!wasRunning) {
+      logger.info("🦙 Stopping Ollama (was started by describe_image)…");
+      await stopOllama();
+      logger.info("✅ Ollama stopped.");
+    }
+  }
+}
+
 // ─── MCP registration ─────────────────────────────────────────────────────────
 
 export function register(server, _ctx) {
@@ -222,5 +379,38 @@ export function register(server, _ctx) {
       }),
     },
     preprocessImageHandler
+  );
+
+  // ── describe_image ──────────────────────────────────────────────────────────
+  server.registerTool(
+    "describe_image",
+    {
+      description:
+        "Send an image to a local Ollama vision model (VLM) and get back a text description. " +
+        "The image is automatically preprocessed to 896×896 RGB PNG before being sent. " +
+        "Provide either a local file path OR base64 data. " +
+        "Use this when you need to understand what's in an image — text, objects, layout, " +
+        "diagrams, screenshots, handwriting, etc.\n\n" +
+        "If Ollama isn't already running it will be started for this call and stopped afterwards. " +
+        "If it's already running it's left as-is.",
+      inputSchema: z.object({
+        path: z.string().optional().describe(
+          "Absolute (or ~-prefixed) path to a local image file."
+        ),
+        data: z.string().optional().describe(
+          "Base64-encoded image data. Optionally prefix with data-URI header, e.g. 'data:image/png;base64,<data>'."
+        ),
+        prompt: z.string().optional().describe(
+          "Question or instruction about the image. Default: 'Describe this image in detail.'"
+        ),
+        model: z.string().optional().describe(
+          `Ollama VLM model name. Default: "${OLLAMA_VLM_MODEL}" (env OLLAMA_VLM_MODEL). ` +
+          "Other good options: qwen3-vl:2b, llava:13b, gemma3:12b."
+        ),
+      }).refine(d => d.path || d.data, {
+        message: "Provide either 'path' (local file) or 'data' (base64 string).",
+      }),
+    },
+    describeImageHandler
   );
 }
