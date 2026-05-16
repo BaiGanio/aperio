@@ -1,12 +1,18 @@
 import { z }                                               from "zod";
 import { readFileSync, readdirSync, statSync, lstatSync, existsSync } from "fs";
 import fs                                                  from "fs/promises";
-import { join, extname, basename }                         from "path";
+import { join, extname, basename, dirname, resolve as resolvePath } from "path";
+import { fileURLToPath }                                   from "url";
+import { v4 as uuidv4 }                                   from "uuid";
+import ExcelJS                                             from "exceljs";
 import {
   isReadPathAllowed,
   isWritePathAllowed,
   getActivePaths,
 } from "../../lib/routes/paths.js";
+
+const __filesDirname = dirname(fileURLToPath(import.meta.url));
+const UPLOADS_DIR    = resolvePath(__filesDirname, "../../var/uploads");
 
 const ALLOWED_EXTENSIONS = new Set([
   ".js", ".ts", ".jsx", ".tsx", ".py", ".go", ".rs", ".java",
@@ -193,6 +199,64 @@ export async function editFileHandler(ctx, { path: filePath, old_string, new_str
   }
 }
 
+export async function generateXlsxHandler({ filename, sheets }) {
+  try {
+    await fs.mkdir(UPLOADS_DIR, { recursive: true });
+
+    const safeName  = basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
+    const outName   = `${uuidv4().slice(0, 8)}-${safeName.endsWith(".xlsx") ? safeName : safeName + ".xlsx"}`;
+    const outPath   = join(UPLOADS_DIR, outName);
+    const publicUrl = `/uploads/${outName}`;
+
+    const wb = new ExcelJS.Workbook();
+
+    for (const sheet of sheets) {
+      const ws = wb.addWorksheet(sheet.name || "Sheet1");
+
+      // Write headers with bold formatting
+      if (sheet.headers?.length) {
+        const headerRow = ws.addRow(sheet.headers);
+        headerRow.eachCell(cell => {
+          cell.font = { bold: true };
+          cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8E8E8" } };
+        });
+      }
+
+      // Write data rows; strings starting with "=" become formulas
+      for (const row of (sheet.rows ?? [])) {
+        const rowValues = row.map(v => {
+          if (typeof v === "string" && v.startsWith("=")) return { formula: v.slice(1) };
+          return v ?? null;
+        });
+        ws.addRow(rowValues);
+      }
+
+      // Auto-width columns (cap at 40)
+      ws.columns.forEach(col => {
+        let max = 10;
+        col.eachCell?.({ includeEmpty: false }, cell => {
+          const len = String(cell.value?.formula ?? cell.value ?? "").length;
+          if (len > max) max = len;
+        });
+        col.width = Math.min(max + 2, 40);
+      });
+    }
+
+    await wb.xlsx.writeFile(outPath);
+    const stat   = await fs.stat(outPath);
+    const sizeKb = (stat.size / 1024).toFixed(1);
+
+    return {
+      content: [{
+        type: "text",
+        text: `APERIO_FILE:${JSON.stringify({ filename: safeName.endsWith(".xlsx") ? safeName : safeName + ".xlsx", url: publicUrl, sizeKb })}`,
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: "text", text: `❌ generate_xlsx failed: ${err.message}` }] };
+  }
+}
+
 // ─── MCP registration ─────────────────────────────────────────────────────────
 // ctx is kept for backward compatibility but path guards are now handled
 // directly via the imported validators above.
@@ -260,5 +324,25 @@ export function register(server, ctx) {
       }),
     },
     scanProjectHandler
+  );
+
+  server.registerTool(
+    "generate_xlsx",
+    {
+      description: "Generate a .xlsx Excel file and make it available for download. Use this whenever the user asks to create a spreadsheet, budget, table, or any Excel file. Strings starting with '=' in rows are treated as Excel formulas.",
+      inputSchema: z.object({
+        filename: z.string().describe("Output filename, e.g. 'budget_2024.xlsx'"),
+        sheets: z.array(
+          z.object({
+            name:    z.string().describe("Sheet tab name"),
+            headers: z.array(z.string()).describe("Column header labels (first row, bold)"),
+            rows:    z.array(
+              z.array(z.union([z.string(), z.number(), z.null()]))
+            ).describe("Data rows. Strings starting with '=' are Excel formulas (omit the leading '=', e.g. '=SUM(B2:E2)' → pass '=SUM(B2:E2)')."),
+          })
+        ).describe("One or more worksheets to include in the workbook"),
+      }),
+    },
+    generateXlsxHandler
   );
 }
