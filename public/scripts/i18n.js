@@ -116,7 +116,7 @@ const TRANSLATIONS = {
     chat_send_title:          "Send ({key}+Enter)",
     chat_stop_title:          "Stop generating",
     chat_attach_title:        "Attach file or image",
-    chat_input_hint_html:     "{key}↵ to send &nbsp;·&nbsp; Shift↵ for newline",
+    chat_input_hint_html:     "{key} + ↵ to send &nbsp;·&nbsp; ↵ for newline",
     chat_input_thinking:      "Aperio is thinking…",
     chat_input_warning:       "Your AI agent is not almighty. Do not trust the output blindly!",
     chat_thinking_label:      "thinking…",

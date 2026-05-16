@@ -91,7 +91,6 @@
   <aside class="sidebar">
     <div class="sidebar-header">
       <div style="display:flex; align-items:center; margin-bottom:10px;">
-        <div class="sidebar-title" style="margin-bottom:0"><span data-i18n="sidebar_memories">Memories</span> <span id="memoryCount" style="font-weight:400;opacity:.5"></span></div>
         <button id="exportBtn" data-i18n-attr-title="sidebar_export_title" title="Export brain to JSON"
           style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer;
                  color:var(--text-muted); font-size:12px; border-radius:4px;
@@ -104,11 +103,18 @@
                  transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
           <i class="bi bi-upload"></i> <span data-i18n="sidebar_import">Import</span>
         </button>
+        <button id="tableBtn" title="Browse all memories as a table"
+          style="margin-left:4px; background:none; border:none; padding:2px 4px; cursor:pointer;
+                 color:var(--text-muted); font-size:12px; border-radius:4px;
+                 transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
+          <i class="bi bi-table"></i> Table
+        </button>
         <input type="file" id="importFileInput" accept=".json" hidden>
       </div>
       <div class="search-box">
         <span class="search-icon">⌕</span>
         <input type="text" id="searchInput" data-i18n-attr-placeholder="sidebar_search" placeholder="Search memories…" />
+        <span id="memoryCountBadge" class="search-count-badge"></span>
       </div>
     </div>
     <div class="memories-list" id="memoriesList">
@@ -163,7 +169,7 @@
           <i class="bi bi-chat-left-dots"></i>
           <span class="discuss-btn-label" data-i18n="discuss_button_label">Discuss</span>
         </button>
-        <button class="send-btn" id="sendBtn" disabled title="Send (⌘↵)">
+        <button class="send-btn" id="sendBtn" disabled title="Send (⌘ + ↵)">
           <i class="bi bi-send-fill" style="font-size:13px"></i>
         </button>
         <button class="stop-btn" id="stopBtn" data-i18n-attr-title="chat_stop_title" title="Stop generating">■</button>
@@ -188,6 +194,48 @@
     <div class="modal-footer">
       <p class="mtags"></p>
       <div class="importance-rating"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Memory table modal -->
+<div id="memoryModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-table"></i>
+        Memory Table
+        <span id="memTableCount" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <button class="mem-table-close" onclick="refreshMemories()" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" onclick="closeModal()" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box" style="margin:0;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="memory-search" placeholder="Filter by title, content, tags…" oninput="handleSearch()" />
+      </div>
+      <span id="mem-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="table-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="pagination-controls" class="mem-pagination" style="display:none;">
+        <button id="prev-page" class="mem-page-btn" onclick="changePage(-1)">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <span id="page-info" class="mem-page-info"></span>
+        <button id="next-page" class="mem-page-btn" onclick="changePage(1)">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
     </div>
   </div>
 </div>
