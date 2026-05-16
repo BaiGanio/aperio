@@ -14,9 +14,9 @@ const TYPE_CONFIG = {
 // ── State ────────────────────────────────────────────────────
 let ws, pendingSuggestion = null, isThinking = false, hasInitialized = false;
 let allMemories = []; // Global store for the current modal session
-filteredMemories = []; // Subset of allMemories matching the current search query in the modal
+let filteredMemories = []; // Subset of allMemories matching the current search query in the modal
 let currentPage = 1;
-const recordsPerPage = 3;
+const recordsPerPage = 10;
 // Set by the provider message on connection; updated if the model changes at runtime.
 let maxCtx = 0;
 
@@ -364,8 +364,8 @@ function renderMemories(memories) {
   });
 
   memoriesList.innerHTML = "";
-  const countEl = document.getElementById("memoryCount");
-  if (countEl) countEl.textContent = memories.length ? `(${memories.length})` : "";
+  const countBadge = document.getElementById("memoryCountBadge");
+  if (countBadge) countBadge.textContent = memories.length ? `(${memories.length})` : "";
 
   if (pinned.length) {
     const group = document.createElement("div");
@@ -602,6 +602,27 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
   }
 });
 
+// ── Memory table modal ───────────────────────────────────────
+function openMemoryTable() {
+  const modal = document.getElementById('memoryModal');
+  if (!modal) return;
+  modal.style.display = 'flex';
+  refreshMemories();
+}
+
+document.getElementById('tableBtn').addEventListener('click', openMemoryTable);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') {
+    const modal = document.getElementById('memoryModal');
+    if (modal && modal.style.display === 'flex') closeModal();
+  }
+});
+
+document.getElementById('memoryModal').addEventListener('click', (e) => {
+  if (!e.target.closest('.mem-table-content')) closeModal();
+});
+
 // ── OS-aware shortcut labels ─────────────────────────────────
 const isMac = navigator.userAgentData
   ? navigator.userAgentData.platform.toUpperCase().includes("MAC")
@@ -717,173 +738,205 @@ document.addEventListener('keydown', (e) => {
 });
 
 function closeModal() {
-    document.getElementById('memoryModal').style.display = 'none';
+  const modal = document.getElementById('memoryModal');
+  if (modal) modal.style.display = 'none';
 }
 
 async function refreshMemories() {
-    try {
-        const res = await fetch('/api/memories');
-        const data = await res.json();
-        
-        // Save to both arrays initially
-        allMemories = Array.isArray(data.raw) ? data.raw : [];
-        filteredMemories = [...allMemories]; 
-        
-        // Reset search input
-        const searchInput = document.getElementById('memory-search');
-        if (searchInput) searchInput.value = '';
-        currentPage = 1;
-        renderTablePage();
-    } catch (err) {
-        document.getElementById('table-wrapper').innerHTML = `<p style="color:red;">${err.message}</p>`;
-    }
+  try {
+    const res = await fetch('/api/memories');
+    const data = await res.json();
+    allMemories = Array.isArray(data.raw) ? data.raw : [];
+    filteredMemories = [...allMemories];
+    const searchInput = document.getElementById('memory-search');
+    if (searchInput) searchInput.value = '';
+    currentPage = 1;
+    updateModalCount();
+    renderTablePage();
+  } catch (err) {
+    const wrapper = document.getElementById('table-wrapper');
+    if (wrapper) wrapper.innerHTML = `<div class="mem-empty" style="color:#ef4444;">${escapeHtml(err.message)}</div>`;
+  }
+}
+
+function updateModalCount() {
+  const el = document.getElementById('memTableCount');
+  if (el) el.textContent = allMemories.length ? `(${allMemories.length})` : '';
+  const info = document.getElementById('mem-filter-info');
+  if (info) info.textContent = '';
 }
 
 function handleSearch() {
-    const searchInput = document.getElementById('memory-search');
-    if (!searchInput) return;
-    
-    const term = searchInput.value.toLowerCase();
-    
-    filteredMemories = allMemories.filter(m => {
-        const meta = m.metadata || m;
-        
-        // --- SAFE TAG CONVERSION ---
-        let tagsString = "";
-        if (Array.isArray(meta.tags)) {
-            tagsString = meta.tags.join(' ');
-        } else if (typeof meta.tags === 'string') {
-            tagsString = meta.tags;
-        }
-
-        // Combine all searchable text
-        const searchBlob = `${meta.title || ''} ${meta.content || ''} ${tagsString}`.toLowerCase();
-        
-        return searchBlob.includes(term);
-    });
-
-    currentPage = 1;
-    renderTablePage();
+  const searchInput = document.getElementById('memory-search');
+  if (!searchInput) return;
+  const term = searchInput.value.toLowerCase();
+  filteredMemories = allMemories.filter(m => {
+    const meta = m.metadata || m;
+    const tagsStr = parseTags(meta.tags);
+    const blob = `${meta.title || ''} ${meta.content || ''} ${tagsStr}`.toLowerCase();
+    return blob.includes(term);
+  });
+  currentPage = 1;
+  const info = document.getElementById('mem-filter-info');
+  if (info) {
+    info.textContent = term
+      ? `${filteredMemories.length} of ${allMemories.length} rows`
+      : '';
+  }
+  renderTablePage();
 }
 
 
+function parseTags(tags) {
+  if (!tags) return '';
+  if (Array.isArray(tags)) return tags.join(', ');
+  if (typeof tags !== 'string') return '';
+  const s = tags.trim();
+  if (s.startsWith('{') && s.endsWith('}')) {
+    const inner = s.slice(1, -1);
+    const items = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < inner.length; i++) {
+      const c = inner[i];
+      if (c === '"') { inQ = !inQ; }
+      else if (c === ',' && !inQ) { if (cur.trim()) items.push(cur.trim()); cur = ''; }
+      else { cur += c; }
+    }
+    if (cur.trim()) items.push(cur.trim());
+    return items.join(', ');
+  }
+  try { const p = JSON.parse(s); return Array.isArray(p) ? p.join(', ') : s; }
+  catch { return s; }
+}
+
+function fmtDate(d) {
+  if (!d) return null;
+  const dt = new Date(d);
+  if (isNaN(dt)) return String(d);
+  return dt.toISOString().slice(0, 16).replace('T', ' ');
+}
+
+function impDots(importance) {
+  const n = Math.min(Math.max(Number(importance) || 0, 0), 5);
+  return Array.from({ length: 5 }, (_, i) =>
+    `<span class="mem-imp-dot${i < n ? ' on' : ''}"></span>`
+  ).join('');
+}
+
 function renderTablePage() {
-    // 1. Re-define the elements so this function can see them
-    const wrapper = document.getElementById('table-wrapper');
-    const pageInfo = document.getElementById('page-info');
-    const controls = document.getElementById('pagination-controls'); // THIS WAS MISSING
-    
-    // Safety check: if we aren't on a page with a modal, stop
-    if (!wrapper || !controls) return;
+  const wrapper = document.getElementById('table-wrapper');
+  const pageInfo = document.getElementById('page-info');
+  const controls = document.getElementById('pagination-controls');
+  if (!wrapper || !controls) return;
 
-    if (filteredMemories.length === 0) {
-        wrapper.innerHTML = '<p style="text-align:center; padding:20px; opacity:0.6;">no_results_found</p>';
-        controls.style.display = 'none';
-        return;
-    }
+  if (filteredMemories.length === 0) {
+    wrapper.innerHTML = '<div class="mem-empty">No memories found.</div>';
+    controls.style.display = 'none';
+    return;
+  }
 
-    const start = (currentPage - 1) * recordsPerPage;
-    const end = start + recordsPerPage;
-    const pageItems = filteredMemories.slice(start, end);
-    const totalPages = Math.ceil(filteredMemories.length / recordsPerPage) || 1;
+  const start = (currentPage - 1) * recordsPerPage;
+  const end = start + recordsPerPage;
+  const pageItems = filteredMemories.slice(start, end);
+  const totalPages = Math.ceil(filteredMemories.length / recordsPerPage) || 1;
 
-    // 2. Now 'controls' is defined and won't crash
-    controls.style.display = 'flex';
-    if (pageInfo) {
-        pageInfo.innerText = `page ${currentPage}/${totalPages} (${filteredMemories.length} results)`;
-    }
+  controls.style.display = 'flex';
+  if (pageInfo) {
+    pageInfo.textContent = `${currentPage} / ${totalPages}  ·  ${filteredMemories.length} rows`;
+  }
 
-    let html = `<table style="width:100%; border-collapse:collapse; font-size:14px;">
-        <thead style="background:#f4f4f4;">
-            <tr>
-                <th style="padding:10px; text-align:left; width:80px;">Type</th>
-                <th style="padding:10px; text-align:left;">Memory</th>
-                <th style="padding:10px; text-align:center; width:40px;">Importance</th>
-            </tr>
-        </thead>
-        <tbody>`;
+  let html = `<table class="mem-tbl">
+    <thead>
+      <tr>
+        <th class="mem-col-num">#</th>
+        <th class="mem-col-type">Type</th>
+        <th>Memory</th>
+        <th class="mem-col-imp">Imp.</th>
+        <th class="mem-col-del"></th>
+      </tr>
+    </thead>
+    <tbody>`;
 
-    html += pageItems.map(m => {
-        const meta = m.metadata || m;
-        // Convert importance (1-5) into star symbols
-        // Ensure importance is a safe integer between 1 and 5 (inclusive)
-        let rawImportance = Number.parseInt(meta.importance, 10);
-        if (!Number.isFinite(rawImportance) || Number.isNaN(rawImportance)) {
-            rawImportance = 1;
-        }
-        const importance = Math.min(Math.max(Math.floor(rawImportance), 1), 5);
-        const stars = "⭐".repeat(importance);
-        // --- BULLETPROOF TAGS ---
-        let tagsArray = [];
-        if (Array.isArray(meta.tags)) {
-            tagsArray = meta.tags;
-        } else if (typeof meta.tags === 'string') {
-            // If it's a string, try to parse it or just split it
-            try {
-                const parsed = JSON.parse(meta.tags);
-                tagsArray = Array.isArray(parsed) ? parsed : [meta.tags];
-            } catch {
-                tagsArray = meta.tags.split(',').map(t => t.trim());
-            }
-        }
+  html += pageItems.map((m, i) => {
+    const row = m.metadata || m;
+    const rowNum = start + i + 1;
 
-        // Escape user-controlled fields before injecting into HTML
-        const safeType = escapeHtml(meta.type || 'fact');
-        const safeTitle = escapeHtml(meta.title || 'Untitled');
-        const safeContent = escapeHtml(meta.content || '');
-        const safeTags = tagsArray.map(t => escapeHtml(t)).join(', ');
+    const type       = row.type    || 'unknown';
+    const title      = row.title   || 'Untitled';
+    const content    = row.content || '';
+    const tagsStr    = parseTags(row.tags);
+    const importance = row.importance != null ? Number(row.importance) : 1;
 
-        return `<tr style="border-bottom:1px solid #eee;">
-            <td style="padding:8px; vertical-align:top;"><code>${safeType}</code></td>
-            <td style="padding:8px;">
-                <div style="font-weight:bold; margin-bottom:4px;">${safeTitle}</div>
-                <div style="color:#555;">${safeContent}</div>
-                <div style="margin-top:5px;"><small style="color:#888;">🏷️ ${safeTags}</small></div>
-            </td>
-            <!-- ⭐ Updated Importance Column -->
-            <td style="padding: 10px; text-align: center; vertical-align: top; white-space: nowrap; font-size: 14px;">
-                <span title="Importance: ${importance}/5">${stars}</span>
-            </td>
-        </tr>`;
-    }).join('');
+    const id        = row.id || '';
+    const createdAt = fmtDate(row.created_at || row.createdAt);
+    const source    = row.source || '';
+    const expiresAt = (row.expires_at || row.expiresAt) ? fmtDate(row.expires_at || row.expiresAt) : null;
 
-    html += '</tbody></table>';
-    wrapper.innerHTML = html;
+    const safeType    = escapeHtml(type);
+    const safeTitle   = escapeHtml(title);
+    const safeContent = escapeHtml(content);
+    const safeTags    = escapeHtml(tagsStr);
 
-    document.getElementById('prev-page').disabled = currentPage === 1;
-    document.getElementById('next-page').disabled = currentPage === totalPages;
+    const metaParts = [];
+    if (id)        metaParts.push(`<span class="mem-meta-label">id</span> ${escapeHtml(id)}`);
+    if (createdAt) metaParts.push(`<span class="mem-meta-label">created</span> ${escapeHtml(createdAt)}`);
+    if (source)    metaParts.push(`<span class="mem-meta-label">source</span> ${escapeHtml(source)}`);
+    if (expiresAt) metaParts.push(`<span class="mem-meta-label">expires</span> ${escapeHtml(expiresAt)}`);
+    const metaHtml = metaParts.length
+      ? `<div class="mem-meta-row">${metaParts.map(p => `<span>${p}</span>`).join('')}</div>`
+      : '';
+
+    return `<tr>
+      <td class="mem-col-num mem-row-num">${rowNum}</td>
+      <td class="mem-col-type"><span class="mem-type-badge">${safeType}</span></td>
+      <td>
+        <div class="mem-content-title">${safeTitle}</div>
+        <div class="mem-content-body">${safeContent}</div>
+        ${safeTags ? `<div class="mem-tags-row">🏷️ ${safeTags}</div>` : ''}
+        ${metaHtml}
+      </td>
+      <td class="mem-col-imp mem-imp-cell" title="Importance: ${importance}/5">
+        <span class="mem-imp-dots">${impDots(importance)}</span>
+      </td>
+      <td class="mem-col-del">
+        <button class="mem-del-btn" data-id="${escapeHtml(id)}" data-title="${safeTitle}" title="Delete memory">
+          <i class="bi bi-trash3"></i>
+        </button>
+      </td>
+    </tr>`;
+  }).join('');
+
+  html += '</tbody></table>';
+  wrapper.innerHTML = html;
+
+  wrapper.querySelectorAll('.mem-del-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = btn.dataset.id;
+      const title = btn.dataset.title;
+      if (!id) return;
+      if (!confirm(t('mem_delete_confirm', { title }))) return;
+      allMemories = allMemories.filter(m => (m.metadata || m).id !== id);
+      filteredMemories = filteredMemories.filter(m => (m.metadata || m).id !== id);
+      safeSend(JSON.stringify({ type: 'delete_memory', id }));
+      updateModalCount();
+      renderMemories(allMemories);
+      renderTablePage();
+    });
+  });
+
+  document.getElementById('prev-page').disabled = currentPage === 1;
+  document.getElementById('next-page').disabled = currentPage === totalPages;
 }
 
 
 function changePage(step) {
-    currentPage += step;
-    renderTablePage();
-    // Scroll modal to top when changing page
-    document.querySelector('#memoryModal > div').scrollTop = 0;
+  currentPage += step;
+  renderTablePage();
+  const body = document.querySelector('.mem-table-body');
+  if (body) body.scrollTop = 0;
 }
 
-async function checkDatabaseBackend() {
-  const btn = document.getElementById('view-memories-btn');
-  if (!btn) return;
-
-  try {
-    const res = await fetch('/api/config');
-    const config = await res.json();
-
-    // ONLY show if it's LanceDB. Hide if it's Postgres or anything else.
-    if (config.backend === 'lancedb') {
-        btn.style.display = 'inline-block';
-    } else {
-        btn.style.display = 'none';
-    }
-  } catch (err) {
-    // Fallback: Hide if we can't determine the backend
-    btn.style.display = 'none';
-  }
-}
-
-// Run the check when the page loads
-document.addEventListener('DOMContentLoaded', checkDatabaseBackend);
 
 // ── Boot ─────────────────────────────────────────────────────
 connect();
