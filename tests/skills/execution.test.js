@@ -33,13 +33,8 @@ const SKILLS_DIR = resolve(ROOT, "skills");
 // Skills without index.js should not be listed — the skills.test.js file
 // already validates their SKILL.md structure independently.
 const EXECUTION_FIXTURES = {
-  "reasoning-planning": {
-    input: "How would you build a chatbot that learns from user corrections?",
-    extraAssertions(output) {
-      assert.ok(output.length > 50, "Expected a substantive response from reasoning-planning");
-    },
-  },
-  // "coding-standards": { input: "..." },  // uncomment when index.js is created
+  // "reasoning-planning": { input: "..." },  // uncomment when index.js is created
+  // "coding-standards": { input: "..." },    // uncomment when index.js is created
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

@@ -262,7 +262,8 @@ async function send() {
     removeThinking();
     setStatus("thinking", t("status_thinking"));
     addThinking();
-    safeSend(JSON.stringify({ type: "chat", text, attachments }));
+    const roundtable = typeof window.isRoundtableRequested === "function" && window.isRoundtableRequested();
+    safeSend(JSON.stringify({ type: "chat", text, attachments, roundtable }));
   });
 }
 

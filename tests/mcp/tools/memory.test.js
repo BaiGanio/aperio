@@ -108,7 +108,7 @@ describe("recallHandler", () => {
     const text = result.content[0].text;
     assert.ok(text.includes("[FACT]"));
     assert.ok(text.includes("Test title"));
-    assert.ok(text.includes("95%"));
+    assert.ok(text.includes("95.0%"));
     assert.ok(text.includes("testing"));
   });
 

@@ -187,5 +187,16 @@
   "setup_badge_error":        "грешка",
   "setup_detail_waiting":     "Чакам…",
 
-  "agent_greeting":           "Поздрави ме с едно кратко приятелско изречение. Не използвай инструменти."
+  "agent_greeting":           "Поздрави ме с едно кратко приятелско изречение. Не използвай инструменти.",
+
+  "discuss_button_label":         "Дискусия",
+  "discuss_button_tooltip":       "Два агента ще си преглеждат отговорите взаимно",
+  "roundtable_phase_answer":      "Агент A отговаря…",
+  "roundtable_phase_review":      "Агент B преглежда…",
+  "roundtable_phase_revise":      "Агент A преработва…",
+  "roundtable_phase_rereview":    "Агент B преразглежда…",
+  "roundtable_consensus_label":   "Консенсус",
+  "roundtable_no_consensus_banner": "Няма консенсус след {n} рунда — прегледай и двете позиции.",
+  "roundtable_position_a":        "Позиция на агент A",
+  "roundtable_position_b":        "Позиция на агент B"
 }
