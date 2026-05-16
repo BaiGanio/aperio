@@ -14,7 +14,7 @@
 *.env
 *.lancedb/
 var/
-ai-trash/
+trash/
 
 
 
