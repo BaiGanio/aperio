@@ -65,7 +65,7 @@ function loadIndex() {
 function discoverSkillNames() {
   if (!existsSync(SKILLS_DIR)) return [];
   return readdirSync(SKILLS_DIR, { withFileTypes: true })
-    .filter(d => d.isDirectory())
+    .filter(d => d.isDirectory() && existsSync(resolve(SKILLS_DIR, d.name, "SKILL.md")))
     .map(d => d.name);
 }
 

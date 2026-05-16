@@ -248,3 +248,38 @@ textarea::placeholder { color: var(--text-muted); }
   object-fit: cover;
   border-radius: 3px;
 }
+/* ── Discuss toggle (round-table mode) ──────────────────────────────────── */
+:root {
+  --agent-primary:  #7c3aed;  /* purple — Agent A */
+  --agent-verifier: #0891b2;  /* teal   — Agent B */
+}
+
+.discuss-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all var(--transition);
+}
+.discuss-btn i { font-size: 13px; }
+.discuss-btn:hover:not(:disabled) {
+  border-color: var(--agent-primary);
+  color: var(--agent-primary);
+}
+.discuss-btn--on {
+  background: linear-gradient(90deg, var(--agent-primary), var(--agent-verifier));
+  border-color: transparent;
+  color: white;
+}
+.discuss-btn--on:hover { opacity: 0.9; }
+.discuss-btn:disabled { cursor: not-allowed; }

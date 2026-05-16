@@ -15,6 +15,12 @@ let startupBannerShown = false;
 let pendingUserTokenEstimate = 0;
 let _preloadToolCount = 0;
 let _preloadMemCount = 0;
+// Round-table state. _nextBubbleAgent is set on stream_start and consumed by
+// createStreamingBubble() so the bubble is styled with the right agent colour.
+// _roundtableAgents is populated from the `provider` event for badge labels.
+let _nextBubbleAgent = null;
+let _roundtableAgents = [];
+let _roundtablePhaseChip = null;
 
 function estimateTokens(text) {
   if (!text || !text.trim()) return 0;
@@ -48,6 +54,11 @@ function handleMessage(msg) {
 
   if (msg.type === "provider") {
     document.getElementById("startup-thinking")?.remove();
+    // Round-table: cache agent list and toggle the Discuss button accordingly.
+    if (Array.isArray(msg.agents)) _roundtableAgents = msg.agents;
+    if (typeof window.applyRoundtableAvailability === "function") {
+      window.applyRoundtableAvailability(Boolean(msg.roundtableAvailable));
+    }
     if (msg.toolCount !== undefined) {
       _preloadToolCount = msg.toolCount;
       const toolBadge = document.getElementById("toolCountBadge");
@@ -245,6 +256,10 @@ function handleMessage(msg) {
     const label = document.querySelector("#thinking .thinking-label");
     if (label) label.textContent = t("status_typing");
     setStatus("thinking", t("status_typing"));
+    // Round-table: tag the next streaming bubble with the agent that owns it.
+    // Stored on a module-level var so the lazy `createStreamingBubble()` call
+    // from the first `token` event picks up the right persona styling.
+    _nextBubbleAgent = msg.agent_id ? { agentId: msg.agent_id, persona: msg.persona ?? msg.agent_id } : null;
   }
 
   if (msg.type === "token") {
@@ -254,7 +269,7 @@ function handleMessage(msg) {
       if (!streamingBubble) {
         removeThinking();
         removeToolIndicator();
-        streamingBubble = createStreamingBubble();
+        streamingBubble = createStreamingBubble(_nextBubbleAgent);
       }
       streamingText += msg.text;
       updateStreamingBubble(streamingBubble, streamingText);
@@ -383,15 +398,159 @@ function handleMessage(msg) {
     stopBtn.style.display = "none";
     addMessage("ai", `⚠️ ${msg.text}`);
   }
+
+  // ── Round-table events ────────────────────────────────────────────────────
+  if (msg.type === "roundtable_phase") {
+    _renderRoundtablePhaseChip(msg.phase, msg.agent_id);
+    return;
+  }
+
+  if (msg.type === "roundtable_agreed") {
+    _renderConsensusBubble(msg);
+    return;
+  }
+
+  if (msg.type === "roundtable_no_agreement") {
+    _renderNoAgreementCard(msg);
+    return;
+  }
 }
 
-function createStreamingBubble() {
+function _phaseLabel(phase) {
+  if (phase === "review")   return t("roundtable_phase_review");
+  if (phase === "revise")   return t("roundtable_phase_revise");
+  if (phase === "rereview") return t("roundtable_phase_rereview");
+  if (phase === "answer")   return t("roundtable_phase_answer");
+  return phase || "";
+}
+
+function _renderRoundtablePhaseChip(phase, agentId) {
+  // Replace the prior chip (one in flight at a time — round-table is sequential).
+  _roundtablePhaseChip?.remove();
+  const chip = document.createElement("div");
+  chip.className = "roundtable-phase-chip";
+  if (agentId) chip.classList.add(`roundtable-phase-${agentId}`);
+  chip.textContent = _phaseLabel(phase);
+  messagesEl.appendChild(chip);
+  _roundtablePhaseChip = chip;
+  scrollToBottom();
+}
+
+function _clearRoundtablePhaseChip() {
+  _roundtablePhaseChip?.remove();
+  _roundtablePhaseChip = null;
+}
+
+function _renderConsensusBubble(msg) {
+  _clearRoundtablePhaseChip();
+  if (streamingBubble) {
+    if (streamingText.trim()) finalizeStreamingBubble(streamingBubble, streamingText, null);
+    else streamingBubble.wrap?.remove();
+    streamingBubble = null;
+    streamingText = "";
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "message ai roundtable-consensus";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar ai";
+  avatar.textContent = "✓";
+  avatar.title = t("roundtable_consensus_label");
+
+  const col = document.createElement("div");
+  col.style.cssText = "display:flex;flex-direction:column;flex:1;min-width:0;";
+
+  const header = document.createElement("div");
+  header.className = "roundtable-consensus-header";
+  const pill = document.createElement("span");
+  pill.className = "roundtable-consensus-pill";
+  pill.textContent = t("roundtable_consensus_label");
+  header.appendChild(pill);
+  (msg.agents || _roundtableAgents).forEach(a => {
+    const wrap = document.createElement("span");
+    wrap.className = "roundtable-agent-chip";
+    const badge = document.createElement("span");
+    badge.className = `roundtable-agent-badge roundtable-agent-${a.id || a}`;
+    badge.textContent = (a.id === "verifier" ? "B" : "A");
+    const label = a.model ? `${a.name} · ${a.model}` : (a.name || a.id || a);
+    badge.title = label;
+    wrap.appendChild(badge);
+    if (a.model || a.name) {
+      const tag = document.createElement("span");
+      tag.className = "roundtable-agent-chip-label";
+      tag.textContent = label;
+      wrap.appendChild(tag);
+    }
+    header.appendChild(wrap);
+  });
+  col.appendChild(header);
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+  bubble.innerHTML = renderMarkdown(msg.text || "");
+  col.appendChild(bubble);
+
+  wrap.appendChild(avatar);
+  wrap.appendChild(col);
+  messagesEl.appendChild(wrap);
+  highlightAll?.();
+  scrollToBottom();
+}
+
+function _renderNoAgreementCard(msg) {
+  _clearRoundtablePhaseChip();
+  if (streamingBubble) {
+    if (streamingText.trim()) finalizeStreamingBubble(streamingBubble, streamingText, null);
+    else streamingBubble.wrap?.remove();
+    streamingBubble = null;
+    streamingText = "";
+  }
+  const card = document.createElement("div");
+  card.className = "roundtable-no-consensus";
+
+  const banner = document.createElement("div");
+  banner.className = "roundtable-no-consensus-banner";
+  banner.textContent = t("roundtable_no_consensus_banner", { n: msg.rounds ?? "" });
+  card.appendChild(banner);
+
+  const cols = document.createElement("div");
+  cols.className = "roundtable-no-consensus-cols";
+  (msg.positions || []).forEach(pos => {
+    const colEl = document.createElement("div");
+    colEl.className = `roundtable-no-consensus-col roundtable-no-consensus-${pos.agent_id}`;
+    const title = document.createElement("div");
+    title.className = "roundtable-no-consensus-title";
+    title.textContent = pos.agent_id === "verifier" ? t("roundtable_position_b") : t("roundtable_position_a");
+    colEl.appendChild(title);
+    const body = document.createElement("div");
+    body.className = "roundtable-no-consensus-body";
+    body.innerHTML = renderMarkdown(pos.text || "");
+    colEl.appendChild(body);
+    cols.appendChild(colEl);
+  });
+  card.appendChild(cols);
+
+  messagesEl.appendChild(card);
+  highlightAll?.();
+  scrollToBottom();
+}
+
+function createStreamingBubble(agentMeta = null) {
   const wrap = document.createElement("div");
   wrap.className = "message ai";
 
   const avatar = document.createElement("div");
   avatar.className = "avatar ai";
-  avatar.textContent = "A";
+  // Round-table avatars: "A" for primary, "B" for verifier. Falls back to "A"
+  // for the single-agent path so existing chats look identical to before.
+  let avatarLetter = "A";
+  if (agentMeta?.persona === "verifier" || agentMeta?.agentId === "verifier") avatarLetter = "B";
+  avatar.textContent = avatarLetter;
+
+  if (agentMeta?.agentId) {
+    wrap.classList.add(`message-agent-${agentMeta.agentId}`);
+    avatar.classList.add(`avatar-agent-${agentMeta.agentId}`);
+  }
 
   const bubble = document.createElement("div");
   bubble.className = "bubble streaming";
@@ -399,13 +558,39 @@ function createStreamingBubble() {
 
   const col = document.createElement("div");
   col.style.cssText = "display:flex;flex-direction:column;flex:1;min-width:0;";
+
+  // Round-table only: small inline header above the bubble showing the agent's
+  // provider and model so users can tell A and B apart without hovering the
+  // avatar. Falls back silently if the provider event hasn't populated
+  // `_roundtableAgents` yet (single-agent chats render no tag).
+  const tag = _buildRoundtableAgentTag(agentMeta);
+  if (tag) col.appendChild(tag);
+
   col.appendChild(bubble);
 
   wrap.appendChild(avatar);
   wrap.appendChild(col);
   messagesEl.appendChild(wrap);
   scrollToBottom();
-  return { wrap, bubble, col };
+  return { wrap, bubble, col, agentMeta };
+}
+
+function _findAgent(agentId) {
+  if (!agentId) return null;
+  return _roundtableAgents.find(a => a?.id === agentId) || null;
+}
+
+function _buildRoundtableAgentTag(agentMeta) {
+  if (!agentMeta?.agentId) return null;
+  const agent = _findAgent(agentMeta.agentId);
+  if (!agent) return null;
+  const tag = document.createElement("div");
+  tag.className = `roundtable-agent-tag roundtable-agent-tag-${agentMeta.agentId}`;
+  const letter = agentMeta.agentId === "verifier" ? "B" : "A";
+  const label = agent.model ? `${agent.name} · ${agent.model}` : (agent.name || letter);
+  tag.textContent = label;
+  tag.title = label;
+  return tag;
 }
 
 function updateStreamingBubble(ref, text) {

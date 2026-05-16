@@ -206,6 +206,36 @@ npm run chat:local               # runs as proxy or standalone
 
 ---
 
+## Round-table mode (two-agent cross-review)
+
+Aperio can boot a **second agent** alongside the primary so that any chat turn
+can be cross-reviewed before it reaches you. Two agents take turns: **Agent A**
+answers, **Agent B** reviews, A revises, B re-reviews — until they reach
+explicit `AGREED` or a hard round cap is hit. A single consensus bubble is
+rendered when they agree; otherwise both positions are shown side-by-side.
+
+**Enable it** with `ROUNDTABLE_AGENTS` in `.env`:
+
+```env
+# Format: provider:model,provider:model
+ROUNDTABLE_AGENTS=anthropic:claude-haiku-4-5-20251001,deepseek:deepseek-chat
+ROUNDTABLE_MAX_ROUNDS=3
+```
+
+When set, the chat UI gains a **Discuss** toggle next to the send button.
+Toggle it ON to route the next turn through the round-table; OFF behaves
+identically to single-agent chat. If `ROUNDTABLE_AGENTS` is unset or only one
+pair parses, the toggle stays disabled and the app behaves exactly as before.
+
+Personas live in `id/whoami-primary.md` and `id/whoami-verifier.md` — edit them
+to tune how each agent answers or critiques.
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
 ## MCP Tools
 
 Aperio exposes **13 tools** over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.

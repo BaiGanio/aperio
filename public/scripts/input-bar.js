@@ -3,6 +3,40 @@ window.attachedFiles = [];
 const fileInput    = document.getElementById('fileInput');
 const attachPreview = document.getElementById('attachPreview');
 
+// ── Discuss toggle (round-table mode) ─────────────────────────────────────
+// Disabled until the server announces `roundtableAvailable: true` via the
+// `provider` event (see streaming.js → applyRoundtableAvailability).
+const discussBtn = document.getElementById('discussBtn');
+let _discussOn = false;
+let _discussAvailable = false;
+
+function _applyDiscussVisualState() {
+  if (!discussBtn) return;
+  discussBtn.classList.toggle("discuss-btn--on", _discussOn);
+  discussBtn.setAttribute("aria-pressed", _discussOn ? "true" : "false");
+  discussBtn.disabled = !_discussAvailable;
+  discussBtn.style.opacity = _discussAvailable ? "" : "0.4";
+  discussBtn.style.cursor = _discussAvailable ? "pointer" : "not-allowed";
+}
+
+window.applyRoundtableAvailability = function(available) {
+  _discussAvailable = Boolean(available);
+  if (!available && _discussOn) _discussOn = false;
+  _applyDiscussVisualState();
+};
+
+window.isRoundtableRequested = function() {
+  return _discussAvailable && _discussOn;
+};
+
+discussBtn?.addEventListener("click", () => {
+  if (!_discussAvailable) return;
+  _discussOn = !_discussOn;
+  _applyDiscussVisualState();
+});
+
+_applyDiscussVisualState();
+
 function updateSendBtn() {
   const hasText  = chatInput.value.trim().length > 0;
   const hasFiles = attachedFiles.length > 0;

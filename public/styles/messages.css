@@ -373,3 +373,152 @@
 .bubble tbody tr:hover td {
   background: var(--accent-soft);
 } */
+
+/* ── Round-table mode: per-agent bubble styling ─────────────────────────── */
+.message.message-agent-primary .bubble {
+  border-left: 3px solid var(--agent-primary);
+}
+.message.message-agent-verifier .bubble {
+  border-left: 3px solid var(--agent-verifier);
+}
+.avatar.avatar-agent-primary  { background: var(--agent-primary)  !important; color: white; }
+.avatar.avatar-agent-verifier { background: var(--agent-verifier) !important; color: white; }
+
+/* Phase chip — small status line between agent turns. */
+.roundtable-phase-chip {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--bg-hover);
+  border: 1px dashed var(--border);
+  margin: 4px 0 0 44px;
+  letter-spacing: 0.04em;
+  animation: labelFade 1.8s ease infinite;
+}
+.roundtable-phase-primary  { border-color: var(--agent-primary);  color: var(--agent-primary); }
+.roundtable-phase-verifier { border-color: var(--agent-verifier); color: var(--agent-verifier); }
+
+/* Consensus bubble — gold/green border, badge header. */
+.message.roundtable-consensus .bubble {
+  border-left: 3px solid #22c55e;
+  background: linear-gradient(180deg, rgba(34,197,94,.04), transparent);
+}
+.message.roundtable-consensus .avatar {
+  background: #22c55e !important;
+  color: white;
+}
+.roundtable-consensus-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.roundtable-consensus-pill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #22c55e;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.roundtable-agent-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+}
+.roundtable-agent-badge.roundtable-agent-primary  { background: var(--agent-primary); }
+.roundtable-agent-badge.roundtable-agent-verifier { background: var(--agent-verifier); }
+
+/* Inline model tag above each round-table streaming bubble.
+   Mirrors the avatar colour so it's instantly clear which agent is speaking. */
+.roundtable-agent-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  align-self: flex-start;
+  margin-bottom: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.roundtable-agent-tag-primary  { color: var(--agent-primary);  border-color: var(--agent-primary); }
+.roundtable-agent-tag-verifier { color: var(--agent-verifier); border-color: var(--agent-verifier); }
+
+/* Consensus header chip — badge + model name pair. */
+.roundtable-agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.roundtable-agent-chip-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* No-consensus card — two columns side-by-side. */
+.roundtable-no-consensus {
+  width: 100%;
+  max-width: 1100px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  background: var(--bg-panel);
+}
+.roundtable-no-consensus-banner {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #c2410c;
+  background: rgba(249, 115, 22, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 12px;
+}
+.roundtable-no-consensus-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 720px) {
+  .roundtable-no-consensus-cols { grid-template-columns: 1fr; }
+}
+.roundtable-no-consensus-col {
+  border-left: 3px solid var(--border);
+  padding-left: 12px;
+}
+.roundtable-no-consensus-col.roundtable-no-consensus-primary  { border-left-color: var(--agent-primary); }
+.roundtable-no-consensus-col.roundtable-no-consensus-verifier { border-left-color: var(--agent-verifier); }
+.roundtable-no-consensus-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.roundtable-no-consensus-body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+}

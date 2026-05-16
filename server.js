@@ -258,9 +258,41 @@ async function bootApp() {
   const store = await getStore();
   const { shutdown: shutdownEmbeddings } = await initEmbeddings(store, generateEmbedding);
 
-  // Agent
-  const agent = await createAgent({ root: __dirname, version, clientName: "aperio-server" });
+  // ── Agents ───────────────────────────────────────────────────────────────
+  // Round-table mode (two-agent cross-review) is opt-in via ROUNDTABLE_AGENTS.
+  // Format: "provider:model,provider:model" — first pair = primary (answerer),
+  // second pair = verifier (reviewer). If unset (or only one pair parses),
+  // we boot a single agent and the Discuss toggle is disabled in the UI.
+  const roundtableAgents = parseRoundtableAgents(process.env.ROUNDTABLE_AGENTS);
+  const primaryConfig  = roundtableAgents[0] ?? null;
+  const verifierConfig = roundtableAgents[1] ?? null;
+
+  const agent = await createAgent({
+    root: __dirname,
+    version,
+    clientName: "aperio-server",
+    providerConfig: primaryConfig,
+    persona: verifierConfig ? "primary" : null,
+  });
   const { provider, callTool } = agent;
+
+  let verifier = null;
+  if (verifierConfig) {
+    try {
+      verifier = await createAgent({
+        root: __dirname,
+        version,
+        clientName: "aperio-server-verifier",
+        providerConfig: verifierConfig,
+        persona: "verifier",
+      });
+      logger.info(`🤝 Round-table mode: verifier = ${verifier.provider.name} (${verifier.provider.model})`);
+    } catch (err) {
+      logger.error(`⚠️  Could not boot verifier agent — falling back to single-agent mode:`, err.message);
+      verifier = null;
+    }
+  }
+  const roundtableAvailable = Boolean(verifier);
 
   // Ollama
   if (provider.name === "ollama") await ensureOllama();
@@ -299,7 +331,7 @@ async function bootApp() {
       }
     },
   });
-  wss.on("connection", makeWsHandler({ agent, store, __dirname }));
+  wss.on("connection", makeWsHandler({ agent, verifier, roundtableAvailable, store, __dirname }));
 
   // Background jobs
   const dedup   = deduplicateMemories(callTool);
@@ -347,6 +379,34 @@ async function bootApp() {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+// Parse ROUNDTABLE_AGENTS="provider:model,provider:model" into a list of
+// `{ name, model }` configs. Tolerates whitespace and extra entries beyond two
+// (only the first two are consumed by round-table; rest reserved for future).
+function parseRoundtableAgents(raw) {
+  if (!raw || typeof raw !== "string") return [];
+  const SUPPORTED = new Set(["anthropic", "ollama", "deepseek", "gemini"]);
+  return raw.split(",").map(pair => {
+    const trimmed = pair.trim();
+    if (!trimmed) return null;
+    const idx = trimmed.indexOf(":");
+    if (idx <= 0) {
+      logger.warn(`[roundtable] ignoring malformed agent spec "${trimmed}" — expected "provider:model"`);
+      return null;
+    }
+    const name = trimmed.slice(0, idx).toLowerCase();
+    const model = trimmed.slice(idx + 1).trim();
+    if (!SUPPORTED.has(name)) {
+      logger.warn(`[roundtable] ignoring unsupported provider "${name}" — supported: ${[...SUPPORTED].join(", ")}`);
+      return null;
+    }
+    if (!model) {
+      logger.warn(`[roundtable] ignoring "${trimmed}" — model is empty`);
+      return null;
+    }
+    return { name, model };
+  }).filter(Boolean);
+}
+
 function openBrowser(url) {
   const [cmd, ...args] =
     process.platform === "darwin" ? ["open", url]
