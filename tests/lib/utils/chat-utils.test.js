@@ -120,9 +120,11 @@ describe("setScrollRegion", () => {
 
 // ─── parseServerPort / parseOllamaPort ───────────────────────────────────────
 describe("parseServerPort", () => {
-  test("defaults to 31337",          () => assert.equal(parseServerPort({}),                    31337));
-  test("reads custom value",         () => assert.equal(parseServerPort({ SERVER_PORT: "8080" }), 8080));
-  test("undefined falls to default", () => assert.equal(parseServerPort({ SERVER_PORT: undefined }), 31337));
+  test("defaults to 31337",             () => assert.equal(parseServerPort({}),                            31337));
+  test("reads SERVER_PORT",             () => assert.equal(parseServerPort({ SERVER_PORT: "8080" }),         8080));
+  test("falls back to PORT",            () => assert.equal(parseServerPort({ PORT: "1701" }),               1701));
+  test("SERVER_PORT wins over PORT",    () => assert.equal(parseServerPort({ SERVER_PORT: "9000", PORT: "1701" }), 9000));
+  test("undefined falls to default",    () => assert.equal(parseServerPort({ SERVER_PORT: undefined }),     31337));
 });
 
 describe("parseOllamaPort", () => {
