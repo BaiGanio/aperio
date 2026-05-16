@@ -645,23 +645,26 @@ describe("Agent Integration with Emitter", () => {
 
     const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
 
-    const greeting = await agent.buildGreeting();
-    
-    assert.ok(greeting.includes("Greet me"));
-    assert.ok(greeting.includes("Here is what you know"));
+    const { prompt, memCtx, preloadedMemCount } = await agent.buildGreeting();
+
+    assert.ok(prompt.includes("Greet me"));
+    assert.ok(!prompt.includes("Here is what you know"), "memories must not be in the user message");
+    assert.ok(memCtx.includes("Here is what you know"), "memories must be in memCtx");
+    assert.ok(typeof preloadedMemCount === "number");
   });
 
   test("buildGreeting handles no memories gracefully", async (t) => {
     stubMcpTransport(t);
-    
+
     const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
-    
+
     t.mock.method(agent, "callTool", async () => "No memories found.");
-    
-    const greeting = await agent.buildGreeting();
-    
-    assert.ok(greeting.includes("Greet me"));
-    assert.ok(!greeting.includes("Here is what you know"));
+
+    const { prompt, memCtx, preloadedMemCount } = await agent.buildGreeting();
+
+    assert.ok(prompt.includes("Greet me"));
+    assert.strictEqual(memCtx, "");
+    assert.strictEqual(preloadedMemCount, 0);
   });
 });
 

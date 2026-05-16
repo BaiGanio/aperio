@@ -133,7 +133,7 @@ const TRANSLATIONS = {
     msg_reasoning_flat:       "✍️ Reasoning",
     msg_streaming:            "streaming…",
 
-    startup_tokens_from:      "{n} tokens preloaded from",
+    startup_tokens_from:      "{n} tokens at startup ·",
     startup_memory_one:       "1 memory",
     startup_memory_many:      "{n} memories",
     startup_skill_one:        "1 skill",
@@ -230,6 +230,7 @@ const TRANSLATIONS = {
     ctx_dismiss:              "Dismiss",
     ctx_summarize_failed:     "⚠ Could not summarize: {reason}",
     ctx_summarize_no_save:    "Summary generated but could not be saved to memory — it will be lost on refresh.",
+    ctx_summarize_ok:         "✓ Conversation summarized and saved to memory.",
     ctx_suggestions_saved_one:  "✓ 1 suggestion saved to memory",
     ctx_suggestions_saved_many: "✓ {n} suggestions saved to memory",
 

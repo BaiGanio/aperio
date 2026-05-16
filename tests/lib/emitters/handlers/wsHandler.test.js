@@ -39,7 +39,7 @@ function makeAgent(overrides = {}) {
     runAgentLoop:         async () => "",
     handleRememberIntent: async () => {},
     fetchMemories:        async () => ({ raw: "", parsed: [] }),
-    buildGreeting:        async () => "Greet me",
+    buildGreeting:        async () => ({ prompt: "Greet me", memCtx: "", preloadedMemCount: 0 }),
     OLLAMA_NO_TOOLS:      false,
     OLLAMA_THINKS:        false,
     mcpTools:             [],
@@ -106,7 +106,7 @@ describe("message type: init", () => {
 
     const handler = makeWsHandler({
       agent: makeAgent({
-        buildGreeting:  async () => { greetSpy.push(1); return "Hello!"; },
+        buildGreeting:  async () => { greetSpy.push(1); return { prompt: "Hello!", memCtx: "", preloadedMemCount: 0 }; },
         runAgentLoop:   async () => { loopSpy.push(1); return ""; },
       }),
       store:     { listAll: async () => [{ id: "1", type: "fact", title: "t", content: "c", tags: [], importance: 3, created_at: null, pinned: false }] },
@@ -165,7 +165,7 @@ describe("message type: init", () => {
     const ws     = makeWs(t);
     const spy    = [];
     const handler = makeWsHandler({
-      agent: makeAgent({ buildGreeting: async () => { spy.push(1); return "Hi"; } }),
+      agent: makeAgent({ buildGreeting: async () => { spy.push(1); return { prompt: "Hi", memCtx: "", preloadedMemCount: 0 }; } }),
       store:     {},
       __dirname: TEST_DIR,
     });

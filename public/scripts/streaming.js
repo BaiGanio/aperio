@@ -14,6 +14,7 @@ let prevInputTokens = 0;
 let startupBannerShown = false;
 let pendingUserTokenEstimate = 0;
 let _preloadToolCount = 0;
+let _preloadMemCount = 0;
 
 function estimateTokens(text) {
   if (!text || !text.trim()) return 0;
@@ -25,6 +26,10 @@ function setUserTokenEstimate(n) { pendingUserTokenEstimate = n; }
 function handleMessage(msg) {
   if (msg.type === "status") {
     // initial connection ack
+  }
+
+  if (msg.type === "preload_mem_count") {
+    _preloadMemCount = msg.count ?? 0;
   }
 
   if (msg.type === "tool_count") {
@@ -325,11 +330,12 @@ function handleMessage(msg) {
     dismissContextBanner();
     if (!msg.ok) {
       addMessage("ai", t("ctx_summarize_failed", { reason: msg.reason }));
-    } else if (!msg.saved) {
+    } else {
       const note = document.createElement("div");
       note.className = "ctx-banner ctx-banner--trimmed";
       note.style.cssText = "font-size:10px;opacity:0.75;";
-      note.innerHTML = `<span class="ctx-banner-text">${t("ctx_summarize_no_save")}</span>` +
+      const text = msg.saved ? t("ctx_summarize_ok") : t("ctx_summarize_no_save");
+      note.innerHTML = `<span class="ctx-banner-text">${text}</span>` +
         `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("ctx_dismiss")}</button>`;
       document.querySelector(".chat-area")?.prepend(note);
     }
@@ -480,7 +486,7 @@ function finalizeStreamingBubble(ref, fullText, stats) {
 function _maybeShowStartupBanner(inputTok) {
   if (startupBannerShown) return;
   startupBannerShown = true;
-  const memCount = Array.isArray(allMemories) ? allMemories.length : 0;
+  const memCount = _preloadMemCount > 0 ? _preloadMemCount : (Array.isArray(allMemories) ? allMemories.length : 0);
   if (memCount === 0 && !_preloadToolCount) return;
   const parts = [];
   if (inputTok) parts.push(t("startup_tokens_from", { n: inputTok.toLocaleString() }));
