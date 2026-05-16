@@ -1,0 +1,10 @@
+{
+  "name": "mcp-evaluator",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.91.0",
+    "@modelcontextprotocol/sdk": "^1.28.0",
+    "openai": "^4.0.0"
+  }
+}

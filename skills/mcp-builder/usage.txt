@@ -1,0 +1,13 @@
+  Usage for your three cases:
+
+  # Anthropic (default)
+  node evaluate.js -t stdio -c node -a server.js eval.xml
+
+  # DeepSeek v4
+  node evaluate.js --provider deepseek --model deepseek-chat \
+    -t stdio -c node -a server.js eval.xml
+
+  # Ollama gemma4 (no API key, runs fully local)
+  node evaluate.js --provider ollama --model gemma4 \
+    -t stdio -c node -a server.js eval.xml
+
