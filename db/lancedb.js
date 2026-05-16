@@ -108,8 +108,7 @@ function bm25Rank(query, docs, { k1 = 1.5, b = 0.75 } = {}) {
       return { doc, score };
     })
     .filter(({ score }) => score > 0)
-    .sort((a, bScore) => bScore.score - a.score)
-    .map(({ doc }) => doc);
+    .sort((a, bScore) => bScore.score - a.score);
 }
 
 // Reciprocal Rank Fusion over two pre-ranked arrays of rows.
@@ -127,10 +126,11 @@ function rrfMerge(vectorRanked, textRanked, limit, k = 60) {
     byId.set(row.id, row);
   });
 
-  return [...scores.entries()]
-    .sort((a, b) => b[1] - a[1])
+  const sorted   = [...scores.entries()].sort((a, b) => b[1] - a[1]);
+  const maxScore = sorted[0]?.[1] ?? 1;
+  return sorted
     .slice(0, limit)
-    .map(([id, rrf_score]) => ({ ...deserialiseRow(byId.get(id)), similarity: rrf_score }));
+    .map(([id, rrf_score]) => ({ ...deserialiseRow(byId.get(id)), similarity: rrf_score / maxScore }));
 }
 
 async function assertDims(table, expected) {
@@ -341,7 +341,7 @@ export class LanceDBStore {
       ]);
 
       const vectorRanked = vectorResults.filter(filterRow);
-      const textRanked   = bm25Rank(query, cacheSource.filter(filterRow));
+      const textRanked   = bm25Rank(query, cacheSource.filter(filterRow)).map(({ doc }) => doc);
 
       return rrfMerge(vectorRanked, textRanked, limit);
     }
@@ -368,14 +368,18 @@ export class LanceDBStore {
     const pool = source.filter(filterRow);
 
     if (query) {
-      const ranked = bm25Rank(query, pool);
-      return ranked.slice(0, limit).map(deserialiseRow);
+      const ranked   = bm25Rank(query, pool);
+      const maxScore = ranked[0]?.score ?? 1;
+      return ranked.slice(0, limit).map(({ doc, score }) => ({
+        ...deserialiseRow(doc),
+        similarity: score / maxScore,
+      }));
     }
 
     return pool
       .sort((a, b) => b.importance - a.importance)
       .slice(0, limit)
-      .map(deserialiseRow);
+      .map(r => ({ ...deserialiseRow(r), similarity: r.confidence ?? 1.0 }));
   }
 
   _pinsPath() { return path.join(DB_PATH, 'pins.json'); }
