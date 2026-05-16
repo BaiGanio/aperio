@@ -21,6 +21,7 @@ let _preloadMemCount = 0;
 let _nextBubbleAgent = null;
 let _roundtableAgents = [];
 let _roundtablePhaseChip = null;
+let _pendingGeneratedFile = null;
 
 function estimateTokens(text) {
   if (!text || !text.trim()) return 0;
@@ -302,6 +303,7 @@ function handleMessage(msg) {
       : null;
     if (streamingBubble && streamingText.trim()) {
       finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
+      if (_pendingGeneratedFile) { streamingBubble.bubble.appendChild(_buildGeneratedFileCard(_pendingGeneratedFile)); _pendingGeneratedFile = null; }
       window.Aperio?.tts?.speak(streamingText);
       window.Aperio?.voice?.onStreamEnd?.();
       _maybeShowStartupBanner(msg.usage?.input_tokens);
@@ -318,6 +320,13 @@ function handleMessage(msg) {
       _maybeShowStartupBanner(msg.usage?.input_tokens);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
+    }
+    // Fallback: if the card is still pending (e.g. no streaming text), attach to last AI bubble
+    if (_pendingGeneratedFile) {
+      const lastBubble = [...messagesEl.querySelectorAll(".message.ai .bubble")].at(-1);
+      if (lastBubble) lastBubble.appendChild(_buildGeneratedFileCard(_pendingGeneratedFile));
+      else messagesEl.appendChild(_buildGeneratedFileCard(_pendingGeneratedFile));
+      _pendingGeneratedFile = null;
     }
     document.getElementById("preparing-answer")?.remove();
     streamingBubble = null;
@@ -385,6 +394,11 @@ function handleMessage(msg) {
 
   if (msg.type === "ttl_chip") {
     _renderTtlChip(msg);
+    return;
+  }
+
+  if (msg.type === "generated_file") {
+    _pendingGeneratedFile = msg;
     return;
   }
 
@@ -758,6 +772,21 @@ function _renderTtlChip({ id, memType, title, expires_at }) {
 
   messagesEl.appendChild(chip);
   scrollToBottom();
+}
+
+function _buildGeneratedFileCard({ filename, url, sizeKb }) {
+  const card = document.createElement("div");
+  card.className = "generated-file-card";
+  card.innerHTML =
+    `<div class="gfc-icon"><i class="bi bi-file-earmark-spreadsheet"></i></div>` +
+    `<div class="gfc-info">` +
+      `<span class="gfc-name">${escapeHtml(filename || "spreadsheet.xlsx")}</span>` +
+      `<span class="gfc-meta">Excel${sizeKb ? ` · ${sizeKb} KB` : ""}</span>` +
+    `</div>` +
+    `<a class="gfc-btn" href="${escapeHtml(url)}" download="${escapeHtml(filename || "spreadsheet.xlsx")}">` +
+      `<i class="bi bi-download"></i> Download` +
+    `</a>`;
+  return card;
 }
 
 function _parseRecallText(text) {
