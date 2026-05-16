@@ -580,13 +580,13 @@ function _parseRecallText(text) {
     const lines     = block.trim().split("\n");
     const firstLine = lines[0];
     const titleMatch = firstLine.match(/^\[\w+\]\s+(.+?)(?:\s+\[(?:similarity|confidence):|\s+\(importance:)/);
-    const simMatch   = firstLine.match(/\[similarity:\s*(\d+)%\]/);
+    const simMatch   = firstLine.match(/\[similarity:\s*([\d.]+)%\]/);
     const tagsLine   = lines.find(l => l.startsWith("Tags:")) || "";
     const tags       = tagsLine.replace("Tags:", "").trim();
     const content    = lines[1]?.trim() || "";
     return {
       title:      titleMatch?.[1]?.trim() || "",
-      similarity: simMatch ? parseInt(simMatch[1], 10) : null,
+      similarity: simMatch ? parseFloat(simMatch[1]) : null,
       content,
       tags:       tags && tags !== "none" ? tags : "",
     };

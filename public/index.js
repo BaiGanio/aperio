@@ -8,6 +8,7 @@ const TYPE_CONFIG = {
   solution:   { icon: "◈", labelKey: "type_solutions" },
   source:     { icon: "◉", labelKey: "type_sources" },
   person:     { icon: "◯", labelKey: "type_people" },
+  inference:  { icon: "◌", labelKey: "type_inferences" },
 };
 
 // ── State ────────────────────────────────────────────────────

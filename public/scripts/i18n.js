@@ -99,6 +99,7 @@ const TRANSLATIONS = {
     type_solutions:           "Solutions",
     type_sources:             "Sources",
     type_people:              "People",
+    type_inferences:          "Inferences",
 
     mem_delete_title:         "Delete memory",
     mem_delete_confirm:       "Delete \"{title}\"?",

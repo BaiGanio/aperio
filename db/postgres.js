@@ -252,7 +252,8 @@ export class PostgresStore {
         LIMIT $${idx}
       `, params);
 
-      return rows.map(r => ({ ...rowToMemory(r), similarity: Number.parseFloat(r.rrf_score) }));
+      const maxRrf = Number.parseFloat(rows[0]?.rrf_score) || 1;
+      return rows.map(r => ({ ...rowToMemory(r), similarity: Number.parseFloat(r.rrf_score) / maxRrf }));
     }
 
     // ── Semantic-only path ───────────────────────────────────────────────────
@@ -302,7 +303,9 @@ export class PostgresStore {
 
     if (type)         { conditions.push(`type = $${idx++}`);  params.push(type); }
     if (tags?.length) { conditions.push(`tags && $${idx++}`); params.push(tags); }
+    let queryParamIdx = null;
     if (query) {
+      queryParamIdx = idx;
       conditions.push(
         `search_vector @@ plainto_tsquery('${lang}', $${idx++})`
       );
@@ -310,14 +313,23 @@ export class PostgresStore {
     }
     params.push(limit);
 
+    const selectScore = queryParamIdx !== null
+      ? `, ts_rank(search_vector, plainto_tsquery('${lang}', $${queryParamIdx})) AS ts_score`
+      : '';
+
     const { rows } = await this.pool.query(
-      `SELECT * FROM memories
+      `SELECT *${selectScore} FROM memories
        WHERE ${conditions.join(' AND ')}
        ORDER BY importance DESC, created_at DESC
        LIMIT $${idx}`,
       params
     );
-    return rows.map(rowToMemory);
+
+    if (queryParamIdx !== null) {
+      const maxScore = Math.max(...rows.map(r => parseFloat(r.ts_score) || 0), 0.001);
+      return rows.map(r => ({ ...rowToMemory(r), similarity: parseFloat(r.ts_score) / maxScore }));
+    }
+    return rows.map(r => ({ ...rowToMemory(r), similarity: r.confidence ?? 1.0 }));
   }
 
   async listWithoutEmbeddings() {
