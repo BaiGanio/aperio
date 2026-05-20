@@ -501,4 +501,394 @@ fill them in after the provider is configured.
 [[mcp-tools]] — \`backfill_embeddings\` tool
 `.trim(),
   },
+
+  // ── Philosophy ────────────────────────────────────────────────────────────
+  // First-principles articles. These don't describe how Aperio works — they
+  // explain *why* it works that way. They're written so a future LLM can cite
+  // them when the user asks design-intent questions.
+
+  {
+    slug:    'why-local-first',
+    title:   'Why Local-First — What Aperio Gives Up and Gains',
+    summary: 'The deliberate trade-offs behind running entirely on the user\'s machine, with no telemetry or cloud sync.',
+    tags:    ['philosophy', 'local-first', 'privacy', 'design-intent'],
+    body_md: `
+## The Premise
+
+A personal AI assistant accumulates the most intimate possible record of its user:
+half-formed thoughts, project plans, off-hand opinions about people, decisions made
+under uncertainty. The default modern architecture for such a system — cloud-hosted,
+multi-tenant, server-side memory — is fundamentally incompatible with that intimacy.
+
+Aperio's local-first stance is a refusal of that default, not an optimisation.
+
+## What We Give Up
+
+- **Frictionless multi-device sync.** No magic "open my notes on my phone." If you
+  want that, you run a tunnel or sync the data directory yourself.
+- **Server-side model quality.** Local models (via Ollama) are smaller and slower
+  than frontier cloud models. Cloud providers remain optional, but always opt-in
+  per-request, never the default.
+- **Crash-recovery-as-a-service.** Your \`.lancedb/\` directory is yours to back up.
+  Lose it, lose the memories.
+- **Effortless onboarding.** A binary that needs no setup is impossible when the
+  data has nowhere to live except the user's filesystem.
+
+## What We Gain
+
+- **No observer.** No vendor sees your conversations. No "we may use anonymised
+  data to improve our service" clause. Aperio cannot leak what it never transmits.
+- **Sovereignty over the substrate.** The user owns the database file. They can
+  inspect it, copy it, encrypt it, delete it. Nothing is held hostage.
+- **Coherent failure modes.** When the network is down, Aperio still works.
+  When the vendor pivots, Aperio still works. When the laws change, Aperio
+  still works.
+- **An honest trust boundary.** The MCP subprocess is the only place where the
+  agent can touch the world outside its own process. That seam is auditable
+  precisely because it's local.
+
+## The Pragmatic Compromise
+
+Cloud LLMs (Anthropic, DeepSeek, Gemini) are supported because frontier reasoning
+is sometimes the right tool. But the **memory layer is non-negotiably local**.
+A cloud LLM call sends only the prompt and tool results of that turn — never the
+memory store, never the wiki, never the session history beyond what's needed for
+that one inference.
+
+That asymmetry is the whole design: cloud for *thinking*, local for *remembering*.
+
+## See Also
+
+[[aperio-architecture]] — the runtime topology that makes this possible
+[[memory-vs-knowledge]] — why the memory store is the load-bearing privacy boundary
+[[agency-and-tools]] — the MCP subprocess as a trust seam
+`.trim(),
+  },
+
+  {
+    slug:    'memory-vs-knowledge',
+    title:   'Memory vs Knowledge — Why Aperio Has Both',
+    summary: 'The epistemic distinction between a memory (an event with provenance) and a wiki article (a synthesis), and why tombstones replace edits.',
+    tags:    ['philosophy', 'memory', 'epistemology', 'design-intent'],
+    body_md: `
+## Two Kinds of Knowing
+
+Most knowledge systems collapse two distinct things into one storage layer:
+
+1. **What happened, when, and according to whom** — a witnessed event.
+2. **What is true, as best we can tell right now** — a synthesised claim.
+
+Aperio keeps them apart by design.
+
+| Layer | What it holds | Update semantics |
+|---|---|---|
+| **Memories** | Witnessed events with provenance and time | Tombstoned (never overwritten) |
+| **Wiki articles** | Syntheses over memories, with citations | Bumped revision (overwriting is fine) |
+
+A memory says: *on 2026-05-08, the user told me their preferred indentation is tabs.*
+A wiki article says: *the user prefers tabs* — and cites the memories that support it.
+
+When the user later switches to spaces, the **old memory does not become false** —
+it remains a true record of what was said on that date. A new memory is added.
+The wiki article gets rewritten and its revision bumps.
+
+## Why Tombstones, Not Edits
+
+If memories were editable, you would lose the ability to ask: *what did I believe
+last March?* Tombstoning (\`valid_until = now()\`) preserves the historical record
+while keeping current queries fast (recall filters on \`valid_until IS NULL\`).
+
+This matters for an assistant that reasons over its own past. An editable memory
+store can be silently rewritten by the agent itself — a failure mode where the
+assistant gaslights its own user. Append-only history makes that structurally
+impossible.
+
+## Why the Wiki Can Be Overwritten
+
+Wiki articles are explicitly **derived**. They are caches of reasoning over the
+memory layer. Overwriting a cache is fine; what matters is that the cache
+remembers which inputs it was derived from (\`source_memory_ids\`) so it can be
+invalidated when those inputs change. That's exactly what the stale-marking
+mechanism does.
+
+If you wanted the historical revisions of a wiki article, you would store them
+as memories about the wiki, not as wiki rows.
+
+## The Litmus Test
+
+When deciding where a piece of information belongs, ask:
+
+- *Could this become false later?* → memory (preserve the historical claim)
+- *Is this a current best-guess derived from many memories?* → wiki article
+
+## See Also
+
+[[memory-system]] — the mechanics of tombstoning, recall, and cache
+[[temporal-truth]] — why \`valid_from\` / \`valid_until\` is an epistemic claim
+[[the-wiki-as-cache]] — staleness as cache invalidation
+[[wiki-workflow]] — when to promote scattered memories into an article
+`.trim(),
+  },
+
+  {
+    slug:    'agency-and-tools',
+    title:   'Agency and Tools — The MCP Boundary as Design',
+    summary: 'Why tool use lives in a separate subprocess: trust seams, auditability, and the difference between thinking and acting.',
+    tags:    ['philosophy', 'mcp', 'agency', 'design-intent'],
+    body_md: `
+## Thinking Is Cheap. Acting Has Consequences.
+
+When an LLM generates the string \`rm -rf /tmp/data\`, nothing happens. When the
+process holding the LLM's output executes that string, something happens. The
+gap between those two moments is the only place where safety, auditability, and
+user consent can actually live.
+
+Aperio puts the MCP subprocess in that gap on purpose.
+
+## Tools Are the Agent's Hands
+
+The main agent process holds the model and the conversation. It can reason, plan,
+draft replies. What it **cannot** do directly is touch the database, the
+filesystem, the network, or the user's shell. To do any of that, it sends a tool
+call across the MCP boundary, and the subprocess decides whether and how to
+execute it.
+
+This separation gives us:
+
+- **A single auditable seam.** Every side-effect the assistant produces flows
+  through one place. You can log it, gate it, rate-limit it, or refuse it.
+- **Crash isolation.** A misbehaving tool (a hung shell command, a bad PDF parse)
+  can be killed without taking down the conversation.
+- **Replaceability.** The agent doesn't know how \`recall\` works — only that it
+  returns ranked memories. The implementation can change without touching the
+  reasoning layer.
+
+## Why Not Function Calls in the Same Process?
+
+Same-process function calls would be faster and simpler. They would also collapse
+the trust boundary. The moment the LLM's tool-calling layer and the database
+client live in the same memory space, there is no architectural reason an
+inadvertent generation can't reach into the store directly. The subprocess
+boundary is a physical fact that no prompt injection can talk past.
+
+## The Skill / Tool Pairing
+
+A **tool** is a capability (\`write_file\`, \`recall\`). A **skill** is a
+prompt-injected description of when and how to use that capability. Tools live
+in the subprocess; skills live in the main agent's system prompt. Together they
+form a contract: *here is what you can do, here is when you should do it.*
+
+The asymmetry is deliberate — you can change the skill without changing the
+tool, and vice versa. That's how behaviour evolves faster than the surface area.
+
+## See Also
+
+[[mcp-tools]] — the current tool surface
+[[skills-system]] — the prompt-injection mechanism
+[[skills-as-prompts]] — why behaviour lives in markdown, not fine-tunes
+[[why-local-first]] — the trust seam only matters because the substrate is local
+`.trim(),
+  },
+
+  {
+    slug:    'temporal-truth',
+    title:   'Temporal Truth — Memories as Time-Indexed Claims',
+    summary: 'Why every memory carries valid_from and valid_until: making the assistant\'s knowledge an explicit function of time.',
+    tags:    ['philosophy', 'temporal', 'epistemology', 'design-intent'],
+    body_md: `
+## The Question No Assistant Should Avoid
+
+*"What did I think was true last quarter?"*
+
+A naive memory store cannot answer this. Updates overwrite. Deletes erase. The
+present is the only time that exists. This is fine for a chatbot; it is fatal
+for an assistant that's supposed to reason with you over years.
+
+Aperio answers the question structurally: every memory is a claim **bracketed
+by time**, not a fact about the world.
+
+## The Bracket
+
+\`\`\`
+valid_from   ISO timestamp   when this claim entered the store
+valid_until  ISO timestamp   when it stopped being current (null = still current)
+\`\`\`
+
+Reading the store at time \`T\` means filtering rows where
+\`valid_from ≤ T < (valid_until OR ∞)\`. The default recall does this with \`T = now\`,
+which is why "current memory" feels like a flat list. But the lattice is always
+there underneath, and \`asOf\` parameters can walk it backward.
+
+## Why This Is an Epistemic Choice, Not a Storage Trick
+
+The bracket is not just about audit trails. It encodes a stance: **the
+assistant's knowledge is not a snapshot of the world, it is a record of what
+the assistant has been told and when.**
+
+Saying *"the user prefers tabs"* is an oversimplification.
+Saying *"on 2026-05-08, the user said they prefer tabs; on 2026-09-12, they
+said spaces"* is honest.
+
+The first form lets the assistant be confidently wrong. The second form forces
+it to surface conflict and ask.
+
+## Practical Consequences
+
+- **Conflicting memories don't merge.** They coexist with different brackets.
+  Recall returns both, and the agent must reconcile in-context.
+- **Forgetting is rare.** Tombstoning is the default; physical \`forget\` is for
+  the user's explicit "remove this from the record" requests, not for routine
+  updates.
+- **The wiki layer absorbs the synthesis.** Articles flatten the temporal lattice
+  into a current best-guess — that's exactly why they need citations and
+  staleness, not why they replace the underlying record.
+
+## See Also
+
+[[memory-system]] — the implementation of \`valid_from\` / \`valid_until\`
+[[memory-vs-knowledge]] — why the wiki and memory layers diverge here
+[[the-wiki-as-cache]] — how staleness flows from the temporal model
+`.trim(),
+  },
+
+  {
+    slug:    'skills-as-prompts',
+    title:   'Skills as Prompts — Behaviour in Markdown, Not Weights',
+    summary: 'Why Aperio encodes behavioural rules as injected markdown rather than fine-tunes, RAG, or hard-coded logic.',
+    tags:    ['philosophy', 'skills', 'prompts', 'design-intent'],
+    body_md: `
+## The Question Behind Every Skill
+
+How should a personal AI's behaviour be specified, and by whom?
+
+Three honest answers compete:
+
+1. **Fine-tune the model.** Bake the behaviour into weights.
+2. **Hard-code in the application.** Bake it into the host program's logic.
+3. **Inject it as text into the prompt.** Bake it into the conversation.
+
+Aperio picks (3), almost everywhere it can. The reason isn't laziness — it's
+that (3) keeps the behaviour in a layer the user can actually read, edit, and
+diff.
+
+## What a Skill Looks Like
+
+A skill is a \`SKILL.md\` file with frontmatter and a markdown body. At startup,
+the harness reads all skills and injects their bodies into the system prompt.
+That's the whole mechanism.
+
+There is no special skill engine, no plugin loader, no DSL. The "skill" is the
+text. Restart the server, the text changes, the behaviour changes.
+
+## Why Not Fine-Tuning?
+
+Fine-tunes are opaque. A weight delta cannot explain itself, cannot be diffed,
+cannot be turned off for a single conversation, and cannot be ported to a
+different base model. The behavioural drift they introduce is irreversible
+without retraining. For a personal assistant whose owner should remain in
+control, that's the wrong tool.
+
+## Why Not Hard-Coding?
+
+Hard-coded behaviour ships at the same cadence as the application. Changing
+"how the assistant talks about uncertainty" should not require a release.
+It should require editing a file the user already has on their disk.
+
+## What This Costs
+
+- **Prompt budget.** Every loaded skill consumes context. The harness loads them
+  selectively, but it's still a tax.
+- **Drift.** The model can ignore a skill more easily than it can ignore a
+  fine-tune. Skills lean on the model's compliance, not its inability to do
+  otherwise.
+- **No enforcement.** A skill that says "always cite memories" is a strong
+  suggestion, not a guarantee. Real enforcement lives at the tool boundary.
+
+The trade is accepted because the alternative — opaque, slow-to-change
+behaviour — is worse for this product.
+
+## The Pattern Generalises
+
+The same logic explains why the wiki uses citations as text markers
+(\`[[mem:uuid]]\`) rather than join tables: the textual form is what the model
+actually reads. Storage that the model can't see during inference is invisible
+from the model's point of view.
+
+## See Also
+
+[[skills-system]] — the loader and file layout
+[[agency-and-tools]] — why skills sit alongside tools, not inside them
+[[mcp-tools]] — what skills tell the model about how to use tools
+`.trim(),
+  },
+
+  {
+    slug:    'the-wiki-as-cache',
+    title:   'The Wiki as Cache — Staleness as the Invalidation Primitive',
+    summary: 'The wiki layer reframed as a cache of reasoning over memories, with source citations and staleness as the cache contract.',
+    tags:    ['philosophy', 'wiki', 'caching', 'design-intent'],
+    body_md: `
+## Reframing the Wiki
+
+Most "knowledge base" systems are written for humans to read first and machines
+to query second. Aperio's wiki inverts the priority: it's written by the LLM,
+for the LLM, with the user as a privileged read-only observer.
+
+The right mental model is not *encyclopaedia*. It's *memoised reasoning*.
+
+## The Cache Analogy in Full
+
+| Caching concept | Wiki equivalent |
+|---|---|
+| Cache key | Article \`slug\` |
+| Cache value | Synthesised \`body_md\` |
+| Cache inputs | \`source_memory_ids\` |
+| Cache hit | \`wiki_get(slug)\` returns \`fresh\` |
+| Cache miss | Slug doesn't exist → \`wiki_write\` after \`recall\` |
+| Invalidation | Source memory updated → article marked \`stale\` |
+| Refresh | \`wiki_get(slug, refresh=true)\` regenerates the body |
+| TTL | (Not used — staleness is content-derived, not time-derived) |
+
+## Why This Framing Helps
+
+It explains, in one move, several rules that otherwise look arbitrary:
+
+- *Why must articles cite memories?* — A cache value with no recorded inputs
+  can never be invalidated.
+- *Why does updating a memory mark articles stale?* — A cache whose input changed
+  must be re-derived or marked suspect.
+- *Why does the LLM need a "search before write" step?* — A cache that doesn't
+  check for existing entries duplicates work and fragments the namespace.
+- *Why is the breadcrumb protocol important?* — It surfaces cache hits to the
+  user, so they can see when the assistant is reasoning from memo vs. fresh.
+- *Why a cheaper model for refresh?* — Refresh is summarisation, not novel
+  reasoning. The expensive model's job was already done when the cache was
+  populated.
+
+## What This Framing Does Not Mean
+
+It does **not** mean wiki articles are disposable. They're durable, citable,
+linkable artifacts; the user reads them. The "cache" framing is about
+**provenance and invalidation semantics**, not about value.
+
+A good analogy: a literature review is a "cache" of the underlying papers in
+the same sense — derived, can become outdated, but still the thing most readers
+actually consume.
+
+## The Failure Mode This Prevents
+
+Without the cache framing, the wiki becomes a parallel knowledge store that
+slowly diverges from memory. Two sources of truth, neither authoritative,
+both decaying at different rates. The cache framing forces the wiki to remain
+explicitly derived — and therefore explicitly correctable by going back to
+the source.
+
+## See Also
+
+[[wiki-workflow]] — the recall → cite → write loop in practice
+[[memory-vs-knowledge]] — why the two layers are kept separate
+[[ai-providers]] — \`WIKI_REFRESH_PROVIDER\` and why refresh can use a cheaper model
+[[temporal-truth]] — staleness inherits from the temporal model of memories
+`.trim(),
+  },
 ];
