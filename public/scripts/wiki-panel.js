@@ -1,0 +1,217 @@
+// public/scripts/wiki-panel.js
+// Read-only browser for wiki articles. Slide-in panel from the right.
+// Renders list / search results / one-article detail in a single container.
+
+(() => {
+  const panel    = () => document.getElementById("wiki-panel");
+  const backdrop = () => document.getElementById("wiki-backdrop");
+  const body     = () => document.getElementById("wiki-panel-body");
+  const toolbar  = () => document.getElementById("wiki-panel-toolbar");
+  const input    = () => document.getElementById("wikiSearchInput");
+
+  let currentStatus = "all"; // matches the chip set
+  let searchTimer   = null;
+  let lastQuery     = "";
+
+  function escapeHtml(s) {
+    return String(s ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  const fmtDate = ts => new Date(ts).toISOString().slice(0, 10);
+
+  function statusBadge(status) {
+    return `<span class="wiki-status wiki-status--${escapeHtml(status)}">${escapeHtml(status)}</span>`;
+  }
+
+  function articleCard(a) {
+    const tags = (a.tags || []).map(t => `<span class="wiki-card-tag">#${escapeHtml(t)}</span>`).join(" ");
+    const summary = a.summary ? `<div class="wiki-card-summary">${escapeHtml(a.summary)}</div>` : "";
+    return `
+      <div class="wiki-card" data-slug="${escapeHtml(a.slug)}">
+        <div class="wiki-card-title">${escapeHtml(a.title)} ${statusBadge(a.status)}</div>
+        ${summary}
+        <div class="wiki-card-meta">
+          <span>[[${escapeHtml(a.slug)}]]</span>
+          <span>rev ${a.revision}</span>
+          <span>${fmtDate(a.generated_at)}</span>
+          ${tags}
+        </div>
+      </div>`;
+  }
+
+  async function fetchList() {
+    const params = new URLSearchParams();
+    if (currentStatus !== "all") params.set("status", currentStatus);
+    const r = await fetch(`/api/wiki/list?${params}`);
+    if (!r.ok) throw new Error(`list ${r.status}`);
+    const { articles } = await r.json();
+    return articles;
+  }
+
+  async function fetchSearch(q) {
+    const params = new URLSearchParams({ q });
+    if (currentStatus !== "all") params.set("status", currentStatus);
+    const r = await fetch(`/api/wiki/search?${params}`);
+    if (!r.ok) throw new Error(`search ${r.status}`);
+    const { articles } = await r.json();
+    return articles;
+  }
+
+  async function fetchArticle(slug) {
+    const r = await fetch(`/api/wiki/article/${encodeURIComponent(slug)}`);
+    if (r.status === 404) return null;
+    if (!r.ok) throw new Error(`article ${r.status}`);
+    return await r.json();
+  }
+
+  function renderList(articles) {
+    toolbar().style.display = "";
+    if (!articles.length) {
+      body().innerHTML = `<div class="wiki-empty">No articles yet. Ask the AI to write one.</div>`;
+      return;
+    }
+    body().innerHTML = articles.map(articleCard).join("");
+    body().querySelectorAll(".wiki-card").forEach(card => {
+      card.addEventListener("click", () => openArticle(card.dataset.slug));
+    });
+  }
+
+  // Convert [[slug]] and [[mem:uuid]] markers in body_md into anchors.
+  // Done AFTER renderMarkdown — so we walk the rendered HTML as text and patch only text nodes
+  // that contain the markers. This avoids re-rendering and respects code blocks (which become <pre>).
+  function decorateLinks(rootEl, sourcesById) {
+    const walker = document.createTreeWalker(rootEl, NodeFilter.SHOW_TEXT, {
+      acceptNode: n => {
+        if (n.parentElement && n.parentElement.closest("pre,code")) return NodeFilter.FILTER_REJECT;
+        return /\[\[[^\]]+\]\]/.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+      },
+    });
+    const targets = [];
+    let n; while ((n = walker.nextNode())) targets.push(n);
+    for (const node of targets) {
+      const frag = document.createDocumentFragment();
+      const text = node.nodeValue;
+      let last = 0;
+      const re = /\[\[(mem:[0-9a-f-]+|[a-z0-9][a-z0-9-]*)\]\]/g;
+      let m;
+      while ((m = re.exec(text))) {
+        if (m.index > last) frag.appendChild(document.createTextNode(text.slice(last, m.index)));
+        const target = m[1];
+        const a = document.createElement("a");
+        if (target.startsWith("mem:")) {
+          const id = target.slice(4);
+          const src = sourcesById.get(id);
+          a.className = "wiki-mem-link";
+          a.textContent = src ? src.title : `mem:${id.slice(0, 8)}`;
+          a.title = src ? `Memory: ${src.title}` : `Memory ${id} (not in sources)`;
+        } else {
+          a.className = "wiki-link";
+          a.textContent = `[[${target}]]`;
+          a.dataset.slug = target;
+          a.addEventListener("click", e => { e.preventDefault(); openArticle(target); });
+        }
+        frag.appendChild(a);
+        last = m.index + m[0].length;
+      }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      node.parentNode.replaceChild(frag, node);
+    }
+  }
+
+  function renderDetail(article) {
+    toolbar().style.display = "none";
+    const tags = (article.tags || []).map(t => `<span class="wiki-card-tag">#${escapeHtml(t)}</span>`).join(" ");
+    const summary = article.summary
+      ? `<div class="wiki-detail-summary">${escapeHtml(article.summary)}</div>` : "";
+
+    // Strip [[...]] before passing to renderMarkdown so it doesn't mangle them, then re-inject as anchors.
+    const bodyHtml = (typeof renderMarkdown === "function")
+      ? renderMarkdown(article.body_md)
+      : `<pre>${escapeHtml(article.body_md)}</pre>`;
+
+    body().innerHTML = `
+      <div class="wiki-detail">
+        <button class="wiki-detail-back" onclick="toggleWikiPanel(true)">← back to list</button>
+        <h1>${escapeHtml(article.title)} ${statusBadge(article.status)}</h1>
+        <div class="wiki-card-meta">
+          <span>[[${escapeHtml(article.slug)}]]</span>
+          <span>rev ${article.revision}</span>
+          <span>${fmtDate(article.generated_at)}</span>
+          <span>by ${escapeHtml(article.generated_by || "unknown")}</span>
+          ${tags}
+        </div>
+        ${summary}
+        <div class="wiki-detail-body">${bodyHtml}</div>
+        <div class="wiki-sources">
+          <div class="wiki-sources-title">Sources (${article.sources.length})</div>
+          <ul>${(article.sources || []).map(s => `<li>${escapeHtml(s.title)}</li>`).join("")}</ul>
+        </div>
+      </div>`;
+
+    const sourcesById = new Map((article.sources || []).map(s => [s.id, s]));
+    decorateLinks(body().querySelector(".wiki-detail-body"), sourcesById);
+  }
+
+  async function openArticle(slug) {
+    body().innerHTML = `<div class="wiki-empty">Loading ${escapeHtml(slug)}…</div>`;
+    try {
+      const article = await fetchArticle(slug);
+      if (!article) {
+        body().innerHTML = `<div class="wiki-empty">Article "${escapeHtml(slug)}" not found.</div>`;
+        return;
+      }
+      renderDetail(article);
+    } catch (err) {
+      body().innerHTML = `<div class="wiki-empty">Failed to load: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  async function loadListOrSearch() {
+    body().innerHTML = `<div class="wiki-empty">Loading…</div>`;
+    try {
+      const articles = lastQuery
+        ? await fetchSearch(lastQuery)
+        : await fetchList();
+      renderList(articles);
+    } catch (err) {
+      body().innerHTML = `<div class="wiki-empty">Failed: ${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function wireToolbar() {
+    if (toolbar().dataset.wired) return;
+    toolbar().dataset.wired = "1";
+
+    input().addEventListener("input", e => {
+      lastQuery = e.target.value.trim();
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(loadListOrSearch, 250);
+    });
+    toolbar().querySelectorAll(".wiki-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        toolbar().querySelectorAll(".wiki-chip").forEach(c => c.classList.remove("wiki-chip--active"));
+        chip.classList.add("wiki-chip--active");
+        currentStatus = chip.dataset.status;
+        loadListOrSearch();
+      });
+    });
+  }
+
+  // forceList=true forces the list view even if a detail was open.
+  window.toggleWikiPanel = function (forceList) {
+    const p = panel(), b = backdrop();
+    const opening = p.style.display === "none";
+    if (opening) {
+      p.style.display = "flex";
+      b.style.display = "block";
+      wireToolbar();
+      loadListOrSearch();
+    } else if (forceList === true) {
+      loadListOrSearch();
+    } else {
+      p.style.display = "none";
+      b.style.display = "none";
+    }
+  };
+})();

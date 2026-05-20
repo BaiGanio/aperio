@@ -59,6 +59,10 @@
         data-i18n-attr-title="nav_paths_title" title="Allowed paths">
         <span data-i18n="nav_paths">📂 paths</span>
       </button>
+      <button id="wikiBtn" class="nav-action-btn nav-action-btn--text" onclick="toggleWikiPanel()"
+        title="Wiki — LLM-authored articles over your memories">
+        <span>📖 wiki</span>
+      </button>
     </div>
     <div class="ctx-window" id="ctxWindow">
       <div class="ctx-header">
@@ -264,6 +268,26 @@
 </div>
 <div id="sessions-backdrop" class="sessions-backdrop" style="display:none;" onclick="toggleSessionsPanel()"></div>
 
+<!-- Wiki panel -->
+<div id="wiki-panel" class="wiki-panel" style="display:none;">
+  <div class="wiki-panel-header">
+    <span class="wiki-panel-title"><i class="bi bi-book"></i> Wiki</span>
+    <button class="wiki-panel-close" onclick="toggleWikiPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div id="wiki-panel-toolbar" class="wiki-panel-toolbar">
+    <input type="text" id="wikiSearchInput" class="wiki-search-input" placeholder="Search articles…" />
+    <div class="wiki-status-chips">
+      <button class="wiki-chip wiki-chip--active" data-status="all">all</button>
+      <button class="wiki-chip" data-status="fresh">fresh</button>
+      <button class="wiki-chip" data-status="stale">stale</button>
+    </div>
+  </div>
+  <div class="wiki-panel-body" id="wiki-panel-body">
+    <div class="wiki-empty">Loading…</div>
+  </div>
+</div>
+<div id="wiki-backdrop" class="wiki-backdrop" style="display:none;" onclick="toggleWikiPanel()"></div>
+
 <!-- Paths configuration modal -->
 <div id="paths-modal" class="paths-modal" style="display:none;">
   <div class="paths-modal-content">
@@ -324,6 +348,7 @@
 <script src="scripts/streaming.js"></script>
 <script src="scripts/sessions.js"></script>
 <script src="scripts/paths-panel.js"></script>
+<script src="scripts/wiki-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
 <script src="index.js"></script>
 </body>

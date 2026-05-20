@@ -1,10 +1,12 @@
 // mcp/tools/wiki.js
 import { z } from "zod";
-import { wikiWriteHandler, wikiGetHandler } from "../../lib/handlers/wiki/wikiHandlers.js";
+import { wikiWriteHandler, wikiGetHandler, wikiSearchHandler, wikiListHandler } from "../../lib/handlers/wiki/wikiHandlers.js";
 
 const createBoundHandlers = (ctx) => ({
-  write: (args) => wikiWriteHandler(ctx, args),
-  get:   (args) => wikiGetHandler(ctx, args),
+  write:  (args) => wikiWriteHandler(ctx, args),
+  get:    (args) => wikiGetHandler(ctx, args),
+  search: (args) => wikiSearchHandler(ctx, args),
+  list:   (args) => wikiListHandler(ctx, args),
 });
 
 const TOOLS = [
@@ -27,15 +29,53 @@ const TOOLS = [
     getHandler: (h) => h.write,
   },
   {
+    name: "wiki_search",
+    description:
+      "Search wiki articles by topic before writing a new one — hybrid FTS + semantic over title/summary/body. " +
+      "Returns a ranked list of {slug, title, summary, status, revision, score}; no bodies. " +
+      "Call this first when a topic might already have an article; only fall back to wiki_write if nothing relevant comes back. " +
+      "Stale articles are included but down-weighted; archived articles are excluded unless status='archived' is passed explicitly.",
+    schema: {
+      query:  z.string().describe("Free-text topic, e.g. 'aperio architecture' or 'deployment pipeline'."),
+      tags:   z.array(z.string()).optional().describe("Restrict to articles tagged with any of these."),
+      status: z.enum(["fresh", "stale", "draft", "archived"]).optional()
+                .describe("Restrict to a single status. Default excludes 'archived'."),
+      limit:  z.number().int().min(1).max(25).optional().describe("Max results (default 10)."),
+      mode:   z.enum(["auto", "semantic", "fulltext"]).optional()
+                .describe("'auto' (default) = hybrid RRF, 'semantic' = vector only, 'fulltext' = FTS only."),
+    },
+    getHandler: (h) => h.search,
+  },
+  {
+    name: "wiki_list",
+    description:
+      "List wiki articles, newest first. No query — for browsing or surfacing recent activity. " +
+      "Filters: tag (single tag, exact match), status (defaults to excluding 'archived'), updated_since (ISO timestamp). " +
+      "Returns slugs, titles, summaries, status, revision — no bodies. Use wiki_search when you have a topic in mind.",
+    schema: {
+      tag:           z.string().optional().describe("Restrict to articles carrying this tag."),
+      status:        z.enum(["fresh", "stale", "draft", "archived"]).optional()
+                       .describe("Restrict to a single status. Default excludes 'archived'."),
+      updated_since: z.string().optional().describe("ISO timestamp; only return articles updated at or after this."),
+      limit:         z.number().int().min(1).max(100).optional().describe("Max results (default 25)."),
+      offset:        z.number().int().min(0).optional().describe("Pagination offset (default 0)."),
+    },
+    getHandler: (h) => h.list,
+  },
+  {
     name: "wiki_get",
     description:
       "Fetch a wiki article by slug. The first line of the result is a breadcrumb of the form " +
       "`🔖 From wiki: [[slug]] (rev N · status · updated YYYY-MM-DD)` — if you use this article to answer " +
       "the user, copy that breadcrumb verbatim to the top of your reply so the user knows the wiki was consulted. " +
-      "If allow_stale=false, refuses to serve stale articles so the caller knows to regenerate via wiki_write.",
+      "If allow_stale=false, refuses to serve stale articles so the caller knows to regenerate via wiki_write. " +
+      "If refresh=true AND the article is stale AND WIKI_REFRESH_PROVIDER is configured, the server will rewrite " +
+      "the article via the configured cheap/local model before returning it.",
     schema: {
       slug:        z.string(),
       allow_stale: z.boolean().optional(),
+      refresh:     z.boolean().optional().describe(
+        "If true and the article is stale, attempt server-side regeneration via WIKI_REFRESH_PROVIDER before returning."),
     },
     getHandler: (h) => h.get,
   },
