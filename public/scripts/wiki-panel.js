@@ -13,6 +13,47 @@
   let searchTimer   = null;
   let lastQuery     = "";
 
+  // Tag-derived "sections" for the grouped sidebar. An article lands in the
+  // first section whose tag it carries; anything that matches none falls into
+  // "Other". Order here is the order shown in the panel.
+  const SECTIONS = [
+    { id: "philosophy",    label: "Philosophy",     tag: "philosophy",    icon: "bi-lightbulb"     },
+    { id: "architecture",  label: "Architecture",   tag: "architecture",  icon: "bi-diagram-3"     },
+    { id: "memory",        label: "Memory",         tag: "memory",        icon: "bi-cpu"           },
+    { id: "wiki",          label: "Wiki",           tag: "wiki",          icon: "bi-book"          },
+    { id: "providers",     label: "Providers",      tag: "providers",     icon: "bi-plug"          },
+    { id: "tools",         label: "MCP Tools",      tag: "mcp",           icon: "bi-tools"         },
+    { id: "skills",        label: "Skills",         tag: "skills",        icon: "bi-stars"         },
+    { id: "embeddings",    label: "Embeddings",     tag: "embeddings",    icon: "bi-bounding-box"  },
+  ];
+  const OTHER_SECTION = { id: "other", label: "Other", icon: "bi-three-dots" };
+
+  // Persist expanded/collapsed state across panel opens. Default: all sections
+  // collapsed — the sidebar opens as a clean table of contents, and the user
+  // expands the sections they care about.
+  const collapsedKey = "aperio.wiki.collapsedSections";
+  const stored = localStorage.getItem(collapsedKey);
+  const allSectionIds = () => [...SECTIONS.map(s => s.id), OTHER_SECTION.id];
+  const collapsed = new Set(stored === null ? allSectionIds() : JSON.parse(stored));
+  function persistCollapsed() {
+    localStorage.setItem(collapsedKey, JSON.stringify([...collapsed]));
+  }
+
+  function sectionFor(article) {
+    const tags = article.tags || [];
+    for (const s of SECTIONS) {
+      if (tags.includes(s.tag)) return s;
+    }
+    return OTHER_SECTION;
+  }
+
+  function groupArticles(articles) {
+    const buckets = new Map();
+    for (const s of [...SECTIONS, OTHER_SECTION]) buckets.set(s.id, { section: s, items: [] });
+    for (const a of articles) buckets.get(sectionFor(a).id).items.push(a);
+    return [...buckets.values()].filter(b => b.items.length > 0);
+  }
+
   function escapeHtml(s) {
     return String(s ?? "")
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -71,7 +112,37 @@
       body().innerHTML = `<div class="wiki-empty">No articles yet. Ask the AI to write one.</div>`;
       return;
     }
-    body().innerHTML = articles.map(articleCard).join("");
+    // When the user is actively searching, the grouped tree gets in the way —
+    // show a flat list so ranked results stay visible.
+    if (lastQuery) {
+      body().innerHTML = articles.map(articleCard).join("");
+    } else {
+      const groups = groupArticles(articles);
+      body().innerHTML = groups.map(({ section, items }) => {
+        const isCollapsed = collapsed.has(section.id);
+        const cards = items.map(articleCard).join("");
+        return `
+          <div class="wiki-group ${isCollapsed ? "wiki-group--collapsed" : ""}" data-section="${escapeHtml(section.id)}">
+            <button class="wiki-group-header" type="button">
+              <i class="bi ${escapeHtml(section.icon)} wiki-group-icon"></i>
+              <span class="wiki-group-label">${escapeHtml(section.label)}</span>
+              <span class="wiki-group-count">${items.length}</span>
+              <i class="bi bi-chevron-down wiki-group-chevron"></i>
+            </button>
+            <div class="wiki-group-body">${cards}</div>
+          </div>`;
+      }).join("");
+      body().querySelectorAll(".wiki-group-header").forEach(h => {
+        h.addEventListener("click", () => {
+          const group = h.parentElement;
+          const id = group.dataset.section;
+          group.classList.toggle("wiki-group--collapsed");
+          if (group.classList.contains("wiki-group--collapsed")) collapsed.add(id);
+          else collapsed.delete(id);
+          persistCollapsed();
+        });
+      });
+    }
     body().querySelectorAll(".wiki-card").forEach(card => {
       card.addEventListener("click", () => openArticle(card.dataset.slug));
     });

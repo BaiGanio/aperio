@@ -188,8 +188,12 @@ export class WikiStore {
       }];
       await db.createTable(WIKI_TABLE, seed, { schema: makeWikiSchema(DIMS) });
       store.table = await db.openTable(WIKI_TABLE);
-      await store._seed();
     }
+    // Top up baseline articles on every startup. Any seed slug that doesn't
+    // exist yet gets inserted; existing slugs are left alone (so user edits
+    // and revision bumps survive). This lets new founder articles ship via
+    // code without requiring the user to wipe .lancedb/.
+    await store._seed();
     return store;
   }
 
@@ -205,8 +209,13 @@ export class WikiStore {
   }
 
   async _seed() {
-    logger.info(`[wiki] seeding ${WIKI_SEED.length} baseline articles…`);
-    for (const article of WIKI_SEED) {
+    await this.table.checkoutLatest();
+    const existingRows = await this.table.query().limit(10_000).toArray();
+    const existingSlugs = new Set(existingRows.map(r => r.slug));
+    const missing = WIKI_SEED.filter(a => !existingSlugs.has(a.slug));
+    if (!missing.length) return;
+    logger.info(`[wiki] seeding ${missing.length} baseline article(s)…`);
+    for (const article of missing) {
       const row = {
         id:                randomUUID(),
         slug:              article.slug,
