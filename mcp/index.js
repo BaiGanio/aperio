@@ -14,6 +14,8 @@ import { register as registerMemory }  from "./tools/memory.js";
 import { register as registerFiles }   from "./tools/files.js";
 import { register as registerWeb }     from "./tools/web.js";
 import { register as registerImage }   from "./tools/image.js";
+import { register as registerShell }   from "./tools/shell.js";
+import { register as registerWiki }    from "./tools/wiki.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, "../.env") });
@@ -62,6 +64,8 @@ export async function startServer(opts = {}) {
   registerFiles(server, ctx);
   registerWeb(server, ctx);
   registerImage(server, ctx);
+  registerShell(server);
+  registerWiki(server, ctx);
 
   // 4. Connect transport
   const transport = opts.transport || new StdioServerTransport();
