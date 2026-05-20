@@ -10,16 +10,17 @@ metadata:
 
 ## At the START of every conversation
 
-Call `recall` with no arguments. Do this silently — do not announce it.
+Your recent memories have already been preloaded into your context by the system.
+Do **not** call `recall` — the data is already here.
 
-Use what you find to:
+Use what is already in context to:
 - Understand the user's active projects and current context
 - Apply their preferences to tone, format, and tooling choices
 - Anticipate what they might need without being told
 
-**Never say** "I found X memories" or "Based on my memory…". Just use the context naturally.
+**Never say** "I found X memories" or "Based on my memory… Just use the context naturally.
 
-If something in the recalled memories is clearly stale or contradicts the user's opening message, note it once and ask if they want to update it.
+If something in the preloaded memories is clearly stale or contradicts the user's opening message, note it once and ask if they want to update it.
 
 ---
 

@@ -10,6 +10,7 @@ import path                 from 'path';
 import fs                   from 'fs';
 import { randomUUID }       from 'node:crypto'; // Built-in Node.js UUID generator
 import { deserialiseRow }   from './types.js';
+import { WIKI_SEED }        from './wiki-seed.js';
 
 const RELATIVE_PATH = process.env.LANCEDB_PATH ?? './.lancedb';
 const DB_PATH = path.resolve(process.cwd(), RELATIVE_PATH);
@@ -79,12 +80,12 @@ function cosineSimilarity(a, b) {
 
 // Rank docs by BM25 against a free-text query. Returns docs sorted by score (desc),
 // zeros excluded. k1=1.5, b=0.75 are standard Okapi BM25 defaults.
-function bm25Rank(query, docs, { k1 = 1.5, b = 0.75 } = {}) {
+function bm25Rank(query, docs, { k1 = 1.5, b = 0.75, getText } = {}) {
   const terms = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (!terms.length || !docs.length) return [];
 
-  const getText = r => `${r.title} ${r.content}`.toLowerCase();
-  const texts   = docs.map(getText);
+  const getTextFn = getText ?? (r => `${r.title} ${r.content}`.toLowerCase());
+  const texts   = docs.map(getTextFn);
   const avgDl   = texts.reduce((s, t) => s + t.length, 0) / texts.length;
   const N       = docs.length;
 
@@ -133,6 +134,208 @@ function rrfMerge(vectorRanked, textRanked, limit, k = 60) {
     .map(([id, rrf_score]) => ({ ...deserialiseRow(byId.get(id)), similarity: rrf_score / maxScore }));
 }
 
+// ── Wiki ────────────────────────────────────────────────────────────────────
+
+const WIKI_TABLE = 'wiki_articles';
+
+const makeWikiSchema = (dims) => new Schema([
+  new Field('id',                new Utf8(),  false),
+  new Field('slug',              new Utf8(),  false),
+  new Field('title',             new Utf8(),  false),
+  new Field('summary',           new Utf8(),  false),
+  new Field('body_md',           new Utf8(),  false),
+  new Field('tags',              new Utf8(),  false),
+  new Field('status',            new Utf8(),  false),
+  new Field('revision',          new Int32(), false),
+  new Field('generated_by',      new Utf8(),  false),
+  new Field('generated_at',      new Utf8(),  false),
+  new Field('source_hash',       new Utf8(),  false),
+  new Field('source_memory_ids', new Utf8(),  false),
+  new Field('vector',            new FixedSizeList(dims, new Field('item', new Float32(), false)), false),
+]);
+
+function deserialiseWikiRow(r) {
+  return {
+    id:                r.id,
+    slug:              r.slug,
+    title:             r.title,
+    summary:           r.summary || null,
+    body_md:           r.body_md,
+    tags:              JSON.parse(r.tags || '[]'),
+    status:            r.status,
+    revision:          r.revision,
+    generated_by:      r.generated_by || null,
+    generated_at:      r.generated_at,
+    source_hash:       r.source_hash || null,
+    source_memory_ids: JSON.parse(r.source_memory_ids || '[]'),
+  };
+}
+
+export class WikiStore {
+  constructor() { this.table = null; }
+
+  static async init(db) {
+    const store = new WikiStore();
+    const existing = await db.tableNames();
+    if (existing.includes(WIKI_TABLE)) {
+      store.table = await db.openTable(WIKI_TABLE);
+    } else {
+      const seed = [{
+        id: randomUUID(), slug: '__init__', title: '', summary: '', body_md: '',
+        tags: '[]', status: 'archived', revision: 0, generated_by: 'system',
+        generated_at: new Date().toISOString(), source_hash: '',
+        source_memory_ids: '[]', vector: new Array(DIMS).fill(0),
+      }];
+      await db.createTable(WIKI_TABLE, seed, { schema: makeWikiSchema(DIMS) });
+      store.table = await db.openTable(WIKI_TABLE);
+      await store._seed();
+    }
+    return store;
+  }
+
+  async _all() {
+    await this.table.checkoutLatest();
+    const rows = await this.table.query().limit(10_000).toArray();
+    return rows
+      .filter(r => r.slug !== '__init__')
+      .map(r => ({
+        ...r,
+        vector: r.vector?.toArray?.() ?? r.vector ?? new Array(DIMS).fill(0),
+      }));
+  }
+
+  async _seed() {
+    logger.info(`[wiki] seeding ${WIKI_SEED.length} baseline articles…`);
+    for (const article of WIKI_SEED) {
+      const row = {
+        id:                randomUUID(),
+        slug:              article.slug,
+        title:             article.title,
+        summary:           article.summary ?? '',
+        body_md:           article.body_md,
+        tags:              JSON.stringify(article.tags ?? []),
+        status:            'fresh',
+        revision:          1,
+        generated_by:      'system',
+        generated_at:      new Date().toISOString(),
+        source_hash:       '',
+        source_memory_ids: '[]',
+        vector:            new Array(DIMS).fill(0),
+      };
+      await this.table.add([row]);
+    }
+    logger.info('[wiki] seed complete');
+  }
+
+  // Create or update a wiki article by slug. Returns { id, revision, inserted }.
+  async upsert({ slug, title, summary, body_md, tags, generated_by, source_hash, source_memory_ids }, embedding) {
+    const all = await this._all();
+    const existing = all.find(r => r.slug === slug);
+    const id       = existing ? existing.id : randomUUID();
+    const revision = existing ? (existing.revision + 1) : 1;
+    const row = {
+      id, slug, title,
+      summary:           summary ?? '',
+      body_md,
+      tags:              JSON.stringify(tags ?? []),
+      status:            'fresh',
+      revision,
+      generated_by:      generated_by ?? '',
+      generated_at:      new Date().toISOString(),
+      source_hash:       source_hash ?? '',
+      source_memory_ids: JSON.stringify(source_memory_ids ?? []),
+      vector:            embedding ?? new Array(DIMS).fill(0),
+    };
+    if (existing) await this.table.delete(`id = '${id}'`);
+    await this.table.add([row]);
+    return { id, revision, inserted: !existing };
+  }
+
+  async list({ tag, status, updated_since, limit = 25, offset = 0 }) {
+    const cap = Math.min(Math.max(parseInt(limit, 10) || 25, 1), 100);
+    const off = Math.max(parseInt(offset, 10) || 0, 0);
+    let rows = await this._all();
+
+    rows = status ? rows.filter(r => r.status === status) : rows.filter(r => r.status !== 'archived');
+    if (tag)           rows = rows.filter(r => JSON.parse(r.tags || '[]').includes(tag));
+    if (updated_since) rows = rows.filter(r => new Date(r.generated_at) >= new Date(updated_since));
+
+    rows.sort((a, b) => new Date(b.generated_at) - new Date(a.generated_at));
+    return rows.slice(off, off + cap).map(deserialiseWikiRow);
+  }
+
+  async get(slug) {
+    const all = await this._all();
+    const row = all.find(r => r.slug === slug);
+    return row ? deserialiseWikiRow(row) : null;
+  }
+
+  async search({ query, queryEmbedding, tags, status, limit = 10, mode = 'auto' }) {
+    const cap         = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 25);
+    const useVector   = !!queryEmbedding && mode !== 'fulltext';
+    const useText     = !!query && mode !== 'semantic';
+    const matchStatus = r => status ? r.status === status : r.status !== 'archived';
+    const matchTags   = r => !tags?.length || tags.some(t => JSON.parse(r.tags || '[]').includes(t));
+    const filterRow   = r => matchStatus(r) && matchTags(r);
+    const getText     = r => `${r.title} ${r.summary ?? ''} ${r.body_md}`.toLowerCase();
+    const applyStale  = (score, r) => score * (r.status === 'stale' ? STALE_WEIGHT : 1.0);
+
+    if (useVector && useText) {
+      const [vectorResults, all] = await Promise.all([
+        this.table.search(queryEmbedding).limit(60).toArray()
+          .then(rs => rs.filter(r => r.slug !== '__init__' && filterRow(r))
+                         .map(r => ({ ...r, vector: r.vector?.toArray?.() ?? r.vector ?? new Array(DIMS).fill(0) }))),
+        this._all().then(rs => rs.filter(filterRow)),
+      ]);
+      const textRanked = bm25Rank(query, all, { getText }).map(({ doc }) => doc);
+      const scores = new Map(); const byId = new Map();
+      vectorResults.forEach((r, i) => { scores.set(r.id, (scores.get(r.id) ?? 0) + 1 / (60 + i + 1)); byId.set(r.id, r); });
+      textRanked.forEach((r, i)    => { scores.set(r.id, (scores.get(r.id) ?? 0) + 1 / (60 + i + 1)); byId.set(r.id, r); });
+      const sorted = [...scores.entries()].sort((a, b) => b[1] - a[1]);
+      const maxScore = sorted[0]?.[1] ?? 1;
+      return sorted.slice(0, cap).map(([id, rrf_score]) => {
+        const row = byId.get(id);
+        return { ...deserialiseWikiRow(row), score: applyStale(rrf_score / maxScore, row) };
+      });
+    }
+
+    if (useVector) {
+      const results = await this.table.search(queryEmbedding).limit(cap * 3).toArray();
+      return results.filter(r => r.slug !== '__init__' && filterRow(r)).slice(0, cap)
+        .map(r => ({ ...deserialiseWikiRow(r), score: applyStale(1 - (r._distance ?? 0), r) }));
+    }
+
+    const all = await this._all();
+    const filtered = all.filter(filterRow);
+    if (query) {
+      const ranked = bm25Rank(query, filtered, { getText });
+      const maxScore = ranked[0]?.score ?? 1;
+      return ranked.slice(0, cap).map(({ doc, score }) => ({
+        ...deserialiseWikiRow(doc),
+        score: applyStale(score / maxScore, doc),
+      }));
+    }
+    return filtered.slice(0, cap).map(r => ({ ...deserialiseWikiRow(r), score: 1.0 }));
+  }
+
+  async listWithoutEmbeddings() {
+    const all = await this._all();
+    return all
+      .filter(r => !r.vector || r.vector.every(v => v === 0))
+      .map(r => ({ id: r.id, title: r.title, content: `${r.summary ?? ''} ${r.body_md}`.trim() }));
+  }
+
+  async setEmbedding(id, embedding) {
+    await this.table.update({ where: `id = '${id}'`, values: { vector: embedding } });
+  }
+
+  async close() {
+    try { await this.table?.close(); } catch {}
+  }
+}
+
+// ── Memories ────────────────────────────────────────────────────────────────
+
 async function assertDims(table, expected) {
   const schema = await table.schema();
   const vectorField = schema.fields.find(f => f.name === 'vector');
@@ -174,19 +377,89 @@ export class LanceDBStore {
     } else {
       const seedData = [
         {
-          type: 'preference', 
-          title: 'Code style preference', 
-          content: 'I prefer clean, readable code over clever one-liners. Comments should explain WHY, not WHAT.', 
-          tags: ['coding', 'style'], 
-          importance: 4
+          type: 'fact',
+          title: 'Core Value: Privacy and Data Ownership',
+          content: 'Privacy and data ownership are core values — deeply embedded in system design, not just enabled via feature flags. All implementations must prioritize user control and transparency by default.',
+          tags: ['privacy', 'data ownership', 'core value', 'principle'],
+          importance: 5,
         },
         {
-          type: 'project', 
-          title: 'Aperio', 
-          content: 'A personal memory layer for AI tools. Built with Postgres + MCP. Currently in early development.', 
-          tags: ['mcp', 'lancedb', 'ai', 'personal', 'docker'], 
-          importance: 4
-        }
+          type: 'project',
+          title: 'Aperio — Mission',
+          content: "Aperio's primary goal is to demonstrate that personal AI tools can be fully functional without requiring cloud infrastructure — proving the viability of self-hosted, privacy-first AI solutions.",
+          tags: ['aperio', 'local AI', 'self-hosted', 'personal AI'],
+          importance: 5,
+        },
+        {
+          type: 'project',
+          title: 'Aperio — Technology Stack',
+          content: 'The Aperio project stack: Node.js, Postgres 16, pgvector, Docker, Express, WebSocket, and Ollama with mxbai-embed-large for embeddings. Aperio-lite uses LanceDB as a fallback vector database for non-Docker users.',
+          tags: ['aperio', 'node.js', 'postgres', 'pgvector', 'docker', 'ollama', 'lancedb'],
+          importance: 4,
+        },
+        {
+          type: 'fact',
+          title: 'Aperio Port',
+          content: 'Aperio runs on port 31337 — the l33t (ELITE) port, originally used by the group Cult of the Dead Cow in 1998.',
+          tags: ['aperio', 'port', '31337'],
+          importance: 3,
+        },
+        {
+          type: 'preference',
+          title: 'Preference for Clean and Minimal Code',
+          content: 'Prefer clean, minimal code over over-engineered solutions. Comments should explain WHY, not WHAT. Clever one-liners that sacrifice readability are always the wrong call.',
+          tags: ['coding', 'style', 'minimalism'],
+          importance: 4,
+        },
+        {
+          type: 'preference',
+          title: 'Preference for Simplicity Over Abstraction',
+          content: 'Unnecessary abstraction layers are a code smell. Prefer simple, direct solutions — three similar lines are better than a premature abstraction.',
+          tags: ['simplicity', 'abstraction', 'architecture'],
+          importance: 4,
+        },
+        {
+          type: 'preference',
+          title: 'Answer Before Details',
+          content: 'Give the answer first. Provide supporting details only if explicitly requested or clearly necessary — avoid front-loading explanations.',
+          tags: ['communication', 'conciseness', 'answer-first'],
+          importance: 4,
+        },
+        {
+          type: 'preference',
+          title: 'Preference for Decision Explanations',
+          content: 'Always explain the reasoning behind a decision, not just the outcome. Understanding WHY matters as much as knowing WHAT was decided.',
+          tags: ['communication', 'decision rationale', 'transparency'],
+          importance: 4,
+        },
+        {
+          type: 'preference',
+          title: 'Brutal Honesty in Feedback',
+          content: 'Give brutally honest feedback — in code reviews and general assessments. Call out issues directly without diplomatic sugarcoating.',
+          tags: ['feedback', 'code review', 'honesty'],
+          importance: 4,
+        },
+        {
+          type: 'preference',
+          title: 'Dark Theme',
+          content: 'Prefer dark themes across all tools — editors, terminals, browsers. Consistent dark UI reduces eye strain during long sessions.',
+          tags: ['ui', 'dark mode', 'tooling'],
+          importance: 3,
+        },
+        {
+          type: 'preference',
+          title: 'Code Examples Over Prose',
+          content: 'When explaining technical concepts, prefer code examples over prose. Code is unambiguous, copy-pasteable, and immediately testable — prose is not.',
+          tags: ['communication', 'code examples', 'technical explanations'],
+          importance: 4,
+        },
+        {
+          type: 'preference',
+          title: 'Real-World Examples with Actual Data',
+          content: 'When illustrating a concept, use real-world examples backed by real data, links, or references wherever available — not contrived toy examples. E.g. link to an actual dataset, a real API response, a live doc page, or a well-known case study.',
+          tags: ['communication', 'examples', 'real data', 'references', 'links'],
+          importance: 4,
+        },
       ];
       
       // Map to your internal row format using actual UUIDs
@@ -209,6 +482,7 @@ export class LanceDBStore {
     }
 
     await store.refreshCache();
+    store.wiki = await WikiStore.init(db);
     return store;
   }
 
@@ -481,6 +755,7 @@ export class LanceDBStore {
   }
 
   async close() {
+    try { await this.wiki?.close(); } catch {}
     try { await this.table?.close(); } catch {}
     try { await this.db?.close(); } catch {}
   }
