@@ -18,6 +18,7 @@ metadata:
 | Edit or create from template | Read [editing.md](editing.md) |
 | Create from scratch | Read [pptxgenjs.md](pptxgenjs.md) |
 | Apply styling | Use the **theme-factory** skill |
+| **Verify output (required)** | `node scripts/verify.js output.pptx` |
 
 ---
 
@@ -151,6 +152,25 @@ Choose colors that match your topic — don't default to generic blue. Use these
 
 Your first render is almost never correct. Approach QA as a bug hunt, not a confirmation step. If you found zero issues on first inspection, you weren't looking hard enough.
 
+### Verification before declaring success (MANDATORY)
+
+Do **not** tell the user a `.pptx` was created until you have run the verifier and seen the success marker:
+
+```bash
+node scripts/verify.js /absolute/path/to/output.pptx
+```
+
+What to require before claiming success:
+
+1. The tool result begins with `✅ Exit 0`. Any `❌ Exit` or stderr containing `PPTX_ERROR:` means the run failed — report the error to the user verbatim instead of pretending it worked.
+2. The verifier's stdout contains an `APERIO_PPTX:` line with the absolute path and byte size of the produced file. **No marker = no success.** The host will independently stat the file; if it is missing, the tool result will be rewritten to a hard `❌ ... file does NOT exist on disk` and you must surface that to the user.
+3. `slides` in the marker is the number you actually intended, and `placeholders` is 0 (otherwise leftover boilerplate is still in the deck).
+
+If any of these checks fail, fix the underlying problem and rerun — never paper over it with a generic "Done!" message.
+
+All skill scripts now print a `PPTX_ERROR:{...}` JSON line on stderr when they crash. Read it; it contains the failing script, the error message, the error code, and the stack.
+
+
 ### Content QA
 
 ```bash
@@ -232,13 +252,18 @@ pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
 
 ## Dependencies
 
-All Node.js packages are in the project's `package.json` (already installed):
-- `adm-zip` — ZIP/unpack/pack
+All Node.js packages are in the project's `package.json` (already installed) — import them by bare specifier (`import PptxGenJS from "pptxgenjs"`). Do not attempt to `npm install` from a generated script; resolution walks up from the script's directory to `aperio/node_modules`, so bare imports just work.
+
+**Critical**: write generator scripts **inside** the Aperio project tree (e.g. `var/`, `trash/`, or `skills/pptx/scratch/`). A script in `/tmp/` or any other location outside the project will fail with `ERR_MODULE_NOT_FOUND: Cannot find package 'pptxgenjs'` because Node's module resolution cannot reach `aperio/node_modules` from there. Write the output `.pptx` wherever you want, but keep the `.js` generator under the project root.
+
+- `pptxgenjs` — creating decks from scratch
+- `adm-zip` — ZIP unpack/pack
 - `fast-xml-parser` — XML parsing
 - `sharp` — thumbnail image processing
 
-CLI tools (install separately if missing):
-- `npm install -g pptxgenjs` — creating from scratch
-- `npm install -g react-icons react react-dom` — icons in slides
+Optional packages (install with `npm install <pkg>` from the Aperio root if a deck actually needs them — don't add them speculatively):
+- `react`, `react-dom`, `react-icons` — only needed for the icon-rendering path
+
+System CLIs (install separately if missing):
 - `brew install libreoffice` — PDF conversion (`soffice`)
 - `brew install poppler` — PDF to images (`pdftoppm`)

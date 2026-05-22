@@ -3,6 +3,7 @@ import { spawn }         from "child_process";
 import { dirname, resolve as resolvePath, extname } from "path";
 import { existsSync }    from "fs";
 import { isWritePathAllowed, isReadPathAllowed, getActivePaths } from "../../lib/routes/paths.js";
+import logger from "../../lib/helpers/logger.js";
 
 const MAX_OUTPUT_BYTES = 200_000;
 const TIMEOUT_MS       = 60_000;
@@ -17,56 +18,108 @@ function formatPathError(scriptPath) {
   };
 }
 
+function buildResponseText({ exitCode, timedOut, stdout, stderr, stdoutBytes, stderrBytes, scriptPath }) {
+  const parts = [];
+
+  if (timedOut) parts.push(`❌ Script timed out after ${TIMEOUT_MS / 1000}s: ${scriptPath}`);
+  else if (exitCode === 0) parts.push(`✅ Exit 0 — ${scriptPath}`);
+  else parts.push(`❌ Exit ${exitCode} — ${scriptPath}`);
+
+  if (stdout) parts.push(`--- stdout ---\n${stdout}`);
+  if (stderr) parts.push(`--- stderr ---\n${stderr}`);
+  if (!stdout && !stderr) parts.push(`(no output)`);
+
+  const truncNotes = [];
+  if (stdoutBytes > MAX_OUTPUT_BYTES) truncNotes.push(`stdout truncated (${Math.round(stdoutBytes / 1024)}KB > ${MAX_OUTPUT_BYTES / 1024}KB)`);
+  if (stderrBytes > MAX_OUTPUT_BYTES) truncNotes.push(`stderr truncated (${Math.round(stderrBytes / 1024)}KB > ${MAX_OUTPUT_BYTES / 1024}KB)`);
+  if (truncNotes.length) parts.push(`⚠️ ${truncNotes.join("; ")}`);
+
+  return parts.join("\n\n");
+}
+
 export async function runNodeScriptHandler({ script, args = [] }) {
-  if (extname(script).toLowerCase() !== ".js")
+  if (extname(script).toLowerCase() !== ".js") {
+    logger.warn(`[run_node_script] rejected non-.js path: ${script}`);
     return { content: [{ type: "text", text: `❌ Only .js scripts are allowed` }] };
+  }
 
   const resolved = resolvePath(script);
 
-  if (!isWritePathAllowed(resolved))
+  if (!isWritePathAllowed(resolved)) {
+    logger.warn(`[run_node_script] path not allowed: ${resolved}`);
     return formatPathError(resolved);
+  }
 
-  if (!existsSync(resolved))
+  if (!existsSync(resolved)) {
+    logger.warn(`[run_node_script] script not found: ${resolved}`);
     return { content: [{ type: "text", text: `❌ Script not found: ${resolved}` }] };
+  }
 
   const cwd = dirname(resolved);
+  logger.info(`[run_node_script] start ${resolved} args=${JSON.stringify(args)}`);
 
   return new Promise((res) => {
-    const chunks = [];
-    let totalBytes = 0;
+    const stdoutChunks = [];
+    const stderrChunks = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
     let timedOut = false;
 
-    const child = spawn("node", [resolved, ...args.map(String)], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    let child;
+    try {
+      child = spawn("node", [resolved, ...args.map(String)], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    } catch (err) {
+      logger.error(`[run_node_script] spawn threw: ${err.message}`);
+      return res({ content: [{ type: "text", text: `❌ Failed to spawn node: ${err.message}` }] });
+    }
 
-    const onData = (chunk) => {
-      totalBytes += chunk.length;
-      if (totalBytes <= MAX_OUTPUT_BYTES) chunks.push(chunk);
-    };
-
-    child.stdout.on("data", onData);
-    child.stderr.on("data", onData);
+    child.stdout.on("data", (chunk) => {
+      stdoutBytes += chunk.length;
+      if (stdoutBytes <= MAX_OUTPUT_BYTES) stdoutChunks.push(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderrBytes += chunk.length;
+      if (stderrBytes <= MAX_OUTPUT_BYTES) stderrChunks.push(chunk);
+    });
 
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill("SIGTERM");
+      try { child.kill("SIGTERM"); } catch (err) {
+        logger.error(`[run_node_script] SIGTERM failed: ${err.message}`);
+      }
     }, TIMEOUT_MS);
 
     child.on("close", (code) => {
       clearTimeout(timer);
-      const output = Buffer.concat(chunks).toString("utf-8").trimEnd();
-      const truncNote = totalBytes > MAX_OUTPUT_BYTES
-        ? `\n\n⚠️ Output truncated (${Math.round(totalBytes / 1024)}KB > ${MAX_OUTPUT_BYTES / 1024}KB limit)`
-        : "";
+      const stdout = Buffer.concat(stdoutChunks).toString("utf-8").trimEnd();
+      const stderr = Buffer.concat(stderrChunks).toString("utf-8").trimEnd();
 
-      if (timedOut)
-        return res({ content: [{ type: "text", text: `❌ Script timed out after ${TIMEOUT_MS / 1000}s\n${output}${truncNote}` }] });
+      if (timedOut) {
+        logger.error(`[run_node_script] timeout ${resolved} after ${TIMEOUT_MS}ms`);
+      } else if (code !== 0) {
+        logger.error(`[run_node_script] non-zero exit ${code} ${resolved} stderr: ${stderr.slice(0, 1000)}`);
+      } else if (stderr) {
+        logger.warn(`[run_node_script] exit 0 with stderr ${resolved}: ${stderr.slice(0, 500)}`);
+      } else {
+        logger.info(`[run_node_script] ok ${resolved}`);
+      }
 
-      const prefix = code === 0 ? `✅ Exit 0\n` : `❌ Exit ${code}\n`;
-      res({ content: [{ type: "text", text: `${prefix}${output}${truncNote}` }] });
+      const text = buildResponseText({
+        exitCode: code,
+        timedOut,
+        stdout,
+        stderr,
+        stdoutBytes,
+        stderrBytes,
+        scriptPath: resolved,
+      });
+
+      res({ content: [{ type: "text", text }] });
     });
 
     child.on("error", (err) => {
       clearTimeout(timer);
+      logger.error(`[run_node_script] child error: ${err.message}`);
       res({ content: [{ type: "text", text: `❌ Failed to start script: ${err.message}` }] });
     });
   });
@@ -90,7 +143,13 @@ export async function syntaxCheckHandler({ path: filePath }) {
   return new Promise((res) => {
     const chunks = [];
 
-    const child = spawn("node", ["--check", resolved], { stdio: ["ignore", "pipe", "pipe"] });
+    let child;
+    try {
+      child = spawn("node", ["--check", resolved], { stdio: ["ignore", "pipe", "pipe"] });
+    } catch (err) {
+      logger.error(`[syntax_check] spawn threw: ${err.message}`);
+      return res({ content: [{ type: "text", text: `❌ Failed to spawn node --check: ${err.message}` }] });
+    }
 
     child.stdout.on("data", (chunk) => chunks.push(chunk));
     child.stderr.on("data", (chunk) => chunks.push(chunk));
@@ -100,11 +159,13 @@ export async function syntaxCheckHandler({ path: filePath }) {
       if (code === 0) {
         res({ content: [{ type: "text", text: `✅ Syntax OK: ${resolved}` }] });
       } else {
+        logger.warn(`[syntax_check] failed ${resolved}: ${output.slice(0, 500)}`);
         res({ content: [{ type: "text", text: `❌ Syntax errors in ${resolved}:\n\n${output}\n\nFix using edit_file (targeted replacement), not write_file (full rewrite).` }] });
       }
     });
 
     child.on("error", (err) => {
+      logger.error(`[syntax_check] child error: ${err.message}`);
       res({ content: [{ type: "text", text: `❌ Failed to run node --check: ${err.message}` }] });
     });
   });

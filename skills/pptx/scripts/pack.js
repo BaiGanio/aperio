@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /**
  * Pack an unpacked PPTX directory back into a .pptx file.
- * Condenses XML and restores smart-quote entities before zipping.
  * Usage: node scripts/pack.js unpacked/ output.pptx
  */
 
 import AdmZip from 'adm-zip';
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import { resolve, join, relative } from 'path';
+import { runScript, requireArg, assertExists, emitResult } from './_lib.js';
 
 const SMART_QUOTE_ENTITIES = {
   '&#x201C;': '“',
@@ -17,8 +17,6 @@ const SMART_QUOTE_ENTITIES = {
 };
 
 function condenseXml(content) {
-  // Remove pretty-print indentation: trim each line and join without newlines.
-  // <a:t> text content sits on one line after pretty-printing, so this is safe.
   return content.split('\n').map(l => l.trim()).filter(Boolean).join('');
 }
 
@@ -43,26 +41,50 @@ function getAllFiles(dir, base = dir) {
   return files;
 }
 
-const [,, inputDir, outputFile] = process.argv;
-if (!inputDir || !outputFile) {
-  console.error('Usage: node scripts/pack.js <unpacked_dir> <output.pptx>');
-  process.exit(1);
-}
-
-const zip = new AdmZip();
-for (const { full, rel } of getAllFiles(resolve(inputDir))) {
-  const isXml = rel.endsWith('.xml') || rel.endsWith('.rels');
-  let buf;
-  if (isXml) {
-    let content = readFileSync(full, 'utf8');
-    content = condenseXml(content);
-    content = restoreSmartQuotes(content);
-    buf = Buffer.from(content, 'utf8');
-  } else {
-    buf = readFileSync(full);
+runScript('pack', () => {
+  const inputDir = requireArg(process.argv[2], 'Usage: node scripts/pack.js <unpacked_dir> <output.pptx>');
+  const outputFile = requireArg(process.argv[3], 'Usage: node scripts/pack.js <unpacked_dir> <output.pptx>');
+  const absInputDir = assertExists(inputDir, 'unpacked dir');
+  if (!statSync(absInputDir).isDirectory()) {
+    throw Object.assign(new Error(`Not a directory: ${absInputDir}`), { code: 'NOT_DIR' });
   }
-  zip.addFile(rel, buf);
-}
 
-zip.writeZip(resolve(outputFile));
-console.log(`Packed to ${outputFile}`);
+  // Sanity check: a real unpacked pptx must have [Content_Types].xml at the root.
+  if (!existsSync(join(absInputDir, '[Content_Types].xml'))) {
+    throw Object.assign(
+      new Error(`${absInputDir} does not look like an unpacked pptx ([Content_Types].xml missing)`),
+      { code: 'BAD_INPUT_DIR' }
+    );
+  }
+
+  const zip = new AdmZip();
+  let added = 0;
+  let failures = 0;
+  for (const { full, rel } of getAllFiles(absInputDir)) {
+    try {
+      const isXml = rel.endsWith('.xml') || rel.endsWith('.rels');
+      let buf;
+      if (isXml) {
+        let content = readFileSync(full, 'utf8');
+        content = condenseXml(content);
+        content = restoreSmartQuotes(content);
+        buf = Buffer.from(content, 'utf8');
+      } else {
+        buf = readFileSync(full);
+      }
+      zip.addFile(rel, buf);
+      added++;
+    } catch (err) {
+      failures++;
+      process.stderr.write(`⚠️ skipped ${rel}: ${err.message}\n`);
+    }
+  }
+
+  if (failures > 0) {
+    process.stderr.write(`⚠️ ${failures} file(s) skipped during pack — output may be incomplete\n`);
+  }
+
+  const absOutput = resolve(outputFile);
+  zip.writeZip(absOutput);
+  emitResult('pack', absOutput, { entries: added, skipped: failures, source: absInputDir });
+});
