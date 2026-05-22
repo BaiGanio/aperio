@@ -24,6 +24,54 @@ function sendSummarize() {
   safeSend(JSON.stringify({ type: "summarize" }));
 }
 
+function sendHandoff(focus) {
+  dismissContextBanner();
+  safeSend(JSON.stringify({ type: "handoff", focus: focus || null }));
+}
+
+// Handoff banner — shown when the server emits context_handoff_suggested.
+// Distinct from the summarize banner so both can coexist while a session
+// crosses both thresholds.
+let handoffBannerEl = null;
+let handoffAutoFired = false;
+
+function showHandoffBanner(pct, { autoTrigger = false } = {}) {
+  if (handoffBannerEl) return;
+  const banner = document.createElement("div");
+  banner.className = "ctx-banner ctx-banner--trimmed";
+  const label = (typeof t === "function" && t("ctx_handoff")) || `Context at ${pct}% — handoff suggested.`;
+  banner.innerHTML =
+    `<span class="ctx-banner-text">${label}</span>` +
+    `<button class="ctx-banner-btn ctx-banner-btn--primary" onclick="sendHandoff()">Run handoff</button>` +
+    `<button class="ctx-banner-btn" onclick="dismissHandoffBanner()">Dismiss</button>`;
+  document.querySelector(".chat-area")?.prepend(banner);
+  handoffBannerEl = banner;
+
+  if (autoTrigger && !handoffAutoFired) {
+    handoffAutoFired = true;
+    setTimeout(() => sendHandoff(), 250);
+  }
+}
+
+function dismissHandoffBanner() {
+  handoffBannerEl?.remove();
+  handoffBannerEl = null;
+}
+
+function showHandoffResult(ok, payload) {
+  dismissHandoffBanner();
+  const note = document.createElement("div");
+  note.className = "ctx-banner ctx-banner--trimmed";
+  note.style.cssText = "font-size:10px;opacity:0.85;";
+  const text = ok
+    ? `📦 Handoff written: <code>${payload.path}</code>${payload.rotated ? " — context rotated, fresh start." : ""}`
+    : `Handoff failed: ${payload.reason || "unknown"}`;
+  note.innerHTML =
+    `<span class="ctx-banner-text">${text}</span>` +
+    `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">Dismiss</button>`;
+  document.querySelector(".chat-area")?.prepend(note);
+}
+
 // ── Message rendering ─────────────────────────────────────────
 function getUserInitial() {
   const nameMem = allMemories.find(m =>

@@ -350,6 +350,16 @@ function handleMessage(msg) {
     showContextBanner(msg.pct, "trimmed");
   }
 
+  if (msg.type === "context_handoff_suggested") {
+    // Auto-trigger by default so the dumb-zone rotation actually happens.
+    // Banner is still shown for visibility and to let the user dismiss.
+    showHandoffBanner(msg.pct, { autoTrigger: true });
+  }
+
+  if (msg.type === "handoff_written") {
+    showHandoffResult(msg.ok, msg);
+  }
+
   if (msg.type === "context_summarized") {
     dismissContextBanner();
     if (!msg.ok) {
