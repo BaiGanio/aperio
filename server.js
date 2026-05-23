@@ -259,40 +259,51 @@ async function bootApp() {
   const { shutdown: shutdownEmbeddings } = await initEmbeddings(store, generateEmbedding);
 
   // ── Agents ───────────────────────────────────────────────────────────────
-  // Round-table mode (two-agent cross-review) is opt-in via ROUNDTABLE_AGENTS.
-  // Format: "provider:model,provider:model" — first pair = primary (answerer),
-  // second pair = verifier (reviewer). If unset (or only one pair parses),
-  // we boot a single agent and the Discuss toggle is disabled in the UI.
-  const roundtableAgents = parseRoundtableAgents(process.env.ROUNDTABLE_AGENTS);
-  const primaryConfig  = roundtableAgents[0] ?? null;
-  const verifierConfig = roundtableAgents[1] ?? null;
-
+  // The main chat agent always boots from AI_PROVIDER / provider env vars.
+  // Round-table mode (two-agent cross-review) is opt-in via ROUNDTABLE_AGENTS
+  // and boots TWO ADDITIONAL agents independent of the chat agent.
+  // Format: "provider:model,provider:model" — first pair = round-table primary
+  // (answerer), second pair = verifier (reviewer). Both entries required;
+  // otherwise the Discuss toggle stays disabled.
   const agent = await createAgent({
     root: __dirname,
     version,
     clientName: "aperio-server",
-    providerConfig: primaryConfig,
-    persona: verifierConfig ? "primary" : null,
   });
   const { provider, callTool } = agent;
 
+  const roundtableAgents = parseRoundtableAgents(process.env.ROUNDTABLE_AGENTS);
+  const primaryRtConfig  = roundtableAgents[0] ?? null;
+  const verifierConfig   = roundtableAgents[1] ?? null;
+
+  let primaryRoundtable = null;
   let verifier = null;
-  if (verifierConfig) {
+  if (primaryRtConfig && verifierConfig) {
     try {
+      primaryRoundtable = await createAgent({
+        root: __dirname,
+        version,
+        clientName: "aperio-server-rt-primary",
+        providerConfig: primaryRtConfig,
+        persona: "primary",
+      });
       verifier = await createAgent({
         root: __dirname,
         version,
-        clientName: "aperio-server-verifier",
+        clientName: "aperio-server-rt-verifier",
         providerConfig: verifierConfig,
         persona: "verifier",
       });
-      logger.info(`🤝 Round-table mode: verifier = ${verifier.provider.name} (${verifier.provider.model})`);
+      logger.info(`🤝 Round-table: primary = ${primaryRoundtable.provider.name} (${primaryRoundtable.provider.model}), verifier = ${verifier.provider.name} (${verifier.provider.model})`);
     } catch (err) {
-      logger.error(`⚠️  Could not boot verifier agent — falling back to single-agent mode:`, err.message);
+      logger.error(`⚠️  Could not boot round-table agents — Discuss toggle disabled:`, err.message);
+      primaryRoundtable = null;
       verifier = null;
     }
+  } else if (primaryRtConfig || verifierConfig) {
+    logger.warn(`[roundtable] ROUNDTABLE_AGENTS needs TWO "provider:model" pairs — Discuss disabled.`);
   }
-  const roundtableAvailable = Boolean(verifier);
+  const roundtableAvailable = Boolean(primaryRoundtable && verifier);
 
   // Ollama
   if (provider.name === "ollama") await ensureOllama();
@@ -331,7 +342,7 @@ async function bootApp() {
       }
     },
   });
-  wss.on("connection", makeWsHandler({ agent, verifier, roundtableAvailable, store, __dirname }));
+  wss.on("connection", makeWsHandler({ agent, primaryRoundtable, verifier, roundtableAvailable, store, __dirname }));
 
   // Background jobs
   const dedup   = deduplicateMemories(callTool);

@@ -191,12 +191,15 @@
 
   "discuss_button_label":         "Discuss",
   "discuss_button_tooltip":       "Two agents will cross-review answers",
-  "roundtable_phase_answer":      "Agent A answering…",
-  "roundtable_phase_review":      "Agent B reviewing…",
-  "roundtable_phase_revise":      "Agent A revising…",
-  "roundtable_phase_rereview":    "Agent B re-reviewing…",
+  "roundtable_phase_answer":      "answering",
+  "roundtable_phase_review":      "reviewing α's answer",
+  "roundtable_phase_revise":      "revising in response to β",
+  "roundtable_phase_rereview":    "re-reviewing α's revision",
+  "roundtable_phase_status":      "{model} · {action}…",
   "roundtable_consensus_label":   "Consensus",
   "roundtable_no_consensus_banner": "No consensus after {n} turns — review both positions.",
-  "roundtable_position_a":        "Agent A's position",
-  "roundtable_position_b":        "Agent B's position"
+  "roundtable_no_consensus_attribution": "Aperio · {model} presenting both positions",
+  "roundtable_position_a":        "Position α",
+  "roundtable_position_b":        "Position β",
+  "roundtable_error_title":       "Agent {agent} ({model}) failed while {phase}"
 }

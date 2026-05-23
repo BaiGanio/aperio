@@ -235,6 +235,18 @@ const TRANSLATIONS = {
     ctx_suggestions_saved_one:  "✓ 1 suggestion saved to memory",
     ctx_suggestions_saved_many: "✓ {n} suggestions saved to memory",
 
+    discuss_button_label:     "Discuss",
+    discuss_button_tooltip:   "Two agents will cross-review answers",
+    roundtable_phase_answer:        "answering",
+    roundtable_phase_review:        "reviewing A's answer",
+    roundtable_phase_revise:        "revising in response to B",
+    roundtable_phase_rereview:      "re-reviewing A's revision",
+    roundtable_phase_status:        "{model} · {action}…",
+    roundtable_consensus_label:     "Consensus",
+    roundtable_no_consensus_banner: "No consensus after {n} rounds",
+    roundtable_position_a:          "Agent A's position",
+    roundtable_position_b:          "Agent B's position",
+
     setup_page_title:         "Aperio — Setup",
     setup_intro_h1:           "One-time setup",
     setup_intro_p_html:       "Installing dependencies — this only happens once.<br>Future starts are instant.",

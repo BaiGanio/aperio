@@ -438,9 +438,14 @@ function handleMessage(msg) {
     _renderNoAgreementCard(msg);
     return;
   }
+
+  if (msg.type === "roundtable_error") {
+    _renderRoundtableErrorCard(msg);
+    return;
+  }
 }
 
-function _phaseLabel(phase) {
+function _phaseAction(phase) {
   if (phase === "review")   return t("roundtable_phase_review");
   if (phase === "revise")   return t("roundtable_phase_revise");
   if (phase === "rereview") return t("roundtable_phase_rereview");
@@ -448,13 +453,35 @@ function _phaseLabel(phase) {
   return phase || "";
 }
 
+function _agentModelLabel(agentId) {
+  const a = _roundtableAgents.find(x => x.id === agentId);
+  if (!a) return agentId === "verifier" ? "β" : "α";
+  if (a.model) return a.model;
+  return a.name || agentId;
+}
+
 function _renderRoundtablePhaseChip(phase, agentId) {
-  // Replace the prior chip (one in flight at a time — round-table is sequential).
   _roundtablePhaseChip?.remove();
   const chip = document.createElement("div");
-  chip.className = "roundtable-phase-chip";
+  chip.className = "roundtable-phase-chip is-active";
   if (agentId) chip.classList.add(`roundtable-phase-${agentId}`);
-  chip.textContent = _phaseLabel(phase);
+
+  const badge = document.createElement("span");
+  badge.className = `roundtable-agent-badge roundtable-agent-${agentId || "primary"}`;
+  badge.textContent = agentId === "verifier" ? "β" : "α";
+
+  const spinner = document.createElement("span");
+  spinner.className = "roundtable-phase-spinner";
+  spinner.setAttribute("aria-hidden", "true");
+
+  const text = document.createElement("span");
+  text.className = "roundtable-phase-text";
+  text.textContent = t("roundtable_phase_status", {
+    model:  _agentModelLabel(agentId),
+    action: _phaseAction(phase),
+  });
+
+  chip.append(badge, spinner, text);
   messagesEl.appendChild(chip);
   _roundtablePhaseChip = chip;
   scrollToBottom();
@@ -495,7 +522,7 @@ function _renderConsensusBubble(msg) {
     wrap.className = "roundtable-agent-chip";
     const badge = document.createElement("span");
     badge.className = `roundtable-agent-badge roundtable-agent-${a.id || a}`;
-    badge.textContent = (a.id === "verifier" ? "B" : "A");
+    badge.textContent = (a.id === "verifier" ? "β" : "α");
     const label = a.model ? `${a.name} · ${a.model}` : (a.name || a.id || a);
     badge.title = label;
     wrap.appendChild(badge);
@@ -529,8 +556,28 @@ function _renderNoAgreementCard(msg) {
     streamingBubble = null;
     streamingText = "";
   }
+  const wrap = document.createElement("div");
+  wrap.className = "message ai roundtable-no-consensus-wrap";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar ai";
+  avatar.textContent = "A";
+  avatar.title = "Aperio";
+
+  const col = document.createElement("div");
+  col.style.cssText = "display:flex;flex-direction:column;flex:1;min-width:0;";
+
   const card = document.createElement("div");
   card.className = "roundtable-no-consensus";
+
+  const primary = _findAgent("primary");
+  const attribution = document.createElement("div");
+  attribution.className = "roundtable-no-consensus-attribution";
+  const primaryLabel = primary
+    ? (primary.model ? `${primary.name} · ${primary.model}` : (primary.name || "Aperio"))
+    : "Aperio";
+  attribution.textContent = t("roundtable_no_consensus_attribution", { model: primaryLabel });
+  card.appendChild(attribution);
 
   const banner = document.createElement("div");
   banner.className = "roundtable-no-consensus-banner";
@@ -554,8 +601,56 @@ function _renderNoAgreementCard(msg) {
   });
   card.appendChild(cols);
 
-  messagesEl.appendChild(card);
+  col.appendChild(card);
+  wrap.appendChild(avatar);
+  wrap.appendChild(col);
+  messagesEl.appendChild(wrap);
   highlightAll?.();
+  scrollToBottom();
+}
+
+function _renderRoundtableErrorCard(msg) {
+  _clearRoundtablePhaseChip();
+  if (streamingBubble) {
+    if (streamingText.trim()) finalizeStreamingBubble(streamingBubble, streamingText, null);
+    else streamingBubble.wrap?.remove();
+    streamingBubble = null;
+    streamingText = "";
+  }
+  const wrap = document.createElement("div");
+  wrap.className = "message ai roundtable-no-consensus-wrap";
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar ai";
+  avatar.textContent = "A";
+  avatar.title = "Aperio";
+
+  const col = document.createElement("div");
+  col.style.cssText = "display:flex;flex-direction:column;flex:1;min-width:0;";
+
+  const card = document.createElement("div");
+  card.className = "roundtable-error-card";
+
+  const agentLabel = msg.agent_id === "verifier" ? "β" : "α";
+  const agent = _findAgent(msg.agent_id);
+  const modelLabel = agent
+    ? (agent.model ? `${agent.name} · ${agent.model}` : (agent.name || agentLabel))
+    : agentLabel;
+
+  const title = document.createElement("div");
+  title.className = "roundtable-error-title";
+  title.textContent = t("roundtable_error_title", { agent: agentLabel, model: modelLabel, phase: _phaseAction(msg.phase) });
+  card.appendChild(title);
+
+  const body = document.createElement("div");
+  body.className = "roundtable-error-body";
+  body.textContent = msg.message || "";
+  card.appendChild(body);
+
+  col.appendChild(card);
+  wrap.appendChild(avatar);
+  wrap.appendChild(col);
+  messagesEl.appendChild(wrap);
   scrollToBottom();
 }
 
@@ -565,10 +660,11 @@ function createStreamingBubble(agentMeta = null) {
 
   const avatar = document.createElement("div");
   avatar.className = "avatar ai";
-  // Round-table avatars: "A" for primary, "B" for verifier. Falls back to "A"
-  // for the single-agent path so existing chats look identical to before.
+  // Round-table avatars: "α" for primary, "β" for verifier. Single-agent path
+  // keeps the default "A" Aperio mark.
   let avatarLetter = "A";
-  if (agentMeta?.persona === "verifier" || agentMeta?.agentId === "verifier") avatarLetter = "B";
+  if (agentMeta?.agentId === "primary" || agentMeta?.persona === "primary") avatarLetter = "α";
+  if (agentMeta?.persona === "verifier" || agentMeta?.agentId === "verifier") avatarLetter = "β";
   avatar.textContent = avatarLetter;
 
   if (agentMeta?.agentId) {
@@ -610,7 +706,7 @@ function _buildRoundtableAgentTag(agentMeta) {
   if (!agent) return null;
   const tag = document.createElement("div");
   tag.className = `roundtable-agent-tag roundtable-agent-tag-${agentMeta.agentId}`;
-  const letter = agentMeta.agentId === "verifier" ? "B" : "A";
+  const letter = agentMeta.agentId === "verifier" ? "β" : "α";
   const label = agent.model ? `${agent.name} · ${agent.model}` : (agent.name || letter);
   tag.textContent = label;
   tag.title = label;
