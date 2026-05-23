@@ -191,12 +191,15 @@
 
   "discuss_button_label":         "Дискусия",
   "discuss_button_tooltip":       "Два агента ще си преглеждат отговорите взаимно",
-  "roundtable_phase_answer":      "Агент A отговаря…",
-  "roundtable_phase_review":      "Агент B преглежда…",
-  "roundtable_phase_revise":      "Агент A преработва…",
-  "roundtable_phase_rereview":    "Агент B преразглежда…",
+  "roundtable_phase_answer":      "отговаря",
+  "roundtable_phase_review":      "преглежда отговора на α",
+  "roundtable_phase_revise":      "преработва в отговор на β",
+  "roundtable_phase_rereview":    "преразглежда преработката на α",
+  "roundtable_phase_status":      "{model} · {action}…",
   "roundtable_consensus_label":   "Консенсус",
   "roundtable_no_consensus_banner": "Няма консенсус след {n} рунда — прегледай и двете позиции.",
-  "roundtable_position_a":        "Позиция на агент A",
-  "roundtable_position_b":        "Позиция на агент B"
+  "roundtable_no_consensus_attribution": "Aperio · {model} представя двете позиции",
+  "roundtable_position_a":        "Позиция α",
+  "roundtable_position_b":        "Позиция β",
+  "roundtable_error_title":       "Агент {agent} ({model}) се провали при {phase}"
 }
