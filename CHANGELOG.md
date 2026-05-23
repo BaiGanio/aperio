@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.50.1] — 2026-05-23
+
+### Fixed
+- sanitized null content in OpenAI-compatible payloads
+
+---
+
+
 ## [0.50.0] — 2026-05-13
 
 ### Added
