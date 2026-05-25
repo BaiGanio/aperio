@@ -9,7 +9,7 @@ import { mkdirSync, readdirSync, existsSync, rmSync } from 'fs';
 import { resolve, join, basename } from 'path';
 import { tmpdir } from 'os';
 import sharp from 'sharp';
-import { runScript, requireArg, assertExists, emitResult } from './_lib.js';
+import { runScript, requireArg, assertExists, emitResult, emitSkip, isMissingBinary, installHint } from './_lib.js';
 
 const THUMBNAIL_WIDTH = 300;
 const GRID_PADDING = 20;
@@ -39,6 +39,9 @@ runScript('thumbnail', async () => {
       env: { ...process.env, SAL_USE_VCLPLUGIN: 'svp' },
       stdio: 'pipe',
     });
+    if (isMissingBinary(r1)) {
+      return emitSkip('thumbnail', installHint('soffice'), { source: absInput, missing: 'soffice' });
+    }
     const pdfPath = join(tempDir, `${pdfBase}.pdf`);
     if (r1.status !== 0 || !existsSync(pdfPath)) {
       const stderr = r1.stderr?.toString() || '';
@@ -49,6 +52,9 @@ runScript('thumbnail', async () => {
 
     const slidePrefix = join(tempDir, 'slide');
     const r2 = spawnSync('pdftoppm', ['-jpeg', '-r', '100', pdfPath, slidePrefix], { stdio: 'pipe' });
+    if (isMissingBinary(r2)) {
+      return emitSkip('thumbnail', installHint('pdftoppm'), { source: absInput, missing: 'pdftoppm' });
+    }
     if (r2.status !== 0) {
       const stderr = r2.stderr?.toString() || '';
       const err = new Error(`pdftoppm failed (exit ${r2.status}). stderr: ${stderr.slice(0, 500)}`);

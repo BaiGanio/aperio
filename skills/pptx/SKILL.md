@@ -150,6 +150,8 @@ Choose colors that match your topic — don't default to generic blue. Use these
 
 **Assume there are problems. Your job is to find them.**
 
+QA has two layers. **Always required** (pure Node, works on every OS): `verify.js` (structural gate) + `read.js` (content check). **When available** (needs LibreOffice + poppler): the visual render pass. Never block declaring success on the visual pass when those binaries are absent.
+
 Your first render is almost never correct. Approach QA as a bug hunt, not a confirmation step. If you found zero issues on first inspection, you weren't looking hard enough.
 
 ### Verification before declaring success (MANDATORY)
@@ -187,7 +189,11 @@ node scripts/read.js output.pptx | grep -iE "xxxx|lorem|ipsum|this.*(page|slide)
 
 If grep returns results, fix them before declaring success.
 
-### Visual QA
+### Visual QA (when available)
+
+Visual QA renders the deck to images via LibreOffice (`soffice`) + poppler (`pdftoppm`). These are **optional system dependencies** — not every machine has them. If `node scripts/thumbnail.js` or `node scripts/soffice.js` prints a `skipped` marker (`"skipped":true`, exit 0), visual QA is unavailable on this machine. That is **not a failure**: the deck was still generated and structurally verified. Report it to the user as "visual QA skipped — LibreOffice not installed" (the marker carries the install command) and treat the pure-Node `verify.js` + `read.js` checks as your QA. Then stop — do not retry the render.
+
+When the binaries **are** present, do the full visual pass below.
 
 **⚠️ USE SUBAGENTS** — even for 2-3 slides. You've been staring at the code and will see what you expect, not what's there. Subagents have fresh eyes.
 
@@ -227,13 +233,13 @@ Report ALL issues found, including minor ones.
 4. **Re-verify affected slides** — one fix often creates another problem
 5. Repeat until a full pass reveals no new issues
 
-**Do not declare success until you've completed at least one fix-and-verify cycle.**
+**When visual QA is available, do not declare success until you've completed at least one fix-and-verify cycle.** When it is unavailable (binaries not installed), the required gate is a passing `verify.js` plus a `read.js` content check — declare success on those.
 
 ---
 
 ## Converting to Images
 
-Convert presentations to individual slide images for visual inspection:
+Convert presentations to individual slide images for visual inspection. **Requires the optional LibreOffice + poppler binaries** — if `soffice.js` emits a `"skipped":true` marker, these aren't installed; skip visual QA (see [Visual QA](#visual-qa-when-available)).
 
 ```bash
 node scripts/soffice.js --headless --convert-to pdf output.pptx
@@ -254,7 +260,7 @@ pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
 
 All Node.js packages are in the project's `package.json` (already installed) — import them by bare specifier (`import PptxGenJS from "pptxgenjs"`). Do not attempt to `npm install` from a generated script; resolution walks up from the script's directory to `aperio/node_modules`, so bare imports just work.
 
-**Critical**: write generator scripts **inside** the Aperio project tree (e.g. `var/`, `trash/`, or `skills/pptx/scratch/`). A script in `/tmp/` or any other location outside the project will fail with `ERR_MODULE_NOT_FOUND: Cannot find package 'pptxgenjs'` because Node's module resolution cannot reach `aperio/node_modules` from there. Write the output `.pptx` wherever you want, but keep the `.js` generator under the project root.
+**Critical**: write generator scripts **inside** a writable Aperio location (`trash/` or `skills/pptx/scratch/`). A script in `/tmp/` or any other location outside the project will fail with `ERR_MODULE_NOT_FOUND: Cannot find package 'pptxgenjs'` because Node's module resolution cannot reach `aperio/node_modules` from there. Write the output `.pptx` wherever you want, but keep the `.js` generator under the project root.
 
 - `pptxgenjs` — creating decks from scratch
 - `adm-zip` — ZIP unpack/pack
@@ -264,6 +270,9 @@ All Node.js packages are in the project's `package.json` (already installed) —
 Optional packages (install with `npm install <pkg>` from the Aperio root if a deck actually needs them — don't add them speculatively):
 - `react`, `react-dom`, `react-icons` — only needed for the icon-rendering path
 
-System CLIs (install separately if missing):
-- `brew install libreoffice` — PDF conversion (`soffice`)
-- `brew install poppler` — PDF to images (`pdftoppm`)
+**Optional system CLIs — only needed for the visual QA render pass.** Generation, `verify.js`, and `read.js` work without them. If absent, the render scripts emit a `"skipped":true` marker and exit 0 (not a failure) — report visual QA as skipped and rely on the pure-Node checks.
+
+| Binary | macOS | Debian/Ubuntu | Windows |
+|--------|-------|---------------|---------|
+| `soffice` (PPTX→PDF) | `brew install --cask libreoffice` | `apt install libreoffice` | installer at libreoffice.org |
+| `pdftoppm` (PDF→images) | `brew install poppler` | `apt install poppler-utils` | poppler-windows release |

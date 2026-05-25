@@ -127,11 +127,21 @@ function handleMessage(msg) {
 
   if (msg.type === "tool") {
     removeToolIndicator();
+    // A tool call means the agent is actively working. The preceding
+    // stream_end (sent before tool execution) flips the UI to an idle
+    // "connected" state and re-enables the send button — so re-assert the
+    // working state here, and recreate the thinking indicator if it was torn
+    // down, otherwise the user sees an idle screen while scripts run.
+    isThinking = true;
+    sendBtn.disabled = true;
+    sendBtn.style.display = "none";
+    stopBtn.style.display = "flex";
+    if (!document.getElementById("thinking")) addThinking();
+    const key = TOOL_LABEL_KEYS && TOOL_LABEL_KEYS[msg.name];
+    const labelText = key ? t(key) : t("tool_generic", { name: msg.name });
     const label = document.querySelector("#thinking .thinking-label");
-    if (label) {
-      const key = TOOL_LABEL_KEYS && TOOL_LABEL_KEYS[msg.name];
-      label.textContent = key ? t(key) : t("tool_generic", { name: msg.name });
-    }
+    if (label) label.textContent = labelText;
+    setStatus("thinking", labelText);
   }
 
   if (msg.type === "reasoning_start") {

@@ -42,29 +42,11 @@
         text-transform:uppercase; display:none;
       "></span>
     </div>
-    <div class="nav-actions-pill">
-      <button id="ttsToggle" class="nav-action-btn" onclick="window.Aperio?.tts?.toggle()"
-        title="Voice responses off — click to enable" style="opacity:0.45;color:var(--text-muted);">
-        🔊 <span id="ttsToggleLabel">off</span>
-      </button>
-      <button id="reasoningToggle" class="nav-action-btn" onclick="toggleReasoning()"
-        data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning" style="display:none;">
-        🧠 <span id="reasoningToggleLabel" data-i18n="nav_reasoning_on">on</span>
-      </button>
-      <button id="historyBtn" class="nav-action-btn nav-action-btn--text" onclick="toggleSessionsPanel()"
-        data-i18n-attr-title="nav_chats_title" title="Conversation history">
-        <span data-i18n="nav_chats">💬 chats</span>
-      </button>
-      <button id="pathsBtn" class="nav-action-btn nav-action-btn--text" onclick="openPathsPanel()"
-        data-i18n-attr-title="nav_paths_title" title="Allowed paths">
-        <span data-i18n="nav_paths">📂 paths</span>
-      </button>
-      <button id="wikiBtn" class="nav-action-btn nav-action-btn--text" onclick="toggleWikiPanel()"
-        title="Wiki — LLM-authored articles over your memories">
-        <span>📖 wiki</span>
-      </button>
-    </div>
-    <div class="ctx-window" id="ctxWindow">
+    <button id="reasoningToggle" class="nav-action-btn nav-action-btn--solo" onclick="toggleReasoning()"
+      data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning" style="display:none;">
+      🧠 <span id="reasoningToggleLabel" data-i18n="nav_reasoning_on">on</span>
+    </button>
+    <div class="ctx-window" id="ctxWindow" style="margin-left:auto;">
       <div class="ctx-header">
         <span class="ctx-label" data-i18n="ctx_label">context</span>
         <span class="ctx-value" id="ctxText">— / —</span>
@@ -82,12 +64,6 @@
         <span class="lang-caret">▾</span>
       </button>
       <div class="lang-popover" id="langPopover" role="listbox"></div>
-    </div>
-    <div class="theme-switcher">
-      <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">☀️</button>
-      <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">🌙</button>
-      <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">✦</button>
-      <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">⊙</button>
     </div>
   </header>
 
@@ -127,6 +103,43 @@
         <div style="font-size:12px; color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
       </div>
     </div>
+    <nav class="sidebar-nav">
+      <button id="historyBtn" class="sidebar-nav-btn" onclick="toggleSessionsPanel()"
+        data-i18n-attr-title="nav_chats_title" title="Conversation history">
+        <i class="bi bi-chat-left-text sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_chats_plain">Chats</span>
+      </button>
+      <button id="pathsBtn" class="sidebar-nav-btn" onclick="openPathsPanel()"
+        data-i18n-attr-title="nav_paths_title" title="Allowed paths">
+        <i class="bi bi-folder2-open sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_paths_plain">Paths</span>
+      </button>
+      <button id="wikiBtn" class="sidebar-nav-btn" onclick="toggleWikiPanel()"
+        title="Wiki — LLM-authored articles over your memories">
+        <i class="bi bi-book sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Wiki</span>
+      </button>
+      <button id="ttsToggle" class="sidebar-nav-btn" onclick="window.Aperio?.tts?.toggle()"
+        title="Voice responses off — click to enable" style="opacity:0.45;color:var(--text-muted);">
+        <i class="bi bi-volume-up sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Sound</span>
+        <span class="sidebar-nav-state" id="ttsToggleLabel">off</span>
+      </button>
+
+      <div class="sidebar-nav-theme">
+        <span class="sidebar-nav-theme-label">
+          <i class="bi bi-circle-half sidebar-nav-icon"></i>
+          <span class="sidebar-nav-label" data-i18n="nav_theme_title">Theme</span>
+        </span>
+        <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
+          <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">☀️</button>
+          <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">🌙</button>
+          <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">✦</button>
+          <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">⊙</button>
+        </div>
+      </div>
+    </nav>
+
     <div class="sidebar-footer">
       <span id="metrics-display"></span>
       <span id="version-display"></span>

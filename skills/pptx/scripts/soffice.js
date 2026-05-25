@@ -5,7 +5,7 @@
  */
 
 import { spawnSync } from 'child_process';
-import { runScript } from './_lib.js';
+import { runScript, emitSkip, isMissingBinary, installHint } from './_lib.js';
 
 runScript('soffice', () => {
   if (process.argv.length < 3) {
@@ -18,15 +18,12 @@ runScript('soffice', () => {
     { env: { ...process.env, SAL_USE_VCLPLUGIN: 'svp' }, stdio: 'inherit' }
   );
 
-  if (result.error) {
-    if (result.error.code === 'ENOENT') {
-      throw Object.assign(
-        new Error('soffice not found on PATH. Install LibreOffice (brew install libreoffice) and retry.'),
-        { code: 'SOFFICE_NOT_INSTALLED' }
-      );
-    }
-    throw result.error;
+  if (isMissingBinary(result)) {
+    // Optional dependency absent — treat as "visual QA unavailable", not failure.
+    emitSkip('soffice', installHint('soffice'), { missing: 'soffice' });
+    return;
   }
+  if (result.error) throw result.error;
 
   if (result.status !== 0) {
     throw Object.assign(
