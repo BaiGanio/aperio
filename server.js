@@ -230,7 +230,7 @@ httpServer.listen(PORT, HOST, async () => {
     // First run: open the setup page, run bootstrap in the background
     logger.info("First run — opening setup UI.");
     openBrowser(`http://localhost:${PORT}/setup`);
-    runBootstrap({ model: process.env.OLLAMA_MODEL ?? "gemma3:4b" });
+    runBootstrap({ model: process.env.OLLAMA_MODEL ?? "gemma4:4b" });
 
     // Wire the full app once bootstrap finishes (no restart needed)
     bootstrapEvents.once("complete", async () => {

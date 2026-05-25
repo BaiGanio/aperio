@@ -424,7 +424,7 @@ export function register(server, _ctx) {
         ),
         model: z.string().optional().describe(
           `Ollama VLM model name. Default: "${OLLAMA_VLM_MODEL}" (env OLLAMA_VLM_MODEL). ` +
-          "Other good options: qwen3-vl:2b, llava:13b, gemma3:12b."
+          "Other good options: qwen3-vl:2b, llava:13b, gemma4:12b."
         ),
       }).refine(d => d.path || d.data, {
         message: "Provide either 'path' (local file) or 'data' (base64 string).",
