@@ -1,13 +1,9 @@
-    /* ── Theme switcher ──────────────────────────────────────── */
+    /* ── Theme switcher (inline group inside the sidebar theme row) ── */
     .theme-switcher {
       display: flex;
       align-items: center;
-      gap: 4px;
-      background: var(--bg-hover);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 3px;
-      margin-left: auto;
+      gap: 2px;
+      flex-shrink: 0;
     }
 
     .theme-btn {
@@ -58,7 +54,7 @@
     }
 
     .app.sidebar-collapsed {
-      grid-template-columns: 0px 1fr;
+      grid-template-columns: 64px 1fr;
     }
 
     /* ── Header ─────────────────────────────────────────────── */
@@ -183,6 +179,89 @@
       font-size: 13px;
     }
 
+    /* Reasoning toggle now stands alone in the header */
+    .nav-action-btn--solo {
+      padding: 0 10px;
+      height: 28px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      border-radius: 20px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+    }
+    .nav-action-btn--solo:hover { background: var(--bg-panel); }
+
+    /* ── Sidebar nav (chats · paths · wiki · sound · theme) ──── */
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 6px 10px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .sidebar-nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+      height: 32px;
+      padding: 0 10px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      color: var(--text-muted);
+      font-family: var(--font-sans, inherit);
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .sidebar-nav-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+
+    .sidebar-nav-icon {
+      font-size: 15px;
+      flex-shrink: 0;
+      width: 18px;
+      text-align: center;
+    }
+
+    .sidebar-nav-label { flex: 1; text-align: left; }
+
+    .sidebar-nav-state {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    /* Theme row — labeled like the other nav items, switch on the right */
+    .sidebar-nav-theme {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 4px 10px 2px;
+      margin-top: 2px;
+    }
+    .sidebar-nav-theme-label {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      flex: 1;
+      color: var(--text-muted);
+      font-family: var(--font-sans, inherit);
+      font-size: 12.5px;
+      font-weight: 500;
+    }
+
     /* ── Sidebar ─────────────────────────────────────────────── */
     .sidebar {
       background: var(--bg-panel);
@@ -193,10 +272,41 @@
       transition: transform 220ms ease, opacity 220ms ease;
     }
 
+    /* Collapsed = narrow icon rail: hide the memory-browsing area,
+       keep the nav icons + theme toggle reachable. */
+    .app.sidebar-collapsed .sidebar-header,
+    .app.sidebar-collapsed .memories-list,
+    .app.sidebar-collapsed .sidebar-footer {
+      display: none;
+    }
     .app.sidebar-collapsed .sidebar {
-      transform: translateX(-100%);
-      opacity: 0;
-      pointer-events: none;
+      padding-top: 10px;
+    }
+    .app.sidebar-collapsed .sidebar-nav {
+      margin-top: 0;
+      border-top: none;
+      padding: 0 8px;
+    }
+    .app.sidebar-collapsed .sidebar-nav-btn {
+      justify-content: center;
+      padding: 0;
+      width: 40px;
+      height: 40px;
+      margin: 0 auto;
+    }
+    .app.sidebar-collapsed .sidebar-nav-label,
+    .app.sidebar-collapsed .sidebar-nav-state {
+      display: none;
+    }
+    .app.sidebar-collapsed .sidebar-nav-theme {
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 0 0;
+    }
+    .app.sidebar-collapsed .sidebar-nav-theme-label { display: none; }
+    .app.sidebar-collapsed .theme-switcher {
+      flex-direction: column;
+      gap: 4px;
     }
 
     /* Toggle button — sits in header */

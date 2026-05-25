@@ -63,6 +63,33 @@ export function emitResult(action, target, extra = {}) {
   return payload;
 }
 
+/**
+ * Signals that an optional step was skipped because a system dependency is
+ * absent — NOT a failure. Emits a distinct marker and exits 0 so the agent
+ * treats visual QA as unavailable on this machine rather than as a broken
+ * deck. Generation and the pure-Node verify.js gate are unaffected.
+ */
+export function emitSkip(action, reason, extra = {}) {
+  const payload = { action, skipped: true, reason, ...extra };
+  console.log(`⏭️  ${action} skipped: ${reason}`);
+  console.log(`${MARKER}${JSON.stringify(payload)}`);
+  return payload;
+}
+
+const INSTALL_HINTS = {
+  soffice: "LibreOffice (soffice) not installed — visual QA unavailable. Install: macOS `brew install --cask libreoffice`; Debian/Ubuntu `apt install libreoffice`; Windows from libreoffice.org.",
+  pdftoppm: "poppler (pdftoppm) not installed — visual QA unavailable. Install: macOS `brew install poppler`; Debian/Ubuntu `apt install poppler-utils`; Windows from poppler releases.",
+};
+
+/** True when a spawnSync result indicates the binary itself was not found. */
+export function isMissingBinary(spawnResult) {
+  return spawnResult?.error?.code === "ENOENT";
+}
+
+export function installHint(binary) {
+  return INSTALL_HINTS[binary] ?? `${binary} not installed — visual QA unavailable.`;
+}
+
 export function requireArg(value, usage) {
   if (!value) {
     const err = new Error(`Missing argument. ${usage}`);

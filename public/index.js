@@ -44,7 +44,7 @@ function connect() {
       ws.send(JSON.stringify({ type: "init", lang: window.Aperio.getCurrentLang() }));
     } else {
       setStatus("connected", t("status_reconnected"));
-      sendBtn.disabled = chatInput.value.trim() === "" || isThinking;
+      sendBtn.disabled = chatInput.value.trim() === "";
       const lang = window.Aperio.getCurrentLang();
       if (lang !== "en") ws.send(JSON.stringify({ type: "set_lang", lang }));
     }
@@ -193,6 +193,16 @@ const TOOL_LABEL_KEYS = {
   read_file:            "tool_read_file",
   scan_project:         "tool_scan_project",
   fetch_url:            "tool_fetch_url",
+  write_file:           "tool_write_file",
+  edit_file:            "tool_edit_file",
+  append_file:          "tool_append_file",
+  syntax_check:         "tool_syntax_check",
+  run_node_script:      "tool_run_node_script",
+  generate_xlsx:        "tool_generate_xlsx",
+  wiki_write:           "tool_wiki_write",
+  wiki_get:             "tool_wiki_get",
+  wiki_search:          "tool_wiki_search",
+  wiki_list:            "tool_wiki_list",
 };
 
 function addToolIndicator(name) {
@@ -230,7 +240,22 @@ function safeSend(data) {
 async function send() {
   const text = chatInput.value.trim();
   const files = window.attachedFiles || []; // Access the global array
-  if (!text && files.length === 0 || isThinking || !ws) return;
+  if ((!text && files.length === 0) || !ws) return;
+
+  // Sending while a response is still streaming interrupts it. Tear down the
+  // in-flight generation's UI locally (the server aborts the model call) and
+  // flag the message so the agent is told it was cut off.
+  const interrupting = isThinking;
+  if (interrupting) {
+    if (streamingBubble) { streamingBubble.wrap?.remove(); streamingBubble = null; streamingText = ""; }
+    if (reasoningBubble) {
+      if (reasoningBubble.statusSpan) reasoningBubble.statusSpan.style.animation = "none";
+      reasoningBubble = null;
+    }
+    removeThinking();
+    removeToolIndicator();
+    document.getElementById("preparing-answer")?.remove();
+  }
 
   // Prepare attachments payload
   const attachments = [];
@@ -263,7 +288,7 @@ async function send() {
     setStatus("thinking", t("status_thinking"));
     addThinking();
     const roundtable = typeof window.isRoundtableRequested === "function" && window.isRoundtableRequested();
-    safeSend(JSON.stringify({ type: "chat", text, attachments, roundtable }));
+    safeSend(JSON.stringify({ type: "chat", text, attachments, roundtable, interrupted: interrupting }));
   });
 }
 
@@ -290,7 +315,8 @@ chatInput.addEventListener("keydown", (e) => {
 
 chatInput.addEventListener("input", () => {
   autoResize();
-  sendBtn.disabled = chatInput.value.trim() === "" || isThinking;
+  // Stay enabled even while a response streams — sending interrupts it.
+  sendBtn.disabled = chatInput.value.trim() === "";
 });
 
 function autoResize() {
