@@ -23,7 +23,7 @@ optional external dependency is a running Ollama daemon (or a cloud API key).
 |---|---|---|
 | HTTP + WebSocket server | \`server.js\` | Entrypoint; mounts Express routes and WS handler |
 | REST API | \`lib/routes/api.js\` | \`/api/*\` — memories, wiki, sessions, status |
-| WebSocket handler | \`lib/ws/\` | Real-time chat; streams tokens to the browser |
+| WebSocket handler | \`lib/emitters/\` | Real-time chat; streams tokens to the browser (\`wsEmitter.js\`, \`handlers/wsHandler.js\`) |
 | MCP subprocess | \`mcp/\` | Tool execution (remember, recall, wiki_*) in a child process |
 | DB store | \`db/index.js\` | Resolves LanceDB vs Postgres; exposes a unified store interface |
 | Skills loader | \`skills/\` | Injects SKILL.md prompt fragments into the system message |
@@ -41,7 +41,7 @@ optional external dependency is a running Ollama daemon (or a cloud API key).
 
 - Default port: **31337** (set via \`PORT\` env)
 - DB data: \`.lancedb/\` (LanceDB) or Docker Postgres volume
-- Sessions: \`data/sessions/\`
+- Sessions: \`var/sessions/\`
 - Skills: \`skills/<name>/SKILL.md\`
 
 ## See Also
@@ -242,50 +242,76 @@ ROUNDTABLE_AGENTS=anthropic:claude-haiku-4-5-20251001,deepseek:deepseek-chat
     slug:    'mcp-tools',
     title:   'MCP Tools — Full Tool Surface',
     summary: 'All tools available to the LLM via the MCP subprocess: memory, wiki, files, shell, web, and image.',
-    tags:    ['mcp', 'tools', 'memory', 'wiki', 'files', 'shell'],
+    tags:    ['mcp', 'tools', 'memory', 'wiki', 'files', 'shell', 'image', 'web'],
     body_md: `
 ## How MCP Works in Aperio
 
-The MCP (Model Context Protocol) server runs as a **child process** spawned at startup.
-The main LLM agent calls tools via the MCP protocol; the subprocess executes them against
-the shared DB store and returns structured results. All tools receive a \`ctx\` object:
+The MCP (Model Context Protocol) server runs as a **child process** spawned at startup
+(\`lib/agent/index.js\` launches \`node mcp/index.js\` over a stdio transport). The main
+LLM agent calls tools via the MCP protocol; the subprocess executes them against the
+shared DB store and returns structured results. All tools receive a \`ctx\` object:
 \`{ store, generateEmbedding, agent }\`.
+
+Aperio currently registers **22 tools** across six tool files
+(\`mcp/index.js\` → \`registerMemory/Files/Web/Image/Shell/Wiki\`).
 
 ## Memory Tools (\`mcp/tools/memory.js\`)
 
 | Tool | Purpose |
 |---|---|
-| \`remember\` | Store a new memory. Fields: type, title, content, tags, importance, confidence, source. |
-| \`recall\` | Retrieve memories by query. Modes: auto (hybrid), semantic, fulltext. Returns ranked list. |
-| \`update_memory\` | Update an existing memory by id (tombstones old, inserts new). |
+| \`remember\` | Store a new memory. Auto-generates an embedding for semantic search. |
+| \`recall\` | Retrieve memories by query. Semantic when a query is given, falls back to full-text. |
+| \`update_memory\` | Update an existing memory by id (tombstones old, inserts new — history preserved). |
 | \`forget\` | Delete a memory by id. |
-| \`backfill_embeddings\` | Generate embeddings for memories that have zero vectors. |
-| \`deduplicate_memories\` | Find near-duplicate memories (cosine similarity ≥ threshold). |
+| \`backfill_embeddings\` | Generate embeddings for memories that don't have one yet. |
+| \`deduplicate_memories\` | Find near-duplicate memories by cosine similarity (dry_run=true reports; false merges). |
 
 ## Wiki Tools (\`mcp/tools/wiki.js\`)
 
 | Tool | Purpose |
 |---|---|
 | \`wiki_write\` | Create or update a wiki article. Upserts by slug; bumps revision. |
-| \`wiki_search\` | Hybrid FTS + semantic search over articles. Always call before wiki_write. |
-| \`wiki_list\` | Browse articles by tag/status/date. No query — for listing recent activity. |
-| \`wiki_get\` | Fetch a full article by slug, with optional stale-refresh. |
+| \`wiki_search\` | Hybrid FTS + semantic search over articles. Call before wiki_write. |
+| \`wiki_list\` | Browse articles newest-first by tag/status/updated_since. No query. |
+| \`wiki_get\` | Fetch a full article by slug; emits a breadcrumb and supports optional stale-refresh. |
 
 ## File Tools (\`mcp/tools/files.js\`)
 
-Handles file generation served via \`/public/exports/\`:
-
-- \`write_file\` — write text/code files
-- \`write_xlsx\` — generate Excel workbooks (multi-sheet, formatted)
-- \`write_pptx\` — generate PowerPoint presentations with theme selection
-
-## Other Tools
-
-| Tool file | Tools |
+| Tool | Purpose |
 |---|---|
-| \`mcp/tools/shell.js\` | \`run_shell_command\` — execute whitelisted shell commands |
-| \`mcp/tools/web.js\` | \`web_search\`, \`fetch_url\` — read external web content |
-| \`mcp/tools/image.js\` | \`describe_image\` — describe an image file or URL |
+| \`read_file\` | Read a code/text file from disk. Max 500 lines per call; paginate via \`offset\`. |
+| \`write_file\` | Create or overwrite a file (subject to the write-path guard). |
+| \`append_file\` | Append to the end of an existing file without touching the rest. |
+| \`edit_file\` | Replace an exact string in a file (\`replace_all\` for multiple occurrences). |
+| \`scan_project\` | Traverse a project folder — returns a file tree and reads key files. |
+| \`generate_xlsx\` | Generate a multi-sheet .xlsx workbook, served for download. |
+
+> PowerPoint generation is **not** a dedicated tool. The agent writes a script
+> (see \`skills/pptx/\`) and runs it via \`run_node_script\`.
+
+## Image Tools (\`mcp/tools/image.js\`)
+
+| Tool | Purpose |
+|---|---|
+| \`read_image\` | Load an image (file path or base64) so the model can see and analyse it. |
+| \`preprocess_image\` | Normalise an image to RGB PNG (letterboxed) before a local VLM call. |
+| \`describe_image\` | Send an image to a local Ollama vision model and return a text description. |
+
+## Shell Tools (\`mcp/tools/shell.js\`)
+
+| Tool | Purpose |
+|---|---|
+| \`run_node_script\` | Run a \`.js\` script located inside an allowed write path; returns its output. |
+| \`syntax_check\` | Check a JavaScript file for syntax errors without executing it. |
+
+> There is no general "run any shell command" tool. Execution is limited to Node.js
+> scripts under an allowed write path — the path guard still applies.
+
+## Web Tools (\`mcp/tools/web.js\`)
+
+| Tool | Purpose |
+|---|---|
+| \`fetch_url\` | Fetch a URL, strip HTML, truncate at 15,000 characters. |
 
 ## See Also
 
