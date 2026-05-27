@@ -1,25 +1,27 @@
-    /* ── Paths modal ─────────────────────────────────────────── */
+    /* ── Paths panel ─────────────────────────────────────────── */
+    /* Slide-in drawer from the right, consistent with the wiki/settings
+       panels. .paths-modal is the backdrop; .paths-modal-content is the
+       drawer pinned to the right edge. (Class names kept for the JS.) */
     .paths-modal {
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,.45);
+      background: rgba(0,0,0,.25);
       z-index: 300;
-      align-items: center;
-      justify-content: center;
+      align-items: stretch;
+      justify-content: flex-end;
     }
 
     .paths-modal-content {
-      background: var(--bg-panel);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow-lg);
-      width: 520px;
-      max-width: 92vw;
-      max-height: 88vh;
-      overflow-y: auto;
+      background: var(--bg);
+      border-left: 1px solid var(--border);
+      box-shadow: -4px 0 24px rgba(0,0,0,.12);
+      width: 420px;
+      max-width: 94vw;
+      height: 100vh;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      animation: fadeUp .15s ease;
+      animation: slideInRight .18s ease;
     }
 
     .paths-modal-header {
@@ -61,6 +63,7 @@
       flex-direction: column;
       gap: 16px;
       flex: 1;
+      overflow-y: auto;
     }
 
     .paths-section {

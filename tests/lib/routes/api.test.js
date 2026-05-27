@@ -180,3 +180,68 @@ describe("GET /memories", () => {
   });
 });
 
+// ─── Settings ───────────────────────────────────────────────────────────────
+
+describe("settings routes", () => {
+  /** A router wired to an in-memory settings map. */
+  function settingsRouter(initial = {}) {
+    const data = { ...initial };
+    return makeRouter({
+      store: {
+        getSettings:   async () => ({ ...data }),
+        getSetting:    async (k) => (k in data ? data[k] : null),
+        setSetting:    async (k, v) => { data[k] = v; return v; },
+        deleteSetting: async (k) => { const had = k in data; delete data[k]; return had; },
+      },
+    });
+  }
+
+  test("GET /settings returns the full map", async () => {
+    const router = settingsRouter({ theme: "dark", sound: false });
+    const { status, body } = await invoke(router, "GET", "/settings");
+    assert.strictEqual(status, 200);
+    assert.deepStrictEqual(body, { theme: "dark", sound: false });
+  });
+
+  test("GET /settings/:key returns value:null for an unset key", async () => {
+    const router = settingsRouter();
+    const { status, body } = await invoke(router, "GET", "/settings/theme");
+    assert.strictEqual(status, 200);
+    assert.deepStrictEqual(body, { key: "theme", value: null });
+  });
+
+  test("PUT /settings/:key upserts and echoes the value", async () => {
+    const router = settingsRouter();
+    const { status, body } = await invoke(router, "PUT", "/settings/theme", { body: { value: "aurora" } });
+    assert.strictEqual(status, 200);
+    assert.deepStrictEqual(body, { ok: true, key: "theme", value: "aurora" });
+  });
+
+  test("PUT /settings/:key accepts falsey values (false)", async () => {
+    const router = settingsRouter();
+    const { status, body } = await invoke(router, "PUT", "/settings/sound", { body: { value: false } });
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.value, false);
+  });
+
+  test("PUT /settings/:key rejects a body with no value field", async () => {
+    const router = settingsRouter();
+    const { status, body } = await invoke(router, "PUT", "/settings/theme", { body: {} });
+    assert.strictEqual(status, 400);
+    assert.ok(/value/.test(body.error));
+  });
+
+  test("DELETE /settings/:key returns 404 when the key is absent", async () => {
+    const router = settingsRouter();
+    const { status } = await invoke(router, "DELETE", "/settings/theme");
+    assert.strictEqual(status, 404);
+  });
+
+  test("DELETE /settings/:key returns ok when the key existed", async () => {
+    const router = settingsRouter({ theme: "dark" });
+    const { status, body } = await invoke(router, "DELETE", "/settings/theme");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.ok, true);
+  });
+});
+

@@ -47,25 +47,21 @@
     window.speechSynthesis.cancel();
   }
 
+  // Voice responses on/off. The UI control lives in the Settings panel
+  // (settings-panel.js reflects this state); here we just track + persist it.
   function toggle() {
     enabled = !enabled;
-    localStorage.setItem('aperio-tts', enabled ? 'true' : 'false');
+    window.Aperio?.settings?.set('aperio-tts', enabled ? 'true' : 'false');
     if (!enabled) window.speechSynthesis.cancel();
-    updateBtn();
   }
-
-  function updateBtn() {
-    const btn = document.getElementById('ttsToggle');
-    const lbl = document.getElementById('ttsToggleLabel');
-    if (!btn) return;
-    btn.style.opacity = enabled ? '1' : '0.45';
-    btn.style.color   = enabled ? 'var(--text)' : 'var(--text-muted)';
-    if (lbl) lbl.textContent = enabled ? 'on' : 'off';
-    btn.title = enabled ? 'Voice responses on — click to mute' : 'Voice responses off — click to enable';
-  }
-
-  window.addEventListener('DOMContentLoaded', updateBtn);
 
   window.Aperio = window.Aperio || {};
   window.Aperio.tts = { speak, stop, toggle };
+
+  // Adopt a server value picked up at boot (settings.js has already written it
+  // to localStorage before calling this).
+  window.Aperio.settings?.register('aperio-tts', (val) => {
+    enabled = val === 'true';
+    if (!enabled) window.speechSynthesis.cancel();
+  });
 })();

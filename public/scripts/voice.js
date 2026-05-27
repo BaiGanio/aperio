@@ -168,7 +168,7 @@ function buildRecognition() {
     chip.addEventListener('click', (e) => {
       e.stopPropagation();
       continuousMode = !continuousMode;
-      localStorage.setItem('aperio-voice-continuous', continuousMode ? 'true' : 'false');
+      window.Aperio?.settings?.set('aperio-voice-continuous', continuousMode ? 'true' : 'false');
       updateChip();
       if (continuousMode && !isListening) {
         startListening();
@@ -205,4 +205,11 @@ function buildRecognition() {
 
   window.Aperio = window.Aperio || {};
   window.Aperio.voice = { onStreamEnd, onTtsEnd };
+
+  // Adopt a server value picked up at boot.
+  window.Aperio.settings?.register('aperio-voice-continuous', (val) => {
+    continuousMode = val === 'true';
+    updateChip();
+    if (!continuousMode) _pendingRestart = false;
+  });
 })();

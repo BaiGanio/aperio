@@ -831,7 +831,7 @@ function _annotateTokenBadges(inputTok, thinkTok) {
 
 function toggleReasoning() {
   const cur = localStorage.getItem("aperio-reasoning") !== "false";
-  localStorage.setItem("aperio-reasoning", cur ? "false" : "true");
+  window.Aperio?.settings?.set("aperio-reasoning", cur ? "false" : "true");
   updateReasoningBtn();
 }
 
@@ -845,6 +845,9 @@ function updateReasoningBtn() {
   if (lbl) lbl.textContent = on ? "on" : "off";
   btn.title = on ? "Disable reasoning" : "Enable reasoning";
 }
+
+// Adopt a server value picked up at boot (localStorage already synced).
+window.Aperio?.settings?.register("aperio-reasoning", updateReasoningBtn);
 
 window.addEventListener("DOMContentLoaded", updateReasoningBtn);
 
