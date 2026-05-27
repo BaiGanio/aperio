@@ -492,6 +492,30 @@ Additionally, `read_file` enforces:
 - **Size cap** — files larger than 500 KB are rejected
 - **Pagination** — reads at most 500 lines per call; use the `offset` parameter to page through larger files
 
+### Shell Execution (`run_shell`)
+
+By default the model can only execute `.js` files (the `run_node_script` tool). The optional `run_shell` tool widens this to a fixed allow-list of real binaries — used for QA steps that need them, such as pptx visual QA (`soffice` → `pdftoppm`) or grepping extracted text for leftover placeholders. It is **off by default** and gated by two environment variables:
+
+```env
+# Master switch — enables run_shell at all. When unset, the tool refuses every call.
+APERIO_ENABLE_SHELL=1
+
+# Opt-in for LOCAL Ollama models. Cloud providers (Anthropic/Gemini/DeepSeek) get
+# run_shell as soon as the master switch is on; local models stay node-only unless
+# you also set this, since smaller local models are prone to tool-call thrashing.
+APERIO_SHELL_LOCAL=1
+```
+
+Constraints, enforced in `mcp/tools/shell.js`:
+
+| Guard | Behavior |
+|-------|----------|
+| Allow-list | Only `node, npm, git, ls, cat, grep, rg, find, head, tail, python3, soffice, pdftoppm` run |
+| Operators | `;`, `&&`, `\|\|`, `&`, `<`, `>`, backticks, `$()` are rejected; a single `\|` pipe is permitted |
+| Working dir | Commands run in the active session workspace (or an explicit `cwd` within an allowed write path) |
+| Limits | 60 s timeout, 200 KB output cap (shared with `run_node_script`) |
+| Per-model gate | Disabled providers/models never see the tool at all (see `isShellAllowedFor` in `lib/agent/index.js`) |
+
 📄 Take a notes:
 - Only run Aperio on a machine you trust
 - Do not expose the MCP server or web UI to the public internet without authentication

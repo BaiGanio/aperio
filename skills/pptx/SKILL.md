@@ -17,7 +17,7 @@ metadata:
 | Read/analyze content | `node scripts/read.js presentation.pptx` |
 | Edit or create from template | Read [editing.md](editing.md) |
 | Create from scratch | Read [pptxgenjs.md](pptxgenjs.md) |
-| Apply styling | Use the **theme-factory** skill |
+| **Pick styling (required)** | Show swatches via **theme-factory** and confirm before building |
 | **Verify output (required)** | `node scripts/verify.js output.pptx` |
 
 ---
@@ -52,7 +52,17 @@ node scripts/unpack.js presentation.pptx unpacked/
 
 Use when no template or reference presentation is available.
 
-Before writing code, consider using the **theme-factory** skill to pick a color palette and font pairing. Apply the chosen theme's hex codes and fonts throughout the deck via PptxGenJS.
+**Pick the theme with the user before writing code (required).** Do not silently choose your own colors, and do **not** just list palette names or hex codes as text — the user must *see* the actual colors. The **theme-factory** skill (its `themes/` directory) is the single source of truth for available themes. Use its show-and-confirm flow:
+
+1. **Render the swatch image into this session's workspace** so the chat can display it. Run, via `run_node_script`:
+   `node skills/theme-factory/scripts/swatches.js <session-workspace>/swatches.png`
+   (substitute the absolute session workspace path given under "Session workspace"). The script writes a PNG showing every theme's real colors and prints its path.
+2. **Display the swatch image inline** by emitting a markdown image pointing at the `/scratch` URL for that file, e.g. `![Theme swatches](/scratch/<session-id>/swatches.png)`. This renders the colors in the chat. (A plain text list is not acceptable.)
+3. **Ask which theme to apply** and recommend one that fits the topic (e.g. *Midnight Galaxy* or *Tech Innovation* for a dark, premium deck).
+4. **Wait for the user's choice** before generating any slides.
+5. Read the chosen theme's file from `skills/theme-factory/themes/` and apply its hex codes and fonts throughout the deck via PptxGenJS.
+
+**Only skip the swatch step when** the user already gave specific colors or brand hex codes — in that case state the palette you'll use and proceed. If none of the presets fit, generate a custom theme, show it for review, and apply it once confirmed.
 
 ---
 
@@ -69,20 +79,7 @@ Before writing code, consider using the **theme-factory** skill to pick a color 
 
 ### Color Palettes
 
-Choose colors that match your topic — don't default to generic blue. Use these palettes as inspiration:
-
-| Theme | Primary | Secondary | Accent |
-|-------|---------|-----------|--------|
-| **Midnight Executive** | `1E2761` (navy) | `CADCFC` (ice blue) | `FFFFFF` (white) |
-| **Forest & Moss** | `2C5F2D` (forest) | `97BC62` (moss) | `F5F5F5` (cream) |
-| **Coral Energy** | `F96167` (coral) | `F9E795` (gold) | `2F3C7E` (navy) |
-| **Warm Terracotta** | `B85042` (terracotta) | `E7E8D1` (sand) | `A7BEAE` (sage) |
-| **Ocean Gradient** | `065A82` (deep blue) | `1C7293` (teal) | `21295C` (midnight) |
-| **Charcoal Minimal** | `36454F` (charcoal) | `F2F2F2` (off-white) | `212121` (black) |
-| **Teal Trust** | `028090` (teal) | `00A896` (seafoam) | `02C39A` (mint) |
-| **Berry & Cream** | `6D2E46` (berry) | `A26769` (dusty rose) | `ECE2D0` (cream) |
-| **Sage Calm** | `84B59F` (sage) | `69A297` (eucalyptus) | `50808E` (slate) |
-| **Cherry Bold** | `990011` (cherry) | `FCF6F5` (off-white) | `2F3C7E` (navy) |
+Don't pick colors here from memory or default to generic blue. The themes live in the **theme-factory** skill (`skills/theme-factory/themes/`) — that is the source of truth. Follow the swatch show-and-confirm flow in [Creating from Scratch](#creating-from-scratch) to surface the real colors to the user and apply the chosen theme. Only invent a custom palette when no preset fits, and even then show it for review first.
 
 ### For Each Slide
 
@@ -150,7 +147,7 @@ Choose colors that match your topic — don't default to generic blue. Use these
 
 **Assume there are problems. Your job is to find them.**
 
-QA has two layers. **Always required** (pure Node, works on every OS): `verify.js` (structural gate) + `read.js` (content check). **When available** (needs LibreOffice + poppler): the visual render pass. Never block declaring success on the visual pass when those binaries are absent.
+QA has two layers. **Always required** (pure Node, works on every OS): `verify.js` (structural gate) + `read.js` (content check). **When available** (needs LibreOffice + poppler, run via `run_shell`): the visual render pass. Never block declaring success on the visual pass when those binaries are absent.
 
 Your first render is almost never correct. Approach QA as a bug hunt, not a confirmation step. If you found zero issues on first inspection, you weren't looking hard enough.
 
@@ -170,6 +167,8 @@ What to require before claiming success:
 
 If any of these checks fail, fix the underlying problem and rerun — never paper over it with a generic "Done!" message.
 
+**Presenting the result:** when the deck lives in the session workspace, the app automatically shows a download button for it — do **not** tell the user to "download from the scratch folder" or navigate the filesystem. Just confirm the deck is ready; the download card handles the rest.
+
 All skill scripts now print a `PPTX_ERROR:{...}` JSON line on stderr when they crash. Read it; it contains the failing script, the error message, the error code, and the stack.
 
 
@@ -181,17 +180,17 @@ node scripts/read.js output.pptx
 
 Check for missing content, typos, wrong order.
 
-**When using templates, check for leftover placeholder text:**
+**When using templates, check for leftover placeholder text.** With `run_shell` enabled you can pipe the extracted text straight through grep (use the absolute path to `read.js`; the deck is resolved relative to the session workspace cwd):
 
 ```bash
-node scripts/read.js output.pptx | grep -iE "xxxx|lorem|ipsum|this.*(page|slide).*layout"
+node /absolute/path/to/skills/pptx/scripts/read.js output.pptx | grep -iE "xxxx|lorem|ipsum|this.*(page|slide).*layout"
 ```
 
-If grep returns results, fix them before declaring success.
+If grep returns results, fix them before declaring success. (If `run_shell` is disabled, run `read.js` via `run_node_script` and scan the output yourself.)
 
 ### Visual QA (when available)
 
-Visual QA renders the deck to images via LibreOffice (`soffice`) + poppler (`pdftoppm`). These are **optional system dependencies** — not every machine has them. If `node scripts/thumbnail.js` or `node scripts/soffice.js` prints a `skipped` marker (`"skipped":true`, exit 0), visual QA is unavailable on this machine. That is **not a failure**: the deck was still generated and structurally verified. Report it to the user as "visual QA skipped — LibreOffice not installed" (the marker carries the install command) and treat the pure-Node `verify.js` + `read.js` checks as your QA. Then stop — do not retry the render.
+Visual QA renders the deck to images via LibreOffice (`soffice`) + poppler (`pdftoppm`), run through `run_shell`. These are **optional system dependencies** — not every machine has them. If `node scripts/thumbnail.js` prints a `skipped` marker (`"skipped":true`, exit 0), or `run_shell` reports the binary was **not found** (`⚠️ Command not found`), visual QA is unavailable on this machine. That is **not a failure**: the deck was still generated and structurally verified. Report it to the user as "visual QA skipped — LibreOffice not installed" and treat the pure-Node `verify.js` + `read.js` checks as your QA. Then stop — do not retry the render.
 
 When the binaries **are** present, do the full visual pass below.
 
@@ -239,10 +238,10 @@ Report ALL issues found, including minor ones.
 
 ## Converting to Images
 
-Convert presentations to individual slide images for visual inspection. **Requires the optional LibreOffice + poppler binaries** — if `soffice.js` emits a `"skipped":true` marker, these aren't installed; skip visual QA (see [Visual QA](#visual-qa-when-available)).
+Convert presentations to individual slide images for visual inspection, using `run_shell` (one command per call). **Requires the optional LibreOffice + poppler binaries** — if either command returns `⚠️ Command not found`, they aren't installed; skip visual QA (see [Visual QA](#visual-qa-when-available)).
 
 ```bash
-node scripts/soffice.js --headless --convert-to pdf output.pptx
+soffice --headless --convert-to pdf output.pptx
 pdftoppm -jpeg -r 150 output.pdf slide
 ```
 
@@ -270,7 +269,7 @@ All Node.js packages are in the project's `package.json` (already installed) —
 Optional packages (install with `npm install <pkg>` from the Aperio root if a deck actually needs them — don't add them speculatively):
 - `react`, `react-dom`, `react-icons` — only needed for the icon-rendering path
 
-**Optional system CLIs — only needed for the visual QA render pass.** Generation, `verify.js`, and `read.js` work without them. If absent, the render scripts emit a `"skipped":true` marker and exit 0 (not a failure) — report visual QA as skipped and rely on the pure-Node checks.
+**Optional system CLIs — only needed for the visual QA render pass, invoked via `run_shell`.** Generation, `verify.js`, and `read.js` work without them. If absent, `run_shell` returns `⚠️ Command not found` (and `thumbnail.js` emits a `"skipped":true` marker) — not a failure; report visual QA as skipped and rely on the pure-Node checks.
 
 | Binary | macOS | Debian/Ubuntu | Windows |
 |--------|-------|---------------|---------|

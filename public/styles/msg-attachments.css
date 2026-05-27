@@ -35,9 +35,10 @@
   font-size: 12px;
   font-weight: 500;
   color: var(--text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  /* Show the full name + extension — wrap rather than truncate with an ellipsis. */
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 .gfc-meta {
   font-size: 10px;

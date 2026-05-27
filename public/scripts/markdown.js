@@ -30,6 +30,10 @@ function renderMarkdown(text) {
     .replace(/`([^`\n]+)`/g, "<code>$1</code>")
     .replace(/\*\*([^\n*]+?)\*\*/g, "<strong>$1</strong>")
     .replace(/(?<!\*)\*([^\n*]+?)\*(?!\*)/g, "<em>$1</em>")
+    // Inline images: ![alt](src). src is allowlisted to local generated-file
+    // routes and https to keep the innerHTML injection safe (no javascript:/data:).
+    .replace(/!\[([^\]]*)\]\((\/(?:scratch|uploads)\/[^)\s]+|https:\/\/[^)\s]+)\)/g,
+      (_, alt, src) => `<img class="chat-image" src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" loading="lazy">`)
     .replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 
   const lines = text.split("\n");
