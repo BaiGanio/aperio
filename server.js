@@ -275,6 +275,11 @@ async function bootApp() {
   const roundtableAgents = parseRoundtableAgents(process.env.ROUNDTABLE_AGENTS);
   const primaryRtConfig  = roundtableAgents[0] ?? null;
   const verifierConfig   = roundtableAgents[1] ?? null;
+  // Optional domain-character overlays, e.g. ROUNDTABLE_CHARACTERS="space-engineer,doctor".
+  // Maps positionally onto the two agents; missing entries leave that agent
+  // character-less (protocol role only). Slugs resolve to id/characters/<slug>.md.
+  const roundtableCharacters = (process.env.ROUNDTABLE_CHARACTERS || "")
+    .split(",").map(s => s.trim()).filter(Boolean);
 
   let primaryRoundtable = null;
   let verifier = null;
@@ -286,6 +291,7 @@ async function bootApp() {
         clientName: "aperio-server-rt-primary",
         providerConfig: primaryRtConfig,
         persona: "primary",
+        character: roundtableCharacters[0] ?? null,
       });
       verifier = await createAgent({
         root: __dirname,
@@ -293,8 +299,10 @@ async function bootApp() {
         clientName: "aperio-server-rt-verifier",
         providerConfig: verifierConfig,
         persona: "verifier",
+        character: roundtableCharacters[1] ?? null,
       });
-      logger.info(`🤝 Round-table: primary = ${primaryRoundtable.provider.name} (${primaryRoundtable.provider.model}), verifier = ${verifier.provider.name} (${verifier.provider.model})`);
+      const charTag = (a) => a.character ? ` as "${a.character}"` : "";
+      logger.info(`🤝 Round-table: primary = ${primaryRoundtable.provider.name} (${primaryRoundtable.provider.model})${charTag(primaryRoundtable)}, verifier = ${verifier.provider.name} (${verifier.provider.model})${charTag(verifier)}`);
     } catch (err) {
       logger.error(`⚠️  Could not boot round-table agents — Discuss toggle disabled:`, err.message);
       primaryRoundtable = null;
