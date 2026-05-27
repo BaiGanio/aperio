@@ -260,7 +260,7 @@ pdftoppm -jpeg -r 150 -f N -l N output.pdf slide-fixed
 
 All Node.js packages are in the project's `package.json` (already installed) — import them by bare specifier (`import PptxGenJS from "pptxgenjs"`). Do not attempt to `npm install` from a generated script; resolution walks up from the script's directory to `aperio/node_modules`, so bare imports just work.
 
-**Critical**: write generator scripts **inside** a writable Aperio location (`trash/` or `skills/pptx/scratch/`). A script in `/tmp/` or any other location outside the project will fail with `ERR_MODULE_NOT_FOUND: Cannot find package 'pptxgenjs'` because Node's module resolution cannot reach `aperio/node_modules` from there. Write the output `.pptx` wherever you want, but keep the `.js` generator under the project root.
+**Critical**: write generator scripts and the output `.pptx` **inside this session's scratch workspace** — its absolute path is given in the system prompt under "Session workspace" (`var/scratch/<session-id>/`). Files written there are retained with the session and cleaned up automatically when it expires. If no session workspace was provided (e.g. CLI usage), fall back to `skills/pptx/scratch/`. Either way the location must be **under the project root** — a script in `/tmp/` or anywhere outside it will fail with `ERR_MODULE_NOT_FOUND: Cannot find package 'pptxgenjs'` because Node's module resolution cannot reach `aperio/node_modules` from there.
 
 - `pptxgenjs` — creating decks from scratch
 - `adm-zip` — ZIP unpack/pack

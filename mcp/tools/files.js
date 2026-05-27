@@ -9,6 +9,7 @@ import {
   isReadPathAllowed,
   isWritePathAllowed,
   getActivePaths,
+  getActiveScratchDir,
 } from "../../lib/routes/paths.js";
 
 const __filesDirname = dirname(fileURLToPath(import.meta.url));
@@ -201,12 +202,18 @@ export async function editFileHandler(ctx, { path: filePath, old_string, new_str
 
 export async function generateXlsxHandler({ filename, sheets }) {
   try {
-    await fs.mkdir(UPLOADS_DIR, { recursive: true });
+    // Write into the session scratch workspace when one is active (so the file
+    // is pruned with the session); fall back to var/uploads outside a session
+    // context (e.g. CLI). The matching static mount serves each location.
+    const scratchDir = getActiveScratchDir();
+    const outDir     = scratchDir ?? UPLOADS_DIR;
+    const urlBase    = scratchDir ? `/scratch/${basename(scratchDir)}` : "/uploads";
+    await fs.mkdir(outDir, { recursive: true });
 
     const safeName  = basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
     const outName   = `${uuidv4().slice(0, 8)}-${safeName.endsWith(".xlsx") ? safeName : safeName + ".xlsx"}`;
-    const outPath   = join(UPLOADS_DIR, outName);
-    const publicUrl = `/uploads/${outName}`;
+    const outPath   = join(outDir, outName);
+    const publicUrl = `${urlBase}/${outName}`;
 
     const wb = new ExcelJS.Workbook();
 
