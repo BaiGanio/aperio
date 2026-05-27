@@ -119,25 +119,11 @@
         <i class="bi bi-book sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Wiki</span>
       </button>
-      <button id="ttsToggle" class="sidebar-nav-btn" onclick="window.Aperio?.tts?.toggle()"
-        title="Voice responses off — click to enable" style="opacity:0.45;color:var(--text-muted);">
-        <i class="bi bi-volume-up sidebar-nav-icon"></i>
-        <span class="sidebar-nav-label">Sound</span>
-        <span class="sidebar-nav-state" id="ttsToggleLabel">off</span>
+      <button id="settingsBtn" class="sidebar-nav-btn" onclick="toggleSettingsPanel()"
+        data-i18n-attr-title="nav_settings_title" title="Settings">
+        <i class="bi bi-sliders sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_settings_plain">Settings</span>
       </button>
-
-      <div class="sidebar-nav-theme">
-        <span class="sidebar-nav-theme-label">
-          <i class="bi bi-circle-half sidebar-nav-icon"></i>
-          <span class="sidebar-nav-label" data-i18n="nav_theme_title">Theme</span>
-        </span>
-        <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
-          <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">☀️</button>
-          <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">🌙</button>
-          <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">✦</button>
-          <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">⊙</button>
-        </div>
-      </div>
     </nav>
 
     <div class="sidebar-footer">
@@ -301,7 +287,40 @@
 </div>
 <div id="wiki-backdrop" class="wiki-backdrop" style="display:none;" onclick="toggleWikiPanel()"></div>
 
-<!-- Paths configuration modal -->
+<!-- Settings panel -->
+<div id="settings-panel" class="settings-panel" style="display:none;">
+  <div class="settings-panel-header">
+    <span class="settings-panel-title"><i class="bi bi-sliders"></i> <span data-i18n="nav_settings_title">Settings</span></span>
+    <button class="settings-panel-close" onclick="toggleSettingsPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="settings-panel-body">
+    <div class="settings-row">
+      <span class="settings-row-label">
+        <i class="bi bi-circle-half"></i>
+        <span data-i18n="nav_theme_title">Theme</span>
+      </span>
+      <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
+        <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">☀️</button>
+        <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">🌙</button>
+        <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">✦</button>
+        <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">⊙</button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <span class="settings-row-label">
+        <i class="bi bi-volume-up"></i>
+        <span data-i18n="nav_sound_title">Voice responses</span>
+      </span>
+      <label class="switch">
+        <input type="checkbox" id="settingsSoundToggle" />
+        <span class="switch-track"></span>
+      </label>
+    </div>
+  </div>
+</div>
+<div id="settings-backdrop" class="settings-backdrop" style="display:none;" onclick="toggleSettingsPanel()"></div>
+
+<!-- Paths configuration panel (right drawer) -->
 <div id="paths-modal" class="paths-modal" style="display:none;">
   <div class="paths-modal-content">
     <div class="paths-modal-header">
@@ -351,6 +370,7 @@
 <input type="file" id="read-folder-input" webkitdirectory hidden>
 <input type="file" id="write-folder-input" webkitdirectory hidden>
 
+<script src="scripts/settings.js"></script>
 <script src="scripts/api.js"></script>
 <script src="scripts/input-bar.js"></script>
 <script src="scripts/voice.js"></script>
@@ -362,6 +382,7 @@
 <script src="scripts/sessions.js"></script>
 <script src="scripts/paths-panel.js"></script>
 <script src="scripts/wiki-panel.js"></script>
+<script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
 <script src="index.js"></script>
 </body>

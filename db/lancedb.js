@@ -683,6 +683,45 @@ export class LanceDBStore {
     return true;
   }
 
+  // ── Settings (key/value preferences) ──────────────────────────────────────
+  // Stored as a flat JSON file in DB_PATH, same pattern as pins.json. KV
+  // preferences don't belong in a vector table.
+
+  _settingsPath() { return path.join(DB_PATH, 'settings.json'); }
+
+  _loadSettings() {
+    try { return JSON.parse(fs.readFileSync(this._settingsPath(), 'utf8')); }
+    catch { return {}; }
+  }
+
+  _saveSettings(obj) {
+    fs.writeFileSync(this._settingsPath(), JSON.stringify(obj, null, 2));
+  }
+
+  async getSetting(key) {
+    const all = this._loadSettings();
+    return key in all ? all[key] : null;
+  }
+
+  async setSetting(key, value) {
+    const all = this._loadSettings();
+    all[key] = value;
+    this._saveSettings(all);
+    return value;
+  }
+
+  async getSettings() {
+    return this._loadSettings();
+  }
+
+  async deleteSetting(key) {
+    const all = this._loadSettings();
+    if (!(key in all)) return false;
+    delete all[key];
+    this._saveSettings(all);
+    return true;
+  }
+
   async setExpiry(id, expiresAt) {
     let row = this.cache.find(r => r.id === id && !r.valid_until);
     if (!row) {

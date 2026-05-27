@@ -22,11 +22,18 @@ export function makeMockStore({
   setEmbeddingFn = null,
 } = {}) {
   const setEmbeddingCalls = [];
+  const settings = {};
 
   return {
     counts() {
       return counts;
     },
+
+    // ── Settings (key/value preferences) ─────────────────────────────────────
+    async getSetting(key)        { return key in settings ? settings[key] : null; },
+    async setSetting(key, value) { settings[key] = value; return value; },
+    async getSettings()          { return { ...settings }; },
+    async deleteSetting(key)     { const had = key in settings; delete settings[key]; return had; },
 
     listWithoutEmbeddings() {
       return withoutEmbeddings;

@@ -381,6 +381,39 @@ export class PostgresStore {
     return rows[0]?.title ?? null;
   }
 
+  // ── Settings (key/value preferences) ──────────────────────────────────────
+  // value is JSONB; pg parses it back to a JS value on read.
+
+  async getSetting(key) {
+    const { rows } = await this.pool.query(
+      `SELECT value FROM settings WHERE key = $1`, [key]
+    );
+    return rows.length ? rows[0].value : null;
+  }
+
+  async setSetting(key, value) {
+    await this.pool.query(
+      `INSERT INTO settings (key, value, updated_at)
+         VALUES ($1, $2::jsonb, now())
+       ON CONFLICT (key) DO UPDATE
+         SET value = EXCLUDED.value, updated_at = now()`,
+      [key, JSON.stringify(value)]
+    );
+    return value;
+  }
+
+  async getSettings() {
+    const { rows } = await this.pool.query(`SELECT key, value FROM settings`);
+    return Object.fromEntries(rows.map(r => [r.key, r.value]));
+  }
+
+  async deleteSetting(key) {
+    const { rows } = await this.pool.query(
+      `DELETE FROM settings WHERE key = $1 RETURNING key`, [key]
+    );
+    return rows.length > 0;
+  }
+
   async close() {
     await this.pool.end();
   }

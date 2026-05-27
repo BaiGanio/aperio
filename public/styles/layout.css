@@ -4,12 +4,15 @@
       align-items: center;
       gap: 2px;
       flex-shrink: 0;
+      padding: 3px;
+      background: var(--bg-hover);
+      border-radius: 9px;
     }
 
     .theme-btn {
-      width: 26px; height: 26px;
-      border-radius: 50%;
-      border: 2px solid transparent;
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      border: none;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
       font-size: 12px;
@@ -19,16 +22,15 @@
       position: relative;
     }
 
-    .theme-btn:hover { background: var(--bg-panel); color: var(--text); }
+    .theme-btn:hover { color: var(--text); }
 
     .theme-btn.active {
-      border-color: var(--accent);
       background: var(--bg-panel);
       color: var(--accent);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
     }
 
     .theme-btn[data-theme="aurora"].active {
-      border-color: #a855f7;
       color: #a855f7;
     }
 
@@ -234,34 +236,6 @@
 
     .sidebar-nav-label { flex: 1; text-align: left; }
 
-    .sidebar-nav-state {
-      font-family: var(--font-mono);
-      font-size: 9px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      opacity: 0.7;
-    }
-
-    /* Theme row — labeled like the other nav items, switch on the right */
-    .sidebar-nav-theme {
-      display: flex;
-      align-items: center;
-      gap: 11px;
-      padding: 4px 10px 2px;
-      margin-top: 2px;
-    }
-    .sidebar-nav-theme-label {
-      display: flex;
-      align-items: center;
-      gap: 11px;
-      flex: 1;
-      color: var(--text-muted);
-      font-family: var(--font-sans, inherit);
-      font-size: 12.5px;
-      font-weight: 500;
-    }
-
     /* ── Sidebar ─────────────────────────────────────────────── */
     .sidebar {
       background: var(--bg-panel);
@@ -273,7 +247,7 @@
     }
 
     /* Collapsed = narrow icon rail: hide the memory-browsing area,
-       keep the nav icons + theme toggle reachable. */
+       keep the nav icons reachable. */
     .app.sidebar-collapsed .sidebar-header,
     .app.sidebar-collapsed .memories-list,
     .app.sidebar-collapsed .sidebar-footer {
@@ -294,19 +268,8 @@
       height: 40px;
       margin: 0 auto;
     }
-    .app.sidebar-collapsed .sidebar-nav-label,
-    .app.sidebar-collapsed .sidebar-nav-state {
+    .app.sidebar-collapsed .sidebar-nav-label {
       display: none;
-    }
-    .app.sidebar-collapsed .sidebar-nav-theme {
-      flex-direction: column;
-      gap: 6px;
-      padding: 8px 0 0;
-    }
-    .app.sidebar-collapsed .sidebar-nav-theme-label { display: none; }
-    .app.sidebar-collapsed .theme-switcher {
-      flex-direction: column;
-      gap: 4px;
     }
 
     /* Toggle button — sits in header */

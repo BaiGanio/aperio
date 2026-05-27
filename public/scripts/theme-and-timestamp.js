@@ -2,20 +2,25 @@
 const THEMES = ["light", "dark", "aurora", "system"];
 let currentTheme = localStorage.getItem("aperio-theme") || "system";
 
+// DOM-only — does not persist, so it's safe to call at boot and from the
+// settings boot-sync. Persistence happens in the click handler below.
 function applyTheme(theme) {
   document.documentElement.setAttribute("data-theme", theme);
   document.querySelectorAll(".theme-btn").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.theme === theme);
   });
   currentTheme = theme;
-  localStorage.setItem("aperio-theme", theme);
 }
 
 document.querySelectorAll(".theme-btn").forEach(btn => {
-  btn.addEventListener("click", () => applyTheme(btn.dataset.theme));
+  btn.addEventListener("click", () => {
+    applyTheme(btn.dataset.theme);
+    window.Aperio?.settings?.set("aperio-theme", btn.dataset.theme);
+  });
 });
 
 applyTheme(currentTheme);
+window.Aperio?.settings?.register("aperio-theme", applyTheme);
 
 // ── Update timestamps every 30s ────────────────────────────────
 setInterval(() => {
