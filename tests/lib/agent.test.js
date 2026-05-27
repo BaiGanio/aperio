@@ -781,6 +781,17 @@ describe("Provider resolution - DeepSeek", () => {
     assert.strictEqual(p.vision, false);
     assert.strictEqual(p.ollamaBaseURL, null);
   });
+
+  test("enables vision only for deepseek-v4-pro, not flash", () => {
+    process.env.AI_PROVIDER = "deepseek";
+    process.env.DEEPSEEK_API_KEY = "sk-test";
+
+    process.env.DEEPSEEK_MODEL = "deepseek-v4-pro";
+    assert.strictEqual(resolveProvider().vision, true);
+
+    process.env.DEEPSEEK_MODEL = "deepseek-v4-flash";
+    assert.strictEqual(resolveProvider().vision, false);
+  });
 });
 
 // ---------------------------------------------------------------------------
