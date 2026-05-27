@@ -46,6 +46,10 @@ const getBootstrapMeta = () => {
   catch { return null; }
 };
 
+// Flipped once the wizard posts a config and bootstrap begins. Lets a
+// mid-bootstrap page refresh skip the wizard and resume the progress view.
+let bootstrapStarted = false;
+
 // ─── Port: free it before we try to bind ─────────────────────────────────────
 await ensurePort(PORT);
 
@@ -140,6 +144,7 @@ app.use((req, res, next) => {
   const bypass =
     req.path.startsWith("/setup") ||
     req.path.startsWith("/api/bootstrap") ||
+    req.path.startsWith("/api/setup") ||
     req.path === "/favicon.ico";
 
   if (bypass) return next();
@@ -170,9 +175,52 @@ app.get("/api/locale", (req, res) => {
 app.get("/api/bootstrap/state", (_req, res) => {
   res.json({
     bootstrapped: isBootstrapped(),
+    started: bootstrapStarted,
     meta:  getBootstrapMeta(),
     steps: STEPS.map(s => ({ ...s, status: stepState[s.id] })),
   });
+});
+
+// ─── Setup wizard: machine specs + model recommendation ──────────────────────
+app.get("/api/setup/specs", async (_req, res) => {
+  try {
+    const { getSpecs } = await import("./lib/helpers/specs.js");
+    res.json(getSpecs());
+  } catch (err) {
+    logger.error("specs failed:", err);
+    res.status(500).json({ error: "specs_failed" });
+  }
+});
+
+// ─── Setup wizard: persist choice → write .env → start bootstrap ─────────────
+app.post("/api/setup/config", async (req, res) => {
+  if (isBootstrapped() || bootstrapStarted) {
+    return res.status(409).json({ error: "already_started" });
+  }
+  try {
+    const { provider, apiKey, model } = req.body ?? {};
+    const { writeEnvFromWizard } = await import("./lib/helpers/envFile.js");
+    writeEnvFromWizard({ provider, apiKey, model, port: PORT });
+
+    // Reload the freshly-written .env so bootApp + providers see the new values
+    // without a server restart.
+    dotenv.config({ path: resolve(__dirname, ".env"), override: true });
+
+    bootstrapStarted = true;
+    bootstrapEvents.once("complete", async () => {
+      logger.info("Bootstrap done — initialising app…");
+      await bootApp();
+    });
+    runBootstrap({
+      model: model || process.env.OLLAMA_MODEL || "qwen2.5:3b",
+      skipOllama: String(provider).toLowerCase() !== "ollama",
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.warn("setup config rejected:", err.message);
+    res.status(400).json({ error: err.message });
+  }
 });
 
 // ─── Bootstrap SSE stream ─────────────────────────────────────────────────────
@@ -188,6 +236,14 @@ app.get("/api/bootstrap/stream", (req, res) => {
 
   // Immediately replay current state so late-joining clients (page refresh) catch up
   send("snapshot", { steps: STEPS.map(s => ({ ...s, status: stepState[s.id] })) });
+
+  // If bootstrap already finished (e.g. everything was pre-installed, so it
+  // completed before this client connected), replay completion so the client
+  // shows the "done" state + launch button instead of hanging on the progress view.
+  if (isBootstrapped()) {
+    send("complete", { ready: true });
+    return res.end();
+  }
 
   const onProgress = d  => send("progress", d);
   const onStep     = d  => send("step", d);
@@ -226,17 +282,22 @@ httpServer.listen(PORT, HOST, async () => {
     logger.info("✓ Already bootstrapped — starting app.");
     await bootApp();
     openBrowser(`http://localhost:${PORT}`);
-  } else {
-    // First run: open the setup page, run bootstrap in the background
-    logger.info("First run — opening setup UI.");
-    openBrowser(`http://localhost:${PORT}/setup`);
-    runBootstrap({ model: process.env.OLLAMA_MODEL ?? "gemma4:4b" });
-
-    // Wire the full app once bootstrap finishes (no restart needed)
-    bootstrapEvents.once("complete", async () => {
-      logger.info("Bootstrap done — initialising app…");
-      await bootApp();
+  } else if (existsSync(resolve(__dirname, ".env"))) {
+    // First run, but a .env already exists (user configured by hand) — preserve
+    // the old auto-bootstrap behaviour; the setup page shows progress directly.
+    logger.info("First run with existing .env — bootstrapping.");
+    bootstrapStarted = true;
+    bootstrapEvents.once("complete", async () => { await bootApp(); });
+    runBootstrap({
+      model: process.env.OLLAMA_MODEL ?? "qwen2.5:3b",
+      skipOllama: (process.env.AI_PROVIDER ?? "").toLowerCase() !== "ollama",
     });
+    openBrowser(`http://localhost:${PORT}/setup`);
+  } else {
+    // First run, no .env: open the wizard. Bootstrap kicks off only after the
+    // user picks a provider via POST /api/setup/config.
+    logger.info("First run — opening setup wizard.");
+    openBrowser(`http://localhost:${PORT}/setup`);
   }
 });
 
