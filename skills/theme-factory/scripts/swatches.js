@@ -5,7 +5,7 @@
  * Prints the absolute output path to stdout.
  */
 
-import { readFileSync, readdirSync } from 'fs';
+import { readFileSync, readdirSync, mkdirSync } from 'fs';
 import { join, dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import sharp from 'sharp';
@@ -76,5 +76,6 @@ for (const [i, theme] of themes.entries()) {
 svg += '</svg>';
 
 const out = resolve(process.argv[2] ?? 'swatches.png');
+mkdirSync(dirname(out), { recursive: true });
 await sharp(Buffer.from(svg)).png().toFile(out);
 console.log(out);

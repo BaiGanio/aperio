@@ -890,16 +890,38 @@ function _renderTtlChip({ id, memType, title, expires_at }) {
   scrollToBottom();
 }
 
+// Map a file extension to its display icon + type label. Falls back to a
+// generic file icon with the uppercased extension so any generated artifact
+// is labelled correctly (never mislabelled as "Excel").
+function _fileKind(ext) {
+  switch (ext) {
+    case "pptx": case "ppt":            return { icon: "bi-file-earmark-slides",      label: "PowerPoint" };
+    case "xlsx": case "xls":            return { icon: "bi-file-earmark-spreadsheet", label: "Excel" };
+    case "csv": case "tsv":             return { icon: "bi-file-earmark-spreadsheet", label: ext.toUpperCase() };
+    case "pdf":                         return { icon: "bi-file-earmark-pdf",         label: "PDF" };
+    case "docx": case "doc":            return { icon: "bi-file-earmark-word",        label: "Word" };
+    case "png": case "jpg": case "jpeg":
+    case "gif": case "webp": case "svg": return { icon: "bi-file-earmark-image",       label: ext.toUpperCase() };
+    default:                            return { icon: "bi-file-earmark",             label: (ext || "FILE").toUpperCase() };
+  }
+}
+
 function _buildGeneratedFileCard({ filename, url, sizeKb }) {
+  // Prefer the explicit filename; otherwise derive it from the URL so the name
+  // and extension are always shown (no "spreadsheet.xlsx" placeholder).
+  const name = filename || (url ? decodeURIComponent(url.split("/").pop()) : "file");
+  const ext  = (name.split(".").pop() || "").toLowerCase();
+  const { icon, label } = _fileKind(ext);
+
   const card = document.createElement("div");
   card.className = "generated-file-card";
   card.innerHTML =
-    `<div class="gfc-icon"><i class="bi bi-file-earmark-spreadsheet"></i></div>` +
+    `<div class="gfc-icon"><i class="bi ${icon}"></i></div>` +
     `<div class="gfc-info">` +
-      `<span class="gfc-name">${escapeHtml(filename || "spreadsheet.xlsx")}</span>` +
-      `<span class="gfc-meta">Excel${sizeKb ? ` · ${sizeKb} KB` : ""}</span>` +
+      `<span class="gfc-name">${escapeHtml(name)}</span>` +
+      `<span class="gfc-meta">${escapeHtml(label)}${sizeKb ? ` · ${sizeKb} KB` : ""}</span>` +
     `</div>` +
-    `<a class="gfc-btn" href="${escapeHtml(url)}" download="${escapeHtml(filename || "spreadsheet.xlsx")}">` +
+    `<a class="gfc-btn" href="${escapeHtml(url)}" download="${escapeHtml(name)}">` +
       `<i class="bi bi-download"></i> Download` +
     `</a>`;
   return card;
