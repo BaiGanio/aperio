@@ -154,15 +154,21 @@ const checkLanceDB = async () => {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-export const runBootstrap = async ({ model = 'gemma4:4b' } = {}) => {
+export const runBootstrap = async ({ model = 'gemma4:4b', skipOllama = false } = {}) => {
   logger('=== Bootstrap starting ===');
   bootstrapEvents.emit('start');
 
   try {
     await checkNode();
     await checkDeps();
-    await checkOllama();
-    await checkModel(model);
+    if (skipOllama) {
+      // Cloud provider chosen in the wizard — no local model needed.
+      setStep('ollama', 'skipped', 'Using a cloud provider');
+      setStep('model',  'skipped', 'Using a cloud provider');
+    } else {
+      await checkOllama();
+      await checkModel(model);
+    }
     await checkLanceDB();
 
     logger('=== Bootstrap complete ===');

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" style="color-scheme: light dark;">
+<html lang="en" data-theme="system" style="color-scheme: light dark;">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -282,6 +282,118 @@
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+
+/* ── Wizard ─────────────────────────────────────────────────────────────── */
+.wiz-screen {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: su-fade 0.3s ease both;
+}
+.wiz-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  text-align: left;
+  border-radius: var(--radius, 12px);
+  border: 1px solid var(--border, rgba(128,128,128,0.18));
+  background: var(--bg-surface, var(--bg, #fff));
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.1s;
+  font-family: inherit;
+  color: inherit;
+}
+.wiz-card:hover { border-color: var(--accent, #7c6aff); background: var(--bg-hover, rgba(124,106,255,0.04)); }
+.wiz-card:active { transform: scale(0.995); }
+.wiz-card-icon {
+  width: 38px; height: 38px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border, rgba(128,128,128,0.18));
+  color: var(--accent, #7c6aff); font-size: 17px;
+}
+.wiz-card-text { flex: 1; min-width: 0; }
+.wiz-card-title { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+.wiz-card-sub { font-size: 12px; color: var(--text-muted, #888); line-height: 1.5; }
+.wiz-chev { color: var(--text-muted, #888); flex-shrink: 0; }
+
+.wiz-label { font-size: 12px; font-weight: 500; color: var(--text-muted, #888); margin-top: 4px; }
+.wiz-input {
+  width: 100%;
+  padding: 11px 13px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border, rgba(128,128,128,0.2));
+  background: var(--bg-surface, var(--bg, #fff));
+  color: inherit;
+  font-family: var(--font-mono, "Berkeley Mono", monospace);
+  font-size: 13px;
+}
+.wiz-input:focus { outline: none; border-color: var(--accent, #7c6aff); }
+.wiz-help { font-size: 11.5px; color: var(--accent, #7c6aff); text-decoration: none; }
+.wiz-help:hover { text-decoration: underline; }
+
+.wiz-specs {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border, rgba(128,128,128,0.18));
+  background: var(--bg-surface, var(--bg, #fff));
+  font-size: 13px;
+  line-height: 1.7;
+}
+.wiz-warn { color: var(--danger, #e05252); }
+
+.wiz-actions { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+.wiz-back {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted, #888); font-family: inherit; font-size: 13px;
+}
+.wiz-back:hover { color: inherit; }
+.wiz-continue {
+  flex: 1;
+  padding: 11px;
+  background: var(--accent, #7c6aff);
+  color: #fff; border: none;
+  border-radius: var(--radius-sm, 8px);
+  font-family: inherit; font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.wiz-continue:hover:not(:disabled) { opacity: 0.88; }
+.wiz-continue:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Setup-page overrides ────────────────────────────────────────────────── */
+/* Narrower, sharper shapes — fewer big rounded corners. */
+.setup-root .step-card,
+.setup-root .setup-log,
+.setup-root .setup-done,
+.setup-root .setup-error,
+.setup-root .setup-launch,
+.setup-root .wiz-card,
+.setup-root .wiz-input,
+.setup-root .wiz-specs,
+.setup-root .wiz-continue,
+.setup-root .step-icon-wrap,
+.setup-root .wiz-card-icon { border-radius: 3px; }
+.setup-root .step-badge { border-radius: 2px; }
+/* Finished steps: bare green checkmark, no pill box. */
+.setup-root .step-badge.badge-done,
+.setup-root .step-badge.badge-skipped {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+.setup-root .setup-progress-track,
+.setup-root .setup-progress-fill { border-radius: 0; }
+
+/* Hide the log tail until it actually has lines (avoids an empty box). */
+.setup-root .setup-log:empty { display: none; }
+
+/* Clean wordmark — drop the boxed white "A" tile that belongs to the sidebar. */
+.setup-root .logo-icon { display: none; }
 </style>
   <link rel="stylesheet" href="index.css" />
 </head>
@@ -293,9 +405,65 @@
     <div class="logo">
       <div class="logo-icon">A</div>
       Aperio
-    </div>    
+    </div>
   </header>
 
+  <!-- ── Wizard (shown first) ─────────────────────────────────────────── -->
+  <div id="wizardView">
+    <div class="setup-intro">
+      <h1 data-i18n="wiz_welcome_h1">Welcome to Aperio</h1>
+      <p data-i18n-html="wiz_welcome_p_html">How would you like to run the AI? You can change this later in <code>.env</code>.</p>
+    </div>
+
+    <!-- Choice -->
+    <div class="wiz-screen" id="wizChoice">
+      <button class="wiz-card" data-choice="cloud">
+        <div class="wiz-card-icon"><i class="bi bi-cloud"></i></div>
+        <div class="wiz-card-text">
+          <div class="wiz-card-title" data-i18n="wiz_cloud_title">Use a cloud AI</div>
+          <div class="wiz-card-sub" data-i18n="wiz_cloud_sub">Fastest to start — just paste one API key. (Anthropic, DeepSeek, or Gemini)</div>
+        </div>
+        <i class="bi bi-chevron-right wiz-chev"></i>
+      </button>
+      <button class="wiz-card" data-choice="local">
+        <div class="wiz-card-icon"><i class="bi bi-hdd"></i></div>
+        <div class="wiz-card-text">
+          <div class="wiz-card-title" data-i18n="wiz_local_title">Run locally — free &amp; private</div>
+          <div class="wiz-card-sub" data-i18n="wiz_local_sub">No key, nothing leaves your machine. We'll pick a model that fits your computer.</div>
+        </div>
+        <i class="bi bi-chevron-right wiz-chev"></i>
+      </button>
+    </div>
+
+    <!-- Cloud -->
+    <div class="wiz-screen" id="wizCloud" style="display:none">
+      <label class="wiz-label" for="wizProvider" data-i18n="wiz_provider_label">Provider</label>
+      <select id="wizProvider" class="wiz-input">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="gemini">Google Gemini</option>
+      </select>
+      <label class="wiz-label" for="wizKey" data-i18n="wiz_key_label">API key</label>
+      <input id="wizKey" class="wiz-input" type="password" data-i18n-attr-placeholder="wiz_key_placeholder" placeholder="Paste your API key" autocomplete="off" spellcheck="false" />
+      <a id="wizKeyHelp" class="wiz-help" target="_blank" rel="noreferrer" data-i18n="wiz_key_help">Where do I get a key? ↗</a>
+      <div class="wiz-actions">
+        <button class="wiz-back" data-back data-i18n="wiz_back">← Back</button>
+        <button class="wiz-continue" id="wizCloudGo" data-i18n="wiz_continue">Continue</button>
+      </div>
+    </div>
+
+    <!-- Local -->
+    <div class="wiz-screen" id="wizLocal" style="display:none">
+      <div class="wiz-specs" id="wizSpecs" data-i18n="wiz_checking">Checking your machine…</div>
+      <div class="wiz-actions">
+        <button class="wiz-back" data-back data-i18n="wiz_back">← Back</button>
+        <button class="wiz-continue" id="wizLocalGo" disabled data-i18n="wiz_install_continue">Install &amp; continue</button>
+      </div>
+    </div>
+  </div><!-- /#wizardView -->
+
+  <!-- ── Progress (revealed after the wizard) ─────────────────────────── -->
+  <div id="progressView" style="display:none">
   <!-- Intro -->
   <div class="setup-intro">
     <h1 data-i18n="setup_intro_h1">One-time setup</h1>
@@ -333,6 +501,7 @@
     <i class="bi bi-exclamation-triangle"></i>
     <span id="errorText" data-i18n="setup_error_default">Setup failed. Check bootstrap.log for details.</span>
   </div>
+  </div><!-- /#progressView -->
 
 </div><!-- /.setup-root -->
 
@@ -384,11 +553,30 @@ function applyStep(id, status, detail) {
 
   card.dataset.status  = status;
   badge.className      = `step-badge badge-${status}`;
-  badge.dataset.i18n   = BADGE_KEYS[status] || "setup_badge_idle";
-  badge.textContent    = _t(BADGE_KEYS[status] || "setup_badge_idle");
+  if (status === "done" || status === "skipped") {
+    // Finished steps show a single green checkmark instead of a text badge.
+    delete badge.dataset.i18n;
+    badge.innerHTML = '<i class="bi bi-check-lg"></i>';
+  } else {
+    badge.dataset.i18n = BADGE_KEYS[status] || "setup_badge_idle";
+    badge.textContent  = _t(BADGE_KEYS[status] || "setup_badge_idle");
+  }
   if (detail) {
     det.textContent = detail;
     delete det.dataset.i18n; // dynamic detail from server isn't translatable
+  } else {
+    // No live detail (hydrated from a snapshot). Keep the line consistent with
+    // the badge instead of leaving a stale "Waiting…" next to a READY badge.
+    if (status === "idle") {
+      det.dataset.i18n = "setup_detail_waiting";
+      det.textContent  = _t("setup_detail_waiting");
+    } else if (status === "running") {
+      det.dataset.i18n = "setup_badge_running";
+      det.textContent  = _t("setup_badge_running");
+    } else {
+      delete det.dataset.i18n; // done / skipped / error → the badge carries the state
+      det.textContent = "";
+    }
   }
 }
 
@@ -428,13 +616,24 @@ function showError(msg) {
   document.getElementById("errorBanner").classList.add("show");
 }
 
-// ── Hydrate from current server state (handles page refresh) ─────────────
-fetch("/api/bootstrap/state")
-  .then(r => r.json())
-  .then(data => {
-    if (data.bootstrapped) { window.location = "/"; return; }
+// ── View switching ────────────────────────────────────────────────────────
+const wizardView   = document.getElementById("wizardView");
+const progressView = document.getElementById("progressView");
+
+// ── SSE — only connected once bootstrap has actually started ───────────────
+let esStarted = false;
+function startProgress() {
+  wizardView.style.display   = "none";
+  progressView.style.display = "";
+  if (esStarted) return;
+  esStarted = true;
+
+  const es = new EventSource("/api/bootstrap/stream");
+
+  es.addEventListener("snapshot", e => {
+    const { steps } = JSON.parse(e.data);
     let done = 0;
-    (data.steps ?? []).forEach(s => {
+    steps.forEach(s => {
       applyStep(s.id, s.status, "");
       if (s.status === "done" || s.status === "skipped") done++;
     });
@@ -442,43 +641,128 @@ fetch("/api/bootstrap/state")
     updateProgress(done, STEPS.length);
   });
 
-// ── SSE ───────────────────────────────────────────────────────────────────
-const es = new EventSource("/api/bootstrap/stream");
-
-es.addEventListener("snapshot", e => {
-  const { steps } = JSON.parse(e.data);
-  let done = 0;
-  steps.forEach(s => {
-    applyStep(s.id, s.status, "");
-    if (s.status === "done" || s.status === "skipped") done++;
+  es.addEventListener("step", e => {
+    const { id, status, detail } = JSON.parse(e.data);
+    applyStep(id, status, detail);
+    if (status === "done" || status === "skipped") {
+      doneCount++;
+      updateProgress(doneCount, STEPS.length);
+    }
   });
-  doneCount = done;
-  updateProgress(done, STEPS.length);
+
+  es.addEventListener("progress", e => appendLog(JSON.parse(e.data).message));
+  es.addEventListener("complete", () => { es.close(); showDone(); });
+  es.addEventListener("error", function(e) {
+    try { showError(JSON.parse(e.data).message); }
+    catch (_e) { /* SSE connection drop — browser will retry automatically */ }
+  });
+}
+
+// ── Wizard navigation ──────────────────────────────────────────────────────
+const wizChoice = document.getElementById("wizChoice");
+const wizCloud  = document.getElementById("wizCloud");
+const wizLocal  = document.getElementById("wizLocal");
+
+function showScreen(el) {
+  [wizChoice, wizCloud, wizLocal].forEach(s => s.style.display = "none");
+  el.style.display = "";
+}
+
+document.querySelectorAll("[data-choice]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (btn.dataset.choice === "cloud") showScreen(wizCloud);
+    else { showScreen(wizLocal); loadSpecs(); }
+  });
+});
+document.querySelectorAll("[data-back]").forEach(b =>
+  b.addEventListener("click", () => showScreen(wizChoice)));
+
+// ── Cloud screen ───────────────────────────────────────────────────────────
+const KEY_HELP = {
+  anthropic: "https://console.anthropic.com/settings/keys",
+  deepseek:  "https://platform.deepseek.com/api_keys",
+  gemini:    "https://aistudio.google.com/app/apikey",
+};
+const providerSel = document.getElementById("wizProvider");
+const keyHelp     = document.getElementById("wizKeyHelp");
+const syncKeyHelp = () => { keyHelp.href = KEY_HELP[providerSel.value]; };
+providerSel.addEventListener("change", syncKeyHelp);
+syncKeyHelp();
+
+document.getElementById("wizCloudGo").addEventListener("click", () => {
+  const keyEl   = document.getElementById("wizKey");
+  const apiKey  = keyEl.value.trim();
+  if (!apiKey) { keyEl.focus(); return; }
+  submitConfig({ provider: providerSel.value, apiKey });
 });
 
-es.addEventListener("step", e => {
-  const { id, status, detail } = JSON.parse(e.data);
-  applyStep(id, status, detail);
-  if (status === "done" || status === "skipped") {
-    doneCount++;
-    updateProgress(doneCount, STEPS.length);
+// ── Local screen ───────────────────────────────────────────────────────────
+let recommendedModel = null;
+async function loadSpecs() {
+  const box = document.getElementById("wizSpecs");
+  const go  = document.getElementById("wizLocalGo");
+  box.textContent = _t("wiz_checking");
+  go.disabled = true;
+  try {
+    const s = await fetch("/api/setup/specs").then(r => r.json());
+    recommendedModel = s.recommendedModel;
+    const disk = s.diskGB == null ? _t("wiz_specs_unknown") : `${s.diskGB} GB`;
+    const size = s.modelSizeGB ? ` ${_t("wiz_download", { n: s.modelSizeGB })}` : "";
+    let html = `<b>${s.ramGB} GB</b> ${_t("wiz_ram")} &middot; <b>${disk}</b> ${_t("wiz_disk")}<br>`
+             + `${_t("wiz_recommended")} <b>${s.recommendedModel}</b>${size}`;
+    if (!s.enoughDisk) html += `<br><span class="wiz-warn">${_t("wiz_disk_warn")}</span>`;
+    box.innerHTML = html;
+    go.disabled = false;
+  } catch (_e) {
+    box.textContent = _t("wiz_specs_failed");
+    recommendedModel = "qwen2.5:3b";
+    go.disabled = false;
   }
+}
+document.getElementById("wizLocalGo").addEventListener("click", () => {
+  submitConfig({ provider: "ollama", model: recommendedModel || "qwen2.5:3b" });
 });
 
-es.addEventListener("progress", e => {
-  appendLog(JSON.parse(e.data).message);
-});
+// ── Submit config → kick off bootstrap → show progress ─────────────────────
+async function submitConfig(payload) {
+  const buttons = document.querySelectorAll(".wiz-continue");
+  buttons.forEach(b => b.disabled = true);
+  try {
+    const r = await fetch("/api/setup/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      alert(e.error || _t("wiz_submit_failed"));
+      buttons.forEach(b => b.disabled = false);
+      return;
+    }
+    startProgress();
+  } catch (_e) {
+    alert(_t("wiz_network_failed"));
+    buttons.forEach(b => b.disabled = false);
+  }
+}
 
-es.addEventListener("complete", () => {
-  es.close();
-  showDone();
-});
-
-es.addEventListener("error", function(e) {
-  try { showError(JSON.parse(e.data).message); }
-  catch (_e) { /* SSE connection drop — browser will retry automatically */ }
-});
+// ── Router: wizard vs. progress on load (handles mid-bootstrap refresh) ────
+fetch("/api/bootstrap/state")
+  .then(r => r.json())
+  .then(data => {
+    if (data.bootstrapped) { window.location = "/"; return; }
+    if (data.started) {
+      let done = 0;
+      (data.steps ?? []).forEach(s => {
+        applyStep(s.id, s.status, "");
+        if (s.status === "done" || s.status === "skipped") done++;
+      });
+      doneCount = done;
+      updateProgress(done, STEPS.length);
+      startProgress();
+    }
+    // else: bootstrap not started yet → leave the wizard visible (default)
+  });
 </script>
-<script src="index.js"></script>
 </body>
 </html>
