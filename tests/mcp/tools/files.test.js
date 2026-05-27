@@ -59,7 +59,11 @@ function mockStatSync(path) {
     isSymbolicLink: () => false,
   };
 }
-function mockReadFileSync(path) {
+function mockReadFileSync(path, ...rest) {
+  // Paths outside the VFS namespace (e.g. node_modules sources loaded by
+  // ExcelJS at import time) must hit the real fs, not our in-memory map.
+  if (typeof path !== "string" || !path.startsWith("/vfs/"))
+    return realReadFileSync(path, ...rest);
   const e = vfs.get(path);
   if (!e || e.type !== "file")
     throw Object.assign(new Error(`ENOENT: open '${path}'`), { code: "ENOENT" });
@@ -139,6 +143,7 @@ async function mockRm(path, opts) {
 const require  = createRequire(import.meta.url);
 const fsSync   = require("fs");
 const fsAsync  = require("fs/promises");
+const realReadFileSync = fsSync.readFileSync;
 
 // Mocking process.cwd here (before files.js / paths.js load) causes paths.js
 // to set BASE_DIR = TMP, so ALLOWED_*_PATHS = [TMP] with no env-var changes.
@@ -568,7 +573,7 @@ describe("Per-connection path isolation", () => {
     vfsSetupFile(join(dirA, "a.js"), "// client A");
     vfsSetupFile(join(dirB, "b.js"), "// client B");
 
-    const [okA, rejectB] = await runWithPaths([dirA], [dirA], () =>
+    const [okA, rejectB] = await runWithPaths([dirA], [dirA], null, () =>
       Promise.all([
         readFileHandler({ path: join(dirA, "a.js") }),
         readFileHandler({ path: join(dirB, "b.js") }),
@@ -585,7 +590,7 @@ describe("Per-connection path isolation", () => {
     vfsSetupFile(join(dirA, "a.js"), "// client A");
     vfsSetupFile(join(dirB, "b.js"), "// client B");
 
-    const [rejectA, okB] = await runWithPaths([dirB], [dirB], () =>
+    const [rejectA, okB] = await runWithPaths([dirB], [dirB], null, () =>
       Promise.all([
         readFileHandler({ path: join(dirA, "a.js") }),
         readFileHandler({ path: join(dirB, "b.js") }),
@@ -603,8 +608,8 @@ describe("Per-connection path isolation", () => {
     vfsSetupFile(join(dirB, "b.js"), "// B");
 
     const [resultA, resultB] = await Promise.all([
-      runWithPaths([dirA], [dirA], () => readFileHandler({ path: join(dirB, "b.js") })),
-      runWithPaths([dirB], [dirB], () => readFileHandler({ path: join(dirA, "a.js") })),
+      runWithPaths([dirA], [dirA], null, () => readFileHandler({ path: join(dirB, "b.js") })),
+      runWithPaths([dirB], [dirB], null, () => readFileHandler({ path: join(dirA, "a.js") })),
     ]);
 
     assert.ok(resultA.content[0].text.includes("❌ Read not allowed"), "A context rejects B's path");
@@ -617,7 +622,7 @@ describe("Per-connection path isolation", () => {
     vfsSetupDir(dirA);
     vfsSetupDir(dirB);
 
-    const [okWrite, rejectWrite] = await runWithPaths([dirA], [dirA], () =>
+    const [okWrite, rejectWrite] = await runWithPaths([dirA], [dirA], null, () =>
       Promise.all([
         writeFileHandler(ctx, { path: join(dirA, "new.js"), content: "x" }),
         writeFileHandler(ctx, { path: join(dirB, "new.js"), content: "x" }),
