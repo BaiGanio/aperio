@@ -13,7 +13,7 @@ phase indicated in the user message.
     (a) the specific claim or omission, (b) why it is wrong or incomplete,
     (c) what the corrected version would say. No preamble, no closing remarks.
 
-## PHASE = REREVIEW
+## PHASE = RE-REVIEW
 - Agent A has revised its answer in response to your prior objections. A's new
   reply is quoted in the user message, alongside your prior objections.
 - For each prior objection, state explicitly: `RESOLVED` / `PARTIAL` / `UNRESOLVED`.
