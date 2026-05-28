@@ -24,7 +24,7 @@ services:
       - "${PORT:-3000}:3000"
     environment:
       DB_BACKEND: postgres
-      DATABASE_URL: postgresql://${POSTGRES_USER:-aperio}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aperio}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aperio}
       AI_PROVIDER: ${AI_PROVIDER:-anthropic}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
       ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-sonnet-4-6}

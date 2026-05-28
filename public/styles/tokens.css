@@ -10,7 +10,7 @@
     }
 
     /* ── THEME: Light (default) ──────────────────────────────── */
-    [data-theme="light"] {
+    :root[data-theme="light"] {
       color-scheme: light;
       --bg:          #f5f4f0;
       --bg-panel:    #ffffff;
@@ -32,7 +32,7 @@
     }
 
     /* ── THEME: Dark ─────────────────────────────────────────── */
-    [data-theme="dark"] {
+    :root[data-theme="dark"] {
       color-scheme: dark;
       --bg:          #141414;
       --bg-panel:    #1e1e1e;
@@ -54,7 +54,7 @@
     }
 
     /* ── THEME: Aurora (indigo-pink) ─────────────────────────── */
-    [data-theme="aurora"] {
+    :root[data-theme="aurora"] {
       color-scheme: dark;
       --bg:          #0f0b1e;
       --bg-panel:    #17112e;
@@ -78,7 +78,7 @@
 
     /* ── System default fallback ─────────────────────────────── */
     @media (prefers-color-scheme: light) {
-      [data-theme="system"] {
+      :root[data-theme="system"] {
         color-scheme: light;
         --bg:          #f5f4f0;
         --bg-panel:    #ffffff;
@@ -101,7 +101,7 @@
     }
 
     @media (prefers-color-scheme: dark) {
-      [data-theme="system"] {
+      :root[data-theme="system"] {
         color-scheme: dark;
         --bg:          #141414;
         --bg-panel:    #1e1e1e;

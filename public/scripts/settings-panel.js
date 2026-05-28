@@ -8,10 +8,16 @@
   const backdrop = () => document.getElementById("settings-backdrop");
   const sound    = () => document.getElementById("settingsSoundToggle");
 
-  // Reflect the current voice-response state on the switch (read local-first).
+  // Reflect the current voice-response state on the switch + ON/OFF badge.
   function syncSound() {
+    const on = window.Aperio?.settings?.get("aperio-tts") === "true";
     const el = sound();
-    if (el) el.checked = window.Aperio?.settings?.get("aperio-tts") === "true";
+    if (el) el.checked = on;
+    const state = document.getElementById("settingsSoundState");
+    if (state) {
+      state.textContent = on ? "ON" : "OFF";
+      state.classList.toggle("is-on", on);
+    }
   }
 
   function wireSound() {

@@ -320,6 +320,26 @@ async function bootApp() {
   const store = await getStore();
   const { shutdown: shutdownEmbeddings } = await initEmbeddings(store, generateEmbedding);
 
+  // ── Code graph live watcher (opt-in) ──────────────────────────────────────
+  // APERIO_CODEGRAPH=on starts a chokidar watcher per APERIO_ALLOWED_PATHS_TO_READ
+  // root. Requires Postgres backend (LanceDB has no cg_* tables).
+  let stopCodegraph = null;
+  if (process.env.APERIO_CODEGRAPH === 'on') {
+    const { isCodegraphAvailable } = await import("./lib/codegraph/indexer.js");
+    if (!isCodegraphAvailable(store)) {
+      logger.warn(`[codegraph] APERIO_CODEGRAPH=on but backend has no graph store (LanceDB?). Switch DB_BACKEND=sqlite or postgres.`);
+    } else {
+      try {
+        const { startAllWatchers } = await import("./lib/codegraph/watcher.js");
+        const { DEFAULT_READ_PATHS } = await import("./lib/routes/paths.js");
+        stopCodegraph = (await startAllWatchers(store, DEFAULT_READ_PATHS)).stop;
+      } catch (err) {
+        const { logError } = await import("./lib/helpers/logger.js");
+        logError(`[codegraph] watcher boot failed`, err);
+      }
+    }
+  }
+
   // ── Agents ───────────────────────────────────────────────────────────────
   // The main chat agent always boots from AI_PROVIDER / provider env vars.
   // Round-table mode (two-agent cross-review) is opt-in via ROUNDTABLE_AGENTS
@@ -433,6 +453,7 @@ async function bootApp() {
     dedup.stop();
     infer.stop();
     pruner.stop();
+    if (stopCodegraph) await stopCodegraph().catch(() => {});
 
     // 2. Let the current ONNX inference finish, then stop the backfill loop
     await shutdownEmbeddings();

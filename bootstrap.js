@@ -26,7 +26,7 @@ export const STEPS = [
   { id: 'deps',       label: 'Dependencies',       icon: 'package' },
   { id: 'ollama',     label: 'Ollama',             icon: 'ai' },
   { id: 'model',      label: 'AI Model',           icon: 'model' },
-  { id: 'lancedb',    label: 'LanceDB & Embeddings', icon: 'db' },
+  { id: 'sqlite',     label: 'SQLite & Embeddings', icon: 'db' },
 ];
 
 // 'idle' | 'running' | 'done' | 'skipped' | 'error'
@@ -138,17 +138,17 @@ const checkModel = async (model = 'gemma4:4b') => {
   setStep('model', 'done', `${model} ready`);
 };
 
-const checkLanceDB = async () => {
-  setStep('lancedb', 'running', 'Checking LanceDB & embeddings…');
-  // @lancedb/lancedb is declared in package.json — if node_modules exists it's already there.
-  // We verify by resolving the package rather than installing a conflicting legacy name.
+const checkSqlite = async () => {
+  setStep('sqlite', 'running', 'Checking SQLite native bindings…');
+  // better-sqlite3 + sqlite-vec are normal deps; `npm install` (the 'deps'
+  // step above) already covers them. We just verify they resolve so we surface
+  // a clean message if the prebuilt binary isn't compatible with this Node ABI.
   try {
-    execSync('node -e "require(\'@lancedb/lancedb\')"', { stdio: 'ignore' });
-    setStep('lancedb', 'skipped', 'Already available');
+    execSync('node -e "require(\'better-sqlite3\'); require(\'sqlite-vec\')"', { stdio: 'ignore' });
+    setStep('sqlite', 'done', 'better-sqlite3 + sqlite-vec ready');
   } catch (err) {
-    setStep('lancedb', 'running', 'Installing @lancedb/lancedb…');
-    await runSilently('npm', ['install', '@lancedb/lancedb', '--no-audit', '--no-fund']);
-    setStep('lancedb', 'done', 'LanceDB installed');
+    setStep('sqlite', 'error', `Native binding failed: ${err.message}`);
+    throw err;
   }
 };
 
@@ -169,7 +169,7 @@ export const runBootstrap = async ({ model = 'gemma4:4b', skipOllama = false } =
       await checkOllama();
       await checkModel(model);
     }
-    await checkLanceDB();
+    await checkSqlite();
 
     logger('=== Bootstrap complete ===');
     writeFileSync('var/bootstrap.lock', JSON.stringify({
