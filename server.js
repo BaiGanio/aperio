@@ -322,21 +322,33 @@ async function bootApp() {
 
   // ── Code graph live watcher (opt-in) ──────────────────────────────────────
   // APERIO_CODEGRAPH=on starts a chokidar watcher per APERIO_ALLOWED_PATHS_TO_READ
-  // root. Requires Postgres backend (LanceDB has no cg_* tables).
+  // root. Initial repo index can take 20-60s on a fresh boot; run it in the
+  // background so the API + WebSocket come up immediately. The /api/codegraph/status
+  // endpoint surfaces progress to the Code panel.
   let stopCodegraph = null;
   if (process.env.APERIO_CODEGRAPH === 'on') {
     const { isCodegraphAvailable } = await import("./lib/codegraph/indexer.js");
     if (!isCodegraphAvailable(store)) {
       logger.warn(`[codegraph] APERIO_CODEGRAPH=on but backend has no graph store (LanceDB?). Switch DB_BACKEND=sqlite or postgres.`);
     } else {
-      try {
-        const { startAllWatchers } = await import("./lib/codegraph/watcher.js");
-        const { DEFAULT_READ_PATHS } = await import("./lib/routes/paths.js");
-        stopCodegraph = (await startAllWatchers(store, DEFAULT_READ_PATHS)).stop;
-      } catch (err) {
-        const { logError } = await import("./lib/helpers/logger.js");
-        logError(`[codegraph] watcher boot failed`, err);
-      }
+      const { DEFAULT_READ_PATHS } = await import("./lib/routes/paths.js");
+      const { markEnabled } = await import("./lib/codegraph/status.js");
+      markEnabled(DEFAULT_READ_PATHS);
+      // Fire-and-forget: don't block bootApp on the initial index.
+      const handlePromise = (async () => {
+        try {
+          const { startAllWatchers } = await import("./lib/codegraph/watcher.js");
+          return await startAllWatchers(store, DEFAULT_READ_PATHS);
+        } catch (err) {
+          const { logError } = await import("./lib/helpers/logger.js");
+          logError(`[codegraph] watcher boot failed`, err);
+          return null;
+        }
+      })();
+      stopCodegraph = async () => {
+        const handle = await handlePromise;
+        if (handle?.stop) await handle.stop();
+      };
     }
   }
 

@@ -18,6 +18,9 @@
   let searchTimer = null;
   let _enabled    = null;     // null = unknown, false = LanceDB, true = Postgres
   let _repos      = [];
+  let _statusTimer = null;
+  let _statusPolling = false;
+  let _lastStatusPhase = null;
 
   function escapeHtml(s) {
     return String(s ?? "")
@@ -36,13 +39,56 @@
 
   function setBody(html) { body().innerHTML = html; }
 
+  // ── Indexing banner ───────────────────────────────────────────────────────
+  async function fetchStatus() {
+    try { return await get("/api/codegraph/status"); }
+    catch { return null; }
+  }
+  function renderStatusBanner(status) {
+    if (!status?.enabled || status.phase === 'idle' || status.phase === 'ready') return "";
+    const done = status.roots.filter(r => r.phase === 'ready').length;
+    const total = status.roots.length;
+    const active = status.roots.find(r => r.phase === 'indexing');
+    const label = status.phase === 'error'
+      ? `Indexing failed${status.error ? ': ' + escapeHtml(status.error) : ''}`
+      : `Indexing ${done}/${total} root${total === 1 ? '' : 's'}${active ? ' · ' + escapeHtml(active.path.split('/').pop()) : ''}…`;
+    return `<div class="cg-status-banner" data-phase="${escapeHtml(status.phase)}">${label}</div>`;
+  }
+  async function pollStatusOnce() {
+    const status = await fetchStatus();
+    const phase = status?.phase ?? 'idle';
+    const el = document.getElementById("cg-status-banner-mount");
+    if (el) el.innerHTML = renderStatusBanner(status);
+    // Transition indexing → ready: refresh repo counts ONCE. Guard with
+    // _lastStatusPhase so re-renders (which start polling again) don't loop.
+    if (_lastStatusPhase === 'indexing' && phase === 'ready') {
+      await loadRepos();
+      // Only redraw the body if the user is still on the empty/repos view.
+      if (!input().value) renderRepos();
+    }
+    _lastStatusPhase = phase;
+    if (phase === 'indexing') {
+      _statusTimer = setTimeout(pollStatusOnce, 1500);
+    } else {
+      _statusPolling = false;
+    }
+  }
+  function startStatusPolling() {
+    if (_statusPolling) return;     // already running — don't stack timers
+    _statusPolling = true;
+    pollStatusOnce();
+  }
+
   // ── Repos view (empty state when no search query) ─────────────────────────
   function renderRepos() {
     if (!_repos.length) {
-      setBody(`<div class="cg-empty">
-        No repos indexed yet. Run <code>node lib/codegraph/indexer.js .</code>
-        or set <code>APERIO_CODEGRAPH=on</code> to enable the live watcher.
-      </div>`);
+      setBody(`<div id="cg-status-banner-mount"></div><div class="cg-empty">
+        No repos indexed yet. Pick a folder below to graph it,
+        or set <code>APERIO_CODEGRAPH=on</code> in <code>.env</code> for live watching.
+      </div>
+      ${renderAddRepoForm()}`);
+      wireAddRepoForm();
+      startStatusPolling();
       return;
     }
     const items = _repos.map(r => `
@@ -53,8 +99,67 @@
           ${r.last_indexed_at ? "· indexed " + escapeHtml(new Date(r.last_indexed_at).toISOString().slice(0, 16).replace("T", " ")) : ""}
         </div>
       </div>`).join("");
-    setBody(`<div class="cg-section-label">Indexed repos</div>${items}
-      <div class="cg-hint">Type above to search symbols across these repos.</div>`);
+    setBody(`<div id="cg-status-banner-mount"></div><div class="cg-section-label">Indexed repos</div>${items}
+      <div class="cg-hint">Type above to search symbols across these repos.</div>
+      ${renderAddRepoForm()}`);
+    wireAddRepoForm();
+    startStatusPolling();
+  }
+
+  // ── Add-a-repo form (lets non-coders graph a different project) ───────────
+  function renderAddRepoForm() {
+    return `
+      <div class="cg-add-repo">
+        <div class="cg-section-label">Index another folder</div>
+        <div class="cg-add-repo-row">
+          <input type="text" id="cgAddRepoInput" class="cg-search-input" placeholder="/abs/path/to/project" />
+          <button id="cgAddRepoPick"  class="cg-add-repo-btn" title="Pick a folder">📁</button>
+          <button id="cgAddRepoApply" class="cg-add-repo-btn cg-add-repo-apply">Index</button>
+        </div>
+        <div id="cgAddRepoMsg" class="cg-add-repo-msg"></div>
+      </div>`;
+  }
+  function wireAddRepoForm() {
+    const inp   = document.getElementById("cgAddRepoInput");
+    const pick  = document.getElementById("cgAddRepoPick");
+    const apply = document.getElementById("cgAddRepoApply");
+    const msg   = document.getElementById("cgAddRepoMsg");
+    if (!inp || !apply) return;
+    pick?.addEventListener("click", async () => {
+      try {
+        const r = await fetch("/api/pick-folder");
+        const d = await r.json();
+        if (d.path) inp.value = d.path;
+      } catch (err) {
+        msg.textContent = `Folder picker unavailable: ${err.message}`;
+      }
+    });
+    const submit = async () => {
+      const path = inp.value.trim();
+      if (!path) return;
+      msg.textContent = "Starting index…";
+      apply.disabled = true;
+      try {
+        const r = await fetch("/api/codegraph/index", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path }),
+        });
+        const d = await r.json();
+        if (!r.ok) { msg.textContent = `⚠ ${d.error}`; return; }
+        msg.textContent = `Indexing ${d.path}…`;
+        inp.value = "";
+        // Kick the status poller so the banner updates immediately.
+        _lastStatusPhase = null;
+        startStatusPolling();
+      } catch (err) {
+        msg.textContent = `Error: ${err.message}`;
+      } finally {
+        apply.disabled = false;
+      }
+    };
+    apply.addEventListener("click", submit);
+    inp.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
   }
 
   // ── Search view ───────────────────────────────────────────────────────────
@@ -108,7 +213,11 @@
           <div class="cg-symbol-title">${escapeHtml(ctx.qualified)}</div>
           <div class="cg-symbol-sub">${escapeHtml(ctx.kind)} · ${escapeHtml(ctx.path)} : ${escapeHtml(ctx.lines)}</div>
           ${ctx.doc ? `<div class="cg-symbol-doc">${escapeHtml(ctx.doc)}</div>` : ""}
-          ${ctx.source ? `<div class="cg-source">${escapeHtml(ctx.source)}</div>` : ""}
+          ${ctx.source ? `
+            <div class="cg-source-wrap">
+              <button class="cg-copy-btn" id="cgCopyBtn" title="Copy source"><i class="bi bi-clipboard"></i></button>
+              <pre class="cg-source" id="cgSourcePre">${escapeHtml(ctx.source)}</pre>
+            </div>` : ""}
           <div class="cg-section-label">Callers (${cs.length})</div>
           ${cs.length ? `<div class="cg-edges">${cs.map(edgeRow).join("")}</div>` : `<div class="cg-empty">No known callers in the indexed repos.</div>`}
           <div class="cg-section-label">Callees (${ce.length})</div>
@@ -118,6 +227,21 @@
       document.getElementById("cgBackBtn").addEventListener("click", () => runSearch(input().value));
       body().querySelectorAll(".cg-edge").forEach(el =>
         el.addEventListener("click", () => openSymbol(el.dataset.qualified)));
+      const copyBtn = document.getElementById("cgCopyBtn");
+      if (copyBtn) copyBtn.addEventListener("click", async () => {
+        const src = document.getElementById("cgSourcePre")?.innerText ?? "";
+        try {
+          await navigator.clipboard.writeText(src);
+          copyBtn.innerHTML = '<i class="bi bi-clipboard-check"></i>';
+          copyBtn.classList.add("copied");
+          setTimeout(() => {
+            copyBtn.innerHTML = '<i class="bi bi-clipboard"></i>';
+            copyBtn.classList.remove("copied");
+          }, 1500);
+        } catch (err) {
+          copyBtn.title = `Copy failed: ${err.message}`;
+        }
+      });
     } catch (err) {
       setBody(`<div class="cg-empty">Error: ${escapeHtml(err.message)}</div>`);
     }
@@ -146,6 +270,8 @@
     if (open) {
       panel().style.display = "none";
       backdrop().style.display = "none";
+      clearTimeout(_statusTimer);
+      _statusPolling = false;
       return;
     }
     panel().style.display = "flex";

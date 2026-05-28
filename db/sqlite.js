@@ -34,6 +34,7 @@ import { runSqliteMigrations } from './migrate-sqlite.js';
 import { deserialiseRow } from './types.js';
 import logger, { logError } from '../lib/helpers/logger.js';
 import { WIKI_SEED } from './wiki-seed.js';
+import { MEMORY_SEED } from './memory-seed.js';
 
 const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
 const DEFAULT_PATH = process.env.SQLITE_PATH || './sqlite/aperio.db';
@@ -284,6 +285,30 @@ export class SqliteStore {
     await runSqliteMigrations(db);
     const store = new SqliteStore(db);
     await store.refreshCache();
+
+    // Seed baseline memories on a fresh or empty memories table. Mirrors the
+    // wiki seed below: gives the sidebar + memory table something to render
+    // on first boot, and primes the LLM with context about Aperio itself.
+    const memoryCount = db.prepare(`SELECT COUNT(*) AS n FROM memories`).get().n;
+    if (memoryCount === 0) {
+      const insMem = db.prepare(`
+        INSERT INTO memories (id, type, title, content, tags, importance, source, pinned)
+        VALUES (?, ?, ?, ?, ?, ?, 'system', ?)
+      `);
+      const txMem = db.transaction(() => {
+        for (const m of MEMORY_SEED) {
+          insMem.run(
+            randomUUID(), m.type, m.title, m.content,
+            JSON.stringify(m.tags ?? []),
+            m.importance ?? 3,
+            m.pinned ? 1 : 0,
+          );
+        }
+      });
+      txMem();
+      await store.refreshCache();
+      logger.info(`[sqlite] Seeded ${MEMORY_SEED.length} baseline memories.`);
+    }
 
     // Seed baseline wiki articles on a fresh or empty wiki.
     const articleCount = db.prepare(`SELECT COUNT(*) AS n FROM wiki_articles`).get().n;
