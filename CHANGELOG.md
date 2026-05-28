@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.51.0] — 2026-05-28
+
+### Added
+- extending codegraph to index more languages beyond JS/TS
+
+---
+
+
 ## [0.50.1] — 2026-05-23
 
 ### Fixed
