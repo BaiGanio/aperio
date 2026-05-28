@@ -469,9 +469,12 @@ async function bootApp() {
     // 5. Dispose the ONNX inference session — releases its thread pool so the
     //    global destructor sequence won't try to lock already-destroyed mutexes.
     await disposeEmbeddings();
+    // Give the ONNX thread pool a tick to finish its own cleanup before the
+    // C++ global destructors run. Without this yield the mutex is still locked
+    // when process.exit() tears down native memory → "mutex lock failed".
+    await new Promise(r => setTimeout(r, 150));
 
-    // 6. Close the LanceDB table then the connection — shuts down the Tokio
-    //    runtime cleanly before process.exit() tears down native memory.
+    // 6. Close the DB connection.
     await store.close?.();
 
     process.exit(0);

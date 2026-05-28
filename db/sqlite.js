@@ -33,9 +33,10 @@ import { dirname, resolve } from 'path';
 import { runSqliteMigrations } from './migrate-sqlite.js';
 import { deserialiseRow } from './types.js';
 import logger, { logError } from '../lib/helpers/logger.js';
+import { WIKI_SEED } from './wiki-seed.js';
 
 const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
-const DEFAULT_PATH = process.env.SQLITE_PATH || './var/aperio.db';
+const DEFAULT_PATH = process.env.SQLITE_PATH || './sqlite/aperio.db';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -283,6 +284,24 @@ export class SqliteStore {
     await runSqliteMigrations(db);
     const store = new SqliteStore(db);
     await store.refreshCache();
+
+    // Seed baseline wiki articles on a fresh or empty wiki.
+    const articleCount = db.prepare(`SELECT COUNT(*) AS n FROM wiki_articles`).get().n;
+    if (articleCount === 0) {
+      const ins = db.prepare(`
+        INSERT INTO wiki_articles (id, slug, title, summary, body_md, tags, generated_by, source_hash, revision)
+        VALUES (?, ?, ?, ?, ?, ?, 'system', NULL, 1)
+      `);
+      const tx = db.transaction(() => {
+        for (const a of WIKI_SEED) {
+          ins.run(randomUUID(), a.slug, a.title, a.summary ?? null, a.body_md,
+                  JSON.stringify(a.tags ?? []));
+        }
+      });
+      tx();
+      logger.info(`[sqlite] Seeded ${WIKI_SEED.length} baseline wiki articles.`);
+    }
+
     return store;
   }
 

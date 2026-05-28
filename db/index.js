@@ -98,7 +98,7 @@ function resolveBackend() {
   // Default to SQLite — zero-config, single file, full feature parity with
   // Postgres including codegraph. If the user has an old .lancedb/ dir but
   // no SQLite DB, surface a one-line hint pointing at the migrator.
-  const sqlitePath  = path.resolve(process.env.SQLITE_PATH || './var/aperio.db');
+  const sqlitePath  = path.resolve(process.env.SQLITE_PATH || './sqlite/aperio.db');
   const lancedbPath = path.resolve(process.env.LANCEDB_PATH || './.lancedb');
   if (existsSync(lancedbPath) && !existsSync(sqlitePath)) {
     try {
