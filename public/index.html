@@ -56,15 +56,6 @@
         <div class="ctx-fill" id="ctxFill"></div>
       </div>
     </div>
-    <!-- Language switcher (populated by lang-switcher.js once DOM is ready) -->
-    <div class="lang-switcher" id="langSwitcher" data-i18n-attr-title="nav_lang_title" title="Language">
-      <button type="button" class="lang-trigger" id="langTrigger" aria-haspopup="listbox" aria-expanded="false">
-        <span class="lang-flag" id="langTriggerFlag">🇬🇧</span>
-        <span class="lang-code" id="langTriggerCode">EN</span>
-        <span class="lang-caret">▾</span>
-      </button>
-      <div class="lang-popover" id="langPopover" role="listbox"></div>
-    </div>
   </header>
 
   <!-- Sidebar -->
@@ -113,6 +104,11 @@
         data-i18n-attr-title="nav_paths_title" title="Allowed paths">
         <i class="bi bi-folder2-open sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="nav_paths_plain">Paths</span>
+      </button>
+      <button id="codegraphBtn" class="sidebar-nav-btn" onclick="toggleCodegraphPanel()"
+              data-i18n-attr-title="nav_codegraph_title" title="Code graph">
+        <i class="bi bi-diagram-3 sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Code</span>
       </button>
       <button id="wikiBtn" class="sidebar-nav-btn" onclick="toggleWikiPanel()"
         title="Wiki — LLM-authored articles over your memories">
@@ -287,6 +283,29 @@
 </div>
 <div id="wiki-backdrop" class="wiki-backdrop" style="display:none;" onclick="toggleWikiPanel()"></div>
 
+<!-- Code graph panel -->
+<div id="codegraph-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-diagram-3"></i> Code graph</span>
+    <button class="cg-panel-close" onclick="toggleCodegraphPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="cgSearchInput" class="cg-search-input" placeholder="Search symbols…" />
+    <div class="cg-toolbar-row">
+      <select id="cgRepoSelect" class="cg-select"><option value="">All repos</option></select>
+      <select id="cgKindSelect" class="cg-select">
+        <option value="">All kinds</option>
+        <option value="function">function</option>
+        <option value="class">class</option>
+        <option value="method">method</option>
+        <option value="const">const</option>
+      </select>
+    </div>
+  </div>
+  <div class="cg-panel-body" id="cg-panel-body"></div>
+</div>
+<div id="codegraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleCodegraphPanel()"></div>
+
 <!-- Settings panel -->
 <div id="settings-panel" class="settings-panel" style="display:none;">
   <div class="settings-panel-header">
@@ -294,16 +313,24 @@
     <button class="settings-panel-close" onclick="toggleSettingsPanel()"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="settings-panel-body">
-    <div class="settings-row">
+    <div class="settings-row settings-row--stack">
       <span class="settings-row-label">
         <i class="bi bi-circle-half"></i>
         <span data-i18n="nav_theme_title">Theme</span>
       </span>
       <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
-        <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">☀️</button>
-        <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">🌙</button>
-        <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">✦</button>
-        <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">⊙</button>
+        <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">
+          <span class="theme-btn-icon">☀️</span><span class="theme-btn-name" data-i18n="nav_theme_light">Light</span>
+        </button>
+        <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">
+          <span class="theme-btn-icon">🌙</span><span class="theme-btn-name" data-i18n="nav_theme_dark">Dark</span>
+        </button>
+        <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
+          <span class="theme-btn-icon">✦</span><span class="theme-btn-name" data-i18n="nav_theme_aurora">Aurora</span>
+        </button>
+        <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
+          <span class="theme-btn-icon">⊙</span><span class="theme-btn-name" data-i18n="nav_theme_system">System</span>
+        </button>
       </div>
     </div>
     <div class="settings-row">
@@ -311,10 +338,30 @@
         <i class="bi bi-volume-up"></i>
         <span data-i18n="nav_sound_title">Voice responses</span>
       </span>
-      <label class="switch">
-        <input type="checkbox" id="settingsSoundToggle" />
-        <span class="switch-track"></span>
-      </label>
+      <span class="settings-row-control">
+        <span class="settings-state" id="settingsSoundState">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="settingsSoundToggle" />
+          <span class="switch-track"></span>
+        </label>
+      </span>
+    </div>
+    <!-- Language switcher (populated by lang-switcher.js once DOM is ready).
+         Expands inline below the row instead of a floating popover. -->
+    <div class="settings-row settings-row--stack lang-switcher" id="langSwitcher"
+         data-i18n-attr-title="nav_lang_title" title="Language">
+      <button type="button" class="lang-trigger" id="langTrigger" aria-haspopup="listbox" aria-expanded="false">
+        <span class="settings-row-label">
+          <i class="bi bi-translate"></i>
+          <span data-i18n="nav_lang_title">Language</span>
+        </span>
+        <span class="lang-trigger-value">
+          <span class="lang-flag" id="langTriggerFlag">🇬🇧</span>
+          <span class="lang-code" id="langTriggerCode">EN</span>
+          <span class="lang-caret">▾</span>
+        </span>
+      </button>
+      <div class="lang-popover" id="langPopover" role="listbox"></div>
     </div>
   </div>
 </div>
@@ -361,7 +408,6 @@
       </div>
     </div>
     <div class="paths-modal-footer">
-      <button class="paths-cancel-btn" onclick="closePathsPanel()" data-i18n="paths_cancel">Cancel</button>
       <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Apply</span></button>
     </div>
   </div>
@@ -382,6 +428,7 @@
 <script src="scripts/sessions.js"></script>
 <script src="scripts/paths-panel.js"></script>
 <script src="scripts/wiki-panel.js"></script>
+<script src="scripts/codegraph-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
 <script src="index.js"></script>

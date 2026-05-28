@@ -3,7 +3,8 @@
 <h1>✨ Aperio</h1>
 
 **One brain. Every agent. Nothing forgotten.**     
-A self-hosted personal memory layer for AI agents. Docker + Postgres + pgvector + MCP + Ollama.   
+A self-hosted personal memory layer for AI agents. SQLite (or Postgres) + MCP + Ollama.   
+Zero-config by default; one file holds your memories, wiki, and code graph.  
 Your context, always available.  
 <!-- 
 ##### • Download 👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) for non-code users. • Small tool for big ideas • [How to Install & Use?](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) •      
@@ -58,11 +59,12 @@ Your context, always available.
 ```txt
 📂 aperio/          <---=  You are here if You are Developer. He-he ;/
 ├── 📂 db/
-│   ├── index.js                  # Store factory — auto-selects Postgres or LanceDB
-│   ├── lancedb.js                # LanceDB adapter (no Docker needed)
-│   ├── postgres.js               # Postgres + pgvector adapter
+│   ├── index.js                  # Store factory — auto-selects Postgres or SQLite
+│   ├── sqlite.js                 # SQLite + sqlite-vec + FTS5 adapter (zero config, default)
+│   ├── postgres.js               # Postgres + pgvector adapter (Docker)
 │   ├── types.js                  # Shared DB types
-│   └── 📂 migrations/            # 001_init (schema + pgvector + wiki tables)
+│   ├── 📂 migrations/            # Postgres SQL (memories + wiki + codegraph)
+│   └── 📂 migrations-sqlite/     # SQLite SQL (same schemas, FTS5 + vec0)
 ├── 📂 docker/
 │   └── docker-compose.yml        # pgvector/pgvector:pg16
 ├── 📂 docs/
@@ -78,11 +80,18 @@ Your context, always available.
 │   ├── 📂 routes/                # Express API routes + path safety guards
 │   ├── 📂 utils/                 # Chat utilities
 │   └── 📂 workers/               # Deduplication, reasoning adapters, skill loader
+├── 📂 lib/codegraph/             # Pre-indexed code knowledge graph (symbols, calls, imports)
+│   ├── indexer.js                # Backend dispatcher (Postgres or SQLite)
+│   ├── watcher.js                # chokidar-backed live reindex
+│   ├── extract-ts.js             # tree-sitter JS/TS/JSX/TSX extractor
+│   └── 📂 backends/              # postgres.js · sqlite.js
 ├── 📂 mcp/
 │   ├── index.js                  # MCP server entry point
 │   └── 📂 tools/
 │       ├── memory.js             # remember · recall · update_memory · forget · backfill_embeddings · deduplicate_memories
+│       ├── codegraph.js          # code_search · code_outline · code_context · code_callers · code_callees · code_repos
 │       ├── files.js              # read_file · write_file · append_file · scan_project
+│       ├── shell.js              # run_node_script · run_shell · syntax_check
 │       ├── web.js                # fetch_url
 │       └── image.js              # read_image · preprocess_image
 ├── 📂 public/
@@ -124,40 +133,35 @@ npm install
 ```env
 # cp .env.example .env
 
-DATABASE_URL=postgresql://aperio:aperio_secret@localhost:5432/aperio
 AI_PROVIDER=ollama
 OLLAMA_MODEL=qwen2.5:3b
 EMBEDDING_PROVIDER=transformers    # fully local, no API key required
+# DB_BACKEND=sqlite               # default; uncomment to override
+# SQLITE_PATH=./var/aperio.db     # default location for the single-file DB
 ```
 
 ### Step 2. Databases & Migrations
 
-Aperio supports two vector store backends — pick the one that fits your setup:
+Aperio supports two storage backends. **You don't need to choose** — auto-detect picks
+the right one based on whether Docker is running:
 
 | Backend | When to use | Requires |
 |---------|-------------|----------|
-| **LanceDB** (default) | No Docker, quick start, single user | Nothing extra |
+| **SQLite + sqlite-vec** (default) | No Docker, quick start, single user. Single file at `var/aperio.db`. | Nothing extra |
 | **Postgres + pgvector** | Multi-agent, persistent, production-like | Docker |
 
 ```bash
-# LanceDB is the default — no extra steps needed.
+# SQLite is the default — no extra steps needed.
 # Skip the Docker commands below and go directly to Step 3.
 ```
 
-> **💡 Tip:** Set `DB_BACKEND=lancedb` in `.env` to force LanceDB, or `DB_BACKEND=postgres` for Postgres.   
-> If not set, Aperio auto-detects: uses Postgres when Docker is running, LanceDB otherwise.
+> **💡 Tip:** Set `DB_BACKEND=sqlite` in `.env` to force SQLite, or `DB_BACKEND=postgres` for Postgres.   
+> If not set, Aperio auto-detects: uses Postgres when Docker is running, SQLite otherwise.
 
 ```bash
 # POSTGRES MODE — start the database and run migrations
 cd docker && docker compose up -d && cd ..
-```
-- MacOS/Linux
-```bash
-docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql
-```
-- Windows
-```powershell
-cmd /c "docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql"
+npm run migrate
 ```
 ### Step 3. Install Ollama & Pull Models
 > **💡 Tip:** Skip this step entirely if you are using Anthropic or DeepSeek as your `AI_PROVIDER`.
@@ -235,9 +239,43 @@ to tune how each agent answers or critiques.
 
 ---
 
+## Code Graph
+
+Aperio ships a **pre-indexed code knowledge graph** so an agent can query
+your codebase instead of reading 50 files to answer "who calls X?" or
+"where is Y defined?". Symbols, calls, imports, and `extends` edges are
+extracted with tree-sitter (JS / TS / JSX / TSX) and stored alongside
+your memories.
+
+Two ways to use it:
+
+```bash
+# 1. One-shot index of the current directory
+node lib/codegraph/indexer.js .
+
+# 2. Live mode — start the server with a file watcher that reindexes on save
+APERIO_CODEGRAPH=on npm run start:local
+```
+
+The graph respects `APERIO_ALLOWED_PATHS_TO_READ`, so you can index
+multiple repos at once (e.g. Aperio + a side project). The sidebar in
+the web UI has a "Code" panel for searching symbols and walking
+callers / callees visually; the model uses the same data via the
+`code_*` MCP tools listed below.
+
+**Backend support:** Postgres and SQLite both work; LanceDB has no graph
+store. With SQLite (the default), the graph lives in the same
+`var/aperio.db` file as your memories.
+
+<p align="right">
+  [<a href="#top">Back to top ↑</a>]
+</p>
+
+---
+
 ## MCP Tools
 
-Aperio exposes **22 tools** over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
+Aperio exposes **28 tools** over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
 
 | Category | Tool | What it does |
 |----------|------|-------------|
@@ -251,6 +289,12 @@ Aperio exposes **22 tools** over MCP. Any MCP-compatible agent (Cursor, Windsurf
 | | `wiki_search` | Hybrid full-text + semantic search over articles — call before `wiki_write` |
 | | `wiki_list` | Browse articles newest-first by tag / status / `updated_since` |
 | | `wiki_get` | Fetch a full article by slug, with breadcrumb and optional stale-refresh |
+| **Code Graph** | `code_search` | Hybrid FTS + semantic search over pre-indexed symbols (functions, classes, methods, consts) |
+| | `code_outline` | List every symbol in a file by line — cheap map before reading |
+| | `code_context` | Fetch the source slice for a qualified symbol, with leading doc and line padding |
+| | `code_callers` | Walk the reverse call graph (depth-capped) — who calls this? |
+| | `code_callees` | Walk the forward call graph (depth-capped) — what does this call? |
+| | `code_repos` | List indexed repos with file / symbol counts and last-indexed timestamp |
 | **Files** | `read_file` | Read a code or text file (max 500 lines per call, paginated via `offset`) |
 | | `write_file` | Create or overwrite a file (subject to write-path guard) |
 | | `append_file` | Append content to an existing file without touching the rest |
@@ -288,7 +332,7 @@ Aperio is open source and self-hosted because **your memories is yours**.
 | | |
 |---|---|
 | 🗄️ **Your brain, your data** | 🖥️ **MCP-native** |
-| Postgres or LanceDB lives on your machine. You own it. | Any MCP agent plugs in — Cursor, Windsurf, etc. |
+| Postgres or SQLite lives on your machine. You own it. | Any MCP agent plugs in — Cursor, Windsurf, etc. |
 
 | |
 |---|

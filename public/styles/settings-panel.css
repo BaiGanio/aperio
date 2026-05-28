@@ -50,12 +50,47 @@
   border-bottom: 1px solid var(--border);
 }
 .settings-row:last-child { border-bottom: none; }
+
+/* Stacked variant: label on its own line, control spanning full width below.
+   Used where the control needs the whole row (theme segments, language list). */
+.settings-row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
 .settings-row-label {
   display: flex; align-items: center; gap: 10px;
   color: var(--text);
   font-size: 13.5px; font-weight: 500;
 }
 .settings-row-label i { font-size: 16px; color: var(--text-muted); }
+
+/* Right-hand control cluster (e.g. ON/OFF badge + switch). */
+.settings-row-control { display: flex; align-items: center; gap: 10px; }
+
+/* Textual on/off state so the toggle's meaning is always explicit. */
+.settings-state {
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  min-width: 26px; text-align: right;
+}
+.settings-state.is-on { color: var(--accent); }
+
+/* Theme picker inside the panel: full-width segmented control where each
+   segment shows its icon AND name (icons alone aren't self-explanatory). */
+.settings-panel .theme-switcher { width: 100%; }
+.settings-panel .theme-btn {
+  flex: 1;
+  width: auto; height: auto;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 4px;
+}
+.settings-panel .theme-btn-icon { font-size: 15px; line-height: 1; }
+.settings-panel .theme-btn-name { font-size: 10px; font-weight: 600; }
 
 /* Toggle switch (used for on/off preferences like voice responses). */
 .switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }

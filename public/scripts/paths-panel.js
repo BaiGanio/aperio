@@ -3,6 +3,10 @@ let _pathsReadList    = [];
 let _pathsWriteList   = [];
 let _currentSessionId = null;
 
+// Snapshot of the lists as loaded, so Apply can stay disabled until the user
+// actually adds or removes a path.
+let _pathsSnapshot    = "";
+
 // Last-known per-connection paths, updated by paths_updated / paths_restored.
 // null means no WS update has arrived yet — fall back to GET /api/paths.
 let _liveReadPaths  = null;
@@ -30,13 +34,22 @@ async function openPathsPanel() {
       _pathsWriteList = [];
     }
   }
+  _pathsSnapshot = JSON.stringify([_pathsReadList, _pathsWriteList]);
   _renderPathChips("read");
   _renderPathChips("write");
+  _updateApplyState();
   document.getElementById("paths-modal").style.display = "flex";
 }
 
 function closePathsPanel() {
   document.getElementById("paths-modal").style.display = "none";
+}
+
+// Apply is enabled only when the current lists differ from what was loaded.
+function _updateApplyState() {
+  const btn = document.querySelector(".paths-apply-btn");
+  if (!btn) return;
+  btn.disabled = JSON.stringify([_pathsReadList, _pathsWriteList]) === _pathsSnapshot;
 }
 
 function _renderPathChips(type) {
@@ -57,6 +70,7 @@ function _renderPathChips(type) {
     chip.querySelector(".path-chip-del").onclick = () => {
       list.splice(i, 1);
       _renderPathChips(type);
+      _updateApplyState();
     };
     el.appendChild(chip);
   });
@@ -70,6 +84,7 @@ function addPathChip(type) {
   if (!list.includes(val)) {
     list.push(val);
     _renderPathChips(type);
+    _updateApplyState();
   }
   input.value = "";
   input.focus();
@@ -138,9 +153,15 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 
-  // Escape closes the modal
+  // Escape closes the panel
   document.addEventListener("keydown", e => {
     const modal = document.getElementById("paths-modal");
     if (e.key === "Escape" && modal && modal.style.display !== "none") closePathsPanel();
+  });
+
+  // Clicking the dim backdrop (outside the drawer) closes the panel.
+  const modal = document.getElementById("paths-modal");
+  if (modal) modal.addEventListener("click", e => {
+    if (e.target === modal) closePathsPanel();
   });
 });

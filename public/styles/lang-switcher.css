@@ -1,67 +1,65 @@
-/* ── Language switcher ────────────────────────────────────────── */
+/* ── Language switcher (inline accordion inside the Settings panel) ───────── */
 .lang-switcher {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
+/* Whole row is the trigger: label on the left, current language on the right. */
 .lang-trigger {
-  height: 28px;
-  padding: 0 9px;
+  width: 100%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--font-sans, inherit);
+  transition: color var(--transition);
+}
+.lang-trigger:hover .lang-trigger-value { color: var(--text); border-color: var(--accent); }
+
+/* The current-language pill on the right. */
+.lang-trigger-value {
   display: inline-flex;
   align-items: center;
   gap: 5px;
+  padding: 4px 9px;
   background: var(--bg-hover);
   border: 1px solid var(--border);
   border-radius: 20px;
-  cursor: pointer;
   color: var(--text-muted);
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.06em;
-  transition: all var(--transition);
   text-transform: uppercase;
+  transition: all var(--transition);
 }
-.lang-trigger:hover {
-  background: var(--bg-panel);
-  color: var(--text);
-  border-color: var(--accent);
-}
-.lang-trigger .lang-flag { font-size: 14px; line-height: 1; }
-.lang-trigger .lang-code { letter-spacing: 0.08em; }
-.lang-trigger .lang-caret { font-size: 8px; opacity: 0.6; transition: transform var(--transition); }
-.lang-switcher.is-open .lang-trigger .lang-caret { transform: rotate(180deg); }
-.lang-switcher.is-open .lang-trigger {
+.lang-trigger-value .lang-flag { font-size: 14px; line-height: 1; }
+.lang-trigger-value .lang-code { letter-spacing: 0.08em; }
+.lang-trigger-value .lang-caret { font-size: 8px; opacity: 0.6; transition: transform var(--transition); }
+.lang-switcher.is-open .lang-caret { transform: rotate(180deg); }
+.lang-switcher.is-open .lang-trigger-value {
   background: var(--bg-panel);
   border-color: var(--accent);
   color: var(--accent);
 }
 
+/* Expands inline (in-flow) below the row — no floating, never clipped. */
 .lang-popover {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 200px;
-  max-height: 360px;
+  max-height: 300px;
   overflow-y: auto;
-  background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: var(--shadow);
+  background: var(--bg-panel);
   padding: 4px;
-  z-index: 200;
   display: none;
-  opacity: 0;
-  transform: translateY(-4px);
-  transition: opacity 140ms ease, transform 140ms ease;
 }
-.lang-switcher.is-open .lang-popover {
-  display: block;
-  opacity: 1;
-  transform: translateY(0);
-}
+.lang-switcher.is-open .lang-popover { display: block; }
 
 .lang-option {
   width: 100%;
