@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.51.1] — 2026-05-28
+
+### Fixed
+- removed .sqlite directories from tracking and add to .gitignore
+
+---
+
+
 ## [0.51.0] — 2026-05-28
 
 ### Added
