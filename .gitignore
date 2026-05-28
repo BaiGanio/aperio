@@ -13,6 +13,7 @@
 *.sln.docstates
 *.env
 *.lancedb/
+.sqlite/
 var/
 trash/
 
