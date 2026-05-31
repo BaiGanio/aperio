@@ -1,10 +1,11 @@
 // db/sqlite.js
-// SQLite backend for Aperio. Phase 1 of the LanceDB → SQLite migration.
+// SQLite backend for Aperio.
 //
-// Surface area is the union of PostgresStore (so handlers using store.pool
-// patterns work) AND LanceDBStore (so handlers using store.wiki/store.cache
-// also work). This lets us swap LanceDB → SQLite without touching any
-// handler in Phase 1. Phase 4 will collapse the redundant code paths.
+// Surface area is the union of two store shapes: the store.pool patterns (so
+// Postgres-style handlers work) AND the store.wiki/store.cache sub-store shape
+// (so handlers built around the in-memory cache also work). Carrying both lets
+// every handler run unchanged regardless of backend; the redundant paths could
+// be collapsed in a future cleanup.
 //
 // Storage layout:
 //   • memories         — main table; rowid is the FTS5 + vec0 join key
@@ -74,7 +75,7 @@ function rowToArticle(row) {
   };
 }
 
-// ── Wiki sub-store (mirrors LanceDBStore.wiki shape) ─────────────────────────
+// ── Wiki sub-store (store.wiki compatibility shape) ──────────────────────────
 class SqliteWiki {
   constructor(db) { this.db = db; }
 
@@ -251,7 +252,7 @@ export class SqliteStore {
   constructor(db) {
     this.db    = db;
     this.wiki  = new SqliteWiki(db);
-    this.cache = [];   // in-memory snapshot of current memories (LanceDB parity)
+    this.cache = [];   // in-memory snapshot of current memories
     // PostgresStore exposes .pool; we don't, but expose .db for advanced
     // callers (e.g. codegraph handlers in Phase 2).
   }
@@ -334,7 +335,7 @@ export class SqliteStore {
     try { this.db.close(); } catch (err) { logError('[sqlite] close failed', err); }
   }
 
-  // ── In-memory cache parity with LanceDB ───────────────────────────────────
+  // ── In-memory cache (store.cache compatibility shape) ─────────────────────
   async refreshCache() {
     const rows = this.db.prepare(`
       SELECT * FROM memories
@@ -606,7 +607,7 @@ export class SqliteStore {
 
   // ── Duplicates ────────────────────────────────────────────────────────────
   async findDuplicates(threshold) {
-    // Brute-force pairwise — same as LanceDB's JS impl, scoped to current rows.
+    // Brute-force pairwise cosine over the current rows.
     const rows = this.db.prepare(`
       SELECT m.id, m.title, m.type, v.embedding
         FROM memories m

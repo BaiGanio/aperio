@@ -179,7 +179,7 @@
   "setup_step_deps":          "Abhängigkeiten",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "KI-Modell",
-  "setup_step_lancedb":       "LanceDB & Embeddings",
+  "setup_step_sqlite":       "SQLite & Embeddings",
   "setup_badge_idle":         "wartet",
   "setup_badge_running":      "läuft…",
   "setup_badge_done":         "erledigt",

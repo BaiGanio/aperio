@@ -194,8 +194,8 @@ INSERT INTO memories (type, title, content, tags, importance) VALUES
 (
   'project',
   'Aperio — Technology Stack',
-  'The Aperio project stack: Node.js, Postgres 16, pgvector, Docker, Express, WebSocket, and Ollama with mxbai-embed-large for embeddings. Aperio-lite uses LanceDB as a fallback vector database for non-Docker users.',
-  ARRAY['aperio', 'node.js', 'postgres', 'pgvector', 'docker', 'ollama', 'lancedb'],
+  'The Aperio project stack: Node.js, Postgres 16, pgvector, Docker, Express, WebSocket, and Ollama with mxbai-embed-large for embeddings. Aperio-lite uses SQLite with sqlite-vec as a zero-config vector database for non-Docker users.',
+  ARRAY['aperio', 'node.js', 'postgres', 'pgvector', 'docker', 'ollama', 'sqlite'],
   4
 ),
 (
@@ -288,7 +288,7 @@ optional external dependency is a running Ollama daemon (or a cloud API key).
 | REST API | `lib/routes/api.js` | `/api/*` — memories, wiki, sessions, status |
 | WebSocket handler | `lib/ws/` | Real-time chat; streams tokens to the browser |
 | MCP subprocess | `mcp/` | Tool execution (remember, recall, wiki_*) in a child process |
-| DB store | `db/index.js` | Resolves LanceDB vs Postgres; exposes a unified store interface |
+| DB store | `db/index.js` | Resolves SQLite vs Postgres; exposes a unified store interface |
 | Skills loader | `skills/` | Injects SKILL.md prompt fragments into the system message |
 | Agent | `lib/agent/` | Provider-agnostic LLM wrapper; handles streaming + tool loop |
 
@@ -303,7 +303,7 @@ optional external dependency is a running Ollama daemon (or a cloud API key).
 ## Key Ports and Paths
 
 - Default port: **31337** (set via `PORT` env)
-- DB data: `.lancedb/` (LanceDB) or Docker Postgres volume
+- DB data: `sqlite/aperio.db` (SQLite) or Docker Postgres volume
 - Sessions: `data/sessions/`
 - Skills: `skills/<name>/SKILL.md`
 
@@ -368,30 +368,32 @@ before sensitive reads ensures cross-process consistency.
 
 [[embeddings]] [[db-backends]] [[mcp-tools]]
 $art2$,
-ARRAY['memory','lancedb','recall','temporal','embeddings'],
+ARRAY['memory','sqlite','recall','temporal','embeddings'],
 'system', '', 1
 
 ),(
 
 'db-backends',
-'Database Backends — LanceDB vs Postgres',
-'How Aperio selects a storage backend at startup, and what differs between LanceDB and Postgres.',
+'Database Backends — SQLite vs Postgres',
+'How Aperio selects a storage backend at startup, and what differs between SQLite and Postgres.',
 $art3$
 ## Backend Resolution Order
 
 At startup `db/index.js` resolves the backend in this order:
 
-1. `DB_BACKEND` env var — `'lancedb'` or `'postgres'` (explicit, always wins)
-2. Auto-detect — pings Docker; if reachable → Postgres, else → LanceDB
-3. Safety fallback — LanceDB (zero-config, always works)
+1. `DB_BACKEND` env var — `'sqlite'` or `'postgres'` (explicit, always wins)
+2. Auto-detect — pings Docker; if reachable → Postgres, else → SQLite
+3. Safety fallback — SQLite (zero-config, always works)
 
-## LanceDB (default for non-Docker users)
+## SQLite (default for non-Docker users)
 
-- **Embedded**: runs inside the Node.js process, no daemon needed.
-- **Storage**: `.lancedb/` directory in the project root (set via `LANCEDB_PATH`).
-- **Tables**: `memories` + `wiki_articles` (separate tables, same DB connection).
-- **FTS**: BM25 implemented in-process via `bm25Rank()` in `db/lancedb.js`.
-- **Hybrid search**: RRF merge of vector + BM25 results, computed in JS.
+- **Embedded**: runs inside the Node.js process via `better-sqlite3`, no daemon needed.
+- **Storage**: a single file at `sqlite/aperio.db` (set via `SQLITE_PATH`).
+- **Tables**: `memories` + `wiki_articles`, each paired with a `vec_*` (sqlite-vec)
+  and a `*_fts` (FTS5) virtual table, joined by `rowid`.
+- **Vector search**: sqlite-vec `vec0` virtual table; KNN via `embedding MATCH ? AND k = …`.
+- **FTS**: FTS5 + BM25, kept in sync by AFTER INSERT/UPDATE/DELETE triggers.
+- **Hybrid search**: RRF merge of vector + FTS5 results, computed in JS.
 
 ## Postgres (Docker users)
 
@@ -404,16 +406,16 @@ At startup `db/index.js` resolves the backend in this order:
 
 ## Behavioural Differences
 
-| Feature | LanceDB | Postgres |
+| Feature | SQLite | Postgres |
 |---|---|---|
-| Wiki stale-marking | Lazy / on next refresh | Automatic via DB trigger |
+| Wiki stale-marking | Trigger present, no-op under tombstone+insert | Automatic via DB trigger |
 | Source memory validation | `store.cache` lookup | `SELECT … WHERE id = ANY($1)` |
-| Embedding storage | Float32 FixedSizeList | `vector(1024)` pgvector type |
+| Embedding storage | sqlite-vec `vec0` (float32) | `vector(1024)` pgvector type |
 
-## Resetting LanceDB
+## Resetting SQLite
 
 ```bash
-rm -rf .lancedb && node server.js
+rm -f sqlite/aperio.db && node server.js
 ```
 
 Tables and seed data are re-created on next start.
@@ -422,7 +424,7 @@ Tables and seed data are re-created on next start.
 
 [[aperio-architecture]] [[memory-system]] [[embeddings]]
 $art3$,
-ARRAY['lancedb','postgres','database','architecture','docker'],
+ARRAY['sqlite','postgres','database','architecture','docker'],
 'system', '', 1
 
 ),(
@@ -451,7 +453,7 @@ Set via `EMBEDDING_PROVIDER`:
 | `transformers` | `mixedbread-ai/mxbai-embed-large-v1` (ONNX q8) | Default. Fully local; 1024 dims. |
 | `voyage` | Voyage AI | Cloud; requires `VOYAGE_API_KEY`. Free tier: 50M tokens/month. |
 
-Changing providers after data exists requires wiping `.lancedb/` (dimension mismatch).
+Changing providers after data exists requires wiping the database (dimension mismatch).
 
 ## Wiki Refresh Provider
 
@@ -630,7 +632,8 @@ first creation. Use lowercase kebab-case: `aperio-architecture`.
 
 An article becomes **stale** when one of its source memories is updated.
 
-- LanceDB: staleness is checked lazily at read time.
+- SQLite: under temporal versioning (tombstone + insert) the stale trigger is a no-op,
+  so staleness surfaces lazily at read time.
 - Postgres: a DB trigger (`trg_memories_mark_wiki_stale`) marks it automatically.
 
 To recover: `wiki_get(slug, refresh=true)` rewrites via `WIKI_REFRESH_PROVIDER` if configured.
@@ -680,7 +683,7 @@ $art8$
 
 - Requires `VOYAGE_API_KEY`
 - Free tier: 50M tokens/month
-- **Switching providers** after data exists requires wiping `.lancedb/` — dimensions must match exactly.
+- **Switching providers** after data exists requires wiping the database — dimensions must match exactly.
 
 ## What Gets Embedded
 
@@ -692,11 +695,11 @@ $art8$
 ## Dimension Mismatch Error
 
 ```
-LanceDB vector dimension mismatch: table has 1024D but EMBEDDING_DIMS=384.
-Either set EMBEDDING_DIMS=1024 or delete the .lancedb directory to start fresh.
+Vector dimension mismatch: table has 1024D but EMBEDDING_DIMS=384.
+Either set EMBEDDING_DIMS=1024 or delete sqlite/aperio.db to start fresh.
 ```
 
-Fix: align `EMBEDDING_DIMS` to the table value, or `rm -rf .lancedb` to start fresh.
+Fix: align `EMBEDDING_DIMS` to the table value, or `rm -f sqlite/aperio.db` to start fresh.
 
 ## Zero Vectors and Backfill
 
@@ -708,10 +711,10 @@ trigger manually at any time.
 
 ## Search Modes
 
-| Mode | LanceDB | Postgres |
+| Mode | SQLite | Postgres |
 |---|---|---|
-| `semantic` | `table.search(vec)` (ANN) | `embedding <=> $1::vector` (HNSW) |
-| `fulltext` | `bm25Rank()` in JS | `plainto_tsquery` + tsvector |
+| `semantic` | `embedding MATCH ? AND k = …` (sqlite-vec KNN) | `embedding <=> $1::vector` (HNSW) |
+| `fulltext` | FTS5 `MATCH` + BM25 | `plainto_tsquery` + tsvector |
 | `auto` (hybrid) | RRF merge in JS | RRF CTE in SQL |
 
 ## See Also

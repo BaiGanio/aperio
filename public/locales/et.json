@@ -179,7 +179,7 @@
   "setup_step_deps":          "Sõltuvused",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI Mudel",
-  "setup_step_lancedb":       "LanceDB ja Sisestused",
+  "setup_step_sqlite":       "SQLite ja Sisestused",
   "setup_badge_idle":         "ootab",
   "setup_badge_running":      "töötab…",
   "setup_badge_done":         "valmis",

@@ -88,12 +88,12 @@ describe("GET /provider", () => {
 // ─── GET /config ──────────────────────────────────────────────────────────────
 
 describe("GET /config", () => {
-  test("defaults to lancedb when DB_BACKEND is not set", async (t) => {
+  test("defaults to sqlite when DB_BACKEND is not set", async (t) => {
     delete process.env.DB_BACKEND;
     const router = makeRouter();
     const { status, body } = await invoke(router, "GET", "/config");
     assert.strictEqual(status, 200);
-    assert.strictEqual(body.backend, "lancedb");
+    assert.strictEqual(body.backend, "sqlite");
   });
 
   test("returns the value of DB_BACKEND env var when set", async (t) => {

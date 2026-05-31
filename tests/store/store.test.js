@@ -1,5 +1,5 @@
 // tests/store/store.test.js
-// Unit tests for the PostgresStore / LanceDBStore interface.
+// Unit tests for the PostgresStore / SqliteStore interface.
 // Covers counts(), listWithoutEmbeddings(), and setEmbedding().
 // Uses makeMockStore() — no real DB connection needed.
 

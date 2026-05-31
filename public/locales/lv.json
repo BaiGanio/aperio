@@ -179,7 +179,7 @@
   "setup_step_deps":          "Atkarības",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI Modelis",
-  "setup_step_lancedb":       "LanceDB un Iegulumi",
+  "setup_step_sqlite":       "SQLite un Iegulumi",
   "setup_badge_idle":         "gaida",
   "setup_badge_running":      "darbojas…",
   "setup_badge_done":         "pabeigts",

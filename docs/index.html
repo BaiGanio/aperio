@@ -128,7 +128,7 @@
     </div>
     <div class="badge-row reveal">
       <span class="tech-badge"><i class="bi bi-database me-1"></i> Postgres 16</span>
-      <span class="tech-badge"><i class="bi bi-database me-1"></i> LanceDb</span>
+      <span class="tech-badge"><i class="bi bi-database me-1"></i> SQLite</span>
       <span class="tech-badge"><i class="bi bi-cpu me-1"></i> pgvector</span>
       <span class="tech-badge"><i class="bi bi-plug me-1"></i> MCP Protocol</span>
       <span class="tech-badge"><i class="bi bi-box me-1"></i> Ollama</span>
@@ -547,8 +547,8 @@
         <div class="step-title">Databases</div>
         <div class="code-block" style="position:relative">
           <button class="copy-btn" data-target=".s">Copy</button>
-          <div class="c"># Vector database for lite mode when Docker is not in use</div>
-          <div class="s">npm install @lancedb/lancedb uuid </div>  
+          <div class="c"># Lite mode uses bundled SQLite + sqlite-vec — no extra DB install</div>
+          <div class="s">npm install uuid </div>
           <div>&nbsp;</div>
           <div class="s">cd docker</div>
           <div class="s">docker compose up -d</div>
@@ -599,7 +599,7 @@
         <div class="code-block" style="position:relative">  
           <button class="copy-btn" data-target=".s">Copy</button>
           <div class="c"># local (Ollama)</div>
-          <div class="c"># auto-detect if any Docker - uses LanceDb as fallback</div>
+          <div class="c"># auto-detect if any Docker - uses SQLite as fallback</div>
           <div class="s">npm run chat:local</div>
           <div>&nbsp;</div>
            <div class="c"># cloud (Anthropic)</div>

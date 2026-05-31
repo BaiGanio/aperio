@@ -179,7 +179,7 @@
   "setup_step_deps":          "Ovisnosti",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI Model",
-  "setup_step_lancedb":       "LanceDB i Embeddinzi",
+  "setup_step_sqlite":       "SQLite i Embeddinzi",
   "setup_badge_idle":         "čekanje",
   "setup_badge_running":      "izvođenje…",
   "setup_badge_done":         "gotovo",

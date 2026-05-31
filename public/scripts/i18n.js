@@ -267,7 +267,7 @@ const TRANSLATIONS = {
     setup_step_deps:          "Dependencies",
     setup_step_ollama:        "Ollama",
     setup_step_model:         "AI Model",
-    setup_step_lancedb:       "LanceDB & Embeddings",
+    setup_step_sqlite:       "SQLite & Embeddings",
     setup_badge_idle:         "waiting",
     setup_badge_running:      "running…",
     setup_badge_done:         "done",

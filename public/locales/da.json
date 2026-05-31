@@ -179,7 +179,7 @@
   "setup_step_deps":          "Afhængigheder",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI-model",
-  "setup_step_lancedb":       "LanceDB & Indlejringer",
+  "setup_step_sqlite":       "SQLite & Indlejringer",
   "setup_badge_idle":         "venter",
   "setup_badge_running":      "kører…",
   "setup_badge_done":         "færdig",

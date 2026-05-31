@@ -179,7 +179,7 @@
   "setup_step_deps":          "Εξαρτήσεις",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "Μοντέλο AI",
-  "setup_step_lancedb":       "LanceDB και Embeddings",
+  "setup_step_sqlite":       "SQLite και Embeddings",
   "setup_badge_idle":         "αναμονή",
   "setup_badge_running":      "εκτέλεση…",
   "setup_badge_done":         "έτοιμο",

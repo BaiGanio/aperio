@@ -179,7 +179,7 @@
   "setup_step_deps":          "Afhankelijkheden",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI-model",
-  "setup_step_lancedb":       "LanceDB en Embeddings",
+  "setup_step_sqlite":       "SQLite en Embeddings",
   "setup_badge_idle":         "wachtend",
   "setup_badge_running":      "bezig…",
   "setup_badge_done":         "gereed",

@@ -13,7 +13,7 @@ wss.on("connection", (ws) => {
   const send = (type, payload = {}) => ws.send(JSON.stringify({ type, ...payload }));
 
   send("status",          { text: "connected" });
-  send("provider",        { name: "stub", model: "stub", db: "lancedb", thinks: false, contextWindow: 4096, toolCount: 0 });
+  send("provider",        { name: "stub", model: "stub", db: "sqlite", thinks: false, contextWindow: 4096, toolCount: 0 });
   send("session_created", { id: sessionId });
 
   ws.on("message", (raw) => {

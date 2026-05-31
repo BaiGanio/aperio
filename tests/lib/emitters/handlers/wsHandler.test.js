@@ -77,7 +77,7 @@ describe("onConnection — immediate sends", () => {
     assert.strictEqual(p.type,  "provider");
     assert.strictEqual(p.name,  "ollama");
     assert.strictEqual(p.model, "llama3.1");
-    assert.ok(["postgres", "lancedb"].includes(p.db));
+    assert.ok(["postgres", "sqlite"].includes(p.db));
   });
 
   test("provider message includes the current OLLAMA_THINKS flag", (t) => {

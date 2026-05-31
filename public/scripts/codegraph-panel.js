@@ -16,7 +16,7 @@
   const kindSel  = () => document.getElementById("cgKindSelect");
 
   let searchTimer = null;
-  let _enabled    = null;     // null = unknown, false = LanceDB, true = Postgres
+  let _enabled    = null;     // null = unknown, false = no graph store, true = available
   let _repos      = [];
   let _statusTimer = null;
   let _statusPolling = false;
@@ -279,8 +279,8 @@
     if (_enabled === null) await loadRepos();
     if (_enabled === false) {
       setBody(`<div class="cg-empty">
-        The code graph requires the Postgres backend.
-        Switch <code>DB_BACKEND=postgres</code>, run <code>npm run migrate</code>,
+        The code graph requires the SQLite or Postgres backend.
+        Set <code>DB_BACKEND=sqlite</code> (zero-config) or <code>DB_BACKEND=postgres</code>,
         then <code>node lib/codegraph/indexer.js .</code>
       </div>`);
       return;

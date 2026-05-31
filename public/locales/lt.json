@@ -179,7 +179,7 @@
   "setup_step_deps":          "Priklausomybės",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI Modelis",
-  "setup_step_lancedb":       "LanceDB ir Įterpiniai",
+  "setup_step_sqlite":       "SQLite ir Įterpiniai",
   "setup_badge_idle":         "laukiama",
   "setup_badge_running":      "vykdoma…",
   "setup_badge_done":         "atlikta",
