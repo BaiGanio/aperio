@@ -117,3 +117,27 @@
   transform: translateX(18px);
   background: var(--accent);
 }
+
+/* Model selector */
+.model-select {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  appearance: auto;
+}
+.model-select:disabled { opacity: 0.5; cursor: default; }
+.model-select:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.model-select-status {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  min-height: 16px;
+}
+.model-select-status.is-ok { color: var(--accent); }
+.model-select-status.is-err { color: var(--error, #e55); }
