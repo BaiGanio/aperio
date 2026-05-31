@@ -1,0 +1,335 @@
+    /* ── Theme switcher (inline group inside the sidebar theme row) ── */
+    .theme-switcher {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+      padding: 3px;
+      background: var(--bg-hover);
+      border-radius: 9px;
+    }
+
+    .theme-btn {
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 12px;
+      transition: all var(--transition);
+      background: none;
+      color: var(--text-muted);
+      position: relative;
+    }
+
+    .theme-btn:hover { color: var(--text); }
+
+    .theme-btn.active {
+      background: var(--bg-panel);
+      color: var(--accent);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+
+    .theme-btn[data-theme="aurora"].active {
+      color: #a855f7;
+    }
+
+    /* Aurora special glow on logo */
+    [data-theme="aurora"] .logo-icon {
+      background: linear-gradient(135deg, #7c3aed, #ec4899);
+    }
+
+    [data-theme="aurora"] .send-btn {
+      background: linear-gradient(135deg, #7c3aed, #ec4899);
+    }
+
+    [data-theme="aurora"] .status-dot.connected { background: #a855f7; }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 52px 1fr;
+      height: 100vh;
+      gap: 0;
+      transition: grid-template-columns 220ms ease;
+    }
+
+    .app.sidebar-collapsed {
+      grid-template-columns: 64px 1fr;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      z-index: 10;
+    }
+
+    .logo {
+      font-family: var(--font-mono);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--text);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--bg);
+      letter-spacing: -0.02em;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-hover);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #9ca3af;
+      transition: background var(--transition);
+    }
+    .status-dot.connected { background: #22c55e; }
+    .status-dot.thinking  { background: #f59e0b; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .3; }
+    }
+
+    /* ── Nav action pill (reasoning · history · paths) ─────── */
+    .nav-actions-pill {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px;
+      flex-shrink: 0;
+    }
+
+    /* Base for all three buttons inside the pill */
+    .nav-action-btn {
+      height: 26px;
+      border-radius: 40px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transition: all var(--transition);
+      background: none;
+      color: var(--text-muted);
+      position: relative;
+    }
+    .nav-action-btn:hover {
+      background: var(--bg-panel);
+      color: var(--text);
+    }
+
+    /* Reasoning — has icon + short text label */
+    #reasoningToggle {
+      padding: 0 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    /* History and Paths — text label buttons */
+    .nav-action-btn--text {
+      padding: 0 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    /* History and Paths — icon only, circle like theme-btn */
+    .nav-action-btn--icon {
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border-radius: 50%;
+      font-size: 13px;
+    }
+
+    /* Reasoning toggle now stands alone in the header */
+    .nav-action-btn--solo {
+      padding: 0 10px;
+      height: 28px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      border-radius: 20px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+    }
+    .nav-action-btn--solo:hover { background: var(--bg-panel); }
+
+    /* ── Sidebar nav (chats · paths · wiki · sound · theme) ──── */
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 6px 10px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .sidebar-nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+      height: 32px;
+      padding: 0 10px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      color: var(--text-muted);
+      font-family: var(--font-sans, inherit);
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .sidebar-nav-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+
+    .sidebar-nav-icon {
+      font-size: 15px;
+      flex-shrink: 0;
+      width: 18px;
+      text-align: center;
+    }
+
+    .sidebar-nav-label { flex: 1; text-align: left; }
+
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    .sidebar {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 220ms ease, opacity 220ms ease;
+    }
+
+    /* Collapsed = narrow icon rail: hide the memory-browsing area,
+       keep the nav icons reachable. */
+    .app.sidebar-collapsed .sidebar-header,
+    .app.sidebar-collapsed .memories-list,
+    .app.sidebar-collapsed .sidebar-footer {
+      display: none;
+    }
+    .app.sidebar-collapsed .sidebar {
+      padding-top: 10px;
+    }
+    .app.sidebar-collapsed .sidebar-nav {
+      margin-top: 0;
+      border-top: none;
+      padding: 0 8px;
+    }
+    .app.sidebar-collapsed .sidebar-nav-btn {
+      justify-content: center;
+      padding: 0;
+      width: 40px;
+      height: 40px;
+      margin: 0 auto;
+    }
+    .app.sidebar-collapsed .sidebar-nav-label {
+      display: none;
+    }
+
+    /* Toggle button — sits in header */
+    .sidebar-toggle {
+      width: 30px; height: 30px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px;
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+
+    .sidebar-toggle:hover {
+      background: var(--bg-panel);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    .sidebar-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .sidebar-footer {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #version-display {
+      display: block;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      opacity: 0.55;
+      margin-top: 2px;
+    }
+
+    #metrics-display {
+      display: block;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+      opacity: 0.45;
+      margin-top: 3px;
+    }

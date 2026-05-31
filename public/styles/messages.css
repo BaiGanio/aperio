@@ -1,0 +1,584 @@
+    /* ── Chat area ───────────────────────────────────────────── */
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .message {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      max-width: 1100px;
+      animation: fadeUp .2s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .avatar {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px;
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .avatar.ai {
+      background: var(--text);
+      color: var(--bg);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .avatar.user {
+      background: var(--accent);
+      color: white;
+    }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 16px;
+      line-height: 1.65;
+      max-width: 100%;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+
+    .message.ai .bubble {
+      background: var(--bg-msg-ai);
+      border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+      width: 100%;
+    }
+
+    .msg-timestamp {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 3px;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .message:hover .msg-timestamp { opacity: 1; }
+
+    .msg-stats {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+      opacity: 0.75;
+      transition: opacity var(--transition);
+    }
+    .message:hover .msg-stats { opacity: 1; }
+
+    /* Token chip below user bubbles — right-aligned to match bubble position */
+    .msg-stats--user {
+      align-self: flex-end;
+      padding-right: 44px; /* 28px avatar + 16px message gap */
+      text-align: right;
+      opacity: 0.55;
+    }
+    .msg-stats--user:hover { opacity: 1; }
+
+    .message.user .bubble {
+      background: var(--bg-msg-user);
+      color: var(--text-user);
+      border-top-right-radius: 4px;
+    }
+
+    /* Markdown-ish in bubbles */
+    .bubble code {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      background: var(--bg-hover);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .message.user .bubble code {
+      background: rgba(255,255,255,.15);
+    }
+
+    .chat-image {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 8px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .code-block {
+      margin: 8px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .code-block pre {
+      overflow-x: auto;
+      white-space: pre;
+      margin: 0 !important;
+      padding: 14px 16px !important;
+      background: transparent !important;
+      line-height: 1.55 !important;
+    }
+
+    .code-block pre code,
+    .code-block code {
+      white-space: pre !important;
+      display: block;
+      font-family: var(--font-mono) !important;
+      font-size: 12.5px !important;
+      line-height: 1.55 !important;
+      background: none !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+    }
+
+    .code-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 5px 10px;
+      background: var(--bg-hover);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-lang {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: lowercase;
+    }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .copy-btn.copied { color: #22c55e; border-color: #22c55e; }
+
+    .bubble pre {
+      background: var(--bg) !important;
+      padding: 12px !important;
+      overflow-x: auto;
+      margin: 0 !important;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.6 !important;
+    }
+
+    /* ── Prism token colors ── */
+    code[class*="language-"], pre[class*="language-"] {
+      font-family: var(--font-mono) !important;
+      background: none !important;
+      text-shadow: none !important;
+    }
+    .token { font-family: var(--font-mono) !important; }
+
+    [data-theme="light"] .token.keyword,
+    [data-theme="system"] .token.keyword    { color: #7c3aed; }
+    [data-theme="light"] .token.string,
+    [data-theme="system"] .token.string     { color: #059669; }
+    [data-theme="light"] .token.comment,
+    [data-theme="system"] .token.comment    { color: #9ca3af; font-style: italic; }
+    [data-theme="light"] .token.function,
+    [data-theme="system"] .token.function   { color: #2563eb; }
+    [data-theme="light"] .token.number,
+    [data-theme="system"] .token.number     { color: #d97706; }
+    [data-theme="light"] .token.operator,
+    [data-theme="system"] .token.operator   { color: #db2777; }
+    [data-theme="light"] .token.class-name,
+    [data-theme="system"] .token.class-name { color: #dc2626; }
+    [data-theme="light"] .token.builtin,
+    [data-theme="system"] .token.builtin    { color: #7c3aed; }
+
+    [data-theme="dark"] .token.keyword    { color: #a78bfa; }
+    [data-theme="dark"] .token.string     { color: #34d399; }
+    [data-theme="dark"] .token.comment    { color: #6b7280; font-style: italic; }
+    [data-theme="dark"] .token.function   { color: #60a5fa; }
+    [data-theme="dark"] .token.number     { color: #fbbf24; }
+    [data-theme="dark"] .token.operator   { color: #f472b6; }
+    [data-theme="dark"] .token.class-name { color: #f87171; }
+    [data-theme="dark"] .token.builtin    { color: #a78bfa; }
+    [data-theme="dark"] .token.punctuation{ color: #94a3b8; }
+
+    [data-theme="aurora"] .token.keyword    { color: #c084fc; }
+    [data-theme="aurora"] .token.string     { color: #34d399; }
+    [data-theme="aurora"] .token.comment    { color: #6b5e8a; font-style: italic; }
+    [data-theme="aurora"] .token.function   { color: #818cf8; }
+    [data-theme="aurora"] .token.number     { color: #f9a8d4; }
+    [data-theme="aurora"] .token.operator   { color: #e879f9; }
+    [data-theme="aurora"] .token.class-name { color: #f472b6; }
+    [data-theme="aurora"] .token.builtin    { color: #c084fc; }
+    [data-theme="aurora"] .token.punctuation{ color: #8b7fb8; }
+
+    .bubble strong { font-weight: 600; }
+    .bubble em { font-style: italic; opacity: .85; }
+    .bubble p { margin-bottom: 6px; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble ol, .bubble ul { padding-left: 1.4em; margin-bottom: 6px; }
+    .bubble ol { list-style: decimal; }
+    .bubble ul { list-style: disc; }
+    .bubble li { margin-bottom: 3px; padding-left: 0.2em; }
+    .bubble li:last-child { margin-bottom: 0; }
+
+    /* Memory suggestion block */
+    .memory-suggestion {
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-top: 10px;
+    }
+
+    .memory-suggestion-title {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .suggestion-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: 14px;
+    }
+
+    .suggestion-num {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .suggestion-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover { opacity: .88; }
+
+    .btn-ghost {
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); }
+
+    /* Input locked state while AI is thinking */
+    .input-locked textarea {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+    .input-locked .input-hint {
+      color: var(--accent);
+      opacity: 0.8;
+    }
+
+/* ── Table styles (markdown pipe tables) ── */
+/* .bubble table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 12px 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.bubble thead th {
+  text-align: left;
+  padding: 9px 14px;
+  font-weight: 600;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--bg-hover);
+  border-bottom: 2px solid var(--border);
+}
+
+.bubble td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--bg-hover);
+  vertical-align: top;
+}
+
+/* Zebra striping */
+.bubble tbody tr:nth-child(even) td {
+  background: var(--bg-hover);
+}
+
+.bubble tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Row hover — distinct from zebra stripe so hover is always visible */
+.bubble tbody tr:hover td {
+  background: var(--accent-soft);
+} */
+
+/* ── Round-table mode: per-agent bubble styling ─────────────────────────── */
+.message.message-agent-primary .bubble {
+  border-left: 3px solid var(--agent-primary);
+}
+.message.message-agent-verifier .bubble {
+  border-left: 3px solid var(--agent-verifier);
+}
+.avatar.avatar-agent-primary  { background: var(--agent-primary)  !important; color: white; }
+.avatar.avatar-agent-verifier { background: var(--agent-verifier) !important; color: white; }
+
+/* Phase chip — live status line shown above the next agent's incoming bubble. */
+.roundtable-phase-chip {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  padding: 6px 12px 6px 6px;
+  border-radius: 999px;
+  background: var(--bg-card, var(--bg-hover));
+  border: 1px solid var(--border);
+  margin: 8px 0 4px 44px;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 2px rgba(0,0,0,.05);
+}
+.roundtable-phase-chip .roundtable-agent-badge { width: 20px; height: 20px; font-size: 10px; }
+.roundtable-phase-text { white-space: nowrap; }
+.roundtable-phase-primary  { border-color: var(--agent-primary);  }
+.roundtable-phase-verifier { border-color: var(--agent-verifier); }
+.roundtable-phase-primary  .roundtable-phase-text { color: var(--agent-primary);  }
+.roundtable-phase-verifier .roundtable-phase-text { color: var(--agent-verifier); }
+
+/* Spinner — only animates while chip has .is-active. */
+.roundtable-phase-spinner {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: currentColor;
+  animation: roundtable-spin 0.8s linear infinite;
+  flex: 0 0 auto;
+}
+.roundtable-phase-primary  .roundtable-phase-spinner { border-top-color: var(--agent-primary);  }
+.roundtable-phase-verifier .roundtable-phase-spinner { border-top-color: var(--agent-verifier); }
+@keyframes roundtable-spin { to { transform: rotate(360deg); } }
+
+/* Consensus bubble — gold/green border, badge header. */
+.message.roundtable-consensus .bubble {
+  border-left: 3px solid #22c55e;
+  background: linear-gradient(180deg, rgba(34,197,94,.04), transparent);
+}
+.message.roundtable-consensus .avatar {
+  background: #22c55e !important;
+  color: white;
+}
+.roundtable-consensus-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.roundtable-consensus-pill {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: #22c55e;
+  color: white;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.roundtable-agent-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+}
+.roundtable-agent-badge.roundtable-agent-primary  { background: var(--agent-primary); }
+.roundtable-agent-badge.roundtable-agent-verifier { background: var(--agent-verifier); }
+
+/* Inline model tag above each round-table streaming bubble.
+   Mirrors the avatar colour so it's instantly clear which agent is speaking. */
+.roundtable-agent-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  align-self: flex-start;
+  margin-bottom: 6px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.roundtable-agent-tag-primary  { color: var(--agent-primary);  border-color: var(--agent-primary); }
+.roundtable-agent-tag-verifier { color: var(--agent-verifier); border-color: var(--agent-verifier); }
+
+/* Consensus header chip — badge + model name pair. */
+.roundtable-agent-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.roundtable-agent-chip-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+
+/* No-consensus card — two columns side-by-side. */
+.roundtable-no-consensus-wrap .bubble { display: none; }
+.roundtable-no-consensus {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  background: var(--bg-panel);
+}
+/* Provider-error card — agent X failed mid-round. */
+.roundtable-error-card {
+  width: 100%;
+  border: 1px solid rgba(220, 38, 38, 0.35);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  background: rgba(220, 38, 38, 0.06);
+}
+.roundtable-error-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: #b91c1c;
+  margin-bottom: 6px;
+}
+.roundtable-error-body {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.roundtable-no-consensus-attribution {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.roundtable-no-consensus-banner {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #c2410c;
+  background: rgba(249, 115, 22, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.25);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 12px;
+}
+.roundtable-no-consensus-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 720px) {
+  .roundtable-no-consensus-cols { grid-template-columns: 1fr; }
+}
+.roundtable-no-consensus-col {
+  border-left: 3px solid var(--border);
+  padding-left: 12px;
+}
+.roundtable-no-consensus-col.roundtable-no-consensus-primary  { border-left-color: var(--agent-primary); }
+.roundtable-no-consensus-col.roundtable-no-consensus-verifier { border-left-color: var(--agent-verifier); }
+.roundtable-no-consensus-title {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+.roundtable-no-consensus-body {
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+}

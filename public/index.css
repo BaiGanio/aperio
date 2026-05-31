@@ -1,0 +1,14 @@
+/* ── Aperio stylesheet manifest ──────────────────────────────── */
+@import "styles/tokens.css";
+@import "styles/layout.css";
+@import "styles/modals.css";
+@import "styles/messages.css";
+@import "styles/context.css";
+@import "styles/sessions.css";
+@import "styles/lang-switcher.css";
+@import "styles/input-bar.css";
+@import "styles/tool-and-thinking-indicators.css";
+@import "styles/msg-attachments.css";
+@import "styles/wiki-panel.css";
+@import "styles/codegraph-panel.css";
+@import "styles/settings-panel.css";

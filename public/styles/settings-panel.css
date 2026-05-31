@@ -1,0 +1,119 @@
+/* ── Settings panel ─────────────────────────────────────────── */
+/* Slide-in drawer from the right, mirroring the wiki/sessions panels.
+   Holds the preferences that used to clutter the sidebar footer. */
+.settings-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.25);
+  z-index: 199;
+}
+.settings-panel {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 380px; max-width: 94vw;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  z-index: 200;
+  display: flex; flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0,0,0,.12);
+  animation: slideInRight .18s ease;
+}
+.settings-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.settings-panel-title {
+  font-family: var(--font-mono);
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.settings-panel-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 14px;
+  padding: 2px 4px; border-radius: var(--radius-sm);
+  transition: color var(--transition);
+}
+.settings-panel-close:hover { color: var(--text); }
+
+.settings-panel-body {
+  flex: 1; overflow-y: auto;
+  padding: 8px 16px;
+}
+
+/* One preference per row: label on the left, control on the right. */
+.settings-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; }
+
+/* Stacked variant: label on its own line, control spanning full width below.
+   Used where the control needs the whole row (theme segments, language list). */
+.settings-row--stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.settings-row-label {
+  display: flex; align-items: center; gap: 10px;
+  color: var(--text);
+  font-size: 13.5px; font-weight: 500;
+}
+.settings-row-label i { font-size: 16px; color: var(--text-muted); }
+
+/* Right-hand control cluster (e.g. ON/OFF badge + switch). */
+.settings-row-control { display: flex; align-items: center; gap: 10px; }
+
+/* Textual on/off state so the toggle's meaning is always explicit. */
+.settings-state {
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  min-width: 26px; text-align: right;
+}
+.settings-state.is-on { color: var(--accent); }
+
+/* Theme picker inside the panel: full-width segmented control where each
+   segment shows its icon AND name (icons alone aren't self-explanatory). */
+.settings-panel .theme-switcher { width: 100%; }
+.settings-panel .theme-btn {
+  flex: 1;
+  width: auto; height: auto;
+  flex-direction: column;
+  gap: 3px;
+  padding: 7px 4px;
+}
+.settings-panel .theme-btn-icon { font-size: 15px; line-height: 1; }
+.settings-panel .theme-btn-name { font-size: 10px; font-weight: 600; }
+
+/* Toggle switch (used for on/off preferences like voice responses). */
+.switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch-track {
+  position: absolute; inset: 0; cursor: pointer;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  transition: background var(--transition), border-color var(--transition);
+}
+.switch-track::before {
+  content: ""; position: absolute;
+  height: 16px; width: 16px; left: 3px; top: 2px;
+  background: var(--text-muted);
+  border-radius: 50%;
+  transition: transform var(--transition), background var(--transition);
+}
+.switch input:checked + .switch-track {
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
+  border-color: var(--accent);
+}
+.switch input:checked + .switch-track::before {
+  transform: translateX(18px);
+  background: var(--accent);
+}

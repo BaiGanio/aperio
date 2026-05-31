@@ -1,0 +1,326 @@
+    /* ── Sessions panel ──────────────────────────────────────────── */
+    .sessions-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.25);
+      z-index: 199;
+    }
+    .sessions-panel {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100vh;
+      width: 380px;
+      max-width: 92vw;
+      background: var(--bg);
+      border-left: 1px solid var(--border);
+      z-index: 200;
+      flex-direction: column;
+      box-shadow: -4px 0 24px rgba(0,0,0,.12);
+      animation: slideInRight .18s ease;
+    }
+    @keyframes slideInRight {
+      from { transform: translateX(24px); opacity: 0; }
+      to   { transform: translateX(0);    opacity: 1; }
+    }
+    .sessions-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sessions-panel-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sessions-select-toggle {
+      background: none;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .sessions-select-toggle:hover { border-color: var(--accent); color: var(--accent); }
+    .sessions-select-toggle--active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--bg)); }
+    .sessions-select-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+      flex-shrink: 0;
+      gap: 8px;
+    }
+    .sessions-select-count {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .session-btn--bulk-delete {
+      flex: 0 0 auto;
+      background: rgba(239,68,68,.1);
+      border-color: rgba(239,68,68,.3);
+      color: #ef4444;
+    }
+    .session-btn--bulk-delete:not(:disabled):hover {
+      background: rgba(239,68,68,.2);
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    .session-btn--bulk-delete:disabled { opacity: 0.35; cursor: default; }
+    .session-card-checkbox {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+    .sessions-panel-title {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .sessions-panel-close {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      font-size: 14px;
+      padding: 2px 4px;
+      border-radius: var(--radius-sm);
+      transition: color var(--transition);
+    }
+    .sessions-panel-close:hover { color: var(--text); }
+    .sessions-panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .sessions-empty {
+      text-align: center;
+      padding: 32px 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.8;
+    }
+    .session-card {
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+      transition: border-color var(--transition);
+      flex-shrink: 0;
+    }
+    .session-card:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--border)); }
+    .session-card--open { border-color: var(--accent); }
+    .session-card--selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--bg)); }
+
+    .session-card-title-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      user-select: none;
+      transition: background var(--transition);
+    }
+    .session-card-title-row:hover { background: var(--bg-hover); }
+    .session-card-title {
+      flex: 1;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-card-chevron {
+      font-size: 11px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+      transition: transform .15s ease;
+    }
+
+    .session-card-details {
+      display: none;
+      border-top: 1px solid var(--border);
+      padding: 8px 12px 10px;
+    }
+    .session-card-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+    .session-card-stats {
+      display: flex;
+      gap: 10px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .session-card-model {
+      margin-left: auto;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      padding: 1px 6px;
+      border-radius: 8px;
+      font-size: 9px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px;
+    }
+    .session-card-actions {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+    .session-btn {
+      flex: 1;
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+    }
+    .session-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .session-btn--resume {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .session-btn--resume:hover { opacity: 0.85; color: #fff; }
+    .session-btn--delete {
+      flex: 0 0 auto;
+      padding: 4px 10px;
+      border-color: transparent;
+      background: transparent;
+      color: var(--text-muted);
+    }
+    .session-btn--delete:hover {
+      border-color: rgba(239,68,68,.3);
+      background: rgba(239,68,68,.08);
+      color: #ef4444;
+    }
+    .session-card-body {
+      display: none;
+      margin-top: 8px;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+      background: var(--bg-hover);
+      border-radius: var(--radius-sm);
+      padding: 8px;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .session-no-summaries {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .session-summary {
+      font-size: 13px;
+    }
+    .session-summary-meta {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+    .session-summary-content {
+      color: var(--text);
+      line-height: 1.6;
+    }
+    /* ── Sessions pagination ────────────────────────────────────── */
+    .sessions-pagination {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 12px 4px 4px;
+      border-top: 1px solid var(--border);
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .page-btn {
+      min-width: 28px;
+      height: 28px;
+      padding: 0 6px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+      user-select: none;
+      line-height: 1;
+    }
+    .page-btn:hover:not(:disabled):not(.page-btn--active) {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .page-btn:disabled {
+      opacity: 0.3;
+      cursor: default;
+    }
+    .page-btn--active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+    .page-btn--ellipsis {
+      border: none;
+      background: none;
+      min-width: 16px;
+      color: var(--text-muted);
+      cursor: default;
+      opacity: 0.5;
+    }
+
+/* ── Fix: scrollable summary content ──────────────────────────── */
+.session-card-body:not([style*="none"]) {
+  max-height: 300px;
+  overflow-y: auto;
+}
+.session-card-body::-webkit-scrollbar { width: 4px; }
+.session-card-body::-webkit-scrollbar-track { background: transparent; }
+.session-card-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }

@@ -1,0 +1,358 @@
+import { z }            from "zod";
+import { spawn }         from "child_process";
+import { dirname, resolve as resolvePath, extname } from "path";
+import { existsSync }    from "fs";
+import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratchDir } from "../../lib/routes/paths.js";
+import logger from "../../lib/helpers/logger.js";
+
+const MAX_OUTPUT_BYTES = 200_000;
+const TIMEOUT_MS       = 60_000;
+
+// run_shell is off unless explicitly enabled. It widens the model's reach from
+// node-only (.js files) to a fixed set of real binaries, so it is opt-in.
+const SHELL_ENABLED = process.env.APERIO_ENABLE_SHELL === "1";
+
+// Allowlist, not denylist. Only the program in command position is checked.
+// These are the binaries the pptx/xlsx/code-fix workflows actually call for:
+// generation/QA (node, python3), visual QA (soffice, pdftoppm), and inspection
+// (git, grep, rg, find, ls, cat, head, tail). npm is included for the rare
+// dependency install a deck/model genuinely needs.
+const ALLOWED_CMDS = new Set([
+  "node", "npm", "git", "ls", "cat", "grep", "rg", "find", "head", "tail",
+  "python3", "soffice", "pdftoppm",
+]);
+
+function formatPathError(scriptPath) {
+  const { writePaths } = getActivePaths();
+  return {
+    content: [{
+      type: "text",
+      text: `❌ Script not allowed: ${scriptPath}\nAllowed paths: ${writePaths.join(", ")}`,
+    }],
+  };
+}
+
+function buildResponseText({ exitCode, timedOut, stdout, stderr, stdoutBytes, stderrBytes, scriptPath }) {
+  const parts = [];
+
+  if (timedOut) parts.push(`❌ Script timed out after ${TIMEOUT_MS / 1000}s: ${scriptPath}`);
+  else if (exitCode === 0) parts.push(`✅ Exit 0 — ${scriptPath}`);
+  else parts.push(`❌ Exit ${exitCode} — ${scriptPath}`);
+
+  if (stdout) parts.push(`--- stdout ---\n${stdout}`);
+  if (stderr) parts.push(`--- stderr ---\n${stderr}`);
+  if (!stdout && !stderr) parts.push(`(no output)`);
+
+  const truncNotes = [];
+  if (stdoutBytes > MAX_OUTPUT_BYTES) truncNotes.push(`stdout truncated (${Math.round(stdoutBytes / 1024)}KB > ${MAX_OUTPUT_BYTES / 1024}KB)`);
+  if (stderrBytes > MAX_OUTPUT_BYTES) truncNotes.push(`stderr truncated (${Math.round(stderrBytes / 1024)}KB > ${MAX_OUTPUT_BYTES / 1024}KB)`);
+  if (truncNotes.length) parts.push(`⚠️ ${truncNotes.join("; ")}`);
+
+  return parts.join("\n\n");
+}
+
+// Spawn a child, capture stdout/stderr (capped), enforce a hard timeout, and
+// resolve with a structured result. Shared by run_node_script and run_shell so
+// both get identical output limits, timeout, and SIGTERM handling.
+function collectOutput(child, label) {
+  return new Promise((res) => {
+    const stdoutChunks = [];
+    const stderrChunks = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let timedOut = false;
+
+    child.stdout.on("data", (chunk) => {
+      stdoutBytes += chunk.length;
+      if (stdoutBytes <= MAX_OUTPUT_BYTES) stdoutChunks.push(chunk);
+    });
+    child.stderr.on("data", (chunk) => {
+      stderrBytes += chunk.length;
+      if (stderrBytes <= MAX_OUTPUT_BYTES) stderrChunks.push(chunk);
+    });
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try { child.kill("SIGTERM"); } catch (err) {
+        logger.error(`[${label}] SIGTERM failed: ${err.message}`);
+      }
+    }, TIMEOUT_MS);
+
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      res({
+        exitCode: code,
+        timedOut,
+        stdout: Buffer.concat(stdoutChunks).toString("utf-8").trimEnd(),
+        stderr: Buffer.concat(stderrChunks).toString("utf-8").trimEnd(),
+        stdoutBytes,
+        stderrBytes,
+      });
+    });
+
+    child.on("error", (err) => {
+      clearTimeout(timer);
+      res({ spawnError: err });
+    });
+  });
+}
+
+export async function runNodeScriptHandler({ script, args = [] }) {
+  if (extname(script).toLowerCase() !== ".js") {
+    logger.warn(`[run_node_script] rejected non-.js path: ${script}`);
+    return { content: [{ type: "text", text: `❌ Only .js scripts are allowed` }] };
+  }
+
+  const resolved = resolvePath(script);
+
+  if (!isWritePathAllowed(resolved)) {
+    logger.warn(`[run_node_script] path not allowed: ${resolved}`);
+    return formatPathError(resolved);
+  }
+
+  if (!existsSync(resolved)) {
+    logger.warn(`[run_node_script] script not found: ${resolved}`);
+    return { content: [{ type: "text", text: `❌ Script not found: ${resolved}` }] };
+  }
+
+  const cwd = dirname(resolved);
+  logger.info(`[run_node_script] start ${resolved} args=${JSON.stringify(args)}`);
+
+  let child;
+  try {
+    child = spawn("node", [resolved, ...args.map(String)], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+  } catch (err) {
+    logger.error(`[run_node_script] spawn threw: ${err.message}`);
+    return { content: [{ type: "text", text: `❌ Failed to spawn node: ${err.message}` }] };
+  }
+
+  const r = await collectOutput(child, "run_node_script");
+  if (r.spawnError) {
+    logger.error(`[run_node_script] child error: ${r.spawnError.message}`);
+    return { content: [{ type: "text", text: `❌ Failed to start script: ${r.spawnError.message}` }] };
+  }
+
+  if (r.timedOut) {
+    logger.error(`[run_node_script] timeout ${resolved} after ${TIMEOUT_MS}ms`);
+  } else if (r.exitCode !== 0) {
+    logger.error(`[run_node_script] non-zero exit ${r.exitCode} ${resolved} stderr: ${r.stderr.slice(0, 1000)}`);
+  } else if (r.stderr) {
+    logger.warn(`[run_node_script] exit 0 with stderr ${resolved}: ${r.stderr.slice(0, 500)}`);
+  } else {
+    logger.info(`[run_node_script] ok ${resolved}`);
+  }
+
+  const text = buildResponseText({ ...r, scriptPath: resolved });
+  return { content: [{ type: "text", text }] };
+}
+
+// ── run_shell validation ──────────────────────────────────────────────────
+// Quote-aware checks so a grep alternation pattern (e.g. "lorem|ipsum") inside
+// quotes is never mistaken for a shell pipe or operator.
+
+// Scan for banned unquoted operators that could chain commands past the
+// allowlist or redirect I/O. A single unquoted "|" pipe is permitted (handled
+// by splitOnPipes), so it is not banned here.
+function checkBannedOperators(command) {
+  let inS = false, inD = false;
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i];
+    if (inS) { if (c === "'") inS = false; continue; }
+    if (inD) { if (c === '"') inD = false; continue; }
+    if (c === "'") { inS = true; continue; }
+    if (c === '"') { inD = true; continue; }
+    if (c === ";" || c === "&" || c === "<" || c === ">" || c === "`") return c;
+    if (c === "$" && command[i + 1] === "(") return "$(";
+  }
+  return null;
+}
+
+// Split on unquoted "|" only. A "||" yields an empty segment, which the caller
+// rejects — logical-OR chaining is therefore blocked.
+function splitOnPipes(command) {
+  const segs = [];
+  let cur = "", inS = false, inD = false;
+  for (let i = 0; i < command.length; i++) {
+    const c = command[i];
+    if (inS) { cur += c; if (c === "'") inS = false; continue; }
+    if (inD) { cur += c; if (c === '"') inD = false; continue; }
+    if (c === "'") { inS = true; cur += c; continue; }
+    if (c === '"') { inD = true; cur += c; continue; }
+    if (c === "|") { segs.push(cur); cur = ""; continue; }
+    cur += c;
+  }
+  segs.push(cur);
+  return segs;
+}
+
+export async function runShellHandler({ command, cwd: cwdArg }) {
+  if (!SHELL_ENABLED) {
+    return { content: [{ type: "text", text: `❌ run_shell is disabled. Set APERIO_ENABLE_SHELL=1 to enable it.` }] };
+  }
+  if (typeof command !== "string" || !command.trim()) {
+    return { content: [{ type: "text", text: `❌ No command provided` }] };
+  }
+
+  const banned = checkBannedOperators(command);
+  if (banned) {
+    logger.warn(`[run_shell] rejected operator "${banned}": ${command}`);
+    return { content: [{ type: "text", text: `❌ Shell operator "${banned}" is not allowed. Run one command at a time (an optional single "|" pipe is permitted); no ; && || & < > backticks or $().` }] };
+  }
+
+  // Validate the program in each pipe segment against the allowlist.
+  for (const seg of splitOnPipes(command)) {
+    const t = seg.trim();
+    if (!t) {
+      return { content: [{ type: "text", text: `❌ Empty command segment — check your pipes.` }] };
+    }
+    const prog = t.match(/^(\S+)/)[1];
+    if (prog.startsWith("'") || prog.startsWith('"')) {
+      return { content: [{ type: "text", text: `❌ Each command must start with a program name, not a quote.` }] };
+    }
+    if (!ALLOWED_CMDS.has(prog)) {
+      logger.warn(`[run_shell] command not allowed: ${prog}`);
+      return { content: [{ type: "text", text: `❌ Command not allowed: "${prog}".\nAllowed: ${[...ALLOWED_CMDS].join(", ")}` }] };
+    }
+  }
+
+  // Pin cwd to the session workspace (same boundary write_file uses). An
+  // explicit cwd is accepted only if it falls within an allowed write path —
+  // this keeps CLI usage (no session) working without widening scope.
+  let cwd = getActiveScratchDir();
+  if (cwdArg) {
+    const resolved = resolvePath(cwdArg);
+    if (!isWritePathAllowed(resolved)) {
+      logger.warn(`[run_shell] cwd not allowed: ${resolved}`);
+      return formatPathError(resolved);
+    }
+    cwd = resolved;
+  }
+  if (!cwd) {
+    return { content: [{ type: "text", text: `❌ No working directory: run_shell needs an active session workspace, or pass a cwd within an allowed write path.` }] };
+  }
+
+  logger.info(`[run_shell] start: ${command} (cwd=${cwd})`);
+
+  // A shell is required to wire the optional pipe and parse quoted args. The
+  // allowlist + operator checks above bound what `sh -c` can actually run.
+  let child;
+  try {
+    child = spawn("sh", ["-c", command], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+  } catch (err) {
+    logger.error(`[run_shell] spawn threw: ${err.message}`);
+    return { content: [{ type: "text", text: `❌ Failed to spawn shell: ${err.message}` }] };
+  }
+
+  const r = await collectOutput(child, "run_shell");
+  if (r.spawnError) {
+    logger.error(`[run_shell] child error: ${r.spawnError.message}`);
+    return { content: [{ type: "text", text: `❌ Failed to start command: ${r.spawnError.message}` }] };
+  }
+
+  // Missing binary → skip, not failure. Preserves the soffice/pdftoppm visual
+  // QA semantics: an absent optional binary must not be reported as a failure.
+  if (r.exitCode === 127 || /not found|No such file|command not found/i.test(r.stderr)) {
+    logger.warn(`[run_shell] command not found: ${command}`);
+    return { content: [{ type: "text", text:
+      `⚠️ Command not found while running: ${command}\n${r.stderr}\n\n` +
+      `The program is not installed on this machine. If this was an optional QA binary (soffice / pdftoppm), ` +
+      `treat visual QA as skipped — that is NOT a failure — and rely on verify.js + read.js. The deck/file itself is unaffected.`
+    }] };
+  }
+
+  if (r.timedOut) {
+    logger.error(`[run_shell] timeout after ${TIMEOUT_MS}ms: ${command}`);
+  } else if (r.exitCode !== 0) {
+    logger.error(`[run_shell] exit ${r.exitCode}: ${command} stderr: ${r.stderr.slice(0, 1000)}`);
+  } else if (r.stderr) {
+    logger.warn(`[run_shell] exit 0 with stderr: ${command} stderr: ${r.stderr.slice(0, 500)}`);
+  } else {
+    logger.info(`[run_shell] ok: ${command}`);
+  }
+
+  const text = buildResponseText({ ...r, scriptPath: command });
+  return { content: [{ type: "text", text }] };
+}
+
+export async function syntaxCheckHandler({ path: filePath }) {
+  const ext = extname(filePath).toLowerCase();
+  if (ext !== ".js" && ext !== ".mjs" && ext !== ".cjs")
+    return { content: [{ type: "text", text: `❌ Only .js/.mjs/.cjs files are supported` }] };
+
+  const resolved = resolvePath(filePath);
+
+  if (!isReadPathAllowed(resolved)) {
+    const { readPaths } = getActivePaths();
+    return { content: [{ type: "text", text: `❌ File not in allowed read path: ${resolved}\nAllowed paths: ${readPaths.join(", ")}` }] };
+  }
+
+  if (!existsSync(resolved))
+    return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
+
+  return new Promise((res) => {
+    const chunks = [];
+
+    let child;
+    try {
+      child = spawn("node", ["--check", resolved], { stdio: ["ignore", "pipe", "pipe"] });
+    } catch (err) {
+      logger.error(`[syntax_check] spawn threw: ${err.message}`);
+      return res({ content: [{ type: "text", text: `❌ Failed to spawn node --check: ${err.message}` }] });
+    }
+
+    child.stdout.on("data", (chunk) => chunks.push(chunk));
+    child.stderr.on("data", (chunk) => chunks.push(chunk));
+
+    child.on("close", (code) => {
+      const output = Buffer.concat(chunks).toString("utf-8").trimEnd();
+      if (code === 0) {
+        res({ content: [{ type: "text", text: `✅ Syntax OK: ${resolved}` }] });
+      } else {
+        logger.warn(`[syntax_check] failed ${resolved}: ${output.slice(0, 500)}`);
+        res({ content: [{ type: "text", text: `❌ Syntax errors in ${resolved}:\n\n${output}\n\nFix using edit_file (targeted replacement), not write_file (full rewrite).` }] });
+      }
+    });
+
+    child.on("error", (err) => {
+      logger.error(`[syntax_check] child error: ${err.message}`);
+      res({ content: [{ type: "text", text: `❌ Failed to run node --check: ${err.message}` }] });
+    });
+  });
+}
+
+export function register(server) {
+  server.registerTool(
+    "run_node_script",
+    {
+      description: "Run a Node.js script file and return its output. The script must be within an allowed write path. Use this to run skill scripts (e.g. skills/pptx/scripts/read.js). Only .js files are allowed.",
+      inputSchema: z.object({
+        script: z.string().describe("Absolute path to the .js script to run"),
+        args:   z.array(z.string()).optional().describe("Arguments to pass to the script"),
+      }),
+    },
+    runNodeScriptHandler
+  );
+
+  server.registerTool(
+    "syntax_check",
+    {
+      description: "Check a JavaScript file for syntax errors without executing it. Call this immediately after write_file on any .js file. On error, fix with edit_file (targeted replacement) — never rewrite the whole file.",
+      inputSchema: z.object({
+        path: z.string().describe("Absolute path to the .js/.mjs/.cjs file to check"),
+      }),
+    },
+    syntaxCheckHandler
+  );
+
+  server.registerTool(
+    "run_shell",
+    {
+      description: "Run a single shell command (optionally one '|' pipe) in the session workspace and return its stdout/stderr. Disabled unless APERIO_ENABLE_SHELL=1. Only allowlisted programs run: node, npm, git, ls, cat, grep, rg, find, head, tail, python3, soffice, pdftoppm. Use this for QA steps that need real binaries — e.g. converting a deck to images for visual QA (soffice then pdftoppm) or grepping extracted text for leftover placeholders. No ; && || & < > backticks or $().",
+      inputSchema: z.object({
+        command: z.string().describe('The command to run, e.g. node /abs/path/scripts/read.js out.pptx | grep -iE "lorem|ipsum"'),
+        cwd: z.string().optional().describe("Working directory (must be within an allowed write path). Defaults to the active session workspace."),
+      }),
+    },
+    runShellHandler
+  );
+}

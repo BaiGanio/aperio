@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: light dark;">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Aperio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <!-- Prism syntax highlighting — NO external theme CSS (causes font override on dark themes) -->
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+  <link rel="stylesheet" href="index.css" />
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <!-- i18n must load before any other UI script so t() and applyTranslations() are ready
+       before scripts that build DOM nodes referring to translations. -->
+  <script src="scripts/i18n.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">A</div>
+      Aperio
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar (⌘B)">
+      <i class="bi bi-layout-sidebar"></i>
+    </button>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <i class="bi bi-cpu" style="font-size:11px;color:var(--text-muted)"></i>
+      <span id="statusText" data-i18n="status_connecting">connecting…</span>
+      <span id="providerBadge" style="
+        font-family:var(--font-mono); font-size:9px; font-weight:600;
+        background:var(--tag-bg); color:var(--tag-text);
+        padding:1px 6px; border-radius:8px; letter-spacing:0.06em;
+        text-transform:uppercase; display:none;
+      "></span>
+    </div>
+    <button id="reasoningToggle" class="nav-action-btn nav-action-btn--solo" onclick="toggleReasoning()"
+      data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning" style="display:none;">
+      🧠 <span id="reasoningToggleLabel" data-i18n="nav_reasoning_on">on</span>
+    </button>
+    <div class="ctx-window" id="ctxWindow" style="margin-left:auto;">
+      <div class="ctx-header">
+        <span class="ctx-label" data-i18n="ctx_label">context</span>
+        <span class="ctx-value" id="ctxText">— / —</span>
+        <span id="toolCountBadge" style="display:none;font-size:9px;color:var(--text-muted);margin-left:4px;font-family:var(--font-mono)"></span>
+      </div>
+      <div class="ctx-track">
+        <div class="ctx-fill" id="ctxFill"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div style="display:flex; align-items:center; margin-bottom:10px;">
+        <button id="exportBtn" data-i18n-attr-title="sidebar_export_title" title="Export brain to JSON"
+          style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer;
+                 color:var(--text-muted); font-size:12px; border-radius:4px;
+                 transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
+          <i class="bi bi-download"></i> <span data-i18n="sidebar_export">Export</span>
+        </button>
+        <button id="importBtn" data-i18n-attr-title="sidebar_import_title" title="Import memories from JSON"
+          style="margin-left:4px; background:none; border:none; padding:2px 4px; cursor:pointer;
+                 color:var(--text-muted); font-size:12px; border-radius:4px;
+                 transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
+          <i class="bi bi-upload"></i> <span data-i18n="sidebar_import">Import</span>
+        </button>
+        <button id="tableBtn" title="Browse all memories as a table"
+          style="margin-left:4px; background:none; border:none; padding:2px 4px; cursor:pointer;
+                 color:var(--text-muted); font-size:12px; border-radius:4px;
+                 transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
+          <i class="bi bi-table"></i> Table
+        </button>
+        <input type="file" id="importFileInput" accept=".json" hidden>
+      </div>
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" data-i18n-attr-placeholder="sidebar_search" placeholder="Search memories…" />
+        <span id="memoryCountBadge" class="search-count-badge"></span>
+      </div>
+    </div>
+    <div class="memories-list" id="memoriesList">
+      <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
+        <div style="font-size:22px; margin-bottom:8px; opacity:.4">◈</div>
+        <div style="font-size:12px; color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button id="historyBtn" class="sidebar-nav-btn" onclick="toggleSessionsPanel()"
+        data-i18n-attr-title="nav_chats_title" title="Conversation history">
+        <i class="bi bi-chat-left-text sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_chats_plain">Chats</span>
+      </button>
+      <button id="pathsBtn" class="sidebar-nav-btn" onclick="openPathsPanel()"
+        data-i18n-attr-title="nav_paths_title" title="Allowed paths">
+        <i class="bi bi-folder2-open sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_paths_plain">Paths</span>
+      </button>
+      <button id="codegraphBtn" class="sidebar-nav-btn" onclick="toggleCodegraphPanel()"
+              data-i18n-attr-title="nav_codegraph_title" title="Code graph">
+        <i class="bi bi-diagram-3 sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Code</span>
+      </button>
+      <button id="wikiBtn" class="sidebar-nav-btn" onclick="toggleWikiPanel()"
+        title="Wiki — LLM-authored articles over your memories">
+        <i class="bi bi-book sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Wiki</span>
+      </button>
+      <button id="settingsBtn" class="sidebar-nav-btn" onclick="toggleSettingsPanel()"
+        data-i18n-attr-title="nav_settings_title" title="Settings">
+        <i class="bi bi-sliders sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_settings_plain">Settings</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span id="metrics-display"></span>
+      <span id="version-display"></span>
+    </div>
+  </aside>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="messages" id="messages">
+      <div class="thinking" id="startup-thinking">
+        <div class="avatar ai">A</div>
+        <div class="thinking-dots">
+          <div class="thinking-dots-row">
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+          </div>
+          <div class="thinking-label" data-i18n="chat_loading_label">loading…</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="attach-preview" id="attachPreview"></div>
+      <div class="input-wrap">
+        <button class="attach-btn" id="attachBtn" data-i18n-attr-title="chat_attach_title" title="Attach file or image">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+        <div class="mic-wrap" id="micWrap" style="display:none;">
+          <button class="mic-btn" id="micBtn" title="Voice input">
+            <i class="bi bi-mic"></i>
+          </button>
+          <button class="mic-continuous-chip" id="micContinuousChip" type="button" title="Continuous voice mode">∞</button>
+        </div>
+        <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md,.js,.py,.html,.css,.json,.docx,.pptx" multiple hidden>
+        <textarea
+          id="chatInput"
+          data-i18n-attr-placeholder="chat_placeholder"
+          placeholder="Ask anything — or say 'scan my project at ~/…'"
+          rows="1"
+        ></textarea>
+        <span class="char-counter" id="charCounter"></span>
+        <button class="discuss-btn" id="discussBtn" type="button" disabled aria-pressed="false"
+                data-i18n-attr-title="discuss_button_tooltip" title="Two agents will cross-review answers">
+          <i class="bi bi-chat-left-dots"></i>
+          <span class="discuss-btn-label" data-i18n="discuss_button_label">Discuss</span>
+        </button>
+        <button class="send-btn" id="sendBtn" disabled title="Send (⌘ + ↵)">
+          <i class="bi bi-send-fill" style="font-size:13px"></i>
+        </button>
+        <button class="stop-btn" id="stopBtn" data-i18n-attr-title="chat_stop_title" title="Stop generating">■</button>
+      </div>
+      <div class="input-hint" id="inputHint">⌘ + ↵ to send &nbsp;·&nbsp; ↵ for newline</div>
+      <div class="input-warning" id="inputWarning" data-i18n="chat_input_warning">Your AI agent is not almighty. Do not trust the output blindly!</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="preview-modal">
+  <div class="preview-content">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <span class="type-badge"></span>
+      <button class="close-btn" onclick="closePreview()">&times;</button>
+    </div>
+    <h2 class="mtitle" style="margin:0 0 8px;"></h2>
+    <hr class="modal-divider">
+    <div class="mcontent"></div>
+    <hr class="modal-divider">
+    <div class="modal-footer">
+      <p class="mtags"></p>
+      <div class="importance-rating"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Memory table modal -->
+<div id="memoryModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-table"></i>
+        Memory Table
+        <span id="memTableCount" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <button class="mem-table-close" onclick="refreshMemories()" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" onclick="closeModal()" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box" style="margin:0;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="memory-search" placeholder="Filter by title, content, tags…" oninput="handleSearch()" />
+      </div>
+      <span id="mem-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="table-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="pagination-controls" class="mem-pagination" style="display:none;">
+        <button id="prev-page" class="mem-page-btn" onclick="changePage(-1)">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <span id="page-info" class="mem-page-info"></span>
+        <button id="next-page" class="mem-page-btn" onclick="changePage(1)">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="sessions-panel" class="sessions-panel" style="display:none;">
+  <div class="sessions-panel-header">
+    <span class="sessions-panel-title"><i class="bi bi-clock-history"></i> <span data-i18n="sessions_title">History</span></span>
+    <div class="sessions-panel-header-actions">
+      <button id="sessionsSelectBtn" class="sessions-select-toggle" onclick="toggleSelectMode()" title="Select sessions">
+        <i class="bi bi-check2-square"></i> <span data-i18n="sessions_select">Select</span>
+      </button>
+      <button class="sessions-panel-close" onclick="toggleSessionsPanel()">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+  </div>
+  <div id="sessions-select-bar" class="sessions-select-bar" style="display:none;">
+    <span id="sessions-select-count" class="sessions-select-count">0 selected</span>
+    <button id="sessions-bulk-delete-btn" class="session-btn session-btn--bulk-delete" onclick="bulkDeleteSessions()" disabled>
+      <i class="bi bi-trash3"></i> <span data-i18n="sessions_bulk_delete">Delete selected</span>
+    </button>
+  </div>
+  <div class="sessions-panel-body" id="sessions-list">
+    <div class="sessions-empty" data-i18n="sessions_loading">Loading…</div>
+  </div>
+</div>
+<div id="sessions-backdrop" class="sessions-backdrop" style="display:none;" onclick="toggleSessionsPanel()"></div>
+
+<!-- Wiki panel -->
+<div id="wiki-panel" class="wiki-panel" style="display:none;">
+  <div class="wiki-panel-header">
+    <span class="wiki-panel-title"><i class="bi bi-book"></i> Wiki</span>
+    <button class="wiki-panel-close" onclick="toggleWikiPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div id="wiki-panel-toolbar" class="wiki-panel-toolbar">
+    <input type="text" id="wikiSearchInput" class="wiki-search-input" placeholder="Search articles…" />
+    <div class="wiki-status-chips">
+      <button class="wiki-chip wiki-chip--active" data-status="all">all</button>
+      <button class="wiki-chip" data-status="fresh">fresh</button>
+      <button class="wiki-chip" data-status="stale">stale</button>
+    </div>
+  </div>
+  <div class="wiki-panel-body" id="wiki-panel-body">
+    <div class="wiki-empty">Loading…</div>
+  </div>
+</div>
+<div id="wiki-backdrop" class="wiki-backdrop" style="display:none;" onclick="toggleWikiPanel()"></div>
+
+<!-- Code graph panel -->
+<div id="codegraph-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-diagram-3"></i> Code graph</span>
+    <button class="cg-panel-close" onclick="toggleCodegraphPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="cgSearchInput" class="cg-search-input" placeholder="Search symbols…" />
+    <div class="cg-toolbar-row">
+      <select id="cgRepoSelect" class="cg-select"><option value="">All repos</option></select>
+      <select id="cgKindSelect" class="cg-select">
+        <option value="">All kinds</option>
+        <option value="function">function</option>
+        <option value="class">class</option>
+        <option value="method">method</option>
+        <option value="const">const</option>
+      </select>
+    </div>
+  </div>
+  <div class="cg-panel-body" id="cg-panel-body"></div>
+</div>
+<div id="codegraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleCodegraphPanel()"></div>
+
+<!-- Settings panel -->
+<div id="settings-panel" class="settings-panel" style="display:none;">
+  <div class="settings-panel-header">
+    <span class="settings-panel-title"><i class="bi bi-sliders"></i> <span data-i18n="nav_settings_title">Settings</span></span>
+    <button class="settings-panel-close" onclick="toggleSettingsPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="settings-panel-body">
+    <div class="settings-row settings-row--stack">
+      <span class="settings-row-label">
+        <i class="bi bi-circle-half"></i>
+        <span data-i18n="nav_theme_title">Theme</span>
+      </span>
+      <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
+        <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">
+          <span class="theme-btn-icon">☀️</span><span class="theme-btn-name" data-i18n="nav_theme_light">Light</span>
+        </button>
+        <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">
+          <span class="theme-btn-icon">🌙</span><span class="theme-btn-name" data-i18n="nav_theme_dark">Dark</span>
+        </button>
+        <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
+          <span class="theme-btn-icon">✦</span><span class="theme-btn-name" data-i18n="nav_theme_aurora">Aurora</span>
+        </button>
+        <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
+          <span class="theme-btn-icon">⊙</span><span class="theme-btn-name" data-i18n="nav_theme_system">System</span>
+        </button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <span class="settings-row-label">
+        <i class="bi bi-volume-up"></i>
+        <span data-i18n="nav_sound_title">Voice responses</span>
+      </span>
+      <span class="settings-row-control">
+        <span class="settings-state" id="settingsSoundState">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="settingsSoundToggle" />
+          <span class="switch-track"></span>
+        </label>
+      </span>
+    </div>
+    <!-- Language switcher (populated by lang-switcher.js once DOM is ready).
+         Expands inline below the row instead of a floating popover. -->
+    <div class="settings-row settings-row--stack lang-switcher" id="langSwitcher"
+         data-i18n-attr-title="nav_lang_title" title="Language">
+      <button type="button" class="lang-trigger" id="langTrigger" aria-haspopup="listbox" aria-expanded="false">
+        <span class="settings-row-label">
+          <i class="bi bi-translate"></i>
+          <span data-i18n="nav_lang_title">Language</span>
+        </span>
+        <span class="lang-trigger-value">
+          <span class="lang-flag" id="langTriggerFlag">🇬🇧</span>
+          <span class="lang-code" id="langTriggerCode">EN</span>
+          <span class="lang-caret">▾</span>
+        </span>
+      </button>
+      <div class="lang-popover" id="langPopover" role="listbox"></div>
+    </div>
+  </div>
+</div>
+<div id="settings-backdrop" class="settings-backdrop" style="display:none;" onclick="toggleSettingsPanel()"></div>
+
+<!-- Paths configuration panel (right drawer) -->
+<div id="paths-modal" class="paths-modal" style="display:none;">
+  <div class="paths-modal-content">
+    <div class="paths-modal-header">
+      <span class="paths-modal-title"><i class="bi bi-folder2-open"></i> <span data-i18n="paths_title">Allowed Paths</span></span>
+      <button class="paths-modal-close" onclick="closePathsPanel()"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="paths-modal-body">
+      <div class="paths-section">
+        <div class="paths-section-hd">
+          <span class="paths-section-label" data-i18n="paths_read_label">Read Paths</span>
+          <span class="paths-section-hint" data-i18n="paths_read_hint">Folders the AI can read files from</span>
+        </div>
+        <div class="paths-chips" id="read-paths-chips"></div>
+        <div class="paths-add-row">
+          <input type="text" id="read-path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
+          <button class="paths-pick-btn" onclick="_pickFolder('read')" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
+            <i class="bi bi-folder2-open"></i>
+          </button>
+          <button class="paths-add-btn" onclick="addPathChip('read')"><i class="bi bi-plus-lg"></i></button>
+        </div>
+      </div>
+      <div class="paths-section">
+        <div class="paths-section-hd">
+          <span class="paths-section-label" data-i18n="paths_write_label">Write Paths</span>
+          <span class="paths-section-hint" data-i18n="paths_write_hint">Folders the AI can write files to</span>
+        </div>
+        <div class="paths-chips" id="write-paths-chips"></div>
+        <div class="paths-add-row">
+          <input type="text" id="write-path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
+          <button class="paths-pick-btn" onclick="_pickFolder('write')" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
+            <i class="bi bi-folder2-open"></i>
+          </button>
+          <button class="paths-add-btn" onclick="addPathChip('write')"><i class="bi bi-plus-lg"></i></button>
+        </div>
+      </div>
+      <div class="paths-session-note" data-i18n-html="paths_session_note_html">
+        <i class="bi bi-info-circle"></i> Changes apply to this session only — not saved to disk.
+      </div>
+    </div>
+    <div class="paths-modal-footer">
+      <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Apply</span></button>
+    </div>
+  </div>
+</div>
+<!-- Hidden folder inputs for browser fallback picker -->
+<input type="file" id="read-folder-input" webkitdirectory hidden>
+<input type="file" id="write-folder-input" webkitdirectory hidden>
+
+<script src="scripts/settings.js"></script>
+<script src="scripts/api.js"></script>
+<script src="scripts/input-bar.js"></script>
+<script src="scripts/voice.js"></script>
+<script src="scripts/tts.js"></script>
+<script src="scripts/theme-and-timestamp.js"></script>
+<script src="scripts/markdown.js"></script>
+<script src="scripts/rendering.js"></script>
+<script src="scripts/streaming.js"></script>
+<script src="scripts/sessions.js"></script>
+<script src="scripts/paths-panel.js"></script>
+<script src="scripts/wiki-panel.js"></script>
+<script src="scripts/codegraph-panel.js"></script>
+<script src="scripts/settings-panel.js"></script>
+<script src="scripts/lang-switcher.js"></script>
+<script src="index.js"></script>
+</body>
+</html>
