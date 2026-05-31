@@ -54,8 +54,8 @@
  */
 
 /**
- * Deserialise a raw database row from either LanceDB or Postgres into a Memory object.
- * LanceDB stores tags as a JSON string; Postgres stores them as a native array.
+ * Deserialise a raw database row from either SQLite or Postgres into a Memory object.
+ * SQLite stores tags as a JSON string; Postgres stores them as a native array.
  * expires_at is always Date | null — never undefined.
  * @param {Object} row
  * @returns {Memory}

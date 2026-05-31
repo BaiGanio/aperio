@@ -192,7 +192,7 @@
   "setup_step_deps":          "Зависимости",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI модел",
-  "setup_step_lancedb":       "LanceDB и влагания",
+  "setup_step_sqlite":       "SQLite и влагания",
   "setup_badge_idle":         "чакане",
   "setup_badge_running":      "изпълнение…",
   "setup_badge_done":         "готово",

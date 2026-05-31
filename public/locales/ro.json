@@ -179,7 +179,7 @@
   "setup_step_deps":          "Dependențe",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "Model AI",
-  "setup_step_lancedb":       "LanceDB și Embedding-uri",
+  "setup_step_sqlite":       "SQLite și Embedding-uri",
   "setup_badge_idle":         "în așteptare",
   "setup_badge_running":      "rulează…",
   "setup_badge_done":         "finalizat",

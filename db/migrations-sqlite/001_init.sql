@@ -1,5 +1,5 @@
 -- ============================================================
--- Aperio — SQLite initial schema (Phase 1 of LanceDB → SQLite)
+-- Aperio — SQLite initial schema
 --
 -- Companion to db/migrations/001_init.sql (Postgres). Same semantics,
 -- different dialect:

@@ -179,7 +179,7 @@
   "setup_step_deps":          "Dependências",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "Modelo de IA",
-  "setup_step_lancedb":       "LanceDB e Embeddings",
+  "setup_step_sqlite":       "SQLite e Embeddings",
   "setup_badge_idle":         "aguardando",
   "setup_badge_running":      "executando…",
   "setup_badge_done":         "concluído",

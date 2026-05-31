@@ -179,7 +179,7 @@
   "setup_step_deps":          "Riippuvuudet",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI-malli",
-  "setup_step_lancedb":       "LanceDB & upotukset",
+  "setup_step_sqlite":       "SQLite & upotukset",
   "setup_badge_idle":         "odottaa",
   "setup_badge_running":      "käynnissä…",
   "setup_badge_done":         "valmis",

@@ -329,7 +329,7 @@ async function bootApp() {
   if (process.env.APERIO_CODEGRAPH === 'on') {
     const { isCodegraphAvailable } = await import("./lib/codegraph/indexer.js");
     if (!isCodegraphAvailable(store)) {
-      logger.warn(`[codegraph] APERIO_CODEGRAPH=on but backend has no graph store (LanceDB?). Switch DB_BACKEND=sqlite or postgres.`);
+      logger.warn(`[codegraph] APERIO_CODEGRAPH=on but backend has no graph store. Switch DB_BACKEND=sqlite or postgres.`);
     } else {
       const { DEFAULT_READ_PATHS } = await import("./lib/routes/paths.js");
       const { markEnabled } = await import("./lib/codegraph/status.js");
@@ -414,7 +414,7 @@ async function bootApp() {
   const watchdog = createWatchdog({
     enabled:   provider.name === "ollama",
     models:    [provider.model, process.env.OLLAMA_MODEL],
-    timeoutMs: Number(process.env.IDLE_TIMEOUT_SECONDS) * 1000,
+    timeoutMs: (Number(process.env.IDLE_TIMEOUT_SECONDS) || 180) * 1000,
   });
 
   const providerLabel = provider.name === "anthropic"
@@ -452,9 +452,9 @@ async function bootApp() {
   const pruner  = createSessionPruner();
 
   // Graceful shutdown
-  // Order matters: ONNX and LanceDB native runtimes must be torn down via their
-  // own APIs before process.exit() runs global C++ destructors. Calling exit()
-  // while those runtimes have live threads causes "mutex lock failed: Invalid argument".
+  // Order matters: the ONNX native runtime must be torn down via its own API
+  // before process.exit() runs global C++ destructors. Calling exit() while it
+  // has live threads causes "mutex lock failed: Invalid argument".
   let shuttingDown = false;
   async function gracefulShutdown() {
     if (shuttingDown) return;

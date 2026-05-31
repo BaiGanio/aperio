@@ -143,13 +143,13 @@ describe("initDockerState", () => {
     assert.ok(cap.output.includes("postgres"));
   });
 
-  test("docker off → 'off' and 'lancedb' appear in header", () => {
+  test("docker off → 'off' and 'sqlite' appear in header", () => {
     const cap = captureStdout();
     initDockerState(false);
     redrawHeader();
     cap.restore();
     assert.ok(cap.output.includes("off"));
-    assert.ok(cap.output.includes("lancedb"));
+    assert.ok(cap.output.includes("sqlite"));
   });
 });
 

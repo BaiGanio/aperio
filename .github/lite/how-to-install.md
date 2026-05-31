@@ -152,7 +152,7 @@ The launcher installs the packages the app needs:
 
 | Package | Purpose |
 |---------|---------|
-| `@lancedb/lancedb` | Local vector database for semantic search |
+| `better-sqlite3` + `sqlite-vec` | Local database + vector search for semantic memory |
 | `uuid` | Unique ID generation for internal records |
 | `ollama` | Client to communicate with the Ollama server |
 

@@ -179,7 +179,7 @@
   "setup_step_deps":          "Spleáchais",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "Samhail AI",
-  "setup_step_lancedb":       "LanceDB agus Leabaithe",
+  "setup_step_sqlite":       "SQLite agus Leabaithe",
   "setup_badge_idle":         "ag feitheamh",
   "setup_badge_running":      "ag rith…",
   "setup_badge_done":         "déanta",

@@ -179,7 +179,7 @@
   "setup_step_deps":          "Dipendenzi",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "Mudell AI",
-  "setup_step_lancedb":       "LanceDB u Embeddings",
+  "setup_step_sqlite":       "SQLite u Embeddings",
   "setup_badge_idle":         "stennija",
   "setup_badge_running":      "għaddej…",
   "setup_badge_done":         "lest",

@@ -263,9 +263,9 @@ the web UI has a "Code" panel for searching symbols and walking
 callers / callees visually; the model uses the same data via the
 `code_*` MCP tools listed below.
 
-**Backend support:** Postgres and SQLite both work; LanceDB has no graph
-store. With SQLite (the default), the graph lives in the same
-`var/aperio.db` file as your memories.
+**Backend support:** Postgres and SQLite both work. With SQLite (the
+default), the graph lives in the same `var/aperio.db` file as your
+memories.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]

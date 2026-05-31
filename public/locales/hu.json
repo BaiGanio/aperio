@@ -179,7 +179,7 @@
   "setup_step_deps":          "Függőségek",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI Modell",
-  "setup_step_lancedb":       "LanceDB és Beágyazások",
+  "setup_step_sqlite":       "SQLite és Beágyazások",
   "setup_badge_idle":         "várakozás",
   "setup_badge_running":      "fut…",
   "setup_badge_done":         "kész",

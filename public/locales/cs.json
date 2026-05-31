@@ -179,7 +179,7 @@
   "setup_step_deps":          "Závislosti",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI model",
-  "setup_step_lancedb":       "LanceDB a embeddingy",
+  "setup_step_sqlite":       "SQLite a embeddingy",
   "setup_badge_idle":         "čekání",
   "setup_badge_running":      "běží…",
   "setup_badge_done":         "hotovo",

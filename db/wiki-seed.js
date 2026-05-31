@@ -25,7 +25,7 @@ optional external dependency is a running Ollama daemon (or a cloud API key).
 | REST API | \`lib/routes/api.js\` | \`/api/*\` — memories, wiki, sessions, status |
 | WebSocket handler | \`lib/emitters/\` | Real-time chat; streams tokens to the browser (\`wsEmitter.js\`, \`handlers/wsHandler.js\`) |
 | MCP subprocess | \`mcp/\` | Tool execution (remember, recall, wiki_*) in a child process |
-| DB store | \`db/index.js\` | Resolves LanceDB vs Postgres; exposes a unified store interface |
+| DB store | \`db/index.js\` | Resolves SQLite vs Postgres; exposes a unified store interface |
 | Skills loader | \`skills/\` | Injects SKILL.md prompt fragments into the system message |
 | Agent | \`lib/agent/\` | Provider-agnostic LLM wrapper; handles streaming + tool loop |
 
@@ -40,13 +40,13 @@ optional external dependency is a running Ollama daemon (or a cloud API key).
 ## Key Ports and Paths
 
 - Default port: **31337** (set via \`PORT\` env)
-- DB data: \`.lancedb/\` (LanceDB) or Docker Postgres volume
+- DB data: \`sqlite/aperio.db\` (SQLite) or Docker Postgres volume
 - Sessions: \`var/sessions/\`
 - Skills: \`skills/<name>/SKILL.md\`
 
 ## See Also
 
-[[db-backends]] — LanceDB vs Postgres trade-offs
+[[db-backends]] — SQLite vs Postgres trade-offs
 [[ai-providers]] — supported LLM + embedding providers
 [[mcp-tools]] — full tool surface
 [[skills-system]] — how skill injection works
@@ -57,7 +57,7 @@ optional external dependency is a running Ollama daemon (or a cloud API key).
     slug:    'memory-system',
     title:   'Memory System — Types, Lifecycle, and Recall',
     summary: 'How Aperio stores, versions, and retrieves memories, including temporal semantics and search modes.',
-    tags:    ['memory', 'lancedb', 'recall', 'temporal', 'embeddings'],
+    tags:    ['memory', 'sqlite', 'recall', 'temporal', 'embeddings'],
     body_md: `
 ## Memory Types
 
@@ -105,40 +105,40 @@ Hybrid is the default and almost always the best choice.
 
 The store maintains \`store.cache\` — a snapshot of all current (non-tombstoned,
 non-expired) rows loaded at startup and refreshed on each \`checkoutLatest()\` call.
-The MCP subprocess writes to the same LanceDB files; calling \`refreshCache()\` before
+The MCP subprocess writes to the same SQLite file; calling \`refreshCache()\` before
 sensitive reads ensures cross-process consistency.
 
 ## See Also
 
 [[embeddings]] — how vectors are generated and stored
-[[db-backends]] — LanceDB vs Postgres implementation differences
+[[db-backends]] — SQLite vs Postgres implementation differences
 [[mcp-tools]] — remember, recall, update_memory, forget tools
 `.trim(),
   },
 
   {
     slug:    'db-backends',
-    title:   'Database Backends — LanceDB vs Postgres',
-    summary: 'How Aperio selects a storage backend at startup, and what differs between LanceDB and Postgres.',
-    tags:    ['lancedb', 'postgres', 'database', 'architecture', 'docker'],
+    title:   'Database Backends — SQLite vs Postgres',
+    summary: 'How Aperio selects a storage backend at startup, and what differs between SQLite and Postgres.',
+    tags:    ['sqlite', 'postgres', 'database', 'architecture', 'docker'],
     body_md: `
 ## Backend Resolution Order
 
 At startup \`db/index.js\` resolves the backend in this order:
 
-1. \`DB_BACKEND\` env var — \`'lancedb'\` or \`'postgres'\` (explicit, always wins)
-2. Auto-detect — pings Docker; if reachable → Postgres, else → LanceDB
-3. Safety fallback — LanceDB (zero-config, always works)
+1. \`DB_BACKEND\` env var — \`'sqlite'\` or \`'postgres'\` (explicit, always wins)
+2. Auto-detect — pings Docker; if reachable → Postgres, else → SQLite
+3. Safety fallback — SQLite (zero-config, always works)
 
-## LanceDB (default for non-Docker users)
+## SQLite (default for non-Docker users)
 
-- **Embedded**: runs inside the Node.js process, no daemon needed.
-- **Storage**: \`.lancedb/\` directory in the project root (set via \`LANCEDB_PATH\`).
-- **Tables**: \`memories\` + \`wiki_articles\` (separate tables, same DB connection).
-- **Vector search**: LanceDB native ANN (IVF-PQ under the hood).
-- **FTS**: BM25 implemented in-process via \`bm25Rank()\` in \`db/lancedb.js\`.
-- **Hybrid search**: RRF merge of vector + BM25 results, computed in JS.
-- **Versioning**: all multi-process consistency relies on \`table.checkoutLatest()\`.
+- **Embedded**: runs inside the Node.js process via \`better-sqlite3\`, no daemon needed.
+- **Storage**: a single file at \`sqlite/aperio.db\` (set via \`SQLITE_PATH\`).
+- **Tables**: \`memories\` + \`wiki_articles\`, each paired with a \`vec_*\` (sqlite-vec)
+  and a \`*_fts\` (FTS5) virtual table, joined by \`rowid\`.
+- **Vector search**: sqlite-vec \`vec0\` virtual table; KNN via \`embedding MATCH ? AND k = …\`.
+- **FTS**: FTS5 + BM25, kept in sync by AFTER INSERT/UPDATE/DELETE triggers.
+- **Hybrid search**: RRF merge of vector + FTS5 results, computed in JS.
 
 ## Postgres (Docker users)
 
@@ -152,19 +152,19 @@ At startup \`db/index.js\` resolves the backend in this order:
 
 ## Behavioural Differences
 
-| Feature | LanceDB | Postgres |
+| Feature | SQLite | Postgres |
 |---|---|---|
-| Wiki stale-marking | Manual / on next refresh | Automatic via DB trigger |
+| Wiki stale-marking | Trigger present, but no-op under temporal versioning (tombstone + insert) | Automatic via DB trigger |
 | Source memory validation | \`store.cache\` lookup | \`SELECT … WHERE id = ANY($1)\` |
-| Embedding storage | Float32 FixedSizeList | \`vector(1024)\` pgvector type |
+| Embedding storage | sqlite-vec \`vec0\` (float32) | \`vector(1024)\` pgvector type |
 | Delete semantics | Physical delete + re-insert | Physical delete (wiki); tombstone (memories) |
 
-## Resetting the LanceDB Store
+## Resetting the SQLite Store
 
 Because Aperio is in active development, wiping and re-creating is cheap:
 
 \`\`\`bash
-rm -rf .lancedb && node server.js   # tables re-created with seed data on next start
+rm -f sqlite/aperio.db && node server.js   # tables re-created with seed data on next start
 \`\`\`
 
 ## See Also
@@ -204,7 +204,7 @@ Set via \`EMBEDDING_PROVIDER\`:
 | \`voyage\` | Voyage AI | Cloud; requires \`VOYAGE_API_KEY\`. Free tier: 50M tokens/month. |
 
 The embedding provider is used for all memory and wiki article vector storage.
-Changing providers after data exists requires wiping \`.lancedb/\` (dimension mismatch).
+Changing providers after data exists requires wiping the database (dimension mismatch).
 
 ## Wiki Refresh Provider
 
@@ -423,7 +423,8 @@ with the user on first creation. Use lowercase kebab-case, e.g. \`aperio-archite
 
 An article becomes **stale** when one of its source memories is updated (content or title changes).
 
-- On LanceDB: staleness is checked lazily at read time (no trigger).
+- On SQLite: under temporal versioning (tombstone + insert) the stale trigger is a
+  no-op, so staleness surfaces lazily at read time.
 - On Postgres: a DB trigger (\`trg_memories_mark_wiki_stale\`) marks it automatically.
 
 To recover a stale article:
@@ -482,7 +483,7 @@ The default embedding provider (\`EMBEDDING_PROVIDER=transformers\`) runs
 - Free tier: 50M tokens/month
 - Dimensions depend on the Voyage model chosen
 
-**Important**: switching providers after data exists requires wiping \`.lancedb/\`
+**Important**: switching providers after data exists requires wiping the SQLite DB
 (or the Postgres \`embedding\` column) because dimensions must match exactly.
 
 ## What Gets Embedded
@@ -494,15 +495,15 @@ The default embedding provider (\`EMBEDDING_PROVIDER=transformers\`) runs
 
 ## Dimension Mismatch
 
-If \`EMBEDDING_DIMS\` doesn't match the dimension stored in the LanceDB table,
+If \`EMBEDDING_DIMS\` doesn't match the dimension stored in the sqlite-vec table,
 the server throws at startup:
 
 \`\`\`
-LanceDB vector dimension mismatch: table has 1024D but EMBEDDING_DIMS=384.
-Either set EMBEDDING_DIMS=1024 or delete the .lancedb directory to start fresh.
+Vector dimension mismatch: table has 1024D but EMBEDDING_DIMS=384.
+Either set EMBEDDING_DIMS=1024 or delete sqlite/aperio.db to start fresh.
 \`\`\`
 
-Fix: either align \`EMBEDDING_DIMS\` to the table value, or \`rm -rf .lancedb\`
+Fix: either align \`EMBEDDING_DIMS\` to the table value, or \`rm -f sqlite/aperio.db\`
 to start fresh (all data lost).
 
 ## Zero Vectors
@@ -514,15 +515,15 @@ fill them in after the provider is configured.
 
 ## Search Modes Summary
 
-| Mode | LanceDB | Postgres |
+| Mode | SQLite | Postgres |
 |---|---|---|
-| \`semantic\` | \`table.search(vec)\` (ANN) | \`embedding <=> $1::vector\` (HNSW) |
-| \`fulltext\` | \`bm25Rank()\` in JS | \`plainto_tsquery\` + tsvector |
+| \`semantic\` | \`embedding MATCH ? AND k = …\` (sqlite-vec KNN) | \`embedding <=> $1::vector\` (HNSW) |
+| \`fulltext\` | FTS5 \`MATCH\` + BM25 | \`plainto_tsquery\` + tsvector |
 | \`auto\` (hybrid) | RRF merge in JS | RRF CTE in SQL |
 
 ## See Also
 
-[[db-backends]] — how embedding storage differs between LanceDB and Postgres
+[[db-backends]] — how embedding storage differs between SQLite and Postgres
 [[memory-system]] — zero-vector detection and cache behaviour
 [[mcp-tools]] — \`backfill_embeddings\` tool
 `.trim(),
@@ -555,7 +556,7 @@ Aperio's local-first stance is a refusal of that default, not an optimisation.
 - **Server-side model quality.** Local models (via Ollama) are smaller and slower
   than frontier cloud models. Cloud providers remain optional, but always opt-in
   per-request, never the default.
-- **Crash-recovery-as-a-service.** Your \`.lancedb/\` directory is yours to back up.
+- **Crash-recovery-as-a-service.** Your \`sqlite/aperio.db\` file is yours to back up.
   Lose it, lose the memories.
 - **Effortless onboarding.** A binary that needs no setup is impossible when the
   data has nowhere to live except the user's filesystem.

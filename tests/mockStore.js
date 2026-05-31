@@ -1,6 +1,6 @@
 // tests/mockStore.js
 // Shared mock store factory used across tool and store tests.
-// Implements the same interface as PostgresStore / LanceDBStore.
+// Implements the same interface as PostgresStore / SqliteStore.
 //
 // Usage:
 //   const store = makeMockStore({ counts: { total: 5, embedded: 3 } });

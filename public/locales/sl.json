@@ -179,7 +179,7 @@
   "setup_step_deps":          "Odvisnosti",
   "setup_step_ollama":        "Ollama",
   "setup_step_model":         "AI model",
-  "setup_step_lancedb":       "LanceDB in vdelave",
+  "setup_step_sqlite":       "SQLite in vdelave",
   "setup_badge_idle":         "čakanje",
   "setup_badge_running":      "teče…",
   "setup_badge_done":         "končano",
