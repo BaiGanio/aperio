@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.51.2] — 2026-05-31
+
+### Fixed
+- crash on idle shutdown: the watchdog now emits SIGTERM instead of   calling process.exit directly, routing through gracefulShutdown for proper ONNX cleanup
+
+---
+
+
 ## [0.51.1] — 2026-05-28
 
 ### Fixed
