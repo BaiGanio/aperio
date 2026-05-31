@@ -95,6 +95,16 @@ function handleMessage(msg) {
                                isDeepSeek ? "#3b82f6"               : "var(--accent)";
     }
 
+    // Sync the model selector dropdown with the confirmed provider/model.
+    const modelSel = document.getElementById("modelSelect");
+    if (modelSel && modelSel.options.length > 0) {
+      const targetVal = JSON.stringify({ provider: msg.name, model: msg.model });
+      for (const opt of modelSel.options) {
+        if (opt.value === targetVal) { opt.selected = true; break; }
+      }
+      delete modelSel.dataset.pending;
+    }
+
     const toggle = document.getElementById("reasoningToggle");
     if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
 

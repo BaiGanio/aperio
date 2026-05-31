@@ -363,6 +363,16 @@
       </button>
       <div class="lang-popover" id="langPopover" role="listbox"></div>
     </div>
+    <!-- Model selector -->
+    <div class="settings-row settings-row--stack" id="modelSelectorRow">
+      <span class="settings-row-label">
+        <i class="bi bi-cpu"></i>
+        <span data-i18n="nav_model_title">AI Model</span>
+      </span>
+      <select class="model-select" id="modelSelect" disabled>
+        <option>Loading…</option>
+      </select>
+    </div>
   </div>
 </div>
 <div id="settings-backdrop" class="settings-backdrop" style="display:none;" onclick="toggleSettingsPanel()"></div>

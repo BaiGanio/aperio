@@ -294,6 +294,7 @@ async function send() {
 
 window.send       = send;
 window.autoResize = autoResize;
+window.wsSafeSend = (data) => safeSend(typeof data === "string" ? data : JSON.stringify(data));
 sendBtn.onclick = send;
 stopBtn.onclick = () => {
   safeSend(JSON.stringify({ type: "stop" }));
