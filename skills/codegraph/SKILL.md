@@ -64,6 +64,17 @@ Examples:
 - `lib/agent/index.js::Agent.run`
 - `mcp/tools/files.js::readFile`
 
+## Repos are part of every result
+
+Multiple repos can be indexed at once, and paths/qualified names are **repo-relative** — `lib/playground.js` may exist in several of them. Every match from `code_search`, `code_outline`, `code_callers`, and `code_callees` therefore carries its repo:
+
+- `repo` — the repo's short name (root_path basename), e.g. `aperio`
+- `root_path` — the repo's absolute path, e.g. `/Users/lk/Projects/BaiGanio/aperio`
+
+**Never infer which repo a relative path belongs to from the path itself** — that guess is the source of cross-project hallucinations. Read `repo`/`root_path` straight off the result. To open the file directly, join `root_path` + the relative `path` and `read_file` that absolute path.
+
+When you act on a result, pass its `repo` to the follow-up tool (`code_context`, `code_outline`, `code_callers`, `code_callees`) so the lookup resolves in the right repo. Without it, a qualified name or path that exists in two repos resolves to an arbitrary one. If a `repo` substring matches more than one indexed repo the tool errors with the candidates — pass a longer substring.
+
 ---
 
 ## Common patterns

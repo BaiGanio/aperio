@@ -22,6 +22,9 @@ let _nextBubbleAgent = null;
 let _roundtableAgents = [];
 let _roundtablePhaseChip = null;
 let _pendingGeneratedFile = null;
+// Live tool-activity cards, keyed by the backend `seq` so a tool_result can
+// find the card its tool_start created.
+const _toolCards = new Map();
 
 function estimateTokens(text) {
   if (!text || !text.trim()) return 0;
@@ -95,14 +98,9 @@ function handleMessage(msg) {
                                isDeepSeek ? "#3b82f6"               : "var(--accent)";
     }
 
-    // Sync the model selector dropdown with the confirmed provider/model.
-    const modelSel = document.getElementById("modelSelect");
-    if (modelSel && modelSel.options.length > 0) {
-      const targetVal = JSON.stringify({ provider: msg.name, model: msg.model });
-      for (const opt of modelSel.options) {
-        if (opt.value === targetVal) { opt.selected = true; break; }
-      }
-      delete modelSel.dataset.pending;
+    // Sync the model selector with the confirmed provider/model.
+    if (typeof window.syncModelSelection === "function") {
+      window.syncModelSelection(msg.name, msg.model);
     }
 
     const toggle = document.getElementById("reasoningToggle");
@@ -111,21 +109,8 @@ function handleMessage(msg) {
     if (msg.contextWindow) maxCtx = msg.contextWindow;
   }
 
-  if (msg.type === "session_created") {
-    if (typeof setCurrentSessionId === "function") setCurrentSessionId(msg.id);
-  }
-
-  if (msg.type === "paths_restored") {
-    if (typeof notifyPathsChanged === "function") notifyPathsChanged(msg.readPaths, msg.writePaths);
-    const note = document.createElement("div");
-    note.className = "suggestions-saved-note";
-    note.innerHTML = t("sessions_paths_restored");
-    document.getElementById("messages")?.appendChild(note);
-    setTimeout(() => note.remove(), 4000);
-  }
-
   if (msg.type === "paths_updated") {
-    if (typeof notifyPathsChanged === "function") notifyPathsChanged(msg.readPaths, msg.writePaths);
+    if (typeof notifyPathsChanged === "function") notifyPathsChanged(msg.paths);
   }
 
   if (msg.type === "thinking") {
@@ -424,6 +409,21 @@ function handleMessage(msg) {
 
   if (msg.type === "ttl_chip") {
     _renderTtlChip(msg);
+    return;
+  }
+
+  if (msg.type === "skills_matched") {
+    if (msg.skills?.length) _renderSkillsChip(msg.skills);
+    return;
+  }
+
+  if (msg.type === "tool_start") {
+    _renderToolCard(msg);
+    return;
+  }
+
+  if (msg.type === "tool_result") {
+    _resolveToolCard(msg);
     return;
   }
 
@@ -1003,5 +1003,88 @@ function _renderRecallPill(items) {
   };
 
   messagesEl.appendChild(pill);
+  scrollToBottom();
+}
+
+// ── Skills chip ─────────────────────────────────────────────────────────────
+// Skills are injected into the system prompt (not executed), so this chip is
+// the only signal the user gets about which ones steered the turn.
+function _renderSkillsChip(skills) {
+  const chip = document.createElement("div");
+  chip.className = "recall-pill skills-chip";
+
+  // Always-on skills (load: always) are injected every turn, so listing them in
+  // the header makes every chip look identical. Show only the turn's matched
+  // skills there; fold the always-on ones into a muted "+N core" suffix that the
+  // expanded details still spell out.
+  const matched = skills.filter(s => !s.always);
+  const core = skills.filter(s => s.always);
+  const headerNames = (matched.length ? matched : core).map(s => s.name).join(", ");
+  const coreSuffix = (matched.length && core.length)
+    ? `<span class="skills-core-suffix">+${core.length} ${t("skills_core_label")}</span>`
+    : "";
+
+  const toggle = document.createElement("button");
+  toggle.className = "recall-pill-toggle";
+  toggle.innerHTML =
+    `<span class="recall-asterisk">✦</span>` +
+    `<span class="recall-pill-label">${t("skills_chip_label")}</span>` +
+    `<span class="recall-pill-scores">${escapeHtml(headerNames)}</span>` +
+    coreSuffix +
+    `<span class="recall-pill-chevron">▾</span>`;
+  chip.appendChild(toggle);
+
+  const details = document.createElement("div");
+  details.className = "recall-pill-details";
+  skills.forEach(s => {
+    const item = document.createElement("div");
+    item.className = "recall-memory skill-item";
+    item.innerHTML =
+      `<div class="recall-memory-body">` +
+        `<div class="recall-memory-title">${escapeHtml(s.name)}` +
+        (s.always ? ` <span class="skill-always-badge">${t("skills_always_badge")}</span>` : "") +
+        `</div>` +
+        (s.description ? `<div class="recall-memory-content">${escapeHtml(s.description)}</div>` : "") +
+      `</div>`;
+    details.appendChild(item);
+  });
+  chip.appendChild(details);
+
+  toggle.onclick = () => {
+    const open = details.classList.toggle("open");
+    toggle.querySelector(".recall-pill-chevron").textContent = open ? "▴" : "▾";
+  };
+
+  messagesEl.appendChild(chip);
+  scrollToBottom();
+}
+
+// ── Tool activity cards ─────────────────────────────────────────────────────
+function _renderToolCard(msg) {
+  const card = document.createElement("div");
+  card.className = "tool-card pending";
+  card.innerHTML =
+    `<div class="tool-card-head">` +
+      `<span class="tool-card-dot"></span>` +
+      `<span class="tool-card-name">${escapeHtml(msg.name)}</span>` +
+      (msg.arg ? `<span class="tool-card-arg">${escapeHtml(msg.arg)}</span>` : "") +
+      `<span class="tool-card-time"></span>` +
+    `</div>` +
+    `<div class="tool-card-result">${t("tool_card_running")}</div>`;
+  _toolCards.set(msg.seq, card);
+  messagesEl.appendChild(card);
+  scrollToBottom();
+}
+
+function _resolveToolCard(msg) {
+  const card = _toolCards.get(msg.seq);
+  if (!card) return;
+  _toolCards.delete(msg.seq);
+  card.classList.remove("pending");
+  card.classList.add(msg.ok ? "ok" : "error");
+  const time = card.querySelector(".tool-card-time");
+  if (time && typeof msg.ms === "number") time.textContent = `${msg.ms}ms`;
+  const result = card.querySelector(".tool-card-result");
+  if (result) result.textContent = `↳ ${msg.summary || (msg.ok ? "done" : "error")}`;
   scrollToBottom();
 }

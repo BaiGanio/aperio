@@ -2,6 +2,10 @@
 name: preprocess-pdf
 description: "Use this skill when a .pdf file is uploaded or a file path points to a PDF. The skill extracts text from text-native PDFs and detects scanned (image-only) PDFs that need visual analysis instead. Triggers: any .pdf attachment in the web UI, any file path ending in .pdf, or when a user asks to summarize/analyze/search a PDF document. Do NOT use for creating, merging, splitting, or modifying PDFs — this skill is read-only extraction only."
 compatibility: "Aperio MCP server — requires pdfjs-dist (npm install pdfjs-dist)"
+metadata:
+  keywords: "pdf, scanned pdf, ocr, extract pdf, pdf document, analyze pdf, summarize pdf"
+  category: "file-management"
+  load: "on-demand"
 ---
 
 # PDF Preprocessing

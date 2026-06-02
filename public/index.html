@@ -100,11 +100,6 @@
         <i class="bi bi-chat-left-text sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="nav_chats_plain">Chats</span>
       </button>
-      <button id="pathsBtn" class="sidebar-nav-btn" onclick="openPathsPanel()"
-        data-i18n-attr-title="nav_paths_title" title="Allowed paths">
-        <i class="bi bi-folder2-open sidebar-nav-icon"></i>
-        <span class="sidebar-nav-label" data-i18n="nav_paths_plain">Paths</span>
-      </button>
       <button id="codegraphBtn" class="sidebar-nav-btn" onclick="toggleCodegraphPanel()"
               data-i18n-attr-title="nav_codegraph_title" title="Code graph">
         <i class="bi bi-diagram-3 sidebar-nav-icon"></i>
@@ -363,68 +358,48 @@
       </button>
       <div class="lang-popover" id="langPopover" role="listbox"></div>
     </div>
-    <!-- Model selector -->
-    <div class="settings-row settings-row--stack" id="modelSelectorRow">
-      <span class="settings-row-label">
+    <!-- Model selector — expandable list grouped by provider. -->
+    <details class="settings-section" id="modelSelectorSection">
+      <summary>
         <i class="bi bi-cpu"></i>
         <span data-i18n="nav_model_title">AI Model</span>
-      </span>
-      <select class="model-select" id="modelSelect" disabled>
-        <option>Loading…</option>
-      </select>
-    </div>
+        <span class="model-current" id="modelCurrent"></span>
+      </summary>
+      <div class="settings-section-body">
+        <div class="model-list" id="modelList">
+          <span class="model-loading">Loading…</span>
+        </div>
+        <div class="model-select-status" id="modelStatus"></div>
+      </div>
+    </details>
+    <!-- Allowed folders — expandable. The AI reads/edits files within these
+         folders; generated artifacts (pptx/xlsx) go to the session workspace. -->
+    <details class="settings-section" id="allowedFoldersSection">
+      <summary>
+        <i class="bi bi-folder2-open"></i>
+        <span data-i18n="paths_allowed_label">Allowed folders</span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint" data-i18n="paths_allowed_hint">Folders the AI can read and edit. Generated files (pptx, xlsx) go to the session workspace.</span>
+        <div class="paths-chips" id="paths-chips"></div>
+        <div class="paths-add-row">
+          <input type="text" id="path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
+          <button class="paths-pick-btn" onclick="_pickFolder()" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
+            <i class="bi bi-folder2-open"></i>
+          </button>
+          <button class="paths-add-btn" onclick="addPathChip()"><i class="bi bi-plus-lg"></i></button>
+        </div>
+        <div class="paths-saved-note" data-i18n-html="paths_saved_note_html">
+          <i class="bi bi-hdd"></i> Saved across sessions.
+        </div>
+        <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Save</span></button>
+      </div>
+    </details>
+    <!-- Hidden folder input for the browser fallback picker -->
+    <input type="file" id="path-folder-input" webkitdirectory hidden>
   </div>
 </div>
 <div id="settings-backdrop" class="settings-backdrop" style="display:none;" onclick="toggleSettingsPanel()"></div>
-
-<!-- Paths configuration panel (right drawer) -->
-<div id="paths-modal" class="paths-modal" style="display:none;">
-  <div class="paths-modal-content">
-    <div class="paths-modal-header">
-      <span class="paths-modal-title"><i class="bi bi-folder2-open"></i> <span data-i18n="paths_title">Allowed Paths</span></span>
-      <button class="paths-modal-close" onclick="closePathsPanel()"><i class="bi bi-x-lg"></i></button>
-    </div>
-    <div class="paths-modal-body">
-      <div class="paths-section">
-        <div class="paths-section-hd">
-          <span class="paths-section-label" data-i18n="paths_read_label">Read Paths</span>
-          <span class="paths-section-hint" data-i18n="paths_read_hint">Folders the AI can read files from</span>
-        </div>
-        <div class="paths-chips" id="read-paths-chips"></div>
-        <div class="paths-add-row">
-          <input type="text" id="read-path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
-          <button class="paths-pick-btn" onclick="_pickFolder('read')" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
-            <i class="bi bi-folder2-open"></i>
-          </button>
-          <button class="paths-add-btn" onclick="addPathChip('read')"><i class="bi bi-plus-lg"></i></button>
-        </div>
-      </div>
-      <div class="paths-section">
-        <div class="paths-section-hd">
-          <span class="paths-section-label" data-i18n="paths_write_label">Write Paths</span>
-          <span class="paths-section-hint" data-i18n="paths_write_hint">Folders the AI can write files to</span>
-        </div>
-        <div class="paths-chips" id="write-paths-chips"></div>
-        <div class="paths-add-row">
-          <input type="text" id="write-path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
-          <button class="paths-pick-btn" onclick="_pickFolder('write')" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
-            <i class="bi bi-folder2-open"></i>
-          </button>
-          <button class="paths-add-btn" onclick="addPathChip('write')"><i class="bi bi-plus-lg"></i></button>
-        </div>
-      </div>
-      <div class="paths-session-note" data-i18n-html="paths_session_note_html">
-        <i class="bi bi-info-circle"></i> Changes apply to this session only — not saved to disk.
-      </div>
-    </div>
-    <div class="paths-modal-footer">
-      <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Apply</span></button>
-    </div>
-  </div>
-</div>
-<!-- Hidden folder inputs for browser fallback picker -->
-<input type="file" id="read-folder-input" webkitdirectory hidden>
-<input type="file" id="write-folder-input" webkitdirectory hidden>
 
 <script src="scripts/settings.js"></script>
 <script src="scripts/api.js"></script>
