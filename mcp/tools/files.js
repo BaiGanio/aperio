@@ -164,7 +164,21 @@ export async function scanProjectHandler({ path: projectPath, read_key_files = t
   return { content: [{ type: "text", text: output }] };
 }
 
-export async function editFileHandler(ctx, { path: filePath, old_string, new_string, replace_all = false }) {
+export async function editFileHandler(ctx, args) {
+  const filePath = args.path;
+  // Normalize the find/replace text from whatever alias the model used. First
+  // string-valued match wins; spaced keys ("old string") are covered too.
+  const pick = (...keys) => {
+    for (const k of keys) { const v = args[k]; if (typeof v === "string") return v; }
+    return undefined;
+  };
+  const old_string  = pick("old_string", "old", "oldText", "oldStr", "old_str", "old string");
+  const new_string  = pick("new_string", "new", "newText", "newStr", "new_str", "new string");
+  const replace_all = args.replace_all ?? false;
+
+  if (typeof old_string !== "string" || typeof new_string !== "string")
+    return { content: [{ type: "text", text: `❌ edit_file needs "old_string" (text to find) and "new_string" (replacement). Received keys: ${Object.keys(args).filter(k => k !== "path").join(", ") || "none"}.` }] };
+
   if (!isWritePathAllowed(filePath))
     return formatPathError("Write", filePath);
 
@@ -311,12 +325,22 @@ export function register(server, ctx) {
     "edit_file",
     {
       description: "Replace an exact string in a file. Fails if old_string appears more than once unless replace_all is true. Use read_file first to confirm the exact text.",
+      // old_string/new_string are the canonical params, but weaker models
+      // frequently guess `old`/`new`, `oldText`/`newText`, etc. — those used to
+      // fail schema validation and trigger a wasteful retry loop. We make the
+      // canonical fields optional, declare the common aliases, and .passthrough()
+      // any other key so the handler can normalize whatever the model sent
+      // instead of bouncing the call. See editFileHandler.
       inputSchema: z.object({
         path:        z.string().describe("Absolute path to the file"),
-        old_string:  z.string().describe("Exact text to find (must be unique in the file unless replace_all is true)"),
-        new_string:  z.string().describe("Text to replace it with"),
+        old_string:  z.string().optional().describe("Exact text to find (must be unique in the file unless replace_all is true)"),
+        new_string:  z.string().optional().describe("Text to replace it with"),
+        old:         z.string().optional().describe("Alias for old_string"),
+        new:         z.string().optional().describe("Alias for new_string"),
+        oldText:     z.string().optional().describe("Alias for old_string"),
+        newText:     z.string().optional().describe("Alias for new_string"),
         replace_all: z.boolean().optional().describe("Replace every occurrence of old_string. Default false."),
-      }),
+      }).passthrough(),
     },
     (args) => editFileHandler(ctx, args)
   );

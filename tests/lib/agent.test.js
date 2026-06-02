@@ -633,10 +633,12 @@ describe("Agent Integration with Emitter", () => {
     assert.ok(Array.isArray(parsed));
   });
 
-  test("buildGreeting handles memory injection", async (t) => {
+  test("buildGreeting does not preload memories (recall-on-demand)", async (t) => {
     stubMcpTransport(t);
 
-    // Override Client.prototype.callTool so the internal recall closure returns memories
+    // Even when recall would return memories, buildGreeting must NOT inject them
+    // into the greeting prompt anymore — the model recalls on demand instead, so
+    // the ~2K-token startup cost is gone. See buildGreeting in lib/agent/index.js.
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall")
         return { content: [{ type: "text", text: "[fact] User name is John\n[preference] Likes Node.js" }] };
@@ -649,8 +651,8 @@ describe("Agent Integration with Emitter", () => {
 
     assert.ok(prompt.includes("Greet me"));
     assert.ok(!prompt.includes("Here is what you know"), "memories must not be in the user message");
-    assert.ok(memCtx.includes("Here is what you know"), "memories must be in memCtx");
-    assert.ok(typeof preloadedMemCount === "number");
+    assert.strictEqual(memCtx, "", "memories must NOT be preloaded into memCtx");
+    assert.strictEqual(preloadedMemCount, 0);
   });
 
   test("buildGreeting handles no memories gracefully", async (t) => {
