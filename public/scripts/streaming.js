@@ -309,7 +309,7 @@ function handleMessage(msg) {
     accThinkingTokens += msg.usage?.thinking_tokens ?? 0;
     accOutputTokens += msg.usage?.output_tokens ?? 0;
     const responseStats = (elapsedSec && msg.usage?.output_tokens)
-      ? { outputTokens: accOutputTokens, thinkingTokens: accThinkingTokens, elapsedSec }
+      ? { outputTokens: accOutputTokens, thinkingTokens: accThinkingTokens, elapsedSec, inputTokens: msg.usage?.input_tokens ?? 0 }
       : null;
     if (streamingBubble && streamingText.trim()) {
       finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
@@ -807,6 +807,14 @@ function finalizeStreamingBubble(ref, fullText, stats) {
     } else {
       label = t("stats_plain", { answer: answerTok, speed: tokPerSec, sec: secLabel });
     }
+    // The response token count above only covers what the model *generated*.
+    // The far larger input — full history + injected skills + recalled memories
+    // + tool schemas — is what the user was missing. Surface it so the footer
+    // number isn't mistaken for the whole turn's cost. This is the same
+    // provider-reported figure the navbar context bar uses.
+    if (stats.inputTokens > 0) {
+      label += " · " + t("stats_context_in", { n: stats.inputTokens.toLocaleString() });
+    }
     badge.textContent = label;
     col.appendChild(badge);
   }
@@ -994,6 +1002,10 @@ function _parseRecallText(text) {
       similarity: simMatch ? parseFloat(simMatch[1]) : null,
       content,
       tags:       tags && tags !== "none" ? tags : "",
+      // The whole block (header + content + tags + id/date) is what recall
+      // injects into the model's context, so estimate the cost from the raw
+      // block rather than just the visible content line.
+      tokens:     estimateTokens(block),
     };
   }).filter(m => m.title);
 }
@@ -1010,12 +1022,20 @@ function _renderRecallPill(items) {
     .map(m => `${m.similarity}%`)
     .join(" · ");
 
+  // Total cost the recalled memories add to this turn's input — the figure the
+  // user was missing under "Recalled N memories".
+  const totalTok = items.reduce((sum, m) => sum + (m.tokens || 0), 0);
+  const tokSuffix = totalTok
+    ? `<span class="recall-pill-tok">${t("chip_tokens", { n: totalTok.toLocaleString() })}</span>`
+    : "";
+
   const toggle = document.createElement("button");
   toggle.className = "recall-pill-toggle";
   toggle.innerHTML =
     `<span class="recall-asterisk">✦</span>` +
     `<span class="recall-pill-label">${label}</span>` +
     (topScores ? `<span class="recall-pill-scores">${topScores}</span>` : "") +
+    tokSuffix +
     `<span class="recall-pill-chevron">▾</span>`;
   pill.appendChild(toggle);
 
@@ -1027,6 +1047,7 @@ function _renderRecallPill(items) {
     item.innerHTML =
       `<summary>` +
         `<span class="recall-memory-title">${escapeHtml(m.title)}</span>` +
+        (m.tokens ? `<span class="recall-score recall-score--tok">${t("chip_tokens", { n: m.tokens.toLocaleString() })}</span>` : "") +
         (m.similarity !== null ? `<span class="recall-score">${m.similarity}%</span>` : "") +
       `</summary>` +
       `<div class="recall-memory-body">` +
@@ -1064,6 +1085,13 @@ function _renderSkillsChip(skills) {
     ? `<span class="skills-core-suffix">+${core.length} ${t("skills_core_label")}</span>`
     : "";
 
+  // Every injected skill adds its content to the system prompt on every turn.
+  // Surface the combined cost so "skills" isn't an invisible token sink.
+  const totalTok = skills.reduce((n, s) => n + (s.tokens || 0), 0);
+  const tokSuffix = totalTok
+    ? `<span class="recall-pill-tok">${t("chip_tokens", { n: totalTok.toLocaleString() })}</span>`
+    : "";
+
   const toggle = document.createElement("button");
   toggle.className = "recall-pill-toggle";
   toggle.innerHTML =
@@ -1071,6 +1099,7 @@ function _renderSkillsChip(skills) {
     `<span class="recall-pill-label">${t("skills_chip_label")}</span>` +
     `<span class="recall-pill-scores">${escapeHtml(headerNames)}</span>` +
     coreSuffix +
+    tokSuffix +
     `<span class="recall-pill-chevron">▾</span>`;
   chip.appendChild(toggle);
 
@@ -1083,6 +1112,7 @@ function _renderSkillsChip(skills) {
       `<div class="recall-memory-body">` +
         `<div class="recall-memory-title">${escapeHtml(s.name)}` +
         (s.always ? ` <span class="skill-always-badge">${t("skills_always_badge")}</span>` : "") +
+        (s.tokens ? `<span class="recall-score">${t("chip_tokens", { n: s.tokens.toLocaleString() })}</span>` : "") +
         `</div>` +
         (s.description ? `<div class="recall-memory-content">${escapeHtml(s.description)}</div>` : "") +
       `</div>`;
