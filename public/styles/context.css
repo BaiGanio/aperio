@@ -74,6 +74,38 @@
     .ctx-banner--memories {
       background: color-mix(in srgb, var(--text-muted) 8%, var(--bg));
       border-bottom-color: color-mix(in srgb, var(--text-muted) 18%, transparent);
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .ctx-banner-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .ctx-bd {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid color-mix(in srgb, var(--text-muted) 18%, transparent);
+      opacity: 0.9;
+    }
+    .ctx-bd-title {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+    .ctx-bd-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 1px 0;
+    }
+    .ctx-bd-row span:last-child {
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+    .ctx-bd-note {
+      margin-top: 6px;
+      opacity: 0.7;
+      font-style: italic;
     }
     .reasoning-flat pre {
       margin: 0;

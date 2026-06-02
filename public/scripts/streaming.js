@@ -15,6 +15,7 @@ let startupBannerShown = false;
 let pendingUserTokenEstimate = 0;
 let _preloadToolCount = 0;
 let _preloadMemCount = 0;
+let _startupBreakdown = null;
 // Round-table state. _nextBubbleAgent is set on stream_start and consumed by
 // createStreamingBubble() so the bubble is styled with the right agent colour.
 // _roundtableAgents is populated from the `provider` event for badge labels.
@@ -40,6 +41,10 @@ function handleMessage(msg) {
 
   if (msg.type === "preload_mem_count") {
     _preloadMemCount = msg.count ?? 0;
+  }
+
+  if (msg.type === "startup_breakdown") {
+    _startupBreakdown = msg;
   }
 
   if (msg.type === "tool_count") {
@@ -811,18 +816,52 @@ function finalizeStreamingBubble(ref, fullText, stats) {
 
 function _maybeShowStartupBanner(inputTok) {
   if (startupBannerShown) return;
+  // Wait for a real provider token count — the banner's job is to explain that
+  // number, not to estimate one.
+  if (!inputTok) return;
   startupBannerShown = true;
-  const memCount = _preloadMemCount > 0 ? _preloadMemCount : (Array.isArray(allMemories) ? allMemories.length : 0);
-  if (memCount === 0 && !_preloadToolCount) return;
-  const parts = [];
-  if (inputTok) parts.push(t("startup_tokens_from", { n: inputTok.toLocaleString() }));
+
+  // Memories shown reflect what's actually injected into the startup prompt.
+  // Memories are no longer preloaded, so this is normally 0; we no longer fall
+  // back to the sidebar count (those memories are NOT in the prompt).
+  const memCount = _preloadMemCount;
+  const parts = [t("startup_tokens_from", { n: inputTok.toLocaleString() })];
   if (memCount) parts.push(memCount === 1 ? t("startup_memory_one") : t("startup_memory_many", { n: memCount }));
   if (_preloadToolCount) parts.push(_preloadToolCount === 1 ? t("startup_tool_one") : t("startup_tool_many", { n: _preloadToolCount }));
+
+  // Per-component breakdown of where the startup tokens go. Component figures
+  // are server-side estimates; "scaffolding" reconciles them to the real total
+  // so the rows always sum to the provider-reported number.
+  const bd = _startupBreakdown;
+  let bdHtml = "";
+  if (bd) {
+    const skillTok = (bd.skills || []).reduce((n, s) => n + (s.tokens || 0), 0);
+    const items = [[t("startup_bd_identity"), bd.identity || 0]];
+    if (skillTok) items.push([t("startup_bd_skills"), skillTok]);
+    if (memCount) items.push([t("startup_bd_memories"), 0]);
+    const accounted = items.reduce((n, [, v]) => n + v, 0);
+    const other = Math.max(0, inputTok - accounted);
+    if (other) items.push([t("startup_bd_other"), other]);
+    const rows = items
+      .map(([label, n]) => `<div class="ctx-bd-row"><span>${label}</span><span>~${n.toLocaleString()}</span></div>`)
+      .join("");
+    bdHtml =
+      `<div class="ctx-bd" style="display:none">` +
+        `<div class="ctx-bd-title">${t("startup_bd_title")}</div>` +
+        rows +
+        `<div class="ctx-bd-note">${t("startup_bd_note")}</div>` +
+      `</div>`;
+  }
+
   const banner = document.createElement("div");
   banner.className = "ctx-banner ctx-banner--memories";
   banner.innerHTML =
-    `<span class="ctx-banner-text">${parts.join(' · ')}</span>` +
-    `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("ctx_dismiss")}</button>`;
+    `<div class="ctx-banner-row">` +
+      `<span class="ctx-banner-text">${parts.join(' · ')}</span>` +
+      (bd ? `<button class="ctx-banner-btn" onclick="const b=this.closest('.ctx-banner').querySelector('.ctx-bd'); b.style.display = b.style.display==='none' ? 'block' : 'none';">${t("startup_bd_toggle")}</button>` : "") +
+      `<button class="ctx-banner-btn" onclick="this.closest('.ctx-banner').remove()">${t("ctx_dismiss")}</button>` +
+    `</div>` +
+    bdHtml;
   document.querySelector(".chat-area")?.prepend(banner);
 }
 
