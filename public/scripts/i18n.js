@@ -147,9 +147,9 @@ const TRANSLATIONS = {
     startup_tool_many:        "{n} tools",
     startup_bd_toggle:        "what's this?",
     startup_bd_title:         "What's in the startup prompt:",
-    startup_bd_identity:      "Identity (whoami)",
-    startup_bd_skills:        "Always-on skill",
-    startup_bd_memories:      "Preloaded memories",
+    startup_bd_identity:      "Identity (whoami.md)",
+    startup_bd_skill_named:   "Always-on skill: {name}",
+    startup_bd_memories:      "Top {n} memories (by importance)",
     startup_bd_other:         "Conversation scaffolding",
     startup_bd_note:          "Skills & tool schemas are re-sent every turn — LLM APIs are stateless, so this is the cost of context, not duplication.",
 
