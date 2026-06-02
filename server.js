@@ -318,6 +318,10 @@ async function bootApp() {
 
   // DB
   const store = await getStore();
+  // Hydrate the app-wide allowed-folders list from the DB (seeds it from env on
+  // first run). Must run before codegraph/watchers read getAllowlist().
+  const { loadAllowlist } = await import("./lib/routes/paths.js");
+  await loadAllowlist(store);
   const { shutdown: shutdownEmbeddings } = await initEmbeddings(store, generateEmbedding);
 
   // ── Code graph live watcher (opt-in) ──────────────────────────────────────
@@ -331,14 +335,14 @@ async function bootApp() {
     if (!isCodegraphAvailable(store)) {
       logger.warn(`[codegraph] APERIO_CODEGRAPH=on but backend has no graph store. Switch DB_BACKEND=sqlite or postgres.`);
     } else {
-      const { DEFAULT_READ_PATHS } = await import("./lib/routes/paths.js");
+      const { getAllowlist } = await import("./lib/routes/paths.js");
       const { markEnabled } = await import("./lib/codegraph/status.js");
-      markEnabled(DEFAULT_READ_PATHS);
+      markEnabled(getAllowlist());
       // Fire-and-forget: don't block bootApp on the initial index.
       const handlePromise = (async () => {
         try {
           const { startAllWatchers } = await import("./lib/codegraph/watcher.js");
-          return await startAllWatchers(store, DEFAULT_READ_PATHS);
+          return await startAllWatchers(store, getAllowlist());
         } catch (err) {
           const { logError } = await import("./lib/helpers/logger.js");
           logError(`[codegraph] watcher boot failed`, err);

@@ -461,36 +461,37 @@ describe("message type: delete_memory", () => {
 // ─── "set_paths" message ──────────────────────────────────────────────────────
 
 describe("message type: set_paths", () => {
-  test("sends paths_updated when valid arrays are supplied", async (t) => {
+  test("sends paths_updated with the new allowlist when a valid array is supplied", async (t) => {
     const ws      = makeWs(t);
     const tmpdir  = os.tmpdir();
     makeHandler()(ws);
 
-    await ws.emit({ type: "set_paths", readPaths: [tmpdir], writePaths: [tmpdir] });
+    await ws.emit({ type: "set_paths", paths: [tmpdir] });
 
     const updated = sentOf(ws, "paths_updated");
     assert.ok(updated.length >= 1, "paths_updated was sent");
+    assert.ok(Array.isArray(updated[0].paths), "payload carries a paths array");
   });
 
-  test("is silently ignored when readPaths is not an array", async (t) => {
+  test("is silently ignored when paths is not an array", async (t) => {
     const ws = makeWs(t);
     makeHandler()(ws);
 
-    await ws.emit({ type: "set_paths", readPaths: "/not-an-array", writePaths: [] });
+    await ws.emit({ type: "set_paths", paths: "/not-an-array" });
 
     assert.strictEqual(sentOf(ws, "paths_updated").length, 0);
   });
 
-  test("is silently ignored when writePaths is not an array", async (t) => {
+  test("is silently ignored when a path entry is not a non-empty string", async (t) => {
     const ws = makeWs(t);
     makeHandler()(ws);
 
-    await ws.emit({ type: "set_paths", readPaths: [], writePaths: null });
+    await ws.emit({ type: "set_paths", paths: [123] });
 
     assert.strictEqual(sentOf(ws, "paths_updated").length, 0);
   });
 
-  test("two connections maintain independent path state", async (t) => {
+  test("each connection gets its own paths_updated echo", async (t) => {
     const wsA    = makeWs(t);
     const wsB    = makeWs(t);
     const tmpdir = os.tmpdir();
@@ -498,16 +499,11 @@ describe("message type: set_paths", () => {
     handler(wsA);
     handler(wsB);
 
-    await wsA.emit({ type: "set_paths", readPaths: [tmpdir], writePaths: [tmpdir] });
-    await wsB.emit({ type: "set_paths", readPaths: [tmpdir], writePaths: [tmpdir] });
+    // The allowlist is app-wide now; set_paths echoes paths_updated only to the
+    // emitting connection (send() is per-ws), so neither stream gets the other's.
+    await wsA.emit({ type: "set_paths", paths: [tmpdir] });
+    await wsB.emit({ type: "set_paths", paths: [tmpdir] });
 
-    // Both connections get their own paths_updated event — neither sees the other's
-    const aUpdated = sentOf(wsA, "paths_updated");
-    const bUpdated = sentOf(wsB, "paths_updated");
-    assert.strictEqual(aUpdated.length, 1, "A got exactly one paths_updated");
-    assert.strictEqual(bUpdated.length, 1, "B got exactly one paths_updated");
-
-    // B's update did not inject a second paths_updated into A's message stream
     assert.strictEqual(wsA.sent.filter(m => m.type === "paths_updated").length, 1);
     assert.strictEqual(wsB.sent.filter(m => m.type === "paths_updated").length, 1);
   });

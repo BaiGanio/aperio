@@ -37,76 +37,83 @@
 
   const PROVIDER_LABELS = { ollama: "Ollama (local)", anthropic: "Anthropic", deepseek: "DeepSeek", gemini: "Google Gemini" };
 
+  // Reflect the active model name in the collapsed summary, so the current pick
+  // is visible without expanding the section.
+  function updateModelCurrent() {
+    const cur = document.getElementById("modelCurrent");
+    if (!cur) return;
+    const active = document.querySelector(".model-option.is-active .model-option-name");
+    cur.textContent = active ? active.textContent : "";
+  }
+
+  // Mark the matching row active. Exposed for streaming.js to sync on the
+  // provider event (e.g. after the server confirms or auto-switches a model).
+  window.syncModelSelection = function (provider, model) {
+    const list = document.getElementById("modelList");
+    if (!list) return;
+    list.querySelectorAll(".model-option").forEach(o =>
+      o.classList.toggle("is-active", o.dataset.provider === provider && o.dataset.model === model));
+    updateModelCurrent();
+  };
+
   async function loadModels() {
-    const sel = document.getElementById("modelSelect");
-    if (!sel) return;
+    const list = document.getElementById("modelList");
+    if (!list) return;
     try {
       const data = await fetch("/api/models").then(r => r.json());
-      sel.innerHTML = "";
+      list.innerHTML = "";
       let hasOptions = false;
       for (const [prov, models] of Object.entries(data.providers || {})) {
         if (!models.length) continue;
-        const grp = document.createElement("optgroup");
-        grp.label = PROVIDER_LABELS[prov] || prov;
+        const grp = document.createElement("div");
+        grp.className = "model-group";
+        const head = document.createElement("div");
+        head.className = "model-group-label";
+        head.textContent = PROVIDER_LABELS[prov] || prov;
+        grp.appendChild(head);
         for (const m of models) {
-          const opt = document.createElement("option");
-          opt.value = JSON.stringify({ provider: prov, model: m });
-          opt.textContent = m;
-          if (prov === data.provider && m === data.model) opt.selected = true;
-          grp.appendChild(opt);
+          const row = document.createElement("button");
+          row.type = "button";
+          row.className = "model-option";
+          row.dataset.provider = prov;
+          row.dataset.model = m;
+          if (prov === data.provider && m === data.model) row.classList.add("is-active");
+          const name = document.createElement("span");
+          name.className = "model-option-name";
+          name.textContent = m;
+          const check = document.createElement("i");
+          check.className = "bi bi-check-lg model-option-check";
+          row.append(name, check);
+          row.addEventListener("click", () => selectModel(prov, m));
+          grp.appendChild(row);
         }
-        sel.appendChild(grp);
+        list.appendChild(grp);
         hasOptions = true;
       }
       if (!hasOptions) {
-        sel.innerHTML = "<option>No models found</option>";
+        list.innerHTML = `<span class="model-loading">No models found</span>`;
         return;
       }
-      // If the user picked a model while this fetch was in-flight, restore it.
-      if (sel.dataset.pending) {
-        for (const opt of sel.options) {
-          if (opt.value === sel.dataset.pending) { opt.selected = true; break; }
-        }
-      }
-      sel.disabled = false;
+      updateModelCurrent();
     } catch {
-      sel.innerHTML = "<option>Failed to load models</option>";
+      list.innerHTML = `<span class="model-loading">Failed to load models</span>`;
     }
   }
 
-  function getStatus(sel) {
-    let status = sel.nextElementSibling;
-    if (!status || !status.classList.contains("model-select-status")) {
-      status = document.createElement("div");
-      status.className = "model-select-status";
-      sel.insertAdjacentElement("afterend", status);
+  function selectModel(provider, model) {
+    window.syncModelSelection(provider, model);
+    const status = document.getElementById("modelStatus");
+    if (!status) return;
+    // Send via WebSocket so the server can clear cross-provider history and
+    // re-emit the provider event (which updates the badge automatically).
+    if (typeof window.wsSafeSend === "function") {
+      window.wsSafeSend({ type: "switch_model", provider, model });
+      status.textContent = `Switched to ${model}`;
+      status.className = "model-select-status is-ok";
+    } else {
+      status.textContent = "Not connected — reload and try again";
+      status.className = "model-select-status is-err";
     }
-    return status;
-  }
-
-  function wireModelSelect() {
-    const sel = document.getElementById("modelSelect");
-    if (!sel || sel.dataset.wired) return;
-    sel.dataset.wired = "1";
-    sel.addEventListener("change", () => {
-      let config;
-      try { config = JSON.parse(sel.value); } catch { return; }
-      // Remember the user's intent so a racing loadModels() doesn't reset it.
-      sel.dataset.pending = sel.value;
-      const status = getStatus(sel);
-      status.textContent = "Switching…";
-      status.className = "model-select-status";
-      // Send via WebSocket so the server can clear cross-provider history and
-      // re-emit the provider event (which updates the badge automatically).
-      if (typeof window.wsSafeSend === "function") {
-        window.wsSafeSend({ type: "switch_model", provider: config.provider, model: config.model });
-        status.textContent = `Switched to ${config.model}`;
-        status.className = "model-select-status is-ok";
-      } else {
-        status.textContent = "Not connected — reload and try again";
-        status.className = "model-select-status is-err";
-      }
-    });
   }
 
   // ── Open / close ──────────────────────────────────────────────────────────
@@ -117,7 +124,6 @@
     if (opening) {
       wireSound();
       syncSound();
-      wireModelSelect();
       loadModels();
       p.style.display = "flex";
       b.style.display = "block";
