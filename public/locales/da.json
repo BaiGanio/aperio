@@ -66,7 +66,7 @@
   "chat_chars":               "{n} tegn",
   "chat_attach_remove":       "Fjern",
 
-  "stats_with_thinking":      "🪙 {total} total tokens → ✍️ {answer} svar · 🧠 +{thinking} ræsonnement · 🚙 hastighed: {speed} tok/s · ⏱️ færdig: {sec}",
+  "stats_with_thinking":      "🪙 {total} tokens → ✍️ {answer} svar · 🧠 +{thinking} ræsonnement · 🚙 hastighed: {speed} tok/s · ⏱️ færdig: {sec}",
   "stats_plain":              "🪙 {answer} tokens · 🚙 hastighed: {speed} tok/s · ⏱️ færdig: {sec}",
 
   "msg_preparing_answer":     "✦ forbereder svar…",
