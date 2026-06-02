@@ -320,8 +320,27 @@ async function bootApp() {
   const store = await getStore();
   // Hydrate the app-wide allowed-folders list from the DB (seeds it from env on
   // first run). Must run before codegraph/watchers read getAllowlist().
-  const { loadAllowlist } = await import("./lib/routes/paths.js");
+  const { loadAllowlist, getAllowlist, setAllowlist } = await import("./lib/routes/paths.js");
   await loadAllowlist(store);
+  // Sync indexed repo root paths into the allowlist so they can be read by file
+  // tools. Repos indexed before the auto-allowlist feature existed aren't in the
+  // DB setting yet — this one-shot merge makes them readable without manual steps.
+  try {
+    const { pickBackend } = await import("./lib/codegraph/indexer.js");
+    const backend = pickBackend(store);
+    if (backend) {
+      const { repos: listRepos } = backend.mod;
+      const { repos: indexed } = await listRepos(store);
+      const current = getAllowlist();
+      const toAdd = (indexed || []).map(r => r.root_path).filter(p => !current.some(a => p === a || p.startsWith(a + "/")));
+      if (toAdd.length) {
+        await setAllowlist([...current, ...toAdd]);
+        logger.info(`[allowlist] synced ${toAdd.length} indexed repo(s): ${toAdd.join(", ")}`);
+      }
+    }
+  } catch (err) {
+    logger.warn(`[allowlist] repo sync skipped: ${err.message}`);
+  }
   const { shutdown: shutdownEmbeddings } = await initEmbeddings(store, generateEmbedding);
 
   // ── Code graph live watcher (opt-in) ──────────────────────────────────────

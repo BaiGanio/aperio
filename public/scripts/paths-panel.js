@@ -3,6 +3,16 @@
 // DB via the WebSocket set_paths message; survives across sessions and restarts.
 let _pathsList = [];
 
+let _indexedRoots = null;
+async function getIndexedRoots() {
+  if (_indexedRoots !== null) return _indexedRoots;
+  try {
+    const d = await fetch("/api/codegraph/repos").then(r => r.json());
+    _indexedRoots = (d.repos || []).map(r => r.root_path);
+  } catch { _indexedRoots = []; }
+  return _indexedRoots;
+}
+
 // Snapshot of the list as loaded, so Save stays disabled until the user actually
 // adds or removes a path.
 let _pathsSnapshot = "";
@@ -54,8 +64,13 @@ function _renderPathChips() {
     chip.className = "path-chip";
     chip.innerHTML = `<span class="path-chip-text" title="${p}">${p}</span>
       <button class="path-chip-del" title="${t("paths_remove_title")}">×</button>`;
-    chip.querySelector(".path-chip-del").onclick = () => {
+    chip.querySelector(".path-chip-del").onclick = async () => {
+      const roots = await getIndexedRoots();
+      if (roots.includes(p)) {
+        if (!confirm(`Remove "${p}" from allowed paths?\n\nThis path has an indexed code graph repo. To fully remove it, delete the repo from the Code Graph panel instead.`)) return;
+      }
       _pathsList.splice(i, 1);
+      _indexedRoots = null; // invalidate cache after mutation
       _renderPathChips();
       _updateApplyState();
     };

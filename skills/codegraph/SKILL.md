@@ -6,7 +6,7 @@ description: >
   full-file reads and wide greps — it is cheaper and more precise. Covers when
   to reach for which tool and the canonical lookup sequence.
 metadata:
-  keywords: "code search, find function, where defined, where is, what calls, callers, callees, refactor, impact analysis, symbol, navigate code, codebase tour, qualified name, outline, indexed repo"
+  keywords: "code search, find function, where defined, where is, what calls, callers, callees, refactor, impact analysis, symbol, navigate code, codebase tour, qualified name, outline, indexed repo, project path, which repo, what repos, what project, go to project"
   category: "code-navigation"
   load: "on-demand"
 ---
@@ -19,6 +19,17 @@ A pre-indexed symbol + call graph over the user's repos, exposed as six MCP tool
 Reach for these **before** `read_file` or recursive grep whenever the question is about a symbol (function, class, method, const, type) or its relationships.
 
 ---
+
+## Mandatory rule — project paths and repo locations
+
+**ALWAYS call `code_repos` before answering any question about:**
+- A project's path or location on disk
+- Which projects/repos are indexed
+- Whether a repo exists or is available
+
+Project paths are runtime filesystem facts — they are NOT in your training data and you CANNOT answer them from knowledge. Never guess or refuse. Always call `code_repos` first.
+
+This rule overrides the general "don't use tools for knowledge questions" guidance in agent-conduct. A project path is not a knowledge question.
 
 ## When to use
 
