@@ -92,8 +92,11 @@
       return;
     }
     const items = _repos.map(r => `
-      <div class="cg-repo">
-        <div class="cg-repo-path">${escapeHtml(r.root_path)}</div>
+      <div class="cg-repo" data-root="${escapeHtml(r.root_path)}">
+        <div class="cg-repo-header">
+          <div class="cg-repo-path">${escapeHtml(r.root_path)}</div>
+          <button class="cg-repo-del" title="Remove this repo and its allowed path">×</button>
+        </div>
         <div class="cg-repo-meta">
           ${escapeHtml(String(r.files ?? 0))} files · ${escapeHtml(String(r.symbols ?? 0))} symbols
           ${r.last_indexed_at ? "· indexed " + escapeHtml(new Date(r.last_indexed_at).toISOString().slice(0, 16).replace("T", " ")) : ""}
@@ -102,8 +105,29 @@
     setBody(`<div id="cg-status-banner-mount"></div><div class="cg-section-label">Indexed repos</div>${items}
       <div class="cg-hint">Type above to search symbols across these repos.</div>
       ${renderAddRepoForm()}`);
+    body().querySelectorAll(".cg-repo-del").forEach(btn => {
+      btn.addEventListener("click", () => deleteRepo(btn.closest(".cg-repo").dataset.root));
+    });
     wireAddRepoForm();
     startStatusPolling();
+  }
+
+  // ── Delete a repo ─────────────────────────────────────────────────────────
+  async function deleteRepo(rootPath) {
+    if (!confirm(`Remove indexed repo:\n${rootPath}\n\nThis will also remove it from the allowed paths list.`)) return;
+    try {
+      const r = await fetch("/api/codegraph/repos", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: rootPath }),
+      });
+      const d = await r.json();
+      if (!r.ok) { alert(`Error: ${d.error}`); return; }
+      await loadRepos();
+      renderRepos();
+    } catch (err) {
+      alert(`Error: ${err.message}`);
+    }
   }
 
   // ── Add-a-repo form (lets non-coders graph a different project) ───────────
@@ -137,6 +161,12 @@
     const submit = async () => {
       const path = inp.value.trim();
       if (!path) return;
+      // Client-side sub-path guard: give immediate feedback before hitting the server.
+      const covered = _repos.find(r => path === r.root_path || path.startsWith(r.root_path + "/"));
+      if (covered) {
+        msg.textContent = `⚠ Already covered by ${covered.root_path}`;
+        return;
+      }
       msg.textContent = "Starting index…";
       apply.disabled = true;
       try {
