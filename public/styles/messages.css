@@ -195,6 +195,26 @@
     .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
     .copy-btn.copied { color: #22c55e; border-color: #22c55e; }
 
+    .bubble-copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      opacity: 0;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 5px;
+      font-size: 12px;
+      color: var(--text-muted);
+      cursor: pointer;
+      line-height: 1;
+      transition: opacity var(--transition), color var(--transition);
+      z-index: 1;
+    }
+    .message.ai .bubble:hover .bubble-copy-btn { opacity: 1; }
+    .bubble-copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .bubble-copy-btn.copied { color: #22c55e; border-color: #22c55e; opacity: 1; }
+
     .bubble pre {
       background: var(--bg) !important;
       padding: 12px !important;
