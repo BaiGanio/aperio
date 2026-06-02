@@ -278,6 +278,85 @@ export async function generateXlsxHandler({ filename, sheets }) {
   }
 }
 
+// ─── delete_file — two-phase commit ───────────────────────────────────────────
+
+const DELETE_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const pendingDeletes = new Map(); // token → { path, expiresAt }
+
+function pruneExpiredTokens() {
+  const now = Date.now();
+  for (const [token, entry] of pendingDeletes) {
+    if (now >= entry.expiresAt) pendingDeletes.delete(token);
+  }
+}
+
+function generateDeleteToken() {
+  return "del_" + Math.random().toString(36).slice(2, 8);
+}
+
+export async function deleteFileHandler(args) {
+  // Normalize token aliases — models frequently use "token", "confirm", etc.
+  const filePath = args.path;
+  const confirmation_token =
+    args.confirmation_token ?? args.token ?? args.confirm ??
+    args.auth_token ?? args.confirmationToken ?? null;
+
+  pruneExpiredTokens();
+
+  if (!isWritePathAllowed(filePath))
+    return formatPathError("Write", filePath);
+
+  if (!confirmation_token) {
+    // Phase 1: propose.
+    // If a live token was already issued for this path, re-surface it so the
+    // user doesn't have to re-confirm with yet another token.
+    if (!existsSync(filePath))
+      return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
+
+    for (const [existing, entry] of pendingDeletes) {
+      if (entry.path === filePath) {
+        return {
+          content: [{
+            type: "text",
+            text: `⚠️ Deletion pending confirmation\nTarget: ${filePath}\nToken: ${existing}\n\nA token was already issued. Confirm with token "${existing}". It expires in ${Math.ceil((entry.expiresAt - Date.now()) / 1000)}s.`,
+          }],
+        };
+      }
+    }
+
+    const token = generateDeleteToken();
+    pendingDeletes.set(token, { path: filePath, expiresAt: Date.now() + DELETE_TOKEN_TTL_MS });
+
+    return {
+      content: [{
+        type: "text",
+        text: `⚠️ Deletion pending confirmation\nTarget: ${filePath}\nToken: ${token}\n\nTo complete this deletion, confirm with token "${token}". This token expires in 2 minutes.`,
+      }],
+    };
+  }
+
+  // Phase 2: commit
+  const entry = pendingDeletes.get(confirmation_token);
+
+  if (!entry || Date.now() >= entry.expiresAt) {
+    pendingDeletes.delete(confirmation_token);
+    return { content: [{ type: "text", text: `❌ Confirmation token invalid or expired. Deletion aborted.` }] };
+  }
+
+  if (entry.path !== filePath) {
+    return { content: [{ type: "text", text: `❌ Confirmation token mismatch: token was issued for a different path. Deletion aborted.` }] };
+  }
+
+  pendingDeletes.delete(confirmation_token);
+
+  try {
+    await fs.unlink(filePath);
+    return { content: [{ type: "text", text: `✅ Deleted ${filePath}` }] };
+  } catch (err) {
+    return { content: [{ type: "text", text: `❌ delete_file failed: ${err.message}` }] };
+  }
+}
+
 // ─── MCP registration ─────────────────────────────────────────────────────────
 // ctx is kept for backward compatibility but path guards are now handled
 // directly via the imported validators above.
@@ -355,6 +434,20 @@ export function register(server, ctx) {
       }),
     },
     scanProjectHandler
+  );
+
+  server.registerTool(
+    "delete_file",
+    {
+      description: "Delete a file from disk. Requires a two-step confirmation: call without confirmation_token first to receive a token, then call again with that token to execute. Never fabricate or reuse a token.",
+      inputSchema: z.object({
+        path:               z.string().describe("Absolute path to the file to delete"),
+        confirmation_token: z.string().optional().describe("Token returned by the first call. Omit on the first call."),
+        token:              z.string().optional().describe("Alias for confirmation_token"),
+        confirm:            z.string().optional().describe("Alias for confirmation_token"),
+      }).passthrough(),
+    },
+    deleteFileHandler
   );
 
   server.registerTool(

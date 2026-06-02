@@ -90,6 +90,17 @@ The most common failure pattern: rewriting the file from memory without reading 
 
 ---
 
+## Deleting Files
+
+Use `delete_file` when the user explicitly asks to delete or remove a file. It requires two calls:
+
+1. `delete_file({ path })` — proposes deletion, returns a one-time token.
+2. `delete_file({ path, confirmation_token })` — executes deletion after the user confirms the token.
+
+**Never fabricate or reuse a token.** Always use the exact token returned by step 1. If the user does not confirm, do not proceed to step 2.
+
+---
+
 ## When to Use Which Skill
 
 | File type | Skill to match |
