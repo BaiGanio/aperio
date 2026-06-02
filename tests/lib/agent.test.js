@@ -633,15 +633,18 @@ describe("Agent Integration with Emitter", () => {
     assert.ok(Array.isArray(parsed));
   });
 
-  test("buildGreeting does not preload memories (recall-on-demand)", async (t) => {
+  test("buildGreeting preloads top memories into memCtx (not the user message)", async (t) => {
     stubMcpTransport(t);
 
-    // Even when recall would return memories, buildGreeting must NOT inject them
-    // into the greeting prompt anymore — the model recalls on demand instead, so
-    // the ~2K-token startup cost is gone. See buildGreeting in lib/agent/index.js.
-    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
-      if (name === "recall")
-        return { content: [{ type: "text", text: "[fact] User name is John\n[preference] Likes Node.js" }] };
+    // buildGreeting preloads only the few highest-impact memories (limit:5) so
+    // the model isn't amnesiac at session start. They go in memCtx (injected as
+    // system context), never in the user-visible greeting prompt. See
+    // buildGreeting in lib/agent/index.js.
+    t.mock.method(Client.prototype, "callTool", async ({ name, arguments: args }) => {
+      if (name === "recall") {
+        assert.strictEqual(args.limit, 5, "greeting should preload only the top 5 memories");
+        return { content: [{ type: "text", text: "[fact] User name is John\n---\n[preference] Likes Node.js" }] };
+      }
       return { content: [{ type: "text", text: "OK" }] };
     });
 
@@ -651,8 +654,8 @@ describe("Agent Integration with Emitter", () => {
 
     assert.ok(prompt.includes("Greet me"));
     assert.ok(!prompt.includes("Here is what you know"), "memories must not be in the user message");
-    assert.strictEqual(memCtx, "", "memories must NOT be preloaded into memCtx");
-    assert.strictEqual(preloadedMemCount, 0);
+    assert.ok(memCtx.includes("Here is what you know"), "memories must be in memCtx");
+    assert.strictEqual(preloadedMemCount, 2);
   });
 
   test("buildGreeting handles no memories gracefully", async (t) => {

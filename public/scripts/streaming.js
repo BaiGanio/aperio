@@ -835,10 +835,10 @@ function _maybeShowStartupBanner(inputTok) {
   const bd = _startupBreakdown;
   let bdHtml = "";
   if (bd) {
-    const skillTok = (bd.skills || []).reduce((n, s) => n + (s.tokens || 0), 0);
     const items = [[t("startup_bd_identity"), bd.identity || 0]];
-    if (skillTok) items.push([t("startup_bd_skills"), skillTok]);
-    if (memCount) items.push([t("startup_bd_memories"), 0]);
+    // One row per always-on skill, named — there may be more than one.
+    for (const s of bd.skills || []) items.push([t("startup_bd_skill_named", { name: s.name }), s.tokens || 0]);
+    if (memCount) items.push([t("startup_bd_memories", { n: memCount }), bd.memoryTokens || 0]);
     const accounted = items.reduce((n, [, v]) => n + v, 0);
     const other = Math.max(0, inputTok - accounted);
     if (other) items.push([t("startup_bd_other"), other]);
