@@ -129,10 +129,10 @@ const TRANSLATIONS = {
     chat_chars:               "{n} chars",
     chat_attach_remove:       "Remove",
 
-    stats_with_thinking:      "🪙 {total} total tokens → ✍️ {answer} response · 🧠 +{thinking} thinking · 🚙 speed: {speed} tok/s · ⏱️ completed: {sec}",
+    stats_with_thinking:      "🪙 {total} tokens → ✍️ {answer} response · 🧠 +{thinking} thinking · 🚙 speed: {speed} tok/s · ⏱️ completed: {sec}",
     stats_plain:              "🪙 {answer} tokens · 🚙 speed: {speed} tok/s · ⏱️ completed: {sec}",
     stats_context_in:         "📥 {n} context in",
-    chip_tokens:              "~{n} tok",
+    chip_tokens:              " ~{n} tok",
 
     msg_preparing_answer:     "✦ preparing answer…",
     msg_reasoning_done:       "done",
