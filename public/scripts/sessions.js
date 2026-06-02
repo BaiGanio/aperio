@@ -398,6 +398,7 @@ function buildHistoryMessage(role, text, attachments) {
     textNode.innerHTML = renderMarkdown(text);
     bubble.appendChild(textNode);
   }
+  if (role !== "user" && text.trim()) _attachBubbleCopyBtn(bubble, text);
   if (role === "user" && attachments?.length) {
     const attachRow = document.createElement("div");
     attachRow.className = "msg-attachments";

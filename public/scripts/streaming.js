@@ -780,6 +780,7 @@ function finalizeStreamingBubble(ref, fullText, stats) {
   } else {
     ref.bubble.innerHTML = renderMarkdown(fullText);
   }
+  if (fullText.trim()) _attachBubbleCopyBtn(ref.bubble, fullText);
 
   const col = ref.wrap.querySelector("div[style]") || ref.wrap;
 

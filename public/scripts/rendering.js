@@ -107,6 +107,7 @@ function addMessage(role, text, attachments) {
     textNode.innerHTML = renderMarkdown(text);
     bubble.appendChild(textNode);
   }
+  if (role !== "user" && text.trim()) _attachBubbleCopyBtn(bubble, text);
 
   if (role === "user" && attachments && attachments.length > 0) {
     const attachRow = document.createElement("div");

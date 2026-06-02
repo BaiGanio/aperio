@@ -148,3 +148,26 @@ function copyCode(id) {
     }, 2000);
   });
 }
+
+function copyBubble(btn) {
+  const raw = btn.closest(".bubble")?.dataset?.raw;
+  if (!raw) return;
+  navigator.clipboard.writeText(raw).then(() => {
+    btn.innerHTML = '<i class="bi bi-clipboard-check"></i>';
+    btn.classList.add("copied");
+    setTimeout(() => {
+      btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+      btn.classList.remove("copied");
+    }, 2000);
+  });
+}
+
+function _attachBubbleCopyBtn(bubble, rawText) {
+  bubble.dataset.raw = rawText;
+  const btn = document.createElement("button");
+  btn.className = "bubble-copy-btn";
+  btn.title = "Copy";
+  btn.innerHTML = '<i class="bi bi-clipboard"></i>';
+  btn.onclick = () => copyBubble(btn);
+  bubble.appendChild(btn);
+}
