@@ -40,7 +40,7 @@ function connect() {
     if (!hasInitialized) {
       hasInitialized = true;
       setStatus("thinking", t("status_loading"));
-      addThinking();
+      addThinking(false);
       ws.send(JSON.stringify({ type: "init", lang: window.Aperio.getCurrentLang() }));
     } else {
       setStatus("connected", t("status_reconnected"));
@@ -152,7 +152,7 @@ function sendSuggestionResponse(mode, nums) {
   safeSend(JSON.stringify({ type: "save_suggestions", items }));
 }
 
-function addThinking() {
+function addThinking(lockInput = true) {
   const el = document.createElement("div");
   el.className = "thinking";
   el.id = "thinking";
@@ -167,7 +167,7 @@ function addThinking() {
       <div class="thinking-label" data-i18n="chat_thinking_label">${t("chat_thinking_label")}</div>
     </div>`;
   messagesEl.appendChild(el);
-  document.querySelector(".input-bar")?.classList.add("input-locked");
+  if (lockInput) document.querySelector(".input-bar")?.classList.add("input-locked");
   document.getElementById("inputHint").textContent = t("chat_input_thinking");
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }

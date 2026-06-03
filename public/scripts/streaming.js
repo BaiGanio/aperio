@@ -896,11 +896,8 @@ function toggleReasoning() {
 function updateReasoningBtn() {
   const on  = localStorage.getItem("aperio-reasoning") !== "false";
   const btn = document.getElementById("reasoningToggle");
-  const lbl = document.getElementById("reasoningToggleLabel");
   if (!btn) return;
-  btn.style.color   = on ? "var(--text)"       : "var(--text-muted)";
-  btn.style.opacity = on ? "1"                 : "0.45";
-  if (lbl) lbl.textContent = on ? "on" : "off";
+  btn.classList.toggle("is-on", on);
   btn.title = on ? "Disable reasoning" : "Enable reasoning";
 }
 

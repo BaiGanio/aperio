@@ -154,13 +154,48 @@
       color: var(--text);
     }
 
-    /* Reasoning — has icon + short text label */
-    #reasoningToggle {
-      padding: 0 8px;
+    /* Reasoning — word label + toggle switch */
+    .reasoning-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
       font-family: var(--font-mono);
       font-size: 10px;
       font-weight: 700;
       letter-spacing: 0.06em;
+      color: var(--text-muted);
+      transition: color var(--transition);
+    }
+    .reasoning-toggle.is-on { color: var(--text); }
+    .reasoning-toggle-label {}
+    .reasoning-toggle-track {
+      width: 28px;
+      height: 15px;
+      border-radius: 999px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      position: relative;
+      transition: background var(--transition);
+      flex-shrink: 0;
+    }
+    .reasoning-toggle.is-on .reasoning-toggle-track {
+      background: var(--accent, #3b82f6);
+      border-color: var(--accent, #3b82f6);
+    }
+    .reasoning-toggle-thumb {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform var(--transition);
+    }
+    .reasoning-toggle.is-on .reasoning-toggle-thumb {
+      transform: translateX(13px);
     }
 
     /* History and Paths — text label buttons */
@@ -181,19 +216,6 @@
       font-size: 13px;
     }
 
-    /* Reasoning toggle now stands alone in the header */
-    .nav-action-btn--solo {
-      padding: 0 10px;
-      height: 28px;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      border-radius: 20px;
-      background: var(--bg-hover);
-      border: 1px solid var(--border);
-    }
-    .nav-action-btn--solo:hover { background: var(--bg-panel); }
 
     /* ── Sidebar nav (chats · paths · wiki · sound · theme) ──── */
     .sidebar-nav {
