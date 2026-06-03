@@ -432,6 +432,11 @@ function handleMessage(msg) {
     return;
   }
 
+  if (msg.type === "delete_confirm_pending") {
+    _renderDeleteConfirmButton(msg.token, msg.path);
+    return;
+  }
+
   if (msg.type === "generated_file") {
     _pendingGeneratedFile = msg;
     return;
@@ -1153,5 +1158,31 @@ function _resolveToolCard(msg) {
   if (time && typeof msg.ms === "number") time.textContent = `${msg.ms}ms`;
   const result = card.querySelector(".tool-card-result");
   if (result) result.textContent = `↳ ${msg.summary || (msg.ok ? "done" : "error")}`;
+  scrollToBottom();
+}
+
+function _renderDeleteConfirmButton(token, filePath) {
+  const filename = filePath ? filePath.split("/").pop() : "file";
+  const wrap = document.createElement("div");
+  wrap.className = "delete-confirm-wrap";
+  wrap.innerHTML = `
+    <div class="delete-confirm-header">Delete <code>${filename}</code>?</div>
+    <div class="delete-confirm-meta">
+      Confirmation token: <code class="delete-confirm-token">${token}</code>
+      <span class="delete-confirm-hint">— click the button to confirm this deletion</span>
+    </div>
+  `;
+
+  const btn = document.createElement("button");
+  btn.className = "delete-confirm-btn";
+  btn.innerHTML = '<i class="bi bi-trash"></i> Confirm deletion';
+  btn.onclick = () => {
+    wrap.remove();
+    chatInput.value = token;
+    send();
+  };
+
+  wrap.appendChild(btn);
+  messagesEl.appendChild(wrap);
   scrollToBottom();
 }
