@@ -42,10 +42,13 @@
         text-transform:uppercase; display:none;
       "></span>
     </div>
-    <button id="reasoningToggle" class="nav-action-btn nav-action-btn--solo" onclick="toggleReasoning()"
+    <label id="reasoningToggle" class="reasoning-toggle" onclick="toggleReasoning()"
       data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning" style="display:none;">
-      🧠 <span id="reasoningToggleLabel" data-i18n="nav_reasoning_on">on</span>
-    </button>
+      <span class="reasoning-toggle-label" data-i18n="nav_reasoning_label">reasoning</span>
+      <span class="reasoning-toggle-track" id="reasoningToggleTrack">
+        <span class="reasoning-toggle-thumb"></span>
+      </span>
+    </label>
     <div class="ctx-window" id="ctxWindow" style="margin-left:auto;">
       <div class="ctx-header">
         <span class="ctx-label" data-i18n="ctx_label">context</span>
