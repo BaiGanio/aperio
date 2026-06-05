@@ -20,7 +20,7 @@ To apply consistent, professional styling to presentation slide decks, use this 
 
 To apply styling to a slide deck or other artifact:
 
-1. **Generate and show the swatch sheet**: Run `node skills/theme-factory/scripts/swatches.js swatches.png` from the project root. The script prints the output path. Read and display the resulting PNG so the user can see every palette with real colors.
+1. **Generate and show the swatch sheet**: Run `node skills/theme-factory/scripts/swatches.js swatches.png` from the project root. The tool result will contain a `/scratch/...` URL — use it directly in markdown to display the image inline: `![swatches](/scratch/.../swatches.png)`.
 2. **Ask for their choice**: Ask which theme to apply to the deck
 3. **Wait for selection**: Get explicit confirmation about the chosen theme
 4. **Apply the theme**: Once a theme has been chosen, apply the selected theme's colors and fonts to the deck/artifact

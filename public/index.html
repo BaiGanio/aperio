@@ -344,10 +344,9 @@
         </label>
       </span>
     </div>
-    <!-- Language switcher (populated by lang-switcher.js once DOM is ready).
-         Expands inline below the row instead of a floating popover. -->
+    <!-- Language switcher — hidden until i18n feature is complete; unhide by removing style="display:none" -->
     <div class="settings-row settings-row--stack lang-switcher" id="langSwitcher"
-         data-i18n-attr-title="nav_lang_title" title="Language">
+         data-i18n-attr-title="nav_lang_title" title="Language" style="display:none">
       <button type="button" class="lang-trigger" id="langTrigger" aria-haspopup="listbox" aria-expanded="false">
         <span class="settings-row-label">
           <i class="bi bi-translate"></i>
@@ -398,6 +397,20 @@
         <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Save</span></button>
       </div>
     </details>
+    <!-- Extras — optional skill dependencies (docx Python toolchain). Detects
+         what's installed; auto-installs pip deps; shows guided commands for
+         system binaries it can't safely install from the browser. -->
+    <details class="settings-section" id="extrasSection">
+      <summary>
+        <i class="bi bi-puzzle"></i>
+        <span>Extras</span>
+        <span class="model-current" id="extrasSummary"></span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Optional dependencies that unlock advanced document features (e.g. editing Word docs with tracked changes). Aperio works without them.</span>
+        <div id="extras-tiers"><span class="model-loading">Checking…</span></div>
+      </div>
+    </details>
     <!-- Hidden folder input for the browser fallback picker -->
     <input type="file" id="path-folder-input" webkitdirectory hidden>
   </div>
@@ -417,6 +430,7 @@
 <script src="scripts/paths-panel.js"></script>
 <script src="scripts/wiki-panel.js"></script>
 <script src="scripts/codegraph-panel.js"></script>
+<script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
 <script src="index.js"></script>

@@ -3,6 +3,7 @@ import { spawn }         from "child_process";
 import { dirname, resolve as resolvePath, extname } from "path";
 import { existsSync }    from "fs";
 import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratchDir } from "../../lib/routes/paths.js";
+import { pythonInterpreter } from "../../lib/helpers/capabilities.js";
 import logger from "../../lib/helpers/logger.js";
 
 const MAX_OUTPUT_BYTES = 200_000;
@@ -115,8 +116,11 @@ export async function runNodeScriptHandler({ script, args = [] }) {
     return { content: [{ type: "text", text: `❌ Script not found: ${resolved}` }] };
   }
 
-  const cwd = dirname(resolved);
-  logger.info(`[run_node_script] start ${resolved} args=${JSON.stringify(args)}`);
+  // Default cwd to the active session scratch dir so any relative output paths
+  // land there (served via /scratch) rather than inside the skill's own folder.
+  // Scripts always know their own directory via import.meta.url / __dirname.
+  const cwd = getActiveScratchDir() ?? dirname(resolved);
+  logger.info(`[run_node_script] start ${resolved} cwd=${cwd} args=${JSON.stringify(args)}`);
 
   let child;
   try {
@@ -140,6 +144,68 @@ export async function runNodeScriptHandler({ script, args = [] }) {
     logger.warn(`[run_node_script] exit 0 with stderr ${resolved}: ${r.stderr.slice(0, 500)}`);
   } else {
     logger.info(`[run_node_script] ok ${resolved}`);
+  }
+
+  const text = buildResponseText({ ...r, scriptPath: resolved });
+  return { content: [{ type: "text", text }] };
+}
+
+// Mirror of run_node_script for Python. Same write-path guard, scratch-dir cwd,
+// timeout and output caps — but spawns python3 and only accepts .py files. This
+// keeps Python on the same tight, sandboxed footing as Node WITHOUT opening the
+// broader run_shell surface. Used by skills whose toolchain is Python (e.g.
+// docx office/unpack.py, pack.py, validate.py). If python3 is absent the spawn
+// fails with a clear, actionable hint rather than a cryptic error.
+export async function runPythonScriptHandler({ script, args = [] }) {
+  if (extname(script).toLowerCase() !== ".py") {
+    logger.warn(`[run_python_script] rejected non-.py path: ${script}`);
+    return { content: [{ type: "text", text: `❌ Only .py scripts are allowed` }] };
+  }
+
+  const resolved = resolvePath(script);
+
+  if (!isWritePathAllowed(resolved)) {
+    logger.warn(`[run_python_script] path not allowed: ${resolved}`);
+    return formatPathError(resolved);
+  }
+
+  if (!existsSync(resolved)) {
+    logger.warn(`[run_python_script] script not found: ${resolved}`);
+    return { content: [{ type: "text", text: `❌ Script not found: ${resolved}` }] };
+  }
+
+  const cwd = getActiveScratchDir() ?? dirname(resolved);
+  logger.info(`[run_python_script] start ${resolved} cwd=${cwd} args=${JSON.stringify(args)}`);
+
+  // Prefer the project venv interpreter so pip deps installed via the Extras
+  // panel are visible; fall back to system python3.
+  const interpreter = pythonInterpreter();
+
+  let child;
+  try {
+    child = spawn(interpreter, [resolved, ...args.map(String)], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+  } catch (err) {
+    logger.error(`[run_python_script] spawn threw: ${err.message}`);
+    return { content: [{ type: "text", text: `❌ Failed to spawn python3: ${err.message}` }] };
+  }
+
+  const r = await collectOutput(child, "run_python_script");
+  if (r.spawnError) {
+    logger.error(`[run_python_script] child error: ${r.spawnError.message}`);
+    const hint = r.spawnError.code === "ENOENT"
+      ? `\n\n⚠️ python3 is not installed on this host. This skill's advanced (Python) features need Python 3 — install it from the web UI's "Extras" panel or via your package manager (e.g. \`brew install python\`). The Node-based features of this skill still work without it.`
+      : "";
+    return { content: [{ type: "text", text: `❌ Failed to start script: ${r.spawnError.message}${hint}` }] };
+  }
+
+  if (r.timedOut) {
+    logger.error(`[run_python_script] timeout ${resolved} after ${TIMEOUT_MS}ms`);
+  } else if (r.exitCode !== 0) {
+    logger.error(`[run_python_script] non-zero exit ${r.exitCode} ${resolved} stderr: ${r.stderr.slice(0, 1000)}`);
+  } else if (r.stderr) {
+    logger.warn(`[run_python_script] exit 0 with stderr ${resolved}: ${r.stderr.slice(0, 500)}`);
+  } else {
+    logger.info(`[run_python_script] ok ${resolved}`);
   }
 
   const text = buildResponseText({ ...r, scriptPath: resolved });
@@ -331,6 +397,18 @@ export function register(server) {
       }),
     },
     runNodeScriptHandler
+  );
+
+  server.registerTool(
+    "run_python_script",
+    {
+      description: "Run a Python 3 script file and return its output. The script must be within an allowed write path. Use for skill toolchains written in Python (e.g. skills/docx/scripts/office/unpack.py, pack.py, validate.py). Only .py files are allowed. Requires python3 on the host; if it is missing the call returns a clear hint and the skill's Node features still work.",
+      inputSchema: z.object({
+        script: z.string().describe("Absolute path to the .py script to run"),
+        args:   z.array(z.string()).optional().describe("Arguments to pass to the script"),
+      }),
+    },
+    runPythonScriptHandler
   );
 
   server.registerTool(
