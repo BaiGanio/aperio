@@ -42,68 +42,110 @@ there. Do not attempt to install dependencies yourself.
 
 | Task | Approach |
 |------|----------|
-| Read/analyze content | `pandoc` or unpack for raw XML |
-| Create new document | Use `docx-js` - see Creating New Documents below |
-| Edit existing document | Unpack → edit XML → repack - see Editing Existing Documents below |
+| Read/analyze content | Unpack for raw XML (`unpack.py` via `run_python_script`) |
+| Create new document | Write a `docx`-js ESM script, run it with `run_node_script` — see Creating New Documents |
+| Edit existing document | Unpack → edit XML → repack (all via `run_python_script`) — see Editing Existing Documents |
+| Convert .docx → PDF | `soffice.py` via `run_python_script` (LibreOffice) — see Converting to PDF |
+
+> Every `python scripts/…py` below maps to a `run_python_script` call with an
+> **absolute path**. `<docx>` = the absolute path to this skill folder
+> (`<repo>/skills/docx`). Pass file paths as absolute too.
 
 ### Converting .doc to .docx
 
-Legacy `.doc` files must be converted before editing:
-
-```bash
-python scripts/office/soffice.py --headless --convert-to docx document.doc
-```
+Legacy `.doc` files must be converted before editing. `run_python_script` →
+`<docx>/scripts/office/soffice.py` with args
+`["--headless", "--convert-to", "docx", "/abs/document.doc"]` (needs LibreOffice — see Dependencies).
 
 ### Reading Content
 
-```bash
-# Text extraction with tracked changes
-pandoc --track-changes=all document.docx -o output.md
+Unpack to raw XML — `run_python_script` → `<docx>/scripts/office/unpack.py`
+with args `["/abs/document.docx", "/abs/unpacked"]`.
 
-# Raw XML access
-python scripts/office/unpack.py document.docx unpacked/
-```
+A quick text dump via `pandoc --track-changes=all document.docx -o output.md` also
+works, but pandoc is optional and only runs through `run_shell` (when
+`APERIO_ENABLE_SHELL=1`). Prefer the unpack path — it has no extra dependency.
+
+### Converting to PDF
+
+To produce a PDF from a `.docx` (e.g. the user asks for "a PDF of this Word doc"),
+use the LibreOffice wrapper through `run_python_script` — **do not** reach for
+`run_shell`, write a finder script, or pass `python3` as the script:
+
+`run_python_script` → `<docx>/scripts/office/soffice.py` with args
+`["--headless", "--convert-to", "pdf", "/abs/document.docx"]`
+
+soffice writes `document.pdf` into the working directory, which Aperio pins to the
+session workspace — so write/keep the source `.docx` there and the `.pdf` lands
+beside it, ready to download. This needs LibreOffice (`soffice`); if it is missing
+the call returns a clear hint — point the user to Settings → Extras, **do not**
+claim the PDF was created. Always confirm the `.pdf` exists (it shows up as a
+download card) before telling the user it is ready.
+
+> **There is no docx→PDF path that does not go through LibreOffice.** docx-js
+> only emits `.docx`; `pdf-lib`/`pdfjs` build PDFs from scratch, they do not render
+> a Word document. If `soffice` is unavailable, say so — never fabricate a PDF.
 
 ### Converting to Images
 
+For visual QA, render to PDF then images. These need real binaries (LibreOffice +
+poppler), so they run through `run_shell` (`APERIO_ENABLE_SHELL=1`):
+
 ```bash
-python scripts/office/soffice.py --headless --convert-to pdf document.docx
+soffice --headless --convert-to pdf document.docx
 pdftoppm -jpeg -r 150 document.pdf page
 ```
 
+If those binaries are absent, treat visual QA as skipped — that is **not** a failure.
+
 ### Accepting Tracked Changes
 
-To produce a clean document with all tracked changes accepted (requires LibreOffice):
-
-```bash
-python scripts/accept_changes.py input.docx output.docx
-```
+Produce a clean document with all tracked changes accepted (needs LibreOffice).
+`run_python_script` → `<docx>/scripts/accept_changes.py` with args
+`["/abs/input.docx", "/abs/output.docx"]`.
 
 ---
 
 ## Creating New Documents
 
-Generate .docx files with JavaScript, then validate. Install: `npm install -g docx`
+Generate .docx with the `docx` npm library (already a project dependency — no
+install needed). The workflow in Aperio:
+
+1. `write_file` a `.js` script into the session workspace.
+2. `run_node_script` it to emit the `.docx`.
+3. Validate with `run_python_script` on `validate.py`.
 
 ### Setup
+
+**ESM only** — Aperio is `"type": "module"`, so use `import` (never `require`) and
+top-level `await`:
+
 ```javascript
-const { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun,
-        Header, Footer, AlignmentType, PageOrientation, LevelFormat, ExternalHyperlink,
-        InternalHyperlink, Bookmark, FootnoteReferenceRun, PositionalTab,
-        PositionalTabAlignment, PositionalTabRelativeTo, PositionalTabLeader,
-        TabStopType, TabStopPosition, Column, SectionType,
-        TableOfContents, HeadingLevel, BorderStyle, WidthType, ShadingType,
-        VerticalAlign, PageNumber, PageBreak } = require('docx');
+import fs from "fs";
+import {
+  Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun,
+  Header, Footer, AlignmentType, PageOrientation, LevelFormat, ExternalHyperlink,
+  InternalHyperlink, Bookmark, FootnoteReferenceRun, PositionalTab,
+  PositionalTabAlignment, PositionalTabRelativeTo, PositionalTabLeader,
+  TabStopType, TabStopPosition, Column, SectionType,
+  TableOfContents, HeadingLevel, BorderStyle, WidthType, ShadingType,
+  VerticalAlign, PageNumber, PageBreak,
+} from "docx";
 
 const doc = new Document({ sections: [{ children: [/* content */] }] });
-Packer.toBuffer(doc).then(buffer => fs.writeFileSync("doc.docx", buffer));
+const buffer = await Packer.toBuffer(doc);
+fs.writeFileSync(new URL("./doc.docx", import.meta.url), buffer);
+console.log("wrote doc.docx");
 ```
 
+The reference snippets below (Page Size, Styles, Lists, Tables, …) show object
+shapes — drop them into the `children` / `sections` / `numbering` of the Document
+above. They need no `require`/`import` changes themselves.
+
 ### Validation
-After creating the file, validate it. If validation fails, unpack, fix the XML, and repack.
-```bash
-python scripts/office/validate.py doc.docx
-```
+After creating the file, validate it. `run_python_script` →
+`<docx>/scripts/office/validate.py` with args `["/abs/doc.docx"]`. If validation
+fails, unpack, fix the XML, and repack (see Editing Existing Documents).
 
 ### Page Size
 
@@ -428,10 +470,11 @@ sections: [{
 **Follow all 3 steps in order.**
 
 ### Step 1: Unpack
-```bash
-python scripts/office/unpack.py document.docx unpacked/
-```
-Extracts XML, pretty-prints, merges adjacent runs, and converts smart quotes to XML entities (`&#x201C;` etc.) so they survive editing. Use `--merge-runs false` to skip run merging.
+`run_python_script` → `<docx>/scripts/office/unpack.py` with args
+`["/abs/document.docx", "/abs/unpacked"]`. Add `"--merge-runs", "false"` to skip
+run merging.
+
+Extracts XML, pretty-prints, merges adjacent runs, and converts smart quotes to XML entities (`&#x201C;` etc.) so they survive editing.
 
 ### Step 2: Edit XML
 
@@ -439,7 +482,7 @@ Edit files in `unpacked/word/`. See XML Reference below for patterns.
 
 **Use "Claude" as the author** for tracked changes and comments, unless the user explicitly requests use of a different name.
 
-**Use the Edit tool directly for string replacement. Do not write Python scripts.** Scripts introduce unnecessary complexity. The Edit tool shows exactly what is being replaced.
+**Use `edit_file` directly for string replacement on the unpacked XML. Do not write Python scripts.** Scripts introduce unnecessary complexity; `edit_file` shows exactly what is being replaced.
 
 **CRITICAL: Use smart quotes for new content.** When adding text with apostrophes or quotes, use XML entities to produce smart quotes:
 ```xml
@@ -453,19 +496,21 @@ Edit files in `unpacked/word/`. See XML Reference below for patterns.
 | `&#x201C;` | “ (left double) |
 | `&#x201D;` | ” (right double) |
 
-**Adding comments:** Use `comment.py` to handle boilerplate across multiple XML files (text must be pre-escaped XML):
-```bash
-python scripts/comment.py unpacked/ 0 "Comment text with &amp; and &#x2019;"
-python scripts/comment.py unpacked/ 1 "Reply text" --parent 0  # reply to comment 0
-python scripts/comment.py unpacked/ 0 "Text" --author "Custom Author"  # custom author name
-```
+**Adding comments:** Use `comment.py` to handle boilerplate across multiple XML
+files (text must be pre-escaped XML). `run_python_script` →
+`<docx>/scripts/comment.py` with args, e.g.:
+- `["/abs/unpacked", "0", "Comment text with &amp; and &#x2019;"]`
+- `["/abs/unpacked", "1", "Reply text", "--parent", "0"]`  → reply to comment 0
+- `["/abs/unpacked", "0", "Text", "--author", "Custom Author"]`  → custom author name
+
 Then add markers to document.xml (see Comments in XML Reference).
 
 ### Step 3: Pack
-```bash
-python scripts/office/pack.py unpacked/ output.docx --original document.docx
-```
-Validates with auto-repair, condenses XML, and creates DOCX. Use `--validate false` to skip.
+`run_python_script` → `<docx>/scripts/office/pack.py` with args
+`["/abs/unpacked", "/abs/output.docx", "--original", "/abs/document.docx"]`. Add
+`"--validate", "false"` to skip validation.
+
+Validates with auto-repair, condenses XML, and creates DOCX.
 
 **Auto-repair will fix:**
 - `durableId` >= 0x7FFFFFFF (regenerates valid ID)
@@ -612,7 +657,11 @@ After running `comment.py` (see Step 2), add markers to document.xml. For replie
 
 ## Dependencies
 
-- **pandoc**: Text extraction
-- **docx**: `npm install -g docx` (new documents)
-- **LibreOffice**: PDF conversion (auto-configured for sandboxed environments via `scripts/office/soffice.py`)
-- **Poppler**: `pdftoppm` for images
+Managed in Aperio via **Settings → Extras** (detect + install). Don't install them
+yourself; if a step needs a missing one, point the user there.
+
+- **docx** (npm) — already a project dependency; creating documents works out of the box.
+- **lxml, defusedxml** (pip) — required by the Python toolchain (unpack / pack / validate / comment / accept_changes). Auto-installed into the project venv by the Extras panel; `run_python_script` uses that venv automatically.
+- **LibreOffice** (`soffice`) — `.doc`→`.docx` conversion, accepting tracked changes, PDF render. Guided install in Extras; used via `run_python_script` (`soffice.py`/`accept_changes.py`) or `run_shell`.
+- **Poppler** (`pdftoppm`) — rasterize PDF pages to images for visual QA. Guided install in Extras; used via `run_shell`.
+- **pandoc** (optional) — quick text extraction; only via `run_shell` when installed. The `unpack.py` path is preferred and needs no pandoc.

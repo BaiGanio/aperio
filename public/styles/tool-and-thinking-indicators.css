@@ -131,16 +131,6 @@
     margin-top: 5px;
 }
 
-/* Skills chip — reuses the recall-pill shell, see _renderSkillsChip */
-.skill-item .recall-memory-body {
-    border-top: none;
-}
-.skills-core-suffix {
-    color: var(--text-muted);
-    opacity: 0.55;
-    font-size: 11px;
-    flex: 0 0 auto;
-}
 .skill-always-badge {
     font-family: var(--font-mono);
     font-size: 9px;
@@ -150,8 +140,92 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 0 4px;
-    margin-left: 6px;
     opacity: 0.8;
+    flex: 0 0 auto;
+}
+
+/* Skills header — clickable toggle; muted parenthesised token total. */
+.skills-total-tok {
+    color: var(--text-muted);
+    opacity: 0.7;
+    font-weight: 400;
+}
+
+/* Skills list — no box. Collapsed by default (base .recall-pill-details hides
+   it); the header toggle adds .open to reveal it. */
+.skills-details {
+    border: none;
+    border-radius: 0;
+    gap: 1px;
+    padding: 2px 0 0;
+}
+
+/* Per-skill row — native <details>. Summary is a flat clickable line that
+   starts with "↳" and ends with "▾"; expanding reveals a brief description. */
+.skill-row { font-family: var(--font-mono); font-size: 12px; }
+.skill-row-head {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 0;
+    cursor: pointer;
+    list-style: none;
+    color: var(--text);
+    user-select: none;
+    transition: color var(--transition);
+}
+.skill-row-head::-webkit-details-marker { display: none; }
+.skill-row-head:hover { color: var(--accent); }
+
+.skill-row-arrow {
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+.skill-row-name { font-weight: 500; flex: 0 0 auto; }
+
+.skill-row-meta {
+    margin-left: auto;
+    flex: 0 0 auto;
+    color: var(--text-muted);
+    opacity: 0.75;
+}
+.skill-row-chevron {
+    flex: 0 0 auto;
+    font-size: 11px;
+    color: var(--text-muted);
+    opacity: 0.6;
+    transition: transform var(--transition);
+}
+.skill-row[open] .skill-row-chevron { transform: rotate(180deg); }
+
+/* Expanded brief — short description in small muted text, no box. */
+.skill-row-body {
+    padding: 2px 0 6px 18px;
+    font-family: var(--font-sans, inherit);
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: var(--text-muted);
+}
+.skill-more {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-left: 2px;
+    color: var(--accent);
+    font-size: 12px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+.skill-more:hover { text-decoration: underline; }
+
+/* Skill-doc modal reuses .fpm-* + .bubble (for markdown styling); strip the
+   chat-bubble chrome so it reads as a document, not a message. */
+.skill-doc-body.bubble {
+    box-shadow: none;
+    border-radius: 0;
+    padding: 20px 24px;
+    font-size: 15px;
 }
 
 /* Tool activity card — persistent "what ran / for what / result" entry */

@@ -174,9 +174,11 @@ const TRANSLATIONS = {
     tool_scan_project:        "Scanning project…",
     tool_fetch_url:           "Fetching URL…",
     tool_generic:             "Using {name}…",
-    skills_chip_label:        "Skills:",
+    skills_chip_label:        "Skills",
     skills_core_label:        "core",
     skills_always_badge:      "always-on",
+    skills_more:              "more…",
+    skills_load_error:        "Could not load skill.",
     tool_card_running:        "running…",
 
     sug_title:                "✦ Memory suggestions",

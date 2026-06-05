@@ -127,6 +127,7 @@ pdfimages -j input.pdf output_prefix
 | Merge / split / rotate | `qpdf` CLI |
 | OCR scanned PDFs | `preprocess-pdf` skill + vision model |
 | Fill PDF forms (full workflow) | See FORMS.md |
+| Convert a Word doc → PDF | Use the **docx** skill (LibreOffice via `soffice.py` + `run_python_script`) — the pdf libraries here do not render `.docx` |
 
 ## Next Steps
 
