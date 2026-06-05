@@ -1076,59 +1076,101 @@ function _renderSkillsChip(skills) {
   const chip = document.createElement("div");
   chip.className = "recall-pill skills-chip";
 
-  // Always-on skills (load: always) are injected every turn, so listing them in
-  // the header makes every chip look identical. Show only the turn's matched
-  // skills there; fold the always-on ones into a muted "+N core" suffix that the
-  // expanded details still spell out.
-  const matched = skills.filter(s => !s.always);
-  const core = skills.filter(s => s.always);
-  const headerNames = (matched.length ? matched : core).map(s => s.name).join(", ");
-  const coreSuffix = (matched.length && core.length)
-    ? `<span class="skills-core-suffix">+${core.length} ${t("skills_core_label")}</span>`
-    : "";
-
-  // Every injected skill adds its content to the system prompt on every turn.
-  // Surface the combined cost so "skills" isn't an invisible token sink.
+  // Header is a plain label — no toggle. The combined per-turn token cost of all
+  // injected skills, so "skills" isn't an invisible token sink.
   const totalTok = skills.reduce((n, s) => n + (s.tokens || 0), 0);
-  const tokSuffix = totalTok
-    ? `<span class="recall-pill-tok">${t("chip_tokens", { n: totalTok.toLocaleString() })}</span>`
-    : "";
+  const tokTxt = totalTok ? ` <span class="skills-total-tok">(${t("chip_tokens", { n: totalTok.toLocaleString() }).trim()})</span>` : "";
 
-  const toggle = document.createElement("button");
-  toggle.className = "recall-pill-toggle";
-  toggle.innerHTML =
+  const header = document.createElement("button");
+  header.type = "button";
+  header.className = "recall-pill-toggle skills-label";
+  header.innerHTML =
     `<span class="recall-asterisk">✦</span>` +
-    `<span class="recall-pill-label">${t("skills_chip_label")}</span>` +
-    `<span class="recall-pill-scores">${escapeHtml(headerNames)}</span>` +
-    coreSuffix +
-    tokSuffix +
+    `<span class="recall-pill-label">${t("skills_chip_label")}${tokTxt}:</span>` +
     `<span class="recall-pill-chevron">▾</span>`;
-  chip.appendChild(toggle);
+  chip.appendChild(header);
 
+  // The list collapses to keep things tidy when several skills load. Once open,
+  // each row is itself expandable: clicking it reveals a brief description + a
+  // "more…" that opens the full SKILL.md (fetched on demand, not streamed).
   const details = document.createElement("div");
-  details.className = "recall-pill-details";
+  details.className = "recall-pill-details skills-details";
   skills.forEach(s => {
-    const item = document.createElement("div");
-    item.className = "recall-memory skill-item";
+    const kb  = s.bytes  ? `${(s.bytes / 1024).toFixed(1)} KB` : "";
+    const tok = s.tokens ? t("chip_tokens", { n: s.tokens.toLocaleString() }).trim() : "";
+    const meta = [kb, tok].filter(Boolean).join(" · ");
+    const item = document.createElement("details");
+    item.className = "skill-row";
     item.innerHTML =
-      `<div class="recall-memory-body">` +
-        `<div class="recall-memory-title">${escapeHtml(s.name)}` +
-        (s.always ? ` <span class="skill-always-badge">${t("skills_always_badge")}</span>` : "") +
-        (s.tokens ? `<span class="recall-score">${t("chip_tokens", { n: s.tokens.toLocaleString() })}</span>` : "") +
-        `</div>` +
-        (s.description ? `<div class="recall-memory-content">${escapeHtml(s.description)}</div>` : "") +
+      `<summary class="skill-row-head">` +
+        `<span class="skill-row-arrow">↳</span>` +
+        `<span class="skill-row-name">${escapeHtml(s.name)}</span>` +
+        (s.always ? `<span class="skill-always-badge">${t("skills_always_badge")}</span>` : "") +
+        (meta ? `<span class="skill-row-meta">${escapeHtml(meta)}</span>` : "") +
+        `<span class="skill-row-chevron">▾</span>` +
+      `</summary>` +
+      `<div class="skill-row-body">` +
+        (s.description ? `<span class="skill-brief">${escapeHtml(s.description)}</span> ` : "") +
+        `<button type="button" class="skill-more">${t("skills_more")}</button>` +
       `</div>`;
+    item.querySelector(".skill-more").onclick = e => { e.preventDefault(); _openSkillDoc(s.name); };
     details.appendChild(item);
   });
   chip.appendChild(details);
 
-  toggle.onclick = () => {
+  header.onclick = () => {
     const open = details.classList.toggle("open");
-    toggle.querySelector(".recall-pill-chevron").textContent = open ? "▴" : "▾";
+    header.querySelector(".recall-pill-chevron").textContent = open ? "▴" : "▾";
   };
 
   messagesEl.appendChild(chip);
   scrollToBottom();
+}
+
+// Open a skill's SKILL.md rendered as markdown in a modal — so the user can see
+// *what* is in the system prompt and *why* it steered the turn. Content is
+// fetched on demand (not streamed every turn). Reuses the file-preview modal
+// shell (.fpm-*); the body carries `.bubble` for markdown styling.
+function _openSkillDoc(name) {
+  let overlay = document.getElementById("skill-doc-modal");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "skill-doc-modal";
+    overlay.className = "fpm-overlay";
+    overlay.innerHTML =
+      `<div class="fpm-dialog">` +
+        `<div class="fpm-header">` +
+          `<div class="fpm-title-group">` +
+            `<span class="fpm-icon">✦</span>` +
+            `<span class="fpm-filename skill-doc-name"></span>` +
+            `<span class="fpm-ext-badge">SKILL.md</span>` +
+          `</div>` +
+          `<div class="fpm-actions">` +
+            `<button class="fpm-close-btn" title="Close (Esc)"><i class="bi bi-x-lg"></i></button>` +
+          `</div>` +
+        `</div>` +
+        `<div class="fpm-body bubble skill-doc-body"></div>` +
+      `</div>`;
+    const close = () => overlay.classList.remove("open");
+    overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
+    overlay.querySelector(".fpm-close-btn").addEventListener("click", close);
+    document.addEventListener("keydown", e => {
+      if (e.key === "Escape" && overlay.classList.contains("open")) close();
+    });
+    document.body.appendChild(overlay);
+  }
+  overlay.querySelector(".skill-doc-name").textContent = name;
+  const body = overlay.querySelector(".skill-doc-body");
+  body.textContent = "…";
+  overlay.classList.add("open");
+  fetch(`/api/skill?name=${encodeURIComponent(name)}`)
+    .then(r => r.ok ? r.json() : Promise.reject(new Error(r.status)))
+    .then(doc => {
+      body.innerHTML = renderMarkdown(doc.content || "");
+      if (window.Prism) Prism.highlightAll();
+      body.scrollTop = 0;
+    })
+    .catch(() => { body.textContent = t("skills_load_error"); });
 }
 
 // ── Tool activity cards ─────────────────────────────────────────────────────
