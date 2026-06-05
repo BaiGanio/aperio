@@ -178,3 +178,40 @@
 }
 .model-select-status.is-ok { color: var(--accent); }
 .model-select-status.is-err { color: var(--error, #e55); }
+
+/* ── Extras: optional skill dependencies (docx Python toolchain) ─────────── */
+.extras-tier {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.extras-tier:last-of-type { border-bottom: none; }
+.extras-tier-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+.extras-tier[data-ready="false"] .extras-tier-title { color: var(--text-muted); }
+.extras-dep {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+.extras-dep.is-ok { color: var(--text); }
+.extras-cmd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--bg-hover);
+  color: var(--text);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+  flex: 1;
+  min-width: 0;
+}
+.extras-install-btn { padding: 2px 10px; font-size: 12px; }
+.extras-copy-btn, .extras-recheck { flex-shrink: 0; }

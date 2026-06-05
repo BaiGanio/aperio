@@ -102,10 +102,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     // Mock fetch so getOllamaPs returns null → isSafeToStop = false → no exec
     globalThis.fetch = async () => { throw new Error("no ollama in tests"); };
 
-    // Mock process.exit to capture the call
-    let exitCode = null;
-    t.mock.method(process, "exit", (code) => { exitCode = code; });
-
+    let exitCalled = false;
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     const wss        = makeMockWss();
@@ -116,6 +113,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
       timeoutMs:  3000,
       wss,
       httpServer,
+      _exit: () => { exitCalled = true; },
     });
 
     // Advance past timeout to trigger onIdle
@@ -125,12 +123,11 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
 
     assert.equal(httpServer.closed, true, "HTTP server should be closed");
-    assert.equal(exitCode, 0, "process.exit(0) should be called");
+    assert.equal(exitCalled, true, "_exit should be called");
   });
 
   test("terminates wss client connections on idle", async (t) => {
     globalThis.fetch = async () => { throw new Error("mock"); };
-    t.mock.method(process, "exit", () => {});
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     const terminated = [];
@@ -140,7 +137,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
       close: (cb) => cb(),
     };
 
-    createWatchdog({ enabled: true, timeoutMs: 1000, wss, httpServer: makeMockHttpServer() });
+    createWatchdog({ enabled: true, timeoutMs: 1000, wss, httpServer: makeMockHttpServer(), _exit: () => {} });
 
     t.mock.timers.tick(1001);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
@@ -150,10 +147,9 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
 
   test("works without wss or httpServer (both undefined)", async (t) => {
     globalThis.fetch = async () => { throw new Error("mock"); };
-    t.mock.method(process, "exit", () => {});
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
-    createWatchdog({ enabled: true, timeoutMs: 500 });
+    createWatchdog({ enabled: true, timeoutMs: 500, _exit: () => {} });
 
     t.mock.timers.tick(501);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
@@ -161,17 +157,12 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
   });
 
   test("does not stop Ollama when getOllamaPs returns null", async (t) => {
-    // fetch fails → getOllamaPs → null → isSafeToStop → false → no stopOllama
-    globalThis.fetch = async () => null; // non-ok implicit (not a Response)
-    // Actually, getOllamaPs uses r.ok — if we return null, it would throw
-    // Use a mock that throws to trigger the catch path in getOllamaPs
     globalThis.fetch = async () => { throw new Error("connection refused"); };
 
     let exitCalled = false;
-    t.mock.method(process, "exit", () => { exitCalled = true; });
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
-    createWatchdog({ enabled: true, timeoutMs: 500, httpServer: makeMockHttpServer() });
+    createWatchdog({ enabled: true, timeoutMs: 500, httpServer: makeMockHttpServer(), _exit: () => { exitCalled = true; } });
 
     t.mock.timers.tick(501);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
@@ -188,7 +179,6 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
 
     let exitCalled = false;
     let ollamaStopped = false;
-    t.mock.method(process, "exit", () => { exitCalled = true; });
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     createWatchdog({
@@ -197,6 +187,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
       models:       ["our-model"],
       httpServer:   makeMockHttpServer(),
       _stopOllama:  async () => { ollamaStopped = true; },
+      _exit:        () => { exitCalled = true; },
     });
 
     t.mock.timers.tick(501);
@@ -214,7 +205,6 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     });
 
     let exitCalled = false;
-    t.mock.method(process, "exit", () => { exitCalled = true; });
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     createWatchdog({
@@ -222,6 +212,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
       timeoutMs:  500,
       models:     ["our-model"],
       httpServer: makeMockHttpServer(),
+      _exit:      () => { exitCalled = true; },
     });
 
     t.mock.timers.tick(501);
