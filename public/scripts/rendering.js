@@ -123,15 +123,23 @@ function addMessage(role, text, attachments) {
   messagesEl.appendChild(wrap);
   if (role === "user") {
     lastUserMsgWrap = wrap;
-    if (text.trim()) {
-      const est = estimateTokens(text);
-      const chip = document.createElement("div");
-      chip.className = "msg-stats msg-stats--user";
-      chip.textContent = `↑ ~${est.toLocaleString()} tokens`;
-      wrap.after(chip);
-    }
+    const chip = buildUserTokenChip(text, attachments);
+    if (chip) wrap.after(chip);
   }
   scrollToBottom();
+}
+
+// Per-message "↑ ~N tokens" chip for a user turn, counting the typed text plus
+// every attachment (images cost vision tokens, files their extracted text).
+// Returns null when the estimate is zero. Shared by live and restored messages.
+function buildUserTokenChip(text, attachments) {
+  let est = estimateTokens(text);
+  (attachments || []).forEach(att => { est += estimateAttachmentTokens(att); });
+  if (est <= 0) return null;
+  const chip = document.createElement("div");
+  chip.className = "msg-stats msg-stats--user";
+  chip.textContent = `↑ ~${est.toLocaleString()} tokens`;
+  return chip;
 }
 
 function buildAttachmentCard(att) {
@@ -146,96 +154,59 @@ function buildAttachmentCard(att) {
   const fullImageUrl = att.url || att.dataUrl;
   const imageDataUrl = thumbDataUrl || fullImageUrl;
 
+  // ── Images: render inline as a clickable thumbnail that opens a full-screen
+  //    lightbox — no filename pill, matching how chat UIs present images. ──
+  if (isImage && imageDataUrl) {
+    const figure = document.createElement("div");
+    figure.className = "msg-attach-image";
+    figure.title = "Click to expand";
+
+    const img = document.createElement("img");
+    img.src = thumbDataUrl || fullImageUrl;
+    img.alt = att.name || "image";
+    img.loading = "lazy";
+    figure.appendChild(img);
+
+    figure.addEventListener("click", () => openImageLightbox(fullImageUrl || thumbDataUrl, att.name));
+    return figure;
+  }
+
+  // ── Non-image files: pill card that opens a content-preview modal. ──
   const wrapper = document.createElement("div");
   wrapper.className = "msg-attach-wrapper";
 
   const card = document.createElement("div");
   card.className = "msg-attach-card msg-attach-file";
   card.style.cursor = "pointer";
+  card.title = "Click to view file";
 
-  if (isImage && imageDataUrl) {
-    card.title = "Click to expand";
-    const thumb = document.createElement("div");
-    thumb.className = "msg-attach-thumb";
-    const img = document.createElement("img");
-    img.src = thumbDataUrl || fullImageUrl;
-    img.alt = att.name || "image";
-    thumb.appendChild(img);
+  const icon = document.createElement("div");
+  icon.className = "msg-attach-icon";
+  icon.innerHTML = getFileIcon(att.name, att.type);
 
-    const info = document.createElement("div");
-    info.className = "msg-attach-info";
+  const info = document.createElement("div");
+  info.className = "msg-attach-info";
 
-    const name = document.createElement("div");
-    name.className = "msg-attach-name";
-    name.textContent = (att.name || "image").replace(/\.[^.]+$/, "");
+  const name = document.createElement("div");
+  name.className = "msg-attach-name";
+  name.textContent = att.name || "file";
 
-    const ext = (att.name || "").split(".").pop().toUpperCase() ||
-                (att.type || "").replace("image/", "").toUpperCase() || "IMG";
-    const badge = document.createElement("div");
-    badge.className = "msg-attach-meta";
-    badge.textContent = ext;
+  const meta = document.createElement("div");
+  meta.className = "msg-attach-meta";
+  meta.textContent = getFileTypeLabelFromMime(att.type);
 
-    const chevron = document.createElement("span");
-    chevron.className = "msg-attach-chevron";
-    chevron.innerHTML = '<i class="bi bi-chevron-down"></i>';
+  const openIcon = document.createElement("span");
+  openIcon.className = "msg-attach-chevron";
+  openIcon.innerHTML = '<i class="bi bi-box-arrow-up-right"></i>';
 
-    info.appendChild(name);
-    info.appendChild(badge);
-    card.appendChild(thumb);
-    card.appendChild(info);
-    card.appendChild(chevron);
-  } else {
-    card.title = "Click to view file";
-    const icon = document.createElement("div");
-    icon.className = "msg-attach-icon";
-    icon.innerHTML = getFileIcon(att.name, att.type);
+  info.appendChild(name);
+  info.appendChild(meta);
+  card.appendChild(icon);
+  card.appendChild(info);
+  card.appendChild(openIcon);
 
-    const info = document.createElement("div");
-    info.className = "msg-attach-info";
-
-    const name = document.createElement("div");
-    name.className = "msg-attach-name";
-    name.textContent = att.name || "file";
-
-    const meta = document.createElement("div");
-    meta.className = "msg-attach-meta";
-    meta.textContent = getFileTypeLabelFromMime(att.type);
-
-    const openIcon = document.createElement("span");
-    openIcon.className = "msg-attach-chevron";
-    openIcon.innerHTML = '<i class="bi bi-box-arrow-up-right"></i>';
-
-    info.appendChild(name);
-    info.appendChild(meta);
-    card.appendChild(icon);
-    card.appendChild(info);
-    card.appendChild(openIcon);
-  }
-
-  if (isImage && imageDataUrl) {
-    const preview = document.createElement("div");
-    preview.className = "msg-attach-preview";
-
-    const img = document.createElement("img");
-    img.src = fullImageUrl || thumbDataUrl;
-    img.alt = att.name || "image";
-    img.className = "msg-attach-preview-img";
-    preview.appendChild(img);
-
-    card.addEventListener("click", () => {
-      const open = preview.classList.toggle("open");
-      const chevIcon = card.querySelector(".msg-attach-chevron i");
-      if (chevIcon) chevIcon.className = open ? "bi bi-chevron-up" : "bi bi-chevron-down";
-      requestAnimationFrame(() => scrollToBottom());
-    });
-
-    wrapper.appendChild(card);
-    wrapper.appendChild(preview);
-  } else {
-    card.addEventListener("click", () => openFileModal(att));
-    wrapper.appendChild(card);
-  }
-
+  card.addEventListener("click", () => openFileModal(att));
+  wrapper.appendChild(card);
   return wrapper;
 }
 
@@ -322,6 +293,42 @@ function openFileModal(att) {
 
 function closeFileModal() {
   document.getElementById("file-preview-modal")?.classList.remove("open");
+}
+
+// ── Image lightbox ────────────────────────────────────────────
+function ensureImageLightbox() {
+  if (document.getElementById("image-lightbox")) return;
+
+  const overlay = document.createElement("div");
+  overlay.id = "image-lightbox";
+  overlay.className = "img-lightbox";
+  overlay.innerHTML = `
+    <button class="img-lightbox-close" title="Close (Esc)"><i class="bi bi-x-lg"></i></button>
+    <img class="img-lightbox-img" alt="">`;
+
+  overlay.addEventListener("click", e => {
+    if (e.target === overlay) closeImageLightbox();
+  });
+  overlay.querySelector(".img-lightbox-close").addEventListener("click", closeImageLightbox);
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") closeImageLightbox();
+  });
+
+  document.body.appendChild(overlay);
+}
+
+function openImageLightbox(src, alt) {
+  if (!src) return;
+  ensureImageLightbox();
+  const overlay = document.getElementById("image-lightbox");
+  const img = overlay.querySelector(".img-lightbox-img");
+  img.src = src;
+  img.alt = alt || "image";
+  overlay.classList.add("open");
+}
+
+function closeImageLightbox() {
+  document.getElementById("image-lightbox")?.classList.remove("open");
 }
 
 function getFileIcon(name, mime) {

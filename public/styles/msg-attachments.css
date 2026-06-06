@@ -96,25 +96,27 @@
 .msg-attach-card:hover {
   border-color: var(--accent);
 }
-.msg-attach-wrapper:has(.msg-attach-preview.open) .msg-attach-card {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-  border-bottom-color: transparent;
-}
 
-.msg-attach-thumb {
-  flex-shrink: 0;
-  width: 36px;
-  height: 36px;
-  border-radius: 5px;
+/* ── Inline image attachment (click → full-screen lightbox) ── */
+.msg-attach-image {
+  display: inline-block;
+  max-width: 260px;
+  border-radius: 12px;
   overflow: hidden;
-  background: var(--border);
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  cursor: zoom-in;
+  line-height: 0;
+  transition: border-color 0.15s;
 }
-.msg-attach-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.msg-attach-image:hover {
+  border-color: var(--accent);
+}
+.msg-attach-image img {
   display: block;
+  width: 100%;
+  max-height: 320px;
+  object-fit: cover;
 }
 
 .msg-attach-icon {
@@ -165,23 +167,46 @@
   color: var(--accent);
 }
 
-/* ── Inline image preview (toggle) ── */
-.msg-attach-preview {
+/* ── Full-screen image lightbox ── */
+.img-lightbox {
   display: none;
-  border: 1px solid var(--border);
-  border-top: none;
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
-  overflow: hidden;
-  max-width: 220px;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(4px);
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
 }
-.msg-attach-preview.open { display: block; }
-.msg-attach-preview-img {
-  display: block;
-  width: 100%;
-  max-height: 280px;
+.img-lightbox.open { display: flex; }
+.img-lightbox-img {
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
-  background: var(--bg-hover);
+  border-radius: 6px;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  animation: fadeUp 0.18s ease;
+}
+.img-lightbox-close {
+  position: fixed;
+  top: 20px;
+  right: 24px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.img-lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
 /* ────────────────────────────────────────────────────────────

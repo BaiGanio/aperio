@@ -32,6 +32,37 @@ function estimateTokens(text) {
   return Math.max(1, Math.ceil(text.trim().length / 4));
 }
 
+// Per-image vision-token cost. Every upload is normalised to a fixed 896×896
+// PNG before reaching the model, so the cost is constant per provider — the
+// server reports the active provider's figure in the `provider` event (see
+// lib/helpers/imageTokens.js). Falls back to the Anthropic-style estimate until
+// that event arrives.
+let _imageTokenCost = Math.round((896 * 896) / 750); // ≈ 1070
+
+// A user message's attachments are not free: images cost vision tokens and
+// files are injected as extracted text. Estimate that cost so the per-message
+// token chip reflects the real upload, not just the typed prompt.
+function estimateAttachmentTokens(att) {
+  if (!att) return 0;
+  if (att.type && att.type.startsWith("image/")) return _imageTokenCost;
+
+  // Restored-session files carry a server-computed token figure (the client has
+  // no file data to recompute from).
+  if (typeof att.tokens === "number") return att.tokens;
+
+  // Live upload: for text/code files the raw bytes ARE the model's text, so
+  // decode and apply the same char/4 heuristic used for chat text.
+  const dataUrl = att.dataUrl || (att.data ? `data:;base64,${att.data}` : null);
+  if (!dataUrl) return 0;
+  try {
+    const base64 = dataUrl.split(",")[1] || "";
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    return estimateTokens(new TextDecoder("utf-8").decode(bytes));
+  } catch {
+    return 0;
+  }
+}
+
 function setUserTokenEstimate(n) { pendingUserTokenEstimate = n; }
 
 function handleMessage(msg) {
@@ -112,6 +143,7 @@ function handleMessage(msg) {
     if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
 
     if (msg.contextWindow) maxCtx = msg.contextWindow;
+    if (typeof msg.imageTokens === "number") _imageTokenCost = msg.imageTokens;
   }
 
   if (msg.type === "paths_updated") {
