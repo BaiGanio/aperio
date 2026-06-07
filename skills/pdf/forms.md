@@ -1,11 +1,11 @@
 **CRITICAL: You MUST complete these steps in order. Do not skip ahead to writing code.**
 
 If you need to fill out a PDF form, first check to see if the PDF has fillable form fields. Run this script from this file's directory:
- `python scripts/check_fillable_fields <file.pdf>`, and depending on the result go to either the "Fillable fields" or "Non-fillable fields" and follow those instructions.
+ `node skills/pdf/scripts/check_fillable_fields.js <file.pdf>` (via the `run_node_script` tool), and depending on the result go to either the "Fillable fields" or "Non-fillable fields" and follow those instructions.
 
 # Fillable fields
 If the PDF has fillable form fields:
-- Run this script from this file's directory: `python scripts/extract_form_field_info.py <input.pdf> <field_info.json>`. It will create a JSON file with a list of fields in this format:
+- Run this script via `run_node_script`: `node skills/pdf/scripts/extract_form_field_info.js <input.pdf> <field_info.json>`. It will create a JSON file with a list of fields in this format:
 ```
 [
   {
@@ -51,13 +51,13 @@ If the PDF has fillable form fields:
 ]
 ```
 - Convert the PDF to PNGs (one image for each page) with this script (run from this file's directory):
-`python scripts/convert_pdf_to_images.py <file.pdf> <output_directory>`
+`node skills/pdf/scripts/convert_pdf_to_images.js <file.pdf> <output_directory>`
 Then analyze the images to determine the purpose of each form field (make sure to convert the bounding box PDF coordinates to image coordinates).
 - Create a `field_values.json` file in this format with the values to be entered for each field:
 ```
 [
   {
-    "field_id": "last_name", // Must match the field_id from `extract_form_field_info.py`
+    "field_id": "last_name", // Must match the field_id from `extract_form_field_info.js`
     "description": "The user's last name",
     "page": 1, // Must match the "page" value in field_info.json
     "value": "Simpson"
@@ -71,8 +71,8 @@ Then analyze the images to determine the purpose of each form field (make sure t
   // more fields
 ]
 ```
-- Run the `fill_fillable_fields.py` script from this file's directory to create a filled-in PDF:
-`python scripts/fill_fillable_fields.py <input pdf> <field_values.json> <output pdf>`
+- Run the `fill_fillable_fields.js` script via `run_node_script` to create a filled-in PDF:
+`node skills/pdf/scripts/fill_fillable_fields.js <input pdf> <field_values.json> <output pdf>`
 This script will verify that the field IDs and values you provide are valid; if it prints error messages, correct the appropriate fields and try again.
 
 # Non-fillable fields
@@ -81,7 +81,7 @@ If the PDF doesn't have fillable form fields, you'll add text annotations. First
 ## Step 1: Try Structure Extraction First
 
 Run this script to extract text labels, lines, and checkboxes with their exact PDF coordinates:
-`python scripts/extract_form_structure.py <input.pdf> form_structure.json`
+`node skills/pdf/scripts/extract_form_structure.js <input.pdf> form_structure.json`
 
 This creates a JSON file containing:
 - **labels**: Every text element with exact coordinates (x0, top, x1, bottom in PDF points)
@@ -95,7 +95,7 @@ This creates a JSON file containing:
 
 ## Approach A: Structure-Based Coordinates (Preferred)
 
-Use this when `extract_form_structure.py` found text labels in the PDF.
+Use this when `extract_form_structure.js` found text labels in the PDF.
 
 ### A.1: Analyze the Structure
 
@@ -163,7 +163,7 @@ Create fields.json using `pdf_width` and `pdf_height` (signals PDF coordinates):
 ### A.4: Validate Bounding Boxes
 
 Before filling, check your bounding boxes for errors:
-`python scripts/check_bounding_boxes.py fields.json`
+`node skills/pdf/scripts/check_bounding_boxes.js fields.json`
 
 This checks for intersecting bounding boxes and entry boxes that are too small for the font size. Fix any reported errors before filling.
 
@@ -175,7 +175,7 @@ Use this when the PDF is scanned/image-based and structure extraction found no u
 
 ### B.1: Convert PDF to Images
 
-`python scripts/convert_pdf_to_images.py <input.pdf> <images_dir/>`
+`node skills/pdf/scripts/convert_pdf_to_images.js <input.pdf> <images_dir/>`
 
 ### B.2: Initial Field Identification
 
@@ -204,7 +204,7 @@ Where:
 magick images_dir/page_1.png -crop 300x80+50+120 +repage crops/name_field.png
 ```
 
-(Note: if the `magick` command isn't available, try `convert` with the same arguments).
+(Note: in Aperio `magick`/`convert` are not on the `run_shell` allow-list. Instead crop with the bundled `sharp` library from a small `run_node_script`, e.g. `sharp(page).extract({ left, top, width, height }).toFile(out)`.)
 
 **Examine the cropped image** to determine precise coordinates:
 1. Identify the exact pixel where the entry area begins (after the label)
@@ -247,7 +247,7 @@ Create fields.json using `image_width` and `image_height` (signals image coordin
 ### B.5: Validate Bounding Boxes
 
 Before filling, check your bounding boxes for errors:
-`python scripts/check_bounding_boxes.py fields.json`
+`node skills/pdf/scripts/check_bounding_boxes.js fields.json`
 
 This checks for intersecting bounding boxes and entry boxes that are too small for the font size. Fix any reported errors before filling.
 
@@ -270,7 +270,7 @@ Use this when structure extraction works for most fields but misses some element
 ## Step 2: Validate Before Filling
 
 **Always validate bounding boxes before filling:**
-`python scripts/check_bounding_boxes.py fields.json`
+`node skills/pdf/scripts/check_bounding_boxes.js fields.json`
 
 This checks for:
 - Intersecting bounding boxes (which would cause overlapping text)
@@ -281,12 +281,12 @@ Fix any reported errors in fields.json before proceeding.
 ## Step 3: Fill the Form
 
 The fill script auto-detects the coordinate system and handles conversion:
-`python scripts/fill_pdf_form_with_annotations.py <input.pdf> fields.json <output.pdf>`
+`node skills/pdf/scripts/fill_pdf_form_with_annotations.js <input.pdf> fields.json <output.pdf>`
 
 ## Step 4: Verify Output
 
 Convert the filled PDF to images and verify text placement:
-`python scripts/convert_pdf_to_images.py <output.pdf> <verify_images/>`
+`node skills/pdf/scripts/convert_pdf_to_images.js <output.pdf> <verify_images/>`
 
 If text is mispositioned:
 - **Approach A**: Check that you're using PDF coordinates from form_structure.json with `pdf_width`/`pdf_height`

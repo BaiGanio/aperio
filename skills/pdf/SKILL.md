@@ -8,7 +8,28 @@ license: Proprietary. LICENSE.txt has complete terms
 
 ## Overview
 
-This guide covers PDF processing using the Node.js libraries already in this project. All scripts are in `skills/pdf/scripts/` and run with `node <script>.js`. If you need to fill out a PDF form, read FORMS.md and follow its instructions.
+This guide covers PDF processing using the Node.js libraries already in this project. All scripts are in `skills/pdf/scripts/` and run with `node <script>.js` (via the `run_node_script` tool). If you need to fill out a PDF form, read FORMS.md and follow its instructions.
+
+## Generating a new PDF
+
+When the user asks to **produce / generate a PDF**, pick the route by content:
+
+- **Formatted document (report, letter, memo, anything with headings, tables, page flow) — preferred:** author it as a Word doc first, then convert to PDF. Use the `generate_docx` MCP tool (or the `docx-advanced` skill for images/footnotes/custom styles), then convert with `run_python_script` → `skills/docx/scripts/office/soffice.py` with args `["--headless", "--convert-to", "pdf", "<source.docx>", "--outdir", "<scratch workspace>"]`. For `<source.docx>` use the absolute path from the `Saved at:` line of the `generate_docx` result (the real on-disk name is uuid-prefixed in the scratch workspace — do **not** reconstruct it from the clean filename). Set `--outdir` to this conversation's scratch workspace (given in the system prompt); the PDF lands there and auto-surfaces as a download card. Requires LibreOffice (`soffice`). This gives proper typography and layout for free.
+
+- **Simple / programmatic PDF (zero extra deps):** build it directly with `pdf-lib` via `write_file` + `run_node_script`. Good for single-page output, certificates, stamping text/images onto a blank page, or precise coordinate-based drawing:
+
+```javascript
+import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
+import { writeFileSync } from "fs";
+
+const doc = await PDFDocument.create();
+const page = doc.addPage([612, 792]); // US Letter
+const font = await doc.embedFont(StandardFonts.Helvetica);
+page.drawText("Hello, PDF", { x: 72, y: 700, size: 24, font, color: rgb(0, 0, 0) });
+writeFileSync("output.pdf", await doc.save());
+```
+
+Do **not** reach for Python/reportlab — those libraries are not installed. `pdf-lib`, `pdfjs-dist`, and `sharp` are.
 
 ## Dependencies
 
@@ -122,6 +143,8 @@ pdfimages -j input.pdf output_prefix
 | Find text/line/checkbox positions in static PDF | `extract_form_structure.js` |
 | Fill static PDF by overlaying text | `fill_pdf_form_with_annotations.js` |
 | Validate overlay coordinates | `check_bounding_boxes.js` |
+| Generate a new PDF (formatted doc) | `generate_docx` → `soffice.py --convert-to pdf` |
+| Generate a new PDF (simple/programmatic) | `pdf-lib` via `write_file` + `run_node_script` |
 | Render PDF pages to PNG | `convert_pdf_to_images.js` |
 | Visualize bounding boxes on a page image | `create_validation_image.js` |
 | Merge / split / rotate | `qpdf` CLI |
