@@ -30,7 +30,8 @@ const CODE_EXTS = new Set([".js", ".ts", ".py", ".go", ".rs", ".java", ".jsx", "
 function formatPathError(action, filePath) {
   const active = getActivePaths();
   const paths  = action === "Read" ? active.readPaths : active.writePaths;
-  return { content: [{ type: "text", text: `❌ ${action} not allowed: ${filePath}\nAllowed ${action.toLowerCase()} paths: ${paths.join(", ")}` }] };
+  const list   = paths.map(p => `  - ${p}`).join("\n");
+  return { content: [{ type: "text", text: `❌ ${action} not allowed: ${filePath}\nRetry the tool call using one of the allowed ${action.toLowerCase()} paths:\n${list}` }] };
 }
 
 export async function readFileHandler({ path: filePath, max_lines, offset = 0 }) {

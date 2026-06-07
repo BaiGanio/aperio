@@ -9,6 +9,18 @@ import logger from "../../lib/helpers/logger.js";
 const MAX_OUTPUT_BYTES = 200_000;
 const TIMEOUT_MS       = 60_000;
 
+// The MCP runs as a shared subprocess with no per-session AsyncLocalStorage
+// context, so getActiveScratchDir() is null here. The session id, however, is
+// the scratch path segment (var/scratch/<sessionId>/…) — recover it from the
+// script/cwd path so error logs are traceable to the chat session that triggered
+// them, since the process-level banner cannot identify one.
+// Returns {} or { sessionId } so callers can drop it straight into a log meta
+// without ever emitting an empty/undefined field on non-session (CLI) runs.
+function sessionMeta(p) {
+  const m = typeof p === "string" ? p.match(/[/\\]var[/\\]scratch[/\\]([^/\\]+)/) : null;
+  return m ? { sessionId: m[1] } : {};
+}
+
 // run_shell is off unless explicitly enabled. It widens the model's reach from
 // node-only (.js files) to a fixed set of real binaries, so it is opt-in.
 const SHELL_ENABLED = process.env.APERIO_ENABLE_SHELL === "1";
@@ -136,12 +148,13 @@ export async function runNodeScriptHandler({ script, args = [] }) {
     return { content: [{ type: "text", text: `❌ Failed to start script: ${r.spawnError.message}` }] };
   }
 
+  const meta = sessionMeta(resolved);
   if (r.timedOut) {
-    logger.error(`[run_node_script] timeout ${resolved} after ${TIMEOUT_MS}ms`);
+    logger.error(`[run_node_script] timeout ${resolved} after ${TIMEOUT_MS}ms`, meta);
   } else if (r.exitCode !== 0) {
-    logger.error(`[run_node_script] non-zero exit ${r.exitCode} ${resolved} stderr: ${r.stderr.slice(0, 1000)}`);
+    logger.error(`[run_node_script] non-zero exit ${r.exitCode} ${resolved} stderr: ${r.stderr.slice(0, 1000)}`, meta);
   } else if (r.stderr) {
-    logger.warn(`[run_node_script] exit 0 with stderr ${resolved}: ${r.stderr.slice(0, 500)}`);
+    logger.warn(`[run_node_script] exit 0 with stderr ${resolved}: ${r.stderr.slice(0, 500)}`, meta);
   } else {
     logger.info(`[run_node_script] ok ${resolved}`);
   }
@@ -198,12 +211,13 @@ export async function runPythonScriptHandler({ script, args = [] }) {
     return { content: [{ type: "text", text: `❌ Failed to start script: ${r.spawnError.message}${hint}` }] };
   }
 
+  const meta = sessionMeta(resolved);
   if (r.timedOut) {
-    logger.error(`[run_python_script] timeout ${resolved} after ${TIMEOUT_MS}ms`);
+    logger.error(`[run_python_script] timeout ${resolved} after ${TIMEOUT_MS}ms`, meta);
   } else if (r.exitCode !== 0) {
-    logger.error(`[run_python_script] non-zero exit ${r.exitCode} ${resolved} stderr: ${r.stderr.slice(0, 1000)}`);
+    logger.error(`[run_python_script] non-zero exit ${r.exitCode} ${resolved} stderr: ${r.stderr.slice(0, 1000)}`, meta);
   } else if (r.stderr) {
-    logger.warn(`[run_python_script] exit 0 with stderr ${resolved}: ${r.stderr.slice(0, 500)}`);
+    logger.warn(`[run_python_script] exit 0 with stderr ${resolved}: ${r.stderr.slice(0, 500)}`, meta);
   } else {
     logger.info(`[run_python_script] ok ${resolved}`);
   }
@@ -326,12 +340,13 @@ export async function runShellHandler({ command, cwd: cwdArg }) {
     }] };
   }
 
+  const meta = sessionMeta(cwd);
   if (r.timedOut) {
-    logger.error(`[run_shell] timeout after ${TIMEOUT_MS}ms: ${command}`);
+    logger.error(`[run_shell] timeout after ${TIMEOUT_MS}ms: ${command}`, meta);
   } else if (r.exitCode !== 0) {
-    logger.error(`[run_shell] exit ${r.exitCode}: ${command} stderr: ${r.stderr.slice(0, 1000)}`);
+    logger.error(`[run_shell] exit ${r.exitCode}: ${command} stderr: ${r.stderr.slice(0, 1000)}`, meta);
   } else if (r.stderr) {
-    logger.warn(`[run_shell] exit 0 with stderr: ${command} stderr: ${r.stderr.slice(0, 500)}`);
+    logger.warn(`[run_shell] exit 0 with stderr: ${command} stderr: ${r.stderr.slice(0, 500)}`, meta);
   } else {
     logger.info(`[run_shell] ok: ${command}`);
   }
