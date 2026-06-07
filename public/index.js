@@ -153,19 +153,16 @@ function sendSuggestionResponse(mode, nums) {
 }
 
 function addThinking(lockInput = true) {
+  // The live activity cursor is a flat line, consistent with the persistent
+  // phase breadcrumbs and tool cards (one terminal-style column). Keeps id
+  // "thinking" and the .thinking-label hook so the streaming handlers can swap
+  // its label (thinking… → typing…) unchanged.
   const el = document.createElement("div");
-  el.className = "thinking";
+  el.className = "action-phase active";
   el.id = "thinking";
-  el.innerHTML = `
-    <div class="avatar ai">A</div>
-    <div class="thinking-dots">
-      <div class="thinking-dots-row">
-        <div class="thinking-dot"></div>
-        <div class="thinking-dot"></div>
-        <div class="thinking-dot"></div>
-      </div>
-      <div class="thinking-label" data-i18n="chat_thinking_label">${t("chat_thinking_label")}</div>
-    </div>`;
+  el.innerHTML =
+    `<span class="action-phase-mark live"></span>` +
+    `<span class="thinking-label action-phase-label" data-i18n="chat_thinking_label">${t("chat_thinking_label")}</span>`;
   messagesEl.appendChild(el);
   if (lockInput) document.querySelector(".input-bar")?.classList.add("input-locked");
   document.getElementById("inputHint").textContent = t("chat_input_thinking");
