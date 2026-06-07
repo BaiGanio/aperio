@@ -2,6 +2,8 @@
 name: agent-conduct
 description: >
   This skill defines behavioral rules for tool usage and output hygiene. These apply at all times, for every tool, in every conversation.
+metadata:
+  load: "always"
 ---
 
 ## Tool usage rules

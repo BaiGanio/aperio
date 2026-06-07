@@ -1,7 +1,16 @@
 ---
 name: memory-protocol
 description: >
-  This skill defines how to use memory tools. Load it whenever you are reading, writing, or managing memories.
+  Use this skill when reading from or writing to the persistent memory store.
+  Covers the memory tool API (recall, remember, update_memory, forget) and — for
+  advanced direct access — the SQL schema, vector search patterns, and retrieval
+  priority order against the Aperio Postgres store. Triggers: user states a
+  preference, shares a fact or decision, gives a correction, asks the agent to
+  remember something, or starts a task where past context would affect the output.
+metadata:
+  keywords: "memory, remember, preference, context, learn, correction, feedback, store, recall, history, decision, project, person, sql, postgres, vector, embedding"
+  category: "memory"
+  load: "on-demand"
 ---
 
 ## Tools
@@ -133,3 +142,110 @@ Store only things that will matter in a future conversation:
 - Keep each memory focused on one thing. Split if needed.
 - Prefer updating an existing memory over creating a near-duplicate.
 - If a recalled memory contradicts what the user just said, flag it: *"I have a memory that says X — should I update it?"*
+
+---
+
+## Advanced: Direct Database Access
+
+Use this section when calling memory tools isn't available or when you need
+precise control — e.g., bulk queries, duplicate detection, or embedding backfill.
+All memories live in a single `memories` table via the Aperio MCP Postgres connection.
+
+### Schema
+
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | UUID | Auto-generated |
+| `type` | TEXT | One of the 7 types below — required |
+| `title` | TEXT | Short, searchable label — required |
+| `content` | TEXT | Full detail — required |
+| `tags` | TEXT[] | Array of lowercase keywords for filtering |
+| `importance` | INT 1–5 | 5 = critical, 3 = default, 1 = low signal |
+| `embedding` | vector(1024) | Voyage-3 embedding — generated on insert/update |
+| `source` | TEXT | `"agent"` for agent-written memories |
+| `expires_at` | TIMESTAMPTZ | Set for time-limited context, null = permanent |
+| `created_at` | TIMESTAMPTZ | Auto-set |
+| `updated_at` | TIMESTAMPTZ | Auto-updated on change |
+
+### Memory types
+
+| Type | Use For |
+|------|---------|
+| `fact` | Stable truths about the user's environment or setup |
+| `preference` | How the user wants things done |
+| `project` | Active or past projects |
+| `decision` | A choice made and the reasoning behind it |
+| `solution` | A fix or approach that worked |
+| `source` | External references to keep |
+| `person` | People relevant to the user's work |
+
+### Retrieval priority
+
+1. **Semantic search (primary)** — embed query via Voyage-3, then cosine similarity via HNSW:
+   ```sql
+   SELECT id, type, title, content, tags, importance,
+          1 - (embedding <=> '[<query_vector>]') AS similarity
+   FROM memories
+   WHERE embedding IS NOT NULL
+   ORDER BY embedding <=> '[<query_vector>]'
+   LIMIT 10;
+   ```
+   Discard results below ~0.75 similarity.
+
+2. **Type + tag filter (precision)**:
+   ```sql
+   SELECT * FROM memories
+   WHERE type = 'preference'
+     AND 'coding' = ANY(tags)
+   ORDER BY importance DESC;
+   ```
+
+3. **Full-text search (fallback)** — for rows without embeddings:
+   ```sql
+   SELECT * FROM memories
+   WHERE to_tsvector('english', title || ' ' || content)
+         @@ plainto_tsquery('english', '<topic>');
+   ```
+
+4. **Importance-first cold start** — at session start, before any specific task:
+   ```sql
+   SELECT * FROM memories
+   ORDER BY importance DESC
+   LIMIT 10;
+   ```
+
+### Write pattern
+
+Before inserting, check for an existing memory with semantic search or FTS.
+If a match exists → `UPDATE`. If no match → `INSERT`.
+
+```sql
+INSERT INTO memories (type, title, content, tags, importance, source)
+VALUES (
+  '<type>',
+  '<short descriptive title>',
+  '<full detail>',
+  ARRAY['<tag1>', '<tag2>'],
+  <1-5>,
+  'agent'
+);
+```
+
+### Importance scale
+
+| Score | Meaning |
+|-------|---------|
+| 5 | Critical — always apply (safety rules, confirmation requirements) |
+| 4 | High — apply by default (core preferences, primary stack) |
+| 3 | Normal — apply when relevant |
+| 2 | Low — background info |
+| 1 | Weak signal — passing mentions |
+
+### Tag conventions
+Lowercase, hyphenated. Common tags: `setup`, `docker`, `coding`, `style`, `safety`,
+`file-io`, `mcp`, `postgres`, `ai`, `personal`.
+
+### Known limitations
+- Rows inserted before `002_pgvector.sql` ran have `embedding IS NULL` — use
+  the `memories_without_embeddings` view to find them; fall back to FTS for those rows.
+- No `user_id` column — all memories are in a single-user store.

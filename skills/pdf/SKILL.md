@@ -148,11 +148,11 @@ pdfimages -j input.pdf output_prefix
 | Render PDF pages to PNG | `convert_pdf_to_images.js` |
 | Visualize bounding boxes on a page image | `create_validation_image.js` |
 | Merge / split / rotate | `qpdf` CLI |
-| OCR scanned PDFs | `preprocess-pdf` skill + vision model |
+| OCR scanned PDFs | Aperio auto-preprocesses uploads; for scanned result type, use vision model |
 | Fill PDF forms (full workflow) | See FORMS.md |
 | Convert a Word doc → PDF | Use the **docx** skill (LibreOffice via `soffice.py` + `run_python_script`) — the pdf libraries here do not render `.docx` |
 
 ## Next Steps
 
 - For filling PDF forms, follow the instructions in FORMS.md
-- For reading PDFs uploaded by the user, use the `preprocess-pdf` skill (already wired into the server)
+- PDFs uploaded via the web UI are automatically pre-processed by Aperio's attachment router (text extraction and scanned detection). The router's result types are documented in `skills/preprocess-pdf/SKILL.md` as an internal reference.

@@ -3,7 +3,7 @@ name: theme-factory
 description: Toolkit for styling artifacts with a theme, and for creating distinctive, production-grade frontend interfaces. Use for: applying pre-set or custom themes to slides, docs, reports, HTML pages; building web components, pages, dashboards, React components, HTML/CSS layouts; or styling/beautifying any web UI with high design quality.
 license: Complete terms in LICENSE.txt
 metadata:
-  keywords: "theme, style, design, frontend, web, html, css, react, component, landing page, dashboard, poster, typography, color, palette, artifact, ui, interface"
+  keywords: "theme, style, design, frontend, web, html, css, react, component, landing page, dashboard, typography, color, palette, artifact, ui, interface"
   category: "design"
   load: "on-demand"
 ---
