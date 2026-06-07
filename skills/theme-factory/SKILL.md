@@ -1,7 +1,11 @@
 ---
 name: theme-factory
-description: Toolkit for styling artifacts with a theme. These artifacts can be slides, docs, reportings, HTML landing pages, etc. There are 10 pre-set themes with colors/fonts that you can apply to any artifact that has been creating, or can generate a new theme on-the-fly.
+description: Toolkit for styling artifacts with a theme, and for creating distinctive, production-grade frontend interfaces. Use for: applying pre-set or custom themes to slides, docs, reports, HTML pages; building web components, pages, dashboards, React components, HTML/CSS layouts; or styling/beautifying any web UI with high design quality.
 license: Complete terms in LICENSE.txt
+metadata:
+  keywords: "theme, style, design, frontend, web, html, css, react, component, landing page, dashboard, poster, typography, color, palette, artifact, ui, interface"
+  category: "design"
+  load: "on-demand"
 ---
 
 
@@ -57,3 +61,28 @@ After a preferred theme is selected:
 
 ## Create your Own Theme
 To handle cases where none of the existing themes work for an artifact, create a custom theme. Based on provided inputs, generate a new theme similar to the ones above. Give the theme a similar name describing what the font/color combinations represent. Use any basic description provided to choose appropriate colors/fonts. After generating the theme, show it for review and verification. Following that, apply the theme as described above.
+
+---
+
+## Frontend Design Guidelines
+
+When building web components, pages, or UI from scratch (rather than theming an existing artifact), apply these principles to produce distinctive, production-grade output.
+
+### Design Thinking
+
+Before coding, commit to a clear aesthetic direction:
+- **Purpose**: What problem does this interface solve? Who uses it?
+- **Tone**: Pick deliberately — brutally minimal, maximalist, retro-futuristic, organic, luxury, playful, editorial, brutalist, art deco, soft/pastel, industrial. Execute with intentionality, not randomness.
+- **Differentiation**: What's the one thing someone will remember about this?
+
+### Aesthetic Guidelines
+
+- **Typography**: Avoid generic fonts (Arial, Inter, Roboto, system fonts). Choose distinctive display + refined body pairings that elevate the design.
+- **Color**: Commit to a cohesive palette via CSS variables. Dominant colors with sharp accents outperform timid, evenly-distributed palettes. Avoid clichéd purple gradients on white.
+- **Motion**: Use CSS animations for micro-interactions and page load reveals. One well-orchestrated entrance (staggered `animation-delay`) beats scattered effects. Add hover states that surprise.
+- **Composition**: Asymmetry, overlap, diagonal flow, grid-breaking elements. Generous negative space OR controlled density — not both, not neither.
+- **Backgrounds & Depth**: Gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows, grain overlays — create atmosphere, don't default to solid fills.
+
+**Never**: overused font families, purple-on-white gradients, predictable layouts, or cookie-cutter component patterns. No two designs should converge on the same aesthetic.
+
+Match implementation complexity to vision: maximalist designs need elaborate animations; minimalist designs need precision in spacing and typography. Elegance comes from executing the chosen direction well, not from adding more.
