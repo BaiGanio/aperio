@@ -690,6 +690,15 @@ sidebarToggleBtn.addEventListener("click", () => {
   applySidebar();
 });
 
+// Memories icon on the collapsed rail: expand the sidebar and focus search.
+function expandSidebarToMemories() {
+  if (!sidebarOpen) {
+    sidebarOpen = true;
+    applySidebar();
+  }
+  searchInput.focus();
+}
+
 document.addEventListener("keydown", (e) => {
   if ((e.metaKey || e.ctrlKey) && e.key === "b") {
     e.preventDefault();

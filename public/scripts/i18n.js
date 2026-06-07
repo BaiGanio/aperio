@@ -64,6 +64,8 @@ const TRANSLATIONS = {
     nav_sound_title:          "Voice responses",
     nav_theme_title:          "Theme",
     nav_chats_title:          "Conversation history",
+    nav_codegraph_title:      "Code graph",
+    nav_memories_title:       "Memories — search your saved memories",
     nav_reasoning_title:      "Enable reasoning",
     nav_reasoning_label:      "reasoning",
     nav_lang_title:           "Language",
