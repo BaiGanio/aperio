@@ -1294,6 +1294,19 @@ function _renderToolCard(msg) {
     `<div class="tool-card-result">${t("tool_card_running")}</div>`;
   _toolCards.set(msg.seq, card);
   messagesEl.appendChild(card);
+  // Upgrade the live "thinking" pill from the bare, arg-less "Using {name}…"
+  // (emitted on the tool-use block start, before args finished streaming) to
+  // show what's actually running now that the args are known — e.g. the script
+  // basename for run_python_script. This is the first moment the path exists.
+  if (arg) {
+    const label = document.querySelector("#thinking .thinking-label");
+    if (label) {
+      const isPath = arg.includes("/") && !arg.includes(" ");
+      const short = isPath ? arg.split("/").pop()
+                  : (arg.length > 60 ? arg.slice(0, 59) + "…" : arg);
+      label.textContent = `${msg.name} · ${short}`;
+    }
+  }
   moveLiveIndicatorToBottom();
   scrollToBottom();
 }

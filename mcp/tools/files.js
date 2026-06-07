@@ -290,7 +290,7 @@ export async function generateXlsxHandler({ filename, sheets }) {
     return {
       content: [{
         type: "text",
-        text: `APERIO_FILE:${JSON.stringify({ filename: safeName.endsWith(".xlsx") ? safeName : safeName + ".xlsx", url: publicUrl, sizeKb })}`,
+        text: `APERIO_FILE:${JSON.stringify({ filename: safeName.endsWith(".xlsx") ? safeName : safeName + ".xlsx", url: publicUrl, sizeKb, path: outPath })}`,
       }],
     };
   } catch (err) {
@@ -348,7 +348,7 @@ export async function generateDocxHandler({ filename, sections }) {
     return {
       content: [{
         type: "text",
-        text: `APERIO_FILE:${JSON.stringify({ filename: safeName.endsWith(".docx") ? safeName : safeName + ".docx", url: publicUrl, sizeKb })}`,
+        text: `APERIO_FILE:${JSON.stringify({ filename: safeName.endsWith(".docx") ? safeName : safeName + ".docx", url: publicUrl, sizeKb, path: outPath })}`,
       }],
     };
   } catch (err) {
