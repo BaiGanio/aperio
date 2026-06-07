@@ -64,27 +64,6 @@
   <!-- Sidebar -->
   <aside class="sidebar">
     <div class="sidebar-header">
-      <div style="display:flex; align-items:center; margin-bottom:10px;">
-        <button id="exportBtn" data-i18n-attr-title="sidebar_export_title" title="Export brain to JSON"
-          style="margin-left:6px; background:none; border:none; padding:2px 4px; cursor:pointer;
-                 color:var(--text-muted); font-size:12px; border-radius:4px;
-                 transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
-          <i class="bi bi-download"></i> <span data-i18n="sidebar_export">Export</span>
-        </button>
-        <button id="importBtn" data-i18n-attr-title="sidebar_import_title" title="Import memories from JSON"
-          style="margin-left:4px; background:none; border:none; padding:2px 4px; cursor:pointer;
-                 color:var(--text-muted); font-size:12px; border-radius:4px;
-                 transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
-          <i class="bi bi-upload"></i> <span data-i18n="sidebar_import">Import</span>
-        </button>
-        <button id="tableBtn" title="Browse all memories as a table"
-          style="margin-left:4px; background:none; border:none; padding:2px 4px; cursor:pointer;
-                 color:var(--text-muted); font-size:12px; border-radius:4px;
-                 transition:all var(--transition);" onmouseover="this.style.opacity='1';this.style.color='var(--accent)'">
-          <i class="bi bi-table"></i> Table
-        </button>
-        <input type="file" id="importFileInput" accept=".json" hidden>
-      </div>
       <div class="search-box">
         <span class="search-icon">⌕</span>
         <input type="text" id="searchInput" data-i18n-attr-placeholder="sidebar_search" placeholder="Search memories…" />
@@ -112,6 +91,11 @@
         title="Wiki — LLM-authored articles over your memories">
         <i class="bi bi-book sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Wiki</span>
+      </button>
+      <button id="dbBtn" class="sidebar-nav-btn" onclick="toggleDbPanel()"
+        title="Database — browse all tables">
+        <i class="bi bi-database sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">DB</span>
       </button>
       <button id="settingsBtn" class="sidebar-nav-btn" onclick="toggleSettingsPanel()"
         data-i18n-attr-title="nav_settings_title" title="Settings">
@@ -281,6 +265,68 @@
 </div>
 <div id="wiki-backdrop" class="wiki-backdrop" style="display:none;" onclick="toggleWikiPanel()"></div>
 
+<!-- DB panel -->
+<div id="db-panel" class="db-panel" style="display:none;">
+  <div class="db-panel-header">
+    <span class="db-panel-title"><i class="bi bi-database"></i> Database</span>
+    <button class="db-panel-close" onclick="toggleDbPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="db-panel-toolbar">
+    <button id="exportBtn" class="db-action-btn" data-i18n-attr-title="sidebar_export_title" title="Export memories to JSON">
+      <i class="bi bi-download"></i> <span data-i18n="sidebar_export">Export</span>
+    </button>
+    <button id="importBtn" class="db-action-btn" data-i18n-attr-title="sidebar_import_title" title="Import memories from JSON">
+      <i class="bi bi-upload"></i> <span data-i18n="sidebar_import">Import</span>
+    </button>
+    <input type="file" id="importFileInput" accept=".json" hidden>
+  </div>
+  <div class="db-panel-body" id="db-panel-body">
+    <div class="db-empty">Loading…</div>
+  </div>
+</div>
+<div id="db-backdrop" class="db-backdrop" style="display:none;" onclick="toggleDbPanel()"></div>
+
+<!-- Generic DB table modal -->
+<div id="dbTableModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-table"></i>
+        <span id="dbt-title">Table</span>
+        <span id="dbt-count" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <a id="dbt-export" class="mem-table-close" title="Export this table as JSON" download>
+          <i class="bi bi-download"></i>
+        </a>
+        <button class="mem-table-close" id="dbt-refresh" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" id="dbt-close" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box" style="margin:0;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="dbt-search" placeholder="Filter rows…" />
+      </div>
+      <span id="dbt-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="dbt-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="dbt-pagination" class="mem-pagination" style="display:none;">
+        <button id="dbt-prev" class="mem-page-btn"><i class="bi bi-chevron-left"></i></button>
+        <span id="dbt-page-info" class="mem-page-info"></span>
+        <button id="dbt-next" class="mem-page-btn"><i class="bi bi-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Code graph panel -->
 <div id="codegraph-panel" class="cg-panel" style="display:none;">
   <div class="cg-panel-header">
@@ -429,6 +475,7 @@
 <script src="scripts/sessions.js"></script>
 <script src="scripts/paths-panel.js"></script>
 <script src="scripts/wiki-panel.js"></script>
+<script src="scripts/db-panel.js"></script>
 <script src="scripts/codegraph-panel.js"></script>
 <script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>

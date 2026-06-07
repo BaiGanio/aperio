@@ -36,6 +36,7 @@ import { deserialiseRow } from './types.js';
 import logger, { logError } from '../lib/helpers/logger.js';
 import { WIKI_SEED } from './wiki-seed.js';
 import { MEMORY_SEED } from './memory-seed.js';
+import { DB_TABLES, isAllowedTable } from './tables.js';
 
 const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
 const DEFAULT_PATH = process.env.SQLITE_PATH || './sqlite/aperio.db';
@@ -432,6 +433,29 @@ export class SqliteStore {
        LEFT JOIN vec_memories v ON v.rowid = m.rowid
        WHERE v.rowid IS NULL AND m.valid_until IS NULL
     `).all();
+  }
+
+  // ── Generic DB browser (whitelisted tables only) ─────────────────────────
+  async listTables() {
+    return DB_TABLES.map(({ name, label }) => {
+      // For memories, count what the UI actually shows: current, unexpired rows.
+      const { sql, params } = name === 'memories'
+        ? { sql: `SELECT COUNT(*) AS c FROM memories
+                   WHERE valid_until IS NULL AND (expires_at IS NULL OR expires_at > ?)`,
+            params: [nowIso()] }
+        : { sql: `SELECT COUNT(*) AS c FROM ${name}`, params: [] };
+      return { name, label, count: this.db.prepare(sql).get(...params).c };
+    });
+  }
+
+  async readTable(name) {
+    if (!isAllowedTable(name)) throw new Error(`Unknown table: ${name}`);
+    const where  = name === 'memories'
+      ? ` WHERE valid_until IS NULL AND (expires_at IS NULL OR expires_at > ?)` : '';
+    const params = name === 'memories' ? [nowIso()] : [];
+    const stmt    = this.db.prepare(`SELECT * FROM ${name}${where}`);
+    const columns = stmt.columns().map(c => c.name);
+    return { columns, rows: stmt.all(...params) };
   }
 
   // ── Mutate ───────────────────────────────────────────────────────────────

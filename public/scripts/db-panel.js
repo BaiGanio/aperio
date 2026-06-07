@@ -1,0 +1,249 @@
+// public/scripts/db-panel.js
+// Read-only browser for every data table in the database. Slide-in panel from the
+// right (mirrors wiki-panel.js) listing tables with row counts; selecting a table
+// opens it in a generic viewer (#dbTableModal) with client-side search + pagination.
+//
+// The "Memories" row delegates to the existing rich memory table (window.openMemoryTable)
+// so its delete/pin actions stay intact. Export/Import (memories-only) live in the
+// panel header; their click handlers are wired in index.js by element id.
+
+(() => {
+  const PAGE_SIZE = 25;
+
+  const panel    = () => document.getElementById("db-panel");
+  const backdrop = () => document.getElementById("db-backdrop");
+  const body     = () => document.getElementById("db-panel-body");
+
+  // ── Generic table modal state ──────────────────────────────────────────────
+  let curName    = null;
+  let curLabel   = "";
+  let columns    = [];
+  let allRows    = [];
+  let filtered   = [];
+  let page       = 1;
+
+  function escapeHtml(str) {
+    return String(str ?? "")
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+
+  function cellText(v) {
+    if (v === null || v === undefined) return "";
+    if (typeof v === "object") return JSON.stringify(v);
+    return String(v);
+  }
+
+  // ── Panel list ─────────────────────────────────────────────────────────────
+  async function loadTables() {
+    const el = body();
+    el.innerHTML = `<div class="db-empty">Loading…</div>`;
+    try {
+      const r = await fetch("/api/db/tables");
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Failed to load tables");
+      renderTableList(data.tables || []);
+    } catch (err) {
+      el.innerHTML = `<div class="db-empty" style="color:#ef4444;">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function renderTableList(tables) {
+    const el = body();
+    if (!tables.length) {
+      el.innerHTML = `<div class="db-empty">No tables.</div>`;
+      return;
+    }
+    el.innerHTML = tables.map(t => `
+      <button class="db-table-row" data-name="${escapeHtml(t.name)}" data-label="${escapeHtml(t.label)}">
+        <span class="db-table-name">${escapeHtml(t.label)}</span>
+        <span class="db-table-count">${t.count}</span>
+      </button>
+    `).join("");
+    el.querySelectorAll(".db-table-row").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const name = btn.dataset.name;
+        if (name === "memories" && typeof window.openMemoryTable === "function") {
+          window.openMemoryTable();
+        } else {
+          openDbTable(name, btn.dataset.label);
+        }
+      });
+    });
+  }
+
+  // ── Generic table viewer ───────────────────────────────────────────────────
+  async function openDbTable(name, label) {
+    curName = name;
+    curLabel = label;
+    const modal = document.getElementById("dbTableModal");
+    document.getElementById("dbt-title").textContent = label;
+    document.getElementById("dbt-count").textContent = "";
+    document.getElementById("dbt-search").value = "";
+    document.getElementById("dbt-export").href = `/api/db/table/${encodeURIComponent(name)}/export`;
+    document.getElementById("dbt-wrapper").innerHTML = `<div class="mem-empty">Loading…</div>`;
+    modal.style.display = "flex";
+    await loadRows();
+  }
+
+  async function loadRows() {
+    try {
+      const r = await fetch(`/api/db/table/${encodeURIComponent(curName)}`);
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || "Failed to load table");
+      columns = data.columns || [];
+      allRows = data.rows || [];
+      filtered = [...allRows];
+      page = 1;
+      document.getElementById("dbt-count").textContent = allRows.length ? `(${allRows.length})` : "";
+      document.getElementById("dbt-filter-info").textContent = "";
+      renderPage();
+    } catch (err) {
+      document.getElementById("dbt-wrapper").innerHTML =
+        `<div class="mem-empty" style="color:#ef4444;">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  function applySearch() {
+    const term = document.getElementById("dbt-search").value.toLowerCase();
+    filtered = term
+      ? allRows.filter(row => columns.some(c => cellText(row[c]).toLowerCase().includes(term)))
+      : [...allRows];
+    page = 1;
+    document.getElementById("dbt-filter-info").textContent =
+      term ? `${filtered.length} of ${allRows.length} rows` : "";
+    renderPage();
+  }
+
+  function renderPage() {
+    const wrapper = document.getElementById("dbt-wrapper");
+    const controls = document.getElementById("dbt-pagination");
+    const pageInfo = document.getElementById("dbt-page-info");
+    wrapper.classList.remove("db-detail-mode");
+
+    if (!filtered.length) {
+      wrapper.innerHTML = `<div class="mem-empty">No rows found.</div>`;
+      controls.style.display = "none";
+      return;
+    }
+
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE) || 1;
+    if (page > totalPages) page = totalPages;
+    const start = (page - 1) * PAGE_SIZE;
+    const pageRows = filtered.slice(start, start + PAGE_SIZE);
+
+    let html = `<table class="db-tbl"><thead><tr><th class="db-col-num">#</th>`;
+    html += columns.map(c => `<th>${escapeHtml(c)}</th>`).join("");
+    html += `<th class="db-col-chevron"></th></tr></thead><tbody>`;
+    html += pageRows.map((row, i) => {
+      const cells = columns.map(c => {
+        const txt = cellText(row[c]);
+        return `<td title="${escapeHtml(txt)}"><span class="db-cell">${escapeHtml(txt) || '<span class="db-null">—</span>'}</span></td>`;
+      }).join("");
+      return `<tr class="db-row" data-i="${start + i}">
+        <td class="db-col-num">${start + i + 1}</td>${cells}
+        <td class="db-col-chevron"><i class="bi bi-chevron-right"></i></td>
+      </tr>`;
+    }).join("");
+    html += `</tbody></table>`;
+    wrapper.innerHTML = html;
+
+    wrapper.querySelectorAll(".db-row").forEach(tr => {
+      tr.addEventListener("click", () => openDetail(filtered[Number(tr.dataset.i)]));
+    });
+
+    controls.style.display = "flex";
+    pageInfo.textContent = `${page} / ${totalPages}  ·  ${filtered.length} rows`;
+    document.getElementById("dbt-prev").disabled = page === 1;
+    document.getElementById("dbt-next").disabled = page === totalPages;
+  }
+
+  // If a string is itself JSON (e.g. tags '["a","b"]', settings value), parse it
+  // so the record renders as real arrays/objects instead of escaped strings.
+  function normalizeForJson(row) {
+    const out = {};
+    for (const c of columns) {
+      const v = row[c];
+      if (typeof v === "string") {
+        const t = v.trim();
+        if ((t.startsWith("{") && t.endsWith("}")) || (t.startsWith("[") && t.endsWith("]"))) {
+          try { out[c] = JSON.parse(t); continue; } catch { /* keep raw */ }
+        }
+      }
+      out[c] = v;
+    }
+    return out;
+  }
+
+  function openDetail(row) {
+    const wrapper = document.getElementById("dbt-wrapper");
+    document.getElementById("dbt-pagination").style.display = "none";
+    wrapper.classList.add("db-detail-mode");
+
+    const json = JSON.stringify(normalizeForJson(row), null, 2);
+    wrapper.innerHTML = `
+      <div class="db-detail">
+        <div class="db-detail-bar">
+          <button class="db-detail-back" id="dbt-back"><i class="bi bi-arrow-left"></i> Back to ${escapeHtml(curLabel)}</button>
+          <button class="db-detail-copy" id="dbt-copy" title="Copy JSON"><i class="bi bi-clipboard"></i> Copy</button>
+        </div>
+        <pre class="db-json">${escapeHtml(json)}</pre>
+      </div>`;
+    document.getElementById("dbt-back").addEventListener("click", renderPage);
+    document.getElementById("dbt-copy").addEventListener("click", (e) => {
+      navigator.clipboard?.writeText(json);
+      const btn = e.currentTarget;
+      btn.innerHTML = '<i class="bi bi-check2"></i> Copied';
+      setTimeout(() => { btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy'; }, 1200);
+    });
+    wrapper.scrollTop = 0;
+  }
+
+  function changePage(step) {
+    page += step;
+    renderPage();
+    const b = document.querySelector("#dbTableModal .mem-table-body");
+    if (b) b.scrollTop = 0;
+  }
+
+  function closeDbTable() {
+    document.getElementById("dbTableModal").style.display = "none";
+  }
+
+  // ── Wiring ─────────────────────────────────────────────────────────────────
+  function wireOnce() {
+    if (wireOnce.done) return;
+    wireOnce.done = true;
+    document.getElementById("dbt-search").addEventListener("input", applySearch);
+    document.getElementById("dbt-refresh").addEventListener("click", loadRows);
+    document.getElementById("dbt-close").addEventListener("click", closeDbTable);
+    document.getElementById("dbt-prev").addEventListener("click", () => changePage(-1));
+    document.getElementById("dbt-next").addEventListener("click", () => changePage(1));
+    // Close only when the dim backdrop itself is clicked. We compare against the
+    // modal element rather than walking up from e.target with .closest(), because
+    // a row click re-renders the table (detaching e.target) before this delegated
+    // handler runs — a detached node has no ancestors and would look "outside".
+    document.getElementById("dbTableModal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeDbTable();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && document.getElementById("dbTableModal").style.display === "flex") {
+        closeDbTable();
+      }
+    });
+  }
+
+  window.toggleDbPanel = function () {
+    const p = panel(), b = backdrop();
+    const opening = p.style.display === "none";
+    if (opening) {
+      wireOnce();
+      p.style.display = "flex";
+      b.style.display = "block";
+      loadTables();
+    } else {
+      p.style.display = "none";
+      b.style.display = "none";
+    }
+  };
+})();
