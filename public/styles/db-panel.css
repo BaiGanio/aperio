@@ -1,0 +1,171 @@
+/* ── DB panel ────────────────────────────────────────────────── */
+/* Slide-in from the right (mirrors the wiki panel): lists the database tables.
+   The table viewer itself reuses the .mem-table-* modal styles in modals.css. */
+.db-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.25);
+  z-index: 199;
+}
+.db-panel {
+  position: fixed; top: 0; right: 0;
+  height: 100vh; width: 380px; max-width: 94vw;
+  background: var(--bg);
+  border-left: 1px solid var(--border);
+  z-index: 200;
+  display: flex; flex-direction: column;
+  box-shadow: -4px 0 24px rgba(0,0,0,.12);
+  animation: slideInRight .18s ease;
+}
+.db-panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.db-panel-title {
+  font-family: var(--font-mono);
+  font-size: 13px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-muted);
+  display: flex; align-items: center; gap: 6px;
+}
+.db-panel-close {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 14px;
+  padding: 2px 4px; border-radius: var(--radius-sm);
+  transition: color var(--transition);
+}
+.db-panel-close:hover { color: var(--text); }
+
+.db-panel-toolbar {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; gap: 8px;
+  flex-shrink: 0;
+}
+.db-action-btn {
+  background: none; border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  padding: 5px 10px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: all var(--transition);
+  display: inline-flex; align-items: center; gap: 5px;
+}
+.db-action-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+.db-panel-body {
+  flex: 1; overflow-y: auto;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.db-empty {
+  padding: 24px 16px; text-align: center;
+  font-size: 12px; color: var(--text-muted);
+}
+
+.db-table-row {
+  background: none; border: 1px solid transparent; cursor: pointer;
+  width: 100%; text-align: left;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  transition: background var(--transition), border-color var(--transition);
+}
+.db-table-row:hover { background: var(--bg-alt, rgba(127,127,127,.08)); border-color: var(--border); }
+.db-table-name {
+  font-size: 13px; color: var(--text);
+}
+.db-table-count {
+  font-family: var(--font-mono); font-size: 11px;
+  padding: 1px 8px; border-radius: 8px;
+  background: var(--tag-bg); color: var(--tag-text);
+}
+
+/* The generic browser needs more room than the memory table for wide schemas. */
+#dbTableModal .mem-table-content { width: 1180px; }
+
+/* The wrapper is the single scroll container (both axes) so the column header
+   stays sticky and the horizontal scrollbar sits at the bottom of the viewport
+   — always visible — instead of below all the rows. */
+#dbTableModal .mem-table-body {
+  display: flex; flex-direction: column;
+  overflow: hidden;
+}
+#dbt-wrapper { flex: 1; min-height: 0; overflow: auto; }
+#dbt-wrapper.db-detail-mode { overflow-x: hidden; }
+#dbt-wrapper::-webkit-scrollbar { width: 9px; height: 9px; }
+#dbt-wrapper::-webkit-scrollbar-track { background: transparent; }
+#dbt-wrapper::-webkit-scrollbar-thumb {
+  background: var(--border); border-radius: 5px;
+  border: 2px solid var(--bg-panel);
+}
+#dbt-wrapper::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+#dbt-wrapper::-webkit-scrollbar-corner { background: transparent; }
+
+.db-tbl {
+  width: 100%; border-collapse: collapse;
+  font-size: 12.5px;
+}
+.db-tbl thead th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--bg-panel);
+  text-align: left; padding: 9px 12px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.db-tbl tbody td {
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  vertical-align: top;
+}
+.db-tbl .db-cell {
+  display: inline-block;
+  max-width: 320px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  vertical-align: bottom;
+}
+.db-tbl .db-col-num {
+  color: var(--text-muted); font-family: var(--font-mono);
+  width: 1%; white-space: nowrap; text-align: right;
+  user-select: none;
+}
+.db-null { color: var(--text-muted); opacity: .5; }
+
+.db-row { cursor: pointer; transition: background var(--transition); }
+.db-row:hover td { background: var(--bg-alt, rgba(127,127,127,.06)); }
+.db-col-chevron {
+  width: 1%; text-align: center; color: var(--text-muted);
+  opacity: 0; transition: opacity var(--transition);
+}
+.db-row:hover .db-col-chevron { opacity: .7; }
+
+/* ── Record detail: the clicked row as pretty-printed JSON ─────── */
+.db-detail { padding: 12px 14px 16px; }
+.db-detail-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 12px;
+}
+.db-detail-back, .db-detail-copy {
+  background: none; border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  padding: 6px 12px; border-radius: var(--radius-sm);
+  cursor: pointer; transition: all var(--transition);
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.db-detail-back:hover, .db-detail-copy:hover { color: var(--accent); border-color: var(--accent); }
+
+.db-json {
+  margin: 0; padding: 16px 18px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono); font-size: 12.5px; line-height: 1.6;
+  color: var(--text);
+  white-space: pre; word-break: normal;
+  overflow-x: auto;
+  user-select: text;
+  tab-size: 2;
+}

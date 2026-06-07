@@ -637,7 +637,8 @@ function openMemoryTable() {
   refreshMemories();
 }
 
-document.getElementById('tableBtn').addEventListener('click', openMemoryTable);
+// Opened from the DB panel's "Memories" row (see scripts/db-panel.js).
+window.openMemoryTable = openMemoryTable;
 
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {

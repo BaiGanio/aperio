@@ -6,6 +6,10 @@ import { fileURLToPath }                                   from "url";
 import { v4 as uuidv4 }                                   from "uuid";
 import ExcelJS                                             from "exceljs";
 import {
+  Document, Packer, Paragraph, TextRun, HeadingLevel,
+  AlignmentType, TableRow, TableCell, Table, WidthType,
+} from "docx";
+import {
   isReadPathAllowed,
   isWritePathAllowed,
   getActivePaths,
@@ -28,10 +32,25 @@ const KEY_FILES = new Set(["package.json", "README.md", "readme.md", "pyproject.
 const CODE_EXTS = new Set([".js", ".ts", ".py", ".go", ".rs", ".java", ".jsx", ".tsx"]);
 
 function formatPathError(action, filePath) {
-  const active = getActivePaths();
-  const paths  = action === "Read" ? active.readPaths : active.writePaths;
-  const list   = paths.map(p => `  - ${p}`).join("\n");
-  return { content: [{ type: "text", text: `❌ ${action} not allowed: ${filePath}\nAllowed ${action.toLowerCase()} paths:\n${list}` }] };
+  const active   = getActivePaths();
+  const paths    = action === "Read" ? active.readPaths : active.writePaths;
+  const primary  = paths[0] ?? process.cwd();
+  const list     = paths.map(p => `  - ${p}`).join("\n");
+  // Guess a corrected path: strip any leading prefix that looks like a wrong
+  // root alias and re-anchor to the actual primary allowed path.
+  // Handles: /aperio/…, /home/user/projects/aperio/…, /project/…, etc.
+  const projectName = primary.split("/").pop();
+  const projectRe  = new RegExp(`^.*?/${projectName}(?=/|$)`);
+  const tail = filePath.replace(projectRe, "")    // strip up to and including /aperio
+                        .replace(/^\/project\b/, ""); // /project/… → /…
+  const suggested = tail ? `${primary}${tail}` : primary;
+  return { content: [{ type: "text", text:
+    `❌ ${action} not allowed: ${filePath}\n\n` +
+    `CORRECT PATH TO USE: ${suggested}\n\n` +
+    `Retry the tool call immediately with the corrected path above. Do NOT ask the user — ` +
+    `you already have the information needed to proceed.\n\n` +
+    `Allowed ${action.toLowerCase()} paths:\n${list}`
+  }] };
 }
 
 export async function readFileHandler({ path: filePath, max_lines, offset = 0 }) {
@@ -279,6 +298,64 @@ export async function generateXlsxHandler({ filename, sheets }) {
   }
 }
 
+export async function generateDocxHandler({ filename, sections }) {
+  try {
+    const scratchDir = getActiveScratchDir();
+    const outDir     = scratchDir ?? UPLOADS_DIR;
+    const urlBase    = scratchDir ? `/scratch/${basename(scratchDir)}` : "/uploads";
+    await fs.mkdir(outDir, { recursive: true });
+
+    const safeName = basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
+    const outName  = `${uuidv4().slice(0, 8)}-${safeName.endsWith(".docx") ? safeName : safeName + ".docx"}`;
+    const outPath  = join(outDir, outName);
+    const publicUrl = `${urlBase}/${outName}`;
+
+    const children = [];
+
+    for (const section of sections) {
+      if (section.heading) {
+        children.push(new Paragraph({
+          text:    section.heading,
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 240, after: 120 },
+        }));
+      }
+      for (const para of (section.paragraphs ?? [])) {
+        if (typeof para === "string") {
+          children.push(new Paragraph({ children: [new TextRun(para)], spacing: { after: 120 } }));
+        } else if (para.type === "table" && Array.isArray(para.rows)) {
+          const tableRows = para.rows.map(row =>
+            new TableRow({
+              children: row.map(cell =>
+                new TableCell({
+                  children: [new Paragraph({ children: [new TextRun(String(cell ?? ""))] })],
+                  width: { size: Math.floor(9360 / row.length), type: WidthType.DXA },
+                })
+              ),
+            })
+          );
+          children.push(new Table({ rows: tableRows, width: { size: 100, type: WidthType.PERCENTAGE } }));
+        }
+      }
+    }
+
+    const doc  = new Document({ sections: [{ children }] });
+    const buf  = await Packer.toBuffer(doc);
+    await fs.writeFile(outPath, buf);
+    const stat   = await fs.stat(outPath);
+    const sizeKb = (stat.size / 1024).toFixed(1);
+
+    return {
+      content: [{
+        type: "text",
+        text: `APERIO_FILE:${JSON.stringify({ filename: safeName.endsWith(".docx") ? safeName : safeName + ".docx", url: publicUrl, sizeKb })}`,
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: "text", text: `❌ generate_docx failed: ${err.message}` }] };
+  }
+}
+
 // ─── delete_file — two-phase commit ───────────────────────────────────────────
 
 const DELETE_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minutes
@@ -469,5 +546,30 @@ export function register(server, ctx) {
       }),
     },
     generateXlsxHandler
+  );
+
+  server.registerTool(
+    "generate_docx",
+    {
+      description: "Generate a .docx Word document and make it available for download. Use this whenever the user asks to create a Word document, report, summary, or any .docx file.",
+      inputSchema: z.object({
+        filename: z.string().describe("Output filename, e.g. 'report.docx'"),
+        sections: z.array(
+          z.object({
+            heading:    z.string().optional().describe("Section heading (rendered as Heading 1)"),
+            paragraphs: z.array(
+              z.union([
+                z.string().describe("Plain text paragraph"),
+                z.object({
+                  type: z.literal("table"),
+                  rows: z.array(z.array(z.union([z.string(), z.number(), z.null()]))).describe("Table rows, each row is an array of cell values"),
+                }),
+              ])
+            ).describe("Paragraph texts or table objects"),
+          })
+        ).describe("Document sections, each with an optional heading and paragraphs"),
+      }),
+    },
+    generateDocxHandler
   );
 }

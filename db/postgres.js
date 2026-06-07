@@ -5,6 +5,7 @@
 import pg from 'pg';
 import { runMigrations } from './migrate.js';
 import { deserialiseRow } from './types.js';
+import { DB_TABLES, isAllowedTable } from './tables.js';
 
 // Maps locale codes to PostgreSQL text-search config names.
 // Languages without a native pg config fall back to 'simple' (no stemming,
@@ -166,6 +167,29 @@ export class PostgresStore {
        ORDER BY pinned DESC, importance DESC`
     );
     return rows.map(rowToMemory);
+  }
+
+  // ── Generic DB browser (whitelisted tables only) ─────────────────────────
+  async listTables() {
+    const out = [];
+    for (const { name, label } of DB_TABLES) {
+      // For memories, count what the UI actually shows: current, unexpired rows.
+      const sql = name === 'memories'
+        ? `SELECT COUNT(*)::int AS c FROM memories
+            WHERE valid_until IS NULL AND (expires_at IS NULL OR expires_at > NOW())`
+        : `SELECT COUNT(*)::int AS c FROM ${name}`;
+      const { rows } = await this.pool.query(sql);
+      out.push({ name, label, count: rows[0].c });
+    }
+    return out;
+  }
+
+  async readTable(name) {
+    if (!isAllowedTable(name)) throw new Error(`Unknown table: ${name}`);
+    const where = name === 'memories'
+      ? ` WHERE valid_until IS NULL AND (expires_at IS NULL OR expires_at > NOW())` : '';
+    const { rows, fields } = await this.pool.query(`SELECT * FROM ${name}${where}`);
+    return { columns: fields.map(f => f.name), rows };
   }
 
   async setPin(id, pinned) {
