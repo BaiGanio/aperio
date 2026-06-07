@@ -1,11 +1,11 @@
 ---
 name: tool-integration
 description: >
-  Use this skill when the agent needs to call one or more external tools, APIs,
-  or services to complete a task. Triggers: any task requiring data from an
-  external source, chaining multiple tool calls where one output feeds the next,
-  handling tool failures or retries, or selecting between multiple available tools
-  for the same subtask.
+  Use this skill when designing or executing a multi-step tool chain where one
+  tool's output feeds another, or when a tool call might fail and you need a
+  structured recovery strategy. Triggers: chaining two or more tools in sequence,
+  choosing between tools that produce incompatible output shapes, handling retries
+  with backoff, or mapping validation checkpoints across a chain before executing.
 metadata:
   keywords: "api, tool call, chain, integration, retry, fallback, error handling, external service"
   category: "execution"

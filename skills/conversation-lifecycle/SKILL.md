@@ -2,7 +2,7 @@
 name: conversation-lifecycle
 
 description: >
-  This skill defines what to do at the start and end of every conversation. Load it alongside `memory-protocol/SKILL.md`.
+  This skill defines what to do at the start and end of every conversation — how to apply preloaded memory context, track changes during the session, and surface memory suggestions before closing.
 
 metadata:
   load: always

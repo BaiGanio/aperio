@@ -1,10 +1,16 @@
 ---
 name: preprocess-pdf
-description: "Use this skill when a .pdf file is uploaded or a file path points to a PDF. The skill extracts text from text-native PDFs and detects scanned (image-only) PDFs that need visual analysis instead. Triggers: any .pdf attachment in the web UI, any file path ending in .pdf, or when a user asks to summarize/analyze/search a PDF document. Do NOT use for creating, merging, splitting, or modifying PDFs — this skill is read-only extraction only."
+description: >
+  Internal reference for Aperio's automatic PDF preprocessing. Describes the result
+  types (text/scanned/mixed/empty) the MCP attachment router returns when a PDF is
+  uploaded, and how the agent should handle each type. Load this skill when the router
+  has already pre-processed a PDF and you need to know what the result type means and
+  what to do next. Do NOT use for user-requested PDF tasks (creation, merging, splitting,
+  forms, extraction on demand) — use the pdf skill for those.
 compatibility: "Aperio MCP server — requires pdfjs-dist (npm install pdfjs-dist)"
 metadata:
-  keywords: "pdf, scanned pdf, ocr, extract pdf, pdf document, analyze pdf, summarize pdf"
-  category: "file-management"
+  keywords: "scanned pdf, pdf routing, pdf result type, text-native, pdf attachment handling"
+  category: "internal"
   load: "on-demand"
 ---
 
