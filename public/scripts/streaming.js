@@ -470,7 +470,16 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "generated_file") {
-    _pendingGeneratedFile = msg;
+    // The server emits these only after the final answer has streamed, so the
+    // answer bubble already exists — attach the download card straight to it.
+    // If a bubble is still streaming, keep it pending so stream_end attaches it.
+    if (streamingBubble) { _pendingGeneratedFile = msg; return; }
+    // Otherwise the answer is already rendered: attach to it, or — if the answer
+    // was empty so no bubble exists — stand the card up on its own.
+    const lastBubble = [...messagesEl.querySelectorAll(".message.ai .bubble")].at(-1);
+    if (lastBubble) lastBubble.appendChild(_buildGeneratedFileCard(msg));
+    else messagesEl.appendChild(_buildGeneratedFileCard(msg));
+    scrollToBottom();
     return;
   }
 
@@ -908,6 +917,12 @@ function _maybeShowStartupBanner(inputTok) {
     `</div>` +
     bdHtml;
   document.querySelector(".chat-area")?.prepend(banner);
+  setTimeout(() => {
+    if (!banner.isConnected) return;
+    const bd = banner.querySelector(".ctx-bd");
+    if (bd && bd.style.display !== "none") return;
+    banner.remove();
+  }, 10000);
 }
 
 function _annotateTokenBadges(inputTok, thinkTok) {
