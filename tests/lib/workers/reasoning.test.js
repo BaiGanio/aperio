@@ -35,6 +35,12 @@ describe("reasoning.js", () => {
     assert.strictEqual(events[events.length-1].type, "reasoning_done");
   });
 
+  test("Gemma adapter: flags noThinkWithTools (others do not)", () => {
+    assert.strictEqual(resolveReasoningAdapter("gemma4:12b").noThinkWithTools, true);
+    assert.notStrictEqual(resolveReasoningAdapter("qwen3:30b-a3b").noThinkWithTools, true);
+    assert.notStrictEqual(resolveReasoningAdapter("deepseek-r1").noThinkWithTools, true);
+  });
+
   test("DeepSeek-R1 adapter: sets noTools to true", () => {
     const adapter = resolveReasoningAdapter("deepseek-r1");
     assert.strictEqual(adapter.noTools, true);
@@ -85,17 +91,99 @@ describe("reasoning.js", () => {
       adapter.processDelta({ reasoning: "..." }, state, emit);
       assert.strictEqual(events.length, 3);
 
-      // 3. Content token closes reasoning
+      // 3. Content token closes reasoning. Content now flows through the inline
+      //    <think> splitter, which speculatively buffers a trailing window; the
+      //    full answer is the feed result plus the post-stream flush.
       const res = adapter.processDelta({ content: "Hello" }, state, emit);
       assert.deepEqual(events[3], { type: "reasoning_done" });
-      assert.strictEqual(res.contentToken, "Hello");
+      assert.strictEqual((res.contentToken ?? "") + adapter.flushState(state), "Hello");
+    });
+
+    test("empty-string content does not close an open reasoning block", () => {
+      // Ollama sends `content: ""` alongside every reasoning chunk. Each such
+      // chunk must keep the single reasoning block open rather than emitting a
+      // reasoning_done (which would split each token into its own bubble).
+      const state = adapter.createState();
+      const events = [];
+      const emit = (e) => events.push(e);
+
+      adapter.processDelta({ reasoning: "first", content: "" }, state, emit);
+      adapter.processDelta({ reasoning: "second", content: "" }, state, emit);
+      adapter.processDelta({ reasoning: "third", content: "" }, state, emit);
+
+      assert.strictEqual(events.filter(e => e.type === "reasoning_start").length, 1);
+      assert.strictEqual(events.filter(e => e.type === "reasoning_done").length, 0);
+      assert.strictEqual(events.filter(e => e.type === "reasoning_token").length, 3);
     });
 
     test("handles content without any prior reasoning", () => {
       const state = adapter.createState();
       const events = [];
       const res = adapter.processDelta({ content: "Direct answer" }, state, (e) => events.push(e));
-      assert.strictEqual(res.contentToken, "Direct answer");
+      assert.strictEqual((res.contentToken ?? "") + adapter.flushState(state), "Direct answer");
+      assert.strictEqual(events.length, 0);
+    });
+
+    test("strips an inline <think> block from content into reasoning events", () => {
+      const state = adapter.createState();
+      const events = [];
+      const emit = (e) => events.push(e);
+      const res = adapter.processDelta(
+        { content: "<think>weighing options</think>The answer" }, state, emit
+      );
+      const answer = (res.contentToken ?? "") + adapter.flushState(state);
+      assert.strictEqual(answer, "The answer");
+      assert.ok(events.some(e => e.type === "reasoning_start"));
+      assert.ok(events.some(e => e.type === "reasoning_token" && e.text.includes("weighing options")));
+      assert.ok(events.some(e => e.type === "reasoning_done"));
+    });
+
+    test("strips a HEADLESS think block (no opening tag) — the leak bug", () => {
+      // The chat template pre-fills `<think>`, so the model's content begins
+      // inside reasoning and only ever emits the closing `</think>`. The whole
+      // reasoning must route to reasoning_* events instead of leaking into the
+      // answer (which is what the user reported).
+      const state = adapter.createState();
+      const events = [];
+      const emit = (e) => events.push(e);
+      const res = adapter.processDelta(
+        { content: "reasoning about planets</think>The final answer" }, state, emit
+      );
+      const answer = (res.contentToken ?? "") + adapter.flushState(state);
+      assert.strictEqual(answer, "The final answer");
+      assert.ok(events.some(e => e.type === "reasoning_start"));
+      assert.ok(events.some(e => e.type === "reasoning_token" && e.text.includes("reasoning about planets")));
+      assert.ok(events.some(e => e.type === "reasoning_done"));
+      // The closing tag must never appear in the answer.
+      assert.ok(!answer.includes("</think>"));
+    });
+
+    test("headless block split across chunks buffers the lead until </think>", () => {
+      const state = adapter.createState();
+      const events = [];
+      const emit = (e) => events.push(e);
+      // Lead chunk has no tag yet — must be held, not emitted as answer.
+      const r1 = adapter.processDelta({ content: "still think" }, state, emit);
+      assert.strictEqual(r1.contentToken, null);
+      assert.strictEqual(events.length, 0);
+      const r2 = adapter.processDelta({ content: "ing</think>Done" }, state, emit);
+      const answer = (r2.contentToken ?? "") + adapter.flushState(state);
+      assert.strictEqual(answer, "Done");
+      assert.ok(events.some(e => e.type === "reasoning_token" && e.text.includes("still thinking")));
+    });
+
+    test("suppressed turn streams content directly without headless buffering", () => {
+      // When thinking is suppressed (reasoning_effort:none) the content is the
+      // answer; it must stream immediately rather than being held to look for a
+      // </think> that will never come.
+      const state = adapter.createState(true);
+      const events = [];
+      const res = adapter.processDelta(
+        { content: "Immediate answer that is long enough to stream" }, state, (e) => events.push(e)
+      );
+      const answer = (res.contentToken ?? "") + adapter.flushState(state);
+      assert.strictEqual(answer, "Immediate answer that is long enough to stream");
+      assert.ok((res.contentToken ?? "").length > 0); // streamed, not all held to flush
       assert.strictEqual(events.length, 0);
     });
   });

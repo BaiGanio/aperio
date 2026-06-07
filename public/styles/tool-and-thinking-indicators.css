@@ -280,6 +280,15 @@
     flex: 0 0 auto;
 }
 
+.tool-card-arg-block {
+    color: var(--text-muted);
+    padding-left: 15px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+}
+
 .tool-card-result {
     color: var(--text-muted);
     padding-left: 15px;
@@ -288,6 +297,38 @@
     white-space: nowrap;
 }
 .tool-card.error .tool-card-result { color: #e5534b; }
+
+/* Persistent breadcrumb left behind by a completed reasoning phase, aligned
+   with the tool-card dot so the feed reads as one ordered column of steps. */
+.action-phase {
+    width: 100%;
+    max-width: 1100px;
+    padding-left: 44px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-muted);
+    animation: fadeUp .15s ease;
+}
+.action-phase.done { opacity: 0.45; }
+.action-phase.active { color: var(--text); }
+.action-phase-mark {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: var(--text-muted);
+    opacity: 0.6;
+}
+/* Live cursor: a pulsing accent dot, matching the pending tool-card dot. */
+.action-phase-mark.live {
+    background: var(--accent);
+    opacity: 1;
+    animation: blink .9s ease-in-out infinite;
+}
+.action-phase-label { white-space: nowrap; }
 
 /* Tool indicator */
 .tool-indicator {

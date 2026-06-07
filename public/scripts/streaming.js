@@ -27,6 +27,46 @@ let _pendingGeneratedFile = null;
 // find the card its tool_start created.
 const _toolCards = new Map();
 
+// ── Persistent action feed ──────────────────────────────────────────────────
+// The live "thinking…/typing…" dots bubble (#thinking) is a single moving
+// cursor. To make the sequence of steps trackable, we leave a dim, persistent
+// breadcrumb behind each completed reasoning phase and keep that live cursor
+// pinned to the bottom of the feed (below any tool cards) instead of letting it
+// strand above them with a self-replacing label.
+let _lastPhase = null;
+// True when the active "thinking" phase already produced a visible reasoning
+// bubble — that bubble is the persistent record, so we skip the breadcrumb.
+let _phaseHadReasoning = false;
+
+function dropPhaseBreadcrumb(text) {
+  const line = document.createElement("div");
+  line.className = "action-phase done";
+  line.innerHTML =
+    `<span class="action-phase-mark"></span>` +
+    `<span class="action-phase-label">${escapeHtml(text)}</span>`;
+  const live = document.getElementById("thinking");
+  if (live) messagesEl.insertBefore(line, live);
+  else messagesEl.appendChild(line);
+}
+
+// Keep the live indicator as the last element so it reads as "what's happening
+// now" beneath the completed steps.
+function moveLiveIndicatorToBottom() {
+  const live = document.getElementById("thinking");
+  if (live && live !== messagesEl.lastElementChild) messagesEl.appendChild(live);
+}
+
+// Record a phase transition. Leaves a breadcrumb when a "thinking" phase gives
+// way to tools or the answer, unless that thinking was already surfaced as a
+// reasoning bubble.
+function enterPhase(kind) {
+  if (kind === "thinking") _phaseHadReasoning = false;
+  if (_lastPhase === "thinking" && kind !== "thinking" && !_phaseHadReasoning) {
+    dropPhaseBreadcrumb(t("status_thinking"));
+  }
+  _lastPhase = kind;
+}
+
 function estimateTokens(text) {
   if (!text || !text.trim()) return 0;
   return Math.max(1, Math.ceil(text.trim().length / 4));
@@ -152,6 +192,7 @@ function handleMessage(msg) {
 
   if (msg.type === "thinking") {
     suggestionShown = false;
+    enterPhase("thinking");
     setStatus("thinking", t("status_thinking"));
     sendBtn.disabled = true;
     if (!document.getElementById("thinking")) addThinking();
@@ -168,16 +209,19 @@ function handleMessage(msg) {
     sendBtn.disabled = true;
     sendBtn.style.display = "none";
     stopBtn.style.display = "flex";
+    enterPhase("tool");
     if (!document.getElementById("thinking")) addThinking();
     const key = TOOL_LABEL_KEYS && TOOL_LABEL_KEYS[msg.name];
     const labelText = key ? t(key) : t("tool_generic", { name: msg.name });
     const label = document.querySelector("#thinking .thinking-label");
     if (label) label.textContent = labelText;
+    moveLiveIndicatorToBottom();
     setStatus("thinking", labelText);
   }
 
   if (msg.type === "reasoning_start") {
     isReasoningActive = true;
+    _phaseHadReasoning = true;
     document.getElementById("preparing-answer")?.remove();
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
@@ -296,9 +340,10 @@ function handleMessage(msg) {
       reasoningBubble.statusSpan.style.opacity = "0.4";
       reasoningBubble = null;
     }
-    const label = document.querySelector("#thinking .thinking-label");
-    if (label) label.textContent = t("status_typing");
-    setStatus("thinking", t("status_typing"));
+    // Don't promise "typing…" yet: the model has only *started* generating, and
+    // this turn may yet be a tool call that prints nothing visible. The live
+    // line stays "thinking…" until the first real token arrives (see `token`),
+    // so the label never blinks "typing…" over an empty screen.
     // Round-table: tag the next streaming bubble with the agent that owns it.
     // Stored on a module-level var so the lazy `createStreamingBubble()` call
     // from the first `token` event picks up the right persona styling.
@@ -310,8 +355,14 @@ function handleMessage(msg) {
       const reasoningOn = localStorage.getItem("aperio-reasoning") !== "false";
       if (isReasoningActive && reasoningOn) return;
       if (!streamingBubble) {
+        // First visible token of the answer — now "typing" is true. Mark the
+        // phase (drops the "thinking…" breadcrumb) and flip the header, then
+        // tear down the live line; the streaming text itself is the indicator.
+        enterPhase("typing");
+        setStatus("thinking", t("status_typing"));
         removeThinking();
         removeToolIndicator();
+        document.getElementById("preparing-answer")?.remove();
         streamingBubble = createStreamingBubble(_nextBubbleAgent);
       }
       streamingText += msg.text;
@@ -1224,16 +1275,26 @@ function _openSkillDoc(name) {
 function _renderToolCard(msg) {
   const card = document.createElement("div");
   card.className = "tool-card pending";
+  // Short args sit inline beside the tool name; long ones (e.g. a full shell
+  // command) drop to their own wrapping line below the head so the whole
+  // command stays readable instead of being clipped to one line.
+  const arg = msg.arg || "";
+  const inlineArg = arg && arg.length <= 48
+    ? `<span class="tool-card-arg">${escapeHtml(arg)}</span>` : "";
+  const blockArg = arg && arg.length > 48
+    ? `<div class="tool-card-arg-block">${escapeHtml(arg)}</div>` : "";
   card.innerHTML =
     `<div class="tool-card-head">` +
       `<span class="tool-card-dot"></span>` +
       `<span class="tool-card-name">${escapeHtml(msg.name)}</span>` +
-      (msg.arg ? `<span class="tool-card-arg">${escapeHtml(msg.arg)}</span>` : "") +
+      inlineArg +
       `<span class="tool-card-time"></span>` +
     `</div>` +
+    blockArg +
     `<div class="tool-card-result">${t("tool_card_running")}</div>`;
   _toolCards.set(msg.seq, card);
   messagesEl.appendChild(card);
+  moveLiveIndicatorToBottom();
   scrollToBottom();
 }
 
@@ -1247,6 +1308,7 @@ function _resolveToolCard(msg) {
   if (time && typeof msg.ms === "number") time.textContent = `${msg.ms}ms`;
   const result = card.querySelector(".tool-card-result");
   if (result) result.textContent = `↳ ${msg.summary || (msg.ok ? "done" : "error")}`;
+  moveLiveIndicatorToBottom();
   scrollToBottom();
 }
 

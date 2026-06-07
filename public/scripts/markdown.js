@@ -28,7 +28,9 @@ function renderMarkdown(text) {
   text = text
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
     .replace(/`([^`\n]+)`/g, "<code>$1</code>")
-    .replace(/\*\*([^\n*]+?)\*\*/g, "<strong>$1</strong>")
+    // Allow single `*` (nested italics) inside bold; restrict to one line so a
+    // stray `**` can't span the whole message.
+    .replace(/\*\*([^\n]+?)\*\*/g, "<strong>$1</strong>")
     .replace(/(?<!\*)\*([^\n*]+?)\*(?!\*)/g, "<em>$1</em>")
     // Inline images: ![alt](src). src is allowlisted to local generated-file
     // routes and https to keep the innerHTML injection safe (no javascript:/data:).
