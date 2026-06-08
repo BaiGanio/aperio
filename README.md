@@ -134,7 +134,7 @@ npm install
 # cp .env.example .env
 
 AI_PROVIDER=ollama
-OLLAMA_MODEL=qwen2.5:3b
+OLLAMA_MODEL=qwen3:4b
 EMBEDDING_PROVIDER=transformers    # fully local, no API key required
 # DB_BACKEND=sqlite               # default; uncomment to override
 # SQLITE_PATH=./var/aperio.db     # default location for the single-file DB
@@ -169,9 +169,9 @@ npm run migrate
 ollama serve                     # use separate terminal
 ```
 ```bash
-ollama pull qwen2.5:3b           # LLM — lightweight, fast, good tool-calling
+ollama pull qwen3:4b              # LLM — strong reasoning, thinking mode, best tool-calling
+# ollama pull qwen2.5:3b         # LLM — lightweight legacy fallback
 # ollama pull llama3.1           # LLM — solid tool-calling, no reasoning
-# ollama pull qwen3:4b           # LLM — strong reasoning, thinking mode support
 ```
 ### Step 4. Start Aperio Web UI
 ```bash
@@ -376,7 +376,7 @@ No API keys, no data leaving your machine.
 
 ```env
 AI_PROVIDER=ollama
-OLLAMA_MODEL=qwen2.5:3b
+OLLAMA_MODEL=qwen3:4b
 OLLAMA_BASE_URL=http://localhost:11434
 ```
 
@@ -384,9 +384,9 @@ Recommended models (pull with `ollama pull <model>`):
 
 | Model | Best for |
 |-------|----------|
-| `qwen2.5:3b` | Default — lightweight, fast, good tool-calling |
+| `qwen3:4b` | **Default** — strong reasoning, thinking mode, best tool-calling |
 | `llama3.1` | Solid tool-calling, no thinking/reasoning overhead |
-| `qwen3:4b` | Strong reasoning, thinking mode |
+| `qwen2.5:3b` | Legacy — lightweight, good for ≤ 8 GB RAM |
 | `deepseek-r1:32b` | Heavy reasoning, requires ≥ 60 GB RAM |
 
 > **💡 Tip:** Set `CHECK_RAM=true` in `.env` to let Aperio auto-select a model based on available RAM.
