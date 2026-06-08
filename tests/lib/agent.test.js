@@ -671,6 +671,68 @@ describe("Agent Integration with Emitter", () => {
     assert.strictEqual(memCtx, "");
     assert.strictEqual(preloadedMemCount, 0);
   });
+
+  test("preloaded memories persist into later turns' system prompt, not just the greeting", async (t) => {
+    stubMcpTransport(t);
+
+    // Regression: memCtx used to be injected only on the greeting turn, so on the
+    // user's first real question the model had no memory context and denied having
+    // any ("this is our first conversation"). buildGreeting now persists the
+    // snapshot on the agent, so every turn's system prompt carries it.
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "recall") {
+        return { content: [{ type: "text", text: "[fact] User name is John\n---\n[preference] Likes Node.js" }] };
+      }
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+
+    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+
+    // Before the greeting, the snapshot isn't there yet.
+    assert.ok(!agent.getSystemPrompt("hi").includes("Here is what you know"),
+      "no memory context before buildGreeting");
+
+    await agent.buildGreeting();
+
+    // A later, ordinary turn (not the greeting) must still carry the snapshot.
+    const laterTurn = agent.getSystemPrompt("what do you know about me?", "en", "", [
+      { role: "user", content: "what do you know about me?" },
+    ]);
+    assert.ok(laterTurn.includes("Here is what you know about the user"),
+      "memory snapshot must persist into later turns' system prompt");
+    assert.ok(laterTurn.includes("User name is John"), "preloaded memory content must be present");
+  });
+
+  test("a memory saved mid-session refreshes the persisted snapshot", async (t) => {
+    stubMcpTransport(t);
+
+    // The greeting-time snapshot is taken once; a write later in the session must
+    // re-load it so the new memory shows up on subsequent turns, not only ones
+    // present at greeting. The write goes through callTool, which triggers the
+    // refresh for memory-write tools.
+    let saved = false;
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "recall") {
+        const text = saved
+          ? "[fact] User name is John\n---\n[fact] User loves sushi"
+          : "[fact] User name is John";
+        return { content: [{ type: "text", text }] };
+      }
+      if (name === "remember") { saved = true; return { content: [{ type: "text", text: "Saved." }] }; }
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+
+    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    await agent.buildGreeting();
+
+    assert.ok(!agent.getSystemPrompt("hi").includes("loves sushi"),
+      "memory not yet saved must not be in the snapshot");
+
+    await agent.callTool("remember", { type: "fact", title: "sushi", content: "User loves sushi" });
+
+    assert.ok(agent.getSystemPrompt("and now?").includes("User loves sushi"),
+      "memory saved mid-session must appear in later turns' system prompt");
+  });
 });
 
 // ---------------------------------------------------------------------------

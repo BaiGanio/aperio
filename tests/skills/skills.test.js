@@ -31,15 +31,6 @@ const SKILL_FIXTURES = {
     noMatchPhrases:  [],
     requiredContent: [],
   },
-  "memory-learning": {
-    // Name match: "memory" + "learning" both present
-    matchPhrases:    [
-      "memory learning from past sessions",
-      "memory and learning system",
-    ],
-    noMatchPhrases:  [],
-    requiredContent: [],
-  },
   "coding-standards": {
     // Name match: "coding" + "standards" both present
     matchPhrases:    [
@@ -138,6 +129,20 @@ describe("skill matching", () => {
       }
     });
   }
+
+  // Merged/retired stubs declare `load: never` and must never be injected,
+  // even when their name words appear verbatim in the message.
+  test("load: never stubs are never matched", () => {
+    const index = loadIndex();
+    const stubs = index.filter(s => s.load === "never");
+    assert.ok(stubs.length > 0, "expected at least one load:never stub to guard against");
+    for (const stub of stubs) {
+      const phrase = stub.name.replace(/-/g, " "); // e.g. "memory learning"
+      const matched = matchSkill(phrase, index);
+      assert.notEqual(matched?.name, stub.name,
+        `Stub "${stub.name}" (load: never) should not match phrase "${phrase}"`);
+    }
+  });
 });
 
 describe("skill content", () => {
