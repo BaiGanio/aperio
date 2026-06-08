@@ -374,65 +374,63 @@ function generateDeleteToken() {
 
 export async function deleteFileHandler(args) {
   // Normalize token aliases — models frequently use "token", "confirm", etc.
-  const filePath = args.path;
   const confirmation_token =
     args.confirmation_token ?? args.token ?? args.confirm ??
     args.auth_token ?? args.confirmationToken ?? null;
 
   pruneExpiredTokens();
 
+  // Phase 2: commit. The token maps to the path stashed at propose time, so the
+  // confirmation needs only the token — the web button click executes this
+  // directly on the server, and a terminal user can reply with the token.
+  if (confirmation_token) {
+    const entry = pendingDeletes.get(confirmation_token);
+    if (!entry || Date.now() >= entry.expiresAt) {
+      pendingDeletes.delete(confirmation_token);
+      return { content: [{ type: "text", text: `❌ Confirmation token invalid or expired. Deletion aborted.` }] };
+    }
+    pendingDeletes.delete(confirmation_token);
+
+    const filePath = entry.path;
+    if (!isWritePathAllowed(filePath))
+      return formatPathError("Write", filePath);
+    try {
+      await fs.unlink(filePath);
+      return { content: [{ type: "text", text: `✅ Deleted ${filePath}` }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `❌ delete_file failed: ${err.message}` }] };
+    }
+  }
+
+  // Phase 1: propose.
+  const filePath = args.path;
   if (!isWritePathAllowed(filePath))
     return formatPathError("Write", filePath);
+  if (!existsSync(filePath))
+    return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
 
-  if (!confirmation_token) {
-    // Phase 1: propose.
-    // If a live token was already issued for this path, re-surface it so the
-    // user doesn't have to re-confirm with yet another token.
-    if (!existsSync(filePath))
-      return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
-
-    for (const [existing, entry] of pendingDeletes) {
-      if (entry.path === filePath) {
-        return {
-          content: [{
-            type: "text",
-            text: `⚠️ Deletion pending confirmation\nTarget: ${filePath}\nToken: ${existing}\n\nA token was already issued. Confirm with token "${existing}". It expires in ${Math.ceil((entry.expiresAt - Date.now()) / 1000)}s.`,
-          }],
-        };
-      }
+  // If a live token was already issued for this path, re-surface it so the
+  // user doesn't have to re-confirm with yet another token.
+  for (const [existing, entry] of pendingDeletes) {
+    if (entry.path === filePath) {
+      return {
+        content: [{
+          type: "text",
+          text: `⚠️ Deletion pending confirmation\nTarget: ${filePath}\nToken: ${existing}\n\nA token was already issued. Confirm with token "${existing}". It expires in ${Math.ceil((entry.expiresAt - Date.now()) / 1000)}s.`,
+        }],
+      };
     }
-
-    const token = generateDeleteToken();
-    pendingDeletes.set(token, { path: filePath, expiresAt: Date.now() + DELETE_TOKEN_TTL_MS });
-
-    return {
-      content: [{
-        type: "text",
-        text: `⚠️ Deletion pending confirmation\nTarget: ${filePath}\nToken: ${token}\n\nTo complete this deletion, confirm with token "${token}". This token expires in 2 minutes.`,
-      }],
-    };
   }
 
-  // Phase 2: commit
-  const entry = pendingDeletes.get(confirmation_token);
+  const token = generateDeleteToken();
+  pendingDeletes.set(token, { path: filePath, expiresAt: Date.now() + DELETE_TOKEN_TTL_MS });
 
-  if (!entry || Date.now() >= entry.expiresAt) {
-    pendingDeletes.delete(confirmation_token);
-    return { content: [{ type: "text", text: `❌ Confirmation token invalid or expired. Deletion aborted.` }] };
-  }
-
-  if (entry.path !== filePath) {
-    return { content: [{ type: "text", text: `❌ Confirmation token mismatch: token was issued for a different path. Deletion aborted.` }] };
-  }
-
-  pendingDeletes.delete(confirmation_token);
-
-  try {
-    await fs.unlink(filePath);
-    return { content: [{ type: "text", text: `✅ Deleted ${filePath}` }] };
-  } catch (err) {
-    return { content: [{ type: "text", text: `❌ delete_file failed: ${err.message}` }] };
-  }
+  return {
+    content: [{
+      type: "text",
+      text: `⚠️ Deletion pending confirmation\nTarget: ${filePath}\nToken: ${token}\n\nTo complete this deletion, confirm with token "${token}". This token expires in 2 minutes.`,
+    }],
+  };
 }
 
 // ─── MCP registration ─────────────────────────────────────────────────────────
@@ -517,10 +515,10 @@ export function register(server, ctx) {
   server.registerTool(
     "delete_file",
     {
-      description: "Delete a file from disk. Requires a two-step confirmation: call without confirmation_token first to receive a token, then call again with that token to execute. Never fabricate or reuse a token.",
+      description: "Delete a file from disk. Confirm-before-write: call WITHOUT confirmation_token to propose; the user is shown a confirm button (or, in the terminal, a token to reply with) and the deletion runs when they confirm. Do NOT fabricate a token and do NOT call again yourself — just propose, then end your turn. Only pass confirmation_token if the user's own message contains a token like 'del_ab12cd'.",
       inputSchema: z.object({
-        path:               z.string().describe("Absolute path to the file to delete"),
-        confirmation_token: z.string().optional().describe("Token returned by the first call. Omit on the first call."),
+        path:               z.string().optional().describe("Absolute path to the file to delete (required when proposing)."),
+        confirmation_token: z.string().optional().describe("RESERVED for the confirm flow — leave empty when proposing. Only set it if the user's message contains a token."),
         token:              z.string().optional().describe("Alias for confirmation_token"),
         confirm:            z.string().optional().describe("Alias for confirmation_token"),
       }).passthrough(),

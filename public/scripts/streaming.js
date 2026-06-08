@@ -520,6 +520,11 @@ function handleMessage(msg) {
     return;
   }
 
+  if (msg.type === "action_confirm_pending") {
+    _renderActionConfirmButton(msg.token, msg.label, msg.summary, msg.tool);
+    return;
+  }
+
   if (msg.type === "generated_file") {
     // The server emits these only after the final answer has streamed, so the
     // answer bubble already exists — attach the download card straight to it.
@@ -1347,6 +1352,51 @@ function _renderDeleteConfirmButton(token, filePath) {
   };
 
   wrap.appendChild(btn);
+  messagesEl.appendChild(wrap);
+  scrollToBottom();
+}
+
+// Generic confirm-before-write button (GitHub issue create/update, etc.). The
+// action is already resolved and stashed server-side under the token, so the
+// click sends a `confirm_action` message and the SERVER executes it directly —
+// no model round-trip. The result streams back as a normal assistant message.
+function _renderActionConfirmButton(token, label, summary, tool) {
+  const wrap = document.createElement("div");
+  wrap.className = "action-confirm-wrap";
+
+  const head = document.createElement("div");
+  head.className = "action-confirm-header";
+  head.textContent = label || "Confirm action";
+  wrap.appendChild(head);
+
+  if (summary) {
+    const meta = document.createElement("div");
+    meta.className = "action-confirm-summary";
+    meta.textContent = summary;
+    wrap.appendChild(meta);
+  }
+
+  const btn = document.createElement("button");
+  btn.className = "action-confirm-btn";
+  btn.innerHTML = '<i class="bi bi-check2-circle"></i> Confirm';
+  btn.onclick = () => {
+    btn.disabled = true;
+    wrap.remove();
+    safeSend(JSON.stringify({ type: "confirm_action", token, tool }));
+  };
+
+  // Let the user back out without performing the action.
+  const cancel = document.createElement("button");
+  cancel.className = "action-confirm-btn action-confirm-cancel";
+  cancel.textContent = "Cancel";
+  cancel.onclick = () => wrap.remove();
+
+  const row = document.createElement("div");
+  row.className = "action-confirm-row";
+  row.appendChild(btn);
+  row.appendChild(cancel);
+  wrap.appendChild(row);
+
   messagesEl.appendChild(wrap);
   scrollToBottom();
 }
