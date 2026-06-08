@@ -156,9 +156,9 @@ describe("RAM-based model selection", () => {
     assert.strictEqual(getRecommendedModel(), "llama3.1:8b");
   });
 
-  test("selects qwen2.5:3b for 8-14 GB RAM", () => {
+  test("selects qwen3:4b for 8-14 GB RAM", () => {
     mock.method(os, "totalmem", () => 8 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "qwen2.5:3b");
+    assert.strictEqual(getRecommendedModel(), "qwen3:4b");
   });
 
   test("selects qwen3:8b for low RAM (<8 GB)", () => {

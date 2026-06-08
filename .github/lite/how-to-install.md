@@ -23,7 +23,7 @@ Everything runs locally on your machine.
 
 | Tier | Model | RAM Needed | Disk |
 |------|-------|-----------|------|
-| Lite | qwen2.5:3b | ~4 GB | ~2 GB |
+| Lite | qwen3:4b | ~4 GB | ~2.5 GB |
 | Medium | llama3.1:8b | ~8 GB | ~5 GB |
 | Smart | qwen3:8b | ~10 GB | ~5 GB |
 | Reasoning | qwen3:14b | ~16 GB | ~9 GB |
@@ -122,7 +122,7 @@ The launcher reads your total RAM and free disk space, then recommends the best 
 
 | RAM | Model | Download Size |
 |-----|-------|--------------|
-| 4 GB or less | qwen2.5:3b | ~2 GB |
+| 4 GB or less | qwen3:4b | ~2.5 GB |
 | 5 – 8 GB | llama3.1:8b | ~5 GB |
 | 9 – 12 GB | qwen3:8b | ~5 GB |
 | 16 – 31 GB | qwen3:14b | ~9 GB |
