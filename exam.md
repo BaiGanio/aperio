@@ -18,7 +18,7 @@ Each drill lists **✅ Expected** = the tool(s)/skill that should fire and what 
 Import the persona dataset so the memory/recall/wiki/dedup drills have real data to work on. Set `PORT` to your instance (`3000` default, `1701` cloud script, `31337` local script).
 
 ```bash
-PORT=3000
+PORT=31337
 curl -s -X POST "http://localhost:$PORT/api/memories/import" \
   -H "Content-Type: application/json" \
   --data-binary @exam.memories.json | node -e "process.stdin.pipe(process.stdout)"

@@ -43,11 +43,17 @@ export class PostgresStore {
 
   async counts() {
     const { rows } = await this.pool.query(
-      `SELECT COUNT(*) AS total, COUNT(embedding) AS embedded FROM memories`
+      `SELECT COUNT(*) AS total,
+              COUNT(embedding) AS embedded,
+              COUNT(*) FILTER (WHERE valid_until IS NULL AND (expires_at IS NULL OR expires_at > NOW())) AS current
+         FROM memories`
     );
     return {
       total:    Number.parseInt(rows[0].total),
       embedded: Number.parseInt(rows[0].embedded),
+      // recall-able rows (latest, unexpired) — what the UI shows, distinct from
+      // `total` which also counts tombstoned/superseded versions.
+      current:  Number.parseInt(rows[0].current),
     };
   }
 

@@ -31,7 +31,7 @@ const SHELL_ENABLED = process.env.APERIO_ENABLE_SHELL === "1";
 // (git, grep, rg, find, ls, cat, head, tail). npm is included for the rare
 // dependency install a deck/model genuinely needs.
 const ALLOWED_CMDS = new Set([
-  "node", "npm", "git", "ls", "cat", "grep", "rg", "find", "head", "tail",
+  "node", "npm", "git", "ls", "cat", "grep", "rg", "find", "head", "tail", "wc",
   "python3", "soffice", "pdftoppm",
 ]);
 
@@ -440,10 +440,10 @@ export function register(server) {
   server.registerTool(
     "run_shell",
     {
-      description: "Run a single shell command (optionally one '|' pipe) in the session workspace and return its stdout/stderr. Disabled unless APERIO_ENABLE_SHELL=1. Only allowlisted programs run: node, npm, git, ls, cat, grep, rg, find, head, tail, python3, soffice, pdftoppm. Use this for QA steps that need real binaries — e.g. converting a deck to images for visual QA (soffice then pdftoppm) or grepping extracted text for leftover placeholders. No ; && || & < > backticks or $().",
+      description: "Run a single shell command (optionally one '|' pipe) and return its stdout/stderr. Disabled unless APERIO_ENABLE_SHELL=1. Only allowlisted programs run: node, npm, git, ls, cat, grep, rg, find, head, tail, wc, python3, soffice, pdftoppm. Use this for QA steps that need real binaries — e.g. converting a deck to images for visual QA (soffice then pdftoppm) or grepping extracted text for leftover placeholders — and for inspecting the project (find/git/grep). No ; && || & < > backticks or $().",
       inputSchema: z.object({
         command: z.string().describe('The command to run, e.g. node /abs/path/scripts/read.js out.pptx | grep -iE "lorem|ipsum"'),
-        cwd: z.string().optional().describe("Working directory (must be within an allowed write path). Defaults to the active session workspace."),
+        cwd: z.string().optional().describe("Working directory (must be within an allowed write path). Defaults to the project root, or the session scratch workspace once files have been generated there."),
       }),
     },
     runShellHandler

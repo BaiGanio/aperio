@@ -148,6 +148,34 @@ describe("recallHandler", () => {
     const result = await recallHandler(ctx, { query: "test", search_mode: "fulltext" });
     assert.ok(!result.content[0].text.includes("similarity"));
   });
+
+  test("no-query recall appends a preview footer when more memories exist", async () => {
+    const ctx = makeCtx({
+      recall: async () => [makeMemory()],            // 1 row returned
+      counts: async () => ({ total: 70, embedded: 65, current: 67 }),
+    });
+    const text = (await recallHandler(ctx, { limit: 5 })).content[0].text;
+    assert.ok(text.includes("Preview only: showing the 1 highest-priority of 67"),
+      "footer must report shown-of-total so the model knows the listing is partial");
+  });
+
+  test("no footer when a query is supplied (semantic search, not core-context load)", async () => {
+    const ctx = makeCtx({
+      recall: async () => [makeMemory()],
+      counts: async () => ({ total: 70, embedded: 65, current: 67 }),
+    });
+    const text = (await recallHandler(ctx, { query: "meeting", limit: 5 })).content[0].text;
+    assert.ok(!text.includes("Preview only"), "query recalls already search the full store");
+  });
+
+  test("no footer when the returned rows are the whole store", async () => {
+    const ctx = makeCtx({
+      recall: async () => [makeMemory(), makeMemory({ id: "b" })],
+      counts: async () => ({ total: 2, embedded: 2, current: 2 }),
+    });
+    const text = (await recallHandler(ctx, { limit: 5 })).content[0].text;
+    assert.ok(!text.includes("Preview only"));
+  });
 });
 
 // ─── updateMemoryHandler ──────────────────────────────────────────────────────
