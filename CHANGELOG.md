@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.52.0] — 2026-06-08
+
+### Added
+- closed #2 (What happens when swithcing embedding provides? How the Aperio handles this?)
+
+---
+
+
 ## [0.51.2] — 2026-05-31
 
 ### Fixed
