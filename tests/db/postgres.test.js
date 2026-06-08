@@ -106,11 +106,11 @@ describe("PostgresStore", () => {
     assert.ok(store.pool);
   });
 
-  test("counts returns total and embedded", async () => {
-    _poolQuery = async () => ({ rows: [{ total: 5, embedded: 3 }] });
+  test("counts returns total, embedded, and current", async () => {
+    _poolQuery = async () => ({ rows: [{ total: 5, embedded: 3, current: 4 }] });
     const store = await PostgresStore.init();
     const c = await store.counts();
-    assert.deepEqual(c, { total: 5, embedded: 3 });
+    assert.deepEqual(c, { total: 5, embedded: 3, current: 4 });
   });
 });
 

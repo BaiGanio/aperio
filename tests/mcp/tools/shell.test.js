@@ -129,6 +129,11 @@ describe("runShellHandler", () => {
     const r = await shell.runShellHandler({ command: "node --version", cwd: tmpRoot });
     assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
   });
+
+  test("allows wc in a pipe", async () => {
+    const r = await shell.runShellHandler({ command: "ls | wc -l", cwd: tmpRoot });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
+  });
 });
 
 // =============================================================================

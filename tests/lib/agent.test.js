@@ -9,6 +9,7 @@ import {
   getRecommendedModel,
   resolveProvider,
   parseMemoriesRaw,
+  isRetrievalQuestion,
   createAgent,
   zodToJsonSchema,
 } from "../../lib/agent.js";
@@ -101,6 +102,24 @@ describe("agent.js - core", () => {
     assert.deepStrictEqual(parseMemoriesRaw(""), []);
     assert.deepStrictEqual(parseMemoriesRaw("No memories found."), []);
     assert.deepStrictEqual(parseMemoriesRaw("No result"), []);
+  });
+
+  test("isRetrievalQuestion fires on memory-lookup phrasing, not on work prompts", () => {
+    // The exact QWEN3 failure cases that prompted Layer 2 (deterministic recall).
+    for (const q of [
+      "do I have any meeting today?",
+      "do you recall any memories for that?",
+      "what do you know about my deadlines",
+      "any reminders about the dentist",
+    ]) assert.ok(isRetrievalQuestion(q), `should detect: "${q}"`);
+
+    // False positives only cost an extra recall, but obvious work prompts and
+    // bare modal "do I have to" must not trigger it.
+    for (const q of [
+      "write a function to add two numbers",
+      "do I have to refactor this",
+      "",
+    ]) assert.ok(!isRetrievalQuestion(q), `should NOT detect: "${q}"`);
   });
 
   test("parseMemoriesRaw handles malformed input gracefully", () => {
@@ -380,6 +399,75 @@ describe("Ollama Loop Logic - Health Check", () => {
 });
 
 // ---------------------------------------------------------------------------
+// run_shell cwd injection (callToolHooked)
+// ---------------------------------------------------------------------------
+//
+// run_shell executes in the MCP subprocess, where getActiveScratchDir() is
+// always null — so it cannot default its own working directory. callToolHooked
+// (main process) must inject a cwd before the call crosses the MCP boundary:
+// the session scratch dir if it exists, else the project root. We drive a full
+// runAgentLoop through the Ollama loop, have the mocked model emit a run_shell
+// tool call, and assert on the arguments that reach Client.prototype.callTool
+// (the MCP boundary).
+
+describe("run_shell cwd injection", () => {
+  beforeEach(() => {
+    delete process.env.AI_PROVIDER;
+    delete process.env.OLLAMA_MODEL;
+  });
+
+  // Build an SSE chunk that mimics one OpenAI-style streaming delta.
+  const sse = (delta) => "data: " + JSON.stringify({ choices: [{ delta, finish_reason: null }] }) + "\n";
+  const DONE = "data: [DONE]\n";
+
+  // Drive a single turn where the model calls run_shell with `shellArgs`, then
+  // returns a final answer. Returns the args that reached the MCP boundary.
+  async function runShellTurn(t, shellArgs) {
+    stubMcpTransport(t);
+
+    // Capture what crosses into the MCP subprocess.
+    const captured = [];
+    t.mock.method(Client.prototype, "callTool", async ({ name, arguments: args }) => {
+      captured.push({ name, args });
+      return { content: [{ type: "text", text: "ok" }] };
+    });
+
+    // First chat completion → a run_shell tool call; second → a final answer.
+    let chatCalls = 0;
+    t.mock.method(globalThis, "fetch", (url) => {
+      if (String(url).includes("/api/tags")) return Promise.resolve({ ok: true });
+      chatCalls++;
+      const chunks = chatCalls === 1
+        ? [sse({ tool_calls: [{ index: 0, id: "call_1", function: { name: "run_shell", arguments: JSON.stringify(shellArgs) } }] }), DONE]
+        : [sse({ content: "Done." }), DONE];
+      return Promise.resolve(createMockResponseStream(chunks));
+    });
+
+    process.env.AI_PROVIDER = "ollama";
+    process.env.OLLAMA_MODEL = "llama3.1";
+
+    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    await agent.runAgentLoop([{ role: "user", content: "please run ls" }], { send: t.mock.fn() });
+
+    return captured.find((c) => c.name === "run_shell");
+  }
+
+  test("injects the project root as cwd when the model omits it", async (t) => {
+    const call = await runShellTurn(t, { command: "ls" });
+    assert.ok(call, "run_shell should reach the MCP boundary");
+    assert.strictEqual(call.args.command, "ls");
+    // No session scratch dir exists in the test, so it falls back to the project root.
+    assert.strictEqual(call.args.cwd, process.cwd());
+  });
+
+  test("preserves an explicit cwd supplied by the model", async (t) => {
+    const call = await runShellTurn(t, { command: "ls", cwd: "/some/allowed/path" });
+    assert.ok(call, "run_shell should reach the MCP boundary");
+    assert.strictEqual(call.args.cwd, "/some/allowed/path");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // History Management
 // ---------------------------------------------------------------------------
 
@@ -653,8 +741,9 @@ describe("Agent Integration with Emitter", () => {
     const { prompt, memCtx, preloadedMemCount } = await agent.buildGreeting();
 
     assert.ok(prompt.includes("Greet me"));
-    assert.ok(!prompt.includes("Here is what you know"), "memories must not be in the user message");
-    assert.ok(memCtx.includes("Here is what you know"), "memories must be in memCtx");
+    assert.ok(!prompt.includes("MEMORY PREVIEW"), "memories must not be in the user message");
+    assert.ok(memCtx.includes("MEMORY PREVIEW"), "memories must be in memCtx");
+    assert.ok(memCtx.includes("User name is John"), "preloaded memory content must be in memCtx");
     assert.strictEqual(preloadedMemCount, 2);
   });
 
@@ -689,7 +778,7 @@ describe("Agent Integration with Emitter", () => {
     const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
 
     // Before the greeting, the snapshot isn't there yet.
-    assert.ok(!agent.getSystemPrompt("hi").includes("Here is what you know"),
+    assert.ok(!agent.getSystemPrompt("hi").includes("MEMORY PREVIEW"),
       "no memory context before buildGreeting");
 
     await agent.buildGreeting();
@@ -698,7 +787,7 @@ describe("Agent Integration with Emitter", () => {
     const laterTurn = agent.getSystemPrompt("what do you know about me?", "en", "", [
       { role: "user", content: "what do you know about me?" },
     ]);
-    assert.ok(laterTurn.includes("Here is what you know about the user"),
+    assert.ok(laterTurn.includes("MEMORY PREVIEW"),
       "memory snapshot must persist into later turns' system prompt");
     assert.ok(laterTurn.includes("User name is John"), "preloaded memory content must be present");
   });

@@ -355,7 +355,13 @@ export class SqliteStore {
         FROM memories m
         LEFT JOIN vec_memories v ON v.rowid = m.rowid
     `).get();
-    return { total: Number(row.total), embedded: Number(row.embedded ?? 0) };
+    // `current` = recall-able rows the UI actually shows (latest, unexpired),
+    // distinct from `total` which counts tombstoned/superseded versions too.
+    const current = this.db.prepare(
+      `SELECT COUNT(*) AS c FROM memories
+        WHERE valid_until IS NULL AND (expires_at IS NULL OR expires_at > ?)`
+    ).get(nowIso()).c;
+    return { total: Number(row.total), embedded: Number(row.embedded ?? 0), current: Number(current) };
   }
 
   // ── Insert / bulkInsert ───────────────────────────────────────────────────
