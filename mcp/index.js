@@ -69,7 +69,7 @@ export async function startServer(opts = {}) {
   registerShell(server);
   registerWiki(server, ctx);
   registerCodegraph(server, ctx);
-  registerGithub(server);
+  registerGithub(server, ctx);
 
   // 4. Connect transport
   const transport = opts.transport || new StdioServerTransport();
