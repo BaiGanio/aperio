@@ -513,6 +513,11 @@ export class SqliteStore {
       .run(BigInt(row.rowid), vecBuf(embedding));
   }
 
+  async clearAllEmbeddings() {
+    this.db.prepare(`DELETE FROM vec_memories`).run();
+    this.db.prepare(`DELETE FROM vec_wiki`).run();
+  }
+
   async setPin(id, pinned) {
     const info = this.db.prepare(`
       UPDATE memories SET pinned = ? WHERE id = ? AND valid_until IS NULL

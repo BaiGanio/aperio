@@ -414,6 +414,11 @@ export class PostgresStore {
   // ── Settings (key/value preferences) ──────────────────────────────────────
   // value is JSONB; pg parses it back to a JS value on read.
 
+  async clearAllEmbeddings() {
+    await this.pool.query(`UPDATE memories SET embedding = NULL`);
+    await this.pool.query(`UPDATE wiki_articles SET embedding = NULL`);
+  }
+
   async getSetting(key) {
     const { rows } = await this.pool.query(
       `SELECT value FROM settings WHERE key = $1`, [key]
