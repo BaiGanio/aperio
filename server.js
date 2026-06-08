@@ -314,7 +314,7 @@ async function bootApp() {
   const { createSessionPruner }           = await import("./lib/workers/session-prune.js");
   const { makeWsHandler }                 = await import("./lib/emitters/handlers/wsHandler.js");
   const { apiRouter }                     = await import("./lib/routes/api.js");
-  const { generateEmbedding, initEmbeddings, disposeEmbeddings } = await import("./lib/helpers/embeddings.js");
+  const { generateEmbedding, initEmbeddings, disposeEmbeddings, checkEmbeddingProvider } = await import("./lib/helpers/embeddings.js");
 
   // DB
   const store = await getStore();
@@ -341,6 +341,7 @@ async function bootApp() {
   } catch (err) {
     logger.warn(`[allowlist] repo sync skipped: ${err.message}`);
   }
+  await checkEmbeddingProvider(store);
   const { shutdown: shutdownEmbeddings } = await initEmbeddings(store, generateEmbedding);
 
   // ── Code graph live watcher (opt-in) ──────────────────────────────────────
