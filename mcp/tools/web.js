@@ -6,8 +6,9 @@ import sanitizeHtml from "sanitize-html";
 
 // ─── Pure handler ─────────────────────────────────────────────────────────────
 
-export async function fetchUrlHandler({ url, max_chars: _max }) {
+export async function fetchUrlHandler({ url, max_chars: _max, offset: _offset }) {
   const max_chars = _max !== undefined ? Number.parseInt(_max, 10) : undefined;
+  const offset    = _offset !== undefined ? Math.max(0, Number.parseInt(_offset, 10) || 0) : 0;
   try {
     const response = await fetch(url, {
       headers: { "User-Agent": "Aperio/2.0" },
@@ -26,11 +27,12 @@ export async function fetchUrlHandler({ url, max_chars: _max }) {
     }
 
     const limit     = Math.min(max_chars ?? 15_000, 15_000);
-    const truncated = text.length > limit;
+    const end       = offset + limit;
+    const truncated = text.length > end;
     return {
       content: [{
         type: "text",
-        text: `🌐 ${url}\n\n${text.slice(0, limit)}${truncated ? "\n\n⚠️ Truncated. Ask for more if needed." : ""}`,
+        text: `🌐 ${url}\n\n${text.slice(offset, end)}${truncated ? `\n\n⚠️ Truncated at ${end} of ${text.length} chars. Call again with offset: ${end} for the rest.` : ""}`,
       }],
     };
   } catch (err) {
@@ -44,10 +46,11 @@ export function register(server, _ctx) {
   server.registerTool(
     "fetch_url",
     {
-      description: "Fetch content from a URL. Strips HTML tags, truncates at 15,000 characters.",
+      description: "Fetch content from a URL. Strips HTML tags, returns up to 15,000 characters per call — use offset to page through longer content.",
       inputSchema: z.object({
         url:       z.string().url().describe("The URL to fetch"),
         max_chars: z.number().min(500).max(15000).optional().describe("Max characters, default 15000"),
+        offset:    z.number().min(0).optional().describe("Character offset to start from, for paging through truncated content"),
       }),
     },
     fetchUrlHandler
