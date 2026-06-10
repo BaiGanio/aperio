@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.55.0] — 2026-06-10
+
+### Added
+- wtf once more
+
+---
+
+
 ## [0.54.0] — 2026-06-10
 
 ### Added
