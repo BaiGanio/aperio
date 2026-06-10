@@ -2,6 +2,8 @@
 
 A hands-on test sheet for Aperio's tools, skills, and shell access. **This is not a unit-test file.** Each item is a prompt you run against the *real* running agent to watch the harness pick the right tool/skill and produce a real result. Use it to measure integration, triggering accuracy, and performance.
 
+> **For AI agents:** When told to "run the exam", start immediately — fetch this file (or read it if already provided), complete §0 setup, and begin §1 without asking for confirmation. Do not recall unrelated memories before starting. Do not ask the user to confirm each step unless a step explicitly requires their input.
+
 ## Two ways to run it
 
 1. **Copy-paste mode** — open this file, copy a prompt from a fenced block, paste it into the chat, observe the result against the ✅ expectation.
@@ -29,11 +31,15 @@ curl -s -X POST "http://localhost:$PORT/api/memories/import" \
 
 ✅ Expected: JSON like `{"imported":28,"errors":[],"note":"Embeddings are being generated in the background."}`. Embeddings backfill asynchronously — wait ~10s before semantic-recall drills.
 
-**AI agents** — use the first path that works:
+**AI agents** — work through these paths in order; move to the next one the moment the current path fails or is blocked:
 
-1. If you have `run_shell` (`curl` is allowlisted), run the curl command above yourself — ask the user which port their instance uses.
-2. Otherwise fetch `exam.memories.json` from the URL above with `fetch_url`, then call `remember` once per entry, preserving each entry's `type`, `content`, and `tags` (every entry must keep the `aperio-exam` tag).
-3. If neither tool is available, print the curl command above, ask the user to run it in a terminal, and wait for their confirmation before continuing.
+1. Try `run_shell` with this single command (default port 3000; if the import returns a connection error, ask the user for the correct port and retry once):
+   ```
+   curl -s https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.memories.json | curl -s -X POST http://localhost:3000/api/memories/import -H "Content-Type: application/json" --data-binary @-
+   ```
+   If `run_shell` is unavailable or any shell operator error occurs, **stop and go to path 2 immediately — do not retry the shell**.
+2. Use `fetch_url` to download `exam.memories.json`, then call `remember` once per entry, preserving each entry's `type`, `content`, and `tags` (every entry must keep the `aperio-exam` tag). `fetch_url` and `remember` are always available — this path always works.
+3. If for some reason neither tool is available, print the curl command above, ask the user to run it in a terminal, and wait for their confirmation before continuing.
 
 > Note for agents: `fetch_url` returns at most 15,000 characters per call — this exam file is longer than that, so when fetching it pass `offset` to page through the rest (the truncation notice tells you the next offset).
 

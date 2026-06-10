@@ -280,7 +280,17 @@ export async function runShellHandler({ command, cwd: cwdArg }) {
   const banned = checkBannedOperators(command);
   if (banned) {
     logger.warn(`[run_shell] rejected operator "${banned}": ${command}`);
-    return { content: [{ type: "text", text: `❌ Shell operator "${banned}" is not allowed. Run one command at a time (an optional single "|" pipe is permitted); no ; && || & < > backticks or $().` }] };
+    return { content: [{ type: "text", text:
+      `❌ Shell operator "${banned}" is not allowed.\n\n` +
+      `Common mistakes:\n` +
+      `  • 2>&1  — do not use stderr redirection; run_node_script captures both streams automatically\n` +
+      `  • &&, ||, ; — chain commands in a .js script instead (see below)\n` +
+      `  • > or <  — write output in a script; use fetch_url (not curl) to download URLs\n\n` +
+      `For multi-step operations: write a .js script to the session scratch workspace ` +
+      `(the path is in your system prompt under "Session scratch workspace"), ` +
+      `then run it with run_node_script. It captures stdout+stderr, enforces the same timeout, ` +
+      `and the file is cleaned up automatically when the session expires.`
+    }] };
   }
 
   // Validate the program in each pipe segment against the allowlist.
@@ -444,7 +454,7 @@ export function register(server) {
   server.registerTool(
     "run_shell",
     {
-      description: "Run a single shell command (optionally one '|' pipe) and return its stdout/stderr. Disabled unless APERIO_ENABLE_SHELL=1. Only allowlisted programs run: node, npm, git, ls, cat, grep, rg, find, head, tail, wc, python3, soffice, pdftoppm. Use this for QA steps that need real binaries — e.g. converting a deck to images for visual QA (soffice then pdftoppm) or grepping extracted text for leftover placeholders — and for inspecting the project (find/git/grep). No ; && || & < > backticks or $().",
+      description: "Run a shell command and return its stdout/stderr. Pipes ('|') between allowlisted programs are permitted. Disabled unless APERIO_ENABLE_SHELL=1. Only allowlisted programs run: node, npm, git, ls, cat, grep, rg, find, head, tail, wc, python3, soffice, pdftoppm, curl. No ; && || & < > backticks or $(). For multi-step operations write a .js script to the session scratch workspace (see system prompt) and run it with run_node_script — those files are cleaned up with the session.",
       inputSchema: z.object({
         command: z.string().describe('The command to run, e.g. node /abs/path/scripts/read.js out.pptx | grep -iE "lorem|ipsum"'),
         cwd: z.string().optional().describe("Working directory (must be within an allowed write path). Defaults to the project root, or the session scratch workspace once files have been generated there."),
