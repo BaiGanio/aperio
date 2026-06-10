@@ -1,7 +1,7 @@
 import { z }            from "zod";
 import { spawn }         from "child_process";
 import { dirname, resolve as resolvePath, extname } from "path";
-import { existsSync }    from "fs";
+import { existsSync, mkdirSync } from "fs";
 import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratchDir } from "../../lib/routes/paths.js";
 import { pythonInterpreter } from "../../lib/helpers/capabilities.js";
 import logger from "../../lib/helpers/logger.js";
@@ -324,6 +324,10 @@ export async function runShellHandler({ command, cwd: cwdArg }) {
   if (!cwd) {
     return { content: [{ type: "text", text: `❌ No working directory: run_shell needs an active session workspace, or pass a cwd within an allowed write path.` }] };
   }
+
+  // Scratch dirs are created lazily on first write_file; ensure cwd exists so
+  // spawn doesn't throw ENOENT when the directory hasn't been created yet.
+  try { mkdirSync(cwd, { recursive: true }); } catch { /* non-fatal */ }
 
   logger.info(`[run_shell] start: ${command} (cwd=${cwd})`);
 
