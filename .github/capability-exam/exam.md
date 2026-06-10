@@ -17,14 +17,26 @@ Each drill lists **✅ Expected** = the tool(s)/skill that should fire and what 
 
 Import the persona dataset so the memory/recall/wiki/dedup drills have real data to work on. Set `PORT` to your instance (`3000` default, `1701` cloud script, `31337` local script).
 
+**Humans (or any terminal with curl)** — works without a repo clone:
+
 ```bash
 PORT=31337
+curl -s https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.memories.json |
 curl -s -X POST "http://localhost:$PORT/api/memories/import" \
   -H "Content-Type: application/json" \
-  --data-binary @exam.memories.json | node -e "process.stdin.pipe(process.stdout)"
+  --data-binary @- | node -e "process.stdin.pipe(process.stdout)"
 ```
 
-✅ Expected: JSON like `{"imported":28,"errors":[],"note":"Embeddings are being generated in the background."}`. Embeddings backfill asynchronously — wait ~10s before semantic-recall drills. Every fixture memory is tagged `aperio-exam` for cleanup (see §10).
+✅ Expected: JSON like `{"imported":28,"errors":[],"note":"Embeddings are being generated in the background."}`. Embeddings backfill asynchronously — wait ~10s before semantic-recall drills.
+
+**AI agents** — you cannot run the command above yourself (`fetch_web` is GET-only and `run_shell` does not allowlist `curl`), so use the first path that works:
+
+1. Fetch `exam.memories.json` from the URL above with your web tool, then call `remember` once per entry, preserving each entry's `type`, `content`, and `tags` (every entry must keep the `aperio-exam` tag).
+2. If you can't fetch the file either, print the curl command above, ask the user to run it in a terminal, and wait for their confirmation before continuing.
+
+**Verify before proceeding (everyone):** `recall` by tag `aperio-exam` must return 28 memories. If it doesn't, stop — the import failed.
+
+Every fixture memory is tagged `aperio-exam` for cleanup (see §10).
 
 > The dataset is a fictional persona — **Maya Chen**, a staff backend engineer, with two projects (**Nimbus** pricing service, **Beacon** iOS app) who has adopted Aperio for team knowledge capture. All recall expectations below reference these. The last three entries tie Maya's workflow to Aperio itself — they exercise cross-referencing between persona data and product knowledge.
 
