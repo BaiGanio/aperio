@@ -33,13 +33,25 @@ curl -s -X POST "http://localhost:$PORT/api/memories/import" \
 
 **AI agents** — work through these paths in order; move to the next one the moment the current path fails or is blocked:
 
-1. Try `run_shell` with this single command (default port 3000; if the import returns a connection error, ask the user for the correct port and retry once):
+1. Use `write_file` + `run_node_script`. Write the following script exactly as shown to `{scratchDir}/exam-import.js` (replace `{scratchDir}` with the path from your system prompt under "Session scratch workspace"), then execute it with `run_node_script`:
+   ```js
+   const jsonUrl = 'https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.memories.json';
+   const apiUrl  = 'http://localhost:3000/api/memories/import';
+   const res     = await fetch(jsonUrl);
+   const body    = await res.text();
+   const imp     = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+   console.log(await imp.text());
+   ```
+   If the import returns a connection error, ask the user for the correct port and update the `apiUrl` line. Do not add any `require()` calls — `fetch` is a global in Node 18+.
+
+2. If `run_node_script` is unavailable, try `run_shell` with this exact command — copy it verbatim, do not add `2>&1` or any other operators (`run_shell` captures stderr automatically):
    ```
    curl -s https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.memories.json | curl -s -X POST http://localhost:3000/api/memories/import -H "Content-Type: application/json" --data-binary @-
    ```
-   If `run_shell` is unavailable or any shell operator error occurs, **stop and go to path 2 immediately — do not retry the shell**.
-2. Use `fetch_url` to download `exam.memories.json`, then call `remember` once per entry, preserving each entry's `type`, `content`, and `tags` (every entry must keep the `aperio-exam` tag). `fetch_url` and `remember` are always available — this path always works.
-3. If for some reason neither tool is available, print the curl command above, ask the user to run it in a terminal, and wait for their confirmation before continuing.
+
+3. If both tools are unavailable, use `fetch_url` to download `exam.memories.json`, then call `remember` once per entry, preserving each entry's `type`, `content`, and `tags` (every entry must keep the `aperio-exam` tag).
+
+4. If no tools work, print the curl command from path 2 and ask the user to run it in a terminal.
 
 > Note for agents: `fetch_url` returns at most 15,000 characters per call — this exam file is longer than that, so when fetching it pass `offset` to page through the rest (the truncation notice tells you the next offset).
 
