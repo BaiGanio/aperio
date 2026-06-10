@@ -2,6 +2,7 @@ import { z }                                               from "zod";
 import { readFileSync, readdirSync, statSync, lstatSync, existsSync } from "fs";
 import fs                                                  from "fs/promises";
 import { join, extname, basename, dirname, resolve as resolvePath } from "path";
+import mammoth                                             from "mammoth";
 import { fileURLToPath }                                   from "url";
 import { v4 as uuidv4 }                                   from "uuid";
 import ExcelJS                                             from "exceljs";
@@ -356,6 +357,33 @@ export async function generateDocxHandler({ filename, sections }) {
   }
 }
 
+// ─── read_docx ────────────────────────────────────────────────────────────────
+
+export async function readDocxHandler({ path: filePath }) {
+  if (!isReadPathAllowed(filePath))
+    return formatPathError("Read", filePath);
+  if (!existsSync(filePath))
+    return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
+  if (extname(filePath).toLowerCase() !== ".docx")
+    return { content: [{ type: "text", text: `❌ read_docx only supports .docx files` }] };
+
+  try {
+    const buffer = await fs.readFile(filePath);
+    const result = await mammoth.convertToHtml({ buffer });
+    const html = result.value?.trim();
+    if (!html)
+      return { content: [{ type: "text", text: `⚠️ DOCX appears to be empty or image-only: ${filePath}` }] };
+    return {
+      content: [{
+        type: "text",
+        text: `📄 ${basename(filePath)} — content with structure preserved (HTML):\n\n${html}`,
+      }],
+    };
+  } catch (err) {
+    return { content: [{ type: "text", text: `❌ read_docx failed: ${err.message}` }] };
+  }
+}
+
 // ─── delete_file — two-phase commit ───────────────────────────────────────────
 
 const DELETE_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minutes
@@ -501,6 +529,17 @@ export function register(server, ctx) {
   );
 
   server.registerTool(
+    "read_docx",
+    {
+      description: "Read a .docx file from disk and return its content as HTML with full structure preserved (paragraphs, tables, headings, lists). Use this whenever you need to read or extract data from a Word document — do NOT use unpack.py or read_file for .docx files.",
+      inputSchema: z.object({
+        path: z.string().describe("Absolute path to the .docx file"),
+      }),
+    },
+    readDocxHandler
+  );
+
+  server.registerTool(
     "scan_project",
     {
       description: "Scan a project folder. Returns file tree + reads key files. Skips node_modules, .git, build folders.",
@@ -549,7 +588,7 @@ export function register(server, ctx) {
   server.registerTool(
     "generate_docx",
     {
-      description: "Generate a .docx Word document and make it available for download. Use this whenever the user asks to create a Word document, report, summary, or any .docx file.",
+      description: "Generate a .docx Word document and make it available for download. ONLY use this when the user explicitly asks for a Word document output. Do NOT call this as a side-effect of another task (e.g. converting DOCX→XLSX, reading a file, summarizing). If the user asked for an xlsx or any non-docx format, do NOT also call generate_docx.",
       inputSchema: z.object({
         filename: z.string().describe("Output filename, e.g. 'report.docx'"),
         sections: z.array(

@@ -1,0 +1,201 @@
+{
+  "_comment": "Aperio exam fixture — import via POST /api/memories/import (the API reads only the `memories` array; this _comment field is ignored). Every entry carries the tag `aperio-exam` so the whole set can be filtered and bulk-deleted after testing. Persona: Maya Chen, a fictional staff backend engineer, with two projects (Nimbus, Beacon) so recall/wiki/dedup have coherent clusters to work on. See exam.md for the prompts that exercise this data.",
+  "memories": [
+    {
+      "type": "person",
+      "title": "Maya Chen — staff backend engineer",
+      "content": "Maya Chen is a staff backend engineer who works fully remote from Lisbon, Portugal. She leads the platform team and is the primary owner of the Nimbus pricing service. Reachable as @maya on the team chat.",
+      "tags": ["aperio-exam", "maya", "people", "profile"],
+      "importance": 4
+    },
+    {
+      "type": "fact",
+      "title": "Maya's primary languages are Go and Rust",
+      "content": "Maya writes Go as her primary backend language and reaches for Rust for performance-critical components. She avoids Python for anything beyond quick scripts.",
+      "tags": ["aperio-exam", "maya", "languages", "go", "rust"],
+      "importance": 3
+    },
+    {
+      "type": "fact",
+      "title": "Maya's working hours and timezone",
+      "content": "Maya is based in Lisbon (WET/WEST) and keeps roughly 10:00–18:00 local hours. She dislikes synchronous meetings before 11:00.",
+      "tags": ["aperio-exam", "maya", "schedule", "timezone"],
+      "importance": 2
+    },
+    {
+      "type": "preference",
+      "title": "Tabs over spaces, 100-column limit",
+      "content": "Maya prefers tabs for indentation, never spaces, and wraps code at a 100-column soft limit. gofmt settles most of this for Go, but the rule applies to all languages.",
+      "tags": ["aperio-exam", "maya", "style", "formatting"],
+      "importance": 3
+    },
+    {
+      "type": "preference",
+      "title": "Indentation: tabs, not spaces",
+      "content": "Maya always uses tab characters for indentation across every project and considers space-indentation a code-review blocker. (Deliberate near-duplicate of the formatting preference for dedup testing.)",
+      "tags": ["aperio-exam", "maya", "style", "formatting", "duplicate-probe"],
+      "importance": 2
+    },
+    {
+      "type": "preference",
+      "title": "Conventional Commits, imperative mood",
+      "content": "Maya requires Conventional Commits (feat:, fix:, chore:, refactor:) with an imperative-mood subject under 72 characters. Bodies explain the why, not the what.",
+      "tags": ["aperio-exam", "maya", "git", "commits", "style"],
+      "importance": 3
+    },
+    {
+      "type": "preference",
+      "title": "Table-driven tests in Go",
+      "content": "Maya writes Go tests as table-driven cases with subtests via t.Run, and expects new code to ship with them. She favors the standard library testing package over third-party assertion frameworks.",
+      "tags": ["aperio-exam", "maya", "testing", "go", "style"],
+      "importance": 3
+    },
+    {
+      "type": "preference",
+      "title": "Catppuccin Mocha, dark mode everywhere",
+      "content": "Maya runs dark mode in every tool and uses the Catppuccin Mocha palette in her editor, terminal, and dashboards.",
+      "tags": ["aperio-exam", "maya", "theme", "ui"],
+      "importance": 1
+    },
+    {
+      "type": "preference",
+      "title": "Oat-milk flat white, no sugar",
+      "content": "Maya's standing coffee order is an oat-milk flat white with no sugar. She drinks two a day and none after 15:00.",
+      "tags": ["aperio-exam", "maya", "coffee", "personal"],
+      "importance": 1
+    },
+    {
+      "type": "project",
+      "title": "Nimbus — real-time pricing service",
+      "content": "Nimbus is the team's real-time pricing service. It computes quote prices on demand for the storefront, must answer under 50ms p99, and is the highest-traffic service the platform team owns. Maya is the primary owner.",
+      "tags": ["aperio-exam", "nimbus", "project", "backend"],
+      "importance": 5
+    },
+    {
+      "type": "decision",
+      "title": "Nimbus uses NATS for events, not Kafka",
+      "content": "The team chose NATS JetStream over Kafka for Nimbus's event bus. Rationale: far simpler ops for the throughput Nimbus needs, single binary, and the team had no existing Kafka expertise. Revisit only if cross-region replication becomes a hard requirement.",
+      "tags": ["aperio-exam", "nimbus", "decision", "architecture", "nats"],
+      "importance": 4
+    },
+    {
+      "type": "decision",
+      "title": "Nimbus data stores: Postgres + Redis",
+      "content": "Nimbus uses Postgres as the system of record for price rules and Redis as a read-through cache for computed quotes with a 5-second TTL. The cache is treated as disposable; Postgres is authoritative.",
+      "tags": ["aperio-exam", "nimbus", "decision", "architecture", "postgres", "redis"],
+      "importance": 4
+    },
+    {
+      "type": "decision",
+      "title": "Nimbus deploys on Fly.io with blue-green",
+      "content": "Nimbus deploys to Fly.io across three regions using a blue-green strategy. Rollouts gate on a synthetic pricing check before traffic shifts. No canary; the blue-green cutover plus the synthetic check was deemed enough.",
+      "tags": ["aperio-exam", "nimbus", "decision", "deployment", "flyio"],
+      "importance": 3
+    },
+    {
+      "type": "solution",
+      "title": "Fixed N+1 query in Nimbus pricing endpoint",
+      "content": "The /quote endpoint issued one DB round-trip per line item. Fixed by batching rule lookups through a single IN query keyed on SKU, then assembling in memory. p99 dropped from 180ms to 38ms. The batched loader lives in pricing/ruleloader.go.",
+      "tags": ["aperio-exam", "nimbus", "solution", "performance", "database"],
+      "importance": 4
+    },
+    {
+      "type": "solution",
+      "title": "Tamed the Redis connection storm in Nimbus",
+      "content": "Under deploy churn, Nimbus opened thousands of Redis connections and tipped over. Fix: cap the pool at 50 connections per instance and add a 200ms dial timeout with jittered backoff. Connection count is now flat across rollouts.",
+      "tags": ["aperio-exam", "nimbus", "solution", "redis", "reliability"],
+      "importance": 4
+    },
+    {
+      "type": "source",
+      "title": "Nimbus architecture doc (Notion)",
+      "content": "The living architecture doc for Nimbus is in Notion: https://www.notion.so/team/nimbus-architecture. It covers the event flow, cache strategy, and the deploy gates. Treat it as the canonical design reference.",
+      "tags": ["aperio-exam", "nimbus", "source", "documentation"],
+      "importance": 2
+    },
+    {
+      "type": "project",
+      "title": "Beacon — iOS companion app",
+      "content": "Beacon is the iOS companion app that surfaces Nimbus pricing alerts to field reps. It is owned by the mobile team; Maya consults on the pricing API contract but does not own the app.",
+      "tags": ["aperio-exam", "beacon", "project", "ios", "mobile"],
+      "importance": 3
+    },
+    {
+      "type": "decision",
+      "title": "Beacon is SwiftUI, minimum iOS 16",
+      "content": "Beacon is built in SwiftUI and targets a minimum of iOS 16 so it can rely on the newer Swift Concurrency and NavigationStack APIs. UIKit is used only for a couple of legacy chart wrappers.",
+      "tags": ["aperio-exam", "beacon", "decision", "ios", "swiftui"],
+      "importance": 2
+    },
+    {
+      "type": "source",
+      "title": "Go style guide the team follows",
+      "content": "The team's Go conventions follow Google's Go Style Guide: https://google.github.io/styleguide/go/. Local additions (error wrapping, package layout) are appended in the Nimbus repo's CONTRIBUTING.md.",
+      "tags": ["aperio-exam", "source", "go", "style", "documentation"],
+      "importance": 2
+    },
+    {
+      "type": "source",
+      "title": "NATS JetStream tuning post",
+      "content": "Reference Maya keeps for JetStream consumer tuning: https://nats.io/blog/jetstream-consumer-tuning. Used when sizing Nimbus's durable consumers.",
+      "tags": ["aperio-exam", "source", "nats", "nimbus"],
+      "importance": 1
+    },
+    {
+      "type": "inference",
+      "title": "Maya tends to over-build caching layers",
+      "content": "Across the Nimbus and a prior project, Maya reaches for a cache early and sometimes before profiling shows it's needed. Worth gently asking 'have we measured this?' before adding another cache tier.",
+      "tags": ["aperio-exam", "maya", "inference", "pattern"],
+      "importance": 2
+    },
+    {
+      "type": "inference",
+      "title": "Maya prefers async-first communication",
+      "content": "Inferred from her stated dislike of early meetings and her detailed written design docs: Maya gets more done with async, written communication than with synchronous calls. Default to a written summary over scheduling a call.",
+      "tags": ["aperio-exam", "maya", "inference", "communication"],
+      "importance": 2
+    },
+    {
+      "type": "fact",
+      "title": "Nimbus on-call rotation is weekly",
+      "content": "The platform team runs a weekly Nimbus on-call rotation starting Mondays. Maya covers roughly one week in four. Pages route through the team's incident tool.",
+      "tags": ["aperio-exam", "nimbus", "oncall", "operations"],
+      "importance": 2
+    },
+    {
+      "type": "decision",
+      "title": "Nimbus SLO: 50ms p99, 99.95% availability",
+      "content": "Nimbus's agreed SLOs are 50ms p99 latency on /quote and 99.95% monthly availability. Breaching the latency SLO for two consecutive weeks triggers a reliability-focused sprint.",
+      "tags": ["aperio-exam", "nimbus", "decision", "slo", "reliability"],
+      "importance": 3
+    },
+    {
+      "type": "fact",
+      "title": "Maya owns the pricing API contract",
+      "content": "Maya is the decision-maker for the Nimbus pricing API contract (the OpenAPI spec consumed by the storefront and by Beacon). Breaking changes go through her review.",
+      "tags": ["aperio-exam", "maya", "nimbus", "api", "ownership"],
+      "importance": 3
+    },
+    {
+      "type": "decision",
+      "title": "Maya adopted Aperio to capture Nimbus decisions",
+      "content": "Maya started using Aperio as the team's decision log for Nimbus. Instead of architecture decisions living in buried Slack threads or stale Notion pages, every choice (NATS, Postgres+Redis, Fly.io, SLOs) goes into Aperio as a typed memory. The wiki synthesizes them into shareable articles. The sidebar gives the team a single pane of glass for all project context.",
+      "tags": ["aperio-exam", "aperio", "maya", "nimbus", "workflow"],
+      "importance": 4
+    },
+    {
+      "type": "solution",
+      "title": "Nimbus team uses Aperio wiki to share architecture context",
+      "content": "The platform team uses Aperio's wiki as their living architecture document. After each decision or incident fix is recorded as a memory, Maya runs wiki_write to generate an article that new team members read during onboarding. Staleness tracking ensures the wiki stays honest — when a source memory changes, the article is flagged and regenerated on the next wiki_get with refresh=true.",
+      "tags": ["aperio-exam", "aperio", "wiki", "nimbus", "team"],
+      "importance": 4
+    },
+    {
+      "type": "preference",
+      "title": "Maya prefers Aperio's sidebar over Notion for recall",
+      "content": "Maya finds Aperio's memory sidebar faster than searching Notion for project context. She pins high-priority memories (the SLOs, the architecture decisions) so they surface first in every conversation. She runs deduplicate_memories monthly with dry_run to audit for drift before merging anything.",
+      "tags": ["aperio-exam", "aperio", "maya", "preference", "workflow"],
+      "importance": 3
+    }
+  ]
+}

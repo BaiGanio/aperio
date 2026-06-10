@@ -22,7 +22,7 @@ let _startupBreakdown = null;
 let _nextBubbleAgent = null;
 let _roundtableAgents = [];
 let _roundtablePhaseChip = null;
-let _pendingGeneratedFile = null;
+const _pendingGeneratedFiles = [];
 // Live tool-activity cards, keyed by the backend `seq` so a tool_result can
 // find the card its tool_start created.
 const _toolCards = new Map();
@@ -396,7 +396,7 @@ function handleMessage(msg) {
       : null;
     if (streamingBubble && streamingText.trim()) {
       finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
-      if (_pendingGeneratedFile) { streamingBubble.bubble.appendChild(_buildGeneratedFileCard(_pendingGeneratedFile)); _pendingGeneratedFile = null; }
+      for (const f of _pendingGeneratedFiles) streamingBubble.bubble.appendChild(_buildGeneratedFileCard(f)); _pendingGeneratedFiles.length = 0;
       window.Aperio?.tts?.speak(streamingText);
       window.Aperio?.voice?.onStreamEnd?.();
       _maybeShowStartupBanner(msg.usage?.input_tokens);
@@ -415,11 +415,13 @@ function handleMessage(msg) {
       accThinkingTokens = 0; accOutputTokens = 0;
     }
     // Fallback: if the card is still pending (e.g. no streaming text), attach to last AI bubble
-    if (_pendingGeneratedFile) {
+    if (_pendingGeneratedFiles.length) {
       const lastBubble = [...messagesEl.querySelectorAll(".message.ai .bubble")].at(-1);
-      if (lastBubble) lastBubble.appendChild(_buildGeneratedFileCard(_pendingGeneratedFile));
-      else messagesEl.appendChild(_buildGeneratedFileCard(_pendingGeneratedFile));
-      _pendingGeneratedFile = null;
+      for (const f of _pendingGeneratedFiles) {
+        if (lastBubble) lastBubble.appendChild(_buildGeneratedFileCard(f));
+        else messagesEl.appendChild(_buildGeneratedFileCard(f));
+      }
+      _pendingGeneratedFiles.length = 0;
     }
     document.getElementById("preparing-answer")?.remove();
     streamingBubble = null;
@@ -529,7 +531,7 @@ function handleMessage(msg) {
     // The server emits these only after the final answer has streamed, so the
     // answer bubble already exists — attach the download card straight to it.
     // If a bubble is still streaming, keep it pending so stream_end attaches it.
-    if (streamingBubble) { _pendingGeneratedFile = msg; return; }
+    if (streamingBubble) { _pendingGeneratedFiles.push(msg); return; }
     // Otherwise the answer is already rendered: attach to it, or — if the answer
     // was empty so no bubble exists — stand the card up on its own.
     const lastBubble = [...messagesEl.querySelectorAll(".message.ai .bubble")].at(-1);

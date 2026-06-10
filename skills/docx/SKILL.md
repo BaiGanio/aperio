@@ -33,12 +33,12 @@ Use `write_file` + `run_node_script` (see `docx-advanced` skill) only for docume
 - **Create new document (simple):** `generate_docx` MCP tool — no script needed.
 - **Create new document (advanced):** load the `docx-advanced` skill.
 - **Edit existing document** (tracked changes, comments, XML): load the `docx-advanced` skill.
-- **Read/analyze content:** `run_python_script` → `<repo>/skills/docx/scripts/office/unpack.py` with args `["/abs/document.docx", "/abs/unpacked"]`. Then read the XML files.
+- **Read/analyze content (file already attached in this conversation):** The content is already extracted and inlined as HTML — use it directly from the conversation. Do NOT call any tool.
+- **Read/analyze content (file on disk):** Call `read_docx` with the absolute path. Returns HTML with full structure (tables, headings, lists). **This is the ONLY correct tool — do NOT use `unpack.py`, `run_python_script`, or `read_file` for .docx files.**
 - **Convert .docx → PDF:** `run_python_script` → `<repo>/skills/docx/scripts/office/soffice.py` with args `["--headless", "--convert-to", "pdf", "<source.docx>", "--outdir", "<scratch workspace>"]` (needs LibreOffice).
   - Use the **absolute path** of the source `.docx` — for a file you just made with `generate_docx`, that is the path printed on the `Saved at:` line of the tool result (the on-disk name is uuid-prefixed inside the scratch workspace, **not** the clean `filename` shown in the download card, so do not reconstruct it yourself).
   - Set `--outdir` to this conversation's **scratch workspace** (the absolute path given to you in the system prompt). The resulting PDF lands there and is surfaced to the user as a download card automatically — no extra step needed.
 
 **Dependencies:**
-- `generate_docx` — always available, zero setup.
-- `lxml`, `defusedxml` (pip) — needed for unpack/pack/validate. Install via Settings → Extras.
-- LibreOffice (`soffice`) — needed for PDF conversion and accepting tracked changes. Install via Settings → Extras.
+- `generate_docx` and `read_docx` — always available, zero setup.
+- LibreOffice (`soffice`) — needed for PDF conversion only. Install via Settings → Extras.
