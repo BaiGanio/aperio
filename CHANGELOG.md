@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.54.0] — 2026-06-10
+
+### Added
+- fetch_url offset paging, curl in shell allowlist, exam §0 agent paths
+
+---
+
+
 ## [0.53.0] — 2026-06-10
 
 ### Added
