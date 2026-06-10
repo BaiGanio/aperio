@@ -9,6 +9,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.53.0] — 2026-06-10
+
+### Added
+- the exam
+
+---
+
+
 ## [0.52.0] — 2026-06-08
 
 ### Added
