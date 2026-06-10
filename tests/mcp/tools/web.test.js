@@ -80,6 +80,23 @@ describe("fetchUrlHandler", () => {
     })
   );
 
+  test("offset pages past truncated content", () =>
+    withMockFetch(makeFetchResponse({ body: "A".repeat(15_000) + "MARKER" + "B".repeat(100) }), async () => {
+      const result = await fetchUrlHandler({ url: "https://example.com", offset: 15_000 });
+      const text = result.content[0].text;
+      assert.ok(text.includes("MARKER"));
+      assert.ok(!text.includes("AAAA"));
+      assert.ok(!text.includes("Truncated"));
+    })
+  );
+
+  test("truncation notice names the next offset", () =>
+    withMockFetch(makeFetchResponse({ body: "C".repeat(20_000) }), async () => {
+      const result = await fetchUrlHandler({ url: "https://example.com" });
+      assert.ok(result.content[0].text.includes("offset: 15000"));
+    })
+  );
+
   test("returns error message on network failure", () =>
     withMockFetch(async () => { throw new Error("ECONNREFUSED"); }, async () => {
       const result = await fetchUrlHandler({ url: "https://unreachable.example.com" });

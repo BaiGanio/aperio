@@ -29,10 +29,13 @@ curl -s -X POST "http://localhost:$PORT/api/memories/import" \
 
 ✅ Expected: JSON like `{"imported":28,"errors":[],"note":"Embeddings are being generated in the background."}`. Embeddings backfill asynchronously — wait ~10s before semantic-recall drills.
 
-**AI agents** — you cannot run the command above yourself (`fetch_web` is GET-only and `run_shell` does not allowlist `curl`), so use the first path that works:
+**AI agents** — use the first path that works:
 
-1. Fetch `exam.memories.json` from the URL above with your web tool, then call `remember` once per entry, preserving each entry's `type`, `content`, and `tags` (every entry must keep the `aperio-exam` tag).
-2. If you can't fetch the file either, print the curl command above, ask the user to run it in a terminal, and wait for their confirmation before continuing.
+1. If you have `run_shell` (`curl` is allowlisted), run the curl command above yourself — ask the user which port their instance uses.
+2. Otherwise fetch `exam.memories.json` from the URL above with `fetch_url`, then call `remember` once per entry, preserving each entry's `type`, `content`, and `tags` (every entry must keep the `aperio-exam` tag).
+3. If neither tool is available, print the curl command above, ask the user to run it in a terminal, and wait for their confirmation before continuing.
+
+> Note for agents: `fetch_url` returns at most 15,000 characters per call — this exam file is longer than that, so when fetching it pass `offset` to page through the rest (the truncation notice tells you the next offset).
 
 **Verify before proceeding (everyone):** `recall` by tag `aperio-exam` must return 28 memories. If it doesn't, stop — the import failed.
 

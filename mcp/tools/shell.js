@@ -32,7 +32,7 @@ const SHELL_ENABLED = process.env.APERIO_ENABLE_SHELL === "1";
 // dependency install a deck/model genuinely needs.
 const ALLOWED_CMDS = new Set([
   "node", "npm", "git", "ls", "cat", "grep", "rg", "find", "head", "tail", "wc",
-  "python3", "soffice", "pdftoppm",
+  "python3", "soffice", "pdftoppm", "curl",
 ]);
 
 function formatPathError(scriptPath) {
