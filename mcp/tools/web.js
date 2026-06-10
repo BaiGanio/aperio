@@ -46,7 +46,7 @@ export function register(server, _ctx) {
   server.registerTool(
     "fetch_url",
     {
-      description: "Fetch content from a URL. Strips HTML tags, returns up to 15,000 characters per call — use offset to page through longer content.",
+      description: "Fetch content from a URL. Use this instead of curl — it works within the sandbox, strips HTML tags, and returns up to 15,000 characters per call. Use offset to page through longer content.",
       inputSchema: z.object({
         url:       z.string().url().describe("The URL to fetch"),
         max_chars: z.number().min(500).max(15000).optional().describe("Max characters, default 15000"),
