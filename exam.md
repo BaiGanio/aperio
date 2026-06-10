@@ -24,9 +24,9 @@ curl -s -X POST "http://localhost:$PORT/api/memories/import" \
   --data-binary @exam.memories.json | node -e "process.stdin.pipe(process.stdout)"
 ```
 
-✅ Expected: JSON like `{"imported":25,"errors":[],"note":"Embeddings are being generated in the background."}`. Embeddings backfill asynchronously — wait ~10s before semantic-recall drills. Every fixture memory is tagged `aperio-exam` for cleanup (see §10).
+✅ Expected: JSON like `{"imported":28,"errors":[],"note":"Embeddings are being generated in the background."}`. Embeddings backfill asynchronously — wait ~10s before semantic-recall drills. Every fixture memory is tagged `aperio-exam` for cleanup (see §10).
 
-> The dataset is a fictional persona — **Maya Chen**, a staff backend engineer, with two projects (**Nimbus** pricing service, **Beacon** iOS app). All recall expectations below reference these.
+> The dataset is a fictional persona — **Maya Chen**, a staff backend engineer, with two projects (**Nimbus** pricing service, **Beacon** iOS app) who has adopted Aperio for team knowledge capture. All recall expectations below reference these. The last three entries tie Maya's workflow to Aperio itself — they exercise cross-referencing between persona data and product knowledge.
 
 ---
 
@@ -80,6 +80,18 @@ Some memories may be missing embeddings — generate any that are missing.
 ```
 ✅ `backfill_embeddings` runs and reports how many were generated (often 0 if §0 already backfilled).
 
+### 1.9 temporal recall — point-in-time via `as_of`
+```
+After updating Maya's coffee preference in §1.5, show me what her coffee preference was before the update. Use temporal recall (as_of) to look back.
+```
+✅ `recall` with `as_of` parameter; returns the original oat-milk-flat-white preference (the tombstoned row), not the cortado. Confirms temporal versioning preserves history.
+
+### 1.10 remember with TTL (expires_at)
+```
+Remember that the Nimbus team has an all-hands offsite next Friday — it should expire in 7 days.
+```
+✅ `remember` with a valid `expires_at` (at least 1 hour in the future); the memory is saved with a TTL. After the expiry passes, the memory is filtered from all recall paths.
+
 ---
 
 ## 2. Wiki tools — `wiki_list` · `wiki_search` · `wiki_get` · `wiki_write`
@@ -101,6 +113,18 @@ What wiki articles exist right now?
 Search the wiki for the Nimbus architecture overview and show me the full article.
 ```
 ✅ `wiki_search` then `wiki_get`; renders the article body.
+
+### 2.4 wiki staleness — trigger and detect
+```
+Update a memory cited by the Nimbus wiki article (change the NATS decision's importance to 5), then check whether the wiki article is now marked stale.
+```
+✅ `update_memory` on the NATS decision; then `wiki_get` on the Nimbus article shows `status: stale` (on Postgres — the trigger fires automatically; on SQLite staleness is detected lazily at read time). Confirms the source_memory_ids → staleness contract.
+
+### 2.5 wiki refresh — regenerate a stale article
+```
+The Nimbus wiki article is stale — refresh it.
+```
+✅ `wiki_get(slug, refresh=true)` regenerates the article body via `WIKI_REFRESH_PROVIDER` (if configured) and returns `status: fresh`. If no refresh provider is set, the article returns stale with a footer note.
 
 ---
 
@@ -143,6 +167,12 @@ What calls matchSkills across the codebase?
 What functions does loadSkillIndex call?
 ```
 ✅ `code_callees`; lists `findSkillFiles`, `parseFrontmatter`, etc.
+
+### 3.7 code_status — check index health
+```
+Show me the code graph index status — which files are indexed and whether the watcher is running.
+```
+✅ `code_status` (or the equivalent index-health tool); reports indexed file count, watcher state, and any pending re-index operations.
 
 ---
 
@@ -195,6 +225,12 @@ Generate a spreadsheet scratch/nimbus-decisions.xlsx with one row per Nimbus dec
 Delete scratch/exam-note.md.
 ```
 ✅ `delete_file`; file removed.
+
+### 4.9 pinned memory — check sidebar priority
+```
+Which of my memories are pinned, and do they surface first in the sidebar?
+```
+✅ `recall` with no query (lists top-N by importance); pinned memories (the "Getting started with Aperio" seed entry, and any the user manually pinned) appear first. Confirm the sidebar pin icon is visible on pinned entries.
 
 ---
 
@@ -287,7 +323,11 @@ Run each prompt and confirm the named skill shows in the "🎯 Skills matched" c
 
 > Always-on skills (`agent-conduct`, `conversation-lifecycle`) load every turn and won't appear as "matched".
 >
-> `coding-examples` and `memory-learning` are merged stubs marked `load: never`; the matcher now filters these out, so they must **never** appear in the chip — if they do, that's a regression (guarded by `tests/skills/skills.test.js → "load: never stubs are never matched"`). Some prompts (7.3, 7.4, 7.6, 7.9, 7.17) pull a 2nd/3rd related skill into the chip; that's expected as long as the intended skill leads.
+> `coding-examples` and `memory-learning` are merged stubs marked `load: never`; the matcher now filters these out, so they must **never** appear in the chip — if they do, that's a regression (guarded by `tests/skills/skills.test.js → "load: never stubs are never matched"`).
+>
+> **Co-loading**: Some prompts naturally trigger multiple related skills. Known co-loads: `docx-advanced` always pulls `docx` (7.3), `pdf` may pull `preprocess-pdf` (7.4), `theme-factory` may pull `canvas-design` (7.6), `reasoning-planning` may pull `tool-integration` (7.9), `handoff` may pull `memory-protocol` and `wiki` (7.17). The intended skill should appear first. The `wiki`, `memory-protocol`, `working-with-files`, and `codegraph` skills may also co-fire on drill prompts in earlier sections (§1–6) — that's expected and not a regression.
+>
+> **Negative test — load:never stubs**: To confirm `coding-examples` and `memory-learning` are truly filtered, try the prompt: *"Show me some coding examples and explain memory learning."* Neither stub should appear in the chip. If either does, the `load: never` filter has regressed.
 
 ---
 
@@ -313,6 +353,12 @@ Fetch https://example.com, then remember a one-line source memory linking to it.
 ```
 ✅ `fetch_url` → `remember` (type `source`).
 
+### 8.4 recall → wiki_write → verify provenance
+```
+Recall everything about Maya's use of Aperio, then write it into a wiki article. After writing, verify the article lists source_memory_ids for provenance.
+```
+✅ `recall` for Aperio-tagged Maya memories → `wiki_write` → `wiki_get` on the new article; `source_memory_ids` is populated with the IDs of the recalled memories. Confirms the wiki correctly tracks its input memories for staleness later.
+
 ---
 
 ## 9. Negative / guardrail drills
@@ -335,6 +381,17 @@ Recall everything tagged "aperio-exam" and forget each one — clean up the exam
 ```
 
 ✅ The agent recalls by tag and `forget`s the set. Also delete any `scratch/` files created during the drills, and the Nimbus wiki article if you don't want to keep it.
+
+---
+
+## 11. Roundtable — multi-agent discussion
+
+> Requires `ROUNDTABLE_AGENTS` configured with at least two `provider:model` pairs and `ROUNDTABLE_MAX_ROUNDS` set (e.g. `ROUNDTABLE_AGENTS=anthropic:claude-haiku-4-5-20251001,deepseek:deepseek-chat ROUNDTABLE_MAX_ROUNDS=2`). Skip if unconfigured.
+
+```
+Start a roundtable discussion: two models should debate whether Nimbus should switch from NATS to Kafka, given what we know from memory about the original decision.
+```
+✅ The agent spawns a roundtable; each model responds in turn, referencing the NATS decision from memory. The final output is a synthesized discussion showing both perspectives, with citations to the source memories.
 
 ---
 

@@ -170,9 +170,13 @@ export async function runNodeScriptHandler({ script, args = [] }) {
 // docx office/unpack.py, pack.py, validate.py). If python3 is absent the spawn
 // fails with a clear, actionable hint rather than a cryptic error.
 export async function runPythonScriptHandler({ script, args = [] }) {
+  if (script.includes(" ")) {
+    logger.warn(`[run_python_script] script path contains spaces (args mixed in): ${script}`);
+    return { content: [{ type: "text", text: `❌ run_python_script: the "script" param must be the file path only — put arguments in the "args" array, not in the path.\n\nIf you are trying to read a .docx file, use the read_docx tool instead — it is faster and does not need a Python script.` }] };
+  }
   if (extname(script).toLowerCase() !== ".py") {
     logger.warn(`[run_python_script] rejected non-.py path: ${script}`);
-    return { content: [{ type: "text", text: `❌ Only .py scripts are allowed` }] };
+    return { content: [{ type: "text", text: `❌ run_python_script only runs .py files. If you are trying to read a .docx file, use the read_docx tool instead.` }] };
   }
 
   const resolved = resolvePath(script);
