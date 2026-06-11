@@ -1,4 +1,4 @@
-// tests/lib/handlers/attatchments/workers/preprocessPdf.test.js
+// tests/lib/handlers/attachments/workers/preprocessPdf.test.js
 // Tests for extractPdfText in lib/handlers/attachments/workers/preprocessPdf.js
 
 import { test, describe } from "node:test";

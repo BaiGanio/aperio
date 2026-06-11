@@ -1,4 +1,4 @@
-// tests/lib/handlers/attatchments/pptxHandler.test.js
+// tests/lib/handlers/attachments/pptxHandler.test.js
 // Tests for handlePptx in lib/handlers/attachments/pptxHandler.js
 // Uses real AdmZip to build PPTX-like fixture buffers (no mocking needed).
 

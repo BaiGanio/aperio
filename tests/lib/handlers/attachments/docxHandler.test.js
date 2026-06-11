@@ -1,4 +1,4 @@
-// tests/lib/handlers/attatchments/docxHandler.test.js
+// tests/lib/handlers/attachments/docxHandler.test.js
 // Tests for handleDocx in lib/handlers/attachments/docxHandler.js
 
 import { test, describe, mock } from "node:test";

@@ -376,6 +376,35 @@ async function bootApp() {
     }
   }
 
+  // APERIO_DOCGRAPH=on starts a chokidar watcher per allowed folder for the
+  // document graph (notes/PDF/DOCX/XLSX/PPTX/EML). Same fire-and-forget pattern
+  // as codegraph so the initial index doesn't block boot.
+  let stopDocgraph = null;
+  if (process.env.APERIO_DOCGRAPH === 'on') {
+    const { isDocgraphAvailable } = await import("./lib/docgraph/indexer.js");
+    if (!isDocgraphAvailable(store)) {
+      logger.warn(`[docgraph] APERIO_DOCGRAPH=on but backend has no document store. Switch DB_BACKEND=sqlite or postgres.`);
+    } else {
+      const { getAllowlist } = await import("./lib/routes/paths.js");
+      const { markEnabled } = await import("./lib/docgraph/status.js");
+      markEnabled(getAllowlist());
+      const handlePromise = (async () => {
+        try {
+          const { startAllWatchers } = await import("./lib/docgraph/watcher.js");
+          return await startAllWatchers(store, getAllowlist());
+        } catch (err) {
+          const { logError } = await import("./lib/helpers/logger.js");
+          logError(`[docgraph] watcher boot failed`, err);
+          return null;
+        }
+      })();
+      stopDocgraph = async () => {
+        const handle = await handlePromise;
+        if (handle?.stop) await handle.stop();
+      };
+    }
+  }
+
   // ── Agents ───────────────────────────────────────────────────────────────
   // The main chat agent always boots from AI_PROVIDER / provider env vars.
   // Round-table mode (two-agent cross-review) is opt-in via ROUNDTABLE_AGENTS
@@ -490,6 +519,7 @@ async function bootApp() {
     infer.stop();
     pruner.stop();
     if (stopCodegraph) await stopCodegraph().catch(() => {});
+    if (stopDocgraph) await stopDocgraph().catch(() => {});
 
     // 2. Let the current ONNX inference finish, then stop the backfill loop
     await shutdownEmbeddings();

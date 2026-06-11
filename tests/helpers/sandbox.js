@@ -56,33 +56,6 @@ export function setupSecureTestEnvironment(t) {
 }
 
 /**
- * Create isolated temp directory for tests that need real file operations.
- * Changes cwd to the temp dir and returns a restore() to undo both.
- */
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-
-export function createIsolatedTestDir() {
-  const testRoot = mkdtempSync(join(tmpdir(), "aperio-test-"));
-  const originalCwd = process.cwd();
-
-  process.chdir(testRoot);
-
-  return {
-    root: testRoot,
-    restore: () => {
-      process.chdir(originalCwd);
-      try {
-        fs.rmSync(testRoot, { recursive: true, force: true });
-      } catch (e) {
-        // Ignore cleanup errors
-      }
-    }
-  };
-}
-
-/**
  * Mock port scanning without real network
  */
 export function mockPortScanner(t) {

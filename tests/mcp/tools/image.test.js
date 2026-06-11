@@ -2,18 +2,19 @@
 // Tests for detectMime and readImageHandler.
 // Imports directly from mcp/tools/image.js — no inline copies.
 
-import { test, describe, before, after } from "node:test";
+import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
-import { writeFileSync } from "fs";
 import { join } from "path";
-import { detectMime, readImageHandler } from "../../../mcp/tools/image.js";
-import { createIsolatedTestDir } from "../../helpers/sandbox.js";
+import { installMemfs } from "../../helpers/memfs.js";
 
-// ─── Temp workspace ───────────────────────────────────────────────────────────
+// ─── In-memory workspace (zero real disk access) ──────────────────────────────
+// Install the fs mock BEFORE importing image.js so its named fs bindings read
+// from the in-RAM map. Image bytes are written/read entirely in memory.
+const mem = installMemfs({ root: "/mem/img" });
+const { detectMime, readImageHandler } = await import("../../../mcp/tools/image.js");
+after(() => mem.restore());
 
-let sandbox;
-before(() => { sandbox = createIsolatedTestDir(); });
-after(() => sandbox.restore());
+const sandbox = { root: mem.root };
 
 // Minimal valid file signatures (magic bytes)
 const PNG_HEADER  = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
@@ -23,7 +24,7 @@ const WEBP_HEADER = Buffer.from([0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00,
 
 function writeTmp(name, buf) {
   const p = join(sandbox.root, name);
-  writeFileSync(p, buf);
+  mem.writeFile(p, buf);
   return p;
 }
 
@@ -112,7 +113,7 @@ describe("readImageHandler (file path)", () => {
     // skip silently if allocation fails.
     const bigPath = join(sandbox.root, "big.png");
     try {
-      writeFileSync(bigPath, Buffer.alloc(21 * 1024 * 1024)); // 21 MB
+      mem.writeFile(bigPath, Buffer.alloc(21 * 1024 * 1024)); // 21 MB (in RAM, not on disk)
       const result = await readImageHandler({ path: bigPath });
       assert.ok(result.content[0].text.includes("❌ Image too large"));
       assert.ok(result.content[0].text.includes("Max 20MB"));

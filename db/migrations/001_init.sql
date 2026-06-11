@@ -1,3 +1,7 @@
+-- 001_init.sql — consolidated first-run schema.
+-- Single migration: base + settings + codegraph.
+
+-- ===== base =====
 -- ============================================================
 -- Aperio - Initial Schema
 -- ============================================================
@@ -725,3 +729,142 @@ ARRAY['embeddings','vector-search','mxbai','transformers','voyage','recall'],
 'system', '', 1
 
 );
+
+
+-- ===== settings =====
+-- 002_settings.sql
+-- Key/value store for user preferences that used to live in env vars or
+-- browser localStorage (theme, sound, voice, allowed paths, reasoning toggle…).
+-- One row per setting; value is JSONB so we can store strings, booleans,
+-- numbers, or small objects without a schema change per preference.
+
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+
+-- ===== codegraph =====
+-- 003_codegraph.sql
+-- Pre-indexed code knowledge graph. Lets the LLM query symbols/edges
+-- instead of reading dozens of files to answer "who calls X?", "what
+-- does Y import?", "show me Z's body".
+--
+-- v0.1: schema + JS/TS indexer. Embeddings come later (cg_symbols.embedding
+-- column is here from day one so we don't need a follow-up migration).
+
+CREATE TABLE cg_repos (
+  id              SERIAL PRIMARY KEY,
+  root_path       TEXT NOT NULL UNIQUE,
+  last_indexed_at TIMESTAMPTZ
+);
+
+CREATE TABLE cg_files (
+  id        SERIAL PRIMARY KEY,
+  repo_id   INT  NOT NULL REFERENCES cg_repos(id) ON DELETE CASCADE,
+  path      TEXT NOT NULL,                       -- repo-relative
+  language  TEXT NOT NULL,                       -- 'js','ts','jsx','tsx',...
+  sha256    TEXT NOT NULL,                       -- content hash for incremental reindex
+  mtime     TIMESTAMPTZ NOT NULL,
+  UNIQUE (repo_id, path)
+);
+CREATE INDEX idx_cg_files_repo ON cg_files(repo_id);
+
+CREATE TABLE cg_symbols (
+  id         BIGSERIAL PRIMARY KEY,
+  file_id    INT  NOT NULL REFERENCES cg_files(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,                      -- function|class|method|const|type|import
+  name       TEXT NOT NULL,
+  qualified  TEXT NOT NULL,                      -- 'path/to/file.js::Class.method'
+  start_line INT  NOT NULL,
+  end_line   INT  NOT NULL,
+  signature  TEXT,                               -- one-line preview
+  doc        TEXT,                               -- leading comment / docstring
+  embedding  vector(1024)                        -- nullable; populated in v0.2
+);
+CREATE INDEX idx_cg_symbols_qualified ON cg_symbols(qualified);
+CREATE INDEX idx_cg_symbols_name      ON cg_symbols(name);
+CREATE INDEX idx_cg_symbols_file      ON cg_symbols(file_id);
+CREATE INDEX idx_cg_symbols_fts       ON cg_symbols
+  USING GIN(to_tsvector('simple', name || ' ' || COALESCE(doc, '')));
+CREATE INDEX idx_cg_symbols_embedding ON cg_symbols
+  USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+
+CREATE TABLE cg_edges (
+  id              BIGSERIAL PRIMARY KEY,
+  src_symbol_id   BIGINT NOT NULL REFERENCES cg_symbols(id) ON DELETE CASCADE,
+  dst_symbol_id   BIGINT REFERENCES cg_symbols(id) ON DELETE SET NULL,
+  dst_unresolved  TEXT,                          -- target name when symbol can't be resolved
+  kind            TEXT NOT NULL,                 -- calls|imports|extends|references
+  src_line        INT
+);
+CREATE INDEX idx_cg_edges_src  ON cg_edges(src_symbol_id, kind);
+CREATE INDEX idx_cg_edges_dst  ON cg_edges(dst_symbol_id, kind);
+CREATE INDEX idx_cg_edges_unr  ON cg_edges(dst_unresolved) WHERE dst_unresolved IS NOT NULL;
+
+
+-- ===== docgraph =====
+-- Document graph: the document-shaped sibling of codegraph. Indexes folders of
+-- human content (Markdown/HTML/PDF/DOCX/XLSX/PPTX/EML) into
+-- documents → sections → chunks, with pgvector embeddings + tsvector/GIN FTS.
+-- Section text is stored (not re-sliced from the source) so doc_context works
+-- uniformly across formats. Mirrors db/migrations-sqlite/001_init.sql docgraph.
+
+CREATE TABLE docgraph_repos (
+  id              SERIAL PRIMARY KEY,
+  root_path       TEXT NOT NULL UNIQUE,
+  last_indexed_at TIMESTAMPTZ
+);
+
+CREATE TABLE docgraph_documents (
+  id          SERIAL PRIMARY KEY,
+  repo_id     INT  NOT NULL REFERENCES docgraph_repos(id) ON DELETE CASCADE,
+  rel_path    TEXT NOT NULL,
+  mime        TEXT NOT NULL,
+  size        BIGINT,
+  mtime       TIMESTAMPTZ,
+  sha256      TEXT NOT NULL,
+  title       TEXT,
+  summary     TEXT,
+  indexed_at  TIMESTAMPTZ,
+  UNIQUE (repo_id, rel_path)
+);
+CREATE INDEX idx_dd_repo ON docgraph_documents(repo_id);
+
+CREATE TABLE docgraph_sections (
+  id          BIGSERIAL PRIMARY KEY,
+  document_id INT NOT NULL REFERENCES docgraph_documents(id) ON DELETE CASCADE,
+  parent_id   BIGINT REFERENCES docgraph_sections(id) ON DELETE SET NULL,
+  ord         INT NOT NULL DEFAULT 0,
+  level       INT NOT NULL DEFAULT 1,
+  heading     TEXT,
+  text        TEXT
+);
+CREATE INDEX idx_ds_doc    ON docgraph_sections(document_id);
+CREATE INDEX idx_ds_parent ON docgraph_sections(parent_id);
+
+CREATE TABLE docgraph_chunks (
+  id          BIGSERIAL PRIMARY KEY,
+  document_id INT NOT NULL REFERENCES docgraph_documents(id) ON DELETE CASCADE,
+  section_id  BIGINT NOT NULL REFERENCES docgraph_sections(id) ON DELETE CASCADE,
+  ord         INT NOT NULL,
+  text        TEXT NOT NULL,
+  token_count INT,
+  embedding   vector(1024)
+);
+CREATE INDEX idx_dc_doc       ON docgraph_chunks(document_id);
+CREATE INDEX idx_dc_section   ON docgraph_chunks(section_id);
+CREATE INDEX idx_dc_fts       ON docgraph_chunks USING GIN(to_tsvector('simple', text));
+CREATE INDEX idx_dc_embedding ON docgraph_chunks
+  USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
+
+CREATE TABLE docgraph_refs (
+  id          BIGSERIAL PRIMARY KEY,
+  document_id INT NOT NULL REFERENCES docgraph_documents(id) ON DELETE CASCADE,
+  section_id  BIGINT REFERENCES docgraph_sections(id) ON DELETE SET NULL,
+  kind        TEXT NOT NULL,
+  value       TEXT NOT NULL
+);
+CREATE INDEX idx_dr_value      ON docgraph_refs(value);
+CREATE INDEX idx_dr_kind_value ON docgraph_refs(kind, value);

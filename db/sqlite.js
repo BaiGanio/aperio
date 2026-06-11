@@ -259,10 +259,13 @@ export class SqliteStore {
   }
 
   static async init() {
-    const dbPath = resolve(DEFAULT_PATH);
-    mkdirSync(dirname(dbPath), { recursive: true });
+    // ':memory:' opens an ephemeral in-RAM database — no file is created on disk
+    // (used by tests, and available to callers wanting a throwaway store).
+    const memory = DEFAULT_PATH === ':memory:';
+    const dbPath = memory ? ':memory:' : resolve(DEFAULT_PATH);
+    if (!memory) mkdirSync(dirname(dbPath), { recursive: true });
 
-    const isFresh = !existsSync(dbPath);
+    const isFresh = memory ? true : !existsSync(dbPath);
     const db = new Database(dbPath);
     db.pragma('journal_mode = WAL');
     db.pragma('foreign_keys = ON');

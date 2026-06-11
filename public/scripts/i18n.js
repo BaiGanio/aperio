@@ -286,7 +286,7 @@ const TRANSLATIONS = {
     wiz_welcome_h1:           "Welcome to Aperio",
     wiz_welcome_p_html:       "How would you like to run the AI? You can change this later in <code>.env</code>.",
     wiz_cloud_title:          "Use a cloud AI",
-    wiz_cloud_sub:            "Fastest to start — just paste one API key. (Anthropic, DeepSeek, or Gemini)",
+    wiz_cloud_sub:            "Fastest to start — just paste one API key. (Anthropic or DeepSeek)",
     wiz_local_title:          "Run locally — free & private",
     wiz_local_sub:            "No key, nothing leaves your machine. We'll pick a model that fits your computer.",
     wiz_provider_label:       "Provider",

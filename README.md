@@ -339,7 +339,9 @@ Aperio is open source and self-hosted because **your memories is yours**.
 | ✅ **Free to run** | |
 | No subscription. No per-message cost. Just your hardware. | |
 
-> #### ‼️ What Aperio Is Not!
+> #### ‼️ What Aperio Is Not
+
+**Deployment model:**
 
 | | |
 |---|---|
@@ -348,13 +350,25 @@ Aperio is open source and self-hosted because **your memories is yours**.
 
 | | |
 |---|---|
-| 🚫 **Not a plugin or extension** | 🚫 **Not a replacement for your AI** |
-| It's a self-hosted server you run yourself | A memory layer alongside Claude, Cursor, etc. |
+| 🚫 **Not plug-and-play** | 🚫 **Not production-hardened** |
+| Needs Node.js and basic terminal comfort | Early software, built in the open, improving fast |
+
+**Feature scope — what Aperio will never become:**
 
 | | |
 |---|---|
-| 🚫 **Not plug-and-play** | 🚫 **Not production-hardened** |
-| Needs Node.js, Docker, and basic terminal comfort | Early software, built in the open, improving fast |
+| 🚫 **Not a chat app** | 🚫 **Not a general-purpose AI agent** |
+| The bundled Web UI and terminal client are conveniences for setup and inspection — not the product. Aperio is an MCP server first. | Aperio provides memory, wiki, and code-graph tools TO agents. It does not replace the agent itself. |
+
+| | |
+|---|---|
+| 🚫 **Not a replacement for Claude, Cursor, or Windsurf** | 🚫 **Not a multi-tenant SaaS platform** |
+| Aperio is a memory layer that sits alongside your existing AI tools. It augments them — it does not compete with them. | Single-user, single-machine by design. No accounts, no organizations, no billing system. Will stay that way. |
+
+| | |
+|---|---|
+| 🚫 **Not a plugin or extension** | 🚫 **Not a "build everything" platform** |
+| It's a self-hosted server you run yourself — not something you install into another app. | Aperio says no to feature ideas that dilute the core: memory + code graph for MCP agents. If a feature doesn't serve that sentence, it doesn't ship. |
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]

@@ -1,3 +1,7 @@
+-- 001_init.sql — consolidated first-run schema.
+-- Single migration: base + settings + codegraph + docgraph.
+
+-- ===== base =====
 -- ============================================================
 -- Aperio — SQLite initial schema
 --
@@ -163,3 +167,185 @@ BEGIN
     (lower(hex(randomblob(16))), OLD.id, OLD.revision, OLD.title, OLD.summary,
      OLD.body_md, OLD.tags, OLD.status, OLD.generated_by, OLD.generated_at, OLD.source_hash);
 END;
+
+
+-- ===== settings =====
+-- 002_settings.sql (SQLite)
+-- Key/value preferences. JSON stored as TEXT, validated.
+
+CREATE TABLE IF NOT EXISTS settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT NOT NULL CHECK (json_valid(value)),
+  updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ','now'))
+);
+
+
+-- ===== codegraph =====
+-- 003_codegraph.sql (SQLite)
+-- Same shape as db/migrations/003_codegraph.sql (Postgres). FTS5 replaces
+-- tsvector+GIN; sqlite-vec virtual tables replace pgvector + HNSW.
+
+CREATE TABLE cg_repos (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  root_path       TEXT NOT NULL UNIQUE,
+  last_indexed_at TEXT
+);
+
+CREATE TABLE cg_files (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_id   INTEGER NOT NULL REFERENCES cg_repos(id) ON DELETE CASCADE,
+  path      TEXT NOT NULL,
+  language  TEXT NOT NULL,
+  sha256    TEXT NOT NULL,
+  mtime     TEXT NOT NULL,
+  UNIQUE (repo_id, path)
+);
+CREATE INDEX idx_cg_files_repo ON cg_files(repo_id);
+
+CREATE TABLE cg_symbols (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  file_id    INTEGER NOT NULL REFERENCES cg_files(id) ON DELETE CASCADE,
+  kind       TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  qualified  TEXT NOT NULL,
+  start_line INTEGER NOT NULL,
+  end_line   INTEGER NOT NULL,
+  signature  TEXT,
+  doc        TEXT
+);
+CREATE INDEX idx_cg_symbols_qualified ON cg_symbols(qualified);
+CREATE INDEX idx_cg_symbols_name      ON cg_symbols(name);
+CREATE INDEX idx_cg_symbols_file      ON cg_symbols(file_id);
+
+CREATE VIRTUAL TABLE cg_symbols_fts USING fts5(
+  name, doc,
+  content='cg_symbols',
+  content_rowid='id'
+);
+CREATE TRIGGER trg_cg_symbols_fts_ai AFTER INSERT ON cg_symbols BEGIN
+  INSERT INTO cg_symbols_fts(rowid, name, doc) VALUES (NEW.id, NEW.name, COALESCE(NEW.doc, ''));
+END;
+CREATE TRIGGER trg_cg_symbols_fts_ad AFTER DELETE ON cg_symbols BEGIN
+  INSERT INTO cg_symbols_fts(cg_symbols_fts, rowid, name, doc) VALUES ('delete', OLD.id, OLD.name, COALESCE(OLD.doc, ''));
+END;
+CREATE TRIGGER trg_cg_symbols_fts_au AFTER UPDATE ON cg_symbols BEGIN
+  INSERT INTO cg_symbols_fts(cg_symbols_fts, rowid, name, doc) VALUES ('delete', OLD.id, OLD.name, COALESCE(OLD.doc, ''));
+  INSERT INTO cg_symbols_fts(rowid, name, doc)                 VALUES (NEW.id, NEW.name, COALESCE(NEW.doc, ''));
+END;
+
+-- Embedding store. rowid here is the cg_symbols.id (FK enforced by trigger
+-- below). Postgres puts the embedding in the same row; SQLite needs a sidecar
+-- virtual table.
+CREATE VIRTUAL TABLE vec_cg_symbols USING vec0(
+  rowid INTEGER PRIMARY KEY,
+  embedding FLOAT[1024]
+);
+-- Cascade deletes from cg_symbols → vec_cg_symbols (vec0 doesn't honor FKs).
+CREATE TRIGGER trg_cg_symbols_vec_cleanup AFTER DELETE ON cg_symbols BEGIN
+  DELETE FROM vec_cg_symbols WHERE rowid = OLD.id;
+END;
+
+CREATE TABLE cg_edges (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  src_symbol_id   INTEGER NOT NULL REFERENCES cg_symbols(id) ON DELETE CASCADE,
+  dst_symbol_id   INTEGER          REFERENCES cg_symbols(id) ON DELETE SET NULL,
+  dst_unresolved  TEXT,
+  kind            TEXT NOT NULL,
+  src_line        INTEGER
+);
+CREATE INDEX idx_cg_edges_src ON cg_edges(src_symbol_id, kind);
+CREATE INDEX idx_cg_edges_dst ON cg_edges(dst_symbol_id, kind);
+CREATE INDEX idx_cg_edges_unr ON cg_edges(dst_unresolved) WHERE dst_unresolved IS NOT NULL;
+
+
+-- ── docgraph (document graph) ────────────────────────────────────────────────
+-- Document-shaped sibling of codegraph: indexes folders of human content
+-- (Markdown/text/HTML/PDF/DOCX) into documents → sections → chunks, with FTS5 +
+-- sqlite-vec for hybrid search. Section text is stored (not re-sliced from the
+-- source file) so doc_context works uniformly across formats, including binary
+-- ones where file offsets are meaningless.
+
+CREATE TABLE docgraph_repos (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  root_path       TEXT NOT NULL UNIQUE,
+  last_indexed_at TEXT
+);
+
+CREATE TABLE docgraph_documents (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  repo_id     INTEGER NOT NULL REFERENCES docgraph_repos(id) ON DELETE CASCADE,
+  rel_path    TEXT NOT NULL,
+  mime        TEXT NOT NULL,
+  size        INTEGER,
+  mtime       TEXT,
+  sha256      TEXT NOT NULL,
+  title       TEXT,
+  summary     TEXT,
+  indexed_at  TEXT,
+  UNIQUE (repo_id, rel_path)
+);
+CREATE INDEX idx_dd_repo ON docgraph_documents(repo_id);
+
+CREATE TABLE docgraph_sections (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  document_id INTEGER NOT NULL REFERENCES docgraph_documents(id) ON DELETE CASCADE,
+  parent_id   INTEGER REFERENCES docgraph_sections(id) ON DELETE SET NULL,
+  ord         INTEGER NOT NULL DEFAULT 0,
+  level       INTEGER NOT NULL DEFAULT 1,
+  heading     TEXT,
+  text        TEXT
+);
+CREATE INDEX idx_ds_doc    ON docgraph_sections(document_id);
+CREATE INDEX idx_ds_parent ON docgraph_sections(parent_id);
+
+CREATE TABLE docgraph_chunks (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  document_id INTEGER NOT NULL REFERENCES docgraph_documents(id) ON DELETE CASCADE,
+  section_id  INTEGER NOT NULL REFERENCES docgraph_sections(id) ON DELETE CASCADE,
+  ord         INTEGER NOT NULL,
+  text        TEXT NOT NULL,
+  token_count INTEGER
+);
+CREATE INDEX idx_dc_doc     ON docgraph_chunks(document_id);
+CREATE INDEX idx_dc_section ON docgraph_chunks(section_id);
+
+-- External-content FTS5 over chunk text. BM25 rank is negated at query time so
+-- larger = better (uniform with vec scores).
+CREATE VIRTUAL TABLE docgraph_fts USING fts5(
+  text,
+  content='docgraph_chunks',
+  content_rowid='id',
+  tokenize='porter unicode61'
+);
+CREATE TRIGGER trg_docgraph_fts_ai AFTER INSERT ON docgraph_chunks BEGIN
+  INSERT INTO docgraph_fts(rowid, text) VALUES (NEW.id, NEW.text);
+END;
+CREATE TRIGGER trg_docgraph_fts_ad AFTER DELETE ON docgraph_chunks BEGIN
+  INSERT INTO docgraph_fts(docgraph_fts, rowid, text) VALUES ('delete', OLD.id, OLD.text);
+END;
+CREATE TRIGGER trg_docgraph_fts_au AFTER UPDATE ON docgraph_chunks BEGIN
+  INSERT INTO docgraph_fts(docgraph_fts, rowid, text) VALUES ('delete', OLD.id, OLD.text);
+  INSERT INTO docgraph_fts(rowid, text)                VALUES (NEW.id, NEW.text);
+END;
+
+-- Embedding sidecar. rowid = docgraph_chunks.id. vec0 doesn't honor FKs, so a
+-- delete trigger keeps it in sync.
+CREATE VIRTUAL TABLE vec_docgraph_chunks USING vec0(
+  rowid INTEGER PRIMARY KEY,
+  embedding FLOAT[1024]
+);
+CREATE TRIGGER trg_docgraph_chunks_vec_cleanup AFTER DELETE ON docgraph_chunks BEGIN
+  DELETE FROM vec_docgraph_chunks WHERE rowid = OLD.id;
+END;
+
+-- Cross-document references (Phase 5 populates these; table ships now so later
+-- phases are additive).
+CREATE TABLE docgraph_refs (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  document_id INTEGER NOT NULL REFERENCES docgraph_documents(id) ON DELETE CASCADE,
+  section_id  INTEGER REFERENCES docgraph_sections(id) ON DELETE SET NULL,
+  kind        TEXT NOT NULL,
+  value       TEXT NOT NULL
+);
+CREATE INDEX idx_dr_value      ON docgraph_refs(value);
+CREATE INDEX idx_dr_kind_value ON docgraph_refs(kind, value);

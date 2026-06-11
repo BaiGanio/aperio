@@ -1,23 +1,19 @@
 // tests/db/sqlite.test.js
 //
-// Tests for SqliteStore. Creates a temporary file-based database (the store
-// uses file-based DB for sqlite-vec + WAL support) via init(), then exercises
-// CRUD, recall, settings, and pin/expiry operations.
+// Tests for SqliteStore. Uses an in-memory (':memory:') database — sqlite-vec
+// loads into RAM and no file is created on disk — then exercises CRUD, recall,
+// settings, and pin/expiry operations.
 
 import { describe, test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync } from "node:fs";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
 
-let tmpDir, oldPath;
+let oldPath;
 let store;
 
 before(async () => {
-  // Point SQLITE_PATH to a temp directory so init() creates an isolated DB
-  tmpDir = mkdtempSync(join(tmpdir(), "aperio-sqlite-test-"));
+  // ':memory:' → init() opens an ephemeral in-RAM DB (zero real disk access).
   oldPath = process.env.SQLITE_PATH;
-  process.env.SQLITE_PATH = join(tmpDir, "test.db");
+  process.env.SQLITE_PATH = ":memory:";
   // Use low dims for fast vectors
   process.env.EMBEDDING_DIMS = "4";
 
@@ -28,7 +24,6 @@ before(async () => {
 after(() => {
   if (oldPath) process.env.SQLITE_PATH = oldPath;
   else delete process.env.SQLITE_PATH;
-  if (tmpDir) rmSync(tmpDir, { recursive: true, force: true });
 });
 
 // =============================================================================
