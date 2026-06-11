@@ -495,10 +495,10 @@ export function register(server, ctx) {
   server.registerTool(
     "append_file",
     {
-      description: "Append content to the end of an existing file without touching the rest.",
+      description: "Append content to the end of an existing file without touching the rest. Content is appended verbatim — include a leading newline (\\n) if you want the content to start on a new line.",
       inputSchema: z.object({
         path:    z.string().describe("Absolute path to the file"),
-        content: z.string().describe("Content to append (added at the end of the file)"),
+        content: z.string().describe("Content to append verbatim. Start with \\n to append on a new line; omit it to continue on the same line."),
       }),
     },
     (args) => appendFileHandler(ctx, args)

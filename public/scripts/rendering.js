@@ -135,10 +135,33 @@ function addMessage(role, text, attachments) {
 function buildUserTokenChip(text, attachments) {
   let est = estimateTokens(text);
   (attachments || []).forEach(att => { est += estimateAttachmentTokens(att); });
-  if (est <= 0) return null;
   const chip = document.createElement("div");
   chip.className = "msg-stats msg-stats--user";
-  chip.textContent = `↑ ~${est.toLocaleString()} tokens`;
+  if (text.trim()) {
+    const copyBtn = document.createElement("button");
+    copyBtn.className = "msg-user-copy-btn";
+    copyBtn.title = "Copy";
+    copyBtn.dataset.raw = text;
+    copyBtn.innerHTML = '<i class="bi bi-copy"></i>';
+    copyBtn.onclick = () => copyBubble(copyBtn);
+    chip.appendChild(copyBtn);
+
+    const retryBtn = document.createElement("button");
+    retryBtn.className = "msg-user-copy-btn msg-user-retry-btn";
+    retryBtn.title = "Retry";
+    retryBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise"></i>';
+    retryBtn.onclick = () => {
+      const input = document.getElementById("chatInput");
+      if (input && window.send) { input.value = text; window.send(); }
+    };
+    chip.appendChild(retryBtn);
+  }
+  if (est > 0) {
+    const label = document.createElement("span");
+    label.textContent = `↑ ~${est.toLocaleString()} tokens`;
+    chip.appendChild(label);
+  }
+  if (!est && !text.trim()) return null;
   return chip;
 }
 
@@ -227,7 +250,7 @@ function ensureFileModal() {
         </div>
         <div class="fpm-actions">
           <button class="fpm-copy-btn" title="Copy content">
-            <i class="bi bi-clipboard"></i> Copy
+            <i class="bi bi-copy"></i> Copy
           </button>
           <button class="fpm-close-btn" title="Close (Esc)">
             <i class="bi bi-x-lg"></i>
@@ -247,8 +270,8 @@ function ensureFileModal() {
     const text = overlay.querySelector(".fpm-code").textContent;
     navigator.clipboard.writeText(text).then(() => {
       const btn = overlay.querySelector(".fpm-copy-btn");
-      btn.innerHTML = '<i class="bi bi-clipboard-check"></i> Copied!';
-      setTimeout(() => btn.innerHTML = '<i class="bi bi-clipboard"></i> Copy', 2000);
+      btn.innerHTML = '<i class="bi bi-copy-check"></i> Copied!';
+      setTimeout(() => btn.innerHTML = '<i class="bi bi-copy"></i> Copy', 2000);
     });
   });
 
@@ -293,6 +316,42 @@ function openFileModal(att) {
 
 function closeFileModal() {
   document.getElementById("file-preview-modal")?.classList.remove("open");
+}
+
+async function openGeneratedFileModal(url, name) {
+  ensureFileModal();
+  const modal = document.getElementById("file-preview-modal");
+
+  modal.querySelector(".fpm-icon").innerHTML = getFileIcon(name, null);
+  modal.querySelector(".fpm-filename").textContent = (name || "file").replace(/\.[^.]+$/, "");
+  const ext = (name || "").split(".").pop().toUpperCase() || "FILE";
+  modal.querySelector(".fpm-ext-badge").textContent = ext;
+
+  const codeEl = modal.querySelector(".fpm-code");
+  codeEl.className = "fpm-code";
+  codeEl.textContent = "Loading…";
+  modal.classList.add("open");
+
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    codeEl.textContent = await res.text();
+  } catch (e) {
+    codeEl.textContent = `Could not load file: ${e.message}`;
+    return;
+  }
+
+  const fileExt = (name || "").split(".").pop().toLowerCase();
+  const langMap = { js:"javascript", ts:"typescript", jsx:"javascript", tsx:"typescript",
+                    py:"python", html:"html", css:"css", json:"json", md:"markdown",
+                    cs:"csharp", rs:"rust", go:"go", java:"java", cpp:"cpp", c:"c",
+                    sh:"bash", yaml:"yaml", yml:"yaml", toml:"toml", xml:"xml", sql:"sql" };
+  if (langMap[fileExt]) codeEl.className = `fpm-code language-${langMap[fileExt]}`;
+
+  requestAnimationFrame(() => {
+    if (window.Prism) Prism.highlightElement(codeEl);
+    modal.querySelector(".fpm-body").scrollTop = 0;
+  });
 }
 
 // ── Image lightbox ────────────────────────────────────────────
@@ -360,6 +419,7 @@ function getFileTypeLabelFromMime(mime) {
 function addUserMessage(text, attachments) {
   addMessage("user", text, attachments);
 }
+
 
 function renderBlock(container, block) {
   if (block.type === 'text') {
