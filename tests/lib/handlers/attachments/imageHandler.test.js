@@ -1,10 +1,16 @@
-// tests/lib/handlers/attatchments/imageHandler.test.js
+// tests/lib/handlers/attachments/imageHandler.test.js
 // Tests for handleImage in lib/handlers/attachments/imageHandler.js
 
-import { test, describe, mock } from "node:test";
+import { test, describe, mock, after } from "node:test";
 import assert from "node:assert/strict";
-import os from "os";
-import { handleImage } from "../../../../lib/handlers/attachments/imageHandler.js";
+import { installMemfs } from "../../../helpers/memfs.js";
+
+// In-memory uploadDir → handleImage's writeFileSync/mkdirSync hit the in-RAM map
+// instead of leaking aperio_*.png files into the OS temp dir. Install before
+// importing the handler so its named fs bindings bind to the patched module.
+const mem = installMemfs({ root: "/mem/uploads" });
+const { handleImage } = await import("../../../../lib/handlers/attachments/imageHandler.js");
+after(() => mem.restore());
 
 // ─── Stubs ────────────────────────────────────────────────────────────────────
 
@@ -12,7 +18,7 @@ const mockPreprocessBase64  = mock.fn(async () => "bW9ja2VkYmFzZTY0");
 const mockGenerateThumbnail = mock.fn(async () => "dGh1bWJuYWls");
 
 const deps = {
-  uploadDir:          os.tmpdir(),
+  uploadDir:          mem.root,
   _preprocessBase64:  mockPreprocessBase64,
   _generateThumbnail: mockGenerateThumbnail,
 };

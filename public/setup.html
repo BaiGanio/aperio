@@ -421,7 +421,7 @@
         <div class="wiz-card-icon"><i class="bi bi-cloud"></i></div>
         <div class="wiz-card-text">
           <div class="wiz-card-title" data-i18n="wiz_cloud_title">Use a cloud AI</div>
-          <div class="wiz-card-sub" data-i18n="wiz_cloud_sub">Fastest to start — just paste one API key. (Anthropic, DeepSeek, or Gemini)</div>
+          <div class="wiz-card-sub" data-i18n="wiz_cloud_sub">Fastest to start — just paste one API key. (Anthropic or DeepSeek)</div>
         </div>
         <i class="bi bi-chevron-right wiz-chev"></i>
       </button>
@@ -441,7 +441,8 @@
       <select id="wizProvider" class="wiz-input">
         <option value="anthropic">Anthropic (Claude)</option>
         <option value="deepseek">DeepSeek</option>
-        <option value="gemini">Google Gemini</option>
+        <!-- Gemini hidden — uncomment to expose it in the setup wizard -->
+        <!-- <option value="gemini">Google Gemini</option> -->
       </select>
       <label class="wiz-label" for="wizKey" data-i18n="wiz_key_label">API key</label>
       <input id="wizKey" class="wiz-input" type="password" data-i18n-attr-placeholder="wiz_key_placeholder" placeholder="Paste your API key" autocomplete="off" spellcheck="false" />
@@ -681,7 +682,7 @@ document.querySelectorAll("[data-back]").forEach(b =>
 const KEY_HELP = {
   anthropic: "https://console.anthropic.com/settings/keys",
   deepseek:  "https://platform.deepseek.com/api_keys",
-  gemini:    "https://aistudio.google.com/app/apikey",
+  // gemini:    "https://aistudio.google.com/app/apikey",
 };
 const providerSel = document.getElementById("wizProvider");
 const keyHelp     = document.getElementById("wizKeyHelp");

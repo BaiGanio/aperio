@@ -1,4 +1,4 @@
-// tests/lib/handlers/attatchments/workers/preprocessImage.test.js
+// tests/lib/handlers/attachments/workers/preprocessImage.test.js
 // Tests for preprocessImage and preprocessBase64 in lib/handlers/attachments/workers/preprocessImage.js
 
 import { test, describe, before, after, mock } from "node:test";

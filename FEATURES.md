@@ -2,7 +2,7 @@
 
 Single source of truth for **what exists**. If you add or remove a feature, change it here in the same PR — otherwise it didn't ship.
 
-Last reconciled: 2026-06-05 · Version: 0.51.2
+Last reconciled: 2026-06-10 · Version: 0.55.0
 
 ---
 
@@ -33,6 +33,17 @@ Last reconciled: 2026-06-05 · Version: 0.51.2
 - Multi-repo support, honors `APERIO_ALLOWED_PATHS_TO_READ`
 - Backends: Postgres and SQLite
 
+## Doc Graph
+- Extract + chunk documents — MD, TXT, HTML, PDF, DOCX, XLSX, PPTX, EML
+- One-shot index of a directory (`node lib/docgraph/indexer.js .`)
+- Live reindex on save via chokidar watcher (`APERIO_DOCGRAPH=on`)
+- Hybrid FTS + semantic chunk search (`doc_search`)
+- Document outline by section/heading (`doc_outline`)
+- Chunk slice for a document with surrounding context (`doc_context`)
+- Cross-document reference extraction — links/citations (`doc_refs`)
+- List indexed doc repos with counts + last-indexed (`doc_repos`)
+- Backends: Postgres and SQLite
+
 ## Files & Documents
 - Read text/code file, paginated, 500 lines/call (`read_file`)
 - Create/overwrite, write-path guarded (`write_file`)
@@ -41,26 +52,33 @@ Last reconciled: 2026-06-05 · Version: 0.51.2
 - Two-phase token-confirmed delete (`delete_file`)
 - Traverse a project folder — tree + key files (`scan_project`)
 - Generate multi-sheet `.xlsx`, served for download (`generate_xlsx`)
-- Attachment handlers: PDF, DOCX, PPTX, XLSX, text, image
+- Generate `.docx` via Node `docx` lib (`generate_docx`); read `.docx` text (`read_docx`)
+- Attachment handlers: PDF, DOCX, PPTX, text, image
 - PPTX generation via script + `run_node_script` (see `skills/pptx/`)
-- DOCX create/read via Node `docx` lib; advanced edit (tracked changes, comments, validation) via opt-in Python toolchain + `run_python_script` (see `skills/docx/`)
+- Advanced DOCX edit (tracked changes, comments, validation) via opt-in Python toolchain + `run_python_script` (see `skills/docx/`)
 
 ## Shell
 - Run a `.js` script in an allowed write path (`run_node_script`)
 - Run a `.py` script in an allowed write path, requires host `python3` (`run_python_script`)
 - JS syntax check without executing (`syntax_check`)
+- Run an allowlisted shell command in a write path (`run_shell`)
 
 ## Web & Image
-- Fetch URL, strip HTML, truncate at 15k chars (`fetch_url`)
+- Fetch URL, strip HTML, with offset paging for long pages (`fetch_url`)
 - Load image from path or base64 for analysis (`read_image`)
 - Normalize image to RGB PNG, letterbox 896×896 (`preprocess_image`)
 - Describe image via local Ollama VLM (`describe_image`)
 
-> **29 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
+## GitHub
+- Fetch an issue with body + comments (`fetch_github_issue`)
+- Open a new issue (`create_github_issue`)
+- Update / close an existing issue (`update_github_issue`)
+
+> **41 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)
-- Providers: Ollama, Anthropic, DeepSeek, Gemini
+- Providers: Ollama, Anthropic, DeepSeek (Gemini and Claude Code SDK exist in-code but are hidden from the UI)
 - Skills matching per turn (`skills/`)
 - Reasoning / thinking mode with reasoning-chain replay
 - Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`)
@@ -87,4 +105,4 @@ Last reconciled: 2026-06-05 · Version: 0.51.2
 - Graceful shutdown with ONNX cleanup
 - RAM-based model auto-select (`CHECK_RAM=true`)
 - Docker production config (`docker/docker-compose.prod.yml`)
-- Test suite: 723 tests (`npm test`)
+- Test suite: 1454 tests (`npm test`)

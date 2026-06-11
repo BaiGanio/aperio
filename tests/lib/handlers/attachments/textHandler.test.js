@@ -1,4 +1,4 @@
-// tests/lib/handlers/attatchments/textHandler.test.js
+// tests/lib/handlers/attachments/textHandler.test.js
 // Tests for handleText in lib/handlers/attachments/textHandler.js
 
 import { test, describe } from "node:test";

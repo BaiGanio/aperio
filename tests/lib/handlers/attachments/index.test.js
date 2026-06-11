@@ -1,4 +1,4 @@
-// tests/lib/handlers/attatchments/index.test.js
+// tests/lib/handlers/attachments/index.test.js
 // Tests for processAttachments in lib/handlers/attachments/index.js
 
 import { test, describe, mock } from "node:test";

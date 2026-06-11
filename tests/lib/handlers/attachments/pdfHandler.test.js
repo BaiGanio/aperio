@@ -1,4 +1,4 @@
-// tests/lib/handlers/attatchments/pdfHandler.test.js
+// tests/lib/handlers/attachments/pdfHandler.test.js
 // Tests for handlePdf in lib/handlers/attachments/pdfHandler.js
 
 import { test, describe, mock } from "node:test";

@@ -482,7 +482,8 @@ describe("GET /models", () => {
     cleanup();
     assert.ok(body.providers.anthropic.length > 0);
     assert.ok(body.providers.deepseek.length > 0);
-    assert.ok(body.providers.gemini.length > 0);
+    // Gemini is intentionally hidden from the model picker (re-enable in lib/routes/api.js).
+    assert.strictEqual(body.providers.gemini, undefined);
   });
 
   test("handles ollama fetch failure gracefully", async () => {

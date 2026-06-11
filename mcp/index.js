@@ -17,6 +17,7 @@ import { register as registerImage }   from "./tools/image.js";
 import { register as registerShell }   from "./tools/shell.js";
 import { register as registerWiki }    from "./tools/wiki.js";
 import { register as registerCodegraph } from "./tools/codegraph.js";
+import { register as registerDocgraph }  from "./tools/docgraph.js";
 import { register as registerGithub }    from "./tools/github.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -69,6 +70,7 @@ export async function startServer(opts = {}) {
   registerShell(server);
   registerWiki(server, ctx);
   registerCodegraph(server, ctx);
+  registerDocgraph(server, ctx);
   registerGithub(server, ctx);
 
   // 4. Connect transport

@@ -1,6 +1,21 @@
-import { test, describe } from "node:test";
+import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
-import {
+import { createRequire } from "module";
+
+// ─── Patch fs BEFORE importing roundtable.js ─────────────────────────────────
+// writeRoundtableRecord() writes a markdown discussion record to var/roundtables/
+// at the end of every discussion. Tests must never touch the real disk, so we
+// stub the fs calls it makes. Node binds a module's named `fs` imports from the
+// CJS module cache at first import, so patching here — before the dynamic import
+// below — makes roundtable.js see these no-ops for every write it attempts.
+const require = createRequire(import.meta.url);
+const fsSync  = require("fs");
+mock.method(fsSync, "mkdirSync",      () => {});
+mock.method(fsSync, "existsSync",     () => false);
+mock.method(fsSync, "writeFileSync",  () => {});
+mock.method(fsSync, "appendFileSync", () => {});
+
+const {
   parseAgreement,
   foldReplyToPlainText,
   buildAnswerPrompt,
@@ -9,7 +24,7 @@ import {
   buildRereviewPrompt,
   withUserAttachments,
   runRoundTable,
-} from "../../../lib/workers/roundtable.js";
+} = await import("../../../lib/workers/roundtable.js");
 
 // ─── parseAgreement ──────────────────────────────────────────────────────────
 describe("parseAgreement", () => {

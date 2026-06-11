@@ -1,13 +1,18 @@
-import { test, describe, before, after } from "node:test";
+import { test, describe, after } from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
 import { join } from "node:path";
-import { loadSkillIndex, matchSkill, executeSkill } from "../../../lib/workers/skills.js";
-import { createIsolatedTestDir } from "../../helpers/sandbox.js";
+import { installMemfs } from "../../helpers/memfs.js";
 
-let sandbox;
-before(() => { sandbox = createIsolatedTestDir(); });
-after(() => sandbox.restore());
+// In-memory fs (zero real disk). Install before importing skills.js so its named
+// fs bindings read from the in-RAM map. IMPORTANT: do NOT statically `import
+// from "fs"` here — that would create the builtin fs ESM facade before the patch
+// and leave skills.js unmocked. Use the patched handle the helper returns.
+const mem = installMemfs({ root: "/mem/skills" });
+const { loadSkillIndex, matchSkill, executeSkill } = await import("../../../lib/workers/skills.js");
+after(() => mem.restore());
+
+const fs = mem.fs;
+const sandbox = { root: mem.root };
 
 describe("skills.js", () => {
   
