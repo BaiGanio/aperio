@@ -409,11 +409,11 @@ function buildHistoryMessage(role, text, attachments) {
   wrap.appendChild(avatar);
   wrap.appendChild(bubble);
 
-  // Match live messages: show the per-message token chip after user turns.
-  const chip = role === "user" ? buildUserTokenChip(text, attachments) : null;
-  if (!chip) return wrap;
+  if (role !== "user") return wrap;
+
   const frag = document.createDocumentFragment();
   frag.appendChild(wrap);
-  frag.appendChild(chip);
+  const chip = buildUserTokenChip(text, attachments);
+  if (chip) frag.appendChild(chip);
   return frag;
 }

@@ -541,6 +541,11 @@ function handleMessage(msg) {
     return;
   }
 
+  if (msg.type === "no_tool_use_detected") {
+    _renderNoToolWarning(msg.model);
+    return;
+  }
+
   if (msg.type === "error") {
     removeThinking();
     removeToolIndicator();
@@ -1074,24 +1079,42 @@ function _fileKind(ext) {
   }
 }
 
+const _BINARY_EXT = new Set(["xlsx", "xls", "docx", "doc", "pdf", "pptx", "ppt",
+                              "png", "jpg", "jpeg", "gif", "webp", "svg",
+                              "zip", "tar", "gz", "exe", "wasm"]);
+
 function _buildGeneratedFileCard({ filename, url, sizeKb }) {
-  // Prefer the explicit filename; otherwise derive it from the URL so the name
-  // and extension are always shown (no "spreadsheet.xlsx" placeholder).
   const name = filename || (url ? decodeURIComponent(url.split("/").pop()) : "file");
   const ext  = (name.split(".").pop() || "").toLowerCase();
   const { icon, label } = _fileKind(ext);
+  const canPreview = !_BINARY_EXT.has(ext);
 
   const card = document.createElement("div");
   card.className = "generated-file-card";
+
+  const previewBtn = canPreview
+    ? `<button class="gfc-btn gfc-preview-btn" data-url="${escapeHtml(url)}" data-name="${escapeHtml(name)}">` +
+        `<i class="bi bi-eye"></i> Preview` +
+      `</button>`
+    : "";
+
   card.innerHTML =
     `<div class="gfc-icon"><i class="bi ${icon}"></i></div>` +
     `<div class="gfc-info">` +
       `<span class="gfc-name">${escapeHtml(name)}</span>` +
       `<span class="gfc-meta">${escapeHtml(label)}${sizeKb ? ` · ${sizeKb} KB` : ""}</span>` +
     `</div>` +
+    previewBtn +
     `<a class="gfc-btn" href="${escapeHtml(url)}" download="${escapeHtml(name)}">` +
       `<i class="bi bi-download"></i> Download` +
     `</a>`;
+
+  if (canPreview) {
+    card.querySelector(".gfc-preview-btn").addEventListener("click", () => {
+      openGeneratedFileModal(url, name);
+    });
+  }
+
   return card;
 }
 
@@ -1400,5 +1423,21 @@ function _renderActionConfirmButton(token, label, summary, tool) {
   wrap.appendChild(row);
 
   messagesEl.appendChild(wrap);
+  scrollToBottom();
+}
+
+function _renderNoToolWarning(model) {
+  const chip = document.createElement("div");
+  chip.className = "no-tool-warning";
+  chip.innerHTML =
+    `<span class="no-tool-warning-icon">⚠</span>` +
+    `<span class="no-tool-warning-text">` +
+      `<strong>${escapeHtml(model)}</strong> doesn't appear to support tool use — ` +
+      `it can describe code but cannot write files, run scripts, or call any tools. ` +
+      `Switch to a model with function-calling support for file operations.` +
+    `</span>` +
+    `<button class="no-tool-warning-dismiss" title="Dismiss">✕</button>`;
+  chip.querySelector(".no-tool-warning-dismiss").onclick = () => chip.remove();
+  messagesEl.appendChild(chip);
   scrollToBottom();
 }

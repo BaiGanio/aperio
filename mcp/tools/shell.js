@@ -1,7 +1,7 @@
 import { z }            from "zod";
 import { spawn }         from "child_process";
 import { dirname, resolve as resolvePath, extname } from "path";
-import { existsSync, mkdirSync } from "fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratchDir } from "../../lib/routes/paths.js";
 import { pythonInterpreter } from "../../lib/helpers/capabilities.js";
 import logger from "../../lib/helpers/logger.js";
@@ -43,6 +43,50 @@ function formatPathError(scriptPath) {
       text: `❌ Script not allowed: ${scriptPath}\nAllowed paths: ${writePaths.join(", ")}`,
     }],
   };
+}
+
+// Aperio's project root is `"type": "module"`, so Node treats every `.js` file
+// under it (including the scratch workspace) as ESM. Weaker models routinely
+// generate CommonJS scripts (`require('pdf-lib')`, `module.exports`), which then
+// die with "require is not defined in ES module scope". Node ALWAYS treats a
+// `.cjs` file as CommonJS regardless of the nearest package.json `type`, so when
+// a `.js` script is plainly CommonJS (require/exports markers, no static
+// import/export) we run a temporary `.cjs` copy of it. node_modules and relative
+// requires still resolve because the copy sits in the same directory; the copy is
+// always deleted after the run (via cleanup) so it never pollutes the workspace
+// or a real project directory.
+//
+// Returns { runTarget, cleanup }. runTarget is the path to actually spawn;
+// cleanup() removes any temp copy and is safe to call exactly once.
+//
+// IMPORTANT: a script that mixes `require()` with TOP-LEVEL `await` (await at
+// column 0, not nested in a function) is self-contradictory — top-level await is
+// ESM-only, require is CJS-only, so NO module mode can run it. We do NOT redirect
+// those to `.cjs` (that yields a confusing "await is only valid…" syntax error);
+// instead we leave them as ESM so Node emits its own clear "require is not
+// defined … use import" message, which the model can act on.
+function prepareNodeTarget(resolved) {
+  const noop = { runTarget: resolved, cleanup: () => {} };
+  if (extname(resolved).toLowerCase() !== ".js") return noop;
+  let src;
+  try { src = readFileSync(resolved, "utf-8"); } catch { return noop; }
+  const hasCjs = /(^|[^.\w])require\s*\(/m.test(src) || /\bmodule\.exports\b/.test(src) || /\bexports\.\w/.test(src);
+  const hasEsm = /^\s*import\s.+\bfrom\b/m.test(src) || /^\s*import\s*['"]/m.test(src) || /^\s*export\s/m.test(src);
+  // Heuristic for top-level await: an unindented line that uses `await` and is
+  // NOT a function/arrow declaration. Awaits nested in a function body are
+  // indented (so `^\S` excludes them); the `function`/`=>` lookaheads also drop
+  // single-line bodies like `async function f(){ await x() }` that sit at column 0.
+  const hasTopLevelAwait = /^(?!.*\bfunction\b)(?!.*=>)\S[^\n]*\bawait\b/m.test(src);
+  if (!hasCjs || hasEsm || hasTopLevelAwait) return noop;
+  const cjsPath = resolved.replace(/\.js$/i, ".cjs");
+  try {
+    writeFileSync(cjsPath, src);
+    logger.info(`[run_node_script] CommonJS detected; running a temporary .cjs copy of ${resolved}`);
+    return { runTarget: cjsPath, cleanup: () => { try { unlinkSync(cjsPath); } catch {} } };
+  } catch (err) {
+    logger.warn(`[run_node_script] could not write .cjs copy (${err.message}); running original`);
+    return noop;
+  }
 }
 
 function buildResponseText({ exitCode, timedOut, stdout, stderr, stdoutBytes, stderrBytes, scriptPath }) {
@@ -125,24 +169,27 @@ export async function runNodeScriptHandler({ script, args = [] }) {
 
   if (!existsSync(resolved)) {
     logger.warn(`[run_node_script] script not found: ${resolved}`);
-    return { content: [{ type: "text", text: `❌ Script not found: ${resolved}` }] };
+    return { content: [{ type: "text", text: `❌ Script not found: ${resolved}. If you intended to create and run this script, call write_file with this exact path FIRST, then run_node_script — they must be separate, ordered steps (write before run).` }] };
   }
 
   // Default cwd to the active session scratch dir so any relative output paths
   // land there (served via /scratch) rather than inside the skill's own folder.
   // Scripts always know their own directory via import.meta.url / __dirname.
   const cwd = getActiveScratchDir() ?? dirname(resolved);
+  const { runTarget, cleanup } = prepareNodeTarget(resolved);
   logger.info(`[run_node_script] start ${resolved} cwd=${cwd} args=${JSON.stringify(args)}`);
 
   let child;
   try {
-    child = spawn("node", [resolved, ...args.map(String)], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    child = spawn("node", [runTarget, ...args.map(String)], { cwd, stdio: ["ignore", "pipe", "pipe"] });
   } catch (err) {
+    cleanup();
     logger.error(`[run_node_script] spawn threw: ${err.message}`);
     return { content: [{ type: "text", text: `❌ Failed to spawn node: ${err.message}` }] };
   }
 
   const r = await collectOutput(child, "run_node_script");
+  cleanup();
   if (r.spawnError) {
     logger.error(`[run_node_script] child error: ${r.spawnError.message}`);
     return { content: [{ type: "text", text: `❌ Failed to start script: ${r.spawnError.message}` }] };
@@ -188,7 +235,7 @@ export async function runPythonScriptHandler({ script, args = [] }) {
 
   if (!existsSync(resolved)) {
     logger.warn(`[run_python_script] script not found: ${resolved}`);
-    return { content: [{ type: "text", text: `❌ Script not found: ${resolved}` }] };
+    return { content: [{ type: "text", text: `❌ Script not found: ${resolved}. If you intended to create and run this script, call write_file with this exact path FIRST, then run_python_script — they must be separate, ordered steps (write before run).` }] };
   }
 
   const cwd = getActiveScratchDir() ?? dirname(resolved);
@@ -423,7 +470,7 @@ export function register(server) {
   server.registerTool(
     "run_node_script",
     {
-      description: "Run a Node.js script file and return its output. The script must be within an allowed write path. Use this to run skill scripts (e.g. skills/pptx/scripts/read.js). Only .js files are allowed.",
+      description: "Run a Node.js script file and return its output. The script must be within an allowed write path. Use this to run skill scripts (e.g. skills/pptx/scripts/read.js). Only .js files are allowed. Scripts execute as ES modules (the project is `type: module`): use `import x from 'pkg'`, not `require()`.",
       inputSchema: z.object({
         script: z.string().describe("Absolute path to the .js script to run"),
         args:   z.array(z.string()).optional().describe("Arguments to pass to the script"),

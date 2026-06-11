@@ -17,6 +17,11 @@ metadata:
 
 When in doubt, describe what you are about to do and confirm before doing it.
 
+### Do the work yourself; verify before claiming
+- If producing the result needs a script or command run, run it yourself with the right tool (`run_node_script`, `run_python_script`, etc.). Never hand the user a command and tell them to run it to "generate", "create", or "test" the output — an agent that offloads execution back to the user has done nothing.
+- Do not claim a file was created, generated, saved, converted, or exported until a tool result confirms it exists. If the producing step errored, or you never ran it, say that plainly — do not describe success you did not observe.
+- "Here's how you could do it" is only acceptable when the user explicitly asked for instructions, or the action is one you must ask permission for first (see above).
+
 ### Never do these
 - Commit secrets, API keys, or tokens to any file or memory store
 - Edit `node_modules/`, `vendor/`, or generated directories

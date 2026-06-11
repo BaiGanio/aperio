@@ -67,6 +67,10 @@
   background: var(--accent-soft, rgba(99,102,241,0.12));
   border-color: var(--accent);
 }
+button.gfc-btn {
+  cursor: pointer;
+  outline: none;
+}
 
 .msg-attachments {
   display: flex;

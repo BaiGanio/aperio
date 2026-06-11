@@ -152,7 +152,7 @@ function copyCode(id) {
 }
 
 function copyBubble(btn) {
-  const raw = btn.closest(".bubble")?.dataset?.raw;
+  const raw = btn.dataset.raw || btn.closest(".bubble")?.dataset?.raw;
   if (!raw) return;
   navigator.clipboard.writeText(raw).then(() => {
     btn.innerHTML = '<i class="bi bi-clipboard-check"></i>';
