@@ -92,6 +92,11 @@
         <i class="bi bi-diagram-3 sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Code</span>
       </button>
+      <button id="docgraphBtn" class="sidebar-nav-btn" onclick="toggleDocgraphPanel()"
+              title="Documents — search your indexed PDFs, DOCX, notes…">
+        <i class="bi bi-file-earmark-text sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Docs</span>
+      </button>
       <button id="wikiBtn" class="sidebar-nav-btn" onclick="toggleWikiPanel()"
         title="Wiki — LLM-authored articles over your memories">
         <i class="bi bi-book sidebar-nav-icon"></i>
@@ -355,6 +360,23 @@
 </div>
 <div id="codegraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleCodegraphPanel()"></div>
 
+<!-- Document graph panel (reuses the cg-* panel styles) -->
+<div id="docgraph-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-file-earmark-text"></i> Documents</span>
+    <button class="cg-panel-close" onclick="toggleDocgraphPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="dgSearchInput" class="cg-search-input" placeholder="Search documents…" />
+    <div class="cg-toolbar-row">
+      <select id="dgFolderSelect" class="cg-select"><option value="">All folders</option></select>
+      <select id="dgMimeSelect" class="cg-select"><option value="">All types</option></select>
+    </div>
+  </div>
+  <div class="cg-panel-body" id="dg-panel-body"></div>
+</div>
+<div id="docgraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleDocgraphPanel()"></div>
+
 <!-- Settings panel -->
 <div id="settings-panel" class="settings-panel" style="display:none;">
   <div class="settings-panel-header">
@@ -482,6 +504,7 @@
 <script src="scripts/wiki-panel.js"></script>
 <script src="scripts/db-panel.js"></script>
 <script src="scripts/codegraph-panel.js"></script>
+<script src="scripts/docgraph-panel.js"></script>
 <script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>

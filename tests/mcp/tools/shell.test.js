@@ -165,6 +165,64 @@ describe("runShellHandler", () => {
 });
 
 // =============================================================================
+// makeTailBiasedSink (#3 — tail-biased output cap)
+// =============================================================================
+
+describe("makeTailBiasedSink", () => {
+  test("returns the whole stream untouched when it fits", () => {
+    const s = shell.makeTailBiasedSink(10, 20);
+    s.push(Buffer.from("hello world")); // 11 bytes <= 30
+    assert.equal(s.toString(), "hello world");
+    assert.equal(s.bytes, 11);
+  });
+
+  test("keeps head + tail and drops the middle once over cap", () => {
+    const s = shell.makeTailBiasedSink(8, 12); // cap = 20
+    s.push(Buffer.from("HEADHEAD" + "x".repeat(100) + "TAILTAILTAIL"));
+    const out = s.toString();
+    assert.match(out, /^HEADHEAD/, "keeps the head");
+    assert.match(out, /TAILTAILTAIL$/, "keeps the tail verdict");
+    assert.match(out, /omitted to fit context/, "marks the omission");
+    assert.ok(!out.includes("x".repeat(50)), "drops the middle");
+    assert.equal(s.bytes, 8 + 100 + 12);
+  });
+
+  test("tail survives across many small chunks with bounded memory", () => {
+    const s = shell.makeTailBiasedSink(8, 12);
+    for (let i = 0; i < 1000; i++) s.push(Buffer.from("ab"));
+    s.push(Buffer.from("VERDICT_END!"));
+    const out = s.toString();
+    assert.match(out, /^abababab/, "head is the first bytes seen");
+    assert.match(out, /VERDICT_END!$/, "tail is the last bytes seen");
+    assert.match(out, /omitted to fit context/);
+  });
+
+  test("a single oversized chunk is still tail-trimmed", () => {
+    const s = shell.makeTailBiasedSink(4, 6);
+    s.push(Buffer.from("HEAD" + "z".repeat(1000) + "ENDEND"));
+    const out = s.toString();
+    assert.match(out, /^HEAD/);
+    assert.match(out, /ENDEND$/);
+  });
+});
+
+// =============================================================================
+// runShellHandler output capping (#3 — verdict at the tail survives)
+// =============================================================================
+
+describe("runShellHandler tail-biased output", () => {
+  test("keeps the tail verdict when stdout exceeds the cap", async () => {
+    const big = "BUILD_START\n" + "noise\n".repeat(60000) + "BUILD FAILED: 3 errors\n";
+    _spawnImpl = () => createMockChild({ exitCode: 1, stdout: big });
+    const r = await shell.runShellHandler({ command: "node build.js", cwd: mem.root });
+    const text = r.content[0].text;
+    assert.match(text, /BUILD_START/, "head retained");
+    assert.match(text, /BUILD FAILED: 3 errors/, "tail verdict reaches the model");
+    assert.match(text, /omitted to fit context/, "omission marked");
+  });
+});
+
+// =============================================================================
 // syntaxCheckHandler
 // =============================================================================
 

@@ -6,8 +6,52 @@ import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratch
 import { pythonInterpreter } from "../../lib/helpers/capabilities.js";
 import logger from "../../lib/helpers/logger.js";
 
-const MAX_OUTPUT_BYTES = 200_000;
+// Hard cap on captured stdout/stderr, applied per stream. Small-context local
+// models drown in long logs (a 4B model can't use 24K tokens of build output),
+// so the default is deliberately tight; raise it for cloud models via
+// APERIO_SHELL_MAX_OUTPUT_BYTES. The cap is TAIL-BIASED — the head plus the LAST
+// bytes survive and the middle is dropped — because a run's verdict/error lives
+// at the end, which the old head-only cap discarded entirely once output grew.
+const MAX_OUTPUT_BYTES = parseInt(process.env.APERIO_SHELL_MAX_OUTPUT_BYTES || "48000", 10);
+const HEAD_BYTES       = Math.floor(MAX_OUTPUT_BYTES / 4);
+const TAIL_BYTES       = MAX_OUTPUT_BYTES - HEAD_BYTES;
 const TIMEOUT_MS       = 60_000;
+
+// Streaming sink that retains the first HEAD_BYTES and the last TAIL_BYTES of a
+// stream, dropping the middle, with bounded memory (it never holds more than
+// HEAD_BYTES + TAIL_BYTES + one chunk). `bytes` is the full byte count seen so
+// callers can still report how much arrived; `toString()` yields the head + an
+// omission marker + tail, or the whole stream untouched when it fits.
+export function makeTailBiasedSink(headMax = HEAD_BYTES, tailMax = TAIL_BYTES) {
+  const head = [];
+  const tail = [];
+  let headBytes = 0, tailBytes = 0, total = 0;
+  return {
+    push(chunk) {
+      total += chunk.length;
+      if (headBytes < headMax) {
+        const room = headMax - headBytes;
+        if (chunk.length <= room) { head.push(chunk); headBytes += chunk.length; return; }
+        head.push(chunk.subarray(0, room)); headBytes += room;
+        chunk = chunk.subarray(room);
+      }
+      tail.push(chunk); tailBytes += chunk.length;
+      // Drop whole leading chunks while the rest still covers tailMax.
+      while (tail.length > 1 && tailBytes - tail[0].length >= tailMax) {
+        tailBytes -= tail.shift().length;
+      }
+    },
+    get bytes() { return total; },
+    toString() {
+      if (total <= headMax + tailMax) return Buffer.concat([...head, ...tail]).toString("utf-8");
+      let tb = Buffer.concat(tail);
+      if (tb.length > tailMax) tb = tb.subarray(tb.length - tailMax);
+      const omitted = total - headBytes - tb.length;
+      const headStr = Buffer.concat(head).toString("utf-8");
+      return `${headStr}\n\n… [${Math.round(omitted / 1024)}KB of output omitted to fit context — showing head + tail] …\n\n${tb.toString("utf-8")}`;
+    },
+  };
+}
 
 // The MCP runs as a shared subprocess with no per-session AsyncLocalStorage
 // context, so getActiveScratchDir() is null here. The session id, however, is
@@ -113,20 +157,12 @@ function buildResponseText({ exitCode, timedOut, stdout, stderr, stdoutBytes, st
 // both get identical output limits, timeout, and SIGTERM handling.
 function collectOutput(child, label) {
   return new Promise((res) => {
-    const stdoutChunks = [];
-    const stderrChunks = [];
-    let stdoutBytes = 0;
-    let stderrBytes = 0;
+    const outBuf = makeTailBiasedSink();
+    const errBuf = makeTailBiasedSink();
     let timedOut = false;
 
-    child.stdout.on("data", (chunk) => {
-      stdoutBytes += chunk.length;
-      if (stdoutBytes <= MAX_OUTPUT_BYTES) stdoutChunks.push(chunk);
-    });
-    child.stderr.on("data", (chunk) => {
-      stderrBytes += chunk.length;
-      if (stderrBytes <= MAX_OUTPUT_BYTES) stderrChunks.push(chunk);
-    });
+    child.stdout.on("data", (chunk) => outBuf.push(chunk));
+    child.stderr.on("data", (chunk) => errBuf.push(chunk));
 
     const timer = setTimeout(() => {
       timedOut = true;
@@ -140,10 +176,10 @@ function collectOutput(child, label) {
       res({
         exitCode: code,
         timedOut,
-        stdout: Buffer.concat(stdoutChunks).toString("utf-8").trimEnd(),
-        stderr: Buffer.concat(stderrChunks).toString("utf-8").trimEnd(),
-        stdoutBytes,
-        stderrBytes,
+        stdout: outBuf.toString().trimEnd(),
+        stderr: errBuf.toString().trimEnd(),
+        stdoutBytes: outBuf.bytes,
+        stderrBytes: errBuf.bytes,
       });
     });
 
@@ -382,7 +418,16 @@ export async function runShellHandler({ command, cwd: cwdArg }) {
   // allowlist + operator checks above bound what `sh -c` can actually run.
   let child;
   try {
-    child = spawn("sh", ["-c", command], { cwd, stdio: ["ignore", "pipe", "pipe"] });
+    // Tag every command the model runs so scripts can lighten their output for a
+    // local model's small, slow context — e.g. package.json's test:ci drops
+    // --experimental-test-coverage when APERIO_AGENT_RUN is set, sparing a slow
+    // model the ~12k-token coverage table it can't use anyway. CI leaves the var
+    // unset, so it still gets full coverage.
+    child = spawn("sh", ["-c", command], {
+      cwd,
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, APERIO_AGENT_RUN: "1" },
+    });
   } catch (err) {
     logger.error(`[run_shell] spawn threw: ${err.message}`);
     return { content: [{ type: "text", text: `❌ Failed to spawn shell: ${err.message}` }] };

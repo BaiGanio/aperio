@@ -4,6 +4,11 @@ let reasoningText = "";
 let streamingBubble = null;
 let streamingText = "";
 let streamStartTime = null;
+// Request-scoped wall-clock: spans the WHOLE user turn (send → final answer),
+// surviving the per-tool stream_end/stream_start cycles, so the live "#thinking"
+// timer keeps counting through the "reading result…" gap between turns.
+let requestStartTime = null;
+let _liveTimerId = null;
 let isReasoningActive = false;
 let suggestionShown = false;
 let accThinkingTokens = 0;
@@ -63,6 +68,12 @@ function enterPhase(kind) {
   if (kind === "thinking") _phaseHadReasoning = false;
   if (_lastPhase === "thinking" && kind !== "thinking" && !_phaseHadReasoning) {
     dropPhaseBreadcrumb(t("status_thinking"));
+  }
+  // The "reading result…" step must survive into the transcript as a permanent
+  // record (like a thinking step) instead of vanishing the instant the answer
+  // streams — so when we leave the reading phase, leave a breadcrumb behind.
+  if (_lastPhase === "reading" && kind !== "reading") {
+    dropPhaseBreadcrumb(t("tool_reading_result"));
   }
   _lastPhase = kind;
 }
@@ -389,12 +400,19 @@ function handleMessage(msg) {
   if (msg.type === "stream_end") {
     const elapsedSec = streamStartTime ? (Date.now() - streamStartTime) / 1000 : null;
     streamStartTime = null;
+    // NB: this stream_end may be the inter-tool one (sent before a tool runs),
+    // not the end of the turn — so the live request timer is only stopped in the
+    // terminal branches below (a real answer), not here.
+    for (const c of _toolCards.values()) {
+      if (c._timerId) { clearInterval(c._timerId); c._timerId = null; }
+    }
     accThinkingTokens += msg.usage?.thinking_tokens ?? 0;
     accOutputTokens += msg.usage?.output_tokens ?? 0;
     const responseStats = (elapsedSec && msg.usage?.output_tokens)
       ? { outputTokens: accOutputTokens, thinkingTokens: accThinkingTokens, elapsedSec, inputTokens: msg.usage?.input_tokens ?? 0 }
       : null;
     if (streamingBubble && streamingText.trim()) {
+      stopLiveTimer();
       finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
       for (const f of _pendingGeneratedFiles) streamingBubble.bubble.appendChild(_buildGeneratedFileCard(f)); _pendingGeneratedFiles.length = 0;
       window.Aperio?.tts?.speak(streamingText);
@@ -405,6 +423,7 @@ function handleMessage(msg) {
     } else if (streamingBubble) {
       streamingBubble.wrap?.remove();
     } else if (!streamingText && msg.text?.trim()) {
+      stopLiveTimer();
       removeThinking();
       removeToolIndicator();
       addMessage("ai", msg.text);
@@ -549,6 +568,7 @@ function handleMessage(msg) {
   if (msg.type === "error") {
     removeThinking();
     removeToolIndicator();
+    stopLiveTimer();
     isThinking = false;
     setStatus("connected", "error");
     sendBtn.disabled = chatInput.value.trim() === "";
@@ -1323,34 +1343,80 @@ function _renderToolCard(msg) {
     blockArg +
     `<div class="tool-card-result">${t("tool_card_running")}</div>`;
   _toolCards.set(msg.seq, card);
+  // Live stopwatch: tick the elapsed time in real time so a slow tool (e.g. a
+  // long test run) never looks frozen. The interval is cleared on resolve, or
+  // defensively on stream_end if the tool never reports back.
+  const timeEl = card.querySelector(".tool-card-time");
+  const startedAt = Date.now();
+  timeEl.textContent = formatLiveDuration(0);
+  card._timerId = setInterval(() => {
+    timeEl.textContent = formatLiveDuration(Date.now() - startedAt);
+  }, 100);
   messagesEl.appendChild(card);
-  // Upgrade the live "thinking" pill from the bare, arg-less "Using {name}…"
-  // (emitted on the tool-use block start, before args finished streaming) to
-  // show what's actually running now that the args are known — e.g. the script
-  // basename for run_python_script. This is the first moment the path exists.
-  if (arg) {
-    const label = document.querySelector("#thinking .thinking-label");
-    if (label) {
-      const isPath = arg.includes("/") && !arg.includes(" ");
-      const short = isPath ? arg.split("/").pop()
-                  : (arg.length > 60 ? arg.slice(0, 59) + "…" : arg);
-      label.textContent = `${msg.name} · ${short}`;
-    }
-  }
+  // The card now owns the tool's identity (name + args + result). The live
+  // "thinking" pill stays the generic "Using {name}…" so it complements the
+  // card instead of cloning its `name · arg` head right below it.
   moveLiveIndicatorToBottom();
   scrollToBottom();
+}
+
+// Human-readable tool duration: raw ms is meaningless to a user ("12013ms").
+// Sub-second stays in ms; seconds get one decimal; a minute or more reads "1m 5s".
+function formatToolDuration(ms) {
+  if (ms < 1000) return `${ms}ms`;
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const m = Math.floor(ms / 60000);
+  const s = Math.round((ms % 60000) / 1000);
+  return `${m}m ${s}s`;
+}
+
+// Live-counter format: unlike the resolved duration it never shows raw ms, so
+// the ticking stopwatch reads as clean tenths of a second ("0.0s" → "12.3s")
+// instead of a flickering "734ms". Rolls to "1m 5s" past a minute.
+function formatLiveDuration(ms) {
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
+  const m = Math.floor(ms / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  return `${m}m ${s}s`;
+}
+
+// Drive the live timer on whichever "#thinking" pill currently exists. Started
+// once per user turn (in send) and kept running across the inter-tool
+// stream_end/start cycles so the "reading result…" digest gap is timed too;
+// stopped only when the turn truly ends (final answer / error / stop).
+function startLiveTimer() {
+  stopLiveTimer();
+  requestStartTime = Date.now();
+  _liveTimerId = setInterval(() => {
+    const el = document.querySelector("#thinking .thinking-time");
+    if (el && requestStartTime) el.textContent = formatLiveDuration(Date.now() - requestStartTime);
+  }, 100);
+}
+function stopLiveTimer() {
+  clearInterval(_liveTimerId);
+  _liveTimerId = null;
 }
 
 function _resolveToolCard(msg) {
   const card = _toolCards.get(msg.seq);
   if (!card) return;
   _toolCards.delete(msg.seq);
+  if (card._timerId) { clearInterval(card._timerId); card._timerId = null; }
   card.classList.remove("pending");
   card.classList.add(msg.ok ? "ok" : "error");
   const time = card.querySelector(".tool-card-time");
-  if (time && typeof msg.ms === "number") time.textContent = `${msg.ms}ms`;
+  if (time && typeof msg.ms === "number") time.textContent = formatToolDuration(msg.ms);
   const result = card.querySelector(".tool-card-result");
   if (result) result.textContent = `↳ ${msg.summary || (msg.ok ? "done" : "error")}`;
+  // The tool is done — don't leave the live pill stuck on the present-tense
+  // "Using {name}…" sitting below a finished card (reads as if the tool is
+  // still running, and went silent for minutes on slow models). Flip it to the
+  // model's next phase: digesting the result before it answers.
+  const label = document.querySelector("#thinking .thinking-label");
+  if (label) label.textContent = t("tool_reading_result");
+  // Mark the reading phase so enterPhase() leaves a persistent breadcrumb when
+  // the answer (or next step) takes over, rather than the line just disappearing.
+  _lastPhase = "reading";
   moveLiveIndicatorToBottom();
   scrollToBottom();
 }
@@ -1432,9 +1498,9 @@ function _renderNoToolWarning(model) {
   chip.innerHTML =
     `<span class="no-tool-warning-icon">⚠</span>` +
     `<span class="no-tool-warning-text">` +
-      `<strong>${escapeHtml(model)}</strong> doesn't appear to support tool use — ` +
-      `it can describe code but cannot write files, run scripts, or call any tools. ` +
-      `Switch to a model with function-calling support for file operations.` +
+      `<strong>${escapeHtml(model)}</strong> answered with code instead of writing files. ` +
+      `Small local models sometimes describe code rather than calling tools, especially when the target is vague. ` +
+      `Try naming the file to create/edit, or switch to a larger model for reliable file operations.` +
     `</span>` +
     `<button class="no-tool-warning-dismiss" title="Dismiss">✕</button>`;
   chip.querySelector(".no-tool-warning-dismiss").onclick = () => chip.remove();

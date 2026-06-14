@@ -45,6 +45,27 @@ Work through these stages internally. Surface the output of each stage clearly.
 - What are the hard constraints? (Non-negotiable limits)
 - What is unknown or ambiguous? (Flag explicitly — don't silently assume)
 
+### 1b. For a feature or build task: write a quick spec first
+When the task is "build / add / implement X" (not pure analysis), spend a few
+lines pinning down *what done means* before planning *how*. Surface assumptions
+out loud so a wrong one gets caught now, not after the code is written:
+
+```
+ASSUMPTIONS I'M MAKING: [the things you're taking as given — the riskiest first]
+```
+
+Then cover, briefly, only the areas that apply:
+- **Objective** — the one outcome that makes this done
+- **Interface** — the commands / API / function signatures it exposes
+- **Structure** — where the code lives, what it touches
+- **Style & constraints** — conventions to follow, things it must not break
+- **Testing** — how correctness will be proven (pairs with [[test-driven-development]])
+- **Boundaries** — explicitly out of scope
+
+Reframe vague asks into testable criteria: "make it faster" → "p95 < 200ms";
+"add validation" → "rejects empty/oversized input with a 400". A spec is only
+useful if its success conditions can be checked.
+
 ### 2. Identify Dependencies
 Before listing steps, ask: *what must be true before each step can run?*
 - Map inputs → outputs for each sub-task
@@ -94,6 +115,26 @@ Edge cases: [what could silently fail and how it's handled]
 
 Then act on the plan immediately after. Don't ask for approval unless a critical
 unknown blocks execution.
+
+---
+
+## Executing the Plan — incrementally and verified
+
+A validated plan is executed one slice at a time, not in one big dump. For each
+step:
+
+1. **Do one slice** — the smallest change that completes a single plan step.
+2. **Verify it** — run the relevant test, build, or lint before moving on. Don't
+   stack a second change on an unverified first.
+3. **Checkpoint** — commit or note the working state, so the work can be paused
+   and resumed cleanly.
+4. **On failure, stop** — if a step fails or turns out riskier than planned,
+   pause and reassess rather than bulldozing ahead. A failing step is a signal,
+   not an obstacle to power through. (Diagnose with
+   [[debugging-and-error-recovery]].)
+
+The discipline: never report a step done without the evidence that it works, and
+never let one broken step compound into three.
 
 ---
 

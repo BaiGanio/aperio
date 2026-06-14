@@ -27,6 +27,18 @@
     { "id": "hard.mcp",       "set": "hard", "prompt": "Wire up a connector server so the assistant can reach our internal API.", "expect": "mcp-builder" },
     { "id": "hard.memory",    "set": "hard", "prompt": "Note my correction and keep it for next time I ask.", "expect": "memory-protocol" },
     { "id": "hard.wiki",      "set": "hard", "prompt": "Save a curated knowledge-base page summarizing the launch.", "expect": "wiki" },
-    { "id": "hard.xlsx",      "set": "hard", "prompt": "I have a CSV of sales — pivot it and chart the monthly totals.", "expect": "xlsx" }
+    { "id": "hard.xlsx",      "set": "hard", "prompt": "I have a CSV of sales — pivot it and chart the monthly totals.", "expect": "xlsx" },
+
+    { "id": "7.18", "set": "exam", "prompt": "Debug why this function crashes with an exception and find the root cause.", "expect": "debugging-and-error-recovery" },
+    { "id": "7.19", "set": "exam", "prompt": "Write a failing unit test first, then make it pass using TDD.", "expect": "test-driven-development" },
+    { "id": "7.20", "set": "exam", "prompt": "Harden this API route against SQL injection and add input validation.", "expect": "security-and-hardening" },
+    { "id": "7.21", "set": "exam", "prompt": "Review this pull request before we merge it — check the design and the tests.", "expect": "code-review-and-quality" },
+    { "id": "7.22", "set": "exam", "prompt": "This function is overcomplicated — simplify it and reduce the nesting without changing behavior.", "expect": "code-simplification" },
+
+    { "id": "hard.debug",   "set": "hard", "prompt": "Something is throwing an exception on startup and I need to find the cause.", "expect": "debugging-and-error-recovery" },
+    { "id": "hard.tdd",     "set": "hard", "prompt": "Use red-green-refactor: write the failing test, then the code to satisfy it.", "expect": "test-driven-development" },
+    { "id": "hard.security","set": "hard", "prompt": "Make sure untrusted input to this endpoint is sanitized and the query is parameterized.", "expect": "security-and-hardening" },
+    { "id": "hard.review",  "set": "hard", "prompt": "Look over my diff before it lands and tell me what's blocking versus a nit.", "expect": "code-review-and-quality" },
+    { "id": "hard.simplify","set": "hard", "prompt": "Untangle this overcomplicated module and cut the dead code, keep behavior identical.", "expect": "code-simplification" }
   ]
 }

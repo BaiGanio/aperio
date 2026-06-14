@@ -291,6 +291,7 @@ describe("indexRepo()", () => {
       if (sql.includes("UPDATE cg_symbols")) return {};
       if (sql.includes("UPDATE cg_edges")) return {};
       if (sql.includes("INSERT INTO cg_edges")) return {};
+      if (sql.includes("SELECT COUNT(*)::int AS n FROM cg_files")) return { rows: [{ n: 1 }] };
       if (sql.includes("UPDATE cg_repos SET last_indexed_at")) return {};
       if (sql === "COMMIT") return {};
       return { rows: [] };
