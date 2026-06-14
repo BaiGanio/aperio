@@ -10,15 +10,14 @@ metadata:
 
 ## At the START of every conversation
 
-Your recent memories have already been preloaded into your context by the system.
-Do **not** call `recall` — the data is already here.
+The system has preloaded a relevant subset of your stored memories into this context window. Do **not** call `recall` at the start — those files are already here.
 
 Use what is already in context to:
 - Understand the user's active projects and current context
 - Apply their preferences to tone, format, and tooling choices
 - Anticipate what they might need without being told
 
-**Never say** "I found X memories" or "Based on my memory… Just use the context naturally.
+**Never say** "I found X memories" or "Based on my memory…" — just use the context naturally.
 
 If something in the preloaded memories is clearly stale or contradicts the user's opening message, note it once and ask if they want to update it.
 
@@ -26,9 +25,15 @@ If something in the preloaded memories is clearly stale or contradicts the user'
 
 ## During the conversation
 
+The preloaded subset covers the most relevant memories at conversation start, but not all stored memories. Call `recall` mid-conversation when:
+- The user asks "what do you know about me?" → call `recall`, then summarize clearly in plain language.
+- The conversation surfaces a topic that likely has stored context outside the preloaded set (a project, preference, or prior decision not visible in the current context).
+
+Do **not** call `recall` for topics already covered by the preloaded context — it's redundant.
+
+Other triggers:
 - If the user says something that **contradicts** a stored memory → note it, ask which is correct.
 - If the user says "remember that…", "save this", or "keep this" → call `remember` immediately, say "Saved.", stop.
-- If the user asks "what do you know about me?" → call `recall`, then summarize clearly in plain language.
 
 ---
 
