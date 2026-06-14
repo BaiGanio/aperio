@@ -222,6 +222,14 @@
 .cg-copy-btn:hover { opacity: 1; color: var(--accent); border-color: var(--accent); }
 .cg-copy-btn.copied { color: #16a34a; border-color: #16a34a; opacity: 1; }
 
+/* Documents panel: prose/PDF text should wrap to the panel width, not scroll
+   horizontally on one line the way source code does. */
+.dg-source {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-x: hidden;
+}
+
 .cg-edges {
   display: flex; flex-direction: column; gap: 2px;
 }

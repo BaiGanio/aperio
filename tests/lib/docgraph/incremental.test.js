@@ -16,14 +16,9 @@ import { installMemfs } from "../../helpers/memfs.js";
 const mem = installMemfs({ root: "/mem/docg-inc" });
 let indexFile, removeFile, sweepMissing, pickBackend, docgraph, pgBackend;
 
-async function fakeEmbed(text) {
-  const v = new Array(1024);
-  let h = 2166136261;
-  for (let i = 0; i < text.length; i++) { h ^= text.charCodeAt(i); h = Math.imul(h, 16777619); }
-  for (let i = 0; i < 1024; i++) { h = Math.imul(h ^ (h >>> 13), 16777619); v[i] = ((h >>> 0) % 1000) / 1000 + 0.001; }
-  return v;
-}
-const opts = { generateEmbedding: fakeEmbed };
+// Incremental indexFile defers embedding to the watcher's async queue, so it
+// takes no embedding fn — it returns `pending` chunks for the queue to drain.
+const opts = {};
 
 let dir, oldPath, oldDims, store;
 
@@ -56,6 +51,8 @@ describe("docgraph incremental (Phase 7)", () => {
     const r1 = await indexFile(store, dir, "a.md", opts);
     assert.equal(r1.skipped, false);
     assert.ok(r1.sectionCount >= 1);
+    // Deferred embedding: the chunks come back as pending for the queue to drain.
+    assert.ok(Array.isArray(r1.pending) && r1.pending.length >= 1);
 
     const r2 = await indexFile(store, dir, "a.md", opts);
     assert.equal(r2.skipped, true);
@@ -104,7 +101,7 @@ describe("docgraph Postgres backend (Phase 6) — routing + surface", () => {
   });
 
   test("pg backend exposes the same surface as the sqlite backend", () => {
-    for (const fn of ["indexRepoFiles", "indexOneFile", "removeOneFile", "sweepMissingFiles",
+    for (const fn of ["indexRepoFiles", "indexOneFile", "setChunkEmbedding", "removeOneFile", "sweepMissingFiles",
       "deleteRepo", "search", "outline", "context", "repos", "refs"]) {
       assert.equal(typeof pgBackend[fn], "function", `pg backend missing ${fn}`);
     }

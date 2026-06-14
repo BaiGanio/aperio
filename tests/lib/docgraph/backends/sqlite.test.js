@@ -103,6 +103,29 @@ describe("docgraph sqlite backend", () => {
     assert.equal(counts.changed, 0);
   });
 
+  test("deferEmbedding returns pending chunks and skips inline embedding", async () => {
+    const deferDir = join(mem.root, "deferred");
+    mem.mkdirp(deferDir);
+    mem.writeFile(join(deferDir, "later.md"), "# Later\nThis content is embedded by the queue, not inline.");
+
+    const counts = await backend.indexRepoFiles(store, deferDir, filesOf(deferDir, ["later.md"]), {
+      generateEmbedding: fakeEmbed,
+      deferEmbedding: true,
+    });
+    assert.equal(counts.changed, 1);
+    assert.ok(Array.isArray(counts.pending) && counts.pending.length >= 1, "returns pending chunks");
+
+    // No vectors written inline — the chunk rows exist with no vec0 sidecar row yet.
+    const id = counts.pending[0].id;
+    const before = store.db.prepare(`SELECT COUNT(*) AS n FROM vec_docgraph_chunks WHERE rowid = ?`).get(BigInt(id)).n;
+    assert.equal(before, 0, "chunk is not embedded inline");
+
+    // Backfilling via the queue target writes the vector.
+    await backend.setChunkEmbedding(store, id, await fakeEmbed("later content"));
+    const after = store.db.prepare(`SELECT COUNT(*) AS n FROM vec_docgraph_chunks WHERE rowid = ?`).get(BigInt(id)).n;
+    assert.equal(after, 1, "setChunkEmbedding backfills the vector");
+  });
+
   test("doc_repos reports counts and a by-mime breakdown", async () => {
     const { repos } = await backend.repos(store);
     const r = repos.find((x) => x.root_path === docsDir);
@@ -123,6 +146,17 @@ describe("docgraph sqlite backend", () => {
     assert.match(matches[0].snippet, /marketing/i);
   });
 
+  test("partial-word (prefix) search matches whole words (the 'introduc' → 'introduction' case)", async () => {
+    // A typed-ahead prefix of a word must still hit it — the bug where "introduc"
+    // returned only unrelated vector noise. "marke" is a prefix of "marketing".
+    const { matches } = await backend.search(
+      store, { query: "marke" }, { generateEmbedding: fakeEmbed, vectorEnabled: () => false }
+    );
+    assert.ok(matches.length > 0, "prefix 'marke' should match the 'Marketing' chunk");
+    assert.equal(matches[0].document.rel_path, "budget.md");
+    assert.match(matches[0].snippet, /marketing/i);
+  });
+
   test("hybrid search runs the vec0 + RRF path and returns results", async () => {
     const { matches, mode } = await backend.search(
       store, { query: "vector embeddings" }, { generateEmbedding: fakeEmbed, vectorEnabled: () => true }
@@ -130,6 +164,20 @@ describe("docgraph sqlite backend", () => {
     assert.equal(mode, "hybrid");
     assert.ok(matches.length > 0, "hybrid returned hits");
     assert.ok(typeof matches[0].score === "number");
+  });
+
+  test("hybrid is lexical-authoritative — no vector-only noise when text matches", async () => {
+    // fakeEmbed is a hash, so the vector NN for "marketing" is essentially
+    // arbitrary. "marketing" only appears in budget.md, so EVERY hit must come
+    // from budget.md — a vector-only chunk from notes.md must not leak in.
+    const { matches, mode } = await backend.search(
+      store, { query: "marketing" }, { generateEmbedding: fakeEmbed, vectorEnabled: () => true }
+    );
+    assert.equal(mode, "hybrid");
+    assert.ok(matches.length > 0, "hybrid returned hits");
+    assert.ok(matches.every((m) => m.document.rel_path === "budget.md"),
+      "only lexical hits are returned, no vector noise from other docs");
+    assert.match(matches[0].snippet, /marketing/i, "top snippet shows the matched term");
   });
 
   test("doc_outline returns the section tree in order", async () => {

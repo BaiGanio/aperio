@@ -182,6 +182,7 @@ const TRANSLATIONS = {
     skills_more:              "more…",
     skills_load_error:        "Could not load skill.",
     tool_card_running:        "running…",
+    tool_reading_result:      "reading result…",
 
     sug_title:                "✦ Memory suggestions",
     sug_save_all:             "Save all",

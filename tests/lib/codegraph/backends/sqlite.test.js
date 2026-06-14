@@ -118,6 +118,22 @@ describe("repos()", () => {
 });
 
 // =============================================================================
+// indexRepoFiles — empty-folder cleanup
+// =============================================================================
+describe("indexRepoFiles()", () => {
+  test("a folder with zero indexable code files leaves no repo row", async () => {
+    const store = { db: createDb() };
+    async function* noFiles() {}
+    const counts = await sqliteBackend.indexRepoFiles(store, "/docs-only", noFiles(), {
+      generateEmbedding: async () => null,
+    });
+    assert.equal(counts.files, 0);
+    const repo = store.db.prepare(`SELECT id FROM cg_repos WHERE root_path = ?`).get("/docs-only");
+    assert.equal(repo, undefined, "empty repo row should be dropped, not left to clutter the panel");
+  });
+});
+
+// =============================================================================
 // deleteRepo
 // =============================================================================
 describe("deleteRepo()", () => {

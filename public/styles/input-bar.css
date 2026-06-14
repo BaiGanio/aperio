@@ -8,6 +8,7 @@
   /* ... your other styles ... */
 }
 .input-bar {
+    position: relative; /* anchor for autocomplete dropdown */
     padding: 16px 24px;
     background: var(--bg-panel);
     border-top: 1px solid var(--border);
@@ -283,3 +284,78 @@ textarea::placeholder { color: var(--text-muted); }
 }
 .discuss-btn--on:hover { opacity: 0.9; }
 .discuss-btn:disabled { cursor: not-allowed; }
+
+/* ── Autocomplete dropdown ( /skill and @ ) ──────────────────────── */
+.autocomplete-dropdown {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  right: 0;
+  margin-bottom: 4px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  max-height: 220px;
+  overflow-y: auto;
+  z-index: 100;
+  display: none;
+  font-family: var(--font-sans);
+  font-size: 13px;
+}
+.autocomplete-dropdown.active { display: block; }
+
+.autocomplete-item {
+  padding: 8px 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition);
+  color: var(--text);
+}
+.autocomplete-item:last-child { border-bottom: none; }
+.autocomplete-item:hover,
+.autocomplete-item.selected {
+  background: var(--accent);
+  color: white;
+}
+.autocomplete-item:hover .autocomplete-desc,
+.autocomplete-item.selected .autocomplete-desc { color: rgba(255,255,255,.7); }
+
+.autocomplete-icon {
+  flex-shrink: 0;
+  width: 22px;
+  text-align: center;
+  opacity: .6;
+  font-size: 13px;
+}
+.autocomplete-name {
+  font-weight: 500;
+  white-space: nowrap;
+}
+.autocomplete-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.autocomplete-empty {
+  padding: 10px 14px;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  font-size: 12px;
+}
+
+/* Scrollbar for the dropdown */
+.autocomplete-dropdown::-webkit-scrollbar { width: 5px; }
+.autocomplete-dropdown::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
