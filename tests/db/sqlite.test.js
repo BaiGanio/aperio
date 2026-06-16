@@ -290,3 +290,81 @@ describe("bulkInsert", () => {
     assert.deepEqual(results, []);
   });
 });
+
+// =============================================================================
+// Background-agent jobs + run history (Phase 4)
+// =============================================================================
+describe("agent jobs", () => {
+  test("seeds the nightly-maintenance example", async () => {
+    const job = await store.getAgentJob("nightly-maintenance");
+    assert.ok(job, "example job should be seeded by the migration");
+    assert.equal(job.enabled, true);
+    assert.equal(job.trigger.kind, "interval");
+    assert.equal(job.steps.length, 2);
+  });
+
+  test("upsert round-trips a freeform job and merges definition fields", async () => {
+    const saved = await store.upsertAgentJob({
+      id: "digest",
+      enabled: false,
+      trigger: { kind: "interval", everyMs: 3600000 },
+      prompt: "Summarise recent memories.",
+      provider: { name: "deepseek", model: "deepseek-v4-flash" },
+    });
+    assert.equal(saved.id, "digest");
+    assert.equal(saved.enabled, false);
+    assert.equal(saved.prompt, "Summarise recent memories.");
+    assert.equal(saved.provider.model, "deepseek-v4-flash");
+
+    const fetched = await store.getAgentJob("digest");
+    assert.equal(fetched.prompt, "Summarise recent memories.");
+  });
+
+  test("upsert overwrites an existing job", async () => {
+    await store.upsertAgentJob({ id: "ov", enabled: true, prompt: "v1" });
+    const updated = await store.upsertAgentJob({ id: "ov", enabled: true, prompt: "v2" });
+    assert.equal(updated.prompt, "v2");
+  });
+
+  test("listAgentJobs returns all jobs", async () => {
+    const jobs = await store.listAgentJobs();
+    const ids = jobs.map(j => j.id);
+    assert.ok(ids.includes("nightly-maintenance"));
+    assert.ok(ids.includes("digest"));
+  });
+
+  test("delete removes a job and reports success", async () => {
+    await store.upsertAgentJob({ id: "tmp", enabled: true, prompt: "x" });
+    assert.equal(await store.deleteAgentJob("tmp"), true);
+    assert.equal(await store.getAgentJob("tmp"), null);
+    assert.equal(await store.deleteAgentJob("tmp"), false);
+  });
+});
+
+describe("agent run history", () => {
+  test("records runs and lists them newest-first", async () => {
+    await store.recordAgentRun({
+      jobId: "hist", startedAt: "2026-06-16T10:00:00.000Z", finishedAt: "2026-06-16T10:00:01.000Z",
+      durationMs: 1000, verdict: "ok", mode: "steps", trigger: "manual", tools: ["recall"], answer: "done",
+    });
+    await store.recordAgentRun({
+      jobId: "hist", startedAt: "2026-06-16T11:00:00.000Z", finishedAt: "2026-06-16T11:00:02.000Z",
+      durationMs: 2000, verdict: "error", mode: "steps", trigger: "interval", error: "boom",
+    });
+
+    const runs = await store.listAgentRuns("hist");
+    assert.equal(runs.length, 2);
+    assert.equal(runs[0].verdict, "error");      // newest first
+    assert.equal(runs[1].verdict, "ok");
+    assert.deepEqual(runs[1].tools, ["recall"]);  // JSON round-trips to an array
+  });
+
+  test("limit caps the number of rows returned", async () => {
+    const runs = await store.listAgentRuns("hist", 1);
+    assert.equal(runs.length, 1);
+  });
+
+  test("returns [] for a job with no runs", async () => {
+    assert.deepEqual(await store.listAgentRuns("never-ran"), []);
+  });
+});

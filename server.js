@@ -492,7 +492,17 @@ async function bootApp() {
   // Background-agent scheduler — created before the API mount so the
   // /api/agents/:id/run route can drive runJob() (interval auto-run is gated by
   // APERIO_AGENT_JOBS=on; manual run-now goes through the same scheduler).
-  const scheduler = createAgentScheduler({ callTool, createAgent, root: __dirname, version, watcherEvents });
+  // Phase 4: job defs come from the DB (store.listAgentJobs), and every run is
+  // recorded via store.recordAgentRun so the run-history panel has data.
+  const agentJobs = await store.listAgentJobs?.().catch(err => {
+    logger.warn(`[agent-scheduler] could not load jobs from DB: ${err.message}`);
+    return [];
+  }) ?? [];
+  const scheduler = createAgentScheduler({
+    callTool, createAgent, root: __dirname, version, watcherEvents,
+    jobs: agentJobs,
+    recordRun: (run) => store.recordAgentRun(run),
+  });
 
   // Mount API routes and WebSocket *after* everything is ready
   app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog, scheduler }));

@@ -40,21 +40,21 @@ A background-agent runner is **not a new agent engine**. The pieces already exis
 
 ## Job definition
 
-Jobs live in `var/agents/jobs.json` (runtime config — `var/` is gitignored, like
-`var/roundtables/`). Missing file → no jobs, scheduler stays idle.
+Jobs live in the **`agent_jobs` DB table** (Phase 4 — they used to live in
+`var/agents/jobs.json`, which is no longer read). The `002_agent_jobs.sql`
+migration seeds the `nightly-maintenance` example, and jobs are managed through
+the `/api/agents` routes below. A job's heterogeneous shape is stored as a JSON
+`definition` blob; only `id` and `enabled` are promoted to columns (all the
+scheduler filters on). The store re-merges them into the flat object below.
 
 ```json
 {
-  "jobs": [
-    {
-      "id": "nightly-maintenance",
-      "enabled": true,
-      "trigger": { "kind": "interval", "everyMs": 86400000 },
-      "steps": [
-        { "tool": "backfill_embeddings", "input": {} },
-        { "tool": "deduplicate_memories", "input": { "threshold": 0.97, "dry_run": true } }
-      ]
-    }
+  "id": "nightly-maintenance",
+  "enabled": true,
+  "trigger": { "kind": "interval", "everyMs": 86400000 },
+  "steps": [
+    { "tool": "backfill_embeddings", "input": {} },
+    { "tool": "deduplicate_memories", "input": { "threshold": 0.97, "dry_run": true } }
   ]
 }
 ```
@@ -85,19 +85,33 @@ user never has to edit `jobs.json` to turn the feature off. See `.env.example`.
 
 ---
 
-## Run-now API
+## API (`lib/routes/api.js`)
 
-`POST /api/agents/:id/run` triggers a defined job immediately and returns its
-result (`{ verdict, mode, entries, answer?, record }`). Gated by the same
-`APERIO_AGENT_JOBS=on` switch:
+Definition CRUD is **always available** so jobs can be configured before
+auto-run is switched on; only *running* a job (and interval auto-run) is gated by
+`APERIO_AGENT_JOBS=on`.
 
-- `403` when the feature is off,
-- `404` when no job has that id,
-- `409` when the job is already running (single-flight) or invalid,
-- `200`/`500` with the run result otherwise.
+| Route | Purpose |
+|-------|---------|
+| `GET /api/agents` | List jobs, each with its most recent run (`{ enabled, jobs: [{ ...job, lastRun }] }`) |
+| `GET /api/agents/:id` | One job's definition |
+| `GET /api/agents/:id/runs?limit=N` | Run history, newest first (default 20, max 100) |
+| `POST /api/agents` | Create a job (`400` no id / no steps|prompt, `409` id exists) |
+| `PUT /api/agents/:id` | Update a job (id comes from the path) |
+| `DELETE /api/agents/:id` | Remove a job (`404` if absent) |
+| `POST /api/agents/:id/run` | **Run-now** — trigger immediately, returns `{ verdict, mode, entries, answer?, record }` |
 
-This is what a future "run now" button (Phase 4 panel) calls, and it makes the
-freeform path exercisable without waiting on an interval.
+Run-now status codes: `403` when the feature is off, `404` unknown id, `409`
+already running (single-flight) or invalid, `200`/`500` with the run result.
+
+### Run history
+
+Every run (interval, manual, or watcher) is recorded best-effort to the
+**`agent_runs` table** via `store.recordAgentRun()` — one row carrying
+`{ job_id, started_at, finished_at, duration_ms, verdict, mode, trigger, error,
+tools, answer }` (answer/tools capped). This is independent of the human-readable
+`var/agents/aperio-agent-<id>.md` transcripts, which are still written. The
+recorder never throws — a DB failure logs a warning and the job still succeeds.
 
 ---
 
@@ -156,14 +170,16 @@ off; `stream_end` fires once per inter-tool boundary).
 ## File layout
 
 ```
-lib/workers/agent-scheduler.js       registry + runJob + writeAgentRunRecord + wireWatcherJobs
+lib/workers/agent-scheduler.js       registry + runJob + writeAgentRunRecord + wireWatcherJobs + safeRecordRun
 lib/emitters/sinkEmitter.js          headless { send } sink for freeform runs
 lib/codegraph/watcher.js             emits `change` events on live index/remove (Phase 3)
 lib/docgraph/watcher.js              emits `change` events on live index/remove (Phase 3)
-var/agents/jobs.json                  job defs (runtime, gitignored)
+db/migrations{,-sqlite}/002_agent_jobs.sql   agent_jobs + agent_runs tables (Phase 4)
+db/sqlite.js · db/postgres.js        listAgentJobs/getAgentJob/upsertAgentJob/deleteAgentJob/recordAgentRun/listAgentRuns
+db/tables.js                          agent_jobs + agent_runs in the DB-browser whitelist
 var/agents/aperio-agent-<id>.md       run transcripts (runtime, gitignored)
-server.js                             shared watcherEvents bus + createAgentScheduler + shutdown
-lib/routes/api.js                     POST /api/agents/:id/run
+server.js                             shared watcherEvents bus + createAgentScheduler (jobs from DB + recordRun) + shutdown
+lib/routes/api.js                     /api/agents CRUD + /runs history + /:id/run
 background-agents.md                  this file
 ```
 
@@ -179,8 +195,12 @@ background-agents.md                  this file
 - **Phase 3 (shipped):** watcher `EventEmitter` on codegraph/docgraph live index
   events + `watcher`-kind triggers (per-job debounce, `source`/`debounceMs`,
   `changedFiles` passed through to the run — freeform prompts get the file list).
-- **Phase 4:** jobs file → DB table; UI panel showing job status + run history
-  (reuse the codegraph/docgraph panel pattern).
+- **Phase 4 (backend shipped):** jobs file → `agent_jobs` DB table (DB is now the
+  source of truth; `jobs.json` is no longer read), `agent_runs` run-history table,
+  store methods on both backends, scheduler reads jobs from the DB + records every
+  run, `/api/agents` CRUD + `/runs` history routes. **Still to do:** the UI panel
+  showing job status + run history (reuse the codegraph/docgraph panel pattern) and
+  a "run now" button, calling these routes.
 
 ---
 
@@ -206,21 +226,22 @@ the timeout, and single-flight **without** Ollama/DeepSeek or a database.
 # 1. Turn the master switch on (one line in .env)
 #    APERIO_AGENT_JOBS=on
 #
-# 2. Confirm the example job is present + enabled
-cat var/agents/jobs.json     # nightly-maintenance, enabled: true, steps mode
-
-# 3. Start the server (it's already your default provider in .env)
+# 2. Start the server (it's already your default provider in .env)
 npm start                    # → http://localhost:31337
+
+# 3. Confirm the seeded example job is present + enabled (from the migration)
+curl -s http://localhost:31337/api/agents | jq '.jobs[] | {id, enabled, lastRun}'
 
 # 4. Trigger it immediately via the run-now API (don't wait 24h)
 curl -s -X POST http://localhost:31337/api/agents/nightly-maintenance/run | jq
 ```
 
 Expected: JSON `{ "verdict": "ok", "mode": "steps", "entries": [...] }`.
-Then check the transcript and logs:
+Then check the run history (DB), transcript, and logs:
 
 ```bash
-cat var/agents/aperio-agent-nightly-maintenance.md   # appended run record
+curl -s http://localhost:31337/api/agents/nightly-maintenance/runs | jq '.runs[0]'
+cat var/agents/aperio-agent-nightly-maintenance.md   # appended human-readable record
 # server log line: [agent-scheduler] nightly-maintenance: steps ok in <n>ms
 ```
 
@@ -235,21 +256,19 @@ curl -s -o /dev/null -w "%{http_code}\n" -X POST http://localhost:31337/api/agen
 
 ### 3. Manual — freeform mode (exercises runAgentLoop + a model)
 
-Add a second job to `var/agents/jobs.json` (uses your current chat provider when
-`provider` is omitted; set it explicitly to pin a cheap model):
+Create a second job via the API (uses your current chat provider when `provider`
+is omitted; set it explicitly to pin a cheap model):
 
-```json
-{
+```bash
+curl -s -X POST http://localhost:31337/api/agents -H 'content-type: application/json' -d '{
   "id": "digest",
   "enabled": true,
   "trigger": { "kind": "interval", "everyMs": 3600000 },
   "prompt": "Recall the 5 most recent memories and write a 3-bullet summary. Do not call write tools.",
   "provider": { "name": "deepseek", "model": "deepseek-v4-flash" },
   "timeoutMs": 120000
-}
-```
+}' | jq
 
-```bash
 curl -s -X POST http://localhost:31337/api/agents/digest/run | jq '.verdict, .answer'
 ```
 
@@ -259,16 +278,21 @@ Expected: `"ok"` plus the model's answer string; the run record lists `tools use
 
 ### 4. Manual — interval auto-run
 
-Set a short period to watch it fire on its own (the scheduler waits 30s after boot,
-then runs on the interval):
+Give a job a short period so it fires on its own. Jobs are read from the DB **at
+boot**, so set the interval, then (re)start the server (the scheduler waits 30s
+after boot, then runs on the interval):
 
-```json
-"trigger": { "kind": "interval", "everyMs": 60000 }
+```bash
+curl -s -X PUT http://localhost:31337/api/agents/nightly-maintenance \
+  -H 'content-type: application/json' \
+  -d '{ "enabled": true, "trigger": { "kind": "interval", "everyMs": 60000 }, "steps": [{ "tool": "backfill_embeddings", "input": {} }] }'
+# then restart `npm start`
 ```
 
-Start the server, wait ~30s, watch the log for the `[agent-scheduler]` run line and
-the growing `var/agents/aperio-agent-<id>.md`. Single-flight check: hammer the
-run-now endpoint twice fast on a slow job → second call returns `409`.
+Wait ~30s, watch the log for the `[agent-scheduler]` run line, the growing
+`var/agents/aperio-agent-<id>.md`, and rows in `GET /api/agents/:id/runs`.
+Single-flight check: hammer the run-now endpoint twice fast on a slow job →
+second call returns `409`.
 
 ### What "passing" looks like
 
@@ -286,10 +310,11 @@ Context that won't be obvious from the code alone:
 1. **Don't put docs under `docs/`.** That folder is the published GitHub Pages site
    and non-site files placed there get cleaned (it ate the Phase 1 copy of this
    file). Repo-root design docs are the convention here.
-2. **`.env` / `var/agents/jobs.json` are gitignored** — local-only. The shareable
-   knobs live in `.env.example` (the `APERIO_AGENT_JOBS` block) and in this doc.
-   `.env` currently has the switch present but commented (default-off).
-3. **The example job is `enabled: true`.** Once `APERIO_AGENT_JOBS=on`,
+2. **Jobs now live in the DB (`agent_jobs`), not `var/agents/jobs.json`** — that
+   file is no longer read (Phase 4). The `002_agent_jobs.sql` migration seeds the
+   `nightly-maintenance` example. `.env` is still gitignored; the shareable knob is
+   `APERIO_AGENT_JOBS` in `.env.example` (default-off, present but commented).
+3. **The seeded example job is `enabled: true`.** Once `APERIO_AGENT_JOBS=on`,
    `nightly-maintenance` runs `backfill_embeddings` + `deduplicate_memories`
    (dry-run) on its first interval. Harmless, but expected — not a bug.
 4. **Watcher events only fire post-`ready`.** Both watchers set `ignoreInitial: true`
@@ -299,9 +324,16 @@ Context that won't be obvious from the code alone:
 5. **`watcherEvents` is created unconditionally in `server.js`** (one `EventEmitter`),
    even when codegraph/docgraph are off — it just has no producers then, and the
    scheduler only subscribes when `APERIO_AGENT_JOBS=on` and watcher jobs exist.
-6. **Next build target: Phase 4 (jobs → DB + UI panel).** Move `jobs.json` to a DB
-   table and add a status/run-history panel (reuse the codegraph/docgraph panel
-   pattern). Likely also a `GET /api/agents` list route to back it.
+6. **Next build target: the Phase 4 UI panel.** The backend is done (DB tables,
+   store methods, `/api/agents` CRUD + `/runs`, run recording). What remains is a
+   right-side panel mirroring `public/scripts/docgraph-panel.js` / `codegraph-panel.js`
+   (reuse the `cg-*` styles): list jobs with their `lastRun` status, a "run now"
+   button (`POST /api/agents/:id/run`), and an expandable run-history view
+   (`GET /api/agents/:id/runs`). Add the sidebar nav button + panel HTML in
+   `public/index.html`, like the existing graph panels. **Note the scheduler reads
+   jobs from the DB at boot only** — creating/editing a job via the API updates the
+   DB and run-now immediately, but interval/watcher scheduling won't pick it up
+   until restart. Live rescheduling (re-read on mutate) is a reasonable follow-up.
 7. **Possible polish (optional):** expose `APERIO_AGENT_JOBS` in the setup wizard
    (`public/setup.html`) so non-code users flip it without touching `.env`.
 8. **Verify watcher triggers live.** The unit tests drive a fake `EventEmitter`; a
