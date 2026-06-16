@@ -128,6 +128,61 @@ describe("agent-scheduler", () => {
     });
   });
 
+  describe("run recording (Phase 4)", () => {
+    test("records an ok run with mode, trigger, tools and duration", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const recorded = [];
+      const sched = createAgentScheduler({
+        callTool: async () => "ok",
+        recordRun: async (run) => { recorded.push(run); },
+        jobs: [],
+      });
+
+      await sched.runJob(stepsJob("rec-ok"), { kind: "manual" });
+      sched.stop();
+
+      assert.strictEqual(recorded.length, 1);
+      const run = recorded[0];
+      assert.strictEqual(run.jobId, "rec-ok");
+      assert.strictEqual(run.verdict, "ok");
+      assert.strictEqual(run.mode, "steps");
+      assert.strictEqual(run.trigger, "manual");
+      assert.ok(typeof run.startedAt === "string" && run.startedAt.endsWith("Z"));
+      assert.ok(Number.isFinite(run.durationMs));
+    });
+
+    test("records an error run carrying the message", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const recorded = [];
+      const sched = createAgentScheduler({
+        callTool: async () => { throw new Error("boom"); },
+        recordRun: async (run) => { recorded.push(run); },
+        jobs: [],
+      });
+
+      await sched.runJob(stepsJob("rec-err"));
+      sched.stop();
+
+      assert.strictEqual(recorded.length, 1);
+      assert.strictEqual(recorded[0].verdict, "error");
+      assert.strictEqual(recorded[0].error, "boom");
+    });
+
+    test("a throwing recordRun never fails the job", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const sched = createAgentScheduler({
+        callTool: async () => "ok",
+        recordRun: async () => { throw new Error("db down"); },
+        jobs: [],
+      });
+
+      const res = await sched.runJob(stepsJob("rec-throws"));
+      sched.stop();
+
+      assert.strictEqual(res.verdict, "ok");
+    });
+  });
+
   describe("runJob (freeform mode)", () => {
     const freeformJob = (overrides = {}) => ({
       id: "curator",

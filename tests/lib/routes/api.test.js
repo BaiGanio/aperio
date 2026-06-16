@@ -609,3 +609,145 @@ describe("POST /memories/import", () => {
     assert.ok(body.error.includes("db write failed"));
   });
 });
+
+// =============================================================================
+// Background agents — /api/agents CRUD + history (Phase 4)
+// =============================================================================
+describe("GET /agents", () => {
+  test("lists jobs each with its most recent run", async () => {
+    const router = makeRouter({ store: {
+      listAgentJobs: async () => [{ id: "a", enabled: true }, { id: "b", enabled: false }],
+      listAgentRuns: async (id) => id === "a" ? [{ verdict: "ok" }] : [],
+    } });
+    const { status, body } = await invoke(router, "GET", "/agents");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.jobs.length, 2);
+    assert.deepStrictEqual(body.jobs[0].lastRun, { verdict: "ok" });
+    assert.strictEqual(body.jobs[1].lastRun, null);
+    assert.strictEqual(typeof body.enabled, "boolean");
+  });
+
+  test("returns 500 when the store throws", async () => {
+    const router = makeRouter({ store: { listAgentJobs: async () => { throw new Error("db down"); } } });
+    const { status } = await invoke(router, "GET", "/agents");
+    assert.strictEqual(status, 500);
+  });
+});
+
+describe("GET /agents/:id", () => {
+  test("returns the job", async () => {
+    const router = makeRouter({ store: { getAgentJob: async () => ({ id: "a", prompt: "x" }) } });
+    const { status, body } = await invoke(router, "GET", "/agents/a");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.id, "a");
+  });
+
+  test("404 when missing", async () => {
+    const router = makeRouter({ store: { getAgentJob: async () => null } });
+    const { status } = await invoke(router, "GET", "/agents/nope");
+    assert.strictEqual(status, 404);
+  });
+});
+
+describe("GET /agents/:id/runs", () => {
+  test("returns run history", async () => {
+    const router = makeRouter({ store: { listAgentRuns: async (id, limit) => [{ verdict: "ok", limit }] } });
+    const { status, body } = await invoke(router, "GET", "/agents/a/runs", { query: { limit: "5" } });
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.runs[0].limit, 5);
+  });
+});
+
+describe("POST /agents", () => {
+  test("creates a new job", async () => {
+    let saved = null;
+    const router = makeRouter({ store: {
+      getAgentJob: async () => null,
+      upsertAgentJob: async (j) => { saved = j; return j; },
+    } });
+    const { status, body } = await invoke(router, "POST", "/agents", {
+      body: { id: "new", prompt: "do a thing" },
+    });
+    assert.strictEqual(status, 201);
+    assert.strictEqual(body.id, "new");
+    assert.strictEqual(saved.prompt, "do a thing");
+  });
+
+  test("400 without an id", async () => {
+    const router = makeRouter();
+    const { status } = await invoke(router, "POST", "/agents", { body: { prompt: "x" } });
+    assert.strictEqual(status, 400);
+  });
+
+  test("400 without steps or prompt", async () => {
+    const router = makeRouter();
+    const { status } = await invoke(router, "POST", "/agents", { body: { id: "bad" } });
+    assert.strictEqual(status, 400);
+  });
+
+  test("409 when the id already exists", async () => {
+    const router = makeRouter({ store: { getAgentJob: async () => ({ id: "dup" }) } });
+    const { status } = await invoke(router, "POST", "/agents", { body: { id: "dup", prompt: "x" } });
+    assert.strictEqual(status, 409);
+  });
+});
+
+describe("PUT /agents/:id", () => {
+  test("updates an existing job", async () => {
+    const router = makeRouter({ store: {
+      getAgentJob: async () => ({ id: "a" }),
+      upsertAgentJob: async (j) => j,
+    } });
+    const { status, body } = await invoke(router, "PUT", "/agents/a", { body: { prompt: "updated" } });
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.id, "a");        // id comes from the path, not the body
+    assert.strictEqual(body.prompt, "updated");
+  });
+
+  test("404 when the job does not exist", async () => {
+    const router = makeRouter({ store: { getAgentJob: async () => null } });
+    const { status } = await invoke(router, "PUT", "/agents/nope", { body: { prompt: "x" } });
+    assert.strictEqual(status, 404);
+  });
+});
+
+describe("DELETE /agents/:id", () => {
+  test("deletes a job", async () => {
+    const router = makeRouter({ store: { deleteAgentJob: async () => true } });
+    const { status, body } = await invoke(router, "DELETE", "/agents/a");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.ok, true);
+  });
+
+  test("404 when nothing was deleted", async () => {
+    const router = makeRouter({ store: { deleteAgentJob: async () => false } });
+    const { status } = await invoke(router, "DELETE", "/agents/nope");
+    assert.strictEqual(status, 404);
+  });
+});
+
+describe("POST /agents/:id/run gating", () => {
+  test("403 when APERIO_AGENT_JOBS is off", async () => {
+    const prev = process.env.APERIO_AGENT_JOBS;
+    delete process.env.APERIO_AGENT_JOBS;
+    const router = makeRouter();
+    const { status } = await invoke(router, "POST", "/agents/a/run");
+    assert.strictEqual(status, 403);
+    if (prev !== undefined) process.env.APERIO_AGENT_JOBS = prev;
+  });
+
+  test("404 for an unknown id when enabled", async () => {
+    const prev = process.env.APERIO_AGENT_JOBS;
+    process.env.APERIO_AGENT_JOBS = "on";
+    const router = apiRouter({
+      agent: { version: "1", provider: { name: "x", model: "y" }, setProvider: () => {}, getSkillDoc: () => null },
+      store: { listAll: async () => [], getAgentJob: async () => null },
+      watchdog: { heartbeat: () => {} },
+      scheduler: { runJob: async () => ({ verdict: "ok" }) },
+    });
+    const { status } = await invoke(router, "POST", "/agents/nope/run");
+    assert.strictEqual(status, 404);
+    if (prev === undefined) delete process.env.APERIO_AGENT_JOBS;
+    else process.env.APERIO_AGENT_JOBS = prev;
+  });
+});

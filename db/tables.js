@@ -16,6 +16,8 @@ export const DB_TABLES = [
   { name: 'cg_files',               label: 'Codegraph files' },
   { name: 'cg_symbols',             label: 'Codegraph symbols' },
   { name: 'cg_edges',               label: 'Codegraph edges' },
+  { name: 'agent_jobs',             label: 'Agent jobs' },
+  { name: 'agent_runs',             label: 'Agent runs' },
 ];
 
 const DB_TABLE_NAMES = new Set(DB_TABLES.map(t => t.name));
