@@ -7,6 +7,21 @@ import { runMigrations } from './migrate.js';
 import { deserialiseRow } from './types.js';
 import { DB_TABLES, isAllowedTable } from './tables.js';
 
+// The example/default Postgres password shipped in .env.example. Connecting
+// with it means the user never set a real one — refuse rather than run with a
+// known-public credential. APERIO_ALLOW_DEFAULT_DB_PASSWORD=1 opts out for
+// throwaway local dev.
+const DEFAULT_DB_PASSWORD = 'aperio_secret';
+export function assertNonDefaultDbUrl(url, allow = process.env.APERIO_ALLOW_DEFAULT_DB_PASSWORD) {
+  if (allow === '1') return;
+  if (typeof url === 'string' && url.includes(`:${DEFAULT_DB_PASSWORD}@`)) {
+    throw new Error(
+      'DATABASE_URL uses the example default Postgres password (aperio_secret). ' +
+      'Set a real password in .env, or APERIO_ALLOW_DEFAULT_DB_PASSWORD=1 to override (local dev only).'
+    );
+  }
+}
+
 // Maps locale codes to PostgreSQL text-search config names.
 // Languages without a native pg config fall back to 'simple' (no stemming,
 // but tokenises correctly for any script).
@@ -36,6 +51,7 @@ export class PostgresStore {
   }
 
   static async init() {
+    assertNonDefaultDbUrl(process.env.DATABASE_URL);
     const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
     await runMigrations(pool);
     return new PostgresStore(pool);
