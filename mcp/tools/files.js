@@ -23,8 +23,23 @@ const UPLOADS_DIR    = resolvePath(__filesDirname, "../../var/uploads");
 const ALLOWED_EXTENSIONS = new Set([
   ".js", ".ts", ".jsx", ".tsx", ".py", ".go", ".rs", ".java",
   ".json", ".yaml", ".yml", ".toml", ".md", ".txt", ".html",
-  ".css", ".sql", ".sh", ".env.example",
+  ".css", ".sql", ".sh",
 ]);
+
+// Secret/dotfile deny-list, checked BEFORE the extension allowlist so env files
+// and known credential files (which may carry an otherwise-allowed extension,
+// e.g. .env.example) can't be read/edited through it (INPUT-01).
+const DENIED_BASENAMES = new Set([
+  ".npmrc", ".netrc", ".pgpass", ".htpasswd", ".dockercfg",
+  ".git-credentials", "id_rsa", "id_dsa", "id_ecdsa", "id_ed25519",
+]);
+const DENIED_EXTENSIONS = new Set([".pem", ".key", ".pfx", ".p12", ".keystore"]);
+function isSecretFile(filePath) {
+  const base = basename(filePath).toLowerCase();
+  if (base.startsWith(".env")) return true;   // .env, .env.local, .env.example, …
+  if (DENIED_BASENAMES.has(base)) return true;
+  return DENIED_EXTENSIONS.has(extname(base));
+}
 const READ_FILE_CHUNK_SIZE = 500;
 const READ_FILE_MAX_OFFSET = 10_000;
 
@@ -129,6 +144,9 @@ function diffLines(text, sign, max = 20) {
 export async function readFileHandler({ path: filePath, max_lines, offset = 0 }) {
   if (!isReadPathAllowed(filePath))
     return formatPathError("Read", filePath);
+
+  if (isSecretFile(filePath))
+    return { content: [{ type: "text", text: `❌ Reading secret/credential files is not allowed: ${basename(filePath)}` }] };
 
   const ext = extname(filePath).toLowerCase();
   if (!ALLOWED_EXTENSIONS.has(ext))
@@ -316,6 +334,9 @@ export async function editFileHandler(ctx, args) {
 
   if (!isWritePathAllowed(filePath))
     return formatPathError("Write", filePath);
+
+  if (isSecretFile(filePath))
+    return { content: [{ type: "text", text: `❌ Editing secret/credential files is not allowed: ${basename(filePath)}` }] };
 
   const ext = extname(filePath).toLowerCase();
   if (!ALLOWED_EXTENSIONS.has(ext))

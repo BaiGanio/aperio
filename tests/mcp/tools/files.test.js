@@ -750,3 +750,45 @@ describe("Integration: File workflow", () => {
     assert.ok(readResult.content[0].text.includes('console.log("hello")'));
   });
 });
+
+// ─── INPUT-01: secret/dotfile deny-list ──────────────────────────────────────
+
+describe("secret-file deny-list", () => {
+  const ctx = {};
+
+  test("read_file refuses a .env file (before any ext check)", async () => {
+    const p = tmpFile(".env", "ANTHROPIC_API_KEY=sk-abc\n");
+    const r = await readFileHandler({ path: p });
+    assert.ok(r.content[0].text.includes("secret/credential files is not allowed"));
+  });
+
+  test("read_file refuses a .pgpass credentials file", async () => {
+    const p = tmpFile(".pgpass", "localhost:5432:db:user:pw\n");
+    const r = await readFileHandler({ path: p });
+    assert.ok(r.content[0].text.includes("secret/credential files is not allowed"));
+  });
+
+  test("read_file refuses an id_rsa private key", async () => {
+    const p = tmpFile("id_rsa", "-----BEGIN OPENSSH PRIVATE KEY-----\n");
+    const r = await readFileHandler({ path: p });
+    assert.ok(r.content[0].text.includes("secret/credential files is not allowed"));
+  });
+
+  test("read_file refuses a .pem cert", async () => {
+    const p = tmpFile("server.pem", "-----BEGIN CERTIFICATE-----\n");
+    const r = await readFileHandler({ path: p });
+    assert.ok(r.content[0].text.includes("secret/credential files is not allowed"));
+  });
+
+  test(".env.example is no longer readable (dead allowlist entry removed)", async () => {
+    const p = tmpFile(".env.example", "AI_PROVIDER=ollama\n");
+    const r = await readFileHandler({ path: p });
+    assert.ok(r.content[0].text.includes("not allowed"));
+  });
+
+  test("edit_file refuses a .env file before reading it", async () => {
+    const p = tmpFile(".env", "SECRET=1\n");
+    const r = await editFileHandler(ctx, { path: p, old_string: "SECRET=1", new_string: "SECRET=2" });
+    assert.ok(r.content[0].text.includes("secret/credential files is not allowed"));
+  });
+});

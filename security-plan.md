@@ -67,14 +67,41 @@ that make INJECT-01 catastrophic).
 
 ## Phase 1 — Quick wins
 
-- ☐ **SECRET-01** — `.env` `0600`; fix `envFile.js` escaping (strip newlines, escape `\`, always quote).
-- ☐ **ENV-01 / SECRET-02** — stop loading `.env.example` as live config; hard-fail on default
-  `POSTGRES_PASSWORD`; add `:?` guard to `docker-compose.prod.yml`.
-- ☐ **PATH-01** — `~` expansion via `os.homedir()`.
-- ☐ **INJECTION-01** — regex guard on table names + "no `${name}` without whitelist" test.
-- ☐ **INPUT-01** — remove dead `.env.example` ext entry; dotfile/secret deny-list before ext allowlist.
-- ☐ **DOS-01** — global JSON limit → 256kb.
-- ☐ **NET-02** — `helmet` (verify CSP allows current inline scripts first).
+- ☑ **SECRET-01** — `envFile.js`: new `envQuote` (strips newlines/control chars so a value
+  can't inject extra `KEY=` lines, escapes `\` then `"`, always quotes) + `setKey` now uses
+  function replacers (so `$` in a value isn't read as a backreference — latent bug fixed).
+  `.env` written `0600` via new `writeEnv` helper (chmod after write, since `writeFileSync`
+  mode is ignored on an existing file). `setKey`/`envQuote` exported for test.
+  Tests: `tests/lib/helpers/envFile.test.js` (11 cases incl. newline-injection).
+- ☑ **ENV-01 / SECRET-02** — server.js no longer falls back to `.env.example` as live config
+  (only loads a real `.env`; pre-setup relies on process env + in-code `??` defaults).
+  `db/postgres.js` `assertNonDefaultDbUrl` hard-fails when `DATABASE_URL` carries the example
+  default password (`:aperio_secret@`), opt-out `APERIO_ALLOW_DEFAULT_DB_PASSWORD=1`; called in
+  `PostgresStore.init`. Tests: `tests/db/postgres-guard.test.js` (4 cases).
+  - ⊘ **`:?` guard already present** — `docker/docker-compose.yml` + `.prod.yml` both already
+    `${POSTGRES_PASSWORD:?…}`.
+- ◐ **PATH-01** — was already expanded via `os.homedir()` across paths.js / api-codegraph /
+  api-docgraph. Hardened + DRY'd: new exported `expandTilde` in paths.js (regex `^~(?=\/|$)` so
+  `~user/…` is left intact instead of mangled to `<home>user/…`), used in the 4 paths.js sites.
+  api-codegraph/docgraph left as-is (correct for the common `~/` case — not touched, surgical).
+  Tests: `tests/lib/routes/paths.test.js` (5 cases).
+- ☑ **INJECTION-01** — enforcement **already existed**: `db/tables.js` `isAllowedTable`
+  (Set whitelist, stronger than a regex) gates `readTable(name)` in both stores; the only other
+  `${name}` interpolation (`listTables`) iterates the constant `DB_TABLES`. Added the missing
+  regression test: `tests/db/tables.test.js` (rejects injection payloads / internal tables /
+  empty input, accepts every advertised table).
+- ☑ **INPUT-01** — removed dead `.env.example` ext entry (mcp/tools/files.js `ALLOWED_EXTENSIONS`
+  + attachments `TEXT_EXTS`; `extname` never yields `.env.example` so it was unreachable). Added a
+  secret/dotfile deny-list checked **before** the ext allowlist: `.env*`, known credential
+  basenames (`.pgpass`/`.npmrc`/`id_rsa`/…), cert exts (`.pem`/`.key`/…). Wired into `read_file`
+  + `edit_file` (edit reads first → leak vector) and the attachment router. Tests: 6 cases in
+  files.test.js (`.env`, `.pgpass`, `id_rsa`, `.pem`, `.env.example` now unreadable, edit refusal).
+- ☑ **DOS-01** — global `express.json` limit `1mb` → `256kb` (server.js). Per-route limits
+  (memories import 512kb, etc.) unchanged — intentional overrides.
+- ☑ **NET-02** — `helmet` added (`contentSecurityPolicy: false`). CSP stays off for now: the UI
+  relies on inline `<script>`/`onclick=`/`style=` + jsdelivr/Google-Fonts CDNs, so a strict policy
+  needs those reworked first (deferred). All other helmet headers active (nosniff, frameguard,
+  Referrer-Policy, …). Full suite 1650/1650.
 
 ## Phase 2 — Network layer (build now; LAN on roadmap)
 
@@ -97,6 +124,46 @@ that make INJECT-01 catastrophic).
 - ☐ **PROC-01** — uncaught-exception circuit breaker.
 - ☐ **LOG-01** — prod error handler with scrubbed client messages.
 - ☐ **Doc drift (audit.md §5)** — reconcile `SECURITY.md`/`README` version + threat-model wording.
+
+---
+
+## Testing
+
+How to verify the **completed** phases (0 and 1). Phases 2–3 will get their own
+subsections as they land. Every finding has automated coverage; a few also have a
+manual check for things the suite can't assert (file perms, live HTTP headers).
+
+**Run everything:**
+
+```bash
+npm test                      # full suite, human-readable output
+APERIO_AGENT_RUN=1 npm test   # quiet reporter (summary only) — same pass/fail
+```
+
+Run one file in isolation: `NODE_ENV=test node --test tests/<path>.test.js`.
+Baseline after Phase 1: **1650/1650 passing**.
+
+### Phase 0 — agent exfiltration surface
+
+| Finding | Automated | Manual sanity check |
+|---|---|---|
+| **EGRESS-01** (SSRF) | `tests/lib/helpers/ssrfGuard.test.js` + integration case in `tests/mcp/tools/web.test.js` | ask the agent to `fetch_url http://169.254.169.254/` or `http://localhost` → blocked with an SSRF-guard message (unless `APERIO_ALLOW_INTERNAL_FETCH=1`). |
+| **SHELL-01** (shell allowlist) | `tests/mcp/tools/shell.test.js` (15 cases) | `run_shell node -e "..."`, `find … -exec`, `git -c …`, or `curl …` → all refused. |
+| **INJECT-01** (prompt-injection fencing/taint) | `tests/lib/agent/tool-hooks.test.js` (5 cases) | after a `fetch_url`/`read_file`, the content is wrapped in `--- UNTRUSTED EXTERNAL CONTENT … ---` and that turn's writes raise a confirm (see WRITE-01). |
+| **WRITE-01** (confirm-on-write gate) | `tests/mcp/tools/files.test.js` (6 gate cases) + `tool-hooks.test.js` (3 wiring) | write outside `/var/scratch/` → confirm prompt; write a new file *inside* scratch in a clean turn → executes directly. |
+
+### Phase 1 — quick wins
+
+| Finding | Automated | Manual sanity check |
+|---|---|---|
+| **SECRET-01** (.env escaping + 0600) | `tests/lib/helpers/envFile.test.js` (11 cases incl. newline-injection, `$`-safety, always-quote) | after setup writes `.env`: `ls -l .env` → `-rw-------` (0600). |
+| **ENV-01** (no `.env.example` as live config) | covered indirectly; no unit test (boot-path) | rename/remove `.env`, start the server → setup wizard appears and `aperio_secret` is **not** active in `process.env`. |
+| **SECRET-02** (default DB password hard-fail) | `tests/db/postgres-guard.test.js` (4 cases) | set `DATABASE_URL=postgresql://aperio:aperio_secret@localhost/aperio` and start → boot fails with "default Postgres password"; `APERIO_ALLOW_DEFAULT_DB_PASSWORD=1` overrides. |
+| **PATH-01** (`~` expansion) | `tests/lib/routes/paths.test.js` (5 cases) | — |
+| **INJECTION-01** (table-name whitelist) | `tests/db/tables.test.js` (injection payloads / internal tables / empties rejected) | DB browser only lists the whitelisted tables; an out-of-list name throws "Unknown table". |
+| **INPUT-01** (secret deny-list) | 6 cases in `tests/mcp/tools/files.test.js` (`secret-file deny-list` describe) | ask the agent to `read_file ./.env` or attach `id_rsa`/`server.pem` → refused before any extension check. |
+| **DOS-01** (256kb JSON cap) | — | `curl -X POST http://127.0.0.1:3000/api/<json-route> -H 'content-type: application/json' --data-binary @big.json` (>256kb) → `413 Payload Too Large`. |
+| **NET-02** (helmet headers) | — | `curl -sI http://127.0.0.1:3000/ \| grep -iE 'x-content-type-options\|x-frame-options\|referrer-policy'` → present; **no** `content-security-policy` (CSP deliberately off). |
 
 ---
 

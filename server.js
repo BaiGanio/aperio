@@ -1,4 +1,5 @@
 import express from "express";
+import helmet from "helmet";
 import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { existsSync, readFileSync } from "fs";
@@ -28,10 +29,11 @@ process.on("unhandledRejection", (err) => {
 const require   = createRequire(import.meta.url);
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const envPath = existsSync(resolve(__dirname, ".env"))
-  ? resolve(__dirname, ".env")
-  : resolve(__dirname, ".env.example");
-dotenv.config({ path: envPath });
+// Only load a real .env. .env.example holds placeholder/default secrets
+// (e.g. POSTGRES_PASSWORD=aperio_secret) and must never be treated as live
+// config — before setup we rely on process env + in-code defaults instead.
+const envPath = resolve(__dirname, ".env");
+if (existsSync(envPath)) dotenv.config({ path: envPath });
 
 const { version } = require("./package.json");
 logger.info(`🚀 Starting Aperio server (version ${version})...`);
@@ -55,7 +57,11 @@ await ensurePort(PORT);
 
 // ─── Express (always starts immediately — serves setup UI right away) ─────────
 const app = express();
-app.use(express.json({ limit: '1mb' }));
+// Security headers (X-Content-Type-Options, frameguard, Referrer-Policy, …).
+// CSP is disabled for now: the UI relies on inline scripts/handlers/styles and
+// CDN assets, so a strict policy needs those reworked first (tracked in the plan).
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(express.json({ limit: '256kb' }));
 
 // ─── Locale detection (Accept-Language + cookie) ──────────────────────────────
 // Supported EU locales — must mirror public/scripts/i18n.js.
