@@ -165,6 +165,99 @@ describe("runShellHandler", () => {
 });
 
 // =============================================================================
+// runShellHandler — SHELL-01 argument boundary
+// =============================================================================
+
+describe("runShellHandler SHELL-01 boundary", () => {
+  const ok = () => { _spawnImpl = () => createMockChild({ exitCode: 0, stdout: "ok" }); };
+
+  // ── Rejected: the documented bypasses ──────────────────────────────────────
+  test("rejects node inline eval (-e)", async () => {
+    const r = await shell.runShellHandler({ command: 'node -e "process.exit(0)"', cwd: mem.root });
+    assert.ok(r.content[0].text.includes("inline-code flag"), r.content[0].text);
+  });
+
+  test("rejects node combined -pe", async () => {
+    const r = await shell.runShellHandler({ command: 'node -pe "1+1"', cwd: mem.root });
+    assert.ok(r.content[0].text.includes("inline-code flag"), r.content[0].text);
+  });
+
+  test("rejects python3 inline eval (-c)", async () => {
+    const r = await shell.runShellHandler({ command: 'python3 -c "import os"', cwd: mem.root });
+    assert.ok(r.content[0].text.includes("inline-code flag"), r.content[0].text);
+  });
+
+  test("rejects find -exec", async () => {
+    const r = await shell.runShellHandler({ command: "find . -type f -exec rm {} +", cwd: mem.root });
+    assert.ok(r.content[0].text.includes('find "-exec"'), r.content[0].text);
+  });
+
+  test("rejects git -c config override", async () => {
+    const r = await shell.runShellHandler({ command: "git -c core.pager=evil log", cwd: mem.root });
+    assert.ok(r.content[0].text.includes('git "-c"'), r.content[0].text);
+  });
+
+  test("rejects non-read-only git subcommand", async () => {
+    const r = await shell.runShellHandler({ command: "git push origin main", cwd: mem.root });
+    assert.ok(r.content[0].text.includes("only read-only git"), r.content[0].text);
+  });
+
+  test("rejects cat of a file outside the allowlist", async () => {
+    const r = await shell.runShellHandler({ command: "cat /etc/passwd", cwd: mem.root });
+    assert.ok(r.content[0].text.includes("not in an allowed read path"), r.content[0].text);
+  });
+
+  test("rejects reading a tilde path outside the allowlist", async () => {
+    const r = await shell.runShellHandler({ command: "cat ~/.ssh/id_rsa", cwd: mem.root });
+    assert.ok(r.content[0].text.includes("not in an allowed read path"), r.content[0].text);
+  });
+
+  test("rejects node script outside the allowlist", async () => {
+    const r = await shell.runShellHandler({ command: "node /tmp/evil.js", cwd: mem.root });
+    assert.ok(r.content[0].text.includes("not in an allowed path"), r.content[0].text);
+  });
+
+  test("curl is no longer allowlisted", async () => {
+    const r = await shell.runShellHandler({ command: "curl http://attacker.tld", cwd: mem.root });
+    assert.ok(r.content[0].text.includes("Command not allowed"), r.content[0].text);
+  });
+
+  // ── Still permitted: the legitimate workflows ──────────────────────────────
+  test("allows running a script file inside the allowlist", async () => {
+    ok();
+    const r = await shell.runShellHandler({ command: `node ${join(mem.root, "script.js")}`, cwd: mem.root });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
+  });
+
+  test("allows grep of a file inside the allowlist", async () => {
+    ok();
+    const r = await shell.runShellHandler({ command: `grep foo ${join(mem.root, "file.txt")}`, cwd: mem.root });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
+  });
+
+  test("allows a read-only git subcommand", async () => {
+    ok();
+    const r = await shell.runShellHandler({ command: "git log --oneline", cwd: mem.root });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
+  });
+
+  test("allows the skill workflow: node script piped to a quoted grep pattern", async () => {
+    ok();
+    const r = await shell.runShellHandler({
+      command: `node ${join(mem.root, "read.js")} out.pptx | grep -iE "lorem|ipsum" out.pptx`,
+      cwd: mem.root,
+    });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
+  });
+
+  test("allows node --version (no script arg, no eval)", async () => {
+    ok();
+    const r = await shell.runShellHandler({ command: "node --version", cwd: mem.root });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
+  });
+});
+
+// =============================================================================
 // makeTailBiasedSink (#3 — tail-biased output cap)
 // =============================================================================
 

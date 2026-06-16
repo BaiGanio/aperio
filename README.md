@@ -552,7 +552,9 @@ Additionally, `read_file` enforces:
 
 ### Shell Execution (`run_shell`)
 
-By default the model can only execute `.js` files (the `run_node_script` tool). The optional `run_shell` tool widens this to a fixed allow-list of real binaries — used for QA steps that need them, such as pptx visual QA (`soffice` → `pdftoppm`) or grepping extracted text for leftover placeholders. It is **off by default** and gated by two environment variables:
+By default the model can only execute `.js` files (the `run_node_script` tool). The optional `run_shell` tool widens this to a fixed allow-list of real binaries — used for QA steps that need them, such as pptx visual QA (`soffice` → `pdftoppm`) or grepping extracted text for leftover placeholders. It is **off by default** and gated by two environment variables.
+
+> **⚠️ Trust level:** enabling `run_shell` grants the model **full host-level command execution as your user — it is not a sandbox.** The allow-list constrains *which* programs run and their arguments (no interpreter inline-eval like `node -e`/`python3 -c`, no `find -exec`, read-only `git`, file arguments confined to allowed paths, `curl` removed in favour of the SSRF-guarded `fetch_url`), but a determined model with shell access still operates with your privileges. Only enable it for models and content you trust.
 
 ```env
 # Master switch — enables run_shell at all. When unset, the tool refuses every call.

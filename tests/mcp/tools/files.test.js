@@ -165,7 +165,7 @@ mock.method(fsAsync, "rm",         mockRm);
 
 // Dynamic import: files.js loads here and binds to our patched functions.
 // paths.js also loads here and computes BASE_DIR = process.cwd() = TMP.
-const { readFileHandler, writeFileHandler, appendFileHandler, scanProjectHandler } =
+const { readFileHandler, writeFileHandler, appendFileHandler, editFileHandler, scanProjectHandler } =
   await import("../../../mcp/tools/files.js");
 
 // paths.js is already cached from the files.js import above; this re-export
@@ -191,6 +191,20 @@ function tmpFile(name, content = "line1\nline2\nline3\n") {
   vfsSetupFile(p, content);
   return p;
 }
+
+// WRITE-01: a write outside the session scratch workspace now needs user
+// confirmation. This helper drives the two-phase flow so the mechanics tests
+// still exercise the real write: propose → extract token → commit. Errors and
+// auto-executed (in-scratch) writes have no token and pass straight through.
+async function confirmed(handler, ctx, args) {
+  const r = await handler(ctx, args);
+  const m = r.content?.[0]?.text?.match(/Token:\s*(wr_[a-z0-9]+)/);
+  return m ? handler(ctx, { confirmation_token: m[1] }) : r;
+}
+
+// A path inside a (virtual) scratch workspace — writes here auto-execute.
+const SCRATCH = join(TMP, "var", "scratch", "sess");
+vfsSetupDir(SCRATCH);
 
 
 // ─── readFileHandler ──────────────────────────────────────────────────────────
@@ -291,7 +305,7 @@ describe("writeFileHandler", () => {
 
   test("creates a new file and reports its size", async () => {
     const p = join(TMP, "new-file.js");
-    const result = await writeFileHandler(ctx, { path: p, content: "const x = 42;\n" });
+    const result = await confirmed(writeFileHandler, ctx, { path: p, content: "const x = 42;\n" });
     assert.ok(result.content[0].text.includes("✅ Created"));
     assert.ok(vfsExists(p));
     assert.equal(vfsRead(p), "const x = 42;\n");
@@ -299,7 +313,7 @@ describe("writeFileHandler", () => {
 
   test("overwrites an existing file and reports old size", async () => {
     const p = tmpFile("overwrite.js", "old content\n");
-    const result = await writeFileHandler(ctx, { path: p, content: "new content\n" });
+    const result = await confirmed(writeFileHandler, ctx, { path: p, content: "new content\n" });
     assert.ok(result.content[0].text.includes("✅ Overwrote"));
     assert.ok(result.content[0].text.includes("was"));
     assert.equal(vfsRead(p), "new content\n");
@@ -307,27 +321,27 @@ describe("writeFileHandler", () => {
 
   test("reports correct file size in KB", async () => {
     const p = join(TMP, "size-test.js");
-    const result = await writeFileHandler(ctx, { path: p, content: "x".repeat(2048) });
+    const result = await confirmed(writeFileHandler, ctx, { path: p, content: "x".repeat(2048) });
     assert.ok(result.content[0].text.includes("2.0 KB"));
   });
 
   test("returns error when write path is not allowed", async () => {
     // /tmp directly is outside ALLOWED_WRITE_PATHS ([TMP]), so validation rejects it
-    const result = await writeFileHandler(ctx, { path: "/tmp/aperio-deny-write-test.js", content: "x" });
+    const result = await confirmed(writeFileHandler, ctx, { path: "/tmp/aperio-deny-write-test.js", content: "x" });
     assert.ok(result.content[0].text.includes("❌ Write not allowed"));
     assert.ok(result.content[0].text.includes("Allowed write paths:"));
   });
 
   test("creates parent directories when create_dirs is true (default)", async () => {
     const p = join(TMP, "deep", "nested", "file.js");
-    const result = await writeFileHandler(ctx, { path: p, content: "// deep\n" });
+    const result = await confirmed(writeFileHandler, ctx, { path: p, content: "// deep\n" });
     assert.ok(result.content[0].text.includes("✅ Created"));
     assert.ok(vfsExists(p));
   });
 
   test("does NOT create parent directories when create_dirs is false", async () => {
     const p = join(TMP, "nonexistent-dir", "file.js");
-    const result = await writeFileHandler(ctx, { path: p, content: "x", create_dirs: false });
+    const result = await confirmed(writeFileHandler, ctx, { path: p, content: "x", create_dirs: false });
     assert.ok(result.content[0].text.includes("❌ write_file failed"));
     assert.ok(!vfsExists(p));
   });
@@ -340,7 +354,7 @@ describe("writeFileHandler", () => {
 
     try {
       const expectedPath = join(testDir, "test-file.js");
-      const result = await writeFileHandler(ctx, { path: "~/test-file.js", content: "content\n" });
+      const result = await confirmed(writeFileHandler, ctx, { path: "~/test-file.js", content: "content\n" });
       assert.ok(result.content[0].text.includes("✅ Created"));
       assert.ok(vfsExists(expectedPath));
     } finally {
@@ -349,7 +363,7 @@ describe("writeFileHandler", () => {
   });
 
   test("handles write errors gracefully", async () => {
-    const result = await writeFileHandler(ctx, { path: "", content: "x" });
+    const result = await confirmed(writeFileHandler, ctx, { path: "", content: "x" });
     assert.ok(result.content[0].text.includes("❌ write_file failed"));
   });
 });
@@ -361,7 +375,7 @@ describe("appendFileHandler", () => {
 
   test("appends content and reports line counts", async () => {
     const p = tmpFile("append-me.js", "line1\nline2\n");
-    const result = await appendFileHandler(ctx, { path: p, content: "line3\nline4\n" });
+    const result = await confirmed(appendFileHandler, ctx, { path: p, content: "line3\nline4\n" });
     const text = result.content[0].text;
     assert.ok(text.includes("✅ Appended"));
     assert.ok(text.includes("Last 5 lines"));
@@ -372,17 +386,17 @@ describe("appendFileHandler", () => {
   test("shows tail (last 5 lines) after append", async () => {
     const p = tmpFile("tail-test.js",
       Array.from({ length: 10 }, (_, i) => `line ${i}`).join("\n"));
-    const result = await appendFileHandler(ctx, { path: p, content: "line10\nline11\n" });
+    const result = await confirmed(appendFileHandler, ctx, { path: p, content: "line10\nline11\n" });
     assert.ok(result.content[0].text.includes("Last 5 lines"));
   });
 
   test("returns error when write path is not allowed", async () => {
-    const result = await appendFileHandler(ctx, { path: "/tmp/aperio-deny-append-test.js", content: "x" });
+    const result = await confirmed(appendFileHandler, ctx, { path: "/tmp/aperio-deny-append-test.js", content: "x" });
     assert.ok(result.content[0].text.includes("❌ Write not allowed"));
   });
 
   test("returns error when file does not exist", async () => {
-    const result = await appendFileHandler(ctx, { path: join(TMP, "no-such-file.js"), content: "x" });
+    const result = await confirmed(appendFileHandler, ctx, { path: join(TMP, "no-such-file.js"), content: "x" });
     assert.ok(result.content[0].text.includes("❌ File not found"));
   });
 
@@ -394,7 +408,7 @@ describe("appendFileHandler", () => {
     process.chdir(testDir);
 
     try {
-      const result = await appendFileHandler(ctx, { path: "~/append-test.js", content: "appended\n" });
+      const result = await confirmed(appendFileHandler, ctx, { path: "~/append-test.js", content: "appended\n" });
       assert.ok(result.content[0].text.includes("✅ Appended"));
       assert.equal(vfsRead(filePath), "initial\nappended\n");
     } finally {
@@ -404,8 +418,65 @@ describe("appendFileHandler", () => {
 
   test("returns error message on fs failure (append to directory)", async () => {
     // TMP itself is a directory; appendFile on a dir throws EISDIR
-    const result = await appendFileHandler(ctx, { path: TMP, content: "x" });
+    const result = await confirmed(appendFileHandler, ctx, { path: TMP, content: "x" });
     assert.ok(result.content[0].text.includes("❌ append_file failed"));
+  });
+});
+
+// ─── WRITE-01 confirm gate ────────────────────────────────────────────────────
+
+describe("write confirm gate (WRITE-01)", () => {
+  const ctx = {};
+
+  test("write outside scratch proposes and does not write until confirmed", async () => {
+    const p = join(TMP, "gated", "real.js");
+    const r = await writeFileHandler(ctx, { path: p, content: "x" });
+    assert.match(r.content[0].text, /pending your confirmation/);
+    assert.match(r.content[0].text, /Token:\s*wr_/);
+    assert.ok(!vfsExists(p), "nothing written until confirmed");
+  });
+
+  test("new write into scratch executes directly", async () => {
+    const p = join(SCRATCH, "fresh.js");
+    const r = await writeFileHandler(ctx, { path: p, content: "y\n" });
+    assert.match(r.content[0].text, /✅ Created/);
+    assert.equal(vfsRead(p), "y\n");
+  });
+
+  test("overwrite inside scratch still executes directly (frictionless iteration)", async () => {
+    const p = join(SCRATCH, "iter.js");
+    vfsSetupFile(p, "v1\n");
+    const r = await writeFileHandler(ctx, { path: p, content: "v2\n" });
+    assert.match(r.content[0].text, /✅ Overwrote/);
+    assert.equal(vfsRead(p), "v2\n");
+  });
+
+  test("a tainted turn forces confirmation even inside scratch", async () => {
+    const p = join(SCRATCH, "tainted.js");
+    const r = await writeFileHandler(ctx, { path: p, content: "z", __tainted: true });
+    assert.match(r.content[0].text, /pending your confirmation/);
+    assert.match(r.content[0].text, /untrusted external content/);
+    assert.ok(!vfsExists(p));
+  });
+
+  test("commit with an invalid token writes nothing", async () => {
+    const r = await writeFileHandler(ctx, { confirmation_token: "wr_bogus1" });
+    assert.match(r.content[0].text, /invalid or expired/);
+  });
+
+  test("edit_file outside scratch proposes with a diff, then commits", async () => {
+    const p = tmpFile("edit-gated.js", "const a = 1;\n");
+    const r1 = await editFileHandler(ctx, { path: p, old_string: "const a = 1;", new_string: "const a = 2;" });
+    assert.match(r1.content[0].text, /pending your confirmation/);
+    assert.match(r1.content[0].text, /```diff/);
+    assert.match(r1.content[0].text, /- const a = 1;/);
+    assert.match(r1.content[0].text, /\+ const a = 2;/);
+    assert.equal(vfsRead(p), "const a = 1;\n", "unchanged until confirmed");
+
+    const token = r1.content[0].text.match(/Token:\s*(wr_[a-z0-9]+)/)[1];
+    const r2 = await editFileHandler(ctx, { confirmation_token: token });
+    assert.match(r2.content[0].text, /✅ Edited/);
+    assert.equal(vfsRead(p), "const a = 2;\n");
   });
 });
 
@@ -624,8 +695,8 @@ describe("Per-connection path isolation", () => {
 
     const [okWrite, rejectWrite] = await runWithPaths([dirA], [dirA], null, () =>
       Promise.all([
-        writeFileHandler(ctx, { path: join(dirA, "new.js"), content: "x" }),
-        writeFileHandler(ctx, { path: join(dirB, "new.js"), content: "x" }),
+        confirmed(writeFileHandler, ctx, { path: join(dirA, "new.js"), content: "x" }),
+        confirmed(writeFileHandler, ctx, { path: join(dirB, "new.js"), content: "x" }),
       ])
     );
 
@@ -648,14 +719,14 @@ describe("Integration: File workflow", () => {
   test("complete CRUD workflow: write → read → append → read", async () => {
     const filePath = join(testDir, "workflow.js");
 
-    const writeResult = await writeFileHandler(ctx, { path: filePath, content: "line1\nline2\n" });
+    const writeResult = await confirmed(writeFileHandler, ctx, { path: filePath, content: "line1\nline2\n" });
     assert.ok(writeResult.content[0].text.includes("✅ Created"));
 
     const readResult = await readFileHandler({ path: filePath });
     assert.ok(readResult.content[0].text.includes("line1"));
     assert.ok(readResult.content[0].text.includes("line2"));
 
-    const appendResult = await appendFileHandler(ctx, { path: filePath, content: "line3\nline4\n" });
+    const appendResult = await confirmed(appendFileHandler, ctx, { path: filePath, content: "line3\nline4\n" });
     assert.ok(appendResult.content[0].text.includes("✅ Appended"));
 
     const finalRead = await readFileHandler({ path: filePath });

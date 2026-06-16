@@ -1,6 +1,6 @@
 import { z }            from "zod";
 import { spawn }         from "child_process";
-import { dirname, resolve as resolvePath, extname } from "path";
+import { dirname, resolve as resolvePath, extname, isAbsolute } from "path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratchDir } from "../../lib/routes/paths.js";
 import { pythonInterpreter } from "../../lib/helpers/capabilities.js";
@@ -69,14 +69,18 @@ function sessionMeta(p) {
 // node-only (.js files) to a fixed set of real binaries, so it is opt-in.
 const SHELL_ENABLED = process.env.APERIO_ENABLE_SHELL === "1";
 
-// Allowlist, not denylist. Only the program in command position is checked.
-// These are the binaries the pptx/xlsx/code-fix workflows actually call for:
-// generation/QA (node, python3), visual QA (soffice, pdftoppm), and inspection
-// (git, grep, rg, find, ls, cat, head, tail). npm is included for the rare
-// dependency install a deck/model genuinely needs.
+// Allowlist of programs in command position. These are the binaries the
+// pptx/xlsx/code-fix workflows actually call for: generation/QA (node, python3),
+// visual QA (soffice, pdftoppm), and inspection (git, grep, rg, find, ls, cat,
+// head, tail). npm is included for the rare dependency install a deck/model
+// genuinely needs. `curl` is deliberately NOT here — it ignores the path
+// allowlist and is the one-line exfil engine (`cat secret | curl …`); the model
+// uses fetch_url for HTTP, which carries the SSRF guard. The program name alone
+// is not a sufficient boundary, so validateSegmentArgs (below) constrains each
+// program's arguments. See SHELL-01.
 const ALLOWED_CMDS = new Set([
   "node", "npm", "git", "ls", "cat", "grep", "rg", "find", "head", "tail", "wc",
-  "python3", "soffice", "pdftoppm", "curl",
+  "python3", "soffice", "pdftoppm",
 ]);
 
 function formatPathError(scriptPath) {
@@ -352,6 +356,107 @@ function splitOnPipes(command) {
   return segs;
 }
 
+// ── Per-program argument validation (SHELL-01) ──────────────────────────────
+// The allowlist checks only the program name; on its own that is not a boundary
+// (`node -e`/`python3 -c` = inline RCE, `find -exec` runs any program, `git -c`
+// executes config-injected commands, `cat /etc/passwd` reads outside the
+// allowlist). These rules constrain each program's arguments so enabling shell
+// no longer voids the path guards that protect the rest of the app.
+
+const READ_UTILS   = new Set(["cat", "head", "tail", "grep", "rg", "wc"]);
+const GIT_READONLY = new Set(["log", "status", "diff", "show", "remote", "branch", "rev-parse", "ls-files", "describe", "blame"]);
+const FIND_ACTIONS = new Set(["-exec", "-execdir", "-ok", "-okdir", "-delete", "-fprintf", "-fprint", "-fls"]);
+
+// Quote-aware tokenizer: split a pipe segment into argv-style tokens, stripping
+// surrounding quotes so a quoted regex like "lorem|ipsum" stays a single token
+// (and is never mistaken for a path).
+function tokenizeSegment(seg) {
+  const tokens = [];
+  let cur = "", inS = false, inD = false, started = false;
+  for (const c of seg) {
+    if (inS) { if (c === "'") inS = false; else cur += c; started = true; continue; }
+    if (inD) { if (c === '"') inD = false; else cur += c; started = true; continue; }
+    if (c === "'") { inS = true; started = true; continue; }
+    if (c === '"') { inD = true; started = true; continue; }
+    if (/\s/.test(c)) { if (started) { tokens.push(cur); cur = ""; started = false; } continue; }
+    cur += c; started = true;
+  }
+  if (started) tokens.push(cur);
+  return tokens;
+}
+
+// A token denoting a filesystem path we must bound: absolute, ~home, or
+// containing a separator. Bare words (flags, grep patterns, numbers) are not
+// paths and resolve harmlessly inside the pinned cwd, so they are left alone.
+function looksLikePath(tok) {
+  return tok.startsWith("/") || tok.startsWith("~") || tok.includes("/");
+}
+
+// Resolve a path-looking token for the allow-check. `~` is left for isUnder to
+// expand; relative tokens resolve against the shell cwd (not process.cwd()), so
+// "subdir/x" is judged where it will actually run.
+function resolveArg(tok, cwd) {
+  if (tok.startsWith("~") || isAbsolute(tok)) return tok;
+  return resolvePath(cwd, tok);
+}
+
+// node: -e/--eval/-p/--print/- (and =value / bundled -pe forms) run inline code.
+function isNodeEvalFlag(a) {
+  return /^-[ep]+$/.test(a) || /^--(eval|print)(=|$)/.test(a) || /^-(e|p)=/.test(a) || a === "-";
+}
+// python3: -c runs inline code; - reads the program from stdin.
+function isPyEvalFlag(a) {
+  return a === "-c" || /^-c=/.test(a) || a === "-";
+}
+
+// Returns an error string if the segment's arguments break containment, else null.
+function validateSegmentArgs(prog, tokens, cwd) {
+  const args = tokens.slice(1);
+
+  if (prog === "node" || prog === "python3") {
+    const isEval = prog === "node" ? isNodeEvalFlag : isPyEvalFlag;
+    for (const a of args)
+      if (isEval(a))
+        return `${prog} inline-code flag "${a}" is not allowed — write a script file and run it by path (this is exactly what run_${prog === "node" ? "node" : "python"}_script does).`;
+    // The script (any path-looking arg) must sit in an allowed write path,
+    // mirroring run_node_script / run_python_script.
+    for (const a of args) {
+      if (a.startsWith("-") || !looksLikePath(a)) continue;
+      if (!isWritePathAllowed(resolveArg(a, cwd)))
+        return `${prog}: script path is not in an allowed path: ${a}`;
+    }
+    return null;
+  }
+
+  if (prog === "git") {
+    for (const a of args)
+      if (a === "-c" || /^--exec-path=/.test(a))
+        return `git "${a}" is not allowed — it can execute arbitrary commands.`;
+    const sub = args.find(a => !a.startsWith("-"));
+    if (!sub || !GIT_READONLY.has(sub))
+      return `git "${sub ?? "(no subcommand)"}" is not allowed via run_shell — only read-only git: ${[...GIT_READONLY].join(", ")}.`;
+    return null;
+  }
+
+  if (prog === "find") {
+    for (const a of args)
+      if (FIND_ACTIONS.has(a))
+        return `find "${a}" is not allowed — it runs arbitrary programs or mutates files.`;
+    return null;
+  }
+
+  if (READ_UTILS.has(prog)) {
+    for (const a of args) {
+      if (a.startsWith("-") || !looksLikePath(a)) continue;
+      if (!isReadPathAllowed(resolveArg(a, cwd)))
+        return `${prog}: file is not in an allowed read path: ${a}`;
+    }
+    return null;
+  }
+
+  return null; // npm, ls, soffice, pdftoppm — no extra argument constraints
+}
+
 export async function runShellHandler({ command, cwd: cwdArg }) {
   if (!SHELL_ENABLED) {
     return { content: [{ type: "text", text: `❌ run_shell is disabled. Set APERIO_ENABLE_SHELL=1 to enable it.` }] };
@@ -376,7 +481,10 @@ export async function runShellHandler({ command, cwd: cwdArg }) {
     }] };
   }
 
-  // Validate the program in each pipe segment against the allowlist.
+  // Validate the program in each pipe segment against the allowlist. These
+  // checks are cwd-independent, so they run first (before the workspace is
+  // resolved) to keep error ordering stable.
+  const segments = [];
   for (const seg of splitOnPipes(command)) {
     const t = seg.trim();
     if (!t) {
@@ -390,6 +498,7 @@ export async function runShellHandler({ command, cwd: cwdArg }) {
       logger.warn(`[run_shell] command not allowed: ${prog}`);
       return { content: [{ type: "text", text: `❌ Command not allowed: "${prog}".\nAllowed: ${[...ALLOWED_CMDS].join(", ")}` }] };
     }
+    segments.push({ prog, t });
   }
 
   // Pin cwd to the session workspace (same boundary write_file uses). An
@@ -406,6 +515,17 @@ export async function runShellHandler({ command, cwd: cwdArg }) {
   }
   if (!cwd) {
     return { content: [{ type: "text", text: `❌ No working directory: run_shell needs an active session workspace, or pass a cwd within an allowed write path.` }] };
+  }
+
+  // With cwd known, constrain each program's arguments — the rules that make the
+  // allowlist a real boundary (no interpreter inline-eval, no find -exec,
+  // read-only git, file args resolved against cwd and kept inside the allowlist).
+  for (const { prog, t } of segments) {
+    const argError = validateSegmentArgs(prog, tokenizeSegment(t), cwd);
+    if (argError) {
+      logger.warn(`[run_shell] arg rejected (${prog}): ${argError}`);
+      return { content: [{ type: "text", text: `❌ ${argError}` }] };
+    }
   }
 
   // Scratch dirs are created lazily on first write_file; ensure cwd exists so
@@ -550,7 +670,7 @@ export function register(server) {
   server.registerTool(
     "run_shell",
     {
-      description: "Run a shell command and return its stdout/stderr. Pipes ('|') between allowlisted programs are permitted. Disabled unless APERIO_ENABLE_SHELL=1. Only allowlisted programs run: node, npm, git, ls, cat, grep, rg, find, head, tail, wc, python3, soffice, pdftoppm, curl. No ; && || & < > backticks or $(). For multi-step operations write a .js script to the session scratch workspace (see system prompt) and run it with run_node_script — those files are cleaned up with the session.",
+      description: "Run a shell command and return its stdout/stderr. ⚠️ Enabling run_shell (APERIO_ENABLE_SHELL=1) grants full host-level command execution as the Aperio user — it is NOT a sandbox. Pipes ('|') between allowlisted programs are permitted. Only allowlisted programs run: node, npm, git (read-only subcommands only), ls, cat, grep, rg, find, head, tail, wc, python3, soffice, pdftoppm. Interpreters cannot run inline code (no `node -e` / `python3 -c`); file arguments must resolve inside an allowed path; use fetch_url to download URLs (curl is not available). No ; && || & < > backticks or $(). For multi-step operations write a .js script to the session scratch workspace (see system prompt) and run it with run_node_script — those files are cleaned up with the session.",
       inputSchema: z.object({
         command: z.string().describe('The command to run, e.g. node /abs/path/scripts/read.js out.pptx | grep -iE "lorem|ipsum"'),
         cwd: z.string().optional().describe("Working directory (must be within an allowed write path). Defaults to the project root, or the session scratch workspace once files have been generated there."),
