@@ -312,6 +312,7 @@ async function bootApp() {
   const { deduplicateMemories }           = await import("./lib/workers/deduplicate.js");
   const { inferMemories }                 = await import("./lib/workers/infer.js");
   const { createSessionPruner }           = await import("./lib/workers/session-prune.js");
+  const { createAgentScheduler }          = await import("./lib/workers/agent-scheduler.js");
   const { makeWsHandler }                 = await import("./lib/emitters/handlers/wsHandler.js");
   const { apiRouter }                     = await import("./lib/routes/api.js");
   const { generateEmbedding, initEmbeddings, disposeEmbeddings, checkEmbeddingProvider } = await import("./lib/helpers/embeddings.js");
@@ -500,9 +501,10 @@ async function bootApp() {
   wss.on("connection", makeWsHandler({ agent, primaryRoundtable, verifier, roundtableAvailable, store, __dirname }));
 
   // Background jobs
-  const dedup   = deduplicateMemories(callTool);
-  const infer   = inferMemories(callTool);
-  const pruner  = createSessionPruner();
+  const dedup     = deduplicateMemories(callTool);
+  const infer     = inferMemories(callTool);
+  const pruner    = createSessionPruner();
+  const scheduler = createAgentScheduler({ callTool });
 
   // Graceful shutdown
   // Order matters: the ONNX native runtime must be torn down via its own API
@@ -518,6 +520,7 @@ async function bootApp() {
     dedup.stop();
     infer.stop();
     pruner.stop();
+    scheduler.stop();
     if (stopCodegraph) await stopCodegraph().catch(() => {});
     if (stopDocgraph) await stopDocgraph().catch(() => {});
 
