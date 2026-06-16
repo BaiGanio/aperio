@@ -1098,36 +1098,74 @@ function _collapseLargeCodeBlocks(bubble) {
 
 // Render trailing "pick an option" prompts as clickable pills. The user can
 // still type a free-form answer — the pills are a shortcut, not a constraint.
-// Heuristic: the message asks a question and lists 2–6 short **bold** options.
+// Heuristic: the message asks a question and lists 2–6 short **bold** items.
+//
+// Two shapes of prompt, handled differently:
+//   • Answer  — the bold item IS the answer ("**A skill**", "**An MCP server**").
+//               Clicking it sends that text straight back.
+//   • Topic   — the bold item is a category that poses its own follow-up after a
+//               dash ("**Email provider** — Gmail, Outlook, or IMAP?"). Sending
+//               the bare label answers nothing, so clicking instead seeds the
+//               input with "Email provider: " and focuses it for the user to fill.
 function _extractChoices(text) {
   if (text.includes("```")) return null;            // a build result, not a prompt
   if (!text.includes("?")) return null;             // not a question at all
-  const choices = [];
-  const re = /^\s*(?:\d+\.|[-*+])\s+\*\*([^*\n]+?)\*\*/gm;
+  const items = [];
+  const re = /^\s*(?:\d+\.|[-*+])\s+\*\*([^*\n]+?)\*\*\s*(.*)$/gm;
   let m;
   while ((m = re.exec(text)) !== null) {
     const label = m[1].replace(/[:：]\s*$/, "").trim();
-    if (label && label.length <= 40 && !choices.includes(label)) choices.push(label);
+    if (!label || label.length > 40 || items.some(it => it.label === label)) continue;
+    const rest = (m[2] || "").trim();
+    // A "topic" item trails a dash and asks its own sub-question — its label
+    // names what to answer rather than being the answer.
+    const needsInput = /[—–-]/.test(rest) && rest.includes("?");
+    items.push({ label, needsInput });
   }
-  return choices.length >= 2 && choices.length <= 6 ? choices : null;
+  return items.length >= 2 && items.length <= 6 ? items : null;
 }
 
 function _renderChoicePills(bubble, text) {
-  const choices = _extractChoices(text);
-  if (!choices) return;
+  const items = _extractChoices(text);
+  if (!items) return;
+  // If most items pose their own follow-up, the whole prompt needs the user's
+  // own answers — seed the input instead of auto-sending bare labels.
+  const clarify = items.filter(it => it.needsInput).length > items.length / 2;
+
+  const wrap = document.createElement("div");
+  wrap.className = "choice-pills-wrap";
+
+  const cap = document.createElement("div");
+  cap.className = "choice-pills-caption";
+  cap.textContent = clarify ? t("choice_caption_clarify") : t("choice_caption_pick");
+  wrap.appendChild(cap);
+
   const row = document.createElement("div");
   row.className = "choice-pills";
-  choices.forEach(label => {
+  items.forEach(({ label }) => {
     const pill = document.createElement("button");
-    pill.className = "choice-pill";
+    pill.className = "choice-pill" + (clarify ? " choice-pill--topic" : "");
     pill.textContent = label;
     pill.addEventListener("click", () => {
       const input = document.getElementById("chatInput");
-      if (input && window.send) { input.value = label; window.send(); }
+      if (!input) return;
+      if (clarify) {
+        // Seed "Topic: " (append on a new line if the user is mid-answer),
+        // focus the caret at the end, and let the textarea grow.
+        const prefix = input.value.trim() ? input.value.replace(/\s+$/, "") + "\n" : "";
+        input.value = prefix + label + ": ";
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+        if (window.autoResize) window.autoResize();
+      } else if (window.send) {
+        input.value = label;
+        window.send();
+      }
     });
     row.appendChild(pill);
   });
-  bubble.appendChild(row);
+  wrap.appendChild(row);
+  bubble.appendChild(wrap);
 }
 
 function _enhanceAiBubble(bubble, rawText) {
