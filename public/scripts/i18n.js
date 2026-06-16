@@ -137,6 +137,7 @@ const TRANSLATIONS = {
 
     choice_caption_pick:      "Tap an option to reply",
     choice_caption_clarify:   "Tap a topic to start your answer — edit it, then send",
+    chat_suggest_hint:        "Press Tab ↹ or → to use this suggestion",
 
     msg_preparing_answer:     "✦ preparing answer…",
     msg_reasoning_done:       "done",
