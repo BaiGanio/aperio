@@ -289,6 +289,80 @@ describe("agent-scheduler", () => {
       sched.stop();
       assert.strictEqual(calls.length, 0);
     });
+
+    test("setEnabled flips auto-run at runtime", async (t) => {
+      delete process.env.APERIO_AGENT_JOBS;            // boot off
+      t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+
+      const calls = [];
+      const sched = createAgentScheduler({
+        callTool: async (name) => { calls.push(name); return "ok"; },
+        jobs: [stepsJob("job-a", 60_000)],
+      });
+      assert.strictEqual(sched.isEnabled(), false);
+
+      sched.setEnabled(true);                          // turn on without restart
+      assert.strictEqual(sched.isEnabled(), true);
+      t.mock.timers.tick(INITIAL_DELAY);
+      await drain(); await drain();
+      assert.deepStrictEqual(calls, ["backfill_embeddings", "deduplicate_memories"]);
+
+      sched.setEnabled(false);                         // turn off → no more ticks
+      assert.strictEqual(sched.isEnabled(), false);
+      calls.length = 0;
+      t.mock.timers.tick(60_000 * 3);
+      await drain();
+      assert.strictEqual(calls.length, 0);
+      sched.stop();
+    });
+
+    test("reload re-wires interval scheduling when active", async (t) => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+
+      const calls = [];
+      const sched = createAgentScheduler({
+        callTool: async (name) => { calls.push(name); return "ok"; },
+        jobs: [],                                       // nothing scheduled at boot
+      });
+
+      t.mock.timers.tick(INITIAL_DELAY);
+      await drain();
+      assert.strictEqual(calls.length, 0);
+
+      sched.reload([stepsJob("job-a", 60_000)]);        // add a job at runtime
+      t.mock.timers.tick(INITIAL_DELAY);
+      await drain(); await drain();
+      assert.deepStrictEqual(calls, ["backfill_embeddings", "deduplicate_memories"]);
+
+      sched.reload([]);                                 // remove it → no more fires
+      calls.length = 0;
+      t.mock.timers.tick(60_000 * 3);
+      await drain();
+      assert.strictEqual(calls.length, 0);
+      sched.stop();
+    });
+
+    test("reload while disabled only remembers the list", async (t) => {
+      delete process.env.APERIO_AGENT_JOBS;
+      t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+
+      const calls = [];
+      const sched = createAgentScheduler({
+        callTool: async (name) => { calls.push(name); return "ok"; },
+        jobs: [],
+      });
+      sched.reload([stepsJob("job-a", 60_000)]);        // no timers while off
+      t.mock.timers.tick(INITIAL_DELAY * 2);
+      await drain();
+      assert.strictEqual(calls.length, 0);
+
+      sched.setEnabled(true);                           // now uses the reloaded list
+      t.mock.timers.tick(INITIAL_DELAY);
+      await drain(); await drain();
+      assert.deepStrictEqual(calls, ["backfill_embeddings", "deduplicate_memories"]);
+      sched.stop();
+    });
   });
 
   describe("watcher trigger (Phase 3)", () => {

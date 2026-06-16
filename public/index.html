@@ -107,6 +107,11 @@
         <i class="bi bi-database sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">DB</span>
       </button>
+      <button id="agentsBtn" class="sidebar-nav-btn" onclick="toggleAgentsPanel()"
+        title="Background agents — scheduled jobs over your store">
+        <i class="bi bi-robot sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Agents</span>
+      </button>
       <button id="settingsBtn" class="sidebar-nav-btn" onclick="toggleSettingsPanel()"
         data-i18n-attr-title="nav_settings_title" title="Settings">
         <i class="bi bi-sliders sidebar-nav-icon"></i>
@@ -377,6 +382,16 @@
 </div>
 <div id="docgraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleDocgraphPanel()"></div>
 
+<!-- Background-agents panel (reuses the cg-* panel styles) -->
+<div id="agents-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-robot"></i> Agents</span>
+    <button class="cg-panel-close" onclick="toggleAgentsPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-body" id="ag-panel-body"></div>
+</div>
+<div id="agents-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleAgentsPanel()"></div>
+
 <!-- Settings panel -->
 <div id="settings-panel" class="settings-panel" style="display:none;">
   <div class="settings-panel-header">
@@ -505,6 +520,7 @@
 <script src="scripts/db-panel.js"></script>
 <script src="scripts/codegraph-panel.js"></script>
 <script src="scripts/docgraph-panel.js"></script>
+<script src="scripts/agents-panel.js"></script>
 <script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
