@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { writeFileSync, mkdtempSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { EventEmitter } from "events";
 import { createAgentScheduler, loadJobs } from "../../../lib/workers/agent-scheduler.js";
 
 const INITIAL_DELAY = 30_000;
@@ -232,6 +233,94 @@ describe("agent-scheduler", () => {
       await drain(); await drain();
       sched.stop();
       assert.strictEqual(calls.length, 0);
+    });
+  });
+
+  describe("watcher trigger (Phase 3)", () => {
+    const watcherJob = (overrides = {}) => ({
+      id: "on-change",
+      enabled: true,
+      trigger: { kind: "watcher", debounceMs: 20 },
+      steps: [{ tool: "noop", input: {} }],
+      ...overrides,
+    });
+
+    test("fires once with deduped changedFiles after a burst (freeform)", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const events = new EventEmitter();
+      const runs = [];
+      const sched = createAgentScheduler({
+        callTool: async () => "",
+        createAgent: async () => ({
+          runAgentLoop: async (messages) => { runs.push(messages[0].content); return "done"; },
+        }),
+        jobs: [watcherJob({ id: "ff", steps: undefined, prompt: "what changed" })],
+        watcherEvents: events,
+      });
+
+      events.emit("change", { kind: "codegraph", relPath: "a.js", op: "index" });
+      events.emit("change", { kind: "docgraph", relPath: "b.md", op: "index" });
+      events.emit("change", { kind: "codegraph", relPath: "a.js", op: "index" }); // dup
+
+      await new Promise(r => setTimeout(r, 60));
+      sched.stop();
+
+      assert.strictEqual(runs.length, 1);                    // burst collapsed into one run
+      assert.match(runs[0], /what changed/);                 // original prompt preserved
+      assert.match(runs[0], /- a\.js/);
+      assert.match(runs[0], /- b\.md/);
+      assert.strictEqual((runs[0].match(/- a\.js/g) || []).length, 1); // a.js listed once
+    });
+
+    test("trigger.source filters which graph a job listens to", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const events = new EventEmitter();
+      let runs = 0;
+      const sched = createAgentScheduler({
+        callTool: async () => { runs++; return "ok"; },
+        jobs: [watcherJob({ trigger: { kind: "watcher", source: "docgraph", debounceMs: 20 } })],
+        watcherEvents: events,
+      });
+
+      events.emit("change", { kind: "codegraph", relPath: "a.js", op: "index" }); // ignored
+      await new Promise(r => setTimeout(r, 40));
+      assert.strictEqual(runs, 0);
+
+      events.emit("change", { kind: "docgraph", relPath: "b.md", op: "index" }); // matches
+      await new Promise(r => setTimeout(r, 40));
+      sched.stop();
+      assert.strictEqual(runs, 1);
+    });
+
+    test("does not wire watcher jobs when gated off", async () => {
+      delete process.env.APERIO_AGENT_JOBS;
+      const events = new EventEmitter();
+      let runs = 0;
+      const sched = createAgentScheduler({
+        callTool: async () => { runs++; return "ok"; },
+        jobs: [watcherJob({ trigger: { kind: "watcher", debounceMs: 20 } })],
+        watcherEvents: events,
+      });
+
+      events.emit("change", { kind: "codegraph", relPath: "a.js", op: "index" });
+      await new Promise(r => setTimeout(r, 40));
+      sched.stop();
+      assert.strictEqual(runs, 0);
+    });
+
+    test("stop() unsubscribes — no runs after teardown", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const events = new EventEmitter();
+      let runs = 0;
+      const sched = createAgentScheduler({
+        callTool: async () => { runs++; return "ok"; },
+        jobs: [watcherJob({ trigger: { kind: "watcher", debounceMs: 20 } })],
+        watcherEvents: events,
+      });
+      sched.stop();
+      events.emit("change", { kind: "codegraph", relPath: "a.js", op: "index" });
+      await new Promise(r => setTimeout(r, 40));
+      assert.strictEqual(runs, 0);
     });
   });
 });
