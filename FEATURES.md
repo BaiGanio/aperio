@@ -82,7 +82,7 @@ Last reconciled: 2026-06-10 · Version: 0.55.0
 - Skills matching per turn (`skills/`)
 - Reasoning / thinking mode with reasoning-chain replay
 - Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`)
-- Background agents: scheduled, chat-less jobs over the store — interval trigger + steps-mode tool pipelines, run records in `var/agents/`, gated by `APERIO_AGENT_JOBS=on` (Phase 1; see `docs/background-agents.md`)
+- Background agents: scheduled, chat-less jobs over the store — interval + manual (`POST /api/agents/:id/run`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, run records in `var/agents/`, gated by `APERIO_AGENT_JOBS=on` (see `background-agents.md`)
 - Personas via `id/whoami*.md`; characters via `id/characters/`
 
 ## Storage

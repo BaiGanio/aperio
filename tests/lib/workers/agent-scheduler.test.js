@@ -87,7 +87,7 @@ describe("agent-scheduler", () => {
 
       assert.strictEqual(res.verdict, "error");
       assert.strictEqual(res.error, "boom");
-      assert.strictEqual(res.results.length, 1); // first step landed before the throw
+      assert.strictEqual(res.entries.length, 1); // first step landed before the throw
     });
 
     test("skips a job with no steps", async () => {
@@ -124,6 +124,62 @@ describe("agent-scheduler", () => {
 
       assert.strictEqual(firstRes.verdict, "ok");
       assert.strictEqual(starts, 2); // 2 steps of the first run only; second never started
+    });
+  });
+
+  describe("runJob (freeform mode)", () => {
+    const freeformJob = (overrides = {}) => ({
+      id: "curator",
+      enabled: true,
+      trigger: { kind: "interval", everyMs: 60_000 },
+      prompt: "summarise recent memories",
+      provider: { name: "ollama", model: "qwen3:8b" },
+      ...overrides,
+    });
+
+    test("drives createAgent + runAgentLoop and returns the answer", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      let builtWith = null;
+      const createAgent = async (cfg) => {
+        builtWith = cfg;
+        return {
+          runAgentLoop: async (messages, emitter) => {
+            emitter.send({ type: "tool", name: "recall" });
+            emitter.send({ type: "stream_end" });
+            return `digest of: ${messages[0].content}`;
+          },
+        };
+      };
+      const sched = createAgentScheduler({ callTool: async () => "", createAgent, jobs: [] });
+
+      const res = await sched.runJob(freeformJob());
+      sched.stop();
+
+      assert.strictEqual(res.verdict, "ok");
+      assert.strictEqual(res.mode, "freeform");
+      assert.strictEqual(res.answer, "digest of: summarise recent memories");
+      assert.deepStrictEqual(builtWith.providerConfig, { name: "ollama", model: "qwen3:8b" });
+    });
+
+    test("skips a freeform job when no createAgent factory is provided", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const sched = createAgentScheduler({ callTool: async () => "", jobs: [] });
+
+      const res = await sched.runJob(freeformJob());
+      sched.stop();
+      assert.strictEqual(res, null);
+    });
+
+    test("times out a stuck freeform run", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const createAgent = async () => ({ runAgentLoop: () => new Promise(() => {}) }); // never resolves
+      const sched = createAgentScheduler({ callTool: async () => "", createAgent, jobs: [] });
+
+      const res = await sched.runJob(freeformJob({ timeoutMs: 20 }));
+      sched.stop();
+
+      assert.strictEqual(res.verdict, "error");
+      assert.match(res.error, /timed out/);
     });
   });
 
