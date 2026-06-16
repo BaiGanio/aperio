@@ -120,6 +120,28 @@ describe("processChunk", () => {
     assert.equal(h.fullText, "AB");
   });
 
+  test("does NOT drop a token when its SSE line is split across chunks", () => {
+    // Regression: long streamed outputs (e.g. an HTML page) lost scattered
+    // characters because a `data: {…}` line straddling two network reads had
+    // both halves discarded. The line buffer must reassemble it.
+    const h = buildHandler();
+    const full = deltaContent("font-weight: 600");
+    const cut = Math.floor(full.length / 2);
+    h.processChunk(full.slice(0, cut));   // first half — no newline yet
+    assert.equal(h.fullText, "");          // nothing emitted until the line completes
+    h.processChunk(full.slice(cut));       // remainder + newline
+    assert.equal(h.fullText, "font-weight: 600");
+  });
+
+  test("reassembles a line split across three chunks", () => {
+    const h = buildHandler();
+    const full = deltaContent("transition: color 0.2s");
+    h.processChunk(full.slice(0, 10));
+    h.processChunk(full.slice(10, 22));
+    h.processChunk(full.slice(22));
+    assert.equal(h.fullText, "transition: color 0.2s");
+  });
+
   test("extracts usage from a data line (prompt, completion, reasoning tokens)", () => {
     const h = buildHandler();
     const usageLine = sse({
@@ -419,14 +441,17 @@ describe("process — full stream lifecycle", () => {
     assert.equal(result.reasoningContent, "Let me think\n");
   });
 
-  test("skips partial SSE lines that are not delimited by \\n", async () => {
-    // The handler splits chunks by "\n" and processes complete lines only.
-    // Partial lines (no newline) are silently dropped.
+  test("reassembles an SSE line split across chunk boundaries", async () => {
+    // Network reads routinely cut a `data: {…}` line in half. The handler must
+    // buffer the partial line and complete it with the next chunk rather than
+    // dropping both halves (which corrupted long streamed outputs).
     const em = mockEmitter();
+    const full = deltaContent("hi");   // "data: {…}\n"
+    const cut = full.length - 4;
     const h = buildHandler({
       chunks: [
-        "partial data without newline... ",
-        deltaContent("hi"),   // complete line — gets processed
+        full.slice(0, cut),   // first half, no newline yet
+        full.slice(cut),      // remainder + newline
         doneMarker,
       ],
       emitter: em,

@@ -35,10 +35,13 @@ describe("reasoning.js", () => {
     assert.strictEqual(events[events.length-1].type, "reasoning_done");
   });
 
-  test("Gemma adapter: flags noThinkWithTools (others do not)", () => {
-    assert.strictEqual(resolveReasoningAdapter("gemma4:12b").noThinkWithTools, true);
-    assert.notStrictEqual(resolveReasoningAdapter("qwen3:30b-a3b").noThinkWithTools, true);
-    assert.notStrictEqual(resolveReasoningAdapter("deepseek-r1").noThinkWithTools, true);
+  test("no adapter proactively suppresses thinking on tool turns", () => {
+    // Thinking is allowed to stream on every turn so the reasoning toggle is
+    // honored; Gemma's occasional empty-completion stall is handled by
+    // runOllamaLoop's retry, not by a per-adapter suppression flag.
+    for (const name of ["gemma4:12b", "qwen3:30b-a3b", "deepseek-r1"]) {
+      assert.notStrictEqual(resolveReasoningAdapter(name).noThinkWithTools, true);
+    }
   });
 
   test("DeepSeek-R1 adapter: sets noTools to true", () => {
