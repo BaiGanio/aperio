@@ -12,7 +12,10 @@ import {
   isRetrievalQuestion,
   createAgent,
   zodToJsonSchema,
+  persistAnswerArtifacts,
 } from "../../lib/agent.js";
+import fs from "node:fs";
+import path from "node:path";
 import { fixUnclosedFence } from "../../lib/helpers/validateOutput.js";
 import { makeWsEmitter } from "../../lib/emitters/wsEmitter.js";
 import { makeCliEmitter } from "../../lib/emitters/cliEmitter.js";
@@ -947,6 +950,51 @@ describe("Provider resolution - DeepSeek", () => {
 
     process.env.DEEPSEEK_MODEL = "deepseek-v4-flash";
     assert.strictEqual(resolveProvider().vision, false);
+  });
+});
+
+describe("persistAnswerArtifacts()", () => {
+  let dir;
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "answer-artifacts-")); });
+  afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
+
+  const bigHtml = "<!DOCTYPE html>\n<html><head><title>WealthPath Dashboard</title></head>\n" +
+    Array.from({ length: 30 }, (_, i) => `<div>row ${i}</div>`).join("\n") + "\n</html>";
+
+  test("writes a fenced HTML deliverable to scratch intact", () => {
+    const text = "Here you go:\n```html\n" + bigHtml + "\n```";
+    const n = persistAnswerArtifacts(text, dir);
+    assert.equal(n, 1);
+    const files = fs.readdirSync(dir);
+    assert.equal(files.length, 1);
+    assert.match(files[0], /^[0-9a-f]{8}-wealthpath-dashboard\.html$/);
+    // Content must round-trip intact (no corruption / truncation).
+    const content = fs.readFileSync(path.join(dir, files[0]), "utf8");
+    assert.ok(content.includes("WealthPath Dashboard") && content.includes("row 29"));
+  });
+
+  test("persists HTML from a bare ``` fence (no language tag)", () => {
+    const text = "Here:\n```\n" + bigHtml + "\n```\nPreview above.";
+    assert.equal(persistAnswerArtifacts(text, dir), 1);
+    assert.match(fs.readdirSync(dir)[0], /\.html$/);
+  });
+
+  test("persists RAW unfenced HTML wrapped in <pre><code>", () => {
+    // The screenshot case: model emitted literal <pre><code> + raw HTML, no fence.
+    const text = "Brief…\n\n<pre><code>\n" + bigHtml + "\n</code></pre>\n\nPreview the page above.";
+    assert.equal(persistAnswerArtifacts(text, dir), 1);
+    const content = fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]), "utf8");
+    assert.ok(content.startsWith("<!DOCTYPE html>") && content.includes("row 29"));
+  });
+
+  test("ignores small snippets and non-deliverable languages", () => {
+    const text = "```js\nconsole.log(1)\n```\n```css\nbody{color:red}\n```\n```html\n<p>tiny</p>\n```";
+    assert.equal(persistAnswerArtifacts(text, dir), 0);
+    assert.equal(fs.readdirSync(dir).length, 0);
+  });
+
+  test("returns 0 with no scratch dir", () => {
+    assert.equal(persistAnswerArtifacts("```html\n" + bigHtml + "\n```", null), 0);
   });
 });
 

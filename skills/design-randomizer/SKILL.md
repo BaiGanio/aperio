@@ -144,3 +144,15 @@ Once the brief is stated and agreed (or accepted without objection), proceed wit
 4. Before delivering, run the anti-convergence check: name the movement, name the font, name the palette rule. If any answer is "I defaulted," revise.
 
 The brief is a creative contract. Honor it.
+
+---
+
+## Delivering the Build
+
+A "build" request means produce the working page **now, in this same response** — not a promise to build it next.
+
+1. **Output the page directly — do NOT use tools to create it.** Put the complete document in a single fenced ` ```html ` code block in your reply. **Do NOT call `run_node_script`, `run_python_script`, `write_file`, or write a generator script** to produce the page — those repeatedly fail for this and waste the turn. Aperio automatically saves the ` ```html ` block to the workspace as a real file and shows a **Preview** / **Download** card. The code block IS the delivery mechanism.
+2. **Do not announce and stop.** Never end a turn with "I will now generate the file" or "a .html file will be created" without the page itself in the same message. State the brief, then immediately output the code block.
+3. **Unless the user names a framework (React, Vue, Next.js, etc.), deliver one self-contained `.html` file** — all CSS in a `<style>` block, any JS in a `<script>` block, no build step, no npm, no CDN beyond web fonts. It must work by opening the file directly in a browser.
+4. **The HTML must be valid.** Include `<!DOCTYPE html>`, `<meta charset="utf-8">`, a `<title>`, and properly closed tags. CSS rule blocks use `{ … }`, not `:root;`. Custom properties use two hyphens (`--bg`), not an em-dash. A page that renders blank is a failed delivery — sanity-check the markup.
+5. **Keep prose short:** name the movement/palette/type in 2–3 lines, then the code block. The user previews or downloads from the card.

@@ -9,6 +9,12 @@ function escapeHtml(str) {
 
 function renderMarkdown(text) {
   const blocks = [];
+  // A model that opened a ``` code fence but never closed it (common with weak
+  // models that get cut off mid-build) would otherwise have the whole block
+  // escaped into a flat wall of text — no .code-block element, so it can't be
+  // collapsed and floods the message. Close a dangling fence so the remainder
+  // renders as a real, collapsible code block.
+  if (((text.match(/```/g) || []).length) % 2 === 1) text += "\n```";
   text = text.replace(/```(\w*)[ \t]*\r?\n?([\s\S]*?)```/g, (_, lang, code) => {
     const id = "cb-" + Math.random().toString(36).slice(2, 8);
     const label = lang || "code";

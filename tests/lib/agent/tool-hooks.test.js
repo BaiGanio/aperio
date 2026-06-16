@@ -141,4 +141,58 @@ describe("surfaceArtifact() — download-card filtering", () => {
     ]);
     assert.deepEqual(cards.map((c) => c.filename).sort(), ["data.csv", "deck.pptx", "report.pdf"]);
   });
+
+  // A "build a landing page" deliverable is a static web file; it must surface
+  // so the user gets a Preview/Download card instead of code dumped in chat.
+  test("surfaces web deliverables (html/svg/md)", () => {
+    const cards = cardsFor([
+      "/var/scratch/sess/index.html",
+      "/var/scratch/sess/logo.svg",
+      "/var/scratch/sess/README.md",
+    ]);
+    assert.deepEqual(cards.map((c) => c.filename).sort(), ["README.md", "index.html", "logo.svg"]);
+  });
+});
+
+describe("callToolHooked() — repeated-failure loop breaker", () => {
+  function makeLoopHooks(toolResult) {
+    const events = [];
+    const factory = createToolHooks({
+      callTool: async () => toolResult,
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: false, summary: "" }),
+      getActiveScratchDir: () => "/scratch",
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory({ send: (e) => events.push(e) }, Date.now());
+    return { callToolHooked: hooks.callToolHooked, events };
+  }
+
+  test("halts after 3 identical failing calls and redirects to inline output", async () => {
+    const { callToolHooked, events } = makeLoopHooks("❌ Script not found: /scratch/x.js");
+    const r1 = await callToolHooked("run_node_script", { script: "/scratch/x.js" });
+    const r2 = await callToolHooked("run_node_script", { script: "/scratch/x.js" });
+    const r3 = await callToolHooked("run_node_script", { script: "/scratch/x.js" });
+    assert.match(r1, /Script not found/);
+    assert.match(r2, /Script not found/);
+    assert.match(r3, /STOP/);   // third identical failure trips the breaker
+    assert.ok(events.some((e) => e.type === "tool_budget_exhausted"));
+  });
+
+  test("does not trip on distinct (non-identical) failing calls", async () => {
+    const { callToolHooked } = makeLoopHooks("❌ Script not found");
+    await callToolHooked("run_node_script", { script: "/scratch/a.js" });
+    await callToolHooked("run_node_script", { script: "/scratch/b.js" });
+    const r3 = await callToolHooked("run_node_script", { script: "/scratch/c.js" });
+    assert.doesNotMatch(r3, /STOP/);
+  });
 });

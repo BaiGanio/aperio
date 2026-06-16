@@ -95,19 +95,33 @@ function addMessage(role, text, attachments) {
   const bubble = document.createElement("div");
   bubble.className = "bubble";
 
+  // AI messages route through _renderWithDeliverables so a build's HTML shows as
+  // a card, not source. User messages render verbatim (they may legitimately
+  // paste HTML they want to see).
+  const renderInto = (node, src) => {
+    if (role !== "user" && typeof _renderWithDeliverables === "function") {
+      _renderWithDeliverables(node, src, false);
+    } else {
+      node.innerHTML = renderMarkdown(src);
+    }
+  };
+
   if (text.includes("🧠 **Memory suggestions**") && !suggestionShown) {
     suggestionShown = true;
     const [before, after] = text.split("🧠 **Memory suggestions**");
     const textNode = document.createElement("div");
-    textNode.innerHTML = renderMarkdown(before.trim());
+    renderInto(textNode, before.trim());
     bubble.appendChild(textNode);
     bubble.appendChild(parseSuggestionBlock(after));
   } else if (text.trim()) {
     const textNode = document.createElement("div");
-    textNode.innerHTML = renderMarkdown(text);
+    renderInto(textNode, text);
     bubble.appendChild(textNode);
   }
-  if (role !== "user" && text.trim()) _attachBubbleCopyBtn(bubble, text);
+  if (role !== "user" && text.trim()) {
+    _attachBubbleCopyBtn(bubble, text);
+    _enhanceAiBubble(bubble, text);
+  }
 
   if (role === "user" && attachments && attachments.length > 0) {
     const attachRow = document.createElement("div");
@@ -249,6 +263,9 @@ function ensureFileModal() {
           <span class="fpm-ext-badge"></span>
         </div>
         <div class="fpm-actions">
+          <button class="fpm-source-btn" title="Toggle source" style="display:none">
+            <i class="bi bi-code-slash"></i> Source
+          </button>
           <button class="fpm-copy-btn" title="Copy content">
             <i class="bi bi-copy"></i> Copy
           </button>
@@ -258,6 +275,7 @@ function ensureFileModal() {
         </div>
       </div>
       <div class="fpm-body">
+        <iframe class="fpm-frame" sandbox="allow-scripts" title="Rendered preview" style="display:none"></iframe>
         <pre class="fpm-pre"><code class="fpm-code"></code></pre>
       </div>
     </div>`;
@@ -266,8 +284,24 @@ function ensureFileModal() {
     if (e.target === overlay) closeFileModal();
   });
   overlay.querySelector(".fpm-close-btn").addEventListener("click", closeFileModal);
+  // HTML previews open rendered; this toggles to the raw source and back.
+  overlay.querySelector(".fpm-source-btn").addEventListener("click", () => {
+    const frameEl = overlay.querySelector(".fpm-frame");
+    const preEl   = overlay.querySelector(".fpm-pre");
+    const btn     = overlay.querySelector(".fpm-source-btn");
+    if (btn.dataset.showing === "source") {
+      frameEl.style.display = ""; preEl.style.display = "none";
+      btn.dataset.showing = "preview";
+      btn.innerHTML = '<i class="bi bi-code-slash"></i> Source';
+    } else {
+      preEl.style.display = ""; frameEl.style.display = "none";
+      btn.dataset.showing = "source";
+      btn.innerHTML = '<i class="bi bi-eye"></i> Preview';
+      if (window.Prism) Prism.highlightElement(preEl.querySelector(".fpm-code"));
+    }
+  });
   overlay.querySelector(".fpm-copy-btn").addEventListener("click", () => {
-    const text = overlay.querySelector(".fpm-code").textContent;
+    const text = overlay.dataset.source ?? overlay.querySelector(".fpm-code").textContent;
     navigator.clipboard.writeText(text).then(() => {
       const btn = overlay.querySelector(".fpm-copy-btn");
       btn.innerHTML = '<i class="bi bi-copy-check"></i> Copied!';
@@ -282,36 +316,64 @@ function ensureFileModal() {
   document.body.appendChild(overlay);
 }
 
-function openFileModal(att) {
-  ensureFileModal();
+// Shared renderer for the file-preview modal. HTML files open as a rendered
+// page in a sandboxed iframe with a Source toggle; everything else shows
+// syntax-highlighted source. `text` is the file's full content.
+function renderFileModal(name, text) {
   const modal = document.getElementById("file-preview-modal");
+  modal.querySelector(".fpm-icon").innerHTML = getFileIcon(name, null);
+  modal.querySelector(".fpm-filename").textContent = (name || "file").replace(/\.[^.]+$/, "");
+  modal.querySelector(".fpm-ext-badge").textContent = (name || "").split(".").pop().toUpperCase() || "FILE";
 
-  modal.querySelector(".fpm-icon").innerHTML = getFileIcon(att.name, att.type);
-  modal.querySelector(".fpm-filename").textContent =
-    (att.name || "file").replace(/\.[^.]+$/, "");
-  const ext = (att.name || "").split(".").pop().toUpperCase() || "FILE";
-  modal.querySelector(".fpm-ext-badge").textContent = ext;
+  const codeEl  = modal.querySelector(".fpm-code");
+  const preEl   = modal.querySelector(".fpm-pre");
+  const frameEl = modal.querySelector(".fpm-frame");
+  const srcBtn  = modal.querySelector(".fpm-source-btn");
 
-  const codeEl = modal.querySelector(".fpm-code");
+  modal.dataset.source = text;          // raw text for the Copy button
   codeEl.className = "fpm-code";
-  try {
-    const base64 = (att.dataUrl || "").split(",")[1] || "";
-    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-    codeEl.textContent = new TextDecoder("utf-8").decode(bytes) || "Empty file.";
-  } catch (_) {
-    codeEl.textContent = "Could not decode file content.";
-  }
+  codeEl.textContent = text;
 
-  const fileExt = (att.name || "").split(".").pop().toLowerCase();
+  const ext = (name || "").split(".").pop().toLowerCase();
   const langMap = { js:"javascript", ts:"typescript", jsx:"javascript", tsx:"typescript",
-                    py:"python", html:"html", css:"css", json:"json", md:"markdown" };
-  if (langMap[fileExt]) codeEl.className = `fpm-code language-${langMap[fileExt]}`;
+                    py:"python", html:"html", css:"css", json:"json", md:"markdown",
+                    cs:"csharp", rs:"rust", go:"go", java:"java", cpp:"cpp", c:"c",
+                    sh:"bash", yaml:"yaml", yml:"yaml", toml:"toml", xml:"xml", sql:"sql" };
+  if (langMap[ext]) codeEl.className = `fpm-code language-${langMap[ext]}`;
+
+  const isHtml = ext === "html" || ext === "htm";
+  if (isHtml) {
+    frameEl.srcdoc = text;
+    frameEl.style.display = "";
+    preEl.style.display = "none";
+    srcBtn.style.display = "";
+    srcBtn.dataset.showing = "preview";
+    srcBtn.innerHTML = '<i class="bi bi-code-slash"></i> Source';
+  } else {
+    frameEl.removeAttribute("srcdoc");
+    frameEl.style.display = "none";
+    preEl.style.display = "";
+    srcBtn.style.display = "none";
+  }
 
   modal.classList.add("open");
   requestAnimationFrame(() => {
-    if (window.Prism) Prism.highlightElement(codeEl);
+    if (!isHtml && window.Prism) Prism.highlightElement(codeEl);
     modal.querySelector(".fpm-body").scrollTop = 0;
   });
+}
+
+function openFileModal(att) {
+  ensureFileModal();
+  let text;
+  try {
+    const base64 = (att.dataUrl || "").split(",")[1] || "";
+    const bytes = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+    text = new TextDecoder("utf-8").decode(bytes) || "Empty file.";
+  } catch (_) {
+    text = "Could not decode file content.";
+  }
+  renderFileModal(att.name, text);
 }
 
 function closeFileModal() {
@@ -321,37 +383,32 @@ function closeFileModal() {
 async function openGeneratedFileModal(url, name) {
   ensureFileModal();
   const modal = document.getElementById("file-preview-modal");
-
   modal.querySelector(".fpm-icon").innerHTML = getFileIcon(name, null);
   modal.querySelector(".fpm-filename").textContent = (name || "file").replace(/\.[^.]+$/, "");
-  const ext = (name || "").split(".").pop().toUpperCase() || "FILE";
-  modal.querySelector(".fpm-ext-badge").textContent = ext;
-
-  const codeEl = modal.querySelector(".fpm-code");
-  codeEl.className = "fpm-code";
-  codeEl.textContent = "Loading…";
+  modal.querySelector(".fpm-ext-badge").textContent = (name || "").split(".").pop().toUpperCase() || "FILE";
+  modal.querySelector(".fpm-frame").style.display = "none";
+  modal.querySelector(".fpm-pre").style.display = "";
+  modal.querySelector(".fpm-source-btn").style.display = "none";
+  modal.querySelector(".fpm-code").textContent = "Loading…";
   modal.classList.add("open");
 
+  let text;
   try {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    codeEl.textContent = await res.text();
+    text = await res.text();
   } catch (e) {
-    codeEl.textContent = `Could not load file: ${e.message}`;
+    modal.querySelector(".fpm-code").textContent = `Could not load file: ${e.message}`;
     return;
   }
+  renderFileModal(name, text);
+}
 
-  const fileExt = (name || "").split(".").pop().toLowerCase();
-  const langMap = { js:"javascript", ts:"typescript", jsx:"javascript", tsx:"typescript",
-                    py:"python", html:"html", css:"css", json:"json", md:"markdown",
-                    cs:"csharp", rs:"rust", go:"go", java:"java", cpp:"cpp", c:"c",
-                    sh:"bash", yaml:"yaml", yml:"yaml", toml:"toml", xml:"xml", sql:"sql" };
-  if (langMap[fileExt]) codeEl.className = `fpm-code language-${langMap[fileExt]}`;
-
-  requestAnimationFrame(() => {
-    if (window.Prism) Prism.highlightElement(codeEl);
-    modal.querySelector(".fpm-body").scrollTop = 0;
-  });
+// Open an HTML string directly in the rendered preview modal (used for code
+// blocks the model dumped inline rather than writing to a file).
+function previewHtmlString(html, name) {
+  ensureFileModal();
+  renderFileModal(name || "preview.html", html);
 }
 
 // ── Image lightbox ────────────────────────────────────────────

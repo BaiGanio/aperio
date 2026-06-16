@@ -179,7 +179,7 @@
     .code-toolbar {
       display: flex;
       align-items: center;
-      justify-content: space-between;
+      gap: 6px;
       padding: 5px 10px;
       background: var(--bg-hover);
       border-bottom: 1px solid var(--border);
@@ -191,6 +191,7 @@
       color: var(--text-muted);
       letter-spacing: 0.06em;
       text-transform: lowercase;
+      margin-right: auto;
     }
 
     .copy-btn {
@@ -760,4 +761,78 @@
 }
 .no-tool-warning-dismiss:hover {
   color: var(--text);
+}
+
+/* ── Collapsed inline code blocks ──────────────────────────────
+   A large code block the model pasted inline is clipped to a preview
+   height with a fade, so a 10k-line file doesn't flood the transcript.
+   The toolbar's expand/download/preview buttons handle the rest. */
+.code-block--collapsed {
+  position: relative;
+}
+.code-block--collapsed pre {
+  max-height: 220px;
+  overflow: hidden;
+}
+/* While the answer is still streaming, cap any in-progress code block so a large
+   file doesn't push the rest of the conversation off-screen as it arrives. */
+.bubble.streaming .code-block pre {
+  max-height: 260px;
+  overflow: hidden;
+}
+.code-block--collapsed::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+}
+
+/* ── Build deliverable placeholder ─────────────────────────────
+   Shown where a build's source code would be. The real file is saved to the
+   workspace and offered via the generated-file card that follows. */
+.build-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.build-card-icon { flex-shrink: 0; }
+.build-card-name { color: var(--text); font-weight: 500; }
+.build-card-sub { opacity: 0.7; }
+
+/* ── Choice pills ──────────────────────────────────────────────
+   Clickable shortcuts for "pick an option" prompts. Typing a free-form
+   answer in the input still works — these are a shortcut, not a gate. */
+.choice-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.choice-pill {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-family: var(--font-sans);
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+.choice-pill:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
 }

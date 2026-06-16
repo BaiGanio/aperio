@@ -340,3 +340,10 @@ button.gfc-btn {
   font-size: inherit;
   background: transparent;
 }
+.fpm-frame {
+  width: 100%;
+  height: 70vh;
+  border: 0;
+  background: #fff;
+  display: block;
+}
