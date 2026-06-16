@@ -384,7 +384,7 @@ describe("updateSessionModel()", () => {
 // appendSummary
 // =============================================================================
 describe("appendSummary()", () => {
-  test("appends a summary with transcript", () => {
+  test("appends a summary (content only, no transcript)", () => {
     seedSession({ id: "summarised", summaries: [] });
 
     const messages = [
@@ -405,9 +405,8 @@ describe("appendSummary()", () => {
     assert.equal(saved.summaries[0].content, "The user asked about testing.");
     assert.equal(saved.summaries[0].messageCount, 4); // messages.length - 1
     assert.ok(saved.summaries[0].generatedAt);
-    assert.equal(saved.summaries[0].transcript.length, 4);
-    assert.equal(saved.summaries[0].transcript[0].role, "user");
-    assert.equal(saved.summaries[0].transcript[0].content, "Hello");
+    // The full transcript is deliberately not persisted \u2014 it was dead weight.
+    assert.equal(saved.summaries[0].transcript, undefined);
   });
 
   test("does nothing if session does not exist", () => {
@@ -430,7 +429,7 @@ describe("appendSummary()", () => {
     assert.equal(saved.summaries.length, 2);
   });
 
-  test("does not include the internal greeting in the transcript", () => {
+  test("messageCount excludes the internal greeting prompt", () => {
     seedSession({ id: "no-greeting-transcript", summaries: [] });
 
     const messages = [
@@ -446,7 +445,6 @@ describe("appendSummary()", () => {
 
     const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions/no-greeting-transcript.json")));
     assert.equal(saved.summaries[0].messageCount, 2);
-    assert.ok(saved.summaries[0].transcript.every(m => m.role !== "system"));
   });
 });
 
