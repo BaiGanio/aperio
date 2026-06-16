@@ -1166,6 +1166,14 @@ function _renderChoicePills(bubble, text) {
   });
   wrap.appendChild(row);
   bubble.appendChild(wrap);
+
+  // Mirror the lead choice into the input as an inline next-step suggestion
+  // (Claude-Code style): ghost text in the empty prompt, accepted with Tab / →.
+  // Topic items seed "Label: " for the user to finish; answer items seed the
+  // label itself. The pills above stay as the full, clickable list.
+  const lead = items[0];
+  const acceptValue = clarify ? lead.label + ": " : lead.label;
+  window.setInputSuggestion?.(acceptValue, lead.label);
 }
 
 function _enhanceAiBubble(bubble, rawText) {

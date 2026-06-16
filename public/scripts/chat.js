@@ -282,6 +282,7 @@ async function send() {
 
   window.messagesEl.scrollTop = window.messagesEl.scrollHeight;
   window.chatInput.value = "";
+  window.clearInputSuggestion?.();
   autoResize();
   window.sendBtn.disabled = true;
   window.isThinking = true;
@@ -295,6 +296,38 @@ async function send() {
     const roundtable = typeof window.isRoundtableRequested === "function" && window.isRoundtableRequested();
     safeSend(JSON.stringify({ type: "chat", text, attachments, roundtable, interrupted: interrupting }));
   });
+}
+
+// ── Inline next-step suggestion ───────────────────────────────────────────
+// The lead choice from the model's last turn is offered as ghost text in the
+// (empty) input. Accept it with Tab or → just like an editor autocomplete; the
+// choice pills below the message remain the full, clickable list.
+window.setInputSuggestion = function(acceptValue, label) {
+  const el = window.chatInput;
+  if (!el || el.value.trim() !== "") return;   // never clobber what the user is typing
+  el.dataset.suggestion = acceptValue;
+  el.placeholder = label;
+  el.title = t("chat_suggest_hint");
+};
+
+window.clearInputSuggestion = function() {
+  const el = window.chatInput;
+  if (!el || !el.dataset.suggestion) return;
+  delete el.dataset.suggestion;
+  el.placeholder = t("chat_placeholder");
+  el.removeAttribute("title");
+};
+
+function acceptInputSuggestion() {
+  const el = window.chatInput;
+  if (!el?.dataset.suggestion || el.value.trim() !== "") return false;
+  el.value = el.dataset.suggestion;
+  window.clearInputSuggestion();
+  el.focus();
+  el.setSelectionRange(el.value.length, el.value.length);
+  autoResize();
+  window.sendBtn.disabled = el.value.trim() === "";
+  return true;
 }
 
 window.send       = send;
@@ -316,6 +349,11 @@ window.stopBtn.onclick = () => {
 window.chatInput.addEventListener("keydown", (e) => {
   // Autocomplete keyboard navigation (takes priority when dropdown is open)
   if (handleAutocompleteKeydown(e)) return;
+
+  // Accept the inline next-step suggestion (only when the input is empty).
+  if ((e.key === "Tab" || e.key === "ArrowRight") && window.chatInput.dataset.suggestion) {
+    if (acceptInputSuggestion()) { e.preventDefault(); return; }
+  }
 
   if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
     e.preventDefault();
