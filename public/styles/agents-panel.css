@@ -1,0 +1,82 @@
+/* ── Background-agents panel ──────────────────────────────────── */
+/* Reuses the cg-* panel chrome (slide-in, header, body). Only the
+   agent-specific bits (verdict badges, run-now button, run rows) live here. */
+
+.ag-master-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 4px 10px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.ag-master-hint {
+  font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
+}
+
+.ag-job-head {
+  display: flex; align-items: center; gap: 6px;
+}
+.ag-job-id {
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  color: var(--text); flex: 1; word-break: break-all;
+}
+.ag-job-meta {
+  font-size: 10px; color: var(--text-muted);
+  margin-top: 3px;
+  display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center;
+}
+.ag-tag {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 10px;
+  border: 1px solid var(--border); color: var(--text-muted);
+}
+.ag-tag.on  { color: #16a34a; border-color: #16a34a; }
+.ag-tag.off { color: var(--text-muted); opacity: 0.7; }
+
+.ag-verdict {
+  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  padding: 1px 6px; border-radius: 10px; border: 1px solid;
+}
+.ag-verdict.ok    { color: #16a34a; border-color: #16a34a; }
+.ag-verdict.error { color: var(--danger, #e05252); border-color: var(--danger, #e05252); }
+.ag-verdict.none  { color: var(--text-muted); border-color: var(--border); }
+
+.ag-job-actions {
+  display: flex; gap: 6px; margin-top: 8px;
+}
+.ag-btn {
+  background: var(--bg-alt, var(--bg)); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 4px 10px; font: inherit; font-size: 11px; cursor: pointer;
+}
+.ag-btn:hover { border-color: var(--accent); color: var(--accent); }
+.ag-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.ag-btn.primary {
+  background: var(--accent, #6c8cff); color: #fff; border-color: var(--accent, #6c8cff);
+  font-weight: 600;
+}
+.ag-btn.primary:hover { color: #fff; opacity: 0.92; }
+
+.ag-run {
+  border-left: 2px solid var(--border);
+  padding: 4px 0 4px 10px; margin-bottom: 6px;
+}
+.ag-run.ok    { border-left-color: #16a34a; }
+.ag-run.error { border-left-color: var(--danger, #e05252); }
+.ag-run-head {
+  display: flex; gap: 8px; align-items: center;
+  font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
+}
+.ag-run-body {
+  font-size: 11px; color: var(--text);
+  margin-top: 3px; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.ag-run-tools {
+  font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
+  margin-top: 2px;
+}
+.ag-msg {
+  font-size: 11px; color: var(--text-muted);
+  min-height: 14px; padding: 4px; word-break: break-word;
+}

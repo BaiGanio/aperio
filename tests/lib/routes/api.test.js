@@ -751,3 +751,69 @@ describe("POST /agents/:id/run gating", () => {
     else process.env.APERIO_AGENT_JOBS = prev;
   });
 });
+
+describe("PUT /agents/enabled", () => {
+  test("flips the env var and calls scheduler.setEnabled", async () => {
+    const prev = process.env.APERIO_AGENT_JOBS;
+    let toggled = null;
+    const router = apiRouter({
+      agent: { version: "1", provider: { name: "x", model: "y" }, setProvider: () => {}, getSkillDoc: () => null },
+      store: { listAll: async () => [] },
+      watchdog: { heartbeat: () => {} },
+      scheduler: { setEnabled: (on) => { toggled = on; } },
+    });
+
+    const r1 = await invoke(router, "PUT", "/agents/enabled", { body: { enabled: true } });
+    assert.strictEqual(r1.status, 200);
+    assert.strictEqual(r1.body.enabled, true);
+    assert.strictEqual(toggled, true);
+    assert.strictEqual(process.env.APERIO_AGENT_JOBS, "on");
+
+    const r2 = await invoke(router, "PUT", "/agents/enabled", { body: { enabled: false } });
+    assert.strictEqual(r2.body.enabled, false);
+    assert.strictEqual(toggled, false);
+    assert.strictEqual(process.env.APERIO_AGENT_JOBS, "off");
+
+    if (prev === undefined) delete process.env.APERIO_AGENT_JOBS;
+    else process.env.APERIO_AGENT_JOBS = prev;
+  });
+
+  test("400 when enabled is not a boolean", async () => {
+    const router = makeRouter();
+    const { status } = await invoke(router, "PUT", "/agents/enabled", { body: { enabled: "yes" } });
+    assert.strictEqual(status, 400);
+  });
+});
+
+describe("CRUD live rescheduling", () => {
+  test("POST /agents reloads the scheduler with the fresh DB list", async () => {
+    let reloaded = null;
+    const router = apiRouter({
+      agent: { version: "1", provider: { name: "x", model: "y" }, setProvider: () => {}, getSkillDoc: () => null },
+      store: {
+        listAll: async () => [],
+        getAgentJob: async () => null,
+        upsertAgentJob: async (j) => j,
+        listAgentJobs: async () => [{ id: "new" }],
+      },
+      watchdog: { heartbeat: () => {} },
+      scheduler: { reload: (jobs) => { reloaded = jobs; } },
+    });
+    const { status } = await invoke(router, "POST", "/agents", { body: { id: "new", prompt: "x" } });
+    assert.strictEqual(status, 201);
+    assert.deepStrictEqual(reloaded, [{ id: "new" }]);
+  });
+
+  test("DELETE /agents/:id reloads the scheduler", async () => {
+    let reloadCalls = 0;
+    const router = apiRouter({
+      agent: { version: "1", provider: { name: "x", model: "y" }, setProvider: () => {}, getSkillDoc: () => null },
+      store: { listAll: async () => [], deleteAgentJob: async () => true, listAgentJobs: async () => [] },
+      watchdog: { heartbeat: () => {} },
+      scheduler: { reload: () => { reloadCalls++; } },
+    });
+    const { status } = await invoke(router, "DELETE", "/agents/gone");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(reloadCalls, 1);
+  });
+});

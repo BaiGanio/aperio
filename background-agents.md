@@ -83,9 +83,16 @@ what changed and write a wiki digest"). A job is steps-mode if it has a non-empt
 is the **master switch**: with it off, jobs load but nothing fires, so a non-code
 user never has to edit `jobs.json` to turn the feature off. See `.env.example`.
 
+The switch is also flippable at runtime from the **Agents panel toggle** (no
+restart, no `.env` editing) via `PUT /api/agents/enabled`. That route mutates
+`process.env.APERIO_AGENT_JOBS` (so run-now gating reacts immediately), calls
+`scheduler.setEnabled()` to start/tear-down interval + watcher wiring on the fly,
+and persists the new value back to `.env` so it survives a restart (skipped under
+`NODE_ENV=test`).
+
 ---
 
-## API (`lib/routes/api.js`)
+## API (`lib/routes/api-agents.js`)
 
 Definition CRUD is **always available** so jobs can be configured before
 auto-run is switched on; only *running* a job (and interval auto-run) is gated by
@@ -100,9 +107,11 @@ auto-run is switched on; only *running* a job (and interval auto-run) is gated b
 | `PUT /api/agents/:id` | Update a job (id comes from the path) |
 | `DELETE /api/agents/:id` | Remove a job (`404` if absent) |
 | `POST /api/agents/:id/run` | **Run-now** — trigger immediately, returns `{ verdict, mode, entries, answer?, record }` |
+| `PUT /api/agents/enabled` | Flip the master switch at runtime (`{ enabled: bool }`); mutates env, calls `scheduler.setEnabled`, persists to `.env`. `400` if not boolean |
 
 Run-now status codes: `403` when the feature is off, `404` unknown id, `409`
-already running (single-flight) or invalid, `200`/`500` with the run result.
+already running (single-flight) or invalid, `200`/`500` with the run result. The
+job is resolved from the DB (`store.getAgentJob`), not the legacy `jobs.json`.
 
 ### Run history
 
@@ -170,7 +179,8 @@ off; `stream_end` fires once per inter-tool boundary).
 ## File layout
 
 ```
-lib/workers/agent-scheduler.js       registry + runJob + writeAgentRunRecord + wireWatcherJobs + safeRecordRun
+lib/workers/agent-scheduler.js       registry + runJob + writeAgentRunRecord + wireWatcherJobs + safeRecordRun + setEnabled (runtime switch) + reload (live reschedule)
+lib/helpers/envFile.js               persistEnvVar() — write one KEY=value to .env (used by the runtime toggle)
 lib/emitters/sinkEmitter.js          headless { send } sink for freeform runs
 lib/codegraph/watcher.js             emits `change` events on live index/remove (Phase 3)
 lib/docgraph/watcher.js              emits `change` events on live index/remove (Phase 3)
@@ -179,7 +189,10 @@ db/sqlite.js · db/postgres.js        listAgentJobs/getAgentJob/upsertAgentJob/d
 db/tables.js                          agent_jobs + agent_runs in the DB-browser whitelist
 var/agents/aperio-agent-<id>.md       run transcripts (runtime, gitignored)
 server.js                             shared watcherEvents bus + createAgentScheduler (jobs from DB + recordRun) + shutdown
-lib/routes/api.js                     /api/agents CRUD + /runs history + /:id/run
+lib/routes/api-agents.js              /api/agents CRUD + /runs history + /:id/run (DB-backed)
+public/scripts/agents-panel.js        right-side panel: job list + lastRun + run-now + run-history
+public/styles/agents-panel.css        ag-* styles (verdict badges, run rows); reuses cg-* chrome
+public/index.html                     #agentsBtn nav + #agents-panel + #agents-backdrop
 background-agents.md                  this file
 ```
 
@@ -195,12 +208,18 @@ background-agents.md                  this file
 - **Phase 3 (shipped):** watcher `EventEmitter` on codegraph/docgraph live index
   events + `watcher`-kind triggers (per-job debounce, `source`/`debounceMs`,
   `changedFiles` passed through to the run — freeform prompts get the file list).
-- **Phase 4 (backend shipped):** jobs file → `agent_jobs` DB table (DB is now the
+- **Phase 4 (shipped):** jobs file → `agent_jobs` DB table (DB is now the
   source of truth; `jobs.json` is no longer read), `agent_runs` run-history table,
   store methods on both backends, scheduler reads jobs from the DB + records every
-  run, `/api/agents` CRUD + `/runs` history routes. **Still to do:** the UI panel
-  showing job status + run history (reuse the codegraph/docgraph panel pattern) and
-  a "run now" button, calling these routes.
+  run, `/api/agents` CRUD + `/runs` history + DB-backed run-now routes
+  (`lib/routes/api-agents.js`), and the **UI panel** (`public/scripts/agents-panel.js`):
+  a right-side sidebar listing every job with its trigger/mode/last-run verdict, a
+  "Run now" button (gated on `APERIO_AGENT_JOBS=on`), and an expandable run-history
+  view. The master switch is also flippable live from the panel (`setEnabled` +
+  `PUT /api/agents/enabled`, persisted to `.env`), and **live rescheduling** is done:
+  every CRUD mutation re-reads the DB and calls `scheduler.reload()`, so interval/
+  watcher scheduling tracks changes without a restart. Optional remaining polish: a
+  create/edit-job form in the panel (CRUD routes exist).
 
 ---
 
@@ -278,15 +297,15 @@ Expected: `"ok"` plus the model's answer string; the run record lists `tools use
 
 ### 4. Manual — interval auto-run
 
-Give a job a short period so it fires on its own. Jobs are read from the DB **at
-boot**, so set the interval, then (re)start the server (the scheduler waits 30s
-after boot, then runs on the interval):
+Give a job a short period so it fires on its own. The PUT triggers a live
+`scheduler.reload()`, so **no restart is needed** — the scheduler re-wires and
+(after its 30s initial delay) starts firing on the new interval:
 
 ```bash
 curl -s -X PUT http://localhost:31337/api/agents/nightly-maintenance \
   -H 'content-type: application/json' \
   -d '{ "enabled": true, "trigger": { "kind": "interval", "everyMs": 60000 }, "steps": [{ "tool": "backfill_embeddings", "input": {} }] }'
-# then restart `npm start`
+# watch the log for "[agent-scheduler] rescheduled" then "active — N interval job(s)"
 ```
 
 Wait ~30s, watch the log for the `[agent-scheduler]` run line, the growing
@@ -324,18 +343,28 @@ Context that won't be obvious from the code alone:
 5. **`watcherEvents` is created unconditionally in `server.js`** (one `EventEmitter`),
    even when codegraph/docgraph are off — it just has no producers then, and the
    scheduler only subscribes when `APERIO_AGENT_JOBS=on` and watcher jobs exist.
-6. **Next build target: the Phase 4 UI panel.** The backend is done (DB tables,
-   store methods, `/api/agents` CRUD + `/runs`, run recording). What remains is a
-   right-side panel mirroring `public/scripts/docgraph-panel.js` / `codegraph-panel.js`
-   (reuse the `cg-*` styles): list jobs with their `lastRun` status, a "run now"
-   button (`POST /api/agents/:id/run`), and an expandable run-history view
-   (`GET /api/agents/:id/runs`). Add the sidebar nav button + panel HTML in
-   `public/index.html`, like the existing graph panels. **Note the scheduler reads
-   jobs from the DB at boot only** — creating/editing a job via the API updates the
-   DB and run-now immediately, but interval/watcher scheduling won't pick it up
-   until restart. Live rescheduling (re-read on mutate) is a reasonable follow-up.
-7. **Possible polish (optional):** expose `APERIO_AGENT_JOBS` in the setup wizard
-   (`public/setup.html`) so non-code users flip it without touching `.env`.
+6. **Phase 4 UI panel is now built** (`public/scripts/agents-panel.js` +
+   `public/styles/agents-panel.css`, `#agentsBtn` nav + `#agents-panel` HTML). It
+   reuses the `cg-*` chrome: a job list with `lastRun` status, a "Run now" button
+   (`POST /api/agents/:id/run`, disabled when the master switch is off), and an
+   expandable run-history view (`GET /api/agents/:id/runs`). The CRUD routes now live
+   in `lib/routes/api-agents.js` (DB-backed; run-now reads `store.getAgentJob`, no
+   longer the dead `jobs.json`). **Live rescheduling is done** — every CRUD mutation
+   re-reads the DB and calls `scheduler.reload(jobs)`, which swaps the internal list
+   and (if auto-run is active) tears down + re-wires interval/watcher timers, so a
+   created/edited/deleted job takes effect without a restart. A create/edit-job form
+   in the panel (the CRUD routes are ready) is the remaining optional polish.
+7. **Master switch is toggleable from the Agents panel** (done — replaced the
+   "expose it in setup.html" idea, which would have meant a trip to the wizard each
+   time). The panel renders a switch (reuses the `reasoning-toggle` styles) wired to
+   `PUT /api/agents/enabled`. The scheduler gained `setEnabled(on)` / `isEnabled()`:
+   interval + watcher wiring now lives in a `startScheduling()` that can be wired and
+   torn down at runtime, so flipping the toggle takes effect without a restart. The
+   value is persisted to `.env` via `persistEnvVar()` (`lib/helpers/envFile.js`).
+8. **Live rescheduling is done** (see #6) — `scheduler.reload(jobs)` swaps the job
+   snapshot and re-wires timers when active; the CRUD routes call it after every
+   mutation with a fresh `store.listAgentJobs()`. So the old "job list is snapshotted
+   at boot" caveat no longer holds — API job edits take effect immediately.
 8. **Verify watcher triggers live.** The unit tests drive a fake `EventEmitter`; a
    real end-to-end check is `APERIO_DOCGRAPH=on APERIO_AGENT_JOBS=on` + a watcher
    job, then touch a doc and watch `var/agents/aperio-agent-<id>.md` grow with a
