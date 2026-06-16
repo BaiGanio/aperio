@@ -814,25 +814,54 @@
 /* ── Choice pills ──────────────────────────────────────────────
    Clickable shortcuts for "pick an option" prompts. Typing a free-form
    answer in the input still works — these are a shortcut, not a gate. */
+.choice-pills-wrap {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.choice-pills-caption {
+  font-size: 12px;
+  font-family: var(--font-sans);
+  color: var(--text-muted, var(--text));
+  opacity: 0.7;
+  margin-bottom: 8px;
+}
 .choice-pills {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  margin-top: 12px;
 }
 .choice-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   background: var(--bg-hover);
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent);
   border-radius: 999px;
   padding: 5px 14px;
   font-size: 13px;
   font-family: var(--font-sans);
-  color: var(--text);
+  color: var(--accent);
   cursor: pointer;
   transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+.choice-pill::before {
+  /* Affordance: a leading glyph that signals "this is a clickable choice". */
+  content: "›";
+  font-weight: 700;
+  opacity: 0.7;
 }
 .choice-pill:hover {
   background: var(--accent);
   border-color: var(--accent);
   color: #fff;
+}
+/* Topic pills need the user's own input, so they seed the box rather than send.
+   A pencil + dashed border telegraphs "fill this in" instead of "submit". */
+.choice-pill--topic {
+  border-style: dashed;
+}
+.choice-pill--topic::before {
+  content: "✎";
+  font-weight: 400;
 }

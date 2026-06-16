@@ -135,6 +135,9 @@ const TRANSLATIONS = {
     stats_context_in:         "📥 {n} context in",
     chip_tokens:              " ~{n} tok",
 
+    choice_caption_pick:      "Tap an option to reply",
+    choice_caption_clarify:   "Tap a topic to start your answer — edit it, then send",
+
     msg_preparing_answer:     "✦ preparing answer…",
     msg_reasoning_done:       "done",
     msg_reasoning_header:     "🧠 Reasoning",
