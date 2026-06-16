@@ -3,13 +3,23 @@
 
 import { z } from "zod";
 import sanitizeHtml from "sanitize-html";
+import { assertPublicUrl } from "../../lib/helpers/ssrfGuard.js";
+import { logEgress }       from "../../lib/helpers/egressLog.js";
 
 // ─── Pure handler ─────────────────────────────────────────────────────────────
 
 export async function fetchUrlHandler({ url, max_chars: _max, offset: _offset }) {
   const max_chars = _max !== undefined ? Number.parseInt(_max, 10) : undefined;
   const offset    = _offset !== undefined ? Math.max(0, Number.parseInt(_offset, 10) || 0) : 0;
+
   try {
+    await assertPublicUrl(url);
+  } catch (err) {
+    return { content: [{ type: "text", text: `❌ ${err.message}` }] };
+  }
+
+  try {
+    logEgress({ tool: "fetch_url", host: new URL(url).hostname });
     const response = await fetch(url, {
       headers: { "User-Agent": "Aperio/2.0" },
       signal:  AbortSignal.timeout(10_000),

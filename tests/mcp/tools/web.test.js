@@ -104,4 +104,11 @@ describe("fetchUrlHandler", () => {
       assert.ok(result.content[0].text.includes("ECONNREFUSED"));
     })
   );
+
+  test("SSRF guard blocks internal URLs before fetching", () =>
+    withMockFetch(async () => { throw new Error("fetch should not be called"); }, async () => {
+      const result = await fetchUrlHandler({ url: "http://169.254.169.254/latest/meta-data/" });
+      assert.ok(result.content[0].text.includes("SSRF guard"));
+    })
+  );
 });

@@ -54,6 +54,78 @@ function formatPathError(action, filePath) {
   }] };
 }
 
+// ─── write/edit/append confirm-before-write (WRITE-01) ──────────────────────
+// Mirrors delete_file's two-phase commit. write_file / edit_file / append_file
+// run directly for frictionless skill output INTO the session scratch workspace,
+// but a write that touches a real location (outside /var/scratch/) OR that
+// happens in a turn which already read untrusted content (__tainted, set by the
+// agent's tool-hook per INJECT-01) is stashed under a token and surfaced to the
+// user for confirmation before it executes.
+
+const WRITE_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const pendingWrites = new Map(); // token → { execute, kind, expiresAt }
+
+function pruneWrites() {
+  const now = Date.now();
+  for (const [t, e] of pendingWrites) if (now >= e.expiresAt) pendingWrites.delete(t);
+}
+
+function readConfirmToken(args) {
+  return args.confirmation_token ?? args.token ?? args.confirm ?? args.confirmationToken ?? null;
+}
+
+// A write needs confirmation when it lands outside the session scratch workspace
+// OR the turn is tainted by untrusted content. New/overwrite inside scratch in a
+// clean turn runs directly so skill output stays frictionless.
+function needsWriteConfirm(resolved, args) {
+  const inScratch = resolved.includes("/var/scratch/");
+  return !inScratch || args.__tainted === true;
+}
+
+function taintNote(args) {
+  return args.__tainted === true
+    ? ["", "⚠️ This turn read untrusted external content (web page / GitHub issue / file) before this write — confirm it is intended."]
+    : [];
+}
+
+// Phase 1: stash the write and return a preview whose `Token:` line the agent
+// turns into a confirm button (and strips from the model's view).
+function proposeWrite({ kind, label, summaryLines, execute }) {
+  pruneWrites();
+  const token = "wr_" + Math.random().toString(36).slice(2, 8);
+  pendingWrites.set(token, { execute, kind, expiresAt: Date.now() + WRITE_TOKEN_TTL_MS });
+  return { content: [{ type: "text", text: [
+    `⚠️ ${kind} pending your confirmation — nothing has been written yet.`,
+    "",
+    ...summaryLines,
+    "",
+    `Action: ${label}`,
+    `Token: ${token}`,
+  ].join("\n") }] };
+}
+
+// Phase 2: look up the stashed write by token and run it.
+async function commitWrite(token) {
+  pruneWrites();
+  const entry = pendingWrites.get(token);
+  if (!entry || Date.now() >= entry.expiresAt) {
+    pendingWrites.delete(token);
+    return { content: [{ type: "text", text: `❌ Confirmation token invalid or expired. Nothing was written.` }] };
+  }
+  pendingWrites.delete(token);
+  try { return await entry.execute(); }
+  catch (err) { return { content: [{ type: "text", text: `❌ ${entry.kind} failed: ${err.message}` }] }; }
+}
+
+// Render one side of a diff, capped so the confirm summary stays readable.
+function diffLines(text, sign, max = 20) {
+  const lines = text.split("\n");
+  const shown = lines.slice(0, max).map(l => `${sign} ${l}`);
+  const extra = lines.length - max;
+  if (extra > 0) shown.push(`${sign} … (${extra} more line${extra > 1 ? "s" : ""})`);
+  return shown;
+}
+
 export async function readFileHandler({ path: filePath, max_lines, offset = 0 }) {
   if (!isReadPathAllowed(filePath))
     return formatPathError("Read", filePath);
@@ -83,54 +155,93 @@ export async function readFileHandler({ path: filePath, max_lines, offset = 0 })
   };
 }
 
-export async function writeFileHandler(ctx, { path: filePath, content, create_dirs = true }) {
+export async function writeFileHandler(ctx, args) {
+  const token = readConfirmToken(args);
+  if (token) return commitWrite(token);
+
+  const { path: filePath, content, create_dirs = true } = args;
   const resolved = filePath.replace(/^~/, process.cwd());
   if (!isWritePathAllowed(resolved))
     return formatPathError("Write", resolved);
 
-  try {
+  const exists = existsSync(resolved);
 
-    if (create_dirs) {
-      const dir = resolved.substring(0, resolved.lastIndexOf("/"));
-      if (dir) await fs.mkdir(dir, { recursive: true });
+  const doWrite = async () => {
+    try {
+      if (create_dirs) {
+        const dir = resolved.substring(0, resolved.lastIndexOf("/"));
+        if (dir) await fs.mkdir(dir, { recursive: true });
+      }
+
+      let existingSize = null;
+      try { existingSize = (await fs.stat(resolved)).size; } catch {}
+
+      await fs.writeFile(resolved, content, "utf8");
+      const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
+      const msg    = existingSize !== null
+        ? `✅ Overwrote ${resolved} (${sizeKb} KB, was ${(existingSize / 1024).toFixed(1)} KB)`
+        : `✅ Created ${resolved} (${sizeKb} KB)`;
+
+      return { content: [{ type: "text", text: msg }] };
+    } catch (err) {
+      return { content: [{ type: "text", text: `❌ write_file failed: ${err.message}` }] };
     }
+  };
 
-    let existingSize = null;
-    try { existingSize = (await fs.stat(resolved)).size; } catch {}
+  if (!needsWriteConfirm(resolved, args)) return doWrite();
 
-    await fs.writeFile(resolved, content, "utf8");
-    const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
-    const msg    = existingSize !== null
-      ? `✅ Overwrote ${resolved} (${sizeKb} KB, was ${(existingSize / 1024).toFixed(1)} KB)`
-      : `✅ Created ${resolved} (${sizeKb} KB)`;
-
-    return { content: [{ type: "text", text: msg }] };
-  } catch (err) {
-    return { content: [{ type: "text", text: `❌ write_file failed: ${err.message}` }] };
-  }
+  const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
+  return proposeWrite({
+    kind:  "write_file",
+    label: `${exists ? "Overwrite" : "Create"} ${basename(resolved)}`,
+    summaryLines: [
+      `**Target:** ${resolved}`,
+      `**Change:** ${exists ? "overwrite existing file" : "create new file"} (${sizeKb} KB)`,
+      ...taintNote(args),
+    ],
+    execute: doWrite,
+  });
 }
 
-export async function appendFileHandler(ctx, { path: filePath, content }) {
+export async function appendFileHandler(ctx, args) {
+  const token = readConfirmToken(args);
+  if (token) return commitWrite(token);
+
+  const { path: filePath, content } = args;
   const resolved = filePath.replace(/^~/, process.cwd());
   if (!isWritePathAllowed(resolved))
     return formatPathError("Write", resolved);
 
-  try {
+  if (!existsSync(resolved))
+    return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
 
-    if (!existsSync(resolved))
-      return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
+  const doAppend = async () => {
+    try {
+      const before = (await fs.readFile(resolved, "utf8")).split("\n");
+      await fs.appendFile(resolved, content, "utf8");
+      const after  = (await fs.readFile(resolved, "utf8")).split("\n");
+      const tail   = after.slice(-5).join("\n");
 
-    const before = (await fs.readFile(resolved, "utf8")).split("\n");
-    await fs.appendFile(resolved, content, "utf8");
-    const after  = (await fs.readFile(resolved, "utf8")).split("\n");
-    const tail   = after.slice(-5).join("\n");
+      return {
+        content: [{ type: "text", text: `✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}` }],
+      };
+    } catch (err) {
+      return { content: [{ type: "text", text: `❌ append_file failed: ${err.message}` }] };
+    }
+  };
 
-    return {
-      content: [{ type: "text", text: `✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}` }],
-    };
-  } catch (err) {
-    return { content: [{ type: "text", text: `❌ append_file failed: ${err.message}` }] };
-  }
+  if (!needsWriteConfirm(resolved, args)) return doAppend();
+
+  return proposeWrite({
+    kind:  "append_file",
+    label: `Append to ${basename(resolved)}`,
+    summaryLines: [
+      `**Target:** ${resolved}`,
+      `**Change:** append ${Buffer.byteLength(content, "utf8")} bytes to the end`,
+      ...taintNote(args),
+    ],
+    execute: doAppend,
+  });
 }
 
 // scanProjectHandler is read-only; it only traverses the FS and doesn't
@@ -186,6 +297,9 @@ export async function scanProjectHandler({ path: projectPath, read_key_files = t
 }
 
 export async function editFileHandler(ctx, args) {
+  const token = readConfirmToken(args);
+  if (token) return commitWrite(token);
+
   const filePath = args.path;
   // Normalize the find/replace text from whatever alias the model used. First
   // string-valued match wins; spaced keys ("old string") are covered too.
@@ -209,30 +323,53 @@ export async function editFileHandler(ctx, args) {
   if (!existsSync(filePath))
     return { content: [{ type: "text", text: `❌ File not found: ${filePath}` }] };
 
+  let original;
   try {
-    const original = await fs.readFile(filePath, "utf8");
-
-    const occurrences = original.split(old_string).length - 1;
-    if (occurrences === 0)
-      return { content: [{ type: "text", text: `❌ old_string not found in ${filePath}` }] };
-    if (!replace_all && occurrences > 1)
-      return { content: [{ type: "text", text: `❌ old_string matches ${occurrences} times. Provide more context to make it unique, or set replace_all: true.` }] };
-
-    const updated = replace_all
-      ? original.split(old_string).join(new_string)
-      : original.replace(old_string, new_string);
-
-    await fs.writeFile(filePath, updated, "utf8");
-
-    const linesBefore = original.split("\n").length;
-    const linesAfter  = updated.split("\n").length;
-    const replaced    = replace_all ? occurrences : 1;
-    return {
-      content: [{ type: "text", text: `✅ Edited ${filePath} (replaced ${replaced} occurrence${replaced > 1 ? "s" : ""}, ${linesBefore} → ${linesAfter} lines)` }],
-    };
+    original = await fs.readFile(filePath, "utf8");
   } catch (err) {
     return { content: [{ type: "text", text: `❌ edit_file failed: ${err.message}` }] };
   }
+
+  const occurrences = original.split(old_string).length - 1;
+  if (occurrences === 0)
+    return { content: [{ type: "text", text: `❌ old_string not found in ${filePath}` }] };
+  if (!replace_all && occurrences > 1)
+    return { content: [{ type: "text", text: `❌ old_string matches ${occurrences} times. Provide more context to make it unique, or set replace_all: true.` }] };
+
+  const updated = replace_all
+    ? original.split(old_string).join(new_string)
+    : original.replace(old_string, new_string);
+  const replaced = replace_all ? occurrences : 1;
+
+  const doEdit = async () => {
+    try {
+      await fs.writeFile(filePath, updated, "utf8");
+      const linesBefore = original.split("\n").length;
+      const linesAfter  = updated.split("\n").length;
+      return {
+        content: [{ type: "text", text: `✅ Edited ${filePath} (replaced ${replaced} occurrence${replaced > 1 ? "s" : ""}, ${linesBefore} → ${linesAfter} lines)` }],
+      };
+    } catch (err) {
+      return { content: [{ type: "text", text: `❌ edit_file failed: ${err.message}` }] };
+    }
+  };
+
+  if (!needsWriteConfirm(filePath, args)) return doEdit();
+
+  return proposeWrite({
+    kind:  "edit_file",
+    label: `Edit ${basename(filePath)}`,
+    summaryLines: [
+      `**Target:** ${filePath}`,
+      `**Diff** (${replaced} occurrence${replaced > 1 ? "s" : ""}):`,
+      "```diff",
+      ...diffLines(old_string, "-"),
+      ...diffLines(new_string, "+"),
+      "```",
+      ...taintNote(args),
+    ],
+    execute: doEdit,
+  });
 }
 
 export async function generateXlsxHandler({ filename, sheets }) {
@@ -482,12 +619,13 @@ export function register(server, ctx) {
   server.registerTool(
     "write_file",
     {
-      description: "Write content to a file on disk. Creates the file if it doesn't exist, overwrites if it does.",
+      description: "Write content to a file on disk. Creates the file if it doesn't exist, overwrites if it does. Confirm-before-write: a write outside the session workspace (or after reading untrusted content) is proposed for the user to confirm — just call once and end your turn; do NOT fabricate confirmation_token.",
       inputSchema: z.object({
         path:        z.string().describe("Absolute or ~ path to the file to write"),
-        content:     z.string().describe("Full content to write to the file"),
+        content:     z.string().optional().describe("Full content to write to the file"),
         create_dirs: z.boolean().optional().describe("Create parent directories if they don't exist. Default true."),
-      }),
+        confirmation_token: z.string().optional().describe("RESERVED for the confirm flow — leave empty when proposing."),
+      }).passthrough(),
     },
     (args) => writeFileHandler(ctx, args)
   );
@@ -495,11 +633,12 @@ export function register(server, ctx) {
   server.registerTool(
     "append_file",
     {
-      description: "Append content to the end of an existing file without touching the rest. Content is appended verbatim — include a leading newline (\\n) if you want the content to start on a new line.",
+      description: "Append content to the end of an existing file without touching the rest. Content is appended verbatim — include a leading newline (\\n) if you want the content to start on a new line. Confirm-before-write applies as for write_file.",
       inputSchema: z.object({
         path:    z.string().describe("Absolute path to the file"),
-        content: z.string().describe("Content to append verbatim. Start with \\n to append on a new line; omit it to continue on the same line."),
-      }),
+        content: z.string().optional().describe("Content to append verbatim. Start with \\n to append on a new line; omit it to continue on the same line."),
+        confirmation_token: z.string().optional().describe("RESERVED for the confirm flow — leave empty when proposing."),
+      }).passthrough(),
     },
     (args) => appendFileHandler(ctx, args)
   );
