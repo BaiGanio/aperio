@@ -19,9 +19,9 @@
     "test:backfill": "NODE_ENV=test node --test tests/store/backfill.test.js",
     "test:memory": "NODE_ENV=test node --test tests/tools/memory.test.js",
     "test:only": "NODE_ENV=test node --test --test-name-pattern",
-    "test": "NODE_ENV=test node --test 'tests/**/*.test.js'",
+    "test": "NODE_ENV=test node --test $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) 'tests/**/*.test.js'",
     "test:e2e": "NODE_ENV=test node --test 'tests/e2e/**/*.test.js'",
-    "test:ci": "NODE_ENV=test node --test $([ -z \"$APERIO_AGENT_RUN\" ] && echo --experimental-test-coverage) 'tests/**/*.test.js'",
+    "test:ci": "NODE_ENV=test node --test $([ -z \"$APERIO_AGENT_RUN\" ] && echo --experimental-test-coverage) $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) 'tests/**/*.test.js'",
     "migrate": "node db/migrate.js",
     "migrate:sqlite": "node -e \"import('./db/sqlite.js').then(m => m.SqliteStore.init().then(s => s.close()))\"",
     "coverage": "c8 report --reporter=lcov --reporter=text"
