@@ -190,7 +190,7 @@ db/tables.js                          agent_jobs + agent_runs in the DB-browser 
 var/agents/aperio-agent-<id>.md       run transcripts (runtime, gitignored)
 server.js                             shared watcherEvents bus + createAgentScheduler (jobs from DB + recordRun) + shutdown
 lib/routes/api-agents.js              /api/agents CRUD + /runs history + /:id/run (DB-backed)
-public/scripts/agents-panel.js        right-side panel: job list + lastRun + run-now + run-history
+public/scripts/agents-panel.js        right-side panel: job list + lastRun + run-now + run-history + create/edit/delete form
 public/styles/agents-panel.css        ag-* styles (verdict badges, run rows); reuses cg-* chrome
 public/index.html                     #agentsBtn nav + #agents-panel + #agents-backdrop
 background-agents.md                  this file
@@ -218,8 +218,13 @@ background-agents.md                  this file
   view. The master switch is also flippable live from the panel (`setEnabled` +
   `PUT /api/agents/enabled`, persisted to `.env`), and **live rescheduling** is done:
   every CRUD mutation re-reads the DB and calls `scheduler.reload()`, so interval/
-  watcher scheduling tracks changes without a restart. Optional remaining polish: a
-  create/edit-job form in the panel (CRUD routes exist).
+  watcher scheduling tracks changes without a restart. The panel also has a
+  **create/edit/delete form** (`renderForm`/`saveJob`/`deleteJob` in
+  `public/scripts/agents-panel.js`): a "+ New job" button plus per-job Edit/Delete,
+  wired to `POST`/`PUT`/`DELETE /api/agents`. Trigger-kind (interval/watcher/manual)
+  and mode (steps/freeform) selects toggle their sub-fields; steps are edited as a
+  raw JSON array (heterogeneous `{tool,input}`), freeform gets structured
+  prompt/provider/timeout fields.
 
 ---
 
@@ -352,8 +357,9 @@ Context that won't be obvious from the code alone:
    longer the dead `jobs.json`). **Live rescheduling is done** — every CRUD mutation
    re-reads the DB and calls `scheduler.reload(jobs)`, which swaps the internal list
    and (if auto-run is active) tears down + re-wires interval/watcher timers, so a
-   created/edited/deleted job takes effect without a restart. A create/edit-job form
-   in the panel (the CRUD routes are ready) is the remaining optional polish.
+   created/edited/deleted job takes effect without a restart. The create/edit-job
+   form in the panel is now built (`renderForm`/`saveJob`/`deleteJob`) — "+ New job"
+   plus per-job Edit/Delete wired to the CRUD routes.
 7. **Master switch is toggleable from the Agents panel** (done — replaced the
    "expose it in setup.html" idea, which would have meant a trip to the wizard each
    time). The panel renders a switch (reuses the `reasoning-toggle` styles) wired to

@@ -80,3 +80,48 @@
   font-size: 11px; color: var(--text-muted);
   min-height: 14px; padding: 4px; word-break: break-word;
 }
+
+/* "+ New job" sits at the end of the master-switch row. */
+.ag-new-job { margin-left: auto; }
+
+/* ── Create / edit form ─────────────────────────────────────────── */
+.ag-form { display: flex; flex-direction: column; gap: 10px; }
+.ag-field { display: flex; flex-direction: column; gap: 4px; }
+.ag-field > span {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.ag-field input[type="text"],
+.ag-field input[type="number"],
+.ag-field select,
+.ag-field textarea {
+  background: var(--bg-alt, var(--bg)); color: var(--text);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 6px 8px; font: inherit; font-size: 12px; width: 100%;
+}
+.ag-field textarea {
+  font-family: var(--font-mono); font-size: 11px; resize: vertical;
+}
+.ag-field input:focus,
+.ag-field select:focus,
+.ag-field textarea:focus { outline: none; border-color: var(--accent); }
+.ag-field input:disabled { opacity: 0.6; }
+.ag-field-inline { flex-direction: row; align-items: center; gap: 8px; }
+.ag-field-inline > span {
+  text-transform: none; letter-spacing: 0; font-weight: 400;
+  font-size: 11px; color: var(--text);
+}
+.ag-trigger-sub, .ag-mode-sub {
+  display: flex; flex-direction: column; gap: 10px;
+  padding-left: 10px; border-left: 2px solid var(--border);
+}
+.ag-form-actions { display: flex; gap: 6px; margin-top: 4px; }
+.ag-hint {
+  font-size: 10px; line-height: 1.4; color: var(--text-muted);
+  text-transform: none; letter-spacing: 0; font-weight: 400;
+}
+.ag-hint code {
+  font-family: var(--font-mono); font-size: 10px;
+  padding: 0 3px; border-radius: 3px;
+  background: var(--bg-alt, var(--bg)); border: 1px solid var(--border);
+}

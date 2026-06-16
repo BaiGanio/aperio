@@ -73,11 +73,14 @@
           <span class="reasoning-toggle-track"><span class="reasoning-toggle-thumb"></span></span>
         </label>
         <span class="ag-master-hint">${_enabled ? "auto-run on" : "auto-run off — Run now disabled"}</span>
+        <button class="ag-btn ag-new-job" id="agNewJob" title="Create a new background-agent job">+ New job</button>
       </div>`;
   }
   function wireMasterToggle() {
     const el = document.getElementById("agMasterToggle");
     if (el) el.addEventListener("click", toggleMaster);
+    const nb = document.getElementById("agNewJob");
+    if (nb) nb.addEventListener("click", () => renderForm(null));
   }
   async function toggleMaster() {
     const next = !_enabled;
@@ -121,6 +124,8 @@
           <button class="ag-btn primary ag-run-now" ${_enabled ? "" : "disabled"}
             title="${_enabled ? "Trigger this job immediately" : "Turn on background agents to run"}">Run now</button>
           <button class="ag-btn ag-history">History</button>
+          <button class="ag-btn ag-edit">Edit</button>
+          <button class="ag-btn ag-delete" title="Delete this job">Delete</button>
         </div>
         <div class="ag-msg" data-msg></div>
       </div>`;
@@ -131,6 +136,8 @@
       const id = card.dataset.id;
       card.querySelector(".ag-run-now").addEventListener("click", () => runNow(id, card));
       card.querySelector(".ag-history").addEventListener("click", () => openRuns(id));
+      card.querySelector(".ag-edit").addEventListener("click", () => openForm(id));
+      card.querySelector(".ag-delete").addEventListener("click", () => deleteJob(id, card));
     });
   }
 
@@ -164,6 +171,257 @@
       msg.textContent = `Error: ${err.message}`;
     } finally {
       btn.disabled = !_enabled;
+    }
+  }
+
+  // ── Delete ────────────────────────────────────────────────────────────────────
+  async function deleteJob(id, card) {
+    if (!window.confirm(`Delete job "${id}"? This cannot be undone.`)) return;
+    const msg = card.querySelector("[data-msg]");
+    if (msg) msg.textContent = "Deleting…";
+    try {
+      const res = await fetch(`/api/agents/${encodeURIComponent(id)}`, { method: "DELETE" });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { if (msg) msg.textContent = `⚠ ${d.error || res.statusText}`; return; }
+      loadJobs();
+    } catch (err) {
+      if (msg) msg.textContent = `Error: ${err.message}`;
+    }
+  }
+
+  // ── Create / edit form ──────────────────────────────────────────────────────────
+  // Starter jobs a non-coder can pick instead of inventing JSON. Each is a full,
+  // valid definition that pre-fills the form; the user edits the id and anything
+  // else before saving. Tools/triggers used here are real and known-valid.
+  const TEMPLATES = {
+    "nightly-maintenance": {
+      id: "nightly-maintenance",
+      enabled: true,
+      trigger: { kind: "interval", everyMs: 86400000 },
+      steps: [
+        { tool: "backfill_embeddings", input: {} },
+        { tool: "deduplicate_memories", input: { threshold: 0.97, dry_run: true } },
+      ],
+    },
+    "doc-digest": {
+      id: "doc-digest",
+      enabled: true,
+      trigger: { kind: "watcher", source: "docgraph", debounceMs: 5000 },
+      prompt: "Summarise what changed in these documents in 3 bullets. Do not call write tools.",
+      timeoutMs: 120000,
+    },
+    "memory-digest": {
+      id: "weekly-memory-digest",
+      enabled: true,
+      trigger: { kind: "interval", everyMs: 604800000 },
+      prompt: "Recall the most recent memories and write a 3-bullet summary of what we've been working on lately. Do not call write tools.",
+      timeoutMs: 120000,
+    },
+  };
+
+  // Fetch the existing definition, then render the form populated with it.
+  async function openForm(id) {
+    setBody(`<div class="cg-hint">Loading…</div>`);
+    try {
+      const job = await get(`/api/agents/${encodeURIComponent(id)}`);
+      renderForm(job);
+    } catch (err) {
+      setBody(`<div class="cg-empty">Error: ${escapeHtml(err.message)}</div>`);
+    }
+  }
+
+  // job === null → create; otherwise edit (id is locked). Steps are edited as raw
+  // JSON because a step's { tool, input } shape is heterogeneous; freeform jobs get
+  // structured fields. Trigger-kind and mode selects toggle their sub-sections.
+  function renderForm(job, isEdit, tplKey = "") {
+    if (isEdit === undefined) isEdit = !!job;
+    job = job || {};
+    const t = job.trigger || {};
+    const kind = t.kind || (isEdit ? "manual" : "interval");
+    const mode = jobMode(job) === "freeform" ? "freeform" : "steps";
+    const everyMin = t.everyMs ? Math.round(t.everyMs / 60000) : 60;
+    const stepsJson = (Array.isArray(job.steps) && job.steps.length)
+      ? JSON.stringify(job.steps, null, 2)
+      : `[\n  { "tool": "backfill_embeddings", "input": {} }\n]`;
+    const prov = job.provider || {};
+    const sel = (a, b) => a === b ? " selected" : "";
+
+    setBody(`
+      <div class="ag-form">
+        <button class="cg-back-btn" id="agFormBack">← Back to jobs</button>
+        <div class="cg-symbol-title">${isEdit ? "Edit job" : "New job"}</div>
+        ${isEdit ? "" : `
+        <label class="ag-field">
+          <span>Start from a template</span>
+          <select id="agfTemplate">
+            <option value=""${sel(tplKey, "")}>Blank — start from scratch</option>
+            <option value="nightly-maintenance"${sel(tplKey, "nightly-maintenance")}>Nightly maintenance — re-embed + dedupe memories daily</option>
+            <option value="doc-digest"${sel(tplKey, "doc-digest")}>Doc-change digest — summarise changed docs (watcher)</option>
+            <option value="memory-digest"${sel(tplKey, "memory-digest")}>Weekly memory digest — summarise recent memories</option>
+          </select>
+          <span class="ag-hint">A template fills every field below with a working example. Edit anything (start with the id) before saving.</span>
+        </label>`}
+
+        <label class="ag-field">
+          <span>Job id</span>
+          <input id="agfId" type="text" placeholder="my-job" value="${escapeHtml(job.id || "")}" ${isEdit ? "disabled" : ""}>
+        </label>
+
+        <label class="ag-field ag-field-inline">
+          <input id="agfEnabled" type="checkbox" ${job.enabled ? "checked" : ""}>
+          <span>Enabled (interval/watcher scheduling fires)</span>
+        </label>
+
+        <label class="ag-field">
+          <span>Trigger</span>
+          <select id="agfKind">
+            <option value="interval"${sel(kind, "interval")}>interval</option>
+            <option value="watcher"${sel(kind, "watcher")}>watcher</option>
+            <option value="manual"${sel(kind, "manual")}>manual (run-now only)</option>
+          </select>
+          <span class="ag-hint">When the job fires: on a timer (interval), when watched files change (watcher), or only when you press "Run now" (manual).</span>
+        </label>
+
+        <div id="agfInterval" class="ag-trigger-sub">
+          <label class="ag-field">
+            <span>Every (minutes)</span>
+            <input id="agfEveryMin" type="number" min="1" value="${everyMin}">
+          </label>
+        </div>
+
+        <div id="agfWatcher" class="ag-trigger-sub">
+          <label class="ag-field">
+            <span>Source</span>
+            <select id="agfSource">
+              <option value=""${sel(t.source || "", "")}>both</option>
+              <option value="codegraph"${sel(t.source, "codegraph")}>codegraph</option>
+              <option value="docgraph"${sel(t.source, "docgraph")}>docgraph</option>
+            </select>
+          </label>
+          <label class="ag-field">
+            <span>Debounce (ms)</span>
+            <input id="agfDebounce" type="number" min="0" value="${t.debounceMs ?? 2000}">
+          </label>
+        </div>
+
+        <label class="ag-field">
+          <span>Mode</span>
+          <select id="agfMode">
+            <option value="steps"${sel(mode, "steps")}>steps (deterministic, no model)</option>
+            <option value="freeform"${sel(mode, "freeform")}>freeform (runs a model)</option>
+          </select>
+          <span class="ag-hint">Steps = a fixed list of tools run in order, no model, no surprises. Freeform = a plain-English task a model carries out.</span>
+        </label>
+
+        <div id="agfSteps" class="ag-mode-sub">
+          <label class="ag-field">
+            <span>Steps (JSON array of { tool, input })</span>
+            <textarea id="agfStepsJson" rows="6" spellcheck="false">${escapeHtml(stepsJson)}</textarea>
+            <span class="ag-hint">Each entry runs one tool in order. Maintenance tools: <code>backfill_embeddings</code>, <code>deduplicate_memories</code>. Tip: load a template to see a real example.</span>
+          </label>
+        </div>
+
+        <div id="agfFreeform" class="ag-mode-sub">
+          <label class="ag-field">
+            <span>Prompt</span>
+            <textarea id="agfPrompt" rows="4" placeholder="Summarise what changed…">${escapeHtml(job.prompt || "")}</textarea>
+            <span class="ag-hint">A plain-English task. The model can read memories, the wiki, and your code graph. Say "do not call write tools" if you only want a read-only summary.</span>
+          </label>
+          <label class="ag-field">
+            <span>Provider name (blank = chat default)</span>
+            <input id="agfProvName" type="text" placeholder="deepseek" value="${escapeHtml(prov.name || "")}">
+          </label>
+          <label class="ag-field">
+            <span>Model</span>
+            <input id="agfProvModel" type="text" placeholder="deepseek-v4-flash" value="${escapeHtml(prov.model || "")}">
+          </label>
+          <label class="ag-field">
+            <span>Timeout (ms)</span>
+            <input id="agfTimeout" type="number" min="1000" value="${job.timeoutMs ?? 300000}">
+          </label>
+        </div>
+
+        <div class="ag-form-actions">
+          <button class="ag-btn primary" id="agfSave">${isEdit ? "Save changes" : "Create job"}</button>
+          <button class="ag-btn" id="agfCancel">Cancel</button>
+        </div>
+        <div class="ag-msg" id="agfMsg"></div>
+      </div>`);
+
+    // Show only the sub-sections relevant to the current trigger kind / mode.
+    const syncVisibility = () => {
+      const k = document.getElementById("agfKind").value;
+      document.getElementById("agfInterval").style.display = k === "interval" ? "" : "none";
+      document.getElementById("agfWatcher").style.display  = k === "watcher"  ? "" : "none";
+      const m = document.getElementById("agfMode").value;
+      document.getElementById("agfSteps").style.display    = m === "steps"    ? "" : "none";
+      document.getElementById("agfFreeform").style.display = m === "freeform" ? "" : "none";
+    };
+    syncVisibility();
+    document.getElementById("agfKind").addEventListener("change", syncVisibility);
+    document.getElementById("agfMode").addEventListener("change", syncVisibility);
+    document.getElementById("agFormBack").addEventListener("click", loadJobs);
+    document.getElementById("agfCancel").addEventListener("click", loadJobs);
+    document.getElementById("agfSave").addEventListener("click", () => saveJob(isEdit));
+    // Picking a template re-renders the form (still in create mode) pre-filled.
+    const tpl = document.getElementById("agfTemplate");
+    if (tpl) tpl.addEventListener("change", (e) => {
+      const key = e.target.value;
+      renderForm(key ? TEMPLATES[key] : null, false, key);
+    });
+  }
+
+  // Read the form into a job object, validate, and POST (create) or PUT (edit).
+  async function saveJob(isEdit) {
+    const msg = document.getElementById("agfMsg");
+    const val = (id) => document.getElementById(id).value.trim();
+    const id = val("agfId");
+    if (!id) { msg.textContent = "⚠ job id is required"; return; }
+
+    const job = { id, enabled: document.getElementById("agfEnabled").checked };
+
+    const kind = document.getElementById("agfKind").value;
+    if (kind === "interval") {
+      const min = parseInt(val("agfEveryMin"), 10);
+      if (!(min > 0)) { msg.textContent = "⚠ interval needs a positive number of minutes"; return; }
+      job.trigger = { kind: "interval", everyMs: min * 60000 };
+    } else if (kind === "watcher") {
+      job.trigger = { kind: "watcher", debounceMs: parseInt(val("agfDebounce"), 10) || 2000 };
+      const src = document.getElementById("agfSource").value;
+      if (src) job.trigger.source = src;
+    }
+    // kind === "manual" → no trigger field (run-now only)
+
+    const mode = document.getElementById("agfMode").value;
+    if (mode === "steps") {
+      let steps;
+      try { steps = JSON.parse(val("agfStepsJson")); }
+      catch (e) { msg.textContent = `⚠ steps is not valid JSON: ${e.message}`; return; }
+      if (!Array.isArray(steps) || !steps.length) { msg.textContent = "⚠ steps must be a non-empty array"; return; }
+      job.steps = steps;
+    } else {
+      const prompt = val("agfPrompt");
+      if (!prompt) { msg.textContent = "⚠ freeform jobs need a prompt"; return; }
+      job.prompt = prompt;
+      const pn = val("agfProvName"), pm = val("agfProvModel");
+      if (pn || pm) job.provider = { ...(pn ? { name: pn } : {}), ...(pm ? { model: pm } : {}) };
+      const to = parseInt(val("agfTimeout"), 10);
+      if (to > 0) job.timeoutMs = to;
+    }
+
+    msg.textContent = "Saving…";
+    try {
+      const url = isEdit ? `/api/agents/${encodeURIComponent(id)}` : "/api/agents";
+      const res = await fetch(url, {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(job),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { msg.textContent = `⚠ ${d.error || res.statusText}`; return; }
+      loadJobs();
+    } catch (err) {
+      msg.textContent = `Error: ${err.message}`;
     }
   }
 
