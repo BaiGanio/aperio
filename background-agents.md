@@ -62,9 +62,11 @@ Jobs live in `var/agents/jobs.json` (runtime config — `var/` is gitignored, li
 | Field | Meaning |
 |-------|---------|
 | `id` | Unique; names the run-record file `var/agents/aperio-agent-<id>.md` |
-| `enabled` | Interval scheduling only fires for enabled jobs |
-| `trigger.kind` | `interval` · `watcher` (Phase 3) |
+| `enabled` | Interval/watcher scheduling only fires for enabled jobs |
+| `trigger.kind` | `interval` · `watcher` |
 | `trigger.everyMs` | Period for interval jobs |
+| `trigger.source` | Watcher jobs: `codegraph` or `docgraph` to listen to one graph only (default: both) |
+| `trigger.debounceMs` | Watcher jobs: collapse-window for a burst of file changes (default 2000) |
 | `steps` | **Steps mode** — a fixed list of `{ tool, input }`, run in order via `callTool`. Deterministic, no model. |
 | `prompt` | **Freeform mode** — a natural-language task run through `runAgentLoop` |
 | `provider` / `persona` / `character` | Freeform: per-job overrides (default to a cheap local model) |
@@ -99,6 +101,36 @@ freeform path exercisable without waiting on an interval.
 
 ---
 
+## Watcher triggers (Phase 3)
+
+The codegraph and docgraph chokidar watchers (`lib/codegraph/watcher.js`,
+`lib/docgraph/watcher.js`) emit a `change` event `{ kind, root, relPath, op }` on a
+shared `EventEmitter` after each **live** index/remove — only after the watcher is
+ready, so the initial bulk index never fires a job. `server.js` creates that one
+emitter, threads it into both `startAllWatchers` calls, and hands it to the
+scheduler.
+
+A `trigger.kind: "watcher"` job subscribes through the scheduler's `wireWatcherJobs`.
+A burst of file events is **debounced per job** (default 2 s) and then fires one
+`runJob(job, { kind: "watcher", changedFiles })` carrying the deduped relative
+paths. Freeform jobs get the changed-file list appended to their prompt, so a job
+like *"note what changed and write a wiki digest"* has something concrete to act on.
+Watcher jobs honour the same `APERIO_AGENT_JOBS=on` master switch — with it off,
+nothing subscribes.
+
+```json
+{
+  "id": "doc-digest",
+  "enabled": true,
+  "trigger": { "kind": "watcher", "source": "docgraph", "debounceMs": 5000 },
+  "prompt": "Summarise what changed in these documents in 3 bullets. Do not call write tools.",
+  "provider": { "name": "deepseek", "model": "deepseek-v4-flash" },
+  "timeoutMs": 120000
+}
+```
+
+---
+
 ## Safety / conventions
 
 - **Auto-run gated off by default** via `APERIO_AGENT_JOBS=on` — same idiom as
@@ -124,11 +156,13 @@ off; `stream_end` fires once per inter-tool boundary).
 ## File layout
 
 ```
-lib/workers/agent-scheduler.js       registry + runJob + writeAgentRunRecord
+lib/workers/agent-scheduler.js       registry + runJob + writeAgentRunRecord + wireWatcherJobs
 lib/emitters/sinkEmitter.js          headless { send } sink for freeform runs
+lib/codegraph/watcher.js             emits `change` events on live index/remove (Phase 3)
+lib/docgraph/watcher.js              emits `change` events on live index/remove (Phase 3)
 var/agents/jobs.json                  job defs (runtime, gitignored)
 var/agents/aperio-agent-<id>.md       run transcripts (runtime, gitignored)
-server.js                             wires createAgentScheduler + shutdown
+server.js                             shared watcherEvents bus + createAgentScheduler + shutdown
 lib/routes/api.js                     POST /api/agents/:id/run
 background-agents.md                  this file
 ```
@@ -142,8 +176,9 @@ background-agents.md                  this file
 - **Phase 2 (shipped):** headless sink emitter (`lib/emitters/sinkEmitter.js`) +
   freeform `runAgentLoop` mode (per-job provider/persona/character, timeout-capped)
   + `POST /api/agents/:id/run` ("run now").
-- **Phase 3:** watcher `EventEmitter` on codegraph/docgraph index events +
-  `watcher`-kind triggers (e.g. "on doc change, note what changed").
+- **Phase 3 (shipped):** watcher `EventEmitter` on codegraph/docgraph live index
+  events + `watcher`-kind triggers (per-job debounce, `source`/`debounceMs`,
+  `changedFiles` passed through to the run — freeform prompts get the file list).
 - **Phase 4:** jobs file → DB table; UI panel showing job status + run history
   (reuse the codegraph/docgraph panel pattern).
 
@@ -154,11 +189,11 @@ background-agents.md                  this file
 ### 1. Automated (no server, no model — fastest)
 
 ```bash
-# Just the scheduler suite (14 tests: loadJobs, steps mode, freeform mode,
-# single-flight, timeout, gating)
+# Just the scheduler suite (18 tests: loadJobs, steps mode, freeform mode,
+# single-flight, timeout, gating, watcher triggers)
 NODE_ENV=test node --test tests/lib/workers/agent-scheduler.test.js
 
-# Full suite — should stay green (1533+ passing)
+# Full suite — should stay green (1537+ passing)
 npm test
 ```
 
@@ -248,29 +283,28 @@ run-now endpoint twice fast on a slow job → second call returns `409`.
 
 Context that won't be obvious from the code alone:
 
-1. **Phase 2 is uncommitted.** The working tree has the freeform mode, sink emitter,
-   run-now route, env + jobs config, and this doc — none committed yet (Phase 1 was
-   committed as `d0f4c2e`). First step: review `git status` / `git diff`, then commit
-   Phase 2 if happy. Untracked: `lib/emitters/sinkEmitter.js`, `background-agents.md`.
-   Modified: `lib/workers/agent-scheduler.js`, `lib/routes/api.js`, `server.js`,
-   `tests/lib/workers/agent-scheduler.test.js`, `FEATURES.md`, `.env.example`.
-2. **Don't put docs under `docs/`.** That folder is the published GitHub Pages site
+1. **Don't put docs under `docs/`.** That folder is the published GitHub Pages site
    and non-site files placed there get cleaned (it ate the Phase 1 copy of this
    file). Repo-root design docs are the convention here.
-3. **`.env` / `var/agents/jobs.json` are gitignored** — local-only. The shareable
+2. **`.env` / `var/agents/jobs.json` are gitignored** — local-only. The shareable
    knobs live in `.env.example` (the `APERIO_AGENT_JOBS` block) and in this doc.
    `.env` currently has the switch present but commented (default-off).
-4. **The example job is `enabled: true`.** Once `APERIO_AGENT_JOBS=on`,
+3. **The example job is `enabled: true`.** Once `APERIO_AGENT_JOBS=on`,
    `nightly-maintenance` runs `backfill_embeddings` + `deduplicate_memories`
    (dry-run) on its first interval. Harmless, but expected — not a bug.
-5. **Next build target: Phase 3 (watcher triggers).** Add an `EventEmitter` to
-   `lib/codegraph/watcher.js` + `lib/docgraph/watcher.js` that fires on index
-   add/change/unlink, then a `wireWatcherJobs` debouncer in the scheduler so
-   `trigger.kind: "watcher"` jobs fire with `{ changedFiles }`. The scheduler
-   already passes `triggerCtx` through `runJob` → records, so the plumbing is ready.
-6. **Possible Phase 2.5 polish (optional):** expose `APERIO_AGENT_JOBS` in the setup
-   wizard (`public/setup.html`) so non-code users flip it without touching `.env`;
-   add a `GET /api/agents` list route to back a future status panel.
-7. **Verify freeform against a real model.** The unit tests fake the agent; a quick
-   live run-now of a freeform job (section 3 above) is the only thing that proves the
-   `createAgent` → `runAgentLoop` → sink wiring end-to-end.
+4. **Watcher events only fire post-`ready`.** Both watchers set `ignoreInitial: true`
+   and emit `change` only from the debounced live handler *after a successful*
+   index/remove — the initial bulk `indexRepo` pass never triggers a watcher job.
+   So a job won't stampede on first boot while the repo is indexed.
+5. **`watcherEvents` is created unconditionally in `server.js`** (one `EventEmitter`),
+   even when codegraph/docgraph are off — it just has no producers then, and the
+   scheduler only subscribes when `APERIO_AGENT_JOBS=on` and watcher jobs exist.
+6. **Next build target: Phase 4 (jobs → DB + UI panel).** Move `jobs.json` to a DB
+   table and add a status/run-history panel (reuse the codegraph/docgraph panel
+   pattern). Likely also a `GET /api/agents` list route to back it.
+7. **Possible polish (optional):** expose `APERIO_AGENT_JOBS` in the setup wizard
+   (`public/setup.html`) so non-code users flip it without touching `.env`.
+8. **Verify watcher triggers live.** The unit tests drive a fake `EventEmitter`; a
+   real end-to-end check is `APERIO_DOCGRAPH=on APERIO_AGENT_JOBS=on` + a watcher
+   job, then touch a doc and watch `var/agents/aperio-agent-<id>.md` grow with a
+   `· watcher (N files)` run header.

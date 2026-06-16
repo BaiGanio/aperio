@@ -345,6 +345,13 @@ async function bootApp() {
   await checkEmbeddingProvider(store);
   const { shutdown: shutdownEmbeddings } = await initEmbeddings(store, generateEmbedding);
 
+  // Shared bus for codegraph/docgraph live file-change events. Watcher-kind
+  // background-agent jobs subscribe to this via the scheduler (Phase 3). Created
+  // up front so it can be threaded into both watchers and the scheduler below;
+  // harmless (no listeners) when the agent-jobs feature is off.
+  const { EventEmitter } = await import("events");
+  const watcherEvents = new EventEmitter();
+
   // ── Code graph live watcher (opt-in) ──────────────────────────────────────
   // APERIO_CODEGRAPH=on starts a chokidar watcher per APERIO_ALLOWED_PATHS_TO_READ
   // root. Initial repo index can take 20-60s on a fresh boot; run it in the
@@ -363,7 +370,7 @@ async function bootApp() {
       const handlePromise = (async () => {
         try {
           const { startAllWatchers } = await import("./lib/codegraph/watcher.js");
-          return await startAllWatchers(store, getAllowlist());
+          return await startAllWatchers(store, getAllowlist(), watcherEvents);
         } catch (err) {
           const { logError } = await import("./lib/helpers/logger.js");
           logError(`[codegraph] watcher boot failed`, err);
@@ -392,7 +399,7 @@ async function bootApp() {
       const handlePromise = (async () => {
         try {
           const { startAllWatchers } = await import("./lib/docgraph/watcher.js");
-          return await startAllWatchers(store, getAllowlist());
+          return await startAllWatchers(store, getAllowlist(), watcherEvents);
         } catch (err) {
           const { logError } = await import("./lib/helpers/logger.js");
           logError(`[docgraph] watcher boot failed`, err);
@@ -485,7 +492,7 @@ async function bootApp() {
   // Background-agent scheduler — created before the API mount so the
   // /api/agents/:id/run route can drive runJob() (interval auto-run is gated by
   // APERIO_AGENT_JOBS=on; manual run-now goes through the same scheduler).
-  const scheduler = createAgentScheduler({ callTool, createAgent, root: __dirname, version });
+  const scheduler = createAgentScheduler({ callTool, createAgent, root: __dirname, version, watcherEvents });
 
   // Mount API routes and WebSocket *after* everything is ready
   app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog, scheduler }));
