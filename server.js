@@ -482,8 +482,13 @@ async function bootApp() {
   logger.info(`🤖 Provider: ${providerLabel}`);
   logger.info("✅ MCP server connected");
 
+  // Background-agent scheduler — created before the API mount so the
+  // /api/agents/:id/run route can drive runJob() (interval auto-run is gated by
+  // APERIO_AGENT_JOBS=on; manual run-now goes through the same scheduler).
+  const scheduler = createAgentScheduler({ callTool, createAgent, root: __dirname, version });
+
   // Mount API routes and WebSocket *after* everything is ready
-  app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog }));
+  app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog, scheduler }));
 
   const allowedHosts = new Set(["localhost", "127.0.0.1", "::1", HOST]);
   const wss = new WebSocketServer({
@@ -504,7 +509,6 @@ async function bootApp() {
   const dedup     = deduplicateMemories(callTool);
   const infer     = inferMemories(callTool);
   const pruner    = createSessionPruner();
-  const scheduler = createAgentScheduler({ callTool });
 
   // Graceful shutdown
   // Order matters: the ONNX native runtime must be torn down via its own API
