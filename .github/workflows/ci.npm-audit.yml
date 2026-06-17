@@ -1,0 +1,33 @@
+name: (ci) npm audit
+
+# DEP-02 — surface known-vulnerable dependencies on every PR/push and weekly.
+# Fails the check only on high/critical advisories so a low-severity transitive
+# bump doesn't block merges; Dependabot handles the routine upgrades.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
+  schedule:
+    - cron: "0 6 * * 1"   # Monday 06:00 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit production dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: npm audit (high+ severity)
+        run: npm audit --omit=dev --audit-level=high

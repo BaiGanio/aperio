@@ -53,7 +53,7 @@ fi
 
 if [ ! -d "node_modules" ]; then
   log "Installing npm dependencies…"
-  npm install --prefer-offline --no-audit --no-fund >> "$LOG_FILE" 2>&1 || die "npm install failed"
+  npm install --prefer-offline --no-fund >> "$LOG_FILE" 2>&1 || die "npm install failed"
 fi
 
 log "Starting Aperio — opening browser…"

@@ -53,7 +53,7 @@ ensure_node
 
 if [ ! -d "node_modules" ]; then
   log "Running npm install…"
-  npm install --prefer-offline --no-audit --no-fund >> "$LOG_FILE" 2>&1 \
+  npm install --prefer-offline --no-fund >> "$LOG_FILE" 2>&1 \
     || die "npm install failed — check $LOG_FILE"
 fi
 

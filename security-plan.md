@@ -156,23 +156,52 @@ that make INJECT-01 catastrophic).
   a foreign origin can't read or replay the cookie). A valid `APERIO_AUTH_TOKEN` also grants
   access for programmatic clients. Tests: `tests/lib/helpers/staticAuth.test.js` (6 cases).
 
-## Phase 3 — Deferred until hosting
+## Phase 3 — Hosting hardening
 
-- ☐ **SECRET-01 (keychain)** — OS keychain for API keys.
-- ☐ **NET-01** — built-in TLS via `https.createServer`.
-- ☐ **SESSION-01** — at-rest session encryption.
-- ☐ **DEP-02** — remove `--no-audit`; `npm audit` + Dependabot in CI.
-- ☐ **PROC-01** — uncaught-exception circuit breaker.
-- ☐ **LOG-01** — prod error handler with scrubbed client messages.
-- ☐ **Doc drift (audit.md §5)** — reconcile `SECURITY.md`/`README` version + threat-model wording.
+- ⊘ **SECRET-01 (keychain)** — **deferred** (decision: keep API keys in `.env`, already
+  `0600` from Phase 1). A keychain backend (native `keytar` or per-OS shell-out) adds a
+  dependency/cross-platform glue for marginal gain on a local-first tool; revisit if/when
+  multi-user hosting lands.
+- ☑ **NET-01** — `lib/helpers/tlsServer.js` (`createAppServer`): serves HTTPS when **both**
+  `APERIO_TLS_CERT` and `APERIO_TLS_KEY` point at PEM files, else plain HTTP. Setting only one
+  throws at boot (fail loud, no silent downgrade). Certs are user-provided (Aperio does not
+  generate them). Wired into server.js (replaces `http.createServer`); the `scheme` propagates
+  to the boot log + `openBrowser` URLs; the WS server attaches to either protocol unchanged.
+  Tests: `tests/lib/helpers/tlsServer.test.js` (4 cases; HTTPS case generates a throwaway cert
+  via openssl, skipped if absent).
+- ☑ **SESSION-01** — `lib/helpers/sessionCrypto.js` (`encodeSession`/`decodeSession`): opt-in
+  AES-256-GCM keyed solely by `APERIO_SESSION_KEY` (independent of `APERIO_AUTH_TOKEN`), scrypt-stretched.
+  Envelope prefix `APERIO-ENC1:`; **no-op (plaintext JSON) when no key is set**, and plaintext
+  files always decode so enabling encryption later doesn't strand existing sessions. GCM auth
+  rejects tampered files. Wired into `helpers/sessions.js` read/write + the two direct
+  `readFileSync` sites (`listSessions`, `pruneOldSessions`). Tests:
+  `tests/lib/helpers/sessionCrypto.test.js` (6 cases).
+- ☑ **DEP-02** — `.github/dependabot.yml` (npm + github-actions, weekly) makes the
+  Dependabot coverage `SECURITY.md` already advertised real; new `.github/workflows/ci.npm-audit.yml`
+  runs `npm audit --omit=dev --audit-level=high` on PR/push + weekly cron. `--no-audit` removed
+  from the lite installers (`.github/lite/Aperio.sh`, `start1.sh`).
+- ☑ **PROC-01** — `lib/helpers/crashBreaker.js` (`createCrashBreaker`): sliding-window breaker.
+  The existing `uncaughtException`/`unhandledRejection` handlers now route through `handleFatal`
+  — a single blowup is logged and absorbed, but ≥5 fatal errors within 60s trip the breaker and
+  `process.exit(1)` so a supervisor restarts cleanly instead of serving errors forever. Tests:
+  `tests/lib/helpers/crashBreaker.test.js` (3 cases, injectable clock).
+- ☑ **LOG-01** — `lib/helpers/errorHandler.js` (`createErrorHandler`): terminal Express error
+  middleware mounted after all routes (server.js, after the `/api` router). Logs the full
+  error + a correlation id server-side; returns a **scrubbed** `{error:"internal_error",errorId}`
+  in production (real message outside prod). Honours `err.status`; no-ops if headers already sent.
+  Tests: `tests/lib/helpers/errorHandler.test.js` (4 cases).
+- ☑ **Doc drift (audit.md §5)** — `SECURITY.md` supported version `0.48.3` → `0.56.x`; added a
+  "Scope & threat model" section (local-first, `run_shell` not a sandbox, don't expose to
+  untrusted networks, `AUTH_TOKEN`/`TLS`/`SESSION_KEY` for LAN, secrets `0600`) consistent with
+  the README. New env vars documented in `.env.example` (Phase 3 block).
 
 ---
 
 ## Testing
 
-How to verify the **completed** phases (0, 1, 2). Phase 3 will get its own
-subsection as it lands. Every finding has automated coverage; a few also have a
-manual check for things the suite can't assert (file perms, live HTTP headers).
+How to verify the **completed** phases (0, 1, 2, 3). Every finding has automated
+coverage; a few also have a manual check for things the suite can't assert (file
+perms, live HTTP headers).
 
 **Run everything:**
 
@@ -216,6 +245,17 @@ Baseline after Phase 1: **1650/1650 passing**. After Phase 2: **1708/1708 passin
 | **DATA-01** (0600 + redaction) | `tests/lib/helpers/secureFile.test.js` (3 cases) | `ls -l var/sessions/*.json var/handoffs/*.md var/logs/error-*.log` → `-rw-------`; a logged/handoff secret shows as `[REDACTED:…]`. |
 | **NET-03** (rate-limit) | `tests/lib/helpers/rateLimit.test.js` (real express app → 429 after max) | hammer `POST /api/codegraph/index` past 20×/15min → `429 rate_limited`. |
 | **PATH-02** (static-mount cookie) | `tests/lib/helpers/staticAuth.test.js` (6 cases) | `curl http://127.0.0.1:3000/scratch/anything` (no cookie) → `403 forbidden`; the app's own download cards load fine (cookie set on shell load). |
+
+### Phase 3 — hosting hardening
+
+| Finding | Automated | Manual sanity check |
+|---|---|---|
+| **NET-01** (opt-in TLS) | `tests/lib/helpers/tlsServer.test.js` (4 cases) | set `APERIO_TLS_CERT`/`APERIO_TLS_KEY` to a PEM pair, start → boot log shows `https://…`; set only one → boot fails with a "set BOTH" error. |
+| **SESSION-01** (at-rest session encryption) | `tests/lib/helpers/sessionCrypto.test.js` (6 cases) | set `APERIO_SESSION_KEY=…`, finish a chat, then `head -c 32 var/sessions/<id>.json` → starts `APERIO-ENC1:` (not readable JSON); History view still loads it. |
+| **DEP-02** (audit + Dependabot) | CI workflow `ci.npm-audit.yml` (`npm audit --audit-level=high`) | `npm audit --omit=dev --audit-level=high` locally → no high/critical; `.github/dependabot.yml` present. |
+| **PROC-01** (crash breaker) | `tests/lib/helpers/crashBreaker.test.js` (3 cases) | — (would require forcing ≥5 fatal errors/60s; the breaker then `exit(1)`s for a supervised restart). |
+| **LOG-01** (scrubbed error handler) | `tests/lib/helpers/errorHandler.test.js` (4 cases) | with `NODE_ENV=production`, trigger a route that throws → response is `{"error":"internal_error","errorId":"…"}` with no internal detail; the full error + matching id is in the server log. |
+| **SECRET-01 (keychain)** | ⊘ deferred (keys stay in `0600` `.env`) | — |
 
 ---
 
