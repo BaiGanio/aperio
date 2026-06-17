@@ -2,7 +2,7 @@
 
 Single source of truth for **what exists**. If you add or remove a feature, change it here in the same PR — otherwise it didn't ship.
 
-Last reconciled: 2026-06-10 · Version: 0.55.0
+Last reconciled: 2026-06-17 · Version: 0.56.0
 
 ---
 
@@ -82,7 +82,8 @@ Last reconciled: 2026-06-10 · Version: 0.55.0
 - Skills matching per turn (`skills/`)
 - Reasoning / thinking mode with reasoning-chain replay
 - Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`)
-- Background agents: scheduled, chat-less jobs over the store — interval, manual (`POST /api/agents/:id/run`), and codegraph/docgraph file-change (`watcher`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, run records in `var/agents/`, gated by `APERIO_AGENT_JOBS=on` (see `background-agents.md`)
+- Background agents: scheduled, chat-less jobs over the store — interval, manual (`POST /api/agents/:id/run`), and codegraph/docgraph file-change (`watcher`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, DB-backed (`agent_jobs` table) with run records in `var/agents/`, gated by `APERIO_AGENT_JOBS=on` (see `background-agents.md`)
+- Background-agents UI panel — right-side sidebar with live master switch, per-job trigger/mode/last-verdict, "Run now", and per-job run history (`lib/routes/api-agents.js`, `public/scripts/agents-panel.js`)
 - Personas via `id/whoami*.md`; characters via `id/characters/`
 
 ## Storage
@@ -94,6 +95,8 @@ Last reconciled: 2026-06-10 · Version: 0.55.0
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel
+- Inline input autocomplete — ghost-text suggestion accepted with Tab/→
+- Clickable memory-suggestion chips — save all / pick / none, prompts for ones needing input
 - Sessions: persistent (file + DB), pagination, delete
 - 24-language i18n with flag-based navbar switcher
 - Response stats badge: answer/thinking tokens, tok/s, elapsed
@@ -101,9 +104,36 @@ Last reconciled: 2026-06-10 · Version: 0.55.0
 - Terminal chat client — standalone or proxy (`lib/terminal.js`)
 - MCP server entry point (`mcp/index.js`)
 
+## Security & Hardening
+Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`, `SECURITY.md`).
+
+**Agent exfiltration surface**
+- SSRF egress guard on `fetch_url` + image fetch — blocks loopback/link-local/private addresses, opt-outs `APERIO_ALLOW_INTERNAL_FETCH` / `APERIO_EGRESS_ALLOWLIST`; egress logging
+- Shell allowlist hardening — rejects node/python inline-eval, `find -exec`, non-read-only git, file args outside the allowlist; `curl` removed; `run_shell` is explicitly **not a sandbox**
+- Prompt-injection defense — output of external/read tools fenced as `UNTRUSTED EXTERNAL CONTENT`; per-turn taint flag; tainted-turn writes routed through the confirm gate
+- Confirm-on-write gate — `write_file` / `edit_file` / `append_file` two-phase token-confirmed when the write lands outside `var/scratch/` or the turn is tainted (edit shows a capped unified diff)
+- Secret deny-list — `read_file` / `edit_file` / attachments refuse `.env*`, `id_rsa`, `.pem`/`.key`, and known credential files before any extension check
+
+**Secrets & privacy**
+- `.env` written `0600` with injection-safe quoting; default Postgres password hard-fail (`APERIO_ALLOW_DEFAULT_DB_PASSWORD` opt-out)
+- Secret redaction (PEM keys, API tokens, JWTs, URI passwords) at every cloud-provider send boundary; local Ollama skipped
+- `local-only`-tagged memories dropped from recall on cloud providers; memory inference/dedup workers gated to local provider (`APERIO_CLOUD_MEMORY_WORKERS` opt-in)
+- At-rest `0600` perms + secret scrubbing for sessions, handoffs, and error logs
+
+**Network & hosting**
+- DNS-rebinding / Host + cross-site Origin guard + `X-Aperio-Client` requirement on state-changing `/api` (`APERIO_ALLOWED_HOSTS`)
+- Opt-in shared-secret auth gate on `/api` + WS (`APERIO_AUTH_TOKEN`; Bearer / header / query, constant-time compare)
+- Static `/uploads` + `/scratch` mounts gated by a per-process cookie (or auth token)
+- Rate limiting on setup + indexing/import endpoints; Helmet headers; 256 kb JSON body cap
+- Opt-in TLS/HTTPS (`APERIO_TLS_CERT` + `APERIO_TLS_KEY`, fail-loud on partial config)
+- Opt-in AES-256-GCM session encryption at rest (`APERIO_SESSION_KEY`)
+- Crash breaker (sliding window → supervised restart); scrubbed terminal error handler with correlation id
+- DB access via table-name whitelist
+
 ## Ops
-- CI: CodeQL, Codecov, SonarCloud, Codacy, Dependabot
+- CI: CodeQL, Codecov, SonarCloud, Codacy, Dependabot (npm + github-actions), `npm audit` (high-severity gate)
+- Quiet test reporter gated on `APERIO_AGENT_RUN` (summary-only output for agent runs)
 - Graceful shutdown with ONNX cleanup
 - RAM-based model auto-select (`CHECK_RAM=true`)
 - Docker production config (`docker/docker-compose.prod.yml`)
-- Test suite: 1454 tests (`npm test`)
+- Test suite: 1724 tests (`npm test`)
