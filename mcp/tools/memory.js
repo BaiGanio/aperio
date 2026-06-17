@@ -28,7 +28,7 @@ const TOOLS = [
       type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person", "inference"]),
       title: z.string(),
       content: z.string(),
-      tags: z.array(z.string()).optional(),
+      tags: z.array(z.string()).optional().describe("Free-form tags. The reserved tag \"local-only\" marks a memory as private: it is withheld from recall whenever the active model is a cloud provider, so it never leaves the machine. Use it for secrets/sensitive notes."),
       importance: z.number().min(1).max(5).optional(),
       expires_at: z.string().optional().describe("ISO 8601 expiry datetime for ephemeral memories. Suggest a TTL when the information is time-bound: e.g. new Date(Date.now() + 7*86400000).toISOString() for 7 days. Omit for permanent memories."),
       lang: z.string().optional().describe("BCP-47 locale of the content (e.g. 'en', 'de', 'fr'). Defaults to 'en'."),

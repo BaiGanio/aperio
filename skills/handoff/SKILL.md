@@ -32,13 +32,15 @@ Do **not** trigger for ordinary "summarize what we did" requests where the conve
 
 ## Where to write
 
-Write the handoff to the **OS temporary directory**, never into the project workspace:
+The Aperio server writes the handoff for you, to the project's private handoff
+store — **never** to a world-readable location like `/tmp`:
 
-- macOS / Linux: `/tmp/aperio-handoff-<ISO-date>-<short-slug>.md`
-- Use `write_file` with an absolute path.
+- `<project>/var/handoffs/aperio-handoff-<ISO-date>-<short-slug>.md` (written 0600).
+- You do **not** need to call `write_file` yourself — produce the document body
+  and the host persists it securely.
 - If the user provides an argument (e.g. "handoff: fixing the lance ingest bug"), incorporate it into the slug and into the "Next session focus" section.
 
-Return the absolute path to the user at the end. They will hand it to the next agent.
+The host returns the absolute path to the user at the end. They will hand it to the next agent.
 
 ---
 

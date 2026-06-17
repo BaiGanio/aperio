@@ -176,6 +176,40 @@ describe("recallHandler", () => {
     const text = (await recallHandler(ctx, { limit: 5 })).content[0].text;
     assert.ok(!text.includes("Preview only"));
   });
+
+  // PRIVACY-01 — local-only tag filtering by provider locality
+  const taggedRows = () => [
+    makeMemory({ id: "pub", title: "Public note", tags: ["work"] }),
+    makeMemory({ id: "sec", title: "Secret note", tags: ["Local-Only"] }),
+  ];
+
+  test("cloud provider hides memories tagged local-only", async () => {
+    const ctx = { ...makeCtx({ recall: async () => taggedRows() }), providerIsLocal: false };
+    const text = (await recallHandler(ctx, { query: "x" })).content[0].text;
+    assert.ok(text.includes("Public note"));
+    assert.ok(!text.includes("Secret note"), "local-only memory must not reach a cloud model");
+  });
+
+  test("local provider surfaces local-only memories", async () => {
+    const ctx = { ...makeCtx({ recall: async () => taggedRows() }), providerIsLocal: true };
+    const text = (await recallHandler(ctx, { query: "x" })).content[0].text;
+    assert.ok(text.includes("Public note") && text.includes("Secret note"));
+  });
+
+  test("absent providerIsLocal defaults to surfacing everything (back-compat)", async () => {
+    const ctx = makeCtx({ recall: async () => taggedRows() }); // no providerIsLocal
+    const text = (await recallHandler(ctx, { query: "x" })).content[0].text;
+    assert.ok(text.includes("Secret note"));
+  });
+
+  test("filtering everything out returns the empty message", async () => {
+    const ctx = {
+      ...makeCtx({ recall: async () => [makeMemory({ tags: ["local-only"] })] }),
+      providerIsLocal: false,
+    };
+    const text = (await recallHandler(ctx, { query: "x" })).content[0].text;
+    assert.equal(text, "No memories found.");
+  });
 });
 
 // ─── updateMemoryHandler ──────────────────────────────────────────────────────
