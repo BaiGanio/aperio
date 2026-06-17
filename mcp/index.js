@@ -43,6 +43,10 @@ async function createContext(store, opts) {
     generateEmbedding: embeddingFn,
     vectorEnabled: () => vectorEnabled,
     embeddingQueue,
+    // PRIVACY-01: set by the agent when it spawns this process. When the active
+    // provider is a cloud model this is false, and recall hides memories tagged
+    // "local-only" so they never reach a third-party model.
+    providerIsLocal: process.env.APERIO_PROVIDER_LOCAL !== "0",
   };
 }
 

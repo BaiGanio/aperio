@@ -10,6 +10,11 @@ import { execFile } from "child_process";
 import dotenv from "dotenv";
 
 import { ensurePort } from "./lib/helpers/ensurePort.js";
+import { createNetGuard, buildAllowedHosts } from "./lib/helpers/netGuard.js";
+import { createAuthGuard, isAuthorized } from "./lib/helpers/authGuard.js";
+import { makeRateLimiter } from "./lib/helpers/rateLimit.js";
+import { createStaticGuard, STATIC_COOKIE } from "./lib/helpers/staticAuth.js";
+import { randomBytes } from "crypto";
 import logger from "./lib/helpers/logger.js";
 import { runBootstrap, bootstrapEvents, stepState, STEPS } from "./bootstrap.js";
 
@@ -61,6 +66,16 @@ const app = express();
 // CSP is disabled for now: the UI relies on inline scripts/handlers/styles and
 // CDN assets, so a strict policy needs those reworked first (tracked in the plan).
 app.use(helmet({ contentSecurityPolicy: false }));
+
+// REBIND-01: reject unknown Host headers (DNS-rebinding) and cross-site
+// state-changing /api calls (Origin + X-Aperio-Client). Runs before any route,
+// including the early bootstrap/setup endpoints. Extend via APERIO_ALLOWED_HOSTS.
+const allowedHosts = buildAllowedHosts(HOST);
+app.use(createNetGuard({ allowedHosts }));
+
+// AUTH-01: opt-in shared-secret gate on /api/* (no-op unless APERIO_AUTH_TOKEN set).
+app.use(createAuthGuard());
+
 app.use(express.json({ limit: '256kb' }));
 
 // ─── Locale detection (Accept-Language + cookie) ──────────────────────────────
@@ -71,6 +86,15 @@ const SUPPORTED_LOCALES = new Set([
   "lv", "lt", "mt", "ga",
 ]);
 const I18N_COOKIE = "aperio_lang";
+
+// PATH-02: per-process secret handed to the browser as an httpOnly cookie when
+// the app shell loads; required to read /uploads and /scratch (see staticAuth.js).
+const STATIC_TOKEN = randomBytes(32).toString("hex");
+function setStaticCookie(res) {
+  res.cookie?.(STATIC_COOKIE, STATIC_TOKEN, {
+    path: "/", httpOnly: true, sameSite: "Lax", maxAge: 30 * 24 * 3600 * 1000,
+  });
+}
 
 function readCookieFromHeader(header, name) {
   if (!header) return null;
@@ -134,13 +158,16 @@ app.get(["/", "/index.html"], (req, res) => {
   if (!isBootstrapped()) return res.redirect("/setup");
   const lang = detectLocale(req);
   res.cookie?.(I18N_COOKIE, lang, { path: "/", maxAge: 365 * 24 * 3600 * 1000, sameSite: "Lax" });
+  setStaticCookie(res);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(renderHtmlWithLocale("index.html", lang));
 });
 
 app.use(express.static(resolve(__dirname, "public"), { index: false }));
-app.use("/uploads", express.static(resolve(__dirname, "var/uploads")));
-app.use("/scratch", express.static(resolve(__dirname, "var/scratch")));
+// PATH-02: gate the generated/uploaded-file mounts behind the static cookie.
+const staticGuard = createStaticGuard(STATIC_TOKEN);
+app.use("/uploads", staticGuard, express.static(resolve(__dirname, "var/uploads")));
+app.use("/scratch", staticGuard, express.static(resolve(__dirname, "var/scratch")));
 
 // ─── Bootstrap guard middleware ───────────────────────────────────────────────
 // Until .bootstrap.lock exists every request redirects to /setup,
@@ -169,6 +196,7 @@ app.get("/setup", (req, res) => {
   if (isBootstrapped()) return res.redirect("/");
   const lang = detectLocale(req);
   res.cookie?.(I18N_COOKIE, lang, { path: "/", maxAge: 365 * 24 * 3600 * 1000, sameSite: "Lax" });
+  setStaticCookie(res);
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(renderHtmlWithLocale("setup.html", lang));
 });
@@ -188,8 +216,12 @@ app.get("/api/bootstrap/state", (_req, res) => {
   });
 });
 
+// NET-03: throttle the setup endpoints (specs runs system profiling; config
+// writes .env + kicks off bootstrap).
+const setupLimiter = makeRateLimiter({ windowMs: 15 * 60 * 1000, max: 30, name: "setup" });
+
 // ─── Setup wizard: machine specs + model recommendation ──────────────────────
-app.get("/api/setup/specs", async (_req, res) => {
+app.get("/api/setup/specs", setupLimiter, async (_req, res) => {
   try {
     const { getSpecs } = await import("./lib/helpers/specs.js");
     res.json(getSpecs());
@@ -200,7 +232,7 @@ app.get("/api/setup/specs", async (_req, res) => {
 });
 
 // ─── Setup wizard: persist choice → write .env → start bootstrap ─────────────
-app.post("/api/setup/config", async (req, res) => {
+app.post("/api/setup/config", setupLimiter, async (req, res) => {
   if (isBootstrapped() || bootstrapStarted) {
     return res.status(409).json({ error: "already_started" });
   }
@@ -513,24 +545,37 @@ async function bootApp() {
   // Mount API routes and WebSocket *after* everything is ready
   app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog, scheduler }));
 
-  const allowedHosts = new Set(["localhost", "127.0.0.1", "::1", HOST]);
   const wss = new WebSocketServer({
     server: httpServer,
-    verifyClient: ({ origin }, cb) => {
-      if (!origin) return cb(true); // non-browser clients (curl, native WS libs)
-      try {
-        const { hostname } = new URL(origin);
-        cb(allowedHosts.has(hostname), 403, "Forbidden");
-      } catch {
-        cb(false, 400, "Bad Request");
+    verifyClient: ({ origin, req }, cb) => {
+      // REBIND-01: browsers send Origin; reject cross-site handshakes.
+      if (origin) {
+        try {
+          const { hostname } = new URL(origin);
+          if (!allowedHosts.has(hostname.toLowerCase())) return cb(false, 403, "Forbidden");
+        } catch {
+          return cb(false, 400, "Bad Request");
+        }
       }
+      // AUTH-01: opt-in token (no-op unless APERIO_AUTH_TOKEN is set).
+      if (!isAuthorized(req)) return cb(false, 401, "Unauthorized");
+      cb(true);
     },
   });
   wss.on("connection", makeWsHandler({ agent, primaryRoundtable, verifier, roundtableAvailable, store, __dirname }));
 
   // Background jobs
-  const dedup     = deduplicateMemories(callTool);
-  const infer     = inferMemories(callTool);
+  // PRIVACY-01: the infer/dedup workers feed stored personal memories to the
+  // configured model. On a cloud provider that is third-party egress, so they
+  // only run on a local (Ollama) provider unless explicitly opted in.
+  const memoryWorkersEnabled =
+    provider.name === "ollama" || process.env.APERIO_CLOUD_MEMORY_WORKERS === "1";
+  if (!memoryWorkersEnabled) {
+    logger.info(`[privacy] memory inference/dedup workers disabled on cloud provider "${provider.name}" (set APERIO_CLOUD_MEMORY_WORKERS=1 to override)`);
+  }
+  const noopWorker = { stop() {} };
+  const dedup     = memoryWorkersEnabled ? deduplicateMemories(callTool) : noopWorker;
+  const infer     = memoryWorkersEnabled ? inferMemories(callTool)       : noopWorker;
   const pruner    = createSessionPruner();
 
   // Graceful shutdown

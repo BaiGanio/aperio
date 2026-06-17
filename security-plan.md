@@ -105,15 +105,56 @@ that make INJECT-01 catastrophic).
 
 ## Phase 2 — Network layer (build now; LAN on roadmap)
 
-- ☐ **REBIND-01** — Host-header allowlist + Origin check + `X-Aperio-Client` header on
-  state-changing `/api`; update frontend fetch wrapper. *(do first — protects local mode too)*
-- ☐ **AUTH-01** — opt-in `APERIO_AUTH_TOKEN` middleware on `/api/*` + WS `verifyClient`.
-- ☐ **PRIVACY-01** — `local_only` memory flag excluded from cloud preloads; `redactSecrets.js`
-  before provider calls; gate `infer`/`deduplicate` workers for non-local providers.
-- ☐ **DATA-01** — `0600` + redaction across `var/logs`, `var/handoffs`, `var/sessions`;
-  fix handoff-location comment bug.
-- ☐ **NET-03** — `express-rate-limit` on setup/import/embedding/indexing routes.
-- ☐ **PATH-02** — session-token check on `/uploads` and `/scratch` static mounts.
+- ☑ **REBIND-01** — `lib/helpers/netGuard.js` (`buildAllowedHosts` + `createNetGuard`): an
+  Express middleware (registered before all routes) that (1) rejects requests whose Host
+  header isn't a known local name (DNS-rebinding), (2) rejects state-changing `/api` calls
+  with a cross-site Origin, (3) requires an `X-Aperio-Client` header on state-changing `/api`
+  (browsers can't forge custom headers cross-origin without a CORS preflight we never grant).
+  Extend allowed hosts via `APERIO_ALLOWED_HOSTS`. Frontend side: `public/scripts/http-guard.js`
+  monkey-patches `fetch` to add the header on same-origin calls (loaded first in index/setup
+  HTML). The WS `verifyClient` Origin check **already existed**; rewired it to share
+  `buildAllowedHosts` (fixing a latent `::1`-vs-`[::1]` mismatch). Tests:
+  `tests/lib/helpers/netGuard.test.js` (18 cases).
+- ☑ **AUTH-01** — `lib/helpers/authGuard.js`: opt-in shared-secret gate, off unless
+  `APERIO_AUTH_TOKEN` is set. `createAuthGuard()` middleware on `/api/*`; `isAuthorized(req)`
+  reused in WS `verifyClient`. Token accepted via `Authorization: Bearer`, `X-Aperio-Token`,
+  or `?token=` (for SSE/WS that can't set headers); constant-time compare. Frontend:
+  http-guard.js persists `?token=` to localStorage and attaches it as a Bearer header;
+  chat.js appends it to the WS URL. Tests: `tests/lib/helpers/authGuard.test.js` (13 cases).
+- ☑ **PRIVACY-01** — three parts:
+  - `lib/helpers/redactSecrets.js` (`redactSecrets`/`redactMessages`) scrubs high-confidence
+    credentials (PEM keys, `sk-…`/`ghp_…`/AWS/Google/Slack tokens, JWTs, URI passwords,
+    `key=value` secrets) before egress. Applied at each cloud provider's **send boundary**
+    (the derived/trimmed array in `providers/anthropic.js`, `deepseek.js`, `gemini.js`, and the
+    outgoing prompt in `claude-code.js`) so the persistent `messages` history the loops mutate
+    in place stays intact; also wired into `helpers/completion.js`. Ollama (local) is skipped.
+    Tests: `tests/lib/helpers/redactSecrets.test.js` (13 cases).
+  - **local-only memories** via a reserved `local-only` **tag** (no schema migration): the
+    agent passes provider locality to the MCP process (`APERIO_PROVIDER_LOCAL` env →
+    `ctx.providerIsLocal`); `recallHandler` drops `local-only`-tagged rows when the provider
+    is cloud, so they never reach a third-party model (covers model-initiated recalls too).
+    `remember` tool documents the reserved tag. Tests: 4 cases in `tests/mcp/tools/memory.test.js`.
+  - **worker gating**: the infer/dedup workers run only on Ollama unless
+    `APERIO_CLOUD_MEMORY_WORKERS=1` (gated at the server.js call site).
+- ☑ **DATA-01** — `lib/helpers/secureFile.js` (`writeSecureFile` 0600 / `ensureSecureDir` 0700,
+  chmod-after-write since `writeFileSync` mode is ignored on existing files). Wired into
+  sessions (`helpers/sessions.js`) and both handoff writers (`terminal.js`, `wsHandler.js`),
+  which also now run handoff docs through `redactSecrets`. `logger.js`: log dir 0700, error
+  logs 0600 (stream `mode` + boot-time chmod of existing files), and a `redactFormat` scrubs
+  secrets from the on-disk message/stack. **Handoff-location bug fixed:** `skills/handoff/SKILL.md`
+  said write to the world-readable OS temp dir (`/tmp`); corrected to the private
+  `<project>/var/handoffs/` (0600) the server actually uses. Tests:
+  `tests/lib/helpers/secureFile.test.js` (3 cases).
+- ☑ **NET-03** — `lib/helpers/rateLimit.js` (`makeRateLimiter`, `express-rate-limit`) on
+  `/api/setup/specs` + `/api/setup/config` (server.js), `/api/memories/import`,
+  `/api/codegraph/index`, `/api/docgraph/index`. Indexing covers the embedding-heavy path.
+  Tests: `tests/lib/helpers/rateLimit.test.js` (real express app, 429 after max). The shared
+  `invoke` test harness in `api.test.js` gained `setHeader`/`ip` shims so real middleware runs.
+- ☑ **PATH-02** — `lib/helpers/staticAuth.js` (`createStaticGuard`): the `/uploads` and
+  `/scratch` mounts now require a per-process `aperio_static` httpOnly+SameSite cookie set when
+  the app shell loads (browsers load these via `<img>`/`<a>`, so a header gate is impossible;
+  a foreign origin can't read or replay the cookie). A valid `APERIO_AUTH_TOKEN` also grants
+  access for programmatic clients. Tests: `tests/lib/helpers/staticAuth.test.js` (6 cases).
 
 ## Phase 3 — Deferred until hosting
 
@@ -129,8 +170,8 @@ that make INJECT-01 catastrophic).
 
 ## Testing
 
-How to verify the **completed** phases (0 and 1). Phases 2–3 will get their own
-subsections as they land. Every finding has automated coverage; a few also have a
+How to verify the **completed** phases (0, 1, 2). Phase 3 will get its own
+subsection as it lands. Every finding has automated coverage; a few also have a
 manual check for things the suite can't assert (file perms, live HTTP headers).
 
 **Run everything:**
@@ -141,7 +182,7 @@ APERIO_AGENT_RUN=1 npm test   # quiet reporter (summary only) — same pass/fail
 ```
 
 Run one file in isolation: `NODE_ENV=test node --test tests/<path>.test.js`.
-Baseline after Phase 1: **1650/1650 passing**.
+Baseline after Phase 1: **1650/1650 passing**. After Phase 2: **1708/1708 passing**.
 
 ### Phase 0 — agent exfiltration surface
 
@@ -164,6 +205,17 @@ Baseline after Phase 1: **1650/1650 passing**.
 | **INPUT-01** (secret deny-list) | 6 cases in `tests/mcp/tools/files.test.js` (`secret-file deny-list` describe) | ask the agent to `read_file ./.env` or attach `id_rsa`/`server.pem` → refused before any extension check. |
 | **DOS-01** (256kb JSON cap) | — | `curl -X POST http://127.0.0.1:3000/api/<json-route> -H 'content-type: application/json' --data-binary @big.json` (>256kb) → `413 Payload Too Large`. |
 | **NET-02** (helmet headers) | — | `curl -sI http://127.0.0.1:3000/ \| grep -iE 'x-content-type-options\|x-frame-options\|referrer-policy'` → present; **no** `content-security-policy` (CSP deliberately off). |
+
+### Phase 2 — network layer
+
+| Finding | Automated | Manual sanity check |
+|---|---|---|
+| **REBIND-01** (Host/Origin/client-header) | `tests/lib/helpers/netGuard.test.js` (18 cases) | `curl -H 'Host: evil.com' http://127.0.0.1:3000/` → `403 host_not_allowed`; `curl -X POST http://127.0.0.1:3000/api/settings/x` (no `X-Aperio-Client`) → `403 client_header_required`. |
+| **AUTH-01** (opt-in token) | `tests/lib/helpers/authGuard.test.js` (13 cases) | set `APERIO_AUTH_TOKEN=secret`, start, then `curl http://127.0.0.1:3000/api/version` → `401`; add `-H 'Authorization: Bearer secret'` → ok. |
+| **PRIVACY-01** (redaction / local-only / worker gate) | `tests/lib/helpers/redactSecrets.test.js` (13) + 4 local-only cases in `tests/mcp/tools/memory.test.js` | on a cloud provider, a memory tagged `local-only` never appears in recall; boot log shows "memory inference/dedup workers disabled on cloud provider". |
+| **DATA-01** (0600 + redaction) | `tests/lib/helpers/secureFile.test.js` (3 cases) | `ls -l var/sessions/*.json var/handoffs/*.md var/logs/error-*.log` → `-rw-------`; a logged/handoff secret shows as `[REDACTED:…]`. |
+| **NET-03** (rate-limit) | `tests/lib/helpers/rateLimit.test.js` (real express app → 429 after max) | hammer `POST /api/codegraph/index` past 20×/15min → `429 rate_limited`. |
+| **PATH-02** (static-mount cookie) | `tests/lib/helpers/staticAuth.test.js` (6 cases) | `curl http://127.0.0.1:3000/scratch/anything` (no cookie) → `403 forbidden`; the app's own download cards load fine (cookie set on shell load). |
 
 ---
 

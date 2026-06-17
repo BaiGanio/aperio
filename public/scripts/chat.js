@@ -36,7 +36,11 @@ window.searchInput  = document.getElementById("searchInput");
 // ── WebSocket ────────────────────────────────────────────────
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
-  window.ws = new WebSocket(`${proto}//${location.host}`);
+  // AUTH-01: WebSocket handshakes can't set headers, so pass the opt-in token
+  // (if any) as a query param. window.__aperioAuthToken is set by http-guard.js.
+  const tok = window.__aperioAuthToken?.();
+  const q = tok ? `?token=${encodeURIComponent(tok)}` : "";
+  window.ws = new WebSocket(`${proto}//${location.host}${q}`);
 
   window.ws.onopen = () => {
     document.getElementById("startup-thinking")?.remove();

@@ -29,11 +29,17 @@ function invoke(router, method, url, { body = {}, query = {}, params = {} } = {}
       method: method.toUpperCase(),
       url, path: url, body, query, params,
       headers: {}, baseUrl: "", originalUrl: url,
+      ip: "127.0.0.1", socket: { remoteAddress: "127.0.0.1" },
     };
     const res = {
-      _status: 200, headersSent: false,
+      _status: 200, headersSent: false, _headers: {},
       status(code) { this._status = code; return this; },
       json(data)   { resolve({ status: this._status, body: data }); },
+      // Shims so real Express middleware (e.g. express-rate-limit) can run.
+      setHeader(k, v) { this._headers[String(k).toLowerCase()] = v; },
+      getHeader(k)    { return this._headers[String(k).toLowerCase()]; },
+      set()           { return this; },
+      on()            { return this; },
     };
     router(req, res, () => resolve({ status: 404, body: null }));
   });
