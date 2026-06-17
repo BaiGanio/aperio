@@ -1,6 +1,5 @@
 import express from "express";
 import helmet from "helmet";
-import { createServer } from "http";
 import { WebSocketServer } from "ws";
 import { existsSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -14,6 +13,8 @@ import { createNetGuard, buildAllowedHosts } from "./lib/helpers/netGuard.js";
 import { createAuthGuard, isAuthorized } from "./lib/helpers/authGuard.js";
 import { makeRateLimiter } from "./lib/helpers/rateLimit.js";
 import { createStaticGuard, STATIC_COOKIE } from "./lib/helpers/staticAuth.js";
+import { createAppServer } from "./lib/helpers/tlsServer.js";
+import { createCrashBreaker } from "./lib/helpers/crashBreaker.js";
 import { randomBytes } from "crypto";
 import logger from "./lib/helpers/logger.js";
 import { runBootstrap, bootstrapEvents, stepState, STEPS } from "./bootstrap.js";
@@ -23,12 +24,20 @@ import { runBootstrap, bootstrapEvents, stepState, STEPS } from "./bootstrap.js"
 // uncaughtException covers sync throws inside EventEmitter callbacks (e.g. the
 // ws "connection" handler); unhandledRejection covers async leaks (e.g. an
 // await inside a ws "message" callback whose rejection escaped the try/catch).
-process.on("uncaughtException", (err) => {
-  logger.error("Uncaught exception:", err);
-});
-process.on("unhandledRejection", (err) => {
-  logger.error("Unhandled rejection:", err);
-});
+//
+// PROC-01: a single blowup is logged and absorbed, but repeated fatal errors in
+// a short window mean the process is wedged — trip the breaker and exit so the
+// supervisor restarts cleanly instead of serving errors forever.
+const crashBreaker = createCrashBreaker({ threshold: 5, windowMs: 60_000 });
+function handleFatal(label, err) {
+  logger.error(`${label}:`, err);
+  if (crashBreaker.record()) {
+    logger.error("PROC-01: too many fatal errors in a short window — exiting for a clean restart.");
+    process.exit(1);
+  }
+}
+process.on("uncaughtException", (err) => handleFatal("Uncaught exception", err));
+process.on("unhandledRejection", (err) => handleFatal("Unhandled rejection", err));
 
 // ─── Bootstrap ────────────────────────────────────────────────────────────────
 const require   = createRequire(import.meta.url);
@@ -307,10 +316,12 @@ app.get("/api/bootstrap/stream", (req, res) => {
 });
 
 // ─── HTTP server starts immediately — setup UI is reachable before bootApp() ──
-const httpServer = createServer(app);
+// NET-01: HTTPS when APERIO_TLS_CERT/APERIO_TLS_KEY are set, else plain HTTP.
+const { server: httpServer, secure } = createAppServer(app);
+const scheme = secure ? "https" : "http";
 
 httpServer.listen(PORT, HOST, async () => {
-  const url = `http://${HOST}:${PORT}`;
+  const url = `${scheme}://${HOST}:${PORT}`;
   logger.warn(`\n✨ Aperio running at ${url}\n`);
   if (HOST !== "127.0.0.1" && HOST !== "::1" && HOST !== "localhost") {
     logger.warn("⚠️  Server is bound to a non-loopback address. Do not expose to untrusted networks.");
@@ -320,7 +331,7 @@ httpServer.listen(PORT, HOST, async () => {
     // Already set up: skip straight to full app init
     logger.info("✓ Already bootstrapped — starting app.");
     await bootApp();
-    openBrowser(`http://localhost:${PORT}`);
+    openBrowser(`${scheme}://localhost:${PORT}`);
   } else if (existsSync(resolve(__dirname, ".env"))) {
     // First run, but a .env already exists (user configured by hand) — preserve
     // the old auto-bootstrap behaviour; the setup page shows progress directly.
@@ -331,12 +342,12 @@ httpServer.listen(PORT, HOST, async () => {
       model: process.env.OLLAMA_MODEL ?? "qwen3:4b",
       skipOllama: (process.env.AI_PROVIDER ?? "").toLowerCase() !== "ollama",
     });
-    openBrowser(`http://localhost:${PORT}/setup`);
+    openBrowser(`${scheme}://localhost:${PORT}/setup`);
   } else {
     // First run, no .env: open the wizard. Bootstrap kicks off only after the
     // user picks a provider via POST /api/setup/config.
     logger.info("First run — opening setup wizard.");
-    openBrowser(`http://localhost:${PORT}/setup`);
+    openBrowser(`${scheme}://localhost:${PORT}/setup`);
   }
 });
 
@@ -544,6 +555,11 @@ async function bootApp() {
 
   // Mount API routes and WebSocket *after* everything is ready
   app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog, scheduler }));
+
+  // LOG-01: terminal error handler — must come after all routes. Logs the full
+  // error server-side and returns a scrubbed generic message in production.
+  const { createErrorHandler } = await import("./lib/helpers/errorHandler.js");
+  app.use(createErrorHandler());
 
   const wss = new WebSocketServer({
     server: httpServer,

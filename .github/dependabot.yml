@@ -1,0 +1,19 @@
+# DEP-02 — Dependabot keeps dependencies and pinned actions patched.
+# SECURITY.md advertises Dependabot coverage; this config makes it real.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
+      - "ci"

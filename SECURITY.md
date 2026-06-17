@@ -25,9 +25,25 @@ Only the versions below actively receive security patches:
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| 0.48.3   | ✅ Yes    | Current stable — fully supported |
+| 0.56.x   | ✅ Yes    | Current stable — fully supported |
 
-> **Recommendation:** Always use the latest `0.48.x` release for the most recent features and security fixes.
+> **Recommendation:** Always use the latest `0.56.x` release for the most recent features and security fixes.
+
+---
+
+## 🧭 Scope & Threat Model
+
+Aperio is **local-first**: by default the server binds to loopback (`127.0.0.1`)
+and is meant to run on a machine you trust.
+
+- **`run_shell` is not a sandbox.** When enabled, the model runs allow-listed
+  commands with your user's privileges. Only enable it for models and content
+  you trust.
+- **Do not expose Aperio directly to untrusted networks.** For LAN/hosted use,
+  set `APERIO_AUTH_TOKEN` (shared-secret gate), `APERIO_TLS_CERT`/`APERIO_TLS_KEY`
+  (HTTPS), and optionally `APERIO_SESSION_KEY` (at-rest session encryption), or
+  front the app with a reverse proxy that terminates TLS and authenticates.
+- **Secrets at rest** (`.env`, sessions, logs, handoffs) are written `0600`.
 
 ---
 
