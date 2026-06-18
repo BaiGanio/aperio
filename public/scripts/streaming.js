@@ -1576,6 +1576,7 @@ function _openSkillDoc(name) {
             `<span class="fpm-ext-badge">SKILL.md</span>` +
           `</div>` +
           `<div class="fpm-actions">` +
+            `<button class="fpm-edit-btn sk-btn sk-btn--ghost" title="Edit this skill">Edit</button>` +
             `<button class="fpm-close-btn" title="Close (Esc)"><i class="bi bi-x-lg"></i></button>` +
           `</div>` +
         `</div>` +
@@ -1584,6 +1585,11 @@ function _openSkillDoc(name) {
     const close = () => overlay.classList.remove("open");
     overlay.addEventListener("click", e => { if (e.target === overlay) close(); });
     overlay.querySelector(".fpm-close-btn").addEventListener("click", close);
+    overlay.querySelector(".fpm-edit-btn").addEventListener("click", () => {
+      const name = overlay.querySelector(".skill-doc-name").textContent;
+      close();
+      window.openSkillEditor?.(name);
+    });
     document.addEventListener("keydown", e => {
       if (e.key === "Escape" && overlay.classList.contains("open")) close();
     });
