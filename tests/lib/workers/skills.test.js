@@ -8,7 +8,7 @@ import { installMemfs } from "../../helpers/memfs.js";
 // from "fs"` here — that would create the builtin fs ESM facade before the patch
 // and leave skills.js unmocked. Use the patched handle the helper returns.
 const mem = installMemfs({ root: "/mem/skills" });
-const { loadSkillIndex, matchSkill, executeSkill } = await import("../../../lib/workers/skills.js");
+const { loadSkillIndex, matchSkill, executeSkill, assembleSkillMd, writeOverlaySkill, deleteOverlaySkill, overlaySkillPath, isValidSkillSlug } = await import("../../../lib/workers/skills.js");
 after(() => mem.restore());
 
 const fs = mem.fs;
@@ -133,4 +133,66 @@ describe("skills.js", () => {
   //     assert.strictEqual(errorMock.mock.callCount(), 1);
   //   });
   // });
+});
+
+describe("skills.js — user overlay (UI editing)", () => {
+  const overlay = join(sandbox.root, "overlay");
+
+  describe("isValidSkillSlug / overlaySkillPath", () => {
+    test("accepts kebab-case slugs, rejects traversal and junk", () => {
+      assert.equal(isValidSkillSlug("my-skill-1"), true);
+      for (const bad of ["../evil", "a/b", "..", "UPPER", "has space", "x".repeat(80), ""]) {
+        assert.equal(isValidSkillSlug(bad), false, `should reject ${JSON.stringify(bad)}`);
+        assert.throws(() => overlaySkillPath(overlay, bad), `path should reject ${JSON.stringify(bad)}`);
+      }
+    });
+  });
+
+  describe("assembleSkillMd", () => {
+    test("round-trips through loadSkillIndex with fields intact", () => {
+      writeOverlaySkill(overlay, {
+        name: "round-trip", description: "Line one\nLine two",
+        keywords: "alpha beta", load: "always", body: "# Heading\n\nThe body.",
+      });
+      const s = loadSkillIndex(join(sandbox.root, "ghost"), overlay).find(x => x.name === "round-trip");
+      assert.equal(s.load, "always");
+      assert.equal(s.keywords, "alpha beta");
+      assert.equal(s.description, "Line one Line two");   // folded onto one line
+      assert.equal(s.source, "user");
+      assert.ok(s.content.includes("The body."));
+    });
+  });
+
+  describe("overlay shadows bundled by name", () => {
+    test("a user overlay overrides a same-named bundled skill and is restorable", () => {
+      const bundled = join(sandbox.root, "bundled");
+      fs.mkdirSync(join(bundled, "greeter"), { recursive: true });
+      fs.writeFileSync(join(bundled, "greeter", "SKILL.md"),
+        "---\nname: greeter\ndescription: shipped\nmetadata:\n  load: on-demand\n---\nshipped body");
+
+      // before override
+      let idx = loadSkillIndex(bundled, overlay);
+      let g = idx.find(x => x.name === "greeter");
+      assert.equal(g.source, "bundled");
+      assert.equal(g.overridden, false);
+
+      // override + disable
+      writeOverlaySkill(overlay, { name: "greeter", description: "mine", load: "never", body: "my body" });
+      idx = loadSkillIndex(bundled, overlay);
+      g = idx.find(x => x.name === "greeter");
+      assert.equal(g.source, "user");
+      assert.equal(g.overridden, true);
+      assert.equal(g.load, "never");
+      assert.ok(g.content.includes("my body"));
+
+      // matchSkill never returns a load:never skill
+      assert.equal(matchSkill("greeter", idx), null);
+
+      // restore drops the overlay → shipped reappears
+      assert.equal(deleteOverlaySkill(overlay, "greeter"), true);
+      g = loadSkillIndex(bundled, overlay).find(x => x.name === "greeter");
+      assert.equal(g.source, "bundled");
+      assert.equal(g.load, "on-demand");
+    });
+  });
 });
