@@ -176,5 +176,6 @@
   "setup_badge_error":        "chyba",
   "setup_detail_waiting":     "Čekání…",
 
-  "agent_greeting":           "Pozdrav mě jednou krátkou přátelskou větou. Nepoužívej žádné nástroje."
+  "agent_greeting":           "Pozdrav mě jednou krátkou přátelskou větou. Nepoužívej žádné nástroje.",
+  "agent_greeting_text":      "Ahoj! Jak vám dnes mohu pomoci?"
 }

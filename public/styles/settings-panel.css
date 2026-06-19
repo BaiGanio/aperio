@@ -179,6 +179,16 @@
 .model-select-status.is-ok { color: var(--accent); }
 .model-select-status.is-err { color: var(--error, #e55); }
 
+.model-guide-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.model-guide-link:hover { color: var(--accent); }
+
 /* ── Extras: optional skill dependencies (docx Python toolchain) ─────────── */
 .extras-tier {
   padding: 8px 0;

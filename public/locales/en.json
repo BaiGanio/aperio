@@ -11,6 +11,7 @@
   "nav_reasoning_off":        "off",
   "nav_lang_title":           "Language",
   "nav_model_title":          "AI model",
+  "nav_model_guide":          "Not sure which to pick? Model guide →",
   "nav_theme_light":          "Light",
   "nav_theme_dark":           "Dark",
   "nav_theme_aurora":         "Aurora",
@@ -222,6 +223,7 @@
   "wiz_network_failed":       "Couldn't reach the server — please try again.",
 
   "agent_greeting":           "Greet me in one short friendly sentence. Do not use any tools.",
+  "agent_greeting_text":      "Hi! How can I help you today?",
 
   "discuss_button_label":         "Discuss",
   "discuss_button_tooltip":       "Two agents will cross-review answers",

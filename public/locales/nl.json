@@ -176,5 +176,6 @@
   "setup_badge_error":        "fout",
   "setup_detail_waiting":     "Wachten…",
 
-  "agent_greeting":           "Begroet me met een korte vriendelijke zin. Gebruik geen tools."
+  "agent_greeting":           "Begroet me met een korte vriendelijke zin. Gebruik geen tools.",
+  "agent_greeting_text":      "Hoi! Hoe kan ik je vandaag helpen?"
 }

@@ -113,6 +113,11 @@
         <i class="bi bi-robot sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Agents</span>
       </button>
+      <button id="skillsBtn" class="sidebar-nav-btn" onclick="toggleSkillsPanel()"
+        title="Skills — view, edit, create and toggle your agent's skills">
+        <i class="bi bi-lightning-charge sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Skills</span>
+      </button>
       <button id="settingsBtn" class="sidebar-nav-btn" onclick="toggleSettingsPanel()"
         data-i18n-attr-title="nav_settings_title" title="Settings">
         <i class="bi bi-sliders sidebar-nav-icon"></i>
@@ -383,6 +388,20 @@
 </div>
 <div id="docgraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleDocgraphPanel()"></div>
 
+<!-- Skills panel (reuses the cg-* panel styles; sk-* for rows + editor) -->
+<div id="skills-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-lightning-charge"></i> Skills</span>
+    <button class="cg-panel-close" onclick="toggleSkillsPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="skSearchInput" class="cg-search-input" placeholder="Search skills…" />
+    <button id="skNewBtn" class="sk-new-btn"><i class="bi bi-plus-lg"></i> New skill</button>
+  </div>
+  <div class="cg-panel-body" id="sk-panel-body"></div>
+</div>
+<div id="skills-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleSkillsPanel()"></div>
+
 <!-- Background-agents panel (reuses the cg-* panel styles) -->
 <div id="agents-panel" class="cg-panel" style="display:none;">
   <div class="cg-panel-header">
@@ -461,6 +480,8 @@
           <span class="model-loading">Loading…</span>
         </div>
         <div class="model-select-status" id="modelStatus"></div>
+        <a class="model-guide-link" href="https://baiganio.github.io/aperio/model-guide.html"
+           target="_blank" rel="noopener" data-i18n="nav_model_guide">Not sure which to pick? Model guide →</a>
       </div>
     </details>
     <!-- Allowed folders — expandable. The AI reads/edits files within these
@@ -523,6 +544,7 @@
 <script src="scripts/docgraph-panel.js"></script>
 <script src="scripts/agents-panel.js"></script>
 <script src="scripts/capabilities-panel.js"></script>
+<script src="scripts/skills-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
 <script src="scripts/chat.js"></script>

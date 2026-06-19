@@ -176,5 +176,6 @@
   "setup_badge_error":        "kļūda",
   "setup_detail_waiting":     "Gaida…",
 
-  "agent_greeting":           "Sasveicinies ar mani vienā īsā draudzīgā teikumā. Neizmanto rīkus."
+  "agent_greeting":           "Sasveicinies ar mani vienā īsā draudzīgā teikumā. Neizmanto rīkus.",
+  "agent_greeting_text":      "Sveiki! Kā varu jums šodien palīdzēt?"
 }
