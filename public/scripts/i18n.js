@@ -70,6 +70,7 @@ const TRANSLATIONS = {
     nav_reasoning_label:      "reasoning",
     nav_lang_title:           "Language",
     nav_model_title:          "AI model",
+    nav_model_guide:          "Not sure which to pick? Model guide →",
     nav_theme_light:          "Light",
     nav_theme_dark:           "Dark",
     nav_theme_aurora:         "Aurora",

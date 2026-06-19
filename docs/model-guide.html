@@ -17,6 +17,18 @@
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
 
   <style>
+    /* In-page nav jumps to sections; offset for the 62px sticky navbar. */
+    html { scroll-padding-top: 80px; }
+
+    /* This page is long-form reading. The global .section-inner is centered,
+       which works for the landing page's cards but makes prose hard to read.
+       Left-align the body content; keep only the hero centered. */
+    .section-inner { text-align: left; }
+    #mg-top .section-inner { text-align: center; }
+
+    /* Bump body prose — the 15px base reads small for long-form text. */
+    .section-inner p, .section-inner li, .mg-txt { font-size: 16.5px; line-height: 1.7; }
+
     .mg-card { margin-bottom: 28px; }
     .mg-desc { opacity: .85; margin-bottom: 18px; }
     .mg-prompt {
@@ -42,13 +54,52 @@
     .mg-bad  .mg-tag { color: #e5736b; }
     .mg-means { color: var(--accent); }
     .mg-row .mg-txt { flex: 1; }
-    .mg-cardbox {
-      background: rgba(127,127,127,.10);
-      border-radius: 10px; padding: 20px 22px;
-      font-family: 'Berkeley Mono', monospace;
-      font-size: .9rem; line-height: 1.7; white-space: pre; overflow-x: auto;
-    }
     .mg-read li { margin-bottom: 10px; }
+
+    /* Concepts */
+    .mg-concept { margin: 18px 0; }
+    .mg-concept h4 { font-size: 1.02rem; margin-bottom: 4px; }
+    .mg-concept p { opacity: .85; margin-bottom: 0; }
+    .mg-concept code {
+      background: rgba(127,127,127,.16); padding: 1px 6px; border-radius: 5px;
+      font-family: 'Berkeley Mono', monospace; font-size: .85em;
+    }
+
+    /* Comparison table */
+    .mg-compare { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .mg-compare th, .mg-compare td {
+      text-align: left; padding: 11px 12px; border-bottom: 1px solid rgba(127,127,127,.18);
+      vertical-align: top;
+    }
+    .mg-compare th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+    .mg-compare tr:hover td { background: rgba(127,127,127,.06); }
+    /* Make it obvious the model names are links to detailed pages. */
+    .mg-compare a {
+      font-weight: 600;
+      color: var(--purple);
+      text-decoration: underline;
+      text-decoration-color: rgba(168,85,247,.4);
+      text-underline-offset: 3px;
+    }
+    .mg-compare a::after {
+      content: "\2197";           /* ↗ */
+      font-size: .8em;
+      margin-left: 3px;
+      opacity: .7;
+    }
+    .mg-compare a:hover {
+      text-decoration-color: var(--purple);
+    }
+    .mg-compare a:hover::after { opacity: 1; }
+    .mg-compare tr:hover td a { color: var(--purple); }
+    .mg-compare .mg-ram { white-space: nowrap; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
+    .tier-pill {
+      display: inline-block; font-size: .7rem; font-weight: 600; padding: 0px 5px;
+    }
+    .tier-chat { background: rgba(229,115,107,.16); color: #e5736b; }
+    .tier-tools { background: rgba(230,180,80,.16); color: #e0a93f; }
+    .tier-full  { background: rgba(67,197,158,.16); color: #43c59e; }
+    .mg-compare-wrap { overflow-x: auto; }
   </style>
 </head>
 <body>
@@ -69,10 +120,11 @@
     <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
 
     <ul class="nav-links" id="navLinks">
-      <li><a href="index.html#features">Features</a></li>
-      <li><a href="index.html#tools">Tools</a></li>
-      <li><a href="index.html#setup">Setup</a></li>
-      <li><a href="model-guide.html">Model Guide</a></li>
+      <li><a href="index.html">Home</a></li>
+      <li><a href="#concepts">Concepts</a></li>
+      <li><a href="#compare">Models</a></li>
+      <li><a href="#tests">Tests</a></li>
+      <li><a href="#interpret">Results</a></li>
     </ul>
 
     <div class="theme-switcher" id="themeSwitcher">
@@ -108,9 +160,100 @@
   </div>
 </section>
 
-<!-- ── Tests ──────────────────────────────────────────────────── -->
-<section class="section" style="padding:20px 0">
+<!-- ── Concepts ───────────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0" id="concepts">
   <div class="section-inner">
+    <h2 class="reveal">Four things worth knowing first</h2>
+    <p class="reveal mg-desc">The whole vocabulary you need to read the table below and every model page. Two minutes, then you never have to think about it again.</p>
+
+    <div class="reveal mg-concept">
+      <h4>Parameters — the model's "brain size"</h4>
+      <p>Written as 3B, 8B, 30B (billions). Bigger generally means smarter and more capable, but slower and hungrier for memory. It is the single biggest predictor of what a model can do.</p>
+    </div>
+    <div class="reveal mg-concept">
+      <h4>Tool calling — can it <em>act</em>, or only talk?</h4>
+      <p>Using Aperio's memory, reading your files, searching the web, writing the wiki — all of this needs "tool calling." As a rule, models below roughly <strong>7–8B can't do it reliably</strong> (Google's Gemma 4 e4B is the rare exception). Below that line you have a brilliant conversationalist; above it, an assistant that does things.</p>
+    </div>
+    <div class="reveal mg-concept">
+      <h4>Context window — how much it holds in its head</h4>
+      <p>How much text it tracks before forgetting the start. Ollama defaults to a tiny ~2,048 tokens (≈1 page). Raise it by adding <code>OLLAMA_NUM_CTX=32768</code> to your <code>.env</code> — Aperio passes it through for you, no command line needed. Bigger windows use more memory.</p>
+    </div>
+    <div class="reveal mg-concept">
+      <h4>Knowledge cutoff — when its memory of the world stops</h4>
+      <p>Every model is frozen at its training date and knows nothing after it. A model that can use tools sidesteps this by fetching the live web; one that can't will either say "I don't know" or invent something. An older cutoff <em>with</em> web access beats a newer one without.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── Compare ────────────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0" id="compare">
+  <div class="section-inner">
+    <h2 class="reveal">Pick a model</h2>
+    <p class="reveal mg-desc">Every model set up for Aperio, smallest to largest. "Tools" is rough real-world reliability. <strong>Click any model name <span aria-hidden="true">↗</span> to open its full page</strong> — hardware details and hands-on tasks scaled to what that model can actually do.</p>
+
+    <div class="reveal mg-compare-wrap">
+      <table class="mg-compare">
+        <thead>
+          <tr><th>Model</th><th>Maker</th><th>Size</th><th>RAM</th><th>Tools</th><th>Best for</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><a href="tours/model-small-local.html">Qwen2.5 3B</a> <span class="tier-pill tier-chat">chat only</span></td>
+            <td>Alibaba</td><td>3B</td><td class="mg-ram">8 GB</td><td>—</td>
+            <td>First local AI, casual chat &amp; creative writing</td>
+          </tr>
+          <tr>
+            <td><a href="tours/model-small-local.html">Qwen3 4B</a> <span class="tier-pill tier-chat">chat only</span></td>
+            <td>Alibaba</td><td>4B</td><td class="mg-ram">8 GB</td><td>—</td>
+            <td>Newer 4B — better instruction following</td>
+          </tr>
+          <tr>
+            <td><a href="tours/model-small-local.html">Qwen3.5 4B</a> <span class="tier-pill tier-chat">chat only</span></td>
+            <td>Alibaba</td><td>4B</td><td class="mg-ram">8 GB</td><td>—</td>
+            <td>The most polished 4B conversationalist</td>
+          </tr>
+          <tr>
+            <td><a href="tours/model-small-local.html">Phi-4 Mini 3.8B</a> <span class="tier-pill tier-chat">chat only</span></td>
+            <td>Microsoft</td><td>3.8B</td><td class="mg-ram">8 GB</td><td>—</td>
+            <td>Step-by-step reasoning &amp; clear explanations</td>
+          </tr>
+          <tr>
+            <td><a href="tours/model-gemma4-e4b.html">Gemma 4 e4B</a> <span class="tier-pill tier-tools">tools</span></td>
+            <td>Google</td><td>4B</td><td class="mg-ram">8 GB</td><td>~75%</td>
+            <td>Tool calling on the smallest possible footprint</td>
+          </tr>
+          <tr>
+            <td><a href="tours/model-llama3.1-8b.html">Llama 3.1 8B</a> <span class="tier-pill tier-tools">tools</span></td>
+            <td>Meta</td><td>8B</td><td class="mg-ram">16 GB</td><td>~85%</td>
+            <td>The threshold — first reliable memory/files/web</td>
+          </tr>
+          <tr>
+            <td><a href="tours/model-qwen2.5vl-7b.html">Qwen2.5VL 7B</a> <span class="tier-pill tier-tools">tools + vision</span></td>
+            <td>Alibaba</td><td>7B</td><td class="mg-ram">16 GB</td><td>~85%</td>
+            <td>Seeing &amp; describing images, reading text from photos</td>
+          </tr>
+          <tr>
+            <td><a href="tours/model-gemma4-12b.html">Gemma 4 12B</a> <span class="tier-pill tier-full">full</span></td>
+            <td>Google</td><td>12B</td><td class="mg-ram">32 GB</td><td>~95%</td>
+            <td>The full experience — strong reasoning, reliable tools</td>
+          </tr>
+          <tr>
+            <td><a href="tours/model-qwen3-30b-a3b.html">Qwen3 30B-A3B</a> <span class="tier-pill tier-full">full</span></td>
+            <td>Alibaba</td><td>30B&nbsp;MoE</td><td class="mg-ram">24 GB</td><td>~98%</td>
+            <td>The summit — top capability, fast thanks to MoE</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="opacity:.7;font-size:.86rem;margin-top:6px">RAM is the comfortable minimum for the whole machine, not just the model. Need cloud models (Claude, DeepSeek)? Those run beyond any local hardware — see the Setup page.</p>
+  </div>
+</section>
+
+<!-- ── Tests ──────────────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0" id="tests">
+  <div class="section-inner">
+    <h2 class="reveal" style="margin-bottom:6px">The universal five-test calibration</h2>
+    <p class="reveal mg-desc">These five probes are deliberately the <em>same</em> for every model, so you can run them on any model and compare the cards side by side. Each model's own page adds harder, tailored tasks on top — but start here.</p>
 
     <!-- Test 1 -->
     <div class="feat-card reveal mg-card">
@@ -165,30 +308,18 @@
   </div>
 </section>
 
-<!-- ── Card ───────────────────────────────────────────────────── -->
-<section class="section" style="padding:20px 0 100px">
+<!-- ── Interpret ──────────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0 100px" id="interpret">
   <div class="section-inner">
-    <h2 class="reveal">Your model's card</h2>
-    <p class="reveal">Fill this in after running the five tests. Keep one card per model you use.</p>
-    <pre class="mg-cardbox reveal">MODEL: ________________________
-
-1. Does things, not just talks   ✅ / ⚠️ / ❌
-2. Holds long text in its head   ✅ / ⚠️ / ❌
-3. Follows instructions exactly  ✅ / ⚠️ / ❌
-4. Reasons through steps         ✅ / ⚠️ / ❌
-5. Admits when it doesn't know    ✅ / ⚠️ / ❌
-
-BEST FOR:   ____________________
-AVOID:      ____________________</pre>
-
-    <h3 class="reveal" style="margin-top:36px">Reading your card</h3>
+    <h2 class="reveal">Making sense of the results</h2>
+    <p class="reveal">You don't need to score anything — just notice the pattern. It tells you the model's right job:</p>
     <ul class="reveal mg-read">
-      <li>Lots of ✅ → a capable, trustworthy model; hand it real tasks and step back.</li>
-      <li>Strong on 1–3, weak on 4–5 → a great doer and writer you shouldn't trust for facts or hard logic.</li>
-      <li>Weak on test 1 → a smart conversation partner, not an assistant that acts on your files.</li>
-      <li>Weak on test 2 → keep requests small and chunked.</li>
+      <li>Passes most of them → a capable, trustworthy model; hand it real tasks and step back.</li>
+      <li>Strong on tests 1–3 but shaky on 4–5 → a great doer and writer you shouldn't trust for facts or hard logic.</li>
+      <li>Fails test 1 → a smart conversation partner, not an assistant that acts on your files. The <a href="tours/model-small-local.html">chat-only models</a> live here.</li>
+      <li>Fails test 2 → keep requests small and chunked, one section at a time.</li>
     </ul>
-    <p class="reveal" style="margin-top:18px;font-style:italic">There's no "bad" model — only models pointed at the wrong job. This card tells you the right job.</p>
+    <p class="reveal" style="margin-top:18px;font-style:italic">There's no "bad" model — only models pointed at the wrong job. These tests tell you the right one.</p>
   </div>
 </section>
 
