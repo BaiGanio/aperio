@@ -176,5 +176,6 @@
   "setup_badge_error":        "erreur",
   "setup_detail_waiting":     "Attente…",
 
-  "agent_greeting":           "Salue-moi en une courte phrase amicale. N'utilise aucun outil."
+  "agent_greeting":           "Salue-moi en une courte phrase amicale. N'utilise aucun outil.",
+  "agent_greeting_text":      "Bonjour ! Comment puis-je vous aider aujourd'hui ?"
 }

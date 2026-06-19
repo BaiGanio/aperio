@@ -176,5 +176,6 @@
   "setup_badge_error":        "error",
   "setup_detail_waiting":     "Esperando…",
 
-  "agent_greeting":           "Salúdame en una frase corta y amigable. No uses ninguna herramienta."
+  "agent_greeting":           "Salúdame en una frase corta y amigable. No uses ninguna herramienta.",
+  "agent_greeting_text":      "¡Hola! ¿En qué puedo ayudarte hoy?"
 }

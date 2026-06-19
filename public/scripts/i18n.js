@@ -146,7 +146,7 @@ const TRANSLATIONS = {
     msg_reasoning_flat:       "✍️ Reasoning",
     msg_streaming:            "streaming…",
 
-    startup_tokens_from:      "{n} tokens at startup ·",
+    startup_tokens_from:      "{n} tokens at startup",
     startup_memory_one:       "1 memory",
     startup_memory_many:      "{n} memories",
     startup_skill_one:        "1 skill",
@@ -157,7 +157,7 @@ const TRANSLATIONS = {
     startup_bd_title:         "What's in the startup prompt:",
     startup_bd_identity:      "Identity (whoami.md)",
     startup_bd_skill_named:   "Always-on skill: {name}",
-    startup_bd_memories:      "Top {n} memories (by importance)",
+    startup_bd_memory_pointer: "Memory index (recall on demand)",
     startup_bd_other:         "Conversation scaffolding",
     startup_bd_note:          "Skills & tool schemas are re-sent every turn — LLM APIs are stateless, so this is the cost of context, not duplication.",
 

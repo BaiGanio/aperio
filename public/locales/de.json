@@ -176,5 +176,6 @@
   "setup_badge_error":        "Fehler",
   "setup_detail_waiting":     "Warte…",
 
-  "agent_greeting":           "Begrüße mich mit einem kurzen freundlichen Satz. Verwende keine Werkzeuge."
+  "agent_greeting":           "Begrüße mich mit einem kurzen freundlichen Satz. Verwende keine Werkzeuge.",
+  "agent_greeting_text":      "Hallo! Wie kann ich dir heute helfen?"
 }

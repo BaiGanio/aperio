@@ -176,5 +176,6 @@
   "setup_badge_error":        "błąd",
   "setup_detail_waiting":     "Oczekiwanie…",
 
-  "agent_greeting":           "Przywitaj mnie jednym krótkim, przyjaznym zdaniem. Nie używaj żadnych narzędzi."
+  "agent_greeting":           "Przywitaj mnie jednym krótkim, przyjaznym zdaniem. Nie używaj żadnych narzędzi.",
+  "agent_greeting_text":      "Cześć! W czym mogę dzisiaj pomóc?"
 }

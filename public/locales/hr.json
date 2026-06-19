@@ -176,5 +176,6 @@
   "setup_badge_error":        "greška",
   "setup_detail_waiting":     "Čekanje…",
 
-  "agent_greeting":           "Pozdravi me jednom kratkom prijateljskom rečenicom. Ne koristi alate."
+  "agent_greeting":           "Pozdravi me jednom kratkom prijateljskom rečenicom. Ne koristi alate.",
+  "agent_greeting_text":      "Bok! Kako vam mogu pomoći danas?"
 }

@@ -176,5 +176,6 @@
   "setup_badge_error":        "napaka",
   "setup_detail_waiting":     "Čakanje…",
 
-  "agent_greeting":           "Pozdravi me z enim kratkim prijaznim stavkom. Ne uporabljaj nobenih orodij."
+  "agent_greeting":           "Pozdravi me z enim kratkim prijaznim stavkom. Ne uporabljaj nobenih orodij.",
+  "agent_greeting_text":      "Pozdravljeni! Kako vam lahko danes pomagam?"
 }

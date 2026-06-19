@@ -176,5 +176,6 @@
   "setup_badge_error":        "klaida",
   "setup_detail_waiting":     "Laukiama…",
 
-  "agent_greeting":           "Pasisveikink su manimi vienu trumpu draugišku sakiniu. Nenaudok įrankių."
+  "agent_greeting":           "Pasisveikink su manimi vienu trumpu draugišku sakiniu. Nenaudok įrankių.",
+  "agent_greeting_text":      "Sveiki! Kuo galiu jums šiandien padėti?"
 }

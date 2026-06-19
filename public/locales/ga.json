@@ -176,5 +176,6 @@
   "setup_badge_error":        "earráid",
   "setup_detail_waiting":     "Ag feitheamh…",
 
-  "agent_greeting":           "Beannaigh dom in aon abairt ghairid chairdiúil amháin. Ná húsáid uirlisí."
+  "agent_greeting":           "Beannaigh dom in aon abairt ghairid chairdiúil amháin. Ná húsáid uirlisí.",
+  "agent_greeting_text":      "Dia duit! Conas is féidir liom cabhrú leat inniu?"
 }

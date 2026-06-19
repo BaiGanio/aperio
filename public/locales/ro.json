@@ -176,5 +176,6 @@
   "setup_badge_error":        "eroare",
   "setup_detail_waiting":     "Se așteaptă…",
 
-  "agent_greeting":           "Salută-mă într-o singură propoziție scurtă și prietenoasă. Nu folosi instrumente."
+  "agent_greeting":           "Salută-mă într-o singură propoziție scurtă și prietenoasă. Nu folosi instrumente.",
+  "agent_greeting_text":      "Bună! Cu ce vă pot ajuta astăzi?"
 }
