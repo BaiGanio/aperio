@@ -176,5 +176,6 @@
   "setup_badge_error":        "viga",
   "setup_detail_waiting":     "Ootamine…",
 
-  "agent_greeting":           "Tervita mind ühe lühikese sõbraliku lausega. Ära kasuta tööriistu."
+  "agent_greeting":           "Tervita mind ühe lühikese sõbraliku lausega. Ära kasuta tööriistu.",
+  "agent_greeting_text":      "Tere! Kuidas saan teid täna aidata?"
 }

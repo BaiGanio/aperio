@@ -176,5 +176,6 @@
   "setup_badge_error":        "hiba",
   "setup_detail_waiting":     "Várakozás…",
 
-  "agent_greeting":           "Üdvözölj egy rövid, barátságos mondattal. Ne használj eszközöket."
+  "agent_greeting":           "Üdvözölj egy rövid, barátságos mondattal. Ne használj eszközöket.",
+  "agent_greeting_text":      "Üdv! Miben segíthetek ma?"
 }

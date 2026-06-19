@@ -19,8 +19,10 @@ let prevInputTokens = 0;
 let startupBannerShown = false;
 let pendingUserTokenEstimate = 0;
 let _preloadToolCount = 0;
-let _preloadMemCount = 0;
 let _startupBreakdown = null;
+// Whether the active model surfaces reasoning. Non-thinking models must not leave
+// a "thinking…" breadcrumb behind — it reads as if the model were still working.
+let _modelThinks = false;
 // Round-table state. _nextBubbleAgent is set on stream_start and consumed by
 // createStreamingBubble() so the bubble is styled with the right agent colour.
 // _roundtableAgents is populated from the `provider` event for badge labels.
@@ -66,7 +68,7 @@ function moveLiveIndicatorToBottom() {
 // reasoning bubble.
 function enterPhase(kind) {
   if (kind === "thinking") _phaseHadReasoning = false;
-  if (_lastPhase === "thinking" && kind !== "thinking" && !_phaseHadReasoning) {
+  if (_lastPhase === "thinking" && kind !== "thinking" && !_phaseHadReasoning && _modelThinks) {
     dropPhaseBreadcrumb(t("status_thinking"));
   }
   // The "reading result…" step must survive into the transcript as a permanent
@@ -121,12 +123,12 @@ function handleMessage(msg) {
     // initial connection ack
   }
 
-  if (msg.type === "preload_mem_count") {
-    _preloadMemCount = msg.count ?? 0;
-  }
-
   if (msg.type === "startup_breakdown") {
     _startupBreakdown = msg;
+    // Show the banner at startup (not after the first message) — the breakdown
+    // carries server-side estimates for every startup component, so we don't need
+    // to wait for a real provider token count.
+    _maybeShowStartupBanner();
   }
 
   if (msg.type === "tool_count") {
@@ -190,6 +192,7 @@ function handleMessage(msg) {
       window.syncModelSelection(msg.name, msg.model);
     }
 
+    _modelThinks = !!msg.thinks;
     const toggle = document.getElementById("reasoningToggle");
     if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
 
@@ -416,7 +419,6 @@ function handleMessage(msg) {
       for (const f of _pendingGeneratedFiles) streamingBubble.bubble.appendChild(_buildGeneratedFileCard(f)); _pendingGeneratedFiles.length = 0;
       window.Aperio?.tts?.speak(streamingText);
       window.Aperio?.voice?.onStreamEnd?.();
-      _maybeShowStartupBanner(msg.usage?.input_tokens);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
     } else if (streamingBubble) {
@@ -428,7 +430,6 @@ function handleMessage(msg) {
       addMessage("ai", msg.text);
       window.Aperio?.tts?.speak(msg.text);
       window.Aperio?.voice?.onStreamEnd?.();
-      _maybeShowStartupBanner(msg.usage?.input_tokens);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
     }
@@ -1231,51 +1232,42 @@ function finalizeStreamingBubble(ref, fullText, stats) {
   highlightAll();
 }
 
-function _maybeShowStartupBanner(inputTok) {
+function _maybeShowStartupBanner() {
   if (startupBannerShown) return;
-  // Wait for a real provider token count — the banner's job is to explain that
-  // number, not to estimate one.
-  if (!inputTok) return;
+  const bd = _startupBreakdown;
+  if (!bd) return;
+
+  // The startup prompt's fixed overhead, summed from the server-side component
+  // estimates. Memory is a small recall pointer for cloud-capable models and 0
+  // for local/weak models — so there is no "N memories" content to advertise.
+  const identity  = bd.identity || 0;
+  const skills    = bd.skills || [];
+  const skillsTok = skills.reduce((n, s) => n + (s.tokens || 0), 0);
+  const memTok    = bd.memoryTokens || 0;
+  const total     = identity + skillsTok + memTok;
+  if (!total) return;
   startupBannerShown = true;
 
-  // Memories shown reflect what's actually injected into the startup prompt.
-  // Memories are no longer preloaded, so this is normally 0; we no longer fall
-  // back to the sidebar count (those memories are NOT in the prompt).
-  const memCount = _preloadMemCount;
-  const parts = [t("startup_tokens_from", { n: inputTok.toLocaleString() })];
-  if (memCount) parts.push(memCount === 1 ? t("startup_memory_one") : t("startup_memory_many", { n: memCount }));
-  if (_preloadToolCount) parts.push(_preloadToolCount === 1 ? t("startup_tool_one") : t("startup_tool_many", { n: _preloadToolCount }));
-
-  // Per-component breakdown of where the startup tokens go. Component figures
-  // are server-side estimates; "scaffolding" reconciles them to the real total
-  // so the rows always sum to the provider-reported number.
-  const bd = _startupBreakdown;
-  let bdHtml = "";
-  if (bd) {
-    const items = [[t("startup_bd_identity"), bd.identity || 0]];
-    // One row per always-on skill, named — there may be more than one.
-    for (const s of bd.skills || []) items.push([t("startup_bd_skill_named", { name: s.name }), s.tokens || 0]);
-    if (memCount) items.push([t("startup_bd_memories", { n: memCount }), bd.memoryTokens || 0]);
-    const accounted = items.reduce((n, [, v]) => n + v, 0);
-    const other = Math.max(0, inputTok - accounted);
-    if (other) items.push([t("startup_bd_other"), other]);
-    const rows = items
-      .map(([label, n]) => `<div class="ctx-bd-row"><span>${label}</span><span>~${n.toLocaleString()}</span></div>`)
-      .join("");
-    bdHtml =
-      `<div class="ctx-bd" style="display:none">` +
-        `<div class="ctx-bd-title">${t("startup_bd_title")}</div>` +
-        rows +
-        `<div class="ctx-bd-note">${t("startup_bd_note")}</div>` +
-      `</div>`;
-  }
+  // Per-component breakdown of where the startup tokens go (estimates).
+  const items = [[t("startup_bd_identity"), identity]];
+  for (const s of skills) items.push([t("startup_bd_skill_named", { name: s.name }), s.tokens || 0]);
+  if (memTok) items.push([t("startup_bd_memory_pointer"), memTok]);
+  const rows = items
+    .map(([label, n]) => `<div class="ctx-bd-row"><span>${label}</span><span>~${n.toLocaleString()}</span></div>`)
+    .join("");
+  const bdHtml =
+    `<div class="ctx-bd" style="display:none">` +
+      `<div class="ctx-bd-title">${t("startup_bd_title")}</div>` +
+      rows +
+      `<div class="ctx-bd-note">${t("startup_bd_note")}</div>` +
+    `</div>`;
 
   const banner = document.createElement("div");
   banner.className = "ctx-banner ctx-banner--memories";
   banner.innerHTML =
     `<div class="ctx-banner-row">` +
-      `<span class="ctx-banner-text">${parts.join(' · ')}</span>` +
-      (bd ? `<button class="ctx-banner-btn" onclick="const b=this.closest('.ctx-banner').querySelector('.ctx-bd'); b.style.display = b.style.display==='none' ? 'block' : 'none';">${t("startup_bd_toggle")}</button>` : "") +
+      `<span class="ctx-banner-text">${t("startup_tokens_from", { n: total.toLocaleString() })}</span>` +
+      `<button class="ctx-banner-btn" onclick="const b=this.closest('.ctx-banner').querySelector('.ctx-bd'); b.style.display = b.style.display==='none' ? 'block' : 'none';">${t("startup_bd_toggle")}</button>` +
       `<button class="ctx-banner-btn" onclick="this.closest('.ctx-banner').remove()">${t("ctx_dismiss")}</button>` +
     `</div>` +
     bdHtml;

@@ -223,6 +223,7 @@
   "wiz_network_failed":       "Couldn't reach the server — please try again.",
 
   "agent_greeting":           "Greet me in one short friendly sentence. Do not use any tools.",
+  "agent_greeting_text":      "Hi! How can I help you today?",
 
   "discuss_button_label":         "Discuss",
   "discuss_button_tooltip":       "Two agents will cross-review answers",
