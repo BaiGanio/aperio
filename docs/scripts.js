@@ -54,4 +54,41 @@ document.addEventListener('click', e => {
   setTimeout(() => btn.textContent = 'Copy', 2000);
 });
 
+/* ── Copy buttons on model-guide prompt boxes ── */
+document.querySelectorAll('.mg-prompt').forEach(box => {
+  const label = box.querySelector('.mg-prompt-label');
+
+  // The text to copy = the prompt body, excluding the old label.
+  const clone = box.cloneNode(true);
+  const cl = clone.querySelector('.mg-prompt-label');
+  if (cl) cl.remove();
+  const text = clone.textContent.trim();
+  if (!text) return;
+
+  // Keep a gentle hint for prompts that need an image attached.
+  const note = label && /image|photo/i.test(label.textContent) ? '📎 Attach an image first' : '';
+
+  const bar = document.createElement('div');
+  bar.className = 'mg-prompt-bar';
+  const noteEl = document.createElement('span');
+  noteEl.className = 'mg-prompt-note';
+  noteEl.textContent = note;
+  bar.appendChild(noteEl);
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'prompt-copy';
+  btn.textContent = 'Copy';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(text);
+    btn.textContent = '✓ Copied';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('copied'); }, 2000);
+  });
+  bar.appendChild(btn);
+
+  if (label) label.replaceWith(bar);
+  else box.prepend(bar);
+});
+
 

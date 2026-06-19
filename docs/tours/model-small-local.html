@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | Small local models (3–4B) — what they're great for</title>
+  <meta name="description" content="The small, fast local models — Qwen2.5 3B, Qwen3 4B, Qwen3.5 4B, Phi-4 Mini. They can't use tools, but they're wonderful at the things they can do. Here's how to get the most from them." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* In-page nav jumps to sections; offset for the 62px sticky navbar. */
+    html { scroll-padding-top: 80px; }
+    /* Long-form reading: left-align body content, keep only the hero centered. */
+    .section-inner { text-align: left; }
+    #mt-top .section-inner { text-align: center; }
+    /* Bump body prose — the 15px base reads small for long-form text. */
+    .section-inner p, .section-inner li, .mg-txt { font-size: 16.5px; line-height: 1.7; }
+    /* Make inline cross-page links visibly clickable (matches the model table). */
+    .section-inner p a, .mg-txt a {
+      color: var(--purple);
+      text-decoration: underline;
+      text-decoration-color: rgba(168,85,247,.4);
+      text-underline-offset: 3px;
+    }
+    .section-inner p a::after, .mg-txt a::after {
+      content: "\2197";          /* ↗ */
+      font-size: .8em; margin-left: 2px; opacity: .7;
+    }
+    .section-inner p a:hover, .mg-txt a:hover { text-decoration-color: var(--purple); }
+    .section-inner p a:hover::after, .mg-txt a:hover::after { opacity: 1; }
+
+    .mt-back { font-size: .85rem; opacity: .7; text-decoration: none; }
+    .mt-back:hover { opacity: 1; }
+    .tier-pill {
+      display: inline-block; font-size: .72rem; font-weight: 600; padding: 3px 11px;
+      border-radius: 999px; white-space: nowrap; vertical-align: middle; margin-left: 8px;
+      background: rgba(229,115,107,.16); color: #e5736b;
+    }
+    .mg-desc { opacity: .85; margin-bottom: 14px; }
+    .mg-prompt {
+      background: rgba(127,127,127,.10); border-left: 3px solid var(--accent);
+      border-radius: 8px; padding: 13px 17px; margin: 12px 0;
+      font-family: 'Berkeley Mono', monospace; font-size: .88rem;
+      line-height: 1.55; white-space: pre-wrap;
+    }
+    .mg-prompt-label { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; display: block; margin-bottom: 6px; }
+
+    /* Uses grid */
+    .use-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; margin: 20px 0; }
+    .use-card { background: rgba(127,127,127,.06); border: 1px solid rgba(127,127,127,.16); border-radius: 12px; padding: 18px 20px; }
+    .use-card h4 { font-size: 1.04rem; margin-bottom: 4px; }
+    .use-card .use-sub { opacity: .75; font-size: .88rem; margin-bottom: 6px; }
+    .use-card .use-exp { font-size: .85rem; opacity: .8; margin: 8px 0 0; }
+    .use-card .use-exp strong { color: #43c59e; }
+
+    /* Personality table */
+    .mg-compare { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .9rem; }
+    .mg-compare th, .mg-compare td { text-align: left; padding: 12px 12px; border-bottom: 1px solid rgba(127,127,127,.18); vertical-align: top; }
+    .mg-compare th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+    .mg-compare td:first-child { font-weight: 600; white-space: nowrap; }
+    .mg-compare-wrap { overflow-x: auto; }
+
+    /* Walls */
+    .mt-walls { list-style: none; padding: 0; margin: 14px 0; }
+    .mt-walls li { padding: 9px 0; border-bottom: 1px solid rgba(127,127,127,.14); opacity: .85; }
+    .mt-walls li b { color: #e5736b; font-weight: 600; }
+
+    .anchor-blurb { padding: 14px 0; border-bottom: 1px solid rgba(127,127,127,.14); }
+    .anchor-blurb h4 { margin-bottom: 4px; }
+    .anchor-blurb p { margin: 0; opacity: .82; font-size: .92rem; }
+    code { background: rgba(127,127,127,.16); padding: 1px 6px; border-radius: 5px; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ── Navbar ─────────────────────────────────────────────────── -->
+<nav class="aperio-nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="brand">
+      <div class="logo-mark">A</div>
+      <span class="brand-name">Aperio</span>
+    </a>
+    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="#strengths">Strengths</a></li>
+      <li><a href="#thefour">The Four</a></li>
+      <li><a href="#limits">Limits</a></li>
+      <li><a href="../model-guide.html#compare">All Models</a></li>
+    </ul>
+    <div class="theme-switcher" id="themeSwitcher">
+      <button class="theme-btn active" data-theme="dark"   title="Dark">🌙</button>
+      <button class="theme-btn"        data-theme="light"  title="Light">☀️</button>
+      <button class="theme-btn"        data-theme="aurora" title="Aurora">✦</button>
+      <button class="theme-btn"        data-theme="system" title="System">⊙</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="mt-top" style="padding:120px 0 30px">
+  <div class="section-inner">
+    <a href="../model-guide.html#compare" class="mt-back reveal">← All models</a>
+    <div class="eyebrow reveal" style="margin-top:14px">3–4B · Runs on 8 GB · Local</div>
+    <h1 class="section-heading reveal">Small local models <span class="tier-pill">chat only</span></h1>
+    <p class="lead-text reveal">Qwen2.5 3B · Qwen3 4B · Qwen3.5 4B · Phi-4 Mini 3.8B — the small, fast models that run on almost any machine. They can't use Aperio's tools, but that's only half the story. Within their lane, they're genuinely delightful.</p>
+  </div>
+</section>
+
+<!-- ── Framing ────────────────────────────────────────────────── -->
+<section class="section" style="padding:10px 0">
+  <div class="section-inner">
+    <p class="reveal">One page covers all four, because at this size the differences are about <em>flavour</em>, not power. None of them can remember you across chats, read your files, or browse the web — that needs a bigger model (the <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> page is where tools start working). So instead of testing them on things they can't do, this page shows you the things they do <strong>well</strong> — and gives you ready-to-paste prompts to discover each one.</p>
+    <p class="reveal" style="opacity:.8">They're fast, private, free, and they fit in 8 GB of RAM. Think of them as a sharp, well-read writing partner who happens to live entirely on your laptop. New here? The <a href="../model-guide.html#concepts">two-minute concepts primer</a> explains the jargon.</p>
+  </div>
+</section>
+
+<!-- ── Great uses ─────────────────────────────────────────────── -->
+<section class="section" id="strengths" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">What they're genuinely great at</h2>
+    <p class="reveal mg-desc">Paste any of these to see a small model shine. No setup, no tools — just type and watch.</p>
+
+    <div class="use-grid">
+      <div class="use-card reveal">
+        <h4>✍️ Creative writing</h4>
+        <div class="use-sub">Poems, short stories, song lyrics, toasts.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Write a four-line poem about a cat who dreams of becoming an astronaut. Then write a darker version, and a silly one.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> three charming, on-topic takes. This is where small models surprise people most.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🔁 Rewrite &amp; change tone</h4>
+        <div class="use-sub">Make any text shorter, warmer, more formal, simpler.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Rewrite this so it sounds friendly and confident, not stiff: "Per my last email, kindly action the attached at your earliest convenience."</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a natural rewrite. Paste your own emails, messages, or bios and ask for a different tone.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>💡 Brainstorm &amp; lists</h4>
+        <div class="use-sub">Names, gift ideas, dinner plans, angles to consider.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Give me 15 cosy, slightly unusual names for a small neighbourhood bakery. Mix playful and elegant.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a quick, varied list to react to. Great for beating a blank page.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>📄 Summarise text you paste in</h4>
+        <div class="use-sub">A few paragraphs at a time — not whole documents.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Summarise the key points of the text below in five bullets, then give me a one-sentence takeaway:
+[paste a few paragraphs here]</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a tidy summary. Keep it to a page or two of pasted text — they lose the thread on long documents.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🧒 Explain it simply</h4>
+        <div class="use-sub">Turn anything confusing into plain language.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Explain what a "mortgage" is to a curious twelve-year-old, in under 120 words, with one everyday analogy.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a clear, friendly explanation. Phi-4 Mini is especially good at this one.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🌍 Translate &amp; phrase</h4>
+        <div class="use-sub">Common language pairs, plus "how do I politely say…".</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Translate "Thank you for your patience, I'll have it ready by Friday" into natural Japanese, and show me a more casual version too.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> usable translations for everyday phrases. Verify anything high-stakes with a native speaker.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🎭 Practice &amp; role-play</h4>
+        <div class="use-sub">A patient partner for rehearsing real situations.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Play the role of a friendly interviewer for a barista job. Ask me one question at a time and react to my answers. Start now.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a back-and-forth you can practise with — interviews, difficult conversations, a new language.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>✅ Polish &amp; proofread</h4>
+        <div class="use-sub">Fix grammar, tighten wording, catch typos.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Proofread and lightly improve this, keeping my voice: "Me and my team has been working on this project since last month and we is almost done."</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a clean version with the fixes. Ideal for a quick pass on emails and posts.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── The four ───────────────────────────────────────────────── -->
+<section class="section" id="thefour" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">The four, side by side</h2>
+    <p class="reveal mg-desc">Same weight class, different personalities. If you've pulled one already, here's its character; if you're choosing, this is how they differ.</p>
+
+    <div class="reveal mg-compare-wrap">
+      <table class="mg-compare">
+        <thead><tr><th>Model</th><th>Maker</th><th>Knowledge cutoff</th><th>Its flavour</th></tr></thead>
+        <tbody>
+          <tr><td>Qwen2.5 3B</td><td>Alibaba</td><td>~mid-2024</td><td>Warm, capable all-rounder. The classic first local model.</td></tr>
+          <tr><td>Qwen3 4B</td><td>Alibaba</td><td>~early 2025</td><td>Sharper than 2.5 — better at following instructions, fewer stumbles.</td></tr>
+          <tr><td>Qwen3.5 4B</td><td>Alibaba</td><td>~mid-2025</td><td>The most polished conversationalist of the four. Newest knowledge.</td></tr>
+          <tr><td>Phi-4 Mini 3.8B</td><td>Microsoft</td><td>~late 2024</td><td>The analyst — step-by-step reasoning, clear explanations, less chatty.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="anchor-blurb reveal" id="qwen2-5-3b">
+      <h4>Qwen2.5 3B</h4>
+      <p>The lightest of the group and a lovely first local AI. Naturally warm in conversation and quietly good at creative writing. If you just want something to chat and write with, start here.</p>
+    </div>
+    <div class="anchor-blurb reveal" id="qwen3-4b">
+      <h4>Qwen3 4B</h4>
+      <p>A newer-generation step up from 2.5 — noticeably better at following formatting requests ("answer in three bullets") and less likely to lose the thread mid-reply. Same lane, steadier driving.</p>
+    </div>
+    <div class="anchor-blurb reveal" id="qwen3-5-4b">
+      <h4>Qwen3.5 4B</h4>
+      <p>The most refined small model on offer: the warmest tone, the smoothest phrasing, and the most recent knowledge. If you're picking one 4B for everyday chat and writing, this is it.</p>
+    </div>
+    <div class="anchor-blurb reveal" id="phi4-mini">
+      <h4>Phi-4 Mini 3.8B</h4>
+      <p>Microsoft's outlier. Where the Qwen models are conversational, Phi is analytical — it thinks in numbered steps and explains the "why". It's the one to reach for when you want something broken down logically, and it's more likely to say "I don't know" than to invent an answer. Less cosy for casual chat, though.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── The wall ───────────────────────────────────────────────── -->
+<section class="section" id="limits" style="padding:20px 0 60px">
+  <div class="section-inner">
+    <h2 class="reveal">Where the wall is</h2>
+    <p class="reveal mg-desc">These aren't flaws — they're the edge of the weight class. When you hit one of these, it's time for a bigger model, not a better prompt.</p>
+    <ul class="mt-walls reveal">
+      <li><b>Remembering you across chats</b> — they can't use Aperio's memory. Start a new chat and everything's forgotten.</li>
+      <li><b>Reading your files or browsing the web</b> — no tool calling at this size, so no file access, no live information.</li>
+      <li><b>Long documents</b> — feed them a page or two at a time, not a whole report. They lose the early pages.</li>
+      <li><b>Long, multi-step instructions</b> — ask one thing at a time. A five-part mega-prompt will fade out halfway.</li>
+      <li><b>Hard logic, maths, or code</b> — results get unreliable. Verify anything that matters, or step up.</li>
+      <li><b>Recent facts</b> — frozen at the training cutoff above, with no way to look things up. Don't trust them on current events.</li>
+    </ul>
+    <p class="reveal" style="margin-top:16px">Need any of the above? The next step is <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> — the smallest model where memory, files, and the web start working. Or browse the <a href="../model-guide.html#compare">full lineup</a>.</p>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-warning">
+    ⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy,
+    leading to irreversible stupidity. Use responsibly.
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+</body>
+</html>

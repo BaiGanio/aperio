@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | Gemma 4 12B — the full local experience</title>
+  <meta name="description" content="Gemma 4 12B inside Aperio — a mid-size model with strong reasoning, ~95% reliable tool calling, and a polished voice. Hardware and hands-on tasks scaled to a fully capable local assistant." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* In-page nav jumps to sections; offset for the 62px sticky navbar. */
+    html { scroll-padding-top: 80px; }
+    /* Long-form reading: left-align body content, keep only the hero centered. */
+    .section-inner { text-align: left; }
+    #mt-top .section-inner { text-align: center; }
+    /* Bump body prose — the 15px base reads small for long-form text. */
+    .section-inner p, .section-inner li, .mg-txt { font-size: 16.5px; line-height: 1.7; }
+    /* Make inline cross-page links visibly clickable (matches the model table). */
+    .section-inner p a, .mg-txt a {
+      color: var(--purple);
+      text-decoration: underline;
+      text-decoration-color: rgba(168,85,247,.4);
+      text-underline-offset: 3px;
+    }
+    .section-inner p a::after, .mg-txt a::after {
+      content: "\2197";          /* ↗ */
+      font-size: .8em; margin-left: 2px; opacity: .7;
+    }
+    .section-inner p a:hover, .mg-txt a:hover { text-decoration-color: var(--purple); }
+    .section-inner p a:hover::after, .mg-txt a:hover::after { opacity: 1; }
+
+    .mt-back { font-size: .85rem; opacity: .7; text-decoration: none; }
+    .mt-back:hover { opacity: 1; }
+    .tier-pill { display: inline-block; font-size: .72rem; font-weight: 600; padding: 3px 11px; border-radius: 999px; white-space: nowrap; vertical-align: middle; margin-left: 8px; background: rgba(67,197,158,.16); color: #43c59e; }
+    .mt-glance { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: rgba(127,127,127,.18); border-radius: 12px; overflow: hidden; margin: 22px 0; }
+    .mt-glance div { background: var(--bg, #14161a); padding: 16px 18px; }
+    .mt-glance dt { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; opacity: .55; margin-bottom: 4px; }
+    .mt-glance dd { margin: 0; font-weight: 500; font-size: .98rem; }
+    .mt-glance .ok { color: #43c59e; }
+    .mt-hw { list-style: none; padding: 0; margin: 14px 0; }
+    .mt-hw li { padding: 10px 0; border-bottom: 1px solid rgba(127,127,127,.14); }
+    .mt-hw .mt-hw-tag { font-weight: 600; display: block; margin-bottom: 2px; }
+    .mt-env { background: rgba(127,127,127,.10); border-left: 3px solid var(--accent); border-radius: 8px; padding: 12px 16px; margin: 14px 0; font-family: 'Berkeley Mono', monospace; font-size: .9rem; white-space: pre-wrap; }
+    .mg-card { margin-bottom: 28px; }
+    .mg-desc { opacity: .85; margin-bottom: 14px; }
+    .mg-prompt { background: rgba(127,127,127,.10); border-left: 3px solid var(--accent); border-radius: 8px; padding: 14px 18px; margin: 14px 0; font-family: 'Berkeley Mono', monospace; font-size: .9rem; line-height: 1.55; white-space: pre-wrap; }
+    .mg-prompt-label { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; display: block; margin-bottom: 6px; }
+    .mg-row { display: flex; gap: 10px; margin: 10px 0; align-items: flex-start; }
+    .mg-row .mg-tag { flex: 0 0 auto; font-weight: 600; font-size: .9rem; min-width: 96px; }
+    .mg-good .mg-tag { color: #43c59e; }
+    .mg-bad .mg-tag { color: #e5736b; }
+    .mg-means { color: var(--accent); }
+    .mg-row .mg-txt { flex: 1; }
+    .mt-next { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+    .mt-next a { flex: 1 1 240px; text-decoration: none; border: 1px solid rgba(127,127,127,.2); border-radius: 10px; padding: 14px 16px; transition: border-color .2s; }
+    .mt-next a:hover { border-color: var(--accent); }
+    .mt-next .mt-next-t { font-weight: 600; display: block; margin-bottom: 3px; }
+    .mt-next .mt-next-d { font-size: .85rem; opacity: .75; }
+    code { background: rgba(127,127,127,.16); padding: 1px 6px; border-radius: 5px; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+
+<nav class="aperio-nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="#hardware">Hardware</a></li>
+      <li><a href="#tryit">Try it</a></li>
+      <li><a href="#verdict">Verdict</a></li>
+      <li><a href="../model-guide.html#compare">All Models</a></li>
+    </ul>
+    <div class="theme-switcher" id="themeSwitcher">
+      <button class="theme-btn active" data-theme="dark" title="Dark">🌙</button>
+      <button class="theme-btn" data-theme="light" title="Light">☀️</button>
+      <button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
+      <button class="theme-btn" data-theme="system" title="System">⊙</button>
+    </div>
+  </div>
+</nav>
+
+<section class="section" id="mt-top" style="padding:120px 0 30px">
+  <div class="section-inner">
+    <a href="../model-guide.html#compare" class="mt-back reveal">← All models</a>
+    <div class="eyebrow reveal" style="margin-top:14px">Google · 12B · Local</div>
+    <h1 class="section-heading reveal">Gemma 4 12B <span class="tier-pill">the full experience</span></h1>
+    <p class="lead-text reveal">The point where most boundaries disappear. At 12B, Gemma uses every Aperio tool reliably, chains them without losing the thread, reasons through complex problems, and writes well. The question stops being "can it do this?" and becomes "what should I ask it to do next?"</p>
+  </div>
+</section>
+
+<section class="section" style="padding:10px 0">
+  <div class="section-inner">
+    <dl class="mt-glance reveal">
+      <div><dt>Size</dt><dd>12B</dd></div>
+      <div><dt>Comfortable RAM</dt><dd>32 GB ideal · 16 GB tight</dd></div>
+      <div><dt>Memory used</dt><dd>~7–8 GB</dd></div>
+      <div><dt>Tool calling</dt><dd class="ok">~95% — you stop retrying</dd></div>
+      <div><dt>Best for</dt><dd>A fully capable, reliable local assistant</dd></div>
+      <div><dt>Avoid if</dt><dd>You have under 16 GB of RAM</dd></div>
+    </dl>
+    <p class="reveal mg-desc">New here? The <a href="../model-guide.html#concepts">two-minute concepts primer</a> covers the shared jargon — it isn't repeated on each model's page.</p>
+  </div>
+</section>
+
+<section class="section" id="hardware" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">Hardware</h2>
+    <p class="reveal mg-desc">The first model where hardware genuinely matters. Below 16 GB, use <a href="model-gemma4-e4b.html">Gemma 4 e4B</a> or <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> instead. At 16 GB it runs but your machine feels it; at 32 GB it's effortless.</p>
+    <ul class="mt-hw reveal">
+      <li><span class="mt-hw-tag">Apple Silicon · 32 GB+</span>The ideal — the ~7–8 GB fits with massive headroom for the OS and apps. An M1 Pro / M2–M3 Pro with 32 GB doesn't notice it's running. 16 GB works but gets tight.</li>
+      <li><span class="mt-hw-tag">PC · NVIDIA GPU, 12 GB+ VRAM</span>An RTX 3060 12 GB, 3080 or 4070 holds it comfortably with room for context. 8 GB cards may spill to system RAM under load.</li>
+      <li><span class="mt-hw-tag">PC · CPU only</span>Slow — ~3–6 words/sec even on a high-end CPU. You want a GPU at this size.</li>
+    </ul>
+    <p class="reveal">Set the context window in <code>.env</code> (32K at 32 GB; 16–32K at 16 GB):</p>
+    <div class="mt-env reveal">OLLAMA_NUM_CTX=32768</div>
+  </div>
+</section>
+
+<section class="section" id="tryit" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">Try it yourself</h2>
+    <p class="reveal mg-desc">These tasks assume the tools work — because at 12B they do, ~95% of the time. They probe depth and reliability, not whether the basics fire.</p>
+
+    <div class="feat-card reveal mg-card">
+      <h3>1 · Creative control</h3>
+      <p class="mg-desc">At 12B, creative writing crosses a threshold — and stylistic instructions actually land.</p>
+      <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a four-line poem about a cat who dreams of becoming an astronaut. Then rewrite it in the style of Dr. Seuss, and again as a solemn medieval bard.</div>
+      <div class="mg-row mg-good"><span class="mg-tag">✅ Good</span><span class="mg-txt">A poem that reads as written rather than assembled, then two genuinely distinct rewrites — bouncing Seussian invented words, then archaic and grand. Smaller models flatten these into the same voice.</span></div>
+      <div class="mg-row mg-bad"><span class="mg-tag">❌ The wall</span><span class="mg-txt">Three near-identical versions with a few swapped words. (Cloud models still edge it on pure prose — but for local, this is strong.)</span></div>
+      <div class="mg-row mg-means"><span class="mg-tag">→ Means</span><span class="mg-txt">Trust it with tone-matching and "in the style of" rewrites for real writing tasks.</span></div>
+    </div>
+
+    <div class="feat-card reveal mg-card">
+      <h3>2 · Multi-step reasoning</h3>
+      <p class="mg-desc">Holds a chain of operations together and catches the wording trap that derails smaller models.</p>
+      <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>A book has 200 pages. On Monday I read 20% of it. On Tuesday I read 30% of the pages that were still unread. On Wednesday I read 50 more pages. How many pages are left, and what percentage of the whole book have I now read? Show every step.</div>
+      <div class="mg-row mg-good"><span class="mg-tag">✅ Good</span><span class="mg-txt">Monday 40 → 160 left; Tuesday 30% of <em>160</em> = 48 → 112 left; Wednesday −50 → <strong>62 left</strong>, <strong>69% read</strong>. The key is 30% of the <em>remaining</em>, not the whole.</span></div>
+      <div class="mg-row mg-bad"><span class="mg-tag">❌ The wall</span><span class="mg-txt">It takes 30% of the full 200 (the trap) or skips steps to a confident wrong number.</span></div>
+      <div class="mg-row mg-means"><span class="mg-tag">→ Means</span><span class="mg-txt">Reliable for everyday budgets, schedules and multi-step logic — still worth checking high-stakes maths.</span></div>
+    </div>
+
+    <div class="feat-card reveal mg-card">
+      <h3>3 · Web research, then synthesis</h3>
+      <p class="mg-desc">At this tier you stop wondering whether it'll use the right tool — it just does.</p>
+      <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Search the web and tell me who won the most recent FIFA World Cup — the year, the winner, and a source link.</div>
+      <div class="mg-row mg-good"><span class="mg-tag">✅ Good</span><span class="mg-txt">It knows it doesn't know, calls <code>fetch_url</code>, and returns a clean sourced answer. No prompting to use the tool.</span></div>
+      <div class="mg-row mg-bad"><span class="mg-tag">❌ The wall</span><span class="mg-txt">Rare at 12B — an answer from stale memory with no source.</span></div>
+      <div class="mg-row mg-means"><span class="mg-tag">→ Means</span><span class="mg-txt">The training cutoff stops mattering for anything answerable from the web.</span></div>
+    </div>
+
+    <div class="feat-card reveal mg-card">
+      <h3>4 · Memory it reasons over</h3>
+      <p class="mg-desc">Not whether it can store a fact — whether it stores a <em>connected</em> picture and reasons from it in a fresh chat.</p>
+      <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Remember this about me: my hometown is Hirakata, my favourite season is autumn, and I'm learning piano — I started in March and practise Chopin's Prelude in E minor every evening.</div>
+      <div class="mg-row mg-means"><span class="mg-tag">Then, new chat</span><span class="mg-txt">Start fresh and paste: <em>"Based on what you remember about me, what music would I enjoy at a live concert?"</em></span></div>
+      <div class="mg-row mg-good"><span class="mg-tag">✅ Good</span><span class="mg-txt">It recalls, spots the Chopin/piano detail, and reasons to a recommendation — a classical recital, perhaps Debussy or Rachmaninoff. Recall + extraction + inference, working together.</span></div>
+      <div class="mg-row mg-bad"><span class="mg-tag">❌ The wall</span><span class="mg-txt">It recalls the facts but suggests something generic that ignores them.</span></div>
+      <div class="mg-row mg-means"><span class="mg-tag">→ Means</span><span class="mg-txt">This is what makes the memory feel like memory, not a database lookup.</span></div>
+    </div>
+
+    <div class="feat-card reveal mg-card">
+      <h3>5 · A four-tool workflow</h3>
+      <p class="mg-desc">A realistic project kickoff — context, documentation, file reading, and a human-facing message in one prompt.</p>
+      <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>I'm starting a project called "Weekend Baker." Please: (1) remember the name and that my goal is to bake one new bread recipe every Saturday; (2) write a wiki article "Weekend Baker" with an overview, three beginner recipes, and a basic equipment list; (3) read the README.md in the project directory and summarise it in one sentence; (4) write a short, encouraging message to me as a friendly baking coach.</div>
+      <div class="mg-row mg-good"><span class="mg-tag">✅ Good</span><span class="mg-txt">It attempts and largely succeeds at all four, in sensible order (it may ask to approve the wiki write). The article may be simple, but every step lands.</span></div>
+      <div class="mg-row mg-bad"><span class="mg-tag">❌ The wall</span><span class="mg-txt">It drops a step on a very long chain. Break into two shorter prompts if so — or step up to the <a href="model-qwen3-30b-a3b.html">30B</a> for five-tool chains.</span></div>
+      <div class="mg-row mg-means"><span class="mg-tag">→ Means</span><span class="mg-txt">This is the everyday workflow you bought the 32 GB tier for — and it just works.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="verdict" style="padding:20px 0 60px">
+  <div class="section-inner">
+    <h2 class="reveal">The verdict</h2>
+    <p class="reveal">Gemma 4 12B is a milestone: a local AI that remembers, reads, writes, searches and reasons reliably, with a polished voice — all on your own hardware. If you have 32 GB and want the best Google-trained model locally, this is it. The model recedes into the background; the work comes forward.</p>
+    <h3 class="reveal" style="margin-top:28px">Where to go next</h3>
+    <div class="mt-next reveal">
+      <a href="model-qwen3-30b-a3b.html"><span class="mt-next-t">Faster &amp; sharper → Qwen3 30B-A3B</span><span class="mt-next-d">MoE: ~3B active per token, so it feels snappier — and tops out tool reliability at ~98%.</span></a>
+      <a href="model-qwen2.5vl-7b.html"><span class="mt-next-t">Add vision → Qwen2.5VL 7B</span><span class="mt-next-d">Pair it as a dedicated image model beside this one.</span></a>
+      <a href="../model-guide.html#compare"><span class="mt-next-t">Compare everything →</span><span class="mt-next-d">The full lineup in one table.</span></a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+</body>
+</html>
