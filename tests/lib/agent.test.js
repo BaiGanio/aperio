@@ -774,6 +774,30 @@ describe("Agent Integration with Emitter", () => {
 
     assert.strictEqual(memCtx, "", "Ollama models must not get a memory pointer");
     assert.strictEqual(preloadedMemCount, 0, "no memories reported to the banner");
+    assert.strictEqual(agent.toolsEnabled, false, "weak Ollama models are offered no tools");
+    assert.strictEqual(agent.getToolCount("read my files", []), 0, "tool count is zero for weak models");
+  });
+
+  test("an allowlisted (APERIO_CAPABLE_MODELS) Ollama model gets memory + tools", async (t) => {
+    stubMcpTransport(t);
+    const prev = process.env.APERIO_CAPABLE_MODELS;
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b, llama3.1:70b";
+    t.after(() => { if (prev === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prev; });
+
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "recall") return { content: [{ type: "text", text: "[fact] User name is John" }] };
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+
+    const agent = await createAgent({
+      root: process.cwd(), version: "1.0.0",
+      providerConfig: { name: "ollama", model: "qwen3:32b" },
+    });
+
+    const { memCtx } = await agent.buildGreeting();
+
+    assert.strictEqual(agent.toolsEnabled, true, "allowlisted Ollama models are capable");
+    assert.match(memCtx, /1 saved memory\b/, "allowlisted models get the recall pointer");
   });
 
   test("buildGreeting handles no memories gracefully", async (t) => {
