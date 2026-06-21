@@ -840,3 +840,158 @@
       min-width: 90px;
       text-align: center;
     }
+
+    /* ── Confirm modal (export / import) ───────────────────────── */
+    .confirm-modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      z-index: 500;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .confirm-modal.active {
+      display: flex !important;
+    }
+
+    .confirm-content {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg, 12px);
+      padding: 24px 28px;
+      max-width: 420px;
+      width: 90%;
+      box-shadow: 0 12px 40px rgba(0,0,0,.3);
+    }
+
+    .confirm-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .confirm-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .confirm-close {
+      background: none;
+      border: none;
+      font-size: 22px;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0 4px;
+      line-height: 1;
+    }
+
+    .confirm-close:hover { color: var(--text); }
+
+    .confirm-message {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin: 0 0 20px;
+    }
+
+    .confirm-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    .confirm-btn {
+      padding: 8px 20px;
+      border-radius: var(--radius-sm, 6px);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      transition: all var(--transition, .15s);
+    }
+
+    .confirm-btn--cancel {
+      background: transparent;
+      color: var(--text-muted);
+    }
+
+    .confirm-btn--cancel:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+
+    .confirm-btn--ok {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+      font-weight: 600;
+    }
+
+    .confirm-btn--ok:hover {
+      filter: brightness(1.1);
+    }
+
+    /* ── Export options (checkbox list) ───────────────────────── */
+    .export-options {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      margin-bottom: 20px;
+    }
+
+    .export-option {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm, 6px);
+      cursor: pointer;
+      transition: background var(--transition, .15s);
+      user-select: none;
+    }
+
+    .export-option:hover {
+      background: var(--bg-hover);
+    }
+
+    .export-option input[type="checkbox"] {
+      width: 16px; height: 16px;
+      accent-color: var(--accent);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .export-option--always {
+      cursor: default;
+      opacity: .85;
+    }
+
+    .export-option--always:hover {
+      background: transparent;
+    }
+
+    .export-option-label {
+      font-size: 14px;
+      color: var(--text);
+      flex: 1;
+    }
+
+    .export-option-count {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    .export-option-sub {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      opacity: .7;
+    }

@@ -197,6 +197,18 @@ and flips `APERIO_AGENT_JOBS=on`:
   sets `triage.repos` — both are user-owned surfaces.
 - Dedup is server-side (`only_untriaged` reads the ledger), so a weaker local
   model can't re-triage the whole backlog — it only ever sees the pending set.
+- **Model choice matters — set a strong model per-job.** The seed has no
+  `provider` override, so the job runs on the default chat model. Triage is an
+  agentic task (multi-tool, follow instructions exactly, don't invent data); a
+  weak local model (e.g. `llama3.1:8b`) will *hallucinate* — it fabricates tool
+  results and a plausible-looking digest while the run is still recorded as
+  verdict `ok`. Symptoms seen in the wild: it invents a config error citing a
+  non-existent env var (`APERIO_TRIAGE_REPOS`), calls `list_github_issues`
+  repeatedly, and emits placeholder issues (`Issue #X`). Give the `issue-triage`
+  job a capable model via its `provider` field in the Edit form (e.g.
+  `{"name":"deepseek","model":"…"}`) rather than relying on whatever the chat
+  model happens to be. A `verdict: ok` only means the loop didn't throw — it is
+  **not** a quality signal.
 - The ranked digest lands in `var/agents/aperio-agent-<id>.md`; the run summary
   in `agent_runs` — both automatic.
 

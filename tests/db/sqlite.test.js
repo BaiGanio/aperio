@@ -367,4 +367,27 @@ describe("agent run history", () => {
   test("returns [] for a job with no runs", async () => {
     assert.deepEqual(await store.listAgentRuns("never-ran"), []);
   });
+
+  test("deleteAgentRun removes one run and reports hit/miss", async () => {
+    await store.recordAgentRun({
+      jobId: "del", startedAt: "2026-06-16T10:00:00.000Z", verdict: "ok", mode: "steps",
+    });
+    const [run] = await store.listAgentRuns("del");
+    assert.equal(await store.deleteAgentRun(run.id), true);
+    assert.deepEqual(await store.listAgentRuns("del"), []);
+    assert.equal(await store.deleteAgentRun(run.id), false); // already gone
+  });
+
+  test("pruneAgentRuns removes runs older than the retention window", async () => {
+    const old = new Date(Date.now() - 40 * 86400000).toISOString();
+    const recent = new Date(Date.now() - 2 * 86400000).toISOString();
+    await store.recordAgentRun({ jobId: "gc", startedAt: old,    verdict: "ok", mode: "steps" });
+    await store.recordAgentRun({ jobId: "gc", startedAt: recent, verdict: "ok", mode: "steps" });
+
+    const removed = await store.pruneAgentRuns(30);
+    assert.equal(removed, 1);
+    const left = await store.listAgentRuns("gc");
+    assert.equal(left.length, 1);
+    assert.equal(left[0].started_at, recent);
+  });
 });

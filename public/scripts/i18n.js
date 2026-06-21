@@ -247,6 +247,12 @@ const TRANSLATIONS = {
     import_done_many:         "Imported {n} memories successfully.",
     import_done_with_errors:  "Imported {n} memories. {e} skipped.",
     import_error:             "Import error: {error}",
+    export_error:             "Export error: {error}",
+    export_confirm_full:      "Aperio will export {m} memories and {w} wiki articles?",
+    import_confirm_full:      "Import {m} memories and {w} wiki articles from \"{file}\"?",
+    import_done_memories:     "Imported {n} memories.",
+    import_done_wiki:         "Imported {n} wiki articles.",
+    import_skipped:           "{m} memories and {w} wiki articles skipped (already exist).",
 
     ctx_warn:                 "Context is {pct}% full — older messages will be dropped soon.",
     ctx_trimmed:              "Older messages were dropped to fit context ({pct}% full).",

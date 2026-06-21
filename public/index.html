@@ -246,6 +246,52 @@
   </div>
 </div>
 
+<!-- Confirm modal (export / import) -->
+<div id="confirmModal" class="confirm-modal">
+  <div class="confirm-content">
+    <div class="confirm-header">
+      <span class="confirm-title"></span>
+      <button class="confirm-close" onclick="closeConfirmModal()">&times;</button>
+    </div>
+    <p class="confirm-message"></p>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" onclick="closeConfirmModal()">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="confirmOkBtn"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Export modal (checkbox form) -->
+<div id="exportModal" class="confirm-modal">
+  <div class="confirm-content">
+    <div class="confirm-header">
+      <span class="confirm-title">Export database</span>
+      <button class="confirm-close" onclick="closeExportModal()">&times;</button>
+    </div>
+    <div class="export-options">
+      <div class="export-option export-option--always">
+        <span class="export-option-label">Memories</span>
+        <span class="export-option-count" id="exportCountMem">0</span>
+      </div>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeWiki" checked>
+        <span class="export-option-label">Wiki articles</span>
+        <span class="export-option-count" id="exportCountWiki">0</span>
+      </label>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeJobs" checked>
+        <span class="export-option-label">Agent jobs + recent runs</span>
+        <span class="export-option-count" id="exportCountJobs">0</span>
+        <span class="export-option-sub">+ <span id="exportCountRuns">0</span> runs</span>
+      </label>
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" onclick="closeExportModal()">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="exportDoBtn">Export</button>
+    </div>
+  </div>
+</div>
+
 <div id="sessions-panel" class="sessions-panel" style="display:none;">
   <div class="sessions-panel-header">
     <span class="sessions-panel-title"><i class="bi bi-clock-history"></i> <span data-i18n="sessions_title">History</span></span>

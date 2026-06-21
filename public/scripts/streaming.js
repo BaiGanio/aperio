@@ -204,6 +204,7 @@ function handleMessage(msg) {
 
   if (msg.type === "agent_job_done") {
     if (typeof showAgentJobBanner === "function") showAgentJobBanner(msg);
+    if (typeof window.refreshAgentsPanelIfOpen === "function") window.refreshAgentsPanelIfOpen();
   }
 
   if (msg.type === "thinking") {

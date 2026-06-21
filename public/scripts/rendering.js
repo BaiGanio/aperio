@@ -84,16 +84,17 @@ function dismissAgentJobBanner(el) {
   setTimeout(() => el.remove(), 400);
 }
 
-function showAgentJobBanner({ jobId, verdict, durationMs, trigger, error }) {
+function showAgentJobBanner({ jobId, verdict, durationMs, trigger, model, error }) {
   const ok = verdict === "ok";
   const banner = document.createElement("div");
   banner.className = "ctx-banner" + (ok ? " ctx-banner--memories" : " ctx-banner--trimmed");
   const id   = `<code>${jobId ?? "?"}</code>`;
+  const by   = model ? ` by <code>${model}</code>` : "";
   const secs = durationMs ? ` in ${(durationMs / 1000).toFixed(1)}s` : "";
   const via  = trigger ? ` (${trigger})` : "";
   const text = ok
-    ? `✅ Background job ${id} finished${secs}${via}.`
-    : `⚠️ Background job ${id} failed${via}: ${error || "unknown error"}`;
+    ? `✅ Job ${id} finished${by}${secs}${via}.`
+    : `⚠️ Job ${id} failed${by}${via}: ${error || "unknown error"}`;
   banner.innerHTML =
     `<span class="ctx-banner-text">${text}</span>` +
     `<button class="ctx-banner-btn" onclick="dismissAgentJobBanner(this.parentElement)">Dismiss</button>`;
