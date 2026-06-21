@@ -249,6 +249,12 @@ Available characters: `software-architect`, `code-reviewer`, `security-engineer`
 `product-thinker`, `socratic-questioner`, `doctor`, `space-engineer`. Add your own
 by dropping a `.md` file into `id/characters/`.
 
+**Manifestos.** After each round-table concludes (consensus or not), each agent
+writes a personal manifesto — a short, opinionated final statement. Both are saved
+to `var/roundtables/aperio-manifesto-{sessionId}.md` and served at `/roundtables/`
+for preview and download. Manifesto generation is best-effort; it never blocks the
+round-table result from reaching you.
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>

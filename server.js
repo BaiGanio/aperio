@@ -179,6 +179,7 @@ app.use(express.static(resolve(__dirname, "public"), { index: false }));
 const staticGuard = createStaticGuard(STATIC_TOKEN);
 app.use("/uploads", staticGuard, express.static(resolve(__dirname, "var/uploads")));
 app.use("/scratch", staticGuard, express.static(resolve(__dirname, "var/scratch")));
+app.use("/roundtables", staticGuard, express.static(resolve(__dirname, "var/roundtables")));
 
 // ─── Bootstrap guard middleware ───────────────────────────────────────────────
 // Until .bootstrap.lock exists every request redirects to /setup,

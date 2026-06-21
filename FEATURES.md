@@ -84,7 +84,7 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 - Providers: Ollama, Anthropic, DeepSeek (Gemini and Claude Code SDK exist in-code but are hidden from the UI)
 - Skills matching per turn (`skills/`)
 - Reasoning / thinking mode with reasoning-chain replay
-- Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`)
+- Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`); post-round manifestos from each agent saved to `var/roundtables/` and served for preview/download
 - Background agents: scheduled, chat-less jobs over the store — interval, manual (`POST /api/agents/:id/run`), and codegraph/docgraph file-change (`watcher`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, DB-backed (`agent_jobs` table) with per-run history in the `agent_runs` table (newest-first in the agents panel), gated by `APERIO_AGENT_JOBS=on` (see `background-agents.md`)
 - Background-agents UI panel — right-side sidebar with live master switch, per-job trigger/mode/last-verdict, "Run now", and per-job run history (`lib/routes/api-agents.js`, `public/scripts/agents-panel.js`)
 - Personas via `id/whoami*.md`; 7 domain characters via `id/characters/` (architect, reviewer, security, product, socratic, doctor, space-engineer) overlayable per-agent via `ROUNDTABLE_CHARACTERS`

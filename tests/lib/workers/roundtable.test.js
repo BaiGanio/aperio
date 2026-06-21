@@ -196,9 +196,11 @@ describe("runRoundTable orchestrator", () => {
 
     assert.strictEqual(result.agreed, true);
     assert.strictEqual(result.text, "that is correct.");
-    assert.strictEqual(result.rounds, 2);                  // A1 + B1 → 2 agent turns
-    assert.strictEqual(primary._calls.length, 1);          // A never called again
-    assert.strictEqual(verifier._calls.length, 1);
+    assert.strictEqual(result.rounds, 4);                  // A1 + B1 + 2 manifesto turns
+    assert.strictEqual(primary._calls.length, 2);          // A answer + A manifesto
+    assert.strictEqual(verifier._calls.length, 2);         // B review + B manifesto
+    assert.ok(result.manifesto, "manifesto should be present");
+    assert.ok(result.manifesto.path, "manifesto path should be set");
 
     // Final consensus appended to shared transcript
     assert.strictEqual(transcript.at(-1).role, "assistant");
@@ -209,9 +211,9 @@ describe("runRoundTable orchestrator", () => {
     assert.ok(agreedEvent, "expected roundtable_agreed event");
     assert.strictEqual(agreedEvent.text, "that is correct.");
 
-    // Phase chips emitted in order: answer → review
+    // Phase chips emitted in order: answer → review → manifesto ×2
     const phases = ws.sent.filter(e => e.type === "roundtable_phase").map(e => e.phase);
-    assert.deepStrictEqual(phases, ["answer", "review"]);
+    assert.deepStrictEqual(phases, ["answer", "review", "manifesto", "manifesto"]);
 
     // Every token/stream event carries agent_id
     const streamEvents = ws.sent.filter(e => ["stream_start", "token", "stream_end"].includes(e.type));
@@ -236,18 +238,19 @@ describe("runRoundTable orchestrator", () => {
 
     assert.strictEqual(result.agreed, true);
     assert.strictEqual(result.text, "the revision covers it.");
-    assert.strictEqual(primary._calls.length, 2);
-    assert.strictEqual(verifier._calls.length, 2);
+    assert.strictEqual(primary._calls.length, 3);   // A answer + A revise + A manifesto
+    assert.strictEqual(verifier._calls.length, 3);  // B review + B rereview + B manifesto
+    assert.ok(result.manifesto, "manifesto should be present");
 
-    // Phases: answer → review → revise → rereview
+    // Phases: answer → review → revise → rereview → manifesto ×2
     const phases = ws.sent.filter(e => e.type === "roundtable_phase").map(e => e.phase);
-    assert.deepStrictEqual(phases, ["answer", "review", "revise", "rereview"]);
+    assert.deepStrictEqual(phases, ["answer", "review", "revise", "rereview", "manifesto", "manifesto"]);
 
-    // Re-review prompt to verifier should quote prior objections AND revised A
-    const lastVerifierCall = verifier._calls.at(-1).prompt;
-    assert.match(lastVerifierCall, /PHASE: REREVIEW/);
-    assert.match(lastVerifierCall, /Missing X/);
-    assert.match(lastVerifierCall, /Revised answer addressing your points/);
+    // Re-review prompt to verifier (call index 1, third-last after manifestos)
+    const rereviewCall = verifier._calls[1].prompt;
+    assert.match(rereviewCall, /PHASE: REREVIEW/);
+    assert.match(rereviewCall, /Missing X/);
+    assert.match(rereviewCall, /Revised answer addressing your points/);
   });
 
   test("cap hit — no agreement after maxRounds, both positions surface", async () => {
@@ -267,6 +270,7 @@ describe("runRoundTable orchestrator", () => {
     assert.strictEqual(result.agreed, false);
     assert.strictEqual(result.positions.primary,  "A3");
     assert.strictEqual(result.positions.verifier, "1. still wrong v2");
+    assert.ok(result.manifesto, "manifesto should be present even without consensus");
 
     const noAgreeEvent = ws.sent.find(e => e.type === "roundtable_no_agreement");
     assert.ok(noAgreeEvent);
