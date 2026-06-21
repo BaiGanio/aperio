@@ -183,6 +183,97 @@ describe("agent-scheduler", () => {
     });
   });
 
+  describe("job-done notify (Phase 5)", () => {
+    test("notifies on a background (interval) run with verdict + duration", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const notes = [];
+      const sched = createAgentScheduler({
+        callTool: async () => "ok",
+        notify: (p) => { notes.push(p); },
+        jobs: [],
+      });
+
+      await sched.runJob(stepsJob("notify-ok"), { kind: "interval" });
+      sched.stop();
+
+      assert.strictEqual(notes.length, 1);
+      assert.strictEqual(notes[0].jobId, "notify-ok");
+      assert.strictEqual(notes[0].verdict, "ok");
+      assert.strictEqual(notes[0].trigger, "interval");
+      assert.ok(Number.isFinite(notes[0].durationMs));
+    });
+
+    test("notifies on an error run with the message", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const notes = [];
+      const sched = createAgentScheduler({
+        callTool: async () => { throw new Error("boom"); },
+        notify: (p) => { notes.push(p); },
+        jobs: [],
+      });
+
+      await sched.runJob(stepsJob("notify-err"), { kind: "interval" });
+      sched.stop();
+
+      assert.strictEqual(notes.length, 1);
+      assert.strictEqual(notes[0].verdict, "error");
+      assert.strictEqual(notes[0].error, "boom");
+    });
+
+    test("notifies for manual run-now too (long jobs surface a banner)", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const notes = [];
+      const sched = createAgentScheduler({
+        callTool: async () => "ok",
+        notify: (p) => { notes.push(p); },
+        jobs: [],
+      });
+
+      await sched.runJob(stepsJob("notify-manual"), { kind: "manual" });
+      sched.stop();
+
+      assert.strictEqual(notes.length, 1);
+      assert.strictEqual(notes[0].trigger, "manual");
+    });
+
+    test("a throwing notify never fails the job", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const sched = createAgentScheduler({
+        callTool: async () => "ok",
+        notify: () => { throw new Error("ws gone"); },
+        jobs: [],
+      });
+
+      const res = await sched.runJob(stepsJob("notify-throws"), { kind: "interval" });
+      sched.stop();
+
+      assert.strictEqual(res.verdict, "ok");
+    });
+
+    test("a freeform run reports the answering model in record + notify", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const recorded = [];
+      const notes = [];
+      const createAgent = async () => ({
+        provider: { name: "ollama", model: "qwen3:8b" },
+        runAgentLoop: async () => "triaged",
+      });
+      const sched = createAgentScheduler({
+        callTool: async () => "",
+        createAgent,
+        recordRun: async (r) => { recorded.push(r); },
+        notify: (p) => { notes.push(p); },
+        jobs: [],
+      });
+
+      await sched.runJob({ id: "triage", prompt: "triage issues" }, { kind: "interval" });
+      sched.stop();
+
+      assert.strictEqual(recorded[0].model, "qwen3:8b");
+      assert.strictEqual(notes[0].model, "qwen3:8b");
+    });
+  });
+
   describe("runJob (freeform mode)", () => {
     const freeformJob = (overrides = {}) => ({
       id: "curator",

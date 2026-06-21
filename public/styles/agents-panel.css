@@ -32,6 +32,11 @@
 }
 .ag-tag.on  { color: #16a34a; border-color: #16a34a; }
 .ag-tag.off { color: var(--text-muted); opacity: 0.7; }
+.ag-tag.running {
+  color: var(--accent); border-color: var(--accent);
+  animation: ag-pulse 1.2s ease-in-out infinite;
+}
+@keyframes ag-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 .ag-verdict {
   font-family: var(--font-mono); font-size: 9px; font-weight: 700;
@@ -64,6 +69,13 @@
 }
 .ag-run.ok    { border-left-color: #16a34a; }
 .ag-run.error { border-left-color: var(--danger, #e05252); }
+/* Model badge on top of each run — "who triaged this". */
+.ag-run-model {
+  font-size: 11px; font-weight: 600; color: var(--accent);
+  font-family: var(--font-mono); margin-bottom: 2px;
+}
+.ag-run-actions { display: flex; gap: 6px; margin-top: 5px; }
+.ag-run-actions .ag-btn { font-size: 10px; padding: 2px 8px; }
 .ag-run-head {
   display: flex; gap: 8px; align-items: center;
   font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);

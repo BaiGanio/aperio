@@ -93,8 +93,10 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 - SQLite + sqlite-vec + FTS5 — zero-config default, single file `var/aperio.db`
 - Postgres + pgvector — Docker, for multi-agent/production
 - Auto-detect backend (Postgres if Docker running, else SQLite)
+- SQLite at-rest encryption — AES-256-GCM, key stored in OS keychain (`APERIO_DB_ENCRYPT=1`)
 - Embedding providers: local transformers (default), Voyage AI (cloud)
 - Embedding retry queue for resilient vector writes
+- Data portability — `export_data` (portable JSON backup) and `import_data` (idempotent restore, deduplicates by ID/slug, queues embeddings for backfill)
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel
@@ -122,6 +124,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Secret redaction (PEM keys, API tokens, JWTs, URI passwords) at every cloud-provider send boundary; local Ollama skipped
 - `local-only`-tagged memories dropped from recall on cloud providers; memory inference/dedup workers gated to local provider (`APERIO_CLOUD_MEMORY_WORKERS` opt-in)
 - At-rest `0600` perms + secret scrubbing for sessions, handoffs, and error logs
+- SQLite at-rest encryption — AES-256-GCM with key in OS keychain (macOS Keychain, Linux libsecret, Windows DPAPI); plaintext in `$TMPDIR` only while running; auto-migrates existing plaintext DB on first enable; DELETE journal when encrypted (no WAL plaintext leakage); crash recovery from leftover temp files (`APERIO_DB_ENCRYPT=1`)
 
 **Network & hosting**
 - DNS-rebinding / Host + cross-site Origin guard + `X-Aperio-Client` requirement on state-changing `/api` (`APERIO_ALLOWED_HOSTS`)

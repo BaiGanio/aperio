@@ -576,6 +576,36 @@ Constraints, enforced in `mcp/tools/shell.js`:
 | Limits | 60 s timeout, 200 KB output cap (shared with `run_node_script`) |
 | Per-model gate | Disabled providers/models never see the tool at all (see `isShellAllowedFor` in `lib/agent/index.js`) |
 
+### Database Encryption
+
+Your memories, wiki, and agent knowledge live in a single SQLite database file. When `APERIO_DB_ENCRYPT=1`, that file is encrypted on disk with AES-256-GCM — **unreadable without the key.**
+
+The encryption key is generated on your machine on first run and stored in your OS keychain: **macOS Keychain**, **Linux libsecret**, or **Windows DPAPI**. The key never touches disk — it's retrieved at startup and held only in memory.
+
+**What this means for you:**
+- **File theft is harmless.** If someone copies your database file, they get ciphertext — not your memories, not your wiki, not your settings.
+- The plaintext database only exists in a temporary location while Aperio is running. It's re-encrypted on shutdown.
+- **Zero-friction upgrade.** Existing plaintext databases are automatically migrated the first time you enable encryption — you don't lose anything.
+- **Crash-safe.** If Aperio stops unexpectedly, the next startup recovers any writes from the leftover temp data.
+
+**How to enable:**
+```env
+# APERIO_DB_ENCRYPT=1
+```
+
+> 💡 Check out [SECURITY.md](SECURITY.md) for the full threat model and platform details.
+
+### Data Portability
+
+Your memories and wiki are yours — take them with you. Two tools make migration and backup simple:
+
+| Tool | What it does |
+|------|-------------|
+| `export_data` | Writes all memories + wiki articles to a portable JSON file. Defaults to `~/aperio-export-<timestamp>.json`. |
+| `import_data` | Restores from an export file. Idempotent — memories match by ID, wiki articles by slug, so running it twice doesn't create duplicates. |
+
+**Cross-machine migration:** export on your old machine, copy the JSON file to the new one, run `import_data`. Embeddings are queued for backfill automatically — semantic search works after `backfill_embeddings` completes. Works regardless of whether either machine has encryption enabled.
+
 📄 Take a notes:
 - Only run Aperio on a machine you trust
 - Do not expose the MCP server or web UI to the public internet without authentication
