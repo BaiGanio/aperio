@@ -40,7 +40,7 @@
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.5.2",
-    "fast-xml-parser": "^5.7.2",
+    "fast-xml-parser": "^5.9.3",
     "gpt-tokenizer": "^3.4.0",
     "helmet": "^8.2.0",
     "mammoth": "^1.12.0",
