@@ -182,6 +182,7 @@ const TRANSLATIONS = {
     tool_read_file:           "Reading file…",
     tool_scan_project:        "Scanning project…",
     tool_fetch_url:           "Fetching URL…",
+    tool_web_search:          "Searching the web…",
     tool_generic:             "Using {name}…",
     skills_chip_label:        "Skills",
     skills_core_label:        "core",

@@ -305,6 +305,43 @@
 }
 .tool-card.error .tool-card-result { color: #e5534b; }
 
+/* web_search expandable result list. The parent .tool-card-result clips to one
+   line; when it holds the <details> list we let it wrap and grow. */
+.tool-card-result:has(.tool-card-results) {
+    overflow: visible;
+    white-space: normal;
+    text-overflow: clip;
+}
+.tool-card-results > summary {
+    cursor: pointer;
+    color: var(--text-muted);
+    list-style: none;
+}
+.tool-card-results > summary::-webkit-details-marker { display: none; }
+.tool-card-results[open] > summary { margin-bottom: 6px; }
+.tool-card-result-item {
+    padding: 4px 0 4px 14px;
+    border-left: 2px solid var(--border, #ddd);
+    margin-bottom: 4px;
+}
+.tool-card-result-item a {
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 500;
+}
+.tool-card-result-item a:hover { text-decoration: underline; }
+.tool-card-result-url {
+    color: var(--text-muted);
+    opacity: 0.7;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+}
+.tool-card-result-snippet {
+    color: var(--text-muted);
+    margin-top: 2px;
+    line-height: 1.4;
+}
+
 /* Persistent breadcrumb left behind by a completed reasoning phase, aligned
    with the tool-card dot so the feed reads as one ordered column of steps. */
 .action-phase {
