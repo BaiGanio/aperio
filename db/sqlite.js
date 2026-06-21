@@ -686,6 +686,18 @@ export class SqliteStore {
         this.db.prepare(`INSERT INTO vec_memories (rowid, embedding) VALUES (?, ?)`)
           .run(BigInt(info.lastInsertRowid), vecBuf(embedding));
       }
+      // Tombstone+insert means the AFTER-UPDATE stale trigger never sees this edit
+      // (only valid_until changes; the new content arrives via a fresh-id INSERT).
+      // Do explicitly what Postgres's trigger does: mark citing fresh articles stale,
+      // then re-point their source links from the old id to the new version so
+      // provenance keeps resolving to a live memory instead of a dangling UUID.
+      this.db.prepare(`
+        UPDATE wiki_articles SET status = 'stale'
+         WHERE status = 'fresh'
+           AND id IN (SELECT article_id FROM wiki_article_sources WHERE memory_id = ?)
+      `).run(id);
+      this.db.prepare(`UPDATE wiki_article_sources SET memory_id = ? WHERE memory_id = ?`)
+        .run(newId, id);
     });
     tx();
     await this.refreshCache();
@@ -873,6 +885,18 @@ export class SqliteStore {
         this.db.prepare(`UPDATE memories SET content = content || ' | ' || ? WHERE id = ?`)
           .run(b.content, id_a);
       }
+      // Fold the duplicate's wiki citations into the survivor before it's deleted:
+      // mark citing fresh articles stale, then re-point their sources from id_b to
+      // id_a. OR IGNORE drops the redundant row if the article already cites id_a;
+      // the leftover then cascade-deletes with id_b below. Without this, the DELETE
+      // would silently cascade away id_b's source rows and leave dangling citations.
+      this.db.prepare(`
+        UPDATE wiki_articles SET status = 'stale'
+         WHERE status = 'fresh'
+           AND id IN (SELECT article_id FROM wiki_article_sources WHERE memory_id = ?)
+      `).run(id_b);
+      this.db.prepare(`UPDATE OR IGNORE wiki_article_sources SET memory_id = ? WHERE memory_id = ?`)
+        .run(id_a, id_b);
       this.db.prepare(`DELETE FROM memories WHERE id = ?`).run(id_b);
     });
     tx();

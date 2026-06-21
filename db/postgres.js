@@ -417,6 +417,24 @@ export class PostgresStore {
         [b.content, id_a]
       );
     }
+    // Fold the duplicate's wiki citations into the survivor before it's deleted:
+    // mark citing fresh articles stale, then re-point their sources from id_b to
+    // id_a. Skip articles that already cite id_a (avoids a PK collision); those
+    // leftover id_b rows cascade-delete with the memory below. Without this the
+    // DELETE would silently cascade away id_b's source rows, leaving dangling
+    // citations and no staleness signal.
+    await this.pool.query(
+      `UPDATE wiki_articles SET status = 'stale'
+        WHERE status = 'fresh'
+          AND id IN (SELECT article_id FROM wiki_article_sources WHERE memory_id = $1)`,
+      [id_b]
+    );
+    await this.pool.query(
+      `UPDATE wiki_article_sources SET memory_id = $1
+        WHERE memory_id = $2
+          AND article_id NOT IN (SELECT article_id FROM wiki_article_sources WHERE memory_id = $1)`,
+      [id_a, id_b]
+    );
     await this.pool.query(`DELETE FROM memories WHERE id = $1`, [id_b]);
   }
 
