@@ -1,6 +1,6 @@
 import express from "express";
 import helmet from "helmet";
-import { WebSocketServer } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
 import { existsSync, readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
@@ -85,7 +85,9 @@ app.use(createNetGuard({ allowedHosts }));
 // AUTH-01: opt-in shared-secret gate on /api/* (no-op unless APERIO_AUTH_TOKEN set).
 app.use(createAuthGuard());
 
-app.use(express.json({ limit: '256kb' }));
+// Stash the raw body so the GitHub webhook can verify its HMAC signature
+// (express.json otherwise consumes the stream before any route sees the bytes).
+app.use(express.json({ limit: '256kb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
 // ─── Locale detection (Accept-Language + cookie) ──────────────────────────────
 // Supported EU locales — must mirror public/scripts/i18n.js.
@@ -547,10 +549,14 @@ async function bootApp() {
     logger.warn(`[agent-scheduler] could not load jobs from DB: ${err.message}`);
     return [];
   }) ?? [];
+  // Broadcast to every connected browser. Reassigned once `wss` exists below;
+  // until then it's a no-op so the scheduler can be created first.
+  let broadcastToClients = () => {};
   const scheduler = createAgentScheduler({
     callTool, createAgent, root: __dirname, version, watcherEvents,
     jobs: agentJobs,
     recordRun: (run) => store.recordAgentRun(run),
+    notify: (payload) => broadcastToClients({ type: "agent_job_done", ...payload }),
   });
 
   // Mount API routes and WebSocket *after* everything is ready
@@ -579,6 +585,17 @@ async function bootApp() {
     },
   });
   wss.on("connection", makeWsHandler({ agent, primaryRoundtable, verifier, roundtableAvailable, store, __dirname }));
+
+  // Fan a server-side message out to every open browser tab. Used by the
+  // background-agent scheduler to surface a "job finished" banner.
+  broadcastToClients = (msg) => {
+    const data = JSON.stringify(msg);
+    for (const client of wss.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        try { client.send(data); } catch { /* dead socket — ignore */ }
+      }
+    }
+  };
 
   // Background jobs
   // PRIVACY-01: the infer/dedup workers feed stored personal memories to the

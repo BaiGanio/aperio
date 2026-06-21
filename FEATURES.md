@@ -71,10 +71,13 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 
 ## GitHub
 - Fetch an issue with body + comments (`fetch_github_issue`)
+- List the open-issue backlog for triage (`list_github_issues`) — resolves the repo(s) from an explicit `repo`, a `project` name, or the user's `triage.repos` setting (never a hardcoded default); filters out PRs; records each issue in the triage ledger
+- Record a triage verdict in the local ledger (`record_issue_triage`) — server-side dedup so the daily job never re-reads an issue
 - Open a new issue (`create_github_issue`)
 - Update / close an existing issue (`update_github_issue`)
+- Daily issue-triage background job (`issue-triage`) + on-demand planner (`issue-planner`), both seeded **disabled** and repo-less; real-time capture via the GitHub webhook (`POST /api/github/webhook`, HMAC-verified with `GITHUB_WEBHOOK_SECRET`). Triage is read-only (no token for public repos) and treats issue text as untrusted data
 
-> **41 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
+> **43 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)
@@ -82,7 +85,7 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 - Skills matching per turn (`skills/`)
 - Reasoning / thinking mode with reasoning-chain replay
 - Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`)
-- Background agents: scheduled, chat-less jobs over the store — interval, manual (`POST /api/agents/:id/run`), and codegraph/docgraph file-change (`watcher`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, DB-backed (`agent_jobs` table) with run records in `var/agents/`, gated by `APERIO_AGENT_JOBS=on` (see `background-agents.md`)
+- Background agents: scheduled, chat-less jobs over the store — interval, manual (`POST /api/agents/:id/run`), and codegraph/docgraph file-change (`watcher`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, DB-backed (`agent_jobs` table) with per-run history in the `agent_runs` table (newest-first in the agents panel), gated by `APERIO_AGENT_JOBS=on` (see `background-agents.md`)
 - Background-agents UI panel — right-side sidebar with live master switch, per-job trigger/mode/last-verdict, "Run now", and per-job run history (`lib/routes/api-agents.js`, `public/scripts/agents-panel.js`)
 - Personas via `id/whoami*.md`; characters via `id/characters/`
 

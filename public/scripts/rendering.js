@@ -72,6 +72,35 @@ function showHandoffResult(ok, payload) {
   document.querySelector(".chat-area")?.prepend(note);
 }
 
+// ── Background-agent "job finished" banner ────────────────────
+// Pushed from the server when a scheduled (interval/watcher) job completes —
+// there's no chat turn for these, so this is the only signal the user gets.
+// Reuses the startup banner styling. Unlike that banner, this one auto-dismisses
+// (success after 8s; errors stay until dismissed so failures aren't missed).
+function dismissAgentJobBanner(el) {
+  if (!el || !el.isConnected) return;
+  el.style.transition = "opacity 0.4s ease";
+  el.style.opacity = "0";
+  setTimeout(() => el.remove(), 400);
+}
+
+function showAgentJobBanner({ jobId, verdict, durationMs, trigger, error }) {
+  const ok = verdict === "ok";
+  const banner = document.createElement("div");
+  banner.className = "ctx-banner" + (ok ? " ctx-banner--memories" : " ctx-banner--trimmed");
+  const id   = `<code>${jobId ?? "?"}</code>`;
+  const secs = durationMs ? ` in ${(durationMs / 1000).toFixed(1)}s` : "";
+  const via  = trigger ? ` (${trigger})` : "";
+  const text = ok
+    ? `✅ Background job ${id} finished${secs}${via}.`
+    : `⚠️ Background job ${id} failed${via}: ${error || "unknown error"}`;
+  banner.innerHTML =
+    `<span class="ctx-banner-text">${text}</span>` +
+    `<button class="ctx-banner-btn" onclick="dismissAgentJobBanner(this.parentElement)">Dismiss</button>`;
+  document.querySelector(".chat-area")?.prepend(banner);
+  if (ok) setTimeout(() => dismissAgentJobBanner(banner), 8000);
+}
+
 // ── Message rendering ─────────────────────────────────────────
 function getUserInitial() {
   const nameMem = allMemories.find(m =>

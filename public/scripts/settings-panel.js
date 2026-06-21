@@ -139,6 +139,7 @@
       syncSound();
       wireBusyWords();
       loadModels();
+      window.loadGithubTriageSettings?.();
       p.style.display = "flex";
       b.style.display = "block";
     } else {
