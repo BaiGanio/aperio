@@ -527,6 +527,36 @@
                   placeholder="Marinating&#10;Percolating&#10;Compiling thoughts"></textarea>
       </div>
     </details>
+    <!-- GitHub triage — repos to triage + the GitHub token / webhook secret.
+         Stored in the DB settings store (no .env edit, no restart). The token
+         and secret are write-only: the server never sends their value back, it
+         only reports whether one is configured. -->
+    <details class="settings-section" id="githubTriageSection">
+      <summary>
+        <i class="bi bi-github"></i>
+        <span>GitHub triage</span>
+        <span class="model-current" id="githubTriageSummary"></span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Repos for the daily issue-triage agent to rank. One per line — either <code>owner/repo</code> (e.g. <code>octocat/Hello-World</code>) or the name of an allowed folder (resolved via its git origin).</span>
+        <textarea id="triageReposInput" class="busy-words-input" rows="3" spellcheck="false"
+                  placeholder="octocat/Hello-World&#10;my-project"></textarea>
+
+        <span class="paths-section-hint" style="margin-top:.75rem;">GitHub token — optional for public repos (raises the rate limit), required for private repos and for creating/updating issues. Needs <code>repo</code> scope. <span id="githubTokenState"></span></span>
+        <input type="password" id="githubTokenInput" class="paths-text-input" autocomplete="off"
+               placeholder="ghp_… (leave blank to keep current)" />
+
+        <span class="paths-section-hint" style="margin-top:.75rem;">Webhook secret — only needed if you point a GitHub webhook at this Aperio for instant issue capture. Must match the secret on the GitHub webhook. <span id="githubWebhookSecretState"></span></span>
+        <input type="password" id="githubWebhookSecretInput" class="paths-text-input" autocomplete="off"
+               placeholder="(leave blank to keep current)" />
+
+        <div class="paths-saved-note" style="margin-top:.75rem;">
+          <i class="bi bi-info-circle"></i> Triage runs as a background agent — enable background agents and the <code>issue-triage</code> job to start it.
+        </div>
+        <div class="model-select-status" id="githubTriageStatus"></div>
+        <button class="paths-apply-btn" onclick="saveGithubTriageSettings()"><i class="bi bi-check-lg"></i> Save</button>
+      </div>
+    </details>
     <details class="settings-section" id="extrasSection">
       <summary>
         <i class="bi bi-puzzle"></i>
@@ -562,6 +592,7 @@
 <script src="scripts/agents-panel.js"></script>
 <script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/skills-panel.js"></script>
+<script src="scripts/github-triage-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
 <script src="scripts/chat.js"></script>

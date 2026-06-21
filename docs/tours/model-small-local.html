@@ -249,6 +249,30 @@
   </div>
 </section>
 
+<!-- ── Safety & Alignment ──────────────────────────────────────── -->
+<section class="section" id="safety" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">How safe is it, really?</h2>
+    <p class="reveal mg-desc">Small models aren't just less capable — they're also less carefully trained to stay within safe boundaries. This section is the honest version of what that means.</p>
+
+    <h3 class="reveal" style="font-size:1.1rem;margin-top:22px">The short version</h3>
+    <p class="reveal">Larger models go through extensive safety training — millions of examples of what to refuse and why. At 3–4 billion parameters, a model simply doesn't have room for that much nuance. Its safety guardrails are thinner, and they break sooner.</p>
+
+    <h3 class="reveal" style="font-size:1.1rem;margin-top:22px">What this looks like in practice</h3>
+    <ul class="mt-walls reveal">
+      <li><b>Easier to push past guardrails</b> — a request that a bigger model would firmly refuse might get a compliant answer from a small one. This isn't because it's "evil" — it's because the refusal pattern wasn't trained deeply enough.</li>
+      <li><b>Less likely to say "I can't help with that"</b> — small models default to being helpful, and that helpfulness sometimes overrides their safety instincts.</li>
+      <li><b>More vulnerable to phrasing tricks</b> — the same request, reworded slightly, can flip a refusal into compliance. Big models have seen enough variations to catch the intent; small ones haven't.</li>
+      <li><b>Weaker at recognising indirect harm</b> — a request that's obviously harmful when stated plainly might slip through when wrapped in innocent-sounding language. Large models are better at reading between the lines.</li>
+    </ul>
+
+    <h3 class="reveal" style="font-size:1.1rem;margin-top:22px">What this means for you</h3>
+    <p class="reveal">Treat small models like a creative collaborator you trust with ideas, not a gatekeeper you'd trust with decisions. They're wonderful for writing, brainstorming, and conversation — and they should <em>not</em> be the final word on anything where safety, ethics, or factual accuracy matters.</p>
+    <p class="reveal">If your use case involves filtering harmful content, moderating conversations, or making decisions with real-world consequences — this is the moment to step up to a <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> or larger. Alignment scales with capability.</p>
+    <p class="reveal" style="margin-top:12px;opacity:.75;font-size:.9rem">💡 Curious to test this yourself? The <a href="../model-guide.html#tests">model guide</a> has a calibration test (Test 6) that probes exactly this boundary — try it on your model and see what happens.</p>
+  </div>
+</section>
+
 <!-- ── Footer ─────────────────────────────────────────────────── -->
 <footer>
   <div class="footer-warning">

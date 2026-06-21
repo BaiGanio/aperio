@@ -202,6 +202,10 @@ function handleMessage(msg) {
     if (typeof notifyPathsChanged === "function") notifyPathsChanged(msg.paths);
   }
 
+  if (msg.type === "agent_job_done") {
+    if (typeof showAgentJobBanner === "function") showAgentJobBanner(msg);
+  }
+
   if (msg.type === "thinking") {
     suggestionShown = false;
     enterPhase("thinking");
