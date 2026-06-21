@@ -99,6 +99,60 @@ function stopTitleAnimation() {
   document.title = t("page_title");
 }
 
+// ── Whimsical "busy" verbs ───────────────────────────────────
+// Cosmetic only, à la Claude Code's spinner: while Aperio is in the generic
+// pre-output busy phase we rotate a random gerund next to the live cursor.
+// Tool/typing labels still win — the rotator yields on any tick where the label
+// is no longer one of our words or the plain thinking text.
+//
+// Defaults ship in code; users append their own via Settings → Busy words,
+// persisted in the DB-backed settings store under "aperio-busy-words" (one
+// word per line). busyWords() merges the two live, so edits apply without a
+// reload.
+const DEFAULT_BUSY_WORDS = [
+  "Cogitating", "Noodling", "Percolating", "Ruminating", "Pondering",
+  "Mulling", "Conjuring", "Marinating", "Synthesizing", "Untangling",
+  "Brewing", "Scheming", "Finagling", "Wrangling", "Spelunking",
+  "Distilling", "Composing", "Deliberating", "Incubating", "Vibing",
+  "Tinkering", "Calibrating", "Crunching", "Whirring", "Computing",
+];
+
+function busyWords() {
+  const custom = (window.Aperio?.settings?.get("aperio-busy-words") || "")
+    .split("\n").map(w => w.trim()).filter(Boolean);
+  const seen = new Set(); // de-dupe case-insensitively, defaults first
+  return [...DEFAULT_BUSY_WORDS, ...custom].filter(w => {
+    const k = w.toLowerCase();
+    return seen.has(k) ? false : seen.add(k);
+  });
+}
+
+let whimsyTimer = null;
+const stripTrail = (s) => (s || "").replace(/[…\.]+$/, "");
+
+function isWhimsyLabel(text) {
+  const stripped = stripTrail(text);
+  if (stripped === stripTrail(t("chat_thinking_label"))) return true;
+  const lc = stripped.toLowerCase();
+  return busyWords().some(w => w.toLowerCase() === lc);
+}
+
+function startWhimsy() {
+  if (whimsyTimer) return;
+  const tick = () => {
+    const label = document.querySelector("#thinking .thinking-label");
+    if (!label || !isWhimsyLabel(label.textContent)) return; // gone, or a real label is showing → yield
+    const words = busyWords();
+    label.textContent = words[Math.floor(Math.random() * words.length)] + "…";
+  };
+  tick(); // first word immediately, no wait
+  whimsyTimer = setInterval(tick, 2500);
+}
+
+function stopWhimsy() {
+  if (whimsyTimer) { clearInterval(whimsyTimer); whimsyTimer = null; }
+}
+
 
 function parseSuggestionBlock(text) {
   const div = document.createElement("div");
@@ -176,9 +230,11 @@ function addThinking(lockInput = true) {
   if (lockInput) document.querySelector(".input-bar")?.classList.add("input-locked");
   document.getElementById("inputHint").textContent = t("chat_input_thinking");
   window.messagesEl.scrollTop = window.messagesEl.scrollHeight;
+  startWhimsy();
 }
 
 function removeThinking() {
+  stopWhimsy();
   document.getElementById("thinking")?.remove();
   document.querySelector(".input-bar")?.classList.remove("input-locked");
   document.getElementById("preparing-answer")?.remove();

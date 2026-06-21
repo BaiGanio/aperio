@@ -33,6 +33,19 @@
     });
   }
 
+  // ── Busy words ────────────────────────────────────────────────────────────
+  // User-added words to cycle next to the live cursor. Stored as a newline list
+  // in the DB-backed settings store; chat.js merges them with its defaults live.
+  function wireBusyWords() {
+    const ta = document.getElementById("busyWordsInput");
+    if (!ta || ta.dataset.wired) return;
+    ta.dataset.wired = "1";
+    ta.value = window.Aperio?.settings?.get("aperio-busy-words") || "";
+    ta.addEventListener("input", () => {
+      window.Aperio?.settings?.set("aperio-busy-words", ta.value);
+    });
+  }
+
   // ── Model selector ────────────────────────────────────────────────────────
 
   const PROVIDER_LABELS = { ollama: "Ollama (local)", anthropic: "Anthropic", deepseek: "DeepSeek" /*, gemini: "Google Gemini" */ };
@@ -124,6 +137,7 @@
     if (opening) {
       wireSound();
       syncSound();
+      wireBusyWords();
       loadModels();
       p.style.display = "flex";
       b.style.display = "block";

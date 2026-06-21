@@ -40,6 +40,24 @@
       line-height: 1.5;
     }
 
+    .busy-words-input {
+      width: 100%;
+      box-sizing: border-box;
+      resize: vertical;
+      font: inherit;
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text);
+      background: var(--bg-elev, var(--bg));
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+    }
+    .busy-words-input:focus {
+      outline: none;
+      border-color: var(--accent, var(--border));
+    }
+
     .paths-chips {
       display: flex;
       flex-direction: column;
@@ -221,11 +239,11 @@
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 8px;
+      padding: 4px 8px;
       font-family: var(--font-mono);
       font-size: 12px;
       font-weight: 600;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--text-muted);
       cursor: pointer;

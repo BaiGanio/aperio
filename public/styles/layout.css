@@ -263,6 +263,29 @@
     .sidebar-nav-btn--collapsed-only { display: none; }
     .app.sidebar-collapsed .sidebar-nav-btn--collapsed-only { display: flex; }
 
+    /* Compact nav: icon-only strip so it costs almost no vertical space and the
+       memory list keeps the height. Labels are revealed by the Expand toggle,
+       which switches to the full labelled list. The toggle is one of the icons.
+       Scoped to the expanded sidebar — the collapsed rail keeps its own layout. */
+    .app:not(.sidebar-collapsed) .sidebar-nav.is-compact {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2px;
+      padding: 6px 8px;
+    }
+    .app:not(.sidebar-collapsed) .sidebar-nav.is-compact .sidebar-nav-btn {
+      width: 38px;
+      height: 34px;
+      padding: 0;
+      justify-content: center;
+    }
+    .app:not(.sidebar-collapsed) .sidebar-nav.is-compact .sidebar-nav-label {
+      display: none;
+    }
+    /* The density toggle is meaningless on the icon-only rail. */
+    .app.sidebar-collapsed #navDensityToggle { display: none; }
+
     /* ── Sidebar ─────────────────────────────────────────────── */
     .sidebar {
       background: var(--bg-panel);
