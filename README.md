@@ -233,6 +233,22 @@ pair parses, the toggle stays disabled and the app behaves exactly as before.
 Personas live in `id/whoami-primary.md` and `id/whoami-verifier.md` — edit them
 to tune how each agent answers or critiques.
 
+**Domain characters** layer expertise on top of each agent's role. Set
+`ROUNDTABLE_CHARACTERS` to a comma-separated pair of slugs (first → Agent A,
+second → Agent B). Each slug resolves to `id/characters/<slug>.md`.
+
+| When you want… | Set `ROUNDTABLE_CHARACTERS` to |
+|---|---|
+| Code review | `software-architect,code-reviewer` |
+| Security audit | `software-architect,security-engineer` |
+| Product decision | `product-thinker,software-architect` |
+| Open-ended question | `socratic-questioner,software-architect` |
+| Domain-specific | `space-engineer,doctor` |
+
+Available characters: `software-architect`, `code-reviewer`, `security-engineer`,
+`product-thinker`, `socratic-questioner`, `doctor`, `space-engineer`. Add your own
+by dropping a `.md` file into `id/characters/`.
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
