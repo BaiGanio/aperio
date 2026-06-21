@@ -71,12 +71,10 @@ function enterPhase(kind) {
   if (_lastPhase === "thinking" && kind !== "thinking" && !_phaseHadReasoning && _modelThinks) {
     dropPhaseBreadcrumb(t("status_thinking"));
   }
-  // The "reading result…" step must survive into the transcript as a permanent
-  // record (like a thinking step) instead of vanishing the instant the answer
-  // streams — so when we leave the reading phase, leave a breadcrumb behind.
-  if (_lastPhase === "reading" && kind !== "reading") {
-    dropPhaseBreadcrumb(t("tool_reading_result"));
-  }
+  // "reading result…" is shown only on the live pill while the model digests a
+  // tool result; it must NOT leave a breadcrumb — once the model is done reading
+  // and moves on, the label disappears with the live pill rather than littering
+  // the transcript with stale "reading result…" lines.
   _lastPhase = kind;
 }
 
@@ -1720,7 +1718,41 @@ function _resolveToolCard(msg) {
   const time = card.querySelector(".tool-card-time");
   if (time && typeof msg.ms === "number") time.textContent = formatToolDuration(msg.ms);
   const result = card.querySelector(".tool-card-result");
-  if (result) result.textContent = `↳ ${msg.summary || (msg.ok ? "done" : "error")}`;
+  if (result) {
+    const summaryText = `↳ ${msg.summary || (msg.ok ? "done" : "error")}`;
+    // web_search ships its hits as `details` — render them as an expandable list
+    // (titles link out) so "N results" is inspectable instead of an opaque count.
+    if (Array.isArray(msg.details) && msg.details.length) {
+      result.textContent = "";
+      const det = document.createElement("details");
+      det.className = "tool-card-results";
+      const sum = document.createElement("summary");
+      sum.textContent = summaryText;
+      det.appendChild(sum);
+      for (const r of msg.details) {
+        const item = document.createElement("div");
+        item.className = "tool-card-result-item";
+        const a = document.createElement("a");
+        a.href = r.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+        a.textContent = r.title || r.url;
+        item.appendChild(a);
+        const link = document.createElement("div");
+        link.className = "tool-card-result-url";
+        link.textContent = r.url;
+        item.appendChild(link);
+        if (r.snippet) {
+          const sn = document.createElement("div");
+          sn.className = "tool-card-result-snippet";
+          sn.textContent = r.snippet;
+          item.appendChild(sn);
+        }
+        det.appendChild(item);
+      }
+      result.appendChild(det);
+    } else {
+      result.textContent = summaryText;
+    }
+  }
   // The tool is done — don't leave the live pill stuck on the present-tense
   // "Using {name}…" sitting below a finished card (reads as if the tool is
   // still running, and went silent for minutes on slow models). Flip it to the

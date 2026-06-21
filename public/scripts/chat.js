@@ -255,6 +255,7 @@ const TOOL_LABEL_KEYS = {
   read_file:            "tool_read_file",
   scan_project:         "tool_scan_project",
   fetch_url:            "tool_fetch_url",
+  web_search:           "tool_web_search",
   write_file:           "tool_write_file",
   edit_file:            "tool_edit_file",
   append_file:          "tool_append_file",

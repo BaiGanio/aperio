@@ -250,6 +250,44 @@ describe("summarizeResult() — fetch_url", () => {
 });
 
 // =============================================================================
+// summarizeResult — web_search
+// =============================================================================
+describe("summarizeResult() — web_search", () => {
+  const text =
+    `🔎 Results for "world cup"\n\n` +
+    `1. 2022 FIFA World Cup\n   https://en.wikipedia.org/wiki/2022_FIFA_World_Cup\n   Argentina won.\n\n` +
+    `2. FIFA.com\n   https://www.fifa.com/worldcup\n\n` +
+    `Pick the most relevant result and call fetch_url on its URL to read the page.`;
+
+  test("counts results and parses them into details", () => {
+    const result = ta.summarizeResult("web_search", text);
+    assert.equal(result.ok, true);
+    assert.equal(result.summary, "2 results");
+    assert.equal(result.details.length, 2);
+    assert.deepEqual(result.details[0], {
+      title: "2022 FIFA World Cup",
+      url: "https://en.wikipedia.org/wiki/2022_FIFA_World_Cup",
+      snippet: "Argentina won.",
+    });
+    assert.equal(result.details[1].url, "https://www.fifa.com/worldcup");
+    assert.equal(result.details[1].snippet, ""); // snippet optional
+  });
+
+  test("singular wording for one result", () => {
+    const one = `🔎 Results for "x"\n\n1. Only\n   https://example.com\n\nPick...`;
+    const result = ta.summarizeResult("web_search", one);
+    assert.equal(result.summary, "1 result");
+    assert.equal(result.details.length, 1);
+  });
+
+  test("no-results page yields empty details", () => {
+    const result = ta.summarizeResult("web_search", `🔎 No results for "zzz".`);
+    assert.equal(result.summary, "no results");
+    assert.deepEqual(result.details, []);
+  });
+});
+
+// =============================================================================
 // summarizeResult — generic
 // =============================================================================
 describe("summarizeResult() — generic", () => {
