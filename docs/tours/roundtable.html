@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | Round-Table — two-agent deliberation with domain characters</title>
+  <meta name="description" content="The Discuss toggle turns a single answer into a deliberation. Two agents cross-review each other until they agree — or surface where they disagree. Domain characters give each agent a different lens. Here's how to use it effectively." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    html { scroll-padding-top: 80px; }
+    .section-inner { text-align: left; }
+    #rt-top .section-inner { text-align: center; }
+    .section-inner p, .section-inner li, .mg-txt { font-size: 16.5px; line-height: 1.7; }
+    .section-inner p a, .mg-txt a {
+      color: var(--purple);
+      text-decoration: underline;
+      text-decoration-color: rgba(168,85,247,.4);
+      text-underline-offset: 3px;
+    }
+    .section-inner p a::after, .mg-txt a::after {
+      content: "\2197";
+      font-size: .8em; margin-left: 2px; opacity: .7;
+    }
+    .section-inner p a:hover, .mg-txt a:hover { text-decoration-color: var(--purple); }
+    .section-inner p a:hover::after, .mg-txt a:hover::after { opacity: 1; }
+
+    .rt-back { font-size: .85rem; opacity: .7; text-decoration: none; }
+    .rt-back:hover { opacity: 1; }
+    .tier-pill {
+      display: inline-block; font-size: .72rem; font-weight: 600; padding: 3px 11px;
+      border-radius: 999px; white-space: nowrap; vertical-align: middle; margin-left: 8px;
+      background: rgba(168,85,247,.16); color: #a855f7;
+    }
+
+    /* Phase flow */
+    .phase-flow { display: flex; gap: 0; margin: 22px 0; flex-wrap: wrap; }
+    .phase-step {
+      flex: 1 1 130px; text-align: center; padding: 16px 10px;
+      background: rgba(127,127,127,.06); border: 1px solid rgba(127,127,127,.14);
+      border-radius: 10px; margin: 4px;
+    }
+    .phase-step .phase-num { font-size: 1.4rem; font-weight: 700; color: var(--accent); margin-bottom: 2px; }
+    .phase-step .phase-name { font-weight: 600; font-size: .92rem; }
+    .phase-step .phase-who { font-size: .78rem; opacity: .6; margin-top: 2px; }
+    .phase-arrow { display: flex; align-items: center; font-size: 1.2rem; opacity: .35; margin: 0 -2px; }
+
+    /* Use cards */
+    .use-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; margin: 20px 0; }
+    .use-card { background: rgba(127,127,127,.06); border: 1px solid rgba(127,127,127,.16); border-radius: 12px; padding: 18px 20px; }
+    .use-card h4 { font-size: 1.04rem; margin-bottom: 4px; }
+    .use-card .use-sub { opacity: .75; font-size: .88rem; margin-bottom: 6px; }
+    .use-card .use-exp { font-size: .85rem; opacity: .8; margin: 8px 0 0; }
+    .use-card .use-exp strong { color: #43c59e; }
+
+    /* Prompt blocks */
+    .mg-desc { opacity: .85; margin-bottom: 14px; }
+    .mg-prompt {
+      background: rgba(127,127,127,.10); border-left: 3px solid var(--accent);
+      border-radius: 8px; padding: 13px 17px; margin: 12px 0;
+      font-family: 'Berkeley Mono', monospace; font-size: .88rem;
+      line-height: 1.55; white-space: pre-wrap;
+    }
+    .mg-prompt-label { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; display: block; margin-bottom: 6px; }
+
+    /* Combo table */
+    .rt-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .92rem; }
+    .rt-table th, .rt-table td { text-align: left; padding: 12px 14px; border-bottom: 1px solid rgba(127,127,127,.16); vertical-align: top; }
+    .rt-table th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+    .rt-table td:first-child { font-weight: 600; white-space: nowrap; }
+    .rt-table td:nth-child(2) { font-family: 'Berkeley Mono', monospace; font-size: .85rem; }
+    .rt-table-wrap { overflow-x: auto; }
+
+    /* Env block */
+    .rt-env {
+      background: rgba(127,127,127,.10); border-left: 3px solid var(--accent);
+      border-radius: 8px; padding: 14px 20px; margin: 16px 0;
+      font-family: 'Berkeley Mono', monospace; font-size: .88rem;
+      line-height: 1.65; white-space: pre-wrap;
+    }
+
+    /* Manifesto sample */
+    .rt-sample {
+      background: rgba(127,127,127,.06); border: 1px solid rgba(127,127,127,.14);
+      border-radius: 10px; padding: 16px 20px; margin: 14px 0; font-size: .9rem;
+    }
+    .rt-sample .rt-sample-h { font-weight: 700; margin-bottom: 6px; }
+    .rt-sample .rt-sample-q { opacity: .55; font-size: .82rem; margin-bottom: 8px; }
+    .rt-sample .rt-sample-a { padding: 10px 0; border-top: 1px solid rgba(127,127,127,.1); }
+    .rt-sample .rt-sample-a .rt-agent { font-weight: 600; font-size: .82rem; opacity: .7; }
+
+    .mt-next { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
+    .mt-next a { flex: 1 1 240px; text-decoration: none; border: 1px solid rgba(127,127,127,.2); border-radius: 10px; padding: 14px 16px; transition: border-color .2s; }
+    .mt-next a:hover { border-color: var(--accent); }
+    .mt-next .mt-next-t { font-weight: 600; display: block; margin-bottom: 3px; }
+    .mt-next .mt-next-d { font-size: .85rem; opacity: .75; }
+    code { background: rgba(127,127,127,.16); padding: 1px 6px; border-radius: 5px; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+
+<!-- ── Navbar ─────────────────────────────────────────────────── -->
+<nav class="aperio-nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="brand">
+      <div class="logo-mark">A</div>
+      <span class="brand-name">Aperio</span>
+    </a>
+    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="#how">How It Works</a></li>
+      <li><a href="#combos">Character Combos</a></li>
+      <li><a href="#prompts">Prompts</a></li>
+      <li><a href="#setup">Setup</a></li>
+      <li><a href="../index.html#features">Features</a></li>
+    </ul>
+    <div class="theme-switcher" id="themeSwitcher">
+      <button class="theme-btn active" data-theme="dark"   title="Dark">🌙</button>
+      <button class="theme-btn"        data-theme="light"  title="Light">☀️</button>
+      <button class="theme-btn"        data-theme="aurora" title="Aurora">✦</button>
+      <button class="theme-btn"        data-theme="system" title="System">⊙</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="rt-top" style="padding:120px 0 30px">
+  <div class="section-inner">
+    <a href="../index.html#features" class="rt-back reveal">← Features</a>
+    <div class="eyebrow reveal" style="margin-top:14px">Two agents · Cross-review · Discuss Toggle</div>
+    <h1 class="section-heading reveal">Round-Table <span class="tier-pill">Deliberation</span></h1>
+    <p class="lead-text reveal">One model answers. Another reviews. They go back and forth until they agree — or surface exactly where they disagree. Give each agent a domain character and you get cross-perspective reasoning: an architect proposing, a reviewer stress-testing, a security engineer hunting vulnerabilities.</p>
+  </div>
+</section>
+
+<!-- ── Framing ────────────────────────────────────────────────── -->
+<section class="section" style="padding:10px 0">
+  <div class="section-inner">
+    <p class="reveal">The round-table isn't a debate with a winner. It's a <strong>collaborative search for the best answer</strong>. Agent A proposes. Agent B finds gaps. Agent A revises. Agent B re-checks. The goal is explicit <code>AGREED</code> — and if it doesn't happen, both positions are shown side-by-side so you can decide.</p>
+    <p class="reveal" style="opacity:.8">It's opt-in per turn: toggle the <strong>Discuss</strong> button next to Send and the next message goes through deliberation. Toggle it off and you're back to single-agent chat. You need two models configured — they can be the same provider and model, or different ones (e.g. a fast reviewer paired with a deep reasoner).</p>
+  </div>
+</section>
+
+<!-- ── How it works ───────────────────────────────────────────── -->
+<section class="section" id="how" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">The four-phase flow</h2>
+    <p class="reveal mg-desc">One round = both agents take a turn. The process repeats until they agree or hit the round cap.</p>
+
+    <div class="phase-flow reveal">
+      <div class="phase-step">
+        <div class="phase-num">1</div>
+        <div class="phase-name">Answer</div>
+        <div class="phase-who">Agent A</div>
+      </div>
+      <div class="phase-arrow">→</div>
+      <div class="phase-step">
+        <div class="phase-num">2</div>
+        <div class="phase-name">Review</div>
+        <div class="phase-who">Agent B</div>
+      </div>
+      <div class="phase-arrow">→</div>
+      <div class="phase-step">
+        <div class="phase-num">3</div>
+        <div class="phase-name">Revise</div>
+        <div class="phase-who">Agent A</div>
+      </div>
+      <div class="phase-arrow">→</div>
+      <div class="phase-step">
+        <div class="phase-num">4</div>
+        <div class="phase-name">Re-review</div>
+        <div class="phase-who">Agent B</div>
+      </div>
+    </div>
+
+    <p class="reveal" style="opacity:.82">Agent A answers first. Agent B reviews that answer and lists specific objections — errors, gaps, unstated assumptions. Agent A revises, addressing each objection (accepting or refuting with reasons). Agent B re-reviews. If all objections are resolved, B says <code>AGREED</code>. If not, the cycle continues until consensus or the round cap (default 3 rounds).</p>
+
+    <p class="reveal" style="opacity:.82">After the deliberation concludes <strong>— regardless of outcome —</strong> each agent writes a personal <strong>manifesto</strong>: a short, opinionated final statement of their convictions. Both manifestos are saved as a file you can preview and download.</p>
+  </div>
+</section>
+
+<!-- ── Character combos ───────────────────────────────────────── -->
+<section class="section" id="combos" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">Character combinations</h2>
+    <p class="reveal mg-desc">Set <code>ROUNDTABLE_CHARACTERS</code> to a pair of slugs. The first character layers onto Agent A (the answerer), the second onto Agent B (the reviewer). Each brings a different lens to the question.</p>
+
+    <div class="rt-table-wrap reveal">
+      <table class="rt-table">
+        <thead>
+          <tr><th>When you want…</th><th>Characters</th><th>How it plays out</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>🔍 Code review</td>
+            <td>software-architect,<br>code-reviewer</td>
+            <td>Architect proposes design or fix. Reviewer hunts edge cases, over-engineering, missing tests. Converges on a simpler, correct solution.</td>
+          </tr>
+          <tr>
+            <td>🛡️ Security audit</td>
+            <td>software-architect,<br>security-engineer</td>
+            <td>Architect designs the system. Security engineer traces untrusted inputs, maps attack surface, demands defense in depth. Catches what code review misses.</td>
+          </tr>
+          <tr>
+            <td>💡 Product decision</td>
+            <td>product-thinker,<br>software-architect</td>
+            <td>Product thinker asks "should we build this?" Architect asks "how would we build it?" Scope, trade-offs, and whether the problem is even right.</td>
+          </tr>
+          <tr>
+            <td>🤔 Open-ended</td>
+            <td>socratic-questioner,<br>software-architect</td>
+            <td>Socratic questioner surfaces assumptions with no domain knowledge needed. Architect provides substance. Good for any fuzzy question.</td>
+          </tr>
+          <tr>
+            <td>🚀 Domain-specific</td>
+            <td>space-engineer,<br>doctor</td>
+            <td>Two domain experts with different frameworks. Space engineer reasons from physics; doctor from clinical evidence. Cross-domain scrutiny.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="reveal" style="opacity:.75; font-size:.88rem; margin-top:10px">Available characters: <code>software-architect</code>, <code>code-reviewer</code>, <code>security-engineer</code>, <code>product-thinker</code>, <code>socratic-questioner</code>, <code>doctor</code>, <code>space-engineer</code>. Add your own by dropping a <code>.md</code> file into <code>id/characters/</code>.</p>
+  </div>
+</section>
+
+<!-- ── Prompt examples ────────────────────────────────────────── -->
+<section class="section" id="prompts" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">Ready-to-paste prompts</h2>
+    <p class="reveal mg-desc">Generic examples that work with any project. Toggle Discuss ON before sending.</p>
+
+    <div class="use-grid">
+      <!-- Code review -->
+      <div class="use-card reveal">
+        <h4>🔍 Code review</h4>
+        <div class="use-sub">Characters: software-architect, code-reviewer</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Here's a function that handles payment processing. Is it correct? What edge cases am I missing? Is there a simpler way to write it?</div>
+        <p class="use-exp"><strong>What you'll get:</strong> Agent A assesses the approach and proposes improvements. Agent B finds specific edge cases and flags over-engineering. If they disagree, A revises.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🏗️ Architecture decision</h4>
+        <div class="use-sub">Characters: software-architect, code-reviewer</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>I need to add caching to this API. Should I use Redis, in-memory, or a CDN? Walk me through the trade-offs for a read-heavy service with 10k users.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> A proposes an approach with constraints named. B challenges assumptions, asks about failure modes, suggests simpler alternatives.</p>
+      </div>
+
+      <!-- Security -->
+      <div class="use-card reveal">
+        <h4>🛡️ Security review</h4>
+        <div class="use-sub">Characters: software-architect, security-engineer</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>This endpoint accepts file uploads from users and stores them. What's the threat model? What could go wrong, and how should I defend against it?</div>
+        <p class="use-exp"><strong>What you'll get:</strong> Architect outlines a design. Security engineer traces every untrusted input path, demands defense in depth, flags concrete vulnerabilities with severity labels.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🔐 Auth design</h4>
+        <div class="use-sub">Characters: software-architect, security-engineer</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>We're switching from session cookies to JWT for our API. Design the auth flow — and then break it. What's the blast radius if a token leaks?</div>
+        <p class="use-exp"><strong>What you'll get:</strong> Cross-perspective analysis. Architect designs. Security engineer attacks the design. The final answer accounts for both.</p>
+      </div>
+
+      <!-- Product -->
+      <div class="use-card reveal">
+        <h4>💡 Should we build it?</h4>
+        <div class="use-sub">Characters: product-thinker, software-architect</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>We're considering adding a real-time collaboration feature. What problem does it actually solve? Who needs it? What are we trading away by building this instead of something else?</div>
+        <p class="use-exp"><strong>What you'll get:</strong> Product thinker questions scope, users, and priorities. Architect estimates complexity and hidden costs. Together they decide if it's worth it.</p>
+      </div>
+
+      <!-- Open-ended -->
+      <div class="use-card reveal">
+        <h4>🤔 Fuzzy question</h4>
+        <div class="use-sub">Characters: socratic-questioner, software-architect</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Our team keeps building features nobody uses. Why might this be happening, and what should we change about how we decide what to build?</div>
+        <p class="use-exp"><strong>What you'll get:</strong> Socratic questioner surfaces unstated assumptions. Architect grounds the answer in process and measurement. No domain expertise needed — pure reasoning.</p>
+      </div>
+
+      <!-- Writing / thinking -->
+      <div class="use-card reveal">
+        <h4>✍️ Writing that matters</h4>
+        <div class="use-sub">Characters: software-architect, code-reviewer</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>I'm writing an architecture decision record for switching to a queue-based job system. Review it: is the reasoning sound? What counter-arguments am I missing?</div>
+        <p class="use-exp"><strong>What you'll get:</strong> A reads and assesses the ADR. B challenges weak arguments, flags missing trade-offs, demands evidence. Useful before sharing with the team.</p>
+      </div>
+
+      <!-- Debugging -->
+      <div class="use-card reveal">
+        <h4>🐛 Debug together</h4>
+        <div class="use-sub">Characters: software-architect, code-reviewer</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>This code works fine with 100 records but times out at 10,000. Here's the query and the index setup. What's the bottleneck, and what's the simplest fix?</div>
+        <p class="use-exp"><strong>What you'll get:</strong> Architect identifies likely causes. Reviewer checks for missing indexes, N+1 patterns, and edge cases in the proposed fix.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── What you'll see ────────────────────────────────────────── -->
+<section class="section" id="result" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">What you'll see</h2>
+
+    <p class="reveal"><strong>Consensus reached.</strong> A single bubble shows the agreed answer. The full transcript — every turn from every agent — is saved to <code>var/roundtables/</code>. You also get a <strong>manifesto file</strong> with each agent's final personal statement, served at <code>/roundtables/</code> for preview and download.</p>
+
+    <div class="rt-sample reveal">
+      <div class="rt-sample-h">📄 Manifesto</div>
+      <div class="rt-sample-q">Question: "Should we switch from polling to webhooks?" · ✅ Consensus reached</div>
+      <div class="rt-sample-a">
+        <div class="rt-agent">Agent A — software-architect · ollama (phi4-mini)</div>
+        <p style="margin:4px 0 0">My conviction: webhooks are the right call here. Polling burns resources linearly with scale; webhooks scale with events. The migration cost is real but bounded — one-time engineering, not perpetual ops tax. Start with a dead-letter queue, log every delivery attempt, and never trust a single webhook as your only record of truth. Idempotency keys are non-negotiable. Do this right and you eliminate an entire class of latency and reliability problems in one move.</p>
+      </div>
+      <div class="rt-sample-a">
+        <div class="rt-agent">Agent B — code-reviewer · ollama (gemma4)</div>
+        <p style="margin:4px 0 0">I stand by one principle: if you can't test it, you don't understand it. Before switching to webhooks, write the integration tests against a real webhook receiver. If that's hard, your design is wrong. The architect's dead-letter queue is essential; without it, you'll drop events silently and never know. Also: what's the retry policy? Exponential backoff with a max? What happens when the third-party is down for 10 minutes? The manifesto says "bounded migration cost" — I want a number, not an adjective. Three days or three weeks? The difference matters.</p>
+      </div>
+    </div>
+
+    <p class="reveal" style="margin-top:12px"><strong>No consensus.</strong> Both final positions are shown side-by-side so you can see exactly where they disagree. You still get the full transcript and manifesto file — even disagreement produces useful artifacts.</p>
+  </div>
+</section>
+
+<!-- ── Setup ──────────────────────────────────────────────────── -->
+<section class="section" id="setup" style="padding:20px 0 80px">
+  <div class="section-inner">
+    <h2 class="reveal">Setup — three lines in <code>.env</code></h2>
+    <p class="reveal mg-desc">The Discuss toggle appears automatically when you configure two agents. Characters are optional but highly recommended — they're what make the deliberation interesting.</p>
+
+    <div class="rt-env reveal">
+# Enable the Discuss toggle — two models, first answers, second reviews
+ROUNDTABLE_AGENTS=ollama:phi4-mini:3.8b,ollama:gemma4:e4b
+
+# Optional: give each agent a domain character
+ROUNDTABLE_CHARACTERS=software-architect,code-reviewer
+
+# Max back-and-forth rounds (default 3)
+ROUNDTABLE_MAX_ROUNDS=2</div>
+
+    <p class="reveal" style="opacity:.82">The two agents can use the same model, different models, or even different providers. Common pairings: a fast reviewer (phi4-mini, haiku) paired with a deeper reasoner (gemma4, qwen3). Cloud + local works too — e.g. Claude for deep answers, a local Ollama model for fast review.</p>
+
+    <p class="reveal" style="opacity:.82">Characters are just <code>.md</code> files in <code>id/characters/</code>. Create your own by following the template in the existing ones. The slug you use in the env var is the filename without <code>.md</code>.</p>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer class="aperio-footer" style="padding:40px 0">
+  <div class="section-inner" style="text-align:center">
+    <div class="mt-next">
+      <a href="../index.html#features">
+        <span class="mt-next-t">← All Features</span>
+        <span class="mt-next-d">Back to the Aperio feature overview</span>
+      </a>
+      <a href="../model-guide.html">
+        <span class="mt-next-t">Model Guide →</span>
+        <span class="mt-next-d">Which local model is right for your hardware?</span>
+      </a>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+</body>
+</html>

@@ -174,6 +174,22 @@ silently. Instead, **sync is explicit** and always gives the var a home:
 | `list` | comma/line lists w/ add-remove chips | `APERIO_CAPABLE_MODELS`, allowed paths, allowed hosts |
 | `secret` | write-only, masked | all API keys, `GITHUB_TOKEN`, webhook secret |
 
+> **`secret` control ≠ read-only — the *tier* decides editability, not the type.**
+> The secrets we actually work with are **provider/service credentials**: the
+> `DEEPSEEK_API_KEY`, `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `VOYAGE_API_KEY`,
+> `GITHUB_TOKEN`, and the webhook secret. These are **Tier 1** — fully
+> **editable in the UI** as masked write-only fields, rotated anytime, no `.env`,
+> no restart. They're the things a non-code user pastes from a provider's
+> dashboard. **Everything else is config.**
+>
+> Only **Tier 0** security plumbing is read-only-in-UI / edited-in-`.env`:
+> `APERIO_AUTH_TOKEN`, TLS cert/key, the DB connection string (`DATABASE_URL` /
+> `POSTGRES_*`), `APERIO_SESSION_KEY`. These govern how the app and database boot
+> and who may connect at all — set once at install, rarely changed, and unsafe to
+> accept through a possibly-exposed web form. (The narrow "import as read-only"
+> rule in §5 applies *only* to unknown vars auto-adopted by Sync whose name looks
+> like a connection string / auth token — never to the curated Tier 1 keys above.)
+
 ### Layout — extend the existing Settings drawer
 Sections mirror the `.env.example` headings, **plain ones open, advanced
 collapsed** behind a "Developer / advanced" disclosure:
