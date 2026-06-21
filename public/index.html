@@ -77,7 +77,7 @@
         <div style="font-size:12px; color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
       </div>
     </div>
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav is-compact" id="sidebarNav">
       <button id="memoriesBtn" class="sidebar-nav-btn sidebar-nav-btn--collapsed-only" onclick="expandSidebarToMemories()"
         data-i18n-attr-title="nav_memories_title" title="Memories — search your saved memories">
         <i class="bi bi-stars sidebar-nav-icon"></i>
@@ -122,6 +122,10 @@
         data-i18n-attr-title="nav_settings_title" title="Settings">
         <i class="bi bi-sliders sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="nav_settings_plain">Settings</span>
+      </button>
+      <button id="navDensityToggle" class="sidebar-nav-btn" title="Expand to full list">
+        <i class="bi bi-arrows-expand sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Expand</span>
       </button>
     </nav>
 
@@ -510,6 +514,19 @@
     <!-- Extras — optional skill dependencies (docx Python toolchain). Detects
          what's installed; auto-installs pip deps; shows guided commands for
          system binaries it can't safely install from the browser. -->
+    <!-- Busy words — words Aperio cycles through next to the live cursor while
+         it's working. Defaults ship in code; these are the user's additions. -->
+    <details class="settings-section" id="busyWordsSection">
+      <summary>
+        <i class="bi bi-chat-square-dots"></i>
+        <span>Busy words</span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Words Aperio shows while it's busy. Add your own (one per line) — they join the built-in set.</span>
+        <textarea id="busyWordsInput" class="busy-words-input" rows="5" spellcheck="false"
+                  placeholder="Marinating&#10;Percolating&#10;Compiling thoughts"></textarea>
+      </div>
+    </details>
     <details class="settings-section" id="extrasSection">
       <summary>
         <i class="bi bi-puzzle"></i>
