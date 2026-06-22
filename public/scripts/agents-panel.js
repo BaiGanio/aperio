@@ -440,7 +440,7 @@
     return `# ${jobId}${r.model ? ` — ${r.model}` : ""}\n\n${meta}\n\n${r.error || r.answer || ""}\n`;
   }
 
-  function wireRunExports(jobId, runs) {
+  function wireRunExports(jobId, runs, page) {
     document.querySelectorAll(".ag-run-copy").forEach((btn) => {
       btn.addEventListener("click", async () => {
         try {
@@ -471,35 +471,57 @@
         try {
           const res = await fetch(`/api/agents/${encodeURIComponent(jobId)}/runs/${r.id}`, { method: "DELETE" });
           if (!res.ok) { btn.textContent = "Delete failed"; btn.disabled = false; return; }
-          openRuns(jobId); // re-render the (now shorter) history
+          // Re-fetch the now-shorter history and stay on the current page
+          // (renderRuns clamps if that page no longer exists).
+          const data = await get(`/api/agents/${encodeURIComponent(jobId)}/runs?limit=50`);
+          renderRuns(jobId, data.runs || [], page);
         } catch { btn.textContent = "Delete failed"; btn.disabled = false; }
       });
     });
   }
 
   // ── Run history view ──────────────────────────────────────────────────────────
+  // Runs are paginated 10-per-page and collapsed by default (native <details>),
+  // so a long history doesn't flood the sidebar. Only the most recent run starts
+  // expanded; the rest open on click.
+  const RUNS_PER_PAGE = 10;
+
   async function openRuns(id) {
     setBody(`<div class="cg-hint">Loading runs…</div>`);
     try {
       const data = await get(`/api/agents/${encodeURIComponent(id)}/runs?limit=50`);
-      const runs = data.runs || [];
-      const head = `
-        <div class="cg-symbol-detail">
-          <button class="cg-back-btn" id="agBackBtn">← Back to jobs</button>
-          <div class="cg-symbol-title">${escapeHtml(id)}</div>
-          <div class="cg-section-label">${runs.length} run${runs.length === 1 ? "" : "s"}</div>`;
-      const list = !runs.length
-        ? `<div class="cg-empty">No runs recorded yet.</div>`
-        : runs.map((r, i) => `
-            <div class="ag-run ${escapeHtml(r.verdict || "")}">
-              ${r.model ? `<div class="ag-run-model">🤖 ${escapeHtml(r.model)}</div>` : ""}
-              <div class="ag-run-head">
+      renderRuns(id, data.runs || [], 0);
+    } catch (err) {
+      setBody(`<div class="cg-empty">Error: ${escapeHtml(err.message)}</div>`);
+    }
+  }
+
+  function renderRuns(id, runs, page) {
+    const pageCount = Math.max(1, Math.ceil(runs.length / RUNS_PER_PAGE));
+    page = Math.min(Math.max(0, page), pageCount - 1);
+    const start = page * RUNS_PER_PAGE;
+    const pageRuns = runs.slice(start, start + RUNS_PER_PAGE);
+
+    const head = `
+      <div class="cg-symbol-detail">
+        <button class="cg-back-btn" id="agBackBtn">← Back to jobs</button>
+        <div class="cg-symbol-title">${escapeHtml(id)}</div>
+        <div class="cg-section-label">${runs.length} run${runs.length === 1 ? "" : "s"}</div>`;
+    const list = !runs.length
+      ? `<div class="cg-empty">No runs recorded yet.</div>`
+      : pageRuns.map((r, j) => {
+          const i = start + j;                 // absolute index into runs (for wireRunExports)
+          const open = i === 0 ? " open" : ""; // only the most recent run starts expanded
+          return `
+            <details class="ag-run ${escapeHtml(r.verdict || "")}"${open}>
+              <summary class="ag-run-head">
                 ${verdictBadge(r.verdict)}
                 <span>${escapeHtml(fmtTime(r.started_at))}</span>
                 ${r.duration_ms != null ? `<span>${escapeHtml(fmtDuration(r.duration_ms))}</span>` : ""}
                 ${r.trigger ? `<span>· ${escapeHtml(r.trigger)}</span>` : ""}
                 ${r.mode ? `<span>· ${escapeHtml(r.mode)}</span>` : ""}
-              </div>
+              </summary>
+              ${r.model ? `<div class="ag-run-model">🤖 ${escapeHtml(r.model)}</div>` : ""}
               ${r.tools && r.tools.length ? `<div class="ag-run-tools">tools: ${escapeHtml(r.tools.join(", "))}</div>` : ""}
               ${r.error ? `<div class="ag-run-body">${escapeHtml(r.error)}</div>`
                 : r.answer ? `<div class="ag-run-body">${escapeHtml(r.answer)}</div>` : ""}
@@ -508,13 +530,22 @@
                 <button class="ag-btn ag-run-dl" data-idx="${i}" title="Download this result as Markdown">Download .md</button>` : ""}
                 <button class="ag-btn ag-run-del" data-idx="${i}" title="Delete this run from the history">Delete</button>
               </div>
-            </div>`).join("");
-      setBody(`${head}${list}</div>`);
-      document.getElementById("agBackBtn").addEventListener("click", loadJobs);
-      wireRunExports(id, runs);
-    } catch (err) {
-      setBody(`<div class="cg-empty">Error: ${escapeHtml(err.message)}</div>`);
-    }
+            </details>`;
+        }).join("");
+    const pager = runs.length > RUNS_PER_PAGE ? `
+      <div class="ag-pager">
+        <button class="ag-btn ag-pager-prev"${page === 0 ? " disabled" : ""}>← Prev</button>
+        <span class="ag-pager-info">Page ${page + 1} of ${pageCount}</span>
+        <button class="ag-btn ag-pager-next"${page >= pageCount - 1 ? " disabled" : ""}>Next →</button>
+      </div>` : "";
+
+    setBody(`${head}${list}${pager}</div>`);
+    document.getElementById("agBackBtn").addEventListener("click", loadJobs);
+    const prevBtn = document.querySelector(".ag-pager-prev");
+    const nextBtn = document.querySelector(".ag-pager-next");
+    if (prevBtn) prevBtn.addEventListener("click", () => renderRuns(id, runs, page - 1));
+    if (nextBtn) nextBtn.addEventListener("click", () => renderRuns(id, runs, page + 1));
+    wireRunExports(id, runs, page);
   }
 
   // ── Open/close ────────────────────────────────────────────────────────────────

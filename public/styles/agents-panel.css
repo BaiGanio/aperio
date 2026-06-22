@@ -80,6 +80,20 @@
   display: flex; gap: 8px; align-items: center;
   font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
 }
+/* <summary> as the collapsible header: drop the native marker, add our caret. */
+summary.ag-run-head { cursor: pointer; user-select: none; list-style: none; }
+summary.ag-run-head::-webkit-details-marker { display: none; }
+summary.ag-run-head::before {
+  content: "▸"; font-size: 9px; color: var(--text-muted);
+}
+.ag-run[open] > summary.ag-run-head::before { content: "▾"; }
+/* Run-history pager. */
+.ag-pager {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  margin-top: 8px; font-size: 10px; color: var(--text-muted);
+  font-family: var(--font-mono);
+}
+.ag-pager .ag-btn { font-size: 10px; padding: 2px 8px; }
 .ag-run-body {
   font-size: 11px; color: var(--text);
   margin-top: 3px; white-space: pre-wrap; overflow-wrap: anywhere;

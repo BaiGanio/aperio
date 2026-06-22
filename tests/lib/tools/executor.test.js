@@ -7,14 +7,10 @@ import { extractTextToolCall, ToolExecutor } from "../../../lib/tools/executor.j
 // =============================================================================
 // extractTextToolCall
 //
-// NOTE on test input structure:
-// The internal regex  /\{[\s\S]*?"name"\s*:\s*"([^"]+)"[\s\S]*?\}/  captures
-// from the first "{" to the FIRST "}" that appears after "name". This means
-// any nested object or brace inside the value fields that comes after "name"
-// will cause the match to be truncated (and JSON.parse will fail).
-//
-// To work around this, every test JSON places "name" as the LAST field so
-// the closing "}" of the outer object is the first "}" seen after name.
+// Extraction is brace-balanced (string- and escape-aware) and strips JS-style
+// comments before JSON.parse, so "name" can appear in any position — including
+// the natural name-first { "name": …, "parameters": { … } } shape that local
+// models emit — and a nested params object no longer truncates the match.
 // =============================================================================
 
 describe("extractTextToolCall", () => {
@@ -116,6 +112,50 @@ describe("extractTextToolCall", () => {
     const result = extractTextToolCall(text, []);
     assert.notEqual(result, null);
     assert.equal(result.name, "first");
+  });
+
+  test("parses name-first shape with nested params object", () => {
+    // The shape local models actually emit — would truncate under the old regex.
+    const text = '```json\n{"name": "list_github_issues", "parameters": {"only_untriaged": true, "repo": "owner/repo"}}\n```';
+    const result = extractTextToolCall(text, []);
+    assert.notEqual(result, null);
+    assert.equal(result.name, "list_github_issues");
+    assert.deepEqual(result.input, { only_untriaged: true, repo: "owner/repo" });
+  });
+
+  test("parses tool call JSON containing // and /* */ comments", () => {
+    const text = [
+      '```json',
+      '{',
+      '    "name": "record_issue_triage",',
+      '    "parameters": {',
+      '        "repo": "owner/repo",',
+      '        "priority": 3, // default',
+      '        "run_id": 1234 /* block */',
+      '    }',
+      '}',
+      '```',
+    ].join("\n");
+    const result = extractTextToolCall(text, []);
+    assert.notEqual(result, null);
+    assert.equal(result.name, "record_issue_triage");
+    assert.deepEqual(result.input, { repo: "owner/repo", priority: 3, run_id: 1234 });
+  });
+
+  test("does not treat braces inside string values as object boundaries", () => {
+    const text = '{"name": "t", "parameters": {"msg": "a } b { c"}}';
+    const result = extractTextToolCall(text, []);
+    assert.notEqual(result, null);
+    assert.equal(result.name, "t");
+    assert.deepEqual(result.input, { msg: "a } b { c" });
+  });
+
+  test("skips a leading unbalanced brace and finds the real object", () => {
+    const text = 'note: use {curly} then\n{"name": "t", "parameters": {"x": 1}}';
+    const result = extractTextToolCall(text, []);
+    assert.notEqual(result, null);
+    assert.equal(result.name, "t");
+    assert.deepEqual(result.input, { x: 1 });
   });
 });
 
