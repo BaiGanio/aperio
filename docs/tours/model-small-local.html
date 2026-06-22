@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" class="doc">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <title>Aperio | Small local models (3–4B) — what they're great for</title>
-  <meta name="description" content="The small, fast local models — Qwen2.5 3B, Qwen3 4B, Qwen3.5 4B, Phi-4 Mini. They can't use tools, but they're wonderful at the things they can do. Here's how to get the most from them." />
+  <meta name="description" content="The small, fast local models — Qwen2.5 3B, Qwen3.5 4B, Phi-4 Mini. They can't use tools, but they're wonderful at the things they can do. Here's how to get the most from them." />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
@@ -17,67 +17,14 @@
   <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
 
   <style>
-    /* In-page nav jumps to sections; offset for the 62px sticky navbar. */
-    html { scroll-padding-top: 80px; }
-    /* Long-form reading: left-align body content, keep only the hero centered. */
-    .section-inner { text-align: left; }
-    #mt-top .section-inner { text-align: center; }
-    /* Bump body prose — the 15px base reads small for long-form text. */
-    .section-inner p, .section-inner li, .mg-txt { font-size: 16.5px; line-height: 1.7; }
-    /* Make inline cross-page links visibly clickable (matches the model table). */
-    .section-inner p a, .mg-txt a {
-      color: var(--purple);
-      text-decoration: underline;
-      text-decoration-color: rgba(168,85,247,.4);
-      text-underline-offset: 3px;
-    }
-    .section-inner p a::after, .mg-txt a::after {
-      content: "\2197";          /* ↗ */
-      font-size: .8em; margin-left: 2px; opacity: .7;
-    }
-    .section-inner p a:hover, .mg-txt a:hover { text-decoration-color: var(--purple); }
-    .section-inner p a:hover::after, .mg-txt a:hover::after { opacity: 1; }
-
-    .mt-back { font-size: .85rem; opacity: .7; text-decoration: none; }
-    .mt-back:hover { opacity: 1; }
-    .tier-pill {
-      display: inline-block; font-size: .72rem; font-weight: 600; padding: 3px 11px;
-      border-radius: 999px; white-space: nowrap; vertical-align: middle; margin-left: 8px;
-      background: rgba(229,115,107,.16); color: #e5736b;
-    }
-    .mg-desc { opacity: .85; margin-bottom: 14px; }
-    .mg-prompt {
-      background: rgba(127,127,127,.10); border-left: 3px solid var(--accent);
-      border-radius: 8px; padding: 13px 17px; margin: 12px 0;
-      font-family: 'Berkeley Mono', monospace; font-size: .88rem;
-      line-height: 1.55; white-space: pre-wrap;
-    }
-    .mg-prompt-label { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; display: block; margin-bottom: 6px; }
-
-    /* Uses grid */
-    .use-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; margin: 20px 0; }
-    .use-card { background: rgba(127,127,127,.06); border: 1px solid rgba(127,127,127,.16); border-radius: 12px; padding: 18px 20px; }
-    .use-card h4 { font-size: 1.04rem; margin-bottom: 4px; }
-    .use-card .use-sub { opacity: .75; font-size: .88rem; margin-bottom: 6px; }
-    .use-card .use-exp { font-size: .85rem; opacity: .8; margin: 8px 0 0; }
-    .use-card .use-exp strong { color: #43c59e; }
-
-    /* Personality table */
-    .mg-compare { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .9rem; }
-    .mg-compare th, .mg-compare td { text-align: left; padding: 12px 12px; border-bottom: 1px solid rgba(127,127,127,.18); vertical-align: top; }
-    .mg-compare th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+    /* Page-specific. Shared styles live in styles.css (.doc). */
     .mg-compare td:first-child { font-weight: 600; white-space: nowrap; }
-    .mg-compare-wrap { overflow-x: auto; }
-
-    /* Walls */
     .mt-walls { list-style: none; padding: 0; margin: 14px 0; }
     .mt-walls li { padding: 9px 0; border-bottom: 1px solid rgba(127,127,127,.14); opacity: .85; }
     .mt-walls li b { color: #e5736b; font-weight: 600; }
-
     .anchor-blurb { padding: 14px 0; border-bottom: 1px solid rgba(127,127,127,.14); }
     .anchor-blurb h4 { margin-bottom: 4px; }
     .anchor-blurb p { margin: 0; opacity: .82; font-size: .92rem; }
-    code { background: rgba(127,127,127,.16); padding: 1px 6px; border-radius: 5px; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
   </style>
 </head>
 <body>
@@ -95,9 +42,9 @@
     </a>
     <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
     <ul class="nav-links" id="navLinks">
-      <li><a href="../index.html">Home</a></li>
+      <li><a href="../index.html">Home</a></li><li><a href="index.html">All Tours</a></li>
       <li><a href="#strengths">Strengths</a></li>
-      <li><a href="#thefour">The Four</a></li>
+      <li><a href="#thefour">The Three</a></li>
       <li><a href="#limits">Limits</a></li>
       <li><a href="../model-guide.html#compare">All Models</a></li>
     </ul>
@@ -115,15 +62,15 @@
   <div class="section-inner">
     <a href="../model-guide.html#compare" class="mt-back reveal">← All models</a>
     <div class="eyebrow reveal" style="margin-top:14px">3–4B · Runs on 8 GB · Local</div>
-    <h1 class="section-heading reveal">Small local models <span class="tier-pill">chat only</span></h1>
-    <p class="lead-text reveal">Qwen2.5 3B · Qwen3 4B · Qwen3.5 4B · Phi-4 Mini 3.8B — the small, fast models that run on almost any machine. They can't use Aperio's tools, but that's only half the story. Within their lane, they're genuinely delightful.</p>
+    <h1 class="section-heading reveal">Small local models <span class="tier-pill tier-chat">chat only</span></h1>
+    <p class="lead-text reveal">Qwen2.5 3B · Qwen3.5 4B · Phi-4 Mini 3.8B — the small, fast models that run on almost any machine. They can't use Aperio's tools, but that's only half the story. Within their lane, they're genuinely delightful.</p>
   </div>
 </section>
 
 <!-- ── Framing ────────────────────────────────────────────────── -->
 <section class="section" style="padding:10px 0">
   <div class="section-inner">
-    <p class="reveal">One page covers all four, because at this size the differences are about <em>flavour</em>, not power. None of them can remember you across chats, read your files, or browse the web — that needs a bigger model (the <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> page is where tools start working). So instead of testing them on things they can't do, this page shows you the things they do <strong>well</strong> — and gives you ready-to-paste prompts to discover each one.</p>
+    <p class="reveal">One page covers all three, because at this size the differences are about <em>flavour</em>, not power. None of them can remember you across chats, read your files, or browse the web — that needs a bigger model (the <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> page is where tools start working). So instead of testing them on things they can't do, this page shows you the things they do <strong>well</strong> — and gives you ready-to-paste prompts to discover each one.</p>
     <p class="reveal" style="opacity:.8">They're fast, private, free, and they fit in 8 GB of RAM. Think of them as a sharp, well-read writing partner who happens to live entirely on your laptop. New here? The <a href="../model-guide.html#concepts">two-minute concepts primer</a> explains the jargon.</p>
   </div>
 </section>
@@ -195,10 +142,10 @@
   </div>
 </section>
 
-<!-- ── The four ───────────────────────────────────────────────── -->
+<!-- ── The three ──────────────────────────────────────────────── -->
 <section class="section" id="thefour" style="padding:20px 0">
   <div class="section-inner">
-    <h2 class="reveal">The four, side by side</h2>
+    <h2 class="reveal">The three, side by side</h2>
     <p class="reveal mg-desc">Same weight class, different personalities. If you've pulled one already, here's its character; if you're choosing, this is how they differ.</p>
 
     <div class="reveal mg-compare-wrap">
@@ -206,8 +153,7 @@
         <thead><tr><th>Model</th><th>Maker</th><th>Knowledge cutoff</th><th>Its flavour</th></tr></thead>
         <tbody>
           <tr><td>Qwen2.5 3B</td><td>Alibaba</td><td>~mid-2024</td><td>Warm, capable all-rounder. The classic first local model.</td></tr>
-          <tr><td>Qwen3 4B</td><td>Alibaba</td><td>~early 2025</td><td>Sharper than 2.5 — better at following instructions, fewer stumbles.</td></tr>
-          <tr><td>Qwen3.5 4B</td><td>Alibaba</td><td>~mid-2025</td><td>The most polished conversationalist of the four. Newest knowledge.</td></tr>
+          <tr><td>Qwen3.5 4B</td><td>Alibaba</td><td>~mid-2025</td><td>The most polished conversationalist of the three. Newest knowledge.</td></tr>
           <tr><td>Phi-4 Mini 3.8B</td><td>Microsoft</td><td>~late 2024</td><td>The analyst — step-by-step reasoning, clear explanations, less chatty.</td></tr>
         </tbody>
       </table>
@@ -216,10 +162,6 @@
     <div class="anchor-blurb reveal" id="qwen2-5-3b">
       <h4>Qwen2.5 3B</h4>
       <p>The lightest of the group and a lovely first local AI. Naturally warm in conversation and quietly good at creative writing. If you just want something to chat and write with, start here.</p>
-    </div>
-    <div class="anchor-blurb reveal" id="qwen3-4b">
-      <h4>Qwen3 4B</h4>
-      <p>A newer-generation step up from 2.5 — noticeably better at following formatting requests ("answer in three bullets") and less likely to lose the thread mid-reply. Same lane, steadier driving.</p>
     </div>
     <div class="anchor-blurb reveal" id="qwen3-5-4b">
       <h4>Qwen3.5 4B</h4>
@@ -246,6 +188,30 @@
       <li><b>Recent facts</b> — frozen at the training cutoff above, with no way to look things up. Don't trust them on current events.</li>
     </ul>
     <p class="reveal" style="margin-top:16px">Need any of the above? The next step is <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> — the smallest model where memory, files, and the web start working. Or browse the <a href="../model-guide.html#compare">full lineup</a>.</p>
+  </div>
+</section>
+
+<!-- ── Safety & Alignment ──────────────────────────────────────── -->
+<section class="section" id="safety" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">How safe is it, really?</h2>
+    <p class="reveal mg-desc">Small models aren't just less capable — they're also less carefully trained to stay within safe boundaries. This section is the honest version of what that means.</p>
+
+    <h3 class="reveal" style="font-size:1.1rem;margin-top:22px">The short version</h3>
+    <p class="reveal">Larger models go through extensive safety training — millions of examples of what to refuse and why. At 3–4 billion parameters, a model simply doesn't have room for that much nuance. Its safety guardrails are thinner, and they break sooner.</p>
+
+    <h3 class="reveal" style="font-size:1.1rem;margin-top:22px">What this looks like in practice</h3>
+    <ul class="mt-walls reveal">
+      <li><b>Easier to push past guardrails</b> — a request that a bigger model would firmly refuse might get a compliant answer from a small one. This isn't because it's "evil" — it's because the refusal pattern wasn't trained deeply enough.</li>
+      <li><b>Less likely to say "I can't help with that"</b> — small models default to being helpful, and that helpfulness sometimes overrides their safety instincts.</li>
+      <li><b>More vulnerable to phrasing tricks</b> — the same request, reworded slightly, can flip a refusal into compliance. Big models have seen enough variations to catch the intent; small ones haven't.</li>
+      <li><b>Weaker at recognising indirect harm</b> — a request that's obviously harmful when stated plainly might slip through when wrapped in innocent-sounding language. Large models are better at reading between the lines.</li>
+    </ul>
+
+    <h3 class="reveal" style="font-size:1.1rem;margin-top:22px">What this means for you</h3>
+    <p class="reveal">Treat small models like a creative collaborator you trust with ideas, not a gatekeeper you'd trust with decisions. They're wonderful for writing, brainstorming, and conversation — and they should <em>not</em> be the final word on anything where safety, ethics, or factual accuracy matters.</p>
+    <p class="reveal">If your use case involves filtering harmful content, moderating conversations, or making decisions with real-world consequences — this is the moment to step up to a <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> or larger. Alignment scales with capability.</p>
+    <p class="reveal" style="margin-top:12px;opacity:.75;font-size:.9rem">💡 Curious to test this yourself? The <a href="../model-guide.html#tests">model guide</a> has a calibration test (Test 6) that probes exactly this boundary — try it on your model and see what happens.</p>
   </div>
 </section>
 

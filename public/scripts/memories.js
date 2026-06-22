@@ -201,19 +201,104 @@ window.searchInput.addEventListener("input", () => {
   renderMemories(filtered);
 });
 
-// ── Export brain ─────────────────────────────────────────────
-document.getElementById("exportBtn").addEventListener("click", () => {
-  if (!window.allMemories.length) return;
-  if (!confirm(t("export_confirm", { n: window.allMemories.length }))) return;
-  const exportData = window.allMemories.map(({ id, createdAt, ...rest }) => rest);
-  const data = JSON.stringify(exportData, null, 2);
+// ── Confirm modal helpers ──────────────────────────────────────
+
+function showConfirmModal(title, message, okLabel, onOk) {
+  const modal = document.getElementById('confirmModal');
+  if (!modal) return;
+  document.getElementById('confirmOkBtn').onclick = null;
+  modal.querySelector('.confirm-title').textContent = title;
+  modal.querySelector('.confirm-message').textContent = message;
+  const okBtn = document.getElementById('confirmOkBtn');
+  okBtn.textContent = okLabel || 'OK';
+  okBtn.onclick = () => {
+    closeConfirmModal();
+    if (onOk) onOk();
+  };
+  modal.classList.add('active');
+}
+
+function closeConfirmModal() {
+  const modal = document.getElementById('confirmModal');
+  if (modal) modal.classList.remove('active');
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') { closeConfirmModal(); closeExportModal(); }
+});
+
+document.getElementById('confirmModal')?.addEventListener('click', (e) => {
+  if (!e.target.closest('.confirm-content')) closeConfirmModal();
+});
+
+// ── Export modal helpers ────────────────────────────────────────
+
+let _exportPayload = null;
+
+function showExportModal(payload) {
+  _exportPayload = payload;
+  const c = payload.counts;
+  document.getElementById('exportCountMem').textContent = c.memories;
+  document.getElementById('exportCountWiki').textContent = c.wiki_articles;
+  document.getElementById('exportCountJobs').textContent = c.agent_jobs;
+  document.getElementById('exportCountRuns').textContent = c.agent_runs;
+  document.getElementById('exportModal').classList.add('active');
+}
+
+function closeExportModal() {
+  document.getElementById('exportModal').classList.remove('active');
+  _exportPayload = null;
+}
+
+document.getElementById('exportModal')?.addEventListener('click', (e) => {
+  if (!e.target.closest('.confirm-content')) closeExportModal();
+});
+
+document.getElementById('exportDoBtn').addEventListener('click', () => {
+  if (!_exportPayload) return;
+  const includeWiki = document.getElementById('exportIncludeWiki').checked;
+  const includeJobs = document.getElementById('exportIncludeJobs').checked;
+
+  const out = {
+    aperio_export: _exportPayload.aperio_export,
+    exported_at: _exportPayload.exported_at,
+    counts: {
+      memories: _exportPayload.counts.memories,
+      wiki_articles: includeWiki ? _exportPayload.counts.wiki_articles : 0,
+      agent_jobs: includeJobs ? _exportPayload.counts.agent_jobs : 0,
+      agent_runs: includeJobs ? _exportPayload.counts.agent_runs : 0,
+    },
+    memories: _exportPayload.memories,
+    wiki_articles: includeWiki ? _exportPayload.wiki_articles : [],
+    agent_jobs: includeJobs ? _exportPayload.agent_jobs : [],
+    agent_runs: includeJobs ? _exportPayload.agent_runs : [],
+  };
+
+  const data = JSON.stringify(out, null, 2);
   const blob = new Blob([data], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `aperio-export-${new Date().toISOString().slice(0,10)}.json`;
+  a.download = `aperio-export-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
+  closeExportModal();
+});
+
+// ── Export brain ─────────────────────────────────────────────
+document.getElementById("exportBtn").addEventListener("click", async () => {
+  try {
+    const res = await fetch("/api/data/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ include_wiki: true, include_agent_jobs: true }),
+    });
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.error || "Export failed");
+    showExportModal(payload);
+  } catch (err) {
+    alert(t("export_error", { error: err.message }));
+  }
 });
 
 // ── Import brain ─────────────────────────────────────────────
@@ -226,40 +311,50 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
   e.target.value = "";
   if (!file) return;
 
-  let memories;
+  let payload;
   try {
     const text = await file.text();
-    memories = JSON.parse(text);
+    payload = JSON.parse(text);
   } catch {
     alert(t("import_parse_failed"));
     return;
   }
 
+  // Accept both full exports ({ memories, wiki_articles }) and old exports (array).
+  const memories = payload.memories ?? (Array.isArray(payload) ? payload : null);
+  const wiki = payload.wiki_articles ?? [];
   if (!Array.isArray(memories) || memories.length === 0) {
     alert(t("import_invalid_array"));
     return;
   }
 
-  const confirmKey = memories.length === 1 ? "import_confirm_one" : "import_confirm_many";
-  if (!confirm(t(confirmKey, { n: memories.length, file: file.name }))) return;
+  const confirmKey = wiki.length > 0
+    ? "import_confirm_full"
+    : (memories.length === 1 ? "import_confirm_one" : "import_confirm_many");
+  const confirmMsg = t(confirmKey, { m: memories.length, w: wiki.length, n: memories.length, file: file.name });
 
-  try {
-    const res = await fetch("/api/memories/import", {
+  showConfirmModal("Import database", confirmMsg, "Import", async () => {
+    try {
+      const res = await fetch("/api/data/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ memories }),
+      body: JSON.stringify({ memories, wiki_articles: wiki }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Import failed");
 
-    const msg = data.errors?.length
-      ? t("import_done_with_errors", { n: data.imported, e: data.errors.length })
-      : t(data.imported === 1 ? "import_done_one" : "import_done_many", { n: data.imported });
-    alert(msg);
+    const imported = data.imported || {};
+    const skipped = data.skipped || {};
+    const parts = [
+      t("import_done_memories", { n: imported.memories || 0 }),
+    ];
+    if (imported.wiki > 0) parts.push(t("import_done_wiki", { n: imported.wiki }));
+    if (skipped.memories > 0 || skipped.wiki > 0) {
+      parts.push(t("import_skipped", { m: skipped.memories || 0, w: skipped.wiki || 0 }));
+    }
+    alert(parts.join("\n"));
 
-    if (data.imported > 0) {
-      // Fetch directly from REST — avoids the MCP subprocess cache which
-      // doesn't know about memories written by the REST import endpoint.
+    if ((imported.memories || 0) > 0) {
       try {
         const memRes = await fetch("/api/memories");
         const memData = await memRes.json();
@@ -268,7 +363,8 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
         window.safeSend(JSON.stringify({ type: "get_memories" }));
       }
     }
-  } catch (err) {
-    alert(t("import_error", { error: err.message }));
-  }
+    } catch (err) {
+      alert(t("import_error", { error: err.message }));
+    }
+  });
 });

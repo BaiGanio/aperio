@@ -34,10 +34,10 @@
     </button>
     <div class="status-pill">
       <div class="status-dot" id="statusDot"></div>
-      <i class="bi bi-cpu" style="font-size:11px;color:var(--text-muted)"></i>
+      <i class="bi bi-cpu" style="font-size: calc(12px * var(--font-scale));color:var(--text-muted)"></i>
       <span id="statusText" data-i18n="status_connecting">connecting…</span>
       <span id="providerBadge" style="
-        font-family:var(--font-mono); font-size:9px; font-weight:600;
+        font-family:var(--font-mono); font-size: calc(11px * var(--font-scale)); font-weight:600;
         background:var(--tag-bg); color:var(--tag-text);
         padding:1px 6px; border-radius:8px; letter-spacing:0.06em;
         text-transform:uppercase; display:none;
@@ -54,7 +54,7 @@
       <div class="ctx-header">
         <span class="ctx-label" data-i18n="ctx_label">context</span>
         <span class="ctx-value" id="ctxText">— / —</span>
-        <span id="toolCountBadge" style="display:none;font-size:9px;color:var(--text-muted);margin-left:4px;font-family:var(--font-mono)"></span>
+        <span id="toolCountBadge" style="display:none;font-size: calc(11px * var(--font-scale));color:var(--text-muted);margin-left:4px;font-family:var(--font-mono)"></span>
       </div>
       <div class="ctx-track">
         <div class="ctx-fill" id="ctxFill"></div>
@@ -73,11 +73,11 @@
     </div>
     <div class="memories-list" id="memoriesList">
       <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
-        <div style="font-size:22px; margin-bottom:8px; opacity:.4">◈</div>
-        <div style="font-size:12px; color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
+        <div style="font-size: calc(22px * var(--font-scale)); margin-bottom:8px; opacity:.4">◈</div>
+        <div style="font-size: calc(12px * var(--font-scale)); color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
       </div>
     </div>
-    <nav class="sidebar-nav">
+    <nav class="sidebar-nav is-compact" id="sidebarNav">
       <button id="memoriesBtn" class="sidebar-nav-btn sidebar-nav-btn--collapsed-only" onclick="expandSidebarToMemories()"
         data-i18n-attr-title="nav_memories_title" title="Memories — search your saved memories">
         <i class="bi bi-stars sidebar-nav-icon"></i>
@@ -122,6 +122,10 @@
         data-i18n-attr-title="nav_settings_title" title="Settings">
         <i class="bi bi-sliders sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="nav_settings_plain">Settings</span>
+      </button>
+      <button id="navDensityToggle" class="sidebar-nav-btn" title="Expand to full list">
+        <i class="bi bi-arrows-expand sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Expand</span>
       </button>
     </nav>
 
@@ -172,7 +176,7 @@
           <span class="discuss-btn-label" data-i18n="discuss_button_label">Discuss</span>
         </button>
         <button class="send-btn" id="sendBtn" disabled title="Send (⌘ + ↵)">
-          <i class="bi bi-send-fill" style="font-size:13px"></i>
+          <i class="bi bi-send-fill" style="font-size: calc(13px * var(--font-scale))"></i>
         </button>
         <button class="stop-btn" id="stopBtn" data-i18n-attr-title="chat_stop_title" title="Stop generating">■</button>
       </div>
@@ -238,6 +242,52 @@
           <i class="bi bi-chevron-right"></i>
         </button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal (export / import) -->
+<div id="confirmModal" class="confirm-modal">
+  <div class="confirm-content">
+    <div class="confirm-header">
+      <span class="confirm-title"></span>
+      <button class="confirm-close" onclick="closeConfirmModal()">&times;</button>
+    </div>
+    <p class="confirm-message"></p>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" onclick="closeConfirmModal()">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="confirmOkBtn"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Export modal (checkbox form) -->
+<div id="exportModal" class="confirm-modal">
+  <div class="confirm-content">
+    <div class="confirm-header">
+      <span class="confirm-title">Export database</span>
+      <button class="confirm-close" onclick="closeExportModal()">&times;</button>
+    </div>
+    <div class="export-options">
+      <div class="export-option export-option--always">
+        <span class="export-option-label">Memories</span>
+        <span class="export-option-count" id="exportCountMem">0</span>
+      </div>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeWiki" checked>
+        <span class="export-option-label">Wiki articles</span>
+        <span class="export-option-count" id="exportCountWiki">0</span>
+      </label>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeJobs" checked>
+        <span class="export-option-label">Agent jobs + recent runs</span>
+        <span class="export-option-count" id="exportCountJobs">0</span>
+        <span class="export-option-sub">+ <span id="exportCountRuns">0</span> runs</span>
+      </label>
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" onclick="closeExportModal()">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="exportDoBtn">Export</button>
     </div>
   </div>
 </div>
@@ -419,26 +469,50 @@
     <button class="settings-panel-close" onclick="toggleSettingsPanel()"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="settings-panel-body">
-    <div class="settings-row settings-row--stack">
-      <span class="settings-row-label">
+    <details class="settings-section" id="themeSection">
+      <summary>
         <i class="bi bi-circle-half"></i>
         <span data-i18n="nav_theme_title">Theme</span>
-      </span>
-      <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
-        <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">
-          <span class="theme-btn-icon">☀️</span><span class="theme-btn-name" data-i18n="nav_theme_light">Light</span>
-        </button>
-        <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">
-          <span class="theme-btn-icon">🌙</span><span class="theme-btn-name" data-i18n="nav_theme_dark">Dark</span>
-        </button>
-        <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
-          <span class="theme-btn-icon">✦</span><span class="theme-btn-name" data-i18n="nav_theme_aurora">Aurora</span>
-        </button>
-        <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
-          <span class="theme-btn-icon">⊙</span><span class="theme-btn-name" data-i18n="nav_theme_system">System</span>
-        </button>
+      </summary>
+      <div class="settings-section-body">
+        <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
+          <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">
+            <span class="theme-btn-icon">☀️</span><span class="theme-btn-name" data-i18n="nav_theme_light">Light</span>
+          </button>
+          <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">
+            <span class="theme-btn-icon">🌙</span><span class="theme-btn-name" data-i18n="nav_theme_dark">Dark</span>
+          </button>
+          <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
+            <span class="theme-btn-icon">✦</span><span class="theme-btn-name" data-i18n="nav_theme_aurora">Aurora</span>
+          </button>
+          <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
+            <span class="theme-btn-icon">⊙</span><span class="theme-btn-name" data-i18n="nav_theme_system">System</span>
+          </button>
+        </div>
       </div>
-    </div>
+    </details>
+    <details class="settings-section" id="fontSizeSection">
+      <summary>
+        <i class="bi bi-fonts"></i>
+        <span data-i18n="nav_fontsize_title">Text size</span>
+      </summary>
+      <div class="settings-section-body">
+        <div class="fontscale-switcher" data-i18n-attr-title="nav_fontsize_title" title="Text size">
+          <button class="fontscale-btn" data-scale="0.9" data-i18n-attr-title="nav_fontsize_small" title="Small">
+            <span class="fontscale-btn-glyph" style="font-size:11px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_small">Small</span>
+          </button>
+          <button class="fontscale-btn active" data-scale="1" data-i18n-attr-title="nav_fontsize_default" title="Default">
+            <span class="fontscale-btn-glyph" style="font-size:14px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_default">Default</span>
+          </button>
+          <button class="fontscale-btn" data-scale="1.15" data-i18n-attr-title="nav_fontsize_large" title="Large">
+            <span class="fontscale-btn-glyph" style="font-size:17px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_large">Large</span>
+          </button>
+          <button class="fontscale-btn" data-scale="1.3" data-i18n-attr-title="nav_fontsize_xl" title="Larger">
+            <span class="fontscale-btn-glyph" style="font-size:20px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_xl">Larger</span>
+          </button>
+        </div>
+      </div>
+    </details>
     <div class="settings-row">
       <span class="settings-row-label">
         <i class="bi bi-volume-up"></i>
@@ -510,6 +584,49 @@
     <!-- Extras — optional skill dependencies (docx Python toolchain). Detects
          what's installed; auto-installs pip deps; shows guided commands for
          system binaries it can't safely install from the browser. -->
+    <!-- Busy words — words Aperio cycles through next to the live cursor while
+         it's working. Defaults ship in code; these are the user's additions. -->
+    <details class="settings-section" id="busyWordsSection">
+      <summary>
+        <i class="bi bi-chat-square-dots"></i>
+        <span>Busy words</span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Words Aperio shows while it's busy. Add your own (one per line) — they join the built-in set.</span>
+        <textarea id="busyWordsInput" class="busy-words-input" rows="5" spellcheck="false"
+                  placeholder="Marinating&#10;Percolating&#10;Compiling thoughts"></textarea>
+      </div>
+    </details>
+    <!-- GitHub triage — repos to triage + the GitHub token / webhook secret.
+         Stored in the DB settings store (no .env edit, no restart). The token
+         and secret are write-only: the server never sends their value back, it
+         only reports whether one is configured. -->
+    <details class="settings-section" id="githubTriageSection">
+      <summary>
+        <i class="bi bi-github"></i>
+        <span>GitHub triage</span>
+        <span class="model-current" id="githubTriageSummary"></span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Repos for the daily issue-triage agent to rank. One per line — either <code>owner/repo</code> (e.g. <code>octocat/Hello-World</code>) or the name of an allowed folder (resolved via its git origin).</span>
+        <textarea id="triageReposInput" class="busy-words-input" rows="3" spellcheck="false"
+                  placeholder="octocat/Hello-World&#10;my-project"></textarea>
+
+        <span class="paths-section-hint" style="margin-top:.75rem;">GitHub token — optional for public repos (raises the rate limit), required for private repos and for creating/updating issues. Needs <code>repo</code> scope. <span id="githubTokenState"></span></span>
+        <input type="password" id="githubTokenInput" class="paths-text-input" autocomplete="off"
+               placeholder="ghp_… (leave blank to keep current)" />
+
+        <span class="paths-section-hint" style="margin-top:.75rem;">Webhook secret — only needed if you point a GitHub webhook at this Aperio for instant issue capture. Must match the secret on the GitHub webhook. <span id="githubWebhookSecretState"></span></span>
+        <input type="password" id="githubWebhookSecretInput" class="paths-text-input" autocomplete="off"
+               placeholder="(leave blank to keep current)" />
+
+        <div class="paths-saved-note" style="margin-top:.75rem;">
+          <i class="bi bi-info-circle"></i> Triage runs as a background agent — enable background agents and the <code>issue-triage</code> job to start it.
+        </div>
+        <div class="model-select-status" id="githubTriageStatus"></div>
+        <button class="paths-apply-btn" onclick="saveGithubTriageSettings()"><i class="bi bi-check-lg"></i> Save</button>
+      </div>
+    </details>
     <details class="settings-section" id="extrasSection">
       <summary>
         <i class="bi bi-puzzle"></i>
@@ -533,6 +650,7 @@
 <script src="scripts/voice.js"></script>
 <script src="scripts/tts.js"></script>
 <script src="scripts/theme-and-timestamp.js"></script>
+<script src="scripts/font-scale.js"></script>
 <script src="scripts/markdown.js"></script>
 <script src="scripts/rendering.js"></script>
 <script src="scripts/streaming.js"></script>
@@ -545,6 +663,7 @@
 <script src="scripts/agents-panel.js"></script>
 <script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/skills-panel.js"></script>
+<script src="scripts/github-triage-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
 <script src="scripts/chat.js"></script>

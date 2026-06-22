@@ -53,7 +53,7 @@ const SUPPORTED_LANGS = Object.keys(LOCALE_META);
 const TRANSLATIONS = {
   en: {
     page_title:               "Aperio",
-    title_thinking:           "● Aperio is thinking",
+    title_thinking:           "● Aperio is busy",
 
     nav_toggle_sidebar_show:  "Show sidebar ({key}B)",
     nav_toggle_sidebar_hide:  "Hide sidebar ({key}B)",
@@ -75,6 +75,11 @@ const TRANSLATIONS = {
     nav_theme_dark:           "Dark",
     nav_theme_aurora:         "Aurora",
     nav_theme_system:         "System",
+    nav_fontsize_title:       "Text size",
+    nav_fontsize_small:       "Small",
+    nav_fontsize_default:     "Default",
+    nav_fontsize_large:       "Large",
+    nav_fontsize_xl:          "Larger",
 
     status_connecting:        "connecting…",
     status_connected:         "connected",
@@ -123,7 +128,7 @@ const TRANSLATIONS = {
     chat_stop_title:          "Stop generating",
     chat_attach_title:        "Attach file or image",
     chat_input_hint_html:     "{key} + ↵ to send &nbsp;·&nbsp; ↵ for newline",
-    chat_input_thinking:      "Aperio is thinking…",
+    chat_input_thinking:      "Aperio is busy…",
     chat_input_warning:       "Your AI agent is not almighty. Do not trust the output blindly!",
     chat_thinking_label:      "thinking…",
     chat_loading_label:       "loading…",
@@ -147,6 +152,7 @@ const TRANSLATIONS = {
     msg_streaming:            "streaming…",
 
     startup_tokens_from:      "{n} tokens at startup",
+    startup_tokens_est:       "~{n} tokens at startup (estimate)",
     startup_memory_one:       "1 memory",
     startup_memory_many:      "{n} memories",
     startup_skill_one:        "1 skill",
@@ -158,6 +164,7 @@ const TRANSLATIONS = {
     startup_bd_identity:      "Identity (whoami.md)",
     startup_bd_skill_named:   "Always-on skill: {name}",
     startup_bd_memory_pointer: "Memory index (recall on demand)",
+    startup_bd_tools:         "Tool schemas",
     startup_bd_other:         "Conversation scaffolding",
     startup_bd_note:          "Skills & tool schemas are re-sent every turn — LLM APIs are stateless, so this is the cost of context, not duplication.",
 
@@ -180,6 +187,7 @@ const TRANSLATIONS = {
     tool_read_file:           "Reading file…",
     tool_scan_project:        "Scanning project…",
     tool_fetch_url:           "Fetching URL…",
+    tool_web_search:          "Searching the web…",
     tool_generic:             "Using {name}…",
     skills_chip_label:        "Skills",
     skills_core_label:        "core",
@@ -244,6 +252,12 @@ const TRANSLATIONS = {
     import_done_many:         "Imported {n} memories successfully.",
     import_done_with_errors:  "Imported {n} memories. {e} skipped.",
     import_error:             "Import error: {error}",
+    export_error:             "Export error: {error}",
+    export_confirm_full:      "Aperio will export {m} memories and {w} wiki articles?",
+    import_confirm_full:      "Import {m} memories and {w} wiki articles from \"{file}\"?",
+    import_done_memories:     "Imported {n} memories.",
+    import_done_wiki:         "Imported {n} wiki articles.",
+    import_skipped:           "{m} memories and {w} wiki articles skipped (already exist).",
 
     ctx_warn:                 "Context is {pct}% full — older messages will be dropped soon.",
     ctx_trimmed:              "Older messages were dropped to fit context ({pct}% full).",

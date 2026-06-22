@@ -71,12 +71,10 @@ function enterPhase(kind) {
   if (_lastPhase === "thinking" && kind !== "thinking" && !_phaseHadReasoning && _modelThinks) {
     dropPhaseBreadcrumb(t("status_thinking"));
   }
-  // The "reading result…" step must survive into the transcript as a permanent
-  // record (like a thinking step) instead of vanishing the instant the answer
-  // streams — so when we leave the reading phase, leave a breadcrumb behind.
-  if (_lastPhase === "reading" && kind !== "reading") {
-    dropPhaseBreadcrumb(t("tool_reading_result"));
-  }
+  // "reading result…" is shown only on the live pill while the model digests a
+  // tool result; it must NOT leave a breadcrumb — once the model is done reading
+  // and moves on, the label disappears with the live pill rather than littering
+  // the transcript with stale "reading result…" lines.
   _lastPhase = kind;
 }
 
@@ -202,6 +200,11 @@ function handleMessage(msg) {
 
   if (msg.type === "paths_updated") {
     if (typeof notifyPathsChanged === "function") notifyPathsChanged(msg.paths);
+  }
+
+  if (msg.type === "agent_job_done") {
+    if (typeof showAgentJobBanner === "function") showAgentJobBanner(msg);
+    if (typeof window.refreshAgentsPanelIfOpen === "function") window.refreshAgentsPanelIfOpen();
   }
 
   if (msg.type === "thinking") {
@@ -419,6 +422,7 @@ function handleMessage(msg) {
       for (const f of _pendingGeneratedFiles) streamingBubble.bubble.appendChild(_buildGeneratedFileCard(f)); _pendingGeneratedFiles.length = 0;
       window.Aperio?.tts?.speak(streamingText);
       window.Aperio?.voice?.onStreamEnd?.();
+      _refineStartupBanner(msg.usage?.input_tokens);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
     } else if (streamingBubble) {
@@ -430,6 +434,7 @@ function handleMessage(msg) {
       addMessage("ai", msg.text);
       window.Aperio?.tts?.speak(msg.text);
       window.Aperio?.voice?.onStreamEnd?.();
+      _refineStartupBanner(msg.usage?.input_tokens);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
     }
@@ -1232,52 +1237,83 @@ function finalizeStreamingBubble(ref, fullText, stats) {
   highlightAll();
 }
 
-function _maybeShowStartupBanner() {
-  if (startupBannerShown) return;
-  const bd = _startupBreakdown;
-  if (!bd) return;
+// Sum of the known startup components (server-side estimates). The static
+// greeting means there's no startup inference, so this is the best number we
+// have until the first real turn reports a true provider count.
+function _startupComponentsTotal(bd) {
+  return (bd.identity || 0)
+    + (bd.skills || []).reduce((n, s) => n + (s.tokens || 0), 0)
+    + (bd.memoryTokens || 0)
+    + (bd.toolSchemas || 0);
+}
 
-  // The startup prompt's fixed overhead, summed from the server-side component
-  // estimates. Memory is a small recall pointer for cloud-capable models and 0
-  // for local/weak models — so there is no "N memories" content to advertise.
-  const identity  = bd.identity || 0;
-  const skills    = bd.skills || [];
-  const skillsTok = skills.reduce((n, s) => n + (s.tokens || 0), 0);
-  const memTok    = bd.memoryTokens || 0;
-  const total     = identity + skillsTok + memTok;
-  if (!total) return;
-  startupBannerShown = true;
+// Build the banner's inner HTML. When `realTotal` is given (after turn 1) the
+// headline shows the true provider count and a "scaffolding" row reconciles the
+// estimates to it; otherwise it's a labelled estimate.
+function _startupBannerInner(bd, realTotal) {
+  const est = _startupComponentsTotal(bd);
+  const total = realTotal || est;
 
-  // Per-component breakdown of where the startup tokens go (estimates).
-  const items = [[t("startup_bd_identity"), identity]];
-  for (const s of skills) items.push([t("startup_bd_skill_named", { name: s.name }), s.tokens || 0]);
-  if (memTok) items.push([t("startup_bd_memory_pointer"), memTok]);
+  const items = [[t("startup_bd_identity"), bd.identity || 0]];
+  for (const s of (bd.skills || [])) items.push([t("startup_bd_skill_named", { name: s.name }), s.tokens || 0]);
+  if (bd.toolSchemas)  items.push([t("startup_bd_tools"), bd.toolSchemas]);
+  if (bd.memoryTokens) items.push([t("startup_bd_memory_pointer"), bd.memoryTokens]);
+  if (realTotal) {
+    const other = Math.max(0, realTotal - est);
+    if (other) items.push([t("startup_bd_other"), other]);
+  }
   const rows = items
     .map(([label, n]) => `<div class="ctx-bd-row"><span>${label}</span><span>~${n.toLocaleString()}</span></div>`)
     .join("");
-  const bdHtml =
+
+  const headline = realTotal
+    ? t("startup_tokens_from", { n: total.toLocaleString() })
+    : t("startup_tokens_est", { n: total.toLocaleString() });
+
+  return (
+    `<div class="ctx-banner-row">` +
+      `<span class="ctx-banner-text">${headline}</span>` +
+      `<button class="ctx-banner-btn" onclick="const b=this.closest('.ctx-banner').querySelector('.ctx-bd'); b.style.display = b.style.display==='none' ? 'block' : 'none';">${t("startup_bd_toggle")}</button>` +
+      `<button class="ctx-banner-btn" onclick="this.closest('.ctx-banner').remove()">${t("ctx_dismiss")}</button>` +
+    `</div>` +
     `<div class="ctx-bd" style="display:none">` +
       `<div class="ctx-bd-title">${t("startup_bd_title")}</div>` +
       rows +
       `<div class="ctx-bd-note">${t("startup_bd_note")}</div>` +
-    `</div>`;
+    `</div>`
+  );
+}
+
+let _startupBannerEl = null;
+let _startupBannerRefined = false;
+
+function _maybeShowStartupBanner() {
+  if (startupBannerShown) return;
+  const bd = _startupBreakdown;
+  if (!bd || !_startupComponentsTotal(bd)) return;
+  startupBannerShown = true;
 
   const banner = document.createElement("div");
   banner.className = "ctx-banner ctx-banner--memories";
-  banner.innerHTML =
-    `<div class="ctx-banner-row">` +
-      `<span class="ctx-banner-text">${t("startup_tokens_from", { n: total.toLocaleString() })}</span>` +
-      `<button class="ctx-banner-btn" onclick="const b=this.closest('.ctx-banner').querySelector('.ctx-bd'); b.style.display = b.style.display==='none' ? 'block' : 'none';">${t("startup_bd_toggle")}</button>` +
-      `<button class="ctx-banner-btn" onclick="this.closest('.ctx-banner').remove()">${t("ctx_dismiss")}</button>` +
-    `</div>` +
-    bdHtml;
+  banner.innerHTML = _startupBannerInner(bd, null);
   document.querySelector(".chat-area")?.prepend(banner);
-  setTimeout(() => {
-    if (!banner.isConnected) return;
-    const bd = banner.querySelector(".ctx-bd");
-    if (bd && bd.style.display !== "none") return;
-    banner.remove();
-  }, 10000);
+  _startupBannerEl = banner;
+}
+
+// Replace the startup estimate with the real provider input-token count once the
+// first turn returns. Keeps the banner visible (no auto-dismiss) so the figure
+// the user actually paid stays on screen until they dismiss it.
+function _refineStartupBanner(inputTok) {
+  if (!inputTok || _startupBannerRefined || !_startupBreakdown) return;
+  if (!_startupBannerEl || !_startupBannerEl.isConnected) return;
+  _startupBannerRefined = true;
+  // Preserve whether the user had expanded the breakdown.
+  const wasOpen = _startupBannerEl.querySelector(".ctx-bd")?.style.display === "block";
+  _startupBannerEl.innerHTML = _startupBannerInner(_startupBreakdown, inputTok);
+  if (wasOpen) {
+    const bd = _startupBannerEl.querySelector(".ctx-bd");
+    if (bd) bd.style.display = "block";
+  }
 }
 
 function _annotateTokenBadges(inputTok, thinkTok) {
@@ -1687,7 +1723,41 @@ function _resolveToolCard(msg) {
   const time = card.querySelector(".tool-card-time");
   if (time && typeof msg.ms === "number") time.textContent = formatToolDuration(msg.ms);
   const result = card.querySelector(".tool-card-result");
-  if (result) result.textContent = `↳ ${msg.summary || (msg.ok ? "done" : "error")}`;
+  if (result) {
+    const summaryText = `↳ ${msg.summary || (msg.ok ? "done" : "error")}`;
+    // web_search ships its hits as `details` — render them as an expandable list
+    // (titles link out) so "N results" is inspectable instead of an opaque count.
+    if (Array.isArray(msg.details) && msg.details.length) {
+      result.textContent = "";
+      const det = document.createElement("details");
+      det.className = "tool-card-results";
+      const sum = document.createElement("summary");
+      sum.textContent = summaryText;
+      det.appendChild(sum);
+      for (const r of msg.details) {
+        const item = document.createElement("div");
+        item.className = "tool-card-result-item";
+        const a = document.createElement("a");
+        a.href = r.url; a.target = "_blank"; a.rel = "noopener noreferrer";
+        a.textContent = r.title || r.url;
+        item.appendChild(a);
+        const link = document.createElement("div");
+        link.className = "tool-card-result-url";
+        link.textContent = r.url;
+        item.appendChild(link);
+        if (r.snippet) {
+          const sn = document.createElement("div");
+          sn.className = "tool-card-result-snippet";
+          sn.textContent = r.snippet;
+          item.appendChild(sn);
+        }
+        det.appendChild(item);
+      }
+      result.appendChild(det);
+    } else {
+      result.textContent = summaryText;
+    }
+  }
   // The tool is done — don't leave the live pill stuck on the present-tense
   // "Using {name}…" sitting below a finished card (reads as if the tool is
   // still running, and went silent for minutes on slow models). Flip it to the

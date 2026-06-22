@@ -1,6 +1,6 @@
 {
   "page_title":               "Aperio",
-  "title_thinking":           "● Aperio is thinking",
+  "title_thinking":           "● Aperio is busy",
 
   "nav_toggle_sidebar_show":  "Show sidebar ({key}B)",
   "nav_toggle_sidebar_hide":  "Hide sidebar ({key}B)",
@@ -60,7 +60,7 @@
   "chat_stop_title":          "Stop generating",
   "chat_attach_title":        "Attach file or image",
   "chat_input_hint_html":     "({key} + ↵) to send &nbsp;·&nbsp; ↵ for newline",
-  "chat_input_thinking":      "Aperio is thinking…",
+  "chat_input_thinking":      "Aperio is busy…",
   "chat_input_warning":       "Your AI agent is not almighty. Do not trust the output blindly!",
   "chat_thinking_label":      "thinking…",
   "chat_loading_label":       "loading…",

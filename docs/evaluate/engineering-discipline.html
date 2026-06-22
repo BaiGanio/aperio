@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aperio | Engineering Discipline — Contributor Skill Quality Drills</title>
+<meta name="description" content="Live behavioral drills for contributors testing engineering skill quality. Paste trigger prompts and judge whether the agent follows correct methodology." />
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="../styles.css" /><link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+<style>
+.drill-card{background:var(--bg-card);border:1px solid var(--border);padding:24px 28px 20px;margin-bottom:20px;border-left:3px solid var(--purple)}.drill-card h3{font-family:var(--font-ui);font-size:1.1rem;letter-spacing:.03em;margin-bottom:2px}.drill-card h3 code{background:rgba(168,85,247,.1);color:var(--purple);padding:1px 6px;font-family:'Berkeley Mono',monospace}.drill-trigger{background:rgba(127,127,127,.08);border-left:3px solid var(--indigo);padding:12px 16px;margin:12px 0;font-size:.92rem;line-height:1.6}.drill-trigger strong{display:block;font-family:var(--font-ui);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;opacity:.5;margin-bottom:4px}.drill-expect{margin:10px 0;font-size:.9rem;line-height:1.7}.drill-expect::before{content:"✅ Expect: ";color:#43c59e;font-weight:600}.drill-redflag{margin:8px 0;font-size:.9rem;line-height:1.7}.drill-redflag::before{content:"🚩 Red flag (skill working if it AVOIDS this): ";color:#e5736b;font-weight:600;font-size:.85rem}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}@media(max-width:700px){.two-col{grid-template-columns:1fr}}
+.checklist-box{background:rgba(127,127,127,.05);border:1px solid rgba(127,127,127,.12);padding:16px 20px;margin:12px 0}.checklist-box h4{font-family:var(--font-ui);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;margin-bottom:8px;opacity:.6}.checklist-box code{background:rgba(168,85,247,.1);color:var(--purple);padding:1px 5px;font-family:'Berkeley Mono',monospace;font-size:.82em}
+.note-box{background:rgba(168,85,247,.06);border:1px solid rgba(168,85,247,.15);padding:16px 20px;margin:18px 0;font-size:.9rem;line-height:1.7}
+</style></head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<nav class="aperio-nav"><div class="nav-inner"><a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a><button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button><ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="#drills">Drills</a></li><li><a href="#checklist">Checklist</a></li><li><a href="skill-matching.html">← Skill Matching</a></li></ul><div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div></div></nav>
+
+<section class="section" id="mt-top" style="padding:120px 0 30px"><div class="section-inner">
+<div class="eyebrow reveal" style="margin-top:0">Contributor Reference</div>
+<h1 class="section-heading reveal">Engineering Discipline — Behavioral Drills</h1>
+<p class="lead-text reveal">Live quality drills for contributors testing whether engineering skills actually produce correct agent behavior. <strong>Not for end users.</strong> Requires a running Aperio instance and the ability to judge code quality, methodology, and red flags. Paste each trigger prompt in a fresh chat and evaluate the agent's response.</p>
+</div></section>
+
+<section class="section" style="padding:10px 0"><div class="section-inner">
+<div class="note-box reveal"><strong>How this differs from Skill Matching:</strong> The <a href="skill-matching.html">Skill Matching</a> page tests whether the <em>right skill name fires</em> for a prompt (Layer 1 — deterministic matcher). These drills test whether the loaded skill actually <em>changes agent behavior</em> (Layer 2 — live LLM judgment call). A skill can match correctly and still produce bad behavior. These drills catch that gap.</div>
+</div></section>
+
+<section class="section" id="drills" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">The Drills</h2>
+
+<div class="drill-card reveal">
+<h3><code>debugging-and-error-recovery</code></h3>
+<div class="drill-trigger"><strong>Trigger prompt</strong>This test crashes with <code>TypeError: cannot read 'id' of undefined</code> — debug it and find the root cause.</div>
+<p class="drill-expect">It reproduces the error first, reads the stack trace, names <em>one</em> hypothesis, makes a minimal fix, then re-runs to verify — and ends by stating the root cause + showing the passing output.</p>
+<p class="drill-redflag">Changing code at random and re-running; trying the same fix twice; saying "it should work now" without re-running.</p>
+</div>
+
+<div class="drill-card reveal">
+<h3><code>test-driven-development</code></h3>
+<div class="drill-trigger"><strong>Trigger prompt</strong>Implement a <code>slugify(str)</code> function using TDD.</div>
+<p class="drill-expect">Writes a failing test first, shows it RED, writes minimal code, shows it GREEN, only then refactors.</p>
+<p class="drill-redflag">Writing the implementation first; a test that passes on the very first run (never saw RED); a tautological assertion.</p>
+</div>
+
+<div class="drill-card reveal">
+<h3><code>security-and-hardening</code></h3>
+<div class="drill-trigger"><strong>Trigger prompt</strong>Add a <code>/search?q=</code> route that queries the users table by name.</div>
+<p class="drill-expect">Parameterized query (no string concatenation), input validation on <code>q</code>, a note on rate-limiting / authorization, no secrets in code.</p>
+<p class="drill-redflag">Building the SQL with string interpolation of <code>q</code>; "the frontend validates it"; deferring all of it to "later".</p>
+</div>
+
+<div class="drill-card reveal">
+<h3><code>code-review-and-quality</code></h3>
+<div class="drill-trigger"><strong>Trigger prompt</strong>Paste a small diff and ask: <em>"review this before I merge."</em></div>
+<p class="drill-expect">Walks design → correctness → tests → complexity → naming → security; separates <strong>blocking</strong> from <strong>nit</strong>; gives an explicit approval / request-changes verdict.</p>
+<p class="drill-redflag">"Looks good, approve" with no specifics; bike shedding style while missing a broken edge case; silently rewriting instead of commenting.</p>
+</div>
+
+<div class="drill-card reveal">
+<h3><code>code-simplification</code></h3>
+<div class="drill-trigger"><strong>Trigger prompt</strong>Paste a deeply-nested function and ask: <em>"simplify this without changing behavior."</em></div>
+<p class="drill-expect">Checks why the code exists (Chesterton's Fence), confirms tests cover it, simplifies in small steps, keeps behavior identical, tests still green.</p>
+<p class="drill-redflag">Deleting code it can't explain; changing behavior under the banner of "simplifying"; shorter-but-denser result.</p>
+</div>
+
+<div class="drill-card reveal">
+<h3><code>reasoning-planning</code> (augmentation)</h3>
+<div class="drill-trigger"><strong>Trigger prompt</strong>Build a feature that exports user data as CSV.</div>
+<div class="two-col"><div><p class="drill-expect" style="display:block"><strong>Spec gate:</strong> Surfaces <code>ASSUMPTIONS I'M MAKING:</code> and a brief spec (objective / interface / testing / boundaries) with <em>testable</em> success criteria before planning the how.</p></div><div><p class="drill-expect" style="display:block"><strong>Execution:</strong> Executes one slice at a time, verifies each before the next, and pauses on a failing step instead of bulldozing.</p></div></div>
+<p class="drill-redflag">Jumping straight to a big code dump; vague success criteria ("make it work"); stacking changes on an unverified step.</p>
+</div>
+</div></section>
+
+<section class="section" id="checklist" style="padding:20px 0 60px"><div class="section-inner"><h2 class="reveal">Quick-Reference Checklist</h2>
+<div class="checklist-box reveal"><h4>After changing any of these skills</h4>
+<ol style="font-size:.92rem;line-height:2;padding-left:20px;margin-bottom:0">
+<li>Re-run <code>node skills/autotune/score.mjs</code> — <code>exam</code> must stay 23/23.</li>
+<li>If you changed keywords, re-do the relevant Layer-1 probe rows from the <a href="skill-matching.html">Skill Matching</a> page (Tests 6–10).</li>
+<li>Log the result: <code>node skills/autotune/score.mjs --log keep --desc "what changed"</code>.</li>
+</ol></div>
+<div class="checklist-box reveal"><h4>Collision guards that must stay green</h4>
+<table style="width:100%;border-collapse:collapse;font-size:.88rem;margin-top:6px"><thead><tr style="border-bottom:1px solid var(--border)"><th style="text-align:left;padding:6px 10px;opacity:.6;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em">Prompt gist</th><th style="text-align:left;padding:6px 10px;opacity:.6;font-size:.7rem;text-transform:uppercase;letter-spacing:.08em">Must still resolve to</th></tr></thead><tbody>
+<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 10px"><code>"review this Go code for naming conventions…"</code></td><td style="padding:8px 10px"><code>coding-standards</code> (not code-review)</td></tr>
+<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 10px"><code>"run a Playwright browser test…"</code></td><td style="padding:8px 10px"><code>webapp-testing</code> (not TDD)</td></tr>
+<tr style="border-bottom:1px solid var(--border)"><td style="padding:8px 10px"><code>"complex multi-step task… plan first"</code></td><td style="padding:8px 10px"><code>reasoning-planning</code></td></tr>
+</tbody></table></div>
+<div class="note-box reveal" style="margin-top:20px"><strong>Note:</strong> <code>holdout 0.5</code> and the <code>hard</code> failures for pptx/canvas/docx-adv/prompt-opt/memory/wiki/mcp are <strong>pre-existing</strong> known-hard cases, unrelated to these skills. Don't chase them here.</div>
+</div></section>
+
+<footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="../scripts.js"></script>
+</body></html>

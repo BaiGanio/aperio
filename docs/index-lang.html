@@ -222,7 +222,7 @@
       <div class="feat-card reveal" style="transition-delay:.24s">
         <div class="feat-icon"><i class="bi bi-robot"></i></div>
         <div class="feat-title" data-i18n="feat_reason_title">Reasoning Models</div>
-        <p class="feat-desc" data-i18n="feat_reason_desc">Native support for thinking models — qwen3, deepseek-r1. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.</p>
+        <p class="feat-desc" data-i18n="feat_reason_desc">Native support for thinking models like qwen3 and gemma4 — and cloud models reason out of the box. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.28s">
         <div class="feat-icon"><i class="bi bi-people-fill"></i></div>
@@ -345,7 +345,7 @@
       <div style="padding:28px 32px;display:grid;grid-template-columns:1fr 1fr;gap:32px;">
         <div>
           <div class="arch-section-label">1. Update prompts/system_prompt.md</div>
-          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:9px;padding:14px 16px;font-family:var(--font-mono);font-size:11.5px;color:var(--subtle);line-height:1.8;margin-top:10px;">
+          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:14px 16px;font-family:var(--font-mono);font-size:11.5px;color:var(--subtle);line-height:1.8;margin-top:10px;">
             You are a helpful <span style="color:var(--amber)">team</span> assistant with access to Aperio<br>
             — a <span style="color:var(--amber)">shared</span> memory system that stores context<br>
             about your <span style="color:var(--amber)">team</span>, projects, and decisions.
@@ -353,7 +353,7 @@
         </div>
         <div>
           <div class="arch-section-label">2. Seed team memories in 001_init.sql</div>
-          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:9px;padding:14px 16px;font-family:var(--font-mono);font-size:11px;color:var(--subtle);line-height:1.9;margin-top:10px;">
+          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:14px 16px;font-family:var(--font-mono);font-size:11px;color:var(--subtle);line-height:1.9;margin-top:10px;">
             <span style="color:var(--indigo)">INSERT INTO</span> memories (type, title, content)<br>
             <span style="color:var(--indigo)">VALUES</span><br>
             &nbsp;&nbsp;(<span style="color:var(--green)">'project'</span>, <span style="color:var(--green)">'Atlas'</span>, <span style="color:var(--green)">'Next.js + PlanetScale...'</span>),<br>
@@ -549,7 +549,7 @@
     <div class="eyebrow reveal" data-i18n="webui_eyebrow">Web UI</div>
     <h2 class="section-heading reveal" data-i18n="webui_h2">See it in action.</h2>
     <p class="lead-text reveal" data-i18n="webui_lead">Local AI · persistent memory · streaming responses · 4 themes.</p>
-    <div class="reveal" style="margin-top:40px;border-radius:16px;overflow:hidden;border:1px solid var(--border);box-shadow:0 40px 100px rgba(0,0,0,0.5),0 0 0 1px rgba(168,85,247,0.08);">
+    <div class="reveal" style="margin-top:40px;border-radius:0;overflow:hidden;border:1px solid var(--border);box-shadow:0 40px 100px rgba(0,0,0,0.5),0 0 0 1px rgba(168,85,247,0.08);">
       <img src="assets/aperio.jpeg" alt="Aperio Web UI — chat interface with memory sidebar" style="width:100%;display:block;" />
     </div>
   </div>
@@ -664,17 +664,17 @@
     <div class="arch-card reveal" style="margin-bottom:40px">
       <div class="arch-header"><i class="bi bi-play-circle me-1"></i> the whole flow — once is enough</div>
       <div style="padding:24px 32px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-family:var(--font-mono);font-size:12px;">
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">📥 Download</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">📥 Download</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">📂 Unzip</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">📂 Unzip</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">🔗 Make Alias / Shortcut</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">🔗 Make Alias / Shortcut</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">🖥️ Drop on Desktop</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">🖥️ Drop on Desktop</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">✓ Double-click → done</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">✓ Double-click → done</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">🗑️ Delete if do not like</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">🗑️ Delete if do not like</span>
       </div>
     </div>
 
@@ -686,8 +686,8 @@
         <div class="step-title" data-i18n="lite_step_easy_title">Easy — macOS / Linux</div>
         <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
           <div>1. Download the latest version, unzip, open in Finder</div>
-          <div>2. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">start.sh</code> → right-click → <strong>Make Alias</strong></div>
-          <div>3. Rename the alias to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio</code></div>
+          <div>2. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">start.sh</code> → right-click → <strong>Make Alias</strong></div>
+          <div>3. Rename the alias to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">Aperio</code></div>
           <div>4. Drag alias to the <strong>Desktop folder</strong> in Finder's sidebar</div>
           <div style="opacity:.6;font-size:12px">❗ Sidebar item — not the Desktop surface itself</div>
           <div>5. Double-click from Desktop — follow one-time setup</div>
@@ -700,14 +700,14 @@
         <div class="step-title" data-i18n="lite_step_win_title">Windows &amp; future launches</div>
         <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
           <div><strong>Windows</strong></div>
-          <div>1. Unzip → right-click <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.ps1</code> → <strong>Create Shortcut</strong></div>
+          <div>1. Unzip → right-click <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.ps1</code> → <strong>Create Shortcut</strong></div>
           <div>2. Move shortcut to Desktop</div>
           <div>3. Double-click → one-time setup → done</div>
           <div style="border-top:1px solid var(--border);margin:12px 0"></div>
           <div><strong>Every run after that</strong></div>
           <div>Double-click the alias in Finder</div>
           <div>Double-click from Desktop</div>
-          <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">./start.sh</code></div>
+          <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">./start.sh</code></div>
         </div>
       </div>
 
