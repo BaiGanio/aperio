@@ -38,6 +38,24 @@
     key.replace(/^APERIO_/, "").replace(/_/g, " ").toLowerCase()
        .replace(/\b\w/g, (c) => c.toUpperCase());
 
+  // Provider reveal: the essentials section lists keys/models for every provider,
+  // but only the one chosen in AI_PROVIDER is relevant. Map each provider-scoped
+  // var to its provider so the renderer can hide the rest. Vars not listed here
+  // (e.g. OPENAI_API_KEY) are never auto-hidden.
+  const PROVIDER_FIELDS = {
+    anthropic:     ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"],
+    deepseek:      ["DEEPSEEK_API_KEY", "DEEPSEEK_MODEL"],
+    gemini:        ["GEMINI_API_KEY", "GEMINI_MODEL"],
+    ollama:        ["OLLAMA_MODEL"],
+    "claude-code": ["CLAUDE_CODE_OAUTH_TOKEN"],
+  };
+  const FIELD_PROVIDER = {};
+  for (const [p, keys] of Object.entries(PROVIDER_FIELDS))
+    for (const k of keys) FIELD_PROVIDER[k] = p;
+
+  const splitList = (v) =>
+    String(v || "").split(",").map((s) => s.trim()).filter(Boolean);
+
   function badge(configured) {
     const b = document.createElement("span");
     b.className = "settings-state" + (configured ? " is-on" : "");
@@ -51,6 +69,7 @@
     const row = document.createElement("div");
     row.className = "config-field";
     row.dataset.hay = `${humanize(f.key)} ${f.key} ${f.help || ""}`.toLowerCase();
+    if (FIELD_PROVIDER[f.key]) row.dataset.provider = FIELD_PROVIDER[f.key];
 
     const head = document.createElement("div");
     head.className = "config-field-head";
@@ -61,6 +80,14 @@
     code.className = "config-field-key";
     code.textContent = f.key;
     head.append(label, code);
+    // Help text lives in a hover tooltip on an info icon, keeping rows compact.
+    if (f.help) {
+      const info = document.createElement("i");
+      info.className = "bi bi-info-circle config-field-info";
+      info.tabIndex = 0;
+      info.title = f.help;
+      head.appendChild(info);
+    }
     row.appendChild(head);
 
     let read = () => null;
@@ -112,8 +139,66 @@
         o.value = ""; o.textContent = "(unset)"; o.selected = true;
         sel.insertBefore(o, sel.firstChild);
       }
+      // The provider picker reveals/hides the matching provider's fields live.
+      if (f.key === "AI_PROVIDER") {
+        providerSelect = sel;
+        sel.addEventListener("change", () => applyProviderReveal(sel.value));
+      }
       row.appendChild(sel);
       read = () => sel.value === (f.value || "") ? null : sel.value;
+    } else if (f.type === "list") {
+      // Comma list rendered as removable chips + an add box (matches Allowed
+      // folders). Stored back as the same comma-joined string the code parses.
+      const items = splitList(f.value);
+      const chips = document.createElement("div");
+      chips.className = "paths-chips";
+      const renderChips = () => {
+        chips.innerHTML = "";
+        if (!items.length) {
+          chips.innerHTML = `<span class="paths-empty-hint">none</span>`;
+          return;
+        }
+        items.forEach((v, i) => {
+          const chip = document.createElement("div");
+          chip.className = "path-chip";
+          const text = document.createElement("span");
+          text.className = "path-chip-text";
+          text.textContent = v;
+          const del = document.createElement("button");
+          del.className = "path-chip-del";
+          del.textContent = "×";
+          del.title = "Remove";
+          del.onclick = () => { items.splice(i, 1); renderChips(); };
+          chip.append(text, del);
+          chips.appendChild(chip);
+        });
+      };
+      const addRow = document.createElement("div");
+      addRow.className = "paths-add-row";
+      const input = document.createElement("input");
+      input.className = "paths-text-input";
+      if (f.example) input.placeholder = f.example;
+      const addBtn = document.createElement("button");
+      addBtn.className = "paths-add-btn";
+      addBtn.type = "button";
+      addBtn.textContent = "+";
+      const add = () => {
+        const v = input.value.trim();
+        if (v && !items.includes(v)) { items.push(v); renderChips(); }
+        input.value = "";
+        input.focus();
+      };
+      addBtn.onclick = add;
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); add(); }
+      });
+      addRow.append(input, addBtn);
+      renderChips();
+      row.append(chips, addRow);
+      read = () => {
+        const cur = items.join(",");
+        return cur === (f.value || "") ? null : cur;
+      };
     } else {
       const input = document.createElement("input");
       input.type = f.type === "number" ? "number" : "text";
@@ -124,12 +209,6 @@
       read = () => input.value === (f.value || "") ? null : input.value;
     }
 
-    if (f.help) {
-      const help = document.createElement("span");
-      help.className = "paths-section-hint config-field-help";
-      help.textContent = f.help;
-      row.appendChild(help);
-    }
     return { row, read: () => (f.editable ? read() : null), key: f.key };
   }
 
@@ -144,6 +223,20 @@
 
   let readers = [];          // editable fields, for save
   let subsections = [];      // { det, rows: [el] }, for search filtering
+  let providerSelect = null; // AI_PROVIDER <select>, drives provider reveal
+
+  // Hide provider-scoped rows that don't match the chosen provider. An empty
+  // selection reveals all (first-run discoverability). Independent of the search
+  // filter — a hidden provider's fields stay out of the way until it's selected.
+  function applyProviderReveal(provider) {
+    for (const { rows } of subsections) {
+      for (const row of rows) {
+        const p = row.dataset.provider;
+        if (!p) continue;
+        row.classList.toggle("is-provider-hidden", provider ? p !== provider : false);
+      }
+    }
+  }
 
   function render(schema) {
     const host = $("configSections");
@@ -151,6 +244,7 @@
     host.innerHTML = "";
     readers = [];
     subsections = [];
+    providerSelect = null;
 
     const bySection = new Map();
     for (const f of schema.fields) {
@@ -190,6 +284,7 @@
       host.appendChild(det);
       subsections.push({ det, rows });
     }
+    applyProviderReveal(providerSelect ? providerSelect.value : "");
   }
 
   // Filter by visibility (not re-render) so unsaved edits survive a search.
