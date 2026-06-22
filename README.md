@@ -184,6 +184,16 @@ npm run chat:local               # runs as proxy or standalone
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
+> **💡 Configure from the Web UI — no `.env` editing required.** The sidebar
+> **Configuration** panel exposes every setting as a typed control (toggle /
+> select / number / text / chips / secret): pick your `AI_PROVIDER`, paste API
+> keys, switch embeddings, toggle the code/doc graph, and more. Values are saved
+> to the database (precedence: DB > `.env` > default) and apply after a restart
+> (a banner reminds you). Bootstrap/security plumbing (ports, DB creds, TLS,
+> auth token) stays read-only here — those live in `.env`. Editing `.env`
+> directly still works for developers; run `npm run config:sync` to import any
+> hand-added vars into the panel.
+
 ### Q: Now what?
 
 >💡 Stuck on the installation steps? — check [Troubleshooting](https://github.com/BaiGanio/aperio/wiki/Troubleshooting) wiki.
