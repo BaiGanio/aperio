@@ -65,6 +65,19 @@ describe("config-resolver", () => {
     assert.equal(process.env[T0], "31337");
   });
 
+  test("unmanaged config.<KEY> (no registry entry) is injected too (Phase 2b)", async () => {
+    delete process.env.MY_IMPORTED_VAR;
+    const applied = await applyConfigToEnv(storeWith({ "config.MY_IMPORTED_VAR": "hello" }));
+    assert.equal(process.env.MY_IMPORTED_VAR, "hello");
+    assert.ok(applied.includes("MY_IMPORTED_VAR"));
+  });
+
+  test("non-config.* settings are ignored", async () => {
+    const applied = await applyConfigToEnv(storeWith({ "triage.enabled": "yes", "some.other": "1" }));
+    assert.deepEqual(applied, []);
+    assert.equal(process.env["triage.enabled"], undefined);
+  });
+
   test("non-string DB values are coerced to strings", async () => {
     const applied = await applyConfigToEnv(storeWith({ [configSettingKey("EMBEDDING_DIMS")]: 768 }));
     assert.equal(process.env.EMBEDDING_DIMS, "768");

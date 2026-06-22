@@ -24,6 +24,7 @@
     "test:ci": "NODE_ENV=test node --test $([ -z \"$APERIO_AGENT_RUN\" ] && echo --experimental-test-coverage) $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) 'tests/**/*.test.js'",
     "gen:env": "node scripts/gen-env-example.js",
     "gen:env:check": "node scripts/gen-env-example.js --check",
+    "config:sync": "node scripts/config-sync.js",
     "migrate": "node db/migrate.js",
     "migrate:sqlite": "node -e \"import('./db/sqlite.js').then(m => m.SqliteStore.init().then(s => s.close()))\"",
     "coverage": "c8 report --reporter=lcov --reporter=text"

@@ -56,6 +56,31 @@ describe("settings secret masking", () => {
     assert.deepEqual(one.value, { configured: false });
   });
 
+  test("registry secret keys (config.*) are masked too", async () => {
+    await put("config.ANTHROPIC_API_KEY", "sk-ant-supersecret");
+    const one = await getOne("config.ANTHROPIC_API_KEY");
+    assert.deepEqual(one.value, { configured: true });
+    const all = await getAll();
+    assert.deepEqual(all["config.ANTHROPIC_API_KEY"], { configured: true });
+    assert.doesNotMatch(JSON.stringify({ one, all }), /supersecret/);
+  });
+
+  test("unmanaged secret-looking config.* key is masked (Phase 2b)", async () => {
+    // No registry entry, but the name infers a secret — must not leak.
+    await put("config.CUSTOM_API_KEY", "sk-imported-supersecret");
+    const one = await getOne("config.CUSTOM_API_KEY");
+    assert.deepEqual(one.value, { configured: true });
+    const all = await getAll();
+    assert.deepEqual(all["config.CUSTOM_API_KEY"], { configured: true });
+    assert.doesNotMatch(JSON.stringify({ one, all }), /supersecret/);
+  });
+
+  test("non-secret config keys (config.*) are returned as-is", async () => {
+    await put("config.OLLAMA_MODEL", "qwen3:14b");
+    const one = await getOne("config.OLLAMA_MODEL");
+    assert.equal(one.value, "qwen3:14b");
+  });
+
   test("non-secret settings are returned as-is", async () => {
     await put("triage.repos", ["octocat/hello", "my-project"]);
     const one = await getOne("triage.repos");
