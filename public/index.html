@@ -484,6 +484,10 @@
     <i class="bi bi-arrow-repeat"></i>
     <span>Restart Aperio for these changes to take effect.</span>
   </div>
+  <div class="config-restart-banner config-reindex-banner" id="configReindexBanner" style="display:none;">
+    <i class="bi bi-database-exclamation"></i>
+    <span>You changed the embedding provider or dimensions. Existing embeddings no longer match — rebuild the vector index (a fresh database) after restart, or old memories/graph results won't be found.</span>
+  </div>
   <div class="model-select-status config-status" id="configStatus"></div>
   <div class="cg-panel-body" id="configSections"><span class="model-loading">Loading…</span></div>
 </div>

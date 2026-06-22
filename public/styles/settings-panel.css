@@ -282,6 +282,14 @@
 }
 .config-restart-banner i { color: var(--accent); }
 
+/* Reindex warning: more severe than a plain restart, so an amber treatment that
+   reads as "warning" on both light and dark themes (no theme warn var exists). */
+.config-reindex-banner {
+  border-color: #d97706;
+  background: color-mix(in srgb, #d97706 14%, var(--bg));
+}
+.config-reindex-banner i { color: #d97706; }
+
 /* Per-section accordions nested inside the Configuration section. */
 .config-subsection { border-bottom: 1px solid var(--border); }
 .config-subsection:last-child { border-bottom: none; }
