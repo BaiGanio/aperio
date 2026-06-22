@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" class="doc">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,67 +17,14 @@
   <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
 
   <style>
-    /* In-page nav jumps to sections; offset for the 62px sticky navbar. */
-    html { scroll-padding-top: 80px; }
-    /* Long-form reading: left-align body content, keep only the hero centered. */
-    .section-inner { text-align: left; }
-    #mt-top .section-inner { text-align: center; }
-    /* Bump body prose — the 15px base reads small for long-form text. */
-    .section-inner p, .section-inner li, .mg-txt { font-size: 16.5px; line-height: 1.7; }
-    /* Make inline cross-page links visibly clickable (matches the model table). */
-    .section-inner p a, .mg-txt a {
-      color: var(--purple);
-      text-decoration: underline;
-      text-decoration-color: rgba(168,85,247,.4);
-      text-underline-offset: 3px;
-    }
-    .section-inner p a::after, .mg-txt a::after {
-      content: "\2197";          /* ↗ */
-      font-size: .8em; margin-left: 2px; opacity: .7;
-    }
-    .section-inner p a:hover, .mg-txt a:hover { text-decoration-color: var(--purple); }
-    .section-inner p a:hover::after, .mg-txt a:hover::after { opacity: 1; }
-
-    .mt-back { font-size: .85rem; opacity: .7; text-decoration: none; }
-    .mt-back:hover { opacity: 1; }
-    .tier-pill {
-      display: inline-block; font-size: .72rem; font-weight: 600; padding: 3px 11px;
-      border-radius: 0; white-space: nowrap; vertical-align: middle; margin-left: 8px;
-      background: rgba(229,115,107,.16); color: #e5736b;
-    }
-    .mg-desc { opacity: .85; margin-bottom: 14px; }
-    .mg-prompt {
-      background: rgba(127,127,127,.10); border-left: 3px solid var(--accent);
-      border-radius: 0; padding: 13px 17px; margin: 12px 0;
-      font-family: 'Berkeley Mono', monospace; font-size: .88rem;
-      line-height: 1.55; white-space: pre-wrap;
-    }
-    .mg-prompt-label { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; display: block; margin-bottom: 6px; }
-
-    /* Uses grid */
-    .use-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; margin: 20px 0; }
-    .use-card { background: rgba(127,127,127,.06); border: 1px solid rgba(127,127,127,.16); border-radius: 0; padding: 18px 20px; }
-    .use-card h4 { font-size: 1.04rem; margin-bottom: 4px; }
-    .use-card .use-sub { opacity: .75; font-size: .88rem; margin-bottom: 6px; }
-    .use-card .use-exp { font-size: .85rem; opacity: .8; margin: 8px 0 0; }
-    .use-card .use-exp strong { color: #43c59e; }
-
-    /* Personality table */
-    .mg-compare { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .9rem; }
-    .mg-compare th, .mg-compare td { text-align: left; padding: 12px 12px; border-bottom: 1px solid rgba(127,127,127,.18); vertical-align: top; }
-    .mg-compare th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+    /* Page-specific. Shared styles live in styles.css (.doc). */
     .mg-compare td:first-child { font-weight: 600; white-space: nowrap; }
-    .mg-compare-wrap { overflow-x: auto; }
-
-    /* Walls */
     .mt-walls { list-style: none; padding: 0; margin: 14px 0; }
     .mt-walls li { padding: 9px 0; border-bottom: 1px solid rgba(127,127,127,.14); opacity: .85; }
     .mt-walls li b { color: #e5736b; font-weight: 600; }
-
     .anchor-blurb { padding: 14px 0; border-bottom: 1px solid rgba(127,127,127,.14); }
     .anchor-blurb h4 { margin-bottom: 4px; }
     .anchor-blurb p { margin: 0; opacity: .82; font-size: .92rem; }
-    code { background: rgba(127,127,127,.16); padding: 1px 6px; border-radius: 0; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
   </style>
 </head>
 <body>
@@ -115,7 +62,7 @@
   <div class="section-inner">
     <a href="../model-guide.html#compare" class="mt-back reveal">← All models</a>
     <div class="eyebrow reveal" style="margin-top:14px">3–4B · Runs on 8 GB · Local</div>
-    <h1 class="section-heading reveal">Small local models <span class="tier-pill">chat only</span></h1>
+    <h1 class="section-heading reveal">Small local models <span class="tier-pill tier-chat">chat only</span></h1>
     <p class="lead-text reveal">Qwen2.5 3B · Qwen3.5 4B · Phi-4 Mini 3.8B — the small, fast models that run on almost any machine. They can't use Aperio's tools, but that's only half the story. Within their lane, they're genuinely delightful.</p>
   </div>
 </section>

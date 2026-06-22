@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" class="doc">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -15,57 +15,6 @@
   <link rel="stylesheet" href="../styles.css" />
   <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
 
-  <style>
-    /* In-page nav jumps to sections; offset for the 62px sticky navbar. */
-    html { scroll-padding-top: 80px; }
-    /* Long-form reading: left-align body content, keep only the hero centered. */
-    .section-inner { text-align: left; }
-    #mt-top .section-inner { text-align: center; }
-    /* Bump body prose — the 15px base reads small for long-form text. */
-    .section-inner p, .section-inner li, .mg-txt { font-size: 16.5px; line-height: 1.7; }
-    /* Make inline cross-page links visibly clickable (matches the model table). */
-    .section-inner p a, .mg-txt a {
-      color: var(--purple);
-      text-decoration: underline;
-      text-decoration-color: rgba(168,85,247,.4);
-      text-underline-offset: 3px;
-    }
-    .section-inner p a::after, .mg-txt a::after {
-      content: "\2197";          /* ↗ */
-      font-size: .8em; margin-left: 2px; opacity: .7;
-    }
-    .section-inner p a:hover, .mg-txt a:hover { text-decoration-color: var(--purple); }
-    .section-inner p a:hover::after, .mg-txt a:hover::after { opacity: 1; }
-
-    .mt-back { font-size: .85rem; opacity: .7; text-decoration: none; }
-    .mt-back:hover { opacity: 1; }
-    .tier-pill { display: inline-block; font-size: .72rem; font-weight: 600; padding: 3px 11px; border-radius: 0; white-space: nowrap; vertical-align: middle; margin-left: 8px; background: rgba(230,180,80,.16); color: #e0a93f; }
-    .mt-glance { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: rgba(127,127,127,.18); border-radius: 0; overflow: hidden; margin: 22px 0; }
-    .mt-glance div { background: var(--bg, #14161a); padding: 16px 18px; }
-    .mt-glance dt { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; opacity: .55; margin-bottom: 4px; }
-    .mt-glance dd { margin: 0; font-weight: 500; font-size: .98rem; }
-    .mt-glance .ok { color: #e0a93f; }
-    .mt-hw { list-style: none; padding: 0; margin: 14px 0; }
-    .mt-hw li { padding: 10px 0; border-bottom: 1px solid rgba(127,127,127,.14); }
-    .mt-hw .mt-hw-tag { font-weight: 600; display: block; margin-bottom: 2px; }
-    .mt-env { background: rgba(127,127,127,.10); border-left: 3px solid var(--accent); border-radius: 0; padding: 12px 16px; margin: 14px 0; font-family: 'Berkeley Mono', monospace; font-size: .9rem; white-space: pre-wrap; }
-    .mg-card { margin-bottom: 28px; }
-    .mg-desc { opacity: .85; margin-bottom: 14px; }
-    .mg-prompt { background: rgba(127,127,127,.10); border-left: 3px solid var(--accent); border-radius: 0; padding: 14px 18px; margin: 14px 0; font-family: 'Berkeley Mono', monospace; font-size: .9rem; line-height: 1.55; white-space: pre-wrap; }
-    .mg-prompt-label { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; display: block; margin-bottom: 6px; }
-    .mg-row { display: flex; gap: 10px; margin: 10px 0; align-items: flex-start; }
-    .mg-row .mg-tag { flex: 0 0 auto; font-weight: 600; font-size: .9rem; min-width: 96px; }
-    .mg-good .mg-tag { color: #43c59e; }
-    .mg-bad .mg-tag { color: #e5736b; }
-    .mg-means { color: var(--accent); }
-    .mg-row .mg-txt { flex: 1; }
-    .mt-next { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
-    .mt-next a { flex: 1 1 240px; text-decoration: none; border: 1px solid rgba(127,127,127,.2); border-radius: 0; padding: 14px 16px; transition: border-color .2s; }
-    .mt-next a:hover { border-color: var(--accent); }
-    .mt-next .mt-next-t { font-weight: 600; display: block; margin-bottom: 3px; }
-    .mt-next .mt-next-d { font-size: .85rem; opacity: .75; }
-    code { background: rgba(127,127,127,.16); padding: 1px 6px; border-radius: 0; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
-  </style>
 </head>
 <body>
 
@@ -95,14 +44,14 @@
   <div class="section-inner">
     <a href="../model-guide.html#compare" class="mt-back reveal">← All models</a>
     <div class="eyebrow reveal" style="margin-top:14px">Google · 4B · Local</div>
-    <h1 class="section-heading reveal">Gemma 4 e4B <span class="tier-pill">tools · the rule-breaker</span></h1>
+    <h1 class="section-heading reveal">Gemma 4 e4B <span class="tier-pill tier-tools">tools · the rule-breaker</span></h1>
     <p class="lead-text reveal">Every other 4B model is chat-only — tool calling normally needs 7–8B. Google's "efficient" e4B breaks that rule: it uses Aperio's memory, files and web in under 3 GB of RAM. Not bulletproof, but genuinely capable for its size.</p>
   </div>
 </section>
 
 <section class="section" style="padding:10px 0">
   <div class="section-inner">
-    <dl class="mt-glance reveal">
+    <dl class="mt-glance glance-amber reveal">
       <div><dt>Size</dt><dd>4B (efficient)</dd></div>
       <div><dt>Comfortable RAM</dt><dd>8 GB</dd></div>
       <div><dt>Memory used</dt><dd>~2.5–3 GB</dd></div>

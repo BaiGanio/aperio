@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" class="doc">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -16,32 +16,8 @@
   <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
 
   <style>
-    html { scroll-padding-top: 80px; }
-    .section-inner { text-align: left; }
-    #rt-top .section-inner { text-align: center; }
-    .section-inner p, .section-inner li, .mg-txt { font-size: 16.5px; line-height: 1.7; }
-    .section-inner p a, .mg-txt a {
-      color: var(--purple);
-      text-decoration: underline;
-      text-decoration-color: rgba(168,85,247,.4);
-      text-underline-offset: 3px;
-    }
-    .section-inner p a::after, .mg-txt a::after {
-      content: "\2197";
-      font-size: .8em; margin-left: 2px; opacity: .7;
-    }
-    .section-inner p a:hover, .mg-txt a:hover { text-decoration-color: var(--purple); }
-    .section-inner p a:hover::after, .mg-txt a:hover::after { opacity: 1; }
-
-    .rt-back { font-size: .85rem; opacity: .7; text-decoration: none; }
-    .rt-back:hover { opacity: 1; }
-    .tier-pill {
-      display: inline-block; font-size: .72rem; font-weight: 600; padding: 3px 11px;
-      border-radius: 0; white-space: nowrap; vertical-align: middle; margin-left: 8px;
-      background: rgba(168,85,247,.16); color: #a855f7;
-    }
-
-    /* Phase flow */
+    /* Page-specific: phase flow, combo table, env & manifesto samples.
+       Shared styles live in styles.css (.doc). */
     .phase-flow { display: flex; gap: 0; margin: 22px 0; flex-wrap: wrap; }
     .phase-step {
       flex: 1 1 130px; text-align: center; padding: 16px 10px;
@@ -53,25 +29,6 @@
     .phase-step .phase-who { font-size: .78rem; opacity: .6; margin-top: 2px; }
     .phase-arrow { display: flex; align-items: center; font-size: 1.2rem; opacity: .35; margin: 0 -2px; }
 
-    /* Use cards */
-    .use-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 18px; margin: 20px 0; }
-    .use-card { background: rgba(127,127,127,.06); border: 1px solid rgba(127,127,127,.16); border-radius: 0; padding: 18px 20px; }
-    .use-card h4 { font-size: 1.04rem; margin-bottom: 4px; }
-    .use-card .use-sub { opacity: .75; font-size: .88rem; margin-bottom: 6px; }
-    .use-card .use-exp { font-size: .85rem; opacity: .8; margin: 8px 0 0; }
-    .use-card .use-exp strong { color: #43c59e; }
-
-    /* Prompt blocks */
-    .mg-desc { opacity: .85; margin-bottom: 14px; }
-    .mg-prompt {
-      background: rgba(127,127,127,.10); border-left: 3px solid var(--accent);
-      border-radius: 0; padding: 13px 17px; margin: 12px 0;
-      font-family: 'Berkeley Mono', monospace; font-size: .88rem;
-      line-height: 1.55; white-space: pre-wrap;
-    }
-    .mg-prompt-label { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; opacity: .6; display: block; margin-bottom: 6px; }
-
-    /* Combo table */
     .rt-table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: .92rem; }
     .rt-table th, .rt-table td { text-align: left; padding: 12px 14px; border-bottom: 1px solid rgba(127,127,127,.16); vertical-align: top; }
     .rt-table th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
@@ -79,7 +36,6 @@
     .rt-table td:nth-child(2) { font-family: 'Berkeley Mono', monospace; font-size: .85rem; }
     .rt-table-wrap { overflow-x: auto; }
 
-    /* Env block */
     .rt-env {
       background: rgba(127,127,127,.10); border-left: 3px solid var(--accent);
       border-radius: 0; padding: 14px 20px; margin: 16px 0;
@@ -87,7 +43,6 @@
       line-height: 1.65; white-space: pre-wrap;
     }
 
-    /* Manifesto sample */
     .rt-sample {
       background: rgba(127,127,127,.06); border: 1px solid rgba(127,127,127,.14);
       border-radius: 0; padding: 16px 20px; margin: 14px 0; font-size: .9rem;
@@ -96,13 +51,6 @@
     .rt-sample .rt-sample-q { opacity: .55; font-size: .82rem; margin-bottom: 8px; }
     .rt-sample .rt-sample-a { padding: 10px 0; border-top: 1px solid rgba(127,127,127,.1); }
     .rt-sample .rt-sample-a .rt-agent { font-weight: 600; font-size: .82rem; opacity: .7; }
-
-    .mt-next { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 14px; }
-    .mt-next a { flex: 1 1 240px; text-decoration: none; border: 1px solid rgba(127,127,127,.2); border-radius: 0; padding: 14px 16px; transition: border-color .2s; }
-    .mt-next a:hover { border-color: var(--accent); }
-    .mt-next .mt-next-t { font-weight: 600; display: block; margin-bottom: 3px; }
-    .mt-next .mt-next-d { font-size: .85rem; opacity: .75; }
-    code { background: rgba(127,127,127,.16); padding: 1px 6px; border-radius: 0; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
   </style>
 </head>
 <body>
@@ -139,7 +87,7 @@
   <div class="section-inner">
     <a href="../index.html#features" class="rt-back reveal">← Features</a>
     <div class="eyebrow reveal" style="margin-top:14px">Two agents · Cross-review · Discuss Toggle</div>
-    <h1 class="section-heading reveal">Round-Table <span class="tier-pill">Deliberation</span></h1>
+    <h1 class="section-heading reveal">Round-Table <span class="tier-pill tier-rt">Deliberation</span></h1>
     <p class="lead-text reveal">One model answers. Another reviews. They go back and forth until they agree — or surface exactly where they disagree. Give each agent a domain character and you get cross-perspective reasoning: an architect proposing, a reviewer stress-testing, a security engineer hunting vulnerabilities.</p>
   </div>
 </section>

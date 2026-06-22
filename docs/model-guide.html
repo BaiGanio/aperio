@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" class="doc">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -17,63 +17,16 @@
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
 
   <style>
-    /* In-page nav jumps to sections; offset for the 62px sticky navbar. */
-    html { scroll-padding-top: 80px; }
-
-    /* This page is long-form reading. The global .section-inner is centered,
-       which works for the landing page's cards but makes prose hard to read.
-       Left-align the body content; keep only the hero centered. */
-    .section-inner { text-align: left; }
-    #mg-top .section-inner { text-align: center; }
-
-    /* Bump body prose — the 15px base reads small for long-form text. */
-    .section-inner p, .section-inner li, .mg-txt { font-size: 16.5px; line-height: 1.7; }
-
-    .mg-card { margin-bottom: 28px; }
-    .mg-desc { opacity: .85; margin-bottom: 18px; }
-    .mg-prompt {
-      background: rgba(127,127,127,.10);
-      border-left: 3px solid var(--accent);
-      border-radius: 0;
-      padding: 14px 18px;
-      margin: 14px 0;
-      font-family: 'Berkeley Mono', monospace;
-      font-size: .92rem;
-      line-height: 1.55;
-      white-space: pre-wrap;
-    }
-    .mg-prompt-label {
-      font-size: .72rem; letter-spacing: .12em; text-transform: uppercase;
-      opacity: .6; display: block; margin-bottom: 6px;
-    }
-    .mg-row { display: flex; gap: 10px; margin: 10px 0; align-items: flex-start; }
-    .mg-row .mg-tag {
-      flex: 0 0 auto; font-weight: 600; font-size: .9rem; min-width: 90px;
-    }
-    .mg-good .mg-tag { color: #43c59e; }
-    .mg-bad  .mg-tag { color: #e5736b; }
-    .mg-means { color: var(--accent); }
-    .mg-row .mg-txt { flex: 1; }
-    .mg-read li { margin-bottom: 10px; }
-
-    /* Concepts */
+    /* Page-specific: concepts list + the model-picker table.
+       Shared styles live in styles.css (.doc). */
     .mg-concept { margin: 18px 0; }
     .mg-concept h4 { font-size: 1.02rem; margin-bottom: 4px; }
     .mg-concept p { opacity: .85; margin-bottom: 0; }
-    .mg-concept code {
-      background: rgba(127,127,127,.16); padding: 1px 6px; border-radius: 0;
-      font-family: 'Berkeley Mono', monospace; font-size: .85em;
-    }
+    .mg-read li { margin-bottom: 10px; }
 
-    /* Comparison table */
-    .mg-compare { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
-    .mg-compare th, .mg-compare td {
-      text-align: left; padding: 11px 12px; border-bottom: 1px solid rgba(127,127,127,.18);
-      vertical-align: top;
-    }
-    .mg-compare th { font-size: .72rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; }
+    /* Model-picker table: small inline tier pills + clickable model links. */
+    .mg-compare .tier-pill { padding: 0px 5px; font-size: .7rem; margin-left: 0; }
     .mg-compare tr:hover td { background: rgba(127,127,127,.06); }
-    /* Make it obvious the model names are links to detailed pages. */
     .mg-compare a {
       font-weight: 600;
       color: var(--purple);
@@ -81,25 +34,11 @@
       text-decoration-color: rgba(168,85,247,.4);
       text-underline-offset: 3px;
     }
-    .mg-compare a::after {
-      content: "\2197";           /* ↗ */
-      font-size: .8em;
-      margin-left: 3px;
-      opacity: .7;
-    }
-    .mg-compare a:hover {
-      text-decoration-color: var(--purple);
-    }
+    .mg-compare a::after { content: "\2197"; font-size: .8em; margin-left: 3px; opacity: .7; }
+    .mg-compare a:hover { text-decoration-color: var(--purple); }
     .mg-compare a:hover::after { opacity: 1; }
     .mg-compare tr:hover td a { color: var(--purple); }
     .mg-compare .mg-ram { white-space: nowrap; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
-    .tier-pill {
-      display: inline-block; font-size: .7rem; font-weight: 600; padding: 0px 5px;
-    }
-    .tier-chat { background: rgba(229,115,107,.16); color: #e5736b; }
-    .tier-tools { background: rgba(230,180,80,.16); color: #e0a93f; }
-    .tier-full  { background: rgba(67,197,158,.16); color: #43c59e; }
-    .mg-compare-wrap { overflow-x: auto; }
   </style>
 </head>
 <body>
