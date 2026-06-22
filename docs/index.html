@@ -167,7 +167,7 @@
 <!-- ── Stats ───────────────────────────────────────────────────── -->
 <div class="stats-bar z1">
   <div class="stats-inner">
-    <div class="stat reveal"><div class="stat-num">41</div><div class="stat-lbl">MCP Tools</div></div>
+    <div class="stat reveal"><div class="stat-num">46</div><div class="stat-lbl">MCP Tools</div></div>
     <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">8</div><div class="stat-lbl">Memory Types</div></div>
     <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">0</div><div class="stat-lbl">API Keys Required</div></div>
     <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl">Vendor Lock-in</div></div>
@@ -244,7 +244,7 @@
           <div class="arch-connector">↕ WebSocket</div>
           <div class="arch-row"><span class="arch-icon">⚡</span><div><div class="arch-name">Express Server</div><div class="arch-sub">server.js · agent loop</div></div></div>
           <div class="arch-connector">↕ stdio</div>
-          <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name">MCP Server</div><div class="arch-sub">mcp/index.js · 41 tools · 9 categories</div></div></div>
+          <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name">MCP Server</div><div class="arch-sub">mcp/index.js · 46 tools · 10 categories</div></div></div>
           <div class="arch-connector">↕</div>
           <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">Postgres 16 + pgvector</div><div class="arch-sub">memories table · HNSW index</div></div></div>
           <div class="arch-connector">↕</div>
@@ -273,7 +273,7 @@
 <section class="section" id="tools">
   <div class="section-inner wide">
     <div class="eyebrow reveal">MCP Tools</div>
-    <h2 class="section-heading reveal">41 tools. One protocol.</h2>
+    <h2 class="section-heading reveal">46 tools. One protocol.</h2>
     <p class="lead-text reveal">Each one is available to any MCP-compatible agent (Claude, Cursor, Windsurf).</p>
 
     <div class="tool-cat-label reveal"><i class="bi bi-database-fill-check"></i>Memory<span class="cat-count">6 tools</span></div>
@@ -334,9 +334,10 @@
       <div class="tool-chip reveal"><i class="bi bi-play-fill tool-icon"></i><div><div class="tool-name">run_shell</div><div class="tool-desc">Execute shell commands with output capture</div></div></div>
     </div>
 
-    <div class="tool-cat-label reveal"><i class="bi bi-globe"></i>Web<span class="cat-count">1 tool</span></div>
+    <div class="tool-cat-label reveal"><i class="bi bi-globe"></i>Web<span class="cat-count">2 tools</span></div>
     <div class="tools-grid">
       <div class="tool-chip reveal"><i class="bi bi-globe tool-icon"></i><div><div class="tool-name">fetch_url</div><div class="tool-desc">Fetch a URL, strip HTML, truncate to 15k chars</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">web_search</div><div class="tool-desc">Search the web via DuckDuckGo, return ranked results</div></div></div>
     </div>
 
     <div class="tool-cat-label reveal"><i class="bi bi-image"></i>Image<span class="cat-count">3 tools</span></div>
@@ -346,11 +347,19 @@
       <div class="tool-chip reveal"><i class="bi bi-chat-square-text tool-icon"></i><div><div class="tool-name">describe_image</div><div class="tool-desc">Generate a text description of an image</div></div></div>
     </div>
 
-    <div class="tool-cat-label reveal"><i class="bi bi-github"></i>GitHub<span class="cat-count">3 tools</span></div>
+    <div class="tool-cat-label reveal"><i class="bi bi-github"></i>GitHub<span class="cat-count">5 tools</span></div>
     <div class="tools-grid">
       <div class="tool-chip reveal"><i class="bi bi-download tool-icon"></i><div><div class="tool-name">fetch_github_issue</div><div class="tool-desc">Read a GitHub issue with comments and metadata</div></div></div>
       <div class="tool-chip reveal"><i class="bi bi-plus-circle tool-icon"></i><div><div class="tool-name">create_github_issue</div><div class="tool-desc">Open a new issue on a GitHub repository</div></div></div>
       <div class="tool-chip reveal"><i class="bi bi-pencil tool-icon"></i><div><div class="tool-name">update_github_issue</div><div class="tool-desc">Edit an existing GitHub issue</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-list-ul tool-icon"></i><div><div class="tool-name">list_github_issues</div><div class="tool-desc">List open issues for triage across repos</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-check2-circle tool-icon"></i><div><div class="tool-name">record_issue_triage</div><div class="tool-desc">Record a triage verdict for an issue</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-arrow-down-up"></i>Data<span class="cat-count">2 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-download tool-icon"></i><div><div class="tool-name">export_data</div><div class="tool-desc">Export memories & wiki to a portable JSON file</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-upload tool-icon"></i><div><div class="tool-name">import_data</div><div class="tool-desc">Import memories & wiki from an export file</div></div></div>
     </div>
   </div>
 </section>

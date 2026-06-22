@@ -77,7 +77,7 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 - Update / close an existing issue (`update_github_issue`)
 - Daily issue-triage background job (`issue-triage`) + on-demand planner (`issue-planner`), both seeded **disabled** and repo-less; real-time capture via the GitHub webhook (`POST /api/github/webhook`, HMAC-verified with `GITHUB_WEBHOOK_SECRET`). Triage is read-only (no token for public repos) and treats issue text as untrusted data
 
-> **43 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
+> **46 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)
