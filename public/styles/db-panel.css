@@ -24,14 +24,14 @@
 }
 .db-panel-title {
   font-family: var(--font-mono);
-  font-size: calc(13px * var(--font-scale)); font-weight: 700;
+  font-size: var(--fs-chrome); font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-muted);
   display: flex; align-items: center; gap: 6px;
 }
 .db-panel-close {
   background: none; border: none; cursor: pointer;
-  color: var(--text-muted); font-size: calc(14px * var(--font-scale));
+  color: var(--text-muted); font-size: var(--fs-ui);
   padding: 2px 4px; border-radius: var(--radius-sm);
   transition: color var(--transition);
 }
@@ -46,7 +46,7 @@
 .db-action-btn {
   background: none; border: 1px solid var(--border);
   color: var(--text-muted);
-  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale)); font-weight: 600;
+  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: 600;
   padding: 5px 10px; border-radius: var(--radius-sm);
   cursor: pointer; transition: all var(--transition);
   display: inline-flex; align-items: center; gap: 5px;
@@ -60,7 +60,7 @@
 }
 .db-empty {
   padding: 24px 16px; text-align: center;
-  font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
+  font-size: var(--fs-micro); color: var(--text-muted);
 }
 
 .db-table-row {
@@ -72,10 +72,10 @@
 }
 .db-table-row:hover { background: var(--bg-alt, rgba(127,127,127,.08)); border-color: var(--border); }
 .db-table-name {
-  font-size: calc(13px * var(--font-scale)); color: var(--text);
+  font-size: var(--fs-chrome); color: var(--text);
 }
 .db-table-count {
-  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale));
+  font-family: var(--font-mono); font-size: var(--fs-micro);
   padding: 1px 8px; border-radius: 8px;
   background: var(--tag-bg); color: var(--tag-text);
 }
@@ -109,7 +109,7 @@
   position: sticky; top: 0; z-index: 1;
   background: var(--bg-panel);
   text-align: left; padding: 9px 12px;
-  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale)); font-weight: 700;
+  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: 700;
   letter-spacing: 0.04em; text-transform: uppercase;
   color: var(--text-muted);
   border-bottom: 1px solid var(--border);
@@ -151,7 +151,7 @@
 .db-detail-back, .db-detail-copy {
   background: none; border: 1px solid var(--border);
   color: var(--text-muted);
-  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale)); font-weight: 600;
+  font-family: var(--font-mono); font-size: var(--fs-micro); font-weight: 600;
   padding: 6px 12px; border-radius: var(--radius-sm);
   cursor: pointer; transition: all var(--transition);
   display: inline-flex; align-items: center; gap: 6px;
