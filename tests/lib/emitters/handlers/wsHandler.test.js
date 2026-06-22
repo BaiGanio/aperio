@@ -123,6 +123,32 @@ describe("message type: init", () => {
     assert.strictEqual(sentOf(ws, "memories").length, 2);
   });
 
+  test("static greeting: skips the loop and sends the greeting as stream_end text", async (t) => {
+    const ws      = makeWs(t);
+    const loopSpy = [];
+
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        buildGreeting: async () => ({ prompt: "Hello!", memCtx: "", preloadedMemCount: 0, staticGreeting: "Hi! How can I help you today?" }),
+        runAgentLoop:  async () => { loopSpy.push(1); return ""; },
+      }),
+      store:     { listAll: async () => [] },
+      __dirname: TEST_DIR,
+    });
+
+    handler(ws);
+    await ws.emit({ type: "init" });
+
+    // No inference: the greeting loop must not run.
+    assert.strictEqual(loopSpy.length, 0);
+    // The static line is rendered via a stream_end carrying the text.
+    const ends = sentOf(ws, "stream_end");
+    assert.strictEqual(ends.length, 1);
+    assert.strictEqual(ends[0].text, "Hi! How can I help you today?");
+    // Memories are still sent (preview path is unchanged).
+    assert.ok(sentOf(ws, "memories").length >= 1);
+  });
+
   test("passes noTools:true to runAgentLoop for non-anthropic providers", async (t) => {
     const ws       = makeWs(t);
     const loopArgs = [];

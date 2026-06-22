@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | Evaluate Your Model — Manual Test Suites</title>
+  <meta name="description" content="A growing collection of hands-on, copy-paste test suites that probe what an AI model in Aperio can really do — honesty, security, accuracy and features. Written for non-technical users." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* Page-specific: clickable suite cards. Shared styles live in styles.css (.doc). */
+    .ev-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:40px; text-align:left; }
+    @media(max-width:780px){ .ev-grid{ grid-template-columns:1fr; } }
+    .ev-card { text-decoration:none; color:inherit; display:flex; flex-direction:column; }
+    .ev-card .feat-title { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+    .ev-card .feat-title .tier-pill { margin-left:0; }
+    .ev-card .ev-meta { margin-top:14px; font-family:var(--font-ui); font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; opacity:.6; display:flex; align-items:center; gap:6px; }
+    .ev-card .ev-meta .ev-arrow { transition:transform .2s; }
+    .ev-card:hover .ev-meta .ev-arrow { transform:translateX(4px); }
+    .ev-card:hover .ev-meta { opacity:.95; color:var(--purple); }
+    .tier-honesty  { background: rgba(229,115,107,.16); color: #e5736b; }
+    .tier-security { background: rgba(168,85,247,.18);  color: var(--purple); }
+    .tier-accuracy { background: rgba(230,180,80,.16);  color: #e0a93f; }
+    .tier-feature  { background: rgba(67,197,158,.16);  color: #43c59e; }
+    .tier-aesthetic{ background: rgba(96,165,250,.16);  color: #60a5fa; }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ── Navbar ─────────────────────────────────────────────────── -->
+<nav class="aperio-nav">
+  <div class="nav-inner">
+
+    <a href="../index.html" class="brand">
+      <div class="logo-mark">A</div>
+      <span class="brand-name">Aperio</span>
+    </a>
+
+    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+
+    <ul class="nav-links" id="navLinks">
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="../model-guide.html">Model Guide</a></li>
+      <li><a href="#suites">Test Suites</a></li>
+      <li><a href="../model-guide.html#compare">Models</a></li>
+    </ul>
+
+    <div class="theme-switcher" id="themeSwitcher">
+      <button class="theme-btn active" data-theme="dark"   title="Dark">🌙</button>
+      <button class="theme-btn"        data-theme="light"  title="Light">☀️</button>
+      <button class="theme-btn"        data-theme="aurora" title="Aurora">✦</button>
+      <button class="theme-btn"        data-theme="system" title="System">⊙</button>
+    </div>
+
+  </div>
+</nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="ev-top" style="padding:120px 0 40px">
+  <div class="section-inner">
+    <div class="eyebrow reveal">Evaluate Your Model</div>
+    <h1 class="section-heading reveal">Model evaluation suite</h1>
+    <p class="lead-text reveal">Hands-on, copy-paste test suites that probe what an AI model in Aperio can <em>really</em> do — not what its spec sheet claims. No technical knowledge needed: pick a suite, paste the prompts, mark pass or fail.</p>
+  </div>
+</section>
+
+<!-- ── Why ────────────────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0">
+  <div class="section-inner">
+    <p class="reveal">The <a href="../model-guide.html">Model Guide</a> gives you a quick five-test calibration to learn any model's broad shape. These suites go deeper. Each one targets a single capability that's easy to claim and hard to verify — and shows you exactly what passing and failing look like, so you can trust your own eyes instead of the marketing.</p>
+    <p class="reveal">Every suite has a built-in scorecard you can fill in as you go and print when you're done. Run a suite on each model you've set up, and you'll know which model to point at which job.</p>
+  </div>
+</section>
+
+<!-- ── Suites ─────────────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0 100px" id="suites">
+  <div class="section-inner">
+    <h2 class="reveal">The test suites</h2>
+    <p class="reveal mg-desc">More suites are on the way. Each is self-contained — start anywhere.</p>
+
+    <div class="ev-grid">
+
+      <a class="feat-card reveal ev-card" href="lie-catcher.html">
+        <div class="feat-icon"><i class="bi bi-patch-question-fill"></i></div>
+        <div class="feat-title">Lie Catcher <span class="tier-pill tier-honesty">honesty</span></div>
+        <p class="feat-desc">Does the model tell the truth about what it actually did? Catches the model that says "Done! I created the file" when no file exists — the single most common and most costly failure.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="security-guardrails.html" style="transition-delay:.06s">
+        <div class="feat-icon"><i class="bi bi-shield-lock-fill"></i></div>
+        <div class="feat-title">Security Guardrails <span class="tier-pill tier-security">security</span></div>
+        <p class="feat-desc">Do the safety boundaries actually hold under probing? Tries to read secret files, reach internal URLs, and run shell commands — and tells you whether the guardrails are real code or just polite words.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="skill-matching.html" style="transition-delay:.12s">
+        <div class="feat-icon"><i class="bi bi-bullseye"></i></div>
+        <div class="feat-title">Skill Matching <span class="tier-pill tier-accuracy">accuracy</span></div>
+        <p class="feat-desc">When you ask for something, does the right skill load for the job? Checks whether the model reliably picks the correct tool for each request instead of guessing or grabbing the wrong one.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="doc-graph.html" style="transition-delay:.18s">
+        <div class="feat-icon"><i class="bi bi-diagram-3-fill"></i></div>
+        <div class="feat-title">Document Graph <span class="tier-pill tier-feature">feature</span></div>
+        <p class="feat-desc">Does document indexing and search really work? Verifies that your files get indexed, that search finds them by meaning, and that the model can cite what it found rather than inventing it.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="background-agents.html" style="transition-delay:.24s">
+        <div class="feat-icon"><i class="bi bi-robot"></i></div>
+        <div class="feat-title">Background Agents <span class="tier-pill tier-feature">feature</span></div>
+        <p class="feat-desc">Do scheduled jobs that run without you typing anything actually fire? Verifies that background agents wake on time, do their work, and report back — all from the web UI, no command line.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="design-diversity.html" style="transition-delay:.30s">
+        <div class="feat-icon"><i class="bi bi-palette-fill"></i></div>
+        <div class="feat-title">Design Diversity <span class="tier-pill tier-aesthetic">aesthetic</span></div>
+        <p class="feat-desc">Does the model design for the project, or default to one look? Checks whether a kids' app and a luxury boutique get genuinely distinct fonts and palettes — or the same convergent template every time.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="capability-exam.html" style="transition-delay:.36s">
+        <div class="feat-icon"><i class="bi bi-clipboard-check-fill"></i></div>
+        <div class="feat-title">Capability Exam <span class="tier-pill tier-feature">benchmark</span></div>
+        <p class="feat-desc">The full system benchmark — 65+ drills across every tool category. Run the canonical exam from <code>exam.md</code> and record section scores here. Takes 30–60 minutes but tells you everything.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-warning">
+    ⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy,
+    leading to irreversible stupidity. Use responsibly.
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+</body>
+</html>

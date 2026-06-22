@@ -141,6 +141,77 @@ describe("update", () => {
 });
 
 // =============================================================================
+// update → wiki staleness + source re-pointing
+// (tombstone+insert hides the edit from the AFTER-UPDATE trigger, so update()
+//  marks citing articles stale and re-points their sources explicitly)
+// =============================================================================
+describe("update marks citing wiki articles stale", () => {
+  let mem;
+
+  before(async () => {
+    mem = await store.insert({
+      type: "fact", title: "Source memory", content: "Grounding content", importance: 3,
+    });
+    await store.wiki.upsert({
+      slug: "wiki-stale-test", title: "Stale Test", summary: "s",
+      body_md: `Cites [[mem:${mem.id}]].`, tags: [],
+      generated_by: "test", source_hash: "h", source_memory_ids: [mem.id],
+    }, null);
+  });
+
+  test("article starts fresh and cites the original memory", async () => {
+    const a = await store.wiki.get("wiki-stale-test");
+    assert.equal(a.status, "fresh");
+    assert.deepEqual(a.source_memory_ids, [mem.id]);
+  });
+
+  test("editing the memory marks the article stale and re-points the source", async () => {
+    const updated = await store.update(mem.id, { content: "Changed content" });
+    const a = await store.wiki.get("wiki-stale-test");
+    assert.equal(a.status, "stale", "article should be marked stale");
+    assert.deepEqual(a.source_memory_ids, [updated.id], "source should point at the new version");
+    assert.ok(!a.source_memory_ids.includes(mem.id), "old (tombstoned) id should be gone");
+  });
+});
+
+// =============================================================================
+// mergeDuplicate → folds the duplicate's wiki citations into the survivor
+// =============================================================================
+describe("mergeDuplicate re-points wiki sources to the survivor", () => {
+  test("article citing only the duplicate moves to the survivor and goes stale", async () => {
+    const survivor  = await store.insert({ type: "fact", title: "A", content: "aaa" });
+    const duplicate = await store.insert({ type: "fact", title: "B", content: "bbb" });
+    await store.wiki.upsert({
+      slug: "wiki-merge-only-b", title: "Only B", body_md: `[[mem:${duplicate.id}]]`,
+      tags: [], generated_by: "test", source_hash: "h", source_memory_ids: [duplicate.id],
+    }, null);
+
+    await store.mergeDuplicate(survivor.id, duplicate.id);
+
+    const a = await store.wiki.get("wiki-merge-only-b");
+    assert.equal(a.status, "stale");
+    assert.deepEqual(a.source_memory_ids, [survivor.id], "citation should move to survivor");
+  });
+
+  test("article citing both collapses to a single survivor citation", async () => {
+    const survivor  = await store.insert({ type: "fact", title: "C", content: "ccc" });
+    const duplicate = await store.insert({ type: "fact", title: "D", content: "ddd" });
+    await store.wiki.upsert({
+      slug: "wiki-merge-both", title: "Both",
+      body_md: `[[mem:${survivor.id}]] [[mem:${duplicate.id}]]`, tags: [],
+      generated_by: "test", source_hash: "h",
+      source_memory_ids: [survivor.id, duplicate.id],
+    }, null);
+
+    await store.mergeDuplicate(survivor.id, duplicate.id);
+
+    const a = await store.wiki.get("wiki-merge-both");
+    assert.equal(a.status, "stale");
+    assert.deepEqual(a.source_memory_ids, [survivor.id], "redundant duplicate citation dropped");
+  });
+});
+
+// =============================================================================
 // Recall (FTS-only path)
 // =============================================================================
 describe("recall (FTS-only)", () => {
@@ -366,5 +437,28 @@ describe("agent run history", () => {
 
   test("returns [] for a job with no runs", async () => {
     assert.deepEqual(await store.listAgentRuns("never-ran"), []);
+  });
+
+  test("deleteAgentRun removes one run and reports hit/miss", async () => {
+    await store.recordAgentRun({
+      jobId: "del", startedAt: "2026-06-16T10:00:00.000Z", verdict: "ok", mode: "steps",
+    });
+    const [run] = await store.listAgentRuns("del");
+    assert.equal(await store.deleteAgentRun(run.id), true);
+    assert.deepEqual(await store.listAgentRuns("del"), []);
+    assert.equal(await store.deleteAgentRun(run.id), false); // already gone
+  });
+
+  test("pruneAgentRuns removes runs older than the retention window", async () => {
+    const old = new Date(Date.now() - 40 * 86400000).toISOString();
+    const recent = new Date(Date.now() - 2 * 86400000).toISOString();
+    await store.recordAgentRun({ jobId: "gc", startedAt: old,    verdict: "ok", mode: "steps" });
+    await store.recordAgentRun({ jobId: "gc", startedAt: recent, verdict: "ok", mode: "steps" });
+
+    const removed = await store.pruneAgentRuns(30);
+    assert.equal(removed, 1);
+    const left = await store.listAgentRuns("gc");
+    assert.equal(left.length, 1);
+    assert.equal(left[0].started_at, recent);
   });
 });

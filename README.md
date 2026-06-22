@@ -233,6 +233,28 @@ pair parses, the toggle stays disabled and the app behaves exactly as before.
 Personas live in `id/whoami-primary.md` and `id/whoami-verifier.md` — edit them
 to tune how each agent answers or critiques.
 
+**Domain characters** layer expertise on top of each agent's role. Set
+`ROUNDTABLE_CHARACTERS` to a comma-separated pair of slugs (first → Agent A,
+second → Agent B). Each slug resolves to `id/characters/<slug>.md`.
+
+| When you want… | Set `ROUNDTABLE_CHARACTERS` to |
+|---|---|
+| Code review | `software-architect,code-reviewer` |
+| Security audit | `software-architect,security-engineer` |
+| Product decision | `product-thinker,software-architect` |
+| Open-ended question | `socratic-questioner,software-architect` |
+| Domain-specific | `space-engineer,doctor` |
+
+Available characters: `software-architect`, `code-reviewer`, `security-engineer`,
+`product-thinker`, `socratic-questioner`, `doctor`, `space-engineer`. Add your own
+by dropping a `.md` file into `id/characters/`.
+
+**Manifestos.** After each round-table concludes (consensus or not), each agent
+writes a personal manifesto — a short, opinionated final statement. Both are saved
+to `var/roundtables/aperio-manifesto-{sessionId}.md` and served at `/roundtables/`
+for preview and download. Manifesto generation is best-effort; it never blocks the
+round-table result from reaching you.
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>
@@ -575,6 +597,54 @@ Constraints, enforced in `mcp/tools/shell.js`:
 | Working dir | Commands run in the active session workspace (or an explicit `cwd` within an allowed write path) |
 | Limits | 60 s timeout, 200 KB output cap (shared with `run_node_script`) |
 | Per-model gate | Disabled providers/models never see the tool at all (see `isShellAllowedFor` in `lib/agent/index.js`) |
+
+### Database Encryption
+
+Your memories, wiki, and agent knowledge live in a single SQLite database file. When `APERIO_DB_ENCRYPT=1`, that file is encrypted on disk with AES-256-GCM — **unreadable without the key.**
+
+The encryption key is generated on your machine on first run and stored in your OS keychain: **macOS Keychain**, **Linux libsecret**, or **Windows DPAPI**. The key never touches disk — it's retrieved at startup and held only in memory.
+
+**What this means for you:**
+- **File theft is harmless.** If someone copies your database file, they get ciphertext — not your memories, not your wiki, not your settings.
+- The plaintext database only exists in a temporary location while Aperio is running. It's re-encrypted on shutdown.
+- **Zero-friction upgrade.** Existing plaintext databases are automatically migrated the first time you enable encryption — you don't lose anything.
+- **Crash-safe.** If Aperio stops unexpectedly, the next startup recovers any writes from the leftover temp data.
+
+**How to enable:**
+```env
+# APERIO_DB_ENCRYPT=1
+```
+
+> 💡 Check out [SECURITY.md](SECURITY.md) for the full threat model and platform details.
+
+### Browser Launch
+
+On startup Aperio opens the UI in a **private/incognito window**, falling back to your OS default browser if the chosen browser isn't installed. Pick one with `APERIO_BROWSER`:
+
+```env
+# firefox (default), firefox-dev, librewolf, mullvad, chrome, chromium, brave, edge, tor, ddg
+# Use `default` (or `system`) to just open the OS default browser.
+APERIO_BROWSER=firefox
+```
+
+For defense-in-depth, `APERIO_BROWSER_ISOLATED=1` launches that browser with a **dedicated profile** under `var/browser-profiles/<browser>`, keeping Aperio's cookies, storage, and extensions separate from your everyday browsing:
+
+```env
+APERIO_BROWSER_ISOLATED=1
+```
+
+> 💡 The browser sandbox already prevents any web page — even a compromised Aperio — from reading your bookmarks, history, or other tabs. Private mode + an isolated profile harden the surfaces that *do* matter: session state and extensions. `tor`/`ddg` are private-by-default apps launched best-effort, so profile isolation doesn't apply to them.
+
+### Data Portability
+
+Your memories and wiki are yours — take them with you. Two tools make migration and backup simple:
+
+| Tool | What it does |
+|------|-------------|
+| `export_data` | Writes all memories + wiki articles to a portable JSON file. Defaults to `~/aperio-export-<timestamp>.json`. |
+| `import_data` | Restores from an export file. Idempotent — memories match by ID, wiki articles by slug, so running it twice doesn't create duplicates. |
+
+**Cross-machine migration:** export on your old machine, copy the JSON file to the new one, run `import_data`. Embeddings are queued for backfill automatically — semantic search works after `backfill_embeddings` completes. Works regardless of whether either machine has encryption enabled.
 
 📄 Take a notes:
 - Only run Aperio on a machine you trust

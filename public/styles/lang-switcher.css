@@ -33,15 +33,15 @@
   border-radius: 20px;
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: calc(12px * var(--font-scale));
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   transition: all var(--transition);
 }
-.lang-trigger-value .lang-flag { font-size: 14px; line-height: 1; }
+.lang-trigger-value .lang-flag { font-size: calc(14px * var(--font-scale)); line-height: 1; }
 .lang-trigger-value .lang-code { letter-spacing: 0.08em; }
-.lang-trigger-value .lang-caret { font-size: 8px; opacity: 0.6; transition: transform var(--transition); }
+.lang-trigger-value .lang-caret { font-size: calc(12px * var(--font-scale)); opacity: 0.6; transition: transform var(--transition); }
 .lang-switcher.is-open .lang-caret { transform: rotate(180deg); }
 .lang-switcher.is-open .lang-trigger-value {
   background: var(--bg-panel);
@@ -73,7 +73,7 @@
   cursor: pointer;
   color: var(--text);
   font-family: var(--font-sans, inherit);
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
   text-align: left;
   transition: background var(--transition);
 }
@@ -83,11 +83,11 @@
   color: var(--accent);
   font-weight: 600;
 }
-.lang-option .lang-flag { font-size: 16px; line-height: 1; flex-shrink: 0; }
+.lang-option .lang-flag { font-size: calc(16px * var(--font-scale)); line-height: 1; flex-shrink: 0; }
 .lang-option .lang-code-mini {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-muted);
   letter-spacing: 0.06em;
   text-transform: uppercase;

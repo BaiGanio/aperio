@@ -63,7 +63,7 @@ const TRANSLATIONS = {
     feat_dedup_title:   "Auto Deduplication",
     feat_dedup_desc:    "Background job finds near-duplicate memories every 10 minutes using cosine similarity. Dry-run by default — you stay in control.",
     feat_reason_title:  "Reasoning Models",
-    feat_reason_desc:   "Native support for thinking models — qwen3, deepseek-r1. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.",
+    feat_reason_desc:   "Native support for thinking models like qwen3 and gemma4 — and cloud models reason out of the box. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.",
     feat_team_title:    "Team Ready",
     feat_team_desc:     "Since you own the database, Aperio scales from personal to shared team brain with two changes — update the system prompt and seed team memories. One brain for the whole team.",
 
@@ -274,7 +274,7 @@ const TRANSLATIONS = {
     feat_dedup_title:   "Автоматично дедублиране",
     feat_dedup_desc:    "Фонова задача открива почти дублирани спомени на всеки 10 минути чрез косинусово сходство. Dry-run режим по подразбиране — вие сте в контрол.",
     feat_reason_title:  "Модели за разсъждение",
-    feat_reason_desc:   "Поддръжка за мислещи модели — qwen3, deepseek-r1. Сгъваем балон показва мисловния процес на модела на живо. Включвайте и изключвайте по всяко време.",
+    feat_reason_desc:   "Поддръжка за мислещи модели като qwen3 и gemma4 — а облачните модели разсъждават по подразбиране. Сгъваем балон показва мисловния процес на модела на живо. Включвайте и изключвайте по всяко време.",
     feat_team_title:    "Готов за екип",
     feat_team_desc:     "Тъй като притежавате базата данни, Aperio се мащабира от личен до споделен екипен мозък с две промени — обновете системния промпт и заредете екипни спомени.",
 
