@@ -77,6 +77,9 @@
       <li><a href="#why-aperio">Why Aperio?</a></li>
       <li><a href="#webui">Web UI</a></li>
       <li><a href="#setup">Setup</a></li>
+      <li><a href="model-guide.html">Model Guide</a></li>
+      <li><a href="tours/index.html">Model Tours</a></li>
+      <li><a href="evaluate/index.html">Evaluate</a></li>
       <!-- <li><a href="#aperio-lite">Aperio-lite</a></li> -->
     </ul>
 
@@ -100,9 +103,8 @@
   <div class="section-inner">
     <div class="eyebrow reveal">Open Source · Self-Hosted · Privacy-First · Local by Default</div>
     <h1 class="hero-heading reveal">
-      One brain.<br>
-      Every agent.<br>
-      <span class="aurora-text">Nothing forgotten.</span>
+      Every agent. One memory.<br>
+      <span class="aurora-text">Total recall.</span>
     </h1>
     <p class="lead-text reveal">
       A self-hosted personal memory layer for AI agents — built on Postgres, pgvector and MCP.<br>
@@ -129,10 +131,9 @@
     <div class="badge-row reveal">
       <span class="tech-badge"><i class="bi bi-database me-1"></i> Postgres 16</span>
       <span class="tech-badge"><i class="bi bi-database me-1"></i> SQLite</span>
-      <span class="tech-badge"><i class="bi bi-cpu me-1"></i> pgvector</span>
+      <span class="tech-badge"><i class="bi bi-hdd-fill me-1"></i> Local Embeddings</span>
       <span class="tech-badge"><i class="bi bi-plug me-1"></i> MCP Protocol</span>
       <span class="tech-badge"><i class="bi bi-box me-1"></i> Ollama</span>
-      <span class="tech-badge"><i class="bi bi-hdd-fill me-1"></i> Local Embeddings</span>
     </div>
     <div class="terminal-wrap reveal">
       <div class="terminal">
@@ -168,8 +169,8 @@
 <!-- ── Stats ───────────────────────────────────────────────────── -->
 <div class="stats-bar z1">
   <div class="stats-inner">
-    <div class="stat reveal"><div class="stat-num">11</div><div class="stat-lbl">MCP Tools</div></div>
-    <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">7</div><div class="stat-lbl">Memory Types</div></div>
+    <div class="stat reveal"><div class="stat-num">46</div><div class="stat-lbl">MCP Tools</div></div>
+    <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">8</div><div class="stat-lbl">Memory Types</div></div>
     <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">0</div><div class="stat-lbl">API Keys Required</div></div>
     <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl">Vendor Lock-in</div></div>
   </div>
@@ -185,7 +186,7 @@
       <div class="feat-card reveal">
         <div class="feat-icon"><i class="bi bi-database-fill-check"></i></div>
         <div class="feat-title">Persistent Memory</div>
-        <p class="feat-desc">Memories survive every conversation, every tool, every session. 7 structured types keep things organized — facts, decisions, solutions and more.</p>
+        <p class="feat-desc">Memories survive every conversation, every tool, every session. 8 structured types keep things organized — facts, decisions, solutions and more.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.07s">
         <div class="feat-icon"><i class="bi bi-search-heart"></i></div>
@@ -215,7 +216,13 @@
       <div class="feat-card reveal" style="transition-delay:.24s">
         <div class="feat-icon"><i class="bi bi-robot"></i></div>
         <div class="feat-title">Reasoning Models</div>
-        <p class="feat-desc">Native support for thinking models — qwen3, deepseek-r1. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.</p>
+        <p class="feat-desc">Native support for thinking models like qwen3, gemma4 and llama3 — and cloud models reason out of the box. A collapsible reasoning bubble shows the model's thought process live. Toggle it on or off anytime.</p>
+      </div>
+      <div class="feat-card reveal" style="transition-delay:.26s">
+        <div class="feat-icon"><i class="bi bi-chat-square-quote-fill"></i></div>
+        <div class="feat-title"><a href="tours/roundtable.html" style="color:inherit;text-decoration:none">Two-Agent Deliberation</a></div>
+        <p class="feat-desc">Toggle Discuss and two agents cross-review each other until they agree. Domain characters give each a different perspective.</p>
+        <a href="tours/roundtable.html" class="feat-link">learn more...</a>
       </div>
       <div class="feat-card reveal" style="transition-delay:.28s">
         <div class="feat-icon"><i class="bi bi-people-fill"></i></div>
@@ -230,7 +237,7 @@
 <section class="section" id="architecture">
   <div class="section-inner wide">
     <div class="eyebrow reveal">Architecture</div>
-    <h2 class="section-heading reveal">Simple stack.<br>Serious power.</h2>
+    <h2 class="section-heading reveal">Simple stack. Serious power.</h2>
     <p class="lead-text reveal">One database. One MCP server. Two AI providers. Your brain is just a Postgres table with vectors.</p>
     <div class="arch-card reveal">
       <div class="arch-header"><i class="bi bi-diagram-3 me-1"></i> aperio / system architecture</div>
@@ -240,24 +247,24 @@
           <div class="arch-connector">↕ WebSocket</div>
           <div class="arch-row"><span class="arch-icon">⚡</span><div><div class="arch-name">Express Server</div><div class="arch-sub">server.js · agent loop</div></div></div>
           <div class="arch-connector">↕ stdio</div>
-          <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name">MCP Server</div><div class="arch-sub">mcp/index.js · 11 tools</div></div></div>
+          <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name">MCP Server</div><div class="arch-sub">mcp/index.js · 46 tools · 10 categories</div></div></div>
           <div class="arch-connector">↕</div>
           <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">Postgres 16 + pgvector</div><div class="arch-sub">memories table · HNSW index</div></div></div>
           <div class="arch-connector">↕</div>
-          <div class="arch-row"><span class="arch-icon">⬡</span><div><div class="arch-name">Ollama Embeddings</div><div class="arch-sub">mxbai-embed-large · 1024 dims · zero external calls</div></div></div>
+          <div class="arch-row"><span class="arch-icon">⬡</span><div><div class="arch-name">Local Embeddings</div><div class="arch-sub">mxbai-embed-large-v1 · 1024 dims · zero external calls</div></div></div>
           <div class="arch-row"><span class="arch-icon">✦</span><div><div class="arch-name">Voyage AI</div><div class="arch-sub">optional · voyage-3 · 1024 dims · cloud upgrade</div></div></div>
         </div>
         <div>
           <div class="arch-section-label">AI Providers</div>
           <div class="provider-chips">
             <div class="provider-chip chip-local"><span class="chip-icon">⬡</span><div><div class="provider-label">Ollama</div><div class="provider-desc">default · local · free · offline capable</div></div></div>
-            <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">Claude API</div><div class="provider-desc">optional · cloud upgrade · haiku · sonnet · opus</div></div></div>
+            <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">APIs: Claude , Gemini , DeepSeek</div><div class="provider-desc">optional · cloud upgrade</div></div></div>
           </div>
           <div class="arch-section-label" style="margin-top:28px">Memory Types</div>
           <div class="mem-types">
             <span class="mem-type">fact</span><span class="mem-type">preference</span>
             <span class="mem-type">project</span><span class="mem-type">decision</span>
-            <span class="mem-type">solution</span><span class="mem-type">source</span><span class="mem-type">person</span>
+            <span class="mem-type">solution</span><span class="mem-type">source</span><span class="mem-type">person</span><span class="mem-type">inference</span>
           </div>
         </div>
       </div>
@@ -269,20 +276,93 @@
 <section class="section" id="tools">
   <div class="section-inner wide">
     <div class="eyebrow reveal">MCP Tools</div>
-    <h2 class="section-heading reveal">11 tools. One brain.</h2>
-    <p class="lead-text reveal">Every tool is available to any MCP-compatible agent (Claude, Cursor, Windsurf).<br>Memory ops, file ops, web fetching.</p>
+    <h2 class="section-heading reveal">46 tools. One protocol.</h2>
+    <p class="lead-text reveal">Each one is available to any MCP-compatible agent (Claude, Cursor, Windsurf).</p>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-database-fill-check"></i>Memory<span class="cat-count">6 tools</span></div>
     <div class="tools-grid">
-      <div class="tool-chip reveal"><i class="bi bi-bookmark-plus-fill tool-icon"></i><div><div class="tool-name">remember</div><div class="tool-desc">Save a memory with auto-generated embedding</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.04s"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">recall</div><div class="tool-desc">Semantic search with cosine similarity scores</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.08s"><i class="bi bi-pencil-square tool-icon"></i><div><div class="tool-name">update_memory</div><div class="tool-desc">Edit by UUID, regenerates embedding automatically</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.12s"><i class="bi bi-trash3 tool-icon"></i><div><div class="tool-name">forget</div><div class="tool-desc">Delete a specific memory by UUID</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.16s"><i class="bi bi-cpu tool-icon"></i><div><div class="tool-name">backfill_embeddings</div><div class="tool-desc">Generate missing embeddings in batch</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.20s"><i class="bi bi-intersect tool-icon"></i><div><div class="tool-name">deduplicate_memories</div><div class="tool-desc">Find near-duplicates via cosine similarity</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-bookmark-plus-fill tool-icon"></i><div><div class="tool-name">remember</div><div class="tool-desc">Save a new memory — auto-generates embedding for semantic retrieval</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">recall</div><div class="tool-desc">Semantic search with cosine similarity, FTS fallback</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-pencil-square tool-icon"></i><div><div class="tool-name">update_memory</div><div class="tool-desc">Edit by UUID — new version, old tombstoned</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-trash3 tool-icon"></i><div><div class="tool-name">forget</div><div class="tool-desc">Delete a specific memory by UUID</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-cpu tool-icon"></i><div><div class="tool-name">backfill_embeddings</div><div class="tool-desc">Batch-generate embeddings for unembedded memories</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-intersect tool-icon"></i><div><div class="tool-name">deduplicate_memories</div><div class="tool-desc">Find near-duplicates via cosine similarity</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-files"></i>Files<span class="cat-count">9 tools</span></div>
+    <div class="tools-grid">
       <div class="tool-chip reveal"><i class="bi bi-file-earmark-text tool-icon"></i><div><div class="tool-name">read_file</div><div class="tool-desc">Read any file from disk (max 500 lines)</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.04s"><i class="bi bi-file-earmark-arrow-up tool-icon"></i><div><div class="tool-name">write_file</div><div class="tool-desc">Overwrite a file completely with absolute paths</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.08s"><i class="bi bi-file-earmark-plus tool-icon"></i><div><div class="tool-name">append_file</div><div class="tool-desc">Add to end of file with before/after verification</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.12s"><i class="bi bi-folder2-open tool-icon"></i><div><div class="tool-name">scan_project</div><div class="tool-desc">Scan folder tree up to 3 levels deep</div></div></div>
-      <div class="tool-chip reveal" style="transition-delay:.16s"><i class="bi bi-globe tool-icon"></i><div><div class="tool-name">fetch_url</div><div class="tool-desc">Fetch a URL, strip HTML, truncate to 15k chars</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-file-earmark-arrow-up tool-icon"></i><div><div class="tool-name">write_file</div><div class="tool-desc">Create or overwrite a file</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-file-earmark-plus tool-icon"></i><div><div class="tool-name">append_file</div><div class="tool-desc">Append content to end of file</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-pencil tool-icon"></i><div><div class="tool-name">edit_file</div><div class="tool-desc">Search-and-replace in an existing file</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-file-earmark-word tool-icon"></i><div><div class="tool-name">read_docx</div><div class="tool-desc">Read and extract text from .docx files</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-folder2-open tool-icon"></i><div><div class="tool-name">scan_project</div><div class="tool-desc">Scan folder tree up to 3 levels deep</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-trash tool-icon"></i><div><div class="tool-name">delete_file</div><div class="tool-desc">Delete a file by path</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-file-earmark-spreadsheet tool-icon"></i><div><div class="tool-name">generate_xlsx</div><div class="tool-desc">Create Excel spreadsheets from data</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-file-earmark-word-fill tool-icon"></i><div><div class="tool-name">generate_docx</div><div class="tool-desc">Create Word documents programmatically</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-book"></i>Wiki<span class="cat-count">4 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-journal-plus tool-icon"></i><div><div class="tool-name">wiki_write</div><div class="tool-desc">Create or update a cited wiki article from memories</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">wiki_search</div><div class="tool-desc">Hybrid FTS + semantic search across wiki articles</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-list-ul tool-icon"></i><div><div class="tool-name">wiki_list</div><div class="tool-desc">Browse wiki articles, newest first</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-bookmark tool-icon"></i><div><div class="tool-name">wiki_get</div><div class="tool-desc">Fetch a wiki article by slug with revision info</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-code-slash"></i>Code Graph<span class="cat-count">6 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-signpost-2 tool-icon"></i><div><div class="tool-name">code_search</div><div class="tool-desc">Search indexed code symbols by name or doc text</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-folder-symlink tool-icon"></i><div><div class="tool-name">code_repos</div><div class="tool-desc">List all indexed repos with symbol counts</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-list-tree tool-icon"></i><div><div class="tool-name">code_outline</div><div class="tool-desc">List every symbol in a file with line ranges</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-file-code tool-icon"></i><div><div class="tool-name">code_context</div><div class="tool-desc">Fetch source slice for a symbol by qualified name</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-arrow-left-square tool-icon"></i><div><div class="tool-name">code_callers</div><div class="tool-desc">Find symbols that call the given target</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-arrow-right-square tool-icon"></i><div><div class="tool-name">code_callees</div><div class="tool-desc">Find symbols called by the given target</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-file-earmark-richtext"></i>Doc Graph<span class="cat-count">5 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">doc_search</div><div class="tool-desc">Search indexed document passages by meaning</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-folder-symlink tool-icon"></i><div><div class="tool-name">doc_repos</div><div class="tool-desc">List all indexed doc folders with chunk counts</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-list-tree tool-icon"></i><div><div class="tool-name">doc_outline</div><div class="tool-desc">Section tree (TOC) for one document</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-file-text tool-icon"></i><div><div class="tool-name">doc_context</div><div class="tool-desc">Fetch text of one section or chunk</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-link-45deg tool-icon"></i><div><div class="tool-name">doc_refs</div><div class="tool-desc">Cross-document reference lookup (IDs, URLs, citations)</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-terminal"></i>Shell<span class="cat-count">4 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-filetype-js tool-icon"></i><div><div class="tool-name">run_node_script</div><div class="tool-desc">Execute Node.js scripts in a sandbox</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-filetype-py tool-icon"></i><div><div class="tool-name">run_python_script</div><div class="tool-desc">Execute Python scripts in a sandbox</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-check-circle tool-icon"></i><div><div class="tool-name">syntax_check</div><div class="tool-desc">Validate code syntax for supported languages</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-play-fill tool-icon"></i><div><div class="tool-name">run_shell</div><div class="tool-desc">Execute shell commands with output capture</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-globe"></i>Web<span class="cat-count">2 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-globe tool-icon"></i><div><div class="tool-name">fetch_url</div><div class="tool-desc">Fetch a URL, strip HTML, truncate to 15k chars</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">web_search</div><div class="tool-desc">Search the web via DuckDuckGo, return ranked results</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-image"></i>Image<span class="cat-count">3 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-image-fill tool-icon"></i><div><div class="tool-name">read_image</div><div class="tool-desc">Read and OCR-extract text from images</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-magic tool-icon"></i><div><div class="tool-name">preprocess_image</div><div class="tool-desc">Optimize image for local vision models</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-chat-square-text tool-icon"></i><div><div class="tool-name">describe_image</div><div class="tool-desc">Generate a text description of an image</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-github"></i>GitHub<span class="cat-count">5 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-download tool-icon"></i><div><div class="tool-name">fetch_github_issue</div><div class="tool-desc">Read a GitHub issue with comments and metadata</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-plus-circle tool-icon"></i><div><div class="tool-name">create_github_issue</div><div class="tool-desc">Open a new issue on a GitHub repository</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-pencil tool-icon"></i><div><div class="tool-name">update_github_issue</div><div class="tool-desc">Edit an existing GitHub issue</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-list-ul tool-icon"></i><div><div class="tool-name">list_github_issues</div><div class="tool-desc">List open issues for triage across repos</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-check2-circle tool-icon"></i><div><div class="tool-name">record_issue_triage</div><div class="tool-desc">Record a triage verdict for an issue</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-arrow-down-up"></i>Data<span class="cat-count">2 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-download tool-icon"></i><div><div class="tool-name">export_data</div><div class="tool-desc">Export memories & wiki to a portable JSON file</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-upload tool-icon"></i><div><div class="tool-name">import_data</div><div class="tool-desc">Import memories & wiki from an export file</div></div></div>
     </div>
   </div>
 </section>
@@ -334,7 +414,7 @@
       <div style="padding:28px 32px;display:grid;grid-template-columns:1fr 1fr;gap:32px;">
         <div>
           <div class="arch-section-label">1. Update prompts/system_prompt.md</div>
-          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:9px;padding:14px 16px;font-family:var(--font-mono);font-size:11.5px;color:var(--subtle);line-height:1.8;margin-top:10px;">
+          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:14px 16px;font-family:var(--font-mono);font-size:11.5px;color:var(--subtle);line-height:1.8;margin-top:10px;">
             You are a helpful <span style="color:var(--amber)">team</span> assistant with access to Aperio<br>
             — a <span style="color:var(--amber)">shared</span> memory system that stores context<br>
             about your <span style="color:var(--amber)">team</span>, projects, and decisions.
@@ -342,7 +422,7 @@
         </div>
         <div>
           <div class="arch-section-label">2. Seed team memories in 001_init.sql</div>
-          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:9px;padding:14px 16px;font-family:var(--font-mono);font-size:11px;color:var(--subtle);line-height:1.9;margin-top:10px;">
+          <div style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:14px 16px;font-family:var(--font-mono);font-size:11px;color:var(--subtle);line-height:1.9;margin-top:10px;">
             <span style="color:var(--indigo)">INSERT INTO</span> memories (type, title, content)<br>
             <span style="color:var(--indigo)">VALUES</span><br>
             &nbsp;&nbsp;(<span style="color:var(--green)">'project'</span>, <span style="color:var(--green)">'Atlas'</span>, <span style="color:var(--green)">'Next.js + PlanetScale...'</span>),<br>
@@ -452,6 +532,18 @@
           <span class="build-idea">team memory</span>
         </div>
       </div>
+
+      <div class="build-card reveal" style="transition-delay:.18s">
+        <div class="build-tag">Agent Layer</div>
+        <div class="build-title">Background Agents</div>
+        <p class="build-desc">Scheduled, autonomous agents that run without a chat turn. Define jobs in the database, set interval or file-watcher triggers, and let them handle deduplication, wiki refresh, code indexing — silently, in the background.</p>
+        <div class="build-ideas">
+          <span class="build-idea">scheduled jobs</span>
+          <span class="build-idea">file watchers</span>
+          <span class="build-idea">auto dedup</span>
+          <span class="build-idea">wiki refresh</span>
+        </div>
+      </div>
     </div>
     <!-- Contribution CTA -->
     <div class="build-cta-box reveal">
@@ -504,7 +596,7 @@
     <div class="eyebrow reveal">Web UI</div>
     <h2 class="section-heading reveal">See it in action.</h2>
     <p class="lead-text reveal">Local AI · persistent memory · streaming responses · 4 themes.</p>
-    <div class="reveal" style="margin-top:40px;border-radius:16px;overflow:hidden;border:1px solid var(--border);box-shadow:0 40px 100px rgba(0,0,0,0.5),0 0 0 1px rgba(168,85,247,0.08);">
+    <div class="reveal" style="margin-top:40px;border-radius:0;overflow:hidden;border:1px solid var(--border);box-shadow:0 40px 100px rgba(0,0,0,0.5),0 0 0 1px rgba(168,85,247,0.08);">
       <img src="assets/aperio.jpeg" alt="Aperio Web UI — chat interface with memory sidebar" style="width:100%;display:block;" />
     </div>
   </div>
@@ -641,17 +733,17 @@
     <div class="arch-card reveal" style="margin-bottom:40px">
       <div class="arch-header"><i class="bi bi-play-circle me-1"></i> the whole flow — once is enough</div>
       <div style="padding:24px 32px;display:flex;flex-wrap:wrap;align-items:center;gap:10px;font-family:var(--font-mono);font-size:12px;">
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">📥 Download</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">📥 Download</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">📂 Unzip</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">📂 Unzip</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">🔗 Make Alias / Shortcut</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">🔗 Make Alias / Shortcut</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">🖥️ Drop on Desktop</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">🖥️ Drop on Desktop</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">Double-click → (one-time) setup</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">Double-click → (one-time) setup</span>
         <span style="color:var(--accent);font-size:16px">→</span>
-        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:6px;padding:6px 14px;color:var(--text)">Browser opens automatically</span>
+        <span style="background:var(--bg-raised);border:1px solid var(--border);border-radius:0;padding:6px 14px;color:var(--text)">Browser opens automatically</span>
       </div>
     </div>
 
@@ -661,9 +753,9 @@
           <div class="step-title"><i class="bi bi-apple me-1"></i> macOS</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
             <div>1. Download, unzip, open in Finder</div>
-            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → double-click it</div>
-            <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.sh</code> → right-click → <strong>Make Alias</strong></div>
-            <div>4. Rename the alias to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio</code></div>
+            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">how-to-install</code> → double-click it</div>
+            <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.sh</code> → right-click → <strong>Make Alias</strong></div>
+            <div>4. Rename the alias to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">Aperio</code></div>
             <div>5.A Drag alias to <strong>Desktop folder</strong> in Finder's sidebar</div>
             <div style="opacity:.6;font-size:12px">❗ Sidebar item — not the Desktop surface itself</div>
             <div>5.B Hold <strong>⌥ Option + ⌘ Cmd</strong> and drag START.sh directly onto the desktop → rename it there</div>
@@ -677,9 +769,9 @@
           <div class="step-title"><i class="bi bi-windows me-1"></i> Windows</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
             <div>1. Download, unzip, open in File Explorer</div>
-            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → double-click it</div>
-            <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.bat</code> → right-click → <strong>Rename</strong></div>
-            <div>4. Rename the file to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio.bat</code></div>
+            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">how-to-install</code> → double-click it</div>
+            <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.bat</code> → right-click → <strong>Rename</strong></div>
+            <div>4. Rename the file to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">Aperio.bat</code></div>
             <div>5.A Move shortcut to Desktop</div>
             <div>5.B Hold <strong>Alt</strong> and drag START.bat directly onto the desktop → rename it there</div>
             <div>6. Double-click → one-time setup → done</div>
@@ -692,10 +784,10 @@
           <div class="step-title"><i class="bi bi-ubuntu me-1"></i> Linux</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
             <div>1. Download, unzip, open in your file manager</div>
-            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">how-to-install</code> → open it</div>
-            <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.sh</code> → right-click → <strong>Properties → Permissions</strong></div>
+            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">how-to-install</code> → open it</div>
+            <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.sh</code> → right-click → <strong>Properties → Permissions</strong></div>
             <div>4. Enable <strong>Allow executing file as program</strong> → close</div>
-            <div>5. Right-click <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">START.sh</code> → <strong>Copy to Desktop</strong> → rename to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">Aperio</code></div>
+            <div>5. Right-click <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.sh</code> → <strong>Copy to Desktop</strong> → rename to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">Aperio</code></div>
             <div style="opacity:.6;font-size:12px">❗ Menu labels vary by distro (Nautilus, Dolphin, etc.)</div>
             <div>6. Double-click → one-time setup → done</div>
             <div style="color:var(--accent);margin-top:6px">✅ Default browser opens automatically at<br> <code style="font-family:var(--font-mono);font-size:11px">http://localhost:31337</code></div>
@@ -734,7 +826,7 @@
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
             <div><strong>Every run after the first run?</strong></div>
             <div>Double-click the desktop shortcut. That's it.</div>
-            <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:4px;color:var(--accent)">./start.sh</code></div>
+            <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">./start.sh</code></div>
             <div style="color:var(--accent);margin-top:6px">✅ If you can open a browser, you can run Aperio.</div>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
             <div><strong>How to remove it if I do not like it?</strong></div>

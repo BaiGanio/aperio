@@ -1,7 +1,7 @@
 import express from "express";
 import helmet from "helmet";
-import { WebSocketServer } from "ws";
-import { existsSync, readFileSync } from "fs";
+import { WebSocketServer, WebSocket } from "ws";
+import { existsSync, readFileSync, mkdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import { createRequire } from "module";
@@ -17,6 +17,7 @@ import { createAppServer } from "./lib/helpers/tlsServer.js";
 import { createCrashBreaker } from "./lib/helpers/crashBreaker.js";
 import { randomBytes } from "crypto";
 import logger from "./lib/helpers/logger.js";
+import { BROWSERS, browserArgsFor } from "./lib/helpers/browserLauncher.js";
 import { runBootstrap, bootstrapEvents, stepState, STEPS } from "./bootstrap.js";
 
 // ─── Global error guards ──────────────────────────────────────────────────────
@@ -85,7 +86,9 @@ app.use(createNetGuard({ allowedHosts }));
 // AUTH-01: opt-in shared-secret gate on /api/* (no-op unless APERIO_AUTH_TOKEN set).
 app.use(createAuthGuard());
 
-app.use(express.json({ limit: '256kb' }));
+// Stash the raw body so the GitHub webhook can verify its HMAC signature
+// (express.json otherwise consumes the stream before any route sees the bytes).
+app.use(express.json({ limit: '256kb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
 // ─── Locale detection (Accept-Language + cookie) ──────────────────────────────
 // Supported EU locales — must mirror public/scripts/i18n.js.
@@ -177,6 +180,7 @@ app.use(express.static(resolve(__dirname, "public"), { index: false }));
 const staticGuard = createStaticGuard(STATIC_TOKEN);
 app.use("/uploads", staticGuard, express.static(resolve(__dirname, "var/uploads")));
 app.use("/scratch", staticGuard, express.static(resolve(__dirname, "var/scratch")));
+app.use("/roundtables", staticGuard, express.static(resolve(__dirname, "var/roundtables")));
 
 // ─── Bootstrap guard middleware ───────────────────────────────────────────────
 // Until .bootstrap.lock exists every request redirects to /setup,
@@ -361,6 +365,7 @@ async function bootApp() {
   const { deduplicateMemories }           = await import("./lib/workers/deduplicate.js");
   const { inferMemories }                 = await import("./lib/workers/infer.js");
   const { createSessionPruner }           = await import("./lib/workers/session-prune.js");
+  const { createAgentRunPruner }          = await import("./lib/workers/agent-run-prune.js");
   const { createAgentScheduler }          = await import("./lib/workers/agent-scheduler.js");
   const { makeWsHandler }                 = await import("./lib/emitters/handlers/wsHandler.js");
   const { apiRouter }                     = await import("./lib/routes/api.js");
@@ -547,10 +552,14 @@ async function bootApp() {
     logger.warn(`[agent-scheduler] could not load jobs from DB: ${err.message}`);
     return [];
   }) ?? [];
+  // Broadcast to every connected browser. Reassigned once `wss` exists below;
+  // until then it's a no-op so the scheduler can be created first.
+  let broadcastToClients = () => {};
   const scheduler = createAgentScheduler({
     callTool, createAgent, root: __dirname, version, watcherEvents,
     jobs: agentJobs,
     recordRun: (run) => store.recordAgentRun(run),
+    notify: (payload) => broadcastToClients({ type: "agent_job_done", ...payload }),
   });
 
   // Mount API routes and WebSocket *after* everything is ready
@@ -580,6 +589,17 @@ async function bootApp() {
   });
   wss.on("connection", makeWsHandler({ agent, primaryRoundtable, verifier, roundtableAvailable, store, __dirname }));
 
+  // Fan a server-side message out to every open browser tab. Used by the
+  // background-agent scheduler to surface a "job finished" banner.
+  broadcastToClients = (msg) => {
+    const data = JSON.stringify(msg);
+    for (const client of wss.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        try { client.send(data); } catch { /* dead socket — ignore */ }
+      }
+    }
+  };
+
   // Background jobs
   // PRIVACY-01: the infer/dedup workers feed stored personal memories to the
   // configured model. On a cloud provider that is third-party egress, so they
@@ -593,6 +613,7 @@ async function bootApp() {
   const dedup     = memoryWorkersEnabled ? deduplicateMemories(callTool) : noopWorker;
   const infer     = memoryWorkersEnabled ? inferMemories(callTool)       : noopWorker;
   const pruner    = createSessionPruner();
+  const runPruner = createAgentRunPruner({ store });
 
   // Graceful shutdown
   // Order matters: the ONNX native runtime must be torn down via its own API
@@ -608,6 +629,7 @@ async function bootApp() {
     dedup.stop();
     infer.stop();
     pruner.stop();
+    runPruner.stop();
     scheduler.stop();
     if (stopCodegraph) await stopCodegraph().catch(() => {});
     if (stopDocgraph) await stopDocgraph().catch(() => {});
@@ -626,15 +648,28 @@ async function bootApp() {
     // 5. Dispose the ONNX inference session — releases its thread pool so the
     //    global destructor sequence won't try to lock already-destroyed mutexes.
     await disposeEmbeddings();
-    // Give the ONNX thread pool a tick to finish its own cleanup before the
-    // C++ global destructors run. Without this yield the mutex is still locked
-    // when process.exit() tears down native memory → "mutex lock failed".
-    await new Promise(r => setTimeout(r, 150));
 
     // 6. Close the DB connection.
     await store.close?.();
 
-    process.exit(0);
+    // 7. Flush and close the winston logger. Its DailyRotateFile transport holds
+    //    a rotation timer that would otherwise keep the event loop alive.
+    await new Promise(resolve => logger.end(resolve));
+
+    // Instead of calling process.exit(), let Node exit by draining the event
+    // loop. This lets each native addon (ONNX, better-sqlite3, sqlite-vec,
+    // sharp) run its own AtExit hook in a controlled order before the C++
+    // static destructors fire — avoiding the "mutex lock failed: Invalid
+    // argument" crash that process.exit() causes when destructors race.
+    //
+    // Safety net: if the process is still alive after 10 s (something is
+    // holding the loop), force-exit. The timer is unref()'d so it doesn't
+    // itself keep the loop alive.
+    const forceExit = setTimeout(() => {
+      process.exitCode = 0;
+      process.exit(0);
+    }, 10_000);
+    forceExit.unref();
   }
   process.on("SIGTERM", gracefulShutdown);
   process.on("SIGINT",  gracefulShutdown);
@@ -674,7 +709,47 @@ function openBrowser(url) {
     process.platform === "darwin" ? ["open", url]
     : process.platform === "win32" ? ["cmd", "/c", "start", url]
     : ["xdg-open", url];
-  execFile(cmd, args, err => {
+  const openDefault = () => execFile(cmd, args, err => {
     if (err) logger.error("⚠️  Could not open browser:", err.message);
+  });
+
+  // APERIO_BROWSER=default (or system) skips the private window and uses the
+  // OS default. An unknown value also falls back to the default opener.
+  const pref = (process.env.APERIO_BROWSER || "firefox").toLowerCase();
+  const b = BROWSERS[pref];
+  if (!b) {
+    openDefault();
+    return;
+  }
+
+  // APERIO_BROWSER_ISOLATED gives the browser a dedicated profile under var/,
+  // so Aperio's cookies/storage/extensions stay separate from everyday
+  // browsing. Not supported for `app`-family privacy browsers.
+  const isolated = ["1", "true", "on", "yes"].includes(
+    (process.env.APERIO_BROWSER_ISOLATED || "").toLowerCase());
+  let profileDir = null;
+  if (isolated && b.family !== "app") {
+    profileDir = resolve(__dirname, "var/browser-profiles", pref);
+    try {
+      mkdirSync(profileDir, { recursive: true, mode: 0o700 });
+    } catch (err) {
+      logger.error("⚠️  Could not create browser profile dir:", err.message);
+      profileDir = null;
+    }
+  } else if (isolated) {
+    logger.warn(`⚠️  APERIO_BROWSER_ISOLATED ignored: ${pref} has no isolated-profile support.`);
+  }
+
+  // Open a private/incognito window in the chosen browser; fall back to the
+  // default browser when it isn't installed (ENOENT / non-zero exit).
+  const bArgs = browserArgsFor(b, url, profileDir);
+  const [browserCmd, ...browserArgs] =
+    process.platform === "darwin"
+      ? ["open", "-na", b.mac, "--args", ...bArgs]
+    : process.platform === "win32"
+      ? ["cmd", "/c", "start", b.win, ...bArgs]
+      : [b.bin, ...bArgs];
+  execFile(browserCmd, browserArgs, err => {
+    if (err) openDefault();
   });
 }

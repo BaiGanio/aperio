@@ -176,5 +176,6 @@
   "setup_badge_error":        "żball",
   "setup_detail_waiting":     "Stennija…",
 
-  "agent_greeting":           "Sellimli f'sentenza waħda qasira u ta' ħbiberija. Tużax għodod."
+  "agent_greeting":           "Sellimli f'sentenza waħda qasira u ta' ħbiberija. Tużax għodod.",
+  "agent_greeting_text":      "Bonġu! Kif nista' ngħinek illum?"
 }

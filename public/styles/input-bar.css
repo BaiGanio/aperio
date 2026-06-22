@@ -37,7 +37,7 @@ textarea {
     outline: none;
     resize: none;
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: calc(14px * var(--font-scale));
     color: var(--text);
     line-height: 1.5;
     max-height: 140px;
@@ -71,14 +71,14 @@ textarea::placeholder { color: var(--text-muted); }
     align-items: center;
     justify-content: center;
     color: white;
-    font-size: 14px;
+    font-size: calc(14px * var(--font-scale));
     flex-shrink: 0;
     transition: opacity 0.15s, transform 0.15s;
 }
 .stop-btn:hover { opacity: 0.85; transform: scale(1.05); }
 
 .char-counter {
-    font-size: 11px;
+    font-size: calc(12px * var(--font-scale));
     color: var(--text-muted);
     font-family: var(--font-mono);
     opacity: 0;
@@ -90,13 +90,13 @@ textarea::placeholder { color: var(--text-muted); }
 .char-counter.verylong { color: #ef4444; }
 
 .input-hint{
-    font-size: 11.5px;
+    font-size: calc(12px * var(--font-scale));
     color: var(--text-muted);
     margin-top: 7px;
     padding: 0 4px;
 }
 .input-warning{
-    font-size: 11.5px;
+    font-size: calc(12px * var(--font-scale));
     color: var(--text-muted);
     margin-top: 7px;
     padding: 0 4px;
@@ -116,7 +116,7 @@ textarea::placeholder { color: var(--text-muted); }
   flex-shrink: 0;
   transition: all var(--transition);
   color: var(--text-muted);
-  font-size: 18px;
+  font-size: calc(18px * var(--font-scale));
   padding: 0;
 }
 
@@ -139,7 +139,7 @@ textarea::placeholder { color: var(--text-muted); }
   flex-shrink: 0;
   transition: all var(--transition);
   color: var(--text-muted);
-  font-size: 16px;
+  font-size: calc(16px * var(--font-scale));
   padding: 0;
 }
 
@@ -178,7 +178,7 @@ textarea::placeholder { color: var(--text-muted); }
   background: var(--bg-panel);
   border: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 8px;
+  font-size: calc(12px * var(--font-scale));
   font-family: var(--font-mono);
   cursor: pointer;
   display: flex;
@@ -216,7 +216,7 @@ textarea::placeholder { color: var(--text-muted); }
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 4px 8px;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-muted);
   font-family: var(--font-mono);
   max-width: 180px;
@@ -229,7 +229,7 @@ textarea::placeholder { color: var(--text-muted); }
 .attach-chip .remove-file {
   cursor: pointer;
   color: var(--text-muted);
-  font-size: 14px;
+  font-size: calc(14px * var(--font-scale));
   line-height: 1;
   flex-shrink: 0;
   background: none;
@@ -266,13 +266,13 @@ textarea::placeholder { color: var(--text-muted); }
   border: 1px solid var(--border);
   color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   font-weight: 500;
   cursor: pointer;
   flex-shrink: 0;
   transition: all var(--transition);
 }
-.discuss-btn i { font-size: 13px; }
+.discuss-btn i { font-size: calc(13px * var(--font-scale)); }
 .discuss-btn:hover:not(:disabled) {
   border-color: var(--agent-primary);
   color: var(--agent-primary);
@@ -301,7 +301,7 @@ textarea::placeholder { color: var(--text-muted); }
   z-index: 100;
   display: none;
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
 }
 .autocomplete-dropdown.active { display: block; }
 
@@ -329,14 +329,14 @@ textarea::placeholder { color: var(--text-muted); }
   width: 22px;
   text-align: center;
   opacity: .6;
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
 }
 .autocomplete-name {
   font-weight: 500;
   white-space: nowrap;
 }
 .autocomplete-desc {
-  font-size: 11px;
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-muted);
   margin-left: auto;
   white-space: nowrap;
@@ -350,7 +350,7 @@ textarea::placeholder { color: var(--text-muted); }
   color: var(--text-muted);
   font-style: italic;
   text-align: center;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
 }
 
 /* Scrollbar for the dropdown */

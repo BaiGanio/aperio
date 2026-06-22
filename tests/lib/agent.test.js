@@ -724,30 +724,80 @@ describe("Agent Integration with Emitter", () => {
     assert.ok(Array.isArray(parsed));
   });
 
-  test("buildGreeting preloads top memories into memCtx (not the user message)", async (t) => {
+  test("buildGreeting gives tool-capable models a recall pointer, not preloaded content", async (t) => {
     stubMcpTransport(t);
 
-    // buildGreeting preloads only the few highest-impact memories (limit:5) so
-    // the model isn't amnesiac at session start. They go in memCtx (injected as
-    // system context), never in the user-visible greeting prompt. See
-    // buildGreeting in lib/agent/index.js.
-    t.mock.method(Client.prototype, "callTool", async ({ name, arguments: args }) => {
+    // Memory is no longer preloaded as content. A tool-capable model (the default
+    // anthropic provider) gets a lightweight pointer in memCtx — the memory count
+    // plus an instruction to call `recall` — so it fetches memories query-scoped
+    // on demand instead of carrying a blind top-N. See refreshSessionMemCtx.
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") {
-        assert.strictEqual(args.limit, 5, "greeting should preload only the top 5 memories");
         return { content: [{ type: "text", text: "[fact] User name is John\n---\n[preference] Likes Node.js" }] };
       }
       return { content: [{ type: "text", text: "OK" }] };
     });
 
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    // Pin a tool-capable cloud provider (independent of AI_PROVIDER leaked by
+    // earlier tests); deepseek constructs no SDK client, so no API key is needed.
+    const agent = await createAgent({ root: process.cwd(), version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
 
     const { prompt, memCtx, preloadedMemCount } = await agent.buildGreeting();
 
     assert.ok(prompt.includes("Greet me"));
-    assert.ok(!prompt.includes("MEMORY PREVIEW"), "memories must not be in the user message");
-    assert.ok(memCtx.includes("MEMORY PREVIEW"), "memories must be in memCtx");
-    assert.ok(memCtx.includes("User name is John"), "preloaded memory content must be in memCtx");
+    assert.ok(!memCtx.includes("User name is John"), "memory content must NOT be preloaded");
+    assert.match(memCtx, /stored outside this conversation/, "memCtx must be the recall pointer");
+    assert.match(memCtx, /2 saved memories/, "pointer states the memory count");
+    assert.match(memCtx, /recall/, "pointer steers the model to recall");
     assert.strictEqual(preloadedMemCount, 2);
+  });
+
+  test("local (Ollama) models get no memory pointer — memory is skipped entirely", async (t) => {
+    stubMcpTransport(t);
+
+    // Weak/local models can't make good use of memory and shouldn't burn tokens on
+    // it. Even with memories in the store, an Ollama agent gets an empty memCtx and
+    // reports zero to the banner. See refreshSessionMemCtx.
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "recall") {
+        return { content: [{ type: "text", text: "[fact] User name is John\n---\n[fact] Likes Node" }] };
+      }
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+
+    const agent = await createAgent({
+      root: process.cwd(), version: "1.0.0",
+      providerConfig: { name: "ollama", model: "qwen2.5:3b" },
+    });
+
+    const { memCtx, preloadedMemCount } = await agent.buildGreeting();
+
+    assert.strictEqual(memCtx, "", "Ollama models must not get a memory pointer");
+    assert.strictEqual(preloadedMemCount, 0, "no memories reported to the banner");
+    assert.strictEqual(agent.toolsEnabled, false, "weak Ollama models are offered no tools");
+    assert.strictEqual(agent.getToolCount("read my files", []), 0, "tool count is zero for weak models");
+  });
+
+  test("an allowlisted (APERIO_CAPABLE_MODELS) Ollama model gets memory + tools", async (t) => {
+    stubMcpTransport(t);
+    const prev = process.env.APERIO_CAPABLE_MODELS;
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b, llama3.1:70b";
+    t.after(() => { if (prev === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prev; });
+
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "recall") return { content: [{ type: "text", text: "[fact] User name is John" }] };
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+
+    const agent = await createAgent({
+      root: process.cwd(), version: "1.0.0",
+      providerConfig: { name: "ollama", model: "qwen3:32b" },
+    });
+
+    const { memCtx } = await agent.buildGreeting();
+
+    assert.strictEqual(agent.toolsEnabled, true, "allowlisted Ollama models are capable");
+    assert.match(memCtx, /1 saved memory\b/, "allowlisted models get the recall pointer");
   });
 
   test("buildGreeting handles no memories gracefully", async (t) => {
@@ -764,13 +814,12 @@ describe("Agent Integration with Emitter", () => {
     assert.strictEqual(preloadedMemCount, 0);
   });
 
-  test("preloaded memories persist into later turns' system prompt, not just the greeting", async (t) => {
+  test("the memory pointer persists into later turns' system prompt, not just the greeting", async (t) => {
     stubMcpTransport(t);
 
     // Regression: memCtx used to be injected only on the greeting turn, so on the
-    // user's first real question the model had no memory context and denied having
-    // any ("this is our first conversation"). buildGreeting now persists the
-    // snapshot on the agent, so every turn's system prompt carries it.
+    // user's first real question the model had no memory context. buildGreeting
+    // persists the pointer on the agent, so every turn's system prompt carries it.
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") {
         return { content: [{ type: "text", text: "[fact] User name is John\n---\n[preference] Likes Node.js" }] };
@@ -778,30 +827,30 @@ describe("Agent Integration with Emitter", () => {
       return { content: [{ type: "text", text: "OK" }] };
     });
 
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: process.cwd(), version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
 
-    // Before the greeting, the snapshot isn't there yet.
-    assert.ok(!agent.getSystemPrompt("hi").includes("MEMORY PREVIEW"),
-      "no memory context before buildGreeting");
+    // Before the greeting, the pointer isn't there yet.
+    assert.ok(!agent.getSystemPrompt("hi").includes("stored outside this conversation"),
+      "no memory pointer before buildGreeting");
 
     await agent.buildGreeting();
 
-    // A later, ordinary turn (not the greeting) must still carry the snapshot.
+    // A later, ordinary turn (not the greeting) must still carry the pointer.
     const laterTurn = agent.getSystemPrompt("what do you know about me?", "en", "", [
       { role: "user", content: "what do you know about me?" },
     ]);
-    assert.ok(laterTurn.includes("MEMORY PREVIEW"),
-      "memory snapshot must persist into later turns' system prompt");
-    assert.ok(laterTurn.includes("User name is John"), "preloaded memory content must be present");
+    assert.match(laterTurn, /stored outside this conversation/,
+      "memory pointer must persist into later turns' system prompt");
+    assert.match(laterTurn, /2 saved memories/, "pointer states the memory count");
   });
 
-  test("a memory saved mid-session refreshes the persisted snapshot", async (t) => {
+  test("a memory saved mid-session updates the pointer count", async (t) => {
     stubMcpTransport(t);
 
-    // The greeting-time snapshot is taken once; a write later in the session must
-    // re-load it so the new memory shows up on subsequent turns, not only ones
-    // present at greeting. The write goes through callTool, which triggers the
-    // refresh for memory-write tools.
+    // The greeting-time pointer is built once; a write later in the session must
+    // re-load it so the count reflects the new memory on subsequent turns. The
+    // write goes through callTool, which triggers the refresh for memory-write
+    // tools.
     let saved = false;
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") {
@@ -814,16 +863,16 @@ describe("Agent Integration with Emitter", () => {
       return { content: [{ type: "text", text: "OK" }] };
     });
 
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: process.cwd(), version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
     await agent.buildGreeting();
 
-    assert.ok(!agent.getSystemPrompt("hi").includes("loves sushi"),
-      "memory not yet saved must not be in the snapshot");
+    assert.match(agent.getSystemPrompt("hi"), /1 saved memory\b/,
+      "pointer starts at one memory");
 
     await agent.callTool("remember", { type: "fact", title: "sushi", content: "User loves sushi" });
 
-    assert.ok(agent.getSystemPrompt("and now?").includes("User loves sushi"),
-      "memory saved mid-session must appear in later turns' system prompt");
+    assert.match(agent.getSystemPrompt("and now?"), /2 saved memories/,
+      "saving a memory mid-session bumps the pointer count");
   });
 });
 

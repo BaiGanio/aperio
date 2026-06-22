@@ -56,6 +56,30 @@ document.addEventListener("keydown", (e) => {
 
 applySidebar();
 
+// ── Nav density (compact icon strip ⇄ full labels) ───────────
+// Compact by default so the memory list gets the height back. The toggle
+// (and stored preference) lets label-navigators opt back into the full list.
+const sidebarNav = document.getElementById("sidebarNav");
+const navDensityToggle = document.getElementById("navDensityToggle");
+let navCompact = localStorage.getItem("aperio-nav-compact") !== "off";
+
+function applyNavDensity() {
+  sidebarNav.classList.toggle("is-compact", navCompact);
+  navDensityToggle.querySelector("i").className = navCompact
+    ? "bi bi-arrows-expand sidebar-nav-icon"
+    : "bi bi-arrows-collapse sidebar-nav-icon";
+  navDensityToggle.querySelector(".sidebar-nav-label").textContent = navCompact ? "Expand" : "Compact";
+  navDensityToggle.title = navCompact ? "Expand to full list" : "Compact into a grid";
+  localStorage.setItem("aperio-nav-compact", navCompact ? "on" : "off");
+}
+
+navDensityToggle.addEventListener("click", () => {
+  navCompact = !navCompact;
+  applyNavDensity();
+});
+
+applyNavDensity();
+
 // ── Reasoning toggle / memory preview ────────────────────────
 function showPreview(memory) {
     try {
