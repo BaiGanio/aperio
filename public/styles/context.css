@@ -16,7 +16,7 @@
       padding: 5px 10px;
       cursor: pointer;
       font-family: var(--font-mono);
-      font-size: 13px;
+      font-size: calc(13px * var(--font-scale));
       color: var(--text-muted);
       background: var(--bg-hover);
       border-bottom: 1px solid var(--border);
@@ -31,7 +31,7 @@
       margin: 0;
       padding: 10px 12px;
       font-family: var(--font-mono);
-      font-size: 13px;
+      font-size: calc(13px * var(--font-scale));
       line-height: 1.55;
       color: var(--text-muted);
       background: var(--bg-panel);
@@ -53,7 +53,7 @@
       align-items: center;
       padding: 4px 10px;
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: calc(12px * var(--font-scale));
       color: var(--text-muted);
       background: var(--bg-hover);
       border-bottom: 1px solid var(--border);
@@ -63,7 +63,7 @@
     }
     .reasoning-tok {
       margin-left: auto;
-      font-size: 10px;
+      font-size: calc(12px * var(--font-scale));
       font-family: var(--font-mono);
       color: var(--text-muted);
       letter-spacing: 0;
@@ -111,7 +111,7 @@
       margin: 0;
       padding: 8px 12px;
       font-family: var(--font-mono);
-      font-size: 13px;
+      font-size: calc(13px * var(--font-scale));
       line-height: 1.55;
       color: var(--text-muted);
       background: var(--bg-panel);
@@ -128,7 +128,7 @@
       padding: 2px 3px;
       cursor: pointer;
       color: var(--text-muted);
-      font-size: 11px;
+      font-size: calc(12px * var(--font-scale));
       opacity: 0;
       transition: opacity var(--transition), color var(--transition);
       line-height: 1;
@@ -138,7 +138,7 @@
     .memory-pin-btn--active { color: var(--accent) !important; opacity: 1 !important; }
 
     /* ── Type icons & colors ─────────────────────────────────── */
-    .type-icon { font-size: 12px; }
+    .type-icon { font-size: calc(12px * var(--font-scale)); }
 
     /* ── CONTEXT WINDOW ─────────────────────────────────── */
     .ctx-window {
@@ -156,7 +156,7 @@
     }
     .ctx-label {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: calc(12px * var(--font-scale));
       font-weight: 600;
       letter-spacing: 0.07em;
       text-transform: uppercase;
@@ -164,7 +164,7 @@
     }
     .ctx-value {
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: calc(12px * var(--font-scale));
       font-weight: 600;
       color: var(--text);
       transition: color 0.3s;
@@ -192,7 +192,7 @@
       background: color-mix(in srgb, var(--accent) 10%, var(--bg));
       border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: calc(12px * var(--font-scale));
       color: var(--text);
       animation: fadeDown .2s ease;
       flex-shrink: 0;
@@ -212,7 +212,7 @@
       background: var(--bg-hover);
       color: var(--text);
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: calc(12px * var(--font-scale));
       font-weight: 600;
       cursor: pointer;
       transition: all var(--transition);
@@ -240,7 +240,7 @@
     .session-history-divider {
       text-align: center;
       font-family: var(--font-mono);
-      font-size: 11px;
+      font-size: calc(12px * var(--font-scale));
       color: var(--text-muted);
       padding: 6px 0 4px;
       opacity: 0.6;
@@ -256,7 +256,7 @@
 
     .suggestions-saved-note {
       padding: 4px 14px;
-      font-size: 11px;
+      font-size: calc(12px * var(--font-scale));
       font-family: var(--font-mono);
       color: var(--text-muted);
       opacity: 0.75;

@@ -617,6 +617,24 @@ The encryption key is generated on your machine on first run and stored in your 
 
 > 💡 Check out [SECURITY.md](SECURITY.md) for the full threat model and platform details.
 
+### Browser Launch
+
+On startup Aperio opens the UI in a **private/incognito window**, falling back to your OS default browser if the chosen browser isn't installed. Pick one with `APERIO_BROWSER`:
+
+```env
+# firefox (default), firefox-dev, librewolf, mullvad, chrome, chromium, brave, edge, tor, ddg
+# Use `default` (or `system`) to just open the OS default browser.
+APERIO_BROWSER=firefox
+```
+
+For defense-in-depth, `APERIO_BROWSER_ISOLATED=1` launches that browser with a **dedicated profile** under `var/browser-profiles/<browser>`, keeping Aperio's cookies, storage, and extensions separate from your everyday browsing:
+
+```env
+APERIO_BROWSER_ISOLATED=1
+```
+
+> 💡 The browser sandbox already prevents any web page — even a compromised Aperio — from reading your bookmarks, history, or other tabs. Private mode + an isolated profile harden the surfaces that *do* matter: session state and extensions. `tor`/`ddg` are private-by-default apps launched best-effort, so profile isolation doesn't apply to them.
+
 ### Data Portability
 
 Your memories and wiki are yours — take them with you. Two tools make migration and backup simple:

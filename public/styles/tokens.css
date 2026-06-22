@@ -4,6 +4,10 @@
     :root {
       --font-mono: "Berkeley Mono", "Fira Code", monospace;
       --font-sans: "DM Sans", system-ui, sans-serif;
+      /* Global font-size multiplier — every font-size is calc(Npx * var(--font-scale)).
+         User-adjustable via the Settings panel; persisted as "aperio-font-scale".
+         Type scale, content-vs-chrome rules & roadmap: see styles/TYPOGRAPHY.md. */
+      --font-scale: 1;
       --radius: 10px;
       --radius-sm: 6px;
       --transition: 160ms ease;
@@ -129,7 +133,7 @@
       font-family: var(--font-sans);
       background: var(--bg);
       color: var(--text);
-      font-size: 16px;
+      font-size: calc(16px * var(--font-scale));
       line-height: 1.6;
       background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
       background-size: 24px 24px;

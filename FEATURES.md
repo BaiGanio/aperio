@@ -135,6 +135,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Opt-in AES-256-GCM session encryption at rest (`APERIO_SESSION_KEY`)
 - Crash breaker (sliding window → supervised restart); scrubbed terminal error handler with correlation id
 - DB access via table-name whitelist
+- Private/incognito UI launch with default-browser fallback (`APERIO_BROWSER`: firefox/firefox-dev/librewolf/mullvad/chrome/chromium/brave/edge/tor/ddg); opt-in dedicated browser profile isolating cookies/storage/extensions (`APERIO_BROWSER_ISOLATED=1`)
 
 ## Ops
 - CI: CodeQL, Codecov, SonarCloud, Codacy, Dependabot (npm + github-actions), `npm audit` (high-severity gate)

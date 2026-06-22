@@ -18,7 +18,7 @@
     background: none;
     border: none;
     font-family: var(--font-mono);
-    font-size: 13px;
+    font-size: calc(13px * var(--font-scale));
     font-weight: 500;
     color: var(--text);
     cursor: pointer;
@@ -32,7 +32,7 @@
 .recall-asterisk {
     display: inline-block;
     color: var(--accent);
-    font-size: 16px;
+    font-size: calc(16px * var(--font-scale));
     line-height: 1;
     animation: recall-spin 5s linear infinite;
     flex-shrink: 0;
@@ -50,7 +50,7 @@
     flex: 0 0 auto;
 }
 
-.recall-pill-chevron { font-size: 11px; opacity: 0.6; }
+.recall-pill-chevron { font-size: calc(12px * var(--font-scale)); opacity: 0.6; }
 
 /* Token-cost chips — muted (not accent-coloured like similarity scores) so they
    read as a secondary "this is what it costs" annotation. */
@@ -59,7 +59,7 @@
     color: var(--text-muted);
     opacity: 0.7;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(12px * var(--font-scale));
 }
 .recall-score--tok {
     color: var(--text-muted);
@@ -91,7 +91,7 @@
     cursor: pointer;
     list-style: none;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: calc(12px * var(--font-scale));
     color: var(--text);
     background: var(--bg-msg-ai);
     user-select: none;
@@ -111,7 +111,7 @@
     flex: 0 0 auto;
     color: var(--accent);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(12px * var(--font-scale));
     opacity: 0.85;
 }
 
@@ -119,21 +119,21 @@
     padding: 8px 12px 10px;
     background: var(--bg-panel);
     border-top: 1px solid var(--border);
-    font-size: 13px;
+    font-size: calc(15px * var(--font-scale));
     color: var(--text-muted);
     line-height: 1.55;
 }
 
 .recall-memory-tags {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: calc(12px * var(--font-scale));
     opacity: 0.6;
     margin-top: 5px;
 }
 
 .skill-always-badge {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: calc(12px * var(--font-scale));
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--accent);
@@ -162,7 +162,7 @@
 
 /* Per-skill row — native <details>. Summary is a flat clickable line that
    starts with "↳" and ends with "▾"; expanding reveals a brief description. */
-.skill-row { font-family: var(--font-mono); font-size: 12px; }
+.skill-row { font-family: var(--font-mono); font-size: calc(12px * var(--font-scale)); }
 .skill-row-head {
     display: flex;
     align-items: center;
@@ -192,7 +192,7 @@
 }
 .skill-row-chevron {
     flex: 0 0 auto;
-    font-size: 11px;
+    font-size: calc(12px * var(--font-scale));
     color: var(--text-muted);
     opacity: 0.6;
     transition: transform var(--transition);
@@ -203,7 +203,7 @@
 .skill-row-body {
     padding: 2px 0 6px 18px;
     font-family: var(--font-sans, inherit);
-    font-size: 12.5px;
+    font-size: calc(12.5px * var(--font-scale));
     line-height: 1.5;
     color: var(--text-muted);
 }
@@ -213,7 +213,7 @@
     padding: 0;
     margin-left: 2px;
     color: var(--accent);
-    font-size: 12px;
+    font-size: calc(12px * var(--font-scale));
     cursor: pointer;
     white-space: nowrap;
 }
@@ -225,7 +225,7 @@
     box-shadow: none;
     border-radius: 0;
     padding: 20px 24px;
-    font-size: 15px;
+    font-size: calc(15px * var(--font-scale));
 }
 
 /* Tool activity card — persistent "what ran / for what / result" entry */
@@ -238,7 +238,7 @@
     flex-direction: column;
     gap: 2px;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: calc(12px * var(--font-scale));
     animation: fadeUp .15s ease;
 }
 
@@ -276,7 +276,7 @@
 .tool-card-time {
     color: var(--text-muted);
     opacity: 0.6;
-    font-size: 10px;
+    font-size: calc(12px * var(--font-scale));
     flex: 0 0 auto;
     font-variant-numeric: tabular-nums;
 }
@@ -333,7 +333,7 @@
 .tool-card-result-url {
     color: var(--text-muted);
     opacity: 0.7;
-    font-size: 11px;
+    font-size: calc(12px * var(--font-scale));
     overflow-wrap: anywhere;
 }
 .tool-card-result-snippet {
@@ -353,7 +353,7 @@
     align-items: center;
     gap: 7px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(12px * var(--font-scale));
     color: var(--text-muted);
     animation: fadeUp .15s ease;
 }
@@ -380,7 +380,7 @@
     margin-left: auto;
     color: var(--text-muted);
     opacity: 0.6;
-    font-size: 10px;
+    font-size: calc(12px * var(--font-scale));
     font-variant-numeric: tabular-nums;
 }
 
@@ -394,7 +394,7 @@
     border: 1px solid var(--border);
     border-radius: 20px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(12px * var(--font-scale));
     color: var(--text-muted);
     align-self: flex-start;
     animation: fadeUp .15s ease;
@@ -449,7 +449,7 @@
 }
 
 .thinking-label {
-    font-size: 11px;
+    font-size: calc(12px * var(--font-scale));
     color: var(--text-muted);
     font-family: var(--font-mono);
     letter-spacing: 0.04em;
@@ -488,13 +488,13 @@
     border-radius: 12px;
     border-top-left-radius: 4px;
     font-family: var(--font-mono);
-    font-size: 12px;
+    font-size: calc(12px * var(--font-scale));
     animation: fadeUp .2s ease;
 }
 
 .ttl-chip-icon {
     flex-shrink: 0;
-    font-size: 14px;
+    font-size: calc(14px * var(--font-scale));
     line-height: 1;
     opacity: 0.7;
 }
@@ -511,7 +511,7 @@
 .ttl-chip-type {
     color: var(--accent);
     opacity: 0.75;
-    font-size: 10px;
+    font-size: calc(12px * var(--font-scale));
     text-transform: uppercase;
     letter-spacing: 0.04em;
     flex-shrink: 0;
@@ -527,7 +527,7 @@
 
 .ttl-chip-expiry {
     color: var(--text-muted);
-    font-size: 11px;
+    font-size: calc(12px * var(--font-scale));
     flex-shrink: 0;
 }
 
@@ -541,7 +541,7 @@
     padding: 3px 10px;
     border-radius: 6px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: calc(12px * var(--font-scale));
     cursor: pointer;
     border: 1px solid var(--border);
     transition: background var(--transition), color var(--transition);

@@ -23,14 +23,14 @@
 }
 .cg-panel-title {
   font-family: var(--font-mono);
-  font-size: 13px; font-weight: 700;
+  font-size: calc(13px * var(--font-scale)); font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-muted);
   display: flex; align-items: center; gap: 6px;
 }
 .cg-panel-close {
   background: none; border: none; cursor: pointer;
-  color: var(--text-muted); font-size: 14px;
+  color: var(--text-muted); font-size: calc(14px * var(--font-scale));
   padding: 2px 4px; border-radius: var(--radius-sm);
 }
 .cg-panel-close:hover { color: var(--text); }
@@ -45,7 +45,7 @@
   width: 100%; padding: 6px 10px;
   background: var(--bg-alt, var(--bg)); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
-  font: inherit; font-size: 12px;
+  font: inherit; font-size: calc(12px * var(--font-scale));
   outline: none;
 }
 .cg-search-input:focus { border-color: var(--accent); }
@@ -54,7 +54,7 @@
   flex: 1;
   background: var(--bg-alt, var(--bg)); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
-  font: inherit; font-size: 12px;
+  font: inherit; font-size: calc(12px * var(--font-scale));
   padding: 4px 6px;
   outline: none;
 }
@@ -66,7 +66,7 @@
 }
 
 .cg-status-banner {
-  font-size: 11px;
+  font-size: calc(12px * var(--font-scale));
   font-family: var(--font-mono);
   letter-spacing: 0.04em;
   padding: 8px 10px;
@@ -86,14 +86,14 @@
 
 .cg-empty, .cg-hint {
   color: var(--text-muted);
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   padding: 12px 4px;
   font-style: italic;
 }
 
 .cg-section-label {
   font-family: var(--font-mono);
-  font-size: 10px; font-weight: 700;
+  font-size: calc(12px * var(--font-scale)); font-weight: 700;
   letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--text-muted);
   padding: 10px 4px 4px;
@@ -110,19 +110,19 @@
   display: flex; align-items: flex-start; gap: 6px;
 }
 .cg-repo-path {
-  font-family: var(--font-mono); font-size: 11px;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale));
   color: var(--text); word-break: break-all; flex: 1;
 }
 .cg-repo-del {
   flex-shrink: 0;
   background: none; border: none; cursor: pointer;
-  color: var(--text-muted); font-size: 14px; line-height: 1;
+  color: var(--text-muted); font-size: calc(14px * var(--font-scale)); line-height: 1;
   padding: 0 2px; border-radius: 3px;
   opacity: 0.6;
 }
 .cg-repo-del:hover { color: var(--danger, #e05252); opacity: 1; }
 .cg-repo-meta {
-  font-size: 10px; color: var(--text-muted);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
   margin-top: 2px;
 }
 
@@ -137,11 +137,11 @@
   border-color: var(--border);
 }
 .cg-match-name {
-  font-family: var(--font-mono); font-size: 12px;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale));
   color: var(--text);
 }
 .cg-match-kind {
-  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale)); font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--accent);
   padding: 1px 6px;
@@ -150,12 +150,12 @@
   margin-right: 6px;
 }
 .cg-match-path {
-  font-size: 10px; color: var(--text-muted);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
   margin-top: 2px;
   word-break: break-all;
 }
 .cg-match-sig {
-  font-family: var(--font-mono); font-size: 10px;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale));
   color: var(--text-muted);
   margin-top: 2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
@@ -168,21 +168,21 @@
   align-self: flex-start;
   background: none; border: 1px solid var(--border);
   color: var(--text-muted); cursor: pointer;
-  font-family: var(--font-mono); font-size: 10px;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale));
   padding: 3px 8px; border-radius: var(--radius-sm);
 }
 .cg-back-btn:hover { color: var(--accent); border-color: var(--accent); }
 
 .cg-symbol-title {
-  font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  font-family: var(--font-mono); font-size: calc(13px * var(--font-scale)); font-weight: 700;
   color: var(--text); word-break: break-all;
 }
 .cg-symbol-sub {
-  font-size: 11px; color: var(--text-muted);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
   word-break: break-all;
 }
 .cg-symbol-doc {
-  font-size: 12px; color: var(--text);
+  font-size: calc(12px * var(--font-scale)); color: var(--text);
   background: var(--bg-alt, var(--bg));
   border-left: 2px solid var(--accent);
   padding: 6px 10px;
@@ -193,7 +193,7 @@
   position: relative;
 }
 .cg-source {
-  font-family: var(--font-mono); font-size: 11px;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale));
   background: var(--bg-alt, var(--bg));
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 10px 12px;
@@ -214,7 +214,7 @@
   color: var(--text-muted);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   cursor: pointer;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   opacity: 0.75;
   transition: opacity .12s ease, color .12s ease, border-color .12s ease;
   z-index: 1;
@@ -235,7 +235,7 @@
 }
 .cg-edge {
   cursor: pointer;
-  font-family: var(--font-mono); font-size: 11px;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale));
   color: var(--text);
   padding: 4px 8px;
   border-radius: var(--radius-sm);
@@ -244,7 +244,7 @@
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 .cg-edge-path {
-  font-size: 9px; color: var(--text-muted);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
 }
 
 .cg-add-repo {
@@ -261,7 +261,7 @@
   background: var(--bg-alt, var(--bg)); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
   padding: 5px 10px;
-  font: inherit; font-size: 12px;
+  font: inherit; font-size: calc(12px * var(--font-scale));
   cursor: pointer;
 }
 .cg-add-repo-btn:hover { border-color: var(--accent); color: var(--accent); }
@@ -273,7 +273,7 @@
 .cg-add-repo-apply:hover { color: #fff; opacity: .92; }
 .cg-add-repo-apply:disabled { opacity: .5; cursor: not-allowed; }
 .cg-add-repo-msg {
-  font-size: 11px; color: var(--text-muted);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
   margin-top: 6px; min-height: 14px;
   word-break: break-all;
 }

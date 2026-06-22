@@ -34,10 +34,10 @@
     </button>
     <div class="status-pill">
       <div class="status-dot" id="statusDot"></div>
-      <i class="bi bi-cpu" style="font-size:11px;color:var(--text-muted)"></i>
+      <i class="bi bi-cpu" style="font-size: calc(12px * var(--font-scale));color:var(--text-muted)"></i>
       <span id="statusText" data-i18n="status_connecting">connecting…</span>
       <span id="providerBadge" style="
-        font-family:var(--font-mono); font-size:9px; font-weight:600;
+        font-family:var(--font-mono); font-size: calc(11px * var(--font-scale)); font-weight:600;
         background:var(--tag-bg); color:var(--tag-text);
         padding:1px 6px; border-radius:8px; letter-spacing:0.06em;
         text-transform:uppercase; display:none;
@@ -54,7 +54,7 @@
       <div class="ctx-header">
         <span class="ctx-label" data-i18n="ctx_label">context</span>
         <span class="ctx-value" id="ctxText">— / —</span>
-        <span id="toolCountBadge" style="display:none;font-size:9px;color:var(--text-muted);margin-left:4px;font-family:var(--font-mono)"></span>
+        <span id="toolCountBadge" style="display:none;font-size: calc(11px * var(--font-scale));color:var(--text-muted);margin-left:4px;font-family:var(--font-mono)"></span>
       </div>
       <div class="ctx-track">
         <div class="ctx-fill" id="ctxFill"></div>
@@ -73,8 +73,8 @@
     </div>
     <div class="memories-list" id="memoriesList">
       <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
-        <div style="font-size:22px; margin-bottom:8px; opacity:.4">◈</div>
-        <div style="font-size:12px; color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
+        <div style="font-size: calc(22px * var(--font-scale)); margin-bottom:8px; opacity:.4">◈</div>
+        <div style="font-size: calc(12px * var(--font-scale)); color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
       </div>
     </div>
     <nav class="sidebar-nav is-compact" id="sidebarNav">
@@ -176,7 +176,7 @@
           <span class="discuss-btn-label" data-i18n="discuss_button_label">Discuss</span>
         </button>
         <button class="send-btn" id="sendBtn" disabled title="Send (⌘ + ↵)">
-          <i class="bi bi-send-fill" style="font-size:13px"></i>
+          <i class="bi bi-send-fill" style="font-size: calc(13px * var(--font-scale))"></i>
         </button>
         <button class="stop-btn" id="stopBtn" data-i18n-attr-title="chat_stop_title" title="Stop generating">■</button>
       </div>
@@ -469,26 +469,50 @@
     <button class="settings-panel-close" onclick="toggleSettingsPanel()"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="settings-panel-body">
-    <div class="settings-row settings-row--stack">
-      <span class="settings-row-label">
+    <details class="settings-section" id="themeSection">
+      <summary>
         <i class="bi bi-circle-half"></i>
         <span data-i18n="nav_theme_title">Theme</span>
-      </span>
-      <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
-        <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">
-          <span class="theme-btn-icon">☀️</span><span class="theme-btn-name" data-i18n="nav_theme_light">Light</span>
-        </button>
-        <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">
-          <span class="theme-btn-icon">🌙</span><span class="theme-btn-name" data-i18n="nav_theme_dark">Dark</span>
-        </button>
-        <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
-          <span class="theme-btn-icon">✦</span><span class="theme-btn-name" data-i18n="nav_theme_aurora">Aurora</span>
-        </button>
-        <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
-          <span class="theme-btn-icon">⊙</span><span class="theme-btn-name" data-i18n="nav_theme_system">System</span>
-        </button>
+      </summary>
+      <div class="settings-section-body">
+        <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
+          <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">
+            <span class="theme-btn-icon">☀️</span><span class="theme-btn-name" data-i18n="nav_theme_light">Light</span>
+          </button>
+          <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">
+            <span class="theme-btn-icon">🌙</span><span class="theme-btn-name" data-i18n="nav_theme_dark">Dark</span>
+          </button>
+          <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
+            <span class="theme-btn-icon">✦</span><span class="theme-btn-name" data-i18n="nav_theme_aurora">Aurora</span>
+          </button>
+          <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
+            <span class="theme-btn-icon">⊙</span><span class="theme-btn-name" data-i18n="nav_theme_system">System</span>
+          </button>
+        </div>
       </div>
-    </div>
+    </details>
+    <details class="settings-section" id="fontSizeSection">
+      <summary>
+        <i class="bi bi-fonts"></i>
+        <span data-i18n="nav_fontsize_title">Text size</span>
+      </summary>
+      <div class="settings-section-body">
+        <div class="fontscale-switcher" data-i18n-attr-title="nav_fontsize_title" title="Text size">
+          <button class="fontscale-btn" data-scale="0.9" data-i18n-attr-title="nav_fontsize_small" title="Small">
+            <span class="fontscale-btn-glyph" style="font-size:11px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_small">Small</span>
+          </button>
+          <button class="fontscale-btn active" data-scale="1" data-i18n-attr-title="nav_fontsize_default" title="Default">
+            <span class="fontscale-btn-glyph" style="font-size:14px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_default">Default</span>
+          </button>
+          <button class="fontscale-btn" data-scale="1.15" data-i18n-attr-title="nav_fontsize_large" title="Large">
+            <span class="fontscale-btn-glyph" style="font-size:17px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_large">Large</span>
+          </button>
+          <button class="fontscale-btn" data-scale="1.3" data-i18n-attr-title="nav_fontsize_xl" title="Larger">
+            <span class="fontscale-btn-glyph" style="font-size:20px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_xl">Larger</span>
+          </button>
+        </div>
+      </div>
+    </details>
     <div class="settings-row">
       <span class="settings-row-label">
         <i class="bi bi-volume-up"></i>
@@ -626,6 +650,7 @@
 <script src="scripts/voice.js"></script>
 <script src="scripts/tts.js"></script>
 <script src="scripts/theme-and-timestamp.js"></script>
+<script src="scripts/font-scale.js"></script>
 <script src="scripts/markdown.js"></script>
 <script src="scripts/rendering.js"></script>
 <script src="scripts/streaming.js"></script>
