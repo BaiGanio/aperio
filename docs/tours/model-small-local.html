@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | Small local models (3–4B) — what they're great for</title>
+  <meta name="description" content="The small, fast local models — Qwen2.5 3B, Qwen3.5 4B, Phi-4 Mini. They can't use tools, but they're wonderful at the things they can do. Here's how to get the most from them." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* Page-specific. Shared styles live in styles.css (.doc). */
+    .mg-compare td:first-child { font-weight: 600; white-space: nowrap; }
+    .mt-walls { list-style: none; padding: 0; margin: 14px 0; }
+    .mt-walls li { padding: 9px 0; border-bottom: 1px solid rgba(127,127,127,.14); opacity: .85; }
+    .mt-walls li b { color: #e5736b; font-weight: 600; }
+    .anchor-blurb { padding: 14px 0; border-bottom: 1px solid rgba(127,127,127,.14); }
+    .anchor-blurb h4 { margin-bottom: 4px; }
+    .anchor-blurb p { margin: 0; opacity: .82; font-size: .92rem; }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ── Navbar ─────────────────────────────────────────────────── -->
+<nav class="aperio-nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="brand">
+      <div class="logo-mark">A</div>
+      <span class="brand-name">Aperio</span>
+    </a>
+    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="../index.html">Home</a></li><li><a href="index.html">All Tours</a></li>
+      <li><a href="#strengths">Strengths</a></li>
+      <li><a href="#thefour">The Three</a></li>
+      <li><a href="#limits">Limits</a></li>
+      <li><a href="../model-guide.html#compare">All Models</a></li>
+    </ul>
+    <div class="theme-switcher" id="themeSwitcher">
+      <button class="theme-btn active" data-theme="dark"   title="Dark">🌙</button>
+      <button class="theme-btn"        data-theme="light"  title="Light">☀️</button>
+      <button class="theme-btn"        data-theme="aurora" title="Aurora">✦</button>
+      <button class="theme-btn"        data-theme="system" title="System">⊙</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="mt-top" style="padding:120px 0 30px">
+  <div class="section-inner">
+    <a href="../model-guide.html#compare" class="mt-back reveal">← All models</a>
+    <div class="eyebrow reveal" style="margin-top:14px">3–4B · Runs on 8 GB · Local</div>
+    <h1 class="section-heading reveal">Small local models <span class="tier-pill tier-chat">chat only</span></h1>
+    <p class="lead-text reveal">Qwen2.5 3B · Qwen3.5 4B · Phi-4 Mini 3.8B — the small, fast models that run on almost any machine. They can't use Aperio's tools, but that's only half the story. Within their lane, they're genuinely delightful.</p>
+  </div>
+</section>
+
+<!-- ── Framing ────────────────────────────────────────────────── -->
+<section class="section" style="padding:10px 0">
+  <div class="section-inner">
+    <p class="reveal">One page covers all three, because at this size the differences are about <em>flavour</em>, not power. None of them can remember you across chats, read your files, or browse the web — that needs a bigger model (the <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> page is where tools start working). So instead of testing them on things they can't do, this page shows you the things they do <strong>well</strong> — and gives you ready-to-paste prompts to discover each one.</p>
+    <p class="reveal" style="opacity:.8">They're fast, private, free, and they fit in 8 GB of RAM. Think of them as a sharp, well-read writing partner who happens to live entirely on your laptop. New here? The <a href="../model-guide.html#concepts">two-minute concepts primer</a> explains the jargon.</p>
+  </div>
+</section>
+
+<!-- ── Great uses ─────────────────────────────────────────────── -->
+<section class="section" id="strengths" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">What they're genuinely great at</h2>
+    <p class="reveal mg-desc">Paste any of these to see a small model shine. No setup, no tools — just type and watch.</p>
+
+    <div class="use-grid">
+      <div class="use-card reveal">
+        <h4>✍️ Creative writing</h4>
+        <div class="use-sub">Poems, short stories, song lyrics, toasts.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Write a four-line poem about a cat who dreams of becoming an astronaut. Then write a darker version, and a silly one.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> three charming, on-topic takes. This is where small models surprise people most.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🔁 Rewrite &amp; change tone</h4>
+        <div class="use-sub">Make any text shorter, warmer, more formal, simpler.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Rewrite this so it sounds friendly and confident, not stiff: "Per my last email, kindly action the attached at your earliest convenience."</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a natural rewrite. Paste your own emails, messages, or bios and ask for a different tone.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>💡 Brainstorm &amp; lists</h4>
+        <div class="use-sub">Names, gift ideas, dinner plans, angles to consider.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Give me 15 cosy, slightly unusual names for a small neighbourhood bakery. Mix playful and elegant.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a quick, varied list to react to. Great for beating a blank page.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>📄 Summarise text you paste in</h4>
+        <div class="use-sub">A few paragraphs at a time — not whole documents.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Summarise the key points of the text below in five bullets, then give me a one-sentence takeaway:
+[paste a few paragraphs here]</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a tidy summary. Keep it to a page or two of pasted text — they lose the thread on long documents.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🧒 Explain it simply</h4>
+        <div class="use-sub">Turn anything confusing into plain language.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Explain what a "mortgage" is to a curious twelve-year-old, in under 120 words, with one everyday analogy.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a clear, friendly explanation. Phi-4 Mini is especially good at this one.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🌍 Translate &amp; phrase</h4>
+        <div class="use-sub">Common language pairs, plus "how do I politely say…".</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Translate "Thank you for your patience, I'll have it ready by Friday" into natural Japanese, and show me a more casual version too.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> usable translations for everyday phrases. Verify anything high-stakes with a native speaker.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🎭 Practice &amp; role-play</h4>
+        <div class="use-sub">A patient partner for rehearsing real situations.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Play the role of a friendly interviewer for a barista job. Ask me one question at a time and react to my answers. Start now.</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a back-and-forth you can practise with — interviews, difficult conversations, a new language.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>✅ Polish &amp; proofread</h4>
+        <div class="use-sub">Fix grammar, tighten wording, catch typos.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Proofread and lightly improve this, keeping my voice: "Me and my team has been working on this project since last month and we is almost done."</div>
+        <p class="use-exp"><strong>What you'll get:</strong> a clean version with the fixes. Ideal for a quick pass on emails and posts.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── The three ──────────────────────────────────────────────── -->
+<section class="section" id="thefour" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">The three, side by side</h2>
+    <p class="reveal mg-desc">Same weight class, different personalities. If you've pulled one already, here's its character; if you're choosing, this is how they differ.</p>
+
+    <div class="reveal mg-compare-wrap">
+      <table class="mg-compare">
+        <thead><tr><th>Model</th><th>Maker</th><th>Knowledge cutoff</th><th>Its flavour</th></tr></thead>
+        <tbody>
+          <tr><td>Qwen2.5 3B</td><td>Alibaba</td><td>~mid-2024</td><td>Warm, capable all-rounder. The classic first local model.</td></tr>
+          <tr><td>Qwen3.5 4B</td><td>Alibaba</td><td>~mid-2025</td><td>The most polished conversationalist of the three. Newest knowledge.</td></tr>
+          <tr><td>Phi-4 Mini 3.8B</td><td>Microsoft</td><td>~late 2024</td><td>The analyst — step-by-step reasoning, clear explanations, less chatty.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="anchor-blurb reveal" id="qwen2-5-3b">
+      <h4>Qwen2.5 3B</h4>
+      <p>The lightest of the group and a lovely first local AI. Naturally warm in conversation and quietly good at creative writing. If you just want something to chat and write with, start here.</p>
+    </div>
+    <div class="anchor-blurb reveal" id="qwen3-5-4b">
+      <h4>Qwen3.5 4B</h4>
+      <p>The most refined small model on offer: the warmest tone, the smoothest phrasing, and the most recent knowledge. If you're picking one 4B for everyday chat and writing, this is it.</p>
+    </div>
+    <div class="anchor-blurb reveal" id="phi4-mini">
+      <h4>Phi-4 Mini 3.8B</h4>
+      <p>Microsoft's outlier. Where the Qwen models are conversational, Phi is analytical — it thinks in numbered steps and explains the "why". It's the one to reach for when you want something broken down logically, and it's more likely to say "I don't know" than to invent an answer. Less cosy for casual chat, though.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ── The wall ───────────────────────────────────────────────── -->
+<section class="section" id="limits" style="padding:20px 0 60px">
+  <div class="section-inner">
+    <h2 class="reveal">Where the wall is</h2>
+    <p class="reveal mg-desc">These aren't flaws — they're the edge of the weight class. When you hit one of these, it's time for a bigger model, not a better prompt.</p>
+    <ul class="mt-walls reveal">
+      <li><b>Remembering you across chats</b> — they can't use Aperio's memory. Start a new chat and everything's forgotten.</li>
+      <li><b>Reading your files or browsing the web</b> — no tool calling at this size, so no file access, no live information.</li>
+      <li><b>Long documents</b> — feed them a page or two at a time, not a whole report. They lose the early pages.</li>
+      <li><b>Long, multi-step instructions</b> — ask one thing at a time. A five-part mega-prompt will fade out halfway.</li>
+      <li><b>Hard logic, maths, or code</b> — results get unreliable. Verify anything that matters, or step up.</li>
+      <li><b>Recent facts</b> — frozen at the training cutoff above, with no way to look things up. Don't trust them on current events.</li>
+    </ul>
+    <p class="reveal" style="margin-top:16px">Need any of the above? The next step is <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> — the smallest model where memory, files, and the web start working. Or browse the <a href="../model-guide.html#compare">full lineup</a>.</p>
+  </div>
+</section>
+
+<!-- ── Safety & Alignment ──────────────────────────────────────── -->
+<section class="section" id="safety" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">How safe is it, really?</h2>
+    <p class="reveal mg-desc">Small models aren't just less capable — they're also less carefully trained to stay within safe boundaries. This section is the honest version of what that means.</p>
+
+    <h3 class="reveal" style="font-size:1.1rem;margin-top:22px">The short version</h3>
+    <p class="reveal">Larger models go through extensive safety training — millions of examples of what to refuse and why. At 3–4 billion parameters, a model simply doesn't have room for that much nuance. Its safety guardrails are thinner, and they break sooner.</p>
+
+    <h3 class="reveal" style="font-size:1.1rem;margin-top:22px">What this looks like in practice</h3>
+    <ul class="mt-walls reveal">
+      <li><b>Easier to push past guardrails</b> — a request that a bigger model would firmly refuse might get a compliant answer from a small one. This isn't because it's "evil" — it's because the refusal pattern wasn't trained deeply enough.</li>
+      <li><b>Less likely to say "I can't help with that"</b> — small models default to being helpful, and that helpfulness sometimes overrides their safety instincts.</li>
+      <li><b>More vulnerable to phrasing tricks</b> — the same request, reworded slightly, can flip a refusal into compliance. Big models have seen enough variations to catch the intent; small ones haven't.</li>
+      <li><b>Weaker at recognising indirect harm</b> — a request that's obviously harmful when stated plainly might slip through when wrapped in innocent-sounding language. Large models are better at reading between the lines.</li>
+    </ul>
+
+    <h3 class="reveal" style="font-size:1.1rem;margin-top:22px">What this means for you</h3>
+    <p class="reveal">Treat small models like a creative collaborator you trust with ideas, not a gatekeeper you'd trust with decisions. They're wonderful for writing, brainstorming, and conversation — and they should <em>not</em> be the final word on anything where safety, ethics, or factual accuracy matters.</p>
+    <p class="reveal">If your use case involves filtering harmful content, moderating conversations, or making decisions with real-world consequences — this is the moment to step up to a <a href="model-llama3.1-8b.html">Llama 3.1 8B</a> or larger. Alignment scales with capability.</p>
+    <p class="reveal" style="margin-top:12px;opacity:.75;font-size:.9rem">💡 Curious to test this yourself? The <a href="../model-guide.html#tests">model guide</a> has a calibration test (Test 6) that probes exactly this boundary — try it on your model and see what happens.</p>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-warning">
+    ⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy,
+    leading to irreversible stupidity. Use responsibly.
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+</body>
+</html>

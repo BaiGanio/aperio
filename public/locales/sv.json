@@ -176,5 +176,6 @@
   "setup_badge_error":        "fel",
   "setup_detail_waiting":     "Väntar…",
 
-  "agent_greeting":           "Hälsa på mig med en kort vänlig mening. Använd inga verktyg."
+  "agent_greeting":           "Hälsa på mig med en kort vänlig mening. Använd inga verktyg.",
+  "agent_greeting_text":      "Hej! Hur kan jag hjälpa dig idag?"
 }

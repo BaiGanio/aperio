@@ -24,14 +24,14 @@
 }
 .settings-panel-title {
   font-family: var(--font-mono);
-  font-size: 13px; font-weight: 700;
+  font-size: calc(13px * var(--font-scale)); font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--text-muted);
   display: flex; align-items: center; gap: 6px;
 }
 .settings-panel-close {
   background: none; border: none; cursor: pointer;
-  color: var(--text-muted); font-size: 14px;
+  color: var(--text-muted); font-size: calc(14px * var(--font-scale));
   padding: 2px 4px; border-radius: var(--radius-sm);
   transition: color var(--transition);
 }
@@ -62,9 +62,9 @@
 .settings-row-label {
   display: flex; align-items: center; gap: 10px;
   color: var(--text);
-  font-size: 13.5px; font-weight: 500;
+  font-size: calc(13.5px * var(--font-scale)); font-weight: 500;
 }
-.settings-row-label i { font-size: 16px; color: var(--text-muted); }
+.settings-row-label i { font-size: calc(16px * var(--font-scale)); color: var(--text-muted); }
 
 /* Right-hand control cluster (e.g. ON/OFF badge + switch). */
 .settings-row-control { display: flex; align-items: center; gap: 10px; }
@@ -72,7 +72,7 @@
 /* Textual on/off state so the toggle's meaning is always explicit. */
 .settings-state {
   font-family: var(--font-mono);
-  font-size: 10px; font-weight: 700;
+  font-size: calc(12px * var(--font-scale)); font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--text-muted);
   min-width: 26px; text-align: right;
@@ -89,8 +89,37 @@
   gap: 3px;
   padding: 7px 4px;
 }
-.settings-panel .theme-btn-icon { font-size: 15px; line-height: 1; }
-.settings-panel .theme-btn-name { font-size: 10px; font-weight: 600; }
+.settings-panel .theme-btn-icon { font-size: calc(15px * var(--font-scale)); line-height: 1; }
+.settings-panel .theme-btn-name { font-size: calc(12px * var(--font-scale)); font-weight: 600; }
+
+/* Text-size picker — full-width segmented control mirroring the theme switcher.
+   The "A" glyphs are intentionally fixed-size previews of each scale, so they
+   are NOT multiplied by --font-scale. */
+.fontscale-switcher {
+  display: flex; align-items: stretch; gap: 2px;
+  width: 100%;
+  padding: 3px;
+  background: var(--bg-hover);
+  border-radius: 9px;
+}
+.fontscale-btn {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px;
+  padding: 7px 4px;
+  border: none; background: none; cursor: pointer;
+  color: var(--text-muted);
+  border-radius: 6px;
+  transition: all var(--transition);
+}
+.fontscale-btn:hover { color: var(--text); }
+.fontscale-btn.active {
+  background: var(--bg-panel);
+  color: var(--accent);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+.fontscale-btn-glyph { line-height: 1; font-weight: 700; }
+.fontscale-btn-name { font-size: calc(12px * var(--font-scale)); font-weight: 600; }
 
 /* Toggle switch (used for on/off preferences like voice responses). */
 .switch { position: relative; display: inline-block; width: 40px; height: 22px; flex-shrink: 0; }
@@ -122,7 +151,7 @@
 .model-current {
   margin-left: auto;
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -135,14 +164,14 @@
   gap: 10px;
 }
 .model-loading {
-  font-size: 11px;
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-muted);
   font-style: italic;
   opacity: .7;
 }
 .model-group { display: flex; flex-direction: column; gap: 2px; }
 .model-group-label {
-  font-size: 10px;
+  font-size: calc(12px * var(--font-scale));
   text-transform: uppercase;
   letter-spacing: .04em;
   color: var(--text-muted);
@@ -161,7 +190,7 @@
   background: var(--bg-hover);
   color: var(--text);
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
   cursor: pointer;
   transition: all var(--transition);
 }
@@ -171,13 +200,23 @@
 .model-option.is-active { border-color: var(--accent); background: var(--accent-soft); }
 .model-option.is-active .model-option-check { opacity: 1; }
 .model-select-status {
-  font-size: 11px;
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-muted);
   margin-top: 4px;
   min-height: 16px;
 }
 .model-select-status.is-ok { color: var(--accent); }
 .model-select-status.is-err { color: var(--error, #e55); }
+
+.model-guide-link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: calc(12px * var(--font-scale));
+  color: var(--text-muted);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.model-guide-link:hover { color: var(--accent); }
 
 /* ── Extras: optional skill dependencies (docx Python toolchain) ─────────── */
 .extras-tier {
@@ -186,7 +225,7 @@
 }
 .extras-tier:last-of-type { border-bottom: none; }
 .extras-tier-title {
-  font-size: 13px;
+  font-size: calc(13px * var(--font-scale));
   font-weight: 600;
   color: var(--text);
   margin-bottom: 2px;
@@ -197,14 +236,14 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
-  font-size: 12px;
+  font-size: calc(12px * var(--font-scale));
   color: var(--text-muted);
   margin-top: 6px;
 }
 .extras-dep.is-ok { color: var(--text); }
 .extras-cmd {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: calc(12px * var(--font-scale));
   background: var(--bg-hover);
   color: var(--text);
   padding: 2px 6px;
@@ -213,5 +252,5 @@
   flex: 1;
   min-width: 0;
 }
-.extras-install-btn { padding: 2px 10px; font-size: 12px; }
+.extras-install-btn { padding: 2px 10px; font-size: calc(12px * var(--font-scale)); }
 .extras-copy-btn, .extras-recheck { flex-shrink: 0; }

@@ -113,6 +113,7 @@
         <div class="ag-job-head">
           <span class="ag-job-id">${escapeHtml(job.id)}</span>
           <span class="ag-tag ${job.enabled ? "on" : "off"}">${job.enabled ? "enabled" : "disabled"}</span>
+          ${job.running ? `<span class="ag-tag running">running…</span>` : ""}
         </div>
         <div class="ag-job-meta">
           <span class="ag-tag">${escapeHtml(triggerLabel(job.trigger))}</span>
@@ -121,8 +122,8 @@
           ${lr ? `<span>last run ${escapeHtml(fmtTime(lr.started_at))} ${escapeHtml(fmtDuration(lr.duration_ms))}</span>` : ""}
         </div>
         <div class="ag-job-actions">
-          <button class="ag-btn primary ag-run-now" ${_enabled ? "" : "disabled"}
-            title="${_enabled ? "Trigger this job immediately" : "Turn on background agents to run"}">Run now</button>
+          <button class="ag-btn primary ag-run-now" ${(_enabled && !job.running) ? "" : "disabled"}
+            title="${job.running ? "Already running — wait for it to finish" : _enabled ? "Trigger this job immediately" : "Turn on background agents to run"}">Run now</button>
           <button class="ag-btn ag-history">History</button>
           <button class="ag-btn ag-edit">Edit</button>
           <button class="ag-btn ag-delete" title="Delete this job">Delete</button>
@@ -425,43 +426,133 @@
     }
   }
 
+  // ── Run export (Copy / Download .md) ──────────────────────────────────────────
+  // The freeform answer is already markdown, so a run exports cleanly as a .md
+  // note the user can paste into an issue or archive.
+  function runToMarkdown(jobId, r) {
+    const meta = [
+      `- When: ${r.started_at || ""}`,
+      `- Verdict: ${r.verdict || ""}`,
+      r.model   ? `- Model: ${r.model}`                 : null,
+      r.trigger ? `- Trigger: ${r.trigger}`             : null,
+      r.tools?.length ? `- Tools: ${r.tools.join(", ")}` : null,
+    ].filter(Boolean).join("\n");
+    return `# ${jobId}${r.model ? ` — ${r.model}` : ""}\n\n${meta}\n\n${r.error || r.answer || ""}\n`;
+  }
+
+  function wireRunExports(jobId, runs, page) {
+    document.querySelectorAll(".ag-run-copy").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        try {
+          await navigator.clipboard.writeText(runToMarkdown(jobId, runs[+btn.dataset.idx]));
+          const prev = btn.textContent;
+          btn.textContent = "Copied ✓";
+          setTimeout(() => { btn.textContent = prev; }, 1500);
+        } catch { btn.textContent = "Copy failed"; }
+      });
+    });
+    document.querySelectorAll(".ag-run-dl").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const r = runs[+btn.dataset.idx];
+        const ts = (r.started_at || "run").replace(/[:.]/g, "-");
+        const blob = new Blob([runToMarkdown(jobId, r)], { type: "text/markdown" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `${jobId}-${ts}.md`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      });
+    });
+    document.querySelectorAll(".ag-run-del").forEach((btn) => {
+      btn.addEventListener("click", async () => {
+        const r = runs[+btn.dataset.idx];
+        if (r.id == null) return;
+        btn.disabled = true;
+        try {
+          const res = await fetch(`/api/agents/${encodeURIComponent(jobId)}/runs/${r.id}`, { method: "DELETE" });
+          if (!res.ok) { btn.textContent = "Delete failed"; btn.disabled = false; return; }
+          // Re-fetch the now-shorter history and stay on the current page
+          // (renderRuns clamps if that page no longer exists).
+          const data = await get(`/api/agents/${encodeURIComponent(jobId)}/runs?limit=50`);
+          renderRuns(jobId, data.runs || [], page);
+        } catch { btn.textContent = "Delete failed"; btn.disabled = false; }
+      });
+    });
+  }
+
   // ── Run history view ──────────────────────────────────────────────────────────
+  // Runs are paginated 10-per-page and collapsed by default (native <details>),
+  // so a long history doesn't flood the sidebar. Only the most recent run starts
+  // expanded; the rest open on click.
+  const RUNS_PER_PAGE = 10;
+
   async function openRuns(id) {
     setBody(`<div class="cg-hint">Loading runs…</div>`);
     try {
       const data = await get(`/api/agents/${encodeURIComponent(id)}/runs?limit=50`);
-      const runs = data.runs || [];
-      const head = `
-        <div class="cg-symbol-detail">
-          <button class="cg-back-btn" id="agBackBtn">← Back to jobs</button>
-          <div class="cg-symbol-title">${escapeHtml(id)}</div>
-          <div class="cg-section-label">${runs.length} run${runs.length === 1 ? "" : "s"}</div>`;
-      const list = !runs.length
-        ? `<div class="cg-empty">No runs recorded yet.</div>`
-        : runs.map(r => `
-            <div class="ag-run ${escapeHtml(r.verdict || "")}">
-              <div class="ag-run-head">
-                ${verdictBadge(r.verdict)}
-                <span>${escapeHtml(fmtTime(r.started_at))}</span>
-                ${r.duration_ms != null ? `<span>${escapeHtml(fmtDuration(r.duration_ms))}</span>` : ""}
-                ${r.trigger ? `<span>· ${escapeHtml(r.trigger)}</span>` : ""}
-                ${r.mode ? `<span>· ${escapeHtml(r.mode)}</span>` : ""}
-              </div>
-              ${r.tools && r.tools.length ? `<div class="ag-run-tools">tools: ${escapeHtml(r.tools.join(", "))}</div>` : ""}
-              ${r.error ? `<div class="ag-run-body">${escapeHtml(r.error)}</div>`
-                : r.answer ? `<div class="ag-run-body">${escapeHtml(r.answer)}</div>` : ""}
-            </div>`).join("");
-      setBody(`${head}${list}</div>`);
-      document.getElementById("agBackBtn").addEventListener("click", loadJobs);
+      renderRuns(id, data.runs || [], 0);
     } catch (err) {
       setBody(`<div class="cg-empty">Error: ${escapeHtml(err.message)}</div>`);
     }
   }
 
+  function renderRuns(id, runs, page) {
+    const pageCount = Math.max(1, Math.ceil(runs.length / RUNS_PER_PAGE));
+    page = Math.min(Math.max(0, page), pageCount - 1);
+    const start = page * RUNS_PER_PAGE;
+    const pageRuns = runs.slice(start, start + RUNS_PER_PAGE);
+
+    const head = `
+      <div class="cg-symbol-detail">
+        <button class="cg-back-btn" id="agBackBtn">← Back to jobs</button>
+        <div class="cg-symbol-title">${escapeHtml(id)}</div>
+        <div class="cg-section-label">${runs.length} run${runs.length === 1 ? "" : "s"}</div>`;
+    const list = !runs.length
+      ? `<div class="cg-empty">No runs recorded yet.</div>`
+      : pageRuns.map((r, j) => {
+          const i = start + j;                 // absolute index into runs (for wireRunExports)
+          const open = i === 0 ? " open" : ""; // only the most recent run starts expanded
+          return `
+            <details class="ag-run ${escapeHtml(r.verdict || "")}"${open}>
+              <summary class="ag-run-head">
+                ${verdictBadge(r.verdict)}
+                <span>${escapeHtml(fmtTime(r.started_at))}</span>
+                ${r.duration_ms != null ? `<span>${escapeHtml(fmtDuration(r.duration_ms))}</span>` : ""}
+                ${r.trigger ? `<span>· ${escapeHtml(r.trigger)}</span>` : ""}
+                ${r.mode ? `<span>· ${escapeHtml(r.mode)}</span>` : ""}
+              </summary>
+              ${r.model ? `<div class="ag-run-model">🤖 ${escapeHtml(r.model)}</div>` : ""}
+              ${r.tools && r.tools.length ? `<div class="ag-run-tools">tools: ${escapeHtml(r.tools.join(", "))}</div>` : ""}
+              ${r.error ? `<div class="ag-run-body">${escapeHtml(r.error)}</div>`
+                : r.answer ? `<div class="ag-run-body">${escapeHtml(r.answer)}</div>` : ""}
+              <div class="ag-run-actions">
+                ${(r.answer || r.error) ? `<button class="ag-btn ag-run-copy" data-idx="${i}" title="Copy this result to the clipboard">Copy</button>
+                <button class="ag-btn ag-run-dl" data-idx="${i}" title="Download this result as Markdown">Download .md</button>` : ""}
+                <button class="ag-btn ag-run-del" data-idx="${i}" title="Delete this run from the history">Delete</button>
+              </div>
+            </details>`;
+        }).join("");
+    const pager = runs.length > RUNS_PER_PAGE ? `
+      <div class="ag-pager">
+        <button class="ag-btn ag-pager-prev"${page === 0 ? " disabled" : ""}>← Prev</button>
+        <span class="ag-pager-info">Page ${page + 1} of ${pageCount}</span>
+        <button class="ag-btn ag-pager-next"${page >= pageCount - 1 ? " disabled" : ""}>Next →</button>
+      </div>` : "";
+
+    setBody(`${head}${list}${pager}</div>`);
+    document.getElementById("agBackBtn").addEventListener("click", loadJobs);
+    const prevBtn = document.querySelector(".ag-pager-prev");
+    const nextBtn = document.querySelector(".ag-pager-next");
+    if (prevBtn) prevBtn.addEventListener("click", () => renderRuns(id, runs, page - 1));
+    if (nextBtn) nextBtn.addEventListener("click", () => renderRuns(id, runs, page + 1));
+    wireRunExports(id, runs, page);
+  }
+
   // ── Open/close ────────────────────────────────────────────────────────────────
+  function isOpen() { return panel().style.display !== "none"; }
+
   window.toggleAgentsPanel = function () {
-    const open = panel().style.display !== "none";
-    if (open) {
+    if (isOpen()) {
       panel().style.display = "none";
       backdrop().style.display = "none";
       return;
@@ -469,5 +560,12 @@
     panel().style.display = "flex";
     backdrop().style.display = "block";
     loadJobs();
+  };
+
+  // Refresh the jobs view when a run finishes (driven by the agent_job_done WS
+  // message) so the "running…" badge clears live while the panel is open. Only
+  // refreshes the jobs list, not the history/edit sub-views.
+  window.refreshAgentsPanelIfOpen = function () {
+    if (isOpen() && document.getElementById("agMasterToggle")) loadJobs();
   };
 })();

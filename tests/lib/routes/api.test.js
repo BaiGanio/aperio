@@ -664,6 +664,23 @@ describe("GET /agents/:id/runs", () => {
   });
 });
 
+describe("DELETE /agents/:id/runs/:runId", () => {
+  test("204-style ok when a run is removed", async () => {
+    let deletedId = null;
+    const router = makeRouter({ store: { deleteAgentRun: async (id) => { deletedId = id; return true; } } });
+    const { status, body } = await invoke(router, "DELETE", "/agents/a/runs/42");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(deletedId, 42); // coerced to a number
+  });
+
+  test("404 when the run does not exist", async () => {
+    const router = makeRouter({ store: { deleteAgentRun: async () => false } });
+    const { status } = await invoke(router, "DELETE", "/agents/a/runs/999");
+    assert.strictEqual(status, 404);
+  });
+});
+
 describe("POST /agents", () => {
   test("creates a new job", async () => {
     let saved = null;
@@ -755,6 +772,44 @@ describe("POST /agents/:id/run gating", () => {
     assert.strictEqual(status, 404);
     if (prev === undefined) delete process.env.APERIO_AGENT_JOBS;
     else process.env.APERIO_AGENT_JOBS = prev;
+  });
+
+  test("409 'already running' when the job is in flight (does not call runJob)", async () => {
+    const prev = process.env.APERIO_AGENT_JOBS;
+    process.env.APERIO_AGENT_JOBS = "on";
+    let ran = false;
+    const router = apiRouter({
+      agent: { version: "1", provider: { name: "x", model: "y" }, setProvider: () => {}, getSkillDoc: () => null },
+      store: { listAll: async () => [], getAgentJob: async () => ({ id: "a", prompt: "go" }) },
+      watchdog: { heartbeat: () => {} },
+      scheduler: { isRunning: () => true, runJob: async () => { ran = true; return { verdict: "ok" }; } },
+    });
+    const { status, body } = await invoke(router, "POST", "/agents/a/run");
+    assert.strictEqual(status, 409);
+    assert.match(body.error, /already running/);
+    assert.strictEqual(ran, false);
+    if (prev === undefined) delete process.env.APERIO_AGENT_JOBS;
+    else process.env.APERIO_AGENT_JOBS = prev;
+  });
+});
+
+describe("GET /agents (running flag)", () => {
+  test("marks a job running when the scheduler reports it in flight", async () => {
+    const router = apiRouter({
+      agent: { version: "1", provider: { name: "x", model: "y" }, setProvider: () => {}, getSkillDoc: () => null },
+      store: {
+        listAll: async () => [],
+        listAgentJobs: async () => [{ id: "busy" }, { id: "idle" }],
+        listAgentRuns: async () => [],
+      },
+      watchdog: { heartbeat: () => {} },
+      scheduler: { isRunning: (id) => id === "busy" },
+    });
+    const { status, body } = await invoke(router, "GET", "/agents");
+    assert.strictEqual(status, 200);
+    const byId = Object.fromEntries(body.jobs.map((j) => [j.id, j.running]));
+    assert.strictEqual(byId.busy, true);
+    assert.strictEqual(byId.idle, false);
   });
 });
 

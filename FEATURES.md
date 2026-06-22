@@ -71,27 +71,32 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 
 ## GitHub
 - Fetch an issue with body + comments (`fetch_github_issue`)
+- List the open-issue backlog for triage (`list_github_issues`) — resolves the repo(s) from an explicit `repo`, a `project` name, or the user's `triage.repos` setting (never a hardcoded default); filters out PRs; records each issue in the triage ledger
+- Record a triage verdict in the local ledger (`record_issue_triage`) — server-side dedup so the daily job never re-reads an issue
 - Open a new issue (`create_github_issue`)
 - Update / close an existing issue (`update_github_issue`)
+- Daily issue-triage background job (`issue-triage`) + on-demand planner (`issue-planner`), both seeded **disabled** and repo-less; real-time capture via the GitHub webhook (`POST /api/github/webhook`, HMAC-verified with `GITHUB_WEBHOOK_SECRET`). Triage is read-only (no token for public repos) and treats issue text as untrusted data
 
-> **41 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
+> **46 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)
 - Providers: Ollama, Anthropic, DeepSeek (Gemini and Claude Code SDK exist in-code but are hidden from the UI)
 - Skills matching per turn (`skills/`)
 - Reasoning / thinking mode with reasoning-chain replay
-- Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`)
-- Background agents: scheduled, chat-less jobs over the store — interval, manual (`POST /api/agents/:id/run`), and codegraph/docgraph file-change (`watcher`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, DB-backed (`agent_jobs` table) with run records in `var/agents/`, gated by `APERIO_AGENT_JOBS=on` (see `background-agents.md`)
+- Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`); post-round manifestos from each agent saved to `var/roundtables/` and served for preview/download
+- Background agents: scheduled, chat-less jobs over the store — interval, manual (`POST /api/agents/:id/run`), and codegraph/docgraph file-change (`watcher`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, DB-backed (`agent_jobs` table) with per-run history in the `agent_runs` table (newest-first in the agents panel), gated by `APERIO_AGENT_JOBS=on` (see `background-agents.md`)
 - Background-agents UI panel — right-side sidebar with live master switch, per-job trigger/mode/last-verdict, "Run now", and per-job run history (`lib/routes/api-agents.js`, `public/scripts/agents-panel.js`)
-- Personas via `id/whoami*.md`; characters via `id/characters/`
+- Personas via `id/whoami*.md`; 7 domain characters via `id/characters/` (architect, reviewer, security, product, socratic, doctor, space-engineer) overlayable per-agent via `ROUNDTABLE_CHARACTERS`
 
 ## Storage
 - SQLite + sqlite-vec + FTS5 — zero-config default, single file `var/aperio.db`
 - Postgres + pgvector — Docker, for multi-agent/production
 - Auto-detect backend (Postgres if Docker running, else SQLite)
+- SQLite at-rest encryption — AES-256-GCM, key stored in OS keychain (`APERIO_DB_ENCRYPT=1`)
 - Embedding providers: local transformers (default), Voyage AI (cloud)
 - Embedding retry queue for resilient vector writes
+- Data portability — `export_data` (portable JSON backup) and `import_data` (idempotent restore, deduplicates by ID/slug, queues embeddings for backfill)
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel
@@ -119,6 +124,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Secret redaction (PEM keys, API tokens, JWTs, URI passwords) at every cloud-provider send boundary; local Ollama skipped
 - `local-only`-tagged memories dropped from recall on cloud providers; memory inference/dedup workers gated to local provider (`APERIO_CLOUD_MEMORY_WORKERS` opt-in)
 - At-rest `0600` perms + secret scrubbing for sessions, handoffs, and error logs
+- SQLite at-rest encryption — AES-256-GCM with key in OS keychain (macOS Keychain, Linux libsecret, Windows DPAPI); plaintext in `$TMPDIR` only while running; auto-migrates existing plaintext DB on first enable; DELETE journal when encrypted (no WAL plaintext leakage); crash recovery from leftover temp files (`APERIO_DB_ENCRYPT=1`)
 
 **Network & hosting**
 - DNS-rebinding / Host + cross-site Origin guard + `X-Aperio-Client` requirement on state-changing `/api` (`APERIO_ALLOWED_HOSTS`)
@@ -129,6 +135,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Opt-in AES-256-GCM session encryption at rest (`APERIO_SESSION_KEY`)
 - Crash breaker (sliding window → supervised restart); scrubbed terminal error handler with correlation id
 - DB access via table-name whitelist
+- Private/incognito UI launch with default-browser fallback (`APERIO_BROWSER`: firefox/firefox-dev/librewolf/mullvad/chrome/chromium/brave/edge/tor/ddg); opt-in dedicated browser profile isolating cookies/storage/extensions (`APERIO_BROWSER_ISOLATED=1`)
 
 ## Ops
 - CI: CodeQL, Codecov, SonarCloud, Codacy, Dependabot (npm + github-actions), `npm audit` (high-severity gate)

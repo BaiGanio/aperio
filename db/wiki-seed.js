@@ -312,6 +312,7 @@ Aperio currently registers **22 tools** across six tool files
 | Tool | Purpose |
 |---|---|
 | \`fetch_url\` | Fetch a URL, strip HTML, truncate at 15,000 characters. |
+| \`web_search\` | Search the web via DuckDuckGo (title/URL/snippet); follow up with \`fetch_url\` to read and cite a result. No setup required. |
 
 ## See Also
 

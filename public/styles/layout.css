@@ -15,7 +15,7 @@
       border: none;
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      font-size: 12px;
+      font-size: calc(12px * var(--font-scale));
       transition: all var(--transition);
       background: none;
       color: var(--text-muted);
@@ -74,7 +74,7 @@
 
     .logo {
       font-family: var(--font-mono);
-      font-size: 16px;
+      font-size: calc(16px * var(--font-scale));
       font-weight: 600;
       letter-spacing: -0.02em;
       color: var(--text);
@@ -88,7 +88,7 @@
       background: var(--text);
       border-radius: 8px;
       display: flex; align-items: center; justify-content: center;
-      font-size: 13px;
+      font-size: calc(13px * var(--font-scale));
       font-family: var(--font-mono);
       font-weight: 700;
       color: var(--bg);
@@ -100,7 +100,7 @@
       align-items: center;
       gap: 6px;
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: calc(12px * var(--font-scale));
       color: var(--text-muted);
       background: var(--bg-hover);
       padding: 4px 10px;
@@ -162,7 +162,7 @@
       cursor: pointer;
       user-select: none;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: calc(12px * var(--font-scale));
       font-weight: 700;
       letter-spacing: 0.06em;
       color: var(--text-muted);
@@ -202,7 +202,7 @@
     .nav-action-btn--text {
       padding: 0 8px;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: calc(12px * var(--font-scale));
       font-weight: 700;
       letter-spacing: 0.06em;
     }
@@ -213,7 +213,7 @@
       height: 26px;
       padding: 0;
       border-radius: 50%;
-      font-size: 13px;
+      font-size: calc(13px * var(--font-scale));
     }
 
 
@@ -239,7 +239,7 @@
       background: none;
       color: var(--text-muted);
       font-family: var(--font-sans, inherit);
-      font-size: 12.5px;
+      font-size: calc(12.5px * var(--font-scale));
       font-weight: 500;
       cursor: pointer;
       transition: all var(--transition);
@@ -250,7 +250,7 @@
     }
 
     .sidebar-nav-icon {
-      font-size: 15px;
+      font-size: calc(15px * var(--font-scale));
       flex-shrink: 0;
       width: 18px;
       text-align: center;
@@ -262,6 +262,29 @@
        sidebar is expanded the search box + memory list are already visible. */
     .sidebar-nav-btn--collapsed-only { display: none; }
     .app.sidebar-collapsed .sidebar-nav-btn--collapsed-only { display: flex; }
+
+    /* Compact nav: icon-only strip so it costs almost no vertical space and the
+       memory list keeps the height. Labels are revealed by the Expand toggle,
+       which switches to the full labelled list. The toggle is one of the icons.
+       Scoped to the expanded sidebar — the collapsed rail keeps its own layout. */
+    .app:not(.sidebar-collapsed) .sidebar-nav.is-compact {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2px;
+      padding: 6px 8px;
+    }
+    .app:not(.sidebar-collapsed) .sidebar-nav.is-compact .sidebar-nav-btn {
+      width: 38px;
+      height: 34px;
+      padding: 0;
+      justify-content: center;
+    }
+    .app:not(.sidebar-collapsed) .sidebar-nav.is-compact .sidebar-nav-label {
+      display: none;
+    }
+    /* The density toggle is meaningless on the icon-only rail. */
+    .app.sidebar-collapsed #navDensityToggle { display: none; }
 
     /* ── Sidebar ─────────────────────────────────────────────── */
     .sidebar {
@@ -308,7 +331,7 @@
       color: var(--text-muted);
       cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      font-size: 14px;
+      font-size: calc(14px * var(--font-scale));
       transition: all var(--transition);
       flex-shrink: 0;
     }
@@ -326,7 +349,7 @@
 
     .sidebar-title {
       font-family: var(--font-mono);
-      font-size: 12px;
+      font-size: calc(12px * var(--font-scale));
       font-weight: 600;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -343,7 +366,7 @@
       display: block;
       text-align: center;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: calc(12px * var(--font-scale));
       letter-spacing: 0.12em;
       color: var(--text-muted);
       opacity: 0.55;
@@ -354,7 +377,7 @@
       display: block;
       text-align: center;
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: calc(12px * var(--font-scale));
       letter-spacing: 0.08em;
       color: var(--text-muted);
       opacity: 0.45;
