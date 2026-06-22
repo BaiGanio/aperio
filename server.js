@@ -358,7 +358,15 @@ httpServer.listen(PORT, HOST, async () => {
 // ─── Full app init ────────────────────────────────────────────────────────────
 // All heavy imports are dynamic so they don't run until we know deps exist.
 async function bootApp() {
+  // Resolve DB-stored configuration into process.env BEFORE any consumer module
+  // is imported, so even values read at module-load time pick up the user's
+  // saved settings (DB > env > default; issue #167). getStore needs only Tier-0
+  // vars (DB_BACKEND / paths), which stay in .env.
   const { getStore }                      = await import("./db/index.js");
+  const store = await getStore();
+  const { applyConfigToEnv }              = await import("./lib/config-resolver.js");
+  await applyConfigToEnv(store);
+
   const { createAgent }                   = await import("./lib/agent.js");
   const { ensureOllama }                  = await import("./lib/helpers/startOllama.js");
   const { createWatchdog }                = await import("./lib/helpers/shutdownGuard.js");
@@ -371,8 +379,6 @@ async function bootApp() {
   const { apiRouter }                     = await import("./lib/routes/api.js");
   const { generateEmbedding, initEmbeddings, disposeEmbeddings, checkEmbeddingProvider } = await import("./lib/helpers/embeddings.js");
 
-  // DB
-  const store = await getStore();
   // Hydrate the app-wide allowed-folders list from the DB (seeds it from env on
   // first run). Must run before codegraph/watchers read getAllowlist().
   const { loadAllowlist, getAllowlist, setAllowlist } = await import("./lib/routes/paths.js");
