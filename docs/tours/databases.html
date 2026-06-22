@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | Talk to your database — ask questions in plain English</title>
+  <meta name="description" content="Connect your own database — SQLite, Postgres or MySQL — and ask questions in plain English. Aperio writes the SQL, reads run instantly, and anything that would change your data asks you first. Written for non-technical users." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" />
+
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* Page-specific. Shared styles live in styles.css (.doc). */
+    .tier-special { background: rgba(168,85,247,.18); color: var(--purple); }
+    .step-desc { opacity:.82; font-size:.92rem; line-height:1.6; margin:0; }
+    .mg-compare td:first-child { font-weight:600; white-space:nowrap; }
+
+    /* Reads-vs-writes two-column panel */
+    .db-safe { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:24px; }
+    @media(max-width:680px){ .db-safe{ grid-template-columns:1fr; } }
+    .db-safe-card { border:1px solid var(--border); background:var(--bg-card); padding:24px; border-radius:0; }
+    .db-safe-card h4 { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+    .db-safe-card.reads { border-left:3px solid var(--green); }
+    .db-safe-card.writes { border-left:3px solid #e0a458; }
+    .db-safe-card .badge-line { font-family:var(--font-ui); font-size:.7rem; letter-spacing:.08em; text-transform:uppercase; opacity:.65; }
+    .db-safe-card p { margin:10px 0 0; opacity:.85; }
+    .anchor-blurb { padding:14px 0; border-bottom:1px solid rgba(127,127,127,.14); }
+    .anchor-blurb h4 { margin-bottom:4px; }
+    .anchor-blurb p { margin:0; opacity:.82; font-size:.92rem; }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+
+<!-- ── Navbar ─────────────────────────────────────────────────── -->
+<nav class="aperio-nav">
+  <div class="nav-inner">
+    <a href="../index.html" class="brand">
+      <div class="logo-mark">A</div>
+      <span class="brand-name">Aperio</span>
+    </a>
+    <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="../index.html">Home</a></li>
+      <li><a href="index.html">All Tours</a></li>
+      <li><a href="#connect">Connect</a></li>
+      <li><a href="#ask">Ask</a></li>
+      <li><a href="#safe">Safety</a></li>
+      <li><a href="#engines">Engines</a></li>
+    </ul>
+    <div class="theme-switcher" id="themeSwitcher">
+      <button class="theme-btn active" data-theme="dark"   title="Dark">🌙</button>
+      <button class="theme-btn"        data-theme="light"  title="Light">☀️</button>
+      <button class="theme-btn"        data-theme="aurora" title="Aurora">✦</button>
+      <button class="theme-btn"        data-theme="system" title="System">⊙</button>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="db-top" style="padding:120px 0 30px">
+  <div class="section-inner">
+    <a href="index.html" class="mt-back reveal">← All tours</a>
+    <div class="eyebrow reveal" style="margin-top:14px">SQLite · Postgres · MySQL · Your data stays local</div>
+    <h1 class="section-heading reveal">Talk to your database <span class="tier-pill tier-special">feature</span></h1>
+    <p class="lead-text reveal">Point Aperio at a database and just ask. "How many customers signed up last month?" — and you get the answer, not a SQL lesson. Aperio looks at the structure, writes the query, and shows you the rows. Reads happen instantly; anything that would <em>change</em> your data asks you first.</p>
+  </div>
+</section>
+
+<!-- ── Framing ────────────────────────────────────────────────── -->
+<section class="section" style="padding:10px 0">
+  <div class="section-inner">
+    <p class="reveal">A database is just where an app keeps its records — customers, orders, bookings, inventory. Normally you need to write <strong>SQL</strong> (a query language) to get answers out of one. This feature removes that step: you connect a database once, then ask questions in plain English and Aperio handles the SQL for you.</p>
+    <p class="reveal" style="opacity:.8">It works with the three most common databases — <strong>SQLite</strong>, <strong>Postgres</strong>, and <strong>MySQL</strong> — and it can also look inside Aperio's own data. Your connection details are encrypted and never sent to the model; only the friendly <em>name</em> you give a connection is. New here? The <a href="../model-guide.html#concepts">two-minute concepts primer</a> explains the rest of the jargon.</p>
+  </div>
+</section>
+
+<!-- ── Connect ────────────────────────────────────────────────── -->
+<section class="section" id="connect" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">Connect in 30 seconds</h2>
+    <p class="reveal mg-desc">Open the sidebar's <strong>Configuration</strong> panel and find the <strong>Databases</strong> section. Three steps, once.</p>
+
+    <div class="steps-grid">
+      <div class="step-card reveal">
+        <div class="step-num">01</div>
+        <div class="step-title">Pick the engine</div>
+        <p class="step-desc">Choose <strong>SQLite</strong>, <strong>Postgres</strong>, or <strong>MySQL</strong> from the dropdown. Not sure? If your data is a single <code>.db</code> file on your computer, it's SQLite. If an app or a colleague gave you a "connection string", it's usually Postgres or MySQL.</p>
+      </div>
+      <div class="step-card reveal" style="transition-delay:.08s">
+        <div class="step-num">02</div>
+        <div class="step-title">Point at the data</div>
+        <p class="step-desc">For SQLite, pick the file. For Postgres or MySQL, fill in the host, database name, and login — or paste the connection string. Give it a short, friendly <strong>name</strong> like <code>sales</code> — that's all the AI ever sees.</p>
+      </div>
+      <div class="step-card reveal" style="transition-delay:.16s">
+        <div class="step-num">03</div>
+        <div class="step-title">Test &amp; save</div>
+        <p class="step-desc">Hit <strong>Test connection</strong> for a green tick, then save. Leave <strong>Read-only</strong> switched on (it is by default) and Aperio can look at everything but change nothing. That's it — start asking.</p>
+      </div>
+    </div>
+    <p class="reveal" style="opacity:.7;font-size:.86rem;margin-top:16px">Your credentials are encrypted on your machine and never leave it in readable form. You can add as many connections as you like and switch between them by name.</p>
+  </div>
+</section>
+
+<!-- ── Ask ────────────────────────────────────────────────────── -->
+<section class="section" id="ask" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">Ask anything</h2>
+    <p class="reveal mg-desc">No SQL required. Just say what you want to know — name your connection if you have more than one. Here are real questions to paste.</p>
+
+    <div class="use-grid">
+      <div class="use-card reveal">
+        <h4>📊 Count &amp; measure</h4>
+        <div class="use-sub">Totals, averages, "how many", "how much".</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Using the sales database, how many customers signed up last month, and how does that compare to the month before?</div>
+        <p class="use-exp"><strong>What Aperio does:</strong> looks at the table structure, writes a counting query, and gives you both numbers with the difference.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🏆 Top &amp; bottom</h4>
+        <div class="use-sub">Biggest, smallest, best-selling, most recent.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Show me the 10 largest orders this quarter, with the customer name and the total.</div>
+        <p class="use-exp"><strong>What Aperio does:</strong> joins the right tables, sorts, and returns a tidy ranked list of rows.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🔍 Find the gaps</h4>
+        <div class="use-sub">"Which ones never…", "what's missing", odd cases.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Which products have never been sold? List their name and the date they were added.</div>
+        <p class="use-exp"><strong>What Aperio does:</strong> the kind of query that's fiddly to write by hand — it figures out the logic for you.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>🗺️ Understand the structure</h4>
+        <div class="use-sub">"What's in here?" before you dive in.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>What tables are in the sales database, and what does the orders table look like?</div>
+        <p class="use-exp"><strong>What Aperio does:</strong> lists the tables and describes the columns — a friendly map of an unfamiliar database.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>📈 Group &amp; break down</h4>
+        <div class="use-sub">"By month", "per region", "split by category".</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Break down total revenue by month for this year, and tell me which month was the strongest.</div>
+        <p class="use-exp"><strong>What Aperio does:</strong> groups the data the way you asked and reads the result back in plain language.</p>
+      </div>
+
+      <div class="use-card reveal">
+        <h4>✏️ Make a change (it'll ask first)</h4>
+        <div class="use-sub">Update, add, or remove records — with a confirm step.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Mark order #4821 as refunded.</div>
+        <p class="use-exp"><strong>What Aperio does:</strong> shows you exactly what it's about to change and a <strong>Confirm</strong> button — nothing is written until you click it. (Requires a connection with read-only switched off.)</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Safety ─────────────────────────────────────────────────── -->
+<section class="section" id="safe" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">It asks before it changes anything</h2>
+    <p class="reveal mg-desc">The single most important thing to know: looking is free and instant, but changing your data always goes through you.</p>
+
+    <div class="db-safe reveal">
+      <div class="db-safe-card reads">
+        <span class="badge-line"><i class="bi bi-lightning-charge-fill"></i> Reads — instant</span>
+        <h4>Questions just run</h4>
+        <p>Anything that only <em>reads</em> — counts, lists, breakdowns, "show me…" — happens straight away. These queries can't alter your data, and Aperio opens the database in look-only mode for them as a second layer of safety.</p>
+      </div>
+      <div class="db-safe-card writes">
+        <span class="badge-line"><i class="bi bi-shield-lock-fill"></i> Writes — ask first</span>
+        <h4>Changes wait for your click</h4>
+        <p>Anything that would <em>change</em> your data — add, update, delete — is shown to you first: the exact change, in plain terms, with a <strong>Confirm</strong> button. Nothing is written until you click. The model can't skip this step or confirm on its own.</p>
+      </div>
+    </div>
+
+    <p class="reveal" style="margin-top:20px">And if you'd rather it never change anything at all, leave a connection's <strong>Read-only</strong> switch on. Then even a confirmed change is refused — the database is yours to look at, full stop. Aperio's own internal data is read-only by default for exactly this reason.</p>
+  </div>
+</section>
+
+<!-- ── Privacy ────────────────────────────────────────────────── -->
+<section class="section" id="privacy" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">Your data stays yours</h2>
+    <p class="reveal mg-desc">A database can hold sensitive records. Here's exactly what is and isn't shared.</p>
+    <ul class="mt-walls reveal" style="list-style:none;padding:0;margin:14px 0">
+      <li style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.14)"><b>Credentials never reach the model.</b> Your host, password, and connection string are encrypted on your machine. The AI only ever sees the friendly name you chose (like <code>sales</code>).</li>
+      <li style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.14)"><b>Query results do pass through the model</b> — that's how it reads the answer back to you. So the rows you ask for are seen by whichever model you're running.</li>
+      <li style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.14)"><b>Running a local model? Nothing leaves your computer.</b> With a local Ollama model, the whole loop — question, SQL, rows, answer — stays on your machine. Choose a local model for sensitive data.</li>
+      <li style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.14)"><b>Running a cloud model?</b> The rows you ask about are sent to that provider to form the answer, the same as any other chat. Keep that in mind for confidential tables.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ── Engines ────────────────────────────────────────────────── -->
+<section class="section" id="engines" style="padding:20px 0 40px">
+  <div class="section-inner">
+    <h2 class="reveal">What it works with</h2>
+    <p class="reveal mg-desc">Three databases, one way of asking. Pick whichever yours is — the experience is identical.</p>
+
+    <div class="reveal mg-compare-wrap">
+      <table class="mg-compare">
+        <thead><tr><th>Engine</th><th>Best for</th><th>What you'll need</th></tr></thead>
+        <tbody>
+          <tr><td>SQLite</td><td>A single-file database on your computer — personal projects, exports, small apps.</td><td>Just the <code>.db</code> file. Nothing to install.</td></tr>
+          <tr><td>Postgres</td><td>Serious apps and shared/work databases. The most common "real" database.</td><td>Host, database name, and a login (or a connection string).</td></tr>
+          <tr><td>MySQL</td><td>Websites, WordPress, and many older apps.</td><td>Host, database name, and a login (or a connection string).</td></tr>
+          <tr><td>Aperio's own data</td><td>Peeking inside what Aperio remembers — memories and wiki notes.</td><td>Always available, read-only. No setup.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="reveal" style="opacity:.7;font-size:.86rem;margin-top:16px">Don't know which one you have? If someone handed you a single file, it's SQLite. If they handed you a username, password, and an address, it's Postgres or MySQL — and the <strong>Test connection</strong> button will tell you if you picked right.</p>
+  </div>
+</section>
+
+<!-- ── CTA ────────────────────────────────────────────────────── -->
+<section class="section" style="padding:10px 0 80px">
+  <div class="section-inner">
+    <div class="setup-cta-box reveal">
+      <div>
+        <h3 style="margin:0 0 6px">Ready to ask your data a question?</h3>
+        <p style="margin:0;opacity:.82">Open the <strong>Configuration → Databases</strong> panel, add a connection, and type your first question.</p>
+      </div>
+      <a href="index.html" class="mt-back" style="white-space:nowrap">← Back to all tours</a>
+    </div>
+  </div>
+</section>
+
+<!-- ── Footer ─────────────────────────────────────────────────── -->
+<footer>
+  <div class="footer-warning">
+    ⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy,
+    leading to irreversible stupidity. Use responsibly.
+  </div>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+</body>
+</html>
