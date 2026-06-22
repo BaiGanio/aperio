@@ -199,7 +199,7 @@
   "setup_detail_waiting":     "Waiting…",
 
   "wiz_welcome_h1":           "Welcome to Aperio",
-  "wiz_welcome_p_html":       "How would you like to run the AI? You can change this later in <code>.env</code>.",
+  "wiz_welcome_p_html":       "How would you like to run the AI? You can change this later in the <strong>Configuration</strong> panel.",
   "wiz_cloud_title":          "Use a cloud AI",
   "wiz_cloud_sub":            "Fastest to start — just paste one API key. (Anthropic, DeepSeek, or Gemini)",
   "wiz_local_title":          "Run locally — free & private",

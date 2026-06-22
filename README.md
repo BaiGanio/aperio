@@ -98,7 +98,7 @@ Your context, always available.
 │   └── index.html                # Web UI — themes, streaming, sidebar
 ├── 📂 skills/                    # Memory, reasoning, tools, coding standards, etc.
 ├── 📂 tests/      
-├── .env.example                  # Pre-set quick configuration
+├── .env.example                  # Essentials + bootstrap only (everything else → Configuration panel)
 ├── package.json                  # Dependencies
 └── server.js                     # Express + WebSocket + agent loop
  
@@ -129,16 +129,19 @@ cd aperio
 # restore dependencies
 npm install
 ```
-> Ready to use `.env.example` for a fully local setup:
+> Ready to use `.env.example` for a fully local setup. The template is tiny —
+> just the essentials plus bootstrap plumbing; **everything else is configured
+> in the app's Configuration panel** (see below), not in `.env`:
 ```env
 # cp .env.example .env
 
 AI_PROVIDER=ollama
 OLLAMA_MODEL=qwen3:4b
-EMBEDDING_PROVIDER=transformers    # fully local, no API key required
-# DB_BACKEND=sqlite               # default; uncomment to override
-# SQLITE_PATH=./var/aperio.db     # default location for the single-file DB
+# DB_BACKEND=sqlite               # default (auto-detected); uncomment to force
+# SQLITE_PATH=./sqlite/aperio.db  # default location for the single-file DB
 ```
+> Embeddings default to local `transformers` (no key) — switch to Voyage, or
+> change any other setting, in the Configuration panel.
 
 ### Step 2. Databases & Migrations
 
@@ -227,7 +230,7 @@ answers, **Agent B** reviews, A revises, B re-reviews — until they reach
 explicit `AGREED` or a hard round cap is hit. A single consensus bubble is
 rendered when they agree; otherwise both positions are shown side-by-side.
 
-**Enable it** with `ROUNDTABLE_AGENTS` in `.env`:
+**Enable it** in the **Configuration panel** (Round-table section), or with `ROUNDTABLE_AGENTS` in `.env`:
 
 ```env
 # Format: provider:model,provider:model
@@ -410,7 +413,7 @@ Aperio is open source and self-hosted because **your memories is yours**.
 
 ## AI Providers
 
-Switch with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
+Switch in the **Configuration panel** (`AI_PROVIDER`), or with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
 
 ```env
 AI_PROVIDER=ollama       # "ollama" | "anthropic" | "deepseek" | "gemini"
@@ -435,7 +438,7 @@ Recommended models (pull with `ollama pull <model>`):
 | `qwen2.5:3b` | Legacy — lightweight, good for ≤ 8 GB RAM |
 | `deepseek-r1:32b` | Heavy reasoning, requires ≥ 60 GB RAM |
 
-> **💡 Tip:** Set `CHECK_RAM=true` in `.env` to let Aperio auto-select a model based on available RAM.
+> **💡 Tip:** Enable **Auto-pick model by RAM** in the Configuration panel (or set `CHECK_RAM=true` in `.env`) to let Aperio auto-select a model based on available RAM.
 
 ### ✦ Anthropic Claude (Optional — Cloud Upgrade)
 

@@ -24,13 +24,20 @@ const HEADER = `# ============================================================
 # AUTO-GENERATED from lib/config.js — do not edit by hand.
 # Run \`npm run gen:env\` to regenerate. Edit the registry, not this file.
 #
-# Most people never edit this file. Just run \`npm start\` and the setup
-# wizard in your browser fills in a real \`.env\` for you. Appearance and
-# similar in-app preferences live in the database, not here.
+# This template is deliberately tiny: it holds only bootstrap plumbing plus
+# the essential provider choices. EVERY OTHER setting is a typed control in
+# the app — open the sidebar's Configuration panel — and is stored in the
+# database, not here. Most people never touch this file at all: run
+# \`npm start\` and the setup wizard in your browser writes a real \`.env\`.
 #
-# To configure by hand: copy this file to \`.env\` and set the values in the
-# ESSENTIALS block below. Everything past the STOP line is optional and
-# already has sensible defaults.
+# To configure by hand: copy this file to \`.env\` and set the ESSENTIALS
+# block below. Everything past the STOP line is bootstrap/security plumbing
+# that must live in \`.env\`; it already has sensible defaults.
+#
+# Developers: you can still add ANY variable here by hand (see the full list
+# in the Configuration panel or \`npm run config:sync\`). A value saved in the
+# UI is stored in the DB and overrides \`.env\` (precedence: DB > .env >
+# default).
 #
 # NEVER commit .env to git.
 # ============================================================`;
@@ -38,8 +45,10 @@ const HEADER = `# ============================================================
 const STOP = `
 # ╶───────────────────────────────────────────────────────────╴
 #  ✋  YOU CAN STOP HERE.
-#      Everything below is optional and has working defaults.
-#      Only change it if you know you need to.
+#      Everything below is bootstrap/security plumbing that must live
+#      in .env. Every other setting lives in the app's Configuration
+#      panel (saved to the database). Only change the lines below if
+#      you know you need to.
 # ╶───────────────────────────────────────────────────────────╴`;
 
 const rule = (title) => {
@@ -61,6 +70,12 @@ function renderEntry(e) {
   return out.join("\n");
 }
 
+// The template only ships the essentials block + Tier-0 bootstrap/security
+// plumbing that must live in `.env`. Every other (Tier-1) variable is edited
+// in the app's Configuration panel and persisted to the database, so it is
+// intentionally omitted here.
+const isTemplateVar = (e) => e.section === "essentials" || e.tier === 0;
+
 function build() {
   const parts = [HEADER, ""];
   const essentials = SECTIONS.find((s) => s.id === "essentials");
@@ -69,7 +84,7 @@ function build() {
   const order = [essentials, ...SECTIONS.filter((s) => s.id !== "essentials")];
 
   for (const section of order) {
-    const entries = CONFIG.filter((e) => e.section === section.id);
+    const entries = CONFIG.filter((e) => e.section === section.id && isTemplateVar(e));
     if (!entries.length) continue;
 
     if (section.id !== "essentials" && parts.indexOf(STOP) === -1) parts.push(STOP, "");
@@ -97,6 +112,6 @@ if (process.argv.includes("--check")) {
   console.log("✓ .env.example is up to date.");
 } else {
   writeFileSync(OUT, generated);
-  const count = CONFIG.length;
-  console.log(`✓ Wrote .env.example (${count} variables across ${SECTIONS.length} sections).`);
+  const count = CONFIG.filter(isTemplateVar).length;
+  console.log(`✓ Wrote .env.example (${count} of ${CONFIG.length} variables — essentials + Tier-0 bootstrap; the rest live in the Configuration panel).`);
 }
