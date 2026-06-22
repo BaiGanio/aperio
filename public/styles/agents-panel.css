@@ -9,23 +9,23 @@
   border-bottom: 1px solid var(--border);
 }
 .ag-master-hint {
-  font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted); font-family: var(--font-mono);
 }
 
 .ag-job-head {
   display: flex; align-items: center; gap: 6px;
 }
 .ag-job-id {
-  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale)); font-weight: 700;
   color: var(--text); flex: 1; word-break: break-all;
 }
 .ag-job-meta {
-  font-size: 10px; color: var(--text-muted);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
   margin-top: 3px;
   display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center;
 }
 .ag-tag {
-  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale)); font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
   padding: 1px 6px; border-radius: 10px;
   border: 1px solid var(--border); color: var(--text-muted);
@@ -39,7 +39,7 @@
 @keyframes ag-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 .ag-verdict {
-  font-family: var(--font-mono); font-size: 9px; font-weight: 700;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale)); font-weight: 700;
   letter-spacing: 0.06em; text-transform: uppercase;
   padding: 1px 6px; border-radius: 10px; border: 1px solid;
 }
@@ -53,7 +53,7 @@
 .ag-btn {
   background: var(--bg-alt, var(--bg)); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
-  padding: 4px 10px; font: inherit; font-size: 11px; cursor: pointer;
+  padding: 4px 10px; font: inherit; font-size: calc(12px * var(--font-scale)); cursor: pointer;
 }
 .ag-btn:hover { border-color: var(--accent); color: var(--accent); }
 .ag-btn:disabled { opacity: 0.5; cursor: not-allowed; }
@@ -71,39 +71,39 @@
 .ag-run.error { border-left-color: var(--danger, #e05252); }
 /* Model badge on top of each run — "who triaged this". */
 .ag-run-model {
-  font-size: 11px; font-weight: 600; color: var(--accent);
+  font-size: calc(12px * var(--font-scale)); font-weight: 600; color: var(--accent);
   font-family: var(--font-mono); margin-bottom: 2px;
 }
 .ag-run-actions { display: flex; gap: 6px; margin-top: 5px; }
-.ag-run-actions .ag-btn { font-size: 10px; padding: 2px 8px; }
+.ag-run-actions .ag-btn { font-size: calc(12px * var(--font-scale)); padding: 2px 8px; }
 .ag-run-head {
   display: flex; gap: 8px; align-items: center;
-  font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted); font-family: var(--font-mono);
 }
 /* <summary> as the collapsible header: drop the native marker, add our caret. */
 summary.ag-run-head { cursor: pointer; user-select: none; list-style: none; }
 summary.ag-run-head::-webkit-details-marker { display: none; }
 summary.ag-run-head::before {
-  content: "▸"; font-size: 9px; color: var(--text-muted);
+  content: "▸"; font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
 }
 .ag-run[open] > summary.ag-run-head::before { content: "▾"; }
 /* Run-history pager. */
 .ag-pager {
   display: flex; align-items: center; justify-content: center; gap: 10px;
-  margin-top: 8px; font-size: 10px; color: var(--text-muted);
+  margin-top: 8px; font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
   font-family: var(--font-mono);
 }
-.ag-pager .ag-btn { font-size: 10px; padding: 2px 8px; }
+.ag-pager .ag-btn { font-size: calc(12px * var(--font-scale)); padding: 2px 8px; }
 .ag-run-body {
-  font-size: 11px; color: var(--text);
+  font-size: calc(12px * var(--font-scale)); color: var(--text);
   margin-top: 3px; white-space: pre-wrap; overflow-wrap: anywhere;
 }
 .ag-run-tools {
-  font-size: 10px; color: var(--text-muted); font-family: var(--font-mono);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted); font-family: var(--font-mono);
   margin-top: 2px;
 }
 .ag-msg {
-  font-size: 11px; color: var(--text-muted);
+  font-size: calc(12px * var(--font-scale)); color: var(--text-muted);
   min-height: 14px; padding: 4px; word-break: break-word;
 }
 
@@ -114,7 +114,7 @@ summary.ag-run-head::before {
 .ag-form { display: flex; flex-direction: column; gap: 10px; }
 .ag-field { display: flex; flex-direction: column; gap: 4px; }
 .ag-field > span {
-  font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+  font-size: calc(12px * var(--font-scale)); font-weight: 700; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--text-muted);
 }
 .ag-field input[type="text"],
@@ -123,10 +123,10 @@ summary.ag-run-head::before {
 .ag-field textarea {
   background: var(--bg-alt, var(--bg)); color: var(--text);
   border: 1px solid var(--border); border-radius: var(--radius-sm);
-  padding: 6px 8px; font: inherit; font-size: 12px; width: 100%;
+  padding: 6px 8px; font: inherit; font-size: calc(12px * var(--font-scale)); width: 100%;
 }
 .ag-field textarea {
-  font-family: var(--font-mono); font-size: 11px; resize: vertical;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale)); resize: vertical;
 }
 .ag-field input:focus,
 .ag-field select:focus,
@@ -135,7 +135,7 @@ summary.ag-run-head::before {
 .ag-field-inline { flex-direction: row; align-items: center; gap: 8px; }
 .ag-field-inline > span {
   text-transform: none; letter-spacing: 0; font-weight: 400;
-  font-size: 11px; color: var(--text);
+  font-size: calc(12px * var(--font-scale)); color: var(--text);
 }
 .ag-trigger-sub, .ag-mode-sub {
   display: flex; flex-direction: column; gap: 10px;
@@ -143,11 +143,11 @@ summary.ag-run-head::before {
 }
 .ag-form-actions { display: flex; gap: 6px; margin-top: 4px; }
 .ag-hint {
-  font-size: 10px; line-height: 1.4; color: var(--text-muted);
+  font-size: calc(12px * var(--font-scale)); line-height: 1.4; color: var(--text-muted);
   text-transform: none; letter-spacing: 0; font-weight: 400;
 }
 .ag-hint code {
-  font-family: var(--font-mono); font-size: 10px;
+  font-family: var(--font-mono); font-size: calc(12px * var(--font-scale));
   padding: 0 3px; border-radius: 3px;
   background: var(--bg-alt, var(--bg)); border: 1px solid var(--border);
 }

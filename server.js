@@ -1,7 +1,7 @@
 import express from "express";
 import helmet from "helmet";
 import { WebSocketServer, WebSocket } from "ws";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, mkdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 import { createRequire } from "module";
@@ -17,6 +17,7 @@ import { createAppServer } from "./lib/helpers/tlsServer.js";
 import { createCrashBreaker } from "./lib/helpers/crashBreaker.js";
 import { randomBytes } from "crypto";
 import logger from "./lib/helpers/logger.js";
+import { BROWSERS, browserArgsFor } from "./lib/helpers/browserLauncher.js";
 import { runBootstrap, bootstrapEvents, stepState, STEPS } from "./bootstrap.js";
 
 // ─── Global error guards ──────────────────────────────────────────────────────
@@ -708,7 +709,47 @@ function openBrowser(url) {
     process.platform === "darwin" ? ["open", url]
     : process.platform === "win32" ? ["cmd", "/c", "start", url]
     : ["xdg-open", url];
-  execFile(cmd, args, err => {
+  const openDefault = () => execFile(cmd, args, err => {
     if (err) logger.error("⚠️  Could not open browser:", err.message);
+  });
+
+  // APERIO_BROWSER=default (or system) skips the private window and uses the
+  // OS default. An unknown value also falls back to the default opener.
+  const pref = (process.env.APERIO_BROWSER || "firefox").toLowerCase();
+  const b = BROWSERS[pref];
+  if (!b) {
+    openDefault();
+    return;
+  }
+
+  // APERIO_BROWSER_ISOLATED gives the browser a dedicated profile under var/,
+  // so Aperio's cookies/storage/extensions stay separate from everyday
+  // browsing. Not supported for `app`-family privacy browsers.
+  const isolated = ["1", "true", "on", "yes"].includes(
+    (process.env.APERIO_BROWSER_ISOLATED || "").toLowerCase());
+  let profileDir = null;
+  if (isolated && b.family !== "app") {
+    profileDir = resolve(__dirname, "var/browser-profiles", pref);
+    try {
+      mkdirSync(profileDir, { recursive: true, mode: 0o700 });
+    } catch (err) {
+      logger.error("⚠️  Could not create browser profile dir:", err.message);
+      profileDir = null;
+    }
+  } else if (isolated) {
+    logger.warn(`⚠️  APERIO_BROWSER_ISOLATED ignored: ${pref} has no isolated-profile support.`);
+  }
+
+  // Open a private/incognito window in the chosen browser; fall back to the
+  // default browser when it isn't installed (ENOENT / non-zero exit).
+  const bArgs = browserArgsFor(b, url, profileDir);
+  const [browserCmd, ...browserArgs] =
+    process.platform === "darwin"
+      ? ["open", "-na", b.mac, "--args", ...bArgs]
+    : process.platform === "win32"
+      ? ["cmd", "/c", "start", b.win, ...bArgs]
+      : [b.bin, ...bArgs];
+  execFile(browserCmd, browserArgs, err => {
+    if (err) openDefault();
   });
 }
