@@ -189,7 +189,7 @@
   "setup_detail_waiting":     "Чакам…",
 
   "wiz_welcome_h1":           "Добре дошли в Aperio",
-  "wiz_welcome_p_html":       "Как искате да работи изкуственият интелект? Можете да промените това по-късно в <code>.env</code>.",
+  "wiz_welcome_p_html":       "Как искате да работи изкуственият интелект? Можете да промените това по-късно в панела <strong>Конфигурация</strong>.",
   "wiz_cloud_title":          "Облачен AI",
   "wiz_cloud_sub":            "Най-бързо за начало — просто поставете един API ключ. (Anthropic, DeepSeek или Gemini)",
   "wiz_local_title":          "Локално — безплатно и поверително",
