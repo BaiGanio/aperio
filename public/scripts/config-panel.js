@@ -56,6 +56,12 @@
   const splitList = (v) =>
     String(v || "").split(",").map((s) => s.trim()).filter(Boolean);
 
+  // Changing either of these invalidates every stored vector: the dimensions
+  // (or the model behind them) differ, so old embeddings can't be compared to
+  // new queries. Saving one shows an extra "rebuild the index" warning on top of
+  // the restart banner (the per-field help/blurb already hint at this).
+  const REINDEX_KEYS = new Set(["EMBEDDING_PROVIDER", "EMBEDDING_DIMS"]);
+
   function badge(configured) {
     const b = document.createElement("span");
     b.className = "settings-state" + (configured ? " is-on" : "");
@@ -307,6 +313,7 @@
     const host = $("configSections");
     if (!host) return;
     if ($("configRestartBanner")) $("configRestartBanner").style.display = "none";
+    if ($("configReindexBanner")) $("configReindexBanner").style.display = "none";
     const status = $("configStatus");
     if (status) status.textContent = "";
     try {
@@ -327,9 +334,11 @@
     };
 
     const writes = [];
+    const writtenKeys = [];
     for (const r of readers) {
       const value = r.read();
       if (value == null) continue;            // unchanged / blank secret
+      writtenKeys.push(r.key);
       writes.push(
         fetch(`/api/settings/${encodeURIComponent("config." + r.key)}`, {
           method: "PUT",
@@ -344,9 +353,11 @@
     const n = writes.length;
     try {
       await Promise.all(writes);
+      const reindex = writtenKeys.some((k) => REINDEX_KEYS.has(k));
       await window.loadConfigPanel();         // re-read so values/badges refresh
       setStatus(`Saved ${n} change${n > 1 ? "s" : ""}`, true);
       if ($("configRestartBanner")) $("configRestartBanner").style.display = "flex";
+      if ($("configReindexBanner")) $("configReindexBanner").style.display = reindex ? "flex" : "none";
     } catch (err) {
       setStatus(`Save failed: ${err.message}`, false);
     }
