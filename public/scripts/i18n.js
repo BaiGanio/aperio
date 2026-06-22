@@ -76,10 +76,6 @@ const TRANSLATIONS = {
     nav_theme_aurora:         "Aurora",
     nav_theme_system:         "System",
     nav_fontsize_title:       "Text size",
-    nav_fontsize_small:       "Small",
-    nav_fontsize_default:     "Default",
-    nav_fontsize_large:       "Large",
-    nav_fontsize_xl:          "Larger",
 
     status_connecting:        "connecting…",
     status_connected:         "connected",

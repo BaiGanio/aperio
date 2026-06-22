@@ -528,19 +528,12 @@
         <span data-i18n="nav_fontsize_title">Text size</span>
       </summary>
       <div class="settings-section-body">
-        <div class="fontscale-switcher" data-i18n-attr-title="nav_fontsize_title" title="Text size">
-          <button class="fontscale-btn" data-scale="0.9" data-i18n-attr-title="nav_fontsize_small" title="Small">
-            <span class="fontscale-btn-glyph" style="font-size:11px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_small">Small</span>
-          </button>
-          <button class="fontscale-btn active" data-scale="1" data-i18n-attr-title="nav_fontsize_default" title="Default">
-            <span class="fontscale-btn-glyph" style="font-size:14px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_default">Default</span>
-          </button>
-          <button class="fontscale-btn" data-scale="1.15" data-i18n-attr-title="nav_fontsize_large" title="Large">
-            <span class="fontscale-btn-glyph" style="font-size:17px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_large">Large</span>
-          </button>
-          <button class="fontscale-btn" data-scale="1.3" data-i18n-attr-title="nav_fontsize_xl" title="Larger">
-            <span class="fontscale-btn-glyph" style="font-size:20px">A</span><span class="fontscale-btn-name" data-i18n="nav_fontsize_xl">Larger</span>
-          </button>
+        <div class="fontscale-slider-row" data-i18n-attr-title="nav_fontsize_title" title="Text size">
+          <span class="fontscale-end" aria-hidden="true" style="font-size:11px">A</span>
+          <input type="range" class="fontscale-slider" id="fontScaleSlider"
+                 min="0.85" max="1.4" step="0.05" value="1" aria-label="Text size">
+          <span class="fontscale-end" aria-hidden="true" style="font-size:20px">A</span>
+          <output class="fontscale-value" id="fontScaleValue" for="fontScaleSlider">100%</output>
         </div>
       </div>
     </details>
