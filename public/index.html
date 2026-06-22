@@ -118,6 +118,11 @@
         <i class="bi bi-lightning-charge sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Skills</span>
       </button>
+      <button id="configBtn" class="sidebar-nav-btn" onclick="toggleConfigPanel()"
+        title="Configuration — all .env-backed settings, edited in the UI">
+        <i class="bi bi-gear-wide-connected sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Config</span>
+      </button>
       <button id="settingsBtn" class="sidebar-nav-btn" onclick="toggleSettingsPanel()"
         data-i18n-attr-title="nav_settings_title" title="Settings">
         <i class="bi bi-sliders sidebar-nav-icon"></i>
@@ -462,6 +467,28 @@
 </div>
 <div id="agents-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleAgentsPanel()"></div>
 
+<!-- Configuration panel (reuses the cg-* panel styles). Schema-driven from
+     lib/config.js: every editable var gets a typed control; writes persist to the
+     DB under config.<KEY> and apply on restart. Tier-0 bootstrap/security vars are
+     read-only (edit in .env). Secrets are write-only: blank = keep current. -->
+<div id="config-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-gear-wide-connected"></i> Configuration</span>
+    <button class="cg-panel-close" onclick="toggleConfigPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="cfgSearchInput" class="cg-search-input" placeholder="Search settings…" />
+    <button id="cfgSaveBtn" class="sk-new-btn" onclick="saveConfigSettings()"><i class="bi bi-check-lg"></i> Save</button>
+  </div>
+  <div class="config-restart-banner" id="configRestartBanner" style="display:none;">
+    <i class="bi bi-arrow-repeat"></i>
+    <span>Restart Aperio for these changes to take effect.</span>
+  </div>
+  <div class="model-select-status config-status" id="configStatus"></div>
+  <div class="cg-panel-body" id="configSections"><span class="model-loading">Loading…</span></div>
+</div>
+<div id="config-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleConfigPanel()"></div>
+
 <!-- Settings panel -->
 <div id="settings-panel" class="settings-panel" style="display:none;">
   <div class="settings-panel-header">
@@ -664,6 +691,7 @@
 <script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/skills-panel.js"></script>
 <script src="scripts/github-triage-panel.js"></script>
+<script src="scripts/config-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
 <script src="scripts/chat.js"></script>
