@@ -4,10 +4,22 @@
     :root {
       --font-mono: "Berkeley Mono", "Fira Code", monospace;
       --font-sans: "DM Sans", system-ui, sans-serif;
-      /* Global font-size multiplier — every font-size is calc(Npx * var(--font-scale)).
-         User-adjustable via the Settings panel; persisted as "aperio-font-scale".
-         Type scale, content-vs-chrome rules & roadmap: see styles/TYPOGRAPHY.md. */
+      /* Global font-size multiplier — User-adjustable via the Settings panel;
+         persisted as "aperio-font-scale". */
       --font-scale: 1;
+      /* Semantic type scale (role tokens). Every font-size should reference one of
+         these rather than re-deriving calc(Npx * var(--font-scale)). Sizes outside
+         this scale (display headings, micro glyphs) stay as raw calc().
+           reading   16px — prose / message body / reading surfaces
+           secondary 15px — secondary reading text
+           ui        14px — primary UI text, inputs
+           chrome    13px — secondary / chrome labels
+           micro     12px — minimum floor; dense data grids, badges, hints */
+      --fs-reading:   calc(16px * var(--font-scale));
+      --fs-secondary: calc(15px * var(--font-scale));
+      --fs-ui:        calc(14px * var(--font-scale));
+      --fs-chrome:    calc(13px * var(--font-scale));
+      --fs-micro:     calc(12px * var(--font-scale));
       --radius: 10px;
       --radius-sm: 6px;
       --transition: 160ms ease;
@@ -133,7 +145,7 @@
       font-family: var(--font-sans);
       background: var(--bg);
       color: var(--text);
-      font-size: calc(16px * var(--font-scale));
+      font-size: var(--fs-reading);
       line-height: 1.6;
       background-image: radial-gradient(var(--dot-color) 1px, transparent 1px);
       background-size: 24px 24px;

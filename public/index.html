@@ -34,7 +34,7 @@
     </button>
     <div class="status-pill">
       <div class="status-dot" id="statusDot"></div>
-      <i class="bi bi-cpu" style="font-size: calc(12px * var(--font-scale));color:var(--text-muted)"></i>
+      <i class="bi bi-cpu" style="font-size: var(--fs-micro);color:var(--text-muted)"></i>
       <span id="statusText" data-i18n="status_connecting">connecting…</span>
       <span id="providerBadge" style="
         font-family:var(--font-mono); font-size: calc(11px * var(--font-scale)); font-weight:600;
@@ -74,7 +74,7 @@
     <div class="memories-list" id="memoriesList">
       <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
         <div style="font-size: calc(22px * var(--font-scale)); margin-bottom:8px; opacity:.4">◈</div>
-        <div style="font-size: calc(12px * var(--font-scale)); color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
+        <div style="font-size: var(--fs-micro); color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
       </div>
     </div>
     <nav class="sidebar-nav is-compact" id="sidebarNav">
@@ -181,7 +181,7 @@
           <span class="discuss-btn-label" data-i18n="discuss_button_label">Discuss</span>
         </button>
         <button class="send-btn" id="sendBtn" disabled title="Send (⌘ + ↵)">
-          <i class="bi bi-send-fill" style="font-size: calc(13px * var(--font-scale))"></i>
+          <i class="bi bi-send-fill" style="font-size: var(--fs-chrome)"></i>
         </button>
         <button class="stop-btn" id="stopBtn" data-i18n-attr-title="chat_stop_title" title="Stop generating">■</button>
       </div>

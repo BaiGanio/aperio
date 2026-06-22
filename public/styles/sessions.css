@@ -42,7 +42,7 @@
       cursor: pointer;
       color: var(--text-muted);
       font-family: var(--font-mono);
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       font-weight: 600;
       padding: 3px 8px;
       border-radius: var(--radius-sm);
@@ -65,7 +65,7 @@
     }
     .sessions-select-count {
       font-family: var(--font-mono);
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       color: var(--text-muted);
     }
     .session-btn--bulk-delete {
@@ -89,7 +89,7 @@
     }
     .sessions-panel-title {
       font-family: var(--font-mono);
-      font-size: calc(13px * var(--font-scale));
+      font-size: var(--fs-chrome);
       font-weight: 700;
       letter-spacing: 0.06em;
       text-transform: uppercase;
@@ -103,7 +103,7 @@
       border: none;
       cursor: pointer;
       color: var(--text-muted);
-      font-size: calc(14px * var(--font-scale));
+      font-size: var(--fs-ui);
       padding: 2px 4px;
       border-radius: var(--radius-sm);
       transition: color var(--transition);
@@ -120,7 +120,7 @@
     .sessions-empty {
       text-align: center;
       padding: 32px 16px;
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       color: var(--text-muted);
       line-height: 1.8;
     }
@@ -147,7 +147,7 @@
     .session-card-title-row:hover { background: var(--bg-hover); }
     .session-card-title {
       flex: 1;
-      font-size: calc(14px * var(--font-scale));
+      font-size: var(--fs-ui);
       font-weight: 600;
       color: var(--text);
       white-space: nowrap;
@@ -155,7 +155,7 @@
       text-overflow: ellipsis;
     }
     .session-card-chevron {
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       color: var(--text-muted);
       flex-shrink: 0;
       transition: transform .15s ease;
@@ -168,7 +168,7 @@
     }
     .session-card-meta {
       font-family: var(--font-mono);
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       color: var(--text-muted);
       margin-bottom: 6px;
     }
@@ -176,7 +176,7 @@
       display: flex;
       gap: 10px;
       font-family: var(--font-mono);
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       color: var(--text-muted);
       align-items: center;
       margin-bottom: 8px;
@@ -187,7 +187,7 @@
       color: var(--tag-text);
       padding: 1px 6px;
       border-radius: 8px;
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       font-weight: 600;
       white-space: nowrap;
       overflow: hidden;
@@ -207,7 +207,7 @@
       background: var(--bg-hover);
       color: var(--text-muted);
       font-family: var(--font-mono);
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       font-weight: 600;
       cursor: pointer;
       transition: all var(--transition);
@@ -247,16 +247,16 @@
       gap: 10px;
     }
     .session-no-summaries {
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       color: var(--text-muted);
       font-style: italic;
     }
     .session-summary {
-      font-size: calc(13px * var(--font-scale));
+      font-size: var(--fs-chrome);
     }
     .session-summary-meta {
       font-family: var(--font-mono);
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       color: var(--text-muted);
       margin-bottom: 4px;
     }
@@ -284,7 +284,7 @@
       background: var(--bg-panel);
       color: var(--text-muted);
       font-family: var(--font-mono);
-      font-size: calc(12px * var(--font-scale));
+      font-size: var(--fs-micro);
       font-weight: 600;
       cursor: pointer;
       display: flex;
