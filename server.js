@@ -647,15 +647,28 @@ async function bootApp() {
     // 5. Dispose the ONNX inference session — releases its thread pool so the
     //    global destructor sequence won't try to lock already-destroyed mutexes.
     await disposeEmbeddings();
-    // Give the ONNX thread pool a tick to finish its own cleanup before the
-    // C++ global destructors run. Without this yield the mutex is still locked
-    // when process.exit() tears down native memory → "mutex lock failed".
-    await new Promise(r => setTimeout(r, 150));
 
     // 6. Close the DB connection.
     await store.close?.();
 
-    process.exit(0);
+    // 7. Flush and close the winston logger. Its DailyRotateFile transport holds
+    //    a rotation timer that would otherwise keep the event loop alive.
+    await new Promise(resolve => logger.end(resolve));
+
+    // Instead of calling process.exit(), let Node exit by draining the event
+    // loop. This lets each native addon (ONNX, better-sqlite3, sqlite-vec,
+    // sharp) run its own AtExit hook in a controlled order before the C++
+    // static destructors fire — avoiding the "mutex lock failed: Invalid
+    // argument" crash that process.exit() causes when destructors race.
+    //
+    // Safety net: if the process is still alive after 10 s (something is
+    // holding the loop), force-exit. The timer is unref()'d so it doesn't
+    // itself keep the loop alive.
+    const forceExit = setTimeout(() => {
+      process.exitCode = 0;
+      process.exit(0);
+    }, 10_000);
+    forceExit.unref();
   }
   process.on("SIGTERM", gracefulShutdown);
   process.on("SIGINT",  gracefulShutdown);
