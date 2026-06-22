@@ -264,8 +264,10 @@
 .config-status { padding: 4px 16px 0; min-height: 0; }
 .config-status:empty { display: none; }
 
-/* Search filter hides non-matching fields / empty sections. */
-.config-field.is-hidden, .config-subsection.is-hidden { display: none; }
+/* Search filter hides non-matching fields / empty sections; provider reveal
+   hides the keys/models of providers other than the one selected. */
+.config-field.is-hidden, .config-subsection.is-hidden,
+.config-field.is-provider-hidden { display: none; }
 
 /* Restart-required banner shown after any successful save. */
 .config-restart-banner {
@@ -314,4 +316,10 @@
   color: var(--text-muted);
   word-break: break-all;
 }
-.config-field-help { margin-top: 0; }
+/* Help moved to a hover tooltip on this info icon (native title). */
+.config-field-info {
+  font-size: calc(12px * var(--font-scale));
+  color: var(--text-muted);
+  cursor: help;
+}
+.config-field-info:hover, .config-field-info:focus { color: var(--accent); outline: none; }
