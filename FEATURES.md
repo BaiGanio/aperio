@@ -44,6 +44,17 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 - List indexed doc repos with counts + last-indexed (`doc_repos`)
 - Backends: Postgres and SQLite
 
+## Databases
+- Generic SQL client over named connections — the user's own SQLite / Postgres / MySQL / SQL Server databases **and** Aperio's internal store (the built-in `aperio` connection, read-only)
+- List connections without leaking secrets (`db_connections`)
+- Introspect tables, columns, indexes, foreign keys (`db_schema`)
+- Read path — one read statement, server-side row cap (`db_query`); rejects writes/DDL and multi-statement batches
+- Write/DDL path — two-phase confirm-before-write (`db_execute`); rejects reads, multi-statement batches, and read-only connections
+- Statement classifier strips comments, rejects multi-statement batches, and escalates data-modifying CTEs/`EXPLAIN ANALYZE` off the free read path
+- Read-only by default; reads enforced at the connection level (read-only handle / READ ONLY transaction) as defense in depth; parameters always bound, never interpolated
+- Connections configured in **Settings → Database connections** (or `DB_CONNECTIONS` headless seed); passwords field-encrypted at rest (`var/db-connect.key`) and never returned to the browser
+- Engines: SQLite, Postgres, MySQL (`mysql2`) and SQL Server (`mssql`) all bundled; the MySQL/SQL Server drivers still import lazily so they only load when used. SQL Server read-only is enforced at the tool level (its row cap uses result streaming, not a TOP/subquery wrapper)
+
 ## Files & Documents
 - Read text/code file, paginated, 500 lines/call (`read_file`)
 - Create/overwrite, write-path guarded (`write_file`)
@@ -77,7 +88,7 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 - Update / close an existing issue (`update_github_issue`)
 - Daily issue-triage background job (`issue-triage`) + on-demand planner (`issue-planner`), both seeded **disabled** and repo-less; real-time capture via the GitHub webhook (`POST /api/github/webhook`, HMAC-verified with `GITHUB_WEBHOOK_SECRET`). Triage is read-only (no token for public repos) and treats issue text as untrusted data
 
-> **46 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
+> **50 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)

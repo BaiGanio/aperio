@@ -20,6 +20,7 @@ import { register as registerCodegraph } from "./tools/codegraph.js";
 import { register as registerDocgraph }  from "./tools/docgraph.js";
 import { register as registerGithub }    from "./tools/github.js";
 import { register as registerData }     from "./tools/data.js";
+import { register as registerDatabase } from "./tools/database.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, "../.env") });
@@ -78,6 +79,7 @@ export async function startServer(opts = {}) {
   registerDocgraph(server, ctx);
   registerGithub(server, ctx);
   registerData(server, ctx);
+  registerDatabase(server, ctx);
 
   // 4. Connect transport
   const transport = opts.transport || new StdioServerTransport();

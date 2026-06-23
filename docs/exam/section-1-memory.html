@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aperio | §1 Memory Tools — Capability Exam</title>
+<meta name="description" content="§1 of the Aperio Capability Exam — 10 memory tool drills: remember, recall (semantic / by-type / by-tag / temporal), update_memory, forget, deduplicate_memories, backfill_embeddings, TTL." />
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" /><link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+<style>
+  .drill-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .drill-row:last-child{border-bottom:none}
+  .drill-num{font-family:var(--font-mono);font-size:.75rem;font-weight:600;color:var(--purple);min-width:44px;padding-top:4px}
+  .drill-body{flex:1;min-width:260px}
+  .drill-body .mg-prompt{margin:4px 0 6px;font-size:.82rem;padding:10px 14px}
+  .drill-expect{font-size:.82rem;opacity:.75;margin-bottom:6px}
+  .drill-expect code{background:rgba(168,85,247,.12);color:var(--purple);padding:1px 5px;font-family:'Berkeley Mono',monospace;font-size:.8rem}
+  .back-link{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-ui);font-size:.8rem;color:var(--purple);text-decoration:none;margin-top:12px}
+  .back-link:hover{text-decoration:underline}
+  @media print{body{background:#fff;color:#000;font-size:12px}.orb,.aperio-nav,.theme-switcher,.nav-toggle,footer,.back-link,.rbtn,.test-result{display:none!important}h1,h2{color:#000!important}.mg-prompt{border:1px solid #ccc!important;background:#fff!important}.drill-row{border-color:#ccc!important}@page{margin:1.5cm}}
+</style></head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<nav class="aperio-nav"><div class="nav-inner"><a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a><button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button><ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="capability-exam.html">Exam Hub</a></li><li><a href="#drills">Drills</a></li><li><a href="../evaluate/index.html">All Suites</a></li></ul><div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div></div></nav>
+
+<section class="section" id="mt-top" style="padding:120px 0 30px"><div class="section-inner"><a href="capability-exam.html" class="mt-back reveal">← Exam Hub</a><div class="eyebrow reveal" style="margin-top:14px">§1 of the Capability Exam</div><h1 class="section-heading reveal">Memory Tools</h1><p class="lead-text reveal">10 drills covering remember, recall (semantic / by-type / by-tag / temporal), update_memory, forget, deduplicate_memories, backfill_embeddings, and remember with TTL. Requires §0 fixture import to be complete.</p></div></section>
+
+<section class="section" id="drills" style="padding:10px 0 60px"><div class="section-inner">
+<div class="note-box reveal"><strong>Prerequisite:</strong> §0 fixture import must return 28 memories tagged <code>aperio-exam</code>. Wait ~10s after import before running semantic recall drills (1.2).</div>
+
+<div class="test-card reveal" id="card">
+  <span class="test-label">Section 1</span><h3>Memory Tools — 10 Drills</h3>
+  <p class="test-probes">Paste each prompt into Aperio's chat. Click Pass when the right tool fires and the result matches the ✅ expected outcome. Scores save automatically.</p>
+
+  <!-- 1.1 remember -->
+  <div class="drill-row"><span class="drill-num">1.1</span><div class="drill-body"><strong>remember</strong><div class="mg-prompt">Remember that Maya is allergic to shellfish — flag it whenever restaurants come up.</div><div class="drill-expect">✅ <code>remember</code> fires; a new <code>fact</code>/<code>preference</code> memory is saved and shown in the sidebar.</div></div><div class="test-result" data-test="1-1"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+  <!-- 1.2 recall semantic -->
+  <div class="drill-row"><span class="drill-num">1.2</span><div class="drill-body"><strong>recall — semantic</strong><div class="mg-prompt">What event bus does the Nimbus service use, and why did we pick it?</div><div class="drill-expect">✅ <code>recall</code> (semantic) returns the "Nimbus uses NATS for events, not Kafka" decision; answer cites the NATS-over-Kafka rationale.</div></div><div class="test-result" data-test="1-2"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+  <!-- 1.3 recall by type -->
+  <div class="drill-row"><span class="drill-num">1.3</span><div class="drill-body"><strong>recall — by type</strong><div class="mg-prompt">List every architecture decision we've recorded about Nimbus.</div><div class="drill-expect">✅ <code>recall</code> with <code>type: decision</code>; returns the NATS, Postgres+Redis, Fly.io, and SLO decisions.</div></div><div class="test-result" data-test="1-3"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+  <!-- 1.4 recall by tag -->
+  <div class="drill-row"><span class="drill-num">1.4</span><div class="drill-body"><strong>recall — by tag</strong><div class="mg-prompt">Show me everything tagged "redis".</div><div class="drill-expect">✅ <code>recall</code> filtered by tag <code>redis</code>; returns the Postgres+Redis decision and the Redis connection-storm solution.</div></div><div class="test-result" data-test="1-4"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+  <!-- 1.5 update_memory -->
+  <div class="drill-row"><span class="drill-num">1.5</span><div class="drill-body"><strong>update_memory</strong><div class="mg-prompt">Update Maya's coffee preference: she switched to a cortado with oat milk, still no sugar.</div><div class="drill-expect">✅ <code>recall</code> then <code>update_memory</code> on the coffee preference; a new version is created and the old one tombstoned.</div></div><div class="test-result" data-test="1-5"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+  <!-- 1.6 deduplicate_memories -->
+  <div class="drill-row"><span class="drill-num">1.6</span><div class="drill-body"><strong>deduplicate_memories</strong><div class="mg-prompt">Find near-duplicate memories and show me what would be merged, but don't merge yet.</div><div class="drill-expect">✅ <code>deduplicate_memories</code> with <code>dry_run:true</code>; flags the two tab-indentation preferences (duplicate-probe pair) as near-duplicates.</div></div><div class="test-result" data-test="1-6"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+  <!-- 1.7 forget -->
+  <div class="drill-row"><span class="drill-num">1.7</span><div class="drill-body"><strong>forget</strong><div class="mg-prompt">Delete the memory about Maya's coffee order — it's not useful anymore.</div><div class="drill-expect">✅ <code>recall</code> then <code>forget</code> by id; the coffee memory disappears from the sidebar.</div></div><div class="test-result" data-test="1-7"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+  <!-- 1.8 backfill_embeddings -->
+  <div class="drill-row"><span class="drill-num">1.8</span><div class="drill-body"><strong>backfill_embeddings</strong><div class="mg-prompt">Some memories may be missing embeddings — generate any that are missing.</div><div class="drill-expect">✅ <code>backfill_embeddings</code> runs and reports how many were generated (often 0 if §0 already backfilled).</div></div><div class="test-result" data-test="1-8"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+  <!-- 1.9 temporal recall -->
+  <div class="drill-row"><span class="drill-num">1.9</span><div class="drill-body"><strong>temporal recall — as_of</strong><div class="mg-prompt">After updating Maya's coffee preference in §1.5, show me what her coffee preference was before the update. Use temporal recall (as_of) to look back.</div><div class="drill-expect">✅ <code>recall</code> with <code>as_of</code> parameter; returns the original oat-milk-flat-white preference (the tombstoned row), not the cortado.</div></div><div class="test-result" data-test="1-9"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+  <!-- 1.10 remember with TTL -->
+  <div class="drill-row"><span class="drill-num">1.10</span><div class="drill-body"><strong>remember with TTL</strong><div class="mg-prompt">Remember that the Nimbus team has an all-hands offsite next Friday — it should expire in 7 days.</div><div class="drill-expect">✅ <code>remember</code> with a valid <code>expires_at</code> (≥1 hour in the future); the memory is saved with a TTL.</div></div><div class="test-result" data-test="1-10"><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+</div>
+
+<a class="back-link reveal" href="capability-exam.html#scorecard"><i class="bi bi-arrow-left"></i> Back to Exam Hub &amp; Scorecard</a>
+</div></section>
+
+<footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="../scripts.js"></script>
+<script>
+(function(){
+const SEC=1,MAX=10;
+function save(d,v){localStorage.setItem('exam-s'+SEC+'-d'+d,v)}
+function restore(){document.querySelectorAll('.drill-row .rbtn').forEach(b=>{let test=b.closest('.drill-row').querySelector('.test-result').dataset.test.split('-')[1];let v=localStorage.getItem('exam-s'+SEC+'-d'+test);if(v){let card=b.closest('.drill-row'),btns=card.querySelectorAll('.rbtn');btns.forEach(x=>{x.className='rbtn rbtn-'+x.dataset.value});b.classList.add(v==='pass'?'active-pass':v==='fail'?'active-fail':'active-na')}})}
+document.querySelectorAll('.drill-row .rbtn').forEach(b=>{b.addEventListener('click',function(){
+  let val=this.dataset.value,row=this.closest('.drill-row'),btns=row.querySelectorAll('.rbtn'),test=row.querySelector('.test-result').dataset.test.split('-')[1];
+  btns.forEach(x=>{x.className='rbtn rbtn-'+x.dataset.value});
+  if(val==='pass'){this.classList.add('active-pass');save(test,'pass')}
+  else if(val==='fail'){this.classList.add('active-fail');save(test,'fail')}
+  else{this.classList.add('active-na');save(test,'na')}
+})});
+restore();
+})();
+</script>
+</body></html>
