@@ -33,11 +33,12 @@ describe("config-resolver", () => {
     assert.ok(!EDITABLE_KEYS.includes(T0), "Tier-0 must not be editable");
   });
 
-  test("DB value wins over a real .env value", async () => {
+  test("default precedence is env: a real .env value wins over the DB value", async () => {
+    delete process.env.APERIO_CONFIG_PRECEDENCE;
     process.env[T1] = "from-env";
     const applied = await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "from-db" }));
-    assert.equal(process.env[T1], "from-db");
-    assert.deepEqual(applied, [T1]);
+    assert.equal(process.env[T1], "from-env");
+    assert.deepEqual(applied, []);          // env kept, DB not injected
   });
 
   test("env value is kept when DB has none", async () => {
@@ -108,11 +109,32 @@ describe("config-resolver", () => {
     });
   });
 
-  test("default precedence (db) still lets DB win", async () => {
-    delete process.env.APERIO_CONFIG_PRECEDENCE;
+  test("explicit APERIO_CONFIG_PRECEDENCE=db lets DB win over a real .env value", async () => {
+    process.env.APERIO_CONFIG_PRECEDENCE = "db";
     process.env[T1] = "from-env";
     await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "from-db" }));
     assert.equal(process.env[T1], "from-db");
+  });
+
+  test("precedence saved in the DB (UI flip to db) makes DB win without an env var", async () => {
+    delete process.env.APERIO_CONFIG_PRECEDENCE;     // not forced from .env
+    process.env[T1] = "from-env";
+    await applyConfigToEnv(storeWith({
+      [configSettingKey("APERIO_CONFIG_PRECEDENCE")]: "db",
+      [configSettingKey(T1)]: "from-db",
+    }));
+    assert.equal(process.env[T1], "from-db");
+    assert.equal(process.env.APERIO_CONFIG_PRECEDENCE, "db");  // pinned for other consumers
+  });
+
+  test("an env var still overrides DB-saved precedence (.env can force it)", async () => {
+    process.env.APERIO_CONFIG_PRECEDENCE = "env";     // .env forces env-wins
+    process.env[T1] = "from-env";
+    await applyConfigToEnv(storeWith({
+      [configSettingKey("APERIO_CONFIG_PRECEDENCE")]: "db",   // UI said db…
+      [configSettingKey(T1)]: "from-db",
+    }));
+    assert.equal(process.env[T1], "from-env");        // …but .env wins
   });
 
   test("missing / brokenstore is a safe no-op", async () => {
