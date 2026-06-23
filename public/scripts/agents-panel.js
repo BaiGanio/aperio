@@ -91,11 +91,11 @@
         body: JSON.stringify({ enabled: next }),
       });
       const d = await res.json().catch(() => ({}));
-      if (!res.ok) { alert(`Error: ${d.error || res.statusText}`); return; }
+      if (!res.ok) { showErrorModal(`Error: ${d.error || res.statusText}`); return; }
       _enabled = !!d.enabled;
       loadJobs();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      showErrorModal(`Error: ${err.message}`);
     }
   }
 

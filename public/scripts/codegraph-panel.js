@@ -122,11 +122,11 @@
         body: JSON.stringify({ path: rootPath }),
       });
       const d = await r.json();
-      if (!r.ok) { alert(`Error: ${d.error}`); return; }
+      if (!r.ok) { showErrorModal(`Error: ${d.error}`); return; }
       await loadRepos();
       renderRepos();
     } catch (err) {
-      alert(`Error: ${err.message}`);
+      showErrorModal(`Error: ${err.message}`);
     }
   }
 

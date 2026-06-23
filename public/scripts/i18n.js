@@ -300,7 +300,7 @@ const TRANSLATIONS = {
     setup_detail_waiting:     "Waiting…",
 
     wiz_welcome_h1:           "Welcome to Aperio",
-    wiz_welcome_p_html:       "How would you like to run the AI? You can change this later in <code>.env</code>.",
+    wiz_welcome_p_html:       "How would you like to run the AI? You can change this later in <strong>Configuration</strong> panel.",
     wiz_cloud_title:          "Use a cloud AI",
     wiz_cloud_sub:            "Fastest to start — just paste one API key. (Anthropic or DeepSeek)",
     wiz_local_title:          "Run locally — free & private",
@@ -319,7 +319,7 @@ const TRANSLATIONS = {
     wiz_download:             "(~{n} GB download)",
     wiz_disk_warn:            "⚠ Low on disk — the download may not fit.",
     wiz_specs_unknown:        "unknown",
-    wiz_specs_failed:         "Couldn't read machine specs — you can still continue with a small model.",
+    wiz_specs_failed:         "Couldn't detect your hardware — we'll set you up with {model}, a small model that runs almost anywhere. You can change this later.",
     wiz_submit_failed:        "Setup failed — please try again.",
     wiz_network_failed:       "Couldn't reach the server — please try again.",
   },

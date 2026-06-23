@@ -144,29 +144,24 @@ describe("agent.js - core", () => {
 // ---------------------------------------------------------------------------
 
 describe("RAM-based model selection", () => {
-  test("selects deepseek-r1:32 for 64 GB+ RAM", () => {
+  test("selects qwen3:30b-a3b for 48 GB+ RAM", () => {
     mock.method(os, "totalmem", () => 64 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "deepseek-r1:32");
+    assert.strictEqual(getRecommendedModel(), "qwen3:30b-a3b");
   });
 
-  test("selects qwen3:14b for 30-60 GB RAM", () => {
-    mock.method(os, "totalmem", () => 30 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "qwen3:14b");
+  test("selects gemma4:12b for 24-48 GB RAM", () => {
+    mock.method(os, "totalmem", () => 32 * 1024 ** 3);
+    assert.strictEqual(getRecommendedModel(), "gemma4:12b");
   });
 
-  test("selects llama3.1:8b for 14-30 GB RAM", () => {
-    mock.method(os, "totalmem", () => 14 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "llama3.1:8b");
+  test("selects gemma4:e4b for 8-24 GB RAM (most capable that fits low hardware)", () => {
+    mock.method(os, "totalmem", () => 16 * 1024 ** 3);
+    assert.strictEqual(getRecommendedModel(), "gemma4:e4b");
   });
 
-  test("selects qwen3:4b for 8-14 GB RAM", () => {
-    mock.method(os, "totalmem", () => 8 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "qwen3:4b");
-  });
-
-  test("selects qwen3:8b for low RAM (<8 GB)", () => {
+  test("selects qwen2.5:3b for low RAM (<8 GB) — low budget, runs anywhere", () => {
     mock.method(os, "totalmem", () => 4 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "qwen3:8b");
+    assert.strictEqual(getRecommendedModel(), "qwen2.5:3b");
   });
 });
 
@@ -207,7 +202,7 @@ describe("Provider resolution", () => {
     process.env.CHECK_RAM = "true";
     mock.method(os, "totalmem", () => 16 * 1024 ** 3);
     const p = resolveProvider();
-    assert.strictEqual(p.model, "llama3.1:8b");
+    assert.strictEqual(p.model, "gemma4:e4b");
   });
 
   test("uses default llama3.1 when no OLLAMA_MODEL and CHECK_RAM false", () => {

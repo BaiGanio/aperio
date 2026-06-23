@@ -264,7 +264,7 @@ app.post("/api/setup/config", setupLimiter, async (req, res) => {
       await bootApp();
     });
     runBootstrap({
-      model: model || process.env.OLLAMA_MODEL || "qwen3:4b",
+      model: model || process.env.OLLAMA_MODEL || "qwen2.5:3b",
       skipOllama: String(provider).toLowerCase() !== "ollama",
     });
 
@@ -343,7 +343,7 @@ httpServer.listen(PORT, HOST, async () => {
     bootstrapStarted = true;
     bootstrapEvents.once("complete", async () => { await bootApp(); });
     runBootstrap({
-      model: process.env.OLLAMA_MODEL ?? "qwen3:4b",
+      model: process.env.OLLAMA_MODEL ?? "qwen2.5:3b",
       skipOllama: (process.env.AI_PROVIDER ?? "").toLowerCase() !== "ollama",
     });
     openBrowser(`${scheme}://localhost:${PORT}/setup`);

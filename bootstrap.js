@@ -124,7 +124,7 @@ const checkOllama = async () => {
   }
 };
 
-const checkModel = async (model = 'gemma4:4b') => {
+const checkModel = async (model = 'qwen2.5:3b') => {
   setStep('model', 'running', `Checking for ${model}…`);
   try {
     const list = execSync('ollama list', { encoding: 'utf8' });
@@ -154,7 +154,7 @@ const checkSqlite = async () => {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-export const runBootstrap = async ({ model = 'gemma4:4b', skipOllama = false } = {}) => {
+export const runBootstrap = async ({ model = 'qwen2.5:3b', skipOllama = false } = {}) => {
   logger('=== Bootstrap starting ===');
   bootstrapEvents.emit('start');
 

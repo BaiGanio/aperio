@@ -206,6 +206,9 @@ window.searchInput.addEventListener("input", () => {
 function showConfirmModal(title, message, okLabel, onOk) {
   const modal = document.getElementById('confirmModal');
   if (!modal) return;
+  // Ensure Cancel button is visible (may have been hidden by showErrorModal).
+  const cancelBtn = modal.querySelector('.confirm-btn--cancel');
+  if (cancelBtn) cancelBtn.style.display = '';
   document.getElementById('confirmOkBtn').onclick = null;
   modal.querySelector('.confirm-title').textContent = title;
   modal.querySelector('.confirm-message').textContent = message;
@@ -221,6 +224,22 @@ function showConfirmModal(title, message, okLabel, onOk) {
 function closeConfirmModal() {
   const modal = document.getElementById('confirmModal');
   if (modal) modal.classList.remove('active');
+}
+
+// Thin error-modal wrapper — reuses the confirm-modal with a single Close button.
+function showErrorModal(msg) {
+  const modal = document.getElementById('confirmModal');
+  if (!modal) return;
+  const cancelBtn = modal.querySelector('.confirm-btn--cancel');
+  if (cancelBtn) cancelBtn.style.display = 'none';
+  modal.querySelector('.confirm-title').textContent = 'Error';
+  modal.querySelector('.confirm-message').textContent = msg;
+  const okBtn = document.getElementById('confirmOkBtn');
+  if (okBtn) {
+    okBtn.textContent = 'Close';
+    okBtn.onclick = () => closeConfirmModal();
+  }
+  modal.classList.add('active');
 }
 
 document.addEventListener('keydown', (e) => {
@@ -297,7 +316,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     if (!res.ok) throw new Error(payload.error || "Export failed");
     showExportModal(payload);
   } catch (err) {
-    alert(t("export_error", { error: err.message }));
+    showErrorModal(t("export_error", { error: err.message }));
   }
 });
 
@@ -316,7 +335,7 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
     const text = await file.text();
     payload = JSON.parse(text);
   } catch {
-    alert(t("import_parse_failed"));
+    showErrorModal(t("import_parse_failed"));
     return;
   }
 
@@ -324,7 +343,7 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
   const memories = payload.memories ?? (Array.isArray(payload) ? payload : null);
   const wiki = payload.wiki_articles ?? [];
   if (!Array.isArray(memories) || memories.length === 0) {
-    alert(t("import_invalid_array"));
+    showErrorModal(t("import_invalid_array"));
     return;
   }
 
@@ -352,7 +371,7 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
     if (skipped.memories > 0 || skipped.wiki > 0) {
       parts.push(t("import_skipped", { m: skipped.memories || 0, w: skipped.wiki || 0 }));
     }
-    alert(parts.join("\n"));
+    showConfirmModal("Import complete", parts.join("\n"), "OK");
 
     if ((imported.memories || 0) > 0) {
       try {
@@ -364,7 +383,7 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
       }
     }
     } catch (err) {
-      alert(t("import_error", { error: err.message }));
+      showErrorModal(t("import_error", { error: err.message }));
     }
   });
 });
