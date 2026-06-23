@@ -478,6 +478,10 @@
   </div>
   <div class="cg-panel-toolbar">
     <input type="text" id="cfgSearchInput" class="cg-search-input" placeholder="Search settings…" />
+    <button id="cfgRestartBtn" class="cfg-restart-toolbar-btn" onclick="requestRestartAperio()"
+            title="Restart Aperio now">
+      <i class="bi bi-power"></i> Restart server
+    </button>
     <button id="cfgSaveBtn" class="sk-new-btn" onclick="saveConfigSettings()"><i class="bi bi-check-lg"></i> Save</button>
   </div>
   <div class="config-precedence-notice" id="configPrecedenceNotice" style="display:none;">
