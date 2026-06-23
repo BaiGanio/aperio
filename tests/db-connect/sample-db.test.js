@@ -6,7 +6,7 @@
 // from better-sqlite3 is replaced by patching require.cache before dynamically
 // importing the module under test.
 
-import { describe, test, before, after } from "node:test";
+import { describe, test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { mock } from "node:test";
@@ -108,6 +108,13 @@ before(async () => {
 
   sampleDbMod = await import("../../lib/db-connect/sample-db.js");
 });
+
+// The collector persists across the whole file, but each test that calls
+// createSampleDatabase appends another full seed run. Reset per test so
+// collector._runs reflects exactly one seed (otherwise counts accumulate:
+// e.g. 3 seed runs ⇒ 42 customer inserts, masked only because the count
+// assertions dedupe IDs via Set).
+beforeEach(() => collector._reset());
 
 after(() => {
   delete process.env.SQLITE_PATH;
