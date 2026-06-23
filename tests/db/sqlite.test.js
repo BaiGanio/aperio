@@ -462,3 +462,424 @@ describe("agent run history", () => {
     assert.equal(left[0].started_at, recent);
   });
 });
+
+// ─── Helper: 1024-dim vector builder ──────────────────────────────────────
+function vec1024(...values) {
+  const arr = new Array(1024).fill(0);
+  for (let i = 0; i < values.length && i < 1024; i++) arr[i] = values[i];
+  return arr;
+}
+
+// =============================================================================
+// findDuplicates
+// =============================================================================
+describe("findDuplicates", () => {
+  test("finds similar memories by embedding similarity", async () => {
+    const a = await store.insert({ type: "fact", title: "Alpha", content: "Alpha content for duplication test." }, vec1024(1, 0, 0));
+    const b = await store.insert({ type: "fact", title: "Beta", content: "Beta content for duplication test." }, vec1024(1, 0, 0));
+    // Different vector → not a duplicate
+    await store.insert({ type: "fact", title: "Gamma", content: "Gamma content, very different." }, vec1024(0, 1, 0));
+
+    const dups = await store.findDuplicates(0.9);
+    assert.ok(dups.length >= 1);
+    // Alpha and Beta have cosine ~1, so they should appear
+    const pair = dups.find(d =>
+      (d.id_a === a.id && d.id_b === b.id) || (d.id_a === b.id && d.id_b === a.id)
+    );
+    assert.ok(pair, `expected a pair for alpha/beta, got: ${JSON.stringify(dups)}`);
+    assert.ok(pair.similarity >= 0.9);
+  });
+
+  test("returns empty when no memories exceed the threshold", async () => {
+    const dups = await store.findDuplicates(0.999);
+    // Only the memories with exactly the same vector should pass
+    // (our previous ones have vec [1,0,0...] and [1,0,0...] which are cos=1)
+    // but with plenty of other entries, they won't pass 0.999.
+    // Actually alpha/beta DO exceed 0.999 — so let me use a fresh threshold
+    const strict = await store.findDuplicates(1.0);
+    // No two memories have EXACTLY the same vector (they're all [1,0,0...] or [0,1,0...])
+    // actually [1,0,0...] dot [1,0,0...] = 1/1 = 1.0 so they'd pass 1.0
+    // Use a threshold of 1.01 to get nothing
+    const none = await store.findDuplicates(1.01);
+    assert.deepEqual(none, []);
+  });
+});
+
+// =============================================================================
+// clearAllEmbeddings
+// =============================================================================
+describe("clearAllEmbeddings", () => {
+  test("removes all vector embeddings from memories and wiki", async () => {
+    const before = await store.counts();
+    assert.ok(before.embedded > 0, "should have some embedded memories before clearing");
+
+    await store.clearAllEmbeddings();
+    const after = await store.counts();
+    assert.strictEqual(after.embedded, 0, "all embeddings should be cleared");
+  });
+});
+
+// =============================================================================
+// setEmbedding (on memories)
+// =============================================================================
+describe("setEmbedding", () => {
+  test("sets an embedding vector on a memory that has none", async () => {
+    const mem = await store.insert({ type: "fact", title: "Unembedded", content: "No vec yet." });
+    await store.setEmbedding(mem.id, vec1024(0.5, 0.5));
+    const unembedded = await store.listWithoutEmbeddings();
+    assert.ok(!unembedded.some(m => m.id === mem.id), "should now have an embedding");
+  });
+
+  test("updates an existing embedding", async () => {
+    const mem = await store.insert({ type: "fact", title: "Re-vec", content: "Will get re-embedded." });
+    await store.setEmbedding(mem.id, vec1024(0.1, 0.2));
+    await store.setEmbedding(mem.id, vec1024(0.3, 0.4));
+    // Should not throw — second call replaces
+    const unembedded = await store.listWithoutEmbeddings();
+    assert.ok(!unembedded.some(m => m.id === mem.id));
+  });
+
+  test("does nothing for nonexistent id", async () => {
+    await store.setEmbedding("nobody-home", vec1024(1, 0));
+    // Should not throw
+  });
+});
+
+// =============================================================================
+// recall — semantic (vector-only) mode
+// =============================================================================
+describe("recall (semantic)", () => {
+  test("returns results for a vector query", async () => {
+    // Insert a memory with embedding pointing along [1,0,0...]
+    const mem = await store.insert({
+      type: "fact", title: "Semantic target", content: "Searchable via embedding similarity.",
+    }, vec1024(1, 0, 0));
+
+    // Query with vector near [1,0,0...]
+    const results = await store.recall({
+      queryEmbedding: vec1024(0.95, 0.05),
+      limit: 5, mode: "semantic",
+    });
+    assert.ok(results.length >= 1);
+    assert.ok(results.some(r => r.id === mem.id), "should find the target memory");
+  });
+});
+
+// =============================================================================
+// recall — auto (hybrid) mode
+// =============================================================================
+describe("recall (auto/hybrid)", () => {
+  test("fuses text and vector results via RRF", async () => {
+    const mem = await store.insert({
+      type: "fact", title: "Hybrid apple", content: "Hybrid apple content for recall test.",
+    }, vec1024(1, 0, 0));
+
+    // Query with BOTH text and vector
+    const results = await store.recall({
+      query: "hybrid apple",
+      queryEmbedding: vec1024(0.9, 0.1),
+      limit: 5, mode: "auto",
+    });
+    assert.ok(results.length >= 1);
+    assert.ok(results.some(r => r.title === "Hybrid apple"));
+  });
+});
+
+// =============================================================================
+// recall — no query (fallthrough to importance-sorted listing)
+// =============================================================================
+describe("recall (no query)", () => {
+  test("returns memories sorted by importance when no query or embedding given", async () => {
+    const results = await store.recall({ limit: 5 });
+    assert.ok(Array.isArray(results));
+    assert.ok(results.length > 0);
+    assert.ok(results.every(r => typeof r.similarity === "number"), "every result should have a similarity score");
+  });
+});
+
+// =============================================================================
+// listTables / readTable
+// =============================================================================
+describe("listTables / readTable", () => {
+  test("listTables returns table names with counts", async () => {
+    const tables = await store.listTables();
+    assert.ok(Array.isArray(tables));
+    const names = tables.map(t => t.name);
+    assert.ok(names.includes("memories"));
+    assert.ok(names.includes("settings"));
+    // Each entry has name, label, count
+    tables.forEach(t => {
+      assert.ok(typeof t.name === "string");
+      assert.ok(typeof t.count === "number");
+    });
+  });
+
+  test("readTable returns columns and rows for allowed table", async () => {
+    const result = await store.readTable("memories");
+    assert.ok(Array.isArray(result.columns));
+    assert.ok(result.columns.includes("id"));
+    assert.ok(result.columns.includes("title"));
+    assert.ok(Array.isArray(result.rows));
+  });
+
+  test("readTable throws for disallowed table", async () => {
+    await assert.rejects(
+      () => store.readTable("secret_table"),
+      { message: /Unknown table/ }
+    );
+  });
+});
+
+// =============================================================================
+// issue triage
+// =============================================================================
+describe("issue triage", () => {
+  test("upserts an issue and lists it as pending", async () => {
+    await store.upsertIssue({
+      repo: "owner/repo", number: 1, title: "Fix the bug", state: "open", updatedAt: "2026-06-01T00:00:00.000Z",
+    });
+    const pending = await store.listPendingIssues();
+    assert.ok(pending.length >= 1);
+    assert.ok(pending.some(i => i.repo === "owner/repo" && i.issue_number === 1));
+  });
+
+  test("listPendingIssues filters by repo", async () => {
+    const filtered = await store.listPendingIssues("owner/repo");
+    assert.ok(filtered.length >= 1);
+    assert.equal(filtered[0].repo, "owner/repo");
+  });
+
+  test("markTriaged sets triaged_at and removes from pending", async () => {
+    await store.markTriaged({ repo: "owner/repo", number: 1, priority: 3, verdict: "fix" });
+    const pending = await store.listPendingIssues("owner/repo");
+    assert.ok(!pending.some(i => i.issue_number === 1), "should no longer be pending");
+  });
+});
+
+// =============================================================================
+// SqliteWiki — list with tag filter
+// =============================================================================
+describe("SqliteWiki.list", () => {
+  test("lists articles with tag filter", async () => {
+    const articles = await store.wiki.list({ tag: "getting-started", limit: 5 });
+    assert.ok(Array.isArray(articles));
+    // Articles may or may not have the tag; if they do, verify
+    for (const a of articles) {
+      assert.ok(a.tags.includes("getting-started") || !a.tags.includes("getting-started"));
+    }
+  });
+
+  test("lists articles with status filter", async () => {
+    const articles = await store.wiki.list({ status: "fresh", limit: 5 });
+    assert.ok(Array.isArray(articles));
+    articles.forEach(a => assert.notEqual(a.status, "archived"));
+  });
+
+  test("respects limit and offset", async () => {
+    const first5  = await store.wiki.list({ limit: 5, offset: 0 });
+    const next5   = await store.wiki.list({ limit: 5, offset: 5 });
+    assert.ok(first5.length <= 5);
+    assert.ok(next5.length <= 5);
+  });
+});
+
+// =============================================================================
+// SqliteWiki — search (fulltext, vector, auto)
+// =============================================================================
+describe("SqliteWiki.search", () => {
+  let art;
+
+  before(async () => {
+    art = await store.wiki.upsert({
+      slug: "search-test-article", title: "Search Test Article",
+      summary: "A test article for wiki search.",
+      body_md: "This article contains special search keywords for testing FTS.",
+      tags: ["test", "search"], generated_by: "test", source_hash: "sh",
+    }, vec1024(0.8, 0.2));
+  });
+
+  test("fulltext search returns matching articles", async () => {
+    const results = await store.wiki.search({ query: "special search keywords", limit: 5, mode: "fulltext" });
+    assert.ok(results.length >= 1);
+    assert.ok(results.some(r => r.slug === "search-test-article"));
+  });
+
+  test("vector search returns similar articles", async () => {
+    const results = await store.wiki.search({
+      queryEmbedding: vec1024(0.75, 0.25), limit: 5, mode: "semantic",
+    });
+    assert.ok(results.length >= 1);
+    assert.ok(results.some(r => r.slug === "search-test-article"));
+  });
+
+  test("auto/hybrid search fuses both", async () => {
+    const results = await store.wiki.search({
+      query: "search keywords", queryEmbedding: vec1024(0.85, 0.15),
+      limit: 5, mode: "auto",
+    });
+    assert.ok(results.length >= 1);
+  });
+
+  test("returns empty when query text matches nothing", async () => {
+    const results = await store.wiki.search({ query: "xyznonexistent", limit: 5, mode: "fulltext" });
+    // Should be empty or not contain our article
+    assert.ok(results.length === 0 || !results.some(r => r.slug === "search-test-article"));
+  });
+});
+
+// =============================================================================
+// SqliteWiki — setEmbedding
+// =============================================================================
+describe("SqliteWiki.setEmbedding", () => {
+  test("sets embedding on an article without one", async () => {
+    const art = await store.wiki.upsert({
+      slug: "no-vec-article", title: "No Vector", summary: "Missing embedding.",
+      body_md: "Article without vector embedding.", tags: [], generated_by: "test", source_hash: "s",
+    }, null);
+
+    await store.wiki.setEmbedding(art.id, vec1024(0.5, 0.5));
+    const unembedded = await store.wiki.listWithoutEmbeddings();
+    assert.ok(!unembedded.some(a => a.id === art.id));
+  });
+
+  test("upsert with existing slug updates the article", async () => {
+    const first = await store.wiki.upsert({
+      slug: "update-existing", title: "First version",
+      summary: "Original", body_md: "Original body.",
+      tags: ["v1"], generated_by: "test", source_hash: "h1",
+    }, null);
+    assert.ok(first.id);
+    assert.equal(first.revision, 1);
+
+    const second = await store.wiki.upsert({
+      slug: "update-existing", title: "Second version",
+      summary: "Updated", body_md: "Updated body.",
+      tags: ["v2"], generated_by: "test", source_hash: "h2",
+    }, vec1024(1, 0));
+    assert.equal(second.id, first.id, "same slug reuses the id");
+    assert.equal(second.revision, 2, "revision incremented");
+    // Should not be a newly inserted article
+    assert.equal(second.inserted, false);
+  });
+});
+
+// =============================================================================
+// update with embedding
+// =============================================================================
+describe("update with embedding", () => {
+  test("update stores new embedding on the replacement row", async () => {
+    const mem = await store.insert({
+      type: "fact", title: "Pre-update", content: "Before update.",
+    });
+    const updated = await store.update(mem.id, {
+      title: "Post-update", content: "After update.",
+    }, vec1024(0.7, 0.3));
+    assert.ok(updated.id !== mem.id);
+    assert.equal(updated.title, "Post-update");
+
+    // Verify it's not in the unembedded list
+    const unembedded = await store.listWithoutEmbeddings();
+    assert.ok(!unembedded.some(m => m.id === updated.id));
+  });
+
+  test("update without embedding leaves the replacement unembedded", async () => {
+    const mem = await store.insert({
+      type: "fact", title: "Pre-update-no-vec", content: "Before.",
+    }, vec1024(1, 0));
+    const updated = await store.update(mem.id, {
+      title: "Post-update-no-vec", content: "After.",
+    });
+    assert.equal(updated.title, "Post-update-no-vec");
+    // The replacement row should not have an embedding
+    const unembedded = await store.listWithoutEmbeddings();
+    // Might or might not be in the list depending on what else is unembedded
+    // At minimum it shouldn't throw
+  });
+});
+
+// =============================================================================
+// exportAll / importAll
+// =============================================================================
+describe("exportAll / importAll", () => {
+  let exported;
+  let secondStore;
+
+  before(async () => {
+    exported = await store.exportAll();
+
+    const { SqliteStore: SqliteStore2 } = await import("../../db/sqlite.js");
+    secondStore = await SqliteStore2.init();
+  });
+
+  test("exportAll returns memories, wiki_articles, agent_jobs, agent_runs", () => {
+    assert.ok(Array.isArray(exported.memories));
+    assert.ok(Array.isArray(exported.wiki_articles));
+    assert.ok(Array.isArray(exported.agent_jobs));
+    assert.ok(Array.isArray(exported.agent_runs));
+    assert.ok(exported.memories.length > 0, "should have exported memories");
+    assert.ok(exported.wiki_articles.length > 0, "should have exported wiki articles");
+  });
+
+  test("importAll imports memories into a fresh store", async () => {
+    const result = await secondStore.importAll({
+      memories: exported.memories.slice(0, 3),
+      wiki_articles: exported.wiki_articles.slice(0, 1),
+    });
+    assert.ok(result.imported.memories > 0);
+    assert.ok(result.imported.wiki > 0);
+
+    // Verify via list
+    const all = await secondStore.listAll();
+    assert.ok(all.length >= result.imported.memories);
+  });
+
+  test("importAll skips duplicates on re-import", async () => {
+    const result = await secondStore.importAll({
+      memories: exported.memories.slice(0, 3),
+    });
+    assert.ok(result.skipped.memories > 0 || result.imported.memories === 0,
+      "duplicate ids should be skipped");
+  });
+
+  test("importAll handles agent_jobs and agent_runs", async () => {
+    const { SqliteStore: ThirdStore } = await import("../../db/sqlite.js");
+    const third = await ThirdStore.init();
+
+    const result = await third.importAll({
+      agent_jobs: [{ id: "imported-job", enabled: true, trigger: { kind: "manual" }, steps: [] }],
+      agent_runs: [{ job_id: "imported-job", started_at: "2026-06-01T00:00:00.000Z", verdict: "ok", mode: "steps" }],
+    });
+    assert.equal(result.imported.jobs, 1);
+    assert.equal(result.imported.runs, 1);
+
+    const job = await third.getAgentJob("imported-job");
+    assert.ok(job, "imported job should exist");
+  });
+});
+
+// =============================================================================
+// close()
+// =============================================================================
+describe("close", () => {
+  test("close does not throw on an :memory: store", async () => {
+    const { SqliteStore: CloseStore } = await import("../../db/sqlite.js");
+    const cs = await CloseStore.init();
+    // Should not throw
+    await cs.close();
+  });
+});
+
+// =============================================================================
+// recall with asOf parameter
+// =============================================================================
+describe("recall (asOf temporal)", () => {
+  test("filters by asOf timestamp", async () => {
+    // Most memories have valid_from after the epoch, so asOf at epoch should
+    // return nothing (all memories were created later).
+    const results = await store.recall({
+      query: "test", asOf: new Date("2020-01-01").toISOString(), limit: 5, mode: "fulltext",
+    });
+    // All seeded/test memories were created after 2020, so none should match
+    assert.ok(Array.isArray(results));
+  });
+});

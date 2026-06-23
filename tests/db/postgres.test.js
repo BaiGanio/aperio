@@ -392,3 +392,560 @@ describe("PostgresStore — setEmbedding", () => {
     assert.ok(capturedSql.includes("UPDATE memories SET embedding"));
   });
 });
+
+// =============================================================================
+// PostgresStore — insert with embedding
+// =============================================================================
+describe("PostgresStore — insert with embedding", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  const baseRow = {
+    id: "abc-123", type: "fact", title: "Test", content: "Content",
+    tags: ["test"], importance: 3, created_at: new Date(),
+    updated_at: new Date(), expires_at: null, source: "manual",
+    lang: "english", valid_from: new Date(), valid_until: null,
+    confidence: 1.0, pinned: false,
+  };
+
+  test("insert with embedding passes vector param", async () => {
+    let capturedArgs;
+    _poolQuery = async (sql, args) => {
+      capturedArgs = args;
+      return { rows: [{ ...baseRow, id: "vec-id" }] };
+    };
+    const store = await PostgresStore.init();
+    const mem = await store.insert(
+      { type: "fact", title: "Vec", content: "With emb" },
+      [0.1, 0.2, 0.3]
+    );
+    assert.equal(mem.id, "vec-id");
+    assert.ok(capturedArgs[7], "[8] param should be set (embedding)");
+  });
+});
+
+// =============================================================================
+// PostgresStore — recall (fulltext, semantic, hybrid, no-query, asOf)
+// =============================================================================
+describe("PostgresStore — recall", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  const sampleRow = {
+    id: "abc-123", type: "fact", title: "Test", content: "Content",
+    tags: ["test"], importance: 3, created_at: new Date(),
+    updated_at: new Date(), expires_at: null, source: "manual",
+    lang: "english", valid_from: new Date(), valid_until: null,
+    confidence: 1.0, pinned: false,
+  };
+
+  test("fulltext mode returns results", async () => {
+    _poolQuery = async (sql) => {
+      if (sql.includes("ts_rank")) return { rows: [{ ...sampleRow, ts_score: "0.5" }] };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const results = await store.recall({ query: "test", mode: "fulltext", limit: 5 });
+    assert.ok(results.length >= 1);
+    assert.ok(typeof results[0].similarity === "number");
+  });
+
+  test("semantic mode with queryEmbedding", async () => {
+    _poolQuery = async (sql) => {
+      if (sql.includes("<=>")) return { rows: [{ ...sampleRow, similarity: "0.9" }] };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const results = await store.recall({ queryEmbedding: [0.1, 0.2, 0.3], mode: "semantic", limit: 5 });
+    assert.ok(results.length >= 1);
+    assert.equal(results[0].similarity, 0.9);
+  });
+
+  test("auto/hybrid mode fuses both paths", async () => {
+    _poolQuery = async (sql) => {
+      if (sql.includes("rrf_score")) return { rows: [{ ...sampleRow, rrf_score: "0.8" }] };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const results = await store.recall({
+      query: "test", queryEmbedding: [0.1, 0.2, 0.3], mode: "auto", limit: 5,
+    });
+    assert.ok(results.length >= 1);
+    assert.ok(typeof results[0].similarity === "number");
+  });
+
+  test("no query returns importance-sorted results", async () => {
+    let capturedSql = "";
+    _poolQuery = async (sql, params) => {
+      capturedSql = sql;
+      return { rows: [{ ...sampleRow, ts_score: null }] };
+    };
+    const store = await PostgresStore.init();
+    const results = await store.recall({ limit: 5 });
+    assert.ok(Array.isArray(results));
+    assert.equal(results.length, 1);
+  });
+
+  test("recall with asOf parameter filters temporally", async () => {
+    let capturedSql = "";
+    _poolQuery = async (sql, params) => {
+      capturedSql = sql;
+      if (sql.includes("ts_rank")) return { rows: [{ ...sampleRow, ts_score: "0.4" }] };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const results = await store.recall({
+      query: "test", asOf: new Date("2026-06-01").toISOString(),
+      limit: 5, mode: "fulltext",
+    });
+    assert.ok(Array.isArray(results));
+  });
+
+  test("recall with type and tags filters", async () => {
+    _poolQuery = async (sql) => {
+      if (sql.includes("ts_rank")) return { rows: [{ ...sampleRow, ts_score: "0.6" }] };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const results = await store.recall({
+      query: "test", type: "fact", tags: ["test"],
+      limit: 5, mode: "fulltext",
+    });
+    assert.ok(results.length >= 1);
+  });
+});
+
+// =============================================================================
+// PostgresStore — listWithoutEmbeddings
+// =============================================================================
+describe("PostgresStore — listWithoutEmbeddings", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("returns memories without embeddings", async () => {
+    _poolQuery = async () => ({
+      rows: [{ id: "no-emb", title: "No Emb", content: "No embedding yet" }],
+    });
+    const store = await PostgresStore.init();
+    const items = await store.listWithoutEmbeddings();
+    assert.equal(items.length, 1);
+    assert.equal(items[0].id, "no-emb");
+  });
+});
+
+// =============================================================================
+// PostgresStore — clearAllEmbeddings
+// =============================================================================
+describe("PostgresStore — clearAllEmbeddings", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("clears embeddings from memories and wiki", async () => {
+    const queries = [];
+    _poolQuery = async (sql) => {
+      queries.push(sql);
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    await store.clearAllEmbeddings();
+    assert.ok(queries.length >= 2);
+    assert.ok(queries.some(q => q.includes("memories") && q.includes("SET embedding = NULL")));
+    assert.ok(queries.some(q => q.includes("wiki_articles") && q.includes("SET embedding = NULL")));
+  });
+});
+
+// =============================================================================
+// PostgresStore — findDuplicates
+// =============================================================================
+describe("PostgresStore — findDuplicates", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("finds duplicate memories by embedding similarity", async () => {
+    _poolQuery = async () => ({
+      rows: [{
+        id_a: "a1", title_a: "Alpha", type_a: "fact",
+        id_b: "b1", title_b: "Beta", type_b: "fact",
+        similarity: "0.95",
+      }],
+    });
+    const store = await PostgresStore.init();
+    const dups = await store.findDuplicates(0.9);
+    assert.equal(dups.length, 1);
+    assert.equal(dups[0].id_a, "a1");
+    assert.equal(dups[0].similarity, 0.95);
+  });
+
+  test("returns empty when no duplicates exceed threshold", async () => {
+    _poolQuery = async () => ({ rows: [] });
+    const store = await PostgresStore.init();
+    const dups = await store.findDuplicates(0.99);
+    assert.deepEqual(dups, []);
+  });
+});
+
+// =============================================================================
+// PostgresStore — mergeDuplicate
+// =============================================================================
+describe("PostgresStore — mergeDuplicate", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("merges duplicate memory and updates citations", async () => {
+    const queries = [];
+    _poolQuery = async (sql, params) => {
+      queries.push({ sql: sql.slice(0, 60), params });
+      if (sql.includes("WHERE id = ANY")) {
+        return { rows: [
+          { id: "survivor", content: "Survivor content" },
+          { id: "dup", content: "Dup content for merging" },
+        ]};
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    await store.mergeDuplicate("survivor", "dup");
+    assert.ok(queries.length >= 3);
+    // Should have done the content append, stale marking, source re-pointing, and DELETE
+    assert.ok(queries.some(q => q.sql.includes("UPDATE memories SET content")));
+    assert.ok(queries.some(q => q.sql.includes("DELETE FROM memories")));
+  });
+});
+
+// =============================================================================
+// PostgresStore — agent jobs
+// =============================================================================
+describe("PostgresStore — agent jobs", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("listAgentJobs returns all jobs", async () => {
+    _poolQuery = async () => ({
+      rows: [
+        { id: "j1", enabled: true, definition: { prompt: "test" }, created_at: new Date(), updated_at: new Date() },
+      ],
+    });
+    const store = await PostgresStore.init();
+    const jobs = await store.listAgentJobs();
+    assert.equal(jobs.length, 1);
+    assert.equal(jobs[0].prompt, "test");
+  });
+
+  test("getAgentJob returns a job by id", async () => {
+    _poolQuery = async () => ({
+      rows: [{ id: "j1", enabled: true, definition: { prompt: "hello" }, created_at: new Date(), updated_at: new Date() }],
+    });
+    const store = await PostgresStore.init();
+    const job = await store.getAgentJob("j1");
+    assert.equal(job.prompt, "hello");
+  });
+
+  test("getAgentJob returns null for missing", async () => {
+    _poolQuery = async () => ({ rows: [] });
+    const store = await PostgresStore.init();
+    const job = await store.getAgentJob("missing");
+    assert.equal(job, null);
+  });
+
+  test("upsertAgentJob saves and returns a job", async () => {
+    let afterInsert = false;
+    _poolQuery = async (sql) => {
+      if (sql.includes("ON CONFLICT")) {
+        afterInsert = true;
+        return { rows: [] };
+      }
+      if (afterInsert && sql.includes("agent_jobs")) {
+        return { rows: [{ id: "j1", enabled: true, definition: { prompt: "hi" }, created_at: new Date(), updated_at: new Date() }] };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const job = await store.upsertAgentJob({ id: "j1", enabled: true, prompt: "hi" });
+    assert.equal(job.prompt, "hi");
+  });
+
+  test("deleteAgentJob returns true/false", async () => {
+    let delQueries = 0;
+    _poolQuery = async (sql) => {
+      if (sql.includes("DELETE FROM agent_jobs")) {
+        delQueries++;
+        return { rows: delQueries === 1 ? [{ id: "j1" }] : [] };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    assert.equal(await store.deleteAgentJob("j1"), true);
+    assert.equal(await store.deleteAgentJob("j1"), false);
+  });
+});
+
+// =============================================================================
+// PostgresStore — agent run history
+// =============================================================================
+describe("PostgresStore — agent run history", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("recordAgentRun inserts a run", async () => {
+    _poolQuery = async () => ({ rows: [{ id: 42 }] });
+    const store = await PostgresStore.init();
+    const id = await store.recordAgentRun({ jobId: "j1", startedAt: "2026-06-01T00:00:00Z", verdict: "ok", mode: "steps" });
+    assert.equal(id, 42);
+  });
+
+  test("listAgentRuns returns runs newest-first", async () => {
+    _poolQuery = async () => ({
+      rows: [{ id: 2, job_id: "j1", started_at: "2026-06-02T00:00:00Z", verdict: "ok" }],
+    });
+    const store = await PostgresStore.init();
+    const runs = await store.listAgentRuns("j1");
+    assert.equal(runs.length, 1);
+  });
+
+  test("deleteAgentRun returns true/false", async () => {
+    _poolQuery = async (sql) => {
+      if (sql.includes("DELETE FROM agent_runs")) return { rowCount: 1, rows: [] };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    assert.equal(await store.deleteAgentRun(42), true);
+  });
+
+  test("pruneAgentRuns removes old runs", async () => {
+    _poolQuery = async (sql) => {
+      if (sql.includes("DELETE FROM agent_runs")) return { rowCount: 3, rows: [] };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const removed = await store.pruneAgentRuns(30);
+    assert.equal(removed, 3);
+  });
+});
+
+// =============================================================================
+// PostgresStore — issue triage
+// =============================================================================
+describe("PostgresStore — issue triage", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("upsertIssue inserts or updates an issue", async () => {
+    let captured;
+    _poolQuery = async (sql, args) => {
+      captured = { sql: sql.slice(0, 50), args };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    await store.upsertIssue({ repo: "org/repo", number: 1, title: "Fix", state: "open", updatedAt: "2026-06-01T00:00:00Z" });
+    assert.ok(captured.sql.includes("INSERT INTO issue_triage"));
+  });
+
+  test("listPendingIssues returns untriaged issues", async () => {
+    _poolQuery = async () => ({
+      rows: [{ repo: "org/repo", issue_number: 1, title: "Fix", state: "open" }],
+    });
+    const store = await PostgresStore.init();
+    const pending = await store.listPendingIssues();
+    assert.equal(pending.length, 1);
+    assert.equal(pending[0].issue_number, 1);
+  });
+
+  test("listPendingIssues filters by repo", async () => {
+    _poolQuery = async () => ({
+      rows: [{ repo: "org/repo", issue_number: 1 }],
+    });
+    const store = await PostgresStore.init();
+    const pending = await store.listPendingIssues("org/repo");
+    assert.equal(pending.length, 1);
+  });
+
+  test("markTriaged updates the issue", async () => {
+    let captured;
+    _poolQuery = async (sql, args) => {
+      captured = { sql: sql.slice(0, 50), args };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    await store.markTriaged({ repo: "org/repo", number: 1, priority: 3, verdict: "fix" });
+    assert.ok(captured.sql.includes("UPDATE issue_triage"));
+  });
+});
+
+// =============================================================================
+// PostgresStore — exportAll / importAll / close
+// =============================================================================
+describe("PostgresStore — exportAll / importAll / close", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("exportAll returns memories, wiki, agent data", async () => {
+    let phase = "init";
+    _poolQuery = async (sql) => {
+      if (sql.includes("SELECT id, type, title, content") && sql.includes("memories")) {
+        phase = "memories";
+        return { rows: [{ id: "m1", type: "fact", title: "Exported", content: "Exported memory", tags: ["t"], importance: 3, expires_at: null, source: "manual", pinned: false, lang: "english", confidence: 1.0 }] };
+      }
+      if (sql.includes("wiki_articles") && sql.includes("LEFT JOIN")) {
+        phase = "wiki";
+        return { rows: [{ slug: "wiki-1", title: "Wiki Exported", summary: "s", body_md: "b", tags: ["t"], generated_by: "test", revision: 1, source_memory_ids: ["m1"] }] };
+      }
+      if (sql.includes("agent_jobs") && !sql.includes("INSERT")) {
+        phase = "jobs";
+        return { rows: [{ id: "aj1", enabled: true, definition: { prompt: "test" }, created_at: new Date(), updated_at: new Date() }] };
+      }
+      if (sql.includes("agent_runs") && sql.includes("job_id = ANY")) {
+        phase = "runs";
+        return { rows: [{ job_id: "aj1", started_at: "2026-06-01T00:00:00Z", verdict: "ok" }] };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const data = await store.exportAll();
+    assert.ok(Array.isArray(data.memories));
+    assert.ok(Array.isArray(data.wiki_articles));
+    assert.ok(Array.isArray(data.agent_jobs));
+    assert.ok(Array.isArray(data.agent_runs));
+    assert.equal(data.memories[0].title, "Exported");
+  });
+
+  test("importAll imports memories, wiki, jobs and runs", async () => {
+    let queryCount = 0;
+    _poolQuery = async () => {
+      queryCount++;
+      return { rows: [], rowCount: 1 };
+    };
+    const store = await PostgresStore.init();
+    const result = await store.importAll({
+      memories: [{ id: "imp-m1", type: "fact", title: "Imported", content: "Imported content" }],
+      wiki_articles: [{ slug: "imp-wiki", title: "Imported Wiki", body_md: "content" }],
+      agent_jobs: [{ id: "imp-job", enabled: true, prompt: "test" }],
+      agent_runs: [{ job_id: "imp-job", started_at: "2026-06-01T00:00:00Z", verdict: "ok" }],
+    });
+    assert.equal(result.imported.memories, 1);
+    assert.equal(result.imported.wiki, 1);
+    assert.equal(result.imported.jobs, 1);
+    assert.equal(result.imported.runs, 1);
+  });
+
+  test("close calls pool.end", async () => {
+    let ended = false;
+    const store = await PostgresStore.init();
+    store.pool.end = async () => { ended = true; };
+    await store.close();
+    assert.ok(ended);
+  });
+});
+
+// =============================================================================
+// assertNonDefaultDbUrl
+// =============================================================================
+describe("assertNonDefaultDbUrl", () => {
+  let assertFn;
+
+  before(async () => {
+    const mod = await import("../../db/postgres.js");
+    assertFn = mod.assertNonDefaultDbUrl;
+  });
+
+  test("throws when DATABASE_URL contains default password", () => {
+    assert.throws(
+      () => assertFn("postgres://user:aperio_secret@localhost:5432/db"),
+      { message: /default Postgres password/ }
+    );
+  });
+
+  test("does not throw for a custom password", () => {
+    assert.doesNotThrow(
+      () => assertFn("postgres://user:real_password@localhost:5432/db")
+    );
+  });
+
+  test("does not throw when APERIO_ALLOW_DEFAULT_DB_PASSWORD=1", () => {
+    assert.doesNotThrow(
+      () => assertFn("postgres://user:aperio_secret@localhost:5432/db", "1")
+    );
+  });
+
+  test("does not throw for non-string url", () => {
+    assert.doesNotThrow(() => assertFn(undefined));
+    assert.doesNotThrow(() => assertFn(null));
+  });
+});
+
+// =============================================================================
+// PostgresStore — update with embedding
+// =============================================================================
+describe("PostgresStore — update with embedding", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  const existingRow = {
+    id: "old-id", type: "fact", title: "Original", content: "Original content",
+    tags: [], importance: 3, created_at: new Date(), updated_at: new Date(),
+    expires_at: null, source: "manual", lang: "english",
+    valid_from: new Date(), valid_until: null, confidence: 1.0, pinned: false,
+  };
+
+  test("update with embedding stores vector on new row", async () => {
+    _poolQuery = async (sql) => {
+      if (sql.includes("WHERE id =")) return { rows: [existingRow] };
+      if (sql.startsWith("INSERT INTO memories")) {
+        return { rows: [{ ...existingRow, id: "new-id", title: "Updated" }] };
+      }
+      if (sql.startsWith("UPDATE memories SET valid_until")) return { rows: [] };
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const updated = await store.update("old-id", { title: "Updated" }, [0.5, 0.5, 0.5]);
+    assert.equal(updated.title, "Updated");
+    assert.equal(updated.id, "new-id");
+  });
+
+  test("update with superseded existing throws", async () => {
+    const superseded = { ...existingRow, valid_until: new Date() };
+    _poolQuery = async () => ({ rows: [superseded] });
+    const store = await PostgresStore.init();
+    await assert.rejects(
+      () => store.update("old-id", { title: "Nope" }),
+      { message: /superseded/ }
+    );
+  });
+});
+
+// =============================================================================
+// PostgresStore — bulkInsert ROLLBACK error path
+// =============================================================================
+describe("PostgresStore — bulkInsert error path", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("throws and rolls back on error", async () => {
+    let seenBegin = false;
+    let seenRollback = false;
+    _poolQuery = async (sql) => {
+      if (sql === "BEGIN") { seenBegin = true; return {}; }
+      if (sql.startsWith("INSERT INTO memories")) throw new Error("db failure");
+      return { rows: [] };
+    };
+    // Mock client.query to throw
+    _poolQuery = async (_sql) => {
+      if (_sql === "BEGIN") return {};
+      if (_sql.startsWith("INSERT INTO memories")) throw new Error("db failure");
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    await assert.rejects(
+      () => store.bulkInsert([{ type: "fact", title: "Fail", content: "Will fail" }]),
+      { message: /db failure/ }
+    );
+  });
+});
+
+// =============================================================================
+// PostgresStore — setPin/setExpiry edge cases
+// =============================================================================
+describe("PostgresStore — pin/expiry edge cases", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("setPin(false) returns true when row updated", async () => {
+    _poolQuery = async () => ({ rows: [{ id: "abc" }] });
+    const store = await PostgresStore.init();
+    const ok = await store.setPin("abc", false);
+    assert.equal(ok, true);
+  });
+
+  test("setExpiry returns false when no row matches", async () => {
+    _poolQuery = async () => ({ rows: [] });
+    const store = await PostgresStore.init();
+    const ok = await store.setExpiry("missing", new Date().toISOString());
+    assert.equal(ok, false);
+  });
+});

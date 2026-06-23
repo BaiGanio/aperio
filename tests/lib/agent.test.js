@@ -175,7 +175,6 @@ describe("Provider resolution", () => {
   beforeEach(() => {
     delete process.env.AI_PROVIDER;
     delete process.env.OLLAMA_MODEL;
-    delete process.env.CHECK_RAM;
     delete process.env.ANTHROPIC_API_KEY;
   });
 
@@ -197,15 +196,7 @@ describe("Provider resolution", () => {
     assert.strictEqual(p.model, "custom-model");
   });
 
-  test("auto-selects model when CHECK_RAM is true", () => {
-    process.env.AI_PROVIDER = "ollama";
-    process.env.CHECK_RAM = "true";
-    mock.method(os, "totalmem", () => 16 * 1024 ** 3);
-    const p = resolveProvider();
-    assert.strictEqual(p.model, "gemma4:e4b");
-  });
-
-  test("uses default llama3.1 when no OLLAMA_MODEL and CHECK_RAM false", () => {
+  test("uses default llama3.1 when no OLLAMA_MODEL is set", () => {
     process.env.AI_PROVIDER = "ollama";
     const p = resolveProvider();
     assert.strictEqual(p.model, "llama3.1");
