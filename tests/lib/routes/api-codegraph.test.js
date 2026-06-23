@@ -76,7 +76,7 @@ describe("GET /codegraph/status", () => {
 
     const { status, body } = await invoke(router, "GET", "/codegraph/status");
     assert.strictEqual(status, 200);
-    assert.ok(typeof body === "object");
+    assert.strictEqual(body !== null && !Array.isArray(body), true);
   });
 });
 
@@ -95,14 +95,15 @@ describe("GET /codegraph/repos", () => {
     assert.strictEqual(body.enabled, false);
   });
 
-  test("returns error when database is present but handler throws", async () => {
+  test("returns 400 when backend throws (safeHandler + unwrap → userFacing)", async () => {
     const store = makeStore(true);
     const router = Router();
     mountCodegraphRoutes(router, { store });
 
-    const { status } = await invoke(router, "GET", "/codegraph/repos");
-    // cgRoute catches userFacing errors as 400, internal errors as 500
-    assert.ok(status === 400 || status === 500);
+    // safeHandler wraps the error, unwrap sees isError and sets userFacing=true → 400
+    const { status, body } = await invoke(router, "GET", "/codegraph/repos");
+    assert.strictEqual(status, 400);
+    assert.ok(body.error.length > 0);
   });
 });
 
@@ -123,7 +124,7 @@ describe("GET /codegraph/search", () => {
     assert.strictEqual(body.enabled, false);
   });
 
-  test("returns error when database is present but handler throws", async () => {
+  test("returns 400 when backend throws", async () => {
     const store = makeStore(true);
     const router = Router();
     mountCodegraphRoutes(router, { store });
@@ -131,7 +132,7 @@ describe("GET /codegraph/search", () => {
     const { status } = await invoke(router, "GET", "/codegraph/search", {
       query: { q: "foo" },
     });
-    assert.ok(status === 400 || status === 500);
+    assert.strictEqual(status, 400);
   });
 });
 
@@ -152,7 +153,7 @@ describe("GET /codegraph/outline", () => {
     assert.strictEqual(body.enabled, false);
   });
 
-  test("returns error when database is present but handler throws", async () => {
+  test("returns 400 when backend throws", async () => {
     const store = makeStore(true);
     const router = Router();
     mountCodegraphRoutes(router, { store });
@@ -160,7 +161,7 @@ describe("GET /codegraph/outline", () => {
     const { status } = await invoke(router, "GET", "/codegraph/outline", {
       query: { path: "/no/such/file.ts" },
     });
-    assert.ok(status === 400 || status === 500);
+    assert.strictEqual(status, 400);
   });
 });
 
@@ -181,7 +182,7 @@ describe("GET /codegraph/context", () => {
     assert.strictEqual(body.enabled, false);
   });
 
-  test("returns error when database is present but handler throws", async () => {
+  test("returns 400 when backend throws", async () => {
     const store = makeStore(true);
     const router = Router();
     mountCodegraphRoutes(router, { store });
@@ -189,7 +190,7 @@ describe("GET /codegraph/context", () => {
     const { status } = await invoke(router, "GET", "/codegraph/context", {
       query: { qualified: "Missing.Symbol" },
     });
-    assert.ok(status === 400 || status === 500);
+    assert.strictEqual(status, 400);
   });
 });
 
@@ -210,7 +211,7 @@ describe("GET /codegraph/callers", () => {
     assert.strictEqual(body.enabled, false);
   });
 
-  test("returns error when database is present but handler throws", async () => {
+  test("returns 400 when backend throws", async () => {
     const store = makeStore(true);
     const router = Router();
     mountCodegraphRoutes(router, { store });
@@ -218,7 +219,7 @@ describe("GET /codegraph/callers", () => {
     const { status } = await invoke(router, "GET", "/codegraph/callers", {
       query: { qualified: "No.callers" },
     });
-    assert.ok(status === 400 || status === 500);
+    assert.strictEqual(status, 400);
   });
 });
 
@@ -239,7 +240,7 @@ describe("GET /codegraph/callees", () => {
     assert.strictEqual(body.enabled, false);
   });
 
-  test("returns error when database is present but handler throws", async () => {
+  test("returns 400 when backend throws", async () => {
     const store = makeStore(true);
     const router = Router();
     mountCodegraphRoutes(router, { store });
@@ -247,7 +248,7 @@ describe("GET /codegraph/callees", () => {
     const { status } = await invoke(router, "GET", "/codegraph/callees", {
       query: { qualified: "No.callees" },
     });
-    assert.ok(status === 400 || status === 500);
+    assert.strictEqual(status, 400);
   });
 });
 
@@ -321,11 +322,11 @@ describe("POST /codegraph/index", () => {
     const router = Router();
     mountCodegraphRoutes(router, { store });
 
-    const { status } = await invoke(router, "POST", "/codegraph/index", {
+    const { status, body } = await invoke(router, "POST", "/codegraph/index", {
       body: { path: process.cwd() },
     });
-    // The directory + allowlist checks pass, but cgRepos (called next) fails
-    assert.ok(status === 202 || status === 400 || status === 500);
+    // Index handler has its own try/catch that returns 500 (not cgRoute)
+    assert.strictEqual(status, 500);
   });
 });
 
@@ -363,9 +364,10 @@ describe("DELETE /codegraph/repos", () => {
     const router = Router();
     mountCodegraphRoutes(router, { store });
 
-    const { status } = await invoke(router, "DELETE", "/codegraph/repos", {
+    const { status, body } = await invoke(router, "DELETE", "/codegraph/repos", {
       body: { path: "/nonexistent/repo" },
     });
-    assert.ok(status === 400 || status === 500);
+    // safeHandler + unwrap converts to userFacing → 400
+    assert.strictEqual(status, 400);
   });
 });

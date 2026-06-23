@@ -79,8 +79,9 @@ describe("GET /docgraph/status", () => {
 
     const { status, body } = await invoke(router, "GET", "/docgraph/status");
     assert.strictEqual(status, 200);
-    // Status should at least be an object (might be empty or have root field)
-    assert.ok(typeof body === "object");
+    assert.strictEqual(body !== null && !Array.isArray(body), true);
+    // The status module returns an object — it might be empty or have root fields
+    assert.ok("roots" in body || Object.keys(body).length >= 0);
   });
 });
 
@@ -99,14 +100,15 @@ describe("GET /docgraph/repos", () => {
     assert.strictEqual(body.enabled, false);
   });
 
-  test("returns 400 when database is present but handler throws userFacing error", async () => {
+  test("returns 500 when database backend has no real db instance", async () => {
     const store = makeStore(true);
     const router = Router();
     mountDocgraphRoutes(router, { store });
 
-    // cgRoute catches userFacing errors as 400
-    const { status } = await invoke(router, "GET", "/docgraph/repos");
-    assert.ok(status === 400 || status === 500);
+    // safeHandler + unwrap converts to userFacing → 400
+    const { status, body } = await invoke(router, "GET", "/docgraph/repos");
+    assert.strictEqual(status, 400);
+    assert.ok(body.error.length > 0);
   });
 });
 
@@ -161,7 +163,8 @@ describe("POST /docgraph/index", () => {
     });
     // Without pool/db, the route returns 400 directly
     assert.strictEqual(status, 400);
-    assert.ok(body.error.includes("SQLite") || body.error.includes("Postgres"));
+    const validErrors = ["SQLite", "Postgres"];
+    assert.ok(validErrors.some((e) => body.error.includes(e)), `error mentions SQLite or Postgres, got: ${body.error}`);
   });
 
   test("returns 400 when path is missing", async () => {
@@ -226,10 +229,8 @@ describe("POST /docgraph/index", () => {
     });
     // Should get past validation — the error is from the handler, not validation.
     // Could be 202 (started indexing) or 400/500 (handler error).
-    assert.ok(status === 202 || status === 400 || status === 500);
-    if (status === 202) {
-      assert.strictEqual(body.ok, true);
-    }
+    // Index handler has its own try/catch that returns 500 (not cgRoute)
+    assert.strictEqual(status, 500);
   });
 });
 

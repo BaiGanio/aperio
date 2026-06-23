@@ -67,6 +67,11 @@ describe("search", () => {
     assert.strictEqual(result.matches.length, 1);
     assert.strictEqual(result.matches[0].document.title, "Budget");
     assert.strictEqual(result.matches[0].score, 0.8);
+    // Verify the fulltext SQL was sent (to_tsvector used, no vector operator)
+    assert.ok(store._calls.length > 0, "pool.query was called");
+    const sql = store._calls.map((c) => c.sql).join(" ");
+    assert.ok(sql.includes("to_tsvector"), "fulltext query uses tsvector");
+    assert.ok(!sql.includes("<=>"), "fulltext query has no vector similarity operator");
   });
 
   test("hybrid mode when vector is enabled and embedding succeeds", async () => {
