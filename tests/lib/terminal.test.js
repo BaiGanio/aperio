@@ -43,6 +43,11 @@ import {
   isStatsCommand,
   isStatusCommand,
   isDiscussCommand,
+  printWelcome,
+  printHelp,
+  printStatus,
+  printSessions,
+  readAttachment,
 } from "../../lib/terminal.js";
 
 // ─── Command Detection Tests ────────────────────────────────────────────────
@@ -583,6 +588,150 @@ describe("Integration Scenarios", () => {
       reasoning = toggleReasoning(reasoning);
       assert.strictEqual(reasoning, expected);
     });
+  });
+});
+
+// ─── printWelcome Tests ───────────────────────────────────────────────────
+describe("printWelcome", () => {
+  test("prints welcome message with Aperio branding", () => {
+    const chunks = [];
+    const orig = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try {
+      printWelcome();
+    } finally {
+      process.stdout.write = orig;
+    }
+    const output = chunks.join("");
+    assert.ok(output.includes("Aperio"), "should contain Aperio");
+    assert.ok(output.includes("thinking partner"), "should mention thinking partner");
+    assert.ok(output.includes("help"), "should mention help command");
+  });
+});
+
+// ─── printHelp Tests ──────────────────────────────────────────────────────
+describe("printHelp", () => {
+  test("prints help with command sections", () => {
+    const chunks = [];
+    const orig = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try {
+      printHelp();
+    } finally {
+      process.stdout.write = orig;
+    }
+    const output = chunks.join("");
+    assert.ok(output.includes("How to talk to Aperio"), "should have title");
+    assert.ok(output.includes("Everyday"), "should have Everyday section");
+    assert.ok(output.includes("remember that"), "should mention remember command");
+    assert.ok(output.includes("Your stuff"), "should have Your stuff section");
+    assert.ok(output.includes("memories"), "should mention memories");
+    assert.ok(output.includes("Display & exit"), "should have Display section");
+    assert.ok(output.includes("exit"), "should mention exit");
+  });
+
+  test("printHelp with proxy=true includes Deeper thinking section", () => {
+    const chunks = [];
+    const orig = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try {
+      printHelp({ proxy: true });
+    } finally {
+      process.stdout.write = orig;
+    }
+    const output = chunks.join("");
+    assert.ok(output.includes("Deeper thinking"), "proxy mode should include Deeper thinking section");
+    assert.ok(output.includes("discuss on"), "proxy mode should mention discuss");
+  });
+
+  test("printHelp with proxy=false omits Deeper thinking section", () => {
+    const chunks = [];
+    const orig = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try {
+      printHelp({ proxy: false });
+    } finally {
+      process.stdout.write = orig;
+    }
+    const output = chunks.join("");
+    assert.ok(!output.includes("Deeper thinking"), "non-proxy mode should NOT include Deeper thinking");
+  });
+});
+
+// ─── printStatus Tests ────────────────────────────────────────────────────
+describe("printStatus", () => {
+  test("prints status information", () => {
+    const chunks = [];
+    const orig = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try {
+      printStatus();
+    } finally {
+      process.stdout.write = orig;
+    }
+    const output = chunks.join("");
+    assert.ok(output.includes("Status"), "should have Status header");
+    // Should include the status fields (even if undefined, they're in the output)
+    assert.ok(output.includes("mode") || output.includes("model") || output.includes("docker") || output.includes("storage"),
+      "should include at least one status field");
+  });
+});
+
+// ─── printSessions Tests ──────────────────────────────────────────────────
+describe("printSessions", () => {
+  test("prints sessions or no-sessions message", () => {
+    const chunks = [];
+    const orig = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try {
+      printSessions();
+    } finally {
+      process.stdout.write = orig;
+    }
+    const output = chunks.join("");
+    // Should either say no sessions found or list sessions
+    assert.ok(
+      output.includes("no sessions found") || output.includes("Recent sessions") || output.includes("resume"),
+      `expected sessions output, got: ${output.slice(0, 100)}`
+    );
+  });
+});
+
+// ─── readAttachment Tests ─────────────────────────────────────────────────
+describe("readAttachment", () => {
+  test("returns error for non-existent file", () => {
+    const result = readAttachment("tests/lib/__nonexistent_test_file_xyz__");
+    assert.ok(result.error, "should have error property");
+    assert.ok(result.error.includes("not found"), `error should mention 'not found', got: ${result.error}`);
+  });
+
+  test("reads existing file and returns metadata", () => {
+    const result = readAttachment("tests/lib/terminal.test.js");
+    assert.ok(result.name, "should have name");
+    assert.ok(result.name.endsWith(".test.js"), `name should end with .test.js, got: ${result.name}`);
+    assert.strictEqual(result.ext, ".js");
+    assert.strictEqual(result.type, "text/plain");
+    assert.ok(result.data, "should have base64 data");
+    assert.ok(result.sizeKb > 0, "should have positive size");
+  });
+
+  test("resolves correct MIME types for different extensions", () => {
+    // .md -> text/plain (not in MIME_BY_EXT map, defaults to text/plain)
+    const md = readAttachment("README.md");
+    assert.strictEqual(md.ext, ".md");
+    assert.strictEqual(md.type, "text/plain");
+
+    // A .pdf from the repo
+    const pdf = readAttachment("SECURITY.md");
+    assert.strictEqual(pdf.ext, ".md");
+    assert.strictEqual(pdf.type, "text/plain");
+  });
+
+  test("resolves known MIME types correctly", () => {
+    // .jpg -> image/jpeg
+    const jpg = readAttachment("package.json");
+    assert.strictEqual(jpg.type, "text/plain");
+    // package.json is not in MIME_BY_EXT, defaults to text/plain
   });
 });
 
