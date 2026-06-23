@@ -62,6 +62,74 @@
     }
   }
 
+  // ── Sample "practice shop" ──────────────────────────────────────────────────
+  // A disposable shop database (customers, orders, products) so non-technical
+  // users can try the prompts from the databases tour without touching real
+  // data. Creates two connections: `sample` (read-only) and `sample-rw`
+  // (writable). Delete wipes both connections and the file — a clean reset.
+  let sampleNote = "";
+  let sampleNoteKind = "";
+
+  // Feedback for create/delete shows right inside the sample bar (not the status
+  // line at the very bottom of the panel, which is too far from the button).
+  function setSampleNote(msg, kind = "") {
+    sampleNote = msg || "";
+    sampleNoteKind = kind;
+    const el = $("dbSampleStatus");
+    if (el) {
+      el.textContent = sampleNote;
+      el.className = "db-conn-sample-status" + (kind ? ` is-${kind}` : "");
+    }
+  }
+
+  function renderSampleBar(connections) {
+    const host = $("dbSampleBar");
+    if (!host) return;
+    const has = connections.some((c) => c.name === "sample" || c.name === "sample-rw");
+    const top = has
+      ? `<span class="db-conn-sample-note">Sample shop ready — try the prompts in the
+           <a href="docs/tours/databases.html" target="_blank" rel="noopener">databases tour</a>.
+           <code>sample</code> is read-only; <code>sample-rw</code> lets you practise changes.</span>
+         <button class="db-conn-cancel" id="dbSampleDelete"><i class="bi bi-trash"></i> Delete sample database</button>`
+      : `<span class="db-conn-sample-note">New to this? Create a safe practice shop (customers, orders, products) to try the examples — nothing real is touched.</span>
+         <button class="paths-pick-btn" id="dbSampleCreate"><i class="bi bi-database-add"></i> Create sample database</button>`;
+    host.innerHTML = `${top}<div id="dbSampleStatus" class="db-conn-sample-status${sampleNoteKind ? ` is-${sampleNoteKind}` : ""}">${esc(sampleNote)}</div>`;
+    $("dbSampleCreate")?.addEventListener("click", (e) => { e.preventDefault(); createSample(); });
+    $("dbSampleDelete")?.addEventListener("click", (e) => { e.preventDefault(); deleteSample(); });
+  }
+
+  // The sample endpoints live at /api/database/sample (sibling of the
+  // connections CRUD, which `api()` is scoped to), so call them directly.
+  async function sampleApi(method) {
+    const r = await fetch("/api/database/sample", { method });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || `${method} /sample → ${r.status}`);
+    return data;
+  }
+
+  async function createSample() {
+    setSampleNote("Creating sample database…");
+    try {
+      await sampleApi("POST");
+      setSampleNote("Sample database ready — added connections sample & sample-rw. Ask it a question in the chat.", "ok");
+      await window.loadDbConnections();
+    } catch (err) {
+      setSampleNote(`✗ ${err.message}`, "error");
+    }
+  }
+
+  async function deleteSample() {
+    if (!confirm("Delete the sample database? This removes the sample connections and wipes its file.")) return;
+    setSampleNote("Deleting sample database…");
+    try {
+      await sampleApi("DELETE");
+      setSampleNote("Sample database deleted.", "ok");
+      await window.loadDbConnections();
+    } catch (err) {
+      setSampleNote(`✗ ${err.message}`, "error");
+    }
+  }
+
   // ── Form ──────────────────────────────────────────────────────────────────
   function renderForm(conn) {
     const c = conn || { engine: "sqlite", readOnly: true };
@@ -175,6 +243,7 @@
   window.loadDbConnections = async function () {
     try {
       const { connections } = await api("GET", "");
+      renderSampleBar(connections);
       renderList(connections);
       if (!$("dbConnForm").childElementCount) renderForm(null);
     } catch (err) {

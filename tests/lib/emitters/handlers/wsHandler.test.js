@@ -373,6 +373,45 @@ describe("message type: chat", () => {
 
 // ─── "stop" message ───────────────────────────────────────────────────────────
 
+describe("message type: confirm_action", () => {
+  test("db_execute write: runs the tool with the confirmation token", async (t) => {
+    const ws = makeWs(t);
+    const callTool = t.mock.fn(async () => "Wrote 1 row.");
+    makeHandler({ callTool })(ws);
+
+    await ws.emit({ type: "confirm_action", token: "db_918ap8", tool: "db_execute" });
+
+    assert.strictEqual(callTool.mock.calls.length, 1);
+    assert.deepStrictEqual(callTool.mock.calls[0].arguments,
+      ["db_execute", { confirmation_token: "db_918ap8" }]);
+    assert.strictEqual(sentOf(ws, "error").length, 0);
+    const end = sentOf(ws, "stream_end");
+    assert.strictEqual(end.at(-1).text, "Wrote 1 row.");
+  });
+
+  test("rejects an unknown tool as an invalid confirmation request", async (t) => {
+    const ws = makeWs(t);
+    const callTool = t.mock.fn(async () => "OK");
+    makeHandler({ callTool })(ws);
+
+    await ws.emit({ type: "confirm_action", token: "db_918ap8", tool: "db_query" });
+
+    assert.strictEqual(callTool.mock.calls.length, 0);
+    assert.strictEqual(sentOf(ws, "error").at(-1).text, "Invalid confirmation request.");
+  });
+
+  test("rejects a malformed token prefix", async (t) => {
+    const ws = makeWs(t);
+    const callTool = t.mock.fn(async () => "OK");
+    makeHandler({ callTool })(ws);
+
+    await ws.emit({ type: "confirm_action", token: "xx_918ap8", tool: "db_execute" });
+
+    assert.strictEqual(callTool.mock.calls.length, 0);
+    assert.strictEqual(sentOf(ws, "error").at(-1).text, "Invalid confirmation request.");
+  });
+});
+
 describe("message type: stop", () => {
   test("sends stream_end with empty text", async (t) => {
     const ws = makeWs(t);

@@ -37,6 +37,22 @@
 }
 .db-panel-close:hover { color: var(--text); }
 
+.db-panel-conn {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 8px;
+  flex-shrink: 0;
+}
+.db-panel-conn label {
+  font-family: var(--font-mono); font-size: var(--fs-micro);
+  color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em;
+}
+.db-conn-select {
+  flex: 1;
+  background: var(--bg-input); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--font-mono); font-size: var(--fs-micro);
+  padding: 5px 8px; border-radius: var(--radius-sm); cursor: pointer;
+}
 .db-panel-toolbar {
   padding: 10px 16px;
   border-bottom: 1px solid var(--border);

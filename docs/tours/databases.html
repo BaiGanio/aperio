@@ -53,6 +53,7 @@
     <ul class="nav-links" id="navLinks">
       <li><a href="../index.html">Home</a></li>
       <li><a href="index.html">All Tours</a></li>
+      <li><a href="#try-now">Try now</a></li>
       <li><a href="#connect">Connect</a></li>
       <li><a href="#ask">Ask</a></li>
       <li><a href="#safe">Safety</a></li>
@@ -85,6 +86,30 @@
   </div>
 </section>
 
+<!-- ── Try now (zero setup) ───────────────────────────────────── -->
+<section class="section" id="try-now" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">Try it right now — nothing to set up</h2>
+    <p class="reveal mg-desc">Aperio's own memory is itself a database, and it's always connected under the name <code>aperio</code> — read-only, so you can't break anything. Paste any of these into the chat to see the feature work in your first minute, before you connect anything of your own.</p>
+
+    <div class="use-grid">
+      <div class="use-card reveal">
+        <h4>🗺️ See what's there</h4>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>What tables are in the aperio database, and what does the memories table look like?</div>
+      </div>
+      <div class="use-card reveal">
+        <h4>📊 Count something</h4>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Using the aperio database, how many memories do I have of each type?</div>
+      </div>
+      <div class="use-card reveal">
+        <h4>📚 List your notes</h4>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>List the titles of my wiki articles from the aperio database.</div>
+      </div>
+    </div>
+    <p class="reveal" style="opacity:.7;font-size:.86rem;margin-top:16px">Want the business-style examples below (customers, orders, products) to work too? They run against a little practice shop you can create in one click — see <a href="#connect">Connect</a>.</p>
+  </div>
+</section>
+
 <!-- ── Connect ────────────────────────────────────────────────── -->
 <section class="section" id="connect" style="padding:20px 0">
   <div class="section-inner">
@@ -109,6 +134,12 @@
       </div>
     </div>
     <p class="reveal" style="opacity:.7;font-size:.86rem;margin-top:16px">Your credentials are encrypted on your machine and never leave it in readable form. You can add as many connections as you like and switch between them by name.</p>
+
+    <div class="db-safe-card reads reveal" style="margin-top:24px">
+      <span class="badge-line"><i class="bi bi-database-add"></i> No database yet? Start here</span>
+      <h4>Create a sample shop in one click</h4>
+      <p>In the same <strong>Databases</strong> panel there's a <strong>Create sample database</strong> button. It builds a little practice shop — customers, products, and orders — so you can try every question below for real without touching anything that matters. It adds two connections: <code>sample</code> (read-only) and <code>sample-rw</code> (writable, for practising changes). Done experimenting? <strong>Delete sample database</strong> wipes it clean — it's your workbench.</p>
+    </div>
   </div>
 </section>
 
@@ -122,43 +153,43 @@
       <div class="use-card reveal">
         <h4>📊 Count &amp; measure</h4>
         <div class="use-sub">Totals, averages, "how many", "how much".</div>
-        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Using the sales database, how many customers signed up last month, and how does that compare to the month before?</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Using the sample database, how many customers signed up last month, and how does that compare to the month before?</div>
         <p class="use-exp"><strong>What Aperio does:</strong> looks at the table structure, writes a counting query, and gives you both numbers with the difference.</p>
       </div>
 
       <div class="use-card reveal">
         <h4>🏆 Top &amp; bottom</h4>
         <div class="use-sub">Biggest, smallest, best-selling, most recent.</div>
-        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Show me the 10 largest orders this quarter, with the customer name and the total.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>In the sample database, show me the 10 largest orders this quarter, with the customer name and the total.</div>
         <p class="use-exp"><strong>What Aperio does:</strong> joins the right tables, sorts, and returns a tidy ranked list of rows.</p>
       </div>
 
       <div class="use-card reveal">
         <h4>🔍 Find the gaps</h4>
         <div class="use-sub">"Which ones never…", "what's missing", odd cases.</div>
-        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Which products have never been sold? List their name and the date they were added.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>In the sample database, which products have never been sold? List their name and the date they were added.</div>
         <p class="use-exp"><strong>What Aperio does:</strong> the kind of query that's fiddly to write by hand — it figures out the logic for you.</p>
       </div>
 
       <div class="use-card reveal">
         <h4>🗺️ Understand the structure</h4>
         <div class="use-sub">"What's in here?" before you dive in.</div>
-        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>What tables are in the sales database, and what does the orders table look like?</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>What tables are in the sample database, and what does the orders table look like?</div>
         <p class="use-exp"><strong>What Aperio does:</strong> lists the tables and describes the columns — a friendly map of an unfamiliar database.</p>
       </div>
 
       <div class="use-card reveal">
         <h4>📈 Group &amp; break down</h4>
         <div class="use-sub">"By month", "per region", "split by category".</div>
-        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Break down total revenue by month for this year, and tell me which month was the strongest.</div>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>In the sample database, break down total revenue by month for this year, and tell me which month was the strongest.</div>
         <p class="use-exp"><strong>What Aperio does:</strong> groups the data the way you asked and reads the result back in plain language.</p>
       </div>
 
       <div class="use-card reveal">
         <h4>✏️ Make a change (it'll ask first)</h4>
         <div class="use-sub">Update, add, or remove records — with a confirm step.</div>
-        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>Mark order #4821 as refunded.</div>
-        <p class="use-exp"><strong>What Aperio does:</strong> shows you exactly what it's about to change and a <strong>Confirm</strong> button — nothing is written until you click it. (Requires a connection with read-only switched off.)</p>
+        <div class="mg-prompt"><span class="mg-prompt-label">Try</span>In the sample-rw database, mark order #4821 as refunded.</div>
+        <p class="use-exp"><strong>What Aperio does:</strong> shows you exactly what it's about to change and a <strong>Confirm</strong> button — nothing is written until you click it. (Requires a connection with read-only switched off — the sample's <code>sample-rw</code> is set up exactly for this.)</p>
       </div>
     </div>
   </div>
