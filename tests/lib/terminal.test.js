@@ -39,6 +39,9 @@ import {
   createMessageQueue,
   getQueueLength,
   getMessageFromQueue,
+  isHelpCommand,
+  isStatsCommand,
+  isStatusCommand,
 } from "../../lib/terminal.js";
 
 // ─── Command Detection Tests ────────────────────────────────────────────────
@@ -93,6 +96,39 @@ describe("Command Detection", () => {
   test("isReasoningCommand rejects other commands", () => {
     assert.strictEqual(isReasoningCommand("REASONING"), false);
     assert.strictEqual(isReasoningCommand("toggle reasoning"), false);
+  });
+});
+
+// ─── Help / Stats / Status Command Tests ───────────────────────────────────
+describe("Help / Stats / Status Detection", () => {
+  test("isHelpCommand detects 'help' and '?'", () => {
+    assert.strictEqual(isHelpCommand("help"), true);
+    assert.strictEqual(isHelpCommand("  help  "), true);
+    assert.strictEqual(isHelpCommand("?"), true);
+    assert.strictEqual(isHelpCommand("HELP"), true);
+  });
+
+  test("isHelpCommand rejects partial matches", () => {
+    assert.strictEqual(isHelpCommand("help me plan my week"), false);
+    assert.strictEqual(isHelpCommand("what?"), false);
+  });
+
+  test("isStatsCommand detects 'stats' case-insensitively", () => {
+    assert.strictEqual(isStatsCommand("stats"), true);
+    assert.strictEqual(isStatsCommand("  STATS  "), true);
+    assert.strictEqual(isStatsCommand("statistics"), false);
+  });
+
+  test("isStatusCommand detects 'status' case-insensitively", () => {
+    assert.strictEqual(isStatusCommand("status"), true);
+    assert.strictEqual(isStatusCommand("  Status  "), true);
+    assert.strictEqual(isStatusCommand("status now"), false);
+  });
+
+  test("new commands count as special commands", () => {
+    assert.strictEqual(isSpecialCommand("help"), true);
+    assert.strictEqual(isSpecialCommand("stats"), true);
+    assert.strictEqual(isSpecialCommand("status"), true);
   });
 });
 
