@@ -128,6 +128,11 @@
         <i class="bi bi-sliders sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="nav_settings_plain">Settings</span>
       </button>
+      <button id="systemBtn" class="sidebar-nav-btn" onclick="toggleSystemPanel()"
+        title="System — server and machine metrics">
+        <i class="bi bi-speedometer2 sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">System</span>
+      </button>
       <button id="navDensityToggle" class="sidebar-nav-btn" title="Expand to full list">
         <i class="bi bi-arrows-expand sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Expand</span>
@@ -135,7 +140,6 @@
     </nav>
 
     <div class="sidebar-footer">
-      <span id="metrics-display"></span>
       <span id="version-display"></span>
     </div>
   </aside>
@@ -711,7 +715,20 @@
 </div>
 <div id="settings-backdrop" class="settings-backdrop" style="display:none;" onclick="toggleSettingsPanel()"></div>
 
+<!-- System panel -->
+<div id="system-panel" class="system-panel" style="display:none;">
+  <div class="system-panel-header">
+    <span class="system-panel-title"><i class="bi bi-speedometer2"></i> System</span>
+    <button class="system-panel-close" onclick="toggleSystemPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="system-panel-body" id="system-metrics-body">
+    <div class="system-loading">Loading metrics…</div>
+  </div>
+</div>
+<div id="system-backdrop" class="system-backdrop" style="display:none;" onclick="toggleSystemPanel()"></div>
+
 <script src="scripts/settings.js"></script>
+<script src="scripts/system.js"></script>
 <script src="scripts/api.js"></script>
 <script src="scripts/input-bar.js"></script>
 <script src="scripts/voice.js"></script>
