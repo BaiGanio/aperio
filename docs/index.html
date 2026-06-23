@@ -166,7 +166,7 @@
 <!-- ── Stats ───────────────────────────────────────────────────── -->
 <div class="stats-bar z1">
   <div class="stats-inner">
-    <div class="stat reveal"><div class="stat-num">46</div><div class="stat-lbl">MCP Tools</div></div>
+    <div class="stat reveal"><div class="stat-num">50</div><div class="stat-lbl">MCP Tools</div></div>
     <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">8</div><div class="stat-lbl">Memory Types</div></div>
     <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">0</div><div class="stat-lbl">API Keys Required</div></div>
     <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl">Vendor Lock-in</div></div>
@@ -250,7 +250,7 @@
           <div class="arch-connector">↕ WebSocket</div>
           <div class="arch-row"><span class="arch-icon">⚡</span><div><div class="arch-name">Express Server</div><div class="arch-sub">server.js · agent loop</div></div></div>
           <div class="arch-connector">↕ stdio</div>
-          <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name">MCP Server</div><div class="arch-sub">mcp/index.js · 46 tools · 10 categories</div></div></div>
+          <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name">MCP Server</div><div class="arch-sub">mcp/index.js · 50 tools · 11 categories</div></div></div>
           <div class="arch-connector">↕</div>
           <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">Postgres 16 + pgvector</div><div class="arch-sub">memories table · HNSW index</div></div></div>
           <div class="arch-connector">↕</div>
@@ -279,7 +279,7 @@
 <section class="section" id="tools">
   <div class="section-inner wide">
     <div class="eyebrow reveal">MCP Tools</div>
-    <h2 class="section-heading reveal">46 tools. One protocol.</h2>
+    <h2 class="section-heading reveal">50 tools. One protocol.</h2>
     <p class="lead-text reveal">Each one is available to any MCP-compatible agent (Claude, Cursor, Windsurf).</p>
 
     <div class="tool-cat-label reveal"><i class="bi bi-database-fill-check"></i>Memory<span class="cat-count">6 tools</span></div>
@@ -366,6 +366,14 @@
     <div class="tools-grid">
       <div class="tool-chip reveal"><i class="bi bi-download tool-icon"></i><div><div class="tool-name">export_data</div><div class="tool-desc">Export memories & wiki to a portable JSON file</div></div></div>
       <div class="tool-chip reveal"><i class="bi bi-upload tool-icon"></i><div><div class="tool-name">import_data</div><div class="tool-desc">Import memories & wiki from an export file</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-database-fill"></i>Database<span class="cat-count">4 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-plug-fill tool-icon"></i><div><div class="tool-name">db_connections</div><div class="tool-desc">List available database connections (never exposes credentials)</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-diagram-3 tool-icon"></i><div><div class="tool-name">db_schema</div><div class="tool-desc">Introspect tables, columns, indexes, and foreign keys</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">db_query</div><div class="tool-desc">Run ONE read-only SQL statement with parameterized bindings</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-play-fill tool-icon"></i><div><div class="tool-name">db_execute</div><div class="tool-desc">Propose a write/DDL statement — confirm-before-write flow</div></div></div>
     </div>
   </div>
 </section>

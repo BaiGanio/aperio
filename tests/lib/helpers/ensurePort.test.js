@@ -107,3 +107,23 @@ describe("ensurePort — port stays occupied (timeout)", () => {
     await new Promise(r => srv.close(r)).catch(() => {});
   });
 });
+
+// =============================================================================
+describe("ensurePort — wait mode (self-restart respawn)", () => {
+
+  test("does not kill the occupant; resolves once it releases the port", async () => {
+    const { srv, port } = await occupyPort();
+
+    const p = ensurePort(port, { wait: true });
+
+    // Give the wait loop a moment to spin, then confirm the occupant is STILL
+    // listening — wait mode must never SIGKILL the previous process.
+    await new Promise(r => setTimeout(r, 700));
+    assert.equal(srv.listening, true, "occupant must not be killed in wait mode");
+
+    // Now release the port ourselves, as a draining parent would.
+    await new Promise(r => srv.close(r));
+
+    await p; // must resolve, not throw
+  });
+});

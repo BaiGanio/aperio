@@ -88,12 +88,17 @@ Your context, always available.
 ├── 📂 mcp/
 │   ├── index.js                  # MCP server entry point
 │   └── 📂 tools/
-│       ├── memory.js             # remember · recall · update_memory · forget · backfill_embeddings · deduplicate_memories
-│       ├── codegraph.js          # code_search · code_outline · code_context · code_callers · code_callees · code_repos
-│       ├── files.js              # read_file · write_file · append_file · scan_project
-│       ├── shell.js              # run_node_script · run_shell · syntax_check
-│       ├── web.js                # fetch_url
-│       └── image.js              # read_image · preprocess_image
+│       ├── memory.js             # remember · recall · update_memory · forget · backfill_embeddings · deduplicate_memories (6)
+│       ├── files.js              # read_file · write_file · append_file · edit_file · read_docx · scan_project · delete_file · generate_xlsx · generate_docx (9)
+│       ├── wiki.js               # wiki_write · wiki_search · wiki_list · wiki_get (4)
+│       ├── codegraph.js          # code_search · code_outline · code_context · code_callers · code_callees · code_repos (6)
+│       ├── docgraph.js           # doc_search · doc_repos · doc_outline · doc_context · doc_refs (5)
+│       ├── shell.js              # run_node_script · run_python_script · run_shell · syntax_check (4)
+│       ├── web.js                # fetch_url · web_search (2)
+│       ├── image.js              # read_image · preprocess_image · describe_image (3)
+│       ├── github.js             # fetch_github_issue · create_github_issue · update_github_issue · list_github_issues · record_issue_triage (5)
+│       ├── data.js               # export_data · import_data (2)
+│       └── database.js           # db_connections · db_schema · db_query · db_execute (4)
 ├── 📂 public/
 │   └── index.html                # Web UI — themes, streaming, sidebar
 ├── 📂 skills/                    # Memory, reasoning, tools, coding standards, etc.
@@ -310,7 +315,7 @@ memories.
 
 ## MCP Tools
 
-Aperio exposes **28 tools** over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
+Aperio exposes **50 tools** across 11 categories over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
 
 | Category | Tool | What it does |
 |----------|------|-------------|
@@ -330,20 +335,42 @@ Aperio exposes **28 tools** over MCP. Any MCP-compatible agent (Cursor, Windsurf
 | | `code_callers` | Walk the reverse call graph (depth-capped) — who calls this? |
 | | `code_callees` | Walk the forward call graph (depth-capped) — what does this call? |
 | | `code_repos` | List indexed repos with file / symbol counts and last-indexed timestamp |
+| **Doc Graph** | `doc_search` | Semantic + FTS search over pre-indexed document passages |
+| | `doc_repos` | List indexed doc folders with chunk counts and by-mime breakdown |
+| | `doc_outline` | Section tree (TOC) for one document — cheap map before fetching |
+| | `doc_context` | Fetch text of one section or chunk by id |
+| | `doc_refs` | Cross-document reference lookup (IDs, URLs, citations) |
 | **Files** | `read_file` | Read a code or text file (max 500 lines per call, paginated via `offset`) |
 | | `write_file` | Create or overwrite a file (subject to write-path guard) |
 | | `append_file` | Append content to an existing file without touching the rest |
 | | `edit_file` | Replace an exact string in a file (`replace_all` for multiple occurrences) |
+| | `read_docx` | Read and extract text from `.docx` files |
 | | `scan_project` | Traverse a project folder — returns a file tree and reads key files |
+| | `delete_file` | Delete a file by path (subject to write-path guard) |
 | | `generate_xlsx` | Generate a multi-sheet `.xlsx` workbook, served for download |
+| | `generate_docx` | Create `.docx` Word documents programmatically |
 | **Shell** | `run_node_script` | Run a `.js` script inside an allowed write path; returns its output |
+| | `run_python_script` | Run a `.py` script inside an allowed write path; returns its output |
 | | `syntax_check` | Check a JavaScript file for syntax errors without executing it |
+| | `run_shell` | Execute a shell command with output capture |
 | **Web** | `fetch_url` | Fetch a URL, strip HTML, truncate at 15 000 characters |
+| | `web_search` | Search the web via DuckDuckGo, return ranked results |
 | **Image** | `read_image` | Load an image (file path or base64) for the agent to analyze |
 | | `preprocess_image` | Normalize an image to RGB PNG before sending to a local VLM (strips alpha, letterboxes to 896×896) |
 | | `describe_image` | Send an image to a local Ollama vision model (VLM) and return a text description |
+| **GitHub** | `fetch_github_issue` | Read a GitHub issue with comments and metadata |
+| | `create_github_issue` | Open a new issue on a GitHub repository |
+| | `update_github_issue` | Edit an existing GitHub issue |
+| | `list_github_issues` | List open issues for triage across repos |
+| | `record_issue_triage` | Record a triage verdict for an issue |
+| **Data** | `export_data` | Export memories & wiki to a portable JSON file |
+| | `import_data` | Import memories & wiki from a previously-exported JSON file |
+| **Database** | `db_connections` | List available external database connections (never exposes credentials) |
+| | `db_schema` | Introspect tables, columns, indexes, and foreign keys |
+| | `db_query` | Run ONE read-only SQL statement with parameterized bindings |
+| | `db_execute` | Propose a write/DDL statement — confirm-before-write flow |
 
-> PowerPoint files are generated by writing a script (see `skills/pptx/`) and running it via `run_node_script` — there is no dedicated `pptx` tool.
+> `.docx` and `.xlsx` files can also be generated via the `skills/docx/` and `skills/xlsx/` skill scripts. PowerPoint files are generated by writing a script (see `skills/pptx/`) and running it via `run_node_script` — there is no dedicated `pptx` tool.
 
 > **💡 Tip:** Check [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for call examples.
 

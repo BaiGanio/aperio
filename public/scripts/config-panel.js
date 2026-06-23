@@ -363,6 +363,57 @@
     }
   };
 
+  // ── Restart ───────────────────────────────────────────────────────────────
+  // Restart the server to apply saved config, then auto-reload once it's back.
+  // The server handles the actual restart (supervised exit or self-respawn);
+  // here we just show an overlay and poll /api/version — which only answers
+  // after the new process finishes booting — then reload.
+  window.restartAperio = async function () {
+    const overlay = $("restartOverlay");
+    const titleEl = $("restartOverlayTitle");
+    const msgEl   = $("restartOverlayMsg");
+    const show = (t, m) => { if (titleEl) titleEl.textContent = t; if (msgEl) msgEl.textContent = m; };
+    const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+    const ping  = async () => {
+      try { return (await fetch("/api/version", { cache: "no-store" })).ok; }
+      catch { return false; }
+    };
+
+    if (overlay) overlay.style.display = "flex";
+    show("Restarting Aperio…", "Applying your changes. This usually takes a few seconds.");
+
+    const btn = $("configRestartBtn");
+    if (btn) btn.disabled = true;
+
+    try {
+      const res = await fetch("/api/restart", { method: "POST" });
+      if (!res.ok) throw new Error(`restart → ${res.status}`);
+    } catch {
+      // The connection often drops as the server exits — that's expected.
+    }
+
+    const deadline = Date.now() + 90_000;
+    // Phase 1: wait for the old server to stop answering, so we don't reload
+    // into the still-draining process.
+    while (Date.now() < deadline) {
+      if (!(await ping())) break;
+      await sleep(800);
+    }
+    // Phase 2: wait for the new server to finish booting, then reload.
+    show("Reconnecting…", "Aperio is starting back up.");
+    while (Date.now() < deadline) {
+      if (await ping()) { location.reload(); return; }
+      await sleep(1200);
+    }
+
+    show("Still starting…",
+      "This is taking longer than usual — the page will reload automatically as soon as Aperio is back.");
+    while (true) {                              // keep trying in the background
+      await sleep(2500);
+      if (await ping()) { location.reload(); return; }
+    }
+  };
+
   // ── Open / close ────────────────────────────────────────────────────────────
   window.toggleConfigPanel = function () {
     const open = panel().style.display !== "none";
