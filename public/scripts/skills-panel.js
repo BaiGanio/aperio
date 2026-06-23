@@ -111,7 +111,7 @@
       await load();
     } catch (err) {
       input.checked = !on;
-      alert(`Couldn't update skill: ${err.message}`);
+      showErrorModal(`Couldn't update skill: ${err.message}`);
     } finally {
       input.disabled = false;
     }
@@ -125,7 +125,7 @@
     try {
       await api(`/api/skill?name=${encodeURIComponent(name)}`, { method: "DELETE" });
       await load();
-    } catch (err) { alert(`Couldn't remove skill: ${err.message}`); }
+    } catch (err) { showErrorModal(`Couldn't remove skill: ${err.message}`); }
   }
 
   async function resetSkill(name) {
@@ -136,7 +136,7 @@
         body: JSON.stringify({ name }),
       });
       await load();
-    } catch (err) { alert(`Couldn't restore skill: ${err.message}`); }
+    } catch (err) { showErrorModal(`Couldn't restore skill: ${err.message}`); }
   }
 
   // ── Editor modal ──────────────────────────────────────────────────────────────
@@ -212,7 +212,7 @@
     let data = { name: "", description: "", keywords: "", load: "on-demand", body: "" };
     if (!isNew && name) {
       try { data = await api(`/api/skill/edit?name=${encodeURIComponent(name)}`); }
-      catch (e) { alert(`Couldn't open skill: ${e.message}`); return; }
+      catch (e) { showErrorModal(`Couldn't open skill: ${e.message}`); return; }
     }
 
     $("#skEditTitle").textContent = isNew ? "New skill" : data.name;

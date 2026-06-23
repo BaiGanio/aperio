@@ -97,7 +97,7 @@ async function bulkDeleteSessions() {
   const failed = results.filter(r => r.status === "rejected" || !r.value?.ok).length;
   exitSelectMode();
   loadSessions(currentPage);
-  if (failed) alert(t("sessions_delete_n_failed", { n: failed }));
+  if (failed) showErrorModal(t("sessions_delete_n_failed", { n: failed }));
 }
 
 async function loadSessions(page) {
@@ -319,7 +319,7 @@ async function deleteSession(e, id) {
     }
   } catch (err) {
     if (card) card.style.opacity = "1";
-    alert(t("sessions_delete_failed", { error: err.message }));
+    showErrorModal(t("sessions_delete_failed", { error: err.message }));
   }
 }
 
