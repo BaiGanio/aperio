@@ -1,3 +1,11 @@
+/**
+ * Text-to-speech — WEB UI ONLY.
+ *
+ * TTS is intentionally a browser feature: it relies on the Web Speech API
+ * (window.speechSynthesis), which has no equivalent in the terminal. The
+ * terminal chat (lib/terminal.js) has no TTS path by design — see #175 Gap 3.
+ * A local/OS-binary voice for the terminal is a separate, deferred idea.
+ */
 (function () {
   if (!window.speechSynthesis) return;
 

@@ -38,7 +38,7 @@ export const MEMORY_SEED = [
   {
     type: 'source',
     title: 'Where Aperio stores things on disk',
-    content: 'SQLite database: var/aperio.db (or sqlite/aperio.db, see SQLITE_PATH). Sessions: var/sessions/. Uploads: var/uploads/. Skills: skills/<name>/SKILL.md. The .env file at the repo root holds provider keys; everything else is configurable from the Settings panel.',
+    content: 'SQLite database: .sqlite/aperio.db (see SQLITE_PATH). Sessions: var/sessions/. Uploads: var/uploads/. Skills: skills/<name>/SKILL.md. The .env file at the repo root holds provider keys; everything else is configurable from the Settings panel.',
     tags: ['aperio', 'paths', 'config'],
     importance: 2,
   },

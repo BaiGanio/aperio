@@ -40,7 +40,7 @@ optional external dependency is a running Ollama daemon (or a cloud API key).
 ## Key Ports and Paths
 
 - Default port: **31337** (set via \`PORT\` env)
-- DB data: \`sqlite/aperio.db\` (SQLite) or Docker Postgres volume
+- DB data: \`.sqlite/aperio.db\` (SQLite) or Docker Postgres volume
 - Sessions: \`var/sessions/\`
 - Skills: \`skills/<name>/SKILL.md\`
 
@@ -133,7 +133,7 @@ At startup \`db/index.js\` resolves the backend in this order:
 ## SQLite (default for non-Docker users)
 
 - **Embedded**: runs inside the Node.js process via \`better-sqlite3\`, no daemon needed.
-- **Storage**: a single file at \`sqlite/aperio.db\` (set via \`SQLITE_PATH\`).
+- **Storage**: a single file at \`.sqlite/aperio.db\` (set via \`SQLITE_PATH\`).
 - **Tables**: \`memories\` + \`wiki_articles\`, each paired with a \`vec_*\` (sqlite-vec)
   and a \`*_fts\` (FTS5) virtual table, joined by \`rowid\`.
 - **Vector search**: sqlite-vec \`vec0\` virtual table; KNN via \`embedding MATCH ? AND k = …\`.
@@ -164,7 +164,7 @@ At startup \`db/index.js\` resolves the backend in this order:
 Because Aperio is in active development, wiping and re-creating is cheap:
 
 \`\`\`bash
-rm -f sqlite/aperio.db && node server.js   # tables re-created with seed data on next start
+rm -f .sqlite/aperio.db && node server.js   # tables re-created with seed data on next start
 \`\`\`
 
 ## See Also
@@ -501,10 +501,10 @@ the server throws at startup:
 
 \`\`\`
 Vector dimension mismatch: table has 1024D but EMBEDDING_DIMS=384.
-Either set EMBEDDING_DIMS=1024 or delete sqlite/aperio.db to start fresh.
+Either set EMBEDDING_DIMS=1024 or delete .sqlite/aperio.db to start fresh.
 \`\`\`
 
-Fix: either align \`EMBEDDING_DIMS\` to the table value, or \`rm -f sqlite/aperio.db\`
+Fix: either align \`EMBEDDING_DIMS\` to the table value, or \`rm -f .sqlite/aperio.db\`
 to start fresh (all data lost).
 
 ## Zero Vectors
@@ -557,7 +557,7 @@ Aperio's local-first stance is a refusal of that default, not an optimisation.
 - **Server-side model quality.** Local models (via Ollama) are smaller and slower
   than frontier cloud models. Cloud providers remain optional, but always opt-in
   per-request, never the default.
-- **Crash-recovery-as-a-service.** Your \`sqlite/aperio.db\` file is yours to back up.
+- **Crash-recovery-as-a-service.** Your \`.sqlite/aperio.db\` file is yours to back up.
   Lose it, lose the memories.
 - **Effortless onboarding.** A binary that needs no setup is impossible when the
   data has nowhere to live except the user's filesystem.
