@@ -435,6 +435,16 @@
     }
   };
 
+  // On-demand restart from the toolbar (not tied to a config change). Confirm
+  // first, since a restart interrupts any in-flight chat or running agent.
+  window.requestRestartAperio = function () {
+    const ok = window.confirm(
+      "Restart Aperio now?\n\nThe server will stop and come back in a few seconds. " +
+      "Any in-progress chat or running agent will be interrupted."
+    );
+    if (ok) window.restartAperio();
+  };
+
   // ── Open / close ────────────────────────────────────────────────────────────
   window.toggleConfigPanel = function () {
     const open = panel().style.display !== "none";
