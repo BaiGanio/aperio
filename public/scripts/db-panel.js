@@ -14,6 +14,12 @@
   const backdrop = () => document.getElementById("db-backdrop");
   const body     = () => document.getElementById("db-panel-body");
 
+  // Which connection the panel is browsing. "aperio" (the built-in store) keeps
+  // the rich memories table + Export/Import; any other connection (e.g. the
+  // sample shop) is browsed read-only through the generic viewer.
+  const APERIO   = "aperio";
+  let curConn    = APERIO;
+
   // ── Generic table modal state ──────────────────────────────────────────────
   let curName    = null;
   let curLabel   = "";
@@ -34,12 +40,45 @@
     return String(v);
   }
 
+  const isAperio = () => curConn === APERIO;
+
+  // ── Connection picker ───────────────────────────────────────────────────────
+  async function loadConnections() {
+    const sel = document.getElementById("dbConnSelect");
+    if (!sel) return;
+    try {
+      const r = await fetch("/api/database/connections");
+      const data = await r.json();
+      const conns = (data.connections || []);
+      sel.innerHTML = conns.map((c) => {
+        const label = c.name === APERIO ? "Aperio's data (built-in)" : c.name;
+        return `<option value="${escapeHtml(c.name)}">${escapeHtml(label)}</option>`;
+      }).join("");
+      if (!conns.some((c) => c.name === curConn)) curConn = APERIO;
+      sel.value = curConn;
+    } catch {
+      sel.innerHTML = `<option value="${APERIO}">Aperio's data (built-in)</option>`;
+    }
+    sel.onchange = () => { curConn = sel.value; reflectConn(); loadTables(); };
+    reflectConn();
+  }
+
+  // Export/Import act on memories only — hide them for other connections.
+  function reflectConn() {
+    const show = isAperio() ? "" : "none";
+    const tb = document.querySelector("#db-panel .db-panel-toolbar");
+    if (tb) tb.style.display = show;
+  }
+
   // ── Panel list ─────────────────────────────────────────────────────────────
   async function loadTables() {
     const el = body();
     el.innerHTML = `<div class="db-empty">Loading…</div>`;
     try {
-      const r = await fetch("/api/db/tables");
+      const url = isAperio()
+        ? "/api/db/tables"
+        : `/api/database/${encodeURIComponent(curConn)}/tables`;
+      const r = await fetch(url);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Failed to load tables");
       renderTableList(data.tables || []);
@@ -57,13 +96,13 @@
     el.innerHTML = tables.map(t => `
       <button class="db-table-row" data-name="${escapeHtml(t.name)}" data-label="${escapeHtml(t.label)}">
         <span class="db-table-name">${escapeHtml(t.label)}</span>
-        <span class="db-table-count">${t.count}</span>
+        <span class="db-table-count">${t.count == null ? "" : t.count}</span>
       </button>
     `).join("");
     el.querySelectorAll(".db-table-row").forEach(btn => {
       btn.addEventListener("click", () => {
         const name = btn.dataset.name;
-        if (name === "memories" && typeof window.openMemoryTable === "function") {
+        if (isAperio() && name === "memories" && typeof window.openMemoryTable === "function") {
           window.openMemoryTable();
         } else {
           openDbTable(name, btn.dataset.label);
@@ -80,7 +119,14 @@
     document.getElementById("dbt-title").textContent = label;
     document.getElementById("dbt-count").textContent = "";
     document.getElementById("dbt-search").value = "";
-    document.getElementById("dbt-export").href = `/api/db/table/${encodeURIComponent(name)}/export`;
+    // Per-table JSON export is wired for Aperio's own tables only.
+    const exp = document.getElementById("dbt-export");
+    if (isAperio()) {
+      exp.style.display = "";
+      exp.href = `/api/db/table/${encodeURIComponent(name)}/export`;
+    } else {
+      exp.style.display = "none";
+    }
     document.getElementById("dbt-wrapper").innerHTML = `<div class="mem-empty">Loading…</div>`;
     modal.style.display = "flex";
     await loadRows();
@@ -88,7 +134,10 @@
 
   async function loadRows() {
     try {
-      const r = await fetch(`/api/db/table/${encodeURIComponent(curName)}`);
+      const url = isAperio()
+        ? `/api/db/table/${encodeURIComponent(curName)}`
+        : `/api/database/${encodeURIComponent(curConn)}/table/${encodeURIComponent(curName)}`;
+      const r = await fetch(url);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Failed to load table");
       columns = data.columns || [];
@@ -240,7 +289,7 @@
       wireOnce();
       p.style.display = "flex";
       b.style.display = "block";
-      loadTables();
+      loadConnections().then(loadTables);
     } else {
       p.style.display = "none";
       b.style.display = "none";

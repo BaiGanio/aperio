@@ -70,8 +70,11 @@ const TOOLS = [
       "multi-statement batches, and read-only connections (including the built-in `aperio`). ALWAYS pass values " +
       "through `params` (placeholders), never string-concatenated into `sql`.",
     schema: {
-      connection: z.string().describe("A writable connection name from db_connections."),
-      sql: z.string().describe("A single write/DDL statement, e.g. 'UPDATE users SET active = ? WHERE id = ?'."),
+      // connection/sql are required when PROPOSING (enforced in the handler), but
+      // optional in the schema because the server's confirm step re-invokes this
+      // tool with only `confirmation_token`.
+      connection: z.string().optional().describe("A writable connection name from db_connections."),
+      sql: z.string().optional().describe("A single write/DDL statement, e.g. 'UPDATE users SET active = ? WHERE id = ?'."),
       params: z.array(z.any()).optional().describe("Positional bind parameters for the placeholders in `sql`."),
       confirmation_token: z.string().optional().describe(
         "RESERVED for the server's confirm flow — do NOT set this. The user's confirm button click triggers execution server-side."

@@ -7,12 +7,15 @@ fetch('/api/version')
   .catch(() => {});
 
 // ── Metrics ──────────────────────────────────────────────────────
+function formatMem(mb) {
+  return mb >= 1024 ? (mb / 1024).toFixed(1).replace(/\.0$/, '') + 'GB' : mb + 'MB';
+}
 function refreshMetrics() {
   fetch('/api/metrics')
     .then(res => res.json())
     .then(({ rss, heap, cpu }) => {
       document.getElementById('metrics-display').innerText =
-        `RSS ${rss}MB · heap ${heap}MB · CPU ${cpu}%`;
+        `RSS ${formatMem(rss)} · heap ${formatMem(heap)} · CPU ${cpu}%`;
     })
     .catch(() => {});
 }

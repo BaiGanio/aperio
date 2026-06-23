@@ -347,6 +347,10 @@
     <span class="db-panel-title"><i class="bi bi-database"></i> Database</span>
     <button class="db-panel-close" onclick="toggleDbPanel()"><i class="bi bi-x-lg"></i></button>
   </div>
+  <div class="db-panel-conn">
+    <label for="dbConnSelect">Database</label>
+    <select id="dbConnSelect" class="db-conn-select"></select>
+  </div>
   <div class="db-panel-toolbar">
     <button id="exportBtn" class="db-action-btn" data-i18n-attr-title="sidebar_export_title" title="Export memories to JSON">
       <i class="bi bi-download"></i> <span data-i18n="sidebar_export">Export</span>
@@ -684,6 +688,7 @@
       </summary>
       <div class="settings-section-body">
         <span class="paths-section-hint">Databases the AI can query with the <code>db_*</code> tools — SQLite, Postgres, or MySQL. Reads run freely; writes need your confirmation. Read-only is ON by default.</span>
+        <div id="dbSampleBar" class="db-conn-sample-bar"></div>
         <div id="dbConnList" class="db-conn-list"></div>
         <div id="dbConnForm" class="db-conn-form"></div>
         <div class="model-select-status" id="dbConnStatus"></div>

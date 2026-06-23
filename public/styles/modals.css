@@ -1003,6 +1003,17 @@
     }
 
     /* ── Database connections (Settings → Database connections, #170) ───────── */
+    .db-conn-sample-bar {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 8px 10px; margin: 8px 0; border: 1px dashed var(--border);
+      border-radius: var(--radius-sm); background: var(--bg-input);
+    }
+    .db-conn-sample-bar:empty { display: none; }
+    .db-conn-sample-note { flex: 1; min-width: 180px; font-size: var(--fs-micro); color: var(--text-muted); }
+    .db-conn-sample-status { width: 100%; font-size: var(--fs-micro); color: var(--text-muted); }
+    .db-conn-sample-status:empty { display: none; }
+    .db-conn-sample-status.is-ok { color: var(--accent, #4caf50); }
+    .db-conn-sample-status.is-error { color: var(--danger, #e53935); }
     .db-conn-list { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
     .db-conn-row {
       display: flex; align-items: center; gap: 8px;
