@@ -342,6 +342,20 @@
     line-height: 1.4;
 }
 
+/* A clipped single result (e.g. a long error) shipped as `detail`: same
+   click-to-expand affordance as the search list, with a caret so the summary
+   reads as openable, and a body that wraps + preserves newlines. */
+.tool-card-detail > summary::after { content: " ▸"; opacity: 0.6; }
+.tool-card-detail[open] > summary::after { content: " ▾"; }
+.tool-card-detail-body {
+    margin-top: 6px;
+    padding-left: 14px;
+    border-left: 2px solid var(--border, #ddd);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.45;
+}
+
 /* Persistent breadcrumb left behind by a completed reasoning phase, aligned
    with the tool-card dot so the feed reads as one ordered column of steps. */
 .action-phase {

@@ -109,11 +109,11 @@ describe("summarizeArgs()", () => {
     assert.equal(result, "Hello World");
   });
 
-  test("truncates path longer than 120 chars", () => {
-    const longPath = "a".repeat(150);
+  test("shows a long path in full (no middle ellipsis)", () => {
+    const longPath = "/Users/lk/" + "nested/".repeat(30) + "file.js";
     const result = ta.summarizeArgs("read", { path: longPath });
-    assert.ok(result.includes("…"), "should have middle ellipsis");
-    assert.ok(result.length <= 122); // truncMid with n=120
+    assert.equal(result, longPath);
+    assert.ok(!result.includes("…"), "path should not be middle-truncated");
   });
 
   test("th checks URL before path", () => {
@@ -196,6 +196,22 @@ describe("summarizeResult() — error prefix", () => {
     const result = ta.summarizeResult("tool", "❌ First error line\nSecond line\nThird line");
     assert.equal(result.summary, "First error line");
   });
+
+  test("ships full text as detail when longer than the summary", () => {
+    const longMsg = "❌ " + "x".repeat(100);
+    const result = ta.summarizeResult("tool", longMsg);
+    assert.equal(result.detail, "x".repeat(100));
+  });
+
+  test("ships multi-line error as detail so the card can expand", () => {
+    const result = ta.summarizeResult("tool", "❌ First error line\nSecond line\nThird line");
+    assert.equal(result.detail, "First error line\nSecond line\nThird line");
+  });
+
+  test("omits detail when the message fits the summary", () => {
+    const result = ta.summarizeResult("tool", "❌ short error");
+    assert.equal(result.detail, undefined);
+  });
 });
 
 // =============================================================================
@@ -204,24 +220,24 @@ describe("summarizeResult() — error prefix", () => {
 describe("summarizeResult() — recall", () => {
   test("returns no memories when text indicates none", () => {
     const result = ta.summarizeResult("recall", "No memories found.");
-    assert.deepEqual(result, { ok: true, summary: "no memories" });
+    assert.deepEqual(result, { ok: true, summary: "no memories", detail: "No memories found." });
   });
 
   test("counts memories by '---' separators", () => {
     const text = "Memory 1\n---\nMemory 2\n---\nMemory 3";
     const result = ta.summarizeResult("recall", text);
-    assert.deepEqual(result, { ok: true, summary: "3 memories" });
+    assert.deepEqual(result, { ok: true, summary: "3 memories", detail: text });
   });
 
   test("counts 2 memories from two --- separated blocks", () => {
     const text = "Memory 1\n---\nMemory 2";
     const result = ta.summarizeResult("recall", text);
-    assert.deepEqual(result, { ok: true, summary: "2 memories" });
+    assert.deepEqual(result, { ok: true, summary: "2 memories", detail: text });
   });
 
   test("returns 1 memory for single block without separator", () => {
     const result = ta.summarizeResult("recall", "Just one memory here");
-    assert.deepEqual(result, { ok: true, summary: "1 memory" });
+    assert.deepEqual(result, { ok: true, summary: "1 memory", detail: "Just one memory here" });
   });
 });
 
@@ -370,3 +386,53 @@ describe("summarizeResult() — generic", () => {
     assert.equal(result.summary, "0 B");
   });
 });
+
+// =============================================================================
+// summarizeResult — detail (full text the card expands on click)
+// =============================================================================
+describe("summarizeResult() — detail", () => {
+  test("ships a fetched body as detail behind the size summary", () => {
+    const text = "page body line one\npage body line two";
+    const result = ta.summarizeResult("fetch_url", text);
+    assert.equal(result.summary, formatBytesLike(text));
+    assert.equal(result.detail, text);
+  });
+
+  test("caps detail at 2000 chars so big payloads can't bloat the frame", () => {
+    const result = ta.summarizeResult("fetch_url", "x".repeat(5000));
+    assert.equal(result.detail.length, 2000);          // 1999 chars + "…"
+    assert.ok(result.detail.endsWith("…"));
+  });
+
+  test("generic long result expands to a capped preview of the body", () => {
+    const text = "y".repeat(500);
+    const result = ta.summarizeResult("tool", text);
+    assert.equal(result.summary, "500 B");
+    assert.equal(result.detail, text);
+  });
+
+  test("multi-line short result expands to all its lines", () => {
+    const result = ta.summarizeResult("tool", "First line\nSecond line");
+    assert.equal(result.summary, "First line");
+    assert.equal(result.detail, "First line\nSecond line");
+  });
+
+  test("no detail when the summary already shows the whole message", () => {
+    assert.equal(ta.summarizeResult("tool", "OK").detail, undefined);
+  });
+
+  test("web_search keeps its structured list, gets no flat detail", () => {
+    const text = `🔎 Results for "x"\n\n1. Only\n   https://example.com\n\nPick...`;
+    const result = ta.summarizeResult("web_search", text);
+    assert.ok(Array.isArray(result.details));
+    assert.equal(result.detail, undefined);
+  });
+});
+
+// Mirror of the module's private formatBytes for asserting the size summary.
+function formatBytesLike(s) {
+  const n = Buffer.byteLength(s, "utf8");
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}

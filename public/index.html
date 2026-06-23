@@ -483,6 +483,9 @@
   <div class="config-restart-banner" id="configRestartBanner" style="display:none;">
     <i class="bi bi-arrow-repeat"></i>
     <span>Restart Aperio for these changes to take effect.</span>
+    <button id="configRestartBtn" class="config-restart-btn" onclick="restartAperio()">
+      <i class="bi bi-power"></i> Restart now
+    </button>
   </div>
   <div class="config-restart-banner config-reindex-banner" id="configReindexBanner" style="display:none;">
     <i class="bi bi-database-exclamation"></i>
@@ -492,6 +495,15 @@
   <div class="cg-panel-body" id="configSections"><span class="model-loading">Loading…</span></div>
 </div>
 <div id="config-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleConfigPanel()"></div>
+
+<!-- Restart overlay: shown while the server restarts; auto-reloads when it's back -->
+<div id="restartOverlay" class="restart-overlay" style="display:none;">
+  <div class="restart-overlay-card">
+    <div class="restart-spinner"></div>
+    <div class="restart-overlay-title" id="restartOverlayTitle">Restarting Aperio…</div>
+    <div class="restart-overlay-msg" id="restartOverlayMsg">Applying your changes. This usually takes a few seconds.</div>
+  </div>
+</div>
 
 <!-- Settings panel -->
 <div id="settings-panel" class="settings-panel" style="display:none;">

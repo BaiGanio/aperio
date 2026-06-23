@@ -68,7 +68,7 @@ const getBootstrapMeta = () => {
 let bootstrapStarted = false;
 
 // ─── Port: free it before we try to bind ─────────────────────────────────────
-await ensurePort(PORT);
+await ensurePort(PORT, { wait: !!process.env.APERIO_RESTART });
 
 // ─── Express (always starts immediately — serves setup UI right away) ─────────
 const app = express();

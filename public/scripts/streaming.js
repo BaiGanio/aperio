@@ -1754,6 +1754,21 @@ function _resolveToolCard(msg) {
         det.appendChild(item);
       }
       result.appendChild(det);
+    } else if (msg.detail) {
+      // A clipped result (e.g. a long error) ships its full text as `detail`.
+      // Mirror the web_search list: the one-line summary stays visible and
+      // clicking it expands to the complete message instead of a dangling "…".
+      result.textContent = "";
+      const det = document.createElement("details");
+      det.className = "tool-card-results tool-card-detail";
+      const sum = document.createElement("summary");
+      sum.textContent = summaryText;
+      det.appendChild(sum);
+      const body = document.createElement("div");
+      body.className = "tool-card-detail-body";
+      body.textContent = msg.detail;
+      det.appendChild(body);
+      result.appendChild(det);
     } else {
       result.textContent = summaryText;
     }
