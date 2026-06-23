@@ -295,6 +295,27 @@
 }
 .config-restart-banner i { color: var(--accent); }
 
+/* env-precedence notice — neutral (informational, not an action like restart). */
+.config-precedence-notice {
+  display: flex; align-items: flex-start; gap: 8px;
+  margin: 10px 16px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated, color-mix(in srgb, var(--text) 5%, var(--bg)));
+  color: var(--text-muted);
+  font-size: calc(12.5px * var(--font-scale));
+  line-height: 1.4;
+}
+.config-precedence-notice i { color: var(--text-muted); margin-top: 2px; }
+.config-precedence-notice code {
+  font-family: var(--font-mono);
+  font-size: .9em;
+  color: var(--text);
+}
+/* The inline chip example sits with the text, not pushed to the right. */
+.config-precedence-notice .config-field-source { margin-left: 0; vertical-align: baseline; }
+
 /* "Restart now" button — sits at the right end of the restart banner. */
 .config-restart-btn {
   margin-left: auto;
@@ -375,6 +396,23 @@
   font-size: calc(11px * var(--font-scale));
   color: var(--text-muted); font-style: italic;
 }
+/* Provenance chip: where the effective value resolves from (env / DB / default)
+   under the active APERIO_CONFIG_PRECEDENCE. Pushed to the right of the head. */
+.config-field-source {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+  font-weight: 500;
+  letter-spacing: .02em;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border, currentColor);
+  color: var(--text-muted);
+}
+.config-field-source.is-env { color: var(--accent); border-color: var(--accent); }
+.config-field-source.is-default { opacity: .6; }
+/* When a Tier-0 field shows both the chip and the "edit in .env" note, only the
+   first claims margin-left:auto so they sit together at the right. */
+.config-field-source + .config-field-envnote { margin-left: 8px; }
 .config-field-readonly {
   font-family: var(--font-mono);
   font-size: var(--fs-micro);

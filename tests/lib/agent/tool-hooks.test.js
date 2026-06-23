@@ -152,6 +152,78 @@ describe("surfaceArtifact() — download-card filtering", () => {
     ]);
     assert.deepEqual(cards.map((c) => c.filename).sort(), ["README.md", "index.html", "logo.svg"]);
   });
+
+  // Regression: a plain-text deliverable (a poem the model saved as .txt) wrote
+  // to disk but no Preview/Download card appeared because .txt was missing from
+  // DOWNLOADABLE_EXT. Text/data files the user asked for are deliverables too.
+  test("surfaces text/data deliverables (txt/json/xml/tsv)", () => {
+    const cards = cardsFor([
+      "/var/scratch/sess/pozdrana_pijance.txt",
+      "/var/scratch/sess/data.json",
+      "/var/scratch/sess/feed.xml",
+      "/var/scratch/sess/table.tsv",
+    ]);
+    assert.deepEqual(
+      cards.map((c) => c.filename).sort(),
+      ["data.json", "feed.xml", "pozdrana_pijance.txt", "table.tsv"],
+    );
+  });
+});
+
+describe("surfaceCodeArtifacts() — execution-aware code deliverables", () => {
+  // Hooks whose scratch dir contains `onDisk` (Dirent-like) files, all modified
+  // this turn. resolveScratchPath joins bare names to the scratch root so the
+  // executed-script path matches what the end-of-turn scan computes.
+  function makeCodeHooks({ onDisk = [] } = {}) {
+    const scratch = "/var/scratch/sess";
+    const events = [];
+    const factory = createToolHooks({
+      callTool: async () => "ok",
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: true, summary: "" }),
+      getActiveScratchDir: () => scratch,
+      resolveScratchPath: (p) => (p.startsWith("/") ? p : join(scratch, p)),
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1024, isFile: () => true, mtimeMs: Date.now() }),
+      readdirSync: () => onDisk.map((name) => ({ name, isFile: () => true })),
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory({ send: (e) => events.push(e) }, Date.now());
+    return { ...hooks, events };
+  }
+
+  const cardNames = (events) =>
+    events.filter((e) => e.type === "generated_file").map((c) => c.filename).sort();
+
+  // The developer case: "generate me a TypeScript file." Written, never run.
+  test("surfaces a code file written but never executed (the deliverable)", () => {
+    const { flushDownloadCards, events } = makeCodeHooks({ onDisk: ["widget.ts", "Service.cs"] });
+    flushDownloadCards();
+    assert.deepEqual(cardNames(events), ["Service.cs", "widget.ts"]);
+  });
+
+  // The generator case: a .js the model RUNS to build a PDF must not be offered
+  // as the result — execution, not extension, is what excludes it.
+  test("does NOT surface a script the model executed this turn", async () => {
+    const { callToolHooked, flushDownloadCards, events } = makeCodeHooks({ onDisk: ["build.js"] });
+    await callToolHooked("run_node_script", { script: "build.js" });
+    flushDownloadCards();
+    assert.equal(cardNames(events).length, 0);
+  });
+
+  // Mixed turn: the executed generator is excluded, a non-executed code file is
+  // still surfaced.
+  test("excludes executed generators but keeps non-executed code", async () => {
+    const { callToolHooked, flushDownloadCards, events } = makeCodeHooks({ onDisk: ["build.js", "helper.ts"] });
+    await callToolHooked("run_node_script", { script: "build.js" });
+    flushDownloadCards();
+    assert.deepEqual(cardNames(events), ["helper.ts"]);
+  });
 });
 
 describe("callToolHooked() — repeated-failure loop breaker", () => {

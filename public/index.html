@@ -480,6 +480,10 @@
     <input type="text" id="cfgSearchInput" class="cg-search-input" placeholder="Search settings…" />
     <button id="cfgSaveBtn" class="sk-new-btn" onclick="saveConfigSettings()"><i class="bi bi-check-lg"></i> Save</button>
   </div>
+  <div class="config-precedence-notice" id="configPrecedenceNotice" style="display:none;">
+    <i class="bi bi-file-earmark-text"></i>
+    <span><code>APERIO_CONFIG_PRECEDENCE=env</code> — values set in <code>.env</code> override the UI. Fields marked <span class="config-field-source is-env">from .env</span> are controlled by the file; saving them here has no effect until you remove them from <code>.env</code>.</span>
+  </div>
   <div class="config-restart-banner" id="configRestartBanner" style="display:none;">
     <i class="bi bi-arrow-repeat"></i>
     <span>Restart Aperio for these changes to take effect.</span>

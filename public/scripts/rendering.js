@@ -365,10 +365,14 @@ function renderFileModal(name, text) {
   codeEl.textContent = text;
 
   const ext = (name || "").split(".").pop().toLowerCase();
-  const langMap = { js:"javascript", ts:"typescript", jsx:"javascript", tsx:"typescript",
-                    py:"python", html:"html", css:"css", json:"json", md:"markdown",
-                    cs:"csharp", rs:"rust", go:"go", java:"java", cpp:"cpp", c:"c",
-                    sh:"bash", yaml:"yaml", yml:"yaml", toml:"toml", xml:"xml", sql:"sql" };
+  const langMap = { js:"javascript", cjs:"javascript", mjs:"javascript",
+                    ts:"typescript", jsx:"javascript", tsx:"typescript",
+                    py:"python", rb:"ruby", php:"php", go:"go", java:"java",
+                    cs:"csharp", rs:"rust", kt:"kotlin", swift:"swift", scala:"scala",
+                    cpp:"cpp", cc:"cpp", hpp:"cpp", c:"c", h:"c",
+                    html:"html", css:"css", scss:"scss", less:"less",
+                    json:"json", md:"markdown", sh:"bash", bash:"bash",
+                    yaml:"yaml", yml:"yaml", toml:"toml", xml:"xml", sql:"sql" };
   if (langMap[ext]) codeEl.className = `fpm-code language-${langMap[ext]}`;
 
   const isHtml = ext === "html" || ext === "htm";
