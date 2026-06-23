@@ -50,8 +50,13 @@ function keyToBuffer(hex) {
 // ── Platform: macOS Keychain ──────────────────────────────────────────────────
 
 function macStoreKey(keyHex) {
+  // -A: allow any local app to read the key without a per-access password
+  // prompt. The threat model here is at-rest disk theft (an attacker with the
+  // encrypted DB file but not this machine); a process already running as this
+  // user can read the key regardless. The previous `-T ""` left an empty ACL,
+  // which made macOS prompt for the login password on EVERY launch — see #180.
   execSync(
-    `security add-generic-password -a "${KEYCHAIN_ACCOUNT}" -s "${KEYCHAIN_SERVICE}" -w "${keyHex}" -T "" -U`,
+    `security add-generic-password -a "${KEYCHAIN_ACCOUNT}" -s "${KEYCHAIN_SERVICE}" -w "${keyHex}" -A -U`,
     { stdio: 'ignore' }
   );
   logger.info('[encrypt] Key stored in macOS Keychain');

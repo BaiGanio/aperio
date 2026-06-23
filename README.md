@@ -196,7 +196,9 @@ npm run chat:local               # runs as proxy or standalone
 > **Configuration** panel exposes every setting as a typed control (toggle /
 > select / number / text / chips / secret): pick your `AI_PROVIDER`, paste API
 > keys, switch embeddings, toggle the code/doc graph, and more. Values are saved
-> to the database (precedence: DB > `.env` > default) and apply after a restart
+> to the database (precedence: `.env` > DB > default by default; set
+> `APERIO_CONFIG_PRECEDENCE=db` — or flip it in the panel — to let the UI win)
+> and apply after a restart
 > (a banner reminds you). Bootstrap/security plumbing (ports, DB creds, TLS,
 > auth token) stays read-only here — those live in `.env`. Editing `.env`
 > directly still works for developers; run `npm run config:sync` to import any

@@ -43,8 +43,9 @@ const HEADER = `# ============================================================
 # block. Most people never go past the STOP line — run \`npm start\` and the
 # setup wizard in your browser writes a real \`.env\` for you.
 #
-# Precedence: DB (Settings UI) > .env > built-in default. A value saved in
-# the UI overrides \`.env\` unless you set APERIO_CONFIG_PRECEDENCE=env.
+# Precedence: .env > DB (Settings UI) > built-in default. Your \`.env\` wins by
+# default; set APERIO_CONFIG_PRECEDENCE=db (or flip it in the Settings UI) to
+# let UI-saved values override \`.env\` instead.
 #
 # NEVER commit .env to git.
 # ============================================================`;
