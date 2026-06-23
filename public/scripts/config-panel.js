@@ -69,6 +69,19 @@
     return b;
   }
 
+  // Provenance chip: where the effective value comes from under the current
+  // APERIO_CONFIG_PRECEDENCE. Makes "this is set in .env" vs "this is a UI/DB
+  // value with no .env entry" visible — the latter is easy to overlook because
+  // many DB settings have no .env.example counterpart.
+  const SOURCE_LABEL = { env: "from .env", db: "from UI", default: "default" };
+  function sourceChip(source) {
+    if (!source || !SOURCE_LABEL[source]) return null;
+    const b = document.createElement("span");
+    b.className = "config-field-source is-" + source;
+    b.textContent = SOURCE_LABEL[source];
+    return b;
+  }
+
   // Build the control for one field. Returns { row, read(), key } where read()
   // yields the value to PUT (or null = nothing to write / unchanged).
   function buildField(f) {
@@ -94,6 +107,8 @@
       info.title = f.help;
       head.appendChild(info);
     }
+    const chip = sourceChip(f.source);
+    if (chip) head.appendChild(chip);
     row.appendChild(head);
 
     let read = () => null;
@@ -247,6 +262,12 @@
   function render(schema) {
     const host = $("configSections");
     if (!host) return;
+
+    // Surface env-precedence mode so it's obvious why "from .env" fields ignore
+    // saves. Hidden in the default (db) mode.
+    const notice = $("configPrecedenceNotice");
+    if (notice) notice.style.display = schema.precedence === "env" ? "flex" : "none";
+
     host.innerHTML = "";
     readers = [];
     subsections = [];

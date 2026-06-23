@@ -84,6 +84,37 @@ describe("config-resolver", () => {
     assert.ok(applied.includes("EMBEDDING_DIMS"));
   });
 
+  describe("APERIO_CONFIG_PRECEDENCE=env", () => {
+    beforeEach(() => { process.env.APERIO_CONFIG_PRECEDENCE = "env"; });
+
+    test("a real env var wins over the DB value", async () => {
+      process.env[T1] = "from-env";
+      const applied = await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "from-db" }));
+      assert.equal(process.env[T1], "from-env");
+      assert.deepEqual(applied, []);          // not injected — env kept
+    });
+
+    test("DB-only var (absent from env) is still applied", async () => {
+      delete process.env[T1];
+      const applied = await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "from-db" }));
+      assert.equal(process.env[T1], "from-db");
+      assert.deepEqual(applied, [T1]);
+    });
+
+    test("a blank env var does not block the DB value", async () => {
+      process.env[T1] = "   ";               // present but blank → not a real override
+      await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "from-db" }));
+      assert.equal(process.env[T1], "from-db");
+    });
+  });
+
+  test("default precedence (db) still lets DB win", async () => {
+    delete process.env.APERIO_CONFIG_PRECEDENCE;
+    process.env[T1] = "from-env";
+    await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "from-db" }));
+    assert.equal(process.env[T1], "from-db");
+  });
+
   test("missing / brokenstore is a safe no-op", async () => {
     assert.deepEqual(await applyConfigToEnv(undefined), []);
     assert.deepEqual(await applyConfigToEnv({ async getSettings() { throw new Error("db down"); } }), []);

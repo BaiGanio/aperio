@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | Coding Assistant — Model Evaluation for Code Generation</title>
+  <meta name="description" content="Ten self-contained programming tasks that probe how well a local model performs as a coding assistant inside Aperio — from pure functions to cross-cutting DB changes. No technical knowledge needed: paste the prompt, run the verify command, score the result." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" />
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* Page-specific overrides */
+    .arch-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .arch-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .arch-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .arch-table code { font-size: .82rem; }
+    .diff-badge { display: inline-block; font-family: var(--font-mono); font-size: .72rem; font-weight: 600; padding: 2px 8px; margin-left: 6px; }
+    .diff-badge.diff-easy { background: rgba(67,197,158,.12); color: #43c59e; }
+    .diff-badge.diff-med  { background: rgba(224,169,63,.10); color: var(--amber); }
+    .diff-badge.diff-hard { background: rgba(168,85,247,.12); color: var(--purple); }
+    .setup-box { background: var(--bg-raised); border: 1px solid var(--border); padding: 18px 22px; margin: 16px 0; }
+    .setup-box pre { margin: 8px 0 0 0; font-size: .85rem; }
+    .scoring-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .scoring-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .scoring-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    @media print { body { background: #fff; color: #000; font-size: 12px; } .orb, .aperio-nav, .theme-switcher, .nav-toggle, footer, .btn-print, .mg-prompt-bar, .prompt-copy, .test-result, .rbtn, .section:not(#scorecard):not(#results), .mt-next, .rt-badge { display: none !important; } .scorecard, .scorecard thead th, .scorecard tbody td, .scorecard tfoot td { border-color: #ccc !important; color: #000 !important; } .sc-badge { border: 1px solid #999; color: #000 !important; background: none !important; } .results-tier .rt-card { border: 1px solid #999; } .rt-card.pulse { animation: none; box-shadow: none; } h1, h2 { color: #000 !important; } .section { padding: 10px 0 !important; } @page { margin: 1.5cm; } }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+
+<nav class="aperio-nav"><div class="nav-inner">
+  <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+  <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+  <ul class="nav-links" id="navLinks">
+    <li><a href="../index.html">Home</a></li><li><a href="index.html">All Suites</a></li><li><a href="#suite">Tests</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li>
+  </ul>
+  <div class="theme-switcher" id="themeSwitcher">
+    <button class="theme-btn active" data-theme="dark" title="Dark">🌙</button>
+    <button class="theme-btn" data-theme="light" title="Light">☀️</button>
+    <button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
+    <button class="theme-btn" data-theme="system" title="System">⊙</button>
+  </div>
+</div></nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="ca-top" style="padding:120px 0 30px"><div class="section-inner">
+  <a href="../index.html" class="mt-back reveal"><i class="bi bi-arrow-left"></i> Aperio Home</a>
+  <a href="index.html" class="mt-back reveal" style="margin-left:12px"><i class="bi bi-arrow-left"></i> All Suites</a>
+
+  <div class="eyebrow reveal" style="margin-top:18px">Coding Assistant Evaluation</div>
+  <h1 class="section-heading reveal">Engineering Discipline</h1>
+  <p class="lead-text reveal">Ten self-contained programming tasks that probe how well a local model performs as a coding assistant inside Aperio — from pure helper functions to cross-cutting store changes. Each task has a copy-paste prompt, a verify command, and clear pass criteria.</p>
+
+  <p class="reveal" style="margin-top:12px;opacity:.75;">Originally two separate eval suites — a 3-task warm-up for <code>gemma3:e4b</code> and a 7-task progression for <code>gemma4:e4b</code> — merged into a single progressive test. Start at Task&nbsp;1 and work up; the tasks reveal how deep the model's understanding goes.</p>
+</div></section>
+
+<!-- ── Architecture Quick Reference ──────────────────────────── -->
+<section class="section" id="arch" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Aperio Architecture (Quick Reference)</h2>
+  <p class="reveal mg-desc">Most tasks follow these project conventions. Knowing the layers helps you evaluate whether the model understood the right place to make a change.</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="arch-table">
+      <thead><tr><th>Layer</th><th>Location</th><th>Pattern</th></tr></thead>
+      <tbody>
+        <tr><td>Routes</td><td><code>lib/routes/api-*.js</code></td><td><code>mount*Routes(router, { store })</code> — thin Express handlers</td></tr>
+        <tr><td>Handlers</td><td><code>lib/handlers/*/</code></td><td>Pure async functions: <code>handler(ctx, args)</code> — independently testable</td></tr>
+        <tr><td>MCP Tools</td><td><code>mcp/tools/*.js</code></td><td>Zod schemas → bound handlers</td></tr>
+        <tr><td>Helpers</td><td><code>lib/helpers/*.js</code></td><td>Single-purpose utility functions</td></tr>
+        <tr><td>Store</td><td><code>db/*.js</code></td><td>DB abstraction (SQLite / Postgres)</td></tr>
+        <tr><td>Tests</td><td><code>tests/</code></td><td>Node built-in runner: <code>node:test</code> + <code>node:assert/strict</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Setup ──────────────────────────────────────────────────── -->
+<section class="section" id="setup" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Setup</h2>
+  <p class="reveal mg-desc">You need two terminals — one for the Aperio server on your local Ollama provider, and one for the chat client where you'll paste each task prompt.</p>
+  <div class="setup-box reveal">
+    <strong style="font-size:.88rem;opacity:.75;">Terminal A — Aperio server</strong>
+    <pre><code>npm run start:local        # AI_PROVIDER=ollama, port 31337</code></pre>
+  </div>
+  <div class="setup-box reveal">
+    <strong style="font-size:.88rem;opacity:.75;">Terminal B — chat client</strong>
+    <pre><code>npm run chat:local</code></pre>
+  </div>
+  <p class="reveal" style="margin-top:12px;font-size:.9rem;opacity:.7;">Paste each task's prompt into Terminal B. Use a fresh conversation per task when possible. After each task, run the <strong>Verify</strong> command in a third terminal (or stop the chat and use Terminal B).</p>
+
+  <div class="reveal" style="margin-top:24px">
+    <h3 style="font-size:1rem;">Reset between runs</h3>
+    <p style="font-size:.9rem;opacity:.7;">If you want to re-run tasks against a different model, run this reset first:</p>
+    <div class="setup-box">
+      <pre><code>git checkout -- lib/helpers/redactSecrets.js lib/helpers/imageTokens.js lib/terminal.js \
+                tests/lib/helpers/redactSecrets.test.js \
+                lib/routes/api.js db/sqlite.js db/postgres.js db/index.js
+rm -f lib/helpers/truncateMiddle.js lib/helpers/slugify.js lib/helpers/truncateText.js \
+      tests/lib/helpers/truncateMiddle.test.js tests/helpers/slugify.test.js \
+      tests/helpers/truncateText.test.js \
+      lib/routes/api-health.js lib/routes/api-stats.js lib/routes/api-tags.js</code></pre>
+    </div>
+  </div>
+</div></section>
+
+<!-- ── Tasks ──────────────────────────────────────────────────── -->
+<section class="section" id="suite" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">The Tasks</h2>
+  <p class="reveal mg-desc">Ordered by what they test: pure functions first, then surgical edits, Express routing, store/DB abstraction, application flow, and cross-cutting changes. Each task lists what files it touches, a difficulty badge, the prompt to paste, what to look for when evaluating, and the verify command.</p>
+
+  <!-- TASK 1: slugify -->
+  <div class="test-card reveal" id="task1">
+    <span class="test-label">Task 1 — Pure Function</span>
+    <h3>slugify() Helper <span class="diff-badge diff-easy">★☆☆☆☆</span></h3>
+    <p class="test-probes">Probes: basic code generation, string transformation, edge-case awareness</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>lib/helpers/slugify.js</code>) + 1 test &nbsp;(<code>tests/helpers/slugify.test.js</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>In the Aperio project, add a new helper <code>lib/helpers/slugify.js</code> that exports a <code>slugify(str)</code> function. It should convert any string to a URL-safe slug: lowercase, replace spaces and special chars with hyphens, collapse consecutive hyphens, trim leading/trailing hyphens. Also write a test at <code>tests/helpers/slugify.test.js</code>. Follow existing project patterns — use ES modules, the Node built-in test runner, and <code>node:assert/strict</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does it handle edge cases (empty string, already-slugified, unicode)?</li>
+      <li>Does the test cover those edge cases?</li>
+      <li>Does it follow the project's ES module style (<code>export function …</code>)?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node --test tests/helpers/slugify.test.js</code></div>
+
+    <div class="test-result" data-test="1"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 2: truncateMiddle -->
+  <div class="test-card reveal" id="task2">
+    <span class="test-label">Task 2 — Pure Function + Off‑by‑One Trap</span>
+    <h3>truncateMiddle() Helper <span class="diff-badge diff-easy">★☆☆☆☆</span></h3>
+    <p class="test-probes">Probes: length-guarantee discipline, off-by-one awareness, export style</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>lib/helpers/truncateMiddle.js</code>) + 1 test &nbsp;(<code>tests/lib/helpers/truncateMiddle.test.js</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a new file <code>lib/helpers/truncateMiddle.js</code> that exports a function <code>truncateMiddle(str, max)</code>. If <code>str.length &lt;= max</code>, return <code>str</code> unchanged. Otherwise keep characters from the start and the end and put a single <code>…</code> in the middle, so that the returned string's length is <strong>exactly</strong> <code>max</code>. Use ES module <code>export</code>. Then create <code>tests/lib/helpers/truncateMiddle.test.js</code> using <code>node:test</code> and <code>assert/strict</code> with cases for: a short string (unchanged), an exact-length string (unchanged), and a long string (length equals max, contains <code>…</code>).</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Long-case output length is <strong>exactly</strong> <code>max</code> (the classic off-by-one trap)</li>
+      <li><code>…</code> is one character</li>
+      <li><code>&lt;=</code> edge handled correctly</li>
+      <li>Test imports the new module and runs green</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node --test tests/lib/helpers/truncateMiddle.test.js</code></div>
+
+    <div class="test-result" data-test="2"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 3: truncateText -->
+  <div class="test-card reveal" id="task3">
+    <span class="test-label">Task 3 — Pure Function + Word‑Boundary Logic</span>
+    <h3>truncateText() Helper <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: word-boundary logic, length guarantees, defensive defaults</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>lib/helpers/truncateText.js</code>) + 1 test &nbsp;(<code>tests/helpers/truncateText.test.js</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>In the Aperio project, add a helper <code>lib/helpers/truncateText.js</code> that exports <code>truncateText(text, maxLength = 200, suffix = '…')</code>. It should truncate at a word boundary when possible, never cut mid-word unless a word is longer than maxLength, and always append the suffix when truncation occurs. The returned length (including suffix) must never exceed maxLength. Write a test at <code>tests/helpers/truncateText.test.js</code>. Use ES modules and the Node built-in test runner.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Word-boundary logic — does it avoid cutting mid-word?</li>
+      <li>Edge cases: text shorter than maxLength, text exactly at maxLength, text that is one long word</li>
+      <li>Does the test cover those edge cases?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node --test tests/helpers/truncateText.test.js</code></div>
+
+    <div class="test-result" data-test="3"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 4: redactSecrets (extend existing) -->
+  <div class="test-card reveal" id="task4">
+    <span class="test-label">Task 4 — Extend Existing Pattern</span>
+    <h3>Add Stripe Key Rule to redactSecrets.js <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: reading existing patterns, surgical edits, regex anchoring</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 edit &nbsp;(<code>lib/helpers/redactSecrets.js</code>) + 1 test append &nbsp;(<code>tests/lib/helpers/redactSecrets.test.js</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>In <code>lib/helpers/redactSecrets.js</code>, add a new rule to the <code>RULES</code> array that redacts Stripe secret keys. They look like <code>sk_live_</code> followed by 24 or more alphanumeric characters. Replace each match with <code>[REDACTED:stripe-key]</code>. Then add a matching test in <code>tests/lib/helpers/redactSecrets.test.js</code> that follows the existing test style.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>New rule in <code>RULES</code> with kind <code>stripe-key</code></li>
+      <li>Regex uses <code>\b</code> anchoring</li>
+      <li>New test added following existing style</li>
+      <li>Whole test file still green, no unrelated rules touched</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node --test tests/lib/helpers/redactSecrets.test.js</code></div>
+
+    <div class="test-result" data-test="4"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 5: imageTokens (surgical switch edit) -->
+  <div class="test-card reveal" id="task5">
+    <span class="test-label">Task 5 — Surgical Switch Edit</span>
+    <h3>Add 'mistral' Case to imageTokens.js <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: surgical precision, touching only one case, commenting</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 edit &nbsp;(<code>lib/helpers/imageTokens.js</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>In <code>lib/helpers/imageTokens.js</code>, add a new <code>case 'mistral':</code> to the switch in <code>imageTokenEstimate</code> that returns <code>1024</code>, with a one-line comment explaining the figure. Do <strong>not</strong> change any existing case or the default behavior.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li><code>mistral</code> → 1024</li>
+      <li>All other cases unchanged</li>
+      <li>Exactly one case + one comment added</li>
+      <li>No unrelated rewrites or "improvements"</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('./lib/helpers/imageTokens.js').then(m => { const assert = require('node:assert'); assert.strictEqual(m.imageTokenEstimate('mistral'), 1024); assert.strictEqual(m.imageTokenEstimate('ollama'), 256); assert.strictEqual(m.imageTokenEstimate('anthropic'), 1070); console.log('OK — mistral added, existing cases intact'); })"</code></div>
+
+    <div class="test-result" data-test="5"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 6: Health Check Endpoint -->
+  <div class="test-card reveal" id="task6">
+    <span class="test-label">Task 6 — Express Routing</span>
+    <h3>Health Check Endpoint <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: Express routing patterns, store integration, error handling</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new route file &nbsp;(<code>lib/routes/api-health.js</code>) + 1 edit &nbsp;(<code>lib/routes/api.js</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>In the Aperio project, add a <code>GET /api/health</code> endpoint. It should query the store to verify the database is reachable (e.g., run <code>SELECT 1</code> or call a store method) and return:<br><code>{"status": "ok", "db": "connected", "uptime": &lt;process.uptime seconds&gt;}</code><br>If the DB is unreachable, return 503 with <code>{"status": "error"}</code>. Mount it via a new <code>mountHealthRoutes(router, { store })</code> function in <code>lib/routes/api-health.js</code>, and wire it into <code>lib/routes/api.js</code>. Follow existing route patterns exactly (see <code>lib/routes/api-wiki.js</code> for an example).</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does it catch errors properly (try/catch, 500/503)?</li>
+      <li>Does the route file follow the <code>mount*Routes(router, { store })</code> convention?</li>
+      <li>Does it integrate cleanly into <code>api.js</code>?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br>Start the server and curl the endpoint:<br><code>npm start &amp;<br>curl http://localhost:3000/api/health</code></div>
+
+    <div class="test-result" data-test="6"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 7: Stats Endpoint -->
+  <div class="test-card reveal" id="task7">
+    <span class="test-label">Task 7 — Store/DB Abstraction</span>
+    <h3>Memory Stats / Dashboard Endpoint <span class="diff-badge diff-med">★★★★☆</span></h3>
+    <p class="test-probes">Probes: store abstraction, aggregate queries, SQLite vs Postgres split</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new route file &nbsp;(<code>lib/routes/api-stats.js</code>) + edits to &nbsp;<code>db/sqlite.js</code>, <code>db/postgres.js</code>, <code>db/index.js</code>, <code>lib/routes/api.js</code></p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>In the Aperio project, add a <code>GET /api/stats</code> endpoint that returns aggregate counts from the database. It should return:<br><code>{"memories": {"total": 42, "by_type": {"fact": 20, "preference": 12, "event": 10}}, "wiki_articles": {"total": 8, "by_status": {"fresh": 5, "stale": 2, "draft": 1}}, "agent_jobs": {"total": 3}}</code><br>Add a <code>getStats()</code> method to the store interface in <code>db/index.js</code> (which delegates to the active backend). For SQLite, implement it in <code>db/sqlite.js</code> with real queries against the memories, wiki_articles, and agent_jobs tables. For Postgres, add a stub in <code>db/postgres.js</code> that throws <code>"not implemented"</code>. Create the route in <code>lib/routes/api-stats.js</code> (following the <code>mount*Routes</code> pattern) and wire it into <code>lib/routes/api.js</code>. Follow existing patterns.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does it use the store abstraction correctly (not raw DB in the route)?</li>
+      <li>Does it handle the SQLite vs Postgres split?</li>
+      <li>Are the queries efficient (one query per aggregate vs N queries)?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>npm start &amp;<br>curl http://localhost:3000/api/stats | jq</code></div>
+
+    <div class="test-result" data-test="7"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 8: Tag Suggestions -->
+  <div class="test-card reveal" id="task8">
+    <span class="test-label">Task 8 — SQL Query + Input Safety</span>
+    <h3>Tag Suggestions Endpoint <span class="diff-badge diff-med">★★★★☆</span></h3>
+    <p class="test-probes">Probes: prefix search, parameterized queries, input safety</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new route file &nbsp;(<code>lib/routes/api-tags.js</code>) + edits to &nbsp;<code>db/sqlite.js</code>, <code>db/postgres.js</code>, <code>db/index.js</code>, <code>lib/routes/api.js</code></p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>In the Aperio project, add a <code>GET /api/tags/suggest?q=&lt;prefix&gt;</code> endpoint. It should query all distinct tags from the memories table that start with the given prefix (case-insensitive), ordered by frequency (most-used first), limited to 10 results. Return:<br><code>{"tags": ["deployment", "debugging", "design"]}</code><br>Add a <code>suggestTags(prefix, limit)</code> method to the store (SQLite implementation, Postgres stub). Create the route in <code>lib/routes/api-tags.js</code> and mount it in <code>lib/routes/api.js</code>. Follow existing patterns. If <code>q</code> is missing or empty, return all tags ordered by frequency (top 20).</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does it handle empty/null prefix gracefully?</li>
+      <li>Is the query case-insensitive?</li>
+      <li>Does it use parameterized queries (no SQL injection)?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>npm start &amp;<br>curl "http://localhost:3000/api/tags/suggest?q=de"</code></div>
+
+    <div class="test-result" data-test="8"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 9: --no-memory CLI Flag -->
+  <div class="test-card reveal" id="task9">
+    <span class="test-label">Task 9 — Application Flow</span>
+    <h3>Add a --no-memory CLI Flag <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: understanding existing app flow, surgical CLI changes</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 edit &nbsp;(<code>lib/terminal.js</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>In the Aperio project, the terminal chat (<code>npm run chat:local</code>) starts via <code>lib/terminal.js</code>. Add a <code>--no-memory</code> CLI flag. When passed, the agent session should skip preloading memories from the store. Parse it from <code>process.argv</code> (e.g., <code>--no-memory</code> as a boolean flag — present means skip, absent means load normally). Make the change minimal — don't refactor unrelated code. Follow existing patterns in the file.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does it find where session initialization / memory preloading happens?</li>
+      <li>Is the change minimal and surgical?</li>
+      <li>Does it handle the flag correctly (present = true, absent = false)?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>npm run chat:local -- --no-memory</code><br><span style="opacity:.6">Should start chat without loading memories.</span></div>
+
+    <div class="test-result" data-test="9"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 10: Pagination -->
+  <div class="test-card reveal" id="task10">
+    <span class="test-label">Task 10 — Cross‑Cutting Change</span>
+    <h3>Add Pagination Metadata to Memory List <span class="diff-badge diff-hard">★★★★☆</span></h3>
+    <p class="test-probes">Probes: backwards compatibility, cross-cutting changes, MCP handler safety</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">Edits to &nbsp;<code>lib/routes/api-memories.js</code>, <code>db/sqlite.js</code>, <code>db/postgres.js</code></p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>The Aperio <code>GET /api/memories</code> endpoint currently returns <code>{"memories": [...]}</code>. Enhance it to include pagination metadata:<br><code>{"memories": [...], "pagination": {"total": 150, "limit": 20, "offset": 0, "has_more": true}}</code><br>The store's list/recall method should return a <code>{rows, total}</code> object instead of just an array. Update the SQLite implementation in <code>db/sqlite.js</code> to run a <code>COUNT(*) OVER()</code> window query or a separate count. Update the Postgres stub similarly. Update the route in <code>lib/routes/api-memories.js</code> to include the pagination wrapper.<br><strong>Critical</strong>: Do NOT break the existing MCP <code>recall</code> handler — that should still receive just the rows array (call <code>.rows</code> on the result). Follow existing patterns.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does it avoid breaking the MCP handler (which expects just rows)?</li>
+      <li>Are the count queries efficient (not a second full scan)?</li>
+      <li>Is the API response backwards-compatible (additive only)?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>npm test</code><br><span style="opacity:.6">Also check: </span><code>npm run chat:local</code> → <code>recall some topic</code><br><span style="opacity:.6">MCP recall tool should still work and return formatted text, not an object.</span></div>
+
+    <div class="test-result" data-test="10"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+</div></section>
+
+<!-- ── Per‑Task Scoring Rubric ───────────────────────────────── -->
+<section class="section" id="rubric" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Per‑Task Scoring Rubric</h2>
+  <p class="reveal mg-desc">Apply these five signals to each task after running the verify command. They measure not just "does it work" but also "was the model surgical" and "did it actually verify its own work".</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="scoring-table">
+      <thead><tr><th>Signal</th><th style="width:140px">0 = fail</th><th style="width:140px">1 = pass</th></tr></thead>
+      <tbody>
+        <tr><td>Edited the correct file</td><td>wrong file / new file when edit expected</td><td>right file</td></tr>
+        <tr><td>Verify command passes</td><td>red / errors</td><td>green</td></tr>
+        <tr><td>Stayed surgical (no unrelated rewrites)</td><td>rewrote / "improved" unrelated code</td><td>minimal diff</td></tr>
+        <tr><td>Produced the test when asked</td><td>code only</td><td>code + test</td></tr>
+        <tr><td>Ran/read the verify itself when prompted</td><td>guessed / claimed without checking</td><td>actually ran / read output</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Scorecard ─────────────────────────────────────────────── -->
+<section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Results fill in automatically as you click the buttons above.</p>
+  <div class="reveal" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+    <label style="font-size:.9rem;"><strong>Model:</strong> <input type="text" id="modelName" placeholder="e.g. Gemma 4 12B" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:200px;"></label>
+    <label style="font-size:.9rem;"><strong>Date:</strong> <input type="text" id="testDate" placeholder="e.g. 2026-06-22" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label>
+  </div>
+  <div class="scorecard-wrap reveal"><div class="print-bar"><button class="btn-print" onclick="window.print()"><i class="bi bi-printer"></i> Print Scorecard</button></div>
+  <div style="overflow-x:auto;"><table class="scorecard" id="scorecardTable">
+    <thead><tr><th style="width:55%">Test</th><th style="width:20%">Result</th><th style="width:25%">Notes</th></tr></thead>
+    <tbody>
+      <tr data-test="1"><td class="sc-test">1. slugify() Helper</td><td class="sc-result" id="sr-1"><span class="sc-badge sc-empty">—</span></td><td id="sn-1"></td></tr>
+      <tr data-test="2"><td class="sc-test">2. truncateMiddle() Helper</td><td class="sc-result" id="sr-2"><span class="sc-badge sc-empty">—</span></td><td id="sn-2"></td></tr>
+      <tr data-test="3"><td class="sc-test">3. truncateText() Helper</td><td class="sc-result" id="sr-3"><span class="sc-badge sc-empty">—</span></td><td id="sn-3"></td></tr>
+      <tr data-test="4"><td class="sc-test">4. redactSecrets — Stripe Key</td><td class="sc-result" id="sr-4"><span class="sc-badge sc-empty">—</span></td><td id="sn-4"></td></tr>
+      <tr data-test="5"><td class="sc-test">5. imageTokens — Mistral Case</td><td class="sc-result" id="sr-5"><span class="sc-badge sc-empty">—</span></td><td id="sn-5"></td></tr>
+      <tr data-test="6"><td class="sc-test">6. Health Check Endpoint</td><td class="sc-result" id="sr-6"><span class="sc-badge sc-empty">—</span></td><td id="sn-6"></td></tr>
+      <tr data-test="7"><td class="sc-test">7. Memory Stats Endpoint</td><td class="sc-result" id="sr-7"><span class="sc-badge sc-empty">—</span></td><td id="sn-7"></td></tr>
+      <tr data-test="8"><td class="sc-test">8. Tag Suggestions Endpoint</td><td class="sc-result" id="sr-8"><span class="sc-badge sc-empty">—</span></td><td id="sn-8"></td></tr>
+      <tr data-test="9"><td class="sc-test">9. --no-memory CLI Flag</td><td class="sc-result" id="sr-9"><span class="sc-badge sc-empty">—</span></td><td id="sn-9"></td></tr>
+      <tr data-test="10"><td class="sc-test">10. Pagination Metadata</td><td class="sc-result" id="sr-10"><span class="sc-badge sc-empty">—</span></td><td id="sn-10"></td></tr>
+    </tbody>
+    <tfoot><tr><td colspan="3" id="sc-total">TOTAL: ____ / 10 passed</td></tr></tfoot>
+  </table></div>
+  <div class="score-feedback" id="scoreFeedback"></div></div>
+
+  <div class="reveal" style="margin-top:18px;background:rgba(127,127,127,.06);border:1px solid rgba(127,127,127,.14);padding:18px 22px;">
+    <strong style="font-size:.9rem;">Scoring notes:</strong>
+    <ul style="font-size:.9rem;line-height:1.8;padding-left:20px;margin-top:8px;margin-bottom:0;">
+      <li><strong>Pass</strong> — the model implemented the task correctly and the verify command passes.</li>
+      <li><strong>Fail</strong> — the verify failed, the model touched the wrong file, or made unrelated changes.</li>
+      <li><strong>N/A</strong> — the task doesn't apply (e.g., the prerequisite file doesn't exist). N/A tasks excluded from the total.</li>
+      <li>Run each task in a <strong>fresh chat</strong> when possible.</li>
+      <li>For the rubric signals (surgical, test, verify), judge them on top of the basic pass/fail — a task that passes the verify but rewrote half the file is a red flag.</li>
+    </ul>
+  </div>
+</div></section>
+
+<!-- ── Results ───────────────────────────────────────────────── -->
+<section class="section" id="results" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">What the Results Mean</h2>
+
+  <div class="results-tier reveal" id="resultsTier">
+    <div class="rt-card rt-good" data-tier="elite">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">9–10/10</div>
+      <div class="rt-label"><strong>Production-ready assistant.</strong> The model understands Aperio's architecture, follows conventions, and makes surgical changes. Trust it for real development work.</div>
+    </div>
+    <div class="rt-card rt-good" data-tier="strong">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">7–8/10</div>
+      <div class="rt-label"><strong>Strong coding assistant.</strong> Handles most tasks well. May struggle with cross-cutting changes or abstract patterns. Good for focused tasks with clear scope.</div>
+    </div>
+    <div class="rt-card rt-warn" data-tier="moderate">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">4–6/10</div>
+      <div class="rt-label"><strong>Moderate ability.</strong> Good for simple helpers and surgical edits. Struggles with routing, DB changes, or multi-file work. Double-check its output.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="low">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">1–3/10</div>
+      <div class="rt-label"><strong>Limited coding ability.</strong> May handle one or two pure-function tasks. Not reliable for anything involving routing, DB access, or existing code.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="none">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">0/10</div>
+      <div class="rt-label"><strong>Not a coding assistant.</strong> This model should not be used for development work within Aperio.</div>
+    </div>
+  </div>
+
+  <h3 class="reveal" style="font-size:1.05rem;margin-top:28px">What the progression reveals</h3>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">The task order traces a curve from shallow to deep understanding:</p>
+  <div class="reveal" style="background:var(--bg-raised);border:1px solid var(--border);padding:18px 22px;margin:14px 0;">
+    <code style="font-size:.88rem;line-height:2;word-break:break-all;">
+      pure functions (tasks 1–3) → surgical existing-code edits (4–5) → Express routing (6) → store/DB abstraction (7–8) → application flow (9) → cross-cutting changes (10)
+    </code>
+  </div>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">A model that drops off after Task&nbsp;5 knows JavaScript but not architecture. One that drops off after Task&nbsp;8 knows the stack but struggles with cross-cutting safety. A model that passes all 10 understands the project deeply.</p>
+</div></section>
+
+<!-- ── Next / Footer ─────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0"><div class="section-inner">
+  <div class="mt-next reveal" style="margin-top:28px">
+    <a href="capability-exam.html"><span class="mt-next-t">Next → Capability Exam</span><span class="mt-next-d">The full system benchmark — 65+ drills across every tool category.</span></a>
+    <a href="index.html"><span class="mt-next-t">All suites →</span><span class="mt-next-d">Back to all evaluation suites.</span></a>
+  </div>
+</div></section>
+
+<footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+<script>
+(function(){
+  const T = 10;
+  const H = {
+    pass: '<span class="sc-badge sc-pass">✓ Pass</span>',
+    fail: '<span class="sc-badge sc-fail">✗ Fail</span>',
+    na:   '<span class="sc-badge sc-na">— N/A</span>',
+    empty:'<span class="sc-badge sc-empty">—</span>'
+  };
+  let R = {};
+
+  function U(){
+    let p = 0, f = 0, n = 0;
+    for(let t = 1; t <= T; t++){
+      let c = document.getElementById('sr-' + t),
+          v = R[t],
+          r = document.querySelector('#scorecardTable tr[data-test="' + t + '"]');
+      if(!c) continue;
+      c.innerHTML = v ? H[v] : H.empty;
+      if(r){
+        r.classList.remove('row-pass', 'row-fail');
+        if(v === 'pass') r.classList.add('row-pass');
+        if(v === 'fail') r.classList.add('row-fail');
+      }
+      if(v === 'pass') p++;
+      if(v === 'fail') f++;
+      if(v === 'na')   n++;
+    }
+
+    let a = T - n,
+        tr = document.getElementById('sc-total'),
+        fb = document.getElementById('scoreFeedback');
+
+    if(a === 0){
+      tr.textContent = 'TOTAL: ____ / 10 passed';
+      fb.className = 'score-feedback';
+      fb.textContent = '';
+    } else {
+      tr.textContent = 'TOTAL: ' + p + ' / ' + a + ' passed';
+      if((p + f) === a){
+        let tier;
+        if(p >= 9)        tier = 'elite';
+        else if(p >= 7)   tier = 'strong';
+        else if(p >= 4)   tier = 'moderate';
+        else if(p >= 1)   tier = 'low';
+        else              tier = 'none';
+        P(tier);
+        fb.className = 'score-feedback visible';
+        fb.textContent = p + ' of ' + a + ' passed — see the highlighted card below';
+      } else {
+        S();
+        fb.className = 'score-feedback';
+        fb.textContent = '';
+      }
+    }
+
+    document.querySelectorAll('.test-card').forEach(function(card){
+      var trEl = card.querySelector('.test-result');
+      if(trEl){
+        var tn = parseInt(trEl.dataset.test);
+        if(R[tn]) card.classList.add('answered');
+        else card.classList.remove('answered');
+      }
+    });
+  }
+
+  function P(tier){
+    document.querySelectorAll('#resultsTier .rt-card').forEach(function(c){
+      c.classList.remove('pulse');
+      if(c.dataset.tier === tier){
+        c.classList.add('pulse');
+        c.scrollIntoView({behavior:'smooth', block:'nearest'});
+      }
+    });
+  }
+
+  function S(){
+    document.querySelectorAll('#resultsTier .rt-card').forEach(function(c){
+      c.classList.remove('pulse');
+    });
+  }
+
+  document.querySelectorAll('.test-result').forEach(function(g){
+    var tn = parseInt(g.dataset.test),
+        bs = g.querySelectorAll('.rbtn');
+    bs.forEach(function(b){
+      b.addEventListener('click', function(){
+        var v = b.dataset.value;
+        if(R[tn] === v) R[tn] = null;
+        else R[tn] = v;
+        bs.forEach(function(b2){
+          b2.classList.remove('active-pass','active-fail','active-na');
+          if(R[tn] === b2.dataset.value) b2.classList.add('active-' + b2.dataset.value);
+        });
+        U();
+      });
+    });
+  });
+})();
+</script>
+</body>
+</html>
