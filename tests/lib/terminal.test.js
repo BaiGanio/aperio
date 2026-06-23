@@ -43,9 +43,6 @@ import {
   isStatsCommand,
   isStatusCommand,
   isDiscussCommand,
-  isHelpCommand,
-  isStatsCommand,
-  isStatusCommand,
 } from "../../lib/terminal.js";
 
 // ─── Command Detection Tests ────────────────────────────────────────────────
