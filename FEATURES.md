@@ -153,6 +153,6 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - CI: CodeQL, Codecov, SonarCloud, Codacy, Dependabot (npm + github-actions), `npm audit` (high-severity gate)
 - Quiet test reporter gated on `APERIO_AGENT_RUN` (summary-only output for agent runs)
 - Graceful shutdown with ONNX cleanup
-- RAM-based model auto-select (`CHECK_RAM=true`)
+- RAM-based model recommendation (setup wizard + terminal model picker)
 - Docker production config (`docker/docker-compose.prod.yml`)
 - Test suite: 1724 tests (`npm test`)

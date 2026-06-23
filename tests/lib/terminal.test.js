@@ -43,6 +43,13 @@ import {
   isStatsCommand,
   isStatusCommand,
   isDiscussCommand,
+  isSummarizeCommand,
+  isForgetCommand,
+  isHandoffCommand,
+  isSessionsCommand,
+  isModelCommand,
+  isAttachCommand,
+  isResumeCommand,
   printWelcome,
   printHelp,
   printStatus,
@@ -148,6 +155,68 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(isSpecialCommand("help"), true);
     assert.strictEqual(isSpecialCommand("stats"), true);
     assert.strictEqual(isSpecialCommand("status"), true);
+  });
+});
+
+// ─── Session / Memory / Model Command Tests ────────────────────────────────
+describe("Session / Memory / Model Command Detection", () => {
+  test("isSummarizeCommand matches exact 'summarize' (case-sensitive)", () => {
+    assert.strictEqual(isSummarizeCommand("summarize"), true);
+    assert.strictEqual(isSummarizeCommand("  summarize  "), true);
+    assert.strictEqual(isSummarizeCommand("SUMMARIZE"), false);
+    assert.strictEqual(isSummarizeCommand("summarize now"), false);
+    assert.strictEqual(isSummarizeCommand("summary"), false);
+  });
+
+  test("isForgetCommand requires an id argument (case-sensitive)", () => {
+    assert.strictEqual(isForgetCommand("forget abc-123"), true);
+    assert.strictEqual(isForgetCommand("  forget xyz  "), true);
+    assert.strictEqual(isForgetCommand("forget"), false);
+    assert.strictEqual(isForgetCommand("forget "), false);
+    assert.strictEqual(isForgetCommand("FORGET abc"), false);
+    assert.strictEqual(isForgetCommand("please forget abc"), false);
+  });
+
+  test("isHandoffCommand matches bare or with focus (case-insensitive)", () => {
+    assert.strictEqual(isHandoffCommand("handoff"), true);
+    assert.strictEqual(isHandoffCommand("  handoff  "), true);
+    assert.strictEqual(isHandoffCommand("handoff the auth refactor"), true);
+    assert.strictEqual(isHandoffCommand("HANDOFF"), true);
+    assert.strictEqual(isHandoffCommand("handoffs"), false);
+    assert.strictEqual(isHandoffCommand("do handoff"), false);
+  });
+
+  test("isSessionsCommand matches exact 'sessions' (case-sensitive)", () => {
+    assert.strictEqual(isSessionsCommand("sessions"), true);
+    assert.strictEqual(isSessionsCommand("  sessions  "), true);
+    assert.strictEqual(isSessionsCommand("SESSIONS"), false);
+    assert.strictEqual(isSessionsCommand("sessions list"), false);
+    assert.strictEqual(isSessionsCommand("session"), false);
+  });
+
+  test("isModelCommand matches bare or with args (case-insensitive)", () => {
+    assert.strictEqual(isModelCommand("model"), true);
+    assert.strictEqual(isModelCommand("  model  "), true);
+    assert.strictEqual(isModelCommand("model ollama llama3.1"), true);
+    assert.strictEqual(isModelCommand("MODEL"), true);
+    assert.strictEqual(isModelCommand("models"), false);
+    assert.strictEqual(isModelCommand("switch model"), false);
+  });
+
+  test("isAttachCommand requires a path argument (case-sensitive)", () => {
+    assert.strictEqual(isAttachCommand("attach ./file.txt"), true);
+    assert.strictEqual(isAttachCommand("  attach foo  "), true);
+    assert.strictEqual(isAttachCommand("attach"), false);
+    assert.strictEqual(isAttachCommand("attach "), false);
+    assert.strictEqual(isAttachCommand("ATTACH foo"), false);
+  });
+
+  test("isResumeCommand requires an id argument (case-sensitive)", () => {
+    assert.strictEqual(isResumeCommand("resume abc-123"), true);
+    assert.strictEqual(isResumeCommand("  resume xyz  "), true);
+    assert.strictEqual(isResumeCommand("resume"), false);
+    assert.strictEqual(isResumeCommand("resume "), false);
+    assert.strictEqual(isResumeCommand("RESUME abc"), false);
   });
 });
 

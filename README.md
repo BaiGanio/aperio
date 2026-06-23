@@ -465,7 +465,7 @@ Recommended models (pull with `ollama pull <model>`):
 | `qwen2.5:3b` | Legacy — lightweight, good for ≤ 8 GB RAM |
 | `deepseek-r1:32b` | Heavy reasoning, requires ≥ 60 GB RAM |
 
-> **💡 Tip:** Enable **Auto-pick model by RAM** in the Configuration panel (or set `CHECK_RAM=true` in `.env`) to let Aperio auto-select a model based on available RAM.
+> **💡 Tip:** Aperio detects your RAM and flags the best-fitting model as **(recommended)** — in the setup wizard and in the terminal model picker — so you don't have to guess.
 
 ### ✦ Anthropic Claude (Optional — Cloud Upgrade)
 
