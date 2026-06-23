@@ -1001,3 +1001,37 @@
       color: var(--text-muted);
       opacity: .7;
     }
+
+    /* ── Database connections (Settings → Database connections, #170) ───────── */
+    .db-conn-list { display: flex; flex-direction: column; gap: 4px; margin: 8px 0; }
+    .db-conn-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 8px; border: 1px solid var(--border);
+      border-radius: var(--radius-sm); background: var(--bg-input);
+    }
+    .db-conn-name { font-family: var(--font-mono); font-size: var(--fs-micro); color: var(--text); }
+    .db-conn-engine { font-size: var(--fs-micro); color: var(--text-muted); }
+    .db-conn-badge {
+      font-size: var(--fs-micro); padding: 1px 6px; border-radius: 999px;
+      border: 1px solid var(--border); color: var(--text-muted);
+    }
+    .db-conn-badge--rw { color: var(--accent); border-color: var(--accent); }
+    .db-conn-builtin { font-size: var(--fs-micro); color: var(--text-muted); opacity: .7; }
+    .db-conn-actions { margin-left: auto; display: flex; gap: 4px; }
+    .db-conn-icon {
+      background: none; border: none; cursor: pointer; color: var(--text-muted);
+      padding: 2px 4px; border-radius: var(--radius-sm); transition: color var(--transition);
+    }
+    .db-conn-icon:hover { color: var(--accent); }
+    .db-conn-empty { font-size: var(--fs-micro); color: var(--text-muted); opacity: .7; padding: 6px 0; }
+    .db-conn-form { display: flex; flex-direction: column; gap: 6px; margin-top: 10px;
+      padding-top: 10px; border-top: 1px dashed var(--border); }
+    .db-conn-form-title { font-size: var(--fs-micro); color: var(--text-muted); font-weight: 600; }
+    .db-conn-fields { display: flex; flex-direction: column; gap: 6px; }
+    .db-conn-readonly { display: flex; align-items: center; gap: 6px;
+      font-size: var(--fs-micro); color: var(--text-muted); }
+    .db-conn-form-actions { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+    .db-conn-cancel {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      font-size: var(--fs-micro); text-decoration: underline;
+    }

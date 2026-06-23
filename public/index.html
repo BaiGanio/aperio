@@ -651,6 +651,24 @@
         <button class="paths-apply-btn" onclick="saveGithubTriageSettings()"><i class="bi bi-check-lg"></i> Save</button>
       </div>
     </details>
+    <!-- Database connections — named SQL connections the db_* tools can query.
+         Passwords are encrypted server-side and never sent back to the browser
+         (blank password on save keeps the stored one). The built-in `aperio`
+         connection (your own store, read-only) is always present and not listed
+         here. The list + add/edit form are rendered by db-connections-panel.js. -->
+    <details class="settings-section" id="dbConnectionsSection">
+      <summary>
+        <i class="bi bi-database"></i>
+        <span>Database connections</span>
+        <span class="model-current" id="dbConnSummary"></span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Databases the AI can query with the <code>db_*</code> tools — SQLite, Postgres, or MySQL. Reads run freely; writes need your confirmation. Read-only is ON by default.</span>
+        <div id="dbConnList" class="db-conn-list"></div>
+        <div id="dbConnForm" class="db-conn-form"></div>
+        <div class="model-select-status" id="dbConnStatus"></div>
+      </div>
+    </details>
     <details class="settings-section" id="extrasSection">
       <summary>
         <i class="bi bi-puzzle"></i>
@@ -688,6 +706,7 @@
 <script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/skills-panel.js"></script>
 <script src="scripts/github-triage-panel.js"></script>
+<script src="scripts/db-connections-panel.js"></script>
 <script src="scripts/config-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>

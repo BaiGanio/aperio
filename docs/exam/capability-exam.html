@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aperio | Capability Exam — System-Wide Benchmark</title>
+<meta name="description" content="The Aperio Capability Exam is a 65+ drill benchmark covering every tool category. Run drills section by section and track your model's score here." />
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" /><link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+<style>
+  /* ── Hub-specific: section grid cards (like evaluate/index.html) ── */
+  .ex-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:30px;text-align:left}
+  @media(max-width:780px){.ex-grid{grid-template-columns:1fr}}
+  .ex-card{text-decoration:none;color:inherit;display:flex;flex-direction:column}
+  .ex-card .feat-title{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+  .ex-card .ex-meta{margin-top:14px;font-family:var(--font-ui);font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;opacity:.6;display:flex;align-items:center;gap:6px}
+  .ex-card .ex-meta .ex-arrow{transition:transform .2s}
+  .ex-card:hover .ex-meta .ex-arrow{transform:translateX(4px)}
+  .ex-card:hover .ex-meta{opacity:.95;color:var(--purple)}
+  .ex-card .ex-badge{display:inline-block;font-family:var(--font-mono);font-size:.68rem;font-weight:600;padding:2px 8px;margin-top:8px}
+  .ex-badge.sc-pass{background:rgba(67,197,158,.12);color:#43c59e}
+  .ex-badge.sc-fail{background:rgba(229,115,107,.12);color:#e5736b}
+  .ex-badge.sc-empty{background:rgba(127,127,127,.08);color:var(--dim)}
+  /* ── Prerequisite box ── */
+  .prereq-box{background:rgba(251,191,36,.06);border-left:3px solid var(--amber);padding:14px 18px;margin:10px 0;font-size:.9rem;line-height:1.7}
+  .prereq-box code{background:rgba(168,85,247,.12);color:var(--purple);padding:1px 5px;font-family:'Berkeley Mono',monospace}
+  /* ── Scorecard ── */
+  .scorecard .sc-section{font-weight:600}
+  .scorecard tbody td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:middle}
+  /* ── Template ── */
+  .template-box{background:var(--bg-card);border:1px solid var(--border);padding:20px 24px;margin:14px 0;font-family:var(--font-mono);font-size:.82rem;line-height:1.8;white-space:pre-wrap;position:relative}
+  .copy-btn{position:absolute;top:10px;right:12px;font-family:var(--font-ui);font-size:.68rem;letter-spacing:.06em;text-transform:uppercase;padding:4px 12px;border:1px solid var(--border);background:var(--bg-raised);color:var(--muted);cursor:pointer;border-radius:0;transition:all .15s}
+  .copy-btn:hover{border-color:var(--purple);color:var(--purple)}
+  .copy-btn.copied{color:#43c59e;border-color:#43c59e}
+  /* ── Reset button ── */
+  .reset-btn{font-family:var(--font-ui);font-size:.72rem;letter-spacing:.06em;padding:6px 16px;border:1px solid rgba(229,115,107,.3);background:transparent;color:var(--muted);cursor:pointer;border-radius:0;transition:all .15s}
+  .reset-btn:hover{border-color:#e5736b;color:#e5736b}
+  @media print{body{background:#fff;color:#000;font-size:12px}.orb,.aperio-nav,.theme-switcher,.nav-toggle,footer,.copy-btn,.btn-print,.mt-next,.rt-badge,.ex-meta,.reset-btn{display:none!important}.scorecard,.scorecard thead th,.scorecard tbody td{border-color:#ccc!important;color:#000!important}.rt-card{border:1px solid #999}.rt-card.pulse{animation:none}h1,h2{color:#000!important}.section{padding:10px 0!important}.template-box{border-color:#ccc!important}@page{margin:1.5cm}}
+</style></head><body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<nav class="aperio-nav"><div class="nav-inner"><a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a><button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button><ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="../evaluate/index.html">All Suites</a></li><li><a href="#sections">Sections</a></li><li><a href="#setup">Setup</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li><li><a href="../model-guide.html#compare">Models</a></li></ul><div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div></div></nav>
+
+<!-- ── Header ── -->
+<section class="section" id="mt-top" style="padding:120px 0 30px"><div class="section-inner"><a href="../index.html" class="mt-back reveal">← Home</a><div class="eyebrow reveal" style="margin-top:14px">System Benchmark</div><h1 class="section-heading reveal">Capability Exam</h1><p class="lead-text reveal">A comprehensive 65+ drill benchmark covering every Aperio tool category — memory, wiki, code graph, files, shell, web, skills, multi-tool chains, and security guardrails. Each section below opens into a dedicated page with copy-paste prompts and pass/fail tracking.</p></div></section>
+
+<!-- ── How it works ── -->
+<section class="section" style="padding:10px 0"><div class="section-inner">
+<div class="note-box reveal"><strong>How to run the exam:</strong> Pick a section below. Each drill page shows the exact prompt to paste into Aperio's chat and the ✅ expected tool/skill result. Click <strong>Pass</strong> when the model fires the right tool and produces the correct result; click <strong>Fail</strong> otherwise. Your scores are saved automatically in your browser and appear on the scorecard below. The full exam takes ~30–60 minutes depending on model speed.</div>
+</div></section>
+
+<!-- ── Section cards ── -->
+<section class="section" id="sections" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Exam Sections</h2><p class="reveal mg-desc">Click any section to open its drills. Scores update as you go.</p>
+
+<div class="ex-grid">
+  <a class="feat-card reveal ex-card" href="section-1-memory.html"><div class="feat-icon"><i class="bi bi-database-fill"></i></div><div class="feat-title">§1 Memory Tools <span class="tier-pill tier-feature">10 drills</span></div><p class="feat-desc">remember, recall (semantic / by-type / by-tag / temporal), update_memory, forget, deduplicate_memories, backfill_embeddings, remember with TTL.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
+
+  <a class="feat-card reveal ex-card" href="section-2-wiki.html" style="transition-delay:.06s"><div class="feat-icon"><i class="bi bi-journal-text"></i></div><div class="feat-title">§2 Wiki <span class="tier-pill tier-feature">5 drills</span></div><p class="feat-desc">wiki_write, wiki_list, wiki_search + wiki_get, staleness detection, wiki refresh with regeneration.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
+
+  <a class="feat-card reveal ex-card" href="section-3-codegraph.html" style="transition-delay:.12s"><div class="feat-icon"><i class="bi bi-diagram-3-fill"></i></div><div class="feat-title">§3 Code Graph <span class="tier-pill tier-feature">7 drills</span></div><p class="feat-desc">code_repos, code_search, code_outline, code_context, code_callers, code_callees, code_status.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
+
+  <a class="feat-card reveal ex-card" href="section-4-files.html" style="transition-delay:.18s"><div class="feat-icon"><i class="bi bi-file-earmark-text-fill"></i></div><div class="feat-title">§4 File Tools <span class="tier-pill tier-feature">9 drills</span></div><p class="feat-desc">read_file, scan_project, write_file, edit_file, append_file, generate_docx, generate_xlsx, delete_file, pinned memory check.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
+
+  <a class="feat-card reveal ex-card" href="section-5-shell.html" style="transition-delay:.24s"><div class="feat-icon"><i class="bi bi-terminal-fill"></i></div><div class="feat-title">§5 Shell <span class="tier-pill tier-feature">6 drills</span></div><p class="feat-desc">run_shell (allowed / git / blocked operator), run_node_script, run_python_script, syntax_check.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
+
+  <a class="feat-card reveal ex-card" href="section-6-web.html" style="transition-delay:.30s"><div class="feat-icon"><i class="bi bi-globe2"></i></div><div class="feat-title">§6 Web <span class="tier-pill tier-feature">3 drills</span></div><p class="feat-desc">fetch_url, fetch_github_issue, read_image / describe_image.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
+
+  <a class="feat-card reveal ex-card" href="section-7-skills.html" style="transition-delay:.36s"><div class="feat-icon"><i class="bi bi-bullseye"></i></div><div class="feat-title">§7 Skills Matched <span class="tier-pill tier-accuracy">17 drills</span></div><p class="feat-desc">Every canonical skill prompt — pptx, xlsx, docx-advanced, pdf, canvas-design, theme-factory, doc-coauthoring, prompt-optimizer, reasoning-planning, coding-standards, skill-creator, mcp-builder, webapp-testing, memory-protocol, codegraph, tool-integration, handoff.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
+
+  <a class="feat-card reveal ex-card" href="section-8-chains.html" style="transition-delay:.42s"><div class="feat-icon"><i class="bi bi-link-45deg"></i></div><div class="feat-title">§8 Multi-Tool Chains <span class="tier-pill tier-feature">4 drills</span></div><p class="feat-desc">Integration under load — recall→generate→file, codegraph→write→syntax→run, web→memory, recall→wiki_write→provenance.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
+
+  <a class="feat-card reveal ex-card" href="section-9-guardrails.html" style="transition-delay:.48s"><div class="feat-icon"><i class="bi bi-shield-lock-fill"></i></div><div class="feat-title">§9 Guardrails <span class="tier-pill tier-security">4 drills</span></div><p class="feat-desc">Negative drills — path blocking, write sandbox, shell sandbox, file extension check.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
+</div></div></section>
+
+<!-- ── §0 Setup ── -->
+<section class="section" id="setup" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">§0 — Fixture Import (Setup)</h2><p class="reveal mg-desc">Required before any drill. Import the Maya Chen persona dataset so the memory, recall, wiki, and dedup drills have real data. The dataset is 28 fictional memories tagged <code>aperio-exam</code>.</p>
+
+<div class="test-card reveal" id="setup-card">
+  <span class="test-label">Setup</span><h3>Import the fixture</h3>
+  <p class="test-probes">Expected: 28 memories imported, tagged <code>aperio-exam</code></p>
+
+  <div class="mg-prompt"><span class="mg-prompt-label">Option A — cURL (terminal)</span>PORT=31337
+curl -s https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.memories.json | curl -s -X POST "http://localhost:$PORT/api/memories/import" -H "Content-Type: application/json" --data-binary @-</div>
+  <p class="mg-desc" style="margin:10px 0">← Copy the block above, replace <code>PORT</code> with your instance port (3000 default), and run it in a terminal.</p>
+  <div class="mg-prompt"><span class="mg-prompt-label">Option B — Tell the agent</span>Read exam.md §0 and import the fixture. Use the import API, write+run a Node script, or curl — whatever works.</div>
+
+  <strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px">✅ Expected</strong>
+  <ul class="honest-list"><li>API returns <code>{"imported":28,"errors":[],"note":"Embeddings are being generated..."}</code></li><li><code>recall</code> by tag <code>aperio-exam</code> returns 28 memories</li><li>Wait ~10s after import before running semantic recall drills (§1.2)</li></ul>
+
+  <strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px">⚠ If it fails</strong>
+  <ul class="redflag-list"><li>Check your port — try 3000, 1701, or 31337</li><li>Ensure the Aperio server is running</li><li>Do not proceed to §1 until recall by tag returns 28</li></ul>
+</div>
+
+<h3 class="reveal" style="font-size:1.05rem;margin-top:28px">Before You Start</h3>
+<div class="prereq-box reveal"><strong>Prerequisites:</strong><ul style="margin:6px 0 0;padding-left:20px;font-size:.88rem;line-height:1.9"><li><strong>Shell:</strong> Set <code>APERIO_ENABLE_SHELL=1</code> for §5 shell drills</li><li><strong>Roundtable:</strong> Configure <code>ROUNDTABLE_AGENTS</code> with ≥2 <code>provider:model</code> pairs for §11</li><li><strong>Wiki refresh:</strong> Set <code>WIKI_REFRESH_PROVIDER</code> for §2.5</li><li><strong>GitHub token:</strong> Set <code>GITHUB_TOKEN</code> for §6.2 to avoid rate limits</li><li><strong>Code graph:</strong> Index the repo first — use the Code panel or ask the agent (required for §3)</li><li><strong>Embedding backfill:</strong> After fixture import (§0), wait ~10s before semantic recall drills in §1.2</li></ul></div>
+</div></section>
+
+<!-- ── §10 Teardown ── -->
+<section class="section" id="teardown" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">§10 — Teardown</h2>
+<div class="test-card reveal"><span class="test-label">Cleanup</span><h3>Remove the exam fixture</h3>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Recall everything tagged "aperio-exam" and forget each one — clean up the exam fixture. Also delete any scratch/ files created during the drills, and the Nimbus wiki article if I don't want to keep it.</div>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px">✅ Expected</strong><ul class="honest-list"><li>Agent recalls by tag <code>aperio-exam</code> and <code>forget</code>s the set</li><li>Scratch files and test artifacts are cleaned up</li></ul></div>
+</div></section>
+
+<!-- ── §11 Roundtable ── -->
+<section class="section" id="roundtable" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">§11 — Roundtable</h2>
+<div class="test-card reveal"><span class="test-label">Not scored</span><h3>Multi-agent discussion</h3><p class="test-probes">Requires <code>ROUNDTABLE_AGENTS</code> with ≥2 models and <code>ROUNDTABLE_MAX_ROUNDS</code> set. Skip if unconfigured.</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Start a roundtable discussion: two models should debate whether Nimbus should switch from NATS to Kafka, given what we know from memory about the original decision.</div>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px">✅ Expected</strong><ul class="honest-list"><li>Agent spawns a roundtable; each model responds in turn</li><li>Both perspectives reference the NATS decision from memory</li><li>Final output is a synthesized discussion with citations to source memories</li></ul>
+<div class="test-result" data-test="rt"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+</div></section>
+
+<!-- ── Scorecard ── -->
+<section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Scores auto-populate from your per-drill pass/fail selections on each section page. Fill in the model details below.</p>
+<div class="reveal" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:14px;align-items:center;"><label style="font-size:.9rem;"><strong>Model:</strong> <input type="text" id="modelName" placeholder="e.g. deepseek:deepseek-chat" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:240px;"></label><label style="font-size:.9rem;"><strong>Date:</strong> <input type="text" id="testDate" placeholder="e.g. 2026-06-23" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label><label style="font-size:.9rem;"><strong>OS / RAM:</strong> <input type="text" id="osInfo" placeholder="e.g. macOS 16GB" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label><button class="reset-btn" id="resetBtn" title="Clear all scores">↺ Reset</button></div>
+<div style="overflow-x:auto;"><table class="scorecard" id="scorecardTable"><thead><tr><th>Section</th><th>Drills</th><th>Passed</th><th>Score</th><th>Status</th></tr></thead><tbody>
+<tr data-section="1"><td class="sc-section">§1 Memory Tools</td><td>10</td><td id="sc-passed-1">—</td><td id="sr-1" class="sc-result"><span class="sc-badge sc-empty">— / 10</span></td><td id="st-1"></td></tr>
+<tr data-section="2"><td class="sc-section">§2 Wiki</td><td>5</td><td id="sc-passed-2">—</td><td id="sr-2" class="sc-result"><span class="sc-badge sc-empty">— / 5</span></td><td id="st-2"></td></tr>
+<tr data-section="3"><td class="sc-section">§3 Code Graph</td><td>7</td><td id="sc-passed-3">—</td><td id="sr-3" class="sc-result"><span class="sc-badge sc-empty">— / 7</span></td><td id="st-3"></td></tr>
+<tr data-section="4"><td class="sc-section">§4 File Tools</td><td>9</td><td id="sc-passed-4">—</td><td id="sr-4" class="sc-result"><span class="sc-badge sc-empty">— / 9</span></td><td id="st-4"></td></tr>
+<tr data-section="5"><td class="sc-section">§5 Shell</td><td>6</td><td id="sc-passed-5">—</td><td id="sr-5" class="sc-result"><span class="sc-badge sc-empty">— / 6</span></td><td id="st-5"></td></tr>
+<tr data-section="6"><td class="sc-section">§6 Web</td><td>3</td><td id="sc-passed-6">—</td><td id="sr-6" class="sc-result"><span class="sc-badge sc-empty">— / 3</span></td><td id="st-6"></td></tr>
+<tr data-section="7"><td class="sc-section">§7 Skills Matched</td><td>17</td><td id="sc-passed-7">—</td><td id="sr-7" class="sc-result"><span class="sc-badge sc-empty">— / 17</span></td><td id="st-7"></td></tr>
+<tr data-section="8"><td class="sc-section">§8 Multi-Tool Chains</td><td>4</td><td id="sc-passed-8">—</td><td id="sr-8" class="sc-result"><span class="sc-badge sc-empty">— / 4</span></td><td id="st-8"></td></tr>
+<tr data-section="9"><td class="sc-section">§9 Guardrails</td><td>4</td><td id="sc-passed-9">—</td><td id="sr-9" class="sc-result"><span class="sc-badge sc-empty">— / 4</span></td><td id="st-9"></td></tr>
+<tr data-section="11" style="background:rgba(168,85,247,.03)"><td class="sc-section" style="color:var(--purple)">§11 Roundtable</td><td>1</td><td id="sc-passed-11">—</td><td id="sr-11" class="sc-result"><span class="sc-badge sc-empty">— / 1</span></td><td id="st-11" style="font-size:.8rem;opacity:.6">not scored</td></tr>
+</tbody><tfoot><tr><td colspan="5" id="sc-total">TOTAL: ____ / 65 drills passed across 9 scored sections</td></tr></tfoot></table></div>
+<div class="score-feedback" id="scoreFeedback"></div>
+</div></section>
+
+<!-- ── Results ── -->
+<section class="section" id="results" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">What the Results Mean</h2>
+<div class="results-tier reveal" id="resultsTier">
+<div class="rt-card rt-good" data-tier="excellent"><div class="rt-badge">← Your result</div><div class="rt-score">Excellent</div><div class="rt-label"><strong>≥90% drills passed.</strong> The model handles nearly all Aperio capabilities. Production-ready.</div></div>
+<div class="rt-card rt-good" data-tier="strong"><div class="rt-badge">← Your result</div><div class="rt-score">Strong</div><div class="rt-label"><strong>≥75% passed.</strong> The model is reliable for most tasks. A few tool categories may have gaps — check which sections scored low.</div></div>
+<div class="rt-card rt-warn" data-tier="moderate"><div class="rt-badge">← Your result</div><div class="rt-score">Partial</div><div class="rt-label"><strong>≥50% passed.</strong> Usable for basic workflows but expect failures in complex tool chains or specialized tools.</div></div>
+<div class="rt-card rt-bad" data-tier="weak"><div class="rt-badge">← Your result</div><div class="rt-score">Weak</div><div class="rt-label"><strong>&lt;50% passed.</strong> The model struggles with Aperio's tools. Consider a different model or use only the sections that passed.</div></div>
+</div>
+</div></section>
+
+<!-- ── Template ── -->
+<section class="section" id="template" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Result Template</h2><p class="reveal mg-desc">After completing the exam, copy this template and paste it as a comment on <a href="https://github.com/BaiGanio/aperio/issues/129" target="_blank">issue #129</a>. It auto-fills from your scorecard.</p>
+<div class="template-box reveal" id="resultTemplate"><button class="copy-btn" id="copyBtn">Copy</button></div>
+</div></section>
+
+<!-- ── Footer nav ── -->
+<section class="section" style="padding:20px 0 60px"><div class="section-inner">
+<div class="mt-next reveal" style="margin-top:28px">
+<a href="../evaluate/index.html"><span class="mt-next-t">← All Evaluate Suites</span><span class="mt-next-d">Return to the full model evaluation suite.</span></a>
+<a href="section-1-memory.html"><span class="mt-next-t">Start: §1 Memory Tools →</span><span class="mt-next-d">10 drills — remember, recall, update, forget, and more.</span></a>
+</div></div></section>
+
+<footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="../scripts.js"></script>
+<script>
+(function(){
+const HF='<span class="sc-badge sc-pass">',HE='</span>',FF='<span class="sc-badge sc-fail">',NF='<span class="sc-badge sc-empty">';
+function badge(v,max){let pct=max>0?v/max:0;let cls=pct>=.75?'sc-pass':pct>=.5?'sc-fail':pct>0?'sc-fail':'sc-empty';return '<span class="sc-badge '+cls+'">'+(v+' / '+max)+'</span>'}
+function statusBadge(pct){if(pct>=.75)return HF+'✓ Strong'+HE;if(pct>=.5)return FF+'⚠ Partial'+HE;if(pct>0)return FF+'✗ Weak'+HE;return NF+'—'+HE}
+
+/* ── Read scores from localStorage ── */
+const SECS=[1,2,3,4,5,6,7,8,9]; const MAXES={1:10,2:5,3:7,4:9,5:6,6:3,7:17,8:4,9:4};
+function loadScores(){
+  let results={};
+  SECS.forEach(s=>{let passes=0;for(let d=1;d<=MAXES[s];d++){let v=localStorage.getItem('exam-s'+s+'-d'+d);if(v==='pass')passes++}results[s]=passes});
+  return results;
+}
+
+function U(){
+  let scores=loadScores(),totalPassed=0,totalMax=0,allSectionsTouched=false;
+  SECS.forEach(s=>{
+    let v=scores[s]||0,m=MAXES[s];
+    totalPassed+=v;totalMax+=m;
+    let tdid=document.getElementById('sc-passed-'+s);if(tdid)tdid.textContent=v;
+    let srid=document.getElementById('sr-'+s);if(srid)srid.innerHTML=badge(v,m);
+    let stid=document.getElementById('st-'+s);if(stid)stid.innerHTML=v>0?statusBadge(v/m):'';
+    if(v>0)allSectionsTouched=true;
+  });
+
+  /* Roundtable */
+  let rtVal=localStorage.getItem('exam-s11-d1')||'';
+  let rtP=document.getElementById('sc-passed-11'),rtR=document.getElementById('sr-11'),rtS=document.getElementById('st-11');
+  if(rtP)rtP.textContent=rtVal==='pass'?'1':rtVal==='fail'?'0':'—';
+  if(rtR)rtR.innerHTML=rtVal==='pass'?badge(1,1):rtVal==='fail'?badge(0,1):'<span class="sc-badge sc-empty">— / 1</span>';
+  if(rtS)rtS.innerHTML=rtVal==='pass'?statusBadge(1):rtVal==='fail'?statusBadge(0):'<span class="sc-badge sc-empty">—</span>';
+
+  let tr=document.getElementById('sc-total'),fb=document.getElementById('scoreFeedback');
+  tr.textContent='TOTAL: '+totalPassed+' / '+totalMax+' drills passed across '+SECS.length+' scored sections';
+
+  /* Template */
+  let tmpl=document.getElementById('resultTemplate');
+  let model=document.getElementById('modelName').value||'___',dt=document.getElementById('testDate').value||'___',os=document.getElementById('osInfo').value||'___';
+  let lines=['```','OS: '+os,'Model: '+model,'Date: '+dt,'','Score:'];
+  SECS.forEach(s=>{lines.push(' - §'+s+': '+scores[s]+'/'+MAXES[s]+' passed')});
+  if(rtVal==='pass')lines.push(' - §11 Roundtable: passed');
+  else if(rtVal==='fail')lines.push(' - §11 Roundtable: failed');
+  lines.push('','Notes: ','```');tmpl.textContent=lines.join('\n');
+
+  /* Results highlight */
+  if(allSectionsTouched&&totalMax>0){
+    let pct=totalPassed/totalMax,tier;
+    if(pct>=.9)tier='excellent';else if(pct>=.75)tier='strong';else if(pct>=.5)tier='moderate';else tier='weak';
+    P(tier);fb.className='score-feedback visible';fb.textContent=totalPassed+'/'+totalMax+' ('+Math.round(pct*100)+'%) — see the highlighted card below'
+  }else{fb.className='score-feedback';fb.textContent=''}
+}
+
+/* ── Roundtable button on this page ── */
+document.querySelectorAll('#roundtable .rbtn').forEach(b=>{b.addEventListener('click',function(){
+  let val=this.dataset.value,card=this.closest('.test-card'),btns=card.querySelectorAll('.rbtn');
+  btns.forEach(x=>{x.className='rbtn rbtn-'+x.dataset.value});
+  if(val==='pass'){this.classList.add('active-pass');localStorage.setItem('exam-s11-d1','pass')}
+  else if(val==='fail'){this.classList.add('active-fail');localStorage.setItem('exam-s11-d1','fail')}
+  else{this.classList.add('active-na');localStorage.setItem('exam-s11-d1','na')}
+  U();
+})});
+
+/* Restore roundtable button state */
+(function(){let v=localStorage.getItem('exam-s11-d1');if(v){let b=document.querySelector('#roundtable .rbtn-'+v);if(b){let card=b.closest('.test-card'),btns=card.querySelectorAll('.rbtn');btns.forEach(x=>{x.className='rbtn rbtn-'+x.dataset.value});b.classList.add(v==='pass'?'active-pass':v==='fail'?'active-fail':'active-na')}}})();
+
+function P(t){document.querySelectorAll('#resultsTier .rt-card').forEach(c=>{c.classList.remove('pulse');if(c.dataset.tier===t){c.classList.add('pulse');setTimeout(()=>c.scrollIntoView({behavior:'smooth',block:'nearest'}),100)}})}
+document.getElementById('copyBtn').addEventListener('click',()=>{let t=document.getElementById('resultTemplate').textContent;navigator.clipboard.writeText(t).then(()=>{let b=document.getElementById('copyBtn');b.textContent='Copied!';b.classList.add('copied');setTimeout(()=>{b.textContent='Copy';b.classList.remove('copied')},2000)})});
+document.getElementById('resetBtn').addEventListener('click',()=>{if(confirm('Clear all exam scores from this browser?')){SECS.forEach(s=>{for(let d=1;d<=MAXES[s];d++)localStorage.removeItem('exam-s'+s+'-d'+d)});localStorage.removeItem('exam-s11-d1');location.reload()}});
+['modelName','testDate','osInfo'].forEach(id=>document.getElementById(id).addEventListener('input',U));
+document.getElementById('modelName').addEventListener('change',function(){localStorage.setItem('exam-model',this.value)});
+document.getElementById('testDate').addEventListener('change',function(){localStorage.setItem('exam-date',this.value)});
+document.getElementById('osInfo').addEventListener('change',function(){localStorage.setItem('exam-os',this.value)});
+/* Restore model info */['modelName','testDate','osInfo'].forEach((id,idx)=>{let k=['exam-model','exam-date','exam-os'][idx],v=localStorage.getItem(k);if(v)document.getElementById(id).value=v});
+U();
+})();
+</script>
+</body></html>
