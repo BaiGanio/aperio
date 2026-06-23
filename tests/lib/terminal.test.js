@@ -42,6 +42,7 @@ import {
   isHelpCommand,
   isStatsCommand,
   isStatusCommand,
+  isDiscussCommand,
 } from "../../lib/terminal.js";
 
 // ─── Command Detection Tests ────────────────────────────────────────────────
@@ -117,6 +118,19 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(isStatsCommand("stats"), true);
     assert.strictEqual(isStatsCommand("  STATS  "), true);
     assert.strictEqual(isStatsCommand("statistics"), false);
+  });
+
+  test("isDiscussCommand detects 'discuss' with optional on/off", () => {
+    assert.strictEqual(isDiscussCommand("discuss"), true);
+    assert.strictEqual(isDiscussCommand("discuss on"), true);
+    assert.strictEqual(isDiscussCommand("discuss off"), true);
+    assert.strictEqual(isDiscussCommand("  DISCUSS ON  "), true);
+  });
+
+  test("isDiscussCommand rejects chat text containing 'discuss'", () => {
+    assert.strictEqual(isDiscussCommand("discussion about AI"), false);
+    assert.strictEqual(isDiscussCommand("let's discuss"), false);
+    assert.strictEqual(isDiscussCommand("discuss the plan"), false);
   });
 
   test("isStatusCommand detects 'status' case-insensitively", () => {
