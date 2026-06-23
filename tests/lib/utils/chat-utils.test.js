@@ -18,7 +18,7 @@ import {
   HIDE_CURSOR, SHOW_CURSOR, RESET_SCROLL, HEADER_LINES,
   moveTo, setScrollRegion,
   // header
-  initDockerState, initHeader, setHeaderStatus,
+  initDockerState, initHeader, setHeaderStatus, getHeaderInfo,
   updateHeaderModel, updateHeaderReasoning, redrawHeader,
   // spinner
   SPINNER_FRAMES, SPINNER_STAGES,
@@ -134,22 +134,27 @@ describe("parseOllamaPort", () => {
 
 // ─── initDockerState ──────────────────────────────────────────────────────────
 describe("initDockerState", () => {
-  test("docker on → 'on' and 'postgres' appear in header", () => {
+  // Docker/DB show in the dim navbar (line 4) and are also reported by getHeaderInfo().
+  test("docker on → 'postgres' in navbar and getHeaderInfo", () => {
     const cap = captureStdout();
     initDockerState(true);
     redrawHeader();
     cap.restore();
-    assert.ok(cap.output.includes("on"));
     assert.ok(cap.output.includes("postgres"));
+    assert.ok(cap.output.includes("Docker on"));
+    assert.strictEqual(getHeaderInfo().dockerOn, true);
+    assert.strictEqual(getHeaderInfo().db, "postgres");
   });
 
-  test("docker off → 'off' and 'sqlite' appear in header", () => {
+  test("docker off → 'sqlite' in navbar and getHeaderInfo", () => {
     const cap = captureStdout();
     initDockerState(false);
     redrawHeader();
     cap.restore();
-    assert.ok(cap.output.includes("off"));
     assert.ok(cap.output.includes("sqlite"));
+    assert.ok(cap.output.includes("Docker off"));
+    assert.strictEqual(getHeaderInfo().dockerOn, false);
+    assert.strictEqual(getHeaderInfo().db, "sqlite");
   });
 });
 
@@ -169,11 +174,20 @@ describe("initHeader", () => {
     assert.ok(cap.output.includes(moveTo(1)));
   });
 
-  test("mode appears in output", () => {
+  test("brand + ready state appear in output", () => {
+    const cap = captureStdout();
+    initHeader("standalone", "model", false);
+    cap.restore();
+    assert.ok(cap.output.includes("Aperio"));
+    assert.ok(cap.output.includes("ready"));
+  });
+
+  test("mode shown in navbar and tracked by getHeaderInfo", () => {
     const cap = captureStdout();
     initHeader("standalone", "model", false);
     cap.restore();
     assert.ok(cap.output.includes("standalone"));
+    assert.strictEqual(getHeaderInfo().mode, "standalone");
   });
 
   test("model appears in output", () => {
@@ -189,9 +203,10 @@ describe("initHeader", () => {
     setHeaderStatus("busy");
     initHeader("chat", "model", false); // re-init
     cap.restore();
-    // after second init the status line has no DIM (status is empty)
+    // after second init the live state returns to "ready" (no "busy" label)
     const afterSecondInit = cap.output.split("\x1b[2J").pop();
-    assert.ok(!afterSecondInit.includes(DIM));
+    assert.ok(afterSecondInit.includes("ready"));
+    assert.ok(!afterSecondInit.includes("busy"));
   });
 
   test("sets scroll region below HEADER_LINES", () => {
@@ -235,45 +250,44 @@ describe("redrawHeader", () => {
     const cap = captureStdout();
     initHeader("chat", "model", true);
     cap.restore();
-    assert.ok(cap.output.includes("reasoning:"));
+    assert.ok(cap.output.includes("reasoning"));
   });
 
   test("reasoning indicator absent when false", () => {
     const cap = captureStdout();
     initHeader("chat", "model", false);
     cap.restore();
-    assert.ok(!cap.output.includes("reasoning:"));
+    assert.ok(!cap.output.includes("reasoning"));
   });
 
-  test("commands line always present", () => {
+  test("help hint line always present", () => {
     const cap = captureStdout();
     redrawHeader();
     cap.restore();
+    assert.ok(cap.output.includes("help"));
     assert.ok(cap.output.includes("exit"));
-    assert.ok(cap.output.includes("clear"));
-    assert.ok(cap.output.includes("memories"));
-    assert.ok(cap.output.includes("reasoning"));
   });
 });
 
 // ─── setHeaderStatus ──────────────────────────────────────────────────────────
 describe("setHeaderStatus", () => {
-  test("status text renders with DIM", () => {
+  test("status text renders as the live working state (YELLOW)", () => {
     const cap = captureStdout();
     setHeaderStatus("thinking");
     cap.restore();
     assert.ok(cap.output.includes("thinking"));
-    assert.ok(cap.output.includes(DIM));
+    assert.ok(cap.output.includes(YELLOW));
   });
 
-  test("clearing status removes DIM", () => {
+  test("clearing status returns the bar to 'ready'", () => {
     let cap = captureStdout();
     setHeaderStatus("working");
     cap.restore();
     cap = captureStdout();
     setHeaderStatus("");
     cap.restore();
-    assert.ok(!cap.output.includes(DIM));
+    assert.ok(cap.output.includes("ready"));
+    assert.ok(!cap.output.includes("working"));
   });
 });
 
@@ -305,7 +319,7 @@ describe("updateHeaderReasoning", () => {
     const cap = captureStdout();
     updateHeaderReasoning(true);
     cap.restore();
-    assert.ok(cap.output.includes("reasoning:"));
+    assert.ok(cap.output.includes("reasoning"));
   });
 
   test("false disables reasoning line", () => {
@@ -315,7 +329,7 @@ describe("updateHeaderReasoning", () => {
     cap = captureStdout();
     updateHeaderReasoning(false);
     cap.restore();
-    assert.ok(!cap.output.includes("reasoning:"));
+    assert.ok(!cap.output.includes("reasoning"));
   });
 });
 
@@ -386,9 +400,10 @@ describe("startSpinner / stopSpinner", () => {
     startSpinner("busy");
     stopSpinner();
     cap.restore();
-    // After stopSpinner, status should be empty — no DIM in final redraw
+    // After stopSpinner, the live state returns to "ready" (no "busy" label)
     const lastRedraw = cap.output.split(HIDE_CURSOR).pop();
-    assert.ok(!lastRedraw.includes(DIM));
+    assert.ok(lastRedraw.includes("ready"));
+    assert.ok(!lastRedraw.includes("busy"));
   });
 });
 

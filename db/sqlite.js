@@ -40,7 +40,7 @@ import { MEMORY_SEED } from './memory-seed.js';
 import { DB_TABLES, isAllowedTable } from './tables.js';
 
 const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
-const DEFAULT_PATH = process.env.SQLITE_PATH || './sqlite/aperio.db';
+const DEFAULT_PATH = process.env.SQLITE_PATH || './.sqlite/aperio.db';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

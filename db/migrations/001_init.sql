@@ -307,7 +307,7 @@ optional external dependency is a running Ollama daemon (or a cloud API key).
 ## Key Ports and Paths
 
 - Default port: **31337** (set via `PORT` env)
-- DB data: `sqlite/aperio.db` (SQLite) or Docker Postgres volume
+- DB data: `.sqlite/aperio.db` (SQLite) or Docker Postgres volume
 - Sessions: `data/sessions/`
 - Skills: `skills/<name>/SKILL.md`
 
@@ -392,7 +392,7 @@ At startup `db/index.js` resolves the backend in this order:
 ## SQLite (default for non-Docker users)
 
 - **Embedded**: runs inside the Node.js process via `better-sqlite3`, no daemon needed.
-- **Storage**: a single file at `sqlite/aperio.db` (set via `SQLITE_PATH`).
+- **Storage**: a single file at `.sqlite/aperio.db` (set via `SQLITE_PATH`).
 - **Tables**: `memories` + `wiki_articles`, each paired with a `vec_*` (sqlite-vec)
   and a `*_fts` (FTS5) virtual table, joined by `rowid`.
 - **Vector search**: sqlite-vec `vec0` virtual table; KNN via `embedding MATCH ? AND k = …`.
@@ -419,7 +419,7 @@ At startup `db/index.js` resolves the backend in this order:
 ## Resetting SQLite
 
 ```bash
-rm -f sqlite/aperio.db && node server.js
+rm -f .sqlite/aperio.db && node server.js
 ```
 
 Tables and seed data are re-created on next start.
@@ -700,10 +700,10 @@ $art8$
 
 ```
 Vector dimension mismatch: table has 1024D but EMBEDDING_DIMS=384.
-Either set EMBEDDING_DIMS=1024 or delete sqlite/aperio.db to start fresh.
+Either set EMBEDDING_DIMS=1024 or delete .sqlite/aperio.db to start fresh.
 ```
 
-Fix: align `EMBEDDING_DIMS` to the table value, or `rm -f sqlite/aperio.db` to start fresh.
+Fix: align `EMBEDDING_DIMS` to the table value, or `rm -f .sqlite/aperio.db` to start fresh.
 
 ## Zero Vectors and Backfill
 
