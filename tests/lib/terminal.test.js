@@ -40,6 +40,8 @@ import {
   getQueueLength,
   getMessageFromQueue,
   isHelpCommand,
+  parseHelpTarget,
+  isExamplesCommand,
   isStatsCommand,
   isStatusCommand,
   isDiscussCommand,
@@ -126,6 +128,27 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(isHelpCommand("what?"), false);
   });
 
+  test("isHelpCommand accepts a single trailing command (help <command>)", () => {
+    assert.strictEqual(isHelpCommand("help attach"), true);
+    assert.strictEqual(isHelpCommand("  HELP attach  "), true);
+    assert.strictEqual(isHelpCommand("help bogus"), true);
+  });
+
+  test("parseHelpTarget extracts the focused command, null for bare help", () => {
+    assert.strictEqual(parseHelpTarget("help attach"), "attach");
+    assert.strictEqual(parseHelpTarget("  HELP Attach  "), "attach");
+    assert.strictEqual(parseHelpTarget("help"), null);
+    assert.strictEqual(parseHelpTarget("?"), null);
+    assert.strictEqual(parseHelpTarget("help me plan my week"), null);
+  });
+
+  test("isExamplesCommand detects 'examples' case-insensitively", () => {
+    assert.strictEqual(isExamplesCommand("examples"), true);
+    assert.strictEqual(isExamplesCommand("  EXAMPLES  "), true);
+    assert.strictEqual(isExamplesCommand("example"), false);
+    assert.strictEqual(isExamplesCommand("show examples"), false);
+  });
+
   test("isStatsCommand detects 'stats' case-insensitively", () => {
     assert.strictEqual(isStatsCommand("stats"), true);
     assert.strictEqual(isStatsCommand("  STATS  "), true);
@@ -153,6 +176,8 @@ describe("Help / Stats / Status Detection", () => {
 
   test("new commands count as special commands", () => {
     assert.strictEqual(isSpecialCommand("help"), true);
+    assert.strictEqual(isSpecialCommand("help attach"), true);
+    assert.strictEqual(isSpecialCommand("examples"), true);
     assert.strictEqual(isSpecialCommand("stats"), true);
     assert.strictEqual(isSpecialCommand("status"), true);
   });
