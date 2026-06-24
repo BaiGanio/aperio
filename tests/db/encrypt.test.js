@@ -115,6 +115,59 @@ describe("getOrCreateKey", () => {
     assert.ok(key instanceof Buffer);
     assert.strictEqual(key.length, 32, "should generate a new 32-byte key");
   });
+
+  // macOS-only: distinguishing "key missing" from "key unreadable" relies on the
+  // `security` exit code, which only the mac key path inspects.
+  test("throws (never regenerates) when an existing key can't be read", { skip: process.platform !== "darwin" }, async () => {
+    process.env.APERIO_DB_ENCRYPT = "1";
+    mockExecThrow = "interaction not allowed"; // find -w fails → exists-but-unreadable
+
+    const mod = await import(_cacheBust());
+    assert.throws(
+      () => mod.getOrCreateKey(),
+      (err) => err.name === "KeyUnreadableError",
+      "must surface KeyUnreadableError rather than minting a new key over real data"
+    );
+  });
+});
+
+// =============================================================================
+// readExistingKey  (reads, never generates)
+// =============================================================================
+describe("readExistingKey", () => {
+  test("returns the existing key as a Buffer", async () => {
+    mockExecResult = "cd".repeat(32);
+    const mod = await import(_cacheBust());
+    const key = mod.readExistingKey();
+    assert.ok(key instanceof Buffer);
+    assert.strictEqual(key.toString("hex"), "cd".repeat(32));
+  });
+
+  test("returns null when no key exists (empty store), never generating one", async () => {
+    mockExecResult = "";
+    const mod = await import(_cacheBust());
+    assert.strictEqual(mod.readExistingKey(), null);
+  });
+});
+
+// =============================================================================
+// isPlaintextSqlite
+// =============================================================================
+describe("isPlaintextSqlite", () => {
+  test("true for a file with the SQLite header, false otherwise", async () => {
+    const mod = await import(_cacheBust());
+    const plain = tmpPath("plain.db");
+    const blob  = tmpPath("blob.db");
+    try {
+      writeFileSync(plain, Buffer.concat([Buffer.from("SQLite format 3\0"), Buffer.from("x")]));
+      writeFileSync(blob, Buffer.from([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]));
+      assert.strictEqual(mod.isPlaintextSqlite(plain), true);
+      assert.strictEqual(mod.isPlaintextSqlite(blob), false);
+      assert.strictEqual(mod.isPlaintextSqlite(tmpPath("missing.db")), false);
+    } finally {
+      cleanup(plain, blob);
+    }
+  });
 });
 
 // =============================================================================

@@ -88,7 +88,7 @@
     const has = connections.some((c) => c.name === "sample" || c.name === "sample-rw");
     const top = has
       ? `<span class="db-conn-sample-note">Sample shop ready — try the prompts in the
-           <a href="docs/tours/databases.html" target="_blank" rel="noopener">databases tour</a>.
+           <a href="https://baiganio.github.io/aperio/tours/databases.html" target="_blank" rel="noopener">databases tour</a>.
            <code>sample</code> is read-only; <code>sample-rw</code> lets you practise changes.</span>
          <button class="db-conn-cancel" id="dbSampleDelete"><i class="bi bi-trash"></i> Delete sample database</button>`
       : `<span class="db-conn-sample-note">New to this? Create a safe practice shop (customers, orders, products) to try the examples — nothing real is touched.</span>

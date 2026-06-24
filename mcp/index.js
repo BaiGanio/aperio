@@ -93,7 +93,11 @@ export async function startServer(opts = {}) {
 // Execution Guard
 if (import.meta.url === `file://${process.argv[1]}` && process.env.NODE_ENV !== 'test') {
   startServer().catch(err => {
-    logger.error("Failed to start MCP server:", err);
+    // Write to stderr, NOT the logger: logger emits on stdout, which for an MCP
+    // stdio server is the JSON-RPC channel — logging a fatal there both corrupts
+    // the protocol and hides the cause from the parent. stderr is captured by the
+    // parent transport and surfaced in createAgent's thrown error.
+    process.stderr.write(`Failed to start MCP server: ${err?.stack || err?.message || err}\n`);
     process.exit(1);
   });
 }
