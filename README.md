@@ -192,6 +192,10 @@ npm run chat:local               # runs as proxy or standalone
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
+> **💡 New to the chat?** Type `help` for a guided tour — every command comes
+> with a runnable `try:` example. Type `help <command>` (e.g. `help attach`) for
+> focused docs, or `examples` to hide/show the example lines (your choice sticks).
+
 > **💡 Configure from the Web UI — no `.env` editing required.** The sidebar
 > **Configuration** panel exposes every setting as a typed control (toggle /
 > select / number / text / chips / secret): pick your `AI_PROVIDER`, paste API
