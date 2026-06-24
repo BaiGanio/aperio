@@ -195,6 +195,8 @@ npm run chat:local               # runs as proxy or standalone
 > **💡 New to the chat?** Type `help` for a guided tour — every command comes
 > with a runnable `try:` example. Type `help <command>` (e.g. `help attach`) for
 > focused docs, or `examples` to hide/show the example lines (your choice sticks).
+> Prefer another language? `lang de` (or set `APERIO_UI_LANG` in `.env`) localizes
+> the welcome/help text — English is the default and per-string fallback.
 
 > **💡 Configure from the Web UI — no `.env` editing required.** The sidebar
 > **Configuration** panel exposes every setting as a typed control (toggle /

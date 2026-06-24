@@ -41,7 +41,10 @@ import {
   getMessageFromQueue,
   isHelpCommand,
   parseHelpTarget,
+  HELP_TARGETS,
   isExamplesCommand,
+  isLangCommand,
+  parseLang,
   isStatsCommand,
   isStatusCommand,
   isDiscussCommand,
@@ -54,6 +57,7 @@ import {
   isResumeCommand,
   printWelcome,
   printHelp,
+  HELP_DETAILS,
   printStatus,
   printSessions,
   readAttachment,
@@ -128,17 +132,19 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(isHelpCommand("what?"), false);
   });
 
-  test("isHelpCommand accepts a single trailing command (help <command>)", () => {
+  test("isHelpCommand accepts only a known trailing command (help <command>)", () => {
     assert.strictEqual(isHelpCommand("help attach"), true);
     assert.strictEqual(isHelpCommand("  HELP attach  "), true);
-    assert.strictEqual(isHelpCommand("help bogus"), true);
+    assert.strictEqual(isHelpCommand("help bogus"), false);
+    assert.strictEqual(isHelpCommand("help me"), false);
   });
 
-  test("parseHelpTarget extracts the focused command, null for bare help", () => {
+  test("parseHelpTarget extracts a known command, null otherwise", () => {
     assert.strictEqual(parseHelpTarget("help attach"), "attach");
     assert.strictEqual(parseHelpTarget("  HELP Attach  "), "attach");
     assert.strictEqual(parseHelpTarget("help"), null);
     assert.strictEqual(parseHelpTarget("?"), null);
+    assert.strictEqual(parseHelpTarget("help bogus"), null);
     assert.strictEqual(parseHelpTarget("help me plan my week"), null);
   });
 
@@ -147,6 +153,20 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(isExamplesCommand("  EXAMPLES  "), true);
     assert.strictEqual(isExamplesCommand("example"), false);
     assert.strictEqual(isExamplesCommand("show examples"), false);
+  });
+
+  test("isLangCommand detects bare 'lang' and 'lang <code>'", () => {
+    assert.strictEqual(isLangCommand("lang"), true);
+    assert.strictEqual(isLangCommand("lang de"), true);
+    assert.strictEqual(isLangCommand("  LANG fr  "), true);
+    assert.strictEqual(isLangCommand("language"), false);
+    assert.strictEqual(isLangCommand("lang me up please"), false);
+  });
+
+  test("parseLang extracts the code, null for bare 'lang'", () => {
+    assert.strictEqual(parseLang("lang de"), "de");
+    assert.strictEqual(parseLang("  LANG FR  "), "fr");
+    assert.strictEqual(parseLang("lang"), null);
   });
 
   test("isStatsCommand detects 'stats' case-insensitively", () => {
@@ -178,8 +198,15 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(isSpecialCommand("help"), true);
     assert.strictEqual(isSpecialCommand("help attach"), true);
     assert.strictEqual(isSpecialCommand("examples"), true);
+    assert.strictEqual(isSpecialCommand("lang"), true);
+    assert.strictEqual(isSpecialCommand("lang de"), true);
     assert.strictEqual(isSpecialCommand("stats"), true);
     assert.strictEqual(isSpecialCommand("status"), true);
+  });
+
+  test("help with an unknown target is not special (falls through to chat)", () => {
+    assert.strictEqual(isSpecialCommand("help bogus"), false);
+    assert.strictEqual(isSpecialCommand("help me plan my week"), false);
   });
 });
 
@@ -749,6 +776,31 @@ describe("printHelp", () => {
     }
     const output = chunks.join("");
     assert.ok(!output.includes("Deeper thinking"), "non-proxy mode should NOT include Deeper thinking");
+  });
+
+  const captureHelp = (opts) => {
+    const chunks = [];
+    const orig = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try { printHelp(opts); } finally { process.stdout.write = orig; }
+    return chunks.join("");
+  };
+
+  test("printHelp shows try: example lines only when examples are on", () => {
+    const example = "attach ~/Downloads/report.pdf";
+    assert.ok(captureHelp({ showExamples: true }).includes(example), "examples on → example lines");
+    assert.ok(!captureHelp({ showExamples: false }).includes(example), "examples off → no example lines");
+  });
+
+  test("every HELP_TARGETS entry has a HELP_DETAILS entry (kept in sync)", () => {
+    for (const target of HELP_TARGETS) {
+      assert.ok(HELP_DETAILS[target], `missing HELP_DETAILS for "${target}"`);
+    }
+    assert.deepStrictEqual(
+      [...HELP_TARGETS].sort(),
+      Object.keys(HELP_DETAILS).sort(),
+      "HELP_TARGETS and HELP_DETAILS must cover exactly the same commands",
+    );
   });
 });
 
