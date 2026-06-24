@@ -16,7 +16,7 @@ import {
   R, BOLD, DIM, CYAN, GRAY, GREEN, YELLOW, RED,
   SAVE_CURSOR, RESTORE_CURSOR, ERASE_EOL,
   HIDE_CURSOR, SHOW_CURSOR, RESET_SCROLL, HEADER_LINES,
-  moveTo, setScrollRegion,
+  moveTo,
   // header
   initDockerState, initHeader, setHeaderStatus, getHeaderInfo,
   updateHeaderModel, updateHeaderReasoning, redrawHeader,
@@ -113,10 +113,6 @@ describe("moveTo", () => {
   test("row 1 col 1",       () => assert.equal(moveTo(1, 1),  "\x1b[1;1H"));
 });
 
-describe("setScrollRegion", () => {
-  test("produces DECSTBM sequence", () => assert.equal(setScrollRegion(5, 40), "\x1b[5;40r"));
-  test("uses HEADER_LINES+1",       () => assert.equal(setScrollRegion(HEADER_LINES + 1, 30), "\x1b[5;30r"));
-});
 
 // ─── parseServerPort / parseOllamaPort ───────────────────────────────────────
 describe("parseServerPort", () => {
@@ -209,23 +205,28 @@ describe("initHeader", () => {
     assert.ok(!afterSecondInit.includes("busy"));
   });
 
-  test("sets scroll region below HEADER_LINES", () => {
+  test("does NOT pin a scroll region (preserves native scrollback)", () => {
     const cap = captureStdout();
     withTerminalSize(80, 30, () => initHeader("x", "y", false));
     cap.restore();
-    assert.ok(cap.output.includes(setScrollRegion(HEADER_LINES + 1, 30)));
+    // A DECSTBM region (\x1b[<top>;<bottom>r) would trap content above the
+    // header and break scrollback — the header must stay inline. \x1b[r (a bare
+    // region reset) is allowed; a region *set* with numbers is not.
+    assert.ok(!/\x1b\[\d+;\d+r/.test(cap.output));
   });
 });
 
 // ─── redrawHeader ─────────────────────────────────────────────────────────────
 describe("redrawHeader", () => {
-  test("wraps in HIDE/SHOW cursor", () => {
+  test("prints inline — no cursor save/restore or absolute repositioning", () => {
     const cap = captureStdout();
     redrawHeader();
     cap.restore();
-    assert.ok(cap.output.includes(HIDE_CURSOR));
-    assert.ok(cap.output.includes(SHOW_CURSOR));
-    assert.ok(cap.output.indexOf(HIDE_CURSOR) < cap.output.indexOf(SHOW_CURSOR));
+    // The inline banner must not hop the cursor around (that machinery only
+    // made sense for the old pinned bar) — otherwise it can't flow into scrollback.
+    assert.ok(!cap.output.includes(SAVE_CURSOR));
+    assert.ok(!cap.output.includes(RESTORE_CURSOR));
+    assert.ok(!cap.output.includes(moveTo(1)));
   });
 
   test("separator is (cols-2) long", () => {
@@ -271,20 +272,20 @@ describe("redrawHeader", () => {
 
 // ─── setHeaderStatus ──────────────────────────────────────────────────────────
 describe("setHeaderStatus", () => {
-  test("status text renders as the live working state (YELLOW)", () => {
-    const cap = captureStdout();
+  test("tracked status renders as the live working state (YELLOW) on next redraw", () => {
     setHeaderStatus("thinking");
+    const cap = captureStdout();
+    redrawHeader();
     cap.restore();
     assert.ok(cap.output.includes("thinking"));
     assert.ok(cap.output.includes(YELLOW));
   });
 
-  test("clearing status returns the bar to 'ready'", () => {
-    let cap = captureStdout();
+  test("clearing status returns the banner to 'ready'", () => {
     setHeaderStatus("working");
-    cap.restore();
-    cap = captureStdout();
     setHeaderStatus("");
+    const cap = captureStdout();
+    redrawHeader();
     cap.restore();
     assert.ok(cap.output.includes("ready"));
     assert.ok(!cap.output.includes("working"));
@@ -294,19 +295,20 @@ describe("setHeaderStatus", () => {
 // ─── updateHeaderModel ────────────────────────────────────────────────────────
 describe("updateHeaderModel", () => {
   test("trims whitespace", () => {
-    const cap = captureStdout();
     updateHeaderModel("  phi3:mini  ");
+    assert.strictEqual(getHeaderInfo().model, "phi3:mini");
+    const cap = captureStdout();
+    redrawHeader();
     cap.restore();
     assert.ok(cap.output.includes("phi3:mini"));
     assert.ok(!cap.output.includes("  phi3:mini  "));
   });
 
-  test("new model replaces old in output", () => {
-    let cap = captureStdout();
+  test("new model replaces old on next redraw", () => {
     initHeader("chat", "llama3", false);
-    cap.restore();
-    cap = captureStdout();
     updateHeaderModel("mistral:7b");
+    const cap = captureStdout();
+    redrawHeader();
     cap.restore();
     assert.ok(cap.output.includes("mistral:7b"));
     assert.ok(!cap.output.includes("llama3"));
@@ -315,19 +317,19 @@ describe("updateHeaderModel", () => {
 
 // ─── updateHeaderReasoning ────────────────────────────────────────────────────
 describe("updateHeaderReasoning", () => {
-  test("true enables reasoning line", () => {
-    const cap = captureStdout();
+  test("true enables reasoning line on next redraw", () => {
     updateHeaderReasoning(true);
+    const cap = captureStdout();
+    redrawHeader();
     cap.restore();
     assert.ok(cap.output.includes("reasoning"));
   });
 
-  test("false disables reasoning line", () => {
-    let cap = captureStdout();
+  test("false disables reasoning line on next redraw", () => {
     initHeader("chat", "model", true);
-    cap.restore();
-    cap = captureStdout();
     updateHeaderReasoning(false);
+    const cap = captureStdout();
+    redrawHeader();
     cap.restore();
     assert.ok(!cap.output.includes("reasoning"));
   });
@@ -395,15 +397,16 @@ describe("startSpinner / stopSpinner", () => {
     assert.ok(cap.output.includes(" ".repeat(50)));
   });
 
-  test("stopSpinner clears header status", () => {
-    const cap = captureStdout();
+  test("stopSpinner resets tracked status so the next redraw shows 'ready'", () => {
     startSpinner("busy");
     stopSpinner();
+    // Spinner setters no longer repaint the banner; stopSpinner clears the
+    // tracked status to "" so the next redraw renders the idle "ready" state.
+    const cap = captureStdout();
+    redrawHeader();
     cap.restore();
-    // After stopSpinner, the live state returns to "ready" (no "busy" label)
-    const lastRedraw = cap.output.split(HIDE_CURSOR).pop();
-    assert.ok(lastRedraw.includes("ready"));
-    assert.ok(!lastRedraw.includes("busy"));
+    assert.ok(cap.output.includes("ready"));
+    assert.ok(!cap.output.includes("busy"));
   });
 });
 

@@ -389,6 +389,22 @@ describe("POST /paths", () => {
 // =============================================================================
 
 describe("GET /files", () => {
+  let __savedPaths;
+
+  before(async () => {
+    const { getUserPaths, setAllowlist } = await import("../../../lib/routes/paths.js");
+    __savedPaths = getUserPaths();
+    // Ensure the project root is in the allowlist — other tests (e.g. shell.test.js)
+    // may have mutated the global state via setAllowlist().
+    await setAllowlist([process.cwd()]);
+  });
+
+  after(async () => {
+    if (__savedPaths) {
+      const { setAllowlist } = await import("../../../lib/routes/paths.js");
+      await setAllowlist(__savedPaths);
+    }
+  });
   test("returns empty array when query is too short", async () => {
     const router = makeRouter();
     const { status, body } = await invoke(router, "GET", "/files", { query: { q: "a" } });
