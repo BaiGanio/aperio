@@ -29,12 +29,13 @@
 import Database from 'better-sqlite3';
 import * as sqliteVec from 'sqlite-vec';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, existsSync } from 'fs';
+import { mkdirSync, existsSync, copyFileSync, renameSync, unlinkSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { runSqliteMigrations } from './migrate-sqlite.js';
 import { deserialiseRow } from './types.js';
 import logger, { logError } from '../lib/helpers/logger.js';
-import { getOrCreateKey, prepareDatabase, finalizeDatabase, isEncryptionEnabled } from './encrypt.js';
+import { getOrCreateKey, prepareDatabase, finalizeDatabase, isEncryptionEnabled,
+         readExistingKey, isPlaintextSqlite, decryptFile, KeyUnreadableError } from './encrypt.js';
 import { WIKI_SEED } from './wiki-seed.js';
 import { MEMORY_SEED } from './memory-seed.js';
 import { DB_TABLES, isAllowedTable } from './tables.js';
@@ -43,6 +44,72 @@ const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
 const DEFAULT_PATH = process.env.SQLITE_PATH || './.sqlite/aperio.db';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+// Decrypt an on-disk encrypted DB back to plaintext, in place, when the user
+// has turned encryption off. Exported (underscore-prefixed) so it can be unit
+// tested with a known key. Safety contract:
+//   • Reads the EXISTING key only — never generates one (readExistingKey).
+//   • Decryption is AES-256-GCM authenticated, so a wrong key throws rather than
+//     producing garbage; the plaintext is byte-identical to the original.
+//   • Verifies the result opens as a real SQLite DB BEFORE replacing the file.
+//   • Swaps via an atomic rename, so the original is never half-written.
+//   • Keeps a single .encrypted.bak only for the brief migration window, then
+//     removes it on success — so repeated on/off flips never accumulate backups.
+export function _decryptDbFileInPlace(dbPath, key) {
+  const backup = dbPath + '.encrypted.bak';
+  const tmp    = dbPath + '.decrypted.tmp';
+  copyFileSync(dbPath, backup);
+  try {
+    decryptFile(dbPath, tmp, key);                 // throws on wrong key / corruption
+    if (!isPlaintextSqlite(tmp)) {
+      throw new Error('decrypted output is not a SQLite database');
+    }
+    const probe = new Database(tmp, { readonly: true });
+    try { probe.prepare('SELECT count(*) FROM sqlite_master').get(); }
+    finally { probe.close(); }
+    renameSync(tmp, dbPath);                        // atomic: encrypted → plaintext
+    unlinkSync(backup);                             // verified → leave no .bak behind
+    logger.info('[sqlite] APERIO_DB_ENCRYPT is off — database decrypted to plaintext on disk (one-time migration).');
+  } catch (err) {
+    // The original is only replaced by the atomic rename AFTER verification, so
+    // on any failure it is still the intact encrypted file. Just clean up.
+    for (const p of [tmp, backup]) { try { if (existsSync(p)) unlinkSync(p); } catch { /* ignore */ } }
+    throw err;
+  }
+}
+
+// Acquire the key, then decrypt. Split from _decryptDbFileInPlace so the latter
+// stays key-injectable for tests and the keychain interaction lives here.
+function decryptDbFileInPlace(dbPath) {
+  let key;
+  try {
+    key = readExistingKey();
+  } catch (err) {
+    if (err instanceof KeyUnreadableError) {
+      throw new Error(
+        `Your database is encrypted, but APERIO_DB_ENCRYPT is off and its key can't be read.\n` +
+        `  • To keep it encrypted: set APERIO_DB_ENCRYPT=1 and restart.\n` +
+        `  • To repair key access: run \`npm run db:fix-keychain\`, then restart.\n` +
+        `  (${err.message})`
+      );
+    }
+    throw err;
+  }
+  if (!key) {
+    throw new Error(
+      `Your database file is encrypted, but APERIO_DB_ENCRYPT is off and no encryption key was found ` +
+      `in the keychain. Set APERIO_DB_ENCRYPT=1 to open it, or restore a plaintext backup.`
+    );
+  }
+  try {
+    _decryptDbFileInPlace(dbPath, key);
+  } catch (err) {
+    throw new Error(
+      `Couldn't auto-decrypt the database after APERIO_DB_ENCRYPT was turned off: ${err.message}\n` +
+      `Your original encrypted file is intact — set APERIO_DB_ENCRYPT=1 to keep using it.`
+    );
+  }
+}
 
 function nowIso() {
   return new Date().toISOString();
@@ -265,6 +332,18 @@ export class SqliteStore {
     const memory = DEFAULT_PATH === ':memory:';
     const dbPath = memory ? ':memory:' : resolve(DEFAULT_PATH);
     if (!memory) mkdirSync(dirname(dbPath), { recursive: true });
+
+    // ── Reconcile: encryption OFF but the file on disk is still encrypted ──
+    // prepareDatabase already migrates the other three states (off+plaintext,
+    // on+plaintext→encrypt, on+encrypted→decrypt-to-temp). The one direction it
+    // can't is this: the user turned APERIO_DB_ENCRYPT off (or commented it out)
+    // while aperio.db is still an encrypted blob — opening it raw throws the
+    // cryptic SQLITE_NOTADB the non-coder reported. Transparently decrypt it back
+    // to plaintext in place, one time, so the file always follows the flag both
+    // ways and startup never crashes on a mismatch.
+    if (!memory && !isEncryptionEnabled() && existsSync(dbPath) && !isPlaintextSqlite(dbPath)) {
+      decryptDbFileInPlace(dbPath);
+    }
 
     // ── Encryption (opt-in via APERIO_DB_ENCRYPT=1) ──────────────────
     // When enabled: the file at dbPath IS the encrypted file. We decrypt
