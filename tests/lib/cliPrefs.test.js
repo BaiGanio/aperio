@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import { readCliPrefs, writeCliPrefs } from "../../lib/helpers/cliPrefs.js";
+import { resolveLang } from "../../lib/terminal.js";
 
 let dir, prefsFile, prevEnv;
 
@@ -49,5 +50,35 @@ describe("cliPrefs", () => {
   test("unknown stored keys are merged over defaults", () => {
     writeFileSync(prefsFile, JSON.stringify({ examples: false, extra: 1 }));
     assert.strictEqual(readCliPrefs().examples, false);
+  });
+});
+
+describe("resolveLang precedence (saved pref → env → en)", () => {
+  let prevUiLang;
+  before(() => { prevUiLang = process.env.APERIO_UI_LANG; });
+  after(() => {
+    if (prevUiLang === undefined) delete process.env.APERIO_UI_LANG;
+    else process.env.APERIO_UI_LANG = prevUiLang;
+  });
+
+  test("defaults to English when nothing is set", () => {
+    delete process.env.APERIO_UI_LANG;
+    assert.strictEqual(resolveLang(), "en");
+  });
+
+  test("uses APERIO_UI_LANG when no saved pref", () => {
+    process.env.APERIO_UI_LANG = "fr";
+    assert.strictEqual(resolveLang(), "fr");
+  });
+
+  test("ignores an unknown language code, falling through", () => {
+    process.env.APERIO_UI_LANG = "zz";
+    assert.strictEqual(resolveLang(), "en");
+  });
+
+  test("saved pref wins over APERIO_UI_LANG", () => {
+    process.env.APERIO_UI_LANG = "fr";
+    writeCliPrefs({ lang: "de" });
+    assert.strictEqual(resolveLang(), "de");
   });
 });
