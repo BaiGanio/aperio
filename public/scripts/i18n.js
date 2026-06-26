@@ -164,9 +164,6 @@ const TRANSLATIONS = {
     startup_bd_other:         "Conversation scaffolding",
     startup_bd_note:          "Skills & tool schemas are re-sent every turn — LLM APIs are stateless, so this is the cost of context, not duplication.",
 
-    recall_pill_one:          "Recalled 1 memory",
-    recall_pill_many:         "Recalled {n} memories",
-
     ttl_chip_in_days:         "expires in {n} days",
     ttl_chip_tomorrow:        "expires tomorrow",
     ttl_chip_expired:         "already expired",

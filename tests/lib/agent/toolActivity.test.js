@@ -239,6 +239,20 @@ describe("summarizeResult() — recall", () => {
     const result = ta.summarizeResult("recall", "Just one memory here");
     assert.deepEqual(result, { ok: true, summary: "1 memory", detail: "Just one memory here" });
   });
+
+  test("parses formatted blocks into structured memories (title, similarity, content, tags)", () => {
+    const text =
+      "[project] Gap-honesty framing [similarity: 98.4%]\nLead with the plan, not the claim.\nTags: mitigram-prep, framing\n" +
+      "---\n" +
+      "[user] Elevator pitch [similarity: 96.8%]\nOne sentence about what I build.\nTags: none";
+    const result = ta.summarizeResult("recall", text);
+    assert.equal(result.summary, "2 memories");
+    assert.equal(result.detail, undefined);          // structured list replaces the raw dump
+    assert.deepEqual(result.memories, [
+      { title: "Gap-honesty framing", similarity: 98.4, content: "Lead with the plan, not the claim.", tags: "mitigram-prep, framing" },
+      { title: "Elevator pitch",      similarity: 96.8, content: "One sentence about what I build.",   tags: "" },
+    ]);
+  });
 });
 
 // =============================================================================
