@@ -209,9 +209,9 @@ describe("initHeader", () => {
     const cap = captureStdout();
     withTerminalSize(80, 30, () => initHeader("x", "y", false));
     cap.restore();
-    // A DECSTBM region (\x1b[<top>;<bottom>r) would trap content above the
-    // header and break scrollback — the header must stay inline. \x1b[r (a bare
-    // region reset) is allowed; a region *set* with numbers is not.
+    // A DECSTBM region (\x1b[<top>;<bottom>r) would trap content above the header
+    // and break scrollback — the banner must stay inline. \x1b[r (a bare region
+    // reset) is allowed; a region *set* with numbers is not.
     assert.ok(!/\x1b\[\d+;\d+r/.test(cap.output));
   });
 });
