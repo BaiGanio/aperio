@@ -2,7 +2,7 @@
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, ToolExecutor } from "../../../lib/tools/executor.js";
+import { extractTextToolCall, detectToolCallLeak, ToolExecutor } from "../../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall
@@ -162,6 +162,44 @@ describe("extractTextToolCall", () => {
 // =============================================================================
 // ToolExecutor
 // =============================================================================
+
+// =============================================================================
+// detectToolCallLeak
+//
+// Flags tool calls a weak model rendered as prose (XML-ish tags or function
+// notation from skill docs) that the JSON-object extractor can't recover —
+// without false-positiving on plain chat.
+// =============================================================================
+
+describe("detectToolCallLeak", () => {
+  test("flags the <execute_tool> blob from the screenshot", () => {
+    const text = '<execute_tool>\nskills/memory-protocol/SKILL.md:call(recall, query="exam")\n</execute_tool>\nPlease wait while I retrieve…';
+    assert.equal(detectToolCallLeak(text), true);
+  });
+
+  test("flags call(recall, …) notation", () => {
+    assert.equal(detectToolCallLeak('call(recall, query="exam")'), true);
+  });
+
+  test("flags <tool_call> / <invoke> tags", () => {
+    assert.equal(detectToolCallLeak("<tool_call>recall</tool_call>"), true);
+    assert.equal(detectToolCallLeak('<invoke name="recall">'), true);
+  });
+
+  test("flags a known-tool function call with a named arg", () => {
+    assert.equal(detectToolCallLeak('recall(query="exam")', ["recall", "db_query"]), true);
+  });
+
+  test("does not flag plain prose that mentions a tool name", () => {
+    assert.equal(detectToolCallLeak("I'll recall (from memory) what we discussed.", ["recall"]), false);
+    assert.equal(detectToolCallLeak("Let me check your memories for the exam.", ["recall"]), false);
+  });
+
+  test("does not flag empty or whitespace text", () => {
+    assert.equal(detectToolCallLeak(""), false);
+    assert.equal(detectToolCallLeak("   \n  "), false);
+  });
+});
 
 describe("ToolExecutor", () => {
   let callTool, emitter, messages, executor;

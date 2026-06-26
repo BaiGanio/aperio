@@ -210,20 +210,26 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(isStatusCommand("status now"), false);
   });
 
-  test("new commands count as special commands", () => {
-    assert.strictEqual(isSpecialCommand("help"), true);
-    assert.strictEqual(isSpecialCommand("help attach"), true);
-    assert.strictEqual(isSpecialCommand("examples"), true);
-    assert.strictEqual(isSpecialCommand("lang"), true);
-    assert.strictEqual(isSpecialCommand("lang de"), true);
-    assert.strictEqual(isSpecialCommand("restart"), true);
-    assert.strictEqual(isSpecialCommand("restart --hard"), true);
-    assert.strictEqual(isSpecialCommand("stats"), true);
-    assert.strictEqual(isSpecialCommand("status"), true);
+  test("slash-prefixed commands count as special commands", () => {
+    assert.strictEqual(isSpecialCommand("/help"), true);
+    assert.strictEqual(isSpecialCommand("/help attach"), true);
+    assert.strictEqual(isSpecialCommand("/examples"), true);
+    assert.strictEqual(isSpecialCommand("/lang"), true);
+    assert.strictEqual(isSpecialCommand("/lang de"), true);
+    assert.strictEqual(isSpecialCommand("/restart"), true);
+    assert.strictEqual(isSpecialCommand("/restart --hard"), true);
+    assert.strictEqual(isSpecialCommand("/stats"), true);
+    assert.strictEqual(isSpecialCommand("/status"), true);
   });
 
-  test("help with an unknown target is not special (falls through to chat)", () => {
-    assert.strictEqual(isSpecialCommand("help bogus"), false);
+  test("bare control words are regular chat now (slash-only routing)", () => {
+    assert.strictEqual(isSpecialCommand("help"), false);
+    assert.strictEqual(isSpecialCommand("sessions"), false);
+    assert.strictEqual(isSpecialCommand("status"), false);
+  });
+
+  test("slash with an unknown target is not special (falls through to chat)", () => {
+    assert.strictEqual(isSpecialCommand("/help bogus"), false);
     assert.strictEqual(isSpecialCommand("help me plan my week"), false);
   });
 });
@@ -651,20 +657,20 @@ describe("SIGINT Handler", () => {
 
 // ─── Special Command Detection Tests ───────────────────────────────────────
 describe("Special Command Detection", () => {
-  test("isSpecialCommand detects exit", () => {
-    assert.strictEqual(isSpecialCommand("exit"), true);
+  test("isSpecialCommand detects /exit", () => {
+    assert.strictEqual(isSpecialCommand("/exit"), true);
   });
 
-  test("isSpecialCommand detects clear", () => {
-    assert.strictEqual(isSpecialCommand("clear"), true);
+  test("isSpecialCommand detects /clear", () => {
+    assert.strictEqual(isSpecialCommand("/clear"), true);
   });
 
-  test("isSpecialCommand detects memories", () => {
-    assert.strictEqual(isSpecialCommand("memories"), true);
+  test("isSpecialCommand detects /memories", () => {
+    assert.strictEqual(isSpecialCommand("/memories"), true);
   });
 
-  test("isSpecialCommand detects reasoning", () => {
-    assert.strictEqual(isSpecialCommand("reasoning"), true);
+  test("isSpecialCommand detects /reasoning", () => {
+    assert.strictEqual(isSpecialCommand("/reasoning"), true);
   });
 
   test("isSpecialCommand detects remember intent", () => {
@@ -698,9 +704,9 @@ describe("Integration Scenarios", () => {
   test("command parsing for chat bot interaction", () => {
     const inputs = [
       { cmd: "hello", isChat: true, isSpecial: false },
-      { cmd: "exit", isChat: false, isSpecial: true },
+      { cmd: "/exit", isChat: false, isSpecial: true },
       { cmd: "remember that I love pizza", isChat: false, isSpecial: true },
-      { cmd: "clear", isChat: false, isSpecial: true },
+      { cmd: "/clear", isChat: false, isSpecial: true },
       { cmd: "what's the weather?", isChat: true, isSpecial: false },
     ];
 

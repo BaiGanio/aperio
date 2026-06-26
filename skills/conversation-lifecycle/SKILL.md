@@ -26,7 +26,7 @@ If something in the preloaded memories is clearly stale or contradicts the user'
 ## During the conversation
 
 The preloaded subset covers the most relevant memories at conversation start, but not all stored memories. Call `recall` mid-conversation when:
-- The user asks "what do you know about me?" → call `recall`, then summarize clearly in plain language.
+- The user asks about their stored memories in any form ("what do you know about me?", "check your memories", "recall what I told you about X") → call `recall` immediately (add a query if they named a topic), then summarize clearly in plain language. Don't ask them to narrow it down first.
 - The conversation surfaces a topic that likely has stored context outside the preloaded set (a project, preference, or prior decision not visible in the current context).
 
 Do **not** call `recall` for topics already covered by the preloaded context — it's redundant.
