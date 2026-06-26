@@ -73,6 +73,25 @@ describe("createWatchdog — heartbeat and stop", () => {
     assert.equal(idleFired, false);
   });
 
+  test("does not arm until the first heartbeat — a no-tab run is never killed", async (t) => {
+    globalThis.fetch = async () => { throw new Error("mock"); };
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    let exitCalled = false;
+    createWatchdog({
+      enabled: true,
+      timeoutMs: 1000,
+      httpServer: makeMockHttpServer(),
+      _exit: () => { exitCalled = true; },
+    });
+
+    // No heartbeat ever arrives (no browser tab). Advance well past the timeout.
+    t.mock.timers.tick(5000);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+
+    assert.equal(exitCalled, false, "must not shut down before any browser connected");
+  });
+
   test("heartbeat resets the idle timer", async (t) => {
     // We can verify heartbeat works by calling it and confirming no immediate exit
     t.mock.timers.enable({ apis: ["setTimeout"] });
@@ -108,7 +127,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     const wss        = makeMockWss();
     const httpServer = makeMockHttpServer();
 
-    createWatchdog({
+    const { heartbeat } = createWatchdog({
       enabled:    true,
       timeoutMs:  3000,
       wss,
@@ -116,6 +135,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
       _exit: () => { exitCalled = true; },
     });
 
+    heartbeat(); // a browser connected at least once → arms the dead-man's switch
     // Advance past timeout to trigger onIdle
     t.mock.timers.tick(3001);
 
@@ -137,8 +157,9 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
       close: (cb) => cb(),
     };
 
-    createWatchdog({ enabled: true, timeoutMs: 1000, wss, httpServer: makeMockHttpServer(), _exit: () => {} });
+    const { heartbeat } = createWatchdog({ enabled: true, timeoutMs: 1000, wss, httpServer: makeMockHttpServer(), _exit: () => {} });
 
+    heartbeat(); // arm the switch
     t.mock.timers.tick(1001);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
 
@@ -149,8 +170,9 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     globalThis.fetch = async () => { throw new Error("mock"); };
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
-    createWatchdog({ enabled: true, timeoutMs: 500, _exit: () => {} });
+    const { heartbeat } = createWatchdog({ enabled: true, timeoutMs: 500, _exit: () => {} });
 
+    heartbeat(); // arm the switch
     t.mock.timers.tick(501);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
     // No error = pass
@@ -162,8 +184,9 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     let exitCalled = false;
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
-    createWatchdog({ enabled: true, timeoutMs: 500, httpServer: makeMockHttpServer(), _exit: () => { exitCalled = true; } });
+    const { heartbeat } = createWatchdog({ enabled: true, timeoutMs: 500, httpServer: makeMockHttpServer(), _exit: () => { exitCalled = true; } });
 
+    heartbeat(); // arm the switch
     t.mock.timers.tick(501);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
 
@@ -181,7 +204,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     let ollamaStopped = false;
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
-    createWatchdog({
+    const { heartbeat } = createWatchdog({
       enabled:      true,
       timeoutMs:    500,
       models:       ["our-model"],
@@ -190,6 +213,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
       _exit:        () => { exitCalled = true; },
     });
 
+    heartbeat(); // arm the switch
     t.mock.timers.tick(501);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
 
@@ -207,7 +231,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     let exitCalled = false;
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
-    createWatchdog({
+    const { heartbeat } = createWatchdog({
       enabled:    true,
       timeoutMs:  500,
       models:     ["our-model"],
@@ -215,6 +239,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
       _exit:      () => { exitCalled = true; },
     });
 
+    heartbeat(); // arm the switch
     t.mock.timers.tick(501);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
 

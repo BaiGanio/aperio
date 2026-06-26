@@ -370,4 +370,18 @@ describe("DELETE /codegraph/repos", () => {
     // safeHandler + unwrap converts to userFacing → 400
     assert.strictEqual(status, 400);
   });
+
+  test("stops the live watcher for the folder before dropping its rows", async () => {
+    const store = makeStore(true);
+    const router = Router();
+    const calls = [];
+    const watcherRegistry = {
+      register: async () => {},
+      stop: async (kind, root) => { calls.push([kind, root]); return true; },
+    };
+    mountCodegraphRoutes(router, { store, watcherRegistry });
+
+    await invoke(router, "DELETE", "/codegraph/repos", { body: { path: "/some/repo" } });
+    assert.deepEqual(calls, [["codegraph", "/some/repo"]]);
+  });
 });

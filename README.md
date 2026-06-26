@@ -167,9 +167,14 @@ the right one based on whether Docker is running:
 > If not set, Aperio auto-detects: uses Postgres when Docker is running, SQLite otherwise.
 
 ```bash
-# POSTGRES MODE — start the database and run migrations
-cd docker && docker compose up -d && cd ..
+# POSTGRES MODE — start the database and run migrations (run from the repo root)
+# --env-file .env is required: the compose file lives in docker/ but .env is at
+# the repo root, and Compose only looks for .env next to the compose file.
+docker compose -f docker/docker-compose.yml --env-file .env up -d
 npm run migrate
+
+# PRODUCTION — full stack (app + Postgres) in one go. Same --env-file rule applies.
+docker compose -f docker/docker-compose.prod.yml --env-file .env up -d
 ```
 ### Step 3. Install Ollama & Pull Models
 > **💡 Tip:** Skip this step entirely if you are using Anthropic or DeepSeek as your `AI_PROVIDER`.

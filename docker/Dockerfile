@@ -27,4 +27,7 @@ EXPOSE 3000
 
 CMD ["node", "server.js"]
 
-# docker compose -f docker/docker-compose.prod.yml up -d
+# docker compose --project-directory . -f docker/docker-compose.yml up -d
+# docker compose --project-directory . -f docker/docker-compose.yml down -v
+# npm run migrate
+# npm run start:local

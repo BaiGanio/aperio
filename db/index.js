@@ -64,6 +64,19 @@ export function isDockerAvailable() {
   }
 }
 
+function isPostgresContainerRunning() {
+  try {
+    const result = spawnSync("docker", [
+      "ps", "--filter", "name=aperio_db",
+      "--filter", "status=running",
+      "--format", "{{.Names}}"
+    ], { timeout: 2000, stdio: "pipe" });
+    return result.status === 0 && result.stdout.toString().trim() === 'aperio_db';
+  } catch {
+    return false;
+  }
+}
+
 function resolveBackend() {
   const explicit = process.env.DB_BACKEND?.toLowerCase();
 
@@ -76,8 +89,12 @@ function resolveBackend() {
   }
 
   if (isDockerAvailable()) {
-    logger.info('[aperio:db] Docker detected → using Postgres (pgvector)');
-    return 'postgres';
+    if (isPostgresContainerRunning()) {
+      logger.info('[aperio:db] Docker + aperio_db container running → using Postgres (pgvector)');
+      return 'postgres';
+    }
+    logger.info('[aperio:db] Docker detected but aperio_db container not running → using SQLite (run `docker compose -f docker/docker-compose.yml --env-file .env up -d` to use Postgres)');
+    return 'sqlite';
   }
 
   // Default to SQLite — zero-config, single file, full feature parity with

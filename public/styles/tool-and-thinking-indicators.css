@@ -56,29 +56,41 @@
 }
 .recall-pill-details.open { display: flex; }
 
-/* Individual memory items */
-.recall-memory {
-    border-bottom: 1px solid var(--border);
+/* Recalled-memory rows inside a recall tool card. Deliberately box-free — they
+   read as a terminal tree under "↳ N memories", not a card. Each row is a flat
+   line (├/└ connector · title · match %) that expands to content + tags. */
+.recall-results > summary::after { content: " ▸"; opacity: 0.6; }
+.recall-results[open] > summary::after { content: " ▾"; }
+
+.recall-mem-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: 2px;
+    max-height: 340px;
+    overflow-y: auto;
 }
-.recall-memory:last-child { border-bottom: none; }
 
 .recall-memory summary {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 10px;
-    padding: 7px 12px;
+    gap: 8px;
+    padding: 2px 0;
     cursor: pointer;
     list-style: none;
     font-family: var(--font-mono);
     font-size: var(--fs-micro);
-    color: var(--text);
-    background: var(--bg-msg-ai);
+    color: var(--text-muted);
     user-select: none;
-    transition: background var(--transition);
+    transition: color var(--transition);
 }
 .recall-memory summary::-webkit-details-marker { display: none; }
-.recall-memory summary:hover { background: var(--bg-hover); }
+.recall-memory summary::before {
+    content: "├";
+    flex: 0 0 auto;
+    opacity: 0.45;
+}
+.recall-memory:last-child > summary::before { content: "└"; }
+.recall-memory summary:hover { color: var(--text); }
 
 .recall-memory-title {
     flex: 1;
@@ -96,9 +108,7 @@
 }
 
 .recall-memory-body {
-    padding: 8px 12px 10px;
-    background: var(--bg-panel);
-    border-top: 1px solid var(--border);
+    padding: 4px 0 8px 16px;
     font-size: var(--fs-secondary);
     color: var(--text-muted);
     line-height: 1.55;
@@ -109,20 +119,6 @@
     font-size: var(--fs-micro);
     opacity: 0.6;
     margin-top: 5px;
-}
-
-/* Recalled-memory list inside a recall tool card. A bordered, rounded box that
-   holds the expandable .recall-memory rows; caps its height and scrolls so a
-   large recall stays inspectable without pushing the conversation off-screen. */
-.recall-mem-list {
-    display: flex;
-    flex-direction: column;
-    margin-top: 4px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    overflow: hidden;
-    max-height: 340px;
-    overflow-y: auto;
 }
 
 .skill-always-badge {
