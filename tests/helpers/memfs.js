@@ -27,6 +27,13 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 
 export function installMemfs({ root = "/mem" } = {}) {
+  // A fully-mocked fs means "zero real disk access" — so the module graph this
+  // test pulls in must load in test mode. Notably the logger only skips its
+  // import-time `var/logs` mkdir + winston DailyRotateFile transports (which use
+  // createWriteStream — unreachable by these fs mocks) when NODE_ENV === "test".
+  // npm test sets this already; force it for standalone `node --test <file>` runs.
+  process.env.NODE_ENV = "test";
+
   const fsSync  = require("fs");
   const fsProm  = require("fs/promises");
 

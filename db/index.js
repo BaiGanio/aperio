@@ -85,7 +85,11 @@ function resolveBackend() {
     return explicit;
   }
   if (explicit) {
-    logger.warn(`[aperio:db] Unknown DB_BACKEND "${explicit}" — falling back to auto-detect (supported: ${[...SUPPORTED].join(', ')})`);
+    // A typo'd/unsupported value shouldn't silently connect to a Postgres the
+    // user never configured just because Docker happens to be up. Fall back to
+    // the zero-config safe default (SQLite) rather than auto-detecting.
+    logger.warn(`[aperio:db] Unknown DB_BACKEND "${explicit}" — falling back to SQLite (supported: ${[...SUPPORTED].join(', ')})`);
+    return 'sqlite';
   }
 
   if (isDockerAvailable()) {

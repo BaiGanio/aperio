@@ -80,9 +80,31 @@
   background: color-mix(in srgb, #ef4444 14%, transparent);
   border-color: color-mix(in srgb, #ef4444 30%, transparent);
 }
-.cg-status-banner[data-phase="indexing"]::before {
+.cg-status-banner[data-phase="indexing"] .cg-status-head::before {
   content: "⏳ ";
 }
+.cg-status-head { font-weight: 700; }
+.cg-status-roots {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 6px;
+}
+.cg-status-root {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cg-status-ic { width: 1em; flex: 0 0 auto; opacity: 0.85; }
+.cg-status-root[data-phase="ready"]   .cg-status-ic { color: var(--ok, #3fb950); }
+.cg-status-root[data-phase="error"]   .cg-status-ic { color: #ef4444; }
+.cg-status-root[data-phase="pending"] { opacity: 0.6; }
+.cg-status-name { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.cg-status-counts { color: var(--text-muted); flex: 0 0 auto; }
+.cg-status-err { color: #ef4444; }
 
 .cg-empty, .cg-hint {
   color: var(--text-muted);

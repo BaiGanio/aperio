@@ -35,6 +35,7 @@
   let _statusTimer = null;
   let _statusPolling = false;
   let _lastStatusPhase = null;
+  let _status = null;         // last /api/docgraph/status payload (drives the live region)
 
   function escapeHtml(s) {
     return String(s ?? "")
@@ -58,25 +59,40 @@
     try { return await get("/api/docgraph/status"); }
     catch { return null; }
   }
+  const ROOT_ICON = { ready: "✓", indexing: "◐", pending: "·", error: "✕" };
   function renderStatusBanner(status) {
     if (!status?.enabled || status.phase === "idle" || status.phase === "ready") return "";
-    const done = status.roots.filter(r => r.phase === "ready").length;
-    const total = status.roots.length;
-    const active = status.roots.find(r => r.phase === "indexing");
-    const label = status.phase === "error"
+    const roots = status.roots || [];
+    const done = roots.filter(r => r.phase === "ready").length;
+    const total = roots.length;
+    const head = status.phase === "error"
       ? `Indexing failed${status.error ? ": " + escapeHtml(status.error) : ""}`
-      : `Indexing ${done}/${total} folder${total === 1 ? "" : "s"}${active ? " · " + escapeHtml(active.path.split("/").pop()) : ""}…`;
-    return `<div class="cg-status-banner" data-phase="${escapeHtml(status.phase)}">${label}</div>`;
+      : `Indexing ${done}/${total} folder${total === 1 ? "" : "s"}…`;
+    // Per-folder rows with live doc/chunk counts, so a long-running folder shows
+    // movement instead of sitting at "0/N" with no detail.
+    const rows = roots.map(r => {
+      const name = escapeHtml(r.path.split("/").pop() || r.path);
+      const counts = (r.docs || r.chunks)
+        ? `<span class="cg-status-counts">${escapeHtml(String(r.docs))} docs · ${escapeHtml(String(r.chunks))} chunks${r.phase === "indexing" ? "…" : ""}</span>`
+        : (r.phase === "pending" ? `<span class="cg-status-counts">queued</span>` : "");
+      const err = r.phase === "error" && r.error ? ` <span class="cg-status-err">${escapeHtml(r.error)}</span>` : "";
+      return `<div class="cg-status-root" data-phase="${escapeHtml(r.phase)}"><span class="cg-status-ic">${ROOT_ICON[r.phase] || "·"}</span> <span class="cg-status-name">${name}</span> ${counts}${err}</div>`;
+    }).join("");
+    return `<div class="cg-status-banner" data-phase="${escapeHtml(status.phase)}">
+      <div class="cg-status-head">${head}</div>
+      <div class="cg-status-roots">${rows}</div>
+    </div>`;
   }
   async function pollStatusOnce() {
-    const status = await fetchStatus();
-    const phase = status?.phase ?? "idle";
-    const el = document.getElementById("dg-status-banner-mount");
-    if (el) el.innerHTML = renderStatusBanner(status);
-    if (_lastStatusPhase === "indexing" && phase === "ready") {
-      await loadRepos();
-      if (!input().value) renderRepos();
-    }
+    _status = await fetchStatus();
+    const phase = _status?.phase ?? "idle";
+    // While indexing (and once more on the final tick), refresh the folder list
+    // so each one appears the moment it commits, not only when the whole batch is
+    // done. Cheap query; only runs during indexing.
+    if (phase === "indexing" || _lastStatusPhase === "indexing") await loadRepos();
+    // Update only the live region (banner + folders/empty) — never the add-folder
+    // form below it, so the user's input/selection is preserved across ticks.
+    if (!input().value) renderLiveRegion();
     _lastStatusPhase = phase;
     if (phase === "indexing") _statusTimer = setTimeout(pollStatusOnce, 1500);
     else _statusPolling = false;
@@ -88,41 +104,55 @@
   }
 
   // ── Repos view (empty state when no search query) ─────────────────────────
+  // The add-folder form is rendered once; the live region above it (indexing
+  // banner + indexed-folder list / empty message) is re-rendered on each status
+  // poll so progress and freshly-indexed folders show up without disturbing the
+  // form's input.
   function renderRepos() {
-    if (!_repos.length) {
-      setBody(`<div id="dg-status-banner-mount"></div><div class="cg-empty">
-        No documents indexed yet. Pick a folder below to index it,
-        or set <code>APERIO_DOCGRAPH=on</code> in <code>.env</code> for live watching.
-      </div>
-      ${renderAddRepoForm()}`);
-      wireAddRepoForm();
-      startStatusPolling();
-      return;
+    setBody(`<div id="dg-live-region"></div>${renderAddRepoForm()}`);
+    wireAddRepoForm();
+    renderLiveRegion();
+    startStatusPolling();
+  }
+
+  function reposListHtml() {
+    if (_repos.length) {
+      const items = _repos.map(r => {
+        const types = Object.entries(r.by_mime || {})
+          .map(([m, n]) => `${escapeHtml(mimeLabel(m))} ${escapeHtml(String(n))}`).join(" · ");
+        return `
+        <div class="cg-repo" data-root="${escapeHtml(r.root_path)}">
+          <div class="cg-repo-header">
+            <div class="cg-repo-path">${escapeHtml(r.root_path)}</div>
+            <button class="cg-repo-del" title="Remove this folder and its allowed path">×</button>
+          </div>
+          <div class="cg-repo-meta">
+            ${escapeHtml(String(r.docs ?? 0))} docs · ${escapeHtml(String(r.chunks ?? 0))} chunks
+            ${r.last_indexed_at ? "· indexed " + escapeHtml(new Date(r.last_indexed_at).toISOString().slice(0, 16).replace("T", " ")) : ""}
+            ${types ? `<div>${types}</div>` : ""}
+          </div>
+        </div>`;
+      }).join("");
+      return `<div class="cg-section-label">Indexed folders</div>${items}
+        <div class="cg-hint">Type above to search across these documents.</div>`;
     }
-    const items = _repos.map(r => {
-      const types = Object.entries(r.by_mime || {})
-        .map(([m, n]) => `${escapeHtml(mimeLabel(m))} ${escapeHtml(String(n))}`).join(" · ");
-      return `
-      <div class="cg-repo" data-root="${escapeHtml(r.root_path)}">
-        <div class="cg-repo-header">
-          <div class="cg-repo-path">${escapeHtml(r.root_path)}</div>
-          <button class="cg-repo-del" title="Remove this folder and its allowed path">×</button>
-        </div>
-        <div class="cg-repo-meta">
-          ${escapeHtml(String(r.docs ?? 0))} docs · ${escapeHtml(String(r.chunks ?? 0))} chunks
-          ${r.last_indexed_at ? "· indexed " + escapeHtml(new Date(r.last_indexed_at).toISOString().slice(0, 16).replace("T", " ")) : ""}
-          ${types ? `<div>${types}</div>` : ""}
-        </div>
-      </div>`;
-    }).join("");
-    setBody(`<div id="dg-status-banner-mount"></div><div class="cg-section-label">Indexed folders</div>${items}
-      <div class="cg-hint">Type above to search across these documents.</div>
-      ${renderAddRepoForm()}`);
-    body().querySelectorAll(".cg-repo-del").forEach(btn => {
+    // Nothing indexed yet: only show the "pick a folder" guidance once indexing
+    // is truly idle — while folders are still pending/indexing, say so instead.
+    const indexing = _status && (_status.phase === "indexing"
+      || (_status.roots || []).some(r => r.phase === "pending" || r.phase === "indexing"));
+    return indexing
+      ? `<div class="cg-empty">Indexing in progress — folders appear here as soon as each one finishes.</div>`
+      : `<div class="cg-empty">No documents indexed yet. Pick a folder below to index it,
+           or set <code>APERIO_DOCGRAPH=on</code> in <code>.env</code> for live watching.</div>`;
+  }
+
+  function renderLiveRegion() {
+    const region = document.getElementById("dg-live-region");
+    if (!region) return;
+    region.innerHTML = renderStatusBanner(_status) + reposListHtml();
+    region.querySelectorAll(".cg-repo-del").forEach(btn => {
       btn.addEventListener("click", () => deleteRepo(btn.closest(".cg-repo").dataset.root));
     });
-    wireAddRepoForm();
-    startStatusPolling();
   }
 
   // ── Delete a folder ───────────────────────────────────────────────────────

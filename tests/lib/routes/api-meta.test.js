@@ -546,3 +546,47 @@ describe("GET /system", () => {
     assert.ok(typeof body.heap === "number");
   });
 });
+
+// =============================================================================
+// Late-bound deps (early-mount): the API serves before the agent/watchdog exist
+// =============================================================================
+
+describe("warming up (lazy agent/watchdog)", () => {
+  test("GET /version works before the agent is ready", async () => {
+    const router = Router();
+    mountMetaRoutes(router, { getAgent: () => null, store: {}, getWatchdog: () => null, version: "9.9.9" });
+    const { status, body } = await invoke(router, "GET", "/version");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.version, "9.9.9");
+  });
+
+  test("GET /provider becomes live once the agent is bound (no remount)", async () => {
+    let agent = null;
+    const router = Router();
+    mountMetaRoutes(router, { getAgent: () => agent, store: {}, getWatchdog: () => null });
+    // Agent finishes booting after the route was mounted.
+    agent = { provider: { name: "ollama", model: "gemma4:e4b" } };
+    const { status, body } = await invoke(router, "GET", "/provider");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.provider, "ollama");
+    assert.strictEqual(body.model, "gemma4:e4b");
+  });
+
+  test("GET /heartbeat tolerates a not-yet-ready watchdog", async () => {
+    const router = Router();
+    mountMetaRoutes(router, { getAgent: () => null, store: {}, getWatchdog: () => null });
+    const { status, body } = await invoke(router, "GET", "/heartbeat");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.ok, true);
+  });
+
+  test("heartbeat is forwarded to the watchdog once it is bound", async () => {
+    let hits = 0;
+    let watchdog = null;
+    const router = Router();
+    mountMetaRoutes(router, { getAgent: () => null, store: {}, getWatchdog: () => watchdog });
+    watchdog = { heartbeat: () => { hits++; } };
+    await invoke(router, "GET", "/heartbeat");
+    assert.strictEqual(hits, 1);
+  });
+});
