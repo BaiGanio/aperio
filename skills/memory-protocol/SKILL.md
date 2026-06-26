@@ -25,6 +25,7 @@ recall(query?, filters?)
 - Call with no arguments to load the user's full core context.
 - Call with a query string to search for specific memories.
 - Use filters (`type`, `importance`) to narrow results when needed.
+- **When the user asks you to check, recall, or look up their memories, call `recall` right away — never ask them to narrow it down or supply a search term first.** A no-argument recall loading core context is the correct default, not "noise." Refine with a query only after a first recall comes back empty or clearly off-topic.
 
 ### remember
 Save a new memory.

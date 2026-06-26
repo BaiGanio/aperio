@@ -244,6 +244,68 @@ describe("runOllamaLoop — empty-completion retry", () => {
 });
 
 // =============================================================================
+// test: tool-call leakage retry
+// =============================================================================
+describe("runOllamaLoop — tool-call leakage", () => {
+  afterEach(() => { reset(); });
+
+  // Model printed a tool call as plain text instead of issuing a real one.
+  const LEAK_SSE = [
+    'data: {"choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}\n\n',
+    'data: {"choices":[{"index":0,"delta":{"content":"<execute_tool>\\ncall(recall, query=\\"exam\\")\\n</execute_tool>"},"finish_reason":null}]}\n\n',
+    'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":8}}\n\n',
+    'data: [DONE]\n\n',
+  ];
+
+  test("retracts, retries once with a nudge, then renders the recovered answer", async () => {
+    let chatCalls = 0;
+    const bodies = [];
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/api/tags")) return { ok: true, status: 200, text: async () => JSON.stringify({ models: [] }) };
+      if (tag.includes("/chat/completions")) {
+        bodies.push(JSON.parse(opts.body));
+        chatCalls++;
+        const chunks = chatCalls === 1 ? LEAK_SSE : [
+          'data: {"choices":[{"index":0,"delta":{"content":"Here is what I found."},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":4}}\n\n',
+          'data: [DONE]\n\n',
+        ];
+        return { ok: true, status: 200, text: async () => "", body: sseStream(chunks) };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const emitter = { send: makeEmittersend() };
+    const result = await runOllamaLoop(
+      [{ role: "user", content: "check your memories for exam" }], emitter, {}, undefined, () => {}, baseCtx("gemma4:e4b"));
+
+    assert.equal(chatCalls, 2, "should retry exactly once");
+    assert.equal(result, "Here is what I found.");
+    // The leaked text was wiped before the user saw it.
+    assert.ok(emitter.send.mock.calls.some(c => c.arguments[0]?.type === "retract"), "should retract leaked text");
+    // The retry carried the nudge in the system prompt.
+    assert.match(bodies[1].messages[0].content, /printed a tool call as plain text/i);
+  });
+
+  test("surfaces an honest error when leakage persists after the retry", async () => {
+    let chatCalls = 0;
+    mock.method(globalThis, "fetch", async (url) => {
+      const tag = String(url);
+      if (tag.includes("/api/tags")) return { ok: true, status: 200, text: async () => JSON.stringify({ models: [] }) };
+      if (tag.includes("/chat/completions")) { chatCalls++; return { ok: true, status: 200, text: async () => "", body: sseStream(LEAK_SSE) }; }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const result = await runOllamaLoop(
+      [{ role: "user", content: "check your memories for exam" }], { send: makeEmittersend() }, {}, undefined, () => {}, baseCtx("gemma4:e4b"));
+
+    assert.equal(chatCalls, 2, "one original + one retry, then give up");
+    assert.match(result, /couldn't issue the call correctly/i);
+  });
+});
+
+// =============================================================================
 // test: thinking-token attribution
 // =============================================================================
 describe("estimateThinkingTokens", () => {
