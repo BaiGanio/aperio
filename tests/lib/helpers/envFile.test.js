@@ -2,16 +2,16 @@
 // Tests for .env file helpers.
 //
 // envQuote and setKey are pure string-transform functions and are tested
-// directly. persistEnvVar and writeEnvFromWizard touch the filesystem at
-// hardcoded paths (ROOT/.env and ROOT/.env.example) determined at module
-// load time — we save/restore those files around the tests.
+// directly. writeEnvFromWizard touches the filesystem at hardcoded paths
+// (ROOT/.env and ROOT/.env.example) determined at module load time — we
+// save/restore those files around the tests.
 
-import { describe, test, before, after } from "node:test";
+import { describe, test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, writeFileSync, existsSync, copyFileSync, unlinkSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { envQuote, setKey, persistEnvVar, writeEnvFromWizard } from "../../../lib/helpers/envFile.js";
+import { envQuote, setKey, writeEnvFromWizard } from "../../../lib/helpers/envFile.js";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const ENV_PATH = resolve(ROOT, ".env");
@@ -108,51 +108,14 @@ describe("setKey", () => {
 });
 
 // =============================================================================
-// persistEnvVar  (filesystem — save/restore)
-// =============================================================================
-
-describe("persistEnvVar", () => {
-  before(() => {
-    // Ensure .env does NOT exist for these tests so the logic reads .env.example
-    if (existsSync(ENV_PATH)) unlinkSync(ENV_PATH);
-  });
-
-  test("writes a key to .env seeding from .env.example", () => {
-    persistEnvVar("MY_VAR", "hello world");
-    assert.ok(existsSync(ENV_PATH));
-    const content = readFileSync(ENV_PATH, "utf8");
-    assert.match(content, /^MY_VAR="hello world"$/m);
-  });
-
-  test("updates an existing key in .env", () => {
-    persistEnvVar("MY_VAR", "updated");
-    const content = readFileSync(ENV_PATH, "utf8");
-    assert.match(content, /^MY_VAR="updated"$/m);
-  });
-
-  test("preserves OTHER keys from .env.example", () => {
-    const example = readFileSync(EXAMPLE_PATH, "utf8");
-    const env = readFileSync(ENV_PATH, "utf8");
-    // MY_VAR should be present
-    assert.match(env, /^MY_VAR=/m);
-    // The .env.example keys should still be there (unless MY_VAR was one of them)
-    if (example.includes("AI_PROVIDER")) {
-      assert.match(env, /^AI_PROVIDER/m);
-    }
-  });
-
-  after(() => {
-    if (existsSync(ENV_PATH)) unlinkSync(ENV_PATH);
-  });
-});
-
-// =============================================================================
 // writeEnvFromWizard  (filesystem — save/restore)
 // =============================================================================
 
 describe("writeEnvFromWizard", () => {
-  before(() => {
-    // Ensure .env does NOT exist so writeEnvFromWizard fails open from example
+  beforeEach(() => {
+    // The wizard only CREATES a .env, so each "writes …" case starts from a
+    // clean slate (no .env → seeds from .env.example). The preservation test
+    // below writes its own .env first to exercise the never-overwrite guard.
     if (existsSync(ENV_PATH)) unlinkSync(ENV_PATH);
   });
 
@@ -209,6 +172,28 @@ describe("writeEnvFromWizard", () => {
     assert.match(env, /^AI_PROVIDER="gemini"$/m);
     assert.match(env, /^GEMINI_API_KEY="gm-xxx"$/m);
     assert.match(env, /^PORT="3456"$/m);
+  });
+
+  // ── The holy grail: an existing .env is never overwritten ───────────────────
+
+  test("never overwrites an existing .env — leaves it byte-for-byte untouched", () => {
+    // A code user's hand-edited .env. Re-running setup (e.g. after
+    // var/bootstrap.lock was lost) must not touch it at all.
+    const original = [
+      'AI_PROVIDER="anthropic"',
+      'ANTHROPIC_API_KEY="sk-real-user-key"',
+      'OLLAMA_MODEL="old-model"',
+      'ROUNDTABLE_AGENTS="3"',
+      'APERIO_DOCGRAPH="on"',
+      "",
+    ].join("\n");
+    writeFileSync(ENV_PATH, original, "utf8");
+
+    // Even with otherwise-valid wizard input, the existing .env wins.
+    const result = writeEnvFromWizard({ provider: "ollama", model: "llama3.1" });
+
+    assert.equal(result, ENV_PATH);
+    assert.equal(readFileSync(ENV_PATH, "utf8"), original);
   });
 
   after(() => {
