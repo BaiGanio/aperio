@@ -263,4 +263,18 @@ describe("DELETE /docgraph/repos", () => {
     assert.strictEqual(status, 400);
     assert.ok(body.error.includes("path is required"));
   });
+
+  test("stops the live watcher for the folder before dropping its rows", async () => {
+    const store = makeStore(true);
+    const router = Router();
+    const calls = [];
+    const watcherRegistry = {
+      register: async () => {},
+      stop: async (kind, root) => { calls.push([kind, root]); return true; },
+    };
+    mountDocgraphRoutes(router, { store, watcherRegistry });
+
+    await invoke(router, "DELETE", "/docgraph/repos", { body: { path: "/some/folder" } });
+    assert.deepEqual(calls, [["docgraph", "/some/folder"]]);
+  });
 });

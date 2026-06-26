@@ -29,3 +29,24 @@ describe("tool-profiles — read_docx availability (issue #125)", () => {
     assert.ok(toolsFor("convert /tmp/report.docx to a spreadsheet").has("read_docx"));
   });
 });
+
+// Docgraph tools (doc_search, …) were registered as MCP tools but absent from
+// every TOOL_PROFILE, so the profile→tool filter never offered them. A
+// "use the doc_search tool…" prompt issued a native call to a tool the model
+// was never given, which failed name recovery and surfaced the honest "couldn't
+// issue the call correctly" fallback.
+describe("tool-profiles — docgraph availability", () => {
+  test("naming doc_search surfaces the docgraph tools", () => {
+    const tools = toolsFor('use the doc_search tool to search for "LETTER OF CREDIT"');
+    assert.ok(tools.has("doc_search"), "the named tool must be offered");
+  });
+
+  test("document-corpus retrieval phrasing surfaces doc_search", () => {
+    assert.ok(toolsFor("search my documents for the invoice").has("doc_search"));
+    assert.ok(toolsFor("find where I wrote about budgets in my notes").has("doc_search"));
+  });
+
+  test("a generic web search does not load docgraph", () => {
+    assert.ok(!toolsFor("search the web for letter of credit").has("doc_search"));
+  });
+});

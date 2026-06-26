@@ -420,12 +420,19 @@ async function bootApp() {
   const { EventEmitter } = await import("events");
   const watcherEvents = new EventEmitter();
 
+  // Registry of live watcher handles keyed by (kind, root). Both the boot pass
+  // and the runtime "add a folder" route register here, so DELETE can stop the
+  // matching watcher (otherwise it keeps watching a removed folder) and shutdown
+  // can stop every watcher in one sweep.
+  const { createWatcherRegistry } = await import("./lib/helpers/watcher-registry.js");
+  const watcherRegistry = createWatcherRegistry();
+
   // ── Code graph live watcher (opt-in) ──────────────────────────────────────
   // APERIO_CODEGRAPH=on starts a chokidar watcher per APERIO_ALLOWED_PATHS_TO_READ
   // root. Initial repo index can take 20-60s on a fresh boot; run it in the
   // background so the API + WebSocket come up immediately. The /api/codegraph/status
   // endpoint surfaces progress to the Code panel.
-  let stopCodegraph = null;
+  let codegraphBoot = null;
   if (process.env.APERIO_CODEGRAPH === 'on') {
     const { isCodegraphAvailable } = await import("./lib/codegraph/indexer.js");
     if (!isCodegraphAvailable(store)) {
@@ -434,28 +441,25 @@ async function bootApp() {
       const { getAllowlist } = await import("./lib/routes/paths.js");
       const { markEnabled } = await import("./lib/codegraph/status.js");
       markEnabled(getAllowlist());
-      // Fire-and-forget: don't block bootApp on the initial index.
-      const handlePromise = (async () => {
+      // Fire-and-forget: don't block bootApp on the initial index. Each per-root
+      // handle is registered so DELETE / shutdown can stop it individually.
+      codegraphBoot = (async () => {
         try {
           const { startAllWatchers } = await import("./lib/codegraph/watcher.js");
-          return await startAllWatchers(store, getAllowlist(), watcherEvents);
+          const { handles } = await startAllWatchers(store, getAllowlist(), watcherEvents);
+          for (const h of handles) await watcherRegistry.register('codegraph', h.root, h);
         } catch (err) {
           const { logError } = await import("./lib/helpers/logger.js");
           logError(`[codegraph] watcher boot failed`, err);
-          return null;
         }
       })();
-      stopCodegraph = async () => {
-        const handle = await handlePromise;
-        if (handle?.stop) await handle.stop();
-      };
     }
   }
 
   // APERIO_DOCGRAPH=on starts a chokidar watcher per allowed folder for the
   // document graph (notes/PDF/DOCX/XLSX/PPTX/EML). Same fire-and-forget pattern
   // as codegraph so the initial index doesn't block boot.
-  let stopDocgraph = null;
+  let docgraphBoot = null;
   if (process.env.APERIO_DOCGRAPH === 'on') {
     const { isDocgraphAvailable } = await import("./lib/docgraph/indexer.js");
     if (!isDocgraphAvailable(store)) {
@@ -464,20 +468,16 @@ async function bootApp() {
       const { getAllowlist } = await import("./lib/routes/paths.js");
       const { markEnabled } = await import("./lib/docgraph/status.js");
       markEnabled(getAllowlist());
-      const handlePromise = (async () => {
+      docgraphBoot = (async () => {
         try {
           const { startAllWatchers } = await import("./lib/docgraph/watcher.js");
-          return await startAllWatchers(store, getAllowlist(), watcherEvents);
+          const { handles } = await startAllWatchers(store, getAllowlist(), watcherEvents);
+          for (const h of handles) await watcherRegistry.register('docgraph', h.root, h);
         } catch (err) {
           const { logError } = await import("./lib/helpers/logger.js");
           logError(`[docgraph] watcher boot failed`, err);
-          return null;
         }
       })();
-      stopDocgraph = async () => {
-        const handle = await handlePromise;
-        if (handle?.stop) await handle.stop();
-      };
     }
   }
 
@@ -577,7 +577,7 @@ async function bootApp() {
   });
 
   // Mount API routes and WebSocket *after* everything is ready
-  app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog, scheduler }));
+  app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog, scheduler, watcherEvents, watcherRegistry }));
 
   // LOG-01: terminal error handler — must come after all routes. Logs the full
   // error server-side and returns a scrubbed generic message in production.
@@ -649,8 +649,10 @@ async function bootApp() {
     pruner.stop();
     runPruner.stop();
     scheduler.stop();
-    if (stopCodegraph) await stopCodegraph().catch(() => {});
-    if (stopDocgraph) await stopDocgraph().catch(() => {});
+    // Wait for any in-flight boot index to register its handles, then stop every
+    // watcher (boot + runtime-added) via the registry.
+    await Promise.allSettled([codegraphBoot, docgraphBoot].filter(Boolean));
+    await watcherRegistry.stopAll().catch(() => {});
 
     // 2. Let the current ONNX inference finish, then stop the backfill loop.
     //    Cap the wait so a single Ctrl+C doesn't hang on an in-flight embed.

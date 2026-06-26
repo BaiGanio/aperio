@@ -1676,7 +1676,7 @@ function _resolveToolCard(msg) {
       // This replaces the standalone recall pill.
       result.textContent = "";
       const det = document.createElement("details");
-      det.className = "tool-card-results";
+      det.className = "tool-card-results recall-results";
       const sum = document.createElement("summary");
       sum.textContent = summaryText;
       det.appendChild(sum);

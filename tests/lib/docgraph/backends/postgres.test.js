@@ -9,6 +9,9 @@
 
 import { describe, test, before } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 
 // ─── Mock pool factory ──────────────────────────────────────────────────────
 
@@ -443,6 +446,67 @@ describe("indexRepoFiles", () => {
     };
     const result = await pg.indexRepoFiles(store, "/repo", errIter());
     assert.strictEqual(result.skipped, 1);
+  });
+
+  test("a bad file is isolated by a savepoint; later files still index", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "docgraph-pg-"));
+    const a = path.join(dir, "bad.md");
+    const b = path.join(dir, "good.md");
+    await writeFile(a, "bad");
+    await writeFile(b, "good");
+    async function* iter() {
+      yield { abs: a, rel: "bad.md", mime: "text/markdown",
+        extract: async () => ({ sections: [{ localId: 1, ord: 0, level: 1, heading: "FAIL", text: "x" }] }) };
+      yield { abs: b, rel: "good.md", mime: "text/markdown",
+        extract: async () => ({ sections: [{ localId: 1, ord: 0, level: 1, heading: "OK", text: "y" }] }) };
+    }
+    const verbs = [];
+    const client = {
+      query: async (sql, params) => {
+        verbs.push(sql.trim().split(/\s+/).slice(0, 3).join(" "));
+        // The section INSERT for the "bad" doc throws, like a NUL/constraint error.
+        if (/INSERT INTO docgraph_sections/.test(sql) && params?.includes("FAIL")) {
+          throw new Error("invalid byte sequence");
+        }
+        return { rows: [{ id: 1, sha256: null }], rowCount: 1 };
+      },
+      release: () => {},
+    };
+    const store = { pool: { connect: async () => client } };
+    const result = await pg.indexRepoFiles(store, dir, iter());
+    await rm(dir, { recursive: true, force: true });
+
+    assert.strictEqual(result.skipped, 1, "bad file skipped");
+    assert.strictEqual(result.changed, 1, "good file still indexed after the bad one");
+    assert.ok(verbs.includes("ROLLBACK TO SAVEPOINT"), "rolled the bad file's savepoint back");
+    assert.ok(verbs.includes("COMMIT"), "batch still committed");
+  });
+
+  test("strips NUL bytes from text before insert", async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), "docgraph-pg-"));
+    const f = path.join(dir, "nul.md");
+    await writeFile(f, "x");
+    async function* iter() {
+      yield { abs: f, rel: "nul.md", mime: "text/markdown",
+        extract: async () => ({ title: "t\u0000", sections: [{ localId: 1, ord: 0, level: 1, heading: "h\u0000", text: "a\u0000b" }] }) };
+    }
+    const inserted = [];
+    const client = {
+      query: async (sql, params) => {
+        if (/INSERT INTO docgraph_(sections|chunks)|UPDATE docgraph_documents SET title/.test(sql)) inserted.push(params);
+        return { rows: [{ id: 1, sha256: null }], rowCount: 1 };
+      },
+      release: () => {},
+    };
+    const store = { pool: { connect: async () => client } };
+    await pg.indexRepoFiles(store, dir, iter());
+    await rm(dir, { recursive: true, force: true });
+
+    for (const params of inserted) {
+      for (const p of params) {
+        assert.ok(typeof p !== "string" || !p.includes("\u0000"), `NUL leaked: ${JSON.stringify(p)}`);
+      }
+    }
   });
 });
 
