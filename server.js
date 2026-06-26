@@ -30,7 +30,15 @@ import { runBootstrap, bootstrapEvents, stepState, STEPS } from "./bootstrap.js"
 // a short window mean the process is wedged — trip the breaker and exit so the
 // supervisor restarts cleanly instead of serving errors forever.
 const crashBreaker = createCrashBreaker({ threshold: 5, windowMs: 60_000 });
+// Flipped true once gracefulShutdown begins. Late rejections during teardown
+// (aborted fetches, "write after end" once the logger is closing) are expected
+// noise — route them to the console so we never write to an ended logger.
+let isShuttingDown = false;
 function handleFatal(label, err) {
+  if (isShuttingDown) {
+    console.error(`${label} (during shutdown):`, err);
+    return;
+  }
   logger.error(`${label}:`, err);
   if (crashBreaker.record()) {
     logger.error("PROC-01: too many fatal errors in a short window — exiting for a clean restart.");
@@ -627,8 +635,12 @@ async function bootApp() {
   // has live threads causes "mutex lock failed: Invalid argument".
   let shuttingDown = false;
   async function gracefulShutdown() {
-    if (shuttingDown) return;
+    // A second Ctrl+C while the graceful teardown is in flight means the user
+    // wants out now — escalate to an immediate exit instead of swallowing it.
+    // A second Ctrl+C means the user wants out now — exit immediately, quietly.
+    if (shuttingDown) process.exit(130); // 128 + SIGINT
     shuttingDown = true;
+    isShuttingDown = true; // route any late fatal errors away from the closing logger
 
     // 1. Stop timers so the event loop can drain
     watchdog.stop();
@@ -640,8 +652,9 @@ async function bootApp() {
     if (stopCodegraph) await stopCodegraph().catch(() => {});
     if (stopDocgraph) await stopDocgraph().catch(() => {});
 
-    // 2. Let the current ONNX inference finish, then stop the backfill loop
-    await shutdownEmbeddings();
+    // 2. Let the current ONNX inference finish, then stop the backfill loop.
+    //    Cap the wait so a single Ctrl+C doesn't hang on an in-flight embed.
+    await shutdownEmbeddings(1500);
 
     // 3. Terminate WebSocket clients and close the WS server
     for (const client of wss.clients) client.terminate();
@@ -668,13 +681,13 @@ async function bootApp() {
     // static destructors fire — avoiding the "mutex lock failed: Invalid
     // argument" crash that process.exit() causes when destructors race.
     //
-    // Safety net: if the process is still alive after 10 s (something is
+    // Safety net: if the process is still alive after 3 s (something is
     // holding the loop), force-exit. The timer is unref()'d so it doesn't
     // itself keep the loop alive.
     const forceExit = setTimeout(() => {
       process.exitCode = 0;
       process.exit(0);
-    }, 10_000);
+    }, 3_000);
     forceExit.unref();
   }
   process.on("SIGTERM", gracefulShutdown);

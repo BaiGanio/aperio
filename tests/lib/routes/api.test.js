@@ -839,6 +839,26 @@ describe("PUT /agents/enabled", () => {
     else process.env.APERIO_AGENT_JOBS = prev;
   });
 
+  test("persists the choice to the DB settings store, never to .env", async () => {
+    const prev = process.env.APERIO_AGENT_JOBS;
+    const saved = {};
+    const router = apiRouter({
+      agent: { version: "1", provider: { name: "x", model: "y" }, setProvider: () => {}, getSkillDoc: () => null },
+      store: { listAll: async () => [], setSetting: async (k, v) => { saved[k] = v; } },
+      watchdog: { heartbeat: () => {} },
+      scheduler: { setEnabled: () => {} },
+    });
+
+    await invoke(router, "PUT", "/agents/enabled", { body: { enabled: true } });
+    assert.strictEqual(saved["config.APERIO_AGENT_JOBS"], "on");
+
+    await invoke(router, "PUT", "/agents/enabled", { body: { enabled: false } });
+    assert.strictEqual(saved["config.APERIO_AGENT_JOBS"], "off");
+
+    if (prev === undefined) delete process.env.APERIO_AGENT_JOBS;
+    else process.env.APERIO_AGENT_JOBS = prev;
+  });
+
   test("400 when enabled is not a boolean", async () => {
     const router = makeRouter();
     const { status } = await invoke(router, "PUT", "/agents/enabled", { body: { enabled: "yes" } });
