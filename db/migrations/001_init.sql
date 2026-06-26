@@ -748,9 +748,7 @@ CREATE TABLE IF NOT EXISTS settings (
 -- ===== codegraph =====
 -- 003_codegraph.sql
 -- Pre-indexed code knowledge graph. Lets the LLM query symbols/edges
--- instead of reading dozens of files to answer "who calls X?", "what
--- does Y import?", "show me Z's body".
---
+-- instead of reading dozens of files to answer "who calls X?", "what does Y import?"
 -- v0.1: schema + JS/TS indexer. Embeddings come later (cg_symbols.embedding
 -- column is here from day one so we don't need a follow-up migration).
 
