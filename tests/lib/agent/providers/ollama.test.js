@@ -116,6 +116,50 @@ describe("runOllamaLoop — health check failure", () => {
     const result = await runOllamaLoop(messages, emitter, {}, undefined, () => {}, ctx);
     assert.ok(result.includes("Ollama is not running"));
   });
+
+  // Regression: the health probe is a one-time preflight, not a per-turn gate.
+  // After a successful tool turn, a transient `/api/tags` failure (e.g. server
+  // busy serving a large model) must NOT abort the conversation with a bogus
+  // "Ollama is not running" message — we already know it's running.
+  test("does not re-probe health after first contact; survives a transient /api/tags blip", async () => {
+    let tagProbes = 0;
+    let chatCalls = 0;
+    const TOOLS = [{ type: "function", function: { name: "db_schema" } }];
+    const TOOL_SSE = [
+      'data: {"choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"t1","function":{"name":"db_schema","arguments":"{}"}}]},"finish_reason":null}]}\n\n',
+      'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"input_tokens":10,"output_tokens":8}}\n\n',
+      'data: [DONE]\n\n',
+    ];
+    mock.method(globalThis, "fetch", async (url) => {
+      const tag = String(url);
+      if (tag.includes("/api/tags")) {
+        tagProbes++;
+        if (tagProbes > 1) throw new Error("Connection refused"); // transient blip on later turns
+        return { ok: true, status: 200, text: async () => JSON.stringify({ models: [] }) };
+      }
+      if (tag.includes("/chat/completions")) {
+        chatCalls++;
+        const chunks = chatCalls === 1 ? TOOL_SSE : [
+          'data: {"choices":[{"index":0,"delta":{"content":"Final answer."},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":3}}\n\n',
+          'data: [DONE]\n\n',
+        ];
+        return { ok: true, status: 200, text: async () => "", body: sseStream(chunks) };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const ctx = baseCtx("gemma4:12b", {
+      getOllamaTools: () => TOOLS,
+      callTool: mock.fn(async () => "ok"),
+    });
+    const result = await runOllamaLoop(
+      [{ role: "user", content: "list tables" }], { send: makeEmittersend() }, {}, undefined, () => {}, ctx);
+
+    assert.equal(tagProbes, 1, "health probe should run once as a preflight, not per turn");
+    assert.equal(chatCalls, 2, "tool turn + final answer turn");
+    assert.equal(result, "Final answer.");
+  });
 });
 
 // =============================================================================
@@ -301,6 +345,70 @@ describe("runOllamaLoop — tool-call leakage", () => {
       [{ role: "user", content: "check your memories for exam" }], { send: makeEmittersend() }, {}, undefined, () => {}, baseCtx("gemma4:e4b"));
 
     assert.equal(chatCalls, 2, "one original + one retry, then give up");
+    assert.match(result, /couldn't issue the call correctly/i);
+  });
+});
+
+// =============================================================================
+// test: corrupted native tool-call name recovery
+// =============================================================================
+describe("runOllamaLoop — corrupted tool name", () => {
+  afterEach(() => { reset(); });
+
+  const TOOLS = [{ type: "function", function: { name: "db_schema" } }];
+
+  // gemma wrapped its call in hallucinated channel markup; Ollama dumped the raw
+  // text into function.name. The real tool ("db_schema") is still embedded.
+  const CORRUPT_TC_SSE = [
+    'data: {"choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"t1","function":{"name":"thought <|channel>thought <channel|><|tool_call>call:db_schema","arguments":"{\\"connection\\":\\"aperio\\"}"}}]},"finish_reason":null}]}\n\n',
+    'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"input_tokens":10,"output_tokens":8}}\n\n',
+    'data: [DONE]\n\n',
+  ];
+
+  test("recovers the embedded tool name and dispatches the real tool", async () => {
+    const calledNames = [];
+    mock.method(globalThis, "fetch", async (url) => {
+      const tag = String(url);
+      if (tag.includes("/api/tags")) return { ok: true, status: 200, text: async () => JSON.stringify({ models: [] }) };
+      if (tag.includes("/chat/completions")) return { ok: true, status: 200, text: async () => "", body: sseStream(CORRUPT_TC_SSE) };
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const ctx = baseCtx("gemma4:12b", {
+      getOllamaTools: () => TOOLS,
+      callTool: mock.fn(async (name) => { calledNames.push(name); return "ok"; }),
+    });
+    // One turn issues the (recovered) tool call; stop the loop after by aborting.
+    let turns = 0;
+    const getAbort = () => ({ signal: { aborted: turns++ > 0 } });
+
+    await runOllamaLoop(
+      [{ role: "user", content: "list tables" }], { send: makeEmittersend() }, {}, getAbort, () => {}, ctx);
+
+    assert.deepEqual(calledNames, ["db_schema"], "should dispatch the recovered tool name");
+    assert.ok(warnCalls.some(c => /recovered corrupted tool name/i.test(String(c[0]))), "should log the recovery");
+  });
+
+  test("treats an unrecoverable corrupted name as a leak (retract + honest error)", async () => {
+    const BAD_SSE = [
+      'data: {"choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"t1","function":{"name":"<|tool_call>call:totally_made_up","arguments":"{}"}}]},"finish_reason":null}]}\n\n',
+      'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"input_tokens":10,"output_tokens":8}}\n\n',
+      'data: [DONE]\n\n',
+    ];
+    let chatCalls = 0;
+    mock.method(globalThis, "fetch", async (url) => {
+      const tag = String(url);
+      if (tag.includes("/api/tags")) return { ok: true, status: 200, text: async () => JSON.stringify({ models: [] }) };
+      if (tag.includes("/chat/completions")) { chatCalls++; return { ok: true, status: 200, text: async () => "", body: sseStream(BAD_SSE) }; }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const emitter = { send: makeEmittersend() };
+    const result = await runOllamaLoop(
+      [{ role: "user", content: "list tables" }], emitter, {}, undefined, () => {}, baseCtx("gemma4:12b", { getOllamaTools: () => TOOLS }));
+
+    assert.equal(chatCalls, 2, "one original + one retry, then give up");
+    assert.ok(emitter.send.mock.calls.some(c => c.arguments[0]?.type === "retract"), "should retract the bad call");
     assert.match(result, /couldn't issue the call correctly/i);
   });
 });

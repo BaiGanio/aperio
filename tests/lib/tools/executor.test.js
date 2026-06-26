@@ -2,7 +2,7 @@
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, detectToolCallLeak, ToolExecutor } from "../../../lib/tools/executor.js";
+import { extractTextToolCall, detectToolCallLeak, recoverToolName, ToolExecutor } from "../../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall
@@ -198,6 +198,39 @@ describe("detectToolCallLeak", () => {
   test("does not flag empty or whitespace text", () => {
     assert.equal(detectToolCallLeak(""), false);
     assert.equal(detectToolCallLeak("   \n  "), false);
+  });
+});
+
+// =============================================================================
+// recoverToolName
+// =============================================================================
+describe("recoverToolName", () => {
+  const tools = ["db_connections", "db_schema", "db_query", "db_execute", "recall"];
+
+  test("returns the name unchanged when it is already a known tool", () => {
+    assert.equal(recoverToolName("db_schema", tools), "db_schema");
+  });
+
+  test("recovers the real tool name from gemma channel/harmony markup", () => {
+    const garbage = "thought <|channel>thought <channel|><|tool_call>call:db_schema";
+    assert.equal(recoverToolName(garbage, tools), "db_schema");
+  });
+
+  test("prefers the last embedded tool name (the one after the call marker)", () => {
+    // A planning channel can mention one tool then actually call another.
+    const garbage = "<|channel>I'll use db_query<|tool_call>call:db_schema";
+    assert.equal(recoverToolName(garbage, tools), "db_schema");
+  });
+
+  test("matches on token boundaries, not substrings", () => {
+    // "query" must not match inside "db_query".
+    assert.equal(recoverToolName("call:db_query", ["query", "db_query"]), "db_query");
+  });
+
+  test("returns null when no known tool is embedded", () => {
+    assert.equal(recoverToolName("<|tool_call>call:totally_made_up", tools), null);
+    assert.equal(recoverToolName("", tools), null);
+    assert.equal(recoverToolName("db_schema", []), null);
   });
 });
 
