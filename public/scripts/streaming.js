@@ -515,12 +515,6 @@ function handleMessage(msg) {
     renderMemories(allMemories);
   }
 
-  if (msg.type === "recall_result") {
-    const items = _parseRecallText(msg.text);
-    if (items.length) _renderRecallPill(items);
-    return;
-  }
-
   if (msg.type === "ttl_chip") {
     _renderTtlChip(msg);
     return;
@@ -1448,85 +1442,6 @@ function _buildGeneratedFileCard({ filename, url, sizeKb }) {
   return card;
 }
 
-function _parseRecallText(text) {
-  return text.split("---").filter(b => b.trim()).map(block => {
-    const lines     = block.trim().split("\n");
-    const firstLine = lines[0];
-    const titleMatch = firstLine.match(/^\[\w+\]\s+(.+?)(?:\s+\[(?:similarity|confidence):|\s+\(importance:)/);
-    const simMatch   = firstLine.match(/\[similarity:\s*([\d.]+)%\]/);
-    const tagsLine   = lines.find(l => l.startsWith("Tags:")) || "";
-    const tags       = tagsLine.replace("Tags:", "").trim();
-    const content    = lines[1]?.trim() || "";
-    return {
-      title:      titleMatch?.[1]?.trim() || "",
-      similarity: simMatch ? parseFloat(simMatch[1]) : null,
-      content,
-      tags:       tags && tags !== "none" ? tags : "",
-      // The whole block (header + content + tags + id/date) is what recall
-      // injects into the model's context, so estimate the cost from the raw
-      // block rather than just the visible content line.
-      tokens:     estimateTokens(block),
-    };
-  }).filter(m => m.title);
-}
-
-function _renderRecallPill(items) {
-  const pill = document.createElement("div");
-  pill.className = "recall-pill";
-
-  const n = items.length;
-  const label = n === 1 ? t("recall_pill_one") : t("recall_pill_many", { n });
-  const topScores = items
-    .filter(m => m.similarity !== null)
-    .slice(0, 3)
-    .map(m => `${m.similarity}%`)
-    .join(" · ");
-
-  // Total cost the recalled memories add to this turn's input — the figure the
-  // user was missing under "Recalled N memories".
-  const totalTok = items.reduce((sum, m) => sum + (m.tokens || 0), 0);
-  const tokSuffix = totalTok
-    ? `<span class="recall-pill-tok">${t("chip_tokens", { n: totalTok.toLocaleString() })}</span>`
-    : "";
-
-  const toggle = document.createElement("button");
-  toggle.className = "recall-pill-toggle";
-  toggle.innerHTML =
-    `<span class="recall-asterisk">✦</span>` +
-    `<span class="recall-pill-label">${label}</span>` +
-    (topScores ? `<span class="recall-pill-scores">${topScores}</span>` : "") +
-    tokSuffix +
-    `<span class="recall-pill-chevron">▾</span>`;
-  pill.appendChild(toggle);
-
-  const details = document.createElement("div");
-  details.className = "recall-pill-details";
-  items.forEach(m => {
-    const item = document.createElement("details");
-    item.className = "recall-memory";
-    item.innerHTML =
-      `<summary>` +
-        `<span class="recall-memory-title">${escapeHtml(m.title)}</span>` +
-        (m.tokens ? `<span class="recall-score recall-score--tok">${t("chip_tokens", { n: m.tokens.toLocaleString() })}</span>` : "") +
-        (m.similarity !== null ? `<span class="recall-score">${m.similarity}%</span>` : "") +
-      `</summary>` +
-      `<div class="recall-memory-body">` +
-        (m.content ? `<div class="recall-memory-content">${escapeHtml(m.content)}</div>` : "") +
-        (m.tags ? `<div class="recall-memory-tags">${escapeHtml(m.tags)}</div>` : "") +
-      `</div>`;
-    details.appendChild(item);
-  });
-  pill.appendChild(details);
-
-  toggle.onclick = () => {
-    const open = details.classList.toggle("open");
-    toggle.querySelector(".recall-pill-chevron").textContent = open ? "▴" : "▾";
-  };
-
-  messagesEl.appendChild(pill);
-  scrollToBottom();
-}
-
 // ── Skills chip ─────────────────────────────────────────────────────────────
 // Skills are injected into the system prompt (not executed), so this chip is
 // the only signal the user gets about which ones steered the turn.
@@ -1753,6 +1668,35 @@ function _resolveToolCard(msg) {
         }
         det.appendChild(item);
       }
+      result.appendChild(det);
+    } else if (Array.isArray(msg.memories) && msg.memories.length) {
+      // recall ships its hits as `memories` — render them inline under the
+      // "↳ N memories" summary as a clean, scrollable list. Each row collapses
+      // to its title + match %, and expands to the memory's content + tags.
+      // This replaces the standalone recall pill.
+      result.textContent = "";
+      const det = document.createElement("details");
+      det.className = "tool-card-results";
+      const sum = document.createElement("summary");
+      sum.textContent = summaryText;
+      det.appendChild(sum);
+      const list = document.createElement("div");
+      list.className = "recall-mem-list";
+      for (const m of msg.memories) {
+        const item = document.createElement("details");
+        item.className = "recall-memory";
+        item.innerHTML =
+          `<summary>` +
+            `<span class="recall-memory-title">${escapeHtml(m.title)}</span>` +
+            (m.similarity !== null && m.similarity !== undefined ? `<span class="recall-score">${m.similarity}%</span>` : "") +
+          `</summary>` +
+          `<div class="recall-memory-body">` +
+            (m.content ? `<div class="recall-memory-content">${escapeHtml(m.content)}</div>` : "") +
+            (m.tags ? `<div class="recall-memory-tags">${escapeHtml(m.tags)}</div>` : "") +
+          `</div>`;
+        list.appendChild(item);
+      }
+      det.appendChild(list);
       result.appendChild(det);
     } else if (msg.detail) {
       // A clipped result (e.g. a long error) ships its full text as `detail`.

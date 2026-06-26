@@ -44,27 +44,7 @@
 
 .recall-pill-label { flex: 0 0 auto; }
 
-.recall-pill-scores {
-    color: var(--accent);
-    opacity: 0.7;
-    flex: 0 0 auto;
-}
-
 .recall-pill-chevron { font-size: var(--fs-micro); opacity: 0.6; }
-
-/* Token-cost chips — muted (not accent-coloured like similarity scores) so they
-   read as a secondary "this is what it costs" annotation. */
-.recall-pill-tok {
-    flex: 0 0 auto;
-    color: var(--text-muted);
-    opacity: 0.7;
-    font-family: var(--font-mono);
-    font-size: var(--fs-micro);
-}
-.recall-score--tok {
-    color: var(--text-muted);
-    opacity: 0.65;
-}
 
 .recall-pill-details {
     display: none;
@@ -129,6 +109,20 @@
     font-size: var(--fs-micro);
     opacity: 0.6;
     margin-top: 5px;
+}
+
+/* Recalled-memory list inside a recall tool card. A bordered, rounded box that
+   holds the expandable .recall-memory rows; caps its height and scrolls so a
+   large recall stays inspectable without pushing the conversation off-screen. */
+.recall-mem-list {
+    display: flex;
+    flex-direction: column;
+    margin-top: 4px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    max-height: 340px;
+    overflow-y: auto;
 }
 
 .skill-always-badge {
