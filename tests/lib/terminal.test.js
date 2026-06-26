@@ -45,6 +45,8 @@ import {
   isExamplesCommand,
   isLangCommand,
   parseLang,
+  isRestartCommand,
+  isHardRestart,
   isStatsCommand,
   isStatusCommand,
   isDiscussCommand,
@@ -169,6 +171,20 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(parseLang("lang"), null);
   });
 
+  test("isRestartCommand matches 'restart' and 'restart --hard' only", () => {
+    assert.strictEqual(isRestartCommand("restart"), true);
+    assert.strictEqual(isRestartCommand("restart --hard"), true);
+    assert.strictEqual(isRestartCommand("  RESTART --hard  "), true);
+    assert.strictEqual(isRestartCommand("restart now"), false);
+    assert.strictEqual(isRestartCommand("restarting"), false);
+  });
+
+  test("isHardRestart is true only for the --hard variant", () => {
+    assert.strictEqual(isHardRestart("restart --hard"), true);
+    assert.strictEqual(isHardRestart("restart"), false);
+    assert.strictEqual(isHardRestart("restart --soft"), false);
+  });
+
   test("isStatsCommand detects 'stats' case-insensitively", () => {
     assert.strictEqual(isStatsCommand("stats"), true);
     assert.strictEqual(isStatsCommand("  STATS  "), true);
@@ -200,6 +216,8 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(isSpecialCommand("examples"), true);
     assert.strictEqual(isSpecialCommand("lang"), true);
     assert.strictEqual(isSpecialCommand("lang de"), true);
+    assert.strictEqual(isSpecialCommand("restart"), true);
+    assert.strictEqual(isSpecialCommand("restart --hard"), true);
     assert.strictEqual(isSpecialCommand("stats"), true);
     assert.strictEqual(isSpecialCommand("status"), true);
   });
