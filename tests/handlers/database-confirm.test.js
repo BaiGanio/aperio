@@ -60,6 +60,16 @@ describe("db_query gating", () => {
     const data = JSON.parse(textOf(await queryHandler(ctx, { connection: "rw", sql: "SELECT * FROM t ORDER BY id" })));
     assert.equal(data.rowCount, 2);
   });
+  test("accepts the statement under a near-miss key (query alias)", async () => {
+    // Weak models pass the SQL as `query` instead of `sql`; the handler recovers it.
+    const data = JSON.parse(textOf(await queryHandler(ctx, { connection: "rw", query: "SELECT * FROM t ORDER BY id" })));
+    assert.equal(data.rowCount, 2);
+  });
+  test("surfaces a friendly error when no sql is provided", async () => {
+    const res = await queryHandler(ctx, { connection: "rw" });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /`sql` is required/i);
+  });
 });
 
 describe("db_execute two-phase confirm", () => {

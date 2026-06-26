@@ -54,7 +54,10 @@ const TOOLS = [
       "(positional ? / $1 placeholders) — never string-concatenate them into `sql`.",
     schema: {
       connection: z.string().describe("Connection name from db_connections."),
-      sql: z.string().describe("A single read statement, e.g. 'SELECT * FROM users WHERE id = ?'."),
+      // `sql` is canonical but weaker models guess `query`/`statement`; made
+      // optional + .passthrough() (see register) so a near-miss key reaches the
+      // handler, which normalizes it instead of bouncing the call with -32602.
+      sql: z.string().optional().describe("A single read statement, e.g. 'SELECT * FROM users WHERE id = ?'."),
       params: z.array(z.any()).optional().describe("Positional bind parameters for the placeholders in `sql`."),
       limit: z.number().min(1).max(1000).optional().describe("Max rows to return (default 200)."),
     },
@@ -89,7 +92,9 @@ export function register(server, ctx) {
   for (const tool of TOOLS) {
     server.registerTool(
       tool.name,
-      { description: tool.description, inputSchema: z.object(tool.schema) },
+      // .passthrough() keeps near-miss arg keys (e.g. `query` for `sql`) so the
+      // handler can normalize them instead of zod rejecting the call with -32602.
+      { description: tool.description, inputSchema: z.object(tool.schema).passthrough() },
       tool.getHandler(handlers)
     );
   }
