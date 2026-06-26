@@ -678,7 +678,7 @@ export class PostgresStore {
         INSERT INTO memories (id, type, title, content, tags, importance, expires_at, source, pinned, lang, confidence, valid_from)
         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
         ON CONFLICT (id) DO NOTHING
-      `, [m.id, m.type, m.title, m.content, JSON.stringify(m.tags ?? []),
+      `, [m.id, m.type, m.title, m.content, m.tags ?? [],
           m.importance ?? 3, m.expires_at ?? null, m.source ?? 'import',
           m.pinned ?? false, m.lang ?? 'english', m.confidence ?? 1.0]);
       rowCount > 0 ? result.imported.memories++ : result.skipped.memories++;
@@ -691,7 +691,7 @@ export class PostgresStore {
         ON CONFLICT (slug) DO NOTHING
         RETURNING id
       `, [a.slug, a.title, a.summary ?? null, a.body_md,
-          JSON.stringify(a.tags ?? []), a.generated_by ?? 'import', a.revision ?? 1]);
+          a.tags ?? [], a.generated_by ?? 'import', a.revision ?? 1]);
 
       if (rowCount > 0) {
         result.imported.wiki++;

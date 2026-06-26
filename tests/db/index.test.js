@@ -154,6 +154,9 @@ describe("resolveBackend", () => {
   });
 
   test("unknown DB_BACKEND falls back to sqlite", async () => {
+    // An unknown/typo'd value is never used verbatim and never auto-detects into
+    // Postgres — it falls straight back to the zero-config safe default (SQLite),
+    // so this is deterministic regardless of whether Docker is running on the host.
     process.env.DB_BACKEND = "mysql";
     mockSqliteInitResult = { db: {}, _sqlite: true };
 

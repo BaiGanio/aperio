@@ -481,6 +481,26 @@ async function bootApp() {
     }
   }
 
+  // ── Serve the API immediately ──────────────────────────────────────────────
+  // Mount the REST API now, *before* the multi-second agent/MCP/Ollama warmup
+  // below. app.use is synchronous and the awaits that follow yield to the event
+  // loop, so every non-agent endpoint (memories, code/doc graph, settings, files,
+  // …) is live within ~1s instead of waiting for the whole boot to finish. The
+  // agent/scheduler/watchdog are filled into `boot` as they come up; routes read
+  // them through lazy getters (chat/agent routes return 503 "warming up" until
+  // ready; the browser's WebSocket auto-reconnects).
+  const boot = { agent: null, scheduler: null, watchdog: null };
+  const { createErrorHandler } = await import("./lib/helpers/errorHandler.js");
+  app.use("/api", apiRouter({
+    store, version, watcherEvents, watcherRegistry,
+    getAgent:     () => boot.agent,
+    getScheduler: () => boot.scheduler,
+    getWatchdog:  () => boot.watchdog,
+  }));
+  // Terminal error handler — registered after the API router and before the
+  // (still-warming) routes append nothing else, so it stays last in the chain.
+  app.use(createErrorHandler());
+
   // ── Agents ───────────────────────────────────────────────────────────────
   // The main chat agent always boots from AI_PROVIDER / provider env vars.
   // Round-table mode (two-agent cross-review) is opt-in via ROUNDTABLE_AGENTS
@@ -494,6 +514,7 @@ async function bootApp() {
     clientName: "aperio-server",
   });
   const { provider, callTool } = agent;
+  boot.agent = agent; // chat/agent routes become live
 
   const roundtableAgents = parseRoundtableAgents(process.env.ROUNDTABLE_AGENTS);
   const primaryRtConfig  = roundtableAgents[0] ?? null;
@@ -545,6 +566,7 @@ async function bootApp() {
     models:    [provider.model, process.env.OLLAMA_MODEL],
     timeoutMs: (Number(process.env.IDLE_TIMEOUT_SECONDS) || 180) * 1000,
   });
+  boot.watchdog = watchdog; // /heartbeat starts feeding the idle guard
 
   const providerLabel = provider.name === "anthropic"
     ? `Anthropic (${provider.model})`
@@ -575,15 +597,11 @@ async function bootApp() {
     recordRun: (run) => store.recordAgentRun(run),
     notify: (payload) => broadcastToClients({ type: "agent_job_done", ...payload }),
   });
+  boot.scheduler = scheduler; // background-agent routes (run-now, enable) go live
 
-  // Mount API routes and WebSocket *after* everything is ready
-  app.use("/api", apiRouter({ agent: { ...agent, version }, store, watchdog, scheduler, watcherEvents, watcherRegistry }));
-
-  // LOG-01: terminal error handler — must come after all routes. Logs the full
-  // error server-side and returns a scrubbed generic message in production.
-  const { createErrorHandler } = await import("./lib/helpers/errorHandler.js");
-  app.use(createErrorHandler());
-
+  // API routes + error handler are already mounted above (early). The WebSocket
+  // is attached here, once the agent is ready, since makeWsHandler needs it; the
+  // browser client auto-reconnects, so chat connects as soon as this is up.
   const wss = new WebSocketServer({
     server: httpServer,
     verifyClient: ({ origin, req }, cb) => {

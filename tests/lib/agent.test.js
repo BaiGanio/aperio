@@ -400,9 +400,27 @@ describe("Ollama Loop Logic - Health Check", () => {
 // (the MCP boundary).
 
 describe("run_shell cwd injection", () => {
+  // run_shell is only offered to the model when shell is enabled (globally + for
+  // local Ollama models) AND the model is trusted (listed in APERIO_CAPABLE_MODELS).
+  // These gates landed after this test was written; set them so run_shell actually
+  // reaches the model and the cwd-injection hook runs.
+  let savedEnv;
   beforeEach(() => {
     delete process.env.AI_PROVIDER;
     delete process.env.OLLAMA_MODEL;
+    savedEnv = {
+      APERIO_ENABLE_SHELL:   process.env.APERIO_ENABLE_SHELL,
+      APERIO_SHELL_LOCAL:    process.env.APERIO_SHELL_LOCAL,
+      APERIO_CAPABLE_MODELS: process.env.APERIO_CAPABLE_MODELS,
+    };
+    process.env.APERIO_ENABLE_SHELL   = "1";
+    process.env.APERIO_SHELL_LOCAL    = "1";
+    process.env.APERIO_CAPABLE_MODELS = "llama3.1";
+  });
+  afterEach(() => {
+    for (const [k, v] of Object.entries(savedEnv)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
   });
 
   // Build an SSE chunk that mimics one OpenAI-style streaming delta.
@@ -413,6 +431,15 @@ describe("run_shell cwd injection", () => {
   // returns a final answer. Returns the args that reached the MCP boundary.
   async function runShellTurn(t, shellArgs) {
     stubMcpTransport(t);
+
+    // The shared stub's tool list omits run_shell — add it so it's an available
+    // MCP tool that gets offered to the model and routed through the cwd hook.
+    t.mock.method(Client.prototype, "listTools", async () => ({
+      tools: [
+        { name: "recall",    description: "Recall memories", inputSchema: { type: "object", properties: { query: { type: "string" } } } },
+        { name: "run_shell", description: "Run a shell command", inputSchema: { type: "object", properties: { command: { type: "string" }, cwd: { type: "string" } } } },
+      ],
+    }));
 
     // Capture what crosses into the MCP subprocess.
     const captured = [];
