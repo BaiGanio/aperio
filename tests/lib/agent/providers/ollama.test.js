@@ -117,6 +117,24 @@ describe("runOllamaLoop — health check failure", () => {
     assert.ok(result.includes("Ollama is not running"));
   });
 
+  test("a timed-out probe is reported as loading, not 'not running'", async () => {
+    let probes = 0;
+    mock.method(globalThis, "fetch", async (url) => {
+      if (String(url).includes("/api/tags")) {
+        probes++;
+        throw Object.assign(new Error("The operation timed out"), { name: "TimeoutError" });
+      }
+      return { ok: true, status: 200, body: null, text: async () => "" };
+    });
+
+    const result = await runOllamaLoop(
+      [{ role: "user", content: "Hello" }], { send: makeEmittersend() }, {}, undefined, () => {}, baseCtx("gemma4:e4b"));
+
+    assert.ok(!result.includes("Ollama is not running"), "should not blame a missing server on a timeout");
+    assert.match(result, /still be loading/);
+    assert.equal(probes, 2, "should retry once with a longer timeout before giving up");
+  });
+
   // Regression: the health probe is a one-time preflight, not a per-turn gate.
   // After a successful tool turn, a transient `/api/tags` failure (e.g. server
   // busy serving a large model) must NOT abort the conversation with a bogus

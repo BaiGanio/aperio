@@ -2,7 +2,7 @@
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, detectToolCallLeak, recoverToolName, ToolExecutor } from "../../../lib/tools/executor.js";
+import { extractTextToolCall, detectToolCallLeak, recoverToolName, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools } from "../../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall
@@ -613,5 +613,35 @@ describe("ToolExecutor", () => {
       assert.ok(assistant);
       assert.equal(assistant.content[0].text, "output");
     });
+  });
+});
+
+// =============================================================================
+// getDestructiveTools — built-in floor + APERIO_EXTRA_DESTRUCTIVE_TOOLS extend
+// =============================================================================
+
+describe("getDestructiveTools", () => {
+  const saved = process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS;
+  afterEach(() => {
+    if (saved === undefined) delete process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS;
+    else process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS = saved;
+  });
+
+  test("returns the built-in set when nothing is configured", () => {
+    delete process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS;
+    assert.equal(getDestructiveTools(), DESTRUCTIVE_TOOLS);
+  });
+
+  test("adds configured extras on top of the baseline", () => {
+    process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS = " my_writer , my_db_mutator ";
+    const eff = getDestructiveTools();
+    assert.ok(eff.has("edit_file"), "built-in is still present");
+    assert.ok(eff.has("my_writer"), "trimmed extra is present");
+    assert.ok(eff.has("my_db_mutator"));
+  });
+
+  test("built-ins cannot be removed via config", () => {
+    process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS = "only_this";
+    assert.ok(getDestructiveTools().has("write_file"));
   });
 });
