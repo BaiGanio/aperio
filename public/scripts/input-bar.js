@@ -33,6 +33,15 @@ discussBtn?.addEventListener("click", () => {
   if (!_discussAvailable) return;
   _discussOn = !_discussOn;
   _applyDiscussVisualState();
+  if (_discussOn) {
+    // Arming Discuss: ask the main model to summarize the conversation so far and
+    // offer it as the framing for the two agents. The server decides whether there
+    // is enough history; the confirmation card (if any) is rendered by streaming.js
+    // on the `discuss_summary` event.
+    window.safeSend?.(JSON.stringify({ type: "discuss_start" }));
+  } else {
+    document.getElementById("discuss-summary-card")?.remove();
+  }
 });
 
 _applyDiscussVisualState();
