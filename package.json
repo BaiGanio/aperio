@@ -30,7 +30,7 @@
     "coverage": "c8 report --reporter=lcov --reporter=text"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.185",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.196",
     "@anthropic-ai/sdk": "^0.106.0",
     "@google/generative-ai": "^0.24.1",
     "@huggingface/transformers": "^4.2.0",
