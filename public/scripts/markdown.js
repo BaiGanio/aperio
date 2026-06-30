@@ -7,6 +7,42 @@ function escapeHtml(str) {
     .replace(/'/g, "&#39;");
 }
 
+// Weak local models often emit raw LaTeX (\( … \), \[ … \], \boxed{…}, \frac{…})
+// which we don't typeset. Rather than leak backslashes into the chat, fold the
+// common constructs down to clean, readable plain text. Runs on prose only —
+// code blocks are already extracted to placeholders before this is called, and
+// `$…$` is left alone so currency isn't mangled.
+function normalizeMath(text) {
+  return text
+    // display math \[ … \] → its own lines; inline \( … \) → inline
+    .replace(/\\\[\s*([\s\S]*?)\s*\\\]/g, (_, m) => `\n${m.trim()}\n`)
+    .replace(/\\\(\s*([\s\S]*?)\s*\\\)/g, (_, m) => m.trim())
+    // \boxed{X} → bold; \text{X}/\mathrm{X} → contents
+    .replace(/\\boxed\s*\{([^{}]*)\}/g, (_, m) => `**${m.trim()}**`)
+    .replace(/\\(?:text|mathrm|mathbf|textbf|textit|mathit)\s*\{([^{}]*)\}/g, (_, m) => m)
+    // \frac{a}{b} / \dfrac{a}{b} → a/b
+    .replace(/\\d?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, (_, a, b) => `${a.trim()}/${b.trim()}`)
+    // sizing / layout commands that carry no text → drop
+    .replace(/\\(?:left|right|big|bigg|Big|Bigg|displaystyle|quad|qquad)\b/g, "")
+    // common symbol commands
+    .replace(/\\times\b/g, "×")
+    .replace(/\\cdot\b/g, "·")
+    .replace(/\\div\b/g, "÷")
+    .replace(/\\pm\b/g, "±")
+    .replace(/\\leq?\b/g, "≤")
+    .replace(/\\geq?\b/g, "≥")
+    .replace(/\\neq\b/g, "≠")
+    .replace(/\\approx\b/g, "≈")
+    .replace(/\\rightarrow\b/g, "→")
+    .replace(/\\to\b/g, "→")
+    // thin / negative spaces
+    .replace(/\\[,!;:]/g, " ")
+    // any leftover \command → keep the word, drop the backslash
+    .replace(/\\([a-zA-Z]+)/g, "$1")
+    // stray escaped math delimiters left behind
+    .replace(/\\([{}[\]()])/g, "$1");
+}
+
 function renderMarkdown(text) {
   const blocks = [];
   // A model that opened a ``` code fence but never closed it (common with weak
@@ -30,6 +66,8 @@ function renderMarkdown(text) {
     );
     return "\x00" + idx + "\x00";
   });
+
+  text = normalizeMath(text);
 
   text = text
     .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")

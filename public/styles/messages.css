@@ -537,42 +537,17 @@
 .avatar.avatar-agent-verifier { background: var(--agent-verifier) !important; color: white; }
 
 /* Phase chip — live status line shown above the next agent's incoming bubble. */
-.roundtable-phase-chip {
-  align-self: flex-start;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  color: var(--text);
-  padding: 6px 12px 6px 6px;
-  border-radius: 999px;
-  background: var(--bg-card, var(--bg-hover));
-  border: 1px solid var(--border);
-  margin: 8px 0 4px 44px;
-  letter-spacing: 0.02em;
-  box-shadow: 0 1px 2px rgba(0,0,0,.05);
-}
-.roundtable-phase-chip .roundtable-agent-badge { width: 20px; height: 20px; font-size: var(--fs-micro); }
-.roundtable-phase-text { white-space: nowrap; }
-.roundtable-phase-primary  { border-color: var(--agent-primary);  }
-.roundtable-phase-verifier { border-color: var(--agent-verifier); }
-.roundtable-phase-primary  .roundtable-phase-text { color: var(--agent-primary);  }
-.roundtable-phase-verifier .roundtable-phase-text { color: var(--agent-verifier); }
+/* Round-table working cue. Rendered with the shared .action-phase breadcrumb
+   styling (plain dim line, live dot, settles to "done") — no pill, border or
+   coloured background — so it reads like every other indicator. Only the agent
+   glyph carries colour. */
+.roundtable-phase-who { font-weight: 700; }
+.rt-ellipsis { opacity: 0.6; }
 
-/* Spinner — only animates while chip has .is-active. */
-.roundtable-phase-spinner {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  border: 2px solid var(--border);
-  border-top-color: currentColor;
-  animation: roundtable-spin 0.8s linear infinite;
-  flex: 0 0 auto;
-}
-.roundtable-phase-primary  .roundtable-phase-spinner { border-top-color: var(--agent-primary);  }
-.roundtable-phase-verifier .roundtable-phase-spinner { border-top-color: var(--agent-verifier); }
-@keyframes roundtable-spin { to { transform: rotate(360deg); } }
+/* Plain agent colour for inline glyphs in headers / notes / summaries. */
+.roundtable-agent-primary  { color: var(--agent-primary);  }
+.roundtable-agent-verifier { color: var(--agent-verifier); }
+.roundtable-agent-aperio   { color: var(--accent); }
 
 /* Consensus bubble — gold/green border, badge header. */
 .message.roundtable-consensus .bubble {
@@ -583,37 +558,15 @@
   background: #22c55e !important;
   color: white;
 }
+/* Plain dim header — "✓ Consensus · α model · β model" — no pills or badges. */
 .roundtable-consensus-header {
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
   margin-bottom: 6px;
 }
-.roundtable-consensus-pill {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  background: #22c55e;
-  color: white;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-.roundtable-agent-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  font-weight: 700;
-  color: white;
-}
-.roundtable-agent-badge.roundtable-agent-primary  { background: var(--agent-primary); }
-.roundtable-agent-badge.roundtable-agent-verifier { background: var(--agent-verifier); }
+.roundtable-consensus-tag { color: #22c55e; font-weight: 600; }
 
 /* Inline model tag above each round-table streaming bubble.
    Mirrors the avatar colour so it's instantly clear which agent is speaking. */
@@ -635,20 +588,7 @@
 .roundtable-agent-tag-primary  { color: var(--agent-primary);  border-color: var(--agent-primary); }
 .roundtable-agent-tag-verifier { color: var(--agent-verifier); border-color: var(--agent-verifier); }
 
-/* Consensus header chip — badge + model name pair. */
-.roundtable-agent-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-.roundtable-agent-chip-label {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  color: var(--text-muted);
-  letter-spacing: 0.04em;
-}
-
-/* No-consensus card — two columns side-by-side. */
+/* No-consensus card — clean single column with collapsible positions. */
 .roundtable-no-consensus-wrap .bubble { display: none; }
 .roundtable-no-consensus {
   width: 100%;
@@ -680,13 +620,6 @@
   word-break: break-word;
 }
 
-.roundtable-no-consensus-attribution {
-  font-family: var(--font-mono);
-  font-size: var(--fs-micro);
-  letter-spacing: 0.04em;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-}
 .roundtable-no-consensus-banner {
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
@@ -697,34 +630,117 @@
   padding: 6px 10px;
   margin-bottom: 12px;
 }
-.roundtable-no-consensus-cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+.roundtable-no-consensus-positions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-@media (max-width: 720px) {
-  .roundtable-no-consensus-cols { grid-template-columns: 1fr; }
-}
-.roundtable-no-consensus-col {
+.roundtable-position {
   border-left: 3px solid var(--border);
-  padding-left: 12px;
+  border-radius: 4px;
+  padding: 4px 0 4px 12px;
+  background: var(--bg-hover, transparent);
 }
-.roundtable-no-consensus-col.roundtable-no-consensus-primary  { border-left-color: var(--agent-primary); }
-.roundtable-no-consensus-col.roundtable-no-consensus-verifier { border-left-color: var(--agent-verifier); }
-.roundtable-no-consensus-title {
+.roundtable-position.roundtable-position-primary  { border-left-color: var(--agent-primary); }
+.roundtable-position.roundtable-position-verifier { border-left-color: var(--agent-verifier); }
+.roundtable-position > summary {
+  cursor: pointer;
+  list-style: none;
   font-family: var(--font-mono);
   font-size: var(--fs-micro);
   font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  letter-spacing: 0.04em;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  padding: 4px 0;
+  user-select: none;
 }
+.roundtable-position > summary::-webkit-details-marker { display: none; }
+.roundtable-position > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s ease;
+  opacity: 0.6;
+}
+.roundtable-position[open] > summary::before { transform: rotate(90deg); }
 .roundtable-no-consensus-body {
   font-size: var(--fs-ui);
   line-height: 1.55;
   color: var(--text);
+  padding: 4px 0 6px;
 }
+
+/* ── Discuss entry flow (summarize → confirm) ───────────────────────────── */
+.discuss-summary-card {
+  align-self: flex-start;
+  max-width: min(680px, 100%);
+  margin: 8px 0 4px 44px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  background: var(--bg-panel);
+}
+.discuss-summary-title {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+  margin-bottom: 8px;
+}
+.discuss-summary-body {
+  font-size: var(--fs-ui);
+  line-height: 1.55;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+.discuss-summary-actions { display: flex; gap: 8px; }
+.discuss-btn {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.discuss-btn:hover { background: var(--bg-hover); }
+.discuss-btn-primary {
+  background: var(--accent);
+  color: var(--accent-contrast, #fff);
+  border-color: var(--accent);
+}
+.discuss-note {
+  align-self: flex-start;
+  margin: 2px 0 2px 44px;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+.discuss-note-who { font-weight: 700; margin-right: 4px; }
+
+/* Download button on result cards. */
+.discuss-download-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
+.discuss-download-btn {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.discuss-download-btn:hover { background: var(--bg-hover); color: var(--text); }
 
 /* ── No-tool-use warning chip ───────────────────────────────────────────── */
 .no-tool-warning {
