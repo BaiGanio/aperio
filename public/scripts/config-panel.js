@@ -259,6 +259,27 @@
     }
   }
 
+  // Cross-field warnings from the server (issue #182), e.g. OLLAMA_NUM_CTX >
+  // OLLAMA_CONTEXT_LENGTH. Shown as banners so a browser user sees what was
+  // previously only in the server log.
+  function renderWarnings(warnings) {
+    const host = $("configWarnings");
+    if (!host) return;
+    host.innerHTML = "";
+    const list = warnings || [];
+    host.style.display = list.length ? "block" : "none";
+    for (const w of list) {
+      const div = document.createElement("div");
+      div.className = "config-warning-banner";
+      const icon = document.createElement("i");
+      icon.className = "bi bi-exclamation-triangle";
+      const span = document.createElement("span");
+      span.textContent = w.message;
+      div.append(icon, span);
+      host.appendChild(div);
+    }
+  }
+
   function render(schema) {
     const host = $("configSections");
     if (!host) return;
@@ -340,6 +361,7 @@
     try {
       const schema = await fetch("/api/config/schema").then((r) => r.json());
       render(schema);
+      renderWarnings(schema.warnings);
       applyFilter();
     } catch {
       host.innerHTML = `<span class="model-loading">Failed to load configuration</span>`;
