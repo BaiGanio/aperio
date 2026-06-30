@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import {
   applyConfigToEnv,
   configSettingKey,
+  configSourceOf,
+  configSourceLabel,
   EDITABLE_KEYS,
 } from "../../lib/config-resolver.js";
 import { CONFIG } from "../../lib/config.js";
@@ -52,6 +54,24 @@ describe("config-resolver", () => {
     delete process.env[T1];
     await applyConfigToEnv(storeWith({}));
     assert.equal(process.env[T1], undefined);
+  });
+
+  test("records provenance: env value labeled .env, DB-only value labeled Settings/DB (#182)", async () => {
+    delete process.env.APERIO_CONFIG_PRECEDENCE;   // env precedence
+    process.env[T1] = "from-env";
+    const dbOnly = "OLLAMA_NUM_CTX";               // tier-1, not in process.env here
+    delete process.env[dbOnly];
+    await applyConfigToEnv(storeWith({ [configSettingKey(dbOnly)]: "98304" }));
+    assert.equal(configSourceOf(T1), "env");
+    assert.equal(configSourceLabel(T1), ".env");
+    assert.equal(configSourceOf(dbOnly), "db");    // DB-only var, injected
+    assert.equal(configSourceLabel(dbOnly), "Settings/DB");
+  });
+
+  test("provenance is 'default' when a var is set in neither env nor DB", async () => {
+    delete process.env.OLLAMA_NUM_CTX;
+    await applyConfigToEnv(storeWith({}));
+    assert.equal(configSourceOf("OLLAMA_NUM_CTX"), "default");
   });
 
   test("blank DB value is treated as unset (does not clobber env)", async () => {

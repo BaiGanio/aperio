@@ -141,4 +141,24 @@ describe("GET /api/config/schema", () => {
     assert.equal(f.value, "from-db");
     assert.equal(f.source, "db");
   });
+                                          
+  // ── #182: cross-field warnings (OLLAMA_NUM_CTX vs OLLAMA_CONTEXT_LENGTH) ─────
+  test("warns when OLLAMA_NUM_CTX exceeds OLLAMA_CONTEXT_LENGTH for ollama", async () => {
+    process.env.AI_PROVIDER = "ollama";
+    process.env.OLLAMA_NUM_CTX = "98304";
+    process.env.OLLAMA_CONTEXT_LENGTH = "32768";
+    store.current = fakeStore();
+    const schema = await getSchema();
+    assert.ok(Array.isArray(schema.warnings) && schema.warnings.length === 1);
+    assert.match(schema.warnings[0].message, /98304.*32768/);
+    assert.deepEqual(schema.warnings[0].keys, ["OLLAMA_NUM_CTX", "OLLAMA_CONTEXT_LENGTH"]);
+  });
+
+  test("no warning when the windows are consistent", async () => {
+    process.env.AI_PROVIDER = "ollama";
+    process.env.OLLAMA_NUM_CTX = "16384";
+    process.env.OLLAMA_CONTEXT_LENGTH = "32768";
+    store.current = fakeStore();
+    assert.deepEqual((await getSchema()).warnings, []);
+  });
 });

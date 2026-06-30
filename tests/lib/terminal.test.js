@@ -49,6 +49,7 @@ import {
   isHardRestart,
   isStatsCommand,
   isStatusCommand,
+  isConfigCommand,
   isDiscussCommand,
   isSummarizeCommand,
   isForgetCommand,
@@ -210,7 +211,14 @@ describe("Help / Stats / Status Detection", () => {
     assert.strictEqual(isStatusCommand("status now"), false);
   });
 
+  test("isConfigCommand detects 'config' case-insensitively", () => {
+    assert.strictEqual(isConfigCommand("config"), true);
+    assert.strictEqual(isConfigCommand("  Config  "), true);
+    assert.strictEqual(isConfigCommand("config now"), false);
+  });
+
   test("slash-prefixed commands count as special commands", () => {
+    assert.strictEqual(isSpecialCommand("/config"), true);
     assert.strictEqual(isSpecialCommand("/help"), true);
     assert.strictEqual(isSpecialCommand("/help attach"), true);
     assert.strictEqual(isSpecialCommand("/examples"), true);
