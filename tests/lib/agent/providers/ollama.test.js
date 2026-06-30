@@ -178,6 +178,42 @@ describe("runOllamaLoop — health check failure", () => {
     assert.equal(chatCalls, 2, "tool turn + final answer turn");
     assert.equal(result, "Final answer.");
   });
+
+  // Regression for the screenshot bug: a model that just answered must not be
+  // re-probed on the NEXT user message. runOllamaLoop is called fresh per turn,
+  // so the "ever connected" flag lives on the shared session `state` rather than
+  // a function-local — otherwise a transient slow `/api/tags` on turn 2 falsely
+  // reports "may still be loading" right after a 32 tok/s answer.
+  test("does not re-probe on a subsequent user turn sharing one session state", async () => {
+    let tagProbes = 0;
+    mock.method(globalThis, "fetch", async (url) => {
+      const tag = String(url);
+      if (tag.includes("/api/tags")) {
+        tagProbes++;
+        if (tagProbes > 1) throw Object.assign(new Error("timed out"), { name: "TimeoutError" });
+        return { ok: true, status: 200, text: async () => JSON.stringify({ models: [] }) };
+      }
+      if (tag.includes("/chat/completions")) {
+        return { ok: true, status: 200, text: async () => "", body: sseStream([
+          'data: {"choices":[{"index":0,"delta":{"content":"Answer."},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":2}}\n\n',
+          'data: [DONE]\n\n',
+        ]) };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    // One ctx/state object reused across two turns, mirroring a live session.
+    const ctx = baseCtx("phi4-mini:3.8b");
+    const r1 = await runOllamaLoop(
+      [{ role: "user", content: "good at tool calling?" }], { send: makeEmittersend() }, {}, undefined, () => {}, ctx);
+    const r2 = await runOllamaLoop(
+      [{ role: "user", content: "what happened?" }], { send: makeEmittersend() }, {}, undefined, () => {}, ctx);
+
+    assert.equal(tagProbes, 1, "second turn must reuse the connected state, not re-probe");
+    assert.equal(r1, "Answer.");
+    assert.equal(r2, "Answer.", "turn 2 should answer, not report 'still loading'");
+  });
 });
 
 // =============================================================================
