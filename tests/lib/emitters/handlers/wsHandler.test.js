@@ -149,6 +149,52 @@ describe("message type: init", () => {
     assert.ok(sentOf(ws, "memories").length >= 1);
   });
 
+  test("default identity greeting runs the loop but is NOT seeded into session history", async (t) => {
+    const ws       = makeWs(t);
+    const loopMsgs = [];
+
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        // No staticGreeting and no seedGreeting → model-gen, throwaway array.
+        buildGreeting: async () => ({ prompt: "GREETING_PROMPT", memCtx: "", preloadedMemCount: 0 }),
+        runAgentLoop:  async (msgs) => { loopMsgs.push([...msgs]); return ""; },
+      }),
+      store:     { listAll: async () => [] },
+      __dirname: TEST_DIR,
+    });
+
+    handler(ws);
+    await ws.emit({ type: "init" });                       // greeting loop
+    await ws.emit({ type: "chat", text: "hello world" });  // first real turn
+
+    // The greeting ran on its own array…
+    assert.ok(loopMsgs[0].some(m => m.content === "GREETING_PROMPT"));
+    // …but the following real turn does not carry the greeting exchange.
+    assert.ok(!loopMsgs[1].some(m => m.content === "GREETING_PROMPT"));
+    assert.ok(loopMsgs[1].some(m => m.role === "user" && m.content === "hello world"));
+  });
+
+  test("persona/character greeting IS seeded into session history", async (t) => {
+    const ws       = makeWs(t);
+    const loopMsgs = [];
+
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        buildGreeting: async () => ({ prompt: "GREETING_PROMPT", memCtx: "", preloadedMemCount: 0, seedGreeting: true }),
+        runAgentLoop:  async (msgs) => { loopMsgs.push([...msgs]); return ""; },
+      }),
+      store:     { listAll: async () => [] },
+      __dirname: TEST_DIR,
+    });
+
+    handler(ws);
+    await ws.emit({ type: "init" });
+    await ws.emit({ type: "chat", text: "hello world" });
+
+    // Seeded: the greeting exchange persists into the next real turn.
+    assert.ok(loopMsgs[1].some(m => m.content === "GREETING_PROMPT"));
+  });
+
   test("passes noTools:true to runAgentLoop for non-anthropic providers", async (t) => {
     const ws       = makeWs(t);
     const loopArgs = [];

@@ -6,7 +6,7 @@
  */
 
 import assert from "assert";
-import { describe, test, afterEach, after } from "node:test";
+import { describe, test, beforeEach, afterEach, after } from "node:test";
 import { setupSecureTestEnvironment } from "../helpers/sandbox.js";
 
 const cleanupSandbox = setupSecureTestEnvironment();
@@ -60,11 +60,15 @@ import {
   isResumeCommand,
   printWelcome,
   printHelp,
+  printHelpFor,
   HELP_DETAILS,
   printStatus,
   printSessions,
+  printConfig,
   readAttachment,
 } from "../../lib/terminal.js";
+
+import { applyConfigToEnv } from "../../lib/config-resolver.js";
 
 // ─── Command Detection Tests ────────────────────────────────────────────────
 describe("Command Detection", () => {
@@ -910,6 +914,120 @@ describe("readAttachment", () => {
     const jpg = readAttachment("package.json");
     assert.strictEqual(jpg.type, "text/plain");
     // package.json is not in MIME_BY_EXT, defaults to text/plain
+  });
+});
+
+// ─── printHelpFor Tests (focused help <command> docs) ──────────────────────
+describe("printHelpFor", () => {
+  const capture = (target, opts = {}) => {
+    const chunks = [];
+    const orig = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try {
+      printHelpFor(target, { proxy: false, lang: "en", ...opts });
+    } finally {
+      process.stdout.write = orig;
+    }
+    return chunks.join("");
+  };
+
+  test("help config prints the /config detail body with title and example", () => {
+    const output = capture("config");
+    assert.ok(output.includes("/config"), "should include the command title");
+    assert.ok(output.includes("diagnose which layer"), "should include detail_config body");
+    assert.ok(output.includes("try:"), "should include try: example line");
+    assert.ok(output.includes("/config"), "try: example should include /config");
+  });
+
+  test("unknown help target falls back to full help", () => {
+    const output = capture("bogus");
+    assert.ok(output.includes("No specific help"), "should say no specific help");
+    assert.ok(output.includes("How to talk to Aperio"), "should fall back to full help");
+  });
+});
+
+// ─── printConfig Tests ──────────────────────────────────────────────────────
+describe("printConfig", () => {
+  let savedEnv;
+
+  // Minimal store so applyConfigToEnv can populate the provenance snapshot.
+  const storeWith = (settings = {}) => ({ async getSettings() { return { ...settings }; } });
+
+  const capture = async ({ port, env = {} } = {}) => {
+    // Apply env overrides on top of the saved state.
+    Object.assign(process.env, env);
+    if (port == null) await applyConfigToEnv(storeWith());
+
+    const chunks = [];
+    const orig = process.stdout.write;
+    process.stdout.write = (chunk) => { chunks.push(String(chunk)); return true; };
+    try {
+      await printConfig({ port });
+    } finally {
+      process.stdout.write = orig;
+    }
+    return chunks.join("");
+  };
+
+  beforeEach(() => { savedEnv = { ...process.env }; });
+  afterEach(() => { process.env = savedEnv; });
+
+  test("prints header and precedence line", async () => {
+    process.env.APERIO_CONFIG_PRECEDENCE = "env";
+    const output = await capture();
+    assert.ok(output.includes("Config"), "should have Config header");
+    assert.ok(output.includes("precedence") && output.includes("env"),
+      "should show precedence line");
+  });
+
+  test("always shows AI_PROVIDER row regardless of provider", async () => {
+    process.env.AI_PROVIDER = "anthropic";
+    const output = await capture();
+    assert.ok(output.includes("AI_PROVIDER"), "should show AI_PROVIDER row");
+    assert.ok(output.includes("anthropic"), "should show the provider value");
+  });
+
+  test("AI_PROVIDER defaults to anthropic when unset", async () => {
+    delete process.env.AI_PROVIDER;
+    const output = await capture();
+    assert.ok(output.includes("anthropic"), "should default to anthropic");
+  });
+
+  test("ollama provider shows OLLAMA_MODEL, OLLAMA_NUM_CTX, OLLAMA_CONTEXT_LENGTH rows", async () => {
+    process.env.AI_PROVIDER = "ollama";
+    process.env.OLLAMA_MODEL = "llama3.1";
+    process.env.OLLAMA_NUM_CTX = "32768";
+    const output = await capture();
+    assert.ok(output.includes("OLLAMA_MODEL"), "should include OLLAMA_MODEL row");
+    assert.ok(output.includes("OLLAMA_NUM_CTX"), "should include OLLAMA_NUM_CTX row");
+    assert.ok(output.includes("OLLAMA_CONTEXT_LENGTH"), "should include OLLAMA_CONTEXT_LENGTH row");
+    assert.ok(output.includes("llama3.1"), "should show the model value");
+  });
+
+  test("non-ollama provider omits ollama-specific rows", async () => {
+    process.env.AI_PROVIDER = "anthropic";
+    const output = await capture();
+    assert.ok(!output.includes("OLLAMA_MODEL"), "should NOT include OLLAMA_MODEL for non-ollama");
+    assert.ok(!output.includes("OLLAMA_NUM_CTX"), "should NOT include OLLAMA_NUM_CTX for non-ollama");
+  });
+
+  test("source labels render as (from UI) / (from .env) / (default)", async () => {
+    process.env.AI_PROVIDER = "ollama";
+    process.env.OLLAMA_MODEL = "from-env";
+    const output = await capture();
+    // Source labels appear dimmed in parentheses after the value.
+    assert.ok(output.includes("(from .env)") || output.includes("(from UI)") || output.includes("(default)"),
+      "should include at least one source label in parentheses");
+  });
+
+  test("unset values show (unset) fallback", async () => {
+    process.env.AI_PROVIDER = "ollama";
+    delete process.env.OLLAMA_MODEL;
+    delete process.env.OLLAMA_NUM_CTX;
+    delete process.env.OLLAMA_CONTEXT_LENGTH;
+    const output = await capture();
+    // OLLAMA_MODEL defaults to llama3.1 in the row fallback.
+    assert.ok(output.includes("llama3.1"), "OLLAMA_MODEL should fall back to llama3.1");
   });
 });
 

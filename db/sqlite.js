@@ -120,6 +120,24 @@ function vecBuf(embedding) {
   return Float32Array.from(embedding);
 }
 
+// FTS5 parses the MATCH argument as a query *expression*, so raw user text with
+// operator characters throws instead of matching — a `:` reads as a
+// `column:term` filter (e.g. "meeting at 21:00" → "no such column: 21"), and
+// `-`/`*`/`^`/`(`/`"` are operators too. Wrap each whitespace-delimited token as
+// a quoted phrase so arbitrary text is matched literally (implicit-AND, same as
+// bare terms). Tokens with no letter or digit are dropped, since they tokenize
+// to nothing and would make an empty phrase. Returns "" when nothing is left,
+// which callers treat as "no text query" (Postgres' plainto_tsquery is already
+// safe this way).
+function ftsMatchQuery(raw) {
+  return String(raw ?? '')
+    .split(/\s+/)
+    .map(tok => tok.replace(/"/g, '').trim())
+    .filter(tok => /[\p{L}\p{N}]/u.test(tok))
+    .map(tok => `"${tok}"`)
+    .join(' ');
+}
+
 function rowToMemory(row) {
   if (!row) return null;
   // Tags come back as JSON text; parse for caller. Match Postgres' shape —
@@ -163,11 +181,20 @@ function rowToArticle(row) {
 }
 
 // ── Wiki sub-store (store.wiki compatibility shape) ──────────────────────────
+// Table names are configurable so the same class backs both the user-facing
+// wiki (default names below) and the agent's self-wiki (self_wiki_articles /
+// self_wiki_article_sources — see agent-self-memory.md Phase 2). Self-wiki has
+// no search surface (only self_wiki_write/self_wiki_get exist), so it never
+// calls search()/listWithoutEmbeddings()/setEmbedding() and is constructed
+// without an `fts`/`vec` table — those methods are simply unused on that path.
+const WIKI_TABLES = { articles: 'wiki_articles', sources: 'wiki_article_sources', fts: 'wiki_articles_fts', vec: 'vec_wiki' };
+
 class SqliteWiki {
-  constructor(db) { this.db = db; }
+  constructor(db, tables = WIKI_TABLES) { this.db = db; this.t = tables; }
 
   async upsert({ slug, title, summary, body_md, tags, generated_by, source_hash, source_memory_ids }, embedding) {
-    const existing = this.db.prepare(`SELECT id, revision, rowid FROM wiki_articles WHERE slug = ?`).get(slug);
+    const { articles, sources, vec } = this.t;
+    const existing = this.db.prepare(`SELECT id, revision, rowid FROM ${articles} WHERE slug = ?`).get(slug);
     const tagsJson = JSON.stringify(tags ?? []);
 
     const tx = this.db.transaction(() => {
@@ -177,7 +204,7 @@ class SqliteWiki {
         revision = existing.revision + 1;
         rowid    = existing.rowid;
         this.db.prepare(`
-          UPDATE wiki_articles
+          UPDATE ${articles}
              SET title = ?, summary = ?, body_md = ?, tags = ?,
                  generated_by = ?, generated_at = ?, source_hash = ?,
                  revision = ?, status = 'fresh'
@@ -188,23 +215,23 @@ class SqliteWiki {
         id = randomUUID();
         revision = 1;
         const info = this.db.prepare(`
-          INSERT INTO wiki_articles (id, slug, title, summary, body_md, tags, generated_by, source_hash, revision)
+          INSERT INTO ${articles} (id, slug, title, summary, body_md, tags, generated_by, source_hash, revision)
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)
         `).run(id, slug, title, summary ?? null, body_md, tagsJson,
                 generated_by ?? null, source_hash ?? null);
         rowid = info.lastInsertRowid;
       }
 
-      if (embedding) {
+      if (embedding && vec) {
         // vec0 has no UPSERT; manually delete + insert by rowid.
-        this.db.prepare(`DELETE FROM vec_wiki WHERE rowid = ?`).run(BigInt(rowid));
-        this.db.prepare(`INSERT INTO vec_wiki (rowid, embedding) VALUES (?, ?)`)
+        this.db.prepare(`DELETE FROM ${vec} WHERE rowid = ?`).run(BigInt(rowid));
+        this.db.prepare(`INSERT INTO ${vec} (rowid, embedding) VALUES (?, ?)`)
           .run(BigInt(rowid), vecBuf(embedding));
       }
 
       // Replace sources atomically.
-      this.db.prepare(`DELETE FROM wiki_article_sources WHERE article_id = ?`).run(id);
-      const insSource = this.db.prepare(`INSERT INTO wiki_article_sources (article_id, memory_id) VALUES (?, ?)`);
+      this.db.prepare(`DELETE FROM ${sources} WHERE article_id = ?`).run(id);
+      const insSource = this.db.prepare(`INSERT INTO ${sources} (article_id, memory_id) VALUES (?, ?)`);
       for (const memId of (source_memory_ids ?? [])) {
         try { insSource.run(id, memId); }
         catch (err) { logError(`[sqlite/wiki] skip unknown source memory ${memId}`, err); }
@@ -215,6 +242,7 @@ class SqliteWiki {
   }
 
   async list({ tag, status, updated_since, limit = 25, offset = 0 }) {
+    const { articles } = this.t;
     const cap  = Math.min(Math.max(parseInt(limit,  10) || 25, 1), 100);
     const off  = Math.max(parseInt(offset, 10) || 0, 0);
     const parts = [];
@@ -226,7 +254,7 @@ class SqliteWiki {
     const where = parts.join(' AND ');
     const rows = this.db.prepare(`
       SELECT slug, title, summary, tags, status, revision, generated_at, generated_by
-        FROM wiki_articles
+        FROM ${articles}
        WHERE ${where}
        ORDER BY generated_at DESC
        LIMIT @cap OFFSET @off
@@ -235,36 +263,39 @@ class SqliteWiki {
   }
 
   async get(slug) {
+    const { articles, sources } = this.t;
     const row = this.db.prepare(`
       SELECT id, slug, title, summary, body_md, tags, status,
              generated_by, generated_at, revision
-        FROM wiki_articles
+        FROM ${articles}
        WHERE slug = ?
     `).get(slug);
     if (!row) return null;
-    const sources = this.db.prepare(`
-      SELECT memory_id FROM wiki_article_sources WHERE article_id = ?
+    const rows = this.db.prepare(`
+      SELECT memory_id FROM ${sources} WHERE article_id = ?
     `).all(row.id).map(r => r.memory_id);
-    return { ...rowToArticle(row), source_memory_ids: sources };
+    return { ...rowToArticle(row), source_memory_ids: rows };
   }
 
   async search({ query, queryEmbedding, tags, status, limit = 10, mode = 'auto' }) {
+    const { articles, fts, vec } = this.t;
     const cap = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 25);
+    const ftsQuery  = ftsMatchQuery(query);
     const useVector = !!queryEmbedding && mode !== 'fulltext';
-    const useText   = !!query && mode !== 'semantic';
+    const useText   = !!ftsQuery && mode !== 'semantic';
 
     if (useVector && useText) {
       // Reciprocal Rank Fusion across both indices, computed in SQL.
       const rows = this.db.prepare(`
         WITH vector_ranked AS (
           SELECT v.rowid AS rid, ROW_NUMBER() OVER (ORDER BY v.distance) AS rank
-            FROM vec_wiki v
+            FROM ${vec} v
            WHERE v.embedding MATCH ? AND k = 60
         ),
         fts_ranked AS (
           SELECT f.rowid AS rid, ROW_NUMBER() OVER (ORDER BY f.rank) AS rank
-            FROM wiki_articles_fts f
-           WHERE wiki_articles_fts MATCH ?
+            FROM ${fts} f
+           WHERE ${fts} MATCH ?
            LIMIT 60
         ),
         fused AS (
@@ -281,11 +312,11 @@ class SqliteWiki {
         SELECT a.id, a.slug, a.title, a.summary, a.tags, a.status, a.revision, a.generated_at,
                MAX(fu.rrf) * CASE WHEN a.status = 'stale' THEN 0.7 ELSE 1.0 END AS score
           FROM fused fu
-          JOIN wiki_articles a ON a.rowid = fu.rid
+          JOIN ${articles} a ON a.rowid = fu.rid
          GROUP BY a.id
          ORDER BY score DESC
          LIMIT ?
-      `).all(vecBuf(queryEmbedding), query, cap);
+      `).all(vecBuf(queryEmbedding), ftsQuery, cap);
       return rows.map(r => ({ ...rowToArticle(r), score: Number(r.score) }));
     }
 
@@ -293,8 +324,8 @@ class SqliteWiki {
       const rows = this.db.prepare(`
         SELECT a.id, a.slug, a.title, a.summary, a.tags, a.status, a.revision, a.generated_at,
                (1.0 - v.distance) * CASE WHEN a.status='stale' THEN 0.7 ELSE 1.0 END AS score
-          FROM vec_wiki v
-          JOIN wiki_articles a ON a.rowid = v.rowid
+          FROM ${vec} v
+          JOIN ${articles} a ON a.rowid = v.rowid
          WHERE v.embedding MATCH ? AND k = ?
          ORDER BY score DESC
       `).all(vecBuf(queryEmbedding), cap);
@@ -305,40 +336,45 @@ class SqliteWiki {
     const rows = this.db.prepare(`
       SELECT a.id, a.slug, a.title, a.summary, a.tags, a.status, a.revision, a.generated_at,
              (-f.rank) * CASE WHEN a.status='stale' THEN 0.7 ELSE 1.0 END AS score
-        FROM wiki_articles_fts f
-        JOIN wiki_articles a ON a.rowid = f.rowid
-       WHERE wiki_articles_fts MATCH ?
+        FROM ${fts} f
+        JOIN ${articles} a ON a.rowid = f.rowid
+       WHERE ${fts} MATCH ?
        ORDER BY score DESC
        LIMIT ?
-    `).all(query, cap);
+    `).all(ftsQuery, cap);
     return rows.map(r => ({ ...rowToArticle(r), score: Number(r.score) }));
   }
 
   async listWithoutEmbeddings() {
+    const { articles, vec } = this.t;
     return this.db.prepare(`
       SELECT a.id, a.title, a.body_md
-        FROM wiki_articles a
-        LEFT JOIN vec_wiki v ON v.rowid = a.rowid
+        FROM ${articles} a
+        LEFT JOIN ${vec} v ON v.rowid = a.rowid
        WHERE v.rowid IS NULL
     `).all();
   }
 
   async setEmbedding(id, embedding) {
-    const row = this.db.prepare(`SELECT rowid FROM wiki_articles WHERE id = ?`).get(id);
+    const { articles, vec } = this.t;
+    const row = this.db.prepare(`SELECT rowid FROM ${articles} WHERE id = ?`).get(id);
     if (!row) return;
-    this.db.prepare(`DELETE FROM vec_wiki WHERE rowid = ?`).run(BigInt(row.rowid));
-    this.db.prepare(`INSERT INTO vec_wiki (rowid, embedding) VALUES (?, ?)`)
+    this.db.prepare(`DELETE FROM ${vec} WHERE rowid = ?`).run(BigInt(row.rowid));
+    this.db.prepare(`INSERT INTO ${vec} (rowid, embedding) VALUES (?, ?)`)
       .run(BigInt(row.rowid), vecBuf(embedding));
   }
 
   async close() { /* shared connection — main store closes it */ }
 }
 
+const SELF_WIKI_TABLES = { articles: 'self_wiki_articles', sources: 'self_wiki_article_sources' };
+
 // ── Main store ──────────────────────────────────────────────────────────────
 export class SqliteStore {
   constructor(db) {
-    this.db    = db;
-    this.wiki  = new SqliteWiki(db);
+    this.db       = db;
+    this.wiki     = new SqliteWiki(db);
+    this.selfWiki = new SqliteWiki(db, SELF_WIKI_TABLES);
     this.cache = [];   // in-memory snapshot of current memories
     // PostgresStore exposes .pool; we don't, but expose .db for advanced
     // callers (e.g. codegraph handlers in Phase 2).
@@ -870,9 +906,10 @@ export class SqliteStore {
   }
 
   // ── Recall (hybrid / semantic / fulltext) ─────────────────────────────────
-  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', asOf = null }) {
+  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', asOf = null, order = 'importance' }) {
+    const ftsQuery  = ftsMatchQuery(query);
     const useVector = !!queryEmbedding && mode !== 'fulltext';
-    const useText   = !!query          && mode !== 'semantic';
+    const useText   = !!ftsQuery       && mode !== 'semantic';
     const cap       = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
 
     // Temporal + base filter as a SQL fragment.
@@ -927,7 +964,7 @@ export class SqliteStore {
          GROUP BY m.id
          ORDER BY rrf_score DESC
          LIMIT @cap
-      `).all({ ...baseParams, vec: vecBuf(queryEmbedding), q: query, cap });
+      `).all({ ...baseParams, vec: vecBuf(queryEmbedding), q: ftsQuery, cap });
       const maxRrf = Number(rows[0]?.rrf_score) || 1;
       return rows.map(r => ({ ...rowToMemory(r), similarity: Number(r.rrf_score) / maxRrf }));
     }
@@ -952,16 +989,19 @@ export class SqliteStore {
          WHERE memories_fts MATCH @q AND ${where}
          ORDER BY ts_score DESC
          LIMIT @cap
-      `).all({ ...baseParams, q: query, cap });
+      `).all({ ...baseParams, q: ftsQuery, cap });
       const maxScore = Math.max(...rows.map(r => Number(r.ts_score) || 0), 0.001);
       return rows.map(r => ({ ...rowToMemory(r), similarity: Number(r.ts_score) / maxScore }));
     }
 
-    // No query at all → list by importance, like Postgres.
+    // No query at all → list by importance (default) or recency, like Postgres.
+    const orderBy = order === 'recent'
+      ? 'm.created_at DESC'
+      : 'm.importance DESC, m.created_at DESC';
     const rows = this.db.prepare(`
       SELECT m.* FROM memories m
        WHERE ${where}
-       ORDER BY m.importance DESC, m.created_at DESC
+       ORDER BY ${orderBy}
        LIMIT @cap
     `).all({ ...baseParams, cap });
     return rows.map(r => ({ ...rowToMemory(r), similarity: r.confidence ?? 1.0 }));
@@ -1116,8 +1156,9 @@ export class SqliteStore {
   }
 
   async recallSelf({ query, queryEmbedding, tags, limit = 10, mode = 'auto' }) {
+    const ftsQuery  = ftsMatchQuery(query);
     const useVector = !!queryEmbedding && mode !== 'fulltext';
-    const useText   = !!query          && mode !== 'semantic';
+    const useText   = !!ftsQuery       && mode !== 'semantic';
     const cap       = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
 
     const conds = [];
@@ -1163,7 +1204,7 @@ export class SqliteStore {
          GROUP BY m.id
          ORDER BY rrf_score DESC
          LIMIT @cap
-      `).all({ ...baseParams, vec: vecBuf(queryEmbedding), q: query, cap });
+      `).all({ ...baseParams, vec: vecBuf(queryEmbedding), q: ftsQuery, cap });
       const maxRrf = Number(rows[0]?.rrf_score) || 1;
       return rows.map(r => ({ ...rowToSelf(r), similarity: Number(r.rrf_score) / maxRrf }));
     }
@@ -1187,7 +1228,7 @@ export class SqliteStore {
          WHERE self_memories_fts MATCH @q AND ${where}
          ORDER BY ts_score DESC
          LIMIT @cap
-      `).all({ ...baseParams, q: query, cap });
+      `).all({ ...baseParams, q: ftsQuery, cap });
       const maxScore = Math.max(...rows.map(r => Number(r.ts_score) || 0), 0.001);
       return rows.map(r => ({ ...rowToSelf(r), similarity: Number(r.ts_score) / maxScore }));
     }

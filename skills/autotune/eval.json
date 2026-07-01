@@ -28,6 +28,8 @@
     { "id": "hard.memory",    "set": "hard", "prompt": "Note my correction and keep it for next time I ask.", "expect": "memory-protocol" },
     { "id": "hard.wiki",      "set": "hard", "prompt": "Save a curated knowledge-base page summarizing the launch.", "expect": "wiki" },
     { "id": "hard.xlsx",      "set": "hard", "prompt": "I have a CSV of sales — pivot it and chart the monthly totals.", "expect": "xlsx" },
+    { "id": "hard.remember-appt", "set": "hard", "prompt": "Remember my dentist appointment next Thursday.", "expect": "memory-protocol" },
+    { "id": "hard.remind-me",     "set": "hard", "prompt": "Remind me about the appointment I told you earlier.", "expect": "memory-protocol" },
 
     { "id": "7.18", "set": "exam", "prompt": "Debug why this function crashes with an exception and find the root cause.", "expect": "debugging-and-error-recovery" },
     { "id": "7.19", "set": "exam", "prompt": "Write a failing unit test first, then make it pass using TDD.", "expect": "test-driven-development" },

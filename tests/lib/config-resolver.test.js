@@ -56,16 +56,16 @@ describe("config-resolver", () => {
     assert.equal(process.env[T1], undefined);
   });
 
-  test("records provenance: env value labeled .env, DB-only value labeled Settings/DB (#182)", async () => {
+  test("records provenance: env value labeled from .env, DB-only value labeled from UI (#182)", async () => {
     delete process.env.APERIO_CONFIG_PRECEDENCE;   // env precedence
     process.env[T1] = "from-env";
     const dbOnly = "OLLAMA_NUM_CTX";               // tier-1, not in process.env here
     delete process.env[dbOnly];
     await applyConfigToEnv(storeWith({ [configSettingKey(dbOnly)]: "98304" }));
     assert.equal(configSourceOf(T1), "env");
-    assert.equal(configSourceLabel(T1), ".env");
+    assert.equal(configSourceLabel(T1), "from .env");
     assert.equal(configSourceOf(dbOnly), "db");    // DB-only var, injected
-    assert.equal(configSourceLabel(dbOnly), "Settings/DB");
+    assert.equal(configSourceLabel(dbOnly), "from UI");
   });
 
   test("provenance is 'default' when a var is set in neither env nor DB", async () => {

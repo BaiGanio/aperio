@@ -247,7 +247,7 @@ export class PostgresStore {
     return rows.length > 0;
   }
 
-  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', lang = 'english', asOf = null }) {
+  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', lang = 'english', asOf = null, order = 'importance' }) {
     const useVector = !!queryEmbedding && mode !== 'fulltext';
     const useText   = !!query          && mode !== 'semantic';
 
@@ -380,10 +380,15 @@ export class PostgresStore {
       ? `, ts_rank(search_vector, plainto_tsquery('${lang}', $${queryParamIdx})) AS ts_score`
       : '';
 
+    // Recency ordering only applies to the no-query listing; a fulltext query
+    // keeps its relevance-then-importance order.
+    const orderBy = (order === 'recent' && queryParamIdx === null)
+      ? 'created_at DESC'
+      : 'importance DESC, created_at DESC';
     const { rows } = await this.pool.query(
       `SELECT *${selectScore} FROM memories
        WHERE ${conditions.join(' AND ')}
-       ORDER BY importance DESC, created_at DESC
+       ORDER BY ${orderBy}
        LIMIT $${idx}`,
       params
     );

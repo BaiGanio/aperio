@@ -25,7 +25,7 @@ const TOOLS = [
     name: "remember",
     description: "Save a new memory to Aperio. Automatically generates embeddings for semantic search. For time-sensitive information, propose a TTL via expires_at: 1–7 days for session/today context (current task, meeting agenda, temp credentials), 7–30 days for sprint or phase info, 30–90 days for temporary project decisions. Omit expires_at for stable facts, long-term preferences, and permanent knowledge.",
     schema: {
-      type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person", "inference"]),
+      type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person", "inference"]).optional().describe("Category of the memory. Defaults to 'fact' when omitted — don't interrogate the user for it; pick the best fit or let it default."),
       title: z.string(),
       content: z.string(),
       tags: z.array(z.string()).optional().describe("Free-form tags. The reserved tag \"local-only\" marks a memory as private: it is withheld from recall whenever the active model is a cloud provider, so it never leaves the machine. Use it for secrets/sensitive notes."),
@@ -47,6 +47,7 @@ const TOOLS = [
       search_mode: z.enum(["semantic", "fulltext", "auto"]).optional(),
       lang: z.string().optional().describe("BCP-47 locale for full-text search stemming (e.g. 'en', 'de', 'fr'). Defaults to 'en'."),
       as_of: z.string().optional().describe("ISO 8601 timestamp for point-in-time recall, e.g. '2025-01-15T10:00:00Z'. Omit to get current memories only."),
+      order: z.enum(["importance", "recent"]).optional().describe("Ordering for the no-query listing: 'importance' (default, highest-priority first) or 'recent' (newest first). Ignored when a query is provided."),
     },
     getHandler: (handlers) => handlers.recall,
   },

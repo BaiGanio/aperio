@@ -90,6 +90,14 @@ describe("rememberHandler", () => {
     assert.deepEqual(received.tags, ["a", "b"]);
     assert.equal(received.importance, 5);
   });
+
+  test("defaults type to 'fact' when omitted (weak models skip it)", async () => {
+    let received;
+    const ctx = makeCtx({ insert: async (data) => { received = data; return makeMemory(data); } });
+    const result = await rememberHandler(ctx, { title: "Meeting", content: "tonight at 21:00" });
+    assert.equal(received.type, "fact");
+    assert.match(result.content[0].text, /Memory saved \[fact\]/);
+  });
 });
 
 // ─── recallHandler ────────────────────────────────────────────────────────────
