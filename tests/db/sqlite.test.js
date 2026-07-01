@@ -811,11 +811,12 @@ describe("exportAll / importAll", () => {
     secondStore = await SqliteStore2.init();
   });
 
-  test("exportAll returns memories, wiki_articles, agent_jobs, agent_runs", () => {
+  test("exportAll returns memories, wiki_articles, agent_jobs, agent_runs, self_memories", () => {
     assert.ok(Array.isArray(exported.memories));
     assert.ok(Array.isArray(exported.wiki_articles));
     assert.ok(Array.isArray(exported.agent_jobs));
     assert.ok(Array.isArray(exported.agent_runs));
+    assert.ok(Array.isArray(exported.self_memories));
     assert.ok(exported.memories.length > 0, "should have exported memories");
     assert.ok(exported.wiki_articles.length > 0, "should have exported wiki articles");
   });
@@ -854,6 +855,25 @@ describe("exportAll / importAll", () => {
 
     const job = await third.getAgentJob("imported-job");
     assert.ok(job, "imported job should exist");
+  });
+
+  test("exportAll/importAll round-trips self_memories and dedups by id on re-import", async () => {
+    const seeded = await store.insertSelf({ title: "Self note", content: "Own notes", tags: ["a"], importance: 4 });
+    const withSelf = await store.exportAll();
+    const selfRow = withSelf.self_memories.find(sm => sm.id === seeded.id);
+    assert.ok(selfRow, "exported self_memories should include the seeded row");
+    assert.equal(selfRow.title, "Self note");
+
+    const { SqliteStore: FourthStore } = await import("../../db/sqlite.js");
+    const fourth = await FourthStore.init();
+    const first = await fourth.importAll({ self_memories: [selfRow] });
+    assert.equal(first.imported.self_memories, 1);
+
+    const again = await fourth.importAll({ self_memories: [selfRow] });
+    assert.equal(again.skipped.self_memories, 1);
+
+    const imported = await fourth.listSelf();
+    assert.ok(imported.some(sm => sm.id === selfRow.id));
   });
 });
 

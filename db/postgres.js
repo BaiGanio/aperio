@@ -807,6 +807,22 @@ export class PostgresStore {
     }
     const agent_runs = Object.values(runsByJob).flat();
 
+    const { rows: selfRows } = await this.pool.query(`
+      SELECT id, title, content, tags, importance, source, lang, confidence
+        FROM self_memories
+       ORDER BY importance DESC, created_at DESC
+    `);
+    const self_memories = selfRows.map(sm => ({
+      id:         sm.id,
+      title:      sm.title,
+      content:    sm.content,
+      tags:       sm.tags || [],
+      importance: Number(sm.importance),
+      source:     sm.source,
+      lang:       sm.lang ?? 'english',
+      confidence: sm.confidence !== null ? Number(sm.confidence) : 1.0,
+    }));
+
     return {
       memories: memories.map(m => ({
         id:         m.id,
@@ -833,13 +849,14 @@ export class PostgresStore {
       })),
       agent_jobs,
       agent_runs,
+      self_memories,
     };
   }
 
-  async importAll({ memories = [], wiki_articles = [], agent_jobs = [], agent_runs = [] }) {
+  async importAll({ memories = [], wiki_articles = [], agent_jobs = [], agent_runs = [], self_memories = [] }) {
     const result = {
-      imported: { memories: 0, wiki: 0, jobs: 0, runs: 0 },
-      skipped:  { memories: 0, wiki: 0, jobs: 0, runs: 0 },
+      imported: { memories: 0, wiki: 0, jobs: 0, runs: 0, self_memories: 0 },
+      skipped:  { memories: 0, wiki: 0, jobs: 0, runs: 0, self_memories: 0 },
     };
 
     for (const m of memories) {
@@ -904,6 +921,17 @@ export class PostgresStore {
           r.verdict ?? null, r.mode ?? null, r.trigger ?? null, r.model ?? null,
           r.error ?? null, r.tools ?? null, r.answer ?? null]);
       rowCount > 0 ? result.imported.runs++ : result.skipped.runs++;
+    }
+
+    // ── Self-memories (dedup by id, like memories) ────────────────
+    for (const sm of self_memories) {
+      const { rowCount } = await this.pool.query(`
+        INSERT INTO self_memories (id, title, content, tags, importance, source, lang, confidence)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        ON CONFLICT (id) DO NOTHING
+      `, [sm.id, sm.title, sm.content, sm.tags ?? [],
+          sm.importance ?? 3, sm.source ?? 'import', sm.lang ?? 'english', sm.confidence ?? 1.0]);
+      rowCount > 0 ? result.imported.self_memories++ : result.skipped.self_memories++;
     }
 
     return result;

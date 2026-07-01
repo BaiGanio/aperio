@@ -2,7 +2,7 @@
 
 Single source of truth for **what exists**. If you add or remove a feature, change it here in the same PR — otherwise it didn't ship.
 
-Last reconciled: 2026-06-17 · Version: 0.56.0
+Last reconciled: 2026-07-01 · Version: 0.65.1
 
 ---
 
@@ -13,6 +13,14 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 - Delete by ID (`forget`)
 - Generate embeddings for memories missing one (`backfill_embeddings`)
 - Find and merge near-duplicates by cosine similarity (`deduplicate_memories`)
+
+## Self-Memory
+- Agent's own walled-off memory store — separate table, never mixed with user memories
+- Save notes with title, tags, importance, language, confidence (`self_remember`)
+- Semantic + full-text recall across own notes (`self_recall`)
+- Revise in-place by ID (`self_update`)
+- Delete by ID (`self_forget`)
+- Local-only: never surfaced on cloud providers
 
 ## Wiki
 - Create/update LLM-authored, cited articles; upsert by slug, bump revision (`wiki_write`)
@@ -88,7 +96,7 @@ Last reconciled: 2026-06-17 · Version: 0.56.0
 - Update / close an existing issue (`update_github_issue`)
 - Daily issue-triage background job (`issue-triage`) + on-demand planner (`issue-planner`), both seeded **disabled** and repo-less; real-time capture via the GitHub webhook (`POST /api/github/webhook`, HMAC-verified with `GITHUB_WEBHOOK_SECRET`). Triage is read-only (no token for public repos) and treats issue text as untrusted data
 
-> **50 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
+> **54 MCP tools total**, callable by any MCP client (Cursor, Windsurf, Claude, etc.).
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)

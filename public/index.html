@@ -255,6 +255,48 @@
   </div>
 </div>
 
+<!-- Self-memory table modal (agent's own walled-off notes; oversight: read + delete) -->
+<div id="selfMemoryModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-stars"></i>
+        Self-memories
+        <span id="selfMemTableCount" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <button class="mem-table-close" onclick="refreshSelfMemories()" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" onclick="closeSelfMemoryModal()" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box" style="margin:0;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="self-memory-search" placeholder="Filter by title, content, tags…" oninput="handleSelfSearch()" />
+      </div>
+      <span id="self-mem-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="self-table-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="self-pagination-controls" class="mem-pagination" style="display:none;">
+        <button id="self-prev-page" class="mem-page-btn" onclick="changeSelfPage(-1)">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <span id="self-page-info" class="mem-page-info"></span>
+        <button id="self-next-page" class="mem-page-btn" onclick="changeSelfPage(1)">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Confirm modal (export / import) -->
 <div id="confirmModal" class="confirm-modal">
   <div class="confirm-content">
@@ -282,6 +324,11 @@
         <span class="export-option-label">Memories</span>
         <span class="export-option-count" id="exportCountMem">0</span>
       </div>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeSelfMemories" checked>
+        <span class="export-option-label">Self-memories</span>
+        <span class="export-option-count" id="exportCountSelf">0</span>
+      </label>
       <label class="export-option">
         <input type="checkbox" id="exportIncludeWiki" checked>
         <span class="export-option-label">Wiki articles</span>
@@ -756,6 +803,7 @@
 <script src="scripts/chat.js"></script>
 <script src="scripts/memories.js"></script>
 <script src="scripts/memory-table.js"></script>
+<script src="scripts/self-memory-table.js"></script>
 <script src="scripts/autocomplete.js"></script>
 <script src="index.js"></script>
 </body>
