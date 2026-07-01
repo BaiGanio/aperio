@@ -50,3 +50,15 @@ describe("tool-profiles — docgraph availability", () => {
     assert.ok(!toolsFor("search the web for letter of credit").has("doc_search"));
   });
 });
+
+// The self-memory quad is always available (like the user-memory quad) so the
+// agent can keep its own continuity on any turn. The provider gate that strips
+// these on cloud lives in lib/agent/index.js, not in classifyProfiles.
+describe("tool-profiles — self-memory always offered", () => {
+  test("an ordinary prompt surfaces the self_* quad", () => {
+    const tools = toolsFor("help me think through this");
+    for (const t of ["self_remember", "self_recall", "self_update", "self_forget"]) {
+      assert.ok(tools.has(t), `${t} must always be offered`);
+    }
+  });
+});
