@@ -45,6 +45,23 @@ function rowToMemory(row) {
   return { ...deserialiseRow(row), lang: row.lang ?? 'english' };
 }
 
+function rowToSelf(row) {
+  // Self-memories have no type/pin/versioning — a lean shape distinct from
+  // the user `memories` row.
+  return {
+    id:         row.id,
+    title:      row.title,
+    content:    row.content,
+    tags:       Array.isArray(row.tags) ? row.tags : [],
+    importance: row.importance,
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
+    source:     row.source ?? 'self',
+    lang:       row.lang ?? 'english',
+    confidence: row.confidence ?? 1.0,
+  };
+}
+
 export class PostgresStore {
   constructor(pool) {
     this.pool = pool;
@@ -443,6 +460,158 @@ export class PostgresStore {
       `DELETE FROM memories WHERE id = $1 RETURNING title`, [id]
     );
     return rows[0]?.title ?? null;
+  }
+
+  // ── Self-memories (the agent's own walled-off store) ──────────────────────
+  // A SEPARATE table from `memories`; none of the methods above touch it. No
+  // versioning/expiry/pin — updates are in-place.
+  async insertSelf(input, embedding) {
+    const { rows } = await this.pool.query(
+      `INSERT INTO self_memories (title, content, tags, importance, source, embedding, lang, confidence)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING *`,
+      [
+        input.title, input.content, input.tags ?? [], input.importance ?? 3,
+        input.source ?? 'self', embedding ? toVec(embedding) : null,
+        input.lang ?? 'english', input.confidence ?? 1.0,
+      ]
+    );
+    return rowToSelf(rows[0]);
+  }
+
+  async getSelfById(id) {
+    const { rows } = await this.pool.query(`SELECT * FROM self_memories WHERE id = $1`, [id]);
+    return rows.length ? rowToSelf(rows[0]) : null;
+  }
+
+  async listSelf(limit = 50) {
+    const { rows } = await this.pool.query(
+      `SELECT * FROM self_memories ORDER BY importance DESC, created_at DESC LIMIT $1`,
+      [Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200)]
+    );
+    return rows.map(rowToSelf);
+  }
+
+  async updateSelf(id, input, embedding) {
+    const existing = await this.getSelfById(id);
+    if (!existing) throw new Error(`Self-memory ${id} not found`);
+    const merged = {
+      title:      input.title      ?? existing.title,
+      content:    input.content    ?? existing.content,
+      tags:       input.tags       ?? existing.tags,
+      importance: input.importance ?? existing.importance,
+      confidence: input.confidence ?? existing.confidence,
+    };
+    const { rows } = await this.pool.query(
+      `UPDATE self_memories
+          SET title = $1, content = $2, tags = $3, importance = $4, confidence = $5
+              ${embedding ? ', embedding = $7' : ''}
+        WHERE id = $6
+        RETURNING *`,
+      embedding
+        ? [merged.title, merged.content, merged.tags, merged.importance, merged.confidence, id, toVec(embedding)]
+        : [merged.title, merged.content, merged.tags, merged.importance, merged.confidence, id]
+    );
+    return rowToSelf(rows[0]);
+  }
+
+  async setSelfEmbedding(id, embedding) {
+    await this.pool.query(`UPDATE self_memories SET embedding = $1 WHERE id = $2`, [toVec(embedding), id]);
+  }
+
+  async deleteSelf(id) {
+    const { rows } = await this.pool.query(
+      `DELETE FROM self_memories WHERE id = $1 RETURNING title`, [id]
+    );
+    return rows[0]?.title ?? null;
+  }
+
+  async recallSelf({ query, queryEmbedding, tags, limit = 10, mode = 'auto', lang = 'english' }) {
+    const useVector = !!queryEmbedding && mode !== 'fulltext';
+    const useText   = !!query          && mode !== 'semantic';
+
+    // ── Hybrid path (RRF) ──
+    if (useVector && useText) {
+      const params = [toVec(queryEmbedding), query];
+      let idx = 3;
+      const conds = [];
+      if (tags?.length) { conds.push(`tags && $${idx++}`); params.push(tags); }
+      const tagFilter = conds.length ? ` AND ${conds.join(' AND ')}` : '';
+      params.push(limit);
+      const { rows } = await this.pool.query(`
+        WITH vector_ranked AS (
+          SELECT id, ROW_NUMBER() OVER (ORDER BY embedding <=> $1::vector) AS rank
+          FROM self_memories WHERE embedding IS NOT NULL${tagFilter}
+          LIMIT 60
+        ),
+        fts_ranked AS (
+          SELECT id, ROW_NUMBER() OVER (
+            ORDER BY ts_rank(search_vector, plainto_tsquery('${lang}', $2)) DESC
+          ) AS rank
+          FROM self_memories
+          WHERE search_vector @@ plainto_tsquery('${lang}', $2)${tagFilter}
+          LIMIT 60
+        ),
+        fused AS (
+          SELECT COALESCE(v.id, f.id) AS id,
+                 COALESCE(1.0 / (60 + v.rank), 0.0) + COALESCE(1.0 / (60 + f.rank), 0.0) AS rrf_score
+          FROM vector_ranked v FULL OUTER JOIN fts_ranked f ON v.id = f.id
+        )
+        SELECT m.*, fu.rrf_score FROM fused fu
+        JOIN self_memories m ON m.id = fu.id
+        ORDER BY fu.rrf_score DESC
+        LIMIT $${idx}
+      `, params);
+      const maxRrf = Number.parseFloat(rows[0]?.rrf_score) || 1;
+      return rows.map(r => ({ ...rowToSelf(r), similarity: Number.parseFloat(r.rrf_score) / maxRrf }));
+    }
+
+    // ── Semantic-only path ──
+    if (useVector) {
+      const params = [toVec(queryEmbedding)];
+      let idx = 2;
+      const conds = [`embedding IS NOT NULL`];
+      if (tags?.length) { conds.push(`tags && $${idx++}`); params.push(tags); }
+      params.push(limit);
+      const { rows } = await this.pool.query(
+        `SELECT *, 1 - (embedding <=> $1::vector) AS similarity
+         FROM self_memories
+         WHERE ${conds.join(' AND ')}
+         ORDER BY embedding <=> $1::vector
+         LIMIT $${idx}`,
+        params
+      );
+      if (rows.length) return rows.map(r => ({ ...rowToSelf(r), similarity: Number.parseFloat(r.similarity) }));
+    }
+
+    // ── Fulltext / list-by-importance path ──
+    const params = [];
+    let idx = 1;
+    const conds = [];
+    if (tags?.length) { conds.push(`tags && $${idx++}`); params.push(tags); }
+    let queryParamIdx = null;
+    if (query) {
+      queryParamIdx = idx;
+      conds.push(`search_vector @@ plainto_tsquery('${lang}', $${idx++})`);
+      params.push(query);
+    }
+    params.push(limit);
+    const selectScore = queryParamIdx !== null
+      ? `, ts_rank(search_vector, plainto_tsquery('${lang}', $${queryParamIdx})) AS ts_score`
+      : '';
+    const where = conds.length ? `WHERE ${conds.join(' AND ')}` : '';
+    const { rows } = await this.pool.query(
+      `SELECT *${selectScore} FROM self_memories
+       ${where}
+       ORDER BY importance DESC, created_at DESC
+       LIMIT $${idx}`,
+      params
+    );
+    if (queryParamIdx !== null) {
+      const maxScore = Math.max(...rows.map(r => parseFloat(r.ts_score) || 0), 0.001);
+      return rows.map(r => ({ ...rowToSelf(r), similarity: parseFloat(r.ts_score) / maxScore }));
+    }
+    return rows.map(r => ({ ...rowToSelf(r), similarity: r.confidence ?? 1.0 }));
   }
 
   // ── Settings (key/value preferences) ──────────────────────────────────────

@@ -136,6 +136,24 @@ function rowToMemory(row) {
   };
 }
 
+function rowToSelf(row) {
+  if (!row) return null;
+  // Self-memories have no type/pin/versioning — a lean shape distinct from
+  // the user `memories` row.
+  return {
+    id:         row.id,
+    title:      row.title,
+    content:    row.content,
+    tags:       row.tags ? JSON.parse(row.tags) : [],
+    importance: Number(row.importance),
+    created_at: new Date(row.created_at),
+    updated_at: new Date(row.updated_at),
+    source:     row.source ?? 'self',
+    lang:       row.lang ?? 'english',
+    confidence: row.confidence !== null ? Number(row.confidence) : 1.0,
+  };
+}
+
 function rowToArticle(row) {
   if (!row) return null;
   return {
@@ -980,6 +998,177 @@ export class SqliteStore {
     });
     tx();
     await this.refreshCache();
+  }
+
+  // ── Self-memories (the agent's own walled-off store) ──────────────────────
+  // A SEPARATE table from `memories`; none of the methods above touch it and
+  // none below touch `memories`. No versioning/expiry/pin — updates are
+  // in-place. The vec sidecar (vec_self_memories) is kept in sync by hand on
+  // insert/update/setEmbedding; the FTS5 index is maintained by triggers.
+  async insertSelf(input, embedding) {
+    const id = randomUUID();
+    const tx = this.db.transaction(() => {
+      const info = this.db.prepare(`
+        INSERT INTO self_memories (id, title, content, tags, importance, source, lang, confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        id, input.title, input.content,
+        JSON.stringify(input.tags ?? []),
+        input.importance ?? 3,
+        input.source ?? 'self',
+        input.lang ?? 'english',
+        input.confidence ?? 1.0,
+      );
+      if (embedding) {
+        this.db.prepare(`INSERT INTO vec_self_memories (rowid, embedding) VALUES (?, ?)`)
+          .run(BigInt(info.lastInsertRowid), vecBuf(embedding));
+      }
+    });
+    tx();
+    return this.getSelfById(id);
+  }
+
+  getSelfById(id) {
+    return rowToSelf(this.db.prepare(`SELECT * FROM self_memories WHERE id = ?`).get(id));
+  }
+
+  async listSelf(limit = 50) {
+    const cap = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+    return this.db.prepare(`
+      SELECT * FROM self_memories
+       ORDER BY importance DESC, created_at DESC
+       LIMIT ?
+    `).all(cap).map(rowToSelf);
+  }
+
+  async updateSelf(id, input, embedding) {
+    const existing = this.getSelfById(id);
+    if (!existing) throw new Error(`Self-memory ${id} not found`);
+
+    const merged = {
+      title:      input.title      ?? existing.title,
+      content:    input.content    ?? existing.content,
+      tags:       input.tags       ?? existing.tags,
+      importance: input.importance ?? existing.importance,
+      confidence: input.confidence ?? existing.confidence,
+    };
+    const tx = this.db.transaction(() => {
+      const row = this.db.prepare(`SELECT rowid FROM self_memories WHERE id = ?`).get(id);
+      this.db.prepare(`
+        UPDATE self_memories SET title = ?, content = ?, tags = ?, importance = ?, confidence = ?
+         WHERE id = ?
+      `).run(merged.title, merged.content, JSON.stringify(merged.tags ?? []),
+              merged.importance, merged.confidence, id);
+      if (embedding) {
+        this.db.prepare(`DELETE FROM vec_self_memories WHERE rowid = ?`).run(BigInt(row.rowid));
+        this.db.prepare(`INSERT INTO vec_self_memories (rowid, embedding) VALUES (?, ?)`)
+          .run(BigInt(row.rowid), vecBuf(embedding));
+      }
+    });
+    tx();
+    return this.getSelfById(id);
+  }
+
+  async setSelfEmbedding(id, embedding) {
+    const row = this.db.prepare(`SELECT rowid FROM self_memories WHERE id = ?`).get(id);
+    if (!row) return;
+    this.db.prepare(`DELETE FROM vec_self_memories WHERE rowid = ?`).run(BigInt(row.rowid));
+    this.db.prepare(`INSERT INTO vec_self_memories (rowid, embedding) VALUES (?, ?)`)
+      .run(BigInt(row.rowid), vecBuf(embedding));
+  }
+
+  async deleteSelf(id) {
+    const row = this.db.prepare(`SELECT title FROM self_memories WHERE id = ?`).get(id);
+    if (!row) return null;
+    this.db.prepare(`DELETE FROM self_memories WHERE id = ?`).run(id);
+    return row.title;
+  }
+
+  async recallSelf({ query, queryEmbedding, tags, limit = 10, mode = 'auto' }) {
+    const useVector = !!queryEmbedding && mode !== 'fulltext';
+    const useText   = !!query          && mode !== 'semantic';
+    const cap       = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
+
+    const conds = [];
+    const baseParams = {};
+    if (tags?.length) {
+      conds.push(`EXISTS (
+        SELECT 1 FROM json_each(m.tags) je
+         WHERE je.value IN (${tags.map((_, i) => `@t${i}`).join(', ')})
+      )`);
+      tags.forEach((t, i) => { baseParams[`t${i}`] = t; });
+    }
+    const where = conds.length ? conds.join(' AND ') : '1=1';
+
+    if (useVector && useText) {
+      const rows = this.db.prepare(`
+        WITH vector_ranked AS (
+          SELECT v.rowid AS rid, ROW_NUMBER() OVER (ORDER BY v.distance) AS rank
+            FROM vec_self_memories v
+            JOIN self_memories m ON m.rowid = v.rowid
+           WHERE v.embedding MATCH @vec AND k = 60 AND ${where}
+        ),
+        fts_ranked AS (
+          SELECT f.rowid AS rid, ROW_NUMBER() OVER (ORDER BY f.rank) AS rank
+            FROM self_memories_fts f
+            JOIN self_memories m ON m.rowid = f.rowid
+           WHERE self_memories_fts MATCH @q AND ${where}
+           LIMIT 60
+        ),
+        fused AS (
+          SELECT COALESCE(v.rid, f.rid) AS rid,
+                 COALESCE(1.0/(60+v.rank), 0.0) + COALESCE(1.0/(60+f.rank), 0.0) AS rrf
+            FROM vector_ranked v
+            LEFT JOIN fts_ranked f ON v.rid = f.rid
+          UNION
+          SELECT COALESCE(v.rid, f.rid) AS rid,
+                 COALESCE(1.0/(60+v.rank), 0.0) + COALESCE(1.0/(60+f.rank), 0.0) AS rrf
+            FROM fts_ranked f
+            LEFT JOIN vector_ranked v ON v.rid = f.rid
+        )
+        SELECT m.*, MAX(fu.rrf) AS rrf_score
+          FROM fused fu
+          JOIN self_memories m ON m.rowid = fu.rid
+         GROUP BY m.id
+         ORDER BY rrf_score DESC
+         LIMIT @cap
+      `).all({ ...baseParams, vec: vecBuf(queryEmbedding), q: query, cap });
+      const maxRrf = Number(rows[0]?.rrf_score) || 1;
+      return rows.map(r => ({ ...rowToSelf(r), similarity: Number(r.rrf_score) / maxRrf }));
+    }
+
+    if (useVector) {
+      const rows = this.db.prepare(`
+        SELECT m.*, (1.0 - v.distance) AS similarity
+          FROM vec_self_memories v
+          JOIN self_memories m ON m.rowid = v.rowid
+         WHERE v.embedding MATCH @vec AND k = @cap AND ${where}
+         ORDER BY similarity DESC
+      `).all({ ...baseParams, vec: vecBuf(queryEmbedding), cap });
+      if (rows.length) return rows.map(r => ({ ...rowToSelf(r), similarity: Number(r.similarity) }));
+    }
+
+    if (useText) {
+      const rows = this.db.prepare(`
+        SELECT m.*, (-f.rank) AS ts_score
+          FROM self_memories_fts f
+          JOIN self_memories m ON m.rowid = f.rowid
+         WHERE self_memories_fts MATCH @q AND ${where}
+         ORDER BY ts_score DESC
+         LIMIT @cap
+      `).all({ ...baseParams, q: query, cap });
+      const maxScore = Math.max(...rows.map(r => Number(r.ts_score) || 0), 0.001);
+      return rows.map(r => ({ ...rowToSelf(r), similarity: Number(r.ts_score) / maxScore }));
+    }
+
+    // No query → list by importance (this is the preload path).
+    const rows = this.db.prepare(`
+      SELECT m.* FROM self_memories m
+       WHERE ${where}
+       ORDER BY m.importance DESC, m.created_at DESC
+       LIMIT @cap
+    `).all({ ...baseParams, cap });
+    return rows.map(r => ({ ...rowToSelf(r), similarity: r.confidence ?? 1.0 }));
   }
 
   // ── Settings (k/v JSON) ───────────────────────────────────────────────────
