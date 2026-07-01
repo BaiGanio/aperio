@@ -667,9 +667,16 @@ async function bootApp() {
     pruner.stop();
     runPruner.stop();
     scheduler.stop();
-    // Wait for any in-flight boot index to register its handles, then stop every
-    // watcher (boot + runtime-added) via the registry.
-    await Promise.allSettled([codegraphBoot, docgraphBoot].filter(Boolean));
+    // Give any in-flight boot index a brief window to register its handles, then
+    // stop every watcher (boot + runtime-added) via the registry. Don't block the
+    // whole teardown on a full initial index (20-60s on a cold repo): stopAll()
+    // closes the registry, so a boot pass that finishes registering *after* this
+    // point stops its watchers on arrival (see watcher-registry.register) instead
+    // of leaking them.
+    await Promise.race([
+      Promise.allSettled([codegraphBoot, docgraphBoot].filter(Boolean)),
+      new Promise(resolve => setTimeout(resolve, 500)),
+    ]);
     await watcherRegistry.stopAll().catch(() => {});
 
     // 2. Let the current ONNX inference finish, then stop the backfill loop.
@@ -701,13 +708,15 @@ async function bootApp() {
     // static destructors fire — avoiding the "mutex lock failed: Invalid
     // argument" crash that process.exit() causes when destructors race.
     //
-    // Safety net: if the process is still alive after 3 s (something is
-    // holding the loop), force-exit. The timer is unref()'d so it doesn't
-    // itself keep the loop alive.
+    // Safety net: if the process is still alive after 750 ms (something is
+    // holding the loop), force-exit. By this point every teardown step above has
+    // awaited, so a clean drain happens almost immediately — the timer only
+    // exists to cap a stuck handle, so it doesn't need to be generous. The timer
+    // is unref()'d so it doesn't itself keep the loop alive.
     const forceExit = setTimeout(() => {
       process.exitCode = 0;
       process.exit(0);
-    }, 3_000);
+    }, 750);
     forceExit.unref();
   }
   process.on("SIGTERM", gracefulShutdown);

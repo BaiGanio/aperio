@@ -245,6 +245,22 @@ describe("recall (FTS-only)", () => {
     });
     assert.ok(results.length >= 1);
   });
+
+  test("query with FTS5 operator chars does not throw (colon, dash, etc.)", async () => {
+    // "21:00" used to be parsed as a `column:term` filter → "no such column: 21".
+    await assert.doesNotReject(
+      store.recall({ query: "meeting tonight at 21:00", limit: 10, mode: "fulltext" }),
+    );
+    await assert.doesNotReject(
+      store.recall({ query: "cost -50% (draft) *", limit: 10, mode: "fulltext" }),
+    );
+  });
+
+  test("query of only punctuation yields no text search rather than error", async () => {
+    await assert.doesNotReject(
+      store.recall({ query: ":: -- **", limit: 10, mode: "fulltext" }),
+    );
+  });
 });
 
 // =============================================================================
@@ -594,6 +610,18 @@ describe("recall (no query)", () => {
     assert.ok(Array.isArray(results));
     assert.ok(results.length > 0);
     assert.ok(results.every(r => typeof r.similarity === "number"), "every result should have a similarity score");
+  });
+
+  test("order:'recent' lists newest first, independent of importance", async () => {
+    const tag = "recencytest";
+    // Old-but-important vs new-but-trivial, isolated by a unique tag.
+    await store.insert({ type: "fact", title: "Old important", content: "x", importance: 5, tags: [tag] }, null);
+    await new Promise(r => setTimeout(r, 5));
+    const newer = await store.insert({ type: "fact", title: "New trivial", content: "y", importance: 1, tags: [tag] }, null);
+    const recent = await store.recall({ tags: [tag], limit: 5, order: "recent" });
+    assert.equal(recent[0].id, newer.id, "most recent memory should sort first");
+    const byImportance = await store.recall({ tags: [tag], limit: 5 });
+    assert.equal(byImportance[0].title, "Old important", "default order stays importance-first");
   });
 });
 

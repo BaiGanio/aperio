@@ -69,4 +69,14 @@ describe("createWatcherRegistry", () => {
     assert.equal(reg.has("codegraph", "/a"), false);
     assert.equal(reg.has("docgraph", "/a"), false);
   });
+
+  test("after stopAll, a late register stops the handle on arrival instead of leaking", async () => {
+    const reg = createWatcherRegistry();
+    await reg.stopAll(); // shutdown swept the registry before boot index finished
+
+    const late = fakeHandle();
+    await reg.register("codegraph", "/repo", late);
+    assert.equal(late.stops(), 1, "late boot-index watcher stopped on arrival");
+    assert.equal(reg.has("codegraph", "/repo"), false, "never retained");
+  });
 });

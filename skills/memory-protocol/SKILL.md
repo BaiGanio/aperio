@@ -8,7 +8,7 @@ description: >
   preference, shares a fact or decision, gives a correction, asks the agent to
   remember something, or starts a task where past context would affect the output.
 metadata:
-  keywords: "memory, remember, preference, context, learn, correction, feedback, store, recall, history, decision, project, person, sql, postgres, vector, embedding"
+  keywords: "memory, remember, remind, reminder, note, appointment, preference, context, learn, correction, feedback, store, recall, history, decision, project, person, sql, postgres, vector, embedding"
   category: "memory"
   load: "on-demand"
 ---
@@ -31,11 +31,12 @@ recall(query?, filters?)
 Save a new memory.
 
 ```
-remember(content, type, importance?, tags?)
+remember(content, type?, importance?, tags?)
 ```
 
 - Call **immediately** when the user says "remember that…", "save this", or "keep this".
 - Do not confirm, do not ask. Call the tool, then say "Saved." Nothing else.
+- `type` is optional — it defaults to `fact`. Never stop to ask the user for it; pick the best fit or let it default.
 - Importance scale: `1` = low · `3` = default · `5` = critical (use 5 sparingly)
 - Types: `fact` · `decision` · `preference` · `solution` · `project` · `source`
 
@@ -91,6 +92,16 @@ Two rules differ from the user store, and they matter:
 Your most important self-notes are **preloaded** at session start, so you begin already
 remembering. Still call `self_recall` when you want more than the preloaded few. And revise:
 a self that only accretes and never prunes just hoards noise (`self_update` / `self_forget`).
+
+### self_wiki_write / self_wiki_get — synthesizing your own notes
+
+When several self-notes add up to one understanding, write it down once instead of
+re-deriving it every session: `self_recall` to gather the notes, then `self_wiki_write(slug,
+title, body_md, source_self_memory_ids)` to save the synthesis (upserts by slug). Fetch it
+back with `self_wiki_get(slug)`. Same rules as the self-memory quad — autonomous, local-only —
+plus one more: this is *your* synthesis, not something to show the user, so don't copy it into
+a reply the way you would a `wiki_get` breadcrumb. If `self_wiki_get` reports `stale` (a cited
+self-memory changed since you wrote it), just call `self_wiki_write` again to refresh it.
 
 ---
 

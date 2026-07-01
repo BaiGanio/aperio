@@ -12,6 +12,7 @@ import logger from "../lib/helpers/logger.js";
 // Tool Registrations
 import { register as registerMemory }  from "./tools/memory.js";
 import { register as registerSelfMemory } from "./tools/self-memory.js";
+import { register as registerSelfWiki } from "./tools/self-wiki.js";
 import { register as registerFiles }   from "./tools/files.js";
 import { register as registerWeb }     from "./tools/web.js";
 import { register as registerImage }   from "./tools/image.js";
@@ -72,6 +73,7 @@ export async function startServer(opts = {}) {
   // directly from '../lib/utils/paths.js' instead of getting it from ctx.
   registerMemory(server, ctx);
   registerSelfMemory(server, ctx);
+  registerSelfWiki(server, ctx);
   registerFiles(server, ctx);
   registerWeb(server, ctx);
   registerImage(server, ctx);

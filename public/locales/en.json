@@ -222,7 +222,7 @@
   "wiz_submit_failed":        "Setup failed — please try again.",
   "wiz_network_failed":       "Couldn't reach the server — please try again.",
 
-  "agent_greeting":           "Greet me in one short friendly sentence. Do not use any tools.",
+  "agent_greeting":           "Greet me warmly in one or two short sentences, as yourself. You may briefly nod to what you already remember about me, but don't list memories or use any tools.",
   "agent_greeting_text":      "Hi! How can I help you today?",
 
   "discuss_button_label":         "Discuss",

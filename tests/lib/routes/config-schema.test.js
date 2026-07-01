@@ -10,7 +10,7 @@ import { tmpdir } from "os";
 import { join } from "path";
 import express, { Router } from "express";
 import { mountConfigRoutes } from "../../../lib/routes/api-config.js";
-import { configSettingKey } from "../../../lib/config-resolver.js";
+import { applyConfigToEnv, configSettingKey, configSourceOf } from "../../../lib/config-resolver.js";
 import { CONFIG } from "../../../lib/config.js";
 
 let server, base, store, envFile;
@@ -160,5 +160,89 @@ describe("GET /api/config/schema", () => {
     process.env.OLLAMA_CONTEXT_LENGTH = "32768";
     store.current = fakeStore();
     assert.deepEqual((await getSchema()).warnings, []);
+  });
+
+  // ── #182 follow-up: CLI ↔ API source-label cross-consistency ─────────────────
+  // The CLI's boot provenance snapshot (configSourceOf) and the web Settings
+  // panel's request-time source labels (field.source) must agree for the same
+  // var under the same precedence mode. These tests guard against drift when
+  // the two sites are refactored to share a single precedence-decision function.
+  describe("provenance cross-consistency (CLI vs API)", () => {
+    // Align process.env with the .env file contents so both the resolver's
+    // pre-injection snapshot and the API's live .env parse see the same state.
+    function envAlign(key, value) {
+      if (value == null) { delete process.env[key]; setEnvFile(""); }
+      else               { process.env[key] = value; setEnvFile(`${key}=${value}\n`); }
+    }
+
+    // Run the boot resolver (what the CLI does at startup) and compare
+    // configSourceOf(key) against the API's field.source for the same key.
+    async function assertSourceMatch(key, expectedSource) {
+      await applyConfigToEnv(store.current);
+      const cliSource = configSourceOf(key);
+      const schema = await getSchema();
+      const f = schema.fields.find((x) => x.key === key);
+      assert.ok(f, `field ${key} not found in schema`);
+      assert.equal(cliSource, expectedSource,
+        `CLI source for ${key}: expected ${expectedSource}, got ${cliSource}`);
+      assert.equal(f.source, expectedSource,
+        `API source for ${key}: expected ${expectedSource}, got ${f.source}`);
+    }
+
+    test("env-wins: .env value present, no DB → both report 'env'", async () => {
+      delete process.env.APERIO_CONFIG_PRECEDENCE;
+      envAlign(T1, "from-env");
+      store.current = fakeStore();
+      await assertSourceMatch(T1, "env");
+    });
+
+    test("env-wins: no .env, DB value present → both report 'db'", async () => {
+      delete process.env.APERIO_CONFIG_PRECEDENCE;
+      envAlign(T1, null);
+      store.current = fakeStore({ [configSettingKey(T1)]: "from-db" });
+      await assertSourceMatch(T1, "db");
+    });
+
+    test("env-wins: neither env nor DB set → both report 'default'", async () => {
+      delete process.env.APERIO_CONFIG_PRECEDENCE;
+      envAlign(T1, null);
+      store.current = fakeStore();
+      await assertSourceMatch(T1, "default");
+    });
+
+    test("env-wins: Tier-0 var (.env present, DB present) → both 'env', never 'db'", async () => {
+      delete process.env.APERIO_CONFIG_PRECEDENCE;
+      envAlign(T0, "31337");
+      store.current = fakeStore({ [configSettingKey(T0)]: "9999" });
+      await assertSourceMatch(T0, "env");
+    });
+
+    test("db-wins: DB value present → both report 'db' even when .env is set", async () => {
+      process.env.APERIO_CONFIG_PRECEDENCE = "db";
+      envAlign(T1, "from-env");
+      store.current = fakeStore({ [configSettingKey(T1)]: "from-db" });
+      await assertSourceMatch(T1, "db");
+    });
+
+    test("db-wins: no DB value → falls through to env → both report 'env'", async () => {
+      process.env.APERIO_CONFIG_PRECEDENCE = "db";
+      envAlign(T1, "from-env");
+      store.current = fakeStore();
+      await assertSourceMatch(T1, "env");
+    });
+
+    test("secret (env-wins, .env present, DB present) → both report 'env'", async () => {
+      delete process.env.APERIO_CONFIG_PRECEDENCE;
+      envAlign(SEC, "sk-from-env");
+      store.current = fakeStore({ [configSettingKey(SEC)]: "sk-from-db" });
+      await assertSourceMatch(SEC, "env");
+    });
+
+    test("secret (env-wins, no .env, DB present) → both report 'db'", async () => {
+      delete process.env.APERIO_CONFIG_PRECEDENCE;
+      envAlign(SEC, null);
+      store.current = fakeStore({ [configSettingKey(SEC)]: "sk-from-db" });
+      await assertSourceMatch(SEC, "db");
+    });
   });
 });
