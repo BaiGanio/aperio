@@ -50,8 +50,8 @@ function invoke(router, method, url, { body = {}, query = {}, params = {} } = {}
 
 function makeStore(overrides = {}) {
   return {
-    exportAll:  async () => ({ memories: [], wiki_articles: [], agent_jobs: [], agent_runs: [] }),
-    importAll:  async () => ({ imported: { memories: 0, wiki_articles: 0 }, skipped: { memories: 0, wiki_articles: 0 } }),
+    exportAll:  async () => ({ memories: [], wiki_articles: [], agent_jobs: [], agent_runs: [], self_memories: [] }),
+    importAll:  async () => ({ imported: { memories: 0, wiki_articles: 0, self_memories: 0 }, skipped: { memories: 0, wiki_articles: 0, self_memories: 0 } }),
     listWithoutEmbeddings: async () => [],
     setEmbedding: async () => {},
     ...overrides,
@@ -69,6 +69,7 @@ describe("POST /data/export", () => {
       wiki_articles:  [{ id: "w1", title: "Wiki" }],
       agent_jobs:     [{ id: "j1" }],
       agent_runs:     [{ id: "r1" }],
+      self_memories:  [{ id: "s1", title: "Self" }],
     };
     const store = makeStore({ exportAll: async () => data });
     const router = Router();
@@ -82,10 +83,12 @@ describe("POST /data/export", () => {
     assert.strictEqual(body.counts.wiki_articles, 1);
     assert.strictEqual(body.counts.agent_jobs, 1);
     assert.strictEqual(body.counts.agent_runs, 1);
+    assert.strictEqual(body.counts.self_memories, 1);
     assert.strictEqual(body.memories.length, 1);
     assert.strictEqual(body.wiki_articles.length, 1);
     assert.strictEqual(body.agent_jobs.length, 1);
     assert.strictEqual(body.agent_runs.length, 1);
+    assert.strictEqual(body.self_memories.length, 1);
   });
 
   test("excludes wiki and agent jobs when requested", async () => {
@@ -94,21 +97,24 @@ describe("POST /data/export", () => {
       wiki_articles:  [{ id: "w1" }],
       agent_jobs:     [{ id: "j1" }],
       agent_runs:     [{ id: "r1" }],
+      self_memories:  [{ id: "s1" }],
     };
     const store = makeStore({ exportAll: async () => data });
     const router = Router();
     mountDataRoutes(router, { store });
 
     const { status, body } = await invoke(router, "POST", "/data/export", {
-      body: { include_wiki: false, include_agent_jobs: false },
+      body: { include_wiki: false, include_agent_jobs: false, include_self_memories: false },
     });
     assert.strictEqual(status, 200);
     assert.strictEqual(body.counts.wiki_articles, 0);
     assert.strictEqual(body.counts.agent_jobs, 0);
     assert.strictEqual(body.counts.agent_runs, 0);
+    assert.strictEqual(body.counts.self_memories, 0);
     assert.strictEqual(body.wiki_articles.length, 0);
     assert.strictEqual(body.agent_jobs.length, 0);
     assert.strictEqual(body.agent_runs.length, 0);
+    assert.strictEqual(body.self_memories.length, 0);
     // Memories are always included
     assert.strictEqual(body.memories.length, 1);
   });
@@ -144,6 +150,7 @@ describe("POST /data/import", () => {
       body: {
         memories: [{ id: "m1", title: "Mem1" }, { id: "m2", title: "Mem2" }],
         wiki_articles: [{ id: "w1", title: "Wiki1" }],
+        self_memories: [{ id: "s1", title: "Self1" }],
       },
     });
     assert.strictEqual(status, 200);
@@ -152,6 +159,7 @@ describe("POST /data/import", () => {
     assert.ok(body.note);
     assert.deepStrictEqual(captured.memories.length, 2);
     assert.deepStrictEqual(captured.wiki_articles.length, 1);
+    assert.deepStrictEqual(captured.self_memories.length, 1);
   });
 
   test("returns 400 when memories array is missing", async () => {

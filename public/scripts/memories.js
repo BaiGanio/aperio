@@ -258,6 +258,7 @@ function showExportModal(payload) {
   _exportPayload = payload;
   const c = payload.counts;
   document.getElementById('exportCountMem').textContent = c.memories;
+  document.getElementById('exportCountSelf').textContent = c.self_memories;
   document.getElementById('exportCountWiki').textContent = c.wiki_articles;
   document.getElementById('exportCountJobs').textContent = c.agent_jobs;
   document.getElementById('exportCountRuns').textContent = c.agent_runs;
@@ -275,6 +276,7 @@ document.getElementById('exportModal')?.addEventListener('click', (e) => {
 
 document.getElementById('exportDoBtn').addEventListener('click', () => {
   if (!_exportPayload) return;
+  const includeSelf = document.getElementById('exportIncludeSelfMemories').checked;
   const includeWiki = document.getElementById('exportIncludeWiki').checked;
   const includeJobs = document.getElementById('exportIncludeJobs').checked;
 
@@ -283,11 +285,13 @@ document.getElementById('exportDoBtn').addEventListener('click', () => {
     exported_at: _exportPayload.exported_at,
     counts: {
       memories: _exportPayload.counts.memories,
+      self_memories: includeSelf ? _exportPayload.counts.self_memories : 0,
       wiki_articles: includeWiki ? _exportPayload.counts.wiki_articles : 0,
       agent_jobs: includeJobs ? _exportPayload.counts.agent_jobs : 0,
       agent_runs: includeJobs ? _exportPayload.counts.agent_runs : 0,
     },
     memories: _exportPayload.memories,
+    self_memories: includeSelf ? _exportPayload.self_memories : [],
     wiki_articles: includeWiki ? _exportPayload.wiki_articles : [],
     agent_jobs: includeJobs ? _exportPayload.agent_jobs : [],
     agent_runs: includeJobs ? _exportPayload.agent_runs : [],
@@ -310,7 +314,7 @@ document.getElementById("exportBtn").addEventListener("click", async () => {
     const res = await fetch("/api/data/export", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ include_wiki: true, include_agent_jobs: true }),
+      body: JSON.stringify({ include_wiki: true, include_agent_jobs: true, include_self_memories: true }),
     });
     const payload = await res.json();
     if (!res.ok) throw new Error(payload.error || "Export failed");
@@ -339,25 +343,26 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
     return;
   }
 
-  // Accept both full exports ({ memories, wiki_articles }) and old exports (array).
+  // Accept both full exports ({ memories, wiki_articles, self_memories }) and old exports (array).
   const memories = payload.memories ?? (Array.isArray(payload) ? payload : null);
   const wiki = payload.wiki_articles ?? [];
+  const selfMemories = payload.self_memories ?? [];
   if (!Array.isArray(memories) || memories.length === 0) {
     showErrorModal(t("import_invalid_array"));
     return;
   }
 
-  const confirmKey = wiki.length > 0
+  const confirmKey = (wiki.length > 0 || selfMemories.length > 0)
     ? "import_confirm_full"
     : (memories.length === 1 ? "import_confirm_one" : "import_confirm_many");
-  const confirmMsg = t(confirmKey, { m: memories.length, w: wiki.length, n: memories.length, file: file.name });
+  const confirmMsg = t(confirmKey, { m: memories.length, w: wiki.length, s: selfMemories.length, n: memories.length, file: file.name });
 
   showConfirmModal("Import database", confirmMsg, "Import", async () => {
     try {
       const res = await fetch("/api/data/import", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ memories, wiki_articles: wiki }),
+      body: JSON.stringify({ memories, wiki_articles: wiki, self_memories: selfMemories }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Import failed");
@@ -368,8 +373,9 @@ document.getElementById("importFileInput").addEventListener("change", async (e) 
       t("import_done_memories", { n: imported.memories || 0 }),
     ];
     if (imported.wiki > 0) parts.push(t("import_done_wiki", { n: imported.wiki }));
-    if (skipped.memories > 0 || skipped.wiki > 0) {
-      parts.push(t("import_skipped", { m: skipped.memories || 0, w: skipped.wiki || 0 }));
+    if (imported.self_memories > 0) parts.push(t("import_done_self_memories", { n: imported.self_memories }));
+    if (skipped.memories > 0 || skipped.wiki > 0 || skipped.self_memories > 0) {
+      parts.push(t("import_skipped", { m: skipped.memories || 0, w: skipped.wiki || 0, s: skipped.self_memories || 0 }));
     }
     showConfirmModal("Import complete", parts.join("\n"), "OK");
 

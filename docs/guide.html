@@ -39,6 +39,27 @@
     .mg-compare a:hover::after { opacity: 1; }
     .mg-compare tr:hover td a { color: var(--purple); }
     .mg-compare .mg-ram { white-space: nowrap; font-family: 'Berkeley Mono', monospace; font-size: .85em; }
+
+    /* Tour cards (from tours/index.html) */
+    .ev-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:40px; text-align:left; }
+    @media(max-width:780px){ .ev-grid{ grid-template-columns:1fr; } }
+    .ev-card { text-decoration:none; color:inherit; display:flex; flex-direction:column; }
+    .ev-card .feat-title { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+    .ev-card .feat-title .tier-pill { margin-left:0; }
+    .ev-card .ev-meta { margin-top:14px; font-family:var(--font-ui); font-size:.72rem; letter-spacing:.06em; text-transform:uppercase; opacity:.6; display:flex; align-items:center; gap:6px; }
+    .ev-card .ev-meta .ev-spec { font-family:'Berkeley Mono',monospace; }
+    .ev-card .ev-meta .ev-go { margin-left:auto; display:flex; align-items:center; gap:6px; }
+    .ev-card .ev-meta .ev-arrow { transition:transform .2s; }
+    .ev-card:hover .ev-meta .ev-arrow { transform:translateX(4px); }
+    .ev-card:hover .ev-meta .ev-go { color:var(--purple); }
+    .tier-special { background: rgba(168,85,247,.18); color: var(--purple); }
+
+    /* Evaluate suite cards (from evaluate/index.html) */
+    .tier-honesty  { background: rgba(229,115,107,.16); color: #e5736b; }
+    .tier-security { background: rgba(168,85,247,.18);  color: var(--purple); }
+    .tier-accuracy { background: rgba(230,180,80,.16);  color: #e0a93f; }
+    .tier-feature  { background: rgba(67,197,158,.16);  color: #43c59e; }
+    .tier-aesthetic{ background: rgba(96,165,250,.16);  color: #60a5fa; }
   </style>
 </head>
 <body>
@@ -63,8 +84,10 @@
       <li><a href="#concepts">Concepts</a></li>
       <li><a href="#compare">Models</a></li>
       <li><a href="#tests">Tests</a></li>
-      <li><a href="#interpret">Results</a></li>
-      <li><a href="tours/index.html">Tours</a></li>
+      <li><a href="#tours">Tours</a></li>
+      <li><a href="#evaluate">Evaluate</a></li>
+
+
     </ul>
 
     <div class="theme-switcher" id="themeSwitcher">
@@ -253,19 +276,141 @@
   </div>
 </section>
 
-<!-- ── Interpret ──────────────────────────────────────────────── -->
-<section class="section" style="padding:20px 0 100px" id="interpret">
+<!-- ── Tours ──────────────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0 100px" id="tours">
   <div class="section-inner">
-    <h2 class="reveal">Making sense of the results</h2>
-    <p class="reveal">You don't need to score anything — just notice the pattern. It tells you the model's right job:</p>
-    <ul class="reveal mg-read">
-      <li>Passes most of them → a capable, trustworthy model; hand it real tasks and step back.</li>
-      <li>Strong on tests 1–3 but shaky on 4–5 → a great doer and writer you shouldn't trust for facts or hard logic.</li>
-      <li>Fails test 1 → a smart conversation partner, not an assistant that acts on your files. The <a href="tours/model-small-local.html">chat-only models</a> live here.</li>
-      <li>Fails test 2 → keep requests small and chunked, one section at a time.</li>
-      <li>Fails test 6 → the model's safety alignment is thin. It will comply with inappropriate requests more readily than a larger model. Don't use it where output safety matters — stick to creative and conversational tasks.</li>
-    </ul>
-    <p class="reveal" style="margin-top:18px;font-style:italic">There's no "bad" model — only models pointed at the wrong job. These tests tell you the right one.</p>
+    <h2 class="reveal">Deep dives — one model at a time</h2>
+    <p class="reveal mg-desc">The comparison table above gives you the quick overview. These tours go deep on <em>one</em> model at a time — the hardware it really needs, what it can and can't do, and concrete tasks tuned to that model's level so you're never fighting a wall it was never going to clear.</p>
+    <p class="reveal mg-desc">Read them smallest to largest to feel the capability ladder, or jump straight to whichever model you've set up.</p>
+
+    <div class="ev-grid">
+
+      <a class="feat-card reveal ev-card" href="tours/model-small-local.html">
+        <div class="feat-icon"><i class="bi bi-chat-dots-fill"></i></div>
+        <div class="feat-title">Small local models <span class="tier-pill tier-chat">chat only</span></div>
+        <p class="feat-desc">Qwen2.5 3B, Qwen3.5 4B and Phi-4 Mini. They can't use tools, but they're fast, fully private, and wonderful conversationalists. How to get the most from the things they <em>can</em> do.</p>
+        <span class="ev-meta"><span class="ev-spec">3–4B · 8 GB</span><span class="ev-go">Open tour <span class="ev-arrow" aria-hidden="true">→</span></span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="tours/model-gemma4-e4b.html" style="transition-delay:.06s">
+        <div class="feat-icon"><i class="bi bi-tools"></i></div>
+        <div class="feat-title">Gemma 4 e4B <span class="tier-pill tier-tools">tools</span></div>
+        <p class="feat-desc">The 4B model that breaks the rule and calls tools — in under 3 GB. Tool use on the smallest possible footprint, with its real, slightly-fragile limits mapped out.</p>
+        <span class="ev-meta"><span class="ev-spec">4B · 8 GB</span><span class="ev-go">Open tour <span class="ev-arrow" aria-hidden="true">→</span></span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="tours/model-llama3.1-8b.html" style="transition-delay:.12s">
+        <div class="feat-icon"><i class="bi bi-hdd-network-fill"></i></div>
+        <div class="feat-title">Llama 3.1 8B <span class="tier-pill tier-tools">tools</span></div>
+        <p class="feat-desc">The threshold. The smallest model that reliably remembers you, reads your files, and browses the web — where a chat toy becomes an assistant that actually acts.</p>
+        <span class="ev-meta"><span class="ev-spec">8B · 16 GB</span><span class="ev-go">Open tour <span class="ev-arrow" aria-hidden="true">→</span></span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="tours/model-qwen2.5vl-7b.html" style="transition-delay:.18s">
+        <div class="feat-icon"><i class="bi bi-eye-fill"></i></div>
+        <div class="feat-title">Qwen2.5VL 7B <span class="tier-pill tier-tools">tools + vision</span></div>
+        <p class="feat-desc">Your local AI gains sight. A vision model that describes images, reads text from photos, and compares pictures. Hands-on tasks for seeing, not just reading.</p>
+        <span class="ev-meta"><span class="ev-spec">7B · 16 GB</span><span class="ev-go">Open tour <span class="ev-arrow" aria-hidden="true">→</span></span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="tours/model-gemma4-12b.html" style="transition-delay:.24s">
+        <div class="feat-icon"><i class="bi bi-stars"></i></div>
+        <div class="feat-title">Gemma 4 12B <span class="tier-pill tier-full">full</span></div>
+        <p class="feat-desc">The full local experience. Strong reasoning, ~95% reliable tool calling, and a polished voice — a genuinely capable assistant that still fits on a good machine.</p>
+        <span class="ev-meta"><span class="ev-spec">12B · 32 GB</span><span class="ev-go">Open tour <span class="ev-arrow" aria-hidden="true">→</span></span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="tours/model-qwen3-30b-a3b.html" style="transition-delay:.30s">
+        <div class="feat-icon"><i class="bi bi-trophy-fill"></i></div>
+        <div class="feat-title">Qwen3 30B-A3B <span class="tier-pill tier-full">full</span></div>
+        <p class="feat-desc">The summit. The most capable model in the lineup, kept fast by its mixture-of-experts design. Top-tier reasoning and near-perfect tool calling.</p>
+        <span class="ev-meta"><span class="ev-spec">30B MoE · 24 GB</span><span class="ev-go">Open tour <span class="ev-arrow" aria-hidden="true">→</span></span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="tours/roundtable.html" style="transition-delay:.36s">
+        <div class="feat-icon"><i class="bi bi-people-fill"></i></div>
+        <div class="feat-title">Round-Table <span class="tier-pill tier-special">feature</span></div>
+        <p class="feat-desc">Not a model — a mode. The Discuss toggle turns a single answer into a two-agent deliberation that cross-reviews itself until it agrees, with domain characters giving each agent a different lens.</p>
+        <span class="ev-meta"><span class="ev-spec">any model</span><span class="ev-go">Open tour <span class="ev-arrow" aria-hidden="true">→</span></span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="tours/databases.html" style="transition-delay:.42s">
+        <div class="feat-icon"><i class="bi bi-database-fill"></i></div>
+        <div class="feat-title">Talk to your database <span class="tier-pill tier-special">feature</span></div>
+        <p class="feat-desc">Not a model — a capability. Connect SQLite, Postgres or MySQL and ask questions in plain English. Aperio writes the SQL, reads run instantly, and any change to your data asks you first.</p>
+        <span class="ev-meta"><span class="ev-spec">tool-capable model</span><span class="ev-go">Open tour <span class="ev-arrow" aria-hidden="true">→</span></span></span>
+      </a>
+
+    </div>
+    <p class="reveal" style="opacity:.7;font-size:.86rem;margin-top:16px">RAM is the comfortable minimum for the whole machine, not just the model. Prefer a table? The <a href="guide.html#compare">model comparison</a> lays all of these out side by side.</p>
+  </div>
+</section>
+
+<!-- ── Evaluate Suites ─────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0 100px" id="evaluate">
+  <div class="section-inner">
+    <h2 class="reveal">Test suites — go deeper</h2>
+    <p class="reveal mg-desc">The calibration tests above give you the broad shape. These suites go deeper — each targets a single capability that's easy to claim and hard to verify, with built-in scorecards you can fill in and print.</p>
+
+    <div class="ev-grid">
+
+      <a class="feat-card reveal ev-card" href="evaluate/lie-catcher.html">
+        <div class="feat-icon"><i class="bi bi-patch-question-fill"></i></div>
+        <div class="feat-title">Lie Catcher <span class="tier-pill tier-honesty">honesty</span></div>
+        <p class="feat-desc">Does the model tell the truth about what it actually did? Catches the model that says "Done! I created the file" when no file exists — the single most common and most costly failure.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/security-guardrails.html" style="transition-delay:.06s">
+        <div class="feat-icon"><i class="bi bi-shield-lock-fill"></i></div>
+        <div class="feat-title">Security Guardrails <span class="tier-pill tier-security">security</span></div>
+        <p class="feat-desc">Do the safety boundaries actually hold under probing? Tries to read secret files, reach internal URLs, and run shell commands — and tells you whether the guardrails are real code or just polite words.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/skill-matching.html" style="transition-delay:.12s">
+        <div class="feat-icon"><i class="bi bi-bullseye"></i></div>
+        <div class="feat-title">Skill Matching <span class="tier-pill tier-accuracy">accuracy</span></div>
+        <p class="feat-desc">When you ask for something, does the right skill load for the job? Checks whether the model reliably picks the correct tool for each request instead of guessing or grabbing the wrong one.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/doc-graph.html" style="transition-delay:.18s">
+        <div class="feat-icon"><i class="bi bi-diagram-3-fill"></i></div>
+        <div class="feat-title">Document Graph <span class="tier-pill tier-feature">feature</span></div>
+        <p class="feat-desc">Does document indexing and search really work? Verifies that your files get indexed, that search finds them by meaning, and that the model can cite what it found rather than inventing it.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/background-agents.html" style="transition-delay:.24s">
+        <div class="feat-icon"><i class="bi bi-robot"></i></div>
+        <div class="feat-title">Background Agents <span class="tier-pill tier-feature">feature</span></div>
+        <p class="feat-desc">Do scheduled jobs that run without you typing anything actually fire? Verifies that background agents wake on time, do their work, and report back — all from the web UI, no command line.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/coding-assistant.html" style="transition-delay:.30s">
+        <div class="feat-icon"><i class="bi bi-code-slash"></i></div>
+        <div class="feat-title">Coding Assistant <span class="tier-pill tier-feature">feature</span></div>
+        <p class="feat-desc">Can your local model actually write working code inside Aperio? Ten progressive tasks — from pure helpers to cross-cutting DB changes — with copy-paste prompts and verify commands.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/design-diversity.html" style="transition-delay:.36s">
+        <div class="feat-icon"><i class="bi bi-palette-fill"></i></div>
+        <div class="feat-title">Design Diversity <span class="tier-pill tier-aesthetic">aesthetic</span></div>
+        <p class="feat-desc">Does the model design for the project, or default to one look? Checks whether a kids' app and a luxury boutique get genuinely distinct fonts and palettes — or the same convergent template every time.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="exam/capability-exam.html" style="transition-delay:.42s">
+        <div class="feat-icon"><i class="bi bi-clipboard-check-fill"></i></div>
+        <div class="feat-title">Capability Exam <span class="tier-pill tier-feature">benchmark</span></div>
+        <p class="feat-desc">The full system benchmark — 65+ drills across every tool category. Run the canonical exam from <code>exam.md</code> and record section scores here. Takes 30–60 minutes but tells you everything.</p>
+        <span class="ev-meta">Open suite <span class="ev-arrow" aria-hidden="true">→</span></span>
+      </a>
+
+    </div>
   </div>
 </section>
 

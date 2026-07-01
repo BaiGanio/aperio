@@ -89,6 +89,7 @@ Your context, always available.
 │   ├── index.js                  # MCP server entry point
 │   └── 📂 tools/
 │       ├── memory.js             # remember · recall · update_memory · forget · backfill_embeddings · deduplicate_memories (6)
+│       ├── self-memory.js         # self_remember · self_recall · self_update · self_forget (4)
 │       ├── files.js              # read_file · write_file · append_file · edit_file · read_docx · scan_project · delete_file · generate_xlsx · generate_docx (9)
 │       ├── wiki.js               # wiki_write · wiki_search · wiki_list · wiki_get (4)
 │       ├── codegraph.js          # code_search · code_outline · code_context · code_callers · code_callees · code_repos (6)
@@ -329,7 +330,7 @@ memories.
 
 ## MCP Tools
 
-Aperio exposes **50 tools** across 11 categories over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
+Aperio exposes **54 tools** across 12 categories over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
 
 | Category | Tool | What it does |
 |----------|------|-------------|
@@ -339,6 +340,10 @@ Aperio exposes **50 tools** across 11 categories over MCP. Any MCP-compatible ag
 | | `forget` | Delete a memory by ID |
 | | `backfill_embeddings` | Generate embeddings for memories that are missing one |
 | | `deduplicate_memories` | Find and merge near-duplicate memories by cosine similarity |
+| **Self-Memory** | `self_remember` | Save a note to the agent's own walled-off store — separate from user memory |
+| | `self_recall` | Search the agent's own notes semantically or by full-text |
+| | `self_update` | Revise one of the agent's own notes in-place by ID |
+| | `self_forget` | Delete one of the agent's own notes by ID |
 | **Wiki** | `wiki_write` | Create or update a wiki article (LLM-authored, cited synthesis); upserts by slug, bumps revision |
 | | `wiki_search` | Hybrid full-text + semantic search over articles — call before `wiki_write` |
 | | `wiki_list` | Browse articles newest-first by tag / status / `updated_since` |

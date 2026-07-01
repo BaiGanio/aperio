@@ -166,7 +166,7 @@
 <!-- ── Stats ───────────────────────────────────────────────────── -->
 <div class="stats-bar z1">
   <div class="stats-inner">
-    <div class="stat reveal"><div class="stat-num">50</div><div class="stat-lbl">MCP Tools</div></div>
+    <div class="stat reveal"><div class="stat-num">54</div><div class="stat-lbl">MCP Tools</div></div>
     <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">8</div><div class="stat-lbl">Memory Types</div></div>
     <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">0</div><div class="stat-lbl">API Keys Required</div></div>
     <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl">Vendor Lock-in</div></div>
@@ -183,7 +183,12 @@
       <div class="feat-card reveal">
         <div class="feat-icon"><i class="bi bi-database-fill-check"></i></div>
         <div class="feat-title">Persistent Memory</div>
-        <p class="feat-desc">Memories survive every conversation, every tool, every session. 8 structured types keep things organized — facts, decisions, solutions and more.</p>
+        <p class="feat-desc">Your memories survive every conversation, every tool, every session. 8 structured types keep things organized — facts, preferences, decisions, solutions and more.</p>
+      </div>
+      <div class="feat-card reveal" style="transition-delay:.04s">
+        <div class="feat-icon"><i class="bi bi-journal-bookmark-fill"></i></div>
+        <div class="feat-title">Agent Self-Memory</div>
+        <p class="feat-desc">The AI keeps its own private notebook — walled off from your memories. It learns what works, remembers your style, and carries its own observations across every session.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.07s">
         <div class="feat-icon"><i class="bi bi-search-heart"></i></div>
@@ -229,7 +234,7 @@
       </div>
       <div class="feat-card reveal" style="transition-delay:.28s">
         <div class="feat-icon"><i class="bi bi-people-fill"></i></div>
-        <div class="feat-title">Team Ready</div>
+        <div class="feat-title">Team Ready <span style="font-size:0.62rem;background:rgba(230,180,80,.16);color:#e0a93f;padding:2px 7px;border-radius:3px;margin-left:8px;vertical-align:middle;text-transform:uppercase;letter-spacing:.05em;">coming soon</span></div>
         <p class="feat-desc">Since you own the database, Aperio scales from personal to shared team brain with two changes — update the system prompt and seed team memories. One brain for the whole team.</p>
       </div>
     </div>
@@ -250,7 +255,7 @@
           <div class="arch-connector">↕ WebSocket</div>
           <div class="arch-row"><span class="arch-icon">⚡</span><div><div class="arch-name">Express Server</div><div class="arch-sub">server.js · agent loop</div></div></div>
           <div class="arch-connector">↕ stdio</div>
-          <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name">MCP Server</div><div class="arch-sub">mcp/index.js · 50 tools · 11 categories</div></div></div>
+          <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name">MCP Server</div><div class="arch-sub">mcp/index.js · 54 tools · 12 categories</div></div></div>
           <div class="arch-connector">↕</div>
           <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">Postgres 16 + pgvector</div><div class="arch-sub">memories table · HNSW index</div></div></div>
           <div class="arch-connector">↕</div>
@@ -279,7 +284,7 @@
 <section class="section" id="tools">
   <div class="section-inner wide">
     <div class="eyebrow reveal">MCP Tools</div>
-    <h2 class="section-heading reveal">50 tools. One protocol.</h2>
+    <h2 class="section-heading reveal">54 tools. One protocol.</h2>
     <p class="lead-text reveal">Each one is available to any MCP-compatible agent (Claude, Cursor, Windsurf).</p>
 
     <div class="tool-cat-label reveal"><i class="bi bi-database-fill-check"></i>Memory<span class="cat-count">6 tools</span></div>
@@ -290,6 +295,14 @@
       <div class="tool-chip reveal"><i class="bi bi-trash3 tool-icon"></i><div><div class="tool-name">forget</div><div class="tool-desc">Delete a specific memory by UUID</div></div></div>
       <div class="tool-chip reveal"><i class="bi bi-cpu tool-icon"></i><div><div class="tool-name">backfill_embeddings</div><div class="tool-desc">Batch-generate embeddings for unembedded memories</div></div></div>
       <div class="tool-chip reveal"><i class="bi bi-intersect tool-icon"></i><div><div class="tool-name">deduplicate_memories</div><div class="tool-desc">Find near-duplicates via cosine similarity</div></div></div>
+    </div>
+
+    <div class="tool-cat-label reveal"><i class="bi bi-person-badge"></i>Self-Memory<span class="cat-count">4 tools</span></div>
+    <div class="tools-grid">
+      <div class="tool-chip reveal"><i class="bi bi-journal-plus tool-icon"></i><div><div class="tool-name">self_remember</div><div class="tool-desc">Agent saves a note to its own private store — walled off from user memories</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-search tool-icon"></i><div><div class="tool-name">self_recall</div><div class="tool-desc">Agent searches its own notes semantically or by full-text</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-pencil-square tool-icon"></i><div><div class="tool-name">self_update</div><div class="tool-desc">Agent revises one of its own notes in-place</div></div></div>
+      <div class="tool-chip reveal"><i class="bi bi-trash3 tool-icon"></i><div><div class="tool-name">self_forget</div><div class="tool-desc">Agent deletes one of its own notes</div></div></div>
     </div>
 
     <div class="tool-cat-label reveal"><i class="bi bi-files"></i>Files<span class="cat-count">9 tools</span></div>

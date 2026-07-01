@@ -787,6 +787,10 @@ describe("PostgresStore — exportAll / importAll / close", () => {
         phase = "runs";
         return { rows: [{ job_id: "aj1", started_at: "2026-06-01T00:00:00Z", verdict: "ok" }] };
       }
+      if (sql.includes("self_memories") && sql.includes("SELECT id, title, content")) {
+        phase = "self_memories";
+        return { rows: [{ id: "s1", title: "Self exported", content: "Own note", tags: ["a"], importance: 4, source: "self", lang: "english", confidence: 1.0 }] };
+      }
       return { rows: [] };
     };
     const store = await PostgresStore.init();
@@ -795,10 +799,12 @@ describe("PostgresStore — exportAll / importAll / close", () => {
     assert.ok(Array.isArray(data.wiki_articles));
     assert.ok(Array.isArray(data.agent_jobs));
     assert.ok(Array.isArray(data.agent_runs));
+    assert.ok(Array.isArray(data.self_memories));
     assert.equal(data.memories[0].title, "Exported");
+    assert.equal(data.self_memories[0].title, "Self exported");
   });
 
-  test("importAll imports memories, wiki, jobs and runs", async () => {
+  test("importAll imports memories, wiki, jobs, runs and self_memories", async () => {
     let queryCount = 0;
     _poolQuery = async () => {
       queryCount++;
@@ -810,11 +816,13 @@ describe("PostgresStore — exportAll / importAll / close", () => {
       wiki_articles: [{ slug: "imp-wiki", title: "Imported Wiki", body_md: "content" }],
       agent_jobs: [{ id: "imp-job", enabled: true, prompt: "test" }],
       agent_runs: [{ job_id: "imp-job", started_at: "2026-06-01T00:00:00Z", verdict: "ok" }],
+      self_memories: [{ id: "imp-s1", title: "Imported Self", content: "content" }],
     });
     assert.equal(result.imported.memories, 1);
     assert.equal(result.imported.wiki, 1);
     assert.equal(result.imported.jobs, 1);
     assert.equal(result.imported.runs, 1);
+    assert.equal(result.imported.self_memories, 1);
   });
 
   test("close calls pool.end", async () => {

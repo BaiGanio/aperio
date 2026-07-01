@@ -6,6 +6,12 @@
 // The "Memories" row delegates to the existing rich memory table (window.openMemoryTable)
 // so its delete/pin actions stay intact. Export/Import (memories-only) live in the
 // panel header; their click handlers are wired in index.js by element id.
+//
+// "Self-memories" (the agent's own walled-off notes) is injected client-side rather
+// than coming from /api/db/tables — it's deliberately excluded from the generic table
+// whitelist (db/tables.js) so the wall between user data and agent notes holds even at
+// the DB-browser level. Its row delegates to window.openSelfMemoryTable, a bespoke
+// modal backed by the dedicated GET/DELETE /api/self-memories endpoints.
 
 (() => {
   const PAGE_SIZE = 25;
@@ -81,9 +87,23 @@
       const r = await fetch(url);
       const data = await r.json();
       if (!r.ok) throw new Error(data.error || "Failed to load tables");
-      renderTableList(data.tables || []);
+      const tables = data.tables || [];
+      if (isAperio()) tables.push({ name: "self_memories", label: "Self-memories", count: await fetchSelfMemoryCount() });
+      renderTableList(tables);
     } catch (err) {
       el.innerHTML = `<div class="db-empty" style="color:#ef4444;">${escapeHtml(err.message)}</div>`;
+    }
+  }
+
+  // self_memories isn't in the whitelisted /api/db/tables response (see above), so its
+  // row count comes from the dedicated oversight endpoint instead.
+  async function fetchSelfMemoryCount() {
+    try {
+      const r = await fetch("/api/self-memories");
+      const data = await r.json();
+      return Array.isArray(data.raw) ? data.raw.length : null;
+    } catch {
+      return null;
     }
   }
 
@@ -104,6 +124,8 @@
         const name = btn.dataset.name;
         if (isAperio() && name === "memories" && typeof window.openMemoryTable === "function") {
           window.openMemoryTable();
+        } else if (isAperio() && name === "self_memories" && typeof window.openSelfMemoryTable === "function") {
+          window.openSelfMemoryTable();
         } else {
           openDbTable(name, btn.dataset.label);
         }

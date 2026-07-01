@@ -518,13 +518,28 @@ export class SqliteStore {
       agent_runs.push(...getRuns.all(job.id));
     }
 
-    return { memories, wiki_articles, agent_jobs, agent_runs };
+    const self_memories = this.db.prepare(`
+      SELECT id, title, content, tags, importance, source, lang, confidence
+        FROM self_memories
+       ORDER BY importance DESC, created_at DESC
+    `).all().map(sm => ({
+      id:         sm.id,
+      title:      sm.title,
+      content:    sm.content,
+      tags:       JSON.parse(sm.tags || '[]'),
+      importance: Number(sm.importance),
+      source:     sm.source,
+      lang:       sm.lang ?? 'english',
+      confidence: sm.confidence !== null ? Number(sm.confidence) : 1.0,
+    }));
+
+    return { memories, wiki_articles, agent_jobs, agent_runs, self_memories };
   }
 
-  async importAll({ memories = [], wiki_articles = [], agent_jobs = [], agent_runs = [] }) {
+  async importAll({ memories = [], wiki_articles = [], agent_jobs = [], agent_runs = [], self_memories = [] }) {
     const result = {
-      imported: { memories: 0, wiki: 0, jobs: 0, runs: 0 },
-      skipped:  { memories: 0, wiki: 0, jobs: 0, runs: 0 },
+      imported: { memories: 0, wiki: 0, jobs: 0, runs: 0, self_memories: 0 },
+      skipped:  { memories: 0, wiki: 0, jobs: 0, runs: 0, self_memories: 0 },
     };
 
     const tx = this.db.transaction(() => {
@@ -598,6 +613,22 @@ export class SqliteStore {
             r.error ?? null, r.tools ?? null, r.answer ?? null
           );
           info.changes > 0 ? result.imported.runs++ : result.skipped.runs++;
+        }
+      }
+
+      // ── Self-memories (dedup by id, like memories) ───────────
+      if (self_memories.length) {
+        const insertSelfMem = this.db.prepare(`
+          INSERT OR IGNORE INTO self_memories
+            (id, title, content, tags, importance, source, lang, confidence)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+        for (const sm of self_memories) {
+          const info = insertSelfMem.run(
+            sm.id, sm.title, sm.content, JSON.stringify(sm.tags ?? []),
+            sm.importance ?? 3, sm.source ?? 'import', sm.lang ?? 'english', sm.confidence ?? 1.0
+          );
+          info.changes > 0 ? result.imported.self_memories++ : result.skipped.self_memories++;
         }
       }
     });
