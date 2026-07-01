@@ -1058,6 +1058,15 @@ describe("persistAnswerArtifacts()", () => {
   test("returns 0 with no scratch dir", () => {
     assert.equal(persistAnswerArtifacts("```html\n" + bigHtml + "\n```", null), 0);
   });
+
+  test("creates the scratch dir if it doesn't exist yet", () => {
+    // A model that never calls a file-writing tool leaves the lazily-created
+    // scratch dir absent; persisting an extracted artifact must not ENOENT.
+    const missing = path.join(dir, "session-never-created");
+    const bigMd = "# Title\n\n" + Array.from({ length: 30 }, (_, i) => `- item ${i}`).join("\n");
+    assert.equal(persistAnswerArtifacts("Here:\n```md\n" + bigMd + "\n```", missing), 1);
+    assert.match(fs.readdirSync(missing)[0], /^[0-9a-f]{8}-build-1\.md$/);
+  });
 });
 
 // ---------------------------------------------------------------------------

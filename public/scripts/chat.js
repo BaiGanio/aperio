@@ -22,6 +22,8 @@ window.currentPage = 1;
 window.recordsPerPage = 10;
 // Set by the provider message on connection; updated if the model changes at runtime.
 window.maxCtx = 0;
+// Ollama-only: served window as a % of the machine's RAM capacity. null = hide it.
+window.maxCtxCapacityPct = null;
 
 // ── DOM refs ─────────────────────────────────────────────────
 window.messagesEl   = document.getElementById("messages");

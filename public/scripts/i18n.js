@@ -256,6 +256,7 @@ const TRANSLATIONS = {
     ctx_trimmed:              "Older messages were dropped to fit context ({pct}% full).",
     ctx_summarize:            "Summarize",
     ctx_dismiss:              "Dismiss",
+    ctx_capacity_tip:         "{pct}% of what your machine's RAM can hold — the window size Aperio auto-configured for your hardware.",
     ctx_summarize_failed:     "⚠ Could not summarize: {reason}",
     ctx_summarize_no_save:    "Summary generated but could not be saved to memory — it will be lost on refresh.",
     ctx_summarize_ok:         "✓ Conversation summarized and saved to memory.",

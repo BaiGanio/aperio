@@ -508,6 +508,12 @@ async function bootApp() {
   // Format: "provider:model,provider:model" — first pair = round-table primary
   // (answerer), second pair = verifier (reviewer). Both entries required;
   // otherwise the Discuss toggle stays disabled.
+  // Ollama must be sized + started BEFORE the agent is built. ensureOllama()
+  // finalizes OLLAMA_NUM_CTX / OLLAMA_CONTEXT_LENGTH in the env, and createAgent
+  // snapshots provider.contextWindow from them. Run it afterwards and the window
+  // freezes at the 32768 default even though the server serves a larger one.
+  if ((process.env.AI_PROVIDER || "").toLowerCase() === "ollama") await ensureOllama();
+
   const agent = await createAgent({
     root: __dirname,
     version,
@@ -557,9 +563,6 @@ async function bootApp() {
   }
   const roundtableAvailable = Boolean(primaryRoundtable && verifier);
 
-  // Ollama
-  if (provider.name === "ollama") await ensureOllama();
-
   // Watchdog
   const watchdog = createWatchdog({
     enabled:   provider.name === "ollama",
@@ -577,6 +580,19 @@ async function bootApp() {
             ? ` · thinking via ${agent.reasoningAdapter.match}` : ""}`;
 
   logger.info(`🤖 Provider: ${providerLabel}`);
+  if (provider.name === "ollama") {
+    const { machineCapacityPct } = await import("./lib/providers/index.js");
+    const fmt = (n) => Number(n).toLocaleString("en-US");
+    const serverWin = process.env.OLLAMA_CONTEXT_LENGTH;
+    const capPct = machineCapacityPct(provider.model);
+    const detail = [
+      serverWin ? `server KV cache ${fmt(serverWin)}` : null,
+      typeof capPct === "number" ? `${capPct}% of RAM capacity` : null,
+    ].filter(Boolean).join(" · ");
+    logger.info(
+      `🧮 Context window: ${fmt(provider.contextWindow)} tokens` + (detail ? ` (${detail})` : ""),
+    );
+  }
   logger.info("✅ MCP server connected");
 
   // Background-agent scheduler — created before the API mount so the
