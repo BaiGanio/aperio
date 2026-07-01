@@ -1,0 +1,46 @@
+{
+  "_note": "Frozen ground truth for autotune — the metric, not the surface. DO NOT edit during a tuning run. 'expect' = the skill that must rank FIRST; 'expectNot' = skills that must never appear. set 'exam' mirrors exam.md §7 (keep green); set 'hard' are realistic paraphrases that AVOID the curated keywords (several fail at baseline — that's the loop's work).",
+  "cases": [
+    { "id": "7.1",  "set": "exam", "prompt": "Create a PowerPoint pitch deck with 5 slides about the Nimbus service.", "expect": "pptx" },
+    { "id": "7.2",  "set": "exam", "prompt": "Open the spreadsheet in my downloads and add a column with computed totals.", "expect": "xlsx" },
+    { "id": "7.3",  "set": "exam", "prompt": "I need to edit an existing Word document — add tracked changes and a comment.", "expect": "docx-advanced" },
+    { "id": "7.4",  "set": "exam", "prompt": "Merge these two PDF files and add a watermark to every page.", "expect": "pdf" },
+    { "id": "7.5",  "set": "exam", "prompt": "Design a minimal poster as a PNG using good visual design philosophy.", "expect": "canvas-design" },
+    { "id": "7.6",  "set": "exam", "prompt": "Build a styled React dashboard landing page with a custom color theme.", "expect": "theme-factory" },
+    { "id": "7.7",  "set": "exam", "prompt": "Help me co-author a design doc / technical spec for the pricing API.", "expect": "doc-coauthoring" },
+    { "id": "7.8",  "set": "exam", "prompt": "I have a rough half-formed idea — help me structure this into a proper prompt.", "expect": "prompt-optimizer" },
+    { "id": "7.9",  "set": "exam", "prompt": "This is a complex multi-step task with dependencies — plan first, then execute.", "expect": "reasoning-planning" },
+    { "id": "7.10", "set": "exam", "prompt": "Review this Go code for naming conventions and error handling style.", "expect": "coding-standards" },
+    { "id": "7.11", "set": "exam", "prompt": "I want to create a new skill from scratch and run an eval to benchmark it.", "expect": "skill-creator" },
+    { "id": "7.12", "set": "exam", "prompt": "Guide me on building MCP servers to integrate external services and APIs using the MCP SDK.", "expect": "mcp-builder" },
+    { "id": "7.13", "set": "exam", "prompt": "Run a Playwright browser test and screenshot the app's frontend.", "expect": "webapp-testing" },
+    { "id": "7.14", "set": "exam", "prompt": "Save this as a preference and remember my correction for future context.", "expect": "memory-protocol" },
+    { "id": "7.15", "set": "exam", "prompt": "Find where a function is defined and what calls it in this indexed repo.", "expect": "codegraph" },
+    { "id": "7.16", "set": "exam", "prompt": "Chain these two tool calls with a retry and fallback on failure.", "expect": "tool-integration" },
+    { "id": "7.17", "set": "exam", "prompt": "The context window is filling up — do a handoff so a fresh agent can continue.", "expect": "handoff" },
+    { "id": "neg.load-never", "set": "exam", "prompt": "Show me some coding examples and explain memory learning.", "expectNot": ["coding-examples", "memory-learning"] },
+
+    { "id": "hard.pptx",      "set": "hard", "prompt": "Turn these meeting notes into something I can present to the board next week.", "expect": "pptx" },
+    { "id": "hard.docx-adv",  "set": "hard", "prompt": "Leave a margin note and accept all the redlines in this contract.", "expect": "docx-advanced" },
+    { "id": "hard.canvas",    "set": "hard", "prompt": "Lay out a one-page event flyer image with nice typography.", "expect": "canvas-design" },
+    { "id": "hard.prompt-opt","set": "hard", "prompt": "My instructions to the model are vague — sharpen them into a clean ask.", "expect": "prompt-optimizer" },
+    { "id": "hard.mcp",       "set": "hard", "prompt": "Wire up a connector server so the assistant can reach our internal API.", "expect": "mcp-builder" },
+    { "id": "hard.memory",    "set": "hard", "prompt": "Note my correction and keep it for next time I ask.", "expect": "memory-protocol" },
+    { "id": "hard.wiki",      "set": "hard", "prompt": "Save a curated knowledge-base page summarizing the launch.", "expect": "wiki" },
+    { "id": "hard.xlsx",      "set": "hard", "prompt": "I have a CSV of sales — pivot it and chart the monthly totals.", "expect": "xlsx" },
+    { "id": "hard.remember-appt", "set": "hard", "prompt": "Remember my dentist appointment next Thursday.", "expect": "memory-protocol" },
+    { "id": "hard.remind-me",     "set": "hard", "prompt": "Remind me about the appointment I told you earlier.", "expect": "memory-protocol" },
+
+    { "id": "7.18", "set": "exam", "prompt": "Debug why this function crashes with an exception and find the root cause.", "expect": "debugging-and-error-recovery" },
+    { "id": "7.19", "set": "exam", "prompt": "Write a failing unit test first, then make it pass using TDD.", "expect": "test-driven-development" },
+    { "id": "7.20", "set": "exam", "prompt": "Harden this API route against SQL injection and add input validation.", "expect": "security-and-hardening" },
+    { "id": "7.21", "set": "exam", "prompt": "Review this pull request before we merge it — check the design and the tests.", "expect": "code-review-and-quality" },
+    { "id": "7.22", "set": "exam", "prompt": "This function is overcomplicated — simplify it and reduce the nesting without changing behavior.", "expect": "code-simplification" },
+
+    { "id": "hard.debug",   "set": "hard", "prompt": "Something is throwing an exception on startup and I need to find the cause.", "expect": "debugging-and-error-recovery" },
+    { "id": "hard.tdd",     "set": "hard", "prompt": "Use red-green-refactor: write the failing test, then the code to satisfy it.", "expect": "test-driven-development" },
+    { "id": "hard.security","set": "hard", "prompt": "Make sure untrusted input to this endpoint is sanitized and the query is parameterized.", "expect": "security-and-hardening" },
+    { "id": "hard.review",  "set": "hard", "prompt": "Look over my diff before it lands and tell me what's blocking versus a nit.", "expect": "code-review-and-quality" },
+    { "id": "hard.simplify","set": "hard", "prompt": "Untangle this overcomplicated module and cut the dead code, keep behavior identical.", "expect": "code-simplification" }
+  ]
+}

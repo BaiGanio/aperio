@@ -1,0 +1,97 @@
+/* ── Language switcher (inline accordion inside the Settings panel) ───────── */
+.lang-switcher {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+/* Whole row is the trigger: label on the left, current language on the right. */
+.lang-trigger {
+  width: 100%;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--font-sans, inherit);
+  transition: color var(--transition);
+}
+.lang-trigger:hover .lang-trigger-value { color: var(--text); border-color: var(--accent); }
+
+/* The current-language pill on the right. */
+.lang-trigger-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: all var(--transition);
+}
+.lang-trigger-value .lang-flag { font-size: var(--fs-ui); line-height: 1; }
+.lang-trigger-value .lang-code { letter-spacing: 0.08em; }
+.lang-trigger-value .lang-caret { font-size: var(--fs-micro); opacity: 0.6; transition: transform var(--transition); }
+.lang-switcher.is-open .lang-caret { transform: rotate(180deg); }
+.lang-switcher.is-open .lang-trigger-value {
+  background: var(--bg-panel);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* Expands inline (in-flow) below the row — no floating, never clipped. */
+.lang-popover {
+  max-height: 300px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-panel);
+  padding: 4px;
+  display: none;
+}
+.lang-switcher.is-open .lang-popover { display: block; }
+
+.lang-option {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: var(--font-sans, inherit);
+  font-size: var(--fs-chrome);
+  text-align: left;
+  transition: background var(--transition);
+}
+.lang-option:hover { background: var(--bg-hover); }
+.lang-option.is-active {
+  background: var(--bg-hover);
+  color: var(--accent);
+  font-weight: 600;
+}
+.lang-option .lang-flag { font-size: var(--fs-reading); line-height: 1; flex-shrink: 0; }
+.lang-option .lang-code-mini {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.lang-popover::-webkit-scrollbar { width: 5px; }
+.lang-popover::-webkit-scrollbar-track { background: transparent; }
+.lang-popover::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }

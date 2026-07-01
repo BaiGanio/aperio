@@ -1,0 +1,385 @@
+    /* ── Theme switcher (inline group inside the sidebar theme row) ── */
+    .theme-switcher {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      flex-shrink: 0;
+      padding: 3px;
+      background: var(--bg-hover);
+      border-radius: 9px;
+    }
+
+    .theme-btn {
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--fs-micro);
+      transition: all var(--transition);
+      background: none;
+      color: var(--text-muted);
+      position: relative;
+    }
+
+    .theme-btn:hover { color: var(--text); }
+
+    .theme-btn.active {
+      background: var(--bg-panel);
+      color: var(--accent);
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    }
+
+    .theme-btn[data-theme="aurora"].active {
+      color: #a855f7;
+    }
+
+    /* Aurora special glow on logo */
+    [data-theme="aurora"] .logo-icon {
+      background: linear-gradient(135deg, #7c3aed, #ec4899);
+    }
+
+    [data-theme="aurora"] .send-btn {
+      background: linear-gradient(135deg, #7c3aed, #ec4899);
+    }
+
+    [data-theme="aurora"] .status-dot.connected { background: #a855f7; }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      grid-template-rows: 52px 1fr;
+      height: 100vh;
+      gap: 0;
+      transition: grid-template-columns 220ms ease;
+    }
+
+    .app.sidebar-collapsed {
+      grid-template-columns: 64px 1fr;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 20px;
+      background: var(--bg-panel);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      z-index: 10;
+    }
+
+    .logo {
+      font-family: var(--font-mono);
+      font-size: var(--fs-reading);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-icon {
+      width: 28px; height: 28px;
+      background: var(--text);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--fs-chrome);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--bg);
+      letter-spacing: -0.02em;
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      background: var(--bg-hover);
+      padding: 4px 10px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+    }
+
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: #9ca3af;
+      transition: background var(--transition);
+    }
+    .status-dot.connected { background: #22c55e; }
+    .status-dot.thinking  { background: #f59e0b; animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: .3; }
+    }
+
+    /* ── Nav action pill (reasoning · history · paths) ─────── */
+    .nav-actions-pill {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3px;
+      flex-shrink: 0;
+    }
+
+    /* Base for all three buttons inside the pill */
+    .nav-action-btn {
+      height: 26px;
+      border-radius: 40px;
+      border: 2px solid transparent;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transition: all var(--transition);
+      background: none;
+      color: var(--text-muted);
+      position: relative;
+    }
+    .nav-action-btn:hover {
+      background: var(--bg-panel);
+      color: var(--text);
+    }
+
+    /* Reasoning — word label + toggle switch */
+    .reasoning-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      user-select: none;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      transition: color var(--transition);
+    }
+    .reasoning-toggle.is-on { color: var(--text); }
+    .reasoning-toggle-label {}
+    .reasoning-toggle-track {
+      width: 28px;
+      height: 15px;
+      border-radius: 999px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      position: relative;
+      transition: background var(--transition);
+      flex-shrink: 0;
+    }
+    .reasoning-toggle.is-on .reasoning-toggle-track {
+      background: var(--accent, #3b82f6);
+      border-color: var(--accent, #3b82f6);
+    }
+    .reasoning-toggle-thumb {
+      position: absolute;
+      top: 1px;
+      left: 1px;
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform var(--transition);
+    }
+    .reasoning-toggle.is-on .reasoning-toggle-thumb {
+      transform: translateX(13px);
+    }
+
+    /* History and Paths — text label buttons */
+    .nav-action-btn--text {
+      padding: 0 8px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      font-weight: 700;
+      letter-spacing: 0.06em;
+    }
+
+    /* History and Paths — icon only, circle like theme-btn */
+    .nav-action-btn--icon {
+      width: 26px;
+      height: 26px;
+      padding: 0;
+      border-radius: 50%;
+      font-size: var(--fs-chrome);
+    }
+
+
+    /* ── Sidebar nav (chats · paths · wiki · sound · theme) ──── */
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      padding: 6px 10px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    .sidebar-nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      width: 100%;
+      height: 32px;
+      padding: 0 10px;
+      border: none;
+      border-radius: 8px;
+      background: none;
+      color: var(--text-muted);
+      font-family: var(--font-sans, inherit);
+      font-size: calc(12.5px * var(--font-scale));
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .sidebar-nav-btn:hover {
+      background: var(--bg-hover);
+      color: var(--text);
+    }
+
+    .sidebar-nav-icon {
+      font-size: var(--fs-secondary);
+      flex-shrink: 0;
+      width: 18px;
+      text-align: center;
+    }
+
+    .sidebar-nav-label { flex: 1; text-align: left; }
+
+    /* Memories shortcut only makes sense on the collapsed rail — when the
+       sidebar is expanded the search box + memory list are already visible. */
+    .sidebar-nav-btn--collapsed-only { display: none; }
+    .app.sidebar-collapsed .sidebar-nav-btn--collapsed-only { display: flex; }
+
+    /* Compact nav: icon-only strip so it costs almost no vertical space and the
+       memory list keeps the height. Labels are revealed by the Expand toggle,
+       which switches to the full labelled list. The toggle is one of the icons.
+       Scoped to the expanded sidebar — the collapsed rail keeps its own layout. */
+    .app:not(.sidebar-collapsed) .sidebar-nav.is-compact {
+      flex-direction: row;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 2px;
+      padding: 6px 8px;
+    }
+    .app:not(.sidebar-collapsed) .sidebar-nav.is-compact .sidebar-nav-btn {
+      width: 38px;
+      height: 34px;
+      padding: 0;
+      justify-content: center;
+    }
+    .app:not(.sidebar-collapsed) .sidebar-nav.is-compact .sidebar-nav-label {
+      display: none;
+    }
+    /* The density toggle is meaningless on the icon-only rail. */
+    .app.sidebar-collapsed #navDensityToggle { display: none; }
+
+    /* ── Sidebar ─────────────────────────────────────────────── */
+    .sidebar {
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: transform 220ms ease, opacity 220ms ease;
+    }
+
+    /* Collapsed = narrow icon rail: hide the memory-browsing area,
+       keep the nav icons reachable. */
+    .app.sidebar-collapsed .sidebar-header,
+    .app.sidebar-collapsed .memories-list,
+    .app.sidebar-collapsed .sidebar-footer  {
+      display: none;
+    }
+    .app.sidebar-collapsed .sidebar {
+      padding-top: 10px;
+    }
+    .app.sidebar-collapsed .sidebar-nav {
+      margin-top: 0;
+      border-top: none;
+      padding: 0 8px;
+    }
+    .app.sidebar-collapsed .sidebar-nav-btn {
+      justify-content: center;
+      padding: 0;
+      width: 40px;
+      height: 40px;
+      margin: 0 auto;
+    }
+    .app.sidebar-collapsed .sidebar-nav-label {
+      display: none;
+    }
+
+    /* Toggle button — sits in header */
+    .sidebar-toggle {
+      width: 30px; height: 30px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--fs-ui);
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+
+    .sidebar-toggle:hover {
+      background: var(--bg-panel);
+      color: var(--text);
+      border-color: var(--accent);
+    }
+
+    .sidebar-header {
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+    .sidebar-footer {
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+
+    #version-display {
+      display: block;
+      text-align: center;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      opacity: 0.55;
+      margin-top: 2px;
+    }
+
+    /* Collapsed sidebar: fit version text into the 64px rail */
+    .app.sidebar-collapsed .sidebar-footer {
+      padding: 8px 0;
+    }
+    .app.sidebar-collapsed #version-display {
+      font-size: calc(10px * var(--font-scale));
+      letter-spacing: 0;
+      text-orientation: mixed;
+      margin-top: 0;
+    }

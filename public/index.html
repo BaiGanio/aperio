@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en" style="color-scheme: light dark;">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Aperio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <!-- Prism syntax highlighting — NO external theme CSS (causes font override on dark themes) -->
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+  <link rel="stylesheet" href="index.css" />
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <!-- i18n must load before any other UI script so t() and applyTranslations() are ready
+       before scripts that build DOM nodes referring to translations. -->
+  <script src="scripts/http-guard.js"></script>
+  <script src="scripts/i18n.js"></script>
+</head>
+<body>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">A</div>
+      Aperio
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar (⌘B)">
+      <i class="bi bi-layout-sidebar"></i>
+    </button>
+    <div class="status-pill">
+      <div class="status-dot" id="statusDot"></div>
+      <i class="bi bi-cpu" style="font-size: var(--fs-micro);color:var(--text-muted)"></i>
+      <span id="statusText" data-i18n="status_connecting">connecting…</span>
+      <span id="providerBadge" style="
+        font-family:var(--font-mono); font-size: calc(11px * var(--font-scale)); font-weight:600;
+        background:var(--tag-bg); color:var(--tag-text);
+        padding:1px 6px; border-radius:8px; letter-spacing:0.06em;
+        text-transform:uppercase; display:none;
+      "></span>
+    </div>
+    <label id="reasoningToggle" class="reasoning-toggle" onclick="toggleReasoning()"
+      data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning" style="display:none;">
+      <span class="reasoning-toggle-label" data-i18n="nav_reasoning_label">reasoning</span>
+      <span class="reasoning-toggle-track" id="reasoningToggleTrack">
+        <span class="reasoning-toggle-thumb"></span>
+      </span>
+    </label>
+    <div class="ctx-window" id="ctxWindow" style="margin-left:auto;">
+      <div class="ctx-header">
+        <span class="ctx-label" data-i18n="ctx_label">context</span>
+        <span class="ctx-value" id="ctxText">— / —</span>
+        <span id="toolCountBadge" style="display:none;font-size: calc(11px * var(--font-scale));color:var(--text-muted);margin-left:4px;font-family:var(--font-mono)"></span>
+      </div>
+      <div class="ctx-track">
+        <div class="ctx-fill" id="ctxFill"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" data-i18n-attr-placeholder="sidebar_search" placeholder="Search memories…" />
+        <span id="memoryCountBadge" class="search-count-badge"></span>
+      </div>
+    </div>
+    <div class="memories-list" id="memoriesList">
+      <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
+        <div style="font-size: calc(22px * var(--font-scale)); margin-bottom:8px; opacity:.4">◈</div>
+        <div style="font-size: var(--fs-micro); color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav is-compact" id="sidebarNav">
+      <button id="memoriesBtn" class="sidebar-nav-btn sidebar-nav-btn--collapsed-only" onclick="expandSidebarToMemories()"
+        data-i18n-attr-title="nav_memories_title" title="Memories — search your saved memories">
+        <i class="bi bi-stars sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Memories</span>
+      </button>
+      <button id="historyBtn" class="sidebar-nav-btn" onclick="toggleSessionsPanel()"
+        data-i18n-attr-title="nav_chats_title" title="Conversation history">
+        <i class="bi bi-chat-left-text sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_chats_plain">Chats</span>
+      </button>
+      <button id="codegraphBtn" class="sidebar-nav-btn" onclick="toggleCodegraphPanel()"
+              data-i18n-attr-title="nav_codegraph_title" title="Code graph">
+        <i class="bi bi-diagram-3 sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Code</span>
+      </button>
+      <button id="docgraphBtn" class="sidebar-nav-btn" onclick="toggleDocgraphPanel()"
+              title="Documents — search your indexed PDFs, DOCX, notes…">
+        <i class="bi bi-file-earmark-text sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Docs</span>
+      </button>
+      <button id="wikiBtn" class="sidebar-nav-btn" onclick="toggleWikiPanel()"
+        title="Wiki — LLM-authored articles over your memories">
+        <i class="bi bi-book sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Wiki</span>
+      </button>
+      <button id="dbBtn" class="sidebar-nav-btn" onclick="toggleDbPanel()"
+        title="Database — browse all tables">
+        <i class="bi bi-database sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">DB</span>
+      </button>
+      <button id="agentsBtn" class="sidebar-nav-btn" onclick="toggleAgentsPanel()"
+        title="Background agents — scheduled jobs over your store">
+        <i class="bi bi-robot sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Agents</span>
+      </button>
+      <button id="skillsBtn" class="sidebar-nav-btn" onclick="toggleSkillsPanel()"
+        title="Skills — view, edit, create and toggle your agent's skills">
+        <i class="bi bi-lightning-charge sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Skills</span>
+      </button>
+      <button id="configBtn" class="sidebar-nav-btn" onclick="toggleConfigPanel()"
+        title="Configuration — all .env-backed settings, edited in the UI">
+        <i class="bi bi-gear-wide-connected sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Config</span>
+      </button>
+      <button id="settingsBtn" class="sidebar-nav-btn" onclick="toggleSettingsPanel()"
+        data-i18n-attr-title="nav_settings_title" title="Settings">
+        <i class="bi bi-sliders sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_settings_plain">Settings</span>
+      </button>
+      <button id="systemBtn" class="sidebar-nav-btn" onclick="toggleSystemPanel()"
+        title="System — server and machine metrics">
+        <i class="bi bi-speedometer2 sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">System</span>
+      </button>
+      <button id="navDensityToggle" class="sidebar-nav-btn" title="Expand to full list">
+        <i class="bi bi-arrows-expand sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Expand</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span id="version-display"></span>
+    </div>
+  </aside>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="messages" id="messages">
+      <div class="thinking" id="startup-thinking">
+        <div class="avatar ai">A</div>
+        <div class="thinking-dots">
+          <div class="thinking-dots-row">
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+          </div>
+          <div class="thinking-label" data-i18n="chat_loading_label">loading…</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="attach-preview" id="attachPreview"></div>
+      <div class="input-wrap">
+        <button class="attach-btn" id="attachBtn" data-i18n-attr-title="chat_attach_title" title="Attach file or image">
+          <i class="bi bi-plus-lg"></i>
+        </button>
+        <div class="mic-wrap" id="micWrap" style="display:none;">
+          <button class="mic-btn" id="micBtn" title="Voice input">
+            <i class="bi bi-mic"></i>
+          </button>
+          <button class="mic-continuous-chip" id="micContinuousChip" type="button" title="Continuous voice mode">∞</button>
+        </div>
+        <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md,.js,.py,.html,.css,.json,.docx,.pptx" multiple hidden>
+        <textarea
+          id="chatInput"
+          data-i18n-attr-placeholder="chat_placeholder"
+          placeholder="Ask anything — or say 'scan my project at ~/…'"
+          rows="1"
+        ></textarea>
+        <span class="char-counter" id="charCounter"></span>
+        <button class="discuss-btn" id="discussBtn" type="button" disabled aria-pressed="false"
+                data-i18n-attr-title="discuss_button_tooltip" title="Two agents will cross-review answers">
+          <i class="bi bi-chat-left-dots"></i>
+          <span class="discuss-btn-label" data-i18n="discuss_button_label">Discuss</span>
+        </button>
+        <button class="send-btn" id="sendBtn" disabled title="Send (⌘ + ↵)">
+          <i class="bi bi-send-fill" style="font-size: var(--fs-chrome)"></i>
+        </button>
+        <button class="stop-btn" id="stopBtn" data-i18n-attr-title="chat_stop_title" title="Stop generating">■</button>
+      </div>
+      <div class="input-hint" id="inputHint">⌘ + ↵ to send &nbsp;·&nbsp; ↵ for newline</div>
+      <div class="input-warning" id="inputWarning" data-i18n="chat_input_warning">Your AI agent is not almighty. Do not trust the output blindly!</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="preview-modal">
+  <div class="preview-content">
+    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <span class="type-badge"></span>
+      <button class="close-btn" onclick="closePreview()">&times;</button>
+    </div>
+    <h2 class="mtitle" style="margin:0 0 8px;"></h2>
+    <hr class="modal-divider">
+    <div class="mcontent"></div>
+    <hr class="modal-divider">
+    <div class="modal-footer">
+      <p class="mtags"></p>
+      <div class="importance-rating"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Memory table modal -->
+<div id="memoryModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-table"></i>
+        Memory Table
+        <span id="memTableCount" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <button class="mem-table-close" onclick="refreshMemories()" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" onclick="closeModal()" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box" style="margin:0;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="memory-search" placeholder="Filter by title, content, tags…" oninput="handleSearch()" />
+      </div>
+      <span id="mem-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="table-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="pagination-controls" class="mem-pagination" style="display:none;">
+        <button id="prev-page" class="mem-page-btn" onclick="changePage(-1)">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <span id="page-info" class="mem-page-info"></span>
+        <button id="next-page" class="mem-page-btn" onclick="changePage(1)">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Self-memory table modal (agent's own walled-off notes; oversight: read + delete) -->
+<div id="selfMemoryModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-stars"></i>
+        Self-memories
+        <span id="selfMemTableCount" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <button class="mem-table-close" onclick="refreshSelfMemories()" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" onclick="closeSelfMemoryModal()" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box" style="margin:0;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="self-memory-search" placeholder="Filter by title, content, tags…" oninput="handleSelfSearch()" />
+      </div>
+      <span id="self-mem-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="self-table-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="self-pagination-controls" class="mem-pagination" style="display:none;">
+        <button id="self-prev-page" class="mem-page-btn" onclick="changeSelfPage(-1)">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <span id="self-page-info" class="mem-page-info"></span>
+        <button id="self-next-page" class="mem-page-btn" onclick="changeSelfPage(1)">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal (export / import) -->
+<div id="confirmModal" class="confirm-modal">
+  <div class="confirm-content">
+    <div class="confirm-header">
+      <span class="confirm-title"></span>
+      <button class="confirm-close" onclick="closeConfirmModal()">&times;</button>
+    </div>
+    <p class="confirm-message"></p>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" onclick="closeConfirmModal()">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="confirmOkBtn"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Export modal (checkbox form) -->
+<div id="exportModal" class="confirm-modal">
+  <div class="confirm-content">
+    <div class="confirm-header">
+      <span class="confirm-title">Export database</span>
+      <button class="confirm-close" onclick="closeExportModal()">&times;</button>
+    </div>
+    <div class="export-options">
+      <div class="export-option export-option--always">
+        <span class="export-option-label">Memories</span>
+        <span class="export-option-count" id="exportCountMem">0</span>
+      </div>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeSelfMemories" checked>
+        <span class="export-option-label">Self-memories</span>
+        <span class="export-option-count" id="exportCountSelf">0</span>
+      </label>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeWiki" checked>
+        <span class="export-option-label">Wiki articles</span>
+        <span class="export-option-count" id="exportCountWiki">0</span>
+      </label>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeJobs" checked>
+        <span class="export-option-label">Agent jobs + recent runs</span>
+        <span class="export-option-count" id="exportCountJobs">0</span>
+        <span class="export-option-sub">+ <span id="exportCountRuns">0</span> runs</span>
+      </label>
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" onclick="closeExportModal()">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="exportDoBtn">Export</button>
+    </div>
+  </div>
+</div>
+
+<div id="sessions-panel" class="sessions-panel" style="display:none;">
+  <div class="sessions-panel-header">
+    <span class="sessions-panel-title"><i class="bi bi-clock-history"></i> <span data-i18n="sessions_title">History</span></span>
+    <div class="sessions-panel-header-actions">
+      <button id="sessionsSelectBtn" class="sessions-select-toggle" onclick="toggleSelectMode()" title="Select sessions">
+        <i class="bi bi-check2-square"></i> <span data-i18n="sessions_select">Select</span>
+      </button>
+      <button class="sessions-panel-close" onclick="toggleSessionsPanel()">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+  </div>
+  <div id="sessions-select-bar" class="sessions-select-bar" style="display:none;">
+    <span id="sessions-select-count" class="sessions-select-count">0 selected</span>
+    <button id="sessions-bulk-delete-btn" class="session-btn session-btn--bulk-delete" onclick="bulkDeleteSessions()" disabled>
+      <i class="bi bi-trash3"></i> <span data-i18n="sessions_bulk_delete">Delete selected</span>
+    </button>
+  </div>
+  <div class="sessions-panel-body" id="sessions-list">
+    <div class="sessions-empty" data-i18n="sessions_loading">Loading…</div>
+  </div>
+</div>
+<div id="sessions-backdrop" class="sessions-backdrop" style="display:none;" onclick="toggleSessionsPanel()"></div>
+
+<!-- Wiki panel -->
+<div id="wiki-panel" class="wiki-panel" style="display:none;">
+  <div class="wiki-panel-header">
+    <span class="wiki-panel-title"><i class="bi bi-book"></i> Wiki</span>
+    <button class="wiki-panel-close" onclick="toggleWikiPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div id="wiki-panel-toolbar" class="wiki-panel-toolbar">
+    <input type="text" id="wikiSearchInput" class="wiki-search-input" placeholder="Search articles…" />
+    <div class="wiki-status-chips">
+      <button class="wiki-chip wiki-chip--active" data-status="all">all</button>
+      <button class="wiki-chip" data-status="fresh">fresh</button>
+      <button class="wiki-chip" data-status="stale">stale</button>
+    </div>
+  </div>
+  <div class="wiki-panel-body" id="wiki-panel-body">
+    <div class="wiki-empty">Loading…</div>
+  </div>
+</div>
+<div id="wiki-backdrop" class="wiki-backdrop" style="display:none;" onclick="toggleWikiPanel()"></div>
+
+<!-- DB panel -->
+<div id="db-panel" class="db-panel" style="display:none;">
+  <div class="db-panel-header">
+    <span class="db-panel-title"><i class="bi bi-database"></i> Database</span>
+    <button class="db-panel-close" onclick="toggleDbPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="db-panel-conn">
+    <label for="dbConnSelect">Database</label>
+    <select id="dbConnSelect" class="db-conn-select"></select>
+  </div>
+  <div class="db-panel-toolbar">
+    <button id="exportBtn" class="db-action-btn" data-i18n-attr-title="sidebar_export_title" title="Export memories to JSON">
+      <i class="bi bi-download"></i> <span data-i18n="sidebar_export">Export</span>
+    </button>
+    <button id="importBtn" class="db-action-btn" data-i18n-attr-title="sidebar_import_title" title="Import memories from JSON">
+      <i class="bi bi-upload"></i> <span data-i18n="sidebar_import">Import</span>
+    </button>
+    <input type="file" id="importFileInput" accept=".json" hidden>
+  </div>
+  <div class="db-panel-body" id="db-panel-body">
+    <div class="db-empty">Loading…</div>
+  </div>
+</div>
+<div id="db-backdrop" class="db-backdrop" style="display:none;" onclick="toggleDbPanel()"></div>
+
+<!-- Generic DB table modal -->
+<div id="dbTableModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-table"></i>
+        <span id="dbt-title">Table</span>
+        <span id="dbt-count" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <a id="dbt-export" class="mem-table-close" title="Export this table as JSON" download>
+          <i class="bi bi-download"></i>
+        </a>
+        <button class="mem-table-close" id="dbt-refresh" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" id="dbt-close" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box" style="margin:0;">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="dbt-search" placeholder="Filter rows…" />
+      </div>
+      <span id="dbt-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="dbt-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="dbt-pagination" class="mem-pagination" style="display:none;">
+        <button id="dbt-prev" class="mem-page-btn"><i class="bi bi-chevron-left"></i></button>
+        <span id="dbt-page-info" class="mem-page-info"></span>
+        <button id="dbt-next" class="mem-page-btn"><i class="bi bi-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Code graph panel -->
+<div id="codegraph-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-diagram-3"></i> Code graph</span>
+    <button class="cg-panel-close" onclick="toggleCodegraphPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="cgSearchInput" class="cg-search-input" placeholder="Search symbols…" />
+    <div class="cg-toolbar-row">
+      <select id="cgRepoSelect" class="cg-select"><option value="">All repos</option></select>
+      <select id="cgKindSelect" class="cg-select">
+        <option value="">All kinds</option>
+        <option value="function">function</option>
+        <option value="class">class</option>
+        <option value="method">method</option>
+        <option value="const">const</option>
+      </select>
+    </div>
+  </div>
+  <div class="cg-panel-body" id="cg-panel-body"></div>
+</div>
+<div id="codegraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleCodegraphPanel()"></div>
+
+<!-- Document graph panel (reuses the cg-* panel styles) -->
+<div id="docgraph-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-file-earmark-text"></i> Documents</span>
+    <button class="cg-panel-close" onclick="toggleDocgraphPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="dgSearchInput" class="cg-search-input" placeholder="Search documents…" />
+    <div class="cg-toolbar-row">
+      <select id="dgFolderSelect" class="cg-select"><option value="">All folders</option></select>
+      <select id="dgMimeSelect" class="cg-select"><option value="">All types</option></select>
+    </div>
+  </div>
+  <div class="cg-panel-body" id="dg-panel-body"></div>
+</div>
+<div id="docgraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleDocgraphPanel()"></div>
+
+<!-- Skills panel (reuses the cg-* panel styles; sk-* for rows + editor) -->
+<div id="skills-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-lightning-charge"></i> Skills</span>
+    <button class="cg-panel-close" onclick="toggleSkillsPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="skSearchInput" class="cg-search-input" placeholder="Search skills…" />
+    <button id="skNewBtn" class="sk-new-btn"><i class="bi bi-plus-lg"></i> New skill</button>
+  </div>
+  <div class="cg-panel-body" id="sk-panel-body"></div>
+</div>
+<div id="skills-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleSkillsPanel()"></div>
+
+<!-- Background-agents panel (reuses the cg-* panel styles) -->
+<div id="agents-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-robot"></i> Agents</span>
+    <button class="cg-panel-close" onclick="toggleAgentsPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-body" id="ag-panel-body"></div>
+</div>
+<div id="agents-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleAgentsPanel()"></div>
+
+<!-- Configuration panel (reuses the cg-* panel styles). Schema-driven from
+     lib/config.js: every editable var gets a typed control; writes persist to the
+     DB under config.<KEY> and apply on restart. Tier-0 bootstrap/security vars are
+     read-only (edit in .env). Secrets are write-only: blank = keep current. -->
+<div id="config-panel" class="cg-panel" style="display:none;">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-gear-wide-connected"></i> Configuration</span>
+    <button class="cg-panel-close" onclick="toggleConfigPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="cfgSearchInput" class="cg-search-input" placeholder="Search settings…" />
+    <button id="cfgRestartBtn" class="cfg-restart-toolbar-btn" onclick="requestRestartAperio()"
+            title="Restart Aperio now">
+      <i class="bi bi-power"></i> Restart server
+    </button>
+    <button id="cfgSaveBtn" class="sk-new-btn" onclick="saveConfigSettings()"><i class="bi bi-check-lg"></i> Save</button>
+  </div>
+  <div class="config-precedence-notice" id="configPrecedenceNotice" style="display:none;">
+    <i class="bi bi-file-earmark-text"></i>
+    <span><code>APERIO_CONFIG_PRECEDENCE=env</code> — values set in <code>.env</code> override the UI. Fields marked <span class="config-field-source is-env">from .env</span> are controlled by the file; saving them here has no effect until you remove them from <code>.env</code>.</span>
+  </div>
+  <div class="config-restart-banner" id="configRestartBanner" style="display:none;">
+    <i class="bi bi-arrow-repeat"></i>
+    <span>Restart Aperio for these changes to take effect.</span>
+    <button id="configRestartBtn" class="config-restart-btn" onclick="restartAperio()">
+      <i class="bi bi-power"></i> Restart now
+    </button>
+  </div>
+  <div class="config-restart-banner config-reindex-banner" id="configReindexBanner" style="display:none;">
+    <i class="bi bi-database-exclamation"></i>
+    <span>You changed the embedding provider or dimensions. Existing embeddings no longer match — rebuild the vector index (a fresh database) after restart, or old memories/graph results won't be found.</span>
+  </div>
+  <div id="configWarnings" style="display:none;"></div>
+  <div class="model-select-status config-status" id="configStatus"></div>
+  <div class="cg-panel-body" id="configSections"><span class="model-loading">Loading…</span></div>
+</div>
+<div id="config-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleConfigPanel()"></div>
+
+<!-- Restart overlay: shown while the server restarts; auto-reloads when it's back -->
+<div id="restartOverlay" class="restart-overlay" style="display:none;">
+  <div class="restart-overlay-card">
+    <div class="restart-spinner"></div>
+    <div class="restart-overlay-title" id="restartOverlayTitle">Restarting Aperio…</div>
+    <div class="restart-overlay-msg" id="restartOverlayMsg">Applying your changes. This usually takes a few seconds.</div>
+  </div>
+</div>
+
+<!-- Settings panel -->
+<div id="settings-panel" class="settings-panel" style="display:none;">
+  <div class="settings-panel-header">
+    <span class="settings-panel-title"><i class="bi bi-sliders"></i> <span data-i18n="nav_settings_title">Settings</span></span>
+    <button class="settings-panel-close" onclick="toggleSettingsPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="settings-panel-body">
+    <details class="settings-section" id="themeSection">
+      <summary>
+        <i class="bi bi-circle-half"></i>
+        <span data-i18n="nav_theme_title">Theme</span>
+      </summary>
+      <div class="settings-section-body">
+        <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
+          <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">
+            <span class="theme-btn-icon">☀️</span><span class="theme-btn-name" data-i18n="nav_theme_light">Light</span>
+          </button>
+          <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">
+            <span class="theme-btn-icon">🌙</span><span class="theme-btn-name" data-i18n="nav_theme_dark">Dark</span>
+          </button>
+          <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
+            <span class="theme-btn-icon">✦</span><span class="theme-btn-name" data-i18n="nav_theme_aurora">Aurora</span>
+          </button>
+          <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
+            <span class="theme-btn-icon">⊙</span><span class="theme-btn-name" data-i18n="nav_theme_system">System</span>
+          </button>
+        </div>
+      </div>
+    </details>
+    <details class="settings-section" id="fontSizeSection">
+      <summary>
+        <i class="bi bi-fonts"></i>
+        <span data-i18n="nav_fontsize_title">Text size</span>
+      </summary>
+      <div class="settings-section-body">
+        <div class="fontscale-slider-row" data-i18n-attr-title="nav_fontsize_title" title="Text size">
+          <span class="fontscale-end" aria-hidden="true" style="font-size:11px">A</span>
+          <input type="range" class="fontscale-slider" id="fontScaleSlider"
+                 min="0.85" max="1.4" step="0.05" value="1" aria-label="Text size">
+          <span class="fontscale-end" aria-hidden="true" style="font-size:20px">A</span>
+          <output class="fontscale-value" id="fontScaleValue" for="fontScaleSlider">100%</output>
+        </div>
+      </div>
+    </details>
+    <div class="settings-row">
+      <span class="settings-row-label">
+        <i class="bi bi-volume-up"></i>
+        <span data-i18n="nav_sound_title">Voice responses</span>
+      </span>
+      <span class="settings-row-control">
+        <span class="settings-state" id="settingsSoundState">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="settingsSoundToggle" />
+          <span class="switch-track"></span>
+        </label>
+      </span>
+    </div>
+    <!-- Language switcher — hidden until i18n feature is complete; unhide by removing style="display:none" -->
+    <div class="settings-row settings-row--stack lang-switcher" id="langSwitcher"
+         data-i18n-attr-title="nav_lang_title" title="Language" style="display:none">
+      <button type="button" class="lang-trigger" id="langTrigger" aria-haspopup="listbox" aria-expanded="false">
+        <span class="settings-row-label">
+          <i class="bi bi-translate"></i>
+          <span data-i18n="nav_lang_title">Language</span>
+        </span>
+        <span class="lang-trigger-value">
+          <span class="lang-flag" id="langTriggerFlag">🇬🇧</span>
+          <span class="lang-code" id="langTriggerCode">EN</span>
+          <span class="lang-caret">▾</span>
+        </span>
+      </button>
+      <div class="lang-popover" id="langPopover" role="listbox"></div>
+    </div>
+    <!-- Model selector — expandable list grouped by provider. -->
+    <details class="settings-section" id="modelSelectorSection">
+      <summary>
+        <i class="bi bi-cpu"></i>
+        <span data-i18n="nav_model_title">AI Model</span>
+        <span class="model-current" id="modelCurrent"></span>
+      </summary>
+      <div class="settings-section-body">
+        <div class="model-list" id="modelList">
+          <span class="model-loading">Loading…</span>
+        </div>
+        <div class="model-select-status" id="modelStatus"></div>
+        <a class="model-guide-link" href="https://baiganio.github.io/aperio/model-guide.html"
+           target="_blank" rel="noopener" data-i18n="nav_model_guide">Not sure which to pick? Model guide →</a>
+      </div>
+    </details>
+    <!-- Allowed folders — expandable. The AI reads/edits files within these
+         folders; generated artifacts (pptx/xlsx) go to the session workspace. -->
+    <details class="settings-section" id="allowedFoldersSection">
+      <summary>
+        <i class="bi bi-folder2-open"></i>
+        <span data-i18n="paths_allowed_label">Allowed folders</span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint" data-i18n="paths_allowed_hint">Folders the AI can read and edit. Generated files (pptx, xlsx) go to the session workspace.</span>
+        <div class="paths-chips" id="paths-chips"></div>
+        <div class="paths-add-row">
+          <input type="text" id="path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
+          <button class="paths-pick-btn" onclick="_pickFolder()" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
+            <i class="bi bi-folder2-open"></i>
+          </button>
+          <button class="paths-add-btn" onclick="addPathChip()"><i class="bi bi-plus-lg"></i></button>
+        </div>
+        <div class="paths-saved-note" data-i18n-html="paths_saved_note_html">
+          <i class="bi bi-hdd"></i> Saved across sessions.
+        </div>
+        <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Save</span></button>
+      </div>
+    </details>
+    <!-- Extras — optional skill dependencies (docx Python toolchain). Detects
+         what's installed; auto-installs pip deps; shows guided commands for
+         system binaries it can't safely install from the browser. -->
+    <!-- Busy words — words Aperio cycles through next to the live cursor while
+         it's working. Defaults ship in code; these are the user's additions. -->
+    <details class="settings-section" id="busyWordsSection">
+      <summary>
+        <i class="bi bi-chat-square-dots"></i>
+        <span>Busy words</span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Words Aperio shows while it's busy. Add your own (one per line) — they join the built-in set.</span>
+        <textarea id="busyWordsInput" class="busy-words-input" rows="5" spellcheck="false"
+                  placeholder="Marinating&#10;Percolating&#10;Compiling thoughts"></textarea>
+      </div>
+    </details>
+    <!-- GitHub triage — repos to triage + the GitHub token / webhook secret.
+         Stored in the DB settings store (no .env edit, no restart). The token
+         and secret are write-only: the server never sends their value back, it
+         only reports whether one is configured. -->
+    <details class="settings-section" id="githubTriageSection">
+      <summary>
+        <i class="bi bi-github"></i>
+        <span>GitHub triage</span>
+        <span class="model-current" id="githubTriageSummary"></span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Repos for the daily issue-triage agent to rank. One per line — either <code>owner/repo</code> (e.g. <code>octocat/Hello-World</code>) or the name of an allowed folder (resolved via its git origin).</span>
+        <textarea id="triageReposInput" class="busy-words-input" rows="3" spellcheck="false"
+                  placeholder="octocat/Hello-World&#10;my-project"></textarea>
+
+        <span class="paths-section-hint" style="margin-top:.75rem;">GitHub token — optional for public repos (raises the rate limit), required for private repos and for creating/updating issues. Needs <code>repo</code> scope. <span id="githubTokenState"></span></span>
+        <input type="password" id="githubTokenInput" class="paths-text-input" autocomplete="off"
+               placeholder="ghp_… (leave blank to keep current)" />
+
+        <span class="paths-section-hint" style="margin-top:.75rem;">Webhook secret — only needed if you point a GitHub webhook at this Aperio for instant issue capture. Must match the secret on the GitHub webhook. <span id="githubWebhookSecretState"></span></span>
+        <input type="password" id="githubWebhookSecretInput" class="paths-text-input" autocomplete="off"
+               placeholder="(leave blank to keep current)" />
+
+        <div class="paths-saved-note" style="margin-top:.75rem;">
+          <i class="bi bi-info-circle"></i> Triage runs as a background agent — enable background agents and the <code>issue-triage</code> job to start it.
+        </div>
+        <div class="model-select-status" id="githubTriageStatus"></div>
+        <button class="paths-apply-btn" onclick="saveGithubTriageSettings()"><i class="bi bi-check-lg"></i> Save</button>
+      </div>
+    </details>
+    <!-- Database connections — named SQL connections the db_* tools can query.
+         Passwords are encrypted server-side and never sent back to the browser
+         (blank password on save keeps the stored one). The built-in `aperio`
+         connection (your own store, read-only) is always present and not listed
+         here. The list + add/edit form are rendered by db-connections-panel.js. -->
+    <details class="settings-section" id="dbConnectionsSection">
+      <summary>
+        <i class="bi bi-database"></i>
+        <span>Database connections</span>
+        <span class="model-current" id="dbConnSummary"></span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Databases the AI can query with the <code>db_*</code> tools — SQLite, Postgres, or MySQL. Reads run freely; writes need your confirmation. Read-only is ON by default.</span>
+        <div id="dbSampleBar" class="db-conn-sample-bar"></div>
+        <div id="dbConnList" class="db-conn-list"></div>
+        <div id="dbConnForm" class="db-conn-form"></div>
+        <div class="model-select-status" id="dbConnStatus"></div>
+      </div>
+    </details>
+    <details class="settings-section" id="extrasSection">
+      <summary>
+        <i class="bi bi-puzzle"></i>
+        <span>Extras</span>
+        <span class="model-current" id="extrasSummary"></span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Optional dependencies that unlock advanced document features (e.g. editing Word docs with tracked changes). Aperio works without them.</span>
+        <div id="extras-tiers"><span class="model-loading">Checking…</span></div>
+      </div>
+    </details>
+    <!-- Hidden folder input for the browser fallback picker -->
+    <input type="file" id="path-folder-input" webkitdirectory hidden>
+  </div>
+</div>
+<div id="settings-backdrop" class="settings-backdrop" style="display:none;" onclick="toggleSettingsPanel()"></div>
+
+<!-- System panel -->
+<div id="system-panel" class="system-panel" style="display:none;">
+  <div class="system-panel-header">
+    <span class="system-panel-title"><i class="bi bi-speedometer2"></i> System</span>
+    <button class="system-panel-close" onclick="toggleSystemPanel()"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="system-panel-body" id="system-metrics-body">
+    <div class="system-loading">Loading metrics…</div>
+  </div>
+</div>
+<div id="system-backdrop" class="system-backdrop" style="display:none;" onclick="toggleSystemPanel()"></div>
+
+<script src="scripts/settings.js"></script>
+<script src="scripts/system.js"></script>
+<script src="scripts/api.js"></script>
+<script src="scripts/input-bar.js"></script>
+<script src="scripts/voice.js"></script>
+<script src="scripts/tts.js"></script>
+<script src="scripts/theme-and-timestamp.js"></script>
+<script src="scripts/font-scale.js"></script>
+<script src="scripts/markdown.js"></script>
+<script src="scripts/rendering.js"></script>
+<script src="scripts/streaming.js"></script>
+<script src="scripts/sessions.js"></script>
+<script src="scripts/paths-panel.js"></script>
+<script src="scripts/wiki-panel.js"></script>
+<script src="scripts/db-panel.js"></script>
+<script src="scripts/codegraph-panel.js"></script>
+<script src="scripts/docgraph-panel.js"></script>
+<script src="scripts/agents-panel.js"></script>
+<script src="scripts/capabilities-panel.js"></script>
+<script src="scripts/skills-panel.js"></script>
+<script src="scripts/github-triage-panel.js"></script>
+<script src="scripts/db-connections-panel.js"></script>
+<script src="scripts/config-panel.js"></script>
+<script src="scripts/settings-panel.js"></script>
+<script src="scripts/lang-switcher.js"></script>
+<script src="scripts/chat.js"></script>
+<script src="scripts/memories.js"></script>
+<script src="scripts/memory-table.js"></script>
+<script src="scripts/self-memory-table.js"></script>
+<script src="scripts/autocomplete.js"></script>
+<script src="index.js"></script>
+</body>
+</html>

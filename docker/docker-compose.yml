@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16    # pgvector-enabled Postgres 16
+    container_name: aperio_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-aperio}
+      POSTGRES_USER: ${POSTGRES_USER:-aperio}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - aperio_data:/var/lib/postgresql/data
+      # NOTE: do NOT mount db/migrations into /docker-entrypoint-initdb.d.
+      # Postgres' initdb hook runs those files as raw SQL with no bookkeeping,
+      # which double-applies migrations and leaves schema_migrations empty —
+      # db/migrate.js then re-runs 001_init.sql and fails on "already exists".
+      # migrate.js is the single source of truth for schema.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aperio -d aperio"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  aperio_data:
+    name: aperio_data
