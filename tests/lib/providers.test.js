@@ -106,11 +106,23 @@ describe("recommendContextLength", () => {
     }), 32768);
   });
 
-  test("caps at the latency ceiling when the model max and budget are both larger", () => {
-    // Big-context model that fits >65536 → clamped to the default ceiling.
+  test("targets ~80% of the RAM fit when model max and budget are both larger", () => {
+    // 32 GB, big-context model: neither the model max nor the hard ceiling binds,
+    // so the window is the fit-fraction of the RAM budget (headroom kept below the
+    // physical fit). fit ≈ 108.5k → 80% ≈ 86.8k → snapped down to 86016.
     assert.equal(recommendContextLength({
       modelMaxContext: 262144, weightsGB: 6.1, bytesPerToken: 147456, totalRamGB: 32,
-    }), 65536);
+    }), 86016);
+  });
+
+  test("small machines keep their full RAM fit — no headroom shave", () => {
+    // Same model + budget, only the fit-fraction threshold differs. Below it the
+    // window is the full RAM fit; at/above it, ~80% of it.
+    const args = { modelMaxContext: 262144, weightsGB: 6.1, bytesPerToken: 147456, totalRamGB: 32 };
+    const full   = recommendContextLength(args, { minFitRamGB: 64 }); // 32 < 64 → full fit
+    const shaved = recommendContextLength(args, { minFitRamGB: 16 }); // 32 ≥ 16 → ~80%
+    assert.ok(shaved < full, `expected fraction (${shaved}) < full fit (${full})`);
+    assert.ok(shaved / full > 0.75 && shaved / full <= 0.8, `~80% of fit, got ${(shaved / full).toFixed(3)}`);
   });
 
   test("is bounded by the RAM budget for a heavy per-token model", () => {

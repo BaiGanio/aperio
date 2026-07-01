@@ -195,6 +195,7 @@ function handleMessage(msg) {
     if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
 
     if (msg.contextWindow) maxCtx = msg.contextWindow;
+    window.maxCtxCapacityPct = (typeof msg.contextCapacityPct === "number") ? msg.contextCapacityPct : null;
     if (typeof msg.imageTokens === "number") _imageTokenCost = msg.imageTokens;
   }
 
