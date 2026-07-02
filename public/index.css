@@ -1,5 +1,6 @@
 /* ── Aperio stylesheet manifest ──────────────────────────────── */
 @import "styles/tokens.css";
+@import "styles/ambient.css";
 @import "styles/layout.css";
 @import "styles/modals.css";
 @import "styles/messages.css";

@@ -126,6 +126,49 @@
       border-top-right-radius: 4px;
     }
 
+    /* ── Bubble glow + float ─────────────────────────────────────
+       A soft theme-colored halo behind each bubble that breathes slowly, and
+       a gentle levitation on the newest bubbles. Both stay off the layout/paint
+       hot paths: the halo pulses via opacity on an ::after layer, the float is
+       a transform. prefers-reduced-motion stills both (halo stays, static). */
+    .message.ai .bubble { --bubble-halo: color-mix(in srgb, var(--accent) 16%, transparent); }
+    .message.user .bubble { --bubble-halo: color-mix(in srgb, var(--bg-msg-user) 45%, transparent); }
+
+    .bubble::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: 0 5px 30px var(--bubble-halo);
+      animation: bubble-glow 4.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes bubble-glow {
+      from { opacity: .55; }
+      to   { opacity: 1; }
+    }
+
+    /* Only the newest bubbles levitate — keeps long histories calm and cheap.
+       The 2n variant desyncs neighbors so they don't bob in formation. */
+    .message:nth-last-child(-n+6) .bubble {
+      animation: bubble-float 6s ease-in-out infinite alternate;
+    }
+    .message:nth-last-child(-n+6):nth-child(2n) .bubble {
+      animation-duration: 7.2s;
+      animation-delay: -2.4s;
+    }
+
+    @keyframes bubble-float {
+      from { transform: translateY(0); }
+      to   { transform: translateY(-3px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bubble::after,
+      .message:nth-last-child(-n+6) .bubble { animation: none; }
+    }
+
     /* Markdown-ish in bubbles */
     .bubble code {
       font-family: var(--font-mono);
