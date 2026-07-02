@@ -69,6 +69,18 @@
 /* Right-hand control cluster (e.g. ON/OFF badge + switch). */
 .settings-row-control { display: flex; align-items: center; gap: 10px; }
 
+/* Compact dropdown for small enumerated preferences (e.g. ambient background). */
+.settings-select {
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border, var(--bg-hover));
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
 /* Textual on/off state so the toggle's meaning is always explicit. */
 .settings-state {
   font-family: var(--font-mono);
@@ -78,19 +90,6 @@
   min-width: 26px; text-align: right;
 }
 .settings-state.is-on { color: var(--accent); }
-
-/* Theme picker inside the panel: full-width segmented control where each
-   segment shows its icon AND name (icons alone aren't self-explanatory). */
-.settings-panel .theme-switcher { width: 100%; }
-.settings-panel .theme-btn {
-  flex: 1;
-  width: auto; height: auto;
-  flex-direction: column;
-  gap: 3px;
-  padding: 7px 4px;
-}
-.settings-panel .theme-btn-icon { font-size: var(--fs-secondary); line-height: 1; }
-.settings-panel .theme-btn-name { font-size: var(--fs-micro); font-weight: 600; }
 
 /* Text-size control — continuous --font-scale slider (0.85–1.4).
    The end "A" glyphs are fixed-size previews of the scale extremes, so they

@@ -21,6 +21,9 @@
   <script src="scripts/i18n.js"></script>
 </head>
 <body>
+<!-- Ambient background wash (issue #185 §A) — fixed, behind everything, no layout impact.
+     Controlled by scripts/ambient.js via data-ambient on <html>; styled in styles/ambient.css. -->
+<div id="ambient" aria-hidden="true"></div>
 <div class="app">
 
   <!-- Header -->
@@ -59,6 +62,20 @@
       <div class="ctx-track">
         <div class="ctx-fill" id="ctxFill"></div>
       </div>
+    </div>
+    <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
+      <button class="theme-btn" data-theme="light" data-i18n-attr-title="nav_theme_light" title="Light">
+        <span class="theme-btn-icon">☀️</span>
+      </button>
+      <button class="theme-btn" data-theme="dark" data-i18n-attr-title="nav_theme_dark" title="Dark">
+        <span class="theme-btn-icon">🌙</span>
+      </button>
+      <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
+        <span class="theme-btn-icon">✦</span>
+      </button>
+      <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
+        <span class="theme-btn-icon">⊙</span>
+      </button>
     </div>
   </header>
 
@@ -576,28 +593,6 @@
     <button class="settings-panel-close" onclick="toggleSettingsPanel()"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="settings-panel-body">
-    <details class="settings-section" id="themeSection">
-      <summary>
-        <i class="bi bi-circle-half"></i>
-        <span data-i18n="nav_theme_title">Theme</span>
-      </summary>
-      <div class="settings-section-body">
-        <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
-          <button class="theme-btn" data-theme="light"  data-i18n-attr-title="nav_theme_light"  title="Light">
-            <span class="theme-btn-icon">☀️</span><span class="theme-btn-name" data-i18n="nav_theme_light">Light</span>
-          </button>
-          <button class="theme-btn" data-theme="dark"   data-i18n-attr-title="nav_theme_dark"   title="Dark">
-            <span class="theme-btn-icon">🌙</span><span class="theme-btn-name" data-i18n="nav_theme_dark">Dark</span>
-          </button>
-          <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
-            <span class="theme-btn-icon">✦</span><span class="theme-btn-name" data-i18n="nav_theme_aurora">Aurora</span>
-          </button>
-          <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
-            <span class="theme-btn-icon">⊙</span><span class="theme-btn-name" data-i18n="nav_theme_system">System</span>
-          </button>
-        </div>
-      </div>
-    </details>
     <details class="settings-section" id="fontSizeSection">
       <summary>
         <i class="bi bi-fonts"></i>
@@ -624,6 +619,19 @@
           <input type="checkbox" id="settingsSoundToggle" />
           <span class="switch-track"></span>
         </label>
+      </span>
+    </div>
+    <div class="settings-row">
+      <span class="settings-row-label">
+        <i class="bi bi-stars"></i>
+        <span data-i18n="nav_ambient_title">Ambient background</span>
+      </span>
+      <span class="settings-row-control">
+        <select id="settingsAmbientSelect" class="settings-select">
+          <option value="auto" data-i18n="nav_ambient_auto">Auto</option>
+          <option value="on" data-i18n="nav_ambient_on">On</option>
+          <option value="off" data-i18n="nav_ambient_off">Off</option>
+        </select>
       </span>
     </div>
     <!-- Language switcher — hidden until i18n feature is complete; unhide by removing style="display:none" -->
@@ -776,6 +784,7 @@
 <div id="system-backdrop" class="system-backdrop" style="display:none;" onclick="toggleSystemPanel()"></div>
 
 <script src="scripts/settings.js"></script>
+<script src="scripts/ambient.js"></script>
 <script src="scripts/system.js"></script>
 <script src="scripts/api.js"></script>
 <script src="scripts/input-bar.js"></script>

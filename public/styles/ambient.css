@@ -1,0 +1,83 @@
+/* Ambient background layer — a slow canvas-drawn "aurora" behind the chat.
+   The visual itself is painted by scripts/ambient.js (canvas 2D, no deps);
+   this file owns positioning, show/hide, and the per-theme hues the script
+   reads via --ambient-c1..c4 / --ambient-blend.
+
+   Visibility is driven by the `data-ambient` attribute on <html>
+   (set by scripts/ambient.js from the aperio-ambient=auto|on|off setting):
+     off  → layer hidden, animation loop stopped.
+     on   → visible + animated (user opt-in; ignores reduced-motion).
+     auto → visible; animated UNLESS the OS asks for reduced motion, in which
+            case the script paints a single static frame (default, safe).
+   Reduced-motion handling lives in the script (it must stop the rAF loop),
+   not here — there is no CSS animation to disable anymore.
+
+   Intensity is modulated by --ambient-level (0..1), set via
+   window.Aperio.ambient.setLevel() so voice (issue #185 §C) can pulse it
+   on mic amplitude. Default 0 = a calm baseline. */
+
+#ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;            /* behind everything, never captures input */
+  pointer-events: none;
+  --ambient-level: 0;
+  /* Aurora hues + canvas blend mode, read by scripts/ambient.js.
+     Defaults suit dark surfaces (dark theme, system-dark). */
+  --ambient-c1: #7c3aed;
+  --ambient-c2: #ec4899;
+  --ambient-c3: #4f46e5;
+  --ambient-c4: #06b6d4;
+  --ambient-c5: #10b981;
+  --ambient-c6: #f59e0b;
+  --ambient-blend: lighter; /* additive: blobs glow where they overlap */
+  --ambient-strength: 0.4;  /* baseline opacity; per-theme knob */
+  opacity: 0;             /* hidden until a mode enables it */
+  transition: opacity 1.2s ease;
+}
+
+#ambient canvas {
+  display: block;
+  width: 100%;
+  height: 100%;           /* canvas renders at 1/4 res; gradients upscale smoothly */
+}
+
+/* Light surfaces: normal blending (additive washes out on white), saturated
+   hues + a higher baseline so the aurora doesn't disappear on near-white. */
+:root[data-theme="light"] #ambient {
+  --ambient-c1: #6366f1;
+  --ambient-c2: #ec4899;
+  --ambient-c3: #38bdf8;
+  --ambient-c4: #a78bfa;
+  --ambient-c5: #34d399;
+  --ambient-c6: #fbbf24;
+  --ambient-blend: source-over;
+  --ambient-strength: 0.6;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] #ambient {
+    --ambient-c1: #6366f1;
+    --ambient-c2: #ec4899;
+    --ambient-c3: #38bdf8;
+    --ambient-c4: #a78bfa;
+    --ambient-c5: #34d399;
+    --ambient-c6: #fbbf24;
+    --ambient-blend: source-over;
+    --ambient-strength: 0.6;
+  }
+}
+
+/* Aurora theme: lean into it — more vivid hues on the deep-violet bg. */
+:root[data-theme="aurora"] #ambient {
+  --ambient-c1: #a855f7;
+  --ambient-c2: #ec4899;
+  --ambient-c3: #6366f1;
+  --ambient-c4: #22d3ee;
+  --ambient-c5: #34d399;
+  --ambient-c6: #f472b6;
+}
+
+:root[data-ambient="on"] #ambient,
+:root[data-ambient="auto"] #ambient {
+  opacity: calc(var(--ambient-strength) + var(--ambient-level) * 0.35);
+}

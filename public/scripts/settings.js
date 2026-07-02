@@ -19,7 +19,7 @@
 
   // localStorage keys that mirror to the DB. Device-local view state
   // (aperio-sidebar, wiki-collapsed, language) is intentionally excluded.
-  const KEYS = ["aperio-theme", "aperio-font-scale", "aperio-tts", "aperio-voice-continuous", "aperio-reasoning", "aperio-busy-words"];
+  const KEYS = ["aperio-theme", "aperio-font-scale", "aperio-tts", "aperio-voice-continuous", "aperio-reasoning", "aperio-busy-words", "aperio-ambient"];
 
   const appliers = new Map();
 

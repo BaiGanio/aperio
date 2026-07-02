@@ -33,6 +33,16 @@
     });
   }
 
+  // ── Ambient background ────────────────────────────────────────────────────
+  // auto|on|off dropdown, backed by window.Aperio.ambient (scripts/ambient.js).
+  function wireAmbient() {
+    const el = document.getElementById("settingsAmbientSelect");
+    if (!el || el.dataset.wired) return;
+    el.dataset.wired = "1";
+    el.value = window.Aperio?.ambient?.get() || "auto";
+    el.addEventListener("change", () => window.Aperio?.ambient?.set(el.value));
+  }
+
   // ── Busy words ────────────────────────────────────────────────────────────
   // User-added words to cycle next to the live cursor. Stored as a newline list
   // in the DB-backed settings store; chat.js merges them with its defaults live.
@@ -137,6 +147,7 @@
     if (opening) {
       wireSound();
       syncSound();
+      wireAmbient();
       wireBusyWords();
       loadModels();
       window.loadGithubTriageSettings?.();

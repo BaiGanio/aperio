@@ -1,4 +1,4 @@
-    /* ── Theme switcher (inline group inside the sidebar theme row) ── */
+    /* ── Theme switcher (icon-only segmented group in the header) ── */
     .theme-switcher {
       display: flex;
       align-items: center;
@@ -23,6 +23,8 @@
     }
 
     .theme-btn:hover { color: var(--text); }
+
+    .theme-btn-icon { font-size: var(--fs-secondary); line-height: 1; }
 
     .theme-btn.active {
       background: var(--bg-panel);
@@ -247,6 +249,14 @@
     .sidebar-nav-btn:hover {
       background: var(--bg-hover);
       color: var(--text);
+    }
+
+    /* --text-muted is tuned for body text and all but vanishes on the dark
+       surfaces — lift the rail icons/labels there for contrast. */
+    :root[data-theme="dark"] .sidebar-nav-btn { color: #a09b91; }
+    :root[data-theme="aurora"] .sidebar-nav-btn { color: #b3a8db; }
+    @media (prefers-color-scheme: dark) {
+      :root[data-theme="system"] .sidebar-nav-btn { color: #a09b91; }
     }
 
     .sidebar-nav-icon {
