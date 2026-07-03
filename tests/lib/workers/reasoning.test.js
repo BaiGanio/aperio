@@ -11,6 +11,24 @@ describe("reasoning.js", () => {
       assert.strictEqual(adapter.thinks, true);
     });
 
+    test("Ornith resolves to an inline-think adapter and strips a headless </think>", () => {
+      const adapter = resolveReasoningAdapter("ornith:9b");
+      assert.strictEqual(adapter.match, "ornith");
+      assert.strictEqual(adapter.thinks, true);
+      // Screenshot repro: reasoning leaks inline as "…</think>answer" in content.
+      const state = adapter.createState(false);
+      const events = [];
+      const emit = (e) => events.push(e.type);
+      let answer = "";
+      for (const chunk of ["I'll fetch the issue.", "</think>Got it, checking now."]) {
+        const { contentToken } = adapter.processDelta({ content: chunk }, state, emit);
+        if (contentToken) answer += contentToken;
+      }
+      answer += adapter.flushState(state);
+      assert.ok(events.includes("reasoning_done"));
+      assert.strictEqual(answer, "Got it, checking now.");
+    });
+
     test("falls back to noopAdapter for unknown models", () => {
       const adapter = resolveReasoningAdapter("my-custom-model-v1");
       assert.strictEqual(adapter.match, "__noop__");

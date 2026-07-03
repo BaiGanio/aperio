@@ -2,7 +2,7 @@
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, detectToolCallLeak, recoverToolName, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools } from "../../../lib/tools/executor.js";
+import { extractTextToolCall, extractBracketToolCall, detectToolCallLeak, recoverToolName, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall
@@ -157,6 +157,67 @@ describe("extractTextToolCall", () => {
     assert.equal(result.name, "t");
     assert.deepEqual(result.input, { x: 1 });
   });
+
+  test("recovers an Ornith [tool_call] bbcode call leaked into text", () => {
+    const text = 'Let me get its details now...\n[tool_call](fetch_github_issue) [url]https://github.com/BaiGanio/aperio/issues/49[/url][repo]aperio[/repo]';
+    const result = extractTextToolCall(text, []);
+    assert.notEqual(result, null);
+    assert.equal(result.name, "fetch_github_issue");
+    assert.deepEqual(result.input, { url: "https://github.com/BaiGanio/aperio/issues/49", repo: "aperio" });
+  });
+
+  test("recovers OpenAI wire-format leak (name under call/tool, params under args)", () => {
+    for (const key of ["call", "tool", "function"]) {
+      const text = `{"${key}": "recall", "args": {"query": "exam"}}`;
+      const result = extractTextToolCall(text, []);
+      assert.equal(result?.name, "recall", `name via "${key}"`);
+      assert.deepEqual(result.input, { query: "exam" });
+    }
+  });
+
+  test("recovers the fenced wire-format leak and leaves a mis-typed arg untouched", () => {
+    // Model wrapped the scalar url in a one-element array — we do NOT coerce it;
+    // the tool's schema validation + retry loop handles the wrong shape.
+    const text = '```json|mask:step\n{"tool_call_id": "tool_7","call": "fetch_github_issue", "args": {"repo": "aperio","url": ["https://x/issues/49"]}}\n{"id": 123, "type": "function"}\n```';
+    const result = extractTextToolCall(text, []);
+    assert.equal(result?.name, "fetch_github_issue");
+    assert.deepEqual(result.input, { repo: "aperio", url: ["https://x/issues/49"] });
+  });
+});
+
+// =============================================================================
+// extractBracketToolCall
+//
+// Ornith-family models leak tool calls as "[tool_call](name) [key]val[/key]"
+// bbcode when the Ollama renderer's parser fails. Recover name + args so the
+// call dispatches instead of rendering as dead text.
+// =============================================================================
+
+describe("extractBracketToolCall", () => {
+  test("returns null for empty or non-bracket text", () => {
+    assert.equal(extractBracketToolCall(""), null);
+    assert.equal(extractBracketToolCall("I'll remember that for you."), null);
+  });
+
+  test("parses the tool name and [key]value[/key] string args", () => {
+    const result = extractBracketToolCall("[tool_call](fetch_github_issue) [url]https://x/issues/49[/url][repo]aperio[/repo]");
+    assert.deepEqual(result, { name: "fetch_github_issue", input: { url: "https://x/issues/49", repo: "aperio" }, trailing: "" });
+  });
+
+  test("JSON-parses array/object arg values, keeps scalars as strings", () => {
+    const result = extractBracketToolCall('[tool_call](remember) [content]blue[/content][tags]["prefs","color"][/tags]');
+    assert.equal(result.name, "remember");
+    assert.deepEqual(result.input, { content: "blue", tags: ["prefs", "color"] });
+  });
+
+  test("handles a no-arg call", () => {
+    assert.deepEqual(extractBracketToolCall("[tool_call](scan_project)"), { name: "scan_project", input: {}, trailing: "" });
+  });
+
+  test("captures trailing text after the call, stripping a Response: prefix", () => {
+    const result = extractBracketToolCall("[tool_call](x) [a]1[/a] Response: done");
+    assert.equal(result.trailing, "done");
+  });
 });
 
 // =============================================================================
@@ -186,13 +247,46 @@ describe("detectToolCallLeak", () => {
     assert.equal(detectToolCallLeak('<invoke name="recall">'), true);
   });
 
+  test("flags Ornith [tool_call](name) bbcode", () => {
+    assert.equal(detectToolCallLeak("[tool_call](fetch_github_issue) [url]x[/url]"), true);
+  });
+
+  test("flags OpenAI wire-format JSON whose value is a known tool", () => {
+    assert.equal(detectToolCallLeak('{"call": "fetch_github_issue", "args": {}}', ["fetch_github_issue"]), true);
+    assert.equal(detectToolCallLeak('{"tool": "recall"}', ["recall"]), true);
+  });
+
+  test("does not flag ordinary JSON whose value is not a tool name", () => {
+    assert.equal(detectToolCallLeak('{"name": "Alice", "role": "admin"}', ["recall", "fetch_github_issue"]), false);
+  });
+
   test("flags a known-tool function call with a named arg", () => {
     assert.equal(detectToolCallLeak('recall(query="exam")', ["recall", "db_query"]), true);
+  });
+
+  test("flags a narrated call the model never issued (gemma e4b)", () => {
+    const text = "I need to load the content of that issue first before giving you an opinion.\n\nCalling `fetch_github_issue` for https://github.com/BaiGanio/aperio/issues/49.";
+    assert.equal(detectToolCallLeak(text, ["fetch_github_issue", "recall"]), true);
+  });
+
+  test("flags first-person intent to call a known tool", () => {
+    assert.equal(detectToolCallLeak("I'll call fetch_github_issue to get the details.", ["fetch_github_issue"]), true);
+    assert.equal(detectToolCallLeak("Let me use recall to check your memories.", ["recall"]), true);
+    assert.equal(detectToolCallLeak("I'm invoking db_query now.", ["db_query"]), true);
+  });
+
+  test("does not flag narration for an unknown tool name", () => {
+    assert.equal(detectToolCallLeak("Calling fetch_github_issue for the URL.", ["recall"]), false);
   });
 
   test("does not flag plain prose that mentions a tool name", () => {
     assert.equal(detectToolCallLeak("I'll recall (from memory) what we discussed.", ["recall"]), false);
     assert.equal(detectToolCallLeak("Let me check your memories for the exam.", ["recall"]), false);
+  });
+
+  test("does not flag second-person advice or past-tense summaries", () => {
+    assert.equal(detectToolCallLeak("You can call fetch_github_issue with the URL to load it.", ["fetch_github_issue"]), false);
+    assert.equal(detectToolCallLeak("I called fetch_github_issue and here is what I found.", ["fetch_github_issue"]), false);
   });
 
   test("does not flag empty or whitespace text", () => {
@@ -643,5 +737,100 @@ describe("getDestructiveTools", () => {
   test("built-ins cannot be removed via config", () => {
     process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS = "only_this";
     assert.ok(getDestructiveTools().has("write_file"));
+  });
+});
+
+// =============================================================================
+// findPriorToolResult — loop-breaker for tiny-window trim thrash
+//
+// On a small context window, trimming evicts the freshest tool_use/tool_result
+// pair, so the model re-issues the identical call and spins. The persistent
+// `messages` array still holds the prior result; findPriorToolResult recovers
+// it so the executor can hand it back instead of re-running the tool.
+// =============================================================================
+
+describe("findPriorToolResult", () => {
+  // A completed identical call earlier in THIS turn: user text, then the
+  // assistant's tool_use, then its tool_result.
+  function turnWith(name, input, resultText) {
+    return [
+      { role: "user", content: "check issue 49" },
+      { role: "assistant", content: [{ type: "tool_use", id: "a1", name, input }] },
+      { role: "tool", content: [{ type: "tool_result", tool_use_id: "a1", content: resultText }] },
+    ];
+  }
+
+  test("returns the prior result for an identical in-turn call", () => {
+    const msgs = turnWith("fetch_github_issue", { url: "u/49" }, "ISSUE BODY");
+    assert.equal(findPriorToolResult(msgs, "fetch_github_issue", { url: "u/49" }), "ISSUE BODY");
+  });
+
+  test("is order-independent on argument keys", () => {
+    const msgs = turnWith("fetch_url", { a: 1, b: 2 }, "PAGE");
+    assert.equal(findPriorToolResult(msgs, "fetch_url", { b: 2, a: 1 }), "PAGE");
+  });
+
+  test("returns null when args differ", () => {
+    const msgs = turnWith("fetch_github_issue", { url: "u/49" }, "ISSUE BODY");
+    assert.equal(findPriorToolResult(msgs, "fetch_github_issue", { url: "u/50" }), null);
+  });
+
+  test("returns null when the prior call is in an EARLIER turn (a fresh re-ask re-runs)", () => {
+    const msgs = [
+      ...turnWith("fetch_github_issue", { url: "u/49" }, "OLD BODY"),
+      { role: "user", content: "check it again" }, // new turn — earlier result out of scope
+    ];
+    assert.equal(findPriorToolResult(msgs, "fetch_github_issue", { url: "u/49" }), null);
+  });
+
+  test("returns null when there is no matching prior call", () => {
+    assert.equal(findPriorToolResult([{ role: "user", content: "hi" }], "recall", { query: "x" }), null);
+  });
+});
+
+describe("executeToolCalls — duplicate-call short-circuit", () => {
+  test("reuses the prior result instead of re-invoking callTool", async () => {
+    const messages = [
+      { role: "user", content: "check issue 49" },
+      { role: "assistant", content: [{ type: "tool_use", id: "a1", name: "fetch_github_issue", input: { url: "u/49" } }] },
+      { role: "tool", content: [{ type: "tool_result", tool_use_id: "a1", content: "CACHED ISSUE BODY" }] },
+    ];
+    const callTool = mock.fn(async () => "FRESH FETCH");
+    const emitter = { send: mock.fn() };
+    const ex = new ToolExecutor(callTool, emitter, messages);
+    await ex.executeToolCalls([{ id: "a2", name: "fetch_github_issue", args: '{"url":"u/49"}' }]);
+
+    assert.equal(callTool.mock.calls.length, 0, "callTool must NOT run for the duplicate");
+    const toolMsg = messages[messages.length - 1];
+    const content = toolMsg.content[0].content;
+    assert.ok(content.includes("CACHED ISSUE BODY"), "prior result is handed back");
+    assert.ok(content.includes("do not call"), "model is nudged to stop repeating");
+  });
+
+  test("still runs callTool for a genuinely new call", async () => {
+    const messages = [{ role: "user", content: "check issue 49" }];
+    const callTool = mock.fn(async () => "FRESH FETCH");
+    const ex = new ToolExecutor(callTool, { send: mock.fn() }, messages);
+    await ex.executeToolCalls([{ id: "a1", name: "fetch_github_issue", args: '{"url":"u/49"}' }]);
+    assert.equal(callTool.mock.calls.length, 1);
+    assert.equal(messages[messages.length - 1].content[0].content, "FRESH FETCH");
+  });
+
+  test("intercepted (text-emitted) call also reuses the prior result", async () => {
+    const messages = [
+      { role: "user", content: "check issue 49" },
+      { role: "assistant", content: [{ type: "tool_use", id: "a1", name: "fetch_github_issue", input: { url: "u/49" } }] },
+      { role: "tool", content: [{ type: "tool_result", tool_use_id: "a1", content: "CACHED ISSUE BODY" }] },
+    ];
+    const callTool = mock.fn(async () => "FRESH FETCH");
+    const ex = new ToolExecutor(callTool, { send: mock.fn() }, messages);
+    await ex.executeInterceptedToolCall({ name: "fetch_github_issue", input: { url: "u/49" }, trailing: "" });
+
+    assert.equal(callTool.mock.calls.length, 0, "callTool must NOT run for the duplicate");
+    // The intercepted path pushes its result as a role:"user" tool_result.
+    const resultMsg = messages.find(m => m.role === "user" && Array.isArray(m.content) && m.content[0]?.type === "tool_result");
+    assert.ok(resultMsg, "prior result is handed back on the intercepted path");
+    assert.ok(resultMsg.content[0].content.includes("CACHED ISSUE BODY"), "reuses the prior body");
+    assert.ok(resultMsg.content[0].content.includes("do not call"), "model is nudged to stop repeating");
   });
 });

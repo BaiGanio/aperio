@@ -530,7 +530,7 @@
     }
 
 /* ── Table styles (markdown pipe tables) ── */
-/* .bubble table {
+.bubble table {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
@@ -572,7 +572,7 @@
 /* Row hover — distinct from zebra stripe so hover is always visible */
 .bubble tbody tr:hover td {
   background: var(--accent-soft);
-} */
+}
 
 /* ── Round-table mode: per-agent bubble styling ─────────────────────────── */
 .message.message-agent-primary .bubble {

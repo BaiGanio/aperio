@@ -143,8 +143,12 @@ function renderMarkdown(text) {
         }
 
         if (rows.length >= 3) {
-          // Split row into cells, discarding the empty first/last entries from split
-          const parseCells = (row) => row.split('|').slice(1, -1).map(c => c.trim());
+          // Split row into cells, discarding the empty first/last entries from split.
+          // Models commonly emit a literal <br> to break lines within a cell; by now
+          // it's been HTML-escaped to &lt;br&gt;, so fold the safe variants back to a
+          // real <br> (nothing else is un-escaped, keeping the injection surface closed).
+          const parseCells = (row) => row.split('|').slice(1, -1)
+            .map(c => c.trim().replace(/&lt;br\s*\/?&gt;/gi, '<br>'));
 
           const headerCells = parseCells(rows[0]).map(c => `<th>${c}</th>`).join('');
           const thead = `<thead><tr>${headerCells}</tr></thead>`;

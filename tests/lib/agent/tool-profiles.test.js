@@ -10,7 +10,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, capToolsForWindow, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS } from "../../../lib/agent/tool-profiles.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
@@ -60,5 +60,38 @@ describe("tool-profiles — self-memory always offered", () => {
     for (const t of ["self_remember", "self_recall", "self_update", "self_forget"]) {
       assert.ok(tools.has(t), `${t} must always be offered`);
     }
+  });
+});
+
+// capToolsForWindow: a tiny served window (e.g. gemma4:12b at ~6k) can't hold
+// the full re-sent schema set plus a tool result, so cap the attached tools.
+describe("capToolsForWindow", () => {
+  const bigWin = SMALL_WINDOW_TOKENS + 1;
+  const smallWin = SMALL_WINDOW_TOKENS - 1;
+
+  test("leaves a large window untouched", () => {
+    const names = new Set(["recall", "remember", "fetch_github_issue", "fetch_url", "read_file", "scan_project", "code_search", "doc_search", "db_query", "web_search", "export_data", "import_data"]);
+    assert.equal(capToolsForWindow(names, bigWin), names, "returns the same set unchanged");
+  });
+
+  test("leaves a small window untouched when already within budget", () => {
+    const names = new Set(["recall", "remember", "fetch_github_issue"]);
+    assert.equal(capToolsForWindow(names, smallWin), names);
+  });
+
+  test("caps to the budget on a small window", () => {
+    const names = new Set(Array.from({ length: 20 }, (_, i) => `t${i}`).concat("recall"));
+    const capped = capToolsForWindow(names, smallWin);
+    assert.equal(capped.size, SMALL_WINDOW_MAX_TOOLS);
+  });
+
+  test("keeps recall (the memory floor) and the turn's intent tools over baseline", () => {
+    // 12 memory/self/data baseline names + recall + an intent tool. On a small
+    // window the intent tool and recall must survive the cap.
+    const core = [...TOOL_PROFILES.memory, ...TOOL_PROFILES.self, ...TOOL_PROFILES.data];
+    const names = new Set([...core, "fetch_github_issue"]);
+    const capped = capToolsForWindow(names, smallWin);
+    assert.ok(capped.has("recall"), "recall floor survives");
+    assert.ok(capped.has("fetch_github_issue"), "the turn's intent tool survives the cap");
   });
 });
