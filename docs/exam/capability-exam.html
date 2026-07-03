@@ -93,23 +93,16 @@
     </div>
 
     <h2 class="reveal">§0 — Fixture Import (Setup)</h2>
-    <p class="reveal mg-desc">Required before any drill. Import the Maya Chen persona dataset so the memory, recall,
-      wiki, and dedup drills have real data. The dataset is 28 fictional memories tagged <code>aperio-exam</code>.</p>
+    <p class="reveal mg-desc">Required before any drill. Import the Maya Chen persona dataset so the memory, recall, wiki, and dedup drills have real data. The dataset is 28 fictional memories tagged <code>aperio-exam</code>.</p>
 
     <div class="test-card reveal" id="setup-card">
       <span class="test-label">Setup</span>
-      <h3>Import the fixture</h3>
-      <p class="test-probes">Expected: 28 memories imported, tagged <code>aperio-exam</code></p>
+      <h3>Import the <code>aperio-exam</code> fixture</h3>
+      <p class="test-probes">Option 1. Open your favorite terminal, ensure Aperio is running and paste the snipped below</p>
 
-      <div class="mg-prompt"><span class="mg-prompt-label">Option A — cURL (terminal)</span>PORT=31337
-        curl -s
-        https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.memories.json |
-        curl -s -X POST "http://localhost:$PORT/api/memories/import" -H "Content-Type: application/json" --data-binary
-        @-</div>
-      <p class="mg-desc" style="margin:10px 0">← Copy the block above, replace <code>PORT</code> with your instance port
-        (3000 default), and run it in a terminal.</p>
-      <div class="mg-prompt"><span class="mg-prompt-label">Option B — Tell the agent</span>Read exam.md §0 and import
-        the fixture. Use the import API, write+run a Node script, or curl — whatever works.</div>
+      <div class="mg-prompt">PORT=31337<br>curl -s https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.memories.json |<br>curl -s -X POST "http://localhost:$PORT/api/memories/import" -H "Content-Type: application/json" --data-binary @-</div>
+      <p class="test-probes">Option 2. Copy the block from below and paste it within Aperio terminal or web chat</p>
+      <div class="mg-prompt">Run the Aperio exam. Fetch the exam run-book, do the setup section to import the fixture, then wait for me before each drill.</div>
 
       <strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px">✅ Expected</strong>
       <ul class="honest-list">

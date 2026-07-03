@@ -266,6 +266,29 @@ INSERT INTO memories (type, title, content, tags, importance) VALUES
   4
 );
 
+-- Feature-awareness + exam priming. Mirrors db/memory-seed.js (the SQLite seed);
+-- source 'system' marks seed data, and the exam memory is pinned so "run the exam"
+-- resolves fast. Keep these two rows in sync with memory-seed.js.
+INSERT INTO memories (type, title, content, tags, importance, source, pinned) VALUES
+(
+  'fact',
+  'Skills are Markdown prompts — no engine, no weights',
+  'Aperio''s skill system injects SKILL.md files into the LLM system prompt at conversation start. There is no plugin loader, no DSL, no special runtime — a skill is just a markdown file with frontmatter. Skills trigger on (1) direct name match — every word of the skill name appears in the message — or (2) keyword scoring — at least two curated keywords or description words match. Stub skills marked load: never (like coding-examples and memory-learning) are filtered out and never trigger, even on keyword matches. Skills live under skills/<name>/SKILL.md and are hot-reloaded on restart.',
+  ARRAY['aperio', 'skills', 'features', 'prompts'],
+  4,
+  'system',
+  false
+),
+(
+  'project',
+  'Aperio capability exam — test this model''s tool use',
+  'Aperio ships with an integration exam that tests every tool and skill against a realistic persona dataset. It covers memory recall, wiki authoring, code graph navigation, shell guardrails, skill triggering, and multi-tool chains. To take the exam, the user says "let''s do the exam" or "run the Aperio exam." When triggered: (1) fetch the exam run-book from https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.md — it is a short orchestrator that lists one section file per topic. (2) First self_recall tag "aperio-exam-progress": if a checkpoint exists, offer to resume where you left off. (3) Fetch and run ONE section file at a time (never all up front) to conserve context; start with sections/00-setup.md to import the fixture. (4) Run drills strictly one at a time: announce each drill and its prompt, ask the user "Run it? (yes / no)", and only act on yes. (5) After each drill, record pass/fail/skip and update your progress checkpoint (self_remember/self_update tag "aperio-exam-progress" with a status of active|completed|abandoned; if self_* refuses on a cloud provider, write scratch/exam-progress.json instead). (6) Check in from time to time — ask whether the user wants to keep going or give up; if they give up, mark the checkpoint status:abandoned and do not proactively bring the exam up again (only restart if they ask). For cleanup, the user says "clean up the exam" — recall all memories tagged aperio-exam and forget each one, then delete any scratch/ files. The exam is versioned alongside the codebase; always fetch the latest exam.md rather than relying on local copies.',
+  ARRAY['aperio', 'exam', 'testing', 'onboarding'],
+  5,
+  'system',
+  true
+);
+
 -- ============================================================
 -- SEED — Wiki baseline articles
 -- Embeddings are NULL here — backfilled at server startup.
