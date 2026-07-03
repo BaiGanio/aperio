@@ -131,8 +131,8 @@
        a gentle levitation on the newest bubbles. Both stay off the layout/paint
        hot paths: the halo pulses via opacity on an ::after layer, the float is
        a transform. prefers-reduced-motion stills both (halo stays, static). */
-    .message.ai .bubble { --bubble-halo: color-mix(in srgb, var(--accent) 16%, transparent); }
-    .message.user .bubble { --bubble-halo: color-mix(in srgb, var(--bg-msg-user) 45%, transparent); }
+    .message.ai .bubble { --bubble-halo: color-mix(in srgb, var(--accent) 32%, transparent); }
+    .message.user .bubble { --bubble-halo: color-mix(in srgb, var(--bg-msg-user) 65%, transparent); }
 
     .bubble::after {
       content: "";
@@ -140,12 +140,12 @@
       inset: 0;
       border-radius: inherit;
       pointer-events: none;
-      box-shadow: 0 5px 30px var(--bubble-halo);
+      box-shadow: 0 3px 12px var(--bubble-halo), 0 10px 38px var(--bubble-halo);
       animation: bubble-glow 4.5s ease-in-out infinite alternate;
     }
 
     @keyframes bubble-glow {
-      from { opacity: .55; }
+      from { opacity: .45; }
       to   { opacity: 1; }
     }
 
@@ -161,13 +161,18 @@
 
     @keyframes bubble-float {
       from { transform: translateY(0); }
-      to   { transform: translateY(-3px); }
+      to   { transform: translateY(-7px); }
     }
 
     @media (prefers-reduced-motion: reduce) {
       .bubble::after,
       .message:nth-last-child(-n+6) .bubble { animation: none; }
     }
+
+    /* Ambient off = calm UI everywhere: no halo, no levitation, whatever the
+       theme. data-ambient lives on <html>, kept in sync by scripts/ambient.js. */
+    :root[data-ambient="off"] .bubble::after { display: none; }
+    :root[data-ambient="off"] .message .bubble { animation: none; }
 
     /* Markdown-ish in bubbles */
     .bubble code {

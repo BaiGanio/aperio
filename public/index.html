@@ -63,6 +63,17 @@
         <div class="ctx-fill" id="ctxFill"></div>
       </div>
     </div>
+    <div class="theme-switcher" id="ambientSwitcher" data-i18n-attr-title="nav_ambient_title" title="Ambient background">
+      <button class="theme-btn ambient-btn" data-ambient="auto" data-i18n-attr-title="nav_ambient_auto" title="Auto">
+        <span class="theme-btn-icon">◐</span>
+      </button>
+      <button class="theme-btn ambient-btn" data-ambient="on" data-i18n-attr-title="nav_ambient_on" title="On">
+        <span class="theme-btn-icon">✦</span>
+      </button>
+      <button class="theme-btn ambient-btn" data-ambient="off" data-i18n-attr-title="nav_ambient_off" title="Off">
+        <span class="theme-btn-icon">○</span>
+      </button>
+    </div>
     <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
       <button class="theme-btn" data-theme="light" data-i18n-attr-title="nav_theme_light" title="Light">
         <span class="theme-btn-icon">☀️</span>
@@ -619,19 +630,6 @@
           <input type="checkbox" id="settingsSoundToggle" />
           <span class="switch-track"></span>
         </label>
-      </span>
-    </div>
-    <div class="settings-row">
-      <span class="settings-row-label">
-        <i class="bi bi-stars"></i>
-        <span data-i18n="nav_ambient_title">Ambient background</span>
-      </span>
-      <span class="settings-row-control">
-        <select id="settingsAmbientSelect" class="settings-select">
-          <option value="auto" data-i18n="nav_ambient_auto">Auto</option>
-          <option value="on" data-i18n="nav_ambient_on">On</option>
-          <option value="off" data-i18n="nav_ambient_off">Off</option>
-        </select>
       </span>
     </div>
     <!-- Language switcher — hidden until i18n feature is complete; unhide by removing style="display:none" -->

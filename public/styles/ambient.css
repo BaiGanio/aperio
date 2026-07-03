@@ -1,7 +1,7 @@
-/* Ambient background layer — a slow canvas-drawn "aurora" behind the chat.
+/* Ambient background layer — a slow canvas-drawn "starfield" behind the chat.
    The visual itself is painted by scripts/ambient.js (canvas 2D, no deps);
    this file owns positioning, show/hide, and the per-theme hues the script
-   reads via --ambient-c1..c4 / --ambient-blend.
+   reads via --ambient-c1..c6 / --ambient-blend.
 
    Visibility is driven by the `data-ambient` attribute on <html>
    (set by scripts/ambient.js from the aperio-ambient=auto|on|off setting):
@@ -39,7 +39,7 @@
 #ambient canvas {
   display: block;
   width: 100%;
-  height: 100%;           /* canvas renders at 1/4 res; gradients upscale smoothly */
+  height: 100%;           /* canvas renders at 1/2 res; halos upscale smoothly */
 }
 
 /* Light surfaces: normal blending (additive washes out on white), saturated
