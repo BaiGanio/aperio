@@ -54,11 +54,11 @@ function baseCtx(overrides = {}) {
   return {
     provider: { name: "claude-code", model: "claude-sonnet-4-20250514" },
     callTool: mock.fn(async () => "Tool result"),
-    getSystemPrompt: () => "You are a helpful assistant.",
-    getAnthropicTools: () => [{
-      name: "read_file", description: "Read a file",
-      input_schema: { type: "object", properties: { path: { type: "string" } } },
-    }],
+    // mcpTools: raw MCP tool list the provider filters and bridges to the SDK.
+    mcpTools: [
+      { name: "read_file", description: "Read a file" },
+      { name: "recall", description: "Search memories" },
+    ],
     claudeCodeState: {},
     ...overrides,
   };
