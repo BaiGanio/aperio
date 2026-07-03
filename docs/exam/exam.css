@@ -1,0 +1,20 @@
+/* ──────────────────────────────────────────────────────────────────────────
+   exam.css — shared styles for the exam/ capability-exam section pages.
+
+   Extracted from the per-section inline <style> blocks, which were byte-for-byte
+   identical across section-1 … section-9. This file is the single source of
+   truth so every section renders identically. Depends on the CSS variables in
+   styles.css (link that first) and the shared test-card/rbtn rules in
+   styles-evaluate.css.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.drill-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.drill-row:last-child{border-bottom:none}
+.drill-num{font-family:var(--font-mono);font-size:.75rem;font-weight:600;color:var(--purple);min-width:44px;padding-top:4px}
+.drill-body{flex:1;min-width:260px}
+.drill-body .mg-prompt{margin:4px 0 6px;font-size:.82rem;padding:10px 14px}
+.drill-expect{font-size:.82rem;opacity:.75;margin-bottom:6px}
+.drill-expect code{background:rgba(168,85,247,.12);color:var(--purple);padding:1px 5px;font-family:'Berkeley Mono',monospace;font-size:.8rem}
+.back-link{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-ui);font-size:.8rem;color:var(--purple);text-decoration:none;margin-top:12px}
+.back-link:hover{text-decoration:underline}
+@media print{body{background:#fff;color:#000;font-size:12px}.orb,.aperio-nav,.theme-switcher,.nav-toggle,footer,.back-link,.rbtn,.test-result{display:none!important}h1,h2{color:#000!important}.mg-prompt{border:1px solid #ccc!important;background:#fff!important}.drill-row{border-color:#ccc!important}@page{margin:1.5cm}}
