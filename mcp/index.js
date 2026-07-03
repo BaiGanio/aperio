@@ -69,8 +69,8 @@ export async function startServer(opts = {}) {
   const server = new McpServer({ name: packageJson.name, version: packageJson.version });
 
   // 3. Register tools
-  // Note: registrees like 'registerFiles' will now import 'isPathAllowed' 
-  // directly from '../lib/utils/paths.js' instead of getting it from ctx.
+  // Note: registrees like 'registerFiles' import path validation
+  // directly from '../lib/routes/paths.js' instead of getting it from ctx.
   registerMemory(server, ctx);
   registerSelfMemory(server, ctx);
   registerSelfWiki(server, ctx);
