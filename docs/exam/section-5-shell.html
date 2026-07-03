@@ -8,18 +8,7 @@
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
 <link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" /><link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
-<style>
-  .drill-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);flex-wrap:wrap}
-  .drill-row:last-child{border-bottom:none}
-  .drill-num{font-family:var(--font-mono);font-size:.75rem;font-weight:600;color:var(--purple);min-width:44px;padding-top:4px}
-  .drill-body{flex:1;min-width:260px}
-  .drill-body .mg-prompt{margin:4px 0 6px;font-size:.82rem;padding:10px 14px}
-  .drill-expect{font-size:.82rem;opacity:.75;margin-bottom:6px}
-  .drill-expect code{background:rgba(168,85,247,.12);color:var(--purple);padding:1px 5px;font-family:'Berkeley Mono',monospace;font-size:.8rem}
-  .back-link{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-ui);font-size:.8rem;color:var(--purple);text-decoration:none;margin-top:12px}
-  .back-link:hover{text-decoration:underline}
-  @media print{body{background:#fff;color:#000;font-size:12px}.orb,.aperio-nav,.theme-switcher,.nav-toggle,footer,.back-link,.rbtn,.test-result{display:none!important}h1,h2{color:#000!important}.mg-prompt{border:1px solid #ccc!important;background:#fff!important}.drill-row{border-color:#ccc!important}@page{margin:1.5cm}}
-</style></head><body>
+<link rel="stylesheet" href="exam.css" /></head><body data-section="5">
 <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
 <nav class="aperio-nav"><div class="nav-inner"><a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a><button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button><ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="capability-exam.html">Exam Hub</a></li><li><a href="#drills">Drills</a></li><li><a href="../guide.html#evaluate">All Suites</a></li></ul><div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div></div></nav>
 
@@ -56,19 +45,5 @@
 
 <footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="../scripts.js"></script>
-<script>
-(function(){
-const SEC=5,MAX=6;
-function save(d,v){localStorage.setItem('exam-s'+SEC+'-d'+d,v)}
-function restore(){document.querySelectorAll('.drill-row .rbtn').forEach(b=>{let test=b.closest('.drill-row').querySelector('.test-result').dataset.test.split('-')[1];let v=localStorage.getItem('exam-s'+SEC+'-d'+test);if(v){let card=b.closest('.drill-row'),btns=card.querySelectorAll('.rbtn');btns.forEach(x=>{x.className='rbtn rbtn-'+x.dataset.value});b.classList.add(v==='pass'?'active-pass':v==='fail'?'active-fail':'active-na')}})}
-document.querySelectorAll('.drill-row .rbtn').forEach(b=>{b.addEventListener('click',function(){
-  let val=this.dataset.value,row=this.closest('.drill-row'),btns=row.querySelectorAll('.rbtn'),test=row.querySelector('.test-result').dataset.test.split('-')[1];
-  btns.forEach(x=>{x.className='rbtn rbtn-'+x.dataset.value});
-  if(val==='pass'){this.classList.add('active-pass');save(test,'pass')}
-  else if(val==='fail'){this.classList.add('active-fail');save(test,'fail')}
-  else{this.classList.add('active-na');save(test,'na')}
-})});
-restore();
-})();
-</script>
+<script src="exam.js"></script>
 </body></html>

@@ -37,17 +37,96 @@
   .reset-btn{font-family:var(--font-ui);font-size:.72rem;letter-spacing:.06em;padding:6px 16px;border:1px solid rgba(229,115,107,.3);background:transparent;color:var(--muted);cursor:pointer;border-radius:0;transition:all .15s}
   .reset-btn:hover{border-color:#e5736b;color:#e5736b}
   @media print{body{background:#fff;color:#000;font-size:12px}.orb,.aperio-nav,.theme-switcher,.nav-toggle,footer,.copy-btn,.btn-print,.mt-next,.rt-badge,.ex-meta,.reset-btn{display:none!important}.scorecard,.scorecard thead th,.scorecard tbody td{border-color:#ccc!important;color:#000!important}.rt-card{border:1px solid #999}.rt-card.pulse{animation:none}h1,h2{color:#000!important}.section{padding:10px 0!important}.template-box{border-color:#ccc!important}@page{margin:1.5cm}}
-</style></head><body>
+</style>
+</head>
+<body>
 <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
-<nav class="aperio-nav"><div class="nav-inner"><a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a><button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button><ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="../guide.html#evaluate">All Suites</a></li><li><a href="#sections">Sections</a></li><li><a href="#setup">Setup</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li><li><a href="../model-guide.html#compare">Models</a></li></ul><div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div></div></nav>
+<nav class="aperio-nav">
+  <div class="nav-inner"><a href="../index.html" class="brand">
+      <div class="logo-mark">A</div><span class="brand-name">Aperio</span>
+    </a><button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+    <ul class="nav-links" id="navLinks">
+      <li><a href="../index.html">Home</a></li>
+      <li>/</li>
+      <li><a href="../guide.html">Guide</a></li>
+      <li>#</li>
+      <li><a href="../guide.html#evaluate">Evaluate</a></li>
+      <li>/</li>
+      <li><a href="#sections">Sections</a></li>
+      <li><a href="#setup">Setup</a></li>
+      <li><a href="#scorecard">Scorecard</a></li>
+      <li><a href="#results">Results</a></li>
+    </ul>
+    <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark"
+        title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button
+        class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system"
+        title="System">⊙</button></div>
+  </div>
+</nav>
 
 <!-- ── Header ── -->
-<section class="section" id="mt-top" style="padding:120px 0 30px"><div class="section-inner"><a href="../index.html" class="mt-back reveal">← Home</a><div class="eyebrow reveal" style="margin-top:14px">System Benchmark</div><h1 class="section-heading reveal">Capability Exam</h1><p class="lead-text reveal">A comprehensive 65+ drill benchmark covering every Aperio tool category — memory, wiki, code graph, files, shell, web, skills, multi-tool chains, and security guardrails. Each section below opens into a dedicated page with copy-paste prompts and pass/fail tracking.</p></div></section>
+<section class="section" id="mt-top" style="padding:120px 0 30px"><div class="section-inner"><div class="eyebrow reveal" style="margin-top:14px">System Benchmark</div><h1 class="section-heading reveal">Capability Exam</h1><p class="lead-text reveal">A comprehensive 65+ drill benchmark covering every Aperio tool category — memory, wiki, code graph, files, shell, web, skills, multi-tool chains, and security guardrails. Each section below opens into a dedicated page with copy-paste prompts and pass/fail tracking.</p></div></section>
 
 <!-- ── How it works ── -->
 <section class="section" style="padding:10px 0"><div class="section-inner">
 <div class="note-box reveal"><strong>How to run the exam:</strong> Pick a section below. Each drill page shows the exact prompt to paste into Aperio's chat and the ✅ expected tool/skill result. Click <strong>Pass</strong> when the model fires the right tool and produces the correct result; click <strong>Fail</strong> otherwise. Your scores are saved automatically in your browser and appear on the scorecard below. The full exam takes ~30–60 minutes depending on model speed.</div>
 </div></section>
+
+<!-- ── §0 Setup ── -->
+<section class="section" id="setup" style="padding:20px 0">
+  <div class="section-inner">
+    <h2 class="reveal">Before You Start</h2>
+    <div class="prereq-box reveal"><strong>Prerequisites:</strong>
+      <ul style="margin:6px 0 0;padding-left:20px;font-size:.88rem;line-height:1.9">
+        <li><strong>Shell:</strong> Set <code>APERIO_ENABLE_SHELL=1</code> for §5 shell drills</li>
+        <li><strong>Roundtable:</strong> Configure <code>ROUNDTABLE_AGENTS</code> with ≥2 <code>provider:model</code>
+          pairs
+          for §11</li>
+        <li><strong>Wiki refresh:</strong> Set <code>WIKI_REFRESH_PROVIDER</code> for §2.5</li>
+        <li><strong>GitHub token:</strong> Set <code>GITHUB_TOKEN</code> for §6.2 to avoid rate limits</li>
+        <li><strong>Code graph:</strong> Index the repo first — use the Code panel or ask the agent (required for §3)
+        </li>
+        <li><strong>Embedding backfill:</strong> After fixture import (§0), wait ~10s before semantic recall drills in
+          §1.2
+        </li>
+      </ul>
+    </div>
+
+    <h2 class="reveal">§0 — Fixture Import (Setup)</h2>
+    <p class="reveal mg-desc">Required before any drill. Import the Maya Chen persona dataset so the memory, recall,
+      wiki, and dedup drills have real data. The dataset is 28 fictional memories tagged <code>aperio-exam</code>.</p>
+
+    <div class="test-card reveal" id="setup-card">
+      <span class="test-label">Setup</span>
+      <h3>Import the fixture</h3>
+      <p class="test-probes">Expected: 28 memories imported, tagged <code>aperio-exam</code></p>
+
+      <div class="mg-prompt"><span class="mg-prompt-label">Option A — cURL (terminal)</span>PORT=31337
+        curl -s
+        https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.memories.json |
+        curl -s -X POST "http://localhost:$PORT/api/memories/import" -H "Content-Type: application/json" --data-binary
+        @-</div>
+      <p class="mg-desc" style="margin:10px 0">← Copy the block above, replace <code>PORT</code> with your instance port
+        (3000 default), and run it in a terminal.</p>
+      <div class="mg-prompt"><span class="mg-prompt-label">Option B — Tell the agent</span>Read exam.md §0 and import
+        the fixture. Use the import API, write+run a Node script, or curl — whatever works.</div>
+
+      <strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px">✅ Expected</strong>
+      <ul class="honest-list">
+        <li>API returns <code>{"imported":28,"errors":[],"note":"Embeddings are being generated..."}</code></li>
+        <li><code>recall</code> by tag <code>aperio-exam</code> returns 28 memories</li>
+        <li>Wait ~10s after import before running semantic recall drills (§1.2)</li>
+      </ul>
+
+      <strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px">⚠ If it fails</strong>
+      <ul class="redflag-list">
+        <li>Check your port — try 3000, 1701, or 31337</li>
+        <li>Ensure the Aperio server is running</li>
+        <li>Do not proceed to §1 until recall by tag returns 28</li>
+      </ul>
+    </div>
+  </div>
+</section>
 
 <!-- ── Section cards ── -->
 <section class="section" id="sections" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Exam Sections</h2><p class="reveal mg-desc">Click any section to open its drills. Scores update as you go.</p>
@@ -71,29 +150,6 @@
 
   <a class="feat-card reveal ex-card" href="section-9-guardrails.html" style="transition-delay:.48s"><div class="feat-icon"><i class="bi bi-shield-lock-fill"></i></div><div class="feat-title">§9 Guardrails <span class="tier-pill tier-security">4 drills</span></div><p class="feat-desc">Negative drills — path blocking, write sandbox, shell sandbox, file extension check.</p><span class="ex-meta">Open drills <span class="ex-arrow">→</span></span></a>
 </div></div></section>
-
-<!-- ── §0 Setup ── -->
-<section class="section" id="setup" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">§0 — Fixture Import (Setup)</h2><p class="reveal mg-desc">Required before any drill. Import the Maya Chen persona dataset so the memory, recall, wiki, and dedup drills have real data. The dataset is 28 fictional memories tagged <code>aperio-exam</code>.</p>
-
-<div class="test-card reveal" id="setup-card">
-  <span class="test-label">Setup</span><h3>Import the fixture</h3>
-  <p class="test-probes">Expected: 28 memories imported, tagged <code>aperio-exam</code></p>
-
-  <div class="mg-prompt"><span class="mg-prompt-label">Option A — cURL (terminal)</span>PORT=31337
-curl -s https://raw.githubusercontent.com/BaiGanio/aperio/refs/heads/master/.github/capability-exam/exam.memories.json | curl -s -X POST "http://localhost:$PORT/api/memories/import" -H "Content-Type: application/json" --data-binary @-</div>
-  <p class="mg-desc" style="margin:10px 0">← Copy the block above, replace <code>PORT</code> with your instance port (3000 default), and run it in a terminal.</p>
-  <div class="mg-prompt"><span class="mg-prompt-label">Option B — Tell the agent</span>Read exam.md §0 and import the fixture. Use the import API, write+run a Node script, or curl — whatever works.</div>
-
-  <strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px">✅ Expected</strong>
-  <ul class="honest-list"><li>API returns <code>{"imported":28,"errors":[],"note":"Embeddings are being generated..."}</code></li><li><code>recall</code> by tag <code>aperio-exam</code> returns 28 memories</li><li>Wait ~10s after import before running semantic recall drills (§1.2)</li></ul>
-
-  <strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px">⚠ If it fails</strong>
-  <ul class="redflag-list"><li>Check your port — try 3000, 1701, or 31337</li><li>Ensure the Aperio server is running</li><li>Do not proceed to §1 until recall by tag returns 28</li></ul>
-</div>
-
-<h3 class="reveal" style="font-size:1.05rem;margin-top:28px">Before You Start</h3>
-<div class="prereq-box reveal"><strong>Prerequisites:</strong><ul style="margin:6px 0 0;padding-left:20px;font-size:.88rem;line-height:1.9"><li><strong>Shell:</strong> Set <code>APERIO_ENABLE_SHELL=1</code> for §5 shell drills</li><li><strong>Roundtable:</strong> Configure <code>ROUNDTABLE_AGENTS</code> with ≥2 <code>provider:model</code> pairs for §11</li><li><strong>Wiki refresh:</strong> Set <code>WIKI_REFRESH_PROVIDER</code> for §2.5</li><li><strong>GitHub token:</strong> Set <code>GITHUB_TOKEN</code> for §6.2 to avoid rate limits</li><li><strong>Code graph:</strong> Index the repo first — use the Code panel or ask the agent (required for §3)</li><li><strong>Embedding backfill:</strong> After fixture import (§0), wait ~10s before semantic recall drills in §1.2</li></ul></div>
-</div></section>
 
 <!-- ── §10 Teardown ── -->
 <section class="section" id="teardown" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">§10 — Teardown</h2>

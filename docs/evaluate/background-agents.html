@@ -115,14 +115,6 @@
 
 <footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="../scripts.js"></script>
-<script>
-(function(){const T=6,B=7,H={pass:'<span class="sc-badge sc-pass">✓ Pass</span>',fail:'<span class="sc-badge sc-fail">✗ Fail</span>',na:'<span class="sc-badge sc-na">— N/A</span>',empty:'<span class="sc-badge sc-empty">—</span>'};let R={};
-function U(){let p=0,f=0,n=0,bp=0,bf=0,bn=0;for(let t=1;t<=7;t++){let c=document.getElementById('sr-'+t),v=R[t],r=document.querySelector('#scorecardTable tr[data-test="'+t+'"]');if(!c)continue;c.innerHTML=v?H[v]:H.empty;if(r){r.classList.remove('row-pass','row-fail');if(v==='pass')r.classList.add('row-pass');if(v==='fail')r.classList.add('row-fail')}if(t<=T){if(v==='pass')p++;if(v==='fail')f++;if(v==='na')n++}else{if(v==='pass')bp++;if(v==='fail')bf++;if(v==='na')bn++}}
-let a=T-n,tr=document.getElementById('sc-total'),fb=document.getElementById('scoreFeedback');if(a===0){tr.textContent='TOTAL: ____ / 6 passed  (or ____ / 7 with bonus)';fb.className='score-feedback';fb.textContent=''}else{let bt=a+(bn?0:1),bpt=p+bp;tr.textContent='TOTAL: '+p+' / '+a+' passed  (or '+bpt+' / '+bt+' with bonus)';
-if((p+f)===a){let tier;if(p===a)tier='strong';else if(p>=a*.6)tier='moderate';else if(p>=2)tier='high';else tier='none';P(tier);fb.className='score-feedback visible';fb.textContent=p+' of '+a+' passed — see the highlighted card below'}else{S();fb.className='score-feedback';fb.textContent=''}}
-document.querySelectorAll('.test-card').forEach(c=>{let tr=c.querySelector('.test-result');if(tr){let tn=parseInt(tr.dataset.test);if(R[tn])c.classList.add('answered');else c.classList.remove('answered')}})}
-function P(t){document.querySelectorAll('#resultsTier .rt-card').forEach(c=>{c.classList.remove('pulse');if(c.dataset.tier===t){c.classList.add('pulse');c.scrollIntoView({behavior:'smooth',block:'nearest'})}})}
-function S(){document.querySelectorAll('#resultsTier .rt-card').forEach(c=>c.classList.remove('pulse'))}
-document.querySelectorAll('.test-result').forEach(g=>{let tn=parseInt(g.dataset.test),bs=g.querySelectorAll('.rbtn');bs.forEach(b=>{b.addEventListener('click',()=>{let v=b.dataset.value;if(R[tn]===v)R[tn]=null;else R[tn]=v;bs.forEach(b2=>{b2.classList.remove('active-pass','active-fail','active-na');if(R[tn]===b2.dataset.value)b2.classList.add('active-'+b2.dataset.value)});U()})})})})();
-</script>
+<script>window.SCORECARD={tests:6,bonus:true,tiers:[{tier:"strong",all:true},{tier:"moderate",frac:0.6},{tier:"high",min:2},{tier:"none",min:0}]};</script>
+<script src="scorecard.js"></script>
 </body></html>
