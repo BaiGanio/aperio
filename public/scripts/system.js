@@ -1,5 +1,6 @@
 // ── System panel ────────────────────────────────────────────────
 let systemPanelOpen = false;
+let systemPanelTimer = null;
 
 function toggleSystemPanel() {
   systemPanelOpen = !systemPanelOpen;
@@ -14,7 +15,15 @@ function toggleSystemPanel() {
     btn.style.color       = systemPanelOpen ? "var(--accent)" : "var(--text-muted)";
   }
 
-  if (systemPanelOpen) refreshSystemPanel();
+  if (systemPanelOpen) {
+    document.getElementById("system-metrics-body").innerHTML =
+      '<div class="system-loading">Loading metrics…</div>';
+    refreshSystemPanel();
+    systemPanelTimer = setInterval(refreshSystemPanel, 2000);
+  } else {
+    clearInterval(systemPanelTimer);
+    systemPanelTimer = null;
+  }
 }
 
 // ── Formatters ──────────────────────────────────────────────────
@@ -42,15 +51,15 @@ function fmtLoadBar(load, cores) {
 // ── Render ──────────────────────────────────────────────────────
 function refreshSystemPanel() {
   const body = document.getElementById("system-metrics-body");
-  body.innerHTML = '<div class="system-loading">Loading metrics…</div>';
 
   fetch('/api/system')
     .then(res => res.json())
     .then(m => {
-      const usedMem  = m.systemTotalMem - m.systemFreeMem;
-      const memPct   = m.systemTotalMem > 0 ? Math.round((usedMem / m.systemTotalMem) * 100) : 0;
-      const loadPct  = Math.min(100, Math.round((m.loadAvg1 / m.cores) * 100));
-      const color    = loadPct >= 80 ? '#e05555' : loadPct >= 60 ? '#f0a040' : 'var(--accent)';
+      const usedMem   = m.systemUsedMem ?? (m.systemTotalMem - m.systemFreeMem);
+      const memPct    = m.systemTotalMem > 0 ? Math.round((usedMem / m.systemTotalMem) * 100) : 0;
+      const loadPct   = Math.min(100, Math.round((m.loadAvg1 / m.cores) * 100));
+      const memColor  = memPct >= 80 ? '#e05555' : memPct >= 60 ? '#f0a040' : 'var(--accent)';
+      const loadColor = loadPct >= 80 ? '#e05555' : loadPct >= 60 ? '#f0a040' : 'var(--accent)';
 
       body.innerHTML = `
         <div class="system-section-title">Process</div>
@@ -58,7 +67,7 @@ function refreshSystemPanel() {
           <div class="system-card">
             <div class="system-card-value">${fmtMemSystem(m.rss)}</div>
             <div class="system-card-label">RSS</div>
-            <div class="system-card-desc">Resident memory — RAM this process is using right now.</div>
+            <div class="system-card-desc">RAM this process is using right now — mostly the local embedding model and native libraries, not JavaScript.</div>
           </div>
           <div class="system-card">
             <div class="system-card-value">${fmtMemSystem(m.heap)}</div>
@@ -71,9 +80,9 @@ function refreshSystemPanel() {
             <div class="system-card-desc">Process CPU usage — how hard this server is working.</div>
           </div>
           <div class="system-card">
-            <div class="system-card-value">${m.embedding_queue_size}</div>
-            <div class="system-card-label">Queue</div>
-            <div class="system-card-desc">Memories waiting to be embedded into vector search.</div>
+            <div class="system-card-value">${m.memories_total}</div>
+            <div class="system-card-label">Memories</div>
+            <div class="system-card-desc">Total memories stored in this brain.</div>
           </div>
         </div>
 
@@ -82,25 +91,27 @@ function refreshSystemPanel() {
           <div class="system-card system-card-full">
             <div class="system-card-value" style="font-size:calc(14px*var(--font-scale));">
               ${fmtMemSystem(usedMem)} / ${fmtMemSystem(m.systemTotalMem)}
-              <span style="color:${color};margin-left:8px;font-size:calc(12px*var(--font-scale));">${memPct}%</span>
+              <span style="color:${memColor};margin-left:8px;font-size:calc(12px*var(--font-scale));">${memPct}% used</span>
             </div>
             <div class="system-card-label">System Memory</div>
             ${fmtLoadBar(memPct, 100)}
-            <div class="system-card-desc" style="margin-top:6px;">Total RAM available vs. currently used by the whole machine.</div>
+            <div class="system-card-desc" style="margin-top:6px;">RAM used by the whole machine vs. total installed.${m.platform === 'darwin'
+              ? ' Counted like Activity Monitor — file cache excluded.' : ''}</div>
           </div>
           <div class="system-card system-card-full">
             <div class="system-card-value" style="font-size:calc(14px*var(--font-scale));">
               ${m.loadAvg1} · ${m.loadAvg5} · ${m.loadAvg15}
-              <span style="color:${color};margin-left:8px;font-size:calc(12px*var(--font-scale));">${m.cores} cores</span>
+              <span style="color:${loadColor};margin-left:8px;font-size:calc(12px*var(--font-scale));">${m.cores} CPU cores${m.perfCores
+                ? ` (${m.perfCores} performance + ${m.effCores} efficiency)` : ''}</span>
             </div>
             <div class="system-card-label">Load Average</div>
             ${fmtLoadBar(m.loadAvg1, m.cores)}
-            <div class="system-card-desc" style="margin-top:6px;">1 min · 5 min · 15 min. Above core count means processes are waiting for CPU time.</div>
+            <div class="system-card-desc" style="margin-top:6px;">Machine-wide demand for CPU, averaged over the last 1 · 5 · 15 minutes.</div>
           </div>
           <div class="system-card">
             <div class="system-card-value" style="font-size:calc(14px*var(--font-scale));">${fmtUptime(m.uptime)}</div>
             <div class="system-card-label">Uptime</div>
-            <div class="system-card-desc">How long since this server was last restarted.</div>
+            <div class="system-card-desc">How long since this machine was booted.</div>
           </div>
           <div class="system-card">
             <div class="system-card-value" style="font-size:calc(14px*var(--font-scale));">${m.platform} · ${m.arch}</div>
