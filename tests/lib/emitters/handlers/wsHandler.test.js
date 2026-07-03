@@ -195,7 +195,7 @@ describe("message type: init", () => {
     assert.ok(loopMsgs[1].some(m => m.content === "GREETING_PROMPT"));
   });
 
-  test("passes noTools:true to runAgentLoop for non-anthropic providers", async (t) => {
+  test("passes noTools:true and suppressThinking:true to runAgentLoop for non-anthropic providers", async (t) => {
     const ws       = makeWs(t);
     const loopArgs = [];
 
@@ -211,7 +211,9 @@ describe("message type: init", () => {
     handler(ws);
     await ws.emit({ type: "init" });
 
-    assert.deepStrictEqual(loopArgs[0], { noTools: true, lang: "en" });
+    // suppressThinking keeps a local reasoning model from ruminating over the
+    // cosmetic "say hello in one sentence" greeting turn.
+    assert.deepStrictEqual(loopArgs[0], { noTools: true, lang: "en", suppressThinking: true });
   });
 
   test("passes empty opts to runAgentLoop for the anthropic provider", async (t) => {
