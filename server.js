@@ -563,9 +563,12 @@ async function bootApp() {
   }
   const roundtableAvailable = Boolean(primaryRoundtable && verifier);
 
-  // Watchdog
+  // Watchdog. IDLE_SHUTDOWN: "auto" (default) = local Ollama only; "on" = always
+  // (the lite desktop/hidden launchers set this so a windowless server still
+  // self-stops after the tab closes, even on a cloud provider); "off" = never.
+  const idleMode = (process.env.IDLE_SHUTDOWN || "auto").toLowerCase();
   const watchdog = createWatchdog({
-    enabled:   provider.name === "ollama",
+    enabled:   idleMode === "on" ? true : idleMode === "off" ? false : provider.name === "ollama",
     models:    [provider.model, process.env.OLLAMA_MODEL],
     timeoutMs: (Number(process.env.IDLE_TIMEOUT_SECONDS) || 180) * 1000,
   });

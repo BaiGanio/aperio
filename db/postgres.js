@@ -3,9 +3,13 @@
 // Matches migrations 001_init.sql + 002_pgvector.sql + 003_fts_lang.sql exactly.
 
 import pg from 'pg';
+import { randomUUID } from 'node:crypto';
 import { runMigrations } from './migrate.js';
 import { deserialiseRow } from './types.js';
 import { DB_TABLES, isAllowedTable } from './tables.js';
+import { MEMORY_SEED } from './memory-seed.js';
+import { WIKI_SEED } from './wiki-seed.js';
+import { SELF_MEMORY_SEED } from './self-memory-seed.js';
 
 // The example/default Postgres password shipped in .env.example. Connecting
 // with it means the user never set a real one — refuse rather than run with a
@@ -71,7 +75,46 @@ export class PostgresStore {
     assertNonDefaultDbUrl(process.env.DATABASE_URL);
     const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
     await runMigrations(pool);
-    return new PostgresStore(pool);
+    const store = new PostgresStore(pool);
+    await store.seedBaseline();
+    return store;
+  }
+
+  // Seed baseline memories / wiki / self-memories on a fresh, empty database
+  // (parity with the SQLite backend). Each table is guarded by its own count so
+  // existing deployments are never touched. Best-effort: a failure here must
+  // never block server boot, so it's wrapped and swallowed with a warning.
+  async seedBaseline() {
+    try {
+      const count = async (t) => (await this.pool.query(`SELECT COUNT(*)::int AS c FROM ${t}`)).rows[0].c;
+
+      if (await count('memories') === 0) {
+        for (const m of MEMORY_SEED) {
+          await this.pool.query(
+            `INSERT INTO memories (id, type, title, content, tags, importance, source, pinned, lang, confidence, valid_from)
+             VALUES ($1,$2,$3,$4,$5,$6,'system',$7,'english',1.0, now()) ON CONFLICT (id) DO NOTHING`,
+            [randomUUID(), m.type, m.title, m.content, m.tags ?? [], m.importance ?? 3, m.pinned ?? false]);
+        }
+      }
+      if (await count('wiki_articles') === 0) {
+        for (const a of WIKI_SEED) {
+          await this.pool.query(
+            `INSERT INTO wiki_articles (slug, title, summary, body_md, tags, generated_by, revision)
+             VALUES ($1,$2,$3,$4,$5,'system',1) ON CONFLICT (slug) DO NOTHING`,
+            [a.slug, a.title, a.summary ?? null, a.body_md, a.tags ?? []]);
+        }
+      }
+      if (await count('self_memories') === 0) {
+        for (const s of SELF_MEMORY_SEED) {
+          await this.pool.query(
+            `INSERT INTO self_memories (title, content, tags, importance, source, lang, confidence)
+             VALUES ($1,$2,$3,$4,'system','english',1.0)`,
+            [s.title, s.content, s.tags ?? [], s.importance ?? 3]);
+        }
+      }
+    } catch (err) {
+      console.warn('[postgres] baseline seed skipped:', err.message);
+    }
   }
 
   async counts() {

@@ -67,6 +67,7 @@ const TRANSLATIONS = {
     nav_ambient_on:           "On",
     nav_ambient_off:          "Off",
     nav_theme_title:          "Theme",
+    nav_quit_title:           "Quit Aperio — stop the server",
     nav_chats_title:          "Conversation history",
     nav_codegraph_title:      "Code graph",
     nav_memories_title:       "Memories — search your saved memories",
