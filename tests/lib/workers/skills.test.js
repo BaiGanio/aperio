@@ -8,7 +8,7 @@ import { installMemfs } from "../../helpers/memfs.js";
 // from "fs"` here — that would create the builtin fs ESM facade before the patch
 // and leave skills.js unmocked. Use the patched handle the helper returns.
 const mem = installMemfs({ root: "/mem/skills" });
-const { loadSkillIndex, matchSkill, executeSkill, assembleSkillMd, writeOverlaySkill, deleteOverlaySkill, overlaySkillPath, isValidSkillSlug } = await import("../../../lib/workers/skills.js");
+const { loadSkillIndex, matchSkill, semanticRescue, executeSkill, assembleSkillMd, writeOverlaySkill, deleteOverlaySkill, overlaySkillPath, isValidSkillSlug } = await import("../../../lib/workers/skills.js");
 after(() => mem.restore());
 
 const fs = mem.fs;
@@ -193,6 +193,50 @@ describe("skills.js — user overlay (UI editing)", () => {
       g = loadSkillIndex(bundled, overlay).find(x => x.name === "greeter");
       assert.equal(g.source, "bundled");
       assert.equal(g.load, "on-demand");
+    });
+  });
+
+  describe("semanticRescue", () => {
+    // Fake embedder: deterministic 2-D unit vectors keyed off a marker word, so
+    // cosine similarity to the query [1,0] is exactly controllable — no model.
+    const vec = (text) =>
+      /alpha/.test(text) ? [1, 0]            // sim 1.00
+      : /gamma/.test(text) ? [0.8, 0.6]      // sim 0.80
+      : /beta/.test(text) ? [0, 1]           // sim 0.00
+      : /trap/.test(text) ? [1, 0]           // sim 1.00 (but load:never — must be skipped)
+      : /^QUERY/.test(text) ? [1, 0]         // the message
+      : null;
+    const embed = async (text) => vec(text);
+
+    const index = [
+      { name: "alpha", description: "alpha skill", keywords: "", load: "on-demand" },
+      { name: "gamma", description: "gamma skill", keywords: "", load: "on-demand" },
+      { name: "beta",  description: "beta skill",  keywords: "", load: "on-demand" },
+      { name: "trap",  description: "trap skill",  keywords: "", load: "never" },
+    ];
+    const names = arr => arr.map(s => s.name);
+
+    test("returns [] when no embedder is supplied", async () => {
+      assert.deepEqual(await semanticRescue("QUERY", index, { floor: 0.5 }), []);
+    });
+
+    test("returns [] when the message embedding is unavailable", async () => {
+      assert.deepEqual(await semanticRescue("nomatch text", index, { generateEmbedding: embed, floor: 0.5 }), []);
+    });
+
+    test("ranks by similarity and respects the floor and limit", async () => {
+      const got = await semanticRescue("QUERY please", index, { generateEmbedding: embed, floor: 0.5, limit: 2 });
+      assert.deepEqual(names(got), ["alpha", "gamma"]); // beta (0.0) excluded, best first
+    });
+
+    test("a higher floor admits fewer skills", async () => {
+      const got = await semanticRescue("QUERY please", index, { generateEmbedding: embed, floor: 0.9, limit: 5 });
+      assert.deepEqual(names(got), ["alpha"]); // gamma (0.8) now below floor
+    });
+
+    test("never returns a load:never skill even at similarity 1.0", async () => {
+      const got = await semanticRescue("QUERY please", index, { generateEmbedding: embed, floor: 0.5, limit: 5 });
+      assert.ok(!names(got).includes("trap"));
     });
   });
 });
