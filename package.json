@@ -9,7 +9,7 @@
     "start": "node server.js",
     "start:cloud": "PORT=1701 node server.js",
     "start:local": "AI_PROVIDER=ollama PORT=31337 node server.js",
-    "start:lite": "AI_PROVIDER=ollama PORT=31337 DB_BACKEND=sqlite EMBEDDING_PROVIDER=transformers node server.js",
+    "start:lite": "AI_PROVIDER=ollama PORT=31337 DB_BACKEND=sqlite EMBEDDING_PROVIDER=transformers IDLE_SHUTDOWN=on node server.js",
     "chat": "node lib/terminal.js",
     "chat:cloud": "PORT=1701 node lib/terminal.js",
     "chat:local": "AI_PROVIDER=ollama PORT=31337 node lib/terminal.js",

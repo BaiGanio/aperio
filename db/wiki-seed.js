@@ -919,4 +919,78 @@ the source.
 [[temporal-truth]] — staleness inherits from the temporal model of memories
 `.trim(),
   },
+  {
+    slug:    'aperio-lite-lifecycle',
+    title:   'Aperio-lite — Install, Launch & Lifecycle',
+    summary: 'How the non-coder "lite" desktop build installs, launches (with and without a terminal), and shuts down — plus where to look when it breaks.',
+    tags:    ['aperio-lite', 'install', 'launch', 'shutdown', 'troubleshooting'],
+    body_md: `
+## What "lite" Is
+
+Aperio-lite is the zero-prerequisite desktop packaging of Aperio for non-coders: download a
+zip, run one script, and a browser opens to finish setup. It is a *profile*, not a fork — same
+codebase, SQLite backend, local Ollama by default. The launcher scripts live in \`.github/lite/\`.
+
+## Two Layers, One Hard Boundary
+
+Installation splits at a physical boundary: **Node.js cannot install itself from a web page.**
+
+1. **Terminal ignition** — \`START.sh\` (macOS/Linux) or \`START.bat\` → \`assets/start.ps1\` (Windows).
+   Does *only* what a browser can't: ensure Node.js (nvm on Unix, winget on Windows), run
+   \`npm install\`, then start the server. Then it gets out of the way.
+2. **Browser setup wizard** — \`public/setup.html\`, driven by \`bootstrap.js\` over
+   \`/api/bootstrap/stream\`. Installs Ollama, pulls the model, migrates SQLite, picks the
+   provider — all with progress bars.
+
+Because the server serving \`setup.html\` already needed Node and dependencies, bootstrap.js's
+\`node\` and \`deps\` steps can only ever *verify* (instant green), never install.
+
+## Launching
+
+- **First run** is from the terminal (a Terminal-run script avoids the macOS Gatekeeper
+  warning). \`START.sh\` ends with a foreground \`npm run start:lite\`, so **that window hosts the
+  running server** — closing it stops Aperio, even after setup. Keep it open.
+- **Later runs** use a Desktop launcher the first run generates, which starts Aperio with **no
+  terminal window**: macOS = an \`osacompile\` \`.app\`; Linux = a \`.desktop\` with
+  \`Terminal=false\`; Windows = a \`.vbs\` run hidden via \`wscript\`. All call
+  \`launch-hidden.sh\` / \`assets/launch-hidden.ps1\`, which start the server detached and open
+  the browser.
+
+Locally-generated launchers carry no quarantine flag, so they double-click without a Gatekeeper
+warning and need no paid signing certificate.
+
+## Stopping
+
+- **Quit button** — the header power button posts \`/api/quit\` (the browser adds the required
+  \`X-Aperio-Client\` header via \`http-guard.js\`). It runs the watchdog's \`quit()\`: the same
+  teardown as an idle timeout, immediately.
+- **Idle auto-shutdown** — \`lib/helpers/shutdownGuard.js\`. The browser pings \`/api/heartbeat\`
+  every \`HEARTBEAT_INTERVAL_SECONDS\` (60); each ping resets a timer of \`IDLE_TIMEOUT_SECONDS\`
+  (180). Close every tab → pings stop → server (and Ollama, if no foreign model is loaded)
+  shuts down. This is the safety net that makes the windowless launch safe. Controlled by
+  \`IDLE_SHUTDOWN\`: \`auto\` (Ollama only) · \`on\` (always — the lite launchers set this) · \`off\`.
+
+## Ollama Is Vendored on macOS & Windows
+
+\`ollama.com/install.sh\` is Linux-only, so \`bootstrap.js\` downloads a pinned, checksum-verified
+binary instead: \`ollama-darwin.tgz\` (universal, signed & notarized) on macOS and
+\`ollama-windows-amd64.zip\` on Windows, extracted into \`./vendor/ollama\` and put on \`PATH\` so
+the app's own \`spawn('ollama')\` finds it. Linux keeps \`install.sh\`.
+
+## Where To Look When It Breaks
+
+| Symptom | Look at |
+|---|---|
+| Install stalls / errors | \`var/bootstrap.log\`, \`var/install/ignition.log\` |
+| "App died when I closed the window" | Expected — the terminal *is* the server; use the Desktop launcher |
+| Ollama step fails on macOS/Windows | Checksum/download in \`var/bootstrap.log\`; vendored binary in \`vendor/ollama/\` |
+| Server won't stop after closing tabs | \`IDLE_SHUTDOWN\` value + provider (auto = Ollama only) |
+| Config ignored on Windows | Someone ran \`npm run start:lite\` (UNIX env) instead of the PowerShell launcher |
+| Uninstall | \`./uninstall.sh\` — reads \`var/\`, removes vendored Ollama, deps, launcher; offers to drop the model |
+
+## See Also
+
+[[aperio-architecture]] — the full runtime component map
+`.trim(),
+  },
 ];

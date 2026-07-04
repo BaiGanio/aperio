@@ -1,0 +1,59 @@
+// db/self-memory-seed.js
+// Baseline SELF-memories seeded when the `self_memories` table is empty on first
+// boot. Self-memories are the agent's own private store (self_recall / self_*),
+// separate from the user-facing `memories` table. These entries give the agent
+// operational self-knowledge so it can orient itself when a user asks it to
+// diagnose install / launch / lifecycle problems with the lite desktop build.
+//
+// Source value: 'system' (mirrors MEMORY_SEED / WIKI_SEED). See the wiki article
+// 'aperio-lite-lifecycle' for the long-form version.
+
+export const SELF_MEMORY_SEED = [
+  {
+    title: 'Lite install has two layers: terminal ignition, then browser setup',
+    content:
+      "Aperio-lite installs in two phases with a hard boundary at 'Node is running'. " +
+      "Phase 1 — the terminal ignition (.github/lite/START.sh on macOS/Linux, START.bat→assets/start.ps1 on Windows) — does ONLY what a browser can't: install Node.js (nvm on Unix, winget on Windows) and run 'npm install', then start the server. " +
+      "Phase 2 — the browser wizard (public/setup.html driven by bootstrap.js over /api/bootstrap/stream) — does everything else: install Ollama, pull the model, migrate SQLite, pick the provider. " +
+      "Node can't install itself from a web page, so bootstrap.js's 'node' and 'deps' steps only ever verify (they show green because the server serving that page already needed them).",
+    tags: ['aperio-lite', 'install', 'architecture', 'troubleshooting'],
+    importance: 5,
+  },
+  {
+    title: 'The terminal window IS the server — closing it stops Aperio',
+    content:
+      "On first run, START.sh ends with a foreground 'npm run start:lite'. That window hosts the running server, not just the installer. Closing it (or Ctrl-C) sends SIGHUP and stops Aperio — even after setup finished. So the correct guidance is 'keep the window open the whole time you use Aperio', not just 'until install completes'. " +
+      "For later runs, START.sh generates a Desktop launcher that starts Aperio with NO terminal window (macOS: an osacompile .app; Linux: a .desktop with Terminal=false; Windows: a .vbs run hidden via wscript). Those call launch-hidden.sh / launch-hidden.ps1, which start the server detached and open the browser.",
+    tags: ['aperio-lite', 'launch', 'terminal', 'hidden-launch', 'troubleshooting'],
+    importance: 5,
+  },
+  {
+    title: 'Idle auto-shutdown: server stops ~180s after the last browser tab closes',
+    content:
+      "lib/helpers/shutdownGuard.js is a dead-man's switch. The browser (public/scripts/api.js) pings /api/heartbeat every HEARTBEAT_INTERVAL_SECONDS (default 60); each ping resets a timer of IDLE_TIMEOUT_SECONDS (default 180). When every tab closes the pings stop and the server (and Ollama, if no foreign model is loaded) shuts down. " +
+      "It arms only on the FIRST heartbeat (so a headless/terminal run isn't killed). It's enabled per IDLE_SHUTDOWN: 'auto' (default) = only for the local Ollama provider; 'on' = always (the lite launchers set this so a windowless server still self-stops on any provider); 'off' = never. Keep HEARTBEAT_INTERVAL well under IDLE_TIMEOUT (≤ 1/3) or a throttled background tab causes a false shutdown.",
+    tags: ['aperio-lite', 'shutdown', 'watchdog', 'heartbeat', 'troubleshooting'],
+    importance: 4,
+  },
+  {
+    title: "Quit button posts /api/quit — needs the X-Aperio-Client header",
+    content:
+      "The header 'Quit Aperio' power button calls window.quitAperio() → POST /api/quit → the watchdog's quit(), which runs the same teardown as an idle timeout right now (stops Ollama if safe, then exits). State-changing /api requests require an X-Aperio-Client header (netGuard.js CSRF/DNS-rebind guard); the browser adds it automatically via public/scripts/http-guard.js, so a raw curl POST correctly gets 403 client_header_required. Quit works on any provider (when the watchdog is disabled, quit() falls back to SIGTERM).",
+    tags: ['aperio-lite', 'quit', 'shutdown', 'security', 'troubleshooting'],
+    importance: 4,
+  },
+  {
+    title: 'macOS/Windows Ollama is vendored — install.sh is Linux-only',
+    content:
+      "https://ollama.com/install.sh only supports Linux. So bootstrap.js installs Ollama differently per OS: macOS downloads the pinned, checksum-verified ollama-darwin.tgz (a universal, signed & notarized binary) into ./vendor/ollama; Windows downloads ollama-windows-amd64.zip the same way; Linux keeps install.sh. The vendored dir is put on PATH so the app's own spawn('ollama') (lib/helpers/startOllama.js) and 'ollama pull' both find it. If a macOS/Windows install fails at the Ollama step, check the checksum/download in var/bootstrap.log.",
+    tags: ['aperio-lite', 'ollama', 'install', 'macos', 'windows', 'troubleshooting'],
+    importance: 4,
+  },
+  {
+    title: "start:lite uses UNIX inline env vars — Windows launcher sets $env and runs node directly",
+    content:
+      "The npm script start:lite is 'AI_PROVIDER=ollama PORT=31337 DB_BACKEND=sqlite EMBEDDING_PROVIDER=transformers IDLE_SHUTDOWN=on node server.js'. That inline-env syntax is UNIX-only and fails when npm runs it on Windows (no cross-env). So the Windows launchers (assets/start.ps1, assets/launch-hidden.ps1) set the same variables via $env: and run 'node server.js' directly. If a Windows lite install starts but ignores its config, suspect someone ran 'npm run start:lite' instead of the PowerShell launcher.",
+    tags: ['aperio-lite', 'windows', 'launch', 'config', 'troubleshooting'],
+    importance: 3,
+  },
+];

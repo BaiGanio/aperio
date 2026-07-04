@@ -38,6 +38,7 @@ import { getOrCreateKey, prepareDatabase, finalizeDatabase, isEncryptionEnabled,
          readExistingKey, isPlaintextSqlite, decryptFile, KeyUnreadableError } from './encrypt.js';
 import { WIKI_SEED } from './wiki-seed.js';
 import { MEMORY_SEED } from './memory-seed.js';
+import { SELF_MEMORY_SEED } from './self-memory-seed.js';
 import { DB_TABLES, isAllowedTable } from './tables.js';
 
 const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
@@ -485,6 +486,22 @@ export class SqliteStore {
       });
       tx();
       logger.info(`[sqlite] Seeded ${WIKI_SEED.length} baseline wiki articles.`);
+    }
+
+    // Seed baseline self-memories (the agent-private store) on a fresh/empty table.
+    const selfCount = db.prepare(`SELECT COUNT(*) AS n FROM self_memories`).get().n;
+    if (selfCount === 0) {
+      const insSelf = db.prepare(`
+        INSERT INTO self_memories (id, title, content, tags, importance, source, lang, confidence)
+        VALUES (?, ?, ?, ?, ?, 'system', 'english', 1.0)
+      `);
+      const txSelf = db.transaction(() => {
+        for (const s of SELF_MEMORY_SEED) {
+          insSelf.run(randomUUID(), s.title, s.content, JSON.stringify(s.tags ?? []), s.importance ?? 3);
+        }
+      });
+      txSelf();
+      logger.info(`[sqlite] Seeded ${SELF_MEMORY_SEED.length} baseline self-memories.`);
     }
 
     return store;

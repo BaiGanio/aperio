@@ -1,14 +1,13 @@
 @echo off
-:: 1. Move to the folder where THIS .bat file is actually located
+:: Aperio-lite ignition for Windows. Double-click this file to start Aperio.
+:: Move to the folder where THIS .bat file lives (the app root).
 cd /d "%~dp0"
 
-echo 📍 Working Directory: %cd%
+:: Run the ignition script (installs Node/deps if needed, then starts the server).
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0assets\start.ps1"
 
-:: 2. Launch PowerShell, bypass execution restrictions, and run the .ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File "how-to/assets/start.ps1"
-
-:: 3. Keep the window open if the script finishes or crashes
+:: If PowerShell exited early (an error before the server started), keep the
+:: window open so the message is readable.
 echo.
-echo ------------------------------------------
-echo 🏁 Process finished. Press any key to exit.
+echo Press any key to close this window.
 pause >nul

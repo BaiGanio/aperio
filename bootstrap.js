@@ -1,6 +1,7 @@
 // bootstrap.js
 import { spawn, execSync, exec } from 'child_process';
 import { createWriteStream, existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
+import { resolve, delimiter } from 'path';
 import { EventEmitter } from 'events';
 import { promisify } from 'util';
 
@@ -41,7 +42,8 @@ const setStep = (id, status, detail = '') => {
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 const isInstalled = (cmd) => {
-  try { execSync(`which ${cmd}`, { stdio: 'ignore' }); return true; }
+  const probe = process.platform === 'win32' ? `where ${cmd}` : `which ${cmd}`;
+  try { execSync(probe, { stdio: 'ignore' }); return true; }
   catch (_e) { return false; }
 };
 
@@ -58,6 +60,58 @@ const runSilently = (command, args = [], options = {}) =>
     );
     proc.on('error', reject);
   });
+
+// ── Vendored Ollama (macOS + Windows) ──────────────────────────────────────
+// macOS and Windows have no headless CLI installer that fits a scripted, no-
+// admin flow (ollama.com/install.sh is Linux-only), so we vendor the official
+// signed binary: macOS = universal (x86_64 + arm64) tarball, Windows = amd64
+// zip. Pinned + checksummed (from the release sha256sum.txt); bump deliberately.
+const OLLAMA_VER        = 'v0.31.1';
+const OLLAMA_BASE       = `https://github.com/ollama/ollama/releases/download/${OLLAMA_VER}`;
+const OLLAMA_DARWIN_URL = `${OLLAMA_BASE}/ollama-darwin.tgz`;
+const OLLAMA_SHA_DARWIN = '0c4f92389fcc1f651c17282e2eaffd68c8d3d06e1f7b307604102ad0e09a10c9';
+const OLLAMA_WIN_URL    = `${OLLAMA_BASE}/ollama-windows-amd64.zip`;
+const OLLAMA_SHA_WIN    = '9ecf5a631561c7dff3a143925f11e2008327be738a7279fcf0c5462b9c422700';
+const VENDOR_OLLAMA_DIR = './vendor/ollama';
+const OLLAMA_BIN        = process.platform === 'win32' ? 'ollama.exe' : 'ollama';
+
+// If a prior run vendored Ollama, make it discoverable to execSync/spawn('ollama').
+const ensureVendorOnPath = () => {
+  if (!existsSync(`${VENDOR_OLLAMA_DIR}/${OLLAMA_BIN}`)) return;
+  const abs = resolve(VENDOR_OLLAMA_DIR);
+  if (!process.env.PATH.split(delimiter).includes(abs)) {
+    process.env.PATH = `${abs}${delimiter}${process.env.PATH}`;
+  }
+};
+
+// macOS: download → verify → extract the engine into ./vendor/ollama.
+const installOllamaMac = async () => {
+  setStep('ollama', 'running', 'Downloading the Ollama engine (~125 MB, one time)…');
+  mkdirSync(VENDOR_OLLAMA_DIR, { recursive: true });
+  const tgz = './var/ollama-darwin.tgz';
+  await runSilently('sh', ['-c', `curl -fL "${OLLAMA_DARWIN_URL}" -o "${tgz}"`]);
+  const got = execSync(`shasum -a 256 "${tgz}"`, { encoding: 'utf8' }).trim().split(/\s+/)[0];
+  if (got !== OLLAMA_SHA_DARWIN) throw new Error('Ollama checksum mismatch — refusing to install');
+  await runSilently('sh', ['-c',
+    `tar -xzf "${tgz}" -C "${VENDOR_OLLAMA_DIR}" && rm -f "${tgz}" && chmod +x "${VENDOR_OLLAMA_DIR}/ollama"`
+  ]);
+  ensureVendorOnPath();
+  setStep('ollama', 'done', 'Ollama engine installed (vendored)');
+};
+
+// Windows: download → verify → extract via PowerShell into ./vendor/ollama.
+const installOllamaWin = async () => {
+  setStep('ollama', 'running', 'Downloading the Ollama engine (one time)…');
+  mkdirSync(VENDOR_OLLAMA_DIR, { recursive: true });
+  const zip = './var/ollama-windows.zip';
+  const ps = (cmd) => runSilently('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd]);
+  await ps(`Invoke-WebRequest -Uri '${OLLAMA_WIN_URL}' -OutFile '${zip}'`);
+  const got = execSync(`powershell -NoProfile -Command "(Get-FileHash '${zip}' -Algorithm SHA256).Hash"`, { encoding: 'utf8' }).trim().toLowerCase();
+  if (got !== OLLAMA_SHA_WIN) throw new Error('Ollama checksum mismatch — refusing to install');
+  await ps(`Expand-Archive -Path '${zip}' -DestinationPath '${VENDOR_OLLAMA_DIR}' -Force; Remove-Item '${zip}'`);
+  ensureVendorOnPath();
+  setStep('ollama', 'done', 'Ollama engine installed (vendored)');
+};
 
 // ── Step implementations ──────────────────────────────────────────────────
 
@@ -94,14 +148,21 @@ const checkDeps = async () => {
 
 const checkOllama = async () => {
   setStep('ollama', 'running', 'Checking Ollama…');
+  ensureVendorOnPath();                       // pick up a binary vendored on a prior run
   if (!isInstalled('ollama')) {
-    setStep('ollama', 'running', 'Installing Ollama…');
-    await runSilently('sh', ['-c',
-      `curl -fsSL https://ollama.com/install.sh -o /tmp/ollama_install.sh && \
-       chmod +x /tmp/ollama_install.sh && \
-       /tmp/ollama_install.sh`
-    ]);
-    setStep('ollama', 'done', 'Ollama installed');
+    if (process.platform === 'darwin') {
+      await installOllamaMac();               // install.sh is Linux-only; vendor on macOS
+    } else if (process.platform === 'win32') {
+      await installOllamaWin();               // vendor on Windows too
+    } else {
+      setStep('ollama', 'running', 'Installing Ollama…');
+      await runSilently('sh', ['-c',
+        `curl -fsSL https://ollama.com/install.sh -o /tmp/ollama_install.sh && \
+         chmod +x /tmp/ollama_install.sh && \
+         /tmp/ollama_install.sh`
+      ]);
+      setStep('ollama', 'done', 'Ollama installed');
+    }
   } else {
     setStep('ollama', 'running', 'Ollama found — checking service…');
   }
