@@ -40,6 +40,22 @@
       .trim();
   }
 
+  // Ambient coupling (issue #185 §A↔C): the Web Speech API exposes no audio
+  // amplitude, but it fires a boundary event per spoken word — pulse the
+  // starfield on each one so the background beats in the voice's rhythm.
+  // ambient.js eases toward the target, so the spikes render as soft throbs.
+  const SPEAK_BASE = 0.65;
+  let pulseTimer = null;
+
+  function ambient(level) {
+    window.Aperio?.ambient?.setLevel?.(level);
+  }
+
+  function ambientOff() {
+    clearTimeout(pulseTimer);
+    ambient(0);
+  }
+
   function speak(text) {
     if (!enabled) return;
     window.speechSynthesis.cancel();
@@ -47,12 +63,23 @@
     if (!clean) return;
     const utterance = new SpeechSynthesisUtterance(clean);
     utterance.lang = getLang();
-    utterance.onend = () => window.Aperio?.voice?.onTtsEnd?.();
+    utterance.onstart = () => ambient(SPEAK_BASE);
+    utterance.onboundary = () => {
+      ambient(1);
+      clearTimeout(pulseTimer);
+      pulseTimer = setTimeout(() => ambient(SPEAK_BASE), 140);
+    };
+    utterance.onerror = ambientOff;
+    utterance.onend = () => {
+      ambientOff();
+      window.Aperio?.voice?.onTtsEnd?.();
+    };
     window.speechSynthesis.speak(utterance);
   }
 
   function stop() {
     window.speechSynthesis.cancel();
+    ambientOff();
   }
 
   // Voice responses on/off. The UI control lives in the Settings panel
@@ -60,7 +87,7 @@
   function toggle() {
     enabled = !enabled;
     window.Aperio?.settings?.set('aperio-tts', enabled ? 'true' : 'false');
-    if (!enabled) window.speechSynthesis.cancel();
+    if (!enabled) stop();
   }
 
   window.Aperio = window.Aperio || {};
@@ -70,6 +97,6 @@
   // to localStorage before calling this).
   window.Aperio.settings?.register('aperio-tts', (val) => {
     enabled = val === 'true';
-    if (!enabled) window.speechSynthesis.cancel();
+    if (!enabled) stop();
   });
 })();

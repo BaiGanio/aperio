@@ -116,6 +116,14 @@ function estimateAttachmentTokens(att) {
 
 function setUserTokenEstimate(n) { pendingUserTokenEstimate = n; }
 
+// Ambient coupling (issue #185 §A): drive the starfield's energy off the agent
+// lifecycle so the background visibly works when the agent does — thinking
+// stirs it, tool runs push harder, streaming settles it, idle calms it down.
+// ambient.js eases toward the target, so step changes render as smooth swells.
+function setAmbientLevel(level) {
+  window.Aperio?.ambient?.setLevel?.(level);
+}
+
 function handleMessage(msg) {
   if (msg.type === "status") {
     // initial connection ack
@@ -212,6 +220,7 @@ function handleMessage(msg) {
     suggestionShown = false;
     enterPhase("thinking");
     setStatus("thinking", t("status_thinking"));
+    setAmbientLevel(0.5);
     sendBtn.disabled = true;
     // Round-table turns carry an agent_id — their working cue is the per-agent
     // phase breadcrumb, so we don't also raise the global "thinking…" line
@@ -238,6 +247,7 @@ function handleMessage(msg) {
     if (label) label.textContent = labelText;
     moveLiveIndicatorToBottom();
     setStatus("thinking", labelText);
+    setAmbientLevel(0.75);
   }
 
   if (msg.type === "reasoning_start") {
@@ -381,6 +391,7 @@ function handleMessage(msg) {
         // tear down the live line; the streaming text itself is the indicator.
         enterPhase("typing");
         setStatus("thinking", t("status_typing"));
+        setAmbientLevel(0.6);
         removeThinking();
         removeToolIndicator();
         document.getElementById("preparing-answer")?.remove();
@@ -460,6 +471,9 @@ function handleMessage(msg) {
     streamingText = "";
     isThinking = false;
     setStatus("connected", t("status_connected"));
+    // Calm back down. If voice responses are on, tts.js takes over from here
+    // (its utterance onstart/onboundary handlers re-raise the level per word).
+    setAmbientLevel(0);
     sendBtn.disabled = chatInput.value.trim() === "";
     sendBtn.style.display = "";
     stopBtn.style.display = "none";
@@ -578,6 +592,7 @@ function handleMessage(msg) {
     stopLiveTimer();
     isThinking = false;
     setStatus("connected", "error");
+    setAmbientLevel(0);
     sendBtn.disabled = chatInput.value.trim() === "";
     sendBtn.style.display = "";
     stopBtn.style.display = "none";

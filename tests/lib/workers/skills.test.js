@@ -8,7 +8,7 @@ import { installMemfs } from "../../helpers/memfs.js";
 // from "fs"` here — that would create the builtin fs ESM facade before the patch
 // and leave skills.js unmocked. Use the patched handle the helper returns.
 const mem = installMemfs({ root: "/mem/skills" });
-const { loadSkillIndex, matchSkill, semanticRescue, executeSkill, assembleSkillMd, writeOverlaySkill, deleteOverlaySkill, overlaySkillPath, isValidSkillSlug } = await import("../../../lib/workers/skills.js");
+const { loadSkillIndex, matchSkill, matchSkills, semanticRescue, executeSkill, assembleSkillMd, writeOverlaySkill, deleteOverlaySkill, overlaySkillPath, isValidSkillSlug } = await import("../../../lib/workers/skills.js");
 after(() => mem.restore());
 
 const fs = mem.fs;
@@ -96,6 +96,37 @@ describe("skills.js", () => {
     // test("returns null for empty index", () => {
     //   assert.strictEqual(matchSkill("hello", []), null);
     // });
+  });
+
+  describe("matchSkills — function-word phrase glue", () => {
+    // Regression: keyword tokens use minLen 3, so glue words inside curated
+    // keyword phrases ("approve THE change", "WHAT did I write") used to count
+    // as curated keyword hits. Two junk hits ("the" + "what") cleared the
+    // threshold AND satisfied the qualifies gate, attaching these skills to
+    // any off-topic message containing them.
+    const glueIndex = [
+      { name: "review-like", description: "Use when reviewing a change before it merges — what to look for.", keywords: "code review, approve the change, review the changes" },
+      { name: "docs-like", description: "Find content in indexed document folders.", keywords: "what did I write, find the section about, which file mentions" },
+    ];
+
+    test("off-topic message full of function words matches nothing", () => {
+      const got = matchSkills("You know what I mean? Or are you so sure I can't even read the words?", glueIndex);
+      assert.deepEqual(got, []);
+    });
+
+    test("genuine keyword hits still match", () => {
+      const got = matchSkills("please review the changes in my code", glueIndex);
+      assert.strictEqual(got[0]?.name, "review-like");
+    });
+
+    // Regression: "write" + "writing" used to count as two distinct hits and
+    // clear the threshold on their own — inflections of one word are a single
+    // topical signal.
+    test("two inflections of one word count as a single hit", () => {
+      const idx = [{ name: "tdd-like", description: "Write a failing test first, writing code after.", keywords: "write the failing test, test first" }];
+      const got = matchSkills("from where did you came with this response? where I write yo so you are writing me that way?", idx);
+      assert.deepEqual(got, []);
+    });
   });
 
   // describe("executeSkill", () => {
