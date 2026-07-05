@@ -97,7 +97,6 @@ const TRANSLATIONS = {
     nav_reasoning_label:      "reasoning",
     nav_reasoning_on:         "on",
     nav_reasoning_off:        "off",
-    nav_lang_title:           "Language",
     nav_model_title:          "AI model",
     nav_model_guide:          "Not sure which to pick? Model guide →",
     nav_theme_light:          "Light",
