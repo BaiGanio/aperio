@@ -18,7 +18,7 @@
 |---|---|---|---|
 | 0 | Consolidate launchers, retire `lib.sh` | ✅ **Done** (docs pending) | `.github/lite/` is now START.sh / START.bat / launch-hidden.sh + assets/{start,launch-hidden}.ps1; `lib.sh`, `Aperio.command`, `Aperio.sh`, `start1.sh` gone (commit 6285c4e, Jul 4). ⚠️ `how-to-install.md/.docx/.pdf`, `install.txt`, `Aperio.bat` still stale (Apr/Jun dates — LanceDB/mxbai era). |
 | 1 | Install ledger | 🟡 **Largely obviated by design** | bootstrap.js now *vendors* Ollama into `./vendor/ollama` (pinned, checksum-verified) instead of installing system-wide — provenance is folder-contained. Remaining gap: Node/nvm provenance (deliberately never removed) and the Desktop launcher (uninstall.sh already handles it). Full JSON ledger likely unnecessary; see Open Decisions D3. |
-| 2 | Uninstall | 🟡 **Half done** | `uninstall.sh` implemented (stops server, removes vendor/ + node_modules/ + var/ + Desktop launcher, offers model removal, spares Node & system Ollama). ❌ Missing: Windows equivalent (`uninstall.bat`/`.ps1`), UI "Uninstall/Reset" action. |
+| 2 | Uninstall | ✅ **Done (CLI, both OS)** | `uninstall.sh` + `uninstall.bat`→`assets/uninstall.ps1` (WS4, Jul 5): stop server, remove vendor/ + node_modules/ + var/ + `.sqlite/` + Desktop launcher, offer model removal, spare Node & system Ollama. Remaining nice-to-have: in-app UI "Uninstall/Reset" action (not required for July 14). |
 | 3 | `APERIO_LITE` profile flag | ✅ **Done** | Registered in `lib/config.js` (WS2) + `liteDefault` behavior shipped (WS3, Jul 5). |
 | 4 | Browser setup wizard | ✅ **Done** | `public/setup.html` (825 lines) drives bootstrap.js over `/api/bootstrap/stream`; wizard handles Ollama, model pull, DB, provider choice. Launchers reduced to ensure-Node + npm install + start (exactly the D2 design). |
 | 5 | Lite UI / terminal stripping | ✅ **Done (web UI)** | `.lite-hide` gating + Advanced toggle shipped Jul 5 (see WS3). Terminal untouched — `help` already tiers by audience. |
@@ -30,7 +30,7 @@
 |---|---|---|
 | A | `curl \| bash` one-liner + `release` branch | ❌ Not started (folds into Phase 6) |
 | B | Self-knowledge in system prompt | ✅ **Done** — `id/capabilities.md` + `id/self-nature.md` wired into the `FILES` array (`lib/agent/index.js:164`) |
-| C | `file://` guard on setup.html | ❌ Not done (no `location.protocol` check found) |
+| C | `file://` guard on setup.html | ✅ **Done** (WS4, Jul 5) — inline `location.protocol === "file:"` guard + `setup_file_guard_*` i18n keys |
 
 ### Shipped since the roadmap was written (not in any issue)
 
@@ -126,22 +126,34 @@
 - **Manual follow-up:** visual pass with `npm run start:lite` (lite chrome,
   Advanced toggle round-trip, config panel essentials-only).
 
-### WS4 — Install/uninstall completion
-- [ ] **Windows uninstall** — `uninstall.bat` → `assets/uninstall.ps1`, mirroring
-      uninstall.sh (stop server, remove vendor/node_modules/var, Desktop .vbs
-      launcher, offer model removal). help.html currently tells Windows users
-      "delete the folder; one-click uninstaller on its way" — update it when this
-      lands.
-- [ ] **BUG found 2026-07-05:** `uninstall.sh` removes `var/` but NOT
-      `.sqlite/` — the memory database survives until the user trashes the
-      folder. Either add `.sqlite/` to step 6 or document it; help.html's
-      "drag the folder to the Trash" keeps the net result correct meanwhile.
-- [ ] **`file://` guard** in setup.html + i18n key (#157 Part C, ~10 lines).
-- [ ] Light provenance touch-up: record `nodePreexisting: true|false` in
-      `bootstrap.lock` so uninstall messaging is accurate (full ledger skipped — D3).
-- [ ] Refresh `.github/lite/how-to-install.*` + `install.txt` to match the
-      shipped path (vendored Ollama, sqlite-vec, transformers, wizard); delete or
-      regenerate the stale docx/pdf; retire `Aperio.bat` if START.bat supersedes it.
+### WS4 — Install/uninstall completion — ✅ DONE 2026-07-05
+- [x] **Windows uninstall** — `uninstall.bat` → `assets/uninstall.ps1`, mirrors
+      uninstall.sh step-for-step (stop server on 31337 via Get-NetTCPConnection,
+      stop only *our* vendored ollama by path, remove node_modules/vendor,
+      delete Desktop `Aperio.lnk` + `launch-hidden.vbs`, offer model removal,
+      remove var/ + .sqlite/, leave Node). Parse-checked with pwsh. help.html +
+      how-to docs updated ("double-click uninstall.bat").
+- [x] **BUG fixed:** `uninstall.sh` now removes `.sqlite/` too (step 6), so the
+      memory database goes with the rest. Mirrored in uninstall.ps1.
+- [x] **`file://` guard** in setup.html: inline `location.protocol === "file:"`
+      check replaces the page with a "start me via the launcher" message and
+      halts the wizard. i18n keys `setup_file_guard_{title,body,url}` (en only;
+      inline English fallback if i18n hasn't loaded).
+- [x] **`nodePreexisting`** written to `bootstrap.lock` (`checkNode` returns the
+      flag) and read by both uninstallers to word the "left behind" line
+      honestly (installed-by-us vs. you-already-had-it). Full ledger still
+      skipped per D3.
+- [x] Docs refreshed to the shipped path (vendored Ollama, SQLite + transformers,
+      browser wizard, START launchers, uninstallers): rewrote
+      `.github/lite/how-to-install.md` + `install.txt`; **deleted** the stale
+      `how-to-install.docx/.pdf` (Apr LanceDB/mxbai era — couldn't regenerate
+      binaries faithfully; git keeps history) and **retired `Aperio.bat`**
+      (START.bat supersedes it — sets lite env + hidden-window Desktop shortcut,
+      which Aperio.bat did not). Fixed `cd.release.yml` to copy `.md`+`.txt`
+      instead of the removed `.pdf`.
+- **Follow-ups:** localize the 3 `setup_file_guard_*` keys (23 locales); the
+      release zip still `-x ".github/*"` so it excludes the launchers — that's a
+      WS5 packaging fix, not WS4.
 
 ### WS5 — CI/CD & release (Problem C + Phase 6 + #157 Part A)
 - [ ] Create the **`release` branch** (per #157: name locked, manual push at first).
@@ -154,6 +166,8 @@
       path far enough to boot the server headless (skip model pull; assert
       `/api/health` responds). Keeps launchers from silently rotting.
 - [ ] Round-trip verify on a clean VM per OS: install → use → uninstall → no traces.
+
+- Dev note : how this release branch will help non code or code users? we have a download link fpr the zip, so what will change? explain me this - why we need this and what will happen when we have it? how it affects or compete or complain with the other installation methods?
 
 ---
 
@@ -237,3 +251,16 @@
   .env present. (Correction to earlier audit note: the wizard DOES create .env
   on first run via lib/helpers/envFile.js — it was never .env-less; the file is
   create-once, spin-up-only.)
+- **2026-07-05 (WS4 complete)** — Install/uninstall finished. Windows uninstaller
+  (`uninstall.bat` → `assets/uninstall.ps1`) mirrors `uninstall.sh`
+  step-for-step (pwsh parse-checked). `.sqlite/` bug fixed in both. `file://`
+  guard in setup.html (#157 Part C) + `setup_file_guard_*` en keys.
+  `nodePreexisting` recorded in `bootstrap.lock` (`checkNode` returns it) and
+  used by both uninstallers for honest "left behind" wording. Docs rewritten
+  to the shipped path: new `how-to-install.md` + `install.txt`; deleted stale
+  `how-to-install.docx/.pdf` + retired `Aperio.bat` (superseded by START.bat);
+  `cd.release.yml` now copies `.md`+`.txt`. help.html Windows uninstall line
+  updated. #186 Phase 2 + #157 Part C now green. Syntax/JSON/shell/pwsh checks
+  + lite & memory-seed suites pass. Next: WS5 (release branch, install.sh, zip,
+  CI) — note the release zip currently excludes `.github/*`, so launchers must
+  be added to the artifact there.
