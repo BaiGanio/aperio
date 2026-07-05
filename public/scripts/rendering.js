@@ -39,11 +39,11 @@ function showHandoffBanner(pct, { autoTrigger = false } = {}) {
   if (handoffBannerEl) return;
   const banner = document.createElement("div");
   banner.className = "ctx-banner ctx-banner--trimmed";
-  const label = (typeof t === "function" && t("ctx_handoff")) || `Context at ${pct}% — handoff suggested.`;
+  const label = (typeof t === "function" && t("ctx_handoff", { pct })) || `Context at ${pct}% — handoff suggested.`;
   banner.innerHTML =
     `<span class="ctx-banner-text">${label}</span>` +
-    `<button class="ctx-banner-btn ctx-banner-btn--primary" onclick="sendHandoff()">Run handoff</button>` +
-    `<button class="ctx-banner-btn" onclick="dismissHandoffBanner()">Dismiss</button>`;
+    `<button class="ctx-banner-btn ctx-banner-btn--primary" onclick="sendHandoff()">${t("ctx_handoff_run")}</button>` +
+    `<button class="ctx-banner-btn" onclick="dismissHandoffBanner()">${t("ctx_dismiss")}</button>`;
   document.querySelector(".chat-area")?.prepend(banner);
   handoffBannerEl = banner;
 
