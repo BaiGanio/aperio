@@ -6,9 +6,7 @@
 A self-hosted personal memory layer for AI agents. SQLite (or Postgres) + MCP + Ollama.   
 Zero-config by default; one file holds your memories, wiki, and code graph.  
 Your context, always available.  
-<!-- 
 ##### • Download 👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) for non-code users. • Small tool for big ideas • [How to Install & Use?](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) •      
---> 
 </div>
 
 <!-- HEADER --> 
@@ -116,6 +114,17 @@ Your context, always available.
 ---
 
 ## Getting Started 
+
+### Three ways to install
+
+| | For whom | How |
+|---|---|---|
+| **1 · Aperio-lite** | Non-coders — no terminal, ever | [Download the zip](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip), unzip, double-click `START` — a browser wizard installs everything and picks a model for your machine. See the [lite guide](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F). |
+| **2 · One command** | Terminal users who want painless updates | `curl -fsSL https://raw.githubusercontent.com/BaiGanio/aperio/release/.github/lite/install.sh \| bash` — clones the `release` branch and starts Aperio. Re-run anytime to update in place; your memory database is preserved. |
+| **3 · From source** | Contributors / full control | `git clone -b dev` + `npm install` — the steps below. |
+
+> Methods 1–2 install from the `release` branch (and the release zip), published on each release. The steps below cover method 3.
+
 ### Prerequisites
 - Node.js 18+ — download from [https://nodejs.org/en/download](https://nodejs.org/en/download)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) — (optional, for Postgres mode)

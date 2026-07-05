@@ -6,7 +6,7 @@
   
   <!-- Primary Meta Tags -->
   <title>Aperio | Self-Hosted AI Memory Layer & MCP Server</title>
-  <meta name="description" content="Aperio is an open-source, self-hosted AI memory layer. Run local embeddings with Ollama & Postgres. MCP-native, private by default. Includes Aperio-lite for non-code users." />   
+  <meta name="description" content="Aperio is an open-source, self-hosted AI memory layer. On-device embeddings, SQLite or Postgres, MCP-native, private by default. Includes Aperio-lite for non-code users." />
   <meta name="keywords" content="Aperio, MCP-native, self-hosted AI, Ollama, local embeddings, Postgres, private AI, AI memory layer" />
 
   <!-- Open Graph / Social Media -->
@@ -77,6 +77,7 @@
       <li><a href="#why-aperio">Why Aperio?</a></li>
       <li><a href="#webui">Web UI</a></li>
       <li><a href="#setup">Setup</a></li>
+      <li><a href="#aperio-lite">Lite</a></li>
       <li><a href="guide.html">Guide</a></li>
     </ul>
 
@@ -104,23 +105,23 @@
       <span class="aurora-text">Total recall.</span>
     </h1>
     <p class="lead-text reveal">
-      A self-hosted personal memory layer for AI agents — built on Postgres, pgvector and MCP.<br>
+      A self-hosted personal memory layer for AI agents — built on SQLite or Postgres, on-device embeddings and MCP.<br>
       Runs 100% local by default. No API keys. No cloud dependency. Your data never leaves your machine.<br>
-      <!-- <span>You are a software developer?</span>
+      <span>You are a software developer?</span>
        <a href="#setup" style="color:var(--accent);text-decoration:none;font-weight:500"> ✦ Try Aperio-dev</a>
       <span style="font-size:.9em"> — basic terminal comfort is required.</span>
       <br>
       <span>You are a normal human?</span>
       <a href="#aperio-lite" style="color:var(--accent);text-decoration:none;font-weight:500"> ✦ Try Aperio-lite</a>
-      <span style="font-size:.9em"> — double-click and go, no tech skills needed.</span> -->
+      <span style="font-size:.9em"> — double-click and go, no tech skills needed.</span>
     </p>
     <div class="cta-group reveal">
-      <!-- <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-dev.zip" class="btn-primary-aurora">
-        <i class="bi bi-download"></i> Download Aperio-dev
-      </a>
       <a href="https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip" target="_blank" class="btn-primary-aurora">
         <i class="bi bi-download"></i> Download Aperio-lite
-      </a> -->
+      </a>
+      <a href="#setup" class="btn-outline-aurora">
+        <i class="bi bi-terminal"></i> Developer install
+      </a>
       <a href="https://github.com/BaiGanio/aperio" target="_blank" class="btn-outline-aurora">
         <i class="bi bi-github"></i> View on GitHub
       </a>
@@ -193,7 +194,7 @@
       <div class="feat-card reveal" style="transition-delay:.07s">
         <div class="feat-icon"><i class="bi bi-search-heart"></i></div>
         <div class="feat-title">Semantic Search</div>
-        <p class="feat-desc">Powered by pgvector + local embeddings (mxbai-embed-large). Ask about your projects and get results matched by meaning, not keywords. Voyage AI optional.</p>
+        <p class="feat-desc">Powered by on-device embeddings (mxbai-embed-large) over sqlite-vec or pgvector. Ask about your projects and get results matched by meaning, not keywords. Voyage AI optional.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.14s">
         <div class="feat-icon"><i class="bi bi-plug-fill"></i></div>
@@ -501,7 +502,7 @@
       <div class="build-card reveal" style="transition-delay:.04s">
         <div class="build-tag">AI Layer</div>
         <div class="build-title">Swap the Embedding Model</div>
-        <p class="build-desc">mxbai-embed-large via Ollama is the default — zero external calls. Swap in Voyage AI for higher quality, or drop in OpenAI, Cohere, or any provider with a vectors API.</p>
+        <p class="build-desc">mxbai-embed-large runs on-device via transformers by default — zero external calls. Swap in Voyage AI for higher quality, or drop in OpenAI, Cohere, or any provider with a vectors API.</p>
         <div class="build-ideas">
           <span class="build-idea">openai/text-embedding-3</span>
           <span class="build-idea">cohere-embed</span>
@@ -631,8 +632,37 @@
   <div class="section-inner wide">
     <div class="eyebrow reveal">Quick Start</div>
     <h2 class="section-heading reveal">Up in 5 minutes.</h2>
-    <p class="lead-text reveal">Node 18+, Docker, and Ollama. No API keys. No cloud. 100% local.<br>Or add Claude + Voyage AI when you need more power.</p>
-    
+    <p class="lead-text reveal">Three ways in — pick your comfort level. Everything runs 100% local by default: no API keys, no cloud.</p>
+
+    <!-- ── Three install methods · overview ── -->
+    <div class="steps-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:44px">
+      <div class="step-card reveal">
+        <div class="step-title"><i class="bi bi-mouse me-1"></i> 1 · Aperio-lite</div>
+        <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:1.9">
+          <div><strong>No code, no terminal.</strong> Download → unzip → double-click. A browser wizard installs everything and picks a model that fits your machine.</div>
+          <div style="margin-top:8px"><a href="#aperio-lite" style="color:var(--accent);text-decoration:none;font-weight:500">Jump to the lite guide →</a></div>
+        </div>
+      </div>
+      <div class="step-card reveal" style="transition-delay:.08s">
+        <div class="step-title"><i class="bi bi-terminal me-1"></i> 2 · One command</div>
+        <div class="code-block" style="position:relative">
+          <button class="copy-btn" data-target=".s">Copy</button>
+          <div class="c"># clones the release branch → starts Aperio</div>
+          <div class="s">curl -fsSL https://raw.githubusercontent.com/BaiGanio/aperio/release/.github/lite/install.sh | bash</div>
+          <div>&nbsp;</div>
+          <div class="c"># re-run anytime to update in place —</div>
+          <div class="c"># your memory database is preserved</div>
+        </div>
+      </div>
+      <div class="step-card reveal" style="transition-delay:.16s">
+        <div class="step-title"><i class="bi bi-git me-1"></i> 3 · From source</div>
+        <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:1.9">
+          <div><strong>Full control</strong> — clone the dev branch and run it yourself. Node 18+; SQLite by default, Postgres optional. Step-by-step below.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="eyebrow reveal" style="margin-top:8px">Method 3 · From source</div>
     <div class="steps-grid">
       <div class="step-card reveal">
         <div class="step-num">01</div>
@@ -651,11 +681,11 @@
         <div class="step-num">02</div>
         <div class="step-title">Ready for use .env.example in the project folder</div>
         <div class="code-block" style="position:relative">
-          <div><span class="k">DATABASE_URL</span>=<span class="v">postgresql://aperio:xxx-xxx-xxx</span></div>
           <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
           <div><span class="k">OLLAMA_MODEL</span>=<span class="v">qwen2.5:3b</span></div>
-          <div><span class="k">EMBEDDING_PROVIDER</span>=<span class="v">ollama</span></div>
-          <div><span class="k">OLLAMA_EMBED_MODEL</span>=<span class="v">mxbai-embed-large</span></div>
+          <div><span class="k">EMBEDDING_PROVIDER</span>=<span class="v">transformers</span></div>
+          <div><span class="c"># DB_BACKEND auto-detects: SQLite (default) or Postgres</span></div>
+          <div><span class="c"># DATABASE_URL=postgresql://…  — only if you choose Postgres</span></div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.16s">
@@ -663,16 +693,12 @@
         <div class="step-title">Databases</div>
         <div class="code-block" style="position:relative">
           <button class="copy-btn" data-target=".s">Copy</button>
-          <div class="c"># Lite mode uses bundled SQLite + sqlite-vec — no extra DB install</div>
-          <div class="s">npm install uuid </div>
+          <div class="c"># default: SQLite + sqlite-vec — nothing to install</div>
+          <div class="s">npm run migrate:sqlite</div>
           <div>&nbsp;</div>
-          <div class="s">cd docker</div>
-          <div class="s">docker compose up -d</div>
-          <div class="s">cd ..</div>
-          <div>&nbsp;</div>
-          <div class="c"># run migrations</div>
-          <div class="s">docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/001_init.sql</div>
-          <div class="s">docker exec -i aperio_db psql -U aperio -d aperio < db/migrations/002_pgvector.sql</div>
+          <div class="c"># optional: Postgres + pgvector instead</div>
+          <div class="s">cd docker && docker compose up -d && cd ..</div>
+          <div class="s">npm run migrate</div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
@@ -692,8 +718,7 @@
           <div class="k">reasoning - qwen3:14b (~16GB RAM, ~9GB disk)</div>   
           <div class="k">pro - deepseek-r1:32b (~32GB RAM, ~19GB disk)</div> 
           <div>&nbsp;</div>
-          <div class="c"># embeddings — local semantic search</div>
-          <div class="s">ollama pull mxbai-embed-large</div>  
+          <div class="c"># embeddings run on-device (transformers) — no model to pull</div>
         </div>
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
@@ -733,7 +758,7 @@
 </section>
 
 <!-- ── Aperio-lite ──────────────────────────────────────────────── -->
-<!-- <section class="section" id="aperio-lite">
+<section class="section" id="aperio-lite">
   <div class="section-inner wide">
     <div class="eyebrow reveal">Aperio-lite · For non-code humans</div>
     <h2 class="section-heading reveal">
@@ -777,7 +802,7 @@
           <div class="step-title"><i class="bi bi-apple me-1"></i> macOS</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
             <div>1. Download, unzip, open in Finder</div>
-            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">how-to-install</code> → double-click it</div>
+            <div>2. <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.sh</code> is right at the top level (the <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">how-to</code> folder holds a printable guide)</div>
             <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.sh</code> → right-click → <strong>Make Alias</strong></div>
             <div>4. Rename the alias to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">Aperio</code></div>
             <div>5.A Drag alias to <strong>Desktop folder</strong> in Finder's sidebar</div>
@@ -793,7 +818,7 @@
           <div class="step-title"><i class="bi bi-windows me-1"></i> Windows</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
             <div>1. Download, unzip, open in File Explorer</div>
-            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">how-to-install</code> → double-click it</div>
+            <div>2. <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.bat</code> is right at the top level (the <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">how-to</code> folder holds a printable guide)</div>
             <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.bat</code> → right-click → <strong>Rename</strong></div>
             <div>4. Rename the file to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">Aperio.bat</code></div>
             <div>5.A Move shortcut to Desktop</div>
@@ -808,7 +833,7 @@
           <div class="step-title"><i class="bi bi-ubuntu me-1"></i> Linux</div>
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
             <div>1. Download, unzip, open in your file manager</div>
-            <div>2. Look for folder called <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">how-to-install</code> → open it</div>
+            <div>2. <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.sh</code> is right at the top level (the <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">how-to</code> folder holds a printable guide)</div>
             <div>3. Find <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.sh</code> → right-click → <strong>Properties → Permissions</strong></div>
             <div>4. Enable <strong>Allow executing file as program</strong> → close</div>
             <div>5. Right-click <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">START.sh</code> → <strong>Copy to Desktop</strong> → rename to <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">Aperio</code></div>
@@ -837,6 +862,9 @@
             <div><strong>Download the latest release.</strong></div>
             <div>✅ Windows<br>- Right-click on the zip and select "Extract All..."<br>- In the dialog, specify your <code>aperio-lite</code> folder.<br>✅ macOS/Linux (Terminal - fastest)<br>- <code>unzip aperio-lite.zip -d ~/aperio-lite</code></div>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
+            <div><strong>Installed with the one-liner? Even easier.</strong></div>
+            <div>Re-run the install command (or <code>git pull</code> in the folder) — it fast-forwards to the latest release and keeps your memory database. No re-download.</div>
+            <div style="border-top:1px solid var(--border);margin:12px 0"></div>
             <div><strong>Your data stays untouched.</strong></div>            
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
             <div><strong>❗ Might want to export your memories first.</strong></div>
@@ -850,7 +878,7 @@
           <div class="code-block" style="font-family:var(--font-sans);font-size:12.5px;line-height:2">
             <div><strong>Every run after the first run?</strong></div>
             <div>Double-click the desktop shortcut. That's it.</div>
-            <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">./start.sh</code></div>
+            <div>Terminal: <code style="font-family:var(--font-mono);background:var(--bg-raised);padding:1px 5px;border-radius:0;color:var(--accent)">bash START.sh</code></div>
             <div style="color:var(--accent);margin-top:6px">✅ If you can open a browser, you can run Aperio.</div>
             <div style="border-top:1px solid var(--border);margin:12px 0"></div>
             <div><strong>How to remove it if I do not like it?</strong></div>
@@ -871,7 +899,7 @@
       </a>
     </div>
   </div>
-</section>  -->
+</section> 
 
 <!-- ── CTA ─────────────────────────────────────────────────────── -->
 <section class="section">

@@ -22,13 +22,13 @@
 | 3 | `APERIO_LITE` profile flag | ✅ **Done** | Registered in `lib/config.js` (WS2) + `liteDefault` behavior shipped (WS3, Jul 5). |
 | 4 | Browser setup wizard | ✅ **Done** | `public/setup.html` (825 lines) drives bootstrap.js over `/api/bootstrap/stream`; wizard handles Ollama, model pull, DB, provider choice. Launchers reduced to ensure-Node + npm install + start (exactly the D2 design). |
 | 5 | Lite UI / terminal stripping | ✅ **Done (web UI)** | `.lite-hide` gating + Advanced toggle shipped Jul 5 (see WS3). Terminal untouched — `help` already tiers by audience. |
-| 6 | Packaging & release | ❌ **Not started** | No `install.sh` at repo root, no `release` branch (only `aperio-lite-db-split`, `aperio-lite-initial-split`). |
+| 6 | Packaging & release | 🟡 **Partially shipped** | `cd.release.yml` already versions, builds `aperio-lite-v{ver}.zip`, uploads the stable-URL alias `aperio-lite.zip`, and publishes the release (how-to links to it). **Fixed 2026-07-05:** the zip excluded `.github/*` → the launchers (all under `.github/lite/`) never shipped, so a downloaded zip had no `START.bat`/`START.sh` to run. Packaging now stages `START.*`/`uninstall.*`/`assets/*.ps1` into the zip root (verified via local zip sim). Still open: `release` branch, root `install.sh`, build-zip-from-release, CI smoke. |
 
 ### #157 parts
 
 | Part | What | Status |
 |---|---|---|
-| A | `curl \| bash` one-liner + `release` branch | ❌ Not started (folds into Phase 6) |
+| A | `curl \| bash` one-liner + `release` branch | ✅ **Done** (2026-07-05) — `install.sh` + `cd.release.yml` release-branch fast-forward + `ci.lite-smoke.yml`; advertised in README + landing page. Runtime gate: first release must publish `release` before the URL resolves. |
 | B | Self-knowledge in system prompt | ✅ **Done** — `id/capabilities.md` + `id/self-nature.md` wired into the `FILES` array (`lib/agent/index.js:164`) |
 | C | `file://` guard on setup.html | ✅ **Done** (WS4, Jul 5) — inline `location.protocol === "file:"` guard + `setup_file_guard_*` i18n keys |
 
@@ -156,18 +156,86 @@
       WS5 packaging fix, not WS4.
 
 ### WS5 — CI/CD & release (Problem C + Phase 6 + #157 Part A)
-- [ ] Create the **`release` branch** (per #157: name locked, manual push at first).
-- [ ] **`install.sh`** at repo root: shallow-clone `release` → `~/aperio` →
-      delegate to `.github/lite/START.sh`. Handle dir-exists (skip/update/abort).
-- [ ] Extend `cd.release.yml`: push `release` branch on release cut; build an
-      **`aperio-lite.zip`** artifact (repo snapshot + launchers + how-to) with
-      SHA256 checksum.
-- [ ] CI smoke test: matrix job (ubuntu/macos/windows) that runs the launcher
-      path far enough to boot the server headless (skip model pull; assert
-      `/api/health` responds). Keeps launchers from silently rotting.
-- [ ] Round-trip verify on a clean VM per OS: install → use → uninstall → no traces.
+- [x] **Zip launcher bug fixed (2026-07-05).** The published `aperio-lite.zip`
+      excluded `.github/*`, and every launcher lives in `.github/lite/`, so the
+      download had nothing to double-click. `cd.release.yml` now stages
+      `START.sh/START.bat/launch-hidden.sh/uninstall.sh/uninstall.bat` + `assets/`
+      (the three `.ps1`) into the zip root, and drops the internal
+      `lite-progress.md` from the artifact. Verified by reproducing the exact CI
+      zip locally: root layout matches what `start.ps1`/`START.bat` resolve
+      against; `.github/lite` correctly excluded; no secret/junk leak (`.env`
+      etc. are untracked → absent from a CI checkout).
+> **Correction 2026-07-05:** briefly mis-descoped the below after misreading
+> "no new branches" (which meant *this batch of edits needs no feature branch/PR
+> — push `master` directly*, NOT "drop the release branch"). The **`release`
+> branch + one-liner are IN scope** — they are install flow #2 of three. #157
+> reopened.
 
-- Dev note : how this release branch will help non code or code users? we have a download link fpr the zip, so what will change? explain me this - why we need this and what will happen when we have it? how it affects or compete or complain with the other installation methods?
+
+The **three install flows** (this is the "3 methods" the landing page must show):
+1. **Aperio-lite** — `aperio-lite.zip` → double-click launcher (non-coders).
+2. **One-liner** — `curl … | bash` → clones the `release` branch into `~/aperio`
+   → `START.sh` (technical users; the only flow with `git pull` updates that
+   preserve the memory DB — the release branch's whole reason to exist).
+3. **From source** — `git clone -b dev` + `npm install` (contributors).
+
+- [x] **`release` branch** — stable, tag-aligned line. `cd.release.yml` now
+      fast-forwards `release` to each released commit (master only, no `--force`,
+      so `git pull` never hits a rewritten history; first release creates it).
+      Same commit as tag `v{ver}` → the one-liner, the zip (built from the tag)
+      and `git pull` all ship identical bits; the immutable tag is a safer zip
+      source than a moving branch, so "single source" holds without repointing
+      the zip. **First release after this lands publishes the branch.**
+- [x] **`install.sh`** in `.github/lite/` (2026-07-05; moved out of repo root
+      2026-07-05 — it lives with the other launchers, served via raw URL from the
+      `release` branch) — `curl -fsSL …/release/.github/lite/install.sh
+      | bash` → `git clone --depth 1 -b release` into `~/aperio` (`$APERIO_HOME`
+      override) → mirror launchers to root → hand off to `START.sh`. Settled:
+      prompts via `/dev/tty`; existing **Aperio** install → update (fetch + reset
+      to `origin/release`, memory DB preserved); existing **foreign** dir →
+      non-destructive abort (verified: user file untouched); auto-start when a
+      tty is present, else print the start command (CI-smoke friendly). `bash -n`
+      + abort/clone-fail paths tested locally.
+- [x] `cd.release.yml` — release-branch sync step added (above). Zip source left
+      on the tag by design (identical commit).
+- [x] **CI smoke test** (2026-07-05) — `.github/workflows/ci.lite-smoke.yml`:
+      matrix (ubuntu/macos/windows), `npm ci` → syntax-check launchers (bash -n
+      on Unix, PS parser on Windows) → boot `node server.js` headless and assert
+      `GET /api/bootstrap/state` answers (the endpoint is live the moment the
+      HTTP server listens — no Ollama/model/bootstrap needed). Path-filtered to
+      the boot/launcher surface. Not booted locally (per the "no side-effect
+      server processes" rule); shell block + structure validated.
+- [x] **Landing page** (`docs/index.html`, 2026-07-05) — killed the 404
+      `aperio-dev.zip` hero button (→ "Developer install" → `#setup`); added a
+      **"Three ways to install"** overview atop `#setup` (lite zip · one-liner ·
+      from source) with the existing dev steps relabelled "Method 3"; fixed stale
+      dev steps (`EMBEDDING_PROVIDER=transformers`, `npm run migrate:sqlite` /
+      `npm run migrate` instead of hand-piped `002_pgvector.sql`, dropped the
+      `mxbai` pull + `npm install uuid`); fixed the lite per-OS steps to say
+      `START.*` sits at the **zip root** (not inside a folder), `./start.sh` →
+      `bash START.sh`, and added the one-liner `git pull` update to the "Feature
+      updates" card. Div balance unchanged (pre-existing off-by-one in HEAD, not
+      mine). ⚠️ Still stale but OUT of scope (marketing copy, concurrent editor's
+      file): `mxbai-embed-large`-as-default in Features/Architecture/Build
+      (lines ~197/263/505) + hero/meta "Postgres + Ollama embeddings" framing.
+- [x] **README** (2026-07-05) — un-hid the lite banner (earlier) + added a
+      "Three ways to install" table to Getting Started (existing steps = method 3).
+- ⚠️ **CAVEAT:** the one-liner `curl` URL is now advertised (landing page +
+      README) but resolves only **after the first release publishes the `release`
+      branch**. Push `master` → the release job creates the branch → verify
+      `https://raw.githubusercontent.com/BaiGanio/aperio/release/.github/lite/install.sh`
+      resolves. Until that first release, the one-liner 404s.
+- [ ] **Manual gate (owner-only):** clean-machine round-trip per OS — both the
+      zip flow and the `curl | bash` flow: install → use → `git pull` update →
+      uninstall → no traces.
+
+- **Dev-note answered 2026-07-05:** the `release` branch's decisive advantage
+  over the zip is in-place `git pull` updates that preserve the user's memory DB
+  (the zip forces a re-download + manual data migration since the DB lives inside
+  the app folder). One curated `release` source → two+ delivery vehicles (zip +
+  one-liner + `git pull`) with no drift. Not competing with the zip —
+  complementary; the zip is the click-nothing path, the one-liner the terminal
+  path, both fed from `release`.
 
 ---
 
@@ -264,3 +332,35 @@
   + lite & memory-seed suites pass. Next: WS5 (release branch, install.sh, zip,
   CI) — note the release zip currently excludes `.github/*`, so launchers must
   be added to the artifact there.
+- **2026-07-05 (WS5, zip fix + descope)** — 🐞 **Fixed the shipping-blocker:** every
+  published `aperio-lite.zip` excluded `.github/*`, and all launchers live in
+  `.github/lite/`, so downloads had no `START.*`/`uninstall.*` to run.
+  `cd.release.yml` now stages the launchers + `assets/*.ps1` into the archive
+  **root** (where `start.ps1`/`START.bat` resolve them) and drops the internal
+  `lite-progress.md`. Verified by reproducing the exact CI zip locally.
+  **Docs:** un-hid the lite download banner in `README.md` (was HTML-commented
+  while the zip was broken) and added an "Onboarding & Install (Aperio-lite)"
+  section to `FEATURES.md`.
+  **Mis-descope + correction (same day):** I briefly read "no new branches" as
+  "drop the `release` branch + one-liner" and closed #157 as won't-do. Wrong —
+  it meant *this batch of edits needs no feature branch/PR*. Reverted: #157
+  reopened, tracker un-descoped, `release` branch + `install.sh` one-liner + zip-
+  from-release are back as the open WS5 work (install flow #2 of three). #186
+  stays closed (its install/uninstall/lite scope is genuinely done) with a
+  correction comment pointing the installer work at #157.
+  Remaining WS5: `release` branch + `install.sh` + zip-from-release + CI smoke +
+  owner clean-machine round-trip (zip flow **and** curl-one-liner flow).
+- **2026-07-05 (WS5 complete + #157 closed)** — Built the one-liner flow:
+  `install.sh` (clone `release` → mirror launchers → `START.sh`; `/dev/tty`
+  prompts; in-place update preserves DB; non-destructive on foreign dirs; tested),
+  `cd.release.yml` fast-forwards `release` on each master release (== tag commit,
+  no `--force`), `ci.lite-smoke.yml` (matrix boot → `/api/bootstrap/state`).
+  Landing page: 3-methods overview, killed the 404 `aperio-dev.zip` button, fixed
+  stale `#setup` (transformers, `npm run migrate*`), lite per-OS steps (START at
+  root), one-liner update path, **and corrected the embedding framing** — the
+  transformers default IS still `mxbai-embed-large-v1` @1024 dims (so "mxbai" was
+  right); the wrong bits were "via **Ollama**" (→ on-device via transformers) and
+  Postgres/pgvector-as-default (→ SQLite or Postgres). README: 3-methods table.
+  **#157 closed** (Part A implemented; B/C already done). #186 already closed.
+  Only owner runtime gate left: first release publishes `release` → verify the
+  raw `install.sh` URL + clean-machine round-trip per OS.

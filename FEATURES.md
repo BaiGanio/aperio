@@ -162,6 +162,14 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - DB access via table-name whitelist
 - Private/incognito UI launch with default-browser fallback (`APERIO_BROWSER`: firefox/firefox-dev/librewolf/mullvad/chrome/chromium/brave/edge/tor/ddg); opt-in dedicated browser profile isolating cookies/storage/extensions (`APERIO_BROWSER_ISOLATED=1`)
 
+## Onboarding & Install (Aperio-lite)
+- Browser setup wizard (`public/setup.html`) driven over `/api/bootstrap/stream` — provider choice, Ollama, model pull, DB, all without editing config files; `file://` guard redirects users who open the page directly instead of via the launcher
+- Vendored Ollama — installs a private, pinned, checksum-verified copy into `vendor/ollama` (never system-wide); idle auto-shutdown watchdog + in-app Quit
+- One-click launchers (`.github/lite/`): `START.sh` (macOS/Linux) / `START.bat` (Windows) do only what a browser can't — ensure Node + `npm install`, then start — and drop a hidden-window "Aperio" Desktop launcher for later runs
+- Uninstaller (`uninstall.sh` / `uninstall.bat`) — stops the server + our vendored Ollama, removes `vendor/` · `node_modules/` · `var/` · `.sqlite/` + the Desktop launcher, offers to delete the pulled model, and leaves system Node untouched (honest "left behind" wording via `nodePreexisting` in `bootstrap.lock`)
+- Lite profile (`APERIO_LITE=on`) — SQLite + transformers + docgraph defaults, forced DB config-precedence (the Settings UI rules, never `.env`), essentials-only Web UI with a runtime **Advanced** escape hatch, and non-coder starter memories + a self-contained `public/help.html`
+- Release packaging (`cd.release.yml`) — versioned `aperio-lite.zip` (launchers + how-to staged at the archive root) published to the latest GitHub release under a stable URL
+
 ## Ops
 - CI: CodeQL, Codecov, SonarCloud, Codacy, Dependabot (npm + github-actions), `npm audit` (high-severity gate)
 - Quiet test reporter gated on `APERIO_AGENT_RUN` (summary-only output for agent runs)
