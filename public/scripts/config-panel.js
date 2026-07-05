@@ -48,6 +48,7 @@
     gemini:        ["GEMINI_API_KEY", "GEMINI_MODEL"],
     ollama:        ["OLLAMA_MODEL"],
     "claude-code": ["CLAUDE_CODE_OAUTH_TOKEN"],
+    codex:         ["CODEX_MODEL", "CODEX_API_KEY", "CODEX_SANDBOX", "CODEX_APPROVAL_POLICY"],
   };
   const FIELD_PROVIDER = {};
   for (const [p, keys] of Object.entries(PROVIDER_FIELDS))

@@ -3,7 +3,7 @@ import helmet from "helmet";
 import { WebSocketServer, WebSocket } from "ws";
 import { existsSync, readFileSync, mkdirSync } from "fs";
 import { fileURLToPath } from "url";
-import { dirname, resolve } from "path";
+import { dirname, resolve, sep as pathSep } from "path";
 import { createRequire } from "module";
 import { execFile } from "child_process";
 import dotenv from "dotenv";
@@ -453,13 +453,20 @@ async function bootApp() {
     } else {
       const { getAllowlist } = await import("./lib/routes/paths.js");
       const { markEnabled } = await import("./lib/codegraph/status.js");
-      markEnabled(getAllowlist());
+
+      // Dedupe roots before marking enabled so the status only shows roots that
+      // will actually be indexed (filtering out nested dirs like var/scratch).
+      const roots = getAllowlist();
+      const dedupedRoots = roots.filter(r =>
+        !roots.some(other => other !== r && r.startsWith(other + pathSep))
+      );
+      markEnabled(dedupedRoots);
       // Fire-and-forget: don't block bootApp on the initial index. Each per-root
       // handle is registered so DELETE / shutdown can stop it individually.
       codegraphBoot = (async () => {
         try {
           const { startAllWatchers } = await import("./lib/codegraph/watcher.js");
-          const { handles } = await startAllWatchers(store, getAllowlist(), watcherEvents);
+          const { handles } = await startAllWatchers(store, roots, watcherEvents);
           for (const h of handles) await watcherRegistry.register('codegraph', h.root, h);
         } catch (err) {
           const { logError } = await import("./lib/helpers/logger.js");
@@ -480,11 +487,18 @@ async function bootApp() {
     } else {
       const { getAllowlist } = await import("./lib/routes/paths.js");
       const { markEnabled } = await import("./lib/docgraph/status.js");
-      markEnabled(getAllowlist());
+
+      // Dedupe roots before marking enabled so the status only shows roots that
+      // will actually be indexed (filtering out nested dirs like var/scratch).
+      const roots = getAllowlist();
+      const dedupedRoots = roots.filter(r =>
+        !roots.some(other => other !== r && r.startsWith(other + pathSep))
+      );
+      markEnabled(dedupedRoots);
       docgraphBoot = (async () => {
         try {
           const { startAllWatchers } = await import("./lib/docgraph/watcher.js");
-          const { handles } = await startAllWatchers(store, getAllowlist(), watcherEvents);
+          const { handles } = await startAllWatchers(store, roots, watcherEvents);
           for (const h of handles) await watcherRegistry.register('docgraph', h.root, h);
         } catch (err) {
           const { logError } = await import("./lib/helpers/logger.js");
@@ -767,7 +781,7 @@ async function bootApp() {
 // (only the first two are consumed by round-table; rest reserved for future).
 function parseRoundtableAgents(raw) {
   if (!raw || typeof raw !== "string") return [];
-  const SUPPORTED = new Set(["anthropic", "ollama", "deepseek", "gemini"]);
+  const SUPPORTED = new Set(["anthropic", "ollama", "deepseek", "gemini", "claude-code", "codex"]);
   return raw.split(",").map(pair => {
     const trimmed = pair.trim();
     if (!trimmed) return null;
