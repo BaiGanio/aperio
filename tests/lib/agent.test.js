@@ -20,6 +20,11 @@ import { fixUnclosedFence } from "../../lib/helpers/validateOutput.js";
 import { makeWsEmitter } from "../../lib/emitters/wsEmitter.js";
 import { makeCliEmitter } from "../../lib/emitters/cliEmitter.js";
 
+// Synthetic root — never a real path on the user's machine.
+// createAgent wraps all readFileSync calls in try/catch, so missing
+// prompt/skill/locale files silently fall back to empty defaults.
+const FAKE_ROOT = "/fake/project";
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -222,7 +227,7 @@ describe("createAgent initialization", () => {
     // Mock callTool responses
     const mockCallTool = t.mock.fn(async () => ({ content: [{ text: "mock result" }] }));
     
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
 
     assert.ok(agent, "createAgent should return an agent object");
     assert.ok(agent.provider, "Agent should have provider");
@@ -347,7 +352,7 @@ describe("Ollama Loop Logic - Health Check", () => {
     process.env.AI_PROVIDER = "ollama";
     process.env.OLLAMA_MODEL = "llama3.1";
 
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     const emitter = { send: t.mock.fn() };
     
     // Directly test the internal health check by exposing it via a test hook
@@ -375,7 +380,7 @@ describe("Ollama Loop Logic - Health Check", () => {
     process.env.AI_PROVIDER = "ollama";
     process.env.OLLAMA_MODEL = "nonexistent-model";
 
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     const emitter = { send: t.mock.fn() };
     
     const result = await agent.runAgentLoop(
@@ -462,7 +467,7 @@ describe("run_shell cwd injection", () => {
     process.env.AI_PROVIDER = "ollama";
     process.env.OLLAMA_MODEL = "llama3.1";
 
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     await agent.runAgentLoop([{ role: "user", content: "please run ls" }], { send: t.mock.fn() });
 
     return captured.find((c) => c.name === "run_shell");
@@ -472,7 +477,8 @@ describe("run_shell cwd injection", () => {
     const call = await runShellTurn(t, { command: "ls" });
     assert.ok(call, "run_shell should reach the MCP boundary");
     assert.strictEqual(call.args.command, "ls");
-    // No session scratch dir exists in the test, so it falls back to the project root.
+    // No session scratch dir exists in the test, so the agent falls back to
+    // process.cwd() at tool-execution time (independent of the createAgent root).
     assert.strictEqual(call.args.cwd, process.cwd());
   });
 
@@ -709,7 +715,7 @@ describe("Agent Integration with Emitter", () => {
   test("handleRememberIntent works correctly", async (t) => {
     stubMcpTransport(t);
     
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     const emitter = { send: t.mock.fn() };
     
     await agent.handleRememberIntent("remember that the user likes coffee", emitter);
@@ -724,7 +730,7 @@ describe("Agent Integration with Emitter", () => {
     stubMcpTransport(t);
     
     // Override callTool for testing
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     
     // Mock the internal callTool response
     t.mock.method(agent, "callTool", async () => {
@@ -753,7 +759,7 @@ describe("Agent Integration with Emitter", () => {
 
     // Pin a tool-capable cloud provider (independent of AI_PROVIDER leaked by
     // earlier tests); deepseek constructs no SDK client, so no API key is needed.
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
 
     const { prompt, memCtx, preloadedMemCount } = await agent.buildGreeting();
 
@@ -779,7 +785,7 @@ describe("Agent Integration with Emitter", () => {
     });
 
     const agent = await createAgent({
-      root: process.cwd(), version: "1.0.0",
+      root: FAKE_ROOT, version: "1.0.0",
       providerConfig: { name: "ollama", model: "qwen2.5:3b" },
     });
 
@@ -803,7 +809,7 @@ describe("Agent Integration with Emitter", () => {
     });
 
     const agent = await createAgent({
-      root: process.cwd(), version: "1.0.0",
+      root: FAKE_ROOT, version: "1.0.0",
       providerConfig: { name: "ollama", model: "qwen3:32b" },
     });
 
@@ -816,7 +822,7 @@ describe("Agent Integration with Emitter", () => {
   test("buildGreeting handles no memories gracefully", async (t) => {
     stubMcpTransport(t);
 
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
 
     t.mock.method(agent, "callTool", async () => "No memories found.");
 
@@ -840,7 +846,7 @@ describe("Agent Integration with Emitter", () => {
       return { content: [{ type: "text", text: "OK" }] };
     });
 
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
 
     // Before the greeting, the pointer isn't there yet.
     assert.ok(!agent.getSystemPrompt("hi").includes("stored outside this conversation"),
@@ -876,7 +882,7 @@ describe("Agent Integration with Emitter", () => {
       return { content: [{ type: "text", text: "OK" }] };
     });
 
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
     await agent.buildGreeting();
 
     assert.match(agent.getSystemPrompt("hi"), /1 saved memory\b/,
@@ -900,7 +906,7 @@ describe("zodToJsonSchema", () => {
   test("handles null/undefined schema gracefully", async (t) => {
     stubMcpTransport(t);
     // This should not throw
-    const agent = await createAgent({ root: process.cwd(), version: "1.0.0" });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     assert.ok(agent);
   });
 });
@@ -1016,6 +1022,9 @@ describe("Provider resolution - DeepSeek", () => {
 });
 
 describe("persistAnswerArtifacts()", () => {
+  // Uses isolated temp dirs (os.tmpdir) — cleaned up after each test.
+  // The function under test writes files via mkdirSync/writeFileSync;
+  // the temp dir is scoped to this describe block only.
   let dir;
   beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), "answer-artifacts-")); });
   afterEach(() => { fs.rmSync(dir, { recursive: true, force: true }); });
@@ -1030,7 +1039,6 @@ describe("persistAnswerArtifacts()", () => {
     const files = fs.readdirSync(dir);
     assert.equal(files.length, 1);
     assert.match(files[0], /^[0-9a-f]{8}-wealthpath-dashboard\.html$/);
-    // Content must round-trip intact (no corruption / truncation).
     const content = fs.readFileSync(path.join(dir, files[0]), "utf8");
     assert.ok(content.includes("WealthPath Dashboard") && content.includes("row 29"));
   });
@@ -1042,7 +1050,6 @@ describe("persistAnswerArtifacts()", () => {
   });
 
   test("persists RAW unfenced HTML wrapped in <pre><code>", () => {
-    // The screenshot case: model emitted literal <pre><code> + raw HTML, no fence.
     const text = "Brief…\n\n<pre><code>\n" + bigHtml + "\n</code></pre>\n\nPreview the page above.";
     assert.equal(persistAnswerArtifacts(text, dir), 1);
     const content = fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]), "utf8");
@@ -1060,8 +1067,6 @@ describe("persistAnswerArtifacts()", () => {
   });
 
   test("creates the scratch dir if it doesn't exist yet", () => {
-    // A model that never calls a file-writing tool leaves the lazily-created
-    // scratch dir absent; persisting an extracted artifact must not ENOENT.
     const missing = path.join(dir, "session-never-created");
     const bigMd = "# Title\n\n" + Array.from({ length: 30 }, (_, i) => `- item ${i}`).join("\n");
     assert.equal(persistAnswerArtifacts("Here:\n```md\n" + bigMd + "\n```", missing), 1);

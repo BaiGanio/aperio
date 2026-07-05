@@ -25,9 +25,9 @@ Only the versions below actively receive security patches:
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| 0.56.x   | ✅ Yes    | Current stable — fully supported |
+| 0.67.x   | ✅ Yes    | Current stable — fully supported |
 
-> **Recommendation:** Always use the latest `0.56.x` release for the most recent features and security fixes.
+> **Recommendation:** Always use the latest `0.67.x` release for the most recent features and security fixes.
 
 ---
 
@@ -39,6 +39,11 @@ and is meant to run on a machine you trust.
 - **`run_shell` is not a sandbox.** When enabled, the model runs allow-listed
   commands with your user's privileges. Only enable it for models and content
   you trust.
+- **The Codex provider is a coding agent, not a secret boundary.** Keep
+  `CODEX_SANDBOX=workspace-write` (or `read-only`) and use it only in trusted
+  workspaces. The sandbox constrains writes, but Codex and code it runs can read
+  accessible project content and inherit credentials required by the provider
+  process. Use `danger-full-access` only inside an externally isolated host.
 - **Do not expose Aperio directly to untrusted networks.** For LAN/hosted use,
   set `APERIO_AUTH_TOKEN` (shared-secret gate), `APERIO_TLS_CERT`/`APERIO_TLS_KEY`
   (HTTPS), and optionally `APERIO_SESSION_KEY` (at-rest session encryption), or

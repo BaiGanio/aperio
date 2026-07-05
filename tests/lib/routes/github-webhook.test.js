@@ -1,49 +1,66 @@
 // tests/lib/routes/github-webhook.test.js
-// Boots a tiny express app mirroring server.js's body-parser (raw-body verify
-// hook) and mounts the webhook router, then fires real requests so HMAC
-// verification + ledger upsert run end-to-end.
+// Tests HMAC verification + ledger upsert end-to-end. Uses the invoke() helper
+// to call the Express router directly — no live HTTP server. req.rawBody and
+// req.body are pre-set on the mock request to simulate express.json's verify hook.
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
-import express from "express";
 import { Router } from "express";
 import { mountGithubWebhookRoutes } from "../../../lib/routes/api-github-webhook.js";
 
+// ─── Invoke helper ────────────────────────────────────────────────────────────
+
+function invoke(router, method, url, { body = null, headers = {}, params = {}, rawBody = null } = {}) {
+  return new Promise((resolve) => {
+    const req = {
+      method: method.toUpperCase(),
+      url, path: url, params,
+      body: body != null ? structuredClone(body) : undefined,
+      rawBody: rawBody,
+      headers: { ...headers },
+      baseUrl: "", originalUrl: url,
+      ip: "127.0.0.1", socket: { remoteAddress: "127.0.0.1" },
+      get: (name) => {
+        const key = name.toLowerCase();
+        return req.headers[key];
+      },
+    };
+    const res = {
+      _status: 200,
+      status(code) { this._status = code; return this; },
+      json(data)   { resolve({ status: this._status, body: data }); },
+      end()        { resolve({ status: this._status, body: null }); },
+      setHeader()  { return this; },
+      getHeader()  {},
+      set()        { return this; },
+      on()         { return this; },
+    };
+    router(req, res, () => resolve({ status: 404, body: null }));
+  });
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
 const SECRET = "test-webhook-secret";
-let server, base, upserts;
 
 function sign(body) {
   return "sha256=" + crypto.createHmac("sha256", SECRET).update(body).digest("hex");
 }
 
-before(async () => {
-  process.env.GITHUB_WEBHOOK_SECRET = SECRET;
-  upserts = [];
-  // getSetting returns null so the route falls back to the env secret; the
-  // settings-provided-secret path is covered by its own test below.
-  const store = { async upsertIssue(row) { upserts.push(row); }, async getSetting() { return null; } };
-
-  const app = express();
-  app.use(express.json({ verify: (req, _res, buf) => { req.rawBody = buf; } }));
-  const router = Router();
-  mountGithubWebhookRoutes(router, { store });
-  app.use("/api", router);
-
-  await new Promise((r) => { server = app.listen(0, "127.0.0.1", r); });
-  base = `http://127.0.0.1:${server.address().port}`;
-});
-
-after(() => {
-  delete process.env.GITHUB_WEBHOOK_SECRET;
-  return new Promise((r) => server.close(r));
-});
+let router, upserts;
 
 function post(body, { signature, event = "issues" } = {}) {
   const raw = typeof body === "string" ? body : JSON.stringify(body);
-  const headers = { "Content-Type": "application/json", "X-GitHub-Event": event };
-  if (signature !== null) headers["X-Hub-Signature-256"] = signature ?? sign(raw);
-  return fetch(`${base}/api/github/webhook`, { method: "POST", headers, body: raw });
+  const rawBuf = Buffer.from(raw);
+  const headers = { "x-github-event": event };
+  if (signature !== null) headers["x-hub-signature-256"] = signature ?? sign(raw);
+
+  return invoke(router, "POST", "/github/webhook", {
+    body: typeof body === "string" ? JSON.parse(body) : body,
+    headers,
+    rawBody: rawBuf,
+  });
 }
 
 const ISSUE_EVENT = {
@@ -51,6 +68,25 @@ const ISSUE_EVENT = {
   issue: { number: 7, title: "Hello", state: "open", updated_at: "2026-06-10T00:00:00Z" },
   repository: { full_name: "octocat/hello" },
 };
+
+// ─── Route setup ──────────────────────────────────────────────────────────────
+
+before(() => {
+  process.env.GITHUB_WEBHOOK_SECRET = SECRET;
+  upserts = [];
+  const store = {
+    async upsertIssue(row) { upserts.push(row); },
+    async getSetting() { return null; },
+  };
+  router = Router();
+  mountGithubWebhookRoutes(router, { store });
+});
+
+after(() => {
+  delete process.env.GITHUB_WEBHOOK_SECRET;
+});
+
+// =============================================================================
 
 describe("github webhook", () => {
   test("valid signature on issues/opened upserts a pending row", async () => {

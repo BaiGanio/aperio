@@ -6,7 +6,7 @@
 A self-hosted personal memory layer for AI agents. SQLite (or Postgres) + MCP + Ollama.
 
 - **Role**: MCP server first, bundled Web UI and terminal client second
-- **Version**: 0.66.0 (see `package.json`)
+- **Version**: 0.67.0 (see `package.json`)
 - **License**: MIT
 - **Repo**: [BaiGanio/aperio](https://github.com/BaiGanio/aperio)
 
@@ -33,8 +33,9 @@ npm run chat:local            # terminal chat client
 - **Database**: SQLite (`better-sqlite3` + `sqlite-vec` + FTS5) or Postgres (`pg` + `pgvector`)
 - **MCP**: `@modelcontextprotocol/sdk` — stdio transport
 - **Embeddings**: HuggingFace `@huggingface/transformers` (local, default) or Voyage AI (cloud)
-- **AI providers**: Ollama (local), Anthropic, DeepSeek, Google Gemini, Claude Code (Agent SDK)
+- **AI providers**: Ollama (local), Anthropic, DeepSeek, Google Gemini, Claude Code (Agent SDK), OpenAI Codex CLI
 - **Agent SDK**: `@anthropic-ai/claude-agent-sdk` (for `claude-code` provider)
+- **Codex integration**: authenticated `codex exec --json` with Aperio's stdio MCP server
 - **Skills/doc generation**: `docx`, `pdf-lib`, `pptxgenjs`, `exceljs`, `sharp`, `mammoth`, `pdfjs-dist`
 - **Code graph**: `web-tree-sitter` + `tree-sitter-wasms`
 - **Testing**: Node.js native test runner (`node --test`), `c8` for coverage
@@ -57,7 +58,8 @@ aperio/
 │   ├── terminal.js        # Terminal chat client entry point
 │   ├── terminal/          # Terminal UI (REPL, streaming, formatting)
 │   ├── context/           # Context assembly (system prompt, memories, wiki, skills)
-│   ├── providers/         # AI provider adapters (Anthropic, Ollama, DeepSeek, Gemini)
+│   ├── agent/providers/   # Provider loops (Anthropic, Ollama, DeepSeek, Gemini, Claude Code, Codex)
+│   ├── providers/         # Provider/model resolution and schema helpers
 │   ├── streaming/         # SSE + WebSocket streaming to the browser
 │   ├── tools/             # Agent-side tool implementations (browser-facing)
 │   ├── handlers/          # WebSocket message handlers (chat, tool calls, etc.)
@@ -148,7 +150,8 @@ Configuration has three sources, resolved by precedence (`APERIO_CONFIG_PRECEDEN
 The config registry in `lib/config.js` defines every variable with type, default, and metadata. Run `npm run gen:env` to regenerate `.env.example` from it. Most settings are also editable from the Web UI Configuration panel.
 
 Key env vars:
-- `AI_PROVIDER` — `ollama` | `anthropic` | `deepseek` | `gemini` | `claude-code`
+- `AI_PROVIDER` — `ollama` | `anthropic` | `deepseek` | `gemini` | `claude-code` | `codex`
+- `CODEX_MODEL`, `CODEX_API_KEY`, `CODEX_SANDBOX`, `CODEX_APPROVAL_POLICY` — Codex CLI provider settings
 - `DB_BACKEND` — auto-detected; force with `sqlite` or `postgres`
 - `EMBEDDING_PROVIDER` — `transformers` (local) | `voyage` (cloud)
 - `PORT` — default 31337
@@ -279,7 +282,8 @@ Environment: `NODE_ENV=test` must be set for tests.
 | `lib/helpers/embeddings.js` | Embedding generation (transformers or Voyage) |
 | `lib/helpers/logger.js` | Winston logger with daily rotation |
 | `lib/context/` | Context assembly — system prompts, memory injection, skills |
-| `lib/providers/` | AI provider adapters (Anthropic, Ollama, DeepSeek, Gemini) |
+| `lib/agent/providers/` | Provider loops, including Claude Code and Codex CLI |
+| `lib/providers/` | Provider/model resolution and shared schema helpers |
 | `public/index.html` | Web UI SPA shell |
 | `public/index.js` | Web UI main client script |
 | `id/whoami.md` | Primary agent persona definition |

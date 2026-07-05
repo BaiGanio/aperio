@@ -235,6 +235,25 @@ describe("message type: init", () => {
     assert.deepStrictEqual(loopArgs[0], { lang: "en" });
   });
 
+  test("scopes Codex turns to the connection's Aperio session", async (t) => {
+    const ws = makeWs(t);
+    const loopArgs = [];
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        provider: { name: "codex", model: "gpt-5.5", contextWindow: 200000 },
+        runAgentLoop: async (_msgs, _emitter, opts) => { loopArgs.push(opts); return ""; },
+      }),
+      store: { listAll: async () => [] },
+      __dirname: TEST_DIR,
+    });
+
+    handler(ws);
+    const announcedId = sentOf(ws, "session_created")[0].id;
+    await ws.emit({ type: "init" });
+
+    assert.equal(loopArgs[0].aperioSessionId, announcedId);
+  });
+
   test("ignores subsequent init messages (runs only once)", async (t) => {
     const ws     = makeWs(t);
     const spy    = [];

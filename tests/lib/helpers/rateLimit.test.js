@@ -1,36 +1,67 @@
 // tests/lib/helpers/rateLimit.test.js
-// NET-03 — per-IP throttle. Boots a tiny express app on an ephemeral port and
-// fires real requests so the limiter runs end-to-end.
+// NET-03 — per-IP throttle. Uses the invoke() helper to call the Express
+// router directly — no live HTTP server. express-rate-limit tracks hits by
+// req.ip in memory; sequential calls from the same IP correctly trigger 429.
 
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import express from "express";
+import { Router } from "express";
 import { makeRateLimiter } from "../../../lib/helpers/rateLimit.js";
 
-let server, base;
+// ─── Invoke helper ────────────────────────────────────────────────────────────
 
-before(async () => {
-  const app = express();
-  app.post("/limited", makeRateLimiter({ windowMs: 60_000, max: 2, name: "test" }), (_req, res) =>
+function invoke(router, method, url, { body = null, params = {} } = {}) {
+  return new Promise((resolve) => {
+    const req = {
+      method: method.toUpperCase(),
+      url, path: url, params,
+      body: body != null ? structuredClone(body) : undefined,
+      headers: {},
+      baseUrl: "", originalUrl: url,
+      ip: "127.0.0.1", socket: { remoteAddress: "127.0.0.1" },
+      app: { get: () => undefined },
+      get: () => undefined,
+    };
+    const res = {
+      _status: 200,
+      status(code) { this._status = code; return this; },
+      json(data)   { resolve({ status: this._status, body: data }); },
+      send(data)   { resolve({ status: this._status, body: data }); },
+      setHeader()  { return this; },
+      getHeader()  {},
+      set()        { return this; },
+      on()         { return this; },
+    };
+    router(req, res, () => resolve({ status: 404, body: null }));
+  });
+}
+
+// ─── Route setup ──────────────────────────────────────────────────────────────
+
+let router;
+
+before(() => {
+  router = Router();
+  router.post("/limited", makeRateLimiter({ windowMs: 60_000, max: 2, name: "test" }), (_req, res) =>
     res.json({ ok: true })
   );
-  await new Promise((resolve) => {
-    server = app.listen(0, "127.0.0.1", resolve);
-  });
-  base = `http://127.0.0.1:${server.address().port}`;
 });
 
-after(() => new Promise((resolve) => server.close(resolve)));
+after(() => {});
+
+// ─── Helper ───────────────────────────────────────────────────────────────────
+
+const post = () => invoke(router, "POST", "/limited");
+
+// =============================================================================
 
 describe("makeRateLimiter", () => {
   test("allows up to max then returns 429", async () => {
-    const post = () => fetch(`${base}/limited`, { method: "POST" });
     assert.equal((await post()).status, 200);
     assert.equal((await post()).status, 200);
     const blocked = await post();
     assert.equal(blocked.status, 429);
-    const body = await blocked.json();
-    assert.equal(body.error, "rate_limited");
-    assert.equal(body.endpoint, "test");
+    assert.equal(blocked.body.error, "rate_limited");
+    assert.equal(blocked.body.endpoint, "test");
   });
 });

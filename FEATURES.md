@@ -2,7 +2,7 @@
 
 Single source of truth for **what exists**. If you add or remove a feature, change it here in the same PR — otherwise it didn't ship.
 
-Last reconciled: 2026-07-01 · Version: 0.65.1
+Last reconciled: 2026-07-05 · Version: 0.67.0
 
 ---
 
@@ -100,7 +100,8 @@ Last reconciled: 2026-07-01 · Version: 0.65.1
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)
-- Providers: Ollama, Anthropic, DeepSeek (Gemini and Claude Code SDK exist in-code but are hidden from the UI)
+- First-class providers: Ollama, Anthropic, DeepSeek, Gemini, Claude Code Agent SDK, and OpenAI Codex CLI
+- Codex provider: authenticated `codex exec --json`, Aperio MCP tool access, explicit sandbox/approval policy, session-scoped persisted thread resume, background completions, setup wizard, and round-table support
 - Skills matching per turn (`skills/`)
 - Reasoning / thinking mode with reasoning-chain replay
 - Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`); post-round manifestos from each agent saved to `var/roundtables/` and served for preview/download
@@ -125,7 +126,7 @@ Last reconciled: 2026-07-01 · Version: 0.65.1
 - 24-language i18n with flag-based navbar switcher
 - Response stats badge: answer/thinking tokens, tok/s, elapsed
 - Settings → Extras: detect optional skill deps, auto-install pip deps into project venv, guided install for system binaries (`/api/capabilities`)
-- In-app Configuration panel — schema-driven editor (`lib/config.js` registry → `GET /api/config/schema`) for every `.env` var as a typed control (toggle/select/number/text/list-chips/secret); DB-backed under `config.<KEY>`, precedence env > DB > default by default (flip to DB-wins via `APERIO_CONFIG_PRECEDENCE`, itself editable in the panel), single restart-to-apply banner; API keys editable in-UI (no `.env`); Tier-0 bootstrap/security vars shown read-only ("edit in .env", except the precedence switch); provider-scoped fields revealed by `AI_PROVIDER`; on-demand `.env` import of unmanaged vars (`npm run config:sync`, Managed/Unmanaged/Orphaned); amber rebuild-the-index warning when `EMBEDDING_PROVIDER`/`EMBEDDING_DIMS` change; the generated `.env.example` (`npm run gen:env`) ships only essentials + Tier-0 bootstrap (27 of 74 vars) — every other setting lives in the panel
+- In-app Configuration panel — schema-driven editor (`lib/config.js` registry → `GET /api/config/schema`) for every `.env` var as a typed control (toggle/select/number/text/list-chips/secret); DB-backed under `config.<KEY>`, precedence env > DB > default by default (flip to DB-wins via `APERIO_CONFIG_PRECEDENCE`, itself editable in the panel), single restart-to-apply banner; API keys editable in-UI (no `.env`); Tier-0 bootstrap/security vars shown read-only ("edit in .env", except the precedence switch); provider-scoped fields revealed by `AI_PROVIDER`; on-demand `.env` import of unmanaged vars (`npm run config:sync`, Managed/Unmanaged/Orphaned); amber rebuild-the-index warning when `EMBEDDING_PROVIDER`/`EMBEDDING_DIMS` change; `.env.example` is generated from the complete registry with `npm run gen:env`
 - Terminal chat client — standalone or proxy (`lib/terminal.js`); text only (voice/TTS is Web UI only)
 - Guided-tour `help` — each command paired with a runnable `try:` example; `examples` toggles the examples (persisted in `var/cli-prefs.json`), `help <command>` shows focused per-command docs
 - Localized terminal welcome/help — English by default; `lang <code>` switches and persists (bare `lang` lists the 24 locales), or set `APERIO_UI_LANG` in `.env` (saved pref wins over env); translations overlay `cli_`-prefixed keys in the shared `public/locales/<lang>.json`, falling back to English per-string
@@ -167,4 +168,4 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Graceful shutdown with ONNX cleanup
 - RAM-based model recommendation (setup wizard + terminal model picker)
 - Docker production config (`docker/docker-compose.prod.yml`)
-- Test suite: 1724 tests (`npm test`)
+- Test suite: 2607 tests (`npm test`)

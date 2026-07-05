@@ -202,6 +202,11 @@ const REAL = {
 };
 
 function callMockOrReal(funcName, impl, ...args) {
+  // Node 26 loads ESM source through fs.readFileSync(fileURL). Let the loader
+  // read real module source; the session tests only virtualize data-file paths.
+  if (funcName === "readFileSync" && args[0] instanceof URL) {
+    return REAL.readFileSync(...args);
+  }
   if (impl) return impl(...args);
   return REAL[funcName](...args);
 }
@@ -282,6 +287,7 @@ describe("createSession()", () => {
     assert.equal(saved.provider, "openai");
     assert.equal(saved.source, "web");
     assert.equal(saved.title, null);
+    assert.deepEqual(saved.providerSessions, {});
     assert.deepEqual(saved.summaries, []);
     assert.deepEqual(saved.messages, []);
     assert.equal(saved.endedAt, null);
@@ -308,6 +314,32 @@ describe("createSession()", () => {
     const id = sessions.createSession({ model: "m1", provider: "p1", source: "terminal" });
     const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions", `${id}.json`)));
     assert.equal(saved.source, "terminal");
+  });
+});
+
+describe("provider session ids", () => {
+  test("persists and reads provider thread state without dropping other state", () => {
+    seedSession({
+      id: "provider-session",
+      providerSessions: { "codex:roundtable-primary": { sessionId: "thread-a" } },
+    });
+
+    assert.equal(
+      sessions.updateProviderSessionId("provider-session", "codex", "thread-main"),
+      true,
+    );
+    assert.equal(
+      sessions.getProviderSessionId("provider-session", "codex"),
+      "thread-main",
+    );
+    const saved = JSON.parse(memFS.get(join(sessionsDir(), "provider-session.json")));
+    assert.equal(saved.providerSessions["codex:roundtable-primary"].sessionId, "thread-a");
+  });
+
+  test("returns null for legacy sessions and rejects missing sessions", () => {
+    seedSession({ id: "legacy-session" });
+    assert.equal(sessions.getProviderSessionId("legacy-session", "codex"), null);
+    assert.equal(sessions.updateProviderSessionId("missing", "codex", "thread"), false);
   });
 });
 
@@ -860,6 +892,10 @@ describe("pruneOldSessions()", () => {
   test("uses SESSION_RETENTION_DAYS env var", () => {
     const origEnv = process.env.SESSION_RETENTION_DAYS;
     process.env.SESSION_RETENTION_DAYS = "30";
+
+    // Fixed-date default fixtures eventually age past this retention window.
+    const dir = join(mockCwd, "var/sessions");
+    memFS.set(dir, new Set());
 
     seedSession({ id: "recent-env", startedAt: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(), pinned: false });
     seedSession({ id: "old-env", startedAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString(), pinned: false });

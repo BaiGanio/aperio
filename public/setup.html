@@ -446,6 +446,7 @@ select.wiz-input {
       <select id="wizProvider" class="wiz-input">
         <option value="anthropic">Anthropic (Claude)</option>
         <option value="deepseek">DeepSeek</option>
+        <option value="codex">OpenAI Codex (CLI login or API key)</option>
         <!-- Gemini hidden — uncomment to expose it in the setup wizard -->
         <!-- <option value="gemini">Google Gemini</option> -->
       </select>
@@ -757,18 +758,25 @@ document.querySelectorAll("[data-back]").forEach(b =>
 const KEY_HELP = {
   anthropic: "https://console.anthropic.com/settings/keys",
   deepseek:  "https://platform.deepseek.com/api_keys",
+  codex:     "https://platform.openai.com/api-keys",
   // gemini:    "https://aistudio.google.com/app/apikey",
 };
 const providerSel = document.getElementById("wizProvider");
 const keyHelp     = document.getElementById("wizKeyHelp");
-const syncKeyHelp = () => { keyHelp.href = KEY_HELP[providerSel.value]; };
+const syncKeyHelp = () => {
+  keyHelp.href = KEY_HELP[providerSel.value];
+  const keyEl = document.getElementById("wizKey");
+  keyEl.placeholder = providerSel.value === "codex"
+    ? "Optional API key (leave blank after `codex login`)"
+    : _t("wiz_key_placeholder");
+};
 providerSel.addEventListener("change", syncKeyHelp);
 syncKeyHelp();
 
 document.getElementById("wizCloudGo").addEventListener("click", () => {
   const keyEl   = document.getElementById("wizKey");
   const apiKey  = keyEl.value.trim();
-  if (!apiKey) { keyEl.focus(); return; }
+  if (!apiKey && providerSel.value !== "codex") { keyEl.focus(); return; }
   submitConfig({ provider: providerSel.value, apiKey });
 });
 

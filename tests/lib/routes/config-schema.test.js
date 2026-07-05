@@ -2,18 +2,47 @@
 // GET /api/config/schema (issue #167, Phase 2): the registry decorated with each
 // var's effective value (DB > env > default). Secrets must report only
 // { configured } and never their value; Tier-0 vars must be flagged read-only.
+//
+// Uses the invoke() helper to call the Express router directly — no live HTTP
+// server, no real port binding on the user's machine.
 
 import { test, describe, before, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { writeFileSync, mkdtempSync, rmSync } from "fs";
 import { tmpdir } from "os";
 import { join } from "path";
-import express, { Router } from "express";
+import { Router } from "express";
 import { mountConfigRoutes } from "../../../lib/routes/api-config.js";
 import { applyConfigToEnv, configSettingKey, configSourceOf } from "../../../lib/config-resolver.js";
 import { CONFIG } from "../../../lib/config.js";
 
-let server, base, store, envFile;
+// ─── Invoke helper ────────────────────────────────────────────────────────────
+// Calls the Express router directly with mock req/res, no HTTP server needed.
+
+function invoke(router, method, url) {
+  return new Promise((resolve) => {
+    const req = {
+      method: method.toUpperCase(),
+      url, path: url,
+      headers: {}, baseUrl: "", originalUrl: url,
+      ip: "127.0.0.1", socket: { remoteAddress: "127.0.0.1" },
+    };
+    const res = {
+      _status: 200, headersSent: false, _headers: {},
+      status(code) { this._status = code; return this; },
+      json(data)   { resolve({ status: this._status, body: data }); },
+      setHeader(k, v) { this._headers[String(k).toLowerCase()] = v; },
+      getHeader(k)    { return this._headers[String(k).toLowerCase()]; },
+      set()           { return this; },
+      on()            { return this; },
+    };
+    router(req, res, () => resolve({ status: 404, body: null }));
+  });
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+let store, envFile, tmp;
 
 function fakeStore(settings = {}) {
   return { async getSettings() { return { ...settings }; } };
@@ -23,36 +52,54 @@ function fakeStore(settings = {}) {
 // request time, so a rewrite takes effect without remounting.
 const setEnvFile = (contents = "") => writeFileSync(envFile, contents);
 
-const getSchema = () => fetch(`${base}/api/config/schema`).then(r => r.json());
+const getSchema = () => invoke(router, "GET", "/config/schema").then(r => r.body);
 const field = (schema, key) => schema.fields.find(f => f.key === key);
 
 // A Tier-1 non-secret, a Tier-1 secret, and a Tier-0 key for assertions.
 const T1   = "OLLAMA_MODEL";
-const SEC  = CONFIG.find(e => e.type === "secret" && e.tier === 1).key; // e.g. ANTHROPIC_API_KEY
+const SEC  = CONFIG.find(e => e.type === "secret" && e.tier === 1).key;
 const T0   = "PORT";
 
-describe("GET /api/config/schema", () => {
-  let savedEnv;
-  afterEach(() => { process.env = savedEnv; });
+// ─── Route setup ──────────────────────────────────────────────────────────────
+// One router for the entire suite. store.current is swapped per-test to control
+// getSettings() output, so mountConfigRoutes sees the latest store.
 
-  let tmp;
-  before(async () => {
-    tmp = mkdtempSync(join(tmpdir(), "aperio-cfg-"));
-    envFile = join(tmp, ".env");
-    setEnvFile("");
-    const app = express();
-    store = { current: fakeStore() };
-    const router = Router();
-    // Indirect through a mutable holder so individual tests can swap settings.
-    mountConfigRoutes(router, { store: { getSettings: () => store.current.getSettings() }, envPath: envFile });
-    app.use("/api", router);
-    await new Promise((r) => { server = app.listen(0, "127.0.0.1", r); });
-    base = `http://127.0.0.1:${server.address().port}`;
+let router;
+let savedEnv;
+
+before(() => {
+  tmp = mkdtempSync(join(tmpdir(), "aperio-cfg-"));
+  envFile = join(tmp, ".env");
+  setEnvFile("");
+
+  // Boot env so applyConfigToEnv works (it needs DB_BACKEND set).
+  if (!process.env.DB_BACKEND) process.env.DB_BACKEND = "sqlite";
+
+  router = Router();
+  store = { current: fakeStore() };
+  // Indirect through a mutable holder so individual tests can swap settings.
+  mountConfigRoutes(router, {
+    store: { getSettings: () => store.current.getSettings() },
+    envPath: envFile,
   });
-  after(() => { rmSync(tmp, { recursive: true, force: true }); return new Promise((r) => server.close(r)); });
+});
 
-  beforeEach(() => { savedEnv = { ...process.env }; setEnvFile(""); });
+after(() => {
+  rmSync(tmp, { recursive: true, force: true });
+});
 
+beforeEach(() => {
+  savedEnv = { ...process.env };
+  setEnvFile("");
+});
+
+afterEach(() => {
+  process.env = savedEnv;
+});
+
+// =============================================================================
+
+describe("GET /api/config/schema", () => {
   test("returns sections and one field per registry entry", async () => {
     store.current = fakeStore();
     const schema = await getSchema();

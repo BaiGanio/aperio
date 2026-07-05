@@ -181,6 +181,20 @@ describe("writeEnvFromWizard", () => {
     assert.match(env, /^DEEPSEEK_API_KEY="sk-ds-xxx"$/m);
   });
 
+  test("writes Codex config with cached-login auth and no API key", () => {
+    writeEnvFromWizard({ provider: "codex" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.match(env, /^AI_PROVIDER="codex"$/m);
+    assert.doesNotMatch(env, /^CODEX_API_KEY=/m);
+  });
+
+  test("writes optional Codex API key and model", () => {
+    writeEnvFromWizard({ provider: "codex", apiKey: "sk-codex", model: "gpt-5.5" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.match(env, /^CODEX_API_KEY="sk-codex"$/m);
+    assert.match(env, /^CODEX_MODEL="gpt-5\.5"$/m);
+  });
+
   test("writes .env for gemini with API key and port", () => {
     writeEnvFromWizard({ provider: "gemini", apiKey: "gm-xxx", port: 3456 });
     const env = readFileSync(ENV_PATH, "utf8");
