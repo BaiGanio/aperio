@@ -19,9 +19,9 @@
 | 0 | Consolidate launchers, retire `lib.sh` | ✅ **Done** (docs pending) | `.github/lite/` is now START.sh / START.bat / launch-hidden.sh + assets/{start,launch-hidden}.ps1; `lib.sh`, `Aperio.command`, `Aperio.sh`, `start1.sh` gone (commit 6285c4e, Jul 4). ⚠️ `how-to-install.md/.docx/.pdf`, `install.txt`, `Aperio.bat` still stale (Apr/Jun dates — LanceDB/mxbai era). |
 | 1 | Install ledger | 🟡 **Largely obviated by design** | bootstrap.js now *vendors* Ollama into `./vendor/ollama` (pinned, checksum-verified) instead of installing system-wide — provenance is folder-contained. Remaining gap: Node/nvm provenance (deliberately never removed) and the Desktop launcher (uninstall.sh already handles it). Full JSON ledger likely unnecessary; see Open Decisions D3. |
 | 2 | Uninstall | 🟡 **Half done** | `uninstall.sh` implemented (stops server, removes vendor/ + node_modules/ + var/ + Desktop launcher, offers model removal, spares Node & system Ollama). ❌ Missing: Windows equivalent (`uninstall.bat`/`.ps1`), UI "Uninstall/Reset" action. |
-| 3 | `APERIO_LITE` profile flag | ❌ **Not started** | No `APERIO_LITE` in `lib/config.js` or anywhere. |
+| 3 | `APERIO_LITE` profile flag | ✅ **Done** | Registered in `lib/config.js` (WS2) + `liteDefault` behavior shipped (WS3, Jul 5). |
 | 4 | Browser setup wizard | ✅ **Done** | `public/setup.html` (825 lines) drives bootstrap.js over `/api/bootstrap/stream`; wizard handles Ollama, model pull, DB, provider choice. Launchers reduced to ensure-Node + npm install + start (exactly the D2 design). |
-| 5 | Lite UI / terminal stripping | ❌ **Not started** | Depends on Phase 3. Hide-list still undecided (see D2). |
+| 5 | Lite UI / terminal stripping | ✅ **Done (web UI)** | `.lite-hide` gating + Advanced toggle shipped Jul 5 (see WS3). Terminal untouched — `help` already tiers by audience. |
 | 6 | Packaging & release | ❌ **Not started** | No `install.sh` at repo root, no `release` branch (only `aperio-lite-db-split`, `aperio-lite-initial-split`). |
 
 ### #157 parts
@@ -87,16 +87,44 @@
       an `APERIO_DOCGRAPH` default for lite (help page says "enable the document
       index in Settings" — keep honest with whatever WS3 decides).
 
-### WS3 — Lite profile flag + UI stripping (Phases 3+5) — the big chunk
-- [ ] `APERIO_LITE` in `lib/config.js` (env + Settings). When on: ollama/sqlite/
-      transformers defaults, **codegraph off**, docgraph on, lite seed variant,
-      cloud providers & external DBs behind an **Advanced** toggle.
-- [ ] UI hide-list (proposal, confirm per surface — D2): hide codegraph panels,
-      MCP config, raw config panel deep-knobs, skills authoring, exam harness,
-      roundtable config, sampling tuning. Keep: chat, memory sidebar, docgraph,
-      wiki, basic settings, provider/key entry, Quit.
-- [ ] `start:lite` (and the PowerShell launchers) set `APERIO_LITE=1`.
-- **Runtime flag, not build-time** — see D1. No component-switching build logic.
+### WS3 — Lite profile flag + UI stripping (Phases 3+5) — ✅ DONE 2026-07-05
+- [x] **Lite defaults, registry-driven**: `liteDefault` field in `lib/config.js`
+      (`AI_PROVIDER=ollama`, `DB_BACKEND=sqlite`, `APERIO_DOCGRAPH=on`;
+      codegraph has none → stays off; transformers already the builtin default).
+      `applyLiteDefaults(tier)` applies them in two stages in server.js +
+      terminal.js: tier-0 before the store opens (DB_BACKEND beats Docker
+      auto-detect), tier-1 **after** `applyConfigToEnv` so .env / UI-saved
+      values always win — a lite user turning docgraph off in Settings sticks.
+- [x] **UI hide-list shipped** (`.lite-hide` class + `public/styles/lite.css`,
+      driven by `data-lite` on `<html>`): sidebar Code / DB / Agents / Skills /
+      System buttons, Discuss (roundtable) button, Settings → GitHub triage +
+      Database connections sections. Config panel stays but renders
+      **essentials only** (group `start`) in lite — that keeps provider/key
+      entry per the keep-list; deep knobs + Imported section hidden.
+      Kept: chat, memory sidebar, Chats, Docs, Wiki, Config(essentials),
+      Settings, Quit. (MCP config / exam harness / sampling tuning from the
+      old proposal have no web-UI surface — nothing to hide.)
+- [x] **Advanced mode escape hatch**: lite-only Settings row toggling
+      `data-lite-advanced` (persisted in localStorage) — reveals every hidden
+      surface at runtime, no restart. Deviation from "cloud providers behind
+      Advanced": provider/key entry stays visible in lite essentials because
+      the keep-list demanded it; only deep knobs/external DBs are gated.
+- [x] **Plumbing**: `public/scripts/lite.js` loads in `<head>`, stamps
+      `data-lite` synchronously from a localStorage cache (no flash), then
+      reconciles with `GET /api/config/client` (now returns `lite`).
+      `start:lite` + both ps1 launchers already set `APERIO_LITE=on` (WS2).
+- [x] **Lite always runs db precedence** (added on review): `resolvePrecedence`
+      returns `db` whenever lite is on (env **or** DB-saved flag), overriding
+      any `APERIO_CONFIG_PRECEDENCE` in .env — a lite user never edits .env;
+      it only spins the app up, then the Settings UI rules. The no-op
+      precedence knob is hidden in the lite-basic config panel.
+- [x] Tests: `tests/lib/lite-defaults.test.js` (10 tests incl. forced-db
+      precedence end-to-end); full suite green
+      except one **pre-existing** failure (`api.test.js` expects
+      /config/client heartbeat default 10, code ships 60 — predates WS3).
+- Runtime flag per D1 ✓ — no build-time component switching.
+- **Manual follow-up:** visual pass with `npm run start:lite` (lite chrome,
+  Advanced toggle round-trip, config panel essentials-only).
 
 ### WS4 — Install/uninstall completion
 - [ ] **Windows uninstall** — `uninstall.bat` → `assets/uninstall.ps1`, mirroring
@@ -147,8 +175,11 @@
   no prune". The "switch components off while building" idea contradicts this;
   recommendation: keep one artifact, hide via `APERIO_LITE` at runtime. Only the
   *zip packaging* is a build step.
-- **D2 — UI hide-list.** Proposal in WS3 above; confirm surface-by-surface before
-  Phase 5 lands.
+- **D2 — UI hide-list.** ✅ Resolved 2026-07-05 — shipped as listed in WS3.
+  Judgment calls made without per-surface confirmation (all trivially
+  reversible — one class per surface): DB browser / Agents / System hidden
+  (not on the keep-list); provider/key entry kept visible via config-panel
+  essentials instead of behind Advanced. Flag anything to re-show.
 - **D3 — Full install ledger: skip.** Vendoring made the install folder-contained;
   a JSON ledger now only adds value for Node/nvm, which we deliberately never
   remove. Do the light `nodePreexisting` touch-up instead. Reopen only if we ever
@@ -178,3 +209,31 @@
   New `tests/db/memory-seed.test.js` (7 tests); db/store/memory suites 248/248;
   `gen:env:check` green. Found: uninstall.sh misses `.sqlite/` (logged in WS4).
   Remaining manual: live qwen2.5:3b turn-one check; help.html localization.
+- **2026-07-05 (later still)** — **WS3 done.** `liteDefault` registry field +
+  two-stage `applyLiteDefaults()` (server.js, terminal.js), `lite` exposed via
+  `/api/config/client`, `public/scripts/lite.js` + `styles/lite.css`
+  (`data-lite` gating, localStorage-cached — no flash), hide-list applied
+  (Code/DB/Agents/Skills/System/Discuss/GitHub-triage/DB-connections),
+  config panel essentials-only in lite, Settings → Advanced mode toggle as
+  escape hatch. help.html + lite seed docgraph wording updated ("on out of
+  the box"). `tests/lib/lite-defaults.test.js` (6 tests); full suite green
+  except pre-existing api.test.js heartbeat-default mismatch (expects 10,
+  code ships 60 — predates WS3, left alone). D2 resolved.
+  Remaining manual: visual pass via `npm run start:lite`.
+- **2026-07-05 (review follow-up)** — **Lite forces db precedence.** Per review:
+  a lite user can never "choose .env", so `resolvePrecedence` now returns `db`
+  unconditionally when APERIO_LITE=on (checked in env and DB settings) — .env
+  is spin-up only, the Settings UI rules afterwards. Precedence knob hidden in
+  lite-basic config panel; help texts + .env.example regenerated; 4 new tests
+  (incl. end-to-end: UI-saved value beats launcher env var).
+- **2026-07-05 (terminal consistency)** — lite users may open the terminal too,
+  so the profile now survives outside the launchers: **the wizard persists
+  `APERIO_LITE=on` into the .env it creates** (envFile.js; .env is the one file
+  every entry point loads → `chat:local` gets db precedence + SQLite pinned +
+  lite defaults, same as the web UI). And **load-env.js no longer falls back to
+  .env.example** — placeholder secrets (e.g. the default Postgres password)
+  must never become live config; the terminal now follows server.js's
+  only-a-real-.env rule. 2 new envFile tests; suites green with and without a
+  .env present. (Correction to earlier audit note: the wizard DOES create .env
+  on first run via lib/helpers/envFile.js — it was never .env-less; the file is
+  create-once, spin-up-only.)

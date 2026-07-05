@@ -31,7 +31,7 @@ export const MEMORY_SEED_LITE = [
   {
     type: 'fact',
     title: 'Aperio can read and work with your documents',
-    content: 'Aperio understands PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), plain text, Markdown, email files, and images (photos and scans are read by a local vision model). Attach a file to the chat and ask questions about it, ask for a summary, or ask Aperio to create a new Word or Excel document for you. To make whole folders of documents searchable at once, enable the document index (docgraph) in Settings.',
+    content: 'Aperio understands PDF, Word (.docx), Excel (.xlsx), PowerPoint (.pptx), plain text, Markdown, email files, and images (photos and scans are read by a local vision model). Attach a file to the chat and ask questions about it, ask for a summary, or ask Aperio to create a new Word or Excel document for you. Whole folders of documents are searchable at once — the document index (docgraph) is on out of the box in the lite setup, watching the allowed folders.',
     tags: ['aperio', 'documents', 'files', 'features'],
     importance: 5,
   },

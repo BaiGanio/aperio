@@ -151,6 +151,21 @@ describe("writeEnvFromWizard", () => {
     assert.match(env, /^OLLAMA_MODEL="llama3\.1"$/m);
   });
 
+  test("persists APERIO_LITE=on when the wizard runs under the lite profile", (t) => {
+    process.env.APERIO_LITE = "on";
+    t.after(() => delete process.env.APERIO_LITE);
+    writeEnvFromWizard({ provider: "ollama", model: "llama3.1" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.match(env, /^APERIO_LITE="on"$/m);
+  });
+
+  test("does not persist APERIO_LITE outside the lite profile", (t) => {
+    delete process.env.APERIO_LITE;
+    writeEnvFromWizard({ provider: "ollama", model: "llama3.1" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.doesNotMatch(env, /^APERIO_LITE=/m);
+  });
+
   test("writes .env for anthropic with API key and model", () => {
     writeEnvFromWizard({ provider: "anthropic", apiKey: "sk-ant-xxx", model: "claude-sonnet-4-6" });
     const env = readFileSync(ENV_PATH, "utf8");
