@@ -50,8 +50,10 @@ document.addEventListener('click', e => {
     .map(el => el.textContent)
     .join('\n');
   navigator.clipboard.writeText(cmds);
-  btn.textContent = '✓ Copied';
-  setTimeout(() => btn.textContent = 'Copy', 2000);
+  btn.textContent = typeof t === 'function' ? t('copy_done') : '✓ Copied';
+  setTimeout(() => {
+    btn.textContent = typeof t === 'function' ? t('copy') : 'Copy';
+  }, 2000);
 });
 
 /* ── Copy buttons on model-guide prompt boxes ── */
@@ -90,5 +92,4 @@ document.querySelectorAll('.mg-prompt').forEach(box => {
   if (label) label.replaceWith(bar);
   else box.prepend(bar);
 });
-
 
