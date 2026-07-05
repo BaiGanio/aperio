@@ -201,6 +201,13 @@ ollama pull qwen3:4b              # LLM — strong reasoning, thinking mode, bes
 ```bash
 npm run start:local              # localhost:31337 → browser opens automatically
 ```
+
+> The Web UI includes a flag-based switcher for all 24 official EU languages.
+> Every locale ships with the complete 283-key interface catalog, and your
+> selection persists across restarts. Contributors can verify locale parity,
+> placeholders, HTML tags, and statically referenced UI keys with
+> `npm run i18n:check`.
+
 ### Step 5. Start Aperio terminal chat
 ```bash
 npm run chat:local               # runs as proxy or standalone
