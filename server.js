@@ -75,6 +75,12 @@ const getBootstrapMeta = () => {
 // mid-bootstrap page refresh skip the wizard and resume the progress view.
 let bootstrapStarted = false;
 
+// Flipped true at the very end of bootApp() — the WebSocket + agent are live and
+// the app can actually serve the SPA. The setup page polls /api/bootstrap/state
+// for this so its "Open Aperio" button doesn't hand the user a frozen shell
+// while bootApp (embeddings → Ollama → agent → WebSocket) is still warming up.
+let appReady = false;
+
 // ─── Port: free it before we try to bind ─────────────────────────────────────
 await ensurePort(PORT, { wait: !!process.env.APERIO_RESTART });
 
@@ -232,6 +238,7 @@ app.get("/api/bootstrap/state", (_req, res) => {
   res.json({
     bootstrapped: isBootstrapped(),
     started: bootstrapStarted,
+    ready: appReady,
     meta:  getBootstrapMeta(),
     steps: STEPS.map(s => ({ ...s, status: stepState[s.id] })),
   });
@@ -650,6 +657,12 @@ async function bootApp() {
       }
     }
   };
+
+  // The WebSocket is attached and the agent is live — the SPA can now connect.
+  // Surface this to the setup page so it only offers "Open Aperio" once clicking
+  // it lands on a working app instead of a shell with nothing to talk to.
+  appReady = true;
+  logger.warn("✅ Aperio is ready.");
 
   // Background jobs
   // PRIVACY-01: the infer/dedup workers feed stored personal memories to the

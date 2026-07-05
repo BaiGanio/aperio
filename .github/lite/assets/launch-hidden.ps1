@@ -29,6 +29,7 @@ $env:PORT               = '31337'
 $env:DB_BACKEND         = 'sqlite'
 $env:EMBEDDING_PROVIDER = 'transformers'
 $env:IDLE_SHUTDOWN      = 'on'    # windowless-safe: self-stop after the tab closes, any provider
+$env:APERIO_LITE        = 'on'    # lite profile: non-coder starter memories
 $env:Path               = "$AppRoot\vendor\ollama;$env:Path"
 New-Item -ItemType Directory -Force -Path "$AppRoot\var\install" | Out-Null
 

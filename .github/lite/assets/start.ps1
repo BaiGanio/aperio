@@ -107,6 +107,7 @@ $env:PORT               = '31337'
 $env:DB_BACKEND         = 'sqlite'
 $env:EMBEDDING_PROVIDER = 'transformers'
 $env:IDLE_SHUTDOWN      = 'on'    # windowless-safe: self-stop after the tab closes, any provider
+$env:APERIO_LITE        = 'on'    # lite profile: non-coder starter memories
 
 Write-Host ""
 Write-Host "  + Aperio is starting - your browser will open in a moment." -ForegroundColor Green

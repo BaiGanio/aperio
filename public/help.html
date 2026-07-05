@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aperio — Help &amp; what was installed</title>
+  <link rel="icon" href="assets/favicon.ico" />
+  <style>
+    /* Self-contained: this page must render even if the app's CSS changes. */
+    :root {
+      --bg: #f7f7f8; --card: #ffffff; --text: #1d2129; --muted: #5b6270;
+      --line: #e3e5e9; --accent: #4c8bf5; --success: #2e9e6b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #101216; --card: #181b21; --text: #e8eaee; --muted: #9aa1ad;
+        --line: #2a2e36; --accent: #6ba3ff; --success: #4caf85;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--text);
+      font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+    .wrap { max-width: 760px; margin: 0 auto; padding: 2.5rem 1.25rem 4rem; }
+    h1 { font-size: 1.7rem; line-height: 1.3; margin: 0 0 .25rem; }
+    .subtitle { color: var(--muted); margin: 0 0 2rem; }
+    h2 { font-size: 1.15rem; margin: 2.25rem 0 .75rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+    p, li { color: var(--text); }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, .path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: .875em; background: var(--card); border: 1px solid var(--line);
+      border-radius: 5px; padding: .1em .35em; white-space: nowrap;
+    }
+    .table-scroll { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; margin: .75rem 0; }
+    th, td { text-align: left; padding: .5rem .65rem; border: 1px solid var(--line); vertical-align: top; }
+    th { background: var(--card); font-weight: 600; }
+    .back {
+      display: inline-block; margin-bottom: 1.5rem; padding: .4rem .9rem;
+      border: 1px solid var(--line); border-radius: 8px; background: var(--card);
+    }
+    .tip {
+      background: var(--card); border: 1px solid var(--line); border-left: 3px solid var(--success);
+      border-radius: 8px; padding: .75rem 1rem; margin: 1rem 0;
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <a class="back" href="/">← Back to Aperio</a>
+
+  <h1>How Aperio works on your computer</h1>
+  <p class="subtitle">What the installer added, where your data lives, and how to change things — no technical knowledge needed.</p>
+
+  <h2>What was installed, and why</h2>
+  <p>Aperio set up everything it needs by itself. Nothing was installed system-wide with administrator rights.</p>
+  <div class="table-scroll">
+    <table>
+      <tr><th>Component</th><th>What it is</th><th>Where it lives</th></tr>
+      <tr>
+        <td>Node.js</td>
+        <td>The engine Aperio's app runs on. Installed only for your user account (via <code>nvm</code>), so it never touches the rest of the system.</td>
+        <td><span class="path">~/.nvm</span></td>
+      </tr>
+      <tr>
+        <td>Ollama</td>
+        <td>The program that runs the AI model itself, fully offline. Aperio keeps its own private copy so it never interferes with anything else on your machine.</td>
+        <td><span class="path">Aperio folder → vendor/ollama</span></td>
+      </tr>
+      <tr>
+        <td>An AI model</td>
+        <td>The "brain" — chosen during setup to fit your computer's memory. It is a large download (several GB), stored by Ollama.</td>
+        <td>Ollama's model storage</td>
+      </tr>
+      <tr>
+        <td>App dependencies</td>
+        <td>The libraries the Aperio app is built from.</td>
+        <td><span class="path">Aperio folder → node_modules/</span></td>
+      </tr>
+    </table>
+  </div>
+
+  <h2>Where your data lives</h2>
+  <p>Everything you create stays inside the Aperio folder — nothing is sent anywhere:</p>
+  <ul>
+    <li><strong>Your memories, conversations and settings</strong> — a database file at <span class="path">.sqlite/aperio.db</span></li>
+    <li><strong>Files you attach, logs, sessions</strong> — under <span class="path">var/</span></li>
+  </ul>
+  <p class="muted">Back up the Aperio folder and you have backed up everything.</p>
+
+  <h2>Starting and stopping</h2>
+  <ul>
+    <li><strong>Day to day:</strong> double-click the <strong>Aperio</strong> icon on your Desktop. Your browser opens by itself — no terminal window.</li>
+    <li><strong>First run only:</strong> a terminal window stays open. That window <em>is</em> Aperio's engine — keep it open while you use the app.</li>
+    <li><strong>Stopping:</strong> Aperio stops itself a few minutes after you close the last browser tab. You can also press the <strong>Quit</strong> button (power icon) in the app's top bar.</li>
+    <li>If the browser doesn't open by itself, go to <a href="http://localhost:31337">http://localhost:31337</a>.</li>
+  </ul>
+
+  <h2>Changing settings after installation</h2>
+  <p>Everything is changed from inside the app — you never need to edit files:</p>
+  <ul>
+    <li><strong>AI model</strong> — the model menu in the top bar. Trying different models is encouraged: they have different speeds, skills and personalities.</li>
+    <li><strong>Language</strong> — the flag menu in the top bar (all 24 official EU languages).</li>
+    <li><strong>Theme, voice, and everything else</strong> — the Settings panel (gear icon).</li>
+    <li><strong>Cloud AI (optional)</strong> — if you have an API key from a cloud provider, you can switch to it in Settings. Local stays the default; nothing requires a key.</li>
+  </ul>
+
+  <h2>Working with your documents</h2>
+  <p>This is where Aperio shines for everyday work. It understands <strong>PDF, Word, Excel, PowerPoint, plain text, Markdown, email files, and images</strong> (photos and scans are read by a local vision model). Try:</p>
+  <ul>
+    <li>Attach a PDF and ask <em>"what is this document about?"</em></li>
+    <li>Attach a spreadsheet and ask questions about the numbers in it.</li>
+    <li>Ask Aperio to <em>write a Word document</em> or <em>build an Excel file</em> for you.</li>
+    <li>Attach a photo of a paper document and ask what it says.</li>
+  </ul>
+  <div class="tip">To make whole folders of documents searchable at once, enable the <strong>document index</strong> in Settings — Aperio will then find the right passage across all of them when you ask a question.</div>
+
+  <h2>Learning about AI models</h2>
+  <p>Aperio is also a safe playground for learning how AI works. Models differ the way people do — size, training, strengths, even personality. Switch between them and ask the same question. The guided tours introduce the models that run well on home computers:</p>
+  <p><a href="https://baiganio.github.io/aperio" target="_blank" rel="noreferrer">Guided tours &amp; model guide ↗</a></p>
+
+  <h2>Uninstalling</h2>
+  <ul>
+    <li><strong>macOS / Linux:</strong> open the Aperio folder and run <span class="path">uninstall.sh</span>. It removes what Aperio installed (its Ollama copy, dependencies, data) and offers to delete the downloaded AI model. It never touches software you already had.</li>
+    <li><strong>Windows:</strong> delete the Aperio folder, then remove the model with Ollama if you wish. A one-click uninstaller is on its way.</li>
+    <li>Finally, drag the Aperio folder to the Trash — everything else lives inside it.</li>
+  </ul>
+
+  <h2>Something not working?</h2>
+  <ul>
+    <li>App won't load → make sure Aperio is running (Desktop icon), then visit <a href="http://localhost:31337">http://localhost:31337</a>.</li>
+    <li>Answers are slow → try a smaller model from the model menu; smaller models are much faster on modest hardware.</li>
+    <li>Setup problems → technical details are written to <span class="path">var/install/</span> inside the Aperio folder.</li>
+  </ul>
+
+  <p class="muted" style="margin-top:2.5rem">Aperio is open source (MIT) — <a href="https://github.com/BaiGanio/aperio" target="_blank" rel="noreferrer">github.com/BaiGanio/aperio ↗</a></p>
+</div>
+</body>
+</html>
