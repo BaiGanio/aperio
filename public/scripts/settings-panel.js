@@ -33,6 +33,29 @@
     });
   }
 
+  // ── Lite Advanced mode ────────────────────────────────────────────────────
+  // Only visible in the lite profile (.lite-only). Flips data-lite-advanced on
+  // <html> via Aperio.lite, revealing the developer surfaces lite hides.
+  function wireLiteAdvanced() {
+    const el = document.getElementById("liteAdvancedToggle");
+    if (!el || el.dataset.wired) return;
+    el.dataset.wired = "1";
+    const state = document.getElementById("liteAdvancedState");
+    const sync = () => {
+      const on = window.Aperio?.lite?.advanced() === true;
+      el.checked = on;
+      if (state) {
+        state.textContent = on ? "ON" : "OFF";
+        state.classList.toggle("is-on", on);
+      }
+    };
+    el.addEventListener("change", () => {
+      window.Aperio?.lite?.setAdvanced(el.checked);
+      sync();
+    });
+    sync();
+  }
+
   // ── Busy words ────────────────────────────────────────────────────────────
   // User-added words to cycle next to the live cursor. Stored as a newline list
   // in the DB-backed settings store; chat.js merges them with its defaults live.
@@ -137,6 +160,7 @@
     if (opening) {
       wireSound();
       syncSound();
+      wireLiteAdvanced();
       wireBusyWords();
       loadModels();
       window.loadGithubTriageSettings?.();

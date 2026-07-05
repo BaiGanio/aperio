@@ -300,8 +300,14 @@
       bySection.get(f.section).push(f);
     }
 
+    // Lite profile with Advanced off: only the "start" group (essentials —
+    // provider choice, API keys, models) is rendered; the deep knobs stay
+    // hidden until Settings → Advanced mode is switched on (issue #186).
+    const liteBasic = window.Aperio?.lite?.basic() === true;
+
     for (const sec of schema.sections) {
       if (HIDDEN_SECTIONS.has(sec.id)) continue;
+      if (liteBasic && sec.group !== "start") continue;
       const fields = bySection.get(sec.id);
       if (!fields || !fields.length) continue;
 
@@ -323,6 +329,9 @@
       }
       const rows = [];
       for (const f of fields) {
+        // Lite always runs with db precedence (forced in the resolver), so the
+        // precedence switch would be a silent no-op — hide it with the knobs.
+        if (liteBasic && f.key === "APERIO_CONFIG_PRECEDENCE") continue;
         const built = buildField(f);
         body.appendChild(built.row);
         rows.push(built.row);

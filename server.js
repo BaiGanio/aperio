@@ -378,9 +378,15 @@ async function bootApp() {
   // saved settings (DB > env > default; issue #167). getStore needs only Tier-0
   // vars (DB_BACKEND / paths), which stay in .env.
   const { getStore }                      = await import("./db/index.js");
+  const { applyLiteDefaults }             = await import("./lib/config.js");
+  applyLiteDefaults(0);                   // lite: pin DB_BACKEND before the store auto-detects
   const store = await getStore();
   const { applyConfigToEnv }              = await import("./lib/config-resolver.js");
   await applyConfigToEnv(store);
+  // Lite last-resort defaults (AI_PROVIDER, APERIO_DOCGRAPH, …) — applied only
+  // for vars still unset after .env + DB resolution, so saved settings win.
+  const liteApplied = applyLiteDefaults(1);
+  if (liteApplied.length) logger.info(`[config] lite defaults applied: ${liteApplied.join(", ")}`);
 
   const { createAgent }                   = await import("./lib/agent.js");
   const { ensureOllama }                  = await import("./lib/helpers/startOllama.js");
