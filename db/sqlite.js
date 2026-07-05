@@ -38,6 +38,7 @@ import { getOrCreateKey, prepareDatabase, finalizeDatabase, isEncryptionEnabled,
          readExistingKey, isPlaintextSqlite, decryptFile, KeyUnreadableError } from './encrypt.js';
 import { WIKI_SEED } from './wiki-seed.js';
 import { MEMORY_SEED } from './memory-seed.js';
+import { MEMORY_SEED_LITE } from './memory-seed-lite.js';
 import { SELF_MEMORY_SEED } from './self-memory-seed.js';
 import { DB_TABLES, isAllowedTable } from './tables.js';
 
@@ -450,6 +451,8 @@ export class SqliteStore {
     // Seed baseline memories on a fresh or empty memories table. Mirrors the
     // wiki seed below: gives the sidebar + memory table something to render
     // on first boot, and primes the LLM with context about Aperio itself.
+    // The lite profile (APERIO_LITE=on) gets the non-coder starter set.
+    const memorySeed = process.env.APERIO_LITE === 'on' ? MEMORY_SEED_LITE : MEMORY_SEED;
     const memoryCount = db.prepare(`SELECT COUNT(*) AS n FROM memories`).get().n;
     if (memoryCount === 0) {
       const insMem = db.prepare(`
@@ -457,7 +460,7 @@ export class SqliteStore {
         VALUES (?, ?, ?, ?, ?, ?, 'system', ?)
       `);
       const txMem = db.transaction(() => {
-        for (const m of MEMORY_SEED) {
+        for (const m of memorySeed) {
           insMem.run(
             randomUUID(), m.type, m.title, m.content,
             JSON.stringify(m.tags ?? []),
@@ -468,7 +471,7 @@ export class SqliteStore {
       });
       txMem();
       await store.refreshCache();
-      logger.info(`[sqlite] Seeded ${MEMORY_SEED.length} baseline memories.`);
+      logger.info(`[sqlite] Seeded ${memorySeed.length} baseline memories.`);
     }
 
     // Seed baseline wiki articles on a fresh or empty wiki.

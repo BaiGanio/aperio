@@ -19,6 +19,9 @@
        before scripts that build DOM nodes referring to translations. -->
   <script src="scripts/http-guard.js"></script>
   <script src="scripts/i18n.js"></script>
+  <!-- lite.js must load in <head>: it stamps data-lite on <html> from a cached
+       flag so lite-hidden surfaces never flash visible while the page builds. -->
+  <script src="scripts/lite.js"></script>
 </head>
 <body>
 <!-- Ambient background wash (issue #185 §A) — fixed, behind everything, no layout impact.
@@ -120,7 +123,7 @@
         <i class="bi bi-chat-left-text sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="nav_chats_plain">Chats</span>
       </button>
-      <button id="codegraphBtn" class="sidebar-nav-btn" onclick="toggleCodegraphPanel()"
+      <button id="codegraphBtn" class="sidebar-nav-btn lite-hide" onclick="toggleCodegraphPanel()"
               data-i18n-attr-title="nav_codegraph_title" title="Code graph">
         <i class="bi bi-diagram-3 sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Code</span>
@@ -135,17 +138,17 @@
         <i class="bi bi-book sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Wiki</span>
       </button>
-      <button id="dbBtn" class="sidebar-nav-btn" onclick="toggleDbPanel()"
+      <button id="dbBtn" class="sidebar-nav-btn lite-hide" onclick="toggleDbPanel()"
         title="Database — browse all tables">
         <i class="bi bi-database sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">DB</span>
       </button>
-      <button id="agentsBtn" class="sidebar-nav-btn" onclick="toggleAgentsPanel()"
+      <button id="agentsBtn" class="sidebar-nav-btn lite-hide" onclick="toggleAgentsPanel()"
         title="Background agents — scheduled jobs over your store">
         <i class="bi bi-robot sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Agents</span>
       </button>
-      <button id="skillsBtn" class="sidebar-nav-btn" onclick="toggleSkillsPanel()"
+      <button id="skillsBtn" class="sidebar-nav-btn lite-hide" onclick="toggleSkillsPanel()"
         title="Skills — view, edit, create and toggle your agent's skills">
         <i class="bi bi-lightning-charge sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Skills</span>
@@ -160,7 +163,7 @@
         <i class="bi bi-sliders sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="nav_settings_plain">Settings</span>
       </button>
-      <button id="systemBtn" class="sidebar-nav-btn" onclick="toggleSystemPanel()"
+      <button id="systemBtn" class="sidebar-nav-btn lite-hide" onclick="toggleSystemPanel()"
         title="System — server and machine metrics">
         <i class="bi bi-speedometer2 sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">System</span>
@@ -211,7 +214,7 @@
           rows="1"
         ></textarea>
         <span class="char-counter" id="charCounter"></span>
-        <button class="discuss-btn" id="discussBtn" type="button" disabled aria-pressed="false"
+        <button class="discuss-btn lite-hide" id="discussBtn" type="button" disabled aria-pressed="false"
                 data-i18n-attr-title="discuss_button_tooltip" title="Two agents will cross-review answers">
           <i class="bi bi-chat-left-dots"></i>
           <span class="discuss-btn-label" data-i18n="discuss_button_label">Discuss</span>
@@ -707,11 +710,27 @@
                   placeholder="Marinating&#10;Percolating&#10;Compiling thoughts"></textarea>
       </div>
     </details>
+    <!-- Advanced mode — only rendered in the lite profile (.lite-only). Reveals
+         the developer surfaces lite hides (code graph, DB browser, agents,
+         skills, full config, GitHub triage, database connections). -->
+    <div class="settings-row lite-only" id="liteAdvancedRow">
+      <span class="settings-row-label">
+        <i class="bi bi-unlock"></i>
+        <span>Advanced mode</span>
+      </span>
+      <span class="settings-row-control">
+        <span class="settings-state" id="liteAdvancedState">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="liteAdvancedToggle" />
+          <span class="switch-track"></span>
+        </label>
+      </span>
+    </div>
     <!-- GitHub triage — repos to triage + the GitHub token / webhook secret.
          Stored in the DB settings store (no .env edit, no restart). The token
          and secret are write-only: the server never sends their value back, it
          only reports whether one is configured. -->
-    <details class="settings-section" id="githubTriageSection">
+    <details class="settings-section lite-hide" id="githubTriageSection">
       <summary>
         <i class="bi bi-github"></i>
         <span>GitHub triage</span>
@@ -742,7 +761,7 @@
          (blank password on save keeps the stored one). The built-in `aperio`
          connection (your own store, read-only) is always present and not listed
          here. The list + add/edit form are rendered by db-connections-panel.js. -->
-    <details class="settings-section" id="dbConnectionsSection">
+    <details class="settings-section lite-hide" id="dbConnectionsSection">
       <summary>
         <i class="bi bi-database"></i>
         <span>Database connections</span>

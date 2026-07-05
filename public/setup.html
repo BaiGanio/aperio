@@ -27,7 +27,9 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* `safe center` centers when it fits but falls back to the top when the
+     content is taller than the viewport, so nothing is clipped out of reach. */
+  justify-content: safe center;
   padding: 32px 16px 48px;
   gap: 0;
 }
@@ -220,28 +222,6 @@
 .step-card[data-status="running"] .step-spinner { display: block; }
 .step-card[data-status="running"] .step-bi-icon  { display: none; }
 
-/* ── Log tail ─────────────────────────────────────────────────────────────── */
-.setup-log {
-  width: 100%;
-  max-width: 480px;
-  margin-top: 16px;
-  padding: 10px 14px;
-  border-radius: var(--radius-sm, 8px);
-  border: 1px solid var(--border, rgba(128,128,128,0.15));
-  background: var(--bg-surface, var(--bg, #fff));
-  font-family: var(--font-mono, "Berkeley Mono", monospace);
-  font-size: 10.5px;
-  color: var(--text-muted, #888);
-  line-height: 1.75;
-  height: 72px;
-  overflow-y: auto;
-  opacity: 0;
-  animation: su-fade 0.4s 0.3s ease both;
-}
-.setup-log::-webkit-scrollbar { width: 3px; }
-.setup-log::-webkit-scrollbar-thumb { background: var(--border, rgba(128,128,128,0.2)); border-radius: 2px; }
-.log-line { animation: su-fade 0.15s ease both; }
-
 /* ── Done / error banners ─────────────────────────────────────────────────── */
 .setup-done, .setup-error {
   width: 100%;
@@ -275,8 +255,19 @@
   letter-spacing: -0.01em;
   transition: opacity 0.2s;
 }
-.setup-launch:hover { opacity: 0.88; }
+.setup-launch:hover:not(:disabled) { opacity: 0.88; }
+.setup-launch:disabled { opacity: 0.6; cursor: default; }
 .setup-launch.show  { display: block; animation: su-fade 0.35s 0.1s ease both; }
+
+.setup-help-link {
+  display: none;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--text-muted, #8b8fa3);
+  text-decoration: none;
+}
+.setup-help-link:hover { color: var(--accent, #7c6aff); }
+.setup-help-link.show  { display: inline-block; animation: su-fade 0.35s 0.2s ease both; }
 
 /* ── Shared keyframe ──────────────────────────────────────────────────────── */
 @keyframes su-fade {
@@ -378,7 +369,6 @@ select.wiz-input {
 /* ── Setup-page overrides ────────────────────────────────────────────────── */
 /* Narrower, sharper shapes — fewer big rounded corners. */
 .setup-root .step-card,
-.setup-root .setup-log,
 .setup-root .setup-done,
 .setup-root .setup-error,
 .setup-root .setup-launch,
@@ -401,16 +391,41 @@ select.wiz-input {
 .setup-root .setup-progress-track,
 .setup-root .setup-progress-fill { border-radius: 0; }
 
-/* Hide the log tail until it actually has lines (avoids an empty box). */
-.setup-root .setup-log:empty { display: none; }
-
 /* Clean wordmark — drop the boxed white "A" tile that belongs to the sidebar. */
 .setup-root .logo-icon { display: none; }
 </style>
   <link rel="stylesheet" href="index.css" />
+  <style>
+  /* index.css locks document scroll for the SPA (html, body { overflow: hidden }).
+     The setup flow is a normal document that can grow taller than the viewport,
+     so restore scrolling here — otherwise the launch button is unreachable. */
+  html, body { height: auto; min-height: 100%; overflow: auto; }
+  </style>
 </head>
 <body>
- 
+
+<!-- file:// guard (#157 Part C): the wizard talks to Aperio's server over HTTP.
+     If someone double-clicks setup.html straight off disk it opens as file://,
+     every /api call fails, and the page looks broken for no clear reason. Catch
+     that early and tell them to use the START launcher instead. -->
+<script>
+if (location.protocol === "file:") {
+  var t = window.t || function (k) { return null; };
+  document.documentElement.innerHTML =
+    '<body style="font-family: system-ui, sans-serif; max-width: 34rem; margin: 15vh auto; padding: 0 1.5rem; line-height: 1.6; color: #222;">' +
+    '<h1 style="font-size: 1.5rem;">' +
+      (t("setup_file_guard_title") || "Please start Aperio with its launcher") + '</h1>' +
+    '<p>' + (t("setup_file_guard_body") ||
+      "This page needs Aperio's engine running. Opening the file directly won't work. " +
+      "Close this tab and start Aperio from the Aperio folder: double-click <b>START.bat</b> " +
+      "on Windows, or run <b>bash START.sh</b> on macOS / Linux. " +
+      "Your browser will open the setup automatically.") + '</p>' +
+    '<p style="color:#666;">' + (t("setup_file_guard_url") ||
+      "Already running? Open") + ' <a href="http://localhost:31337">http://localhost:31337</a>.</p>' +
+    '</body>';
+  throw new Error("setup.html opened over file:// — halting wizard.");
+}
+</script>
 
 <div class="setup-root">
 <header>
@@ -453,6 +468,7 @@ select.wiz-input {
       <select id="wizProvider" class="wiz-input">
         <option value="anthropic">Anthropic (Claude)</option>
         <option value="deepseek">DeepSeek</option>
+        <option value="codex">OpenAI Codex (CLI login or API key)</option>
         <!-- Gemini hidden — uncomment to expose it in the setup wizard -->
         <!-- <option value="gemini">Google Gemini</option> -->
       </select>
@@ -497,9 +513,6 @@ select.wiz-input {
   <!-- Step cards -->
   <div class="setup-cards" id="cardList"></div>
 
-  <!-- Log tail -->
-  <div class="setup-log" id="logBox"></div>
-
   <!-- Done banner + launch button -->
   <div class="setup-done" id="doneBanner">
     <i class="bi bi-check-circle"></i>
@@ -508,6 +521,8 @@ select.wiz-input {
   <button class="setup-launch" id="launchBtn" onclick="window.location='/'">
     <span data-i18n="setup_open_aperio">Open Aperio</span> <i class="bi bi-arrow-right"></i>
   </button>
+  <a class="setup-help-link" id="helpLink" href="/help.html" target="_blank" rel="noreferrer"
+     data-i18n="setup_help_link">What was installed on my computer? →</a>
 
   <!-- Error banner -->
   <div class="setup-error" id="errorBanner">
@@ -621,15 +636,6 @@ function updateProgress(done, total) {
   }
 }
 
-function appendLog(msg) {
-  const box  = document.getElementById("logBox");
-  const line = document.createElement("div");
-  line.className   = "log-line";
-  line.textContent = msg;
-  box.appendChild(line);
-  box.scrollTop = box.scrollHeight;
-  while (box.children.length > 80) box.removeChild(box.firstChild);
-}
 
 function showDone() {
   document.getElementById("progressFill").style.width          = "100%";
@@ -637,6 +643,44 @@ function showDone() {
   document.getElementById("progressLabel").textContent         = _t("setup_all_done");
   document.getElementById("doneBanner").classList.add("show");
   document.getElementById("launchBtn").classList.add("show");
+  document.getElementById("helpLink").classList.add("show");
+  waitForAppReady();
+}
+
+// Bootstrap finishing only means the install steps are done — the server then
+// warms up the app (embeddings → Ollama → agent → WebSocket), which takes a
+// while on first run. Navigating to "/" before that lands on a shell with no
+// API/WebSocket to talk to, which looks frozen. So keep the launch button
+// disabled and poll /api/bootstrap/state until `ready`, then open the app
+// automatically. A timeout fallback re-enables the button so nobody is trapped.
+function waitForAppReady() {
+  const btn   = document.getElementById("launchBtn");
+  const label = btn.querySelector("span");
+  btn.disabled = true;
+  label.dataset.i18n = "setup_starting_app";
+  label.textContent  = _t("setup_starting_app");
+
+  const POLL_MS = 1000;
+  const MAX_MS  = 180000; // 3 min — well past a cold first-run warmup
+  let elapsed = 0;
+
+  const timer = setInterval(async () => {
+    elapsed += POLL_MS;
+    let ready = false;
+    try { ready = (await fetch("/api/bootstrap/state").then(r => r.json())).ready; }
+    catch (_e) { /* transient — the server may be busy warming up; keep polling */ }
+
+    if (ready) {
+      clearInterval(timer);
+      window.location = "/";        // app is up — open it seamlessly
+    } else if (elapsed >= MAX_MS) {
+      clearInterval(timer);
+      // Don't dead-end the user: re-enable the button so they can try anyway.
+      btn.disabled = false;
+      label.dataset.i18n = "setup_open_aperio";
+      label.textContent  = _t("setup_open_aperio");
+    }
+  }, POLL_MS);
 }
 
 function showError(msg) {
@@ -706,7 +750,6 @@ function startProgress() {
     }
   });
 
-  es.addEventListener("progress", e => appendLog(JSON.parse(e.data).message));
   es.addEventListener("complete", () => { es.close(); showDone(); });
   es.addEventListener("error", function(e) {
     try { showError(JSON.parse(e.data).message); }
@@ -737,18 +780,25 @@ document.querySelectorAll("[data-back]").forEach(b =>
 const KEY_HELP = {
   anthropic: "https://console.anthropic.com/settings/keys",
   deepseek:  "https://platform.deepseek.com/api_keys",
+  codex:     "https://platform.openai.com/api-keys",
   // gemini:    "https://aistudio.google.com/app/apikey",
 };
 const providerSel = document.getElementById("wizProvider");
 const keyHelp     = document.getElementById("wizKeyHelp");
-const syncKeyHelp = () => { keyHelp.href = KEY_HELP[providerSel.value]; };
+const syncKeyHelp = () => {
+  keyHelp.href = KEY_HELP[providerSel.value];
+  const keyEl = document.getElementById("wizKey");
+  keyEl.placeholder = providerSel.value === "codex"
+    ? "Optional API key (leave blank after `codex login`)"
+    : _t("wiz_key_placeholder");
+};
 providerSel.addEventListener("change", syncKeyHelp);
 syncKeyHelp();
 
 document.getElementById("wizCloudGo").addEventListener("click", () => {
   const keyEl   = document.getElementById("wizKey");
   const apiKey  = keyEl.value.trim();
-  if (!apiKey) { keyEl.focus(); return; }
+  if (!apiKey && providerSel.value !== "codex") { keyEl.focus(); return; }
   submitConfig({ provider: providerSel.value, apiKey });
 });
 
