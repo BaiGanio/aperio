@@ -3,7 +3,7 @@ import helmet from "helmet";
 import { WebSocketServer, WebSocket } from "ws";
 import { existsSync, readFileSync, mkdirSync } from "fs";
 import { fileURLToPath } from "url";
-import { dirname, resolve } from "path";
+import { dirname, resolve, sep as pathSep } from "path";
 import { createRequire } from "module";
 import { execFile } from "child_process";
 import dotenv from "dotenv";
@@ -74,6 +74,12 @@ const getBootstrapMeta = () => {
 // Flipped once the wizard posts a config and bootstrap begins. Lets a
 // mid-bootstrap page refresh skip the wizard and resume the progress view.
 let bootstrapStarted = false;
+
+// Flipped true at the very end of bootApp() — the WebSocket + agent are live and
+// the app can actually serve the SPA. The setup page polls /api/bootstrap/state
+// for this so its "Open Aperio" button doesn't hand the user a frozen shell
+// while bootApp (embeddings → Ollama → agent → WebSocket) is still warming up.
+let appReady = false;
 
 // ─── Port: free it before we try to bind ─────────────────────────────────────
 await ensurePort(PORT, { wait: !!process.env.APERIO_RESTART });
@@ -232,6 +238,7 @@ app.get("/api/bootstrap/state", (_req, res) => {
   res.json({
     bootstrapped: isBootstrapped(),
     started: bootstrapStarted,
+    ready: appReady,
     meta:  getBootstrapMeta(),
     steps: STEPS.map(s => ({ ...s, status: stepState[s.id] })),
   });
@@ -371,9 +378,15 @@ async function bootApp() {
   // saved settings (DB > env > default; issue #167). getStore needs only Tier-0
   // vars (DB_BACKEND / paths), which stay in .env.
   const { getStore }                      = await import("./db/index.js");
+  const { applyLiteDefaults }             = await import("./lib/config.js");
+  applyLiteDefaults(0);                   // lite: pin DB_BACKEND before the store auto-detects
   const store = await getStore();
   const { applyConfigToEnv }              = await import("./lib/config-resolver.js");
   await applyConfigToEnv(store);
+  // Lite last-resort defaults (AI_PROVIDER, APERIO_DOCGRAPH, …) — applied only
+  // for vars still unset after .env + DB resolution, so saved settings win.
+  const liteApplied = applyLiteDefaults(1);
+  if (liteApplied.length) logger.info(`[config] lite defaults applied: ${liteApplied.join(", ")}`);
 
   const { createAgent }                   = await import("./lib/agent.js");
   const { ensureOllama }                  = await import("./lib/helpers/startOllama.js");
@@ -440,13 +453,20 @@ async function bootApp() {
     } else {
       const { getAllowlist } = await import("./lib/routes/paths.js");
       const { markEnabled } = await import("./lib/codegraph/status.js");
-      markEnabled(getAllowlist());
+
+      // Dedupe roots before marking enabled so the status only shows roots that
+      // will actually be indexed (filtering out nested dirs like var/scratch).
+      const roots = getAllowlist();
+      const dedupedRoots = roots.filter(r =>
+        !roots.some(other => other !== r && r.startsWith(other + pathSep))
+      );
+      markEnabled(dedupedRoots);
       // Fire-and-forget: don't block bootApp on the initial index. Each per-root
       // handle is registered so DELETE / shutdown can stop it individually.
       codegraphBoot = (async () => {
         try {
           const { startAllWatchers } = await import("./lib/codegraph/watcher.js");
-          const { handles } = await startAllWatchers(store, getAllowlist(), watcherEvents);
+          const { handles } = await startAllWatchers(store, roots, watcherEvents);
           for (const h of handles) await watcherRegistry.register('codegraph', h.root, h);
         } catch (err) {
           const { logError } = await import("./lib/helpers/logger.js");
@@ -467,11 +487,18 @@ async function bootApp() {
     } else {
       const { getAllowlist } = await import("./lib/routes/paths.js");
       const { markEnabled } = await import("./lib/docgraph/status.js");
-      markEnabled(getAllowlist());
+
+      // Dedupe roots before marking enabled so the status only shows roots that
+      // will actually be indexed (filtering out nested dirs like var/scratch).
+      const roots = getAllowlist();
+      const dedupedRoots = roots.filter(r =>
+        !roots.some(other => other !== r && r.startsWith(other + pathSep))
+      );
+      markEnabled(dedupedRoots);
       docgraphBoot = (async () => {
         try {
           const { startAllWatchers } = await import("./lib/docgraph/watcher.js");
-          const { handles } = await startAllWatchers(store, getAllowlist(), watcherEvents);
+          const { handles } = await startAllWatchers(store, roots, watcherEvents);
           for (const h of handles) await watcherRegistry.register('docgraph', h.root, h);
         } catch (err) {
           const { logError } = await import("./lib/helpers/logger.js");
@@ -651,6 +678,12 @@ async function bootApp() {
     }
   };
 
+  // The WebSocket is attached and the agent is live — the SPA can now connect.
+  // Surface this to the setup page so it only offers "Open Aperio" once clicking
+  // it lands on a working app instead of a shell with nothing to talk to.
+  appReady = true;
+  logger.warn("✅ Aperio is ready.");
+
   // Background jobs
   // PRIVACY-01: the infer/dedup workers feed stored personal memories to the
   // configured model. On a cloud provider that is third-party egress, so they
@@ -748,7 +781,7 @@ async function bootApp() {
 // (only the first two are consumed by round-table; rest reserved for future).
 function parseRoundtableAgents(raw) {
   if (!raw || typeof raw !== "string") return [];
-  const SUPPORTED = new Set(["anthropic", "ollama", "deepseek", "gemini"]);
+  const SUPPORTED = new Set(["anthropic", "ollama", "deepseek", "gemini", "claude-code", "codex"]);
   return raw.split(",").map(pair => {
     const trimmed = pair.trim();
     if (!trimmed) return null;

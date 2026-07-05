@@ -1,15 +1,43 @@
 // tests/lib/routes/settings-mask.test.js
 // Secret settings (github.token, github.webhook_secret) must be write-only over
-// the API: a GET reports only whether one is set, never the value. Boots a tiny
-// express app with the real settings routes over an in-memory fake store.
+// the API: a GET reports only whether one is set, never the value. Uses the
+// invoke() helper to call the Express router directly — no live HTTP server.
 
-import { test, describe, before, after } from "node:test";
+import { test, describe, mock, before, after } from "node:test";
 import assert from "node:assert/strict";
 import express from "express";
 import { Router } from "express";
 import { mountSettingsRoutes } from "../../../lib/routes/api-settings.js";
 
-let server, base;
+// ─── Invoke helper ────────────────────────────────────────────────────────────
+// Calls the Express router directly with mock req/res. req.body is pre-set;
+// express.json is mocked to pass-through since there's no real HTTP stream.
+
+function invoke(router, method, url, { body = null, params = {} } = {}) {
+  return new Promise((resolve) => {
+    const req = {
+      method: method.toUpperCase(),
+      url, path: url, params,
+      body: body != null ? structuredClone(body) : undefined,
+      headers: {},
+      baseUrl: "", originalUrl: url,
+      ip: "127.0.0.1", socket: { remoteAddress: "127.0.0.1" },
+      get: () => undefined,
+    };
+    const res = {
+      _status: 200,
+      status(code) { this._status = code; return this; },
+      json(data)   { resolve({ status: this._status, body: data }); },
+      setHeader()  { return this; },
+      getHeader()  {},
+      set()        { return this; },
+      on()         { return this; },
+    };
+    router(req, res, () => resolve({ status: 404, body: null }));
+  });
+}
+
+// ─── Fake store ───────────────────────────────────────────────────────────────
 
 function fakeStore() {
   const m = new Map();
@@ -21,23 +49,29 @@ function fakeStore() {
   };
 }
 
-before(async () => {
-  const app = express();
-  app.use(express.json());
-  const router = Router();
+// ─── Route setup ──────────────────────────────────────────────────────────────
+// Mock express.json before mountSettingsRoutes calls it, so the inline
+// middleware on PUT /settings/:key becomes a no-op pass-through.
+
+let router;
+
+before(() => {
+  mock.method(express, "json", () => (_req, _res, next) => next());
+  router = Router();
   mountSettingsRoutes(router, { store: fakeStore() });
-  app.use("/api", router);
-  await new Promise((r) => { server = app.listen(0, "127.0.0.1", r); });
-  base = `http://127.0.0.1:${server.address().port}`;
 });
 
-after(() => new Promise((r) => server.close(r)));
-
-const put = (k, value) => fetch(`${base}/api/settings/${k}`, {
-  method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ value }),
+after(() => {
+  mock.restoreAll();
 });
-const getOne = (k) => fetch(`${base}/api/settings/${k}`).then(r => r.json());
-const getAll = () => fetch(`${base}/api/settings`).then(r => r.json());
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+const put = (k, value) => invoke(router, "PUT", `/settings/${k}`, { body: { value }, params: { key: k } });
+const getOne = (k) => invoke(router, "GET", `/settings/${k}`, { params: { key: k } }).then(r => r.body);
+const getAll = () => invoke(router, "GET", "/settings").then(r => r.body);
+
+// =============================================================================
 
 describe("settings secret masking", () => {
   test("a secret is stored but never returned in plaintext", async () => {

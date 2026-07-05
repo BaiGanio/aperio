@@ -140,6 +140,20 @@ jobs:
           git ls-remote --tags origin "refs/tags/v$NEW_V"
           echo "✅ tag confirmed on remote"
 
+      - name: Sync release branch (stable line for the one-liner installer)
+        # `install.sh` (curl … | bash) clones the `release` branch. Fast-forward
+        # it to the just-released commit — the SAME commit tag v$NEW_V points at,
+        # so the one-liner, the zip (built from the tag) and `git pull` all ship
+        # identical bits. Only from master (never beta). The first release after
+        # this lands creates the branch; later ones fast-forward it (no --force),
+        # so users who `git pull` never hit a rewritten history.
+        if: steps.info.outputs.bump != 'skip' && github.ref_name == 'master'
+        run: |
+          set -euo pipefail
+          echo "→ updating release → $(git rev-parse --short HEAD)…"
+          git push origin HEAD:refs/heads/release
+          echo "✅ release branch now at v${{ steps.versioning.outputs.new_v }}"
+
   package-source:
     name: Package — Source Only
     needs: version
@@ -153,10 +167,19 @@ jobs:
           token: ${{ secrets.MY_PAT }}
           ref: v${{ needs.version.outputs.new_v }}
 
-      - name: Prepare README
+      - name: Stage launchers & docs
         run: |
-          mkdir -p how-to 
-          cp .github/lite/{how-to-install.pdf,uninstall.sh} how-to/
+          # Launchers live in .github/lite/ (their repo home), but the whole
+          # .github/ tree is excluded from the zip. The app expects them at the
+          # unzipped root — START.* / uninstall.* alongside package.json, and the
+          # PowerShell helpers under assets/ (start.ps1 walks up to package.json;
+          # START.bat calls %~dp0assets\start.ps1). Relocate them to the root.
+          cp .github/lite/{START.sh,START.bat,launch-hidden.sh,uninstall.sh,uninstall.bat} ./
+          cp -r .github/lite/assets ./assets
+          chmod +x START.sh launch-hidden.sh uninstall.sh
+          # End-user docs go in a how-to/ folder.
+          mkdir -p how-to
+          cp .github/lite/{how-to-install.md,install.txt} how-to/
 
       - name: Build ZIP
         run: |
@@ -167,6 +190,7 @@ jobs:
             -x "db/migrations/*" "docker/*" "docs/*" "tests/*" \
             -x "lite/*" "deno.json" "deno.lock" "dist/*" \
             -x "launchers/*" "release_summary.txt" "README.md" "how-to/*" ".c8rc" \
+            -x "lite-progress.md" \
             -x "$ZIP_NAME"
           zip -u "$ZIP_NAME" how-to/*
 

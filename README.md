@@ -6,9 +6,7 @@
 A self-hosted personal memory layer for AI agents. SQLite (or Postgres) + MCP + Ollama.   
 Zero-config by default; one file holds your memories, wiki, and code graph.  
 Your context, always available.  
-<!-- 
 ##### • Download 👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) for non-code users. • Small tool for big ideas • [How to Install & Use?](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) •      
---> 
 </div>
 
 <!-- HEADER --> 
@@ -72,7 +70,7 @@ Your context, always available.
 ├── 📂 id/
 │   └── whoami.md                 # Instructions for AI agent identity (edit this!)
 ├── 📂 lib/
-│   ├── agent.js                  # Agent core — Anthropic / DeepSeek / Ollama loops
+│   ├── agent.js                  # Agent entry point — provider loops live in lib/agent/providers/
 │   ├── terminal.js               # Terminal chat client
 │   ├── 📂 emitters/              # CLI and WebSocket stream emitters
 │   ├── 📂 handlers/              # Attachment and memory handlers
@@ -116,6 +114,17 @@ Your context, always available.
 ---
 
 ## Getting Started 
+
+### Three ways to install
+
+| | For whom | How |
+|---|---|---|
+| **1 · Aperio-lite** | Non-coders — no terminal, ever | [Download the zip](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip), unzip, double-click `START` — a browser wizard installs everything and picks a model for your machine. See the [lite guide](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F). |
+| **2 · One command** | Terminal users who want painless updates | `curl -fsSL https://raw.githubusercontent.com/BaiGanio/aperio/release/.github/lite/install.sh \| bash` — clones the `release` branch and starts Aperio. Re-run anytime to update in place; your memory database is preserved. |
+| **3 · From source** | Contributors / full control | `git clone -b dev` + `npm install` — the steps below. |
+
+> Methods 1–2 install from the `release` branch (and the release zip), published on each release. The steps below cover method 3.
+
 ### Prerequisites
 - Node.js 18+ — download from [https://nodejs.org/en/download](https://nodejs.org/en/download)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) — (optional, for Postgres mode)
@@ -123,6 +132,7 @@ Your context, always available.
 - [Anthropic API key](https://console.anthropic.com) — (optional, for cloud AI)
 - [DeepSeek API key](https://platform.deepseek.com) — (optional, for cloud AI)
 - [Google Gemini API key](https://aistudio.google.com/apikey) — (optional, for cloud AI)
+- [OpenAI Codex CLI](https://developers.openai.com/codex/cli/) — (optional; use cached login or `CODEX_API_KEY`)
 - [Voyage AI API key](https://www.voyageai.com/) — (optional, for cloud embeddings)
 
 ### Step 1. Clone & Configure Environment Variables
@@ -178,7 +188,7 @@ npm run migrate
 docker compose -f docker/docker-compose.prod.yml --env-file .env up -d
 ```
 ### Step 3. Install Ollama & Pull Models
-> **💡 Tip:** Skip this step entirely if you are using Anthropic or DeepSeek as your `AI_PROVIDER`.
+> **💡 Tip:** Skip this step entirely when using a cloud or CLI-backed `AI_PROVIDER`.
 ```bash
 ollama serve                     # use separate terminal
 ```
@@ -462,7 +472,7 @@ Aperio is open source and self-hosted because **your memories is yours**.
 Switch in the **Configuration panel** (`AI_PROVIDER`), or with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
 
 ```env
-AI_PROVIDER=ollama       # "ollama" | "anthropic" | "deepseek" | "gemini"
+AI_PROVIDER=ollama       # "ollama" | "anthropic" | "deepseek" | "gemini" | "claude-code" | "codex"
 ```
 
 ### ⬡ Ollama (Default — Local, Free, Private)
@@ -527,6 +537,35 @@ GEMINI_MODEL=gemini-2.0-flash
 ```
 
 Get a key from [aistudio.google.com](https://aistudio.google.com/apikey).
+
+### OpenAI Codex CLI (Optional — Coding Agent)
+
+Install a current Codex CLI, authenticate it, and select the provider:
+
+```bash
+codex login
+codex login status
+```
+
+```env
+AI_PROVIDER=codex
+CODEX_MODEL=gpt-5.5
+CODEX_SANDBOX=workspace-write
+CODEX_APPROVAL_POLICY=never
+```
+
+For usage-based API authentication, set `CODEX_API_KEY` instead of relying on
+cached CLI login. Codex runs non-interactively and connects to Aperio's MCP
+server. The configured Aperio MCP server is approved automatically because
+there is no interactive approval bridge in the chat UI.
+
+Use this provider only in a trusted workspace. The sandbox limits writes, but
+does not make readable project files or process credentials secret from code
+the agent runs. `danger-full-access` should only be used inside an externally
+isolated environment.
+
+Codex threads are stored per Aperio session, so continuing a saved session can
+resume the matching Codex transcript after an Aperio restart.
 
 ---
 
@@ -641,7 +680,8 @@ By default the model can only execute `.js` files (the `run_node_script` tool). 
 # Master switch — enables run_shell at all. When unset, the tool refuses every call.
 APERIO_ENABLE_SHELL=1
 
-# Opt-in for LOCAL Ollama models. Cloud providers (Anthropic/Gemini/DeepSeek) get
+# Opt-in for LOCAL Ollama models. Cloud providers (Anthropic/Gemini/DeepSeek/
+# Claude Code/Codex) get
 # run_shell as soon as the master switch is on; local models stay node-only unless
 # you also set this, since smaller local models are prone to tool-call thrashing.
 APERIO_SHELL_LOCAL=1

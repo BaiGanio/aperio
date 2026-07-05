@@ -115,12 +115,14 @@ const installOllamaWin = async () => {
 
 // ── Step implementations ──────────────────────────────────────────────────
 
+// Returns true if Node.js was already on the machine (we didn't install it),
+// so uninstall messaging can be honest about what it should leave behind.
 const checkNode = async () => {
   setStep('node', 'running', 'Checking Node.js…');
   if (isInstalled('node')) {
     const v = execSync('node -v', { encoding: 'utf8' }).trim();
     setStep('node', 'skipped', `Already installed (${v})`);
-    return;
+    return true;
   }
   setStep('node', 'running', 'Installing Node.js via nvm…');
   const nmvDir = `${process.env.HOME}/.nvm`;
@@ -133,6 +135,7 @@ const checkNode = async () => {
     `export NVM_DIR="${nmvDir}" && source "$NVM_DIR/nvm.sh" && nvm install --lts`
   ]);
   setStep('node', 'done', 'Node.js installed');
+  return false;
 };
 
 const checkDeps = async () => {
@@ -220,7 +223,7 @@ export const runBootstrap = async ({ model = 'qwen2.5:3b', skipOllama = false } 
   bootstrapEvents.emit('start');
 
   try {
-    await checkNode();
+    const nodePreexisting = await checkNode();
     await checkDeps();
     if (skipOllama) {
       // Cloud provider chosen in the wizard — no local model needed.
@@ -236,6 +239,7 @@ export const runBootstrap = async ({ model = 'qwen2.5:3b', skipOllama = false } 
     writeFileSync('var/bootstrap.lock', JSON.stringify({
       completedAt: new Date().toISOString(),
       model,
+      nodePreexisting,
     }));
     bootstrapEvents.emit('complete');
   } catch (err) {

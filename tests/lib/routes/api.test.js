@@ -135,12 +135,12 @@ describe("GET /heartbeat", () => {
 // =============================================================================
 
 describe("GET /config/client", () => {
-  test("defaults heartbeatIntervalSeconds to 10", async () => {
+  test("defaults heartbeatIntervalSeconds to 60", async () => {
     delete process.env.HEARTBEAT_INTERVAL_SECONDS;
     const router = makeRouter();
     const { status, body } = await invoke(router, "GET", "/config/client");
     assert.strictEqual(status, 200);
-    assert.strictEqual(body.heartbeatIntervalSeconds, 10);
+    assert.strictEqual(body.heartbeatIntervalSeconds, 60);
   });
 
   test("respects HEARTBEAT_INTERVAL_SECONDS env var", async (t) => {

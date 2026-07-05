@@ -8,6 +8,7 @@ import { runMigrations } from './migrate.js';
 import { deserialiseRow } from './types.js';
 import { DB_TABLES, isAllowedTable } from './tables.js';
 import { MEMORY_SEED } from './memory-seed.js';
+import { MEMORY_SEED_LITE } from './memory-seed-lite.js';
 import { WIKI_SEED } from './wiki-seed.js';
 import { SELF_MEMORY_SEED } from './self-memory-seed.js';
 
@@ -89,7 +90,9 @@ export class PostgresStore {
       const count = async (t) => (await this.pool.query(`SELECT COUNT(*)::int AS c FROM ${t}`)).rows[0].c;
 
       if (await count('memories') === 0) {
-        for (const m of MEMORY_SEED) {
+        // The lite profile (APERIO_LITE=on) gets the non-coder starter set.
+        const memorySeed = process.env.APERIO_LITE === 'on' ? MEMORY_SEED_LITE : MEMORY_SEED;
+        for (const m of memorySeed) {
           await this.pool.query(
             `INSERT INTO memories (id, type, title, content, tags, importance, source, pinned, lang, confidence, valid_from)
              VALUES ($1,$2,$3,$4,$5,$6,'system',$7,'english',1.0, now()) ON CONFLICT (id) DO NOTHING`,
