@@ -691,22 +691,6 @@
         </label>
       </span>
     </div>
-    <!-- Language switcher — hidden until i18n feature is complete; unhide by removing style="display:none" -->
-    <div class="settings-row settings-row--stack lang-switcher" id="langSwitcher"
-         data-i18n-attr-title="nav_lang_title" title="Language" style="display:none">
-      <button type="button" class="lang-trigger" id="langTrigger" aria-haspopup="listbox" aria-expanded="false">
-        <span class="settings-row-label">
-          <i class="bi bi-translate"></i>
-          <span data-i18n="nav_lang_title">Language</span>
-        </span>
-        <span class="lang-trigger-value">
-          <span class="lang-flag" id="langTriggerFlag">🇬🇧</span>
-          <span class="lang-code" id="langTriggerCode">EN</span>
-          <span class="lang-caret">▾</span>
-        </span>
-      </button>
-      <div class="lang-popover" id="langPopover" role="listbox"></div>
-    </div>
     <!-- Model selector — expandable list grouped by provider. -->
     <details class="settings-section" id="modelSelectorSection">
       <summary>
@@ -881,7 +865,6 @@
 <script src="scripts/db-connections-panel.js"></script>
 <script src="scripts/config-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
-<script src="scripts/lang-switcher.js"></script>
 <script src="scripts/lang-map.js"></script>
 <script src="scripts/chat.js"></script>
 <script src="scripts/memories.js"></script>
