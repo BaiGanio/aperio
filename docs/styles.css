@@ -147,6 +147,9 @@
     --font-mono: 'Berkeley Mono', 'Fira Code', monospace;
 }
 
+/* Electrolize has no complete Cyrillic set; keep Bulgarian UI typography consistent. */
+html[lang="bg"] { --font-ui: 'DM Sans', system-ui, sans-serif; }
+
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 
@@ -275,6 +278,22 @@ body::before {
 }
 .theme-btn:hover::after { opacity: 1; }
 
+/* ── Language switcher ── */
+.lang-switcher {
+    display:flex;align-items:center;background:var(--bg-raised);
+    border:1px solid var(--border);border-radius:0;padding:3px;gap:1px;
+    flex-shrink:0;transition:background .3s,border-color .3s;
+}
+.lang-btn {
+    background:none;border:none;cursor:pointer;width:52px;height:28px;padding:0;
+    border-radius:0;display:flex;align-items:center;justify-content:center;gap:5px;
+    font-family:var(--font-sans);font-size:12px;font-weight:600;letter-spacing:.05em;
+    color:var(--muted);transition:background .15s,color .15s;line-height:1;white-space:nowrap;
+}
+.lang-btn .flag { font-size:14px;line-height:1;display:block;width:16px;text-align:center; }
+.lang-btn:hover { background:var(--bg-card);color:var(--text); }
+.lang-btn.active { background:var(--aurora);color:white; }
+
 /* github btn */
 .btn-github {
     font-family:var(--font-ui);font-size:11px;font-weight:400;
@@ -294,7 +313,12 @@ body::before {
     .nav-links.open { display:flex; }
     .nav-toggle { display:block; }
 }
-@media(max-width:600px) { .btn-github { display:none; } }
+@media(max-width:600px) {
+    .btn-github,.brand-name { display:none; }
+    .nav-inner { padding:0 12px;gap:6px; }
+    .lang-btn { width:38px; }
+    .theme-btn { width:27px; }
+}
 
 /* ══════════════════════════════════════════════════════════
     LAYOUT
