@@ -25,12 +25,50 @@ fetch('/api/version')
   ping(); // immediate ping on load
 })();
 
-// "Quit Aperio" button — stop the server (and vendored Ollama) right now.
+// ── Power menu (navbar) — Restart / Quit popover ─────────────────
+(function initPowerMenu() {
+  const menu = document.getElementById('powerMenu');
+  const btn  = document.getElementById('powerBtn');
+  if (!menu || !btn) return;
+
+  const close  = () => { menu.classList.remove('is-open'); btn.setAttribute('aria-expanded', 'false'); };
+  const toggle = () => {
+    const open = menu.classList.toggle('is-open');
+    btn.setAttribute('aria-expanded', String(open));
+  };
+
+  btn.addEventListener('click', (e) => { e.stopPropagation(); toggle(); });
+  document.addEventListener('click', (e) => { if (!menu.contains(e.target)) close(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+  // Under a supervisor (Docker/PM2/systemd) a quit is relaunched immediately —
+  // disable the option and say why instead of pretending to stop.
+  fetch('/api/restart/capability')
+    .then(r => r.json())
+    .then(({ supervised }) => {
+      if (!supervised) return;
+      const quitBtn = document.getElementById('powerQuitBtn');
+      if (!quitBtn) return;
+      quitBtn.disabled = true;
+      quitBtn.title = t('power_quit_supervised');
+    })
+    .catch(() => {});
+})();
+
+// "Quit Aperio" — stop the server (and vendored Ollama) right now.
 window.quitAperio = async function quitAperio() {
-  if (!confirm('Quit Aperio? The server will stop and this tab will no longer work until you start it again.')) return;
-  try { await fetch('/api/quit', { method: 'POST' }); } catch (_e) {}
+  if (!confirm(t('power_quit_confirm'))) return;
+  let supervised = false;
+  try {
+    const res = await fetch('/api/quit', { method: 'POST' });
+    if (res.status === 409) supervised = (await res.json()).supervised === true;
+  } catch (_e) {}
+  if (supervised) {
+    alert(t('power_quit_supervised'));
+    return;
+  }
   document.body.innerHTML =
     '<div style="display:flex;height:100vh;align-items:center;justify-content:center;' +
     'font-family:system-ui,sans-serif;color:#888;text-align:center;padding:2rem">' +
-    '<div><h2>Aperio has stopped.</h2><p>You can close this tab.</p></div></div>';
+    '<div><h2>' + t('power_stopped_title') + '</h2><p>' + t('power_stopped_msg') + '</p></div></div>';
 };

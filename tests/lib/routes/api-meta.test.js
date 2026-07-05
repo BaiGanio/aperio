@@ -590,3 +590,33 @@ describe("warming up (lazy agent/watchdog)", () => {
     assert.strictEqual(hits, 1);
   });
 });
+
+describe("POST /quit", () => {
+  const originalSupervised = process.env.APERIO_SUPERVISED;
+  after(() => {
+    if (originalSupervised === undefined) delete process.env.APERIO_SUPERVISED;
+    else process.env.APERIO_SUPERVISED = originalSupervised;
+  });
+
+  test("refuses with 409 when the process is supervised", async () => {
+    process.env.APERIO_SUPERVISED = "1";
+    const router = makeRouter();
+    const { status, body } = await invoke(router, "POST", "/quit");
+    assert.strictEqual(status, 409);
+    assert.strictEqual(body.ok, false);
+    assert.strictEqual(body.supervised, true);
+  });
+
+  test("answers ok and quits via the watchdog when unsupervised", async () => {
+    process.env.APERIO_SUPERVISED = "0";
+    let quitCalled = false;
+    const router = makeRouter({}, {}, { quit: () => { quitCalled = true; } });
+    const { status, body } = await invoke(router, "POST", "/quit");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(body.supervised, false);
+    // Teardown is deferred so the response can flush first.
+    await new Promise(r => setTimeout(r, 250));
+    assert.strictEqual(quitCalled, true, "watchdog.quit should be invoked");
+  });
+});
