@@ -151,6 +151,21 @@ describe("writeEnvFromWizard", () => {
     assert.match(env, /^OLLAMA_MODEL="llama3\.1"$/m);
   });
 
+  test("persists APERIO_LITE=on when the wizard runs under the lite profile", (t) => {
+    process.env.APERIO_LITE = "on";
+    t.after(() => delete process.env.APERIO_LITE);
+    writeEnvFromWizard({ provider: "ollama", model: "llama3.1" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.match(env, /^APERIO_LITE="on"$/m);
+  });
+
+  test("does not persist APERIO_LITE outside the lite profile", (t) => {
+    delete process.env.APERIO_LITE;
+    writeEnvFromWizard({ provider: "ollama", model: "llama3.1" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.doesNotMatch(env, /^APERIO_LITE=/m);
+  });
+
   test("writes .env for anthropic with API key and model", () => {
     writeEnvFromWizard({ provider: "anthropic", apiKey: "sk-ant-xxx", model: "claude-sonnet-4-6" });
     const env = readFileSync(ENV_PATH, "utf8");
@@ -164,6 +179,20 @@ describe("writeEnvFromWizard", () => {
     const env = readFileSync(ENV_PATH, "utf8");
     assert.match(env, /^AI_PROVIDER="deepseek"$/m);
     assert.match(env, /^DEEPSEEK_API_KEY="sk-ds-xxx"$/m);
+  });
+
+  test("writes Codex config with cached-login auth and no API key", () => {
+    writeEnvFromWizard({ provider: "codex" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.match(env, /^AI_PROVIDER="codex"$/m);
+    assert.doesNotMatch(env, /^CODEX_API_KEY=/m);
+  });
+
+  test("writes optional Codex API key and model", () => {
+    writeEnvFromWizard({ provider: "codex", apiKey: "sk-codex", model: "gpt-5.5" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.match(env, /^CODEX_API_KEY="sk-codex"$/m);
+    assert.match(env, /^CODEX_MODEL="gpt-5\.5"$/m);
   });
 
   test("writes .env for gemini with API key and port", () => {

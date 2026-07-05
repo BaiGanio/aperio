@@ -420,6 +420,11 @@ function handleMessage(msg) {
   if (msg.type === "stream_end") {
     const elapsedSec = streamStartTime ? (Date.now() - streamStartTime) / 1000 : null;
     streamStartTime = null;
+    // A provider can emit text, then a tool event, then more text into the same
+    // bubble. The tool event recreates the live indicator, so always clear it
+    // here rather than only when stream_end has no streaming bubble.
+    removeThinking();
+    removeToolIndicator();
     // Round-table: once this agent's bubble has streamed in, freeze its phase
     // breadcrumb to "done" so it never reads as still-working (incl. manifestos).
     const _rtAgentDone = streamingBubble?.agentMeta?.agentId;

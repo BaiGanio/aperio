@@ -30,9 +30,13 @@ printf "  ${D}  %s${R}\n\n" "$DIR"
 read -rp "  Continue? (y/n): " -n 1 REPLY; printf "\n\n"
 [[ $REPLY =~ ^[Yy]$ ]] || { info "Cancelled — nothing was removed."; exit 0; }
 
-# Capture the model name BEFORE we delete var/, so we can offer to remove it.
-MODEL=""
-[ -f var/bootstrap.lock ] && MODEL=$(grep -o '"model"[^,}]*' var/bootstrap.lock 2>/dev/null | sed 's/.*"model"[^"]*"\([^"]*\)".*/\1/' || true)
+# Capture facts from the install ledger BEFORE we delete var/: the model name
+# (to offer removal) and whether Node pre-existed (for honest final messaging).
+MODEL=""; NODE_PREEXISTING=""
+if [ -f var/bootstrap.lock ]; then
+    MODEL=$(grep -o '"model"[^,}]*' var/bootstrap.lock 2>/dev/null | sed 's/.*"model"[^"]*"\([^"]*\)".*/\1/' || true)
+    NODE_PREEXISTING=$(grep -o '"nodePreexisting"[^,}]*' var/bootstrap.lock 2>/dev/null | grep -o 'true\|false' || true)
+fi
 
 # 1. Stop the running server (if any).
 pids=$(lsof -ti :$PORT 2>/dev/null || true)
@@ -64,12 +68,17 @@ if [ -n "$MODEL" ] && command -v ollama >/dev/null 2>&1; then
 fi
 
 # 6. App data (logs, database, bootstrap lock, sessions). Do this last.
-[ -d var ] && { rm -rf var && ok "Removed var/ (database, logs, settings)"; }
+[ -d var ]     && { rm -rf var     && ok "Removed var/ (logs, settings, sessions)"; }
+[ -d .sqlite ] && { rm -rf .sqlite && ok "Removed .sqlite/ (memory database)"; }
 
 # 7. What we deliberately left behind.
 printf "\n"
 warn "Left in place (remove yourself if you want):"
-printf "  ${D}    • Node.js (via nvm in ~/.nvm) — you may use it for other things${R}\n"
+if [ "$NODE_PREEXISTING" = "false" ]; then
+    printf "  ${D}    • Node.js (Aperio installed it via nvm in ~/.nvm) — kept in case you use it elsewhere${R}\n"
+else
+    printf "  ${D}    • Node.js — you already had it; untouched${R}\n"
+fi
 [ "$OS" = "Linux" ] && printf "  ${D}    • System Ollama — remove with your package manager if you installed it only for Aperio${R}\n"
 printf "\n"
 ok "Aperio-lite uninstalled."

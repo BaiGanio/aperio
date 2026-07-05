@@ -1,8 +1,9 @@
-# Aperio-Lite — How to Install & Use
-> *Small tool for big ideas*
+# Aperio-lite — How to Install & Use
+> *One brain. Every agent. Nothing forgotten.*
 
-Everything runs locally on your machine.
-**No cloud. No subscriptions. No data leaving your computer.**
+Aperio runs **entirely on your own computer**.
+**No cloud. No subscriptions. No data leaving your machine** (unless you choose a
+cloud AI provider yourself during setup).
 
 ---
 
@@ -10,234 +11,146 @@ Everything runs locally on your machine.
 
 | Requirement | Details |
 |-------------|---------|
-| **Operating System** | macOS, Linux, or Windows |
-| **Internet** | Required only during first-time setup to download the AI model and dependencies |
-| **Offline?** | Everything works fully offline after setup — only `fetch_url` won't work |
-| **Disk Space** | 3 GB – 20 GB free, depending on the AI model selected |
-| **RAM** | 4 GB minimum — more RAM means a smarter model gets selected automatically |
+| **Operating system** | macOS, Linux, or Windows |
+| **Internet** | Needed only during first-time setup — to fetch the AI engine, a model, and dependencies |
+| **Offline?** | Everything works offline after setup. Only `fetch_url` / web search need the internet |
+| **Disk space** | 3–20 GB free, depending on the AI model chosen for your machine |
+| **RAM** | 4 GB minimum — more RAM lets the wizard pick a smarter model automatically |
 
-> **Note:** No technical knowledge required. The launcher handles everything.
-> Installation takes **5–15 minutes** depending on your machine, internet speed, and model size.
+> **No technical knowledge required.** A launcher gets Aperio running, then a
+> friendly setup page in your browser does the rest. First-time setup takes
+> **5–15 minutes**, mostly model download time.
 
-### Model Tiers
-
-| Tier | Model | RAM Needed | Disk |
-|------|-------|-----------|------|
-| Lite | qwen3:4b | ~4 GB | ~2.5 GB |
-| Medium | llama3.1:8b | ~8 GB | ~5 GB |
-| Smart | qwen3:8b | ~10 GB | ~5 GB |
-| Reasoning | qwen3:14b | ~16 GB | ~9 GB |
-| Pro | deepseek-r1:32b | ~32 GB | ~19 GB |
-
-- 📦 **Download latest release:** [aperio-lite.zip](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip)
+- 📦 **Download the latest release:** [aperio-lite.zip](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip)
 - 💬 **Questions & support:** [GitHub Discussions](https://github.com/BaiGanio/aperio/discussions/14)
+
+Unzip `aperio-lite.zip` anywhere (your Desktop or Documents folder is fine). The
+folder that comes out is *the app* — everything Aperio installs lives inside it.
 
 ---
 
 ## How to Run — First Time
 
-Inside the zip you'll find a `launchers/` folder. Pick the executable that matches your system:
-
-| File | Platform |
-|------|----------|
-| `aperio-win.exe` | Windows |
-| `aperio-mac-arm` | macOS — Apple Silicon (M1/M2/M3/M4) |
-| `aperio-mac-intel` | macOS — older Intel Macs |
-| `aperio-linux` | Linux |
+You start Aperio with a small launcher. It does only the things a browser can't:
+make sure **Node.js** and the app's **dependencies** are present, then start
+Aperio's engine. Everything else — the AI engine (Ollama), the model, the
+database, and any provider/API key — happens in the browser wizard the launcher
+opens for you.
 
 ### 🪟 Windows
 
-1. Open the `launchers/` folder.
-2. Double-click `aperio-win.exe`.
-3. If Windows shows an *"Unknown publisher"* warning, click **More info → Run anyway**. This is expected for unsigned apps.
-4. Follow the one-time setup prompts in the window that opens.
+1. Open the Aperio folder.
+2. Double-click **`START.bat`**.
+3. If Windows shows a *"Windows protected your PC"* / *"Unknown publisher"*
+   warning, click **More info → Run anyway** (expected for unsigned apps).
+4. A window opens and gets things ready, then your browser opens to the setup
+   page. Follow it.
 
-After the first run, just double-click to launch. Aperio opens automatically in your default browser.
+The launcher also drops an **"Aperio" icon on your Desktop** — after the first
+run, just double-click that (it starts Aperio with no console window).
 
----
+### 🍎 macOS / 🐧 Linux
 
-### 🍎 macOS
-
-1. Open the `launchers/` folder.
-2. Double-click the correct file for your Mac:
-   - `aperio-mac-arm` → Apple Silicon (M1 and newer)
-   - `aperio-mac-intel` → Intel
-3. If macOS blocks it (*"cannot be opened because it is from an unidentified developer"*):
-   - Open **System Settings → Privacy & Security**
-   - Scroll down and click **Open Anyway** next to Aperio
-4. Follow the one-time setup prompts in the terminal that opens.
-
-After the first run, just double-click the same file to launch. Aperio opens automatically in your default browser.
-
----
-
-### 🐧 Linux
-
-1. Open a terminal and navigate to the `launchers/` folder:
+1. Open a terminal in the Aperio folder.
+2. Run:
    ```bash
-   cd /path/to/aperio-lite/launchers
+   bash START.sh
    ```
-2. Make the file executable *(one time only)*:
-   ```bash
-   chmod +x aperio-linux
-   ```
-3. Run it:
-   ```bash
-   ./aperio-linux
-   ```
-4. Follow the one-time setup prompts.
+3. It checks Node.js and dependencies, then starts Aperio and opens your browser
+   to the setup page.
 
-After the first run, just run `./aperio-linux` again to launch. Aperio opens automatically in your default browser.
+The launcher drops an **"Aperio" launcher on your Desktop** for next time.
 
----
+> **Keep the launcher window open** while you use Aperio — it *is* the engine.
+> Closing it stops the app. (You can also stop Aperio from the **Quit** button
+> in the app, or it shuts itself down after the browser tab is closed a while.)
 
-## What Happens on First Run
-
-### Step 1 — Port Check
-The app runs on port `31337`. The launcher checks whether anything else is using it.
-
-If the port is busy, you'll be asked:
-```
-Kill existing process and restart? (y/n)
-```
-- **Y** — stops the conflicting process and continues
-- **N** — exits safely so you can investigate first
+If your browser doesn't open on its own, go to **http://localhost:31337**.
 
 ---
 
-### Step 2 — Ollama Check
-Ollama is the engine that runs AI models locally on your machine — it's what allows Aperio-lite to work completely offline after setup.
+## What the Browser Setup Does
 
-If Ollama is not installed, the launcher **installs it automatically**. No action required from you.
+The setup page (the wizard) walks you through it — no config files to edit.
 
----
+1. **Choose how the AI runs**
+   - **Run locally — free & private** (recommended): nothing leaves your machine.
+   - **Use a cloud AI**: paste one API key (Anthropic, DeepSeek, or Gemini).
+2. **Local path** — Aperio installs a private copy of the **Ollama** engine
+   *inside its own folder* (`vendor/ollama` — not system-wide), then looks at
+   your RAM and disk and **picks a model that fits your computer**, downloading
+   it once.
+3. **Database & search** — a local **SQLite** database and a small on-device
+   embedding model (via `transformers`) power Aperio's memory and semantic
+   search. No separate model download, no server to run.
+4. **Done** — Aperio opens and is ready to use.
 
-### Step 3 — Starting the Ollama Server
-The launcher starts Ollama's background service and waits for it to become ready before continuing.
-
----
-
-### Step 4 — Hardware Analysis & Model Selection
-The launcher reads your total RAM and free disk space, then recommends the best model your machine can run comfortably.
-
-| RAM | Model | Download Size |
-|-----|-------|--------------|
-| 4 GB or less | qwen3:4b | ~2.5 GB |
-| 5 – 8 GB | llama3.1:8b | ~5 GB |
-| 9 – 12 GB | qwen3:8b | ~5 GB |
-| 16 – 31 GB | qwen3:14b | ~9 GB |
-| 32 GB+ | deepseek-r1:32b | ~19 GB |
-
-You'll be shown a hardware summary and asked:
-```
-Use the Best Fit model? (y/n)
-```
-- **Y** — proceeds with the recommended model
-- **N** — opens a manual selection menu. If you pick a model larger than your RAM supports, you'll receive a warning before continuing.
-
----
-
-### Step 5 — Downloading the AI Model
-The selected model is downloaded once and stored locally. Progress is shown on screen. This can take a few minutes to half an hour depending on your internet speed and model size.
-
----
-
-### Step 6 — Downloading the Embedding Model
-A second, smaller model (`mxbai-embed-large`) is also downloaded. This powers **semantic search** — finding relevant information by meaning, not just keyword matching.
-
----
-
-### Step 7 — Installing App Dependencies
-The launcher installs the packages the app needs:
-
-| Package | Purpose |
-|---------|---------|
-| `better-sqlite3` + `sqlite-vec` | Local database + vector search for semantic memory |
-| `uuid` | Unique ID generation for internal records |
-| `ollama` | Client to communicate with the Ollama server |
-
----
-
-### Step 8 — Launch
-The app server starts and your browser opens automatically to:
-
-```
-http://localhost:31337
-```
-
-> Keep the launcher window open while using the app. Closing it will stop the server.
+Nothing is sent to any outside server on the local path. All AI processing
+happens on your own hardware.
 
 ---
 
 ## Every Run After the First
 
-Just double-click the launcher (or run `./aperio-linux` on Linux).
-
-The launcher will:
-1. Check the port
-2. Confirm Ollama and the model are already installed
-3. Skip all setup steps
-4. Start the server and open the browser
-
-**Typically ready in 3–5 seconds.** Nothing is re-downloaded. No questions are asked.
+Double-click the **Aperio** icon on your Desktop (Windows/macOS), or run
+`bash START.sh` again (Linux). The launcher confirms Node, dependencies, the
+engine and the model are already there, skips setup, and starts the app —
+**usually ready in a few seconds**. Nothing is re-downloaded.
 
 ---
 
-## How to Stop the App
+## How to Stop Aperio
 
-Close the launcher window, or press `Ctrl+C` inside it. The server stops automatically.
+- Click **Quit** in the app, **or**
+- Close the launcher window (or press `Ctrl+C` inside it).
+
+The server stops automatically.
+
+---
+
+## What Gets Installed — and How to Remove It
+
+Everything Aperio installs is **contained in its own folder**, except Node.js:
+
+| Thing | Where | Removed by uninstaller? |
+|-------|-------|--------------------------|
+| Ollama engine | `vendor/ollama/` (inside the app folder) | Yes |
+| AI model | Ollama's model store | Offered during uninstall |
+| Dependencies | `node_modules/` (inside the app folder) | Yes |
+| Your memory database, logs, settings | `.sqlite/`, `var/` (inside the app folder) | Yes |
+| Node.js | System / `~/.nvm` | **No** — kept in case you use it elsewhere |
+
+### To uninstall
+
+- **Windows:** double-click **`uninstall.bat`** in the Aperio folder.
+- **macOS / Linux:** run **`bash uninstall.sh`** in the Aperio folder.
+
+The uninstaller stops the server, removes Aperio's vendored engine,
+dependencies, database and logs, deletes the Desktop launcher, and *offers* to
+delete the downloaded AI model. It never touches software you already had.
+Finally, delete the Aperio folder itself.
 
 ---
 
 ## Troubleshooting
 
+**"The setup page looks broken / buttons do nothing"**
+> You probably opened `setup.html` directly (a `file://` address). Close that tab
+> and start Aperio with `START.bat` / `bash START.sh` instead — Aperio needs its
+> engine running. The correct address is `http://localhost:31337`.
+
 **"Port 31337 is already in use"**
-> The app may already be running. Open your browser and go to `http://localhost:31337`.
-> For a fresh restart, choose **Y** when prompted to kill the existing process.
+> Aperio may already be running — open `http://localhost:31337`. Otherwise use
+> the app's **restart** option, or close the old launcher window and start again.
 
-**"Ollama failed to start"**
-> Try starting Ollama manually:
-> ```bash
-> ollama serve
-> ```
-> Wait for `Listening on 127.0.0.1:11434`, then run the launcher again.
+**"AI responses are very slow"**
+> The chosen model may be large for your RAM. In **Settings → Configuration** you
+> can switch to a smaller local model.
 
-**"It runs but AI responses are extremely slow"**
-> You may have selected a model too large for your RAM.
-> Run the launcher again — at the model selection prompt, choose **N** and pick a smaller tier.
-
-**"The app opens but shows an error about the AI model"**
-> Run the following to see what models are installed:
-> ```bash
-> ollama list
-> ```
-> If the expected model is missing, run the launcher again to re-trigger the download.
+**Still stuck?**
+> Open the in-app **Help** page (linked from the setup finish screen) or ask in
+> [GitHub Discussions](https://github.com/BaiGanio/aperio/discussions/14).
 
 ---
 
-## What Gets Installed on Your System
-
-| Tool | Location | Can be removed? |
-|------|----------|----------------|
-| Ollama | System-wide (`/usr/local/bin`) | Yes — via uninstall script |
-| AI model | `~/.ollama/models/` | Yes — delete the folder |
-| Embed model | `~/.ollama/models/` | Yes — same folder |
-| node_modules | Inside the app folder | Yes — delete the folder |
-
-> Nothing is sent to any external server after the initial download.
-> **All AI processing happens on your own hardware.**
-
----
-
-## Want to Switch to a Different AI Model Later?
-
-To see what models you have installed:
-```bash
-ollama list
-```
-
-To switch, simply run the launcher again. When prompted with *"Use Best Fit model?"*, choose **N** and select a different tier from the menu.
-
----
-
-*Aperio-Lite — built for people, not pipelines.*
+*Aperio-lite — built for people, not pipelines.*
