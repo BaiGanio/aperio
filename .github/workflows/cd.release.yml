@@ -156,7 +156,7 @@ jobs:
       - name: Prepare README
         run: |
           mkdir -p how-to 
-          cp .github/lite/{how-to-install.pdf,uninstall.sh} how-to/
+          cp .github/lite/{how-to-install.md,install.txt,uninstall.sh} how-to/
 
       - name: Build ZIP
         run: |
