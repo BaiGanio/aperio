@@ -35,7 +35,7 @@
     "@google/generative-ai": "^0.24.1",
     "@huggingface/transformers": "^4.2.0",
     "@modelcontextprotocol/sdk": "^1.28.0",
-    "adm-zip": "^0.5.17",
+    "adm-zip": "^0.5.18",
     "better-sqlite3": "^12.11.1",
     "chokidar": "^5.0.0",
     "docx": "^9.7.1",
