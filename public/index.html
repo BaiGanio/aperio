@@ -66,6 +66,10 @@
         <div class="ctx-fill" id="ctxFill"></div>
       </div>
     </div>
+    <button id="langMapBtn" class="quit-btn globe-btn"
+            data-i18n-attr-title="nav_langmap_title" title="Language — pick on the map">
+      <i class="bi bi-globe2"></i>
+    </button>
     <div class="theme-switcher" id="ambientSwitcher" data-i18n-attr-title="nav_ambient_title" title="Ambient background">
       <button class="theme-btn ambient-btn" data-ambient="auto" data-i18n-attr-title="nav_ambient_auto" title="Auto">
         <span class="theme-btn-icon">◐</span>
@@ -91,10 +95,22 @@
         <span class="theme-btn-icon">⊙</span>
       </button>
     </div>
-    <button id="quitBtn" class="quit-btn" onclick="quitAperio()"
-            data-i18n-attr-title="nav_quit_title" title="Quit Aperio (stop the server)">
-      <i class="bi bi-power"></i>
-    </button>
+    <div class="power-menu" id="powerMenu">
+      <button id="powerBtn" class="quit-btn" aria-haspopup="menu" aria-expanded="false"
+              data-i18n-attr-title="nav_power_title" title="Power — restart or quit Aperio">
+        <i class="bi bi-power"></i>
+      </button>
+      <div class="power-popover" id="powerPopover" role="menu">
+        <button type="button" class="power-option" role="menuitem" onclick="requestRestartAperio()">
+          <i class="bi bi-arrow-repeat"></i>
+          <span data-i18n="nav_power_restart">Restart server</span>
+        </button>
+        <button type="button" class="power-option power-option--danger" id="powerQuitBtn" role="menuitem" onclick="quitAperio()">
+          <i class="bi bi-power"></i>
+          <span data-i18n="nav_power_quit">Quit Aperio</span>
+        </button>
+      </div>
+    </div>
   </header>
 
   <!-- Sidebar -->
@@ -568,10 +584,6 @@
   </div>
   <div class="cg-panel-toolbar">
     <input type="text" id="cfgSearchInput" class="cg-search-input" placeholder="Search settings…" />
-    <button id="cfgRestartBtn" class="cfg-restart-toolbar-btn" onclick="requestRestartAperio()"
-            title="Restart Aperio now">
-      <i class="bi bi-power"></i> Restart server
-    </button>
     <button id="cfgSaveBtn" class="sk-new-btn" onclick="saveConfigSettings()"><i class="bi bi-check-lg"></i> Save</button>
   </div>
   <div class="config-precedence-notice" id="configPrecedenceNotice" style="display:none;">
@@ -594,6 +606,46 @@
   <div class="cg-panel-body" id="configSections"><span class="model-loading">Loading…</span></div>
 </div>
 <div id="config-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleConfigPanel()"></div>
+
+<!-- Language map overlay: world map framed on Europe; countries whose language
+     Aperio speaks glow, planned ones render dashed. Logic in scripts/lang-map.js;
+     country shapes lazy-load from scripts/world-paths.js on first open. -->
+<div class="langmap-overlay" id="langMapOverlay">
+  <div class="langmap-card">
+    <div class="langmap-head">
+      <h2 data-i18n="langmap_heading">Choose your language</h2>
+      <span class="langmap-sub" id="langMapCount"></span>
+      <button class="langmap-close" id="langMapClose" title="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="langmap-main">
+      <div class="langmap-map">
+        <div class="langmap-glow"></div>
+        <svg id="langMapSvg" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="langmap-loading" id="langMapLoading">…</div>
+        <div class="langmap-controls">
+          <button id="langMapViewEurope" class="active" data-i18n="langmap_view_europe">Europe</button>
+          <button id="langMapViewWorld" data-i18n="langmap_view_world">World</button>
+        </div>
+        <div class="langmap-hint" data-i18n="langmap_hint">drag to pan · scroll to zoom</div>
+        <div class="langmap-legend">
+          <span><i class="lm-swatch on"></i><span data-i18n="langmap_legend_available">available</span></span>
+          <span><i class="lm-swatch soon"></i><span data-i18n="langmap_soon_hint">coming soon</span></span>
+          <span><i class="lm-swatch off"></i><span data-i18n="langmap_legend_not">not yet</span></span>
+        </div>
+      </div>
+      <div class="langmap-list-pane">
+        <div class="langmap-search">
+          <input id="langMapSearch" type="text" data-i18n-attr-placeholder="langmap_search" placeholder="Search languages…">
+        </div>
+        <div class="langmap-list" id="langMapList"></div>
+        <div class="langmap-foot" data-i18n="langmap_foot">Don't see yours? Aperio's agent understands you anyway — just write in any language.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="langmap-tip" id="langMapTip"></div>
+<div class="langmap-choose" id="langMapChooser"></div>
+<div class="langmap-toast" id="langMapToast"></div>
 
 <!-- Restart overlay: shown while the server restarts; auto-reloads when it's back -->
 <div id="restartOverlay" class="restart-overlay" style="display:none;">
@@ -830,6 +882,7 @@
 <script src="scripts/config-panel.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-switcher.js"></script>
+<script src="scripts/lang-map.js"></script>
 <script src="scripts/chat.js"></script>
 <script src="scripts/memories.js"></script>
 <script src="scripts/memory-table.js"></script>

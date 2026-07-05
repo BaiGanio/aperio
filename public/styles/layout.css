@@ -379,6 +379,52 @@
       border-color: #ef4444;
     }
 
+    /* Power menu — navbar popover with Restart / Quit */
+    .power-menu { position: relative; flex-shrink: 0; }
+
+    .power-menu.is-open .quit-btn {
+      background: var(--bg-panel);
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    .power-popover {
+      position: absolute;
+      top: calc(100% + 6px);
+      right: 0;
+      min-width: 180px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-panel);
+      padding: 4px;
+      display: none;
+      z-index: 300;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+    .power-menu.is-open .power-popover { display: block; }
+
+    .power-option {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      padding: 7px 10px;
+      background: none;
+      border: none;
+      border-radius: 7px;
+      cursor: pointer;
+      color: var(--text);
+      font-family: var(--font-sans, inherit);
+      font-size: var(--fs-chrome);
+      text-align: left;
+      white-space: nowrap;
+      transition: background var(--transition);
+    }
+    .power-option:hover { background: var(--bg-hover); }
+    .power-option--danger:hover { background: #ef4444; color: #fff; }
+    .power-option:disabled { opacity: .5; cursor: default; }
+    .power-option:disabled:hover { background: none; color: var(--text); }
+
     .sidebar-header {
       padding: 16px 16px 12px;
       border-bottom: 1px solid var(--border);

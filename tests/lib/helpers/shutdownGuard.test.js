@@ -40,6 +40,54 @@ describe("createWatchdog — disabled", () => {
 });
 
 // =============================================================================
+describe("createWatchdog — quit", () => {
+
+  test("quit runs the full teardown even when the idle guard is disabled", async () => {
+    // Ollama running only our model → safe to stop → _stopOllama must be called
+    globalThis.fetch = async () => ({
+      ok:   true,
+      json: async () => ({ models: [{ name: "our-model" }] }),
+    });
+
+    let exitCalled = false;
+    let ollamaStopped = false;
+    const httpServer = makeMockHttpServer();
+
+    const { quit } = createWatchdog({
+      enabled:     false,
+      models:      ["our-model"],
+      httpServer,
+      _stopOllama: async () => { ollamaStopped = true; },
+      _exit:       () => { exitCalled = true; },
+    });
+
+    await quit();
+
+    assert.equal(httpServer.closed, true,  "HTTP server should be closed");
+    assert.equal(ollamaStopped,    true,  "Ollama should be stopped on explicit quit");
+    assert.equal(exitCalled,       true,  "_exit should be called");
+  });
+
+  test("heartbeat never arms the idle timer when disabled", async (t) => {
+    globalThis.fetch = async () => { throw new Error("mock"); };
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    let exitCalled = false;
+    const { heartbeat } = createWatchdog({
+      enabled:   false,
+      timeoutMs: 500,
+      _exit:     () => { exitCalled = true; },
+    });
+
+    heartbeat(); // must be a no-op for the idle guard
+    t.mock.timers.tick(5000);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+
+    assert.equal(exitCalled, false, "disabled watchdog must never idle-exit");
+  });
+});
+
+// =============================================================================
 describe("createWatchdog — heartbeat and stop", () => {
 
   test("heartbeat and stop are callable functions", (t) => {
