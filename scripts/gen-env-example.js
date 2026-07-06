@@ -72,7 +72,7 @@ const commentBlock = (text) => text.split("\n").map((l) => `# ${l}`.trimEnd()).j
 
 // A variable's group is its own override, else its section's group.
 const sectionGroup = Object.fromEntries(SECTIONS.map((s) => [s.id, s.group]));
-const groupOf = (e) => e.group || sectionGroup[e.section];
+const groupOf = (e) => sectionGroup[e.section];
 
 function renderEntry(e) {
   const out = [];
@@ -91,8 +91,8 @@ function build() {
     const inGroup = CONFIG.filter((e) => groupOf(e) === group.id);
     if (!inGroup.length) return;
 
-    // STOP banner sits after the first (safe) group, before everything advanced.
-    if (gi === 1) parts.push(STOP, "");
+    // Emit STOP banner after the last safe group, before the first advanced group.
+    if (!group.safe && gi > 0 && GROUPS[gi - 1]?.safe) parts.push(STOP, "");
 
     parts.push(groupRule(group.title));
     if (group.blurb) parts.push(commentBlock(group.blurb));
