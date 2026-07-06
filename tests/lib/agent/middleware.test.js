@@ -5,6 +5,7 @@ import {
   LifecycleMiddlewareError,
   createLifecycleRunner,
 } from "../../../lib/agent/middleware.js";
+import { createLifecycleTrace } from "../../../lib/agent/lifecycle-trace.js";
 
 test("exports the complete ordered lifecycle hook contract", () => {
   assert.deepEqual(LIFECYCLE_HOOKS, [
@@ -218,5 +219,81 @@ test("rejects invalid registrations, hooks, requests, and hook results", async (
     runner.run("beforeModel", {}),
     error => error instanceof LifecycleMiddlewareError
       && error.cause.message.includes("must return an object"),
+  );
+});
+
+test("records metadata-only timing, decisions, and errors in a bounded trace", async () => {
+  let tick = 100;
+  const now = () => tick++;
+  const trace = createLifecycleTrace({ limit: 3, now });
+  const runner = createLifecycleRunner([
+    {
+      name: "updates",
+      beforeModel() {
+        return { update: { secretPrompt: "must not be traced" } };
+      },
+    },
+    {
+      name: "stops",
+      beforeTool() {
+        return { stop: true, value: { token: "must not be traced" } };
+      },
+    },
+    {
+      name: "fails",
+      afterModel() {
+        throw new TypeError("secret result must not be traced");
+      },
+    },
+    {
+      name: "observes",
+      onError() {},
+    },
+  ], { trace, now });
+
+  await runner.run("beforeModel", { apiKey: "must not be traced" });
+  await runner.run("beforeTool", { arguments: { password: "must not be traced" } });
+  await assert.rejects(runner.run("afterModel", { result: "must not be traced" }));
+
+  const entries = trace.entries();
+  assert.equal(entries.length, 3);
+  assert.deepEqual(entries.map(entry => [entry.hook, entry.middleware, entry.decision]), [
+    ["beforeTool", "stops", "stop"],
+    ["afterModel", "fails", "error"],
+    ["onError", "observes", "continue"],
+  ]);
+  assert.equal(entries[1].errorType, "TypeError");
+  assert.deepEqual(trace.stats(), { retained: 3, dropped: 1, limit: 3 });
+  const serialized = JSON.stringify(entries);
+  assert.doesNotMatch(serialized, /apiKey|password|secretPrompt|secret result|token/);
+  assert.equal(Object.isFrozen(entries), true);
+  assert.equal(Object.isFrozen(entries[0]), true);
+});
+
+test("trace normalizes arbitrary error names instead of storing attacker text", () => {
+  const trace = createLifecycleTrace();
+  trace.record({
+    hook: "afterTool",
+    middleware: "test",
+    durationMs: 1,
+    decision: "error",
+    errorType: "sk_live_must_not_be_traced",
+  });
+  assert.equal(trace.entries()[0].errorType, "Error");
+  assert.doesNotMatch(JSON.stringify(trace.entries()), /sk_live/);
+});
+
+test("trace recording failures never change middleware behavior", async () => {
+  const runner = createLifecycleRunner([
+    { name: "safe", selectTools: () => ({ update: { tools: ["recall"] } }) },
+  ], {
+    trace: { record() { throw new Error("trace unavailable"); } },
+  });
+
+  const result = await runner.run("selectTools", { tools: [] });
+  assert.deepEqual(result.request.tools, ["recall"]);
+  assert.throws(
+    () => createLifecycleRunner([], { trace: {} }),
+    /must provide record/,
   );
 });

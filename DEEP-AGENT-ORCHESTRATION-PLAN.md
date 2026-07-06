@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: Phase 1 complete — Phase 2 in progress (2.1–2.3 complete)
+Status: Phase 2 complete — Phase 3 pending
 
 Created: 2026-07-06
 
@@ -176,16 +176,16 @@ extension points without rewriting provider loops.
   - Keep provider serialization inside the provider adapters.
   - Commit: `feat(agent): compose context through middleware`
 
-- [ ] **2.4 Middleware trace**
+- [x] **2.4 Middleware trace**
   - Record hook names, timing, decisions, and errors in a bounded per-run trace.
   - Never record secret arguments or full artifact contents.
   - Commit: `feat(agent): trace middleware decisions`
 
 Phase acceptance:
 
-- All current providers pass their existing loop tests.
-- Existing safety behavior is unchanged or stricter.
-- A new middleware can be registered without editing every provider loop.
+- [x] All current providers pass their existing loop tests.
+- [x] Existing safety behavior is unchanged or stricter.
+- [x] A new middleware can be registered without editing every provider loop.
 
 Drill 2.1 completion record (2026-07-06):
 
@@ -232,6 +232,21 @@ Drill 2.3 completion record (2026-07-06):
 - Focused agent/context verification: 320 passed. Full suite: 2,700 passed and
   three contended WebSocket E2E cases timed out waiting for `session_created`;
   both affected files passed 15/15 in isolation.
+
+Drill 2.4 completion record (2026-07-06):
+
+- Added a per-run lifecycle trace shared by context, tool-safety, and result
+  offload runners. Runtime traces retain at most 200 entries.
+- Entries contain only sequence, relative/duration milliseconds, hook,
+  middleware, decision, and optional error class. Requests, prompts, arguments,
+  results, exception messages, and artifact content cannot enter the trace
+  record contract.
+- Trace writes fail open and cannot change middleware behavior. The agent
+  exposes a read-only snapshot of the last-started run for diagnostics.
+- Focused trace/provider/security verification: 577 passed. Full suite: 2,703
+  passed and three contended WebSocket E2E cases timed out waiting for
+  `session_created`. The two affected files then passed 14/15 together; the one
+  remaining intermittent lifecycle case passed alone.
 
 ## Phase 3 — Durable interrupts and resumable actions
 
@@ -530,6 +545,14 @@ For a retained chat, force a low offload threshold, page the result through
 Deleting the chat should remove its session artifact directory. Background-run
 artifact retention follows `AGENT_RUN_RETENTION_DAYS`.
 
+### Phase 2
+
+Run the lifecycle, context, safety, and provider suites, then inspect
+`agent.getLifecycleTrace()` after a tool-using turn. Expect ordered metadata
+entries only; no prompt text, tool arguments/results, error messages, or
+artifact contents should appear. The trace is in-memory, bounded to the most
+recent 200 events, and replaced when the next run starts.
+
 ## Progress log
 
 Add one line after each completed slice. The progress-log update belongs in that
@@ -543,3 +566,4 @@ slice's commit, so the plan and code cannot drift.
 | 2026-07-06 | 2.1 Middleware runner and contract | `aab6b17` | 191 focused pass; full 2693/2697; 4 contended E2E cases pass 15/15 in isolation; syntax; diff check | Provider-neutral ordered hooks; provider routing begins in 2.2 |
 | 2026-07-06 | 2.2 Tool safety adapters | `934c794` | 447 focused pass; full 2696/2699; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Existing tool safety now runs through named lifecycle middleware |
 | 2026-07-06 | 2.3 Context and skill middleware | `346701d`, `a17e166` | 320 focused pass; full 2700/2703; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Canonical context composition with provider-local serialization |
+| 2026-07-06 | 2.4 Middleware trace | maintainer commit pending | 577 focused pass; full 2703/2706; affected E2E 14/15 together, remaining case passes alone; syntax; diff check | Bounded metadata-only per-run lifecycle diagnostics |
