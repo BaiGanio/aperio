@@ -384,8 +384,8 @@ describe("bulkInsert", () => {
 describe("agent jobs", () => {
   test("seeds the nightly-maintenance example", async () => {
     const job = await store.getAgentJob("nightly-maintenance");
-    assert.ok(job, "example job should be seeded by the migration");
-    assert.equal(job.enabled, true);
+    assert.ok(job, "example job should be seeded on first boot");
+    assert.equal(job.enabled, false);
     assert.equal(job.trigger.kind, "interval");
     assert.equal(job.steps.length, 2);
   });
@@ -559,6 +559,66 @@ describe("agent interrupts", () => {
     assert.ok(!pending.some(i => i.id === "interrupt-write-1"));
     const rejected = await store.listAgentInterrupts({ sessionId: "session-a", status: "rejected" });
     assert.ok(rejected.some(i => i.id === "interrupt-write-1"));
+  });
+
+  test("expires, decides, claims, and completes interrupt rows conditionally", async () => {
+    await store.createAgentInterrupt({
+      id: "interrupt-lifecycle",
+      sessionId: "session-a",
+      toolName: "write_file",
+      canonicalArguments: { path: "notes.md", content: "hello" },
+      digest: "sha256:lifecycle",
+      allowedDecisions: ["approve", "reject"],
+      expiresAt: "2099-01-01T00:00:00.000Z",
+    });
+    await store.createAgentInterrupt({
+      id: "interrupt-old-pending",
+      sessionId: "session-a",
+      toolName: "delete_file",
+      canonicalArguments: { path: "old.md" },
+      digest: "sha256:old",
+      allowedDecisions: ["approve"],
+      expiresAt: "2000-01-01T00:00:00.000Z",
+    });
+
+    assert.ok(await store.expireAgentInterrupts("2026-07-07T00:00:00.000Z") >= 1);
+    assert.equal((await store.getAgentInterrupt("interrupt-old-pending")).status, "expired");
+
+    const decided = await store.decideAgentInterrupt("interrupt-lifecycle", {
+      decision: "approve",
+      status: "approved",
+      decisionPayload: null,
+      now: "2026-07-07T00:00:00.000Z",
+    });
+    assert.equal(decided.status, "approved");
+    assert.equal(decided.decision, "approve");
+    assert.ok(decided.decided_at);
+
+    assert.equal(await store.decideAgentInterrupt("interrupt-lifecycle", {
+      decision: "reject",
+      status: "rejected",
+      now: "2026-07-07T00:01:00.000Z",
+    }), null);
+
+    const claimed = await store.claimAgentInterrupt("interrupt-lifecycle", {
+      claimId: "claim-lifecycle",
+      now: "2026-07-07T00:02:00.000Z",
+    });
+    assert.equal(claimed.status, "claimed");
+    assert.equal(claimed.claim_id, "claim-lifecycle");
+    assert.ok(claimed.claimed_at);
+
+    assert.equal(await store.claimAgentInterrupt("interrupt-lifecycle", {
+      claimId: "claim-replay",
+      now: "2026-07-07T00:03:00.000Z",
+    }), null);
+
+    const completed = await store.completeAgentInterrupt("interrupt-lifecycle", {
+      status: "executed",
+      now: "2026-07-07T00:04:00.000Z",
+    });
+    assert.equal(completed.status, "executed");
+    assert.ok(completed.completed_at);
   });
 
   test("rejects descriptors that cannot be durably reconstructed as JSON", async () => {

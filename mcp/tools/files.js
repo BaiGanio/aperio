@@ -1,4 +1,5 @@
 import { z }                                               from "zod";
+import { createHash }                                      from "crypto";
 import { readFileSync, readdirSync, statSync, lstatSync, existsSync } from "fs";
 import fs                                                  from "fs/promises";
 import { join, extname, basename, dirname, resolve as resolvePath } from "path";
@@ -16,6 +17,7 @@ import {
   getActivePaths,
   getActiveScratchDir,
 } from "../../lib/routes/paths.js";
+import { createInterruptService } from "../../lib/security/interruptService.js";
 
 const __filesDirname = dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR    = resolvePath(__filesDirname, "../../var/uploads");
@@ -78,12 +80,12 @@ function formatPathError(action, filePath) {
 // user for confirmation before it executes.
 
 const WRITE_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minutes
-const pendingWrites = new Map(); // token → { execute, kind, expiresAt }
+const FILE_INTERRUPT_SESSION_ID = "mcp-file-actions";
+const fallbackInterruptStore = makeMemoryInterruptStore();
 
-function pruneWrites() {
-  const now = Date.now();
-  for (const [t, e] of pendingWrites) if (now >= e.expiresAt) pendingWrites.delete(t);
-}
+function nowIso() { return new Date().toISOString(); }
+function expiresAtFromNow() { return new Date(Date.now() + WRITE_TOKEN_TTL_MS).toISOString(); }
+function fileToken(prefix) { return `${prefix}_${Math.random().toString(36).slice(2, 8)}`; }
 
 function readConfirmToken(args) {
   return args.confirmation_token ?? args.token ?? args.confirm ?? args.confirmationToken ?? null;
@@ -103,12 +105,226 @@ function taintNote(args) {
     : [];
 }
 
-// Phase 1: stash the write and return a preview whose `Token:` line the agent
+function digestText(text) {
+  return "sha256:" + createHash("sha256").update(String(text ?? ""), "utf8").digest("hex");
+}
+
+async function targetDigest(path) {
+  try {
+    const text = await fs.readFile(path, "utf8");
+    return digestText(text);
+  } catch (err) {
+    if (err?.code === "ENOENT" || err?.code === "EISDIR") return null;
+    throw err;
+  }
+}
+
+async function currentTargetDigest(path) {
+  return existsSync(path) ? targetDigest(path) : null;
+}
+
+function textOut(text) {
+  return { content: [{ type: "text", text }] };
+}
+
+function makeMemoryInterruptStore() {
+  const rows = new Map();
+  const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+  const get = id => clone(rows.get(id) ?? null);
+  return {
+    async createAgentInterrupt(input) {
+      const row = {
+        id: input.id,
+        session_id: input.sessionId ?? null,
+        run_id: input.runId ?? null,
+        tool_name: input.toolName,
+        canonical_arguments: clone(input.canonicalArguments ?? null),
+        protected_payload_ref: clone(input.protectedPayloadRef ?? null),
+        digest: input.digest,
+        allowed_decisions: clone(input.allowedDecisions),
+        decision: null,
+        decision_payload: null,
+        claim_id: null,
+        status: "pending",
+        created_at: nowIso(),
+        updated_at: nowIso(),
+        decided_at: null,
+        claimed_at: null,
+        completed_at: null,
+        expires_at: input.expiresAt ?? null,
+      };
+      rows.set(row.id, row);
+      return get(row.id);
+    },
+    async getAgentInterrupt(id) { return get(id); },
+    async listAgentInterrupts({ sessionId, status = "pending" } = {}) {
+      return [...rows.values()]
+        .filter(row => !sessionId || row.session_id === sessionId)
+        .filter(row => !status || row.status === status)
+        .map(row => clone(row));
+    },
+    async updateAgentInterruptStatus(id, status) {
+      const row = rows.get(id);
+      if (!row) return null;
+      row.status = status;
+      row.updated_at = nowIso();
+      return get(id);
+    },
+    async expireAgentInterrupts(now = nowIso()) {
+      let count = 0;
+      for (const row of rows.values()) {
+        if (row.status === "pending" && row.expires_at && row.expires_at <= now) {
+          row.status = "expired";
+          row.updated_at = now;
+          count++;
+        }
+      }
+      return count;
+    },
+    async decideAgentInterrupt(id, { decision, status, decisionPayload = null, now = nowIso() }) {
+      const row = rows.get(id);
+      if (!row || row.status !== "pending" || (row.expires_at && row.expires_at <= now)) return null;
+      row.decision = decision;
+      row.decision_payload = clone(decisionPayload);
+      row.status = status;
+      row.decided_at = now;
+      row.updated_at = now;
+      return get(id);
+    },
+    async claimAgentInterrupt(id, { claimId, now = nowIso() }) {
+      const row = rows.get(id);
+      if (!row || !["approved", "edited"].includes(row.status) || (row.expires_at && row.expires_at <= now)) return null;
+      row.status = "claimed";
+      row.claim_id = claimId;
+      row.claimed_at = now;
+      row.updated_at = now;
+      return get(id);
+    },
+    async completeAgentInterrupt(id, { status = "executed", now = nowIso() } = {}) {
+      const row = rows.get(id);
+      if (!row || row.status !== "claimed") return null;
+      row.status = status;
+      row.completed_at = now;
+      row.updated_at = now;
+      return get(id);
+    },
+  };
+}
+
+function interruptStore(ctx) {
+  const store = ctx?.store;
+  return store?.createAgentInterrupt && store?.decideAgentInterrupt && store?.claimAgentInterrupt
+    ? store
+    : fallbackInterruptStore;
+}
+
+async function revalidateFileInterrupt({ canonicalArguments }) {
+  const args = canonicalArguments ?? {};
+  if (!isWritePathAllowed(args.path)) throw new Error(`Write not allowed: ${args.path}`);
+  if (args.path && isSecretFile(args.path)) throw new Error(`Secret/credential files cannot be modified: ${basename(args.path)}`);
+  if (args.ext && !ALLOWED_EXTENSIONS.has(args.ext)) throw new Error(`File type not allowed: ${args.ext}`);
+  const current = await currentTargetDigest(args.path);
+  if (current !== args.targetDigest) {
+    throw new Error(`Target changed since confirmation was requested: ${args.path}`);
+  }
+  return args;
+}
+
+function fileInterruptService(ctx) {
+  return createInterruptService({
+    store: interruptStore(ctx),
+    revalidate: revalidateFileInterrupt,
+    executeTool: executeFileInterrupt,
+  });
+}
+
+async function executeFileInterrupt(toolName, args) {
+  switch (toolName) {
+    case "write_file": return performWrite(args);
+    case "append_file": return performAppend(args);
+    case "edit_file": return performEdit(args);
+    case "delete_file": return performDelete(args);
+    default: throw new Error(`Unsupported file interrupt tool: ${toolName}`);
+  }
+}
+
+async function performWrite({ path: resolved, content, create_dirs = true, existedAtProposal = false, existingSize = null }) {
+  try {
+    if (create_dirs) {
+      const dir = resolved.substring(0, resolved.lastIndexOf("/"));
+      if (dir) await fs.mkdir(dir, { recursive: true });
+    }
+
+    const sizeBefore = existingSize ?? (existedAtProposal ? (await fs.stat(resolved)).size : null);
+    await fs.writeFile(resolved, content, "utf8");
+    const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
+    const msg    = sizeBefore !== null
+      ? `✅ Overwrote ${resolved} (${sizeKb} KB, was ${(sizeBefore / 1024).toFixed(1)} KB)`
+      : `✅ Created ${resolved} (${sizeKb} KB)`;
+
+    return textOut(msg);
+  } catch (err) {
+    return textOut(`❌ write_file failed: ${err.message}`);
+  }
+}
+
+async function performAppend({ path: resolved, content }) {
+  try {
+    const before = (await fs.readFile(resolved, "utf8")).split("\n");
+    await fs.appendFile(resolved, content, "utf8");
+    const after  = (await fs.readFile(resolved, "utf8")).split("\n");
+    const tail   = after.slice(-5).join("\n");
+
+    return textOut(`✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}`);
+  } catch (err) {
+    return textOut(`❌ append_file failed: ${err.message}`);
+  }
+}
+
+async function performEdit({ path: filePath, updated, replaced, linesBefore, linesAfter }) {
+  try {
+    await fs.writeFile(filePath, updated, "utf8");
+    return textOut(`✅ Edited ${filePath} (replaced ${replaced} occurrence${replaced > 1 ? "s" : ""}, ${linesBefore} → ${linesAfter} lines)`);
+  } catch (err) {
+    return textOut(`❌ edit_file failed: ${err.message}`);
+  }
+}
+
+async function performDelete({ path: filePath }) {
+  try {
+    await fs.rm(filePath, { recursive: true, force: false });
+    if (existsSync(filePath)) throw new Error("file still exists after delete");
+    return textOut(`✅ Deleted ${filePath}`);
+  } catch (err) {
+    return textOut(`❌ delete_file failed: ${err.message}`);
+  }
+}
+
+async function commitFileInterrupt(ctx, token, invalidText) {
+  const service = fileInterruptService(ctx);
+  try {
+    const row = await service.decide(token, { decision: "approve" });
+    if (!row || row.status === "expired") return textOut(invalidText);
+    const { result } = await service.claimAndExecute(token);
+    return result;
+  } catch (err) {
+    return textOut(`${invalidText} ${err.message}`);
+  }
+}
+
+// Phase 1: persist the write and return a preview whose `Token:` line the agent
 // turns into a confirm button (and strips from the model's view).
-function proposeWrite({ kind, label, summaryLines, execute }) {
-  pruneWrites();
-  const token = "wr_" + Math.random().toString(36).slice(2, 8);
-  pendingWrites.set(token, { execute, kind, expiresAt: Date.now() + WRITE_TOKEN_TTL_MS });
+async function proposeWrite(ctx, { kind, label, summaryLines, canonicalArguments }) {
+  const token = fileToken("wr");
+  await fileInterruptService(ctx).create({
+    id: token,
+    sessionId: ctx?.sessionId ?? process.env.APERIO_SESSION_ID ?? FILE_INTERRUPT_SESSION_ID,
+    runId: ctx?.runId ?? process.env.APERIO_RUN_ID ?? null,
+    toolName: kind,
+    canonicalArguments,
+    allowedDecisions: ["approve", "edit", "reject", "respond"],
+    expiresAt: expiresAtFromNow(),
+  });
   return { content: [{ type: "text", text: [
     `⚠️ ${kind} pending your confirmation — nothing has been written yet.`,
     "",
@@ -117,19 +333,6 @@ function proposeWrite({ kind, label, summaryLines, execute }) {
     `Action: ${label}`,
     `Token: ${token}`,
   ].join("\n") }] };
-}
-
-// Phase 2: look up the stashed write by token and run it.
-async function commitWrite(token) {
-  pruneWrites();
-  const entry = pendingWrites.get(token);
-  if (!entry || Date.now() >= entry.expiresAt) {
-    pendingWrites.delete(token);
-    return { content: [{ type: "text", text: `❌ Confirmation token invalid or expired. Nothing was written.` }] };
-  }
-  pendingWrites.delete(token);
-  try { return await entry.execute(); }
-  catch (err) { return { content: [{ type: "text", text: `❌ ${entry.kind} failed: ${err.message}` }] }; }
 }
 
 // Render one side of a diff, capped so the confirm summary stays readable.
@@ -175,7 +378,7 @@ export async function readFileHandler({ path: filePath, max_lines, offset = 0 })
 
 export async function writeFileHandler(ctx, args) {
   const token = readConfirmToken(args);
-  if (token) return commitWrite(token);
+  if (token) return commitFileInterrupt(ctx, token, "❌ Confirmation token invalid or expired. Nothing was written.");
 
   const { path: filePath, content, create_dirs = true } = args;
   const resolved = filePath.replace(/^~/, process.cwd());
@@ -183,33 +386,21 @@ export async function writeFileHandler(ctx, args) {
     return formatPathError("Write", resolved);
 
   const exists = existsSync(resolved);
-
-  const doWrite = async () => {
-    try {
-      if (create_dirs) {
-        const dir = resolved.substring(0, resolved.lastIndexOf("/"));
-        if (dir) await fs.mkdir(dir, { recursive: true });
-      }
-
-      let existingSize = null;
-      try { existingSize = (await fs.stat(resolved)).size; } catch {}
-
-      await fs.writeFile(resolved, content, "utf8");
-      const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
-      const msg    = existingSize !== null
-        ? `✅ Overwrote ${resolved} (${sizeKb} KB, was ${(existingSize / 1024).toFixed(1)} KB)`
-        : `✅ Created ${resolved} (${sizeKb} KB)`;
-
-      return { content: [{ type: "text", text: msg }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `❌ write_file failed: ${err.message}` }] };
-    }
+  let existingSize = null;
+  try { existingSize = exists ? (await fs.stat(resolved)).size : null; } catch {}
+  const canonicalArguments = {
+    path: resolved,
+    content,
+    create_dirs,
+    targetDigest: await currentTargetDigest(resolved),
+    existedAtProposal: exists,
+    existingSize,
   };
 
-  if (!needsWriteConfirm(resolved, args)) return doWrite();
+  if (!needsWriteConfirm(resolved, args)) return performWrite(canonicalArguments);
 
   const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
-  return proposeWrite({
+  return proposeWrite(ctx, {
     kind:  "write_file",
     label: `${exists ? "Overwrite" : "Create"} ${basename(resolved)}`,
     summaryLines: [
@@ -217,13 +408,13 @@ export async function writeFileHandler(ctx, args) {
       `**Change:** ${exists ? "overwrite existing file" : "create new file"} (${sizeKb} KB)`,
       ...taintNote(args),
     ],
-    execute: doWrite,
+    canonicalArguments,
   });
 }
 
 export async function appendFileHandler(ctx, args) {
   const token = readConfirmToken(args);
-  if (token) return commitWrite(token);
+  if (token) return commitFileInterrupt(ctx, token, "❌ Confirmation token invalid or expired. Nothing was written.");
 
   const { path: filePath, content } = args;
   const resolved = filePath.replace(/^~/, process.cwd());
@@ -233,24 +424,15 @@ export async function appendFileHandler(ctx, args) {
   if (!existsSync(resolved))
     return { content: [{ type: "text", text: `❌ File not found: ${resolved}` }] };
 
-  const doAppend = async () => {
-    try {
-      const before = (await fs.readFile(resolved, "utf8")).split("\n");
-      await fs.appendFile(resolved, content, "utf8");
-      const after  = (await fs.readFile(resolved, "utf8")).split("\n");
-      const tail   = after.slice(-5).join("\n");
-
-      return {
-        content: [{ type: "text", text: `✅ Appended to ${resolved}\nWas ${before.length} lines → now ${after.length} lines\n\nLast 5 lines:\n${tail}` }],
-      };
-    } catch (err) {
-      return { content: [{ type: "text", text: `❌ append_file failed: ${err.message}` }] };
-    }
+  const canonicalArguments = {
+    path: resolved,
+    content,
+    targetDigest: await currentTargetDigest(resolved),
   };
 
-  if (!needsWriteConfirm(resolved, args)) return doAppend();
+  if (!needsWriteConfirm(resolved, args)) return performAppend(canonicalArguments);
 
-  return proposeWrite({
+  return proposeWrite(ctx, {
     kind:  "append_file",
     label: `Append to ${basename(resolved)}`,
     summaryLines: [
@@ -258,7 +440,7 @@ export async function appendFileHandler(ctx, args) {
       `**Change:** append ${Buffer.byteLength(content, "utf8")} bytes to the end`,
       ...taintNote(args),
     ],
-    execute: doAppend,
+    canonicalArguments,
   });
 }
 
@@ -316,7 +498,7 @@ export async function scanProjectHandler({ path: projectPath, read_key_files = t
 
 export async function editFileHandler(ctx, args) {
   const token = readConfirmToken(args);
-  if (token) return commitWrite(token);
+  if (token) return commitFileInterrupt(ctx, token, "❌ Confirmation token invalid or expired. Nothing was written.");
 
   const filePath = args.path;
   // Normalize the find/replace text from whatever alias the model used. First
@@ -361,23 +543,19 @@ export async function editFileHandler(ctx, args) {
     ? original.split(old_string).join(new_string)
     : original.replace(old_string, new_string);
   const replaced = replace_all ? occurrences : 1;
-
-  const doEdit = async () => {
-    try {
-      await fs.writeFile(filePath, updated, "utf8");
-      const linesBefore = original.split("\n").length;
-      const linesAfter  = updated.split("\n").length;
-      return {
-        content: [{ type: "text", text: `✅ Edited ${filePath} (replaced ${replaced} occurrence${replaced > 1 ? "s" : ""}, ${linesBefore} → ${linesAfter} lines)` }],
-      };
-    } catch (err) {
-      return { content: [{ type: "text", text: `❌ edit_file failed: ${err.message}` }] };
-    }
+  const canonicalArguments = {
+    path: filePath,
+    updated,
+    replaced,
+    linesBefore: original.split("\n").length,
+    linesAfter: updated.split("\n").length,
+    targetDigest: digestText(original),
+    ext,
   };
 
-  if (!needsWriteConfirm(filePath, args)) return doEdit();
+  if (!needsWriteConfirm(filePath, args)) return performEdit(canonicalArguments);
 
-  return proposeWrite({
+  return proposeWrite(ctx, {
     kind:  "edit_file",
     label: `Edit ${basename(filePath)}`,
     summaryLines: [
@@ -389,7 +567,7 @@ export async function editFileHandler(ctx, args) {
       "```",
       ...taintNote(args),
     ],
-    execute: doEdit,
+    canonicalArguments,
   });
 }
 
@@ -545,47 +723,18 @@ export async function readDocxHandler({ path: filePath }) {
 // ─── delete_file — two-phase commit ───────────────────────────────────────────
 
 const DELETE_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minutes
-const pendingDeletes = new Map(); // token → { path, expiresAt }
 
-function pruneExpiredTokens() {
-  const now = Date.now();
-  for (const [token, entry] of pendingDeletes) {
-    if (now >= entry.expiresAt) pendingDeletes.delete(token);
-  }
-}
-
-function generateDeleteToken() {
-  return "del_" + Math.random().toString(36).slice(2, 8);
-}
-
-export async function deleteFileHandler(args) {
+export async function deleteFileHandler(args, ctx = {}) {
   // Normalize token aliases — models frequently use "token", "confirm", etc.
   const confirmation_token =
     args.confirmation_token ?? args.token ?? args.confirm ??
     args.auth_token ?? args.confirmationToken ?? null;
 
-  pruneExpiredTokens();
-
   // Phase 2: commit. The token maps to the path stashed at propose time, so the
   // confirmation needs only the token — the web button click executes this
   // directly on the server, and a terminal user can reply with the token.
   if (confirmation_token) {
-    const entry = pendingDeletes.get(confirmation_token);
-    if (!entry || Date.now() >= entry.expiresAt) {
-      pendingDeletes.delete(confirmation_token);
-      return { content: [{ type: "text", text: `❌ Confirmation token invalid or expired. Deletion aborted.` }] };
-    }
-    pendingDeletes.delete(confirmation_token);
-
-    const filePath = entry.path;
-    if (!isWritePathAllowed(filePath))
-      return formatPathError("Write", filePath);
-    try {
-      await fs.unlink(filePath);
-      return { content: [{ type: "text", text: `✅ Deleted ${filePath}` }] };
-    } catch (err) {
-      return { content: [{ type: "text", text: `❌ delete_file failed: ${err.message}` }] };
-    }
+    return commitFileInterrupt(ctx, confirmation_token, "❌ Confirmation token invalid or expired. Deletion aborted.");
   }
 
   // Phase 1: propose.
@@ -597,19 +746,36 @@ export async function deleteFileHandler(args) {
 
   // If a live token was already issued for this path, re-surface it so the
   // user doesn't have to re-confirm with yet another token.
-  for (const [existing, entry] of pendingDeletes) {
-    if (entry.path === filePath) {
+  const service = fileInterruptService(ctx);
+  const pending = await service.list({
+    sessionId: ctx?.sessionId ?? process.env.APERIO_SESSION_ID ?? FILE_INTERRUPT_SESSION_ID,
+  });
+  const existing = pending.find(row =>
+    row.tool_name === "delete_file" && row.canonical_arguments?.path === filePath
+  );
+  if (existing) {
+    const expiresAt = existing.expires_at ? new Date(existing.expires_at).getTime() : Date.now() + DELETE_TOKEN_TTL_MS;
       return {
         content: [{
-          type: "text",
-          text: `⚠️ Deletion pending confirmation\nTarget: ${filePath}\nToken: ${existing}\n\nA token was already issued. Confirm with token "${existing}". It expires in ${Math.ceil((entry.expiresAt - Date.now()) / 1000)}s.`,
+        type: "text",
+        text: `⚠️ Deletion pending confirmation\nTarget: ${filePath}\nToken: ${existing.id}\n\nA token was already issued. Confirm with token "${existing.id}". It expires in ${Math.ceil((expiresAt - Date.now()) / 1000)}s.`,
         }],
       };
-    }
   }
 
-  const token = generateDeleteToken();
-  pendingDeletes.set(token, { path: filePath, expiresAt: Date.now() + DELETE_TOKEN_TTL_MS });
+  const token = fileToken("del");
+  await service.create({
+    id: token,
+    sessionId: ctx?.sessionId ?? process.env.APERIO_SESSION_ID ?? FILE_INTERRUPT_SESSION_ID,
+    runId: ctx?.runId ?? process.env.APERIO_RUN_ID ?? null,
+    toolName: "delete_file",
+    canonicalArguments: {
+      path: filePath,
+      targetDigest: await currentTargetDigest(filePath),
+    },
+    allowedDecisions: ["approve", "reject", "respond"],
+    expiresAt: new Date(Date.now() + DELETE_TOKEN_TTL_MS).toISOString(),
+  });
 
   return {
     content: [{
@@ -722,7 +888,7 @@ export function register(server, ctx) {
         confirm:            z.string().optional().describe("Alias for confirmation_token"),
       }).passthrough(),
     },
-    deleteFileHandler
+    (args) => deleteFileHandler(args, ctx)
   );
 
   server.registerTool(

@@ -162,10 +162,11 @@ mock.method(fsAsync, "appendFile", mockAppendFile);
 mock.method(fsAsync, "mkdir",      mockMkdir);
 mock.method(fsAsync, "stat",       mockStat);
 mock.method(fsAsync, "rm",         mockRm);
+mock.method(fsAsync, "unlink",     mockRm);
 
 // Dynamic import: files.js loads here and binds to our patched functions.
 // paths.js also loads here and computes BASE_DIR = process.cwd() = TMP.
-const { readFileHandler, writeFileHandler, appendFileHandler, editFileHandler, scanProjectHandler } =
+const { readFileHandler, writeFileHandler, appendFileHandler, editFileHandler, deleteFileHandler, scanProjectHandler } =
   await import("../../../mcp/tools/files.js");
 
 // paths.js is already cached from the files.js import above; this re-export
@@ -190,6 +191,80 @@ function tmpFile(name, content = "line1\nline2\nline3\n") {
   const p = join(TMP, name);
   vfsSetupFile(p, content);
   return p;
+}
+
+function makeInterruptStore() {
+  const rows = new Map();
+  const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+  const get = id => clone(rows.get(id) ?? null);
+  return {
+    rows,
+    async createAgentInterrupt(input) {
+      const row = {
+        id: input.id,
+        session_id: input.sessionId ?? null,
+        run_id: input.runId ?? null,
+        tool_name: input.toolName,
+        canonical_arguments: clone(input.canonicalArguments ?? null),
+        protected_payload_ref: clone(input.protectedPayloadRef ?? null),
+        digest: input.digest,
+        allowed_decisions: clone(input.allowedDecisions),
+        decision: null,
+        decision_payload: null,
+        claim_id: null,
+        status: "pending",
+        created_at: "2026-07-07T00:00:00.000Z",
+        updated_at: "2026-07-07T00:00:00.000Z",
+        decided_at: null,
+        claimed_at: null,
+        completed_at: null,
+        expires_at: input.expiresAt ?? null,
+      };
+      rows.set(row.id, row);
+      return get(row.id);
+    },
+    async getAgentInterrupt(id) { return get(id); },
+    async listAgentInterrupts({ sessionId, status = "pending" } = {}) {
+      return [...rows.values()]
+        .filter(row => !sessionId || row.session_id === sessionId)
+        .filter(row => !status || row.status === status)
+        .map(row => clone(row));
+    },
+    async updateAgentInterruptStatus(id, status) {
+      const row = rows.get(id);
+      if (!row) return null;
+      row.status = status;
+      return get(id);
+    },
+    async expireAgentInterrupts() { return 0; },
+    async decideAgentInterrupt(id, { decision, status, decisionPayload, now }) {
+      const row = rows.get(id);
+      if (!row || row.status !== "pending") return null;
+      row.decision = decision;
+      row.decision_payload = clone(decisionPayload);
+      row.status = status;
+      row.decided_at = now;
+      row.updated_at = now;
+      return get(id);
+    },
+    async claimAgentInterrupt(id, { claimId, now }) {
+      const row = rows.get(id);
+      if (!row || !["approved", "edited"].includes(row.status)) return null;
+      row.status = "claimed";
+      row.claim_id = claimId;
+      row.claimed_at = now;
+      row.updated_at = now;
+      return get(id);
+    },
+    async completeAgentInterrupt(id, { status, now }) {
+      const row = rows.get(id);
+      if (!row || row.status !== "claimed") return null;
+      row.status = status;
+      row.completed_at = now;
+      row.updated_at = now;
+      return get(id);
+    },
+  };
 }
 
 // WRITE-01: a write outside the session scratch workspace now needs user
@@ -477,6 +552,71 @@ describe("write confirm gate (WRITE-01)", () => {
     const r2 = await editFileHandler(ctx, { confirmation_token: token });
     assert.match(r2.content[0].text, /✅ Edited/);
     assert.equal(vfsRead(p), "const a = 2;\n");
+  });
+
+  test("write approvals persist as durable descriptors and execute through claim", async () => {
+    const store = makeInterruptStore();
+    const durableCtx = { store, sessionId: "session-files" };
+    const p = join(TMP, "durable-write.js");
+
+    const proposed = await writeFileHandler(durableCtx, { path: p, content: "durable\n" });
+    const token = proposed.content[0].text.match(/Token:\s*(wr_[a-z0-9]+)/)[1];
+    const row = await store.getAgentInterrupt(token);
+
+    assert.equal(row.session_id, "session-files");
+    assert.equal(row.tool_name, "write_file");
+    assert.equal(row.status, "pending");
+    assert.deepEqual(Object.keys(row.canonical_arguments).sort(), [
+      "content",
+      "create_dirs",
+      "existedAtProposal",
+      "existingSize",
+      "path",
+      "targetDigest",
+    ]);
+    assert.equal(typeof row.canonical_arguments.content, "string");
+    assert.ok(!vfsExists(p), "proposal does not write");
+
+    const committed = await writeFileHandler(durableCtx, { confirmation_token: token });
+    assert.match(committed.content[0].text, /✅ Created/);
+    assert.equal(vfsRead(p), "durable\n");
+    assert.equal((await store.getAgentInterrupt(token)).status, "executed");
+  });
+
+  test("confirm revalidates target state before executing a stale edit", async () => {
+    const store = makeInterruptStore();
+    const durableCtx = { store, sessionId: "session-files" };
+    const p = tmpFile("stale-edit.js", "const a = 1;\n");
+
+    const proposed = await editFileHandler(durableCtx, {
+      path: p,
+      old_string: "const a = 1;",
+      new_string: "const a = 2;",
+    });
+    const token = proposed.content[0].text.match(/Token:\s*(wr_[a-z0-9]+)/)[1];
+    vfsSetupFile(p, "const a = 9;\n");
+
+    const committed = await editFileHandler(durableCtx, { confirmation_token: token });
+    assert.match(committed.content[0].text, /Target changed since confirmation was requested/);
+    assert.equal(vfsRead(p), "const a = 9;\n");
+  });
+
+  test("delete_file persists and reuses durable pending descriptors", async () => {
+    const store = makeInterruptStore();
+    const durableCtx = { store, sessionId: "session-files" };
+    const p = tmpFile("delete-me.js", "remove me\n");
+
+    const proposed = await deleteFileHandler({ path: p }, durableCtx);
+    const token = proposed.content[0].text.match(/Token:\s*(del_[a-z0-9]+)/)[1];
+    assert.equal((await store.getAgentInterrupt(token)).tool_name, "delete_file");
+
+    const duplicate = await deleteFileHandler({ path: p }, durableCtx);
+    assert.match(duplicate.content[0].text, new RegExp(`Token: ${token}`));
+
+    const committed = await deleteFileHandler({ confirmation_token: token }, durableCtx);
+    assert.match(committed.content[0].text, /✅ Deleted/);
+    assert.ok(!vfsExists(p), committed.content[0].text);
+    assert.equal((await store.getAgentInterrupt(token)).status, "executed");
   });
 });
 

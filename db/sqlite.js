@@ -40,6 +40,7 @@ import { WIKI_SEED } from './wiki-seed.js';
 import { MEMORY_SEED } from './memory-seed.js';
 import { MEMORY_SEED_LITE } from './memory-seed-lite.js';
 import { SELF_MEMORY_SEED } from './self-memory-seed.js';
+import { AGENT_JOB_SEED } from './agent-job-seed.js';
 import { DB_TABLES, isAllowedTable } from './tables.js';
 
 const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
@@ -530,6 +531,22 @@ export class SqliteStore {
       });
       txSelf();
       logger.info(`[sqlite] Seeded ${SELF_MEMORY_SEED.length} baseline self-memories.`);
+    }
+
+    const jobCount = db.prepare(`SELECT COUNT(*) AS n FROM agent_jobs`).get().n;
+    if (jobCount === 0) {
+      const insJob = db.prepare(`
+        INSERT INTO agent_jobs (id, enabled, definition, updated_at)
+        VALUES (?, ?, ?, ?)
+      `);
+      const txJobs = db.transaction(() => {
+        for (const job of AGENT_JOB_SEED) {
+          const { id, enabled, created_at, updated_at, ...definition } = job;
+          insJob.run(id, enabled ? 1 : 0, JSON.stringify(definition), nowIso());
+        }
+      });
+      txJobs();
+      logger.info(`[sqlite] Seeded ${AGENT_JOB_SEED.length} baseline background-agent job(s).`);
     }
 
     return store;
@@ -1404,9 +1421,15 @@ export class SqliteStore {
       protected_payload_ref: parseJsonColumn(row.protected_payload_ref),
       digest: row.digest,
       allowed_decisions: parseJsonColumn(row.allowed_decisions),
+      decision: row.decision ?? null,
+      decision_payload: parseJsonColumn(row.decision_payload),
+      claim_id: row.claim_id ?? null,
       status: row.status,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      decided_at: row.decided_at ?? null,
+      claimed_at: row.claimed_at ?? null,
+      completed_at: row.completed_at ?? null,
       expires_at: row.expires_at ?? null,
     };
   }
@@ -1477,6 +1500,50 @@ export class SqliteStore {
          SET status = ?, updated_at = ?
        WHERE id = ?
     `).run(status, nowIso(), id);
+    return info.changes > 0 ? this.getAgentInterrupt(id) : null;
+  }
+
+  async expireAgentInterrupts(now = nowIso()) {
+    const info = this.db.prepare(`
+      UPDATE agent_interrupts
+         SET status = 'expired', updated_at = ?
+       WHERE status = 'pending'
+         AND expires_at IS NOT NULL
+         AND expires_at <= ?
+    `).run(now, now);
+    return info.changes;
+  }
+
+  async decideAgentInterrupt(id, { decision, status, decisionPayload = null, now = nowIso() }) {
+    const payload = assertJsonPersistable(decisionPayload, "decisionPayload");
+    const info = this.db.prepare(`
+      UPDATE agent_interrupts
+         SET decision = ?, decision_payload = ?, status = ?, decided_at = ?, updated_at = ?
+       WHERE id = ?
+         AND status = 'pending'
+         AND (expires_at IS NULL OR expires_at > ?)
+    `).run(decision, payload, status, now, now, id, now);
+    return info.changes > 0 ? this.getAgentInterrupt(id) : null;
+  }
+
+  async claimAgentInterrupt(id, { claimId, now = nowIso() }) {
+    const info = this.db.prepare(`
+      UPDATE agent_interrupts
+         SET status = 'claimed', claim_id = ?, claimed_at = ?, updated_at = ?
+       WHERE id = ?
+         AND status IN ('approved', 'edited')
+         AND (expires_at IS NULL OR expires_at > ?)
+    `).run(claimId, now, now, id, now);
+    return info.changes > 0 ? this.getAgentInterrupt(id) : null;
+  }
+
+  async completeAgentInterrupt(id, { status = "executed", now = nowIso() } = {}) {
+    const info = this.db.prepare(`
+      UPDATE agent_interrupts
+         SET status = ?, completed_at = ?, updated_at = ?
+       WHERE id = ?
+         AND status = 'claimed'
+    `).run(status, now, now, id);
     return info.changes > 0 ? this.getAgentInterrupt(id) : null;
   }
 
