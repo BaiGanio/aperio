@@ -6,8 +6,9 @@ Created: 2026-07-06
 
 Source inspiration: `langchain-ai/deepagents`
 
-Implementation rule: every numbered slice below is completed and verified in its
-own clean commit.
+Implementation rule: every numbered slice below is completed and verified as a
+small reviewable change. The implementation assistant leaves changes unstaged
+and uncommitted; the maintainer reviews and creates the clean commit.
 
 ## Objective
 
@@ -45,6 +46,9 @@ Before starting any slice:
 1. `git status --short` must be clean.
 2. Identify the exact source and test files expected to change.
 3. Do not include drive-by formatting, generated files, or unrelated fixes.
+
+The implementation assistant must not stage, commit, amend, reset, or push these
+changes. Commit commands and final staging belong to the maintainer.
 
 Before committing a slice:
 
@@ -103,7 +107,7 @@ to the model.
   - Tests: path safety, atomic write, digest stability, metadata, and cleanup.
   - Commit: `feat(context): add scoped artifact store`
 
-- [ ] **1.2 Tool-result offload policy**
+- [x] **1.2 Tool-result offload policy**
   - Apply a configurable token/byte threshold after tool execution.
   - Replace oversized text with head/tail preview, omitted-size notice, artifact
     ID, and retrieval instructions.
@@ -451,6 +455,18 @@ phase's final slice cannot contain the correction cleanly:
 - [ ] `git diff --check` passes and the worktree is clean after commit.
 - [ ] `FEATURES.md` and user documentation are updated only for shipped behavior.
 
+## Phase verification notes
+
+When a phase is completed, add a short developer handoff here if manual testing
+or operational inspection would catch problems that automated tests cannot.
+Keep it practical: commands to run, one or two smoke scenarios, expected
+artifacts/events, and known limitations. Omit the note when it would only repeat
+the automated acceptance checks.
+
+### Phase 1
+
+Pending completion of slices 1.3 and 1.4.
+
 ## Progress log
 
 Add one line after each completed slice. The progress-log update belongs in that
@@ -460,3 +476,4 @@ slice's commit, so the plan and code cannot drift.
 |---|---|---|---|---|
 | 2026-07-06 | Plan created | `docs(agent): add orchestration implementation plan` | `git diff --check` | Initial roadmap |
 | 2026-07-06 | 1.1 Artifact store contract | `feat(context): add scoped artifact store` | 92 focused pass; full 2668/2671; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Private immutable session/run storage |
+| 2026-07-06 | 1.2 Tool-result offload policy | maintainer commit pending | 163 focused pass; full 2678/2681; 3 contended E2E cases pass 15/15 in isolation; syntax; config generation; diff check | Full redacted result retained; bounded preview enters model context |
