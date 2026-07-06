@@ -7,8 +7,8 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 ---
 
 ## Memory
-- Save memories with type, title, tags, importance, optional expiry (`remember`)
-- Semantic + full-text recall across all memories (`recall`)
+- Save memories with type, title, tags, importance, optional `tier` (1=normal, 2=sensitive, 3=private), optional expiry (`remember`)
+- Semantic + full-text recall across all memories (`recall`) — accepts `maxTier` to filter by sensitivity
 - Update by ID — tombstones old version, regenerates embedding (`update_memory`)
 - Delete by ID (`forget`)
 - Generate embeddings for memories missing one (`backfill_embeddings`)
@@ -16,7 +16,7 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 
 ## Self-Memory
 - Agent's own walled-off memory store — separate table, never mixed with user memories
-- Save notes with title, tags, importance, language, confidence (`self_remember`)
+- Save notes with title, tags, importance, language, confidence (`self_remember`) — model identity recorded in `generated_by`
 - Semantic + full-text recall across own notes (`self_recall`)
 - Revise in-place by ID (`self_update`)
 - Delete by ID (`self_forget`)
@@ -199,7 +199,10 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - `.env` written `0600` with injection-safe quoting; default Postgres password hard-fail (`APERIO_ALLOW_DEFAULT_DB_PASSWORD` opt-out)
 - Secret redaction (PEM keys, API tokens, JWTs, URI passwords) at every cloud-provider send boundary; local Ollama skipped
 - Oversized tool results are secret-redacted before entering the private artifact store; previews are generated from the redacted copy
-- `local-only`-tagged memories dropped from recall on cloud providers; memory inference/dedup workers gated to local provider (`APERIO_CLOUD_MEMORY_WORKERS` opt-in)
+- Memory sensitivity tiers: `tier: 1` (normal, always shared), `tier: 2` (sensitive, withheld or PII-redacted on cloud), `tier: 3` (private, never leaves the machine). Legacy `local-only` tag maps to tier 2.
+- Cloud sensitive mode (`APERIO_CLOUD_SENSITIVE_MODE`): `withhold` (default — tier-2 filtered on cloud) or `redact` (PII-scrubbed via `lib/privacy/redact.js`)
+- PII redaction library — EMAIL, PHONE, CARD, IBAN regex-based detection; server-side redact before cloud send, restore on return
+- Memory inference/dedup workers gated to local provider (`APERIO_CLOUD_MEMORY_WORKERS` opt-in)
 - At-rest `0600` perms + secret scrubbing for sessions, handoffs, and error logs
 - SQLite at-rest encryption — AES-256-GCM with key in OS keychain (macOS Keychain, Linux libsecret, Windows DPAPI); plaintext in `$TMPDIR` only while running; auto-migrates existing plaintext DB on first enable; DELETE journal when encrypted (no WAL plaintext leakage); crash recovery from leftover temp files (`APERIO_DB_ENCRYPT=1`)
 
