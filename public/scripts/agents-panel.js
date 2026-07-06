@@ -197,7 +197,7 @@
   const TEMPLATES = {
     "nightly-maintenance": {
       id: "nightly-maintenance",
-      enabled: true,
+      enabled: false,
       trigger: { kind: "interval", everyMs: 86400000 },
       steps: [
         { tool: "backfill_embeddings", input: {} },

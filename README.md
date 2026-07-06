@@ -77,6 +77,7 @@ Your context, always available.
 │   ├── 📂 handlers/              # Attachment and memory handlers
 │   ├── 📂 helpers/               # Embeddings, logger, port, shutdown, Ollama health
 │   ├── 📂 context/               # Context trimming + private large-result artifact storage
+│   ├── 📂 security/              # Durable interrupt service for resumable sensitive actions
 │   ├── 📂 routes/                # Express API routes + path safety guards
 │   ├── 📂 utils/                 # Chat utilities
 │   └── 📂 workers/               # Deduplication, reasoning adapters, skill loader
@@ -494,6 +495,26 @@ timing, decision (`continue`, `update`, `stop`, or `error`), and error class.
 The trace retains at most 200 entries and never stores prompts, tool arguments,
 tool results, exception messages, secrets, or artifact contents.
 
+`lib/security/interruptService.js` provides the durable foundation for
+resumable sensitive actions. Pending action descriptors are stored in the same
+SQLite/Postgres backend as sessions and background runs with tool name,
+canonical arguments or a protected payload reference, digest, allowed decisions,
+status, timestamps, expiry, and claim/completion metadata. The service supports
+approve, edit, reject, and respond decisions; repeated identical decisions are
+idempotent, conflicting replays are rejected, and approved/edited actions must
+be atomically claimed before execution so they cannot run twice. File
+write/append/edit/delete confirmations now use this service while preserving
+the existing `wr_...` / `del_...` token UX, capped edit diffs, tainted-turn
+confirmation, and clean scratch-workspace auto-writes. Database writes through
+`db_execute` use the same durable service with JSON-stored connection name,
+normalized SQL, bound params, statement class, and commit-time revalidation of
+SQL classification plus connection write permissions.
+
+Fresh SQLite and Postgres stores also seed a disabled `nightly-maintenance`
+background-agent example. It runs `backfill_embeddings` followed by dry-run
+`deduplicate_memories` when the user explicitly enables the job and background
+agent scheduler.
+
 ```bash
 NODE_ENV=test node --test \
   tests/lib/agent/middleware.test.js \
@@ -754,6 +775,15 @@ your machine.
 
 ## Security
 Aperio runs on your machine and has access to your file system through the `scan_project`, `write_file`, `append_file`, and `read_file` tools. File operations are gated by a path safety system — read and write access are controlled independently.
+
+Sensitive actions also have a durable interrupt service underneath the agent
+runtime. It persists pending action descriptors, validates decisions, expires
+stale requests, and uses atomic claim/completion state so a committed action is
+not replayed after reconnect or restart. File write/delete approvals are backed
+by that layer now and re-check write permissions plus target file state before
+execution. `db_execute` database-write approvals are also backed by that layer
+and re-check statement classification plus connection writability before
+execution.
 
 ### File System Access
 

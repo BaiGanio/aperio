@@ -11,6 +11,7 @@ import { MEMORY_SEED } from './memory-seed.js';
 import { MEMORY_SEED_LITE } from './memory-seed-lite.js';
 import { WIKI_SEED } from './wiki-seed.js';
 import { SELF_MEMORY_SEED } from './self-memory-seed.js';
+import { AGENT_JOB_SEED } from './agent-job-seed.js';
 
 // The example/default Postgres password shipped in .env.example. Connecting
 // with it means the user never set a real one — refuse rather than run with a
@@ -134,6 +135,15 @@ export class PostgresStore {
             `INSERT INTO self_memories (title, content, tags, importance, source, lang, confidence, generated_by)
              VALUES ($1,$2,$3,$4,'system','english',1.0,'seed')`,
             [s.title, s.content, s.tags ?? [], s.importance ?? 3]);
+        }
+      }
+      if (await count('agent_jobs') === 0) {
+        for (const job of AGENT_JOB_SEED) {
+          const { id, enabled, created_at, updated_at, ...definition } = job;
+          await this.pool.query(
+            `INSERT INTO agent_jobs (id, enabled, definition, updated_at)
+             VALUES ($1,$2,$3::jsonb, now()) ON CONFLICT (id) DO NOTHING`,
+            [id, !!enabled, JSON.stringify(definition)]);
         }
       }
     } catch (err) {
@@ -824,9 +834,15 @@ export class PostgresStore {
       protected_payload_ref: row.protected_payload_ref ?? null,
       digest: row.digest,
       allowed_decisions: row.allowed_decisions,
+      decision: row.decision ?? null,
+      decision_payload: row.decision_payload ?? null,
+      claim_id: row.claim_id ?? null,
       status: row.status,
       created_at: row.created_at,
       updated_at: row.updated_at,
+      decided_at: row.decided_at ?? null,
+      claimed_at: row.claimed_at ?? null,
+      completed_at: row.completed_at ?? null,
       expires_at: row.expires_at ?? null,
     };
   }
@@ -903,6 +919,57 @@ export class PostgresStore {
         WHERE id = $1
         RETURNING *`,
       [id, status]
+    );
+    return this._rowToAgentInterrupt(rows[0]);
+  }
+
+  async expireAgentInterrupts(now = new Date().toISOString()) {
+    const { rowCount } = await this.pool.query(
+      `UPDATE agent_interrupts
+          SET status = 'expired', updated_at = $1
+        WHERE status = 'pending'
+          AND expires_at IS NOT NULL
+          AND expires_at <= $1`,
+      [now]
+    );
+    return rowCount;
+  }
+
+  async decideAgentInterrupt(id, { decision, status, decisionPayload = null, now = new Date().toISOString() }) {
+    const payload = assertJsonPersistable(decisionPayload, "decisionPayload");
+    const { rows } = await this.pool.query(
+      `UPDATE agent_interrupts
+          SET decision = $2, decision_payload = $3::jsonb, status = $4, decided_at = $5, updated_at = $5
+        WHERE id = $1
+          AND status = 'pending'
+          AND (expires_at IS NULL OR expires_at > $5)
+        RETURNING *`,
+      [id, decision, payload, status, now]
+    );
+    return this._rowToAgentInterrupt(rows[0]);
+  }
+
+  async claimAgentInterrupt(id, { claimId, now = new Date().toISOString() }) {
+    const { rows } = await this.pool.query(
+      `UPDATE agent_interrupts
+          SET status = 'claimed', claim_id = $2, claimed_at = $3, updated_at = $3
+        WHERE id = $1
+          AND status IN ('approved', 'edited')
+          AND (expires_at IS NULL OR expires_at > $3)
+        RETURNING *`,
+      [id, claimId, now]
+    );
+    return this._rowToAgentInterrupt(rows[0]);
+  }
+
+  async completeAgentInterrupt(id, { status = "executed", now = new Date().toISOString() } = {}) {
+    const { rows } = await this.pool.query(
+      `UPDATE agent_interrupts
+          SET status = $2, completed_at = $3, updated_at = $3
+        WHERE id = $1
+          AND status = 'claimed'
+        RETURNING *`,
+      [id, status, now]
     );
     return this._rowToAgentInterrupt(rows[0]);
   }

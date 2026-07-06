@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: Phase 3 in progress — 3.1 complete
+Status: Phase 3 in progress — 3.4 complete
 
 Created: 2026-07-06
 
@@ -262,19 +262,19 @@ approve, edit, reject, and respond decisions.
   - Never persist executable closures.
   - Commit: `feat(security): persist agent interrupts`
 
-- [ ] **3.2 Interrupt service**
+- [x] **3.2 Interrupt service**
   - Create, list, expire, decide, and atomically claim interrupts.
   - Revalidate tool schema, permissions, taint, target state, and payload digest
     immediately before execution.
   - Make decisions idempotent and safe against replay.
   - Commit: `feat(security): add durable interrupt service`
 
-- [ ] **3.3 Migrate file writes and deletes**
+- [x] **3.3 Migrate file writes and deletes**
   - Replace in-memory write/delete token maps with durable descriptors.
   - Preserve capped diffs and current scratch-workspace behavior.
   - Commit: `feat(security): make file approvals resumable`
 
-- [ ] **3.4 Migrate database writes**
+- [x] **3.4 Migrate database writes**
   - Route `db_execute` through the same interrupt service.
   - Re-run statement classification and connection permissions at commit time.
   - Commit: `feat(security): make database approvals resumable`
@@ -308,8 +308,70 @@ Drill 3.1 completion record (2026-07-07):
 - Kept interrupt descriptors off the public DB-browser whitelist because they
   are internal security metadata.
 - Focused interrupt verification passed for SQLite and Postgres. Full mocked
-  Postgres DB suite passed. Full SQLite DB suite still has two unrelated
-  baseline failures: the existing `nightly-maintenance` job seed is absent.
+  Postgres DB suite passed. The previously documented SQLite
+  `nightly-maintenance` seed gap is resolved: fresh SQLite and Postgres stores
+  now seed the baseline maintenance job disabled by default.
+
+Drill 3.2 completion record (2026-07-07):
+
+- Added a durable interrupt service with create, list, expire, decide, claim,
+  complete, and claim-and-execute operations.
+- Decisions support approve, edit, reject, and respond. Replays are idempotent
+  only when the same decision payload is repeated; conflicting later decisions
+  are rejected.
+- Execution requires an atomic store claim from approved/edited state. Claimed
+  or completed interrupts cannot execute again.
+- The service revalidates descriptors on creation, decision, and immediately
+  before claim/execution through an injected policy callback. This is the
+  integration seam for file path/permission checks in 3.3 and database
+  classification/connection checks in 3.4.
+- Digest generation is canonical and stable across object key ordering. Approved
+  payloads are checked again before execution; edited payloads must pass
+  revalidation before they can be claimed.
+- Extended the 3.1 migration and store API with decision payload, claim, and
+  completion fields because the migration is still uncommitted in this working
+  slice.
+- Focused service, SQLite interrupt, and Postgres interrupt verification passed.
+  Full mocked Postgres DB suite passed. Syntax checks and `git diff --check`
+  passed. The SQLite `nightly-maintenance` seed assertions now pass after the
+  shared disabled baseline job seed was restored.
+
+Drill 3.3 completion record (2026-07-07):
+
+- Migrated `write_file`, `append_file`, `edit_file`, and `delete_file`
+  confirmation tokens from in-memory closure maps to durable interrupt
+  descriptors. Existing `wr_...` and `del_...` token UX is preserved.
+- File descriptors store JSON-reconstructable operation arguments, target paths,
+  proposal-time SHA-256 target-state digests, allowed decisions, expiry, and
+  session/run scope. They do not persist executable closures.
+- Confirm execution now approves, atomically claims, executes, and completes via
+  the interrupt service. Replays cannot execute the same descriptor twice.
+- Confirm-time revalidation re-checks write permissions, secret-file/type
+  guards, and target-state digest before executing stale edits/appends/deletes.
+- Capped edit diffs, tainted-turn confirmation, and frictionless clean writes
+  inside `var/scratch/` are preserved.
+- Focused file-tool verification passed. Shared interrupt service, Postgres DB,
+  and SQLite interrupt checks passed; the full SQLite DB run no longer has the
+  previously documented `nightly-maintenance` seed assertions.
+
+Drill 3.4 completion record (2026-07-07):
+
+- Migrated `db_execute` from an in-memory confirmation closure map to durable
+  interrupt descriptors using the same service as file write/delete approvals.
+- Database descriptors store only JSON-reconstructable connection name,
+  normalized single SQL statement, bound params, statement class, keyword, and
+  engine metadata. They do not persist executable closures or connection
+  secrets.
+- Confirm execution now approves, atomically claims, executes, and completes via
+  the interrupt service. Replays cannot execute the same database descriptor
+  twice.
+- Commit-time revalidation re-runs SQL classification and checks that the named
+  connection still exists and is writable; changing a connection to read-only
+  before confirmation prevents execution.
+- Restored the disabled `nightly-maintenance` baseline job seed for fresh
+  SQLite/Postgres stores, resolving the previously documented broader SQLite DB
+  seed failures.
+- Focused database confirmation, SQLite DB, and Postgres DB verification passed.
 
 ## Phase 4 — Agent specifications and permission narrowing
 

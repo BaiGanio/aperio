@@ -640,6 +640,31 @@ describe("PostgresStore — agent jobs", () => {
     assert.equal(job, null);
   });
 
+  test("seedBaseline seeds nightly-maintenance disabled on empty agent_jobs", async () => {
+    const inserted = [];
+    let counts = 0;
+    const store = new PostgresStore({
+      query: async (sql, values) => {
+        if (sql.includes("COUNT(*)::int AS c")) {
+          counts++;
+          return { rows: [{ c: counts === 4 ? 0 : 1 }] };
+        }
+        if (sql.includes("INSERT INTO agent_jobs")) {
+          inserted.push(values);
+          return { rows: [], rowCount: 1 };
+        }
+        return { rows: [] };
+      },
+    });
+
+    await store.seedBaseline();
+
+    assert.equal(inserted.length, 1);
+    assert.equal(inserted[0][0], "nightly-maintenance");
+    assert.equal(inserted[0][1], false);
+    assert.equal(JSON.parse(inserted[0][2]).trigger.kind, "interval");
+  });
+
   test("upsertAgentJob saves and returns a job", async () => {
     let afterInsert = false;
     _poolQuery = async (sql) => {
@@ -831,6 +856,138 @@ describe("PostgresStore — agent interrupts", () => {
     const store = await PostgresStore.init();
     const row = await store.updateAgentInterruptStatus("pg-interrupt-1", "expired");
     assert.equal(row.status, "expired");
+  });
+
+  test("expireAgentInterrupts updates pending expired rows", async () => {
+    let captured;
+    _poolQuery = async (sql, values) => {
+      if (sql.includes("UPDATE agent_interrupts") && sql.includes("expires_at <= $1")) {
+        captured = values;
+        return { rowCount: 2, rows: [] };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const count = await store.expireAgentInterrupts("2026-07-07T00:00:00.000Z");
+    assert.equal(count, 2);
+    assert.deepEqual(captured, ["2026-07-07T00:00:00.000Z"]);
+  });
+
+  test("decideAgentInterrupt conditionally records one decision", async () => {
+    let captured;
+    _poolQuery = async (sql, values) => {
+      if (sql.includes("UPDATE agent_interrupts") && sql.includes("decision_payload")) {
+        captured = values;
+        return {
+          rows: [{
+            id: values[0],
+            session_id: "session-a",
+            run_id: null,
+            tool_name: "write_file",
+            canonical_arguments: { path: "notes.md" },
+            protected_payload_ref: null,
+            digest: "sha256:abc",
+            allowed_decisions: ["approve"],
+            decision: values[1],
+            decision_payload: JSON.parse(values[2]),
+            claim_id: null,
+            status: values[3],
+            created_at: new Date(),
+            updated_at: values[4],
+            decided_at: values[4],
+            claimed_at: null,
+            completed_at: null,
+            expires_at: null,
+          }],
+        };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const row = await store.decideAgentInterrupt("pg-interrupt-1", {
+      decision: "edit",
+      status: "edited",
+      decisionPayload: { editedArguments: { path: "notes.md" } },
+      now: "2026-07-07T00:00:00.000Z",
+    });
+    assert.equal(row.status, "edited");
+    assert.deepEqual(row.decision_payload, { editedArguments: { path: "notes.md" } });
+    assert.equal(captured[0], "pg-interrupt-1");
+    assert.equal(captured[1], "edit");
+  });
+
+  test("claimAgentInterrupt conditionally claims approved rows", async () => {
+    _poolQuery = async (sql, values) => {
+      if (sql.includes("SET status = 'claimed'")) {
+        return {
+          rows: [{
+            id: values[0],
+            session_id: "session-a",
+            run_id: null,
+            tool_name: "write_file",
+            canonical_arguments: { path: "notes.md" },
+            protected_payload_ref: null,
+            digest: "sha256:abc",
+            allowed_decisions: ["approve"],
+            decision: "approve",
+            decision_payload: null,
+            claim_id: values[1],
+            status: "claimed",
+            created_at: new Date(),
+            updated_at: values[2],
+            decided_at: new Date(),
+            claimed_at: values[2],
+            completed_at: null,
+            expires_at: null,
+          }],
+        };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const row = await store.claimAgentInterrupt("pg-interrupt-1", {
+      claimId: "claim-1",
+      now: "2026-07-07T00:00:00.000Z",
+    });
+    assert.equal(row.status, "claimed");
+    assert.equal(row.claim_id, "claim-1");
+  });
+
+  test("completeAgentInterrupt only completes claimed rows", async () => {
+    _poolQuery = async (sql, values) => {
+      if (sql.includes("UPDATE agent_interrupts") && sql.includes("completed_at")) {
+        return {
+          rows: [{
+            id: values[0],
+            session_id: "session-a",
+            run_id: null,
+            tool_name: "write_file",
+            canonical_arguments: { path: "notes.md" },
+            protected_payload_ref: null,
+            digest: "sha256:abc",
+            allowed_decisions: ["approve"],
+            decision: "approve",
+            decision_payload: null,
+            claim_id: "claim-1",
+            status: values[1],
+            created_at: new Date(),
+            updated_at: values[2],
+            decided_at: new Date(),
+            claimed_at: new Date(),
+            completed_at: values[2],
+            expires_at: null,
+          }],
+        };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const row = await store.completeAgentInterrupt("pg-interrupt-1", {
+      status: "executed",
+      now: "2026-07-07T00:00:00.000Z",
+    });
+    assert.equal(row.status, "executed");
+    assert.ok(row.completed_at);
   });
 
   test("rejects non-JSON executable descriptors", async () => {
