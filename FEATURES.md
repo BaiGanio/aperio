@@ -100,6 +100,7 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)
+- Lossless large-result offloading — oversized text tool results are secret-redacted and stored immutably under a private session/run scope; the model receives a bounded head/tail preview with an artifact ID instead of losing the full result to context trimming (`APERIO_TOOL_RESULT_OFFLOAD_TOKENS`, `APERIO_TOOL_RESULT_OFFLOAD_BYTES`)
 - First-class providers: Ollama, Anthropic, DeepSeek, Gemini, Claude Code Agent SDK, and OpenAI Codex CLI
 - Codex provider: authenticated `codex exec --json`, Aperio MCP tool access, explicit sandbox/approval policy, session-scoped persisted thread resume, background completions, setup wizard, and round-table support
 - Skills matching per turn (`skills/`)
@@ -117,6 +118,7 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 - Embedding providers: local transformers (default), Voyage AI (cloud)
 - Embedding retry queue for resilient vector writes
 - Data portability — `export_data` (portable JSON backup) and `import_data` (idempotent restore, deduplicates by ID/slug, queues embeddings for backfill)
+- Private agent-artifact store — immutable SHA-256-verified metadata/content pairs scoped to a chat session or headless run, written atomically with `0700` directories and `0600` files
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel, voice input + TTS readout
@@ -148,6 +150,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 **Secrets & privacy**
 - `.env` written `0600` with injection-safe quoting; default Postgres password hard-fail (`APERIO_ALLOW_DEFAULT_DB_PASSWORD` opt-out)
 - Secret redaction (PEM keys, API tokens, JWTs, URI passwords) at every cloud-provider send boundary; local Ollama skipped
+- Oversized tool results are secret-redacted before entering the private artifact store; previews are generated from the redacted copy
 - `local-only`-tagged memories dropped from recall on cloud providers; memory inference/dedup workers gated to local provider (`APERIO_CLOUD_MEMORY_WORKERS` opt-in)
 - At-rest `0600` perms + secret scrubbing for sessions, handoffs, and error logs
 - SQLite at-rest encryption — AES-256-GCM with key in OS keychain (macOS Keychain, Linux libsecret, Windows DPAPI); plaintext in `$TMPDIR` only while running; auto-migrates existing plaintext DB on first enable; DELETE journal when encrypted (no WAL plaintext leakage); crash recovery from leftover temp files (`APERIO_DB_ENCRYPT=1`)

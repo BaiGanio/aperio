@@ -337,6 +337,95 @@ describe("callToolHooked() — INJECT-01 provenance fencing + taint", () => {
     assert.doesNotMatch(r, new RegExp(FENCE_OPEN));
     assert.equal(hooks.taint.tainted, false);
   });
+
+  test("offloads after provenance fencing and emits content-free metadata", async () => {
+    const events = [];
+    const seen = [];
+    const factory = createToolHooks({
+      callTool: async () => "external page ".repeat(100),
+      offloadToolResult: (result, context) => {
+        seen.push({ result, context });
+        return {
+          result: "bounded preview",
+          artifacts: [{
+            id: "artifact-1",
+            scope: context.scope,
+            byteCount: 1234,
+            originalTokenCount: 456,
+          }],
+        };
+      },
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: true, summary: "large result" }),
+      getActiveScratchDir: () => "/scratch",
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory(
+      { send: event => events.push(event) },
+      Date.now(),
+      { scope: "session", ownerId: "session-1", contextWindow: 32_000 },
+    );
+
+    const result = await hooks.callToolHooked("fetch_url", { url: "https://example.com" });
+    assert.equal(result, "bounded preview");
+    assert.match(seen[0].result, /UNTRUSTED EXTERNAL CONTENT/);
+    assert.deepEqual(seen[0].context, {
+      scope: "session",
+      ownerId: "session-1",
+      contextWindow: 32_000,
+      toolName: "fetch_url",
+    });
+    const event = events.find(item => item.type === "tool_result_offloaded");
+    assert.deepEqual(event, {
+      type: "tool_result_offloaded",
+      name: "fetch_url",
+      artifactId: "artifact-1",
+      scope: "session",
+      byteCount: 1234,
+      tokenCount: 456,
+    });
+    assert.equal(Object.hasOwn(event, "content"), false);
+  });
+
+  test("fails open with the fenced result when artifact storage fails", async () => {
+    const warnings = [];
+    const factory = createToolHooks({
+      callTool: async () => "external page text",
+      offloadToolResult: () => { throw new Error("disk full"); },
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: true, summary: "page" }),
+      getActiveScratchDir: () => "/scratch",
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: noop,
+      logger: { ...silentLogger, warn: message => warnings.push(message) },
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory(
+      { send: noop },
+      Date.now(),
+      { scope: "session", ownerId: "session-1", contextWindow: 32_000 },
+    );
+
+    const result = await hooks.callToolHooked("fetch_url", { url: "https://example.com" });
+    assert.match(result, /UNTRUSTED EXTERNAL CONTENT/);
+    assert.match(result, /external page text/);
+    assert.match(warnings[0], /result offload failed.*disk full/);
+  });
 });
 
 describe("callToolHooked() — WRITE-01 taint→confirm wiring", () => {
