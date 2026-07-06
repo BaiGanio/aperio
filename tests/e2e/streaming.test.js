@@ -5,73 +5,14 @@
 //
 // No DB, no AI provider, no external network — the fixture is fully in-memory.
 // Only system touch: child process (spawn) + OS-assigned port (0).
+//
+// Uses shared buffered-connect helpers to eliminate handshake races — the
+// message listener is attached before `open` resolves, so handshake messages
+// (status, provider, session_created) are captured without racing.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-import { WebSocket } from "ws";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const FIXTURE   = resolve(__dirname, "fixtures", "server.js");
-
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-function startFixture() {
-  return spawn(process.execPath, [FIXTURE], { stdio: ["ignore", "pipe", "inherit"] });
-}
-
-function readPort(server, timeout = 10_000) {
-  return new Promise((resolve, reject) => {
-    const tid = setTimeout(() => reject(new Error("No PORT")), timeout);
-    let buf = "";
-    server.stdout.on("data", (chunk) => {
-      buf += chunk.toString();
-      const m = buf.match(/PORT:(\d+)/);
-      if (m) { clearTimeout(tid); resolve(Number(m[1])); }
-    });
-    server.on("exit", (code) => { clearTimeout(tid); reject(new Error(`exited ${code}`)); });
-  });
-}
-
-function connectWS(port, timeout = 5_000) {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
-  return new Promise((resolve, reject) => {
-    const tid = setTimeout(() => reject(new Error("WS timeout")), timeout);
-    ws.once("open",  () => { clearTimeout(tid); resolve(ws); });
-    ws.once("error", reject);
-  });
-}
-
-// Collect messages for a given duration, then return all of them.
-function collectFor(ws, ms) {
-  const msgs = [];
-  const handler = (raw) => msgs.push(JSON.parse(raw.toString()));
-  ws.on("message", handler);
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      ws.removeListener("message", handler);
-      resolve(msgs);
-    }, ms);
-  });
-}
-
-// Wait for a specific message type, returning it.
-function waitForType(ws, type, timeout = 5_000) {
-  return new Promise((resolve, reject) => {
-    const tid = setTimeout(() => reject(new Error(`No ${type} within timeout`)), timeout);
-    const handler = (raw) => {
-      const msg = JSON.parse(raw.toString());
-      if (msg.type === type) {
-        clearTimeout(tid);
-        ws.removeListener("message", handler);
-        resolve(msg);
-      }
-    };
-    ws.on("message", handler);
-  });
-}
+import { startFixture, readPort, connectBuffered } from "./helpers/ws-helper.js";
 
 // ─── Tests ────────────────────────────────────────────────────────────────
 describe("Streaming protocol — Phase 5", () => {
@@ -80,13 +21,14 @@ describe("Streaming protocol — Phase 5", () => {
   test("single token response arrives correctly", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
-    await waitForType(ws, "session_created");
+    const conn = await connectBuffered(port); t.after(() => conn.close());
+    const ws = conn.ws;
+    await conn.waitForType("session_created");
 
     ws.send(JSON.stringify({ type: "set_stream", text: "hello" }));
     ws.send(JSON.stringify({ type: "chat", content: "ping" }));
 
-    const msgs = await collectFor(ws, 300);
+    const msgs = await conn.collectUntil("stream_end");
     const tokens = msgs.filter((m) => m.type === "token").map((m) => m.text);
     const streamEnd = msgs.find((m) => m.type === "stream_end");
 
@@ -101,13 +43,14 @@ describe("Streaming protocol — Phase 5", () => {
   test("multi-word response streams each word as a separate token", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
-    await waitForType(ws, "session_created");
+    const conn = await connectBuffered(port); t.after(() => conn.close());
+    const ws = conn.ws;
+    await conn.waitForType("session_created");
 
     ws.send(JSON.stringify({ type: "set_stream", text: "hello world from aperio" }));
     ws.send(JSON.stringify({ type: "chat", content: "test" }));
 
-    const msgs = await collectFor(ws, 300);
+    const msgs = await conn.collectUntil("stream_end");
     const tokens = msgs.filter((m) => m.type === "token").map((m) => m.text);
     const streamEnd = msgs.find((m) => m.type === "stream_end");
 
@@ -125,13 +68,13 @@ describe("Streaming protocol — Phase 5", () => {
     const NUM = responses.length;
 
     // Connect all, set responses, fire all chats, collect all msgs
-    const results = await Promise.all(responses.map(async (resp, i) => {
-      const ws = await connectWS(port);
-      await waitForType(ws, "session_created");
-      ws.send(JSON.stringify({ type: "set_stream", text: resp }));
-      ws.send(JSON.stringify({ type: "chat", content: "concurrent" }));
-      const msgs = await collectFor(ws, 300);
-      ws.close();
+    const results = await Promise.all(responses.map(async (resp) => {
+      const conn = await connectBuffered(port);
+      await conn.waitForType("session_created");
+      conn.ws.send(JSON.stringify({ type: "set_stream", text: resp }));
+      conn.ws.send(JSON.stringify({ type: "chat", content: "concurrent" }));
+      const msgs = await conn.collectUntil("stream_end");
+      conn.close();
       return { resp, msgs };
     }));
 
@@ -145,13 +88,14 @@ describe("Streaming protocol — Phase 5", () => {
   test("set_error before chat produces error instead of stream", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
-    await waitForType(ws, "session_created");
+    const conn = await connectBuffered(port); t.after(() => conn.close());
+    const ws = conn.ws;
+    await conn.waitForType("session_created");
 
     ws.send(JSON.stringify({ type: "set_error", message: "custom error" }));
     ws.send(JSON.stringify({ type: "chat", content: "trigger" }));
 
-    const msgs = await collectFor(ws, 300);
+    const msgs = await conn.collectUntil("error");
     const err = msgs.find((m) => m.type === "error");
     const tokens = msgs.filter((m) => m.type === "token");
 
@@ -164,12 +108,17 @@ describe("Streaming protocol — Phase 5", () => {
   test("set_provider emits a fresh provider message", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
-    await waitForType(ws, "session_created");
+    const conn = await connectBuffered(port); t.after(() => conn.close());
+    const ws = conn.ws;
+    await conn.waitForType("session_created");
+
+    // Clear any handshake leftovers from the buffer so collectUntil doesn't
+    // find the initial stub-provider message.
+    conn.buffer.splice(0);
 
     ws.send(JSON.stringify({ type: "set_provider", name: "ollama", model: "llama3.1", thinks: true, contextWindow: 8192 }));
 
-    const msgs = await collectFor(ws, 300);
+    const msgs = await conn.collectUntil("provider");
     const prov = msgs.find((m) => m.type === "provider");
     assert.ok(prov, "provider message received");
     assert.equal(prov.name, "ollama");
@@ -182,9 +131,11 @@ describe("Streaming protocol — Phase 5", () => {
   test("handshake includes status, provider, session_created", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
+    const conn = await connectBuffered(port); t.after(() => conn.close());
 
-    const msgs = await collectFor(ws, 300);
+    // With buffered connect, handshake messages are already in the buffer —
+    // no race between `open` and listener attachment.
+    const msgs = conn.buffer;
 
     assert.ok(msgs.length >= 3, `handshake has >=3 msgs, got ${msgs.length}`);
     assert.equal(msgs[0].type, "status", "first is status");
@@ -198,13 +149,14 @@ describe("Streaming protocol — Phase 5", () => {
   test("stream_start → tokens → stream_end arrive in order", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
-    await waitForType(ws, "session_created");
+    const conn = await connectBuffered(port); t.after(() => conn.close());
+    const ws = conn.ws;
+    await conn.waitForType("session_created");
 
     ws.send(JSON.stringify({ type: "set_stream", text: "a bc def" }));
     ws.send(JSON.stringify({ type: "chat", content: "ordered" }));
 
-    const msgs = await collectFor(ws, 300);
+    const msgs = await conn.collectUntil("stream_end");
     const types = msgs.map((m) => m.type);
 
     // Find the chat response in the messages
@@ -219,13 +171,14 @@ describe("Streaming protocol — Phase 5", () => {
   test("empty response produces stream_end with empty text", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
-    await waitForType(ws, "session_created");
+    const conn = await connectBuffered(port); t.after(() => conn.close());
+    const ws = conn.ws;
+    await conn.waitForType("session_created");
 
     ws.send(JSON.stringify({ type: "set_stream", text: "" }));
     ws.send(JSON.stringify({ type: "chat", content: "empty" }));
 
-    const msgs = await collectFor(ws, 300);
+    const msgs = await conn.collectUntil("stream_end");
     const end = msgs.find((m) => m.type === "stream_end");
     assert.ok(end, "stream_end present for empty response");
     assert.equal(end.text, "", "stream_end.text is empty string");
