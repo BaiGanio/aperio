@@ -394,6 +394,54 @@ describe("callToolHooked() — INJECT-01 provenance fencing + taint", () => {
       tokenCount: 456,
     });
     assert.equal(Object.hasOwn(event, "content"), false);
+    assert.equal(hooks.hasOffloadedArtifacts(), true);
+  });
+
+  test("enables owner-bound artifact reads only after an offload", async () => {
+    const owners = [];
+    const factory = createToolHooks({
+      callTool: async () => "large result",
+      offloadToolResult: (result, context) => ({
+        result: "bounded preview",
+        artifacts: [{
+          id: "artifact-1",
+          scope: context.scope,
+          byteCount: result.length,
+          originalTokenCount: 3,
+        }],
+      }),
+      readArtifact: (args, owner) => {
+        owners.push({ args, owner });
+        return "chunk";
+      },
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: true, summary: "" }),
+      getActiveScratchDir: () => "/scratch",
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const owner = { scope: "run", ownerId: "run-1", contextWindow: 8_000 };
+    const hooks = factory({ send: noop }, Date.now(), owner);
+
+    assert.equal(hooks.hasOffloadedArtifacts(), false);
+    await hooks.callToolHooked("fetch_url", {});
+    assert.equal(hooks.hasOffloadedArtifacts(), true);
+    assert.equal(
+      await hooks.callToolHooked("read_artifact", { artifact_id: "artifact-1", offset: 4 }),
+      "chunk",
+    );
+    assert.deepEqual(owners, [{
+      args: { artifact_id: "artifact-1", offset: 4 },
+      owner,
+    }]);
   });
 
   test("fails open with the fenced result when artifact storage fails", async () => {

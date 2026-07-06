@@ -117,7 +117,7 @@ to the model.
     background run ownership, and secret redaction.
   - Commit: `feat(context): offload oversized tool results`
 
-- [ ] **1.3 Chunked artifact retrieval**
+- [x] **1.3 Chunked artifact retrieval**
   - Add a read-only MCP tool that accepts artifact ID plus offset/limit.
   - Enforce session/run ownership and maximum response size.
   - Attach the tool only when an offloaded artifact exists in the current run.
