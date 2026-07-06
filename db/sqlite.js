@@ -161,16 +161,17 @@ function rowToSelf(row) {
   // Self-memories have no type/pin/versioning — a lean shape distinct from
   // the user `memories` row.
   return {
-    id:         row.id,
-    title:      row.title,
-    content:    row.content,
-    tags:       row.tags ? JSON.parse(row.tags) : [],
-    importance: Number(row.importance),
-    created_at: new Date(row.created_at),
-    updated_at: new Date(row.updated_at),
-    source:     row.source ?? 'self',
-    lang:       row.lang ?? 'english',
-    confidence: row.confidence !== null ? Number(row.confidence) : 1.0,
+    id:           row.id,
+    title:        row.title,
+    content:      row.content,
+    tags:         row.tags ? JSON.parse(row.tags) : [],
+    importance:   Number(row.importance),
+    created_at:   new Date(row.created_at),
+    updated_at:   new Date(row.updated_at),
+    source:       row.source ?? 'self',
+    lang:         row.lang ?? 'english',
+    confidence:   row.confidence !== null ? Number(row.confidence) : 1.0,
+    generated_by: row.generated_by ?? null,
   };
 }
 
@@ -495,8 +496,8 @@ export class SqliteStore {
     const selfCount = db.prepare(`SELECT COUNT(*) AS n FROM self_memories`).get().n;
     if (selfCount === 0) {
       const insSelf = db.prepare(`
-        INSERT INTO self_memories (id, title, content, tags, importance, source, lang, confidence)
-        VALUES (?, ?, ?, ?, ?, 'system', 'english', 1.0)
+        INSERT INTO self_memories (id, title, content, tags, importance, source, lang, confidence, generated_by)
+        VALUES (?, ?, ?, ?, ?, 'system', 'english', 1.0, 'seed')
       `);
       const txSelf = db.transaction(() => {
         for (const s of SELF_MEMORY_SEED) {
@@ -678,13 +679,14 @@ export class SqliteStore {
       if (self_memories.length) {
         const insertSelfMem = this.db.prepare(`
           INSERT OR IGNORE INTO self_memories
-            (id, title, content, tags, importance, source, lang, confidence)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (id, title, content, tags, importance, source, lang, confidence, generated_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         for (const sm of self_memories) {
           const info = insertSelfMem.run(
             sm.id, sm.title, sm.content, JSON.stringify(sm.tags ?? []),
-            sm.importance ?? 3, sm.source ?? 'import', sm.lang ?? 'english', sm.confidence ?? 1.0
+            sm.importance ?? 3, sm.source ?? 'import', sm.lang ?? 'english', sm.confidence ?? 1.0,
+            sm.generated_by ?? null
           );
           info.changes > 0 ? result.imported.self_memories++ : result.skipped.self_memories++;
         }
@@ -1102,8 +1104,8 @@ export class SqliteStore {
     const id = randomUUID();
     const tx = this.db.transaction(() => {
       const info = this.db.prepare(`
-        INSERT INTO self_memories (id, title, content, tags, importance, source, lang, confidence)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO self_memories (id, title, content, tags, importance, source, lang, confidence, generated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, input.title, input.content,
         JSON.stringify(input.tags ?? []),
@@ -1111,6 +1113,7 @@ export class SqliteStore {
         input.source ?? 'self',
         input.lang ?? 'english',
         input.confidence ?? 1.0,
+        input.generated_by ?? null,
       );
       if (embedding) {
         this.db.prepare(`INSERT INTO vec_self_memories (rowid, embedding) VALUES (?, ?)`)

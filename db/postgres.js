@@ -54,16 +54,17 @@ function rowToSelf(row) {
   // Self-memories have no type/pin/versioning — a lean shape distinct from
   // the user `memories` row.
   return {
-    id:         row.id,
-    title:      row.title,
-    content:    row.content,
-    tags:       Array.isArray(row.tags) ? row.tags : [],
-    importance: row.importance,
-    created_at: new Date(row.created_at),
-    updated_at: new Date(row.updated_at),
-    source:     row.source ?? 'self',
-    lang:       row.lang ?? 'english',
-    confidence: row.confidence ?? 1.0,
+    id:           row.id,
+    title:        row.title,
+    content:      row.content,
+    tags:         Array.isArray(row.tags) ? row.tags : [],
+    importance:   row.importance,
+    created_at:   new Date(row.created_at),
+    updated_at:   new Date(row.updated_at),
+    source:       row.source ?? 'self',
+    lang:         row.lang ?? 'english',
+    confidence:   row.confidence ?? 1.0,
+    generated_by: row.generated_by ?? null,
   };
 }
 
@@ -110,8 +111,8 @@ export class PostgresStore {
       if (await count('self_memories') === 0) {
         for (const s of SELF_MEMORY_SEED) {
           await this.pool.query(
-            `INSERT INTO self_memories (title, content, tags, importance, source, lang, confidence)
-             VALUES ($1,$2,$3,$4,'system','english',1.0)`,
+            `INSERT INTO self_memories (title, content, tags, importance, source, lang, confidence, generated_by)
+             VALUES ($1,$2,$3,$4,'system','english',1.0,'seed')`,
             [s.title, s.content, s.tags ?? [], s.importance ?? 3]);
         }
       }
@@ -518,13 +519,14 @@ export class PostgresStore {
   // versioning/expiry/pin — updates are in-place.
   async insertSelf(input, embedding) {
     const { rows } = await this.pool.query(
-      `INSERT INTO self_memories (title, content, tags, importance, source, embedding, lang, confidence)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+      `INSERT INTO self_memories (title, content, tags, importance, source, embedding, lang, confidence, generated_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
        RETURNING *`,
       [
         input.title, input.content, input.tags ?? [], input.importance ?? 3,
         input.source ?? 'self', embedding ? toVec(embedding) : null,
         input.lang ?? 'english', input.confidence ?? 1.0,
+        input.generated_by ?? null,
       ]
     );
     return rowToSelf(rows[0]);
@@ -983,11 +985,12 @@ export class PostgresStore {
     // ── Self-memories (dedup by id, like memories) ────────────────
     for (const sm of self_memories) {
       const { rowCount } = await this.pool.query(`
-        INSERT INTO self_memories (id, title, content, tags, importance, source, lang, confidence)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+        INSERT INTO self_memories (id, title, content, tags, importance, source, lang, confidence, generated_by)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
         ON CONFLICT (id) DO NOTHING
       `, [sm.id, sm.title, sm.content, sm.tags ?? [],
-          sm.importance ?? 3, sm.source ?? 'import', sm.lang ?? 'english', sm.confidence ?? 1.0]);
+          sm.importance ?? 3, sm.source ?? 'import', sm.lang ?? 'english', sm.confidence ?? 1.0,
+          sm.generated_by ?? null]);
       rowCount > 0 ? result.imported.self_memories++ : result.skipped.self_memories++;
     }
 
