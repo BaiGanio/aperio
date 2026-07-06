@@ -1,7 +1,7 @@
 // src/db/types.js
 
 /**
- * @typedef {'fact' | 'preference' | 'project' | 'decision' | 'solution' | 'source' | 'person' | 'inference'} MemoryType
+ * @typedef {'fact' | 'preference' | 'project' | 'decision' | 'solution' | 'source' | 'person' | 'inference' | 'workflow'} MemoryType
  */
 
 /**

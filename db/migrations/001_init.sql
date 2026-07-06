@@ -16,7 +16,7 @@ CREATE TABLE memories (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   type          TEXT NOT NULL CHECK (type IN (
                   'fact', 'preference', 'project',
-                  'decision', 'solution', 'source', 'person', 'inference'
+                  'decision', 'solution', 'source', 'person', 'inference', 'workflow'
                 )),
   title         TEXT NOT NULL,
   content       TEXT NOT NULL,
