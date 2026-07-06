@@ -328,6 +328,10 @@ body::before {
 .section-inner { max-width:1160px;margin:0 auto;padding:0 24px;text-align:center; }
 .section-inner.wide { max-width:1300px; }
 
+/* ── Demo video ── */
+.vid-wrapper { line-height:0; }
+.demo-video { width:100%;display:block; }
+
 /* eyebrow */
 .eyebrow {
     font-family:var(--font-ui);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
