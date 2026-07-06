@@ -119,6 +119,48 @@ describe("runAnthropicLoop — text response", () => {
     assert.equal(lastMsg.content[0].type, "text");
     assert.ok(lastMsg.content[0].text.includes("Hello world"));
   });
+
+  test("uses prepared canonical context and serializes tools in the adapter", async () => {
+    let wireRequest;
+    const provider = testProvider(request => {
+      wireRequest = request;
+      return textStream();
+    });
+    const prepareModelContext = mock.fn(async () => ({
+      messages: [{ role: "user", content: "prepared message" }],
+      systemPrompt: "prepared system",
+      tools: [{
+        name: "recall",
+        description: "Search memory",
+        inputSchema: {
+          type: "object",
+          properties: { query: { type: "string" } },
+          required: ["query"],
+        },
+      }],
+    }));
+    const ctx = baseCtx({
+      provider,
+      prepareModelContext,
+      getSystemPrompt: () => { throw new Error("legacy prompt path used"); },
+      getAnthropicTools: () => { throw new Error("legacy tool path used"); },
+    });
+
+    await runAnthropicLoop([{ role: "user", content: "raw message" }], { send: mock.fn() }, {}, ctx);
+
+    assert.equal(prepareModelContext.mock.callCount(), 1);
+    assert.equal(wireRequest.system, "prepared system");
+    assert.deepEqual(wireRequest.messages, [{ role: "user", content: "prepared message" }]);
+    assert.deepEqual(wireRequest.tools, [{
+      name: "recall",
+      description: "Search memory",
+      input_schema: {
+        type: "object",
+        properties: { query: { type: "string" } },
+        required: ["query"],
+      },
+    }]);
+  });
 });
 
 // =============================================================================
