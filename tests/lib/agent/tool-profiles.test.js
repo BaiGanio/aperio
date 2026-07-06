@@ -44,6 +44,7 @@ describe("tool-profiles — docgraph availability", () => {
   test("document-corpus retrieval phrasing surfaces doc_search", () => {
     assert.ok(toolsFor("search my documents for the invoice").has("doc_search"));
     assert.ok(toolsFor("find where I wrote about budgets in my notes").has("doc_search"));
+    assert.ok(toolsFor("check this PDF and find me similar documents with a Customer ID field").has("doc_search"));
   });
 
   test("a generic web search does not load docgraph", () => {

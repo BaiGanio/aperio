@@ -281,18 +281,19 @@ body::before {
 /* ── Language switcher ── */
 .lang-switcher {
     display:flex;align-items:center;background:var(--bg-raised);
-    border:1px solid var(--border);border-radius:0;padding:3px;gap:1px;
+    border:1px solid var(--border);border-radius:0;padding:3px;
     flex-shrink:0;transition:background .3s,border-color .3s;
 }
-.lang-btn {
-    background:none;border:none;cursor:pointer;width:52px;height:28px;padding:0;
-    border-radius:0;display:flex;align-items:center;justify-content:center;gap:5px;
+.lang-select {
+    background:var(--bg-raised);color:var(--text);border:none;outline:none;
+    cursor:pointer;height:28px;padding:0 4px;min-width:38px;max-width:120px;
     font-family:var(--font-sans);font-size:12px;font-weight:600;letter-spacing:.05em;
-    color:var(--muted);transition:background .15s,color .15s;line-height:1;white-space:nowrap;
+    border-radius:0;transition:background .15s,color .15s;line-height:1;
+    -webkit-appearance:none;-moz-appearance:none;appearance:none;
 }
-.lang-btn .flag { font-size:14px;line-height:1;display:block;width:16px;text-align:center; }
-.lang-btn:hover { background:var(--bg-card);color:var(--text); }
-.lang-btn.active { background:var(--aurora);color:white; }
+.lang-select:hover { background:var(--bg-card); }
+.lang-select:focus-visible { outline:1px solid var(--accent);outline-offset:-1px; }
+.lang-select option { background:var(--bg-raised);color:var(--text); }
 
 /* github btn */
 .btn-github {
@@ -316,7 +317,7 @@ body::before {
 @media(max-width:600px) {
     .btn-github,.brand-name { display:none; }
     .nav-inner { padding:0 12px;gap:6px; }
-    .lang-btn { width:38px; }
+    .lang-select { min-width:34px;max-width:80px; }
     .theme-btn { width:27px; }
 }
 

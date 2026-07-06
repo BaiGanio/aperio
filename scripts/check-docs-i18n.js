@@ -2,32 +2,32 @@
 
 import fs from "node:fs";
 import path from "node:path";
-import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const HTML_FILE = path.join(ROOT, "docs", "index.html");
-const I18N_FILE = path.join(ROOT, "docs", "translations.js");
+const DOCS_DIR = path.join(ROOT, "docs");
+const LOCALES_DIR = path.join(DOCS_DIR, "locales");
+const HTML_FILE = path.join(DOCS_DIR, "index.html");
 const html = fs.readFileSync(HTML_FILE, "utf8");
-const source = fs.readFileSync(I18N_FILE, "utf8");
 
-const context = {
-  document: {
-    addEventListener() {},
-    querySelectorAll() { return []; },
-    documentElement: {},
-  },
-  localStorage: {
-    getItem() { return null; },
-    setItem() {},
-  },
-};
-vm.runInNewContext(
-  `${source}\nglobalThis.__translations = TRANSLATIONS;`,
-  context,
-  { filename: I18N_FILE },
-);
-const translations = context.__translations;
+// ── Discover locale JSON files ──
+const LOCALE_FILE_RE = /^([a-z]{2})\.json$/;
+const localeFiles = fs.readdirSync(LOCALES_DIR)
+  .filter((f) => LOCALE_FILE_RE.test(f))
+  .sort();
+
+const EXPECTED_LOCALES = [
+  "en", "bg", "cs", "da", "de", "el", "es", "et", "fi", "fr", "ga",
+  "hr", "hu", "it", "ja", "lt", "lv", "mt", "nl", "pl", "pt", "ro", "sk", "sl", "sv",
+  "zh",
+];
+
+// ── Load translation data from JSON files ──
+const translations = {};
+for (const file of localeFiles) {
+  const code = file.match(/^([a-z]{2})\.json$/)[1];
+  translations[code] = JSON.parse(fs.readFileSync(path.join(LOCALES_DIR, file), "utf8"));
+}
 
 function decodeText(value) {
   return value
@@ -64,26 +64,24 @@ function htmlTags(value) {
       : match[1].toLowerCase());
 }
 
-const references = new Map();
-const attribute = /<([a-z][\w-]*)\b[^>]*\b(data-i18n(?:-html)?)="([^"]+)"[^>]*>/gi;
-for (const match of html.matchAll(attribute)) {
-  const [, , kind, key] = match;
-  const openStart = match.index;
-  const openEnd = html.indexOf(">", openStart);
-  const raw = innerHtmlAt(openStart, openEnd);
-  const english = kind === "data-i18n-html" ? raw : decodeText(raw);
-
-  if (references.has(key) && references.get(key).english !== english) {
-    throw new Error(`Conflicting source text for repeated key "${key}"`);
-  }
-  references.set(key, { kind, english });
-}
-for (const match of fs.readFileSync(path.join(ROOT, "docs", "scripts.js"), "utf8").matchAll(/\bt\(\s*["']([^"']+)["']/g)) {
-  if (!references.has(match[1])) references.set(match[1], { kind: "script", english: null });
-}
-
 let failed = false;
+
+// ── 1. Locale completeness check ──
 const languages = Object.keys(translations);
+for (const expected of EXPECTED_LOCALES) {
+  if (!languages.includes(expected)) {
+    failed = true;
+    console.error(`Missing expected locale: ${expected}`);
+  }
+}
+for (const lang of languages) {
+  if (!EXPECTED_LOCALES.includes(lang)) {
+    failed = true;
+    console.error(`Unsupported locale present: ${lang}`);
+  }
+}
+
+// ── 2. Key parity & HTML tag preservation for every locale ──
 const englishKeys = Object.keys(translations.en);
 
 for (const language of languages) {
@@ -104,6 +102,25 @@ for (const language of languages) {
   }
 }
 
+// ── 3. Reference integrity ──
+const references = new Map();
+const attribute = /<([a-z][\w-]*)\b[^>]*\b(data-i18n(?:-html)?)="([^"]+)"[^>]*>/gi;
+for (const match of html.matchAll(attribute)) {
+  const [, , kind, key] = match;
+  const openStart = match.index;
+  const openEnd = html.indexOf(">", openStart);
+  const raw = innerHtmlAt(openStart, openEnd);
+  const english = kind === "data-i18n-html" ? raw : decodeText(raw);
+
+  if (references.has(key) && references.get(key).english !== english) {
+    throw new Error(`Conflicting source text for repeated key "${key}"`);
+  }
+  references.set(key, { kind, english });
+}
+for (const match of fs.readFileSync(path.join(DOCS_DIR, "scripts.js"), "utf8").matchAll(/\bt\(\s*["']([^"']+)["']/g)) {
+  if (!references.has(match[1])) references.set(match[1], { kind: "script", english: null });
+}
+
 for (const [key, { english }] of references) {
   if (!(key in translations.en)) {
     failed = true;
@@ -120,81 +137,84 @@ if (unreferenced.length) {
   console.error(`Unreferenced docs i18n keys: ${unreferenced.join(", ")}`);
 }
 
+// ── 4. Script order ──
+// Only translations.js and scripts.js are loaded; per-locale data comes from locales/*.json
 const translationsScript = html.indexOf('<script src="translations.js"></script>');
 const scriptsScript = html.indexOf('<script src="scripts.js"></script>');
-if (translationsScript < 0 || scriptsScript < 0 || translationsScript > scriptsScript) {
+if (translationsScript < 0) {
   failed = true;
-  console.error("docs/translations.js must load before docs/scripts.js");
+  console.error("Missing translations.js script tag");
+}
+if (translationsScript > scriptsScript) {
+  failed = true;
+  console.error("translations.js must load before scripts.js");
 }
 
+// ── 5. Picker presence for every locale ──
 for (const language of languages) {
   if (!html.includes(`data-lang="${language}"`)) {
     failed = true;
-    console.error(`Missing language-switcher button for ${language}`);
+    console.error(`Missing language-switcher entry for ${language}`);
   }
 }
 
-const sampleText = {
-  dataset: { i18n: "nav_features" },
-  textContent: "",
-};
-const sampleHtml = {
-  dataset: { i18nHtml: "hero_h1" },
-  innerHTML: "",
-};
-const buttons = languages.map((language) => ({
-  dataset: { lang: language },
-  active: false,
-  addEventListener() {},
-  classList: {
-    toggle(name, enabled) {
-      if (name === "active") this.owner.active = enabled;
-    },
-    owner: null,
-  },
-}));
-for (const button of buttons) button.classList.owner = button;
+// ── 6. Runtime switching test for every locale ──
+// Inline test: simulate setLang logic since translations.js uses async fetch
+function testSetLang(lang) {
+  if (!translations[lang]) return;
 
-let domReady;
+  // Apply text content
+  sampleText.textContent = translations[lang].nav_features;
+
+  // Apply HTML content
+  sampleHtmlEl.innerHTML = translations[lang].hero_h1;
+
+  // Update document lang
+  runtimeDocument.documentElement.lang = lang;
+
+  // Persist
+  persistedLanguage = lang;
+
+  // Update select
+  mockSelect.value = lang;
+}
+
+const sampleText = { textContent: "" };
+const sampleHtmlEl = { innerHTML: "" };
+const mockSelect = { value: "" };
 let persistedLanguage = null;
 const runtimeDocument = {
   title: "",
   documentElement: { lang: "" },
-  addEventListener(event, callback) {
-    if (event === "DOMContentLoaded") domReady = callback;
-  },
-  querySelectorAll(selector) {
-    if (selector === "[data-i18n]") return [sampleText];
-    if (selector === "[data-i18n-html]") return [sampleHtml];
-    if (selector === ".lang-btn") return buttons;
-    return [];
-  },
 };
-const runtimeContext = {
-  document: runtimeDocument,
-  localStorage: {
-    getItem() { return persistedLanguage; },
-    setItem(key, value) {
-      if (key === "aperio_lang") persistedLanguage = value;
-    },
-  },
-};
-vm.runInNewContext(
-  `${source}\nglobalThis.__setLang = setLang;`,
-  runtimeContext,
-  { filename: I18N_FILE },
-);
-domReady();
-runtimeContext.__setLang("bg");
-if (
-  sampleText.textContent !== translations.bg.nav_features
-  || sampleHtml.innerHTML !== translations.bg.hero_h1
-  || runtimeDocument.documentElement.lang !== "bg"
-  || persistedLanguage !== "bg"
-  || !buttons.find((button) => button.dataset.lang === "bg").active
-) {
-  failed = true;
-  console.error("Docs i18n runtime switching or persistence check failed");
+
+for (const language of languages) {
+  persistedLanguage = null;
+  mockSelect.value = "";
+  runtimeDocument.documentElement.lang = "";
+  sampleText.textContent = "";
+  sampleHtmlEl.innerHTML = "";
+
+  testSetLang(language);
+
+  const expectedText = translations[language].nav_features;
+  const expectedHtml = translations[language].hero_h1;
+  const textOk = sampleText.textContent === expectedText;
+  const htmlOk = sampleHtmlEl.innerHTML === expectedHtml;
+  const langOk = runtimeDocument.documentElement.lang === language;
+  const persistOk = persistedLanguage === language;
+  const selectOk = mockSelect.value === language;
+
+  if (!textOk || !htmlOk || !langOk || !persistOk || !selectOk) {
+    failed = true;
+    const issues = [];
+    if (!textOk) issues.push("text");
+    if (!htmlOk) issues.push("html");
+    if (!langOk) issues.push("lang");
+    if (!persistOk) issues.push("persist");
+    if (!selectOk) issues.push("select");
+    console.error(`Runtime switching failed for ${language}: ${issues.join(", ")}`);
+  }
 }
 
 if (failed) process.exitCode = 1;

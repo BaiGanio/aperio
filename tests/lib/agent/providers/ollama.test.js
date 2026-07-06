@@ -282,6 +282,73 @@ describe("runOllamaLoop — successful response", () => {
     const result = await runOllamaLoop(messages, emitter, {}, undefined, () => {}, ctx);
     assert.ok(result.includes("Invalid model"));
   });
+
+  test("returns the VLM answer directly for a standalone image request", async () => {
+    mock.method(globalThis, "fetch", async () => {
+      assert.fail("the main model API must not be called for a standalone visual answer");
+    });
+    const messages = [{ role: "user", content: [
+      { type: "text", text: "Describe this image" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+    ]}];
+    const emitter = { send: makeEmittersend() };
+    const callTool = mock.fn(async (name, input) => {
+      assert.equal(name, "describe_image");
+      assert.match(input.prompt, /Describe this image/);
+      return "A red bicycle beside a brick wall.";
+    });
+
+    const result = await runOllamaLoop(
+      messages, emitter, {}, undefined, () => {},
+      baseCtx("gemma4:e4b", { callTool }),
+    );
+
+    assert.equal(result, "A red bicycle beside a brick wall.");
+    assert.equal(messages.at(-1).role, "assistant");
+    assert.equal(messages.at(-1).content[0].text, result);
+    assert.ok(emitter.send.mock.calls.some(c => c.arguments[0]?.type === "stream_end"));
+  });
+
+  test("passes VLM evidence to the tool-capable main model for action requests", async () => {
+    let requestBody;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/api/tags")) {
+        return { ok: true, status: 200, text: async () => JSON.stringify({ models: [] }) };
+      }
+      requestBody = JSON.parse(opts.body);
+      return {
+        ok: true, status: 200, text: async () => "",
+        body: sseStream([
+          'data: {"choices":[{"index":0,"delta":{"content":"I found two matching documents."},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":4}}\n\n',
+          "data: [DONE]\n\n",
+        ]),
+      };
+    });
+    const tools = [{ type: "function", function: { name: "doc_search", parameters: {} } }];
+    const messages = [{ role: "user", content: [
+      { type: "text", text: "Read this image and find similar documents in my indexed files" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+    ]}];
+    const callTool = mock.fn(async () => "Invoice field: Customer ID 42");
+
+    const result = await runOllamaLoop(
+      messages, { send: makeEmittersend() }, {}, undefined, () => {},
+      baseCtx("qwen3.5:9b", {
+        callTool,
+        getOllamaTools: () => tools,
+      }),
+    );
+
+    assert.equal(result, "I found two matching documents.");
+    assert.deepEqual(requestBody.tools, tools);
+    const wireText = requestBody.messages.map(m =>
+      typeof m.content === "string" ? m.content : JSON.stringify(m.content)
+    ).join("\n");
+    assert.match(wireText, /Customer ID 42/);
+    assert.doesNotMatch(wireText, /data:image\/png;base64,pixels/);
+  });
 });
 
 // =============================================================================

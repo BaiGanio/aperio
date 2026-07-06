@@ -45,6 +45,8 @@ const LOCALE_META = {
   lt: { flag: "🇱🇹", name: "Lietuvių",    englishName: "Lithuanian" },
   mt: { flag: "🇲🇹", name: "Malti",       englishName: "Maltese" },
   ga: { flag: "🇮🇪", name: "Gaeilge",     englishName: "Irish" },
+  zh: { flag: "🇨🇳", name: "中文",       englishName: "Chinese" },
+  ja: { flag: "🇯🇵", name: "日本語",     englishName: "Japanese" },
 };
 
 const SUPPORTED_LANGS = Object.keys(LOCALE_META);
