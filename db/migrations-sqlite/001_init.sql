@@ -20,7 +20,7 @@ CREATE TABLE memories (
   id            TEXT PRIMARY KEY,                            -- uuid v4 (generated in JS)
   type          TEXT NOT NULL CHECK (type IN (
                   'fact','preference','project','decision',
-                  'solution','source','person','inference'
+                  'solution','source','person','inference','workflow'
                 )),
   title         TEXT NOT NULL,
   content       TEXT NOT NULL,

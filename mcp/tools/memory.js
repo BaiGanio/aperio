@@ -25,7 +25,7 @@ const TOOLS = [
     name: "remember",
     description: "Save a new memory to Aperio. Automatically generates embeddings for semantic search. For time-sensitive information, propose a TTL via expires_at: 1–7 days for session/today context (current task, meeting agenda, temp credentials), 7–30 days for sprint or phase info, 30–90 days for temporary project decisions. Omit expires_at for stable facts, long-term preferences, and permanent knowledge.",
     schema: {
-      type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person", "inference"]).optional().describe("Category of the memory. Defaults to 'fact' when omitted — don't interrogate the user for it; pick the best fit or let it default."),
+      type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person", "inference", "workflow"]).optional().describe("Category of the memory. Defaults to 'fact' when omitted — don't interrogate the user for it; pick the best fit or let it default."),
       title: z.string(),
       content: z.string(),
       tier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional().describe("Sensitivity tier: 1=normal (default, always shared), 2=sensitive (withheld or redacted on cloud providers), 3=private (never leaves the machine). The legacy tag \"local-only\" also maps to tier 2 when no explicit tier is given."),
@@ -42,7 +42,7 @@ const TOOLS = [
     description: "Search memories. Uses semantic similarity when a query is provided, falls back to full-text.",
     schema: {
       query: z.string().optional(),
-      type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person", "inference"]).optional(),
+      type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person", "inference", "workflow"]).optional(),
       tags: z.array(z.string()).optional(),
       limit: z.number().min(1).max(50).optional(),
       search_mode: z.enum(["semantic", "fulltext", "auto"]).optional(),
