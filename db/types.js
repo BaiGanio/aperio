@@ -68,6 +68,7 @@ export function deserialiseRow(row) {
     content:     row.content,
     tags:        Array.isArray(row.tags) ? row.tags : JSON.parse(row.tags || '[]'),
     importance:  row.importance,
+    tier:        row.tier ?? 1,
     created_at:  new Date(row.created_at),
     updated_at:  new Date(row.updated_at),
     expires_at:  row.expires_at ? new Date(row.expires_at) : null,

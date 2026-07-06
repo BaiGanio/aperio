@@ -744,12 +744,13 @@ export class SqliteStore {
     const id  = randomUUID();
     const tx  = this.db.transaction(() => {
       const info = this.db.prepare(`
-        INSERT INTO memories (id, type, title, content, tags, importance, expires_at, source, lang, confidence)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO memories (id, type, title, content, tags, importance, tier, expires_at, source, lang, confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         id, input.type, input.title, input.content,
         JSON.stringify(input.tags ?? []),
         input.importance ?? 3,
+        input.tier ?? 1,
         input.expires_at ? new Date(input.expires_at).toISOString() : null,
         input.source ?? 'manual',
         input.lang ?? 'english',
@@ -771,8 +772,8 @@ export class SqliteStore {
     if (!inputs.length) return [];
     const ids = [];
     const insMem = this.db.prepare(`
-      INSERT INTO memories (id, type, title, content, tags, importance, expires_at, source, lang, confidence)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO memories (id, type, title, content, tags, importance, tier, expires_at, source, lang, confidence)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const tx = this.db.transaction(() => {
       for (const input of inputs) {
@@ -781,6 +782,7 @@ export class SqliteStore {
           id, input.type, input.title, input.content,
           JSON.stringify(input.tags ?? []),
           input.importance ?? 3,
+          input.tier ?? 1,
           input.expires_at ? new Date(input.expires_at).toISOString() : null,
           input.source ?? 'import',
           input.lang ?? 'english',
@@ -930,15 +932,15 @@ export class SqliteStore {
   }
 
   // ── Recall (hybrid / semantic / fulltext) ─────────────────────────────────
-  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', asOf = null, order = 'importance' }) {
+  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', asOf = null, order = 'importance', maxTier = 3 }) {
     const ftsQuery  = ftsMatchQuery(query);
     const useVector = !!queryEmbedding && mode !== 'fulltext';
     const useText   = !!ftsQuery       && mode !== 'semantic';
     const cap       = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
 
     // Temporal + base filter as a SQL fragment.
-    const baseConds = [`(m.expires_at IS NULL OR m.expires_at > @now)`];
-    const baseParams = { now: nowIso() };
+    const baseConds = [`(m.expires_at IS NULL OR m.expires_at > @now)`, `m.tier <= @maxTier`];
+    const baseParams = { now: nowIso(), maxTier };
     if (asOf) {
       baseConds.push(`(m.valid_from <= @asof AND (m.valid_until IS NULL OR m.valid_until > @asof))`);
       baseParams.asof = asOf;

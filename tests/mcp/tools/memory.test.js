@@ -25,6 +25,7 @@ function makeMemory(overrides = {}) {
     content:    "Test content",
     tags:       ["testing"],
     importance: 3,
+    tier:       1,
     source:     "claude",
     ...overrides,
   };
@@ -187,8 +188,8 @@ describe("recallHandler", () => {
 
   // PRIVACY-01 — local-only tag filtering by provider locality
   const taggedRows = () => [
-    makeMemory({ id: "pub", title: "Public note", tags: ["work"] }),
-    makeMemory({ id: "sec", title: "Secret note", tags: ["Local-Only"] }),
+    makeMemory({ id: "pub", title: "Public note", tags: ["work"], tier: 1 }),
+    makeMemory({ id: "sec", title: "Secret note", tags: ["Local-Only"], tier: 2 }),
   ];
 
   test("cloud provider hides memories tagged local-only", async () => {
@@ -212,7 +213,7 @@ describe("recallHandler", () => {
 
   test("filtering everything out returns the empty message", async () => {
     const ctx = {
-      ...makeCtx({ recall: async () => [makeMemory({ tags: ["local-only"] })] }),
+      ...makeCtx({ recall: async () => [makeMemory({ tags: ["local-only"], tier: 2 })] }),
       providerIsLocal: false,
     };
     const text = (await recallHandler(ctx, { query: "x" })).content[0].text;

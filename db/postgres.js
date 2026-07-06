@@ -140,12 +140,13 @@ export class PostgresStore {
   async insert(input, embedding) {
     const { rows } = await this.pool.query(
       `INSERT INTO memories
-         (type, title, content, tags, importance, expires_at, source, embedding, lang, confidence, valid_from)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
+         (type, title, content, tags, importance, tier, expires_at, source, embedding, lang, confidence, valid_from)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
        RETURNING *`,
       [
         input.type, input.title, input.content,
         input.tags ?? [], input.importance ?? 3,
+        input.tier ?? 1,
         input.expires_at ?? null, input.source ?? 'manual',
         embedding ? toVec(embedding) : null,
         input.lang ?? 'english',
@@ -164,12 +165,13 @@ export class PostgresStore {
       for (const input of inputs) {
         const { rows } = await client.query(
           `INSERT INTO memories
-             (type, title, content, tags, importance, expires_at, source, confidence, valid_from)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8, now())
+              (type, title, content, tags, importance, tier, expires_at, source, confidence, valid_from)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
            RETURNING *`,
           [
             input.type, input.title, input.content,
             input.tags ?? [], input.importance ?? 3,
+            input.tier ?? 1,
             input.expires_at ?? null, input.source ?? 'import',
             input.confidence ?? 1.0,
           ]
@@ -294,7 +296,7 @@ export class PostgresStore {
     return rows.length > 0;
   }
 
-  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', lang = 'english', asOf = null, order = 'importance' }) {
+  async recall({ query, queryEmbedding, type, tags, limit = 10, mode = 'auto', lang = 'english', asOf = null, order = 'importance', maxTier = 3 }) {
     const useVector = !!queryEmbedding && mode !== 'fulltext';
     const useText   = !!query          && mode !== 'semantic';
 
@@ -324,6 +326,9 @@ export class PostgresStore {
         `(expires_at IS NULL OR expires_at > now())`,
         temporal.sql,
       ];
+
+      baseConditions.push(`tier <= $${idx++}`);
+      params.push(maxTier);
 
       if (type)         { baseConditions.push(`type = $${idx++}`);  params.push(type); }
       if (tags?.length) { baseConditions.push(`tags && $${idx++}`); params.push(tags); }
@@ -381,6 +386,9 @@ export class PostgresStore {
         `embedding IS NOT NULL`,
       ];
 
+      conditions.push(`tier <= $${idx++}`);
+      params.push(maxTier);
+
       if (type)         { conditions.push(`type = $${idx++}`);  params.push(type); }
       if (tags?.length) { conditions.push(`tags && $${idx++}`); params.push(tags); }
       params.push(limit);
@@ -410,6 +418,9 @@ export class PostgresStore {
       `(expires_at IS NULL OR expires_at > now())`,
       temporal.sql,
     ];
+
+    conditions.push(`tier <= $${idx++}`);
+    params.push(maxTier);
 
     if (type)         { conditions.push(`type = $${idx++}`);  params.push(type); }
     if (tags?.length) { conditions.push(`tags && $${idx++}`); params.push(tags); }
