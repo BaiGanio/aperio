@@ -71,6 +71,7 @@ Your context, always available.
 │   └── whoami.md                 # Instructions for AI agent identity (edit this!)
 ├── 📂 lib/
 │   ├── agent.js                  # Agent entry point — provider loops live in lib/agent/providers/
+│   ├── 📂 agent/                 # Provider loops, tool hooks, profiles, lifecycle middleware
 │   ├── terminal.js               # Terminal chat client
 │   ├── 📂 emitters/              # CLI and WebSocket stream emitters
 │   ├── 📂 handlers/              # Attachment and memory handlers
@@ -464,6 +465,23 @@ contains `[tool-result-offload]` metadata without the file contents. Delete the
 chat from History and confirm its directory under
 `var/agent-artifacts/sessions/` is removed. Restore the normal threshold after
 the check.
+
+### Agent lifecycle middleware
+
+`lib/agent/middleware.js` defines Aperio's provider-neutral orchestration
+contract: `beforeModel`, `selectTools`, `beforeTool`, `afterTool`, `afterModel`,
+`onInterrupt`, and `onError`. Named middleware runs in registration order
+against immutable request snapshots. Hooks may return a shallow update or
+explicitly stop the chain; failures retain hook and middleware identity while
+notifying every error observer.
+
+This is the Phase 2 contract foundation. Existing tool safety, context
+selection, and provider loops are migrated to it in the following drills, so
+adding the runner alone does not change current agent behavior.
+
+```bash
+NODE_ENV=test node --test tests/lib/agent/middleware.test.js
+```
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
