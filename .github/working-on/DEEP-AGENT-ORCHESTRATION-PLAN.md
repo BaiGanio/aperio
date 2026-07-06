@@ -8,7 +8,8 @@ Source inspiration: `langchain-ai/deepagents`
 
 Implementation rule: every numbered slice below is completed and verified as a
 small reviewable change. The implementation assistant leaves changes unstaged
-and uncommitted; the maintainer reviews and creates the clean commit.
+and uncommitted, but write updates if necessary in README.md and FEATURES.md; 
+the maintainer reviews and creates the clean commit.
 
 ## Objective
 
