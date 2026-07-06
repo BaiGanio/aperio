@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Terminal context pressure indicator: navbar now shows `ctx N%` when context usage exceeds warning threshold (#189)
+- Ollama provider: cached tool schema serialization across tool-call loop iterations to avoid redundant `zodToJsonSchema` transforms (#189)
+
 - First-class OpenAI Codex CLI provider with Aperio MCP tools, sandbox controls,
   persisted per-session resume, setup/configuration UI, background completions,
   round-table support, documentation, and provider-contract tests.
