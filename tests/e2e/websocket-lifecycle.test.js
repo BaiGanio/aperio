@@ -5,68 +5,14 @@
 //
 // Uses the fixture server — all in-memory, no DB, no AI provider.
 // Only system touch: child process (spawn) + OS-assigned port (0).
+//
+// Uses shared buffered-connect helpers to eliminate handshake races — the
+// message listener is attached before `open` resolves, so handshake messages
+// (status, provider, session_created) are captured without racing.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { resolve, dirname } from "path";
-import { fileURLToPath } from "url";
-import { WebSocket } from "ws";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const FIXTURE   = resolve(__dirname, "fixtures", "server.js");
-
-// ─── Helpers (shared with streaming.test.js) ──────────────────────────────
-
-function startFixture() {
-  return spawn(process.execPath, [FIXTURE], { stdio: ["ignore", "pipe", "inherit"] });
-}
-
-function readPort(server, timeout = 10_000) {
-  return new Promise((resolve, reject) => {
-    const tid = setTimeout(() => reject(new Error("No PORT")), timeout);
-    let buf = "";
-    server.stdout.on("data", (chunk) => {
-      buf += chunk.toString();
-      const m = buf.match(/PORT:(\d+)/);
-      if (m) { clearTimeout(tid); resolve(Number(m[1])); }
-    });
-    server.on("exit", (code) => { clearTimeout(tid); reject(new Error(`exited ${code}`)); });
-  });
-}
-
-function connectWS(port, timeout = 5_000) {
-  const ws = new WebSocket(`ws://127.0.0.1:${port}`);
-  return new Promise((resolve, reject) => {
-    const tid = setTimeout(() => reject(new Error("WS timeout")), timeout);
-    ws.once("open",  () => { clearTimeout(tid); resolve(ws); });
-    ws.once("error", reject);
-  });
-}
-
-function collectFor(ws, ms) {
-  const msgs = [];
-  const handler = (raw) => msgs.push(JSON.parse(raw.toString()));
-  ws.on("message", handler);
-  return new Promise((resolve) => {
-    setTimeout(() => { ws.removeListener("message", handler); resolve(msgs); }, ms);
-  });
-}
-
-function waitForType(ws, type, timeout = 5_000) {
-  return new Promise((resolve, reject) => {
-    const tid = setTimeout(() => reject(new Error(`No ${type}`)), timeout);
-    const handler = (raw) => {
-      const msg = JSON.parse(raw.toString());
-      if (msg.type === type) {
-        clearTimeout(tid);
-        ws.removeListener("message", handler);
-        resolve(msg);
-      }
-    };
-    ws.on("message", handler);
-  });
-}
+import { startFixture, readPort, connectBuffered } from "./helpers/ws-helper.js";
 
 // ─── Tests ────────────────────────────────────────────────────────────────
 describe("WebSocket lifecycle — Phase 7", () => {
@@ -79,12 +25,12 @@ describe("WebSocket lifecycle — Phase 7", () => {
     // Connect three times sequentially, collect each session ID
     const ids = [];
     for (let i = 0; i < 3; i++) {
-      const ws = await connectWS(port);
-      const session = await waitForType(ws, "session_created");
+      const conn = await connectBuffered(port);
+      const session = await conn.waitForType("session_created");
       ids.push(session.id);
-      ws.close();
+      conn.close();
       // Wait for close to fully complete before reconnecting
-      await new Promise((resolve) => ws.once("close", resolve));
+      await new Promise((resolve) => conn.ws.once("close", resolve));
     }
 
     // Verify all three IDs are unique
@@ -101,13 +47,13 @@ describe("WebSocket lifecycle — Phase 7", () => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
 
-    const ws1 = await connectWS(port);
-    const s1 = await waitForType(ws1, "session_created");
-    ws1.close();
+    const conn1 = await connectBuffered(port);
+    const s1 = await conn1.waitForType("session_created");
+    conn1.close();
 
-    const ws2 = await connectWS(port);
-    const s2 = await waitForType(ws2, "session_created");
-    ws2.close();
+    const conn2 = await connectBuffered(port);
+    const s2 = await conn2.waitForType("session_created");
+    conn2.close();
 
     assert.notEqual(s1.id, s2.id, "session IDs must differ across reconnections");
   });
@@ -116,19 +62,20 @@ describe("WebSocket lifecycle — Phase 7", () => {
   test("two sequential chats in one connection both produce streams", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
-    await waitForType(ws, "session_created");
+    const conn = await connectBuffered(port); t.after(() => conn.close());
+    const ws = conn.ws;
+    await conn.waitForType("session_created");
 
     // Send first chat
     ws.send(JSON.stringify({ type: "chat", content: "first" }));
-    let msgs = await collectFor(ws, 300);
+    let msgs = await conn.collectUntil("stream_end");
     let end1 = msgs.find((m) => m.type === "stream_end");
     assert.ok(end1, "first chat produces stream_end");
     assert.equal(end1.text, "pong", "first response text");
 
     // Send second chat
     ws.send(JSON.stringify({ type: "chat", content: "second" }));
-    msgs = await collectFor(ws, 300);
+    msgs = await conn.collectUntil("stream_end");
     let end2 = msgs.find((m) => m.type === "stream_end");
     assert.ok(end2, "second chat produces stream_end");
     assert.equal(end2.text, "pong", "second response text");
@@ -138,11 +85,12 @@ describe("WebSocket lifecycle — Phase 7", () => {
   test("disconnect control message closes with specified code", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
-    await waitForType(ws, "session_created");
+    const conn = await connectBuffered(port); t.after(() => conn.close());
+    const ws = conn.ws;
+    await conn.waitForType("session_created");
 
     const closePromise = new Promise((resolve) => {
-      ws.once("close", (code, reason) => resolve({ code, reason: reason?.toString() }));
+      ws.once("close", (code) => resolve({ code }));
     });
 
     ws.send(JSON.stringify({ type: "disconnect", code: 1001, reason: "going away" }));
@@ -155,8 +103,9 @@ describe("WebSocket lifecycle — Phase 7", () => {
   test("invalid message type is silently ignored, server stays alive", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port); t.after(() => ws.close());
-    await waitForType(ws, "session_created");
+    const conn = await connectBuffered(port); t.after(() => conn.close());
+    const ws = conn.ws;
+    await conn.waitForType("session_created");
 
     // Send garbage, then a real message
     ws.send("not valid json");
@@ -164,34 +113,31 @@ describe("WebSocket lifecycle — Phase 7", () => {
     ws.send(JSON.stringify({ type: "set_stream", text: "still works" }));
     ws.send(JSON.stringify({ type: "chat", content: "after garbage" }));
 
-    const msgs = await collectFor(ws, 300);
+    const msgs = await conn.collectUntil("stream_end");
     const end = msgs.find((m) => m.type === "stream_end");
     assert.ok(end, "server still responds after invalid messages");
     assert.equal(end.text, "still works", "correct response despite garbage");
   });
 
-  // ── 6. WebSocket close event fires ──────────────────────────────────
+  // ── 6. Server-side close handler ─────────────────────────────────────
   test("server-side close handler fires for normal disconnect", async (t) => {
     const srv = startFixture(); t.after(() => srv.kill());
     const port = await readPort(srv);
-    const ws   = await connectWS(port);
+    const conn = await connectBuffered(port);
+    const ws = conn.ws;
 
     // Collect messages, then close, then wait
-    const msgs = [];
-    const handler = (raw) => msgs.push(JSON.parse(raw.toString()));
-    ws.on("message", handler);
-
-    await waitForType(ws, "session_created");
+    await conn.waitForType("session_created");
 
     ws.close(1000);
     // Wait for close to propagate
     await new Promise((resolve) => ws.once("close", resolve));
 
     // Verify the close didn't break the server - can still connect
-    const ws2 = await connectWS(port);
-    const session2 = await waitForType(ws2, "session_created");
+    const conn2 = await connectBuffered(port);
+    const session2 = await conn2.waitForType("session_created");
     assert.ok(session2.id, "new connection works after previous close");
-    ws2.close();
+    conn2.close();
   });
 
   // ── 7. Ten rapid sequential connections ──────────────────────────────
@@ -200,11 +146,12 @@ describe("WebSocket lifecycle — Phase 7", () => {
     const port = await readPort(srv);
 
     for (let i = 0; i < 10; i++) {
-      const ws = await connectWS(port);
-      const session = await waitForType(ws, "session_created", 3_000);
+      const conn = await connectBuffered(port, 3_000);
+      const session = await conn.waitForType("session_created", 3_000);
       assert.ok(session.id, `connection ${i} got valid session`);
-      ws.close();
-      await new Promise((r) => setTimeout(r, 30));
+      conn.close();
+      // Wait for full close instead of a fixed 30ms sleep
+      await new Promise((resolve) => conn.ws.once("close", resolve));
     }
   });
 });
