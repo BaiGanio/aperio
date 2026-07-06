@@ -93,3 +93,7 @@ document.querySelectorAll('.mg-prompt').forEach(box => {
   else box.prepend(bar);
 });
 
+
+
+
+
