@@ -37,7 +37,7 @@ npm run chat:local            # terminal chat client
 - **Agent SDK**: `@anthropic-ai/claude-agent-sdk` (for `claude-code` provider)
 - **Codex integration**: authenticated `codex exec --json` with Aperio's stdio MCP server
 - **Skills/doc generation**: `docx`, `pdf-lib`, `pptxgenjs`, `exceljs`, `sharp`, `mammoth`, `pdfjs-dist`
-- **Code graph**: `web-tree-sitter` + `tree-sitter-wasms`
+- **Code graph**: `web-tree-sitter` + `tree-sitter-wasms` — currently at `^0.24.7` (ABI 14). Cannot upgrade to 0.25+ until `tree-sitter-wasms` ships ABI-15 grammars. See `lib/codegraph/` extractors.
 - **Testing**: Node.js native test runner (`node --test`), `c8` for coverage
 - **Logging**: `winston` + `winston-daily-rotate-file`
 
@@ -248,6 +248,7 @@ Test helpers:
 - `tests/mockDB.js` — in-memory SQLite store for tests
 - `tests/mockStore.js` — mock store factory
 - `tests/reporters/quiet.js` — CI reporter (used when `APERIO_AGENT_RUN` is set)
+- `tests/e2e/helpers/ws-helper.js` — shared buffered-connect helpers for WebSocket E2E tests. `connectBuffered()` attaches the message listener before `open` resolves, eliminating the handshake race. `collectUntil(endType)` replaces fixed-sleep collection with event-driven termination. Always use this helper for new E2E tests.
 
 Environment: `NODE_ENV=test` must be set for tests.
 
