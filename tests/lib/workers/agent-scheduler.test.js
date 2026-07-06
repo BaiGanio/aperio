@@ -272,6 +272,32 @@ describe("agent-scheduler", () => {
       assert.strictEqual(recorded[0].model, "qwen3:8b");
       assert.strictEqual(notes[0].model, "qwen3:8b");
     });
+
+    test("records aggregate offload metadata without artifact content", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      const recorded = [];
+      const createAgent = async () => ({
+        provider: { name: "ollama", model: "qwen3:8b" },
+        runAgentLoop: async (_messages, emitter) => {
+          emitter.send({ type: "tool_result_offloaded", artifactId: "a-1", byteCount: 1200 });
+          emitter.send({ type: "tool_result_offloaded", artifactId: "a-2", byteCount: 300 });
+          return "done";
+        },
+      });
+      const sched = createAgentScheduler({
+        callTool: async () => "",
+        createAgent,
+        recordRun: async run => { recorded.push(run); },
+        jobs: [],
+      });
+
+      await sched.runJob({ id: "offload-run", prompt: "inspect a large result" });
+      sched.stop();
+
+      assert.equal(recorded[0].artifactCount, 2);
+      assert.equal(recorded[0].artifactBytes, 1500);
+      assert.equal(Object.hasOwn(recorded[0], "artifactContent"), false);
+    });
   });
 
   describe("runJob (freeform mode)", () => {

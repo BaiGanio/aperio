@@ -101,6 +101,8 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)
 - Lossless large-result offloading — oversized text tool results are secret-redacted and stored immutably under a private session/run scope; the model receives a bounded head/tail preview with an artifact ID instead of losing the full result to context trimming (`APERIO_TOOL_RESULT_OFFLOAD_TOKENS`, `APERIO_TOOL_RESULT_OFFLOAD_BYTES`)
+- Chunked result recovery — after an offload in the active run, the read-only `read_artifact` tool pages the complete result by byte offset/limit under code-enforced session/run ownership (8,192-byte default chunk, 24,000-byte maximum chunk, 32,000-byte maximum response)
+- Artifact lifecycle and observability — session artifacts are deleted/pruned with sessions; run artifacts follow `AGENT_RUN_RETENTION_DAYS`; logs and background-run history expose only offload IDs/scopes/counts/byte totals, never stored content
 - First-class providers: Ollama, Anthropic, DeepSeek, Gemini, Claude Code Agent SDK, and OpenAI Codex CLI
 - Codex provider: authenticated `codex exec --json`, Aperio MCP tool access, explicit sandbox/approval policy, session-scoped persisted thread resume, background completions, setup wizard, and round-table support
 - Skills matching per turn (`skills/`)
@@ -119,6 +121,30 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 - Embedding retry queue for resilient vector writes
 - Data portability — `export_data` (portable JSON backup) and `import_data` (idempotent restore, deduplicates by ID/slug, queues embeddings for backfill)
 - Private agent-artifact store — immutable SHA-256-verified metadata/content pairs scoped to a chat session or headless run, written atomically with `0700` directories and `0600` files
+
+## Testing large-result artifacts
+
+Run the focused lifecycle and retrieval coverage:
+
+```bash
+NODE_ENV=test node --test \
+  tests/lib/context/artifactStore.test.js \
+  tests/lib/context/toolResultOffload.test.js \
+  tests/lib/context/artifactRetrieval.test.js \
+  tests/lib/agent/tool-hooks.test.js \
+  tests/lib/helpers/sessions.test.js \
+  tests/lib/workers/agent-run-prune.test.js \
+  tests/lib/workers/agent-scheduler.test.js
+
+NODE_ENV=test node --test tests/db/sqlite.test.js tests/db/postgres.test.js
+```
+
+Manual verification: set `APERIO_TOOL_RESULT_OFFLOAD_BYTES=1000`, restart,
+have a capable agent read more than 1 KB of text, and verify the bounded preview
+and `read_artifact` pagination. Check `[tool-result-offload]` logs and background
+run history for byte counts without content. Delete the session and verify its
+`var/agent-artifacts/sessions/<session-id>/` directory is gone, then restore the
+normal threshold.
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel, voice input + TTS readout

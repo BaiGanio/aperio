@@ -251,6 +251,23 @@ describe("artifact store", () => {
     );
   });
 
+  test("prunes only run owners whose artifacts are all older than the cutoff", () => {
+    let now = new Date("2026-06-01T00:00:00.000Z");
+    const { store } = fixture({ now: () => now });
+    store.put({ scope: "run", ownerId: "old-run", sourceTool: "run_shell", content: "old" });
+    now = new Date("2026-07-05T00:00:00.000Z");
+    store.put({ scope: "run", ownerId: "fresh-run", sourceTool: "run_shell", content: "fresh" });
+
+    const removed = store.pruneOwners({
+      scope: "run",
+      olderThan: "2026-07-01T00:00:00.000Z",
+    });
+
+    assert.equal(removed, 1);
+    assert.deepEqual(store.listIds({ scope: "run", ownerId: "old-run" }), []);
+    assert.equal(store.listIds({ scope: "run", ownerId: "fresh-run" }).length, 1);
+  });
+
   test("hardens an existing owner directory before writing", () => {
     const { rootDir, store } = fixture();
     const ownerDir = join(rootDir, "sessions", "session-1");

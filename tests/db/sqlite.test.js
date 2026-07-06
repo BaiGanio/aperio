@@ -433,6 +433,7 @@ describe("agent run history", () => {
     await store.recordAgentRun({
       jobId: "hist", startedAt: "2026-06-16T10:00:00.000Z", finishedAt: "2026-06-16T10:00:01.000Z",
       durationMs: 1000, verdict: "ok", mode: "steps", trigger: "manual", tools: ["recall"], answer: "done",
+      artifactCount: 2, artifactBytes: 12345,
     });
     await store.recordAgentRun({
       jobId: "hist", startedAt: "2026-06-16T11:00:00.000Z", finishedAt: "2026-06-16T11:00:02.000Z",
@@ -444,6 +445,8 @@ describe("agent run history", () => {
     assert.equal(runs[0].verdict, "error");      // newest first
     assert.equal(runs[1].verdict, "ok");
     assert.deepEqual(runs[1].tools, ["recall"]);  // JSON round-trips to an array
+    assert.equal(runs[1].artifact_count, 2);
+    assert.equal(runs[1].artifact_bytes, 12345);
   });
 
   test("limit caps the number of rows returned", async () => {

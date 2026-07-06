@@ -659,14 +659,16 @@ export class SqliteStore {
       if (agent_runs.length) {
         const upsertRun = this.db.prepare(`
           INSERT OR IGNORE INTO agent_runs
-            (job_id, started_at, finished_at, duration_ms, verdict, mode, trigger, model, error, tools, answer)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (job_id, started_at, finished_at, duration_ms, verdict, mode, trigger, model,
+             error, tools, answer, artifact_count, artifact_bytes)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `);
         for (const r of agent_runs) {
           const info = upsertRun.run(
             r.job_id, r.started_at, r.finished_at ?? null, r.duration_ms ?? null,
             r.verdict ?? null, r.mode ?? null, r.trigger ?? null, r.model ?? null,
-            r.error ?? null, r.tools ?? null, r.answer ?? null
+            r.error ?? null, r.tools ?? null, r.answer ?? null,
+            r.artifact_count ?? 0, r.artifact_bytes ?? 0
           );
           info.changes > 0 ? result.imported.runs++ : result.skipped.runs++;
         }
@@ -1326,12 +1328,14 @@ export class SqliteStore {
   async recordAgentRun(run) {
     const info = this.db.prepare(`
       INSERT INTO agent_runs
-        (job_id, started_at, finished_at, duration_ms, verdict, mode, trigger, model, error, tools, answer)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        (job_id, started_at, finished_at, duration_ms, verdict, mode, trigger, model,
+         error, tools, answer, artifact_count, artifact_bytes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       run.jobId, run.startedAt, run.finishedAt ?? null, run.durationMs ?? null,
       run.verdict, run.mode ?? null, run.trigger ?? null, run.model ?? null, run.error ?? null,
       run.tools != null ? JSON.stringify(run.tools) : null, run.answer ?? null,
+      run.artifactCount ?? 0, run.artifactBytes ?? 0,
     );
     return info.lastInsertRowid;
   }

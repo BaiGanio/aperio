@@ -436,6 +436,7 @@
       r.model   ? `- Model: ${r.model}`                 : null,
       r.trigger ? `- Trigger: ${r.trigger}`             : null,
       r.tools?.length ? `- Tools: ${r.tools.join(", ")}` : null,
+      r.artifact_count ? `- Offloaded artifacts: ${r.artifact_count} (${r.artifact_bytes || 0} bytes)` : null,
     ].filter(Boolean).join("\n");
     return `# ${jobId}${r.model ? ` — ${r.model}` : ""}\n\n${meta}\n\n${r.error || r.answer || ""}\n`;
   }
@@ -523,6 +524,7 @@
               </summary>
               ${r.model ? `<div class="ag-run-model">🤖 ${escapeHtml(r.model)}</div>` : ""}
               ${r.tools && r.tools.length ? `<div class="ag-run-tools">tools: ${escapeHtml(r.tools.join(", "))}</div>` : ""}
+              ${r.artifact_count ? `<div class="ag-run-tools">offloaded: ${escapeHtml(String(r.artifact_count))} artifact(s), ${escapeHtml(String(r.artifact_bytes || 0))} bytes</div>` : ""}
               ${r.error ? `<div class="ag-run-body">${escapeHtml(r.error)}</div>`
                 : r.answer ? `<div class="ag-run-body">${escapeHtml(r.answer)}</div>` : ""}
               <div class="ag-run-actions">

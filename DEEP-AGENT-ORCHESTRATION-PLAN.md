@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: in progress — Phase 1
+Status: Phase 1 complete — Phase 2 pending
 
 Created: 2026-07-06
 
@@ -124,18 +124,32 @@ to the model.
   - Tests: pagination, invalid ID, cross-session denial, and end-of-content.
   - Commit: `feat(context): add chunked artifact retrieval`
 
-- [ ] **1.4 Lifecycle and observability**
+- [x] **1.4 Lifecycle and observability**
   - Clean artifacts with their session/run retention policy.
   - Surface offload events and stored byte counts in logs/run history without
     logging content.
   - Document configuration and operational limits.
-  - Commit: `docs(context): document result offloading lifecycle`
+  - Commit: `feat(context): add artifact lifecycle observability`
 
 Phase acceptance:
 
-- A result larger than the model context remains fully retrievable.
-- The model receives a bounded preview and can request only the needed chunks.
-- Resuming a retained session preserves its result artifacts.
+- [x] A result larger than the model context remains fully retrievable.
+- [x] The model receives a bounded preview and can request only the needed chunks.
+- [x] Resuming a retained session preserves its result artifacts.
+
+Phase 1 completion record (2026-07-06):
+
+- Session artifacts are removed on trivial-session discard, explicit deletion,
+  and retention pruning; pinned sessions retain their artifacts.
+- Background-run artifacts use the same `AGENT_RUN_RETENTION_DAYS` cutoff as
+  run history. Unset or `0` preserves both indefinitely.
+- Offload logs contain tool/artifact/scope/count metadata only. Background-run
+  history stores aggregate artifact count and byte totals in SQLite/Postgres.
+- `README.md` and `FEATURES.md` document thresholds, retrieval limits,
+  retention behavior, and focused/manual verification steps.
+- Focused Phase 1 lifecycle/database tests: 301 passed. Full suite: 2,687
+  passed; three pre-existing WebSocket E2E tests timed out waiting for
+  `session_created`.
 
 ## Phase 2 — Aperio lifecycle middleware
 

@@ -1,0 +1,2 @@
+ALTER TABLE agent_runs ADD COLUMN artifact_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE agent_runs ADD COLUMN artifact_bytes INTEGER NOT NULL DEFAULT 0;

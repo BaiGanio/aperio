@@ -341,6 +341,7 @@ describe("callToolHooked() — INJECT-01 provenance fencing + taint", () => {
   test("offloads after provenance fencing and emits content-free metadata", async () => {
     const events = [];
     const seen = [];
+    const logs = [];
     const factory = createToolHooks({
       callTool: async () => "external page ".repeat(100),
       offloadToolResult: (result, context) => {
@@ -360,7 +361,7 @@ describe("callToolHooked() — INJECT-01 provenance fencing + taint", () => {
       getActiveScratchDir: () => "/scratch",
       resolveScratchPath: (p) => p,
       validateWrittenFile: noop,
-      logger: silentLogger,
+      logger: { ...silentLogger, info: message => logs.push(message) },
       WRITE_TOOLS: new Set(),
       CONFIRM_TOOLS: new Set(),
       existsSync: () => true,
@@ -395,6 +396,8 @@ describe("callToolHooked() — INJECT-01 provenance fencing + taint", () => {
     });
     assert.equal(Object.hasOwn(event, "content"), false);
     assert.equal(hooks.hasOffloadedArtifacts(), true);
+    assert.match(logs[0], /artifact=artifact-1.*bytes=1234.*tokens=456/);
+    assert.doesNotMatch(logs[0], /external page/);
   });
 
   test("enables owner-bound artifact reads only after an offload", async () => {
