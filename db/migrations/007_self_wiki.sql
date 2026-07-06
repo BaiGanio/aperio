@@ -1,14 +1,7 @@
--- 006_self_wiki.sql (Postgres)
--- Self-wiki: agent-authored synthesis over self_memories, upserted by slug
--- ("search your uniqueness" — see agent-self-memory.md Phase 2). A SEPARATE
--- table set from wiki_articles/wiki_article_sources — the same wall as
--- self_memories itself, so user-facing wiki_search/wiki_list can never
--- surface the agent's private notes.
---
--- Deliberately leaner than wiki_articles: only two tools exist
--- (self_wiki_write / self_wiki_get), both addressed by slug, so there is no
--- search_vector/embedding column and no 'draft'/'archived' status — nothing
--- queries this by free-text or semantic search (yet).
+-- 007_self_wiki.sql — Postgres
+-- Self-wiki: agent-authored synthesis over self_memories, upserted by slug.
+-- Walled off from user-facing wiki (no search_vector/embedding — not yet needed).
+-- FK depends on self_memories (006), so this must run after 006.
 
 CREATE TABLE self_wiki_articles (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -49,9 +42,7 @@ CREATE TABLE self_wiki_article_revisions (
 );
 CREATE INDEX idx_self_wiki_revisions_article ON self_wiki_article_revisions(article_id);
 
--- Auto-stale a self-wiki article whose source self-memory changes. Unlike
--- memories (tombstoned — see trg_memories_mark_wiki_stale), self_memories
--- updates in place, so this trigger fires for real rather than lazily.
+-- Auto-stale self-wiki when source self-memory changes.
 CREATE OR REPLACE FUNCTION mark_self_wiki_stale()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -67,7 +58,7 @@ CREATE TRIGGER trg_self_memories_mark_self_wiki_stale
 AFTER UPDATE OF content, title ON self_memories
 FOR EACH ROW EXECUTE FUNCTION mark_self_wiki_stale();
 
--- Guards status-only UPDATEs (e.g. mark_self_wiki_stale) from polluting revision history.
+-- Archive self-wiki revision on substantive update.
 CREATE OR REPLACE FUNCTION archive_self_wiki_revision()
 RETURNS TRIGGER AS $$
 BEGIN

@@ -1,9 +1,10 @@
--- 006_self_wiki.sql (SQLite)
--- Companion to db/migrations/006_self_wiki.sql (Postgres). Same semantics,
--- SQLite dialect (JSON tags, no embedding/FTS — see the Postgres file for why).
+-- 007_self_wiki.sql — SQLite
+-- Self-wiki: agent-authored synthesis over self_memories, upserted by slug.
+-- Walled off from user-facing wiki (no FTS/vector — not yet needed).
+-- FK depends on self_memories (006), so this must run after 006.
 
 CREATE TABLE self_wiki_articles (
-  id            TEXT PRIMARY KEY,                     -- uuid v4 (generated in JS)
+  id            TEXT PRIMARY KEY,
   slug          TEXT NOT NULL UNIQUE,
   title         TEXT NOT NULL,
   summary       TEXT,
@@ -41,10 +42,7 @@ CREATE TABLE self_wiki_article_revisions (
 );
 CREATE INDEX idx_self_wiki_revisions_article ON self_wiki_article_revisions(article_id);
 
--- Auto-stale a self-wiki article whose source self-memory changes. Unlike the
--- main wiki (whose memories are tombstoned, making the equivalent trigger a
--- no-op — see 001_init.sql), self_memories updates in place, so this fires
--- for real.
+-- Auto-stale self-wiki when source self-memory changes.
 CREATE TRIGGER trg_self_memories_mark_self_wiki_stale
 AFTER UPDATE OF content, title ON self_memories
 BEGIN
@@ -54,7 +52,7 @@ BEGIN
      AND status = 'fresh';
 END;
 
--- Archive prior self-wiki revision on substantive update (mirrors trg_wiki_archive_revision).
+-- Archive prior self-wiki revision on substantive update.
 CREATE TRIGGER trg_self_wiki_archive_revision
 BEFORE UPDATE ON self_wiki_articles
 WHEN OLD.body_md IS NOT NEW.body_md
