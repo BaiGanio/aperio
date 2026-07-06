@@ -487,6 +487,13 @@ losslessly offloaded large results. Each provider adapter still owns its wire
 format and secret-redaction boundary. Claude Code and Codex retain their
 SDK/CLI-managed context paths.
 
+Each native run keeps a bounded in-memory lifecycle trace for diagnostics.
+`agent.getLifecycleTrace()` returns the latest run's read-only entries and
+retention statistics. Entries include only hook/middleware identity, relative
+timing, decision (`continue`, `update`, `stop`, or `error`), and error class.
+The trace retains at most 200 entries and never stores prompts, tool arguments,
+tool results, exception messages, secrets, or artifact contents.
+
 ```bash
 NODE_ENV=test node --test \
   tests/lib/agent/middleware.test.js \

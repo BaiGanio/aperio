@@ -363,6 +363,15 @@ describe("Ollama Loop Logic - Health Check", () => {
     );
 
     assert.ok(result.includes("Ollama is not running") || result.includes("Network error"));
+    const trace = agent.getLifecycleTrace();
+    assert.ok(trace.entries.some(entry =>
+      entry.hook === "beforeModel" &&
+      entry.middleware === "context-trimming"));
+    assert.ok(trace.entries.some(entry =>
+      entry.hook === "selectTools" &&
+      entry.middleware === "tool-profile-selection"));
+    assert.equal(trace.stats.retained, trace.entries.length);
+    assert.doesNotMatch(JSON.stringify(trace), /Network error|\"content\":\"hi\"/);
   });
 
   test("handles non-ok response from Ollama", async (t) => {

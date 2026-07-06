@@ -103,6 +103,7 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 - Provider-neutral lifecycle middleware contract — seven ordered async hooks with immutable request snapshots, explicit returned updates/short-circuiting, validated named registrations, and failure attribution (`lib/agent/middleware.js`)
 - Tool safety middleware — failure-budget gating, repeated-call detection, untrusted-content fencing, taint propagation, and tainted-write confirmation now run as named `beforeTool`/`afterTool` adapters while preserving existing WebSocket events and limits (`lib/agent/tool-safety-middleware.js`)
 - Model-context middleware — the native Anthropic/Ollama/Gemini/DeepSeek loops share named context-trimming, memory-pointer, skill-injection, tool-profile, and result-offload adapters while retaining provider-local wire serialization and redaction (`lib/agent/model-context-middleware.js`)
+- Bounded lifecycle diagnostics — each native run retains up to 200 metadata-only hook records (identity, timing, decision, error class) with read-only last-run inspection; prompts, arguments, results, error messages, secrets, and artifact contents have no trace storage path (`lib/agent/lifecycle-trace.js`)
 - Lossless large-result offloading — oversized text tool results are secret-redacted and stored immutably under a private session/run scope; the model receives a bounded head/tail preview with an artifact ID instead of losing the full result to context trimming (`APERIO_TOOL_RESULT_OFFLOAD_TOKENS`, `APERIO_TOOL_RESULT_OFFLOAD_BYTES`)
 - Chunked result recovery — after an offload in the active run, the read-only `read_artifact` tool pages the complete result by byte offset/limit under code-enforced session/run ownership (8,192-byte default chunk, 24,000-byte maximum chunk, 32,000-byte maximum response)
 - Artifact lifecycle and observability — session artifacts are deleted/pruned with sessions; run artifacts follow `AGENT_RUN_RETENTION_DAYS`; logs and background-run history expose only offload IDs/scopes/counts/byte totals, never stored content
@@ -164,7 +165,8 @@ observer isolation. Tool-hook coverage verifies fencing, taint-to-confirm
 propagation, repeated-call and failure-budget stops, unchanged event payloads,
 and offload ordering. Model-context coverage verifies bounded immutable history,
 memory/skill ordering, canonical tool selection, provider-local serialization,
-and offload failure isolation.
+offload failure isolation, bounded trace eviction, and trace privacy/fail-open
+behavior.
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel, voice input + TTS readout
