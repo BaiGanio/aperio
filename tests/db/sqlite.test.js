@@ -482,6 +482,99 @@ describe("agent run history", () => {
   });
 });
 
+describe("agent interrupts", () => {
+  test("creates and retrieves a pending interrupt descriptor", async () => {
+    const interrupt = await store.createAgentInterrupt({
+      id: "interrupt-write-1",
+      sessionId: "session-a",
+      runId: "run-a",
+      toolName: "write_file",
+      canonicalArguments: { path: "notes/todo.md", content: "hello" },
+      digest: "sha256:abc",
+      allowedDecisions: ["approve", "edit", "reject", "respond"],
+      expiresAt: "2099-01-01T00:00:00.000Z",
+    });
+
+    assert.equal(interrupt.id, "interrupt-write-1");
+    assert.equal(interrupt.session_id, "session-a");
+    assert.equal(interrupt.run_id, "run-a");
+    assert.equal(interrupt.tool_name, "write_file");
+    assert.deepEqual(interrupt.canonical_arguments, { path: "notes/todo.md", content: "hello" });
+    assert.equal(interrupt.protected_payload_ref, null);
+    assert.deepEqual(interrupt.allowed_decisions, ["approve", "edit", "reject", "respond"]);
+    assert.equal(interrupt.status, "pending");
+
+    const fetched = await store.getAgentInterrupt("interrupt-write-1");
+    assert.deepEqual(fetched.canonical_arguments, interrupt.canonical_arguments);
+  });
+
+  test("stores protected payload references when arguments are offloaded", async () => {
+    const interrupt = await store.createAgentInterrupt({
+      id: "interrupt-payload-ref",
+      sessionId: "session-a",
+      toolName: "write_file",
+      protectedPayloadRef: { artifactId: "artifact-1", mediaType: "application/json" },
+      digest: "sha256:def",
+      allowedDecisions: ["approve", "reject"],
+    });
+
+    assert.equal(interrupt.canonical_arguments, null);
+    assert.deepEqual(interrupt.protected_payload_ref, { artifactId: "artifact-1", mediaType: "application/json" });
+  });
+
+  test("lists pending interrupts by session and filters expired rows by default", async () => {
+    await store.createAgentInterrupt({
+      id: "interrupt-expired",
+      sessionId: "session-a",
+      toolName: "delete_file",
+      canonicalArguments: { path: "old.txt" },
+      digest: "sha256:expired",
+      allowedDecisions: ["approve", "reject"],
+      expiresAt: "2000-01-01T00:00:00.000Z",
+    });
+    await store.createAgentInterrupt({
+      id: "interrupt-other-session",
+      sessionId: "session-b",
+      toolName: "write_file",
+      canonicalArguments: { path: "other.txt" },
+      digest: "sha256:other",
+      allowedDecisions: ["approve", "reject"],
+    });
+
+    const pending = await store.listAgentInterrupts({ sessionId: "session-a" });
+    assert.ok(pending.some(i => i.id === "interrupt-write-1"));
+    assert.ok(!pending.some(i => i.id === "interrupt-expired"));
+    assert.ok(!pending.some(i => i.id === "interrupt-other-session"));
+
+    const withExpired = await store.listAgentInterrupts({ sessionId: "session-a", includeExpired: true });
+    assert.ok(withExpired.some(i => i.id === "interrupt-expired"));
+  });
+
+  test("updates interrupt status without executing the action", async () => {
+    const updated = await store.updateAgentInterruptStatus("interrupt-write-1", "rejected");
+    assert.equal(updated.status, "rejected");
+    assert.equal((await store.getAgentInterrupt("interrupt-write-1")).status, "rejected");
+
+    const pending = await store.listAgentInterrupts({ sessionId: "session-a" });
+    assert.ok(!pending.some(i => i.id === "interrupt-write-1"));
+    const rejected = await store.listAgentInterrupts({ sessionId: "session-a", status: "rejected" });
+    assert.ok(rejected.some(i => i.id === "interrupt-write-1"));
+  });
+
+  test("rejects descriptors that cannot be durably reconstructed as JSON", async () => {
+    await assert.rejects(
+      () => store.createAgentInterrupt({
+        sessionId: "session-a",
+        toolName: "write_file",
+        canonicalArguments: { run: () => {} },
+        digest: "sha256:function",
+        allowedDecisions: ["approve"],
+      }),
+      /JSON-serializable/,
+    );
+  });
+});
+
 // ─── Helper: 1024-dim vector builder ──────────────────────────────────────
 function vec1024(...values) {
   const arr = new Array(1024).fill(0);

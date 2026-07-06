@@ -723,6 +723,132 @@ describe("PostgresStore — agent run history", () => {
 });
 
 // =============================================================================
+// PostgresStore — agent interrupts
+// =============================================================================
+describe("PostgresStore — agent interrupts", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("createAgentInterrupt inserts a durable descriptor", async () => {
+    let captured;
+    _poolQuery = async (sql, values) => {
+      if (sql.includes("INSERT INTO agent_interrupts")) {
+        captured = values;
+        return {
+          rows: [{
+            id: values[0],
+            session_id: values[1],
+            run_id: values[2],
+            tool_name: values[3],
+            canonical_arguments: JSON.parse(values[4]),
+            protected_payload_ref: null,
+            digest: values[6],
+            allowed_decisions: JSON.parse(values[7]),
+            status: values[8],
+            created_at: values[9],
+            updated_at: values[10],
+            expires_at: values[11],
+          }],
+        };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const interrupt = await store.createAgentInterrupt({
+      id: "pg-interrupt-1",
+      sessionId: "session-a",
+      runId: "run-a",
+      toolName: "write_file",
+      canonicalArguments: { path: "notes.md" },
+      digest: "sha256:abc",
+      allowedDecisions: ["approve", "reject"],
+    });
+
+    assert.equal(interrupt.id, "pg-interrupt-1");
+    assert.equal(interrupt.session_id, "session-a");
+    assert.deepEqual(interrupt.canonical_arguments, { path: "notes.md" });
+    assert.deepEqual(interrupt.allowed_decisions, ["approve", "reject"]);
+    assert.equal(captured[4], JSON.stringify({ path: "notes.md" }));
+    assert.equal(captured[5], null);
+  });
+
+  test("listAgentInterrupts builds scoped pending query", async () => {
+    let captured;
+    _poolQuery = async (sql, values) => {
+      if (sql.includes("FROM agent_interrupts")) {
+        captured = { sql, values };
+        return {
+          rows: [{
+            id: "pg-interrupt-1",
+            session_id: "session-a",
+            run_id: null,
+            tool_name: "write_file",
+            canonical_arguments: { path: "notes.md" },
+            protected_payload_ref: null,
+            digest: "sha256:abc",
+            allowed_decisions: ["approve"],
+            status: "pending",
+            created_at: new Date(),
+            updated_at: new Date(),
+            expires_at: null,
+          }],
+        };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const rows = await store.listAgentInterrupts({ sessionId: "session-a", limit: 10 });
+    assert.equal(rows.length, 1);
+    assert.ok(captured.sql.includes("session_id = $1"));
+    assert.ok(captured.sql.includes("status = $2"));
+    assert.ok(captured.sql.includes("expires_at IS NULL OR expires_at > $3"));
+    assert.equal(captured.values[0], "session-a");
+    assert.equal(captured.values[1], "pending");
+    assert.equal(captured.values[3], 10);
+  });
+
+  test("updateAgentInterruptStatus returns the updated row", async () => {
+    _poolQuery = async (sql, values) => {
+      if (sql.includes("UPDATE agent_interrupts")) {
+        return {
+          rows: [{
+            id: values[0],
+            session_id: "session-a",
+            run_id: null,
+            tool_name: "write_file",
+            canonical_arguments: { path: "notes.md" },
+            protected_payload_ref: null,
+            digest: "sha256:abc",
+            allowed_decisions: ["approve"],
+            status: values[1],
+            created_at: new Date(),
+            updated_at: new Date(),
+            expires_at: null,
+          }],
+        };
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const row = await store.updateAgentInterruptStatus("pg-interrupt-1", "expired");
+    assert.equal(row.status, "expired");
+  });
+
+  test("rejects non-JSON executable descriptors", async () => {
+    const store = await PostgresStore.init();
+    await assert.rejects(
+      () => store.createAgentInterrupt({
+        sessionId: "session-a",
+        toolName: "write_file",
+        canonicalArguments: { run: () => {} },
+        digest: "sha256:function",
+        allowedDecisions: ["approve"],
+      }),
+      /JSON-serializable/,
+    );
+  });
+});
+
+// =============================================================================
 // PostgresStore — issue triage
 // =============================================================================
 describe("PostgresStore — issue triage", () => {

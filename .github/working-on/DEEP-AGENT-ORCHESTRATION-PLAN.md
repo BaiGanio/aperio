@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: Phase 2 complete — Phase 3 pending
+Status: Phase 3 in progress — 3.1 complete
 
 Created: 2026-07-06
 
@@ -254,7 +254,7 @@ Drill 2.4 completion record (2026-07-06):
 Goal: pending sensitive operations survive process restart and support explicit
 approve, edit, reject, and respond decisions.
 
-- [ ] **3.1 Interrupt persistence**
+- [x] **3.1 Interrupt persistence**
   - Add SQLite/Postgres migrations and store APIs for pending interrupts.
   - Fields include ID, session/run, tool, canonical arguments or protected
     payload reference, digest, allowed decisions, status, timestamps, and
@@ -294,6 +294,22 @@ Phase acceptance:
 - A pending write remains pending across restart.
 - The original action cannot execute twice.
 - Editing arguments cannot bypass schema, path, or permission validation.
+
+Drill 3.1 completion record (2026-07-07):
+
+- Added SQLite and Postgres `agent_interrupts` migrations for durable pending
+  sensitive-action descriptors scoped to sessions and/or background runs.
+- Persisted tool name, canonical arguments or protected payload reference,
+  digest, allowed decisions, status, timestamps, and expiry without storing
+  executable closures.
+- Added low-level store APIs to create, get, list, and status-update interrupt
+  descriptors on both backends. Pending lists filter expired rows by default and
+  cap result size.
+- Kept interrupt descriptors off the public DB-browser whitelist because they
+  are internal security metadata.
+- Focused interrupt verification passed for SQLite and Postgres. Full mocked
+  Postgres DB suite passed. Full SQLite DB suite still has two unrelated
+  baseline failures: the existing `nightly-maintenance` job seed is absent.
 
 ## Phase 4 — Agent specifications and permission narrowing
 
