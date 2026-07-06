@@ -13,6 +13,7 @@ import assert from "node:assert/strict";
 import { basename, join } from "node:path";
 
 import { createToolHooks } from "../../../lib/agent/tool-hooks.js";
+import { TOOL_SAFETY_MIDDLEWARE_NAMES } from "../../../lib/agent/tool-safety-middleware.js";
 
 const noop = () => {};
 const silentLogger = { info: noop, warn: noop, error: noop };
@@ -267,6 +268,75 @@ describe("callToolHooked() — repeated-failure loop breaker", () => {
     const r3 = await callToolHooked("run_node_script", { script: "/scratch/c.js" });
     assert.doesNotMatch(r3, /STOP/);
   });
+
+  test("routes tool safety through the named lifecycle middleware stack", () => {
+    const events = [];
+    const factory = createToolHooks({
+      callTool: async () => "ok",
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: true, summary: "" }),
+      getActiveScratchDir: () => "/scratch",
+      resolveScratchPath: p => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory({ send: event => events.push(event) }, Date.now());
+
+    assert.deepEqual(hooks.safetyMiddlewareNames, TOOL_SAFETY_MIDDLEWARE_NAMES);
+  });
+
+  test("preserves failure-budget events and blocks execution after exhaustion", async () => {
+    const events = [];
+    let executions = 0;
+    const factory = createToolHooks({
+      callTool: async () => {
+        executions++;
+        return "❌ Tool error: rejected";
+      },
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: false, summary: "rejected" }),
+      getActiveScratchDir: () => "/scratch",
+      resolveScratchPath: p => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory({ send: event => events.push(event) }, Date.now());
+
+    await hooks.callToolHooked("one", { value: 1 });
+    await hooks.callToolHooked("two", { value: 2 });
+    const third = await hooks.callToolHooked("three", { value: 3 });
+    const fourth = await hooks.callToolHooked("four", { value: 4 });
+
+    assert.equal(executions, 3);
+    assert.match(third, /TOOL-CALL BUDGET EXHAUSTED/);
+    assert.match(fourth, /TOOL-CALL BUDGET EXHAUSTED/);
+    assert.deepEqual(
+      events.filter(event => event.type === "tool_failure"),
+      [
+        { type: "tool_failure", count: 1, budget: 3, kind: "toolError", detail: "one: ❌ Tool error: rejected" },
+        { type: "tool_failure", count: 2, budget: 3, kind: "toolError", detail: "two: ❌ Tool error: rejected" },
+        { type: "tool_failure", count: 3, budget: 3, kind: "toolError", detail: "three: ❌ Tool error: rejected" },
+      ],
+    );
+    assert.deepEqual(
+      events.filter(event => event.type === "tool_budget_exhausted"),
+      [{ type: "tool_budget_exhausted", count: 3, kinds: ["toolError", "toolError", "toolError"] }],
+    );
+  });
 });
 
 describe("callToolHooked() — INJECT-01 provenance fencing + taint", () => {
@@ -510,9 +580,11 @@ describe("callToolHooked() — WRITE-01 taint→confirm wiring", () => {
     const { hooks, seenArgs } = makeHooks((name) =>
       name === "fetch_url" ? "page text" : "✅ Created /scratch/x.js");
     await hooks.callToolHooked("fetch_url", { url: "https://x.tld" });
-    await hooks.callToolHooked("write_file", { path: "/scratch/x.js", content: "y" });
+    const writeInput = { path: "/scratch/x.js", content: "y" };
+    await hooks.callToolHooked("write_file", writeInput);
     const w = seenArgs.find((s) => s.name === "write_file");
     assert.equal(w.args.__tainted, true);
+    assert.equal(writeInput.__tainted, true);
   });
 
   test("does not mark writes when the turn is clean", async () => {
