@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: proposed
+Status: in progress — Phase 1
 
 Created: 2026-07-06
 
@@ -95,7 +95,7 @@ These constraints apply to every phase:
 Goal: preserve complete large tool results while sending only a bounded preview
 to the model.
 
-- [ ] **1.1 Artifact store contract**
+- [x] **1.1 Artifact store contract**
   - Add a session/run-scoped artifact-store module.
   - Store immutable content with ID, SHA-256 digest, byte count, media type,
     source tool, creation time, and owning session/run.
@@ -459,3 +459,4 @@ slice's commit, so the plan and code cannot drift.
 | Date | Slice | Commit | Verification | Notes |
 |---|---|---|---|---|
 | 2026-07-06 | Plan created | `docs(agent): add orchestration implementation plan` | `git diff --check` | Initial roadmap |
+| 2026-07-06 | 1.1 Artifact store contract | `feat(context): add scoped artifact store` | 92 focused pass; full 2668/2671; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Private immutable session/run storage |
