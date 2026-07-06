@@ -117,6 +117,30 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function assertJsonPersistable(value, field) {
+  if (value === undefined) return null;
+  const seen = new WeakSet();
+  const visit = v => {
+    if (typeof v === 'function' || typeof v === 'symbol' || v === undefined) {
+      throw new Error(`${field} must be JSON-serializable`);
+    }
+    if (!v || typeof v !== 'object') return;
+    if (seen.has(v)) throw new Error(`${field} must be JSON-serializable`);
+    seen.add(v);
+    if (Array.isArray(v)) {
+      for (const item of v) visit(item);
+      return;
+    }
+    for (const item of Object.values(v)) visit(item);
+  };
+  visit(value);
+  return JSON.stringify(value);
+}
+
+function parseJsonColumn(value) {
+  return value == null ? null : JSON.parse(value);
+}
+
 function vecBuf(embedding) {
   // sqlite-vec accepts a Float32Array as the vector payload.
   return Float32Array.from(embedding);
@@ -1366,6 +1390,94 @@ export class SqliteStore {
     const cutoff = new Date(Date.now() - retentionDays * 86400000).toISOString();
     const info = this.db.prepare(`DELETE FROM agent_runs WHERE started_at < ?`).run(cutoff);
     return info.changes;
+  }
+
+  // ── Durable agent interrupts ──────────────────────────────────────────────
+  _rowToAgentInterrupt(row) {
+    if (!row) return null;
+    return {
+      id: row.id,
+      session_id: row.session_id ?? null,
+      run_id: row.run_id ?? null,
+      tool_name: row.tool_name,
+      canonical_arguments: parseJsonColumn(row.canonical_arguments),
+      protected_payload_ref: parseJsonColumn(row.protected_payload_ref),
+      digest: row.digest,
+      allowed_decisions: parseJsonColumn(row.allowed_decisions),
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      expires_at: row.expires_at ?? null,
+    };
+  }
+
+  async createAgentInterrupt(input) {
+    const id = input.id ?? randomUUID();
+    if (!input.sessionId && !input.runId) throw new Error("agent interrupt requires a sessionId or runId");
+    if (!input.toolName) throw new Error("agent interrupt requires a toolName");
+    if (!input.digest) throw new Error("agent interrupt requires a digest");
+    if (!Array.isArray(input.allowedDecisions) || input.allowedDecisions.length === 0) {
+      throw new Error("agent interrupt requires allowedDecisions");
+    }
+    const canonicalArguments = assertJsonPersistable(input.canonicalArguments, "canonicalArguments");
+    const protectedPayloadRef = assertJsonPersistable(input.protectedPayloadRef, "protectedPayloadRef");
+    if (canonicalArguments == null && protectedPayloadRef == null) {
+      throw new Error("agent interrupt requires canonicalArguments or protectedPayloadRef");
+    }
+    const allowedDecisions = assertJsonPersistable(input.allowedDecisions, "allowedDecisions");
+    this.db.prepare(`
+      INSERT INTO agent_interrupts
+        (id, session_id, run_id, tool_name, canonical_arguments, protected_payload_ref,
+         digest, allowed_decisions, status, created_at, updated_at, expires_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      input.sessionId ?? null,
+      input.runId ?? null,
+      input.toolName,
+      canonicalArguments,
+      protectedPayloadRef,
+      input.digest,
+      allowedDecisions,
+      input.status ?? "pending",
+      input.createdAt ?? nowIso(),
+      input.updatedAt ?? input.createdAt ?? nowIso(),
+      input.expiresAt ?? null,
+    );
+    return this.getAgentInterrupt(id);
+  }
+
+  async getAgentInterrupt(id) {
+    return this._rowToAgentInterrupt(this.db.prepare(`SELECT * FROM agent_interrupts WHERE id = ?`).get(id));
+  }
+
+  async listAgentInterrupts({ sessionId, runId, status = "pending", includeExpired = false, limit = 50 } = {}) {
+    const where = [];
+    const params = {};
+    if (sessionId) { where.push(`session_id = @sessionId`); params.sessionId = sessionId; }
+    if (runId) { where.push(`run_id = @runId`); params.runId = runId; }
+    if (status) { where.push(`status = @status`); params.status = status; }
+    if (!includeExpired) {
+      where.push(`(expires_at IS NULL OR expires_at > @now)`);
+      params.now = nowIso();
+    }
+    params.limit = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+    const sql = `
+      SELECT * FROM agent_interrupts
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY created_at DESC, id DESC
+       LIMIT @limit
+    `;
+    return this.db.prepare(sql).all(params).map(r => this._rowToAgentInterrupt(r));
+  }
+
+  async updateAgentInterruptStatus(id, status) {
+    const info = this.db.prepare(`
+      UPDATE agent_interrupts
+         SET status = ?, updated_at = ?
+       WHERE id = ?
+    `).run(status, nowIso(), id);
+    return info.changes > 0 ? this.getAgentInterrupt(id) : null;
   }
 
   // ── Issue-triage ledger ───────────────────────────────────────────────────
