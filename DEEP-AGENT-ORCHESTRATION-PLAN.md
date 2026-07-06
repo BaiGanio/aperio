@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: Phase 1 complete — Phase 2 pending
+Status: Phase 1 complete — Phase 2 in progress (2.1 complete)
 
 Created: 2026-07-06
 
@@ -156,7 +156,7 @@ Phase 1 completion record (2026-07-06):
 Goal: replace scattered orchestration conditionals with explicit, ordered
 extension points without rewriting provider loops.
 
-- [ ] **2.1 Middleware runner and contract**
+- [x] **2.1 Middleware runner and contract**
   - Introduce hooks for `beforeModel`, `selectTools`, `beforeTool`, `afterTool`,
     `afterModel`, `onInterrupt`, and `onError`.
   - Define ordering, short-circuiting, immutable request updates, and error
@@ -186,6 +186,21 @@ Phase acceptance:
 - All current providers pass their existing loop tests.
 - Existing safety behavior is unchanged or stricter.
 - A new middleware can be registered without editing every provider loop.
+
+Drill 2.1 completion record (2026-07-06):
+
+- Added a provider-neutral runner with the seven named lifecycle hooks,
+  registration-order execution, async handlers, immutable request snapshots,
+  shallow returned updates, and explicit short-circuit results.
+- Hook failures include hook/middleware identity. Every `onError` observer is
+  notified in registration order, and observer failures cannot mask the
+  originating failure.
+- Registration rejects duplicate names, unknown fields, and invalid hook
+  handlers. This drill establishes the contract only; routing existing tool,
+  context, and provider behavior through it remains in drills 2.2 and 2.3.
+- Focused agent/provider verification: 191 passed. Full suite: 2,693 passed and
+  four contended WebSocket E2E cases timed out waiting for `session_created`;
+  both affected files passed 15/15 when rerun together in isolation.
 
 ## Phase 3 — Durable interrupts and resumable actions
 
@@ -479,7 +494,10 @@ the automated acceptance checks.
 
 ### Phase 1
 
-Pending completion of slices 1.3 and 1.4.
+For a retained chat, force a low offload threshold, page the result through
+`read_artifact`, restart Aperio, and confirm the same artifact remains readable.
+Deleting the chat should remove its session artifact directory. Background-run
+artifact retention follows `AGENT_RUN_RETENTION_DAYS`.
 
 ## Progress log
 
@@ -491,3 +509,4 @@ slice's commit, so the plan and code cannot drift.
 | 2026-07-06 | Plan created | `docs(agent): add orchestration implementation plan` | `git diff --check` | Initial roadmap |
 | 2026-07-06 | 1.1 Artifact store contract | `feat(context): add scoped artifact store` | 92 focused pass; full 2668/2671; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Private immutable session/run storage |
 | 2026-07-06 | 1.2 Tool-result offload policy | maintainer commit pending | 163 focused pass; full 2678/2681; 3 contended E2E cases pass 15/15 in isolation; syntax; config generation; diff check | Full redacted result retained; bounded preview enters model context |
+| 2026-07-06 | 2.1 Middleware runner and contract | maintainer commit pending | 191 focused pass; full 2693/2697; 4 contended E2E cases pass 15/15 in isolation; syntax; diff check | Provider-neutral ordered hooks; provider routing begins in 2.2 |
