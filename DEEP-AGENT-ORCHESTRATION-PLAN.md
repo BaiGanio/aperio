@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: Phase 1 complete — Phase 2 in progress (2.1–2.2 complete)
+Status: Phase 1 complete — Phase 2 in progress (2.1–2.3 complete)
 
 Created: 2026-07-06
 
@@ -170,7 +170,7 @@ extension points without rewriting provider loops.
   - Preserve existing emitted WebSocket events and behavior.
   - Commit: `feat(agent): route tool safety through middleware`
 
-- [ ] **2.3 Adapt context and skill selection**
+- [x] **2.3 Adapt context and skill selection**
   - Route tool-profile selection, skill injection, memory pointers, result
     offloading, and context trimming through named middleware.
   - Keep provider serialization inside the provider adapters.
@@ -217,6 +217,21 @@ Drill 2.2 completion record (2026-07-06):
 - Focused provider/security verification: 447 passed. Full suite: 2,696 passed
   and three contended WebSocket E2E cases timed out waiting for
   `session_created`; both affected files passed 15/15 in isolation.
+
+Drill 2.3 completion record (2026-07-06):
+
+- Added named middleware for context trimming, memory pointers, skill injection,
+  tool-profile selection, and lossless tool-result offloading.
+- The Anthropic, Ollama, Gemini, and DeepSeek loops now consume one canonical
+  prepared context and retain only their provider-specific message/tool wire
+  serialization. Claude Code and Codex continue using their SDK/CLI-managed
+  context paths.
+- Preserved the 20-message fallback window, token-pressure events, orphaned
+  tool-result cleanup, local-only self tools/memory, skill events, small-window
+  tool caps, artifact-read activation, and offload fail-open behavior.
+- Focused agent/context verification: 320 passed. Full suite: 2,700 passed and
+  three contended WebSocket E2E cases timed out waiting for `session_created`;
+  both affected files passed 15/15 in isolation.
 
 ## Phase 3 — Durable interrupts and resumable actions
 
@@ -526,4 +541,5 @@ slice's commit, so the plan and code cannot drift.
 | 2026-07-06 | 1.1 Artifact store contract | `feat(context): add scoped artifact store` | 92 focused pass; full 2668/2671; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Private immutable session/run storage |
 | 2026-07-06 | 1.2 Tool-result offload policy | maintainer commit pending | 163 focused pass; full 2678/2681; 3 contended E2E cases pass 15/15 in isolation; syntax; config generation; diff check | Full redacted result retained; bounded preview enters model context |
 | 2026-07-06 | 2.1 Middleware runner and contract | `aab6b17` | 191 focused pass; full 2693/2697; 4 contended E2E cases pass 15/15 in isolation; syntax; diff check | Provider-neutral ordered hooks; provider routing begins in 2.2 |
-| 2026-07-06 | 2.2 Tool safety adapters | maintainer commit pending | 447 focused pass; full 2696/2699; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Existing tool safety now runs through named lifecycle middleware |
+| 2026-07-06 | 2.2 Tool safety adapters | `934c794` | 447 focused pass; full 2696/2699; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Existing tool safety now runs through named lifecycle middleware |
+| 2026-07-06 | 2.3 Context and skill middleware | `346701d`, `a17e166` | 320 focused pass; full 2700/2703; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Canonical context composition with provider-local serialization |
