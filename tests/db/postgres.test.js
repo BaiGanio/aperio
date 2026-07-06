@@ -679,10 +679,18 @@ describe("PostgresStore — agent run history", () => {
   afterEach(() => { _poolQuery = null; });
 
   test("recordAgentRun inserts a run", async () => {
-    _poolQuery = async () => ({ rows: [{ id: 42 }] });
+    let params;
+    _poolQuery = async (_sql, values) => {
+      params = values;
+      return { rows: [{ id: 42 }] };
+    };
     const store = await PostgresStore.init();
-    const id = await store.recordAgentRun({ jobId: "j1", startedAt: "2026-06-01T00:00:00Z", verdict: "ok", mode: "steps" });
+    const id = await store.recordAgentRun({
+      jobId: "j1", startedAt: "2026-06-01T00:00:00Z", verdict: "ok", mode: "steps",
+      artifactCount: 2, artifactBytes: 12345,
+    });
     assert.equal(id, 42);
+    assert.deepEqual(params.slice(-2), [2, 12345]);
   });
 
   test("listAgentRuns returns runs newest-first", async () => {

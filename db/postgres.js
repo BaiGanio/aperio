@@ -742,12 +742,15 @@ export class PostgresStore {
   async recordAgentRun(run) {
     const { rows } = await this.pool.query(
       `INSERT INTO agent_runs
-         (job_id, started_at, finished_at, duration_ms, verdict, mode, trigger, model, error, tools, answer)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11) RETURNING id`,
+         (job_id, started_at, finished_at, duration_ms, verdict, mode, trigger, model,
+          error, tools, answer, artifact_count, artifact_bytes)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11, $12, $13)
+         RETURNING id`,
       [
         run.jobId, run.startedAt, run.finishedAt ?? null, run.durationMs ?? null,
         run.verdict, run.mode ?? null, run.trigger ?? null, run.model ?? null, run.error ?? null,
         run.tools != null ? JSON.stringify(run.tools) : null, run.answer ?? null,
+        run.artifactCount ?? 0, run.artifactBytes ?? 0,
       ]
     );
     return rows[0].id;
@@ -965,12 +968,15 @@ export class PostgresStore {
     // ── Agent runs (dedup by job_id + started_at) ────────────────
     for (const r of agent_runs) {
       const { rowCount } = await this.pool.query(`
-        INSERT INTO agent_runs (job_id, started_at, finished_at, duration_ms, verdict, mode, trigger, model, error, tools, answer)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+        INSERT INTO agent_runs
+          (job_id, started_at, finished_at, duration_ms, verdict, mode, trigger, model,
+           error, tools, answer, artifact_count, artifact_bytes)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
         ON CONFLICT DO NOTHING
       `, [r.job_id, r.started_at, r.finished_at ?? null, r.duration_ms ?? null,
           r.verdict ?? null, r.mode ?? null, r.trigger ?? null, r.model ?? null,
-          r.error ?? null, r.tools ?? null, r.answer ?? null]);
+          r.error ?? null, r.tools ?? null, r.answer ?? null,
+          r.artifact_count ?? 0, r.artifact_bytes ?? 0]);
       rowCount > 0 ? result.imported.runs++ : result.skipped.runs++;
     }
 

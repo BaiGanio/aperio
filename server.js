@@ -395,6 +395,7 @@ async function bootApp() {
   const { inferMemories }                 = await import("./lib/workers/infer.js");
   const { createSessionPruner }           = await import("./lib/workers/session-prune.js");
   const { createAgentRunPruner }          = await import("./lib/workers/agent-run-prune.js");
+  const { createArtifactStore }           = await import("./lib/context/artifactStore.js");
   const { createAgentScheduler }          = await import("./lib/workers/agent-scheduler.js");
   const { makeWsHandler }                 = await import("./lib/emitters/handlers/wsHandler.js");
   const { apiRouter }                     = await import("./lib/routes/api.js");
@@ -697,7 +698,10 @@ async function bootApp() {
   const dedup     = memoryWorkersEnabled ? deduplicateMemories(callTool) : noopWorker;
   const infer     = memoryWorkersEnabled ? inferMemories(callTool)       : noopWorker;
   const pruner    = createSessionPruner();
-  const runPruner = createAgentRunPruner({ store });
+  const runPruner = createAgentRunPruner({
+    store,
+    artifactStore: createArtifactStore({ rootDir: resolve(ROOT, "var", "agent-artifacts") }),
+  });
 
   // Graceful shutdown
   // Order matters: the ONNX native runtime must be torn down via its own API

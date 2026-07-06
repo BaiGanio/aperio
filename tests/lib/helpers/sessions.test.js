@@ -759,6 +759,8 @@ describe("deleteSession()", () => {
     const scratchDir = join(mockCwd, "var/scratch/log-session");
     memFS.set(scratchDir, new Set(["file.txt"]));
     memFS.set(join(scratchDir, "file.txt"), "content");
+    const artifactDir = join(mockCwd, "var/agent-artifacts/sessions/log-session");
+    memFS.set(artifactDir, new Set(["artifact-1.json", "artifact-1.bin"]));
 
     seedSession({ id: "log-session" });
 
@@ -766,6 +768,7 @@ describe("deleteSession()", () => {
 
     assert.ok(!memFS.has(join(logDir, "log-session.log")), "log file should be deleted");
     assert.ok(!memFS.has(scratchDir), "scratch dir should be deleted");
+    assert.ok(!memFS.has(artifactDir), "internal result artifacts should be deleted");
   });
 
   test("handles missing attachment files gracefully", () => {
@@ -832,11 +835,14 @@ describe("pruneOldSessions()", () => {
     const oldDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     seedSession({ id: "old-session", startedAt: oldDate, pinned: false });
     seedSession({ id: "fresh-session", startedAt: new Date().toISOString(), pinned: false });
+    const oldArtifacts = join(mockCwd, "var/agent-artifacts/sessions/old-session");
+    memFS.set(oldArtifacts, new Set(["artifact-1.json"]));
 
     const removed = sessions.pruneOldSessions();
     assert.equal(removed, 1);
 
     assert.ok(!memFS.has(join(mockCwd, "var/sessions/old-session.json")), "old session should be removed");
+    assert.ok(!memFS.has(oldArtifacts), "old session artifacts should be removed");
     assert.ok(memFS.has(join(mockCwd, "var/sessions/fresh-session.json")), "fresh session should remain");
 
     if (origEnv !== undefined) process.env.SESSION_RETENTION_DAYS = origEnv;

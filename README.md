@@ -417,15 +417,53 @@ When a shell command, file read, or other tool returns more content than the
 model can safely keep in context, Aperio stores the complete redacted result in
 a private session/run artifact and gives the model a bounded head/tail preview
 with its artifact ID. This prevents a single large result from displacing the
-conversation while preserving the full local output.
+conversation while preserving the full local output. After the first offload in
+a run, Aperio attaches the read-only `read_artifact` tool. It reads the stored
+result by byte `offset` and `limit`, reports `next_offset`, and never accepts a
+session or run owner from the model.
 
 The effective token threshold is capped at 25% of the active model's context
-window. Both thresholds are editable in the Configuration panel:
+window. Retrieval defaults to 8,192 content bytes per call, accepts at most
+24,000 content bytes, and caps the complete response at 32,000 bytes. Both
+offload thresholds are editable in the Configuration panel:
 
 ```env
 APERIO_TOOL_RESULT_OFFLOAD_TOKENS=20000
 APERIO_TOOL_RESULT_OFFLOAD_BYTES=80000
 ```
+
+Artifacts are private files under `var/agent-artifacts/`. Session artifacts
+follow `SESSION_RETENTION_DAYS` (14 days in the default configuration) and are
+removed immediately when their session is deleted. Run artifacts follow
+`AGENT_RUN_RETENTION_DAYS`; unset or `0` retains run history and artifacts
+indefinitely. Logs and background-run history record only artifact count, byte
+count, ID/scope, and source tool—not stored content.
+
+To test result offloading, retrieval, observability, and retention:
+
+```bash
+# Focused automated coverage
+NODE_ENV=test node --test \
+  tests/lib/context/artifactStore.test.js \
+  tests/lib/context/toolResultOffload.test.js \
+  tests/lib/context/artifactRetrieval.test.js \
+  tests/lib/agent/tool-hooks.test.js \
+  tests/lib/helpers/sessions.test.js \
+  tests/lib/workers/agent-run-prune.test.js \
+  tests/lib/workers/agent-scheduler.test.js
+
+# Database migration/history coverage
+NODE_ENV=test node --test tests/db/sqlite.test.js tests/db/postgres.test.js
+```
+
+For a manual check, temporarily set
+`APERIO_TOOL_RESULT_OFFLOAD_BYTES=1000`, restart Aperio, and ask a capable model
+to read a text file larger than 1 KB. Confirm the preview contains an artifact
+ID, a subsequent model iteration offers `read_artifact`, and the server log
+contains `[tool-result-offload]` metadata without the file contents. Delete the
+chat from History and confirm its directory under
+`var/agent-artifacts/sessions/` is removed. Restore the normal threshold after
+the check.
 
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
