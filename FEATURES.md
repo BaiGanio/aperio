@@ -123,14 +123,14 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 - Inline input autocomplete — ghost-text suggestion accepted with Tab/→
 - Clickable memory-suggestion chips — save all / pick / none, prompts for ones needing input
 - Sessions: persistent (file + DB), pagination, delete
-- 24-language Web UI i18n with flag-based navbar switcher and persistent selection; all locale files match the complete 283-key English baseline
+- 26-language Web UI i18n (24 EU + 中文 + 日本語) with flag-based navbar switcher and persistent selection; all locale files match the complete 304-key English baseline
 - Locale integrity gate (`npm run i18n:check`) — rejects missing/extra keys and placeholder/HTML drift, and verifies statically referenced UI keys exist
 - Response stats badge: answer/thinking tokens, tok/s, elapsed
 - Settings → Extras: detect optional skill deps, auto-install pip deps into project venv, guided install for system binaries (`/api/capabilities`)
 - In-app Configuration panel — schema-driven editor (`lib/config.js` registry → `GET /api/config/schema`) for every `.env` var as a typed control (toggle/select/number/text/list-chips/secret); DB-backed under `config.<KEY>`, precedence env > DB > default by default (flip to DB-wins via `APERIO_CONFIG_PRECEDENCE`, itself editable in the panel), single restart-to-apply banner; API keys editable in-UI (no `.env`); Tier-0 bootstrap/security vars shown read-only ("edit in .env", except the precedence switch); provider-scoped fields revealed by `AI_PROVIDER`; on-demand `.env` import of unmanaged vars (`npm run config:sync`, Managed/Unmanaged/Orphaned); amber rebuild-the-index warning when `EMBEDDING_PROVIDER`/`EMBEDDING_DIMS` change; `.env.example` is generated from the complete registry with `npm run gen:env`
 - Terminal chat client — standalone or proxy (`lib/terminal.js`); text only (voice/TTS is Web UI only)
 - Guided-tour `help` — each command paired with a runnable `try:` example; `examples` toggles the examples (persisted in `var/cli-prefs.json`), `help <command>` shows focused per-command docs
-- Localized terminal welcome/help — English by default; `lang <code>` switches and persists (bare `lang` lists the 24 locales), or set `APERIO_UI_LANG` in `.env` (saved pref wins over env); translations overlay `cli_`-prefixed keys in the shared `public/locales/<lang>.json`, falling back to English per-string
+- Localized terminal welcome/help — English by default; `lang <code>` switches and persists (bare `lang` lists all 26 locales), or set `APERIO_UI_LANG` in `.env` (saved pref wins over env); translations overlay `cli_`-prefixed keys in the shared `public/locales/<lang>.json`, falling back to English per-string
 - Sticky navbar — a compact, width-aware status strip (model · mode · Docker · storage) reprinted above every prompt; `status` is the on-demand superset (adds language/reasoning/stats/examples)
 - `restart` command — bare `restart` starts a fresh session in-process (standalone) or relaunches (proxy); `restart --hard` always re-execs the process, reloading `.env`/config
 - MCP server entry point (`mcp/index.js`)

@@ -62,7 +62,7 @@
     "sqlite-vec": "^0.1.9",
     "tree-sitter-wasms": "^0.1.13",
     "uuid": "^14.0.1",
-    "web-tree-sitter": "^0.26.10",
+    "web-tree-sitter": "0.22.6",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
     "ws": "^8.21.0",

@@ -41,6 +41,8 @@
     lt: ["LT"],
     mt: ["MT"],
     ga: ["IE"],
+    zh: ["CN"],
+    ja: ["JP"],
   };
   // Not translated yet — dashed on the map, greyed in the list. Native names
   // are shown as-is (they are language names in their own script).
@@ -52,8 +54,6 @@
     sw: { flag: "🇹🇿", name: "Kiswahili",  countries: ["TZ", "KE", "UG", "CD"] },
     ha: { flag: "🇳🇬", name: "Hausa",      countries: ["NG", "NE"] },
     hi: { flag: "🇮🇳", name: "हिन्दी",       countries: ["IN"] },
-    zh: { flag: "🇨🇳", name: "中文",       countries: ["CN"] },
-    ja: { flag: "🇯🇵", name: "日本語",     countries: ["JP"] },
     ko: { flag: "🇰🇷", name: "한국어",     countries: ["KR"] },
   };
   // Micro-states too small to click at Europe zoom get a leader-line chip.

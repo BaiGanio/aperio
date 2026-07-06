@@ -158,6 +158,26 @@ describe("isToollessVLM()", () => {
   });
 });
 
+describe("isStandaloneVisionRequest()", () => {
+  test("accepts requests fully answered from the pixels", () => {
+    assert.ok(imageBridge.isStandaloneVisionRequest("Describe this image in detail"));
+    assert.ok(imageBridge.isStandaloneVisionRequest("What text is in this screenshot?"));
+    assert.ok(imageBridge.isStandaloneVisionRequest("Explain the attached diagram"));
+  });
+
+  test("routes document retrieval and code changes to the main agent", () => {
+    assert.ok(!imageBridge.isStandaloneVisionRequest(
+      "Check this image and find similar documents in my indexed files"
+    ));
+    assert.ok(!imageBridge.isStandaloneVisionRequest(
+      "Read this screenshot and implement the code changes"
+    ));
+    assert.ok(!imageBridge.isStandaloneVisionRequest(
+      "Analyze this scan, then run doc_search for matching invoices"
+    ));
+  });
+});
+
 // =============================================================================
 // bridgeImagesToVLM — helper factories
 // =============================================================================
@@ -293,6 +313,27 @@ describe("bridgeImagesToVLM()", () => {
     assert.ok(calledWith, "callTool should have been called");
     assert.equal(calledWith.name, "describe_image");
     assert.equal(calledWith.input.data, "rawbase64data");
+  });
+
+  test("passes the user's request to the VLM prompt", async () => {
+    const messages = [{ role: "user", content: [
+      { type: "text", text: "Extract the invoice number" },
+      { type: "image", source: { data: "rawbase64data" } },
+    ]}];
+    let calledWith = null;
+
+    await imageBridge.bridgeImagesToVLM(
+      messages,
+      async (name, input) => {
+        calledWith = { name, input };
+        return "INV-42";
+      },
+      makeEmitter(),
+      { userPrompt: "Extract the invoice number" },
+    );
+
+    assert.match(calledWith.input.prompt, /User request: Extract the invoice number/);
+    assert.match(calledWith.input.prompt, /visual evidence/i);
   });
 
   // ── Multiple images ─────────────────────────────────────────────────────
