@@ -724,6 +724,28 @@ Aperio reads the file and injects the content into the conversation.
 #### Q: You call this privacy?
 > 💡 Check out our wiki page [MPC Tools](https://github.com/BaiGanio/aperio/wiki/MPC-Tools) for more details.  
 
+### Memory Sensitivity Tiers
+
+Every memory has a `tier` that controls how it's handled when the model is a
+cloud provider (Anthropic, DeepSeek, Gemini, Claude Code, Codex):
+
+| Tier | Label | On cloud |
+|:---:|-------|----------|
+| **1** | Normal (default) | Always shared as-is |
+| **2** | Sensitive | Withheld or PII-redacted per `APERIO_CLOUD_SENSITIVE_MODE` |
+| **3** | Private | Never leaves the machine — hard-blocked |
+
+The legacy `local-only` tag still works and automatically maps to **tier 2**.
+
+**`APERIO_CLOUD_SENSITIVE_MODE`** (default: `withhold`):
+- `withhold` — tier-2 memories are filtered out of recall on cloud providers
+- `redact` — tier-2 memories are sent with PII scrubbed (EMAIL, PHONE, CARD,
+  IBAN patterns), then restored in the model's response. Set in your
+  Configuration panel or `.env`.
+
+On a **local Ollama** provider all tiers are shown regardless — nothing leaves
+your machine.
+
 <p align="right">
   [<a href="#top">Back to top ↑</a>]
 </p>

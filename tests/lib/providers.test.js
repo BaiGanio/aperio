@@ -6,6 +6,8 @@ import {
   recommendContextLength,
   estimateKvBytesPerToken,
   recommendServeContextLength,
+  isLocalProvider,
+  isCloudProvider,
 } from "../../lib/providers/index.js";
 
 // #2 — the app talks to Ollama over /v1 (which can't set num_ctx), so
@@ -182,4 +184,20 @@ describe("recommendServeContextLength", () => {
     const light = Number(recommendServeContextLength({ OLLAMA_MODEL: "qwen2.5:3b" }));
     assert.ok(heavy <= light, `expected heavy(${heavy}) <= light(${light})`);
   });
+});
+
+// ── Provider locality classification ──────────────────────────────────────────
+describe("isLocalProvider / isCloudProvider", () => {
+  test("ollama is local", () => { assert.ok(isLocalProvider("ollama")); });
+  test("ollama is NOT cloud", () => { assert.ok(!isCloudProvider("ollama")); });
+  test("anthropic is cloud", () => { assert.ok(isCloudProvider("anthropic")); });
+  test("anthropic is NOT local", () => { assert.ok(!isLocalProvider("anthropic")); });
+  test("deepseek is cloud", () => { assert.ok(isCloudProvider("deepseek")); });
+  test("gemini is cloud", () => { assert.ok(isCloudProvider("gemini")); });
+  test("claude-code is cloud", () => { assert.ok(isCloudProvider("claude-code")); });
+  test("codex is cloud", () => { assert.ok(isCloudProvider("codex")); });
+  test("case-insensitive: OLLAMA is local", () => { assert.ok(isLocalProvider("OLLAMA")); });
+  test("empty string is not local", () => { assert.ok(!isLocalProvider("")); });
+  test("null is not local", () => { assert.ok(!isLocalProvider(null)); });
+  test("undefined is not local", () => { assert.ok(!isLocalProvider(undefined)); });
 });
