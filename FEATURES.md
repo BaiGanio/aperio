@@ -100,7 +100,8 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)
-- Provider-neutral lifecycle middleware contract — seven ordered async hooks with immutable request snapshots, explicit returned updates/short-circuiting, validated named registrations, and failure attribution (`lib/agent/middleware.js`); runtime safety/context adapters follow in Phase 2 drills 2.2–2.3
+- Provider-neutral lifecycle middleware contract — seven ordered async hooks with immutable request snapshots, explicit returned updates/short-circuiting, validated named registrations, and failure attribution (`lib/agent/middleware.js`)
+- Tool safety middleware — failure-budget gating, repeated-call detection, untrusted-content fencing, taint propagation, and tainted-write confirmation now run as named `beforeTool`/`afterTool` adapters while preserving existing WebSocket events and limits (`lib/agent/tool-safety-middleware.js`)
 - Lossless large-result offloading — oversized text tool results are secret-redacted and stored immutably under a private session/run scope; the model receives a bounded head/tail preview with an artifact ID instead of losing the full result to context trimming (`APERIO_TOOL_RESULT_OFFLOAD_TOKENS`, `APERIO_TOOL_RESULT_OFFLOAD_BYTES`)
 - Chunked result recovery — after an offload in the active run, the read-only `read_artifact` tool pages the complete result by byte offset/limit under code-enforced session/run ownership (8,192-byte default chunk, 24,000-byte maximum chunk, 32,000-byte maximum response)
 - Artifact lifecycle and observability — session artifacts are deleted/pruned with sessions; run artifacts follow `AGENT_RUN_RETENTION_DAYS`; logs and background-run history expose only offload IDs/scopes/counts/byte totals, never stored content
@@ -150,13 +151,16 @@ normal threshold.
 ## Testing lifecycle middleware
 
 ```bash
-NODE_ENV=test node --test tests/lib/agent/middleware.test.js
+NODE_ENV=test node --test \
+  tests/lib/agent/middleware.test.js \
+  tests/lib/agent/tool-hooks.test.js
 ```
 
 The contract suite covers hook ordering, async updates, immutable snapshots,
 short-circuiting, registration validation, failure attribution, and `onError`
-observer isolation. Provider-loop routing is intentionally not claimed until
-the remaining Phase 2 adapter drills are complete.
+observer isolation. Tool-hook coverage verifies fencing, taint-to-confirm
+propagation, repeated-call and failure-budget stops, unchanged event payloads,
+and offload ordering. Context and skill routing remains in Phase 2 drill 2.3.
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel, voice input + TTS readout

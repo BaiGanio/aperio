@@ -475,12 +475,16 @@ against immutable request snapshots. Hooks may return a shallow update or
 explicitly stop the chain; failures retain hook and middleware identity while
 notifying every error observer.
 
-This is the Phase 2 contract foundation. Existing tool safety, context
-selection, and provider loops are migrated to it in the following drills, so
-adding the runner alone does not change current agent behavior.
+Tool calls now pass through named safety middleware for failure-budget gating,
+repeated-call detection, untrusted-content fencing, taint propagation, and the
+taint-to-confirm signal on writes. Existing event payloads and safety limits are
+preserved. Context, skill, and tool-profile composition moves behind lifecycle
+middleware in the next Phase 2 drill.
 
 ```bash
-NODE_ENV=test node --test tests/lib/agent/middleware.test.js
+NODE_ENV=test node --test \
+  tests/lib/agent/middleware.test.js \
+  tests/lib/agent/tool-hooks.test.js
 ```
 
 <p align="right">

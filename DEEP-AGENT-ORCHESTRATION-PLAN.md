@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: Phase 1 complete — Phase 2 in progress (2.1 complete)
+Status: Phase 1 complete — Phase 2 in progress (2.1–2.2 complete)
 
 Created: 2026-07-06
 
@@ -164,7 +164,7 @@ extension points without rewriting provider loops.
   - Tests cover ordering, async hooks, mutation isolation, and failures.
   - Commit: `feat(agent): add lifecycle middleware runner`
 
-- [ ] **2.2 Adapt tool safety hooks**
+- [x] **2.2 Adapt tool safety hooks**
   - Move untrusted-content fencing, taint propagation, failure budgeting, and
     repeated-call detection behind middleware adapters.
   - Preserve existing emitted WebSocket events and behavior.
@@ -201,6 +201,22 @@ Drill 2.1 completion record (2026-07-06):
 - Focused agent/provider verification: 191 passed. Full suite: 2,693 passed and
   four contended WebSocket E2E cases timed out waiting for `session_created`;
   both affected files passed 15/15 when rerun together in isolation.
+
+Drill 2.2 completion record (2026-07-06):
+
+- Routed the shared tool execution boundary through named `beforeTool` and
+  `afterTool` middleware for exhausted-budget gating, taint-to-write
+  propagation, repeated-call detection, failure recording, and untrusted-result
+  fencing.
+- Preserved the existing three-failure budget, third-identical-call breaker,
+  prompt-injection fences, `__tainted` confirmation signal, result-offload
+  ordering, and WebSocket event names/payloads.
+- Provider serialization and artifact/UI post-processing remain outside the
+  safety adapters. Context, skill, and tool-profile composition remains drill
+  2.3.
+- Focused provider/security verification: 447 passed. Full suite: 2,696 passed
+  and three contended WebSocket E2E cases timed out waiting for
+  `session_created`; both affected files passed 15/15 in isolation.
 
 ## Phase 3 — Durable interrupts and resumable actions
 
@@ -509,4 +525,5 @@ slice's commit, so the plan and code cannot drift.
 | 2026-07-06 | Plan created | `docs(agent): add orchestration implementation plan` | `git diff --check` | Initial roadmap |
 | 2026-07-06 | 1.1 Artifact store contract | `feat(context): add scoped artifact store` | 92 focused pass; full 2668/2671; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Private immutable session/run storage |
 | 2026-07-06 | 1.2 Tool-result offload policy | maintainer commit pending | 163 focused pass; full 2678/2681; 3 contended E2E cases pass 15/15 in isolation; syntax; config generation; diff check | Full redacted result retained; bounded preview enters model context |
-| 2026-07-06 | 2.1 Middleware runner and contract | maintainer commit pending | 191 focused pass; full 2693/2697; 4 contended E2E cases pass 15/15 in isolation; syntax; diff check | Provider-neutral ordered hooks; provider routing begins in 2.2 |
+| 2026-07-06 | 2.1 Middleware runner and contract | `aab6b17` | 191 focused pass; full 2693/2697; 4 contended E2E cases pass 15/15 in isolation; syntax; diff check | Provider-neutral ordered hooks; provider routing begins in 2.2 |
+| 2026-07-06 | 2.2 Tool safety adapters | maintainer commit pending | 447 focused pass; full 2696/2699; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Existing tool safety now runs through named lifecycle middleware |
