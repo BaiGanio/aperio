@@ -7,12 +7,14 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 ---
 
 ## Memory
-- Save memories with type, title, tags, importance, optional `tier` (1=normal, 2=sensitive, 3=private), optional expiry (`remember`)
+- Save memories with type (`fact`, `preference`, `project`, `decision`, `solution`, `source`, `person`, `inference`, `workflow`), title, tags, importance, optional `tier` (1=normal, 2=sensitive, 3=private), optional expiry (`remember`)
 - Semantic + full-text recall across all memories (`recall`) — accepts `maxTier` to filter by sensitivity
 - Update by ID — tombstones old version, regenerates embedding (`update_memory`)
 - Delete by ID (`forget`)
 - Generate embeddings for memories missing one (`backfill_embeddings`)
 - Find and merge near-duplicates by cosine similarity (`deduplicate_memories`)
+- **Workflow detection**: after a turn with 2+ successful tool calls, emits a `workflow_suggestion` event prompting the model/user to save the sequence as a `workflow` memory
+- **Scope preferences**: preferences tagged `scope:<term>` (e.g. `scope:auth`) automatically inject a system-prompt hint when the user query matches the trigger term, AND prepend the scope path to `grep_files` arguments — no model effort required
 
 ## Self-Memory
 - Agent's own walled-off memory store — separate table, never mixed with user memories

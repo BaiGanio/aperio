@@ -353,7 +353,7 @@ Aperio exposes **54 tools** across 12 categories over MCP. Any MCP-compatible ag
 
 | Category | Tool | What it does |
 |----------|------|-------------|
-| **Memory** | `remember` | Save a memory with type, title, tags, importance, and optional expiry |
+| **Memory** | `remember` | Save a memory with type (`fact`, `preference`, `workflow`, …), title, tags, importance, and optional expiry |
 | | `recall` | Semantic or full-text search across all memories |
 | | `update_memory` | Update an existing memory by ID; tombstones the old version, re-generates its embedding |
 | | `forget` | Delete a memory by ID |
