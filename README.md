@@ -478,12 +478,19 @@ notifying every error observer.
 Tool calls now pass through named safety middleware for failure-budget gating,
 repeated-call detection, untrusted-content fencing, taint propagation, and the
 taint-to-confirm signal on writes. Existing event payloads and safety limits are
-preserved. Context, skill, and tool-profile composition moves behind lifecycle
-middleware in the next Phase 2 drill.
+preserved.
+
+The native Anthropic, Ollama, Gemini, and DeepSeek loops also receive one
+canonical context composed by named middleware: bounded/trimmed messages,
+memory pointers, matched skill prompts, selected canonical MCP tools, and
+losslessly offloaded large results. Each provider adapter still owns its wire
+format and secret-redaction boundary. Claude Code and Codex retain their
+SDK/CLI-managed context paths.
 
 ```bash
 NODE_ENV=test node --test \
   tests/lib/agent/middleware.test.js \
+  tests/lib/agent/model-context-middleware.test.js \
   tests/lib/agent/tool-hooks.test.js
 ```
 
