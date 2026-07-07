@@ -59,6 +59,41 @@ function makeRouter({ agent = {}, store = {}, watchdog = {} } = {}) {
   });
 }
 
+function makeInterruptStore(rows = []) {
+  const map = new Map(rows.map(row => [row.id, JSON.parse(JSON.stringify(row))]));
+  const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+  return {
+    async getAgentInterrupt(id) {
+      return clone(map.get(id) ?? null);
+    },
+    async listAgentInterrupts({ status = "pending", limit = 50 } = {}) {
+      return [...map.values()]
+        .filter(row => !status || row.status === status)
+        .slice(0, limit)
+        .map(clone);
+    },
+    async expireAgentInterrupts() {
+      return 0;
+    },
+    async updateAgentInterruptStatus(id, status) {
+      const row = map.get(id);
+      if (!row) return null;
+      row.status = status;
+      return clone(row);
+    },
+    async decideAgentInterrupt(id, { decision, status, decisionPayload = null, now = new Date().toISOString() }) {
+      const row = map.get(id);
+      if (!row || row.status !== "pending") return null;
+      row.decision = decision;
+      row.decision_payload = clone(decisionPayload);
+      row.status = status;
+      row.decided_at = now;
+      row.updated_at = now;
+      return clone(row);
+    },
+  };
+}
+
 // =============================================================================
 // GET /version
 // =============================================================================
@@ -127,6 +162,76 @@ describe("GET /heartbeat", () => {
     assert.ok(typeof body.ts === "number");
     assert.ok(body.ts >= before && body.ts <= after);
     assert.ok(called);
+  });
+});
+
+describe("durable interrupt API", () => {
+  const pendingRow = {
+    id: "wr_test01",
+    session_id: "session-a",
+    run_id: null,
+    tool_name: "write_file",
+    canonical_arguments: { path: "/tmp/example.txt", content: "hello", targetDigest: null },
+    protected_payload_ref: null,
+    digest: "sha256:abc",
+    allowed_decisions: ["approve", "edit", "reject", "respond"],
+    decision: null,
+    decision_payload: null,
+    status: "pending",
+    created_at: "2026-07-07T00:00:00.000Z",
+    updated_at: "2026-07-07T00:00:00.000Z",
+    decided_at: null,
+    claimed_at: null,
+    completed_at: null,
+    expires_at: null,
+  };
+
+  test("GET /interrupts returns redacted pending descriptors in API shape", async () => {
+    const router = makeRouter({ store: makeInterruptStore([pendingRow]) });
+    const { status, body } = await invoke(router, "GET", "/interrupts");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.interrupts.length, 1);
+    assert.deepStrictEqual(body.interrupts[0], {
+      id: "wr_test01",
+      sessionId: "session-a",
+      runId: null,
+      tool: "write_file",
+      status: "pending",
+      decision: null,
+      allowedDecisions: ["approve", "edit", "reject", "respond"],
+      arguments: { path: "/tmp/example.txt", content: "hello", targetDigest: null },
+      decisionPayload: null,
+      digest: "sha256:abc",
+      createdAt: "2026-07-07T00:00:00.000Z",
+      updatedAt: "2026-07-07T00:00:00.000Z",
+      decidedAt: null,
+      claimedAt: null,
+      completedAt: null,
+      expiresAt: null,
+    });
+  });
+
+  test("POST /interrupts/:id/decision records reject decisions", async () => {
+    const router = makeRouter({ store: makeInterruptStore([pendingRow]) });
+    const { status, body } = await invoke(router, "POST", "/interrupts/wr_test01/decision", {
+      body: { decision: "reject", response: "wrong target" },
+      params: { id: "wr_test01" },
+    });
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.interrupt.status, "rejected");
+    assert.strictEqual(body.interrupt.decision, "reject");
+    assert.strictEqual(body.result, null);
+  });
+
+  test("POST /interrupts/:id/decision rejects conflicting replays", async () => {
+    const row = { ...pendingRow, status: "rejected", decision: "reject", decision_payload: null };
+    const router = makeRouter({ store: makeInterruptStore([row]) });
+    const { status, body } = await invoke(router, "POST", "/interrupts/wr_test01/decision", {
+      body: { decision: "respond", response: "do not run" },
+      params: { id: "wr_test01" },
+    });
+    assert.strictEqual(status, 409);
+    assert.match(body.error, /already been decided/);
   });
 });
 
@@ -657,10 +762,31 @@ describe("GET /agents/:id", () => {
 
 describe("GET /agents/:id/runs", () => {
   test("returns run history", async () => {
-    const router = makeRouter({ store: { listAgentRuns: async (id, limit) => [{ verdict: "ok", limit }] } });
+    const router = makeRouter({ store: {
+      listAgentRuns: async (id, limit) => [{ id: 42, verdict: "ok", limit }],
+      listAgentInterrupts: async ({ runId, status, includeExpired }) => {
+        assert.strictEqual(runId, "42");
+        assert.strictEqual(status, null);
+        assert.strictEqual(includeExpired, true);
+        return [{
+          id: "db_done1",
+          tool_name: "db_execute",
+          status: "executed",
+          decision: "approve",
+          updated_at: "2026-07-07T00:00:00.000Z",
+        }];
+      },
+    } });
     const { status, body } = await invoke(router, "GET", "/agents/a/runs", { query: { limit: "5" } });
     assert.strictEqual(status, 200);
     assert.strictEqual(body.runs[0].limit, 5);
+    assert.deepStrictEqual(body.runs[0].interrupts, [{
+      id: "db_done1",
+      tool: "db_execute",
+      status: "executed",
+      decision: "approve",
+      updated_at: "2026-07-07T00:00:00.000Z",
+    }]);
   });
 });
 

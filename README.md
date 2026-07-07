@@ -508,7 +508,11 @@ the existing `wr_...` / `del_...` token UX, capped edit diffs, tainted-turn
 confirmation, and clean scratch-workspace auto-writes. Database writes through
 `db_execute` use the same durable service with JSON-stored connection name,
 normalized SQL, bound params, statement class, and commit-time revalidation of
-SQL classification plus connection write permissions.
+SQL classification plus connection write permissions. The Web UI and
+`/api/interrupts` surface pending descriptors after reconnect and support
+approve, safe JSON argument editing, reject with optional feedback, and respond
+without execution; approve/edit still atomically claim and revalidate before any
+file or database change runs.
 
 Fresh SQLite and Postgres stores also seed a disabled `nightly-maintenance`
 background-agent example. It runs `backfill_embeddings` followed by dry-run
@@ -783,7 +787,9 @@ not replayed after reconnect or restart. File write/delete approvals are backed
 by that layer now and re-check write permissions plus target file state before
 execution. `db_execute` database-write approvals are also backed by that layer
 and re-check statement classification plus connection writability before
-execution.
+execution. Pending file/database actions are listed through `/api/interrupts`
+and reappear in the chat UI after reconnect so they can be approved, edited,
+rejected, or answered without execution.
 
 ### File System Access
 

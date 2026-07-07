@@ -230,7 +230,7 @@ async function revalidateFileInterrupt({ canonicalArguments }) {
   return args;
 }
 
-function fileInterruptService(ctx) {
+export function fileInterruptService(ctx) {
   return createInterruptService({
     store: interruptStore(ctx),
     revalidate: revalidateFileInterrupt,
@@ -310,6 +310,25 @@ async function commitFileInterrupt(ctx, token, invalidText) {
   } catch (err) {
     return textOut(`${invalidText} ${err.message}`);
   }
+}
+
+export async function decideFileInterrupt(ctx, token, decisionInput = {}) {
+  const service = fileInterruptService(ctx);
+  const decision = decisionInput.decision;
+  if (decision === "approve" || decision === "edit") {
+    const row = await service.decide(token, {
+      decision,
+      editedArguments: decisionInput.editedArguments,
+    });
+    if (!row || row.status === "expired") return { row, result: textOut("❌ Confirmation token invalid or expired. Nothing was written.") };
+    const executed = await service.claimAndExecute(token);
+    return { row: executed.interrupt, result: executed.result };
+  }
+  const row = await service.decide(token, {
+    decision,
+    response: decisionInput.response,
+  });
+  return { row, result: null };
 }
 
 // Phase 1: persist the write and return a preview whose `Token:` line the agent

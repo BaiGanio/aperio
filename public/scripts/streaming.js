@@ -572,6 +572,16 @@ function handleMessage(msg) {
     return;
   }
 
+  if (msg.type === "interrupts") {
+    _renderPendingInterrupts(msg.interrupts || []);
+    return;
+  }
+
+  if (msg.type === "interrupt_decided") {
+    document.querySelector(`.action-confirm-wrap[data-interrupt-id="${CSS.escape(msg.interrupt?.id || "")}"]`)?.remove();
+    return;
+  }
+
   if (msg.type === "generated_file") {
     // The server emits these only after the final answer has streamed, so the
     // answer bubble already exists — attach the download card straight to it.
@@ -1925,9 +1935,46 @@ function _renderDeleteConfirmButton(token, filePath) {
 // action is already resolved and stashed server-side under the token, so the
 // click sends a `confirm_action` message and the SERVER executes it directly —
 // no model round-trip. The result streams back as a normal assistant message.
-function _renderActionConfirmButton(token, label, summary, tool) {
+function _interruptLabel(interrupt) {
+  if (!interrupt) return "Confirm action";
+  const args = interrupt.arguments || {};
+  if (interrupt.tool === "db_execute") return `Run ${String(args.statementClass || "SQL").toUpperCase()} on ${args.connection || "database"}`;
+  if (interrupt.tool === "delete_file") return `Delete ${(args.path || "").split("/").pop() || args.path || "file"}`;
+  if (interrupt.tool === "write_file") return `${args.existedAtProposal ? "Overwrite" : "Create"} ${(args.path || "").split("/").pop() || "file"}`;
+  if (interrupt.tool === "append_file") return `Append to ${(args.path || "").split("/").pop() || "file"}`;
+  if (interrupt.tool === "edit_file") return `Edit ${(args.path || "").split("/").pop() || "file"}`;
+  return interrupt.tool || "Confirm action";
+}
+
+function _interruptSummary(interrupt) {
+  const args = interrupt?.arguments || {};
+  if (interrupt?.tool === "db_execute") {
+    return [`Connection: ${args.connection || "?"}`, `Statement: ${String(args.statementClass || "?").toUpperCase()}`, args.sql || ""].filter(Boolean).join("\n");
+  }
+  if (args.path) return `Target: ${args.path}`;
+  return "";
+}
+
+function _sendInterruptDecision(payload) {
+  safeSend(JSON.stringify({ type: "interrupt_decision", ...payload }));
+}
+
+function _renderPendingInterrupts(interrupts) {
+  const pendingIds = new Set(interrupts.map(i => i.id));
+  document.querySelectorAll(".action-confirm-wrap[data-restored='1']").forEach(el => {
+    if (!pendingIds.has(el.dataset.interruptId)) el.remove();
+  });
+  for (const interrupt of interrupts) {
+    if (!interrupt?.id || document.querySelector(`.action-confirm-wrap[data-interrupt-id="${CSS.escape(interrupt.id)}"]`)) continue;
+    _renderActionConfirmButton(interrupt.id, _interruptLabel(interrupt), _interruptSummary(interrupt), interrupt.tool, { interrupt, restored: true });
+  }
+}
+
+function _renderActionConfirmButton(token, label, summary, tool, options = {}) {
   const wrap = document.createElement("div");
   wrap.className = "action-confirm-wrap";
+  wrap.dataset.interruptId = token;
+  if (options.restored) wrap.dataset.restored = "1";
 
   const head = document.createElement("div");
   head.className = "action-confirm-header";
@@ -1947,7 +1994,45 @@ function _renderActionConfirmButton(token, label, summary, tool) {
   btn.onclick = () => {
     btn.disabled = true;
     wrap.remove();
-    safeSend(JSON.stringify({ type: "confirm_action", token, tool }));
+    _sendInterruptDecision({ id: token, decision: "approve" });
+  };
+
+  const interrupt = options.interrupt;
+  const canEdit = interrupt?.allowedDecisions?.includes("edit");
+  const edit = document.createElement("button");
+  edit.className = "action-confirm-btn action-confirm-cancel";
+  edit.innerHTML = '<i class="bi bi-pencil"></i> Edit';
+  edit.style.display = canEdit ? "" : "none";
+  edit.onclick = () => {
+    const current = interrupt?.arguments || {};
+    const raw = prompt("Edit action arguments as JSON", JSON.stringify(current, null, 2));
+    if (raw == null) return;
+    try {
+      const editedArguments = JSON.parse(raw);
+      wrap.remove();
+      _sendInterruptDecision({ id: token, decision: "edit", editedArguments });
+    } catch (err) {
+      addMessage("ai", `⚠️ Invalid JSON: ${err.message}`);
+    }
+  };
+
+  const reject = document.createElement("button");
+  reject.className = "action-confirm-btn action-confirm-cancel";
+  reject.innerHTML = '<i class="bi bi-x-circle"></i> Reject';
+  reject.onclick = () => {
+    const response = prompt("Optional feedback for the agent", "") || "";
+    wrap.remove();
+    _sendInterruptDecision({ id: token, decision: "reject", response });
+  };
+
+  const respond = document.createElement("button");
+  respond.className = "action-confirm-btn action-confirm-cancel";
+  respond.innerHTML = '<i class="bi bi-chat-left-text"></i> Respond';
+  respond.onclick = () => {
+    const response = prompt("Response to record without executing", "");
+    if (response == null) return;
+    wrap.remove();
+    _sendInterruptDecision({ id: token, decision: "respond", response });
   };
 
   // Let the user back out without performing the action.
@@ -1959,6 +2044,9 @@ function _renderActionConfirmButton(token, label, summary, tool) {
   const row = document.createElement("div");
   row.className = "action-confirm-row";
   row.appendChild(btn);
+  row.appendChild(edit);
+  row.appendChild(reject);
+  row.appendChild(respond);
   row.appendChild(cancel);
   wrap.appendChild(row);
 
