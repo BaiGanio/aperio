@@ -9,7 +9,7 @@ Completed historical detail lives in
 Goal: describe every chat, background, review, and delegated agent through one
 validated runtime contract.
 
-- [ ] **4.1 `AgentSpec` schema**
+- [x] **4.1 `AgentSpec` schema**
   - Define ID, description, model/provider override, identity/persona,
     character, skills, memory scopes, tool allowlist, filesystem rules,
     interrupt policy, timeout, recursion depth, concurrency, and output schema.
@@ -256,3 +256,4 @@ that slice's commit, so plan and code cannot drift.
 | 2026-07-06 | 2.3 Context and skill middleware | `346701d`, `a17e166` | 320 focused pass; full 2700/2703; 3 contended E2E cases pass 15/15 in isolation; syntax; diff check | Canonical context composition with provider-local serialization |
 | 2026-07-06 | 2.4 Middleware trace | maintainer commit pending | 577 focused pass; full 2703/2706; affected E2E 14/15 together, remaining case passes alone; syntax; diff check | Bounded metadata-only per-run lifecycle diagnostics |
 | 2026-07-07 | 3.5 API and UI decisions | current commit | API, WebSocket, interrupt-service, file-confirmation, and database-confirmation tests pass; syntax; diff check | Durable decisions exposed through API/UI and run history |
+| 2026-07-07 | 4.1 AgentSpec schema | current commit | `NODE_ENV=test node --test tests/lib/agent/spec.test.js`; `node --check lib/agent/spec.js` | Validated normalized spec contract with provider/model, identity/persona, character, skills, memory scopes, tool allowlist, filesystem rules, interrupt policy, limits, and output schema |
