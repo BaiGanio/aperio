@@ -12,6 +12,7 @@ import { MEMORY_SEED_LITE } from './memory-seed-lite.js';
 import { WIKI_SEED } from './wiki-seed.js';
 import { SELF_MEMORY_SEED } from './self-memory-seed.js';
 import { AGENT_JOB_SEED } from './agent-job-seed.js';
+import { normalizeAgentJobDefinition } from '../lib/agent/job-spec.js';
 
 // The example/default Postgres password shipped in .env.example. Connecting
 // with it means the user never set a real one — refuse rather than run with a
@@ -139,7 +140,7 @@ export class PostgresStore {
       }
       if (await count('agent_jobs') === 0) {
         for (const job of AGENT_JOB_SEED) {
-          const { id, enabled, created_at, updated_at, ...definition } = job;
+          const { id, enabled, created_at, updated_at, ...definition } = normalizeAgentJobDefinition(job);
           await this.pool.query(
             `INSERT INTO agent_jobs (id, enabled, definition, updated_at)
              VALUES ($1,$2,$3::jsonb, now()) ON CONFLICT (id) DO NOTHING`,
@@ -751,7 +752,13 @@ export class PostgresStore {
   // re-merges id/enabled into the flat object the scheduler and API expect.
   _rowToJob(row) {
     if (!row) return null;
-    return { id: row.id, enabled: row.enabled, ...row.definition, created_at: row.created_at, updated_at: row.updated_at };
+    return normalizeAgentJobDefinition({
+      id: row.id,
+      enabled: row.enabled,
+      ...row.definition,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    });
   }
 
   async listAgentJobs() {
@@ -765,7 +772,8 @@ export class PostgresStore {
   }
 
   async upsertAgentJob(job) {
-    const { id, enabled = true, created_at, updated_at, ...definition } = job;
+    const normalized = normalizeAgentJobDefinition(job);
+    const { id, enabled = true, created_at, updated_at, ...definition } = normalized;
     if (!id) throw new Error("agent job requires an id");
     await this.pool.query(
       `INSERT INTO agent_jobs (id, enabled, definition, updated_at)
@@ -1150,7 +1158,7 @@ export class PostgresStore {
 
     // ── Agent jobs ───────────────────────────────────────────────
     for (const j of agent_jobs) {
-      const def = { ...j };
+      const def = normalizeAgentJobDefinition(j);
       delete def.id; delete def.enabled; delete def.created_at; delete def.updated_at;
       const { rowCount } = await this.pool.query(`
         INSERT INTO agent_jobs (id, enabled, definition, updated_at)

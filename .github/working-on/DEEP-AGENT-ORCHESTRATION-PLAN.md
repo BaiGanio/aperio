@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: Phase 4.3 complete; next slice is Phase 4.4 background and round-table specs.
+Status: Phase 4.4 complete; next slice is Phase 4.5 agent bundles.
 
 Created: 2026-07-06
 
@@ -104,18 +104,17 @@ Do not push automatically.
 
 ## Next Slice
 
-Start with Phase 4.4 in
+Start with Phase 4.5 in
 `.github/working-on/DEEP-AGENT-ORCHESTRATION-ACTIVE.md`:
 
-- replace ad hoc provider/persona/character options in background jobs with
-  stored specs;
-- migrate existing job records safely;
-- apply specifications to round-table agents while preserving current behavior.
+- support optional portable agent bundle directories;
+- load `AGENT.md`, `permissions.json`, agent-local skills, memory-scope
+  configuration, and output schema;
+- ensure bundles cannot override administrator-enforced policy.
 
 Expected commits:
 
-- `feat(agent): apply specifications to background jobs`
-- `feat(agent): apply specifications to round tables`
+- `feat(agent): load portable agent bundles`
 
 ## Companion Files
 

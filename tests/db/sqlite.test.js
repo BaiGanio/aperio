@@ -401,10 +401,12 @@ describe("agent jobs", () => {
     assert.equal(saved.id, "digest");
     assert.equal(saved.enabled, false);
     assert.equal(saved.prompt, "Summarise recent memories.");
-    assert.equal(saved.provider.model, "deepseek-v4-flash");
+    assert.equal(saved.spec.provider.model, "deepseek-v4-flash");
 
     const fetched = await store.getAgentJob("digest");
     assert.equal(fetched.prompt, "Summarise recent memories.");
+    assert.equal(fetched.spec.id, "background.digest");
+    assert.equal(Object.hasOwn(fetched, "provider"), false);
   });
 
   test("upsert overwrites an existing job", async () => {
