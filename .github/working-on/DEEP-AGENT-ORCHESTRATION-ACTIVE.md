@@ -22,7 +22,7 @@ validated runtime contract.
   - Implement parent-to-child narrowing and prove that widening is rejected.
   - Commit: `feat(security): add agent permission evaluator`
 
-- [ ] **4.3 Apply specs to agent creation**
+- [x] **4.3 Apply specs to agent creation**
   - Make `createAgent` accept a normalized spec while preserving current call
     sites through a compatibility adapter.
   - Filter tool schemas before they reach any provider.
@@ -258,3 +258,4 @@ that slice's commit, so plan and code cannot drift.
 | 2026-07-07 | 3.5 API and UI decisions | current commit | API, WebSocket, interrupt-service, file-confirmation, and database-confirmation tests pass; syntax; diff check | Durable decisions exposed through API/UI and run history |
 | 2026-07-07 | 4.1 AgentSpec schema | current commit | `NODE_ENV=test node --test tests/lib/agent/spec.test.js`; `node --check lib/agent/spec.js` | Validated normalized spec contract with provider/model, identity/persona, character, skills, memory scopes, tool allowlist, filesystem rules, interrupt policy, limits, and output schema |
 | 2026-07-07 | 4.2 Permission evaluator | current commit | `NODE_ENV=test node --test tests/lib/security/agentPermissions.test.js`; `node --check lib/security/agentPermissions.js` | Ordered first-match permission policy for read/write/execute/network/database/memory plus conservative parent-to-child narrowing checks |
+| 2026-07-07 | 4.3 Apply specs to agent creation | current commit | `NODE_ENV=test node --test tests/lib/agent.test.js tests/lib/agent/spec.test.js tests/lib/security/agentPermissions.test.js`; `node --check lib/agent/index.js` | `createAgent` accepts normalized specs, preserves legacy calls through compatibility specs, applies provider/persona/character/identity prompt overrides, and filters provider-visible tool schemas by explicit allowlist |
