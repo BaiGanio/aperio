@@ -524,6 +524,12 @@ agent scheduler. Freeform background jobs persist their provider/model,
 persona, character, timeout, and tool policy through validated `AgentSpec`
 definitions; older job records are normalized on read/write.
 
+Advanced agent setups can also be packaged as a portable bundle directory and
+passed to `createAgent({ bundleDir })`. A bundle may contain `AGENT.md`,
+`permissions.json`, `memory-scopes.json`, `output.schema.json`, and local
+`skills/`; explicit administrator specs still bound tools, filesystem/memory
+permissions, interrupts, recursion, concurrency, and timeouts.
+
 ```bash
 NODE_ENV=test node --test \
   tests/lib/agent/middleware.test.js \

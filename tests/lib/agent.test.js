@@ -319,6 +319,39 @@ describe("createAgent initialization", () => {
       ["recall"],
     );
   });
+
+  test("createAgent loads AGENT.md and bundle-local skills", async (t) => {
+    stubMcpTransport(t);
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "aperio-agent-root-"));
+    try {
+      const bundle = path.join(root, "bundles", "reviewer");
+      fs.mkdirSync(path.join(bundle, "skills", "audit"), { recursive: true });
+      fs.writeFileSync(path.join(bundle, "AGENT.md"), "BUNDLE IDENTITY PROMPT", "utf8");
+      fs.writeFileSync(path.join(bundle, "skills", "audit", "SKILL.md"), [
+        "---",
+        "name: audit",
+        "description: Audit generated code",
+        "metadata:",
+        "  keywords: audit",
+        "---",
+        "",
+        "BUNDLE AUDIT SKILL BODY",
+      ].join("\n"), "utf8");
+
+      const agent = await createAgent({
+        root,
+        version: "1.0.0",
+        bundleDir: "bundles/reviewer",
+      });
+
+      assert.ok(agent.bundle);
+      assert.match(agent.getSystemPrompt("please audit this", "en", "", [{ role: "user", content: "please audit this" }]), /BUNDLE IDENTITY PROMPT/);
+      assert.match(agent.getSystemPrompt("please audit this", "en", "", [{ role: "user", content: "please audit this" }]), /BUNDLE AUDIT SKILL BODY/);
+      assert.ok(agent.getSkillList().some(s => s.name === "audit"));
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

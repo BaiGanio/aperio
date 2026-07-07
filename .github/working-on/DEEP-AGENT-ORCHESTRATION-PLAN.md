@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: Phase 4.4 complete; next slice is Phase 4.5 agent bundles.
+Status: Phase 4 complete; next slice is Phase 5.1 delegation runtime.
 
 Created: 2026-07-06
 
@@ -95,7 +95,7 @@ Do not push automatically.
 - [x] Phase 1 — Lossless tool-result offloading.
 - [x] Phase 2 — Aperio lifecycle middleware.
 - [x] Phase 3 — Durable interrupts and resumable actions.
-- [ ] Phase 4 — Agent specifications and permission narrowing.
+- [x] Phase 4 — Agent specifications and permission narrowing.
 - [ ] Phase 5 — Isolated task delegation.
 - [ ] Phase 6 — Explicit planning for long tasks.
 - [ ] Phase 7 — Evaluation-driven harness improvement.
@@ -104,17 +104,17 @@ Do not push automatically.
 
 ## Next Slice
 
-Start with Phase 4.5 in
+Start with Phase 5.1 in
 `.github/working-on/DEEP-AGENT-ORCHESTRATION-ACTIVE.md`:
 
-- support optional portable agent bundle directories;
-- load `AGENT.md`, `permissions.json`, agent-local skills, memory-scope
-  configuration, and output schema;
-- ensure bundles cannot override administrator-enforced policy.
+- launch a fresh child agent with isolated messages and a narrowed `AgentSpec`;
+- support parent cancellation, timeout, and depth limits;
+- return only the final result, structured output, artifact references, and
+  bounded execution metadata.
 
 Expected commits:
 
-- `feat(agent): load portable agent bundles`
+- `feat(agent): add isolated delegation runtime`
 
 ## Companion Files
 
