@@ -193,6 +193,7 @@ behavior.
 Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`, `SECURITY.md`).
 
 **Agent exfiltration surface**
+- Agent permission evaluator — ordered first-match rules with default deny for read, write, execute, network, database, and memory capabilities, plus parent-to-child narrowing checks that reject delegated policies broader than the parent (`lib/security/agentPermissions.js`)
 - SSRF egress guard on `fetch_url` + image fetch — blocks loopback/link-local/private addresses, opt-outs `APERIO_ALLOW_INTERNAL_FETCH` / `APERIO_EGRESS_ALLOWLIST`; egress logging
 - Shell allowlist hardening — rejects node/python inline-eval, `find -exec`, non-read-only git, file args outside the allowlist; `curl` removed; `run_shell` is explicitly **not a sandbox**
 - Prompt-injection defense — output of external/read tools fenced as `UNTRUSTED EXTERNAL CONTENT`; per-turn taint flag; tainted-turn writes routed through the confirm gate

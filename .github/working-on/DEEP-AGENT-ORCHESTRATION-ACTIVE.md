@@ -16,7 +16,7 @@ validated runtime contract.
   - Reject unknown security-sensitive fields.
   - Commit: `feat(agent): define validated agent specifications`
 
-- [ ] **4.2 Permission evaluator**
+- [x] **4.2 Permission evaluator**
   - Use ordered, first-match rules for read, write, execute, network, database,
     and memory capabilities.
   - Implement parent-to-child narrowing and prove that widening is rejected.
@@ -257,3 +257,4 @@ that slice's commit, so plan and code cannot drift.
 | 2026-07-06 | 2.4 Middleware trace | maintainer commit pending | 577 focused pass; full 2703/2706; affected E2E 14/15 together, remaining case passes alone; syntax; diff check | Bounded metadata-only per-run lifecycle diagnostics |
 | 2026-07-07 | 3.5 API and UI decisions | current commit | API, WebSocket, interrupt-service, file-confirmation, and database-confirmation tests pass; syntax; diff check | Durable decisions exposed through API/UI and run history |
 | 2026-07-07 | 4.1 AgentSpec schema | current commit | `NODE_ENV=test node --test tests/lib/agent/spec.test.js`; `node --check lib/agent/spec.js` | Validated normalized spec contract with provider/model, identity/persona, character, skills, memory scopes, tool allowlist, filesystem rules, interrupt policy, limits, and output schema |
+| 2026-07-07 | 4.2 Permission evaluator | current commit | `NODE_ENV=test node --test tests/lib/security/agentPermissions.test.js`; `node --check lib/security/agentPermissions.js` | Ordered first-match permission policy for read/write/execute/network/database/memory plus conservative parent-to-child narrowing checks |
