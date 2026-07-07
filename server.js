@@ -5,7 +5,7 @@ import { existsSync, readFileSync, mkdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve, sep as pathSep } from "path";
 import { createRequire } from "module";
-import { execFile } from "child_process";
+import { execFile, execFileSync } from "child_process";
 import dotenv from "dotenv";
 
 import { ensurePort } from "./lib/helpers/ensurePort.js";
@@ -82,6 +82,18 @@ let bootstrapStarted = false;
 // for this so its "Open Aperio" button doesn't hand the user a frozen shell
 // while bootApp (embeddings → Ollama → agent → WebSocket) is still warming up.
 let appReady = false;
+let bootAppPromise = null;
+
+function bootAppOnce() {
+  if (appReady) return Promise.resolve();
+  if (!bootAppPromise) {
+    bootAppPromise = bootApp().catch((err) => {
+      logger.error("Aperio app boot failed:", err);
+      throw err;
+    });
+  }
+  return bootAppPromise;
+}
 
 // ─── Port: free it before we try to bind ─────────────────────────────────────
 await ensurePort(PORT, { wait: !!process.env.APERIO_RESTART });
@@ -250,11 +262,25 @@ app.get("/api/bootstrap/state", (_req, res) => {
 // writes .env + kicks off bootstrap).
 const setupLimiter = makeRateLimiter({ windowMs: 15 * 60 * 1000, max: 30, name: "setup" });
 
+function listInstalledOllamaModels() {
+  try {
+    const out = execFileSync("ollama", ["list"], { encoding: "utf8", timeout: 3000 });
+    return out
+      .trim()
+      .split(/\r?\n/)
+      .slice(1)
+      .map(line => line.trim().split(/\s+/)[0])
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 // ─── Setup wizard: machine specs + model recommendation ──────────────────────
 app.get("/api/setup/specs", setupLimiter, async (_req, res) => {
   try {
     const { getSpecs } = await import("./lib/helpers/specs.js");
-    res.json(getSpecs());
+    res.json({ ...getSpecs(), ollamaModels: listInstalledOllamaModels() });
   } catch (err) {
     logger.error("specs failed:", err);
     res.status(500).json({ error: "specs_failed" });
@@ -267,22 +293,28 @@ app.post("/api/setup/config", setupLimiter, async (req, res) => {
     return res.status(409).json({ error: "already_started" });
   }
   try {
-    const { provider, apiKey, model } = req.body ?? {};
+    const { provider, apiKey, model, pullModel } = req.body ?? {};
     const { writeEnvFromWizard } = await import("./lib/helpers/envFile.js");
     writeEnvFromWizard({ provider, apiKey, model, port: PORT });
 
     // Reload the freshly-written .env so bootApp + providers see the new values
     // without a server restart.
     dotenv.config({ path: resolve(__dirname, ".env"), override: true });
+    if (String(provider).toLowerCase() === "ollama" && model?.trim()) {
+      process.env.AI_PROVIDER = "ollama";
+      process.env.OLLAMA_MODEL = model.trim();
+    }
 
     bootstrapStarted = true;
-    bootstrapEvents.once("complete", async () => {
+    bootstrapEvents.once("complete", () => {
       logger.info("Bootstrap done — initialising app…");
-      await bootApp();
+      void bootAppOnce().catch(() => {});
     });
+    bootstrapEvents.once("error", () => { bootstrapStarted = false; });
     runBootstrap({
       model: model || process.env.OLLAMA_MODEL || "qwen2.5:3b",
       skipOllama: String(provider).toLowerCase() !== "ollama",
+      pullModel: String(provider).toLowerCase() === "ollama" && pullModel === true,
     });
 
     res.json({ ok: true });
@@ -351,14 +383,19 @@ httpServer.listen(PORT, HOST, async () => {
   if (isBootstrapped()) {
     // Already set up: skip straight to full app init
     logger.info("✓ Already bootstrapped — starting app.");
-    await bootApp();
+    try {
+      await bootAppOnce();
+    } catch {
+      return;
+    }
     openBrowser(`${scheme}://localhost:${PORT}`);
   } else if (existsSync(resolve(__dirname, ".env"))) {
     // First run, but a .env already exists (user configured by hand) — preserve
     // the old auto-bootstrap behaviour; the setup page shows progress directly.
     logger.info("First run with existing .env — bootstrapping.");
     bootstrapStarted = true;
-    bootstrapEvents.once("complete", async () => { await bootApp(); });
+    bootstrapEvents.once("complete", () => { void bootAppOnce().catch(() => {}); });
+    bootstrapEvents.once("error", () => { bootstrapStarted = false; });
     runBootstrap({
       model: process.env.OLLAMA_MODEL ?? "qwen2.5:3b",
       skipOllama: (process.env.AI_PROVIDER ?? "").toLowerCase() !== "ollama",
@@ -718,7 +755,7 @@ async function bootApp() {
   const pruner    = createSessionPruner();
   const runPruner = createAgentRunPruner({
     store,
-    artifactStore: createArtifactStore({ rootDir: resolve(ROOT, "var", "agent-artifacts") }),
+    artifactStore: createArtifactStore({ rootDir: resolve(__dirname, "var", "agent-artifacts") }),
   });
 
   // Graceful shutdown

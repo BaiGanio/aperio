@@ -9,6 +9,10 @@ const execAsync = promisify(exec);
 
 export const bootstrapEvents = new EventEmitter();
 bootstrapEvents.setMaxListeners(50);
+// Node treats an `error` event with no listeners as a thrown exception. The
+// browser setup stream attaches its own listener while connected, but the
+// existing-.env auto-bootstrap path can fail before any SSE client connects.
+bootstrapEvents.on('error', () => {});
 
 mkdirSync('./var', { recursive: true });
 let logStream = null;
@@ -47,17 +51,50 @@ const isInstalled = (cmd) => {
   catch (_e) { return false; }
 };
 
+const cleanCommandOutput = (text) =>
+  text
+    .replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '')
+    .replace(/\r/g, '\n')
+    .split('\n')
+    .map(line => line.trim())
+    .filter(Boolean);
+
+const commandFailureDetail = (text) => {
+  const lines = cleanCommandOutput(text);
+  return [...lines].reverse().find(line => /^error:/i.test(line))
+    || [...lines].reverse().find(line => /permission denied|operation not permitted|not found|failed/i.test(line))
+    || '';
+};
+
+const parseOllamaModelNames = (text) =>
+  text
+    .trim()
+    .split(/\r?\n/)
+    .slice(1)
+    .map(line => line.trim().split(/\s+/)[0])
+    .filter(Boolean);
+
 const runSilently = (command, args = [], options = {}) =>
   new Promise((resolve, reject) => {
+    let output = '';
+    const remember = (chunk) => {
+      output = `${output}${chunk}`;
+      if (output.length > 4000) output = output.slice(-4000);
+    };
     const proc = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
       ...options,
     });
-    proc.stdout.on('data', d => logger(d.toString().trim()));
-    proc.stderr.on('data', d => logger(d.toString().trim()));
-    proc.on('close', code =>
-      code === 0 ? resolve() : reject(new Error(`${command} exited with code ${code}`))
-    );
+    proc.stdout.on('data', d => { const s = d.toString(); remember(s); logger(s.trim()); });
+    proc.stderr.on('data', d => { const s = d.toString(); remember(s); logger(s.trim()); });
+    proc.on('close', code => {
+      if (code === 0) {
+        resolve();
+        return;
+      }
+      const detail = commandFailureDetail(output);
+      reject(new Error(`${command} exited with code ${code}${detail ? `: ${detail}` : ''}`));
+    });
     proc.on('error', reject);
   });
 
@@ -188,18 +225,35 @@ const checkOllama = async () => {
   }
 };
 
-const checkModel = async (model = 'qwen2.5:3b') => {
+const checkModel = async (model = 'qwen2.5:3b', { pullIfMissing = false } = {}) => {
   setStep('model', 'running', `Checking for ${model}…`);
   try {
-    const list = execSync('ollama list', { encoding: 'utf8' });
-    if (list.includes(model.split(':')[0])) {
+    const models = parseOllamaModelNames(execSync('ollama list', { encoding: 'utf8' }));
+    if (models.includes(model)) {
       setStep('model', 'skipped', `${model} already present`);
       return;
     }
-  } catch (_e) {}
-  setStep('model', 'running', `Pulling ${model} — this may take a few minutes…`);
-  await runSilently('ollama', ['pull', model]);
-  setStep('model', 'done', `${model} ready`);
+  } catch (err) {
+    if (!pullIfMissing) {
+      setStep('model', 'error', `Could not list Ollama models: ${err.message}`);
+      throw err;
+    }
+  }
+
+  if (!pullIfMissing) {
+    const err = new Error(`Selected Ollama model is not installed: ${model}`);
+    setStep('model', 'error', err.message);
+    throw err;
+  }
+
+  setStep('model', 'running', `Downloading ${model} — this may take a few minutes…`);
+  try {
+    await runSilently('ollama', ['pull', model]);
+  } catch (err) {
+    setStep('model', 'error', `Model download failed: ${err.message}`);
+    throw err;
+  }
+  setStep('model', 'done', `${model} downloaded`);
 };
 
 const checkSqlite = async () => {
@@ -218,7 +272,8 @@ const checkSqlite = async () => {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-export const runBootstrap = async ({ model = 'qwen2.5:3b', skipOllama = false } = {}) => {
+export const runBootstrap = async ({ model = 'qwen2.5:3b', skipOllama = false, pullModel = false } = {}) => {
+  for (const step of STEPS) stepState[step.id] = 'idle';
   logger('=== Bootstrap starting ===');
   bootstrapEvents.emit('start');
 
@@ -231,7 +286,7 @@ export const runBootstrap = async ({ model = 'qwen2.5:3b', skipOllama = false } 
       setStep('model',  'skipped', 'Using a cloud provider');
     } else {
       await checkOllama();
-      await checkModel(model);
+      await checkModel(model, { pullIfMissing: pullModel });
     }
     await checkSqlite();
 
