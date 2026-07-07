@@ -102,6 +102,7 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 
 ## Agent & Reasoning
 - Agent loop with tool-calling (`lib/agent/index.js`)
+- Validated `AgentSpec` contract — normalizes provider/model overrides, identity/persona, character, skills, memory scopes, tool allowlists, filesystem rules, interrupt policy, timeout, recursion depth, concurrency, and optional output JSON Schema while rejecting unknown security-sensitive fields (`lib/agent/spec.js`)
 - Provider-neutral lifecycle middleware contract — seven ordered async hooks with immutable request snapshots, explicit returned updates/short-circuiting, validated named registrations, and failure attribution (`lib/agent/middleware.js`)
 - Tool safety middleware — failure-budget gating, repeated-call detection, untrusted-content fencing, taint propagation, and tainted-write confirmation now run as named `beforeTool`/`afterTool` adapters while preserving existing WebSocket events and limits (`lib/agent/tool-safety-middleware.js`)
 - Model-context middleware — the native Anthropic/Ollama/Gemini/DeepSeek loops share named context-trimming, memory-pointer, skill-injection, tool-profile, and result-offload adapters while retaining provider-local wire serialization and redaction (`lib/agent/model-context-middleware.js`)
