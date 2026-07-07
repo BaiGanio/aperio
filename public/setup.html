@@ -237,6 +237,24 @@
 }
 .setup-done.show  { display: flex; border: 1px solid var(--success, #4caf85); color: var(--success, #4caf85); }
 .setup-error.show { display: flex; border: 1px solid var(--danger, #e05252); color: var(--danger, #e05252); }
+.setup-error__message {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+.setup-error__retry {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  border-radius: var(--radius-sm, 8px);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.setup-error__retry:hover { opacity: 0.82; }
 
 .setup-launch {
   display: none;
@@ -484,6 +502,7 @@ if (location.protocol === "file:") {
     <!-- Local -->
     <div class="wiz-screen" id="wizLocal" style="display:none">
       <div class="wiz-specs" id="wizSpecs" data-i18n="wiz_checking">Checking your machine…</div>
+      <select id="wizModelSelect" class="wiz-input" style="display:none"></select>
       <div class="wiz-actions">
         <button class="wiz-back" data-back data-i18n="wiz_back">← Back</button>
         <button class="wiz-continue" id="wizLocalGo" disabled data-i18n="wiz_install_continue">Install &amp; continue</button>
@@ -527,7 +546,8 @@ if (location.protocol === "file:") {
   <!-- Error banner -->
   <div class="setup-error" id="errorBanner">
     <i class="bi bi-exclamation-triangle"></i>
-    <span id="errorText" data-i18n="setup_error_default">Setup failed. Check bootstrap.log for details.</span>
+    <span class="setup-error__message" id="errorText" data-i18n="setup_error_default">Setup failed. Check bootstrap.log for details.</span>
+    <button class="setup-error__retry" id="retrySetupBtn" type="button">Try again</button>
   </div>
   </div><!-- /#progressView -->
 
@@ -686,7 +706,17 @@ function waitForAppReady() {
 function showError(msg) {
   document.getElementById("errorText").textContent = _t("setup_error_prefix", { msg });
   document.getElementById("errorBanner").classList.add("show");
+  const retry = document.getElementById("retrySetupBtn");
+  if (retry) retry.disabled = false;
 }
+
+document.getElementById("retrySetupBtn")?.addEventListener("click", () => {
+  esStarted = false;
+  progressView.style.display = "none";
+  wizardView.style.display = "";
+  document.getElementById("errorBanner").classList.remove("show");
+  document.querySelectorAll(".wiz-continue").forEach(b => b.disabled = false);
+});
 
 // ── Setup error modal — reuses the same .confirm-modal classes as the main app ──
 function showSetupErrorModal(msg) {
@@ -752,7 +782,11 @@ function startProgress() {
 
   es.addEventListener("complete", () => { es.close(); showDone(); });
   es.addEventListener("error", function(e) {
-    try { showError(JSON.parse(e.data).message); }
+    try {
+      es.close();
+      esStarted = false;
+      showError(JSON.parse(e.data).message);
+    }
     catch (_e) { /* SSE connection drop — browser will retry automatically */ }
   });
 }
@@ -804,32 +838,55 @@ document.getElementById("wizCloudGo").addEventListener("click", () => {
 
 // ── Local screen ───────────────────────────────────────────────────────────
 let recommendedModel = null;
+let shouldPullLocalModel = false;
 async function loadSpecs() {
   const box = document.getElementById("wizSpecs");
   const go  = document.getElementById("wizLocalGo");
+  const select = document.getElementById("wizModelSelect");
   box.textContent = _t("wiz_checking");
+  select.style.display = "none";
+  select.replaceChildren();
   go.disabled = true;
   try {
     const s = await fetch("/api/setup/specs").then(r => r.json());
     recommendedModel = s.recommendedModel;
+    const installedModels = Array.isArray(s.ollamaModels) ? s.ollamaModels : [];
+    shouldPullLocalModel = installedModels.length === 0;
     const disk = s.diskGB == null ? _t("wiz_specs_unknown") : `${s.diskGB} GB`;
     const size = s.modelSizeGB ? ` ${_t("wiz_download", { n: s.modelSizeGB })}` : "";
     let html = `<b>${s.ramGB} GB</b> ${_t("wiz_ram")} &middot; <b>${disk}</b> ${_t("wiz_disk")}<br>`
-             + `${_t("wiz_recommended")} <b>${s.recommendedModel}</b>${size}`;
+             + (installedModels.length
+               ? `Choose an installed Ollama model.`
+               : `${_t("wiz_recommended")} <b>${s.recommendedModel}</b>${size}`);
     if (!s.enoughDisk) html += `<br><span class="wiz-warn">${_t("wiz_disk_warn")}</span>`;
     box.innerHTML = html;
+    if (installedModels.length) {
+      for (const model of installedModels) {
+        const option = document.createElement("option");
+        option.value = model;
+        option.textContent = model;
+        select.appendChild(option);
+      }
+      select.style.display = "";
+    }
     go.disabled = false;
   } catch (_e) {
     // Couldn't reach the specs endpoint (e.g. opened as a file, or the request
     // failed). Don't dead-end the user — fall back to the safe small model that
     // runs almost anywhere, name it so they know what's coming, and let them go.
     recommendedModel = "qwen2.5:3b";
+    shouldPullLocalModel = true;
     box.textContent = _t("wiz_specs_failed", { model: recommendedModel });
     go.disabled = false;
   }
 }
 document.getElementById("wizLocalGo").addEventListener("click", () => {
-  submitConfig({ provider: "ollama", model: recommendedModel || "qwen2.5:3b" });
+  const selected = document.getElementById("wizModelSelect").value;
+  submitConfig({
+    provider: "ollama",
+    model: selected || recommendedModel || "qwen2.5:3b",
+    pullModel: shouldPullLocalModel,
+  });
 });
 
 // ── Submit config → kick off bootstrap → show progress ─────────────────────
