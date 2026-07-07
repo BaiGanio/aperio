@@ -58,6 +58,36 @@ function makeHandler(agentOverrides = {}) {
   });
 }
 
+function makeInterruptStore(row) {
+  const current = JSON.parse(JSON.stringify(row));
+  const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+  return {
+    listAll: async () => [],
+    async getAgentInterrupt(id) {
+      return id === current.id ? clone(current) : null;
+    },
+    async listAgentInterrupts({ status = "pending" } = {}) {
+      return !status || current.status === status ? [clone(current)] : [];
+    },
+    async expireAgentInterrupts() {
+      return 0;
+    },
+    async updateAgentInterruptStatus(_id, status) {
+      current.status = status;
+      return clone(current);
+    },
+    async decideAgentInterrupt(id, { decision, status, decisionPayload = null, now = new Date().toISOString() }) {
+      if (id !== current.id || current.status !== "pending") return null;
+      current.decision = decision;
+      current.decision_payload = clone(decisionPayload);
+      current.status = status;
+      current.decided_at = now;
+      current.updated_at = now;
+      return clone(current);
+    },
+  };
+}
+
 // ─── On connection ─────────────────────────────────────────────────────────────
 
 describe("onConnection — immediate sends", () => {
@@ -476,6 +506,48 @@ describe("message type: confirm_action", () => {
 
     assert.strictEqual(callTool.mock.calls.length, 0);
     assert.strictEqual(sentOf(ws, "error").at(-1).text, "Invalid confirmation request.");
+  });
+});
+
+describe("message type: interrupt_decision", () => {
+  test("records reject decisions and refreshes pending interrupt cards", async (t) => {
+    const ws = makeWs(t);
+    const store = makeInterruptStore({
+      id: "wr_reject1",
+      session_id: "session-a",
+      run_id: null,
+      tool_name: "write_file",
+      canonical_arguments: { path: "/tmp/example.txt", content: "hello", targetDigest: null },
+      protected_payload_ref: null,
+      digest: "sha256:abc",
+      allowed_decisions: ["approve", "edit", "reject", "respond"],
+      decision: null,
+      decision_payload: null,
+      status: "pending",
+      created_at: "2026-07-07T00:00:00.000Z",
+      updated_at: "2026-07-07T00:00:00.000Z",
+      decided_at: null,
+      claimed_at: null,
+      completed_at: null,
+      expires_at: null,
+    });
+    const handler = makeWsHandler({
+      agent: makeAgent(),
+      store,
+      __dirname: TEST_DIR,
+    });
+
+    handler(ws);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.strictEqual(sentOf(ws, "interrupts").at(-1).interrupts.length, 1);
+
+    await ws.emit({ type: "interrupt_decision", id: "wr_reject1", decision: "reject", response: "wrong target" });
+
+    const decided = sentOf(ws, "interrupt_decided").at(-1);
+    assert.strictEqual(decided.interrupt.status, "rejected");
+    assert.strictEqual(decided.interrupt.decision, "reject");
+    assert.strictEqual(sentOf(ws, "interrupts").at(-1).interrupts.length, 0);
+    assert.strictEqual(sentOf(ws, "stream_end").at(-1).text, "Action rejected. Nothing was executed.");
   });
 });
 
