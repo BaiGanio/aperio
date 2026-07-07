@@ -247,6 +247,78 @@ describe("createAgent initialization", () => {
 
     assert.ok(agent, "Should still create agent even without prompts");
   });
+
+  test("createAgent builds a compatibility AgentSpec for legacy callers", async (t) => {
+    stubMcpTransport(t);
+
+    const agent = await createAgent({
+      root: FAKE_ROOT,
+      version: "1.0.0",
+      clientName: "legacy-agent",
+      providerConfig: { name: "deepseek", model: "deepseek-v4-flash" },
+      persona: "reviewer",
+      character: "security-engineer",
+    });
+
+    assert.equal(agent.spec.id, "legacy-agent");
+    assert.deepEqual(agent.spec.provider, { name: "deepseek", model: "deepseek-v4-flash" });
+    assert.equal(agent.persona, "reviewer");
+    assert.equal(agent.character, "security-engineer");
+    assert.equal(agent.spec.toolAllowlist, null, "legacy callers keep unrestricted dynamic tools");
+    assert.deepEqual(agent.mcpTools.map(t => t.name), ["test_tool", "recall", "remember"]);
+  });
+
+  test("explicit AgentSpec overrides provider, persona, character, and identity prompt", async (t) => {
+    stubMcpTransport(t);
+
+    const agent = await createAgent({
+      root: FAKE_ROOT,
+      version: "1.0.0",
+      providerConfig: { name: "ollama", model: "ignored" },
+      persona: "ignored-persona",
+      character: "ignored-character",
+      spec: {
+        id: "specified",
+        provider: { name: "deepseek", model: "deepseek-v4-flash" },
+        identity: { persona: "architect", prompt: "SPEC IDENTITY PROMPT" },
+        character: "software-architect",
+        toolAllowlist: null,
+      },
+    });
+
+    assert.equal(agent.provider.name, "deepseek");
+    assert.equal(agent.provider.model, "deepseek-v4-flash");
+    assert.equal(agent.persona, "architect");
+    assert.equal(agent.character, "software-architect");
+    assert.equal(agent.spec.id, "specified");
+    assert.match(agent.getSystemPrompt("hi"), /SPEC IDENTITY PROMPT/);
+  });
+
+  test("explicit AgentSpec tool allowlist filters provider-visible MCP tools", async (t) => {
+    stubMcpTransport(t);
+
+    const agent = await createAgent({
+      root: FAKE_ROOT,
+      version: "1.0.0",
+      providerConfig: { name: "deepseek", model: "deepseek-v4-flash" },
+      spec: {
+        id: "recall-only",
+        toolAllowlist: ["recall"],
+      },
+    });
+
+    assert.deepEqual(agent.mcpTools.map(t => t.name), ["recall"]);
+    assert.equal(agent.getToolCount("remember this and recall it", [{ role: "user", content: "remember this and recall it" }]), 1);
+    assert.ok(agent.getAnthropicTools("remember this", [{ role: "user", content: "remember this" }]).every(t => t.name === "recall"));
+    assert.deepEqual(
+      agent.getOllamaTools("remember this", [{ role: "user", content: "remember this" }]).map(t => t.function.name),
+      ["recall"],
+    );
+    assert.deepEqual(
+      agent.getGeminiTools("remember this", [{ role: "user", content: "remember this" }])[0].functionDeclarations.map(t => t.name),
+      ["recall"],
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Aperio Agent Orchestration Plan
 
-Status: Phase 3 complete; next slice is Phase 4.1 `AgentSpec` schema.
+Status: Phase 4.3 complete; next slice is Phase 4.4 background and round-table specs.
 
 Created: 2026-07-06
 
@@ -104,16 +104,18 @@ Do not push automatically.
 
 ## Next Slice
 
-Start with Phase 4.1 in
+Start with Phase 4.4 in
 `.github/working-on/DEEP-AGENT-ORCHESTRATION-ACTIVE.md`:
 
-- define a validated `AgentSpec` schema;
-- include model/provider override, identity/persona, character, skills, memory
-  scopes, tool allowlist, filesystem rules, interrupt policy, timeout, recursion
-  depth, concurrency, and output schema;
-- reject unknown security-sensitive fields.
+- replace ad hoc provider/persona/character options in background jobs with
+  stored specs;
+- migrate existing job records safely;
+- apply specifications to round-table agents while preserving current behavior.
 
-Expected commit: `feat(agent): define validated agent specifications`.
+Expected commits:
+
+- `feat(agent): apply specifications to background jobs`
+- `feat(agent): apply specifications to round tables`
 
 ## Companion Files
 
