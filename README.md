@@ -282,6 +282,9 @@ When set, the chat UI gains a **Discuss** toggle next to the send button.
 Toggle it ON to route the next turn through the round-table; OFF behaves
 identically to single-agent chat. If `ROUNDTABLE_AGENTS` is unset or only one
 pair parses, the toggle stays disabled and the app behaves exactly as before.
+Internally, each round-table participant is created from the same validated
+`AgentSpec` contract used by the main agent, preserving provider/model and
+character behavior while keeping the runtime contract explicit.
 
 Personas live in `id/whoami-primary.md` and `id/whoami-verifier.md` — edit them
 to tune how each agent answers or critiques.
@@ -517,7 +520,9 @@ file or database change runs.
 Fresh SQLite and Postgres stores also seed a disabled `nightly-maintenance`
 background-agent example. It runs `backfill_embeddings` followed by dry-run
 `deduplicate_memories` when the user explicitly enables the job and background
-agent scheduler.
+agent scheduler. Freeform background jobs persist their provider/model,
+persona, character, timeout, and tool policy through validated `AgentSpec`
+definitions; older job records are normalized on read/write.
 
 ```bash
 NODE_ENV=test node --test \

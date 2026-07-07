@@ -622,6 +622,7 @@ describe("PostgresStore — agent jobs", () => {
     const jobs = await store.listAgentJobs();
     assert.equal(jobs.length, 1);
     assert.equal(jobs[0].prompt, "test");
+    assert.equal(jobs[0].spec.id, "background.j1");
   });
 
   test("getAgentJob returns a job by id", async () => {
@@ -631,6 +632,7 @@ describe("PostgresStore — agent jobs", () => {
     const store = await PostgresStore.init();
     const job = await store.getAgentJob("j1");
     assert.equal(job.prompt, "hello");
+    assert.equal(job.spec.id, "background.j1");
   });
 
   test("getAgentJob returns null for missing", async () => {
@@ -680,6 +682,7 @@ describe("PostgresStore — agent jobs", () => {
     const store = await PostgresStore.init();
     const job = await store.upsertAgentJob({ id: "j1", enabled: true, prompt: "hi" });
     assert.equal(job.prompt, "hi");
+    assert.equal(job.spec.id, "background.j1");
   });
 
   test("deleteAgentJob returns true/false", async () => {

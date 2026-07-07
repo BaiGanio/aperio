@@ -331,7 +331,38 @@ describe("agent-scheduler", () => {
       assert.strictEqual(res.verdict, "ok");
       assert.strictEqual(res.mode, "freeform");
       assert.strictEqual(res.answer, "digest of: summarise recent memories");
-      assert.deepStrictEqual(builtWith.providerConfig, { name: "ollama", model: "qwen3:8b" });
+      assert.equal(builtWith.providerConfig, undefined);
+      assert.equal(builtWith.spec.id, "background.curator");
+      assert.deepStrictEqual(builtWith.spec.provider, { name: "ollama", model: "qwen3:8b" });
+    });
+
+    test("passes a stored AgentSpec to createAgent without legacy persona fields", async () => {
+      process.env.APERIO_AGENT_JOBS = "on";
+      let builtWith = null;
+      const createAgent = async (cfg) => {
+        builtWith = cfg;
+        return { runAgentLoop: async () => "ok", provider: { model: "deepseek-chat" } };
+      };
+      const sched = createAgentScheduler({ callTool: async () => "", createAgent, jobs: [] });
+
+      await sched.runJob(freeformJob({
+        provider: undefined,
+        persona: "legacy",
+        character: "reviewer",
+        spec: {
+          id: "background.review",
+          provider: { name: "deepseek", model: "deepseek-chat" },
+          identity: { persona: "reviewer" },
+          character: "security",
+        },
+      }));
+      sched.stop();
+
+      assert.equal(builtWith.persona, undefined);
+      assert.equal(builtWith.character, undefined);
+      assert.equal(builtWith.providerConfig, undefined);
+      assert.equal(builtWith.spec.identity.persona, "reviewer");
+      assert.equal(builtWith.spec.character, "security");
     });
 
     test("skips a freeform job when no createAgent factory is provided", async () => {

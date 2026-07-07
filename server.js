@@ -15,6 +15,8 @@ import { makeRateLimiter } from "./lib/helpers/rateLimit.js";
 import { createStaticGuard, STATIC_COOKIE } from "./lib/helpers/staticAuth.js";
 import { createAppServer } from "./lib/helpers/tlsServer.js";
 import { createCrashBreaker } from "./lib/helpers/crashBreaker.js";
+import { shouldEnableRoundtable } from "./lib/helpers/roundtableBudget.js";
+import { buildRoundtableAgentSpec } from "./lib/agent/job-spec.js";
 import { randomBytes } from "crypto";
 import logger from "./lib/helpers/logger.js";
 import { BROWSERS, browserArgsFor } from "./lib/helpers/browserLauncher.js";
@@ -561,23 +563,39 @@ async function bootApp() {
 
   let primaryRoundtable = null;
   let verifier = null;
-  if (primaryRtConfig && verifierConfig) {
+  const roundtableGate = shouldEnableRoundtable({
+    mainProvider: provider,
+    primaryConfig: primaryRtConfig,
+    verifierConfig,
+    env: process.env,
+  });
+  if (!roundtableGate.enabled) {
+    logger.warn(`[roundtable] Discuss unavailable for this session: ${roundtableGate.reason}`);
+  } else if (primaryRtConfig && verifierConfig) {
     try {
       primaryRoundtable = await createAgent({
         root: __dirname,
         version,
         clientName: "aperio-server-rt-primary",
-        providerConfig: primaryRtConfig,
-        persona: "primary",
-        character: roundtableCharacters[0] ?? null,
+        spec: buildRoundtableAgentSpec({
+          id: "primary",
+          description: "Round-table primary answerer",
+          providerConfig: primaryRtConfig,
+          persona: "primary",
+          character: roundtableCharacters[0] ?? null,
+        }),
       });
       verifier = await createAgent({
         root: __dirname,
         version,
         clientName: "aperio-server-rt-verifier",
-        providerConfig: verifierConfig,
-        persona: "verifier",
-        character: roundtableCharacters[1] ?? null,
+        spec: buildRoundtableAgentSpec({
+          id: "verifier",
+          description: "Round-table verifier reviewer",
+          providerConfig: verifierConfig,
+          persona: "verifier",
+          character: roundtableCharacters[1] ?? null,
+        }),
       });
       const charTag = (a) => a.character ? ` as "${a.character}"` : "";
       logger.info(`🤝 Round-table: primary = ${primaryRoundtable.provider.name} (${primaryRoundtable.provider.model})${charTag(primaryRoundtable)}, verifier = ${verifier.provider.name} (${verifier.provider.model})${charTag(verifier)}`);

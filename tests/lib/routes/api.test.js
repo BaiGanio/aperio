@@ -820,6 +820,41 @@ describe("POST /agents", () => {
     assert.strictEqual(status, 201);
     assert.strictEqual(body.id, "new");
     assert.strictEqual(saved.prompt, "do a thing");
+    assert.strictEqual(saved.spec.id, "background.new");
+  });
+
+  test("creates legacy provider jobs as AgentSpec-backed definitions", async () => {
+    let saved = null;
+    const router = makeRouter({ store: {
+      getAgentJob: async () => null,
+      upsertAgentJob: async (j) => { saved = j; return j; },
+    } });
+    const { status } = await invoke(router, "POST", "/agents", {
+      body: {
+        id: "legacy",
+        prompt: "do a thing",
+        provider: { name: "deepseek", model: "deepseek-chat" },
+        persona: "reviewer",
+        character: "security",
+      },
+    });
+    assert.strictEqual(status, 201);
+    assert.deepStrictEqual(saved.spec.provider, { name: "deepseek", model: "deepseek-chat" });
+    assert.strictEqual(saved.spec.identity.persona, "reviewer");
+    assert.strictEqual(saved.spec.character, "security");
+    assert.strictEqual(Object.hasOwn(saved, "provider"), false);
+  });
+
+  test("400 for invalid job spec", async () => {
+    const router = makeRouter({ store: {
+      getAgentJob: async () => null,
+      upsertAgentJob: async (j) => j,
+    } });
+    const { status, body } = await invoke(router, "POST", "/agents", {
+      body: { id: "bad", prompt: "x", spec: { id: "bad", provider: { name: "unknown" } } },
+    });
+    assert.strictEqual(status, 400);
+    assert.match(body.error, /Invalid AgentSpec/);
   });
 
   test("400 without an id", async () => {
@@ -851,6 +886,7 @@ describe("PUT /agents/:id", () => {
     assert.strictEqual(status, 200);
     assert.strictEqual(body.id, "a");        // id comes from the path, not the body
     assert.strictEqual(body.prompt, "updated");
+    assert.strictEqual(body.spec.id, "background.a");
   });
 
   test("404 when the job does not exist", async () => {

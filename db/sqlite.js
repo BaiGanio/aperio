@@ -41,6 +41,7 @@ import { MEMORY_SEED } from './memory-seed.js';
 import { MEMORY_SEED_LITE } from './memory-seed-lite.js';
 import { SELF_MEMORY_SEED } from './self-memory-seed.js';
 import { AGENT_JOB_SEED } from './agent-job-seed.js';
+import { normalizeAgentJobDefinition } from '../lib/agent/job-spec.js';
 import { DB_TABLES, isAllowedTable } from './tables.js';
 
 const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
@@ -541,7 +542,7 @@ export class SqliteStore {
       `);
       const txJobs = db.transaction(() => {
         for (const job of AGENT_JOB_SEED) {
-          const { id, enabled, created_at, updated_at, ...definition } = job;
+          const { id, enabled, created_at, updated_at, ...definition } = normalizeAgentJobDefinition(job);
           insJob.run(id, enabled ? 1 : 0, JSON.stringify(definition), nowIso());
         }
       });
@@ -690,7 +691,7 @@ export class SqliteStore {
           VALUES (?, ?, ?, ?)
         `);
         for (const j of agent_jobs) {
-          const def = { ...j };
+          const def = normalizeAgentJobDefinition(j);
           delete def.id; delete def.enabled; delete def.created_at; delete def.updated_at;
           const info = upsertJob.run(j.id, j.enabled ? 1 : 0, JSON.stringify(def), j.updated_at ?? nowIso());
           info.changes > 0 ? result.imported.jobs++ : result.skipped.jobs++;
@@ -1342,7 +1343,13 @@ export class SqliteStore {
   _rowToJob(row) {
     if (!row) return null;
     const def = JSON.parse(row.definition);
-    return { id: row.id, enabled: !!row.enabled, ...def, created_at: row.created_at, updated_at: row.updated_at };
+    return normalizeAgentJobDefinition({
+      id: row.id,
+      enabled: !!row.enabled,
+      ...def,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    });
   }
 
   async listAgentJobs() {
@@ -1355,7 +1362,8 @@ export class SqliteStore {
   }
 
   async upsertAgentJob(job) {
-    const { id, enabled = true, created_at, updated_at, ...definition } = job;
+    const normalized = normalizeAgentJobDefinition(job);
+    const { id, enabled = true, created_at, updated_at, ...definition } = normalized;
     if (!id) throw new Error("agent job requires an id");
     this.db.prepare(`
       INSERT INTO agent_jobs (id, enabled, definition, updated_at)

@@ -28,7 +28,7 @@ validated runtime contract.
   - Filter tool schemas before they reach any provider.
   - Commit: `feat(agent): construct agents from specifications`
 
-- [ ] **4.4 Apply specs to background and round-table agents**
+- [x] **4.4 Apply specs to background and round-table agents**
   - Replace ad hoc provider/persona/character options with stored specs.
   - Migrate existing job records safely.
   - Keep background jobs disabled by default.
@@ -259,3 +259,4 @@ that slice's commit, so plan and code cannot drift.
 | 2026-07-07 | 4.1 AgentSpec schema | current commit | `NODE_ENV=test node --test tests/lib/agent/spec.test.js`; `node --check lib/agent/spec.js` | Validated normalized spec contract with provider/model, identity/persona, character, skills, memory scopes, tool allowlist, filesystem rules, interrupt policy, limits, and output schema |
 | 2026-07-07 | 4.2 Permission evaluator | current commit | `NODE_ENV=test node --test tests/lib/security/agentPermissions.test.js`; `node --check lib/security/agentPermissions.js` | Ordered first-match permission policy for read/write/execute/network/database/memory plus conservative parent-to-child narrowing checks |
 | 2026-07-07 | 4.3 Apply specs to agent creation | current commit | `NODE_ENV=test node --test tests/lib/agent.test.js tests/lib/agent/spec.test.js tests/lib/security/agentPermissions.test.js`; `node --check lib/agent/index.js` | `createAgent` accepts normalized specs, preserves legacy calls through compatibility specs, applies provider/persona/character/identity prompt overrides, and filters provider-visible tool schemas by explicit allowlist |
+| 2026-07-07 | 4.4 Background and round-table specs | current commit | `NODE_ENV=test node --test tests/lib/workers/agent-scheduler.test.js tests/db/sqlite.test.js tests/db/postgres.test.js tests/lib/routes/api.test.js`; syntax checks; `git diff --check` | Freeform background jobs now persist validated specs with legacy provider/persona/character normalization; round-table agents are constructed from specs derived from existing configuration |
