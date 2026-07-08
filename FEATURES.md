@@ -233,4 +233,4 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Graceful shutdown with ONNX cleanup
 - RAM-based model recommendation (setup wizard + terminal model picker)
 - Docker production config (`docker/docker-compose.prod.yml`)
-- Test suite: 2607 tests (`npm test`)
+- Test suite: 2798 unit tests (`npm test`) and 40 e2e tests (`npm run test:e2e`)
