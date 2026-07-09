@@ -1,5 +1,7 @@
 // tests/lib/helpers/startLlamaCpp.test.js
 import { describe, test, afterEach } from "node:test";
+import { createHash } from "crypto";
+import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync } from "fs";
 import assert from "node:assert/strict";
 import {
   buildModelsPreset,
@@ -17,9 +19,15 @@ function fakeSpawn(pid = 99999) {
   return () => ({ on: () => {}, unref: () => {}, pid });
 }
 
+// A fake kill that returns the given value (true = killed, false = failed).
+function fakeKill(result) {
+  return async () => result;
+}
+
 const originalFetch = globalThis.fetch;
 const ENV_KEYS = ["LLAMACPP_MODEL", "LLAMACPP_VLM_MODEL", "LLAMACPP_VLM_MMPROJ", "LLAMACPP_SERVE_CTX", "LLAMACPP_CTX"];
 const savedEnv = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
+const STATE_FILE = "./var/llamacpp/state.json";
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -27,6 +35,8 @@ afterEach(() => {
     if (savedEnv[k] === undefined) delete process.env[k];
     else process.env[k] = savedEnv[k];
   }
+  // Clean up state file so reconciliation tests don't pollute each other
+  try { if (existsSync(STATE_FILE)) unlinkSync(STATE_FILE); } catch {}
 });
 
 function mockFetchSequence(...responses) {
@@ -37,6 +47,13 @@ function mockFetchSequence(...responses) {
     return res;
   };
 }
+
+// Return a fetch mock whose json() method returns the given data.
+function jsonResponse(data) {
+  return { ok: true, json: async () => data };
+}
+
+const DEFAULT_MODEL = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M";
 
 // =============================================================================
 describe("buildModelsPreset", () => {
@@ -194,5 +211,135 @@ describe("ensureLlamaCpp", () => {
     const err = await p;
     assert.ok(err instanceof Error, `Expected Error, got: ${err}`);
     assert.match(err.message, /30 s/);
+  });
+});
+
+// =============================================================================
+describe("ensureLlamaCpp — preset reconciliation", () => {
+
+  // helper: write a state file with the given preset hash and PID
+  function writeStoredState(pid, preset) {
+    const hash = createHash("sha256").update(preset).digest("hex");
+    mkdirSync("./var/llamacpp", { recursive: true });
+    writeFileSync(STATE_FILE, JSON.stringify({ pid, hash, at: Date.now() }));
+  }
+
+  test("fast return when server is up, preset hash matches, and models match", async () => {
+    const preset = buildModelsPreset({}, {});
+    writeStoredState(99999, preset);
+
+    // fetch #1: /health → ok (server up)
+    // fetch #2: /v1/models → contains the expected model
+    mockFetchSequence(
+      { ok: true },
+      jsonResponse({ data: [{ id: DEFAULT_MODEL }, { id: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF" }] }),
+    );
+
+    let spawnCalled = false;
+    const trackerSpawn = () => { spawnCalled = true; return { on: () => {}, unref: () => {}, pid: 88888 }; };
+
+    await ensureLlamaCpp(trackerSpawn, fakeKill(false));
+    assert.equal(spawnCalled, false);
+  });
+
+  test("fast path does not throw when stored pid is null (known-unmanaged server, still matching)", async () => {
+    // Regression: writeState(null, preset) is how ensureLlamaCpp records an
+    // "unowned" server (see the "already running... cannot manage it" branch
+    // below). A prior bug used pid=0 for this sentinel, which is a valid
+    // process.kill() target with special "whole process group" semantics on
+    // POSIX — calling process.kill(0, 0) in the fast-path liveness probe was
+    // unintended. pid=null must be skipped instead of probed.
+    const preset = buildModelsPreset({}, {});
+    writeStoredState(null, preset);
+
+    // fetch #1: /health → ok (server up)
+    // fetch #2: /v1/models → contains the expected models
+    mockFetchSequence(
+      { ok: true },
+      jsonResponse({ data: [{ id: DEFAULT_MODEL }, { id: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF" }] }),
+    );
+
+    let spawnCalled = false;
+    const trackerSpawn = () => { spawnCalled = true; return { on: () => {}, unref: () => {}, pid: 88888 }; };
+
+    await assert.doesNotReject(() => ensureLlamaCpp(trackerSpawn, fakeKill(false)));
+    assert.equal(spawnCalled, false);
+  });
+
+  test("kills and restarts when server model set is stale (models in preset not in server)", async () => {
+    const preset = buildModelsPreset({}, {});
+    writeStoredState(99999, preset);
+
+    // fetch #1: /health → ok
+    // fetch #2: /v1/models → server only has VLM, NOT the main model
+    // after kill: fetch #3: /health → false (port freed)
+    // spawn poll: fetch #4: /health → true
+    mockFetchSequence(
+      { ok: true },
+      jsonResponse({ data: [{ id: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF" }] }),
+      { ok: false },
+      { ok: true },
+    );
+
+    await ensureLlamaCpp(fakeSpawn(77777), fakeKill(true));
+    assert.equal(getLlamaCppPid(), 77777);
+  });
+
+  test("kills and restarts when preset hash differs from stored state", async () => {
+    // Write a state with a WRONG hash (hash of an empty string)
+    const wrongHash = createHash("sha256").update("old-preset").digest("hex");
+    mkdirSync("./var/llamacpp", { recursive: true });
+    writeFileSync(STATE_FILE, JSON.stringify({ pid: 99999, hash: wrongHash, at: Date.now() }));
+
+    // fetch #1: /health → ok
+    // after kill: fetch #2: /health → false
+    // spawn poll: fetch #3: /health → true
+    mockFetchSequence(
+      { ok: true },
+      { ok: false },
+      { ok: true },
+    );
+
+    await ensureLlamaCpp(fakeSpawn(77777), fakeKill(true));
+    assert.equal(getLlamaCppPid(), 77777);
+  });
+
+  test("returns without spawning when kill fails (different user)", async () => {
+    const wrongHash = createHash("sha256").update("old-preset").digest("hex");
+    mkdirSync("./var/llamacpp", { recursive: true });
+    writeFileSync(STATE_FILE, JSON.stringify({ pid: 55555, hash: wrongHash, at: Date.now() }));
+
+    // Server is up
+    mockFetchSequence({ ok: true });
+
+    let spawnCalled = false;
+    const trackerSpawn = () => { spawnCalled = true; return { on: () => {}, unref: () => {}, pid: 88888 }; };
+
+    await ensureLlamaCpp(trackerSpawn, fakeKill(false));
+    // Should NOT have spawned — kill failed, returned early
+    assert.equal(spawnCalled, false);
+  });
+
+  test("returns without spawning when server is up but unowned (not our spawn, no stored PID)", async () => {
+    // No state file, and we need llamaCppProc to be null too (no prior spawn
+    // in this module's lifetime). Since the module variable persists across
+    // tests, we can't guarantee this. Instead: store an explicit PID=0 to
+    // force the "unowned" branch.
+    mkdirSync("./var/llamacpp", { recursive: true });
+    writeFileSync(STATE_FILE, JSON.stringify({ pid: 0, hash: "x".repeat(64), at: Date.now() }));
+
+    // Server is UP (fetch returns ok)
+    mockFetchSequence({ ok: true });
+
+    let spawnCalled = false;
+    const trackerSpawn = () => { spawnCalled = true; return { on: () => {}, unref: () => {}, pid: 88888 }; };
+
+    await ensureLlamaCpp(trackerSpawn, fakeKill(false));
+    // Should NOT have spawned — returned early with error log
+    assert.equal(spawnCalled, false);
+
+    // State should exist (writeState was called with pid=0 to suppress
+    // repeated logging). It may have been overwritten by writeState.
+    assert.ok(existsSync(STATE_FILE));
   });
 });

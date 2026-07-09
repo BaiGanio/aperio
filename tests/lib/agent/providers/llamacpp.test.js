@@ -463,6 +463,76 @@ describe("runLlamaCppLoop — tool-call leakage", () => {
 });
 
 // =============================================================================
+// test: system-prompt echo retry
+// =============================================================================
+describe("runLlamaCppLoop — system-prompt echo", () => {
+  afterEach(() => { reset(); });
+
+  const SYSTEM_PROMPT = [
+    "Aperio is a co-pilot: an accurate, honest, and direct thinking partner",
+    "for the user it supports. Its job is to help them move faster, think",
+    "sharper, and build better — by being genuinely useful, not by agreeing",
+    "or filling silence. Think with the user, not for them.",
+  ].join(" ");
+
+  function echoSSE(text) {
+    return [
+      `data: {"choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}\n\n`,
+      `data: {"choices":[{"index":0,"delta":{"content":${JSON.stringify(text)}},"finish_reason":null}]}\n\n`,
+      'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":8}}\n\n',
+      'data: [DONE]\n\n',
+    ];
+  }
+
+  test("retracts a verbatim system-prompt recitation, retries once, then renders the real answer", async () => {
+    let chatCalls = 0;
+    const bodies = [];
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/chat/completions")) {
+        bodies.push(JSON.parse(opts.body));
+        chatCalls++;
+        const chunks = chatCalls === 1 ? echoSSE(SYSTEM_PROMPT.repeat(2)) : [
+          'data: {"choices":[{"index":0,"delta":{"content":"Issue #229 asks each model to sign a comment."},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":4}}\n\n',
+          'data: [DONE]\n\n',
+        ];
+        return { ok: true, status: 200, text: async () => "", body: sseStream(chunks) };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const emitter = { send: makeEmittersend() };
+    const result = await runLlamaCppLoop(
+      [{ role: "user", content: "take a look of GitHub issue #229" }], emitter, {}, undefined, () => {},
+      baseCtx("gemma4:e4b", { getSystemPrompt: () => SYSTEM_PROMPT }));
+
+    assert.equal(chatCalls, 2, "should retry exactly once");
+    assert.equal(result, "Issue #229 asks each model to sign a comment.");
+    assert.ok(emitter.send.mock.calls.some(c => c.arguments[0]?.type === "retract"), "should retract the echoed prompt");
+    assert.match(bodies[1].messages[0].content, /repeated your own system instructions/i);
+  });
+
+  test("surfaces an honest error when the echo persists after the retry", async () => {
+    let chatCalls = 0;
+    mock.method(globalThis, "fetch", async (url) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/chat/completions")) { chatCalls++; return { ok: true, status: 200, text: async () => "", body: sseStream(echoSSE(SYSTEM_PROMPT.repeat(2))) }; }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const result = await runLlamaCppLoop(
+      [{ role: "user", content: "take a look of GitHub issue #229" }], { send: makeEmittersend() }, {}, undefined, () => {},
+      baseCtx("gemma4:e4b", { getSystemPrompt: () => SYSTEM_PROMPT }));
+
+    assert.equal(chatCalls, 2, "one original + one retry, then give up");
+    assert.match(result, /couldn't issue the call correctly/i);
+  });
+});
+
+// =============================================================================
 // test: corrupted native tool-call name recovery
 // =============================================================================
 describe("runLlamaCppLoop — corrupted tool name", () => {
