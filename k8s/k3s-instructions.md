@@ -47,7 +47,7 @@
 │  │  ┌────────────────────────────────────────────┐      │  │
 │  │  │  Webhook Receiver (port 9001)              │      │  │
 │  │  │  GitHub → POST → aperio-watch-deploy.sh   │      │  │
-│  │  │  → git pull → docker build → rollout       │      │  │
+│  │  │  → pull ghcr.io image → rollout → migrate   │      │  │
 │  │  └────────────────────────────────────────────┘      │  │
 │  └──────────────────────────────────────────────────────┘  │
 └────────────────────────────────────────────────────────────┘
@@ -126,19 +126,11 @@ echo -n "YourStrongPassword" | base64
 Edit `secrets.yaml` on the Pi and replace `YXBlcmlvX3NlY3JldA==` with your
 real base64-encoded password. Set any API keys you'll need (Anthropic, etc.).
 
-### 4.3 Build the Docker image on the Pi
+### 4.3 Deploy
 
-```bash
-# On the Pi:
-cd /home/pi
-git clone --depth 1 https://github.com/BaiGanio/aperio.git
-cd aperio
-npm ci --omit=dev
-docker build -f docker/Dockerfile -t aperio:local .
-docker save aperio:local | sudo k3s ctr images import -
-```
-
-### 4.4 Deploy
+The image is built automatically by GitHub CI when you push to `main` — no
+local Docker build on the Pi. k3s pulls `ghcr.io/baiganio/aperio:latest`
+directly.
 
 ```bash
 # On the Pi:
@@ -147,13 +139,13 @@ chmod +x deploy.sh
 ./deploy.sh
 ```
 
-### 4.5 Run database migrations
+### 4.4 Run database migrations
 
 ```bash
 kubectl -n aperio exec deploy/aperio -- node db/migrate.js
 ```
 
-### 4.6 Verify
+### 4.5 Verify
 
 ```bash
 kubectl -n aperio get pods,svc,ingressroute
@@ -289,39 +281,25 @@ aperio repo. It triggers on:
 What it does:
 
 1. Checks out the pushed commit
-2. Sends an HMAC-signed POST to the Pi webhook URL with the commit info
-3. The Pi validates the signature and runs `aperio-watch-deploy.sh`
+2. Sets up QEMU + Docker Buildx for ARM64 cross-compilation
+3. Logs in to ghcr.io and builds + pushes the image for `linux/arm64`
+4. Sends an HMAC-signed POST to the Pi webhook URL
+5. The Pi validates the signature and runs `aperio-watch-deploy.sh`
 
 #### The deploy script on the Pi (`aperio-watch-deploy.sh`)
 
 ```mermaid
 graph TD
-    A[Webhook received] --> B[git fetch origin/main]
-    B --> C{SHA changed?}
-    C -->|No| D[Exit - already deployed]
-    C -->|Yes| E[git pull]
-    E --> F[npm ci]
-    F --> G[docker build -t aperio:local]
-    G --> H[docker save | k3s ctr import]
-    H --> I[kubectl apply -f manifests]
-    I --> J[kubectl rollout restart]
-    J --> K[kubectl rollout status]
-    K --> L[Run db migrations]
-    L --> M[Record SHA → .last-deployed-sha]
+    A[Webhook received] --> B[kubectl apply -f manifests]
+    B --> C[kubectl rollout restart deploy/aperio]
+    C --> D(Image pulled from ghcr.io)
+    D --> E[kubectl rollout status]
+    E --> F[Run db migrations]
 ```
 
-The script is idempotent — if no new commits exist, it exits immediately.
-
-### Alternative: Build in CI (faster, skip building on the Pi)
-
-The workflow has an **Option A** block (commented out) that builds the Docker
-image on GitHub's AMD64 runners using QEMU to cross-compile for ARM64, then
-pushes to GitHub Container Registry (ghcr.io). If you enable it:
-
-1. Uncomment the `Option A` block in `cd.k3s-deploy.yml`
-2. Add `imagePullSecrets` to the `aperio.yaml` Deployment for ghcr.io auth
-3. Change the `image` in `aperio.yaml` from `aperio:local` to
-   `ghcr.io/<your-user>/aperio:latest`
+The image is built in GitHub CI (QEMU cross-compile for ARM64), pushed to
+`ghcr.io/baiganio/aperio:latest`, then pulled by k3s when the Deployment
+restarts. No local Docker build or image import needed on the Pi.
 
 ---
 
@@ -338,10 +316,7 @@ cd /home/pi/aperio-k3s
 Or for a quick image rebuild and restart:
 
 ```bash
-cd /home/pi/aperio
-git pull
-docker build -f docker/Dockerfile -t aperio:local .
-docker save aperio:local | sudo k3s ctr images import -
+# Trigger a rebuild via GitHub — or force a fresh pull:
 kubectl -n aperio rollout restart deploy/aperio
 kubectl -n aperio rollout status deploy/aperio --timeout=180s
 kubectl -n aperio exec deploy/aperio -- node db/migrate.js
@@ -351,17 +326,21 @@ kubectl -n aperio exec deploy/aperio -- node db/migrate.js
 
 ## 8. Troubleshooting
 
-### Pod stuck in `ImagePullBackOff` or `ErrImageNeverPull`
+### Pod stuck in `ImagePullBackOff` or `ErrImagePull`
 
-The default `imagePullPolicy: Never` expects a local image named `aperio:local`.
-If you haven't imported it:
+The image is pulled from `ghcr.io/baiganio/aperio:latest` with
+`imagePullPolicy: Always`. If the pull fails:
 
 ```bash
-docker save aperio:local | sudo k3s ctr images import -
+kubectl -n aperio describe pod -l app=aperio | grep "Failed to pull image"
+kubectl -n aperio logs -l app=aperio --tail=20
 ```
 
-If you're using a registry image, change `imagePullPolicy` to `Always` and
-add `imagePullSecrets`.
+Common causes:
+- **ghcr.io rate limit** — wait a few minutes and restart
+- **Network** — verify the Pi can reach `ghcr.io`: `curl -s https://ghcr.io | head`
+- **Private repo** — if the aperio repo is private, add `imagePullSecrets` to
+  the Deployment referencing a GitHub PAT with `read:packages` scope
 
 ### Postgres won't start
 

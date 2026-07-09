@@ -1,15 +1,20 @@
 # (cd) K3s Deploy — build Docker image, notify Pi to redeploy.
 #
-# Triggered on pushes to the `main` branch (or dispatch). Builds the Aperio
-# Docker image and sends a webhook to your Raspberry Pi k3s cluster so it
-# pulls (or rebuilds) and rolls out.
+# Triggered on pushes to the `main` branch (or dispatch). Cross-compiles the
+# Aperio Docker image for ARM64 on GitHub's AMD64 runners using QEMU, pushes
+# it to ghcr.io, then sends a webhook to your Raspberry Pi k3s cluster so it
+# pulls the new image and rolls out.
 #
 # Prerequisites (set these in GitHub → Settings → Secrets and variables → Actions):
 #   APERIO_PI_WEBHOOK_URL   — e.g. https://aperio-webhook.your-pi.ts.net:9001
 #   APERIO_PI_WEBHOOK_SECRET  — HMAC secret, same as in aperio-webhook.conf on the Pi
 #
+# The image is pushed to ghcr.io/<repo-owner>/aperio. The repository is public
+# so the image is public too — no imagePullSecrets needed on the Pi for pulls.
+# For private repos, add imagePullSecrets to the k8s Deployment.
+#
 # Pi-side setup:
-#   1. `sudo apt install -y webhook`   # the Go webhook receiver
+#   1. sudo apt install -y webhook
 #   2. Copy aperio-webhook.conf  → /etc/webhook.d/aperio.conf
 #   3. Copy aperio-webhook.service  → /etc/systemd/system/
 #   4. systemctl daemon-reload && systemctl enable --now aperio-webhook
@@ -38,6 +43,9 @@ jobs:
   build-and-deploy:
     name: Build Image & Notify Pi
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     if: "!contains(github.event.head_commit.message, 'skip ci')"
 
     steps:
@@ -45,38 +53,32 @@ jobs:
         with:
           ref: ${{ github.event.inputs.branch || github.ref_name }}
 
-      # ── Option A: Build on GitHub, push to registry, Pi pulls ─────────
-      # Uncomment this block if you want the image built in CI (faster on
-      # x86_64), pushed to ghcr.io, and then pulled by the Pi.
-      # Requires: Docker Buildx + QEMU for ARM64 cross-compilation.
-      #
-      # - name: Set up QEMU
-      #   uses: docker/setup-qemu-action@v3
-      #
-      # - name: Set up Docker Buildx
-      #   uses: docker/setup-buildx-action@v3
-      #
-      # - name: Log in to ghcr.io
-      #   uses: docker/login-action@v3
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
-      #
-      # - name: Build and push (ARM64)
-      #   uses: docker/build-push-action@v6
-      #   with:
-      #     context: .
-      #     file: docker/Dockerfile
-      #     platforms: linux/arm64
-      #     push: true
-      #     tags: |
-      #       ghcr.io/${{ github.repository_owner }}/aperio:latest
-      #       ghcr.io/${{ github.repository_owner }}/aperio:${{ github.sha }}
+      # ── Build on GitHub, push to ghcr.io, Pi pulls ──────────────
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
-      # ── Option B: Notify Pi to pull git and build locally ────────────
-      # This matches the existing bgapi pattern. The Pi natively builds
-      # the ARM64 image — slower but simpler, no registry auth needed.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to ghcr.io
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (ARM64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          platforms: linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/aperio:latest
+            ghcr.io/${{ github.repository_owner }}/aperio:${{ github.sha }}
+
+      # ── Notify Pi to pull new image and roll out ────────────────
       - name: Notify Pi — trigger deploy webhook
         env:
           WEBHOOK_URL: ${{ secrets.APERIO_PI_WEBHOOK_URL }}
@@ -85,28 +87,25 @@ jobs:
           COMMIT_MSG: ${{ github.event.head_commit.message || 'manual dispatch' }}
         run: |
           if [ -z "$WEBHOOK_URL" ]; then
-            echo "::warning::APERIO_PI_WEBHOOK_URL not set — skipping webhook notification"
+            echo "::warning::APERIO_PI_WEBHOOK_URL not set — skipping webhook"
             exit 0
           fi
-
           if [ -z "$WEBHOOK_SECRET" ]; then
-            echo "::error::APERIO_PI_WEBHOOK_SECRET is not set"
+            echo "::error::APERIO_PI_WEBHOOK_SECRET not set"
             exit 1
           fi
 
-          PAYLOAD="{\"ref\":\"${{ github.event.inputs.branch || github.ref_name }}\",\"sha\":\"${COMMIT_SHA:0:8}\",\"message\":\"${COMMIT_MSG}\"}"
+          PAYLOAD='{"ref":"${{ github.event.inputs.branch || github.ref_name }}","sha":"${COMMIT_SHA:0:8}","message":"${COMMIT_MSG}"}'
           SIGNATURE=$(echo -n "$PAYLOAD" | openssl sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')
 
           echo "→ Notifying $WEBHOOK_URL"
-          echo "→ Payload: $PAYLOAD"
-
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
             -X POST "$WEBHOOK_URL" \
             -H "Content-Type: application/json" \
             -H "X-Hub-Signature-256: sha256=$SIGNATURE" \
             -d "$PAYLOAD")
 
-          if [ "$HTTP_CODE" = "200" ]; then
+          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
             echo "✅ Webhook accepted (HTTP $HTTP_CODE)"
           else
             echo "::warning::Webhook returned HTTP $HTTP_CODE — check Pi webhook logs"
