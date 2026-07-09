@@ -429,6 +429,7 @@ async function bootApp() {
 
   const { createAgent }                   = await import("./lib/agent.js");
   const { ensureOllama }                  = await import("./lib/helpers/startOllama.js");
+  const { getLlamaCppPid }                = await import("./lib/helpers/startLlamaCpp.js");
   const { createWatchdog }                = await import("./lib/helpers/shutdownGuard.js");
   const { deduplicateMemories }           = await import("./lib/workers/deduplicate.js");
   const { inferMemories }                 = await import("./lib/workers/infer.js");
@@ -652,10 +653,14 @@ async function bootApp() {
   // Watchdog. IDLE_SHUTDOWN: "auto" (default) = local Ollama only; "on" = always
   // (the lite desktop/hidden launchers set this so a windowless server still
   // self-stops after the tab closes, even on a cloud provider); "off" = never.
+  // getPid is llama-server-only (shutdownGuard now stops by PID, not Ollama's
+  // /api/ps check) and stays null until Phase 2 wires ensureLlamaCpp() into the
+  // provider boot below — until then this watchdog only closes the HTTP/WS
+  // servers and exits on idle, it does not stop Ollama.
   const idleMode = (process.env.IDLE_SHUTDOWN || "auto").toLowerCase();
   const watchdog = createWatchdog({
     enabled:   idleMode === "on" ? true : idleMode === "off" ? false : provider.name === "ollama",
-    models:    [provider.model, process.env.OLLAMA_MODEL],
+    getPid:    getLlamaCppPid,
     timeoutMs: (Number(process.env.IDLE_TIMEOUT_SECONDS) || 180) * 1000,
   });
   boot.watchdog = watchdog; // /heartbeat starts feeding the idle guard

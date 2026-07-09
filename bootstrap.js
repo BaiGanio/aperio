@@ -150,6 +150,100 @@ const installOllamaWin = async () => {
   setStep('ollama', 'done', 'Ollama engine installed (vendored)');
 };
 
+// ── Vendored llama.cpp (macOS + Windows + Linux) ───────────────────────────
+// Same rationale as the Ollama block above: no headless, no-admin installer
+// fits every platform, so we vendor the official prebuilt `llama-server`
+// release asset. Pinned to a single build (b9938) + sha256 verified against
+// GitHub's reported digest (see llamacpp.md Phase 0 spike report); bump
+// deliberately. Windows/Linux ship the Vulkan build (broadest single choice
+// per the spike's risk-table decision — CPU-only assets exist as a documented
+// fallback for power users, not wired here). macOS ships arm64/Metal only
+// (Intel Mac out of scope, matching the plan's binary matrix).
+// NOT YET WIRED into runBootstrap() — the wizard still installs Ollama; a
+// later phase adds the 'llamacpp' step + AI_PROVIDER=llamacpp branch that
+// calls checkLlamaCpp() instead of checkOllama().
+const LLAMACPP_VER            = 'b9938';
+const LLAMACPP_BASE           = `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMACPP_VER}`;
+const LLAMACPP_MAC_URL        = `${LLAMACPP_BASE}/llama-${LLAMACPP_VER}-bin-macos-arm64.tar.gz`;
+const LLAMACPP_SHA_MAC        = '9290822c15c1275ff6edaba0801e0c9db1aceec6919792efcadda260c79a04a3';
+const LLAMACPP_WIN_URL        = `${LLAMACPP_BASE}/llama-${LLAMACPP_VER}-bin-win-vulkan-x64.zip`;
+const LLAMACPP_SHA_WIN        = '9afc70c01aed1e6847de572bd00bcb2783cfd8100d22c1a7310d5c1ad0961b35';
+const LLAMACPP_LINUX_URL      = `${LLAMACPP_BASE}/llama-${LLAMACPP_VER}-bin-ubuntu-vulkan-x64.tar.gz`;
+const LLAMACPP_SHA_LINUX      = 'a79ff739931ca3da1401250892a5e0a492bfc81743b925a7afd05ba4cc538cd9';
+const VENDOR_LLAMACPP_DIR     = './vendor/llamacpp';
+const LLAMACPP_BIN            = process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
+
+// If a prior run vendored llama.cpp, make it discoverable to execSync/spawn('llama-server').
+const ensureLlamaCppVendorOnPath = () => {
+  if (!existsSync(`${VENDOR_LLAMACPP_DIR}/${LLAMACPP_BIN}`)) return;
+  const abs = resolve(VENDOR_LLAMACPP_DIR);
+  if (!process.env.PATH.split(delimiter).includes(abs)) {
+    process.env.PATH = `${abs}${delimiter}${process.env.PATH}`;
+  }
+};
+
+// macOS: download → verify → extract into ./vendor/llamacpp. The release tar
+// nests everything under a `llama-<tag>/` folder; --strip-components=1 flattens
+// it to match Ollama's vendor-dir layout (binary directly at VENDOR_DIR/llama-server).
+const installLlamaCppMac = async () => {
+  setStep('llamacpp', 'running', 'Downloading the llama.cpp engine (~50 MB, one time)…');
+  mkdirSync(VENDOR_LLAMACPP_DIR, { recursive: true });
+  const tgz = './var/llamacpp-macos.tgz';
+  await runSilently('sh', ['-c', `curl -fL "${LLAMACPP_MAC_URL}" -o "${tgz}"`]);
+  const got = execSync(`shasum -a 256 "${tgz}"`, { encoding: 'utf8' }).trim().split(/\s+/)[0];
+  if (got !== LLAMACPP_SHA_MAC) throw new Error('llama.cpp checksum mismatch — refusing to install');
+  await runSilently('sh', ['-c',
+    `tar -xzf "${tgz}" -C "${VENDOR_LLAMACPP_DIR}" --strip-components=1 && rm -f "${tgz}" && chmod +x "${VENDOR_LLAMACPP_DIR}/llama-server"`
+  ]);
+  ensureLlamaCppVendorOnPath();
+  setStep('llamacpp', 'done', 'llama.cpp engine installed (vendored)');
+};
+
+// Windows: download → verify → extract via PowerShell into ./vendor/llamacpp.
+// The Windows zip has no wrapper folder, so this is a plain Expand-Archive.
+const installLlamaCppWin = async () => {
+  setStep('llamacpp', 'running', 'Downloading the llama.cpp engine (one time)…');
+  mkdirSync(VENDOR_LLAMACPP_DIR, { recursive: true });
+  const zip = './var/llamacpp-windows.zip';
+  const ps = (cmd) => runSilently('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd]);
+  await ps(`Invoke-WebRequest -Uri '${LLAMACPP_WIN_URL}' -OutFile '${zip}'`);
+  const got = execSync(`powershell -NoProfile -Command "(Get-FileHash '${zip}' -Algorithm SHA256).Hash"`, { encoding: 'utf8' }).trim().toLowerCase();
+  if (got !== LLAMACPP_SHA_WIN) throw new Error('llama.cpp checksum mismatch — refusing to install');
+  await ps(`Expand-Archive -Path '${zip}' -DestinationPath '${VENDOR_LLAMACPP_DIR}' -Force; Remove-Item '${zip}'`);
+  ensureLlamaCppVendorOnPath();
+  setStep('llamacpp', 'done', 'llama.cpp engine installed (vendored)');
+};
+
+// Linux: install.sh-free headless flow (unlike Ollama, llama.cpp has no Linux
+// installer script), so vendor here too. Same nested-folder tar layout as macOS.
+const installLlamaCppLinux = async () => {
+  setStep('llamacpp', 'running', 'Downloading the llama.cpp engine (~80 MB, one time)…');
+  mkdirSync(VENDOR_LLAMACPP_DIR, { recursive: true });
+  const tgz = './var/llamacpp-linux.tgz';
+  await runSilently('sh', ['-c', `curl -fL "${LLAMACPP_LINUX_URL}" -o "${tgz}"`]);
+  const got = execSync(`sha256sum "${tgz}"`, { encoding: 'utf8' }).trim().split(/\s+/)[0];
+  if (got !== LLAMACPP_SHA_LINUX) throw new Error('llama.cpp checksum mismatch — refusing to install');
+  await runSilently('sh', ['-c',
+    `tar -xzf "${tgz}" -C "${VENDOR_LLAMACPP_DIR}" --strip-components=1 && rm -f "${tgz}" && chmod +x "${VENDOR_LLAMACPP_DIR}/llama-server"`
+  ]);
+  ensureLlamaCppVendorOnPath();
+  setStep('llamacpp', 'done', 'llama.cpp engine installed (vendored)');
+};
+
+// Install if missing, mirroring checkOllama's shape (not yet called from
+// runBootstrap — see note above the vendoring block).
+const checkLlamaCpp = async () => {
+  setStep('llamacpp', 'running', 'Checking llama.cpp…');
+  ensureLlamaCppVendorOnPath();
+  if (isInstalled('llama-server')) {
+    setStep('llamacpp', 'skipped', 'llama.cpp already installed');
+    return;
+  }
+  if (process.platform === 'darwin') await installLlamaCppMac();
+  else if (process.platform === 'win32') await installLlamaCppWin();
+  else await installLlamaCppLinux();
+};
+
 // ── Step implementations ──────────────────────────────────────────────────
 
 // Returns true if Node.js was already on the machine (we didn't install it),
