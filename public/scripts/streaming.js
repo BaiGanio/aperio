@@ -533,6 +533,17 @@ function handleMessage(msg) {
     handleSessionResumed(msg);
   }
 
+  if (msg.type === "session_branched") {
+    if (!msg.ok) { addMessage("ai", "Couldn't branch — not enough conversation yet."); return; }
+    const banner = document.createElement("div");
+    banner.className = "ctx-banner";
+    banner.innerHTML =
+      `<span class="ctx-banner-text">${t("branch_created") || "↳ Branched:"} ${msg.title || ""}</span>` +
+      `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("ctx_dismiss")}</button>`;
+    document.querySelector(".chat-area")?.prepend(banner);
+    document.getElementById("messages").innerHTML = "";
+  }
+
   if (msg.type === "memories") {
     renderMemoriesFromMessage(msg.memories);
   }
