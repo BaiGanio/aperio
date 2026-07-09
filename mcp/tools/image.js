@@ -3,16 +3,14 @@
 //
 // read_image       — loads raw image for the agent to see.
 // preprocess_image — normalizes any image to RGB PNG before VLM analysis.
-// describe_image   — sends a (preprocessed) image to a local Ollama VLM
+// describe_image   — sends a (preprocessed) image to the local llama.cpp VLM
 //                    and returns its text description.
 //
-// Requires: npm install sharp  npm install ollama
+// Requires: npm install sharp
 
 import { z }                                    from "zod";
 import { readFileSync, existsSync, statSync }   from "fs";
 import { extname }                              from "path";
-import { spawn, exec }                          from "child_process";
-import { Ollama }                               from "ollama";
 import logger                                   from "../../lib/helpers/logger.js";
 import { preprocessImage, preprocessBase64 }   from "../../lib/handlers/attachments/workers/preprocessImage.js";
 
@@ -28,19 +26,11 @@ const MIME = {
 
 const MAX_BYTES = 20 * 1024 * 1024; // 20 MB — same limit as before
 
-// ─── Ollama / VLM config ──────────────────────────────────────────────────────
-
-const OLLAMA_HOST      = process.env.OLLAMA_BASE_URL || process.env.OLLAMA_HOST || "http://localhost:11434";
-const OLLAMA_VLM_MODEL = process.env.OLLAMA_VLM_MODEL || "qwen2.5vl:3b";
-const OLLAMA_START_MS  = 30_000; // max wait for ollama serve to become ready
-
-const ollamaClient = new Ollama({ host: OLLAMA_HOST });
-
 // ─── llama.cpp / VLM config ───────────────────────────────────────────────────
 // llama-server is fully managed by Aperio (lib/helpers/startLlamaCpp.js spawns
-// and stops it at app boot/shutdown), so unlike the Ollama path below there is
-// no per-call start/stop lifecycle here — the engine is simply assumed to be up
-// by the time a tool call reaches this handler.
+// and stops it at app boot/shutdown), so there is no per-call start/stop
+// lifecycle here — the engine is simply assumed to be up by the time a tool
+// call reaches this handler.
 const LLAMACPP_BASE_URL = process.env.LLAMACPP_BASE_URL || "http://127.0.0.1:8080";
 const LLAMACPP_VLM_MODEL = process.env.LLAMACPP_VLM_MODEL || "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
 const LLAMACPP_VLM_TIMEOUT_MS = Number(process.env.LLAMACPP_VLM_TIMEOUT_MS) || 300_000;
@@ -210,67 +200,12 @@ export async function preprocessImageHandler({
   }
 }
 
-// ─── Ollama lifecycle helpers ─────────────────────────────────────────────────
-
-async function isOllamaUp() {
-  try {
-    const r = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: AbortSignal.timeout(2000) });
-    return r.ok;
-  } catch { return false; }
-}
-
-async function startOllama() {
-  logger.info("🦙 Starting Ollama in background…");
-  const proc = spawn("ollama", ["serve"], {
-    detached: true,
-    stdio:    "ignore",
-  });
-  proc.on("error", () => {}); // suppress ENOENT; poll will time out
-  proc.unref();
-
-  const deadline = Date.now() + OLLAMA_START_MS;
-  while (Date.now() < deadline) {
-    await new Promise(r => setTimeout(r, 500));
-    if (await isOllamaUp()) {
-      logger.info("✅ Ollama ready");
-      return;
-    }
-  }
-  throw new Error("Ollama did not start within 30 s — is it installed? (https://ollama.com)");
-}
-
-function stopOllama() {
-  return new Promise(resolve => {
-    const cmd = process.platform === "win32"
-      ? "taskkill /F /IM ollama.exe"
-      : "killall ollama";
-    exec(cmd, () => resolve());
-  });
-}
-
-async function isSafeToStopOllama() {
-  try {
-    const r = await fetch(`${OLLAMA_HOST}/api/ps`, { signal: AbortSignal.timeout(3000) });
-    if (!r.ok) return false;
-    const { models = [] } = await r.json();
-    return models.length === 0;
-  } catch {
-    return false;
-  }
-}
-
 // ─── describe_image handler ────────────────────────────────────────────────────
 
 /**
- * describe_image — sends a (preprocessed) image to a local VLM (Ollama or
- * llama.cpp, per AI_PROVIDER) and returns its text description.
- *
- * Lifecycle (Ollama path only — llama.cpp is already managed by Aperio's own
- * boot/shutdown, so it has no per-call start/stop step):
- *   1. Preprocess image → 896×896 RGB PNG base64
- *   2. Check if Ollama is already running
- *   3. If not → start it, use it, stop it afterwards
- *   4. If already running → use it, leave it running
+ * describe_image — sends a (preprocessed) image to the local llama.cpp VLM
+ * and returns its text description. No per-call start/stop lifecycle — the
+ * engine is already managed (spawned/stopped) by Aperio's own boot/shutdown.
  */
 export async function describeImageHandler({
   path: filePath,
@@ -316,84 +251,27 @@ export async function describeImageHandler({
     return { content: [{ type: "text", text: `❌ Image preprocessing failed: ${err.message}` }] };
   }
 
-  // ── 2. llama.cpp path — no start/stop lifecycle; the engine is already
-  // managed (spawned/stopped) by Aperio's own boot/shutdown, not per call. ──
-  if (isLlamaCppProvider()) {
-    const vlmModel  = model  || LLAMACPP_VLM_MODEL;
-    const vlmPrompt = prompt || "Describe this image in detail.";
-    try {
-      logger.info(`🤖 describe_image → ${vlmModel} (${Math.round(base64.length * 0.75 / 1024)}KB image)`);
-      const description = await describeImageViaLlamaCpp(base64, vlmPrompt, vlmModel);
-      if (!description.trim()) {
-        logger.warn("⚠️  describe_image: VLM returned empty response");
-      } else {
-        const preview = description.length > 300 ? description.slice(0, 300) + "…" : description;
-        logger.info(`[VLM] ${vlmModel} raw output:\n${preview}`);
-      }
-      return { content: [{ type: "text", text: description || "(The model returned an empty response.)" }] };
-    } catch (err) {
-      logger.error("❌ describe_image VLM error:", err);
-      return { content: [{ type: "text", text: `❌ VLM call failed: ${err.message}` }] };
-    }
+  // ── 2. llama.cpp — no start/stop lifecycle; the engine is already managed
+  // (spawned/stopped) by Aperio's own boot/shutdown, not per call. ──────────
+  if (!isLlamaCppProvider()) {
+    return { content: [{ type: "text", text: `❌ describe_image requires AI_PROVIDER=llamacpp (current: "${process.env.AI_PROVIDER || "unset"}").` }] };
   }
 
-  // ── 2. Ollama lifecycle — start only if not already running ────────────────
-  const wasRunning = await isOllamaUp();
-
-  if (!wasRunning) {
-    try {
-      logger.info("🦙 Ollama not running — starting…");
-      await startOllama();
-    } catch (err) {
-      return { content: [{ type: "text", text: `❌ ${err.message}` }] };
-    }
-  }
-
-  // ── 3. Call the VLM ────────────────────────────────────────────────────────
-  const vlmModel  = model  || OLLAMA_VLM_MODEL;
+  const vlmModel  = model  || LLAMACPP_VLM_MODEL;
   const vlmPrompt = prompt || "Describe this image in detail.";
-
   try {
     logger.info(`🤖 describe_image → ${vlmModel} (${Math.round(base64.length * 0.75 / 1024)}KB image)`);
-
-    const result = await ollamaClient.generate({
-      model:      vlmModel,
-      prompt:     vlmPrompt,
-      images:     [base64],
-      stream:     false,
-      keep_alive: 0,  // unload model from VRAM immediately after response
-    });
-
-    const description = result.response || "";
-
+    const description = await describeImageViaLlamaCpp(base64, vlmPrompt, vlmModel);
     if (!description.trim()) {
       logger.warn("⚠️  describe_image: VLM returned empty response");
     } else {
       const preview = description.length > 300 ? description.slice(0, 300) + "…" : description;
       logger.info(`[VLM] ${vlmModel} raw output:\n${preview}`);
     }
-
     return { content: [{ type: "text", text: description || "(The model returned an empty response.)" }] };
-
   } catch (err) {
     logger.error("❌ describe_image VLM error:", err);
-    const hint = err.message?.includes("not found") || err.message?.includes("unknown model")
-      ? `\n\n💡 Model "${vlmModel}" may not be pulled. Try: ollama pull ${vlmModel}`
-      : "";
-    return { content: [{ type: "text", text: `❌ VLM call failed: ${err.message}${hint}` }] };
-
-  } finally {
-    // ── 4. Stop Ollama if nothing else is loaded ───────────────────────────
-    // keep_alive: 0 already unloaded the VLM from VRAM; check /api/ps —
-    // if no other models are still loaded, shut down the server too.
-    const safeToStop = await isSafeToStopOllama();
-    if (safeToStop) {
-      logger.info(`🦙 Stopping Ollama (${wasRunning ? "was running but now idle" : "was started for VLM"})…`);
-      await stopOllama();
-      logger.info("✅ Ollama stopped.");
-    } else if (!wasRunning) {
-      logger.info("🦙 Leaving Ollama running (other models in use).");
-    }
+    return { content: [{ type: "text", text: `❌ VLM call failed: ${err.message}` }] };
   }
 }
 
@@ -454,7 +332,7 @@ export function register(server, _ctx) {
           "'dark' for dark-theme UI screenshots."
         ),
         size: z.number().int().min(224).max(2048).optional().default(896).describe(
-          "Target square size in pixels (default 896 — standard for most Ollama VLMs). " +
+          "Target square size in pixels (default 896 — standard for most VLMs). " +
           "Use 512 for faster processing, 1024 for high-detail images."
         ),
       }).refine(d => d.path || d.data, {
@@ -469,15 +347,14 @@ export function register(server, _ctx) {
     "describe_image",
     {
       description:
-        "Send an image to a local vision model (VLM — Ollama or llama.cpp, per AI_PROVIDER) and get back " +
+        "Send an image to the local llama.cpp vision model (VLM) and get back " +
         "a text description. " +
         "The image is automatically preprocessed to 896×896 RGB PNG before being sent. " +
         "Provide either a local file path OR base64 data. " +
         "Use this when you need to understand what's in an image — text, objects, layout, " +
         "diagrams, screenshots, handwriting, etc.\n\n" +
-        "On Ollama: if it isn't already running it will be started for this call and stopped afterwards; " +
-        "if it's already running it's left as-is. On llama.cpp the engine is already managed by Aperio, " +
-        "so there is no per-call start/stop step.",
+        "The llama.cpp engine is already managed by Aperio, so there is no per-call start/stop step. " +
+        "Requires AI_PROVIDER=llamacpp.",
       inputSchema: z.object({
         path: z.string().optional().describe(
           "Absolute (or ~-prefixed) path to a local image file."
@@ -489,8 +366,7 @@ export function register(server, _ctx) {
           "Question or instruction about the image. Default: 'Describe this image in detail.'"
         ),
         model: z.string().optional().describe(
-          `VLM model name. Default (Ollama): "${OLLAMA_VLM_MODEL}" (env OLLAMA_VLM_MODEL). ` +
-          `Default (llama.cpp): "${LLAMACPP_VLM_MODEL}" (env LLAMACPP_VLM_MODEL).`
+          `VLM model name. Default: "${LLAMACPP_VLM_MODEL}" (env LLAMACPP_VLM_MODEL).`
         ),
       }).refine(d => d.path || d.data, {
         message: "Provide either 'path' (local file) or 'data' (base64 string).",

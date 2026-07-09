@@ -41,7 +41,7 @@ const mockStdout = (t) => {
 };
 
 /**
- * Create a fake response stream for testing Ollama responses
+ * Create a fake response stream for testing llama.cpp responses
  */
 function createMockResponseStream(chunks) {
   const encoder = new TextEncoder();
@@ -179,7 +179,7 @@ describe("Provider resolution", () => {
 
   beforeEach(() => {
     delete process.env.AI_PROVIDER;
-    delete process.env.OLLAMA_MODEL;
+    delete process.env.LLAMACPP_MODEL;
     delete process.env.ANTHROPIC_API_KEY;
   });
 
@@ -193,26 +193,26 @@ describe("Provider resolution", () => {
     assert.ok(p.client);
   });
 
-  test("handles OLLAMA_MODEL environment variable", () => {
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_MODEL = "custom-model";
+  test("handles LLAMACPP_MODEL environment variable", () => {
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "custom-model";
     const p = resolveProvider();
-    assert.strictEqual(p.name, "ollama");
+    assert.strictEqual(p.name, "llamacpp");
     assert.strictEqual(p.model, "custom-model");
   });
 
-  test("uses default llama3.1 when no OLLAMA_MODEL is set", () => {
-    process.env.AI_PROVIDER = "ollama";
+  test("uses default curated model when no LLAMACPP_MODEL is set", () => {
+    process.env.AI_PROVIDER = "llamacpp";
     const p = resolveProvider();
-    assert.strictEqual(p.model, "llama3.1");
+    assert.strictEqual(p.model, "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
   });
 
-  test("respects OLLAMA_BASE_URL", () => {
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_BASE_URL = "http://custom:11434";
+  test("respects LLAMACPP_BASE_URL", () => {
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_BASE_URL = "http://custom:8080";
     const p = resolveProvider();
-    assert.strictEqual(p.baseURL, "http://custom:11434/v1");
-    assert.strictEqual(p.ollamaBaseURL, "http://custom:11434");
+    assert.strictEqual(p.baseURL, "http://custom:8080/v1");
+    assert.strictEqual(p.llamacppBaseURL, "http://custom:8080");
   });
 });
 
@@ -274,7 +274,7 @@ describe("createAgent initialization", () => {
     const agent = await createAgent({
       root: FAKE_ROOT,
       version: "1.0.0",
-      providerConfig: { name: "ollama", model: "ignored" },
+      providerConfig: { name: "llamacpp", model: "ignored" },
       persona: "ignored-persona",
       character: "ignored-character",
       spec: {
@@ -311,7 +311,7 @@ describe("createAgent initialization", () => {
     assert.equal(agent.getToolCount("remember this and recall it", [{ role: "user", content: "remember this and recall it" }]), 1);
     assert.ok(agent.getAnthropicTools("remember this", [{ role: "user", content: "remember this" }]).every(t => t.name === "recall"));
     assert.deepEqual(
-      agent.getOllamaTools("remember this", [{ role: "user", content: "remember this" }]).map(t => t.function.name),
+      agent.getOpenAiTools("remember this", [{ role: "user", content: "remember this" }]).map(t => t.function.name),
       ["recall"],
     );
     assert.deepEqual(
@@ -437,13 +437,13 @@ describe("Agent Loop Logic - Anthropic", () => {
 });
 
 // ---------------------------------------------------------------------------
-// Ollama Loop – Health Check and Error Handling
+// llama.cpp Loop – Health Check and Error Handling
 // ---------------------------------------------------------------------------
 
-describe("Ollama Loop Logic - Health Check", () => {
+describe("llama.cpp Loop Logic - Health Check", () => {
   beforeEach(() => {
     delete process.env.AI_PROVIDER;
-    delete process.env.OLLAMA_MODEL;
+    delete process.env.LLAMACPP_MODEL;
   });
 
   test("health check handles fetch errors gracefully", async (t) => {
@@ -454,20 +454,20 @@ describe("Ollama Loop Logic - Health Check", () => {
       throw new Error("Network error");
     });
 
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_MODEL = "llama3.1";
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M";
 
     const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     const emitter = { send: t.mock.fn() };
-    
+
     // Directly test the internal health check by exposing it via a test hook
-    // Since runOllamaLoop is internal, we test via runAgentLoop
+    // Since checkLlamaCppHealth is internal, we test via runAgentLoop
     const result = await agent.runAgentLoop(
       [{ role: "user", content: "hi" }],
       emitter
     );
 
-    assert.ok(result.includes("Ollama is not running") || result.includes("Network error"));
+    assert.ok(result.includes("llama.cpp engine is not running") || result.includes("Network error"));
     const trace = agent.getLifecycleTrace();
     assert.ok(trace.entries.some(entry =>
       entry.hook === "beforeModel" &&
@@ -479,30 +479,30 @@ describe("Ollama Loop Logic - Health Check", () => {
     assert.doesNotMatch(JSON.stringify(trace), /Network error|\"content\":\"hi\"/);
   });
 
-  test("handles non-ok response from Ollama", async (t) => {
+  test("handles non-ok response from llama.cpp", async (t) => {
     stubMcpTransport(t);
 
     t.mock.method(globalThis, "fetch", (url) => {
-      // Let the health check (/api/tags) pass so the chat request is attempted
-      if (String(url).includes("/api/tags")) return Promise.resolve({ ok: true });
+      // Let the health check (/health) pass so the chat request is attempted
+      if (String(url).includes("/health")) return Promise.resolve({ ok: true });
       return Promise.resolve({
         ok: false,
         text: () => Promise.resolve(JSON.stringify({ error: "Model not found" })),
       });
     });
 
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_MODEL = "nonexistent-model";
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "nonexistent-model";
 
     const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     const emitter = { send: t.mock.fn() };
-    
+
     const result = await agent.runAgentLoop(
       [{ role: "user", content: "hi" }],
       emitter
     );
 
-    assert.ok(result.includes("Ollama error") || result.includes("error"));
+    assert.ok(result.includes("error"));
   });
 });
 
@@ -514,19 +514,19 @@ describe("Ollama Loop Logic - Health Check", () => {
 // always null — so it cannot default its own working directory. callToolHooked
 // (main process) must inject a cwd before the call crosses the MCP boundary:
 // the session scratch dir if it exists, else the project root. We drive a full
-// runAgentLoop through the Ollama loop, have the mocked model emit a run_shell
+// runAgentLoop through the llama.cpp loop, have the mocked model emit a run_shell
 // tool call, and assert on the arguments that reach Client.prototype.callTool
 // (the MCP boundary).
 
 describe("run_shell cwd injection", () => {
   // run_shell is only offered to the model when shell is enabled (globally + for
-  // local Ollama models) AND the model is trusted (listed in APERIO_CAPABLE_MODELS).
+  // local llama.cpp models) AND the model is trusted (listed in APERIO_CAPABLE_MODELS).
   // These gates landed after this test was written; set them so run_shell actually
   // reaches the model and the cwd-injection hook runs.
   let savedEnv;
   beforeEach(() => {
     delete process.env.AI_PROVIDER;
-    delete process.env.OLLAMA_MODEL;
+    delete process.env.LLAMACPP_MODEL;
     savedEnv = {
       APERIO_ENABLE_SHELL:   process.env.APERIO_ENABLE_SHELL,
       APERIO_SHELL_LOCAL:    process.env.APERIO_SHELL_LOCAL,
@@ -570,7 +570,7 @@ describe("run_shell cwd injection", () => {
     // First chat completion → a run_shell tool call; second → a final answer.
     let chatCalls = 0;
     t.mock.method(globalThis, "fetch", (url) => {
-      if (String(url).includes("/api/tags")) return Promise.resolve({ ok: true });
+      if (String(url).includes("/health")) return Promise.resolve({ ok: true });
       chatCalls++;
       const chunks = chatCalls === 1
         ? [sse({ tool_calls: [{ index: 0, id: "call_1", function: { name: "run_shell", arguments: JSON.stringify(shellArgs) } }] }), DONE]
@@ -578,8 +578,8 @@ describe("run_shell cwd injection", () => {
       return Promise.resolve(createMockResponseStream(chunks));
     });
 
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_MODEL = "llama3.1";
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "llama3.1";
 
     const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     await agent.runAgentLoop([{ role: "user", content: "please run ls" }], { send: t.mock.fn() });
@@ -618,7 +618,7 @@ describe("forced auto-recall scaffold gate (issue #188)", () => {
   let saved;
   beforeEach(() => {
     delete process.env.AI_PROVIDER;
-    delete process.env.OLLAMA_MODEL;
+    delete process.env.LLAMACPP_MODEL;
     saved = {
       APERIO_CAPABLE_MODELS: process.env.APERIO_CAPABLE_MODELS,
       APERIO_RECALL_SCAFFOLD_MODELS: process.env.APERIO_RECALL_SCAFFOLD_MODELS,
@@ -633,7 +633,7 @@ describe("forced auto-recall scaffold gate (issue #188)", () => {
   const sse = (delta) => "data: " + JSON.stringify({ choices: [{ delta, finish_reason: null }] }) + "\n";
   const DONE = "data: [DONE]\n";
 
-  // Drive one Ollama turn with a retrieval-shaped question and return the system
+  // Drive one llama.cpp turn with a retrieval-shaped question and return the system
   // prompt actually sent to the model (messages[0].content in the chat request).
   async function systemPromptForRetrievalQuestion(t, model) {
     stubMcpTransport(t);
@@ -647,13 +647,13 @@ describe("forced auto-recall scaffold gate (issue #188)", () => {
 
     const bodies = [];
     t.mock.method(globalThis, "fetch", (url, options) => {
-      if (String(url).includes("/api/tags")) return Promise.resolve({ ok: true });
+      if (String(url).includes("/health")) return Promise.resolve({ ok: true });
       if (options?.body) bodies.push(JSON.parse(options.body));
       return Promise.resolve(createMockResponseStream([sse({ content: "Sure." }), DONE]));
     });
 
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_MODEL = model;
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = model;
 
     const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
     await agent.runAgentLoop(
@@ -886,7 +886,7 @@ describe("makeCliEmitter - Full Coverage", () => {
     const stdoutMock = mockStdout(t);
     const emitter = makeCliEmitter(() => {}, { stopSpinner: () => {}, startSpinner: () => {} }, { showReasoning: false });
 
-    emitter.send({ type: "provider", name: "ollama", model: "llama3.1" });
+    emitter.send({ type: "provider", name: "llamacpp", model: "llama3.1" });
     emitter.send({ type: "status", text: "connected" });
     emitter.send({ type: "memories", memories: [] });
     emitter.send({ type: "deleted", id: "123" });
@@ -960,11 +960,11 @@ describe("Agent Integration with Emitter", () => {
     assert.strictEqual(preloadedMemCount, 2);
   });
 
-  test("local (Ollama) models get no memory pointer — memory is skipped entirely", async (t) => {
+  test("local (llama.cpp) models get no memory pointer — memory is skipped entirely", async (t) => {
     stubMcpTransport(t);
 
     // Weak/local models can't make good use of memory and shouldn't burn tokens on
-    // it. Even with memories in the store, an Ollama agent gets an empty memCtx and
+    // it. Even with memories in the store, a llama.cpp agent gets an empty memCtx and
     // reports zero to the banner. See refreshSessionMemCtx.
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") {
@@ -975,18 +975,18 @@ describe("Agent Integration with Emitter", () => {
 
     const agent = await createAgent({
       root: FAKE_ROOT, version: "1.0.0",
-      providerConfig: { name: "ollama", model: "qwen2.5:3b" },
+      providerConfig: { name: "llamacpp", model: "qwen2.5:3b" },
     });
 
     const { memCtx, preloadedMemCount } = await agent.buildGreeting();
 
-    assert.strictEqual(memCtx, "", "Ollama models must not get a memory pointer");
+    assert.strictEqual(memCtx, "", "llama.cpp models must not get a memory pointer");
     assert.strictEqual(preloadedMemCount, 0, "no memories reported to the banner");
-    assert.strictEqual(agent.toolsEnabled, false, "weak Ollama models are offered no tools");
+    assert.strictEqual(agent.toolsEnabled, false, "weak llama.cpp models are offered no tools");
     assert.strictEqual(agent.getToolCount("read my files", []), 0, "tool count is zero for weak models");
   });
 
-  test("an allowlisted (APERIO_CAPABLE_MODELS) Ollama model gets memory + tools", async (t) => {
+  test("an allowlisted (APERIO_CAPABLE_MODELS) llama.cpp model gets memory + tools", async (t) => {
     stubMcpTransport(t);
     const prev = process.env.APERIO_CAPABLE_MODELS;
     process.env.APERIO_CAPABLE_MODELS = "qwen3:32b, llama3.1:70b";
@@ -999,12 +999,12 @@ describe("Agent Integration with Emitter", () => {
 
     const agent = await createAgent({
       root: FAKE_ROOT, version: "1.0.0",
-      providerConfig: { name: "ollama", model: "qwen3:32b" },
+      providerConfig: { name: "llamacpp", model: "qwen3:32b" },
     });
 
     const { memCtx } = await agent.buildGreeting();
 
-    assert.strictEqual(agent.toolsEnabled, true, "allowlisted Ollama models are capable");
+    assert.strictEqual(agent.toolsEnabled, true, "allowlisted llama.cpp models are capable");
     assert.match(memCtx, /1 saved memory\b/, "allowlisted models get the recall pointer");
   });
 
@@ -1195,7 +1195,7 @@ describe("Provider resolution - DeepSeek", () => {
     assert.strictEqual(p.baseURL, "https://api.deepseek.com/v1");
     assert.strictEqual(p.apiKey, "sk-test");
     assert.strictEqual(p.vision, false);
-    assert.strictEqual(p.ollamaBaseURL, null);
+    assert.strictEqual(p.llamacppBaseURL, undefined);
   });
 
   test("enables vision only for deepseek-v4-pro, not flash", () => {

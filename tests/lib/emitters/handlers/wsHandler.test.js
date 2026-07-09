@@ -40,8 +40,8 @@ function makeAgent(overrides = {}) {
     handleRememberIntent: async () => {},
     fetchMemories:        async () => ({ raw: "", parsed: [] }),
     buildGreeting:        async () => ({ prompt: "Greet me", memCtx: "", preloadedMemCount: 0 }),
-    OLLAMA_NO_TOOLS:      false,
-    OLLAMA_THINKS:        false,
+    NO_TOOLS:      false,
+    THINKS:        false,
     mcpTools:             [],
     alwaysOnSkillNames:   [],
     greetingToolCount:    0,
@@ -110,9 +110,9 @@ describe("onConnection — immediate sends", () => {
     assert.ok(["postgres", "sqlite"].includes(p.db));
   });
 
-  test("provider message includes the current OLLAMA_THINKS flag", (t) => {
+  test("provider message includes the current THINKS flag", (t) => {
     const ws = makeWs(t);
-    makeHandler({ OLLAMA_THINKS: true })(ws);
+    makeHandler({ THINKS: true })(ws);
 
     assert.strictEqual(ws.sent[1].thinks, true);
   });
@@ -301,13 +301,13 @@ describe("message type: init", () => {
     assert.strictEqual(spy.length, 1);
   });
 
-  test("re-announces provider when OLLAMA_THINKS changes during the greeting loop", async (t) => {
+  test("re-announces provider when THINKS changes during the greeting loop", async (t) => {
     const ws    = makeWs(t);
     const agent = makeAgent({
-      OLLAMA_THINKS: false,
+      THINKS: false,
       runAgentLoop:  async function() {
         // simulate the agent auto-detecting thinking mid-stream
-        agent.OLLAMA_THINKS = true;
+        agent.THINKS = true;
         return "";
       },
     });
@@ -321,7 +321,7 @@ describe("message type: init", () => {
     assert.strictEqual(providerMsgs[1].thinks, true);
   });
 
-  test("does NOT re-announce provider when OLLAMA_THINKS stays the same", async (t) => {
+  test("does NOT re-announce provider when THINKS stays the same", async (t) => {
     const ws = makeWs(t);
     makeHandler()(ws);
     await ws.emit({ type: "init" });
@@ -392,13 +392,13 @@ describe("message type: chat", () => {
     assert.ok(thinkIdx < loopIdx, "thinking sent before loop runs");
   });
 
-  test("calls handleRememberIntent when OLLAMA_NO_TOOLS is true and text matches", async (t) => {
+  test("calls handleRememberIntent when NO_TOOLS is true and text matches", async (t) => {
     const ws           = makeWs(t);
     const rememberCalls = [];
 
     const handler = makeWsHandler({
       agent: makeAgent({
-        OLLAMA_NO_TOOLS:      true,
+        NO_TOOLS:      true,
         handleRememberIntent: async (text) => rememberCalls.push(text),
       }),
       store:     {},
@@ -412,13 +412,13 @@ describe("message type: chat", () => {
     assert.ok(rememberCalls[0].includes("remember that"));
   });
 
-  test("does not call handleRememberIntent when OLLAMA_NO_TOOLS is false", async (t) => {
+  test("does not call handleRememberIntent when NO_TOOLS is false", async (t) => {
     const ws            = makeWs(t);
     const rememberCalls = [];
 
     const handler = makeWsHandler({
       agent: makeAgent({
-        OLLAMA_NO_TOOLS:      false,
+        NO_TOOLS:      false,
         handleRememberIntent: async (text) => rememberCalls.push(text),
       }),
       store:     {},
@@ -437,7 +437,7 @@ describe("message type: chat", () => {
 
     const handler = makeWsHandler({
       agent: makeAgent({
-        OLLAMA_NO_TOOLS:      true,
+        NO_TOOLS:      true,
         handleRememberIntent: async (text) => rememberCalls.push(text),
       }),
       store:     {},

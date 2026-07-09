@@ -3,7 +3,7 @@
 <h1>✨ Aperio</h1>
 
 **One brain. Every agent. Nothing forgotten.**     
-A self-hosted personal memory layer for AI agents. SQLite (or Postgres) + MCP + Ollama.   
+A self-hosted personal memory layer for AI agents. SQLite (or Postgres) + MCP + llama.cpp.   
 Zero-config by default; one file holds your memories, wiki, and code graph.  
 Your context, always available.  
 ##### • Download 👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) for non-code users. • Small tool for big ideas • [How to Install & Use?](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) •      
@@ -75,7 +75,7 @@ Your context, always available.
 │   ├── terminal.js               # Terminal chat client
 │   ├── 📂 emitters/              # CLI and WebSocket stream emitters
 │   ├── 📂 handlers/              # Attachment and memory handlers
-│   ├── 📂 helpers/               # Embeddings, logger, port, shutdown, Ollama health
+│   ├── 📂 helpers/               # Embeddings, logger, port, shutdown, llama.cpp health
 │   ├── 📂 context/               # Context trimming + private large-result artifact storage
 │   ├── 📂 security/              # Durable interrupt service for resumable sensitive actions
 │   ├── 📂 routes/                # Express API routes + path safety guards
@@ -131,7 +131,7 @@ Your context, always available.
 ### Prerequisites
 - Node.js 18+ — download from [https://nodejs.org/en/download](https://nodejs.org/en/download)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) — (optional, for Postgres mode)
-- Ollama — download from [https://ollama.com/download](https://ollama.com/download) (optional, for local AI)
+- *(nothing to install for local AI — Aperio vendors and manages its own llama.cpp engine)*
 - [Anthropic API key](https://console.anthropic.com) — (optional, for cloud AI)
 - [DeepSeek API key](https://platform.deepseek.com) — (optional, for cloud AI)
 - [Google Gemini API key](https://aistudio.google.com/apikey) — (optional, for cloud AI)
@@ -154,8 +154,8 @@ npm install
 ```env
 # cp .env.example .env
 
-AI_PROVIDER=ollama
-OLLAMA_MODEL=qwen3:4b
+AI_PROVIDER=llamacpp
+LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
 # DB_BACKEND=sqlite               # default (auto-detected); uncomment to force
 # SQLITE_PATH=./sqlite/aperio.db  # default location for the single-file DB
 ```
@@ -190,17 +190,16 @@ npm run migrate
 # PRODUCTION — full stack (app + Postgres) in one go. Same --env-file rule applies.
 docker compose -f docker/docker-compose.prod.yml --env-file .env up -d
 ```
-### Step 3. Install Ollama & Pull Models
-> **💡 Tip:** Skip this step entirely when using a cloud or CLI-backed `AI_PROVIDER`,
-> or `AI_PROVIDER=llamacpp` — that engine is vendored and fully managed by
-> Aperio (downloads its own binary + models on first run, no manual install).
-```bash
-ollama serve                     # use separate terminal
-```
-```bash
-ollama pull qwen3:4b              # LLM — strong reasoning, thinking mode, best tool-calling
-# ollama pull qwen2.5:3b         # LLM — lightweight legacy fallback
-# ollama pull llama3.1           # LLM — solid tool-calling, no reasoning
+### Step 3. Local AI Engine — Nothing to Install
+> **💡 Tip:** Skip this step entirely when using a cloud or CLI-backed `AI_PROVIDER`.
+> For `AI_PROVIDER=llamacpp`, there is no separate engine to install or run —
+> Aperio vendors and manages `llama-server` itself: it downloads the pinned
+> binary on first run, spawns and monitors it, and downloads the GGUF model
+> you pick (or the one `LLAMACPP_MODEL` names) the first time it's needed.
+```env
+LLAMACPP_MODEL=Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M     # strong reasoning, MoE, best tool-calling
+# LLAMACPP_MODEL=ggml-org/gemma-4-12B-it-GGUF:Q4_K_M   # general-purpose, dense
+# LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M  # lightweight fallback, runs anywhere
 ```
 ### Step 4. Start Aperio Web UI
 ```bash
@@ -401,7 +400,7 @@ Aperio exposes **54 tools** across 12 categories over MCP. Any MCP-compatible ag
 | | `web_search` | Search the web via DuckDuckGo, return ranked results |
 | **Image** | `read_image` | Load an image (file path or base64) for the agent to analyze |
 | | `preprocess_image` | Normalize an image to RGB PNG before sending to a local VLM (strips alpha, letterboxes to 896×896) |
-| | `describe_image` | Send an image to a local Ollama vision model (VLM) and return a text description |
+| | `describe_image` | Send an image to a local llama.cpp vision model (VLM) and return a text description |
 | **GitHub** | `fetch_github_issue` | Read a GitHub issue with comments and metadata |
 | | `create_github_issue` | Open a new issue on a GitHub repository |
 | | `update_github_issue` | Edit an existing GitHub issue |
@@ -486,7 +485,7 @@ repeated-call detection, untrusted-content fencing, taint propagation, and the
 taint-to-confirm signal on writes. Existing event payloads and safety limits are
 preserved.
 
-The native Anthropic, Ollama, Gemini, and DeepSeek loops also receive one
+The native Anthropic, llama.cpp, Gemini, and DeepSeek loops also receive one
 canonical context composed by named middleware: bounded/trimmed messages,
 memory pointers, matched skill prompts, selected canonical MCP tools, and
 losslessly offloaded large results. Each provider adapter still owns its wire
@@ -554,7 +553,7 @@ Aperio is open source and self-hosted because **your memories is yours**.
 | | |
 |---|---|
 | 🔒 **Local by default** | ☁️ **Cloud as upgrade** |
-| Ollama + local embeddings — zero external calls | Claude / DeepSeek for deep research & heavy tasks |
+| llama.cpp + local embeddings — zero external calls | Claude / DeepSeek for deep research & heavy tasks |
 
 | | |
 |---|---|
@@ -608,29 +607,30 @@ Aperio is open source and self-hosted because **your memories is yours**.
 Switch in the **Configuration panel** (`AI_PROVIDER`), or with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
 
 ```env
-AI_PROVIDER=ollama       # "ollama" | "anthropic" | "deepseek" | "gemini" | "claude-code" | "codex"
+AI_PROVIDER=llamacpp     # "llamacpp" | "anthropic" | "deepseek" | "gemini" | "claude-code" | "codex"
 ```
 
-### ⬡ Ollama (Default — Local, Free, Private)
+### ⬡ llama.cpp (Default — Local, Free, Private)
 
-No API keys, no data leaving your machine.
+No API keys, no data leaving your machine. Aperio vendors and fully manages the
+`llama-server` engine itself — no separate install, no daemon to run.
 
 ```env
-AI_PROVIDER=ollama
-OLLAMA_MODEL=qwen3:4b
-OLLAMA_BASE_URL=http://localhost:11434
+AI_PROVIDER=llamacpp
+LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
+LLAMACPP_BASE_URL=http://127.0.0.1:8080
 ```
 
-Recommended models (pull with `ollama pull <model>`):
+Recommended models (an HF repo[:quant] string — downloaded automatically on first use):
 
 | Model | Best for |
 |-------|----------|
-| `qwen3:4b` | **Default** — strong reasoning, thinking mode, best tool-calling |
-| `llama3.1` | Solid tool-calling, no thinking/reasoning overhead |
-| `qwen2.5:3b` | Legacy — lightweight, good for ≤ 8 GB RAM |
-| `deepseek-r1:32b` | Heavy reasoning, requires ≥ 60 GB RAM |
+| `Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M` | **Default** — lightweight, runs anywhere (≥ 8 GB RAM) |
+| `ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M` | General-purpose, good tool-calling (≥ 8 GB RAM) |
+| `ggml-org/gemma-4-12B-it-GGUF:Q4_K_M` | Stronger general-purpose (≥ 24 GB RAM) |
+| `Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M` | Heavy reasoning, MoE — fast even on modest hardware via expert offload (≥ 48 GB RAM, or use the `fast-low-vram` perf profile) |
 
-> **💡 Tip:** Aperio detects your RAM and flags the best-fitting model as **(recommended)** — in the setup wizard and in the terminal model picker — so you don't have to guess.
+> **💡 Tip:** Aperio detects your RAM and flags the best-fitting model as **(recommended)** — in the setup wizard and in the terminal model picker — so you don't have to guess. `APERIO_LOCAL_PERF_PROFILE` (`balanced` | `fast-low-vram` | `long-context` | `quality`) tunes the pick and the engine's launch flags for your hardware.
 
 ### ✦ Anthropic Claude (Optional — Cloud Upgrade)
 
@@ -745,15 +745,15 @@ Sign up at [dash.voyageai.com](https://dash.voyageai.com).
 
 ### Reading Files with Local AI
 
-Ollama itself has no file system access — it's purely an inference engine.
+llama.cpp itself has no file system access — it's purely an inference engine.
 Aperio's MCP layer bridges the gap.
 
 When you ask the AI to read a file, here's what actually happens:
 ```
-You       →  "read /path/to/server.js and explain the WebSocket handler"
-MCP Server →  calls read_file tool, loads the file from disk
-Ollama    →  receives the file contents as context, reasons over it
-You       ←  answer based on your actual code
+You         →  "read /path/to/server.js and explain the WebSocket handler"
+MCP Server  →  calls read_file tool, loads the file from disk
+llama.cpp   →  receives the file contents as context, reasons over it
+You         ←  answer based on your actual code
 ```
 
 The model never touches your file system directly.
@@ -781,7 +781,7 @@ The legacy `local-only` tag still works and automatically maps to **tier 2**.
   IBAN patterns), then restored in the model's response. Set in your
   Configuration panel or `.env`.
 
-On a **local Ollama** provider all tiers are shown regardless — nothing leaves
+On a **local llama.cpp** provider all tiers are shown regardless — nothing leaves
 your machine.
 
 <p align="right">
@@ -849,7 +849,7 @@ By default the model can only execute `.js` files (the `run_node_script` tool). 
 # Master switch — enables run_shell at all. When unset, the tool refuses every call.
 APERIO_ENABLE_SHELL=1
 
-# Opt-in for LOCAL Ollama models. Cloud providers (Anthropic/Gemini/DeepSeek/
+# Opt-in for LOCAL llama.cpp models. Cloud providers (Anthropic/Gemini/DeepSeek/
 # Claude Code/Codex) get
 # run_shell as soon as the master switch is on; local models stay node-only unless
 # you also set this, since smaller local models are prone to tool-call thrashing.

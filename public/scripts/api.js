@@ -7,7 +7,7 @@ fetch('/api/version')
   .catch(() => {});
 
 // Pings /api/heartbeat on an interval (HEARTBEAT_INTERVAL_SECONDS, default 60 s).
-// The server shuts itself (and Ollama) down if no ping arrives for
+// The server shuts itself (and llama.cpp) down if no ping arrives for
 // IDLE_TIMEOUT_SECONDS (default 180 s) — which happens naturally when every tab
 // is closed. No beforeunload/sendBeacon needed.
 (async function startHeartbeat() {
@@ -55,7 +55,7 @@ fetch('/api/version')
     .catch(() => {});
 })();
 
-// "Quit Aperio" — stop the server (and vendored Ollama) right now.
+// "Quit Aperio" — stop the server (and vendored llama.cpp) right now.
 window.quitAperio = async function quitAperio() {
   if (!confirm(t('power_quit_confirm'))) return;
   let supervised = false;

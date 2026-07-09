@@ -15,7 +15,7 @@ export const WIKI_SEED = [
 
 Aperio is a self-hosted, privacy-first personal AI assistant. It runs entirely on the user's
 machine — no telemetry, no cloud sync. The binary footprint is a Node.js process; the only
-optional external dependency is a running Ollama daemon (or a cloud API key).
+optional external dependency is a vendored, self-managed llama.cpp engine (or a cloud API key).
 
 ## Runtime Components
 
@@ -179,7 +179,7 @@ rm -f .sqlite/aperio.db && node server.js   # tables re-created with seed data o
     slug:    'ai-providers',
     title:   'AI Providers — LLM and Embedding Configuration',
     summary: 'Supported LLM and embedding providers, environment variables, and the wiki refresh provider pattern.',
-    tags:    ['providers', 'ollama', 'anthropic', 'deepseek', 'gemini', 'embeddings', 'configuration'],
+    tags:    ['providers', 'llamacpp', 'anthropic', 'deepseek', 'gemini', 'embeddings', 'configuration'],
     body_md: `
 ## Main LLM Provider
 
@@ -187,7 +187,7 @@ Set via \`AI_PROVIDER\` env var. Supported values:
 
 | Value | Notes |
 |---|---|
-| \`ollama\` | Local; requires Ollama daemon. Set \`OLLAMA_MODEL\` and \`OLLAMA_BASE_URL\`. |
+| \`llamacpp\` | Local; Aperio vendors and manages a llama.cpp engine itself. Set \`LLAMACPP_MODEL\` (an HF repo[:quant] string) and optionally \`LLAMACPP_BASE_URL\`. |
 | \`anthropic\` | Cloud; requires \`ANTHROPIC_API_KEY\` and \`ANTHROPIC_MODEL\`. |
 | \`deepseek\` | Cloud; requires \`DEEPSEEK_API_KEY\` and \`DEEPSEEK_MODEL\`. |
 | \`gemini\` | Cloud; requires \`GEMINI_API_KEY\` and \`GEMINI_MODEL\`. |
@@ -213,13 +213,13 @@ stale wiki articles on \`wiki_get(refresh=true)\`. Format: \`provider:model\`.
 
 Examples:
 \`\`\`
-WIKI_REFRESH_PROVIDER=ollama:llama3.1
+WIKI_REFRESH_PROVIDER=llamacpp:Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
 WIKI_REFRESH_PROVIDER=deepseek:deepseek-chat
 WIKI_REFRESH_PROVIDER=anthropic:claude-haiku-4-5-20251001
 \`\`\`
 
 This is opt-in. If unset, refresh calls degrade gracefully (stale body + footer note).
-When using Ollama, set \`WIKI_REFRESH_AUTOSTART_OLLAMA=true\` to auto-launch the daemon.
+When using llamacpp, set \`WIKI_REFRESH_AUTOSTART_LLAMACPP=true\` to auto-launch the engine.
 
 ## Roundtable (Multi-Agent)
 
@@ -295,7 +295,7 @@ Aperio currently registers **22 tools** across six tool files
 |---|---|
 | \`read_image\` | Load an image (file path or base64) so the model can see and analyse it. |
 | \`preprocess_image\` | Normalise an image to RGB PNG (letterboxed) before a local VLM call. |
-| \`describe_image\` | Send an image to a local Ollama vision model and return a text description. |
+| \`describe_image\` | Send an image to a local llama.cpp vision model and return a text description. |
 
 ## Shell Tools (\`mcp/tools/shell.js\`)
 
@@ -554,7 +554,7 @@ Aperio's local-first stance is a refusal of that default, not an optimisation.
 
 - **Frictionless multi-device sync.** No magic "open my notes on my phone." If you
   want that, you run a tunnel or sync the data directory yourself.
-- **Server-side model quality.** Local models (via Ollama) are smaller and slower
+- **Server-side model quality.** Local models (via llama.cpp) are smaller and slower
   than frontier cloud models. Cloud providers remain optional, but always opt-in
   per-request, never the default.
 - **Crash-recovery-as-a-service.** Your \`.sqlite/aperio.db\` file is yours to back up.
@@ -929,7 +929,7 @@ the source.
 
 Aperio-lite is the zero-prerequisite desktop packaging of Aperio for non-coders: download a
 zip, run one script, and a browser opens to finish setup. It is a *profile*, not a fork — same
-codebase, SQLite backend, local Ollama by default. The launcher scripts live in \`.github/lite/\`.
+codebase, SQLite backend, local llama.cpp by default. The launcher scripts live in \`.github/lite/\`.
 
 ## Two Layers, One Hard Boundary
 
@@ -939,8 +939,8 @@ Installation splits at a physical boundary: **Node.js cannot install itself from
    Does *only* what a browser can't: ensure Node.js (nvm on Unix, winget on Windows), run
    \`npm install\`, then start the server. Then it gets out of the way.
 2. **Browser setup wizard** — \`public/setup.html\`, driven by \`bootstrap.js\` over
-   \`/api/bootstrap/stream\`. Installs Ollama, pulls the model, migrates SQLite, picks the
-   provider — all with progress bars.
+   \`/api/bootstrap/stream\`. Installs llama.cpp, downloads the model, migrates SQLite, picks
+   the provider — all with progress bars.
 
 Because the server serving \`setup.html\` already needed Node and dependencies, bootstrap.js's
 \`node\` and \`deps\` steps can only ever *verify* (instant green), never install.
@@ -966,16 +966,19 @@ warning and need no paid signing certificate.
   teardown as an idle timeout, immediately.
 - **Idle auto-shutdown** — \`lib/helpers/shutdownGuard.js\`. The browser pings \`/api/heartbeat\`
   every \`HEARTBEAT_INTERVAL_SECONDS\` (60); each ping resets a timer of \`IDLE_TIMEOUT_SECONDS\`
-  (180). Close every tab → pings stop → server (and Ollama, if no foreign model is loaded)
-  shuts down. This is the safety net that makes the windowless launch safe. Controlled by
-  \`IDLE_SHUTDOWN\`: \`auto\` (Ollama only) · \`on\` (always — the lite launchers set this) · \`off\`.
+  (180). Close every tab → pings stop → server (and the local llama.cpp engine, if no foreign
+  model is loaded) shuts down. This is the safety net that makes the windowless launch safe.
+  Controlled by \`IDLE_SHUTDOWN\`: \`auto\` (llamacpp only) · \`on\` (always — the lite launchers
+  set this) · \`off\`.
 
-## Ollama Is Vendored on macOS & Windows
+## llama.cpp Is Vendored on Every Platform
 
-\`ollama.com/install.sh\` is Linux-only, so \`bootstrap.js\` downloads a pinned, checksum-verified
-binary instead: \`ollama-darwin.tgz\` (universal, signed & notarized) on macOS and
-\`ollama-windows-amd64.zip\` on Windows, extracted into \`./vendor/ollama\` and put on \`PATH\` so
-the app's own \`spawn('ollama')\` finds it. Linux keeps \`install.sh\`.
+Unlike Ollama, llama.cpp ships no per-OS installer script, so \`bootstrap.js\` downloads a
+pinned, checksum-verified GitHub release binary the same way on all three platforms: an
+arm64/Metal build on macOS, and Vulkan builds (broadest single choice; documented CUDA build
+for NVIDIA power users) on Windows and Linux — extracted into \`./vendor/llamacpp\` and put on
+\`PATH\` so the app's own \`spawn('llama-server')\` finds it. Models are separate: the engine
+downloads GGUF files into \`LLAMA_CACHE\` (default \`./var/models\`) on first use.
 
 ## Where To Look When It Breaks
 
@@ -983,14 +986,74 @@ the app's own \`spawn('ollama')\` finds it. Linux keeps \`install.sh\`.
 |---|---|
 | Install stalls / errors | \`var/bootstrap.log\`, \`var/install/ignition.log\` |
 | "App died when I closed the window" | Expected — the terminal *is* the server; use the Desktop launcher |
-| Ollama step fails on macOS/Windows | Checksum/download in \`var/bootstrap.log\`; vendored binary in \`vendor/ollama/\` |
-| Server won't stop after closing tabs | \`IDLE_SHUTDOWN\` value + provider (auto = Ollama only) |
+| Engine install fails | Checksum/download in \`var/bootstrap.log\`; vendored binary in \`vendor/llamacpp/\` |
+| Server won't stop after closing tabs | \`IDLE_SHUTDOWN\` value + provider (auto = llamacpp only) |
 | Config ignored on Windows | Someone ran \`npm run start:lite\` (UNIX env) instead of the PowerShell launcher |
-| Uninstall | \`./uninstall.sh\` — reads \`var/\`, removes vendored Ollama, deps, launcher; offers to drop the model |
+| Uninstall | \`./uninstall.sh\` — reads \`var/\`, removes vendored llama.cpp, deps, launcher; offers to drop the model |
 
 ## See Also
 
-[[aperio-architecture]] — the full runtime component map
+  [[aperio-architecture]] — the full runtime component map
+`.trim(),
+  },
+
+  {
+    slug:    'model-selection',
+    title:   'Model Selection Guide — Pricing, Capabilities, and Right-Sizing',
+    summary: 'When to use which AI model: cost, capability, and efficiency guidance for choosing the right model for a task.',
+    tags:    ['models', 'pricing', 'providers', 'efficiency', 'cost', 'llamacpp', 'deepseek', 'anthropic', 'gemini'],
+    body_md: `
+## Principle: Right-Size the Model
+
+A 5-line typo fix does not need a frontier model. A security audit does not belong on a 7B
+local model. Match the model to the task — cheaper is better when quality doesn't suffer.
+
+## Priority Order
+
+1. **Local first (llama.cpp)** — zero API cost, infinite throughput, full privacy. Use for code
+   edits, file operations, structured reasoning, and any task a capable local model can handle.
+   Recommended local models: Qwen 3 (reasoning), Llama 4 (general), DeepSeek-R1 distilled
+   (hard reasoning), Mistral (code).
+
+2. **Cheapest capable cloud** — when local isn't enough:
+   - **DeepSeek V3/V4** — best cost/capability ratio for reasoning-heavy work, code generation,
+     architecture design. Roughly $0.27–0.55/M input, $1.10–2.19/M output tokens.
+   - **Gemini Flash** — fastest throughput, good for summarization, translation, and bulk
+     processing. Competitively priced for high-volume work.
+
+3. **Precision-critical only (Anthropic)** — Claude 4 Sonnet/Opus when instruction-following
+   precision is paramount: security audits, sensitive refactors, legal/contract review.
+   Higher cost (~$3–15/M tokens) — use only when cheaper models can't reliably do the job.
+
+## Provider Quick Reference
+
+| Provider | Best For | Cost Level | Local? |
+|----------|----------|------------|--------|
+| llama.cpp (Qwen 3, Llama 4, Mistral) | Code edits, file ops, structured reasoning | Free | Yes |
+| DeepSeek V3/V4 | Reasoning, code, architecture, planning | Low | No |
+| Gemini Flash | Throughput, summarization, bulk processing | Low | No |
+| Anthropic Claude 4 | Security, precise instruction-following, audits | High | No |
+| Claude Code (Agent SDK) | Autonomous coding agents with tool orchestration | High | No |
+| Codex CLI | Sandboxed agent execution with approval gates | Medium | No |
+
+## How to Decide
+
+Ask three questions in order:
+1. **Can a local model do this?** → Use llama.cpp. Free.
+2. **Is this reasoning-heavy?** → Use DeepSeek. Best bang for buck.
+3. **Does this need extreme precision?** → Use Anthropic. Pay for accuracy.
+
+For current pricing, query \`recall("model pricing")\` or check provider docs:
+- DeepSeek: https://api-docs.deepseek.com/quick_start/pricing
+- Anthropic: https://www.anthropic.com/pricing
+- Gemini: https://ai.google.dev/pricing
+
+## Integration with Aperio
+
+Set \`AI_PROVIDER\` in \`.env\` to switch providers. The agent orchestrator
+(\`lib/agent/index.js\`) auto-routes to the configured provider. Terminal chat
+(\`lib/terminal.js\`) respects the same setting. For multi-model setups, configure
+different providers for different use cases via the Web UI.
 `.trim(),
   },
 ];

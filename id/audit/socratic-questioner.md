@@ -52,7 +52,7 @@ What to question:
 
 ### 2. "The model is trusted because it runs locally"
 
-Some deployments use Ollama with local models. The assumption is that a local
+Some deployments use llama.cpp with local models. The assumption is that a local
 model is safer than a cloud model because data doesn't leave the machine.
 
 What to question:

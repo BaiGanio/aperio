@@ -279,10 +279,10 @@ Aperio's config comes from two places:
 
 | Layer | What | Overrides |
 |-------|------|-----------|
-| **ConfigMap** (`configmap.yaml`) | First-boot defaults: AI provider, Ollama URL, embeddings | Nothing initially |
+| **ConfigMap** (`configmap.yaml`) | First-boot defaults: AI provider, llama.cpp URL, embeddings | Nothing initially |
 | **Web UI** (Settings panel) | Saved to database: provider, API keys, model, etc. | **Wins** — persists across restarts |
 
-On first deploy, the ConfigMap sets `AI_PROVIDER=ollama` and
+On first deploy, the ConfigMap sets `AI_PROVIDER=llamacpp` and
 `EMBEDDING_PROVIDER=transformers` as starting defaults. Once you open
 `http://aperio.local` → **Settings**, change the provider to Anthropic (or
 DeepSeek, Gemini) and save your API key — that value is stored in the

@@ -46,7 +46,6 @@
     anthropic:     ["ANTHROPIC_API_KEY", "ANTHROPIC_MODEL"],
     deepseek:      ["DEEPSEEK_API_KEY", "DEEPSEEK_MODEL"],
     gemini:        ["GEMINI_API_KEY", "GEMINI_MODEL"],
-    ollama:        ["OLLAMA_MODEL"],
     "claude-code": ["CLAUDE_CODE_OAUTH_TOKEN"],
     codex:         ["CODEX_MODEL", "CODEX_API_KEY", "CODEX_SANDBOX", "CODEX_APPROVAL_POLICY"],
   };
@@ -260,8 +259,8 @@
     }
   }
 
-  // Cross-field warnings from the server (issue #182), e.g. OLLAMA_NUM_CTX >
-  // OLLAMA_CONTEXT_LENGTH. Shown as banners so a browser user sees what was
+  // Cross-field warnings from the server (issue #182), e.g. LLAMACPP_CTX >
+  // LLAMACPP_SERVE_CTX. Shown as banners so a browser user sees what was
   // previously only in the server log.
   function renderWarnings(warnings) {
     const host = $("configWarnings");

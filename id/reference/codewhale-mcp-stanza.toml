@@ -1,0 +1,5 @@
+
+[mcp_servers.aperio]
+command = "node"
+args = ["mcp/index.js"]
+cwd = "/Users/lk/Projects/BaiGanio/aperio"

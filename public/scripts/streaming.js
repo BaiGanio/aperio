@@ -173,10 +173,10 @@ function handleMessage(msg) {
     }
     const badge = document.getElementById("providerBadge");
     if (badge) {
-      const isOllama   = msg.name === "ollama";
+      const isLlamaCpp = msg.name === "llamacpp";
       const isDeepSeek = msg.name === "deepseek";
       let label;
-      if (isOllama) {
+      if (isLlamaCpp) {
         label = `⬡ ${msg.model}`;
       } else if (isDeepSeek) {
         label = `◈ ${msg.model}`;
@@ -187,9 +187,9 @@ function handleMessage(msg) {
       badge.textContent = label;
       badge.title = `${msg.name} — ${msg.model}`;
       badge.style.display = "inline";
-      badge.style.background = isOllama   ? "rgba(34,197,94,.15)"  :
+      badge.style.background = isLlamaCpp ? "rgba(34,197,94,.15)"  :
                                isDeepSeek ? "rgba(59,130,246,.15)"  : "var(--accent-soft)";
-      badge.style.color      = isOllama   ? "#22c55e"               :
+      badge.style.color      = isLlamaCpp ? "#22c55e"               :
                                isDeepSeek ? "#3b82f6"               : "var(--accent)";
     }
 

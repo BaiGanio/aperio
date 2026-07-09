@@ -303,12 +303,12 @@ describe("PUT /provider", () => {
       setProvider: (p) => { captured = p; },
     });
     const { status, body } = await invoke(router, "PUT", "/provider", {
-      body: { provider: "ollama", model: "llama3.1" },
+      body: { provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" },
     });
     assert.strictEqual(status, 200);
     assert.strictEqual(body.ok, true);
-    assert.strictEqual(body.provider, "ollama");
-    assert.deepStrictEqual(captured, { name: "ollama", model: "llama3.1" });
+    assert.strictEqual(body.provider, "llamacpp");
+    assert.deepStrictEqual(captured, { name: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" });
   });
 
   test("returns 400 when provider is missing", async () => {
@@ -323,7 +323,7 @@ describe("PUT /provider", () => {
   test("returns 400 when model is missing", async () => {
     const router = makeRouter();
     const { status, body } = await invoke(router, "PUT", "/provider", {
-      body: { provider: "ollama" },
+      body: { provider: "llamacpp" },
     });
     assert.strictEqual(status, 400);
     assert.ok(body.error.includes("provider and model are required"));
@@ -334,7 +334,7 @@ describe("PUT /provider", () => {
       setProvider: () => { throw new Error("provider unavailable"); },
     });
     const { status, body } = await invoke(router, "PUT", "/provider", {
-      body: { provider: "ollama", model: "llama3.1" },
+      body: { provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" },
     });
     assert.strictEqual(status, 500);
     assert.ok(body.error.includes("provider unavailable"));
@@ -442,26 +442,16 @@ describe("GET /files", () => {
 // =============================================================================
 
 describe("GET /models", () => {
-  test("returns providers with Ollama results and API keys", () => {
+  test("returns providers with API keys", () => {
     // Save env vars
     const origAnthropic = process.env.ANTHROPIC_API_KEY;
     const origDeepSeek = process.env.DEEPSEEK_API_KEY;
-    const origOllama = process.env.OLLAMA_BASE_URL;
 
     process.env.ANTHROPIC_API_KEY = "sk-ant-test";
     process.env.DEEPSEEK_API_KEY = "sk-ds-test";
-    delete process.env.OLLAMA_BASE_URL; // use default
 
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = async (url) => {
-      if (url.includes("/api/tags")) {
-        return {
-          ok: true,
-          json: async () => ({ models: [{ name: "llama3.1:8b" }] }),
-        };
-      }
-      return { ok: false, status: 404 };
-    };
+    globalThis.fetch = async () => ({ ok: false, status: 404 });
 
     const router = makeRouter();
 
@@ -470,8 +460,6 @@ describe("GET /models", () => {
         assert.strictEqual(status, 200);
         assert.strictEqual(body.provider, "anthropic");
         assert.strictEqual(body.model, "claude-haiku-4-5");
-        assert.ok(Array.isArray(body.providers.ollama));
-        assert.ok(body.providers.ollama.includes("llama3.1:8b"));
         assert.ok(Array.isArray(body.providers.anthropic));
         assert.ok(Array.isArray(body.providers.deepseek));
       })
@@ -479,7 +467,6 @@ describe("GET /models", () => {
         globalThis.fetch = originalFetch;
         if (origAnthropic === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = origAnthropic;
         if (origDeepSeek === undefined) delete process.env.DEEPSEEK_API_KEY; else process.env.DEEPSEEK_API_KEY = origDeepSeek;
-        if (origOllama === undefined) delete process.env.OLLAMA_BASE_URL; else process.env.OLLAMA_BASE_URL = origOllama;
       });
   });
 
@@ -512,7 +499,7 @@ describe("GET /models", () => {
       });
   });
 
-  test("handles Ollama not running (fetch throws)", () => {
+  test("handles llama.cpp not running (fetch throws)", () => {
     const origAnthropic = process.env.ANTHROPIC_API_KEY;
     const origDeepSeek = process.env.DEEPSEEK_API_KEY;
 
@@ -527,8 +514,8 @@ describe("GET /models", () => {
     return invoke(router, "GET", "/models")
       .then(({ status, body }) => {
         assert.strictEqual(status, 200);
-        // Ollama failed, but anthropic and deepseek still listed
-        assert.strictEqual(body.providers.ollama, undefined); // not present on error
+        // llama.cpp failed, but anthropic and deepseek still listed
+        assert.strictEqual(body.providers.llamacpp, undefined); // not present on error
         assert.ok(Array.isArray(body.providers.anthropic));
         assert.ok(Array.isArray(body.providers.deepseek));
       })
@@ -594,10 +581,10 @@ describe("warming up (lazy agent/watchdog)", () => {
     const router = Router();
     mountMetaRoutes(router, { getAgent: () => agent, store: {}, getWatchdog: () => null });
     // Agent finishes booting after the route was mounted.
-    agent = { provider: { name: "ollama", model: "gemma4:e4b" } };
+    agent = { provider: { name: "llamacpp", model: "gemma4:e4b" } };
     const { status, body } = await invoke(router, "GET", "/provider");
     assert.strictEqual(status, 200);
-    assert.strictEqual(body.provider, "ollama");
+    assert.strictEqual(body.provider, "llamacpp");
     assert.strictEqual(body.model, "gemma4:e4b");
   });
 

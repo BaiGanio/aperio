@@ -266,11 +266,11 @@
       <div class="rt-sample-h">📄 Manifesto</div>
       <div class="rt-sample-q">Question: "Should we switch from polling to webhooks?" · ✅ Consensus reached</div>
       <div class="rt-sample-a">
-        <div class="rt-agent">Agent A — software-architect · ollama (phi4-mini)</div>
+        <div class="rt-agent">Agent A — software-architect · llamacpp (phi4-mini)</div>
         <p style="margin:4px 0 0">My conviction: webhooks are the right call here. Polling burns resources linearly with scale; webhooks scale with events. The migration cost is real but bounded — one-time engineering, not perpetual ops tax. Start with a dead-letter queue, log every delivery attempt, and never trust a single webhook as your only record of truth. Idempotency keys are non-negotiable. Do this right and you eliminate an entire class of latency and reliability problems in one move.</p>
       </div>
       <div class="rt-sample-a">
-        <div class="rt-agent">Agent B — code-reviewer · ollama (gemma4)</div>
+        <div class="rt-agent">Agent B — code-reviewer · llamacpp (gemma4)</div>
         <p style="margin:4px 0 0">I stand by one principle: if you can't test it, you don't understand it. Before switching to webhooks, write the integration tests against a real webhook receiver. If that's hard, your design is wrong. The architect's dead-letter queue is essential; without it, you'll drop events silently and never know. Also: what's the retry policy? Exponential backoff with a max? What happens when the third-party is down for 10 minutes? The manifesto says "bounded migration cost" — I want a number, not an adjective. Three days or three weeks? The difference matters.</p>
       </div>
     </div>
@@ -287,7 +287,7 @@
 
     <div class="rt-env reveal">
 # Enable the Discuss toggle — two models, first answers, second reviews
-ROUNDTABLE_AGENTS=ollama:phi4-mini:3.8b,ollama:gemma4:e4b
+ROUNDTABLE_AGENTS=llamacpp:phi4-mini:3.8b,llamacpp:gemma4:e4b
 
 # Optional: give each agent a domain character
 ROUNDTABLE_CHARACTERS=software-architect,code-reviewer
@@ -295,7 +295,7 @@ ROUNDTABLE_CHARACTERS=software-architect,code-reviewer
 # Max back-and-forth rounds (default 3)
 ROUNDTABLE_MAX_ROUNDS=2</div>
 
-    <p class="reveal" style="opacity:.82">The two agents can use the same model, different models, or even different providers. Common pairings: a fast reviewer (phi4-mini, haiku) paired with a deeper reasoner (gemma4, qwen3). Cloud + local works too — e.g. Claude for deep answers, a local Ollama model for fast review.</p>
+    <p class="reveal" style="opacity:.82">The two agents can use the same model, different models, or even different providers. Common pairings: a fast reviewer (phi4-mini, haiku) paired with a deeper reasoner (gemma4, qwen3). Cloud + local works too — e.g. Claude for deep answers, a local llama.cpp model for fast review.</p>
 
     <p class="reveal" style="opacity:.82">Characters are just <code>.md</code> files in <code>id/characters/</code>. Create your own by following the template in the existing ones. The slug you use in the env var is the filename without <code>.md</code>.</p>
   </div>

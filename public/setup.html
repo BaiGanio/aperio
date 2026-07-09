@@ -668,7 +668,7 @@ function showDone() {
 }
 
 // Bootstrap finishing only means the install steps are done — the server then
-// warms up the app (embeddings → Ollama → agent → WebSocket), which takes a
+// warms up the app (embeddings → local engine → agent → WebSocket), which takes a
 // while on first run. Navigating to "/" before that lands on a shell with no
 // API/WebSocket to talk to, which looks frozen. So keep the launch button
 // disabled and poll /api/bootstrap/state until `ready`, then open the app
@@ -837,15 +837,12 @@ document.getElementById("wizCloudGo").addEventListener("click", () => {
 });
 
 // ── Local screen ───────────────────────────────────────────────────────────
-// Two local engines exist: llama.cpp (the default local engine) and Ollama
-// (kept for the lite profile until its own vendored-llama.cpp follow-up —
-// llamacpp.md Phase 6). /api/setup/specs reports which one applies (`lite`)
-// so this screen never needs to ask the user to choose an engine themselves.
-const FALLBACK_MODEL = { ollama: "qwen2.5:3b", llamacpp: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" };
+// llama.cpp is the only local engine. /api/setup/specs recommends a model
+// sized to this machine's RAM.
+const FALLBACK_MODEL_HF = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M";
 let recommendedModel = null;
 let recommendedModelHf = null;
 let shouldPullLocalModel = false;
-let localEngine = "llamacpp";
 async function loadSpecs() {
   const box = document.getElementById("wizSpecs");
   const go  = document.getElementById("wizLocalGo");
@@ -856,49 +853,31 @@ async function loadSpecs() {
   go.disabled = true;
   try {
     const s = await fetch("/api/setup/specs").then(r => r.json());
-    localEngine = s.lite ? "ollama" : "llamacpp";
     recommendedModel = s.recommendedModel;
     recommendedModelHf = s.recommendedModelHf;
-    // The installed-models dropdown only makes sense for Ollama (`ollama list`)
-    // — llama.cpp has no equivalent listing here, so it always uses the
-    // recommendation below.
-    const installedModels = localEngine === "ollama" && Array.isArray(s.ollamaModels) ? s.ollamaModels : [];
-    shouldPullLocalModel = installedModels.length === 0;
+    shouldPullLocalModel = true;
     const disk = s.diskGB == null ? _t("wiz_specs_unknown") : `${s.diskGB} GB`;
     const size = s.modelSizeGB ? ` ${_t("wiz_download", { n: s.modelSizeGB })}` : "";
     let html = `<b>${s.ramGB} GB</b> ${_t("wiz_ram")} &middot; <b>${disk}</b> ${_t("wiz_disk")}<br>`
-             + (installedModels.length
-               ? _t("wiz_choose_installed")
-               : `${_t("wiz_recommended")} <b>${s.recommendedModel}</b>${size}`);
+             + `${_t("wiz_recommended")} <b>${s.recommendedModel}</b>${size}`;
     if (!s.enoughDisk) html += `<br><span class="wiz-warn">${_t("wiz_disk_warn")}</span>`;
     box.innerHTML = html;
-    if (installedModels.length) {
-      for (const model of installedModels) {
-        const option = document.createElement("option");
-        option.value = model;
-        option.textContent = model;
-        select.appendChild(option);
-      }
-      select.style.display = "";
-    }
     go.disabled = false;
   } catch (_e) {
     // Couldn't reach the specs endpoint (e.g. opened as a file, or the request
     // failed). Don't dead-end the user — fall back to the safe small model that
     // runs almost anywhere, name it so they know what's coming, and let them go.
-    localEngine = "llamacpp";
-    recommendedModel = FALLBACK_MODEL.ollama;
-    recommendedModelHf = FALLBACK_MODEL.llamacpp;
+    recommendedModelHf = FALLBACK_MODEL_HF;
     shouldPullLocalModel = true;
-    box.textContent = _t("wiz_specs_failed", { model: recommendedModel });
+    box.textContent = _t("wiz_specs_failed", { model: FALLBACK_MODEL_HF });
     go.disabled = false;
   }
 }
 document.getElementById("wizLocalGo").addEventListener("click", () => {
   const selected = document.getElementById("wizModelSelect").value;
-  const fallback = localEngine === "ollama" ? (recommendedModel || FALLBACK_MODEL.ollama) : (recommendedModelHf || FALLBACK_MODEL.llamacpp);
+  const fallback = recommendedModelHf || FALLBACK_MODEL_HF;
   submitConfig({
-    provider: localEngine,
+    provider: "llamacpp",
     model: selected || fallback,
     pullModel: shouldPullLocalModel,
   });

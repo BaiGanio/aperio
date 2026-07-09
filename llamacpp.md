@@ -108,6 +108,17 @@ NOT destabilize it.
 - The lite installer keeps Ollama for its release; switching lite to a vendored
   llama-server is Phase 6 follow-up, not a lite-release blocker.
 
+> **Update (Phase 6, 2026-07-09):** this deferral did not hold in practice —
+> Phases 1–2's "replace, not add" decision made it impossible to delete the
+> shared Ollama provider/installer code while keeping a working Ollama path
+> for lite alone, so lite was swapped to llama.cpp along with everything
+> else well before this constraint's own text was updated to say so. The
+> merge freeze above still held (this branch has not merged), so there was
+> no actual release-day risk — see [Phase 6
+> report](llamacpp-reports.md#phase-6-report-2026-07-09) for the full
+> discovery and what was reconciled. `fast-low-vram` as lite's *default*
+> profile remains genuinely undone.
+
 ---
 
 ## Phase 0 — Spike: verify assumptions against a real llama-server (½–1 day)
@@ -295,19 +306,22 @@ framing of this as a diagnostic, not a knob). Full findings: [`llamacpp-reports.
 
 ## Phase 6 — Cleanup, migration, docs
 
-- [ ] Delete `startOllama.js`, `lib/agent/providers/ollama.js` (post-rename),
+- [x] Delete `startOllama.js`, `lib/agent/providers/ollama.js` (post-rename),
       vendored-Ollama installer path, the 14 `OLLAMA_*` config entries; regen
       `.env.example` (`gen:env:check` is a CI gate).
-- [ ] Migration shim: on boot with `AI_PROVIDER=ollama` or `OLLAMA_*` vars set,
+- [x] Migration shim: on boot with `AI_PROVIDER=ollama` or `OLLAMA_*` vars set,
       print a one-screen mapping (old var → new var) and exit with clear
       instructions — dev-mode-honest, no silent remapping. Models must be
       re-downloaded (Ollama blobs aren't reused); say so with sizes.
-- [ ] Sweep remaining mentions: seeds (`db/memory-seed*.js`,
+- [x] Sweep remaining mentions: seeds (`db/memory-seed*.js`,
       `db/self-memory-seed.js`, `db/wiki-seed.js`), `exam.md` drills, skills
       docs, README, docs site, CLAUDE.md, `id/` capability docs.
-- [ ] **aperio-lite follow-up (post-lite-release):** swap lite's vendored
-      Ollama for vendored llama-server + `fast-low-vram` default profile.
-- [ ] Update issue #222 with the revised direction; close or re-scope.
+- [x] **aperio-lite follow-up:** turned out to be already done, not deferred —
+      see report. Lite's vendored engine is llama.cpp + `fast-low-vram` still
+      pending as a default-profile decision (see report caveat).
+- [x] Update issue #222 with the revised direction; close or re-scope. See
+      report for the exact comment text (posting is manual — GitHub write
+      access wasn't exercised this session).
 
 ---
 

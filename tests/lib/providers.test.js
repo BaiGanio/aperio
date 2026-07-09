@@ -2,13 +2,10 @@ import os from "node:os";
 import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
 import {
-  ollamaContextWindow,
-  ollamaCtxStatus,
   llamacppContextWindow,
   llamacppCtxStatus,
   recommendContextLength,
   estimateKvBytesPerToken,
-  recommendServeContextLength,
   resolveProvider,
   MODEL_FACTS,
   factsForHf,
@@ -19,56 +16,10 @@ import {
   PERF_PROFILES,
   recommendPerfFix,
   SLOW_GEN_TPS,
+  machineCapacityPct,
 } from "../../lib/providers/index.js";
 
 mock.method(os, "totalmem", () => 32 * 1024 ** 3);
-
-// #2 — the app talks to Ollama over /v1 (which can't set num_ctx), so
-// OLLAMA_NUM_CTX is only the trim-math assumption. When it exceeds Ollama's real
-// serving window (OLLAMA_CONTEXT_LENGTH), capToolResults over-keeps and the
-// prompt is silently truncated. ollamaContextWindow clamps to the real window.
-
-describe("ollamaContextWindow", () => {
-  test("defaults to 32768 when nothing is set", () => {
-    assert.equal(ollamaContextWindow({}), 32768);
-  });
-
-  test("uses OLLAMA_NUM_CTX when no real window is known", () => {
-    assert.equal(ollamaContextWindow({ OLLAMA_NUM_CTX: "98304" }), 98304);
-  });
-
-  test("clamps to OLLAMA_CONTEXT_LENGTH when the assumption is too large", () => {
-    assert.equal(
-      ollamaContextWindow({ OLLAMA_NUM_CTX: "98304", OLLAMA_CONTEXT_LENGTH: "32768" }),
-      32768,
-    );
-  });
-
-  test("keeps the smaller assumption when it already fits the real window", () => {
-    assert.equal(
-      ollamaContextWindow({ OLLAMA_NUM_CTX: "16384", OLLAMA_CONTEXT_LENGTH: "32768" }),
-      16384,
-    );
-  });
-});
-
-// #182 — ollamaCtxStatus is the shared report used by both the clamp warning and
-// the config diagnostics; ollamaContextWindow returns its `effective` value.
-describe("ollamaCtxStatus", () => {
-  test("flags a mismatch and reports the clamped effective window", () => {
-    assert.deepEqual(
-      ollamaCtxStatus({ OLLAMA_NUM_CTX: "98304", OLLAMA_CONTEXT_LENGTH: "32768" }),
-      { assumed: 98304, real: 32768, mismatch: true, effective: 32768 },
-    );
-  });
-
-  test("no mismatch when the real window is unknown", () => {
-    assert.deepEqual(
-      ollamaCtxStatus({ OLLAMA_NUM_CTX: "98304" }),
-      { assumed: 98304, real: 0, mismatch: false, effective: 98304 },
-    );
-  });
-});
 
 // Per-model context sizing: pick the largest num_ctx that fits RAM with headroom,
 // so it can be passed as options.num_ctx on the native /api/chat call.
@@ -184,53 +135,45 @@ describe("recommendContextLength", () => {
   });
 });
 
-// recommendServeContextLength picks the OLLAMA_CONTEXT_LENGTH the server is
-// spawned with, before Ollama is up, from the selected model's static facts.
-describe("recommendServeContextLength", () => {
-  test("an explicit OLLAMA_CONTEXT_LENGTH always wins", () => {
-    assert.equal(recommendServeContextLength({ OLLAMA_CONTEXT_LENGTH: "12345", OLLAMA_MODEL: "gemma4:12b" }), "12345");
-  });
-
-  test("falls back to OLLAMA_NUM_CTX when the server window is not pinned", () => {
-    assert.equal(recommendServeContextLength({ OLLAMA_NUM_CTX: "4096", OLLAMA_MODEL: "gemma4:12b" }), "4096");
-  });
-
-  test("computes a tidy token count for a known model when nothing is set", () => {
-    const n = Number(recommendServeContextLength({ OLLAMA_MODEL: "qwen2.5:3b" }));
-    assert.ok(Number.isInteger(n) && n >= 2048 && n % 1024 === 0, `got ${n}`);
-  });
-
-  test("uses the qwen3.5:9b model facts when nothing is set", () => {
-    const n = Number(recommendServeContextLength({ OLLAMA_MODEL: "qwen3.5:9b" }));
-    assert.equal(n, 23552);
-  });
-
-  test("sizes a dense-cache model smaller than a light one on the same machine", () => {
-    // gemma4:12b is ~1.5 MB/token vs qwen2.5:3b at ~36 KB — the heavy model
-    // must get the smaller (or equal) server window, never a larger one.
-    const heavy = Number(recommendServeContextLength({ OLLAMA_MODEL: "gemma4:12b" }));
-    const light = Number(recommendServeContextLength({ OLLAMA_MODEL: "qwen2.5:3b" }));
-    assert.ok(heavy <= light, `expected heavy(${heavy}) <= light(${light})`);
-  });
-});
-
 // ── Provider locality classification ──────────────────────────────────────────
 describe("isLocalProvider / isCloudProvider", () => {
-  test("ollama is local", () => { assert.ok(isLocalProvider("ollama")); });
-  test("ollama is NOT cloud", () => { assert.ok(!isCloudProvider("ollama")); });
   test("llamacpp is local", () => { assert.ok(isLocalProvider("llamacpp")); });
   test("llamacpp is NOT cloud", () => { assert.ok(!isCloudProvider("llamacpp")); });
+  test("ollama is no longer local (removed llamacpp.md Phase 6)", () => { assert.ok(!isLocalProvider("ollama")); });
   test("anthropic is cloud", () => { assert.ok(isCloudProvider("anthropic")); });
   test("anthropic is NOT local", () => { assert.ok(!isLocalProvider("anthropic")); });
   test("deepseek is cloud", () => { assert.ok(isCloudProvider("deepseek")); });
   test("gemini is cloud", () => { assert.ok(isCloudProvider("gemini")); });
   test("claude-code is cloud", () => { assert.ok(isCloudProvider("claude-code")); });
   test("codex is cloud", () => { assert.ok(isCloudProvider("codex")); });
-  test("case-insensitive: OLLAMA is local", () => { assert.ok(isLocalProvider("OLLAMA")); });
   test("case-insensitive: LLAMACPP is local", () => { assert.ok(isLocalProvider("LLAMACPP")); });
   test("empty string is not local", () => { assert.ok(!isLocalProvider("")); });
   test("null is not local", () => { assert.ok(!isLocalProvider(null)); });
   test("undefined is not local", () => { assert.ok(!isLocalProvider(undefined)); });
+});
+
+// ── machineCapacityPct — served window as % of what RAM could hold ────────────
+describe("machineCapacityPct", () => {
+  test("returns null when the served window is unknown", () => {
+    assert.equal(machineCapacityPct("qwen2.5:3b", {}), null);
+  });
+
+  test("computes a percentage for a MODEL_FACTS tag key", () => {
+    const pct = machineCapacityPct("qwen2.5:3b", { LLAMACPP_SERVE_CTX: "16384" });
+    assert.equal(typeof pct, "number");
+    assert.ok(pct > 0 && pct <= 100);
+  });
+
+  test("resolves an hf repo[:quant] string via factsForHf", () => {
+    const byTag = machineCapacityPct("qwen2.5:3b", { LLAMACPP_SERVE_CTX: "16384" });
+    const byHf  = machineCapacityPct("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M", { LLAMACPP_SERVE_CTX: "16384" });
+    assert.equal(byHf, byTag);
+  });
+
+  test("falls back to default facts for an unknown model", () => {
+    const pct = machineCapacityPct("someone/custom-GGUF", { LLAMACPP_SERVE_CTX: "16384" });
+    assert.equal(typeof pct, "number");
+  });
 });
 
 // ── llamacppContextWindow / llamacppCtxStatus ──────────────────────────────────

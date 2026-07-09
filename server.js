@@ -60,6 +60,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(__dirname, ".env");
 if (existsSync(envPath)) dotenv.config({ path: envPath });
 
+// llamacpp.md Phase 6: refuse to boot on a pre-migration .env (AI_PROVIDER=ollama
+// or any OLLAMA_* var) rather than silently remapping it. Exits the process.
+{
+  const { checkOllamaMigrationOrExit } = await import("./lib/helpers/ollamaMigrationShim.js");
+  checkOllamaMigrationOrExit();
+}
+
 const { version } = require("./package.json");
 logger.info(`🚀 Starting Aperio server (version ${version})...`);
 
@@ -80,7 +87,7 @@ let bootstrapStarted = false;
 // Flipped true at the very end of bootApp() — the WebSocket + agent are live and
 // the app can actually serve the SPA. The setup page polls /api/bootstrap/state
 // for this so its "Open Aperio" button doesn't hand the user a frozen shell
-// while bootApp (embeddings → Ollama → agent → WebSocket) is still warming up.
+// while bootApp (embeddings → local engine → agent → WebSocket) is still warming up.
 let appReady = false;
 let bootAppPromise = null;
 
@@ -262,25 +269,11 @@ app.get("/api/bootstrap/state", (_req, res) => {
 // writes .env + kicks off bootstrap).
 const setupLimiter = makeRateLimiter({ windowMs: 15 * 60 * 1000, max: 30, name: "setup" });
 
-function listInstalledOllamaModels() {
-  try {
-    const out = execFileSync("ollama", ["list"], { encoding: "utf8", timeout: 3000 });
-    return out
-      .trim()
-      .split(/\r?\n/)
-      .slice(1)
-      .map(line => line.trim().split(/\s+/)[0])
-      .filter(Boolean);
-  } catch {
-    return [];
-  }
-}
-
 // ─── Setup wizard: machine specs + model recommendation ──────────────────────
 app.get("/api/setup/specs", setupLimiter, async (_req, res) => {
   try {
     const { getSpecs } = await import("./lib/helpers/specs.js");
-    res.json({ ...getSpecs(), ollamaModels: listInstalledOllamaModels() });
+    res.json(getSpecs());
   } catch (err) {
     logger.error("specs failed:", err);
     res.status(500).json({ error: "specs_failed" });
@@ -295,7 +288,7 @@ app.post("/api/setup/config", setupLimiter, async (req, res) => {
   try {
     const { provider, apiKey, model, pullModel } = req.body ?? {};
     const providerLc = String(provider).toLowerCase();
-    const engine = (providerLc === "ollama" || providerLc === "llamacpp") ? providerLc : null;
+    const engine = providerLc === "llamacpp" ? providerLc : null;
     const { writeEnvFromWizard } = await import("./lib/helpers/envFile.js");
     writeEnvFromWizard({ provider, apiKey, model, port: PORT });
 
@@ -304,7 +297,7 @@ app.post("/api/setup/config", setupLimiter, async (req, res) => {
     dotenv.config({ path: resolve(__dirname, ".env"), override: true });
     if (engine && model?.trim()) {
       process.env.AI_PROVIDER = engine;
-      process.env[engine === "ollama" ? "OLLAMA_MODEL" : "LLAMACPP_MODEL"] = model.trim();
+      process.env.LLAMACPP_MODEL = model.trim();
     }
 
     bootstrapStarted = true;
@@ -314,7 +307,7 @@ app.post("/api/setup/config", setupLimiter, async (req, res) => {
     });
     bootstrapEvents.once("error", () => { bootstrapStarted = false; });
     runBootstrap({
-      model: model || process.env.OLLAMA_MODEL || process.env.LLAMACPP_MODEL,
+      model: model || process.env.LLAMACPP_MODEL,
       engine,
       pullModel: !!engine && pullModel === true,
     });
@@ -399,9 +392,9 @@ httpServer.listen(PORT, HOST, async () => {
     bootstrapEvents.once("complete", () => { void bootAppOnce().catch(() => {}); });
     bootstrapEvents.once("error", () => { bootstrapStarted = false; });
     const envProvider = (process.env.AI_PROVIDER ?? "").toLowerCase();
-    const envEngine = (envProvider === "ollama" || envProvider === "llamacpp") ? envProvider : null;
+    const envEngine = envProvider === "llamacpp" ? envProvider : null;
     runBootstrap({
-      model: envEngine === "llamacpp" ? process.env.LLAMACPP_MODEL : process.env.OLLAMA_MODEL,
+      model: process.env.LLAMACPP_MODEL,
       engine: envEngine,
     });
     openBrowser(`${scheme}://localhost:${PORT}/setup`);
@@ -433,7 +426,6 @@ async function bootApp() {
 
   const { createAgent }                   = await import("./lib/agent.js");
   const { isLocalProvider }               = await import("./lib/providers/index.js");
-  const { ensureOllama }                  = await import("./lib/helpers/startOllama.js");
   const { ensureLlamaCpp, getLlamaCppPid } = await import("./lib/helpers/startLlamaCpp.js");
   const { createWatchdog }                = await import("./lib/helpers/shutdownGuard.js");
   const { deduplicateMemories }           = await import("./lib/workers/deduplicate.js");
@@ -555,7 +547,7 @@ async function bootApp() {
   }
 
   // ── Serve the API immediately ──────────────────────────────────────────────
-  // Mount the REST API now, *before* the multi-second agent/MCP/Ollama warmup
+  // Mount the REST API now, *before* the multi-second agent/MCP/local-engine warmup
   // below. app.use is synchronous and the awaits that follow yield to the event
   // loop, so every non-agent endpoint (memories, code/doc graph, settings, files,
   // …) is live within ~1s instead of waiting for the whole boot to finish. The
@@ -582,13 +574,12 @@ async function bootApp() {
   // (answerer), second pair = verifier (reviewer). Both entries required;
   // otherwise the Discuss toggle stays disabled.
   // The local engine must be sized + started BEFORE the agent is built.
-  // ensureOllama()/ensureLlamaCpp() finalize the *_NUM_CTX / *_CONTEXT_LENGTH
-  // (or *_CTX / *_SERVE_CTX) env vars, and createAgent snapshots
-  // provider.contextWindow from them. Run it afterwards and the window freezes
-  // at the default even though the server serves a larger one.
+  // ensureLlamaCpp() finalizes the LLAMACPP_CTX / LLAMACPP_SERVE_CTX env vars,
+  // and createAgent snapshots provider.contextWindow from them. Run it
+  // afterwards and the window freezes at the default even though the server
+  // serves a larger one.
   const bootProvider = (process.env.AI_PROVIDER || "").toLowerCase();
-  if (bootProvider === "ollama") await ensureOllama();
-  else if (bootProvider === "llamacpp") await ensureLlamaCpp();
+  if (bootProvider === "llamacpp") await ensureLlamaCpp();
 
   const agent = await createAgent({
     root: __dirname,
@@ -661,10 +652,7 @@ async function bootApp() {
   // Watchdog. IDLE_SHUTDOWN: "auto" (default) = local engine only; "on" = always
   // (the lite desktop/hidden launchers set this so a windowless server still
   // self-stops after the tab closes, even on a cloud provider); "off" = never.
-  // getPid is llama-server-only (shutdownGuard now stops by PID, not Ollama's
-  // /api/ps check) — it's null on an Ollama boot (no PID to hold) and the
-  // watchdog still closes HTTP/WS + exits on idle, it just doesn't stop Ollama;
-  // on a llamacpp boot ensureLlamaCpp() above has already set the PID.
+  // getPid holds the PID ensureLlamaCpp() above already set on a llamacpp boot.
   const idleMode = (process.env.IDLE_SHUTDOWN || "auto").toLowerCase();
   const watchdog = createWatchdog({
     enabled:   idleMode === "on" ? true : idleMode === "off" ? false : isLocalProvider(provider.name),
@@ -681,25 +669,18 @@ async function bootApp() {
       ? `DeepSeek (${provider.model})`
       : provider.name === "llamacpp"
         ? `llama.cpp (${provider.model})${thinkingSuffix}`
-        : `Ollama (${provider.model})${thinkingSuffix}`;
+        : `${provider.name} (${provider.model})`;
 
   logger.info(`🤖 Provider: ${providerLabel}`);
-  if (provider.name === "ollama") {
+  if (provider.name === "llamacpp") {
     const { machineCapacityPct } = await import("./lib/providers/index.js");
     const fmt = (n) => Number(n).toLocaleString("en-US");
-    const serverWin = process.env.OLLAMA_CONTEXT_LENGTH;
+    const serverWin = process.env.LLAMACPP_SERVE_CTX;
     const capPct = machineCapacityPct(provider.model);
     const detail = [
       serverWin ? `server KV cache ${fmt(serverWin)}` : null,
       typeof capPct === "number" ? `${capPct}% of RAM capacity` : null,
     ].filter(Boolean).join(" · ");
-    logger.info(
-      `🧮 Context window: ${fmt(provider.contextWindow)} tokens` + (detail ? ` (${detail})` : ""),
-    );
-  } else if (provider.name === "llamacpp") {
-    const fmt = (n) => Number(n).toLocaleString("en-US");
-    const serverWin = process.env.LLAMACPP_SERVE_CTX;
-    const detail = serverWin ? `server KV cache ${fmt(serverWin)}` : null;
     logger.info(
       `🧮 Context window: ${fmt(provider.contextWindow)} tokens` + (detail ? ` (${detail})` : ""),
     );
@@ -768,9 +749,9 @@ async function bootApp() {
   // Background jobs
   // PRIVACY-01: the infer/dedup workers feed stored personal memories to the
   // configured model. On a cloud provider that is third-party egress, so they
-  // only run on a local (Ollama) provider unless explicitly opted in.
+  // only run on the local (llama.cpp) provider unless explicitly opted in.
   const memoryWorkersEnabled =
-    provider.name === "ollama" || process.env.APERIO_CLOUD_MEMORY_WORKERS === "1";
+    isLocalProvider(provider.name) || process.env.APERIO_CLOUD_MEMORY_WORKERS === "1";
   if (!memoryWorkersEnabled) {
     logger.info(`[privacy] memory inference/dedup workers disabled on cloud provider "${provider.name}" (set APERIO_CLOUD_MEMORY_WORKERS=1 to override)`);
   }
@@ -865,7 +846,7 @@ async function bootApp() {
 // (only the first two are consumed by round-table; rest reserved for future).
 function parseRoundtableAgents(raw) {
   if (!raw || typeof raw !== "string") return [];
-  const SUPPORTED = new Set(["anthropic", "ollama", "deepseek", "gemini", "claude-code", "codex"]);
+  const SUPPORTED = new Set(["anthropic", "deepseek", "gemini", "claude-code", "codex"]);
   return raw.split(",").map(pair => {
     const trimmed = pair.trim();
     if (!trimmed) return null;

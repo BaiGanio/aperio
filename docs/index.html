@@ -7,7 +7,7 @@
   <!-- Primary Meta Tags -->
   <title>Aperio | Self-Hosted AI Memory Layer & MCP Server</title>
   <meta name="description" content="Aperio is an open-source, self-hosted AI memory layer. On-device embeddings, SQLite or Postgres, MCP-native, private by default. Includes Aperio-lite for non-code users." />
-  <meta name="keywords" content="Aperio, MCP-native, self-hosted AI, Ollama, local embeddings, Postgres, private AI, AI memory layer" />
+  <meta name="keywords" content="Aperio, MCP-native, self-hosted AI, llama.cpp, local embeddings, Postgres, private AI, AI memory layer" />
 
   <!-- Open Graph / Social Media -->
   <meta property="og:type" content="website" />
@@ -150,7 +150,7 @@
       <span class="tech-badge"><i class="bi bi-database me-1"></i> SQLite</span>
       <span class="tech-badge"><i class="bi bi-hdd-fill me-1"></i> <span data-i18n="badge_local_embeddings">Local Embeddings</span></span>
       <span class="tech-badge"><i class="bi bi-plug me-1"></i> MCP Protocol</span>
-      <span class="tech-badge"><i class="bi bi-box me-1"></i> Ollama</span>
+      <span class="tech-badge"><i class="bi bi-box me-1"></i> llama.cpp</span>
     </div>
     <div class="terminal-wrap reveal">
       <div class="terminal">
@@ -159,7 +159,7 @@
           <span class="t-title" data-i18n="terminal_title">aperio — local · private · yours</span>
         </div>
         <div class="terminal-body">
-          <div><span class="t-ok">🤖</span> <span class="t-out" data-i18n="terminal_provider">Provider: Ollama (qwen3:4b)</span></div>
+          <div><span class="t-ok">🤖</span> <span class="t-out" data-i18n="terminal_provider">Provider: llama.cpp (qwen3:4b)</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out" data-i18n="terminal_db_connected">Connected to Aperio database</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out" data-i18n="terminal_semantic_ready">pgvector enabled — semantic search active (16/16 memories embedded)</span></div>
           <div><span class="t-ok">🧠</span> <span class="t-out" data-i18n="terminal_mcp_running">Aperio MCP server v2.0 running</span></div>
@@ -228,7 +228,7 @@
       <div class="feat-card reveal" style="transition-delay:.12s">
         <div class="feat-icon"><i class="bi bi-box-fill"></i></div>
         <div class="feat-title" data-i18n="feat_local_title">Local by Default</div>
-        <p class="feat-desc" data-i18n="feat_local_desc">Runs fully on your machine with Ollama — free, private, offline-capable. Switch to Claude with one env variable when you need more power.</p>
+        <p class="feat-desc" data-i18n="feat_local_desc">Runs fully on your machine with llama.cpp — free, private, offline-capable. Switch to Claude with one env variable when you need more power.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.19s">
         <div class="feat-icon"><i class="bi bi-eraser-fill"></i></div>
@@ -285,7 +285,7 @@
         <div>
           <div class="arch-section-label" data-i18n="arch_providers">AI Providers</div>
           <div class="provider-chips">
-            <div class="provider-chip chip-local"><span class="chip-icon">⬡</span><div><div class="provider-label">Ollama</div><div class="provider-desc" data-i18n="arch_local_provider_desc">default · local · free · offline capable</div></div></div>
+            <div class="provider-chip chip-local"><span class="chip-icon">⬡</span><div><div class="provider-label">llama.cpp</div><div class="provider-desc" data-i18n="arch_local_provider_desc">default · local · free · offline capable</div></div></div>
             <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">Claude · Gemini · DeepSeek</div><div class="provider-desc" data-i18n="arch_cloud_provider_desc">optional · cloud APIs</div></div></div>
             <div class="provider-chip chip-cloud"><span class="chip-icon">🤖</span><div><div class="provider-label">Claude Code · Codex CLI</div><div class="provider-desc">optional · coding agents</div></div></div>
           </div>
@@ -620,11 +620,11 @@
         <tbody>
           <tr><td data-i18n="compare_row_ownership">Data ownership</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_ownership">100% yours — own Postgres</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_ownership">Vendor's servers</span></td></tr>
           <tr><td data-i18n="compare_row_cost">Monthly cost</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_cost">Free (self-hosted)</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_cost">$20–100 / month</span></td></tr>
-          <tr><td data-i18n="compare_row_local_ai">Local AI support</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_local_ai">Ollama built-in</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_local_ai">Cloud only</span></td></tr>
+          <tr><td data-i18n="compare_row_local_ai">Local AI support</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_local_ai">llama.cpp built-in</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_local_ai">Cloud only</span></td></tr>
           <tr><td data-i18n="compare_row_fs_tools">File system tools</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_fs_tools">read · write · append</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_fs_tools">Not available</span></td></tr>
           <tr><td data-i18n="compare_row_source">Full source access</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_source">Open source — fork it</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_source">Closed API</span></td></tr>
           <tr><td data-i18n="compare_row_mcp">MCP integration</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_mcp">Native protocol</span></td><td><span class="cross">⚠</span> <span data-i18n="compare_cl_mcp">Varies</span></td></tr>
-          <tr><td data-i18n="compare_row_offline">Works offline</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_offline">With Ollama</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_offline">Requires internet</span></td></tr>
+          <tr><td data-i18n="compare_row_offline">Works offline</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_offline">With llama.cpp</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_offline">Requires internet</span></td></tr>
           <tr><td data-i18n="compare_row_nodev">Non-developer friendly</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_nodev">Aperio-lite — double-click &amp; go</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_nodev">Requires dev setup</span></td></tr>
           <tr><td data-i18n="compare_row_team">Team memory</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_team">Shared DB — one brain for the team</span></td><td><span class="cross">⚠</span> <span data-i18n="compare_cl_team">Varies by plan</span></td></tr>
         </tbody>
@@ -703,8 +703,8 @@
         <div class="step-num">02</div>
         <div class="step-title" data-i18n="step2_title">Ready for use .env.example in the project folder</div>
         <div class="code-block" style="position:relative">
-          <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
-          <div><span class="k">OLLAMA_MODEL</span>=<span class="v">qwen3:4b</span></div>
+          <div><span class="k">AI_PROVIDER</span>=<span class="v">llamacpp</span></div>
+          <div><span class="k">LLAMACPP_MODEL</span>=<span class="v">Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M</span></div>
           <div><span class="k">EMBEDDING_PROVIDER</span>=<span class="v">transformers</span></div>
           <div><span class="c" data-i18n="setup_comment_db_detect"># DB_BACKEND auto-detects: SQLite (default) or Postgres</span></div>
           <div><span class="c" data-i18n="setup_comment_database_url"># DATABASE_URL=postgresql://…  — only if you choose Postgres</span></div>
@@ -725,20 +725,16 @@
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
         <div class="step-num">04</div>
-        <div class="step-title" data-i18n="step4_title">Pull the models</div>
+        <div class="step-title" data-i18n="step4_title">Pick a model — nothing to install</div>
         <div class="code-block" style="position:relative">
           <button class="copy-btn" data-target=".s" data-i18n="copy">Copy</button>
-          <div class="c" data-i18n="setup_comment_start_engine"># start the engine from separate terminal</div>
-          <div class="s">ollama serve</div>       
-          <div class="c" data-i18n="setup_comment_budget_llm"># best LLM on low budget</div>
-          <div class="s">ollama pull llama3.1:8b</div>
+          <div class="c" data-i18n="setup_comment_start_engine"># Aperio vendors + starts the llama.cpp engine itself — downloads the model on first use</div>
           <div>&nbsp;</div>
           <div class="v" data-i18n="setup_available_options"> Available options: </div>
-          <div class="k">default - qwen3:4b (~6GB RAM, ~3GB disk) ★ recommended</div>
-          <div class="k">medium - llama3.1:8b (~8GB RAM, ~5GB disk)</div>           
-          <div class="k">smart - qwen3:8b (~10GB RAM, ~5GB disk)</div>  
-          <div class="k">reasoning - qwen3:14b (~16GB RAM, ~9GB disk)</div>   
-          <div class="k">pro - deepseek-r1:32b (~32GB RAM, ~19GB disk)</div> 
+          <div class="k">default - Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M (~4GB RAM, ~2GB disk) ★ recommended</div>
+          <div class="k">medium - ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M (~8GB RAM, ~5GB disk)</div>
+          <div class="k">smart - ggml-org/gemma-4-12B-it-GGUF:Q4_K_M (~24GB RAM, ~8GB disk)</div>
+          <div class="k">reasoning - Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M (~48GB RAM, or fast-low-vram profile, ~18GB disk)</div>
           <div>&nbsp;</div>
           <div class="c" data-i18n="setup_comment_embeddings"># embeddings run on-device (transformers) — no model to pull</div>
         </div>
@@ -761,7 +757,7 @@
         <div class="step-title" data-i18n="step6_title">Use Aperio chat in the terminal</div>
         <div class="code-block" style="position:relative">  
           <button class="copy-btn" data-target=".s" data-i18n="copy">Copy</button>
-          <div class="c" data-i18n="setup_comment_local"># local (Ollama)</div>
+          <div class="c" data-i18n="setup_comment_local"># local (llama.cpp)</div>
           <div class="c" data-i18n="setup_comment_docker_detect"># auto-detect if any Docker - uses SQLite as fallback</div>
           <div class="s">npm run chat:local</div>
           <div>&nbsp;</div>

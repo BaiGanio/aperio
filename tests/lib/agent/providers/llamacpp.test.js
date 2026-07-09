@@ -61,7 +61,7 @@ function baseCtx(model = "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF", overrides = {})
     },
     callTool: mock.fn(),
     getSystemPrompt: () => "You are a helpful assistant.",
-    getOllamaTools: () => [],
+    getOpenAiTools: () => [],
     reasoningAdapter: {
       createState: () => ({}),
       processDelta: (delta, _state, emit) => {
@@ -168,7 +168,7 @@ describe("runLlamaCppLoop — health check failure", () => {
     });
 
     const ctx = baseCtx("gemma4:12b", {
-      getOllamaTools: () => TOOLS,
+      getOpenAiTools: () => TOOLS,
       callTool: mock.fn(async () => "ok"),
     });
     const result = await runLlamaCppLoop(
@@ -336,7 +336,7 @@ describe("runLlamaCppLoop — successful response", () => {
       messages, { send: makeEmittersend() }, {}, undefined, () => {},
       baseCtx("qwen3.5:9b", {
         callTool,
-        getOllamaTools: () => tools,
+        getOpenAiTools: () => tools,
       }),
     );
 
@@ -565,7 +565,7 @@ describe("runLlamaCppLoop — corrupted tool name", () => {
     });
 
     const ctx = baseCtx("gemma4:12b", {
-      getOllamaTools: () => TOOLS,
+      getOpenAiTools: () => TOOLS,
       callTool: mock.fn(async (name) => { calledNames.push(name); return "ok"; }),
     });
     // One turn issues the (recovered) tool call; stop the loop after by aborting.
@@ -595,7 +595,7 @@ describe("runLlamaCppLoop — corrupted tool name", () => {
 
     const emitter = { send: makeEmittersend() };
     const result = await runLlamaCppLoop(
-      [{ role: "user", content: "list tables" }], emitter, {}, undefined, () => {}, baseCtx("gemma4:12b", { getOllamaTools: () => TOOLS }));
+      [{ role: "user", content: "list tables" }], emitter, {}, undefined, () => {}, baseCtx("gemma4:12b", { getOpenAiTools: () => TOOLS }));
 
     assert.equal(chatCalls, 2, "one original + one retry, then give up");
     assert.ok(emitter.send.mock.calls.some(c => c.arguments[0]?.type === "retract"), "should retract the bad call");

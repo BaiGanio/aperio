@@ -11,7 +11,7 @@ test("normalizes a complete AgentSpec without mutating the input", () => {
   const input = {
     id: "reviewer.security",
     description: "Security review agent",
-    provider: { name: "ollama", model: "qwen3:4b" },
+    provider: { name: "llamacpp", model: "qwen3:4b" },
     identity: { name: "Aperio reviewer", persona: "reviewer", prompt: "Review narrowly." },
     character: "security-engineer",
     skills: ["code-review", "code-review", "security"],
@@ -38,7 +38,7 @@ test("normalizes a complete AgentSpec without mutating the input", () => {
 
   assert.equal(spec.version, AGENT_SPEC_VERSION);
   assert.equal(spec.id, "reviewer.security");
-  assert.deepEqual(spec.provider, { name: "ollama", model: "qwen3:4b" });
+  assert.deepEqual(spec.provider, { name: "llamacpp", model: "qwen3:4b" });
   assert.deepEqual(spec.identity, {
     name: "Aperio reviewer",
     persona: "reviewer",
@@ -95,7 +95,7 @@ test("rejects unknown security-sensitive fields at every policy boundary", () =>
     /unknown field "permissions"/,
   );
   assert.throws(
-    () => normalizeAgentSpec({ id: "bad", provider: { name: "ollama", apiKey: "secret" } }),
+    () => normalizeAgentSpec({ id: "bad", provider: { name: "llamacpp", apiKey: "secret" } }),
     /Invalid AgentSpec \.provider: unknown field "apiKey"/,
   );
   assert.throws(

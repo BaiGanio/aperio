@@ -453,3 +453,93 @@ no secrets.
   against a real llama-server yet (same class of gap Phase 3 flagged for
   `primeLlamaCppModel()`'s wizard progress lines). Worth a quick manual run
   before this ships.
+
+---
+
+## Phase 6 report (2026-07-09)
+
+**Overall: GO on all 5 items.** 2910/2910 tests green, `npm run gen:env`/
+`gen:env:check` clean. This session picked up a large amount of work that a
+prior session had already started but left uncommitted and partially broken
+(the deletion sweep and migration shim existed but ~10 test files referencing
+the old provider were left failing) — the summary below covers what this
+session verified, fixed, and added, not just what it authored from scratch.
+
+| # | Item | Verdict | Notes |
+|---|---|---|---|
+| 1 | Delete `startOllama.js`, `ollama.js`, installer, 14 `OLLAMA_*` config entries | **GO** | Verified already done: `lib/helpers/startOllama.js`, `lib/agent/providers/ollama.js`, and their test files don't exist; `lib/config.js` has zero `OLLAMA_*` registry entries (only two `help:` strings that reference `OLLAMA_NUM_CTX`/`OLLAMA_CONTEXT_LENGTH` as historical "successor of" context, which is correct doctrine, not a leftover); `.env.example` matches the registry (`gen:env:check` clean). |
+| 2 | Migration shim | **GO** | `lib/helpers/ollamaMigrationShim.js` existed, untracked, with its test file (14/14 passing) — `detectOllamaMigration()` (pure), `formatOllamaMigrationMessage()` (pure, lists curated re-download sizes from `MODEL_FACTS`), `checkOllamaMigrationOrExit()` (I/O, injectable `write`/`exit`). Verified wired into both real entry points: `server.js` (right after `.env` load, before anything else) and `lib/terminal.js`'s main-module boot path. Deliberately **not** wired into `mcp/index.js` — the standalone MCP server has no agent/provider loop (`AI_PROVIDER` is never read there), so there's nothing to migrate-guard. |
+| 3 | Sweep remaining mentions | **GO, larger than scoped** | The named seed files (`db/memory-seed-lite.js`, `db/self-memory-seed.js`, `db/wiki-seed.js`) were swept, plus `exam.md`/skills docs/README/CLAUDE.md/`id/` capability docs/CHANGELOG.md (left, historical)/SECURITY.md (already clean) — but the real bulk of this item turned out to be **~10 test files with real, failing assertions** referencing `AI_PROVIDER=ollama`, `OLLAMA_MODEL`/`OLLAMA_BASE_URL`, `/api/tags` health-check URLs, and `isOllamaProvider` (a function that no longer exists — the whole `tests/lib/terminal.test.js` file was erroring on import). Fixed all of them: `tests/lib/agent.test.js`, `tests/lib/workers/agent-scheduler.test.js`, `tests/e2e/config-provenance.test.js`, `tests/lib/terminal.test.js`, `tests/lib/utils/chat-utils.test.js` (also deleted three fully-dead describe blocks — `ollamaBase`/`ollamaHealthy`/`listOllamaModels`/`resolveModelChoice` — whose underlying functions were removed from `lib/utils/chat-utils.js` with no replacement, since model switching is now the explicit `/model <provider> <name>` command, not a numbered picker), `tests/lib/config-resolver.test.js`, `tests/lib/config-sync.test.js`, `tests/lib/terminal/print-config.test.js`, `tests/e2e/ui-config-panel.test.js`, `tests/e2e/settings-roundtrip.test.js`. Full suite went from 2693 tests / 27 failing to 2910 / 0 failing. Also found and fixed **live source-code staleness**, not just docs/tests: `getOllamaTools`/`ollamaToolsAll`/`ollamaByName` in `lib/agent/index.js` (renamed to `getOpenAiTools`/`openaiToolsAll`/`openaiByName` — this OpenAI-function-call-format tool builder is shared by `llamacpp.js` **and** `deepseek.js`, so "ollama" was actively misleading), the `"ollama"` provider-kind string in `lib/context/artifactRetrieval.js` (→ `"openai"`), the `OLLAMA_NO_TOOLS`/`OLLAMA_THINKS` ctx keys threaded through `lib/agent/index.js` → `lib/emitters/handlers/wsHandler.js`/`lib/terminal.js` (→ `NO_TOOLS`/`THINKS`), and `lib/agent/providers/deepseek.js`'s `import { LlamaCppStreamHandler as OllamaStreamHandler }` alias (removed — it was importing the correctly-named class and immediately re-aliasing it back to the old name). All renames verified by the full test suite, not just grep. |
+| 4 | aperio-lite follow-up | **Discovered already done — not deferred** | The plan's hard constraint says lite keeps Ollama until after the 2026-07-14 release, with the llama.cpp swap explicitly deferred to a post-release follow-up. The actual uncommitted code already fully swapped lite too: `package.json`'s `start:lite` sets `AI_PROVIDER=llamacpp` (not `ollama`), `lib/config.js`'s `AI_PROVIDER` entry has `liteDefault: "llamacpp"`, and `bootstrap.js` has zero Ollama-installer code left (only `installLlamaCppMac/Win/Linux`) — there was no way to keep a working Ollama path for lite once Phase 1–2 deleted the shared provider/installer code, since the plan's own "replace, not add" decision ruled out maintaining two engines side by side. Flagged to the user directly (this branch doesn't merge before the lite release regardless, per the plan's own merge freeze, so there was no ship-date risk either way); user chose to treat the swap as intentional and complete the sweep rather than resurrect the deleted Ollama code path. Completed the sweep on that basis: `.github/lite/{START.sh,launch-hidden.sh,uninstall.sh,how-to-install.md,install.txt}` and `.github/lite/assets/{start.ps1,launch-hidden.ps1,uninstall.ps1}` all updated from Ollama to llama.cpp wording/paths/PATH entries. Two were **real functional bugs, not just stale docs**: `start.ps1`/`launch-hidden.ps1` set `$env:AI_PROVIDER = 'ollama'` — a value the migration shim now hard-rejects, so the Windows lite launcher would have refused to boot; and `uninstall.sh`/`uninstall.ps1`'s `pkill`/`Get-Process ollama` targeted a binary path (`vendor/ollama/ollama`) that no longer exists, so the uninstaller's "stop the vendored engine" step was silently a no-op. Both fixed, plus the uninstaller's model-removal step (previously `ollama rm <model>`, which has no llama.cpp equivalent) reworked to move `var/models` out before the blanket `var/` wipe and restore it after, so "keep the model" is now honest instead of being deleted by the very next step regardless of the user's answer. **Still open, correctly separate from this discovery:** `fast-low-vram` is not lite's default perf profile — `APERIO_LOCAL_PERF_PROFILE` has no `liteDefault` in the registry, so lite runs `balanced` like every other install. That half of the plan's follow-up item is genuinely still pending, not done. |
+| 5 | Update issue #222 | **Text drafted, not posted** | This session has no GitHub write access exercised. Draft comment text: *"Closing in favor of the llama.cpp migration (issue #226 / `llamacpp.md`), now complete through Phase 6. The tuning this issue wanted — `--n-cpu-moe` MoE offload, per-model KV-cache quantization, `--flash-attn`, fine-grained `--n-gpu-layers` — landed in Phase 4 as `APERIO_LOCAL_PERF_PROFILE` (`balanced`/`fast-low-vram`/`long-context`/`quality`), and the benchmarking/diagnostics this issue wanted landed in Phase 5 (`npm run local:bench`, the slow-turn runtime hint). Superseded, not abandoned — recommend closing as completed-via-#226."* Post manually or via `gh issue comment 222 --body-file …` once reviewed. |
+
+**What was actually run this session:** full `npm test` (2910/2910 green, up
+from the 2693/27-failing state found at the start of this session), `npm run
+gen:env:check` (clean), `node --check`/JSON-parse validation on every touched
+source and locale file, `bash -n` on every touched shell script, and a
+PowerShell `Parser::ParseFile` syntax check (via a local `pwsh`) on every
+touched `.ps1` script. No live run against a real llama-server this session —
+Phase 6 is cleanup/docs/tests, not new runtime surface; the one place that
+would matter (the migration shim's boot-time exit) is exercised by its own
+14 unit tests with injectable `write`/`exit`, which is the standard this
+codebase already uses for testing process-exit paths.
+
+**Docs (README/FEATURES/SECURITY):** All three updated. **README.md** (23 →
+0 Ollama mentions): rewrote the "Install Ollama & Pull Models" step (there is
+no such step anymore — llama.cpp is vendored and self-managed) into "Local AI
+Engine — Nothing to Install", rewrote the AI Providers section's Ollama block
+into the llama.cpp block with real `LLAMACPP_MODEL`/`LLAMACPP_BASE_URL` env
+vars and the actual curated HF-repo model table, and fixed every remaining
+narrative mention (privacy walkthrough, memory-tier notes, shell config
+comments). **FEATURES.md** (7 → 0): provider list, model-context-middleware
+line, and the whole Aperio-lite bullet group (setup wizard, vendored engine,
+uninstaller) updated to llama.cpp. **SECURITY.md:** no change needed — already
+had zero Ollama mentions and no provider-specific security content this
+migration touches (matches every prior phase's finding: the local engine swap
+doesn't change the security model, since llama-server sits behind the same
+"local, trusted, no new listener" posture Ollama had). Also updated
+**CLAUDE.md** (the condensed version currently on disk, not the fuller one
+this session started with in context — 5 mentions → 0), all 28 **`docs/`
+site locale files** plus `docs/translations.js`'s embedded English fallback
+(the app's own `public/locales/*.json` were already clean from Phase 3 —
+`docs/` is a separate GitHub Pages site with its own locale set that Phase 3's
+sweep didn't reach), `docs/index.html`/`docs/guide.html`, six `docs/tours/*`
+pages, and `docs/evaluate/coding-assistant.html` (including a verify snippet
+that called `imageTokenEstimate('ollama')` — a real bug, since that switch
+case is now keyed `"llamacpp"` and the snippet's assertion would fail if run
+today). Two locales (Estonian, Finnish) needed hand-editing rather than blind
+substitution — both attach grammatical case suffixes directly onto foreign
+proper nouns (`Ollamaga`, `Ollamalla`), so a bare find-replace would have
+produced `llama.cppga`/`llama.cppii`-style breakage; fixed using each file's
+own existing convention for foreign terms (apostrophe-joined in Estonian,
+colon-joined in Finnish, matching how the same files already handle
+`Claude'i`-style forms).
+
+**Flagged for follow-up (not fixed — outside this phase's scope):**
+- **`fast-low-vram` is still not lite's default profile** (see item 4).
+  Setting `liteDefault: "fast-low-vram"` on `APERIO_LOCAL_PERF_PROFILE` in
+  `lib/config.js` is a one-line change, but it's a real behavior decision
+  (trades context/quality for speed on every lite install) that should be a
+  deliberate choice, not a side effect of an Ollama-mention grep.
+- **The Windows lite launchers (`assets/start.ps1`, `assets/launch-hidden.ps1`)
+  never set `APERIO_CONFIG_PRECEDENCE=db`**, unlike the `start:lite` npm
+  script (which sets it alongside `AI_PROVIDER`/`APERIO_LITE`). This predates
+  this phase and is unrelated to the Ollama migration — found while fixing
+  the adjacent `AI_PROVIDER` line, not introduced by it. Likely means a
+  Windows lite install's Settings-UI changes don't take precedence over
+  `.env` the way a Unix lite install's do. Worth its own one-line fix and a
+  quick check of why it diverged from the npm script it's meant to mirror.
+- **`scripts/en-output.json`** contains ~5 stale "Ollama" strings but appears
+  to be an orphaned build artifact (dated before this branch's work started,
+  not referenced by any script or import, not part of any shipped surface).
+  Left untouched rather than guessing at its purpose — worth a `git blame` +
+  delete-if-unused pass by whoever generated it.
+- **Issue #222 close comment is drafted but not posted** (item 5) — needs a
+  manual review + `gh issue comment` from the user.
+- **The lite↔llama.cpp swap discovery (item 4) is worth a retroactive note in
+  the plan's own "Hard constraint" section** — `llamacpp.md`'s prose still
+  reads as though the swap is future work, which will confuse the next
+  session unless updated. Not changed in this report since `llamacpp.md` is
+  described as prompt-source-only ("this file is the prompt source... not"
+  the report file), but flagging it here since it's the kind of thing that
+  should not silently ride along.

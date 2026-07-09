@@ -26,7 +26,7 @@ breaking the ones that already work.
 This is a **maintainer tool, not an end-user feature.** Only whoever curates the skill
 library ever invokes it (typically `/loop autotune`); regular users never trigger it —
 they just notice the assistant "gets it" more often. The payoff is largest for the
-weaker/local models (deepseek, qwen, ollama), which lean hardest on accurate triggering.
+weaker/local models (deepseek, qwen, llamacpp), which lean hardest on accurate triggering.
 
 - **When to run it:** after adding a new skill, when a skill "doesn't fire" for a
   phrasing users actually use, or as a regression check after editing any keywords.

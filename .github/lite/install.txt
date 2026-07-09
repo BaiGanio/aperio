@@ -63,8 +63,8 @@ in-app Help page after setup.
 
   1. Choose local (free & private, recommended) or a cloud AI
      (paste one API key: Anthropic, DeepSeek, or Gemini).
-  2. Local: Aperio installs its OWN copy of the Ollama engine
-     inside its folder (vendor/ollama, not system-wide) and picks
+  2. Local: Aperio installs its OWN copy of the llama.cpp engine
+     inside its folder (vendor/llamacpp, not system-wide) and picks
      a model that fits your computer, downloading it once.
   3. A local SQLite database + a small on-device embedding model
      power Aperio's memory and search. No extra downloads.

@@ -88,7 +88,7 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 - Fetch URL, strip HTML, with offset paging for long pages (`fetch_url`)
 - Load image from path or base64 for analysis (`read_image`)
 - Normalize image to RGB PNG, letterbox 896×896 (`preprocess_image`)
-- Describe image via local Ollama VLM (`describe_image`)
+- Describe image via local llama.cpp VLM (`describe_image`)
 
 ## GitHub
 - Fetch an issue with body + comments (`fetch_github_issue`)
@@ -106,13 +106,13 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 - Portable agent bundles — optional `createAgent({ bundleDir })` directories can provide `AGENT.md`, `permissions.json`, `memory-scopes.json`, `output.schema.json`, and agent-local `skills/`; bundle policy is normalized into `AgentSpec` and cannot widen explicit administrator tool, filesystem, memory, interrupt, recursion, concurrency, or timeout limits (`lib/agent/bundle.js`)
 - Provider-neutral lifecycle middleware contract — seven ordered async hooks with immutable request snapshots, explicit returned updates/short-circuiting, validated named registrations, and failure attribution (`lib/agent/middleware.js`)
 - Tool safety middleware — failure-budget gating, repeated-call detection, untrusted-content fencing, taint propagation, and tainted-write confirmation now run as named `beforeTool`/`afterTool` adapters while preserving existing WebSocket events and limits (`lib/agent/tool-safety-middleware.js`)
-- Model-context middleware — the native Anthropic/Ollama/Gemini/DeepSeek loops share named context-trimming, memory-pointer, skill-injection, tool-profile, and result-offload adapters while retaining provider-local wire serialization and redaction (`lib/agent/model-context-middleware.js`)
+- Model-context middleware — the native Anthropic/llama.cpp/Gemini/DeepSeek loops share named context-trimming, memory-pointer, skill-injection, tool-profile, and result-offload adapters while retaining provider-local wire serialization and redaction (`lib/agent/model-context-middleware.js`)
 - Bounded lifecycle diagnostics — each native run retains up to 200 metadata-only hook records (identity, timing, decision, error class) with read-only last-run inspection; prompts, arguments, results, error messages, secrets, and artifact contents have no trace storage path (`lib/agent/lifecycle-trace.js`)
 - Durable interrupt service — pending sensitive-action descriptors persist in SQLite/Postgres with canonical arguments or protected payload references, digests, allowed decisions, expiry, decision/claim/completion state, and atomic claim-before-execute semantics; approve/edit/reject/respond decisions are supported and same-decision replays are idempotent while conflicting replays are rejected (`lib/security/interruptService.js`). File write/delete approvals and `db_execute` database-write confirmations now use this service; `/api/interrupts` and the chat UI list pending actions after reconnect and let the user approve, safely edit JSON arguments, reject, or respond without execution.
 - Lossless large-result offloading — oversized text tool results are secret-redacted and stored immutably under a private session/run scope; the model receives a bounded head/tail preview with an artifact ID instead of losing the full result to context trimming (`APERIO_TOOL_RESULT_OFFLOAD_TOKENS`, `APERIO_TOOL_RESULT_OFFLOAD_BYTES`)
 - Chunked result recovery — after an offload in the active run, the read-only `read_artifact` tool pages the complete result by byte offset/limit under code-enforced session/run ownership (8,192-byte default chunk, 24,000-byte maximum chunk, 32,000-byte maximum response)
 - Artifact lifecycle and observability — session artifacts are deleted/pruned with sessions; run artifacts follow `AGENT_RUN_RETENTION_DAYS`; logs and background-run history expose only offload IDs/scopes/counts/byte totals, never stored content
-- First-class providers: Ollama, Anthropic, DeepSeek, Gemini, Claude Code Agent SDK, and OpenAI Codex CLI
+- First-class providers: llama.cpp (vendored, self-managed), Anthropic, DeepSeek, Gemini, Claude Code Agent SDK, and OpenAI Codex CLI
 - Codex provider: authenticated `codex exec --json`, Aperio MCP tool access, explicit sandbox/approval policy, session-scoped persisted thread resume, background completions, setup wizard, and round-table support
 - Skills matching per turn (`skills/`)
 - Reasoning / thinking mode with reasoning-chain replay
@@ -204,7 +204,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 
 **Secrets & privacy**
 - `.env` written `0600` with injection-safe quoting; default Postgres password hard-fail (`APERIO_ALLOW_DEFAULT_DB_PASSWORD` opt-out)
-- Secret redaction (PEM keys, API tokens, JWTs, URI passwords) at every cloud-provider send boundary; local Ollama skipped
+- Secret redaction (PEM keys, API tokens, JWTs, URI passwords) at every cloud-provider send boundary; local llama.cpp skipped
 - Oversized tool results are secret-redacted before entering the private artifact store; previews are generated from the redacted copy
 - Memory sensitivity tiers: `tier: 1` (normal, always shared), `tier: 2` (sensitive, withheld or PII-redacted on cloud), `tier: 3` (private, never leaves the machine). Legacy `local-only` tag maps to tier 2.
 - Cloud sensitive mode (`APERIO_CLOUD_SENSITIVE_MODE`): `withhold` (default — tier-2 filtered on cloud) or `redact` (PII-scrubbed via `lib/privacy/redact.js`)
@@ -225,10 +225,10 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Private/incognito UI launch with default-browser fallback (`APERIO_BROWSER`: firefox/firefox-dev/librewolf/mullvad/chrome/chromium/brave/edge/tor/ddg); opt-in dedicated browser profile isolating cookies/storage/extensions (`APERIO_BROWSER_ISOLATED=1`)
 
 ## Onboarding & Install (Aperio-lite)
-- Browser setup wizard (`public/setup.html`) driven over `/api/bootstrap/stream` — provider choice, Ollama, model pull, DB, all without editing config files; `file://` guard redirects users who open the page directly instead of via the launcher
-- Vendored Ollama — installs a private, pinned, checksum-verified copy into `vendor/ollama` (never system-wide); idle auto-shutdown watchdog + in-app Quit
+- Browser setup wizard (`public/setup.html`) driven over `/api/bootstrap/stream` — provider choice, llama.cpp, model download, DB, all without editing config files; `file://` guard redirects users who open the page directly instead of via the launcher
+- Vendored llama.cpp — installs a private, pinned, checksum-verified `llama-server` copy into `vendor/llamacpp` (never system-wide); idle auto-shutdown watchdog + in-app Quit
 - One-click launchers (`.github/lite/`): `START.sh` (macOS/Linux) / `START.bat` (Windows) do only what a browser can't — ensure Node + `npm install`, then start — and drop a hidden-window "Aperio" Desktop launcher for later runs
-- Uninstaller (`uninstall.sh` / `uninstall.bat`) — stops the server + our vendored Ollama, removes `vendor/` · `node_modules/` · `var/` · `.sqlite/` + the Desktop launcher, offers to delete the pulled model, and leaves system Node untouched (honest "left behind" wording via `nodePreexisting` in `bootstrap.lock`)
+- Uninstaller (`uninstall.sh` / `uninstall.bat`) — stops the server + our vendored llama.cpp, removes `vendor/` · `node_modules/` · `var/` · `.sqlite/` + the Desktop launcher, offers to delete the downloaded model, and leaves system Node untouched (honest "left behind" wording via `nodePreexisting` in `bootstrap.lock`)
 - Lite profile (`APERIO_LITE=on`) — SQLite + transformers + docgraph defaults, forced DB config-precedence (the Settings UI rules, never `.env`), essentials-only Web UI with a runtime **Advanced** escape hatch, and non-coder starter memories + a self-contained `public/help.html`
 - Release packaging (`cd.release.yml`) — versioned `aperio-lite.zip` (launchers + how-to staged at the archive root) published to the latest GitHub release under a stable URL
 

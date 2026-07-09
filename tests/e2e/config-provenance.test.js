@@ -15,7 +15,7 @@ import { applyConfigToEnv, configSettingKey, configSourceOf } from "../../lib/co
 import { CONFIG } from "../../lib/config.js";
 
 // ─── Well-known vars ──────────────────────────────────────────────────────
-const T1         = "OLLAMA_MODEL";
+const T1         = "LLAMACPP_MODEL";
 const T0         = "PORT";
 const T1_DEFAULT = CONFIG.find((e) => e.key === T1).default;
 

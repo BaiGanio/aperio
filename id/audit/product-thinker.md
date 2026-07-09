@@ -66,9 +66,9 @@ What to question:
 - How many decisions must a first-time user make before seeing any value?
   (Provider, API key, model, port, DB backend — most have defaults, but
   the cognitive load is: "what is a provider? what API key? which model?")
-- If the user picks Ollama, the bootstrap pulls a model (~2–5 GB download on
-  first run). Is there a clear progress indicator? A time estimate? What
-  happens if the user closes the browser during bootstrap?
+- If the user picks the local llama.cpp path, the bootstrap downloads a model
+  (~2–5 GB on first run). Is there a clear progress indicator? A time estimate?
+  What happens if the user closes the browser during bootstrap?
 - The lite installer (`START.sh`) targets non-developers. Does the script
   explain what it's installing and why? Or does it assume the user already
   read the README?

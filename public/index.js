@@ -167,8 +167,9 @@ function updateContextBar(used, max, outputTok = 0) {
 
   const pct = Math.min(100, (display / max) * 100);
   const roundedPct = Math.round(pct);
-  // Ollama-only: show the served window as a % of the machine's RAM capacity, so
-  // users see the total is Aperio's auto-sized fraction of their hardware.
+  // Local-provider-only: show the served window as a % of the machine's RAM
+  // capacity, so users see the total is Aperio's auto-sized fraction of their
+  // hardware.
   const capPct = window.maxCtxCapacityPct;
   const showCap = typeof capPct === "number" && capPct > 0;
   text.textContent = `${display.toLocaleString()} / ${max.toLocaleString()}${showCap ? ` (${capPct}%)` : ""}`;
