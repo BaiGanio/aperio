@@ -79,34 +79,34 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/aperio:${{ github.sha }}
 
       # ── Notify Pi to pull new image and roll out ────────────────
-      - name: Notify Pi — trigger deploy webhook
-        env:
-          WEBHOOK_URL: ${{ secrets.APERIO_PI_WEBHOOK_URL }}
-          WEBHOOK_SECRET: ${{ secrets.APERIO_PI_WEBHOOK_SECRET }}
-          COMMIT_SHA: ${{ github.sha }}
-          COMMIT_MSG: ${{ github.event.head_commit.message || 'manual dispatch' }}
-        run: |
-          if [ -z "$WEBHOOK_URL" ]; then
-            echo "::warning::APERIO_PI_WEBHOOK_URL not set — skipping webhook"
-            exit 0
-          fi
-          if [ -z "$WEBHOOK_SECRET" ]; then
-            echo "::error::APERIO_PI_WEBHOOK_SECRET not set"
-            exit 1
-          fi
+      # - name: Notify Pi — trigger deploy webhook
+      #   env:
+      #     WEBHOOK_URL: ${{ secrets.APERIO_PI_WEBHOOK_URL }}
+      #     WEBHOOK_SECRET: ${{ secrets.APERIO_PI_WEBHOOK_SECRET }}
+      #     COMMIT_SHA: ${{ github.sha }}
+      #     COMMIT_MSG: ${{ github.event.head_commit.message || 'manual dispatch' }}
+      #   run: |
+      #     if [ -z "$WEBHOOK_URL" ]; then
+      #       echo "::warning::APERIO_PI_WEBHOOK_URL not set — skipping webhook"
+      #       exit 0
+      #     fi
+      #     if [ -z "$WEBHOOK_SECRET" ]; then
+      #       echo "::error::APERIO_PI_WEBHOOK_SECRET not set"
+      #       exit 1
+      #     fi
 
-          PAYLOAD='{"ref":"${{ github.event.inputs.branch || github.ref_name }}","sha":"${COMMIT_SHA:0:8}","message":"${COMMIT_MSG}"}'
-          SIGNATURE=$(echo -n "$PAYLOAD" | openssl sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')
+      #     PAYLOAD='{"ref":"${{ github.event.inputs.branch || github.ref_name }}","sha":"${COMMIT_SHA:0:8}","message":"${COMMIT_MSG}"}'
+      #     SIGNATURE=$(echo -n "$PAYLOAD" | openssl sha256 -hmac "$WEBHOOK_SECRET" | awk '{print $2}')
 
-          echo "→ Notifying $WEBHOOK_URL"
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X POST "$WEBHOOK_URL" \
-            -H "Content-Type: application/json" \
-            -H "X-Hub-Signature-256: sha256=$SIGNATURE" \
-            -d "$PAYLOAD")
+      #     echo "→ Notifying $WEBHOOK_URL"
+      #     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      #       -X POST "$WEBHOOK_URL" \
+      #       -H "Content-Type: application/json" \
+      #       -H "X-Hub-Signature-256: sha256=$SIGNATURE" \
+      #       -d "$PAYLOAD")
 
-          if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
-            echo "✅ Webhook accepted (HTTP $HTTP_CODE)"
-          else
-            echo "::warning::Webhook returned HTTP $HTTP_CODE — check Pi webhook logs"
-          fi
+      #     if [ "$HTTP_CODE" = "200" ] || [ "$HTTP_CODE" = "204" ]; then
+      #       echo "✅ Webhook accepted (HTTP $HTTP_CODE)"
+      #     else
+      #       echo "::warning::Webhook returned HTTP $HTTP_CODE — check Pi webhook logs"
+      #     fi
