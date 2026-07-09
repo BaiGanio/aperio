@@ -52,6 +52,11 @@ spec:
           ports:
             - containerPort: 31337
               name: http
+          envFrom:
+            # First-boot defaults (AI provider, embeddings, etc.)
+            # Overridable via Web UI → Settings (saved to DB, takes precedence)
+            - configMapRef:
+                name: aperio-config
           env:
             # ---- Database ----
             - name: DB_BACKEND
@@ -63,40 +68,14 @@ spec:
                 secretKeyRef:
                   name: aperio-secrets
                   key: postgres-password
-            # ---- AI Provider (pick one) ----
-            # For Ollama (local on the Pi):
-            - name: AI_PROVIDER
-              value: "ollama"
-            - name: OLLAMA_BASE_URL
-              value: "http://host.lan.internal:11434"   # Adjust to your Ollama host
-            # For Anthropic (cloud):
-            # - name: AI_PROVIDER
-            #   value: "anthropic"
-            # - name: ANTHROPIC_API_KEY
-            #   valueFrom:
-            #     secretKeyRef:
-            #       name: aperio-secrets
-            #       key: anthropic-api-key
-            # - name: ANTHROPIC_MODEL
-            #   value: "claude-sonnet-4-6"
-            #
-            # For DeepSeek / Gemini — add analogous env vars
-            # ---- Embeddings ----
-            # Use Voyage (cloud) for quality embeddings:
-            # - name: EMBEDDING_PROVIDER
-            #   value: "voyage"
-            # - name: VOYAGE_API_KEY
-            #   valueFrom: ...
-            # Use transformers (local, no API key needed):
-            - name: EMBEDDING_PROVIDER
-              value: "transformers"
             # ---- Security / Paths ----
             - name: APERIO_ALLOWED_PATHS_TO_READ
               value: "/app"
             - name: APERIO_ALLOWED_PATHS_TO_WRITE
               value: "/app/var"
+            # Let DB-saved UI settings override env vars (default is "env")
             - name: APERIO_CONFIG_PRECEDENCE
-              value: "env"
+              value: "db"
             # ---- Runtime ----
             - name: NODE_ENV
               value: "production"
