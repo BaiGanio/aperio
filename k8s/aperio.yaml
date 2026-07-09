@@ -6,10 +6,9 @@
 # on a non-default port (8008) to avoid conflicts with other Postgres instances
 # in the cluster.
 #
-# The container image must be built locally and imported into k3s or pushed
-# to a registry the cluster can reach. See:
-#   docker build -t aperio:local -f docker/Dockerfile .
-#   k3s ctr images import /path/to/aperio-image.tar
+# The image is built on GitHub CI (QEMU cross-compile for ARM64), pushed to
+# ghcr.io, then pulled by k3s. For public repos the image is public — no
+# imagePullSecrets needed. If your repo is private, add imagePullSecrets.
 apiVersion: v1
 kind: Service
 metadata:
@@ -47,8 +46,9 @@ spec:
     spec:
       containers:
         - name: aperio
-          image: aperio:local
-          imagePullPolicy: Never    # Local image built from Dockerfile
+          # Built in GitHub CI, pushed to ghcr.io
+          image: ghcr.io/baiganio/aperio:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 31337
               name: http
