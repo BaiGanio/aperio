@@ -314,3 +314,39 @@ GitHub Actions workflows in `.github/workflows/`:
 - `cd.release.yml` — release automation
 - `cd.gh-pages.yml` — docs site deployment
 - Bot workflows for issue claims, moderation, stale claims
+
+
+# LLM API Pricing Comparison — Low / Mid / Top Tier (July 2026)
+## Use this to offer best suitable model for the task. We do not want to burn user in tokens and cut heads with the bill at the end. Update this from time to time.
+
+All prices in USD per 1 million tokens. Input / Output.
+
+| Provider | Tier | Model | Input | Output | Context Window |
+|---|---|---|---|---|---|
+| **DeepSeek** | Low | V4 Flash | $0.14 | $0.28 | 1M (384K max output) |
+| **DeepSeek** | Top | V4 Pro | $0.435 | $0.87 | 1M (384K max output) |
+| **Google (Gemini)** | Low | Gemini 2.5 Flash-Lite | $0.10 | $0.40 | up to 1M |
+| **Google (Gemini)** | Low-Mid | Gemini 3.1 Flash-Lite | $0.25 | $1.50 | 1M |
+| **Google (Gemini)** | Mid | Gemini 3 Flash | $0.50 | $3.00 | 1M |
+| **Google (Gemini)** | Mid-Top | Gemini 3.5 Flash | $1.50 | $9.00 | 1M |
+| **Google (Gemini)** | Top | Gemini 3.1 Pro (≤200K) | $2.00 | $12.00 | 2M |
+| **Google (Gemini)** | Top (long ctx) | Gemini 3.1 Pro (>200K) | $4.00 | $18.00 | 2M |
+| **OpenAI** | Low | GPT-5 mini | $0.25 | $2.00 | 400K |
+| **OpenAI** | Low-Mid | GPT-5.4 mini | $0.75 | $4.50 | 400K |
+| **OpenAI** | Mid | GPT-5.4 | $2.50 | $15.00 | 400K |
+| **OpenAI** | Mid (coding) | GPT-5.3-Codex | $1.75 | $14.00 | 400K |
+| **OpenAI** | Top | GPT-5.5 | $5.00 | $30.00 | 1M |
+| **OpenAI** | Top (max) | GPT-5.5 Pro | $30.00 | $180.00 | 1M |
+| **Anthropic (Claude)** | Low | Haiku 4.5 | $1.00 | $5.00 | 200K |
+| **Anthropic (Claude)** | Mid | Sonnet 4.6 | $3.00 | $15.00 | 1M |
+| **Anthropic (Claude)** | Top | Opus 4.8 | $5.00 | $25.00 | 1M |
+| **Anthropic (Claude)** | Top (fast mode) | Opus 4.8 (Fast Mode) | $10.00 | $50.00 | 1M |
+
+## Notes
+- **Prompt caching / batch discounts exist across all providers** and can cut effective costs by 50–98% — this table shows *standard* list pricing only.
+- DeepSeek V4 Flash cache-hit input drops to **$0.0028/M** (98% off) — huge if you reuse system prompts.
+- Claude models get a flat 50% batch discount and up to 90% off on cached input.
+- Gemini Pro models double in price above 200K tokens of input (applies to whole request, not just the overage).
+- "Codex" isn't a separate model line — it's OpenAI's coding agent; GPT-5.3-Codex is the dedicated coding-tuned model, but GPT-5.4/GPT-5.4 mini also power it depending on the task.
+
+*Sources: official pricing pages (Anthropic, OpenAI, Google, DeepSeek), verified July 2026. Prices change frequently — always confirm on the provider's pricing page before budgeting.*
