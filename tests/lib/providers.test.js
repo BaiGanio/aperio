@@ -4,9 +4,12 @@ import assert from "node:assert/strict";
 import {
   ollamaContextWindow,
   ollamaCtxStatus,
+  llamacppContextWindow,
+  llamacppCtxStatus,
   recommendContextLength,
   estimateKvBytesPerToken,
   recommendServeContextLength,
+  resolveProvider,
   MODEL_FACTS,
   isLocalProvider,
   isCloudProvider,
@@ -209,6 +212,8 @@ describe("recommendServeContextLength", () => {
 describe("isLocalProvider / isCloudProvider", () => {
   test("ollama is local", () => { assert.ok(isLocalProvider("ollama")); });
   test("ollama is NOT cloud", () => { assert.ok(!isCloudProvider("ollama")); });
+  test("llamacpp is local", () => { assert.ok(isLocalProvider("llamacpp")); });
+  test("llamacpp is NOT cloud", () => { assert.ok(!isCloudProvider("llamacpp")); });
   test("anthropic is cloud", () => { assert.ok(isCloudProvider("anthropic")); });
   test("anthropic is NOT local", () => { assert.ok(!isLocalProvider("anthropic")); });
   test("deepseek is cloud", () => { assert.ok(isCloudProvider("deepseek")); });
@@ -216,7 +221,69 @@ describe("isLocalProvider / isCloudProvider", () => {
   test("claude-code is cloud", () => { assert.ok(isCloudProvider("claude-code")); });
   test("codex is cloud", () => { assert.ok(isCloudProvider("codex")); });
   test("case-insensitive: OLLAMA is local", () => { assert.ok(isLocalProvider("OLLAMA")); });
+  test("case-insensitive: LLAMACPP is local", () => { assert.ok(isLocalProvider("LLAMACPP")); });
   test("empty string is not local", () => { assert.ok(!isLocalProvider("")); });
   test("null is not local", () => { assert.ok(!isLocalProvider(null)); });
   test("undefined is not local", () => { assert.ok(!isLocalProvider(undefined)); });
+});
+
+// ── llamacppContextWindow / llamacppCtxStatus ──────────────────────────────────
+// Mirrors the OLLAMA_NUM_CTX/OLLAMA_CONTEXT_LENGTH clamp-and-warn semantics for
+// the successor env pair (LLAMACPP_CTX / LLAMACPP_SERVE_CTX), sharing the same
+// genericCtxStatus/genericContextWindow implementation under the hood.
+describe("llamacppContextWindow", () => {
+  test("defaults to 32768 when nothing is set", () => {
+    assert.equal(llamacppContextWindow({}), 32768);
+  });
+
+  test("uses LLAMACPP_CTX when no real window is known", () => {
+    assert.equal(llamacppContextWindow({ LLAMACPP_CTX: "98304" }), 98304);
+  });
+
+  test("clamps to LLAMACPP_SERVE_CTX when the assumption is too large", () => {
+    assert.equal(
+      llamacppContextWindow({ LLAMACPP_CTX: "98304", LLAMACPP_SERVE_CTX: "32768" }),
+      32768,
+    );
+  });
+
+  test("keeps the smaller assumption when it already fits the real window", () => {
+    assert.equal(
+      llamacppContextWindow({ LLAMACPP_CTX: "16384", LLAMACPP_SERVE_CTX: "32768" }),
+      16384,
+    );
+  });
+});
+
+describe("llamacppCtxStatus", () => {
+  test("flags a mismatch and reports the clamped effective window", () => {
+    assert.deepEqual(
+      llamacppCtxStatus({ LLAMACPP_CTX: "98304", LLAMACPP_SERVE_CTX: "32768" }),
+      { assumed: 98304, real: 32768, mismatch: true, effective: 32768 },
+    );
+  });
+
+  test("no mismatch when the real window is unknown", () => {
+    assert.deepEqual(
+      llamacppCtxStatus({ LLAMACPP_CTX: "98304" }),
+      { assumed: 98304, real: 0, mismatch: false, effective: 98304 },
+    );
+  });
+});
+
+// ── resolveProvider — llamacpp branch ──────────────────────────────────────────
+describe("resolveProvider — llamacpp", () => {
+  test("resolves llamacpp with defaults", () => {
+    const p = resolveProvider({ name: "llamacpp" });
+    assert.equal(p.name, "llamacpp");
+    assert.equal(p.model, "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    assert.equal(p.baseURL, "http://127.0.0.1:8080/v1");
+    assert.equal(p.llamacppBaseURL, "http://127.0.0.1:8080");
+    assert.equal(typeof p.contextWindow, "number");
+  });
+
+  test("model override wins over the default", () => {
+    const p = resolveProvider({ name: "llamacpp", model: "unsloth/Qwen3.5-4B-GGUF" });
+    assert.equal(p.model, "unsloth/Qwen3.5-4B-GGUF");
+  });
 });

@@ -29,6 +29,8 @@ import {
   isPortOpen, pidsOnPort, killPids,
   // ollama
   ollamaBase, ollamaHealthy, listOllamaModels,
+  // llama.cpp
+  parseLlamaCppPort, llamacppBase, llamacppHealthy,
   // model picker
   resolveModelChoice,
   // server probe
@@ -546,6 +548,68 @@ describe("listOllamaModels", () => {
       async () => {
         const result = await listOllamaModels(11434);
         assert.deepEqual(result, []);
+      }
+    );
+  });
+});
+
+// ─── parseLlamaCppPort ────────────────────────────────────────────────────────
+describe("parseLlamaCppPort", () => {
+  test("defaults to 8080 when unset", () => {
+    assert.equal(parseLlamaCppPort({}), 8080);
+  });
+
+  test("reads LLAMACPP_PORT from env", () => {
+    assert.equal(parseLlamaCppPort({ LLAMACPP_PORT: "9090" }), 9090);
+  });
+});
+
+// ─── llamacppBase ─────────────────────────────────────────────────────────────
+describe("llamacppBase", () => {
+  test("returns 127.0.0.1 URL with given port", () => {
+    const orig = process.env.LLAMACPP_BASE_URL;
+    delete process.env.LLAMACPP_BASE_URL;
+    assert.equal(llamacppBase(8080), "http://127.0.0.1:8080");
+    if (orig !== undefined) process.env.LLAMACPP_BASE_URL = orig;
+  });
+
+  test("returns LLAMACPP_BASE_URL env var when set", () => {
+    const orig = process.env.LLAMACPP_BASE_URL;
+    process.env.LLAMACPP_BASE_URL = "https://custom:9999";
+    assert.equal(llamacppBase(8080), "https://custom:9999");
+    if (orig !== undefined) process.env.LLAMACPP_BASE_URL = orig;
+    else delete process.env.LLAMACPP_BASE_URL;
+  });
+});
+
+// ─── llamacppHealthy ──────────────────────────────────────────────────────────
+describe("llamacppHealthy", () => {
+  test("returns true when fetch responds ok:true", async () => {
+    await withMockFetch(
+      async () => ({ ok: true }),
+      async () => {
+        const result = await llamacppHealthy(8080);
+        assert.equal(result, true);
+      }
+    );
+  });
+
+  test("returns false when fetch responds ok:false", async () => {
+    await withMockFetch(
+      async () => ({ ok: false }),
+      async () => {
+        const result = await llamacppHealthy(8080);
+        assert.equal(result, false);
+      }
+    );
+  });
+
+  test("returns false when fetch throws", async () => {
+    await withMockFetch(
+      async () => { throw new Error("connection refused"); },
+      async () => {
+        const result = await llamacppHealthy(8080);
+        assert.equal(result, false);
       }
     );
   });

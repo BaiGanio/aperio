@@ -428,8 +428,9 @@ async function bootApp() {
   if (liteApplied.length) logger.info(`[config] lite defaults applied: ${liteApplied.join(", ")}`);
 
   const { createAgent }                   = await import("./lib/agent.js");
+  const { isLocalProvider }               = await import("./lib/providers/index.js");
   const { ensureOllama }                  = await import("./lib/helpers/startOllama.js");
-  const { getLlamaCppPid }                = await import("./lib/helpers/startLlamaCpp.js");
+  const { ensureLlamaCpp, getLlamaCppPid } = await import("./lib/helpers/startLlamaCpp.js");
   const { createWatchdog }                = await import("./lib/helpers/shutdownGuard.js");
   const { deduplicateMemories }           = await import("./lib/workers/deduplicate.js");
   const { inferMemories }                 = await import("./lib/workers/infer.js");
@@ -576,11 +577,14 @@ async function bootApp() {
   // Format: "provider:model,provider:model" — first pair = round-table primary
   // (answerer), second pair = verifier (reviewer). Both entries required;
   // otherwise the Discuss toggle stays disabled.
-  // Ollama must be sized + started BEFORE the agent is built. ensureOllama()
-  // finalizes OLLAMA_NUM_CTX / OLLAMA_CONTEXT_LENGTH in the env, and createAgent
-  // snapshots provider.contextWindow from them. Run it afterwards and the window
-  // freezes at the 32768 default even though the server serves a larger one.
-  if ((process.env.AI_PROVIDER || "").toLowerCase() === "ollama") await ensureOllama();
+  // The local engine must be sized + started BEFORE the agent is built.
+  // ensureOllama()/ensureLlamaCpp() finalize the *_NUM_CTX / *_CONTEXT_LENGTH
+  // (or *_CTX / *_SERVE_CTX) env vars, and createAgent snapshots
+  // provider.contextWindow from them. Run it afterwards and the window freezes
+  // at the default even though the server serves a larger one.
+  const bootProvider = (process.env.AI_PROVIDER || "").toLowerCase();
+  if (bootProvider === "ollama") await ensureOllama();
+  else if (bootProvider === "llamacpp") await ensureLlamaCpp();
 
   const agent = await createAgent({
     root: __dirname,
@@ -650,28 +654,30 @@ async function bootApp() {
   }
   const roundtableAvailable = Boolean(primaryRoundtable && verifier);
 
-  // Watchdog. IDLE_SHUTDOWN: "auto" (default) = local Ollama only; "on" = always
+  // Watchdog. IDLE_SHUTDOWN: "auto" (default) = local engine only; "on" = always
   // (the lite desktop/hidden launchers set this so a windowless server still
   // self-stops after the tab closes, even on a cloud provider); "off" = never.
   // getPid is llama-server-only (shutdownGuard now stops by PID, not Ollama's
-  // /api/ps check) and stays null until Phase 2 wires ensureLlamaCpp() into the
-  // provider boot below — until then this watchdog only closes the HTTP/WS
-  // servers and exits on idle, it does not stop Ollama.
+  // /api/ps check) — it's null on an Ollama boot (no PID to hold) and the
+  // watchdog still closes HTTP/WS + exits on idle, it just doesn't stop Ollama;
+  // on a llamacpp boot ensureLlamaCpp() above has already set the PID.
   const idleMode = (process.env.IDLE_SHUTDOWN || "auto").toLowerCase();
   const watchdog = createWatchdog({
-    enabled:   idleMode === "on" ? true : idleMode === "off" ? false : provider.name === "ollama",
+    enabled:   idleMode === "on" ? true : idleMode === "off" ? false : isLocalProvider(provider.name),
     getPid:    getLlamaCppPid,
     timeoutMs: (Number(process.env.IDLE_TIMEOUT_SECONDS) || 180) * 1000,
   });
   boot.watchdog = watchdog; // /heartbeat starts feeding the idle guard
 
+  const thinkingSuffix = agent.reasoningAdapter.match !== "__noop__"
+    ? ` · thinking via ${agent.reasoningAdapter.match}` : "";
   const providerLabel = provider.name === "anthropic"
     ? `Anthropic (${provider.model})`
     : provider.name === "deepseek"
       ? `DeepSeek (${provider.model})`
-      : `Ollama (${provider.model})${
-          agent.reasoningAdapter.match !== "__noop__"
-            ? ` · thinking via ${agent.reasoningAdapter.match}` : ""}`;
+      : provider.name === "llamacpp"
+        ? `llama.cpp (${provider.model})${thinkingSuffix}`
+        : `Ollama (${provider.model})${thinkingSuffix}`;
 
   logger.info(`🤖 Provider: ${providerLabel}`);
   if (provider.name === "ollama") {
@@ -683,6 +689,13 @@ async function bootApp() {
       serverWin ? `server KV cache ${fmt(serverWin)}` : null,
       typeof capPct === "number" ? `${capPct}% of RAM capacity` : null,
     ].filter(Boolean).join(" · ");
+    logger.info(
+      `🧮 Context window: ${fmt(provider.contextWindow)} tokens` + (detail ? ` (${detail})` : ""),
+    );
+  } else if (provider.name === "llamacpp") {
+    const fmt = (n) => Number(n).toLocaleString("en-US");
+    const serverWin = process.env.LLAMACPP_SERVE_CTX;
+    const detail = serverWin ? `server KV cache ${fmt(serverWin)}` : null;
     logger.info(
       `🧮 Context window: ${fmt(provider.contextWindow)} tokens` + (detail ? ` (${detail})` : ""),
     );

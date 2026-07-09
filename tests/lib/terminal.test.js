@@ -21,6 +21,7 @@ import {
   isReasoningCommand,
   isRememberIntent,
   isOllamaProvider,
+  isLlamaCppProvider,
   toggleReasoning,
   buildWebSocketUrl,
   isValidPort,
@@ -356,6 +357,26 @@ describe("Provider Detection", () => {
     assert.strictEqual(isOllamaProvider(""), false);
     assert.strictEqual(isOllamaProvider(null), false);
     assert.strictEqual(isOllamaProvider(undefined), false);
+  });
+
+  test("isLlamaCppProvider detects llamacpp", () => {
+    assert.strictEqual(isLlamaCppProvider("llamacpp"), true);
+  });
+
+  test("isLlamaCppProvider is case-insensitive", () => {
+    assert.strictEqual(isLlamaCppProvider("LLAMACPP"), true);
+    assert.strictEqual(isLlamaCppProvider("LlamaCpp"), true);
+  });
+
+  test("isLlamaCppProvider rejects other providers", () => {
+    assert.strictEqual(isLlamaCppProvider("ollama"), false);
+    assert.strictEqual(isLlamaCppProvider("anthropic"), false);
+  });
+
+  test("isLlamaCppProvider handles empty string", () => {
+    assert.strictEqual(isLlamaCppProvider(""), false);
+    assert.strictEqual(isLlamaCppProvider(null), false);
+    assert.strictEqual(isLlamaCppProvider(undefined), false);
   });
 });
 

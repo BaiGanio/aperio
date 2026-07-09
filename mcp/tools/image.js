@@ -36,6 +36,48 @@ const OLLAMA_START_MS  = 30_000; // max wait for ollama serve to become ready
 
 const ollamaClient = new Ollama({ host: OLLAMA_HOST });
 
+// ─── llama.cpp / VLM config ───────────────────────────────────────────────────
+// llama-server is fully managed by Aperio (lib/helpers/startLlamaCpp.js spawns
+// and stops it at app boot/shutdown), so unlike the Ollama path below there is
+// no per-call start/stop lifecycle here — the engine is simply assumed to be up
+// by the time a tool call reaches this handler.
+const LLAMACPP_BASE_URL = process.env.LLAMACPP_BASE_URL || "http://127.0.0.1:8080";
+const LLAMACPP_VLM_MODEL = process.env.LLAMACPP_VLM_MODEL || "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
+const LLAMACPP_VLM_TIMEOUT_MS = Number(process.env.LLAMACPP_VLM_TIMEOUT_MS) || 300_000;
+
+export function isLlamaCppProvider() {
+  return (process.env.AI_PROVIDER || "").toLowerCase() === "llamacpp";
+}
+
+/**
+ * describe_image via llama-server's OpenAI-compatible /v1/chat/completions —
+ * llama.cpp has no native /api/generate equivalent, so the image goes in as a
+ * standard `image_url` data-URI content block (router mode loads/swaps the
+ * VLM model on demand, same as the main chat model).
+ */
+export async function describeImageViaLlamaCpp(base64, prompt, model) {
+  const vlmModel = model || LLAMACPP_VLM_MODEL;
+  const r = await fetch(`${LLAMACPP_BASE_URL}/v1/chat/completions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: vlmModel,
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: prompt },
+          { type: "image_url", image_url: { url: `data:image/png;base64,${base64}` } },
+        ],
+      }],
+      stream: false,
+    }),
+    signal: AbortSignal.timeout(LLAMACPP_VLM_TIMEOUT_MS),
+  });
+  if (!r.ok) throw new Error(`llama.cpp HTTP ${r.status}: ${(await r.text()).slice(0, 200)}`);
+  const data = await r.json();
+  return data.choices?.[0]?.message?.content ?? "";
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 export function detectMime(buffer, ext) {
@@ -220,10 +262,11 @@ async function isSafeToStopOllama() {
 // ─── describe_image handler ────────────────────────────────────────────────────
 
 /**
- * describe_image — sends a (preprocessed) image to a local Ollama VLM
- * and returns its text description.
+ * describe_image — sends a (preprocessed) image to a local VLM (Ollama or
+ * llama.cpp, per AI_PROVIDER) and returns its text description.
  *
- * Lifecycle:
+ * Lifecycle (Ollama path only — llama.cpp is already managed by Aperio's own
+ * boot/shutdown, so it has no per-call start/stop step):
  *   1. Preprocess image → 896×896 RGB PNG base64
  *   2. Check if Ollama is already running
  *   3. If not → start it, use it, stop it afterwards
@@ -271,6 +314,27 @@ export async function describeImageHandler({
   } catch (err) {
     logger.error("❌ describe_image preprocessing error:", err);
     return { content: [{ type: "text", text: `❌ Image preprocessing failed: ${err.message}` }] };
+  }
+
+  // ── 2. llama.cpp path — no start/stop lifecycle; the engine is already
+  // managed (spawned/stopped) by Aperio's own boot/shutdown, not per call. ──
+  if (isLlamaCppProvider()) {
+    const vlmModel  = model  || LLAMACPP_VLM_MODEL;
+    const vlmPrompt = prompt || "Describe this image in detail.";
+    try {
+      logger.info(`🤖 describe_image → ${vlmModel} (${Math.round(base64.length * 0.75 / 1024)}KB image)`);
+      const description = await describeImageViaLlamaCpp(base64, vlmPrompt, vlmModel);
+      if (!description.trim()) {
+        logger.warn("⚠️  describe_image: VLM returned empty response");
+      } else {
+        const preview = description.length > 300 ? description.slice(0, 300) + "…" : description;
+        logger.info(`[VLM] ${vlmModel} raw output:\n${preview}`);
+      }
+      return { content: [{ type: "text", text: description || "(The model returned an empty response.)" }] };
+    } catch (err) {
+      logger.error("❌ describe_image VLM error:", err);
+      return { content: [{ type: "text", text: `❌ VLM call failed: ${err.message}` }] };
+    }
   }
 
   // ── 2. Ollama lifecycle — start only if not already running ────────────────
@@ -405,13 +469,15 @@ export function register(server, _ctx) {
     "describe_image",
     {
       description:
-        "Send an image to a local Ollama vision model (VLM) and get back a text description. " +
+        "Send an image to a local vision model (VLM — Ollama or llama.cpp, per AI_PROVIDER) and get back " +
+        "a text description. " +
         "The image is automatically preprocessed to 896×896 RGB PNG before being sent. " +
         "Provide either a local file path OR base64 data. " +
         "Use this when you need to understand what's in an image — text, objects, layout, " +
         "diagrams, screenshots, handwriting, etc.\n\n" +
-        "If Ollama isn't already running it will be started for this call and stopped afterwards. " +
-        "If it's already running it's left as-is.",
+        "On Ollama: if it isn't already running it will be started for this call and stopped afterwards; " +
+        "if it's already running it's left as-is. On llama.cpp the engine is already managed by Aperio, " +
+        "so there is no per-call start/stop step.",
       inputSchema: z.object({
         path: z.string().optional().describe(
           "Absolute (or ~-prefixed) path to a local image file."
@@ -423,8 +489,8 @@ export function register(server, _ctx) {
           "Question or instruction about the image. Default: 'Describe this image in detail.'"
         ),
         model: z.string().optional().describe(
-          `Ollama VLM model name. Default: "${OLLAMA_VLM_MODEL}" (env OLLAMA_VLM_MODEL). ` +
-          "Other good options: qwen3-vl:2b, llava:13b, gemma4:12b."
+          `VLM model name. Default (Ollama): "${OLLAMA_VLM_MODEL}" (env OLLAMA_VLM_MODEL). ` +
+          `Default (llama.cpp): "${LLAMACPP_VLM_MODEL}" (env LLAMACPP_VLM_MODEL).`
         ),
       }).refine(d => d.path || d.data, {
         message: "Provide either 'path' (local file) or 'data' (base64 string).",

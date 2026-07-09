@@ -483,6 +483,35 @@ describe("GET /models", () => {
       });
   });
 
+  test("returns providers with llama.cpp results", () => {
+    const origLlamaCpp = process.env.LLAMACPP_BASE_URL;
+    delete process.env.LLAMACPP_BASE_URL; // use default
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async (url) => {
+      if (url.includes("/v1/models")) {
+        return {
+          ok: true,
+          json: async () => ({ data: [{ id: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" }] }),
+        };
+      }
+      return { ok: false, status: 404 };
+    };
+
+    const router = makeRouter();
+
+    return invoke(router, "GET", "/models")
+      .then(({ status, body }) => {
+        assert.strictEqual(status, 200);
+        assert.ok(Array.isArray(body.providers.llamacpp));
+        assert.ok(body.providers.llamacpp.includes("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"));
+      })
+      .finally(() => {
+        globalThis.fetch = originalFetch;
+        if (origLlamaCpp === undefined) delete process.env.LLAMACPP_BASE_URL; else process.env.LLAMACPP_BASE_URL = origLlamaCpp;
+      });
+  });
+
   test("handles Ollama not running (fetch throws)", () => {
     const origAnthropic = process.env.ANTHROPIC_API_KEY;
     const origDeepSeek = process.env.DEEPSEEK_API_KEY;

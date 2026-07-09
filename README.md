@@ -191,7 +191,9 @@ npm run migrate
 docker compose -f docker/docker-compose.prod.yml --env-file .env up -d
 ```
 ### Step 3. Install Ollama & Pull Models
-> **💡 Tip:** Skip this step entirely when using a cloud or CLI-backed `AI_PROVIDER`.
+> **💡 Tip:** Skip this step entirely when using a cloud or CLI-backed `AI_PROVIDER`,
+> or `AI_PROVIDER=llamacpp` — that engine is vendored and fully managed by
+> Aperio (downloads its own binary + models on first run, no manual install).
 ```bash
 ollama serve                     # use separate terminal
 ```
