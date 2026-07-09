@@ -19,9 +19,22 @@ function _applyDiscussVisualState() {
   discussBtn.style.cursor = _discussAvailable ? "pointer" : "not-allowed";
 }
 
-window.applyRoundtableAvailability = function(available) {
+// Remembers the localized default tooltip while a server-provided
+// "why Discuss is disabled" reason temporarily replaces it.
+let _discussTitleDefault = null;
+
+window.applyRoundtableAvailability = function(available, reason) {
   _discussAvailable = Boolean(available);
   if (!available && _discussOn) _discussOn = false;
+  if (discussBtn) {
+    if (!available && reason) {
+      if (_discussTitleDefault === null) _discussTitleDefault = discussBtn.title;
+      discussBtn.title = reason;
+    } else if (_discussTitleDefault !== null) {
+      discussBtn.title = _discussTitleDefault;
+      _discussTitleDefault = null;
+    }
+  }
   _applyDiscussVisualState();
 };
 

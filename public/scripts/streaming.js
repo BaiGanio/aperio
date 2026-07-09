@@ -156,7 +156,7 @@ function handleMessage(msg) {
     // Round-table: cache agent list and toggle the Discuss button accordingly.
     if (Array.isArray(msg.agents)) _roundtableAgents = msg.agents;
     if (typeof window.applyRoundtableAvailability === "function") {
-      window.applyRoundtableAvailability(Boolean(msg.roundtableAvailable));
+      window.applyRoundtableAvailability(Boolean(msg.roundtableAvailable), msg.roundtableReason);
     }
     if (msg.toolCount !== undefined) {
       _preloadToolCount = msg.toolCount;
