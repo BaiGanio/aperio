@@ -522,7 +522,6 @@
     /* Input locked state while AI is thinking */
     .input-locked textarea {
       opacity: 0.5;
-      pointer-events: none;
     }
     .input-locked .input-hint {
       color: var(--accent);

@@ -104,6 +104,74 @@ describe("CRUD operations", () => {
 });
 
 // =============================================================================
+// Vector sidecar cleanup on delete (regression: orphaned vec rows + rowid
+// reuse made the next embedded insert fail with a vec constraint violation)
+// =============================================================================
+describe("delete cleans up vector rows", () => {
+  const emb = new Array(1024).fill(0.1);
+
+  test("remember after forget succeeds when rowid is reused", async () => {
+    const mem = await store.insert(
+      { type: "fact", title: "Vec victim", content: "Embedded then forgotten" },
+      emb,
+    );
+    await store.delete(mem.id);
+    // The deleted row held the max rowid, so this insert reuses it. With an
+    // orphaned vec_memories row the INSERT INTO vec_memories would throw.
+    const next = await store.insert(
+      { type: "fact", title: "Vec successor", content: "Reuses the freed rowid" },
+      emb,
+    );
+    assert.ok(next.id);
+    await store.delete(next.id);
+  });
+
+  test("delete removes the vec_memories row", async () => {
+    const mem = await store.insert(
+      { type: "fact", title: "Vec cleanup", content: "Check sidecar" },
+      emb,
+    );
+    const { rowid } = store.db.prepare(`SELECT rowid FROM memories WHERE id = ?`).get(mem.id);
+    await store.delete(mem.id);
+    const orphan = store.db.prepare(`SELECT rowid FROM vec_memories WHERE rowid = ?`).get(BigInt(rowid));
+    assert.equal(orphan, undefined);
+  });
+
+  test("mergeDuplicate removes the duplicate's vec_memories row", async () => {
+    const a = await store.insert(
+      { type: "fact", title: "Survivor", content: "Original content" },
+      emb,
+    );
+    const b = await store.insert(
+      { type: "fact", title: "Duplicate", content: "Original content copy" },
+      emb,
+    );
+    const { rowid } = store.db.prepare(`SELECT rowid FROM memories WHERE id = ?`).get(b.id);
+    await store.mergeDuplicate(a.id, b.id);
+    const orphan = store.db.prepare(`SELECT rowid FROM vec_memories WHERE rowid = ?`).get(BigInt(rowid));
+    assert.equal(orphan, undefined);
+    await store.delete(a.id);
+  });
+
+  test("deleteSelf removes the vec_self_memories row", async () => {
+    const mem = await store.insertSelf(
+      { title: "Self vec cleanup", content: "Check self sidecar" },
+      emb,
+    );
+    const { rowid } = store.db.prepare(`SELECT rowid FROM self_memories WHERE id = ?`).get(mem.id);
+    await store.deleteSelf(mem.id);
+    const orphan = store.db.prepare(`SELECT rowid FROM vec_self_memories WHERE rowid = ?`).get(BigInt(rowid));
+    assert.equal(orphan, undefined);
+    const next = await store.insertSelf(
+      { title: "Self vec successor", content: "Reuses the freed rowid" },
+      emb,
+    );
+    assert.ok(next.id);
+    await store.deleteSelf(next.id);
+  });
+});
+
+// =============================================================================
 // update (supersede row pattern)
 // =============================================================================
 describe("update", () => {
