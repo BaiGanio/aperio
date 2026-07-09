@@ -29,7 +29,7 @@ const logger = (msg, level = 'info') => {
 export const STEPS = [
   { id: 'node',       label: 'Node.js & npm',     icon: 'node' },
   { id: 'deps',       label: 'Dependencies',       icon: 'package' },
-  { id: 'ollama',     label: 'Ollama',             icon: 'ai' },
+  { id: 'engine',     label: 'AI Engine',          icon: 'ai' },
   { id: 'model',      label: 'AI Model',           icon: 'model' },
   { id: 'sqlite',     label: 'SQLite & Embeddings', icon: 'db' },
 ];
@@ -123,7 +123,7 @@ const ensureVendorOnPath = () => {
 
 // macOS: download → verify → extract the engine into ./vendor/ollama.
 const installOllamaMac = async () => {
-  setStep('ollama', 'running', 'Downloading the Ollama engine (~125 MB, one time)…');
+  setStep('engine', 'running', 'Downloading the Ollama engine (~125 MB, one time)…');
   mkdirSync(VENDOR_OLLAMA_DIR, { recursive: true });
   const tgz = './var/ollama-darwin.tgz';
   await runSilently('sh', ['-c', `curl -fL "${OLLAMA_DARWIN_URL}" -o "${tgz}"`]);
@@ -133,12 +133,12 @@ const installOllamaMac = async () => {
     `tar -xzf "${tgz}" -C "${VENDOR_OLLAMA_DIR}" && rm -f "${tgz}" && chmod +x "${VENDOR_OLLAMA_DIR}/ollama"`
   ]);
   ensureVendorOnPath();
-  setStep('ollama', 'done', 'Ollama engine installed (vendored)');
+  setStep('engine', 'done', 'Ollama engine installed (vendored)');
 };
 
 // Windows: download → verify → extract via PowerShell into ./vendor/ollama.
 const installOllamaWin = async () => {
-  setStep('ollama', 'running', 'Downloading the Ollama engine (one time)…');
+  setStep('engine', 'running', 'Downloading the Ollama engine (one time)…');
   mkdirSync(VENDOR_OLLAMA_DIR, { recursive: true });
   const zip = './var/ollama-windows.zip';
   const ps = (cmd) => runSilently('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd]);
@@ -147,7 +147,7 @@ const installOllamaWin = async () => {
   if (got !== OLLAMA_SHA_WIN) throw new Error('Ollama checksum mismatch — refusing to install');
   await ps(`Expand-Archive -Path '${zip}' -DestinationPath '${VENDOR_OLLAMA_DIR}' -Force; Remove-Item '${zip}'`);
   ensureVendorOnPath();
-  setStep('ollama', 'done', 'Ollama engine installed (vendored)');
+  setStep('engine', 'done', 'Ollama engine installed (vendored)');
 };
 
 // ── Vendored llama.cpp (macOS + Windows + Linux) ───────────────────────────
@@ -159,9 +159,9 @@ const installOllamaWin = async () => {
 // per the spike's risk-table decision — CPU-only assets exist as a documented
 // fallback for power users, not wired here). macOS ships arm64/Metal only
 // (Intel Mac out of scope, matching the plan's binary matrix).
-// NOT YET WIRED into runBootstrap() — the wizard still installs Ollama; a
-// later phase adds the 'llamacpp' step + AI_PROVIDER=llamacpp branch that
-// calls checkLlamaCpp() instead of checkOllama().
+// Wired into runBootstrap() (Phase 3) via the 'engine' step, alongside
+// checkOllama() — runBootstrap picks one of the two based on the wizard's
+// chosen engine (see the `engine` param).
 const LLAMACPP_VER            = 'b9938';
 const LLAMACPP_BASE           = `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMACPP_VER}`;
 const LLAMACPP_MAC_URL        = `${LLAMACPP_BASE}/llama-${LLAMACPP_VER}-bin-macos-arm64.tar.gz`;
@@ -186,7 +186,7 @@ const ensureLlamaCppVendorOnPath = () => {
 // nests everything under a `llama-<tag>/` folder; --strip-components=1 flattens
 // it to match Ollama's vendor-dir layout (binary directly at VENDOR_DIR/llama-server).
 const installLlamaCppMac = async () => {
-  setStep('llamacpp', 'running', 'Downloading the llama.cpp engine (~50 MB, one time)…');
+  setStep('engine', 'running', 'Downloading the llama.cpp engine (~50 MB, one time)…');
   mkdirSync(VENDOR_LLAMACPP_DIR, { recursive: true });
   const tgz = './var/llamacpp-macos.tgz';
   await runSilently('sh', ['-c', `curl -fL "${LLAMACPP_MAC_URL}" -o "${tgz}"`]);
@@ -196,13 +196,13 @@ const installLlamaCppMac = async () => {
     `tar -xzf "${tgz}" -C "${VENDOR_LLAMACPP_DIR}" --strip-components=1 && rm -f "${tgz}" && chmod +x "${VENDOR_LLAMACPP_DIR}/llama-server"`
   ]);
   ensureLlamaCppVendorOnPath();
-  setStep('llamacpp', 'done', 'llama.cpp engine installed (vendored)');
+  setStep('engine', 'done', 'llama.cpp engine installed (vendored)');
 };
 
 // Windows: download → verify → extract via PowerShell into ./vendor/llamacpp.
 // The Windows zip has no wrapper folder, so this is a plain Expand-Archive.
 const installLlamaCppWin = async () => {
-  setStep('llamacpp', 'running', 'Downloading the llama.cpp engine (one time)…');
+  setStep('engine', 'running', 'Downloading the llama.cpp engine (one time)…');
   mkdirSync(VENDOR_LLAMACPP_DIR, { recursive: true });
   const zip = './var/llamacpp-windows.zip';
   const ps = (cmd) => runSilently('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd]);
@@ -211,13 +211,13 @@ const installLlamaCppWin = async () => {
   if (got !== LLAMACPP_SHA_WIN) throw new Error('llama.cpp checksum mismatch — refusing to install');
   await ps(`Expand-Archive -Path '${zip}' -DestinationPath '${VENDOR_LLAMACPP_DIR}' -Force; Remove-Item '${zip}'`);
   ensureLlamaCppVendorOnPath();
-  setStep('llamacpp', 'done', 'llama.cpp engine installed (vendored)');
+  setStep('engine', 'done', 'llama.cpp engine installed (vendored)');
 };
 
 // Linux: install.sh-free headless flow (unlike Ollama, llama.cpp has no Linux
 // installer script), so vendor here too. Same nested-folder tar layout as macOS.
 const installLlamaCppLinux = async () => {
-  setStep('llamacpp', 'running', 'Downloading the llama.cpp engine (~80 MB, one time)…');
+  setStep('engine', 'running', 'Downloading the llama.cpp engine (~80 MB, one time)…');
   mkdirSync(VENDOR_LLAMACPP_DIR, { recursive: true });
   const tgz = './var/llamacpp-linux.tgz';
   await runSilently('sh', ['-c', `curl -fL "${LLAMACPP_LINUX_URL}" -o "${tgz}"`]);
@@ -227,16 +227,15 @@ const installLlamaCppLinux = async () => {
     `tar -xzf "${tgz}" -C "${VENDOR_LLAMACPP_DIR}" --strip-components=1 && rm -f "${tgz}" && chmod +x "${VENDOR_LLAMACPP_DIR}/llama-server"`
   ]);
   ensureLlamaCppVendorOnPath();
-  setStep('llamacpp', 'done', 'llama.cpp engine installed (vendored)');
+  setStep('engine', 'done', 'llama.cpp engine installed (vendored)');
 };
 
-// Install if missing, mirroring checkOllama's shape (not yet called from
-// runBootstrap — see note above the vendoring block).
+// Install if missing, mirroring checkOllama's shape.
 const checkLlamaCpp = async () => {
-  setStep('llamacpp', 'running', 'Checking llama.cpp…');
+  setStep('engine', 'running', 'Checking llama.cpp…');
   ensureLlamaCppVendorOnPath();
   if (isInstalled('llama-server')) {
-    setStep('llamacpp', 'skipped', 'llama.cpp already installed');
+    setStep('engine', 'skipped', 'llama.cpp already installed');
     return;
   }
   if (process.platform === 'darwin') await installLlamaCppMac();
@@ -281,7 +280,7 @@ const checkDeps = async () => {
 };
 
 const checkOllama = async () => {
-  setStep('ollama', 'running', 'Checking Ollama…');
+  setStep('engine', 'running', 'Checking Ollama…');
   ensureVendorOnPath();                       // pick up a binary vendored on a prior run
   if (!isInstalled('ollama')) {
     if (process.platform === 'darwin') {
@@ -289,24 +288,24 @@ const checkOllama = async () => {
     } else if (process.platform === 'win32') {
       await installOllamaWin();               // vendor on Windows too
     } else {
-      setStep('ollama', 'running', 'Installing Ollama…');
+      setStep('engine', 'running', 'Installing Ollama…');
       await runSilently('sh', ['-c',
         `curl -fsSL https://ollama.com/install.sh -o /tmp/ollama_install.sh && \
          chmod +x /tmp/ollama_install.sh && \
          /tmp/ollama_install.sh`
       ]);
-      setStep('ollama', 'done', 'Ollama installed');
+      setStep('engine', 'done', 'Ollama installed');
     }
   } else {
-    setStep('ollama', 'running', 'Ollama found — checking service…');
+    setStep('engine', 'running', 'Ollama found — checking service…');
   }
 
   // Ensure the service is running
   try {
     execSync('ollama list', { stdio: 'ignore', timeout: 3000 });
-    setStep('ollama', 'skipped', 'Service already running');
+    setStep('engine', 'skipped', 'Service already running');
   } catch (_e) {
-    setStep('ollama', 'running', 'Starting Ollama service…');
+    setStep('engine', 'running', 'Starting Ollama service…');
     const svc = spawn('ollama', ['serve'], {
       stdio: ['ignore', 'pipe', 'pipe'],
       detached: true,
@@ -315,7 +314,7 @@ const checkOllama = async () => {
     svc.stderr.on('data', d => logger(`[ollama] ${d.toString().trim()}`));
     svc.unref();
     await new Promise(r => setTimeout(r, 2500));
-    setStep('ollama', 'done', 'Service started');
+    setStep('engine', 'done', 'Service started');
   }
 };
 
@@ -350,6 +349,104 @@ const checkModel = async (model = 'qwen2.5:3b', { pullIfMissing = false } = {}) 
   setStep('model', 'done', `${model} downloaded`);
 };
 
+// ── llama.cpp model acquisition ────────────────────────────────────────────
+// llama-server has no standalone "just download" command — it fetches a
+// model the first time something actually requests it (router mode loads
+// lazily). Ollama-style "pull, then done" needs *something* to be that first
+// request, so we spawn a throwaway llama-server bound to a scratch port
+// purely to trigger (and wait out) the -hf download + load, then kill it.
+// This reuses llama-server's own fetch/resume/checksum logic instead of
+// reimplementing an HF downloader, and its stdout/stderr — piped here, unlike
+// the long-lived server's stdio:'ignore' in startLlamaCpp.js — becomes the
+// wizard's progress detail lines, same role `ollama pull`'s output plays above.
+const LLAMA_CACHE_DIR = process.env.LLAMA_CACHE || './var/models';
+
+// llama-server's on-disk HF hub cache layout (confirmed in the Phase 0 spike):
+// models--<org>--<repo>/{blobs,refs,snapshots}. The optional ":quant" suffix
+// selects a file within the repo, not a separate cache folder.
+const hfCacheDirName = (repoWithQuant) =>
+  `models--${repoWithQuant.split(':')[0].replace(/\//g, '--')}`;
+
+// Presence check: prefer asking a server that's already up (covers a setup
+// retried after a prior partial run), else fall back to the cache dir on disk.
+const isModelCached = async (repoWithQuant) => {
+  const base = process.env.LLAMACPP_BASE_URL || `http://127.0.0.1:${process.env.LLAMACPP_PORT || '8080'}`;
+  try {
+    const r = await fetch(`${base}/v1/models`, { signal: AbortSignal.timeout(1000) });
+    if (r.ok) {
+      const data = await r.json();
+      if ((data?.data ?? []).some(m => m.id === repoWithQuant)) return true;
+    }
+  } catch { /* no server up yet — fall through to the cache check */ }
+  try {
+    return existsSync(`${LLAMA_CACHE_DIR}/${hfCacheDirName(repoWithQuant)}/snapshots`);
+  } catch { return false; }
+};
+
+const primeLlamaCppModel = (repoWithQuant) => new Promise((resolvePrime, rejectPrime) => {
+  const scratchPort = String(Number(process.env.LLAMACPP_PORT || 8080) + 1000);
+  mkdirSync(LLAMA_CACHE_DIR, { recursive: true });
+
+  const proc = spawn('llama-server', [
+    '-hf', repoWithQuant,
+    '--host', '127.0.0.1',
+    '--port', scratchPort,
+    '--jinja',
+  ], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: { ...process.env, LLAMA_CACHE: resolve(LLAMA_CACHE_DIR) },
+  });
+
+  let settled = false;
+  let poll;
+  const finish = (fn, arg) => {
+    if (settled) return;
+    settled = true;
+    clearInterval(poll);
+    try { proc.kill('SIGTERM'); } catch { /* already gone */ }
+    fn(arg);
+  };
+
+  proc.stdout.on('data', d => logger(d.toString().trim()));
+  proc.stderr.on('data', d => logger(d.toString().trim()));
+  proc.on('error', err => finish(rejectPrime, err));
+  proc.on('close', code => {
+    if (!settled) finish(rejectPrime, new Error(`llama-server exited with code ${code} while downloading ${repoWithQuant}`));
+  });
+
+  const deadline = Date.now() + 20 * 60 * 1000; // large GGUFs can take a while
+  poll = setInterval(async () => {
+    if (Date.now() > deadline) { finish(rejectPrime, new Error(`Timed out downloading ${repoWithQuant}`)); return; }
+    try {
+      const r = await fetch(`http://127.0.0.1:${scratchPort}/health`, { signal: AbortSignal.timeout(1000) });
+      if (r.ok) finish(resolvePrime, undefined);
+    } catch { /* not ready yet */ }
+  }, 1000);
+});
+
+const checkLlamaCppModel = async (model, { pullIfMissing = false } = {}) => {
+  setStep('model', 'running', `Checking for ${model}…`);
+  if (await isModelCached(model)) {
+    setStep('model', 'skipped', `${model} already present`);
+    return;
+  }
+
+  if (!pullIfMissing) {
+    const err = new Error(`Selected model is not downloaded yet: ${model}`);
+    setStep('model', 'error', err.message);
+    throw err;
+  }
+
+  setStep('model', 'running', `Downloading ${model} — this may take a few minutes…`);
+  try {
+    await primeLlamaCppModel(model);
+  } catch (err) {
+    setStep('model', 'error', `Model download failed: ${err.message}`);
+    throw err;
+  }
+  setStep('model', 'done', `${model} downloaded`);
+};
+
 const checkSqlite = async () => {
   setStep('sqlite', 'running', 'Checking SQLite native bindings…');
   // better-sqlite3 + sqlite-vec are normal deps; `npm install` (the 'deps'
@@ -366,28 +463,38 @@ const checkSqlite = async () => {
 
 // ── Main ──────────────────────────────────────────────────────────────────
 
-export const runBootstrap = async ({ model = 'qwen2.5:3b', skipOllama = false, pullModel = false } = {}) => {
+// `engine` is the local AI engine the wizard picked: 'ollama' | 'llamacpp' |
+// null (cloud provider — no local engine/model steps to run). Replaces the
+// old boolean `skipOllama` now that there are two local engines, not one.
+export const runBootstrap = async ({ model, engine = null, pullModel = false } = {}) => {
   for (const step of STEPS) stepState[step.id] = 'idle';
   logger('=== Bootstrap starting ===');
   bootstrapEvents.emit('start');
 
+  let resolvedModel = model;
   try {
     const nodePreexisting = await checkNode();
     await checkDeps();
-    if (skipOllama) {
-      // Cloud provider chosen in the wizard — no local model needed.
-      setStep('ollama', 'skipped', 'Using a cloud provider');
+    if (!engine) {
+      // Cloud provider chosen in the wizard — no local engine/model needed.
+      setStep('engine', 'skipped', 'Using a cloud provider');
       setStep('model',  'skipped', 'Using a cloud provider');
-    } else {
+    } else if (engine === 'ollama') {
+      resolvedModel = model || 'qwen2.5:3b';
       await checkOllama();
-      await checkModel(model, { pullIfMissing: pullModel });
+      await checkModel(resolvedModel, { pullIfMissing: pullModel });
+    } else if (engine === 'llamacpp') {
+      resolvedModel = model || 'Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M';
+      await checkLlamaCpp();
+      await checkLlamaCppModel(resolvedModel, { pullIfMissing: pullModel });
     }
     await checkSqlite();
 
     logger('=== Bootstrap complete ===');
     writeFileSync('var/bootstrap.lock', JSON.stringify({
       completedAt: new Date().toISOString(),
-      model,
+      model: resolvedModel,
+      engine,
       nodePreexisting,
     }));
     bootstrapEvents.emit('complete');

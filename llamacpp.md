@@ -224,23 +224,25 @@ report](llamacpp-reports.md#phase-2-report-2026-07-09).
 
 Replace `ollama pull` with GGUF downloads.
 
-- [ ] Extend `MODEL_FACTS` per model: `{ hf: "repo:quant", mmproj?, sizeGB,
+- [x] Extend `MODEL_FACTS` per model: `{ hf: "repo:quant", mmproj?, sizeGB,
       maxContext, kvBytesPerToken, architecture: "dense"|"moe", activeParams? }`
       (kv facts are unchanged — same GGUFs underneath).
-- [ ] Download path: prefer letting llama-server fetch via preset `-hf`
+- [x] Download path: prefer letting llama-server fetch via preset `-hf`
       entries with `LLAMA_CACHE=./var/models`; if setup needs progress bars,
       download the GGUF directly from HF with streamed progress (the wizard
       already has step UI), then reference the local path in the preset.
-- [ ] `bootstrap.js` `checkModel`: presence = file in cache (or listed by
+- [x] `bootstrap.js` `checkModel`: presence = file in cache (or listed by
       `GET /models`), `pullIfMissing` = trigger download.
-- [ ] Setup UI (`public/setup.html`) + Settings panel + locale files: copy
+- [x] Setup UI (`public/setup.html`) + Settings panel + locale files: copy
       sweep — "Ollama" appears in ~30 locale JSONs; replace with neutral
       "local AI engine (llama.cpp)" wording so future locale adds stay simple.
-- [ ] Disk-space check in the wizard keeps using `sizeGB`.
+- [x] Disk-space check in the wizard keeps using `sizeGB`.
 
 **Verify:** fresh clone → `npm run start:local` on a machine with nothing
 installed reaches a working chat with zero manual steps (the fully-managed
-acceptance test).
+acceptance test). **GO on all items** (with one caveat flagged below on the
+real download path); full findings: [`llamacpp-reports.md` § Phase 3
+report](llamacpp-reports.md#phase-3-report-2026-07-09).
 
 ## Phase 4 — Hardware profiles + performance flags (the #222 payoff)
 

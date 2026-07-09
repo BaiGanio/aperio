@@ -151,6 +151,23 @@ describe("writeEnvFromWizard", () => {
     assert.match(env, /^OLLAMA_MODEL="llama3\.1"$/m);
   });
 
+  test("throws for llamacpp without model", () => {
+    assert.throws(
+      () => writeEnvFromWizard({ provider: "llamacpp" }),
+      /llamacpp requires a model/,
+    );
+  });
+
+  test("writes .env for llamacpp provider — sets LLAMACPP_MODEL, not the OLLAMA_MODEL template default", () => {
+    writeEnvFromWizard({ provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" });
+    const env = readFileSync(ENV_PATH, "utf8");
+    assert.match(env, /^AI_PROVIDER="llamacpp"$/m);
+    assert.match(env, /^LLAMACPP_MODEL="Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M"$/m);
+    // OLLAMA_MODEL still appears (seeded from .env.example, untouched) but at
+    // its template default, not something the llamacpp wizard path set.
+    assert.match(env, /^OLLAMA_MODEL=qwen2\.5:3b$/m);
+  });
+
   test("persists APERIO_LITE=on when the wizard runs under the lite profile", (t) => {
     process.env.APERIO_LITE = "on";
     t.after(() => delete process.env.APERIO_LITE);

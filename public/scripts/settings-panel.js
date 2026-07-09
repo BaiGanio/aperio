@@ -71,7 +71,7 @@
 
   // ── Model selector ────────────────────────────────────────────────────────
 
-  const PROVIDER_LABELS = { ollama: "Ollama (local)", anthropic: "Anthropic", deepseek: "DeepSeek" /*, gemini: "Google Gemini" */ };
+  const PROVIDER_LABELS = { ollama: "Ollama (local)", llamacpp: "llama.cpp (local)", anthropic: "Anthropic", deepseek: "DeepSeek" /*, gemini: "Google Gemini" */ };
 
   // Reflect the active model name in the collapsed summary, so the current pick
   // is visible without expanding the section.

@@ -11,6 +11,7 @@ import {
   recommendServeContextLength,
   resolveProvider,
   MODEL_FACTS,
+  factsForHf,
   isLocalProvider,
   isCloudProvider,
 } from "../../lib/providers/index.js";
@@ -285,5 +286,44 @@ describe("resolveProvider — llamacpp", () => {
   test("model override wins over the default", () => {
     const p = resolveProvider({ name: "llamacpp", model: "unsloth/Qwen3.5-4B-GGUF" });
     assert.equal(p.model, "unsloth/Qwen3.5-4B-GGUF");
+  });
+});
+
+// ── MODEL_FACTS — hf-repo mapping (llamacpp.md Phase 3) ────────────────────────
+describe("MODEL_FACTS — hf mapping", () => {
+  test("every entry declares an hf repo[:quant] id and a dense|moe architecture", () => {
+    for (const [key, facts] of Object.entries(MODEL_FACTS)) {
+      assert.equal(typeof facts.hf, "string", `${key} is missing an hf id`);
+      assert.match(facts.hf, /^[\w.-]+\/[\w.-]+(:[\w.-]+)?$/, `${key}'s hf id looks malformed: ${facts.hf}`);
+      assert.ok(["dense", "moe"].includes(facts.architecture), `${key} has an unexpected architecture: ${facts.architecture}`);
+    }
+  });
+
+  test("only the MoE model declares activeParams", () => {
+    assert.equal(MODEL_FACTS["qwen3:30b-a3b"].architecture, "moe");
+    assert.equal(MODEL_FACTS["qwen3:30b-a3b"].activeParams, 3);
+    for (const [key, facts] of Object.entries(MODEL_FACTS)) {
+      if (key === "qwen3:30b-a3b") continue;
+      assert.equal(facts.activeParams, undefined, `${key} should not declare activeParams (dense)`);
+    }
+  });
+
+  test("qwen2.5vl:7b matches the facts startLlamaCpp.js's DEFAULT_VLM_MODEL used pre-Phase-3", () => {
+    const f = MODEL_FACTS["qwen2.5vl:7b"];
+    assert.equal(f.hf, "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF");
+    assert.equal(f.sizeGB, 6);
+    assert.equal(f.maxContext, 32768);
+    assert.equal(f.kvBytesPerToken, 172032);
+  });
+});
+
+describe("factsForHf", () => {
+  test("finds the facts entry whose hf id matches", () => {
+    const f = factsForHf("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    assert.equal(f, MODEL_FACTS["qwen2.5:3b"]);
+  });
+
+  test("returns null for an hf id not in MODEL_FACTS (custom user model)", () => {
+    assert.equal(factsForHf("someone/custom-GGUF"), null);
   });
 });

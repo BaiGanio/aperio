@@ -194,3 +194,82 @@ gap, not introduced here).
   installed) is still there. Small, self-contained fix (same injectable
   `_spawn` pattern `startLlamaCpp.test.js` already uses) — good candidate for
   its own quick issue rather than waiting for Phase 6's cleanup sweep.
+
+---
+
+## Phase 3 report (2026-07-09)
+
+**Overall: GO on all 5 items**, with one honest caveat: unlike Phases 0–2,
+this report does **not** include a live end-to-end run that actually
+downloads a full GGUF over the wizard's click-through path — that would mean
+either clobbering this dev machine's real `.env`/`var/bootstrap.lock` or
+spinning up a disposable clone and waiting out a multi-GB download, which
+didn't fit this session. What *was* verified live: `getSpecs()` (the specs
+endpoint's actual logic) run directly, the full test suite (2906/2906,
++26 new tests), `gen:env`/`gen:env:check`, and `i18n:check` (287/287 keys,
+26 locales). The gap — a real `primeLlamaCppModel()` download and a real
+browser click through the wizard — is flagged below, not silently skipped.
+
+| # | Item | Verdict | Notes |
+|---|---|---|---|
+| 1 | `MODEL_FACTS` hf extension | **GO** | Every entry in `lib/providers/index.js`'s `MODEL_FACTS` now carries `hf` (the exact `llama-server -hf` / `/v1/chat/completions` `model` string), `architecture` (`"dense"` for six entries, `"moe"` only for `qwen3:30b-a3b` with `activeParams: 3`), and an optional `mmproj` slot for a future model that needs one declared explicitly (none currently do — llama-server auto-resolves the mmproj for every VLM GGUF tested in the Phase 0 spike). Added a new `qwen2.5vl:7b` entry (the VLM bridge model wasn't previously RAM-tiered by `getRecommendedModel()`, but needed the same facts shape) — its `sizeGB`/`maxContext`/`kvBytesPerToken` are copied verbatim from `startLlamaCpp.js`'s pre-Phase-3 local `LLAMACPP_MODEL_FACTS[DEFAULT_VLM_MODEL]` entry so no sizing behavior changed, just where the facts live. New `factsForHf(hfRepo)` reverse-lookup (hf string → facts) added and exported; `startLlamaCpp.js`'s local `LLAMACPP_MODEL_FACTS` table is gone — `DEFAULT_MAIN_MODEL`/`DEFAULT_VLM_MODEL` now read `MODEL_FACTS["qwen2.5:3b"].hf` / `MODEL_FACTS["qwen2.5vl:7b"].hf`, and `serveCtxFor` calls `factsForHf(modelKey) ?? GENERIC_MODEL_FACTS`. All 22 existing `startLlamaCpp.test.js` tests pass unmodified — the resolved hf strings and sizing facts are byte-identical to what the old local table produced. |
+| 2 | Download path | **GO** | Added `LLAMA_CACHE` to the config registry (default `./var/models`, tier 1, `llamacpp` section) so the wizard's presence check and the long-lived server agree on one location; `ensureLlamaCpp()` now defaults `process.env.LLAMA_CACHE` and `mkdir`s it before spawning (previously unset, relying on llama-server's own `~/.cache/llama.cpp` default). For the wizard's progress-bar need: llama-server has no standalone "just download" command, so `bootstrap.js` spawns a **throwaway `llama-server -hf <repo> --port <scratch>`** bound to a scratch port (`LLAMACPP_PORT + 1000`) purely to trigger and wait out the download + first load, piping its stdout/stderr into the same `logger()` the wizard SSE stream already reads (mirrors `ollama pull`'s progress-via-log-lines, not a byte-percentage bar — matches the plan's "if setup needs progress bars" framing as an acceptable middle ground, since llama-server exposes no download-progress API). The scratch server is killed (`SIGTERM`) once `/health` goes green. Presence is checked two ways per the plan's parenthetical: first a live `GET {LLAMACPP_BASE_URL}/v1/models` (covers a setup retried after a prior partial run), then a fallback check of the on-disk HF hub cache layout confirmed in the Phase 0 spike (`models--<org>--<repo>/snapshots`). |
+| 3 | `bootstrap.js` `checkModel` equivalent | **GO** | `runBootstrap()`'s old `skipOllama` boolean is now an `engine: 'ollama' \| 'llamacpp' \| null` param (`null` = cloud, no local step) — there are two local engines now, not one, so a single boolean stopped being expressive enough. Added `checkLlamaCppModel(model, { pullIfMissing })` mirroring `checkModel`'s shape exactly (same step transitions: running → skipped-if-present / error-if-missing-and-not-pulling / running-with-progress → done-or-error). The STEPS array's `'ollama'` step id is renamed to `'engine'` (label "AI Engine") and every `setStep('ollama'\|'llamacpp', …)` call site (both vendoring blocks, `checkOllama`, `checkLlamaCpp`) now targets the shared `'engine'` id — Ollama and llama.cpp are two implementations of the same wizard step, not two different cards, which is also what makes the locale copy sweep (item 4) simple: one neutral label, real per-action detail text underneath. |
+| 4 | Setup UI + Settings panel + locale copy sweep | **GO** | `setup.html`: STEPS id/labelKey renamed to match bootstrap.js's `'engine'`/`setup_step_engine`; the local-screen logic now reads a new `lite` boolean from `/api/setup/specs` (added to `specs.js`'s `getSpecs()`, alongside a new `recommendedModelHf` field — `LLAMACPP_MODEL` wants the hf repo string, not the Ollama-tag key `recommendedModel` already was) to decide which engine the "Run locally" screen actually submits: `lite → "ollama"` (unchanged — the hard constraint that lite keeps Ollama until its own Phase 6 follow-up), otherwise `"llamacpp"` (the new default). The installed-models dropdown (`ollama list`-sourced) is now gated to the ollama engine only — previously it displayed regardless of what would be submitted, which would have been a real bug once llamacpp became reachable from the same screen (a stray locally-installed Ollama model could have ended up POSTed as `LLAMACPP_MODEL`). `envFile.js`: `VALID_PROVIDERS` gained `"llamacpp"`, the model-required check generalized from `provider === "ollama"` to `!isCloud`, and the model-var branch now picks `OLLAMA_MODEL` vs `LLAMACPP_MODEL` via a small lookup table instead of hardcoding `OLLAMA_MODEL`. `server.js`'s `/api/setup/config` handler and both `runBootstrap()` call sites generalized the same way. Locale copy sweep: found only **one** actual "Ollama" string across all 26 `public/locales/*.json` files (`setup_step_ollama`, literally `"Ollama"` in every locale — never real per-language translation, just a repeated placeholder) plus its **duplicate baked-in copy inside `public/scripts/i18n.js`'s canonical English table** (a fallback baseline the locale-consistency check — `npm run i18n:check` — validates every locale against, not `en.json` itself, which the grep-based initial survey missed). Renamed the key to `setup_step_engine` = "AI Engine" everywhere (both same length in JS identifier form, so column alignment in the hand-formatted locale files needed no other changes) and replaced the previously-untranslated raw-English literal `"Choose an installed Ollama model."` in `setup.html`'s `loadSpecs()` with a new i18n key `wiz_choose_installed` = "Choose an installed model." (added to all 26 locales + `i18n.js`'s canonical table, same "not really translated, just present everywhere" convention the existing `setup_step_*` keys already used). `npm run i18n:check` now passes clean (287/287 keys × 26 locales; the four pre-existing "stale docs i18n" warnings are unrelated and present before this phase too, confirmed via `git stash`). `settings-panel.js`'s `PROVIDER_LABELS` was missing a `llamacpp` entry entirely (a real gap from Phase 2 — `/api/models` already lists a `providers.llamacpp` group, but the Settings model-picker would have shown the raw string `"llamacpp"` as a group header instead of a friendly label) — added `llamacpp: "llama.cpp (local)"`. |
+| 5 | Disk-space check | **GO — no change needed** | `specs.js`'s `enoughDisk` calculation already reads `sizeGB` off whatever `MODEL_FACTS` entry `getRecommendedModel()` resolves to; since sizing facts didn't change (only sourcing hf/architecture metadata added), this kept working with zero code changes — confirmed by rerunning `getSpecs()` directly (`ramGB: 32, diskGB: 390, recommendedModel: "gemma4:12b", recommendedModelHf: "ggml-org/gemma-4-12B-it-GGUF:Q4_K_M", modelSizeGB: 8, enoughDisk: true`). |
+
+**What was actually run this session:** full `npm test` (2906/2906 green, up
+from 2880 at the end of Phase 2 — 26 new tests: `MODEL_FACTS` hf-shape +
+`factsForHf` in `providers.test.js`, `llamacpp` provider support in
+`envFile.test.js`, all 22 pre-existing `startLlamaCpp.test.js` tests
+unmodified and still green after the facts-table refactor), `npm run gen:env`
++ `gen:env:check` (clean, 109 vars), `npm run i18n:check` (clean, 287/287 ×
+26 locales), `node --check` on `bootstrap.js`/`server.js`, a live import of
+the refactored `bootstrap.js` (confirms `STEPS` shape), and `getSpecs()`
+called directly both with and without `APERIO_LITE=on` (confirms the new
+`lite`/`recommendedModelHf` fields resolve correctly in both modes).
+
+**What was not run:** an actual browser click-through of the wizard's local
+screen against a live server, and a real `primeLlamaCppModel()` download —
+both would require either overwriting this dev machine's real `.env` /
+`var/bootstrap.lock` (this machine is already bootstrapped and in daily use)
+or a disposable clone plus a multi-GB download, neither of which fit this
+session. `llama-server` and `ollama` are both actually installed on this
+machine (confirmed via `which`), so `checkLlamaCpp()`/`checkOllama()`'s
+already-installed fast paths would have been exercised, not the download
+paths this phase actually added — running them for real would have
+proven less than the code review + unit tests already did, at real risk
+(spawning a real background `ollama serve`, per the standing "never run
+server/MCP processes for diagnosis" lesson from an earlier session).
+
+**Docs (README/FEATURES/SECURITY):** no changes. Per the plan, the
+README/FEATURES.md Ollama-copy sweep is explicitly Phase 6 territory (the
+"Sweep remaining mentions" item); Phase 3's copy-sweep scope was setup.html +
+Settings panel + locale files only, per its own checklist wording.
+
+**Flagged for follow-up:**
+- **No live-download verification of `primeLlamaCppModel()`.** The scratch-port
+  priming approach (spawn `llama-server -hf <repo> --port <scratch>`, poll
+  `/health`, kill on ready) is a reasonable design given llama-server has no
+  dedicated download subcommand, but it's untested against a real multi-GB
+  download in this session — only the presence-check half (`isModelCached`,
+  reading `/v1/models` and the HF cache dir layout) was exercised conceptually
+  against the Phase 0 spike's confirmed cache format, not run live. Worth a
+  manual pass before this ships: run the actual setup wizard against a real
+  `AI_PROVIDER=llamacpp` first-run and confirm the "AI Model" step's progress
+  detail lines are legible (llama-server's own stdout format wasn't captured
+  and reviewed for line-noise/ANSI codes the way `ollama pull`'s output was
+  when `cleanCommandOutput`/`commandFailureDetail` were originally written).
+- **`primeLlamaCppModel`'s scratch port (`LLAMACPP_PORT + 1000`) could
+  collide** with something else already listening on that port on an unusual
+  setup (e.g. `LLAMACPP_PORT=8080` → scratch `9080`, a common alt-HTTP port).
+  Low probability, but unlike the main server's port (user-configured,
+  documented) this one is invisible/undocumented. A future pass could pick an
+  OS-assigned ephemeral port instead of a fixed offset.
+- **Settings panel's `PROVIDER_LABELS` gap (fixed here) suggests a pattern**:
+  anywhere the codebase does `providerName === "ollama"` as a stand-in for
+  "the local provider" (rather than `isLocalProvider()`) is a candidate for
+  the same class of miss when llamacpp was added in Phase 2. This one was
+  caught by reading the file directly rather than a targeted grep — worth a
+  dedicated `grep -rn '"ollama"' --include=*.js` sweep in Phase 6 rather than
+  assuming Phase 2's sweep caught every call site.

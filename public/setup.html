@@ -573,7 +573,7 @@ if (location.protocol === "file:") {
 const STEPS = [
   { id: "node",    labelKey: "setup_step_node",    icon: "bi-filetype-js" },
   { id: "deps",    labelKey: "setup_step_deps",    icon: "bi-box-seam"    },
-  { id: "ollama",  labelKey: "setup_step_ollama",  icon: "bi-cpu"         },
+  { id: "engine",  labelKey: "setup_step_engine",  icon: "bi-cpu"         },
   { id: "model",   labelKey: "setup_step_model",   icon: "bi-stars"       },
   { id: "sqlite",  labelKey: "setup_step_sqlite",  icon: "bi-database"    },
 ];
@@ -837,8 +837,15 @@ document.getElementById("wizCloudGo").addEventListener("click", () => {
 });
 
 // ── Local screen ───────────────────────────────────────────────────────────
+// Two local engines exist: llama.cpp (the default local engine) and Ollama
+// (kept for the lite profile until its own vendored-llama.cpp follow-up —
+// llamacpp.md Phase 6). /api/setup/specs reports which one applies (`lite`)
+// so this screen never needs to ask the user to choose an engine themselves.
+const FALLBACK_MODEL = { ollama: "qwen2.5:3b", llamacpp: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" };
 let recommendedModel = null;
+let recommendedModelHf = null;
 let shouldPullLocalModel = false;
+let localEngine = "llamacpp";
 async function loadSpecs() {
   const box = document.getElementById("wizSpecs");
   const go  = document.getElementById("wizLocalGo");
@@ -849,14 +856,19 @@ async function loadSpecs() {
   go.disabled = true;
   try {
     const s = await fetch("/api/setup/specs").then(r => r.json());
+    localEngine = s.lite ? "ollama" : "llamacpp";
     recommendedModel = s.recommendedModel;
-    const installedModels = Array.isArray(s.ollamaModels) ? s.ollamaModels : [];
+    recommendedModelHf = s.recommendedModelHf;
+    // The installed-models dropdown only makes sense for Ollama (`ollama list`)
+    // — llama.cpp has no equivalent listing here, so it always uses the
+    // recommendation below.
+    const installedModels = localEngine === "ollama" && Array.isArray(s.ollamaModels) ? s.ollamaModels : [];
     shouldPullLocalModel = installedModels.length === 0;
     const disk = s.diskGB == null ? _t("wiz_specs_unknown") : `${s.diskGB} GB`;
     const size = s.modelSizeGB ? ` ${_t("wiz_download", { n: s.modelSizeGB })}` : "";
     let html = `<b>${s.ramGB} GB</b> ${_t("wiz_ram")} &middot; <b>${disk}</b> ${_t("wiz_disk")}<br>`
              + (installedModels.length
-               ? `Choose an installed Ollama model.`
+               ? _t("wiz_choose_installed")
                : `${_t("wiz_recommended")} <b>${s.recommendedModel}</b>${size}`);
     if (!s.enoughDisk) html += `<br><span class="wiz-warn">${_t("wiz_disk_warn")}</span>`;
     box.innerHTML = html;
@@ -874,7 +886,9 @@ async function loadSpecs() {
     // Couldn't reach the specs endpoint (e.g. opened as a file, or the request
     // failed). Don't dead-end the user — fall back to the safe small model that
     // runs almost anywhere, name it so they know what's coming, and let them go.
-    recommendedModel = "qwen2.5:3b";
+    localEngine = "llamacpp";
+    recommendedModel = FALLBACK_MODEL.ollama;
+    recommendedModelHf = FALLBACK_MODEL.llamacpp;
     shouldPullLocalModel = true;
     box.textContent = _t("wiz_specs_failed", { model: recommendedModel });
     go.disabled = false;
@@ -882,9 +896,10 @@ async function loadSpecs() {
 }
 document.getElementById("wizLocalGo").addEventListener("click", () => {
   const selected = document.getElementById("wizModelSelect").value;
+  const fallback = localEngine === "ollama" ? (recommendedModel || FALLBACK_MODEL.ollama) : (recommendedModelHf || FALLBACK_MODEL.llamacpp);
   submitConfig({
-    provider: "ollama",
-    model: selected || recommendedModel || "qwen2.5:3b",
+    provider: localEngine,
+    model: selected || fallback,
     pullModel: shouldPullLocalModel,
   });
 });

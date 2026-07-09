@@ -294,15 +294,17 @@ app.post("/api/setup/config", setupLimiter, async (req, res) => {
   }
   try {
     const { provider, apiKey, model, pullModel } = req.body ?? {};
+    const providerLc = String(provider).toLowerCase();
+    const engine = (providerLc === "ollama" || providerLc === "llamacpp") ? providerLc : null;
     const { writeEnvFromWizard } = await import("./lib/helpers/envFile.js");
     writeEnvFromWizard({ provider, apiKey, model, port: PORT });
 
     // Reload the freshly-written .env so bootApp + providers see the new values
     // without a server restart.
     dotenv.config({ path: resolve(__dirname, ".env"), override: true });
-    if (String(provider).toLowerCase() === "ollama" && model?.trim()) {
-      process.env.AI_PROVIDER = "ollama";
-      process.env.OLLAMA_MODEL = model.trim();
+    if (engine && model?.trim()) {
+      process.env.AI_PROVIDER = engine;
+      process.env[engine === "ollama" ? "OLLAMA_MODEL" : "LLAMACPP_MODEL"] = model.trim();
     }
 
     bootstrapStarted = true;
@@ -312,9 +314,9 @@ app.post("/api/setup/config", setupLimiter, async (req, res) => {
     });
     bootstrapEvents.once("error", () => { bootstrapStarted = false; });
     runBootstrap({
-      model: model || process.env.OLLAMA_MODEL || "qwen2.5:3b",
-      skipOllama: String(provider).toLowerCase() !== "ollama",
-      pullModel: String(provider).toLowerCase() === "ollama" && pullModel === true,
+      model: model || process.env.OLLAMA_MODEL || process.env.LLAMACPP_MODEL,
+      engine,
+      pullModel: !!engine && pullModel === true,
     });
 
     res.json({ ok: true });
@@ -396,9 +398,11 @@ httpServer.listen(PORT, HOST, async () => {
     bootstrapStarted = true;
     bootstrapEvents.once("complete", () => { void bootAppOnce().catch(() => {}); });
     bootstrapEvents.once("error", () => { bootstrapStarted = false; });
+    const envProvider = (process.env.AI_PROVIDER ?? "").toLowerCase();
+    const envEngine = (envProvider === "ollama" || envProvider === "llamacpp") ? envProvider : null;
     runBootstrap({
-      model: process.env.OLLAMA_MODEL ?? "qwen2.5:3b",
-      skipOllama: (process.env.AI_PROVIDER ?? "").toLowerCase() !== "ollama",
+      model: envEngine === "llamacpp" ? process.env.LLAMACPP_MODEL : process.env.OLLAMA_MODEL,
+      engine: envEngine,
     });
     openBrowser(`${scheme}://localhost:${PORT}/setup`);
   } else {
