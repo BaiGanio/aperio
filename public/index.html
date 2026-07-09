@@ -165,9 +165,9 @@
         <span class="sidebar-nav-label">Agents</span>
       </button>
       <button id="skillsBtn" class="sidebar-nav-btn lite-hide" onclick="toggleSkillsPanel()"
-        title="Skills — view, edit, create and toggle your agent's skills">
+        data-i18n-attr-title="skills_panel_nav_title" title="Skills — view, edit, create and toggle your agent's skills">
         <i class="bi bi-lightning-charge sidebar-nav-icon"></i>
-        <span class="sidebar-nav-label">Skills</span>
+        <span class="sidebar-nav-label" data-i18n="skills_panel_label">Skills</span>
       </button>
       <button id="configBtn" class="sidebar-nav-btn" onclick="toggleConfigPanel()"
         title="Configuration — all .env-backed settings, edited in the UI">
@@ -552,12 +552,12 @@
 <!-- Skills panel (reuses the cg-* panel styles; sk-* for rows + editor) -->
 <div id="skills-panel" class="cg-panel" style="display:none;">
   <div class="cg-panel-header">
-    <span class="cg-panel-title"><i class="bi bi-lightning-charge"></i> Skills</span>
+    <span class="cg-panel-title"><i class="bi bi-lightning-charge"></i> <span data-i18n="skills_panel_label">Skills</span></span>
     <button class="cg-panel-close" onclick="toggleSkillsPanel()"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="cg-panel-toolbar">
-    <input type="text" id="skSearchInput" class="cg-search-input" placeholder="Search skills…" />
-    <button id="skNewBtn" class="sk-new-btn"><i class="bi bi-plus-lg"></i> New skill</button>
+    <input type="text" id="skSearchInput" class="cg-search-input" data-i18n-attr-placeholder="skills_panel_search_ph" placeholder="Search skills…" />
+    <button id="skNewBtn" class="sk-new-btn"><i class="bi bi-plus-lg"></i> <span data-i18n="skills_panel_new_btn">New skill</span></button>
   </div>
   <div class="cg-panel-body" id="sk-panel-body"></div>
 </div>
