@@ -248,9 +248,9 @@ report](llamacpp-reports.md#phase-3-report-2026-07-09).
 
 Everything #222 wanted, now with real levers.
 
-- [ ] `APERIO_LOCAL_PERF_PROFILE` = `balanced` (default) | `fast-low-vram` |
+- [x] `APERIO_LOCAL_PERF_PROFILE` = `balanced` (default) | `fast-low-vram` |
       `long-context` | `quality`. Profile resolver in `lib/providers/`.
-- [ ] Profile → preset flags in `buildModelsPreset`:
+- [x] Profile → preset flags in `buildModelsPreset`:
       - `fast-low-vram`: lower ctx ceiling, `-ctk q8_0 -ctv q8_0`,
         `--flash-attn`, MoE-preferred model pick, `--n-cpu-moe` on MoE models
         (the video's 3→17 tok/s trick), `--models-max 1`.
@@ -258,12 +258,20 @@ Everything #222 wanted, now with real levers.
         warning in UI copy.
       - `quality`: bigger model pick where RAM allows; accept slower tok/s.
       - `balanced`: current sizing behavior.
-- [ ] `getRecommendedModel(profile, hardware)`: MoE-aware, uses the new
+- [x] `getRecommendedModel(profile, hardware)`: MoE-aware, uses the new
       metadata; keep the RAM thresholds as the base heuristic.
-- [ ] Hardware detection: total RAM (have), VRAM best-effort (macOS unified =
+- [x] Hardware detection: total RAM (have), VRAM best-effort (macOS unified =
       RAM; `nvidia-smi` where present; else unknown → conservative).
-- [ ] Tests: per-profile `buildModelsPreset` + model-pick cases (low/mid/high
-      RAM × profile).
+- [x] Tests: per-profile `buildModelsPreset` + model-pick cases (low/mid/high
+      RAM × profile)
+
+**Verify / Deliverable:** **GO on all 5 items**, 27 new tests (2933/2933 full
+suite green, up from 2906 at the end of Phase 3), `gen:env`/`gen:env:check`
+clean. No live end-to-end run this phase (there's no new server-lifecycle
+surface to exercise — every deliverable is a pure function tested directly;
+see the report's caveat on the untested `--n-cpu-moe`/`-ctk`/`-ctv` preset-ini
+key names). Full findings: [`llamacpp-reports.md` § Phase 4
+report](llamacpp-reports.md#phase-4-report-2026-07-09)..
 
 ## Phase 5 — Benchmark + runtime diagnostics
 

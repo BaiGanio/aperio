@@ -237,5 +237,6 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Quiet test reporter gated on `APERIO_AGENT_RUN` (summary-only output for agent runs)
 - Graceful shutdown with ONNX cleanup
 - RAM-based model recommendation (setup wizard + terminal model picker)
+- Local-engine hardware/perf profiles (`APERIO_LOCAL_PERF_PROFILE`: balanced/fast-low-vram/long-context/quality) — MoE-aware model pick, KV-cache quantization + flash attention + single-resident-model on tight VRAM, raised context ceiling for long-context, biggest-model-RAM-allows for quality; best-effort VRAM detection (macOS unified memory, `nvidia-smi`, else unknown)
 - Docker production config (`docker/docker-compose.prod.yml`)
 - Test suite: 2798 unit tests (`npm test`) and 40 e2e tests (`npm run test:e2e`)

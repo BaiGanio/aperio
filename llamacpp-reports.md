@@ -273,3 +273,100 @@ Settings panel + locale files only, per its own checklist wording.
   caught by reading the file directly rather than a targeted grep — worth a
   dedicated `grep -rn '"ollama"' --include=*.js` sweep in Phase 6 rather than
   assuming Phase 2's sweep caught every call site.
+
+---
+
+## Phase 4 report (2026-07-09)
+
+**Overall: GO on all 5 items.** 2933/2933 tests green (up from 2906 at the
+end of Phase 3 — 27 new tests), `npm run gen:env`/`gen:env:check` clean. This
+phase is pure functions + config end to end (as scoped by the plan's own
+per-phase model table — "Phase 4 — Sonnet 5 — pure functions + tests, fully
+specced below"), so there's no new server-lifecycle surface to run live; see
+the flagged caveat below on the one real assumption this phase couldn't
+verify against a live binary.
+
+| # | Item | Verdict | Notes |
+|---|---|---|---|
+| 1 | `APERIO_LOCAL_PERF_PROFILE` resolver | **GO** | `resolvePerfProfile(env)` added to `lib/providers/index.js`, exported alongside a `PERF_PROFILES` constant (`["balanced", "fast-low-vram", "long-context", "quality"]`). Validates against the known set, case-insensitively and trimmed; an unrecognized value (typo, stale config) falls back to `"balanced"` with a `logger.warn`, rather than silently mis-selecting a preset — same "fail loud, degrade safe" posture `ollamaCtxStatus`'s clamp-and-warn already uses. Registered in `lib/config.js` as a `type: "select"` entry (`tier: 1`, `show: commented`, default `"balanced"`) in the existing `llamacpp` section; the registry's `help` string carries the long-context throughput tradeoff (config-panel.js renders `.help` generically for every field, `select` included — confirmed by reading the renderer, no separate per-option UI copy exists anywhere else in the codebase to also update). `npm run gen:env` / `gen:env:check` both clean (110 vars). |
+| 2 | Profile → preset flags in `buildModelsPreset` | **GO, with one unverified assumption flagged below** | `PROFILE_CTX_OPTS` maps each profile to `recommendContextLength` overrides layered on top of its existing defaults (ceiling 131072, fitFraction 0.82): `fast-low-vram` → `{ ceiling: 16384 }`; `long-context` → `{ ceiling: 262144, fitFraction: 0.90 }`; `balanced`/`quality` → `{}` (ctx sizing unchanged — quality's payoff is model choice, not window size). `fast-low-vram` additionally emits `models-max = 1` and `flash-attn = true` in the preset's global `[*]` section (once per server, not per model), and `cache-type-k = q8_0` / `cache-type-v = q8_0` on every model section; a model section additionally gets `n-cpu-moe = 999` when `factsForHf(name)?.architecture === "moe"` — `999` is a deliberate "more than any real model has" sentinel on the assumption (carried over from the plan's own framing of `--n-cpu-moe` as an offload-count flag) that llama.cpp clamps the value to the model's actual MoE layer count, so it reads as "offload every expert to CPU" without needing to introspect the GGUF here. **This flag set was authored from the plan's own description and `--n-cpu-moe`/`-ctk`/`-ctv`'s documented CLI semantics, not re-verified against a live `--models-preset` ini file in this session** — Phase 0's spike tested router mode, streaming, vision, and thinking-suppression live, but not these four specific preset keys in combination. Flagged explicitly below. |
+| 3 | `getRecommendedModel(profile, hardware)` | **GO** | Signature changed from zero-arg to `getRecommendedModel(profile = resolvePerfProfile(), hardware = {})` — both new params are optional with defaults that reproduce the exact prior call shape (`getRecommendedModel()` still works everywhere it's called: `specs.js`, `terminal.js`, `recommendServeContextLength`), so **every existing call site needed zero changes**. `balanced`/`long-context` keep the original 48/24/8 GB thresholds bit-for-bit (confirmed by the existing `tests/lib/agent.test.js` RAM-based-model-selection suite passing unmodified). `fast-low-vram` is MoE-aware: it prefers `qwen3:30b-a3b` (the one `architecture: "moe"` entry in `MODEL_FACTS`) starting at 20GB — well below balanced's 48GB rung — on the reasoning that `--n-cpu-moe`'s CPU-offload trick makes the *active* parameter count (3B) the thing that matters for feasibility/speed, not the full weight size (18GB/30B), so it's worth reaching for much earlier than balanced would. `quality` reaches one rung further down at every tier (32/16/6 GB) for "biggest model RAM allows, accept slower tok/s". A RAM read of 0 falls through to `qwen2.5:3b` on every profile. |
+| 4 | Hardware detection | **GO** | New `lib/helpers/hardware.js`: `detectHardware({ platform, totalRamGB, _execFileSync })` → `{ totalRamGB, vramGB, vramSource }`. macOS (`darwin`) → `vramGB = totalRamGB`, `vramSource: "unified"` (Metal's unified memory architecture). Otherwise, best-effort `nvidia-smi --query-gpu=memory.total --format=csv,noheader,nounits` via `execFileSync` (no shell, fixed argv, 3s timeout, stdio piped only for stdout) — mirrors `capabilities.js`'s existing `onPath()`/`canImport()` pattern for safe subprocess probing. Any failure (not installed, no NVIDIA GPU, non-numeric output, timeout) → `{ vramGB: null, vramSource: "unknown" }`, the deliberately conservative fallback the plan asked for. **Not yet wired into any sizing decision** — per the plan's own wording ("keep the RAM thresholds as the base heuristic"), `getRecommendedModel`/`recommendContextLength` stay RAM-only; VRAM is surfaced for visibility, not yet a sizing input. Wired into `lib/helpers/specs.js`'s `getSpecs()` (now also calls `resolvePerfProfile()`/`detectHardware()` so the recommended model reflects the active profile) — new `perfProfile`, `vramGB`, `vramSource` fields in the wizard specs response, additive only, no existing field changed. |
+| 5 | Tests | **GO** | `tests/lib/helpers/hardware.test.js` (7 tests, new file): unified-on-darwin, nvidia-smi parsing (including multi-GPU output and garbage-output rejection), not-installed fallback, windows-without-nvidia-smi. `tests/lib/providers.test.js`: `resolvePerfProfile` (3 tests: default, every profile accepted case-insensitively/trimmed, unrecognized-value fallback) + `getRecommendedModel` profile-aware picking (6 tests: balanced ladder unchanged, long-context matches balanced's ladder, fast-low-vram's MoE preference, quality's one-rung-further ladder, RAM-read-of-0 on every profile, zero-arg defaulting). `tests/lib/helpers/startLlamaCpp.test.js`: 11 new tests under a `buildModelsPreset — perf profiles` block covering every profile's flag emission (models-max/flash-attn/cache-type/n-cpu-moe presence *and* absence on the wrong profile), the MoE-preferred/bigger-model default-pick divergence for fast-low-vram/quality (with explicit `LLAMACPP_MODEL` still winning over both), ceiling divergence in both directions (fast-low-vram lower, long-context higher — the latter using a curated model with a 262144 max context, since a generic/unrecognized model's own `maxContext` of 131072 would otherwise cap both profiles identically regardless of ceiling), and unrecognized-profile-value parity with balanced. |
+
+**A design decision worth stating explicitly:** `buildModelsPreset`'s
+fallback model (used only when `LLAMACPP_MODEL` isn't set in `.env`) stays
+the fixed small curated default (`qwen2.5:3b`'s hf id) for **both** `balanced`
+*and* `long-context` — this reproduces the exact pre-Phase-4 behavior, which
+was never RAM-tiered at the `buildModelsPreset` level to begin with (RAM
+tiering normally happens once, at wizard time, via `getRecommendedModel()`
+writing `LLAMACPP_MODEL` into `.env`). Only `fast-low-vram` and `quality` — the
+two profiles the plan explicitly describes in terms of *model choice*
+("MoE-preferred model pick" / "bigger model pick where RAM allows") — make
+`buildModelsPreset`'s own fallback profile-aware, via the same
+`getRecommendedModel(profile, hardware)` ladder. This was a deliberate
+reading of the plan's per-profile bullets rather than an oversight: making
+`balanced`'s fallback RAM-aware too would have silently changed
+`buildModelsPreset({}, {})`'s output on any real dev machine with >8GB RAM
+(most of them), breaking a chunk of the Phase 1–3 test suite's assumptions
+that the curated default is a fixed string. The plan's own "`balanced`:
+current sizing behavior" bullet reads as license to leave this exact gap
+alone rather than "fix" it as a drive-by.
+
+**What was actually run this session:** full `npm test` (2933/2933 green),
+`npm run gen:env` + `gen:env:check` (clean), `node --check` on every touched
+source file. No live run against a real `llama-server` binary — nothing in
+this phase changes the spawn/health-probe/lifecycle code path Phase 1 already
+verified live; the only genuinely new runtime surface (the four preset-ini
+keys below) is flagged, not silently assumed safe.
+
+**Docs (README/FEATURES/SECURITY):** Added one `FEATURES.md` bullet under
+`## Ops` (next to the existing "RAM-based model recommendation" line)
+describing the new perf-profile capability. No other README/FEATURES changes:
+README's Prerequisites/Step-1 sections and FEATURES.md's "Vendored Ollama"
+bullet still describe Ollama as the primary local engine, which is Phase 6
+sweep territory per the plan and every prior phase report's own docs
+decision — this phase doesn't change what the wizard/default provider is, so
+touching that prose now would mean redoing it at Phase 6 anyway. SECURITY.md:
+no change. `hardware.js`'s `nvidia-smi` probe uses the identical safe-subprocess
+pattern `lib/helpers/capabilities.js`'s `onPath()` already uses (`execFileSync`,
+no shell, fixed argv, timeout, ignored stdio) — that existing pattern was never
+called out in SECURITY.md either, so this isn't a new undocumented risk class,
+just one more instance of an already-unaddressed (and low-risk: read-only,
+fixed-argument, no user input) one.
+
+**Flagged for follow-up:**
+- **The four `fast-low-vram` preset-ini keys (`models-max`, `flash-attn`,
+  `cache-type-k`/`cache-type-v`, `n-cpu-moe`) were authored from llama.cpp's
+  documented CLI flag semantics, not verified against a live
+  `--models-preset` ini file.** Phase 0's spike confirmed `hf-repo`/`ctx-size`/
+  `mmproj`/`jinja` as real, working preset-ini keys against a live server;
+  it did not test these four. The mapping from CLI flag (`--flash-attn`,
+  `--n-cpu-moe N`) to ini key name (assumed: strip the leading dashes,
+  keep hyphens) matches the pattern the working keys already follow, and
+  `--n-cpu-moe 999`-as-"offload everything" is a documented community usage
+  pattern, but none of this is a substitute for actually starting a
+  `fast-low-vram` preset against a real MoE GGUF and confirming (a) the
+  server accepts every key without an "unknown key" error and (b) `nvidia-smi`/
+  Activity Monitor actually shows the offload happening. Recommended before
+  this profile ships to real users: one manual run with
+  `APERIO_LOCAL_PERF_PROFILE=fast-low-vram` and a MoE model, confirming
+  server startup succeeds and tok/s actually improves over `balanced` on the
+  same hardware.
+- **`hardware.js`'s VRAM read isn't wired into any sizing decision yet** —
+  by design, per the plan's "keep the RAM thresholds as the base heuristic,"
+  but it means a machine with abundant RAM and negligible VRAM (a common
+  budget-GPU desktop shape) still gets sized purely on RAM today. A future
+  pass could use `vramGB` to auto-suggest `fast-low-vram` in the wizard/UI
+  when `vramSource !== "unified"` and `vramGB` is small relative to the
+  recommended model's size — a UI nudge, not a silent sizing change.
+- **`recommendedModelHf` in `specs.js`'s `getSpecs()` now reflects the active
+  profile** (via `getRecommendedModel(profile, hardware)` instead of the old
+  zero-arg call) — this is a real, intentional behavior change for anyone who
+  already set `APERIO_LOCAL_PERF_PROFILE` before re-running the wizard: the
+  wizard's suggested model will now differ from what a previous zero-arg call
+  would have shown. Correct and desired, but worth a mention here since it's
+  a behavior change riding along in a file no test previously covered
+  (no `specs.test.js` exists — this phase didn't add one, since `getSpecs()`'s
+  only new logic is delegating to already-tested `resolvePerfProfile`/
+  `detectHardware`/`getRecommendedModel`, not new logic of its own).

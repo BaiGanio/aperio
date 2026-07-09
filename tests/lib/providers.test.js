@@ -14,6 +14,9 @@ import {
   factsForHf,
   isLocalProvider,
   isCloudProvider,
+  resolvePerfProfile,
+  getRecommendedModel,
+  PERF_PROFILES,
 } from "../../lib/providers/index.js";
 
 mock.method(os, "totalmem", () => 32 * 1024 ** 3);
@@ -325,5 +328,72 @@ describe("factsForHf", () => {
 
   test("returns null for an hf id not in MODEL_FACTS (custom user model)", () => {
     assert.equal(factsForHf("someone/custom-GGUF"), null);
+  });
+});
+
+// ── resolvePerfProfile / getRecommendedModel — profiles (llamacpp.md Phase 4) ──
+describe("resolvePerfProfile", () => {
+  test("defaults to balanced when unset", () => {
+    assert.equal(resolvePerfProfile({}), "balanced");
+  });
+
+  test("accepts every declared profile, case-insensitively and trimmed", () => {
+    for (const p of PERF_PROFILES) {
+      assert.equal(resolvePerfProfile({ APERIO_LOCAL_PERF_PROFILE: p.toUpperCase() }), p);
+      assert.equal(resolvePerfProfile({ APERIO_LOCAL_PERF_PROFILE: ` ${p} ` }), p);
+    }
+  });
+
+  test("falls back to balanced for an unrecognized value", () => {
+    assert.equal(resolvePerfProfile({ APERIO_LOCAL_PERF_PROFILE: "ultra-turbo" }), "balanced");
+  });
+});
+
+describe("getRecommendedModel — profile-aware model pick (Phase 4)", () => {
+  test("balanced ladder is unchanged (48/24/8 GB thresholds)", () => {
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 64 }), "qwen3:30b-a3b");
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 48 }), "qwen3:30b-a3b");
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 32 }), "gemma4:12b");
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 24 }), "gemma4:12b");
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 16 }), "gemma4:e4b");
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 8 }), "gemma4:e4b");
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 4 }), "qwen2.5:3b");
+  });
+
+  test("long-context uses the same model ladder as balanced (only ctx sizing differs)", () => {
+    for (const gb of [64, 32, 16, 4]) {
+      assert.equal(
+        getRecommendedModel("long-context", { totalRamGB: gb }),
+        getRecommendedModel("balanced", { totalRamGB: gb }),
+      );
+    }
+  });
+
+  test("fast-low-vram prefers the MoE model well below balanced's 48GB rung", () => {
+    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 24 }), "qwen3:30b-a3b");
+    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 20 }), "qwen3:30b-a3b");
+    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 12 }), "gemma4:e4b");
+    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 8 }), "gemma4:e4b");
+    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 4 }), "qwen2.5:3b");
+  });
+
+  test("quality reaches one rung further down than balanced at every tier", () => {
+    assert.equal(getRecommendedModel("quality", { totalRamGB: 32 }), "qwen3:30b-a3b");
+    assert.equal(getRecommendedModel("quality", { totalRamGB: 16 }), "gemma4:12b");
+    assert.equal(getRecommendedModel("quality", { totalRamGB: 6 }), "gemma4:e4b");
+    assert.equal(getRecommendedModel("quality", { totalRamGB: 4 }), "qwen2.5:3b");
+  });
+
+  test("an unknown RAM tier (0) falls through to the safe small model on every profile", () => {
+    for (const p of PERF_PROFILES) {
+      assert.equal(getRecommendedModel(p, { totalRamGB: 0 }), "qwen2.5:3b");
+    }
+  });
+
+  test("defaults profile to resolvePerfProfile() and hardware to the real host when omitted", (t) => {
+    // t.mock (not the bare module-level `mock`) auto-restores after this test,
+    // so it doesn't leak into other tests relying on the file's 32GB default.
+    t.mock.method(os, "totalmem", () => 64 * 1024 ** 3);
+    assert.equal(getRecommendedModel(), "qwen3:30b-a3b");
   });
 });

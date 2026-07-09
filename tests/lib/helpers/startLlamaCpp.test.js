@@ -117,6 +117,98 @@ describe("buildModelsPreset", () => {
 });
 
 // =============================================================================
+// Perf profiles (llamacpp.md Phase 4) — APERIO_LOCAL_PERF_PROFILE flows
+// through env into buildModelsPreset via resolvePerfProfile.
+describe("buildModelsPreset — perf profiles", () => {
+
+  test("balanced (default, no env var set): identical to pre-Phase-4 output", () => {
+    const ini = buildModelsPreset({}, { totalRamGB: 64 });
+    assert.doesNotMatch(ini, /models-max|flash-attn|cache-type|n-cpu-moe/);
+    assert.match(ini, /\[Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M\]/, "balanced keeps the fixed curated default model");
+  });
+
+  test("fast-low-vram: emits models-max=1 and flash-attn in the global section", () => {
+    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 64 });
+    assert.match(ini, /^\[\*\]\njinja = true\nmodels-max = 1\nflash-attn = true\n/);
+  });
+
+  test("fast-low-vram: emits quantized KV cache flags on every model section", () => {
+    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 64 });
+    const kMatches = ini.match(/cache-type-k = q8_0/g);
+    const vMatches = ini.match(/cache-type-v = q8_0/g);
+    assert.equal(kMatches?.length, 2, "both main + VLM sections should quantize the K cache");
+    assert.equal(vMatches?.length, 2, "both main + VLM sections should quantize the V cache");
+  });
+
+  test("fast-low-vram: prefers the MoE model by default at 24GB RAM (below balanced's 48GB rung) and emits n-cpu-moe on it", () => {
+    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 24 });
+    assert.match(ini, /\[Qwen\/Qwen3-30B-A3B-GGUF:Q4_K_M\]/);
+    assert.match(ini, /n-cpu-moe = 999/);
+    // Only one n-cpu-moe line: the VLM model (dense) must not get it.
+    assert.equal(ini.match(/n-cpu-moe/g)?.length, 1);
+  });
+
+  test("fast-low-vram: an explicit LLAMACPP_MODEL still wins over the MoE-preferred default", () => {
+    const ini = buildModelsPreset(
+      { APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: "my-org/pinned-GGUF" },
+      { totalRamGB: 24 },
+    );
+    assert.match(ini, /\[my-org\/pinned-GGUF\]/);
+    assert.doesNotMatch(ini, /Qwen3-30B-A3B/);
+  });
+
+  test("fast-low-vram: ctx ceiling is lower than balanced's on a huge-RAM machine", () => {
+    const fast = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: "x/y" }, { totalRamGB: 512 });
+    const balanced = buildModelsPreset({ LLAMACPP_MODEL: "x/y" }, { totalRamGB: 512 });
+    const fastCtx = parseInt(fast.match(/ctx-size = (\d+)/)[1], 10);
+    const balancedCtx = parseInt(balanced.match(/ctx-size = (\d+)/)[1], 10);
+    assert.ok(fastCtx <= 16384, `fast-low-vram ctx ${fastCtx} should be capped at 16384`);
+    assert.ok(fastCtx < balancedCtx);
+  });
+
+  test("long-context: raises the ctx ceiling above balanced's on a huge-RAM machine (model with a 262144 max context)", () => {
+    // A generic/unrecognized model's own maxContext (131072, GENERIC_MODEL_FACTS)
+    // would cap both profiles at the same value regardless of ceiling — use a
+    // curated model whose trained max (262144) is actually big enough for the
+    // raised ceiling to matter.
+    const model = "ggml-org/gemma-4-12B-it-GGUF:Q4_K_M";
+    const long = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context", LLAMACPP_MODEL: model }, { totalRamGB: 512 });
+    const balanced = buildModelsPreset({ LLAMACPP_MODEL: model }, { totalRamGB: 512 });
+    const longCtx = parseInt(long.match(/ctx-size = (\d+)/)[1], 10);
+    const balancedCtx = parseInt(balanced.match(/ctx-size = (\d+)/)[1], 10);
+    assert.ok(longCtx > balancedCtx, `expected long-context (${longCtx}) > balanced (${balancedCtx})`);
+    assert.doesNotMatch(long, /models-max|flash-attn|cache-type|n-cpu-moe/, "long-context is a ctx-only profile, no fast-low-vram flags");
+  });
+
+  test("long-context: model pick is unchanged from balanced (only ctx sizing differs)", () => {
+    const long = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context" }, { totalRamGB: 24 });
+    assert.match(long, /\[Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M\]/, "long-context keeps the fixed curated default model, same as balanced");
+  });
+
+  test("quality: picks a bigger default model where the plain fixed default (used unchanged by balanced) would not", () => {
+    // balanced's own buildModelsPreset fallback is a fixed small model
+    // regardless of RAM (RAM-tiering normally happens once, at wizard time,
+    // via getRecommendedModel() writing LLAMACPP_MODEL into .env) — quality is
+    // the profile that reaches into that ladder itself, so it diverges from
+    // the fixed default at a RAM tier where the ladder recommends something bigger.
+    const quality = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality" }, { totalRamGB: 16 });
+    assert.match(quality, /\[ggml-org\/gemma-4-12B-it-GGUF:Q4_K_M\]/);
+    assert.doesNotMatch(quality, /models-max|flash-attn|cache-type|n-cpu-moe/, "quality has no fast-low-vram-style flags");
+  });
+
+  test("quality: an explicit LLAMACPP_MODEL still wins over the bigger-model default", () => {
+    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality", LLAMACPP_MODEL: "my-org/pinned-GGUF" }, { totalRamGB: 16 });
+    assert.match(ini, /\[my-org\/pinned-GGUF\]/);
+  });
+
+  test("an unrecognized profile value falls back to balanced behavior", () => {
+    const bogus    = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "ultra-turbo" }, { totalRamGB: 64 });
+    const balanced = buildModelsPreset({}, { totalRamGB: 64 });
+    assert.equal(bogus, balanced);
+  });
+});
+
+// =============================================================================
 // Sizing parity: buildModelsPreset must size the main model exactly the way
 // recommendContextLength would when given the same facts — it's the same pure
 // function underneath, just fed llama.cpp's local facts table instead of
