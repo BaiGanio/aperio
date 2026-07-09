@@ -24,13 +24,13 @@ name: (cd) K3s Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   workflow_dispatch:
     inputs:
       branch:
         description: "Branch to deploy"
         required: false
-        default: "main"
+        default: "master"
       skip_build:
         description: "Skip image build, just notify Pi"
         type: boolean
