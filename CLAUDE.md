@@ -100,6 +100,139 @@ aperio/
 
 ---
 
+## Data Flow / Request Lifecycle
+
+Every request — whether from the Web UI, terminal client, or an external MCP host — follows the same path:
+
+```
+Browser / Terminal / MCP host
+  │
+  ├─ Web UI ───────────► server.js (Express + WebSocket on :31337)
+  │                        │
+  ├─ Terminal client ───► lib/terminal.js
+  │                        │
+  └─ MCP host ─────────► mcp/index.js (stdio transport, standalone)
+                           │
+                    ┌──────┴──────┐
+                    ▼              ▼
+              lib/handlers/   lib/agent/index.js
+              (WS message      (orchestrator: picks provider,
+               routing)         assembles context, wires tools)
+                    │              │
+                    ▼              ▼
+              lib/streaming/  lib/context/        lib/agent/providers/
+              (SSE + WS)      (system prompt,      (Anthropic loop,
+                               memories, wiki,      Ollama loop,
+                               skills injection)    DeepSeek loop, …)
+                                                     │
+                                                     ▼
+                                               mcp/tools/
+                                               (memory, files, web,
+                                                shell, wiki, codegraph,
+                                                docgraph, github, …)
+                                                     │
+                                                     ▼
+                                               db/ (SQLite or Postgres)
+```
+
+**Key insight**: the agent orchestrator (`lib/agent/index.js`) and the MCP server (`mcp/index.js`) share the same tool implementations and `db/` store. When the agent calls a tool internally, it hits the same code path as an external MCP client — there's only one implementation of each tool.
+
+**Standalone MCP mode** (`npm run mcp`): starts `mcp/index.js` directly via stdio transport. No Express server, no WebSocket, no browser. This is how external agents (Claude Desktop, Codex CLI, etc.) connect.
+
+---
+
+## Troubleshooting
+
+### Agent / server won't start
+
+| Symptom | Check |
+|---------|-------|
+| "Store failed to initialize" | Is the DB file writable? If Postgres: is Docker running? Is the connection string correct in `.env`? |
+| Provider error / auth failure | `AI_PROVIDER` set correctly? API key env var present? Model name matches the provider's catalog? |
+| Port in use | `PORT` env var (default 31337). Check `lsof -i :31337` |
+| Crash loop (PROC-01) | Check `var/logs/` — 5+ fatal errors in 60s triggers crash breaker. Fix the root cause before restarting |
+
+### Tool behavior
+
+| Symptom | Check |
+|---------|-------|
+| Shell tool returns "not allowed" | `APERIO_ENABLE_SHELL` defaults to `off`. Set it to `on` |
+| File reads/writes fail with path errors | `APERIO_ALLOWED_PATHS_TO_READ` / `APERIO_ALLOWED_PATHS_TO_WRITE` gate access. Default: project root only |
+| `recall()` / vector search returns nothing | Embeddings may not be generated yet. Run bootstrap or check `EMBEDDING_PROVIDER` |
+| Code graph returns empty | `APERIO_CODEGRAPH` must be `on` and the repo must be indexed |
+
+### Database
+
+| Symptom | Check |
+|---------|-------|
+| SQLITE_BUSY / concurrent write errors | SQLite is single-writer. Switch to Postgres for multi-agent setups |
+| Migrations fail | Are `db/migrations/` and `db/migrations-sqlite/` in sync? A migration in one but not the other causes drift |
+| DB encryption key lost | Keys are stored in the OS keychain (`db/encrypt.js`). Regenerating means data loss |
+
+### Embeddings
+
+| Symptom | Check |
+|---------|-------|
+| `generateEmbedding` returns null | Embedding provider not initialized. Check `EMBEDDING_PROVIDER` (default: `transformers`). First run downloads the model — this can take a while |
+| High memory usage | Local transformers load the model into RAM. Switch to `voyage` (cloud) for low-memory environments |
+
+---
+
+## Fragile / No-Touch Zones
+
+These modules are load-bearing — changes here have wide blast radius and may not be obvious from the diff.
+
+### `lib/config.js` — Configuration Registry
+- **Why fragile**: This is the single source of truth for every config variable. Adding/modifying a key here requires running `npm run gen:env` (regenerates `.env.example`) AND `npm run gen:env:check` (CI gate). Missing either step breaks CI.
+- **What to verify after changes**: Run `npm run gen:env:check` before pushing.
+
+### `db/migrations/` + `db/migrations-sqlite/` — Database Migrations
+- **Why fragile**: These two directories must stay in lockstep. A migration added to one backend and not the other causes silent schema drift that may only surface at runtime.
+- **Rule**: Every migration must have a mirror in the other directory. If you add `002_foo.sql` to `migrations/`, add an equivalent `002_foo.sql` to `migrations-sqlite/`.
+
+### `lib/context/` — System Prompt & Context Assembly
+- **Why fragile**: Changes here affect the system prompt for ALL providers. A small wording change can alter agent behavior across every model. Token budget issues here cascade to every conversation.
+- **What to verify after changes**: Run conversations through multiple providers (at minimum: Ollama + one cloud provider) and check token usage.
+
+### `lib/routes/paths.js` — Path Validation
+- **Why fragile**: Every file operation in the system gates through this module. A bug here is a security bug — path traversal, read outside allowed directories, write in unexpected locations.
+- **What to verify after changes**: Run path-related tests AND manually test path normalization with `..` segments, symlinks, and absolute paths.
+
+### `mcp/index.js` — MCP Tool Context (`ctx`)
+- **Why fragile**: The `ctx` object shape is shared by every tool registration. Adding a field to `ctx` (in `createContext()`) touches all tool files in `mcp/tools/`. Removing or renaming a field silently breaks tools that depend on it.
+- **What to verify after changes**: Run `npm run test:memory` + the relevant tool tests for any ctx field you touch.
+
+---
+
+## Known Tech Debt
+
+These are intentional deferrals. Do not "fix" them without discussion.
+
+| Item | Status | Blocked on |
+|------|--------|------------|
+| CSP headers disabled | `Helmet` CSP is off pending inline-script refactor in the Web UI (`public/index.html`) | SPA script refactor |
+| `tree-sitter` pinned at `^0.24.7` | Cannot upgrade to 0.25+ (ABI 15) | `tree-sitter-wasms` must ship ABI-15 grammar builds |
+| `coding-examples` skill stub | Merged into `coding-standards`, but the old `SKILL.md` still exists as a "do not load" redirect | Cleanup pass on skills directory |
+
+---
+
+## Module Coupling Map
+
+Not every directory boundary is a clean module boundary. These implicit couplings are load-bearing — changing one side without the other breaks things in non-obvious ways.
+
+| Coupling | Why it matters |
+|----------|----------------|
+| `lib/agent/index.js` ↔ `lib/context/` | The orchestrator assembles context (system prompt, memories, skills). Context assembly defines the prompt shape used by all providers — a change here changes agent behavior everywhere. |
+| `lib/agent/index.js` ↔ `lib/agent/providers/*` | One orchestrator drives six provider loops (Anthropic, Ollama, DeepSeek, Gemini, Claude Code, Codex). Each loop expects the same tool schema format and message structure from the orchestrator. |
+| `mcp/tools/*` all depend on `mcp/index.js` ctx | Every tool registration file receives the same `ctx` object. Adding/removing/renaming a field in `createContext()` silently breaks any tool that uses it. |
+| `lib/routes/paths.js` → all file operations | Every `read_file`, `write_file`, `edit_file`, and shell tool gates through `paths.js`. A path traversal bug here is a security bug everywhere. |
+| `db/migrations/` ↔ `db/migrations-sqlite/` | Must stay in lockstep. A migration in one but not the other causes silent schema drift between backends. |
+| `lib/config.js` → `scripts/gen-env-example.js` | The config registry is the single source of truth; `gen-env-example.js` walks it to regenerate `.env.example`. Adding a config key without running the generator breaks CI. |
+| `lib/agent/index.js` ↔ `lib/workers/skills.js` | Skill matching and injection is called during context assembly. Skill behavior changes propagate to every conversation. |
+| `server.js` → `lib/handlers/` → `lib/agent/index.js` | The Express/WS server routes messages through handlers into the agent orchestrator. The WebSocket message protocol between `public/index.js` and `lib/handlers/` has no formal schema — both sides must agree on message shapes. |
+
+---
+
 ## Key Commands
 
 ```bash
@@ -315,38 +448,42 @@ GitHub Actions workflows in `.github/workflows/`:
 - `cd.gh-pages.yml` — docs site deployment
 - Bot workflows for issue claims, moderation, stale claims
 
+---
 
-# LLM API Pricing Comparison — Low / Mid / Top Tier (July 2026)
-## Use this to offer best suitable model for the task. We do not want to burn user in tokens and cut heads with the bill at the end. Update this from time to time.
+## Contribution Conventions
 
-All prices in USD per 1 million tokens. Input / Output.
+### Branch naming
 
-| Provider | Tier | Model | Input | Output | Context Window |
-|---|---|---|---|---|---|
-| **DeepSeek** | Low | V4 Flash | $0.14 | $0.28 | 1M (384K max output) |
-| **DeepSeek** | Top | V4 Pro | $0.435 | $0.87 | 1M (384K max output) |
-| **Google (Gemini)** | Low | Gemini 2.5 Flash-Lite | $0.10 | $0.40 | up to 1M |
-| **Google (Gemini)** | Low-Mid | Gemini 3.1 Flash-Lite | $0.25 | $1.50 | 1M |
-| **Google (Gemini)** | Mid | Gemini 3 Flash | $0.50 | $3.00 | 1M |
-| **Google (Gemini)** | Mid-Top | Gemini 3.5 Flash | $1.50 | $9.00 | 1M |
-| **Google (Gemini)** | Top | Gemini 3.1 Pro (≤200K) | $2.00 | $12.00 | 2M |
-| **Google (Gemini)** | Top (long ctx) | Gemini 3.1 Pro (>200K) | $4.00 | $18.00 | 2M |
-| **OpenAI** | Low | GPT-5 mini | $0.25 | $2.00 | 400K |
-| **OpenAI** | Low-Mid | GPT-5.4 mini | $0.75 | $4.50 | 400K |
-| **OpenAI** | Mid | GPT-5.4 | $2.50 | $15.00 | 400K |
-| **OpenAI** | Mid (coding) | GPT-5.3-Codex | $1.75 | $14.00 | 400K |
-| **OpenAI** | Top | GPT-5.5 | $5.00 | $30.00 | 1M |
-| **OpenAI** | Top (max) | GPT-5.5 Pro | $30.00 | $180.00 | 1M |
-| **Anthropic (Claude)** | Low | Haiku 4.5 | $1.00 | $5.00 | 200K |
-| **Anthropic (Claude)** | Mid | Sonnet 4.6 | $3.00 | $15.00 | 1M |
-| **Anthropic (Claude)** | Top | Opus 4.8 | $5.00 | $25.00 | 1M |
-| **Anthropic (Claude)** | Top (fast mode) | Opus 4.8 (Fast Mode) | $10.00 | $50.00 | 1M |
+AI agent commits use signed branches to distinguish them from human-authored work:
 
-## Notes
-- **Prompt caching / batch discounts exist across all providers** and can cut effective costs by 50–98% — this table shows *standard* list pricing only.
-- DeepSeek V4 Flash cache-hit input drops to **$0.0028/M** (98% off) — huge if you reuse system prompts.
-- Claude models get a flat 50% batch discount and up to 90% off on cached input.
-- Gemini Pro models double in price above 200K tokens of input (applies to whole request, not just the overage).
-- "Codex" isn't a separate model line — it's OpenAI's coding agent; GPT-5.3-Codex is the dedicated coding-tuned model, but GPT-5.4/GPT-5.4 mini also power it depending on the task.
+```
+feature: <description> signed by <model-name>
+fix: <description> signed by <model-name>
+refactor: <description> signed by <model-name>
+chore: <description> signed by <model-name>
+```
 
-*Sources: official pricing pages (Anthropic, OpenAI, Google, DeepSeek), verified July 2026. Prices change frequently — always confirm on the provider's pricing page before budgeting.*
+Examples: `feature: llamacpp provider loop swap signed by DeepSeek-V4`, `fix: shell timeout hardened signed by Claude-Sonnet-4.6`, `refactor: config precedence cleanup signed by deepseek-v4-pro`.
+
+Human-authored branches follow the same prefix convention without the signature: `feature: …`, `fix: …`, `chore: …`.
+
+### Commit messages
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): description`.
+
+- `feat:` — new feature or capability
+- `fix:` — bug fix
+- `chore:` — maintenance, tooling, CI, deps
+- `docs:` — documentation only
+- `test:` — test changes only
+- `refactor:` — code change that neither fixes a bug nor adds a feature
+
+The scope is optional but encouraged for non-trivial changes (e.g., `feat(llamacpp):`, `fix(ci):`).
+
+### Changelog
+
+`CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Add entries under `## Unreleased` in the appropriate category (`Added`, `Changed`, `Fixed`, `Removed`). The release workflow (`cd.release.yml`) handles version bumping and moving unreleased entries to a dated release section.
+
+### Versioning
+
+Follows [Semantic Versioning](https://semver.org/). Version bumps are automated by `cd.release.yml` on merge to `master`. Do not manually bump `package.json` version — the release workflow reads conventional commit messages to determine the bump level.
