@@ -7,10 +7,10 @@
 // never offered it to the model. A docx→xlsx prompt classified as file-generate
 // got generate_xlsx but no docx reader, leaving the model to fabricate the data.
 
-import { describe, test } from "node:test";
+import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, capToolsForWindow, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, capToolsForWindow, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, isCapableModel, needsRecallScaffold } from "../../../lib/agent/tool-profiles.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
@@ -94,5 +94,62 @@ describe("capToolsForWindow", () => {
     const capped = capToolsForWindow(names, smallWin);
     assert.ok(capped.has("recall"), "recall floor survives");
     assert.ok(capped.has("fetch_github_issue"), "the turn's intent tool survives the cap");
+  });
+});
+
+// needsRecallScaffold: a second, finer gate below isCapableModel (issue #188).
+// isCapableModel decides tools + the neutral memory pointer. needsRecallScaffold
+// decides the behavior-*overriding* crutch (forced auto-recall injection) — a
+// model can be capable without needing the scaffold, so the two must not share
+// a single threshold.
+describe("needsRecallScaffold (issue #188 capability-gate doctrine)", () => {
+  let saved;
+  beforeEach(() => {
+    saved = {
+      APERIO_CAPABLE_MODELS: process.env.APERIO_CAPABLE_MODELS,
+      APERIO_RECALL_SCAFFOLD_MODELS: process.env.APERIO_RECALL_SCAFFOLD_MODELS,
+    };
+    delete process.env.APERIO_CAPABLE_MODELS;
+    delete process.env.APERIO_RECALL_SCAFFOLD_MODELS;
+  });
+  afterEach(() => {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  });
+
+  test("default (APERIO_RECALL_SCAFFOLD_MODELS unset): falls back to APERIO_CAPABLE_MODELS — behavior unchanged", () => {
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b, llama3.1:70b";
+    const provider = { name: "ollama", model: "qwen3:32b" };
+    assert.ok(isCapableModel(provider), "still capable");
+    assert.ok(needsRecallScaffold(provider), "falls back to the capable-models list by default");
+  });
+
+  test("a model allowlisted as capable but NOT in the scaffold list: capable, no scaffold", () => {
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
+    process.env.APERIO_RECALL_SCAFFOLD_MODELS = "llama3.1:70b"; // qwen3:32b not in this list
+    const provider = { name: "ollama", model: "qwen3:32b" };
+    assert.ok(isCapableModel(provider), "tools + memory pointer");
+    assert.ok(!needsRecallScaffold(provider), "graduated out of the forced-recall crutch");
+  });
+
+  test("a model in the scaffold list still gets it", () => {
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
+    process.env.APERIO_RECALL_SCAFFOLD_MODELS = "qwen3:32b";
+    const provider = { name: "ollama", model: "qwen3:32b" };
+    assert.ok(needsRecallScaffold(provider));
+  });
+
+  test("cloud providers never need the scaffold, even if the name matches the list", () => {
+    process.env.APERIO_RECALL_SCAFFOLD_MODELS = "claude-sonnet-5";
+    const provider = { name: "anthropic", model: "claude-sonnet-5" };
+    assert.ok(isCapableModel(provider), "cloud is always capable");
+    assert.ok(!needsRecallScaffold(provider), "cloud never needs the local-model scaffold");
+  });
+
+  test("a weak, non-allowlisted local model needs no scaffold either", () => {
+    const provider = { name: "ollama", model: "gemma3:4b" };
+    assert.ok(!isCapableModel(provider));
+    assert.ok(!needsRecallScaffold(provider));
   });
 });

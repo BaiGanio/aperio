@@ -604,6 +604,81 @@ describe("run_shell cwd injection", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Forced auto-recall scaffold gate (issue #188)
+// ---------------------------------------------------------------------------
+//
+// The forced auto-recall injection (RELEVANT MEMORIES — a behavior override) used
+// to ride the same isCapableModel() threshold as the neutral recall pointer. That
+// bundles two different things onto one flag: the moment a local model is trusted
+// enough to be "capable", it is also unconditionally force-fed regex-driven recall,
+// with no way to keep the tools/pointer while dropping the override as the model
+// proves itself. needsRecallScaffold is the finer gate that separates them.
+
+describe("forced auto-recall scaffold gate (issue #188)", () => {
+  let saved;
+  beforeEach(() => {
+    delete process.env.AI_PROVIDER;
+    delete process.env.OLLAMA_MODEL;
+    saved = {
+      APERIO_CAPABLE_MODELS: process.env.APERIO_CAPABLE_MODELS,
+      APERIO_RECALL_SCAFFOLD_MODELS: process.env.APERIO_RECALL_SCAFFOLD_MODELS,
+    };
+  });
+  afterEach(() => {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k]; else process.env[k] = v;
+    }
+  });
+
+  const sse = (delta) => "data: " + JSON.stringify({ choices: [{ delta, finish_reason: null }] }) + "\n";
+  const DONE = "data: [DONE]\n";
+
+  // Drive one Ollama turn with a retrieval-shaped question and return the system
+  // prompt actually sent to the model (messages[0].content in the chat request).
+  async function systemPromptForRetrievalQuestion(t, model) {
+    stubMcpTransport(t);
+
+    t.mock.method(Client.prototype, "callTool", async ({ name, arguments: args }) => {
+      if (name === "recall" && args?.query) {
+        return { content: [{ type: "text", text: "[fact] User has a meeting at 3pm" }] };
+      }
+      return { content: [{ type: "text", text: "No memories found." }] };
+    });
+
+    const bodies = [];
+    t.mock.method(globalThis, "fetch", (url, options) => {
+      if (String(url).includes("/api/tags")) return Promise.resolve({ ok: true });
+      if (options?.body) bodies.push(JSON.parse(options.body));
+      return Promise.resolve(createMockResponseStream([sse({ content: "Sure." }), DONE]));
+    });
+
+    process.env.AI_PROVIDER = "ollama";
+    process.env.OLLAMA_MODEL = model;
+
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
+    await agent.runAgentLoop(
+      [{ role: "user", content: "do you recall any memories about my meetings?" }],
+      { send: t.mock.fn() }
+    );
+
+    return bodies[0]?.messages?.find((m) => m.role === "system")?.content ?? "";
+  }
+
+  test("a scaffolded model (default fallback to APERIO_CAPABLE_MODELS) gets the forced injection", async (t) => {
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
+    const system = await systemPromptForRetrievalQuestion(t, "qwen3:32b");
+    assert.match(system, /RELEVANT MEMORIES/, "capable-by-default model still gets the forced-recall scaffold");
+  });
+
+  test("a capable-but-graduated model (removed from the scaffold list) is not force-fed recall", async (t) => {
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
+    process.env.APERIO_RECALL_SCAFFOLD_MODELS = "llama3.1:70b"; // qwen3:32b is capable, but not scaffolded
+    const system = await systemPromptForRetrievalQuestion(t, "qwen3:32b");
+    assert.doesNotMatch(system, /RELEVANT MEMORIES/, "graduated model decides for itself whether to call recall");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // History Management
 // ---------------------------------------------------------------------------
 
