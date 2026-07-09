@@ -17,6 +17,8 @@ import {
   resolvePerfProfile,
   getRecommendedModel,
   PERF_PROFILES,
+  recommendPerfFix,
+  SLOW_GEN_TPS,
 } from "../../lib/providers/index.js";
 
 mock.method(os, "totalmem", () => 32 * 1024 ** 3);
@@ -395,5 +397,43 @@ describe("getRecommendedModel — profile-aware model pick (Phase 4)", () => {
     // so it doesn't leak into other tests relying on the file's 32GB default.
     t.mock.method(os, "totalmem", () => 64 * 1024 ** 3);
     assert.equal(getRecommendedModel(), "qwen3:30b-a3b");
+  });
+});
+
+// ── recommendPerfFix (llamacpp.md Phase 5 / issue #222) ─────────────────────
+// Shared by the runtime slow-turn diagnostic (lib/agent/index.js) and
+// `npm run local:bench` — both must agree on what "slow" means and which
+// recommendation string to emit.
+describe("recommendPerfFix", () => {
+  test("returns null when there is no timings signal to judge", () => {
+    assert.equal(recommendPerfFix({}), null);
+    assert.equal(recommendPerfFix({ genTps: null }), null);
+    assert.equal(recommendPerfFix({ genTps: NaN }), null);
+  });
+
+  test("acceptable throughput reports 'Throughput is acceptable.'", () => {
+    assert.equal(recommendPerfFix({ genTps: SLOW_GEN_TPS }), "Throughput is acceptable.");
+    assert.equal(recommendPerfFix({ genTps: SLOW_GEN_TPS + 20 }), "Throughput is acceptable.");
+  });
+
+  test("slow on a non-fast-low-vram profile suggests switching profile", () => {
+    assert.equal(recommendPerfFix({ genTps: 2, profile: "balanced" }), "Try the fast-low-vram profile.");
+    assert.equal(recommendPerfFix({ genTps: 2, profile: "quality" }), "Try the fast-low-vram profile.");
+    assert.equal(recommendPerfFix({ genTps: 2 }), "Try the fast-low-vram profile.", "profile defaults to balanced");
+  });
+
+  test("slow on fast-low-vram with a large served context points at context size", () => {
+    const hint = recommendPerfFix({ genTps: 2, profile: "fast-low-vram", servedCtx: 65536 });
+    assert.match(hint, /context window is likely too high/i);
+  });
+
+  test("slow on fast-low-vram with a modest served context suggests a smaller model", () => {
+    const hint = recommendPerfFix({ genTps: 2, profile: "fast-low-vram", servedCtx: 8192 });
+    assert.match(hint, /smaller/i);
+  });
+
+  test("slow on fast-low-vram with no servedCtx signal falls to the smaller-model hint (never crashes on missing data)", () => {
+    const hint = recommendPerfFix({ genTps: 2, profile: "fast-low-vram" });
+    assert.match(hint, /smaller/i);
   });
 });

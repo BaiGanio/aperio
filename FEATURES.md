@@ -238,5 +238,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Graceful shutdown with ONNX cleanup
 - RAM-based model recommendation (setup wizard + terminal model picker)
 - Local-engine hardware/perf profiles (`APERIO_LOCAL_PERF_PROFILE`: balanced/fast-low-vram/long-context/quality) — MoE-aware model pick, KV-cache quantization + flash attention + single-resident-model on tight VRAM, raised context ceiling for long-context, biggest-model-RAM-allows for quality; best-effort VRAM detection (macOS unified memory, `nvidia-smi`, else unknown)
+- `npm run local:bench` — short + medium fixed-prompt benchmark against the local llama.cpp engine; reports load overhead, prompt/gen tok/s, served context, profile, model, and a recommendation string (issue #222)
+- Evidence-gated slow-turn diagnostic — after 3 consecutive local turns below a real-tok/s floor (llama-server's own reported `timings`, not wall-clock), a one-shot UI hint suggests a profile/context change; never fires for cloud providers
 - Docker production config (`docker/docker-compose.prod.yml`)
-- Test suite: 2798 unit tests (`npm test`) and 40 e2e tests (`npm run test:e2e`)
+- Test suite: 2953 unit tests (`npm test`) and 40 e2e tests (`npm run test:e2e`)

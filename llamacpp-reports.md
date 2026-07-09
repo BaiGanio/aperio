@@ -370,3 +370,86 @@ fixed-argument, no user input) one.
   (no `specs.test.js` exists — this phase didn't add one, since `getSpecs()`'s
   only new logic is delegating to already-tested `resolvePerfProfile`/
   `detectHardware`/`getRecommendedModel`, not new logic of its own).
+
+---
+
+## Phase 5 report (2026-07-09)
+
+**Overall: GO on all 4 items.** 2953/2953 tests green (up from 2933 at the
+end of Phase 4 — 20 new tests), `npm run gen:env`/`gen:env:check` clean (no
+new config surface added). No live run against a real llama-server this
+session — see the caveat below.
+
+| # | Item | Verdict | Notes |
+|---|---|---|---|
+| 1 | Per-turn timings capture | **GO** | `lib/agent/providers/llamacpp.js`: `streamHandler.timings` (llama-server's `prompt_ms`/`predicted_ms`/`prompt_per_second`/`predicted_per_second`/`cache_n`, captured since Phase 2 but only logged at debug level and discarded) now also lands on `streamUsage.timings` — the exact same object reference `ToolExecutor` emits on every `stream_end` (`emitter.send({ type: "stream_end", usage: this.streamUsage })`), so every existing caller that reads `msg.usage` (Web UI's context bar, the CLI's `--stats` line, the new diagnostic below) gets `usage.timings` for free with zero new plumbing. Also stashed on `state.lastTimings` — `state` is the session-scoped object `lib/agent/index.js` already threads through every provider loop (`noToolStreak`/`toolWarningEmitted` use the same pattern) — so the value survives past the loop's `while(true)` return, which is what makes item 3 possible without changing any provider loop's return signature. Confirmed no DB/session-file persistence exists for usage/timings anywhere in the codebase (traced `db/tables.js`, every `db/migrations*/*.sql`, and `lib/helpers/sessions.js`'s `finaliseSession`) — "record" is scoped to the live per-turn signal, matching what item 3 and the bench script actually need; inventing a persistence layer nothing else in the codebase has would have been scope creep past what the plan asked for. |
+| 2 | `npm run local:bench` | **GO** | New `lib/helpers/localBench.js` (pure, unit-tested with mocked `fetch`) + thin `scripts/local-bench.js` driver (I/O only: `ensureLlamaCpp()`, then `runBenchmark()`, then print `formatReport()`) — same split `startLlamaCpp.js`/`buildModelsPreset` already uses so the logic tests without a live server. Sends 3 non-streamed (`stream: false`, simpler than SSE for a one-shot script) requests to `/v1/chat/completions`: a cold warmup (short prompt, low `max_tokens`) whose wall-clock time minus its own `timings.prompt_ms + timings.predicted_ms` estimates one-time model-load overhead (router mode lazy-loads on the first real request — confirmed live in the Phase 0/1 spikes), then a warm short prompt and a warm **medium** prompt (`buildMediumPrompt()`, an algorithmically-repeated filler sentence sized to ~600 words rather than a static text blob checked into the repo — issue #222 explicitly wants a medium prompt "to reveal context scaling problems"). Reports model/profile/served-ctx/load-overhead/tok's-per-second for both prompts, using `resolveProvider({ name: "llamacpp" })` + `resolvePerfProfile()` + `LLAMACPP_SERVE_CTX` (read *after* `ensureLlamaCpp()`, since that call resolves and publishes it when `.env` doesn't pin one) so the report reflects what's actually being served, not just what's configured. `npm run local:bench` added to `package.json`. |
+| 3 | Slow-turn diagnostic | **GO** | New `recommendPerfFix({ genTps, profile, servedCtx })` in `lib/providers/index.js` — a pure function shared by both the runtime diagnostic and the bench script, so both surfaces agree on what "slow" means and emit identical recommendation text. `SLOW_GEN_TPS = 5` is deliberately sourced from issue #222's own video citation (3 tok/s judged unusable, 17 tok/s judged fine after applying the fast-low-vram-style flags) — 5 sits between the two as a conservative "clearly bad" floor, not a tuned/validated number (flagged below). The runtime half lives in `lib/agent/index.js`, modeled directly on the existing `no_tool_use_detected` streak pattern (`state.noToolStreak`/`toolWarningEmitted`) rather than inventing a new mechanism: a new `SLOW_TURN_EVIDENCE = 3` module constant, `state.slowTurnStreak`/`state.slowTurnWarningEmitted` added to the per-session `state` object, checked right after the provider dispatch. Reads `state.lastTimings.predicted_per_second` (item 1) — deliberately the server's own reported generation speed, not wall-clock, since wall-clock also counts tool execution and network round-trips, which a profile/ctx change can't fix and would produce false positives on tool-heavy turns. Gated on `isLocalProvider(ctx.provider.name)` per the plan; in practice this is close to redundant with the `typeof genTps === "number"` check immediately after it (only `llamacpp.js` ever sets `state.lastTimings`, and Ollama doesn't report `timings` over its OpenAI-compatible `/v1` per the Phase 0 spike) — kept anyway as the defense-in-depth the plan explicitly asked for ("gate on `isLocalProvider`"), not just an emergent property of what happens to set the field today. Emits `{ type: "slow_local_turn_detected", model, genTps, hint }` once per session (latched, same as the no-tool-use warning). Wired into both UI surfaces: Web UI reuses the existing `.no-tool-warning` chip CSS (confirmed generic — not tool-specific in its class naming) via a new `_renderSlowTurnWarning()` in `public/scripts/streaming.js`; the terminal client gets a new `case "slow_local_turn_detected"` in `lib/emitters/cliEmitter.js` printing the same hint in yellow. One deliberate deviation from issue #222's exact four strings: its "This model is loading slowly; keep-alive may help" doesn't map onto this architecture — llama-server has no per-request keep-alive knob; Aperio already keeps it resident for the whole session via `ensureLlamaCpp()` + the shutdown watchdog — so `recommendPerfFix` substitutes a model-size hint ("this model may be too large for this machine") for the fast-low-vram-and-still-slow case instead. |
+| 4 | Tests | **GO** | `tests/lib/providers.test.js`: 6 new tests for `recommendPerfFix` (null-signal passthrough, acceptable-throughput string, profile-switch suggestion, context-size suggestion, model-size suggestion, missing-servedCtx fallback). `tests/lib/agent/providers/llamacpp.test.js`: extended the existing "returns model response text from SSE stream" test (which already had a `timings` block in its mock SSE, previously unasserted) to check `usage.timings.predicted_per_second` on the emitted `stream_end` and `ctx.state.lastTimings` after the loop returns. New `tests/lib/agent/slow-turn-diagnostic.test.js` (4 tests) drives a **full `runAgentLoop`** through `createAgent()` (MCP transport stubbed via `StdioClientTransport.prototype.start`/`Client.prototype.connect` no-ops, same pattern `tests/lib/agent.test.js`'s existing Ollama-loop tests already use) with mocked `fetch` returning a queued sequence of `predicted_per_second` values — this exercises the *real* `state.lastTimings` → `lib/agent/index.js` wiring end-to-end, not a mock of the diagnostic logic in isolation: 3-consecutive-slow-turns fires once, fewer than 3 doesn't fire, a fast turn in the middle resets the streak (never reaches 3-in-a-row), and 5 consecutive slow turns still fire only once (the latch). New `tests/lib/helpers/localBench.test.js` (9 tests): `computeLoadMs` (normal case, floor-at-zero, missing-timings-fallback), `buildMediumPrompt` (word-count target, trailing instruction), `runBenchmark` (missing-arg validation, 3-request shape with a genuinely longer medium-prompt body, HTTP-error propagation, slow-genTps recommendation), `formatReport` (every field renders, including the no-recommendation fallback string). |
+
+**What was actually run this session:** full `npm test` (2953/2953 green),
+`npm run gen:env:check` (clean — confirms no config-registry drift from this
+phase, which is correct: the slow-turn thresholds are intentionally local
+constants, not `.env`-tunable knobs), `node --check` on every touched source
+file. **No live run against a real llama-server** — unlike Phases 0–2 (which
+had genuine new lifecycle/wire-protocol surface worth proving against a real
+binary), this phase's only genuinely new *live* surface is `scripts/local-bench.js`
+actually POSTing to a running server and `buildMediumPrompt()`'s ~600-word
+filler prompt actually round-tripping through a real chat template — both
+straightforward extensions of already-spike-verified request shapes (Phase 0
+confirmed non-streamed responses carry both `usage` and `timings`), and this
+session followed the standing "never run server/MCP processes for diagnosis"
+lesson from an earlier project session rather than spawning a real
+`llama-server` for a phase whose core logic is unit-testable end-to-end
+through mocked `fetch`.
+
+**Docs (README/FEATURES/SECURITY):** Added two `FEATURES.md` bullets under
+`## Ops` (next to Phase 4's perf-profile bullet) for `npm run local:bench`
+and the slow-turn diagnostic, and corrected the stale unit-test count on the
+same line (2798 → 2953 — already two phases stale before this session, not
+introduced here). README: no change — its Ollama-centric "Step 3: Install
+Ollama & Pull Models" / "AI Providers → Ollama" sections are explicitly
+Phase 6 sweep territory per the plan and every prior phase report's own docs
+decision (Phase 2's report already flagged this exact section as
+Phase-3/6 territory, not something to touch piecemeal); `local:bench` isn't
+part of the onboarding flow README documents, so there's no README section
+this phase's changes make newly inaccurate. SECURITY.md: no change — the
+bench script only talks to the already-running, already-localhost-bound
+llama-server the rest of the system already trusts (same posture Phases 1–4
+found "no new security surface to call out" for); it opens no new listener,
+writes no new files outside the normal request/response cycle, and handles
+no secrets.
+
+**Flagged for follow-up:**
+- **`SLOW_GEN_TPS = 5` is a reasoned default, not an empirically-tuned
+  threshold.** It's sourced from issue #222's own before/after numbers rather
+  than picked arbitrarily, but generation speed is legitimately model-size-
+  dependent (a 3B model idling at 8 tok/s is a real problem; a 30B MoE model
+  at 8 tok/s might be the expected ceiling on modest hardware) and this phase
+  ships one global floor for every model. Same caveat class as Phase 4's
+  unverified `--n-cpu-moe`/`-ctk`/`-ctv` preset keys: reasoned from the
+  source material, not validated against a live spread of real models on
+  real hardware. Worth a manual pass before this ships to real users: run
+  `npm run local:bench` against at least the small (`qwen2.5:3b`) and MoE
+  (`qwen3:30b-a3b`) curated models on a real machine and confirm 5 tok/s
+  actually sits where "acceptable" should be for both.
+- **The router-model-swap case isn't detected live.** `fast-low-vram` sets
+  `models-max = 1` (Phase 4), which means switching between the main model
+  and the VLM bridge mid-session forces llama-server to unload one and load
+  the other — a real "this turn is slow because of a reload, not sustained
+  bad throughput" scenario the runtime diagnostic doesn't specifically
+  reason about. It's not a false positive (a genuinely slow turn is still a
+  genuinely slow turn, and the 3-in-a-row evidence gate already guards
+  against a single cold-load turn triggering it), but the *hint text* would
+  suggest a profile/context change when the real cause is model-swap
+  thrash — a future pass could compare `timings.prompt_per_second` against a
+  historical baseline to distinguish "reload overhead" from "sustained slow
+  generation" and word the hint accordingly. Out of scope for this phase
+  (the plan's item 3 only asked for "evidence-gated N slow turns," not
+  swap-thrash attribution).
+- **No live-download-style verification of `scripts/local-bench.js`'s actual
+  console output legibility** — `formatReport()`'s shape is unit-tested, but
+  nobody has looked at the real terminal output of `npm run local:bench`
+  against a real llama-server yet (same class of gap Phase 3 flagged for
+  `primeLlamaCppModel()`'s wizard progress lines). Worth a quick manual run
+  before this ships.

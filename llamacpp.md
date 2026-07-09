@@ -275,15 +275,23 @@ report](llamacpp-reports.md#phase-4-report-2026-07-09)..
 
 ## Phase 5 — Benchmark + runtime diagnostics
 
-- [ ] Per-turn: record llama-server `timings` (prompt tok/s, gen tok/s, load
+- [x] Per-turn: record llama-server `timings` (prompt tok/s, gen tok/s, load
       time) alongside existing usage tracking.
-- [ ] `npm run local:bench`: short + medium fixed prompts → report tok/s, load
+- [x] `npm run local:bench`: short + medium fixed prompts → report tok/s, load
       time, ctx used, profile, model; emit the #222 recommendation strings
       ("try fast-low-vram", "context likely too high", …).
-- [ ] Slow-turn diagnostic event: evidence-gated (N slow turns) UI hint
+- [x] Slow-turn diagnostic event: evidence-gated (N slow turns) UI hint
       suggesting profile/ctx change; never fires for cloud providers
       (gate on `isLocalProvider`).
-- [ ] Tests with mocked timings.
+- [x] Tests with mocked timings.
+
+**Verify / Deliverable:** **GO on all 4 items**, 2953/2953 full suite green
+(up from 2933 at the end of Phase 4 — 20 new tests: timings-capture +
+slow-turn-diagnostic + `recommendPerfFix` + `lib/helpers/localBench.js`),
+`gen:env`/`gen:env:check` clean (no new config surface — the slow-turn
+thresholds are local constants, not env-tunable, matching the plan's own
+framing of this as a diagnostic, not a knob). Full findings: [`llamacpp-reports.md`
+§ Phase 5 report](llamacpp-reports.md#phase-5-report-2026-07-09).
 
 ## Phase 6 — Cleanup, migration, docs
 

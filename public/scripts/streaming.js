@@ -601,6 +601,11 @@ function handleMessage(msg) {
     return;
   }
 
+  if (msg.type === "slow_local_turn_detected") {
+    _renderSlowTurnWarning(msg.model, msg.genTps, msg.hint);
+    return;
+  }
+
   if (msg.type === "error") {
     removeThinking();
     removeToolIndicator();
@@ -2063,6 +2068,23 @@ function _renderNoToolWarning(model) {
       `<strong>${escapeHtml(model)}</strong> answered with code instead of writing files. ` +
       `Small local models sometimes describe code rather than calling tools, especially when the target is vague. ` +
       `Try naming the file to create/edit, or switch to a larger model for reliable file operations.` +
+    `</span>` +
+    `<button class="no-tool-warning-dismiss" title="Dismiss">✕</button>`;
+  chip.querySelector(".no-tool-warning-dismiss").onclick = () => chip.remove();
+  messagesEl.appendChild(chip);
+  scrollToBottom();
+}
+
+// llamacpp.md Phase 5: reuses the no-tool-use chip's styling (generic amber
+// warning, not tool-specific) rather than inventing a new UI mechanism.
+function _renderSlowTurnWarning(model, genTps, hint) {
+  const chip = document.createElement("div");
+  chip.className = "no-tool-warning";
+  chip.innerHTML =
+    `<span class="no-tool-warning-icon">🐢</span>` +
+    `<span class="no-tool-warning-text">` +
+      `<strong>${escapeHtml(model)}</strong> is generating slowly (~${genTps} tok/s). ` +
+      `${escapeHtml(hint || "Try the fast-low-vram profile.")}` +
     `</span>` +
     `<button class="no-tool-warning-dismiss" title="Dismiss">✕</button>`;
   chip.querySelector(".no-tool-warning-dismiss").onclick = () => chip.remove();

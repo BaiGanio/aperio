@@ -253,6 +253,13 @@ describe("runLlamaCppLoop — successful response", () => {
 
     const result = await runLlamaCppLoop(messages, emitter, {}, undefined, () => {}, ctx);
     assert.equal(result, "Hello world");
+
+    // Phase 5: llama-server's real timings ride along on the usage object
+    // (not just a debug log line) and survive on ctx.state past this turn.
+    const streamEnd = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "stream_end" && m.usage?.timings);
+    assert.ok(streamEnd, "expected a stream_end carrying usage.timings");
+    assert.equal(streamEnd.usage.timings.predicted_per_second, 22);
+    assert.equal(ctx.state.lastTimings?.predicted_per_second, 22);
   });
 
   test("returns error when API returns non-200", async () => {
