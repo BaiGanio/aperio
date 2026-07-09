@@ -1,0 +1,148 @@
+---
+# Aperio — Deployment + ClusterIP Service.
+#
+# Aperio runs as a Node.js web server with an Express frontend and WebSocket
+# streaming on port 31337 (local mode). It connects to its own Postgres database (in the same namespace)
+# on a non-default port (8008) to avoid conflicts with other Postgres instances
+# in the cluster.
+#
+# The container image must be built locally and imported into k3s or pushed
+# to a registry the cluster can reach. See:
+#   docker build -t aperio:local -f docker/Dockerfile .
+#   k3s ctr images import /path/to/aperio-image.tar
+apiVersion: v1
+kind: Service
+metadata:
+  name: aperio
+  namespace: aperio
+  labels:
+    app: aperio
+    app.kubernetes.io/part-of: aperio
+spec:
+  type: ClusterIP
+  ports:
+    - port: 31337
+      targetPort: 31337
+      name: http
+  selector:
+    app: aperio
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aperio
+  namespace: aperio
+  labels:
+    app: aperio
+    app.kubernetes.io/part-of: aperio
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: aperio
+  template:
+    metadata:
+      labels:
+        app: aperio
+    spec:
+      containers:
+        - name: aperio
+          image: aperio:local
+          imagePullPolicy: Never    # Local image built from Dockerfile
+          ports:
+            - containerPort: 31337
+              name: http
+          env:
+            # ---- Database ----
+            - name: DB_BACKEND
+              value: "postgres"
+            - name: DATABASE_URL
+              value: "postgresql://aperio:$(POSTGRES_PASSWORD)@postgres.aperio.svc.cluster.local:8008/aperio"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: aperio-secrets
+                  key: postgres-password
+            # ---- AI Provider (pick one) ----
+            # For Ollama (local on the Pi):
+            - name: AI_PROVIDER
+              value: "ollama"
+            - name: OLLAMA_BASE_URL
+              value: "http://host.lan.internal:11434"   # Adjust to your Ollama host
+            # For Anthropic (cloud):
+            # - name: AI_PROVIDER
+            #   value: "anthropic"
+            # - name: ANTHROPIC_API_KEY
+            #   valueFrom:
+            #     secretKeyRef:
+            #       name: aperio-secrets
+            #       key: anthropic-api-key
+            # - name: ANTHROPIC_MODEL
+            #   value: "claude-sonnet-4-6"
+            #
+            # For DeepSeek / Gemini — add analogous env vars
+            # ---- Embeddings ----
+            # Use Voyage (cloud) for quality embeddings:
+            # - name: EMBEDDING_PROVIDER
+            #   value: "voyage"
+            # - name: VOYAGE_API_KEY
+            #   valueFrom: ...
+            # Use transformers (local, no API key needed):
+            - name: EMBEDDING_PROVIDER
+              value: "transformers"
+            # ---- Security / Paths ----
+            - name: APERIO_ALLOWED_PATHS_TO_READ
+              value: "/app"
+            - name: APERIO_ALLOWED_PATHS_TO_WRITE
+              value: "/app/var"
+            - name: APERIO_CONFIG_PRECEDENCE
+              value: "env"
+            # ---- Runtime ----
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "31337"
+            - name: HOST
+              value: "0.0.0.0"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: var
+              mountPath: /app/var
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 31337
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 31337
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+      volumes:
+        - name: var
+          persistentVolumeClaim:
+            claimName: aperio-var
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: aperio-var
+  namespace: aperio
+  labels:
+    app.kubernetes.io/part-of: aperio
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

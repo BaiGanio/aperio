@@ -1,0 +1,66 @@
+---
+# Traefik IngressRoute — exposes Aperio at aperio.local:80.
+#
+# k3s ships with Traefik as the default ingress controller. This IngressRoute
+# is a Traefik CRD (not a standard Kubernetes Ingress) because k3s's bundled
+# Traefik expects this format.
+#
+# After applying, add to your laptop's /etc/hosts:
+#   <raspberry-pi-ip>  aperio.local
+# Then open http://aperio.local in your browser.
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: aperio
+  namespace: aperio
+  labels:
+    app.kubernetes.io/part-of: aperio
+spec:
+  entryPoints:
+    - web           # Traefik's port 80 entrypoint
+  routes:
+    - kind: Rule
+      match: Host(`aperio.local`)
+      services:
+        - name: aperio
+          port: 31337
+---
+# WebSocket route — Aperio uses WebSocket for streaming.
+# Traefik handles WS upgrades transparently on the same port when the route
+# matches. If you need explicit WS support, uncomment below:
+#
+# apiVersion: traefik.io/v1alpha1
+# kind: IngressRouteTCP
+# metadata:
+#   name: aperio-ws
+#   namespace: aperio
+# spec:
+#   entryPoints:
+#     - web
+#   routes:
+#     - match: HostSNI(`aperio.local`)
+#       services:
+#         - name: aperio
+#           port: 31337
+---
+# Fallback: standard Kubernetes Ingress (works if you swap Traefik for nginx).
+# Uncomment and delete the IngressRoute above if you are not using k3s's
+# default Traefik.
+#
+# apiVersion: networking.k8s.io/v1
+# kind: Ingress
+# metadata:
+#   name: aperio
+#   namespace: aperio
+# spec:
+#   rules:
+#     - host: aperio.local
+#       http:
+#         paths:
+#           - path: /
+#             pathType: Prefix
+#             backend:
+#               service:
+#                 name: aperio
+#                 port:
+#                   number: 31337

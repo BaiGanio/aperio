@@ -6,6 +6,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-aperio}
       POSTGRES_USER: ${POSTGRES_USER:-aperio}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}
+    ports:
+      - "127.0.0.1:8008:5432"
     volumes:
       - aperio_data:/var/lib/postgresql/data
       - ../db/migrations:/docker-entrypoint-initdb.d
@@ -21,7 +23,7 @@ services:
       dockerfile: docker/Dockerfile
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-31337}:31337"
     environment:
       DB_BACKEND: postgres
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-aperio}

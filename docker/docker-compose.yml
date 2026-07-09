@@ -8,7 +8,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-aperio}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in your .env file}
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:8008:5432"
     volumes:
       - aperio_data:/var/lib/postgresql/data
       # NOTE: do NOT mount db/migrations into /docker-entrypoint-initdb.d.

@@ -1,0 +1,101 @@
+---
+# PostgreSQL (pgvector) — Aperio's database.
+#
+# Uses pgvector/pgvector:pg16 for vector-embedding support. The container
+# listens on the standard port 5432 internally, but the Kubernetes Service
+# exposes it on port 8008 so it does not conflict with another Postgres
+# service in the cluster (e.g. the bgapi postgres on port 5432).
+#
+# Aperio's migrate.js handles schema setup on first run — no init Job needed.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: aperio
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: aperio
+spec:
+  type: ClusterIP
+  clusterIP: None          # Headless — StatefulSet pod gets stable DNS
+  ports:
+    - port: 8008
+      targetPort: 5432
+      name: postgres
+  selector:
+    app: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: aperio
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: aperio
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          # pgvector-enabled Postgres 16 — ARM64 compatible (runs on Pi 5)
+          image: pgvector/pgvector:pg16
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_USER
+              value: "aperio"
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: aperio-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              value: "aperio"
+            # Keep data in a subdirectory so the volume root stays clean
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pgdata"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "aperio", "-d", "aperio"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "aperio", "-d", "aperio"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+        labels:
+          app.kubernetes.io/part-of: aperio
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            # Start small — Aperio's data footprint is modest
+            storage: 5Gi
