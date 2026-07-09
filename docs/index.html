@@ -159,7 +159,7 @@
           <span class="t-title" data-i18n="terminal_title">aperio — local · private · yours</span>
         </div>
         <div class="terminal-body">
-          <div><span class="t-ok">🤖</span> <span class="t-out" data-i18n="terminal_provider">Provider: Ollama (gemma4:26b)</span></div>
+          <div><span class="t-ok">🤖</span> <span class="t-out" data-i18n="terminal_provider">Provider: Ollama (qwen3:4b)</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out" data-i18n="terminal_db_connected">Connected to Aperio database</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out" data-i18n="terminal_semantic_ready">pgvector enabled — semantic search active (16/16 memories embedded)</span></div>
           <div><span class="t-ok">🧠</span> <span class="t-out" data-i18n="terminal_mcp_running">Aperio MCP server v2.0 running</span></div>
@@ -187,7 +187,7 @@
 <div class="stats-bar z1">
   <div class="stats-inner">
     <div class="stat reveal"><div class="stat-num">54</div><div class="stat-lbl" data-i18n="stat_mcp_tools">MCP Tools</div></div>
-    <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">8</div><div class="stat-lbl" data-i18n="stat_memory_types">Memory Types</div></div>
+    <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">9</div><div class="stat-lbl" data-i18n="stat_memory_types">Memory Types</div></div>
     <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">0</div><div class="stat-lbl" data-i18n="stat_api_keys">API Keys Required</div></div>
     <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl" data-i18n="stat_vendor_lock">Vendor Lock-in</div></div>
   </div>
@@ -203,7 +203,7 @@
       <div class="feat-card reveal">
         <div class="feat-icon"><i class="bi bi-database-fill-check"></i></div>
         <div class="feat-title" data-i18n="feat_memory_title">Persistent Memory</div>
-        <p class="feat-desc" data-i18n="feat_memory_desc">Your memories survive every conversation, every tool, every session. 8 structured types keep things organized — facts, preferences, decisions, solutions and more.</p>
+        <p class="feat-desc" data-i18n="feat_memory_desc">Your memories survive every conversation, every tool, every session. 9 structured types keep things organized — facts, preferences, decisions, solutions and more. Three sensitivity tiers keep your private data safe: tier 1 shared as-is, tier 2 PII-redacted on cloud, tier 3 never leaves your machine.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.04s">
         <div class="feat-icon"><i class="bi bi-journal-bookmark-fill"></i></div>
@@ -277,7 +277,7 @@
           <div class="arch-connector">↕ stdio</div>
           <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name" data-i18n="arch_mcp">MCP Server</div><div class="arch-sub" data-i18n="arch_mcp_sub">mcp/index.js · 54 tools · 12 categories</div></div></div>
           <div class="arch-connector">↕</div>
-          <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">Postgres 16 + pgvector</div><div class="arch-sub" data-i18n="arch_postgres_sub">memories table · HNSW index</div></div></div>
+          <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">SQLite (default) · Postgres 16 + pgvector</div><div class="arch-sub" data-i18n="arch_postgres_sub">sqlite-vec · pgvector · HNSW index</div></div></div>
           <div class="arch-connector">↕</div>
           <div class="arch-row"><span class="arch-icon">⬡</span><div><div class="arch-name" data-i18n="badge_local_embeddings">Local Embeddings</div><div class="arch-sub" data-i18n="arch_embeddings_sub">mxbai-embed-large-v1 · 1024 dims · zero external calls</div></div></div>
           <div class="arch-row"><span class="arch-icon">✦</span><div><div class="arch-name">Voyage AI</div><div class="arch-sub" data-i18n="arch_voyage_sub">optional · voyage-3 · 1024 dims · cloud upgrade</div></div></div>
@@ -286,13 +286,14 @@
           <div class="arch-section-label" data-i18n="arch_providers">AI Providers</div>
           <div class="provider-chips">
             <div class="provider-chip chip-local"><span class="chip-icon">⬡</span><div><div class="provider-label">Ollama</div><div class="provider-desc" data-i18n="arch_local_provider_desc">default · local · free · offline capable</div></div></div>
-            <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">APIs: Claude , Gemini , DeepSeek</div><div class="provider-desc" data-i18n="arch_cloud_provider_desc">optional · cloud upgrade</div></div></div>
+            <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">Claude · Gemini · DeepSeek</div><div class="provider-desc" data-i18n="arch_cloud_provider_desc">optional · cloud APIs</div></div></div>
+            <div class="provider-chip chip-cloud"><span class="chip-icon">🤖</span><div><div class="provider-label">Claude Code · Codex CLI</div><div class="provider-desc">optional · coding agents</div></div></div>
           </div>
           <div class="arch-section-label" style="margin-top:28px" data-i18n="stat_memory_types">Memory Types</div>
           <div class="mem-types">
             <span class="mem-type">fact</span><span class="mem-type">preference</span>
             <span class="mem-type">project</span><span class="mem-type">decision</span>
-            <span class="mem-type">solution</span><span class="mem-type">source</span><span class="mem-type">person</span><span class="mem-type">inference</span>
+            <span class="mem-type">solution</span><span class="mem-type">source</span><span class="mem-type">person</span><span class="mem-type">inference</span><span class="mem-type">workflow</span>
           </div>
         </div>
       </div>
@@ -703,7 +704,7 @@
         <div class="step-title" data-i18n="step2_title">Ready for use .env.example in the project folder</div>
         <div class="code-block" style="position:relative">
           <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
-          <div><span class="k">OLLAMA_MODEL</span>=<span class="v">qwen2.5:3b</span></div>
+          <div><span class="k">OLLAMA_MODEL</span>=<span class="v">qwen3:4b</span></div>
           <div><span class="k">EMBEDDING_PROVIDER</span>=<span class="v">transformers</span></div>
           <div><span class="c" data-i18n="setup_comment_db_detect"># DB_BACKEND auto-detects: SQLite (default) or Postgres</span></div>
           <div><span class="c" data-i18n="setup_comment_database_url"># DATABASE_URL=postgresql://…  — only if you choose Postgres</span></div>
@@ -733,8 +734,8 @@
           <div class="s">ollama pull llama3.1:8b</div>
           <div>&nbsp;</div>
           <div class="v" data-i18n="setup_available_options"> Available options: </div>
-          <div class="k">lite - qwen2.5:3b  (~4GB RAM,  ~2GB disk)</div>
-          <div class="k">medium - llama3.1:8b (~8GB RAM,  ~5GB disk)</div>           
+          <div class="k">default - qwen3:4b (~6GB RAM, ~3GB disk) ★ recommended</div>
+          <div class="k">medium - llama3.1:8b (~8GB RAM, ~5GB disk)</div>           
           <div class="k">smart - qwen3:8b (~10GB RAM, ~5GB disk)</div>  
           <div class="k">reasoning - qwen3:14b (~16GB RAM, ~9GB disk)</div>   
           <div class="k">pro - deepseek-r1:32b (~32GB RAM, ~19GB disk)</div> 
