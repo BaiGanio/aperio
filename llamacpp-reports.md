@@ -543,3 +543,16 @@ colon-joined in Finnish, matching how the same files already handle
   described as prompt-source-only ("this file is the prompt source... not"
   the report file), but flagging it here since it's the kind of thing that
   should not silently ride along.
+
+  ## Risks & mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Router mode is new (2026) — regressions possible | Pin the vendored release + sha256; upgrade deliberately. Fallback if router breaks: two llama-server instances (main + VLM) behind the same provider, or llama-swap. |
+| Tool-calling quality depends on `--jinja` chat templates per model | Phase 0 verifies tool round-trips per supported model before anything is built. |
+| VLM/mmproj in router preset unproven | Phase 0 item; fallback is a second dedicated instance for the VLM. |
+| Windows GPU backend choice (CUDA vs Vulkan) | Ship Vulkan (broadest); document CUDA build swap for NVIDIA power users. |
+| No `ollama pull` curation — bad quant/template = support pain | Aperio only auto-downloads the curated `MODEL_FACTS` set (same policy as today: "the only ones Aperio pulls for a non-technical user"). |
+| llama-server holds RAM until stopped (no idle unload like Ollama's 5-min keep-alive) | shutdownGuard already stops the engine on idle; `--models-max` bounds resident models. |
+| Lite deadline 2026-07-14 | Feature branch; no merge before lite ships. |
+| Router preset is currently fixed to exactly 2 resident models (main + VLM) | Flagged in Phase 2 report — extend `buildModelsPreset` in Phase 3/4 before any feature (e.g. `WIKI_REFRESH_PROVIDER=llamacpp:<other-model>`, round-table with a third llamacpp model) assumes an arbitrary model name works. |
