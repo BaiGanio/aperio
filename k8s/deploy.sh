@@ -26,6 +26,7 @@ apply() {
 # Order matters: namespace first, then secrets, then infrastructure, then app.
 apply namespace.yaml
 apply secrets.yaml
+apply configmap.yaml
 apply postgres.yaml
 # Optional — uncomment if you need external DB access:
 # apply postgres-nodeport.yaml

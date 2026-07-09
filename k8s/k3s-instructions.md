@@ -88,7 +88,8 @@ under `k8s/`). Copy them to the Pi before deploying.
 | File | What it creates | Port |
 |------|----------------|------|
 | `namespace.yaml` | `aperio` namespace | — |
-| `secrets.yaml` | Postgres password + API key secrets | — |
+| `secrets.yaml` | Postgres password | — |
+| `configmap.yaml` | First-boot defaults (AI provider, embeddings) — overridable via Web UI | — |
 | `postgres.yaml` | **StatefulSet** (pgvector/pg16, 5Gi PVC) + **headless Service** | container: 5432, svc: **8008** |
 | `postgres-nodeport.yaml` | **NodePort** (optional, for external DB access) | host: **30808** → svc: **8008** |
 | `aperio.yaml` | **Deployment** (1 replica, 1Gi mem) + **ClusterIP Service** + PVC | container: **31337**, svc: **31337** |
@@ -272,6 +273,29 @@ In your GitHub repo → **Settings → Secrets and variables → Actions**, add:
 
 ### 6.3 GitHub-side: The Workflow
 
+### 6.4 Configuration Flow — ConfigMap + Web UI
+
+Aperio's config comes from two places:
+
+| Layer | What | Overrides |
+|-------|------|-----------|
+| **ConfigMap** (`configmap.yaml`) | First-boot defaults: AI provider, Ollama URL, embeddings | Nothing initially |
+| **Web UI** (Settings panel) | Saved to database: provider, API keys, model, etc. | **Wins** — persists across restarts |
+
+On first deploy, the ConfigMap sets `AI_PROVIDER=ollama` and
+`EMBEDDING_PROVIDER=transformers` as starting defaults. Once you open
+`http://aperio.local` → **Settings**, change the provider to Anthropic (or
+DeepSeek, Gemini) and save your API key — that value is stored in the
+database and wins on every subsequent pod start.
+
+**To switch providers:**
+1. Open Web UI → Settings
+2. Change AI Provider / Embedding Provider
+3. Save — no YAML edits, no pod restart needed
+
+The Deployment's `APERIO_CONFIG_PRECEDENCE=db` ensures DB-saved settings
+always beat ConfigMap/env defaults.
+
 The workflow `.github/workflows/cd.k3s-deploy.yml` was already added to the
 aperio repo. It triggers on:
 
@@ -421,7 +445,8 @@ Check the node's firewall — port 30808 must be open.
 ```
 aperio-k3s/
 ├── namespace.yaml                # aperio namespace
-├── secrets.yaml                  # Postgres password + API keys
+├── secrets.yaml                  # Postgres password
+├── configmap.yaml                # First-boot defaults (AI, embeddings)
 ├── postgres.yaml                 # StatefulSet + headless svc (8008)
 ├── postgres-nodeport.yaml        # NodePort (30808 → 8008)
 ├── aperio.yaml                   # Deployment + ClusterIP (31337)
