@@ -440,6 +440,14 @@
       margin-top: 5px;
     }
 
+    .memory-source {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      margin-top: 3px;
+      opacity: 0.7;
+    }
+
     .importance-pip {
       width: 14px; height: 3px;
       border-radius: 2px;

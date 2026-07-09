@@ -36,6 +36,7 @@ const TOOLS = [
       expires_at: z.string().optional().describe("ISO 8601 expiry datetime for ephemeral memories. Suggest a TTL when the information is time-bound: e.g. new Date(Date.now() + 7*86400000).toISOString() for 7 days. Omit for permanent memories."),
       lang: z.string().optional().describe("BCP-47 locale of the content (e.g. 'en', 'de', 'fr'). Defaults to 'en'."),
       confidence: z.number().min(0).max(1).optional().describe("Confidence in this memory (0.0–1.0). Defaults to 1.0 for stated facts; use ~0.6 for inferred patterns."),
+      source: z.string().optional().describe("Override the auto-detected source. The system sets this automatically — do not pass it unless instructed."),
     },
     getHandler: (handlers) => handlers.remember,
   },

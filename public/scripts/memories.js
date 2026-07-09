@@ -172,7 +172,8 @@ function makeMemoryCard(m) {
     <div class="importance-bar">
       ${pips}
       ${ts ? `<span class="memory-ts">${ts}</span>` : ""}
-    </div>`;
+    </div>
+    ${m.source ? `<div class="memory-source">${escapeHtml(m.source)}</div>` : ""}`;
 
   card.querySelector(".memory-pin-btn").onclick = async (e) => {
     e.stopPropagation();
