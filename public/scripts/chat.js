@@ -51,6 +51,16 @@ function connect() {
       setStatus("thinking", t("status_loading"));
       addThinking(false);
       window.ws.send(JSON.stringify({ type: "init", lang: window.Aperio.getCurrentLang() }));
+
+      // Show a resume card for the last conversation (if any).
+      fetch("/api/sessions?page=1&limit=1")
+        .then(r => r.json())
+        .then(data => {
+          const sessions = Array.isArray(data) ? data : (data.sessions || []);
+          const last = sessions[0];
+          if (last && last.title && last.messageCount > 0) renderResumeCard(last);
+        })
+        .catch(() => { /* non-essential */ });
     } else {
       setStatus("connected", t("status_reconnected"));
       window.sendBtn.disabled = window.chatInput.value.trim() === "";
@@ -461,4 +471,39 @@ function fileToBase64(file) {
     reader.onload = () => resolve(reader.result.split(',')[1]); // Remove the data:image/png;base64, prefix
     reader.onerror = error => reject(error);
   });
+}
+
+// ── Resume card ──────────────────────────────────────────────────
+// Shown on first connect when a prior session exists.
+function escapeHtml(s) {
+  return String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+function renderResumeCard(session) {
+  const existing = document.getElementById("resumeCard");
+  if (existing) existing.remove();
+
+  const card = document.createElement("div");
+  card.className = "resume-card";
+  card.id = "resumeCard";
+  card.innerHTML =
+    `<div class="resume-card-icon"><i class="bi bi-arrow-counterclockwise"></i></div>` +
+    `<div class="resume-card-body">` +
+      `<div class="resume-card-title">${escapeHtml(session.title)}</div>` +
+      `<div class="resume-card-meta">${(t("resume_card_messages") || "messages").replace("{n}", session.messageCount)}</div>` +
+    `</div>` +
+    `<div class="resume-card-actions">` +
+      `<button class="resume-card-btn resume-card-btn--continue" id="resumeContinueBtn">${t("resume_card_continue") || "Continue"}</button>` +
+      `<button class="resume-card-btn resume-card-btn--dismiss" id="resumeDismissBtn">${t("resume_card_dismiss") || "Dismiss"}</button>` +
+    `</div>`;
+
+  card.querySelector("#resumeContinueBtn").addEventListener("click", () => {
+    card.remove();
+    if (typeof safeSend === "function") {
+      safeSend(JSON.stringify({ type: "resume_session", id: session.id }));
+    }
+  });
+  card.querySelector("#resumeDismissBtn").addEventListener("click", () => card.remove());
+
+  messagesEl.prepend(card);
 }
