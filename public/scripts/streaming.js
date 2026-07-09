@@ -153,6 +153,8 @@ function handleMessage(msg) {
 
   if (msg.type === "provider") {
     document.getElementById("startup-thinking")?.remove();
+    // Track provider for cost display.
+    if (typeof setCostProvider === "function") setCostProvider(msg.name, msg.model);
     // Round-table: cache agent list and toggle the Discuss button accordingly.
     if (Array.isArray(msg.agents)) _roundtableAgents = msg.agents;
     if (typeof window.applyRoundtableAvailability === "function") {
