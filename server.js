@@ -600,6 +600,7 @@ async function bootApp() {
 
   let primaryRoundtable = null;
   let verifier = null;
+  let roundtableUnavailableReason = null;
   const roundtableGate = shouldEnableRoundtable({
     mainProvider: provider,
     primaryConfig: primaryRtConfig,
@@ -607,6 +608,7 @@ async function bootApp() {
     env: process.env,
   });
   if (!roundtableGate.enabled) {
+    roundtableUnavailableReason = roundtableGate.reason;
     logger.warn(`[roundtable] Discuss unavailable for this session: ${roundtableGate.reason}`);
   } else if (primaryRtConfig && verifierConfig) {
     try {
@@ -638,6 +640,7 @@ async function bootApp() {
       logger.info(`🤝 Round-table: primary = ${primaryRoundtable.provider.name} (${primaryRoundtable.provider.model})${charTag(primaryRoundtable)}, verifier = ${verifier.provider.name} (${verifier.provider.model})${charTag(verifier)}`);
     } catch (err) {
       logger.error(`⚠️  Could not boot round-table agents — Discuss toggle disabled:`, err.message);
+      roundtableUnavailableReason = err.message;
       primaryRoundtable = null;
       verifier = null;
     }
@@ -721,7 +724,7 @@ async function bootApp() {
       cb(true);
     },
   });
-  wss.on("connection", makeWsHandler({ agent, primaryRoundtable, verifier, roundtableAvailable, store, __dirname }));
+  wss.on("connection", makeWsHandler({ agent, primaryRoundtable, verifier, roundtableAvailable, roundtableUnavailableReason, store, __dirname }));
 
   // Fan a server-side message out to every open browser tab. Used by the
   // background-agent scheduler to surface a "job finished" banner.
