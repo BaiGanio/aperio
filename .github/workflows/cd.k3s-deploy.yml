@@ -55,6 +55,9 @@ jobs:
           ref: ${{ github.event.inputs.branch || github.ref_name }}
 
       # ── Build on GitHub, push to ghcr.io, Pi pulls ──────────────
+      - name: Lowercase registry owner
+        run: echo "REGISTRY_OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -76,8 +79,8 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/aperio:latest
-            ghcr.io/${{ github.repository_owner }}/aperio:${{ github.sha }}
+            ghcr.io/${{ env.REGISTRY_OWNER }}/aperio:latest
+            ghcr.io/${{ env.REGISTRY_OWNER }}/aperio:${{ github.sha }}
 
       # ── Notify Pi to pull new image and roll out ────────────────
       # - name: Notify Pi — trigger deploy webhook
