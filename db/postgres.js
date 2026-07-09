@@ -782,6 +782,52 @@ export class PostgresStore {
     await this.pool.query(`UPDATE wiki_articles SET embedding = NULL`);
   }
 
+  // ── Wiki drafts ──────────────────────────────────────────────────────────
+  async proposeWikiDraft({ slug, title, summary, body_md, tags, generated_by, source_memory_ids }) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const id = randomUUID();
+      await client.query(
+        `INSERT INTO wiki_articles (id, slug, title, summary, body_md, tags, generated_by, revision, status)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,1,'draft')`,
+        [id, slug, title, summary ?? null, body_md, tags ?? [], generated_by ?? null]
+      );
+      for (const memId of (source_memory_ids ?? [])) {
+        try {
+          await client.query(
+            `INSERT INTO wiki_article_sources (article_id, memory_id) VALUES ($1,$2) ON CONFLICT DO NOTHING`,
+            [id, memId]
+          );
+        } catch { /* memory may not exist */ }
+      }
+      await client.query('COMMIT');
+      return { id, slug, revision: 1 };
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally { client.release(); }
+  }
+
+  async listWikiDrafts() {
+    const { rows } = await this.pool.query(
+      `SELECT id, slug, title, summary, tags, generated_by, generated_at, revision
+         FROM wiki_articles WHERE status = 'draft' ORDER BY generated_at DESC`
+    );
+    return rows;
+  }
+
+  async publishWikiDraft(slug) {
+    const { rows: [row] } = await this.pool.query(
+      `UPDATE wiki_articles SET status = 'fresh', generated_at = NOW()
+        WHERE slug = $1 AND status = 'draft'
+        RETURNING id, slug`,
+      [slug]
+    );
+    if (!row) throw new Error(`Draft with slug "${slug}" not found`);
+    return { id: row.id, slug, status: 'fresh' };
+  }
+
   async getSetting(key) {
     const { rows } = await this.pool.query(
       `SELECT value FROM settings WHERE key = $1`, [key]

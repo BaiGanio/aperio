@@ -241,13 +241,67 @@
   async function loadListOrSearch() {
     body().innerHTML = `<div class="wiki-empty">Loading…</div>`;
     try {
-      const articles = lastQuery
-        ? await fetchSearch(lastQuery)
-        : await fetchList();
-      renderList(articles);
+      let articles;
+      if (currentStatus === "draft") {
+        const r = await fetch("/api/wiki/drafts");
+        if (!r.ok) throw new Error(`drafts ${r.status}`);
+        articles = (await r.json()).drafts || [];
+      } else if (lastQuery) {
+        articles = await fetchSearch(lastQuery);
+      } else {
+        articles = await fetchList();
+      }
+      if (currentStatus === "draft") {
+        renderDraftList(articles);
+      } else {
+        renderList(articles);
+      }
     } catch (err) {
       body().innerHTML = `<div class="wiki-empty">Failed: ${escapeHtml(err.message)}</div>`;
     }
+  }
+
+  function renderDraftList(drafts) {
+    if (!drafts.length) {
+      body().innerHTML = `<div class="wiki-empty">No draft articles.</div>`;
+      return;
+    }
+    body().innerHTML = drafts.map(d => `
+      <div class="wiki-card" data-slug="${escapeHtml(d.slug)}">
+        <div class="wiki-card-title">${escapeHtml(d.title)}</div>
+        ${d.summary ? `<div class="wiki-card-summary">${escapeHtml(d.summary)}</div>` : ""}
+        <div class="wiki-card-meta">
+          <span>[[${escapeHtml(d.slug)}]]</span>
+          <span>draft</span>
+          <span>by ${escapeHtml(d.generated_by || "unknown")}</span>
+        </div>
+        <button class="wiki-publish-btn" data-slug="${escapeHtml(d.slug)}">📝 Publish</button>
+      </div>
+    `).join("");
+    body().querySelectorAll(".wiki-publish-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        btn.disabled = true;
+        try {
+          await fetch(`/api/wiki/drafts/${encodeURIComponent(btn.dataset.slug)}/publish`, { method: "POST" });
+          loadListOrSearch();
+        } catch { btn.disabled = false; }
+      });
+    });
+  }
+
+  async function updateDraftChip() {
+    try {
+      const r = await fetch("/api/wiki/drafts");
+      if (!r.ok) return;
+      const data = await r.json();
+      const count = (data.drafts || []).length;
+      const chip = document.getElementById("wikiDraftChip");
+      if (chip) {
+        chip.style.display = count > 0 ? "" : "none";
+        chip.textContent = count > 0 ? `draft (${count})` : "draft";
+      }
+    } catch { /* non-essential */ }
   }
 
   function wireToolbar() {
@@ -277,6 +331,7 @@
       p.style.display = "flex";
       b.style.display = "block";
       wireToolbar();
+      updateDraftChip();
       loadListOrSearch();
     } else if (forceList === true) {
       loadListOrSearch();
