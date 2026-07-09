@@ -226,6 +226,71 @@ export class PostgresStore {
     return rows.length ? rowToMemory(rows[0]) : null;
   }
 
+  // ── Pending memories (inbox) ─────────────────────────────────────────────
+  async insertPending(input) {
+    const id = randomUUID();
+    const { rows } = await this.pool.query(
+      `INSERT INTO pending_memories
+         (id, type, title, content, tags, importance, tier, source, lang, confidence, session_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING id, title, type`,
+      [id, input.type ?? 'fact', input.title, input.content,
+       input.tags ?? [], input.importance ?? 3, input.tier ?? 1,
+       input.source ?? 'agent', input.lang ?? 'english',
+       input.confidence ?? 1.0, input.session_id ?? null]
+    );
+    return { ...rows[0], status: 'pending' };
+  }
+
+  async listPending() {
+    const { rows } = await this.pool.query(
+      `SELECT * FROM pending_memories WHERE status = 'pending' ORDER BY proposed_at DESC`
+    );
+    return rows;
+  }
+
+  async countPending() {
+    const { rows } = await this.pool.query(
+      `SELECT COUNT(*)::int AS c FROM pending_memories WHERE status = 'pending'`
+    );
+    return rows[0].c;
+  }
+
+  async approvePending(id) {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const { rows: [row] } = await client.query(
+        `SELECT * FROM pending_memories WHERE id = $1 AND status = 'pending'`, [id]
+      );
+      if (!row) throw new Error(`Pending memory ${id} not found`);
+      const mem = await this.insert({
+        type: row.type, title: row.title, content: row.content,
+        tags: row.tags, importance: row.importance, tier: row.tier,
+        source: row.source, lang: row.lang, confidence: row.confidence
+      }, null);
+      await client.query(
+        `UPDATE pending_memories SET status = 'approved', reviewed_at = NOW() WHERE id = $1`, [id]
+      );
+      await client.query('COMMIT');
+      return { id: mem.id, title: mem.title };
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async rejectPending(id) {
+    const { rowCount } = await this.pool.query(
+      `UPDATE pending_memories SET status = 'rejected', reviewed_at = NOW()
+        WHERE id = $1 AND status = 'pending'`, [id]
+    );
+    if (!rowCount) throw new Error(`Pending memory ${id} not found`);
+    return { id, status: 'rejected' };
+  }
+
   async update(id, input, embedding) {
     const existing = await this.getById(id);
     if (!existing) throw new Error(`Memory ${id} not found`);

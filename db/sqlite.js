@@ -844,6 +844,67 @@ export class SqliteStore {
   }
   async getById(id) { return this._getByIdSync(id); }
 
+  // ── Pending memories (inbox) ─────────────────────────────────────────────
+  async insertPending(input) {
+    const id = randomUUID();
+    const now = nowIso();
+    this.db.prepare(`
+      INSERT INTO pending_memories
+        (id, type, title, content, tags, importance, tier, proposed_at, source, lang, confidence, status, session_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?, 'pending', ?)
+    `).run(
+      id, input.type ?? 'fact', input.title, input.content,
+      JSON.stringify(input.tags ?? []), input.importance ?? 3,
+      input.tier ?? 1, now, input.source ?? 'agent',
+      input.lang ?? 'english', input.confidence ?? 1.0,
+      input.session_id ?? null
+    );
+    return { id, title: input.title, type: input.type ?? 'fact', status: 'pending' };
+  }
+
+  listPending() {
+    return this.db.prepare(`
+      SELECT * FROM pending_memories WHERE status = 'pending' ORDER BY proposed_at DESC
+    `).all().map(r => ({ ...r, tags: JSON.parse(r.tags ?? '[]') }));
+  }
+
+  countPending() {
+    return this.db.prepare(
+      `SELECT COUNT(*) AS c FROM pending_memories WHERE status = 'pending'`
+    ).get().c;
+  }
+
+  approvePending(id) {
+    const row = this.db.prepare(
+      `SELECT * FROM pending_memories WHERE id = ? AND status = 'pending'`
+    ).get(id);
+    if (!row) throw new Error(`Pending memory ${id} not found`);
+    const tx = this.db.transaction(() => {
+      const memId = this.insert({
+        type: row.type, title: row.title, content: row.content,
+        tags: JSON.parse(row.tags ?? '[]'), importance: row.importance,
+        tier: row.tier, source: row.source, lang: row.lang,
+        confidence: row.confidence
+      }, null);
+      this.db.prepare(
+        `UPDATE pending_memories SET status = 'approved', reviewed_at = ? WHERE id = ?`
+      ).run(nowIso(), id);
+      return { id: memId.id, title: memId.title };
+    });
+    return tx();
+  }
+
+  rejectPending(id) {
+    const row = this.db.prepare(
+      `SELECT * FROM pending_memories WHERE id = ? AND status = 'pending'`
+    ).get(id);
+    if (!row) throw new Error(`Pending memory ${id} not found`);
+    this.db.prepare(
+      `UPDATE pending_memories SET status = 'rejected', reviewed_at = ? WHERE id = ?`
+    ).run(nowIso(), id);
+    return { id, status: 'rejected' };
+  }
+
   async listAll() {
     return this.db.prepare(`
       SELECT * FROM memories

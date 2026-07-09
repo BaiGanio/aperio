@@ -213,6 +213,111 @@ function makeMemoryCard(m) {
   return card;
 }
 
+// ── Inbox ─────────────────────────────────────────────────────
+let _pendingCount = 0;
+
+async function loadInboxCount() {
+  try {
+    const res = await fetch("/api/memories/pending/count");
+    if (!res.ok) return;
+    const data = await res.json();
+    _pendingCount = data.count ?? 0;
+    updateInboxBadge();
+  } catch { /* non-essential */ }
+}
+
+function updateInboxBadge() {
+  const badge = document.getElementById("inboxBadge");
+  if (!badge) return;
+  badge.textContent = _pendingCount > 0 ? _pendingCount : "";
+  badge.style.display = _pendingCount > 0 ? "inline" : "none";
+}
+
+async function loadInboxPanel() {
+  const section = document.getElementById("inboxSection");
+  if (!section) return;
+  try {
+    const res = await fetch("/api/memories/pending");
+    if (!res.ok) { section.innerHTML = ""; return; }
+    const { pending } = await res.json();
+    if (!pending?.length) { section.innerHTML = ""; return; }
+    section.innerHTML =
+      `<div class="inbox-header">📥 ${t("mem_inbox_title") || "Inbox"} (${pending.length})</div>` +
+      pending.map(p => `
+        <div class="inbox-item" data-id="${escapeHtml(p.id)}">
+          <div class="inbox-item-title">${escapeHtml(p.title)}</div>
+          <div class="inbox-item-content">${escapeHtml(p.content)}</div>
+          <div class="inbox-item-meta">
+            <span class="inbox-item-type">${escapeHtml(p.type)}</span>
+            ${(p.tags || []).map(tg => `<span class="tag">${escapeHtml(tg)}</span>`).join("")}
+          </div>
+          <div class="inbox-item-actions">
+            <button class="inbox-btn inbox-btn--approve" data-id="${escapeHtml(p.id)}">✓ ${t("mem_inbox_approve") || "Approve"}</button>
+            <button class="inbox-btn inbox-btn--reject" data-id="${escapeHtml(p.id)}">✕ ${t("mem_inbox_reject") || "Reject"}</button>
+          </div>
+        </div>
+      `).join("");
+    wireInbox();
+  } catch { section.innerHTML = ""; }
+}
+
+function wireInbox() {
+  document.querySelectorAll(".inbox-btn--approve").forEach(btn => {
+    btn.onclick = async () => {
+      const id = btn.dataset.id;
+      btn.disabled = true;
+      try {
+        await fetch(`/api/memories/pending/${id}/approve`, { method: "POST" });
+        const item = document.querySelector(`.inbox-item[data-id="${CSS.escape(id)}"]`);
+        if (item) item.remove();
+        await loadInboxCount();
+        // Refresh memory list in background.
+        if (window.allMemories?.length) {
+          const res = await fetch("/api/memories");
+          const data = await res.json();
+          if (data.raw) renderMemoriesFromMessage(data.raw);
+        }
+      } catch { btn.disabled = false; }
+    };
+  });
+  document.querySelectorAll(".inbox-btn--reject").forEach(btn => {
+    btn.onclick = async () => {
+      const id = btn.dataset.id;
+      btn.disabled = true;
+      try {
+        await fetch(`/api/memories/pending/${id}/reject`, { method: "POST" });
+        const item = document.querySelector(`.inbox-item[data-id="${CSS.escape(id)}"]`);
+        if (item) item.remove();
+        await loadInboxCount();
+      } catch { btn.disabled = false; }
+    };
+  });
+}
+
+// Insert inbox badge into the search box.
+document.addEventListener("DOMContentLoaded", () => {
+  const searchBox = document.querySelector(".search-box");
+  if (searchBox) {
+    const badge = document.createElement("span");
+    badge.id = "inboxBadge";
+    badge.className = "inbox-badge";
+    badge.style.display = "none";
+    searchBox.appendChild(badge);
+  }
+  // Insert inbox section before the memories list.
+  const list = document.getElementById("memoriesList");
+  if (list) {
+    const section = document.createElement("div");
+    section.id = "inboxSection";
+    section.className = "inbox-section";
+    list.parentNode.insertBefore(section, list);
+  }
+  loadInboxCount();
+  loadInboxPanel();
+  // Refresh inbox every 60 seconds.
+  setInterval(() => { loadInboxCount(); loadInboxPanel(); }, 60000);
+});
+
 // ── Search ───────────────────────────────────────────────────
 window.searchInput.addEventListener("input", () => {
   const q = window.searchInput.value.toLowerCase().trim();

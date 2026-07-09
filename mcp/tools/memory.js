@@ -7,6 +7,7 @@ import {
   forgetHandler,
   backfillHandler,
   dedupHandler,
+  proposeMemoryHandler,
 } from "../../lib/handlers/memory/memoryHandlers.js";
 
 // Pre-bind handlers to avoid recreating functions on every register call
@@ -17,6 +18,7 @@ const createBoundHandlers = (ctx) => ({
   forget: (args) => forgetHandler(ctx, args),
   backfill: (args) => backfillHandler(ctx, args),
   dedup: (args) => dedupHandler(ctx, args),
+  propose: (args) => proposeMemoryHandler(ctx, args),
 });
 
 // ─── Tool definitions (DRY schema + handler binding) ─────────────────────────
@@ -36,6 +38,21 @@ const TOOLS = [
       confidence: z.number().min(0).max(1).optional().describe("Confidence in this memory (0.0–1.0). Defaults to 1.0 for stated facts; use ~0.6 for inferred patterns."),
     },
     getHandler: (handlers) => handlers.remember,
+  },
+  {
+    name: "propose_memory",
+    description: "Propose a memory for user review. Use this instead of 'remember' when you discover something worth saving but want the user to confirm before it enters the permanent store. The memory goes to the user's inbox for approval. Only use 'remember' when the user explicitly asks you to remember something.",
+    schema: {
+      type: z.enum(["fact", "preference", "project", "decision", "solution", "source", "person", "inference", "workflow"]).optional().describe("Category of the memory. Defaults to 'fact' when omitted."),
+      title: z.string(),
+      content: z.string(),
+      tier: z.union([z.literal(1), z.literal(2), z.literal(3)]).optional().describe("Sensitivity tier: 1=normal, 2=sensitive, 3=private."),
+      tags: z.array(z.string()).optional().describe("Free-form tags for categorisation."),
+      importance: z.number().min(1).max(5).optional(),
+      confidence: z.number().min(0).max(1).optional().describe("Confidence in this memory (0.0–1.0). Defaults to 1.0 for stated facts; use ~0.6 for inferred patterns."),
+      lang: z.string().optional().describe("BCP-47 locale of the content (e.g. 'en', 'de', 'fr'). Defaults to 'en'."),
+    },
+    getHandler: (handlers) => handlers.propose,
   },
   {
     name: "recall",
