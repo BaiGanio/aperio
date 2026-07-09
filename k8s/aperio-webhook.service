@@ -1,0 +1,48 @@
+# aperio-webhook.service — real-time CD receiver.
+#
+# Runs the `webhook` binary (sudo apt install -y webhook) as a persistent
+# service listening on localhost:9001. GitHub Actions calls it through a
+# Cloudflare Tunnel (or Tailscale Funnel, or direct LAN) on every push to
+# main; a matching HMAC signature triggers
+# /home/pi/aperio-k3s/aperio-watch-deploy.sh (pull → build → import → rollout).
+#
+# This is the push-based alternative to a timer-based poll (use one or the
+# other — not both).
+#
+# Installation on the Pi:
+#   sudo apt install -y webhook
+#   sudo mkdir -p /etc/webhook.d
+#   sudo cp aperio-webhook.conf /etc/webhook.d/aperio.conf
+#   sudo cp aperio-webhook.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now aperio-webhook
+#   sudo journalctl -u aperio-webhook -f
+#
+# If you already run webhook for another service on port 9000, either:
+#   a) Combine both configs into a single /etc/webhook.conf entry
+#   b) Keep this on port 9001 with a separate service
+#
+# The webhook endpoint needs to be reachable from the internet (or GitHub
+# Actions runners). Use Cloudflare Tunnel, Tailscale Funnel, or port-forward
+# on your router.
+
+[Unit]
+Description=Aperio — webhook receiver for real-time CD
+After=network-online.target docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/aperio
+ExecStart=/usr/bin/webhook -hooks /etc/webhook.d/aperio.conf -port 9001 -verbose
+Restart=on-failure
+RestartSec=5
+
+# Log to journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=aperio-webhook
+
+[Install]
+WantedBy=multi-user.target

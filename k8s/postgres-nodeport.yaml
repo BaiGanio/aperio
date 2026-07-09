@@ -1,0 +1,30 @@
+---
+# PostgreSQL (Aperio) — NodePort service for external DB access.
+#
+# The headless Service in postgres.yaml gives the StatefulSet stable in-cluster
+# DNS but is not reachable from outside the cluster. This NodePort publishes
+# port 8008 on the node as 30808 for direct access (e.g. from a Cloudflare
+# Tunnel, pgAdmin on your laptop, or a backup script).
+#
+# Publish chain:
+#   host:30808  →  nodePort 30808  →  service port 8008  →  container 5432
+#
+# SECURITY: a NodePort is reachable by anything on the LAN. If you expose it
+# through a tunnel, gate it behind a Cloudflare Access policy.
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-nodeport
+  namespace: aperio
+  labels:
+    app: postgres
+    app.kubernetes.io/part-of: aperio
+spec:
+  type: NodePort
+  ports:
+    - port: 8008
+      targetPort: 5432
+      nodePort: 30808
+      name: postgres
+  selector:
+    app: postgres

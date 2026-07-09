@@ -20,10 +20,10 @@ RUN mkdir -p var && chown aperio:aperio var
 USER aperio
 
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=31337
 ENV HOST=0.0.0.0
 
-EXPOSE 3000
+EXPOSE 31337
 
 CMD ["node", "server.js"]
 
