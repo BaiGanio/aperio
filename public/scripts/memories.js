@@ -18,9 +18,16 @@ window.escapeHtml = escapeHtml;
 const PREVIEW_COUNT = 3;
 const expandedGroups = new Set();
 const collapsedGroups = new Set(Object.keys(window.TYPE_CONFIG));
+let _activeTagFilter = null;
 
 function renderMemories(memories) {
-  if (!memories.length) {
+  // Apply active tag filter.
+  const tagFilter = _activeTagFilter;
+  const filtered = tagFilter
+    ? memories.filter(m => (m.tags || []).some(t => t.toLowerCase() === tagFilter.toLowerCase()))
+    : memories;
+
+  if (!filtered.length) {
     window.memoriesList.innerHTML = `
       <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
         <div style="font-size:22px; margin-bottom:8px; opacity:.4">◈</div>
@@ -30,16 +37,31 @@ function renderMemories(memories) {
     return;
   }
 
-  const pinned  = memories.filter(m => m.pinned);
+  const pinned  = filtered.filter(m => m.pinned);
   const grouped = {};
-  memories.filter(m => !m.pinned).forEach(m => {
+  filtered.filter(m => !m.pinned).forEach(m => {
     if (!grouped[m.type]) grouped[m.type] = [];
     grouped[m.type].push(m);
   });
 
   window.memoriesList.innerHTML = "";
+
+  // Active tag filter chip.
+  if (tagFilter) {
+    const chip = document.createElement("div");
+    chip.className = "tag-filter-chip";
+    chip.innerHTML = `<span class="tag-filter-chip-label">${escapeHtml(t("mem_tag_filter") || "Tag:")}</span>` +
+      `<span class="tag-filter-chip-value">${escapeHtml(tagFilter)}</span>` +
+      `<button class="tag-filter-chip-clear" title="${escapeHtml(t("mem_tag_clear") || "Clear filter")}"><i class="bi bi-x-lg"></i></button>`;
+    chip.querySelector(".tag-filter-chip-clear").onclick = () => {
+      _activeTagFilter = null;
+      renderMemories(window.allMemories);
+    };
+    window.memoriesList.appendChild(chip);
+  }
+
   const countBadge = document.getElementById("memoryCountBadge");
-  if (countBadge) countBadge.textContent = memories.length ? `(${memories.length})` : "";
+  if (countBadge) countBadge.textContent = filtered.length ? `(${filtered.length})` : "";
 
   if (pinned.length) {
     const group = document.createElement("div");
@@ -146,7 +168,7 @@ function makeMemoryCard(m) {
       <button class="delete-btn" title="${escapeHtml(t("mem_delete_title"))}"><i class="bi bi-trash3"></i></button>
     </div>
     <div class="memory-preview" data-memory='${base64Data}'>${escapeHtml(m.content)}</div>
-    ${m.tags.length ? `<div class="memory-tags">${m.tags.map(tg => `<span class="tag">${escapeHtml(tg)}</span>`).join("")}</div>` : ""}
+    ${m.tags.length ? `<div class="memory-tags">${m.tags.map(tg => `<span class="tag${_activeTagFilter === tg ? " tag--active" : ""}">${escapeHtml(tg)}</span>`).join("")}</div>` : ""}
     <div class="importance-bar">
       ${pips}
       ${ts ? `<span class="memory-ts">${ts}</span>` : ""}
@@ -168,6 +190,17 @@ function makeMemoryCard(m) {
     } catch { /* silent */ }
   };
 
+  // Click a tag to filter by it.
+  card.querySelectorAll(".tag").forEach(tagEl => {
+    tagEl.onclick = (e) => {
+      e.stopPropagation();
+      const tag = tagEl.textContent;
+      _activeTagFilter = (_activeTagFilter === tag) ? null : tag;
+      window.searchInput.value = "";
+      renderMemories(window.allMemories);
+    };
+  });
+
   card.querySelector(".delete-btn").onclick = (e) => {
     e.stopPropagation();
     if (!m.id) return;
@@ -183,16 +216,26 @@ function makeMemoryCard(m) {
 // ── Search ───────────────────────────────────────────────────
 window.searchInput.addEventListener("input", () => {
   const q = window.searchInput.value.toLowerCase().trim();
-  if (!q) {
+  const tagFilter = _activeTagFilter;
+  if (!q && !tagFilter) {
     Object.keys(window.TYPE_CONFIG).forEach(t => collapsedGroups.add(t));
     renderMemories(window.allMemories);
     return;
   }
-  const filtered = window.allMemories.filter(m =>
-    m.title.toLowerCase().includes(q) ||
-    m.content.toLowerCase().includes(q) ||
-    m.tags.some(t => t.toLowerCase().includes(q))
-  );
+  let filtered = window.allMemories;
+  if (q) {
+    filtered = filtered.filter(m =>
+      m.title.toLowerCase().includes(q) ||
+      m.content.toLowerCase().includes(q) ||
+      m.tags.some(t => t.toLowerCase().includes(q))
+    );
+  }
+  // Compose with active tag filter if any.
+  if (tagFilter) {
+    filtered = filtered.filter(m =>
+      (m.tags || []).some(t => t.toLowerCase() === tagFilter.toLowerCase())
+    );
+  }
   const matchedTypes = new Set(filtered.map(m => m.type));
   Object.keys(window.TYPE_CONFIG).forEach(t => {
     if (matchedTypes.has(t)) collapsedGroups.delete(t);

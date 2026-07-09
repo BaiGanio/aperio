@@ -327,6 +327,29 @@
       margin-top: 5px;
     }
 
+    .tag-filter-chip {
+      display: flex; align-items: center; gap: 6px;
+      margin: 0 4px 8px 4px;
+      padding: 6px 10px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-sm);
+      font-size: var(--fs-micro);
+    }
+    .tag-filter-chip-label { color: var(--text-muted); }
+    .tag-filter-chip-value {
+      font-family: var(--font-mono); font-weight: 600;
+      color: var(--accent);
+    }
+    .tag-filter-chip-clear {
+      display: flex; align-items: center;
+      margin-left: auto;
+      background: none; border: none;
+      color: var(--text-muted); cursor: pointer;
+      font-size: 10px; padding: 2px;
+    }
+    .tag-filter-chip-clear:hover { color: var(--text); }
+
     .tag {
       font-family: var(--font-mono);
       font-size: var(--fs-micro);
@@ -334,6 +357,16 @@
       color: var(--tag-text);
       padding: 1px 6px;
       border-radius: 4px;
+      cursor: pointer; user-select: none;
+      transition: background .12s, color .12s;
+    }
+    .tag:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .tag--active {
+      background: var(--accent);
+      color: #fff;
     }
 
     .importance-bar {
