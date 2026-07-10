@@ -373,13 +373,13 @@ describe("createSession()", () => {
     assert.equal(saved.source, "terminal");
   });
 
-  test("truncates server log when session is created", () => {
+  test("does not truncate server log at session creation", () => {
     const llamaDir = join(mockCwd, "var/llamacpp");
     memFS.set(llamaDir, new Set(["server.log"]));
-    memFS.set(join(llamaDir, "server.log"), "previous session data\n");
+    memFS.set(join(llamaDir, "server.log"), "startup data\n");
     sessions.createSession({ model: "gpt-4", provider: "openai" });
     const log = memFS.get(join(llamaDir, "server.log"));
-    assert.equal(log, "", "server log should be truncated to empty");
+    assert.equal(log, "startup data\n", "server log should NOT be truncated at creation");
   });
 
   test("handles missing server log gracefully at session creation", () => {
@@ -682,7 +682,7 @@ describe("finaliseSession()", () => {
     assert.ok(!memFS.has(logPath), "log file should be deleted");
   });
 
-  test("copies server log to session file at finalisation", () => {
+  test("copies server log then truncates at finalisation", () => {
     const serverLog = "this session's log output\n";
     const llamaDir = join(mockCwd, "var/llamacpp");
     memFS.set(llamaDir, new Set(["server.log"]));
@@ -707,6 +707,7 @@ describe("finaliseSession()", () => {
     const savedLogPath = join(llamaDir, "llama-fs.log");
     assert.ok(memFS.has(savedLogPath), "server log should be copied to session file");
     assert.equal(memFS.get(savedLogPath), serverLog, "copied log should match original");
+    assert.equal(memFS.get(join(llamaDir, "server.log")), "", "server log should be truncated after copy");
   });
 
   test("handles missing server log gracefully at finalisation", () => {
@@ -729,7 +730,7 @@ describe("finaliseSession()", () => {
     // should not throw
   });
 
-  test("does not copy server log for discarded trivial sessions", () => {
+  test("truncates server log even for discarded trivial sessions", () => {
     const serverLog = "SOME LOG\n";
     const llamaDir = join(mockCwd, "var/llamacpp");
     memFS.set(llamaDir, new Set(["server.log"]));
@@ -753,6 +754,8 @@ describe("finaliseSession()", () => {
     assert.ok(!memFS.has(p), "trivial session should be discarded");
     assert.ok(!memFS.has(join(llamaDir, "trivial-llama.log")),
       "no server log copy for discarded session");
+    assert.equal(memFS.get(join(llamaDir, "server.log")), "",
+      "server log should still be truncated for next session");
   });
 });
 
