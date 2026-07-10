@@ -274,10 +274,10 @@ describe("ensureLlamaCpp", () => {
     assert.equal(process.env.LLAMACPP_CTX, "1234");
   });
 
-  test("getLlamaCppPid returns null before ensureLlamaCpp spawns anything new (attached to an already-running server)", async () => {
+  test("kills unmanaged server found via port and spawns a new one", async () => {
     globalThis.fetch = async () => ({ ok: true });
-    await ensureLlamaCpp();
-    assert.equal(getLlamaCppPid(), null);
+    await ensureLlamaCpp(fakeSpawn(99999), fakeKill(true));
+    assert.equal(getLlamaCppPid(), 99999);
   });
 
   test("spawns llama-server and reports the child PID when nothing is running yet, then health comes up", async () => {
@@ -518,14 +518,15 @@ describe("stopLlamaCpp — owner + preset guard", () => {
     assert.equal(calledAgain, false, "never signals when we don't own the server");
   });
 
-  test("no-op (never signals) when we never spawned a server", async () => {
-    globalThis.fetch = async () => ({ ok: true }); // attach to an already-running one
-    await ensureLlamaCpp();                         // does not spawn → we don't own it
-    assert.equal(getLlamaCppPid(), null);
+  test("spawns and then stops an unmanaged server found via port", async () => {
+    globalThis.fetch = async () => ({ ok: true });
+    // Simulates finding the stale server on the port and killing it
+    await ensureLlamaCpp(fakeSpawn(90002), fakeKill(true));
+    assert.equal(getLlamaCppPid(), 90002, "we now own the spawned server");
 
     let called = false;
-    const stopped = await stopLlamaCpp(async () => { called = true; return true; });
-    assert.equal(stopped, false);
-    assert.equal(called, false, "an attached (not-spawned) server is left running");
+    const stopped = await stopLlamaCpp(async (pid) => { called = true; return pid === 90002; });
+    assert.equal(stopped, true, "we own it so we can stop it");
+    assert.equal(called, true, "should signal our spawned server");
   });
 });
