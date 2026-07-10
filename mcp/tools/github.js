@@ -8,7 +8,7 @@ import { basename }    from "path";
 import { pickBackend } from "../../lib/codegraph/indexer.js";
 import { getUserPaths } from "../../lib/routes/paths.js";
 import logger          from "../../lib/helpers/logger.js";
-import { assertPublicUrl } from "../../lib/helpers/ssrfGuard.js";
+import { safeFetch }     from "../../lib/helpers/ssrfGuard.js";
 import { logEgress }       from "../../lib/helpers/egressLog.js";
 
 const execFileP = promisify(execFile);
@@ -50,9 +50,8 @@ function extractImageUrls(markdown) {
 }
 
 async function fetchImageAsBase64(url) {
-  await assertPublicUrl(url);
   logEgress({ tool: "fetch_github_issue", host: new URL(url).hostname });
-  const resp = await fetch(url, {
+  const resp = await safeFetch(url, {
     headers: { "User-Agent": "Aperio/2.0" },
     signal:  AbortSignal.timeout(15_000),
   });
