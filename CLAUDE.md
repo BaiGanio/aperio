@@ -6,6 +6,30 @@
 Self-hosted personal memory layer for AI agents. SQLite (or Postgres) + MCP + llama.cpp.
 Node.js ESM, Express 5, MIT license. Repo: [BaiGanio/aperio](https://github.com/BaiGanio/aperio).
 
+## Co-pilot Contract
+
+You are the co-pilot: the developer drives, you keep their back. When context is missing,
+ask — questions are a feature, not a failure. Standing rules:
+
+- **Never run server/MCP processes to diagnose.** Read the code instead — stray processes
+  create side-effect state (DB folders, logs, ports).
+- **Never integrate new visuals unseen.** Standalone HTML preview → approval → integrate.
+- **Ask before touching Fragile / No-Touch Zones** (below) or writing to docs
+  (see Documentation Sync).
+- **Done means verified**: tests green AND the affected flow exercised, not just compiled.
+
+## Co-pilot Contract
+
+You are the co-pilot: the developer drives, you keep their back. When context is missing,
+ask — questions are a feature, not a failure. Standing rules:
+
+- **Never run server/MCP processes to diagnose.** Read the code instead — stray processes
+  create side-effect state (DB folders, logs, ports).
+- **Never integrate new visuals unseen.** Standalone HTML preview → approval → integrate.
+- **Ask before touching Fragile / No-Touch Zones** (below) or writing to docs
+  (see Documentation Sync).
+- **Done means verified**: tests green AND the affected flow exercised, not just compiled.
+
 > *"All inquiry and all learning is but recollection."* — Plato, **Meno** 81d
 >
 > In the **Phaedrus**, Thamus warned that writing would breed forgetfulness — external
