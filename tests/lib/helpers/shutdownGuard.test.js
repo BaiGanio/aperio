@@ -253,4 +253,29 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     assert.equal(killedPid, 1234, "_killPid should be called with our owned PID");
     assert.equal(exitCalled, true, "process.exit should be called after stopping llama-server");
   });
+
+  test("prefers the owner-aware _stopLlama over the raw _killPid path", async (t) => {
+    let exitCalled = false;
+    let stopCalled = false;
+    let killCalled = false;
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+
+    const { heartbeat } = createWatchdog({
+      enabled:    true,
+      timeoutMs:  500,
+      getPid:     () => 1234,
+      httpServer: makeMockHttpServer(),
+      _stopLlama: async () => { stopCalled = true; },
+      _killPid:   async () => { killCalled = true; },
+      _exit:      () => { exitCalled = true; },
+    });
+
+    heartbeat();
+    t.mock.timers.tick(501);
+    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
+
+    assert.equal(stopCalled, true, "_stopLlama should own the llama teardown when provided");
+    assert.equal(killCalled, false, "raw _killPid must not also fire when _stopLlama is present");
+    assert.equal(exitCalled, true, "process.exit should still be called");
+  });
 });

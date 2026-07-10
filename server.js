@@ -426,7 +426,7 @@ async function bootApp() {
 
   const { createAgent }                   = await import("./lib/agent.js");
   const { isLocalProvider }               = await import("./lib/providers/index.js");
-  const { ensureLlamaCpp, getLlamaCppPid } = await import("./lib/helpers/startLlamaCpp.js");
+  const { ensureLlamaCpp, getLlamaCppPid, stopLlamaCpp } = await import("./lib/helpers/startLlamaCpp.js");
   const { createWatchdog }                = await import("./lib/helpers/shutdownGuard.js");
   const { deduplicateMemories }           = await import("./lib/workers/deduplicate.js");
   const { inferMemories }                 = await import("./lib/workers/infer.js");
@@ -657,6 +657,10 @@ async function bootApp() {
   const watchdog = createWatchdog({
     enabled:   idleMode === "on" ? true : idleMode === "off" ? false : isLocalProvider(provider.name),
     getPid:    getLlamaCppPid,
+    // On idle shutdown, stop the llama-server we started — but only if it's ours
+    // and no non-preset model is still resident (stopLlamaCpp enforces both, and
+    // tears down the whole process group so no worker is orphaned).
+    _stopLlama: stopLlamaCpp,
     timeoutMs: (Number(process.env.IDLE_TIMEOUT_SECONDS) || 180) * 1000,
   });
   boot.watchdog = watchdog; // /heartbeat starts feeding the idle guard
@@ -807,6 +811,13 @@ async function bootApp() {
     // 4. Stop accepting requests and drain existing connections
     httpServer.closeAllConnections?.();
     await new Promise(resolve => httpServer.close(resolve));
+
+    // 4b. Stop the llama-server we started, now that in-flight generations have
+    //     drained. Self-guarding no-op unless we own it AND only this session's
+    //     preset models are resident (see stopLlamaCpp) — a warm server we merely
+    //     attached to, or one holding a non-preset model another client is using,
+    //     is left up.
+    await stopLlamaCpp().catch(() => {});
 
     // 5. Dispose the ONNX inference session — releases its thread pool so the
     //    global destructor sequence won't try to lock already-destroyed mutexes.

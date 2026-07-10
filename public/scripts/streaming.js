@@ -2006,16 +2006,26 @@ function _renderActionConfirmButton(token, label, summary, tool, options = {}) {
     wrap.appendChild(meta);
   }
 
+  // Two confirmation systems share this button. Store-backed interrupts (passed
+  // via options.interrupt) are committed with an `interrupt_decision` message and
+  // support edit/reject/respond. In-tool token confirms (github/db/delete propose
+  // flows, token like `iss_…`) are NOT interrupt rows — they live in the tool's own
+  // pending-actions map and must be committed with a `confirm_action` message, which
+  // the server re-runs through the tool. Sending interrupt_decision for those fails
+  // with "interrupt not found".
+  const interrupt = options.interrupt;
+  const isInterrupt = !!interrupt;
+
   const btn = document.createElement("button");
   btn.className = "action-confirm-btn";
   btn.innerHTML = '<i class="bi bi-check2-circle"></i> Confirm';
   btn.onclick = () => {
     btn.disabled = true;
     wrap.remove();
-    _sendInterruptDecision({ id: token, decision: "approve" });
+    if (isInterrupt) _sendInterruptDecision({ id: token, decision: "approve" });
+    else safeSend(JSON.stringify({ type: "confirm_action", token, tool }));
   };
 
-  const interrupt = options.interrupt;
   const canEdit = interrupt?.allowedDecisions?.includes("edit");
   const edit = document.createElement("button");
   edit.className = "action-confirm-btn action-confirm-cancel";
@@ -2037,6 +2047,7 @@ function _renderActionConfirmButton(token, label, summary, tool, options = {}) {
   const reject = document.createElement("button");
   reject.className = "action-confirm-btn action-confirm-cancel";
   reject.innerHTML = '<i class="bi bi-x-circle"></i> Reject';
+  reject.style.display = isInterrupt ? "" : "none";
   reject.onclick = () => {
     const response = prompt("Optional feedback for the agent", "") || "";
     wrap.remove();
@@ -2046,6 +2057,7 @@ function _renderActionConfirmButton(token, label, summary, tool, options = {}) {
   const respond = document.createElement("button");
   respond.className = "action-confirm-btn action-confirm-cancel";
   respond.innerHTML = '<i class="bi bi-chat-left-text"></i> Respond';
+  respond.style.display = isInterrupt ? "" : "none";
   respond.onclick = () => {
     const response = prompt("Response to record without executing", "");
     if (response == null) return;
