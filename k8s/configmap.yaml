@@ -3,7 +3,7 @@
 #
 # EDIT THIS FILE BEFORE FIRST DEPLOY on your Pi. Uncomment the lines for
 # the provider you want and set the values. If everything stays commented,
-# Aperio uses its built-in defaults (ollama + transformers), then you can
+# Aperio uses its built-in defaults (llamacpp + transformers), then you can
 # change them via the Web UI → Settings afterward.
 #
 # Once you save settings in the Web UI, they're stored in the database and
@@ -19,18 +19,20 @@ metadata:
 data:
   # ── AI Provider ─────────────────────────────────────────────
   # Uncomment and set before first deploy. If left commented, Aperio
-  # defaults to ollama (can be changed later from Web UI → Settings).
+  # defaults to llamacpp (can be changed later from Web UI → Settings).
   #
   # Options:
-  #   ollama       → local, needs Ollama running on your network
+  #   llamacpp     → local, vendored llama-server (needs the model downloaded
+  #                  into the pod's persistent volume, or point LLAMACPP_BASE_URL
+  #                  at a llama-server running elsewhere on your network)
   #   anthropic    → cloud, needs ANTHROPIC_API_KEY (set in UI)
   #   deepseek     → cloud, needs DEEPSEEK_API_KEY (set in UI)
   #   gemini       → cloud, needs GEMINI_API_KEY (set in UI)
   #   claude-code  → uses Claude Pro/Max via Agent SDK
   #   codex        → uses Codex CLI
   #
-  # AI_PROVIDER: "ollama"
-  # OLLAMA_BASE_URL: "http://192.168.1.100:11434"
+  # AI_PROVIDER: "llamacpp"
+  # LLAMACPP_BASE_URL: "http://192.168.1.100:8080"
 
   # ── Embeddings ──────────────────────────────────────────────
   # Options:

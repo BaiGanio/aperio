@@ -126,7 +126,7 @@ boundary that the lower rings are measured against.
 - **Shell is opt-in and off by default**: `run_shell` refuses unless
   `APERIO_ENABLE_SHELL=1` — `mcp/tools/shell.js:70` (`SHELL_ENABLED`), re-checked
   at the handler `mcp/tools/shell.js:462`. It is also gated *per model*
-  (`isShellAllowedFor()`, `lib/agent/tool-profiles.js:90`) — local Ollama models
+  (`isShellAllowedFor()`, `lib/agent/tool-profiles.js:90`) — local llama.cpp models
   need an additional `APERIO_SHELL_LOCAL=1`.
 - Shell is **not** a raw shell: a command allowlist (`ALLOWED_CMDS`,
   `mcp/tools/shell.js:81`), banned command-chaining/redirect operators

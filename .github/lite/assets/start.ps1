@@ -3,7 +3,7 @@
 #
 # Mirrors START.sh: does ONLY what a browser can't -- make sure Node.js and the
 # app's dependencies exist -- then starts the server, which opens your browser
-# to the setup wizard (setup.html). Ollama, the AI model, the database and
+# to the setup wizard (setup.html). llama.cpp, the AI model, the database and
 # provider/API-key config all happen in that browser wizard, not here.
 # ==============================================================
 
@@ -102,7 +102,7 @@ try {
 # --- 4. Launch --------------------------------------------------------------
 # NOTE: npm's start:lite uses UNIX inline env vars, which don't work on Windows,
 # so we set them here and run node directly. Same result as start:lite.
-$env:AI_PROVIDER        = 'ollama'
+$env:AI_PROVIDER        = 'llamacpp'
 $env:PORT               = '31337'
 $env:DB_BACKEND         = 'sqlite'
 $env:EMBEDDING_PROVIDER = 'transformers'

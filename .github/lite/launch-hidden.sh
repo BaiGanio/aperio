@@ -22,10 +22,10 @@ open_url() {
 # Already running (icon double-clicked twice)? Just focus the browser.
 if curl -s "$URL" >/dev/null 2>&1; then open_url "$URL"; exit 0; fi
 
-# Make Node (nvm) and the vendored Ollama discoverable in this bare environment.
+# Make Node (nvm) and the vendored llama.cpp discoverable in this bare environment.
 export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
 [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-export PATH="$PWD/vendor/ollama:$PATH"
+export PATH="$PWD/vendor/llamacpp:$PATH"
 
 mkdir -p var/install
 # Start the server detached so this script (and the launcher app) can exit.

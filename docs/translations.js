@@ -14,7 +14,9 @@ const LOCALE_CODES = [
 ];
 
 const I18N_STORAGE_KEY = "aperio_lang";
-const storedLang = localStorage.getItem(I18N_STORAGE_KEY);
+// ?lang=xx in the URL wins (shareable language links), then localStorage.
+const urlLang = new URLSearchParams(location.search).get("lang");
+const storedLang = urlLang || localStorage.getItem(I18N_STORAGE_KEY);
 let currentLang = LOCALE_CODES.includes(storedLang) ? storedLang : "en";
 
 /* ── English locale embedded inline (works file:// or HTTP) ── */
@@ -36,7 +38,7 @@ const EN_LOCALE = {
     "hero_github": "View on GitHub",
     "badge_local_embeddings": "Local Embeddings",
     "terminal_title": "aperio — local · private · yours",
-    "terminal_provider": "Provider: Ollama (gemma4:26b)",
+    "terminal_provider": "Provider: llama.cpp (gemma4:26b)",
     "terminal_db_connected": "Connected to Aperio database",
     "terminal_semantic_ready": "pgvector enabled — semantic search active (16/16 memories embedded)",
     "terminal_mcp_running": "Aperio MCP server v2.0 running",
@@ -70,7 +72,7 @@ const EN_LOCALE = {
     "feat_stream_title": "Real-time Streaming",
     "feat_stream_desc": "Responses stream token by token via WebSocket. Live code rendering, markdown on completion, smart auto-scroll. No waiting.",
     "feat_local_title": "Local by Default",
-    "feat_local_desc": "Runs fully on your machine with Ollama — free, private, offline-capable. Switch to Claude with one env variable when you need more power.",
+    "feat_local_desc": "Runs fully on your machine with llama.cpp — free, private, offline-capable. Switch to Claude with one env variable when you need more power.",
     "feat_dedup_title": "Auto Deduplication",
     "feat_dedup_desc": "Background job finds near-duplicate memories every 10 minutes using cosine similarity. Dry-run by default — you stay in control.",
     "feat_reason_title": "Reasoning Models",
@@ -209,7 +211,7 @@ const EN_LOCALE = {
     "compare_ap_cost": "Free (self-hosted)",
     "compare_cl_cost": "$20–100 / month",
     "compare_row_local_ai": "Local AI support",
-    "compare_ap_local_ai": "Ollama built-in",
+    "compare_ap_local_ai": "llama.cpp built-in",
     "compare_cl_local_ai": "Cloud only",
     "compare_row_fs_tools": "File system tools",
     "compare_ap_fs_tools": "read · write · append",
@@ -221,7 +223,7 @@ const EN_LOCALE = {
     "compare_ap_mcp": "Native protocol",
     "compare_cl_mcp": "Varies",
     "compare_row_offline": "Works offline",
-    "compare_ap_offline": "With Ollama",
+    "compare_ap_offline": "With llama.cpp",
     "compare_cl_offline": "Requires internet",
     "compare_row_nodev": "Non-developer friendly",
     "compare_ap_nodev": "Aperio-lite — double-click & go",
@@ -265,7 +267,7 @@ const EN_LOCALE = {
     "setup_comment_local_url": "# opens at localhost:31337",
     "setup_comment_cloud_url": "# cloud (Claude) -> localhost:3000",
     "step6_title": "Use Aperio chat in the terminal",
-    "setup_comment_local": "# local (Ollama)",
+    "setup_comment_local": "# local (llama.cpp)",
     "setup_comment_docker_detect": "# auto-detect if any Docker - uses SQLite as fallback",
     "setup_comment_cloud": "# cloud (Anthropic)",
     "setup_tip": "✅ Tip: Check out project <a href=\"https://github.com/BaiGanio/aperio/blob/master/README.md\" target=\"_blank\">README.md</a> for extensive documentation, troubleshooting, and advanced configuration options.",
@@ -299,7 +301,21 @@ const EN_LOCALE = {
     "cta_origin": "From Latin <em>aperire</em> — to open, to reveal, to bring into the light ✨",
     "footer_warning": "⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.",
     "page_title": "Aperio | Self-Hosted AI Memory Layer & MCP Server",
-    "copy_done": "✓ Copied"
+    "copy_done": "✓ Copied",
+    "langmap_heading": "Choose your language",
+    "langmap_count": "{n} languages · {m} on the way",
+    "langmap_search": "Search languages…",
+    "langmap_available": "Available",
+    "langmap_soon": "Coming soon",
+    "langmap_not_yet": "not translated yet",
+    "langmap_soon_hint": "coming soon",
+    "langmap_view_europe": "Europe",
+    "langmap_view_world": "World",
+    "langmap_hint": "drag to pan · scroll to zoom",
+    "langmap_legend_available": "available",
+    "langmap_legend_not": "not yet",
+    "langmap_foot": "Don't see yours? Aperio's agent understands you anyway — just write in any language.",
+    "langmap_switched": "Language switched to {name}"
 };
 
 /* ── Translation state ── */
@@ -319,8 +335,10 @@ async function loadOneLocale(code) {
   }
 }
 
-function t(key) {
-  return TRANSLATIONS[currentLang]?.[key] ?? TRANSLATIONS.en?.[key] ?? key;
+function t(key, params) {
+  const raw = TRANSLATIONS[currentLang]?.[key] ?? TRANSLATIONS.en?.[key] ?? key;
+  if (!params) return raw;
+  return raw.replace(/\{(\w+)\}/g, (m, name) => (params[name] != null ? params[name] : m));
 }
 
 function applyTranslations() {
@@ -330,8 +348,15 @@ function applyTranslations() {
   document.querySelectorAll("[data-i18n-html]").forEach((element) => {
     element.innerHTML = t(element.dataset.i18nHtml);
   });
+  document.querySelectorAll("[data-i18n-attr-placeholder]").forEach((element) => {
+    element.placeholder = t(element.dataset.i18nAttrPlaceholder);
+  });
+  document.querySelectorAll("[data-i18n-attr-title]").forEach((element) => {
+    element.title = t(element.dataset.i18nAttrTitle);
+  });
   document.title = t("page_title");
   document.documentElement.lang = currentLang;
+  document.dispatchEvent(new CustomEvent("aperio:lang-changed", { detail: { lang: currentLang } }));
 }
 
 /**
@@ -356,6 +381,8 @@ async function setLang(lang) {
 
   const select = document.getElementById("langSelect");
   if (select) select.value = lang;
+  const globeCode = document.getElementById("langMapBtnCode");
+  if (globeCode) globeCode.textContent = lang;
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -373,4 +400,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     select.value = currentLang;
     select.addEventListener("change", (e) => setLang(e.target.value));
   }
+  const globeCode = document.getElementById("langMapBtnCode");
+  if (globeCode) globeCode.textContent = currentLang;
 });

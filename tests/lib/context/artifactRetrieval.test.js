@@ -41,7 +41,7 @@ describe("chunked artifact retrieval", () => {
       ARTIFACT_READ_TOOL_NAME,
     );
     assert.equal(
-      appendArtifactReadTool([], "ollama", true)[0].function.name,
+      appendArtifactReadTool([], "openai", true)[0].function.name,
       ARTIFACT_READ_TOOL_NAME,
     );
     assert.equal(

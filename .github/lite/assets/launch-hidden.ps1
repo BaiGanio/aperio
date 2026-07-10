@@ -24,13 +24,13 @@ $url = 'http://localhost:31337'
 # Already running (icon double-clicked twice)? Just open the browser.
 try { Invoke-WebRequest -Uri $url -TimeoutSec 2 -UseBasicParsing | Out-Null; Start-Process $url; exit } catch {}
 
-$env:AI_PROVIDER        = 'ollama'
+$env:AI_PROVIDER        = 'llamacpp'
 $env:PORT               = '31337'
 $env:DB_BACKEND         = 'sqlite'
 $env:EMBEDDING_PROVIDER = 'transformers'
 $env:IDLE_SHUTDOWN      = 'on'    # windowless-safe: self-stop after the tab closes, any provider
 $env:APERIO_LITE        = 'on'    # lite profile: non-coder starter memories
-$env:Path               = "$AppRoot\vendor\ollama;$env:Path"
+$env:Path               = "$AppRoot\vendor\llamacpp;$env:Path"
 New-Item -ItemType Directory -Force -Path "$AppRoot\var\install" | Out-Null
 
 # Detached, hidden server process (survives after this script exits).

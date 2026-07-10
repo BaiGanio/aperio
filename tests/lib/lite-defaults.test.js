@@ -23,9 +23,9 @@ describe("lite defaults", () => {
     assert.equal(isLite(), false);
   });
 
-  test("registry carries the lite profile: ollama + sqlite + docgraph on", () => {
+  test("registry carries the lite profile: llamacpp + sqlite + docgraph on", () => {
     const liteOf = (key) => CONFIG.find((e) => e.key === key)?.liteDefault;
-    assert.equal(liteOf("AI_PROVIDER"), "ollama");
+    assert.equal(liteOf("AI_PROVIDER"), "llamacpp");
     assert.equal(liteOf("DB_BACKEND"), "sqlite");
     assert.equal(liteOf("APERIO_DOCGRAPH"), "on");
     assert.equal(liteOf("APERIO_CODEGRAPH"), undefined, "codegraph stays off in lite");
@@ -52,7 +52,7 @@ describe("lite defaults", () => {
     const t1 = applyLiteDefaults(1);
     assert.ok(t1.includes("AI_PROVIDER"));
     assert.ok(t1.includes("APERIO_DOCGRAPH"));
-    assert.equal(process.env.AI_PROVIDER, "ollama");
+    assert.equal(process.env.AI_PROVIDER, "llamacpp");
     assert.equal(process.env.APERIO_DOCGRAPH, "on");
   });
 
@@ -72,7 +72,7 @@ describe("lite defaults", () => {
     process.env.AI_PROVIDER = "  ";
     const applied = applyLiteDefaults(1);
     assert.ok(applied.includes("AI_PROVIDER"));
-    assert.equal(process.env.AI_PROVIDER, "ollama");
+    assert.equal(process.env.AI_PROVIDER, "llamacpp");
   });
 });
 
@@ -107,9 +107,9 @@ describe("lite forces db precedence", () => {
   test("end to end: in lite, a UI-saved value beats the launcher env var", async () => {
     process.env.APERIO_LITE = "on";
     delete process.env.APERIO_CONFIG_PRECEDENCE;
-    process.env.OLLAMA_MODEL = "from-launcher";
-    await applyConfigToEnv(storeWith({ [configSettingKey("OLLAMA_MODEL")]: "from-ui" }));
-    assert.equal(process.env.OLLAMA_MODEL, "from-ui");
+    process.env.LLAMACPP_MODEL = "from-launcher";
+    await applyConfigToEnv(storeWith({ [configSettingKey("LLAMACPP_MODEL")]: "from-ui" }));
+    assert.equal(process.env.LLAMACPP_MODEL, "from-ui");
     assert.equal(process.env.APERIO_CONFIG_PRECEDENCE, "db"); // pinned for downstream readers
   });
 });

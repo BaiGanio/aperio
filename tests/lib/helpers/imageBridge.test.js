@@ -38,7 +38,7 @@ let imageBridge;
 
 before(async () => {
   // Set a known VLM model for deterministic tests
-  process.env.OLLAMA_VLM_MODEL = "qwen2.5vl:7b";
+  process.env.LLAMACPP_VLM_MODEL = "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
   imageBridge = await import("../../../lib/helpers/imageBridge.js");
 });
 
@@ -417,7 +417,7 @@ describe("bridgeImagesToVLM()", () => {
     ];
     const emitter = makeEmitter();
 
-    await imageBridge.bridgeImagesToVLM(messages, makeFailingCallTool("Ollama not running"), emitter);
+    await imageBridge.bridgeImagesToVLM(messages, makeFailingCallTool("llama-server not running"), emitter);
 
     // The image block itself is replaced (msg.content is reassigned),
     // but the text block "[Image: screenshot.png]" should remain
@@ -551,7 +551,7 @@ describe("bridgeImagesToVLM()", () => {
     assert.ok(!infoCalls.some(args => args[0].includes("bridged")), "should not log bridge summary");
   });
 
-  test("uses OLLAMA_VLM_MODEL in progress messages and labels", async () => {
+  test("uses LLAMACPP_VLM_MODEL in progress messages and labels", async () => {
     const messages = [
       { role: "user", content: [
         { type: "image", source: { data: "imgdata" } },
@@ -562,11 +562,11 @@ describe("bridgeImagesToVLM()", () => {
     await imageBridge.bridgeImagesToVLM(messages, makeSuccessCallTool("a description"), emitter);
 
     // Progress message should mention the model
-    const progressMsg = emitter._sends.find(s => s.text.includes("qwen2.5vl:7b"));
+    const progressMsg = emitter._sends.find(s => s.text.includes("ggml-org/Qwen2.5-VL-7B-Instruct-GGUF"));
     assert.ok(progressMsg, "progress message should include VLM model name");
 
     // The description label should mention the model
-    assert.ok(messages[0].content.some(b => b.text.includes("qwen2.5vl:7b")), "description should mention model");
+    assert.ok(messages[0].content.some(b => b.text.includes("ggml-org/Qwen2.5-VL-7B-Instruct-GGUF")), "description should mention model");
   });
 
   test("does not mutate message when callTool throws on the first image but proceeds for others", async () => {

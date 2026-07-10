@@ -77,11 +77,11 @@ describe("Config Panel (HTTP-level) — Phase 8", () => {
   });
 
   // ── 4. Known config keys present ────────────────────────────────────
-  test("schema includes AI_PROVIDER, OLLAMA_MODEL, PORT", async () => {
+  test("schema includes AI_PROVIDER, LLAMACPP_MODEL, PORT", async () => {
     const schema = await fetchJSON(port, "/api/config/schema");
     const keys = schema.fields.map((f) => f.key);
     assert.ok(keys.includes("AI_PROVIDER"), "AI_PROVIDER present");
-    assert.ok(keys.includes("OLLAMA_MODEL"), "OLLAMA_MODEL present");
+    assert.ok(keys.includes("LLAMACPP_MODEL"), "LLAMACPP_MODEL present");
     assert.ok(keys.includes("PORT"), "PORT present");
   });
 
@@ -92,8 +92,8 @@ describe("Config Panel (HTTP-level) — Phase 8", () => {
       assert.ok(f.source, `field ${f.key} has a source`);
     }
     // With no DB/env overrides, most Tier-1 fields should be "default"
-    const ollama = schema.fields.find((f) => f.key === "OLLAMA_MODEL");
-    assert.equal(ollama.source, "default", "OLLAMA_MODEL source is default");
+    const llamacpp = schema.fields.find((f) => f.key === "LLAMACPP_MODEL");
+    assert.equal(llamacpp.source, "default", "LLAMACPP_MODEL source is default");
   });
 
   // ── 6. Fields include type metadata ─────────────────────────────────
@@ -118,7 +118,7 @@ describe("Config Panel (HTTP-level) — Phase 8", () => {
   test("schema includes warnings array", async () => {
     const schema = await fetchJSON(port, "/api/config/schema");
     assert.ok(Array.isArray(schema.warnings), "warnings is array");
-    // With no AI_PROVIDER=ollama and no mismatch, it should be empty
+    // With no AI_PROVIDER=llamacpp and no mismatch, it should be empty
     assert.equal(schema.warnings.length, 0, "no warnings in default state");
   });
 });

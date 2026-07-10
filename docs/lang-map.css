@@ -1,0 +1,200 @@
+/* ── Language map overlay (landing page port) ──────────────────────────────
+   Ported from public/styles/lang-map.css. Full-screen overlay with a world
+   map (framed on Europe) for switching the page language. Data:
+   world-paths.js (lazy-loaded); logic: lang-map.js. Uses the landing page's
+   theme tokens (--purple, --bg-card, --muted…) and its square-corner look. */
+
+/* Navbar globe button (replaces the old <select>) */
+.lang-globe-btn {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg-raised); border: 1px solid var(--border);
+  color: var(--muted); cursor: pointer; padding: 0 12px; height: 34px;
+  font-family: var(--font-ui); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; flex-shrink: 0;
+  transition: color .15s, border-color .15s, background .3s;
+}
+.lang-globe-btn i { font-size: 14px; }
+.lang-globe-btn:hover { color: var(--purple); border-color: var(--border-hi); }
+
+.langmap-overlay {
+  position: fixed; inset: 0; z-index: 400;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .28s ease;
+}
+.langmap-overlay.is-open { opacity: 1; pointer-events: auto; }
+
+.langmap-card {
+  width: min(1180px, calc(100vw - 32px)); height: min(720px, calc(100vh - 32px));
+  background: var(--bg-card); border: 1px solid var(--border-hi); border-radius: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, .45);
+  transform: translateY(14px) scale(.985); transition: transform .28s ease;
+}
+.langmap-overlay.is-open .langmap-card { transform: none; }
+
+.langmap-head { display: flex; align-items: baseline; gap: 12px; padding: 18px 22px 12px; }
+.langmap-head h2 { font-family: var(--font-ui); font-size: 16px; font-weight: 400; letter-spacing: .08em; text-transform: uppercase; margin: 0; }
+.langmap-head .langmap-sub { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); }
+.langmap-close {
+  margin-left: auto; width: 30px; height: 30px; border-radius: 0;
+  border: 1px solid var(--border); background: none; color: var(--muted);
+  cursor: pointer; font-size: 13px; transition: color .15s, border-color .15s;
+}
+.langmap-close:hover { color: var(--text); border-color: var(--purple); }
+
+.langmap-main { flex: 1; display: flex; min-height: 0; }
+
+/* Map pane */
+.langmap-map { flex: 1; position: relative; min-width: 0; }
+.langmap-map svg { width: 100%; height: 100%; display: block; cursor: grab; }
+.langmap-map svg.dragging { cursor: grabbing; }
+.langmap-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 60% 55% at 46% 42%,
+    color-mix(in srgb, var(--purple) 9%, transparent), transparent 70%);
+}
+.langmap-loading {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  color: var(--muted); font-size: 13px;
+}
+
+.lm-country {
+  fill: var(--bg-input); stroke: var(--border); stroke-width: .6;
+  vector-effect: non-scaling-stroke; transition: fill .15s;
+}
+.lm-country.available {
+  fill: color-mix(in srgb, var(--purple) 48%, var(--bg-card));
+  stroke: var(--purple); stroke-width: .8; cursor: pointer;
+}
+.lm-country.available:hover {
+  fill: color-mix(in srgb, var(--purple) 80%, var(--bg-card));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--purple) 80%, transparent));
+}
+.lm-country.planned {
+  fill: color-mix(in srgb, var(--purple) 14%, var(--bg-card));
+  stroke: color-mix(in srgb, var(--purple) 45%, var(--border));
+  stroke-dasharray: 3 2;
+}
+.lm-country.planned:hover { fill: color-mix(in srgb, var(--purple) 25%, var(--bg-card)); }
+.lm-country:not(.available):not(.planned):hover { fill: var(--bg-raised); }
+
+.lm-chip { cursor: pointer; }
+.lm-chip circle {
+  fill: color-mix(in srgb, var(--purple) 70%, var(--bg-card));
+  stroke: var(--purple); stroke-width: 1; vector-effect: non-scaling-stroke;
+}
+.lm-chip:hover circle {
+  fill: var(--purple);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--purple) 85%, transparent));
+}
+.lm-chip text {
+  fill: #fff; font-family: var(--font-mono); font-weight: 700;
+  text-anchor: middle; dominant-baseline: central; pointer-events: none;
+}
+.lm-chip-line { stroke: var(--purple); stroke-width: .7; opacity: .5; vector-effect: non-scaling-stroke; }
+
+.langmap-controls {
+  position: absolute; top: 14px; left: 14px; display: flex; gap: 6px;
+  background: color-mix(in srgb, var(--bg-card) 85%, transparent);
+  border: 1px solid var(--border); border-radius: 0; padding: 4px;
+}
+.langmap-controls button {
+  border: none; background: none; color: var(--muted); cursor: pointer;
+  font-family: var(--font-ui); font-size: 10px;
+  letter-spacing: .12em; text-transform: uppercase;
+  padding: 5px 14px; border-radius: 0; transition: color .15s, background .15s;
+}
+.langmap-controls button.active { background: rgba(168, 85, 247, .14); color: var(--purple); }
+.langmap-hint {
+  position: absolute; bottom: 12px; left: 14px; color: var(--muted);
+  font-family: var(--font-mono); font-size: 11px;
+  letter-spacing: .04em; opacity: .75; pointer-events: none;
+}
+.langmap-legend {
+  position: absolute; bottom: 12px; right: 14px; display: flex; gap: 14px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--muted); pointer-events: none;
+}
+.langmap-legend span { display: flex; align-items: center; gap: 5px; }
+.lm-swatch { width: 10px; height: 10px; border-radius: 0; display: inline-block; }
+.lm-swatch.on { background: color-mix(in srgb, var(--purple) 60%, var(--bg-card)); border: 1px solid var(--purple); }
+.lm-swatch.soon { background: color-mix(in srgb, var(--purple) 14%, var(--bg-card)); border: 1px dashed color-mix(in srgb, var(--purple) 45%, var(--border)); }
+.lm-swatch.off { background: var(--bg-input); border: 1px solid var(--border); }
+
+/* Tooltip + multi-language chooser */
+.langmap-tip {
+  position: fixed; z-index: 430; pointer-events: none; display: none;
+  background: var(--bg-raised); border: 1px solid var(--border-hi); border-radius: 0;
+  padding: 7px 11px; font-size: 12.5px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35); max-width: 240px;
+}
+.langmap-tip .lm-tip-country { font-weight: 600; }
+.langmap-tip .lm-tip-lang { color: var(--purple); font-size: 12px; margin-top: 1px; }
+.langmap-tip .lm-tip-soon { color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+.langmap-choose {
+  position: fixed; z-index: 440; display: none; flex-direction: column; gap: 2px;
+  background: var(--bg-raised); border: 1px solid var(--border-hi); border-radius: 0;
+  padding: 5px; box-shadow: 0 12px 32px rgba(0, 0, 0, .45);
+}
+.langmap-choose button {
+  display: flex; align-items: center; gap: 8px; border: none; background: none;
+  color: var(--text); font-size: 13px;
+  padding: 7px 12px; border-radius: 0; cursor: pointer; font-family: inherit;
+}
+.langmap-choose button:hover { background: var(--bg-card); color: var(--purple); }
+
+/* Language list pane */
+.langmap-list-pane {
+  width: 272px; border-left: 1px solid var(--border); display: flex; flex-direction: column;
+  background: color-mix(in srgb, var(--bg) 35%, transparent);
+}
+.langmap-search { padding: 12px 12px 8px; }
+.langmap-search input {
+  width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+  border-radius: 0; color: var(--text);
+  font-size: 13px; padding: 8px 11px;
+  outline: none; font-family: inherit;
+}
+.langmap-search input:focus { border-color: var(--purple); }
+.langmap-list { flex: 1; overflow-y: auto; padding: 2px 8px 10px; }
+.langmap-list::-webkit-scrollbar { width: 5px; }
+.langmap-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 0; }
+.lm-group {
+  font-family: var(--font-ui); font-size: 9px;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--muted); padding: 12px 8px 5px;
+}
+.lm-row {
+  width: 100%; display: flex; align-items: center; gap: 9px; padding: 7px 9px;
+  background: none; border: none; border-radius: 0; cursor: pointer;
+  color: var(--text); font-size: 13.5px;
+  font-family: inherit; text-align: left; transition: background .15s;
+}
+.lm-row:hover { background: var(--bg-raised); }
+.lm-row.is-active { background: rgba(168, 85, 247, .14); color: var(--purple); font-weight: 600; }
+.lm-row .lm-code {
+  margin-left: auto; font-family: var(--font-mono); font-size: 10.5px;
+  color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
+}
+.lm-row.soon { opacity: .5; cursor: default; }
+.lm-row.soon:hover { background: none; }
+.langmap-foot {
+  padding: 10px 14px 12px; border-top: 1px solid var(--border);
+  font-size: 11.5px; color: var(--muted); line-height: 1.5;
+}
+
+/* Toast */
+.langmap-toast {
+  position: fixed; left: 50%; bottom: 34px; transform: translateX(-50%) translateY(16px);
+  background: var(--bg-raised); border: 1px solid var(--purple); color: var(--text);
+  border-radius: 0; padding: 10px 20px; font-size: 13.5px;
+  z-index: 500; opacity: 0; pointer-events: none; transition: all .3s ease;
+  box-shadow: 0 8px 32px color-mix(in srgb, var(--purple) 35%, transparent);
+}
+.langmap-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+@media (max-width: 760px) {
+  .langmap-main { flex-direction: column; }
+  .langmap-list-pane { width: 100%; border-left: none; border-top: 1px solid var(--border); max-height: 42%; }
+}

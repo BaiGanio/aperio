@@ -2,7 +2,7 @@
 // Tests for detectMime and readImageHandler.
 // Imports directly from mcp/tools/image.js — no inline copies.
 
-import { test, describe, after } from "node:test";
+import { test, describe, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "path";
 import { installMemfs } from "../../helpers/memfs.js";
@@ -11,7 +11,7 @@ import { installMemfs } from "../../helpers/memfs.js";
 // Install the fs mock BEFORE importing image.js so its named fs bindings read
 // from the in-RAM map. Image bytes are written/read entirely in memory.
 const mem = installMemfs({ root: "/mem/img" });
-const { detectMime, readImageHandler } = await import("../../../mcp/tools/image.js");
+const { detectMime, readImageHandler, isLlamaCppProvider, describeImageViaLlamaCpp } = await import("../../../mcp/tools/image.js");
 after(() => mem.restore());
 
 const sandbox = { root: mem.root };
@@ -163,5 +163,64 @@ describe("readImageHandler (base64 data)", () => {
     assert.equal(result.content[0].type, "text");
     assert.ok(result.content[0].text.includes("Describe this"));
     assert.equal(result.content[1].type, "image");
+  });
+});
+
+// ─── isLlamaCppProvider / describeImageViaLlamaCpp ─────────────────────────────
+
+describe("isLlamaCppProvider", () => {
+  const original = process.env.AI_PROVIDER;
+  after(() => { process.env.AI_PROVIDER = original; });
+
+  test("true when AI_PROVIDER=llamacpp (any case)", () => {
+    process.env.AI_PROVIDER = "LlamaCpp";
+    assert.equal(isLlamaCppProvider(), true);
+  });
+
+  test("false for ollama or unset", () => {
+    process.env.AI_PROVIDER = "ollama";
+    assert.equal(isLlamaCppProvider(), false);
+    delete process.env.AI_PROVIDER;
+    assert.equal(isLlamaCppProvider(), false);
+  });
+});
+
+describe("describeImageViaLlamaCpp", () => {
+  test("posts image_url content to /v1/chat/completions and returns the text", async () => {
+    let capturedUrl, capturedBody;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      capturedUrl = String(url);
+      capturedBody = JSON.parse(opts.body);
+      return {
+        ok: true,
+        json: async () => ({ choices: [{ message: { content: "A red bicycle." } }] }),
+      };
+    });
+    try {
+      const text = await describeImageViaLlamaCpp("cGl4ZWxz", "Describe this image in detail.", "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF");
+      assert.equal(text, "A red bicycle.");
+      assert.match(capturedUrl, /\/v1\/chat\/completions$/);
+      assert.equal(capturedBody.model, "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF");
+      assert.equal(capturedBody.stream, false);
+      const content = capturedBody.messages[0].content;
+      assert.deepEqual(content.find(b => b.type === "text"), { type: "text", text: "Describe this image in detail." });
+      assert.equal(content.find(b => b.type === "image_url").image_url.url, "data:image/png;base64,cGl4ZWxz");
+    } finally {
+      mock.restoreAll();
+    }
+  });
+
+  test("throws with response body on a non-OK response", async () => {
+    mock.method(globalThis, "fetch", async () => ({
+      ok: false, status: 500, text: async () => "model not loaded",
+    }));
+    try {
+      await assert.rejects(
+        () => describeImageViaLlamaCpp("cGl4ZWxz", "Describe", "some-model"),
+        /llama\.cpp HTTP 500/,
+      );
+    } finally {
+      mock.restoreAll();
+    }
   });
 });

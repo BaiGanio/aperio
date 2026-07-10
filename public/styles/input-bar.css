@@ -285,6 +285,23 @@ textarea::placeholder { color: var(--text-muted); }
 .discuss-btn--on:hover { opacity: 0.9; }
 .discuss-btn:disabled { cursor: not-allowed; }
 
+/* ── Branch button ────────────────────────────────────────────── */
+.branch-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: var(--fs-chrome);
+  cursor: pointer; flex-shrink: 0;
+  transition: all var(--transition);
+}
+.branch-btn:hover {
+  border-color: var(--accent); color: var(--accent);
+  background: var(--accent-soft);
+}
+
 /* ── Autocomplete dropdown ( /skill and @ ) ──────────────────────── */
 .autocomplete-dropdown {
   position: absolute;

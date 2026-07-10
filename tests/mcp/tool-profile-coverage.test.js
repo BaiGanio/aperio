@@ -2,7 +2,7 @@
 //
 // Guard against the bug class behind the unreachable docgraph tools: an MCP tool
 // can be registered in mcp/tools/*.js yet referenced by NO entry in TOOL_PROFILES,
-// in which case getOllamaTools/getAnthropicTools never offer it to the model and
+// in which case getOpenAiTools/getAnthropicTools never offer it to the model and
 // the feature is silently dead through the agent (it failed with the honest
 // "couldn't issue the call correctly" fallback). The inverse — a profile naming a
 // tool that no longer exists — is just as bad: the model is told about a phantom.

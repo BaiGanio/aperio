@@ -20,7 +20,7 @@ import {
   isMemoriesCommand,
   isReasoningCommand,
   isRememberIntent,
-  isOllamaProvider,
+  isLlamaCppProvider,
   toggleReasoning,
   buildWebSocketUrl,
   isValidPort,
@@ -285,7 +285,7 @@ describe("Session / Memory / Model Command Detection", () => {
   test("isModelCommand matches bare or with args (case-insensitive)", () => {
     assert.strictEqual(isModelCommand("model"), true);
     assert.strictEqual(isModelCommand("  model  "), true);
-    assert.strictEqual(isModelCommand("model ollama llama3.1"), true);
+    assert.strictEqual(isModelCommand("model llamacpp llama3.1"), true);
     assert.strictEqual(isModelCommand("MODEL"), true);
     assert.strictEqual(isModelCommand("models"), false);
     assert.strictEqual(isModelCommand("switch model"), false);
@@ -336,26 +336,24 @@ describe("Remember Intent Detection", () => {
 
 // ─── Provider Detection Tests ──────────────────────────────────────────────
 describe("Provider Detection", () => {
-  test("isOllamaProvider detects ollama", () => {
-    assert.strictEqual(isOllamaProvider("ollama"), true);
+  test("isLlamaCppProvider detects llamacpp", () => {
+    assert.strictEqual(isLlamaCppProvider("llamacpp"), true);
   });
 
-  test("isOllamaProvider is case-insensitive", () => {
-    assert.strictEqual(isOllamaProvider("OLLAMA"), true);
-    assert.strictEqual(isOllamaProvider("Ollama"), true);
-    assert.strictEqual(isOllamaProvider("OlLaMa"), true);
+  test("isLlamaCppProvider is case-insensitive", () => {
+    assert.strictEqual(isLlamaCppProvider("LLAMACPP"), true);
+    assert.strictEqual(isLlamaCppProvider("LlamaCpp"), true);
   });
 
-  test("isOllamaProvider rejects other providers", () => {
-    assert.strictEqual(isOllamaProvider("anthropic"), false);
-    assert.strictEqual(isOllamaProvider("openai"), false);
-    assert.strictEqual(isOllamaProvider("mistral"), false);
+  test("isLlamaCppProvider rejects other providers", () => {
+    assert.strictEqual(isLlamaCppProvider("ollama"), false);
+    assert.strictEqual(isLlamaCppProvider("anthropic"), false);
   });
 
-  test("isOllamaProvider handles empty string", () => {
-    assert.strictEqual(isOllamaProvider(""), false);
-    assert.strictEqual(isOllamaProvider(null), false);
-    assert.strictEqual(isOllamaProvider(undefined), false);
+  test("isLlamaCppProvider handles empty string", () => {
+    assert.strictEqual(isLlamaCppProvider(""), false);
+    assert.strictEqual(isLlamaCppProvider(null), false);
+    assert.strictEqual(isLlamaCppProvider(undefined), false);
   });
 });
 
@@ -575,10 +573,10 @@ describe("Message Parsing", () => {
   });
 
   test("parseMessage parses provider message", () => {
-    const data = Buffer.from(JSON.stringify({ type: "provider", name: "ollama", model: "llama3.1" }));
+    const data = Buffer.from(JSON.stringify({ type: "provider", name: "llamacpp", model: "llama3.1" }));
     const msg = parseMessage(data);
     assert.strictEqual(msg.type, "provider");
-    assert.strictEqual(msg.name, "ollama");
+    assert.strictEqual(msg.name, "llamacpp");
   });
 
   test("parseMessage parses memories message", () => {
@@ -729,11 +727,11 @@ describe("Integration Scenarios", () => {
   });
 
   test("provider selection flow", () => {
-    const providers = ["ollama", "anthropic", "OLLAMA", "openai"];
+    const providers = ["llamacpp", "anthropic", "LLAMACPP", "openai"];
     const expected = [true, false, true, false];
 
     providers.forEach((provider, i) => {
-      assert.strictEqual(isOllamaProvider(provider), expected[i]);
+      assert.strictEqual(isLlamaCppProvider(provider), expected[i]);
     });
   });
 
@@ -993,27 +991,27 @@ describe("printConfig", () => {
     assert.ok(output.includes("anthropic"), "should default to anthropic");
   });
 
-  test("ollama provider shows OLLAMA_MODEL, OLLAMA_NUM_CTX, OLLAMA_CONTEXT_LENGTH rows", async () => {
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_MODEL = "llama3.1";
-    process.env.OLLAMA_NUM_CTX = "32768";
+  test("llamacpp provider shows LLAMACPP_MODEL, LLAMACPP_CTX, LLAMACPP_SERVE_CTX rows", async () => {
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "llama3.1";
+    process.env.LLAMACPP_CTX = "32768";
     const output = await capture();
-    assert.ok(output.includes("OLLAMA_MODEL"), "should include OLLAMA_MODEL row");
-    assert.ok(output.includes("OLLAMA_NUM_CTX"), "should include OLLAMA_NUM_CTX row");
-    assert.ok(output.includes("OLLAMA_CONTEXT_LENGTH"), "should include OLLAMA_CONTEXT_LENGTH row");
+    assert.ok(output.includes("LLAMACPP_MODEL"), "should include LLAMACPP_MODEL row");
+    assert.ok(output.includes("LLAMACPP_CTX"), "should include LLAMACPP_CTX row");
+    assert.ok(output.includes("LLAMACPP_SERVE_CTX"), "should include LLAMACPP_SERVE_CTX row");
     assert.ok(output.includes("llama3.1"), "should show the model value");
   });
 
-  test("non-ollama provider omits ollama-specific rows", async () => {
+  test("non-llamacpp provider omits llamacpp-specific rows", async () => {
     process.env.AI_PROVIDER = "anthropic";
     const output = await capture();
-    assert.ok(!output.includes("OLLAMA_MODEL"), "should NOT include OLLAMA_MODEL for non-ollama");
-    assert.ok(!output.includes("OLLAMA_NUM_CTX"), "should NOT include OLLAMA_NUM_CTX for non-ollama");
+    assert.ok(!output.includes("LLAMACPP_MODEL"), "should NOT include LLAMACPP_MODEL for non-llamacpp");
+    assert.ok(!output.includes("LLAMACPP_CTX"), "should NOT include LLAMACPP_CTX for non-llamacpp");
   });
 
   test("source labels render as (from UI) / (from .env) / (default)", async () => {
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_MODEL = "from-env";
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "from-env";
     const output = await capture();
     // Source labels appear dimmed in parentheses after the value.
     assert.ok(output.includes("(from .env)") || output.includes("(from UI)") || output.includes("(default)"),
@@ -1021,13 +1019,13 @@ describe("printConfig", () => {
   });
 
   test("unset values show (unset) fallback", async () => {
-    process.env.AI_PROVIDER = "ollama";
-    delete process.env.OLLAMA_MODEL;
-    delete process.env.OLLAMA_NUM_CTX;
-    delete process.env.OLLAMA_CONTEXT_LENGTH;
+    process.env.AI_PROVIDER = "llamacpp";
+    delete process.env.LLAMACPP_MODEL;
+    delete process.env.LLAMACPP_CTX;
+    delete process.env.LLAMACPP_SERVE_CTX;
     const output = await capture();
-    // OLLAMA_MODEL defaults to llama3.1 in the row fallback.
-    assert.ok(output.includes("llama3.1"), "OLLAMA_MODEL should fall back to llama3.1");
+    // LLAMACPP_MODEL defaults to the curated Qwen model in the row fallback.
+    assert.ok(output.includes("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"), "LLAMACPP_MODEL should fall back to the curated default");
   });
 });
 

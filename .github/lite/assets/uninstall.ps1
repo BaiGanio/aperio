@@ -1,9 +1,9 @@
 # ==============================================================
 # uninstall.ps1  --  remove what Aperio-lite installed into this folder (Windows).
 #
-# Mirrors uninstall.sh. Removes: the vendored Ollama engine, node_modules, the
+# Mirrors uninstall.sh. Removes: the vendored llama.cpp engine, node_modules, the
 # local database + logs, and the Desktop launcher (Aperio.lnk + launch-hidden.vbs).
-# Optionally removes the AI model Aperio downloaded. Leaves Node.js alone (you may
+# Optionally keeps the AI model Aperio downloaded. Leaves Node.js alone (you may
 # use it elsewhere).
 # ==============================================================
 
@@ -59,10 +59,10 @@ if ($conns) {
     Ok "Stopped the Aperio server (port $Port)."
 }
 
-# 2. Stop only OUR vendored Ollama (never touches a system Ollama).
-$vendorOllama = Join-Path $AppRoot 'vendor\ollama'
-Get-Process ollama -ErrorAction SilentlyContinue | Where-Object {
-    $_.Path -and $_.Path.StartsWith($vendorOllama, [StringComparison]::OrdinalIgnoreCase)
+# 2. Stop only OUR vendored llama.cpp (never touches a system install).
+$vendorLlamaCpp = Join-Path $AppRoot 'vendor\llamacpp'
+Get-Process llama-server -ErrorAction SilentlyContinue | Where-Object {
+    $_.Path -and $_.Path.StartsWith($vendorLlamaCpp, [StringComparison]::OrdinalIgnoreCase)
 } | ForEach-Object { Stop-Process -Id $_.Id -Force -ErrorAction SilentlyContinue }
 
 # 3. Remove the contained pieces.
@@ -70,7 +70,7 @@ if (Test-Path (Join-Path $AppRoot 'node_modules')) {
     Remove-Item -Recurse -Force (Join-Path $AppRoot 'node_modules'); Ok "Removed node_modules/"
 }
 if (Test-Path (Join-Path $AppRoot 'vendor')) {
-    Remove-Item -Recurse -Force (Join-Path $AppRoot 'vendor'); Ok "Removed vendor/ (Ollama engine)"
+    Remove-Item -Recurse -Force (Join-Path $AppRoot 'vendor'); Ok "Removed vendor/ (llama.cpp engine)"
 }
 
 # 4. Desktop launcher (Aperio.lnk shortcut + the launch-hidden.vbs it points at).
@@ -80,16 +80,19 @@ if (Test-Path $lnk) { Remove-Item -Force $lnk; Ok "Removed the Desktop launcher.
 $vbs = Join-Path $AppRoot 'launch-hidden.vbs'
 if (Test-Path $vbs) { Remove-Item -Force $vbs }
 
-# 5. Offer to remove the downloaded AI model (only the one Aperio pulled).
-if ($model -and (Get-Command ollama -ErrorAction SilentlyContinue)) {
+# 5. Offer to keep the downloaded AI model. It lives under var\models
+# (LLAMA_CACHE) by default -- no separate per-model removal command like
+# Ollama had, so "keep" means moving it out before var\ is wiped below.
+$modelsDir = Join-Path $AppRoot 'var\models'
+$keepModelDir = $null
+if ($model -and (Test-Path $modelsDir)) {
     Write-Host ""
     $rm = Read-Host "  Also delete the downloaded AI model '$model' (frees several GB)? (y/n)"
-    if ($rm -match '^[Yy]') {
-        ollama rm $model 2>&1 | Out-Null
-        if ($LASTEXITCODE -eq 0) { Ok "Removed model $model." }
-        else { Warn "Could not remove $model (is Ollama running?)." }
-    } else {
-        Info "Kept the model - remove it later with: ollama rm $model"
+    if ($rm -notmatch '^[Yy]') {
+        $keepModelDir = Join-Path ([System.IO.Path]::GetTempPath()) ([System.IO.Path]::GetRandomFileName())
+        New-Item -ItemType Directory -Force -Path $keepModelDir | Out-Null
+        Move-Item $modelsDir (Join-Path $keepModelDir 'models')
+        Info "Kept the downloaded model - will restore it after cleanup."
     }
 }
 
@@ -99,6 +102,12 @@ if (Test-Path (Join-Path $AppRoot 'var')) {
 }
 if (Test-Path (Join-Path $AppRoot '.sqlite')) {
     Remove-Item -Recurse -Force (Join-Path $AppRoot '.sqlite'); Ok "Removed .sqlite/ (memory database)"
+}
+if ($keepModelDir) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $AppRoot 'var') | Out-Null
+    Move-Item (Join-Path $keepModelDir 'models') $modelsDir
+    Remove-Item -Recurse -Force $keepModelDir -ErrorAction SilentlyContinue
+    Ok "Restored the kept model to var/models/"
 }
 
 # 7. What we deliberately left behind.

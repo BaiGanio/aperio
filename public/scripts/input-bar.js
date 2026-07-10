@@ -59,6 +59,12 @@ discussBtn?.addEventListener("click", () => {
 
 _applyDiscussVisualState();
 
+// ── Branch button ─────────────────────────────────────────────
+document.getElementById("branchBtn")?.addEventListener("click", () => {
+  if (!confirm(t("branch_confirm") || "Save this conversation and start a new branch? You can resume the original from the sessions panel.")) return;
+  window.safeSend?.(JSON.stringify({ type: "branch_conversation" }));
+});
+
 function updateSendBtn() {
   const hasText  = chatInput.value.trim().length > 0;
   const hasFiles = attachedFiles.length > 0;

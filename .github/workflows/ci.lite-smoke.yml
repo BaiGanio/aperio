@@ -4,7 +4,7 @@ name: (ci) lite smoke
 # server boot path or the launchers, on all three OSes: install deps, syntax-
 # check the launchers, boot `node server.js` headless and assert it answers
 # `/api/bootstrap/state` (the endpoint is up as soon as the HTTP server listens
-# — no Ollama, model pull, or bootstrap required). This is exactly the class of
+# — no llama.cpp engine, model download, or bootstrap required). This is exactly the class of
 # breakage — a launcher/zip/boot regression that ships green — that let the
 # launcher-less zip go unnoticed.
 

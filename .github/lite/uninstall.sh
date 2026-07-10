@@ -2,10 +2,10 @@
 # ============================================================
 # uninstall.sh  —  remove what Aperio-lite installed into this folder.
 #
-# Removes: the vendored Ollama engine, node_modules, local database + logs,
-# and the Desktop launcher. Optionally removes the AI model Aperio downloaded.
-# Leaves alone: Node.js/nvm (you may use it elsewhere) and, on Linux, a
-# system-wide Ollama (remove that yourself if you want).
+# Removes: the vendored llama.cpp engine, node_modules, local database + logs
+# (which includes the downloaded AI model — it lives under var/models by
+# default), and the Desktop launcher.
+# Leaves alone: Node.js/nvm (you may use it elsewhere).
 # ============================================================
 
 set -uo pipefail
@@ -42,12 +42,12 @@ fi
 pids=$(lsof -ti :$PORT 2>/dev/null || true)
 if [ -n "$pids" ]; then echo "$pids" | xargs kill -9 2>/dev/null || true; ok "Stopped the Aperio server (port $PORT)."; fi
 
-# 2. Stop only OUR vendored Ollama (never touches a system Ollama).
-if pkill -f "$DIR/vendor/ollama/ollama" 2>/dev/null; then ok "Stopped the vendored Ollama engine."; fi
+# 2. Stop only OUR vendored llama.cpp (never touches a system install).
+if pkill -f "$DIR/vendor/llamacpp/llama-server" 2>/dev/null; then ok "Stopped the vendored llama.cpp engine."; fi
 
 # 3. Remove the contained pieces.
 [ -d node_modules ] && { rm -rf node_modules && ok "Removed node_modules/"; }
-[ -d vendor ]       && { rm -rf vendor       && ok "Removed vendor/ (Ollama engine)"; }
+[ -d vendor ]       && { rm -rf vendor       && ok "Removed vendor/ (llama.cpp engine)"; }
 
 # 4. Desktop launcher.
 if [ "$OS" = "Darwin" ]; then
@@ -56,20 +56,30 @@ elif [ "$OS" = "Linux" ]; then
     rm -f "$HOME/Desktop/Aperio.desktop" 2>/dev/null && ok "Removed the Desktop launcher." || true
 fi
 
-# 5. Offer to remove the downloaded AI model (only the one Aperio pulled).
-if [ -n "$MODEL" ] && command -v ollama >/dev/null 2>&1; then
+# 5. Offer to keep the downloaded AI model. It lives under var/models
+# (LLAMA_CACHE) by default — no separate per-model removal command like
+# Ollama had, so "keep" means moving it out before var/ is wiped below.
+KEEP_MODEL_DIR=""
+if [ -n "$MODEL" ] && [ -d var/models ]; then
     printf "\n"
     read -rp "  Also delete the downloaded AI model '${MODEL}' (frees several GB)? (y/n): " -n 1 REPLY; printf "\n"
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        ollama rm "$MODEL" >/dev/null 2>&1 && ok "Removed model $MODEL." || warn "Could not remove $MODEL (is Ollama running?)."
-    else
-        info "Kept the model — remove it later with: ollama rm $MODEL"
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        KEEP_MODEL_DIR=$(mktemp -d)
+        mv var/models "$KEEP_MODEL_DIR/models"
+        info "Kept the downloaded model — will restore it after cleanup."
     fi
 fi
 
 # 6. App data (logs, database, bootstrap lock, sessions). Do this last.
 [ -d var ]     && { rm -rf var     && ok "Removed var/ (logs, settings, sessions)"; }
 [ -d .sqlite ] && { rm -rf .sqlite && ok "Removed .sqlite/ (memory database)"; }
+
+if [ -n "$KEEP_MODEL_DIR" ]; then
+    mkdir -p var
+    mv "$KEEP_MODEL_DIR/models" var/models
+    rmdir "$KEEP_MODEL_DIR" 2>/dev/null || true
+    ok "Restored the kept model to var/models/"
+fi
 
 # 7. What we deliberately left behind.
 printf "\n"
@@ -79,7 +89,6 @@ if [ "$NODE_PREEXISTING" = "false" ]; then
 else
     printf "  ${D}    • Node.js — you already had it; untouched${R}\n"
 fi
-[ "$OS" = "Linux" ] && printf "  ${D}    • System Ollama — remove with your package manager if you installed it only for Aperio${R}\n"
 printf "\n"
 ok "Aperio-lite uninstalled."
 printf "  ${D}Finally, drag this folder to the Trash to remove Aperio itself.${R}\n\n"

@@ -33,7 +33,7 @@ folder that comes out is *the app* — everything Aperio installs lives inside i
 
 You start Aperio with a small launcher. It does only the things a browser can't:
 make sure **Node.js** and the app's **dependencies** are present, then start
-Aperio's engine. Everything else — the AI engine (Ollama), the model, the
+Aperio's engine. Everything else — the AI engine (llama.cpp), the model, the
 database, and any provider/API key — happens in the browser wizard the launcher
 opens for you.
 
@@ -76,8 +76,8 @@ The setup page (the wizard) walks you through it — no config files to edit.
 1. **Choose how the AI runs**
    - **Run locally — free & private** (recommended): nothing leaves your machine.
    - **Use a cloud AI**: paste one API key (Anthropic, DeepSeek, or Gemini).
-2. **Local path** — Aperio installs a private copy of the **Ollama** engine
-   *inside its own folder* (`vendor/ollama` — not system-wide), then looks at
+2. **Local path** — Aperio installs a private copy of the **llama.cpp** engine
+   *inside its own folder* (`vendor/llamacpp` — not system-wide), then looks at
    your RAM and disk and **picks a model that fits your computer**, downloading
    it once.
 3. **Database & search** — a local **SQLite** database and a small on-device
@@ -114,8 +114,8 @@ Everything Aperio installs is **contained in its own folder**, except Node.js:
 
 | Thing | Where | Removed by uninstaller? |
 |-------|-------|--------------------------|
-| Ollama engine | `vendor/ollama/` (inside the app folder) | Yes |
-| AI model | Ollama's model store | Offered during uninstall |
+| llama.cpp engine | `vendor/llamacpp/` (inside the app folder) | Yes |
+| AI model | `var/models/` (GGUF cache, inside the app folder) | Offered during uninstall |
 | Dependencies | `node_modules/` (inside the app folder) | Yes |
 | Your memory database, logs, settings | `.sqlite/`, `var/` (inside the app folder) | Yes |
 | Node.js | System / `~/.nvm` | **No** — kept in case you use it elsewhere |

@@ -136,7 +136,7 @@ Audit questions:
 - Message history truncation: when context exceeds the provider's window,
   messages are trimmed. Is the trim logic symmetric (drops oldest first
   but preserves system prompt and first user message)?
-- `OLLAMA_NO_TOOLS` flag: when true, the agent runs without tool calls.
+- `NO_TOOLS` flag: when true, the agent runs without tool calls.
   Does the flag get re-evaluated on provider switch, or is it stuck from
   initial detection?
 

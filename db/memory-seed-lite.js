@@ -53,7 +53,7 @@ export const MEMORY_SEED_LITE = [
   {
     type: 'source',
     title: 'What the installer added to your computer, and where your data lives',
-    content: 'The installer added: Node.js (the runtime Aperio runs on — installed user-local, no admin), the Ollama engine (runs the AI model — kept inside the Aperio folder under vendor/), one AI model chosen to fit your hardware (several GB), and Aperio itself. Your data stays inside the Aperio folder: the database at .sqlite/aperio.db, logs and uploads under var/. The help page at /help.html has the full list and the uninstall instructions.',
+    content: 'The installer added: Node.js (the runtime Aperio runs on — installed user-local, no admin), the llama.cpp engine (runs the AI model — kept inside the Aperio folder under vendor/), one AI model chosen to fit your hardware (several GB), and Aperio itself. Your data stays inside the Aperio folder: the database at .sqlite/aperio.db, logs and uploads under var/. The help page at /help.html has the full list and the uninstall instructions.',
     tags: ['aperio', 'install', 'paths'],
     importance: 4,
   },

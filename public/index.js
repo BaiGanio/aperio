@@ -148,16 +148,51 @@ window.connect();
 
 // ── Context bar ──────────────────────────────────────────────
 let _ctxHWM = 0; // high-water mark — only advances, never drops
+let _sessionCost = 0;
+let _currentProvider = null;
+let _currentModel = null;
+
+// Approximate per-1M-token costs (USD). Local = free.
+const _COST_RATES = {
+  "deepseek-v4-pro":    { in: 0.55, out: 2.19 },
+  "deepseek-v4-flash":  { in: 0.27, out: 1.10 },
+  "claude-opus-4-8":    { in: 15.00, out: 75.00 },
+  "claude-sonnet-4-6":  { in: 3.00, out: 15.00 },
+  "claude-haiku-4-5":   { in: 0.80, out: 4.00 },
+  "gemini-2.5-flash":   { in: 0.15, out: 0.60 },
+  "gemini-2.5-pro":     { in: 1.25, out: 5.00 },
+};
+
+function setCostProvider(name, model) {
+  _currentProvider = name;
+  _currentModel = model;
+}
 
 function updateContextBar(used, max, outputTok = 0) {
   const text = document.getElementById("ctxText");
   const fill = document.getElementById("ctxFill");
+  const costEl = document.getElementById("costText");
   if (!text || !fill) return;
 
   // Take the higher of the API's reported input_tokens vs our running total,
   // then always add output_tokens — those tokens are now in context for the next call.
   _ctxHWM = Math.max(_ctxHWM, used) + outputTok;
   const display = _ctxHWM;
+
+  // Cost calculation.
+  const isLocal = _currentProvider === "llamacpp";
+  if (!isLocal && used > 0 && costEl) {
+    const rates = _COST_RATES[_currentModel] || { in: 0.5, out: 2.0 };
+    const turnCost = ((used / 1_000_000) * rates.in) + ((outputTok / 1_000_000) * rates.out);
+    _sessionCost += turnCost;
+    costEl.textContent = `$${_sessionCost.toFixed(4)}`;
+    costEl.style.display = "inline";
+    costEl.title = `This session: ~$${_sessionCost.toFixed(4)} (${_currentModel || "unknown"})`;
+  } else if (isLocal && costEl) {
+    costEl.textContent = "local";
+    costEl.style.display = "inline";
+    costEl.title = "Running locally — no API cost";
+  }
 
   if (!max || max <= 0) {
     text.textContent = `${display.toLocaleString()} / —`;
@@ -167,15 +202,12 @@ function updateContextBar(used, max, outputTok = 0) {
 
   const pct = Math.min(100, (display / max) * 100);
   const roundedPct = Math.round(pct);
-  // Ollama-only: show the served window as a % of the machine's RAM capacity, so
-  // users see the total is Aperio's auto-sized fraction of their hardware.
   const capPct = window.maxCtxCapacityPct;
   const showCap = typeof capPct === "number" && capPct > 0;
   text.textContent = `${display.toLocaleString()} / ${max.toLocaleString()}${showCap ? ` (${capPct}%)` : ""}`;
   text.title = showCap ? t("ctx_capacity_tip", { pct: capPct }) : "";
   fill.style.width = `${pct}%`;
 
-  // Keep the context pressure banner in sync
   if (typeof ctxBannerEl !== "undefined" && ctxBannerEl) {
     const textEl = ctxBannerEl.querySelector(".ctx-banner-text");
     if (textEl) {
@@ -187,3 +219,4 @@ function updateContextBar(used, max, outputTok = 0) {
   }
 }
 window.updateContextBar = updateContextBar;
+window.setCostProvider = setCostProvider;

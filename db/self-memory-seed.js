@@ -45,7 +45,7 @@ export const SELF_MEMORY_SEED = [
     content:
       "Aperio-lite installs in two phases with a hard boundary at 'Node is running'. " +
       "Phase 1 — the terminal ignition (.github/lite/START.sh on macOS/Linux, START.bat→assets/start.ps1 on Windows) — does ONLY what a browser can't: install Node.js (nvm on Unix, winget on Windows) and run 'npm install', then start the server. " +
-      "Phase 2 — the browser wizard (public/setup.html driven by bootstrap.js over /api/bootstrap/stream) — does everything else: install Ollama, pull the model, migrate SQLite, pick the provider. " +
+      "Phase 2 — the browser wizard (public/setup.html driven by bootstrap.js over /api/bootstrap/stream) — does everything else: install llama.cpp, download the model, migrate SQLite, pick the provider. " +
       "Node can't install itself from a web page, so bootstrap.js's 'node' and 'deps' steps only ever verify (they show green because the server serving that page already needed them).",
     tags: ['aperio-lite', 'install', 'architecture', 'troubleshooting'],
     importance: 5,
@@ -61,29 +61,29 @@ export const SELF_MEMORY_SEED = [
   {
     title: 'Idle auto-shutdown: server stops ~180s after the last browser tab closes',
     content:
-      "lib/helpers/shutdownGuard.js is a dead-man's switch. The browser (public/scripts/api.js) pings /api/heartbeat every HEARTBEAT_INTERVAL_SECONDS (default 60); each ping resets a timer of IDLE_TIMEOUT_SECONDS (default 180). When every tab closes the pings stop and the server (and Ollama, if no foreign model is loaded) shuts down. " +
-      "It arms only on the FIRST heartbeat (so a headless/terminal run isn't killed). It's enabled per IDLE_SHUTDOWN: 'auto' (default) = only for the local Ollama provider; 'on' = always (the lite launchers set this so a windowless server still self-stops on any provider); 'off' = never. Keep HEARTBEAT_INTERVAL well under IDLE_TIMEOUT (≤ 1/3) or a throttled background tab causes a false shutdown.",
+      "lib/helpers/shutdownGuard.js is a dead-man's switch. The browser (public/scripts/api.js) pings /api/heartbeat every HEARTBEAT_INTERVAL_SECONDS (default 60); each ping resets a timer of IDLE_TIMEOUT_SECONDS (default 180). When every tab closes the pings stop and the server (and the local llama.cpp engine, if no foreign model is loaded) shuts down. " +
+      "It arms only on the FIRST heartbeat (so a headless/terminal run isn't killed). It's enabled per IDLE_SHUTDOWN: 'auto' (default) = only for the local llamacpp provider; 'on' = always (the lite launchers set this so a windowless server still self-stops on any provider); 'off' = never. Keep HEARTBEAT_INTERVAL well under IDLE_TIMEOUT (≤ 1/3) or a throttled background tab causes a false shutdown.",
     tags: ['aperio-lite', 'shutdown', 'watchdog', 'heartbeat', 'troubleshooting'],
     importance: 4,
   },
   {
     title: "Quit button posts /api/quit — needs the X-Aperio-Client header",
     content:
-      "The header 'Quit Aperio' power button calls window.quitAperio() → POST /api/quit → the watchdog's quit(), which runs the same teardown as an idle timeout right now (stops Ollama if safe, then exits). State-changing /api requests require an X-Aperio-Client header (netGuard.js CSRF/DNS-rebind guard); the browser adds it automatically via public/scripts/http-guard.js, so a raw curl POST correctly gets 403 client_header_required. Quit works on any provider (when the watchdog is disabled, quit() falls back to SIGTERM).",
+      "The header 'Quit Aperio' power button calls window.quitAperio() → POST /api/quit → the watchdog's quit(), which runs the same teardown as an idle timeout right now (stops the local llama.cpp engine if safe, then exits). State-changing /api requests require an X-Aperio-Client header (netGuard.js CSRF/DNS-rebind guard); the browser adds it automatically via public/scripts/http-guard.js, so a raw curl POST correctly gets 403 client_header_required. Quit works on any provider (when the watchdog is disabled, quit() falls back to SIGTERM).",
     tags: ['aperio-lite', 'quit', 'shutdown', 'security', 'troubleshooting'],
     importance: 4,
   },
   {
-    title: 'macOS/Windows Ollama is vendored — install.sh is Linux-only',
+    title: 'llama.cpp is vendored on every platform — no system install, no daemon',
     content:
-      "https://ollama.com/install.sh only supports Linux. So bootstrap.js installs Ollama differently per OS: macOS downloads the pinned, checksum-verified ollama-darwin.tgz (a universal, signed & notarized binary) into ./vendor/ollama; Windows downloads ollama-windows-amd64.zip the same way; Linux keeps install.sh. The vendored dir is put on PATH so the app's own spawn('ollama') (lib/helpers/startOllama.js) and 'ollama pull' both find it. If a macOS/Windows install fails at the Ollama step, check the checksum/download in var/bootstrap.log.",
-    tags: ['aperio-lite', 'ollama', 'install', 'macos', 'windows', 'troubleshooting'],
+      "bootstrap.js downloads a pinned, checksum-verified llama-server release per OS straight into ./vendor/llamacpp: macOS gets the arm64/Metal build, Windows and Linux both get Vulkan builds (broadest single choice; a CUDA build is documented for NVIDIA power users). Unlike Ollama, this needed no per-OS install-script split — all three platforms just extract a GitHub release archive. The vendored dir is put on PATH so the app's own spawn('llama-server') (lib/helpers/startLlamaCpp.js) finds it. Models are separate: llama-server downloads GGUF files into LLAMA_CACHE (default ./var/models) on first use, not bundled with the engine. If install fails, check the checksum/download in var/bootstrap.log.",
+    tags: ['aperio-lite', 'llamacpp', 'install', 'macos', 'windows', 'linux', 'troubleshooting'],
     importance: 4,
   },
   {
     title: "start:lite uses UNIX inline env vars — Windows launcher sets $env and runs node directly",
     content:
-      "The npm script start:lite is 'AI_PROVIDER=ollama PORT=31337 DB_BACKEND=sqlite EMBEDDING_PROVIDER=transformers IDLE_SHUTDOWN=on node server.js'. That inline-env syntax is UNIX-only and fails when npm runs it on Windows (no cross-env). So the Windows launchers (assets/start.ps1, assets/launch-hidden.ps1) set the same variables via $env: and run 'node server.js' directly. If a Windows lite install starts but ignores its config, suspect someone ran 'npm run start:lite' instead of the PowerShell launcher.",
+      "The npm script start:lite is 'AI_PROVIDER=llamacpp PORT=31337 DB_BACKEND=sqlite EMBEDDING_PROVIDER=transformers IDLE_SHUTDOWN=on APERIO_LITE=on APERIO_CONFIG_PRECEDENCE=db node server.js'. That inline-env syntax is UNIX-only and fails when npm runs it on Windows (no cross-env). So the Windows launchers (assets/start.ps1, assets/launch-hidden.ps1) set the same variables via $env: and run 'node server.js' directly. If a Windows lite install starts but ignores its config, suspect someone ran 'npm run start:lite' instead of the PowerShell launcher.",
     tags: ['aperio-lite', 'windows', 'launch', 'config', 'troubleshooting'],
     importance: 3,
   },

@@ -114,11 +114,11 @@ describe("GET /version", () => {
 describe("GET /provider", () => {
   test("returns provider name and model", async () => {
     const router = makeRouter({
-      agent: { provider: { name: "ollama", model: "llama3.1" } },
+      agent: { provider: { name: "llamacpp", model: "llama3.1" } },
     });
     const { status, body } = await invoke(router, "GET", "/provider");
     assert.strictEqual(status, 200);
-    assert.strictEqual(body.provider, "ollama");
+    assert.strictEqual(body.provider, "llamacpp");
     assert.strictEqual(body.model, "llama3.1");
   });
 });
@@ -569,16 +569,16 @@ describe("GET /models", () => {
     }};
   }
 
-  test("returns ollama models from fetch", async () => {
+  test("returns llamacpp models from fetch", async () => {
     const { router, cleanup } = modelsRouter({
       fetchImpl: async () => ({
         ok: true,
-        json: async () => ({ models: [{ name: "llama3.1" }, { name: "qwen2.5" }] }),
+        json: async () => ({ data: [{ id: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" }, { id: "unsloth/Qwen3.5-4B-GGUF" }] }),
       }),
     });
     const { body } = await invoke(router, "GET", "/models");
     cleanup();
-    assert.deepStrictEqual(body.providers.ollama, ["llama3.1", "qwen2.5"]);
+    assert.deepStrictEqual(body.providers.llamacpp, ["Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M", "unsloth/Qwen3.5-4B-GGUF"]);
   });
 
   test("includes cloud providers when API keys are set", async () => {
@@ -597,13 +597,13 @@ describe("GET /models", () => {
     assert.strictEqual(body.providers.gemini, undefined);
   });
 
-  test("handles ollama fetch failure gracefully", async () => {
+  test("handles llamacpp fetch failure gracefully", async () => {
     const { router, cleanup } = modelsRouter({
       fetchImpl: async () => { throw new Error("connection refused"); },
     });
     const { body } = await invoke(router, "GET", "/models");
     cleanup();
-    assert.strictEqual(body.providers.ollama, undefined);
+    assert.strictEqual(body.providers.llamacpp, undefined);
   });
 
   test("returns current provider and model in top-level fields", async () => {

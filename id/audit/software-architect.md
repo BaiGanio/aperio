@@ -115,9 +115,9 @@ Audit questions:
   must be resolved before the tool call crosses into MCP (`resolveScratchPath`).
   Are there any tools that receive an unresolved scratch path?
 
-### 5. Agent and provider abstraction (`lib/agent.js`)
+### 5. Agent and provider abstraction (`lib/agent/index.js`)
 
-The agent abstracts over Anthropic, DeepSeek, Ollama, and Gemini providers.
+The agent abstracts over Anthropic, DeepSeek, llama.cpp, and Gemini providers.
 Each has its own message format, tool-calling protocol, and context window.
 
 Audit questions:
@@ -144,9 +144,9 @@ Audit questions:
 - The scheduler (`agent-scheduler.js`) receives `callTool` and `createAgent`
   from the main agent. If the main agent's provider changes at runtime,
   does the scheduler see the new provider? Or does it hold a stale reference?
-- Memory workers (dedup, infer) are gated by `memoryWorkersEnabled` which
-  checks `provider.name === "ollama"`. If the provider is switched from
-  Ollama to Anthropic mid-session, do the workers stop?
+- Memory workers (dedup, infer) are gated by `memoryWorkersEnabled` (`server.js`)
+  which checks `isLocalProvider(provider.name)`. If the provider is switched from
+  llama.cpp to Anthropic mid-session, do the workers stop?
 - `shutdownEmbeddings` (ONNX) must complete before process exit to avoid
   "mutex lock failed" crashes. Is the shutdown ordering in
   `gracefulShutdown` correct and complete?

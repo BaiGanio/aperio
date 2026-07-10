@@ -24,7 +24,7 @@ describe("config-sync", () => {
   });
 
   test("unmanagedKeys: registry + OS vars excluded", () => {
-    const env = { OLLAMA_MODEL: "x", HOME: "/h", MY_CUSTOM: "y", NODE_ENV: "test" };
+    const env = { LLAMACPP_MODEL: "x", HOME: "/h", MY_CUSTOM: "y", NODE_ENV: "test" };
     assert.deepEqual(unmanagedKeys(env), ["MY_CUSTOM"]);
     assert.ok(OS_EXCLUDED.has("HOME"));
   });
@@ -48,10 +48,10 @@ describe("config-sync", () => {
   });
 
   test("classify: managed / unmanaged / orphaned", () => {
-    const env = { OLLAMA_MODEL: "x", MY_CUSTOM: "y", HOME: "/h" };
-    const dbKeys = ["config.OLLAMA_MODEL", "config.MY_CUSTOM", "config.GONE", "triage.foo"];
+    const env = { LLAMACPP_MODEL: "x", MY_CUSTOM: "y", HOME: "/h" };
+    const dbKeys = ["config.LLAMACPP_MODEL", "config.MY_CUSTOM", "config.GONE", "triage.foo"];
     const { managed, unmanaged, orphaned } = classify(env, dbKeys);
-    assert.deepEqual(managed, ["OLLAMA_MODEL"]);
+    assert.deepEqual(managed, ["LLAMACPP_MODEL"]);
     assert.deepEqual(unmanaged, ["MY_CUSTOM"]);
     // GONE is in the DB but neither in the registry nor .env → orphaned.
     // MY_CUSTOM is in .env so it's unmanaged (adopted), not orphaned.

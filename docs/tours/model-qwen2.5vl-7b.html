@@ -79,9 +79,9 @@
 
     <div class="mt-note reveal">
       <strong>Two ways to run it.</strong> Either as your <em>only</em> model (it both chats and sees), or as a <em>dedicated vision model</em> beside a stronger chat model — Aperio routes image tasks to the VL model automatically. The second needs enough RAM for both (32 GB+). In <code>.env</code>:
-      <div class="mt-env" style="margin-bottom:0">OLLAMA_NUM_CTX=32768
-OLLAMA_MODEL=gemma4:12b           # your preferred chat model
-OLLAMA_VLM_MODEL=qwen2.5vl:7b     # used only for images</div>
+      <div class="mt-env" style="margin-bottom:0">LLAMACPP_CTX=32768
+LLAMACPP_MODEL=ggml-org/gemma-4-12B-it-GGUF:Q4_K_M       # your preferred chat model
+LLAMACPP_VLM_MODEL=ggml-org/Qwen2.5-VL-7B-Instruct-GGUF  # used only for images</div>
     </div>
   </div>
 </section>
