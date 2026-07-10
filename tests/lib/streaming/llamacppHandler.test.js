@@ -487,6 +487,37 @@ describe("process — full stream lifecycle", () => {
     const tokenEvents = em.send.mock.calls.filter(c => c.arguments[0].type === "token");
     assert.equal(tokenEvents.length, 0);
   });
+
+  test("captures a mid-stream error object into streamError and ends the stream", async () => {
+    // llama-server returns HTTP 200 for a streaming request, then emits the
+    // failure inside the stream (e.g. an OOM Metal alloc → "Compute error.").
+    // The handler must surface it, not drop it as an empty completion.
+    const em = mockEmitter();
+    const h = buildHandler({
+      chunks: [
+        deltaContent("partial"),
+        sse({ error: { code: 500, message: "Compute error.", type: "server_error" } }),
+        deltaContent("never reached"),
+        doneMarker,
+      ],
+      emitter: em,
+    });
+
+    const result = await h.process();
+
+    assert.equal(h.streamError, "Compute error.");
+    // Stream ended at the error line — content after it is not consumed.
+    assert.equal(result.text, "partial");
+    assert.deepEqual(result.toolCalls, []);
+  });
+
+  test("falls back to the error type when the error object has no message", async () => {
+    const h = buildHandler({
+      chunks: [sse({ error: { type: "server_error" } }), doneMarker],
+    });
+    await h.process();
+    assert.equal(h.streamError, "server_error");
+  });
 });
 
 // =============================================================================
@@ -510,6 +541,7 @@ describe("constructor", () => {
     assert.equal(h.tokenBuffer, "");
     assert.equal(h.mightBeToolCall, false);
     assert.equal(h.detectedThinking, false);
+    assert.equal(h.streamError, null);
     assert.deepEqual(h.streamUsage, { input_tokens: 0, output_tokens: 0, thinking_tokens: 0 });
   });
 

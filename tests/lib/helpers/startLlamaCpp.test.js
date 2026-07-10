@@ -7,6 +7,8 @@ import {
   buildModelsPreset,
   ensureLlamaCpp,
   getLlamaCppPid,
+  killByPid,
+  stopLlamaCpp,
 } from "../../../lib/helpers/startLlamaCpp.js";
 import { recommendContextLength } from "../../../lib/providers/index.js";
 
@@ -284,6 +286,26 @@ describe("ensureLlamaCpp", () => {
     assert.equal(getLlamaCppPid(), 99999);
   });
 
+  test("routes spawned server stdout/stderr to a log file (not silenced) so runtime failures are diagnosable", async () => {
+    mockFetchSequence({ ok: false }, { ok: true });
+    let capturedOpts = null;
+    const trackerSpawn = (_cmd, _args, opts) => { capturedOpts = opts; return { on: () => {}, unref: () => {}, pid: 91234 }; };
+
+    await ensureLlamaCpp(trackerSpawn);
+
+    assert.ok(capturedOpts, "spawn should have been called");
+    assert.equal(capturedOpts.detached, true);
+    // stdio must NOT be the old "ignore" — stdout+stderr go to one log fd so the
+    // real reason for a failed turn (Compute error, OOM) is recoverable.
+    assert.notEqual(capturedOpts.stdio, "ignore");
+    assert.ok(Array.isArray(capturedOpts.stdio), `stdio should be an fd array, got ${JSON.stringify(capturedOpts.stdio)}`);
+    assert.equal(capturedOpts.stdio[0], "ignore");        // stdin ignored
+    assert.equal(typeof capturedOpts.stdio[1], "number");  // stdout → log fd
+    assert.equal(capturedOpts.stdio[1], capturedOpts.stdio[2]); // stderr shares the same fd
+    // The log file was actually created at the documented path.
+    assert.ok(existsSync("./var/llamacpp/server.log"));
+  });
+
   test("throws when llama-server does not start within timeout", { timeout: 20_000 }, async (t) => {
     globalThis.fetch = async () => ({ ok: false });
 
@@ -433,5 +455,77 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     // State should exist (writeState was called with pid=0 to suppress
     // repeated logging). It may have been overwritten by writeState.
     assert.ok(existsSync(STATE_FILE));
+  });
+});
+describe("killByPid — process-group teardown", () => {
+  // llama-server's router forks a child model worker into its own process group
+  // (we spawn the router detached). killByPid must signal the GROUP (negative
+  // PID) so the worker dies too; signaling only the router PID orphans the
+  // worker, which keeps its multi-GB model resident and starves RAM across
+  // restarts — the whole bug this guards against.
+  test("signals the negative PID (whole group), not just the router", async (t) => {
+    const signals = [];
+    t.mock.method(process, "kill", (pid, sig) => {
+      signals.push([pid, sig]);
+      // Report the leader dead on the first liveness probe so we don't wait out
+      // the grace period.
+      if (sig === 0) { const e = new Error("no such process"); e.code = "ESRCH"; throw e; }
+      return true;
+    });
+
+    const ok = await killByPid(4242);
+    assert.equal(ok, true, "leader confirmed gone → true");
+
+    const term = signals.find(([, s]) => s === "SIGTERM");
+    assert.ok(term, "sent a SIGTERM");
+    assert.equal(term[0], -4242, "SIGTERM must target the process GROUP (negative PID)");
+  });
+
+  test("returns false when the group is already gone (ESRCH on SIGTERM)", async (t) => {
+    t.mock.method(process, "kill", () => { const e = new Error("gone"); e.code = "ESRCH"; throw e; });
+    assert.equal(await killByPid(4242), false);
+  });
+
+  test("ignores invalid PIDs without signaling", async (t) => {
+    let called = false;
+    t.mock.method(process, "kill", () => { called = true; return true; });
+    assert.equal(await killByPid(0), false);
+    assert.equal(await killByPid(-1), false);
+    assert.equal(called, false, "never signals for a non-positive PID");
+  });
+});
+
+describe("stopLlamaCpp — owner + preset guard", () => {
+  // "Always stop llama on exit if we've started it and no other (non-preset)
+  // models are running." Ownership = getLlamaCppPid() (the PID we spawned this
+  // session); safety = no resident worker outside our preset. Uses a fake PID
+  // with no real child workers, so loadedWorkerModels() is empty (all-clear).
+  test("stops the server we spawned when only preset models are resident, then reports unowned", async () => {
+    mockFetchSequence({ ok: false }, { ok: true });
+    await ensureLlamaCpp(fakeSpawn(90001));
+    assert.equal(getLlamaCppPid(), 90001, "we now own the spawned router PID");
+
+    let killedPid = null;
+    const stopped = await stopLlamaCpp(async (pid) => { killedPid = pid; return true; });
+    assert.equal(stopped, true, "owned + no foreign model resident → stops");
+    assert.equal(killedPid, 90001, "tears down the router PID we own");
+    assert.equal(getLlamaCppPid(), null, "ownership cleared after stopping");
+
+    // Second call: we no longer own anything → must not signal.
+    let calledAgain = false;
+    const again = await stopLlamaCpp(async () => { calledAgain = true; return true; });
+    assert.equal(again, false, "no-op once we no longer own a server");
+    assert.equal(calledAgain, false, "never signals when we don't own the server");
+  });
+
+  test("no-op (never signals) when we never spawned a server", async () => {
+    globalThis.fetch = async () => ({ ok: true }); // attach to an already-running one
+    await ensureLlamaCpp();                         // does not spawn → we don't own it
+    assert.equal(getLlamaCppPid(), null);
+
+    let called = false;
+    const stopped = await stopLlamaCpp(async () => { called = true; return true; });
+    assert.equal(stopped, false);
+    assert.equal(called, false, "an attached (not-spawned) server is left running");
   });
 });

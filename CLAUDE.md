@@ -140,7 +140,7 @@ Versioning: [SemVer](https://semver.org/).
 ## Plans
 
 When asked to write or design a plan — architecture, feature design, migration strategy,
-refactor roadmap — produce a plan document at `var/plans/<slug>.md`. Use kebab-case slugs.
+refactor roadmap — produce a plan document at `trash/plans/<slug>.md`. Use kebab-case slugs.
 
 ### Plan structure
 Every plan must include:
