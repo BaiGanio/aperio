@@ -14,7 +14,9 @@ const LOCALE_CODES = [
 ];
 
 const I18N_STORAGE_KEY = "aperio_lang";
-const storedLang = localStorage.getItem(I18N_STORAGE_KEY);
+// ?lang=xx in the URL wins (shareable language links), then localStorage.
+const urlLang = new URLSearchParams(location.search).get("lang");
+const storedLang = urlLang || localStorage.getItem(I18N_STORAGE_KEY);
 let currentLang = LOCALE_CODES.includes(storedLang) ? storedLang : "en";
 
 /* ── English locale embedded inline (works file:// or HTTP) ── */
@@ -299,7 +301,21 @@ const EN_LOCALE = {
     "cta_origin": "From Latin <em>aperire</em> — to open, to reveal, to bring into the light ✨",
     "footer_warning": "⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.",
     "page_title": "Aperio | Self-Hosted AI Memory Layer & MCP Server",
-    "copy_done": "✓ Copied"
+    "copy_done": "✓ Copied",
+    "langmap_heading": "Choose your language",
+    "langmap_count": "{n} languages · {m} on the way",
+    "langmap_search": "Search languages…",
+    "langmap_available": "Available",
+    "langmap_soon": "Coming soon",
+    "langmap_not_yet": "not translated yet",
+    "langmap_soon_hint": "coming soon",
+    "langmap_view_europe": "Europe",
+    "langmap_view_world": "World",
+    "langmap_hint": "drag to pan · scroll to zoom",
+    "langmap_legend_available": "available",
+    "langmap_legend_not": "not yet",
+    "langmap_foot": "Don't see yours? Aperio's agent understands you anyway — just write in any language.",
+    "langmap_switched": "Language switched to {name}"
 };
 
 /* ── Translation state ── */
@@ -319,8 +335,10 @@ async function loadOneLocale(code) {
   }
 }
 
-function t(key) {
-  return TRANSLATIONS[currentLang]?.[key] ?? TRANSLATIONS.en?.[key] ?? key;
+function t(key, params) {
+  const raw = TRANSLATIONS[currentLang]?.[key] ?? TRANSLATIONS.en?.[key] ?? key;
+  if (!params) return raw;
+  return raw.replace(/\{(\w+)\}/g, (m, name) => (params[name] != null ? params[name] : m));
 }
 
 function applyTranslations() {
@@ -330,8 +348,15 @@ function applyTranslations() {
   document.querySelectorAll("[data-i18n-html]").forEach((element) => {
     element.innerHTML = t(element.dataset.i18nHtml);
   });
+  document.querySelectorAll("[data-i18n-attr-placeholder]").forEach((element) => {
+    element.placeholder = t(element.dataset.i18nAttrPlaceholder);
+  });
+  document.querySelectorAll("[data-i18n-attr-title]").forEach((element) => {
+    element.title = t(element.dataset.i18nAttrTitle);
+  });
   document.title = t("page_title");
   document.documentElement.lang = currentLang;
+  document.dispatchEvent(new CustomEvent("aperio:lang-changed", { detail: { lang: currentLang } }));
 }
 
 /**
@@ -356,6 +381,8 @@ async function setLang(lang) {
 
   const select = document.getElementById("langSelect");
   if (select) select.value = lang;
+  const globeCode = document.getElementById("langMapBtnCode");
+  if (globeCode) globeCode.textContent = lang;
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
@@ -373,4 +400,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     select.value = currentLang;
     select.addEventListener("change", (e) => setLang(e.target.value));
   }
+  const globeCode = document.getElementById("langMapBtnCode");
+  if (globeCode) globeCode.textContent = currentLang;
 });

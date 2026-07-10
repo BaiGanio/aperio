@@ -285,5 +285,19 @@
     "cta_origin": "From Latin <em>aperire</em> — to open, to reveal, to bring into the light ✨",
     "footer_warning": "⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.",
     "page_title": "Aperio | Self-Hosted AI Memory Layer & MCP Server",
-    "copy_done": "✓ Copied"
+    "copy_done": "✓ Copied",
+    "langmap_heading": "Choose your language",
+    "langmap_count": "{n} languages · {m} on the way",
+    "langmap_search": "Search languages…",
+    "langmap_available": "Available",
+    "langmap_soon": "Coming soon",
+    "langmap_not_yet": "not translated yet",
+    "langmap_soon_hint": "coming soon",
+    "langmap_view_europe": "Europe",
+    "langmap_view_world": "World",
+    "langmap_hint": "drag to pan · scroll to zoom",
+    "langmap_legend_available": "available",
+    "langmap_legend_not": "not yet",
+    "langmap_foot": "Don't see yours? Aperio's agent understands you anyway — just write in any language.",
+    "langmap_switched": "Language switched to {name}"
 }

@@ -285,5 +285,19 @@
     "cta_origin": "Iš lotynų <em>aperire</em> — atverti, atskleisti, išnešti į šviesą ✨",
     "footer_warning": "⚠️ Įspėjimas: Per didelis AI agentų naudojimas gali sukelti smegenų atrofiją ir negrįžtamą kvailumą. Naudokite atsakingai.",
     "page_title": "Aperio | Savo serverio AI atminties sluoksnis ir MCP serveris",
-    "copy_done": "✓ Nukopijuota"
+    "copy_done": "✓ Nukopijuota",
+    "langmap_heading": "Pasirinkite savo kalbą",
+    "langmap_count": "{n} kalbos · {m} pakeliui",
+    "langmap_search": "Ieškoti kalbų…",
+    "langmap_available": "Prieinamos",
+    "langmap_soon": "Netrukus",
+    "langmap_not_yet": "dar neišversta",
+    "langmap_soon_hint": "netrukus",
+    "langmap_view_europe": "Europa",
+    "langmap_view_world": "Pasaulis",
+    "langmap_hint": "tempkite norėdami stumdyti · slinkite norėdami keisti mastelį",
+    "langmap_legend_available": "prieinama",
+    "langmap_legend_not": "dar ne",
+    "langmap_foot": "Nematote savosios? Aperio agentas jus vis tiek supranta — rašykite bet kuria kalba.",
+    "langmap_switched": "Kalba pakeista į {name}"
 }

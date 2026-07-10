@@ -285,5 +285,19 @@
     "cta_origin": "Du latin <em>aperire</em> — ouvrir, révéler, mettre en lumière ✨",
     "footer_warning": "⚠️ Attention : L'utilisation excessive d'agents IA peut entraîner une atrophie cérébrale, conduisant à une stupidité irréversible. Utilisez-les de manière responsable.",
     "page_title": "Aperio | Couche Mémoire IA Auto-hébergée et Serveur MCP",
-    "copy_done": "✓ Copié"
+    "copy_done": "✓ Copié",
+    "langmap_heading": "Choisissez votre langue",
+    "langmap_count": "{n} langues · {m} à venir",
+    "langmap_search": "Rechercher des langues…",
+    "langmap_available": "Disponibles",
+    "langmap_soon": "Bientôt",
+    "langmap_not_yet": "pas encore traduit",
+    "langmap_soon_hint": "bientôt",
+    "langmap_view_europe": "Europe",
+    "langmap_view_world": "Monde",
+    "langmap_hint": "glissez pour déplacer · faites défiler pour zoomer",
+    "langmap_legend_available": "disponible",
+    "langmap_legend_not": "pas encore",
+    "langmap_foot": "Vous ne voyez pas la vôtre ? L'agent d'Aperio vous comprend quand même — écrivez dans n'importe quelle langue.",
+    "langmap_switched": "Langue changée en {name}"
 }

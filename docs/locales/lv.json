@@ -285,5 +285,19 @@
     "cta_origin": "No latīņu <em>aperire</em> — atvērt, atklāt, izcelt gaismā ✨",
     "footer_warning": "⚠️ Brīdinājums: Pārmērīga AI aģentu lietošana var izraisīt smadzeņu atrofiju, novedot pie neatgriezeniskas stulbības. Lietojiet atbildīgi.",
     "page_title": "Aperio | Pašu mitināts AI atmiņas slānis un MCP serveris",
-    "copy_done": "✓ Nokopēts"
+    "copy_done": "✓ Nokopēts",
+    "langmap_heading": "Izvēlieties savu valodu",
+    "langmap_count": "{n} valodas · {m} ceļā",
+    "langmap_search": "Meklēt valodas…",
+    "langmap_available": "Pieejamas",
+    "langmap_soon": "Drīzumā",
+    "langmap_not_yet": "vēl nav tulkots",
+    "langmap_soon_hint": "drīzumā",
+    "langmap_view_europe": "Eiropa",
+    "langmap_view_world": "Pasaule",
+    "langmap_hint": "velciet, lai pārvietotu · ritiniet, lai tuvinātu",
+    "langmap_legend_available": "pieejama",
+    "langmap_legend_not": "vēl ne",
+    "langmap_foot": "Neredzat savu? Aperio aģents jūs tik un tā saprot — rakstiet jebkurā valodā.",
+    "langmap_switched": "Valoda nomainīta uz {name}"
 }

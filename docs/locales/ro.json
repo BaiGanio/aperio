@@ -285,5 +285,19 @@
     "cta_origin": "Din latina <em>aperire</em> — a deschide, a dezvălui, a aduce la lumină ✨",
     "footer_warning": "⚠️ Avertisment: Utilizarea excesivă a agenților AI poate cauza atrofia creierului, ducând la stupiditate ireversibilă. Folosește responsabil.",
     "page_title": "Aperio | Self-Hosted AI Memory Layer & MCP Server",
-    "copy_done": "✓ Copiat"
+    "copy_done": "✓ Copiat",
+    "langmap_heading": "Alege-ți limba",
+    "langmap_count": "{n} limbi · {m} în curând",
+    "langmap_search": "Caută limbi…",
+    "langmap_available": "Disponibile",
+    "langmap_soon": "În curând",
+    "langmap_not_yet": "încă netradus",
+    "langmap_soon_hint": "în curând",
+    "langmap_view_europe": "Europa",
+    "langmap_view_world": "Lume",
+    "langmap_hint": "trage pentru a muta · derulează pentru zoom",
+    "langmap_legend_available": "disponibilă",
+    "langmap_legend_not": "încă nu",
+    "langmap_foot": "Nu o vezi pe a ta? Agentul Aperio te înțelege oricum — scrie în orice limbă.",
+    "langmap_switched": "Limba schimbată în {name}"
 }

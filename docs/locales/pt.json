@@ -285,5 +285,19 @@
     "cta_origin": "Do Latim <em>aperire</em> — abrir, revelar, trazer à luz ✨",
     "footer_warning": "⚠️ Aviso: O uso excessivo de agentes de IA pode causar atrofia cerebral, levando a estupidez irreversível. Use com responsabilidade.",
     "page_title": "Aperio | Camada de Memória de IA Auto-Hospedada e Servidor MCP",
-    "copy_done": "✓ Copiado"
+    "copy_done": "✓ Copiado",
+    "langmap_heading": "Escolha o seu idioma",
+    "langmap_count": "{n} idiomas · {m} a caminho",
+    "langmap_search": "Pesquisar idiomas…",
+    "langmap_available": "Disponíveis",
+    "langmap_soon": "Em breve",
+    "langmap_not_yet": "ainda não traduzido",
+    "langmap_soon_hint": "em breve",
+    "langmap_view_europe": "Europa",
+    "langmap_view_world": "Mundo",
+    "langmap_hint": "arraste para mover · role para ampliar",
+    "langmap_legend_available": "disponível",
+    "langmap_legend_not": "ainda não",
+    "langmap_foot": "Não vê o seu? O agente do Aperio entende-o na mesma — escreva em qualquer idioma.",
+    "langmap_switched": "Idioma alterado para {name}"
 }

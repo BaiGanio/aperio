@@ -285,5 +285,19 @@
     "cta_origin": "Od latinskog <em>aperire</em> — otvoriti, otkriti, iznijeti na svjetlo ✨",
     "footer_warning": "⚠️ Upozorenje: Pretjerana uporaba AI agenata može uzrokovati atrofiju vašeg mozga, što vodi do nepovratne gluposti. Koristite odgovorno.",
     "page_title": "Aperio | Samostalno hostirani sloj AI memorije i MCP poslužitelj",
-    "copy_done": "✓ Kopirano"
+    "copy_done": "✓ Kopirano",
+    "langmap_heading": "Odaberite svoj jezik",
+    "langmap_count": "{n} jezika · {m} uskoro",
+    "langmap_search": "Pretraži jezike…",
+    "langmap_available": "Dostupni",
+    "langmap_soon": "Uskoro",
+    "langmap_not_yet": "još nije prevedeno",
+    "langmap_soon_hint": "uskoro",
+    "langmap_view_europe": "Europa",
+    "langmap_view_world": "Svijet",
+    "langmap_hint": "povucite za pomicanje · skrolajte za zumiranje",
+    "langmap_legend_available": "dostupno",
+    "langmap_legend_not": "još ne",
+    "langmap_foot": "Ne vidite svoj? Aperiov agent vas ionako razumije — pišite na bilo kojem jeziku.",
+    "langmap_switched": "Jezik promijenjen u {name}"
 }

@@ -285,5 +285,19 @@
     "cta_origin": "Van het Latijnse <em>aperire</em> — openen, onthullen, aan het licht brengen ✨",
     "footer_warning": "⚠️ Waarschuwing: Overmatig gebruik van AI-agenten kan leiden tot atrofie van uw hersenen, met onomkeerbare domheid tot gevolg. Gebruik verantwoord.",
     "page_title": "Aperio | Zelf-gehoste AI-geheugenlaag en MCP-server",
-    "copy_done": "✓ Gekopieerd"
+    "copy_done": "✓ Gekopieerd",
+    "langmap_heading": "Kies je taal",
+    "langmap_count": "{n} talen · {m} onderweg",
+    "langmap_search": "Talen zoeken…",
+    "langmap_available": "Beschikbaar",
+    "langmap_soon": "Binnenkort",
+    "langmap_not_yet": "nog niet vertaald",
+    "langmap_soon_hint": "binnenkort",
+    "langmap_view_europe": "Europa",
+    "langmap_view_world": "Wereld",
+    "langmap_hint": "sleep om te verschuiven · scroll om te zoomen",
+    "langmap_legend_available": "beschikbaar",
+    "langmap_legend_not": "nog niet",
+    "langmap_foot": "Zie je de jouwe niet? De agent van Aperio begrijpt je toch — schrijf in elke taal.",
+    "langmap_switched": "Taal gewijzigd naar {name}"
 }

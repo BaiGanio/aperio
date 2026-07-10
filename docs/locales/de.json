@@ -285,5 +285,19 @@
     "cta_origin": "Vom lateinischen <em>aperire</em> — öffnen, enthüllen, ans Licht bringen ✨",
     "footer_warning": "⚠️ Warnung: Übermäßiger Gebrauch von KI-Agenten kann zu Hirnschwund führen, der irreversible Dummheit zur Folge hat. Verantwortungsvoll nutzen.",
     "page_title": "Aperio | Selbst gehostete KI-Gedächtnisschicht & MCP-Server",
-    "copy_done": "✓ Kopiert"
+    "copy_done": "✓ Kopiert",
+    "langmap_heading": "Wählen Sie Ihre Sprache",
+    "langmap_count": "{n} Sprachen · {m} in Arbeit",
+    "langmap_search": "Sprachen suchen…",
+    "langmap_available": "Verfügbar",
+    "langmap_soon": "Demnächst",
+    "langmap_not_yet": "noch nicht übersetzt",
+    "langmap_soon_hint": "demnächst",
+    "langmap_view_europe": "Europa",
+    "langmap_view_world": "Welt",
+    "langmap_hint": "ziehen zum Verschieben · scrollen zum Zoomen",
+    "langmap_legend_available": "verfügbar",
+    "langmap_legend_not": "noch nicht",
+    "langmap_foot": "Ihre Sprache fehlt? Aperios Agent versteht Sie trotzdem — schreiben Sie in jeder beliebigen Sprache.",
+    "langmap_switched": "Sprache gewechselt zu {name}"
 }

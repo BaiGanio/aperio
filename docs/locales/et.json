@@ -285,5 +285,19 @@
     "cta_origin": "Ladina keelest <em>aperire</em> — avama, paljastama, valguse tooma ✨",
     "footer_warning": "⚠️ Hoiatus: AI-agentide liigne kasutamine võib põhjustada ajufunktsiooni halvenemist, viies pöördumatu rumaluseni. Kasuta vastutustundlikult.",
     "page_title": "Aperio | Isehostitud AI mälukiht ja MCP server",
-    "copy_done": "✓ Kopeeritud"
+    "copy_done": "✓ Kopeeritud",
+    "langmap_heading": "Vali oma keel",
+    "langmap_count": "{n} keelt · {m} tulekul",
+    "langmap_search": "Otsi keeli…",
+    "langmap_available": "Saadaval",
+    "langmap_soon": "Peagi tulekul",
+    "langmap_not_yet": "veel tõlkimata",
+    "langmap_soon_hint": "peagi",
+    "langmap_view_europe": "Euroopa",
+    "langmap_view_world": "Maailm",
+    "langmap_hint": "lohista liigutamiseks · keri suumimiseks",
+    "langmap_legend_available": "saadaval",
+    "langmap_legend_not": "veel mitte",
+    "langmap_foot": "Ei näe enda oma? Aperio agent mõistab sind niikuinii — kirjuta ükskõik millises keeles.",
+    "langmap_switched": "Keel vahetatud: {name}"
 }

@@ -285,5 +285,19 @@
     "cta_origin": "源自拉丁语 <em>aperire</em>——打开、揭示、带到光明中来 ✨",
     "footer_warning": "⚠️ 警告：过度使用 AI 代理可能导致大脑萎缩，引发不可逆转的愚钝。请负责任地使用。",
     "page_title": "Aperio | 自托管 AI 记忆层与 MCP 服务器",
-    "copy_done": "✓ 已复制"
+    "copy_done": "✓ 已复制",
+    "langmap_heading": "选择您的语言",
+    "langmap_count": "{n} 种语言 · {m} 种即将推出",
+    "langmap_search": "搜索语言…",
+    "langmap_available": "可用",
+    "langmap_soon": "即将推出",
+    "langmap_not_yet": "尚未翻译",
+    "langmap_soon_hint": "即将推出",
+    "langmap_view_europe": "欧洲",
+    "langmap_view_world": "世界",
+    "langmap_hint": "拖动平移 · 滚轮缩放",
+    "langmap_legend_available": "可用",
+    "langmap_legend_not": "尚未",
+    "langmap_foot": "没找到您的语言？Aperio 的代理仍然能理解您 — 直接用任何语言输入即可。",
+    "langmap_switched": "语言已切换到 {name}"
 }

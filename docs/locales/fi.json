@@ -285,5 +285,19 @@
     "cta_origin": "Latinasta <em>aperire</em> — avata, paljastaa, tuoda valoon ✨",
     "footer_warning": "⚠️ Varoitus: Tekoälyagenttien liiallinen käyttö voi aiheuttaa aivojen surkastumista, johteen peruuttamattomaan tyhmyyteen. Käytä vastuullisesti.",
     "page_title": "Aperio | Itse isännöity tekoälyn muistikerros ja MCP-palvelin",
-    "copy_done": "✓ Kopioitu"
+    "copy_done": "✓ Kopioitu",
+    "langmap_heading": "Valitse kielesi",
+    "langmap_count": "{n} kieltä · {m} tulossa",
+    "langmap_search": "Hae kieliä…",
+    "langmap_available": "Saatavilla",
+    "langmap_soon": "Tulossa pian",
+    "langmap_not_yet": "ei vielä käännetty",
+    "langmap_soon_hint": "tulossa pian",
+    "langmap_view_europe": "Eurooppa",
+    "langmap_view_world": "Maailma",
+    "langmap_hint": "vedä siirtääksesi · vieritä zoomataksesi",
+    "langmap_legend_available": "saatavilla",
+    "langmap_legend_not": "ei vielä",
+    "langmap_foot": "Etkö näe omaasi? Aperion agentti ymmärtää sinua silti — kirjoita millä tahansa kielellä.",
+    "langmap_switched": "Kieleksi vaihdettu {name}"
 }

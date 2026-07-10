@@ -285,5 +285,19 @@
     "cta_origin": "From Latin <em>aperire</em> — to open, to reveal, to bring into the light ✨",
     "footer_warning": "⚠️ Figyelmeztetés: Az AI-ügynökök túlzott használata az agyad sorvadásához vezethet, ami visszafordíthatatlan butulást okozhat. Használd felelősséggel.",
     "page_title": "Aperio",
-    "copy_done": "Másolva!"
+    "copy_done": "Másolva!",
+    "langmap_heading": "Válaszd ki a nyelved",
+    "langmap_count": "{n} nyelv · {m} úton van",
+    "langmap_search": "Nyelvek keresése…",
+    "langmap_available": "Elérhető",
+    "langmap_soon": "Hamarosan",
+    "langmap_not_yet": "még nincs lefordítva",
+    "langmap_soon_hint": "hamarosan",
+    "langmap_view_europe": "Európa",
+    "langmap_view_world": "Világ",
+    "langmap_hint": "húzd a mozgatáshoz · görgess a nagyításhoz",
+    "langmap_legend_available": "elérhető",
+    "langmap_legend_not": "még nem",
+    "langmap_foot": "Nem látod a tiédet? Az Aperio ügynöke így is megért — írj bármilyen nyelven.",
+    "langmap_switched": "Nyelv átváltva: {name}"
 }

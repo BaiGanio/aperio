@@ -285,5 +285,19 @@
     "cta_origin": "Dal Latino <em>aperire</em> — aprire, rivelare, portare alla luce ✨",
     "footer_warning": "⚠️ Avviso: L'uso eccessivo di agenti AI può causare atrofia cerebrale, portando a stupidità irreversibile. Usa con responsabilità.",
     "page_title": "Aperio | Livello di Memoria AI Self-Hosted e Server MCP",
-    "copy_done": "✓ Copiato"
+    "copy_done": "✓ Copiato",
+    "langmap_heading": "Scegli la tua lingua",
+    "langmap_count": "{n} lingue · {m} in arrivo",
+    "langmap_search": "Cerca lingue…",
+    "langmap_available": "Disponibili",
+    "langmap_soon": "In arrivo",
+    "langmap_not_yet": "non ancora tradotto",
+    "langmap_soon_hint": "in arrivo",
+    "langmap_view_europe": "Europa",
+    "langmap_view_world": "Mondo",
+    "langmap_hint": "trascina per spostare · scorri per zoomare",
+    "langmap_legend_available": "disponibile",
+    "langmap_legend_not": "non ancora",
+    "langmap_foot": "Non vedi la tua? L'agente di Aperio ti capisce comunque — scrivi in qualsiasi lingua.",
+    "langmap_switched": "Lingua cambiata in {name}"
 }

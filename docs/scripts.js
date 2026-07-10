@@ -33,6 +33,50 @@ entries.forEach(el => {
 }, { threshold: 0.1 });
 document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
 
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ── Scroll progress bar ── */
+const progressBar = document.getElementById('scrollProgress');
+if (progressBar) {
+  const updateProgress = () => {
+    const max = document.documentElement.scrollHeight - window.innerHeight;
+    progressBar.style.transform = `scaleX(${max > 0 ? window.scrollY / max : 0})`;
+  };
+  window.addEventListener('scroll', updateProgress, { passive: true });
+  updateProgress();
+}
+
+/* ── Stat count-up on reveal ── */
+document.querySelectorAll('.stat-num').forEach(el => {
+  const target = parseInt(el.textContent.replace(/\D/g, ''), 10);
+  if (!target || reducedMotion) return;
+  const prefix = el.textContent.replace(/[\d,]/g, '');
+  const io = new IntersectionObserver((entries) => {
+    if (!entries[0].isIntersecting) return;
+    io.disconnect();
+    const t0 = performance.now(), dur = 1100;
+    (function tick(now) {
+      const p = Math.min(1, (now - t0) / dur);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = prefix + Math.round(target * eased);
+      if (p < 1) requestAnimationFrame(tick);
+    })(t0);
+  }, { threshold: 0.4 });
+  io.observe(el);
+});
+
+/* ── Hero spotlight follows the cursor ── */
+const hero = document.getElementById('hero');
+if (hero && !reducedMotion && window.matchMedia('(pointer:fine)').matches) {
+  hero.addEventListener('pointermove', (e) => {
+    const r = hero.getBoundingClientRect();
+    hero.style.setProperty('--mx', `${e.clientX - r.left}px`);
+    hero.style.setProperty('--my', `${e.clientY - r.top}px`);
+    hero.classList.add('spot-on');
+  }, { passive: true });
+  hero.addEventListener('pointerleave', () => hero.classList.remove('spot-on'));
+}
+
 /* ── Active nav highlight ── */
 const sections = document.querySelectorAll('section[id]');
 const navAs = document.querySelectorAll('.nav-links a[href^="#"]');

@@ -285,5 +285,19 @@
     "cta_origin": "ラテン語 <em>aperire</em> から — 開く、明らかにする、光の中に導く ✨",
     "footer_warning": "⚠️ 警告：AIエージェントの過度な使用は、脳の萎縮を引き起こし、不可逆的な愚かさにつながる可能性があります。責任を持って使用してください。",
     "page_title": "Aperio | セルフホストAIメモリレイヤー＆MCPサーバー",
-    "copy_done": "✓ コピーしました"
+    "copy_done": "✓ コピーしました",
+    "langmap_heading": "言語を選択してください",
+    "langmap_count": "{n}言語 · {m}言語準備中",
+    "langmap_search": "言語を検索…",
+    "langmap_available": "利用可能",
+    "langmap_soon": "近日対応",
+    "langmap_not_yet": "まだ翻訳されていません",
+    "langmap_soon_hint": "近日対応",
+    "langmap_view_europe": "ヨーロッパ",
+    "langmap_view_world": "全世界",
+    "langmap_hint": "ドラッグで移動 · スクロールで拡大/縮小",
+    "langmap_legend_available": "利用可能",
+    "langmap_legend_not": "未対応",
+    "langmap_foot": "お使いの言語が見つかりませんか？ Aperio のエージェントはどの言語でも理解します — 任意の言語で入力してください。",
+    "langmap_switched": "言語を {name} に切り替えました"
 }

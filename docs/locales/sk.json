@@ -285,5 +285,19 @@
     "cta_origin": "Z latinčiny <em>aperire</em> — otvoriť, odhaliť, vyniesť na svetlo ✨",
     "footer_warning": "⚠️ Varovanie: Nadmerné používanie AI agentov môže spôsobiť atrofiu mozgu, vedúcu k nezvratnej hlúposti. Používajte zodpovedne.",
     "page_title": "Aperio | Vlastná AI pamäťová vrstva a MCP server",
-    "copy_done": "✓ Skopírované"
+    "copy_done": "✓ Skopírované",
+    "langmap_heading": "Vyberte si svoj jazyk",
+    "langmap_count": "{n} jazykov · {m} na ceste",
+    "langmap_search": "Hľadať jazyky…",
+    "langmap_available": "Dostupné",
+    "langmap_soon": "Už čoskoro",
+    "langmap_not_yet": "zatiaľ nepreložené",
+    "langmap_soon_hint": "už čoskoro",
+    "langmap_view_europe": "Európa",
+    "langmap_view_world": "Svet",
+    "langmap_hint": "ťahaním posúvajte · kolieskom približujte",
+    "langmap_legend_available": "dostupné",
+    "langmap_legend_not": "zatiaľ nie",
+    "langmap_foot": "Nevidíte ten svoj? Agent Aperio vám aj tak rozumie — píšte v akomkoľvek jazyku.",
+    "langmap_switched": "Jazyk prepnutý na {name}"
 }

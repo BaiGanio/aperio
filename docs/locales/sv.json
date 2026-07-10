@@ -285,5 +285,19 @@
     "cta_origin": "Från latin <em>aperire</em> — att öppna, avslöja, bringa i ljuset ✨",
     "footer_warning": "⚠️ Varning: Överdriven användning av AI-agenter kan orsaka hjärnatrofi, vilket leder till irreversibel dumhet. Använd ansvarsfullt.",
     "page_title": "Aperio | Självhostat AI-minneslager och MCP-server",
-    "copy_done": "✓ Kopierad"
+    "copy_done": "✓ Kopierad",
+    "langmap_heading": "Välj ditt språk",
+    "langmap_count": "{n} språk · {m} på väg",
+    "langmap_search": "Sök språk…",
+    "langmap_available": "Tillgängliga",
+    "langmap_soon": "Kommer snart",
+    "langmap_not_yet": "ännu inte översatt",
+    "langmap_soon_hint": "kommer snart",
+    "langmap_view_europe": "Europa",
+    "langmap_view_world": "Världen",
+    "langmap_hint": "dra för att panorera · skrolla för att zooma",
+    "langmap_legend_available": "tillgängligt",
+    "langmap_legend_not": "inte än",
+    "langmap_foot": "Ser du inte ditt? Aperios agent förstår dig ändå — skriv på vilket språk som helst.",
+    "langmap_switched": "Språk bytt till {name}"
 }

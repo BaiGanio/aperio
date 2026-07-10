@@ -285,5 +285,19 @@
     "cta_origin": "Mil-Latin <em>aperire</em> — tiftaħ, tikxef, iġġib fid-dawl ✨",
     "footer_warning": "⚠️ Twissija: Użu eċċessiv ta' aġenti AI jista' jikkawża atrofija tal-moħħ, li twassal għal stupidità irriversibbli. Uża b'responsabbiltà.",
     "page_title": "Aperio | Self-Hosted AI Memory Layer & MCP Server",
-    "copy_done": "✓ Ikkupjat"
+    "copy_done": "✓ Ikkupjat",
+    "langmap_heading": "Agħżel il-lingwa tiegħek",
+    "langmap_count": "{n} lingwi · {m} ġejjin",
+    "langmap_search": "Fittex lingwi…",
+    "langmap_available": "Disponibbli",
+    "langmap_soon": "Dalwaqt",
+    "langmap_not_yet": "għadu mhux tradott",
+    "langmap_soon_hint": "dalwaqt",
+    "langmap_view_europe": "Ewropa",
+    "langmap_view_world": "Dinja",
+    "langmap_hint": "iġbed biex iċċaqlaq · skrollja biex tkabbar",
+    "langmap_legend_available": "disponibbli",
+    "langmap_legend_not": "għadu le",
+    "langmap_foot": "Ma tarax tiegħek? L-aġent ta' Aperio xorta jifhmek — ikteb bi kwalunkwe lingwa.",
+    "langmap_switched": "Il-lingwa nbidlet għal {name}"
 }

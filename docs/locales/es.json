@@ -285,5 +285,19 @@
     "cta_origin": "Del latín <em>aperire</em> — abrir, revelar, sacar a la luz ✨",
     "footer_warning": "⚠️ Advertencia: El uso excesivo de agentes de IA puede provocar atrofia cerebral, lo que lleva a una estupidez irreversible. Úsalo responsablemente.",
     "page_title": "Aperio | Capa de Memoria de IA Autogestionada y Servidor MCP",
-    "copy_done": "✓ Copiado"
+    "copy_done": "✓ Copiado",
+    "langmap_heading": "Elige tu idioma",
+    "langmap_count": "{n} idiomas · {m} en camino",
+    "langmap_search": "Buscar idiomas…",
+    "langmap_available": "Disponibles",
+    "langmap_soon": "Próximamente",
+    "langmap_not_yet": "aún sin traducir",
+    "langmap_soon_hint": "próximamente",
+    "langmap_view_europe": "Europa",
+    "langmap_view_world": "Mundo",
+    "langmap_hint": "arrastra para mover · desplázate para hacer zoom",
+    "langmap_legend_available": "disponible",
+    "langmap_legend_not": "todavía no",
+    "langmap_foot": "¿No ves el tuyo? El agente de Aperio te entiende igualmente — escribe en cualquier idioma.",
+    "langmap_switched": "Idioma cambiado a {name}"
 }

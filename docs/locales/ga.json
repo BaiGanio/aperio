@@ -285,5 +285,19 @@
     "cta_origin": "Ón Laidin <em>aperire</em> — a oscailt, a nochtadh, a thabhairt chun solais ✨",
     "footer_warning": "⚠️ Rabhadh: D'fhéadfadh úsáid iomarcach gníomhairí AI a bheith ina chúis le díghiniúint d'inchinne, as a dtiocfaidh dúire do-aisiompaithe. Úsáid go freagrach.",
     "page_title": "Aperio | Ciseal Cuimhne AI Féin-Óstáilte & Freastalaí MCP",
-    "copy_done": "✓ Cóipeáilte"
+    "copy_done": "✓ Cóipeáilte",
+    "langmap_heading": "Roghnaigh do theanga",
+    "langmap_count": "{n} teanga · {m} ar an mbealach",
+    "langmap_search": "Cuardaigh teangacha…",
+    "langmap_available": "Ar fáil",
+    "langmap_soon": "Ag teacht go luath",
+    "langmap_not_yet": "gan aistriú fós",
+    "langmap_soon_hint": "go luath",
+    "langmap_view_europe": "An Eoraip",
+    "langmap_view_world": "An Domhan",
+    "langmap_hint": "tarraing chun bogadh · scrollaigh chun zúmáil",
+    "langmap_legend_available": "ar fáil",
+    "langmap_legend_not": "níl fós",
+    "langmap_foot": "Ní fheiceann tú do cheann féin? Tuigeann gníomhaire Aperio thú mar sin féin — scríobh in aon teanga.",
+    "langmap_switched": "Teanga athraithe go {name}"
 }

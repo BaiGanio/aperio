@@ -189,7 +189,34 @@ body::before {
 
 .aurora-text {
     background: var(--aurora-text);
+    background-size: 200% 100%;
     -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    animation: aurora-shimmer 7s ease-in-out infinite alternate;
+}
+@keyframes aurora-shimmer { from{background-position:0% 50%} to{background-position:100% 50%} }
+
+/* ── Scroll progress — thin aurora line pinned above the navbar ── */
+.scroll-progress {
+    position: fixed; top: 0; left: 0; height: 2px; width: 100%;
+    background: var(--aurora); z-index: 300;
+    transform: scaleX(0); transform-origin: 0 50%;
+    pointer-events: none;
+}
+
+/* ── Hero spotlight — a faint glow that follows the cursor ── */
+#hero { --mx: 50%; --my: 35%; position: relative; }
+#hero::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(420px circle at var(--mx) var(--my),
+        rgba(168,85,247,0.09), transparent 70%);
+    transition: opacity 0.4s; opacity: 0;
+}
+#hero.spot-on::before { opacity: 1; }
+
+@media (prefers-reduced-motion: reduce) {
+    .aurora-text, .orb, .t-cursor { animation: none; }
+    #hero::before { display: none; }
+    .reveal { opacity: 1; transform: none; transition: none; }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -206,7 +233,7 @@ body::before {
 
 .nav-inner {
     display: flex; align-items: center; justify-content: space-between;
-    height: 62px; max-width: 1160px; margin: 0 auto; padding: 0 24px; gap: 12px;
+    min-height: 62px; max-width: 1300px; margin: 0 auto; padding: 6px 24px; gap: 12px;
 }
 
 .brand { display:flex;align-items:center;gap:10px;text-decoration:none;flex-shrink:0; }
@@ -223,12 +250,16 @@ body::before {
     transition: color 0.3s;
 }
 
-/* nav links */
-.nav-links { display:flex;align-items:center;gap:2px;list-style:none;flex-shrink:0;margin:0;padding:0; }
+/* nav links — must survive long translated labels (DE, EL, LT…):
+   the list may shrink and wrap instead of overflowing the bar */
+.nav-links {
+    display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+    gap:2px;row-gap:0;list-style:none;flex-shrink:1;min-width:0;margin:0;padding:0;
+}
 .nav-links a {
-    font-family:var(--font-ui);font-size:13px;font-weight:400;
-    letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);text-decoration:none;
-    padding:6px 13px;border-radius:0;transition:color 0.15s,background 0.15s;
+    font-family:var(--font-ui);font-size:12.5px;font-weight:400;white-space:nowrap;
+    letter-spacing:0.07em;text-transform:uppercase;color:var(--muted);text-decoration:none;
+    padding:6px 10px;border-radius:0;transition:color 0.15s,background 0.15s;display:block;
 }
 .nav-links a:hover { color:var(--text);background:var(--bg-raised); }
 
@@ -402,7 +433,9 @@ h2.section-heading {
     background:var(--bg-card);border:1px solid var(--border);border-radius:0;overflow:hidden;
     box-shadow:0 40px 100px rgba(0,0,0,0.6),0 0 0 1px rgba(168,85,247,0.07),inset 0 1px 0 rgba(255,255,255,0.03);
     transition:background 0.3s,border-color 0.3s;
+    position:relative;
 }
+.terminal::before{content:"";position:absolute;top:0;left:0;right:0;height:2px;background:var(--aurora);background-size:200% 100%;animation:aurora-shimmer 7s ease-in-out infinite alternate;z-index:1;}
 .terminal-bar { background:var(--bg-raised);border-bottom:1px solid var(--border);padding:13px 18px;display:flex;align-items:center;gap:7px;transition:background 0.3s,border-color 0.3s; }
 .dot{width:11px;height:11px;border-radius:50%;} .dot-r{background:#ff5f57;} .dot-y{background:#ffbd2e;} .dot-g{background:#28c840;}
 .t-title { font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-left:10px; }
@@ -448,7 +481,8 @@ h2.section-heading {
 .feat-card:hover{border-color:var(--border-hi);transform:translateY(-5px);box-shadow:0 20px 50px rgba(0,0,0,0.4);}
 .feat-card:hover::after{opacity:1;}
 
-.feat-icon{width:46px;height:46px;border-radius:0;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:18px;color:var(--purple);}
+.feat-icon{width:46px;height:46px;border-radius:0;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2);display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:18px;color:var(--purple);transition:background 0.2s,border-color 0.2s,transform 0.2s,box-shadow 0.2s;}
+.feat-card:hover .feat-icon{background:var(--aurora);color:#fff;border-color:transparent;transform:scale(1.06);box-shadow:0 0 24px rgba(124,58,237,0.45);}
 .feat-title{font-family:var(--font-ui);font-size:12px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text);margin-bottom:10px;}
 .feat-desc{font-size:13.5px;color:var(--muted);line-height:1.7;}
 .feat-link{display:inline-flex;align-items:center;gap:7px;margin-top:14px;font-family:var(--font-ui);font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:var(--purple);text-decoration:none;border:1px solid rgba(124,58,237,0.3);background:rgba(124,58,237,0.06);padding:6px 13px;transition:background 0.15s,border-color 0.15s,color 0.15s;}

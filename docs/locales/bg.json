@@ -285,5 +285,19 @@
     "cta_origin": "От латинското <em>aperire</em> — да отвориш, да разкриеш, да изведеш на светлина ✨",
     "footer_warning": "⚠️ Предупреждение: Прекомерното използване на AI агенти може да атрофира мозъка ви, което води до необратимо заглупяване. Използвайте отговорно.",
     "page_title": "Aperio | Самостоятелен AI слой за памет & MCP сървър",
-    "copy_done": "✓ Копирано"
+    "copy_done": "✓ Копирано",
+    "langmap_heading": "Изберете вашия език",
+    "langmap_count": "{n} езика · {m} предстоят",
+    "langmap_search": "Търсене на езици…",
+    "langmap_available": "Налични",
+    "langmap_soon": "Очаквайте скоро",
+    "langmap_not_yet": "все още без превод",
+    "langmap_soon_hint": "очаквайте скоро",
+    "langmap_view_europe": "Европа",
+    "langmap_view_world": "Свят",
+    "langmap_hint": "влачете за местене · скролирайте за мащаб",
+    "langmap_legend_available": "налични",
+    "langmap_legend_not": "все още не",
+    "langmap_foot": "Не виждате вашия? Агентът на Aperio така или иначе ви разбира — пишете на който и да е език.",
+    "langmap_switched": "Езикът е сменен на {name}"
 }
