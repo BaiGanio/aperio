@@ -60,6 +60,9 @@
   "status_typing":            "trükkimine…",
   "status_loading":           "laadimine…",
 
+  "status_model_downloading":    "laadin alla {model} — seni {got} GB…",
+  "status_model_downloading_of": "laadin alla {model} — {got} / {total} GB ({pct}%)",
+  "status_model_loading":        "laadin {model} mällu…",
   "ctx_label":                "kontekst",
 
   "sidebar_memories":         "Mälestused",

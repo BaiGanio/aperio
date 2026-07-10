@@ -60,6 +60,9 @@
   "status_typing":            "skriver…",
   "status_loading":           "laddar…",
 
+  "status_model_downloading":    "laddar ner {model} — hittills {got} GB…",
+  "status_model_downloading_of": "laddar ner {model} — {got} av {total} GB ({pct}%)",
+  "status_model_loading":        "laddar {model} till minnet…",
   "ctx_label":                "kontext",
 
   "sidebar_memories":         "Minne",

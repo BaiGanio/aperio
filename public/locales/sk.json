@@ -60,6 +60,9 @@
   "status_typing":            "písanie…",
   "status_loading":           "načítavanie…",
 
+  "status_model_downloading":    "sťahujem {model} — zatiaľ {got} GB…",
+  "status_model_downloading_of": "sťahujem {model} — {got} z {total} GB ({pct}%)",
+  "status_model_loading":        "načítavam {model} do pamäte…",
   "ctx_label":                "kontext",
 
   "sidebar_memories":         "Spomienky",

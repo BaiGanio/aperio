@@ -83,6 +83,13 @@ function estimateTokens(text) {
   return Math.max(1, Math.ceil(text.trim().length / 4));
 }
 
+// "unsloth/Qwen3.6-27B-GGUF:Q4_K_M" → "Qwen3.6-27B" — a status-label-sized
+// model name (org, quant tag, and -GGUF suffix carry no meaning for the user).
+function shortModelName(id) {
+  const repo = String(id || "").split(":")[0];
+  return (repo.includes("/") ? repo.slice(repo.indexOf("/") + 1) : repo).replace(/-GGUF$/i, "");
+}
+
 // Per-image vision-token cost. Every upload is normalised to a fixed 896×896
 // PNG before reaching the model, so the cost is constant per provider — the
 // server reports the active provider's figure in the `provider` event (see
@@ -250,6 +257,29 @@ function handleMessage(msg) {
     moveLiveIndicatorToBottom();
     setStatus("thinking", labelText);
     setAmbientLevel(0.75);
+  }
+
+  if (msg.type === "model_status") {
+    // Staged label while llama.cpp downloads/loads a model inside the current
+    // request (issue A/B): the whimsy rotator yields to any non-whimsy label,
+    // so writing here pins the stage text until "ready" hands the label back.
+    const short = shortModelName(msg.model);
+    let text = null;
+    if (msg.status === "downloading") {
+      text = msg.totalGB
+        ? t("status_model_downloading_of", { model: short, got: msg.gotGB, total: msg.totalGB, pct: Math.min(99, Math.round((msg.gotGB / msg.totalGB) * 100)) })
+        : t("status_model_downloading", { model: short, got: msg.gotGB });
+    } else if (msg.status === "loading") {
+      text = t("status_model_loading", { model: short });
+    } else if (msg.status === "ready") {
+      text = t("chat_thinking_label"); // whimsy resumes from here
+    }
+    if (text) {
+      const label = document.querySelector("#thinking .thinking-label");
+      if (label) label.textContent = text;
+      moveLiveIndicatorToBottom();
+      if (msg.status !== "ready") setStatus("thinking", text);
+    }
   }
 
   if (msg.type === "reasoning_start") {

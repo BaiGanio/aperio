@@ -114,6 +114,9 @@ const TRANSLATIONS = {
     status_thinking:          "thinking…",
     status_typing:            "typing…",
     status_loading:           "loading…",
+    status_model_downloading:    "downloading {model} — {got} GB so far…",
+    status_model_downloading_of: "downloading {model} — {got} of {total} GB ({pct}%)",
+    status_model_loading:        "loading {model} into memory…",
 
     ctx_label:                "context",
 

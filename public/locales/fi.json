@@ -60,6 +60,9 @@
   "status_typing":            "kirjoittaa…",
   "status_loading":           "ladataan…",
 
+  "status_model_downloading":    "ladataan {model} — {got} GB tähän mennessä…",
+  "status_model_downloading_of": "ladataan {model} — {got} / {total} GB ({pct}%)",
+  "status_model_loading":        "ladataan {model} muistiin…",
   "ctx_label":                "konteksti",
 
   "sidebar_memories":         "Muistot",
