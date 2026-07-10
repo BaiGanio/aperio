@@ -1,8 +1,8 @@
 // tests/lib/agent/providers/deepseek.test.js
 //
 // Tests for runDeepSeekLoop. Mocks globalThis.fetch (HTTP) and logger.
-// The real OllamaStreamHandler and ToolExecutor process the mock SSE
-// responses (same approach as ollama.test.js).
+// The real LlamaCppStreamHandler and ToolExecutor process the mock SSE
+// responses (same approach as llamacpp.test.js).
 
 import { describe, test, mock, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
@@ -48,7 +48,7 @@ function baseCtx(overrides = {}) {
     },
     callTool: mock.fn(),
     getSystemPrompt: () => "You are a helpful assistant.",
-    getOllamaTools: () => [],
+    getOpenAiTools: () => [],
     reasoningAdapter: {
       createState: () => ({}),
       processDelta: (delta, _state, emit) => ({ contentToken: delta?.content ?? "" }),

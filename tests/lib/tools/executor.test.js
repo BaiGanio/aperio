@@ -2,7 +2,7 @@
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, extractBracketToolCall, detectToolCallLeak, recoverToolName, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../../lib/tools/executor.js";
+import { extractTextToolCall, extractBracketToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall
@@ -183,6 +183,53 @@ describe("extractTextToolCall", () => {
     assert.equal(result?.name, "fetch_github_issue");
     assert.deepEqual(result.input, { repo: "aperio", url: ["https://x/issues/49"] });
   });
+
+  test("recovers call:name{…} with unquoted (JS-object-literal) keys", () => {
+    // Observed in the wild: a local model leaked
+    // "<|tool_call>call:fetch_github_issue{issue_url: \"…\"}" as text. The bare
+    // key used to make JSON.parse throw, silently dropping the arg to {} —
+    // the tool then dispatched with NO args and a confusing "missing url"
+    // error, hiding the real problem (wrong param name).
+    const text = '<|tool_call>call:fetch_github_issue{issue_url: "https://github.com/BaiGanio/aperio/issues/229"}';
+    const result = extractTextToolCall(text, []);
+    assert.equal(result?.name, "fetch_github_issue");
+    assert.deepEqual(result.input, { issue_url: "https://github.com/BaiGanio/aperio/issues/229" });
+  });
+
+  test("recovers call:name{…} with multiple unquoted keys and nested values", () => {
+    const text = 'call:record_issue_triage{repo: "owner/repo", priority: 3, notes: "looks like a race: b{ }"}';
+    const result = extractTextToolCall(text, []);
+    assert.equal(result?.name, "record_issue_triage");
+    assert.deepEqual(result.input, { repo: "owner/repo", priority: 3, notes: "looks like a race: b{ }" });
+  });
+
+  test("recovers call:name(key='val') Python-kwarg-style leak", () => {
+    // Observed in the wild: a local model leaked
+    // "<|tool_call>call: fetch_github_issue(issue_url='https://…issues/229')"
+    // as plain text instead of a native tool call. Before this fallback
+    // existed, detectToolCallLeak flagged it as a leak but extractTextToolCall
+    // could not recover it (only {...} shapes were handled), forcing a nudge
+    // retry that sometimes degenerated further instead of a clean first-try
+    // recovery.
+    const text = "<|tool_call>call: fetch_github_issue(issue_url='https://github.com/BaiGanio/aperio/issues/229')";
+    const result = extractTextToolCall(text, []);
+    assert.equal(result?.name, "fetch_github_issue");
+    assert.deepEqual(result.input, { issue_url: "https://github.com/BaiGanio/aperio/issues/229" });
+  });
+
+  test("recovers call:name(key=val, …) with multiple mixed-type kwargs", () => {
+    const text = 'call:record_issue_triage(repo="owner/repo", priority=3, only_untriaged=true, note=None)';
+    const result = extractTextToolCall(text, []);
+    assert.equal(result?.name, "record_issue_triage");
+    assert.deepEqual(result.input, { repo: "owner/repo", priority: 3, only_untriaged: true });
+  });
+
+  test("kwarg fallback does not split on a comma inside a quoted value", () => {
+    const text = "call:remember(content='first, second', type='fact')";
+    const result = extractTextToolCall(text, []);
+    assert.equal(result?.name, "remember");
+    assert.deepEqual(result.input, { content: "first, second", type: "fact" });
+  });
 });
 
 // =============================================================================
@@ -249,6 +296,13 @@ describe("detectToolCallLeak", () => {
 
   test("flags Ornith [tool_call](name) bbcode", () => {
     assert.equal(detectToolCallLeak("[tool_call](fetch_github_issue) [url]x[/url]"), true);
+  });
+
+  test("flags <|tool_call> with the closing pipe dropped (observed local-model variant)", () => {
+    assert.equal(detectToolCallLeak("<|tool_call>call:db_schema", ["db_schema"]), true);
+    // Must be independent of the toolNames-based patterns — this bare-tag
+    // form should be caught by TOOL_LEAK_PATTERNS alone.
+    assert.equal(detectToolCallLeak("<|tool_call>call:db_schema", []), true);
   });
 
   test("flags OpenAI wire-format JSON whose value is a known tool", () => {
@@ -325,6 +379,46 @@ describe("recoverToolName", () => {
     assert.equal(recoverToolName("<|tool_call>call:totally_made_up", tools), null);
     assert.equal(recoverToolName("", tools), null);
     assert.equal(recoverToolName("db_schema", []), null);
+  });
+});
+
+// =============================================================================
+// looksLikeSystemPromptEcho
+// =============================================================================
+describe("looksLikeSystemPromptEcho", () => {
+  const systemPrompt = [
+    "Aperio is a co-pilot: an accurate, honest, and direct thinking partner",
+    "for the [User] or [TEAM] it supports. Its job is to help them move",
+    "faster, think sharper, and build better.",
+    "## Operating Principles",
+    "- Think with the user, not for them. Ask questions, challenge assumptions.",
+    "- Say what's wrong, unclear, or risky plainly. No sugarcoating.",
+  ].join("\n");
+
+  test("flags a large verbatim recitation of the system prompt", () => {
+    // Observed in the wild: a model, after a confused retry, answered a
+    // GitHub-issue question by reciting its own persona/instructions instead.
+    const echoed = systemPrompt.repeat(2);
+    assert.equal(looksLikeSystemPromptEcho(echoed, systemPrompt), true);
+  });
+
+  test("does not flag an ordinary unrelated answer", () => {
+    const normal = "Issue #229 asks each model in use to leave a one-line signed comment as proof it can call tools. Maintainers have since locked the thread while they clarify the approach.";
+    assert.equal(looksLikeSystemPromptEcho(normal, systemPrompt), false);
+  });
+
+  test("does not flag an answer that lightly paraphrases or quotes a short phrase", () => {
+    const lightQuote = "I'll stick to my rule of not sugarcoating things: this PR has a real bug in the retry path, not just a style nit.";
+    assert.equal(looksLikeSystemPromptEcho(lightQuote, systemPrompt), false);
+  });
+
+  test("returns false for short text regardless of overlap", () => {
+    assert.equal(looksLikeSystemPromptEcho("Aperio is a co-pilot", systemPrompt), false);
+  });
+
+  test("returns false when either input is empty", () => {
+    assert.equal(looksLikeSystemPromptEcho("", systemPrompt), false);
+    assert.equal(looksLikeSystemPromptEcho(systemPrompt, ""), false);
   });
 });
 

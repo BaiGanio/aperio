@@ -8,8 +8,8 @@
 #
 # This script does the ONLY things a browser can't: make sure Node.js exists
 # and the app's dependencies are installed, then start the server. Everything
-# else — Ollama, the AI model, the database, provider/API-key config — happens
-# in the friendly browser wizard (setup.html) the server opens for you.
+# else — llama.cpp, the AI model, the database, provider/API-key config —
+# happens in the friendly browser wizard (setup.html) the server opens for you.
 # ============================================================
 
 set -uo pipefail

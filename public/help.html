@@ -67,14 +67,14 @@
         <td><span class="path">~/.nvm</span></td>
       </tr>
       <tr>
-        <td>Ollama</td>
+        <td>llama.cpp</td>
         <td>The program that runs the AI model itself, fully offline. Aperio keeps its own private copy so it never interferes with anything else on your machine.</td>
-        <td><span class="path">Aperio folder → vendor/ollama</span></td>
+        <td><span class="path">Aperio folder → vendor/llamacpp</span></td>
       </tr>
       <tr>
         <td>An AI model</td>
-        <td>The "brain" — chosen during setup to fit your computer's memory. It is a large download (several GB), stored by Ollama.</td>
-        <td>Ollama's model storage</td>
+        <td>The "brain" — chosen during setup to fit your computer's memory. It is a large download (several GB), stored in the Aperio folder.</td>
+        <td><span class="path">Aperio folder → var/models</span></td>
       </tr>
       <tr>
         <td>App dependencies</td>
@@ -125,7 +125,7 @@
 
   <h2>Uninstalling</h2>
   <ul>
-    <li><strong>macOS / Linux:</strong> open the Aperio folder and run <span class="path">uninstall.sh</span>. It removes what Aperio installed (its Ollama copy, dependencies, data) and offers to delete the downloaded AI model. It never touches software you already had.</li>
+    <li><strong>macOS / Linux:</strong> open the Aperio folder and run <span class="path">uninstall.sh</span>. It removes what Aperio installed (its llama.cpp copy, dependencies, data) and offers to delete the downloaded AI model. It never touches software you already had.</li>
     <li><strong>Windows:</strong> open the Aperio folder and double-click <span class="path">uninstall.bat</span>. It does the same — removes what Aperio installed and offers to delete the model, while leaving Node.js alone.</li>
     <li>Finally, delete the Aperio folder — everything else lives inside it.</li>
   </ul>

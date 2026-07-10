@@ -17,7 +17,7 @@ import { CONFIG } from "../../lib/config.js";
 const storeWith = (settings = {}) => ({ async getSettings() { return { ...settings }; } });
 
 // A Tier-1 key safe to mutate in tests, and a Tier-0 key that must NOT be touched.
-const T1 = "OLLAMA_MODEL";       // tier 1, editable
+const T1 = "LLAMACPP_MODEL";       // tier 1, editable
 const T0 = "PORT";               // tier 0, env-only
 
 describe("config-resolver", () => {
@@ -26,7 +26,7 @@ describe("config-resolver", () => {
   afterEach(() => { process.env = saved; });
 
   test("namespaces settings under config.", () => {
-    assert.equal(configSettingKey("OLLAMA_MODEL"), "config.OLLAMA_MODEL");
+    assert.equal(configSettingKey("LLAMACPP_MODEL"), "config.LLAMACPP_MODEL");
   });
 
   test("EDITABLE_KEYS = exactly the Tier-1 vars", () => {
@@ -59,7 +59,7 @@ describe("config-resolver", () => {
   test("records provenance: env value labeled from .env, DB-only value labeled from UI (#182)", async () => {
     delete process.env.APERIO_CONFIG_PRECEDENCE;   // env precedence
     process.env[T1] = "from-env";
-    const dbOnly = "OLLAMA_NUM_CTX";               // tier-1, not in process.env here
+    const dbOnly = "LLAMACPP_CTX";               // tier-1, not in process.env here
     delete process.env[dbOnly];
     await applyConfigToEnv(storeWith({ [configSettingKey(dbOnly)]: "98304" }));
     assert.equal(configSourceOf(T1), "env");
@@ -69,9 +69,9 @@ describe("config-resolver", () => {
   });
 
   test("provenance is 'default' when a var is set in neither env nor DB", async () => {
-    delete process.env.OLLAMA_NUM_CTX;
+    delete process.env.LLAMACPP_CTX;
     await applyConfigToEnv(storeWith({}));
-    assert.equal(configSourceOf("OLLAMA_NUM_CTX"), "default");
+    assert.equal(configSourceOf("LLAMACPP_CTX"), "default");
   });
 
   test("blank DB value is treated as unset (does not clobber env)", async () => {

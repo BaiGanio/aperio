@@ -18,9 +18,16 @@ window.escapeHtml = escapeHtml;
 const PREVIEW_COUNT = 3;
 const expandedGroups = new Set();
 const collapsedGroups = new Set(Object.keys(window.TYPE_CONFIG));
+let _activeTagFilter = null;
 
 function renderMemories(memories) {
-  if (!memories.length) {
+  // Apply active tag filter.
+  const tagFilter = _activeTagFilter;
+  const filtered = tagFilter
+    ? memories.filter(m => (m.tags || []).some(t => t.toLowerCase() === tagFilter.toLowerCase()))
+    : memories;
+
+  if (!filtered.length) {
     window.memoriesList.innerHTML = `
       <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
         <div style="font-size:22px; margin-bottom:8px; opacity:.4">◈</div>
@@ -30,16 +37,31 @@ function renderMemories(memories) {
     return;
   }
 
-  const pinned  = memories.filter(m => m.pinned);
+  const pinned  = filtered.filter(m => m.pinned);
   const grouped = {};
-  memories.filter(m => !m.pinned).forEach(m => {
+  filtered.filter(m => !m.pinned).forEach(m => {
     if (!grouped[m.type]) grouped[m.type] = [];
     grouped[m.type].push(m);
   });
 
   window.memoriesList.innerHTML = "";
+
+  // Active tag filter chip.
+  if (tagFilter) {
+    const chip = document.createElement("div");
+    chip.className = "tag-filter-chip";
+    chip.innerHTML = `<span class="tag-filter-chip-label">${escapeHtml(t("mem_tag_filter") || "Tag:")}</span>` +
+      `<span class="tag-filter-chip-value">${escapeHtml(tagFilter)}</span>` +
+      `<button class="tag-filter-chip-clear" title="${escapeHtml(t("mem_tag_clear") || "Clear filter")}"><i class="bi bi-x-lg"></i></button>`;
+    chip.querySelector(".tag-filter-chip-clear").onclick = () => {
+      _activeTagFilter = null;
+      renderMemories(window.allMemories);
+    };
+    window.memoriesList.appendChild(chip);
+  }
+
   const countBadge = document.getElementById("memoryCountBadge");
-  if (countBadge) countBadge.textContent = memories.length ? `(${memories.length})` : "";
+  if (countBadge) countBadge.textContent = filtered.length ? `(${filtered.length})` : "";
 
   if (pinned.length) {
     const group = document.createElement("div");
@@ -146,11 +168,12 @@ function makeMemoryCard(m) {
       <button class="delete-btn" title="${escapeHtml(t("mem_delete_title"))}"><i class="bi bi-trash3"></i></button>
     </div>
     <div class="memory-preview" data-memory='${base64Data}'>${escapeHtml(m.content)}</div>
-    ${m.tags.length ? `<div class="memory-tags">${m.tags.map(tg => `<span class="tag">${escapeHtml(tg)}</span>`).join("")}</div>` : ""}
+    ${m.tags.length ? `<div class="memory-tags">${m.tags.map(tg => `<span class="tag${_activeTagFilter === tg ? " tag--active" : ""}">${escapeHtml(tg)}</span>`).join("")}</div>` : ""}
     <div class="importance-bar">
       ${pips}
       ${ts ? `<span class="memory-ts">${ts}</span>` : ""}
-    </div>`;
+    </div>
+    ${m.source ? `<div class="memory-source">${escapeHtml(m.source)}</div>` : ""}`;
 
   card.querySelector(".memory-pin-btn").onclick = async (e) => {
     e.stopPropagation();
@@ -168,6 +191,17 @@ function makeMemoryCard(m) {
     } catch { /* silent */ }
   };
 
+  // Click a tag to filter by it.
+  card.querySelectorAll(".tag").forEach(tagEl => {
+    tagEl.onclick = (e) => {
+      e.stopPropagation();
+      const tag = tagEl.textContent;
+      _activeTagFilter = (_activeTagFilter === tag) ? null : tag;
+      window.searchInput.value = "";
+      renderMemories(window.allMemories);
+    };
+  });
+
   card.querySelector(".delete-btn").onclick = (e) => {
     e.stopPropagation();
     if (!m.id) return;
@@ -180,19 +214,134 @@ function makeMemoryCard(m) {
   return card;
 }
 
+// ── Inbox ─────────────────────────────────────────────────────
+let _pendingCount = 0;
+
+async function loadInboxCount() {
+  try {
+    const res = await fetch("/api/memories/pending/count");
+    if (!res.ok) return;
+    const data = await res.json();
+    _pendingCount = data.count ?? 0;
+    updateInboxBadge();
+  } catch { /* non-essential */ }
+}
+
+function updateInboxBadge() {
+  const badge = document.getElementById("inboxBadge");
+  if (!badge) return;
+  badge.textContent = _pendingCount > 0 ? _pendingCount : "";
+  badge.style.display = _pendingCount > 0 ? "inline" : "none";
+}
+
+async function loadInboxPanel() {
+  const section = document.getElementById("inboxSection");
+  if (!section) return;
+  try {
+    const res = await fetch("/api/memories/pending");
+    if (!res.ok) { section.innerHTML = ""; return; }
+    const { pending } = await res.json();
+    if (!pending?.length) { section.innerHTML = ""; return; }
+    section.innerHTML =
+      `<div class="inbox-header">📥 ${t("mem_inbox_title") || "Inbox"} (${pending.length})</div>` +
+      pending.map(p => `
+        <div class="inbox-item" data-id="${escapeHtml(p.id)}">
+          <div class="inbox-item-title">${escapeHtml(p.title)}</div>
+          <div class="inbox-item-content">${escapeHtml(p.content)}</div>
+          <div class="inbox-item-meta">
+            <span class="inbox-item-type">${escapeHtml(p.type)}</span>
+            ${(p.tags || []).map(tg => `<span class="tag">${escapeHtml(tg)}</span>`).join("")}
+          </div>
+          <div class="inbox-item-actions">
+            <button class="inbox-btn inbox-btn--approve" data-id="${escapeHtml(p.id)}">✓ ${t("mem_inbox_approve") || "Approve"}</button>
+            <button class="inbox-btn inbox-btn--reject" data-id="${escapeHtml(p.id)}">✕ ${t("mem_inbox_reject") || "Reject"}</button>
+          </div>
+        </div>
+      `).join("");
+    wireInbox();
+  } catch { section.innerHTML = ""; }
+}
+
+function wireInbox() {
+  document.querySelectorAll(".inbox-btn--approve").forEach(btn => {
+    btn.onclick = async () => {
+      const id = btn.dataset.id;
+      btn.disabled = true;
+      try {
+        await fetch(`/api/memories/pending/${id}/approve`, { method: "POST" });
+        const item = document.querySelector(`.inbox-item[data-id="${CSS.escape(id)}"]`);
+        if (item) item.remove();
+        await loadInboxCount();
+        // Refresh memory list in background.
+        if (window.allMemories?.length) {
+          const res = await fetch("/api/memories");
+          const data = await res.json();
+          if (data.raw) renderMemoriesFromMessage(data.raw);
+        }
+      } catch { btn.disabled = false; }
+    };
+  });
+  document.querySelectorAll(".inbox-btn--reject").forEach(btn => {
+    btn.onclick = async () => {
+      const id = btn.dataset.id;
+      btn.disabled = true;
+      try {
+        await fetch(`/api/memories/pending/${id}/reject`, { method: "POST" });
+        const item = document.querySelector(`.inbox-item[data-id="${CSS.escape(id)}"]`);
+        if (item) item.remove();
+        await loadInboxCount();
+      } catch { btn.disabled = false; }
+    };
+  });
+}
+
+// Insert inbox badge into the search box.
+document.addEventListener("DOMContentLoaded", () => {
+  const searchBox = document.querySelector(".search-box");
+  if (searchBox) {
+    const badge = document.createElement("span");
+    badge.id = "inboxBadge";
+    badge.className = "inbox-badge";
+    badge.style.display = "none";
+    searchBox.appendChild(badge);
+  }
+  // Insert inbox section before the memories list.
+  const list = document.getElementById("memoriesList");
+  if (list) {
+    const section = document.createElement("div");
+    section.id = "inboxSection";
+    section.className = "inbox-section";
+    list.parentNode.insertBefore(section, list);
+  }
+  loadInboxCount();
+  loadInboxPanel();
+  // Refresh inbox every 60 seconds.
+  setInterval(() => { loadInboxCount(); loadInboxPanel(); }, 60000);
+});
+
 // ── Search ───────────────────────────────────────────────────
 window.searchInput.addEventListener("input", () => {
   const q = window.searchInput.value.toLowerCase().trim();
-  if (!q) {
+  const tagFilter = _activeTagFilter;
+  if (!q && !tagFilter) {
     Object.keys(window.TYPE_CONFIG).forEach(t => collapsedGroups.add(t));
     renderMemories(window.allMemories);
     return;
   }
-  const filtered = window.allMemories.filter(m =>
-    m.title.toLowerCase().includes(q) ||
-    m.content.toLowerCase().includes(q) ||
-    m.tags.some(t => t.toLowerCase().includes(q))
-  );
+  let filtered = window.allMemories;
+  if (q) {
+    filtered = filtered.filter(m =>
+      m.title.toLowerCase().includes(q) ||
+      m.content.toLowerCase().includes(q) ||
+      m.tags.some(t => t.toLowerCase().includes(q))
+    );
+  }
+  // Compose with active tag filter if any.
+  if (tagFilter) {
+    filtered = filtered.filter(m =>
+      (m.tags || []).some(t => t.toLowerCase() === tagFilter.toLowerCase())
+    );
+  }
   const matchedTypes = new Set(filtered.map(m => m.type));
   Object.keys(window.TYPE_CONFIG).forEach(t => {
     if (matchedTypes.has(t)) collapsedGroups.delete(t);

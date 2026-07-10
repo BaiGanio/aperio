@@ -140,7 +140,7 @@
     </div>
     <div class="reveal mg-concept">
       <h4>Context window — how much it holds in its head</h4>
-      <p>How much text it tracks before forgetting the start. Ollama defaults to a tiny ~2,048 tokens (≈1 page). Raise it by adding <code>OLLAMA_NUM_CTX=32768</code> to your <code>.env</code> — Aperio passes it through for you, no command line needed. Bigger windows use more memory.</p>
+      <p>How much text it tracks before forgetting the start. Aperio sizes this to your hardware automatically. Raise or lower it by adding <code>LLAMACPP_CTX=32768</code> to your <code>.env</code> — Aperio passes it through for you, no command line needed. Bigger windows use more memory.</p>
     </div>
     <div class="reveal mg-concept">
       <h4>Knowledge cutoff — when its memory of the world stops</h4>

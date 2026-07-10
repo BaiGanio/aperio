@@ -85,10 +85,10 @@
 <!-- ── Setup ──────────────────────────────────────────────────── -->
 <section class="section" id="setup" style="padding:20px 0"><div class="section-inner">
   <h2 class="reveal">Setup</h2>
-  <p class="reveal mg-desc">You need two terminals — one for the Aperio server on your local Ollama provider, and one for the chat client where you'll paste each task prompt.</p>
+  <p class="reveal mg-desc">You need two terminals — one for the Aperio server on your local llama.cpp provider, and one for the chat client where you'll paste each task prompt.</p>
   <div class="setup-box reveal">
     <strong style="font-size:.88rem;opacity:.75;">Terminal A — Aperio server</strong>
-    <pre><code>npm run start:local        # AI_PROVIDER=ollama, port 31337</code></pre>
+    <pre><code>npm run start:local        # AI_PROVIDER=llamacpp, port 31337</code></pre>
   </div>
   <div class="setup-box reveal">
     <strong style="font-size:.88rem;opacity:.75;">Terminal B — chat client</strong>
@@ -224,7 +224,7 @@ rm -f lib/helpers/truncateMiddle.js lib/helpers/slugify.js lib/helpers/truncateT
       <li>No unrelated rewrites or "improvements"</li>
     </ul>
 
-    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('./lib/helpers/imageTokens.js').then(m => { const assert = require('node:assert'); assert.strictEqual(m.imageTokenEstimate('mistral'), 1024); assert.strictEqual(m.imageTokenEstimate('ollama'), 256); assert.strictEqual(m.imageTokenEstimate('anthropic'), 1070); console.log('OK — mistral added, existing cases intact'); })"</code></div>
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('./lib/helpers/imageTokens.js').then(m => { const assert = require('node:assert'); assert.strictEqual(m.imageTokenEstimate('mistral'), 1024); assert.strictEqual(m.imageTokenEstimate('llamacpp'), 256); assert.strictEqual(m.imageTokenEstimate('anthropic'), 1070); console.log('OK — mistral added, existing cases intact'); })"</code></div>
 
     <div class="test-result" data-test="5"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
   </div>

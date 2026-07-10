@@ -153,6 +153,8 @@ function handleMessage(msg) {
 
   if (msg.type === "provider") {
     document.getElementById("startup-thinking")?.remove();
+    // Track provider for cost display.
+    if (typeof setCostProvider === "function") setCostProvider(msg.name, msg.model);
     // Round-table: cache agent list and toggle the Discuss button accordingly.
     if (Array.isArray(msg.agents)) _roundtableAgents = msg.agents;
     if (typeof window.applyRoundtableAvailability === "function") {
@@ -173,10 +175,10 @@ function handleMessage(msg) {
     }
     const badge = document.getElementById("providerBadge");
     if (badge) {
-      const isOllama   = msg.name === "ollama";
+      const isLlamaCpp = msg.name === "llamacpp";
       const isDeepSeek = msg.name === "deepseek";
       let label;
-      if (isOllama) {
+      if (isLlamaCpp) {
         label = `⬡ ${msg.model}`;
       } else if (isDeepSeek) {
         label = `◈ ${msg.model}`;
@@ -187,9 +189,9 @@ function handleMessage(msg) {
       badge.textContent = label;
       badge.title = `${msg.name} — ${msg.model}`;
       badge.style.display = "inline";
-      badge.style.background = isOllama   ? "rgba(34,197,94,.15)"  :
+      badge.style.background = isLlamaCpp ? "rgba(34,197,94,.15)"  :
                                isDeepSeek ? "rgba(59,130,246,.15)"  : "var(--accent-soft)";
-      badge.style.color      = isOllama   ? "#22c55e"               :
+      badge.style.color      = isLlamaCpp ? "#22c55e"               :
                                isDeepSeek ? "#3b82f6"               : "var(--accent)";
     }
 
@@ -533,6 +535,17 @@ function handleMessage(msg) {
     handleSessionResumed(msg);
   }
 
+  if (msg.type === "session_branched") {
+    if (!msg.ok) { addMessage("ai", "Couldn't branch — not enough conversation yet."); return; }
+    const banner = document.createElement("div");
+    banner.className = "ctx-banner";
+    banner.innerHTML =
+      `<span class="ctx-banner-text">${t("branch_created") || "↳ Branched:"} ${msg.title || ""}</span>` +
+      `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("ctx_dismiss")}</button>`;
+    document.querySelector(".chat-area")?.prepend(banner);
+    document.getElementById("messages").innerHTML = "";
+  }
+
   if (msg.type === "memories") {
     renderMemoriesFromMessage(msg.memories);
   }
@@ -598,6 +611,11 @@ function handleMessage(msg) {
 
   if (msg.type === "no_tool_use_detected") {
     _renderNoToolWarning(msg.model);
+    return;
+  }
+
+  if (msg.type === "slow_local_turn_detected") {
+    _renderSlowTurnWarning(msg.model, msg.genTps, msg.hint);
     return;
   }
 
@@ -2063,6 +2081,23 @@ function _renderNoToolWarning(model) {
       `<strong>${escapeHtml(model)}</strong> answered with code instead of writing files. ` +
       `Small local models sometimes describe code rather than calling tools, especially when the target is vague. ` +
       `Try naming the file to create/edit, or switch to a larger model for reliable file operations.` +
+    `</span>` +
+    `<button class="no-tool-warning-dismiss" title="Dismiss">✕</button>`;
+  chip.querySelector(".no-tool-warning-dismiss").onclick = () => chip.remove();
+  messagesEl.appendChild(chip);
+  scrollToBottom();
+}
+
+// llamacpp.md Phase 5: reuses the no-tool-use chip's styling (generic amber
+// warning, not tool-specific) rather than inventing a new UI mechanism.
+function _renderSlowTurnWarning(model, genTps, hint) {
+  const chip = document.createElement("div");
+  chip.className = "no-tool-warning";
+  chip.innerHTML =
+    `<span class="no-tool-warning-icon">🐢</span>` +
+    `<span class="no-tool-warning-text">` +
+      `<strong>${escapeHtml(model)}</strong> is generating slowly (~${genTps} tok/s). ` +
+      `${escapeHtml(hint || "Try the fast-low-vram profile.")}` +
     `</span>` +
     `<button class="no-tool-warning-dismiss" title="Dismiss">✕</button>`;
   chip.querySelector(".no-tool-warning-dismiss").onclick = () => chip.remove();

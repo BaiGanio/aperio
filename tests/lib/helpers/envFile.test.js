@@ -77,13 +77,13 @@ describe("envQuote", () => {
 
 describe("setKey", () => {
   test("replaces an existing key in the content", () => {
-    const result = setKey("PORT=3000\nAI_PROVIDER=ollama\n", "AI_PROVIDER", "anthropic");
+    const result = setKey("PORT=3000\nAI_PROVIDER=llamacpp\n", "AI_PROVIDER", "anthropic");
     assert.strictEqual(result, 'PORT=3000\nAI_PROVIDER="anthropic"\n');
   });
 
   test("appends a key that does not exist yet", () => {
-    const result = setKey("PORT=3000\n", "AI_PROVIDER", "ollama");
-    assert.strictEqual(result, 'PORT=3000\nAI_PROVIDER="ollama"\n');
+    const result = setKey("PORT=3000\n", "AI_PROVIDER", "llamacpp");
+    assert.strictEqual(result, 'PORT=3000\nAI_PROVIDER="llamacpp"\n');
   });
 
   test("preserves comments and other content", () => {
@@ -135,33 +135,33 @@ describe("writeEnvFromWizard", () => {
     );
   });
 
-  test("throws for ollama without model", () => {
+  test("throws for llamacpp without model", () => {
     assert.throws(
-      () => writeEnvFromWizard({ provider: "ollama" }),
-      /ollama requires a model/,
+      () => writeEnvFromWizard({ provider: "llamacpp" }),
+      /llamacpp requires a model/,
     );
   });
 
   // ── Success paths ───────────────────────────────────────────────────────────
 
-  test("writes .env for ollama provider", () => {
-    writeEnvFromWizard({ provider: "ollama", model: "llama3.1" });
+  test("writes .env for llamacpp provider — sets LLAMACPP_MODEL", () => {
+    writeEnvFromWizard({ provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" });
     const env = readFileSync(ENV_PATH, "utf8");
-    assert.match(env, /^AI_PROVIDER="ollama"$/m);
-    assert.match(env, /^OLLAMA_MODEL="llama3\.1"$/m);
+    assert.match(env, /^AI_PROVIDER="llamacpp"$/m);
+    assert.match(env, /^LLAMACPP_MODEL="Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M"$/m);
   });
 
   test("persists APERIO_LITE=on when the wizard runs under the lite profile", (t) => {
     process.env.APERIO_LITE = "on";
     t.after(() => delete process.env.APERIO_LITE);
-    writeEnvFromWizard({ provider: "ollama", model: "llama3.1" });
+    writeEnvFromWizard({ provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" });
     const env = readFileSync(ENV_PATH, "utf8");
     assert.match(env, /^APERIO_LITE="on"$/m);
   });
 
   test("does not persist APERIO_LITE outside the lite profile", (t) => {
     delete process.env.APERIO_LITE;
-    writeEnvFromWizard({ provider: "ollama", model: "llama3.1" });
+    writeEnvFromWizard({ provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" });
     const env = readFileSync(ENV_PATH, "utf8");
     assert.doesNotMatch(env, /^APERIO_LITE=/m);
   });
@@ -211,7 +211,7 @@ describe("writeEnvFromWizard", () => {
     const original = [
       'AI_PROVIDER="anthropic"',
       'ANTHROPIC_API_KEY="sk-real-user-key"',
-      'OLLAMA_MODEL="old-model"',
+      'LLAMACPP_MODEL="old-model"',
       'ROUNDTABLE_AGENTS="3"',
       'APERIO_DOCGRAPH="on"',
       "",
@@ -219,7 +219,7 @@ describe("writeEnvFromWizard", () => {
     writeFileSync(ENV_PATH, original, "utf8");
 
     // Even with otherwise-valid wizard input, the existing .env wins.
-    const result = writeEnvFromWizard({ provider: "ollama", model: "llama3.1" });
+    const result = writeEnvFromWizard({ provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" });
 
     assert.equal(result, ENV_PATH);
     assert.equal(readFileSync(ENV_PATH, "utf8"), original);

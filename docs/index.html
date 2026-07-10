@@ -7,7 +7,7 @@
   <!-- Primary Meta Tags -->
   <title>Aperio | Self-Hosted AI Memory Layer & MCP Server</title>
   <meta name="description" content="Aperio is an open-source, self-hosted AI memory layer. On-device embeddings, SQLite or Postgres, MCP-native, private by default. Includes Aperio-lite for non-code users." />
-  <meta name="keywords" content="Aperio, MCP-native, self-hosted AI, Ollama, local embeddings, Postgres, private AI, AI memory layer" />
+  <meta name="keywords" content="Aperio, MCP-native, self-hosted AI, llama.cpp, local embeddings, Postgres, private AI, AI memory layer" />
 
   <!-- Open Graph / Social Media -->
   <meta property="og:type" content="website" />
@@ -23,7 +23,7 @@
   <meta name="twitter:image" content="https://baiganio.github.io/aperio/assets/favicon.ico" />
 
   <!-- Canonical URL (update with actual page URL) -->
-  <link rel="canonical" href=https://baiganio.github.io/aperio" />
+  <link rel="canonical" href="https://baiganio.github.io/aperio" />
 
   <!-- Preconnect -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -34,6 +34,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="lang-map.css" />
 
   <!-- Favicon -->
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
@@ -52,6 +53,8 @@
   </script>
 </head>   
 <body>
+
+<div class="scroll-progress" id="scrollProgress" aria-hidden="true"></div>
 
 <div class="orb orb-1"></div>
 <div class="orb orb-2"></div>
@@ -81,37 +84,10 @@
       <li><a href="guide.html" data-i18n="nav_guide">Guide</a></li>
     </ul>
 
-    <!-- Language switcher -->
-    <div class="lang-switcher" id="langSwitcher" aria-label="Language">
-      <select id="langSelect" class="lang-select" aria-label="Select language">
-        <option value="en" data-lang="en">🇬🇧 English</option>
-        <option value="bg" data-lang="bg">🇧🇬 Български</option>
-        <option value="cs" data-lang="cs">🇨🇿 Čeština</option>
-        <option value="da" data-lang="da">🇩🇰 Dansk</option>
-        <option value="de" data-lang="de">🇩🇪 Deutsch</option>
-        <option value="el" data-lang="el">🇬🇷 Ελληνικά</option>
-        <option value="es" data-lang="es">🇪🇸 Español</option>
-        <option value="et" data-lang="et">🇪🇪 Eesti</option>
-        <option value="fi" data-lang="fi">🇫🇮 Suomi</option>
-        <option value="fr" data-lang="fr">🇫🇷 Français</option>
-        <option value="ga" data-lang="ga">🇮🇪 Gaeilge</option>
-        <option value="hr" data-lang="hr">🇭🇷 Hrvatski</option>
-        <option value="hu" data-lang="hu">🇭🇺 Magyar</option>
-        <option value="it" data-lang="it">🇮🇹 Italiano</option>
-        <option value="lt" data-lang="lt">🇱🇹 Lietuvių</option>
-        <option value="lv" data-lang="lv">🇱🇻 Latviešu</option>
-        <option value="mt" data-lang="mt">🇲🇹 Malti</option>
-        <option value="nl" data-lang="nl">🇳🇱 Nederlands</option>
-        <option value="pl" data-lang="pl">🇵🇱 Polski</option>
-        <option value="pt" data-lang="pt">🇵🇹 Português</option>
-        <option value="ro" data-lang="ro">🇷🇴 Română</option>
-        <option value="sk" data-lang="sk">🇸🇰 Slovenčina</option>
-        <option value="sl" data-lang="sl">🇸🇮 Slovenščina</option>
-        <option value="sv" data-lang="sv">🇸🇪 Svenska</option>
-        <option value="zh" data-lang="zh">🇨🇳 中文</option>
-        <option value="ja" data-lang="ja">🇯🇵 日本語</option>
-      </select>
-    </div>
+    <!-- Language switcher — world map overlay (see lang-map.js) -->
+    <button class="lang-globe-btn" id="langMapBtn" type="button" aria-label="Language" title="Language — pick on the map">
+      <i class="bi bi-globe2"></i><span id="langMapBtnCode">en</span>
+    </button>
 
     <!-- Theme switcher -->
     <div class="theme-switcher" id="themeSwitcher">
@@ -150,7 +126,7 @@
       <span class="tech-badge"><i class="bi bi-database me-1"></i> SQLite</span>
       <span class="tech-badge"><i class="bi bi-hdd-fill me-1"></i> <span data-i18n="badge_local_embeddings">Local Embeddings</span></span>
       <span class="tech-badge"><i class="bi bi-plug me-1"></i> MCP Protocol</span>
-      <span class="tech-badge"><i class="bi bi-box me-1"></i> Ollama</span>
+      <span class="tech-badge"><i class="bi bi-box me-1"></i> llama.cpp</span>
     </div>
     <div class="terminal-wrap reveal">
       <div class="terminal">
@@ -159,7 +135,7 @@
           <span class="t-title" data-i18n="terminal_title">aperio — local · private · yours</span>
         </div>
         <div class="terminal-body">
-          <div><span class="t-ok">🤖</span> <span class="t-out" data-i18n="terminal_provider">Provider: Ollama (gemma4:26b)</span></div>
+          <div><span class="t-ok">🤖</span> <span class="t-out" data-i18n="terminal_provider">Provider: llama.cpp (qwen3:4b)</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out" data-i18n="terminal_db_connected">Connected to Aperio database</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out" data-i18n="terminal_semantic_ready">pgvector enabled — semantic search active (16/16 memories embedded)</span></div>
           <div><span class="t-ok">🧠</span> <span class="t-out" data-i18n="terminal_mcp_running">Aperio MCP server v2.0 running</span></div>
@@ -187,7 +163,7 @@
 <div class="stats-bar z1">
   <div class="stats-inner">
     <div class="stat reveal"><div class="stat-num">54</div><div class="stat-lbl" data-i18n="stat_mcp_tools">MCP Tools</div></div>
-    <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">8</div><div class="stat-lbl" data-i18n="stat_memory_types">Memory Types</div></div>
+    <div class="stat reveal" style="transition-delay:.08s"><div class="stat-num">9</div><div class="stat-lbl" data-i18n="stat_memory_types">Memory Types</div></div>
     <div class="stat reveal" style="transition-delay:.16s"><div class="stat-num">0</div><div class="stat-lbl" data-i18n="stat_api_keys">API Keys Required</div></div>
     <div class="stat reveal" style="transition-delay:.24s"><div class="stat-num">$0</div><div class="stat-lbl" data-i18n="stat_vendor_lock">Vendor Lock-in</div></div>
   </div>
@@ -203,7 +179,7 @@
       <div class="feat-card reveal">
         <div class="feat-icon"><i class="bi bi-database-fill-check"></i></div>
         <div class="feat-title" data-i18n="feat_memory_title">Persistent Memory</div>
-        <p class="feat-desc" data-i18n="feat_memory_desc">Your memories survive every conversation, every tool, every session. 8 structured types keep things organized — facts, preferences, decisions, solutions and more.</p>
+        <p class="feat-desc" data-i18n="feat_memory_desc">Your memories survive every conversation, every tool, every session. 9 structured types keep things organized — facts, preferences, decisions, solutions and more. Three sensitivity tiers keep your private data safe: tier 1 shared as-is, tier 2 PII-redacted on cloud, tier 3 never leaves your machine.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.04s">
         <div class="feat-icon"><i class="bi bi-journal-bookmark-fill"></i></div>
@@ -228,7 +204,7 @@
       <div class="feat-card reveal" style="transition-delay:.12s">
         <div class="feat-icon"><i class="bi bi-box-fill"></i></div>
         <div class="feat-title" data-i18n="feat_local_title">Local by Default</div>
-        <p class="feat-desc" data-i18n="feat_local_desc">Runs fully on your machine with Ollama — free, private, offline-capable. Switch to Claude with one env variable when you need more power.</p>
+        <p class="feat-desc" data-i18n="feat_local_desc">Runs fully on your machine with llama.cpp — free, private, offline-capable. Switch to Claude with one env variable when you need more power.</p>
       </div>
       <div class="feat-card reveal" style="transition-delay:.19s">
         <div class="feat-icon"><i class="bi bi-eraser-fill"></i></div>
@@ -277,7 +253,7 @@
           <div class="arch-connector">↕ stdio</div>
           <div class="arch-row"><span class="arch-icon">🔧</span><div><div class="arch-name" data-i18n="arch_mcp">MCP Server</div><div class="arch-sub" data-i18n="arch_mcp_sub">mcp/index.js · 54 tools · 12 categories</div></div></div>
           <div class="arch-connector">↕</div>
-          <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">Postgres 16 + pgvector</div><div class="arch-sub" data-i18n="arch_postgres_sub">memories table · HNSW index</div></div></div>
+          <div class="arch-row"><span class="arch-icon">🐘</span><div><div class="arch-name">SQLite (default) · Postgres 16 + pgvector</div><div class="arch-sub" data-i18n="arch_postgres_sub">sqlite-vec · pgvector · HNSW index</div></div></div>
           <div class="arch-connector">↕</div>
           <div class="arch-row"><span class="arch-icon">⬡</span><div><div class="arch-name" data-i18n="badge_local_embeddings">Local Embeddings</div><div class="arch-sub" data-i18n="arch_embeddings_sub">mxbai-embed-large-v1 · 1024 dims · zero external calls</div></div></div>
           <div class="arch-row"><span class="arch-icon">✦</span><div><div class="arch-name">Voyage AI</div><div class="arch-sub" data-i18n="arch_voyage_sub">optional · voyage-3 · 1024 dims · cloud upgrade</div></div></div>
@@ -285,14 +261,15 @@
         <div>
           <div class="arch-section-label" data-i18n="arch_providers">AI Providers</div>
           <div class="provider-chips">
-            <div class="provider-chip chip-local"><span class="chip-icon">⬡</span><div><div class="provider-label">Ollama</div><div class="provider-desc" data-i18n="arch_local_provider_desc">default · local · free · offline capable</div></div></div>
-            <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">APIs: Claude , Gemini , DeepSeek</div><div class="provider-desc" data-i18n="arch_cloud_provider_desc">optional · cloud upgrade</div></div></div>
+            <div class="provider-chip chip-local"><span class="chip-icon">⬡</span><div><div class="provider-label">llama.cpp</div><div class="provider-desc" data-i18n="arch_local_provider_desc">default · local · free · offline capable</div></div></div>
+            <div class="provider-chip chip-cloud"><span class="chip-icon">✦</span><div><div class="provider-label">Claude · Gemini · DeepSeek</div><div class="provider-desc" data-i18n="arch_cloud_provider_desc">optional · cloud APIs</div></div></div>
+            <div class="provider-chip chip-cloud"><span class="chip-icon">🤖</span><div><div class="provider-label">Claude Code · Codex CLI</div><div class="provider-desc">optional · coding agents</div></div></div>
           </div>
           <div class="arch-section-label" style="margin-top:28px" data-i18n="stat_memory_types">Memory Types</div>
           <div class="mem-types">
             <span class="mem-type">fact</span><span class="mem-type">preference</span>
             <span class="mem-type">project</span><span class="mem-type">decision</span>
-            <span class="mem-type">solution</span><span class="mem-type">source</span><span class="mem-type">person</span><span class="mem-type">inference</span>
+            <span class="mem-type">solution</span><span class="mem-type">source</span><span class="mem-type">person</span><span class="mem-type">inference</span><span class="mem-type">workflow</span>
           </div>
         </div>
       </div>
@@ -619,11 +596,11 @@
         <tbody>
           <tr><td data-i18n="compare_row_ownership">Data ownership</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_ownership">100% yours — own Postgres</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_ownership">Vendor's servers</span></td></tr>
           <tr><td data-i18n="compare_row_cost">Monthly cost</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_cost">Free (self-hosted)</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_cost">$20–100 / month</span></td></tr>
-          <tr><td data-i18n="compare_row_local_ai">Local AI support</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_local_ai">Ollama built-in</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_local_ai">Cloud only</span></td></tr>
+          <tr><td data-i18n="compare_row_local_ai">Local AI support</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_local_ai">llama.cpp built-in</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_local_ai">Cloud only</span></td></tr>
           <tr><td data-i18n="compare_row_fs_tools">File system tools</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_fs_tools">read · write · append</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_fs_tools">Not available</span></td></tr>
           <tr><td data-i18n="compare_row_source">Full source access</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_source">Open source — fork it</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_source">Closed API</span></td></tr>
           <tr><td data-i18n="compare_row_mcp">MCP integration</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_mcp">Native protocol</span></td><td><span class="cross">⚠</span> <span data-i18n="compare_cl_mcp">Varies</span></td></tr>
-          <tr><td data-i18n="compare_row_offline">Works offline</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_offline">With Ollama</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_offline">Requires internet</span></td></tr>
+          <tr><td data-i18n="compare_row_offline">Works offline</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_offline">With llama.cpp</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_offline">Requires internet</span></td></tr>
           <tr><td data-i18n="compare_row_nodev">Non-developer friendly</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_nodev">Aperio-lite — double-click &amp; go</span></td><td><span class="cross">✗</span> <span data-i18n="compare_cl_nodev">Requires dev setup</span></td></tr>
           <tr><td data-i18n="compare_row_team">Team memory</td><td class="col-aperio"><span class="tick">✅</span> <span data-i18n="compare_ap_team">Shared DB — one brain for the team</span></td><td><span class="cross">⚠</span> <span data-i18n="compare_cl_team">Varies by plan</span></td></tr>
         </tbody>
@@ -702,8 +679,8 @@
         <div class="step-num">02</div>
         <div class="step-title" data-i18n="step2_title">Ready for use .env.example in the project folder</div>
         <div class="code-block" style="position:relative">
-          <div><span class="k">AI_PROVIDER</span>=<span class="v">ollama</span></div>
-          <div><span class="k">OLLAMA_MODEL</span>=<span class="v">qwen2.5:3b</span></div>
+          <div><span class="k">AI_PROVIDER</span>=<span class="v">llamacpp</span></div>
+          <div><span class="k">LLAMACPP_MODEL</span>=<span class="v">Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M</span></div>
           <div><span class="k">EMBEDDING_PROVIDER</span>=<span class="v">transformers</span></div>
           <div><span class="c" data-i18n="setup_comment_db_detect"># DB_BACKEND auto-detects: SQLite (default) or Postgres</span></div>
           <div><span class="c" data-i18n="setup_comment_database_url"># DATABASE_URL=postgresql://…  — only if you choose Postgres</span></div>
@@ -724,20 +701,16 @@
       </div>
       <div class="step-card reveal" style="transition-delay:.24s">
         <div class="step-num">04</div>
-        <div class="step-title" data-i18n="step4_title">Pull the models</div>
+        <div class="step-title" data-i18n="step4_title">Pick a model — nothing to install</div>
         <div class="code-block" style="position:relative">
           <button class="copy-btn" data-target=".s" data-i18n="copy">Copy</button>
-          <div class="c" data-i18n="setup_comment_start_engine"># start the engine from separate terminal</div>
-          <div class="s">ollama serve</div>       
-          <div class="c" data-i18n="setup_comment_budget_llm"># best LLM on low budget</div>
-          <div class="s">ollama pull llama3.1:8b</div>
+          <div class="c" data-i18n="setup_comment_start_engine"># Aperio vendors + starts the llama.cpp engine itself — downloads the model on first use</div>
           <div>&nbsp;</div>
           <div class="v" data-i18n="setup_available_options"> Available options: </div>
-          <div class="k">lite - qwen2.5:3b  (~4GB RAM,  ~2GB disk)</div>
-          <div class="k">medium - llama3.1:8b (~8GB RAM,  ~5GB disk)</div>           
-          <div class="k">smart - qwen3:8b (~10GB RAM, ~5GB disk)</div>  
-          <div class="k">reasoning - qwen3:14b (~16GB RAM, ~9GB disk)</div>   
-          <div class="k">pro - deepseek-r1:32b (~32GB RAM, ~19GB disk)</div> 
+          <div class="k">default - Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M (~4GB RAM, ~2GB disk) ★ recommended</div>
+          <div class="k">medium - ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M (~8GB RAM, ~5GB disk)</div>
+          <div class="k">smart - ggml-org/gemma-4-12B-it-GGUF:Q4_K_M (~24GB RAM, ~8GB disk)</div>
+          <div class="k">reasoning - Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M (~48GB RAM, or fast-low-vram profile, ~18GB disk)</div>
           <div>&nbsp;</div>
           <div class="c" data-i18n="setup_comment_embeddings"># embeddings run on-device (transformers) — no model to pull</div>
         </div>
@@ -760,7 +733,7 @@
         <div class="step-title" data-i18n="step6_title">Use Aperio chat in the terminal</div>
         <div class="code-block" style="position:relative">  
           <button class="copy-btn" data-target=".s" data-i18n="copy">Copy</button>
-          <div class="c" data-i18n="setup_comment_local"># local (Ollama)</div>
+          <div class="c" data-i18n="setup_comment_local"># local (llama.cpp)</div>
           <div class="c" data-i18n="setup_comment_docker_detect"># auto-detect if any Docker - uses SQLite as fallback</div>
           <div class="s">npm run chat:local</div>
           <div>&nbsp;</div>
@@ -938,8 +911,49 @@
   <div class="footer-warning" data-i18n="footer_warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div>
 </footer>
 
+<!-- Language map overlay: world map framed on Europe; countries whose language
+     the page speaks glow, planned ones render dashed. Logic in lang-map.js;
+     country shapes lazy-load from world-paths.js on first open. -->
+<div class="langmap-overlay" id="langMapOverlay">
+  <div class="langmap-card">
+    <div class="langmap-head">
+      <h2 data-i18n="langmap_heading">Choose your language</h2>
+      <span class="langmap-sub" id="langMapCount"></span>
+      <button class="langmap-close" id="langMapClose" title="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="langmap-main">
+      <div class="langmap-map">
+        <div class="langmap-glow"></div>
+        <svg id="langMapSvg" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="langmap-loading" id="langMapLoading">…</div>
+        <div class="langmap-controls">
+          <button id="langMapViewEurope" class="active" data-i18n="langmap_view_europe">Europe</button>
+          <button id="langMapViewWorld" data-i18n="langmap_view_world">World</button>
+        </div>
+        <div class="langmap-hint" data-i18n="langmap_hint">drag to pan · scroll to zoom</div>
+        <div class="langmap-legend">
+          <span><i class="lm-swatch on"></i><span data-i18n="langmap_legend_available">available</span></span>
+          <span><i class="lm-swatch soon"></i><span data-i18n="langmap_soon_hint">coming soon</span></span>
+          <span><i class="lm-swatch off"></i><span data-i18n="langmap_legend_not">not yet</span></span>
+        </div>
+      </div>
+      <div class="langmap-list-pane">
+        <div class="langmap-search">
+          <input id="langMapSearch" type="text" data-i18n-attr-placeholder="langmap_search" placeholder="Search languages…">
+        </div>
+        <div class="langmap-list" id="langMapList"></div>
+        <div class="langmap-foot" data-i18n="langmap_foot">Don't see yours? Aperio's agent understands you anyway — just write in any language.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="langmap-tip" id="langMapTip"></div>
+<div class="langmap-choose" id="langMapChooser"></div>
+<div class="langmap-toast" id="langMapToast"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="translations.js"></script>
+<script src="lang-map.js"></script>
 <script src="scripts.js"></script>
 </body>
 </html>

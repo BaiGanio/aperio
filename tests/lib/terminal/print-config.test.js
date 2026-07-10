@@ -36,10 +36,10 @@ function buildExpectedOutput({ get, precedence, warnings }) {
   let out = `\n${BOLD}  Config${R}\n${GRAY}  ${"─".repeat(52)}${R}\n`;
   out += `  ${GRAY}${"precedence".padEnd(22)}${R}${precedence}\n`;
   out += formatRow("AI_PROVIDER", "AI_PROVIDER", get, "anthropic");
-  if (provider === "ollama") {
-    out += formatRow("OLLAMA_MODEL", "OLLAMA_MODEL", get, "llama3.1");
-    out += formatRow("OLLAMA_NUM_CTX", "OLLAMA_NUM_CTX", get, "32768");
-    out += formatRow("OLLAMA_CONTEXT_LENGTH", "OLLAMA_CONTEXT_LENGTH", get);
+  if (provider === "llamacpp") {
+    out += formatRow("LLAMACPP_MODEL", "LLAMACPP_MODEL", get, "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    out += formatRow("LLAMACPP_CTX", "LLAMACPP_CTX", get, "32768");
+    out += formatRow("LLAMACPP_SERVE_CTX", "LLAMACPP_SERVE_CTX", get);
   }
   for (const w of warnings) out += `\n  ${YELLOW}⚠ ${w}${R}\n`;
   out += "\n";
@@ -90,21 +90,21 @@ describe("CLI /config output format", () => {
     await applyConfigToEnv(store);
 
     // With no env and no DB, every unset var should be "default"
-    const t1 = configSourceLabel("OLLAMA_MODEL");
+    const t1 = configSourceLabel("LLAMACPP_MODEL");
     const t0 = configSourceLabel("PORT");
     assert.equal(t1, "default", "unset Tier-1 should have 'default' label");
     assert.equal(t0, "default", "unset Tier-0 should have 'default' label");
 
     // Set a DB var and re-boot
-    const dbStore = fakeStore({ [configSettingKey("OLLAMA_MODEL")]: "llama3.1" });
+    const dbStore = fakeStore({ [configSettingKey("LLAMACPP_MODEL")]: "llama3.1" });
     await applyConfigToEnv(dbStore);
-    assert.equal(configSourceLabel("OLLAMA_MODEL"), "from UI",
+    assert.equal(configSourceLabel("LLAMACPP_MODEL"), "from UI",
       "DB-sourced var should have 'from UI' label");
 
     // Set env var (no DB) and re-boot
-    process.env.OLLAMA_MODEL = "env-model";
+    process.env.LLAMACPP_MODEL = "env-model";
     await applyConfigToEnv(fakeStore());
-    assert.equal(configSourceLabel("OLLAMA_MODEL"), "from .env",
+    assert.equal(configSourceLabel("LLAMACPP_MODEL"), "from .env",
       "env-sourced var should have 'from .env' label");
   });
 
@@ -125,34 +125,34 @@ describe("CLI /config output format", () => {
     assert.ok(plain.includes("AI_PROVIDER"), "must show AI_PROVIDER row");
   });
 
-  // ── 3. Output format — ollama rows ──────────────────────────────────
-  test("OLLAMA_MODEL row appears when provider is ollama", () => {
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_MODEL = "qwen2.5:3b";
-    process.env.OLLAMA_NUM_CTX = "32768";
-    process.env.OLLAMA_CONTEXT_LENGTH = "32768";
+  // ── 3. Output format — llamacpp rows ──────────────────────────────────
+  test("LLAMACPP_MODEL row appears when provider is llamacpp", () => {
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "qwen2.5:3b";
+    process.env.LLAMACPP_CTX = "32768";
+    process.env.LLAMACPP_SERVE_CTX = "32768";
 
     const get = makeGetFn();
     const out = buildExpectedOutput({ get, precedence: "env", warnings: [] });
 
     const plain = stripAnsi(out);
-    assert.ok(plain.includes("qwen2.5:3b"), "OLLAMA_MODEL value must appear");
-    assert.ok(plain.includes("32768"), "OLLAMA_NUM_CTX value must appear");
-    assert.ok(plain.includes("OLLAMA_CONTEXT_LENGTH"), "OLLAMA_CONTEXT_LENGTH row must appear");
+    assert.ok(plain.includes("qwen2.5:3b"), "LLAMACPP_MODEL value must appear");
+    assert.ok(plain.includes("32768"), "LLAMACPP_CTX value must appear");
+    assert.ok(plain.includes("LLAMACPP_SERVE_CTX"), "LLAMACPP_SERVE_CTX row must appear");
   });
 
   // ── 4. Output format — fallback values ──────────────────────────────
   test("unset vars show default fallback values", () => {
-    // Set AI_PROVIDER to ollama but leave OLLAMA_MODEL unset
-    process.env.AI_PROVIDER = "ollama";
-    delete process.env.OLLAMA_MODEL;
+    // Set AI_PROVIDER to llamacpp but leave LLAMACPP_MODEL unset
+    process.env.AI_PROVIDER = "llamacpp";
+    delete process.env.LLAMACPP_MODEL;
 
     const get = makeGetFn();
     const out = buildExpectedOutput({ get, precedence: "env", warnings: [] });
 
     const plain = stripAnsi(out);
-    // The row() function's fallback for OLLAMA_MODEL is "llama3.1"
-    assert.ok(plain.includes("llama3.1"), "unset OLLAMA_MODEL shows fallback 'llama3.1'");
+    // The row() function's fallback for LLAMACPP_MODEL is the curated default
+    assert.ok(plain.includes("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"), "unset LLAMACPP_MODEL shows curated fallback");
     assert.ok(plain.includes("(unset)"), "unset value without fallback shows '(unset)'");
   });
 
@@ -167,7 +167,7 @@ describe("CLI /config output format", () => {
     assert.ok(plain.includes("(default)"), "unset var shows (default) source label");
 
     // With env set
-    process.env.OLLAMA_MODEL = "my-model";
+    process.env.LLAMACPP_MODEL = "my-model";
     const get2 = makeGetFn();
     const out2 = buildExpectedOutput({ get: get2, precedence: "env", warnings: [] });
     const plain2 = stripAnsi(out2);
@@ -182,17 +182,17 @@ describe("CLI /config output format", () => {
   test("warnings appear as yellow-prefixed lines after the config table", () => {
     process.env.AI_PROVIDER = "anthropic";
 
-    const warnings = ["OLLAMA_NUM_CTX (98304) exceeds OLLAMA_CONTEXT_LENGTH (32768); clamped to 32768."];
+    const warnings = ["LLAMACPP_CTX (98304) exceeds LLAMACPP_SERVE_CTX (32768); clamped to 32768."];
     const out = buildExpectedOutput({ get: makeGetFn(), precedence: "env", warnings });
 
     assert.ok(out.includes(YELLOW), "warning line uses yellow ANSI code");
     assert.ok(out.includes("⚠"), "warning line uses ⚠ indicator");
-    assert.ok(out.includes("OLLAMA_NUM_CTX (98304)"), "warning message content appears");
+    assert.ok(out.includes("LLAMACPP_CTX (98304)"), "warning message content appears");
 
     // Verify position: warnings appear after the table
     const plain = stripAnsi(out);
     const tableEndIdx = plain.lastIndexOf("─");
-    const warnIdx = plain.indexOf("OLLAMA_NUM_CTX");
+    const warnIdx = plain.indexOf("LLAMACPP_CTX");
     assert.ok(warnIdx > tableEndIdx, "warnings must appear after the separator line");
   });
 

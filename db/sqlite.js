@@ -270,6 +270,47 @@ class SqliteWiki {
     return tx();
   }
 
+  // ── Draft / propose ─────────────────────────────────────────────────────
+  async proposeDraft({ slug, title, summary, body_md, tags, generated_by, source_memory_ids }) {
+    const { articles, sources } = this.t;
+    const existing = this.db.prepare(`SELECT id FROM ${articles} WHERE slug = ?`).get(slug);
+    if (existing) throw new Error(`Wiki article with slug "${slug}" already exists`);
+
+    const id = randomUUID();
+    const tagsJson = JSON.stringify(tags ?? []);
+    const tx = this.db.transaction(() => {
+      this.db.prepare(`
+        INSERT INTO ${articles} (id, slug, title, summary, body_md, tags, generated_by, source_hash, revision, status)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'draft')
+      `).run(id, slug, title, summary ?? null, body_md, tagsJson, generated_by ?? null, null);
+
+      const insSource = this.db.prepare(`INSERT INTO ${sources} (article_id, memory_id) VALUES (?, ?)`);
+      for (const memId of (source_memory_ids ?? [])) {
+        try { insSource.run(id, memId); }
+        catch (err) { logError(`[sqlite/wiki] skip unknown source memory ${memId}`, err); }
+      }
+      return { id, slug, revision: 1 };
+    });
+    return tx();
+  }
+
+  listDrafts() {
+    const { articles } = this.t;
+    return this.db.prepare(`
+      SELECT id, slug, title, summary, tags, generated_by, generated_at, revision
+        FROM ${articles} WHERE status = 'draft' ORDER BY generated_at DESC
+    `).all().map(r => ({ ...r, tags: JSON.parse(r.tags ?? '[]') }));
+  }
+
+  publishDraft(slug) {
+    const { articles } = this.t;
+    const row = this.db.prepare(`SELECT id FROM ${articles} WHERE slug = ? AND status = 'draft'`).get(slug);
+    if (!row) throw new Error(`Draft with slug "${slug}" not found`);
+    this.db.prepare(`UPDATE ${articles} SET status = 'fresh', generated_at = ? WHERE id = ?`)
+      .run(nowIso(), row.id);
+    return { id: row.id, slug, status: 'fresh' };
+  }
+
   async list({ tag, status, updated_since, limit = 25, offset = 0 }) {
     const { articles } = this.t;
     const cap  = Math.min(Math.max(parseInt(limit,  10) || 25, 1), 100);
@@ -843,6 +884,67 @@ export class SqliteStore {
     return rowToMemory(this.db.prepare(`SELECT * FROM memories WHERE id = ?`).get(id));
   }
   async getById(id) { return this._getByIdSync(id); }
+
+  // ── Pending memories (inbox) ─────────────────────────────────────────────
+  async insertPending(input) {
+    const id = randomUUID();
+    const now = nowIso();
+    this.db.prepare(`
+      INSERT INTO pending_memories
+        (id, type, title, content, tags, importance, tier, proposed_at, source, lang, confidence, status, session_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?, 'pending', ?)
+    `).run(
+      id, input.type ?? 'fact', input.title, input.content,
+      JSON.stringify(input.tags ?? []), input.importance ?? 3,
+      input.tier ?? 1, now, input.source ?? 'agent',
+      input.lang ?? 'english', input.confidence ?? 1.0,
+      input.session_id ?? null
+    );
+    return { id, title: input.title, type: input.type ?? 'fact', status: 'pending' };
+  }
+
+  listPending() {
+    return this.db.prepare(`
+      SELECT * FROM pending_memories WHERE status = 'pending' ORDER BY proposed_at DESC
+    `).all().map(r => ({ ...r, tags: JSON.parse(r.tags ?? '[]') }));
+  }
+
+  countPending() {
+    return this.db.prepare(
+      `SELECT COUNT(*) AS c FROM pending_memories WHERE status = 'pending'`
+    ).get().c;
+  }
+
+  approvePending(id) {
+    const row = this.db.prepare(
+      `SELECT * FROM pending_memories WHERE id = ? AND status = 'pending'`
+    ).get(id);
+    if (!row) throw new Error(`Pending memory ${id} not found`);
+    const tx = this.db.transaction(() => {
+      const memId = this.insert({
+        type: row.type, title: row.title, content: row.content,
+        tags: JSON.parse(row.tags ?? '[]'), importance: row.importance,
+        tier: row.tier, source: row.source, lang: row.lang,
+        confidence: row.confidence
+      }, null);
+      this.db.prepare(
+        `UPDATE pending_memories SET status = 'approved', reviewed_at = ? WHERE id = ?`
+      ).run(nowIso(), id);
+      return { id: memId.id, title: memId.title };
+    });
+    return tx();
+  }
+
+  rejectPending(id) {
+    const row = this.db.prepare(
+      `SELECT * FROM pending_memories WHERE id = ? AND status = 'pending'`
+    ).get(id);
+    if (!row) throw new Error(`Pending memory ${id} not found`);
+    this.db.prepare(
+      `UPDATE pending_memories SET status = 'rejected', reviewed_at = ? WHERE id = ?`
+    ).run(nowIso(), id);
+    return { id, status: 'rejected' };
+  }
 
   async listAll() {
     return this.db.prepare(`

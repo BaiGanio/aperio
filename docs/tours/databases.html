@@ -226,7 +226,7 @@
     <ul class="mt-walls reveal" style="list-style:none;padding:0;margin:14px 0">
       <li style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.14)"><b>Credentials never reach the model.</b> Your host, password, and connection string are encrypted on your machine. The AI only ever sees the friendly name you chose (like <code>sales</code>).</li>
       <li style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.14)"><b>Query results do pass through the model</b> — that's how it reads the answer back to you. So the rows you ask for are seen by whichever model you're running.</li>
-      <li style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.14)"><b>Running a local model? Nothing leaves your computer.</b> With a local Ollama model, the whole loop — question, SQL, rows, answer — stays on your machine. Choose a local model for sensitive data.</li>
+      <li style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.14)"><b>Running a local model? Nothing leaves your computer.</b> With a local llama.cpp model, the whole loop — question, SQL, rows, answer — stays on your machine. Choose a local model for sensitive data.</li>
       <li style="padding:9px 0;border-bottom:1px solid rgba(127,127,127,.14)"><b>Running a cloud model?</b> The rows you ask about are sent to that provider to form the answer, the same as any other chat. Keep that in mind for confidential tables.</li>
     </ul>
   </div>

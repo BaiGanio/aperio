@@ -16,7 +16,7 @@ export const MEMORY_SEED = [
   {
     type: 'preference',
     title: 'Memories are how Aperio remembers you',
-    content: 'Each note in the sidebar is a memory: typed (fact, preference, project, decision, solution, source, person, inference), tagged, and optionally pinned. Pinned memories surface first and bias future replies. Use the table view (top-right button in the sidebar) to browse, search, and edit them in bulk.',
+    content: 'Each note in the sidebar is a memory: typed (fact, preference, project, decision, solution, source, person, inference, workflow), tagged, and optionally pinned. Pinned memories surface first and bias future replies. Use the table view (top-right button in the sidebar) to browse, search, and edit them in bulk.',
     tags: ['aperio', 'memory', 'usage'],
     importance: 4,
   },

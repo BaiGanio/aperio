@@ -12,8 +12,8 @@ import { applyConfigToEnv, configSettingKey, configSourceLabel } from "../../lib
 import { CONFIG } from "../../lib/config.js";
 
 // ─── Well-known vars ──────────────────────────────────────────────────────
-const T1 = "OLLAMA_MODEL";
-const SK = configSettingKey(T1);        // "config.OLLAMA_MODEL"
+const T1 = "LLAMACPP_MODEL";
+const SK = configSettingKey(T1);        // "config.LLAMACPP_MODEL"
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 

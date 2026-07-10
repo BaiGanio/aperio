@@ -1,10 +1,7 @@
 // tests/lib/helpers/shutdownGuard.test.js
-import { describe, test, afterEach } from "node:test";
+import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { createWatchdog } from "../../../lib/helpers/shutdownGuard.js";
-
-const originalFetch = globalThis.fetch;
-afterEach(() => { globalThis.fetch = originalFetch; });
 
 // Helpers ─────────────────────────────────────────────────────────────────────
 
@@ -43,33 +40,26 @@ describe("createWatchdog — disabled", () => {
 describe("createWatchdog — quit", () => {
 
   test("quit runs the full teardown even when the idle guard is disabled", async () => {
-    // Ollama running only our model → safe to stop → _stopOllama must be called
-    globalThis.fetch = async () => ({
-      ok:   true,
-      json: async () => ({ models: [{ name: "our-model" }] }),
-    });
-
     let exitCalled = false;
-    let ollamaStopped = false;
+    let killedPid = null;
     const httpServer = makeMockHttpServer();
 
     const { quit } = createWatchdog({
-      enabled:     false,
-      models:      ["our-model"],
+      enabled:  false,
+      getPid:   () => 4242,
       httpServer,
-      _stopOllama: async () => { ollamaStopped = true; },
-      _exit:       () => { exitCalled = true; },
+      _killPid: async (pid) => { killedPid = pid; },
+      _exit:    () => { exitCalled = true; },
     });
 
     await quit();
 
     assert.equal(httpServer.closed, true,  "HTTP server should be closed");
-    assert.equal(ollamaStopped,    true,  "Ollama should be stopped on explicit quit");
-    assert.equal(exitCalled,       true,  "_exit should be called");
+    assert.equal(killedPid,         4242,  "llama-server PID should be killed on explicit quit");
+    assert.equal(exitCalled,        true,  "_exit should be called");
   });
 
   test("heartbeat never arms the idle timer when disabled", async (t) => {
-    globalThis.fetch = async () => { throw new Error("mock"); };
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     let exitCalled = false;
@@ -122,7 +112,6 @@ describe("createWatchdog — heartbeat and stop", () => {
   });
 
   test("does not arm until the first heartbeat — a no-tab run is never killed", async (t) => {
-    globalThis.fetch = async () => { throw new Error("mock"); };
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     let exitCalled = false;
@@ -166,9 +155,6 @@ describe("createWatchdog — heartbeat and stop", () => {
 describe("createWatchdog — idle timeout fires onIdle", () => {
 
   test("closes wss clients and servers, then exits on idle", async (t) => {
-    // Mock fetch so getOllamaPs returns null → isSafeToStop = false → no exec
-    globalThis.fetch = async () => { throw new Error("no ollama in tests"); };
-
     let exitCalled = false;
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
@@ -195,7 +181,6 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
   });
 
   test("terminates wss client connections on idle", async (t) => {
-    globalThis.fetch = async () => { throw new Error("mock"); };
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     const terminated = [];
@@ -215,7 +200,6 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
   });
 
   test("works without wss or httpServer (both undefined)", async (t) => {
-    globalThis.fetch = async () => { throw new Error("mock"); };
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     const { heartbeat } = createWatchdog({ enabled: true, timeoutMs: 500, _exit: () => {} });
@@ -226,64 +210,39 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     // No error = pass
   });
 
-  test("does not stop Ollama when getOllamaPs returns null", async (t) => {
-    globalThis.fetch = async () => { throw new Error("connection refused"); };
-
+  test("does not stop llama-server when getPid returns null (we don't own it)", async (t) => {
     let exitCalled = false;
-    t.mock.timers.enable({ apis: ["setTimeout"] });
-
-    const { heartbeat } = createWatchdog({ enabled: true, timeoutMs: 500, httpServer: makeMockHttpServer(), _exit: () => { exitCalled = true; } });
-
-    heartbeat(); // arm the switch
-    t.mock.timers.tick(501);
-    for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
-
-    assert.equal(exitCalled, true, "process.exit should still be called");
-  });
-
-  test("stops Ollama when all running models belong to this server", async (t) => {
-    // loadedModels = our own model → foreign = [] → isSafeToStop returns true → stopOllama runs
-    globalThis.fetch = async () => ({
-      ok:   true,
-      json: async () => ({ models: [{ name: "our-model" }] }),
-    });
-
-    let exitCalled = false;
-    let ollamaStopped = false;
+    let killCalled = false;
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     const { heartbeat } = createWatchdog({
-      enabled:      true,
-      timeoutMs:    500,
-      models:       ["our-model"],
-      httpServer:   makeMockHttpServer(),
-      _stopOllama:  async () => { ollamaStopped = true; },
-      _exit:        () => { exitCalled = true; },
+      enabled: true,
+      timeoutMs: 500,
+      getPid: () => null,
+      httpServer: makeMockHttpServer(),
+      _killPid: async () => { killCalled = true; },
+      _exit: () => { exitCalled = true; },
     });
 
     heartbeat(); // arm the switch
     t.mock.timers.tick(501);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
 
-    assert.equal(ollamaStopped, true, "stopOllama should be called");
-    assert.equal(exitCalled, true, "process.exit should be called after stopping Ollama");
+    assert.equal(killCalled, false, "no PID means we don't own a process to stop");
+    assert.equal(exitCalled, true, "process.exit should still be called");
   });
 
-  test("does not stop Ollama when models from other processes are loaded", async (t) => {
-    // Return non-empty models → isSafeToStop checks foreign processes
-    globalThis.fetch = async () => ({
-      ok:   true,
-      json: async () => ({ models: [{ name: "other-model" }] }),
-    });
-
+  test("stops llama-server by PID when we own the child", async (t) => {
     let exitCalled = false;
+    let killedPid = null;
     t.mock.timers.enable({ apis: ["setTimeout"] });
 
     const { heartbeat } = createWatchdog({
       enabled:    true,
       timeoutMs:  500,
-      models:     ["our-model"],
+      getPid:     () => 1234,
       httpServer: makeMockHttpServer(),
+      _killPid:   async (pid) => { killedPid = pid; },
       _exit:      () => { exitCalled = true; },
     });
 
@@ -291,6 +250,7 @@ describe("createWatchdog — idle timeout fires onIdle", () => {
     t.mock.timers.tick(501);
     for (let i = 0; i < 6; i++) await new Promise(r => setImmediate(r));
 
-    assert.equal(exitCalled, true, "process.exit should still be called");
+    assert.equal(killedPid, 1234, "_killPid should be called with our owned PID");
+    assert.equal(exitCalled, true, "process.exit should be called after stopping llama-server");
   });
 });

@@ -200,6 +200,7 @@ function makeSessionCard(s) {
       <i class="bi bi-chevron-right session-card-chevron"></i>
     </div>
     <div class="session-card-details">
+      ${s.parentId ? `<div class="session-card-parent">↳ ${t("sessions_branched_from") || "branched"}</div>` : ""}
       <div class="session-card-meta">${date} · ${timeLabel}</div>
       <div class="session-card-stats">
         <span><i class="bi bi-chat-left-dots"></i> ${s.messageCount}</span>

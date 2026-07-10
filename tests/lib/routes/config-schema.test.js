@@ -56,7 +56,7 @@ const getSchema = () => invoke(router, "GET", "/config/schema").then(r => r.body
 const field = (schema, key) => schema.fields.find(f => f.key === key);
 
 // A Tier-1 non-secret, a Tier-1 secret, and a Tier-0 key for assertions.
-const T1   = "OLLAMA_MODEL";
+const T1   = "LLAMACPP_MODEL";
 const SEC  = CONFIG.find(e => e.type === "secret" && e.tier === 1).key;
 const T0   = "PORT";
 
@@ -159,7 +159,7 @@ describe("GET /api/config/schema", () => {
   // ── Phase 2b: unmanaged .env vars → "Imported" section ─────────────────────
   test("unmanaged .env var appears as an editable imported field", async () => {
     store.current = fakeStore();
-    setEnvFile("MY_CUSTOM_VAR=hello\nOLLAMA_MODEL=ignored-managed\n");
+    setEnvFile("MY_CUSTOM_VAR=hello\nLLAMACPP_MODEL=ignored-managed\n");
     const schema = await getSchema();
     assert.ok(schema.sections.some((s) => s.id === "imported"));
     const f = field(schema, "MY_CUSTOM_VAR");
@@ -167,7 +167,7 @@ describe("GET /api/config/schema", () => {
     assert.equal(f.editable, true);
     assert.equal(f.value, "hello");
     // A var already in the registry must NOT be duplicated into imported.
-    assert.equal(schema.fields.filter((x) => x.key === "OLLAMA_MODEL").length, 1);
+    assert.equal(schema.fields.filter((x) => x.key === "LLAMACPP_MODEL").length, 1);
   });
 
   test("unmanaged secret-looking var is masked, value never echoed", async () => {
@@ -189,22 +189,22 @@ describe("GET /api/config/schema", () => {
     assert.equal(f.source, "db");
   });
                                           
-  // ── #182: cross-field warnings (OLLAMA_NUM_CTX vs OLLAMA_CONTEXT_LENGTH) ─────
-  test("warns when OLLAMA_NUM_CTX exceeds OLLAMA_CONTEXT_LENGTH for ollama", async () => {
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_NUM_CTX = "98304";
-    process.env.OLLAMA_CONTEXT_LENGTH = "32768";
+  // ── #182: cross-field warnings (LLAMACPP_CTX vs LLAMACPP_SERVE_CTX) ─────
+  test("warns when LLAMACPP_CTX exceeds LLAMACPP_SERVE_CTX for llamacpp", async () => {
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_CTX = "98304";
+    process.env.LLAMACPP_SERVE_CTX = "32768";
     store.current = fakeStore();
     const schema = await getSchema();
     assert.ok(Array.isArray(schema.warnings) && schema.warnings.length === 1);
     assert.match(schema.warnings[0].message, /98304.*32768/);
-    assert.deepEqual(schema.warnings[0].keys, ["OLLAMA_NUM_CTX", "OLLAMA_CONTEXT_LENGTH"]);
+    assert.deepEqual(schema.warnings[0].keys, ["LLAMACPP_CTX", "LLAMACPP_SERVE_CTX"]);
   });
 
   test("no warning when the windows are consistent", async () => {
-    process.env.AI_PROVIDER = "ollama";
-    process.env.OLLAMA_NUM_CTX = "16384";
-    process.env.OLLAMA_CONTEXT_LENGTH = "32768";
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_CTX = "16384";
+    process.env.LLAMACPP_SERVE_CTX = "32768";
     store.current = fakeStore();
     assert.deepEqual((await getSchema()).warnings, []);
   });

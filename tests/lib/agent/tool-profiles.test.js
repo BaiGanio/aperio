@@ -120,7 +120,7 @@ describe("needsRecallScaffold (issue #188 capability-gate doctrine)", () => {
 
   test("default (APERIO_RECALL_SCAFFOLD_MODELS unset): falls back to APERIO_CAPABLE_MODELS — behavior unchanged", () => {
     process.env.APERIO_CAPABLE_MODELS = "qwen3:32b, llama3.1:70b";
-    const provider = { name: "ollama", model: "qwen3:32b" };
+    const provider = { name: "llamacpp", model: "qwen3:32b" };
     assert.ok(isCapableModel(provider), "still capable");
     assert.ok(needsRecallScaffold(provider), "falls back to the capable-models list by default");
   });
@@ -128,7 +128,7 @@ describe("needsRecallScaffold (issue #188 capability-gate doctrine)", () => {
   test("a model allowlisted as capable but NOT in the scaffold list: capable, no scaffold", () => {
     process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
     process.env.APERIO_RECALL_SCAFFOLD_MODELS = "llama3.1:70b"; // qwen3:32b not in this list
-    const provider = { name: "ollama", model: "qwen3:32b" };
+    const provider = { name: "llamacpp", model: "qwen3:32b" };
     assert.ok(isCapableModel(provider), "tools + memory pointer");
     assert.ok(!needsRecallScaffold(provider), "graduated out of the forced-recall crutch");
   });
@@ -136,7 +136,7 @@ describe("needsRecallScaffold (issue #188 capability-gate doctrine)", () => {
   test("a model in the scaffold list still gets it", () => {
     process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
     process.env.APERIO_RECALL_SCAFFOLD_MODELS = "qwen3:32b";
-    const provider = { name: "ollama", model: "qwen3:32b" };
+    const provider = { name: "llamacpp", model: "qwen3:32b" };
     assert.ok(needsRecallScaffold(provider));
   });
 
@@ -148,7 +148,7 @@ describe("needsRecallScaffold (issue #188 capability-gate doctrine)", () => {
   });
 
   test("a weak, non-allowlisted local model needs no scaffold either", () => {
-    const provider = { name: "ollama", model: "gemma3:4b" };
+    const provider = { name: "llamacpp", model: "gemma3:4b" };
     assert.ok(!isCapableModel(provider));
     assert.ok(!needsRecallScaffold(provider));
   });

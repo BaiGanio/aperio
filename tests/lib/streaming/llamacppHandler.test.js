@@ -1,7 +1,7 @@
-// tests/lib/streaming/ollamaHandler.test.js
+// tests/lib/streaming/llamacppHandler.test.js
 import { describe, test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { OllamaStreamHandler } from "../../../lib/streaming/ollamaHandler.js";
+import { LlamaCppStreamHandler } from "../../../lib/streaming/llamacppHandler.js";
 
 // =============================================================================
 // Helpers
@@ -48,7 +48,7 @@ function mockResponse(chunks = []) {
 }
 
 function buildHandler({ chunks = [], adapter, emitter, callTool } = {}) {
-  return new OllamaStreamHandler(
+  return new LlamaCppStreamHandler(
     mockResponse(chunks),
     emitter ?? mockEmitter(),
     adapter ?? noopAdapter(),
@@ -408,7 +408,7 @@ describe("process — full stream lifecycle", () => {
     const adapter = {
       ...noopAdapter(),
       processDelta(delta, _state, _emit) {
-        // For tool calls, the OllamaStreamHandler processes tool_calls before
+        // For tool calls, the LlamaCppStreamHandler processes tool_calls before
         // reaching the adapter, so delta.content may be undefined or null.
         // Only return contentToken when content is present.
         return { contentToken: delta.content ?? null };
@@ -499,7 +499,7 @@ describe("constructor", () => {
     const adapter = noopAdapter();
     const ct = mock.fn();
     const res = mockResponse();
-    const h = new OllamaStreamHandler(res, em, adapter, ct, { name: "p" });
+    const h = new LlamaCppStreamHandler(res, em, adapter, ct, { name: "p" });
     assert.equal(h.response, res);
     assert.equal(h.emitter, em);
     assert.equal(h.adapter, adapter);
@@ -538,5 +538,27 @@ describe("streamUsage", () => {
       assert.equal(h.streamUsage.output_tokens, 25);
       assert.equal(h.streamUsage.thinking_tokens, 5);
     });
+  });
+});
+
+// =============================================================================
+// timings (llama-server extension, not part of the OpenAI schema)
+// =============================================================================
+
+describe("timings", () => {
+  test("is null when the stream never sends a timings block", async () => {
+    const h = buildHandler({ chunks: [deltaContent("hi"), doneMarker] });
+    await h.process();
+    assert.equal(h.timings, null);
+  });
+
+  test("captures timings from the final SSE chunk", async () => {
+    const h = buildHandler({ chunks: [
+      deltaContent("hi"),
+      sse({ timings: { prompt_ms: 12.3, predicted_ms: 45.6, prompt_per_second: 80, predicted_per_second: 22, cache_n: 3 } }),
+      doneMarker,
+    ] });
+    await h.process();
+    assert.deepEqual(h.timings, { prompt_ms: 12.3, predicted_ms: 45.6, prompt_per_second: 80, predicted_per_second: 22, cache_n: 3 });
   });
 });

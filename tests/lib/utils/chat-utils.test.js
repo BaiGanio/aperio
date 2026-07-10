@@ -27,17 +27,15 @@ import {
   ask, printQ,
   // port helpers
   isPortOpen, pidsOnPort, killPids,
-  // ollama
-  ollamaBase, ollamaHealthy, listOllamaModels,
-  // model picker
-  resolveModelChoice,
+  // llama.cpp
+  parseLlamaCppPort, llamacppBase, llamacppHealthy,
   // server probe
   probeServer,
   // memory display
   printMemories,
   // misc
   detectMightThink, makeStderrShim,
-  parseServerPort, parseOllamaPort,
+  parseServerPort,
 } from "../../../lib/utils/chat-utils.js";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
@@ -114,18 +112,13 @@ describe("moveTo", () => {
 });
 
 
-// ─── parseServerPort / parseOllamaPort ───────────────────────────────────────
+// ─── parseServerPort ──────────────────────────────────────────────────────────
 describe("parseServerPort", () => {
   test("defaults to 31337",             () => assert.equal(parseServerPort({}),                            31337));
   test("reads SERVER_PORT",             () => assert.equal(parseServerPort({ SERVER_PORT: "8080" }),         8080));
   test("falls back to PORT",            () => assert.equal(parseServerPort({ PORT: "1701" }),               1701));
   test("SERVER_PORT wins over PORT",    () => assert.equal(parseServerPort({ SERVER_PORT: "9000", PORT: "1701" }), 9000));
   test("undefined falls to default",    () => assert.equal(parseServerPort({ SERVER_PORT: undefined }),     31337));
-});
-
-describe("parseOllamaPort", () => {
-  test("defaults to 11434",          () => assert.equal(parseOllamaPort({}),                    11434));
-  test("reads custom value",         () => assert.equal(parseOllamaPort({ OLLAMA_PORT: "12000" }), 12000));
 });
 
 // ─── initDockerState ──────────────────────────────────────────────────────────
@@ -464,31 +457,42 @@ describe("isPortOpen", () => {
   });
 });
 
-// ─── ollamaBase ───────────────────────────────────────────────────────────────
-describe("ollamaBase", () => {
-  test("returns localhost URL with given port", () => {
-    const orig = process.env.OLLAMA_BASE_URL;
-    delete process.env.OLLAMA_BASE_URL;
-    assert.equal(ollamaBase(11434), "http://localhost:11434");
-    if (orig !== undefined) process.env.OLLAMA_BASE_URL = orig;
+// ─── parseLlamaCppPort ────────────────────────────────────────────────────────
+describe("parseLlamaCppPort", () => {
+  test("defaults to 8080 when unset", () => {
+    assert.equal(parseLlamaCppPort({}), 8080);
   });
 
-  test("returns OLLAMA_BASE_URL env var when set", () => {
-    const orig = process.env.OLLAMA_BASE_URL;
-    process.env.OLLAMA_BASE_URL = "https://custom:9999";
-    assert.equal(ollamaBase(11434), "https://custom:9999");
-    if (orig !== undefined) process.env.OLLAMA_BASE_URL = orig;
-    else delete process.env.OLLAMA_BASE_URL;
+  test("reads LLAMACPP_PORT from env", () => {
+    assert.equal(parseLlamaCppPort({ LLAMACPP_PORT: "9090" }), 9090);
   });
 });
 
-// ─── ollamaHealthy ────────────────────────────────────────────────────────────
-describe("ollamaHealthy", () => {
+// ─── llamacppBase ─────────────────────────────────────────────────────────────
+describe("llamacppBase", () => {
+  test("returns 127.0.0.1 URL with given port", () => {
+    const orig = process.env.LLAMACPP_BASE_URL;
+    delete process.env.LLAMACPP_BASE_URL;
+    assert.equal(llamacppBase(8080), "http://127.0.0.1:8080");
+    if (orig !== undefined) process.env.LLAMACPP_BASE_URL = orig;
+  });
+
+  test("returns LLAMACPP_BASE_URL env var when set", () => {
+    const orig = process.env.LLAMACPP_BASE_URL;
+    process.env.LLAMACPP_BASE_URL = "https://custom:9999";
+    assert.equal(llamacppBase(8080), "https://custom:9999");
+    if (orig !== undefined) process.env.LLAMACPP_BASE_URL = orig;
+    else delete process.env.LLAMACPP_BASE_URL;
+  });
+});
+
+// ─── llamacppHealthy ──────────────────────────────────────────────────────────
+describe("llamacppHealthy", () => {
   test("returns true when fetch responds ok:true", async () => {
     await withMockFetch(
       async () => ({ ok: true }),
       async () => {
-        const result = await ollamaHealthy(11434);
+        const result = await llamacppHealthy(8080);
         assert.equal(result, true);
       }
     );
@@ -498,7 +502,7 @@ describe("ollamaHealthy", () => {
     await withMockFetch(
       async () => ({ ok: false }),
       async () => {
-        const result = await ollamaHealthy(11434);
+        const result = await llamacppHealthy(8080);
         assert.equal(result, false);
       }
     );
@@ -508,64 +512,11 @@ describe("ollamaHealthy", () => {
     await withMockFetch(
       async () => { throw new Error("connection refused"); },
       async () => {
-        const result = await ollamaHealthy(11434);
+        const result = await llamacppHealthy(8080);
         assert.equal(result, false);
       }
     );
   });
-});
-
-// ─── listOllamaModels ─────────────────────────────────────────────────────────
-describe("listOllamaModels", () => {
-  test("returns model names from API response", async () => {
-    await withMockFetch(
-      async () => ({
-        ok: true,
-        json: async () => ({ models: [{ name: "llama3:8b" }, { name: "mistral:7b" }] }),
-      }),
-      async () => {
-        const result = await listOllamaModels(11434);
-        assert.deepEqual(result, ["llama3:8b", "mistral:7b"]);
-      }
-    );
-  });
-
-  test("returns [] when models key is missing", async () => {
-    await withMockFetch(
-      async () => ({ ok: true, json: async () => ({}) }),
-      async () => {
-        const result = await listOllamaModels(11434);
-        assert.deepEqual(result, []);
-      }
-    );
-  });
-
-  test("returns [] when fetch throws", async () => {
-    await withMockFetch(
-      async () => { throw new Error("network error"); },
-      async () => {
-        const result = await listOllamaModels(11434);
-        assert.deepEqual(result, []);
-      }
-    );
-  });
-});
-
-// ─── resolveModelChoice ───────────────────────────────────────────────────────
-describe("resolveModelChoice", () => {
-  const current = "llama3.1";
-  const others  = ["mistral:7b", "phi3:mini", "gemma2"];
-
-  test("empty answer → keep",          () => assert.deepEqual(resolveModelChoice("",    current, others), { action: "keep",   model: current }));
-  test("'0' → keep",                   () => assert.deepEqual(resolveModelChoice("0",   current, others), { action: "keep",   model: current }));
-  test("non-numeric → keep",           () => assert.deepEqual(resolveModelChoice("abc", current, others), { action: "keep",   model: current }));
-  test("'1' → switch to first",        () => assert.deepEqual(resolveModelChoice("1",   current, others), { action: "switch", model: "mistral:7b" }));
-  test("'2' → switch to second",       () => assert.deepEqual(resolveModelChoice("2",   current, others), { action: "switch", model: "phi3:mini"  }));
-  test("'3' → switch to third",        () => assert.deepEqual(resolveModelChoice("3",   current, others), { action: "switch", model: "gemma2"     }));
-  test("pullIdx → pull",               () => assert.deepEqual(resolveModelChoice("4",   current, others), { action: "pull",   model: null         }));
-  test("out of range → keep",          () => assert.deepEqual(resolveModelChoice("99",  current, others), { action: "keep",   model: current      }));
-  test("whitespace trimmed",           () => assert.deepEqual(resolveModelChoice("  1 ", current, others), { action: "switch", model: "mistral:7b" }));
-  test("no others: '1' → pull",        () => assert.deepEqual(resolveModelChoice("1",   current, []),      { action: "pull",   model: null         }));
 });
 
 // ─── probeServer ─────────────────────────────────────────────────────────────

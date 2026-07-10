@@ -255,7 +255,7 @@ describe("agent-scheduler", () => {
       const recorded = [];
       const notes = [];
       const createAgent = async () => ({
-        provider: { name: "ollama", model: "qwen3:8b" },
+        provider: { name: "llamacpp", model: "qwen3:8b" },
         runAgentLoop: async () => "triaged",
       });
       const sched = createAgentScheduler({
@@ -277,7 +277,7 @@ describe("agent-scheduler", () => {
       process.env.APERIO_AGENT_JOBS = "on";
       const recorded = [];
       const createAgent = async () => ({
-        provider: { name: "ollama", model: "qwen3:8b" },
+        provider: { name: "llamacpp", model: "qwen3:8b" },
         runAgentLoop: async (_messages, emitter) => {
           emitter.send({ type: "tool_result_offloaded", artifactId: "a-1", byteCount: 1200 });
           emitter.send({ type: "tool_result_offloaded", artifactId: "a-2", byteCount: 300 });
@@ -306,7 +306,7 @@ describe("agent-scheduler", () => {
       enabled: true,
       trigger: { kind: "interval", everyMs: 60_000 },
       prompt: "summarise recent memories",
-      provider: { name: "ollama", model: "qwen3:8b" },
+      provider: { name: "llamacpp", model: "qwen3:8b" },
       ...overrides,
     });
 
@@ -333,7 +333,7 @@ describe("agent-scheduler", () => {
       assert.strictEqual(res.answer, "digest of: summarise recent memories");
       assert.equal(builtWith.providerConfig, undefined);
       assert.equal(builtWith.spec.id, "background.curator");
-      assert.deepStrictEqual(builtWith.spec.provider, { name: "ollama", model: "qwen3:8b" });
+      assert.deepStrictEqual(builtWith.spec.provider, { name: "llamacpp", model: "qwen3:8b" });
     });
 
     test("passes a stored AgentSpec to createAgent without legacy persona fields", async () => {

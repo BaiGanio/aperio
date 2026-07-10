@@ -1,12 +1,13 @@
 // mcp/tools/wiki.js
 import { z } from "zod";
-import { wikiWriteHandler, wikiGetHandler, wikiSearchHandler, wikiListHandler } from "../../lib/handlers/wiki/wikiHandlers.js";
+import { wikiWriteHandler, wikiGetHandler, wikiSearchHandler, wikiListHandler, proposeWikiHandler } from "../../lib/handlers/wiki/wikiHandlers.js";
 
 const createBoundHandlers = (ctx) => ({
-  write:  (args) => wikiWriteHandler(ctx, args),
-  get:    (args) => wikiGetHandler(ctx, args),
-  search: (args) => wikiSearchHandler(ctx, args),
-  list:   (args) => wikiListHandler(ctx, args),
+  write:   (args) => wikiWriteHandler(ctx, args),
+  get:     (args) => wikiGetHandler(ctx, args),
+  search:  (args) => wikiSearchHandler(ctx, args),
+  list:    (args) => wikiListHandler(ctx, args),
+  propose: (args) => proposeWikiHandler(ctx, args),
 });
 
 const TOOLS = [
@@ -78,6 +79,26 @@ const TOOLS = [
         "If true and the article is stale, attempt server-side regeneration via WIKI_REFRESH_PROVIDER before returning."),
     },
     getHandler: (h) => h.get,
+  },
+  {
+    name: "propose_wiki",
+    description:
+      "Propose a wiki article drafted from related memories for user review. " +
+      "The article is saved as a draft and the user can publish it from the UI. " +
+      "Workflow: (1) call `recall` to gather related memories on a topic, " +
+      "(2) draft body_md citing them as [[mem:<uuid>]], " +
+      "(3) call propose_wiki with slug, title, summary, body_md, and source_memory_ids. " +
+      "Use this when you notice a pattern across multiple memories that warrants a structured article.",
+    schema: {
+      slug: z.string().describe("URL-safe slug (lowercase letters, numbers, hyphens)."),
+      title: z.string(),
+      summary: z.string().optional().describe("One-line summary."),
+      body_md: z.string().describe("Markdown body citing memories as [[mem:<uuid>]]."),
+      tags: z.array(z.string()).optional(),
+      source_memory_ids: z.array(z.string().uuid()).optional()
+        .describe("Memory ids this article is grounded in. Required for provenance and freshness tracking."),
+    },
+    getHandler: (h) => h.propose,
   },
 ];
 
