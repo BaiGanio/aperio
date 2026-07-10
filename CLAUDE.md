@@ -160,9 +160,65 @@ Every plan must include:
    See model selection principles below. Include: recommended model, estimated input/output
    tokens, estimated cost, and one-sentence rationale.
 
-4. **Steps** — ordered, each with a concrete acceptance criterion ("works when…")
+4. **Steps** — ordered, each with a concrete acceptance criterion ("works when…"), and a
+   reference to the companion test file (`trash/plans/<slug>-tests.md`) where each step's
+   tests are defined in detail.
 5. **Risks** — what can go wrong, mitigation for each
 6. **Doc updates** — which files need changes after implementation (see Documentation Sync)
+
+### TDD — Tests First
+
+Every plan MUST have a companion test file at `trash/plans/<slug>-tests.md`, produced
+alongside the plan itself. When the plan is executed, the verification criteria defined
+in the test file are validated **before** the implementation is considered complete —
+verify-first, not verify-after.
+
+Tests adapt to the plan's domain — "test" means "provable criterion that the work is done
+right." The structure is universal; the content is domain-specific:
+
+| Plan domain | What a "test" means |
+|-------------|---------------------|
+| Software feature | Code test (unit, integration, e2e, contract) |
+| Engineering (e.g., water mill) | Physical criterion (flow rate, RPM, load, tolerances) |
+| Business / strategy | Measurable outcome (revenue, conversion, time-to-market) |
+| Content / documentation | Review checklist, accuracy checks, style compliance |
+| Infrastructure / ops | Health checks, SLO thresholds, chaos-test assertions |
+
+**Test file structure** (`trash/plans/<slug>-tests.md`):
+
+1. **Coverage map** — which plan steps each test group covers, so nothing falls through
+   the cracks. Use a simple table:
+
+   | Plan step | Test group | Coverage |
+   |-----------|-----------|----------|
+   | Step 1    | Unit: …   | …        |
+   | Step 2    | …         | …        |
+
+2. **Test cases** — each test case has:
+   - **Name** — descriptive, unique across the file
+   - **Input / setup** — preconditions, fixtures, mock data, or domain-specific preparation
+   - **Expected behavior** — concrete, measurable outcome; avoid "should work"
+   - **Assertions** — the specific checks that must pass (code assertions, physical
+     measurements, financial targets — whatever the domain demands)
+   - **Edge cases** — boundary conditions, failure modes, edge inputs, worst-case scenarios
+
+3. **Test execution order** — dependencies between test groups. Tests within a group
+   are independent; groups may depend on earlier groups.
+
+4. **Diagrams** (optional) — if a test scenario involves data flow, state transitions,
+   or component interactions that are easier to see than read, include a Mermaid diagram.
+
+5. **Required setup** — any fixtures, tools, environment, migrations, config, or seed
+   data needed before the test suite can run.
+
+When a plan is executed:
+1. Read the companion test file first
+2. Prepare the verification criteria and confirm the current state does **not** satisfy
+   them — red means the test file has teeth (for code: write stubs and watch them fail;
+   for engineering: measure the current output against the target)
+3. Implement the plan steps until all criteria are met (green)
+4. Update the test file if discoveries during implementation change the expected outcome
+5. Confirm the coverage map still holds — no orphaned plan steps, no untested paths
 
 ### Model selection
 Right-size the model to the task. A typo fix does not need a frontier model. A security
