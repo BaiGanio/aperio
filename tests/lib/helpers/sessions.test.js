@@ -15,6 +15,7 @@
 import { describe, test, mock, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { resolve as pathResolve } from "path";
 
 const require = createRequire(import.meta.url);
 const fs = require("fs");
@@ -120,14 +121,29 @@ let mockReaddirSyncImpl = null;
 let mockExistsSyncImpl = null;
 let mockUnlinkSyncImpl = null;
 let mockRmSyncImpl = null;
+let mockCopyFileSyncImpl = null;
+let mockTruncateSyncImpl = null;
+
+// Resolve a path that may be relative against the mock workspace root.
+function _resolve(p) {
+  if (typeof p === "string" && !p.startsWith("/") && !p.startsWith("file://")) {
+    return pathResolve(mockCwd, p);
+  }
+  return p;
+}
 
 function setupTest() {
   resetMemFS();
 
   mockReadFileSyncImpl = (p, _enc) => {
     callLog.readFileSync.push(p);
-    const content = memFS.get(p);
+    const resolved = _resolve(p);
+    const content = memFS.get(resolved);
     if (content === undefined) {
+      // Fall back to the raw path for backward compat with existing tests
+      // that use non-resolved paths
+      const raw = memFS.get(p);
+      if (raw !== undefined) return raw;
       const err = new Error(`ENOENT: no such file '${p}'`);
       err.code = "ENOENT";
       throw err;
@@ -137,19 +153,21 @@ function setupTest() {
 
   mockWriteFileSyncImpl = (p, data, _enc) => {
     callLog.writeFileSync.push(p);
-    memFS.set(p, data);
+    memFS.set(_resolve(p), data);
   };
 
   mockMkdirSyncImpl = (p, _opts) => {
     callLog.mkdirSync.push(p);
-    if (!memFS.has(p)) {
-      memFS.set(p, new Set());
+    const resolved = _resolve(p);
+    if (!memFS.has(resolved)) {
+      memFS.set(resolved, new Set());
     }
   };
 
   mockReaddirSyncImpl = (p) => {
     callLog.readdirSync.push(p);
-    const entry = memFS.get(p);
+    const resolved = _resolve(p);
+    const entry = memFS.get(resolved);
     if (entry === undefined) {
       const err = new Error(`ENOENT: no such directory '${p}'`);
       err.code = "ENOENT";
@@ -163,28 +181,58 @@ function setupTest() {
 
   mockExistsSyncImpl = (p) => {
     callLog.existsSync.push(p);
-    return memFS.has(p);
+    return memFS.has(_resolve(p)) || memFS.has(p);
   };
 
   mockUnlinkSyncImpl = (p) => {
     callLog.unlinkSync.push(p);
-    if (!memFS.delete(p)) {
+    const resolved = _resolve(p);
+    if (!memFS.delete(resolved) && !memFS.delete(p)) {
       const err = new Error(`ENOENT: no such file '${p}'`);
       err.code = "ENOENT";
       throw err;
     }
-    const parent = dirname(p);
+    const parent = dirname(resolved);
     const dirSet = memFS.get(parent);
-    if (dirSet instanceof Set) dirSet.delete(basename(p));
+    if (dirSet instanceof Set) dirSet.delete(basename(resolved));
   };
 
   mockRmSyncImpl = (p, _opts) => {
     callLog.rmSync.push(p);
+    const resolved = _resolve(p);
     for (const key of [...memFS.keys()]) {
-      if (key === p || key.startsWith(p + "/")) {
+      if (key === resolved || key.startsWith(resolved + "/")) {
         memFS.delete(key);
       }
     }
+  };
+
+  mockCopyFileSyncImpl = (src, dst) => {
+    const resolvedSrc = _resolve(src);
+    const resolvedDst = _resolve(dst);
+    const content = memFS.get(resolvedSrc);
+    if (content === undefined) {
+      const err = new Error(`ENOENT: no such file '${src}'`);
+      err.code = "ENOENT";
+      throw err;
+    }
+    memFS.set(resolvedDst, content);
+    // Ensure parent directory entry exists
+    const parent = dirname(resolvedDst);
+    if (!memFS.has(parent)) memFS.set(parent, new Set());
+    const dirSet = memFS.get(parent);
+    if (dirSet instanceof Set) dirSet.add(basename(resolvedDst));
+  };
+
+  mockTruncateSyncImpl = (p, len) => {
+    const resolved = _resolve(p);
+    if (!memFS.has(resolved)) {
+      const err = new Error(`ENOENT: no such file '${p}'`);
+      err.code = "ENOENT";
+      throw err;
+    }
+    const content = memFS.get(resolved);
+    memFS.set(resolved, typeof content === "string" ? content.slice(0, len) : "");
   };
 }
 
@@ -199,6 +247,8 @@ const REAL = {
   existsSync: fs.existsSync,
   unlinkSync: fs.unlinkSync,
   rmSync: fs.rmSync,
+  copyFileSync: fs.copyFileSync,
+  truncateSync: fs.truncateSync,
 };
 
 function callMockOrReal(funcName, impl, ...args) {
@@ -206,6 +256,11 @@ function callMockOrReal(funcName, impl, ...args) {
   // read real module source; the session tests only virtualize data-file paths.
   if (funcName === "readFileSync" && args[0] instanceof URL) {
     return REAL.readFileSync(...args);
+  }
+  // Delegate node_modules and other system paths to the real filesystem.
+  // The mock only virtualizes workspace paths under the test cwd.
+  if (typeof args[0] === "string" && args[0].includes("node_modules")) {
+    return REAL[funcName](...args);
   }
   if (impl) return impl(...args);
   return REAL[funcName](...args);
@@ -218,6 +273,8 @@ mock.method(fs, "readdirSync",   (...args) => callMockOrReal("readdirSync", mock
 mock.method(fs, "existsSync",    (...args) => callMockOrReal("existsSync", mockExistsSyncImpl, ...args));
 mock.method(fs, "unlinkSync",    (...args) => callMockOrReal("unlinkSync", mockUnlinkSyncImpl, ...args));
 mock.method(fs, "rmSync",        (...args) => callMockOrReal("rmSync", mockRmSyncImpl, ...args));
+mock.method(fs, "copyFileSync",  (...args) => callMockOrReal("copyFileSync", mockCopyFileSyncImpl, ...args));
+mock.method(fs, "truncateSync",  (...args) => callMockOrReal("truncateSync", mockTruncateSyncImpl, ...args));
 
 // Also mock process.cwd so module-level path defaults match our mock
 const originalCwd = process.cwd;
@@ -314,6 +371,21 @@ describe("createSession()", () => {
     const id = sessions.createSession({ model: "m1", provider: "p1", source: "terminal" });
     const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions", `${id}.json`)));
     assert.equal(saved.source, "terminal");
+  });
+
+  test("truncates server log when session is created", () => {
+    const llamaDir = join(mockCwd, "var/llamacpp");
+    memFS.set(llamaDir, new Set(["server.log"]));
+    memFS.set(join(llamaDir, "server.log"), "previous session data\n");
+    sessions.createSession({ model: "gpt-4", provider: "openai" });
+    const log = memFS.get(join(llamaDir, "server.log"));
+    assert.equal(log, "", "server log should be truncated to empty");
+  });
+
+  test("handles missing server log gracefully at session creation", () => {
+    // No server.log in memFS — should not throw
+    const id = sessions.createSession({ model: "gpt-4", provider: "openai" });
+    assert.ok(id, "session should be created even without server log");
   });
 });
 
@@ -609,6 +681,79 @@ describe("finaliseSession()", () => {
     assert.ok(!memFS.has(p), "session should be discarded");
     assert.ok(!memFS.has(logPath), "log file should be deleted");
   });
+
+  test("copies server log to session file at finalisation", () => {
+    const serverLog = "this session's log output\n";
+    const llamaDir = join(mockCwd, "var/llamacpp");
+    memFS.set(llamaDir, new Set(["server.log"]));
+    memFS.set(join(llamaDir, "server.log"), serverLog);
+
+    seedSession({ id: "llama-fs", title: null, summaries: [], messages: [] });
+
+    const messages = [
+      { role: "system", content: "internal greeting" },
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "How can I help?" },
+      { role: "user", content: "I need help with something" },
+      { role: "assistant", content: "Sure, let me help" },
+      { role: "user", content: "I need to build a web scraper with Node.js" },
+      { role: "assistant", content: "Here\u2019s how\u2026" },
+      { role: "user", content: "Can you show me an example?" },
+      { role: "assistant", content: "Here\u2019s a complete example" },
+    ];
+
+    sessions.finaliseSession("llama-fs", messages);
+
+    const savedLogPath = join(llamaDir, "llama-fs.log");
+    assert.ok(memFS.has(savedLogPath), "server log should be copied to session file");
+    assert.equal(memFS.get(savedLogPath), serverLog, "copied log should match original");
+  });
+
+  test("handles missing server log gracefully at finalisation", () => {
+    // No server.log in memFS — should not throw
+    seedSession({ id: "no-log", title: null, summaries: [], messages: [] });
+
+    const messages = [
+      { role: "system", content: "internal greeting" },
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "How can I help?" },
+      { role: "user", content: "I need help with something" },
+      { role: "assistant", content: "Sure, let me help" },
+      { role: "user", content: "I need to build a web scraper with Node.js" },
+      { role: "assistant", content: "Here\u2019s how\u2026" },
+      { role: "user", content: "Can you show me an example?" },
+      { role: "assistant", content: "Here\u2019s a complete example" },
+    ];
+
+    sessions.finaliseSession("no-log", messages);
+    // should not throw
+  });
+
+  test("does not copy server log for discarded trivial sessions", () => {
+    const serverLog = "SOME LOG\n";
+    const llamaDir = join(mockCwd, "var/llamacpp");
+    memFS.set(llamaDir, new Set(["server.log"]));
+    memFS.set(join(llamaDir, "server.log"), serverLog);
+
+    seedSession({ id: "trivial-llama" });
+
+    const messages = [
+      { role: "system", content: "internal" },
+      { role: "user", content: "Hi" },
+      { role: "assistant", content: "Hello" },
+      { role: "user", content: "Thanks" },
+      { role: "assistant", content: "NP" },
+      { role: "user", content: "Bye" },
+      { role: "assistant", content: "Cya" },
+    ];
+
+    sessions.finaliseSession("trivial-llama", messages);
+
+    const p = join(mockCwd, "var/sessions/trivial-llama.json");
+    assert.ok(!memFS.has(p), "trivial session should be discarded");
+    assert.ok(!memFS.has(join(llamaDir, "trivial-llama.log")),
+      "no server log copy for discarded session");
+  });
 });
 
 // =============================================================================
@@ -752,10 +897,13 @@ describe("deleteSession()", () => {
     assert.equal(result, false);
   });
 
-  test("deletes log and scratch directories", () => {
+  test("deletes log and scratch directories (including llama log)", () => {
     const logDir = join(mockCwd, "var/logs");
     memFS.set(logDir, new Set(["log-session.log"]));
     memFS.set(join(logDir, "log-session.log"), "log content");
+    const llamaDir = join(mockCwd, "var/llamacpp");
+    memFS.set(llamaDir, new Set(["log-session.log"]));
+    memFS.set(join(llamaDir, "log-session.log"), "llama log content");
     const scratchDir = join(mockCwd, "var/scratch/log-session");
     memFS.set(scratchDir, new Set(["file.txt"]));
     memFS.set(join(scratchDir, "file.txt"), "content");
@@ -767,6 +915,7 @@ describe("deleteSession()", () => {
     sessions.deleteSession("log-session");
 
     assert.ok(!memFS.has(join(logDir, "log-session.log")), "log file should be deleted");
+    assert.ok(!memFS.has(join(llamaDir, "log-session.log")), "llama log file should be deleted");
     assert.ok(!memFS.has(scratchDir), "scratch dir should be deleted");
     assert.ok(!memFS.has(artifactDir), "internal result artifacts should be deleted");
   });
@@ -928,6 +1077,33 @@ describe("pruneOldSessions()", () => {
 
     const removed = sessions.pruneOldSessions();
     assert.equal(removed, 1);
+
+    if (origEnv !== undefined) process.env.SESSION_RETENTION_DAYS = origEnv;
+    else delete process.env.SESSION_RETENTION_DAYS;
+  });
+
+  test("deletes llama log alongside regular session log when pruning", () => {
+    const origEnv = process.env.SESSION_RETENTION_DAYS;
+    process.env.SESSION_RETENTION_DAYS = "1";
+
+    const dir = join(mockCwd, "var/sessions");
+    memFS.set(dir, new Set());
+
+    const logDir = join(mockCwd, "var/logs");
+    memFS.set(logDir, new Set(["old-llama.log"]));
+    memFS.set(join(logDir, "old-llama.log"), "old session log");
+    const llamaDir = join(mockCwd, "var/llamacpp");
+    memFS.set(llamaDir, new Set(["old-llama.log"]));
+    memFS.set(join(llamaDir, "old-llama.log"), "old llama log");
+
+    const oldDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    seedSession({ id: "old-llama", startedAt: oldDate, pinned: false });
+
+    const removed = sessions.pruneOldSessions();
+    assert.equal(removed, 1);
+    assert.ok(!memFS.has(join(mockCwd, "var/sessions/old-llama.json")), "session should be removed");
+    assert.ok(!memFS.has(join(logDir, "old-llama.log")), "session log should be removed");
+    assert.ok(!memFS.has(join(llamaDir, "old-llama.log")), "llama log should be removed");
 
     if (origEnv !== undefined) process.env.SESSION_RETENTION_DAYS = origEnv;
     else delete process.env.SESSION_RETENTION_DAYS;
