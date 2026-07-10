@@ -62,8 +62,15 @@ function _renderPathChips() {
   _pathsList.forEach((p, i) => {
     const chip = document.createElement("div");
     chip.className = "path-chip";
-    chip.innerHTML = `<span class="path-chip-text" title="${p}">${p}</span>
-      <button class="path-chip-del" title="${t("paths_remove_title")}">×</button>`;
+    const span = document.createElement("span");
+    span.className = "path-chip-text";
+    span.title = p;
+    span.textContent = p;
+    const btn = document.createElement("button");
+    btn.className = "path-chip-del";
+    btn.title = t("paths_remove_title");
+    btn.textContent = "×";
+    chip.append(span, btn);
     chip.querySelector(".path-chip-del").onclick = async () => {
       const roots = await getIndexedRoots();
       if (roots.includes(p)) {
