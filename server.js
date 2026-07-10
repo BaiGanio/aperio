@@ -1,7 +1,7 @@
 import express from "express";
 import helmet from "helmet";
 import { WebSocketServer, WebSocket } from "ws";
-import { existsSync, readFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, mkdirSync, statSync, chmodSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve, sep as pathSep } from "path";
 import { createRequire } from "module";
@@ -59,6 +59,17 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // config — before setup we rely on process env + in-code defaults instead.
 const envPath = resolve(__dirname, ".env");
 if (existsSync(envPath)) dotenv.config({ path: envPath });
+
+// ENV-01: .env must be owner-only. Self-heal on startup so API keys and
+// secrets are never readable by other local users.
+try {
+  const stat = statSync(envPath);
+  const mode = stat.mode & 0o777;
+  if (mode !== 0o600) {
+    chmodSync(envPath, 0o600);
+    logger.warn(`ENV-01: .env was mode ${mode.toString(8)} — tightened to 600.`);
+  }
+} catch { /* no .env yet (first run before wizard) — nothing to lock down */ }
 
 // llamacpp.md Phase 6: refuse to boot on a pre-migration .env (AI_PROVIDER=ollama
 // or any OLLAMA_* var) rather than silently remapping it. Exits the process.
