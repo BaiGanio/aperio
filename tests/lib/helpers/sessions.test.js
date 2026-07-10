@@ -122,7 +122,6 @@ let mockExistsSyncImpl = null;
 let mockUnlinkSyncImpl = null;
 let mockRmSyncImpl = null;
 let mockCopyFileSyncImpl = null;
-let mockTruncateSyncImpl = null;
 
 // Resolve a path that may be relative against the mock workspace root.
 function _resolve(p) {
@@ -223,17 +222,6 @@ function setupTest() {
     const dirSet = memFS.get(parent);
     if (dirSet instanceof Set) dirSet.add(basename(resolvedDst));
   };
-
-  mockTruncateSyncImpl = (p, len) => {
-    const resolved = _resolve(p);
-    if (!memFS.has(resolved)) {
-      const err = new Error(`ENOENT: no such file '${p}'`);
-      err.code = "ENOENT";
-      throw err;
-    }
-    const content = memFS.get(resolved);
-    memFS.set(resolved, typeof content === "string" ? content.slice(0, len) : "");
-  };
 }
 
 // ─── Top-level mocks (BEFORE the dynamic import) ──────────────────────────
@@ -248,7 +236,6 @@ const REAL = {
   unlinkSync: fs.unlinkSync,
   rmSync: fs.rmSync,
   copyFileSync: fs.copyFileSync,
-  truncateSync: fs.truncateSync,
 };
 
 function callMockOrReal(funcName, impl, ...args) {
@@ -274,7 +261,6 @@ mock.method(fs, "existsSync",    (...args) => callMockOrReal("existsSync", mockE
 mock.method(fs, "unlinkSync",    (...args) => callMockOrReal("unlinkSync", mockUnlinkSyncImpl, ...args));
 mock.method(fs, "rmSync",        (...args) => callMockOrReal("rmSync", mockRmSyncImpl, ...args));
 mock.method(fs, "copyFileSync",  (...args) => callMockOrReal("copyFileSync", mockCopyFileSyncImpl, ...args));
-mock.method(fs, "truncateSync",  (...args) => callMockOrReal("truncateSync", mockTruncateSyncImpl, ...args));
 
 // Also mock process.cwd so module-level path defaults match our mock
 const originalCwd = process.cwd;
@@ -373,13 +359,13 @@ describe("createSession()", () => {
     assert.equal(saved.source, "terminal");
   });
 
-  test("does not truncate server log at session creation", () => {
+  test("does not touch server log at session creation", () => {
     const llamaDir = join(mockCwd, "var/llamacpp");
     memFS.set(llamaDir, new Set(["server.log"]));
     memFS.set(join(llamaDir, "server.log"), "startup data\n");
     sessions.createSession({ model: "gpt-4", provider: "openai" });
     const log = memFS.get(join(llamaDir, "server.log"));
-    assert.equal(log, "startup data\n", "server log should NOT be truncated at creation");
+    assert.equal(log, "startup data\n", "server log should be untouched at creation");
   });
 
   test("handles missing server log gracefully at session creation", () => {
@@ -682,7 +668,7 @@ describe("finaliseSession()", () => {
     assert.ok(!memFS.has(logPath), "log file should be deleted");
   });
 
-  test("copies server log then truncates at finalisation", () => {
+  test("copies server log to session file at finalisation", () => {
     const serverLog = "this session's log output\n";
     const llamaDir = join(mockCwd, "var/llamacpp");
     memFS.set(llamaDir, new Set(["server.log"]));
@@ -707,7 +693,6 @@ describe("finaliseSession()", () => {
     const savedLogPath = join(llamaDir, "llama-fs.log");
     assert.ok(memFS.has(savedLogPath), "server log should be copied to session file");
     assert.equal(memFS.get(savedLogPath), serverLog, "copied log should match original");
-    assert.equal(memFS.get(join(llamaDir, "server.log")), "", "server log should be truncated after copy");
   });
 
   test("handles missing server log gracefully at finalisation", () => {
@@ -730,7 +715,7 @@ describe("finaliseSession()", () => {
     // should not throw
   });
 
-  test("truncates server log even for discarded trivial sessions", () => {
+  test("does not copy server log for discarded trivial sessions", () => {
     const serverLog = "SOME LOG\n";
     const llamaDir = join(mockCwd, "var/llamacpp");
     memFS.set(llamaDir, new Set(["server.log"]));
@@ -754,8 +739,6 @@ describe("finaliseSession()", () => {
     assert.ok(!memFS.has(p), "trivial session should be discarded");
     assert.ok(!memFS.has(join(llamaDir, "trivial-llama.log")),
       "no server log copy for discarded session");
-    assert.equal(memFS.get(join(llamaDir, "server.log")), "",
-      "server log should still be truncated for next session");
   });
 });
 
