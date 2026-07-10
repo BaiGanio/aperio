@@ -31,6 +31,11 @@ import { runBootstrap, bootstrapEvents, stepState, STEPS } from "./bootstrap.js"
 // PROC-01: a single blowup is logged and absorbed, but repeated fatal errors in
 // a short window mean the process is wedged — trip the breaker and exit so the
 // supervisor restarts cleanly instead of serving errors forever.
+//
+// The global handlers intentionally absorb recoverable throws. Code that detects
+// a genuinely unrecoverable invariant (DB corruption, key material loss, memory
+// exhaustion) should call process.exit(1) directly — do not rely on throw-to-crash
+// for invariants the handler must never mask.
 const crashBreaker = createCrashBreaker({ threshold: 5, windowMs: 60_000 });
 // Flipped true once gracefulShutdown begins. Late rejections during teardown
 // (aborted fetches, "write after end" once the logger is closing) are expected

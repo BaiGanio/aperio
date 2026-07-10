@@ -78,6 +78,11 @@ const SHELL_ENABLED = process.env.APERIO_ENABLE_SHELL === "1";
 // uses fetch_url for HTTP, which carries the SSRF guard. The program name alone
 // is not a sufficient boundary, so validateSegmentArgs (below) constrains each
 // program's arguments. See SHELL-01.
+//
+// SEC-01: re-audit the tokenizer (checkBannedOperators, validateSegmentArgs) and
+// the full validation chain whenever a program is added to this set. Every new
+// binary brings its own argument-parsing edge cases that could bypass the
+// allowlist or the operator ban.
 const ALLOWED_CMDS = new Set([
   "node", "npm", "git", "ls", "cat", "grep", "rg", "find", "head", "tail", "wc",
   "python3", "soffice", "pdftoppm",
