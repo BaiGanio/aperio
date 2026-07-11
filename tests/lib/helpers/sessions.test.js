@@ -399,6 +399,23 @@ describe("provider session ids", () => {
     assert.equal(sessions.getProviderSessionId("legacy-session", "codex"), null);
     assert.equal(sessions.updateProviderSessionId("missing", "codex", "thread"), false);
   });
+
+  test("clears one provider thread without dropping the others", () => {
+    seedSession({
+      id: "clear-provider-session",
+      providerSessions: {
+        codex: { sessionId: "thread-main" },
+        "codex:roundtable-primary": { sessionId: "thread-roundtable" },
+      },
+    });
+
+    assert.equal(sessions.clearProviderSessionId("clear-provider-session", "codex"), true);
+    assert.equal(sessions.getProviderSessionId("clear-provider-session", "codex"), null);
+    assert.equal(
+      sessions.getProviderSessionId("clear-provider-session", "codex:roundtable-primary"),
+      "thread-roundtable",
+    );
+  });
 });
 
 // =============================================================================

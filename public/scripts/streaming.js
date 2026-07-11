@@ -560,6 +560,7 @@ function handleMessage(msg) {
     if (!msg.ok) {
       addMessage("ai", t("ctx_summarize_failed", { reason: msg.reason }));
     } else {
+      window.resetContextBar?.(maxCtx);
       const note = document.createElement("div");
       note.className = "ctx-banner ctx-banner--trimmed";
       note.style.cssText = "font-size:10px;opacity:0.75;";

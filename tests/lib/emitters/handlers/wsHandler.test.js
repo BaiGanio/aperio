@@ -466,6 +466,37 @@ describe("message type: chat", () => {
     assert.ok(listAllSpy.length >= 1);
     assert.ok(sentOf(ws, "memories").length >= 1);
   });
+
+  test("summarizes Codex in isolation and resets its persisted thread", async (t) => {
+    const ws = makeWs(t);
+    const loopOpts = [];
+    const resets = [];
+    const agent = makeAgent({
+      provider: { name: "codex", model: "gpt-5.4-mini", contextWindow: 200000 },
+      runAgentLoop: async (messages, _emitter, opts) => {
+        loopOpts.push(opts);
+        if (opts.isolatedProviderSession) return "- Compact summary";
+        messages.push({ role: "assistant", content: "Answer" });
+        return "Answer";
+      },
+      resetProviderSession: (...args) => resets.push(args),
+    });
+    const handler = makeWsHandler({
+      agent,
+      store: { listAll: async () => [] },
+      __dirname: TEST_DIR,
+    });
+
+    handler(ws);
+    const sessionId = sentOf(ws, "session_created")[0].id;
+    await ws.emit({ type: "chat", text: "First topic" });
+    await ws.emit({ type: "chat", text: "Second topic" });
+    await ws.emit({ type: "chat", text: "summarize the conversation" });
+
+    assert.equal(loopOpts.at(-1).isolatedProviderSession, true);
+    assert.deepEqual(resets, [[sessionId, "codex"]]);
+    assert.equal(sentOf(ws, "context_summarized").at(-1).ok, true);
+  });
 });
 
 // ─── "stop" message ───────────────────────────────────────────────────────────
