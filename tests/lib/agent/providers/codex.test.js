@@ -200,6 +200,8 @@ describe("runCodexLoop", () => {
     assert.ok(emitter.send.mock.calls.some(c => c.arguments[0].type === "stream_start"));
     const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
     assert.equal(end.usage.input_tokens, 10);
+    assert.equal(end.usage.input_tokens_kind, "aggregate");
+    assert.equal(end.usage.cache_read_input_tokens, 4);
     assert.equal(end.usage.thinking_tokens, 2);
   });
 
