@@ -60,6 +60,9 @@
   "status_typing":            "skriver…",
   "status_loading":           "indlæser…",
 
+  "status_model_downloading":    "downloader {model} — {got} GB indtil videre…",
+  "status_model_downloading_of": "downloader {model} — {got} af {total} GB ({pct}%)",
+  "status_model_loading":        "indlæser {model} i hukommelsen…",
   "ctx_label":                "kontekst",
 
   "sidebar_memories":         "Minder",

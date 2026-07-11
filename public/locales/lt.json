@@ -60,6 +60,9 @@
   "status_typing":            "rašymas…",
   "status_loading":           "įkeliama…",
 
+  "status_model_downloading":    "atsisiunčiama {model} — kol kas {got} GB…",
+  "status_model_downloading_of": "atsisiunčiama {model} — {got} iš {total} GB ({pct}%)",
+  "status_model_loading":        "įkeliama {model} į atmintį…",
   "ctx_label":                "kontekstas",
 
   "sidebar_memories":         "Atmintys",

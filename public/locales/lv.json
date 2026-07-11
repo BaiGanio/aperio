@@ -60,6 +60,9 @@
   "status_typing":            "rakstīšana…",
   "status_loading":           "ielāde…",
 
+  "status_model_downloading":    "lejupielādēju {model} — līdz šim {got} GB…",
+  "status_model_downloading_of": "lejupielādēju {model} — {got} no {total} GB ({pct}%)",
+  "status_model_loading":        "ielādēju {model} atmiņā…",
   "ctx_label":                "konteksts",
 
   "sidebar_memories":         "Atmiņas",

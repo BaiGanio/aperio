@@ -102,6 +102,42 @@ function showAgentJobBanner({ jobId, verdict, durationMs, trigger, model, error 
   if (ok) setTimeout(() => dismissAgentJobBanner(banner), 8000);
 }
 
+// ── Model download/load banner ────────────────────────────────
+// llama.cpp lazily downloads/loads GGUF weights inside the first request that
+// names a model — otherwise minutes of unexplained silence (issues A/B). While
+// that runs the server streams `model_status` events; this single banner makes
+// the wait legible in the main window and dismisses itself 5 s after the model
+// is ready. A single element is reused and updated in place across stages.
+let modelBannerEl = null;
+let modelBannerTimer = null;
+
+function showModelLoadingBanner(status, text) {
+  if (modelBannerTimer) { clearTimeout(modelBannerTimer); modelBannerTimer = null; }
+  if (!modelBannerEl || !modelBannerEl.isConnected) {
+    modelBannerEl = document.createElement("div");
+    modelBannerEl.className = "ctx-banner ctx-banner--model";
+    modelBannerEl.innerHTML =
+      `<span class="model-banner-spinner" aria-hidden="true"></span>` +
+      `<span class="ctx-banner-text"></span>`;
+    document.querySelector(".chat-area")?.prepend(modelBannerEl);
+  }
+  modelBannerEl.classList.toggle("ctx-banner--model-ready", status === "ready");
+  modelBannerEl.querySelector(".ctx-banner-text").textContent = text;
+  if (status === "ready") {
+    modelBannerTimer = setTimeout(dismissModelLoadingBanner, 5000);
+  }
+}
+
+function dismissModelLoadingBanner() {
+  if (modelBannerTimer) { clearTimeout(modelBannerTimer); modelBannerTimer = null; }
+  const el = modelBannerEl;
+  modelBannerEl = null;
+  if (!el || !el.isConnected) return;
+  el.style.transition = "opacity 0.4s ease";
+  el.style.opacity = "0";
+  setTimeout(() => el.remove(), 400);
+}
+
 // ── Message rendering ─────────────────────────────────────────
 function getUserInitial() {
   const nameMem = allMemories.find(m =>

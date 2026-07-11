@@ -60,6 +60,9 @@
   "status_typing":            "pisanie…",
   "status_loading":           "ładowanie…",
 
+  "status_model_downloading":    "pobieram {model} — dotąd {got} GB…",
+  "status_model_downloading_of": "pobieram {model} — {got} z {total} GB ({pct}%)",
+  "status_model_loading":        "ładuję {model} do pamięci…",
   "ctx_label":                "kontekst",
 
   "sidebar_memories":         "Wspomnienia",

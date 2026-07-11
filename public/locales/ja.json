@@ -60,6 +60,9 @@
     "status_typing":            "入力中…",
     "status_loading":           "読み込み中…",
 
+    "status_model_downloading":    "{model} をダウンロード中 — これまで {got} GB…",
+    "status_model_downloading_of": "{model} をダウンロード中 — {got} / {total} GB（{pct}%）",
+    "status_model_loading":        "{model} をメモリに読み込み中…",
     "ctx_label":                "コンテキスト",
 
     "sidebar_memories":         "メモリー",

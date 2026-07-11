@@ -60,6 +60,9 @@
     "status_typing":            "输入中…",
     "status_loading":           "加载中…",
 
+    "status_model_downloading":    "正在下载 {model} — 已下载 {got} GB…",
+    "status_model_downloading_of": "正在下载 {model} — {got} / {total} GB（{pct}%）",
+    "status_model_loading":        "正在将 {model} 载入内存…",
     "ctx_label":                "上下文",
 
     "sidebar_memories":         "记忆",

@@ -60,6 +60,9 @@
   "status_typing":            "gépelés…",
   "status_loading":           "betöltés…",
 
+  "status_model_downloading":    "{model} letöltése — eddig {got} GB…",
+  "status_model_downloading_of": "{model} letöltése — {got} / {total} GB ({pct}%)",
+  "status_model_loading":        "{model} betöltése a memóriába…",
   "ctx_label":                "kontextus",
 
   "sidebar_memories":         "Emlékek",

@@ -60,6 +60,9 @@
   "status_typing":            "psaní…",
   "status_loading":           "načítání…",
 
+  "status_model_downloading":    "stahuji {model} — zatím {got} GB…",
+  "status_model_downloading_of": "stahuji {model} — {got} z {total} GB ({pct}%)",
+  "status_model_loading":        "nahrávám {model} do paměti…",
   "ctx_label":                "kontext",
 
   "sidebar_memories":         "Vzpomínky",

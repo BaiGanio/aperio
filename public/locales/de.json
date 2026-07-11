@@ -60,6 +60,9 @@
   "status_typing":            "schreibt…",
   "status_loading":           "lädt…",
 
+  "status_model_downloading":    "lade {model} herunter — bisher {got} GB…",
+  "status_model_downloading_of": "lade {model} herunter — {got} von {total} GB ({pct}%)",
+  "status_model_loading":        "lade {model} in den Speicher…",
   "ctx_label":                "Kontext",
 
   "sidebar_memories":         "Erinnerungen",

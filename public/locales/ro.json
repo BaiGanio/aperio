@@ -60,6 +60,9 @@
   "status_typing":            "tastare…",
   "status_loading":           "încărcare…",
 
+  "status_model_downloading":    "descarc {model} — până acum {got} GB…",
+  "status_model_downloading_of": "descarc {model} — {got} din {total} GB ({pct}%)",
+  "status_model_loading":        "încarc {model} în memorie…",
   "ctx_label":                "context",
 
   "sidebar_memories":         "Amintiri",
