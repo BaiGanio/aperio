@@ -22,3 +22,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
   persisted per-session resume, setup/configuration UI, background completions,
   round-table support, documentation, and provider-contract tests.
 
+### Fixed
+
+- Tool-call failure observability (#223): error-log entries were attributed to the
+  first `node_modules` stack frame (e.g. `readable-stream/_stream_transform.js`)
+  instead of the real call site — the caller resolver now skips `node_modules` and
+  points at app code. Weak-model tool-call failures (leak / corrupted native name /
+  system-prompt echo) were only ever logged to the console at `warn` level and left
+  no on-disk record; they are now appended to a persistent ledger at
+  `var/toolrepair/failures.tsv` (`ts, model, kind, persisted, detail`), with
+  `persisted=1` marking the cases a retry did not recover.
+
