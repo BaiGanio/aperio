@@ -476,7 +476,13 @@ function handleMessage(msg) {
     accThinkingTokens += msg.usage?.thinking_tokens ?? 0;
     accOutputTokens += msg.usage?.output_tokens ?? 0;
     const responseStats = (elapsedSec && msg.usage?.output_tokens)
-      ? { outputTokens: accOutputTokens, thinkingTokens: accThinkingTokens, elapsedSec, inputTokens: msg.usage?.input_tokens ?? 0 }
+      ? {
+          outputTokens: accOutputTokens,
+          thinkingTokens: accThinkingTokens,
+          elapsedSec,
+          inputTokens: msg.usage?.input_tokens ?? 0,
+          inputTokensKind: msg.usage?.input_tokens_kind ?? "context",
+        }
       : null;
     if (streamingBubble && streamingText.trim()) {
       stopLiveTimer();
@@ -523,7 +529,11 @@ function handleMessage(msg) {
     stopBtn.style.display = "none";
     scrollToBottom();
     if (msg.usage) {
-      updateContextBar(msg.usage.input_tokens ?? 0, maxCtx, msg.usage.output_tokens ?? 0);
+      // Codex CLI reports aggregate work across the agent's internal model/tool
+      // steps. That is useful usage data, but it is not live context occupancy.
+      if (msg.usage.input_tokens_kind !== "aggregate") {
+        updateContextBar(msg.usage.input_tokens ?? 0, maxCtx, msg.usage.output_tokens ?? 0);
+      }
     }
   }
 
@@ -1446,12 +1456,9 @@ function finalizeStreamingBubble(ref, fullText, stats) {
     } else {
       label = t("stats_plain", { answer: answerTok, speed: tokPerSec, sec: secLabel });
     }
-    // The response token count above only covers what the model *generated*.
-    // The far larger input — full history + injected skills + recalled memories
-    // + tool schemas — is what the user was missing. Surface it so the footer
-    // number isn't mistaken for the whole turn's cost. This is the same
-    // provider-reported figure the navbar context bar uses.
-    if (stats.inputTokens > 0) {
+    // Providers that report prompt-context tokens can surface that occupancy
+    // here. Aggregate agent-loop work (Codex) is deliberately excluded.
+    if (stats.inputTokens > 0 && stats.inputTokensKind !== "aggregate") {
       label += " · " + t("stats_context_in", { n: stats.inputTokens.toLocaleString() });
     }
     badge.textContent = label;
