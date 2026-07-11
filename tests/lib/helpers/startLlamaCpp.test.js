@@ -234,10 +234,13 @@ describe("buildModelsPreset — sizing parity with recommendContextLength", () =
   test("an unrecognized custom model falls back to the generic facts recommendServeContextLength used", () => {
     const ini = buildModelsPreset({ LLAMACPP_MODEL: "someone/custom-GGUF" }, { totalRamGB: 64 });
     const mainCtx = parseInt(ini.match(/ctx-size = (\d+)/)[1], 10);
+    // GENERIC_MODEL_FACTS carries a conservative kvBytesPerToken (a modern
+    // 9B-class KV cost) so an unknown model sizes down rather than OOMing at
+    // inference — see the comment on GENERIC_MODEL_FACTS in startLlamaCpp.js.
     const expected = recommendContextLength({
       modelMaxContext: 131072,
       weightsGB: 8,
-      bytesPerToken: undefined,
+      bytesPerToken: 524288,
       totalRamGB: 64,
     });
     assert.equal(mainCtx, expected);

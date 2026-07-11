@@ -115,7 +115,7 @@ Everything Aperio installs is **contained in its own folder**, except Node.js:
 | Thing | Where | Removed by uninstaller? |
 |-------|-------|--------------------------|
 | llama.cpp engine | `vendor/llamacpp/` (inside the app folder) | Yes |
-| AI model | `var/models/` (GGUF cache, inside the app folder) | Offered during uninstall |
+| AI model | `~/.cache/huggingface/hub/` (shared Hugging Face cache, **outside** the app folder) | No — shared with `llama-cli` and other tools; remove manually |
 | Dependencies | `node_modules/` (inside the app folder) | Yes |
 | Your memory database, logs, settings | `.sqlite/`, `var/` (inside the app folder) | Yes |
 | Node.js | System / `~/.nvm` | **No** — kept in case you use it elsewhere |

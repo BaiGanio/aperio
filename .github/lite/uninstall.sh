@@ -2,10 +2,12 @@
 # ============================================================
 # uninstall.sh  —  remove what Aperio-lite installed into this folder.
 #
-# Removes: the vendored llama.cpp engine, node_modules, local database + logs
-# (which includes the downloaded AI model — it lives under var/models by
-# default), and the Desktop launcher.
-# Leaves alone: Node.js/nvm (you may use it elsewhere).
+# Removes: the vendored llama.cpp engine, node_modules, local database + logs,
+# and the Desktop launcher.
+# Leaves alone: Node.js/nvm (you may use it elsewhere) and the downloaded AI
+# model — it lives in the shared Hugging Face cache (~/.cache/huggingface/hub),
+# outside the app folder, and is used by llama-cli and other tools, so it's not
+# ours to delete. We print how to remove it manually instead.
 # ============================================================
 
 set -uo pipefail
@@ -56,30 +58,22 @@ elif [ "$OS" = "Linux" ]; then
     rm -f "$HOME/Desktop/Aperio.desktop" 2>/dev/null && ok "Removed the Desktop launcher." || true
 fi
 
-# 5. Offer to keep the downloaded AI model. It lives under var/models
-# (LLAMA_CACHE) by default — no separate per-model removal command like
-# Ollama had, so "keep" means moving it out before var/ is wiped below.
-KEEP_MODEL_DIR=""
-if [ -n "$MODEL" ] && [ -d var/models ]; then
+# 5. The downloaded AI model is NOT ours to delete — it lives in the shared
+# Hugging Face cache (~/.cache/huggingface/hub), outside the app folder, and is
+# used by llama-cli and other tools. Point the user at it so they can reclaim
+# the space themselves if they want to.
+if [ -n "$MODEL" ]; then
+    HF_DIR="${HF_HUB_CACHE:-${HF_HOME:+$HF_HOME/hub}}"
+    HF_DIR="${HF_DIR:-$HOME/.cache/huggingface/hub}"
+    MODEL_CACHE="$HF_DIR/models--$(printf '%s' "${MODEL%%:*}" | sed 's|/|--|g')"
     printf "\n"
-    read -rp "  Also delete the downloaded AI model '${MODEL}' (frees several GB)? (y/n): " -n 1 REPLY; printf "\n"
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        KEEP_MODEL_DIR=$(mktemp -d)
-        mv var/models "$KEEP_MODEL_DIR/models"
-        info "Kept the downloaded model — will restore it after cleanup."
-    fi
+    info "The AI model '${MODEL}' stays in the shared Hugging Face cache and was left in place."
+    info "To reclaim that space (only if no other tool uses it): rm -rf \"$MODEL_CACHE\""
 fi
 
 # 6. App data (logs, database, bootstrap lock, sessions). Do this last.
 [ -d var ]     && { rm -rf var     && ok "Removed var/ (logs, settings, sessions)"; }
 [ -d .sqlite ] && { rm -rf .sqlite && ok "Removed .sqlite/ (memory database)"; }
-
-if [ -n "$KEEP_MODEL_DIR" ]; then
-    mkdir -p var
-    mv "$KEEP_MODEL_DIR/models" var/models
-    rmdir "$KEEP_MODEL_DIR" 2>/dev/null || true
-    ok "Restored the kept model to var/models/"
-fi
 
 # 7. What we deliberately left behind.
 printf "\n"

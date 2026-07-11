@@ -4,6 +4,7 @@ import { createWriteStream, existsSync, writeFileSync, readFileSync, mkdirSync }
 import { resolve, delimiter } from 'path';
 import { EventEmitter } from 'events';
 import { promisify } from 'util';
+import { resolveModelCacheDir } from './lib/helpers/modelCache.js';
 
 const execAsync = promisify(exec);
 
@@ -227,7 +228,10 @@ const checkDeps = async () => {
 // reimplementing an HF downloader, and its stdout/stderr — piped here, unlike
 // the long-lived server's stdio:'ignore' in startLlamaCpp.js — becomes the
 // wizard's progress detail lines, same role `ollama pull`'s output plays above.
-const LLAMA_CACHE_DIR = process.env.LLAMA_CACHE || './var/models';
+// Standard HF hub cache (see lib/helpers/modelCache.js) — never a project-local
+// dir, so the wizard checks/primes the same models the user already has instead
+// of downloading a duplicate copy into the repo.
+const LLAMA_CACHE_DIR = resolveModelCacheDir();
 
 // llama-server's on-disk HF hub cache layout (confirmed in the Phase 0 spike):
 // models--<org>--<repo>/{blobs,refs,snapshots}. The optional ":quant" suffix

@@ -24,6 +24,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- llama.cpp no longer duplicates GGUF models into the repo. It previously forced
+  `LLAMA_CACHE=./var/models`, so llama-server re-downloaded every model into the
+  app folder even when the user already had it in the standard Hugging Face hub
+  cache — a full duplicate hoard (tens of GB). The cache now defaults to that
+  shared HF hub cache (`HF_HUB_CACHE`, else `$HF_HOME/hub`, else
+  `~/.cache/huggingface/hub`) — the same location `llama-cli` and every other HF
+  tool use — so existing models are reused and nothing is stored in-repo. Set
+  `LLAMA_CACHE` to override.
 - Tool-call failure observability (#223): error-log entries were attributed to the
   first `node_modules` stack frame (e.g. `readable-stream/_stream_transform.js`)
   instead of the real call site — the caller resolver now skips `node_modules` and
