@@ -176,6 +176,9 @@ behavior.
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel, voice input + TTS readout
 - Inline input autocomplete — ghost-text suggestion accepted with Tab/→
+- Skill quick-access chips — one measured row that hides overflow behind a `+N more` chip (click expands to a wrapped panel, `− less` collapses); recomputed on resize; click injects `/skill <name>`
+- Branch conversation — labeled "Branch" button plus a discoverable entry in the `+` actions menu, both opening a friendly inline confirm card (replaces the browser `confirm()`); gated by the lite profile
+- Model download/load banner — while llama.cpp pulls/loads GGUF weights inside a request, a self-dismissing main-window banner shows live GB and staged `downloading → loading → ready`, fading 5 s after the model is ready; warm models stay silent
 - Clickable memory-suggestion chips — save all / pick / none, prompts for ones needing input
 - Sessions: persistent (file + DB), pagination, delete
 - 26-language Web UI i18n (24 EU + 中文 + 日本語) with flag-based navbar switcher and persistent selection; all locale files match the complete 304-key English baseline

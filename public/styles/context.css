@@ -201,6 +201,31 @@
       background: color-mix(in srgb, #f59e0b 10%, var(--bg));
       border-bottom-color: color-mix(in srgb, #f59e0b 25%, transparent);
     }
+    /* Model download/load banner — accent while working, green when ready. */
+    .ctx-banner--model {
+      background: color-mix(in srgb, var(--accent) 10%, var(--bg));
+      border-bottom-color: color-mix(in srgb, var(--accent) 25%, transparent);
+    }
+    .ctx-banner--model-ready {
+      background: color-mix(in srgb, #22c55e 12%, var(--bg));
+      border-bottom-color: color-mix(in srgb, #22c55e 28%, transparent);
+    }
+    .model-banner-spinner {
+      width: 12px; height: 12px;
+      flex-shrink: 0;
+      border: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: modelBannerSpin .8s linear infinite;
+    }
+    .ctx-banner--model-ready .model-banner-spinner {
+      border-color: #22c55e;
+      animation: none;
+    }
+    @keyframes modelBannerSpin { to { transform: rotate(360deg); } }
+    @media (prefers-reduced-motion: reduce) {
+      .model-banner-spinner { animation: none; }
+    }
     .ctx-banner-text {
       flex: 1;
       opacity: 0.85;

@@ -260,25 +260,22 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "model_status") {
-    // Staged label while llama.cpp downloads/loads a model inside the current
-    // request (issue A/B): the whimsy rotator yields to any non-whimsy label,
-    // so writing here pins the stage text until "ready" hands the label back.
+    // Download/load progress while llama.cpp pulls a model inside the current
+    // request (issue A/B). This surfaces as a self-dismissing banner in the main
+    // window — NOT in the header status pill, which shares its container with the
+    // model-name chip and would read as if the loading text belonged to the chip.
+    // The live thinking indicator keeps rotating its whimsy word underneath.
     const short = shortModelName(msg.model);
-    let text = null;
     if (msg.status === "downloading") {
-      text = msg.totalGB
+      const text = msg.totalGB
         ? t("status_model_downloading_of", { model: short, got: msg.gotGB, total: msg.totalGB, pct: Math.min(99, Math.round((msg.gotGB / msg.totalGB) * 100)) })
         : t("status_model_downloading", { model: short, got: msg.gotGB });
+      showModelLoadingBanner("downloading", text);
     } else if (msg.status === "loading") {
-      text = t("status_model_loading", { model: short });
+      showModelLoadingBanner("loading", t("status_model_loading", { model: short }));
     } else if (msg.status === "ready") {
-      text = t("chat_thinking_label"); // whimsy resumes from here
-    }
-    if (text) {
-      const label = document.querySelector("#thinking .thinking-label");
-      if (label) label.textContent = text;
-      moveLiveIndicatorToBottom();
-      if (msg.status !== "ready") setStatus("thinking", text);
+      // Loaded — flash a "ready" confirmation, then the banner fades itself out.
+      showModelLoadingBanner("ready", t("status_model_ready", { model: short }));
     }
   }
 
