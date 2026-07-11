@@ -218,5 +218,10 @@ function updateContextBar(used, max, outputTok = 0) {
     }
   }
 }
+function resetContextBar(max = 0) {
+  _ctxHWM = 0;
+  updateContextBar(0, max, 0);
+}
 window.updateContextBar = updateContextBar;
+window.resetContextBar = resetContextBar;
 window.setCostProvider = setCostProvider;

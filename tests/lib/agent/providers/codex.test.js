@@ -305,6 +305,63 @@ describe("runCodexLoop", () => {
     assert.equal(capture.args[resumeAt + 2], "Follow up");
   });
 
+  test("bootstraps a new thread with compact local history", async () => {
+    const capture = {};
+    await runCodexLoop(
+      [
+        { role: "user", content: "Original question" },
+        { role: "assistant", content: "[Conversation summary]\n- Important decision" },
+        { role: "user", content: "Continue from there" },
+      ],
+      { send: mock.fn() },
+      { aperioSessionId: "aperio-session-new" },
+      null,
+      () => {},
+      baseCtx({
+        getProviderSessionId: () => null,
+        codexSpawn: mockChild({
+          capture,
+          stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+        }),
+      }),
+    );
+
+    assert.equal(capture.args.includes("resume"), false);
+    const prompt = capture.args.at(-1);
+    assert.match(prompt, /Original question/);
+    assert.match(prompt, /Important decision/);
+    assert.match(prompt, /Current user request\nContinue from there/);
+  });
+
+  test("isolated turns neither resume nor replace the persisted chat thread", async () => {
+    const capture = {};
+    const updates = [];
+    const state = { sessionId: "global-thread" };
+    await runCodexLoop(
+      [{ role: "user", content: "Summarize this" }],
+      { send: mock.fn() },
+      { aperioSessionId: "aperio-session-1", isolatedProviderSession: true },
+      null,
+      () => {},
+      baseCtx({
+        codexState: state,
+        getProviderSessionId: () => "persisted-thread",
+        updateProviderSessionId: (...args) => updates.push(args),
+        codexSpawn: mockChild({
+          capture,
+          stdoutLines: [
+            { type: "thread.started", thread_id: "isolated-thread" },
+            { type: "item.completed", item: { type: "agent_message", text: "Summary" } },
+          ],
+        }),
+      }),
+    );
+
+    assert.equal(capture.args.includes("resume"), false);
+    assert.equal(state.sessionId, "global-thread");
+    assert.deepEqual(updates, []);
+  });
+
   test("passes CODEX_API_KEY through to codex exec", async () => {
     process.env.CODEX_API_KEY = "codex-test-key";
     const capture = {};
