@@ -90,13 +90,6 @@ function shortModelName(id) {
   return (repo.includes("/") ? repo.slice(repo.indexOf("/") + 1) : repo).replace(/-GGUF$/i, "");
 }
 
-// "unsloth/Qwen3.6-27B-GGUF:Q4_K_M" → "Qwen3.6-27B" — a status-label-sized
-// model name (org, quant tag, and -GGUF suffix carry no meaning for the user).
-function shortModelName(id) {
-  const repo = String(id || "").split(":")[0];
-  return (repo.includes("/") ? repo.slice(repo.indexOf("/") + 1) : repo).replace(/-GGUF$/i, "");
-}
-
 // Per-image vision-token cost. Every upload is normalised to a fixed 896×896
 // PNG before reaching the model, so the cost is constant per provider — the
 // server reports the active provider's figure in the `provider` event (see
