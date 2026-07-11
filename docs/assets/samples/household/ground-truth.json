@@ -1,0 +1,166 @@
+{
+  "$comment": "Machine-readable ground truth for the household demo corpus (issue #250, WS0). Every document in this folder is fictional; names, IBANs, addresses and transactions are invented. Amounts are exact to the cent — WS4 scenario tests (T-G7) assert equality against these values. See README notes in the epic; do not 'fix' a number here without also fixing the source document.",
+  "meta": {
+    "protagonist": "Ivan Petrov",
+    "address": "ul. Vitosha 15, fl. 3, apt. 7, 1000 Sofia, Bulgaria",
+    "month": "2026-06",
+    "household_currency": "BGN",
+    "travel_currency": "EUR",
+    "languages": ["bg", "en", "de", "fr"],
+    "fictional": true
+  },
+  "payer_constants": {
+    "name": "Иван Петров",
+    "address": "ул. Витоша 15, ет. 3, ап. 7, 1000 София",
+    "iban": "BG80BNBG96611020345678",
+    "bank": "Първа Дигитална Банка",
+    "bic": "BNBGBGSD"
+  },
+  "ledger": [
+    { "date": "2026-06-03", "description": "SofiaEnergo - electricity 05/2026", "category": "Utilities", "amount": 142.50, "currency": "BGN", "source_doc": "electricity-bill-bg.txt" },
+    { "date": "2026-06-05", "description": "VodaSofia - water supply 05/2026", "category": "Utilities", "amount": 38.20, "currency": "BGN", "source_doc": "water-bill-bg.txt" },
+    { "date": "2026-06-07", "description": "FreshMarket #218 groceries", "category": "Groceries", "amount": 87.45, "currency": "BGN", "source_doc": "grocery-receipt-1-bg.png" },
+    { "date": "2026-06-09", "description": "PetrolMax fuel station", "category": "Fuel", "amount": 120.00, "currency": "BGN", "source_doc": "gas-station-receipt-en.txt" },
+    { "date": "2026-06-12", "description": "NetLink internet 06/2026", "category": "Internet", "amount": 29.99, "currency": "BGN", "source_doc": "payment-form-completed-2.txt" },
+    { "date": "2026-06-15", "description": "ToploSofia - central heating 05/2026", "category": "Utilities", "amount": 64.80, "currency": "BGN", "source_doc": "heating-bill-bg.txt" },
+    { "date": "2026-06-18", "description": "EuroMarket groceries", "category": "Groceries", "amount": 53.30, "currency": "BGN", "source_doc": "market-receipt-bg.png" },
+    { "date": "2026-06-22", "description": "Sofia Municipality - waste fee Q2", "category": "Utilities", "amount": 15.00, "currency": "BGN", "source_doc": "waste-fee-notice-bg.txt" },
+    { "date": "2026-06-25", "description": "PetrolMax fuel station", "category": "Fuel", "amount": 95.60, "currency": "BGN", "source_doc": "fuel-receipt-2-en.txt" },
+    { "date": "2026-06-28", "description": "City Transport - metro card top-up", "category": "Transport", "amount": 50.00, "currency": "BGN", "source_doc": "transport-topup-bg.txt" }
+  ],
+  "category_totals_bgn": {
+    "Utilities": 260.50,
+    "Fuel": 215.60,
+    "Groceries": 140.75,
+    "Transport": 50.00,
+    "Internet": 29.99
+  },
+  "monthly_total_bgn": 696.84,
+  "bank_statement": {
+    "iban": "BG80BNBG96611020345678",
+    "period": "2026-06-01/2026-06-30",
+    "opening_balance": 4250.00,
+    "closing_balance": 3553.16,
+    "total_debits": 696.84
+  },
+  "documents": {
+    "electricity-bill-bg.txt": {
+      "vendor": "СофияЕнерго ЕАД", "invoice_no": "0000451287", "date": "2026-06-03",
+      "period": "2026-05-01/2026-05-31", "client_no": "3001234567",
+      "net": 118.75, "vat": 23.75, "amount": 142.50, "currency": "BGN",
+      "category": "Utilities", "payee_iban": "BG18RZBB91550123456789", "payee_bic": "RZBBBGSF"
+    },
+    "gas-station-receipt-en.txt": {
+      "vendor": "PetrolMax", "receipt_no": "0417-000239", "date": "2026-06-09",
+      "net": 100.00, "vat": 20.00, "amount": 120.00, "currency": "BGN", "category": "Fuel"
+    },
+    "water-bill-bg.txt": {
+      "vendor": "ВодаСофия ЕАД", "invoice_no": "0000778341", "date": "2026-06-05",
+      "period": "2026-05-01/2026-05-31", "client_no": "700556677",
+      "net": 31.83, "vat": 6.37, "amount": 38.20, "currency": "BGN",
+      "category": "Utilities", "payee_iban": "BG54UNCR70001512345678", "payee_bic": "UNCRBGSF"
+    },
+    "heating-bill-bg.txt": {
+      "vendor": "ТоплоСофия ЕАД", "invoice_no": "0000934512", "date": "2026-06-15",
+      "period": "2026-05-01/2026-05-31", "client_no": "8800123",
+      "net": 54.00, "vat": 10.80, "amount": 64.80, "currency": "BGN",
+      "category": "Utilities", "payee_iban": "BG64STSA93000112345678", "payee_bic": "STSABGSF"
+    },
+    "waste-fee-notice-bg.txt": {
+      "vendor": "Столична община", "notice_no": "ТБО-2026-0455120", "date": "2026-06-22",
+      "installment": "Q2/2026", "client_no": "ПН-1002233",
+      "amount": 15.00, "currency": "BGN", "category": "Utilities",
+      "payee_iban": "BG21BUIN95611000123456", "vat_exempt": true
+    },
+    "grocery-receipt-1-bg.png": {
+      "vendor": "ФРЕШМАРКЕТ", "receipt_no": "000218", "date": "2026-06-07",
+      "amount": 87.45, "currency": "BGN", "category": "Groceries"
+    },
+    "fuel-receipt-2-en.txt": {
+      "vendor": "PetrolMax", "receipt_no": "0422-000817", "date": "2026-06-25",
+      "net": 79.67, "vat": 15.93, "amount": 95.60, "currency": "BGN", "category": "Fuel"
+    },
+    "transport-topup-bg.txt": {
+      "vendor": "Градски транспорт София", "receipt_no": "000015542", "date": "2026-06-28",
+      "amount": 50.00, "currency": "BGN", "category": "Transport"
+    },
+    "market-receipt-bg.png": {
+      "vendor": "ЕВРОМАРКЕТ", "receipt_no": "000842", "date": "2026-06-18",
+      "amount": 53.30, "currency": "BGN", "category": "Groceries"
+    },
+    "train-ticket-de.txt": {
+      "vendor": "BahnReise AG", "order_no": "BR-2026-778142", "date": "2026-06-14",
+      "net": 41.93, "vat": 7.97, "amount": 49.90, "currency": "EUR", "category": "Travel"
+    },
+    "hotel-invoice-de.pdf": {
+      "vendor": "Hotel Lindenhof Berlin", "invoice_no": "HLB-2026-03318",
+      "check_in": "2026-06-14", "check_out": "2026-06-15", "date": "2026-06-15",
+      "amount": 128.00, "currency": "EUR", "category": "Travel"
+    },
+    "airport-receipt-fr.pdf": {
+      "vendor": "Café du Terminal", "ticket_no": "CDT-2026-55217", "date": "2026-06-16",
+      "net": 15.42, "vat": 3.08, "amount": 18.50, "currency": "EUR", "category": "Travel"
+    },
+    "tax-increase-notice-bg.txt": {
+      "ref_no": "REG-2026-0742", "rate": 0.074, "effective": "2026-07-01",
+      "affected_categories": ["Utilities"],
+      "affected_services": ["electricity", "water", "heating"]
+    },
+    "payment-form-completed-1.txt": {
+      "payee": "ВодаСофия ЕАД", "payee_iban": "BG54UNCR70001512345678",
+      "amount": 41.10, "currency": "BGN", "date": "2026-05-12", "client_no": "700556677",
+      "note": "April water — NOT part of the June ledger; establishes payer constants only"
+    },
+    "payment-form-completed-2.txt": {
+      "payee": "НетЛинк ЕООД", "payee_iban": "BG27FINV91501201234567",
+      "amount": 29.99, "currency": "BGN", "date": "2026-06-12", "client_no": "N-4821"
+    }
+  },
+  "travel_eur": {
+    "$comment": "Separate EUR trip for the WS4 step-17 multilingual pass; deliberately excluded from monthly_total_bgn.",
+    "items": [
+      { "doc": "train-ticket-de.txt", "date": "2026-06-14", "amount": 49.90 },
+      { "doc": "hotel-invoice-de.pdf", "date": "2026-06-15", "amount": 128.00 },
+      { "doc": "airport-receipt-fr.pdf", "date": "2026-06-16", "amount": 18.50 }
+    ],
+    "total": 196.40
+  },
+  "scenarios": {
+    "S1_fill_electricity_form": {
+      "template": "payment-form-blank.docx",
+      "expected_fields": {
+        "payer_name": "Иван Петров",
+        "payer_address": "ул. Витоша 15, ет. 3, ап. 7, 1000 София",
+        "payer_iban": "BG80BNBG96611020345678",
+        "payer_bank": "Първа Дигитална Банка / BNBGBGSD",
+        "payee_name": "СофияЕнерго ЕАД",
+        "payee_iban": "BG18RZBB91550123456789",
+        "payee_bic": "RZBBBGSF",
+        "amount": 142.50,
+        "currency": "BGN",
+        "payment_details": "Ел. енергия 05/2026, кл. № 3001234567",
+        "client_no": "3001234567"
+      }
+    },
+    "S2_monthly_communal_spend": {
+      "question": "how much did I pay last month?",
+      "total_bgn": 696.84,
+      "pie_slices_bgn": {
+        "Utilities": 260.50,
+        "Fuel": 215.60,
+        "Groceries": 140.75,
+        "Transport": 50.00,
+        "Internet": 29.99
+      }
+    },
+    "S3_tax_increase_projection": {
+      "rate": 0.074,
+      "affected_category": "Utilities",
+      "affected_base_bgn": 260.50,
+      "increase_bgn": 19.28,
+      "new_utilities_bgn": 279.78,
+      "new_monthly_total_bgn": 716.12,
+      "assumption": "7.4% applied to the Utilities category only; Fuel, Groceries, Transport and Internet unchanged."
+    }
+  }
+}
