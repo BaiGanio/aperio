@@ -60,6 +60,9 @@
   "status_typing":            "tipkanje…",
   "status_loading":           "nalaganje…",
 
+  "status_model_downloading":    "prenašam {model} — doslej {got} GB…",
+  "status_model_downloading_of": "prenašam {model} — {got} od {total} GB ({pct}%)",
+  "status_model_loading":        "nalagam {model} v pomnilnik…",
   "ctx_label":                "kontekst",
 
   "sidebar_memories":         "Spomini",

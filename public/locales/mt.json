@@ -60,6 +60,9 @@
   "status_typing":            "ttajpjar…",
   "status_loading":           "tagħbija…",
 
+  "status_model_downloading":    "qed inniżżel {model} — s'issa {got} GB…",
+  "status_model_downloading_of": "qed inniżżel {model} — {got} minn {total} GB ({pct}%)",
+  "status_model_loading":        "qed intella' {model} fil-memorja…",
   "ctx_label":                "kuntest",
 
   "sidebar_memories":         "Memorji",

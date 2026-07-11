@@ -221,9 +221,28 @@
     <div class="input-bar">
       <div class="attach-preview" id="attachPreview"></div>
       <div class="input-wrap">
-        <button class="attach-btn" id="attachBtn" data-i18n-attr-title="chat_attach_title" title="Attach file or image">
-          <i class="bi bi-plus-lg"></i>
-        </button>
+        <div class="plus-wrap">
+          <button class="attach-btn" id="attachBtn" type="button" aria-haspopup="menu" aria-expanded="false"
+                  data-i18n-attr-title="plus_btn_title" title="Attach or more actions">
+            <i class="bi bi-plus-lg"></i>
+          </button>
+          <div class="plus-menu" id="plusMenu" role="menu">
+            <button class="plus-item" id="pmAttach" type="button" role="menuitem">
+              <span class="plus-item-ic"><i class="bi bi-paperclip"></i></span>
+              <span class="plus-item-tx">
+                <span class="plus-item-ti" data-i18n="plus_menu_attach_title">Attach files</span>
+                <span class="plus-item-de" data-i18n="plus_menu_attach_desc">Images, PDFs, code — anything the model should look at.</span>
+              </span>
+            </button>
+            <button class="plus-item lite-hide" id="pmBranch" type="button" role="menuitem">
+              <span class="plus-item-ic"><i class="bi bi-diagram-2"></i></span>
+              <span class="plus-item-tx">
+                <span class="plus-item-ti" data-i18n="plus_menu_branch_title">Branch conversation</span>
+                <span class="plus-item-de" data-i18n="plus_menu_branch_desc">Save this chat and open a fresh thread that remembers the gist. Come back anytime from Sessions.</span>
+              </span>
+            </button>
+          </div>
+        </div>
         <div class="mic-wrap" id="micWrap" style="display:none;">
           <button class="mic-btn" id="micBtn" title="Voice input">
             <i class="bi bi-mic"></i>
@@ -243,9 +262,11 @@
           <i class="bi bi-chat-left-dots"></i>
           <span class="discuss-btn-label" data-i18n="discuss_button_label">Discuss</span>
         </button>
-        <button class="branch-btn" id="branchBtn" type="button"
-                data-i18n-attr-title="branch_button_tooltip" title="Branch this conversation — save and start a new thread">
+        <button class="branch-btn-labeled lite-hide" id="branchBtn" type="button"
+                data-i18n-attr-title="branch_button_tooltip"
+                title="Save this chat and start a fresh thread that remembers the gist — the original stays in Sessions">
           <i class="bi bi-diagram-2"></i>
+          <span class="branch-btn-label" data-i18n="branch_button_label">Branch</span>
         </button>
         <button class="send-btn" id="sendBtn" disabled title="Send (⌘ + ↵)">
           <i class="bi bi-send-fill" style="font-size: var(--fs-chrome)"></i>

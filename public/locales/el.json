@@ -60,6 +60,9 @@
   "status_typing":            "πληκτρολόγηση…",
   "status_loading":           "φόρτωση…",
 
+  "status_model_downloading":    "λήψη {model} — {got} GB μέχρι στιγμής…",
+  "status_model_downloading_of": "λήψη {model} — {got} από {total} GB ({pct}%)",
+  "status_model_loading":        "φόρτωση {model} στη μνήμη…",
   "ctx_label":                "πλαίσιο",
 
   "sidebar_memories":         "Αναμνήσεις",

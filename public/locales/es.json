@@ -60,6 +60,9 @@
   "status_typing":            "escribiendo…",
   "status_loading":           "cargando…",
 
+  "status_model_downloading":    "descargando {model} — {got} GB hasta ahora…",
+  "status_model_downloading_of": "descargando {model} — {got} de {total} GB ({pct}%)",
+  "status_model_loading":        "cargando {model} en memoria…",
   "ctx_label":                "contexto",
 
   "sidebar_memories":         "Recuerdos",

@@ -60,6 +60,9 @@
   "status_typing":            "пиша…",
   "status_loading":           "зареждам…",
 
+  "status_model_downloading":    "изтеглям {model} — {got} GB дотук…",
+  "status_model_downloading_of": "изтеглям {model} — {got} от {total} GB ({pct}%)",
+  "status_model_loading":        "зареждам {model} в паметта…",
   "ctx_label":                "контекст",
 
   "sidebar_memories":         "Спомени",

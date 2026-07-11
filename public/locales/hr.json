@@ -60,6 +60,9 @@
   "status_typing":            "tipkanje…",
   "status_loading":           "učitavanje…",
 
+  "status_model_downloading":    "preuzimam {model} — dosad {got} GB…",
+  "status_model_downloading_of": "preuzimam {model} — {got} od {total} GB ({pct}%)",
+  "status_model_loading":        "učitavam {model} u memoriju…",
   "ctx_label":                "kontekst",
 
   "sidebar_memories":         "Sjećanja",

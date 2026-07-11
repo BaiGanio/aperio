@@ -60,6 +60,9 @@
   "status_typing":            "ag clóscríobh…",
   "status_loading":           "ag luchtú…",
 
+  "status_model_downloading":    "ag íoslódáil {model} — {got} GB go dtí seo…",
+  "status_model_downloading_of": "ag íoslódáil {model} — {got} as {total} GB ({pct}%)",
+  "status_model_loading":        "ag lódáil {model} isteach sa chuimhne…",
   "ctx_label":                "comhthéacs",
 
   "sidebar_memories":         "Cuimhní",

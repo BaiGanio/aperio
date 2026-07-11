@@ -60,6 +60,9 @@
   "status_typing":            "typt…",
   "status_loading":           "laden…",
 
+  "status_model_downloading":    "{model} downloaden — tot nu toe {got} GB…",
+  "status_model_downloading_of": "{model} downloaden — {got} van {total} GB ({pct}%)",
+  "status_model_loading":        "{model} in het geheugen laden…",
   "ctx_label":                "context",
 
   "sidebar_memories":         "Herinneringen",

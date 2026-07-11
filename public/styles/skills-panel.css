@@ -158,3 +158,21 @@
   border-color: var(--accent) !important;
   transform: scale(1.06);
 }
+
+/* ── Collapsed single row + "+N more" expand (issue C) ───────────── */
+.skill-chips-bar--expandable { align-items: flex-start; }
+.skill-chips-bar--expandable .skill-chips-toggle { margin-top: 2px; }
+.skill-chips--collapsible {
+  flex: 1; min-width: 0;
+  flex-wrap: nowrap; overflow: hidden;
+}
+.skill-chips--collapsible.expanded {
+  flex-wrap: wrap; overflow: visible;
+}
+.skill-chip--hidden { display: none; }
+.skill-chip--more {
+  color: var(--accent); border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 700;
+}
+.skill-chip--more:hover { transform: none; filter: brightness(1.08); }
