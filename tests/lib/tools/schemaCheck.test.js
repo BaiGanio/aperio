@@ -1,7 +1,10 @@
 // tests/lib/tools/schemaCheck.test.js
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { checkArgs, hintFromIssues } from "../../../lib/tools/schemaCheck.js";
+import { mkdtempSync, readFileSync, existsSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { checkArgs, hintFromIssues, logToolCallFailure } from "../../../lib/tools/schemaCheck.js";
 
 // Normalized schema shape produced by zodToJsonSchema: { type, properties, required }.
 const schema = {
@@ -92,5 +95,60 @@ describe("hintFromIssues", () => {
     assert.match(hint, /path/);
     assert.match(hint, /flavor/);
     assert.match(hint, /read_file/);
+  });
+});
+
+describe("logToolCallFailure", () => {
+  // The ledger is silenced under NODE_ENV=test (like logToolRepairEvents), so the
+  // writing path is exercised by flipping the env for the duration of the call and
+  // pointing cwd at a throwaway dir (the ledger path is relative to cwd).
+  function withWritableEnv(fn) {
+    const prevEnv = process.env.NODE_ENV;
+    const prevCwd = process.cwd();
+    const dir = mkdtempSync(join(tmpdir(), "aperio-fail-"));
+    process.env.NODE_ENV = "development";
+    process.chdir(dir);
+    try { fn(dir); } finally {
+      process.chdir(prevCwd);
+      process.env.NODE_ENV = prevEnv;
+      rmSync(dir, { recursive: true, force: true });
+    }
+  }
+
+  test("silent under NODE_ENV=test — writes nothing", () => {
+    const prevCwd = process.cwd();
+    const dir = mkdtempSync(join(tmpdir(), "aperio-fail-"));
+    process.chdir(dir);
+    try {
+      logToolCallFailure({ model: "m", kind: "leak", persisted: true, detail: "x" });
+      assert.equal(existsSync(join(dir, "var/toolrepair/failures.tsv")), false);
+    } finally {
+      process.chdir(prevCwd);
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test("appends a header + one row per failure, whitespace-collapsed and capped", () => {
+    withWritableEnv((dir) => {
+      logToolCallFailure({ model: "qwen3.5:9b", kind: "leak", persisted: true, detail: "<execute_tool>\n  name=recall" });
+      logToolCallFailure({ model: "gemma", kind: "corrupt_name", persisted: false, detail: "x".repeat(500) });
+      const rows = readFileSync(join(dir, "var/toolrepair/failures.tsv"), "utf8").trim().split("\n");
+      assert.equal(rows[0], ["ts", "model", "kind", "persisted", "detail"].join("\t"));
+      assert.equal(rows.length, 3); // header + 2 events
+      const leak = rows[1].split("\t");
+      assert.equal(leak[1], "qwen3.5:9b");
+      assert.equal(leak[2], "leak");
+      assert.equal(leak[3], "1");
+      assert.equal(leak[4], "<execute_tool> name=recall"); // newline + double-space collapsed
+      const corrupt = rows[2].split("\t");
+      assert.equal(corrupt[3], "0");
+      assert.equal(corrupt[4].length, 200); // detail capped at 200 chars
+    });
+  });
+
+  test("never throws on a bad detail value", () => {
+    withWritableEnv(() => {
+      assert.doesNotThrow(() => logToolCallFailure({ model: "m", kind: "echo", detail: undefined }));
+    });
   });
 });
