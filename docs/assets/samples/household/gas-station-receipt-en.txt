@@ -1,0 +1,31 @@
+        P E T R O L M A X
+     Fuel Station #17 - Sofia
+   14 Tsarigradsko Shose Blvd, Sofia
+       VAT No: BG204567890
+       Tel: 02 987 6543
+
+-----------------------------------------
+ FISCAL RECEIPT
+-----------------------------------------
+ Date: 09.06.2026        Time: 08:42
+ Receipt No: 0417-000239
+ Pump: 4     Operator: 12
+-----------------------------------------
+ Item                 Qty        Amount
+-----------------------------------------
+ Diesel B7         42.55 L      120.00
+   Unit price:  2.820 BGN / L
+-----------------------------------------
+ Category: Fuel
+ Subtotal (excl. VAT):         100.00
+ VAT 20%:                        20.00
+ TOTAL:                         120.00 BGN
+-----------------------------------------
+ Paid by card ....... 120.00 BGN
+ VISA **** 4417   AUTH 004521
+-----------------------------------------
+
+   Thank you for your visit!
+
+ Fictional sample receipt for demo use.
+ All data is invented.
