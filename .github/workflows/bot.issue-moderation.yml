@@ -11,10 +11,13 @@ jobs:
     permissions:
       issues: write
     steps:
-      - name: Label, Lock, and Notify
+      - name: Label, Lock, Milestone, and Notify
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          MILESTONE_NUMBER: ${{ vars.MILESTONE_NUMBER }}
         with:
           script: |
+            const milestoneNumber = Number(process.env.MILESTONE_NUMBER);
             const { owner, repo, number } = context.issue;
             
             await github.rest.issues.addLabels({ owner, repo, issue_number: number, labels: ['muted'] });
@@ -25,6 +28,13 @@ jobs:
             });
 
             await github.rest.issues.lock({ owner, repo, issue_number: number, lock_reason: 'spam' });
+
+            if (milestoneNumber) {
+              await github.rest.issues.update({
+                owner, repo, issue_number: number,
+                milestone: milestoneNumber
+              });
+            }
 
   # STEP 2: AUTO-UNLOCK MUTED(With 10s Delay)
   unlock_muted:
