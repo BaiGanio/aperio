@@ -14,6 +14,7 @@ import {
   stopLlamaCpp,
   beginSessionLog,
   endSessionLog,
+  appendSessionLog,
   pumpServerLogTee,
   deleteServerLog,
   pruneServerLogs,
@@ -221,6 +222,16 @@ describe("buildModelsPreset — perf profiles", () => {
     assert.equal(vMatches?.length, 2, "both main + VLM sections should quantize the V cache");
   });
 
+  test("fast-low-vram: disables Flash Attention for Gemma 4 while retaining the global default", () => {
+    const ini = buildModelsPreset({
+      APERIO_LOCAL_PERF_PROFILE: "fast-low-vram",
+      LLAMACPP_MODEL: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+    }, { totalRamGB: 16 });
+    const mainSection = ini.slice(ini.indexOf("[aperio-main]"), ini.indexOf("[aperio-vlm]"));
+    assert.match(ini, /^flash-attn = true$/m, "fast profile keeps the global optimization enabled");
+    assert.match(mainSection, /flash-attn = false/, "Gemma 4 overrides the unsafe global setting");
+  });
+
   test("fast-low-vram: prefers the MoE model by default at 24GB RAM (below balanced's 48GB rung) and emits n-cpu-moe on it", () => {
     const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 24 });
     assert.match(ini, /hf-repo = Qwen\/Qwen3-30B-A3B-GGUF:Q4_K_M/);
@@ -360,6 +371,17 @@ describe("ensureLlamaCpp", () => {
   test("getLlamaCppPid returns null before ensureLlamaCpp spawns anything new (attached to an already-running server)", async () => {
     globalThis.fetch = async () => ({ ok: true });
     await ensureLlamaCpp();
+    assert.equal(getLlamaCppPid(), null);
+  });
+
+  test("adopts a listener discovered on the configured port so shutdown can clean it up", async () => {
+    mockFetchSequence(
+      { ok: true },
+      jsonResponse({ data: [{ id: "aperio-main" }, { id: "aperio-vlm" }] }),
+    );
+    await ensureLlamaCpp(fakeSpawn(88888), fakeKill(false), () => 42424);
+    assert.equal(getLlamaCppPid(), 42424);
+    await stopLlamaCpp(fakeKill(true), () => null);
     assert.equal(getLlamaCppPid(), null);
   });
 
@@ -512,8 +534,8 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     let spawnCalled = false;
     const trackerSpawn = () => { spawnCalled = true; return { on: () => {}, unref: () => {}, pid: 88888 }; };
 
-    await ensureLlamaCpp(trackerSpawn, fakeKill(false));
-    // Should NOT have spawned — kill failed, returned early
+    assert.equal(await ensureLlamaCpp(trackerSpawn, fakeKill(false)), false);
+    // Should NOT have spawned — stale server cannot be reconciled.
     assert.equal(spawnCalled, false);
   });
 
@@ -531,8 +553,8 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     let spawnCalled = false;
     const trackerSpawn = () => { spawnCalled = true; return { on: () => {}, unref: () => {}, pid: 88888 }; };
 
-    await ensureLlamaCpp(trackerSpawn, fakeKill(false));
-    // Should NOT have spawned — returned early with error log
+    assert.equal(await ensureLlamaCpp(trackerSpawn, fakeKill(false)), false);
+    // Should NOT have spawned — an unknown preset is unsafe to use.
     assert.equal(spawnCalled, false);
 
     // State should exist (writeState was called with pid=0 to suppress
@@ -726,6 +748,19 @@ describe("session-scoped server log tee", () => {
     assert.equal(kept, true, "reports a non-empty log was kept — pairs session-keeping with real server work");
     assert.ok(existsSync(`${DIR}/${ID_OLD}.log`), "kept for the 24h retention window");
     assert.equal(readFileSync(`${DIR}/${ID_OLD}.log`, "utf8"), "a diagnostic line\n");
+  });
+
+  test("appendSessionLog records provider-side diagnostics in the active session log", () => {
+    writeFileSync(SERVER_LOG, "");
+    beginSessionLog(ID_OLD);
+    appendSessionLog(ID_OLD, "[llamacpp] llama.cpp streamed error: Compute error.");
+    assert.match(readFileSync(`${DIR}/${ID_OLD}.log`, "utf8"), /streamed error: Compute error\./);
+  });
+
+  test("appendSessionLog ignores inactive sessions", () => {
+    writeFileSync(`${DIR}/${ID_FRESH}.log`, "");
+    appendSessionLog(ID_FRESH, "should not be written");
+    assert.equal(readFileSync(`${DIR}/${ID_FRESH}.log`, "utf8"), "");
   });
 
   test("deleteServerLog removes the session log and tolerates a missing one", () => {
