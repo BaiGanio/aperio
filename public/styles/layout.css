@@ -97,27 +97,56 @@
       letter-spacing: -0.02em;
     }
 
+    /* Model chip — dot encodes state (connected / disconnected / busy),
+       name slot carries the provider glyph + short model name. Once a model is
+       known (.has-model) the label switches from free-form boot text to the
+       written state word (connected / busy / disconnected) so the state is
+       readable, not just a color. */
     .status-pill {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 7px;
       font-family: var(--font-mono);
       font-size: var(--fs-micro);
       color: var(--text-muted);
       background: var(--bg-hover);
-      padding: 4px 10px;
+      padding: 4px 12px;
       border-radius: 20px;
       border: 1px solid var(--border);
+      max-width: 280px;
+      min-width: 0;
+      flex-shrink: 1;
+      transition: opacity var(--transition), border-color var(--transition);
     }
+    .status-pill[data-state="disconnected"] { opacity: .55; }
+    .status-pill[data-state="busy"] {
+      border-color: color-mix(in srgb, #f59e0b 40%, var(--border));
+    }
+    .status-pill.has-model .model-chip-state { opacity: 0.7; }
+
+    .model-chip-state { white-space: nowrap; }
+
+    .model-chip-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .model-chip-name--llamacpp { color: #22c55e; }
+    .model-chip-name--deepseek { color: #3b82f6; }
+    .model-chip-name--cloud    { color: var(--accent); }
 
     .status-dot {
-      width: 6px; height: 6px;
+      width: 7px; height: 7px;
+      flex: none;
       border-radius: 50%;
       background: #9ca3af;
       transition: background var(--transition);
     }
     .status-dot.connected { background: #22c55e; }
     .status-dot.thinking  { background: #f59e0b; animation: pulse 1s infinite; }
+    .status-pill[data-state="disconnected"] .status-dot { background: #ef4444; animation: none; }
 
     @keyframes pulse {
       0%, 100% { opacity: 1; }

@@ -56,6 +56,7 @@
   "status_connected":         "povezano",
   "status_reconnected":       "ponovno povezano",
   "status_disconnected":      "prekinjeno",
+  "status_busy":              "zasedeno",
   "status_thinking":          "razmišljanje…",
   "status_typing":            "tipkanje…",
   "status_loading":           "nalaganje…",

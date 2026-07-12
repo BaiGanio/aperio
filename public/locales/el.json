@@ -56,6 +56,7 @@
   "status_connected":         "συνδεδεμένο",
   "status_reconnected":       "επανασυνδεδεμένο",
   "status_disconnected":      "αποσυνδεδεμένο",
+  "status_busy":              "απασχολημένο",
   "status_thinking":          "σκέψη…",
   "status_typing":            "πληκτρολόγηση…",
   "status_loading":           "φόρτωση…",

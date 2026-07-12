@@ -56,6 +56,7 @@
   "status_connected":         "připojeno",
   "status_reconnected":       "znovu připojeno",
   "status_disconnected":      "odpojeno",
+  "status_busy":              "zaneprázdněno",
   "status_thinking":          "přemýšlení…",
   "status_typing":            "psaní…",
   "status_loading":           "načítání…",

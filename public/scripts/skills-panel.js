@@ -21,6 +21,21 @@
 
   let _skills = [];
 
+  // One-shot skill picks: checked skills ride along with the NEXT prompt only
+  // (sent as forcedSkills in the chat WS message), then the boxes clear.
+  // Unchecked = the normal keyword/semantic skill matcher decides, as before.
+  const _oneShot = new Set();
+
+  // Called by chat.js right before a message is sent: returns the picked
+  // names and clears them — one prompt, one ride.
+  window.consumeOneShotSkills = function () {
+    const names = [..._oneShot];
+    if (!names.length) return names;
+    _oneShot.clear();
+    if (panel() && panel().style.display !== "none") render();
+    return names;
+  };
+
   function escapeHtml(s) {
     return String(s ?? "")
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
@@ -74,11 +89,17 @@
       <div class="sk-row-main">
         <div class="sk-row-name">${escapeHtml(s.name)} ${badges}</div>
         <div class="sk-row-desc">${escapeHtml(s.description || "—")}</div>
-        <label class="sk-switch" title="${escapeHtml(t("skills_panel_switch_title"))}" style="margin-top:8px">
-          <input type="checkbox" data-act="always" data-name="${escapeHtml(s.name)}" ${alwaysOn ? "checked" : ""} ${s.disabled ? "disabled" : ""}>
-          <span class="sk-switch-track"></span>
-          <span class="sk-switch-label">${t("skills_always_badge")}</span>
-        </label>
+        <div class="sk-row-controls">
+          <label class="sk-switch" title="${escapeHtml(t("skills_panel_switch_title"))}">
+            <input type="checkbox" data-act="always" data-name="${escapeHtml(s.name)}" ${alwaysOn ? "checked" : ""} ${s.disabled ? "disabled" : ""}>
+            <span class="sk-switch-track"></span>
+            <span class="sk-switch-label">${t("skills_always_badge")}</span>
+          </label>
+          ${alwaysOn || s.disabled ? "" : `<label class="sk-oneshot" title="${escapeHtml(t("skills_panel_one_shot_title"))}">
+            <input type="checkbox" data-act="oneshot" data-name="${escapeHtml(s.name)}" ${_oneShot.has(s.name) ? "checked" : ""}>
+            <span>${t("skills_panel_one_shot_label")}</span>
+          </label>`}
+        </div>
       </div>
       <div class="sk-row-actions">
         <button class="sk-icon-btn" data-act="edit" data-name="${escapeHtml(s.name)}" title="${escapeHtml(t("skills_panel_edit_title"))}"><i class="bi bi-pencil"></i></button>
@@ -93,6 +114,10 @@
       b.addEventListener("click", () => openSkillEditor(b.dataset.name)));
     body().querySelectorAll('[data-act="always"]').forEach(b =>
       b.addEventListener("change", () => toggleAlwaysOn(b.dataset.name, b.checked, b)));
+    body().querySelectorAll('[data-act="oneshot"]').forEach(b =>
+      b.addEventListener("change", () => {
+        if (b.checked) _oneShot.add(b.dataset.name); else _oneShot.delete(b.dataset.name);
+      }));
     body().querySelectorAll('[data-act="remove"]').forEach(b =>
       b.addEventListener("click", () => removeSkill(b.dataset.name, b.dataset.shipped === "true")));
     body().querySelectorAll('[data-act="reset"]').forEach(b =>
@@ -108,6 +133,7 @@
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, load: on ? "always" : "on-demand" }),
       });
+      if (on) _oneShot.delete(name); // always-on supersedes a one-shot pick
       await load();
     } catch (err) {
       input.checked = !on;

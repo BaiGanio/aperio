@@ -56,6 +56,7 @@
   "status_connected":         "свързано",
   "status_reconnected":       "възстановено",
   "status_disconnected":      "прекъснато",
+  "status_busy":              "заето",
   "status_thinking":          "мисля…",
   "status_typing":            "пиша…",
   "status_loading":           "зареждам…",

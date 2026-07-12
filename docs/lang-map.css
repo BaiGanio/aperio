@@ -173,12 +173,14 @@
 }
 .lm-row:hover { background: var(--bg-raised); }
 .lm-row.is-active { background: rgba(168, 85, 247, .14); color: var(--purple); font-weight: 600; }
+.lm-row.is-selected { outline: 1px solid var(--purple); outline-offset: -1px; }
 .lm-row .lm-code {
   margin-left: auto; font-family: var(--font-mono); font-size: 10.5px;
   color: var(--muted); text-transform: uppercase; letter-spacing: .06em;
 }
 .lm-row.soon { opacity: .5; cursor: default; }
 .lm-row.soon:hover { background: none; }
+.lm-row.soon.is-selected { background: rgba(168, 85, 247, .14); color: var(--purple); opacity: .85; }
 .langmap-foot {
   padding: 10px 14px 12px; border-top: 1px solid var(--border);
   font-size: 11.5px; color: var(--muted); line-height: 1.5;

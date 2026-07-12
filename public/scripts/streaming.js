@@ -187,7 +187,7 @@ function handleMessage(msg) {
       const isDeepSeek = msg.name === "deepseek";
       let label;
       if (isLlamaCpp) {
-        label = `⬡ ${msg.model}`;
+        label = `⬡ ${shortModelName(msg.model)}`;
       } else if (isDeepSeek) {
         label = `◈ ${msg.model}`;
       } else {
@@ -195,12 +195,21 @@ function handleMessage(msg) {
         label = `✦ ${m.includes("haiku") ? "haiku" : m.includes("sonnet") ? "sonnet" : m.includes("opus") ? "opus" : m}`;
       }
       badge.textContent = label;
-      badge.title = `${msg.name} — ${msg.model}`;
-      badge.style.display = "inline";
-      badge.style.background = isLlamaCpp ? "rgba(34,197,94,.15)"  :
-                               isDeepSeek ? "rgba(59,130,246,.15)"  : "var(--accent-soft)";
-      badge.style.color      = isLlamaCpp ? "#22c55e"               :
-                               isDeepSeek ? "#3b82f6"               : "var(--accent)";
+      badge.className = "model-chip-name " +
+        (isLlamaCpp ? "model-chip-name--llamacpp" :
+         isDeepSeek ? "model-chip-name--deepseek" : "model-chip-name--cloud");
+      badge.style.display = "";
+      const chip = document.getElementById("modelChip");
+      if (chip) {
+        chip.classList.add("has-model");
+        chip.title = `${msg.name} — ${msg.model}`;
+        // From here on the label is the written state word (connected / busy /
+        // disconnected), not the free-form boot text. Drop the boot-time
+        // data-i18n hook so a late locale load can't stomp the live word back
+        // to "connecting…".
+        document.getElementById("statusText")?.removeAttribute("data-i18n");
+        window.syncChipStateLabel?.();
+      }
     }
 
     // Sync the model selector with the confirmed provider/model.
@@ -482,7 +491,7 @@ function handleMessage(msg) {
         }
       : null;
     if (streamingBubble && streamingText.trim()) {
-      stopLiveTimer();
+      settleTurnTimer();
       finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
       for (const f of _pendingGeneratedFiles) streamingBubble.bubble.appendChild(_buildGeneratedFileCard(f)); _pendingGeneratedFiles.length = 0;
       window.Aperio?.tts?.speak(streamingText);
@@ -493,10 +502,10 @@ function handleMessage(msg) {
     } else if (streamingBubble) {
       streamingBubble.wrap?.remove();
     } else if (!streamingText && msg.text?.trim()) {
-      stopLiveTimer();
       removeThinking();
       removeToolIndicator();
       addMessage("ai", msg.text);
+      settleTurnTimer();
       window.Aperio?.tts?.speak(msg.text);
       window.Aperio?.voice?.onStreamEnd?.();
       _refineStartupBanner(msg.usage?.input_tokens, msg.usage?.input_tokens_kind);
@@ -667,7 +676,6 @@ function handleMessage(msg) {
   if (msg.type === "error") {
     removeThinking();
     removeToolIndicator();
-    stopLiveTimer();
     isThinking = false;
     setStatus("connected", "error");
     setAmbientLevel(0);
@@ -675,6 +683,7 @@ function handleMessage(msg) {
     sendBtn.style.display = "";
     stopBtn.style.display = "none";
     addMessage("ai", `⚠️ ${msg.text}`);
+    settleTurnTimer();
   }
 
   // ── Round-table events ────────────────────────────────────────────────────
@@ -1870,6 +1879,25 @@ function startLiveTimer() {
 function stopLiveTimer() {
   clearInterval(_liveTimerId);
   _liveTimerId = null;
+}
+
+// Settle the live turn timer into a persistent breadcrumb ("done · 54.3s")
+// instead of letting the wall-clock that ticked next to the busy words vanish
+// with the pill. One settle per turn — requestStartTime is consumed. Note the
+// msg-stats "completed" figure times only the final stream; this line is the
+// whole turn: thinking, tools, and result digestion included.
+function settleTurnTimer() {
+  stopLiveTimer();
+  if (!requestStartTime) return;
+  const total = Date.now() - requestStartTime;
+  requestStartTime = null;
+  const line = document.createElement("div");
+  line.className = "action-phase done";
+  line.innerHTML =
+    `<span class="action-phase-mark"></span>` +
+    `<span class="action-phase-label">${escapeHtml(t("msg_reasoning_done"))}</span>` +
+    `<span class="thinking-time">${escapeHtml(formatLiveDuration(total))}</span>`;
+  messagesEl.appendChild(line);
 }
 
 function _resolveToolCard(msg) {

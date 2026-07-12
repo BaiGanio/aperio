@@ -84,13 +84,44 @@ window.connect = connect;
 
 function setStatus(cls, text) {
   window.statusDot.className = "status-dot " + cls;
-  window.statusText.textContent = text;
+  // The chip has exactly three visual states; free-form activity text
+  // (downloads, tool labels) is tooltip-only so it can never blow up the
+  // navbar layout — the detailed live line lives in the chat area.
+  const chip = document.getElementById("modelChip");
+  if (chip) {
+    chip.dataset.state = cls === "thinking" ? "busy"
+                       : cls === "connected" ? "connected" : "disconnected";
+    if (text) chip.title = text;
+  }
+  // Before a model is known the label carries the free-form boot text
+  // ("connecting…", "loading…"); once the model name shows it becomes the
+  // written state word, so the state is readable rather than color-only.
+  window.statusText.textContent = chip?.classList.contains("has-model")
+    ? chipStateWord(chip.dataset.state)
+    : text;
   if (cls === "thinking") {
     startTitleAnimation();
   } else {
     stopTitleAnimation();
   }
 }
+
+// Localized word for the chip's three canonical states. Exposed as
+// window.syncChipStateLabel so streaming.js can refresh the label the moment
+// the provider event flips the chip to .has-model (setStatus may not run again
+// for a while), and i18n.js can re-render it after a language switch.
+function chipStateWord(state) {
+  return t(state === "busy" ? "status_busy"
+         : state === "connected" ? "status_connected"
+         : "status_disconnected");
+}
+window.syncChipStateLabel = () => {
+  const chip = document.getElementById("modelChip");
+  if (chip?.classList.contains("has-model")) {
+    window.statusText.textContent = chipStateWord(chip.dataset.state);
+  }
+};
+document.addEventListener("aperio:lang-changed", () => window.syncChipStateLabel());
 
 // Animated thinking title
 let titleAnimFrame = null;
@@ -127,6 +158,13 @@ const DEFAULT_BUSY_WORDS = [
   "Brewing", "Scheming", "Finagling", "Wrangling", "Spelunking",
   "Distilling", "Composing", "Deliberating", "Incubating", "Vibing",
   "Tinkering", "Calibrating", "Crunching", "Whirring", "Computing",
+  // Words that hint at what the model is actually doing in there — the
+  // inference pipeline (tokenize → attend → sample → decode) and the
+  // reasoning work around it.
+  "Tokenizing", "Embedding", "Attending", "Sampling", "Decoding",
+  "Inferring", "Reasoning", "Recalling", "Rereading", "Parsing",
+  "Indexing", "Sifting", "Digesting", "Weighing", "Connecting",
+  "Drafting", "Summarizing", "Cross-checking", "Backtracking", "Assembling",
 ];
 
 function busyWords() {
@@ -367,7 +405,10 @@ async function send() {
     addThinking();
     startLiveTimer();
     const roundtable = typeof window.isRoundtableRequested === "function" && window.isRoundtableRequested();
-    safeSend(JSON.stringify({ type: "chat", text, attachments, roundtable, interrupted: interrupting }));
+    // One-shot skill picks from the Skills panel ride along with this message
+    // only; consuming them clears the checkboxes.
+    const forcedSkills = typeof window.consumeOneShotSkills === "function" ? window.consumeOneShotSkills() : [];
+    safeSend(JSON.stringify({ type: "chat", text, attachments, roundtable, interrupted: interrupting, forcedSkills }));
   });
 }
 
@@ -409,7 +450,7 @@ window.wsSafeSend = (data) => safeSend(typeof data === "string" ? data : JSON.st
 window.sendBtn.onclick = send;
 window.stopBtn.onclick = () => {
   safeSend(JSON.stringify({ type: "stop" }));
-  stopLiveTimer();
+  settleTurnTimer();
   removeThinking();
   removeToolIndicator();
   document.getElementById("preparing-answer")?.remove();

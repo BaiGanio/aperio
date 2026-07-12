@@ -56,6 +56,7 @@
     "status_connected":         "已连接",
     "status_reconnected":       "已重新连接",
     "status_disconnected":      "已断开",
+    "status_busy":              "忙碌中",
     "status_thinking":          "思考中…",
     "status_typing":            "输入中…",
     "status_loading":           "加载中…",

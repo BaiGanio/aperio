@@ -64,6 +64,16 @@
 .sk-switch input:checked + .sk-switch-track::after { transform: translateX(14px); }
 .sk-switch-label { font-size: var(--fs-micro); color: var(--text-muted); }
 
+/* Per-row controls: the persistent always-on switch + the one-shot pick ----- */
+.sk-row-controls { display: flex; align-items: center; gap: 14px; margin-top: 8px; flex-wrap: wrap; }
+.sk-oneshot {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: var(--fs-micro); color: var(--text-muted);
+  cursor: pointer; user-select: none;
+}
+.sk-oneshot input { accent-color: var(--accent); margin: 0; cursor: pointer; }
+.sk-oneshot:has(input:checked) { color: var(--accent); }
+
 .sk-empty { padding: 24px 16px; color: var(--text-muted); font-size: var(--fs-micro); text-align: center; }
 
 /* Editor modal (reuses .fpm-overlay / .fpm-dialog shell from modals.css) ----- */
@@ -103,76 +113,3 @@
 .sk-btn--primary:hover { filter: brightness(1.05); }
 .sk-btn--ghost:hover { border-color: var(--text-muted); }
 .sk-edit-error { color: #c0392b; font-size: var(--fs-micro); margin-top: 8px; }
-
-/* ── Skill chips quick-access bar ─────────────────────────────────── */
-.skill-chips-bar {
-  display: flex; align-items: center; gap: 6px;
-  padding: 6px 16px;
-  background: var(--bg-panel);
-  border-top: 1px solid var(--border);
-  overflow: hidden;
-}
-.skill-chips-toggle {
-  display: flex; align-items: center; justify-content: center;
-  width: 28px; height: 28px; flex-shrink: 0;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  background: var(--bg); color: var(--text-muted);
-  font-size: var(--fs-chrome); cursor: pointer;
-  transition: color .15s, border-color .15s, background .15s;
-}
-.skill-chips-toggle:hover { color: var(--accent); border-color: var(--accent); }
-.skill-chips-toggle--active {
-  color: var(--accent); border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
-.skill-chips {
-  display: flex; gap: 6px;
-  overflow-x: auto; overflow-y: hidden;
-  scrollbar-width: none;   /* Firefox */
-  -ms-overflow-style: none; /* IE */
-  padding: 2px 0;
-}
-.skill-chips::-webkit-scrollbar { display: none; }
-
-.skill-chip {
-  display: inline-flex; align-items: center;
-  padding: 3px 10px;
-  font-size: var(--fs-micro); font-weight: 600;
-  color: var(--text-muted);
-  background: var(--tag-bg, var(--bg));
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  cursor: pointer; user-select: none;
-  white-space: nowrap; flex-shrink: 0;
-  transition: color .12s, border-color .12s, background .12s, transform .12s;
-}
-.skill-chip:hover {
-  color: var(--accent); border-color: var(--accent);
-  background: var(--accent-soft);
-  transform: translateY(-1px);
-}
-.skill-chip--flash {
-  color: #fff !important;
-  background: var(--accent) !important;
-  border-color: var(--accent) !important;
-  transform: scale(1.06);
-}
-
-/* ── Collapsed single row + "+N more" expand (issue C) ───────────── */
-.skill-chips-bar--expandable { align-items: flex-start; }
-.skill-chips-bar--expandable .skill-chips-toggle { margin-top: 2px; }
-.skill-chips--collapsible {
-  flex: 1; min-width: 0;
-  flex-wrap: nowrap; overflow: hidden;
-}
-.skill-chips--collapsible.expanded {
-  flex-wrap: wrap; overflow: visible;
-}
-.skill-chip--hidden { display: none; }
-.skill-chip--more {
-  color: var(--accent); border-color: var(--accent);
-  background: var(--accent-soft);
-  font-weight: 700;
-}
-.skill-chip--more:hover { transform: none; filter: brightness(1.08); }

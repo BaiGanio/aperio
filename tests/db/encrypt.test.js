@@ -24,14 +24,19 @@ let mockExecThrow = false;
 // ─── Cache-busting import helper ───────────────────────────────────────────
 const _cacheBust = () => `../../db/encrypt.js?t=${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
-// ─── Mock execSync ONCE ───────────────────────────────────────────────────
-// execSync is only used for platform keychain commands — no winston dependency.
+// ─── Mock execSync + execFileSync ONCE ────────────────────────────────────
+// Both are only used for platform keychain commands — no winston dependency.
+// The macOS path (macGetKey/macStoreKeyRaw) uses execFileSync; leaving it
+// unmocked made these tests hit the REAL login keychain on a Mac dev machine
+// (SecurityAgent password popups mid-test, stray "aperio" entries written).
 before(() => {
   const cp = require("node:child_process");
-  mock.method(cp, "execSync", () => {
+  const fake = () => {
     if (mockExecThrow) throw new Error(mockExecThrow);
     return mockExecResult;
-  });
+  };
+  mock.method(cp, "execSync", fake);
+  mock.method(cp, "execFileSync", fake);
 });
 
 afterEach(() => {

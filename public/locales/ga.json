@@ -56,6 +56,7 @@
   "status_connected":         "nasctha",
   "status_reconnected":       "athnasctha",
   "status_disconnected":      "dínasctha",
+  "status_busy":              "gnóthach",
   "status_thinking":          "ag smaoineamh…",
   "status_typing":            "ag clóscríobh…",
   "status_loading":           "ag luchtú…",

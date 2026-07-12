@@ -98,6 +98,24 @@ describe("Settings round-trip (mocked — no filesystem, no SQLite, no ports)", 
     assert.equal(res.body.value, "llama3.1");
   });
 
+  test("accepts every browser preference synchronized by settings.js", async () => {
+    const preferences = {
+      "aperio-theme": "aurora",
+      "aperio-font-scale": "1.2",
+      "aperio-tts": "false",
+      "aperio-voice-continuous": "false",
+      "aperio-reasoning": "true",
+      "aperio-busy-words": "true",
+      "aperio-ambient": "auto",
+    };
+
+    for (const [key, value] of Object.entries(preferences)) {
+      const res = await invoke(router, "PUT", `/settings/${key}`, { value });
+      assert.equal(res.status, 200, key);
+      assert.equal(res.body.value, value, key);
+    }
+  });
+
   // ── 2. PUT then GET /api/settings (list) ───────────────────────────
   test("listing settings includes a saved value", async () => {
     await invoke(router, "PUT", `/settings/${SK}`, { value: "qwen2.5:3b" });
