@@ -8,6 +8,7 @@
     "nav_setup": "Diegimas",
     "nav_lite": "Lite",
     "nav_guide": "Vadovas",
+    "nav_coverage": "Aprėptis",
     "hero_eyebrow": "Atviro kodo · Nuosavas serveris · Privatumas pirmiausia · Vietinis pagal nutylėjimą",
     "hero_h1": "Kiekvienam agentui. Viena atmintis.<br><span class=\"aurora-text\">Visa prisiminimų galia.</span>",
     "hero_lead": "Vietinis asmeninės atminties sluoksnis AI agentams — veikiantis su SQLite ar Postgres, įrenginyje generuojamais įterpimais ir MCP.<br>Veikia 100% vietiškai pagal nutylėjimą. Jokių API raktų. Jokios priklausomybės nuo debesijos. Jūsų duomenys niekada nepalieka jūsų įrenginio.<br><span>Esi programuotojas?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Išbandyk Aperio-dev</a><span style=\"font-size:.9em\"> — reikalingi pagrindiniai terminalo įgūdžiai.</span><br><span>Esi paprastas žmogus?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Išbandyk Aperio-lite</a><span style=\"font-size:.9em\"> — dukart spustelėk ir viskas veikia, nereikia techninių žinių.</span>",

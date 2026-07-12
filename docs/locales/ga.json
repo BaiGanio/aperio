@@ -8,6 +8,7 @@
     "nav_setup": "Socrú",
     "nav_lite": "Lite",
     "nav_guide": "Treoir",
+    "nav_coverage": "Clúdach",
     "hero_eyebrow": "Foinse Oscailte · Féin-Óstáilte · Príobháideacht ar dtús · Áitiúil de Réir Réamhshocraithe",
     "hero_h1": "Gach gníomhaire. Cuimhne amháin.<br><span class=\"aurora-text\">Cuimhne iomlán.</span>",
     "hero_lead": "Ciseal cuimhne pearsanta féin-óstáilte do ghníomhairí AI — tógtha ar SQLite nó Postgres, leabaí ar-ghléas agus MCP.<br>Ritheann 100% áitiúil de réir réamhshocraithe. Gan eochracha API. Gan spleáchas scamall. Ní fhágann do chuid sonraí do mheaisín riamh.<br><span>An bhfuil tú i do fhorbróir bogearraí?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Triail Aperio-dev</a><span style=\"font-size:.9em\"> — tá compord bunúsach teirminéil ag teastáil.</span><br><span>An bhfuil tú i do dhuine gnáth?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Triail Aperio-lite</a><span style=\"font-size:.9em\"> — cliceáil faoi dhó agus imigh, gan scileanna teicniúla ag teastáil.</span>",

@@ -8,6 +8,7 @@
     "nav_setup": "Installatie",
     "nav_lite": "Lite",
     "nav_guide": "Gids",
+    "nav_coverage": "Dekking",
     "hero_eyebrow": "Open Source · Zelf-gehost · Privacy eerst · Standaard lokaal",
     "hero_h1": "Elke agent. Eén geheugen.<br><span class=\"aurora-text\">Volledige recall.</span>",
     "hero_lead": "Een zelf-gehoste persoonlijke geheugenlaag voor AI-agenten — gebouwd op SQLite of Postgres, on-device embeddings en MCP.<br>Draait standaard 100% lokaal. Geen API-sleutels. Geen cloud-afhankelijkheid. Uw gegevens verlaten nooit uw machine.<br><span>Bent u een softwareontwikkelaar?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Probeer Aperio-dev</a><span style=\"font-size:.9em\"> — basisterminalkennis is vereist.</span><br><span>Bent u een gewoon mens?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Probeer Aperio-lite</a><span style=\"font-size:.9em\"> — dubbelklikken en gaan, geen technische kennis nodig.</span>",

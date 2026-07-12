@@ -8,6 +8,7 @@
     "nav_setup": "Setup",
     "nav_lite": "Lite",
     "nav_guide": "Gwida",
+    "nav_coverage": "Kopertura",
     "hero_eyebrow": "Open Source · Self-Hosted · Privatezza-Ewwel · Lokali b'Mod Default",
     "hero_h1": "Kull aġent. Memorja waħda.<br><span class=\"aurora-text\">Recall totali.</span>",
     "hero_lead": "Saff ta' memorja personali għall-aġenti tal-AI — mibni fuq SQLite jew Postgres, embeddings fuq it-tagħmir u MCP.<br>Jagħmel 100% lokali b'mod default. L-ebda API keys. L-ebda dipendenza fuq cloud. Id-data tiegħek qatt ma titlaq mill-magna tiegħek.<br><span>Int żviluppatur ta' software?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Ipprova Aperio-dev</a><span style=\"font-size:.9em\"> — għarfien bażiku tat-terminal huwa meħtieġ.</span><br><span>Int bniedem normali?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Ipprova Aperio-lite</a><span style=\"font-size:.9em\"> — ikklikkja darbtejn u mur, l-ebda ħiliet tekniċi meħtieġa.</span>",

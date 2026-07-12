@@ -8,6 +8,7 @@
     "nav_setup": "Configurare",
     "nav_lite": "Lite",
     "nav_guide": "Ghid",
+    "nav_coverage": "Acoperire",
     "hero_eyebrow": "Open Source · Auto-găzduit · Confidențialitate-pe-primul-loc · Local implicit",
     "hero_h1": "Fiecare agent. O singură memorie.<br><span class=\"aurora-text\">Memorie totală.</span>",
     "hero_lead": "Un strat de memorie personală auto-găzduit pentru agenții AI — construit pe SQLite sau Postgres, embeddings pe dispozitiv și MCP.<br>Rulează 100% local implicit. Fără chei API. Fără dependență de cloud. Datele tale nu părăsesc niciodată mașina ta.<br><span>Ești un dezvoltator software?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Încearcă Aperio-dev</a><span style=\"font-size:.9em\"> — cunoașterea de bază a terminalului este necesară.</span><br><span>Ești o persoană obișnuită?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Încearcă Aperio-lite</a><span style=\"font-size:.9em\"> — dublu-clic și pornești, fără cunoștințe tehnice.</span>",

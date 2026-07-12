@@ -15,10 +15,7 @@ if (!files.length) throw new Error(`No LCOV records found in ${input}`);
 const total = files.reduce((sum, file) => addCounts(sum, file), emptyCounts());
 const groups = new Map();
 for (const file of files) {
-  const group = file.path.startsWith("lib/") ? "lib/"
-    : file.path.startsWith("mcp/") ? "mcp/"
-      : file.path.startsWith("db/") ? "db/"
-        : "entrypoints";
+  const group = groupFor(file.path);
   if (!groups.has(group)) groups.set(group, emptyCounts());
   addCounts(groups.get(group), file);
 }
@@ -26,8 +23,22 @@ for (const file of files) {
 const data = {
   generatedAt: new Date().toISOString(),
   source: "coverage/lcov.info",
-  files: files.map((file) => ({ ...file, percent: coverage(file) })).sort((a, b) => a.percent - b.percent || a.path.localeCompare(b.path)),
-  groups: [...groups.entries()].map(([name, counts]) => ({ name, ...counts, percent: percent(counts.linesHit, counts.linesFound) })),
+  files: files.map((file) => ({
+    ...file,
+    group: groupFor(file.path),
+    percent: coverage(file),
+    branchesPercent: percent(file.branchesHit, file.branchesFound),
+    functionsPercent: percent(file.functionsHit, file.functionsFound),
+    uncoveredLines: file.linesFound - file.linesHit,
+  })).sort((a, b) => a.percent - b.percent || b.uncoveredLines - a.uncoveredLines || a.path.localeCompare(b.path)),
+  groups: [...groups.entries()].map(([name, counts]) => ({
+    name,
+    ...counts,
+    percent: percent(counts.linesHit, counts.linesFound),
+    branchesPercent: percent(counts.branchesHit, counts.branchesFound),
+    functionsPercent: percent(counts.functionsHit, counts.functionsFound),
+    uncoveredLines: counts.linesFound - counts.linesHit,
+  })),
   totals: {
     ...total,
     percent: percent(total.linesHit, total.linesFound),
@@ -72,6 +83,13 @@ function addCounts(target, source) {
 
 function coverage(file) {
   return percent(file.linesHit, file.linesFound);
+}
+
+function groupFor(filePath) {
+  return filePath.startsWith("lib/") ? "lib/"
+    : filePath.startsWith("mcp/") ? "mcp/"
+      : filePath.startsWith("db/") ? "db/"
+        : "entrypoints";
 }
 
 function percent(hit, found) {

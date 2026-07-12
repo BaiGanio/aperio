@@ -8,6 +8,7 @@
     "nav_setup": "Configurazione",
     "nav_lite": "Lite",
     "nav_guide": "Guida",
+    "nav_coverage": "Copertura",
     "hero_eyebrow": "Open Source · Self-Hosted · Privacy-First · Locale di Default",
     "hero_h1": "Ogni agente. Una memoria.<br><span class=\"aurora-text\">Ricordo totale.</span>",
     "hero_lead": "Un layer di memoria personale self-hosted per agenti AI — basato su SQLite o Postgres, embedding on-device e MCP.<br>Funziona 100% in locale di default. Nessuna chiave API. Nessuna dipendenza dal cloud. I tuoi dati non lasciano mai la tua macchina.<br><span>Sei uno sviluppatore?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Prova Aperio-dev</a><span style=\"font-size:.9em\"> — è richiesta dimestichezza base con il terminale.</span><br><span>Sei una persona normale?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Prova Aperio-lite</a><span style=\"font-size:.9em\"> — doppio click e via, nessuna competenza tecnica necessaria.</span>",
