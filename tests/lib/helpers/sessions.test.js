@@ -685,11 +685,94 @@ describe("finaliseSession()", () => {
     assert.ok(!memFS.has(logPath), "log file should be deleted");
   });
 
-  test("copies server log to session file at finalisation", () => {
-    const serverLog = "this session's log output\n";
+  test("keeps a summarized session even when its messages[] was compressed below the trivial threshold", () => {
+    // Regression: auto-summarize (routine on small local-model context windows)
+    // wipes messages[] down to a summary + anchor turns, then finalisation on
+    // socket close saw "< 7 messages" and deleted the whole conversation. A
+    // session with saved summaries must survive.
+    seedSession({
+      id: "summarized",
+      title: null,
+      summaries: [{ generatedAt: "2026-07-12T00:00:00.000Z", messageCount: 24, content: "- Deep dive on the tee design" }],
+      messages: [],
+    });
+
+    // The compressed post-summary array the ws handler holds at close time.
+    const compressed = [
+      { role: "system", content: "internal greeting" },
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "[Conversation summary]\nWe covered the tee design." },
+    ];
+
+    sessions.finaliseSession("summarized", compressed);
+
+    const p = join(mockCwd, "var/sessions/summarized.json");
+    assert.ok(memFS.has(p), "a summarized session must not be discarded as trivial");
+    const saved = JSON.parse(memFS.get(p));
+    assert.ok(saved.endedAt, "it was finalised (endedAt stamped), not deleted");
+  });
+
+  test("onShutdown keeps a short, non-summarized session the user was mid-way through (Ctrl+C interrupt)", () => {
+    // Regression: hitting Ctrl+C on the server terminates the active socket,
+    // which fired finaliseSession → "< 7 messages = trivial" → the live session
+    // was deleted out from under the user. Interruption is not a trivial end.
+    seedSession({ id: "interrupted", title: null, summaries: [], messages: [] });
+
+    const shortButReal = [
+      { role: "system", content: "internal greeting" },
+      { role: "user", content: "Why is my ctx-size being clamped to 2048?" },
+      { role: "assistant", content: "Because the GGUF reports a hybrid KV cache…" },
+    ];
+
+    sessions.finaliseSession("interrupted", shortButReal, null, false, { onShutdown: true });
+
+    const p = join(mockCwd, "var/sessions/interrupted.json");
+    assert.ok(memFS.has(p), "an interrupted, engaged session must survive shutdown");
+  });
+
+  test("the same short session is still discarded on a normal close (no onShutdown)", () => {
+    // The triviality discard must still fire on ordinary tab-close, so this is
+    // the control for the onShutdown case above.
+    seedSession({ id: "normal-close", title: null, summaries: [], messages: [] });
+
+    const shortButReal = [
+      { role: "system", content: "internal greeting" },
+      { role: "user", content: "Why is my ctx-size being clamped to 2048?" },
+      { role: "assistant", content: "Because the GGUF reports a hybrid KV cache…" },
+    ];
+
+    sessions.finaliseSession("normal-close", shortButReal);
+
+    const p = join(mockCwd, "var/sessions/normal-close.json");
+    assert.ok(!memFS.has(p), "a short chat closed normally is still discarded as trivial");
+  });
+
+  test("onShutdown does NOT resurrect a phantom session with no user turn", () => {
+    // A browser that connected but never sent a message shouldn't leave a
+    // persisted empty session behind just because the server was stopped.
+    seedSession({ id: "phantom", title: null, summaries: [], messages: [] });
+
+    const greetingOnly = [
+      { role: "system", content: "internal greeting" },
+      { role: "assistant", content: "Hi! How can I help?" },
+    ];
+
+    sessions.finaliseSession("phantom", greetingOnly, null, false, { onShutdown: true });
+
+    const p = join(mockCwd, "var/sessions/phantom.json");
+    assert.ok(!memFS.has(p), "an unengaged session is dropped even on shutdown");
+  });
+
+  test("keeps the session's live llama-server log at finalisation (never deletes it)", () => {
+    // The per-session log is written live by the tee during the session; a
+    // meaningful session's finalisation must leave it in place for the pruner,
+    // not delete it. (The tee's write mechanics are covered in
+    // startLlamaCpp.test.js — here we only guard that finaliseSession doesn't
+    // remove the file.)
     const llamaDir = join(mockCwd, "var/llamacpp");
-    memFS.set(llamaDir, new Set(["server.log"]));
-    memFS.set(join(llamaDir, "server.log"), serverLog);
+    const sessionLog = join(llamaDir, "llama-fs.log");
+    memFS.set(llamaDir, new Set(["llama-fs.log"]));
+    memFS.set(sessionLog, "captured server output\n");
 
     seedSession({ id: "llama-fs", title: null, summaries: [], messages: [] });
 
@@ -707,9 +790,7 @@ describe("finaliseSession()", () => {
 
     sessions.finaliseSession("llama-fs", messages);
 
-    const savedLogPath = join(llamaDir, "llama-fs.log");
-    assert.ok(memFS.has(savedLogPath), "server log should be copied to session file");
-    assert.equal(memFS.get(savedLogPath), serverLog, "copied log should match original");
+    assert.ok(memFS.has(sessionLog), "the live session log is kept, not deleted, at finalisation");
   });
 
   test("handles missing server log gracefully at finalisation", () => {
@@ -732,11 +813,18 @@ describe("finaliseSession()", () => {
     // should not throw
   });
 
-  test("does not copy server log for discarded trivial sessions", () => {
-    const serverLog = "SOME LOG\n";
+  test("discards a trivial session's transcript + winston log but KEEPS its llama-server debug log", () => {
+    // A "trivial" chat (hello/goodbye) can still be the one that reproduced a
+    // server bug. Its debug log is time-pruned (24h) independently of the
+    // transcript, so finalisation keeps it even as it discards everything else.
     const llamaDir = join(mockCwd, "var/llamacpp");
-    memFS.set(llamaDir, new Set(["server.log"]));
-    memFS.set(join(llamaDir, "server.log"), serverLog);
+    const sessionLog = join(llamaDir, "trivial-llama.log");
+    memFS.set(llamaDir, new Set(["trivial-llama.log"]));
+    memFS.set(sessionLog, "server output from a trivial chat\n");
+    // The winston per-session error log has no such value — it goes with the
+    // discarded transcript.
+    const winstonLog = join(mockCwd, "var/logs/trivial-llama.log");
+    memFS.set(winstonLog, "some error\n");
 
     seedSession({ id: "trivial-llama" });
 
@@ -753,9 +841,9 @@ describe("finaliseSession()", () => {
     sessions.finaliseSession("trivial-llama", messages);
 
     const p = join(mockCwd, "var/sessions/trivial-llama.json");
-    assert.ok(!memFS.has(p), "trivial session should be discarded");
-    assert.ok(!memFS.has(join(llamaDir, "trivial-llama.log")),
-      "no server log copy for discarded session");
+    assert.ok(!memFS.has(p), "trivial transcript is discarded");
+    assert.ok(!memFS.has(winstonLog), "winston error log is removed with the discarded session");
+    assert.ok(memFS.has(sessionLog), "llama-server debug log is KEPT (time-pruned, not tied to the transcript)");
   });
 });
 

@@ -1,8 +1,13 @@
-import { test, describe } from "node:test";
+import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import os from "os";
 import { makeWsHandler } from "../../../../lib/emitters/handlers/wsHandler.js";
 import logger from "../../../../lib/helpers/logger.js";
+
+// Suppress llama-server session log creation during tests. beginSessionLog()
+// guards against this env var so tests never write {uuid}.log files to the
+// real var/llamacpp/ directory regardless of module ordering or caching.
+process.env.APERIO_NO_LLAMA_LOG = "1";
 
 const TEST_DIR = os.tmpdir();
 

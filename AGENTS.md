@@ -1,5 +1,3 @@
-# CLAUDE.md
-
 ## Project: Aperio
 
 **One brain. Every agent. Nothing forgotten.**

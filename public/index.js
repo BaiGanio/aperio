@@ -204,7 +204,7 @@ function updateContextBar(used, max, outputTok = 0, trackCost = true) {
   const roundedPct = Math.round(pct);
   const capPct = window.maxCtxCapacityPct;
   const showCap = typeof capPct === "number" && capPct > 0;
-  text.textContent = `${display.toLocaleString()} / ${max.toLocaleString()}${showCap ? ` (${capPct}%)` : ""}`;
+  text.textContent = `${display.toLocaleString()} / ${max.toLocaleString()}${showCap ? ` (${capPct}% RAM)` : ""}`;
   text.title = showCap ? t("ctx_capacity_tip", { pct: capPct }) : "";
   fill.style.width = `${pct}%`;
 

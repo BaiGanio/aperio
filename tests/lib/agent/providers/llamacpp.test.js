@@ -220,13 +220,15 @@ describe("runLlamaCppLoop — successful response", () => {
   });
 
   test("returns model response text from SSE stream", async () => {
+    let requestedModel;
     // Set up fetch mock
-    mock.method(globalThis, "fetch", async (url) => {
+    mock.method(globalThis, "fetch", async (url, opts) => {
       const tag = String(url);
       if (tag.includes("/health")) {
         return { ok: true, status: 200, text: async () => "" };
       }
       if (tag.includes("/chat/completions")) {
+        requestedModel = JSON.parse(opts.body).model;
         return {
           ok: true, status: 200,
           body: sseStream([
@@ -250,9 +252,11 @@ describe("runLlamaCppLoop — successful response", () => {
     const messages = [{ role: "user", content: "Hello" }];
     const emitter = { send: makeEmittersend() };
     const ctx = baseCtx("ggml-org/Qwen2.5-VL-7B-Instruct-GGUF");
+    ctx.provider.requestModel = "aperio-main";
 
     const result = await runLlamaCppLoop(messages, emitter, {}, undefined, () => {}, ctx);
     assert.equal(result, "Hello world");
+    assert.equal(requestedModel, "aperio-main");
 
     // Phase 5: llama-server's real timings ride along on the usage object
     // (not just a debug log line) and survive on ctx.state past this turn.
@@ -280,6 +284,33 @@ describe("runLlamaCppLoop — successful response", () => {
 
     const result = await runLlamaCppLoop(messages, emitter, {}, undefined, () => {}, ctx);
     assert.ok(result.includes("Invalid model"));
+  });
+
+  test("retries the real model id when an older router does not know aperio-main", async () => {
+    const requested = [];
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      if (String(url).includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (String(url).endsWith("/models")) return { ok: true, json: async () => ({ data: [{ id: "unsloth/Qwen3.5-9B-GGUF:Q4_K_M", meta: { n_ctx: 16384 } }] }) };
+      const model = JSON.parse(opts.body).model;
+      requested.push(model);
+      if (model === "aperio-main") return {
+        ok: false, status: 400,
+        text: async () => JSON.stringify({ error: { message: "model 'aperio-main' not found" } }),
+      };
+      return {
+        ok: true, status: 200,
+        body: sseStream([
+          'data: {"choices":[{"delta":{"content":"fallback works"}}]}\n\n',
+          'data: [DONE]\n\n',
+        ]),
+      };
+    });
+    const ctx = baseCtx("unsloth/Qwen3.5-9B-GGUF:Q4_K_M");
+    ctx.provider.requestModel = "aperio-main";
+    const result = await runLlamaCppLoop([{ role: "user", content: "Hello" }], { send: makeEmittersend() }, {}, undefined, () => {}, ctx);
+    assert.equal(result, "fallback works");
+    assert.deepEqual(requested, ["aperio-main", "unsloth/Qwen3.5-9B-GGUF:Q4_K_M"]);
+    assert.equal(ctx.provider.contextWindow, 15073);
   });
 
   test("returns the VLM answer directly for a standalone image request", async () => {

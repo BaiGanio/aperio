@@ -59,6 +59,32 @@ describe("createWatchdog — quit", () => {
     assert.equal(exitCalled,        true,  "_exit should be called");
   });
 
+  test("latches shutdown state BEFORE terminating ws clients (so finaliseSession keeps interrupted sessions)", async () => {
+    // Regression: idle/Quit teardown terminated ws clients — firing their close
+    // handlers, which delete "trivial" sessions — while isShuttingDown was still
+    // false, because the flag was only set later via _exit → SIGTERM. The mark
+    // must happen first, so the close handler sees a shutdown and keeps the work.
+    let shuttingDown = false;
+    const flagAtTerminate = [];
+    const wss = {
+      // A ws close handler reads the latch synchronously when terminate() runs.
+      clients: new Set([{ terminate: () => flagAtTerminate.push(shuttingDown) }]),
+      close: (cb) => cb(),
+    };
+
+    const { quit } = createWatchdog({
+      enabled: false,
+      httpServer: makeMockHttpServer(),
+      wss,
+      _exit: () => {},
+      _markShuttingDown: () => { shuttingDown = true; },
+    });
+
+    await quit();
+
+    assert.deepEqual(flagAtTerminate, [true], "shutdown was latched before the client was terminated");
+  });
+
   test("heartbeat never arms the idle timer when disabled", async (t) => {
     t.mock.timers.enable({ apis: ["setTimeout"] });
 

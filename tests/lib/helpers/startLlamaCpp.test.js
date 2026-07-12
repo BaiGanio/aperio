@@ -1,14 +1,20 @@
 // tests/lib/helpers/startLlamaCpp.test.js
-import { describe, test, afterEach } from "node:test";
+import { describe, test, afterEach, before, after } from "node:test";
 import { createHash } from "crypto";
-import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync } from "fs";
+import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync, appendFileSync, utimesSync } from "fs";
 import assert from "node:assert/strict";
 import {
   buildModelsPreset,
   ensureLlamaCpp,
+  presetModelIds,
   getLlamaCppPid,
   killByPid,
   stopLlamaCpp,
+  beginSessionLog,
+  endSessionLog,
+  pumpServerLogTee,
+  deleteServerLog,
+  pruneServerLogs,
 } from "../../../lib/helpers/startLlamaCpp.js";
 import { recommendContextLength } from "../../../lib/providers/index.js";
 
@@ -20,6 +26,14 @@ import { recommendContextLength } from "../../../lib/providers/index.js";
 function fakeSpawn(pid = 99999) {
   return () => ({ on: () => {}, unref: () => {}, pid });
 }
+
+test("preset ownership includes aliases and underlying hf repos", () => {
+  const ids = presetModelIds(buildModelsPreset({}, {}));
+  assert.ok(ids.has("aperio-main"));
+  assert.ok(ids.has("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"));
+  assert.ok(ids.has("aperio-vlm"));
+  assert.ok(ids.has("ggml-org/Qwen2.5-VL-7B-Instruct-GGUF"));
+});
 
 // A fake kill that returns the given value (true = killed, false = failed).
 function fakeKill(result) {
@@ -62,25 +76,25 @@ describe("buildModelsPreset", () => {
 
   test("emits a [*] global section with jinja enabled", () => {
     const ini = buildModelsPreset({}, {});
-    assert.match(ini, /^\[\*\]\njinja = true/);
+    assert.match(ini, /^\[\*\]\njinja = true\nparallel = 1/);
   });
 
   test("defaults to the curated main + VLM models", () => {
     const ini = buildModelsPreset({}, {});
-    assert.match(ini, /\[Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M\]/);
+    assert.match(ini, /\[aperio-main\]/);
     assert.match(ini, /hf-repo = Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M/);
-    assert.match(ini, /\[ggml-org\/Qwen2\.5-VL-7B-Instruct-GGUF\]/);
+    assert.match(ini, /\[aperio-vlm\]/);
     assert.match(ini, /hf-repo = ggml-org\/Qwen2\.5-VL-7B-Instruct-GGUF/);
   });
 
-  test("LLAMACPP_MODEL / LLAMACPP_VLM_MODEL override the section + hf-repo names", () => {
+  test("LLAMACPP_MODEL / LLAMACPP_VLM_MODEL keep stable aliases and override hf-repo names", () => {
     const ini = buildModelsPreset({
       LLAMACPP_MODEL: "my-org/my-model-GGUF:Q8_0",
       LLAMACPP_VLM_MODEL: "my-org/my-vlm-GGUF",
     }, {});
-    assert.match(ini, /\[my-org\/my-model-GGUF:Q8_0\]/);
+    assert.match(ini, /\[aperio-main\]/);
     assert.match(ini, /hf-repo = my-org\/my-model-GGUF:Q8_0/);
-    assert.match(ini, /\[my-org\/my-vlm-GGUF\]/);
+    assert.match(ini, /\[aperio-vlm\]/);
     assert.match(ini, /hf-repo = my-org\/my-vlm-GGUF/);
   });
 
@@ -93,8 +107,8 @@ describe("buildModelsPreset", () => {
     const ini = buildModelsPreset({ LLAMACPP_VLM_MMPROJ: "mmproj-file.gguf" }, {});
     const mmprojMatches = ini.match(/mmproj = mmproj-file\.gguf/g);
     assert.equal(mmprojMatches?.length, 1, "mmproj should appear exactly once");
-    const vlmHeaderIdx = ini.indexOf("[ggml-org/Qwen2.5-VL-7B-Instruct-GGUF]");
-    const mainHeaderIdx = ini.indexOf("[Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M]");
+    const vlmHeaderIdx = ini.indexOf("[aperio-vlm]");
+    const mainHeaderIdx = ini.indexOf("[aperio-main]");
     const mmprojIdx = ini.indexOf("mmproj = mmproj-file.gguf");
     assert.ok(mmprojIdx > vlmHeaderIdx && vlmHeaderIdx > mainHeaderIdx, "mmproj line should fall within the VLM section, after the main section");
   });
@@ -116,6 +130,36 @@ describe("buildModelsPreset", () => {
     const ctxLines = ini.match(/ctx-size = (\d+)/g).map(l => parseInt(l.split(" = ")[1], 10));
     for (const ctx of ctxLines) assert.ok(ctx <= 4096, `expected a small window on a 4GB machine, got ${ctx}`);
   });
+
+  test("uses curated hybrid facts conservatively when no inspectable cache is supplied", () => {
+    const q35 = buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.5-9B-GGUF:Q4_K_M" }, { totalRamGB: 32 });
+    const q36 = buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:Q4_K_XL" }, { totalRamGB: 32 });
+    assert.match(q35, /\[aperio-main\][\s\S]*?ctx-size = 131072/);
+    assert.match(q36, /\[aperio-main\][\s\S]*?ctx-size = 2048/);
+  });
+
+  test("VLM alias caps at 24576 even on a huge machine that would otherwise RAM-fit it much larger", () => {
+    // A custom VLM model with no curated entry falls to GENERIC_MODEL_FACTS
+    // (maxContext 131072) — without the bridge ceiling, 512GB of RAM would
+    // fit it right up near that, reproducing the two-large-models-resident
+    // Metal OOM this test guards against.
+    const ini = buildModelsPreset({ LLAMACPP_VLM_MODEL: "my-org/custom-vlm-GGUF" }, { totalRamGB: 512 });
+    const vlmSection = ini.slice(ini.indexOf("[aperio-vlm]"));
+    assert.match(vlmSection, /ctx-size = 24576/);
+  });
+
+  test("VLM alias still sizes down below the bridge ceiling on a genuinely tight machine", () => {
+    const ini = buildModelsPreset({}, { totalRamGB: 4 });
+    const vlmSection = ini.slice(ini.indexOf("[aperio-vlm]"));
+    const ctx = parseInt(vlmSection.match(/ctx-size = (\d+)/)[1], 10);
+    assert.ok(ctx < 24576, `expected the VLM window to shrink below the bridge ceiling on 4GB RAM, got ${ctx}`);
+  });
+
+  test("main-model role is unaffected by the VLM bridge ceiling: pointing LLAMACPP_MODEL at the VLM's own hf id gets the full RAM-fit window", () => {
+    const ini = buildModelsPreset({ LLAMACPP_MODEL: "my-org/custom-vlm-GGUF" }, { totalRamGB: 512 });
+    const mainSection = ini.slice(ini.indexOf("[aperio-main]"), ini.indexOf("[aperio-vlm]"));
+    assert.doesNotMatch(mainSection, /ctx-size = 24576/);
+  });
 });
 
 // =============================================================================
@@ -126,12 +170,12 @@ describe("buildModelsPreset — perf profiles", () => {
   test("balanced (default, no env var set): identical to pre-Phase-4 output", () => {
     const ini = buildModelsPreset({}, { totalRamGB: 64 });
     assert.doesNotMatch(ini, /models-max|flash-attn|cache-type|n-cpu-moe/);
-    assert.match(ini, /\[Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M\]/, "balanced keeps the fixed curated default model");
+    assert.match(ini, /hf-repo = Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M/, "balanced keeps the fixed curated default model");
   });
 
   test("fast-low-vram: emits models-max=1 and flash-attn in the global section", () => {
     const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 64 });
-    assert.match(ini, /^\[\*\]\njinja = true\nmodels-max = 1\nflash-attn = true\n/);
+    assert.match(ini, /^\[\*\]\njinja = true\nparallel = 1\nmodels-max = 1\nflash-attn = true\n/);
   });
 
   test("fast-low-vram: emits quantized KV cache flags on every model section", () => {
@@ -144,7 +188,7 @@ describe("buildModelsPreset — perf profiles", () => {
 
   test("fast-low-vram: prefers the MoE model by default at 24GB RAM (below balanced's 48GB rung) and emits n-cpu-moe on it", () => {
     const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 24 });
-    assert.match(ini, /\[Qwen\/Qwen3-30B-A3B-GGUF:Q4_K_M\]/);
+    assert.match(ini, /hf-repo = Qwen\/Qwen3-30B-A3B-GGUF:Q4_K_M/);
     assert.match(ini, /n-cpu-moe = 999/);
     // Only one n-cpu-moe line: the VLM model (dense) must not get it.
     assert.equal(ini.match(/n-cpu-moe/g)?.length, 1);
@@ -155,7 +199,7 @@ describe("buildModelsPreset — perf profiles", () => {
       { APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: "my-org/pinned-GGUF" },
       { totalRamGB: 24 },
     );
-    assert.match(ini, /\[my-org\/pinned-GGUF\]/);
+    assert.match(ini, /hf-repo = my-org\/pinned-GGUF/);
     assert.doesNotMatch(ini, /Qwen3-30B-A3B/);
   });
 
@@ -184,7 +228,7 @@ describe("buildModelsPreset — perf profiles", () => {
 
   test("long-context: model pick is unchanged from balanced (only ctx sizing differs)", () => {
     const long = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context" }, { totalRamGB: 24 });
-    assert.match(long, /\[Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M\]/, "long-context keeps the fixed curated default model, same as balanced");
+    assert.match(long, /hf-repo = Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M/, "long-context keeps the fixed curated default model, same as balanced");
   });
 
   test("quality: picks a bigger default model where the plain fixed default (used unchanged by balanced) would not", () => {
@@ -194,13 +238,13 @@ describe("buildModelsPreset — perf profiles", () => {
     // the profile that reaches into that ladder itself, so it diverges from
     // the fixed default at a RAM tier where the ladder recommends something bigger.
     const quality = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality" }, { totalRamGB: 16 });
-    assert.match(quality, /\[ggml-org\/gemma-4-12B-it-GGUF:Q4_K_M\]/);
+    assert.match(quality, /hf-repo = ggml-org\/gemma-4-12B-it-GGUF:Q4_K_M/);
     assert.doesNotMatch(quality, /models-max|flash-attn|cache-type|n-cpu-moe/, "quality has no fast-low-vram-style flags");
   });
 
   test("quality: an explicit LLAMACPP_MODEL still wins over the bigger-model default", () => {
     const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality", LLAMACPP_MODEL: "my-org/pinned-GGUF" }, { totalRamGB: 16 });
-    assert.match(ini, /\[my-org\/pinned-GGUF\]/);
+    assert.match(ini, /hf-repo = my-org\/pinned-GGUF/);
   });
 
   test("an unrecognized profile value falls back to balanced behavior", () => {
@@ -530,5 +574,150 @@ describe("stopLlamaCpp — owner + preset guard", () => {
     const stopped = await stopLlamaCpp(async () => { called = true; return true; });
     assert.equal(stopped, false);
     assert.equal(called, false, "an attached (not-spawned) server is left running");
+  });
+});
+
+// =============================================================================
+describe("session-scoped server log tee", () => {
+  const DIR = "./var/llamacpp";
+  const SERVER_LOG = `${DIR}/server.log`;
+  // v4-shaped ids that can never collide with a real randomUUID session log
+  const ID_OLD   = "00000000-0000-4000-8000-000000000001";
+  const ID_FRESH = "00000000-0000-4000-8000-000000000002";
+
+  // These tests exercise the real var/llamacpp dir (same pattern as the rest of
+  // this file) — preserve and restore the developer's live server.log.
+  let originalServerLog = null;
+  before(() => {
+    mkdirSync(DIR, { recursive: true });
+    try { originalServerLog = readFileSync(SERVER_LOG); } catch { originalServerLog = null; }
+  });
+  after(() => {
+    if (originalServerLog !== null) writeFileSync(SERVER_LOG, originalServerLog);
+    else { try { unlinkSync(SERVER_LOG); } catch { /* never existed */ } }
+  });
+  afterEach(() => {
+    // Unenroll any session the test left active, so its timer/state doesn't
+    // bleed into the next test, then remove its file.
+    for (const id of [ID_OLD, ID_FRESH]) {
+      endSessionLog(id);
+      try { unlinkSync(`${DIR}/${id}.log`); } catch { /* not created */ }
+    }
+  });
+
+  test("beginSessionLog creates the session log immediately (visible from session start)", () => {
+    writeFileSync(SERVER_LOG, "");
+    beginSessionLog(ID_OLD);
+    assert.ok(existsSync(`${DIR}/${ID_OLD}.log`), "log file exists as soon as the session starts");
+    assert.equal(readFileSync(`${DIR}/${ID_OLD}.log`, "utf8"), "", "starts empty");
+  });
+
+  test("the tee appends server output written during the session, not before it", () => {
+    writeFileSync(SERVER_LOG, "boot output before any session\n");
+    beginSessionLog(ID_OLD); // catches teePos up past the boot output
+
+    appendFileSync(SERVER_LOG, "during-session line 1\n");
+    pumpServerLogTee();
+    appendFileSync(SERVER_LOG, "during-session line 2\n");
+    pumpServerLogTee();
+
+    assert.equal(
+      readFileSync(`${DIR}/${ID_OLD}.log`, "utf8"),
+      "during-session line 1\nduring-session line 2\n",
+      "session log holds only what llama-server logged during the session",
+    );
+  });
+
+  test("concurrent sessions each capture output from their own start point", () => {
+    writeFileSync(SERVER_LOG, "");
+    beginSessionLog(ID_OLD);
+    appendFileSync(SERVER_LOG, "seen only by OLD\n");
+    pumpServerLogTee();
+
+    beginSessionLog(ID_FRESH); // starts after the first line
+    appendFileSync(SERVER_LOG, "seen by both\n");
+    pumpServerLogTee();
+
+    assert.equal(readFileSync(`${DIR}/${ID_OLD}.log`, "utf8"), "seen only by OLD\nseen by both\n");
+    assert.equal(readFileSync(`${DIR}/${ID_FRESH}.log`, "utf8"), "seen by both\n");
+  });
+
+  test("a server restart mid-session (server.log truncated) keeps the captured log and appends the new boot output", () => {
+    writeFileSync(SERVER_LOG, "old server line\n");
+    beginSessionLog(ID_OLD);
+    appendFileSync(SERVER_LOG, "old server work\n");
+    pumpServerLogTee();
+
+    // Server restarts: spawn reopens server.log with "w" → truncated + shorter.
+    writeFileSync(SERVER_LOG, "new server boot\n");
+    pumpServerLogTee();
+
+    assert.equal(
+      readFileSync(`${DIR}/${ID_OLD}.log`, "utf8"),
+      "old server work\nnew server boot\n",
+      "already-captured output survives the truncation; new output is appended",
+    );
+  });
+
+  test("the tee strips NUL bytes so a holed server.log never yields a binary session log", () => {
+    // Reproduces the real corruption: server.log with a zero-fill hole (a
+    // truncation left under a stale child fd) must not turn the session log
+    // binary. The tee drops the NULs; only the readable text survives.
+    writeFileSync(SERVER_LOG, "");
+    beginSessionLog(ID_OLD);
+    const holed = Buffer.concat([Buffer.alloc(2048, 0), Buffer.from("Compute error.\n")]);
+    appendFileSync(SERVER_LOG, holed);
+    pumpServerLogTee();
+
+    const out = readFileSync(`${DIR}/${ID_OLD}.log`);
+    assert.equal(out.includes(0), false, "no NUL bytes reach the session log");
+    assert.equal(out.toString("utf8"), "Compute error.\n");
+  });
+
+  test("endSessionLog removes an empty session log and reports false", () => {
+    writeFileSync(SERVER_LOG, "unrelated\n");
+    beginSessionLog(ID_OLD);        // cloud-provider session: nothing gets teed
+    const kept = endSessionLog(ID_OLD);
+    assert.equal(kept, false, "reports no log was kept");
+    assert.equal(existsSync(`${DIR}/${ID_OLD}.log`), false);
+  });
+
+  test("endSessionLog keeps a non-empty session log and reports true", () => {
+    writeFileSync(SERVER_LOG, "");
+    beginSessionLog(ID_OLD);
+    appendFileSync(SERVER_LOG, "a diagnostic line\n");
+    const kept = endSessionLog(ID_OLD);          // drains before closing
+    assert.equal(kept, true, "reports a non-empty log was kept — pairs session-keeping with real server work");
+    assert.ok(existsSync(`${DIR}/${ID_OLD}.log`), "kept for the 24h retention window");
+    assert.equal(readFileSync(`${DIR}/${ID_OLD}.log`, "utf8"), "a diagnostic line\n");
+  });
+
+  test("deleteServerLog removes the session log and tolerates a missing one", () => {
+    writeFileSync(`${DIR}/${ID_OLD}.log`, "x");
+    deleteServerLog(ID_OLD);
+    assert.equal(existsSync(`${DIR}/${ID_OLD}.log`), false);
+    deleteServerLog(ID_OLD); // second call must not throw
+  });
+
+  test("pruneServerLogs removes only expired uuid logs, never the server's own files", () => {
+    writeFileSync(SERVER_LOG, "live server log\n");
+    writeFileSync(`${DIR}/${ID_OLD}.log`, "expired");
+    writeFileSync(`${DIR}/${ID_FRESH}.log`, "fresh");
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
+    utimesSync(`${DIR}/${ID_OLD}.log`, twoDaysAgo, twoDaysAgo);
+
+    const removed = pruneServerLogs(1);
+
+    assert.equal(removed, 1);
+    assert.equal(existsSync(`${DIR}/${ID_OLD}.log`), false, "expired session log is pruned");
+    assert.equal(existsSync(`${DIR}/${ID_FRESH}.log`), true, "fresh session log survives");
+    assert.equal(existsSync(SERVER_LOG), true, "server.log is never pruned");
+  });
+
+  test("pruneServerLogs clamps retention below one day to the 1-day floor", () => {
+    writeFileSync(`${DIR}/${ID_FRESH}.log`, "written just now");
+    const removed = pruneServerLogs(0); // 0 would otherwise expire everything instantly
+    assert.equal(removed, 0);
+    assert.equal(existsSync(`${DIR}/${ID_FRESH}.log`), true);
   });
 });
