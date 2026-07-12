@@ -84,6 +84,7 @@
 
     const meta = window.Aperio.LOCALE_META;
     const t = window.t;
+    let selectedLang = window.Aperio.getCurrentLang();
 
     // country → available langs (inverted LANG_COUNTRIES)
     const COUNTRY_LANGS = {};
@@ -128,8 +129,15 @@
     btnW .addEventListener("click", () => { setActiveView(btnW);  animateVB(WORLD_VB); });
 
     let drag = null;
+    let clickTarget = null;
     svg.addEventListener("pointerdown", (e) => {
-      drag = { x: e.clientX, y: e.clientY, vb: { ...vb }, moved: false };
+      clickTarget = e.target.closest(".lm-country, .lm-chip");
+      drag = {
+        x: e.clientX,
+        y: e.clientY,
+        vb: { ...vb },
+        moved: false,
+      };
       svg.setPointerCapture(e.pointerId);
     });
     svg.addEventListener("pointermove", (e) => {
@@ -231,7 +239,9 @@
     const availLabel = (lang) => `${meta[lang].flag} ${meta[lang].name}`;
 
     svg.addEventListener("pointermove", (e) => {
-      const el = e.target.closest(".lm-country, .lm-chip");
+      // Pointer capture may retarget the synthetic click to the root SVG
+      // (notably in Safari), so retain the country from pointerdown.
+      const el = e.target.closest(".lm-country, .lm-chip") || drag?.target;
       if (!el || (drag && drag.moved)) { tip.style.display = "none"; return; }
       const a2 = el.dataset.a2;
       let html = `<div class="lm-tip-country"></div>`;
@@ -264,11 +274,15 @@
     svg.addEventListener("pointerleave", () => { tip.style.display = "none"; });
 
     svg.addEventListener("click", (e) => {
-      if (drag && drag.moved) return;
+      if (drag && drag.moved) { clickTarget = null; return; }
       chooser.style.display = "none";
-      const el = e.target.closest(".lm-country.available, .lm-chip");
+      // Pointer capture may retarget the click to the root SVG (notably in
+      // Safari), so retain the country from pointerdown until click consumes it.
+      const el = e.target.closest(".lm-country, .lm-chip") || clickTarget;
+      clickTarget = null;
       if (!el) return;
-      const langs = COUNTRY_LANGS[el.dataset.a2] || [];
+      const a2 = el.dataset.a2;
+      const langs = COUNTRY_LANGS[a2] || [];
       if (langs.length === 1) return selectLang(langs[0]);
       if (langs.length > 1) {
         chooser.innerHTML = "";
@@ -282,13 +296,17 @@
         chooser.style.display = "flex";
         chooser.style.left = Math.min(e.clientX, window.innerWidth - 170) + "px";
         chooser.style.top = (e.clientY + 6) + "px";
+        return;
       }
+      const plannedLang = PLANNED_BY_COUNTRY[a2];
+      if (plannedLang) revealListSelection(plannedLang);
     });
     document.addEventListener("click", (e) => {
       if (!chooser.contains(e.target) && !svg.contains(e.target)) chooser.style.display = "none";
     });
 
     function selectLang(lang) {
+      revealListSelection(lang);
       window.Aperio.setLang(lang);
       // Inform the agent so it switches language mid-session.
       if (typeof window.safeSend === "function") {
@@ -301,6 +319,16 @@
     }
 
     // ── Language list pane ────────────────────────────────────────────────
+    function revealListSelection(lang) {
+      selectedLang = lang;
+      if (search.value) search.value = "";
+      renderList();
+      requestAnimationFrame(() => {
+        const row = listEl.querySelector(`[data-lang="${lang}"]`);
+        if (row) row.scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
+
     function renderList() {
       const q = search.value.trim().toLowerCase();
       const active = window.Aperio.getCurrentLang();
@@ -318,7 +346,8 @@
         for (const lang of avail) {
           const b = document.createElement("button");
           b.type = "button";
-          b.className = "lm-row" + (lang === active ? " is-active" : "");
+          b.className = "lm-row" + (lang === active ? " is-active" : "") + (lang === selectedLang ? " is-selected" : "");
+          b.dataset.lang = lang;
           b.innerHTML = `<span></span><span></span><span class="lm-code"></span>`;
           const [flag, name, code] = b.children;
           flag.textContent = meta[lang].flag;
@@ -337,7 +366,8 @@
         for (const [lang, m] of soon) {
           const d = document.createElement("button");
           d.type = "button";
-          d.className = "lm-row soon";
+          d.className = "lm-row soon" + (lang === selectedLang ? " is-selected" : "");
+          d.dataset.lang = lang;
           d.disabled = true;
           d.innerHTML = `<span></span><span></span><span class="lm-code"></span>`;
           const [flag, name, code] = d.children;

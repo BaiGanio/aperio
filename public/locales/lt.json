@@ -56,6 +56,7 @@
   "status_connected":         "prisijungta",
   "status_reconnected":       "iš naujo prisijungta",
   "status_disconnected":      "atsijungta",
+  "status_busy":              "užimta",
   "status_thinking":          "mąstymas…",
   "status_typing":            "rašymas…",
   "status_loading":           "įkeliama…",

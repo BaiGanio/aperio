@@ -56,6 +56,7 @@
   "status_connected":         "connected",
   "status_reconnected":       "reconnected",
   "status_disconnected":      "disconnected",
+  "status_busy":              "busy",
   "status_thinking":          "thinking…",
   "status_typing":            "typing…",
   "status_loading":           "loading…",

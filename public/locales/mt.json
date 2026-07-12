@@ -56,6 +56,7 @@
   "status_connected":         "konness",
   "status_reconnected":       "rikonness",
   "status_disconnected":      "skonness",
+  "status_busy":              "okkupat",
   "status_thinking":          "ħsieb…",
   "status_typing":            "ttajpjar…",
   "status_loading":           "tagħbija…",

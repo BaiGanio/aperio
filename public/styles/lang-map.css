@@ -165,12 +165,14 @@
 }
 .lm-row:hover { background: var(--bg-hover); }
 .lm-row.is-active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.lm-row.is-selected { outline: 1px solid var(--accent); outline-offset: -1px; }
 .lm-row .lm-code {
   margin-left: auto; font-family: var(--font-mono); font-size: calc(10.5px * var(--font-scale));
   color: var(--text-muted); text-transform: uppercase; letter-spacing: .06em;
 }
 .lm-row.soon { opacity: .5; cursor: default; }
 .lm-row.soon:hover { background: none; }
+.lm-row.soon.is-selected { background: var(--accent-soft); color: var(--accent); opacity: .85; }
 .langmap-foot {
   padding: 10px 14px 12px; border-top: 1px solid var(--border);
   font-size: calc(11.5px * var(--font-scale)); color: var(--text-muted); line-height: 1.5;

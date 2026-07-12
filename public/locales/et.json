@@ -56,6 +56,7 @@
   "status_connected":         "ühendatud",
   "status_reconnected":       "taasühendatud",
   "status_disconnected":      "ühendus katkestatud",
+  "status_busy":              "hõivatud",
   "status_thinking":          "mõtlemine…",
   "status_typing":            "trükkimine…",
   "status_loading":           "laadimine…",

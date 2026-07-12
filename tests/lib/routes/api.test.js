@@ -356,25 +356,34 @@ describe("settings routes", () => {
     assert.deepStrictEqual(body, { key: "theme", value: null });
   });
 
+  // PUT is gated by the KNOWN_SETTING_KEYS allowlist (security finding #5), so
+  // these tests must use real setting keys, not hypothetical ones.
   test("PUT /settings/:key upserts and echoes the value", async () => {
     const router = settingsRouter();
-    const { status, body } = await invoke(router, "PUT", "/settings/theme", { body: { value: "aurora" } });
+    const { status, body } = await invoke(router, "PUT", "/settings/aperio-theme", { body: { value: "aurora" } });
     assert.strictEqual(status, 200);
-    assert.deepStrictEqual(body, { ok: true, key: "theme", value: "aurora" });
+    assert.deepStrictEqual(body, { ok: true, key: "aperio-theme", value: "aurora" });
   });
 
   test("PUT /settings/:key accepts falsey values (false)", async () => {
     const router = settingsRouter();
-    const { status, body } = await invoke(router, "PUT", "/settings/sound", { body: { value: false } });
+    const { status, body } = await invoke(router, "PUT", "/settings/aperio-tts", { body: { value: false } });
     assert.strictEqual(status, 200);
     assert.strictEqual(body.value, false);
   });
 
   test("PUT /settings/:key rejects a body with no value field", async () => {
     const router = settingsRouter();
-    const { status, body } = await invoke(router, "PUT", "/settings/theme", { body: {} });
+    const { status, body } = await invoke(router, "PUT", "/settings/aperio-theme", { body: {} });
     assert.strictEqual(status, 400);
     assert.ok(/value/.test(body.error));
+  });
+
+  test("PUT /settings/:key rejects unknown setting keys", async () => {
+    const router = settingsRouter();
+    const { status, body } = await invoke(router, "PUT", "/settings/evil-key", { body: { value: "x" } });
+    assert.strictEqual(status, 400);
+    assert.ok(/Unknown setting/.test(body.error));
   });
 
   test("DELETE /settings/:key returns 404 when the key is absent", async () => {

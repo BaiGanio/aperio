@@ -131,13 +131,28 @@ describe("skill matching", () => {
   }
 
   // Merged/retired stubs declare `load: never` and must never be injected,
-  // even when their name words appear verbatim in the message.
+  // even when their name words appear verbatim in the message. Enforced against
+  // a synthetic stub appended to the real index (matchSkill takes the index as
+  // an argument), so the guard keeps its teeth even when no deprecated skill
+  // happens to remain in the repo — plus every real stub currently present.
   test("load: never stubs are never matched", () => {
-    const index = loadIndex();
+    const synthetic = {
+      name: "retired-stub",
+      description: "Merged elsewhere; retired stub placeholder.",
+      keywords: "retired, stub, placeholder",
+      category: "",
+      load: "never",
+      dependsOn: null,
+      path: "/nonexistent/SKILL.md",
+      content: "",
+      hasRunner: false,
+      source: "bundled",
+      overridden: false,
+    };
+    const index = [...loadIndex(), synthetic];
     const stubs = index.filter(s => s.load === "never");
-    assert.ok(stubs.length > 0, "expected at least one load:never stub to guard against");
     for (const stub of stubs) {
-      const phrase = stub.name.replace(/-/g, " "); // e.g. "memory learning"
+      const phrase = stub.name.replace(/-/g, " "); // e.g. "retired stub" — would name-match if not filtered
       const matched = matchSkill(phrase, index);
       assert.notEqual(matched?.name, stub.name,
         `Stub "${stub.name}" (load: never) should not match phrase "${phrase}"`);

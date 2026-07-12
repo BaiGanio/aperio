@@ -11,6 +11,7 @@
 
   const state = {
     mode: null,
+    direct: false, // true when triggered by the "/<name>" shorthand (vs "/skill <name>")
     query: "",
     items: [],
     selectedIdx: -1,
@@ -21,6 +22,7 @@
   function hideDropdown() {
     dropdown.classList.remove("active");
     state.mode = null;
+    state.direct = false;
     state.items = [];
     state.selectedIdx = -1;
     state.query = "";
@@ -71,8 +73,10 @@
     if (state.mode === "skill") {
       var before = text.slice(0, state.triggerStart);
       var afterSlash = text.slice(state.triggerStart);
-      var afterName = afterSlash.replace(/^\/skill\s+\S*/, "");
-      var replacement = "/skill " + item.name;
+      var afterName = state.direct
+        ? afterSlash.replace(/^\/[a-zA-Z0-9-]*/, "")
+        : afterSlash.replace(/^\/skill\s+\S*/, "");
+      var replacement = state.direct ? "/" + item.name : "/skill " + item.name;
       window.chatInput.value = before + replacement + (afterName.startsWith(" ") ? "" : " ") + afterName.trimStart();
       window.chatInput.setSelectionRange(before.length + replacement.length + 1, before.length + replacement.length + 1);
     } else {
@@ -117,11 +121,26 @@
     if (slashMatch) {
       var query = slashMatch[2];
       var triggerStart = slashMatch.index + slashMatch[1].length - ("/skill ".length);
-      if (state.mode !== "skill" || state.query !== query) {
+      if (state.mode !== "skill" || state.direct || state.query !== query) {
         state.mode = "skill";
+        state.direct = false;
         state.query = query;
         state.triggerStart = triggerStart;
         fetchItems("skill", query);
+      }
+      return;
+    }
+    // Direct shorthand: "/" (optionally + partial name) at the very start of
+    // the message opens the skill list — picking inserts "/<name> ".
+    var directMatch = text.slice(0, pos).match(/^\/([a-zA-Z][a-zA-Z0-9-]*)?$/);
+    if (directMatch) {
+      var dQuery = directMatch[1] || "";
+      if (state.mode !== "skill" || !state.direct || state.query !== dQuery) {
+        state.mode = "skill";
+        state.direct = true;
+        state.query = dQuery;
+        state.triggerStart = 0;
+        fetchItems("skill", dQuery);
       }
       return;
     }

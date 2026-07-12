@@ -87,9 +87,9 @@ document.getElementById("pmAttach")?.addEventListener("click", () => {
 });
 
 // ── Branch button + friendly confirm card ─────────────────────
-// Branching saves the current conversation as-is and opens a fresh thread
-// seeded with a summary of it — the original stays in Sessions. A friendly
-// inline card explains that (replacing the bare browser confirm()).
+// Branching saves the current conversation as-is and opens a new conversation
+// seeded with its latest summary, or excerpts from its last four messages when
+// no summary exists. The original stays in Sessions.
 function askBranchConfirm() {
   closePlusMenu();
   if (document.getElementById("branchConfirmCard")) return; // already asking

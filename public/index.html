@@ -38,16 +38,14 @@
     <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar (⌘B)">
       <i class="bi bi-layout-sidebar"></i>
     </button>
-    <div class="status-pill">
+    <!-- Model chip: one navbar element for provider/model identity + connection
+         state (connected / disconnected / busy via data-state). Long activity
+         text (downloads, tool labels) lives in the chat thinking indicator and
+         this chip's tooltip — never rendered here (navbar leakage fix). -->
+    <div class="status-pill" id="modelChip" data-state="disconnected">
       <div class="status-dot" id="statusDot"></div>
-      <i class="bi bi-cpu" style="font-size: var(--fs-micro);color:var(--text-muted)"></i>
-      <span id="statusText" data-i18n="status_connecting">connecting…</span>
-      <span id="providerBadge" style="
-        font-family:var(--font-mono); font-size: calc(11px * var(--font-scale)); font-weight:600;
-        background:var(--tag-bg); color:var(--tag-text);
-        padding:1px 6px; border-radius:8px; letter-spacing:0.06em;
-        text-transform:uppercase; display:none;
-      "></span>
+      <span class="model-chip-state" id="statusText" data-i18n="status_connecting">connecting…</span>
+      <span class="model-chip-name" id="providerBadge" style="display:none;"></span>
     </div>
     <label id="reasoningToggle" class="reasoning-toggle" onclick="toggleReasoning()"
       data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning" style="display:none;">
@@ -211,13 +209,6 @@
         </div>
       </div>
     </div>
-    <!-- Skill chips quick-access bar -->
-    <div class="skill-chips-bar" id="skillChipsBar" style="display:none;">
-      <button class="skill-chips-toggle" id="skillChipsToggle" data-i18n-attr-title="skill_chips_toggle_title" title="Skill shortcuts">
-        <i class="bi bi-lightning-charge"></i>
-      </button>
-      <div class="skill-chips" id="skillChips"></div>
-    </div>
     <div class="input-bar">
       <div class="attach-preview" id="attachPreview"></div>
       <div class="input-wrap">
@@ -238,7 +229,7 @@
               <span class="plus-item-ic"><i class="bi bi-diagram-2"></i></span>
               <span class="plus-item-tx">
                 <span class="plus-item-ti" data-i18n="plus_menu_branch_title">Branch conversation</span>
-                <span class="plus-item-de" data-i18n="plus_menu_branch_desc">Save this chat and open a fresh thread that remembers the gist. Come back anytime from Sessions.</span>
+                <span class="plus-item-de" data-i18n="plus_menu_branch_desc">Start a new conversation with context from this one. Both conversations stay in Sessions.</span>
               </span>
             </button>
           </div>
@@ -264,7 +255,7 @@
         </button>
         <button class="branch-btn-labeled lite-hide" id="branchBtn" type="button"
                 data-i18n-attr-title="branch_button_tooltip"
-                title="Save this chat and start a fresh thread that remembers the gist — the original stays in Sessions">
+                title="Start a new conversation with context from this one. This conversation stays in Sessions.">
           <i class="bi bi-diagram-2"></i>
           <span class="branch-btn-label" data-i18n="branch_button_label">Branch</span>
         </button>
@@ -895,7 +886,6 @@
 <script src="scripts/agents-panel.js"></script>
 <script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/skills-panel.js"></script>
-<script src="scripts/skill-chips.js"></script>
 <script src="scripts/github-triage-panel.js"></script>
 <script src="scripts/db-connections-panel.js"></script>
 <script src="scripts/config-panel.js"></script>

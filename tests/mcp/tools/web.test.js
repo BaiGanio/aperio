@@ -8,11 +8,26 @@ import { fetchUrlHandler, webSearchHandler, parseDdgResults } from "../../../mcp
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
 // Node 18+ has global fetch. We replace it per-test and restore after.
+//
+// fetchUrlHandler goes through safeFetch (SSRF guard + DNS pinning), which for a
+// resolvable host bypasses globalThis.fetch entirely and issues a REAL request
+// via https.request — so these tests were silently hitting the live network
+// (regression from the DNS-pinning change in 0422378). Setting
+// APERIO_ALLOW_INTERNAL_FETCH=1 makes safeFetch pass through to the mocked
+// global fetch. The guard's own logic is covered by tests/lib/helpers/
+// ssrfGuard.test.js; the one guard-behavior test here opts back in via
+// { guard: true }.
 
-function withMockFetch(mockFn, testFn) {
-  const original = globalThis.fetch;
+function withMockFetch(mockFn, testFn, { guard = false } = {}) {
+  const original  = globalThis.fetch;
+  const prevGuard = process.env.APERIO_ALLOW_INTERNAL_FETCH;
   globalThis.fetch = mockFn;
-  return testFn().finally(() => { globalThis.fetch = original; });
+  if (!guard) process.env.APERIO_ALLOW_INTERNAL_FETCH = "1";
+  return testFn().finally(() => {
+    globalThis.fetch = original;
+    if (prevGuard === undefined) delete process.env.APERIO_ALLOW_INTERNAL_FETCH;
+    else process.env.APERIO_ALLOW_INTERNAL_FETCH = prevGuard;
+  });
 }
 
 function makeFetchResponse({ status = 200, contentType = "text/plain", body = "Hello world" } = {}) {
@@ -109,7 +124,7 @@ describe("fetchUrlHandler", () => {
     withMockFetch(async () => { throw new Error("fetch should not be called"); }, async () => {
       const result = await fetchUrlHandler({ url: "http://169.254.169.254/latest/meta-data/" });
       assert.ok(result.content[0].text.includes("SSRF guard"));
-    })
+    }, { guard: true })
   );
 });
 

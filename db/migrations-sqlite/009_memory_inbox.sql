@@ -1,4 +1,4 @@
--- 010_memory_inbox.sql — SQLite
+-- 009_memory_inbox.sql — SQLite
 -- Agent-proposed memories awaiting user review before being committed
 -- to the main memories store.
 

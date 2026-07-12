@@ -56,6 +56,7 @@
   "status_connected":         "ansluten",
   "status_reconnected":       "återansluten",
   "status_disconnected":      "frånkopplad",
+  "status_busy":              "upptagen",
   "status_thinking":          "tänker…",
   "status_typing":            "skriver…",
   "status_loading":           "laddar…",

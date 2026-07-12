@@ -64,6 +64,9 @@ CREATE VIRTUAL TABLE vec_memories USING vec0(
   rowid INTEGER PRIMARY KEY,
   embedding FLOAT[1024]
 );
+CREATE TRIGGER trg_memories_vec_cleanup AFTER DELETE ON memories BEGIN
+  DELETE FROM vec_memories WHERE rowid = OLD.rowid;
+END;
 
 -- ===== WIKI =====
 CREATE TABLE wiki_articles (
