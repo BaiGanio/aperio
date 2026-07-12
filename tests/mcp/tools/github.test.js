@@ -249,6 +249,21 @@ describe("create_github_issue", () => {
     assert.match(res.content[0].text, /No GitHub token configured/);
   });
 
+  test("recognizes an environment token loaded after the tool module", async () => {
+    const previous = process.env.GITHUB_TOKEN;
+    process.env.GITHUB_TOKEN = "late-loaded-test-token";
+    try {
+      const res = await createGithubIssueHandler(
+        { repo: "owner/repo", title: "Issue" },
+        { store: fakeStore() },
+      );
+      assert.ok(extractToken(res.content[0].text), "late-loaded env token should allow a proposal");
+    } finally {
+      if (previous === undefined) delete process.env.GITHUB_TOKEN;
+      else process.env.GITHUB_TOKEN = previous;
+    }
+  });
+
   test("phase 1: proposes and returns a confirmation token", async () => {
     const res = await createGithubIssueHandler(
       { repo: "owner/repo", title: "My Issue", body: "Body text", labels: ["bug"], assignees: ["user1"] },

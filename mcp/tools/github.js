@@ -10,15 +10,15 @@ import { getUserPaths } from "../../lib/routes/paths.js";
 import logger          from "../../lib/helpers/logger.js";
 import { safeFetch }     from "../../lib/helpers/ssrfGuard.js";
 import { logEgress }       from "../../lib/helpers/egressLog.js";
+import { createInterruptService } from "../../lib/security/interruptService.js";
 
 const execFileP = promisify(execFile);
 
-const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const API_BASE     = "https://api.github.com";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function githubHeaders(token = GITHUB_TOKEN) {
+function githubHeaders(token = process.env.GITHUB_TOKEN) {
   const headers = {
     "Accept":               "application/vnd.github+json",
     "User-Agent":           "Aperio/2.0",
@@ -34,7 +34,11 @@ function githubHeaders(token = GITHUB_TOKEN) {
 async function resolveToken(ctx) {
   const fromSettings = await ctx?.store?.getSetting?.("github.token");
   const s = fromSettings != null ? String(fromSettings).trim() : "";
-  return s || GITHUB_TOKEN || null;
+  // Read the environment lazily. mcp/index.js loads .env in its module body,
+  // after static dependencies (including this module) have been evaluated, so
+  // capturing process.env.GITHUB_TOKEN at import time can permanently snapshot
+  // an undefined value in a freshly launched MCP process.
+  return s || process.env.GITHUB_TOKEN || null;
 }
 
 function parseIssueUrl(url) {
@@ -337,7 +341,7 @@ export async function recordIssueTriageHandler(args, ctx) {
 // The user's click sends the token back; phase 2 looks it up and executes.
 
 const CONFIRM_TTL_MS    = 5 * 60 * 1000; // 5 minutes
-const pendingActions    = new Map(); // token → { execute, label, expiresAt }
+const pendingActions    = new Map(); // fallback for stores without durable interrupts
 
 function pruneActions() {
   const now = Date.now();
@@ -350,11 +354,34 @@ function actionToken() {
 // Phase 1: stash the action and return a preview the agent turns into a button.
 // Refuses up front if no token is configured, so the user is never shown a
 // confirm button for a write that can only fail.
-function proposeAction({ summaryLines, label, execute, token: authToken }) {
+function hasDurableInterrupts(ctx) {
+  return !!(ctx?.store?.createAgentInterrupt && ctx.store?.decideAgentInterrupt && ctx.store?.claimAgentInterrupt);
+}
+
+function githubInterruptService(ctx) {
+  return createInterruptService({
+    store: ctx.store,
+    executeTool: async (toolName, args) => executeGithubAction(toolName, args, ctx),
+  });
+}
+
+async function proposeAction({ summaryLines, label, execute, token: authToken, ctx, toolName, canonicalArguments }) {
   if (!authToken)
     return textOut("❌ No GitHub token configured. Writing to GitHub needs a token with `repo` (issues:write) scope — add it in Settings → GitHub triage, or set GITHUB_TOKEN in .env.");
   const token = actionToken();
-  pendingActions.set(token, { execute, label, expiresAt: Date.now() + CONFIRM_TTL_MS });
+  if (hasDurableInterrupts(ctx)) {
+    await githubInterruptService(ctx).create({
+      id: token,
+      sessionId: ctx?.sessionId ?? process.env.APERIO_SESSION_ID ?? "mcp-github-actions",
+      runId: ctx?.runId ?? process.env.APERIO_RUN_ID ?? null,
+      toolName,
+      canonicalArguments,
+      allowedDecisions: ["approve", "reject", "respond"],
+      expiresAt: new Date(Date.now() + CONFIRM_TTL_MS).toISOString(),
+    });
+  } else {
+    pendingActions.set(token, { execute, label, expiresAt: Date.now() + CONFIRM_TTL_MS });
+  }
   return textOut([
     "📋 **Pending your confirmation — nothing has been written to GitHub yet.**",
     "",
@@ -366,7 +393,8 @@ function proposeAction({ summaryLines, label, execute, token: authToken }) {
 }
 
 // Phase 2: look up the stashed action by token and run it.
-async function commitAction(token) {
+async function commitAction(token, ctx) {
+  if (hasDurableInterrupts(ctx)) return decideGithubInterrupt(ctx, token);
   pruneActions();
   const entry = pendingActions.get(token);
   if (!entry || Date.now() >= entry.expiresAt) {
@@ -381,8 +409,64 @@ async function commitAction(token) {
   }
 }
 
+export async function decideGithubInterrupt(ctx, token) {
+  const service = githubInterruptService(ctx);
+  try {
+    const row = await service.decide(token, { decision: "approve" });
+    if (!row || row.status === "expired") return textOut("❌ Confirmation token invalid or expired. Nothing was written.");
+    const { result } = await service.claimAndExecute(token);
+    return result;
+  } catch (err) {
+    if (/not found|already been decided|not executable|already claimed|could not be decided/i.test(err.message))
+      return textOut("❌ Confirmation token invalid or expired. Nothing was written.");
+    return textOut(`❌ Action failed: ${err.message}`);
+  }
+}
+
 function readToken(args) {
   return args.confirmation_token ?? args.token ?? args.confirmationToken ?? null;
+}
+
+async function executeGithubAction(toolName, args, ctx) {
+  const authToken = await resolveToken(ctx);
+  if (!authToken) return textOut("❌ No GitHub token configured.");
+  if (toolName === "create_github_issue") {
+    const { owner, repo, title, body = "", labels, assignees } = args;
+    const resp = await fetch(`${API_BASE}/repos/${owner}/${repo}/issues`, {
+      method: "POST",
+      headers: { ...githubHeaders(authToken), "Content-Type": "application/json" },
+      body: JSON.stringify({ title, body, ...(labels?.length ? { labels } : {}), ...(assignees?.length ? { assignees } : {}) }),
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!resp.ok) return textOut(`❌ GitHub API error ${resp.status}: ${(await resp.text().catch(() => "")).slice(0, 300)}`);
+    const issue = await resp.json();
+    logger.info(`✅ created github issue #${issue.number} in ${owner}/${repo}`);
+    return textOut(`✅ Created issue #${issue.number} in ${owner}/${repo}\n${issue.html_url}`);
+  }
+  if (toolName === "update_github_issue") {
+    const { owner, repo, issue, patch = {}, comment } = args;
+    const base = `${API_BASE}/repos/${owner}/${repo}/issues/${issue}`;
+    const done = [];
+    if (Object.keys(patch).length) {
+      const resp = await fetch(base, {
+        method: "PATCH", headers: { ...githubHeaders(authToken), "Content-Type": "application/json" },
+        body: JSON.stringify(patch), signal: AbortSignal.timeout(15_000),
+      });
+      if (!resp.ok) return textOut(`❌ GitHub API error ${resp.status} on update: ${(await resp.text().catch(() => "")).slice(0, 300)}`);
+      done.push(...Object.keys(patch).map(k => k === "state" ? `state→${patch.state}` : k));
+    }
+    if (comment) {
+      const resp = await fetch(`${base}/comments`, {
+        method: "POST", headers: { ...githubHeaders(authToken), "Content-Type": "application/json" },
+        body: JSON.stringify({ body: comment }), signal: AbortSignal.timeout(15_000),
+      });
+      if (!resp.ok) return textOut(`⚠️ Comment failed — GitHub API error ${resp.status}: ${(await resp.text().catch(() => "")).slice(0, 300)}`);
+      done.push("comment");
+    }
+    logger.info(`✅ updated github issue #${issue} in ${owner}/${repo} (${done.join(", ")})`);
+    return textOut(`✅ Updated issue #${issue} in ${owner}/${repo} — ${done.join(", ")}\nhttps://github.com/${owner}/${repo}/issues/${issue}`);
+  }
+  throw new Error(`Unsupported GitHub interrupt tool: ${toolName}`);
 }
 
 // ─── Handler: create_github_issue ───────────────────────────────────────────
@@ -390,7 +474,7 @@ function readToken(args) {
 export async function createGithubIssueHandler(args, ctx) {
   pruneActions();
   const token = readToken(args);
-  if (token) return commitAction(token);
+  if (token) return commitAction(token, ctx);
 
   const { project, repo, title, body = "", labels, assignees } = args;
   if (!title || !title.trim())
@@ -408,30 +492,15 @@ export async function createGithubIssueHandler(args, ctx) {
   if (assignees?.length) summaryLines.push(`**Assignees:** ${assignees.join(", ")}`);
   summaryLines.push("", "**Body:**", body || "(no body)");
 
+  const canonicalArguments = { owner: target.owner, repo: target.repo, title, body, labels, assignees };
   return proposeAction({
     summaryLines,
     token: authToken,
+    ctx,
+    toolName: "create_github_issue",
+    canonicalArguments,
     label: `Create issue in ${target.owner}/${target.repo}`,
-    execute: async () => {
-      const resp = await fetch(`${API_BASE}/repos/${target.owner}/${target.repo}/issues`, {
-        method:  "POST",
-        headers: { ...githubHeaders(authToken), "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          title,
-          body,
-          ...(labels?.length    ? { labels }    : {}),
-          ...(assignees?.length ? { assignees } : {}),
-        }),
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!resp.ok) {
-        const t = await resp.text().catch(() => "");
-        return textOut(`❌ GitHub API error ${resp.status}: ${t.slice(0, 300)}`);
-      }
-      const issue = await resp.json();
-      logger.info(`✅ created github issue #${issue.number} in ${target.owner}/${target.repo}`);
-      return textOut(`✅ Created issue #${issue.number} in ${target.owner}/${target.repo}\n${issue.html_url}`);
-    },
+    execute: () => executeGithubAction("create_github_issue", canonicalArguments, ctx),
   });
 }
 
@@ -440,7 +509,7 @@ export async function createGithubIssueHandler(args, ctx) {
 export async function updateGithubIssueHandler(args, ctx) {
   pruneActions();
   const token = readToken(args);
-  if (token) return commitAction(token);
+  if (token) return commitAction(token, ctx);
 
   const { project, repo, issue, title, body, state, labels, assignees, comment } = args;
   if (!Number.isInteger(issue) || issue <= 0)
@@ -476,44 +545,15 @@ export async function updateGithubIssueHandler(args, ctx) {
   if (body      !== undefined) summaryLines.push("", "**Body →**", body || "(empty)");
   if (hasComment)              summaryLines.push("", "**New comment:**", comment);
 
+  const canonicalArguments = { owner: target.owner, repo: target.repo, issue, patch, comment: hasComment ? comment : null };
   return proposeAction({
     summaryLines,
     token: authToken,
+    ctx,
+    toolName: "update_github_issue",
+    canonicalArguments,
     label: `Update issue #${issue} in ${target.owner}/${target.repo}`,
-    execute: async () => {
-      const base = `${API_BASE}/repos/${target.owner}/${target.repo}/issues/${issue}`;
-      const done = [];
-      if (hasPatch) {
-        const resp = await fetch(base, {
-          method:  "PATCH",
-          headers: { ...githubHeaders(authToken), "Content-Type": "application/json" },
-          body:    JSON.stringify(patch),
-          signal:  AbortSignal.timeout(15_000),
-        });
-        if (!resp.ok) {
-          const t = await resp.text().catch(() => "");
-          return textOut(`❌ GitHub API error ${resp.status} on update: ${t.slice(0, 300)}`);
-        }
-        done.push(...Object.keys(patch).map(k => (k === "state" ? `state→${state}` : k)));
-      }
-      if (hasComment) {
-        const resp = await fetch(`${base}/comments`, {
-          method:  "POST",
-          headers: { ...githubHeaders(authToken), "Content-Type": "application/json" },
-          body:    JSON.stringify({ body: comment }),
-          signal:  AbortSignal.timeout(15_000),
-        });
-        if (!resp.ok) {
-          const t = await resp.text().catch(() => "");
-          const note = done.length ? ` (already applied: ${done.join(", ")})` : "";
-          return textOut(`⚠️ Comment failed — GitHub API error ${resp.status}: ${t.slice(0, 300)}${note}`);
-        }
-        done.push("comment");
-      }
-      const url = `https://github.com/${target.owner}/${target.repo}/issues/${issue}`;
-      logger.info(`✅ updated github issue #${issue} in ${target.owner}/${target.repo} (${done.join(", ")})`);
-      return textOut(`✅ Updated issue #${issue} in ${target.owner}/${target.repo} — ${done.join(", ")}\n${url}`);
-    },
+    execute: () => executeGithubAction("update_github_issue", canonicalArguments, ctx),
   });
 }
 

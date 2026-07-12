@@ -142,6 +142,7 @@ function handleMessage(msg) {
     // carries server-side estimates for every startup component, so we don't need
     // to wait for a real provider token count.
     _maybeShowStartupBanner();
+    _syncStartupContextBar();
   }
 
   if (msg.type === "tool_count") {
@@ -214,6 +215,9 @@ function handleMessage(msg) {
     if (msg.contextWindow) maxCtx = msg.contextWindow;
     window.maxCtxCapacityPct = (typeof msg.contextCapacityPct === "number") ? msg.contextCapacityPct : null;
     if (typeof msg.imageTokens === "number") _imageTokenCost = msg.imageTokens;
+    // These two boot events may arrive in either order. Re-sync once capacity
+    // is known so the navbar can render both sides of the estimate.
+    _syncStartupContextBar();
   }
 
   if (msg.type === "paths_updated") {
@@ -483,7 +487,7 @@ function handleMessage(msg) {
       for (const f of _pendingGeneratedFiles) streamingBubble.bubble.appendChild(_buildGeneratedFileCard(f)); _pendingGeneratedFiles.length = 0;
       window.Aperio?.tts?.speak(streamingText);
       window.Aperio?.voice?.onStreamEnd?.();
-      _refineStartupBanner(msg.usage?.input_tokens);
+      _refineStartupBanner(msg.usage?.input_tokens, msg.usage?.input_tokens_kind);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
     } else if (streamingBubble) {
@@ -495,7 +499,7 @@ function handleMessage(msg) {
       addMessage("ai", msg.text);
       window.Aperio?.tts?.speak(msg.text);
       window.Aperio?.voice?.onStreamEnd?.();
-      _refineStartupBanner(msg.usage?.input_tokens);
+      _refineStartupBanner(msg.usage?.input_tokens, msg.usage?.input_tokens_kind);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
       accThinkingTokens = 0; accOutputTokens = 0;
     }
@@ -1472,6 +1476,15 @@ function _startupComponentsTotal(bd) {
     + (bd.toolSchemas || 0);
 }
 
+// This is an estimate rather than billable API usage. It gives providers such
+// as Codex (whose CLI reports aggregate agent-loop work, not context occupancy)
+// a useful initial navbar value without mislabelling aggregate work as context.
+function _syncStartupContextBar() {
+  const total = _startupBreakdown ? _startupComponentsTotal(_startupBreakdown) : 0;
+  if (!total || typeof updateContextBar !== "function") return;
+  updateContextBar(total, maxCtx, 0, false);
+}
+
 // Build the banner's inner HTML. When `realTotal` is given (after turn 1) the
 // headline shows the true provider count and a "scaffolding" row reconciles the
 // estimates to it; otherwise it's a labelled estimate.
@@ -1528,8 +1541,8 @@ function _maybeShowStartupBanner() {
 // Replace the startup estimate with the real provider input-token count once the
 // first turn returns. Keeps the banner visible (no auto-dismiss) so the figure
 // the user actually paid stays on screen until they dismiss it.
-function _refineStartupBanner(inputTok) {
-  if (!inputTok || _startupBannerRefined || !_startupBreakdown) return;
+function _refineStartupBanner(inputTok, inputTokensKind = "context") {
+  if (!inputTok || inputTokensKind === "aggregate" || _startupBannerRefined || !_startupBreakdown) return;
   if (!_startupBannerEl || !_startupBannerEl.isConnected) return;
   _startupBannerRefined = true;
   // Preserve whether the user had expanded the breakdown.
