@@ -13,6 +13,7 @@ import { readFileSync, existsSync, statSync }   from "fs";
 import { extname }                              from "path";
 import logger                                   from "../../lib/helpers/logger.js";
 import { preprocessImage, preprocessBase64 }   from "../../lib/handlers/attachments/workers/preprocessImage.js";
+import { LLAMACPP_VLM_ALIAS }                  from "../../lib/helpers/llamacppAliases.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -51,7 +52,7 @@ export async function describeImageViaLlamaCpp(base64, prompt, model) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: vlmModel,
+      model: vlmModel === LLAMACPP_VLM_MODEL ? LLAMACPP_VLM_ALIAS : vlmModel,
       messages: [{
         role: "user",
         content: [

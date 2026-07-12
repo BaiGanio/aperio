@@ -448,6 +448,7 @@ async function bootApp() {
   const { inferMemories }                 = await import("./lib/workers/infer.js");
   const { createSessionPruner }           = await import("./lib/workers/session-prune.js");
   const { createAgentRunPruner }          = await import("./lib/workers/agent-run-prune.js");
+  const { createLlamaLogPruner }          = await import("./lib/workers/llamacpp-log-prune.js");
   const { createArtifactStore }           = await import("./lib/context/artifactStore.js");
   const { createAgentScheduler }          = await import("./lib/workers/agent-scheduler.js");
   const { makeWsHandler }                 = await import("./lib/emitters/handlers/wsHandler.js");
@@ -678,6 +679,10 @@ async function bootApp() {
     // tears down the whole process group so no worker is orphaned).
     _stopLlama: stopLlamaCpp,
     timeoutMs: (Number(process.env.IDLE_TIMEOUT_SECONDS) || 180) * 1000,
+    // Idle/Quit teardown must flip the same latch Ctrl+C does, BEFORE it
+    // terminates ws clients — otherwise finaliseSession runs with onShutdown
+    // false and deletes the very session the user was interrupted in.
+    _markShuttingDown: () => { isShuttingDown = true; },
   });
   boot.watchdog = watchdog; // /heartbeat starts feeding the idle guard
 
@@ -747,7 +752,7 @@ async function bootApp() {
       cb(true);
     },
   });
-  wss.on("connection", makeWsHandler({ agent, primaryRoundtable, verifier, roundtableAvailable, roundtableUnavailableReason, store, __dirname }));
+  wss.on("connection", makeWsHandler({ agent, primaryRoundtable, verifier, roundtableAvailable, roundtableUnavailableReason, store, __dirname, isShuttingDown: () => isShuttingDown }));
 
   // Fan a server-side message out to every open browser tab. Used by the
   // background-agent scheduler to surface a "job finished" banner.
@@ -779,6 +784,7 @@ async function bootApp() {
   const dedup     = memoryWorkersEnabled ? deduplicateMemories(callTool) : noopWorker;
   const infer     = memoryWorkersEnabled ? inferMemories(callTool)       : noopWorker;
   const pruner    = createSessionPruner();
+  const logPruner = createLlamaLogPruner();
   const runPruner = createAgentRunPruner({
     store,
     artifactStore: createArtifactStore({ rootDir: resolve(__dirname, "var", "agent-artifacts") }),
@@ -802,6 +808,7 @@ async function bootApp() {
     dedup.stop();
     infer.stop();
     pruner.stop();
+    logPruner.stop();
     runPruner.stop();
     scheduler.stop();
     // Give any in-flight boot index a brief window to register its handles, then

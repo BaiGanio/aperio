@@ -75,7 +75,7 @@ describe("recommendContextLength", () => {
   test("targets the 82% policy when model max and budget are both larger", () => {
     // 32 GB, big-context model: neither the model max nor the hard ceiling binds,
     // so the window is the fit-fraction of the RAM budget (headroom kept below the
-    // physical fit). fit ≈ 108.5k → 82% ≈ 89.0k → snapped down to 88064.
+    // physical fit). With the conservative fallback reserve this snaps to 88064.
     assert.equal(recommendContextLength({
       modelMaxContext: 262144, weightsGB: 6.1, bytesPerToken: 147456, totalRamGB: 32,
     }, { ceiling: 131072 }), 88064);
@@ -85,8 +85,8 @@ describe("recommendContextLength", () => {
     // Same model + budget, only the fit-fraction threshold differs. Below it the
     // window is the full RAM fit; at/above it, ~82% of it.
     const args = { modelMaxContext: 262144, weightsGB: 6.1, bytesPerToken: 147456, totalRamGB: 32 };
-    const full   = recommendContextLength(args, { minFitRamGB: 64, ceiling: 131072 }); // 32 < 64 → full fit
-    const shaved = recommendContextLength(args, { minFitRamGB: 16, ceiling: 131072 }); // 32 ≥ 16 → ~82%
+    const full   = recommendContextLength(args, { minFitRamGB: 64, ceiling: 262144 }); // 32 < 64 → full fit
+    const shaved = recommendContextLength(args, { minFitRamGB: 16, ceiling: 262144 }); // 32 ≥ 16 → ~82%
     assert.ok(shaved < full, `expected fraction (${shaved}) < full fit (${full})`);
     assert.ok(shaved / full > 0.8 && shaved / full <= 0.83, `~82% of fit, got ${(shaved / full).toFixed(3)}`);
   });
@@ -124,14 +124,14 @@ describe("recommendContextLength", () => {
     assert.ok(wide > base);
   });
 
-  test("uses the 82% budget for qwen3.5:9b on a 32 GB baseline", () => {
+  test("hybrid qwen3.5:9b reaches the balanced 131K ceiling on a 32 GB baseline", () => {
     const f = MODEL_FACTS["qwen3.5:9b"];
     assert.equal(recommendContextLength({
       modelMaxContext: f.maxContext,
       weightsGB: f.sizeGB,
       bytesPerToken: f.kvBytesPerToken,
       totalRamGB: 32,
-    }), 23552);
+    }), 131072);
   });
 });
 
@@ -152,7 +152,7 @@ describe("isLocalProvider / isCloudProvider", () => {
   test("undefined is not local", () => { assert.ok(!isLocalProvider(undefined)); });
 });
 
-// ── machineCapacityPct — served window as % of what RAM could hold ────────────
+// ── machineCapacityPct — estimated model + KV footprint as % of RAM ───────────
 describe("machineCapacityPct", () => {
   test("returns null when the served window is unknown", () => {
     assert.equal(machineCapacityPct("qwen2.5:3b", {}), null);
@@ -160,8 +160,7 @@ describe("machineCapacityPct", () => {
 
   test("computes a percentage for a MODEL_FACTS tag key", () => {
     const pct = machineCapacityPct("qwen2.5:3b", { LLAMACPP_SERVE_CTX: "16384" });
-    assert.equal(typeof pct, "number");
-    assert.ok(pct > 0 && pct <= 100);
+    assert.equal(pct, 11);
   });
 
   test("resolves an hf repo[:quant] string via factsForHf", () => {
@@ -173,6 +172,13 @@ describe("machineCapacityPct", () => {
   test("falls back to default facts for an unknown model", () => {
     const pct = machineCapacityPct("someone/custom-GGUF", { LLAMACPP_SERVE_CTX: "16384" });
     assert.equal(typeof pct, "number");
+  });
+
+  test("includes weights, so a larger model reports higher RAM at the same context", () => {
+    const small = machineCapacityPct("qwen3.5:9b", { LLAMACPP_SERVE_CTX: "131072" });
+    const large = machineCapacityPct("qwen3.6:35b-a3b-mtp", { LLAMACPP_SERVE_CTX: "131072" });
+    assert.equal(small, 32);
+    assert.equal(large, 78);
   });
 });
 
@@ -226,6 +232,7 @@ describe("resolveProvider — llamacpp", () => {
     const p = resolveProvider({ name: "llamacpp" });
     assert.equal(p.name, "llamacpp");
     assert.equal(p.model, "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    assert.equal(p.requestModel, "aperio-main");
     assert.equal(p.baseURL, "http://127.0.0.1:8080/v1");
     assert.equal(p.llamacppBaseURL, "http://127.0.0.1:8080");
     assert.equal(typeof p.contextWindow, "number");
@@ -247,12 +254,12 @@ describe("MODEL_FACTS — hf mapping", () => {
     }
   });
 
-  test("only the MoE model declares activeParams", () => {
+  test("MoE models declare activeParams", () => {
     assert.equal(MODEL_FACTS["qwen3:30b-a3b"].architecture, "moe");
     assert.equal(MODEL_FACTS["qwen3:30b-a3b"].activeParams, 3);
     for (const [key, facts] of Object.entries(MODEL_FACTS)) {
-      if (key === "qwen3:30b-a3b") continue;
-      assert.equal(facts.activeParams, undefined, `${key} should not declare activeParams (dense)`);
+      if (facts.architecture === "moe") assert.equal(facts.activeParams, 3, `${key} should declare its active parameter count`);
+      else assert.equal(facts.activeParams, undefined, `${key} should not declare activeParams (dense)`);
     }
   });
 
@@ -263,6 +270,12 @@ describe("MODEL_FACTS — hf mapping", () => {
     assert.equal(f.maxContext, 32768);
     assert.equal(f.kvBytesPerToken, 172032);
   });
+});
+
+test("hybrid Qwen facts count only full-attention layers in per-token KV", () => {
+  assert.equal(MODEL_FACTS["qwen3.5:9b"].kvBytesPerToken, 32768);
+  assert.equal(MODEL_FACTS["qwen3.6:35b-a3b-mtp"].kvBytesPerToken, 22528);
+  assert.equal(MODEL_FACTS["qwen3.6:35b-a3b-mtp"].sizeGB, 21.3);
 });
 
 describe("factsForHf", () => {

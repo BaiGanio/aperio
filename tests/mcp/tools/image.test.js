@@ -200,7 +200,7 @@ describe("describeImageViaLlamaCpp", () => {
       const text = await describeImageViaLlamaCpp("cGl4ZWxz", "Describe this image in detail.", "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF");
       assert.equal(text, "A red bicycle.");
       assert.match(capturedUrl, /\/v1\/chat\/completions$/);
-      assert.equal(capturedBody.model, "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF");
+      assert.equal(capturedBody.model, "aperio-vlm");
       assert.equal(capturedBody.stream, false);
       const content = capturedBody.messages[0].content;
       assert.deepEqual(content.find(b => b.type === "text"), { type: "text", text: "Describe this image in detail." });
