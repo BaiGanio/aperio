@@ -17,6 +17,7 @@ import {
   recommendPerfFix,
   SLOW_GEN_TPS,
   machineCapacityPct,
+  residentFootprintGB,
 } from "../../lib/providers/index.js";
 
 mock.method(os, "totalmem", () => 32 * 1024 ** 3);
@@ -132,6 +133,21 @@ describe("recommendContextLength", () => {
       bytesPerToken: f.kvBytesPerToken,
       totalRamGB: 32,
     }), 131072);
+  });
+});
+
+describe("residentFootprintGB", () => {
+  test("adds weights, KV cache, fixed KV, and overhead", () => {
+    const footprint = residentFootprintGB({
+      sizeGB: 6,
+      kvFixedGB: 0.5,
+      kvBytesPerToken: 172032,
+    }, 24576);
+    assert.equal(footprint, 11.4375);
+  });
+
+  test("uses the conservative fallback KV cost for invalid facts", () => {
+    assert.equal(residentFootprintGB({ sizeGB: 2, kvBytesPerToken: 0 }, 1024), 3.140625);
   });
 });
 

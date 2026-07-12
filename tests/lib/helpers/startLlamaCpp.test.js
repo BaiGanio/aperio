@@ -5,6 +5,8 @@ import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync, appendF
 import assert from "node:assert/strict";
 import {
   buildModelsPreset,
+  mainPlusVlmFit,
+  vlmPresetMode,
   ensureLlamaCpp,
   presetModelIds,
   getLlamaCppPid,
@@ -160,6 +162,39 @@ describe("buildModelsPreset", () => {
     const mainSection = ini.slice(ini.indexOf("[aperio-main]"), ini.indexOf("[aperio-vlm]"));
     assert.doesNotMatch(mainSection, /ctx-size = 24576/);
   });
+
+  test("omits the bridge when the main model has native vision", () => {
+    const ini = buildModelsPreset({
+      LLAMACPP_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+    }, { totalRamGB: 64 });
+    assert.match(ini, /\[aperio-main\]/);
+    assert.doesNotMatch(ini, /\[aperio-vlm\]/);
+    assert.doesNotMatch(ini, /models-max/);
+  });
+
+  test("caps the router at one resident model when the measured pair does not fit", () => {
+    const env = {
+      LLAMACPP_MODEL: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M",
+      LLAMACPP_VLM_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+    };
+    const ini = buildModelsPreset(env, { totalRamGB: 16 });
+    assert.match(ini, /^\[\*\][\s\S]*models-max = 1/m);
+    assert.equal(ini.match(/models-max = 1/g)?.length, 1);
+    assert.match(ini, /\[aperio-main\]/);
+    assert.match(ini, /\[aperio-vlm\]/);
+    assert.equal(vlmPresetMode(env.LLAMACPP_MODEL, env.LLAMACPP_VLM_MODEL, env, { totalRamGB: 16 }), "swap mode (main+VLM exceed RAM)");
+  });
+
+  test("keeps both models resident when their served footprints fit", () => {
+    const env = {
+      LLAMACPP_MODEL: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M",
+      LLAMACPP_VLM_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+    };
+    assert.equal(mainPlusVlmFit(env.LLAMACPP_MODEL, env.LLAMACPP_VLM_MODEL, env, { totalRamGB: 64 }), true);
+    const ini = buildModelsPreset(env, { totalRamGB: 64 });
+    assert.doesNotMatch(ini, /models-max/);
+    assert.match(ini, /\[aperio-main\][\s\S]*\[aperio-vlm\]/);
+  });
 });
 
 // =============================================================================
@@ -239,7 +274,8 @@ describe("buildModelsPreset — perf profiles", () => {
     // the fixed default at a RAM tier where the ladder recommends something bigger.
     const quality = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality" }, { totalRamGB: 16 });
     assert.match(quality, /hf-repo = ggml-org\/gemma-4-12B-it-GGUF:Q4_K_M/);
-    assert.doesNotMatch(quality, /models-max|flash-attn|cache-type|n-cpu-moe/, "quality has no fast-low-vram-style flags");
+    assert.match(quality, /models-max = 1/, "quality's larger main plus VLM requires swap mode at 16GB");
+    assert.doesNotMatch(quality, /flash-attn|cache-type|n-cpu-moe/, "quality has no fast-low-vram-style flags");
   });
 
   test("quality: an explicit LLAMACPP_MODEL still wins over the bigger-model default", () => {
