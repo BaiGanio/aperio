@@ -485,6 +485,24 @@ describe("runCodexLoop", () => {
     assert.match(capture.args.at(-1), /Create report\.csv/);
   });
 
+  test("routes GitHub issue URLs directly through the Aperio issue tools", async () => {
+    const capture = {};
+    await runCodexLoop(
+      [{ role: "user", content: "check and follow https://github.com/owner/repo/issues/229" }],
+      { send: mock.fn() }, {}, null, () => {},
+      baseCtx({
+        codexSpawn: mockChild({
+          capture,
+          stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+        }),
+      }),
+    );
+    const prompt = capture.args.at(-1);
+    assert.match(prompt, /fetch_github_issue/);
+    assert.match(prompt, /Do not try web search, curl, shell commands, repository grep/);
+    assert.match(prompt, /update_github_issue/);
+  });
+
   test("relocates new root artifacts but leaves source-code files in place", async () => {
     const root = "/fake/codex-session-root";
     const scratch = root + "/var/scratch/session-1";

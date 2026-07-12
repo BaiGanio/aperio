@@ -168,7 +168,7 @@ function setCostProvider(name, model) {
   _currentModel = model;
 }
 
-function updateContextBar(used, max, outputTok = 0) {
+function updateContextBar(used, max, outputTok = 0, trackCost = true) {
   const text = document.getElementById("ctxText");
   const fill = document.getElementById("ctxFill");
   const costEl = document.getElementById("costText");
@@ -181,14 +181,14 @@ function updateContextBar(used, max, outputTok = 0) {
 
   // Cost calculation.
   const isLocal = _currentProvider === "llamacpp";
-  if (!isLocal && used > 0 && costEl) {
+  if (trackCost && !isLocal && used > 0 && costEl) {
     const rates = _COST_RATES[_currentModel] || { in: 0.5, out: 2.0 };
     const turnCost = ((used / 1_000_000) * rates.in) + ((outputTok / 1_000_000) * rates.out);
     _sessionCost += turnCost;
     costEl.textContent = `$${_sessionCost.toFixed(4)}`;
     costEl.style.display = "inline";
     costEl.title = `This session: ~$${_sessionCost.toFixed(4)} (${_currentModel || "unknown"})`;
-  } else if (isLocal && costEl) {
+  } else if (trackCost && isLocal && costEl) {
     costEl.textContent = "local";
     costEl.style.display = "inline";
     costEl.title = "Running locally — no API cost";
