@@ -3,10 +3,21 @@ name: (cd) GitHub Pages
 on:
   push:
     branches: ["master"]
-    # Only trigger if files in the 'docs' folder or the workflow change
+    # Rebuild the published docs and coverage dashboard when either docs or
+    # coverage-relevant source/tests change.
     paths:
       - 'docs/**'
-      - '.github/workflows/gh-pages.yml'
+      - 'lib/**'
+      - 'mcp/**'
+      - 'db/**'
+      - 'server.js'
+      - 'bootstrap.js'
+      - 'tests/**'
+      - 'scripts/generate-coverage-dashboard.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.c8rc'
+      - '.github/workflows/cd.gh-pages.yml'
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
@@ -28,6 +39,19 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Generate coverage data
+        run: |
+          npm run test:ci
+          npm run coverage:dashboard
       
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
