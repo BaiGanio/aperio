@@ -8,6 +8,7 @@
     "nav_setup": "Nastavení",
     "nav_lite": "Lite",
     "nav_guide": "Průvodce",
+    "nav_coverage": "Pokrytí",
     "hero_eyebrow": "Open Source · Vlastní hosting · Soukromí na prvním místě · Lokálně ve výchozím nastavení",
     "hero_h1": "Každý agent. Jedna paměť.<br><span class=\"aurora-text\">Totální vybavení.</span>",
     "hero_lead": "Vlastní hosting osobní paměťové vrstvy pro AI agenty – postavené na SQLite nebo Postgres, embeddings na zařízení a MCP.<br>Ve výchozím nastavení běží 100% lokálně. Žádné API klíče. Žádná závislost na cloudu. Vaše data nikdy neopustí váš počítač.<br><span>Jste vývojář softwaru?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Vyzkoušejte Aperio-dev</a><span style=\"font-size:.9em\"> – vyžaduje se základní znalost terminálu.</span><br><span>Jste normální člověk?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Vyzkoušejte Aperio-lite</a><span style=\"font-size:.9em\"> – dvakrát klikněte a jedete, bez technických dovedností.</span>",

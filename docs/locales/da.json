@@ -8,6 +8,7 @@
     "nav_setup": "Opsætning",
     "nav_lite": "Lite",
     "nav_guide": "Guide",
+    "nav_coverage": "Dækning",
     "hero_eyebrow": "Open Source · Selvhostet · Privatliv først · Lokalt som standard",
     "hero_h1": "Hver agent. Én hukommelse.<br><span class=\"aurora-text\">Total genkaldelse.</span>",
     "hero_lead": "Et selvhostet personligt hukommelseslag til AI-agenter — bygget på SQLite eller Postgres, on-device embeddings og MCP.<br>Kører 100% lokalt som standard. Ingen API-nøgler. Ingen cloud-afhængighed. Dine data forlader aldrig din maskine.<br><span>Er du softwareudvikler?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Prøv Aperio-dev</a><span style=\"font-size:.9em\"> — grundlæggende terminalkomfort er påkrævet.</span><br><span>Er du almindelig bruger?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Prøv Aperio-lite</a><span style=\"font-size:.9em\"> — dobbeltklik og kør, ingen tekniske færdigheder nødvendige.</span>",

@@ -8,6 +8,7 @@
     "nav_setup": "Postavljanje",
     "nav_lite": "Lite",
     "nav_guide": "Vodič",
+    "nav_coverage": "Pokrivenost",
     "hero_eyebrow": "Otvoreni kod · Samostalno hostiranje · Privatnost na prvom mjestu · Lokalno prema zadanim postavkama",
     "hero_h1": "Svaki agent. Jedna memorija.<br><span class=\"aurora-text\">Potpuno prisjećanje.</span>",
     "hero_lead": "Sloj osobne memorije za AI agente koji sami hostirate — izgrađen na SQLite ili Postgres, ugrađivanja na uređaju i MCP.<br>Radi 100% lokalno prema zadanim postavkama. Bez API ključeva. Bez ovisnosti o oblaku. Vaši podaci nikad ne napuštaju vaše računalo.<br><span>Vi ste programer?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Isprobajte Aperio-dev</a><span style=\"font-size:.9em\"> — potrebno je osnovno poznavanje terminala.</span><br><span>Vi ste običan čovjek?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Isprobajte Aperio-lite</a><span style=\"font-size:.9em\"> — dvostruki klik i gotovi ste, nisu potrebne tehničke vještine.</span>",

@@ -8,6 +8,7 @@
     "nav_setup": "Konfiguracja",
     "nav_lite": "Lite",
     "nav_guide": "Przewodnik",
+    "nav_coverage": "Pokrycie",
     "hero_eyebrow": "Open Source · Samodzielne hostowanie · Prywatność przede wszystkim · Domyślnie lokalnie",
     "hero_h1": "Każdy agent. Jedna pamięć.<br><span class=\"aurora-text\">Całkowite przywołanie.</span>",
     "hero_lead": "Samodzielnie hostowana, osobista warstwa pamięci dla agentów AI — zbudowana na SQLite lub Postgres, osadzenia na urządzeniu i MCP.<br>Działa w 100% lokalnie domyślnie. Bez kluczy API. Bez zależności od chmury. Twoje dane nigdy nie opuszczają Twojego komputera.<br><span>Jesteś programistą?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Wypróbuj Aperio-dev</a><span style=\"font-size:.9em\"> — wymagana podstawowa znajomość terminala.</span><br><span>Jesteś zwykłym człowiekiem?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Wypróbuj Aperio-lite</a><span style=\"font-size:.9em\"> — kliknij dwa razy i gotowe, bez umiejętności technicznych.</span>",

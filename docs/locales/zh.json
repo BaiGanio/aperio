@@ -8,6 +8,7 @@
     "nav_setup": "设置",
     "nav_lite": "简明版",
     "nav_guide": "指南",
+    "nav_coverage": "覆盖率",
     "hero_eyebrow": "开源 · 自托管 · 隐私优先 · 默认本地运行",
     "hero_h1": "每一个代理。同一份记忆。<br><span class=\"aurora-text\">全面回忆。</span>",
     "hero_lead": "AI 代理的自托管个人记忆层——基于 SQLite 或 Postgres，设备端嵌入和 MCP。<br>默认 100% 本地运行。无需 API 密钥。无云端依赖。你的数据永不离开你的机器。<br><span>你是软件开发人员？</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ 试试 Aperio-dev</a><span style=\"font-size:.9em\">——需要基本的终端操作能力。</span><br><span>你是普通用户？</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ 试试 Aperio-lite</a><span style=\"font-size:.9em\">——双击即可运行，无需任何技术知识。</span>",

@@ -8,6 +8,7 @@
     "nav_setup": "Seadistamine",
     "nav_lite": "Lite",
     "nav_guide": "Juhend",
+    "nav_coverage": "Katvus",
     "hero_eyebrow": "Avatud lähtekood · Isehostitud · Privaatsus eesotsas · Vaikimisi lokaalne",
     "hero_h1": "Iga agent. Üks mälu.<br><span class=\"aurora-text\">Täielik mäletamine.</span>",
     "hero_lead": "Isehostitud isiklik mälukiht AI-agentidele — ehitatud SQLite või Postgres peale, seadmesisesed manustused ja MCP.<br>Töötab vaikimisi 100% lokaalselt. Pole API-võtmeid. Pole pilvesõltuvust. Sinu andmed ei lahku kunagi sinu masinast.<br><span>Oled sa tarkvaraarendaja?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Proovi Aperio-dev</a><span style=\"font-size:.9em\"> — vajalik on põhiline terminali kasutamise oskus.</span><br><span>Oled sa tavakasutaja?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Proovi Aperio-lite</a><span style=\"font-size:.9em\"> — topeltklõpsa ja tööta, tehnilisi oskusi pole vaja.</span>",

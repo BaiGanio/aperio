@@ -8,6 +8,7 @@
     "nav_setup": "Installation",
     "nav_lite": "Lite",
     "nav_guide": "Guide",
+    "nav_coverage": "Täckning",
     "hero_eyebrow": "Öppen källkod · Egen värd · Integritet först · Lokal som standard",
     "hero_h1": "Varje agent. Ett minne.<br><span class=\"aurora-text\">Total återkallelse.</span>",
     "hero_lead": "Ett självhostat personligt minneslager för AI-agenter — byggt på SQLite eller Postgres, inbyggda embeddingar och MCP.<br>Kör 100% lokalt som standard. Inga API-nycklar. Inget molnberoende. Din data lämnar aldrig din maskin.<br><span>Är du en mjukvaruutvecklare?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Prova Aperio-dev</a><span style=\"font-size:.9em\"> — grundläggande terminalvana krävs.</span><br><span>Är du en vanlig människa?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Prova Aperio-lite</a><span style=\"font-size:.9em\"> — dubbelklicka och kör, inga tekniska färdheter behövs.</span>",

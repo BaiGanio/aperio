@@ -30,6 +30,7 @@ const EN_LOCALE = {
     "nav_setup": "Setup",
     "nav_lite": "Lite",
     "nav_guide": "Guide",
+    "nav_coverage": "Coverage",
     "hero_eyebrow": "Open Source · Self-Hosted · Privacy-First · Local by Default",
     "hero_h1": "Every agent. One memory.<br><span class=\"aurora-text\">Total recall.</span>",
     "hero_lead": "A self-hosted personal memory layer for AI agents — built on SQLite or Postgres, on-device embeddings and MCP.<br>Runs 100% local by default. No API keys. No cloud dependency. Your data never leaves your machine.<br><span>You are a software developer?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Try Aperio-dev</a><span style=\"font-size:.9em\"> — basic terminal comfort is required.</span><br><span>You are a normal human?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Try Aperio-lite</a><span style=\"font-size:.9em\"> — double-click and go, no tech skills needed.</span>",

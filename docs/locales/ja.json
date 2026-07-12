@@ -8,6 +8,7 @@
     "nav_setup": "セットアップ",
     "nav_lite": "Lite",
     "nav_guide": "ガイド",
+    "nav_coverage": "カバレッジ",
     "hero_eyebrow": "オープンソース · セルフホスト · プライバシー第一 · デフォルトでローカル",
     "hero_h1": "あらゆるエージェントに、ひとつの記憶。<br><span class=\"aurora-text\">完全な想起。</span>",
     "hero_lead": "AIエージェントのためのセルフホスト型パーソナルメモリレイヤー — SQLiteまたはPostgres、オンデバイス埋め込み、MCPを採用。<br>デフォルトで100%ローカル動作。APIキー不要。クラウド依存なし。あなたのデータがマシンを出ることはありません。<br><span>あなたはソフトウェア開発者ですか？</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Aperio-devをお試しください</a><span style=\"font-size:.9em\"> — 基本的なターミナル操作が必要です。</span><br><span>あなたは一般ユーザーですか？</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Aperio-liteをお試しください</a><span style=\"font-size:.9em\"> — ダブルクリックですぐに使えます。技術スキルは不要です。</span>",

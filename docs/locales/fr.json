@@ -8,6 +8,7 @@
     "nav_setup": "Configuration",
     "nav_lite": "Lite",
     "nav_guide": "Guide",
+    "nav_coverage": "Couverture",
     "hero_eyebrow": "Open Source · Auto-hébergé · Privacy-First · Local par Défaut",
     "hero_h1": "Chaque agent. Une mémoire.<br><span class=\"aurora-text\">Mémoire totale.</span>",
     "hero_lead": "Une couche mémoire personnelle auto-hébergée pour les agents IA — construite sur SQLite ou Postgres, embeddings sur l'appareil et MCP.<br>Fonctionne 100% en local par défaut. Pas de clés API. Pas de dépendance au cloud. Vos données ne quittent jamais votre machine.<br><span>Vous êtes développeur ?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Essayez Aperio-dev</a><span style=\"font-size:.9em\"> — une aisance basique avec le terminal est requise.</span><br><span>Vous êtes un humain normal ?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Essayez Aperio-lite</a><span style=\"font-size:.9em\"> — double-clic et c'est parti, aucune compétence technique nécessaire.</span>",

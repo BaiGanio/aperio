@@ -8,6 +8,7 @@
     "nav_setup": "Configuração",
     "nav_lite": "Lite",
     "nav_guide": "Guia",
+    "nav_coverage": "Cobertura",
     "hero_eyebrow": "Open Source · Self-Hosted · Privacidade Primeiro · Local por Defeito",
     "hero_h1": "Cada agente. Uma memória.<br><span class=\"aurora-text\">Memória total.</span>",
     "hero_lead": "Uma camada de memória pessoal auto-hospedada para agentes de IA — construída sobre SQLite ou Postgres, embeddings no dispositivo e MCP.<br>Funciona 100% local por defeito. Sem chaves de API. Sem dependência da cloud. Os seus dados nunca saem da sua máquina.<br><span>É programador de software?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Experimente Aperio-dev</a><span style=\"font-size:.9em\"> — requer conhecimentos básicos de terminal.</span><br><span>É uma pessoa normal?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Experimente Aperio-lite</a><span style=\"font-size:.9em\"> — faça duplo clique e está pronto, sem necessidade de conhecimentos técnicos.</span>",

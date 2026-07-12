@@ -8,6 +8,7 @@
     "nav_setup": "Инсталация",
     "nav_lite": "Lite",
     "nav_guide": "Ръководство",
+    "nav_coverage": "Покритие",
     "hero_eyebrow": "Отворен код · Самостоятелен · Поверителност · Локален по подразбиране",
     "hero_h1": "Всеки агент. Една памет.<br><span class=\"aurora-text\">Пълно припомняне.</span>",
     "hero_lead": "Самостоятелен личен слой за памет за AI агенти — изграден върху SQLite или Postgres, локални embeddings и MCP.<br>Работи 100% локално по подразбиране. Без API ключове. Без облачна зависимост. Данните ви никога не напускат машината ви.<br><span>Софтуерен разработчик сте?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Опитайте Aperio-dev</a><span style=\"font-size:.9em\"> — необходимо е базово владеене на терминал.</span><br><span>Обикновен потребител сте?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Опитайте Aperio-lite</a><span style=\"font-size:.9em\"> — двоен клик и готово, без технически умения.</span>",

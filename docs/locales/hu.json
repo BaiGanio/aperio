@@ -8,6 +8,7 @@
     "nav_setup": "Beállítás",
     "nav_lite": "Lite",
     "nav_guide": "Útmutató",
+    "nav_coverage": "Lefedettség",
     "hero_eyebrow": "Nyílt forráskód · Saját tárhely · Adatvédelem első · Alapértelmezetten helyi",
     "hero_h1": "Egy ügynök. Egy memória.<br><span class=\"aurora-text\">Teljes visszahívás.</span>",
     "hero_lead": "Saját tárhelyű személyes memóriaréteg AI-ügynökök számára — SQLite vagy Postgres alapokon, helyi beágyazásokkal és MCP-vel.<br>Alapértelmezetten 100%-ban helyben fut. Nincs szükség API-kulcsokra. Nincs felhőfüggőség. Az adataid soha nem hagyják el a géped.<br><span>Szoftverfejlesztő vagy?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Próbáld ki az Aperio-dev-t</a><span style=\"font-size:.9em\"> — alapvető terminálismeret szükséges.</span><br><span>Átlagos felhasználó vagy?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Próbáld ki az Aperio-lite-ot</a><span style=\"font-size:.9em\"> — dupla kattintás és mehetsz, nincs szükség technikai tudásra.</span>",

@@ -8,6 +8,7 @@
     "nav_setup": "Asennus",
     "nav_lite": "Lite",
     "nav_guide": "Opas",
+    "nav_coverage": "Kattavuus",
     "hero_eyebrow": "Avoin lähdekoodi · Omatoiminen · Yksityisyys ensin · Oletuksena paikallinen",
     "hero_h1": "Jokainen agentti. Yksi muisti.<br><span class=\"aurora-text\">Täydellinen muisti.</span>",
     "hero_lead": "Itse isännöity henkilökohtainen muistikerros tekoälyagenteille — rakennettu SQLite tai Postgres -pohjalle, laitteen omilla upotuksilla ja MCP:llä.<br>Toimii 100% paikallisesti oletuksena. Ei API-avaimia. Ei pilviriippuvuutta. Tietosi eivät koskaan poistu koneeltasi.<br><span>Oletko ohjelmistokehittäjä?</span> <a href=\"#setup\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Kokeile Aperio-deviä</a><span style=\"font-size:.9em\"> — perustason pääteosaaminen vaaditaan.</span><br><span>Oletko tavallinen käyttäjä?</span> <a href=\"#aperio-lite\" style=\"color:var(--accent);text-decoration:none;font-weight:500\">✦ Kokeile Aperio-liteä</a><span style=\"font-size:.9em\"> — kaksoisnapsauta ja aloita, teknisiä taitoja ei tarvita.</span>",
