@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Memory-aware llama.cpp VLM preset selection: native-vision main models omit
+  the bridge, while oversized main/VLM pairs use router swap mode
+  (`models-max = 1`) and report the decision at startup.
 - Model download/load progress banner — llama.cpp weight pulls/loads inside a request now surface as a self-dismissing main-window banner (live GB, staged `downloading → loading → ready`, fades 5 s after ready) instead of a stale label crowding the header model chip; warm models stay silent
 - Skill quick-access chips collapse to a single measured row with a `+N more` expander (wraps open, `− less` collapses), recomputed on resize
 - Branch conversation redesign — labeled "Branch" button, a discoverable entry in the new `+` actions menu, and a friendly inline confirm card replacing the browser `confirm()`
@@ -40,4 +43,3 @@ Versions follow [Semantic Versioning](https://semver.org/).
   no on-disk record; they are now appended to a persistent ledger at
   `var/toolrepair/failures.tsv` (`ts, model, kind, persisted, detail`), with
   `persisted=1` marking the cases a retry did not recover.
-

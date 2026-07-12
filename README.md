@@ -632,6 +632,21 @@ Recommended models (an HF repo[:quant] string — downloaded automatically on fi
 
 > **💡 Tip:** Aperio detects your RAM and flags the best-fitting model as **(recommended)** — in the setup wizard and in the terminal model picker — so you don't have to guess. `APERIO_LOCAL_PERF_PROFILE` (`balanced` | `fast-low-vram` | `long-context` | `quality`) tunes the pick and the engine's launch flags for your hardware.
 
+#### llama.cpp vision memory behavior
+
+When `LLAMACPP_VLM_MODEL` is enabled, Aperio estimates the resident footprint of
+the main model and the VLM using their weights, KV-cache windows, and safety
+reserve. The preset then chooses one of three modes:
+
+- A main model with native vision omits the dedicated VLM.
+- If both models fit, they remain co-resident for fast image turns.
+- If they do not fit, both remain available but `models-max = 1` makes the
+  llama.cpp router evict one before loading the other. Image turns may therefore
+  reload the main model; startup logs identify this as `swap mode`.
+
+The decision is based on the actual served context windows and is recalculated
+when the preset is built.
+
 ### ✦ Anthropic Claude (Optional — Cloud Upgrade)
 
 For heavy research, complex multi-step reasoning, or the strongest tool-calling available.
