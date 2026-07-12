@@ -596,7 +596,12 @@ async function bootApp() {
   // afterwards and the window freezes at the default even though the server
   // serves a larger one.
   const bootProvider = (process.env.AI_PROVIDER || "").toLowerCase();
-  if (bootProvider === "llamacpp") await ensureLlamaCpp();
+  if (bootProvider === "llamacpp") {
+    const llamaReady = await ensureLlamaCpp();
+    if (llamaReady === false) {
+      throw new Error("Aperio cannot start because the existing llama-server is unmanaged or uses a stale preset. Stop it manually and restart Aperio.");
+    }
+  }
 
   const agent = await createAgent({
     root: __dirname,
@@ -674,9 +679,8 @@ async function bootApp() {
   const watchdog = createWatchdog({
     enabled:   idleMode === "on" ? true : idleMode === "off" ? false : isLocalProvider(provider.name),
     getPid:    getLlamaCppPid,
-    // On idle shutdown, stop the llama-server we started — but only if it's ours
-    // and no non-preset model is still resident (stopLlamaCpp enforces both, and
-    // tears down the whole process group so no worker is orphaned).
+    // On idle shutdown, stop the llama-server on Aperio's configured port,
+    // including one adopted after a prior process lost its state file.
     _stopLlama: stopLlamaCpp,
     timeoutMs: (Number(process.env.IDLE_TIMEOUT_SECONDS) || 180) * 1000,
     // Idle/Quit teardown must flip the same latch Ctrl+C does, BEFORE it
@@ -835,11 +839,8 @@ async function bootApp() {
     httpServer.closeAllConnections?.();
     await new Promise(resolve => httpServer.close(resolve));
 
-    // 4b. Stop the llama-server we started, now that in-flight generations have
-    //     drained. Self-guarding no-op unless we own it AND only this session's
-    //     preset models are resident (see stopLlamaCpp) — a warm server we merely
-    //     attached to, or one holding a non-preset model another client is using,
-    //     is left up.
+    // 4b. Stop the dedicated llama-server now that in-flight generations have
+    //     drained. stopLlamaCpp discovers an adopted listener when state was lost.
     await stopLlamaCpp().catch(() => {});
 
     // 5. Dispose the ONNX inference session — releases its thread pool so the
