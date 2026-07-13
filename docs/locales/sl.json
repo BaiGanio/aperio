@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# opcijsko: Postgres + pgvector namesto",
     "step4_title": "Povleci modele",
     "setup_comment_start_engine": "# zaženi pogon iz ločenega terminala",
-    "setup_comment_budget_llm": "# najboljši LLM za nizek proračun",
     "setup_available_options": "Razpoložljive možnosti:",
     "setup_comment_embeddings": "# vdelave tečejo na napravi (transformers) — ni modela za povleči",
     "step5_title": "Zaženi Aperio spletni vmesnik",

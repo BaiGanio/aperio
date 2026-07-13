@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# optional: Postgres + pgvector instead",
     "step4_title": "4. Indítsd el a szervert",
     "setup_comment_start_engine": "# start the engine from separate terminal",
-    "setup_comment_budget_llm": "# best LLM on low budget",
     "setup_available_options": "Available options:",
     "setup_comment_embeddings": "# embeddings run on-device (transformers) — no model to pull",
     "step5_title": "5. Nyisd meg a böngészőt",

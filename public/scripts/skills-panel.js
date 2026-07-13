@@ -145,7 +145,7 @@
 
   async function removeSkill(name, shipped) {
     const msg = t(shipped ? "skills_panel_disable_confirm" : "skills_panel_delete_confirm", { name });
-    if (!confirm(msg)) return;
+    if (!await askConfirmModal(shipped ? "Disable skill" : "Delete skill", msg, shipped ? "Disable" : "Delete")) return;
     try {
       await api(`/api/skill?name=${encodeURIComponent(name)}`, { method: "DELETE" });
       await load();
@@ -153,7 +153,7 @@
   }
 
   async function resetSkill(name) {
-    if (!confirm(t("skills_panel_reset_confirm", { name }))) return;
+    if (!await askConfirmModal("Reset skill", t("skills_panel_reset_confirm", { name }), "Reset")) return;
     try {
       await api("/api/skill/reset", {
         method: "POST", headers: { "Content-Type": "application/json" },

@@ -119,7 +119,7 @@
   }
 
   async function deleteSample() {
-    if (!confirm("Delete the sample database? This removes the sample connections and wipes its file.")) return;
+    if (!await askConfirmModal("Delete sample database", "Delete the sample database? This removes the sample connections and wipes its file.", "Delete")) return;
     setSampleNote("Deleting sample database…");
     try {
       await sampleApi("DELETE");
@@ -229,7 +229,7 @@
   }
 
   async function removeConn(name) {
-    if (!confirm(`Delete connection "${name}"?`)) return;
+    if (!await askConfirmModal("Delete database connection", `Delete connection "${name}"?`, "Delete")) return;
     try {
       await api("DELETE", `/${encodeURIComponent(name)}`);
       if (editing === name) { editing = null; renderForm(null); }

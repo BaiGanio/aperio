@@ -57,14 +57,14 @@ fetch('/api/version')
 
 // "Quit Aperio" — stop the server (and vendored llama.cpp) right now.
 window.quitAperio = async function quitAperio() {
-  if (!confirm(t('power_quit_confirm'))) return;
+  if (!await askConfirmModal(t('nav_power_quit'), t('power_quit_confirm'), 'Quit')) return;
   let supervised = false;
   try {
     const res = await fetch('/api/quit', { method: 'POST' });
     if (res.status === 409) supervised = (await res.json()).supervised === true;
   } catch (_e) {}
   if (supervised) {
-    alert(t('power_quit_supervised'));
+    showErrorModal(t('power_quit_supervised'));
     return;
   }
   document.body.innerHTML =

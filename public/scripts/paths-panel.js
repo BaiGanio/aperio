@@ -74,7 +74,7 @@ function _renderPathChips() {
     chip.querySelector(".path-chip-del").onclick = async () => {
       const roots = await getIndexedRoots();
       if (roots.includes(p)) {
-        if (!confirm(`Remove "${p}" from allowed paths?\n\nThis path has an indexed code graph repo. To fully remove it, delete the repo from the Code Graph panel instead.`)) return;
+        if (!await askConfirmModal("Remove allowed path", `Remove "${p}" from allowed paths?\n\nThis path has an indexed code graph repo. To fully remove it, delete the repo from the Code Graph panel instead.`, "Remove")) return;
       }
       _pathsList.splice(i, 1);
       _indexedRoots = null; // invalidate cache after mutation

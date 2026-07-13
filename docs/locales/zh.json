@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# 可选：改用 Postgres + pgvector",
     "step4_title": "拉取模型",
     "setup_comment_start_engine": "# 在另一个终端中启动引擎",
-    "setup_comment_budget_llm": "# 预算有限时最佳的 LLM",
     "setup_available_options": "可用选项：",
     "setup_comment_embeddings": "# 嵌入在设备端运行（transformers）——无需拉取模型",
     "step5_title": "启动 Aperio Web 界面",

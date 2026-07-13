@@ -1006,6 +1006,27 @@ describe("Agent Integration with Emitter", () => {
 
     assert.strictEqual(agent.toolsEnabled, true, "allowlisted llama.cpp models are capable");
     assert.match(memCtx, /1 saved memory\b/, "allowlisted models get the recall pointer");
+    const imageTurn = [{ role: "user", content: [
+      { type: "text", text: "describe this image" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+    ] }];
+    const imageTools = agent.getOpenAiTools("describe this image", imageTurn)
+      .map(t => t.function?.name);
+    assert.ok(!imageTools.includes("read_image"), "capable local models must not be offered read_image for an inline upload");
+    assert.ok(!imageTools.includes("preprocess_image"), "capable local models must not be offered preprocess_image for an inline upload");
+    assert.ok(!imageTools.includes("describe_image"), "capable local models must not be offered the VLM bridge tool");
+    assert.ok(!imageTools.includes("read_file"), "standalone inline image requests must not offer read_file for the uploaded PNG");
+    assert.ok(!imageTools.includes("propose_memory"), "standalone inline image requests must not offer propose_memory");
+    assert.ok(!imageTools.includes("remember"), "standalone inline image requests must not offer remember");
+    assert.ok(!imageTools.includes("self_update"), "standalone inline image requests must not offer self_update");
+    assert.ok(!imageTools.includes("self_remember"), "standalone inline image requests must not offer self_remember");
+    assert.ok(!imageTools.includes("self_wiki_write"), "standalone inline image requests must not offer self_wiki_write");
+    // A standalone visual request has no lookup intent by definition, so even
+    // retrieval tools must be withheld — a weak multimodal model was firing
+    // self_recall on a bare "describe this image" and stalling the turn.
+    assert.ok(!imageTools.includes("recall"), "standalone inline image requests must not offer recall");
+    assert.ok(!imageTools.includes("self_recall"), "standalone inline image requests must not offer self_recall");
+    assert.strictEqual(imageTools.length, 0, "a standalone inline image request must be offered no tools at all");
   });
 
   test("buildGreeting handles no memories gracefully", async (t) => {

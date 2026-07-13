@@ -2110,9 +2110,18 @@ function _renderActionConfirmButton(token, label, summary, tool, options = {}) {
   edit.className = "action-confirm-btn action-confirm-cancel";
   edit.innerHTML = '<i class="bi bi-pencil"></i> Edit';
   edit.style.display = canEdit ? "" : "none";
-  edit.onclick = () => {
+  edit.onclick = async () => {
     const current = interrupt?.arguments || {};
-    const raw = prompt("Edit action arguments as JSON", JSON.stringify(current, null, 2));
+    const raw = await window.askInputModal({
+      title: "Edit action arguments",
+      message: "Update the JSON arguments before sending this action.",
+      value: JSON.stringify(current, null, 2),
+      submitLabel: "Apply",
+      validate: (value) => {
+        try { JSON.parse(value); return ""; }
+        catch (err) { return `Invalid JSON: ${err.message}`; }
+      },
+    });
     if (raw == null) return;
     try {
       const editedArguments = JSON.parse(raw);
@@ -2127,8 +2136,12 @@ function _renderActionConfirmButton(token, label, summary, tool, options = {}) {
   reject.className = "action-confirm-btn action-confirm-cancel";
   reject.innerHTML = '<i class="bi bi-x-circle"></i> Reject';
   reject.style.display = isInterrupt ? "" : "none";
-  reject.onclick = () => {
-    const response = prompt("Optional feedback for the agent", "") || "";
+  reject.onclick = async () => {
+    const response = (await window.askInputModal({
+      title: "Reject action",
+      message: "Optionally explain why this action was rejected.",
+      submitLabel: "Reject",
+    })) || "";
     wrap.remove();
     _sendInterruptDecision({ id: token, decision: "reject", response });
   };
@@ -2137,8 +2150,12 @@ function _renderActionConfirmButton(token, label, summary, tool, options = {}) {
   respond.className = "action-confirm-btn action-confirm-cancel";
   respond.innerHTML = '<i class="bi bi-chat-left-text"></i> Respond';
   respond.style.display = isInterrupt ? "" : "none";
-  respond.onclick = () => {
-    const response = prompt("Response to record without executing", "");
+  respond.onclick = async () => {
+    const response = await window.askInputModal({
+      title: "Respond to agent",
+      message: "Record a response without executing the action.",
+      submitLabel: "Respond",
+    });
     if (response == null) return;
     wrap.remove();
     _sendInterruptDecision({ id: token, decision: "respond", response });

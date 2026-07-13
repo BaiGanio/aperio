@@ -13,7 +13,8 @@ import { readFileSync, existsSync, statSync }   from "fs";
 import { extname }                              from "path";
 import logger                                   from "../../lib/helpers/logger.js";
 import { preprocessImage, preprocessBase64 }   from "../../lib/handlers/attachments/workers/preprocessImage.js";
-import { LLAMACPP_VLM_ALIAS }                  from "../../lib/helpers/llamacppAliases.js";
+import { LLAMACPP_MAIN_ALIAS, LLAMACPP_VLM_ALIAS } from "../../lib/helpers/llamacppAliases.js";
+import { isVisionModel }                       from "../../lib/helpers/imageBridge.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,14 @@ const MAX_BYTES = 20 * 1024 * 1024; // 20 MB — same limit as before
 // call reaches this handler.
 const LLAMACPP_BASE_URL = process.env.LLAMACPP_BASE_URL || "http://127.0.0.1:8080";
 const LLAMACPP_VLM_MODEL = process.env.LLAMACPP_VLM_MODEL || "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
+const LLAMACPP_MAIN_MODEL = process.env.LLAMACPP_MODEL || "";
 const LLAMACPP_VLM_TIMEOUT_MS = Number(process.env.LLAMACPP_VLM_TIMEOUT_MS) || 300_000;
+
+export function resolveDescribeModel(vlmModel, configuredVlmModel = LLAMACPP_VLM_MODEL, configuredMainModel = LLAMACPP_MAIN_MODEL) {
+  return vlmModel === configuredVlmModel && isVisionModel(configuredMainModel)
+    ? LLAMACPP_MAIN_ALIAS
+    : (vlmModel === configuredVlmModel ? LLAMACPP_VLM_ALIAS : vlmModel);
+}
 
 export function isLlamaCppProvider() {
   return (process.env.AI_PROVIDER || "").toLowerCase() === "llamacpp";
@@ -48,11 +56,17 @@ export function isLlamaCppProvider() {
  */
 export async function describeImageViaLlamaCpp(base64, prompt, model) {
   const vlmModel = model || LLAMACPP_VLM_MODEL;
+  // Native-vision main models are deliberately the only model in the preset;
+  // buildModelsPreset omits aperio-vlm to avoid loading a second multimodal
+  // model. If a model nevertheless emits the describe_image tool call, route
+  // it back to the already-loaded main alias instead of asking the router for
+  // an alias that cannot exist in this configuration.
+  const targetModel = resolveDescribeModel(vlmModel);
   const r = await fetch(`${LLAMACPP_BASE_URL}/v1/chat/completions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: vlmModel === LLAMACPP_VLM_MODEL ? LLAMACPP_VLM_ALIAS : vlmModel,
+      model: targetModel,
       messages: [{
         role: "user",
         content: [

@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# valfritt: Postgres + pgvector istället",
     "step4_title": "Hämta modellerna",
     "setup_comment_start_engine": "# starta motorn från separat terminal",
-    "setup_comment_budget_llm": "# bästa LLM på låg budget",
     "setup_available_options": "Tillgängliga alternativ:",
     "setup_comment_embeddings": "# embeddingar körs på enheten (transformers) — ingen modell att hämta",
     "step5_title": "Starta Aperio webbgränssnitt",

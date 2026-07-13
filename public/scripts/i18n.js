@@ -152,6 +152,12 @@ const TRANSLATIONS = {
     mem_min_ago:              "{n}m ago",
     mem_hour_ago:             "{n}h ago",
     mem_day_ago:              "{n}d ago",
+    mem_inbox_title:          "Inbox",
+    mem_inbox_approve:        "Approve",
+    mem_inbox_reject:         "Reject",
+    mem_inbox_view:           "Click to view the full text",
+    mem_tag_filter:           "Tag:",
+    mem_tag_clear:            "Clear filter",
 
     chat_placeholder:         "Ask anything — or say 'scan my project at ~/…'",
     chat_send_title:          "Send ({key}+Enter)",
@@ -306,6 +312,9 @@ const TRANSLATIONS = {
     sessions_untitled:        "Untitled",
     sessions_pin:             "Pin",
     sessions_unpin:           "Unpin",
+    resume_card_messages:     "{n} messages",
+    resume_card_continue:     "Continue",
+    resume_card_dismiss:      "Dismiss",
 
     paths_allowed_label:      "Allowed folders",
     paths_allowed_hint:       "Folders the AI can read and edit. Generated files (pptx, xlsx) go to the session workspace.",

@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# izborno: Postgres + pgvector umjesto toga",
     "step4_title": "Povucite modele",
     "setup_comment_start_engine": "# pokrenite engine iz zasebnog terminala",
-    "setup_comment_budget_llm": "# najbolji LLM na niskom budžetu",
     "setup_available_options": "Dostupne opcije:",
     "setup_comment_embeddings": "# ugrađivanja rade na uređaju (transformers) — nema modela za povlačenje",
     "step5_title": "Pokrenite Aperio Web sučelje",

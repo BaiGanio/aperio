@@ -157,7 +157,7 @@
 
   // ── Delete a folder ───────────────────────────────────────────────────────
   async function deleteRepo(rootPath) {
-    if (!confirm(`Remove indexed folder:\n${rootPath}\n\nThis will also remove it from the allowed paths list.`)) return;
+    if (!await askConfirmModal("Remove indexed folder", `Remove indexed folder:\n${rootPath}\n\nThis will also remove it from the allowed paths list.`, "Remove")) return;
     try {
       const r = await fetch("/api/docgraph/repos", {
         method: "DELETE",

@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# voliteľné: Postgres + pgvector namiesto",
     "step4_title": "Stiahnuť modely",
     "setup_comment_start_engine": "# spustite engine z oddeleného terminálu",
-    "setup_comment_budget_llm": "# najlepší LLM na nízky rozpočet",
     "setup_available_options": "Dostupné možnosti:",
     "setup_comment_embeddings": "# embeddings bežia na zariadení (transformers) — žiadny model na stiahnutie",
     "step5_title": "Spustiť Aperio Web UI",

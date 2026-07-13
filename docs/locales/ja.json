@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# オプション：代わりにPostgres + pgvector",
     "step4_title": "モデルをプル",
     "setup_comment_start_engine": "# 別のターミナルからエンジンを起動",
-    "setup_comment_budget_llm": "# 低予算に最適なLLM",
     "setup_available_options": "利用可能なオプション：",
     "setup_comment_embeddings": "# 埋め込みはオンデバイス（transformers）で動作 — プルするモデルはありません",
     "step5_title": "Aperio Web UIを起動",

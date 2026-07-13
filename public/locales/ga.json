@@ -97,6 +97,10 @@
   "mem_min_ago":              "{n} nóim ó shin",
   "mem_hour_ago":             "{n} uair ó shin",
   "mem_day_ago":              "{n} lá ó shin",
+  "mem_inbox_title":          "Bosca Iste",
+  "mem_inbox_approve":        "Ceadaigh",
+  "mem_inbox_reject":         "Diúltaigh",
+  "mem_inbox_view":           "Cliceáil chun an téacs iomlán a fheiceáil",
 
   "chat_placeholder":         "Fiafraigh rud ar bith — nó abair 'scanáil mo thionscadal ag ~/…'",
   "chat_send_title":          "Seol ({key}+Enter)",
@@ -368,5 +372,25 @@
   "wiz_network_failed":       "Níorbh fhéidir an freastalaí a bhaint amach - bain triail eile as.",
 
   "agent_greeting":           "Beannaigh dom in aon abairt ghairid chairdiúil amháin. Ná húsáid uirlisí.",
-  "agent_greeting_text":      "Dia duit! Conas is féidir liom cabhrú leat inniu?"
+  "agent_greeting_text":      "Dia duit! Conas is féidir liom cabhrú leat inniu?",
+  "skills_panel_one_shot_label": "use on next prompt",
+  "skills_panel_one_shot_title": "Include this skill in your next message only — the box unchecks itself after sending. Unchecked: automatic skill matching decides.",
+  "plus_btn_title": "Attach or more actions",
+  "plus_menu_attach_title": "Attach files",
+  "plus_menu_attach_desc": "Images, PDFs, code — anything the model should look at.",
+  "plus_menu_branch_title": "Branch conversation",
+  "plus_menu_branch_desc": "Start a new conversation with context from this one. Both conversations stay in Sessions.",
+  "branch_button_label": "Branch",
+  "branch_button_tooltip": "Start a new conversation with context from this one. This conversation stays in Sessions.",
+  "branch_card_title": "Start a new branch?",
+  "branch_card_body": "This conversation stays saved in Sessions. Aperio opens a new conversation and carries over the latest summary, or excerpts from the last four messages if no summary exists. New replies appear only in the new conversation.",
+  "branch_card_go": "Start new branch",
+  "branch_card_stay": "Stay here",
+  "branch_created": "↳ Branched:",
+  "sessions_branched_from": "branched",
+  "mem_tag_filter": "Tag:",
+  "mem_tag_clear": "Clear filter",
+  "resume_card_messages": "{n} messages",
+  "resume_card_continue": "Continue",
+  "resume_card_dismiss": "Dismiss"
 }

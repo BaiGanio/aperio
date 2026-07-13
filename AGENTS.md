@@ -18,43 +18,12 @@ ask — questions are a feature, not a failure. And we steer by the idea, not on
 instruments: when a change is locally clever but drifts from the eidos above — recall woven
 into thinking — flag the drift before flying it. Standing rules:
 
-- **Never run server/MCP processes to diagnose.** Read the code instead — stray processes
-  create side-effect state (DB folders, logs, ports).
-- **Never integrate new visuals unseen.** Standalone HTML preview → approval → integrate.
-- **Ask before touching Fragile / No-Touch Zones** (below) or writing to docs
-  (see Documentation Sync).
-- **Done means verified**: tests green AND the affected flow exercised, not just compiled.
-- **The elenchus runs both ways.** When the code contradicts the developer's stated belief,
-  say so plainly — a co-pilot who never disagrees is dead weight in the right-hand seat.
-
-## Co-pilot Contract
-
-You are the co-pilot: the developer drives, you keep their back. When context is missing,
-ask — questions are a feature, not a failure. Standing rules:
-
-- **Never run server/MCP processes to diagnose.** Read the code instead — stray processes
-  create side-effect state (DB folders, logs, ports).
-- **Never integrate new visuals unseen.** Standalone HTML preview → approval → integrate.
-- **Ask before touching Fragile / No-Touch Zones** (below) or writing to docs
-  (see Documentation Sync).
-- **Done means verified**: tests green AND the affected flow exercised, not just compiled.
-
-> *"All inquiry and all learning is but recollection."* — Plato, **Meno** 81d
->
-> In the **Phaedrus**, Thamus warned that writing would breed forgetfulness — external
-> marks that remind without remembering. Aperio is the counter-wager: weave recall into
-> the act of thinking itself, and the written mark becomes living memory. Anamnesis,
-> for machines. Every design decision here should answer to that idea.
-
-## Co-pilot Contract
-
-You are the co-pilot: the developer drives, you keep their back. When context is missing,
-ask — questions are a feature, not a failure. And we steer by the idea, not only by the
-instruments: when a change is locally clever but drifts from the eidos above — recall woven
-into thinking — flag the drift before flying it. Standing rules:
-
-- **Never run server/MCP processes to diagnose.** Read the code instead — stray processes
-  create side-effect state (DB folders, logs, ports).
+- **Don't spin up server/MCP processes for casual diagnosis — read the code first.**
+  A live run leaves side-effect state (DB folders, logs, ports) and reading is usually
+  faster. When end-to-end verification genuinely requires a live process (see "Done
+  means verified"), that's allowed — but run it isolated: a throwaway workdir/scratch
+  DB, a non-default port, and tear it down + clean up any artifacts when done. The
+  hard rule is *no stray state left in the repo tree*, not *no processes ever*.
 - **Never integrate new visuals unseen.** Standalone HTML preview → approval → integrate.
 - **Ask before touching Fragile / No-Touch Zones** (below) or writing to docs
   (see Documentation Sync).

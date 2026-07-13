@@ -330,7 +330,7 @@ describe("runLlamaCppLoop — successful response", () => {
 
     const result = await runLlamaCppLoop(
       messages, emitter, {}, undefined, () => {},
-      baseCtx("gemma4:e4b", { callTool }),
+      baseCtx("qwen2.5:3b", { callTool }),
     );
 
     assert.equal(result, "A red bicycle beside a brick wall.");
@@ -365,7 +365,7 @@ describe("runLlamaCppLoop — successful response", () => {
 
     const result = await runLlamaCppLoop(
       messages, { send: makeEmittersend() }, {}, undefined, () => {},
-      baseCtx("qwen3.5:9b", {
+      baseCtx("qwen2.5:3b", {
         callTool,
         getOpenAiTools: () => tools,
       }),
@@ -379,6 +379,75 @@ describe("runLlamaCppLoop — successful response", () => {
     assert.match(wireText, /Customer ID 42/);
     assert.doesNotMatch(wireText, /data:image\/png;base64,pixels/);
   });
+
+  test("sends images directly to a native-vision main model without using the omitted VLM bridge", async () => {
+    let requestBody;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      requestBody = JSON.parse(opts.body);
+      return {
+        ok: true, status: 200, text: async () => "",
+        body: sseStream([
+          'data: {"choices":[{"index":0,"delta":{"content":"The main vision model saw it."},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":7}}\n\n',
+          "data: [DONE]\n\n",
+        ]),
+      };
+    });
+    const callTool = mock.fn(async () => assert.fail("native vision should not call the VLM bridge"));
+    const result = await runLlamaCppLoop(
+      [{ role: "user", content: [
+        { type: "text", text: "Describe this image" },
+        { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+      ]}],
+      { send: makeEmittersend() }, {}, undefined, () => {},
+      baseCtx("unsloth/Qwen3.5-9B-GGUF:Q4_K_M", { callTool }),
+    );
+
+    assert.equal(result, "The main vision model saw it.");
+    const wireContent = requestBody.messages.at(-1).content;
+    assert.ok(wireContent.some(b => b.type === "image_url"), "the raw image should reach the native-vision model");
+    assert.equal(wireContent.find(b => b.type === "image_url").image_url.url, "data:image/png;base64,pixels");
+  });
+
+  test("sends images directly to an allowlisted capable model", async () => {
+    const previous = process.env.APERIO_CAPABLE_MODELS;
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
+    try {
+      let requestBody;
+      mock.method(globalThis, "fetch", async (url, opts) => {
+        const tag = String(url);
+        if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+        requestBody = JSON.parse(opts.body);
+        return {
+          ok: true, status: 200, text: async () => "",
+          body: sseStream([
+            'data: {"choices":[{"index":0,"delta":{"content":"The capable model saw it."},"finish_reason":null}]}\n\n',
+            'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":6}}\n\n',
+            "data: [DONE]\n\n",
+          ]),
+        };
+      });
+      const callTool = mock.fn(async () => assert.fail("capable model should not call the VLM bridge"));
+      const result = await runLlamaCppLoop(
+        [{ role: "user", content: [
+          { type: "text", text: "Describe this image" },
+          { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+        ]}],
+        { send: makeEmittersend() }, {}, undefined, () => {},
+        baseCtx("qwen3:32b", { callTool }),
+      );
+
+      assert.equal(result, "The capable model saw it.");
+      const wireContent = requestBody.messages.at(-1).content;
+      assert.ok(wireContent.some(b => b.type === "image_url"));
+    } finally {
+      if (previous === undefined) delete process.env.APERIO_CAPABLE_MODELS;
+      else process.env.APERIO_CAPABLE_MODELS = previous;
+    }
+  });
+
 });
 
 // =============================================================================

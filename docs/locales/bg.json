@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# по избор: Postgres + pgvector",
     "step4_title": "Изтеглете моделите",
     "setup_comment_start_engine": "# стартирайте двигателя в отделен терминал",
-    "setup_comment_budget_llm": "# най-добрият бюджетен LLM",
     "setup_available_options": "Налични варианти:",
     "setup_comment_embeddings": "# embeddings работят локално (transformers) — няма модел за изтегляне",
     "step5_title": "Стартирайте Aperio Уеб интерфейс",

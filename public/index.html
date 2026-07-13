@@ -387,6 +387,23 @@
   </div>
 </div>
 
+<!-- Shared input modal (agent action editing / interrupt responses) -->
+<div id="inputModal" class="confirm-modal" aria-hidden="true">
+  <div class="confirm-content input-modal-content" role="dialog" aria-modal="true" aria-labelledby="inputModalTitle">
+    <div class="confirm-header">
+      <span class="confirm-title" id="inputModalTitle"></span>
+      <button class="confirm-close" id="inputModalClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <p class="confirm-message" id="inputModalMessage"></p>
+    <textarea id="inputModalField" class="input-modal-field" rows="8"></textarea>
+    <p id="inputModalError" class="input-modal-error" role="alert" hidden></p>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" id="inputModalCancel" type="button">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="inputModalSubmit" type="button">Submit</button>
+    </div>
+  </div>
+</div>
+
 <!-- Export modal (checkbox form) -->
 <div id="exportModal" class="confirm-modal">
   <div class="confirm-content">
