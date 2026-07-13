@@ -202,10 +202,10 @@ function makeMemoryCard(m) {
     };
   });
 
-  card.querySelector(".delete-btn").onclick = (e) => {
+  card.querySelector(".delete-btn").onclick = async (e) => {
     e.stopPropagation();
     if (!m.id) return;
-    if (!confirm(t("mem_delete_confirm", { title: m.title }))) return;
+    if (!await askConfirmModal(t("mem_delete_title"), t("mem_delete_confirm", { title: m.title }), "Delete")) return;
     card.style.opacity = "0.4";
     card.style.pointerEvents = "none";
     window.safeSend(JSON.stringify({ type: "delete_memory", id: m.id }));
@@ -216,6 +216,10 @@ function makeMemoryCard(m) {
 
 // ── Inbox ─────────────────────────────────────────────────────
 let _pendingCount = 0;
+// Inbox is a collapsible peer of the Facts/Preferences/Sources sections.
+// Expanded by default so pending items are seen; the toggle state survives the
+// 60s auto-refresh via this module-level flag.
+let _inboxCollapsed = false;
 
 async function loadInboxCount() {
   try {
@@ -242,22 +246,51 @@ async function loadInboxPanel() {
     if (!res.ok) { section.innerHTML = ""; return; }
     const { pending } = await res.json();
     if (!pending?.length) { section.innerHTML = ""; return; }
-    section.innerHTML =
-      `<div class="inbox-header">📥 ${t("mem_inbox_title") || "Inbox"} (${pending.length})</div>` +
-      pending.map(p => `
-        <div class="inbox-item" data-id="${escapeHtml(p.id)}">
-          <div class="inbox-item-title">${escapeHtml(p.title)}</div>
-          <div class="inbox-item-content">${escapeHtml(p.content)}</div>
-          <div class="inbox-item-meta">
-            <span class="inbox-item-type">${escapeHtml(p.type)}</span>
-            ${(p.tags || []).map(tg => `<span class="tag">${escapeHtml(tg)}</span>`).join("")}
-          </div>
-          <div class="inbox-item-actions">
-            <button class="inbox-btn inbox-btn--approve" data-id="${escapeHtml(p.id)}">✓ ${t("mem_inbox_approve") || "Approve"}</button>
-            <button class="inbox-btn inbox-btn--reject" data-id="${escapeHtml(p.id)}">✕ ${t("mem_inbox_reject") || "Reject"}</button>
-          </div>
+    const bodyClass = _inboxCollapsed ? " collapsed" : "";
+    const chevOpen  = _inboxCollapsed ? "" : " open";
+    section.innerHTML = `
+      <div class="type-group">
+        <div class="type-header type-header--inbox" id="inboxHeader">
+          <span class="type-icon">📥</span>
+          <span>${escapeHtml(t("mem_inbox_title"))}</span>
+          <span class="type-count">${pending.length}</span>
+          <i class="bi bi-chevron-right type-chevron${chevOpen}"></i>
         </div>
-      `).join("");
+        <div class="type-group-body${bodyClass}" id="inboxBody">
+          ${pending.map(p => {
+            const tags = Array.isArray(p.tags) ? p.tags : [];
+            // Same payload shape showPreview() expects; reuse the delegated
+            // .memory-preview click handler so the full text opens in the same
+            // modal the memory cards use.
+            const detail = JSON.stringify({
+              title: p.title, content: p.content, type: p.type,
+              tags, importance: p.importance ?? 0,
+            });
+            const data = btoa(unescape(encodeURIComponent(detail)));
+            return `
+            <div class="inbox-item" data-id="${escapeHtml(p.id)}">
+              <div class="memory-preview inbox-item-body" data-memory='${data}' title="${escapeHtml(t("mem_inbox_view"))}">
+                <div class="inbox-item-title">${escapeHtml(p.title)}</div>
+                <div class="inbox-item-content">${escapeHtml(p.content)}</div>
+              </div>
+              <div class="inbox-item-meta">
+                <span class="inbox-item-type">${escapeHtml(p.type)}</span>
+                ${tags.map(tg => `<span class="tag">${escapeHtml(tg)}</span>`).join("")}
+              </div>
+              <div class="inbox-item-actions">
+                <button class="inbox-btn inbox-btn--approve" data-id="${escapeHtml(p.id)}">✓ ${escapeHtml(t("mem_inbox_approve"))}</button>
+                <button class="inbox-btn inbox-btn--reject" data-id="${escapeHtml(p.id)}">✕ ${escapeHtml(t("mem_inbox_reject"))}</button>
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+      </div>`;
+    const header = section.querySelector("#inboxHeader");
+    if (header) header.onclick = () => {
+      _inboxCollapsed = !_inboxCollapsed;
+      section.querySelector("#inboxBody")?.classList.toggle("collapsed", _inboxCollapsed);
+      header.querySelector(".type-chevron")?.classList.toggle("open", !_inboxCollapsed);
+    };
     wireInbox();
   } catch { section.innerHTML = ""; }
 }
@@ -317,6 +350,22 @@ document.addEventListener("DOMContentLoaded", () => {
   loadInboxPanel();
   // Refresh inbox every 60 seconds.
   setInterval(() => { loadInboxCount(); loadInboxPanel(); }, 60000);
+
+  // Resilience: the sidebar normally fills from the WS "memories" push during
+  // init. If that push is delayed or never arrives (e.g. sendMemories() throws
+  // server-side and swallows the error), the list would hang on "Loading
+  // memories…" forever. Fall back to the REST endpoint — but only if the push
+  // hasn't already landed, so a normal load never fires this extra fetch.
+  setTimeout(async () => {
+    if (Array.isArray(window.allMemories)) return;   // WS push already delivered
+    try {
+      const res = await fetch("/api/memories");
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(window.allMemories)) return;  // push landed during await
+      renderMemoriesFromMessage(Array.isArray(data.raw) ? data.raw : []);
+    } catch { /* WS push may still arrive; leave the loader in place */ }
+  }, 2000);
 });
 
 // ── Search ───────────────────────────────────────────────────
@@ -364,15 +413,50 @@ function showConfirmModal(title, message, okLabel, onOk) {
   const okBtn = document.getElementById('confirmOkBtn');
   okBtn.textContent = okLabel || 'OK';
   okBtn.onclick = () => {
+    if (modal._finishPromiseConfirm) {
+      const finish = modal._finishPromiseConfirm;
+      delete modal._finishPromiseConfirm;
+      delete modal.dataset.promiseConfirm;
+      modal.classList.remove('active');
+      finish(true);
+      return;
+    }
     closeConfirmModal();
     if (onOk) onOk();
   };
   modal.classList.add('active');
 }
 
+function askConfirmModal(title, message, okLabel) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('confirmModal');
+    if (!modal) { resolve(false); return; }
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      resolve(result);
+    };
+    showConfirmModal(title, message, okLabel, () => finish(true));
+    modal.dataset.promiseConfirm = 'true';
+    modal._finishPromiseConfirm = (result) => {
+      closeConfirmModal();
+      finish(result);
+    };
+  });
+}
+
 function closeConfirmModal() {
   const modal = document.getElementById('confirmModal');
-  if (modal) modal.classList.remove('active');
+  if (modal) {
+    modal.classList.remove('active');
+    if (modal._finishPromiseConfirm) {
+      const finish = modal._finishPromiseConfirm;
+      delete modal._finishPromiseConfirm;
+      delete modal.dataset.promiseConfirm;
+      finish(false);
+    }
+  }
 }
 
 // Thin error-modal wrapper — reuses the confirm-modal with a single Close button.
@@ -392,11 +476,68 @@ function showErrorModal(msg) {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { closeConfirmModal(); closeExportModal(); }
+  if (e.key === 'Escape') {
+    closeConfirmModal();
+    closeExportModal();
+    document.getElementById('inputModal')?._finishInput?.();
+  }
 });
 
 document.getElementById('confirmModal')?.addEventListener('click', (e) => {
   if (!e.target.closest('.confirm-content')) closeConfirmModal();
+});
+
+// Shared text/JSON input modal. Returns null when dismissed.
+function askInputModal({ title, message = '', value = '', submitLabel = 'Submit', placeholder = '', validate } = {}) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('inputModal');
+    const field = document.getElementById('inputModalField');
+    const error = document.getElementById('inputModalError');
+    if (!modal || !field || !error) { resolve(null); return; }
+
+    let settled = false;
+    const finish = (result) => {
+      if (settled) return;
+      settled = true;
+      modal.classList.remove('active');
+      modal.setAttribute('aria-hidden', 'true');
+      delete modal._finishInput;
+      resolve(result);
+    };
+    const submit = () => {
+      const raw = field.value;
+      const validationError = validate ? validate(raw) : '';
+      if (validationError) {
+        error.textContent = validationError;
+        error.hidden = false;
+        field.focus();
+        return;
+      }
+      finish(raw);
+    };
+
+    document.getElementById('inputModalTitle').textContent = title || '';
+    document.getElementById('inputModalMessage').textContent = message;
+    field.value = value;
+    field.placeholder = placeholder;
+    error.textContent = '';
+    error.hidden = true;
+    document.getElementById('inputModalSubmit').textContent = submitLabel;
+    document.getElementById('inputModalSubmit').onclick = submit;
+    document.getElementById('inputModalCancel').onclick = () => finish(null);
+    document.getElementById('inputModalClose').onclick = () => finish(null);
+    modal._finishInput = () => finish(null);
+    modal.classList.add('active');
+    modal.setAttribute('aria-hidden', 'false');
+    requestAnimationFrame(() => field.focus());
+  });
+}
+
+window.askConfirmModal = askConfirmModal;
+window.askInputModal = askInputModal;
+
+document.getElementById('inputModal')?.addEventListener('click', (e) => {
+  if (!e.target.closest('.input-modal-content')) e.currentTarget._finishInput?.();
 });
 
 // ── Export modal helpers ────────────────────────────────────────

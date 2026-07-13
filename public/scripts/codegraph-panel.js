@@ -141,7 +141,7 @@
 
   // ── Delete a repo ─────────────────────────────────────────────────────────
   async function deleteRepo(rootPath) {
-    if (!confirm(`Remove indexed repo:\n${rootPath}\n\nThis will also remove it from the allowed paths list.`)) return;
+    if (!await askConfirmModal("Remove indexed repository", `Remove indexed repo:\n${rootPath}\n\nThis will also remove it from the allowed paths list.`, "Remove")) return;
     try {
       const r = await fetch("/api/codegraph/repos", {
         method: "DELETE",

@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# neprivaloma: Postgres + pgvector vietoj to",
     "step4_title": "Atsisiųsti modelius",
     "setup_comment_start_engine": "# paleisk variklį iš atskiro terminalo",
-    "setup_comment_budget_llm": "# geriausias LLM už mažą kainą",
     "setup_available_options": "Galimos parinktys:",
     "setup_comment_embeddings": "# įterpimai veikia įrenginyje (transformers) — nereikia atsisiųsti modelio",
     "step5_title": "Paleisti Aperio Web sąsają",

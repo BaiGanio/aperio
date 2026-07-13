@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# valikuline: Postgres + pgvector selle asemel",
     "step4_title": "Tõmba mudelid",
     "setup_comment_start_engine": "# käivita mootor eraldi terminalist",
-    "setup_comment_budget_llm": "# parim LLM väikese eelarvega",
     "setup_available_options": "Saadaolevad valikud:",
     "setup_comment_embeddings": "# manustused töötavad seadmesiseselt (transformers) — pole mudelit vaja tõmmata",
     "step5_title": "Käivita Aperio veebiliides",

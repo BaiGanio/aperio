@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# opțional: Postgres + pgvector în schimb",
     "step4_title": "Trage modelele",
     "setup_comment_start_engine": "# pornește motorul dintr-un terminal separat",
-    "setup_comment_budget_llm": "# cel mai bun LLM la buget redus",
     "setup_available_options": "Opțiuni disponibile:",
     "setup_comment_embeddings": "# embedding-urile rulează pe dispozitiv (transformers) — niciun model de tras",
     "step5_title": "Lansează Aperio Web UI",

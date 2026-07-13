@@ -97,6 +97,10 @@
   "mem_min_ago":              "prije {n} min",
   "mem_hour_ago":             "prije {n} h",
   "mem_day_ago":              "prije {n} d",
+  "mem_inbox_title":          "Ulazna pošta",
+  "mem_inbox_approve":        "Odobri",
+  "mem_inbox_reject":         "Odbij",
+  "mem_inbox_view":           "Kliknite za prikaz cijelog teksta",
 
   "chat_placeholder":         "Pitajte bilo što — ili recite 'skeniraj moj projekt na ~/…'",
   "chat_send_title":          "Pošalji ({key}+Enter)",
@@ -368,5 +372,25 @@
   "wiz_network_failed":       "Nije moguće doći do poslužitelja — pokušajte ponovo.",
 
   "agent_greeting":           "Pozdravi me jednom kratkom prijateljskom rečenicom. Ne koristi alate.",
-  "agent_greeting_text":      "Bok! Kako vam mogu pomoći danas?"
+  "agent_greeting_text":      "Bok! Kako vam mogu pomoći danas?",
+  "skills_panel_one_shot_label": "use on next prompt",
+  "skills_panel_one_shot_title": "Include this skill in your next message only — the box unchecks itself after sending. Unchecked: automatic skill matching decides.",
+  "plus_btn_title": "Attach or more actions",
+  "plus_menu_attach_title": "Attach files",
+  "plus_menu_attach_desc": "Images, PDFs, code — anything the model should look at.",
+  "plus_menu_branch_title": "Branch conversation",
+  "plus_menu_branch_desc": "Start a new conversation with context from this one. Both conversations stay in Sessions.",
+  "branch_button_label": "Branch",
+  "branch_button_tooltip": "Start a new conversation with context from this one. This conversation stays in Sessions.",
+  "branch_card_title": "Start a new branch?",
+  "branch_card_body": "This conversation stays saved in Sessions. Aperio opens a new conversation and carries over the latest summary, or excerpts from the last four messages if no summary exists. New replies appear only in the new conversation.",
+  "branch_card_go": "Start new branch",
+  "branch_card_stay": "Stay here",
+  "branch_created": "↳ Branched:",
+  "sessions_branched_from": "branched",
+  "mem_tag_filter": "Tag:",
+  "mem_tag_clear": "Clear filter",
+  "resume_card_messages": "{n} messages",
+  "resume_card_continue": "Continue",
+  "resume_card_dismiss": "Dismiss"
 }

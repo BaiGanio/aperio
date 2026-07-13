@@ -162,7 +162,7 @@ function renderSelfTablePage() {
       const id = btn.dataset.id;
       const title = btn.dataset.title;
       if (!id) return;
-      if (!confirm(t('mem_delete_confirm', { title }))) return;
+      if (!await askConfirmModal(t('mem_delete_title'), t('mem_delete_confirm', { title }), 'Delete')) return;
       try {
         const res = await fetch(`/api/self-memories/${encodeURIComponent(id)}`, { method: 'DELETE' });
         const data = await res.json();
@@ -172,7 +172,7 @@ function renderSelfTablePage() {
         updateSelfModalCount();
         renderSelfTablePage();
       } catch (err) {
-        alert(err.message);
+        showErrorModal(err.message);
       }
     });
   });

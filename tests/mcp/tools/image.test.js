@@ -11,7 +11,7 @@ import { installMemfs } from "../../helpers/memfs.js";
 // Install the fs mock BEFORE importing image.js so its named fs bindings read
 // from the in-RAM map. Image bytes are written/read entirely in memory.
 const mem = installMemfs({ root: "/mem/img" });
-const { detectMime, readImageHandler, isLlamaCppProvider, describeImageViaLlamaCpp } = await import("../../../mcp/tools/image.js");
+const { detectMime, readImageHandler, isLlamaCppProvider, describeImageViaLlamaCpp, resolveDescribeModel } = await import("../../../mcp/tools/image.js");
 after(() => mem.restore());
 
 const sandbox = { root: mem.root };
@@ -222,5 +222,16 @@ describe("describeImageViaLlamaCpp", () => {
     } finally {
       mock.restoreAll();
     }
+  });
+
+  test("uses aperio-main when the configured main model provides native vision", () => {
+    assert.equal(
+      resolveDescribeModel(
+        "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+        "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+        "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+      ),
+      "aperio-main",
+    );
   });
 });

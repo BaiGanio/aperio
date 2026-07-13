@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# optionnel : Postgres + pgvector à la place",
     "step4_title": "Télécharger les modèles",
     "setup_comment_start_engine": "# démarrer le moteur depuis un terminal séparé",
-    "setup_comment_budget_llm": "# meilleur LLM à petit budget",
     "setup_available_options": "Options disponibles :",
     "setup_comment_embeddings": "# les embeddings s'exécutent sur l'appareil (transformers) — aucun modèle à télécharger",
     "step5_title": "Lancer Aperio Web UI",

@@ -85,7 +85,7 @@ async function bulkDeleteSessions() {
   const ids = [...selectedIds];
   if (!ids.length) return;
   const n = ids.length;
-  if (!confirm(t("sessions_delete_many", { n }))) return;
+  if (!await askConfirmModal("Delete sessions", t("sessions_delete_many", { n }), "Delete")) return;
 
   const deleteBtn = document.getElementById("sessions-bulk-delete-btn");
   if (deleteBtn) { deleteBtn.disabled = true; deleteBtn.innerHTML = `<i class="bi bi-hourglass-split"></i> ${t("sessions_deleting")}`; }
@@ -302,7 +302,7 @@ async function deleteSession(e, id) {
   const card = e.currentTarget.closest(".session-card");
   const title = card?.querySelector(".session-card-title")?.textContent ?? t("sessions_untitled");
 
-  if (!confirm(t("sessions_delete_one", { title }))) return;
+  if (!await askConfirmModal("Delete session", t("sessions_delete_one", { title }), "Delete")) return;
 
   if (card) card.style.opacity = "0.35";
 

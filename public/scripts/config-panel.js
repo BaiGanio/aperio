@@ -468,8 +468,8 @@
 
   // On-demand restart from the navbar power menu (not tied to a config change).
   // Confirm first, since a restart interrupts any in-flight chat or running agent.
-  window.requestRestartAperio = function () {
-    if (window.confirm(window.t("power_restart_confirm"))) window.restartAperio();
+  window.requestRestartAperio = async function () {
+    if (await askConfirmModal(window.t("nav_power_restart"), window.t("power_restart_confirm"), "Restart")) window.restartAperio();
   };
 
   // ── Open / close ────────────────────────────────────────────────────────────

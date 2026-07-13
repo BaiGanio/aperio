@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# roghnach: Postgres + pgvector ina ionad",
     "step4_title": "Tarraing na samhlacha",
     "setup_comment_start_engine": "# seol an t-inneall ó theirminéal ar leith",
-    "setup_comment_budget_llm": "# an LLM is fearr ar bhuiséad íseal",
     "setup_available_options": "Roghanna atá ar fáil:",
     "setup_comment_embeddings": "# ritheann leabaí ar-ghléas (transformers) — gan aon tsamhail le tarraingt",
     "step5_title": "Seol Comhéadan Gréasáin Aperio",

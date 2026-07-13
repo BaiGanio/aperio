@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# fakultattiv: Postgres + pgvector minflok",
     "step4_title": "Iġbed il-mudelli",
     "setup_comment_start_engine": "# ibda l-engine minn terminal separata",
-    "setup_comment_budget_llm": "# l-aħjar LLM b'baġit baxx",
     "setup_available_options": "Għażliet disponibbli:",
     "setup_comment_embeddings": "# embeddings jaħdmu fuq it-tagħmir (transformers) — l-ebda mudell xi tniżżel",
     "step5_title": "Ibbutja Aperio Web UI",

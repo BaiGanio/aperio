@@ -97,6 +97,10 @@
   "mem_min_ago":              "{n}m sedan",
   "mem_hour_ago":             "{n}h sedan",
   "mem_day_ago":              "{n}d sedan",
+  "mem_inbox_title":          "Inkorg",
+  "mem_inbox_approve":        "Godkänn",
+  "mem_inbox_reject":         "Avvisa",
+  "mem_inbox_view":           "Klicka för att se hela texten",
 
   "chat_placeholder":         "Fråga vad som helst — eller säg 'skanna mitt projekt på ~/…'",
   "chat_send_title":          "Skicka ({key}+Retur)",
@@ -368,5 +372,25 @@
   "wiz_network_failed":       "Det gick inte att nå servern – försök igen.",
 
   "agent_greeting":           "Hälsa på mig med en kort vänlig mening. Använd inga verktyg.",
-  "agent_greeting_text":      "Hej! Hur kan jag hjälpa dig idag?"
+  "agent_greeting_text":      "Hej! Hur kan jag hjälpa dig idag?",
+  "skills_panel_one_shot_label": "use on next prompt",
+  "skills_panel_one_shot_title": "Include this skill in your next message only — the box unchecks itself after sending. Unchecked: automatic skill matching decides.",
+  "plus_btn_title": "Attach or more actions",
+  "plus_menu_attach_title": "Attach files",
+  "plus_menu_attach_desc": "Images, PDFs, code — anything the model should look at.",
+  "plus_menu_branch_title": "Branch conversation",
+  "plus_menu_branch_desc": "Start a new conversation with context from this one. Both conversations stay in Sessions.",
+  "branch_button_label": "Branch",
+  "branch_button_tooltip": "Start a new conversation with context from this one. This conversation stays in Sessions.",
+  "branch_card_title": "Start a new branch?",
+  "branch_card_body": "This conversation stays saved in Sessions. Aperio opens a new conversation and carries over the latest summary, or excerpts from the last four messages if no summary exists. New replies appear only in the new conversation.",
+  "branch_card_go": "Start new branch",
+  "branch_card_stay": "Stay here",
+  "branch_created": "↳ Branched:",
+  "sessions_branched_from": "branched",
+  "mem_tag_filter": "Tag:",
+  "mem_tag_clear": "Clear filter",
+  "resume_card_messages": "{n} messages",
+  "resume_card_continue": "Continue",
+  "resume_card_dismiss": "Dismiss"
 }

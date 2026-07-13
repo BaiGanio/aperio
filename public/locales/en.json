@@ -97,6 +97,12 @@
   "mem_min_ago":              "{n}m ago",
   "mem_hour_ago":             "{n}h ago",
   "mem_day_ago":              "{n}d ago",
+  "mem_inbox_title":          "Inbox",
+  "mem_inbox_approve":        "Approve",
+  "mem_inbox_reject":         "Reject",
+  "mem_inbox_view":           "Click to view the full text",
+  "mem_tag_filter":           "Tag:",
+  "mem_tag_clear":            "Clear filter",
 
   "chat_placeholder":         "Ask anything — or say 'scan my project at ~/…'",
   "chat_send_title":          "Send ({key}+Enter)",
@@ -249,6 +255,9 @@
   "sessions_untitled":        "Untitled",
   "sessions_pin":             "Pin",
   "sessions_unpin":           "Unpin",
+  "resume_card_messages":     "{n} messages",
+  "resume_card_continue":     "Continue",
+  "resume_card_dismiss":      "Dismiss",
 
   "paths_allowed_label":      "Allowed folders",
   "paths_allowed_hint":       "Folders the AI can read and edit. Generated files (pptx, xlsx) go to the session workspace.",
@@ -368,5 +377,20 @@
   "wiz_network_failed":       "Couldn't reach the server — please try again.",
 
   "agent_greeting":           "Greet me warmly in one or two short sentences, as yourself. You may briefly nod to what you already remember about me, but don't list memories or use any tools.",
-  "agent_greeting_text":      "Hi! How can I help you today?"
+  "agent_greeting_text":      "Hi! How can I help you today?",
+  "skills_panel_one_shot_label": "use on next prompt",
+  "skills_panel_one_shot_title": "Include this skill in your next message only — the box unchecks itself after sending. Unchecked: automatic skill matching decides.",
+  "plus_btn_title": "Attach or more actions",
+  "plus_menu_attach_title": "Attach files",
+  "plus_menu_attach_desc": "Images, PDFs, code — anything the model should look at.",
+  "plus_menu_branch_title": "Branch conversation",
+  "plus_menu_branch_desc": "Start a new conversation with context from this one. Both conversations stay in Sessions.",
+  "branch_button_label": "Branch",
+  "branch_button_tooltip": "Start a new conversation with context from this one. This conversation stays in Sessions.",
+  "branch_card_title": "Start a new branch?",
+  "branch_card_body": "This conversation stays saved in Sessions. Aperio opens a new conversation and carries over the latest summary, or excerpts from the last four messages if no summary exists. New replies appear only in the new conversation.",
+  "branch_card_go": "Start new branch",
+  "branch_card_stay": "Stay here",
+  "branch_created": "↳ Branched:",
+  "sessions_branched_from": "branched"
 }

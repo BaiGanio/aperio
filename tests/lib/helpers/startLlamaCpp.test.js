@@ -222,14 +222,15 @@ describe("buildModelsPreset — perf profiles", () => {
     assert.equal(vMatches?.length, 2, "both main + VLM sections should quantize the V cache");
   });
 
-  test("fast-low-vram: disables Flash Attention for Gemma 4 while retaining the global default", () => {
+  test("fast-low-vram: keeps Flash Attention enabled for Gemma 4 with quantized KV cache", () => {
     const ini = buildModelsPreset({
       APERIO_LOCAL_PERF_PROFILE: "fast-low-vram",
       LLAMACPP_MODEL: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
     }, { totalRamGB: 16 });
     const mainSection = ini.slice(ini.indexOf("[aperio-main]"), ini.indexOf("[aperio-vlm]"));
     assert.match(ini, /^flash-attn = true$/m, "fast profile keeps the global optimization enabled");
-    assert.match(mainSection, /flash-attn = false/, "Gemma 4 overrides the unsafe global setting");
+    assert.doesNotMatch(mainSection, /flash-attn = false/, "Gemma 4 must not disable Flash Attention with q8 V-cache");
+    assert.match(mainSection, /cache-type-v = q8_0/, "Gemma 4 uses the compatible quantized V-cache");
   });
 
   test("fast-low-vram: prefers the MoE model by default at 24GB RAM (below balanced's 48GB rung) and emits n-cpu-moe on it", () => {
@@ -285,7 +286,9 @@ describe("buildModelsPreset — perf profiles", () => {
     // the fixed default at a RAM tier where the ladder recommends something bigger.
     const quality = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality" }, { totalRamGB: 16 });
     assert.match(quality, /hf-repo = ggml-org\/gemma-4-12B-it-GGUF:Q4_K_M/);
-    assert.match(quality, /models-max = 1/, "quality's larger main plus VLM requires swap mode at 16GB");
+    // Gemma 4 is natively vision-capable, so the preset omits the dedicated
+    // VLM rather than putting two resident models into swap mode.
+    assert.doesNotMatch(quality, /\[aperio-vlm\]/, "native-vision Gemma 4 does not need a dedicated VLM");
     assert.doesNotMatch(quality, /flash-attn|cache-type|n-cpu-moe/, "quality has no fast-low-vram-style flags");
   });
 

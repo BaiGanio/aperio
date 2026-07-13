@@ -97,6 +97,10 @@
     "mem_min_ago":              "{n}分钟前",
     "mem_hour_ago":             "{n}小时前",
     "mem_day_ago":              "{n}天前",
+  "mem_inbox_title":          "收件箱",
+  "mem_inbox_approve":        "批准",
+  "mem_inbox_reject":         "拒绝",
+  "mem_inbox_view":           "点击查看完整文本",
 
     "chat_placeholder":         "询问任何问题 — 或说\"扫描我的项目 ~/…\"",
     "chat_send_title":          "发送 ({key}+Enter)",
@@ -368,5 +372,25 @@
     "wiz_network_failed":       "无法连接到服务器 — 请重试。",
 
     "agent_greeting":           "用一两句简短的话热情地向我打招呼，做你自己。可以简要提及你对我已有的记忆，但不要列举记忆或使用任何工具。",
-    "agent_greeting_text":      "你好！今天我能帮你什么？"
+    "agent_greeting_text":      "你好！今天我能帮你什么？",
+  "skills_panel_one_shot_label": "use on next prompt",
+  "skills_panel_one_shot_title": "Include this skill in your next message only — the box unchecks itself after sending. Unchecked: automatic skill matching decides.",
+  "plus_btn_title": "Attach or more actions",
+  "plus_menu_attach_title": "Attach files",
+  "plus_menu_attach_desc": "Images, PDFs, code — anything the model should look at.",
+  "plus_menu_branch_title": "Branch conversation",
+  "plus_menu_branch_desc": "Start a new conversation with context from this one. Both conversations stay in Sessions.",
+  "branch_button_label": "Branch",
+  "branch_button_tooltip": "Start a new conversation with context from this one. This conversation stays in Sessions.",
+  "branch_card_title": "Start a new branch?",
+  "branch_card_body": "This conversation stays saved in Sessions. Aperio opens a new conversation and carries over the latest summary, or excerpts from the last four messages if no summary exists. New replies appear only in the new conversation.",
+  "branch_card_go": "Start new branch",
+  "branch_card_stay": "Stay here",
+  "branch_created": "↳ Branched:",
+  "sessions_branched_from": "branched",
+  "mem_tag_filter": "Tag:",
+  "mem_tag_clear": "Clear filter",
+  "resume_card_messages": "{n} messages",
+  "resume_card_continue": "Continue",
+  "resume_card_dismiss": "Dismiss"
 }

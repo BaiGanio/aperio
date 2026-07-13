@@ -194,12 +194,12 @@ function renderTablePage() {
   wrapper.innerHTML = html;
 
   wrapper.querySelectorAll('.mem-del-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = btn.dataset.id;
       const title = btn.dataset.title;
       if (!id) return;
-      if (!confirm(t('mem_delete_confirm', { title }))) return;
+      if (!await askConfirmModal(t('mem_delete_title'), t('mem_delete_confirm', { title }), 'Delete')) return;
       window.allMemories = window.allMemories.filter(m => (m.metadata || m).id !== id);
       window.filteredMemories = window.filteredMemories.filter(m => (m.metadata || m).id !== id);
       window.safeSend(JSON.stringify({ type: 'delete_memory', id }));

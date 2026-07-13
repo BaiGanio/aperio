@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# neobligāti: Postgres + pgvector vietā",
     "step4_title": "Vilkt modeļus",
     "setup_comment_start_engine": "# palaid dzinēju no atsevišķa termināļa",
-    "setup_comment_budget_llm": "# labākais LLM par zemu budžetu",
     "setup_available_options": "Pieejamās opcijas:",
     "setup_comment_embeddings": "# ietērpjumi darbojas ierīcē (transformers) — nav jāvelk modelis",
     "step5_title": "Palaist Aperio tīmekļa saskarni",

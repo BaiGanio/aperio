@@ -361,30 +361,38 @@
       border-radius: 999px;
       line-height: 1;
     }
-    .inbox-section {
-      border-bottom: 2px solid var(--accent);
-      margin-bottom: 4px;
-    }
-    .inbox-header {
-      padding: 8px 12px;
-      font-size: var(--fs-ui); font-weight: 600;
-      color: var(--accent);
-    }
+    .inbox-section { margin-bottom: 4px; }
+    /* Inbox reuses the collapsible .type-header pattern, accented so a pending
+       item still draws the eye. */
+    .type-header--inbox { color: var(--accent); }
+    .type-header--inbox .type-count { background: var(--accent); color: #fff; }
     .inbox-item {
-      padding: 8px 12px;
-      border-bottom: 1px solid var(--border);
+      padding: 8px 10px; margin: 0 4px 4px;
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--accent);
+      border-radius: var(--radius-sm);
+      background: color-mix(in srgb, var(--accent) 6%, var(--bg));
     }
-    .inbox-item:last-child { border-bottom: none; }
+    /* Clickable body (title + preview) opens the full-text modal via the shared
+       .memory-preview handler. Neutralize the memory-card clamp/muting here so
+       the title keeps its own styling; the content div does its own clamping. */
+    .inbox-item-body {
+      display: block; cursor: pointer;
+      -webkit-line-clamp: unset; font-size: inherit; color: inherit;
+      overflow: visible; border-radius: var(--radius-sm);
+    }
+    .inbox-item-body:hover .inbox-item-title { color: var(--accent); }
     .inbox-item-title {
       font-size: var(--fs-chrome); font-weight: 600;
       color: var(--text); margin-bottom: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .inbox-item-content {
       font-size: var(--fs-micro); color: var(--text-muted);
       line-height: 1.4;
       overflow: hidden; display: -webkit-box;
       -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-      margin-bottom: 4px;
+      margin-bottom: 6px;
     }
     .inbox-item-meta {
       display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
@@ -1008,6 +1016,36 @@
       color: var(--text-muted);
       line-height: 1.6;
       margin: 0 0 20px;
+    }
+
+    .input-modal-content { max-width: 620px; }
+
+    .input-modal-field {
+      display: block;
+      box-sizing: border-box;
+      width: 100%;
+      min-height: 120px;
+      resize: vertical;
+      margin: 0 0 8px;
+      padding: 10px 12px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm, 6px);
+      background: var(--bg-hover);
+      color: var(--text);
+      font: inherit;
+      line-height: 1.45;
+    }
+
+    .input-modal-field:focus {
+      outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent);
+      border-color: var(--accent);
+    }
+
+    .input-modal-error {
+      color: var(--error, #ef4444);
+      font-size: var(--fs-micro);
+      line-height: 1.4;
+      margin: 0 0 12px;
     }
 
     .confirm-actions {

@@ -83,6 +83,7 @@ describe("isVisionModel()", () => {
   test("returns true for gemma3 and gemma4 variants", () => {
     assert.ok(imageBridge.isVisionModel("gemma3"));
     assert.ok(imageBridge.isVisionModel("gemma3:12b"));
+    assert.ok(imageBridge.isVisionModel("unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL"));
     assert.ok(imageBridge.isVisionModel("gemma4"));
     assert.ok(imageBridge.isVisionModel("gemma4:latest"));
   });
@@ -175,6 +176,21 @@ describe("isStandaloneVisionRequest()", () => {
     assert.ok(!imageBridge.isStandaloneVisionRequest(
       "Analyze this scan, then run doc_search for matching invoices"
     ));
+  });
+
+  test("an attached image is the subject: bare intent words qualify with hasImage", () => {
+    // Without an image, a subjectless verb is not a standalone vision request.
+    assert.ok(!imageBridge.isStandaloneVisionRequest("describe"));
+    assert.ok(!imageBridge.isStandaloneVisionRequest("transcribe"));
+    // With an image inlined, the image itself is the subject.
+    assert.ok(imageBridge.isStandaloneVisionRequest("describe", { hasImage: true }));
+    assert.ok(imageBridge.isStandaloneVisionRequest("transcribe", { hasImage: true }));
+    assert.ok(imageBridge.isStandaloneVisionRequest("caption", { hasImage: true }));
+  });
+
+  test("action/lookup requests still route to the main agent even with an image", () => {
+    assert.ok(!imageBridge.isStandaloneVisionRequest("read and implement the code", { hasImage: true }));
+    assert.ok(!imageBridge.isStandaloneVisionRequest("describe then run doc_search", { hasImage: true }));
   });
 });
 

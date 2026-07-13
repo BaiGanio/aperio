@@ -244,7 +244,6 @@
     "setup_comment_postgres": "# valgfrit: Postgres + pgvector i stedet",
     "step4_title": "Træk modellerne",
     "setup_comment_start_engine": "# start motoren fra separat terminal",
-    "setup_comment_budget_llm": "# bedste LLM på lavt budget",
     "setup_available_options": "Tilgængelige muligheder:",
     "setup_comment_embeddings": "# embeddings kører on-device (transformers) — ingen model at trække",
     "step5_title": "Start Aperio Web UI",

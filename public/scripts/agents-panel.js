@@ -177,7 +177,7 @@
 
   // ── Delete ────────────────────────────────────────────────────────────────────
   async function deleteJob(id, card) {
-    if (!window.confirm(`Delete job "${id}"? This cannot be undone.`)) return;
+    if (!await askConfirmModal("Delete scheduled job", `Delete job "${id}"? This cannot be undone.`, "Delete")) return;
     const msg = card.querySelector("[data-msg]");
     if (msg) msg.textContent = "Deleting…";
     try {
