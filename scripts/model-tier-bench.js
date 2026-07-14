@@ -3,7 +3,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { copyFileSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -23,6 +23,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_MODELS = join(ROOT, "benchmarks/model-tiers/models.json");
 const DEFAULT_CASES = join(ROOT, "benchmarks/model-tiers/cases.json");
 const FIXTURE = join(ROOT, ".github/capability-exam/exam.memories.json");
+const WORKSPACE_FIXTURE = join(ROOT, "benchmarks/model-tiers/workspace");
 const GIB = 1024 ** 3;
 export const TIER_POLICY = "RAM <= 8 => 8 GB; RAM <= 16 => 16 GB; RAM <= 24 => 24 GB; RAM > 24 => 32 GB";
 
@@ -295,6 +296,27 @@ async function waitForFixture(baseURL, expected = 28, timeoutMs = 180_000) {
   throw new Error(`fixture did not reach exactly ${expected} tagged memories`);
 }
 
+// Poll the codegraph/docgraph status endpoints until both finish their initial
+// index. The watchers index in the background after boot, so the search tools
+// have no data until the pass reaches `ready`. `error` is terminal too: we stop
+// waiting and let the dependent cases fail as visible evidence. `idle` is not
+// accepted — with both subsystems enabled on a seeded SQLite workspace each
+// graph must reach `ready`; a stuck `idle` means a real misconfiguration and
+// should surface as a timeout rather than a silent no-data pass.
+async function waitForGraphs(baseURL, timeoutMs = 120_000) {
+  const deadline = Date.now() + timeoutMs;
+  const terminal = new Set(["ready", "error"]);
+  for (const kind of ["codegraph", "docgraph"]) {
+    let phase = "indexing";
+    while (Date.now() < deadline) {
+      phase = (await api(baseURL, `/api/${kind}/status`))?.phase ?? "idle";
+      if (terminal.has(phase)) break;
+      await new Promise(resolveWait => setTimeout(resolveWait, 1_000));
+    }
+    if (!terminal.has(phase)) throw new Error(`${kind} did not finish indexing within ${timeoutMs}ms (phase: ${phase})`);
+  }
+}
+
 function readSwapBytes() {
   try {
     if (process.platform === "darwin") {
@@ -458,6 +480,13 @@ async function main() {
   const modelDir = resolveBenchmarkArtifactDir(ROOT, args.tier, model.id, id);
   mkdirSync(modelDir, { recursive: true, mode: 0o700 });
   const tempDir = mkdtempSync(join(os.tmpdir(), `aperio-model-tier-${model.id}-`));
+  // Isolated workspace the code/doc/shell cases operate on. Seeded with a tiny
+  // tracked fixture tree so codegraph/docgraph have a real symbol and document
+  // to index, and so run_shell/run_node_script have an allowed cwd. It is the
+  // ONLY path in the allow-list, which keeps the out-of-scope-read guardrails
+  // honest (/etc stays unreachable).
+  const workspaceDir = join(tempDir, "workspace");
+  cpSync(WORKSPACE_FIXTURE, workspaceDir, { recursive: true });
   const appPort = await freePort();
   const llamaPort = await freePort();
   const baseURL = `http://127.0.0.1:${appPort}`;
@@ -478,9 +507,15 @@ async function main() {
     DB_BACKEND: "sqlite",
     SQLITE_PATH: join(tempDir, "aperio.db"),
     APERIO_CONFIG_PRECEDENCE: "env",
-    APERIO_CODEGRAPH: "off",
-    APERIO_DOCGRAPH: "off",
-    APERIO_ENABLE_SHELL: "off",
+    // Code/doc/shell qualification cases need these subsystems live. The graph
+    // watchers index every allowed read path, so scoping the allow-list to the
+    // seeded workspace keeps indexing tiny and the guardrail cases meaningful.
+    // APERIO_ENABLE_SHELL is read as the exact string "1" (mcp/tools/shell.js).
+    APERIO_CODEGRAPH: "on",
+    APERIO_DOCGRAPH: "on",
+    APERIO_ENABLE_SHELL: "1",
+    APERIO_ALLOWED_PATHS_TO_READ: workspaceDir,
+    APERIO_ALLOWED_PATHS_TO_WRITE: workspaceDir,
     APERIO_AGENT_SCHEDULER: "off",
     EMBEDDING_PROVIDER: "transformers",
     APERIO_DB_ENCRYPT: "off",
@@ -531,6 +566,10 @@ async function main() {
     const imported = await api(baseURL, "/api/memories/import", { method: "POST", body: JSON.stringify(fixture) });
     if (imported.imported !== 28 || imported.errors?.length) throw new Error(`fixture import failed: ${JSON.stringify(imported)}`);
     await waitForFixture(baseURL);
+    // Let the code/doc graphs finish indexing the seeded workspace before the
+    // qualification window opens, so the search tools have data and index CPU
+    // lands in the load phase rather than skewing per-case timing.
+    await waitForGraphs(baseURL);
     loadMetrics = metrics.beginQualification();
 
     transcript = createWriteStream(join(modelDir, "transcript.jsonl"), { mode: 0o600 });
