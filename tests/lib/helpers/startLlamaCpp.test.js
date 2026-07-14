@@ -391,7 +391,7 @@ describe("ensureLlamaCpp", () => {
       { ok: true },
       jsonResponse({ data: [{ id: "aperio-main" }, { id: "aperio-vlm" }] }),
     );
-    await ensureLlamaCpp(fakeSpawn(88888), fakeKill(false), () => 42424);
+    await ensureLlamaCpp(fakeSpawn(88888), fakeKill(false), () => 42424, () => true);
     assert.equal(getLlamaCppPid(), 42424);
     await stopLlamaCpp(fakeKill(true), () => null);
     assert.equal(getLlamaCppPid(), null);
