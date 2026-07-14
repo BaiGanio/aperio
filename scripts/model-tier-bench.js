@@ -144,7 +144,11 @@ export function runWsCase(ws, caseDef) {
       ws.off("message", onMessage);
       ws.off("close", onClose);
       ws.off("error", onError);
-      if (error) reject(error);
+      if (error) {
+        error.caseEvents = events;
+        error.durationMs = Date.now() - started;
+        reject(error);
+      }
       else resolveCase({ events, durationMs: Date.now() - started });
     }
     ws.on("message", onMessage);
@@ -152,6 +156,48 @@ export function runWsCase(ws, caseDef) {
     ws.once("error", onError);
     ws.send(JSON.stringify({ type: "chat", text: caseDef.prompt, turnId: caseDef.id }));
   });
+}
+
+export async function executeBenchmarkCases(cases, {
+  runCase,
+  verifyCaseState,
+  recordEvents = () => {},
+} = {}) {
+  if (typeof runCase !== "function") throw new TypeError("runCase is required");
+  if (typeof verifyCaseState !== "function") throw new TypeError("verifyCaseState is required");
+  const caseResults = [];
+
+  for (const caseDef of cases) {
+    const started = Date.now();
+    let events = [];
+    let durationMs;
+    let eventsRecorded = false;
+    try {
+      const execution = await runCase(caseDef);
+      events = execution.events;
+      durationMs = execution.durationMs;
+      eventsRecorded = true;
+      recordEvents(caseDef, events);
+      const statePassed = await verifyCaseState(caseDef);
+      caseResults.push({
+        durationMs,
+        ...evaluateBenchmarkCase(caseDef, events, { statePassed }),
+      });
+    } catch (error) {
+      events = error.caseEvents ?? events;
+      durationMs = error.durationMs ?? durationMs ?? Date.now() - started;
+      if (!eventsRecorded) recordEvents(caseDef, events);
+      caseResults.push({
+        durationMs,
+        ...evaluateBenchmarkCase(caseDef, events, { statePassed: false }),
+        status: "invalid",
+        invalidReason: error.message,
+      });
+      error.caseResults = caseResults;
+      throw error;
+    }
+  }
+  return caseResults;
 }
 
 async function verifyState(baseURL, assertion) {
@@ -352,6 +398,7 @@ async function main() {
   let sessionId;
   let run;
   let transcript;
+  let caseResults = [];
   try {
     connection = await connectWhenReady(appPort);
     const provider = connection.handshake.find(message => message.type === "provider");
@@ -374,14 +421,14 @@ async function main() {
     if (imported.imported !== 28 || imported.errors?.length) throw new Error(`fixture import failed: ${JSON.stringify(imported)}`);
     await waitForFixture(baseURL);
 
-    const caseResults = [];
     transcript = createWriteStream(join(modelDir, "transcript.jsonl"), { mode: 0o600 });
-    for (const caseDef of cases) {
-      const { events, durationMs } = await runWsCase(connection.ws, caseDef);
-      for (const event of events) transcript.write(JSON.stringify({ caseId: caseDef.id, ...event }) + "\n");
-      const statePassed = await verifyState(baseURL, caseDef.stateAssertion);
-      caseResults.push({ id: caseDef.id, durationMs, ...evaluateBenchmarkCase(caseDef, events, { statePassed }) });
-    }
+    caseResults = await executeBenchmarkCases(cases, {
+      runCase: caseDef => runWsCase(connection.ws, caseDef),
+      verifyCaseState: caseDef => verifyState(baseURL, caseDef.stateAssertion),
+      recordEvents: (caseDef, events) => {
+        for (const event of events) transcript.write(JSON.stringify({ caseId: caseDef.id, ...event }) + "\n");
+      },
+    });
     run = {
       pilot: true,
       status: "complete",
@@ -403,6 +450,7 @@ async function main() {
       caseResults,
     };
   } catch (error) {
+    caseResults = error.caseResults ?? caseResults;
     run = {
       pilot: true,
       status: "invalid",
@@ -422,7 +470,7 @@ async function main() {
       fixtureVersion,
       startedAt,
       finishedAt: new Date().toISOString(),
-      caseResults: [],
+      caseResults,
     };
     throw error;
   } finally {

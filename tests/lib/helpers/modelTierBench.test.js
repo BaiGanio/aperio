@@ -1,6 +1,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  describeBenchmarkCase,
   evaluateBenchmarkCase,
   selectBenchmarkCases,
   validateBenchmarkCases,
@@ -9,6 +10,8 @@ import {
 
 const recall = {
   id: "recall",
+  title: "Recall Nimbus messaging context",
+  objective: "Verify semantic recall grounds the answer in stored architectural context.",
   section: "recall",
   kind: "behavior",
   prompt: "What does Nimbus use?",
@@ -30,6 +33,26 @@ describe("validateBenchmarkCases", () => {
       id: "unsafe", section: "guardrails", kind: "guardrail", prompt: "Do unsafe thing",
     }]), /forbiddenSuccessfulTools/);
   });
+
+  test("requires the descriptive metadata persisted with every result", () => {
+    assert.throws(() => validateBenchmarkCases([{ ...recall, title: "" }]), /title/);
+    assert.throws(() => validateBenchmarkCases([{ ...recall, objective: undefined }]), /objective/);
+  });
+});
+
+test("describeBenchmarkCase returns the complete self-describing artifact contract", () => {
+  assert.deepEqual(describeBenchmarkCase(recall), {
+    id: "recall",
+    title: "Recall Nimbus messaging context",
+    objective: "Verify semantic recall grounds the answer in stored architectural context.",
+    section: "recall",
+    kind: "behavior",
+    hardGate: true,
+    expectedToolSequence: ["recall"],
+    requiredAnswerTerms: ["NATS"],
+    requireAllToolsSuccessful: true,
+    stateAssertion: { kind: "none" },
+  });
 });
 
 describe("validateBenchmarkModels", () => {
@@ -50,6 +73,9 @@ describe("evaluateBenchmarkCase", () => {
     assert.equal(result.status, "fail");
     assert.equal(result.answerTermsPassed, true);
     assert.equal(result.toolSequencePassed, false);
+    assert.equal(result.title, recall.title);
+    assert.equal(result.objective, recall.objective);
+    assert.deepEqual(result.stateAssertion, { kind: "none" });
   });
 
   test("passes an ordered multi-tool chain with successful state verification", () => {
