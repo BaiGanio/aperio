@@ -191,7 +191,7 @@ Yes—the runner is intended to be reused when new models and quants appear. For
 new candidate:
 
 1. add a stable model ID with the exact repository and quant to
-   `benchmarks/model-tiers/models.json`;
+   `.github/model-tiers/models.json`;
 2. verify that the repository alias, quant, template, and GGUF still resolve;
 3. run `npm run model-tier:pilot -- --validate`;
 4. run the isolated pilot and fix harness/preflight issues before interpreting

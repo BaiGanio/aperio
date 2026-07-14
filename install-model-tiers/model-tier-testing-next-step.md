@@ -14,7 +14,7 @@ unreleased server.
 
 ## Required bounded changes
 
-1. Add the smallest cached exact model to `benchmarks/model-tiers/models.json`:
+1. Add the smallest cached exact model to `.github/model-tiers/models.json`:
    `unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`.
 2. Start the isolated server and load/warm the model before starting the
    qualification measurement window.

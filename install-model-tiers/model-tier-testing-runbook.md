@@ -282,8 +282,8 @@ The full campaign should be driven by a Node.js ESM script, proposed as:
 
 ```text
 scripts/model-tier-bench.js
-benchmarks/model-tiers/models.json
-benchmarks/model-tiers/cases.json
+.github/model-tiers/models.json
+.github/model-tiers/cases.json
 ```
 
 Until those files exist, use the manual process in section 12. Do not document

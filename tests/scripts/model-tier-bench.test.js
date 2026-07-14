@@ -82,7 +82,7 @@ test("validateTargetTier requires model eligibility", () => {
 });
 
 test("catalog contains the smallest exact cached Gemma entry", () => {
-  const models = JSON.parse(readFileSync("benchmarks/model-tiers/models.json", "utf8"));
+  const models = JSON.parse(readFileSync(".github/model-tiers/models.json", "utf8"));
   const gemma = models.find(model => model.id === "gemma4-e4b-q4kxl");
   assert.deepEqual(gemma, {
     id: "gemma4-e4b-q4kxl",

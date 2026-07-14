@@ -72,7 +72,7 @@ You do **not** need to edit `.env`. The runner sets everything it needs
 port, a throwaway SQLite DB in a temp dir) for its own child process only. Your
 real `.env` and DB are never touched. It also turns the code-graph, doc-graph,
 and shell subsystems **on** for the isolated run and seeds a tiny code + doc
-workspace (from `benchmarks/model-tiers/workspace/`) so the code/doc/shell cases
+workspace (from `.github/model-tiers/workspace/`) so the code/doc/shell cases
 have something real to work against — all inside the throwaway temp dir, scoped
 so out-of-bounds reads stay blocked.
 
@@ -81,7 +81,7 @@ so out-of-bounds reads stay blocked.
 ## 2. Know the two data files
 
 Everything the runner tests is described by two small JSON files in
-`benchmarks/model-tiers/`. Read them once so nothing is a black box.
+`.github/model-tiers/`. Read them once so nothing is a black box.
 
 - **`models.json`** — the catalog of candidates. Each entry has a stable `id`
   (used as the CLI `--model` value and the results folder name), the exact

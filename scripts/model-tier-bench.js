@@ -25,11 +25,11 @@ import {
 } from "../lib/helpers/modelTierQualification.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DEFAULT_MODELS = join(ROOT, "benchmarks/model-tiers/models.json");
-const DEFAULT_CASES = join(ROOT, "benchmarks/model-tiers/cases.json");
+const DEFAULT_MODELS = join(ROOT, ".github/model-tiers/models.json");
+const DEFAULT_CASES = join(ROOT, ".github/model-tiers/cases.json");
 const FIXTURE = join(ROOT, ".github/capability-exam/exam.memories.json");
-const FIXTURE_CONTRACT = join(ROOT, "benchmarks/model-tiers/fixture-contract.json");
-const WORKSPACE_FIXTURE = join(ROOT, "benchmarks/model-tiers/workspace");
+const FIXTURE_CONTRACT = join(ROOT, ".github/model-tiers/fixture-contract.json");
+const WORKSPACE_FIXTURE = join(ROOT, ".github/model-tiers/workspace");
 const GIB = 1024 ** 3;
 export const TIER_POLICY = "RAM <= 8 => 8 GB; RAM <= 16 => 16 GB; RAM <= 24 => 24 GB; RAM > 24 => 32 GB";
 
