@@ -52,7 +52,7 @@ export const DEFAULT_PILOT_CASE_IDS = Object.freeze([
 ]);
 
 export function parseArgs(argv) {
-  const out = { caseIds: [], validate: false, aggregate: false, allowDownload: false };
+  const out = { caseIds: [], validate: false, plan: false, aggregate: false, allowDownload: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--model") out.modelId = argv[++i];
@@ -63,6 +63,7 @@ export function parseArgs(argv) {
     else if (arg === "--tier") out.tier = Number(argv[++i]);
     else if (arg === "--note") out.environmentNote = argv[++i];
     else if (arg === "--allow-download") out.allowDownload = true;
+    else if (arg === "--plan") out.plan = true;
     else if (arg === "--aggregate") out.aggregate = true;
     else if (arg === "--finalists") out.finalists = true;
     else if (arg === "--decide") out.decide = true;
@@ -84,6 +85,7 @@ function usage() {
     "Options:",
     "  --case <id>         Run one case (repeatable)",
     "  --allow-download    Permit llama.cpp to download an uncached GGUF",
+    "  --plan              Write a private, non-live plan for every catalog placement",
     "  --aggregate         Build private campaign summaries from existing run artifacts",
     "  --finalists         Select finalists from an existing private summary.json",
     "  --decide            Generate private tier decisions from finalist evidence",
@@ -109,6 +111,81 @@ export function resolveCampaignAggregateDir(root, tier, id) {
   if (![8, 16, 24, 32].includes(tier)) throw new Error("tier must be 8, 16, 24, or 32");
   if (!id) throw new Error("campaign id is required");
   return join(root, "var/benchmarks/model-tiers", `${tier}gb`, id);
+}
+
+export function buildCampaignPlan({
+  models,
+  campaignId,
+  gitCommit,
+  platform,
+  hardware,
+  ramGB,
+  fixtureVersion,
+  fixtureContractVersion,
+  fixtureMemoryCount,
+  fixtureTag,
+  qualificationSuiteVersion = QUALIFICATION_SUITE_VERSION,
+  profile = "balanced",
+  servedContextPolicy = "tier-configured",
+} = {}) {
+  if (!Array.isArray(models) || !models.length) throw new Error("validated model catalog is required");
+  if (!campaignId) throw new Error("campaign id is required");
+  const placements = [];
+  for (const model of models) {
+    for (const tier of model.tiers ?? []) {
+      if (![8, 16, 24, 32].includes(tier)) throw new Error(`model ${model.id} has an invalid tier placement`);
+      placements.push({ tier, modelId: model.id, model: model.hf, role: model.role ?? "challenger" });
+    }
+  }
+  placements.sort((left, right) => left.tier - right.tier || left.modelId.localeCompare(right.modelId));
+  const controls = {
+    gitCommit: gitCommit ?? null,
+    platform: platform ?? null,
+    hardware: hardware ?? null,
+    ramGB: ramGB ?? null,
+    profile,
+    servedContextPolicy,
+    qualificationSuiteVersion,
+    fixtureVersion: fixtureVersion ?? null,
+    fixtureContractVersion: fixtureContractVersion ?? null,
+    fixtureMemoryCount: fixtureMemoryCount ?? null,
+    fixtureTag: fixtureTag ?? null,
+    tierPolicy: TIER_POLICY,
+  };
+  return {
+    contractVersion: 1,
+    campaignPlanVersion: 1,
+    campaignId,
+    status: "planned",
+    execution: "not-started",
+    private: true,
+    controls,
+    placements,
+    counts: {
+      models: models.length,
+      placements: placements.length,
+      tiers: [...new Set(placements.map(item => item.tier))].length,
+    },
+  };
+}
+
+export function writeCampaignPlan(root, plan) {
+  if (!plan?.campaignId || !Array.isArray(plan.placements)) throw new Error("campaign plan is required");
+  const outputDirs = [];
+  for (const tier of [8, 16, 24, 32]) {
+    const placements = plan.placements.filter(item => item.tier === tier);
+    if (!placements.length) continue;
+    const outputDir = resolveCampaignAggregateDir(root, tier, plan.campaignId);
+    mkdirSync(outputDir, { recursive: true, mode: 0o700 });
+    atomicJson(join(outputDir, "campaign.json"), {
+      ...plan,
+      targetTierGB: tier,
+      modelIds: placements.map(item => item.modelId),
+      placements,
+    });
+    outputDirs.push(outputDir);
+  }
+  return { outputDirs, plan };
 }
 
 function discoverCampaignRuns(root, tier, id) {
@@ -1010,8 +1087,27 @@ async function main() {
   const fixture = readJson(FIXTURE);
   const fixtureContract = readJson(FIXTURE_CONTRACT);
   const fixtureSummary = validateQualificationFixture(fixture, fixtureContract);
+  const fixtureVersion = createHash("sha256").update(readFileSync(FIXTURE)).digest("hex");
   if (args.validate) {
     console.log(`Validated ${models.length} model(s), ${cases.length} case(s), and ${fullExam.scoredDrills}-drill full exam (${fullExam.execution.totalObservations} observations).`);
+    return;
+  }
+  if (args.plan) {
+    const id = args.campaignId ?? campaignId();
+    const plan = buildCampaignPlan({
+      models,
+      campaignId: id,
+      gitCommit: execFileSync("git", ["rev-parse", "HEAD"], { cwd: ROOT, encoding: "utf8" }).trim(),
+      platform: `${os.platform()} ${os.release()} ${os.arch()}`,
+      hardware: os.cpus()[0]?.model ?? "unknown",
+      ramGB: Number((os.totalmem() / GIB).toFixed(2)),
+      fixtureVersion,
+      fixtureContractVersion: fixtureContract.version,
+      fixtureMemoryCount: fixtureSummary.memoryCount,
+      fixtureTag: fixtureSummary.tag,
+    });
+    const result = writeCampaignPlan(ROOT, plan);
+    console.log(`Planned ${plan.counts.placements} placement(s) across ${result.outputDirs.length} tier(s) into ${id}`);
     return;
   }
   if (args.aggregate) {
@@ -1116,7 +1212,6 @@ async function main() {
     PATH: `${join(ROOT, "vendor/llamacpp")}:${process.env.PATH ?? ""}`,
   };
   const startedAt = new Date().toISOString();
-  const fixtureVersion = createHash("sha256").update(readFileSync(FIXTURE)).digest("hex");
   const startRunnerServer = () => {
     const server = spawn(process.execPath, [join(ROOT, "server.js")], {
       cwd: tempDir,

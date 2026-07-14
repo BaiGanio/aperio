@@ -22,6 +22,8 @@ import {
   parseArgs,
   resolveBenchmarkArtifactDir,
   resolveCampaignAggregateDir,
+  buildCampaignPlan,
+  writeCampaignPlan,
   selectPilotCases,
   DEFAULT_PILOT_CASE_IDS,
   verifyState,
@@ -194,6 +196,60 @@ test("campaign summary writer keeps aggregate artifacts outside model result fol
   }
 });
 
+test("campaign planner covers every validated catalog placement deterministically", () => {
+  const models = [
+    { id: "qwen", hf: "org/qwen:Q4_K_M", tiers: [16, 8], role: "challenger" },
+    { id: "gemma", hf: "org/gemma:Q4_K_XL", tiers: [8, 16, 24], role: "default" },
+  ];
+  const plan = buildCampaignPlan({
+    models,
+    campaignId: "campaign-a",
+    gitCommit: "abc123",
+    platform: "darwin 1 arm64",
+    hardware: "Apple M",
+    ramGB: 16,
+    fixtureVersion: "fixture-sha",
+    fixtureContractVersion: 1,
+    fixtureMemoryCount: 28,
+    fixtureTag: "aperio-exam",
+  });
+  assert.equal(plan.counts.models, 2);
+  assert.equal(plan.counts.placements, 5);
+  assert.equal(plan.counts.tiers, 3);
+  assert.deepEqual(plan.placements.map(item => `${item.tier}:${item.modelId}`), [
+    "8:gemma", "8:qwen", "16:gemma", "16:qwen", "24:gemma",
+  ]);
+  assert.equal(plan.status, "planned");
+  assert.equal(plan.execution, "not-started");
+  assert.equal(plan.controls.tierPolicy, TIER_POLICY);
+});
+
+test("campaign planner writes only private per-tier manifests", () => {
+  const root = mkdtempSync(join(tmpdir(), "model-tier-plan-test-"));
+  try {
+    const plan = buildCampaignPlan({
+      models: [{ id: "model-a", hf: "org/model-a:Q4_K_M", tiers: [8, 16] }],
+      campaignId: "campaign-a",
+      fixtureVersion: "fixture-sha",
+    });
+    const result = writeCampaignPlan(root, plan);
+    assert.equal(result.outputDirs.length, 2);
+    for (const tier of [8, 16]) {
+      const path = join(resolveCampaignAggregateDir(root, tier, "campaign-a"), "campaign.json");
+      const manifest = JSON.parse(readFileSync(path, "utf8"));
+      assert.equal(manifest.private, true);
+      assert.equal(manifest.targetTierGB, tier);
+      assert.deepEqual(manifest.modelIds, ["model-a"]);
+      assert.deepEqual(manifest.placements.map(item => item.tier), [tier]);
+      assert.equal(statSync(dirname(path)).mode & 0o777, 0o700);
+      assert.equal(statSync(path).mode & 0o777, 0o600);
+    }
+    assert.equal(readdirSync(root).join(","), "var");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("finalist selection keeps only comparable passing evidence and caps each tier", () => {
   const summary = aggregateBenchmarkRuns([
     aggregateRun({ model: { id: "model-b", hf: "org/model-b:Q4_K_M" }, targetTierGB: 8 }),
@@ -294,6 +350,7 @@ test("parseArgs collects repeatable case ids and the environment note", () => {
     environmentNote: "contaminated",
     allowDownload: true,
     validate: false,
+    plan: false,
     aggregate: false,
   });
 });
