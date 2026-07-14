@@ -174,7 +174,9 @@ function requireRelative(root, target) {
     : null;
 }
 
-export function writeInvalidAdmissionRun(path, { model, campaignId, targetTierGB, reasons, preflight = null } = {}) {
+export function writeInvalidAdmissionRun(path, {
+  model, campaignId, targetTierGB, reasons, preflight = null, tierConfiguration = null, tierAdmission = null,
+} = {}) {
   const run = {
     pilot: true,
     status: "invalid",
@@ -182,6 +184,9 @@ export function writeInvalidAdmissionRun(path, { model, campaignId, targetTierGB
     admission: true,
     campaignId,
     targetTierGB,
+    tierConfiguration,
+    tierPolicy: TIER_POLICY,
+    tierAdmission,
     model,
     preflight,
     startedAt: new Date().toISOString(),
@@ -223,6 +228,40 @@ export function resolveTierConfiguration(targetTier, hostRamGB, facts = {}) {
     servedContext,
     evidenceMode: targetTier === hostTierGB ? "hardware-tier" : "simulated-tier",
     policy: TIER_POLICY,
+  };
+}
+
+export function evaluateTierAdmission(targetTier, hostRamGB, facts = {}) {
+  const configuration = resolveTierConfiguration(targetTier, hostRamGB, facts);
+  const reasons = [];
+  const contextGB = configuration.servedContext
+    * (Number(facts.kvBytesPerToken) > 0 ? Number(facts.kvBytesPerToken) : 172032) / GIB;
+  const configurationRequiredGB = Number(facts.sizeGB || 0)
+    + configuration.reserveGB
+    + configuration.overheadGB
+    + contextGB;
+
+  if (configuration.hostTierGB > targetTier) {
+    reasons.push(`host capacity ${configuration.hostRamGB} GB exceeds the requested ${targetTier} GB tier budget`);
+  } else if (configuration.hostTierGB < targetTier) {
+    reasons.push(`host capacity ${configuration.hostRamGB} GB cannot represent the requested ${targetTier} GB tier budget`);
+  }
+  if (configurationRequiredGB > configuration.memoryBudgetGB) {
+    reasons.push(`configuration requires ${formatGB(configurationRequiredGB * GIB)} GB beyond the ${targetTier} GB memory budget`);
+  }
+
+  return {
+    status: reasons.length ? "invalid" : "admitted",
+    admission: reasons.length ? "rejected" : "accepted",
+    invalidReason: reasons.length ? reasons.join("; ") : null,
+    reasons,
+    policy: TIER_POLICY,
+    targetTierGB: targetTier,
+    hostRamGB: configuration.hostRamGB,
+    hostTierGB: configuration.hostTierGB,
+    memoryBudgetGB: configuration.memoryBudgetGB,
+    configurationRequiredGB: Number(configurationRequiredGB.toFixed(2)),
+    configuration,
   };
 }
 
@@ -785,26 +824,30 @@ async function main() {
   const id = args.campaignId ?? campaignId();
   const modelDir = resolveBenchmarkArtifactDir(ROOT, args.tier, model.id, id);
   const cacheRoot = resolveModelCacheDir(process.env);
+  const hostRamGB = Number((os.totalmem() / GIB).toFixed(2));
   const preflight = preflightModelCandidate(model, {
     cacheRoot,
     diskAvailableBytes: availableDiskBytes(cacheRoot) ?? availableDiskBytes(ROOT),
   });
-  if (preflight.status !== "admitted") {
+  const facts = preflight.ggufFacts;
+  const tierAdmission = evaluateTierAdmission(args.tier, hostRamGB, facts ?? { sizeGB: model.sizeGB });
+  const admissionReasons = [...preflight.reasons, ...tierAdmission.reasons];
+  if (admissionReasons.length) {
     const run = writeInvalidAdmissionRun(join(modelDir, "run.json"), {
       model,
       campaignId: id,
       targetTierGB: args.tier,
-      reasons: preflight.reasons,
+      reasons: admissionReasons,
       preflight,
+      tierConfiguration: tierAdmission.configuration,
+      tierAdmission,
     });
     console.error(`${model.id}: invalid admission — ${run.invalidReason}`);
     process.exitCode = 2;
     return;
   }
   const ggufPath = preflight.cachedGguf.path;
-  const facts = preflight.ggufFacts;
-  const hostRamGB = Number((os.totalmem() / GIB).toFixed(2));
-  const tierConfiguration = resolveTierConfiguration(args.tier, hostRamGB, facts ?? {});
+  const tierConfiguration = tierAdmission.configuration;
   mkdirSync(modelDir, { recursive: true, mode: 0o700 });
   const tempDir = mkdtempSync(join(os.tmpdir(), `aperio-model-tier-${model.id}-`));
   // Isolated workspace the code/doc/shell cases operate on. Seeded with a tiny
@@ -997,6 +1040,7 @@ async function main() {
       targetTierGB: args.tier,
       tierConfiguration,
       tierPolicy: TIER_POLICY,
+      tierAdmission,
       model,
       factsSource: facts ? "gguf" : "catalog",
       ggufFacts: facts,
@@ -1028,6 +1072,7 @@ async function main() {
       targetTierGB: args.tier,
       tierConfiguration,
       tierPolicy: TIER_POLICY,
+      tierAdmission,
       model,
       factsSource: facts ? "gguf" : "catalog",
       ggufFacts: facts,

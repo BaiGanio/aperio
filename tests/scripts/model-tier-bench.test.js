@@ -23,6 +23,8 @@ import {
   resolveBenchmarkArtifactDir,
   resolveTierConfiguration,
   resolveHostTier,
+  evaluateTierAdmission,
+  TIER_POLICY,
   teardownOwnedProcesses,
   runWsCase,
   writeInvalidAdmissionRun,
@@ -201,6 +203,10 @@ test("CLI admission failure writes only a private invalid run without starting p
     const run = JSON.parse(readFileSync(join(artifactDir, "run.json"), "utf8"));
     assert.equal(run.status, "invalid");
     assert.equal(run.admission, true);
+    assert.equal(run.tierPolicy, TIER_POLICY);
+    assert.equal(run.tierAdmission.policy, TIER_POLICY);
+    assert.equal(run.tierAdmission.hostRamGB, run.tierConfiguration.hostRamGB);
+    assert.equal(run.tierAdmission.admission, "rejected");
     assert.match(run.invalidReason, /not cached with an exact GGUF candidate/);
     assert.deepEqual(run.caseResults, []);
     assert.deepEqual(readdirSync(tmpdir()).filter(name => name.startsWith(tempPrefix)), [...beforeTemp]);
@@ -224,6 +230,48 @@ test("tier configuration distinguishes target tier from physical host evidence",
   assert.equal(simulated.memoryBudgetGB, 8);
   assert.ok(simulated.servedContext < hardware.servedContext);
   assert.equal(hardware.evidenceMode, "hardware-tier");
+});
+
+test("tier admission rejects a requested tier when host capacity is above the tier budget", () => {
+  const decision = evaluateTierAdmission(16, 32, {
+    sizeGB: 5.29,
+    kvBytesPerToken: 172032,
+    maxContext: 32768,
+  });
+
+  assert.equal(decision.status, "invalid");
+  assert.equal(decision.admission, "rejected");
+  assert.equal(decision.targetTierGB, 16);
+  assert.equal(decision.hostRamGB, 32);
+  assert.equal(decision.hostTierGB, 32);
+  assert.match(decision.invalidReason, /host capacity .* exceeds the requested 16 GB tier budget/i);
+  assert.equal(decision.policy, TIER_POLICY);
+});
+
+test("tier admission rejects a model configuration that exceeds the requested memory budget", () => {
+  const decision = evaluateTierAdmission(8, 8, {
+    sizeGB: 7.5,
+    kvBytesPerToken: 172032,
+    maxContext: 16384,
+  });
+
+  assert.equal(decision.status, "invalid");
+  assert.equal(decision.hostRamGB, 8);
+  assert.match(decision.invalidReason, /configuration requires .* beyond the 8 GB memory budget/i);
+});
+
+test("tier admission records an admitted effective policy when host and configuration fit", () => {
+  const decision = evaluateTierAdmission(16, 16, {
+    sizeGB: 5.29,
+    kvBytesPerToken: 172032,
+    maxContext: 16384,
+  });
+
+  assert.equal(decision.status, "admitted");
+  assert.equal(decision.admission, "accepted");
+  assert.equal(decision.invalidReason, null);
+  assert.equal(decision.policy, TIER_POLICY);
+  assert.equal(decision.memoryBudgetGB, 16);
 });
 
 test("runtime llama logs can be copied before teardown", () => {
