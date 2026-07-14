@@ -38,6 +38,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
   result (keeping ownership on failure instead of masking a leak as a clean
   stop), and `ensureLlamaCpp` group-kills a stale still-recorded engine before
   overwriting `state.json` on restart.
+- llama.cpp router loaded the main model twice, doubling resident RAM. Several
+  paths sent the raw Hugging Face `repo:quant` as the `/v1/chat/completions`
+  `model` field, which the router resolves to its auto-discovered cache preset
+  (full model context) and loads as a SECOND resident instance alongside the
+  tier-sized `aperio-main` preset: background completions — memory proposals and
+  workflow suggestions (`lib/helpers/completion.js`), wiki refresh
+  (`lib/handlers/wiki/regenerate.js`), and the model-tier benchmark's throughput
+  probe. They now send the stable `aperio-main` alias, matching the interactive
+  chat path; on the 16 GB tier this halved llama-server RSS (13.3 → 6.3 GB).
+- Model-tier benchmark retry never recovered: its post-restart readiness check
+  polled `/health`, a route the Aperio app does not serve (only llama-server
+  does), so it 404'd for the full 180 s window and marked any run with a
+  first-attempt case failure `invalid`. It now polls `/api/metrics`.
 - llama.cpp no longer duplicates GGUF models into the repo. It previously forced
   `LLAMA_CACHE=./var/models`, so llama-server re-downloaded every model into the
   app folder even when the user already had it in the standard Hugging Face hub
