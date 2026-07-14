@@ -13,12 +13,14 @@ import {
   executeBenchmarkCases,
   restoreQualificationState,
   modelReady,
+  preflightModelCandidate,
   parseArgs,
   resolveBenchmarkArtifactDir,
   resolveTierConfiguration,
   resolveHostTier,
   teardownOwnedProcesses,
   runWsCase,
+  writeInvalidAdmissionRun,
   validateTargetTier,
 } from "../../scripts/model-tier-bench.js";
 
@@ -80,6 +82,77 @@ test("catalog contains the smallest exact cached Gemma entry", () => {
     sizeGB: 3.93,
     tiers: [8, 16, 24, 32],
   });
+});
+
+test("candidate preflight admits only the exact repo and quant with GGUF facts and disk headroom", () => {
+  const model = {
+    id: "gemma4-e4b-q4kxl",
+    hf: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+    quant: "Q4_K_XL",
+    sizeGB: 3.93,
+  };
+  const cachedPath = "/cache/models--unsloth--gemma-4-E4B-it-qat-GGUF/snapshots/rev/gemma-4-E4B-it-qat-Q4_K_XL.gguf";
+  const result = preflightModelCandidate(model, {
+    cacheRoot: "/cache",
+    findCached: () => cachedPath,
+    factsFromGguf: path => ({
+      path,
+      source: "gguf",
+      sizeGB: 3.93,
+      architecture: "dense",
+      maxContext: 131072,
+      kvLayers: 42,
+      kvBytesPerToken: 172032,
+    }),
+    diskAvailableBytes: 7 * 1024 ** 3,
+  });
+
+  assert.equal(result.status, "admitted");
+  assert.equal(result.hf, model.hf);
+  assert.equal(result.cachedGguf.path, cachedPath);
+  assert.equal(result.ggufFacts.architecture, "dense");
+  assert.equal(result.disk.requiredGB, 5.93);
+});
+
+test("candidate preflight reports concrete admission reasons for identity, facts, and disk failures", () => {
+  const model = {
+    id: "gemma4-e4b-q4kxl",
+    hf: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+    quant: "Q4_K_XL",
+    sizeGB: 3.93,
+  };
+  const base = {
+    cacheRoot: "/cache",
+    findCached: () => "/cache/models--unsloth--gemma-4-E4B-it-qat-GGUF/snapshots/rev/wrong-Q5_K_M.gguf",
+    factsFromGguf: () => null,
+    diskAvailableBytes: 1 * 1024 ** 3,
+  };
+
+  const result = preflightModelCandidate(model, base);
+  assert.equal(result.status, "invalid");
+  assert.deepEqual(result.reasons, [
+    "cached GGUF quantization does not match requested Q4_K_XL",
+    "cached GGUF facts could not be read",
+    "insufficient disk space: need 5.93 GB, have 1 GB",
+  ]);
+});
+
+test("admission failures are persisted as invalid runs with a concrete reason", () => {
+  const dir = mkdtempSync(join(tmpdir(), "model-tier-admission-test-"));
+  try {
+    const path = join(dir, "run.json");
+    const run = writeInvalidAdmissionRun(path, {
+      model: { id: "gemma4-e4b-q4kxl", hf: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL" },
+      campaignId: "20260714T120000Z",
+      targetTierGB: 8,
+      reasons: ["cached GGUF quantization does not match requested Q4_K_XL"],
+    });
+    assert.equal(run.status, "invalid");
+    assert.match(run.invalidReason, /cached GGUF quantization/);
+    assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), run);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test("tier configuration distinguishes target tier from physical host evidence", () => {
@@ -235,6 +308,7 @@ test("executeBenchmarkCases preserves completed and interrupted case artifacts o
       assert.equal(error.caseResults[1].durationMs, 1234);
       assert.equal(error.caseResults[1].title, "Second case");
       assert.equal(error.caseResults[1].objective, "Retain partial evidence when interrupted.");
+      assert.equal(error.caseResults[1].prompt, "second");
       assert.deepEqual(error.caseResults[1].actualToolSequence, ["fetch_url"]);
       assert.deepEqual(error.caseResults[1].expectedToolSequence, ["fetch_url", "remember"]);
       assert.deepEqual(error.caseResults[1].requiredAnswerTerms, ["saved"]);

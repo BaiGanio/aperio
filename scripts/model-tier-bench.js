@@ -3,7 +3,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statfsSync, statSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -83,6 +83,114 @@ export function validateTargetTier(model, tier) {
   if (![8, 16, 24, 32].includes(tier)) throw new Error("tier must be 8, 16, 24, or 32");
   if (!model?.tiers?.includes(tier)) throw new Error(`model ${model?.id ?? "unknown"} is not eligible for the ${tier} GB tier`);
   return tier;
+}
+
+const PREFLIGHT_DISK_RESERVE_GB = 2;
+
+function exactModelParts(hf) {
+  const separator = String(hf).lastIndexOf(":");
+  return { repo: String(hf).slice(0, separator), quant: String(hf).slice(separator + 1) };
+}
+
+function formatGB(bytes) {
+  const gb = bytes / GIB;
+  return Number.isInteger(gb) ? String(gb) : gb.toFixed(2).replace(/0+$/, "").replace(/\.$/, "");
+}
+
+function availableDiskBytes(path) {
+  try {
+    const stats = statfsSync(path);
+    return Number(stats.bavail) * Number(stats.bsize);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Admission-only checks. This must complete before an Aperio or llama.cpp
+ * process is started, so a mismatch cannot become model-behaviour evidence.
+ */
+export function preflightModelCandidate(model, {
+  cacheRoot,
+  findCached = findCachedGguf,
+  factsFromGguf: readFacts = factsFromGguf,
+  diskAvailableBytes,
+  diskReserveGB = PREFLIGHT_DISK_RESERVE_GB,
+} = {}) {
+  const reasons = [];
+  const { repo, quant } = exactModelParts(model?.hf);
+  if (!repo.includes("/") || !quant) reasons.push(`model must use an exact Hugging Face repo:quant identifier: ${model?.hf ?? "missing"}`);
+  if (model?.quant && model.quant.toLowerCase() !== quant.toLowerCase()) {
+    reasons.push(`catalog quant ${model.quant} does not match requested ${quant}`);
+  }
+
+  let cachedPath = null;
+  if (!reasons.length) cachedPath = findCached(model.hf, cacheRoot);
+  if (!cachedPath) {
+    reasons.push(`${model.hf} is not cached with an exact GGUF candidate`);
+  }
+
+  let ggufFacts = null;
+  if (cachedPath) {
+    const expectedCacheDir = join(cacheRoot, `models--${repo.replaceAll("/", "--")}`);
+    const relative = requireRelative(expectedCacheDir, cachedPath);
+    if (relative === null) reasons.push(`cached GGUF is outside the exact Hugging Face repository cache: ${repo}`);
+    if (!basename(cachedPath).toLowerCase().includes(quant.toLowerCase())) {
+      reasons.push(`cached GGUF quantization does not match requested ${quant}`);
+    }
+    try { ggufFacts = readFacts(cachedPath); } catch { ggufFacts = null; }
+    if (!ggufFacts) reasons.push("cached GGUF facts could not be read");
+    else if (ggufFacts.source !== "gguf") reasons.push("cached model facts are not sourced from the GGUF header");
+  }
+
+  const sizeGB = Number(ggufFacts?.sizeGB ?? model?.sizeGB);
+  const requiredGB = sizeGB + Number(diskReserveGB);
+  const available = Number(diskAvailableBytes);
+  if (Number.isFinite(available) && Number.isFinite(requiredGB) && available < requiredGB * GIB) {
+    reasons.push(`insufficient disk space: need ${formatGB(requiredGB * GIB)} GB, have ${formatGB(available)} GB`);
+  }
+
+  return {
+    status: reasons.length ? "invalid" : "admitted",
+    hf: model.hf,
+    repo,
+    quant,
+    cachedGguf: cachedPath ? { path: cachedPath, repo, quant } : null,
+    ggufFacts,
+    disk: {
+      availableGB: Number.isFinite(available) ? Number(formatGB(available)) : null,
+      requiredGB: Number.isFinite(requiredGB) ? Number(requiredGB.toFixed(2)) : null,
+      reserveGB: Number(diskReserveGB),
+    },
+    reasons,
+  };
+}
+
+function requireRelative(root, target) {
+  const rootResolved = resolve(root);
+  const targetResolved = resolve(target);
+  return targetResolved === rootResolved || targetResolved.startsWith(`${rootResolved}/`)
+    ? targetResolved.slice(rootResolved.length + 1)
+    : null;
+}
+
+export function writeInvalidAdmissionRun(path, { model, campaignId, targetTierGB, reasons, preflight = null } = {}) {
+  const run = {
+    pilot: true,
+    status: "invalid",
+    invalidReason: reasons.join("; "),
+    admission: true,
+    campaignId,
+    targetTierGB,
+    model,
+    preflight,
+    startedAt: new Date().toISOString(),
+    finishedAt: new Date().toISOString(),
+    caseResults: [],
+  };
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 });
+  atomicJson(path, run);
+  return run;
 }
 
 export function resolveHostTier(ramGB) {
@@ -631,20 +739,29 @@ async function main() {
   if (!model) throw new Error(`unknown model id: ${args.modelId}`);
   validateTargetTier(model, args.tier);
 
-  const cacheRoot = resolveModelCacheDir(process.env);
-  const discoveredGguf = findCachedGguf(model.hf, cacheRoot);
-  const requestedQuant = model.hf.split(":")[1]?.toLowerCase();
-  const ggufPath = discoveredGguf && (!requestedQuant || basename(discoveredGguf).toLowerCase().includes(requestedQuant))
-    ? discoveredGguf
-    : null;
-  if (!ggufPath && !args.allowDownload) {
-    throw new Error(`${model.hf} is not cached; pass --allow-download to permit a network download`);
-  }
-  const facts = ggufPath ? factsFromGguf(ggufPath) : null;
-  const hostRamGB = Number((os.totalmem() / GIB).toFixed(2));
-  const tierConfiguration = resolveTierConfiguration(args.tier, hostRamGB, facts ?? {});
   const id = args.campaignId ?? campaignId();
   const modelDir = resolveBenchmarkArtifactDir(ROOT, args.tier, model.id, id);
+  const cacheRoot = resolveModelCacheDir(process.env);
+  const preflight = preflightModelCandidate(model, {
+    cacheRoot,
+    diskAvailableBytes: availableDiskBytes(cacheRoot) ?? availableDiskBytes(ROOT),
+  });
+  if (preflight.status !== "admitted") {
+    const run = writeInvalidAdmissionRun(join(modelDir, "run.json"), {
+      model,
+      campaignId: id,
+      targetTierGB: args.tier,
+      reasons: preflight.reasons,
+      preflight,
+    });
+    console.error(`${model.id}: invalid admission — ${run.invalidReason}`);
+    process.exitCode = 2;
+    return;
+  }
+  const ggufPath = preflight.cachedGguf.path;
+  const facts = preflight.ggufFacts;
+  const hostRamGB = Number((os.totalmem() / GIB).toFixed(2));
+  const tierConfiguration = resolveTierConfiguration(args.tier, hostRamGB, facts ?? {});
   mkdirSync(modelDir, { recursive: true, mode: 0o700 });
   const tempDir = mkdtempSync(join(os.tmpdir(), `aperio-model-tier-${model.id}-`));
   // Isolated workspace the code/doc/shell cases operate on. Seeded with a tiny
