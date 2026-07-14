@@ -11,9 +11,10 @@ pilot output as evidence.
 The implementation is ahead of the original closeout wording. The current runner
 has the exact Gemma and Qwen catalog entries, the full 14-case catalog, the
 five-case pilot funnel, exact cached-model admission, load/readiness boundaries,
-separate metric phases, retry restoration, private tier-first artifacts, and
-owned-process cleanup. This document is now a historical handoff plus an
-operator guide; remaining campaign work is listed in section 0.2.
+separate metric phases, retry restoration, private tier-first artifacts,
+catalog-wide sequential campaign execution, and owned-process cleanup. This
+document is now a historical handoff plus an operator guide; remaining work is
+listed in section 0.2.
 
 ### 0.1 What exists now
 
@@ -26,6 +27,8 @@ The current branch provides:
   private artifacts, timeout classification, teardown, and cleanup;
 - exact cached Gemma 4 E4B and Qwen3.5 9B Q4_K_M model entries;
 - a 14-case qualification catalog, with five cases selected for the default pilot;
+- catalog-wide execution across all 38 eligible tier/model placements, with
+  private per-tier `execution.json` ledgers and a non-live `--dry-run` mode;
 - focused tests for the new protocol boundary, schemas, scoring, and runner
   helpers.
 
@@ -62,18 +65,19 @@ pilot result must not be used to promote, reject, or rank a model.
 
 ### 0.2 What is not implemented yet
 
-Before this becomes the full campaign runner described in sections 6–11, it
-still needs:
+The remaining product work is:
 
-- full campaign execution across the catalog;
-- installer/runtime integration after human review of tier decisions.
+- installer/runtime integration after human review of tier decisions;
+- an explicitly approved live campaign and subsequent private artifact review.
 
 The exact candidate catalog checkpoint is complete. The catalog now contains 15
-unique candidates covering the 18 tier placements in the runbook, and validation
+unique candidates expanding to 38 eligible tier/model placements through their
+`tiers` arrays, and validation
 checks repository/quant consistency, tier eligibility, size and role metadata,
 and dated Hugging Face verification records. The gpt-oss repository-only serving
 reference is represented with explicit `mxfp4` quant metadata. This checkpoint
-did not download models or run a benchmark campaign.
+did not download models or run a benchmark campaign. The campaign executor is
+available, but this checkpoint also did not execute models.
 
 Treat each item as a separate implementation checkpoint. Explain the checkpoint,
 make and verify only that bounded change, summarize discoveries, and obtain the
@@ -85,14 +89,19 @@ existing per-model artifacts and write private `summary.json` and `summary.csv`
 under `var/benchmarks/model-tiers/<tier>gb/<campaign-id>/`. It enforces the
 campaign controls recorded in `run.json`, keeps completed model failures in the
 comparison, and excludes invalid or incomparable runs from comparable evidence.
-The remaining item above is unchanged.
+Campaign execution is now implemented. Create a private plan with `--plan`,
+validate it without starting models with `--execute-campaign --dry-run`, and run
+it only after explicit approval with `--execute-campaign`. Placements execute in
+deterministic tier/model order; failures are recorded and do not stop later
+placements. Each tier receives a private `execution.json` ledger containing the
+campaign controls and process outcomes.
 
 The finalist review checkpoint is now implemented. `--finalists` creates a
 private manifest from comparable passing campaign rows, and `--decide
 --evidence <path>` generates private `decisions.json` and `decisions.md` only
 from complete, valid finalist exam evidence. It applies the documented recall,
 chain, guardrail, tool-quality, context, swap, and crash gates. It does not run
-the full exam, execute a campaign, or alter installer behavior.
+the full exam or alter installer behavior.
 
 The finalist execution-contract checkpoint is also complete. The tracked
 `.github/model-tiers/full-exam.json` manifest enumerates all 65 scored drills
@@ -278,7 +287,7 @@ status and the existing diff; do not restart or discard completed work.
 
 Work one bounded step at a time: explain the step and why it is next, make only
 that step's changes, verify it, summarize what changed and any discoveries, then
-stop and ask for my confirmation before the next step. Do not run a full campaign
+stop and ask for my confirmation before the next step. Do not run a live campaign
 or launch an HTML docs page without my explicit confirmation. Raw benchmark data
 stays private under var/.
 

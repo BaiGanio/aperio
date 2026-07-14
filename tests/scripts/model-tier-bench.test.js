@@ -24,6 +24,8 @@ import {
   resolveCampaignAggregateDir,
   buildCampaignPlan,
   writeCampaignPlan,
+  readCampaignPlacements,
+  executeCampaign,
   selectPilotCases,
   DEFAULT_PILOT_CASE_IDS,
   verifyState,
@@ -250,6 +252,65 @@ test("campaign planner writes only private per-tier manifests", () => {
   }
 });
 
+test("campaign executor preserves every catalog placement and remains sequential in dry-run mode", async () => {
+  const root = mkdtempSync(join(tmpdir(), "model-tier-execution-test-"));
+  try {
+    const plan = buildCampaignPlan({
+      models: [
+        { id: "model-a", hf: "org/model-a:Q4_K_M", tiers: [8, 16, 24, 32] },
+        { id: "model-b", hf: "org/model-b:Q4_K_M", tiers: [16, 32] },
+      ],
+      campaignId: "campaign-a",
+      fixtureVersion: "fixture-sha",
+    });
+    writeCampaignPlan(root, plan);
+    const calls = [];
+    const result = await executeCampaign(root, "campaign-a", {
+      dryRun: true,
+      spawnPlacement: async placement => {
+        calls.push(placement.modelId);
+        return { exitCode: 0, signal: null };
+      },
+    });
+    assert.equal(result.placements.length, 6);
+    assert.deepEqual(calls, []);
+    assert.deepEqual(result.results.map(item => `${item.tier}:${item.modelId}`), [
+      "8:model-a", "16:model-a", "16:model-b", "24:model-a", "32:model-a", "32:model-b",
+    ]);
+    assert.equal(JSON.parse(readFileSync(join(resolveCampaignAggregateDir(root, 16, "campaign-a"), "execution.json"))).private, true);
+    assert.deepEqual(readCampaignPlacements(root, "campaign-a").map(item => item.modelId), [
+      "model-a", "model-a", "model-b", "model-a", "model-a", "model-b",
+    ]);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("campaign executor invokes placements in order and records process outcomes", async () => {
+  const root = mkdtempSync(join(tmpdir(), "model-tier-execution-live-contract-test-"));
+  try {
+    const plan = buildCampaignPlan({
+      models: [{ id: "model-a", hf: "org/model-a:Q4_K_M", tiers: [16, 8] }],
+      campaignId: "campaign-b",
+      fixtureVersion: "fixture-sha",
+    });
+    writeCampaignPlan(root, plan);
+    const calls = [];
+    const result = await executeCampaign(root, "campaign-b", {
+      spawnPlacement: async placement => {
+        calls.push(`${placement.tier}:${placement.modelId}`);
+        return { exitCode: placement.tier === 8 ? 2 : 0, signal: null };
+      },
+    });
+    assert.deepEqual(calls, ["8:model-a", "16:model-a"]);
+    assert.deepEqual(result.results.map(item => item.exitCode), [2, 0]);
+    const execution = JSON.parse(readFileSync(join(resolveCampaignAggregateDir(root, 8, "campaign-b"), "execution.json")));
+    assert.equal(execution.results[0].exitCode, 2);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("finalist selection keeps only comparable passing evidence and caps each tier", () => {
   const summary = aggregateBenchmarkRuns([
     aggregateRun({ model: { id: "model-b", hf: "org/model-b:Q4_K_M" }, targetTierGB: 8 }),
@@ -351,6 +412,8 @@ test("parseArgs collects repeatable case ids and the environment note", () => {
     allowDownload: true,
     validate: false,
     plan: false,
+    executeCampaign: false,
+    dryRun: false,
     aggregate: false,
   });
 });
@@ -416,6 +479,7 @@ test("catalog contains the complete verified candidate matrix", () => {
   const models = JSON.parse(readFileSync(".github/model-tiers/models.json", "utf8"));
   const validated = validateBenchmarkModels(models);
   assert.equal(validated.length, 15);
+  assert.equal(validated.reduce((count, model) => count + model.tiers.length, 0), 38);
   assert.deepEqual(validated.filter(model => model.tiers.includes(8)).map(model => model.id), [
     "gemma4-e4b-ud-q4kxl", "qwen35-4b-ud-q4kxl", "ministral3-3b-q4km", "granite40-h-tiny-ud-q4kxl",
   ]);

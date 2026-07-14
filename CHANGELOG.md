@@ -12,7 +12,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Complete model-tier candidate catalog: 15 unique exact Hugging Face model
-  entries cover the 18 tier placements from the research shortlist, with
+  entries expand to 38 eligible tier placements through their catalog `tiers`
+  arrays, with
   quantization, size, role, tier eligibility, and verification metadata.
 - Model-tier catalog validation now rejects repository/quant drift, duplicate
   tier assignments, unsupported roles, invalid sizes, and incomplete
@@ -29,6 +30,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Model-tier finalist execution contract: the tracked full-exam manifest enumerates
   all 65 scored drills and 81 required observations, while finalist evidence is
   validated against the private tier-first artifact layout before tier decisions.
+- Model-tier campaign execution: `--execute-campaign` now consumes private
+  per-tier plans, runs all catalog placements sequentially through the existing
+  pilot lifecycle, and records private per-tier execution ledgers; `--dry-run`
+  validates the 38-placement scope without starting model processes.
 
 - Memory-aware llama.cpp VLM preset selection: native-vision main models omit
   the bridge, while oversized main/VLM pairs use router swap mode

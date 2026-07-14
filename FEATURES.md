@@ -244,6 +244,9 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Memory-aware llama.cpp vision bridge — native-vision main models omit the dedicated VLM; when the main model and VLM cannot fit together, the router keeps both entries but uses `models-max = 1` to swap them on demand, with the selected mode logged at startup
 - `npm run local:bench` — short + medium fixed-prompt benchmark against the local llama.cpp engine; reports load overhead, prompt/gen tok/s, served context, profile, model, and a recommendation string (issue #222)
 - Model-tier evidence review — offline finalist manifests and full-exam tier decisions from validated campaign artifacts; raw evidence remains private under `var/`
+- Model-tier campaign execution — sequentially runs the validated catalog's 38
+  tier/model placements from private plans, with a non-live dry-run mode and
+  private execution ledgers
 - Evidence-gated slow-turn diagnostic — after 3 consecutive local turns below a real-tok/s floor (llama-server's own reported `timings`, not wall-clock), a one-shot UI hint suggests a profile/context change; never fires for cloud providers
 - Docker production config (`docker/docker-compose.prod.yml`)
 - Test suite: 2953 unit tests (`npm test`) and 40 e2e tests (`npm run test:e2e`)

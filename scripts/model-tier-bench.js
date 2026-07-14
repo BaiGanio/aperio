@@ -52,7 +52,7 @@ export const DEFAULT_PILOT_CASE_IDS = Object.freeze([
 ]);
 
 export function parseArgs(argv) {
-  const out = { caseIds: [], validate: false, plan: false, aggregate: false, allowDownload: false };
+  const out = { caseIds: [], validate: false, plan: false, executeCampaign: false, dryRun: false, aggregate: false, allowDownload: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--model") out.modelId = argv[++i];
@@ -64,6 +64,8 @@ export function parseArgs(argv) {
     else if (arg === "--note") out.environmentNote = argv[++i];
     else if (arg === "--allow-download") out.allowDownload = true;
     else if (arg === "--plan") out.plan = true;
+    else if (arg === "--execute-campaign") out.executeCampaign = true;
+    else if (arg === "--dry-run") out.dryRun = true;
     else if (arg === "--aggregate") out.aggregate = true;
     else if (arg === "--finalists") out.finalists = true;
     else if (arg === "--decide") out.decide = true;
@@ -86,6 +88,8 @@ function usage() {
     "  --case <id>         Run one case (repeatable)",
     "  --allow-download    Permit llama.cpp to download an uncached GGUF",
     "  --plan              Write a private, non-live plan for every catalog placement",
+    "  --execute-campaign  Execute every placement in a private campaign plan",
+    "  --dry-run           Show campaign execution without starting model processes",
     "  --aggregate         Build private campaign summaries from existing run artifacts",
     "  --finalists         Select finalists from an existing private summary.json",
     "  --decide            Generate private tier decisions from finalist evidence",
@@ -186,6 +190,76 @@ export function writeCampaignPlan(root, plan) {
     outputDirs.push(outputDir);
   }
   return { outputDirs, plan };
+}
+
+export function readCampaignPlacements(root, id) {
+  if (!id) throw new Error("campaign id is required");
+  const placements = [];
+  let campaignControls;
+  for (const tier of [8, 16, 24, 32]) {
+    const path = join(resolveCampaignAggregateDir(root, tier, id), "campaign.json");
+    if (!existsSync(path)) continue;
+    const manifest = readJson(path);
+    if (manifest.private !== true) throw new Error(`campaign manifest is not private: ${path}`);
+    if (manifest.campaignId !== id) throw new Error(`campaign manifest has mismatched id: ${path}`);
+    if (manifest.targetTierGB !== tier) throw new Error(`campaign manifest has mismatched tier: ${path}`);
+    if (!Array.isArray(manifest.placements)) throw new Error(`campaign manifest has no placements: ${path}`);
+    const controls = JSON.stringify(manifest.controls ?? null);
+    if (campaignControls === undefined) campaignControls = controls;
+    if (campaignControls !== controls) throw new Error(`campaign manifests have mismatched controls: ${path}`);
+    for (const placement of manifest.placements) {
+      if (placement.tier !== tier || !placement.modelId || !placement.model) {
+        throw new Error(`campaign manifest has an invalid placement: ${path}`);
+      }
+      placements.push({ ...placement, manifestPath: path });
+    }
+  }
+  if (!placements.length) throw new Error(`campaign plan is missing: ${id}`);
+  const seen = new Set();
+  for (const placement of placements) {
+    const key = `${placement.tier}:${placement.modelId}`;
+    if (seen.has(key)) throw new Error(`campaign plan contains duplicate placement: ${key}`);
+    seen.add(key);
+  }
+  return placements.sort((left, right) => left.tier - right.tier || left.modelId.localeCompare(right.modelId));
+}
+
+function writeCampaignExecution(root, id, placements, results) {
+  const controls = readJson(placements[0].manifestPath).controls ?? null;
+  for (const tier of [8, 16, 24, 32]) {
+    const tierPlacements = placements.filter(item => item.tier === tier);
+    if (!tierPlacements.length) continue;
+    const outputDir = resolveCampaignAggregateDir(root, tier, id);
+    atomicJson(join(outputDir, "execution.json"), {
+      contractVersion: 1,
+      private: true,
+      campaignId: id,
+      controls,
+      targetTierGB: tier,
+      placements: tierPlacements.map(item => ({ tier: item.tier, modelId: item.modelId, model: item.model, role: item.role })),
+      results: results.filter(item => item.tier === tier),
+    });
+  }
+}
+
+export async function executeCampaign(root, id, { dryRun = false, runnerPath = fileURLToPath(import.meta.url), spawnPlacement } = {}) {
+  const placements = readCampaignPlacements(root, id);
+  const runPlacement = spawnPlacement ?? (placement => new Promise(resolve => {
+    const child = spawn(process.execPath, [runnerPath, "--model", placement.modelId, "--tier", String(placement.tier), "--campaign", id], {
+      cwd: root,
+      stdio: "inherit",
+      env: process.env,
+    });
+    child.once("error", error => resolve({ exitCode: null, signal: null, error: error.message }));
+    child.once("close", (exitCode, signal) => resolve({ exitCode, signal }));
+  }));
+  const results = [];
+  for (const placement of placements) {
+    const result = dryRun ? { status: "planned" } : await runPlacement(placement);
+    results.push({ tier: placement.tier, modelId: placement.modelId, ...result });
+  }
+  writeCampaignExecution(root, id, placements, results);
+  return { campaignId: id, placements, results };
 }
 
 function discoverCampaignRuns(root, tier, id) {
@@ -1108,6 +1182,17 @@ async function main() {
     });
     const result = writeCampaignPlan(ROOT, plan);
     console.log(`Planned ${plan.counts.placements} placement(s) across ${result.outputDirs.length} tier(s) into ${id}`);
+    return;
+  }
+  if (args.executeCampaign) {
+    if (!args.campaignId) throw new Error("--campaign is required with --execute-campaign");
+    const result = await executeCampaign(ROOT, args.campaignId, { dryRun: args.dryRun });
+    const failed = result.results.filter(item => !args.dryRun && (item.error || item.signal || item.exitCode !== 0));
+    console.log(`${args.dryRun ? "Validated" : "Executed"} ${result.placements.length} campaign placement(s) for ${args.campaignId}`);
+    if (failed.length) {
+      console.error(`${failed.length} placement process(es) failed or could not start`);
+      process.exitCode = 2;
+    }
     return;
   }
   if (args.aggregate) {

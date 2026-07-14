@@ -19,9 +19,9 @@ benchmarks are supporting evidence, not the deciding evidence.
 - `.github/capability-exam/exam.md` — agent-operated full capability exam
 - `docs/exam/capability-exam.html` — human-operated exam and scorecard
 
-This runbook separates the bounded pilot workflow that is possible today from the
-campaign runner still needed to test the entire shortlist. Commands below are
-available only where the current implementation and package scripts provide them.
+This runbook separates the bounded pilot workflow from catalog-wide campaign
+execution. Commands below are available only where the current implementation
+and package scripts provide them.
 
 ### Current implementation status — 2026-07-14
 
@@ -30,11 +30,13 @@ through `npm run model-tier:pilot`. It supports exact cached-model preflight, th
 14-case qualification catalog, a five-case pilot funnel, isolated application and
 llama.cpp ownership, fixture import/readiness checks, load-versus-qualification
 metrics, retry state restoration, private artifacts, tier admission metadata,
-and non-live campaign aggregation for existing results.
+non-live campaign planning and aggregation, and catalog-wide campaign execution.
 
-The pilot is not a full campaign runner: it does not execute the entire shortlist
-or integrate the score viewer. Offline review now ranks only already-valid,
-comparable evidence and can generate finalist manifests and tier decisions. Use
+The pilot remains a five-case qualification run for one placement. Campaign
+execution consumes the private plan and invokes that lifecycle for every eligible
+catalog placement. It does not integrate the score viewer. Offline review ranks
+only already-valid, comparable evidence and can generate finalist manifests and
+tier decisions. Use
 `--validate` for a non-live contract check, and always supply both `--model` and
 `--tier` for a live pilot run.
 
@@ -48,8 +50,8 @@ artifacts under `var/benchmarks/model-tiers/`. The validator rejects missing,
 duplicate, unexpected, or incomplete observations before tier decisions are
 generated.
 
-The checked-in catalog contains 15 unique candidates covering the 18 tier
-placements in section 2. Each entry has a stable ID, exact repository and
+The checked-in catalog contains 15 unique candidates expanding to 38 eligible
+tier/model placements through the entries' `tiers` arrays. Each entry has a stable ID, exact repository and
 quantization metadata, approximate pre-download size, tier eligibility, role,
 and a dated Hugging Face repository verification record. `--validate` checks
 those fields before any process starts. Models whose serving reference is a
@@ -346,7 +348,7 @@ include the initial network download in inference-performance rankings.
 
 ---
 
-## 6. Automated runner and pilot
+## 6. Automated runner, pilot, and campaign execution
 
 The bounded pilot is driven by this Node.js ESM script:
 
@@ -357,8 +359,32 @@ scripts/model-tier-bench.js
 ```
 
 The package command is `npm run model-tier:pilot`. It selects five cases from the
-14-case catalog by default. The full campaign workflow described in sections
-8–11 is still not implemented; do not describe the pilot as campaign evidence.
+14-case catalog by default. The pilot is not itself campaign evidence.
+
+Create a private plan from the validated catalog:
+
+```bash
+npm run model-tier:pilot -- --plan --campaign <campaign-id>
+```
+
+The current catalog produces 38 placements: 4 for 8 GB, 8 for 16 GB, 12 for
+24 GB, and 14 for 32 GB. Validate the complete execution order without starting
+any model process:
+
+```bash
+npm run model-tier:pilot -- --execute-campaign --dry-run --campaign <campaign-id>
+```
+
+After explicit operator approval, execute the placements sequentially through
+the existing isolated pilot lifecycle:
+
+```bash
+npm run model-tier:pilot -- --execute-campaign --campaign <campaign-id>
+```
+
+Each tier's private `execution.json` records campaign controls, placement order,
+and child-process outcomes. A failed placement does not prevent later placements
+from running; the command exits nonzero after recording the complete ledger.
 
 ### 6.1 Runner lifecycle
 
@@ -677,9 +703,9 @@ more RAM headroom. Installer defaults should be boring and dependable.
 
 ## 12. Manual workflow and remaining campaign work
 
-The automated pilot now covers preflight and the five-case funnel. Use the manual
-workflow below only for campaign controls or full-exam work that the pilot does
-not yet automate.
+The automated runner now covers preflight, the five-case funnel, and sequential
+execution of every planned catalog placement. Use the manual workflow below only
+for campaign review or full-exam work that the runner does not automate.
 
 For each candidate:
 
