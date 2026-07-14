@@ -375,6 +375,13 @@ any model process:
 npm run model-tier:pilot -- --execute-campaign --dry-run --campaign <campaign-id>
 ```
 
+The approved dry-run campaign `20260714T220000Z` validated the current catalog
+successfully: 4 placements for 8 GB, 8 for 16 GB, 12 for 24 GB, and 14 for
+32 GB. Its four private `campaign.json` manifests share the same controls and
+produce four private `execution.json` ledgers with every result marked
+`planned`. This confirms campaign scope and ordering only; it is not model
+evidence.
+
 After explicit operator approval, execute the placements sequentially through
 the existing isolated pilot lifecycle:
 

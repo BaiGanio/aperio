@@ -76,8 +76,11 @@ unique candidates expanding to 38 eligible tier/model placements through their
 checks repository/quant consistency, tier eligibility, size and role metadata,
 and dated Hugging Face verification records. The gpt-oss repository-only serving
 reference is represented with explicit `mxfp4` quant metadata. This checkpoint
-did not download models or run a benchmark campaign. The campaign executor is
-available, but this checkpoint also did not execute models.
+did not download models or run a benchmark campaign. The approved private
+dry-run campaign `20260714T220000Z` subsequently validated all 38 placements,
+the four per-tier manifests, deterministic ordering, consistent controls, and
+the four private execution ledgers without starting a model process. A live
+campaign and its artifact review remain separate checkpoints.
 
 Treat each item as a separate implementation checkpoint. Explain the checkpoint,
 make and verify only that bounded change, summarize discoveries, and obtain the
@@ -94,7 +97,10 @@ validate it without starting models with `--execute-campaign --dry-run`, and run
 it only after explicit approval with `--execute-campaign`. Placements execute in
 deterministic tier/model order; failures are recorded and do not stop later
 placements. Each tier receives a private `execution.json` ledger containing the
-campaign controls and process outcomes.
+campaign controls and process outcomes. On 2026-07-14, campaign
+`20260714T220000Z` completed the approved dry-run: 4, 8, 12, and 14 placements
+were validated for the 8, 16, 24, and 32 GB tiers respectively, and every
+ledger result was recorded as `planned`.
 
 The finalist review checkpoint is now implemented. `--finalists` creates a
 private manifest from comparable passing campaign rows, and `--decide

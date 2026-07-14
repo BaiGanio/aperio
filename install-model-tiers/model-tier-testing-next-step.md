@@ -1,4 +1,4 @@
-# Completed checkpoint: catalog-wide campaign execution
+# Completed checkpoint: private catalog campaign dry-run
 
 **Implemented:** 2026-07-14 on `feat/model-tier-benchmark-runner`.
 
@@ -6,7 +6,10 @@ This checkpoint adds catalog-wide execution without running models during
 implementation. It consumes the private per-tier campaign plans, expands the
 current catalog to all 38 eligible tier/model placements, invokes the existing
 pilot lifecycle sequentially, and records private per-tier execution ledgers.
-It does not select installers or integrate a score viewer or visuals.
+The approved dry-run for campaign `20260714T220000Z` completed successfully:
+all 38 placements were validated in deterministic order, with four private
+per-tier manifests and four ledgers whose results are all `planned`. It does
+not select installers or integrate a score viewer or visuals.
 
 ## Review contract
 
@@ -34,11 +37,14 @@ npm run model-tier:pilot -- --validate
 ```
 
 Focused verification passed 48 runner tests, catalog validation, syntax checks,
-and `git diff --check`. No benchmark campaign or model was run.
+and `git diff --check`. The approved dry-run also verified the generated
+manifest/ledger permissions and cross-tier campaign controls. No benchmark
+campaign or model was run.
 
 ## Next bounded checkpoint
 
-Run an explicitly approved isolated campaign dry-run or live campaign review,
-then reconcile produced private artifacts before any finalist/full-exam
-execution. Keep installer/runtime integration, score-viewer integration, and
-new visuals out of that checkpoint.
+Review the private dry-run artifacts, then propose an explicitly approved
+isolated live campaign one placement or campaign slice at a time. Reconcile
+the resulting private pilot artifacts before any finalist/full-exam execution.
+Keep installer/runtime integration, score-viewer integration, and new visuals
+out of that checkpoint.
