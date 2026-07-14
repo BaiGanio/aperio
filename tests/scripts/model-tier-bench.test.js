@@ -98,6 +98,13 @@ test("pilot state assertions verify the replacement memory and wiki article", as
     "/api/memories",
     "/api/wiki/search?q=Nimbus&mode=fulltext&limit=25",
   ]);
+
+  assert.equal(await verifyState("http://runner", {
+    kind: "memory", type: "preference", contentIncludes: ["espresso"],
+  }, { apiCall }), false);
+  assert.equal(await verifyState("http://runner", {
+    kind: "wiki", query: "Nimbus", minimumMatches: 2,
+  }, { apiCall }), false);
 });
 
 test("resolveBenchmarkArtifactDir uses the tier-first private layout", () => {
