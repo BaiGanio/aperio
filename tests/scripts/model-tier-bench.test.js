@@ -46,6 +46,8 @@ import {
   selectFinalists,
   tierDecisionsMarkdown,
   validateBenchmarkModels,
+  validateFullExamManifest,
+  validateFinalistEvidence,
 } from "../../lib/helpers/modelTierBench.js";
 
 const cases = [
@@ -65,6 +67,41 @@ const cases = [
 
 const RUNNER = fileURLToPath(new URL("../../scripts/model-tier-bench.js", import.meta.url));
 const REPO_ROOT = dirname(dirname(RUNNER));
+const FULL_EXAM = validateFullExamManifest(JSON.parse(readFileSync(join(REPO_ROOT, ".github/model-tiers/full-exam.json"), "utf8")));
+
+function finalistEvidence(overrides = {}) {
+  const repeatIds = new Set(Object.values(FULL_EXAM.repeatGroups).flat());
+  const observations = FULL_EXAM.drills.flatMap(drill => Array.from({ length: repeatIds.has(drill.id) ? 3 : 1 }, (_, index) => ({
+    drillId: drill.id,
+    repetition: index + 1,
+    status: "pass",
+    actualToolSequence: [...drill.expectedToolSequence],
+    toolResults: [],
+    statePassed: true,
+    guardrailMode: drill.kind === "guardrail" ? "model_refusal" : null,
+  })));
+  return {
+    contractVersion: 1,
+    modelId: "model-a",
+    status: "complete",
+    runStatus: "valid",
+    fullExam: { manifestId: FULL_EXAM.manifestId, manifestVersion: FULL_EXAM.contractVersion, observations },
+    artifacts: {
+      root: "var/benchmarks/model-tiers/16gb/model-a/campaign-a",
+      files: [...FULL_EXAM.artifactContract.requiredFiles],
+    },
+    scoredDrills: 65,
+    criticalRepeatCount: 3,
+    servedContext: 16384,
+    swapDeltaBytes: 0,
+    scoreVector: {
+      recall: { passed: 4, total: 4 },
+      chains: { passed: 4, total: 4 },
+      guardrails: { passed: 2, total: 2 },
+    },
+    ...overrides,
+  };
+}
 
 function aggregateRun(overrides = {}) {
   return {
@@ -173,20 +210,44 @@ test("finalist selection keeps only comparable passing evidence and caps each ti
   ]);
 });
 
+test("full exam manifest covers 65 drills and expands the eight critical repeats", () => {
+  assert.equal(FULL_EXAM.drills.length, 65);
+  assert.equal(FULL_EXAM.execution.totalObservations, 81);
+  assert.equal(new Set(FULL_EXAM.drills.map(item => item.id)).size, 65);
+  assert.deepEqual(FULL_EXAM.repeatGroups.recall, [
+    "recall-semantic-nats", "recall-filter-type", "recall-filter-tag", "recall-update-by-id",
+  ]);
+  assert.deepEqual(FULL_EXAM.repeatGroups.chains, [
+    "chain-recall-document-existence", "chain-code-syntax-run", "chain-web-source-memory", "chain-recall-wiki-provenance",
+  ]);
+});
+
+test("finalist evidence validation rejects incomplete observations and duplicate repetitions", () => {
+  const complete = finalistEvidence();
+  assert.equal(complete.fullExam.observations.length, 81);
+  assert.throws(() => validateFullExamManifest({ ...FULL_EXAM, drills: FULL_EXAM.drills.slice(0, 64) }), /drill count/);
+  assert.throws(() => validateFinalistEvidence({ ...complete, fullExam: {
+    ...complete.fullExam,
+    observations: complete.fullExam.observations.slice(0, 80),
+  } }, FULL_EXAM), /81 observations/);
+  assert.throws(() => validateFinalistEvidence({ ...complete, fullExam: {
+    ...complete.fullExam,
+    observations: [...complete.fullExam.observations.slice(0, 80), complete.fullExam.observations[0]],
+  } }, FULL_EXAM), /duplicate/);
+});
+
 test("tier decisions apply full-exam gates and produce default/fallback roles", () => {
   const finalists = [
     { tier: 16, modelId: "model-a", model: "org/model-a:Q4_K_M" },
     { tier: 16, modelId: "model-b", model: "org/model-b:Q4_K_M" },
   ];
   const evidence = [
-    { modelId: "model-a", status: "complete", scoredDrills: 65, criticalRepeatCount: 3, servedContext: 16384, scoreVector: {
-      recall: { passed: 4, total: 4 }, chains: { passed: 4, total: 4 }, guardrails: { passed: 2, total: 2 },
-    } },
-    { modelId: "model-b", status: "complete", scoredDrills: 65, criticalRepeatCount: 3, servedContext: 8192, scoreVector: {
+    finalistEvidence(),
+    finalistEvidence({ modelId: "model-b", servedContext: 8192, scoreVector: {
       recall: { passed: 4, total: 4 }, chains: { passed: 3, total: 4 }, guardrails: { passed: 2, total: 2 },
-    } },
+    } }),
   ];
-  const decisions = generateTierDecisions({ finalists, evidence });
+  const decisions = generateTierDecisions({ finalists, evidence, manifest: FULL_EXAM });
   assert.equal(decisions.tiers[16].status, "eligible");
   assert.equal(decisions.tiers[16].default, "model-a");
   assert.equal(decisions.tiers[16].fallback, "model-b");
@@ -197,8 +258,8 @@ test("tier decisions apply full-exam gates and produce default/fallback roles", 
 test("tier decisions exclude finalist evidence marked invalid", () => {
   const decisions = generateTierDecisions({
     finalists: [{ tier: 8, modelId: "model-a" }],
-    evidence: [{ modelId: "model-a", status: "complete", runStatus: "invalid", scoredDrills: 65, criticalRepeatCount: 3, servedContext: 16384,
-      scoreVector: { recall: { passed: 4, total: 4 }, chains: { passed: 4, total: 4 }, guardrails: { passed: 2, total: 2 } } }],
+    evidence: [finalistEvidence({ runStatus: "invalid" })],
+    manifest: FULL_EXAM,
   });
   assert.equal(decisions.tiers[8].status, "unsupported");
   assert.equal(decisions.tiers[8].default, null);
@@ -215,8 +276,7 @@ test("finalist and decision writers keep evidence outputs private", () => {
     ], { campaignId: "campaign-a", targetTierGB: 16 })));
     const manifest = writeFinalistManifest(root, 16, "campaign-a");
     assert.equal(manifest.manifest.finalists.length, 1);
-    writeFileSync(evidencePath, JSON.stringify([{ modelId: "model-a", status: "complete", scoredDrills: 65, criticalRepeatCount: 3, servedContext: 16384,
-      scoreVector: { recall: { passed: 4, total: 4 }, chains: { passed: 4, total: 4 }, guardrails: { passed: 2, total: 2 } } }]));
+    writeFileSync(evidencePath, JSON.stringify([finalistEvidence()]));
     writeTierDecisions(root, 16, "campaign-a", evidencePath);
     assert.deepEqual(readdirSync(summaryDir).sort(), ["decisions.json", "decisions.md", "finalists.json", "summary.json"]);
   } finally {

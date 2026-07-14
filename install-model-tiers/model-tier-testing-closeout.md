@@ -94,6 +94,16 @@ from complete, valid finalist exam evidence. It applies the documented recall,
 chain, guardrail, tool-quality, context, swap, and crash gates. It does not run
 the full exam, execute a campaign, or alter installer behavior.
 
+The finalist execution-contract checkpoint is also complete. The tracked
+`.github/model-tiers/full-exam.json` manifest enumerates all 65 scored drills
+from the capability-exam sections and requires 81 observations after repeating
+the four recall and four chain groups three times. `validateFinalistEvidence()`
+requires the complete drill/repetition set, tool-result and state evidence, and
+the existing private tier-first artifacts (`run.json`, `cases.jsonl`,
+`transcript.jsonl`, metrics, local benchmark, and tool-quality ledgers). Invalid
+or incomplete evidence cannot produce an eligible tier decision. No live exam
+or campaign was run for this checkpoint.
+
 ### 0.2a Honest-tier checkpoint verification
 
 Focused validation on 2026-07-14 passed 33 runner tests, CLI validation, syntax,

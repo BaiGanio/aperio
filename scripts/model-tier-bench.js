@@ -23,6 +23,8 @@ import {
   selectBenchmarkCases,
   validateBenchmarkCases,
   validateBenchmarkModels,
+  validateFullExamManifest,
+  validateFinalistEvidence,
 } from "../lib/helpers/modelTierBench.js";
 import {
   QUALIFICATION_SUITE_VERSION,
@@ -33,6 +35,7 @@ import {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_MODELS = join(ROOT, ".github/model-tiers/models.json");
 const DEFAULT_CASES = join(ROOT, ".github/model-tiers/cases.json");
+const DEFAULT_FULL_EXAM = join(ROOT, ".github/model-tiers/full-exam.json");
 const FIXTURE = join(ROOT, ".github/capability-exam/exam.memories.json");
 const FIXTURE_CONTRACT = join(ROOT, ".github/model-tiers/fixture-contract.json");
 const WORKSPACE_FIXTURE = join(ROOT, ".github/model-tiers/workspace");
@@ -136,7 +139,8 @@ export function writeFinalistManifest(root, tier, id) {
   const dir = resolveCampaignAggregateDir(root, tier, id);
   const summaryPath = join(dir, "summary.json");
   if (!existsSync(summaryPath)) throw new Error(`campaign summary is missing: ${summaryPath}`);
-  const manifest = selectFinalists(readJson(summaryPath));
+  const fullExam = validateFullExamManifest(readJson(DEFAULT_FULL_EXAM));
+  const manifest = selectFinalists(readJson(summaryPath), { fullExamManifest: fullExam });
   atomicJson(join(dir, "finalists.json"), manifest);
   return { outputDir: dir, manifest };
 }
@@ -147,9 +151,11 @@ export function writeTierDecisions(root, tier, id, evidencePath) {
   if (!existsSync(manifestPath)) throw new Error(`finalist manifest is missing: ${manifestPath}`);
   if (!evidencePath) throw new Error("--evidence is required with --decide");
   const manifest = readJson(manifestPath);
+  const fullExam = validateFullExamManifest(readJson(DEFAULT_FULL_EXAM));
   const supplied = readJson(evidencePath);
   const evidence = Array.isArray(supplied) ? supplied : supplied.evidence;
-  const decisions = generateTierDecisions({ finalists: manifest.finalists, evidence });
+  for (const item of evidence ?? []) validateFinalistEvidence(item, fullExam);
+  const decisions = generateTierDecisions({ finalists: manifest.finalists, evidence, manifest: fullExam });
   atomicJson(join(dir, "decisions.json"), decisions);
   writeFileSync(join(dir, "decisions.md"), tierDecisionsMarkdown(decisions), { mode: 0o600 });
   return { outputDir: dir, decisions };
@@ -998,13 +1004,14 @@ async function main() {
   if (args.help) { console.log(usage()); return; }
   const models = validateBenchmarkModels(readJson(args.modelsPath ?? DEFAULT_MODELS));
   const allCases = validateBenchmarkCases(readJson(args.casesPath ?? DEFAULT_CASES));
+  const fullExam = validateFullExamManifest(readJson(DEFAULT_FULL_EXAM));
   validateQualificationSuite(allCases);
   const cases = selectPilotCases(allCases, args.caseIds);
   const fixture = readJson(FIXTURE);
   const fixtureContract = readJson(FIXTURE_CONTRACT);
   const fixtureSummary = validateQualificationFixture(fixture, fixtureContract);
   if (args.validate) {
-    console.log(`Validated ${models.length} model(s) and ${cases.length} case(s).`);
+    console.log(`Validated ${models.length} model(s), ${cases.length} case(s), and ${fullExam.scoredDrills}-drill full exam (${fullExam.execution.totalObservations} observations).`);
     return;
   }
   if (args.aggregate) {

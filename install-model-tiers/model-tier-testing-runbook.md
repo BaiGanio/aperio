@@ -38,6 +38,16 @@ comparable evidence and can generate finalist manifests and tier decisions. Use
 `--validate` for a non-live contract check, and always supply both `--model` and
 `--tier` for a live pilot run.
 
+The full-exam execution contract is tracked in
+`.github/model-tiers/full-exam.json`. It enumerates all 65 scored drills from the
+capability-exam sections and expands the four recall plus four chain groups to
+three observations each, for 81 required observations. Each finalist evidence
+record must identify the manifest, provide every drill/repetition observation
+with tool results and state verification, and reference the required private
+artifacts under `var/benchmarks/model-tiers/`. The validator rejects missing,
+duplicate, unexpected, or incomplete observations before tier decisions are
+generated.
+
 The checked-in catalog contains 15 unique candidates covering the 18 tier
 placements in section 2. Each entry has a stable ID, exact repository and
 quantization metadata, approximate pre-download size, tier eligibility, role,

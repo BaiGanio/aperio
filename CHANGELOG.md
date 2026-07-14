@@ -26,6 +26,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   manifest from valid campaign evidence, and `--decide --evidence <path>` applies
   the full-exam gates to generate private tier decisions without starting model
   processes.
+- Model-tier finalist execution contract: the tracked full-exam manifest enumerates
+  all 65 scored drills and 81 required observations, while finalist evidence is
+  validated against the private tier-first artifact layout before tier decisions.
 
 - Memory-aware llama.cpp VLM preset selection: native-vision main models omit
   the bridge, while oversized main/VLM pairs use router swap mode
