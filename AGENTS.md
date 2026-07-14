@@ -31,6 +31,32 @@ into thinking — flag the drift before flying it. Standing rules:
 - **The elenchus runs both ways.** When the code contradicts the developer's stated belief,
   say so plainly — a co-pilot who never disagrees is dead weight in the right-hand seat.
 
+## Diagnostics and Runtime Logs
+
+For diagnosis, read existing logs before starting any server or MCP process. Correlate
+artifacts using the shared conversation UUID:
+
+- `var/sessions/<session-id>.json` — persisted conversation history and metadata. Files may
+  be encrypted when `APERIO_SESSION_KEY` is configured; do not assume unreadable content is
+  corruption.
+- `var/logs/<session-id>.log` — Aperio application errors associated with that conversation.
+- `var/llamacpp/<session-id>.log` — llama-server output captured during that conversation.
+  These logs are short-lived and pruned according to `LLAMACPP_LOG_RETENTION_DAYS`.
+- `var/logs/error-YYYY-MM-DD.log` — process-wide error log, rotated daily and retained
+  according to `APERIO_LOG_RETENTION`.
+- `var/llamacpp/server.log` — shared current llama-server output. Prefer the session-scoped
+  log when a session ID is known because the shared file may contain unrelated activity.
+
+Recommended trace order: conversation JSON → matching application log → matching llama.cpp
+log → daily process log. Use timestamps when no session ID is available. An absent
+session-scoped application log usually means that no application error was recorded; an
+absent or empty llama.cpp session log can mean the conversation did not use llama.cpp.
+
+Treat everything under `var/` as private runtime data: it may contain conversation text,
+file paths, prompts, model output, and operational details. Inspect only what is needed,
+never modify logs during diagnosis, and redact sensitive content before quoting it in an
+issue, commit message, or response. Do not commit files from `var/`.
+
 ## Quick Start
 
 ```bash
@@ -156,6 +182,10 @@ Types: `feature:`, `fix:`, `refactor:`, `chore:`.
 ### Commit messages
 [Conventional Commits](https://www.conventionalcommits.org/): `type(scope): description`.
 Types: `feat:`, `fix:`, `chore:`, `docs:`, `test:`, `refactor:`.
+
+After making any repository change, include a ready-to-use commit message in the final
+handoff, even when no commit was requested. Choose the type and scope that best describe
+the actual diff. Do not create the commit unless the developer explicitly asks for it.
 
 ### Changelog & versioning
 `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/). Add entries under
