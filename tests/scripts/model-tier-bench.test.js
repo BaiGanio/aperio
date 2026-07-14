@@ -1,10 +1,19 @@
 import { EventEmitter } from "node:events";
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
+  copyRuntimeLog,
+  createMetricReport,
   executeBenchmarkCases,
+  modelReady,
   parseArgs,
   resolveBenchmarkArtifactDir,
+  resolveTierConfiguration,
+  resolveHostTier,
+  teardownOwnedProcesses,
   runWsCase,
   validateTargetTier,
 } from "../../scripts/model-tier-bench.js";
@@ -54,6 +63,76 @@ test("validateTargetTier requires model eligibility", () => {
   assert.equal(validateTargetTier(model, 16), 16);
   assert.throws(() => validateTargetTier(model, 8), /not eligible/);
   assert.throws(() => validateTargetTier(model, 12), /tier must be/);
+});
+
+test("catalog contains the smallest exact cached Gemma entry", () => {
+  const models = JSON.parse(readFileSync("benchmarks/model-tiers/models.json", "utf8"));
+  const gemma = models.find(model => model.id === "gemma4-e4b-q4kxl");
+  assert.deepEqual(gemma, {
+    id: "gemma4-e4b-q4kxl",
+    displayName: "Gemma 4 E4B Q4_K_XL",
+    hf: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+    quant: "Q4_K_XL",
+    sizeGB: 3.93,
+    tiers: [8, 16, 24, 32],
+  });
+});
+
+test("tier configuration distinguishes target tier from physical host evidence", () => {
+  assert.equal(resolveHostTier(8), 8);
+  assert.equal(resolveHostTier(16), 16);
+  assert.equal(resolveHostTier(24), 24);
+  assert.equal(resolveHostTier(32), 32);
+  const facts = { sizeGB: 3.93, kvBytesPerToken: 172032, maxContext: 131072 };
+  const simulated = resolveTierConfiguration(8, 32, facts);
+  const hardware = resolveTierConfiguration(32, 32, facts);
+  assert.equal(simulated.evidenceMode, "simulated-tier");
+  assert.equal(simulated.targetTierGB, 8);
+  assert.equal(simulated.memoryBudgetGB, 8);
+  assert.ok(simulated.servedContext < hardware.servedContext);
+  assert.equal(hardware.evidenceMode, "hardware-tier");
+});
+
+test("runtime llama logs can be copied before teardown", () => {
+  const dir = mkdtempSync(join(tmpdir(), "model-tier-log-test-"));
+  try {
+    const source = join(dir, "server.log");
+    const target = join(dir, "llamacpp.log");
+    writeFileSync(source, "owned llama diagnostic\n", { mode: 0o600 });
+    assert.equal(copyRuntimeLog(source, target), true);
+    assert.equal(readFileSync(target, "utf8"), "owned llama diagnostic\n");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("metric report keeps model-load and qualification windows separate", () => {
+  const report = createMetricReport(
+    { samples: [{ phase: "load" }], peakUsedRamBytes: 10 },
+    { samples: [{ phase: "qualification" }], peakUsedRamBytes: 20 },
+  );
+  assert.deepEqual(report.load.samples, [{ phase: "load" }]);
+  assert.deepEqual(report.qualification.samples, [{ phase: "qualification" }]);
+  assert.equal(report.qualification.baseline.phase, "qualification");
+});
+
+test("model readiness requires the exact active model", async () => {
+  const calls = [];
+  const fetchImpl = async url => {
+    calls.push(url);
+    return { ok: true, json: async () => ({ data: [{ id: "requested-model" }] }) };
+  };
+  await modelReady("http://127.0.0.1:1234", "requested-model", { fetchImpl });
+  assert.deepEqual(calls, ["http://127.0.0.1:1234/health", "http://127.0.0.1:1234/v1/models"]);
+});
+
+test("teardown invokes every owned process cleanup even when one stop fails", async () => {
+  const stopped = [];
+  await teardownOwnedProcesses([
+    { stop: async () => stopped.push("server") },
+    { stop: async () => { stopped.push("worker"); throw new Error("worker stop failed"); } },
+  ]);
+  assert.deepEqual(stopped, ["server", "worker"]);
 });
 
 test("runWsCase waits for the correlated turn_complete, not stream_end", async () => {

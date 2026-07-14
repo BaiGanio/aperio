@@ -3,7 +3,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -24,6 +24,7 @@ const DEFAULT_MODELS = join(ROOT, "benchmarks/model-tiers/models.json");
 const DEFAULT_CASES = join(ROOT, "benchmarks/model-tiers/cases.json");
 const FIXTURE = join(ROOT, ".github/capability-exam/exam.memories.json");
 const GIB = 1024 ** 3;
+export const TIER_POLICY = "RAM <= 8 => 8 GB; RAM <= 16 => 16 GB; RAM <= 24 => 24 GB; RAM > 24 => 32 GB";
 
 export function parseArgs(argv) {
   const out = { caseIds: [], validate: false, allowDownload: false };
@@ -77,6 +78,39 @@ export function validateTargetTier(model, tier) {
   return tier;
 }
 
+export function resolveHostTier(ramGB) {
+  const gb = Number(ramGB);
+  if (!Number.isFinite(gb) || gb <= 0) throw new Error("host RAM must be a positive number");
+  if (gb <= 8) return 8;
+  if (gb <= 16) return 16;
+  if (gb <= 24) return 24;
+  return 32;
+}
+
+export function resolveTierConfiguration(targetTier, hostRamGB, facts = {}) {
+  const hostTierGB = resolveHostTier(hostRamGB);
+  if (![8, 16, 24, 32].includes(targetTier)) throw new Error("tier must be 8, 16, 24, or 32");
+  const memoryBudgetGB = targetTier;
+  const reserveGB = Math.max(1, targetTier * 0.15);
+  const overheadGB = 1;
+  const availableGB = memoryBudgetGB - reserveGB - overheadGB - Number(facts.sizeGB || 0);
+  const kvBytesPerToken = Number(facts.kvBytesPerToken) > 0 ? Number(facts.kvBytesPerToken) : 172032;
+  const fitTokens = availableGB > 0 ? availableGB * GIB / kvBytesPerToken : 2048;
+  const maxContext = Number(facts.maxContext) > 0 ? Number(facts.maxContext) : 16384;
+  const servedContext = Math.max(2048, Math.floor(Math.min(maxContext, 16384, fitTokens) / 1024) * 1024);
+  return {
+    targetTierGB: targetTier,
+    hostTierGB,
+    hostRamGB: Number(hostRamGB),
+    memoryBudgetGB,
+    reserveGB,
+    overheadGB,
+    servedContext,
+    evidenceMode: targetTier === hostTierGB ? "hardware-tier" : "simulated-tier",
+    policy: TIER_POLICY,
+  };
+}
+
 function campaignId(now = new Date()) {
   return now.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
@@ -95,6 +129,15 @@ function atomicJson(path, value) {
   const temp = `${path}.tmp`;
   writeFileSync(temp, JSON.stringify(value, null, 2) + "\n", { mode: 0o600 });
   renameSync(temp, path);
+}
+
+export function copyRuntimeLog(source, target) {
+  try {
+    copyFileSync(source, target);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function api(baseURL, path, options = {}) {
@@ -139,6 +182,17 @@ async function connectWhenReady(port, timeoutMs = 180_000) {
     }
   }
   throw new Error(`Aperio did not become WebSocket-ready: ${lastError?.message ?? "timeout"}`);
+}
+
+export async function modelReady(baseURL, expectedModel, { fetchImpl = fetch } = {}) {
+  const health = await fetchImpl(`${baseURL}/health`, { signal: AbortSignal.timeout(3_000) });
+  if (!health.ok) throw new Error(`llama.cpp health returned ${health.status}`);
+  const response = await fetchImpl(`${baseURL}/v1/models`, { signal: AbortSignal.timeout(3_000) });
+  if (!response.ok) throw new Error(`llama.cpp model list returned ${response.status}`);
+  const body = await response.json();
+  const models = (body?.data ?? []).map(item => item.id);
+  if (!models.includes(expectedModel)) throw new Error(`llama.cpp is ready with ${models.join(", ") || "no model"}, not ${expectedModel}`);
+  return true;
 }
 
 export function runWsCase(ws, caseDef) {
@@ -232,7 +286,10 @@ async function waitForFixture(baseURL, expected = 28, timeoutMs = 180_000) {
   while (Date.now() < deadline) {
     const { raw = [] } = await api(baseURL, "/api/memories");
     const tagged = raw.filter(memory => Array.isArray(memory.tags) && memory.tags.includes("aperio-exam"));
-    if (tagged.length === expected) return;
+    if (tagged.length === expected) {
+      const metrics = await api(baseURL, "/api/metrics");
+      if (metrics.memories_total >= expected && metrics.embedding_queue_size === 0) return;
+    }
     await new Promise(resolveWait => setTimeout(resolveWait, 1_000));
   }
   throw new Error(`fixture did not reach exactly ${expected} tagged memories`);
@@ -287,10 +344,12 @@ function readLlamaPid(tempDir) {
 }
 
 function startMetrics(serverPid, tempDir) {
-  const baseline = { usedRamBytes: os.totalmem() - os.freemem(), swapBytes: readSwapBytes() };
+  let phase = "load";
+  let baseline = { usedRamBytes: os.totalmem() - os.freemem(), swapBytes: readSwapBytes(), phase };
   const samples = [];
   const sample = () => samples.push({
     at: new Date().toISOString(),
+    phase,
     usedRamBytes: os.totalmem() - os.freemem(),
     aperioRssBytes: rssBytes(serverPid),
     llamaRssBytes: processTreeRssBytes(readLlamaPid(tempDir)),
@@ -298,22 +357,40 @@ function startMetrics(serverPid, tempDir) {
   });
   sample();
   const timer = setInterval(sample, 1_000);
+  const finish = () => {
+    const max = key => Math.max(0, ...samples.map(item => item[key] ?? 0));
+    return {
+      baseline,
+      peakUsedRamBytes: max("usedRamBytes"),
+      peakAperioRssBytes: max("aperioRssBytes"),
+      peakLlamaRssBytes: max("llamaRssBytes"),
+      peakSwapBytes: samples.some(item => item.swapBytes != null) ? max("swapBytes") : null,
+      swapDeltaBytes: baseline.swapBytes == null ? null : Math.max(0, max("swapBytes") - baseline.swapBytes),
+      samples: [...samples],
+    };
+  };
   return {
+    beginQualification() {
+      const load = finish();
+      phase = "qualification";
+      samples.length = 0;
+      baseline = { usedRamBytes: os.totalmem() - os.freemem(), swapBytes: readSwapBytes(), phase };
+      sample();
+      return load;
+    },
     stop() {
       clearInterval(timer);
       sample();
-      const max = key => Math.max(0, ...samples.map(item => item[key] ?? 0));
-      return {
-        baseline,
-        peakUsedRamBytes: max("usedRamBytes"),
-        peakAperioRssBytes: max("aperioRssBytes"),
-        peakLlamaRssBytes: max("llamaRssBytes"),
-        peakSwapBytes: samples.some(item => item.swapBytes != null) ? max("swapBytes") : null,
-        swapDeltaBytes: baseline.swapBytes == null ? null : Math.max(0, max("swapBytes") - baseline.swapBytes),
-        samples,
-      };
+      return finish();
     },
   };
+}
+
+export function createMetricReport(load, qualification) {
+  const normalizedQualification = qualification?.baseline
+    ? qualification
+    : { ...qualification, baseline: qualification?.samples?.[0] ?? null };
+  return { load, qualification: normalizedQualification };
 }
 
 async function closeWebSocket(ws, timeoutMs = 5_000) {
@@ -334,6 +411,19 @@ async function stopChild(child, timeoutMs = 15_000) {
   if (child.exitCode == null) {
     child.kill("SIGKILL");
     await Promise.race([once(child, "exit"), new Promise(resolveWait => setTimeout(resolveWait, 2_000))]);
+  }
+}
+
+async function stopOwnedPid(pid) {
+  if (!pid || pid <= 0) return;
+  try { process.kill(-pid, "SIGTERM"); } catch { try { process.kill(pid, "SIGTERM"); } catch { return; } }
+  await new Promise(resolveWait => setTimeout(resolveWait, 1_000));
+  try { process.kill(-pid, "SIGKILL"); } catch { try { process.kill(pid, "SIGKILL"); } catch { /* gone */ } }
+}
+
+export async function teardownOwnedProcesses(processes) {
+  for (const owned of processes ?? []) {
+    try { await owned?.stop?.(); } catch { /* continue teardown for every owned process */ }
   }
 }
 
@@ -362,6 +452,8 @@ async function main() {
     throw new Error(`${model.hf} is not cached; pass --allow-download to permit a network download`);
   }
   const facts = ggufPath ? factsFromGguf(ggufPath) : null;
+  const hostRamGB = Number((os.totalmem() / GIB).toFixed(2));
+  const tierConfiguration = resolveTierConfiguration(args.tier, hostRamGB, facts ?? {});
   const id = args.campaignId ?? campaignId();
   const modelDir = resolveBenchmarkArtifactDir(ROOT, args.tier, model.id, id);
   mkdirSync(modelDir, { recursive: true, mode: 0o700 });
@@ -377,8 +469,8 @@ async function main() {
     APERIO_CAPABLE_MODELS: model.hf,
     APERIO_RECALL_SCAFFOLD_MODELS: "",
     APERIO_LOCAL_PERF_PROFILE: "balanced",
-    LLAMACPP_SERVE_CTX: "16384",
-    LLAMACPP_CTX: "16384",
+    LLAMACPP_SERVE_CTX: String(tierConfiguration.servedContext),
+    LLAMACPP_CTX: String(tierConfiguration.servedContext),
     LLAMACPP_PORT: String(llamaPort),
     LLAMACPP_BASE_URL: `http://127.0.0.1:${llamaPort}`,
     PORT: String(appPort),
@@ -413,6 +505,8 @@ async function main() {
   let sessionId;
   let run;
   let transcript;
+  let loadMetrics;
+  const ownedLlamaPid = () => readLlamaPid(tempDir);
   let caseResults = [];
   try {
     connection = await connectWhenReady(appPort);
@@ -423,11 +517,13 @@ async function main() {
     }
     if (provider.toolEligible !== true) throw new Error("invalid run: active model has no tool surface");
 
+    await modelReady(`http://127.0.0.1:${llamaPort}`, model.hf);
+
     const localBench = await runBenchmark({
       baseURL: `http://127.0.0.1:${llamaPort}`,
       model: model.hf,
       profile: "balanced",
-      servedCtx: 16384,
+      servedCtx: tierConfiguration.servedContext,
     });
     atomicJson(join(modelDir, "local-bench.json"), localBench);
 
@@ -435,6 +531,7 @@ async function main() {
     const imported = await api(baseURL, "/api/memories/import", { method: "POST", body: JSON.stringify(fixture) });
     if (imported.imported !== 28 || imported.errors?.length) throw new Error(`fixture import failed: ${JSON.stringify(imported)}`);
     await waitForFixture(baseURL);
+    loadMetrics = metrics.beginQualification();
 
     transcript = createWriteStream(join(modelDir, "transcript.jsonl"), { mode: 0o600 });
     caseResults = await executeBenchmarkCases(cases, {
@@ -451,6 +548,8 @@ async function main() {
       environmentNote: args.environmentNote ?? null,
       campaignId: id,
       targetTierGB: args.tier,
+      tierConfiguration,
+      tierPolicy: TIER_POLICY,
       model,
       factsSource: facts ? "gguf" : "catalog",
       ggufFacts: facts,
@@ -459,7 +558,7 @@ async function main() {
       hardware: os.cpus()[0]?.model ?? "unknown",
       ramGB: Number((os.totalmem() / GIB).toFixed(2)),
       profile: "balanced",
-      servedContext: 16384,
+      servedContext: tierConfiguration.servedContext,
       fixtureVersion,
       startedAt,
       finishedAt: new Date().toISOString(),
@@ -475,6 +574,8 @@ async function main() {
       environmentNote: args.environmentNote ?? null,
       campaignId: id,
       targetTierGB: args.tier,
+      tierConfiguration,
+      tierPolicy: TIER_POLICY,
       model,
       factsSource: facts ? "gguf" : "catalog",
       ggufFacts: facts,
@@ -483,7 +584,7 @@ async function main() {
       hardware: os.cpus()[0]?.model ?? "unknown",
       ramGB: Number((os.totalmem() / GIB).toFixed(2)),
       profile: "balanced",
-      servedContext: 16384,
+      servedContext: tierConfiguration.servedContext,
       fixtureVersion,
       startedAt,
       finishedAt: new Date().toISOString(),
@@ -496,33 +597,41 @@ async function main() {
     if (sessionId) {
       try { await api(baseURL, `/api/sessions/${sessionId}`, { method: "DELETE" }); } catch { /* isolated DB is removed below */ }
     }
-    await stopChild(child);
-    const measured = metrics.stop();
-    applicationLog.end();
     try {
       const llamaLog = join(tempDir, "var/llamacpp/server.log");
-      if (existsSync(llamaLog)) writeFileSync(join(modelDir, "llamacpp.log"), readFileSync(llamaLog), { mode: 0o600 });
+      if (existsSync(llamaLog)) copyRuntimeLog(llamaLog, join(modelDir, "llamacpp.log"));
     } catch { /* optional diagnostic */ }
+    const measuredQualification = metrics.stop();
+    const llamaPid = ownedLlamaPid();
+    await teardownOwnedProcesses([
+      { stop: () => stopChild(child) },
+      { stop: () => stopOwnedPid(llamaPid) },
+    ]);
+    const measured = createMetricReport(loadMetrics ?? measuredQualification, loadMetrics ? measuredQualification : measuredQualification);
+    applicationLog.end();
     rmSync(tempDir, { recursive: true, force: true });
     if (run) {
       run.metrics = measured;
       atomicJson(join(modelDir, "run.json"), run);
       writeFileSync(join(modelDir, "cases.jsonl"), run.caseResults.map(item => JSON.stringify(item)).join("\n") + "\n", { mode: 0o600 });
-      const metricHeader = "at,usedRamBytes,aperioRssBytes,llamaRssBytes,swapBytes\n";
-      const metricRows = measured.samples.map(sample => [
-        sample.at, sample.usedRamBytes, sample.aperioRssBytes, sample.llamaRssBytes, sample.swapBytes ?? "",
+      const metricHeader = "phase,at,usedRamBytes,aperioRssBytes,llamaRssBytes,swapBytes\n";
+      const metricRows = [...(measured.load?.samples ?? []), ...(measured.qualification?.samples ?? [])].map(sample => [
+        sample.phase, sample.at, sample.usedRamBytes, sample.aperioRssBytes, sample.llamaRssBytes, sample.swapBytes ?? "",
       ].join(",")).join("\n");
       writeFileSync(join(modelDir, "metrics.csv"), metricHeader + metricRows + "\n", { mode: 0o600 });
       atomicJson(join(modelDir, "campaign.json"), {
         campaignId: id,
         targetTierGB: args.tier,
+        hostRamGB: tierConfiguration.hostRamGB,
+        hostTierGB: tierConfiguration.hostTierGB,
+        tierConfiguration,
         pilot: true,
         warning: "Pilot harness evidence is not sufficient to select installer defaults.",
         modelIds: [model.id],
         qualificationSuiteVersion: "pilot-1",
         fixtureVersion,
         profile: "balanced",
-        servedContext: 16384,
+        servedContext: tierConfiguration.servedContext,
       });
     }
   }

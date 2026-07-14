@@ -1,5 +1,13 @@
 [
   {
+    "id": "gemma4-e4b-q4kxl",
+    "displayName": "Gemma 4 E4B Q4_K_XL",
+    "hf": "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+    "quant": "Q4_K_XL",
+    "sizeGB": 3.93,
+    "tiers": [8, 16, 24, 32]
+  },
+  {
     "id": "qwen35-9b-q4km",
     "displayName": "Qwen3.5 9B Q4_K_M",
     "hf": "unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
