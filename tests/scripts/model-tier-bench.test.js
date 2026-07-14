@@ -21,6 +21,8 @@ import {
   preflightModelCandidate,
   parseArgs,
   resolveBenchmarkArtifactDir,
+  selectPilotCases,
+  DEFAULT_PILOT_CASE_IDS,
   resolveTierConfiguration,
   resolveHostTier,
   evaluateTierAdmission,
@@ -64,6 +66,15 @@ test("parseArgs collects repeatable case ids and the environment note", () => {
 
 test("parseArgs records an explicit target tier", () => {
   assert.equal(parseArgs(["--model", "qwen35-9b-q4km", "--tier", "16"]).tier, 16);
+});
+
+test("pilot selection defaults to the explicit five-case funnel and accepts growth or overrides", () => {
+  const suite = DEFAULT_PILOT_CASE_IDS.map(id => ({ id }));
+  assert.deepEqual(selectPilotCases(suite), suite);
+
+  const expanded = [...suite, { id: "future-pilot-case" }];
+  assert.deepEqual(selectPilotCases(expanded), suite);
+  assert.deepEqual(selectPilotCases(expanded, ["future-pilot-case"]), [{ id: "future-pilot-case" }]);
 });
 
 test("resolveBenchmarkArtifactDir uses the tier-first private layout", () => {

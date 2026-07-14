@@ -32,6 +32,15 @@ const FIXTURE_CONTRACT = join(ROOT, ".github/model-tiers/fixture-contract.json")
 const WORKSPACE_FIXTURE = join(ROOT, ".github/model-tiers/workspace");
 const GIB = 1024 ** 3;
 export const TIER_POLICY = "RAM <= 8 => 8 GB; RAM <= 16 => 16 GB; RAM <= 24 => 24 GB; RAM > 24 => 32 GB";
+// Keep the pilot funnel explicit and extensible as additional pilot cases are
+// approved. The full qualification suite remains available through --case.
+export const DEFAULT_PILOT_CASE_IDS = Object.freeze([
+  "recall-semantic-nats",
+  "recall-filter-type",
+  "recall-filter-tag",
+  "recall-update-by-id",
+  "chain-recall-wiki",
+]);
 
 export function parseArgs(argv) {
   const out = { caseIds: [], validate: false, allowDownload: false };
@@ -77,6 +86,10 @@ export function resolveBenchmarkArtifactDir(root, tier, modelId, id) {
   if (![8, 16, 24, 32].includes(tier)) throw new Error("tier must be 8, 16, 24, or 32");
   if (!modelId || !id) throw new Error("model id and campaign id are required");
   return join(root, "var/benchmarks/model-tiers", `${tier}gb`, modelId, id);
+}
+
+export function selectPilotCases(cases, requestedIds = []) {
+  return selectBenchmarkCases(cases, requestedIds.length ? requestedIds : DEFAULT_PILOT_CASE_IDS);
 }
 
 export function validateTargetTier(model, tier) {
@@ -809,7 +822,7 @@ async function main() {
   const models = validateBenchmarkModels(readJson(args.modelsPath ?? DEFAULT_MODELS));
   const allCases = validateBenchmarkCases(readJson(args.casesPath ?? DEFAULT_CASES));
   validateQualificationSuite(allCases);
-  const cases = selectBenchmarkCases(allCases, args.caseIds);
+  const cases = selectPilotCases(allCases, args.caseIds);
   const fixture = readJson(FIXTURE);
   const fixtureContract = readJson(FIXTURE_CONTRACT);
   const fixtureSummary = validateQualificationFixture(fixture, fixtureContract);
