@@ -21,6 +21,7 @@ import {
   preflightModelCandidate,
   parseArgs,
   resolveBenchmarkArtifactDir,
+  resolveCampaignAggregateDir,
   selectPilotCases,
   DEFAULT_PILOT_CASE_IDS,
   verifyState,
@@ -33,8 +34,13 @@ import {
   registerRunnerCleanup,
   runWsCase,
   writeInvalidAdmissionRun,
+  writeCampaignSummary,
   validateTargetTier,
 } from "../../scripts/model-tier-bench.js";
+import {
+  aggregateBenchmarkRuns,
+  benchmarkSummaryCsv,
+} from "../../lib/helpers/modelTierBench.js";
 
 const cases = [
   {
@@ -54,6 +60,97 @@ const cases = [
 const RUNNER = fileURLToPath(new URL("../../scripts/model-tier-bench.js", import.meta.url));
 const REPO_ROOT = dirname(dirname(RUNNER));
 
+function aggregateRun(overrides = {}) {
+  return {
+    status: "complete",
+    campaignId: "campaign-a",
+    targetTierGB: 16,
+    gitCommit: "abc123",
+    platform: "darwin 1 arm64",
+    hardware: "Apple M",
+    profile: "balanced",
+    servedContext: 16384,
+    qualificationSuiteVersion: 1,
+    fixtureVersion: "fixture-sha",
+    fixtureContractVersion: 1,
+    fixtureMemoryCount: 28,
+    fixtureTag: "aperio-exam",
+    tierPolicy: "RAM <= 8 => 8 GB",
+    tierConfiguration: { servedContext: 16384, evidenceMode: "physical-tier" },
+    model: { id: "model-a", hf: "org/model-a:Q4_K_M" },
+    caseResults: [
+      { id: "recall", section: "recall", hardGate: true, status: "pass" },
+      { id: "chain", section: "chains", hardGate: true, status: "pass" },
+    ],
+    metrics: { qualification: {
+      baseline: { swapBytes: 10 },
+      samples: [{ usedRamBytes: 100, aperioRssBytes: 20, llamaRssBytes: 70, swapBytes: 12 }],
+    } },
+    ...overrides,
+  };
+}
+
+test("aggregate run summaries distinguish valid model failures from invalid runs", () => {
+  const validFailure = aggregateRun({
+    model: { id: "model-fail", hf: "org/model-fail:Q4_K_M" },
+    caseResults: [{ id: "recall", section: "recall", hardGate: true, status: "fail" }],
+  });
+  const invalid = aggregateRun({
+    model: { id: "model-invalid", hf: "org/model-invalid:Q4_K_M" },
+    status: "invalid", invalidReason: "fetch failed",
+  });
+  const summary = aggregateBenchmarkRuns([
+    { run: aggregateRun(), artifactPath: "/private/a/run.json" },
+    { run: validFailure, artifactPath: "/private/b/run.json" },
+    { run: invalid, artifactPath: "/private/c/run.json" },
+  ], { campaignId: "campaign-a", targetTierGB: 16 });
+
+  assert.deepEqual(summary.counts, {
+    discovered: 3, valid: 2, comparable: 2, invalid: 1, modelFailures: 1, controlMismatches: 0,
+  });
+  assert.equal(summary.rows[1].qualificationStatus, "fail");
+  assert.equal(summary.rows[2].runStatus, "invalid");
+  assert.equal(summary.rows[2].qualificationStatus, "invalid");
+  assert.equal(summary.rows[2].comparisonStatus, "excluded-invalid");
+});
+
+test("aggregate excludes valid runs with incomparable campaign controls", () => {
+  const summary = aggregateBenchmarkRuns([
+    aggregateRun(),
+    aggregateRun({ model: { id: "model-b", hf: "org/model-b:Q4_K_M" }, servedContext: 8192 }),
+  ], { campaignId: "campaign-a", targetTierGB: 16 });
+  assert.equal(summary.counts.comparable, 1);
+  assert.equal(summary.counts.controlMismatches, 1);
+  assert.equal(summary.rows[1].comparisonStatus, "incomparable");
+  assert.equal(summary.rows[1].comparisonReason, "campaign controls differ from the first valid run");
+});
+
+test("summary CSV has a stable private-safe comparison contract", () => {
+  const summary = aggregateBenchmarkRuns([{ run: aggregateRun(), artifactPath: "/private/run.json" }], {
+    campaignId: "campaign-a", targetTierGB: 16,
+  });
+  const csv = benchmarkSummaryCsv(summary);
+  assert.match(csv, /^modelId,model,artifactPath,runStatus/);
+  assert.match(csv, /model-a,org\/model-a:Q4_K_M,/);
+  assert.match(csv, /100,70,12,2,comparable/);
+  assert.equal(csv.split("\n").length, 3);
+});
+
+test("campaign summary writer keeps aggregate artifacts outside model result folders", () => {
+  const root = mkdtempSync(join(tmpdir(), "model-tier-summary-test-"));
+  try {
+    const result = writeCampaignSummary(root, 16, "campaign-a", [{
+      run: aggregateRun(), artifactPath: "/private/model-a/run.json",
+    }]);
+    assert.equal(result.outputDir, resolveCampaignAggregateDir(root, 16, "campaign-a"));
+    assert.equal(readFileSync(join(result.outputDir, "summary.json"), "utf8").includes('"contractVersion": 1'), true);
+    assert.match(readFileSync(join(result.outputDir, "summary.csv"), "utf8"), /comparisonStatus/);
+    assert.equal(readdirSync(result.outputDir).sort().join(","), "summary.csv,summary.json");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test("parseArgs collects repeatable case ids and the environment note", () => {
   assert.deepEqual(parseArgs([
     "--model", "qwen35-9b-q4km", "--case", "recall", "--case", "guardrail",
@@ -64,6 +161,7 @@ test("parseArgs collects repeatable case ids and the environment note", () => {
     environmentNote: "contaminated",
     allowDownload: true,
     validate: false,
+    aggregate: false,
   });
 });
 

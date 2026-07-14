@@ -1,6 +1,42 @@
-# Completed checkpoint: honest tier pilot measurements
+# Completed checkpoint: campaign aggregate result contract
 
 **Implemented:** 2026-07-14 on `feat/model-tier-benchmark-runner`.
+
+This checkpoint follows the honest-tier pilot measurement checkpoint and is
+complete. It adds a non-live aggregate command for already-created artifacts;
+it does not run a campaign, rank models, select installers, or integrate a
+score viewer.
+
+## Aggregate contract
+
+Run:
+
+```bash
+npm run model-tier:pilot -- --aggregate --tier 16 --campaign <campaign-id>
+```
+
+The command scans the tier/model/campaign `run.json` artifacts and writes:
+
+```text
+var/benchmarks/model-tiers/<tier>gb/<campaign-id>/summary.json
+var/benchmarks/model-tiers/<tier>gb/<campaign-id>/summary.csv
+```
+
+Completed runs are valid evidence even when one or more cases genuinely fail.
+Invalid runs are listed as harness/environment evidence and never counted as
+model failures. Valid runs whose campaign controls differ from the first valid
+run are retained as `incomparable` and excluded from the comparable set.
+
+The contract records model identity, case and hard-gate counts, section counts,
+tool quality, qualification RAM/swap metrics, and the comparison-control
+snapshot. Raw transcripts and logs remain private in the per-model artifact
+directories.
+
+## Verification
+
+Focused runner tests cover valid failures versus invalid runs, control mismatch,
+stable CSV output, and the existing pilot lifecycle. No live benchmark campaign
+was run.
 
 ## What this checkpoint delivered
 

@@ -29,11 +29,25 @@ The bounded runner now exists at `scripts/model-tier-bench.js` and is available
 through `npm run model-tier:pilot`. It supports exact cached-model preflight, the
 14-case qualification catalog, a five-case pilot funnel, isolated application and
 llama.cpp ownership, fixture import/readiness checks, load-versus-qualification
-metrics, retry state restoration, private artifacts, and tier admission metadata.
+metrics, retry state restoration, private artifacts, tier admission metadata,
+and non-live campaign aggregation for existing results.
 
 The pilot is not a campaign runner: it does not rank candidates, generate tier
 decisions, or integrate the score viewer. Use `--validate` for a non-live contract
 check, and always supply both `--model` and `--tier` for a live run.
+
+To aggregate existing runs without starting Aperio or llama.cpp:
+
+```bash
+npm run model-tier:pilot -- --aggregate --tier 16 --campaign <campaign-id>
+```
+
+This writes private `summary.json` and `summary.csv` to
+`var/benchmarks/model-tiers/16gb/<campaign-id>/`. Completed runs with failed
+cases remain model failures; `status: "invalid"` runs remain
+harness/environment evidence and are excluded from model scoring. Valid runs
+with mismatched campaign controls are retained as `incomparable` and excluded
+from the comparable row set.
 
 The `install-model-tiers` plan is useful input, not an implementation script to
 follow verbatim. Its configurable-tier work remains relevant, but its proposed
@@ -589,9 +603,13 @@ Include just-below and just-above boundary cases in automated tests so an innoce
 
 After all qualification runs:
 
-1. Generate `summary.csv` and `summary.json` from per-model results.
-2. Validate that every row uses the same campaign controls.
-3. Separate invalid runs from genuine model failures.
+1. Generate `summary.csv` and `summary.json` without starting model processes:
+   `npm run model-tier:pilot -- --aggregate --tier <tier> --campaign <id>`.
+2. Confirm the aggregate records one control snapshot and flags valid rows whose
+   commit, hardware, context, fixture, suite, tier policy, or other comparison
+   control differs.
+3. Separate invalid runs from genuine model failures using `runStatus` and
+   `qualificationStatus`; invalid runs are never counted as model failures.
 4. Examine every persistent failure transcript and its application/llama.cpp
    logs; do not rely only on the aggregate score.
 5. Identify the top two eligible candidates per tier.

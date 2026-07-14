@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Model-tier campaign aggregation: a non-live `--aggregate` command now emits
+  private `summary.json` and `summary.csv` artifacts, enforces comparable
+  campaign controls, and separates invalid runs from genuine model failures.
+
 - Memory-aware llama.cpp VLM preset selection: native-vision main models omit
   the bridge, while oversized main/VLM pairs use router swap mode
   (`models-max = 1`) and report the decision at startup.

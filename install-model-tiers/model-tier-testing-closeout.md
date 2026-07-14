@@ -65,7 +65,6 @@ pilot result must not be used to promote, reject, or rank a model.
 Before this becomes the full campaign runner described in sections 6–11, it
 still needs:
 
-- campaign-wide summaries and comparable decision artifacts;
 - the complete exact-model catalog and repository/quant verification for every
   research candidate;
 - finalist full-exam orchestration and tier-decision generation.
@@ -73,6 +72,14 @@ still needs:
 Treat each item as a separate implementation checkpoint. Explain the checkpoint,
 make and verify only that bounded change, summarize discoveries, and obtain the
 operator's confirmation before starting the next checkpoint.
+
+The campaign aggregate checkpoint is now implemented. Run
+`npm run model-tier:pilot -- --aggregate --tier <tier> --campaign <id>` to read
+existing per-model artifacts and write private `summary.json` and `summary.csv`
+under `var/benchmarks/model-tiers/<tier>gb/<campaign-id>/`. It enforces the
+campaign controls recorded in `run.json`, keeps completed model failures in the
+comparison, and excludes invalid or incomparable runs from comparable evidence.
+The remaining items above are unchanged.
 
 ### 0.2a Honest-tier checkpoint verification
 

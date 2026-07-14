@@ -3,7 +3,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statfsSync, statSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, statSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -15,6 +15,8 @@ import { runBenchmark } from "../lib/helpers/localBench.js";
 import { resolveModelCacheDir } from "../lib/helpers/modelCache.js";
 import {
   evaluateBenchmarkCase,
+  aggregateBenchmarkRuns,
+  benchmarkSummaryCsv,
   selectBenchmarkCases,
   validateBenchmarkCases,
   validateBenchmarkModels,
@@ -44,7 +46,7 @@ export const DEFAULT_PILOT_CASE_IDS = Object.freeze([
 ]);
 
 export function parseArgs(argv) {
-  const out = { caseIds: [], validate: false, allowDownload: false };
+  const out = { caseIds: [], validate: false, aggregate: false, allowDownload: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--model") out.modelId = argv[++i];
@@ -55,6 +57,7 @@ export function parseArgs(argv) {
     else if (arg === "--tier") out.tier = Number(argv[++i]);
     else if (arg === "--note") out.environmentNote = argv[++i];
     else if (arg === "--allow-download") out.allowDownload = true;
+    else if (arg === "--aggregate") out.aggregate = true;
     else if (arg === "--validate") out.validate = true;
     else if (arg === "--help" || arg === "-h") out.help = true;
     else throw new Error(`unknown argument: ${arg}`);
@@ -72,6 +75,7 @@ function usage() {
     "Options:",
     "  --case <id>         Run one case (repeatable)",
     "  --allow-download    Permit llama.cpp to download an uncached GGUF",
+    "  --aggregate         Build private campaign summaries from existing run artifacts",
     "  --campaign <id>     Override the UTC campaign id",
     "  --tier <8|16|24|32> Target RAM tier for this run (required when running)",
     "  --note <text>        Record an environment caveat on the run",
@@ -87,6 +91,36 @@ export function resolveBenchmarkArtifactDir(root, tier, modelId, id) {
   if (![8, 16, 24, 32].includes(tier)) throw new Error("tier must be 8, 16, 24, or 32");
   if (!modelId || !id) throw new Error("model id and campaign id are required");
   return join(root, "var/benchmarks/model-tiers", `${tier}gb`, modelId, id);
+}
+
+export function resolveCampaignAggregateDir(root, tier, id) {
+  if (![8, 16, 24, 32].includes(tier)) throw new Error("tier must be 8, 16, 24, or 32");
+  if (!id) throw new Error("campaign id is required");
+  return join(root, "var/benchmarks/model-tiers", `${tier}gb`, id);
+}
+
+function discoverCampaignRuns(root, tier, id) {
+  const tierDir = join(root, "var/benchmarks/model-tiers", `${tier}gb`);
+  if (!existsSync(tierDir)) return [];
+  return readdirSync(tierDir, { withFileTypes: true })
+    .filter(entry => entry.isDirectory() && entry.name !== id)
+    .flatMap(entry => {
+      const runPath = join(tierDir, entry.name, id, "run.json");
+      if (!existsSync(runPath)) return [];
+      try { return [{ run: readJson(runPath), artifactPath: runPath }]; }
+      catch (error) {
+        return [{ run: { status: "invalid", campaignId: id, targetTierGB: tier, model: { id: entry.name }, invalidReason: `cannot read run.json: ${error.message}` }, artifactPath: runPath }];
+      }
+    });
+}
+
+export function writeCampaignSummary(root, tier, id, runs = discoverCampaignRuns(root, tier, id)) {
+  const summary = aggregateBenchmarkRuns(runs, { campaignId: id, targetTierGB: tier });
+  const outputDir = resolveCampaignAggregateDir(root, tier, id);
+  mkdirSync(outputDir, { recursive: true, mode: 0o700 });
+  atomicJson(join(outputDir, "summary.json"), summary);
+  writeFileSync(join(outputDir, "summary.csv"), benchmarkSummaryCsv(summary), { mode: 0o600 });
+  return { outputDir, summary };
 }
 
 export function selectPilotCases(cases, requestedIds = []) {
@@ -936,6 +970,13 @@ async function main() {
   const fixtureSummary = validateQualificationFixture(fixture, fixtureContract);
   if (args.validate) {
     console.log(`Validated ${models.length} model(s) and ${cases.length} case(s).`);
+    return;
+  }
+  if (args.aggregate) {
+    if (!args.campaignId) throw new Error("--campaign is required with --aggregate");
+    validateTargetTier({ id: "aggregate", tiers: [8, 16, 24, 32] }, args.tier);
+    const result = writeCampaignSummary(ROOT, args.tier, args.campaignId);
+    console.log(`Aggregated ${result.summary.counts.discovered} run(s) into ${result.outputDir}`);
     return;
   }
   if (!args.modelId) throw new Error("--model is required\n\n" + usage());
