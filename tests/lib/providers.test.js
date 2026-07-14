@@ -17,6 +17,7 @@ import {
   isCloudProvider,
   resolvePerfProfile,
   getRecommendedModel,
+  defaultLocalModel,
   PERF_PROFILES,
   recommendPerfFix,
   SLOW_GEN_TPS,
@@ -271,16 +272,64 @@ describe("resolveProvider — llamacpp", () => {
   test("resolves llamacpp with defaults", () => {
     const p = resolveProvider({ name: "llamacpp" });
     assert.equal(p.name, "llamacpp");
-    assert.equal(p.model, "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    // When LLAMACPP_MODEL is unset the provider model must be the SAME RAM-tier
+    // model the preset serves, not a fixed Qwen — otherwise capability detection
+    // and alias routing (wiki refresh) key off a model the server never loaded.
+    assert.equal(p.model, defaultLocalModel());
     assert.equal(p.requestModel, "aperio-main");
     assert.equal(p.baseURL, "http://127.0.0.1:8080/v1");
     assert.equal(p.llamacppBaseURL, "http://127.0.0.1:8080");
     assert.equal(typeof p.contextWindow, "number");
   });
 
+  test("provider model matches the configured tier when LLAMACPP_MODEL is unset", () => {
+    const saved = process.env.LLAMACPP_MODEL_TIER_32;
+    const savedModel = process.env.LLAMACPP_MODEL;
+    delete process.env.LLAMACPP_MODEL;
+    process.env.LLAMACPP_MODEL_TIER_32 = "custom/tier32-GGUF:Q4_K_M";
+    try {
+      // os.totalmem is mocked to 32 GB at module scope → top tier.
+      const p = resolveProvider({ name: "llamacpp" });
+      assert.equal(p.model, "custom/tier32-GGUF:Q4_K_M");
+      assert.equal(p.model, defaultLocalModel());
+    } finally {
+      if (saved === undefined) delete process.env.LLAMACPP_MODEL_TIER_32;
+      else process.env.LLAMACPP_MODEL_TIER_32 = saved;
+      if (savedModel === undefined) delete process.env.LLAMACPP_MODEL;
+      else process.env.LLAMACPP_MODEL = savedModel;
+    }
+  });
+
   test("model override wins over the default", () => {
     const p = resolveProvider({ name: "llamacpp", model: "unsloth/Qwen3.5-4B-GGUF" });
     assert.equal(p.model, "unsloth/Qwen3.5-4B-GGUF");
+  });
+
+  test("LLAMACPP_MODEL env wins over the tier fallback", () => {
+    const saved = process.env.LLAMACPP_MODEL;
+    process.env.LLAMACPP_MODEL = "explicit/pinned-GGUF:Q4_K_M";
+    try {
+      assert.equal(resolveProvider({ name: "llamacpp" }).model, "explicit/pinned-GGUF:Q4_K_M");
+    } finally {
+      if (saved === undefined) delete process.env.LLAMACPP_MODEL;
+      else process.env.LLAMACPP_MODEL = saved;
+    }
+  });
+});
+
+describe("defaultLocalModel — shared LLAMACPP_MODEL fallback", () => {
+  test("returns the configured tier model (env wins over the registry default)", () => {
+    const env = { LLAMACPP_MODEL_TIER_16: "custom/tier16-GGUF:Q4_K_M" };
+    assert.equal(defaultLocalModel("balanced", { totalRamGB: 12 }, env), "custom/tier16-GGUF:Q4_K_M");
+  });
+
+  test("matches getRecommendedModel for the same inputs", () => {
+    for (const gb of [4, 12, 20, 40]) {
+      assert.equal(
+        defaultLocalModel("balanced", { totalRamGB: gb }),
+        getRecommendedModel("balanced", { totalRamGB: gb }),
+      );
+    }
   });
 });
 

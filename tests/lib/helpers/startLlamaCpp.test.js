@@ -44,7 +44,8 @@ function fakeKill(result) {
 }
 
 const originalFetch = globalThis.fetch;
-const ENV_KEYS = ["LLAMACPP_MODEL", "LLAMACPP_VLM_MODEL", "LLAMACPP_VLM_MMPROJ", "LLAMACPP_SERVE_CTX", "LLAMACPP_CTX"];
+const ENV_KEYS = ["LLAMACPP_MODEL", "LLAMACPP_VLM_MODEL", "LLAMACPP_VLM_MMPROJ", "LLAMACPP_SERVE_CTX", "LLAMACPP_CTX",
+  "LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"];
 const savedEnv = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
 const STATE_FILE = "./var/llamacpp/state.json";
 
@@ -576,6 +577,64 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     await ensureLlamaCpp(fakeSpawn(42425), async pid => { killed.push(pid); return true; }, undefined, () => false);
     assert.deepEqual(killed, [], "an unrelated process group must not be killed");
     assert.equal(getLlamaCppPid(), 42425);
+  });
+
+  test("refuses to group-kill an unmanaged process merely discovered on the port (no stored PID, not our spawn)", async () => {
+    // Reset module ownership: spawn then cleanly stop so llamaCppProc is null and
+    // the only PID reconciliation can find comes from the injected port scanner.
+    mockFetchSequence({ ok: false }, { ok: true });
+    await ensureLlamaCpp(fakeSpawn(80001));
+    await stopLlamaCpp(fakeKill(true), () => null);
+    assert.equal(getLlamaCppPid(), null);
+
+    // No state file → no stored PID. Server is UP, so reconciliation runs; the
+    // only PID available is from _findPid (a port scan), but _isOwnedPid reports
+    // it is NOT an llama-server. It must NOT be adopted or group-killed.
+    globalThis.fetch = async () => ({ ok: true });
+    const killed = [];
+    const result = await ensureLlamaCpp(
+      fakeSpawn(80002),
+      async pid => { killed.push(pid); return true; }, // _kill — must never be called
+      () => 42999,   // _findPid — an unmanaged PID holds the port
+      () => false,   // _isOwnedPid — not an llama-server
+    );
+    assert.equal(result, false, "fails closed instead of killing an unowned port holder");
+    assert.deepEqual(killed, [], "a non-Aperio process must not be group-killed");
+    assert.equal(getLlamaCppPid(), null, "the unmanaged PID is never adopted as owned");
+  });
+
+  test("sizes LLAMACPP_SERVE_CTX for the configured tier model when LLAMACPP_MODEL is unset", async () => {
+    // Reset ownership so both sizing runs take the clean unowned-return branch.
+    mockFetchSequence({ ok: false }, { ok: true });
+    await ensureLlamaCpp(fakeSpawn(81001));
+    await stopLlamaCpp(fakeKill(true), () => null);
+    assert.equal(getLlamaCppPid(), null);
+
+    // A curated model with a distinctly small max context, so sizing for it
+    // differs from the (larger) registry-default tier on this host.
+    const TIER = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M";
+    delete process.env.LLAMACPP_MODEL;
+    // Pin every RAM tier to TIER so the choice is deterministic regardless of the
+    // test host's real RAM.
+    for (const k of ["LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"]) {
+      process.env[k] = TIER;
+    }
+
+    // Run A: LLAMACPP_MODEL unset → sizing must resolve the configured tier model.
+    delete process.env.LLAMACPP_SERVE_CTX; delete process.env.LLAMACPP_CTX;
+    globalThis.fetch = async () => ({ ok: true });
+    await ensureLlamaCpp(fakeSpawn(81002), fakeKill(true));
+    const serveTier = parseInt(process.env.LLAMACPP_SERVE_CTX, 10);
+
+    // Run B: LLAMACPP_MODEL pinned to the SAME model explicitly → identical sizing.
+    delete process.env.LLAMACPP_SERVE_CTX; delete process.env.LLAMACPP_CTX;
+    process.env.LLAMACPP_MODEL = TIER;
+    await ensureLlamaCpp(fakeSpawn(81003), fakeKill(true));
+    const servePinned = parseInt(process.env.LLAMACPP_SERVE_CTX, 10);
+
+    assert.ok(serveTier > 0, "a served window was computed");
+    assert.equal(serveTier, servePinned,
+      "an unset LLAMACPP_MODEL must size the served window for the configured tier model, exactly as pinning it would");
   });
 
   test("returns without spawning when server is up but unowned (not our spawn, no stored PID)", async () => {
