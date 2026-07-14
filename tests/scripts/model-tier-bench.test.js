@@ -1,12 +1,15 @@
 import { EventEmitter } from "node:events";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   copyRuntimeLog,
   createMetricReport,
+  captureLedgerOffsets,
+  sliceLedger,
+  summarizeToolQuality,
   executeBenchmarkCases,
   restoreQualificationState,
   modelReady,
@@ -115,6 +118,51 @@ test("metric report keeps model-load and qualification windows separate", () => 
   assert.deepEqual(report.load.samples, [{ phase: "load" }]);
   assert.deepEqual(report.qualification.samples, [{ phase: "qualification" }]);
   assert.equal(report.qualification.baseline.phase, "qualification");
+});
+
+test("ledger offsets and slices preserve the shared ledger and copy only appended rows", () => {
+  const dir = mkdtempSync(join(tmpdir(), "model-tier-ledger-test-"));
+  try {
+    const source = join(dir, "events.tsv");
+    const target = join(dir, "result", "toolrepair-events.tsv");
+    writeFileSync(source, "header\nold\n", { mode: 0o600 });
+    const offsets = captureLedgerOffsets({ events: source, failures: join(dir, "missing.tsv") });
+    appendFileSync(source, "new\n");
+    const slice = sliceLedger(source, offsets.events, target);
+    assert.equal(slice.startOffset, Buffer.byteLength("header\nold\n"));
+    assert.equal(slice.endOffset, Buffer.byteLength("header\nold\nnew\n"));
+    assert.equal(slice.rowsCopied, 1);
+    assert.equal(readFileSync(target, "utf8"), "new\n");
+    assert.equal(readFileSync(source, "utf8"), "header\nold\nnew\n");
+    assert.equal(offsets.failures.offset, 0);
+    assert.equal(offsets.failures.exists, false);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("tool quality keeps first-attempt validity separate from persistent failures", () => {
+  const report = summarizeToolQuality({
+    events: [
+      { type: "tool_start", name: "recall" },
+      { type: "tool_start", name: "remember" },
+      { type: "tool_start", name: "remember" },
+      { type: "tool_result", name: "recall", ok: true },
+    ],
+    toolRepairRows: ["2026-07-14T00:00:00.000Z\tmodel\tremember\tmissing\tcontent\ttext\t\t0"],
+    toolFailureRows: [
+      "2026-07-14T00:00:00.000Z\tmodel\tleak\t0\trecovered",
+      "2026-07-14T00:00:01.000Z\tmodel\techo\t1\tpersisted",
+    ],
+    caseResults: [{ status: "pass" }, { status: "fail" }, { status: "invalid" }],
+  });
+  assert.equal(report.toolAttempts, 3);
+  assert.equal(report.malformedFirstAttempts, 1);
+  assert.equal(report.firstAttemptValidity, 2 / 3);
+  assert.equal(report.persistentFailures, 1);
+  assert.equal(report.completedCases, 2);
+  assert.equal(report.persistentFailureRate, 1 / 2);
+  assert.equal(report.toolExecutionSuccess, 1);
 });
 
 test("model readiness requires the exact active model", async () => {

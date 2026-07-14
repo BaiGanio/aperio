@@ -3,7 +3,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, statSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -508,6 +508,75 @@ export function createMetricReport(load, qualification) {
   return { load, qualification: normalizedQualification };
 }
 
+function ledgerOffset(path) {
+  try { return { path, offset: statSync(path).size, exists: true }; }
+  catch { return { path, offset: 0, exists: false }; }
+}
+
+export function captureLedgerOffsets(paths = {}) {
+  return {
+    events: ledgerOffset(paths.events),
+    failures: ledgerOffset(paths.failures),
+  };
+}
+
+export function sliceLedger(path, start, destination) {
+  const startOffset = Number(start?.offset ?? start ?? 0);
+  let endOffset = startOffset;
+  let appended = Buffer.alloc(0);
+  try {
+    const source = readFileSync(path);
+    endOffset = source.length;
+    if (endOffset > startOffset) appended = source.subarray(startOffset);
+  } catch { /* a ledger may never be created during a run */ }
+  if (appended.length > 0) {
+    mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
+    writeFileSync(destination, appended, { mode: 0o600 });
+  }
+  return {
+    path,
+    destination,
+    startOffset,
+    endOffset,
+    bytesCopied: appended.length,
+    rowsCopied: appended.toString("utf8").split("\n").filter(Boolean).length,
+    exists: endOffset > 0,
+    rows: appended.toString("utf8").split("\n").filter(Boolean),
+  };
+}
+
+function ledgerRows(value) {
+  const lines = Array.isArray(value) ? value : String(value ?? "").split("\n");
+  return lines
+    .flatMap(line => String(line).split("\n"))
+    .map(line => line.trimEnd())
+    .filter(line => line && !line.startsWith("ts\t"));
+}
+
+export function summarizeToolQuality({ events = [], toolRepairRows = [], toolFailureRows = [], caseResults = [] } = {}) {
+  const toolStarts = events.filter(event => event?.type === "tool_start");
+  const toolResults = events.filter(event => event?.type === "tool_result");
+  const repairRows = ledgerRows(toolRepairRows);
+  const failureRows = ledgerRows(toolFailureRows);
+  const persistentFailures = failureRows.filter(row => row.split("\t")[3] === "1").length;
+  const completedCases = caseResults.filter(result => result?.status === "pass" || result?.status === "fail").length;
+  return {
+    toolAttempts: toolStarts.length,
+    malformedFirstAttempts: repairRows.length,
+    firstAttemptValidity: toolStarts.length === 0
+      ? null
+      : (toolStarts.length - repairRows.length) / toolStarts.length,
+    persistentFailures,
+    completedCases,
+    persistentFailureRate: completedCases === 0 ? null : persistentFailures / completedCases,
+    successfulToolResults: toolResults.filter(event => event.ok === true).length,
+    toolResults: toolResults.length,
+    toolExecutionSuccess: toolResults.length === 0
+      ? null
+      : toolResults.filter(event => event.ok === true).length / toolResults.length,
+  };
+}
+
 async function closeWebSocket(ws, timeoutMs = 5_000) {
   if (!ws || ws.readyState === WebSocket.CLOSED) return;
   const closed = once(ws, "close").catch(() => {});
@@ -643,6 +712,9 @@ async function main() {
   let run;
   let transcript;
   let loadMetrics;
+  let ledgerOffsets;
+  let ledgerSlices;
+  const benchmarkEvents = [];
   const ownedLlamaPid = () => readLlamaPid(tempDir);
   let caseResults = [];
   const retrySnapshotDir = join(tempDir, "retry-snapshot");
@@ -706,6 +778,10 @@ async function main() {
     // lands in the load phase rather than skewing per-case timing.
     await waitForGraphs(baseURL);
     loadMetrics = metrics.beginQualification();
+    ledgerOffsets = captureLedgerOffsets({
+      events: join(tempDir, "var/toolrepair/events.tsv"),
+      failures: join(tempDir, "var/toolrepair/failures.tsv"),
+    });
 
     transcript = createWriteStream(join(modelDir, "transcript.jsonl"), { mode: 0o600 });
     caseResults = await executeBenchmarkCases(cases, {
@@ -745,7 +821,10 @@ async function main() {
         }
       },
       recordEvents: (caseDef, events, { attempt = 1 } = {}) => {
-        for (const event of events) transcript.write(JSON.stringify({ caseId: caseDef.id, attempt, ...event }) + "\n");
+        for (const event of events) {
+          benchmarkEvents.push(event);
+          transcript.write(JSON.stringify({ caseId: caseDef.id, attempt, ...event }) + "\n");
+        }
       },
     });
     run = {
@@ -821,10 +900,29 @@ async function main() {
       { stop: () => stopOwnedPid(llamaPid) },
     ]);
     const measured = createMetricReport(loadMetrics ?? measuredQualification, loadMetrics ? measuredQualification : measuredQualification);
+    ledgerOffsets ??= captureLedgerOffsets({
+      events: join(tempDir, "var/toolrepair/events.tsv"),
+      failures: join(tempDir, "var/toolrepair/failures.tsv"),
+    });
+    ledgerSlices = {
+      events: sliceLedger(ledgerOffsets.events.path, ledgerOffsets.events.offset, join(modelDir, "toolrepair-events.tsv")),
+      failures: sliceLedger(ledgerOffsets.failures.path, ledgerOffsets.failures.offset, join(modelDir, "toolcall-failures.tsv")),
+    };
+    const toolQuality = summarizeToolQuality({
+      events: benchmarkEvents,
+      toolRepairRows: ledgerSlices.events.rows,
+      toolFailureRows: ledgerSlices.failures.rows,
+      caseResults: run?.caseResults ?? caseResults,
+    });
     applicationLog.end();
     rmSync(tempDir, { recursive: true, force: true });
     if (run) {
       run.metrics = measured;
+      run.ledger = {
+        offsets: ledgerOffsets,
+        slices: ledgerSlices,
+      };
+      run.toolQuality = toolQuality;
       atomicJson(join(modelDir, "run.json"), run);
       writeFileSync(join(modelDir, "cases.jsonl"), run.caseResults.map(item => JSON.stringify(item)).join("\n") + "\n", { mode: 0o600 });
       const metricHeader = "phase,at,usedRamBytes,aperioRssBytes,llamaRssBytes,swapBytes\n";
