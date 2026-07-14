@@ -8,6 +8,7 @@ import {
   copyRuntimeLog,
   createMetricReport,
   executeBenchmarkCases,
+  restoreQualificationState,
   modelReady,
   parseArgs,
   resolveBenchmarkArtifactDir,
@@ -198,4 +199,83 @@ test("executeBenchmarkCases preserves completed and interrupted case artifacts o
   assert.equal(seenEvents.length, 2);
   assert.equal(seenEvents[0][0], "first");
   assert.deepEqual(seenEvents[1], ["second", partialEvents]);
+});
+
+test("executeBenchmarkCases retries a failed case with restored state and a fresh session", async () => {
+  const retryCase = {
+    id: "retry-me", title: "Retry me", objective: "Recover once state and session are reset.",
+    section: "chains", kind: "behavior", prompt: "retry", expectedToolSequence: ["remember"],
+    requiredAnswerTerms: ["saved"], requireAllToolsSuccessful: true, hardGate: true,
+    stateAssertion: { kind: "none" }, stateContract: {
+      reset: "fresh-session", restore: "fixture-and-workspace", mutations: ["adds one source memory"],
+    }, timeoutMs: 1_000,
+  };
+  const restored = [];
+  const contexts = [];
+  const recorded = [];
+  const disposed = [];
+  const snapshots = [];
+  let attempts = 0;
+
+  const results = await executeBenchmarkCases([retryCase], {
+    context: { sessionId: "initial-session" },
+    captureState: async caseDef => {
+      snapshots.push(caseDef.id);
+      return { database: "fixture-db-before-retry", workspace: "workspace-before-retry" };
+    },
+    runCase: async (caseDef, context) => {
+      contexts.push(context);
+      attempts++;
+      return {
+        durationMs: attempts * 10,
+        events: attempts === 1
+          ? [{ type: "turn_complete", status: "completed" }]
+          : [
+            { type: "tool_start", name: "remember" },
+            { type: "tool_result", name: "remember", ok: true },
+            { type: "stream_end", text: "saved" },
+            { type: "turn_complete", status: "completed" },
+          ],
+      };
+    },
+    verifyCaseState: async () => true,
+    restoreState: async (caseDef, snapshot) => restored.push([caseDef.id, snapshot]),
+    createFreshContext: async (_caseDef, { attempt }) => ({ sessionId: `retry-session-${attempt}` }),
+    disposeContext: async context => disposed.push(context.sessionId),
+    recordEvents: (caseDef, events, meta) => recorded.push({ id: caseDef.id, events, meta }),
+  });
+
+  assert.equal(results.length, 1);
+  assert.equal(results[0].status, "pass");
+  assert.equal(results[0].retried, true);
+  assert.equal(results[0].firstAttempt.status, "fail");
+  assert.equal(results[0].retry.status, "pass");
+  assert.deepEqual(snapshots, ["retry-me"]);
+  assert.deepEqual(restored, [["retry-me", { database: "fixture-db-before-retry", workspace: "workspace-before-retry" }]]);
+  assert.deepEqual(contexts.map(context => context.sessionId), ["initial-session", "retry-session-2"]);
+  assert.deepEqual(recorded.map(item => item.meta.attempt), [1, 2]);
+  assert.deepEqual(disposed, ["retry-session-2"]);
+  assert.deepEqual(results[0].firstAttempt.actualToolSequence, []);
+  assert.equal(results[0].firstAttempt.firstAttemptPass, false);
+  assert.equal(results[0].firstAttempt.status, "fail");
+});
+
+test("restoreQualificationState enforces the fixture and workspace contract", async () => {
+  const calls = [];
+  await restoreQualificationState({
+    caseDef: {
+      id: "stateful-case",
+      stateContract: { reset: "fresh-session", restore: "fixture-and-workspace", mutations: ["writes a file"] },
+    },
+    fixtureContract: {
+      reset: { beforeRetry: "fresh-session", restore: "fixture-and-workspace" },
+    },
+    snapshot: { database: { memories: ["fixture"] }, workspace: { files: ["baseline"] } },
+    restoreDatabase: async snapshot => calls.push(["database", snapshot]),
+    restoreWorkspace: async snapshot => calls.push(["workspace", snapshot]),
+  });
+  assert.deepEqual(calls, [
+    ["workspace", { files: ["baseline"] }],
+    ["database", { memories: ["fixture"] }],
+  ]);
 });

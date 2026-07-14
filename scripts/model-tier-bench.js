@@ -191,6 +191,22 @@ async function connectWhenReady(port, timeoutMs = 180_000) {
   throw new Error(`Aperio did not become WebSocket-ready: ${lastError?.message ?? "timeout"}`);
 }
 
+async function waitForHttpReady(baseURL, timeoutMs = 180_000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch(`${baseURL}/health`, { signal: AbortSignal.timeout(3_000) });
+      if (response.ok) return;
+      lastError = new Error(`health returned ${response.status}`);
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise(resolveWait => setTimeout(resolveWait, 750));
+  }
+  throw new Error(`Aperio did not become HTTP-ready: ${lastError?.message ?? "timeout"}`);
+}
+
 export async function modelReady(baseURL, expectedModel, { fetchImpl = fetch } = {}) {
   const health = await fetchImpl(`${baseURL}/health`, { signal: AbortSignal.timeout(3_000) });
   if (!health.ok) throw new Error(`llama.cpp health returned ${health.status}`);
@@ -233,35 +249,106 @@ export function runWsCase(ws, caseDef) {
   });
 }
 
+export async function restoreQualificationState({
+  caseDef,
+  fixtureContract,
+  snapshot,
+  restoreDatabase,
+  restoreWorkspace,
+} = {}) {
+  const contract = caseDef?.stateContract;
+  if (fixtureContract?.reset?.beforeRetry !== "fresh-session"
+    || fixtureContract?.reset?.restore !== "fixture-and-workspace"
+    || contract?.reset !== "fresh-session"
+    || contract?.restore !== "fixture-and-workspace") {
+    throw new Error(`case ${caseDef?.id ?? "unknown"} does not satisfy the retry state contract`);
+  }
+  if (!snapshot?.database || !snapshot?.workspace) throw new Error("retry state snapshot is incomplete");
+  if (typeof restoreDatabase !== "function" || typeof restoreWorkspace !== "function") {
+    throw new TypeError("retry state restore callbacks are required");
+  }
+  await restoreWorkspace(snapshot.workspace);
+  await restoreDatabase(snapshot.database);
+}
+
 export async function executeBenchmarkCases(cases, {
   runCase,
   verifyCaseState,
   recordEvents = () => {},
+  context,
+  captureState,
+  restoreState,
+  createFreshContext,
+  disposeContext,
 } = {}) {
   if (typeof runCase !== "function") throw new TypeError("runCase is required");
   if (typeof verifyCaseState !== "function") throw new TypeError("verifyCaseState is required");
   const caseResults = [];
+  let currentContext = context;
 
   for (const caseDef of cases) {
     const started = Date.now();
     let events = [];
     let durationMs;
     let eventsRecorded = false;
+    let stateSnapshot;
     try {
-      const execution = await runCase(caseDef);
+      stateSnapshot = typeof captureState === "function" ? await captureState(caseDef, currentContext) : undefined;
+      const execution = await runCase(caseDef, currentContext);
       events = execution.events;
       durationMs = execution.durationMs;
       eventsRecorded = true;
-      recordEvents(caseDef, events);
-      const statePassed = await verifyCaseState(caseDef);
-      caseResults.push({
+      recordEvents(caseDef, events, { attempt: 1 });
+      const statePassed = await verifyCaseState(caseDef, currentContext);
+      const firstResult = {
         durationMs,
         ...evaluateBenchmarkCase(caseDef, events, { statePassed }),
-      });
+      };
+      firstResult.firstAttemptPass = firstResult.status === "pass";
+      if (firstResult.status === "fail" && typeof restoreState === "function" && typeof createFreshContext === "function") {
+        await restoreState(caseDef, stateSnapshot);
+        const retryContext = await createFreshContext(caseDef, { attempt: 2, firstResult });
+        currentContext = retryContext;
+        try {
+          const retryExecution = await runCase(caseDef, retryContext);
+          const retryEvents = retryExecution.events;
+          recordEvents(caseDef, retryEvents, { attempt: 2 });
+          const retryStatePassed = await verifyCaseState(caseDef, retryContext);
+          const retryResult = {
+            durationMs: retryExecution.durationMs,
+            ...evaluateBenchmarkCase(caseDef, retryEvents, { statePassed: retryStatePassed }),
+          };
+          caseResults.push({
+            ...retryResult,
+            firstAttemptPass: false,
+            retried: true,
+            firstAttempt: firstResult,
+            retry: retryResult,
+          });
+        } catch (retryError) {
+          const retryEvents = retryError.caseEvents ?? [];
+          const retryDurationMs = retryError.durationMs ?? Date.now() - started;
+          recordEvents(caseDef, retryEvents, { attempt: 2 });
+          caseResults.push({
+            ...evaluateBenchmarkCase(caseDef, retryEvents, { statePassed: false }),
+            durationMs: retryDurationMs,
+            status: "invalid",
+            firstAttemptPass: false,
+            invalidReason: retryError.message,
+            retried: true,
+            firstAttempt: firstResult,
+            retry: { durationMs: retryDurationMs, status: "invalid", invalidReason: retryError.message },
+          });
+        } finally {
+          try { await disposeContext?.(retryContext); } catch { /* best effort */ }
+        }
+      } else {
+        caseResults.push(firstResult);
+      }
     } catch (error) {
       events = error.caseEvents ?? events;
       durationMs = error.durationMs ?? durationMs ?? Date.now() - started;
-      if (!eventsRecorded) recordEvents(caseDef, events);
+      if (!eventsRecorded) recordEvents(caseDef, events, { attempt: 1 });
       caseResults.push({
         durationMs,
         ...evaluateBenchmarkCase(caseDef, events, { statePassed: false }),
@@ -379,7 +466,7 @@ function startMetrics(serverPid, tempDir) {
     at: new Date().toISOString(),
     phase,
     usedRamBytes: os.totalmem() - os.freemem(),
-    aperioRssBytes: rssBytes(serverPid),
+    aperioRssBytes: rssBytes(typeof serverPid === "function" ? serverPid() : serverPid),
     llamaRssBytes: processTreeRssBytes(readLlamaPid(tempDir)),
     swapBytes: readSwapBytes(),
   });
@@ -539,14 +626,18 @@ async function main() {
   };
   const startedAt = new Date().toISOString();
   const fixtureVersion = createHash("sha256").update(readFileSync(FIXTURE)).digest("hex");
-  const child = spawn(process.execPath, [join(ROOT, "server.js")], {
-    cwd: tempDir,
-    env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  child.stdout.pipe(applicationLog, { end: false });
-  child.stderr.pipe(applicationLog, { end: false });
-  const metrics = startMetrics(child.pid, tempDir);
+  const startRunnerServer = () => {
+    const server = spawn(process.execPath, [join(ROOT, "server.js")], {
+      cwd: tempDir,
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    server.stdout.pipe(applicationLog, { end: false });
+    server.stderr.pipe(applicationLog, { end: false });
+    return server;
+  };
+  let child = startRunnerServer();
+  const metrics = startMetrics(() => child?.pid, tempDir);
   let connection;
   let sessionId;
   let run;
@@ -554,6 +645,40 @@ async function main() {
   let loadMetrics;
   const ownedLlamaPid = () => readLlamaPid(tempDir);
   let caseResults = [];
+  const retrySnapshotDir = join(tempDir, "retry-snapshot");
+  const captureRetryState = async () => {
+    const database = await api(baseURL, "/api/data/export", {
+      method: "POST",
+      body: JSON.stringify({ include_wiki: true, include_agent_jobs: false, include_self_memories: false }),
+    });
+    const workspace = join(retrySnapshotDir, "workspace");
+    rmSync(retrySnapshotDir, { recursive: true, force: true });
+    cpSync(workspaceDir, workspace, { recursive: true });
+    return { database, workspace };
+  };
+  const restoreRetryDatabase = async database => {
+    await closeWebSocket(connection?.ws);
+    if (sessionId) {
+      try { await api(baseURL, `/api/sessions/${sessionId}`, { method: "DELETE" }); } catch { /* isolated DB is restarted below */ }
+    }
+    const oldLlamaPid = ownedLlamaPid();
+    await teardownOwnedProcesses([
+      { stop: () => stopChild(child) },
+      { stop: () => stopOwnedPid(oldLlamaPid) },
+    ]);
+    for (const suffix of ["", "-wal", "-shm"]) rmSync(`${env.SQLITE_PATH}${suffix}`, { force: true });
+    child = startRunnerServer();
+    connection = undefined;
+    sessionId = undefined;
+    await waitForHttpReady(baseURL);
+    await modelReady(`http://127.0.0.1:${llamaPort}`, model.hf);
+    const imported = await api(baseURL, "/api/data/import", { method: "POST", body: JSON.stringify(database) });
+    if (imported.imported?.memories !== database.memories?.length) {
+      throw new Error(`retry fixture restore imported ${imported.imported?.memories ?? 0} memories`);
+    }
+    await waitForFixture(baseURL, fixtureSummary.memoryCount);
+    await waitForGraphs(baseURL);
+  };
   try {
     connection = await connectWhenReady(appPort);
     const provider = connection.handshake.find(message => message.type === "provider");
@@ -584,10 +709,43 @@ async function main() {
 
     transcript = createWriteStream(join(modelDir, "transcript.jsonl"), { mode: 0o600 });
     caseResults = await executeBenchmarkCases(cases, {
-      runCase: caseDef => runWsCase(connection.ws, caseDef),
-      verifyCaseState: caseDef => verifyState(baseURL, caseDef.stateAssertion),
-      recordEvents: (caseDef, events) => {
-        for (const event of events) transcript.write(JSON.stringify({ caseId: caseDef.id, ...event }) + "\n");
+      context: { ws: connection.ws, sessionId },
+      runCase: async (caseDef, context) => {
+        if (!context?.ws || context.ws.readyState === WebSocket.CLOSED) {
+          const fresh = await connectWhenReady(appPort);
+          context.ws = fresh.ws;
+          context.sessionId = fresh.handshake.find(message => message.type === "session_created")?.id;
+          connection = fresh;
+          sessionId = context.sessionId;
+        }
+        return runWsCase(context.ws, caseDef);
+      },
+      verifyCaseState: (caseDef) => verifyState(baseURL, caseDef.stateAssertion),
+      captureState: captureRetryState,
+      restoreState: (caseDef, snapshot) => restoreQualificationState({
+        caseDef,
+        fixtureContract,
+        snapshot,
+        restoreDatabase: restoreRetryDatabase,
+        restoreWorkspace: workspace => {
+          rmSync(workspaceDir, { recursive: true, force: true });
+          cpSync(workspace, workspaceDir, { recursive: true });
+        },
+      }),
+      createFreshContext: async () => {
+        const fresh = await connectWhenReady(appPort);
+        connection = fresh;
+        sessionId = fresh.handshake.find(message => message.type === "session_created")?.id;
+        return { ws: fresh.ws, sessionId };
+      },
+      disposeContext: async context => {
+        await closeWebSocket(context?.ws);
+        if (context?.sessionId) {
+          try { await api(baseURL, `/api/sessions/${context.sessionId}`, { method: "DELETE" }); } catch { /* isolated DB is removed below */ }
+        }
+      },
+      recordEvents: (caseDef, events, { attempt = 1 } = {}) => {
+        for (const event of events) transcript.write(JSON.stringify({ caseId: caseDef.id, attempt, ...event }) + "\n");
       },
     });
     run = {
