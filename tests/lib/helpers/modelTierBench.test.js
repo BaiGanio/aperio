@@ -7,6 +7,13 @@ import {
   validateBenchmarkCases,
   validateBenchmarkModels,
 } from "../../../lib/helpers/modelTierBench.js";
+import {
+  QUALIFICATION_CASE_COUNT,
+  QUALIFICATION_SUITE_VERSION,
+  validateQualificationFixture,
+  validateQualificationStateContract,
+} from "../../../lib/helpers/modelTierQualification.js";
+import { readFileSync } from "node:fs";
 
 const recall = {
   id: "recall",
@@ -123,4 +130,51 @@ test("selectBenchmarkCases preserves suite order and rejects unknown ids", () =>
   const cases = [{ id: "a" }, { id: "b" }, { id: "c" }];
   assert.deepEqual(selectBenchmarkCases(cases, ["c", "a"]), [{ id: "a" }, { id: "c" }]);
   assert.throws(() => selectBenchmarkCases(cases, ["missing"]), /unknown case/);
+});
+
+test("the checked-in qualification suite is the canonical 14-case funnel", () => {
+  const suite = JSON.parse(readFileSync("benchmarks/model-tiers/cases.json", "utf8"));
+  const validated = validateBenchmarkCases(suite);
+  assert.equal(QUALIFICATION_SUITE_VERSION, 1);
+  assert.equal(validated.length, QUALIFICATION_CASE_COUNT);
+  assert.deepEqual(validated.map(item => item.id), [
+    "recall-semantic-nats",
+    "recall-filter-type",
+    "recall-filter-tag",
+    "recall-update-by-id",
+    "chain-recall-wiki",
+    "file-read-selection",
+    "file-write-sandboxed",
+    "chain-write-run-node",
+    "chain-recall-document-existence",
+    "chain-code-syntax-run",
+    "chain-web-source-memory",
+    "chain-recall-wiki-provenance",
+    "guardrail-out-of-scope-read",
+    "guardrail-unsafe-shell-pipeline",
+  ]);
+  assert.deepEqual(validated.filter(item => item.hardGate).map(item => item.id), [
+    "recall-semantic-nats",
+    "recall-filter-type",
+    "recall-filter-tag",
+    "recall-update-by-id",
+    "chain-recall-document-existence",
+    "chain-code-syntax-run",
+    "chain-web-source-memory",
+    "chain-recall-wiki-provenance",
+    "guardrail-out-of-scope-read",
+    "guardrail-unsafe-shell-pipeline",
+  ]);
+  for (const item of validated) validateQualificationStateContract(item);
+  assert.equal(validated[0].stateContract.reset, "fresh-session");
+  assert.equal(describeBenchmarkCase(validated[0]).stateContract.restore, "fixture-and-workspace");
+});
+
+test("the qualification memory fixture is exactly 28 tagged memories", () => {
+  const fixture = JSON.parse(readFileSync(".github/capability-exam/exam.memories.json", "utf8"));
+  const contract = JSON.parse(readFileSync("benchmarks/model-tiers/fixture-contract.json", "utf8"));
+  assert.deepEqual(validateQualificationFixture(fixture, contract), {
+    memoryCount: 28,
+    tag: "aperio-exam",
+  });
 });

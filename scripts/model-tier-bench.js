@@ -18,11 +18,17 @@ import {
   validateBenchmarkCases,
   validateBenchmarkModels,
 } from "../lib/helpers/modelTierBench.js";
+import {
+  QUALIFICATION_SUITE_VERSION,
+  validateQualificationFixture,
+  validateQualificationSuite,
+} from "../lib/helpers/modelTierQualification.js";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULT_MODELS = join(ROOT, "benchmarks/model-tiers/models.json");
 const DEFAULT_CASES = join(ROOT, "benchmarks/model-tiers/cases.json");
 const FIXTURE = join(ROOT, ".github/capability-exam/exam.memories.json");
+const FIXTURE_CONTRACT = join(ROOT, "benchmarks/model-tiers/fixture-contract.json");
 const WORKSPACE_FIXTURE = join(ROOT, "benchmarks/model-tiers/workspace");
 const GIB = 1024 ** 3;
 export const TIER_POLICY = "RAM <= 8 => 8 GB; RAM <= 16 => 16 GB; RAM <= 24 => 24 GB; RAM > 24 => 32 GB";
@@ -50,8 +56,8 @@ function usage() {
   return [
     "Usage: npm run model-tier:pilot -- --model <model-id> [options]",
     "",
-    "This is a pilot qualification runner. Its three cases validate the harness;",
-    "results are not sufficient to select installer defaults.",
+    "This is a qualification runner. Its 14-case suite validates model behavior;",
+    "results are not sufficient to select installer defaults without a campaign.",
     "",
     "Options:",
     "  --case <id>         Run one case (repeatable)",
@@ -453,7 +459,12 @@ async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) { console.log(usage()); return; }
   const models = validateBenchmarkModels(readJson(args.modelsPath ?? DEFAULT_MODELS));
-  const cases = selectBenchmarkCases(validateBenchmarkCases(readJson(args.casesPath ?? DEFAULT_CASES)), args.caseIds);
+  const allCases = validateBenchmarkCases(readJson(args.casesPath ?? DEFAULT_CASES));
+  validateQualificationSuite(allCases);
+  const cases = selectBenchmarkCases(allCases, args.caseIds);
+  const fixture = readJson(FIXTURE);
+  const fixtureContract = readJson(FIXTURE_CONTRACT);
+  const fixtureSummary = validateQualificationFixture(fixture, fixtureContract);
   if (args.validate) {
     console.log(`Validated ${models.length} model(s) and ${cases.length} case(s).`);
     return;
@@ -562,7 +573,6 @@ async function main() {
     });
     atomicJson(join(modelDir, "local-bench.json"), localBench);
 
-    const fixture = readJson(FIXTURE);
     const imported = await api(baseURL, "/api/memories/import", { method: "POST", body: JSON.stringify(fixture) });
     if (imported.imported !== 28 || imported.errors?.length) throw new Error(`fixture import failed: ${JSON.stringify(imported)}`);
     await waitForFixture(baseURL);
@@ -583,7 +593,7 @@ async function main() {
     run = {
       pilot: true,
       status: "complete",
-      qualificationSuiteVersion: "pilot-1",
+      qualificationSuiteVersion: QUALIFICATION_SUITE_VERSION,
       environmentNote: args.environmentNote ?? null,
       campaignId: id,
       targetTierGB: args.tier,
@@ -599,6 +609,9 @@ async function main() {
       profile: "balanced",
       servedContext: tierConfiguration.servedContext,
       fixtureVersion,
+      fixtureContractVersion: fixtureContract.version,
+      fixtureMemoryCount: fixtureSummary.memoryCount,
+      fixtureTag: fixtureSummary.tag,
       startedAt,
       finishedAt: new Date().toISOString(),
       caseResults,
@@ -609,7 +622,7 @@ async function main() {
       pilot: true,
       status: "invalid",
       invalidReason: error.message,
-      qualificationSuiteVersion: "pilot-1",
+      qualificationSuiteVersion: QUALIFICATION_SUITE_VERSION,
       environmentNote: args.environmentNote ?? null,
       campaignId: id,
       targetTierGB: args.tier,
@@ -625,6 +638,9 @@ async function main() {
       profile: "balanced",
       servedContext: tierConfiguration.servedContext,
       fixtureVersion,
+      fixtureContractVersion: fixtureContract.version,
+      fixtureMemoryCount: fixtureSummary.memoryCount,
+      fixtureTag: fixtureSummary.tag,
       startedAt,
       finishedAt: new Date().toISOString(),
       caseResults,
@@ -667,8 +683,11 @@ async function main() {
         pilot: true,
         warning: "Pilot harness evidence is not sufficient to select installer defaults.",
         modelIds: [model.id],
-        qualificationSuiteVersion: "pilot-1",
+        qualificationSuiteVersion: QUALIFICATION_SUITE_VERSION,
         fixtureVersion,
+        fixtureContractVersion: fixtureContract.version,
+        fixtureMemoryCount: fixtureSummary.memoryCount,
+        fixtureTag: fixtureSummary.tag,
         profile: "balanced",
         servedContext: tierConfiguration.servedContext,
       });
