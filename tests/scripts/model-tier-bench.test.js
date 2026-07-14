@@ -29,6 +29,8 @@ import {
   evaluateTierAdmission,
   TIER_POLICY,
   teardownOwnedProcesses,
+  stopRunnerProcesses,
+  registerRunnerCleanup,
   runWsCase,
   writeInvalidAdmissionRun,
   validateTargetTier,
@@ -468,6 +470,70 @@ test("teardown invokes every owned process cleanup even when one stop fails", as
     { stop: async () => { stopped.push("worker"); throw new Error("worker stop failed"); } },
   ]);
   assert.deepEqual(stopped, ["server", "worker"]);
+});
+
+test("runner teardown captures llama cleanup before stopping the Node app", async () => {
+  const stopped = [];
+  await stopRunnerProcesses({
+    child: { pid: 123 },
+    llamaPid: 456,
+    stopLlamaFn: async pid => stopped.push(["llama", pid]),
+    stopChildFn: async child => stopped.push(["node", child.pid]),
+  });
+  assert.deepEqual(stopped, [["llama", 456], ["node", 123]]);
+});
+
+test("runner teardown sweeps every tracked llama pid and the port holder, deduped, before the node app", async () => {
+  // In-run restarts (Compute-error recovery, retry) leave earlier router groups
+  // that state.json no longer names. Teardown must reap every PID we ever saw
+  // PLUS whatever still holds the ephemeral llama port, so nothing survives to
+  // pile up on the next run.
+  const stopped = [];
+  await stopRunnerProcesses({
+    child: { pid: 123 },
+    llamaPids: [456, 789],
+    llamaPort: 57419,
+    pidsOnPortFn: () => [789, 999], // 789 duplicates a tracked pid; 999 is a pid we never recorded
+    stopLlamaFn: async pid => stopped.push(["llama", pid]),
+    stopChildFn: async child => stopped.push(["node", child.pid]),
+  });
+  const llamaPids = stopped.filter(([kind]) => kind === "llama").map(([, pid]) => pid);
+  assert.deepEqual(new Set(llamaPids), new Set([456, 789, 999]), "every tracked pid and the port holder, deduped");
+  assert.equal(llamaPids.length, 3, "no pid is stopped twice");
+  assert.deepEqual(stopped.at(-1), ["node", 123], "the node app is stopped last, after every llama group");
+});
+
+test("registerRunnerCleanup runs teardown once per signal then exits with the signal code", async () => {
+  const handlers = {};
+  const cleanups = [];
+  const exits = [];
+  registerRunnerCleanup({
+    signals: ["SIGINT", "SIGTERM"],
+    cleanup: signal => { cleanups.push(signal); },
+    exit: code => exits.push(code),
+    on: (signal, handler) => { handlers[signal] = handler; },
+  });
+
+  assert.deepEqual(Object.keys(handlers).sort(), ["SIGINT", "SIGTERM"], "registers a handler per signal");
+
+  await handlers.SIGINT();
+  await handlers.SIGTERM();
+
+  assert.deepEqual(cleanups, ["SIGINT", "SIGTERM"], "each signal triggers the cleanup with its name");
+  assert.deepEqual(exits, [130, 143], "SIGINT exits 130 (128+2), SIGTERM exits 143 (128+15)");
+});
+
+test("registerRunnerCleanup still exits even when cleanup throws (never wedges on Ctrl+C)", async () => {
+  const exits = [];
+  let handler;
+  registerRunnerCleanup({
+    signals: ["SIGINT"],
+    cleanup: () => { throw new Error("teardown blew up"); },
+    exit: code => exits.push(code),
+    on: (_signal, fn) => { handler = fn; },
+  });
+  await handler();
+  assert.deepEqual(exits, [130], "a failed teardown must not prevent the process from exiting");
 });
 
 test("runWsCase waits for the correlated turn_complete, not stream_end", async () => {

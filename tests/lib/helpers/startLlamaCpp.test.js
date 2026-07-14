@@ -542,6 +542,25 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     assert.equal(spawnCalled, false);
   });
 
+  test("reaps a stale still-recorded router group before overwriting state on a fresh spawn", async () => {
+    // Down-server leak path: state.json still names a previous engine PID (e.g.
+    // a router that lost its listener but not its worker group). Because the
+    // server is down, the reconcile block above is skipped and writeState is
+    // about to overwrite that PID — orphaning its resident workers forever.
+    // ensureLlamaCpp must group-kill the prior PID before recording the new one.
+    writeStoredState(31313, buildModelsPreset({}, {}));
+
+    // fetch #1: /health → false (server down) → straight to spawn
+    // spawn poll: fetch #2: /health → true
+    mockFetchSequence({ ok: false }, { ok: true });
+
+    const killed = [];
+    await ensureLlamaCpp(fakeSpawn(42424), async pid => { killed.push(pid); return true; });
+
+    assert.ok(killed.includes(31313), "the stale prior router group was reaped before state was overwritten");
+    assert.equal(getLlamaCppPid(), 42424, "the new engine is now owned");
+  });
+
   test("returns without spawning when server is up but unowned (not our spawn, no stored PID)", async () => {
     // No state file, and we need llamaCppProc to be null too (no prior spawn
     // in this module's lifetime). Since the module variable persists across
@@ -635,6 +654,24 @@ describe("stopLlamaCpp — owner + preset guard", () => {
     const stopped = await stopLlamaCpp(async () => { called = true; return true; });
     assert.equal(stopped, false);
     assert.equal(called, false, "an attached (not-spawned) server is left running");
+  });
+
+  // Reporting a failed teardown as success is how a leaked router+worker group
+  // (multi-GB resident) went unnoticed and piled up across restarts. stopLlamaCpp
+  // must surface the real kill result and keep ownership so a later stop/reconcile
+  // can retry the still-live process instead of forgetting it.
+  test("reports a failed teardown instead of masking it as success, and keeps ownership", async () => {
+    mockFetchSequence({ ok: false }, { ok: true });
+    await ensureLlamaCpp(fakeSpawn(90777));
+    assert.equal(getLlamaCppPid(), 90777, "we own the spawned router PID");
+
+    const stopped = await stopLlamaCpp(fakeKill(false), () => null);
+    assert.equal(stopped, false, "a kill that did not confirm the process gone must not report success");
+    assert.equal(getLlamaCppPid(), 90777, "ownership is retained so the leaked group can be retried");
+
+    // A subsequent successful kill relinquishes ownership.
+    assert.equal(await stopLlamaCpp(fakeKill(true), () => null), true);
+    assert.equal(getLlamaCppPid(), null);
   });
 });
 

@@ -27,6 +27,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Model-tier benchmark runner leaked detached llama-server engines. Its cleanup
+  never ran when a run was interrupted (Ctrl+C/SIGTERM skips `finally`), and it
+  only killed the last engine PID recorded in `state.json` — so interrupted and
+  multi-restart runs orphaned multi-GB router+worker groups that accumulated
+  across runs until the machine hit swap. The runner now installs
+  SIGINT/SIGTERM/SIGHUP handlers that reap engines and the temp workdir on
+  abort, and teardown sweeps every engine PID the run spawned plus whatever
+  still holds the ephemeral llama port. `stopLlamaCpp` now reports the real kill
+  result (keeping ownership on failure instead of masking a leak as a clean
+  stop), and `ensureLlamaCpp` group-kills a stale still-recorded engine before
+  overwriting `state.json` on restart.
 - llama.cpp no longer duplicates GGUF models into the repo. It previously forced
   `LLAMA_CACHE=./var/models`, so llama-server re-downloaded every model into the
   app folder even when the user already had it in the standard Hugging Face hub

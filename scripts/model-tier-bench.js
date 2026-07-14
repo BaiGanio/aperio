@@ -810,14 +810,102 @@ async function stopChild(child, timeoutMs = 15_000) {
 
 async function stopOwnedPid(pid) {
   if (!pid || pid <= 0) return;
-  try { process.kill(-pid, "SIGTERM"); } catch { try { process.kill(pid, "SIGTERM"); } catch { return; } }
+  const descendants = new Set([pid]);
+  try {
+    const rows = execFileSync("ps", ["-axo", "pid=,ppid="], { encoding: "utf8" })
+      .trim().split("\n")
+      .map(line => line.trim().split(/\s+/).map(Number))
+      .filter(([childPid, parentPid]) => Number.isFinite(childPid) && Number.isFinite(parentPid));
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const [childPid, parentPid] of rows) {
+        if (descendants.has(parentPid) && !descendants.has(childPid)) {
+          descendants.add(childPid);
+          changed = true;
+        }
+      }
+    }
+  } catch { /* fall back to the process-group sweep below */ }
+
+  try { process.kill(-pid, "SIGTERM"); } catch { /* group may not be available */ }
+  for (const childPid of [...descendants].reverse()) {
+    try { process.kill(childPid, "SIGTERM"); } catch { /* already gone */ }
+  }
   await new Promise(resolveWait => setTimeout(resolveWait, 1_000));
-  try { process.kill(-pid, "SIGKILL"); } catch { try { process.kill(pid, "SIGKILL"); } catch { /* gone */ } }
+  try { process.kill(-pid, "SIGKILL"); } catch { /* group may not be available */ }
+  for (const childPid of [...descendants].reverse()) {
+    try { process.kill(childPid, "SIGKILL"); } catch { /* already gone */ }
+  }
 }
 
 export async function teardownOwnedProcesses(processes) {
   for (const owned of processes ?? []) {
     try { await owned?.stop?.(); } catch { /* continue teardown for every owned process */ }
+  }
+}
+
+// Every PID currently listening on `port`, group-killable via stopOwnedPid.
+// Mirrors findLlamaCppPidOnPort in startLlamaCpp.js. The ephemeral llama port is
+// unique to this run, so whatever holds it is ours to reap — this catches a
+// leaked router whose PID we never recorded (e.g. an in-app restart that
+// overwrote state.json). Best-effort: returns [] when lsof/netstat is missing.
+export function pidsOnPort(port) {
+  if (!port) return [];
+  try {
+    if (process.platform === "win32") {
+      const out = execFileSync("netstat", ["-ano", "-p", "tcp"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+      const needle = `:${port}`;
+      const pids = new Set();
+      for (const line of out.split("\n")) {
+        if (!line.includes(needle) || !/LISTENING/i.test(line)) continue;
+        const pid = Number(line.trim().split(/\s+/).at(-1));
+        if (Number.isInteger(pid) && pid > 0) pids.add(pid);
+      }
+      return [...pids];
+    }
+    const out = execFileSync("lsof", ["-tiTCP:" + port, "-sTCP:LISTEN"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    return [...new Set(out.trim().split(/\s+/).map(Number).filter(n => Number.isInteger(n) && n > 0))];
+  } catch { return []; }
+}
+
+export async function stopRunnerProcesses({ child, llamaPid, llamaPids, llamaPort, stopChildFn = stopChild, stopLlamaFn = stopOwnedPid, pidsOnPortFn = pidsOnPort } = {}) {
+  // Reap the llama process group(s) before stopping Node: Aperio's graceful
+  // shutdown clears state.json as soon as it tears the engine down, and stopping
+  // the detached llama workers first keeps them from surviving the app process.
+  //
+  // Sweep the union of EVERY llama PID we ever observed plus whatever still holds
+  // the ephemeral llama port — in-run restarts (Compute-error recovery, retries)
+  // leave earlier router groups that state.json no longer names, and those are
+  // exactly the copies that stack up across runs until the machine swaps.
+  const pids = new Set();
+  for (const pid of llamaPids ?? []) if (pid) pids.add(pid);
+  if (llamaPid) pids.add(llamaPid);
+  for (const pid of pidsOnPortFn(llamaPort)) pids.add(pid);
+  await teardownOwnedProcesses([
+    ...[...pids].map(pid => ({ stop: () => stopLlamaFn(pid) })),
+    { stop: () => stopChildFn(child) },
+  ]);
+}
+
+// The bench's `finally` block does NOT run when the process is killed by a
+// signal (Ctrl+C / SIGTERM), which is exactly when a user abandons a run
+// mid-flight — the point where leaked engines pile up. Register a handler that
+// runs the same teardown, then exits with the conventional 128+signal code so
+// the abort still looks like an abort to the caller. Cleanup failures must never
+// wedge the exit.
+export function registerRunnerCleanup({
+  signals = ["SIGINT", "SIGTERM", "SIGHUP"],
+  cleanup,
+  exit = code => process.exit(code),
+  on = (signal, handler) => process.on(signal, handler),
+} = {}) {
+  const codes = { SIGINT: 130, SIGTERM: 143, SIGHUP: 129 };
+  for (const signal of signals) {
+    on(signal, async () => {
+      try { await cleanup(signal); } catch { /* still exit below */ }
+      exit(codes[signal] ?? 143);
+    });
   }
 }
 
@@ -941,6 +1029,27 @@ async function main() {
   let ledgerSlices;
   const benchmarkEvents = [];
   const ownedLlamaPid = () => readLlamaPid(tempDir);
+  // Every llama-server router PID this run has spawned. state.json only names the
+  // latest, so an in-run restart would otherwise orphan the previous group; we
+  // remember them all and reap the union (plus the port holder) at teardown.
+  const llamaPids = new Set();
+  const recordLlamaPid = () => { const pid = ownedLlamaPid(); if (pid) llamaPids.add(pid); };
+  let processesStopped = false;
+  const stopAllProcesses = async () => {
+    if (processesStopped) return; // idempotent: finally + a signal must not double-run
+    processesStopped = true;
+    recordLlamaPid();
+    await stopRunnerProcesses({ child, llamaPids, llamaPort });
+  };
+  let tempRemoved = false;
+  const removeTempWorkdir = () => {
+    if (tempRemoved) return;
+    tempRemoved = true;
+    try { rmSync(tempDir, { recursive: true, force: true }); } catch { /* best effort */ }
+  };
+  // A signal (Ctrl+C / SIGTERM) skips the finally block entirely — the exact case
+  // where a user abandons a run and its engines pile up. Reap them here too.
+  registerRunnerCleanup({ cleanup: async () => { await stopAllProcesses(); removeTempWorkdir(); } });
   let caseResults = [];
   const retrySnapshotDir = join(tempDir, "retry-snapshot");
   const captureRetryState = async () => {
@@ -959,16 +1068,15 @@ async function main() {
       try { await api(baseURL, `/api/sessions/${sessionId}`, { method: "DELETE" }); } catch { /* isolated DB is restarted below */ }
     }
     const oldLlamaPid = ownedLlamaPid();
-    await teardownOwnedProcesses([
-      { stop: () => stopChild(child) },
-      { stop: () => stopOwnedPid(oldLlamaPid) },
-    ]);
+    if (oldLlamaPid) llamaPids.add(oldLlamaPid);
+    await stopRunnerProcesses({ child, llamaPids: [oldLlamaPid], llamaPort });
     for (const suffix of ["", "-wal", "-shm"]) rmSync(`${env.SQLITE_PATH}${suffix}`, { force: true });
     child = startRunnerServer();
     connection = undefined;
     sessionId = undefined;
     await waitForHttpReady(baseURL);
     await modelReady(`http://127.0.0.1:${llamaPort}`, model.hf);
+    recordLlamaPid();
     const imported = await api(baseURL, "/api/data/import", { method: "POST", body: JSON.stringify(database) });
     if (imported.imported?.memories !== database.memories?.length) {
       throw new Error(`retry fixture restore imported ${imported.imported?.memories ?? 0} memories`);
@@ -986,6 +1094,7 @@ async function main() {
     if (provider.toolEligible !== true) throw new Error("invalid run: active model has no tool surface");
 
     await modelReady(`http://127.0.0.1:${llamaPort}`, model.hf);
+    recordLlamaPid();
 
     const localBench = await runBenchmark({
       baseURL: `http://127.0.0.1:${llamaPort}`,
@@ -1124,11 +1233,7 @@ async function main() {
       if (existsSync(llamaLog)) copyRuntimeLog(llamaLog, join(modelDir, "llamacpp.log"));
     } catch { /* optional diagnostic */ }
     const measuredQualification = metrics.stop();
-    const llamaPid = ownedLlamaPid();
-    await teardownOwnedProcesses([
-      { stop: () => stopChild(child) },
-      { stop: () => stopOwnedPid(llamaPid) },
-    ]);
+    await stopAllProcesses();
     const measured = createMetricReport(loadMetrics ?? measuredQualification, loadMetrics ? measuredQualification : measuredQualification);
     ledgerOffsets ??= captureLedgerOffsets({
       events: join(tempDir, "var/toolrepair/events.tsv"),
@@ -1145,7 +1250,7 @@ async function main() {
       caseResults: run?.caseResults ?? caseResults,
     });
     applicationLog.end();
-    rmSync(tempDir, { recursive: true, force: true });
+    removeTempWorkdir();
     if (run) {
       run.metrics = measured;
       run.ledger = {
