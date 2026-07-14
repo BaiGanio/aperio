@@ -17,6 +17,9 @@ import {
   evaluateBenchmarkCase,
   aggregateBenchmarkRuns,
   benchmarkSummaryCsv,
+  selectFinalists,
+  generateTierDecisions,
+  tierDecisionsMarkdown,
   selectBenchmarkCases,
   validateBenchmarkCases,
   validateBenchmarkModels,
@@ -58,6 +61,9 @@ export function parseArgs(argv) {
     else if (arg === "--note") out.environmentNote = argv[++i];
     else if (arg === "--allow-download") out.allowDownload = true;
     else if (arg === "--aggregate") out.aggregate = true;
+    else if (arg === "--finalists") out.finalists = true;
+    else if (arg === "--decide") out.decide = true;
+    else if (arg === "--evidence") out.evidencePath = resolve(argv[++i]);
     else if (arg === "--validate") out.validate = true;
     else if (arg === "--help" || arg === "-h") out.help = true;
     else throw new Error(`unknown argument: ${arg}`);
@@ -76,7 +82,10 @@ function usage() {
     "  --case <id>         Run one case (repeatable)",
     "  --allow-download    Permit llama.cpp to download an uncached GGUF",
     "  --aggregate         Build private campaign summaries from existing run artifacts",
+    "  --finalists         Select finalists from an existing private summary.json",
+    "  --decide            Generate private tier decisions from finalist evidence",
     "  --campaign <id>     Override the UTC campaign id",
+    "  --evidence <path>   JSON finalist evidence for --decide",
     "  --tier <8|16|24|32> Target RAM tier for this run (required when running)",
     "  --note <text>        Record an environment caveat on the run",
     "  --validate          Validate model/case files without starting processes",
@@ -121,6 +130,29 @@ export function writeCampaignSummary(root, tier, id, runs = discoverCampaignRuns
   atomicJson(join(outputDir, "summary.json"), summary);
   writeFileSync(join(outputDir, "summary.csv"), benchmarkSummaryCsv(summary), { mode: 0o600 });
   return { outputDir, summary };
+}
+
+export function writeFinalistManifest(root, tier, id) {
+  const dir = resolveCampaignAggregateDir(root, tier, id);
+  const summaryPath = join(dir, "summary.json");
+  if (!existsSync(summaryPath)) throw new Error(`campaign summary is missing: ${summaryPath}`);
+  const manifest = selectFinalists(readJson(summaryPath));
+  atomicJson(join(dir, "finalists.json"), manifest);
+  return { outputDir: dir, manifest };
+}
+
+export function writeTierDecisions(root, tier, id, evidencePath) {
+  const dir = resolveCampaignAggregateDir(root, tier, id);
+  const manifestPath = join(dir, "finalists.json");
+  if (!existsSync(manifestPath)) throw new Error(`finalist manifest is missing: ${manifestPath}`);
+  if (!evidencePath) throw new Error("--evidence is required with --decide");
+  const manifest = readJson(manifestPath);
+  const supplied = readJson(evidencePath);
+  const evidence = Array.isArray(supplied) ? supplied : supplied.evidence;
+  const decisions = generateTierDecisions({ finalists: manifest.finalists, evidence });
+  atomicJson(join(dir, "decisions.json"), decisions);
+  writeFileSync(join(dir, "decisions.md"), tierDecisionsMarkdown(decisions), { mode: 0o600 });
+  return { outputDir: dir, decisions };
 }
 
 export function selectPilotCases(cases, requestedIds = []) {
@@ -980,6 +1012,19 @@ async function main() {
     validateTargetTier({ id: "aggregate", tiers: [8, 16, 24, 32] }, args.tier);
     const result = writeCampaignSummary(ROOT, args.tier, args.campaignId);
     console.log(`Aggregated ${result.summary.counts.discovered} run(s) into ${result.outputDir}`);
+    return;
+  }
+  if (args.finalists || args.decide) {
+    if (!args.campaignId) throw new Error("--campaign is required with --finalists/--decide");
+    validateTargetTier({ id: "aggregate", tiers: [8, 16, 24, 32] }, args.tier);
+    if (args.finalists) {
+      const result = writeFinalistManifest(ROOT, args.tier, args.campaignId);
+      console.log(`Selected ${result.manifest.finalists.length} finalist(s) into ${result.outputDir}`);
+    }
+    if (args.decide) {
+      const result = writeTierDecisions(ROOT, args.tier, args.campaignId, args.evidencePath);
+      console.log(`Generated tier decisions in ${result.outputDir}`);
+    }
     return;
   }
   if (!args.modelId) throw new Error("--model is required\n\n" + usage());

@@ -1,21 +1,22 @@
-# Completed checkpoint: exact model catalog and verification contract
+# Completed checkpoint: finalist exam review and tier decisions
 
 **Implemented:** 2026-07-14 on `feat/model-tier-benchmark-runner`.
 
-This checkpoint follows the campaign aggregate result contract and is complete.
-It expands the candidate catalog and makes repository/quant verification a
-validated preflight contract. It did not download models, run a campaign, rank
-models, select installers, or integrate a score viewer.
+This checkpoint consumes the campaign aggregate result contract and is complete.
+It selects up to two valid comparable finalists per tier, records the full-exam
+manifest, and generates private tier decisions from already-valid finalist
+evidence. It does not execute a campaign, select installers, or integrate a
+score viewer.
 
-## Catalog contract
+## Review contract
 
-The catalog contains 15 unique candidates covering 18 tier placements from the
-runbook. Every entry records a stable ID, repository/quant identity, display
-name, approximate size, eligible tiers, selection role, and dated Hugging Face
-repository verification. The validator rejects identity drift, duplicate tier
-values, unsupported roles, invalid sizes, and incomplete verification metadata.
-Repository-only serving references are allowed only when the quant is explicit;
-gpt-oss is recorded as `mxfp4`.
+The runner now supports:
+
+- `--finalists`, which writes private `finalists.json` from valid comparable
+  campaign rows;
+- `--decide --evidence <path>`, which writes private `decisions.json` and
+  `decisions.md` after applying the full-exam gates;
+- deterministic tier roles: default, fallback, unsupported, or unverified.
 
 Validate without starting Aperio or llama.cpp:
 
@@ -23,11 +24,11 @@ Validate without starting Aperio or llama.cpp:
 npm run model-tier:pilot -- --validate
 ```
 
-Focused verification passed 50 runner tests, catalog validation, syntax checks,
-and `git diff --check`. No benchmark campaign was run.
+Focused verification passed 42 runner tests, catalog validation, syntax checks,
+and `git diff --check`. No benchmark campaign or full exam was run.
 
 ## Next bounded checkpoint
 
-Implement finalist full-exam orchestration and tier-decision generation from
-already-valid campaign evidence. Keep installer decisions and score-viewer
-integration out of that checkpoint.
+Implement full campaign execution across the validated candidate catalog. Keep
+installer/runtime integration, score-viewer integration, and new visuals out of
+that checkpoint.

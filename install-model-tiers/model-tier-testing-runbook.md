@@ -32,9 +32,11 @@ llama.cpp ownership, fixture import/readiness checks, load-versus-qualification
 metrics, retry state restoration, private artifacts, tier admission metadata,
 and non-live campaign aggregation for existing results.
 
-The pilot is not a campaign runner: it does not rank candidates, generate tier
-decisions, or integrate the score viewer. Use `--validate` for a non-live contract
-check, and always supply both `--model` and `--tier` for a live run.
+The pilot is not a full campaign runner: it does not execute the entire shortlist
+or integrate the score viewer. Offline review now ranks only already-valid,
+comparable evidence and can generate finalist manifests and tier decisions. Use
+`--validate` for a non-live contract check, and always supply both `--model` and
+`--tier` for a live pilot run.
 
 The checked-in catalog contains 15 unique candidates covering the 18 tier
 placements in section 2. Each entry has a stable ID, exact repository and
@@ -56,6 +58,30 @@ cases remain model failures; `status: "invalid"` runs remain
 harness/environment evidence and are excluded from model scoring. Valid runs
 with mismatched campaign controls are retained as `incomparable` and excluded
 from the comparable row set.
+
+To select at most two finalists per tier from an existing summary, without
+starting Aperio or llama.cpp:
+
+```bash
+npm run model-tier:pilot -- --finalists --tier 16 --campaign <campaign-id>
+```
+
+This writes private `finalists.json` beside the campaign summary. It records the
+65-drill full exam and the four recall plus four chain cases that must be
+observed three times. After separately supplying already-valid finalist exam
+evidence, generate the private tier decisions:
+
+```bash
+npm run model-tier:pilot -- --decide --tier 16 --campaign <campaign-id> \
+  --evidence /private/path/finalist-evidence.json
+```
+
+The decision gate requires complete 65-drill evidence, three critical-repeat
+observations, 4/4 recall, at least 3/4 chains, 2/2 guardrails, zero persistent
+tool failures or unsafe effects, at least 8,192 served context, no material swap
+growth, and no model crash or empty completion after retry. This step generates
+`decisions.json` and `decisions.md`; it does not execute the full exam or change
+installer behavior.
 
 The `install-model-tiers` plan is useful input, not an implementation script to
 follow verbatim. Its configurable-tier work remains relevant, but its proposed

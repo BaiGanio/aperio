@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appendFileSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -35,11 +35,16 @@ import {
   runWsCase,
   writeInvalidAdmissionRun,
   writeCampaignSummary,
+  writeFinalistManifest,
+  writeTierDecisions,
   validateTargetTier,
 } from "../../scripts/model-tier-bench.js";
 import {
   aggregateBenchmarkRuns,
   benchmarkSummaryCsv,
+  generateTierDecisions,
+  selectFinalists,
+  tierDecisionsMarkdown,
   validateBenchmarkModels,
 } from "../../lib/helpers/modelTierBench.js";
 
@@ -147,6 +152,73 @@ test("campaign summary writer keeps aggregate artifacts outside model result fol
     assert.equal(readFileSync(join(result.outputDir, "summary.json"), "utf8").includes('"contractVersion": 1'), true);
     assert.match(readFileSync(join(result.outputDir, "summary.csv"), "utf8"), /comparisonStatus/);
     assert.equal(readdirSync(result.outputDir).sort().join(","), "summary.csv,summary.json");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("finalist selection keeps only comparable passing evidence and caps each tier", () => {
+  const summary = aggregateBenchmarkRuns([
+    aggregateRun({ model: { id: "model-b", hf: "org/model-b:Q4_K_M" }, targetTierGB: 8 }),
+    aggregateRun({ model: { id: "model-a", hf: "org/model-a:Q4_K_M" }, targetTierGB: 8, passed: 99 }),
+    aggregateRun({ model: { id: "model-fail", hf: "org/model-fail:Q4_K_M" }, targetTierGB: 8,
+      caseResults: [{ id: "recall", section: "recall", hardGate: true, status: "fail" }] }),
+  ], { campaignId: "campaign-a" });
+  const manifest = selectFinalists(summary, { maxPerTier: 1 });
+  assert.equal(manifest.finalists.length, 1);
+  assert.equal(manifest.finalists[0].tier, 8);
+  assert.equal(manifest.finalists[0].modelId, "model-a");
+  assert.deepEqual(manifest.fullExam.repeatGroups.recall, [
+    "recall-semantic-nats", "recall-filter-type", "recall-filter-tag", "recall-update-by-id",
+  ]);
+});
+
+test("tier decisions apply full-exam gates and produce default/fallback roles", () => {
+  const finalists = [
+    { tier: 16, modelId: "model-a", model: "org/model-a:Q4_K_M" },
+    { tier: 16, modelId: "model-b", model: "org/model-b:Q4_K_M" },
+  ];
+  const evidence = [
+    { modelId: "model-a", status: "complete", scoredDrills: 65, criticalRepeatCount: 3, servedContext: 16384, scoreVector: {
+      recall: { passed: 4, total: 4 }, chains: { passed: 4, total: 4 }, guardrails: { passed: 2, total: 2 },
+    } },
+    { modelId: "model-b", status: "complete", scoredDrills: 65, criticalRepeatCount: 3, servedContext: 8192, scoreVector: {
+      recall: { passed: 4, total: 4 }, chains: { passed: 3, total: 4 }, guardrails: { passed: 2, total: 2 },
+    } },
+  ];
+  const decisions = generateTierDecisions({ finalists, evidence });
+  assert.equal(decisions.tiers[16].status, "eligible");
+  assert.equal(decisions.tiers[16].default, "model-a");
+  assert.equal(decisions.tiers[16].fallback, "model-b");
+  assert.equal(decisions.tiers[8].status, "unverified");
+  assert.match(tierDecisionsMarkdown(decisions), /\| 16 GB \| eligible \| model-a \| model-b \|/);
+});
+
+test("tier decisions exclude finalist evidence marked invalid", () => {
+  const decisions = generateTierDecisions({
+    finalists: [{ tier: 8, modelId: "model-a" }],
+    evidence: [{ modelId: "model-a", status: "complete", runStatus: "invalid", scoredDrills: 65, criticalRepeatCount: 3, servedContext: 16384,
+      scoreVector: { recall: { passed: 4, total: 4 }, chains: { passed: 4, total: 4 }, guardrails: { passed: 2, total: 2 } } }],
+  });
+  assert.equal(decisions.tiers[8].status, "unsupported");
+  assert.equal(decisions.tiers[8].default, null);
+});
+
+test("finalist and decision writers keep evidence outputs private", () => {
+  const root = mkdtempSync(join(tmpdir(), "model-tier-finalist-test-"));
+  const evidencePath = join(root, "evidence.json");
+  try {
+    const summaryDir = resolveCampaignAggregateDir(root, 16, "campaign-a");
+    mkdirSync(summaryDir, { recursive: true, mode: 0o700 });
+    writeFileSync(join(summaryDir, "summary.json"), JSON.stringify(aggregateBenchmarkRuns([
+      aggregateRun(),
+    ], { campaignId: "campaign-a", targetTierGB: 16 })));
+    const manifest = writeFinalistManifest(root, 16, "campaign-a");
+    assert.equal(manifest.manifest.finalists.length, 1);
+    writeFileSync(evidencePath, JSON.stringify([{ modelId: "model-a", status: "complete", scoredDrills: 65, criticalRepeatCount: 3, servedContext: 16384,
+      scoreVector: { recall: { passed: 4, total: 4 }, chains: { passed: 4, total: 4 }, guardrails: { passed: 2, total: 2 } } }]));
+    writeTierDecisions(root, 16, "campaign-a", evidencePath);
+    assert.deepEqual(readdirSync(summaryDir).sort(), ["decisions.json", "decisions.md", "finalists.json", "summary.json"]);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

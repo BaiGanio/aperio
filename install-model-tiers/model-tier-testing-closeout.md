@@ -65,7 +65,8 @@ pilot result must not be used to promote, reject, or rank a model.
 Before this becomes the full campaign runner described in sections 6–11, it
 still needs:
 
-- finalist full-exam orchestration and tier-decision generation.
+- full campaign execution across the catalog;
+- installer/runtime integration after human review of tier decisions.
 
 The exact candidate catalog checkpoint is complete. The catalog now contains 15
 unique candidates covering the 18 tier placements in the runbook, and validation
@@ -85,6 +86,13 @@ under `var/benchmarks/model-tiers/<tier>gb/<campaign-id>/`. It enforces the
 campaign controls recorded in `run.json`, keeps completed model failures in the
 comparison, and excludes invalid or incomparable runs from comparable evidence.
 The remaining item above is unchanged.
+
+The finalist review checkpoint is now implemented. `--finalists` creates a
+private manifest from comparable passing campaign rows, and `--decide
+--evidence <path>` generates private `decisions.json` and `decisions.md` only
+from complete, valid finalist exam evidence. It applies the documented recall,
+chain, guardrail, tool-quality, context, swap, and crash gates. It does not run
+the full exam, execute a campaign, or alter installer behavior.
 
 ### 0.2a Honest-tier checkpoint verification
 

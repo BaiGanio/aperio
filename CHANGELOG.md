@@ -22,6 +22,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Model-tier campaign aggregation: a non-live `--aggregate` command now emits
   private `summary.json` and `summary.csv` artifacts, enforces comparable
   campaign controls, and separates invalid runs from genuine model failures.
+- Model-tier finalist review: non-live `--finalists` creates a private full-exam
+  manifest from valid campaign evidence, and `--decide --evidence <path>` applies
+  the full-exam gates to generate private tier decisions without starting model
+  processes.
 
 - Memory-aware llama.cpp VLM preset selection: native-vision main models omit
   the bridge, while oversized main/VLM pairs use router swap mode
