@@ -107,26 +107,26 @@ Runtime results may contain prompts, memory fixtures, model output, tool argumen
 file paths, and operational data. Keep them under the ignored private `var/` tree:
 
 ```text
-var/benchmarks/model-tiers/<campaign-id>/
+var/benchmarks/model-tiers/<tier>gb/<model-slug>/<campaign-id>/
 ├── campaign.json
 ├── summary.csv
 ├── summary.json
 ├── decisions.md
-├── <model-slug>/
-│   ├── run.json
-│   ├── cases.jsonl
-│   ├── transcript.jsonl
-│   ├── metrics.csv
-│   ├── local-bench.json
-│   ├── toolrepair-events.tsv
-│   ├── toolcall-failures.tsv
-│   ├── application.log
-│   └── llamacpp.log
-└── ...
+├── run.json
+├── cases.jsonl
+├── transcript.jsonl
+├── metrics.csv
+├── local-bench.json
+├── toolrepair-events.tsv
+├── toolcall-failures.tsv
+├── application.log
+└── llamacpp.log
 ```
 
 Use a UTC campaign ID such as `2026-07-14T120000Z`. Use stable lowercase model
-slugs such as `qwen35-9b-q4km`; do not use a display name as a database key.
+slugs such as `qwen35-9b-q4km`; do not use a display name as a database key. Use
+`8gb`, `16gb`, `24gb`, or `32gb` for the explicit target tier directory. A model
+eligible for several tiers must still be run with one selected tier.
 
 `var/` is ignored by Git and must remain private. Only a redacted, aggregate
 decision table should eventually be promoted into a tracked research or planning

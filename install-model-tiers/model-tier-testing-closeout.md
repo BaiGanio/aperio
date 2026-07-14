@@ -29,8 +29,14 @@ npm run model-tier:pilot -- --validate
 Run the current pilot for the configured exact model:
 
 ```bash
-npm run model-tier:pilot -- --model qwen35-9b-q4km
+npm run model-tier:pilot -- --model qwen35-9b-q4km --tier 16
 ```
+
+`--tier` is required for every live run, even when the model is eligible for
+multiple tiers. It must be one of `8`, `16`, `24`, or `32`, and must be listed in
+the model's `tiers` catalog field. Pilot artifacts use the tier-first layout
+`var/benchmarks/model-tiers/<tier>gb/<model-slug>/<campaign-id>/` and record the
+selected tier as `targetTierGB` in `run.json` and `campaign.json`.
 
 The pilot reuses a cached model by default. Add `--allow-download` only when a
 model download is intentional. Add `--note "<reason>"` to record useful operator
@@ -149,6 +155,7 @@ matters. Use a cached exact quant unless a download is deliberate:
 ```bash
 npm run model-tier:pilot -- \
   --model qwen35-9b-q4km \
+  --tier 16 \
   --note "manual isolated pilot"
 ```
 
@@ -157,7 +164,7 @@ During and after the run, verify:
 - the provider handshake reports the requested exact model and tool eligibility;
 - every client turn ends with the matching `turn_complete`;
 - `run.json`, `cases.jsonl`, `transcript.jsonl`, `metrics.csv`, and logs are stored
-  only in the private campaign directory under `var/benchmarks/model-tiers/`;
+  only in the private tier/model/campaign directory under `var/benchmarks/model-tiers/`;
 - an invalid run records a concrete reason rather than becoming a model failure;
 - only runner-owned processes are stopped;
 - no runner-created temporary workdir, session, llama state, or listener remains.
@@ -208,8 +215,8 @@ After clearing this session, use:
 ```text
 Continue the model-tier benchmark work in /Users/lk/Projects/BaiGanio/aperio on
 branch feat/model-tier-benchmark-runner. Read AGENTS.md,
-trash/install-model-tiers/model-tier-testing-runbook.md, and
-trash/install-model-tiers/model-tier-testing-closeout.md first. Inspect git
+install-model-tiers/model-tier-testing-runbook.md, and
+install-model-tiers/model-tier-testing-closeout.md first. Inspect git
 status and the existing diff; do not restart or discard completed work.
 
 Work one bounded step at a time: explain the step and why it is next, make only
@@ -228,7 +235,7 @@ previous session.
 
 **Status:** Implemented locally; awaiting visual approval before integration.
 
-**Preview:** `trash/install-model-tiers/model-tier-score-viewer-preview.html`
+**Preview:** `install-model-tiers/model-tier-score-viewer-preview.html`
 
 **Required final deliverable:** Before this benchmark work is complete, an
 approved, tracked `.html` score viewer must be integrated under `docs/` and linked
@@ -251,20 +258,23 @@ The standalone page:
 Every pilot writes its private artifacts under:
 
 ```text
-var/benchmarks/model-tiers/<campaign-id>/<model-slug>/
+var/benchmarks/model-tiers/<tier>gb/<model-slug>/<campaign-id>/
 ├── run.json
 ├── cases.jsonl
 └── metrics.csv
 ```
 
 Open Finder, use **Go → Go to Folder…**, paste the absolute model-result directory,
-then drag all three files onto the preview. The complete artifact set currently
-available in this workspace is:
+then drag all three files onto the preview. The complete legacy artifact set
+currently available in this workspace is:
 
 ```text
 /Users/lk/Projects/BaiGanio/aperio/var/benchmarks/model-tiers/
 20260714T073256Z/qwen35-9b-q4km/
 ```
+
+It predates the tier-first migration; new runs are written under the layout
+shown above.
 
 The earlier `20260714T072935Z/qwen35-9b-q4km/` directory contains only
 `run.json`, so it cannot populate the complete case and metrics view. These files
@@ -278,35 +288,28 @@ browser control was unavailable in this session, so the operator must visually
 inspect the standalone page before approval. The preview remains ignored and
 uncommitted until that decision.
 
-## Step 2 review findings — artifact contract needs repair
+## Step 2 review findings — artifact contract and layout
 
-**Status:** Diagnosed; no runner repair implemented yet.
+**Status:** The case-result contract repair and tier-first layout migration are
+implemented locally and covered by focused tests. The score viewer still needs a
+standalone redesign and visual approval before integration.
 
-Visual review exposed three problems that must be resolved before the score viewer
-can be approved:
+The review exposed three problems:
 
-1. The current private result layout is campaign-first:
-   `var/benchmarks/model-tiers/<campaign-id>/<model-slug>/`. A tier-first history
-   is easier to browse over time. The proposed layout is
-   `var/benchmarks/model-tiers/<tier>/<model-slug>/<campaign-id>/`, where `<tier>`
-   is `8gb`, `16gb`, `24gb`, or `32gb`. Keep the stable model slug in the path;
-   store the exact Hugging Face `repo:quant` in `run.json` because repository
-   slashes create unintended directories and colons are not portable filenames.
-   A run must declare one explicit target tier even when its model is eligible for
-   several tiers.
-2. Campaign `20260714T073256Z` timed out during its third case. The runner declares
-   `caseResults` inside the success block, then replaces it with `[]` in the catch
-   path. Consequently, `cases.jsonl` contains only a newline and discards the two
-   completed partial results. This is a harness defect, not intentional behavior.
-   An invalid run must retain completed results and append an invalid result for
-   the interrupted case while remaining excluded from model scoring.
-3. Case artifacts contain IDs and boolean checks but omit enough definition
-   metadata to explain the test. The viewer's representative demo also uses two
-   labels that differ from the actual suite. Each persisted case result needs a
-   human title, objective, section, kind, hard-gate flag, expected tool sequence,
-   answer requirements, and state assertion. The guardrail display must
-   distinguish “safe because the model refused” from “application guardrail was
-   exercised”; a model refusal should not look like an unqualified green pass.
+1. The campaign-first private result layout is resolved. The runner now uses the
+   tier-first layout
+   `var/benchmarks/model-tiers/<tier>gb/<model-slug>/<campaign-id>/`, where `<tier>`
+   is `8gb`, `16gb`, `24gb`, or `32gb`. It keeps the stable model slug in the path,
+   stores the exact Hugging Face `repo:quant` in `run.json`, and records one
+   explicit `targetTierGB` even when the model is eligible for several tiers.
+2. Partial-result loss on invalid runs is resolved. `executeBenchmarkCases` now
+   preserves completed results and appends an invalid result for the interrupted
+   case; the invalid run remains excluded from model scoring.
+3. The case-result contract is resolved. Each persisted result includes the human
+   title, objective, section, kind, hard-gate flag, expected tool sequence, answer
+   requirements, state assertion, and guardrail mode. The viewer must consume this
+   metadata and distinguish “safe because the model refused” from “application
+   guardrail was exercised.”
 
 The actual pilot suite currently contains:
 
@@ -318,6 +321,7 @@ The actual pilot suite currently contains:
   only if `read_file` does not successfully expose it; model refusal and exercised
   application blocking are recorded as different modes.
 
-Recommended next bounded step: repair and test the case-result artifact contract
-first. Directory migration and viewer redesign should follow as separate approved
-steps so neither can hide data-loss defects in the other.
+The case-result contract repair and directory migration are complete and covered
+by focused tests. The next bounded step is the score-viewer redesign to consume
+the tier-first layout; do not integrate it into `docs/` until the standalone
+preview has been visually approved.

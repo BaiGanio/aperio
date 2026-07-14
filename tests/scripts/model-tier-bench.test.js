@@ -1,7 +1,13 @@
 import { EventEmitter } from "node:events";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { executeBenchmarkCases, parseArgs, runWsCase } from "../../scripts/model-tier-bench.js";
+import {
+  executeBenchmarkCases,
+  parseArgs,
+  resolveBenchmarkArtifactDir,
+  runWsCase,
+  validateTargetTier,
+} from "../../scripts/model-tier-bench.js";
 
 const cases = [
   {
@@ -29,6 +35,25 @@ test("parseArgs collects repeatable case ids and the environment note", () => {
     allowDownload: true,
     validate: false,
   });
+});
+
+test("parseArgs records an explicit target tier", () => {
+  assert.equal(parseArgs(["--model", "qwen35-9b-q4km", "--tier", "16"]).tier, 16);
+});
+
+test("resolveBenchmarkArtifactDir uses the tier-first private layout", () => {
+  assert.equal(
+    resolveBenchmarkArtifactDir("/repo", 16, "qwen35-9b-q4km", "20260714T120000Z"),
+    "/repo/var/benchmarks/model-tiers/16gb/qwen35-9b-q4km/20260714T120000Z",
+  );
+  assert.throws(() => resolveBenchmarkArtifactDir("/repo", 12, "model", "campaign"), /tier must be/);
+});
+
+test("validateTargetTier requires model eligibility", () => {
+  const model = { id: "qwen35-9b-q4km", tiers: [16, 24, 32] };
+  assert.equal(validateTargetTier(model, 16), 16);
+  assert.throws(() => validateTargetTier(model, 8), /not eligible/);
+  assert.throws(() => validateTargetTier(model, 12), /tier must be/);
 });
 
 test("runWsCase waits for the correlated turn_complete, not stream_end", async () => {

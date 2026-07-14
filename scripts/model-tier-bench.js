@@ -34,6 +34,7 @@ export function parseArgs(argv) {
     else if (arg === "--models") out.modelsPath = resolve(argv[++i]);
     else if (arg === "--cases") out.casesPath = resolve(argv[++i]);
     else if (arg === "--campaign") out.campaignId = argv[++i];
+    else if (arg === "--tier") out.tier = Number(argv[++i]);
     else if (arg === "--note") out.environmentNote = argv[++i];
     else if (arg === "--allow-download") out.allowDownload = true;
     else if (arg === "--validate") out.validate = true;
@@ -54,6 +55,7 @@ function usage() {
     "  --case <id>         Run one case (repeatable)",
     "  --allow-download    Permit llama.cpp to download an uncached GGUF",
     "  --campaign <id>     Override the UTC campaign id",
+    "  --tier <8|16|24|32> Target RAM tier for this run (required when running)",
     "  --note <text>        Record an environment caveat on the run",
     "  --validate          Validate model/case files without starting processes",
   ].join("\n");
@@ -61,6 +63,18 @@ function usage() {
 
 function readJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
+}
+
+export function resolveBenchmarkArtifactDir(root, tier, modelId, id) {
+  if (![8, 16, 24, 32].includes(tier)) throw new Error("tier must be 8, 16, 24, or 32");
+  if (!modelId || !id) throw new Error("model id and campaign id are required");
+  return join(root, "var/benchmarks/model-tiers", `${tier}gb`, modelId, id);
+}
+
+export function validateTargetTier(model, tier) {
+  if (![8, 16, 24, 32].includes(tier)) throw new Error("tier must be 8, 16, 24, or 32");
+  if (!model?.tiers?.includes(tier)) throw new Error(`model ${model?.id ?? "unknown"} is not eligible for the ${tier} GB tier`);
+  return tier;
 }
 
 function campaignId(now = new Date()) {
@@ -333,8 +347,10 @@ async function main() {
     return;
   }
   if (!args.modelId) throw new Error("--model is required\n\n" + usage());
+  validateTargetTier({ id: args.modelId, tiers: [8, 16, 24, 32] }, args.tier);
   const model = models.find(item => item.id === args.modelId);
   if (!model) throw new Error(`unknown model id: ${args.modelId}`);
+  validateTargetTier(model, args.tier);
 
   const cacheRoot = resolveModelCacheDir(process.env);
   const discoveredGguf = findCachedGguf(model.hf, cacheRoot);
@@ -347,8 +363,7 @@ async function main() {
   }
   const facts = ggufPath ? factsFromGguf(ggufPath) : null;
   const id = args.campaignId ?? campaignId();
-  const campaignDir = join(ROOT, "var/benchmarks/model-tiers", id);
-  const modelDir = join(campaignDir, model.id);
+  const modelDir = resolveBenchmarkArtifactDir(ROOT, args.tier, model.id, id);
   mkdirSync(modelDir, { recursive: true, mode: 0o700 });
   const tempDir = mkdtempSync(join(os.tmpdir(), `aperio-model-tier-${model.id}-`));
   const appPort = await freePort();
@@ -435,6 +450,7 @@ async function main() {
       qualificationSuiteVersion: "pilot-1",
       environmentNote: args.environmentNote ?? null,
       campaignId: id,
+      targetTierGB: args.tier,
       model,
       factsSource: facts ? "gguf" : "catalog",
       ggufFacts: facts,
@@ -458,6 +474,7 @@ async function main() {
       qualificationSuiteVersion: "pilot-1",
       environmentNote: args.environmentNote ?? null,
       campaignId: id,
+      targetTierGB: args.tier,
       model,
       factsSource: facts ? "gguf" : "catalog",
       ggufFacts: facts,
@@ -496,8 +513,9 @@ async function main() {
         sample.at, sample.usedRamBytes, sample.aperioRssBytes, sample.llamaRssBytes, sample.swapBytes ?? "",
       ].join(",")).join("\n");
       writeFileSync(join(modelDir, "metrics.csv"), metricHeader + metricRows + "\n", { mode: 0o600 });
-      atomicJson(join(campaignDir, "campaign.json"), {
+      atomicJson(join(modelDir, "campaign.json"), {
         campaignId: id,
+        targetTierGB: args.tier,
         pilot: true,
         warning: "Pilot harness evidence is not sufficient to select installer defaults.",
         modelIds: [model.id],
