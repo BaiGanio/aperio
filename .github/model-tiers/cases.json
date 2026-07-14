@@ -48,7 +48,7 @@
     "expectedToolSequence": ["recall", "update_memory"],
     "requiredAnswerTerms": ["cortado"],
     "hardGate": true,
-    "stateAssertion": { "kind": "none" },
+    "stateAssertion": { "kind": "memory", "type": "preference", "contentIncludes": ["cortado", "oat milk"] },
     "stateContract": { "reset": "fresh-session", "restore": "fixture-and-workspace", "mutations": ["updates one recalled memory", "tombstones the prior version"] }
   },
   {
@@ -61,7 +61,7 @@
     "expectedToolSequence": ["recall", "wiki_write"],
     "requiredAnswerTerms": [],
     "hardGate": false,
-    "stateAssertion": { "kind": "none" },
+    "stateAssertion": { "kind": "wiki", "query": "Nimbus", "minimumMatches": 1 },
     "stateContract": { "reset": "fresh-session", "restore": "fixture-and-workspace", "mutations": ["creates or updates one wiki article"] }
   },
   {

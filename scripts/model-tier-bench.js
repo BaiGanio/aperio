@@ -65,7 +65,7 @@ function usage() {
   return [
     "Usage: npm run model-tier:pilot -- --model <model-id> [options]",
     "",
-    "This is a qualification runner. Its 14-case suite validates model behavior;",
+    "This is a qualification runner. Its five-case pilot validates model behavior;",
     "results are not sufficient to select installer defaults without a campaign.",
     "",
     "Options:",
@@ -524,15 +524,20 @@ export async function executeBenchmarkCases(cases, {
   return caseResults;
 }
 
-async function verifyState(baseURL, assertion) {
+export async function verifyState(baseURL, assertion, { apiCall = api } = {}) {
   if (!assertion || assertion.kind === "none") return true;
   if (assertion.kind === "memory") {
-    const { raw = [] } = await api(baseURL, "/api/memories");
+    const { raw = [] } = await apiCall(baseURL, "/api/memories");
     return raw.some(memory => {
       if (assertion.type && memory.type !== assertion.type) return false;
       const haystack = `${memory.title ?? ""}\n${memory.content ?? ""}`.toLowerCase();
       return (assertion.contentIncludes ?? []).every(term => haystack.includes(String(term).toLowerCase()));
     });
+  }
+  if (assertion.kind === "wiki") {
+    const query = encodeURIComponent(assertion.query);
+    const { articles = [] } = await apiCall(baseURL, `/api/wiki/search?q=${query}&mode=fulltext&limit=25`);
+    return articles.length >= (assertion.minimumMatches ?? 1);
   }
   return false;
 }

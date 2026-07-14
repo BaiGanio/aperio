@@ -23,6 +23,7 @@ import {
   resolveBenchmarkArtifactDir,
   selectPilotCases,
   DEFAULT_PILOT_CASE_IDS,
+  verifyState,
   resolveTierConfiguration,
   resolveHostTier,
   evaluateTierAdmission,
@@ -75,6 +76,28 @@ test("pilot selection defaults to the explicit five-case funnel and accepts grow
   const expanded = [...suite, { id: "future-pilot-case" }];
   assert.deepEqual(selectPilotCases(expanded), suite);
   assert.deepEqual(selectPilotCases(expanded, ["future-pilot-case"]), [{ id: "future-pilot-case" }]);
+});
+
+test("pilot state assertions verify the replacement memory and wiki article", async () => {
+  const calls = [];
+  const apiCall = async (_baseURL, path) => {
+    calls.push(path);
+    if (path === "/api/memories") {
+      return { raw: [{ type: "preference", title: "Maya's coffee", content: "A cortado with oat milk, no sugar." }] };
+    }
+    return { articles: [{ slug: "nimbus-architecture" }] };
+  };
+
+  assert.equal(await verifyState("http://runner", {
+    kind: "memory", type: "preference", contentIncludes: ["cortado", "oat milk"],
+  }, { apiCall }), true);
+  assert.equal(await verifyState("http://runner", {
+    kind: "wiki", query: "Nimbus", minimumMatches: 1,
+  }, { apiCall }), true);
+  assert.deepEqual(calls, [
+    "/api/memories",
+    "/api/wiki/search?q=Nimbus&mode=fulltext&limit=25",
+  ]);
 });
 
 test("resolveBenchmarkArtifactDir uses the tier-first private layout", () => {
