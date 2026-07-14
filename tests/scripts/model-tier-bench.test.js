@@ -15,6 +15,9 @@ import {
   executeBenchmarkCases,
   restoreQualificationState,
   modelReady,
+  importQualificationFixture,
+  waitForFixture,
+  beginQualificationMeasurement,
   preflightModelCandidate,
   parseArgs,
   resolveBenchmarkArtifactDir,
@@ -299,6 +302,55 @@ test("model readiness requires the exact active model", async () => {
   };
   await modelReady("http://127.0.0.1:1234", "requested-model", { fetchImpl });
   assert.deepEqual(calls, ["http://127.0.0.1:1234/health", "http://127.0.0.1:1234/v1/models"]);
+});
+
+test("qualification fixture import posts the exact 28-memory fixture and verifies the count", async () => {
+  const fixture = { memories: Array.from({ length: 28 }, (_, index) => ({ id: index + 1 })) };
+  const calls = [];
+  const result = await importQualificationFixture("http://127.0.0.1:1234", fixture, {
+    request: async (baseURL, path, options) => {
+      calls.push({ baseURL, path, options });
+      return { imported: 28, errors: [] };
+    },
+    now: (() => { let tick = 100; return () => (tick += 25); })(),
+  });
+
+  assert.equal(result.status, "imported");
+  assert.equal(result.memoryCount, 28);
+  assert.equal(result.durationMs, 25);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].path, "/api/memories/import");
+  assert.deepEqual(JSON.parse(calls[0].options.body), fixture);
+});
+
+test("fixture readiness records embedding readiness and qualification cannot start early", async () => {
+  const calls = [];
+  let poll = 0;
+  const readiness = await waitForFixture("http://127.0.0.1:1234", 28, 1_000, {
+    request: async (_baseURL, path) => {
+      calls.push(path);
+      if (path === "/api/memories") {
+        poll++;
+        return { raw: Array.from({ length: 28 }, () => ({ tags: ["aperio-exam"] })) };
+      }
+      return { memories_total: 28, embedding_queue_size: poll < 2 ? 1 : 0 };
+    },
+    sleep: async () => {},
+    now: (() => { let tick = 1_000; return () => (tick += 50); })(),
+  });
+  assert.deepEqual(readiness, {
+    status: "ready",
+    expectedMemoryCount: 28,
+    taggedMemoryCount: 28,
+    embeddingQueueSize: 0,
+    durationMs: 200,
+  });
+
+  const phases = [];
+  const metrics = { beginQualification: () => { phases.push("begin"); return { phase: "load" }; } };
+  assert.equal(beginQualificationMeasurement(metrics, readiness).phase, "load");
+  assert.deepEqual(phases, ["begin"]);
+  assert.throws(() => beginQualificationMeasurement(metrics, { status: "pending" }), /embedding readiness/);
 });
 
 test("teardown invokes every owned process cleanup even when one stop fails", async () => {

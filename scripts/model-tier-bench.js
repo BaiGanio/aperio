@@ -483,18 +483,61 @@ async function verifyState(baseURL, assertion) {
   return false;
 }
 
-async function waitForFixture(baseURL, expected = 28, timeoutMs = 180_000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const { raw = [] } = await api(baseURL, "/api/memories");
+export async function importQualificationFixture(baseURL, fixture, {
+  request = api,
+  now = Date.now,
+} = {}) {
+  const expectedMemoryCount = 28;
+  if (fixture?.memories?.length !== expectedMemoryCount) {
+    throw new Error(`qualification fixture must contain exactly ${expectedMemoryCount} memories`);
+  }
+  const startedAt = now();
+  const imported = await request(baseURL, "/api/memories/import", {
+    method: "POST",
+    body: JSON.stringify(fixture),
+  });
+  if (imported.imported !== expectedMemoryCount || imported.errors?.length) {
+    throw new Error(`fixture import failed: ${JSON.stringify(imported)}`);
+  }
+  return {
+    status: "imported",
+    memoryCount: imported.imported,
+    durationMs: Math.max(0, now() - startedAt),
+  };
+}
+
+export async function waitForFixture(baseURL, expected = 28, timeoutMs = 180_000, {
+  request = api,
+  sleep = resolveWait => new Promise(resolveWaitPromise => setTimeout(resolveWaitPromise, resolveWait)),
+  now = Date.now,
+} = {}) {
+  const startedAt = now();
+  const deadline = now() + timeoutMs;
+  while (now() < deadline) {
+    const { raw = [] } = await request(baseURL, "/api/memories");
     const tagged = raw.filter(memory => Array.isArray(memory.tags) && memory.tags.includes("aperio-exam"));
     if (tagged.length === expected) {
-      const metrics = await api(baseURL, "/api/metrics");
-      if (metrics.memories_total >= expected && metrics.embedding_queue_size === 0) return;
+      const metrics = await request(baseURL, "/api/metrics");
+      if (metrics.memories_total >= expected && metrics.embedding_queue_size === 0) {
+        return {
+          status: "ready",
+          expectedMemoryCount: expected,
+          taggedMemoryCount: tagged.length,
+          embeddingQueueSize: metrics.embedding_queue_size,
+          durationMs: Math.max(0, now() - startedAt),
+        };
+      }
     }
-    await new Promise(resolveWait => setTimeout(resolveWait, 1_000));
+    await sleep(1_000);
   }
   throw new Error(`fixture did not reach exactly ${expected} tagged memories`);
+}
+
+export function beginQualificationMeasurement(metrics, readiness) {
+  if (readiness?.status !== "ready" || readiness.embeddingQueueSize !== 0) {
+    throw new Error("cannot begin qualification measurement before embedding readiness");
+  }
+  return metrics.beginQualification();
 }
 
 // Poll the codegraph/docgraph status endpoints until both finish their initial
@@ -829,6 +872,8 @@ async function main() {
   let run;
   let transcript;
   let loadMetrics;
+  let fixtureImport;
+  let embeddingReadiness;
   let ledgerOffsets;
   let ledgerSlices;
   const benchmarkEvents = [];
@@ -887,14 +932,13 @@ async function main() {
     });
     atomicJson(join(modelDir, "local-bench.json"), localBench);
 
-    const imported = await api(baseURL, "/api/memories/import", { method: "POST", body: JSON.stringify(fixture) });
-    if (imported.imported !== 28 || imported.errors?.length) throw new Error(`fixture import failed: ${JSON.stringify(imported)}`);
-    await waitForFixture(baseURL);
+    fixtureImport = await importQualificationFixture(baseURL, fixture);
+    embeddingReadiness = await waitForFixture(baseURL, fixtureSummary.memoryCount);
     // Let the code/doc graphs finish indexing the seeded workspace before the
     // qualification window opens, so the search tools have data and index CPU
     // lands in the load phase rather than skewing per-case timing.
     await waitForGraphs(baseURL);
-    loadMetrics = metrics.beginQualification();
+    loadMetrics = beginQualificationMeasurement(metrics, embeddingReadiness);
     ledgerOffsets = captureLedgerOffsets({
       events: join(tempDir, "var/toolrepair/events.tsv"),
       failures: join(tempDir, "var/toolrepair/failures.tsv"),
@@ -966,6 +1010,8 @@ async function main() {
       fixtureContractVersion: fixtureContract.version,
       fixtureMemoryCount: fixtureSummary.memoryCount,
       fixtureTag: fixtureSummary.tag,
+      fixtureImport,
+      embeddingReadiness,
       startedAt,
       finishedAt: new Date().toISOString(),
       caseResults,
@@ -995,6 +1041,8 @@ async function main() {
       fixtureContractVersion: fixtureContract.version,
       fixtureMemoryCount: fixtureSummary.memoryCount,
       fixtureTag: fixtureSummary.tag,
+      fixtureImport,
+      embeddingReadiness,
       startedAt,
       finishedAt: new Date().toISOString(),
       caseResults,
