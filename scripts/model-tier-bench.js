@@ -10,6 +10,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { WebSocket } from "ws";
 import { findCachedGguf, factsFromGguf } from "../lib/helpers/ggufModelFacts.js";
+import { LLAMACPP_MAIN_ALIAS } from "../lib/helpers/llamacppAliases.js";
 import { runBenchmark } from "../lib/helpers/localBench.js";
 import { resolveModelCacheDir } from "../lib/helpers/modelCache.js";
 import {
@@ -358,9 +359,14 @@ async function waitForHttpReady(baseURL, timeoutMs = 180_000) {
   let lastError;
   while (Date.now() < deadline) {
     try {
-      const response = await fetch(`${baseURL}/health`, { signal: AbortSignal.timeout(3_000) });
+      // The Aperio app serves no /health route (readiness on first boot is the
+      // WebSocket session_created handshake); only llama-server exposes /health.
+      // Probe /api/metrics — a real app endpoint that returns 200 once routes are
+      // mounted — otherwise this polled a 404 for the full window and the retry
+      // restart could NEVER complete.
+      const response = await fetch(`${baseURL}/api/metrics`, { signal: AbortSignal.timeout(3_000) });
       if (response.ok) return;
-      lastError = new Error(`health returned ${response.status}`);
+      lastError = new Error(`/api/metrics returned ${response.status}`);
     } catch (error) {
       lastError = error;
     }
@@ -1075,7 +1081,11 @@ async function main() {
     connection = undefined;
     sessionId = undefined;
     await waitForHttpReady(baseURL);
-    await modelReady(`http://127.0.0.1:${llamaPort}`, model.hf);
+    // Probe the tier-sized preset alias, not the raw HF id: requesting the raw
+    // repo:quant resolves to llama.cpp's auto-discovered cache preset (full
+    // model ctx), which the router loads as a SECOND resident instance and
+    // doubles the tier RAM measurement. The app's chat path uses this alias too.
+    await modelReady(`http://127.0.0.1:${llamaPort}`, LLAMACPP_MAIN_ALIAS);
     recordLlamaPid();
     const imported = await api(baseURL, "/api/data/import", { method: "POST", body: JSON.stringify(database) });
     if (imported.imported?.memories !== database.memories?.length) {
@@ -1092,17 +1102,24 @@ async function main() {
       throw new Error(`invalid run: requested ${model.hf}, active provider is ${provider?.name}:${provider?.model}`);
     }
     if (provider.toolEligible !== true) throw new Error("invalid run: active model has no tool surface");
+    console.error(`⏳ app ready — provider ${provider.name}:${model.id}, loading model…`);
 
-    await modelReady(`http://127.0.0.1:${llamaPort}`, model.hf);
+    await modelReady(`http://127.0.0.1:${llamaPort}`, LLAMACPP_MAIN_ALIAS);
     recordLlamaPid();
+    console.error(`⏳ model loaded (${LLAMACPP_MAIN_ALIAS})`);
 
+    // Drive the throughput probe through the tier-sized preset alias. Passing
+    // the raw HF id here made the router load a second, full-context copy of the
+    // model (see modelReady note above), contaminating the RAM curve. Record the
+    // real model id in the artifact so local-bench.json stays keyed on model.hf.
     const localBench = await runBenchmark({
       baseURL: `http://127.0.0.1:${llamaPort}`,
-      model: model.hf,
+      model: LLAMACPP_MAIN_ALIAS,
       profile: "balanced",
       servedCtx: tierConfiguration.servedContext,
     });
-    atomicJson(join(modelDir, "local-bench.json"), localBench);
+    atomicJson(join(modelDir, "local-bench.json"), { ...localBench, model: model.hf });
+    console.error("⏳ throughput probe done — importing fixture…");
 
     fixtureImport = await importQualificationFixture(baseURL, fixture);
     embeddingReadiness = await waitForFixture(baseURL, fixtureSummary.memoryCount);
@@ -1110,6 +1127,7 @@ async function main() {
     // qualification window opens, so the search tools have data and index CPU
     // lands in the load phase rather than skewing per-case timing.
     await waitForGraphs(baseURL);
+    console.error(`⏳ fixture imported (${fixtureSummary.memoryCount}) + graphs ready — measuring ${cases.length} cases`);
     loadMetrics = beginQualificationMeasurement(metrics, embeddingReadiness);
     ledgerOffsets = captureLedgerOffsets({
       events: join(tempDir, "var/toolrepair/events.tsv"),
@@ -1127,7 +1145,18 @@ async function main() {
           connection = fresh;
           sessionId = context.sessionId;
         }
-        return runWsCase(context.ws, caseDef);
+        const position = cases.indexOf(caseDef) + 1;
+        const label = `[${position}/${cases.length}] ${caseDef.id}`;
+        console.error(`${label} (working on it …)`);
+        try {
+          const execution = await runWsCase(context.ws, caseDef);
+          console.error(`${label} (turn done in ${(execution.durationMs / 1000).toFixed(1)}s)`);
+          return execution;
+        } catch (error) {
+          const seconds = ((error.durationMs ?? 0) / 1000).toFixed(1);
+          console.error(`${label} (stopped after ${seconds}s — ${error.message})`);
+          throw error;
+        }
       },
       verifyCaseState: (caseDef) => verifyState(baseURL, caseDef.stateAssertion),
       captureState: captureRetryState,
