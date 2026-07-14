@@ -1263,7 +1263,7 @@ async function main() {
     } catch { /* optional diagnostic */ }
     const measuredQualification = metrics.stop();
     await stopAllProcesses();
-    const measured = createMetricReport(loadMetrics ?? measuredQualification, loadMetrics ? measuredQualification : measuredQualification);
+    const measured = createMetricReport(loadMetrics ?? measuredQualification, measuredQualification);
     ledgerOffsets ??= captureLedgerOffsets({
       events: join(tempDir, "var/toolrepair/events.tsv"),
       failures: join(tempDir, "var/toolrepair/failures.tsv"),

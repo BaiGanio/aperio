@@ -1,6 +1,9 @@
 import os from "node:os";
 import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
 import {
   llamacppContextWindow,
   llamacppCtxStatus,
@@ -9,6 +12,7 @@ import {
   resolveProvider,
   MODEL_FACTS,
   factsForHf,
+  resolveModelFacts,
   isLocalProvider,
   isCloudProvider,
   resolvePerfProfile,
@@ -18,9 +22,29 @@ import {
   SLOW_GEN_TPS,
   machineCapacityPct,
   residentFootprintGB,
+  MODEL_TIER_DEFAULTS,
+  modelDisplayName,
 } from "../../lib/providers/index.js";
 
 mock.method(os, "totalmem", () => 32 * 1024 ** 3);
+
+function minimalGgufHeader() {
+  const u64 = n => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; };
+  const str = value => Buffer.concat([u64(Buffer.byteLength(value)), Buffer.from(value)]);
+  const u32 = n => { const b = Buffer.alloc(4); b.writeUInt32LE(n); return b; };
+  const entry = (key, type, value) => Buffer.concat([str(key), u32(type), type === 8 ? str(value) : u32(value)]);
+  const entries = [
+    entry("general.architecture", 8, "test"),
+    entry("test.block_count", 4, 2),
+    entry("test.context_length", 4, 2048),
+    entry("test.embedding_length", 4, 8),
+    entry("test.attention.head_count", 4, 2),
+    entry("test.attention.head_count_kv", 4, 1),
+    entry("test.attention.key_length", 4, 4),
+    entry("test.attention.value_length", 4, 4),
+  ];
+  return Buffer.concat([Buffer.from("GGUF"), u32(3), u64(0), u64(entries.length), ...entries]);
+}
 
 // Per-model context sizing: pick the largest num_ctx that fits RAM with headroom,
 // so it can be passed as options.num_ctx on the native /api/chat call.
@@ -274,7 +298,7 @@ describe("MODEL_FACTS — hf mapping", () => {
     assert.equal(MODEL_FACTS["qwen3:30b-a3b"].architecture, "moe");
     assert.equal(MODEL_FACTS["qwen3:30b-a3b"].activeParams, 3);
     for (const [key, facts] of Object.entries(MODEL_FACTS)) {
-      if (facts.architecture === "moe") assert.equal(facts.activeParams, 3, `${key} should declare its active parameter count`);
+      if (facts.architecture === "moe") assert.ok(facts.activeParams > 0, `${key} should declare its active parameter count`);
       else assert.equal(facts.activeParams, undefined, `${key} should not declare activeParams (dense)`);
     }
   });
@@ -323,15 +347,21 @@ describe("resolvePerfProfile", () => {
   });
 });
 
-describe("getRecommendedModel — profile-aware model pick (Phase 4)", () => {
-  test("balanced ladder is unchanged (48/24/8 GB thresholds)", () => {
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 64 }), "qwen3:30b-a3b");
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 48 }), "qwen3:30b-a3b");
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 32 }), "gemma4:12b");
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 24 }), "gemma4:12b");
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 16 }), "gemma4:e4b");
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 8 }), "gemma4:e4b");
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 4 }), "qwen2.5:3b");
+describe("getRecommendedModel — configurable RAM tiers", () => {
+  const defaults = [
+    "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+    "unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
+    "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL",
+    "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL",
+  ];
+
+  test("maps RAM boundaries to the configured HF model string", () => {
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 8 }), defaults[0]);
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 12 }), defaults[1]);
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 16 }), defaults[1]);
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 20 }), defaults[2]);
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 24 }), defaults[2]);
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 40 }), "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL");
   });
 
   test("long-context uses the same model ladder as balanced (only ctx sizing differs)", () => {
@@ -343,32 +373,67 @@ describe("getRecommendedModel — profile-aware model pick (Phase 4)", () => {
     }
   });
 
-  test("fast-low-vram prefers the MoE model well below balanced's 48GB rung", () => {
-    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 24 }), "qwen3:30b-a3b");
-    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 20 }), "qwen3:30b-a3b");
-    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 12 }), "gemma4:e4b");
-    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 8 }), "gemma4:e4b");
-    assert.equal(getRecommendedModel("fast-low-vram", { totalRamGB: 4 }), "qwen2.5:3b");
+  test("profiles do not change the configured model choice", () => {
+    for (const p of PERF_PROFILES) assert.equal(getRecommendedModel(p, { totalRamGB: 20 }), defaults[2]);
   });
 
-  test("quality reaches one rung further down than balanced at every tier", () => {
-    assert.equal(getRecommendedModel("quality", { totalRamGB: 32 }), "qwen3:30b-a3b");
-    assert.equal(getRecommendedModel("quality", { totalRamGB: 16 }), "gemma4:12b");
-    assert.equal(getRecommendedModel("quality", { totalRamGB: 6 }), "gemma4:e4b");
-    assert.equal(getRecommendedModel("quality", { totalRamGB: 4 }), "qwen2.5:3b");
+  test("uses env overrides and treats RAM above 24 GB as the top tier", () => {
+    const env = { LLAMACPP_MODEL_TIER_16: "custom/model-GGUF:Q4_K_M" };
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 12 }, env), "custom/model-GGUF:Q4_K_M");
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 0 }, env), defaults[0]);
+    assert.equal(getRecommendedModel("balanced", { totalRamGB: 40 }, env), defaults[3]);
   });
 
-  test("an unknown RAM tier (0) falls through to the safe small model on every profile", () => {
-    for (const p of PERF_PROFILES) {
-      assert.equal(getRecommendedModel(p, { totalRamGB: 0 }), "qwen2.5:3b");
-    }
+  test("tier defaults come from the config registry", () => {
+    assert.deepEqual(MODEL_TIER_DEFAULTS, {
+      LLAMACPP_MODEL_TIER_8: defaults[0],
+      LLAMACPP_MODEL_TIER_16: defaults[1],
+      LLAMACPP_MODEL_TIER_24: defaults[2],
+      LLAMACPP_MODEL_TIER_32: defaults[3],
+    });
   });
 
   test("defaults profile to resolvePerfProfile() and hardware to the real host when omitted", (t) => {
     // t.mock (not the bare module-level `mock`) auto-restores after this test,
     // so it doesn't leak into other tests relying on the file's 32GB default.
     t.mock.method(os, "totalmem", () => 64 * 1024 ** 3);
-    assert.equal(getRecommendedModel(), "qwen3:30b-a3b");
+    assert.equal(getRecommendedModel(), defaults[3]);
+  });
+});
+
+test("modelDisplayName maps curated HF ids to short catalog names", () => {
+  assert.equal(modelDisplayName("unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL"), "qwen3.6:35b-a3b-mtp");
+  assert.equal(modelDisplayName("someone/Custom-GGUF:Q4_K_M"), "Custom-GGUF");
+});
+
+describe("resolveModelFacts", () => {
+  test("falls back from unknown model to conservative generic facts", () => {
+    const facts = resolveModelFacts("someone/custom-GGUF", { LLAMA_CACHE: "/definitely/not/a/cache" });
+    assert.equal(facts.sizeGB, 8);
+    assert.equal(facts.kvBytesPerToken, 524288);
+  });
+
+  test("uses the catalog for a curated HF model before download", () => {
+    const facts = resolveModelFacts("unsloth/Qwen3.5-9B-GGUF:Q4_K_M", { LLAMA_CACHE: "/definitely/not/a/cache" });
+    assert.equal(facts, MODEL_FACTS["qwen3.5:9b"]);
+  });
+
+  test("does not poison a later GGUF lookup with an earlier generic miss", () => {
+    const root = mkdtempSync(join(tmpdir(), "aperio-facts-"));
+    const model = "test-org/test-model-GGUF:Q4_K_M";
+    const repoDir = join(root, "models--test-org--test-model-GGUF");
+    const snapshotDir = join(repoDir, "snapshots", "revision");
+    mkdirSync(snapshotDir, { recursive: true });
+    mkdirSync(join(repoDir, "refs"), { recursive: true });
+    writeFileSync(join(repoDir, "refs", "main"), "revision");
+    // The first call is intentionally before the GGUF exists.
+    const before = resolveModelFacts(model, { LLAMA_CACHE: root });
+    assert.equal(before.source, undefined);
+    writeFileSync(join(snapshotDir, "test-model-Q4_K_M.gguf"), minimalGgufHeader());
+    const after = resolveModelFacts(model, { LLAMA_CACHE: root });
+    assert.equal(after.source, "gguf");
+    assert.equal(after.kvBytesPerToken, 32);
+    rmSync(root, { recursive: true, force: true });
   });
 });
 

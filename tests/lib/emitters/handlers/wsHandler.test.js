@@ -391,6 +391,38 @@ describe("message type: chat", () => {
     });
   });
 
+  test("marks the interrupted turn as interrupted when a subsequent chat supersedes it", async (t) => {
+    const ws = makeWs(t);
+    let calls = 0;
+    let releaseFirstStarted;
+    const firstStarted = new Promise(resolve => { releaseFirstStarted = resolve; });
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        runAgentLoop: async (_messages, _emitter, _opts, _getAbort, setAbort) => {
+          calls++;
+          if (calls === 1) {
+            const controller = new AbortController();
+            setAbort(controller);
+            releaseFirstStarted();
+            await new Promise((_resolve, reject) => {
+              controller.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+            });
+          }
+        },
+      }),
+      __dirname: TEST_DIR,
+    });
+    handler(ws);
+    const first = ws.emit({ type: "chat", text: "first", turnId: "turn-a" });
+    await firstStarted;
+    const second = ws.emit({ type: "chat", text: "second", turnId: "turn-b" });
+    await Promise.all([first, second]);
+    assert.deepStrictEqual(sentOf(ws, "turn_complete"), [
+      { type: "turn_complete", turnId: "turn-a", status: "interrupted" },
+      { type: "turn_complete", turnId: "turn-b", status: "completed" },
+    ]);
+  });
+
   test("pushes the user message to history and calls runAgentLoop", async (t) => {
     const ws       = makeWs(t);
     const loopMsgs = [];

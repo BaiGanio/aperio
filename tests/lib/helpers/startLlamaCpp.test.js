@@ -31,7 +31,7 @@ function fakeSpawn(pid = 99999) {
 }
 
 test("preset ownership includes aliases and underlying hf repos", () => {
-  const ids = presetModelIds(buildModelsPreset({}, {}));
+  const ids = presetModelIds(buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, {}));
   assert.ok(ids.has("aperio-main"));
   assert.ok(ids.has("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"));
   assert.ok(ids.has("aperio-vlm"));
@@ -85,7 +85,7 @@ describe("buildModelsPreset", () => {
   test("defaults to the curated main + VLM models", () => {
     const ini = buildModelsPreset({}, {});
     assert.match(ini, /\[aperio-main\]/);
-    assert.match(ini, /hf-repo = Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M/);
+    assert.match(ini, /hf-repo = unsloth\/Qwen3\.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL/);
     assert.match(ini, /\[aperio-vlm\]/);
     assert.match(ini, /hf-repo = ggml-org\/Qwen2\.5-VL-7B-Instruct-GGUF/);
   });
@@ -99,6 +99,13 @@ describe("buildModelsPreset", () => {
     assert.match(ini, /hf-repo = my-org\/my-model-GGUF:Q8_0/);
     assert.match(ini, /\[aperio-vlm\]/);
     assert.match(ini, /hf-repo = my-org\/my-vlm-GGUF/);
+  });
+
+  test("tier overrides supplied to buildModelsPreset flow into the default model pick", () => {
+    const ini = buildModelsPreset({
+      LLAMACPP_MODEL_TIER_16: "custom/tier-model-GGUF:Q4_K_M",
+    }, { totalRamGB: 12, modelCacheDir: "/definitely/not/a/cache" });
+    assert.match(ini, /hf-repo = custom\/tier-model-GGUF:Q4_K_M/);
   });
 
   test("omits mmproj when LLAMACPP_VLM_MMPROJ is unset (llama-server auto-detects it)", () => {
@@ -117,7 +124,7 @@ describe("buildModelsPreset", () => {
   });
 
   test("LLAMACPP_SERVE_CTX pins ctx-size for both models, skipping RAM-based sizing", () => {
-    const ini = buildModelsPreset({ LLAMACPP_SERVE_CTX: "4096" }, { totalRamGB: 4 });
+    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_SERVE_CTX: "4096" }, { totalRamGB: 4 });
     const ctxLines = ini.match(/ctx-size = \d+/g);
     assert.deepEqual(ctxLines, ["ctx-size = 4096", "ctx-size = 4096"]);
   });
@@ -125,7 +132,7 @@ describe("buildModelsPreset", () => {
   test("ctx-size never exceeds each model's max context regardless of RAM", () => {
     const ini = buildModelsPreset({}, { totalRamGB: 512 });
     const ctxLines = ini.match(/ctx-size = (\d+)/g).map(l => parseInt(l.split(" = ")[1], 10));
-    for (const ctx of ctxLines) assert.ok(ctx <= 32768, `ctx-size ${ctx} should be capped at maxContext 32768`);
+    for (const ctx of ctxLines) assert.ok(ctx <= 262144, `ctx-size ${ctx} should be capped at model max context`);
   });
 
   test("small RAM sizes down toward the floor", () => {
@@ -135,8 +142,9 @@ describe("buildModelsPreset", () => {
   });
 
   test("uses curated hybrid facts conservatively when no inspectable cache is supplied", () => {
-    const q35 = buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.5-9B-GGUF:Q4_K_M" }, { totalRamGB: 32 });
-    const q36 = buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:Q4_K_XL" }, { totalRamGB: 32 });
+    const noCache = { totalRamGB: 32, modelCacheDir: "/definitely/not/a/cache" };
+    const q35 = buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.5-9B-GGUF:Q4_K_M" }, noCache);
+    const q36 = buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:Q4_K_XL" }, noCache);
     assert.match(q35, /\[aperio-main\][\s\S]*?ctx-size = 131072/);
     assert.match(q36, /\[aperio-main\][\s\S]*?ctx-size = 2048/);
   });
@@ -152,7 +160,7 @@ describe("buildModelsPreset", () => {
   });
 
   test("VLM alias still sizes down below the bridge ceiling on a genuinely tight machine", () => {
-    const ini = buildModelsPreset({}, { totalRamGB: 4 });
+    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB: 4 });
     const vlmSection = ini.slice(ini.indexOf("[aperio-vlm]"));
     const ctx = parseInt(vlmSection.match(/ctx-size = (\d+)/)[1], 10);
     assert.ok(ctx < 24576, `expected the VLM window to shrink below the bridge ceiling on 4GB RAM, got ${ctx}`);
@@ -206,7 +214,7 @@ describe("buildModelsPreset — perf profiles", () => {
   test("balanced (default, no env var set): identical to pre-Phase-4 output", () => {
     const ini = buildModelsPreset({}, { totalRamGB: 64 });
     assert.doesNotMatch(ini, /models-max|flash-attn|cache-type|n-cpu-moe/);
-    assert.match(ini, /hf-repo = Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M/, "balanced keeps the fixed curated default model");
+    assert.match(ini, /hf-repo = unsloth\/Qwen3\.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL/, "balanced uses the configured RAM-tier model");
   });
 
   test("fast-low-vram: emits models-max=1 and flash-attn in the global section", () => {
@@ -235,7 +243,7 @@ describe("buildModelsPreset — perf profiles", () => {
 
   test("fast-low-vram: prefers the MoE model by default at 24GB RAM (below balanced's 48GB rung) and emits n-cpu-moe on it", () => {
     const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 24 });
-    assert.match(ini, /hf-repo = Qwen\/Qwen3-30B-A3B-GGUF:Q4_K_M/);
+    assert.match(ini, /hf-repo = unsloth\/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL/);
     assert.match(ini, /n-cpu-moe = 999/);
     // Only one n-cpu-moe line: the VLM model (dense) must not get it.
     assert.equal(ini.match(/n-cpu-moe/g)?.length, 1);
@@ -275,7 +283,7 @@ describe("buildModelsPreset — perf profiles", () => {
 
   test("long-context: model pick is unchanged from balanced (only ctx sizing differs)", () => {
     const long = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context" }, { totalRamGB: 24 });
-    assert.match(long, /hf-repo = Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M/, "long-context keeps the fixed curated default model, same as balanced");
+    assert.match(long, /hf-repo = unsloth\/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL/, "long-context keeps the configured model, same as balanced");
   });
 
   test("quality: picks a bigger default model where the plain fixed default (used unchanged by balanced) would not", () => {
@@ -285,7 +293,7 @@ describe("buildModelsPreset — perf profiles", () => {
     // the profile that reaches into that ladder itself, so it diverges from
     // the fixed default at a RAM tier where the ladder recommends something bigger.
     const quality = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality" }, { totalRamGB: 16 });
-    assert.match(quality, /hf-repo = ggml-org\/gemma-4-12B-it-GGUF:Q4_K_M/);
+    assert.match(quality, /hf-repo = unsloth\/Qwen3\.5-9B-GGUF:Q4_K_M/);
     // Gemma 4 is natively vision-capable, so the preset omits the dedicated
     // VLM rather than putting two resident models into swap mode.
     assert.doesNotMatch(quality, /\[aperio-vlm\]/, "native-vision Gemma 4 does not need a dedicated VLM");
@@ -313,7 +321,7 @@ describe("buildModelsPreset — sizing parity with recommendContextLength", () =
 
   test("main model ctx-size matches a direct recommendContextLength call at several RAM sizes", () => {
     for (const totalRamGB of [4, 8, 16, 24, 48, 64]) {
-      const ini = buildModelsPreset({}, { totalRamGB });
+      const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB });
       const mainCtx = parseInt(ini.match(/ctx-size = (\d+)/)[1], 10);
       const expected = recommendContextLength({
         modelMaxContext: 32768,
@@ -561,6 +569,15 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     assert.equal(getLlamaCppPid(), 42424, "the new engine is now owned");
   });
 
+  test("does not kill a recycled stale PID whose ownership cannot be verified", async () => {
+    writeStoredState(31314, buildModelsPreset({}, {}));
+    mockFetchSequence({ ok: false }, { ok: true });
+    const killed = [];
+    await ensureLlamaCpp(fakeSpawn(42425), async pid => { killed.push(pid); return true; }, undefined, () => false);
+    assert.deepEqual(killed, [], "an unrelated process group must not be killed");
+    assert.equal(getLlamaCppPid(), 42425);
+  });
+
   test("returns without spawning when server is up but unowned (not our spawn, no stored PID)", async () => {
     // No state file, and we need llamaCppProc to be null too (no prior spawn
     // in this module's lifetime). Since the module variable persists across
@@ -608,9 +625,9 @@ describe("killByPid — process-group teardown", () => {
     assert.equal(term[0], -4242, "SIGTERM must target the process GROUP (negative PID)");
   });
 
-  test("returns false when the group is already gone (ESRCH on SIGTERM)", async (t) => {
+  test("returns true when the group is already gone (ESRCH on SIGTERM)", async (t) => {
     t.mock.method(process, "kill", () => { const e = new Error("gone"); e.code = "ESRCH"; throw e; });
-    assert.equal(await killByPid(4242), false);
+    assert.equal(await killByPid(4242), true);
   });
 
   test("ignores invalid PIDs without signaling", async (t) => {
