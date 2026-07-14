@@ -503,6 +503,20 @@ test("runner teardown sweeps every tracked llama pid and the port holder, dedupe
   assert.deepEqual(stopped.at(-1), ["node", 123], "the node app is stopped last, after every llama group");
 });
 
+test("runner teardown re-sweeps a newly published port holder after stopping the app", async () => {
+  const stopped = [];
+  let sweep = 0;
+  await stopRunnerProcesses({
+    child: { pid: 123 },
+    llamaPids: [456],
+    llamaPort: 57419,
+    pidsOnPortFn: () => (sweep++ === 0 ? [456] : [999]),
+    stopLlamaFn: async pid => stopped.push(["llama", pid]),
+    stopChildFn: async child => stopped.push(["node", child.pid]),
+  });
+  assert.deepEqual(stopped, [["llama", 456], ["node", 123], ["llama", 999]]);
+});
+
 test("registerRunnerCleanup runs teardown once per signal then exits with the signal code", async () => {
   const handlers = {};
   const cleanups = [];

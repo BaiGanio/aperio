@@ -19,9 +19,21 @@ benchmarks are supporting evidence, not the deciding evidence.
 - `.github/capability-exam/exam.md` — agent-operated full capability exam
 - `docs/exam/capability-exam.html` — human-operated exam and scorecard
 
-This runbook separates the workflow that is possible today from the automated
-benchmark runner that should be built before testing the entire shortlist. Do not
-pretend a proposed command exists until its implementation has landed.
+This runbook separates the bounded pilot workflow that is possible today from the
+campaign runner still needed to test the entire shortlist. Commands below are
+available only where the current implementation and package scripts provide them.
+
+### Current implementation status — 2026-07-14
+
+The bounded runner now exists at `scripts/model-tier-bench.js` and is available
+through `npm run model-tier:pilot`. It supports exact cached-model preflight, the
+14-case qualification catalog, a five-case pilot funnel, isolated application and
+llama.cpp ownership, fixture import/readiness checks, load-versus-qualification
+metrics, retry state restoration, private artifacts, and tier admission metadata.
+
+The pilot is not a campaign runner: it does not rank candidates, generate tier
+decisions, or integrate the score viewer. Use `--validate` for a non-live contract
+check, and always supply both `--model` and `--tier` for a live run.
 
 The `install-model-tiers` plan is useful input, not an implementation script to
 follow verbatim. Its configurable-tier work remains relevant, but its proposed
@@ -276,9 +288,9 @@ include the initial network download in inference-performance rankings.
 
 ---
 
-## 6. Automated runner to build
+## 6. Automated runner and pilot
 
-The full campaign should be driven by a Node.js ESM script, proposed as:
+The bounded pilot is driven by this Node.js ESM script:
 
 ```text
 scripts/model-tier-bench.js
@@ -286,32 +298,35 @@ scripts/model-tier-bench.js
 .github/model-tiers/cases.json
 ```
 
-Until those files exist, use the manual process in section 12. Do not document
-`npm run model-tier:bench` as an available command before the script and package
-entry are implemented and tested.
+The package command is `npm run model-tier:pilot`. It selects five cases from the
+14-case catalog by default. The full campaign workflow described in sections
+8–11 is still not implemented; do not describe the pilot as campaign evidence.
 
 ### 6.1 Runner lifecycle
 
-For each model, the future runner should:
+For each model, the pilot runner currently does:
 
-1. Create an isolated temporary work directory and database.
-2. Start Aperio on a non-default available port.
-3. Reuse the standard Hugging Face cache.
-4. Wait for the HTTP health check and WebSocket provider handshake.
-5. Verify exact model ID, served context, and tool eligibility.
-6. Import `.github/capability-exam/exam.memories.json`.
-7. Wait for embeddings and verify exactly 28 `aperio-exam` memories.
-8. Capture baseline RAM and swap.
-9. Run the fixed local performance benchmark.
-10. Run qualification cases sequentially through the real WebSocket chat path.
-11. Capture all structured events and metrics.
-12. Repeat a failed case once, in a fresh conversation, to classify flaky versus
-    systematic failure.
-13. Export per-model results.
-14. Run exam teardown and verify fixture/artifact removal.
-15. Gracefully stop Aperio and its owned llama.cpp processes.
-16. Remove only the runner-created temporary state.
-17. Wait for memory and thermal recovery, then continue to the next model.
+1. Admit the exact cached model and requested tier before starting processes.
+2. Create an isolated temporary work directory and database.
+3. Start Aperio on a non-default available port.
+4. Reuse the standard Hugging Face cache.
+5. Wait for the HTTP health check and WebSocket provider handshake.
+6. Verify exact model ID, served context, and tool eligibility.
+7. Import `.github/capability-exam/exam.memories.json`.
+8. Wait for embeddings and verify exactly 28 `aperio-exam` memories.
+9. Keep model-load metrics separate from qualification metrics; take the
+   qualification baseline only after fixture and embedding readiness.
+10. Run the fixed local performance benchmark.
+11. Run qualification cases sequentially through the real WebSocket chat path.
+12. Capture all structured events and metrics.
+13. Repeat a failed case once, in a fresh conversation, to classify flaky versus
+   systematic failure.
+14. Export per-model results.
+15. Run exam teardown and verify fixture/artifact removal.
+16. Gracefully stop Aperio and its owned llama.cpp processes, including a final
+   sweep of the ephemeral llama port after app shutdown.
+17. Remove only the runner-created temporary state.
+18. Wait for memory and thermal recovery, then continue to the next model.
 
 Add an explicit `turn_complete` server event for the runner. `stream_end` alone is
 not sufficient because provider loops may emit intermediate stream ends before a
@@ -598,9 +613,11 @@ more RAM headroom. Installer defaults should be boring and dependable.
 
 ---
 
-## 12. Manual workflow available today
+## 12. Manual workflow and remaining campaign work
 
-Use this only until the automated runner exists.
+The automated pilot now covers preflight and the five-case funnel. Use the manual
+workflow below only for campaign controls or full-exam work that the pilot does
+not yet automate.
 
 For each candidate:
 

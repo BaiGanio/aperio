@@ -892,6 +892,15 @@ export async function stopRunnerProcesses({ child, llamaPid, llamaPids, llamaPor
     ...[...pids].map(pid => ({ stop: () => stopLlamaFn(pid) })),
     { stop: () => stopChildFn(child) },
   ]);
+
+  // The app can finish a graceful shutdown/restart race by publishing a new
+  // router after the initial port sweep (observed during retry recovery). Do
+  // one final sweep after the Node process is stopped so a newly published
+  // llama listener cannot survive the runner's finally block.
+  const latePids = pidsOnPortFn(llamaPort).filter(pid => !pids.has(pid));
+  if (latePids.length) {
+    await teardownOwnedProcesses(latePids.map(pid => ({ stop: () => stopLlamaFn(pid) })));
+  }
 }
 
 // The bench's `finally` block does NOT run when the process is killed by a

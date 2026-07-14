@@ -6,6 +6,15 @@ This section describes the implementation on branch
 `feat/model-tier-benchmark-runner`. Read it before continuing the work or using
 pilot output as evidence.
 
+### Status reconciliation — 2026-07-14
+
+The implementation is ahead of the original closeout wording. The current runner
+has the exact Gemma and Qwen catalog entries, the full 14-case catalog, the
+five-case pilot funnel, exact cached-model admission, load/readiness boundaries,
+separate metric phases, retry restoration, private tier-first artifacts, and
+owned-process cleanup. This document is now a historical handoff plus an
+operator guide; remaining campaign work is listed in section 0.2.
+
 ### 0.1 What exists now
 
 The current branch provides:
@@ -13,10 +22,10 @@ The current branch provides:
 - a final `turn_complete` WebSocket event for client chat turns, optionally
   correlated with a client-supplied `turnId`;
 - model and case schemas with pure validation and scoring helpers;
-- a three-case isolated pilot runner with process ownership, metric sampling,
+- a five-case isolated pilot runner with process ownership, metric sampling,
   private artifacts, timeout classification, teardown, and cleanup;
-- one exact Qwen3.5 9B Q4_K_M model entry and three pilot cases covering recall,
-  a web-to-memory chain, and a guardrail;
+- exact cached Gemma 4 E4B and Qwen3.5 9B Q4_K_M model entries;
+- a 14-case qualification catalog, with five cases selected for the default pilot;
 - focused tests for the new protocol boundary, schemas, scoring, and runner
   helpers.
 
@@ -26,7 +35,7 @@ Validate the configuration without starting Aperio or llama.cpp:
 npm run model-tier:pilot -- --validate
 ```
 
-Run the current pilot for the configured exact model:
+Run the current five-case pilot for the configured exact model:
 
 ```bash
 npm run model-tier:pilot -- --model qwen35-9b-q4km --tier 16
@@ -38,29 +47,47 @@ the model's `tiers` catalog field. Pilot artifacts use the tier-first layout
 `var/benchmarks/model-tiers/<tier>gb/<model-slug>/<campaign-id>/` and record the
 selected tier as `targetTierGB` in `run.json` and `campaign.json`.
 
+On a host larger than the requested tier, the runner records
+`evidenceMode: "simulated-tier"` and caps served context to the requested budget.
+On a host too small to represent the requested tier, or when the model plus
+reserve/context cannot fit the budget, admission is invalid before any process
+starts. A tier label alone is never treated as hardware evidence.
+
 The pilot reuses a cached model by default. Add `--allow-download` only when a
 model download is intentional. Add `--note "<reason>"` to record useful operator
 context with the run.
 
 Raw results belong under `var/benchmarks/model-tiers/` and remain private. A
-three-case pilot result must not be used to promote, reject, or rank a model.
+pilot result must not be used to promote, reject, or rank a model.
 
 ### 0.2 What is not implemented yet
 
 Before this becomes the full campaign runner described in sections 6–11, it
 still needs:
 
-- the complete 14-case qualification suite and its state fixtures;
-- failed-case retry in a fresh conversation with mutated state restored;
-- exact 28-memory import and embedding-readiness verification;
-- tool-repair and tool-failure ledger slicing;
 - campaign-wide summaries and comparable decision artifacts;
-- the complete exact-model catalog and candidate preflight checks;
+- the complete exact-model catalog and repository/quant verification for every
+  research candidate;
 - finalist full-exam orchestration and tier-decision generation.
 
 Treat each item as a separate implementation checkpoint. Explain the checkpoint,
 make and verify only that bounded change, summarize discoveries, and obtain the
 operator's confirmation before starting the next checkpoint.
+
+### 0.2a Honest-tier checkpoint verification
+
+Focused validation on 2026-07-14 passed 33 runner tests, CLI validation, syntax,
+and whitespace checks. An isolated cached Gemma 4 E4B Q4_K_XL pilot verified the
+exact provider handshake, model load, throughput probe, 28-memory fixture import,
+embedding queue drain, graph readiness, and separate load versus qualification
+metrics. The run became `status: "invalid"` during case 2 with `fetch failed`, so
+it is not model qualification evidence.
+
+That run exposed a retry/restart teardown race: a llama listener appeared on the
+runner's ephemeral port after the first cleanup sweep. The runner now performs a
+final port sweep after stopping the Node process, with a regression test. The
+listener was manually reaped during verification; no runner-owned listener
+remains.
 
 ### 0.3 What the first pilots exposed
 
@@ -147,7 +174,7 @@ model references, and malformed expected outcomes. Scoring must distinguish
 `pass`, `fail`, `invalid`, and `skipped` without treating expected answer text as
 proof that a required tool ran.
 
-#### C. Exercise the isolated three-case flow
+#### C. Exercise the isolated five-case flow
 
 Before running, close unrelated inference work if comparable RAM/speed evidence
 matters. Use a cached exact quant unless a download is deliberate:

@@ -1,31 +1,34 @@
-# Next checkpoint: honest tier pilot measurements
+# Completed checkpoint: honest tier pilot measurements
 
-## Why this checkpoint is next
+**Implemented:** 2026-07-14 on `feat/model-tier-benchmark-runner`.
 
-The current pilot runner labels a run with `--tier`, but does not enforce that
-RAM tier. It also starts memory sampling before llama.cpp finishes loading the
-model. The Qwen3.5 9B pilot therefore reported a misleading system peak of
-about 34.3 GB on a 32 GB host, with about 2.86 GB of swap already in use at
-baseline. That is not valid evidence for a 16 GB installation tier.
+## What this checkpoint delivered
 
-The runner did stop its owned server after the timeout through `finally`; the
-remaining problem is measurement boundaries and tier realism, not an
-unreleased server.
+The pilot now treats tier selection as an admission and measurement policy. It
+records whether the requested tier is physical or simulated, sizes served
+context to the requested budget, and rejects hosts/configurations that cannot
+represent that budget. Qualification sampling starts only after model load,
+fixture import, embedding readiness, and graph readiness.
 
-## Required bounded changes
+The checkpoint also exposed a retry/restart teardown race: a newly published
+llama listener could appear after the first cleanup sweep. The runner now
+performs a final sweep of the ephemeral port after stopping the Node process,
+covered by a focused regression test.
 
-1. Add the smallest cached exact model to `.github/model-tiers/models.json`:
+## Completed bounded changes
+
+1. Added the smallest cached exact model to `.github/model-tiers/models.json`:
    `unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`.
-2. Start the isolated server and load/warm the model before starting the
+2. Starts the isolated server and loads/warms the model before starting the
    qualification measurement window.
-3. Wait for fixture import and embedding readiness before taking the post-load
+3. Waits for fixture import and embedding readiness before taking the post-load
    baseline.
-4. Record load metrics separately from qualification metrics. The qualification
+4. Records load metrics separately from qualification metrics. The qualification
    baseline must be captured after model load and before the first case.
-5. Make tier semantics real. A tier run must either enforce a memory budget or
+5. Makes tier semantics real. A tier run either enforces a memory budget or
    explicitly fail admission when the host cannot represent the requested tier;
    a `--tier` label alone is insufficient.
-6. Preserve unconditional teardown of every runner-owned server/process after
+6. Preserves unconditional teardown of every runner-owned server/process after
    the measured run, including success, timeout, and invalid-run paths.
 
 ## Cached model inventory (exact GGUF facts, smallest first)
@@ -49,11 +52,20 @@ unreleased server.
   records the effective tier policy and host capacity.
 - A requested 16 GB run cannot silently claim valid 16 GB evidence on a host or
   configuration that exceeds the defined budget.
-- A successful three-case run is `status: "complete"`; timeout or admission
+- A successful five-case run is `status: "complete"`; timeout or admission
   failure remains `status: "invalid"` with a concrete reason.
 - Owned Aperio and llama.cpp processes are gone after the run.
-- Focused runner tests, the smallest-model pilot path, `git diff --check`, and
-  the affected flow are verified. Do not run a full campaign.
+- Focused runner tests and `git diff --check` pass. The affected Gemma flow
+  reached qualification with correct readiness and metric boundaries, but this
+  verification pilot was invalid due to `fetch failed` in case 2 and must not be
+  interpreted as model capability evidence. No full campaign was run.
+
+## Next bounded checkpoint
+
+Build the campaign-wide aggregate result contract: run-level summaries and
+cross-model comparison artifacts for already-valid qualification results. Keep
+finalist orchestration, installer decisions, and score-viewer integration out of
+that checkpoint.
 
 ## Scope boundary
 
