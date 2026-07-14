@@ -206,7 +206,9 @@ test("CLI admission failure writes only a private invalid run without starting p
     assert.equal(run.tierPolicy, TIER_POLICY);
     assert.equal(run.tierAdmission.policy, TIER_POLICY);
     assert.equal(run.tierAdmission.hostRamGB, run.tierConfiguration.hostRamGB);
-    assert.equal(run.tierAdmission.admission, "rejected");
+    // The tier itself is admissible (a 32 GB host simulates the 8 GB tier);
+    // the invalid run comes from the preflight GGUF-cache check, not the tier.
+    assert.equal(run.tierAdmission.admission, "accepted");
     assert.match(run.invalidReason, /not cached with an exact GGUF candidate/);
     assert.deepEqual(run.caseResults, []);
     assert.deepEqual(readdirSync(tmpdir()).filter(name => name.startsWith(tempPrefix)), [...beforeTemp]);
@@ -232,8 +234,25 @@ test("tier configuration distinguishes target tier from physical host evidence",
   assert.equal(hardware.evidenceMode, "hardware-tier");
 });
 
-test("tier admission rejects a requested tier when host capacity is above the tier budget", () => {
+test("tier admission simulates a smaller tier on a larger host instead of rejecting it", () => {
   const decision = evaluateTierAdmission(16, 32, {
+    sizeGB: 5.29,
+    kvBytesPerToken: 172032,
+    maxContext: 32768,
+  });
+
+  assert.equal(decision.status, "admitted");
+  assert.equal(decision.admission, "accepted");
+  assert.equal(decision.invalidReason, null);
+  assert.equal(decision.targetTierGB, 16);
+  assert.equal(decision.hostRamGB, 32);
+  assert.equal(decision.hostTierGB, 32);
+  assert.equal(decision.configuration.evidenceMode, "simulated-tier");
+  assert.equal(decision.policy, TIER_POLICY);
+});
+
+test("tier admission still rejects a requested tier a host is too small to represent", () => {
+  const decision = evaluateTierAdmission(32, 16, {
     sizeGB: 5.29,
     kvBytesPerToken: 172032,
     maxContext: 32768,
@@ -241,10 +260,10 @@ test("tier admission rejects a requested tier when host capacity is above the ti
 
   assert.equal(decision.status, "invalid");
   assert.equal(decision.admission, "rejected");
-  assert.equal(decision.targetTierGB, 16);
-  assert.equal(decision.hostRamGB, 32);
-  assert.equal(decision.hostTierGB, 32);
-  assert.match(decision.invalidReason, /host capacity .* exceeds the requested 16 GB tier budget/i);
+  assert.equal(decision.targetTierGB, 32);
+  assert.equal(decision.hostRamGB, 16);
+  assert.equal(decision.hostTierGB, 16);
+  assert.match(decision.invalidReason, /cannot represent the requested 32 GB tier budget/i);
   assert.equal(decision.policy, TIER_POLICY);
 });
 

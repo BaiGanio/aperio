@@ -241,9 +241,11 @@ export function evaluateTierAdmission(targetTier, hostRamGB, facts = {}) {
     + configuration.overheadGB
     + contextGB;
 
-  if (configuration.hostTierGB > targetTier) {
-    reasons.push(`host capacity ${configuration.hostRamGB} GB exceeds the requested ${targetTier} GB tier budget`);
-  } else if (configuration.hostTierGB < targetTier) {
+  // A host larger than the requested tier can faithfully simulate the smaller
+  // budget (see evidenceMode "simulated-tier"): we cap served context and hold
+  // the model to the tier's memory budget below. Only a host too SMALL to
+  // physically represent the tier is a hard rejection.
+  if (configuration.hostTierGB < targetTier) {
     reasons.push(`host capacity ${configuration.hostRamGB} GB cannot represent the requested ${targetTier} GB tier budget`);
   }
   if (configurationRequiredGB > configuration.memoryBudgetGB) {
