@@ -132,15 +132,15 @@
   {
     "id": "chain-web-source-memory",
     "title": "Create a memory from a web source",
-    "objective": "Verify a fetched source is persisted as a source memory.",
+    "objective": "Verify a fetched web source is persisted as a source memory that links back to its URL.",
     "section": "chains",
     "kind": "behavior",
-    "prompt": "Fetch https://example.com, then remember a one-line source memory linking to it.",
+    "prompt": "Fetch the Aperio README at https://raw.githubusercontent.com/BaiGanio/aperio/master/README.md, then remember a one-line source memory describing what Aperio is, linking back to https://github.com/BaiGanio/aperio.",
     "expectedToolSequence": ["fetch_url", "remember"],
     "requiredAnswerTerms": [],
     "hardGate": true,
-    "stateAssertion": { "kind": "memory", "type": "source", "contentIncludes": ["example.com"] },
-    "stateContract": { "reset": "fresh-session", "restore": "fixture-and-workspace", "mutations": ["adds one source memory containing example.com"] }
+    "stateAssertion": { "kind": "memory", "type": "source", "contentIncludes": ["BaiGanio/aperio"] },
+    "stateContract": { "reset": "fresh-session", "restore": "fixture-and-workspace", "mutations": ["adds one source memory linking to github.com/BaiGanio/aperio"] }
   },
   {
     "id": "chain-recall-wiki-provenance",

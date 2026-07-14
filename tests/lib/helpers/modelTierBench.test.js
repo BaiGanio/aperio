@@ -52,6 +52,7 @@ test("describeBenchmarkCase returns the complete self-describing artifact contra
     id: "recall",
     title: "Recall Nimbus messaging context",
     objective: "Verify semantic recall grounds the answer in stored architectural context.",
+    prompt: "What does Nimbus use?",
     section: "recall",
     kind: "behavior",
     hardGate: true,
