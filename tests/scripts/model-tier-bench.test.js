@@ -1,9 +1,11 @@
 import { EventEmitter } from "node:events";
+import { spawnSync } from "node:child_process";
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   copyRuntimeLog,
   createMetricReport,
@@ -38,6 +40,9 @@ const cases = [
     stateAssertion: { kind: "memory", type: "source", contentIncludes: ["example.com"] }, timeoutMs: 1_000,
   },
 ];
+
+const RUNNER = fileURLToPath(new URL("../../scripts/model-tier-bench.js", import.meta.url));
+const REPO_ROOT = dirname(dirname(RUNNER));
 
 test("parseArgs collects repeatable case ids and the environment note", () => {
   assert.deepEqual(parseArgs([
@@ -152,6 +157,54 @@ test("admission failures are persisted as invalid runs with a concrete reason", 
     assert.deepEqual(JSON.parse(readFileSync(path, "utf8")), run);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("CLI admission failure writes only a private invalid run without starting processes or a workdir", () => {
+  const fixtureDir = mkdtempSync(join(tmpdir(), "model-tier-cli-admission-test-"));
+  const campaignId = "cli-admission-test";
+  const modelId = "uncached-exact-model";
+  const artifactDir = join(REPO_ROOT, "var/benchmarks/model-tiers/8gb", modelId, campaignId);
+  const tempPrefix = "aperio-model-tier-uncached-exact-model-";
+  const beforeTemp = new Set(readdirSync(tmpdir()).filter(name => name.startsWith(tempPrefix)));
+  try {
+    writeFileSync(join(fixtureDir, "models.json"), JSON.stringify([{
+      id: modelId,
+      displayName: "Uncached exact model",
+      hf: "example.invalid/uncached-model-GGUF:Q4_K_M",
+      quant: "Q4_K_M",
+      sizeGB: 1,
+      tiers: [8],
+    }]));
+    rmSync(artifactDir, { recursive: true, force: true });
+
+    const result = spawnSync(process.execPath, [RUNNER,
+      "--models", join(fixtureDir, "models.json"),
+      "--model", modelId,
+      "--tier", "8",
+      "--campaign", campaignId,
+    ], {
+      cwd: REPO_ROOT,
+      env: { ...process.env, HF_HOME: fixtureDir },
+      encoding: "utf8",
+    });
+
+    assert.equal(result.status, 2, result.stderr);
+    assert.match(result.stderr, /invalid admission/);
+    assert.match(result.stderr, /not cached with an exact GGUF candidate/);
+    assert.deepEqual(readdirSync(artifactDir), ["run.json"]);
+    assert.equal(statSync(artifactDir).mode & 0o777, 0o700);
+    assert.equal(statSync(join(artifactDir, "run.json")).mode & 0o777, 0o600);
+    const run = JSON.parse(readFileSync(join(artifactDir, "run.json"), "utf8"));
+    assert.equal(run.status, "invalid");
+    assert.equal(run.admission, true);
+    assert.match(run.invalidReason, /not cached with an exact GGUF candidate/);
+    assert.deepEqual(run.caseResults, []);
+    assert.deepEqual(readdirSync(tmpdir()).filter(name => name.startsWith(tempPrefix)), [...beforeTemp]);
+    assert.equal(result.stdout, "");
+  } finally {
+    rmSync(artifactDir, { recursive: true, force: true });
+    rmSync(fixtureDir, { recursive: true, force: true });
   }
 });
 
