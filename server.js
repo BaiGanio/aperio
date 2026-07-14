@@ -905,6 +905,9 @@ function parseRoundtableAgents(raw) {
 }
 
 function openBrowser(url) {
+  // Internal automation runs own the HTTP/WebSocket lifecycle and must not
+  // launch a GUI browser on the benchmark host.
+  if (process.env.APERIO_BENCHMARK_RUN === "1") return;
   const [cmd, ...args] =
     process.platform === "darwin" ? ["open", url]
     : process.platform === "win32" ? ["cmd", "/c", "start", url]

@@ -1,0 +1,9 @@
+[
+  {
+    "id": "qwen35-9b-q4km",
+    "displayName": "Qwen3.5 9B Q4_K_M",
+    "hf": "unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
+    "quant": "Q4_K_M",
+    "tiers": [16, 24, 32]
+  }
+]

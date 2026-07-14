@@ -14,6 +14,7 @@
     "chat:cloud": "PORT=1701 node lib/terminal.js",
     "chat:local": "AI_PROVIDER=llamacpp PORT=31337 node lib/terminal.js",
     "local:bench": "node scripts/local-bench.js",
+    "model-tier:pilot": "node scripts/model-tier-bench.js",
     "test:skills": "NODE_ENV=test node --test tests/skills/skills.test.js",
     "test:execution": "NODE_ENV=test node --test tests/skills/execution.test.js",
     "test:store": "NODE_ENV=test node --test tests/store/store.test.js",

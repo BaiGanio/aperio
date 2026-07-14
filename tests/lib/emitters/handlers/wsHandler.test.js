@@ -122,6 +122,14 @@ describe("onConnection — immediate sends", () => {
     assert.strictEqual(ws.sent[1].thinks, true);
   });
 
+  test("provider message exposes tool eligibility independently of greeting tool count", (t) => {
+    const ws = makeWs(t);
+    makeHandler({ NO_TOOLS: false, greetingToolCount: 0 })(ws);
+
+    assert.strictEqual(ws.sent[1].toolCount, 0);
+    assert.strictEqual(ws.sent[1].toolEligible, true);
+  });
+
   test("registers a 'message' listener on the socket", (t) => {
     const listeners = {};
     const ws = { sent: [], send: () => {}, on: (e, h) => { listeners[e] = h; } };
@@ -338,6 +346,51 @@ describe("message type: init", () => {
 // ─── "chat" message ────────────────────────────────────────────────────────────
 
 describe("message type: chat", () => {
+  test("emits one correlated turn_complete after all intermediate stream events", async (t) => {
+    const ws = makeWs(t);
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        runAgentLoop: async (_messages, emitter) => {
+          emitter.send({ type: "stream_end", text: "" });
+          emitter.send({ type: "tool_start", name: "recall", arg: {} });
+          emitter.send({ type: "tool_result", name: "recall", ok: true });
+          emitter.send({ type: "stream_end", text: "final answer" });
+          return "final answer";
+        },
+      }),
+      store: { listAll: async () => [] },
+      __dirname: TEST_DIR,
+    });
+
+    handler(ws);
+    await ws.emit({ type: "chat", text: "remembered fact?", turnId: "case-recall-1" });
+
+    const completed = sentOf(ws, "turn_complete");
+    assert.deepStrictEqual(completed, [{
+      type: "turn_complete",
+      turnId: "case-recall-1",
+      status: "completed",
+    }]);
+    assert.strictEqual(ws.sent.at(-1).type, "turn_complete");
+    assert.ok(ws.sent.findIndex(message => message.type === "tool_result") < ws.sent.length - 1);
+  });
+
+  test("emits an error turn_complete after the error event when a chat turn fails", async (t) => {
+    const ws = makeWs(t);
+    makeHandler({
+      runAgentLoop: async () => { throw new Error("provider unavailable"); },
+    })(ws);
+
+    await ws.emit({ type: "chat", text: "hello", turnId: "case-error-1" });
+
+    assert.strictEqual(sentOf(ws, "error").at(-1).text, "provider unavailable");
+    assert.deepStrictEqual(ws.sent.at(-1), {
+      type: "turn_complete",
+      turnId: "case-error-1",
+      status: "error",
+    });
+  });
+
   test("pushes the user message to history and calls runAgentLoop", async (t) => {
     const ws       = makeWs(t);
     const loopMsgs = [];
