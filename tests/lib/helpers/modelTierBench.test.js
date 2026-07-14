@@ -64,11 +64,11 @@ test("describeBenchmarkCase returns the complete self-describing artifact contra
 });
 
 describe("validateBenchmarkModels", () => {
-  test("requires stable ids and exact repo:quant identifiers", () => {
-    const model = { id: "qwen35-9b-q4km", hf: "org/model-GGUF:Q4_K_M", tiers: [16, 24] };
+  test("requires stable ids and an explicit repository quant", () => {
+    const model = { id: "qwen35-9b-q4km", hf: "org/model-GGUF:Q4_K_M", quant: "Q4_K_M", displayName: "Model", sizeGB: 4, tiers: [16, 24], role: "challenger", verification: { source: "huggingface", repository: "https://huggingface.co/org/model-GGUF", verifiedAt: "2026-07-14" } };
     assert.deepEqual(validateBenchmarkModels([model]), [model]);
     assert.throws(() => validateBenchmarkModels([{ ...model, id: "Qwen 9B" }]), /stable lowercase slug/);
-    assert.throws(() => validateBenchmarkModels([{ ...model, hf: "org/model-GGUF" }]), /repo:quant/);
+    assert.deepEqual(validateBenchmarkModels([{ ...model, hf: "org/model-GGUF" }])[0].quant, "Q4_K_M");
   });
 });
 

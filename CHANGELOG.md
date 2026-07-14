@@ -11,6 +11,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Complete model-tier candidate catalog: 15 unique exact Hugging Face model
+  entries cover the 18 tier placements from the research shortlist, with
+  quantization, size, role, tier eligibility, and verification metadata.
+- Model-tier catalog validation now rejects repository/quant drift, duplicate
+  tier assignments, unsupported roles, invalid sizes, and incomplete
+  Hugging Face verification metadata; repository-only quantized models such as
+  gpt-oss MXFP4 are supported explicitly.
+
 - Model-tier campaign aggregation: a non-live `--aggregate` command now emits
   private `summary.json` and `summary.csv` artifacts, enforces comparable
   campaign controls, and separates invalid runs from genuine model failures.

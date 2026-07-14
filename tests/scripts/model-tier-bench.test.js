@@ -40,6 +40,7 @@ import {
 import {
   aggregateBenchmarkRuns,
   benchmarkSummaryCsv,
+  validateBenchmarkModels,
 } from "../../lib/helpers/modelTierBench.js";
 
 const cases = [
@@ -222,17 +223,36 @@ test("validateTargetTier requires model eligibility", () => {
   assert.throws(() => validateTargetTier(model, 12), /tier must be/);
 });
 
-test("catalog contains the smallest exact cached Gemma entry", () => {
+test("catalog contains the complete verified candidate matrix", () => {
   const models = JSON.parse(readFileSync(".github/model-tiers/models.json", "utf8"));
-  const gemma = models.find(model => model.id === "gemma4-e4b-q4kxl");
-  assert.deepEqual(gemma, {
-    id: "gemma4-e4b-q4kxl",
-    displayName: "Gemma 4 E4B Q4_K_XL",
-    hf: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
-    quant: "Q4_K_XL",
-    sizeGB: 3.93,
-    tiers: [8, 16, 24, 32],
-  });
+  const validated = validateBenchmarkModels(models);
+  assert.equal(validated.length, 15);
+  assert.deepEqual(validated.filter(model => model.tiers.includes(8)).map(model => model.id), [
+    "gemma4-e4b-ud-q4kxl", "qwen35-4b-ud-q4kxl", "ministral3-3b-q4km", "granite40-h-tiny-ud-q4kxl",
+  ]);
+  assert.deepEqual(validated.filter(model => model.tiers.includes(16)).map(model => model.id), [
+    "gemma4-e4b-ud-q4kxl", "qwen35-4b-ud-q4kxl", "ministral3-3b-q4km", "granite40-h-tiny-ud-q4kxl",
+    "qwen35-9b-q4km", "ministral3-14b-q4km", "granite41-8b-q4km", "gpt-oss-20b-mxfp4",
+  ]);
+  const gemma = validated.find(model => model.id === "gemma4-e4b-ud-q4kxl");
+  assert.equal(gemma.hf, "unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL");
+  assert.equal(gemma.quant, "UD-Q4_K_XL");
+  assert.equal(gemma.verification.repository, "https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF");
+  assert.equal(validated.find(model => model.id === "gpt-oss-20b-mxfp4").quant, "mxfp4");
+});
+
+test("catalog validation rejects repository/quant drift and incomplete verification metadata", () => {
+  const base = {
+    id: "catalog-model", displayName: "Catalog model", hf: "org/model-GGUF:Q4_K_M", quant: "Q4_K_M",
+    sizeGB: 4, tiers: [8], role: "challenger",
+    verification: { source: "huggingface", repository: "https://huggingface.co/org/model-GGUF", verifiedAt: "2026-07-14" },
+  };
+  assert.deepEqual(validateBenchmarkModels([base]), [base]);
+  assert.throws(() => validateBenchmarkModels([{ ...base, quant: "Q5_K_M" }]), /quant does not match/);
+  assert.deepEqual(validateBenchmarkModels([{ ...base, hf: "org/model-GGUF" }])[0].quant, "Q4_K_M");
+  assert.throws(() => validateBenchmarkModels([{ ...base, quant: "" }]), /quant/);
+  assert.throws(() => validateBenchmarkModels([{ ...base, role: "default" }]), /role is unsupported/);
+  assert.throws(() => validateBenchmarkModels([{ ...base, tiers: [8, 8] }]), /duplicates/);
 });
 
 test("candidate preflight admits only the exact repo and quant with GGUF facts and disk headroom", () => {
@@ -321,6 +341,8 @@ test("CLI admission failure writes only a private invalid run without starting p
       quant: "Q4_K_M",
       sizeGB: 1,
       tiers: [8],
+      role: "challenger",
+      verification: { source: "huggingface", repository: "https://huggingface.co/example.invalid/uncached-model-GGUF", verifiedAt: "2026-07-14" },
     }]));
     rmSync(artifactDir, { recursive: true, force: true });
 

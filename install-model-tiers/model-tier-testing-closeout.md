@@ -65,9 +65,14 @@ pilot result must not be used to promote, reject, or rank a model.
 Before this becomes the full campaign runner described in sections 6–11, it
 still needs:
 
-- the complete exact-model catalog and repository/quant verification for every
-  research candidate;
 - finalist full-exam orchestration and tier-decision generation.
+
+The exact candidate catalog checkpoint is complete. The catalog now contains 15
+unique candidates covering the 18 tier placements in the runbook, and validation
+checks repository/quant consistency, tier eligibility, size and role metadata,
+and dated Hugging Face verification records. The gpt-oss repository-only serving
+reference is represented with explicit `mxfp4` quant metadata. This checkpoint
+did not download models or run a benchmark campaign.
 
 Treat each item as a separate implementation checkpoint. Explain the checkpoint,
 make and verify only that bounded change, summarize discoveries, and obtain the
@@ -79,7 +84,7 @@ existing per-model artifacts and write private `summary.json` and `summary.csv`
 under `var/benchmarks/model-tiers/<tier>gb/<campaign-id>/`. It enforces the
 campaign controls recorded in `run.json`, keeps completed model failures in the
 comparison, and excludes invalid or incomparable runs from comparable evidence.
-The remaining items above are unchanged.
+The remaining item above is unchanged.
 
 ### 0.2a Honest-tier checkpoint verification
 

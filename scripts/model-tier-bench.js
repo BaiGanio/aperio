@@ -135,9 +135,12 @@ export function validateTargetTier(model, tier) {
 
 const PREFLIGHT_DISK_RESERVE_GB = 2;
 
-function exactModelParts(hf) {
+function exactModelParts(hf, catalogQuant = null) {
   const separator = String(hf).lastIndexOf(":");
-  return { repo: String(hf).slice(0, separator), quant: String(hf).slice(separator + 1) };
+  return {
+    repo: separator > 0 ? String(hf).slice(0, separator) : String(hf),
+    quant: separator > 0 ? String(hf).slice(separator + 1) : String(catalogQuant ?? ""),
+  };
 }
 
 function formatGB(bytes) {
@@ -166,7 +169,7 @@ export function preflightModelCandidate(model, {
   diskReserveGB = PREFLIGHT_DISK_RESERVE_GB,
 } = {}) {
   const reasons = [];
-  const { repo, quant } = exactModelParts(model?.hf);
+  const { repo, quant } = exactModelParts(model?.hf, model?.quant);
   if (!repo.includes("/") || !quant) reasons.push(`model must use an exact Hugging Face repo:quant identifier: ${model?.hf ?? "missing"}`);
   if (model?.quant && model.quant.toLowerCase() !== quant.toLowerCase()) {
     reasons.push(`catalog quant ${model.quant} does not match requested ${quant}`);

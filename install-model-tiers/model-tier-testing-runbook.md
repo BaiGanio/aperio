@@ -36,6 +36,14 @@ The pilot is not a campaign runner: it does not rank candidates, generate tier
 decisions, or integrate the score viewer. Use `--validate` for a non-live contract
 check, and always supply both `--model` and `--tier` for a live run.
 
+The checked-in catalog contains 15 unique candidates covering the 18 tier
+placements in section 2. Each entry has a stable ID, exact repository and
+quantization metadata, approximate pre-download size, tier eligibility, role,
+and a dated Hugging Face repository verification record. `--validate` checks
+those fields before any process starts. Models whose serving reference is a
+repository without a tag must still declare their quantization explicitly;
+gpt-oss is the current MXFP4 example.
+
 To aggregate existing runs without starting Aperio or llama.cpp:
 
 ```bash
