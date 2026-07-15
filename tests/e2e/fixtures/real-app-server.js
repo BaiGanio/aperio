@@ -40,11 +40,21 @@ try {
   // Default: skip boot (lightweight HTTP-only for middleware tests).
   const skipBoot = process.env.APERIO_E2E_SKIP_BOOT !== "0";
 
+  // APERIO_E2E_INJECT_AGENT=1 creates a contract-faithful test-agent stub
+  // and injects it into createApp, so bootApp runs fully (DB + API + WebSocket)
+  // without needing a real model provider.
+  let injectAgent = null;
+  if (process.env.APERIO_E2E_INJECT_AGENT === "1") {
+    const { createTestAgent } = await import(resolve(REPO_ROOT, "tests/e2e/helpers/test-agent.js"));
+    injectAgent = createTestAgent();
+  }
+
   const app = await createApp({
     root: REPO_ROOT,
     skipBoot,
     skipBrowser: true,
     autoListen: false,
+    injectAgent,
   });
 
   // Start listening. When skipBoot=false, we also call bootAppOnce() to
