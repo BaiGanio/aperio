@@ -36,8 +36,11 @@ export async function startRealApp(t, options = {}) {
   const { readyTimeout = READY_TIMEOUT, env = {} } = options;
 
   // Child process env — build from current env + overrides
+  // PORT=0 by default so ensurePort() never races on a shared port.
+  // Individual tests can override via the env option.
   const childEnv = {
     ...process.env,
+    PORT: "0",
     NODE_ENV: "test",
     APERIO_BENCHMARK_RUN: "1",
     ...env,
