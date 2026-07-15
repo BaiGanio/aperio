@@ -23,6 +23,7 @@
     "test:only": "NODE_ENV=test node --test --test-name-pattern",
     "test": "NODE_ENV=test node --test $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) 'tests/**/*.test.js'",
     "test:e2e": "NODE_ENV=test node --test 'tests/e2e/**/*.test.js'",
+    "test:e2e:real": "NODE_ENV=test node --test 'tests/e2e/real-app-*.test.js'",
     "test:ci": "NODE_ENV=test c8 --clean node --test $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) 'tests/**/*.test.js'",
     "gen:env": "node scripts/gen-env-example.js",
     "gen:env:check": "node scripts/gen-env-example.js --check",

@@ -11,9 +11,10 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
  * Safe: does NOT import server.js (importing it starts the server).
  */
 function extractServerLocales() {
-  const src = readFileSync(resolve(ROOT, "server.js"), "utf8");
-  const m = src.match(/const SUPPORTED_LOCALES = new Set\(\[\n([\s\S]+?)\n\]\)/);
-  if (!m) throw new Error("Could not find SUPPORTED_LOCALES in server.js");
+  // SUPPORTED_LOCALES moved to lib/server.js during composition-root extraction
+  const src = readFileSync(resolve(ROOT, "lib/server.js"), "utf8");
+  const m = src.match(/\s*const SUPPORTED_LOCALES = new Set\(\[\n([\s\S]+?)\n\s*\]\)/);
+  if (!m) throw new Error("Could not find SUPPORTED_LOCALES in lib/server.js");
   const set = new Set();
   for (const line of m[1].split("\n")) {
     for (const q of line.matchAll(/"([^"]+)"/g)) {
