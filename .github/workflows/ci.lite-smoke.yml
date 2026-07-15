@@ -82,21 +82,12 @@ jobs:
             "  ok  $($_.Name)"
           }
 
-      - name: Boot server headless & assert it answers
+      - name: Run shared installation smoke contract (POSIX)
+        if: runner.os != 'Windows'
         shell: bash
-        run: |
-          node server.js & SRV=$!
-          ok=0
-          for _ in $(seq 1 90); do
-            if curl -fsS "http://127.0.0.1:${PORT}/api/bootstrap/state" -o state.json 2>/dev/null; then
-              ok=1; break
-            fi
-            kill -0 "$SRV" 2>/dev/null || { echo "✖ server exited before answering"; break; }
-            sleep 1
-          done
-          kill "$SRV" 2>/dev/null || true
-          if [ "$ok" = "1" ]; then
-            echo "✔ /api/bootstrap/state answered:"; cat state.json
-          else
-            echo "✖ no answer on /api/bootstrap/state within 90s"; exit 1
-          fi
+        run: bash vms/smoke.sh .
+
+      - name: Run shared installation smoke contract (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: .\vms\smoke.ps1 .
