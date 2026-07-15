@@ -34,6 +34,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Local llama.cpp tool chains now reserve request headroom using dynamic schema
+  budgets and a serialized-request preflight, account for newly appended recall
+  results before the next model round-trip, and steer oversized recall results
+  toward narrower retrieval before full artifact expansion. Model-tier runs now
+  classify completed context-limit responses as invalid infrastructure evidence
+  instead of model-quality failures or behavioral retries.
+
 - Model-tier timeout diagnostics are now persisted per invalid case: structured
   `timeoutKind` and `timeoutEvidence` fields distinguish explicit llama.cpp
   context-limit evidence from generic model-loop deadline expiry and survive
@@ -43,6 +50,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - All 26 locale JSONs now have full parity with the English baseline (371 keys each, `diff-locales.js` exits 0).
 
 ### Changed
+
+- Contributor documentation now explains the model-tier pilot/campaign
+  workflow, isolated per-case execution, private artifact layout, retry-aware
+  result classification, and the evidence gates required before changing tier
+  defaults.
 
 - `scripts/check-docs-i18n.js` switcher check validates against `docs/lang-map.js` (world-map) instead of stale `data-lang` markup in `index.html`.
 

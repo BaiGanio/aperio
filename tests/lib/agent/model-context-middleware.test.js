@@ -6,10 +6,19 @@ import {
   TOOL_RESULT_OFFLOAD_MIDDLEWARE_NAME,
   createModelContextMiddleware,
   createToolResultOffloadMiddleware,
+  projectObservedInputTokens,
 } from "../../../lib/agent/model-context-middleware.js";
 
 const noop = () => {};
 const logger = { info: noop, warn: noop };
+
+test("projects newly appended recall results into the next request's input pressure", () => {
+  assert.equal(projectObservedInputTokens({
+    observedInputTokens: 9_775,
+    previousMessageTokens: 120,
+    currentMessageTokens: 1_820,
+  }), 11_475);
+});
 
 test("composes trimming, memory pointers, skills, and tool profiles in named order", async () => {
   const events = [];

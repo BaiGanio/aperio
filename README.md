@@ -231,6 +231,61 @@ npm run vmtest:linux:debian   # Debian ARM64 + development install
 npm run vmtest:windows        # Windows 11 ARM + clean snapshot
 ```
 
+### Model-tier benchmark campaigns (maintainers)
+
+The model-tier pilot measures whether a local llama.cpp model can use Aperio's
+tools correctly, complete fixed qualification cases, and stay within the RAM
+and context budget assigned to an 8, 16, 24, or 32 GB tier. It is useful when
+comparing candidate installer defaults or diagnosing a model/tier failure. It
+is not a general-purpose speed benchmark, and one pilot run is not enough to
+promote an installer default.
+
+Validate the catalog and cases without starting any model process:
+
+```bash
+npm run model-tier:pilot -- --validate
+```
+
+Run one isolated case for one model and tier. Use a fresh campaign ID for an
+audit so the private evidence cannot overwrite another run:
+
+```bash
+npm run model-tier:pilot -- \
+  --model gemma4-e4b-ud-q4kxl \
+  --tier 16 \
+  --case chain-recall-wiki \
+  --campaign audit-YYYYMMDD-gemma-e4b-16gb-chain-recall
+```
+
+The model catalog is in `.github/model-tiers/models.json`; supported tier
+values are `8`, `16`, `24`, and `32`. The runner starts an isolated temporary
+SQLite app/workspace, imports the qualification fixture, waits for app/model/
+embedding/graph readiness, runs the selected case, and tears the processes and
+temporary workdir down afterward. Private evidence is written to:
+
+```text
+var/benchmarks/model-tiers/<tier>gb/<model>/<campaign-id>/
+```
+
+Keep this directory private and never commit it. Important files are
+`run.json`, `cases.jsonl`, `transcript.jsonl`, `application.log`,
+`llamacpp.log`, and `metrics.csv`. Inspect the logs before rerunning: a
+`exceed_context_size_error` is explicit context-limit evidence and makes the
+case invalid rather than a model-quality failure, even if the application also
+emitted a completed terminal turn. It is not behaviorally retried. A whole-turn
+deadline without that evidence is a generic loop timeout. Missing app/model/
+fixture/graph readiness is a harness/readiness failure; a case that passes
+tool-sequence and state assertions is a valid completion. The runner may retry
+an ordinary behavioral failure after restoring the isolated fixture, so
+classify the final persisted case result while retaining the first-attempt
+diagnostics.
+
+For a controlled tier audit, run cases sequentially and use a separate campaign
+ID per placement. Afterward, use the non-live aggregation/finalist workflow
+(`--aggregate`, `--finalists`, and `--decide --evidence <path>`) only on valid,
+comparable evidence. Do not treat a single pilot pass as a tier recommendation;
+the full-exam manifest and human review are required before changing defaults.
+
 > **💡 New to the chat?** Type `help` for a guided tour — every command comes
 > with a runnable `try:` example. Type `help <command>` (e.g. `help attach`) for
 > focused docs, or `examples` to hide/show the example lines (your choice sticks).

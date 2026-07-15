@@ -67,6 +67,20 @@ describe("tool-result offloading", () => {
     assert.equal(stored.metadata.sourceTool, "run_shell");
   });
 
+  test("tells recall callers to narrow retrieval before reading the full artifact", () => {
+    const { offload } = fixture();
+    const out = offload("Nimbus memory ".repeat(500), { ...context, toolName: "recall" });
+
+    assert.equal(out.artifacts.length, 1);
+    assert.match(out.result, /narrower recall/i);
+    assert.match(out.result, /lower limit/i);
+    assert.match(out.result, /artifact retrieval only if/i);
+    assert.ok(
+      out.result.search(/narrower recall/i) < out.result.search(/artifact retrieval only if/i),
+      "bounded retrieval guidance must precede full-artifact retrieval",
+    );
+  });
+
   test("uses one quarter of a small context window as the effective token limit", () => {
     const { offload } = fixture({ tokenLimit: 20_000 });
     const original = "token ".repeat(1_000);

@@ -687,7 +687,18 @@ export function runWsCase(ws, caseDef) {
     const onMessage = raw => {
       const event = JSON.parse(raw.toString());
       events.push(event);
-      if (event.type === "turn_complete" && event.turnId === caseDef.id) finish();
+      if (event.type === "turn_complete" && event.turnId === caseDef.id) {
+        const timeoutEvidence = classifyTimeoutEvidence(events);
+        if (timeoutEvidence.kind === "llamacpp-context-limit") {
+          const error = new Error(`case ${caseDef.id} exceeded llama.cpp context size`);
+          error.code = "LLAMACPP_CONTEXT_LIMIT";
+          error.timeoutKind = timeoutEvidence.kind;
+          error.timeoutEvidence = timeoutEvidence.evidence;
+          finish(error);
+        } else {
+          finish();
+        }
+      }
     };
     const onClose = () => finish(new Error(`WebSocket closed during ${caseDef.id}`));
     const onError = error => finish(error);
@@ -711,7 +722,11 @@ export function runWsCase(ws, caseDef) {
 }
 
 export function classifyTimeoutEvidence(events = []) {
-  const evidence = events.filter(event => JSON.stringify(event).includes("exceed_context_size_error"));
+  const evidence = events.filter(event => {
+    const text = JSON.stringify(event);
+    return text.includes("exceed_context_size_error") ||
+      /exceeds the available context size/i.test(text);
+  });
   return {
     kind: evidence.length ? "llamacpp-context-limit" : "generic-model-loop-timeout",
     evidence,

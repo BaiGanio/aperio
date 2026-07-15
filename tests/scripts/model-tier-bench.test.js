@@ -1022,6 +1022,35 @@ test("runWsCase carries context-limit evidence on timeout without relabeling gen
   );
 });
 
+test("runWsCase rejects a completed turn that contains a llama.cpp context overflow", async () => {
+  class OverflowSocket extends EventEmitter {
+    send(raw) {
+      const request = JSON.parse(raw);
+      queueMicrotask(() => {
+        this.emit("message", Buffer.from(JSON.stringify({
+          type: "stream_end",
+          text: "request (11470 tokens) exceeds the available context size (11264 tokens), try increasing it",
+        })));
+        this.emit("message", Buffer.from(JSON.stringify({
+          type: "turn_complete",
+          turnId: request.turnId,
+          status: "completed",
+        })));
+      });
+    }
+  }
+
+  await assert.rejects(
+    () => runWsCase(new OverflowSocket(), { id: "overflow", prompt: "overflow", timeoutMs: 1_000 }),
+    error => {
+      assert.equal(error.code, "LLAMACPP_CONTEXT_LIMIT");
+      assert.equal(error.timeoutKind, "llamacpp-context-limit");
+      assert.equal(error.caseEvents.at(-1).type, "turn_complete");
+      return true;
+    },
+  );
+});
+
 test("offline audit rescoring covers the 24 GB Gemma and 32 GB Qwen recall-filter-type artifacts without writing var", () => {
   const report = rescorePersistedRuns(REPO_ROOT);
   const gemma = report.find(item => item.artifactPath.endsWith("24gb/gemma4-e4b-ud-q4kxl/20260715T083512Z/run.json"));

@@ -68,7 +68,7 @@ describe("tool-profiles — self-memory always offered", () => {
 // the full re-sent schema set plus a tool result, so cap the attached tools.
 describe("capToolsForWindow", () => {
   const bigWin = SMALL_WINDOW_TOKENS + 1;
-  const smallWin = SMALL_WINDOW_TOKENS - 1;
+  const smallWin = 8191;
 
   test("leaves a large window untouched", () => {
     const names = new Set(["recall", "remember", "fetch_github_issue", "fetch_url", "read_file", "scan_project", "code_search", "doc_search", "db_query", "web_search", "export_data", "import_data"]);
@@ -94,6 +94,38 @@ describe("capToolsForWindow", () => {
     const capped = capToolsForWindow(names, smallWin);
     assert.ok(capped.has("recall"), "recall floor survives");
     assert.ok(capped.has("fetch_github_issue"), "the turn's intent tool survives the cap");
+  });
+
+  test("caps schema tokens dynamically for 11k and 16k local windows", () => {
+    const names = new Set([
+      "recall", "wiki_write", "wiki_get", "wiki_search", "wiki_list", "propose_wiki",
+      ...TOOL_PROFILES.memory, ...TOOL_PROFILES.self, ...TOOL_PROFILES.data,
+    ]);
+    const schemaTokenCosts = new Map([...names].map(name => [name, 400]));
+
+    const at11k = capToolsForWindow(names, 11_264, { schemaTokenCosts });
+    const at16k = capToolsForWindow(names, 16_384, { schemaTokenCosts });
+
+    assert.ok(at11k.size < names.size, "11k window must not receive the full schema set");
+    assert.ok(at16k.size < names.size, "16k window must retain headroom for chained tool results");
+    for (const required of ["recall", "wiki_write", "wiki_search"]) {
+      assert.ok(at11k.has(required), `${required} survives the 11k schema budget`);
+      assert.ok(at16k.has(required), `${required} survives the 16k schema budget`);
+    }
+  });
+});
+
+describe("tool-profiles — wiki authoring", () => {
+  test("wiki writes do not also attach filesystem edit tools", () => {
+    const profiles = classifyProfiles("Write a wiki article summarizing everything we know about Nimbus");
+    assert.ok(profiles.has("wiki"));
+    assert.ok(!profiles.has("file-edit"));
+  });
+
+  test("an explicit wiki export path still attaches filesystem edit tools", () => {
+    const profiles = classifyProfiles("Write a wiki article and save it to a markdown file");
+    assert.ok(profiles.has("wiki"));
+    assert.ok(profiles.has("file-edit"));
   });
 });
 

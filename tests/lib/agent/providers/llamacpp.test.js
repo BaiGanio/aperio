@@ -7,7 +7,27 @@
 
 import { describe, test, mock, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { estimateThinkingTokens } from "../../../../lib/agent/providers/llamacpp.js";
+import { estimateThinkingTokens, fitToolsToContext } from "../../../../lib/agent/providers/llamacpp.js";
+
+test("request preflight removes lowest-priority schemas until headroom is restored", () => {
+  const tools = ["recall", "wiki_write", "wiki_search", "wiki_list"].map(name => ({
+    type: "function",
+    function: { name },
+  }));
+  const result = fitToolsToContext(
+    [{ role: "system", content: "prompt" }],
+    tools,
+    1_000,
+    {
+      estimateTokens: value => 500 + value.tools.length * 180,
+      headroomRatio: 0.9,
+    },
+  );
+
+  assert.deepEqual(result.tools.map(tool => tool.function.name), ["recall", "wiki_write"]);
+  assert.equal(result.removed, 2);
+  assert.ok(result.estimatedTokens <= 900);
+});
 
 // ─── Logger mock ──────────────────────────────────────────────────────────
 
@@ -177,6 +197,50 @@ describe("runLlamaCppLoop — health check failure", () => {
     assert.equal(healthProbes, 1, "health probe should run once as a preflight, not per turn");
     assert.equal(chatCalls, 2, "tool turn + final answer turn");
     assert.equal(result, "Final answer.");
+  });
+
+  test("projects a recall result into context pressure before the next model request", async () => {
+    let chatCalls = 0;
+    const observed = [];
+    mock.method(globalThis, "fetch", async (url) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/chat/completions")) {
+        chatCalls++;
+        const chunks = chatCalls === 1 ? [
+          'data: {"choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"r1","function":{"name":"recall","arguments":"{\\"query\\":\\"Nimbus\\"}"}}]},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"input_tokens":100,"output_tokens":8}}\n\n',
+          'data: [DONE]\n\n',
+        ] : [
+          'data: {"choices":[{"index":0,"delta":{"content":"Grounded answer."},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":700,"output_tokens":3}}\n\n',
+          'data: [DONE]\n\n',
+        ];
+        return { ok: true, status: 200, text: async () => "", body: sseStream(chunks) };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    const ctx = baseCtx("gemma4:e4b", {
+      callTool: mock.fn(async () => "Nimbus ".repeat(300)),
+      prepareModelContext: mock.fn(async request => {
+        observed.push(request.observedInputTokens);
+        return {
+          messages: request.messages,
+          systemPrompt: "System prompt",
+          tools: [{ name: "recall", description: "Recall", inputSchema: { type: "object" } }],
+        };
+      }),
+    });
+
+    const result = await runLlamaCppLoop(
+      [{ role: "user", content: "Summarize Nimbus" }],
+      { send: makeEmittersend() }, {}, undefined, () => {}, ctx,
+    );
+
+    assert.equal(result, "Grounded answer.");
+    assert.equal(observed[0] > 0, true, "first request estimates its current messages");
+    assert.ok(observed[1] > 100, "second request includes growth from the appended recall result");
   });
 
   test("does not re-probe on a subsequent user turn sharing one session state", async () => {
