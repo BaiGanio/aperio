@@ -219,6 +219,18 @@ npm run chat:local               # runs as proxy or standalone
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
+### Installation smoke tests
+
+Contributors with an Apple Silicon Mac can verify fresh ARM64 installs in
+disposable Parallels environments. See [`vms/README.md`](vms/README.md) for
+prerequisites, snapshot setup, logs, and troubleshooting:
+
+```bash
+npm run vmtest:linux          # Ubuntu ARM64 + one-liner installer
+npm run vmtest:linux:debian   # Debian ARM64 + development install
+npm run vmtest:windows        # Windows 11 ARM + clean snapshot
+```
+
 > **💡 New to the chat?** Type `help` for a guided tour — every command comes
 > with a runnable `try:` example. Type `help <command>` (e.g. `help attach`) for
 > focused docs, or `examples` to hide/show the example lines (your choice sticks).

@@ -18,6 +18,27 @@ npm run test:only -- --test-name-pattern="pattern"  # Filter by name
 npm run coverage               # Generate lcov report from c8
 ```
 
+## Installation smoke tests
+
+The shared VM contract lives in `vms/smoke.sh` and `vms/smoke.ps1`. It validates
+Node.js, native modules (`better-sqlite3`, `sqlite-vec`, and `sharp`), SQLite
+migrations, HTTP bootstrap, setup-page delivery, and runtime hygiene.
+
+On an Apple Silicon Mac with Parallels Pro/Business and the
+`vagrant-parallels` plugin:
+
+```bash
+npm run vmtest:linux
+npm run vmtest:linux:debian
+npm run vmtest:windows
+```
+
+The Linux executors use disposable native ARM64 Vagrant guests. The Windows
+executor resets a pre-created Windows 11 ARM VM to its `clean` Parallels
+snapshot. All executors exclude host `node_modules`, write logs to `vms/out/`,
+and clean up their guest state on failure as well as success. See
+[`vms/README.md`](../../vms/README.md) for setup and environment overrides.
+
 ## Test Helpers
 
 - `tests/mockDB.js` — in-memory SQLite store for tests

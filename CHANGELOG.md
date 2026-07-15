@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Disposable ARM64 installation smoke executors: Vagrant + Parallels profiles
+  for Ubuntu/Debian Linux and a Parallels snapshot runner for Windows 11 ARM;
+  all invoke the shared `vms/smoke` contract and collect logs under `vms/out/`.
+- `npm run vmtest:linux`, `npm run vmtest:linux:debian`, and
+  `npm run vmtest:windows` contributor commands.
 - Real-app E2E test harness: callable `createApp()` composition root in `lib/server.js`,
   thin production `server.js` entrypoint, child-process fixture, contract-faithful test agent.
   Six test groups covering architecture (6), HTTP middleware (9), SQLite persistence (6),
