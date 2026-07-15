@@ -1,56 +1,50 @@
-# Completed checkpoint: isolated retry-readiness verification
+# Completed checkpoint: slow multi-tool timeout repair
 
 **Implemented:** 2026-07-15 on `feat/model-tier-benchmark-runner`.
 
-This checkpoint verifies the retry-readiness and private-artifact fixes in the
-isolated pilot runner. Verification placement
-`verification-20260715-readiness-fix` loaded the exact cached Gemma 4 E4B
-`UD-Q4_K_XL` model at the simulated 8 GB tier, completed all five pilot cases,
-and finished with four passes and one model-behavior failure. Retry restoration
-completed without the previous generic `fetch failed` harness invalidation.
-Artifacts remained private (`600` files, `700` directory), and no runner-owned
-process, listener, or temporary directory remained. It does not select
-installers or integrate a score viewer or visuals.
+Two approved cached Qwen3.5 9B Q4_K_M placements at the simulated 16 GB tier
+reproduced the same invalid first-case timeout under the former 120-second
+whole-turn deadline. Exact-model admission, the throughput probe, the 28-memory
+fixture, embedding readiness, private artifacts, and cleanup all succeeded.
+The model made successful `recall` calls, but its 34–57 second prompt-prefill
+rounds left insufficient time for the next round to emit `turn_complete`.
+
+The benchmark default now allows 300 seconds for the complete multi-tool case.
+This matches llama.cpp's existing per-request ceiling while retaining a bounded
+turn and preserving completed wall time as ranking evidence. A timeout remains
+an invalid benchmark run, never a model failure. The repair changed only the
+benchmark case-normalization contract and its focused test; it did not alter
+`lib/context/`, installer/runtime behavior, score-viewer visuals, or model
+selection.
 
 ## Review contract
 
-The runner now supports:
-
-- `.github/model-tiers/full-exam.json`, which enumerates all scored drills and
-  repeat groups from the capability-exam sections;
-- `--finalists`, which writes private `finalists.json` from valid comparable
-  campaign rows;
-- `--decide --evidence <path>`, which writes private `decisions.json` and
-  `decisions.md` after validating the 81-observation evidence contract and
-  applying the full-exam gates;
-- deterministic tier roles: default, fallback, unsupported, or unverified.
-- `--execute-campaign --campaign <id>`, which executes every placement in the
-  private plan sequentially through the existing pilot runner;
-- `--execute-campaign --dry-run --campaign <id>`, which validates placement
-  ordering and scope without starting model processes;
-- private `execution.json` ledgers that preserve campaign controls and each
-  placement's process outcome.
-- retry restoration that waits for both HTTP routes and the WebSocket/app-ready
-  handshake before importing the fixture;
-- retry failures that preserve their phase (`state restoration` or `context
-  creation`) in the invalid-run reason;
-- copied llama diagnostics forced to private mode `600`.
+- The five pilot cases inherit one fixed 300-second whole-turn timeout.
+- Explicit positive per-case overrides remain supported by the validator.
+- Timeout and retry controls must remain identical within a campaign.
+- Raw artifacts remain private under `var/benchmarks/model-tiers/`.
+- Invalid runs remain excluded from model scoring and ranking.
+- The two earlier Qwen artifacts remain diagnostic evidence only:
+  `placement-20260715-qwen35-9b-16gb-cf329a8` and
+  `placement-20260715-qwen35-9b-16gb-cf329a8-retry1`.
+- The misleading warm-request `model_status: loading` alias mismatch is a
+  separate deferred observability issue.
 
 Validate without starting Aperio or llama.cpp:
 
 ```bash
 npm run model-tier:pilot -- --validate
+node --test tests/lib/helpers/modelTierBench.test.js tests/scripts/model-tier-bench.test.js
 ```
 
-Focused verification passed 50 runner tests, catalog validation, syntax checks,
-and `git diff --check`. The approved readiness verification completed all five
-pilot cases and produced private artifacts. Its 4/5 result is verification
-evidence only, not campaign-ranking evidence.
+Focused verification passed 62 tests, catalog validation, syntax checks, and
+scoped whitespace checks. No model was executed after the timeout changed.
 
 ## Next bounded checkpoint
 
-Reconcile the private readiness-verification artifact, then propose the next
-explicitly approved live placement one model/tier at a time. Reconcile each
-private pilot artifact before any finalist/full-exam execution.
-Keep installer/runtime integration, score-viewer integration, and new visuals
-out of that checkpoint.
+Reconcile the committed timeout repair, then propose one explicitly approved
+rerun of the exact cached `qwen35-9b-q4km` placement at the simulated 16 GB tier
+under a new private campaign ID. Reconcile that artifact and cleanup before any
+other placement or harness change. Do not implicitly fix the model-progress
+alias mismatch, execute a wider campaign, integrate installer/runtime behavior,
+or integrate score-viewer visuals.

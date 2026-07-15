@@ -32,6 +32,9 @@ The current branch provides:
 - retry restoration that waits for the HTTP and WebSocket/app-ready boundaries,
   reports retry phase in invalid-run diagnostics, and writes copied llama logs
   with private `600` permissions;
+- a fixed 300-second whole-case timeout so slow local multi-tool loops can
+  finish without a premature harness invalidation while preserving latency as
+  ranking evidence;
 - focused tests for the new protocol boundary, schemas, scoring, and runner
   helpers.
 
@@ -142,6 +145,27 @@ llama logs inherited mode `644`. The runner now waits for both readiness
 boundaries, preserves retry phase in invalid reasons, and forces copied logs to
 mode `600`, with focused regression tests. The readiness-fix verification left
 no runner-owned listener, process, or temporary directory.
+
+### 0.2b Slow multi-tool timeout checkpoint
+
+Two explicitly approved cached Qwen3.5 9B Q4_K_M placements at the simulated
+16 GB tier reached exact-model readiness, imported all 28 fixture memories, and
+then expired during the first recall case under the former 120-second whole-turn
+deadline. Both artifacts were correctly marked invalid and excluded from model
+scoring. The completed model rounds spent roughly 34–57 seconds each in prompt
+prefill; repeated successful recall calls caused another model round to begin
+after 83–109 seconds, leaving too little time for `turn_complete`.
+
+The benchmark default is now 300 seconds, aligned with llama.cpp's per-request
+timeout while still bounding the complete multi-tool turn. This does not relax
+latency ranking: completed wall time remains evidence. Focused verification
+passed 62 tests, catalog validation, syntax, and scoped whitespace checks. No
+model was executed after changing the timeout.
+
+The same trace also exposed a separate observability issue: the model-progress
+watcher probes the Hugging Face model ID while the managed router serves the
+`aperio-main` alias, so a long warm request can emit a misleading
+`model_status: loading`. That issue remains deferred from the timeout checkpoint.
 
 ### 0.3 What the first pilots exposed
 

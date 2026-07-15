@@ -30,7 +30,7 @@ const recall = {
 describe("validateBenchmarkCases", () => {
   test("normalizes defaults and rejects duplicate ids", () => {
     const [item] = validateBenchmarkCases([recall]);
-    assert.equal(item.timeoutMs, 120_000);
+    assert.equal(item.timeoutMs, 300_000);
     assert.deepEqual(item.stateAssertion, { kind: "none" });
     assert.throws(() => validateBenchmarkCases([recall, recall]), /duplicate case id/);
   });

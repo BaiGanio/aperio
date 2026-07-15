@@ -68,6 +68,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Model-tier pilot cases now allow a fixed 300-second whole-turn envelope so
+  slow local multi-tool loops can complete and retain latency as ranking
+  evidence instead of being invalidated before llama.cpp's own request timeout.
 - Model-tier benchmark runner leaked detached llama-server engines. Its cleanup
   never ran when a run was interrupted (Ctrl+C/SIGTERM skips `finally`), and it
   only killed the last engine PID recorded in `state.json` — so interrupted and

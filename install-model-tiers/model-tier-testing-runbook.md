@@ -32,7 +32,11 @@ llama.cpp ownership, fixture import/readiness checks, load-versus-qualification
 metrics, retry state restoration, private artifacts, tier admission metadata,
 non-live campaign planning and aggregation, and catalog-wide campaign execution.
 Retry restoration waits for both HTTP and WebSocket/app readiness, preserves the
-retry phase in invalid-run diagnostics, and keeps copied llama logs private.
+retry phase in invalid-run diagnostics, and keeps copied llama logs private. A
+pilot case has a fixed 300-second whole-turn envelope. This bounds the complete
+multi-tool loop while allowing slow local-model prompt prefill to finish; turn
+latency remains ranking evidence, and a deadline expiry remains an invalid run
+rather than a model failure.
 
 The pilot remains a five-case qualification run for one placement. Campaign
 execution consumes the private plan and invokes that lifecycle for every eligible
@@ -439,9 +443,15 @@ Each case needs concrete assertions rather than prose-only expectations:
   "requiredAnswerTerms": ["NATS"],
   "requireAllToolsSuccessful": true,
   "hardGate": true,
-  "timeoutMs": 120000
+  "timeoutMs": 300000
 }
 ```
+
+The checked-in cases currently inherit the 300-second default. Keep that
+whole-turn timeout fixed within a campaign. A shorter deadline can invalidate a
+slow but otherwise valid multi-tool turn before llama.cpp's own 300-second
+per-request timeout, while extending one candidate only would make the evidence
+incomparable.
 
 Allow alternatives only when they are behaviorally equivalent, for example
 `code_search` or `code_context` as the first step. Never pass a case solely
