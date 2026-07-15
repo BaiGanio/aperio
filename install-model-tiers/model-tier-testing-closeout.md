@@ -35,6 +35,8 @@ The current branch provides:
 - a fixed 300-second whole-case timeout so slow local multi-tool loops can
   finish without a premature harness invalidation while preserving latency as
   ranking evidence;
+- a tracked local score viewer at `docs/model-tier-score-viewer.html`, linked
+  from the documentation navigation;
 - focused tests for the new protocol boundary, schemas, scoring, and runner
   helpers.
 
@@ -159,13 +161,46 @@ after 83–109 seconds, leaving too little time for `turn_complete`.
 The benchmark default is now 300 seconds, aligned with llama.cpp's per-request
 timeout while still bounding the complete multi-tool turn. This does not relax
 latency ranking: completed wall time remains evidence. Focused verification
-passed 62 tests, catalog validation, syntax, and scoped whitespace checks. No
-model was executed after changing the timeout.
+passed 62 tests, catalog validation, syntax, and scoped whitespace checks.
+
+One later approved cached placement exercised the repair at the simulated 16 GB
+tier. `recall-semantic-nats` passed in 264.0 seconds and `recall-filter-type`
+passed in 161.8 seconds, both beyond the former limit. `recall-filter-tag`
+expired at 300 seconds after four successful recall calls and the start of a
+fifth model round. The placement remained invalid, its private artifacts and
+partial results were preserved, and cleanup left no owned process, listener, or
+temporary workdir.
 
 The same trace also exposed a separate observability issue: the model-progress
 watcher probes the Hugging Face model ID while the managed router serves the
 `aperio-main` alias, so a long warm request can emit a misleading
 `model_status: loading`. That issue remains deferred from the timeout checkpoint.
+
+### 0.2c Filter-argument evidence gap
+
+Private review of the repaired-timeout placement showed that the tag-filter case
+never sent `tags: ["redis"]`. Its four calls used an empty request, a limit-only
+request, and two semantic queries. Current scoring nevertheless checks only that
+`recall` ran successfully, required answer terms are present, state passes, and
+the turn completes. The type- and tag-filter objectives therefore overstate the
+evidence the runner currently proves.
+
+Treat argument-level scoring as the next harness gate. Add it test-first before
+running a wider campaign. Do not extend the fixed timeout to accommodate this
+loop: model inference and repeated large prompt prefills consumed the deadline,
+while the four recall tool calls themselves completed in 43 ms total.
+
+### 0.2d Argument-level filter assertions
+
+The gap is closed in the benchmark contract. The filtered recall cases now
+declare exact assertions for `recall({ type: "decision" })` and
+`recall({ tags: ["redis"] })`. Scoring compares the structured tool arguments
+exactly and persists each assertion's expected arguments, observed arguments,
+and pass/fail result in the case evidence. A completed turn with a missing or
+incorrect assertion is a model-behavior failure; a whole-turn timeout remains a
+harness-invalid run. Focused model-tier tests pass 65/65, catalog validation
+passes, syntax checks pass, and scoped whitespace checks pass. No model was
+executed for this checkpoint.
 
 ### 0.3 What the first pilots exposed
 
@@ -336,16 +371,15 @@ Start with: <name the single next step I approved>.
 Replace the final placeholder with the exact next step agreed at the end of the
 previous session.
 
-## Step 2 closeout — standalone score-viewer preview
+## Historical Step 2 closeout — standalone score-viewer preview
 
-**Status:** Implemented locally; awaiting visual approval before integration.
+**Status:** Superseded. The approved viewer is now tracked at
+`docs/model-tier-score-viewer.html` and linked from the docs navigation.
 
 **Preview:** `install-model-tiers/model-tier-score-viewer-preview.html`
 
-**Required final deliverable:** Before this benchmark work is complete, an
-approved, tracked `.html` score viewer must be integrated under `docs/` and linked
-from the appropriate evaluation/documentation navigation. The standalone file is
-only the approval preview; it does not satisfy that final requirement by itself.
+**Final deliverable:** Complete. The standalone file was the approval preview;
+the tracked docs page now satisfies the integration requirement.
 
 The standalone page:
 
@@ -395,9 +429,9 @@ uncommitted until that decision.
 
 ## Step 2 review findings — artifact contract and layout
 
-**Status:** The case-result contract repair and tier-first layout migration are
-implemented locally and covered by focused tests. The score viewer still needs a
-standalone redesign and visual approval before integration.
+**Status:** Historical. The case-result contract repair and tier-first layout
+migration are covered by focused tests, and the redesigned viewer was
+subsequently approved and integrated under `docs/`.
 
 The review exposed three problems:
 
@@ -430,6 +464,5 @@ The actual pilot suite currently contains:
   application blocking are recorded as different modes.
 
 The case-result contract repair and directory migration are complete and covered
-by focused tests. The next bounded step is the score-viewer redesign to consume
-the tier-first layout; do not integrate it into `docs/` until the standalone
-preview has been visually approved.
+by focused tests. The later score-viewer redesign now consumes the tier-first
+layout and is integrated under `docs/`.

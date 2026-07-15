@@ -1,50 +1,63 @@
-# Completed checkpoint: slow multi-tool timeout repair
+# Completed checkpoint: argument-level filter assertions
 
-**Implemented:** 2026-07-15 on `feat/model-tier-benchmark-runner`.
+**Reconciled:** 2026-07-15 on `feat/model-tier-benchmark-runner`.
 
-Two approved cached Qwen3.5 9B Q4_K_M placements at the simulated 16 GB tier
-reproduced the same invalid first-case timeout under the former 120-second
-whole-turn deadline. Exact-model admission, the throughput probe, the 28-memory
-fixture, embedding readiness, private artifacts, and cleanup all succeeded.
-The model made successful `recall` calls, but its 34–57 second prompt-prefill
-rounds left insufficient time for the next round to emit `turn_complete`.
+**Reconciled:** 2026-07-15 on `feat/model-tier-benchmark-runner`.
 
-The benchmark default now allows 300 seconds for the complete multi-tool case.
-This matches llama.cpp's existing per-request ceiling while retaining a bounded
-turn and preserving completed wall time as ranking evidence. A timeout remains
-an invalid benchmark run, never a model failure. The repair changed only the
-benchmark case-normalization contract and its focused test; it did not alter
-`lib/context/`, installer/runtime behavior, score-viewer visuals, or model
-selection.
+The benchmark contract now enforces argument-level behavior for the two filtered
+recall cases. `recall-filter-type` requires `type: "decision"`, and
+`recall-filter-tag` requires `tags: ["redis"]`. Completed turns with missing or
+incorrect arguments are model-behavior failures; whole-turn timeouts remain
+harness-invalid.
 
-## Review contract
+Private artifact review showed that the third case was not blocked in the
+`recall` tool. Four recall calls completed in a combined 43 ms, while their model
+rounds consumed about 92.5, 56.6, 68.2, and 57.5 seconds. Context reached 93%,
+was trimmed after every tool round, and a fifth model round began without
+reaching `turn_complete`. The calls used an empty request, a limit-only request,
+and two semantic Redis queries; none used the requested `tags: ["redis"]`
+filter.
 
-- The five pilot cases inherit one fixed 300-second whole-turn timeout.
-- Explicit positive per-case overrides remain supported by the validator.
-- Timeout and retry controls must remain identical within a campaign.
-- Raw artifacts remain private under `var/benchmarks/model-tiers/`.
-- Invalid runs remain excluded from model scoring and ranking.
-- The two earlier Qwen artifacts remain diagnostic evidence only:
-  `placement-20260715-qwen35-9b-16gb-cf329a8` and
-  `placement-20260715-qwen35-9b-16gb-cf329a8-retry1`.
-- The misleading warm-request `model_status: loading` alias mismatch is a
-  separate deferred observability issue.
+Each persisted case result records the assertion's expected and observed
+arguments plus a per-assertion pass/fail outcome. Structured tool arguments are
+also retained in the private benchmark event evidence. The catalog and full-exam
+definitions carry the same assertion contract.
 
-Validate without starting Aperio or llama.cpp:
+The private placement directory is:
 
-```bash
-npm run model-tier:pilot -- --validate
-node --test tests/lib/helpers/modelTierBench.test.js tests/scripts/model-tier-bench.test.js
-```
+`var/benchmarks/model-tiers/16gb/qwen35-9b-q4km/placement-20260715-qwen35-9b-16gb-93792a3/`
 
-Focused verification passed 62 tests, catalog validation, syntax checks, and
-scoped whitespace checks. No model was executed after the timeout changed.
+The opaque campaign ID was chosen while `93792a3` was `HEAD`, but a concurrent
+docs-only commit landed during launch. `run.json` correctly records the actual
+commit as `759107b`. Do not rename or promote the raw artifact. Cleanup was
+complete: artifact files are mode `600`, the directory is `700`, and no
+runner-owned process, listener, or temporary workdir remained.
+
+## Current stage
+
+The work is at **Stage 2 of 5 — pilot contract hardening**:
+
+1. **Runner foundation — complete.** Isolation, exact-model admission, private
+   artifacts, readiness, metrics, retries, teardown, aggregation, campaign
+   planning/execution, and finalist evidence validation exist.
+2. **Pilot contract hardening — complete.** Timeout, cleanup, and argument-level
+   case assertions are covered by focused tests.
+3. **Live qualification campaign — not started.** The 38-placement dry run is
+   complete, but no comparable live catalog campaign has been approved.
+4. **Finalists and tier decisions — not started.** Full-exam evidence and human
+   review are still required.
+5. **Installer/runtime integration — not started.** Defaults must not change
+   before approved tier decisions exist.
+
+The tracked score viewer is now integrated at
+`docs/model-tier-score-viewer.html` and linked from the docs navigation. That
+visual deliverable is no longer part of the remaining benchmark-runner work.
 
 ## Next bounded checkpoint
 
-Reconcile the committed timeout repair, then propose one explicitly approved
-rerun of the exact cached `qwen35-9b-q4km` placement at the simulated 16 GB tier
-under a new private campaign ID. Reconcile that artifact and cleanup before any
-other placement or harness change. Do not implicitly fix the model-progress
-alias mismatch, execute a wider campaign, integrate installer/runtime behavior,
-or integrate score-viewer visuals.
+Prepare and seek explicit approval for one isolated live qualification-campaign
+checkpoint using the validated catalog-wide plan. Do not execute the campaign
+implicitly or promote any model from dry-run evidence.
+
+Keep the deferred `aperio-main` model-progress alias issue and installer/runtime
+integration out of scope. Raw artifacts remain private under `var/`.

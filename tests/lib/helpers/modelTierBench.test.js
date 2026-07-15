@@ -45,6 +45,14 @@ describe("validateBenchmarkCases", () => {
     assert.throws(() => validateBenchmarkCases([{ ...recall, title: "" }]), /title/);
     assert.throws(() => validateBenchmarkCases([{ ...recall, objective: undefined }]), /objective/);
   });
+
+  test("normalizes argument assertions for filtered recall cases", () => {
+    const [item] = validateBenchmarkCases([{
+      ...recall,
+      argumentAssertions: [{ tool: "recall", arguments: { type: "decision" } }],
+    }]);
+    assert.deepEqual(item.argumentAssertions, [{ tool: "recall", arguments: { type: "decision" } }]);
+  });
 });
 
 test("describeBenchmarkCase returns the complete self-describing artifact contract", () => {
@@ -58,6 +66,7 @@ test("describeBenchmarkCase returns the complete self-describing artifact contra
     hardGate: true,
     expectedToolSequence: ["recall"],
     requiredAnswerTerms: ["NATS"],
+    argumentAssertions: [],
     requireAllToolsSuccessful: true,
     stateAssertion: { kind: "none" },
   });
@@ -73,6 +82,43 @@ describe("validateBenchmarkModels", () => {
 });
 
 describe("evaluateBenchmarkCase", () => {
+  test("requires and records exact tool argument assertions", () => {
+    const filtered = {
+      ...recall,
+      argumentAssertions: [{ tool: "recall", arguments: { tags: ["redis"] } }],
+      requiredAnswerTerms: ["Redis"],
+    };
+    const passed = evaluateBenchmarkCase(filtered, [
+      { type: "tool_start", name: "recall", arguments: { tags: ["redis"] } },
+      { type: "tool_result", name: "recall", ok: true },
+      { type: "stream_end", text: "Redis" },
+      { type: "turn_complete", status: "completed" },
+    ]);
+    assert.equal(passed.status, "pass");
+    assert.deepEqual(passed.argumentAssertions, [{
+      tool: "recall", expected: { tags: ["redis"] }, observed: { tags: ["redis"] }, passed: true,
+    }]);
+
+    const missing = evaluateBenchmarkCase(filtered, [
+      { type: "tool_start", name: "recall", arguments: { limit: 10 } },
+      { type: "tool_result", name: "recall", ok: true },
+      { type: "stream_end", text: "Redis" },
+      { type: "turn_complete", status: "completed" },
+    ]);
+    assert.equal(missing.status, "fail");
+    assert.equal(missing.argumentAssertions[0].passed, false);
+    assert.deepEqual(missing.argumentAssertions[0].observed, { limit: 10 });
+  });
+
+  test("a missing required argument assertion does not turn a timeout into a model failure", () => {
+    const filtered = { ...recall, argumentAssertions: [{ tool: "recall", arguments: { type: "decision" } }] };
+    const result = evaluateBenchmarkCase(filtered, [
+      { type: "tool_start", name: "recall", arguments: {} },
+    ]);
+    assert.equal(result.completed, false);
+    assert.equal(result.status, "fail");
+    assert.equal(result.argumentAssertions[0].passed, false);
+  });
   test("does not pass from answer text without the required tool event", () => {
     const result = evaluateBenchmarkCase(recall, [
       { type: "stream_end", text: "Nimbus uses NATS" },

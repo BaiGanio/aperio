@@ -65,6 +65,7 @@ const cases = [
   {
     id: "second", title: "Second case", objective: "Retain partial evidence when interrupted.",
     section: "chains", kind: "behavior", prompt: "second", expectedToolSequence: ["fetch_url", "remember"],
+    argumentAssertions: [{ tool: "fetch_url", arguments: { url: "https://example.com" } }],
     requiredAnswerTerms: ["saved"], requireAllToolsSuccessful: true, hardGate: true,
     stateAssertion: { kind: "memory", type: "source", contentIncludes: ["example.com"] }, timeoutMs: 1_000,
   },
@@ -962,7 +963,7 @@ test("runWsCase waits for the correlated turn_complete, not stream_end", async (
 });
 
 test("executeBenchmarkCases preserves completed and interrupted case artifacts on an invalid run", async () => {
-  const partialEvents = [{ type: "tool_start", name: "fetch_url" }];
+  const partialEvents = [{ type: "tool_start", name: "fetch_url", arguments: {} }];
   const timeout = Object.assign(new Error("case second timed out"), {
     caseEvents: partialEvents,
     durationMs: 1234,
@@ -1002,6 +1003,9 @@ test("executeBenchmarkCases preserves completed and interrupted case artifacts o
       assert.deepEqual(error.caseResults[1].stateAssertion, {
         kind: "memory", type: "source", contentIncludes: ["example.com"],
       });
+      assert.deepEqual(error.caseResults[1].argumentAssertions, [{
+        tool: "fetch_url", expected: { url: "https://example.com" }, observed: {}, passed: false,
+      }]);
       return true;
     },
   );

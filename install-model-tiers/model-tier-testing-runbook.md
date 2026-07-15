@@ -40,9 +40,10 @@ rather than a model failure.
 
 The pilot remains a five-case qualification run for one placement. Campaign
 execution consumes the private plan and invokes that lifecycle for every eligible
-catalog placement. It does not integrate the score viewer. Offline review ranks
-only already-valid, comparable evidence and can generate finalist manifests and
-tier decisions. Use
+catalog placement. The tracked score viewer at
+`docs/model-tier-score-viewer.html` can inspect private local artifacts in the
+browser. Offline review ranks only already-valid, comparable evidence and can
+generate finalist manifests and tier decisions. Use
 `--validate` for a non-live contract check, and always supply both `--model` and
 `--tier` for a live pilot run.
 
@@ -452,6 +453,13 @@ whole-turn timeout fixed within a campaign. A shorter deadline can invalidate a
 slow but otherwise valid multi-tool turn before llama.cpp's own 300-second
 per-request timeout, while extending one candidate only would make the evidence
 incomparable.
+
+The current scorer captures structured tool arguments in private benchmark
+evidence and enforces the required assertions for `recall-filter-type` and
+`recall-filter-tag`. A completed turn that uses a missing or incorrect required
+filter is a model behavior failure; a whole-turn timeout remains invalid
+evidence. Verify the focused contract tests and catalog before any wider live
+campaign.
 
 Allow alternatives only when they are behaviorally equivalent, for example
 `code_search` or `code_context` as the first step. Never pass a case solely
