@@ -11,6 +11,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- DEFAULT_LOCALE config option (server-side fallback locale; default `en`).
+- zh, ja server-side locale detection in SUPPORTED_LOCALES (was 24, now 26 — mirrors i18n.js LOCALE_META).
+- Locale-drift sync test (`tests/locale-drift-sync.test.js`) that asserts server, client, and file-system locale lists are in lockstep.
+- Phase D audit: no verbatim tool output is rendered unescaped in the public UI (safe by design).
+
+### Fixed
+
+- Resume card, memory inbox, and tag-filter UI now show real translated text instead of raw key names (`resume_card_messages`, `mem_inbox_title`, `mem_tag_filter`, etc.).
+- All 26 locale JSONs now have full parity with the English baseline (371 keys each, `diff-locales.js` exits 0).
+
+### Changed
+
+- `scripts/check-docs-i18n.js` switcher check validates against `docs/lang-map.js` (world-map) instead of stale `data-lang` markup in `index.html`.
+
 - Complete model-tier candidate catalog: 15 unique exact Hugging Face model
   entries expand to 38 eligible tier placements through their catalog `tiers`
   arrays, with

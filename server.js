@@ -146,7 +146,7 @@ app.use(express.json({ limit: '256kb', verify: (req, _res, buf) => { req.rawBody
 const SUPPORTED_LOCALES = new Set([
   "en", "bg", "de", "fr", "es", "it", "pt", "nl", "pl", "ro",
   "el", "sv", "da", "fi", "cs", "sk", "sl", "hr", "hu", "et",
-  "lv", "lt", "mt", "ga",
+  "lv", "lt", "mt", "ga", "zh", "ja",
 ]);
 const I18N_COOKIE = "aperio_lang";
 
@@ -184,7 +184,7 @@ function pickLocaleFromHeader(header) {
 function detectLocale(req) {
   const fromCookie = readCookieFromHeader(req.headers.cookie, I18N_COOKIE);
   if (fromCookie && SUPPORTED_LOCALES.has(fromCookie)) return fromCookie;
-  return pickLocaleFromHeader(req.headers["accept-language"]) || "en";
+  return pickLocaleFromHeader(req.headers["accept-language"]) || process.env.DEFAULT_LOCALE || "en";
 }
 
 // Inject `window.__APERIO_LANG__ = "<lang>"` into HTML responses so the i18n
