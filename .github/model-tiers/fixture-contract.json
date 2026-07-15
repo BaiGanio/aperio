@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "source": ".github/capability-exam/exam.memories.json",
+  "memoryCount": 28,
+  "tag": "aperio-exam",
+  "workspace": ".github/model-tiers/workspace",
+  "reset": {
+    "beforeSuite": "fresh-database",
+    "beforeRetry": "fresh-session",
+    "restore": "fixture-and-workspace",
+    "generatedState": "runner-owned-only"
+  }
+}

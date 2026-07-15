@@ -4,7 +4,11 @@
 
 ```
 aperio/
-├── server.js              # Express + WebSocket entry point (port 31337 by default)
+├── server.js              # Thin production entrypoint — loads .env, installs error
+│                           # handlers, delegates to lib/server.js createApp()
+├── lib/server.js          # Callable composition root — createApp() builds Express +
+│                           # HTTP + WebSocket + lifecycle. Accepts { skipBoot,
+│                           # injectAgent, autoListen } for test isolation.
 ├── bootstrap.js           # First-run setup wizard (DB init, config, embeddings)
 ├── lib/
 │   ├── agent/             # Agent orchestration: providers, tool profiles, hooks

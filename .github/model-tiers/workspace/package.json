@@ -1,0 +1,9 @@
+{
+  "name": "aperio-model-tier-fixture",
+  "version": "0.67.4",
+  "type": "module",
+  "scripts": {
+    "test:unit": "node --test",
+    "test:check": "node --check code/skill-match.js"
+  }
+}

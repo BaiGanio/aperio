@@ -1,0 +1,62 @@
+# Disposable Linux arm64 install executors for the shared vms/smoke.sh contract.
+#
+# The Parallels provider is intentional: these boxes are native arm64 guests on
+# Apple Silicon hosts, so native npm dependencies are never copied from macOS.
+
+Vagrant.configure("2") do |config|
+  config.vm.synced_folder "..", "/vagrant-repo",
+    type: "rsync",
+    rsync__auto: false,
+    rsync__exclude: [
+      "node_modules/",
+      "var/",
+      ".sqlite/",
+      "vms/out/"
+    ]
+
+  config.vm.provider "parallels" do |prl|
+    prl.memory = 4096
+    prl.cpus = 2
+  end
+
+  config.vm.define "ubuntu-lite" do |vm|
+    vm.vm.box = "bento/ubuntu-24.04"
+    vm.vm.box_architecture = "arm64"
+    vm.vm.hostname = "aperio-ubuntu-lite"
+    vm.vm.provision "shell", inline: <<-SHELL
+      set -eu
+      exec > >(tee /tmp/aperio-vmtest.log) 2>&1
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends git ca-certificates curl build-essential python3
+      rm -rf "$HOME/aperio"
+      APERIO_REPO_URL=file:///vagrant-repo \
+        APERIO_BRANCH="#{ENV.fetch("APERIO_BRANCH", "dev")}" \
+        APERIO_HOME="$HOME/aperio" \
+        bash /vagrant-repo/.github/lite/install.sh
+      (cd "$HOME/aperio" && npm install --prefer-offline --no-audit --no-fund)
+      bash /vagrant-repo/vms/smoke.sh "$HOME/aperio"
+      printf 'y\n' | bash "$HOME/aperio/uninstall.sh"
+      test ! -e "$HOME/aperio"
+    SHELL
+  end
+
+  config.vm.define "debian-dev" do |vm|
+    vm.vm.box = "bento/debian-12"
+    vm.vm.box_architecture = "arm64"
+    vm.vm.hostname = "aperio-debian-dev"
+    vm.vm.provision "shell", inline: <<-SHELL
+      set -eu
+      exec > >(tee /tmp/aperio-vmtest.log) 2>&1
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends git ca-certificates curl build-essential python3
+      rm -rf "$HOME/aperio"
+      git clone --depth 1 file:///vagrant-repo "$HOME/aperio"
+      cd "$HOME/aperio"
+      npm install
+      npm run migrate:sqlite
+      bash /vagrant-repo/vms/smoke.sh "$HOME/aperio"
+    SHELL
+  end
+end

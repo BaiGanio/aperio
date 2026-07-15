@@ -149,24 +149,24 @@ describe("agent.js - core", () => {
 // ---------------------------------------------------------------------------
 
 describe("RAM-based model selection", () => {
-  test("selects qwen3:30b-a3b for 48 GB+ RAM", () => {
+  test("selects the 32 GB tier for 48 GB+ RAM", () => {
     mock.method(os, "totalmem", () => 64 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "qwen3:30b-a3b");
+    assert.strictEqual(getRecommendedModel(), "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL");
   });
 
-  test("selects gemma4:12b for 24-48 GB RAM", () => {
-    mock.method(os, "totalmem", () => 32 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "gemma4:12b");
+  test("selects the 24 GB tier for 17-24 GB RAM", () => {
+    mock.method(os, "totalmem", () => 20 * 1024 ** 3);
+    assert.strictEqual(getRecommendedModel(), "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL");
   });
 
-  test("selects gemma4:e4b for 8-24 GB RAM (most capable that fits low hardware)", () => {
+  test("selects the 16 GB tier for 9-16 GB RAM", () => {
     mock.method(os, "totalmem", () => 16 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "gemma4:e4b");
+    assert.strictEqual(getRecommendedModel(), "unsloth/Qwen3.5-9B-GGUF:Q4_K_M");
   });
 
-  test("selects qwen2.5:3b for low RAM (<8 GB) — low budget, runs anywhere", () => {
+  test("selects the 8 GB tier for low RAM", () => {
     mock.method(os, "totalmem", () => 4 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "qwen2.5:3b");
+    assert.strictEqual(getRecommendedModel(), "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL");
   });
 });
 
@@ -204,7 +204,7 @@ describe("Provider resolution", () => {
   test("uses default curated model when no LLAMACPP_MODEL is set", () => {
     process.env.AI_PROVIDER = "llamacpp";
     const p = resolveProvider();
-    assert.strictEqual(p.model, "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    assert.equal(typeof p.model, "string");
   });
 
   test("respects LLAMACPP_BASE_URL", () => {

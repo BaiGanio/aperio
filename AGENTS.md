@@ -176,7 +176,10 @@ Verify: run `npm run test:memory` + tool tests for any ctx field touched.
 ## Contribution Conventions
 
 ### Branch naming
-AI agent commits: `type: <description> signed by <model-name>`. Humans: same prefix, no signature.
+AI agent commits: `type: <description> signed by <exact-model-id>`. The signature must identify
+the precise model that performed the work — for example, `gpt-5.6-luna`,
+`deepseek-v4-pro`, or `opus4.8`; do not use a generic family label such as `GPT-5`.
+Humans: same prefix, no signature.
 Types: `feature:`, `fix:`, `refactor:`, `chore:`.
 
 ### Commit messages
