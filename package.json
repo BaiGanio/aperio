@@ -31,7 +31,9 @@
     "migrate": "node db/migrate.js",
     "migrate:sqlite": "node -e \"import('./db/sqlite.js').then(m => m.SqliteStore.init().then(s => s.close()))\"",
     "coverage": "c8 report --reporter=lcov --reporter=text",
-    "coverage:dashboard": "node scripts/generate-coverage-dashboard.js"
+    "coverage:dashboard": "node scripts/generate-coverage-dashboard.js",
+    "e2e:dashboard": "node scripts/generate-e2e-dashboard.js",
+    "test:e2e:dashboard": "npm run test:e2e && node scripts/generate-e2e-dashboard.js"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.201",
