@@ -34,6 +34,7 @@ Vagrant.configure("2") do |config|
         APERIO_BRANCH="#{ENV.fetch("APERIO_BRANCH", "dev")}" \
         APERIO_HOME="$HOME/aperio" \
         bash /vagrant-repo/.github/lite/install.sh
+      (cd "$HOME/aperio" && npm install --prefer-offline --no-audit --no-fund)
       bash /vagrant-repo/vms/smoke.sh "$HOME/aperio"
       printf 'y\n' | bash "$HOME/aperio/uninstall.sh"
       test ! -e "$HOME/aperio"
