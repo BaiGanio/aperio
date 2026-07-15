@@ -1,5 +1,24 @@
 # Completed checkpoint: Stage 3 campaign preparation
 
+## Bounded live verification closeout — 2026-07-15
+
+Operator-approved live campaign `20260715T083512Z` was intentionally stopped
+after bounded verification rather than running all 38 catalog placements. The
+run remained cache-only and isolated; no model downloads were performed.
+
+Captured private results:
+
+- 8 GB Gemma 4 E4B: complete, 3/5 pilot cases passed.
+- 16 GB Gemma 4 E4B: complete, 3/5 pilot cases passed.
+- 16 GB Qwen3.5 9B: invalid after the chain case timed out.
+- 24 GB Gemma 4 E4B: complete, 4/5 pilot cases passed.
+- Uncached placements were rejected before process startup.
+
+The campaign was stopped before a 32 GB placement ran. These artifacts are
+qualification evidence only, not tier decisions; no model was promoted and no
+installer or runtime behavior was changed. Raw artifacts remain private under
+`var/benchmarks/model-tiers/20260715T083512Z/`.
+
 **Reconciled:** 2026-07-15 on `feat/model-tier-benchmark-runner`.
 
 The catalog-wide campaign preparation checkpoint is complete. The validated
@@ -53,15 +72,17 @@ runner-owned process, listener, or temporary workdir remained.
 
 ## Current stage
 
-The work is at **Stage 3 of 5 — live qualification campaign approval**:
+The work is at **Stage 3 of 5 — bounded live verification complete**:
 
 1. **Runner foundation — complete.** Isolation, exact-model admission, private
    artifacts, readiness, metrics, retries, teardown, aggregation, campaign
    planning/execution, and finalist evidence validation exist.
 2. **Pilot contract hardening — complete.** Timeout, cleanup, and argument-level
    case assertions are covered by focused tests.
-3. **Live qualification campaign — prepared, not started.** The 38-placement
-   dry run is complete, but no comparable live catalog campaign has been approved.
+3. **Live qualification campaign — bounded checkpoint complete.** The
+   operator-approved run was intentionally curtailed after representative
+   cached placements; the full 38-placement catalog campaign was not required
+   for this checkpoint and is not represented as complete.
 4. **Finalists and tier decisions — not started.** Full-exam evidence and human
    review are still required.
 5. **Installer/runtime integration — not started.** Defaults must not change
@@ -73,9 +94,10 @@ visual deliverable is no longer part of the remaining benchmark-runner work.
 
 ## Next bounded checkpoint
 
-Seek explicit approval for one isolated live qualification campaign using the
-validated catalog-wide plan, then review its private artifacts. Do not promote
-any model from dry-run evidence.
+Review the bounded private artifacts and decide whether to proceed to finalist
+evidence. Do not promote a model from the pilot alone. A complete 32 GB
+verification or a new catalog-wide campaign requires a separate explicit
+operator decision.
 
 Keep the deferred `aperio-main` model-progress alias issue and installer/runtime
 integration out of scope. Raw artifacts remain private under `var/`.

@@ -130,8 +130,20 @@ npm run model-tier:pilot -- --execute-campaign \
 The command remains cache-only unless `--allow-download` is deliberately added.
 Each placement retains the existing throwaway database/workspace, non-default
 ports, private tier-first artifacts, sequential execution, fixed timeout, and
-owned-process cleanup controls. The live campaign and its artifact review remain
-the next approval-dependent checkpoint.
+owned-process cleanup controls. The full catalog campaign and its artifact review
+remain optional follow-up work, not a prerequisite for this bounded checkpoint.
+
+The subsequent operator-approved live campaign
+`20260715T083512Z` was intentionally curtailed after bounded verification. It
+captured private cached Gemma E4B placements at 8, 16, and 24 GB plus a cached
+Qwen3.5 9B placement at 16 GB; the 8 and 16 GB Gemma placements completed with
+3/5 pilot cases passing, the 24 GB Gemma placement completed with 4/5 passing,
+and the Qwen placement became invalid after a chain timeout. Uncached
+placements were rejected before process startup. No 32 GB placement was run,
+no downloads occurred, and no installer/runtime behavior was changed. The
+campaign artifacts remain private under
+`var/benchmarks/model-tiers/20260715T083512Z/`; this bounded checkpoint is not
+a full 38-placement campaign or a tier decision.
 
 The finalist review checkpoint is now implemented. `--finalists` creates a
 private manifest from comparable passing campaign rows, and `--decide
