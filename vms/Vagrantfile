@@ -20,9 +20,10 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "ubuntu-lite" do |vm|
-    vm.vm.box = "bento/ubuntu-24.04-arm64"
+    vm.vm.box = "bento/ubuntu-24.04"
+    vm.vm.box_architecture = "arm64"
     vm.vm.hostname = "aperio-ubuntu-lite"
-    vm.vm.provision "shell", inline: <<-'SHELL'
+    vm.vm.provision "shell", inline: <<-SHELL
       set -eu
       exec > >(tee /tmp/aperio-vmtest.log) 2>&1
       export DEBIAN_FRONTEND=noninteractive
@@ -40,9 +41,10 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define "debian-dev" do |vm|
-    vm.vm.box = "bento/debian-12-arm64"
+    vm.vm.box = "bento/debian-12"
+    vm.vm.box_architecture = "arm64"
     vm.vm.hostname = "aperio-debian-dev"
-    vm.vm.provision "shell", inline: <<-'SHELL'
+    vm.vm.provision "shell", inline: <<-SHELL
       set -eu
       exec > >(tee /tmp/aperio-vmtest.log) 2>&1
       export DEBIAN_FRONTEND=noninteractive

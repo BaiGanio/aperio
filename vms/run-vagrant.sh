@@ -20,7 +20,7 @@ cleanup() {
   trap - EXIT INT TERM
   {
     printf '\n--- guest log (best effort) ---\n'
-    vagrant ssh "$PROFILE" -c 'test ! -f /tmp/aperio-vmtest.log || cat /tmp/aperio-vmtest.log' 2>&1 || true
+    vagrant ssh "$PROFILE" -c 'for f in /tmp/aperio-vmtest.log /root/aperio/var/install/*.log /home/vagrant/aperio/var/install/*.log; do [ -f "$f" ] || continue; printf "\\n--- %s ---\\n" "$f"; tail -200 "$f"; done' 2>&1 || true
     printf '\n--- destroy ---\n'
     vagrant destroy -f "$PROFILE" 2>&1 || true
   } >>"$LOG"

@@ -23,8 +23,9 @@ test("Vagrant executor is syntactically valid and isolates host dependencies", a
   assert.match(vagrantfile, /synced_folder "\.\."/);
   assert.match(vagrantfile, /type:\s*"rsync"/);
   assert.match(vagrantfile, /"node_modules\/"/);
-  assert.match(vagrantfile, /bento\/ubuntu-24\.04-arm64/);
-  assert.match(vagrantfile, /bento\/debian-12-arm64/);
+  assert.match(vagrantfile, /bento\/ubuntu-24\.04/);
+  assert.match(vagrantfile, /bento\/debian-12/);
+  assert.equal((vagrantfile.match(/box_architecture = "arm64"/g) ?? []).length, 2);
   assert.match(vagrantfile, /provider\s+"parallels"/);
   assert.match(vagrantfile, /vms\/smoke\.sh/);
 });
@@ -38,6 +39,7 @@ test("Vagrant wrapper logs, collects guest output, and destroys on every exit", 
   assert.match(wrapper, /VAGRANT_CWD=\"\$ROOT\/vms\"/);
   assert.match(wrapper, /trap cleanup EXIT INT TERM/);
   assert.match(wrapper, /vagrant ssh \"\$PROFILE\"/);
+  assert.match(wrapper, /var\/install\/\*\.log/);
   assert.match(wrapper, /vagrant destroy -f \"\$PROFILE\"/);
   assert.match(wrapper, /tee \"\$LOG\"/);
   assert.match(wrapper, /status=\$\{PIPESTATUS\[0\]\}/);
