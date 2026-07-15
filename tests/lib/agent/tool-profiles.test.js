@@ -10,7 +10,7 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, capToolsForWindow, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, isCapableModel, needsRecallScaffold } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, isCapableModel, needsRecallScaffold } from "../../../lib/agent/tool-profiles.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
@@ -113,6 +113,22 @@ describe("capToolsForWindow", () => {
       assert.ok(at16k.has(required), `${required} survives the 16k schema budget`);
     }
   });
+
+  test("keeps non-llama.cpp provider tool contracts unchanged", () => {
+    const names = new Set([
+      "recall", "wiki_write", "wiki_get", "wiki_search", "wiki_list", "propose_wiki",
+      ...TOOL_PROFILES.memory, ...TOOL_PROFILES.self, ...TOOL_PROFILES.data,
+    ]);
+    const schemaTokenCosts = new Map([...names].map(name => [name, 400]));
+
+    for (const name of ["anthropic", "deepseek", "gemini", "claude-code", "codex"]) {
+      assert.strictEqual(
+        capToolsForProvider(names, { name, contextWindow: 11_264 }, { schemaTokenCosts }),
+        names,
+        `${name} keeps its complete selected tool set`,
+      );
+    }
+  });
 });
 
 describe("tool-profiles — wiki authoring", () => {
@@ -126,6 +142,23 @@ describe("tool-profiles — wiki authoring", () => {
     const profiles = classifyProfiles("Write a wiki article and save it to a markdown file");
     assert.ok(profiles.has("wiki"));
     assert.ok(profiles.has("file-edit"));
+  });
+
+  test("an explicit wiki write keeps wiki_write but removes propose_wiki", () => {
+    const text = "Write a wiki article summarizing everything we know about Nimbus";
+    const tools = filterToolsForIntent(toolsFor(text), text);
+
+    assert.ok(tools.has("wiki_write"));
+    assert.ok(!tools.has("propose_wiki"));
+  });
+
+  test("unsolicited synthesis and explicit proposal requests keep propose_wiki", () => {
+    for (const text of [
+      "I noticed several memories form a recurring topic; use the wiki if appropriate",
+      "Propose a wiki article about Nimbus for my review",
+    ]) {
+      assert.ok(filterToolsForIntent(toolsFor(text), text).has("propose_wiki"));
+    }
   });
 });
 

@@ -57,6 +57,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Controlled model-tier audits now run tiers in descending `32 → 24 → 16 → 8`
+  order and stop after genuine failures at both 32 GB and 24 GB, preserving the
+  private artifacts for diagnosis before attempting smaller tiers; invalid
+  harness/readiness evidence does not count toward the stop condition. High-tier
+  audits prioritize the Gemma 4 26B-A4B and Gemma 4 E4B catalog placements. The
+  existing five-minute deadline remains unchanged to tolerate foreground load.
+
 - Contributor documentation now explains the model-tier pilot/campaign
   workflow, isolated per-case execution, private artifact layout, retry-aware
   result classification, and the evidence gates required before changing tier

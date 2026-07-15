@@ -7,7 +7,7 @@
 
 import { describe, test, mock, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { estimateThinkingTokens, fitToolsToContext } from "../../../../lib/agent/providers/llamacpp.js";
+import { estimateThinkingTokens, fitToolsToContext, getToolLoopGuidance } from "../../../../lib/agent/providers/llamacpp.js";
 
 test("request preflight removes lowest-priority schemas until headroom is restored", () => {
   const tools = ["recall", "wiki_write", "wiki_search", "wiki_list"].map(name => ({
@@ -27,6 +27,58 @@ test("request preflight removes lowest-priority schemas until headroom is restor
   assert.deepEqual(result.tools.map(tool => tool.function.name), ["recall", "wiki_write"]);
   assert.equal(result.removed, 2);
   assert.ok(result.estimatedTokens <= 900);
+});
+
+test("post-recall guidance completes an explicit wiki write directly and concisely", () => {
+  const messages = [
+    { role: "user", content: "Write a wiki article summarizing everything we know about Nimbus" },
+    { role: "assistant", content: [{ type: "tool_use", id: "r1", name: "recall", input: { query: "Nimbus" } }] },
+    { role: "tool", content: [{ type: "tool_result", tool_use_id: "r1", content: "grounded memories" }] },
+  ];
+
+  const guidance = getToolLoopGuidance(messages);
+  assert.match(guidance, /wiki_write/);
+  assert.match(guidance, /strictly valid JSON/i);
+  assert.match(guidance, /concise/i);
+});
+
+test("post-write guidance prevents a successful wiki mutation from repeating", () => {
+  const messages = [
+    { role: "user", content: "Write a wiki article about Nimbus" },
+    { role: "assistant", content: [{ type: "tool_use", id: "w1", name: "wiki_write", input: { slug: "nimbus" } }] },
+    { role: "tool", content: [{ type: "tool_result", tool_use_id: "w1", content: "✅ Wiki article created." }] },
+  ];
+
+  const guidance = getToolLoopGuidance(messages);
+  assert.match(guidance, /completed successfully/i);
+  assert.match(guidance, /do not call `wiki_write` again/i);
+  assert.match(guidance, /user-visible/i);
+});
+
+test("post-write guidance trusts a successful result whose article title mentions errors", () => {
+  const messages = [
+    { role: "user", content: "Write a wiki article about Nimbus" },
+    { role: "assistant", content: [{ type: "tool_use", id: "w1", name: "wiki_write", input: { slug: "nimbus-error-recovery" } }] },
+    { role: "tool", content: [{ type: "tool_result", tool_use_id: "w1", content: "✅ Created wiki article: Nimbus Error Recovery" }] },
+  ];
+
+  const guidance = getToolLoopGuidance(messages);
+  assert.match(guidance, /completed successfully/i);
+  assert.match(guidance, /do not call `wiki_write` again/i);
+  assert.doesNotMatch(guidance, /retry/i);
+});
+
+test("post-write guidance allows a failed wiki mutation to retry", () => {
+  const messages = [
+    { role: "user", content: "Write a wiki article about Nimbus" },
+    { role: "assistant", content: [{ type: "tool_use", id: "w1", name: "wiki_write", input: { __parse_error__: "bad JSON" } }] },
+    { role: "tool", content: [{ type: "tool_result", tool_use_id: "w1", content: "❌ Tool requires strictly valid JSON arguments." }] },
+  ];
+
+  const guidance = getToolLoopGuidance(messages);
+  assert.match(guidance, /failed/i);
+  assert.match(guidance, /retry/i);
+  assert.doesNotMatch(guidance, /completed successfully/i);
 });
 
 // ─── Logger mock ──────────────────────────────────────────────────────────
@@ -328,6 +380,43 @@ describe("runLlamaCppLoop — successful response", () => {
     assert.ok(streamEnd, "expected a stream_end carrying usage.timings");
     assert.equal(streamEnd.usage.timings.predicted_per_second, 22);
     assert.equal(ctx.state.lastTimings?.predicted_per_second, 22);
+  });
+
+  test("carries one successful wiki_write into a guided final-response request", async () => {
+    const bodies = [];
+    let chatCalls = 0;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/chat/completions")) {
+        bodies.push(JSON.parse(opts.body));
+        chatCalls++;
+        const chunks = chatCalls === 1 ? [
+          'data: {"choices":[{"index":0,"delta":{"role":"assistant","tool_calls":[{"index":0,"id":"w1","function":{"name":"wiki_write","arguments":"{\\"slug\\":\\"nimbus\\",\\"title\\":\\"Nimbus\\",\\"body_md\\":\\"Grounded.\\"}"}}]},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}],"usage":{"input_tokens":100,"output_tokens":20}}\n\n',
+          "data: [DONE]\n\n",
+        ] : [
+          'data: {"choices":[{"index":0,"delta":{"content":"Created the Nimbus article."},"finish_reason":null}]}\n\n',
+          'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":150,"output_tokens":6}}\n\n',
+          "data: [DONE]\n\n",
+        ];
+        return { ok: true, status: 200, text: async () => "", body: sseStream(chunks) };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+    const callTool = mock.fn(async () => "✅ Wiki article created.");
+    const tools = [{ type: "function", function: { name: "wiki_write", parameters: {} } }];
+
+    const result = await runLlamaCppLoop(
+      [{ role: "user", content: "Write a wiki article about Nimbus" }],
+      { send: makeEmittersend() }, {}, undefined, () => {},
+      baseCtx("gemma4:e4b", { callTool, getOpenAiTools: () => tools }),
+    );
+
+    assert.equal(result, "Created the Nimbus article.");
+    assert.equal(callTool.mock.callCount(), 1, "the successful mutation executes once");
+    assert.equal(chatCalls, 2, "one mutation request and one final-response request");
+    assert.match(bodies[1].messages[0].content, /do not call `wiki_write` again/i);
   });
 
   test("returns error when API returns non-200", async () => {

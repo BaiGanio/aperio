@@ -16,6 +16,9 @@
     .e2e-lede{color:var(--subtle);max-width:650px;margin:0}
     .e2e-run{color:var(--muted);text-align:right;font:12px var(--font-mono)}
     .e2e-run strong{color:var(--text);display:block;font-family:var(--font-ui);font-size:14px}
+    .orientation{margin:0 0 16px;padding:18px 22px;background:var(--bg-card);border:1px solid var(--border);color:var(--subtle);line-height:1.55}
+    .orientation strong{color:var(--text)}
+    .orientation p{margin:0 0 8px}.orientation p:last-child{margin-bottom:0}
     .grid{display:grid;gap:16px}
 
     /* Metric Cards */
@@ -42,6 +45,7 @@
     .suite-head::before{content:'▸';color:var(--muted);font-size:13px;transition:transform .2s;margin-right:4px}
     details[open] .suite-head::before{content:'▾'}
     .suite-name{font:400 20px var(--font-ui);letter-spacing:.02em;color:var(--text)}
+    .suite-purpose{padding:0 22px 16px;color:var(--subtle);font-size:13px;line-height:1.5;max-width:900px}
     .suite-meta{display:flex;gap:16px;align-items:center;font:12px var(--font-mono);color:var(--muted)}
     .suite-meta .tag{font:10px var(--font-ui);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--border-hi);border-radius:0}
     .tag-ok{color:var(--green)}
@@ -51,7 +55,7 @@
     .suite-body{padding:0 22px 18px}
     .test-table{width:100%;border-collapse:collapse;font:13px var(--font-mono);margin-top:4px}
     .test-table th{text-align:left;color:var(--muted);font:10px var(--font-ui);font-weight:400;text-transform:uppercase;letter-spacing:.1em;padding:8px 6px 6px;border-bottom:1px solid var(--border)}
-    .test-table td{padding:6px 6px;border-bottom:1px solid var(--border);vertical-align:top}
+    .test-table td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
     .test-table tr:last-child td{border-bottom:0}
     .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;flex-shrink:0}
     .status-dot.pass{background:var(--green)}
@@ -60,6 +64,7 @@
     .test-name{display:flex;align-items:center;color:var(--text);word-break:break-word}
     .test-duration{color:var(--muted);white-space:nowrap;text-align:right}
     .test-error{color:var(--amber);font-size:11px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .test-help{font-family:var(--font-ui);color:var(--subtle);line-height:1.45;max-width:680px}
 
     /* Footer & Legend */
     .legend{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:18px;color:var(--muted);font:11px var(--font-ui)}
@@ -73,11 +78,22 @@
     .empty-state{padding:40px;text-align:center;color:var(--muted);grid-column:1/-1}
     .empty-state h3{color:var(--text);margin:0 0 10px}
 
-    .file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;margin-top:16px}
-    .file-tile{background:var(--bg-card);border:1px solid var(--border);padding:14px;transition:border-color .2s}
-    .file-tile:hover{border-color:var(--border-hi)}
-    .file-tile .file-name{font:12px var(--font-mono);color:var(--muted);display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .file-tile .file-size{font:11px var(--font-mono);color:var(--dim)}
+    /* Test file glyphs — shared visual language with the coverage dashboard. */
+    .files-panel{margin-top:16px;border:1px solid var(--border);background:var(--bg-card)}
+    .files-panel-head{padding:14px 22px;display:flex;justify-content:space-between;align-items:center;gap:14px;border-bottom:1px solid var(--border)}
+    .files-panel-title{font:400 17px var(--font-ui);letter-spacing:.05em;color:var(--text)}
+    .files-panel-title::before{content:'▾';display:inline-block;color:var(--purple);font-size:13px;margin-right:8px}
+    .files-panel-hint{color:var(--muted);font:11px var(--font-mono)}
+    .file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:20px 12px;padding:18px 22px 22px}
+    .file-tile{min-height:122px;padding:8px 8px 0;color:var(--text);background:transparent;border:0;transition:transform .15s;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;font:inherit}
+    .file-tile:hover{transform:translateY(-2px)}
+    .file-tile:focus-visible{outline:2px solid var(--purple);outline-offset:4px}
+    .file-tile:hover .file-glyph,.file-tile:focus-visible .file-glyph{background:var(--tile-color);color:var(--bg-card);transform:translateY(-1px)}
+    .file-glyph{position:relative;flex:0 0 auto;width:58px;height:58px;border:1px solid var(--tile-color);border-radius:12px;background:color-mix(in srgb,var(--tile-color) 12%,transparent);margin:2px auto 12px;color:var(--tile-color);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,transform .15s}
+    .file-mark{font:500 12px/1 var(--font-mono);color:currentColor;letter-spacing:.02em}
+    .file-name{font:12px var(--font-mono);color:var(--text);display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .file-size{display:block;margin-top:5px;font:11px var(--font-mono);color:var(--dim)}
+    @media(max-width:560px){.file-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.file-tile{min-height:118px}.files-panel-head{align-items:flex-start;flex-direction:column;gap:3px}}
   </style>
 </head>
 <body>
@@ -91,6 +107,7 @@
     <ul class="nav-links" id="navLinks"><li><a href="index.html">Home</a></li><li><a href="model-tier-score-viewer.html">Benchmarking</a></li><li><a href="coverage-dashboard.html">Coverage</a></li><li><a href="e2e-dashboard.html">E2E Tests</a></li><li><a href="https://codecov.io/gh/BaiGanio/aperio" target="_blank" rel="noreferrer">Codecov</a></li></ul>
     <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div>
   </div>
+
 </nav>
 
 <main class="shell">
@@ -105,19 +122,25 @@
     </div>
   </div>
 
+  <div class="orientation">
+    <p><strong>How to read this page:</strong> each green dot means one behavior was checked successfully. A test is a small question about the running application; it does not mean a person had to click through the interface.</p>
+    <p>The suites group related questions. Expand a suite to see both the technical check name and a plain-language explanation of what it protects. “Mocked” means the test uses safe stand-ins instead of a real database, filesystem, or external service.</p>
+  </div>
+
   <!-- Metric Cards -->
   <div class="grid metrics" id="metrics"></div>
 
+  <!-- Test files -->
+  <section class="files-panel" aria-labelledby="files-title">
+    <div class="files-panel-head">
+      <span class="files-panel-title" id="files-title">Test files</span>
+      <span class="files-panel-hint">select a file to open its suite</span>
+    </div>
+    <div class="file-grid" id="files"></div>
+  </section>
+
   <!-- Suite-by-suite results -->
   <div class="suite-grid" id="suites"></div>
-
-  <!-- Test files -->
-  <details style="margin-top:16px;border:1px solid var(--border);background:var(--bg-card)">
-    <summary style="padding:14px 22px;cursor:pointer;font:13px var(--font-ui);color:var(--muted);user-select:none">
-      Test files
-    </summary>
-    <div class="file-grid" id="files" style="padding:0 22px 18px"></div>
-  </details>
 
   <!-- Legend -->
   <div class="legend">
@@ -139,6 +162,37 @@ const data = window.APERIO_E2E;
 const pct = (v) => `${Number(v || 0).toFixed(1)}%`;
 const fmt = (ms) => ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`;
 const escapeHtml = (val) => String(val).replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const suitePurpose = {
+  'CI and backend parity': 'Checks that the test commands discover the intended files and that optional database coverage is reported honestly when Postgres is not configured.',
+  'Config Panel (HTTP-level) — Phase 8': 'Checks the information the Config Panel needs to show configuration safely: the fields, their current source, their type, whether they can be edited, and any warnings. It tests the page and its API response without requiring a browser.',
+  'Config precedence switch (mocked)': 'Checks which setting wins when the same configuration value exists in the environment and in the database. This makes the “source” label trustworthy.',
+  'Config provenance (mocked — no filesystem, no SQLite, no ports)': 'Checks that Aperio can explain where each setting came from—built-in default, environment, or database—and that protected settings cannot pretend to come from the database.',
+  'Persistence tests': 'Checks that memories and settings can be saved, retrieved, exported, rejected when invalid, and recovered after a full restart.',
+  'Security tests': 'Checks that authentication, cookies, origins, path traversal, and symlink escapes protect the app’s APIs and file mounts.',
+  'Settings round-trip (mocked — no filesystem, no SQLite, no ports)': 'Checks that browser preferences and configuration values survive a write/read cycle, can be deleted, reject malformed requests, and never expose secret values.',
+  'Shutdown and lifecycle': 'Checks that Aperio stops cleanly, releases its port and database lock, waits reliably in tests, and leaves no helper processes behind.',
+  'Streaming protocol — Phase 5': 'Checks that a chat response begins, delivers its tokens, ends correctly, and reports errors or provider changes without confusing concurrent clients.',
+  'WebSocket lifecycle — Phase 7': 'Checks that browser connections get independent sessions, reconnect safely, handle normal and invalid messages, and support more than one chat on a connection.',
+  'WebSocket tests': 'Checks the established chat protocol end to end: handshakes, turn IDs, stopping work, malformed input, recoverable errors, and multiple clients.'
+};
+
+const testPurpose = {
+  'fields include source labels (default when unset)': 'Shows that every setting tells the user where its active value came from. With no override present, LLAMACPP_MODEL must say “default”, so the panel does not make the user guess.',
+  'fields include type, tier, editable, secret info': 'Shows that each setting carries the safety and display rules the panel needs. For example, PORT is a number, is a protected Tier-0 setting, and cannot be edited from the panel.',
+  '/api/config/schema returns fields and sections': 'Confirms the panel receives a usable list of settings and the sections used to organize them.',
+  'schema includes AI_PROVIDER, LLAMACPP_MODEL, PORT': 'Confirms that important provider, model, and server-port settings appear in the panel.',
+  'schema includes precedence field': 'Confirms the response tells the panel whether environment values or database values take priority.',
+  'schema includes warnings array': 'Confirms the panel receives a place for configuration problems instead of having to infer them or fail silently.',
+  'HTML includes inline script to fetch /api/config/schema': 'Confirms the delivered page knows how to ask the server for the live configuration data.',
+  'root URL returns HTML with config panel title': 'Confirms the Config Panel page itself is reachable and returns a complete HTML document.'
+};
+
+function explainTest(name) {
+  if (testPurpose[name]) return testPurpose[name];
+  const readable = name.replace(/^T\d+:\s*/, '').replace(/→/g, 'then');
+  return `Checks that ${readable.charAt(0).toLowerCase()}${readable.slice(1)}. The suite description above explains why this behavior matters to users.`;
+}
 
 // Run info
 document.querySelector('#run').innerHTML = `<strong>${data.branch || 'e2e run'}${data.commit ? ' · ' + data.commit : ''}</strong>Generated ${new Date(data.generatedAt).toLocaleString()} · ${data.total} tests · ${data.suites.length} suites`;
@@ -173,8 +227,8 @@ document.querySelector('#metrics').innerHTML = `
 `;
 
 // Suites
-const suitesHtml = data.suites.map((suite) => `
-  <details class="suite-card"${suite.failed > 0 ? '' : ' open'}>
+const suitesHtml = data.suites.map((suite, index) => `
+  <details class="suite-card" id="suite-${index}" data-suite-name="${escapeHtml(suite.name)}">
     <summary class="suite-head">
       <span class="suite-name">${escapeHtml(suite.name)}</span>
       <span class="suite-meta">
@@ -183,16 +237,18 @@ const suitesHtml = data.suites.map((suite) => `
         <span>${fmt(suite.duration_ms)}</span>
       </span>
     </summary>
+    <div class="suite-purpose">${escapeHtml(suitePurpose[suite.name] || 'Groups related end-to-end checks for a user-visible part of Aperio.')}</div>
     <div class="suite-body">
       <table class="test-table">
-        <thead><tr><th>test</th><th style="text-align:right">duration</th></tr></thead>
+        <thead><tr><th>check</th><th>what this proves</th><th style="text-align:right">duration</th></tr></thead>
         <tbody>
           ${suite.tests.map((t) => `
             <tr>
               <td><span class="test-name"><i class="status-dot ${t.status}"></i>${escapeHtml(t.name)}${t.status === 'skip' ? ' <span style="color:var(--dim);font-size:11px">(skipped)</span>' : ''}</span></td>
+              <td class="test-help">${escapeHtml(explainTest(t.name))}</td>
               <td class="test-duration">${fmt(t.duration_ms)}</td>
             </tr>
-            ${t.error ? `<tr><td colspan="2" class="test-error" title="${escapeHtml(t.error)}">${escapeHtml(t.error)}</td></tr>` : ''}
+            ${t.error ? `<tr><td colspan="3" class="test-error" title="${escapeHtml(t.error)}">${escapeHtml(t.error)}</td></tr>` : ''}
           `).join('')}
         </tbody>
       </table>
@@ -203,14 +259,45 @@ const suitesHtml = data.suites.map((suite) => `
 document.querySelector('#suites').innerHTML = suitesHtml;
 
 // Test files
-const filesHtml = (data.files || []).map((f) => `
-  <div class="file-tile">
+const fileSuiteMap = {
+  'config-provenance.test.js': ['Config Panel (HTTP-level) — Phase 8', 'Config precedence switch (mocked)', 'Config provenance (mocked — no filesystem, no SQLite, no ports)'],
+  'real-app-char.test.js': ['CI and backend parity'],
+  'real-app-http.test.js': ['Persistence tests', 'Security tests'],
+  'real-app-lifecycle.test.js': ['CI and backend parity', 'Shutdown and lifecycle'],
+  'real-app-persistence.test.js': ['Persistence tests'],
+  'real-app-security.test.js': ['Security tests'],
+  'real-app-ws.test.js': ['WebSocket lifecycle — Phase 7'],
+  'settings-roundtrip.test.js': ['Settings round-trip (mocked — no filesystem, no SQLite, no ports)'],
+  'streaming.test.js': ['Streaming protocol — Phase 5'],
+  'ui-config-panel.test.js': ['Config Panel (HTTP-level) — Phase 8'],
+  'websocket-lifecycle.test.js': ['WebSocket lifecycle — Phase 7'],
+  'websocket.test.js': ['WebSocket tests']
+};
+const fileSuiteNames = (file) => fileSuiteMap[file.name] || [];
+const fileColor = (index) => ['var(--purple)', 'var(--indigo)', 'var(--green)', 'var(--amber)'][index % 4];
+const fileExtension = (name) => name.split('.').pop();
+const filesHtml = (data.files || []).map((f, index) => `
+  <button class="file-tile" type="button" data-suite-names="${escapeHtml(fileSuiteNames(f).join('|'))}" title="Open ${escapeHtml(f.name)}" style="--tile-color:${fileColor(index)}">
+    <span class="file-glyph" aria-hidden="true"><strong class="file-mark">.${escapeHtml(fileExtension(f.name))}</strong></span>
     <span class="file-name">${escapeHtml(f.name)}</span>
     <span class="file-size">${(f.size / 1024).toFixed(1)} KB</span>
-  </div>
+  </button>
 `).join('') || '<div style="color:var(--muted);padding:18px 22px;font:12px var(--font-mono)">No test files found</div>';
 
 document.querySelector('#files').innerHTML = filesHtml;
+
+// File tiles act as navigation into the suite that owns their checks.
+const suiteCards = [...document.querySelectorAll('.suite-card')];
+document.querySelectorAll('.file-tile').forEach((tile) => {
+  tile.addEventListener('click', () => {
+    const suiteNames = (tile.dataset.suiteNames || '').split('|').filter(Boolean);
+    suiteCards.forEach((suite) => { suite.open = false; });
+    const target = suiteCards.find((suite) => suiteNames.includes(suite.dataset.suiteName));
+    if (!target) return;
+    target.open = true;
+    requestAnimationFrame(() => target.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  });
+});
 </script>
 <script src="scripts.js"></script>
 </body>

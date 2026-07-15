@@ -281,7 +281,18 @@ classify the final persisted case result while retaining the first-attempt
 diagnostics.
 
 For a controlled tier audit, run cases sequentially and use a separate campaign
-ID per placement. Afterward, use the non-live aggregation/finalist workflow
+ID per placement. Test tiers in descending order (`32 → 24 → 16 → 8`)
+so high-capability failures are diagnosed before spending time on smaller
+placements. If both the 32 GB and 24 GB tiers end in genuine model/behavior
+failures, stop the audit, preserve and inspect their required artifacts, and do
+not continue to 16 GB or 8 GB until the failure is understood. A harness or
+readiness failure is invalid evidence and must not trigger this early stop.
+Qualification cases retain a five-minute whole-turn deadline by default so
+ordinary foreground load does not turn a near-complete local-model response
+into a false timeout.
+For high-tier audits, prioritize the catalog's primary Gemma placements:
+`gemma4-26b-a4b-ud-q4kxl` and `gemma4-e4b-ud-q4kxl`.
+Afterward, use the non-live aggregation/finalist workflow
 (`--aggregate`, `--finalists`, and `--decide --evidence <path>`) only on valid,
 comparable evidence. Do not treat a single pilot pass as a tier recommendation;
 the full-exam manifest and human review are required before changing defaults.

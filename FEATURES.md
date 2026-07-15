@@ -251,6 +251,11 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
   tier/model placements from private plans, with a non-live dry-run mode and
   private execution ledgers; individual cases can be audited with
   `npm run model-tier:pilot -- --model <id> --tier <8|16|24|32> --case <id>`
+- Model-tier audit policy — retains a five-minute default case deadline and tests
+  tiers in descending `32 → 24 → 16 → 8` order; two genuine top-tier
+  failures stop the audit after artifact collection, while invalid readiness
+  evidence is rerun instead of being treated as a model failure; high-tier
+  audits prioritize `gemma4-26b-a4b-ud-q4kxl` and `gemma4-e4b-ud-q4kxl`
 - Model-tier evidence review — offline finalist manifests and full-exam tier
   decisions from validated campaign artifacts; raw evidence remains private
   under `var/`, and pilot evidence alone cannot promote an installer default

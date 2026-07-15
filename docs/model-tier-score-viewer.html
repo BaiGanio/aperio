@@ -375,6 +375,9 @@
     .glossary dt { font-weight: 650; font-size: 13px; }
     .glossary dd { margin: 3px 0 0; color: var(--muted); font-size: 12.5px; }
 
+
+    .lede{font-size:17px;color:var(--muted);max-width:790px;margin:0}.callout{border-left:3px solid var(--amber);background:#fbbf2411;padding:14px 17px;margin:24px 0;color:var(--muted)}.callout strong{color:var(--amber)}
+
     @media (max-width: 900px) {
       .explain, .glossary { grid-template-columns: 1fr; }
       .hero { grid-template-columns: 1fr; }
@@ -419,21 +422,23 @@
     <section class="hero">
       <div>
         <div class="eyebrow">Model qualification / pilot</div>
-        <h1>Can this model X carry the memory?</h1>
-        <p>Inspect tool behavior, answer checks, state changes, latency, and memory pressure without confusing an invalid run with a model failure.</p>
+        <h1>Can a model use Aperio's tools the right way?</h1>
+    <p class="lede">This is not a generic speed test. It checks whether one local llama.cpp model can complete fixed Aperio tasks inside an 8, 16, 24, or 32 GB RAM/context tier—and records what happened when it cannot.</p>
       </div>
       <div class="actions">
         <button class="btn" id="demoBtn" type="button">Load demo</button>
+        <button class="btn" id="folderBtn" type="button">Open result folder</button>
         <button class="btn btn-primary" id="browseBtn" type="button">Open run files</button>
       </div>
     </section>
 
     <label class="drop-zone" id="dropZone">
       <span class="drop-icon">↧</span>
-      <span><span class="drop-title">Drop a pilot result here</span><span class="drop-copy">From var/benchmarks/model-tiers/&lt;tier&gt;gb/&lt;model&gt;/&lt;campaign&gt;/: select run.json, cases.jsonl, and metrics.csv. Nothing leaves this browser.</span></span>
+      <span><span class="drop-title">Drop a pilot result here</span><span class="drop-copy">Choose the whole result folder, or select run.json, cases.jsonl, and metrics.csv. Files are read locally; nothing leaves this browser.</span></span>
       <span class="file-types">JSON · JSONL · CSV</span>
       <input id="fileInput" type="file" multiple accept=".json,.jsonl,.csv,application/json,text/csv">
     </label>
+    <input id="folderInput" type="file" webkitdirectory multiple accept=".json,.jsonl,.csv" hidden>
 
     <div class="notice" id="notice"><span>◆</span><span><strong>Pilot evidence only.</strong> A short qualification run validates the harness and the model's tool behavior. It is not enough on its own to promote, reject, or rank an installer model.</span></div>
 
@@ -461,30 +466,36 @@
         <p>You need three files from a completed pilot run. If you haven't run one yet, ask whoever set up the benchmark, or produce one yourself with the steps below. The files contain private prompts and paths — keep them local, never upload or commit them.</p>
 
         <h4>1 · Produce a run (person with the project checked out)</h4>
-        <p>From the project folder, in a terminal, run the pilot for a model. Pick the tier number that matches the machine's RAM (8, 16, 24, or 32):</p>
+        <p>From the project folder, in a terminal, validate first, then run one isolated case. The tiers are 8, 16, 24, and 32 GB:</p>
         <code class="cmd"><span class="c"># check the config is valid — starts nothing:</span>
 npm run model-tier:pilot -- --validate
 
-<span class="c"># run the pilot (example: the Gemma model on a 32 GB machine):</span>
-npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
-        <p>It runs for a few minutes and writes its results into a private folder.</p>
+<span class="c"># run one case (example: Gemma in the 16 GB tier):</span>
+npm run model-tier:pilot -- \
+  --model gemma4-e4b-ud-q4kxl \
+  --tier 16 \
+  --case chain-recall-wiki \
+  --campaign audit-YYYYMMDD-gemma-e4b-16gb-chain-recall</code>
+        <p><strong>What is a campaign ID?</strong> It is simply the unique label and result-folder name for a run. You can choose a descriptive one after <code>--campaign</code>. If you omit that option for a single run, Aperio generates a UTC timestamp such as <code>20260715T112103Z</code>.</p>
+        <p>The run uses a temporary workspace and SQLite database, starts isolated Aperio and llama.cpp processes, waits for readiness, performs the case, verifies tool and state evidence, then stops the processes and removes the temporary runtime folder.</p>
 
         <h4>2 · Find the three files</h4>
-        <p>Every run saves them under a folder named by tier / model / timestamp:</p>
-        <p class="path">var/benchmarks/model-tiers/&lt;tier&gt;gb/&lt;model&gt;/&lt;campaign-id&gt;/</p>
+        <p>Every run saves them under a folder named by tier, model, and campaign ID:</p>
+        <p class="path">var/benchmarks/model-tiers/&lt;tier&gt;gb/&lt;model-id&gt;/&lt;campaign-id&gt;/</p>
         <p>Inside that folder you want exactly these three:</p>
         <ol>
           <li><strong>run.json</strong> — the overall result and summary numbers.</li>
           <li><strong>cases.jsonl</strong> — one line per task, with what passed and failed.</li>
           <li><strong>metrics.csv</strong> — the memory-usage samples for the timeline chart.</li>
         </ol>
-        <p>On a Mac, open Finder → <strong>Go → Go to Folder…</strong>, paste that folder path, and you'll see the files. (The other files in the folder — logs, transcript — aren't needed here.)</p>
+        <p>If you supplied <code>--campaign</code>, look for that exact folder name. Otherwise, open the newest timestamp-named folder. On a Mac, open Finder → <strong>Go → Go to Folder…</strong> and paste the full project path plus the path above.</p>
+        <p>The folder also contains private logs, transcripts, and tool diagnostics. The viewer ignores those files, but they may contain prompts, memories, model output, and local paths—never upload or commit them.</p>
 
         <h4>3 · Load them onto this page</h4>
         <ol>
           <li>Select all three files (run.json, cases.jsonl, metrics.csv).</li>
-          <li>Drag them onto the dashed drop zone above — or click <strong>Open run files</strong> and pick them.</li>
-          <li>The report fills in instantly. Loading only some of the files still works; the missing parts just show a dash.</li>
+          <li>Drag them onto the dashed drop zone, click <strong>Open result folder</strong>, or click <strong>Open run files</strong>.</li>
+          <li>The report fills in instantly. Loading only some files still works; missing values show <strong>Unavailable</strong>.</li>
         </ol>
 
         <h4>Glossary — what the labels mean</h4>
@@ -492,7 +503,10 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
           <div><dt>Case / task</dt><dd>One thing the model was asked to do, e.g. "recall why we chose NATS."</dd></div>
           <div><dt>Prompt sent</dt><dd>The exact message the model received for this task — the user turn it had to act on.</dd></div>
           <div><dt>Pass / Fail</dt><dd>Whether the model met every check for that task. Failing one check fails the task.</dd></div>
-          <div><dt>Invalid</dt><dd>The test environment was wrong (e.g. wrong model loaded). It's a setup problem, not the model's fault.</dd></div>
+          <div><dt>Invalid</dt><dd>No normal pass/fail result was persisted. Read the reason: it may be a context limit, loop timeout, or harness/readiness problem.</dd></div>
+          <div><dt>Context-limit failure</dt><dd>llama.cpp explicitly reported that the request exceeded the served context window. This is not a generic timeout.</dd></div>
+          <div><dt>Loop timeout</dt><dd>The turn deadline expired without explicit context-limit evidence; the model may be looping or failing to converge.</dd></div>
+          <div><dt>Harness / readiness failure</dt><dd>The app, model, fixture, embeddings, graphs, or infrastructure never became valid. This is not a fair model failure.</dd></div>
           <div><dt>Hard gate</dt><dd>A must-pass task. A model can't be recommended if it fails one of these.</dd></div>
           <div><dt>Tool order</dt><dd>Did the model call the right tools (recall, fetch, remember…) in the right sequence?</dd></div>
           <div><dt>Answer terms</dt><dd>Specific words the correct answer must contain (e.g. "NATS", "Postgres").</dd></div>
@@ -501,6 +515,7 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
           <div><dt>llama RSS</dt><dd>How much memory the local model itself used while running.</dd></div>
           <div><dt>Swap delta</dt><dd>Extra "overflow" memory the machine had to use. High swap means the model is too big for that machine.</dd></div>
         </dl>
+        <p><strong>A retry never erases the first attempt.</strong> The final persisted result determines the classification, while both attempts remain useful reliability evidence. One pilot run is diagnostic evidence—not enough by itself to choose an installer default.</p>
       </div>
     </details>
 
@@ -590,6 +605,7 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
     }));
 
     const $ = id => document.getElementById(id);
+    const REQUIRED_FILES = ["run.json", "cases.jsonl", "metrics.csv"];
     let currentRun = structuredClone(DEMO);
     let currentMetrics = [];
 
@@ -598,14 +614,14 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
     }
 
     function formatDuration(ms) {
-      if (!Number.isFinite(ms)) return "—";
+      if (!Number.isFinite(ms)) return "Unavailable";
       if (ms < 1000) return `${Math.round(ms)}ms`;
       if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
       return `${Math.floor(ms / 60000)}m ${Math.round((ms % 60000) / 1000)}s`;
     }
 
     function formatBytes(bytes) {
-      if (!Number.isFinite(bytes)) return "—";
+      if (!Number.isFinite(bytes)) return "Unavailable";
       const units = ["B", "KB", "MB", "GB", "TB"];
       let value = Math.max(0, bytes), unit = 0;
       while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
@@ -642,6 +658,27 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
       return mode === "application_guardrail" ? "application blocked" : mode === "model_refusal" ? "model refused" : mode || "not applicable";
     }
 
+    function resultClassification(item) {
+      if (!item) return "Unavailable";
+      if (item.status === "pass") return "Valid completion";
+      if (item.timeoutKind === "llamacpp-context-limit") return "Explicit context-limit failure";
+      if (item.timeoutKind === "generic-model-loop-timeout") return "Generic loop timeout";
+      if (item.status === "invalid") return "Harness / readiness failure";
+      if (item.status === "fail") return "Semantic / tool-behavior failure";
+      return "Unavailable";
+    }
+
+    function attemptSummary(item) {
+      if (!item.retried) return `<div class="case-evidence"><strong>Final persisted result:</strong> ${escapeHtml(resultClassification(item))}</div>`;
+      const row = (label, attempt) => {
+        if (!attempt) return `<div class="case-evidence"><strong>${label}:</strong> Unavailable</div>`;
+        const tools = attempt.actualToolSequence?.length ? attempt.actualToolSequence.join(" → ") : "no tools called";
+        const reason = attempt.invalidReason || resultClassification(attempt);
+        return `<div class="case-evidence"><strong>${label}:</strong> ${escapeHtml(attempt.status || "Unavailable")} · ${escapeHtml(tools)} · ${escapeHtml(reason)}</div>`;
+      };
+      return row("First attempt", item.firstAttempt) + row("Retry", item.retry) + row("Final persisted result", item);
+    }
+
     function toolSequence(tools, emptyLabel = "no tools called") {
       if (!tools?.length) return `<span class="tool-chip empty">${escapeHtml(emptyLabel)}</span>`;
       return tools.map((tool, index) => `${index ? '<span class="arrow">→</span>' : ""}<span class="tool-chip">${escapeHtml(tool)}</span>`).join("");
@@ -655,7 +692,7 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
     function verdictSummary(item) {
       const status = ["pass", "fail", "invalid"].includes(item.status) ? item.status : "invalid";
       if (status === "invalid") {
-        return { label: "Invalid", text: item.invalidReason || "The test environment was wrong, so this run does not reflect the model." };
+        return { label: resultClassification(item), text: item.invalidReason || "No normal pass/fail result was persisted." };
       }
       if (status === "pass") {
         const kudos = [];
@@ -732,6 +769,7 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
             </div>
             <div class="case-criteria">${caseCriteria(item)}</div>
             <div class="case-verdict"><span class="verdict-label">${escapeHtml(verdict.label)}.</span> <span class="verdict-text">${escapeHtml(verdict.text)}</span></div>
+            ${attemptSummary(item)}
           </div>
           <div class="duration">${formatDuration(Number(item.durationMs))}<span>wall time</span></div>
         </article>`;
@@ -741,8 +779,8 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
     function renderChart(samples) {
       const host = $("chartHost");
       if (samples.length < 2) {
-        host.innerHTML = '<div class="chart-empty">Load metrics.csv to render the timeline</div>';
-        $("sampleCount").textContent = samples.length ? "1 metric sample" : "No metric samples loaded";
+        host.innerHTML = '<div class="chart-empty">Unavailable — load metrics.csv to render the timeline</div>';
+        $("sampleCount").textContent = samples.length ? "1 metric sample" : "Unavailable";
         return;
       }
       const values = samples.map(sample => Number(sample.llamaRssBytes) || 0);
@@ -764,22 +802,28 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
       const valid = run.status !== "invalid";
       const total = cases.length;
       const percent = valid && total ? Math.round(passed / total * 100) : 0;
+      const invalidCase = cases.find(item => item.status === "invalid");
+      const explicitModelFailure = invalidCase?.timeoutKind === "llamacpp-context-limit" || invalidCase?.timeoutKind === "generic-model-loop-timeout";
 
       $("donut").style.setProperty("--score", `${percent}%`);
       $("scoreText").textContent = valid ? `${passed} / ${total}` : "Invalid";
       $("passRate").textContent = valid && total ? `${percent}%` : "N/A";
-      $("modelName").textContent = run.model?.displayName || run.model?.id || "Unknown model";
-      $("modelHf").textContent = run.model?.hf || "Exact model identifier unavailable";
-      $("campaignId").textContent = run.campaignId || "—";
-      $("profile").textContent = `${run.targetTierGB ? `${run.targetTierGB} GB · ` : ""}${run.profile || "—"}${run.servedContext ? ` · ${Math.round(run.servedContext / 1024)}k context` : ""}`;
-      $("hardware").textContent = `${run.hardware || "Unknown hardware"}${run.ramGB ? ` · ${run.ramGB} GB` : ""}`;
-      $("suite").textContent = run.qualificationSuiteVersion || "—";
-      $("runStatus").textContent = valid ? (run.status || "complete") : "Invalid";
+      $("modelName").textContent = run.model?.displayName || run.model?.id || "Unavailable";
+      $("modelHf").textContent = run.model?.hf || "Unavailable";
+      $("campaignId").textContent = run.campaignId || "Unavailable";
+      const profileParts = [run.targetTierGB ? `${run.targetTierGB} GB` : null, run.profile, run.servedContext ? `${Number(run.servedContext).toLocaleString()} token context` : null].filter(Boolean);
+      $("profile").textContent = profileParts.length ? profileParts.join(" · ") : "Unavailable";
+      const hardwareParts = [run.hardware, run.ramGB ? `${run.ramGB} GB` : null].filter(Boolean);
+      $("hardware").textContent = hardwareParts.length ? hardwareParts.join(" · ") : "Unavailable";
+      $("suite").textContent = run.qualificationSuiteVersion ?? "Unavailable";
+      $("runStatus").textContent = valid ? (run.status || "complete") : explicitModelFailure ? resultClassification(invalidCase) : "Invalid";
       $("runStatus").className = `status-pill ${valid ? "status-complete" : "status-invalid"}`;
       $("notice").className = `notice${valid ? "" : " invalid"}`;
       $("notice").innerHTML = valid
         ? '<span>◆</span><span><strong>Pilot evidence only.</strong> A short qualification run validates the harness and the model\'s tool behavior. It is not enough on its own to promote, reject, or rank an installer model.</span>'
-        : `<span>!</span><span><strong>Invalid run—not a model failure.</strong> ${escapeHtml(run.invalidReason || "The harness could not produce comparable evidence.")}</span>`;
+        : explicitModelFailure
+          ? `<span>!</span><span><strong>${escapeHtml(resultClassification(invalidCase))}.</strong> ${escapeHtml(invalidCase.invalidReason || run.invalidReason || "The turn did not complete normally.")}</span>`
+          : `<span>!</span><span><strong>Invalid run—not a model failure.</strong> ${escapeHtml(run.invalidReason || "The harness could not produce comparable evidence.")}</span>`;
 
       $("medianTurn").textContent = formatDuration(median(cases.map(item => Number(item.durationMs))));
       const peakLlama = maxOf(currentMetrics, "llamaRssBytes");
@@ -789,9 +833,9 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
       $("peakLlama").textContent = formatBytes(peakLlama);
       $("peakSystem").textContent = formatBytes(peakSystem);
       $("peakAperio").textContent = formatBytes(peakAperio);
-      $("swapDelta").textContent = swaps.length > 1 ? formatBytes(Math.max(0, Math.max(...swaps) - swaps[0])) : "—";
+      $("swapDelta").textContent = swaps.length > 1 ? formatBytes(Math.max(0, Math.max(...swaps) - swaps[0])) : "Unavailable";
       const start = Date.parse(run.startedAt), end = Date.parse(run.finishedAt);
-      $("runDuration").textContent = Number.isFinite(start) && Number.isFinite(end) ? formatDuration(end - start) : "—";
+      $("runDuration").textContent = Number.isFinite(start) && Number.isFinite(end) ? formatDuration(end - start) : "Unavailable";
 
       renderCases(cases);
       renderChart(currentMetrics);
@@ -801,32 +845,47 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
       const lines = text.trim().split(/\r?\n/).filter(Boolean);
       if (lines.length < 2) return [];
       const headers = lines[0].split(",");
-      return lines.slice(1).map(line => Object.fromEntries(line.split(",").map((value, index) => [headers[index], index === 0 ? value : Number(value)])));
+      return lines.slice(1).map(line => Object.fromEntries(line.split(",").map((value, index) => [headers[index], index < 2 ? value : Number(value)])));
     }
 
     async function loadFiles(files) {
+      const incoming = [...files];
+      const supported = incoming.filter(file => REQUIRED_FILES.includes(file.name.toLowerCase()));
+      const names = supported.map(file => file.name.toLowerCase());
+      const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
+      if (duplicates.length) throw new Error("Choose files from one result folder only.");
+      if (!supported.length) throw new Error("Choose a result folder or run.json, cases.jsonl, and metrics.csv.");
       let run = null, cases = null, metrics = [];
-      for (const file of files) {
+      for (const file of supported) {
         const text = await file.text();
         const name = file.name.toLowerCase();
-        if (name.endsWith(".csv")) metrics = parseCsv(text);
-        else if (name.endsWith(".jsonl")) cases = text.split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
-        else if (name.endsWith(".json")) run = JSON.parse(text);
+        if (name === "metrics.csv") metrics = parseCsv(text);
+        else if (name === "cases.jsonl") cases = text.split(/\r?\n/).filter(Boolean).map((line, index) => {
+          try { return JSON.parse(line); }
+          catch (error) { throw new Error(`cases.jsonl line ${index + 1}: ${error.message}`); }
+        });
+        else if (name === "run.json") run = JSON.parse(text);
       }
-      if (!run && cases) run = { ...structuredClone(DEMO), campaignId: "Imported cases", caseResults: cases };
-      if (!run) throw new Error("Select run.json or cases.jsonl.");
+      if (!run) run = { caseResults: cases ?? [] };
       if (cases) run.caseResults = cases;
       if (!Array.isArray(run.caseResults)) run.caseResults = [];
-      if (!run.campaignId && files[0]?.webkitRelativePath) {
-        const parts = files[0].webkitRelativePath.split("/");
-        run.campaignId = parts.at(-2) || "Imported artifacts";
+      if (!run.campaignId && supported[0]?.webkitRelativePath) {
+        const parts = supported[0].webkitRelativePath.split("/");
+        run.campaignId = parts.at(-2) || null;
       }
       render(run, metrics);
-      $("sourceLabel").textContent = [...files].map(file => file.name).join(" · ");
+      $("sourceLabel").textContent = supported.map(file => file.name).join(" · ");
+      return { loadedNames: names, ignoredCount: incoming.length - supported.length };
     }
 
     async function handleFiles(files) {
-      try { await loadFiles(files); }
+      try {
+        const result = await loadFiles(files);
+        const loaded = new Set(result.loadedNames);
+        const missing = REQUIRED_FILES.filter(name => !loaded.has(name));
+        $("notice").className = "notice";
+        $("notice").innerHTML = `<span>◆</span><span><strong>Loaded locally:</strong> ${escapeHtml([...loaded].join(", "))}.${missing.length ? ` Unavailable: ${escapeHtml(missing.join(", "))}.` : ""}${result.ignoredCount ? ` Ignored ${result.ignoredCount} unrelated diagnostic file${result.ignoredCount === 1 ? "" : "s"}.` : ""}</span>`;
+      }
       catch (error) {
         $("notice").className = "notice invalid";
         $("notice").innerHTML = `<span>!</span><span><strong>Could not read those files.</strong> ${escapeHtml(error.message)}</span>`;
@@ -834,8 +893,10 @@ npm run model-tier:pilot -- --model gemma4-e4b-q4kxl --tier 32</code>
     }
 
     $("browseBtn").addEventListener("click", () => $("fileInput").click());
+    $("folderBtn").addEventListener("click", () => $("folderInput").click());
     $("demoBtn").addEventListener("click", () => { render(structuredClone(DEMO)); $("sourceLabel").textContent = "Representative pilot data"; });
     $("fileInput").addEventListener("change", event => handleFiles(event.target.files));
+    $("folderInput").addEventListener("change", event => handleFiles(event.target.files));
     ["dragenter", "dragover"].forEach(type => $("dropZone").addEventListener(type, event => { event.preventDefault(); $("dropZone").classList.add("dragging"); }));
     ["dragleave", "drop"].forEach(type => $("dropZone").addEventListener(type, event => { event.preventDefault(); $("dropZone").classList.remove("dragging"); }));
     $("dropZone").addEventListener("drop", event => handleFiles(event.dataTransfer.files));
