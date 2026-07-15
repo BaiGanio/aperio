@@ -1,6 +1,24 @@
-# Completed checkpoint: argument-level filter assertions
+# Completed checkpoint: Stage 3 campaign preparation
 
 **Reconciled:** 2026-07-15 on `feat/model-tier-benchmark-runner`.
+
+The catalog-wide campaign preparation checkpoint is complete. The validated
+catalog contains 15 models and 38 eligible placements (4/8/12/14 across the
+8/16/24/32 GB tiers). Private campaign `20260715T-stage3-prep` was planned and
+dry-run validated without starting Aperio, llama.cpp, or any model. A live
+campaign now requires the explicit `--approve-live` flag.
+
+Future approved command:
+
+```bash
+npm run model-tier:pilot -- --execute-campaign \
+  --campaign <approved-campaign-id> --approve-live
+```
+
+The run remains sequential and isolated per placement: exact cached-model
+admission, throwaway database/workspace, non-default ports, private `var/`
+artifacts, fixed 300-second case envelope, and owned-process teardown. Do not
+add `--allow-download` without separate approval.
 
 **Reconciled:** 2026-07-15 on `feat/model-tier-benchmark-runner`.
 
@@ -35,15 +53,15 @@ runner-owned process, listener, or temporary workdir remained.
 
 ## Current stage
 
-The work is at **Stage 2 of 5 — pilot contract hardening**:
+The work is at **Stage 3 of 5 — live qualification campaign approval**:
 
 1. **Runner foundation — complete.** Isolation, exact-model admission, private
    artifacts, readiness, metrics, retries, teardown, aggregation, campaign
    planning/execution, and finalist evidence validation exist.
 2. **Pilot contract hardening — complete.** Timeout, cleanup, and argument-level
    case assertions are covered by focused tests.
-3. **Live qualification campaign — not started.** The 38-placement dry run is
-   complete, but no comparable live catalog campaign has been approved.
+3. **Live qualification campaign — prepared, not started.** The 38-placement
+   dry run is complete, but no comparable live catalog campaign has been approved.
 4. **Finalists and tier decisions — not started.** Full-exam evidence and human
    review are still required.
 5. **Installer/runtime integration — not started.** Defaults must not change
@@ -55,9 +73,9 @@ visual deliverable is no longer part of the remaining benchmark-runner work.
 
 ## Next bounded checkpoint
 
-Prepare and seek explicit approval for one isolated live qualification-campaign
-checkpoint using the validated catalog-wide plan. Do not execute the campaign
-implicitly or promote any model from dry-run evidence.
+Seek explicit approval for one isolated live qualification campaign using the
+validated catalog-wide plan, then review its private artifacts. Do not promote
+any model from dry-run evidence.
 
 Keep the deferred `aperio-main` model-progress alias issue and installer/runtime
 integration out of scope. Raw artifacts remain private under `var/`.

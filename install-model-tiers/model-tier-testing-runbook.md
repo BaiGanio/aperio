@@ -393,8 +393,14 @@ After explicit operator approval, execute the placements sequentially through
 the existing isolated pilot lifecycle:
 
 ```bash
-npm run model-tier:pilot -- --execute-campaign --campaign <campaign-id>
+npm run model-tier:pilot -- --execute-campaign \
+  --campaign <approved-campaign-id> --approve-live
 ```
+
+`--approve-live` is required for non-dry-run campaign execution. Omitting it
+fails before any placement process starts. Do not add `--allow-download` unless
+model acquisition has separately been approved; the approved campaign command
+is cache-only by default.
 
 Each tier's private `execution.json` records campaign controls, placement order,
 and child-process outcomes. A failed placement does not prevent later placements

@@ -35,6 +35,7 @@ The current branch provides:
 - a fixed 300-second whole-case timeout so slow local multi-tool loops can
   finish without a premature harness invalidation while preserving latency as
   ranking evidence;
+- an explicit `--approve-live` gate for non-dry-run catalog campaign execution;
 - a tracked local score viewer at `docs/model-tier-score-viewer.html`, linked
   from the documentation navigation;
 - focused tests for the new protocol boundary, schemas, scoring, and runner
@@ -106,13 +107,31 @@ campaign controls recorded in `run.json`, keeps completed model failures in the
 comparison, and excludes invalid or incomparable runs from comparable evidence.
 Campaign execution is now implemented. Create a private plan with `--plan`,
 validate it without starting models with `--execute-campaign --dry-run`, and run
-it only after explicit approval with `--execute-campaign`. Placements execute in
+it only after explicit approval with `--execute-campaign --approve-live`.
+Placements execute in
 deterministic tier/model order; failures are recorded and do not stop later
 placements. Each tier receives a private `execution.json` ledger containing the
 campaign controls and process outcomes. On 2026-07-14, campaign
 `20260714T220000Z` completed the approved dry-run: 4, 8, 12, and 14 placements
 were validated for the 8, 16, 24, and 32 GB tiers respectively, and every
 ledger result was recorded as `planned`.
+
+The Stage 3 preparation checkpoint is complete. Campaign
+`20260715T-stage3-prep` revalidated the catalog and produced the same 38-place-
+ment private dry-run ledger on commit `3a5bd0f`. The live command now refuses to
+start without `--approve-live`; no model, Aperio process, or llama.cpp process
+was started for this checkpoint. The future approved command is:
+
+```bash
+npm run model-tier:pilot -- --execute-campaign \
+  --campaign <approved-campaign-id> --approve-live
+```
+
+The command remains cache-only unless `--allow-download` is deliberately added.
+Each placement retains the existing throwaway database/workspace, non-default
+ports, private tier-first artifacts, sequential execution, fixed timeout, and
+owned-process cleanup controls. The live campaign and its artifact review remain
+the next approval-dependent checkpoint.
 
 The finalist review checkpoint is now implemented. `--finalists` creates a
 private manifest from comparable passing campaign rows, and `--decide
