@@ -52,7 +52,7 @@ export const DEFAULT_PILOT_CASE_IDS = Object.freeze([
 ]);
 
 export function parseArgs(argv) {
-  const out = { caseIds: [], validate: false, plan: false, executeCampaign: false, dryRun: false, aggregate: false, allowDownload: false };
+  const out = { caseIds: [], validate: false, plan: false, executeCampaign: false, dryRun: false, approveLive: false, aggregate: false, allowDownload: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--model") out.modelId = argv[++i];
@@ -66,6 +66,7 @@ export function parseArgs(argv) {
     else if (arg === "--plan") out.plan = true;
     else if (arg === "--execute-campaign") out.executeCampaign = true;
     else if (arg === "--dry-run") out.dryRun = true;
+    else if (arg === "--approve-live") out.approveLive = true;
     else if (arg === "--aggregate") out.aggregate = true;
     else if (arg === "--finalists") out.finalists = true;
     else if (arg === "--decide") out.decide = true;
@@ -90,6 +91,7 @@ function usage() {
     "  --plan              Write a private, non-live plan for every catalog placement",
     "  --execute-campaign  Execute every placement in a private campaign plan",
     "  --dry-run           Show campaign execution without starting model processes",
+    "  --approve-live      Explicitly authorize non-dry-run campaign execution",
     "  --aggregate         Build private campaign summaries from existing run artifacts",
     "  --finalists         Select finalists from an existing private summary.json",
     "  --decide            Generate private tier decisions from finalist evidence",
@@ -260,6 +262,13 @@ export async function executeCampaign(root, id, { dryRun = false, runnerPath = f
   }
   writeCampaignExecution(root, id, placements, results);
   return { campaignId: id, placements, results };
+}
+
+export function requireLiveCampaignApproval({ dryRun = false, approveLive = false } = {}) {
+  if (!dryRun && !approveLive) {
+    throw new Error("live campaign execution requires explicit --approve-live approval");
+  }
+  return true;
 }
 
 function discoverCampaignRuns(root, tier, id) {
@@ -1208,6 +1217,7 @@ async function main() {
   }
   if (args.executeCampaign) {
     if (!args.campaignId) throw new Error("--campaign is required with --execute-campaign");
+    requireLiveCampaignApproval(args);
     const result = await executeCampaign(ROOT, args.campaignId, { dryRun: args.dryRun });
     const failed = result.results.filter(item => !args.dryRun && (item.error || item.signal || item.exitCode !== 0));
     console.log(`${args.dryRun ? "Validated" : "Executed"} ${result.placements.length} campaign placement(s) for ${args.campaignId}`);

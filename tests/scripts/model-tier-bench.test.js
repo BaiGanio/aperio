@@ -27,6 +27,7 @@ import {
   writeCampaignPlan,
   readCampaignPlacements,
   executeCampaign,
+  requireLiveCampaignApproval,
   selectPilotCases,
   DEFAULT_PILOT_CASE_IDS,
   verifyState,
@@ -412,12 +413,19 @@ test("parseArgs collects repeatable case ids and the environment note", () => {
     caseIds: ["recall", "guardrail"],
     environmentNote: "contaminated",
     allowDownload: true,
+    approveLive: false,
     validate: false,
     plan: false,
     executeCampaign: false,
     dryRun: false,
     aggregate: false,
   });
+});
+
+test("live campaign execution requires explicit approval but dry-run does not", () => {
+  assert.equal(requireLiveCampaignApproval({ dryRun: true }), true);
+  assert.equal(requireLiveCampaignApproval({ approveLive: true }), true);
+  assert.throws(() => requireLiveCampaignApproval(), /requires explicit --approve-live/);
 });
 
 test("parseArgs records an explicit target tier", () => {
