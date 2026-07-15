@@ -11,6 +11,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Real-app E2E test harness: callable `createApp()` composition root in `lib/server.js`,
+  thin production `server.js` entrypoint, child-process fixture, contract-faithful test agent.
+  Six test groups covering architecture (6), HTTP middleware (9), SQLite persistence (6),
+  WebSocket chat (8), security boundaries (12), and lifecycle/CI (9) — 50 real-app E2E tests.
+- `npm run test:e2e:real` — focused script for real-app E2E tests only.
+- Port-0 fix: listen URL now uses `httpServer.address().port` instead of the configured
+  PORT variable, so OS-assigned ports work correctly.
 - E2E test dashboard (`docs/e2e-dashboard.html`) with pass-rate metrics, suite-by-suite expandable results, per-test durations, error display, and test file listing — same visual style as the coverage dashboard.
 - JSON test reporter (`tests/reporters/e2e-json.js`) and generator script (`scripts/generate-e2e-dashboard.js`) that runs `tests/e2e/` with structured output.
 - `npm run e2e:dashboard` and `npm run test:e2e:dashboard` npm scripts.
