@@ -243,6 +243,31 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Local-engine hardware/perf profiles (`APERIO_LOCAL_PERF_PROFILE`: balanced/fast-low-vram/long-context/quality) — MoE-aware model pick, KV-cache quantization + flash attention + single-resident-model on tight VRAM, raised context ceiling for long-context, biggest-model-RAM-allows for quality; best-effort VRAM detection (macOS unified memory, `nvidia-smi`, else unknown)
 - Memory-aware llama.cpp vision bridge — native-vision main models omit the dedicated VLM; when the main model and VLM cannot fit together, the router keeps both entries but uses `models-max = 1` to swap them on demand, with the selected mode logged at startup
 - `npm run local:bench` — short + medium fixed-prompt benchmark against the local llama.cpp engine; reports load overhead, prompt/gen tok/s, served context, profile, model, and a recommendation string (issue #222)
+- Model-tier pilot benchmark — runs fixed tool-use qualification cases against a
+  selected local llama.cpp model and RAM tier in an isolated temporary SQLite
+  app/workspace, records readiness, tool sequence, state assertions, timings,
+  context-limit evidence, and private logs under `var/benchmarks/model-tiers/`
+- Model-tier campaign execution — sequentially runs the validated catalog's 38
+  tier/model placements from private plans, with a non-live dry-run mode and
+  private execution ledgers; individual cases can be audited with
+  `npm run model-tier:pilot -- --model <id> --tier <8|16|24|32> --case <id>`
+- Model-tier audit policy — retains a five-minute default case deadline and tests
+  tiers in descending `32 → 24 → 16 → 8` order; two genuine top-tier
+  failures stop the audit after artifact collection, while invalid readiness
+  evidence is rerun instead of being treated as a model failure; high-tier
+  audits prioritize `gemma4-26b-a4b-ud-q4kxl` and `gemma4-e4b-ud-q4kxl`
+- Model-tier evidence review — offline finalist manifests and full-exam tier
+  decisions from validated campaign artifacts; raw evidence remains private
+  under `var/`, and pilot evidence alone cannot promote an installer default
+- Model-tier diagnostics — persisted retry transcripts and timeout evidence
+  distinguish generic loop deadlines, explicit llama.cpp context-limit
+  failures, harness/readiness failures, and valid completions; terminal context
+  overflows are invalid infrastructure evidence and are never counted or
+  retried as model-behavior failures
+- Context-safe local tool chains — schema costs are budgeted against the served
+  window, complete llama.cpp requests retain headroom, newly appended recall
+  results feed the next trimming decision immediately, and oversized recall
+  previews prefer narrower retrieval before loading a full artifact
 - Evidence-gated slow-turn diagnostic — after 3 consecutive local turns below a real-tok/s floor (llama-server's own reported `timings`, not wall-clock), a one-shot UI hint suggests a profile/context change; never fires for cloud providers
 - Docker production config (`docker/docker-compose.prod.yml`)
 - Test suite: 2953 unit tests (`npm test`) and 40 e2e tests (`npm run test:e2e`)

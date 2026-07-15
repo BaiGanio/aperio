@@ -1,0 +1,128 @@
+name: (ci) install matrix
+
+on:
+  workflow_dispatch:
+    inputs:
+      full_suite:
+        description: Run the full test suite on ARM runners
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "17 3 * * *"
+  pull_request:
+    branches: [master, dev]
+    paths:
+      - .github/lite/**
+      - vms/**
+      - package.json
+      - package-lock.json
+      - server.js
+      - db/**
+      - .github/workflows/ci.install-matrix.yml
+
+permissions:
+  contents: read
+
+env:
+  CI_BRANCH: aperio-ci-${{ github.run_id }}
+
+jobs:
+  install-posix:
+    name: installer & smoke (${{ matrix.os }})
+    if: github.event_name != 'schedule' || github.ref_name == 'dev'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Pin the local repository to the tested commit
+        shell: bash
+        run: git branch --force "$CI_BRANCH" "$GITHUB_SHA"
+
+      - name: Run one-liner installer and shared smoke contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          install_dir="$RUNNER_TEMP/aperio-install"
+          export APERIO_HOME="$install_dir"
+          export APERIO_REPO_URL="file://$GITHUB_WORKSPACE"
+          export APERIO_BRANCH="$CI_BRANCH"
+          bash .github/lite/install.sh </dev/null
+          cd "$install_dir"
+          npm install --prefer-offline --no-audit --no-fund
+          bash "$GITHUB_WORKSPACE/vms/smoke.sh" "$install_dir"
+
+          mkdir -p var
+          printf 'installer-update-sentinel\n' > var/vmtest-sentinel
+          bash "$GITHUB_WORKSPACE/.github/lite/install.sh" </dev/null
+          test "$(cat var/vmtest-sentinel)" = installer-update-sentinel
+          npm install --prefer-offline --no-audit --no-fund
+          bash "$GITHUB_WORKSPACE/vms/smoke.sh" "$install_dir"
+
+          printf 'y\n' | bash "$install_dir/uninstall.sh"
+          test ! -e "$install_dir"
+
+  install-windows:
+    name: zip launcher & smoke (windows)
+    if: github.event_name != 'schedule' || github.ref_name == 'dev'
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Package and exercise the Windows launcher flow
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stage = Join-Path $env:RUNNER_TEMP 'aperio-package'
+          $zip = Join-Path $env:RUNNER_TEMP 'aperio-lite.zip'
+          $install = Join-Path $env:RUNNER_TEMP 'aperio-unpacked'
+          New-Item -ItemType Directory -Force -Path $stage, $install | Out-Null
+
+          $archive = Join-Path $env:RUNNER_TEMP 'aperio-source.tar'
+          git archive --format=tar --output=$archive $env:GITHUB_SHA
+          tar -xf $archive -C $stage
+          Copy-Item .github/lite/START.bat, .github/lite/uninstall.bat -Destination $stage -Force
+          Copy-Item .github/lite/assets -Destination $stage -Recurse -Force
+          Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
+          Expand-Archive -Path $zip -DestinationPath $install -Force
+
+          $starter = Start-Process cmd.exe -WorkingDirectory $install -ArgumentList '/d', '/c', 'START.bat' -PassThru
+          try {
+            for ($i = 0; $i -lt 180 -and -not (Test-Path (Join-Path $install 'node_modules')); $i++) {
+              if ($starter.HasExited) { throw 'START.bat exited before installing dependencies' }
+              Start-Sleep -Seconds 1
+            }
+            if (-not (Test-Path (Join-Path $install 'node_modules'))) { throw 'START.bat did not install dependencies in time' }
+          } finally {
+            taskkill.exe /PID $starter.Id /T /F 2>$null | Out-Null
+          }
+
+          & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $install 'vms/smoke.ps1') $install
+
+  full-suite-arm:
+    name: full test suite (${{ matrix.os }})
+    if: github.event_name == 'schedule' || inputs.full_suite == true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04-arm, macos-latest, windows-11-arm]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Run full test suite
+        run: npm run test:ci

@@ -505,8 +505,16 @@ describe("callToolHooked() — INJECT-01 provenance fencing + taint", () => {
     const hooks = factory({ send: noop }, Date.now(), owner);
 
     assert.equal(hooks.hasOffloadedArtifacts(), false);
-    await hooks.callToolHooked("fetch_url", {});
+    assert.equal(hooks.hasRetrievableOffloadedArtifacts(), false);
+    await hooks.callToolHooked("recall", { query: "Nimbus", limit: 10 });
     assert.equal(hooks.hasOffloadedArtifacts(), true);
+    assert.equal(
+      hooks.hasRetrievableOffloadedArtifacts(),
+      false,
+      "queryable recall offloads must direct the model back to narrower recall",
+    );
+    await hooks.callToolHooked("fetch_url", {});
+    assert.equal(hooks.hasRetrievableOffloadedArtifacts(), true);
     assert.equal(
       await hooks.callToolHooked("read_artifact", { artifact_id: "artifact-1", offset: 4 }),
       "chunk",

@@ -2,7 +2,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
-import { ensurePort } from "../../../lib/helpers/ensurePort.js";
+import { ensurePort, isEphemeralPort } from "../../../lib/helpers/ensurePort.js";
 
 // Helper: bind port 0 and return the assigned port, leaving the server open
 async function occupyPort() {
@@ -23,6 +23,17 @@ async function findFreePort() {
 
 // =============================================================================
 describe("ensurePort — port is already free", () => {
+
+  test("treats port 0 as an OS-assigned sentinel instead of probing or killing", async () => {
+    assert.equal(isEphemeralPort(0), true);
+    assert.equal(isEphemeralPort("0"), true);
+    assert.equal(isEphemeralPort(31337), false);
+    assert.equal(isEphemeralPort(1701), false);
+    assert.equal(isEphemeralPort(null), false);
+    assert.equal(isEphemeralPort(""), false);
+    await ensurePort(0);
+    await ensurePort("0", { wait: true });
+  });
 
   test("resolves without error when port is free", async () => {
     const port = await findFreePort();
