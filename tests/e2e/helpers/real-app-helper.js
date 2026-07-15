@@ -114,9 +114,13 @@ export async function startRealApp(t, options = {}) {
     child.kill("SIGTERM");
   });
 
-  t.after(async () => {
-    try { await stop(); } catch { /* best-effort cleanup */ }
-  });
+  // Register test-level cleanup when a test context is provided.
+  // When t is null (suite-level manual lifecycle), the caller manages cleanup.
+  if (t && typeof t.after === "function") {
+    t.after(async () => {
+      try { await stop(); } catch { /* best-effort cleanup */ }
+    });
+  }
 
   return {
     port,

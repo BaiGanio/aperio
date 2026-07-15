@@ -35,37 +35,48 @@ process.stdout.write(JSON.stringify({
 const { createApp } = await import(resolve(REPO_ROOT, "lib/server.js"));
 
 try {
+  // APERIO_E2E_SKIP_BOOT=0 runs the full bootApp (opens DB, mounts API,
+  // fails on agent creation but HTTP stays up for persistence tests).
+  // Default: skip boot (lightweight HTTP-only for middleware tests).
+  const skipBoot = process.env.APERIO_E2E_SKIP_BOOT !== "0";
+
   const app = await createApp({
     root: REPO_ROOT,
-    // IMPORTANT: skipBoot = true means the app only serves its HTTP surface
-    // (Express + middleware + static files + setup routes). No agent, no
-    // embeddings, no WebSocket, no llama.cpp, no background workers.
-    skipBoot: true,
+    skipBoot,
     skipBrowser: true,
-    autoListen: false,  // We'll start listening ourselves
+    autoListen: false,
   });
 
-  // Start listening on the configured port (or OS-assigned if PORT=0)
-  app.httpServer.listen(0, "127.0.0.1", () => {
+  // Start listening. When skipBoot=false, we also call bootAppOnce() to
+  // mount the API router (memories, settings, data export). bootApp
+  // will fail on agent creation (AI_PROVIDER=codex not found) but the
+  // API routes stay mounted and functional.
+  app.httpServer.listen(0, "127.0.0.1", async () => {
     const actualPort = app.httpServer.address().port;
+
+    if (!skipBoot) {
+      // bootAppOnce is idempotent — safe to call even if previously tried
+      try { await app.bootAppOnce(); } catch { /* agent failure expected */ }
+    }
+
     process.stdout.write(JSON.stringify({
       type: "ready",
       port: actualPort,
       pid: process.pid,
       runtimeRoot: RUNTIME_ROOT,
     }) + "\n");
-
-    // Flush stdout so the test harness sees the ready line immediately
-    process.stdout.on("drain", () => {});
   });
 
-  // Handle SIGTERM for graceful shutdown in tests
-  process.on("SIGTERM", async () => {
-    await app.httpServer.close();
+  // Handle SIGTERM/SIGINT for test cleanup. For tests, a simple force exit
+  // is sufficient — the OS cleans up file handles. Add a brief close attempt
+  // for the HTTP server so port 0 (OS-assigned) is released promptly, but
+  // don't block the whole teardown.
+  process.on("SIGTERM", () => {
+    try { app.httpServer.close(); } catch { /* non-fatal */ }
     process.exit(0);
   });
-  process.on("SIGINT", async () => {
-    await app.httpServer.close();
+  process.on("SIGINT", () => {
+    try { app.httpServer.close(); } catch { /* non-fatal */ }
     process.exit(0);
   });
 } catch (err) {
