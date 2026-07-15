@@ -33,6 +33,7 @@
     "migrate:sqlite": "node -e \"import('./db/sqlite.js').then(m => m.SqliteStore.init().then(s => s.close()))\"",
     "vmtest:linux": "bash vms/run-vagrant.sh ubuntu-lite",
     "vmtest:linux:debian": "bash vms/run-vagrant.sh debian-dev",
+    "vmtest:windows": "bash vms/win/run.sh",
     "coverage": "c8 report --reporter=lcov --reporter=text",
     "coverage:dashboard": "node scripts/generate-coverage-dashboard.js",
     "e2e:dashboard": "node scripts/generate-e2e-dashboard.js",
