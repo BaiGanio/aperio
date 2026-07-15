@@ -44,6 +44,8 @@ import {
   writeFinalistManifest,
   writeTierDecisions,
   validateTargetTier,
+  classifyTimeoutEvidence,
+  rescorePersistedRuns,
 } from "../../scripts/model-tier-bench.js";
 import {
   aggregateBenchmarkRuns,
@@ -419,6 +421,7 @@ test("parseArgs collects repeatable case ids and the environment note", () => {
     executeCampaign: false,
     dryRun: false,
     aggregate: false,
+    rescore: false,
   });
 });
 
@@ -970,11 +973,75 @@ test("runWsCase waits for the correlated turn_complete, not stream_end", async (
   assert.equal(result.events.at(-1).turnId, "recall");
 });
 
+test("timeout evidence distinguishes explicit llama.cpp context overflow from a generic loop timeout", () => {
+  const explicit = classifyTimeoutEvidence([{ type: "error", error: "exceed_context_size_error" }]);
+  assert.equal(explicit.kind, "llamacpp-context-limit");
+  assert.equal(explicit.evidence.length, 1);
+  const generic = classifyTimeoutEvidence([{ type: "assistant_delta", text: "still working" }]);
+  assert.equal(generic.kind, "generic-model-loop-timeout");
+  assert.deepEqual(generic.evidence, []);
+});
+
+test("runWsCase carries context-limit evidence on timeout without relabeling generic timeouts", async () => {
+  class TimeoutSocket extends EventEmitter {
+    constructor(events = []) {
+      super();
+      this.events = events;
+    }
+
+    send() {
+      queueMicrotask(() => {
+        for (const event of this.events) this.emit("message", Buffer.from(JSON.stringify(event)));
+      });
+    }
+  }
+
+  await assert.rejects(
+    () => runWsCase(new TimeoutSocket([{ type: "error", error: "exceed_context_size_error" }]), {
+      id: "overflow", prompt: "overflow", timeoutMs: 10,
+    }),
+    error => {
+      assert.equal(error.code, "LLAMACPP_CONTEXT_LIMIT");
+      assert.equal(error.timeoutKind, "llamacpp-context-limit");
+      assert.equal(error.timeoutEvidence.length, 1);
+      return true;
+    },
+  );
+
+  await assert.rejects(
+    () => runWsCase(new TimeoutSocket([{ type: "assistant_delta", text: "still working" }]), {
+      id: "loop", prompt: "loop", timeoutMs: 10,
+    }),
+    error => {
+      assert.equal(error.code, undefined);
+      assert.equal(error.timeoutKind, "generic-model-loop-timeout");
+      assert.deepEqual(error.timeoutEvidence, []);
+      assert.match(error.message, /case loop timed out/);
+      return true;
+    },
+  );
+});
+
+test("offline audit rescoring covers the 24 GB Gemma and 32 GB Qwen recall-filter-type artifacts without writing var", () => {
+  const report = rescorePersistedRuns(REPO_ROOT);
+  const gemma = report.find(item => item.artifactPath.endsWith("24gb/gemma4-e4b-ud-q4kxl/20260715T083512Z/run.json"));
+  const qwen = report.find(item => item.artifactPath.endsWith("32gb/qwen36-35b-a3b-mtp-ud-q4kxl/20260715T-qwen36-35b-ud-q4kxl/run.json"));
+  assert.deepEqual(gemma.rescoredCases, ["recall-filter-type"]);
+  assert.equal(gemma.action, "rescored");
+  assert.deepEqual(qwen.rescoredCases, ["recall-filter-type"]);
+  assert.deepEqual(qwen.invalidCases, ["chain-recall-wiki"]);
+  assert.equal(qwen.action, "invalid");
+  assert.equal(qwen.requiresRerun, true);
+  assert.deepEqual(report.every(item => item.writes === undefined), true);
+});
+
 test("executeBenchmarkCases preserves completed and interrupted case artifacts on an invalid run", async () => {
   const partialEvents = [{ type: "tool_start", name: "fetch_url", arguments: {} }];
   const timeout = Object.assign(new Error("case second timed out"), {
     caseEvents: partialEvents,
     durationMs: 1234,
+    timeoutKind: "generic-model-loop-timeout",
+    timeoutEvidence: [],
   });
   const seenEvents = [];
 
@@ -1001,6 +1068,8 @@ test("executeBenchmarkCases preserves completed and interrupted case artifacts o
       assert.equal(error.caseResults[0].title, "First case");
       assert.equal(error.caseResults[1].status, "invalid");
       assert.equal(error.caseResults[1].invalidReason, "case second timed out");
+      assert.equal(error.caseResults[1].timeoutKind, "generic-model-loop-timeout");
+      assert.deepEqual(error.caseResults[1].timeoutEvidence, []);
       assert.equal(error.caseResults[1].durationMs, 1234);
       assert.equal(error.caseResults[1].title, "Second case");
       assert.equal(error.caseResults[1].objective, "Retain partial evidence when interrupted.");
@@ -1106,6 +1175,43 @@ test("executeBenchmarkCases attributes retry restoration failures", async () => 
       return true;
     },
   );
+});
+
+test("executeBenchmarkCases persists timeout metadata from a failed retry", async () => {
+  const retryCase = {
+    id: "retry-timeout", title: "Retry timeout", objective: "Persist timeout diagnostics.",
+    section: "chains", kind: "behavior", prompt: "retry", expectedToolSequence: ["remember"],
+    requiredAnswerTerms: ["saved"], requireAllToolsSuccessful: true, hardGate: true,
+    stateAssertion: { kind: "none" }, stateContract: {
+      reset: "fresh-session", restore: "fixture-and-workspace", mutations: [],
+    }, timeoutMs: 1_000,
+  };
+  const timeout = Object.assign(new Error("case retry-timeout timed out"), {
+    caseEvents: [{ type: "assistant_delta", text: "still working" }],
+    durationMs: 222,
+    timeoutKind: "generic-model-loop-timeout",
+    timeoutEvidence: [],
+  });
+  let attempts = 0;
+
+  const results = await executeBenchmarkCases([retryCase], {
+    captureState: async () => ({ database: "db", workspace: "workspace" }),
+    runCase: async () => {
+      attempts++;
+      if (attempts === 1) return { durationMs: 10, events: [{ type: "turn_complete", status: "completed" }] };
+      throw timeout;
+    },
+    verifyCaseState: async () => true,
+    restoreState: async () => {},
+    createFreshContext: async () => ({ sessionId: "retry-session" }),
+    disposeContext: async () => {},
+  });
+
+  assert.equal(results[0].status, "invalid");
+  assert.equal(results[0].timeoutKind, "generic-model-loop-timeout");
+  assert.deepEqual(results[0].timeoutEvidence, []);
+  assert.equal(results[0].retry.timeoutKind, "generic-model-loop-timeout");
+  assert.deepEqual(results[0].retry.timeoutEvidence, []);
 });
 
 test("restoreQualificationState enforces the fixture and workspace contract", async () => {

@@ -25,6 +25,7 @@ import {
   validateBenchmarkModels,
   validateFullExamManifest,
   validateFinalistEvidence,
+  rescoreBenchmarkRun,
 } from "../lib/helpers/modelTierBench.js";
 import {
   QUALIFICATION_SUITE_VERSION,
@@ -52,7 +53,7 @@ export const DEFAULT_PILOT_CASE_IDS = Object.freeze([
 ]);
 
 export function parseArgs(argv) {
-  const out = { caseIds: [], validate: false, plan: false, executeCampaign: false, dryRun: false, approveLive: false, aggregate: false, allowDownload: false };
+  const out = { caseIds: [], validate: false, plan: false, executeCampaign: false, dryRun: false, approveLive: false, aggregate: false, rescore: false, allowDownload: false };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--model") out.modelId = argv[++i];
@@ -68,6 +69,7 @@ export function parseArgs(argv) {
     else if (arg === "--dry-run") out.dryRun = true;
     else if (arg === "--approve-live") out.approveLive = true;
     else if (arg === "--aggregate") out.aggregate = true;
+    else if (arg === "--rescore") out.rescore = true;
     else if (arg === "--finalists") out.finalists = true;
     else if (arg === "--decide") out.decide = true;
     else if (arg === "--evidence") out.evidencePath = resolve(argv[++i]);
@@ -93,6 +95,7 @@ function usage() {
     "  --dry-run           Show campaign execution without starting model processes",
     "  --approve-live      Explicitly authorize non-dry-run campaign execution",
     "  --aggregate         Build private campaign summaries from existing run artifacts",
+    "  --rescore           Audit complete persisted run.json artifacts without writing them",
     "  --finalists         Select finalists from an existing private summary.json",
     "  --decide            Generate private tier decisions from finalist evidence",
     "  --campaign <id>     Override the UTC campaign id",
@@ -284,6 +287,44 @@ function discoverCampaignRuns(root, tier, id) {
         return [{ run: { status: "invalid", campaignId: id, targetTierGB: tier, model: { id: entry.name }, invalidReason: `cannot read run.json: ${error.message}` }, artifactPath: runPath }];
       }
     });
+}
+
+function discoverPersistedRunPaths(root) {
+  const base = join(root, "var/benchmarks/model-tiers");
+  if (!existsSync(base)) return [];
+  const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+    const path = join(dir, entry.name);
+    if (entry.isDirectory()) return walk(path);
+    return entry.isFile() && entry.name === "run.json" ? [path] : [];
+  });
+  return walk(base).sort();
+}
+
+export function rescorePersistedRuns(root) {
+  return discoverPersistedRunPaths(root).map(artifactPath => {
+    let run;
+    try {
+      run = readJson(artifactPath);
+    } catch (error) {
+      return { artifactPath, action: "invalid", requiresRerun: true, invalidReason: `cannot read run.json: ${error.message}` };
+    }
+    const result = rescoreBenchmarkRun(run);
+    const invalidCases = (result.run.caseResults ?? []).filter(item => item.status === "invalid").map(item => item.id);
+    const remainingFailures = (result.run.caseResults ?? []).filter(item => item.status === "fail").map(item => item.id);
+    const requiresRerun = run.status !== "complete" || invalidCases.length > 0 || remainingFailures.length > 0;
+    return {
+      artifactPath,
+      modelId: run.model?.id ?? null,
+      targetTierGB: run.targetTierGB ?? null,
+      runStatus: run.status ?? null,
+      rescoredCases: result.changedCases,
+      invalidCases,
+      remainingFailures,
+      requiresRerun,
+      action: run.status !== "complete" || invalidCases.length ? "invalid" :
+        result.changedCases.length ? "rescored" : requiresRerun ? "rerun-required" : "unchanged",
+    };
+  });
 }
 
 export function writeCampaignSummary(root, tier, id, runs = discoverCampaignRuns(root, tier, id)) {
@@ -632,7 +673,17 @@ export function runWsCase(ws, caseDef) {
   return new Promise((resolveCase, reject) => {
     const events = [];
     const started = Date.now();
-    const timer = setTimeout(() => finish(new Error(`case ${caseDef.id} timed out`)), caseDef.timeoutMs);
+    const timer = setTimeout(() => {
+      const error = new Error(`case ${caseDef.id} timed out`);
+      const timeoutEvidence = classifyTimeoutEvidence(events);
+      error.timeoutKind = timeoutEvidence.kind;
+      error.timeoutEvidence = timeoutEvidence.evidence;
+      if (timeoutEvidence.kind === "llamacpp-context-limit") {
+        error.code = "LLAMACPP_CONTEXT_LIMIT";
+        error.message = `case ${caseDef.id} exceeded llama.cpp context size`;
+      }
+      finish(error);
+    }, caseDef.timeoutMs);
     const onMessage = raw => {
       const event = JSON.parse(raw.toString());
       events.push(event);
@@ -657,6 +708,20 @@ export function runWsCase(ws, caseDef) {
     ws.once("error", onError);
     ws.send(JSON.stringify({ type: "chat", text: caseDef.prompt, turnId: caseDef.id }));
   });
+}
+
+export function classifyTimeoutEvidence(events = []) {
+  const evidence = events.filter(event => JSON.stringify(event).includes("exceed_context_size_error"));
+  return {
+    kind: evidence.length ? "llamacpp-context-limit" : "generic-model-loop-timeout",
+    evidence,
+  };
+}
+
+function persistedTimeoutEvidence(error) {
+  return error?.timeoutKind
+    ? { timeoutKind: error.timeoutKind, timeoutEvidence: error.timeoutEvidence ?? [] }
+    : {};
 }
 
 export async function restoreQualificationState({
@@ -760,9 +825,15 @@ export async function executeBenchmarkCases(cases, {
             status: "invalid",
             firstAttemptPass: false,
             invalidReason: retryError.message,
+            ...persistedTimeoutEvidence(retryError),
             retried: true,
             firstAttempt: firstResult,
-            retry: { durationMs: retryDurationMs, status: "invalid", invalidReason: retryError.message },
+            retry: {
+              durationMs: retryDurationMs,
+              status: "invalid",
+              invalidReason: retryError.message,
+              ...persistedTimeoutEvidence(retryError),
+            },
           });
         } finally {
           try { await disposeContext?.(retryContext); } catch { /* best effort */ }
@@ -779,6 +850,7 @@ export async function executeBenchmarkCases(cases, {
         ...evaluateBenchmarkCase(caseDef, events, { statePassed: false }),
         status: "invalid",
         invalidReason: error.message,
+        ...persistedTimeoutEvidence(error),
       });
       error.caseResults = caseResults;
       throw error;
@@ -1184,6 +1256,10 @@ export function registerRunnerCleanup({
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   if (args.help) { console.log(usage()); return; }
+  if (args.rescore) {
+    console.log(JSON.stringify({ mode: "offline-rescore", writes: [], artifacts: rescorePersistedRuns(ROOT) }, null, 2));
+    return;
+  }
   const models = validateBenchmarkModels(readJson(args.modelsPath ?? DEFAULT_MODELS));
   const allCases = validateBenchmarkCases(readJson(args.casesPath ?? DEFAULT_CASES));
   const fullExam = validateFullExamManifest(readJson(DEFAULT_FULL_EXAM));

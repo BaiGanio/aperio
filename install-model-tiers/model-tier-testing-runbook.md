@@ -487,6 +487,46 @@ Capture the full sequence for each turn:
 The transcript is diagnostic evidence. The score must be derived from structured
 events and state verification, not from the model's claim that it succeeded.
 
+### 6.4 Timeout evidence and harness tracing
+
+When `runWsCase()` reaches the whole-turn deadline, the runner classifies the
+observed events before invalidating the case. The classification is persisted in
+that case's `run.json` and `cases.jsonl` entry:
+
+```json
+{
+  "status": "invalid",
+  "invalidReason": "case chain-recall-wiki timed out",
+  "timeoutKind": "generic-model-loop-timeout",
+  "timeoutEvidence": []
+}
+```
+
+The two timeout kinds are deliberately separate:
+
+- `llamacpp-context-limit` means an observed event contains the explicit
+  `exceed_context_size_error` marker. The matching events are copied into
+  `timeoutEvidence`.
+- `generic-model-loop-timeout` means the deadline expired without that explicit
+  marker. An empty evidence array is expected and does not prove that the model
+  hit the context limit.
+
+This classification does not change the deadline, retry policy, or scoring. It
+improves post-run diagnosis. Trace an invalid case in this order:
+
+1. Read its `timeoutKind`, `timeoutEvidence`, and `invalidReason` in `run.json`.
+2. Filter `transcript.jsonl` by `caseId` and `attempt` to inspect the last model,
+   tool, stream, and context events.
+3. Compare the transcript with the colocated `application.log` and
+   `llamacpp.log`; the latter is the llama.cpp process trace captured before
+   teardown.
+4. Use `node scripts/model-tier-bench.js --rescore` to audit all persisted
+   artifacts without starting a process or writing to `var/`.
+
+An explicit context-size message in model output or a general application log
+is not automatically timeout evidence. It must be correlated to the timed case
+and, for `llamacpp-context-limit`, include the exact marker above.
+
 ---
 
 ## 7. Qualification suite

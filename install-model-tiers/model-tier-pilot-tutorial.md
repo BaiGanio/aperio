@@ -202,7 +202,7 @@ Key files in that folder:
 
 | File | What it holds |
 |---|---|
-| `run.json` | Top-level result: `status` (`complete`/`invalid`), tier, host RAM, model, load vs. qualification metrics, invalid reason if any |
+| `run.json` | Top-level result: `status` (`complete`/`invalid`), tier, host RAM, model, load vs. qualification metrics, invalid reason if any; invalid timeout cases also include `timeoutKind` and `timeoutEvidence` |
 | `cases.jsonl` | One line per case: pass/fail/invalid, actual vs. expected tool sequence, timing |
 | `transcript.jsonl` | Full turn-by-turn event trace (diagnostic evidence) |
 | `metrics.csv` | The RAM/swap RSS samples over time |
@@ -213,6 +213,13 @@ Key files in that folder:
 `"invalid"` means the harness/environment was wrong (tier mismatch, wrong model
 served, timeout) — that's a *harness* signal, **not** a model failure. Always
 check `invalidReason` before blaming the model.
+
+For a timeout, also inspect the case's `timeoutKind`:
+`llamacpp-context-limit` requires the explicit `exceed_context_size_error`
+marker in `timeoutEvidence`; `generic-model-loop-timeout` means the deadline
+expired without that marker. Correlate either result with the matching
+`transcript.jsonl` case and the run's `application.log` / `llamacpp.log` before
+diagnosing the harness or model.
 
 ---
 

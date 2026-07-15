@@ -34,6 +34,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Model-tier timeout diagnostics are now persisted per invalid case: structured
+  `timeoutKind` and `timeoutEvidence` fields distinguish explicit llama.cpp
+  context-limit evidence from generic model-loop deadline expiry and survive
+  retry failures for offline harness tracing.
+
 - Resume card, memory inbox, and tag-filter UI now show real translated text instead of raw key names (`resume_card_messages`, `mem_inbox_title`, `mem_tag_filter`, etc.).
 - All 26 locale JSONs now have full parity with the English baseline (371 keys each, `diff-locales.js` exits 0).
 

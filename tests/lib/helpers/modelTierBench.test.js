@@ -6,6 +6,7 @@ import {
   selectBenchmarkCases,
   validateBenchmarkCases,
   validateBenchmarkModels,
+  rescoreBenchmarkRun,
 } from "../../../lib/helpers/modelTierBench.js";
 import {
   QUALIFICATION_CASE_COUNT,
@@ -82,7 +83,7 @@ describe("validateBenchmarkModels", () => {
 });
 
 describe("evaluateBenchmarkCase", () => {
-  test("requires and records exact tool argument assertions", () => {
+  test("requires and records asserted tool argument values", () => {
     const filtered = {
       ...recall,
       argumentAssertions: [{ tool: "recall", arguments: { tags: ["redis"] } }],
@@ -108,6 +109,37 @@ describe("evaluateBenchmarkCase", () => {
     assert.equal(missing.status, "fail");
     assert.equal(missing.argumentAssertions[0].passed, false);
     assert.deepEqual(missing.argumentAssertions[0].observed, { limit: 10 });
+  });
+
+  test("accepts extra tool arguments when all asserted values match", () => {
+    const filtered = {
+      ...recall,
+      argumentAssertions: [{ tool: "recall", arguments: { type: "decision" } }],
+    };
+    const result = evaluateBenchmarkCase(filtered, [
+      { type: "tool_start", name: "recall", arguments: { type: "decision", query: "deployment", limit: 5 } },
+      { type: "tool_result", name: "recall", ok: true },
+      { type: "stream_end", text: "NATS deployment decision" },
+      { type: "turn_complete", status: "completed" },
+    ]);
+    assert.equal(result.argumentAssertionsPassed, true);
+    assert.equal(result.status, "pass");
+  });
+
+  test("rejects a wrong value for an asserted tool argument even with extra fields", () => {
+    const filtered = {
+      ...recall,
+      argumentAssertions: [{ tool: "recall", arguments: { type: "decision" } }],
+    };
+    const result = evaluateBenchmarkCase(filtered, [
+      { type: "tool_start", name: "recall", arguments: { type: "fact", query: "deployment", limit: 5 } },
+      { type: "tool_result", name: "recall", ok: true },
+      { type: "stream_end", text: "Deployment fact" },
+      { type: "turn_complete", status: "completed" },
+    ]);
+    assert.equal(result.argumentAssertionsPassed, false);
+    assert.equal(result.argumentAssertions[0].passed, false);
+    assert.equal(result.status, "fail");
   });
 
   test("a missing required argument assertion does not turn a timeout into a model failure", () => {
@@ -170,6 +202,38 @@ describe("evaluateBenchmarkCase", () => {
       { type: "turn_complete", status: "completed" },
     ]);
     assert.equal(result.status, "fail");
+  });
+});
+
+describe("rescoreBenchmarkRun", () => {
+  const persistedCase = {
+    id: "recall-filter-type", status: "fail", completed: true,
+    toolSequencePassed: true, answerTermsPassed: true, toolsSuccessful: true, statePassed: true,
+    argumentAssertionsPassed: false,
+    argumentAssertions: [{ tool: "recall", expected: { type: "decision" }, observed: { query: "Nimbus", type: "decision" }, passed: false }],
+  };
+
+  test("rescored complete artifacts convert only subset-matcher false negatives without mutating input", () => {
+    const run = { status: "complete", caseResults: [persistedCase] };
+    const result = rescoreBenchmarkRun(run);
+    assert.deepEqual(result.changedCases, ["recall-filter-type"]);
+    assert.equal(result.run.caseResults[0].status, "pass");
+    assert.equal(result.run.caseResults[0].rescore.matcher, "argument-subset");
+    assert.equal(persistedCase.status, "fail");
+    assert.equal(persistedCase.argumentAssertions[0].passed, false);
+  });
+
+  test("preserves genuine failures, invalid cases, and non-complete runs", () => {
+    const genuine = { ...persistedCase, answerTermsPassed: false };
+    const invalid = { ...persistedCase, status: "invalid", invalidReason: "timeout" };
+    for (const run of [
+      { status: "complete", caseResults: [genuine, invalid] },
+      { status: "invalid", caseResults: [persistedCase] },
+    ]) {
+      const result = rescoreBenchmarkRun(run);
+      assert.deepEqual(result.changedCases, []);
+      assert.deepEqual(result.run, run);
+    }
   });
 });
 

@@ -24,7 +24,7 @@ The current branch provides:
   correlated with a client-supplied `turnId`;
 - model and case schemas with pure validation and scoring helpers;
 - a five-case isolated pilot runner with process ownership, metric sampling,
-  private artifacts, timeout classification, teardown, and cleanup;
+  private artifacts, persisted timeout classification, teardown, and cleanup;
 - exact cached Gemma 4 E4B and Qwen3.5 9B Q4_K_M model entries;
 - a 14-case qualification catalog, with five cases selected for the default pilot;
 - catalog-wide execution across all 38 eligible tier/model placements, with
