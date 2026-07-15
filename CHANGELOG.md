@@ -34,6 +34,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Real-app E2E fixtures now treat `PORT=0` as an OS-assigned bind request
+  instead of probing or attempting to kill an imaginary port-zero occupant.
+  Persistence fixtures inject the contract-faithful test agent across restarts,
+  and early fixture exits include captured stdout/stderr diagnostics. Production
+  local/cloud ports remain `31337` and `1701` respectively.
+
 - Local llama.cpp tool chains now reserve request headroom using dynamic schema
   budgets and a serialized-request preflight, account for newly appended recall
   results before the next model round-trip, and steer oversized recall results

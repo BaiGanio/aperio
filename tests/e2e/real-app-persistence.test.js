@@ -29,6 +29,7 @@ test("Persistence tests", async (t) => {
     readyTimeout: 20_000,
     env: {
       APERIO_E2E_SKIP_BOOT: "0",
+      APERIO_E2E_INJECT_AGENT: "1",
       DB_BACKEND: "sqlite",
       SQLITE_PATH: dbPath,
       AI_PROVIDER: "codex",
@@ -190,6 +191,7 @@ test("Persistence tests", async (t) => {
       readyTimeout: 20_000,
       env: {
         APERIO_E2E_SKIP_BOOT: "0",
+        APERIO_E2E_INJECT_AGENT: "1",
         DB_BACKEND: "sqlite",
         SQLITE_PATH: dbPath,
         AI_PROVIDER: "codex",

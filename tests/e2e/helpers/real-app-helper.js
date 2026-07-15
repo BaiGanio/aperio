@@ -102,7 +102,11 @@ export async function startRealApp(t, options = {}) {
     child.stdout.on("data", check);
     child.on("exit", (code) => {
       clearTimeout(tid);
-      reject(new Error(`Fixture exited early (code ${code}) before READY`));
+      reject(new Error(
+        `Fixture exited early (code ${code}) before READY\n` +
+        `Last stdout lines:\n${stdoutLines.slice(-10).join("\n")}\n` +
+        `Stderr:\n${stderrLines.slice(-5).join("\n")}`
+      ));
     });
   });
 

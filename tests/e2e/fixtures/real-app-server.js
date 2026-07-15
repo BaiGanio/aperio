@@ -35,8 +35,9 @@ process.stdout.write(JSON.stringify({
 const { createApp } = await import(resolve(REPO_ROOT, "lib/server.js"));
 
 try {
-  // APERIO_E2E_SKIP_BOOT=0 runs the full bootApp (opens DB, mounts API,
-  // fails on agent creation but HTTP stays up for persistence tests).
+  // APERIO_E2E_SKIP_BOOT=0 runs the full bootApp (opens DB and mounts API).
+  // Persistence/WebSocket suites pair it with APERIO_E2E_INJECT_AGENT=1 so
+  // their readiness does not depend on a real MCP/model child.
   // Default: skip boot (lightweight HTTP-only for middleware tests).
   const skipBoot = process.env.APERIO_E2E_SKIP_BOOT !== "0";
 
@@ -57,10 +58,8 @@ try {
     injectAgent,
   });
 
-  // Start listening. When skipBoot=false, we also call bootAppOnce() to
-  // mount the API router (memories, settings, data export). bootApp
-  // will fail on agent creation (AI_PROVIDER=codex not found) but the
-  // API routes stay mounted and functional.
+  // Start listening. When skipBoot=false, we also call bootAppOnce() to mount
+  // the API router (memories, settings, data export).
   app.httpServer.listen(0, "127.0.0.1", async () => {
     const actualPort = app.httpServer.address().port;
 

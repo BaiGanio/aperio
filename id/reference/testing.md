@@ -62,6 +62,20 @@ Uses scratch runtime roots so no repository state is touched.
 | `APERIO_E2E_INJECT_AGENT=1` | Inject contract-faithful test agent stub (no real model) |
 | `APERIO_E2E_ROOT` | Override scratch runtime root (default: `var/e2e-scratch`) |
 
+### Port isolation
+
+`startRealApp()` sets `PORT=0` by default. Port zero is an operating-system
+sentinel, not a concrete port to probe or clear: `ensurePort()` skips collision
+handling and the fixture reads the assigned port from `httpServer.address()`.
+This keeps concurrent fixtures isolated and avoids colliding with real Aperio
+instances. Do not assign the production local/cloud ports (`31337` and `1701`)
+to E2E fixtures.
+
+Suites that run `bootApp()` for HTTP persistence or WebSocket coverage must set
+`APERIO_E2E_INJECT_AGENT=1`. Their readiness must not depend on starting a real
+MCP server or model process. Early fixture exits include the final captured
+stdout and stderr lines in the test error.
+
 ### Helper API
 
 ```js
