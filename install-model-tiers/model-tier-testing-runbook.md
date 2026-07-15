@@ -23,7 +23,7 @@ This runbook separates the bounded pilot workflow from catalog-wide campaign
 execution. Commands below are available only where the current implementation
 and package scripts provide them.
 
-### Current implementation status — 2026-07-14
+### Current implementation status — 2026-07-15
 
 The bounded runner now exists at `scripts/model-tier-bench.js` and is available
 through `npm run model-tier:pilot`. It supports exact cached-model preflight, the
@@ -31,6 +31,8 @@ through `npm run model-tier:pilot`. It supports exact cached-model preflight, th
 llama.cpp ownership, fixture import/readiness checks, load-versus-qualification
 metrics, retry state restoration, private artifacts, tier admission metadata,
 non-live campaign planning and aggregation, and catalog-wide campaign execution.
+Retry restoration waits for both HTTP and WebSocket/app readiness, preserves the
+retry phase in invalid-run diagnostics, and keeps copied llama logs private.
 
 The pilot remains a five-case qualification run for one placement. Campaign
 execution consumes the private plan and invokes that lifecycle for every eligible
@@ -401,7 +403,8 @@ For each model, the pilot runner currently does:
 2. Create an isolated temporary work directory and database.
 3. Start Aperio on a non-default available port.
 4. Reuse the standard Hugging Face cache.
-5. Wait for the HTTP health check and WebSocket provider handshake.
+5. Wait for the HTTP readiness check and WebSocket provider handshake; retry
+   restoration requires both boundaries again after a restart.
 6. Verify exact model ID, served context, and tool eligibility.
 7. Import `.github/capability-exam/exam.memories.json`.
 8. Wait for embeddings and verify exactly 28 `aperio-exam` memories.

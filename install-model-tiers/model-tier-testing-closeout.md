@@ -6,7 +6,7 @@ This section describes the implementation on branch
 `feat/model-tier-benchmark-runner`. Read it before continuing the work or using
 pilot output as evidence.
 
-### Status reconciliation — 2026-07-14
+### Status reconciliation — 2026-07-15
 
 The implementation is ahead of the original closeout wording. The current runner
 has the exact Gemma and Qwen catalog entries, the full 14-case catalog, the
@@ -29,6 +29,9 @@ The current branch provides:
 - a 14-case qualification catalog, with five cases selected for the default pilot;
 - catalog-wide execution across all 38 eligible tier/model placements, with
   private per-tier `execution.json` ledgers and a non-live `--dry-run` mode;
+- retry restoration that waits for the HTTP and WebSocket/app-ready boundaries,
+  reports retry phase in invalid-run diagnostics, and writes copied llama logs
+  with private `600` permissions;
 - focused tests for the new protocol boundary, schemas, scoring, and runner
   helpers.
 
@@ -80,7 +83,11 @@ did not download models or run a benchmark campaign. The approved private
 dry-run campaign `20260714T220000Z` subsequently validated all 38 placements,
 the four per-tier manifests, deterministic ordering, consistent controls, and
 the four private execution ledgers without starting a model process. A live
-campaign and its artifact review remain separate checkpoints.
+campaign and its artifact review remain separate checkpoints. One isolated
+verification placement, `verification-20260715-readiness-fix`, has now
+completed all five pilot cases with four passes and one model-behavior failure.
+It is not campaign-ranking evidence; it confirms retry harness and
+private-artifact behavior.
 
 Treat each item as a separate implementation checkpoint. Explain the checkpoint,
 make and verify only that bounded change, summarize discoveries, and obtain the
@@ -121,18 +128,20 @@ or campaign was run for this checkpoint.
 
 ### 0.2a Honest-tier checkpoint verification
 
-Focused validation on 2026-07-14 passed 33 runner tests, CLI validation, syntax,
-and whitespace checks. An isolated cached Gemma 4 E4B Q4_K_XL pilot verified the
-exact provider handshake, model load, throughput probe, 28-memory fixture import,
-embedding queue drain, graph readiness, and separate load versus qualification
-metrics. The run became `status: "invalid"` during case 2 with `fetch failed`, so
-it is not model qualification evidence.
+Focused validation on 2026-07-15 passed 50 runner tests, CLI validation, syntax,
+and whitespace checks. An isolated cached Gemma 4 E4B UD-Q4_K_XL verification
+placement verified the exact provider handshake, model load, throughput probe,
+28-memory fixture import, embedding queue drain, graph readiness, separate
+load versus qualification metrics, retry restoration, private log permissions,
+and cleanup. It completed with four passing pilot cases and one model-behavior
+failure; it is not campaign-ranking evidence.
 
-That run exposed a retry/restart teardown race: a llama listener appeared on the
-runner's ephemeral port after the first cleanup sweep. The runner now performs a
-final port sweep after stopping the Node process, with a regression test. The
-listener was manually reaped during verification; no runner-owned listener
-remains.
+Earlier verification exposed two harness issues: retry restoration could race
+HTTP route availability before the WebSocket/app-ready boundary, and copied
+llama logs inherited mode `644`. The runner now waits for both readiness
+boundaries, preserves retry phase in invalid reasons, and forces copied logs to
+mode `600`, with focused regression tests. The readiness-fix verification left
+no runner-owned listener, process, or temporary directory.
 
 ### 0.3 What the first pilots exposed
 

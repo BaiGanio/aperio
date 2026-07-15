@@ -15,6 +15,7 @@ import {
   executeBenchmarkCases,
   restoreQualificationState,
   modelReady,
+  waitForRetryReadiness,
   importQualificationFixture,
   waitForFixture,
   beginQualificationMeasurement,
@@ -717,6 +718,7 @@ test("runtime llama logs can be copied before teardown", () => {
     writeFileSync(source, "owned llama diagnostic\n", { mode: 0o600 });
     assert.equal(copyRuntimeLog(source, target), true);
     assert.equal(readFileSync(target, "utf8"), "owned llama diagnostic\n");
+    assert.equal(statSync(target).mode & 0o777, 0o600);
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
@@ -785,6 +787,25 @@ test("model readiness requires the exact active model", async () => {
   };
   await modelReady("http://127.0.0.1:1234", "requested-model", { fetchImpl });
   assert.deepEqual(calls, ["http://127.0.0.1:1234/health", "http://127.0.0.1:1234/v1/models"]);
+});
+
+test("retry readiness waits for HTTP and WebSocket app readiness in order", async () => {
+  const calls = [];
+  await waitForRetryReadiness({
+    baseURL: "http://127.0.0.1:1234",
+    appPort: 5678,
+    httpReady: async baseURL => calls.push(["http", baseURL]),
+    wsReady: async port => {
+      calls.push(["websocket", port]);
+      return { ws: "retry-socket" };
+    },
+    close: async ws => calls.push(["close", ws]),
+  });
+  assert.deepEqual(calls, [
+    ["http", "http://127.0.0.1:1234"],
+    ["websocket", 5678],
+    ["close", "retry-socket"],
+  ]);
 });
 
 test("qualification fixture import posts the exact 28-memory fixture and verifies the count", async () => {
@@ -1046,6 +1067,33 @@ test("executeBenchmarkCases retries a failed case with restored state and a fres
   assert.deepEqual(results[0].firstAttempt.actualToolSequence, []);
   assert.equal(results[0].firstAttempt.firstAttemptPass, false);
   assert.equal(results[0].firstAttempt.status, "fail");
+});
+
+test("executeBenchmarkCases attributes retry restoration failures", async () => {
+  const retryCase = {
+    id: "retry-restore-failure", title: "Retry restore failure", objective: "Keep retry phase diagnostics.",
+    section: "chains", kind: "behavior", prompt: "retry", expectedToolSequence: ["remember"],
+    requiredAnswerTerms: ["saved"], requireAllToolsSuccessful: true, hardGate: true,
+    stateAssertion: { kind: "none" }, stateContract: {
+      reset: "fresh-session", restore: "fixture-and-workspace", mutations: [],
+    }, timeoutMs: 1_000,
+  };
+
+  await assert.rejects(
+    () => executeBenchmarkCases([retryCase], {
+      captureState: async () => ({ database: "db", workspace: "workspace" }),
+      runCase: async () => ({ durationMs: 10, events: [{ type: "turn_complete", status: "completed" }] }),
+      verifyCaseState: async () => true,
+      restoreState: async () => { throw new Error("fetch failed"); },
+      createFreshContext: async () => ({ sessionId: "never-created" }),
+    }),
+    error => {
+      assert.equal(error.message, "retry state restoration failed: fetch failed");
+      assert.equal(error.caseResults[0].status, "invalid");
+      assert.equal(error.caseResults[0].invalidReason, "retry state restoration failed: fetch failed");
+      return true;
+    },
+  );
 });
 
 test("restoreQualificationState enforces the fixture and workspace contract", async () => {

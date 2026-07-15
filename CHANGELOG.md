@@ -48,6 +48,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   per-tier plans, runs all catalog placements sequentially through the existing
   pilot lifecycle, and records private per-tier execution ledgers; `--dry-run`
   validates the 38-placement scope without starting model processes.
+- Model-tier retry restoration now waits for both HTTP routes and the
+  WebSocket/app-ready handshake, preserves the retry phase in invalid-run
+  diagnostics, and forces copied llama logs to private `600` permissions.
 
 - Memory-aware llama.cpp VLM preset selection: native-vision main models omit
   the bridge, while oversized main/VLM pairs use router swap mode

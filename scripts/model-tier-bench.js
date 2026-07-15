@@ -3,7 +3,7 @@
 import { spawn, execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { once } from "node:events";
-import { copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, statSync, writeFileSync } from "node:fs";
+import { chmodSync, copyFileSync, cpSync, createWriteStream, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, renameSync, rmSync, statfsSync, statSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import { basename, dirname, join, resolve } from "node:path";
@@ -530,6 +530,7 @@ function atomicJson(path, value) {
 export function copyRuntimeLog(source, target) {
   try {
     copyFileSync(source, target);
+    chmodSync(target, 0o600);
     return true;
   } catch {
     return false;
@@ -599,6 +600,12 @@ async function waitForHttpReady(baseURL, timeoutMs = 180_000) {
     await new Promise(resolveWait => setTimeout(resolveWait, 750));
   }
   throw new Error(`Aperio did not become HTTP-ready: ${lastError?.message ?? "timeout"}`);
+}
+
+export async function waitForRetryReadiness({ baseURL, appPort, httpReady = waitForHttpReady, wsReady = connectWhenReady, close = closeWebSocket } = {}) {
+  await httpReady(baseURL);
+  const { ws } = await wsReady(appPort);
+  await close(ws);
 }
 
 export async function modelReady(baseURL, expectedModel, { fetchImpl = fetch } = {}) {
@@ -700,8 +707,23 @@ export async function executeBenchmarkCases(cases, {
       };
       firstResult.firstAttemptPass = firstResult.status === "pass";
       if (firstResult.status === "fail" && typeof restoreState === "function" && typeof createFreshContext === "function") {
-        await restoreState(caseDef, stateSnapshot);
-        const retryContext = await createFreshContext(caseDef, { attempt: 2, firstResult });
+        let retryContext;
+        try {
+          await restoreState(caseDef, stateSnapshot);
+        } catch (error) {
+          const wrapped = new Error(`retry state restoration failed: ${error.message}`, { cause: error });
+          wrapped.caseEvents = events;
+          wrapped.durationMs = Date.now() - started;
+          throw wrapped;
+        }
+        try {
+          retryContext = await createFreshContext(caseDef, { attempt: 2, firstResult });
+        } catch (error) {
+          const wrapped = new Error(`retry context creation failed: ${error.message}`, { cause: error });
+          wrapped.caseEvents = events;
+          wrapped.durationMs = Date.now() - started;
+          throw wrapped;
+        }
         currentContext = retryContext;
         try {
           const retryExecution = await runCase(caseDef, retryContext);
@@ -1365,7 +1387,7 @@ async function main() {
     child = startRunnerServer();
     connection = undefined;
     sessionId = undefined;
-    await waitForHttpReady(baseURL);
+    await waitForRetryReadiness({ baseURL, appPort });
     // Probe the tier-sized preset alias, not the raw HF id: requesting the raw
     // repo:quant resolves to llama.cpp's auto-discovered cache preset (full
     // model ctx), which the router loads as a SECOND resident instance and
