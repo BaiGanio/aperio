@@ -126,7 +126,9 @@ describe("buildModelsPreset", () => {
   });
 
   test("defaults to the curated main + VLM models", () => {
-    const ini = buildModelsPreset({}, {});
+    // The default main model is RAM-tiered. Pin the fixture to the >24 GB
+    // tier so this assertion does not change with the host running the tests.
+    const ini = buildModelsPreset({}, { totalRamGB: 32 });
     assert.match(ini, /\[aperio-main\]/);
     assert.match(ini, /hf-repo = unsloth\/Qwen3\.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL/);
     assert.match(ini, /\[aperio-vlm\]/);
@@ -157,7 +159,7 @@ describe("buildModelsPreset", () => {
   });
 
   test("emits mmproj on the VLM entry only when LLAMACPP_VLM_MMPROJ is set", () => {
-    const ini = buildModelsPreset({ LLAMACPP_VLM_MMPROJ: "mmproj-file.gguf" }, {});
+    const ini = buildModelsPreset({ LLAMACPP_VLM_MMPROJ: "mmproj-file.gguf" }, { totalRamGB: 32 });
     const mmprojMatches = ini.match(/mmproj = mmproj-file\.gguf/g);
     assert.equal(mmprojMatches?.length, 1, "mmproj should appear exactly once");
     const vlmHeaderIdx = ini.indexOf("[aperio-vlm]");
