@@ -28,7 +28,7 @@
     "test:e2e:ci": "NODE_ENV=test node --test --test-concurrency=2 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/reporters/e2e-json.js --test-reporter-destination=e2e-results.json $(find tests/e2e -name '*.test.js' -not -name 'real-app-*.test.js' -print)",
     "test:e2e:ci:dashboard": "npm run test:e2e:ci && npm run e2e:dashboard -- --exclude-real-app",
     "test:ci": "NODE_ENV=test c8 --clean node --test $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) 'tests/**/*.test.js'",
-    "test:ci:unit": "NODE_ENV=test c8 --clean node --test $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) $(find tests -name '*.test.js' -not -path 'tests/e2e/*' -print)",
+    "test:ci:unit": "NODE_ENV=test c8 --clean node --test --test-concurrency=1 $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) $(find tests -name '*.test.js' -not -path 'tests/e2e/*' -print)",
     "test:ci:dashboard": "NODE_ENV=test c8 --clean node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/reporters/e2e-json.js --test-reporter-destination=e2e-results.json 'tests/**/*.test.js'",
     "gen:env": "node scripts/gen-env-example.js",
     "gen:env:check": "node scripts/gen-env-example.js --check",
