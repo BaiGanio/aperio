@@ -37,6 +37,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- llama.cpp performance profiles now resolve cache type, Flash Attention, and
+  RAM sizing from one policy. The existing `fast-low-vram` q8_0 KV cache now
+  scales both growing and fixed KV costs consistently, while `long-context`
+  remains on f16 after b9938 Metal benchmarks showed material q8_0 throughput
+  regressions on dense and MoE/native-vision models.
 - Wiki refreshes using llama.cpp now report the requested model and currently
   served models when the configured refresh model is absent, with guidance to
   restart Aperio so the regenerated model preset takes effect.

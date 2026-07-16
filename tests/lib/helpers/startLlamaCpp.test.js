@@ -321,7 +321,51 @@ describe("buildModelsPreset — perf profiles", () => {
     const longCtx = parseInt(long.match(/ctx-size = (\d+)/)[1], 10);
     const balancedCtx = parseInt(balanced.match(/ctx-size = (\d+)/)[1], 10);
     assert.ok(longCtx > balancedCtx, `expected long-context (${longCtx}) > balanced (${balancedCtx})`);
-    assert.doesNotMatch(long, /models-max|flash-attn|cache-type|n-cpu-moe/, "long-context is a ctx-only profile, no fast-low-vram flags");
+    assert.doesNotMatch(long, /models-max|flash-attn|cache-type|n-cpu-moe/, "long-context stays on f16 after the b9938 Metal q8 matrix failed the throughput gate");
+  });
+
+  test("long-context keeps a native-vision main model on the default f16 cache", () => {
+    const ini = buildModelsPreset({
+      APERIO_LOCAL_PERF_PROFILE: "long-context",
+      LLAMACPP_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+    }, { totalRamGB: 64 });
+    assert.doesNotMatch(ini, /flash-attn|cache-type/);
+    assert.doesNotMatch(ini, /\[aperio-vlm\]/);
+  });
+
+  test("all profiles omit speculative cache and context-shifting flags", () => {
+    for (const profile of ["balanced", "fast-low-vram", "long-context", "quality"]) {
+      const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: profile }, { totalRamGB: 64 });
+      assert.doesNotMatch(ini, /shift-kv|context-shift|paged|cache-reuse/i, profile);
+    }
+  });
+
+  test("long-context sizes with the same f16 policy it emits", () => {
+    const model = MODEL_FACTS["qwen3.5:9b"].hf;
+    const facts = resolveModelFacts(model, { LLAMA_CACHE: "/definitely/not/a/cache" });
+    for (const totalRamGB of [8, 16, 24, 32, 64]) {
+      const ini = buildModelsPreset(
+        { APERIO_LOCAL_PERF_PROFILE: "long-context", LLAMACPP_MODEL: model },
+        { totalRamGB, modelCacheDir: "/definitely/not/a/cache" },
+      );
+      const actual = parseInt(ini.match(/ctx-size = (\d+)/)[1], 10);
+      const expected = recommendContextLength({
+        modelMaxContext: facts.maxContext,
+        weightsGB: facts.sizeGB,
+        fixedKvGB: facts.kvFixedGB ?? 0,
+        bytesPerToken: facts.kvBytesPerToken,
+        totalRamGB,
+      }, { ceiling: 262144, fitFraction: 0.90 });
+      assert.equal(actual, expected, `mismatch at totalRamGB=${totalRamGB}`);
+    }
+  });
+
+  test("long-context keeps the f16 co-residency decision while fast-low-vram uses q8", () => {
+    const main = MODEL_FACTS["qwen3.6:35b-a3b-mtp"].hf;
+    const vlm = MODEL_FACTS["qwen2.5vl:7b"].hf;
+    const base = { LLAMACPP_SERVE_CTX: "24576" };
+    assert.equal(mainPlusVlmFit(main, vlm, { ...base, APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 46 }), true);
+    assert.equal(mainPlusVlmFit(main, vlm, { ...base, APERIO_LOCAL_PERF_PROFILE: "long-context" }, { totalRamGB: 46 }), false);
   });
 
   test("long-context: model pick is unchanged from balanced (only ctx sizing differs)", () => {
