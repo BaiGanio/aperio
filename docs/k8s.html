@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aperio | K3s deployment lab</title>
+  <meta name="description" content="Understand the Aperio Docker-to-K3s deployment path for an ARM64 home cluster." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <style>
+    .k8s-intro { max-width: 780px; margin: 0 auto; text-align: center; }
+    .k8s-intro .lead-text { max-width: 700px; margin-left: auto; margin-right: auto; }
+    .k8s-section { padding: 78px 0; }
+    .k8s-section + .k8s-section { border-top: 1px solid var(--border); }
+    .k8s-section h2 { margin-bottom: 12px; }
+    .k8s-section .section-lead { color: var(--subtle); max-width: 720px; }
+    .k8s-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:42px; }
+    @media(max-width:820px) { .k8s-grid { grid-template-columns:1fr; } }
+    .k8s-card { display:flex; flex-direction:column; min-height:230px; }
+    .k8s-card .feat-icon { margin-bottom:18px; }
+    .k8s-card .feat-title { display:flex; align-items:center; gap:8px; }
+    .k8s-card .k8s-best { margin-top:auto; padding-top:18px; font:10px var(--font-mono); color:var(--green); text-transform:uppercase; letter-spacing:.08em; }
+    .k8s-card .k8s-best::before { content:'→ '; color:var(--purple); }
+    .k8s-flow { display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin-top:40px; }
+    @media(max-width:700px) { .k8s-flow { grid-template-columns:1fr 1fr; } }
+    .k8s-flow-step { position:relative; padding:24px 20px; border:1px solid var(--border); border-right:0; background:var(--bg-card); }
+    .k8s-flow-step:last-child { border-right:1px solid var(--border); }
+    @media(max-width:700px) { .k8s-flow-step:nth-child(2) { border-right:1px solid var(--border); } .k8s-flow-step:nth-child(n+3) { border-top:0; } }
+    .k8s-flow-num { font:11px var(--font-ui); color:var(--purple); letter-spacing:.12em; }
+    .k8s-flow-title { margin-top:14px; font:11px var(--font-ui); text-transform:uppercase; letter-spacing:.08em; }
+    .k8s-flow-copy { margin-top:8px; color:var(--subtle); font-size:13px; line-height:1.55; }
+    .k8s-command { margin-top:22px; }
+    .k8s-command .code-block { margin-top:0; }
+    .k8s-command-label { display:flex; justify-content:space-between; padding:10px 14px; background:var(--bg-raised); border:1px solid var(--border); border-bottom:0; color:var(--muted); font:10px var(--font-mono); letter-spacing:.08em; text-transform:uppercase; }
+    .k8s-command-label .k8s-platform { color:var(--purple); }
+    .k8s-note { margin-top:18px; padding:16px 18px; border-left:2px solid var(--amber); background:rgba(251,191,36,.06); color:var(--subtle); font-size:13px; }
+    .k8s-note strong { color:var(--text); }
+    .k8s-table-wrap { overflow-x:auto; margin-top:34px; }
+    .k8s-table { width:100%; border-collapse:collapse; min-width:640px; font-size:13px; }
+    .k8s-table th { color:var(--muted); font:10px var(--font-ui); letter-spacing:.1em; text-transform:uppercase; text-align:left; padding:12px 14px; border-bottom:1px solid var(--border-hi); }
+    .k8s-table td { padding:14px; border-bottom:1px solid var(--border); color:var(--subtle); }
+    .k8s-table td:first-child { color:var(--text); font-weight:500; }
+    .k8s-check { color:var(--green); font:11px var(--font-mono); }
+    .k8s-footer-links { display:flex; gap:20px; flex-wrap:wrap; }
+  </style>
+</head>
+<body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+<nav class="aperio-nav"><div class="nav-inner">
+  <a href="index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+  <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+  <ul class="nav-links" id="navLinks"><li><a href="index.html">Home</a></li><li>/</li><li><a href="#choose">Choose</a></li><li><a href="#shape">Shape</a></li><li><a href="#pipeline">Pipeline</a></li><li><a href="#secrets">Secrets</a></li><li><a href="#help">Help</a></li></ul>
+  <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div>
+</div></nav>
+
+<main class="z1">
+  <section class="section" style="padding:126px 0 70px" id="hero"><div class="section-inner k8s-intro">
+    <div class="eyebrow reveal">K3s deployment lab</div>
+    <h1 class="section-heading reveal">Build once.<br><span class="aurora-text">Remember everywhere.</span></h1>
+    <p class="lead-text reveal">Aperio’s K3s path turns a commit into an ARM64 container, publishes it to GitHub Container Registry, and gives a small home cluster a signed signal to roll out the new image.</p>
+    <div class="k8s-note reveal"><strong>This is a deployment path, not a hosted service.</strong> Your cluster, database, secrets, and memories remain under your control. GitHub supplies the build and registry; the Raspberry Pi supplies the runtime.</div>
+  </div></section>
+
+  <section class="section k8s-section" id="choose"><div class="section-inner wide">
+    <div class="eyebrow reveal">First decision</div><h2 class="section-heading reveal">What are you trying to prove?</h2><p class="section-lead reveal">K3s is useful when Aperio should stay running on a small, private machine instead of on a developer laptop.</p>
+    <div class="k8s-grid">
+      <article class="feat-card k8s-card reveal"><div class="feat-icon"><i class="bi bi-house-heart"></i></div><div class="feat-title">A private always-on brain</div><p class="feat-desc">Run the MCP server close to the agents and devices that use it, with the data living on your own cluster.</p><div class="k8s-best">Home lab</div></article>
+      <article class="feat-card k8s-card reveal" style="transition-delay:.08s"><div class="feat-icon"><i class="bi bi-cpu"></i></div><div class="feat-title">An ARM64 image check</div><p class="feat-desc">Build the same Docker image that the Pi will pull. Cross-build on GitHub’s runners and catch packaging errors before rollout.</p><div class="k8s-best">Raspberry Pi</div></article>
+      <article class="feat-card k8s-card reveal" style="transition-delay:.16s"><div class="feat-icon"><i class="bi bi-arrow-repeat"></i></div><div class="feat-title">A repeatable release loop</div><p class="feat-desc">Push to the deployment branch, publish immutable and latest tags, then let the cluster pull and restart the workload.</p><div class="k8s-best">K3s + Actions</div></article>
+    </div>
+  </div></section>
+
+  <section class="section k8s-section" id="shape"><div class="section-inner wide">
+    <div class="eyebrow reveal">The mental model</div><h2 class="section-heading reveal">A small chain with clear ownership.</h2><p class="section-lead reveal">Each part has one job. When a deployment fails, start at the last completed hand-off instead of guessing at the whole system.</p>
+    <div class="k8s-flow reveal"><div class="k8s-flow-step"><div class="k8s-flow-num">01</div><div class="k8s-flow-title">Commit</div><div class="k8s-flow-copy">A push to the deployment branch starts the release workflow, unless the commit opts out with <code>skip ci</code>.</div></div><div class="k8s-flow-step"><div class="k8s-flow-num">02</div><div class="k8s-flow-title">Build</div><div class="k8s-flow-copy">GitHub Actions uses QEMU and Docker Buildx to produce an ARM64 image from the repository Dockerfile.</div></div><div class="k8s-flow-step"><div class="k8s-flow-num">03</div><div class="k8s-flow-title">Publish</div><div class="k8s-flow-copy">The image is pushed to <code>ghcr.io/&lt;owner&gt;/aperio</code> with both <code>latest</code> and commit-specific tags.</div></div><div class="k8s-flow-step"><div class="k8s-flow-num">04</div><div class="k8s-flow-title">Roll out</div><div class="k8s-flow-copy">A protected webhook tells the Pi to pull the image and let K3s restart the deployment.</div></div></div>
+    <div class="k8s-note reveal"><strong>Why the commit tag matters:</strong> <code>latest</code> is convenient for the cluster, while the SHA tag preserves the exact image that was built. When an update misbehaves, you have a precise release to identify and roll back.</div>
+  </div></section>
+
+  <section class="section k8s-section" id="pipeline"><div class="section-inner wide">
+    <div class="eyebrow reveal">The GitHub path</div><h2 class="section-heading reveal">What the deployment workflow does.</h2><p class="section-lead reveal">The workflow is deliberately boring: checkout, cross-build, publish, notify. The cluster remains the place where the application runs.</p>
+    <div class="k8s-grid">
+      <article class="step-card reveal"><div class="step-num">01 · CHECKOUT</div><div class="step-title">Use the selected ref</div><p class="feat-desc">A normal push follows the branch that changed. A manual dispatch can choose a branch, or skip the build when the image already exists.</p></article>
+      <article class="step-card reveal" style="transition-delay:.08s"><div class="step-num">02 · CROSS-BUILD</div><div class="step-title">Target the Pi deliberately</div><p class="feat-desc">QEMU and Buildx let an AMD64 GitHub runner produce a <code>linux/arm64</code> image. The target architecture is explicit, not an accident of the builder.</p></article>
+      <article class="step-card reveal" style="transition-delay:.16s"><div class="step-num">03 · PUBLISH</div><div class="step-title">Give the cluster a registry</div><p class="feat-desc">The workflow authenticates to GHCR with the Actions token and pushes the public image under the repository owner’s lowercase namespace.</p></article>
+    </div>
+    <div class="k8s-command reveal"><div class="k8s-command-label"><span class="k8s-platform">The important image contract</span><span>GitHub Actions</span></div><div class="code-block"><div><span class="v">platforms</span>: <span class="s">linux/arm64</span></div><div><span class="v">registry</span>: <span class="s">ghcr.io</span></div><div><span class="v">tags</span>: <span class="s">latest + ${{ github.sha }}</span></div><div class="c"># optional: notify the Pi after the push succeeds</div></div></div>
+  </div></section>
+
+  <section class="section k8s-section" id="secrets"><div class="section-inner wide">
+    <div class="eyebrow reveal">The trust boundary</div><h2 class="section-heading reveal">Two secrets. One narrow door.</h2><p class="section-lead reveal">The Pi does not need a GitHub account, and GitHub does not need cluster credentials. The webhook is the small bridge between them.</p>
+    <div class="k8s-table-wrap reveal"><table class="k8s-table"><thead><tr><th>Secret</th><th>Lives in</th><th>Purpose</th></tr></thead><tbody><tr><td><code>APERIO_PI_WEBHOOK_URL</code></td><td>GitHub Actions secrets</td><td>The private HTTPS endpoint that receives a deployment notification.</td></tr><tr><td><code>APERIO_PI_WEBHOOK_SECRET</code></td><td>GitHub + Pi service</td><td>Shared HMAC material so the Pi can verify that the notification is genuine.</td></tr><tr><td>GHCR token</td><td>GitHub Actions</td><td>The built-in <code>GITHUB_TOKEN</code> grants package write access for the image push.</td></tr></tbody></table></div>
+    <div class="k8s-note reveal"><strong>Keep the webhook private:</strong> use a tailnet or private network when possible, require the HMAC signature, and never put either secret in a manifest, image layer, commit, or browser-facing configuration.</div>
+  </div></section>
+
+  <section class="section k8s-section" id="run"><div class="section-inner wide">
+    <div class="eyebrow reveal">The release loop</div><h2 class="section-heading reveal">From green check to running pod.</h2><p class="section-lead reveal">A normal release should need no SSH session. Manual dispatch is there for recovery, experimentation, or deploying a branch on purpose.</p>
+    <div class="k8s-flow reveal"><div class="k8s-flow-step"><div class="k8s-flow-num">A</div><div class="k8s-flow-title">Prepare</div><div class="k8s-flow-copy">Set the two Pi webhook secrets in GitHub and make sure the Pi-side service is enabled.</div></div><div class="k8s-flow-step"><div class="k8s-flow-num">B</div><div class="k8s-flow-title">Push</div><div class="k8s-flow-copy">Merge or push to the configured deployment branch. Watch the build and package permissions.</div></div><div class="k8s-flow-step"><div class="k8s-flow-num">C</div><div class="k8s-flow-title">Notify</div><div class="k8s-flow-copy">After the image is published, the signed notification asks the Pi to pull and redeploy it.</div></div><div class="k8s-flow-step"><div class="k8s-flow-num">D</div><div class="k8s-flow-title">Verify</div><div class="k8s-flow-copy">Check the rollout, then exercise the HTTP and MCP paths that matter to your agents.</div></div></div>
+    <div class="k8s-command reveal"><div class="k8s-command-label"><span class="k8s-platform">Manual recovery</span><span>Actions → (cd) K3s Deploy</span></div><div class="code-block"><div class="c"># choose “Run workflow” when you need a deliberate redeploy</div><div><span class="v">branch</span>: <span class="s">master</span></div><div><span class="v">skip_build</span>: <span class="s">false</span></div><div class="c"># use skip_build only when the desired image is already in GHCR</div></div></div>
+  </div></section>
+
+  <section class="section k8s-section" id="help"><div class="section-inner wide"><div class="eyebrow reveal">When something is red</div><h2 class="section-heading reveal">Find the broken hand-off.</h2><div class="k8s-grid"><article class="step-card reveal"><div class="step-num">01 · ACTIONS</div><div class="step-title">The image was not pushed</div><p class="feat-desc">Check GHCR permissions, the repository owner casing, and the Buildx/QEMU step. A failed build cannot notify a healthy cluster.</p></article><article class="step-card reveal" style="transition-delay:.08s"><div class="step-num">02 · WEBHOOK</div><div class="step-title">The Pi did not react</div><p class="feat-desc">Check the URL, HMAC secret, HTTPS reachability, and the Pi-side service logs. A successful GitHub job only proves the notification left GitHub.</p></article><article class="step-card reveal" style="transition-delay:.16s"><div class="step-num">03 · K3S</div><div class="step-title">The workload will not become ready</div><p class="feat-desc">Inspect the image architecture, registry pull status, environment configuration, and persistent storage. Keep the previous SHA available until the new pod is healthy.</p></article></div><div class="setup-cta-box reveal"><strong>Remember the boundary:</strong> GitHub builds and announces. GHCR stores. The Pi verifies and deploys. K3s runs Aperio. Your cluster owns the memory.</div></div></section>
+</main>
+<footer><div class="footer-inner"><a href="index.html" class="footer-brand"><div class="footer-logo-mark">A</div><div><div class="footer-name">Aperio</div><div class="footer-sub">one brain · every agent</div></div></a><div class="k8s-footer-links"><a class="footer-link" href="vms.html"><i class="bi bi-box-arrow-up-right"></i> VM installation lab</a><a class="footer-link" href="index.html#setup"><i class="bi bi-arrow-left"></i> Main setup guide</a></div></div><div class="footer-warning">⚠️ A cluster is still self-hosting. Keep backups, protect the webhook, and verify every rollout.</div></footer>
+<script src="scripts.js"></script>
+</body></html>
