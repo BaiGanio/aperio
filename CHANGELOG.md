@@ -39,6 +39,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
   replying that no such capability exists (#237 Symptom B). Regression test
   guards the description ordering.
 
+- Weak-model text-form tool calls are now caught when they begin with a bare
+  registered tool name, while the web UI holds suspicious leading content long
+  enough for a server-side retract to remove it without flashing raw syntax.
+  Tool-repair ledgers also recognize direct `node --test` runs, keeping fixture
+  failures out of dogfood data (#237 Symptom A).
+
 - Wiki writes now pass source-memory strings through MCP validation so the
   handler can omit malformed, expired, or unknown citations while preserving
   valid provenance. This prevents one mistyped memory UUID from invalidating an
