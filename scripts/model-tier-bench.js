@@ -289,8 +289,7 @@ function discoverCampaignRuns(root, tier, id) {
     });
 }
 
-function discoverPersistedRunPaths(root) {
-  const base = join(root, "var/benchmarks/model-tiers");
+function discoverPersistedRunPaths(base) {
   if (!existsSync(base)) return [];
   const walk = dir => readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
     const path = join(dir, entry.name);
@@ -300,8 +299,10 @@ function discoverPersistedRunPaths(root) {
   return walk(base).sort();
 }
 
-export function rescorePersistedRuns(root) {
-  return discoverPersistedRunPaths(root).map(artifactPath => {
+// `base` defaults to the production artifact tree; tests override it to point at
+// a committed fixture (var/ is gitignored, so fixtures can't live under it).
+export function rescorePersistedRuns(root, base = join(root, "var/benchmarks/model-tiers")) {
+  return discoverPersistedRunPaths(base).map(artifactPath => {
     let run;
     try {
       run = readJson(artifactPath);

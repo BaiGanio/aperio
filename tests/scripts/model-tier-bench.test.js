@@ -491,8 +491,8 @@ test("validateTargetTier requires model eligibility", () => {
 test("catalog contains the complete verified candidate matrix", () => {
   const models = JSON.parse(readFileSync(".github/model-tiers/models.json", "utf8"));
   const validated = validateBenchmarkModels(models);
-  assert.equal(validated.length, 15);
-  assert.equal(validated.reduce((count, model) => count + model.tiers.length, 0), 38);
+  assert.equal(validated.length, 16);
+  assert.equal(validated.reduce((count, model) => count + model.tiers.length, 0), 39);
   assert.deepEqual(validated.filter(model => model.tiers.includes(8)).map(model => model.id), [
     "gemma4-e4b-ud-q4kxl", "qwen35-4b-ud-q4kxl", "ministral3-3b-q4km", "granite40-h-tiny-ud-q4kxl",
   ]);
@@ -1052,7 +1052,10 @@ test("runWsCase rejects a completed turn that contains a llama.cpp context overf
 });
 
 test("offline audit rescoring covers the 24 GB Gemma and 32 GB Qwen recall-filter-type artifacts without writing var", () => {
-  const report = rescorePersistedRuns(REPO_ROOT);
+  // Committed fixture tree (not volatile var/) so the audit outcomes are stable
+  // across benchmark runs. base= overrides the production var/ artifact path.
+  const fixtureRoot = fileURLToPath(new URL("../fixtures/model-tier-rescore", import.meta.url));
+  const report = rescorePersistedRuns(fixtureRoot, join(fixtureRoot, "benchmarks/model-tiers"));
   const gemma = report.find(item => item.artifactPath.endsWith("24gb/gemma4-e4b-ud-q4kxl/20260715T083512Z/run.json"));
   const qwen = report.find(item => item.artifactPath.endsWith("32gb/qwen36-35b-a3b-mtp-ud-q4kxl/20260715T-qwen36-35b-ud-q4kxl/run.json"));
   assert.deepEqual(gemma.rescoredCases, ["recall-filter-type"]);

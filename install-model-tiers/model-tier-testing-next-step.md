@@ -1,5 +1,27 @@
 # Completed checkpoint: Stage 3 campaign preparation
 
+## Current decision posture — 2026-07-16
+
+Gemma 4 E4B UD-Q4_K_XL is the preferred provisional candidate for the next
+stage. It is the strongest currently observed model for Aperio's tool loop, but
+it is not yet an approved installer default:
+
+- A fresh hardware-tier 32 GB `chain-recall-wiki` verification passed in 201.5s
+  with `statePassed: true`, three successful tool results, zero persistent tool
+  failures, and zero qualification swap growth.
+- Earlier isolated 8/16/24 GB runs passed the same chain case, but those lower
+  tiers were simulated on the 32 GB host and remain provisional.
+- The subsequent five-case 32 GB funnel was invalid because the chain case hit
+  the fixed 300-second whole-turn deadline. It is harness-invalid evidence, not
+  a scored model failure, but it must be rerun and explained before promotion.
+- Gemma 4 12B was tested from a scratch catalog at simulated 16 GB; it timed
+  out on `recall-filter-tag` after two slow but completed recall cases and is not
+  a stronger candidate under the current bounded contract.
+
+The next stage is therefore E4B qualification and finalist evidence, not
+installer wiring. Keep the catalog role as `provisional-default` until the
+hard gates, real-tier caveat, full exam, and human review are complete.
+
 ## Bounded live verification closeout — 2026-07-15
 
 Operator-approved live campaign `20260715T083512Z` was intentionally stopped

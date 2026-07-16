@@ -1,5 +1,17 @@
 # Model-Tier Benchmark Runner Closeout
 
+## Candidate checkpoint — 2026-07-16
+
+Gemma 4 E4B UD-Q4_K_XL is the preferred provisional candidate based on the
+current private evidence. A fresh 32 GB hardware-tier chain verification passed
+in 201.5s with successful final state and no persistent tool failures. This is
+not yet a tier decision: the five-case funnel later produced an invalid
+300-second chain timeout, lower-tier evidence is simulated on a 32 GB host, and
+the 14-case qualification suite plus finalist full exam remain outstanding.
+
+Do not change installer/runtime defaults from this checkpoint alone. Continue
+with `install-model-tiers/model-tier-testing-next-stage-prompt.md`.
+
 ## Current implementation and operator handoff
 
 This section describes the implementation on branch

@@ -34,6 +34,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Wiki writes now pass source-memory strings through MCP validation so the
+  handler can omit malformed, expired, or unknown citations while preserving
+  valid provenance. This prevents one mistyped memory UUID from invalidating an
+  otherwise valid synthesized article.
+
 - Real-app E2E fixtures now treat `PORT=0` as an OS-assigned bind request
   instead of probing or attempting to kill an imaginary port-zero occupant.
   Persistence fixtures inject the contract-faithful test agent across restarts,
@@ -56,6 +61,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - All 26 locale JSONs now have full parity with the English baseline (371 keys each, `diff-locales.js` exits 0).
 
 ### Changed
+
+- Model-tier evidence now records Gemma 4 E4B UD-Q4_K_XL as the preferred
+  provisional candidate pending full qualification, finalist examination,
+  real-tier hardware evidence, and human approval; no installer default was
+  changed.
 
 - Controlled model-tier audits now run tiers in descending `32 → 24 → 16 → 8`
   order and stop after genuine failures at both 32 GB and 24 GB, preserving the
