@@ -38,10 +38,15 @@ jobs:
         run: npm run coverage:dashboard
 
       - name: Upload results to Codecov
-        if: always() && hashFiles('coverage/lcov.info') != ''
+        if: >-
+          always() &&
+          hashFiles('coverage/lcov.info') != '' &&
+          (github.event_name != 'pull_request' || github.actor != 'dependabot[bot]')
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
+          token: ${{ env.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
           exclude: ./coverage/tmp/
           fail_ci_if_error: true
