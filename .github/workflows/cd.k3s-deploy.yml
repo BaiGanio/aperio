@@ -25,6 +25,18 @@ name: (cd) K3s Deploy
 on:
   push:
     branches: [master]
+    paths:
+      - server.js
+      - bootstrap.js
+      - lib/**
+      - db/**
+      - mcp/**
+      - public/**
+      - docker/**
+      - k8s/**
+      - package.json
+      - package-lock.json
+      - .github/workflows/cd.k3s-deploy.yml
   workflow_dispatch:
     inputs:
       branch:
