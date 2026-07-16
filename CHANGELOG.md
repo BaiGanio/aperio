@@ -37,6 +37,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Wiki refreshes using llama.cpp now report the requested model and currently
+  served models when the configured refresh model is absent, with guidance to
+  restart Aperio so the regenerated model preset takes effect.
+
 - Workflow suggestions now require two successful calls from an explicit set of
   meaningful action tools, excluding recall, file reads, searches, and failed
   calls. Preference-driven filesystem scopes now activate from the original

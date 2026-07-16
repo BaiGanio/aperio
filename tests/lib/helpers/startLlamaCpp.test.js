@@ -5,6 +5,7 @@ import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync, appendF
 import assert from "node:assert/strict";
 import {
   buildModelsPreset,
+  collectExtraLlamaCppModels,
   mainPlusVlmFit,
   vlmPresetMode,
   ensureLlamaCpp,
@@ -77,6 +78,47 @@ const DEFAULT_MODEL = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M";
 
 // =============================================================================
 describe("buildModelsPreset", () => {
+
+  test("collects the configured llama.cpp wiki refresh model", () => {
+    assert.deepEqual(
+      collectExtraLlamaCppModels({ WIKI_REFRESH_PROVIDER: "llamacpp:foo/bar-GGUF:Q4_K_M" }),
+      ["foo/bar-GGUF:Q4_K_M"],
+    );
+  });
+
+  test("ignores unset, empty, and non-llama.cpp wiki refresh providers", () => {
+    assert.deepEqual(collectExtraLlamaCppModels({}), []);
+    assert.deepEqual(collectExtraLlamaCppModels({ WIKI_REFRESH_PROVIDER: "llamacpp:" }), []);
+    assert.deepEqual(collectExtraLlamaCppModels({ WIKI_REFRESH_PROVIDER: "anthropic:claude-x" }), []);
+  });
+
+  test("appends one extra wiki model section with model facts", () => {
+    const model = "foo/bar-GGUF:Q4_K_M";
+    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, WIKI_REFRESH_PROVIDER: `llamacpp:${model}` }, { totalRamGB: 64 });
+    assert.match(ini, /\[foo\/bar-GGUF:Q4_K_M\]/);
+    assert.match(ini, /\[foo\/bar-GGUF:Q4_K_M\]\nhf-repo = foo\/bar-GGUF:Q4_K_M\nctx-size = \d+/);
+    assert.equal(ini.match(/^\[[^*].*\]$/gm)?.length, 3);
+  });
+
+  test("dedupes a wiki refresh model already served as the main model", () => {
+    const ini = buildModelsPreset({
+      LLAMACPP_MODEL: DEFAULT_MODEL,
+      WIKI_REFRESH_PROVIDER: `llamacpp:${DEFAULT_MODEL}`,
+    }, { totalRamGB: 64 });
+    assert.equal(ini.match(/^\[[^*].*\]$/gm)?.length, 2);
+    assert.equal(ini.match(new RegExp(`hf-repo = ${DEFAULT_MODEL.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"))?.length, 1);
+  });
+
+  test("fast-low-vram keeps models-max at 1 and applies cache settings to an extra model", () => {
+    const model = "foo/bar-GGUF:Q4_K_M";
+    const ini = buildModelsPreset({
+      APERIO_LOCAL_PERF_PROFILE: "fast-low-vram",
+      LLAMACPP_MODEL: DEFAULT_MODEL,
+      WIKI_REFRESH_PROVIDER: `llamacpp:${model}`,
+    }, { totalRamGB: 64 });
+    assert.equal(ini.match(/models-max = 1/g)?.length, 1);
+    assert.match(ini, /\[foo\/bar-GGUF:Q4_K_M\][\s\S]*?cache-type-k = q8_0\ncache-type-v = q8_0/);
+  });
 
   test("emits a [*] global section with jinja enabled", () => {
     const ini = buildModelsPreset({}, {});
