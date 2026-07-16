@@ -1,27 +1,15 @@
 name: (cd) GitHub Pages
 
 on:
-  push:
-    branches: ["master"]
-    # Rebuild the published docs, coverage dashboard, and e2e dashboard when
-    # relevant source/tests or dashboard generators change.
-    paths:
-      - 'docs/**'
-      - 'lib/**'
-      - 'mcp/**'
-      - 'db/**'
-      - 'server.js'
-      - 'bootstrap.js'
-      - 'tests/**'
-      - 'scripts/generate-coverage-dashboard.js'
-      - 'scripts/generate-e2e-dashboard.js'
-      - 'tests/reporters/e2e-json.js'
-      - 'package.json'
-      - 'package-lock.json'
-      - '.c8rc'
-      - '.github/workflows/cd.gh-pages.yml'
-  # Allows you to run this workflow manually from the Actions tab
+  workflow_run:
+    workflows: ["(ci) Codecov Run tests and upload coverage"]
+    types: [completed]
   workflow_dispatch:
+    inputs:
+      run_id:
+        description: Codecov workflow run ID containing github-pages-source
+        required: true
+        type: string
 
 # Allow only one concurrent deployment
 concurrency:
@@ -30,33 +18,26 @@ concurrency:
 
 jobs:
   deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.event == 'push' &&
+       github.event.workflow_run.head_branch == 'master')
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      actions: read
       pages: write
       id-token: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2 # v4
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+      - name: Download Pages source
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          node-version: 26
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Generate coverage data
-        run: |
-          npm run test:ci
-          npm run coverage:dashboard
-
-      - name: Generate e2e dashboard data
-        run: npm run e2e:dashboard
+          name: github-pages-source
+          path: ./docs
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id || inputs.run_id }}
 
       - name: Setup Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0

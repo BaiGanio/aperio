@@ -25,6 +25,7 @@
     "test:e2e": "NODE_ENV=test node --test --test-concurrency=2 'tests/e2e/**/*.test.js'",
     "test:e2e:real": "NODE_ENV=test node --test --test-concurrency=2 'tests/e2e/real-app-*.test.js'",
     "test:ci": "NODE_ENV=test c8 --clean node --test $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) 'tests/**/*.test.js'",
+    "test:ci:dashboard": "NODE_ENV=test c8 --clean node --test --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/reporters/e2e-json.js --test-reporter-destination=e2e-results.json 'tests/**/*.test.js'",
     "gen:env": "node scripts/gen-env-example.js",
     "gen:env:check": "node scripts/gen-env-example.js --check",
     "i18n:check": "node scripts/diff-locales.js && node scripts/check-docs-i18n.js",
@@ -39,7 +40,7 @@
     "coverage": "c8 report --reporter=lcov --reporter=text",
     "coverage:dashboard": "node scripts/generate-coverage-dashboard.js",
     "e2e:dashboard": "node scripts/generate-e2e-dashboard.js",
-    "test:e2e:dashboard": "npm run test:e2e && node scripts/generate-e2e-dashboard.js"
+    "test:e2e:dashboard": "NODE_ENV=test node --test --test-concurrency=2 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/reporters/e2e-json.js --test-reporter-destination=e2e-results.json 'tests/e2e/**/*.test.js' && npm run e2e:dashboard"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.210",
