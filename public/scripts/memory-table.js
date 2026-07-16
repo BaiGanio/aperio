@@ -38,7 +38,7 @@ async function refreshMemories() {
     renderTablePage();
   } catch (err) {
     const wrapper = document.getElementById('table-wrapper');
-    if (wrapper) wrapper.innerHTML = `<div class="mem-empty" style="color:#ef4444;">${window.escapeHtml(err.message)}</div>`;
+    if (wrapper) wrapper.innerHTML = `<div class="mem-empty csp-style-24">${window.escapeHtml(err.message)}</div>`;
   }
 }
 window.refreshMemories = refreshMemories;

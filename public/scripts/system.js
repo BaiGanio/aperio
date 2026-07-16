@@ -89,32 +89,32 @@ function refreshSystemPanel() {
         <div class="system-section-title">Machine</div>
         <div class="system-cards">
           <div class="system-card system-card-full">
-            <div class="system-card-value" style="font-size:calc(14px*var(--font-scale));">
+            <div class="system-card-value csp-style-27">
               ${fmtMemSystem(usedMem)} / ${fmtMemSystem(m.systemTotalMem)}
               <span style="color:${memColor};margin-left:8px;font-size:calc(12px*var(--font-scale));">${memPct}% used</span>
             </div>
             <div class="system-card-label">System Memory</div>
             ${fmtLoadBar(memPct, 100)}
-            <div class="system-card-desc" style="margin-top:6px;">RAM used by the whole machine vs. total installed.${m.platform === 'darwin'
+            <div class="system-card-desc csp-style-28">RAM used by the whole machine vs. total installed.${m.platform === 'darwin'
               ? ' Counted like Activity Monitor — file cache excluded.' : ''}</div>
           </div>
           <div class="system-card system-card-full">
-            <div class="system-card-value" style="font-size:calc(14px*var(--font-scale));">
+            <div class="system-card-value csp-style-27">
               ${m.loadAvg1} · ${m.loadAvg5} · ${m.loadAvg15}
               <span style="color:${loadColor};margin-left:8px;font-size:calc(12px*var(--font-scale));">${m.cores} CPU cores${m.perfCores
                 ? ` (${m.perfCores} performance + ${m.effCores} efficiency)` : ''}</span>
             </div>
             <div class="system-card-label">Load Average</div>
             ${fmtLoadBar(m.loadAvg1, m.cores)}
-            <div class="system-card-desc" style="margin-top:6px;">Machine-wide demand for CPU, averaged over the last 1 · 5 · 15 minutes.</div>
+            <div class="system-card-desc csp-style-28">Machine-wide demand for CPU, averaged over the last 1 · 5 · 15 minutes.</div>
           </div>
           <div class="system-card">
-            <div class="system-card-value" style="font-size:calc(14px*var(--font-scale));">${fmtUptime(m.uptime)}</div>
+            <div class="system-card-value csp-style-27">${fmtUptime(m.uptime)}</div>
             <div class="system-card-label">Uptime</div>
             <div class="system-card-desc">How long since this machine was booted.</div>
           </div>
           <div class="system-card">
-            <div class="system-card-value" style="font-size:calc(14px*var(--font-scale));">${m.platform} · ${m.arch}</div>
+            <div class="system-card-value csp-style-27">${m.platform} · ${m.arch}</div>
             <div class="system-card-label">Platform</div>
             <div class="system-card-desc">Operating system and CPU architecture.</div>
           </div>
@@ -126,6 +126,6 @@ function refreshSystemPanel() {
         </div>`;
     })
     .catch(() => {
-      body.innerHTML = '<div class="system-loading" style="color:#e05555;">Failed to load metrics.</div>';
+      body.innerHTML = '<div class="system-loading csp-style-29">Failed to load metrics.</div>';
     });
 }

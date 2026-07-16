@@ -29,10 +29,10 @@ function renderMemories(memories) {
 
   if (!filtered.length) {
     window.memoriesList.innerHTML = `
-      <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
-        <div style="font-size:22px; margin-bottom:8px; opacity:.4">◈</div>
-        <div style="font-weight:500; margin-bottom:6px; color:var(--text)" data-i18n="sidebar_empty_title">${t("sidebar_empty_title")}</div>
-        <div style="font-size:12px; color:var(--text-muted)" data-i18n-html="sidebar_empty_hint_html">${t("sidebar_empty_hint_html")}</div>
+      <div class="empty-state csp-style-6">
+        <div class="csp-style-20">◈</div>
+        <div class="csp-style-21" data-i18n="sidebar_empty_title">${t("sidebar_empty_title")}</div>
+        <div class="csp-style-22" data-i18n-html="sidebar_empty_hint_html">${t("sidebar_empty_hint_html")}</div>
       </div>`;
     return;
   }

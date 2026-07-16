@@ -45,7 +45,7 @@ async function refreshSelfMemories() {
     renderSelfTablePage();
   } catch (err) {
     const wrapper = document.getElementById('self-table-wrapper');
-    if (wrapper) wrapper.innerHTML = `<div class="mem-empty" style="color:#ef4444;">${window.escapeHtml(err.message)}</div>`;
+    if (wrapper) wrapper.innerHTML = `<div class="mem-empty csp-style-24">${window.escapeHtml(err.message)}</div>`;
   }
 }
 window.refreshSelfMemories = refreshSelfMemories;

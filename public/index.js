@@ -146,6 +146,44 @@ document.addEventListener('keydown', (e) => {
 // ── Boot ─────────────────────────────────────────────────────
 window.connect();
 
+// CSP-safe wiring for controls declared in the static HTML. Dynamic controls
+// use the same data-action convention and are handled by this delegated listener.
+const actionHandlers = {
+  changePagePrev: () => window.changePage?.(-1),
+  changePageNext: () => window.changePage?.(1),
+  selfPagePrev: () => window.changeSelfPage?.(-1),
+  selfPageNext: () => window.changeSelfPage?.(1),
+  launchApp: () => { window.location = "/"; },
+  copyCode: (_event, el) => window.copyCode?.(el.dataset.codeId),
+  removeParent: (_event, el) => el.parentElement?.remove(),
+  removeBanner: (_event, el) => el.closest(".ctx-banner")?.remove(),
+  toggleBannerBody: (_event, el) => {
+    const body = el.closest(".ctx-banner")?.querySelector(".ctx-bd");
+    if (body) body.style.display = body.style.display === "none" ? "block" : "none";
+  },
+  toggleSessionCard: (_event, el) => window.toggleSessionCard?.(el),
+  expandSession: (event, el) => window.expandSession?.(event, el.dataset.sessionId),
+  resumeSession: (_event, el) => window.resumeSession?.(el.dataset.sessionId),
+  togglePinSession: (event, el) => window.togglePinSession?.(event, el.dataset.sessionId, el),
+  deleteSession: (event, el) => window.deleteSession?.(event, el.dataset.sessionId),
+  dismissAgentJobBanner: (_event, el) => window.dismissAgentJobBanner?.(el.parentElement),
+  toggleWikiPanel: (_event, el) => window.toggleWikiPanel?.(el.dataset.actionArg === "true"),
+};
+document.addEventListener("click", (event) => {
+  const el = event.target.closest?.("[data-action]");
+  if (!el) return;
+  const action = el.dataset.action;
+  if (actionHandlers[action]) return actionHandlers[action](event, el);
+  const fn = window[action];
+  if (typeof fn === "function") fn(event, el);
+});
+document.addEventListener("input", (event) => {
+  const el = event.target.closest?.("[data-action-input]");
+  if (!el) return;
+  const fn = window[el.dataset.actionInput];
+  if (typeof fn === "function") fn(event, el);
+});
+
 // ── Context bar ──────────────────────────────────────────────
 let _ctxHWM = 0; // high-water mark — only advances, never drops
 let _sessionCost = 0;

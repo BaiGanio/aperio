@@ -58,7 +58,7 @@
     if (summary()) summary().textContent = `${ready}/${data.tiers.length} ready`;
     tiersEl().innerHTML =
       data.tiers.map(tierRow).join("") +
-      `<button class="paths-pick-btn extras-recheck" data-action="recheck" style="margin-top:8px">
+      `<button class="paths-pick-btn extras-recheck csp-style-26" data-action="recheck">
         <i class="bi bi-arrow-clockwise"></i> Re-check
       </button>`;
     wire();

@@ -1,0 +1,31 @@
+/* Static declarations extracted from CSP-sensitive inline style attributes. */
+.csp-style-1 { color-scheme: light dark; }
+.csp-style-2 { display:none; }
+.csp-style-3 { margin-left:auto; }
+.csp-style-4 { margin-left:6px;color:var(--text-muted);display:none }
+.csp-style-5 { display:none;font-size: calc(11px * var(--font-scale));color:var(--text-muted);margin-left:4px;font-family:var(--font-mono) }
+.csp-style-6 { padding:24px 16px; text-align:center; line-height:1.8; }
+.csp-style-7 { font-size: calc(22px * var(--font-scale)); margin-bottom:8px; opacity:.4 }
+.csp-style-8 { font-size: var(--fs-micro); color:var(--text-muted) }
+.csp-style-9 { font-size: var(--fs-chrome) }
+.csp-style-10 { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+.csp-style-11 { margin:0 0 8px; }
+.csp-style-12 { margin:0; }
+.csp-style-13 { display:none }
+.csp-style-14 { font-size:11px }
+.csp-style-15 { font-size:20px }
+.csp-style-16 { margin-top:.75rem; }
+.csp-style-17 { font-family: system-ui, sans-serif; max-width: 34rem; margin: 15vh auto; padding: 0 1.5rem; line-height: 1.6; color: #222; }
+.csp-style-18 { font-size: 1.5rem; }
+.csp-style-19 { color:#666; }
+.csp-style-20 { font-size:22px; margin-bottom:8px; opacity:.4 }
+.csp-style-21 { font-weight:500; margin-bottom:6px; color:var(--text) }
+.csp-style-22 { font-size:12px; color:var(--text-muted) }
+.csp-style-23 { font-size:10px;color:var(--text-muted);font-family:var(--font-mono) }
+.csp-style-24 { color:#ef4444; }
+.csp-style-25 { color:var(--error,#ef4444) }
+.csp-style-26 { margin-top:8px }
+.csp-style-27 { font-size:calc(14px*var(--font-scale)); }
+.csp-style-28 { margin-top:6px; }
+.csp-style-29 { color:#e05555; }
+.csp-style-power-stopped { display:flex;height:100vh;align-items:center;justify-content:center;font-family:system-ui,sans-serif;color:#888;text-align:center;padding:2rem }

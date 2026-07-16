@@ -91,7 +91,7 @@
       if (isAperio()) tables.push({ name: "self_memories", label: "Self-memories", count: await fetchSelfMemoryCount() });
       renderTableList(tables);
     } catch (err) {
-      el.innerHTML = `<div class="db-empty" style="color:#ef4444;">${escapeHtml(err.message)}</div>`;
+      el.innerHTML = `<div class="db-empty csp-style-24">${escapeHtml(err.message)}</div>`;
     }
   }
 
@@ -171,7 +171,7 @@
       renderPage();
     } catch (err) {
       document.getElementById("dbt-wrapper").innerHTML =
-        `<div class="mem-empty" style="color:#ef4444;">${escapeHtml(err.message)}</div>`;
+        `<div class="mem-empty csp-style-24">${escapeHtml(err.message)}</div>`;
     }
   }
 

@@ -129,7 +129,7 @@ async function loadSessions(page) {
       list.appendChild(makePaginationControls());
     }
   } catch (err) {
-    list.innerHTML = `<div class="sessions-empty" style="color:var(--error,#ef4444)">${t("sessions_load_failed")}</div>`;
+    list.innerHTML = `<div class="sessions-empty csp-style-25">${t("sessions_load_failed")}</div>`;
   }
 }
 
@@ -195,7 +195,7 @@ function makeSessionCard(s) {
   const summaryWord = s.summaryCount === 1 ? t("sessions_summary_one") : t("sessions_summary_many");
 
   card.innerHTML = `
-    <div class="session-card-title-row" onclick="toggleSessionCard(this)">
+    <div class="session-card-title-row" data-action="toggleSessionCard">
       <span class="session-card-title">${escapeHtml(s.title ?? t("sessions_untitled"))}</span>
       <i class="bi bi-chevron-right session-card-chevron"></i>
     </div>
@@ -208,16 +208,16 @@ function makeSessionCard(s) {
         <span class="session-card-model">${escapeHtml(s.model ?? "")}</span>
       </div>
       <div class="session-card-actions">
-        <button class="session-btn session-btn--expand" onclick="expandSession(event, '${s.id}')">
+        <button class="session-btn session-btn--expand" data-action="expandSession" data-session-id="${s.id}">
           <i class="bi bi-chevron-down"></i> ${t("sessions_summaries")}
         </button>
-        <button class="session-btn session-btn--resume" onclick="resumeSession('${s.id}')">
+        <button class="session-btn session-btn--resume" data-action="resumeSession" data-session-id="${s.id}">
           <i class="bi bi-arrow-counterclockwise"></i> ${t("sessions_resume")}
         </button>
-        <button class="session-btn session-btn--pin${s.pinned ? " session-btn--pin-active" : ""}" title="${s.pinned ? t("sessions_unpin") : t("sessions_pin")}" onclick="togglePinSession(event, '${s.id}', this)">
+        <button class="session-btn session-btn--pin${s.pinned ? " session-btn--pin-active" : ""}" title="${s.pinned ? t("sessions_unpin") : t("sessions_pin")}" data-action="togglePinSession" data-session-id="${s.id}">
           <i class="bi ${s.pinned ? "bi-pin-fill" : "bi-pin"}"></i>
         </button>
-        <button class="session-btn session-btn--delete" onclick="deleteSession(event, '${s.id}')">
+        <button class="session-btn session-btn--delete" data-action="deleteSession" data-session-id="${s.id}">
           <i class="bi bi-trash3"></i>
         </button>
       </div>
@@ -282,7 +282,7 @@ async function expandSession(e, id) {
     body.style.display = "flex";
     btn.innerHTML = `<i class="bi bi-chevron-up"></i> ${t("sessions_summaries")}`;
   } catch {
-    body.innerHTML = `<div class="session-no-summaries" style="color:var(--error,#ef4444)">${t("sessions_load_failed")}</div>`;
+    body.innerHTML = `<div class="session-no-summaries csp-style-25">${t("sessions_load_failed")}</div>`;
     body.style.display = "flex";
     btn.innerHTML = `<i class="bi bi-chevron-down"></i> ${t("sessions_summaries")}`;
   } finally {
@@ -358,7 +358,7 @@ function handleSessionResumed(msg) {
   banner.style.cssText = "background:color-mix(in srgb,var(--accent) 8%,var(--bg));";
   banner.innerHTML =
     `<span class="ctx-banner-text">${t("sessions_resumed_html", { title: escapeHtml(msg.title ?? t("sessions_untitled")) })}</span>` +
-    `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("sessions_dismiss")}</button>`;
+    `<button class="ctx-banner-btn" data-action="removeParent">${t("sessions_dismiss")}</button>`;
   document.querySelector(".chat-area")?.prepend(banner);
 
   // Fetch the session and render the last few messages so the user can see the prior context.

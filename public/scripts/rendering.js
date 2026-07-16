@@ -8,8 +8,8 @@ function showContextBanner(pct, mode) {
   const msg = mode === "trimmed" ? t("ctx_trimmed", { pct }) : t("ctx_warn", { pct });
   banner.innerHTML =
     `<span class="ctx-banner-text">${msg}</span>` +
-    `<button class="ctx-banner-btn ctx-banner-btn--primary" onclick="sendSummarize()">${t("ctx_summarize")}</button>` +
-    `<button class="ctx-banner-btn" onclick="dismissContextBanner()">${t("ctx_dismiss")}</button>`;
+    `<button class="ctx-banner-btn ctx-banner-btn--primary" data-action="sendSummarize">${t("ctx_summarize")}</button>` +
+    `<button class="ctx-banner-btn" data-action="dismissContextBanner">${t("ctx_dismiss")}</button>`;
   document.querySelector(".chat-area")?.prepend(banner);
   ctxBannerEl = banner;
 }
@@ -42,8 +42,8 @@ function showHandoffBanner(pct, { autoTrigger = false } = {}) {
   const label = (typeof t === "function" && t("ctx_handoff", { pct })) || `Context at ${pct}% — handoff suggested.`;
   banner.innerHTML =
     `<span class="ctx-banner-text">${label}</span>` +
-    `<button class="ctx-banner-btn ctx-banner-btn--primary" onclick="sendHandoff()">${t("ctx_handoff_run")}</button>` +
-    `<button class="ctx-banner-btn" onclick="dismissHandoffBanner()">${t("ctx_dismiss")}</button>`;
+    `<button class="ctx-banner-btn ctx-banner-btn--primary" data-action="sendHandoff">${t("ctx_handoff_run")}</button>` +
+    `<button class="ctx-banner-btn" data-action="dismissHandoffBanner">${t("ctx_dismiss")}</button>`;
   document.querySelector(".chat-area")?.prepend(banner);
   handoffBannerEl = banner;
 
@@ -68,7 +68,7 @@ function showHandoffResult(ok, payload) {
     : `Handoff failed: ${payload.reason || "unknown"}`;
   note.innerHTML =
     `<span class="ctx-banner-text">${text}</span>` +
-    `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">Dismiss</button>`;
+    `<button class="ctx-banner-btn" data-action="removeParent">Dismiss</button>`;
   document.querySelector(".chat-area")?.prepend(note);
 }
 
@@ -97,7 +97,7 @@ function showAgentJobBanner({ jobId, verdict, durationMs, trigger, model, error 
     : `⚠️ Job ${id} failed${by}${via}: ${error || "unknown error"}`;
   banner.innerHTML =
     `<span class="ctx-banner-text">${text}</span>` +
-    `<button class="ctx-banner-btn" onclick="dismissAgentJobBanner(this.parentElement)">Dismiss</button>`;
+    `<button class="ctx-banner-btn" data-action="dismissAgentJobBanner">Dismiss</button>`;
   document.querySelector(".chat-area")?.prepend(banner);
   if (ok) setTimeout(() => dismissAgentJobBanner(banner), 8000);
 }
@@ -329,7 +329,7 @@ function ensureFileModal() {
           <span class="fpm-ext-badge"></span>
         </div>
         <div class="fpm-actions">
-          <button class="fpm-source-btn" title="Toggle source" style="display:none">
+          <button class="fpm-source-btn csp-style-13" title="Toggle source">
             <i class="bi bi-code-slash"></i> Source
           </button>
           <button class="fpm-copy-btn" title="Copy content">
@@ -341,7 +341,7 @@ function ensureFileModal() {
         </div>
       </div>
       <div class="fpm-body">
-        <iframe class="fpm-frame" sandbox="allow-scripts" title="Rendered preview" style="display:none"></iframe>
+        <iframe class="fpm-frame csp-style-13" sandbox="allow-scripts" title="Rendered preview"></iframe>
         <pre class="fpm-pre"><code class="fpm-code"></code></pre>
       </div>
     </div>`;
