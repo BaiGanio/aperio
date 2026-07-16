@@ -31,6 +31,13 @@ describe("summarizeArgs()", () => {
     assert.equal(ta.summarizeArgs("tool", {}), "");
   });
 
+  test("summarizes grep_files with its pattern and resolved path", () => {
+    assert.equal(
+      ta.summarizeArgs("grep_files", { pattern: "OAuthCallback", path: "/app/auth" }),
+      '"OAuthCallback" in /app/auth',
+    );
+  });
+
   // ── URL ──────────────────────────────────────────────────────────────────
 
   test("returns truncated URL", () => {

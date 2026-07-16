@@ -91,7 +91,7 @@ Your context, always available.
 │   └── 📂 tools/
 │       ├── memory.js             # remember · recall · update_memory · forget · backfill_embeddings · deduplicate_memories (6)
 │       ├── self-memory.js         # self_remember · self_recall · self_update · self_forget (4)
-│       ├── files.js              # read_file · write_file · append_file · edit_file · read_docx · scan_project · delete_file · generate_xlsx · generate_docx (9)
+│       ├── files.js              # read_file · grep_files · write_file · append_file · edit_file · read_docx · scan_project · delete_file · generate_xlsx · generate_docx (10)
 │       ├── wiki.js               # wiki_write · wiki_search · wiki_list · wiki_get (4)
 │       ├── codegraph.js          # code_search · code_outline · code_context · code_callers · code_callees · code_repos (6)
 │       ├── docgraph.js           # doc_search · doc_repos · doc_outline · doc_context · doc_refs (5)
@@ -446,7 +446,7 @@ memories.
 
 ## MCP Tools
 
-Aperio exposes **54 tools** across 12 categories over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
+Aperio exposes **59 tools** across 13 categories over MCP. Any MCP-compatible agent (Cursor, Windsurf, Claude, etc.) can call them.
 
 | Category | Tool | What it does |
 |----------|------|-------------|
@@ -476,6 +476,7 @@ Aperio exposes **54 tools** across 12 categories over MCP. Any MCP-compatible ag
 | | `doc_context` | Fetch text of one section or chunk by id |
 | | `doc_refs` | Cross-document reference lookup (IDs, URLs, citations) |
 | **Files** | `read_file` | Read a code or text file (max 500 lines per call, paginated via `offset`) |
+| | `grep_files` | Recursively find literal text in allowed code/text files; returns relative paths and line numbers while skipping secrets, symlinks, dependencies, and build output |
 | | `write_file` | Create or overwrite a file (subject to write-path guard) |
 | | `append_file` | Append content to an existing file without touching the rest |
 | | `edit_file` | Replace an exact string in a file (`replace_all` for multiple occurrences) |
@@ -898,7 +899,7 @@ your machine.
 ---
 
 ## Security
-Aperio runs on your machine and has access to your file system through the `scan_project`, `write_file`, `append_file`, and `read_file` tools. File operations are gated by a path safety system — read and write access are controlled independently.
+Aperio runs on your machine and has access to your file system through tools including `scan_project`, `grep_files`, `write_file`, `append_file`, and `read_file`. File operations are gated by a path safety system — read and write access are controlled independently.
 
 Sensitive actions also have a durable interrupt service underneath the agent
 runtime. It persists pending action descriptors, validates decisions, expires
@@ -937,6 +938,7 @@ APERIO_ALLOWED_PATHS_TO_WRITE=/Users/yourname/projects
 | Operation | Guard | Default scope |
 |-----------|-------|---------------|
 | `read_file` | `APERIO_ALLOWED_PATHS_TO_READ` | Project root |
+| `grep_files` | `APERIO_ALLOWED_PATHS_TO_READ` | Project root |
 | `write_file` | `APERIO_ALLOWED_PATHS_TO_WRITE` | Project root |
 | `append_file` | `APERIO_ALLOWED_PATHS_TO_WRITE` | Project root |
 | `scan_project` | `APERIO_ALLOWED_PATHS_TO_READ` | Project root |

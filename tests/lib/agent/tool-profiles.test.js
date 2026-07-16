@@ -52,6 +52,18 @@ describe("tool-profiles — docgraph availability", () => {
   });
 });
 
+describe("tool-profiles — filesystem search availability", () => {
+  test("a code bug search offers the real grep_files tool", () => {
+    const tools = toolsFor("find the auth bug in the code");
+    assert.equal(tools.has("grep_files"), true);
+  });
+
+  test("a generic web search does not load filesystem search", () => {
+    const tools = toolsFor("search the web for today's weather");
+    assert.equal(tools.has("grep_files"), false);
+  });
+});
+
 // The self-memory quad is always available (like the user-memory quad) so the
 // agent can keep its own continuity on any turn. The provider gate that strips
 // these on cloud lives in lib/agent/index.js, not in classifyProfiles.

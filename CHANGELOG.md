@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `grep_files`, a path-guarded recursive literal search tool for code and text
+  files. It returns line-numbered matches and skips secrets, symlinks,
+  dependencies, build output, unsupported extensions, and files over 500 KB.
 - Disposable ARM64 installation smoke executors: Vagrant + Parallels profiles
   for Ubuntu/Debian Linux and a Parallels snapshot runner for Windows 11 ARM;
   all invoke the shared `vms/smoke` contract and collect logs under `vms/out/`.
@@ -33,6 +36,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Phase D audit: no verbatim tool output is rendered unescaped in the public UI (safe by design).
 
 ### Fixed
+
+- Workflow suggestions now require two successful calls from an explicit set of
+  meaningful action tools, excluding recall, file reads, searches, and failed
+  calls. Preference-driven filesystem scopes now activate from the original
+  user query or generated grep pattern and always resolve to one valid search
+  path, including when the model supplied an existing path (#256).
 
 - `update_github_issue` now leads its tool description with the commenting
   use-case so small models map "comment on the issue" onto it instead of

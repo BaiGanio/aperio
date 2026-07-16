@@ -10,7 +10,7 @@ All tools registered in `mcp/index.js`. Each tool file in `mcp/tools/` exports a
 | Memory | `remember`, `recall`, `forget`, `update_memory`, `backfill_embeddings`, `deduplicate_memories` | `memory.js` |
 | Self-memory | `self_remember`, `self_recall`, `self_update`, `self_forget` | `self-memory.js` |
 | Self-wiki | `self_wiki_get`, `self_wiki_write` | `self-wiki.js` |
-| Files | `read_file`, `write_file`, `edit_file`, `append_file`, `delete_file`, `read_docx`, `scan_project`, `generate_xlsx`, `generate_docx` | `files.js` |
+| Files | `read_file`, `grep_files`, `write_file`, `edit_file`, `append_file`, `delete_file`, `read_docx`, `scan_project`, `generate_xlsx`, `generate_docx` | `files.js` |
 | Web | `fetch_url`, `web_search` | `web.js` |
 | Image | `read_image`, `preprocess_image`, `describe_image` | `image.js` |
 | Shell | `run_shell`, `run_node_script`, `run_python_script`, `syntax_check` | `shell.js` |
