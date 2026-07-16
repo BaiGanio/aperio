@@ -32,7 +32,27 @@ test("E2E reporter filters a full-suite event stream by source file", async () =
   assert.deepEqual(result.suites[0].tests.map((item) => item.name), ["connects"]);
 });
 
-function event(type, name, nesting, testId, parentId, file) {
+test("E2E reporter includes top-level tests that are not suites", async () => {
+  const reporter = createE2EReporter();
+  let output = "";
+  reporter.on("data", (chunk) => { output += chunk.toString(); });
+
+  reporter.write(event("test:start", "top-level chat", 0, 1, 0, "/repo/tests/e2e/chat.test.js"));
+  reporter.write(event("test:pass", "top-level chat", 0, 1, 0, "/repo/tests/e2e/chat.test.js", "test"));
+  reporter.end();
+  await new Promise((resolve, reject) => {
+    reporter.on("end", resolve);
+    reporter.on("error", reject);
+    reporter.resume();
+  });
+
+  const result = JSON.parse(output);
+  assert.equal(result.total, 1);
+  assert.equal(result.passed, 1);
+  assert.deepEqual(result.suites[0].tests.map((item) => item.name), ["top-level chat"]);
+});
+
+function event(type, name, nesting, testId, parentId, file, detailType) {
   return {
     type,
     data: {
@@ -41,7 +61,7 @@ function event(type, name, nesting, testId, parentId, file) {
       testId,
       parentId,
       file,
-      details: type === "test:pass" ? { duration_ms: 5, type: nesting ? "test" : "suite" } : undefined,
+      details: type === "test:pass" ? { duration_ms: 5, type: detailType ?? (nesting ? "test" : "suite") } : undefined,
     },
   };
 }

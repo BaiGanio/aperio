@@ -36,7 +36,7 @@ export function createE2EReporter() {
         const duration_ms = data?.details?.duration_ms ?? 0;
         const nesting = data?.nesting ?? 0;
 
-        if (nesting >= 1 && data?.details?.type !== "suite") {
+        if (nesting >= 0 && data?.details?.type !== "suite") {
           counts.total++;
           if (type === "test:pass") {
             counts.passed++;

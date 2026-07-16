@@ -37,6 +37,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- E2E dashboard reporting now includes top-level tests as well as nested suite
+  cases, so the published totals match the tests executed by Node's runner.
+
 - llama.cpp performance profiles now resolve cache type, Flash Attention, and
   RAM sizing from one policy. The existing `fast-low-vram` q8_0 KV cache now
   scales both growing and fixed KV costs consistently, while `long-context`
