@@ -500,13 +500,15 @@ describe("agent jobs", () => {
 
 describe("agent run history", () => {
   test("records runs and lists them newest-first", async () => {
+    const earlier = new Date(Date.now() - 2 * 86400000).toISOString();
+    const later = new Date(Date.now() - 1 * 86400000).toISOString();
     await store.recordAgentRun({
-      jobId: "hist", startedAt: "2026-06-16T10:00:00.000Z", finishedAt: "2026-06-16T10:00:01.000Z",
+      jobId: "hist", startedAt: earlier, finishedAt: new Date(Date.parse(earlier) + 1000).toISOString(),
       durationMs: 1000, verdict: "ok", mode: "steps", trigger: "manual", tools: ["recall"], answer: "done",
       artifactCount: 2, artifactBytes: 12345,
     });
     await store.recordAgentRun({
-      jobId: "hist", startedAt: "2026-06-16T11:00:00.000Z", finishedAt: "2026-06-16T11:00:02.000Z",
+      jobId: "hist", startedAt: later, finishedAt: new Date(Date.parse(later) + 2000).toISOString(),
       durationMs: 2000, verdict: "error", mode: "steps", trigger: "interval", error: "boom",
     });
 
