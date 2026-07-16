@@ -1,69 +1,36 @@
 #!/usr/bin/env node
 // scripts/generate-e2e-dashboard.js
-// Runs e2e tests with the JSON reporter and generates docs/e2e-data.js
-// Usage: node scripts/generate-e2e-dashboard.js
+// Converts the E2E reporter output into docs/e2e-data.js.
+// Test execution is deliberately separate so CI can collect coverage and E2E
+// dashboard results from the same Node.js test run.
+// Usage: node scripts/generate-e2e-dashboard.js [--input e2e-results.json]
 //         npm run e2e:dashboard
 
-import { spawn } from "node:child_process";
-import { writeFile } from "node:fs/promises";
+import { execFileSync } from "node:child_process";
+import { readFile, writeFile } from "node:fs/promises";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
+const inputPath = resolve(ROOT, option("--input", "e2e-results.json"));
+const outputPath = resolve(ROOT, option("--output", "docs/e2e-data.js"));
 
 async function run() {
-  console.log("Running e2e tests with JSON reporter...");
-
-  const result = await new Promise((resolve, reject) => {
-    const child = spawn(
-      process.execPath,
-      [
-        "--test",
-        "--test-reporter", "./tests/reporters/e2e-json.js",
-        "tests/e2e/**/*.test.js",
-      ],
-      {
-        cwd: ROOT,
-        stdio: ["ignore", "pipe", "pipe"],
-        env: { ...process.env, NODE_ENV: "test" },
-        timeout: 120_000,
-      }
-    );
-
-    let stdout = "";
-    let stderr = "";
-
-    child.stdout.on("data", (chunk) => { stdout += chunk.toString(); });
-    child.stderr.on("data", (chunk) => { stderr += chunk.toString(); });
-
-    child.on("close", (code) => {
-      if (code === 0 || code === 1) {
-        // 1 means some tests failed — that's fine for the dashboard
-        resolve({ stdout, stderr, code });
-      } else {
-        reject(new Error(`e2e runner exited with code ${code}\n${stderr.slice(-500)}`));
-      }
-    });
-    child.on("error", reject);
-  });
-
-  // Parse the JSON from stdout
   let data;
   try {
-    data = JSON.parse(result.stdout);
+    data = JSON.parse(await readFile(inputPath, "utf8"));
   } catch (err) {
     throw new Error(
-      `Failed to parse reporter JSON:\n${err.message}\n\nstdout: ${result.stdout.slice(-300)}\nstderr: ${result.stderr.slice(-300)}`
+      `Failed to read reporter JSON from ${inputPath}: ${err.message}`
     );
   }
 
   // Add git context
   try {
-    const { execSync } = await import("node:child_process");
-    const branch = execSync("git branch --show-current", { cwd: ROOT }).toString().trim();
-    const commit = execSync("git rev-parse --short HEAD", { cwd: ROOT }).toString().trim();
-    data.branch = branch;
+    const branch = execFileSync("git", ["branch", "--show-current"], { cwd: ROOT }).toString().trim();
+    const commit = execFileSync("git", ["rev-parse", "--short", "HEAD"], { cwd: ROOT }).toString().trim();
+    data.branch = branch || process.env.GITHUB_REF_NAME || "unknown";
     data.commit = commit;
   } catch {
     data.branch = "unknown";
@@ -86,7 +53,6 @@ async function run() {
   }
 
   // Write data file
-  const outputPath = resolve(ROOT, "docs/e2e-data.js");
   await writeFile(
     outputPath,
     `window.APERIO_E2E = ${JSON.stringify(data)};\n`,
@@ -101,6 +67,11 @@ async function run() {
   if (data.files) {
     console.log(`  Test files: ${data.files.length}`);
   }
+}
+
+function option(name, fallback) {
+  const index = process.argv.indexOf(name);
+  return index >= 0 ? process.argv[index + 1] || fallback : fallback;
 }
 
 run().catch((err) => {

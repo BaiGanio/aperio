@@ -1,17 +1,20 @@
 // tests/reporters/e2e-json.js
 // Custom test reporter that outputs structured JSON for the e2e dashboard.
-// Usage: node --test --test-reporter=./tests/reporters/e2e-json.js 'tests/e2e/**/*.test.js'
+// Usage: node --test --test-reporter=spec --test-reporter-destination=stdout
+//   --test-reporter=./tests/reporters/e2e-json.js
+//   --test-reporter-destination=e2e-results.json 'tests/**/*.test.js'
 //
-// The Node.js test runner emits events as JSON strings to the reporter stream.
-// We collect them and output a final structured object on flush.
+// The reporter may observe the full test suite. Only events whose source file is
+// under tests/e2e/ are included in the dashboard result.
 
 import { Transform } from "node:stream";
 
-const tests = [];
-const suiteStack = []; // tracks current suite name per nesting level
-const counts = { total: 0, passed: 0, failed: 0, skipped: 0 };
+export function createE2EReporter() {
+  const tests = [];
+  const suiteByTestId = new Map();
+  const counts = { total: 0, passed: 0, failed: 0, skipped: 0 };
 
-const reporter = new Transform({
+  return new Transform({
   writableObjectMode: true,
   readableObjectMode: false,
 
@@ -19,23 +22,21 @@ const reporter = new Transform({
     try {
       const ev = typeof event === "string" ? JSON.parse(event) : event;
       const { type, data } = ev;
+      if (!isE2EFile(data?.file)) {
+        callback();
+        return;
+      }
 
       if (type === "test:start" && data?.nesting !== undefined) {
-        const nesting = data.nesting;
-        if (nesting === 0) {
-          // Suite level — reset stack
-          suiteStack[0] = data.name;
-          suiteStack.length = 1;
-        } else {
-          // Individual test — suite is suiteStack[0]
-        }
+        const suite = data.nesting === 0
+          ? data.name
+          : suiteByTestId.get(data.parentId) || "__root__";
+        suiteByTestId.set(data.testId, suite);
       } else if (type === "test:pass" || type === "test:fail") {
-        // Duration comes from details.duration_ms
         const duration_ms = data?.details?.duration_ms ?? 0;
         const nesting = data?.nesting ?? 0;
 
-        if (nesting >= 1) {
-          // Individual test result
+        if (nesting >= 1 && data?.details?.type !== "suite") {
           counts.total++;
           if (type === "test:pass") {
             counts.passed++;
@@ -52,7 +53,7 @@ const reporter = new Transform({
 
           tests.push({
             name: data.name,
-            suite: suiteStack[0] || "__root__",
+            suite: suiteByTestId.get(data.testId) || "__root__",
             duration_ms,
             status: type === "test:pass" ? "pass" : "fail",
             nesting,
@@ -60,13 +61,15 @@ const reporter = new Transform({
           });
         }
       } else if (type === "test:skip" || type === "test:todo") {
-        counts.skipped++;
-        counts.total++;
         const nesting = data?.nesting ?? 0;
         if (nesting >= 1) {
+          counts.skipped++;
+          counts.total++;
           tests.push({
             name: data.name,
-            suite: suiteStack[0] || "__root__",
+            suite: suiteByTestId.get(data.testId)
+              || suiteByTestId.get(data.parentId)
+              || "__root__",
             duration_ms: 0,
             status: "skip",
             nesting,
@@ -132,6 +135,11 @@ const reporter = new Transform({
     this.push(JSON.stringify(result));
     callback();
   },
-});
+  });
+}
 
-export default reporter;
+function isE2EFile(file) {
+  return typeof file === "string" && /[/\\]tests[/\\]e2e[/\\]/.test(file);
+}
+
+export default createE2EReporter();

@@ -28,13 +28,38 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests with coverage
-        run: npm run test:ci      # runs all test files under c8, writes coverage/lcov.info
+      - name: Run tests with coverage and capture E2E results
+        id: tests
+        continue-on-error: true
+        run: npm run test:ci:dashboard
+
+      - name: Generate dashboard data
+        id: dashboards
+        run: |
+          npm run coverage:dashboard
+          npm run e2e:dashboard
 
       - name: Upload results to Codecov
+        if: always() && hashFiles('coverage/lcov.info') != ''
         uses: codecov/codecov-action@0fb7174895f61a3b6b78fc075e0cd60383518dac # v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage/lcov.info
           exclude: ./coverage/tmp/
           fail_ci_if_error: true
+
+      - name: Upload Pages source
+        if: >-
+          always() &&
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/master' &&
+          steps.dashboards.outcome == 'success'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: github-pages-source
+          path: ./docs
+          retention-days: 7
+
+      - name: Preserve test failure status
+        if: always() && steps.tests.outcome == 'failure'
+        run: exit 1
