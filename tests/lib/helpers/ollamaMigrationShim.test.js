@@ -68,8 +68,8 @@ describe("formatOllamaMigrationMessage", () => {
 
   test("lists curated model download sizes", () => {
     const msg = formatOllamaMigrationMessage({ providerIsOllama: true, ollamaVarsSet: [] });
-    assert.ok(msg.includes("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"));
-    assert.ok(/~1\.9 GB/.test(msg));
+    assert.ok(msg.includes("unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL"));
+    assert.ok(/~3\.9 GB/.test(msg));
   });
 
   test("omits the AI_PROVIDER line when only a lingering var triggered it", () => {

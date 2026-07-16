@@ -24,8 +24,11 @@ const TOOLS = [
       summary:  z.string().optional().describe("1–2 sentence hook for list views."),
       body_md:  z.string().describe("Markdown body. Cite sources inline as [[mem:<uuid>]]; link siblings as [[slug]]."),
       tags:     z.array(z.string()).optional(),
-      source_memory_ids: z.array(z.string().uuid()).optional()
-        .describe("Memory ids the article is grounded in. Required for provenance and freshness tracking."),
+      // Keep source ids as strings here so wikiWriteHandler can tolerate one
+      // malformed or expired citation without rejecting the entire article.
+      // The handler resolves live memories and drops unrecognized ids.
+      source_memory_ids: z.array(z.string()).optional()
+        .describe("Memory ids the article is grounded in. Invalid or expired ids are omitted."),
     },
     getHandler: (h) => h.write,
   },

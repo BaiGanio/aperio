@@ -149,29 +149,59 @@ describe("wikiWriteHandler — validation", () => {
     assert.ok(result.content[0].text.includes("title and body_md are required"));
   });
 
-  test("rejects source memory ids that don't exist in cache", async () => {
-    const ctx = makeWikiCtx(
-      {},
-      { cache: [makeMem("mem-1")] }
-    );
-    // mem-1 exists, mem-2 does not
+  test("drops unrecognized source ids and still writes the article", async () => {
+    const upsert = mock.fn(async () => ({ id: "a1", revision: 1, inserted: true }));
+    const ctx = makeWikiCtx({ upsert }, { cache: [makeMem("mem-1")] });
+    // mem-1 exists, mem-2 does not — write succeeds with only mem-1 kept.
     const result = await wiki.wikiWriteHandler(ctx, {
       slug: "my-article", title: "Test", body_md: "Body",
       source_memory_ids: ["mem-1", "mem-2"],
     });
-    assert.ok(result.content[0].text.includes("1 source memory id(s) not found"));
+    assert.ok(result.content[0].text.includes("Created"), "should still create the article");
+    assert.ok(result.content[0].text.includes("sources: 1"), "should count only valid sources");
+    assert.ok(result.content[0].text.includes("1 unrecognized source id(s) omitted"), "should warn about the dropped id");
+    assert.ok(result.content[0].text.includes("mem-2"), "should name the dropped id");
+    const [opts] = upsert.mock.calls[0].arguments;
+    assert.deepEqual(opts.source_memory_ids, ["mem-1"], "upsert should receive only the valid id");
+    assert.ok(warnCalls.some(a => a[0].includes("dropped 1 unrecognized source id")), "should log a warning");
   });
 
-  test("rejects source memory ids that are valid_until (expired) in cache", async () => {
+  test("drops expired (valid_until) source ids and still writes", async () => {
+    const upsert = mock.fn(async () => ({ id: "a1", revision: 1, inserted: true }));
     const ctx = makeWikiCtx(
-      {},
+      { upsert },
       { cache: [{ id: "mem-exp", title: "Expired", updated_at: "2026-01-01T00:00:00.000Z", valid_until: "2026-06-01T00:00:00.000Z" }] }
     );
     const result = await wiki.wikiWriteHandler(ctx, {
       slug: "my-article", title: "Test", body_md: "Body",
       source_memory_ids: ["mem-exp"],
     });
-    assert.ok(result.content[0].text.includes("1 source memory id(s) not found"));
+    assert.ok(result.content[0].text.includes("Created"), "writes even when every source drops");
+    assert.ok(result.content[0].text.includes("sources: 0"));
+    assert.ok(result.content[0].text.includes("1 unrecognized source id(s) omitted"));
+    const [opts] = upsert.mock.calls[0].arguments;
+    assert.deepEqual(opts.source_memory_ids, []);
+  });
+
+  test("keeps valid ids when one is a malformed UUID (chain-recall regression)", async () => {
+    // Reproduces the E4B model-tier failure: recall returned 'eaea7bd2-…' but the
+    // model transcribed 'eae7bd2-…' (a dropped hex char) into source_memory_ids.
+    // The old handler rejected the whole write, forcing a retry that blew the
+    // bounded turn budget. It must now keep the two good ids and proceed.
+    const good1 = "530924ac-8615-4a78-983f-f5ed4fdd42c2";
+    const good2 = "72797743-c906-41f1-890c-ad3e2393516b";
+    const bad   = "eae7bd2-d49e-4891-a408-25891d96ce22"; // malformed: 7 hex in first group
+    const upsert = mock.fn(async () => ({ id: "a1", revision: 1, inserted: true }));
+    const ctx = makeWikiCtx({ upsert }, { cache: [makeMem(good1), makeMem(good2)] });
+    const result = await wiki.wikiWriteHandler(ctx, {
+      slug: "nimbus-service-overview", title: "Nimbus", body_md: "Body",
+      source_memory_ids: [good1, good2, bad],
+    });
+    assert.ok(result.content[0].text.includes("Created"), "one bad UUID must not fail the whole write");
+    assert.ok(result.content[0].text.includes("sources: 2"));
+    assert.ok(result.content[0].text.includes("1 unrecognized source id(s) omitted"));
+    const [opts] = upsert.mock.calls[0].arguments;
+    assert.deepEqual(opts.source_memory_ids, [good1, good2]);
   });
 
   test("accepts valid kebab-case slug", async () => {
@@ -293,16 +323,53 @@ describe("wikiWriteHandler — Postgres path", () => {
     assert.equal(released.length, 1, "client should be released");
   });
 
-  test("rejects missing source memory ids in Postgres path", async () => {
-    const poolQuery = mock.fn(async () => ({ rows: [{ id: "mem-1", updated_at: "2026-01-01T00:00:00.000Z" }] }));
-    const ctx = makePgCtx({ query: poolQuery });
+  test("drops unrecognized source ids in Postgres path", async () => {
+    const known   = "10000000-0000-4000-8000-000000000001";
+    const unknown = "20000000-0000-4000-8000-000000000002"; // well-formed but not in DB
+    const poolQuery = mock.fn(async () => ({ rows: [{ id: known, updated_at: "2026-01-01T00:00:00.000Z" }] }));
+    let insertedParams = null;
+    const clientQuery = mock.fn(async (sql, params) => {
+      if (sql.includes("INSERT INTO wiki_articles")) return { rows: [{ id: "pg-1", revision: 1, inserted: true }] };
+      if (sql.includes("INSERT INTO wiki_article_sources")) { insertedParams = params; return {}; }
+      return {};
+    });
+    const client = { query: clientQuery, release: () => {} };
+    const ctx = makePgCtx({ query: poolQuery, connect: async () => client, clientQuery });
 
     const result = await wiki.wikiWriteHandler(ctx, {
       slug: "pg-article", title: "PG", body_md: "Body",
-      source_memory_ids: ["mem-1", "mem-2"], // mem-2 won't be found
+      source_memory_ids: [known, unknown],
     });
 
-    assert.ok(result.content[0].text.includes("1 source memory id(s) not found"));
+    assert.ok(result.content[0].text.includes("Created"));
+    assert.ok(result.content[0].text.includes("sources: 1"));
+    assert.ok(result.content[0].text.includes("1 unrecognized source id(s) omitted"));
+    assert.deepEqual(insertedParams.slice(1), [known], "only the known id is inserted");
+  });
+
+  test("pre-filters a malformed UUID before the ::uuid[] cast (Postgres)", async () => {
+    // A malformed id must never reach the ::uuid[] cast (Postgres would throw
+    // 'invalid input syntax for type uuid'). It is filtered up front; the
+    // well-formed known id survives and the write succeeds.
+    const known     = "10000000-0000-4000-8000-000000000001";
+    const malformed = "eae7bd2-d49e-4891-a408-25891d96ce22";
+    let castParams = null;
+    const poolQuery = mock.fn(async (sql, params) => { castParams = params; return { rows: [{ id: known, updated_at: "2026-01-01T00:00:00.000Z" }] }; });
+    const clientQuery = mock.fn(async (sql) => {
+      if (sql.includes("INSERT INTO wiki_articles")) return { rows: [{ id: "pg-2", revision: 1, inserted: true }] };
+      return {};
+    });
+    const client = { query: clientQuery, release: () => {} };
+    const ctx = makePgCtx({ query: poolQuery, connect: async () => client, clientQuery });
+
+    const result = await wiki.wikiWriteHandler(ctx, {
+      slug: "pg-mal", title: "PG", body_md: "Body",
+      source_memory_ids: [known, malformed],
+    });
+
+    assert.ok(result.content[0].text.includes("Created"));
+    assert.deepEqual(castParams[0], [known], "malformed id must be filtered before the cast");
+    assert.ok(result.content[0].text.includes("1 unrecognized source id(s) omitted"));
   });
 
   test("handles Postgres upsert error with rollback", async () => {
@@ -348,18 +415,22 @@ describe("wikiWriteHandler — Postgres path", () => {
       return {};
     });
     const client = { query: clientQuery, release: () => {} };
+    const src1 = "11111111-1111-4111-8111-111111111111";
+    const src2 = "22222222-2222-4222-8222-222222222222";
     const poolQuery = mock.fn(async () => ({ rows: [
-      { id: "src-1", updated_at: "2026-01-01T00:00:00.000Z" },
-      { id: "src-2", updated_at: "2026-01-02T00:00:00.000Z" },
+      { id: src1, updated_at: "2026-01-01T00:00:00.000Z" },
+      { id: src2, updated_at: "2026-01-02T00:00:00.000Z" },
     ]}));
     const ctx = makePgCtx({ query: poolQuery, connect: async () => client, clientQuery });
 
     const result = await wiki.wikiWriteHandler(ctx, {
       slug: "pg-sourced", title: "PG Sourced", body_md: "Body",
-      source_memory_ids: ["src-1", "src-2"],
+      source_memory_ids: [src1, src2],
     });
 
     assert.ok(result.content[0].text.includes("Created"));
+    assert.ok(result.content[0].text.includes("sources: 2"), "both valid ids counted");
+    assert.ok(!result.content[0].text.includes("omitted"), "no drop note when all ids resolve");
     assert.ok(sourcesInserted, "source ids should be written");
   });
 

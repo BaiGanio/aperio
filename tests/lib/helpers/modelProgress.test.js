@@ -104,7 +104,7 @@ describe("startModelProgressWatcher", () => {
   });
 
   test("known model carries totalGB from MODEL_FACTS", async () => {
-    const KNOWN = "Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M"; // facts: sizeGB 18
+    const KNOWN = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL"; // curated facts: sizeGB 21.3
     const root = makeCache(KNOWN, { "x.downloadInProgress": 9 * 1024 ** 3 });
     const emitter = recordingEmitter();
     const stop = startModelProgressWatcher(
@@ -114,7 +114,7 @@ describe("startModelProgressWatcher", () => {
     await sleep(50);
     stop();
     const dl = emitter.events.find(e => e.status === "downloading");
-    assert.equal(dl.totalGB, 18);
+    assert.equal(dl.totalGB, 21.3);
     assert.equal(dl.gotGB, 9);
   });
 

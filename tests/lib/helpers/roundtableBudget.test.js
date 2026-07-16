@@ -46,12 +46,14 @@ describe("shouldEnableRoundtable", () => {
   });
 
   test("modest two-model setups fit within the softened reserve", () => {
+    // Two of the smallest curated models at a modest window: a remote main plus
+    // two small local agents must still fit the softened 16 GB reserve.
     const r = shouldEnableRoundtable({
       totalRamGB: 16,
       mainProvider: { name: "anthropic", model: "claude-haiku-4-5-20251001" },
-      primaryConfig: { name: "llamacpp", model: "qwen2.5:3b" },
-      verifierConfig: { name: "llamacpp", model: "qwen3.5:4b" },
-      env: { LLAMACPP_SERVE_CTX: "8192" },
+      primaryConfig: { name: "llamacpp", model: "gemma4:e4b-qat" },
+      verifierConfig: { name: "llamacpp", model: "qwen3.5:9b" },
+      env: { LLAMACPP_SERVE_CTX: "2048" },
     });
     assert.equal(r.enabled, true);
   });

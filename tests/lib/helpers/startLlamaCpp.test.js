@@ -19,7 +19,7 @@ import {
   deleteServerLog,
   pruneServerLogs,
 } from "../../../lib/helpers/startLlamaCpp.js";
-import { recommendContextLength } from "../../../lib/providers/index.js";
+import { recommendContextLength, MODEL_FACTS, resolveModelFacts } from "../../../lib/providers/index.js";
 
 // ensureLlamaCpp() takes an injectable _spawn (default: the real
 // child_process.spawn) instead of relying on mock.method() interception —
@@ -184,7 +184,7 @@ describe("buildModelsPreset", () => {
 
   test("caps the router at one resident model when the measured pair does not fit", () => {
     const env = {
-      LLAMACPP_MODEL: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M",
+      LLAMACPP_MODEL: MODEL_FACTS["qwen3.6:35b-a3b-mtp"].hf,
       LLAMACPP_VLM_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
     };
     const ini = buildModelsPreset(env, { totalRamGB: 16 });
@@ -197,7 +197,7 @@ describe("buildModelsPreset", () => {
 
   test("keeps both models resident when their served footprints fit", () => {
     const env = {
-      LLAMACPP_MODEL: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M",
+      LLAMACPP_MODEL: MODEL_FACTS["qwen3.6:35b-a3b-mtp"].hf,
       LLAMACPP_VLM_MODEL: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
     };
     assert.equal(mainPlusVlmFit(env.LLAMACPP_MODEL, env.LLAMACPP_VLM_MODEL, env, { totalRamGB: 64 }), true);
@@ -273,7 +273,7 @@ describe("buildModelsPreset — perf profiles", () => {
     // would cap both profiles at the same value regardless of ceiling — use a
     // curated model whose trained max (262144) is actually big enough for the
     // raised ceiling to matter.
-    const model = "ggml-org/gemma-4-12B-it-GGUF:Q4_K_M";
+    const model = MODEL_FACTS["qwen3.5:9b"].hf; // curated, trained max 262144
     const long = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context", LLAMACPP_MODEL: model }, { totalRamGB: 512 });
     const balanced = buildModelsPreset({ LLAMACPP_MODEL: model }, { totalRamGB: 512 });
     const longCtx = parseInt(long.match(/ctx-size = (\d+)/)[1], 10);
@@ -321,15 +321,22 @@ describe("buildModelsPreset — perf profiles", () => {
 describe("buildModelsPreset — sizing parity with recommendContextLength", () => {
 
   test("main model ctx-size matches a direct recommendContextLength call at several RAM sizes", () => {
+    // Derive the expected window from the SAME facts serveCtxFor resolves, so the
+    // parity holds regardless of the current default roster or whether the GGUF
+    // is cached locally (gguf facts carry the reserveGB:4/0.15 override that a
+    // curated-only entry does not). balanced profile => cacheScale 1, no ceiling.
+    const hf = MODEL_FACTS["gemma4:e4b-qat"].hf;
     for (const totalRamGB of [4, 8, 16, 24, 48, 64]) {
-      const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB });
+      const facts = resolveModelFacts(hf, {});
+      const ini = buildModelsPreset({ LLAMACPP_MODEL: hf }, { totalRamGB });
       const mainCtx = parseInt(ini.match(/ctx-size = (\d+)/)[1], 10);
       const expected = recommendContextLength({
-        modelMaxContext: 32768,
-        weightsGB: 1.9,
-        bytesPerToken: 36864,
+        modelMaxContext: facts.maxContext,
+        weightsGB: facts.sizeGB,
+        fixedKvGB: facts.kvFixedGB ?? 0,
+        bytesPerToken: facts.kvBytesPerToken,
         totalRamGB,
-      });
+      }, facts.source === "gguf" ? { reserveGB: 4, reserveFraction: 0.15 } : {});
       assert.equal(mainCtx, expected, `mismatch at totalRamGB=${totalRamGB}`);
     }
   });
