@@ -190,6 +190,20 @@ npm run migrate
 # PRODUCTION — full stack (app + Postgres) in one go. Same --env-file rule applies.
 docker compose -f docker/docker-compose.prod.yml --env-file .env up -d
 ```
+
+> **☁️ Hosted Postgres (Supabase, Neon, Azure, …):** auto-detect only recognises the
+> local Docker container — it will **not** find a remote database. Select the backend
+> explicitly and point `DATABASE_URL` at your host:
+>
+> ```env
+> DB_BACKEND=postgres
+> DATABASE_URL=postgresql://user:pass@host:5432/db?sslmode=require
+> ```
+>
+> Then run `npm run migrate`. The host must allow the `vector` (pgvector ≥ 0.5) and
+> `pgcrypto` extensions — on Azure Flexible Server, add both to the `azure.extensions`
+> server parameter first.
+
 ### Step 3. Local AI Engine — Nothing to Install
 > **💡 Tip:** Skip this step entirely when using a cloud or CLI-backed `AI_PROVIDER`.
 > For `AI_PROVIDER=llamacpp`, there is no separate engine to install or run —
