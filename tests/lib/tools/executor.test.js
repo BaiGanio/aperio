@@ -323,6 +323,18 @@ describe("detectToolCallLeak", () => {
     assert.equal(detectToolCallLeak(text, ["fetch_github_issue", "recall"]), true);
   });
 
+  test("flags a bare known-tool line followed by another text-form call", () => {
+    const text = "run_shell\nfetch_url https://example.com/status";
+    assert.equal(detectToolCallLeak(text, ["run_shell", "fetch_url", "recall"]), true);
+  });
+
+  test("does not treat prose beginning with a known tool name as a bare call", () => {
+    assert.equal(
+      detectToolCallLeak("run_shell is disabled unless shell access is enabled.", ["run_shell"]),
+      false,
+    );
+  });
+
   test("flags first-person intent to call a known tool", () => {
     assert.equal(detectToolCallLeak("I'll call fetch_github_issue to get the details.", ["fetch_github_issue"]), true);
     assert.equal(detectToolCallLeak("Let me use recall to check your memories.", ["recall"]), true);

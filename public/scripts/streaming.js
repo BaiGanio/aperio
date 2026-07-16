@@ -408,6 +408,10 @@ function handleMessage(msg) {
       }
       streamingBubble = null;
       streamingText = "";
+    } else if (streamingText) {
+      // Defensive reset for a held prefix if a provider starts a replacement
+      // stream without first sending the expected retract/stream_end pair.
+      streamingText = "";
     }
     if (reasoningBubble) {
       reasoningBubble.details.removeAttribute("open");
@@ -430,7 +434,12 @@ function handleMessage(msg) {
     if (msg.text) {
       const reasoningOn = localStorage.getItem("aperio-reasoning") !== "false";
       if (isReasoningActive && reasoningOn) return;
+      streamingText += msg.text;
       if (!streamingBubble) {
+        // Probe a short prefix before showing it. Suspicious tool-call-shaped
+        // content remains buffered until stream_end, giving a late server-side
+        // retract a chance to erase it without flashing raw syntax to the user.
+        if (globalThis.AperioStreamPrefixGuard?.shouldHoldLeadingContent(streamingText)) return;
         // First visible token of the answer — now "typing" is true. Mark the
         // phase (drops the "thinking…" breadcrumb) and flip the header, then
         // tear down the live line; the streaming text itself is the indicator.
@@ -442,7 +451,6 @@ function handleMessage(msg) {
         document.getElementById("preparing-answer")?.remove();
         streamingBubble = createStreamingBubble(_nextBubbleAgent);
       }
-      streamingText += msg.text;
       _scheduleStreamRender();
     }
   }
@@ -451,8 +459,10 @@ function handleMessage(msg) {
     if (streamingBubble) {
       streamingBubble.wrap?.remove();
       streamingBubble = null;
-      streamingText = "";
     }
+    // A suspicious prefix may still be held without a bubble. Always clear the
+    // buffer so it cannot bleed into the retry's stream_start.
+    streamingText = "";
     const lastAI = [...messagesEl.querySelectorAll('.message.ai')].at(-1);
     if (lastAI) {
       const bubble = lastAI.querySelector('.bubble');
@@ -501,12 +511,15 @@ function handleMessage(msg) {
       accThinkingTokens = 0; accOutputTokens = 0;
     } else if (streamingBubble) {
       streamingBubble.wrap?.remove();
-    } else if (!streamingText && msg.text?.trim()) {
+    } else if (!streamingBubble && (streamingText || msg.text || "").trim()) {
+      // Content deliberately held by the prefix guard is still a valid answer
+      // when the server accepts it. Render it once, at stream_end.
+      const finalText = streamingText || msg.text;
       removeThinking();
       removeToolIndicator();
-      addMessage("ai", msg.text);
+      addMessage("ai", finalText);
       settleTurnTimer();
-      window.Aperio?.tts?.speak(msg.text);
+      window.Aperio?.tts?.speak(finalText);
       window.Aperio?.voice?.onStreamEnd?.();
       _refineStartupBanner(msg.usage?.input_tokens, msg.usage?.input_tokens_kind);
       _annotateTokenBadges(msg.usage?.input_tokens, accThinkingTokens);
