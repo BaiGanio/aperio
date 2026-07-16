@@ -10,8 +10,8 @@
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
-  <link rel="stylesheet" href="../docs/styles.css" />
-  <link rel="icon" type="image/x-icon" href="../docs/assets/favicon.ico" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
   <style>
     .vm-intro { max-width: 760px; margin: 0 auto; text-align: center; }
     .vm-intro .lead-text { max-width: 680px; margin-left: auto; margin-right: auto; }
@@ -53,9 +53,9 @@
 <body>
 <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
 <nav class="aperio-nav"><div class="nav-inner">
-  <a href="../docs/index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+  <a href="index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
   <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
-  <ul class="nav-links" id="navLinks"><li><a href="../docs/index.html">Home</a></li><li>/</li><li><a href="#choose">Choose</a></li><li><a href="#run">Run</a></li><li><a href="#understand">Understand</a></li><li><a href="#help">Help</a></li></ul>
+  <ul class="nav-links" id="navLinks"><li><a href="index.html">Home</a></li><li>/</li><li><a href="#choose">Choose</a></li><li><a href="#folders">Folder map</a></li><li><a href="#vagrant">Vagrantfile</a></li><li><a href="#run">Run</a></li><li><a href="#help">Help</a></li></ul>
   <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div>
 </div></nav>
 
@@ -76,6 +76,35 @@
     </div>
   </div></section>
 
+  <section class="section vm-section" id="folders"><div class="section-inner wide">
+    <div class="eyebrow reveal">Open the folder</div><h2 class="section-heading reveal">What lives inside <code>vms/</code>?</h2><p class="section-lead reveal">This is not where Aperio stores your memories. It is a small testing workshop: recipes for creating clean machines, scripts that perform the check, and logs that explain the result.</p>
+    <div class="vm-table-wrap reveal"><table class="vm-table"><thead><tr><th>File or folder</th><th>In plain English</th><th>When you touch it</th></tr></thead><tbody>
+      <tr><td><code>Vagrantfile</code></td><td>The recipe for Linux test guests: operating system, memory, CPU, shared source files, and automatic commands.</td><td>When changing Linux test environments or adding a profile.</td></tr>
+      <tr><td><code>run-vagrant.sh</code></td><td>The host-side button behind the Linux commands. It selects a profile, starts Vagrant, streams a log, and destroys the disposable guest.</td><td>Usually never. Use its environment variables when you need a different branch.</td></tr>
+      <tr><td><code>smoke.sh</code><br><code>smoke.ps1</code></td><td>The shared checklist for POSIX systems and Windows: load, migrate, start, and serve the setup page.</td><td>Run directly when dependencies are already installed, or extend the checklist for a new critical path.</td></tr>
+      <tr><td><code>mac/</code><br><code>win/</code></td><td>Desktop-specific launchers. They attach a read-only source share, run the real installer, collect logs, and clean up the clone or snapshot.</td><td>When preparing a clean Parallels desktop test.</td></tr>
+      <tr><td><code>docker/</code></td><td>The container runner. It checks an image using a temporary container, volume, and non-default port.</td><td>When validating a production image without a full VM.</td></tr>
+      <tr><td><code>out/</code></td><td>Disposable evidence: timestamped logs from VM and Docker runs.</td><td>Read it when something fails. Do not edit or commit it.</td></tr>
+    </tbody></table></div>
+    <div class="vm-note reveal"><strong>Safe mental model:</strong> the host runner is the remote control, the guest script is the person inside the clean machine, and the smoke script is the examiner asking the same questions everywhere.</div>
+  </div></section>
+
+  <section class="section vm-section" id="vagrant"><div class="section-inner wide">
+    <div class="eyebrow reveal">The Linux recipe</div><h2 class="section-heading reveal">Vagrantfile, explained.</h2><p class="section-lead reveal">Vagrant turns a text recipe into a repeatable virtual machine. Aperio keeps this recipe small: a clean ARM64 Ubuntu or Debian guest, a read-only project share, and an automatic test.</p>
+    <div class="vm-grid">
+      <article class="step-card reveal"><div class="step-num">01 · SOURCE</div><div class="step-title">Share the checkout, not the baggage</div><p class="feat-desc">The recipe maps the repository into the guest as <code>/vagrant-repo</code>. It excludes <code>node_modules/</code>, <code>var/</code>, <code>.sqlite/</code>, and <code>vms/out/</code> so host-built binaries, private runtime data, and old logs cannot contaminate the test.</p></article>
+      <article class="step-card reveal" style="transition-delay:.08s"><div class="step-num">02 · RESOURCES</div><div class="step-title">Give the guest enough room</div><p class="feat-desc">The default is 4096 MB RAM and 2 CPUs. Native npm packages may compile during installation, so these resources make a clean install practical.</p></article>
+      <article class="step-card reveal" style="transition-delay:.16s"><div class="step-num">03 · PROFILES</div><div class="step-title">Two Linux questions</div><p class="feat-desc"><code>ubuntu-lite</code> tests the one-line installer and uninstall path. <code>debian-dev</code> tests a developer-like Git clone, migration, and smoke flow. Both use ARM64 boxes for Apple Silicon hosts.</p></article>
+    </div>
+    <div class="vm-command reveal"><div class="vm-command-label"><span class="vm-platform">What the recipe configures</span><span>Vagrantfile</span></div><div class="code-block"><div><span class="v">config.vm.synced_folder</span> <span class="s">"..", "/vagrant-repo"</span></div><div><span class="v">prl.memory</span> = <span class="n">4096</span></div><div><span class="v">prl.cpus</span> = <span class="n">2</span></div><div><span class="v">vm.box</span> = <span class="s">"bento/ubuntu-24.04"</span></div><div class="c"># provision: install tools → install Aperio → smoke → clean up</div></div></div>
+    <div class="vm-note reveal"><strong>What can you configure?</strong> Choose a Git branch with <code>APERIO_BRANCH=my-branch</code>, change disposable VM names in the desktop runners, or adjust Docker’s image and port. Change the Vagrantfile’s box, CPU, memory, or provisioning only when intentionally changing what “clean Linux install” means.</div>
+  </div></section>
+
+  <section class="section vm-section" id="use"><div class="section-inner wide">
+    <div class="eyebrow reveal">For people who do not live in terminals</div><h2 class="section-heading reveal">How would I use this?</h2><p class="section-lead reveal">Most people only need one of these workflows. The machines and their data are disposable.</p>
+    <div class="vm-flow reveal"><div class="vm-flow-step"><div class="vm-flow-num">A</div><div class="vm-flow-title">I downloaded a release</div><div class="vm-flow-copy">Use the main Aperio installer. The <code>vms/</code> folder is for maintainers who want to prove that installer on a clean OS.</div></div><div class="vm-flow-step"><div class="vm-flow-num">B</div><div class="vm-flow-title">I changed Aperio</div><div class="vm-flow-copy">Build the image or choose a Linux profile. Green means the change survives a clean install, not only your laptop.</div></div><div class="vm-flow-step"><div class="vm-flow-num">C</div><div class="vm-flow-title">I got an install error</div><div class="vm-flow-copy">Run the matching smoke script or Docker check, then read the timestamped file under <code>vms/out/</code>.</div></div><div class="vm-flow-step"><div class="vm-flow-num">D</div><div class="vm-flow-title">I want to add a platform</div><div class="vm-flow-copy">Copy the pattern: host launcher, guest setup script, shared smoke contract, cleanup trap, and a test under <code>tests/vms/</code>.</div></div></div>
+  </div></section>
+
   <section class="section vm-section" id="run"><div class="section-inner wide">
     <div class="eyebrow reveal">The shared contract</div><h2 class="section-heading reveal">Every route ends the same way.</h2><p class="section-lead reveal">The runner changes the environment. The smoke contract checks Aperio itself.</p>
     <div class="vm-flow reveal"><div class="vm-flow-step"><div class="vm-flow-num">01</div><div class="vm-flow-title">Prepare</div><div class="vm-flow-copy">Stage source without host runtime data or native modules.</div></div><div class="vm-flow-step"><div class="vm-flow-num">02</div><div class="vm-flow-title">Install</div><div class="vm-flow-copy">Install dependencies inside the target OS or container.</div></div><div class="vm-flow-step"><div class="vm-flow-num">03</div><div class="vm-flow-title">Smoke</div><div class="vm-flow-copy">Load native modules, migrate SQLite, and start HTTP.</div></div><div class="vm-flow-step"><div class="vm-flow-num">04</div><div class="vm-flow-title">Clean up</div><div class="vm-flow-copy">Collect logs, stop the process, and remove disposable state.</div></div></div>
@@ -91,6 +120,7 @@
 
   <section class="section vm-section" id="help"><div class="section-inner wide"><div class="eyebrow reveal">When something is red</div><h2 class="section-heading reveal">The short troubleshooting map.</h2><div class="vm-grid"><article class="step-card reveal"><div class="step-num">01</div><div class="step-title">Native module fails</div><p class="feat-desc">The guest probably received the wrong architecture’s <code>node_modules</code>. Remove guest dependencies and run <code>npm install</code> inside the guest.</p></article><article class="step-card reveal"><div class="step-num">02</div><div class="step-title">Guest never becomes ready</div><p class="feat-desc">Parallels Tools may be missing, or the shared-folder path may be wrong. Reboot the guest and confirm the share is visible.</p></article><article class="step-card reveal"><div class="step-num">03</div><div class="step-title">Docker image missing</div><p class="feat-desc">Local tags are never pulled automatically. Build <code>aperio:test-local</code> first, then run the Docker command again.</p></article></div><div class="setup-cta-box reveal"><strong>Keep the evidence:</strong> runner logs are written under <code>vms/out/</code>. They are disposable runtime artifacts—inspect them when debugging, never commit them.</div></div></section>
 </main>
-<footer><div class="footer-inner"><a href="../docs/index.html" class="footer-brand"><div class="footer-logo-mark">A</div><div><div class="footer-name">Aperio</div><div class="footer-sub">one brain · every agent</div></div></a><div class="vm-footer-links"><a class="footer-link" href="README.md"><i class="bi bi-file-text"></i> Full VM README</a><a class="footer-link" href="../docs/index.html#setup"><i class="bi bi-arrow-left"></i> Main setup guide</a></div></div><div class="footer-warning">⚠️ Disposable guests are for verification. Keep your memories in the real install.</div></footer>
-<script src="../docs/scripts.js"></script>
+<footer><div class="footer-inner"><a href="index.html" class="footer-brand"><div class="footer-logo-mark">A</div><div><div class="footer-name">Aperio</div><div class="footer-sub">one brain · every agent</div></div></a><div class="vm-footer-links"><a class="footer-link" href="README.md"><i class="bi bi-file-text"></i> Full VM README</a><a class="footer-link" href="index.html#setup"><i class="bi bi-arrow-left"></i> Main setup guide</a></div></div><div class="footer-warning">⚠️ Disposable guests are for verification. Keep your memories in the real install.</div></footer>
+<script src="scripts.js"></script>
 </body></html>
+
