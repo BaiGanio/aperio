@@ -15,6 +15,10 @@ concurrency:
 
 jobs:
   pin:
+    # Dependabot PRs cannot access MY_PAT, which is required for the checkout
+    # and push-back step. The normal workflow still runs on manual dispatches
+    # and trusted repository PRs where the secret is available.
+    if: github.event_name != 'pull_request' || github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2  # v4

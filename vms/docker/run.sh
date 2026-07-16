@@ -125,7 +125,7 @@ rm -f "$BOOTSTRAP_JSON"
 printf '✔ HTTP bootstrap state\n'
 
 html="$(curl -fsS "http://127.0.0.1:${PORT}/setup.html")" || { echo "setup page was not served" >&2; exit 1; }
-printf '%s' "$html" | grep -q '<html' || { echo "setup page is not HTML" >&2; exit 1; }
-printf '%s' "$html" | grep -q 'setup' || { echo "setup page lacks setup markers" >&2; exit 1; }
+grep -q '<html' <<<"$html" || { echo "setup page is not HTML" >&2; exit 1; }
+grep -q 'setup' <<<"$html" || { echo "setup page lacks setup markers" >&2; exit 1; }
 printf '✔ UI shell: /setup.html\n'
 status=0
