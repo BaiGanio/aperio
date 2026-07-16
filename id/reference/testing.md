@@ -6,17 +6,28 @@ Uses Node.js native test runner (`node --test`). Tests mirror the source structu
 
 ```bash
 npm test                       # All tests
+npm run test:unit              # Unit/integration tests (excludes tests/e2e)
 npm run test:skills            # skills/*.test.js
 npm run test:store             # store/*.test.js
 npm run test:memory            # tools/memory.test.js
 npm run test:execution         # Skill execution tests only
 npm run test:backfill          # Embedding backfill tests only
 npm run test:e2e               # All E2E tests (protocol + real-app)
-npm run test:e2e:real           # Real-app E2E tests only (no mock fixtures)
+npm run test:e2e:real          # Real-app E2E tests only (no mock fixtures)
+npm run test:e2e:ci            # Dashboard E2E tests (excludes real-app)
 npm run test:ci                # CI mode with coverage
+npm run test:ci:unit           # Unit/integration CI coverage (excludes tests/e2e)
 npm run test:only -- --test-name-pattern="pattern"  # Filter by name
 npm run coverage               # Generate lcov report from c8
 ```
+
+The primary Codecov workflow runs `test:ci:unit` and the non-real E2E dashboard
+suite as separate jobs. Pushes and pull requests therefore refresh both
+coverage and E2E dashboard data without starting real server fixtures. Run the
+separate **Real-app E2E (manual)** GitHub Actions workflow when production-
+process validation is needed. Its concurrency is capped at 2 and it does not
+require a model service; Postgres parity remains opt-in through
+`APERIO_E2E_POSTGRES_URL`.
 
 ## Installation smoke tests
 

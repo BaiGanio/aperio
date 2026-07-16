@@ -96,6 +96,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- Push and pull-request CI now runs unit/integration coverage alongside the
+  non-real E2E dashboard suite, preserving fresh dashboard data without starting
+  real-app child processes. Real-app E2E remains available as a concurrency-
+  limited, manually dispatched workflow when production-process validation is needed.
+
 - Model-tier evidence now records Gemma 4 E4B UD-Q4_K_XL as the preferred
   provisional candidate pending full qualification, finalist examination,
   real-tier hardware evidence, and human approval; no installer default was

@@ -47,3 +47,23 @@ test("nightly/full-suite job is pinned to ARM runner labels", async () => {
   assert.match(workflow, /full-suite-arm/);
   assert.match(workflow, /npm run test:ci/);
 });
+
+test("Codecov refreshes E2E dashboard without real-app tests, which remain manual", async () => {
+  const coverageWorkflow = await readFile(resolve(ROOT, ".github/workflows/ci.codecov.yml"), "utf8");
+  const e2eWorkflow = await readFile(resolve(ROOT, ".github/workflows/ci.e2e-real.yml"), "utf8");
+  const pkg = JSON.parse(await readFile(resolve(ROOT, "package.json"), "utf8"));
+
+  assert.match(coverageWorkflow, /^  unit-tests:/m);
+  assert.match(coverageWorkflow, /npm run test:ci:unit/);
+  assert.match(coverageWorkflow, /^  e2e-dashboard:/m);
+  assert.match(coverageWorkflow, /npm run test:e2e:ci:dashboard/);
+  assert.match(coverageWorkflow, /needs: \[unit-tests, e2e-dashboard\]/);
+  assert.match(e2eWorkflow, /^  workflow_dispatch:\s*$/m);
+  assert.doesNotMatch(e2eWorkflow, /^  (push|pull_request|schedule):/m);
+  assert.match(e2eWorkflow, /npm run test:e2e:real/);
+  assert.match(e2eWorkflow, /timeout-minutes:\s*10/);
+  assert.match(pkg.scripts["test:ci:unit"], /-not -path 'tests\/e2e\/\*'/);
+  assert.match(pkg.scripts["test:e2e:ci"], /-not -name 'real-app-\*\.test\.js'/);
+  assert.match(pkg.scripts["test:e2e:ci"], /e2e-results\.json/);
+  assert.match(pkg.scripts["test:e2e:real"], /--test-concurrency=2/);
+});
