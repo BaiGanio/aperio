@@ -11,8 +11,8 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    name: Run tests and collect coverage
+  unit-tests:
+    name: Unit and integration coverage
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -28,16 +28,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests with coverage and capture E2E results
+      - name: Run unit and integration tests with coverage
         id: tests
         continue-on-error: true
-        run: npm run test:ci:dashboard
+        run: npm run test:ci:unit
 
-      - name: Generate dashboard data
-        id: dashboards
-        run: |
-          npm run coverage:dashboard
-          npm run e2e:dashboard
+      - name: Generate coverage dashboard data
+        if: always() && hashFiles('coverage/lcov.info') != ''
+        run: npm run coverage:dashboard
 
       - name: Upload results to Codecov
         if: always() && hashFiles('coverage/lcov.info') != ''
@@ -48,18 +46,81 @@ jobs:
           exclude: ./coverage/tmp/
           fail_ci_if_error: true
 
-      - name: Upload Pages source
+      - name: Upload coverage dashboard data
         if: >-
           always() &&
           github.event_name == 'push' &&
           github.ref == 'refs/heads/master' &&
-          steps.dashboards.outcome == 'success'
+          hashFiles('docs/coverage-data.js') != ''
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: github-pages-source
-          path: ./docs
+          name: coverage-dashboard-data
+          path: ./docs/coverage-data.js
           retention-days: 7
 
       - name: Preserve test failure status
         if: always() && steps.tests.outcome == 'failure'
         run: exit 1
+
+  e2e-dashboard:
+    name: E2E tests and dashboard data (excluding real-app)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2 # v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run non-real E2E tests and generate dashboard data
+        run: npm run test:e2e:ci:dashboard
+
+      - name: Upload E2E dashboard data
+        if: >-
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/master' &&
+          hashFiles('docs/e2e-data.js') != ''
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: e2e-dashboard-data
+          path: ./docs/e2e-data.js
+          retention-days: 7
+
+  pages-source:
+    name: Assemble Pages source
+    needs: [unit-tests, e2e-dashboard]
+    if: >-
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master' &&
+      needs.unit-tests.result == 'success' &&
+      needs.e2e-dashboard.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2 # v4
+
+      - name: Download coverage dashboard data
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: coverage-dashboard-data
+          path: ./docs
+
+      - name: Download E2E dashboard data
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: e2e-dashboard-data
+          path: ./docs
+
+      - name: Upload Pages source
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: github-pages-source
+          path: ./docs
+          retention-days: 7

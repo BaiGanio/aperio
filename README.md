@@ -245,6 +245,25 @@ npm run vmtest:linux:debian   # Debian ARM64 + development install
 npm run vmtest:windows        # Windows 11 ARM + clean snapshot
 ```
 
+### Test suites
+
+Use `npm test` for the complete local suite. Push and pull-request CI runs
+unit/integration coverage plus the lightweight E2E dashboard suite, while real
+server fixtures remain opt-in:
+
+```bash
+npm run test:unit       # Unit/integration tests, excluding tests/e2e
+npm run test:e2e        # Protocol and real-app E2E, concurrency capped at 2
+npm run test:e2e:real   # Focused production-server E2E only
+npm run test:e2e:ci     # Dashboard E2E suite, excluding real-app fixtures
+npm run test:ci:unit    # Unit/integration coverage used by Codecov CI
+```
+
+The real-app fixtures use temporary SQLite databases, ephemeral localhost
+ports, and a test-agent stub; no model service is required. Postgres E2E parity
+is enabled only when `APERIO_E2E_POSTGRES_URL` is configured. To run them in
+GitHub Actions, manually dispatch the **Real-app E2E (manual)** workflow.
+
 ### Model-tier benchmark campaigns (maintainers)
 
 The model-tier pilot measures whether a local llama.cpp model can use Aperio's

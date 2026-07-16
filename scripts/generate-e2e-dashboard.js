@@ -15,6 +15,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const inputPath = resolve(ROOT, option("--input", "e2e-results.json"));
 const outputPath = resolve(ROOT, option("--output", "docs/e2e-data.js"));
+const excludeRealApp = process.argv.includes("--exclude-real-app");
 
 async function run() {
   let data;
@@ -42,7 +43,7 @@ async function run() {
     const { readdirSync, statSync } = await import("node:fs");
     const e2eDir = resolve(ROOT, "tests/e2e");
     const files = readdirSync(e2eDir)
-      .filter((f) => f.endsWith(".test.js"))
+      .filter((f) => f.endsWith(".test.js") && (!excludeRealApp || !f.startsWith("real-app-")))
       .map((f) => ({
         name: f,
         size: statSync(resolve(e2eDir, f)).size,

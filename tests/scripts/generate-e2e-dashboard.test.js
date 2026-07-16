@@ -31,6 +31,7 @@ test("E2E dashboard generator transforms existing reporter JSON without running 
       "scripts/generate-e2e-dashboard.js",
       "--input", input,
       "--output", output,
+      "--exclude-real-app",
     ], { cwd: ROOT });
 
     const generated = await readFile(output, "utf8");
@@ -40,6 +41,8 @@ test("E2E dashboard generator transforms existing reporter JSON without running 
     assert.equal(data.passed, 1);
     assert.equal(typeof data.commit, "string");
     assert.ok(Array.isArray(data.files));
+    assert.ok(data.files.length > 0);
+    assert.ok(data.files.every((file) => !file.name.startsWith("real-app-")));
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
