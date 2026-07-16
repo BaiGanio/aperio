@@ -31,7 +31,7 @@ function writeGguf(path) {
   writeFileSync(path, Buffer.concat([Buffer.from("GGUF"), u32(3), u64(0), u64(entries.length), ...entries, Buffer.alloc(4 * 1024 * 1024)]));
 }
 
-const ENV_KEYS = ["LLAMA_CACHE", "LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32", "APERIO_LOCAL_PERF_PROFILE"];
+const ENV_KEYS = ["LLAMA_CACHE", "LLAMACPP_MODEL", "LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32", "APERIO_LOCAL_PERF_PROFILE"];
 const saved = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
 const roots = [];
 afterEach(() => {
@@ -67,6 +67,16 @@ function cacheWithModel(repoId) {
 }
 
 describe("getSpecs — custom / non-catalog tier model", () => {
+  test("uses an explicit first-install model instead of a larger RAM-tier recommendation", () => {
+    const model = "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL";
+    process.env.LLAMACPP_MODEL = model;
+    for (const k of ["LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"]) {
+      process.env[k] = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL";
+    }
+
+    assert.equal(getSpecs().recommendedModelHf, model);
+  });
+
   test("reports a real on-disk size for a cached custom model (resolveModelFacts, not factsForHf)", () => {
     const repoId = "org/Custom-GGUF:Q4_K_M";
     const cache = cacheWithModel(repoId);

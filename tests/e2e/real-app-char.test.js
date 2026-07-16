@@ -44,14 +44,15 @@ test("CHAR-1: lib/server.js uses address().port for accurate URL", () => {
 test("CHAR-2: lib/server.js holds hardcoded mutable paths", () => {
   const src = readFileSync(LIBSERVER, "utf8");
 
-  // The mutable runtime paths are now in lib/server.js (not server.js).
-  // They still use resolve(__dirname, ...) — the next step is to make
-  // them configurable via a runtimeRoot option.
+  // The mutable runtime paths are in lib/server.js (not server.js).
+  // Runtime var/ data (uploads, scratch, roundtables) anchors to
+  // process.cwd(), matching the writers, the path-guard floor, and the
+  // SQLite default (#282). The bootstrap lock stays install-anchored.
   const hardcodedPaths = [
     'resolve(__dirname, "var/bootstrap.lock")',
-    'resolve(__dirname, "var/uploads")',
-    'resolve(__dirname, "var/scratch")',
-    'resolve(__dirname, "var/roundtables")',
+    'resolve(process.cwd(), "var/uploads")',
+    'resolve(process.cwd(), "var/scratch")',
+    'resolve(process.cwd(), "var/roundtables")',
   ];
 
   for (const p of hardcodedPaths) {

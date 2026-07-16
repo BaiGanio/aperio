@@ -159,6 +159,13 @@
   color: var(--danger, #e05252);
   border-color: var(--danger, #e05252);
 }
+.model-download { display: none; margin-top: 8px; font-family: var(--font-mono, "Berkeley Mono", monospace); font-size: 10px; color: var(--text-muted, #888); }
+.model-download.show { display: block; }
+.model-download__row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px; }
+.model-download__bar { height: 3px; background: var(--border, rgba(128,128,128,0.15)); overflow: hidden; }
+.model-download__fill { height: 100%; width: 0%; background: var(--accent, #7c6aff); transition: width .25s ease; }
+.model-download[data-status="completed"] .model-download__fill { background: var(--success, #4caf85); }
+.model-download[data-status="failed"], .model-download[data-status="aborted"] { color: var(--danger, #e05252); }
 
 /* ── Text cell ────────────────────────────────────────────────────────────── */
 .step-text {
@@ -598,6 +605,7 @@ STEPS.forEach(s => {
     <div class="step-text">
       <div class="step-label" data-i18n="${s.labelKey}">${_t(s.labelKey)}</div>
       <div class="step-detail" id="detail-${s.id}" data-i18n="setup_detail_waiting">${_t("setup_detail_waiting")}</div>
+      ${s.id === "model" ? `<div class="model-download" id="modelDownload" aria-live="polite"><div class="model-download__row"><span id="modelDownloadStatus">Waiting for download…</span><span id="modelDownloadStats"></span></div><div class="model-download__bar"><div class="model-download__fill" id="modelDownloadFill"></div></div></div>` : ""}
     </div>
     <div class="step-spinner"></div>
     <span class="step-badge badge-idle" id="badge-${s.id}" data-i18n="setup_badge_idle">${_t("setup_badge_idle")}</span>
@@ -641,6 +649,38 @@ function applyStep(id, status, detail) {
       det.textContent = "";
     }
   }
+}
+
+const formatBytes = bytes => {
+  if (!Number.isFinite(bytes)) return "—";
+  const units = ["B", "KiB", "MiB", "GiB", "TiB"];
+  let n = bytes, i = 0;
+  while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+  return `${n >= 10 || i === 0 ? Math.round(n) : n.toFixed(1)} ${units[i]}`;
+};
+const formatDuration = seconds => {
+  if (!Number.isFinite(seconds)) return "—";
+  const s = Math.max(0, Math.round(seconds));
+  return s < 60 ? `${s}s` : `${Math.floor(s / 60)}m ${s % 60}s`;
+};
+function applyDownloadProgress(download) {
+  const box = document.getElementById("modelDownload");
+  if (!box || !download) return;
+  box.classList.add("show");
+  box.dataset.status = download.status || "downloading";
+  const status = document.getElementById("modelDownloadStatus");
+  const stats = document.getElementById("modelDownloadStats");
+  const fill = document.getElementById("modelDownloadFill");
+  const labels = { downloading: "Downloading", completed: "Complete", failed: "Download failed", aborted: "Download aborted" };
+  status.textContent = download.resumed ? "Resuming download" : (labels[download.status] || "Downloading");
+  if (download.status === "completed") { status.textContent = "Download complete"; fill.style.width = "100%"; }
+  else if (download.percent != null) fill.style.width = `${Math.min(100, download.percent)}%`;
+  else fill.style.width = "35%";
+  if (download.downloadedBytes != null && download.totalBytes != null) {
+    stats.textContent = `${formatBytes(download.downloadedBytes)} / ${formatBytes(download.totalBytes)} · ${Math.round(download.percent ?? 0)}% · ${formatBytes(download.speedBytesPerSecond)}/s · ETA ${formatDuration(download.etaSeconds)}`;
+  } else if (download.downloadedBytes != null) {
+    stats.textContent = `${formatBytes(download.downloadedBytes)} downloaded · total unknown`;
+  } else stats.textContent = "Waiting for transfer details…";
 }
 
 function updateProgress(done, total) {
@@ -780,12 +820,19 @@ function startProgress() {
     }
   });
 
+  es.addEventListener("progress", e => {
+    const data = JSON.parse(e.data);
+    if (data.download) applyDownloadProgress(data.download);
+  });
+
   es.addEventListener("complete", () => { es.close(); showDone(); });
   es.addEventListener("error", function(e) {
     try {
       es.close();
       esStarted = false;
-      showError(JSON.parse(e.data).message);
+      const data = JSON.parse(e.data);
+      applyDownloadProgress({ status: /abort|cancel/i.test(data.message || "") ? "aborted" : "failed" });
+      showError(data.message);
     }
     catch (_e) { /* SSE connection drop — browser will retry automatically */ }
   });

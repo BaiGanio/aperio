@@ -542,6 +542,21 @@ describe("write confirm gate (WRITE-01)", () => {
     assert.ok(!vfsExists(p));
   });
 
+  // #282: benchmark runs are headless — a proposed write would wait forever for
+  // a confirmation no one can give, killing the turn. The gate is skipped; the
+  // bench sandbox allowlist still bounds where writes can land.
+  test("benchmark mode executes an outside-scratch write directly", async () => {
+    process.env.APERIO_BENCHMARK_RUN = "1";
+    try {
+      const p = join(TMP, "gated", "bench.js");
+      const r = await writeFileHandler(ctx, { path: p, content: "b\n" });
+      assert.match(r.content[0].text, /✅ Created/);
+      assert.equal(vfsRead(p), "b\n");
+    } finally {
+      delete process.env.APERIO_BENCHMARK_RUN;
+    }
+  });
+
   test("commit with an invalid token writes nothing", async () => {
     const r = await writeFileHandler(ctx, { confirmation_token: "wr_bogus1" });
     assert.match(r.content[0].text, /invalid or expired/);
