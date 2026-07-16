@@ -40,6 +40,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Wiki refreshes using llama.cpp now report the requested model and currently
   served models when the configured refresh model is absent, with guidance to
   restart Aperio so the regenerated model preset takes effect.
+- Windows lite launchers now apply the complete `start:lite` environment,
+  including database-first configuration precedence.
 
 - Workflow suggestions now require two successful calls from an explicit set of
   meaningful action tools, excluding recall, file reads, searches, and failed

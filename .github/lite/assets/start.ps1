@@ -100,14 +100,15 @@ try {
 } catch { Warn "Could not create a Desktop shortcut (not critical)." }
 
 # --- 4. Launch --------------------------------------------------------------
-# NOTE: npm's start:lite uses UNIX inline env vars, which don't work on Windows,
-# so we set them here and run node directly. Same result as start:lite.
+# Source of truth: package.json's start:lite script. PowerShell cannot use its
+# UNIX inline env syntax, so keep this full environment set in lockstep.
 $env:AI_PROVIDER        = 'llamacpp'
 $env:PORT               = '31337'
 $env:DB_BACKEND         = 'sqlite'
 $env:EMBEDDING_PROVIDER = 'transformers'
 $env:IDLE_SHUTDOWN      = 'on'    # windowless-safe: self-stop after the tab closes, any provider
 $env:APERIO_LITE        = 'on'    # lite profile: non-coder starter memories
+$env:APERIO_CONFIG_PRECEDENCE = 'db'
 
 Write-Host ""
 Write-Host "  + Aperio is starting - your browser will open in a moment." -ForegroundColor Green
