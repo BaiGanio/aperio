@@ -2,7 +2,7 @@ import { z }                                               from "zod";
 import { createHash }                                      from "crypto";
 import { readFileSync, readdirSync, statSync, lstatSync, existsSync } from "fs";
 import fs                                                  from "fs/promises";
-import { join, extname, basename, dirname, resolve as resolvePath } from "path";
+import { join, extname, basename, dirname, relative, resolve as resolvePath } from "path";
 import mammoth                                             from "mammoth";
 import { fileURLToPath }                                   from "url";
 import { v4 as uuidv4 }                                   from "uuid";
@@ -515,6 +515,67 @@ export async function scanProjectHandler({ path: projectPath, read_key_files = t
   return { content: [{ type: "text", text: output }] };
 }
 
+export async function grepFilesHandler({
+  path: searchPath,
+  pattern,
+  case_sensitive = true,
+  max_results = 50,
+}) {
+  if (typeof pattern !== "string" || !pattern.length)
+    return { content: [{ type: "text", text: "❌ grep_files needs a non-empty pattern." }] };
+  if (!isReadPathAllowed(searchPath)) return formatPathError("Read", searchPath);
+  if (!existsSync(searchPath))
+    return { content: [{ type: "text", text: `❌ Path not found: ${searchPath}` }] };
+
+  const needle = case_sensitive ? pattern : pattern.toLowerCase();
+  const limit = Math.max(1, Math.min(Number(max_results) || 50, 200));
+  const matches = [];
+  let capped = false;
+  const rootIsDirectory = statSync(searchPath).isDirectory();
+
+  function searchFile(filePath) {
+    if (isSecretFile(filePath) || !ALLOWED_EXTENSIONS.has(extname(filePath).toLowerCase())) return;
+    let stat;
+    try { stat = statSync(filePath); } catch { return; }
+    if (!stat.isFile() || stat.size > 500_000) return;
+    let content;
+    try { content = readFileSync(filePath, "utf8"); } catch { return; }
+    const lines = content.split("\n");
+    for (let index = 0; index < lines.length; index++) {
+      const haystack = case_sensitive ? lines[index] : lines[index].toLowerCase();
+      if (!haystack.includes(needle)) continue;
+      const displayPath = rootIsDirectory
+        ? relative(searchPath, filePath)
+        : basename(filePath);
+      matches.push(`${displayPath}:${index + 1}:${lines[index].slice(0, 300)}`);
+      if (matches.length >= limit) { capped = true; return; }
+    }
+  }
+
+  function walk(entryPath) {
+    if (matches.length >= limit) return;
+    let stat;
+    try { stat = lstatSync(entryPath); } catch { return; }
+    if (stat.isSymbolicLink()) return;
+    if (stat.isFile()) { searchFile(entryPath); return; }
+    if (!stat.isDirectory()) return;
+    let entries;
+    try { entries = readdirSync(entryPath); } catch { return; }
+    for (const entry of entries.sort()) {
+      if (SKIP_DIRS.has(entry)) continue;
+      walk(join(entryPath, entry));
+      if (matches.length >= limit) return;
+    }
+  }
+
+  walk(searchPath);
+  if (!matches.length) {
+    return { content: [{ type: "text", text: `No matches for "${pattern}" under ${searchPath}.` }] };
+  }
+  const capNote = capped ? ` (showing first ${limit} matches)` : "";
+  return { content: [{ type: "text", text: `🔎 ${matches.length} match${matches.length === 1 ? "" : "es"}${capNote}:\n${matches.join("\n")}` }] };
+}
+
 export async function editFileHandler(ctx, args) {
   const token = readConfirmToken(args);
   if (token) return commitFileInterrupt(ctx, token, "❌ Confirmation token invalid or expired. Nothing was written.");
@@ -820,6 +881,20 @@ export function register(server, ctx) {
       }),
     },
     readFileHandler
+  );
+
+  server.registerTool(
+    "grep_files",
+    {
+      description: "Search code and text files under one allowed path and return matching lines with relative file paths and line numbers. Uses literal matching, skips secrets, symlinks, dependencies, build output, and files over 500KB.",
+      inputSchema: z.object({
+        pattern: z.string().min(1).describe("Literal text to find"),
+        path: z.string().describe("One file or directory to search"),
+        case_sensitive: z.boolean().optional().describe("Match letter case. Default true."),
+        max_results: z.number().int().min(1).max(200).optional().describe("Maximum matching lines to return. Default 50."),
+      }),
+    },
+    grepFilesHandler
   );
 
   server.registerTool(

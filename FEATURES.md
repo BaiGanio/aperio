@@ -2,7 +2,7 @@
 
 Single source of truth for **what exists**. If you add or remove a feature, change it here in the same PR — otherwise it didn't ship.
 
-Last reconciled: 2026-07-06 · Version: 0.67.0
+Last reconciled: 2026-07-16 · Version: 0.67.4
 
 ---
 
@@ -13,8 +13,8 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 - Delete by ID (`forget`)
 - Generate embeddings for memories missing one (`backfill_embeddings`)
 - Find and merge near-duplicates by cosine similarity (`deduplicate_memories`)
-- **Workflow detection**: after a turn with 2+ successful tool calls, emits a `workflow_suggestion` event prompting the model/user to save the sequence as a `workflow` memory
-- **Scope preferences**: preferences tagged `scope:<term>` (e.g. `scope:auth`) automatically inject a system-prompt hint when the user query matches the trigger term, AND prepend the scope path to `grep_files` arguments — no model effort required
+- **Workflow detection**: after a turn with 2+ successful meaningful action calls, emits a `workflow_suggestion` event prompting the model/user to save the sequence as a `workflow` memory; background reads, recall, and searches are excluded
+- **Scope preferences**: preferences tagged `scope:<term>` (e.g. `scope:auth`) inject a system-prompt hint and safely scope `grep_files` from either the original user query or the eventual search pattern
 
 ## Self-Memory
 - Agent's own walled-off memory store — separate table, never mixed with user memories
@@ -72,6 +72,7 @@ Last reconciled: 2026-07-06 · Version: 0.67.0
 - Exact-string replace, `replace_all` option (`edit_file`)
 - Two-phase token-confirmed delete (`delete_file`)
 - Traverse a project folder — tree + key files (`scan_project`)
+- Recursively search allowed code/text files with literal, line-numbered matches (`grep_files`); skips secrets, symlinks, dependencies, build output, and files over 500 KB
 - Generate multi-sheet `.xlsx`, served for download (`generate_xlsx`)
 - Generate `.docx` via Node `docx` lib (`generate_docx`); read `.docx` text (`read_docx`)
 - Attachment handlers: PDF, DOCX, PPTX, text, image

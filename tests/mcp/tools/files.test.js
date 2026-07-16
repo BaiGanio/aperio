@@ -16,8 +16,10 @@
 
 import { mock, test, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { join } from "path";
+import { basename, join } from "path";
 import { createRequire } from "module";
+import { createToolHooks } from "../../../lib/agent/tool-hooks.js";
+import { parseSearchScopes } from "../../../lib/agent/search-scopes.js";
 
 // ─── In-memory VFS ────────────────────────────────────────────────────────────
 
@@ -35,6 +37,12 @@ function vfsSetupFile(path, content) {
   const parent = path.substring(0, path.lastIndexOf("/"));
   if (parent) vfsSetupDir(parent);
   vfs.set(path, { type: "file", content });
+}
+
+function vfsSetupSymlink(path, target) {
+  const parent = path.substring(0, path.lastIndexOf("/"));
+  if (parent) vfsSetupDir(parent);
+  vfs.set(path, { type: "symlink", content: target });
 }
 
 const vfsRead   = (path) => vfs.get(path)?.content ?? null;
@@ -56,7 +64,7 @@ function mockStatSync(path) {
     size: e.type === "file" ? Buffer.byteLength(e.content, "utf8") : 0,
     isDirectory:    () => e.type === "dir",
     isFile:         () => e.type === "file",
-    isSymbolicLink: () => false,
+    isSymbolicLink: () => e.type === "symlink",
   };
 }
 function mockReadFileSync(path, ...rest) {
@@ -166,7 +174,7 @@ mock.method(fsAsync, "unlink",     mockRm);
 
 // Dynamic import: files.js loads here and binds to our patched functions.
 // paths.js also loads here and computes BASE_DIR = process.cwd() = TMP.
-const { readFileHandler, writeFileHandler, appendFileHandler, editFileHandler, deleteFileHandler, scanProjectHandler } =
+const { readFileHandler, writeFileHandler, appendFileHandler, editFileHandler, deleteFileHandler, scanProjectHandler, grepFilesHandler } =
   await import("../../../mcp/tools/files.js");
 
 // paths.js is already cached from the files.js import above; this re-export
@@ -768,6 +776,89 @@ describe("scanProjectHandler", () => {
 
     const result = await scanProjectHandler({ path: dir });
     assert.ok(result.content[0].text.includes("Files: 3"));
+  });
+});
+
+// ─── grepFilesHandler ────────────────────────────────────────────────────────
+
+describe("grepFilesHandler", () => {
+  test("returns line-numbered literal matches recursively", async () => {
+    const dir = join(TMP, "grep-project");
+    vfsSetupFile(join(dir, "src", "auth.js"), "const OAuthCallback = true;\nconst other = false;");
+    vfsSetupFile(join(dir, "README.md"), "OAuthCallback docs");
+    const result = await grepFilesHandler({ path: dir, pattern: "OAuthCallback" });
+    const text = result.content[0].text;
+    assert.match(text, /src\/auth\.js:1:const OAuthCallback/);
+    assert.match(text, /README\.md:1:OAuthCallback docs/);
+  });
+
+  test("supports case-insensitive matching and caps results", async () => {
+    const dir = join(TMP, "grep-cap");
+    vfsSetupFile(join(dir, "one.js"), "AUTH\nauth\nAuth");
+    const result = await grepFilesHandler({ path: dir, pattern: "auth", case_sensitive: false, max_results: 2 });
+    assert.match(result.content[0].text, /showing first 2 matches/i);
+  });
+
+  test("rejects paths outside the read allowlist", async () => {
+    const result = await grepFilesHandler({ path: "/tmp", pattern: "secret" });
+    assert.match(result.content[0].text, /Read not allowed/);
+  });
+
+  test("does not search secret files or skipped directories", async () => {
+    const dir = join(TMP, "grep-private");
+    vfsSetupFile(join(dir, ".env"), "TOKEN=needle");
+    vfsSetupFile(join(dir, "node_modules", "package.js"), "needle");
+    vfsSetupFile(join(dir, "safe.js"), "needle");
+    const result = await grepFilesHandler({ path: dir, pattern: "needle" });
+    const text = result.content[0].text;
+    assert.match(text, /safe\.js/);
+    assert.doesNotMatch(text, /\.env|node_modules/);
+  });
+
+  test("does not follow symbolic links", async () => {
+    const dir = join(TMP, "grep-symlink");
+    vfsSetupFile(join(dir, "safe.js"), "needle");
+    vfsSetupSymlink(join(dir, "linked-secret.js"), "/outside/secret.js");
+    const result = await grepFilesHandler({ path: dir, pattern: "needle" });
+    assert.match(result.content[0].text, /safe\.js/);
+    assert.doesNotMatch(result.content[0].text, /linked-secret/);
+  });
+
+  test("returns a clear no-match result", async () => {
+    const dir = join(TMP, "grep-empty");
+    vfsSetupFile(join(dir, "safe.js"), "haystack");
+    const result = await grepFilesHandler({ path: dir, pattern: "needle" });
+    assert.match(result.content[0].text, /No matches/);
+  });
+
+  test("formatted scope memory drives the hook into the real grep handler", async () => {
+    const authDir = join(TMP, "scoped-project", "auth");
+    const otherDir = join(TMP, "scoped-project", "other");
+    vfsSetupFile(join(authDir, "callback.js"), "export const OAuthCallback = true;");
+    vfsSetupFile(join(otherDir, "callback.js"), "export const OAuthCallback = false;");
+    const raw = `[PREFERENCE] Auth scope (importance: 5)\nSearch ${authDir} first.\nTags: scope:auth\nID: scope-1`;
+    const factory = createToolHooks({
+      callTool: async (_name, args) => (await grepFilesHandler(args)).content[0].text,
+      summarizeArgs: (_name, args) => args.path,
+      summarizeResult: (_name, result) => ({ ok: !result.startsWith("❌"), summary: result.split("\n")[0] }),
+      getActiveScratchDir: () => null,
+      resolveScratchPath: path => path,
+      validateWrittenFile: async () => ({ ok: true }),
+      logger: { info() {}, warn() {}, error() {} },
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: mockExistsSync,
+      statSync: mockStatSync,
+      readdirSync: mockReaddirSync,
+      copyFileSync() {},
+      basename,
+      join,
+    });
+    const hooks = factory({ send() {} }, Date.now());
+    hooks.setActiveSearchScopes(parseSearchScopes(raw), "find the auth bug");
+    const result = await hooks.callToolHooked("grep_files", { pattern: "OAuthCallback", path: "." });
+    assert.match(result, /callback\.js:1:export const OAuthCallback = true/);
+    assert.doesNotMatch(result, /false/);
   });
 });
 
