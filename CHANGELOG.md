@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Re-enabled browser Content-Security-Policy headers with CSP-safe static and
+  dynamically generated UI event wiring; added `APERIO_CSP=on|report|off` modes.
+
 - `grep_files`, a path-guarded recursive literal search tool for code and text
   files. It returns line-numbered matches and skips secrets, symlinks,
   dependencies, build output, unsupported extensions, and files over 500 KB.

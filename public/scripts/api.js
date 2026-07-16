@@ -68,7 +68,6 @@ window.quitAperio = async function quitAperio() {
     return;
   }
   document.body.innerHTML =
-    '<div style="display:flex;height:100vh;align-items:center;justify-content:center;' +
-    'font-family:system-ui,sans-serif;color:#888;text-align:center;padding:2rem">' +
+    '<div class="csp-style-power-stopped">' +
     '<div><h2>' + t('power_stopped_title') + '</h2><p>' + t('power_stopped_msg') + '</p></div></div>';
 };

@@ -48,6 +48,11 @@ and is meant to run on a machine you trust.
   set `APERIO_AUTH_TOKEN` (shared-secret gate), `APERIO_TLS_CERT`/`APERIO_TLS_KEY`
   (HTTPS), and optionally `APERIO_SESSION_KEY` (at-rest session encryption), or
   front the app with a reverse proxy that terminates TLS and authenticates.
+- **Browser-side injection defense** — Helmet now emits a Content-Security-Policy
+  by default (`APERIO_CSP=on`). Scripts are limited to Aperio itself and the
+  explicitly used jsDelivr assets; network connections are limited to the app
+  and WebSocket transports. `APERIO_CSP=report` is available for rollout
+  diagnostics, while `APERIO_CSP=off` is a temporary troubleshooting escape hatch.
 - **Secrets at rest** (`.env`, sessions, logs, handoffs) are written `0600`.
 - **SQLite at-rest encryption** — when `APERIO_DB_ENCRYPT=1`, the SQLite database file is encrypted with AES-256-GCM. The decryption key is generated on first run and stored in the OS keychain (macOS Keychain, Linux libsecret, Windows DPAPI) — never on disk. The plaintext database only exists in a temporary location while the app is running; it is re-encrypted on shutdown. See [Database Encryption](#database-encryption) below.
 

@@ -207,7 +207,7 @@
             <label>${t("skills_panel_field_body")}</label>
             <textarea id="skEditBody" placeholder="${escapeHtml(t("skills_panel_body_ph"))}"></textarea>
           </div>
-          <div class="sk-edit-error" id="skEditError" style="display:none"></div>
+          <div class="sk-edit-error csp-style-13" id="skEditError"></div>
           <div class="sk-edit-footer">
             <span class="sk-spacer"></span>
             <button class="sk-btn sk-btn--ghost" id="skEditCancel">${t("skills_panel_cancel")}</button>

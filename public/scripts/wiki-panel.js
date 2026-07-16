@@ -203,7 +203,7 @@
 
     body().innerHTML = `
       <div class="wiki-detail">
-        <button class="wiki-detail-back" onclick="toggleWikiPanel(true)">← back to list</button>
+        <button class="wiki-detail-back" data-action="toggleWikiPanel" data-action-arg="true">← back to list</button>
         <h1>${escapeHtml(article.title)} ${statusBadge(article.status)}</h1>
         <div class="wiki-card-meta">
           <span>[[${escapeHtml(article.slug)}]]</span>

@@ -585,7 +585,7 @@ function handleMessage(msg) {
       note.style.cssText = "font-size:10px;opacity:0.75;";
       const text = msg.saved ? t("ctx_summarize_ok") : t("ctx_summarize_no_save");
       note.innerHTML = `<span class="ctx-banner-text">${text}</span>` +
-        `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("ctx_dismiss")}</button>`;
+        `<button class="ctx-banner-btn" data-action="removeParent">${t("ctx_dismiss")}</button>`;
       document.querySelector(".chat-area")?.prepend(note);
     }
   }
@@ -608,7 +608,7 @@ function handleMessage(msg) {
     banner.className = "ctx-banner";
     banner.innerHTML =
       `<span class="ctx-banner-text">${t("branch_created") || "↳ Branched:"} ${msg.title || ""}</span>` +
-      `<button class="ctx-banner-btn" onclick="this.parentElement.remove()">${t("ctx_dismiss")}</button>`;
+        `<button class="ctx-banner-btn" data-action="removeParent">${t("ctx_dismiss")}</button>`;
     document.querySelector(".chat-area")?.prepend(banner);
     document.getElementById("messages").innerHTML = "";
   }
@@ -1173,7 +1173,7 @@ function updateStreamingBubble(ref, text) {
       holder.innerHTML =
         `<div class="code-block">` +
         `<div class="code-toolbar"><span class="code-lang">${safeLabel}</span>` +
-        `<span style="font-size:10px;color:var(--text-muted);font-family:var(--font-mono)">${t("msg_streaming")}</span></div>` +
+        `<span class="csp-style-23">${t("msg_streaming")}</span></div>` +
         `<pre><code${langClass}>${escaped}</code></pre></div>`;
       ref.bubble.appendChild(holder.firstChild);
     }
@@ -1533,10 +1533,10 @@ function _startupBannerInner(bd, realTotal) {
   return (
     `<div class="ctx-banner-row">` +
       `<span class="ctx-banner-text">${headline}</span>` +
-      `<button class="ctx-banner-btn" onclick="const b=this.closest('.ctx-banner').querySelector('.ctx-bd'); b.style.display = b.style.display==='none' ? 'block' : 'none';">${t("startup_bd_toggle")}</button>` +
-      `<button class="ctx-banner-btn" onclick="this.closest('.ctx-banner').remove()">${t("ctx_dismiss")}</button>` +
+      `<button class="ctx-banner-btn" data-action="toggleBannerBody">${t("startup_bd_toggle")}</button>` +
+      `<button class="ctx-banner-btn" data-action="removeBanner">${t("ctx_dismiss")}</button>` +
     `</div>` +
-    `<div class="ctx-bd" style="display:none">` +
+    `<div class="ctx-bd csp-style-13">` +
       `<div class="ctx-bd-title">${t("startup_bd_title")}</div>` +
       rows +
       `<div class="ctx-bd-note">${t("startup_bd_note")}</div>` +

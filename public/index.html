@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" style="color-scheme: light dark;">
+<html lang="en" class="csp-style-1">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -14,6 +14,7 @@
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
   <link rel="stylesheet" href="index.css" />
+  <link rel="stylesheet" href="styles/csp-inline.css" />
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <!-- i18n must load before any other UI script so t() and applyTranslations() are ready
        before scripts that build DOM nodes referring to translations. -->
@@ -45,21 +46,21 @@
     <div class="status-pill" id="modelChip" data-state="disconnected">
       <div class="status-dot" id="statusDot"></div>
       <span class="model-chip-state" id="statusText" data-i18n="status_connecting">connecting…</span>
-      <span class="model-chip-name" id="providerBadge" style="display:none;"></span>
+      <span class="model-chip-name csp-style-2" id="providerBadge"></span>
     </div>
-    <label id="reasoningToggle" class="reasoning-toggle" onclick="toggleReasoning()"
-      data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning" style="display:none;">
+    <label id="reasoningToggle" class="reasoning-toggle csp-style-2" data-action="toggleReasoning"
+      data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning">
       <span class="reasoning-toggle-label" data-i18n="nav_reasoning_label">reasoning</span>
       <span class="reasoning-toggle-track" id="reasoningToggleTrack">
         <span class="reasoning-toggle-thumb"></span>
       </span>
     </label>
-    <div class="ctx-window" id="ctxWindow" style="margin-left:auto;">
+    <div class="ctx-window csp-style-3" id="ctxWindow">
       <div class="ctx-header">
         <span class="ctx-label" data-i18n="ctx_label">context</span>
         <span class="ctx-value" id="ctxText">— / —</span>
-        <span class="ctx-value" id="costText" style="margin-left:6px;color:var(--text-muted);display:none"></span>
-        <span id="toolCountBadge" style="display:none;font-size: calc(11px * var(--font-scale));color:var(--text-muted);margin-left:4px;font-family:var(--font-mono)"></span>
+        <span class="ctx-value csp-style-4" id="costText"></span>
+        <span id="toolCountBadge" class="csp-style-5"></span>
       </div>
       <div class="ctx-track">
         <div class="ctx-fill" id="ctxFill"></div>
@@ -100,11 +101,11 @@
         <i class="bi bi-power"></i>
       </button>
       <div class="power-popover" id="powerPopover" role="menu">
-        <button type="button" class="power-option" role="menuitem" onclick="requestRestartAperio()">
+        <button type="button" class="power-option" role="menuitem" data-action="requestRestartAperio">
           <i class="bi bi-arrow-repeat"></i>
           <span data-i18n="nav_power_restart">Restart server</span>
         </button>
-        <button type="button" class="power-option power-option--danger" id="powerQuitBtn" role="menuitem" onclick="quitAperio()">
+        <button type="button" class="power-option power-option--danger" id="powerQuitBtn" role="menuitem" data-action="quitAperio">
           <i class="bi bi-power"></i>
           <span data-i18n="nav_power_quit">Quit Aperio</span>
         </button>
@@ -122,63 +123,63 @@
       </div>
     </div>
     <div class="memories-list" id="memoriesList">
-      <div class="empty-state" style="padding:24px 16px; text-align:center; line-height:1.8;">
-        <div style="font-size: calc(22px * var(--font-scale)); margin-bottom:8px; opacity:.4">◈</div>
-        <div style="font-size: var(--fs-micro); color:var(--text-muted)" data-i18n="sidebar_loading">Loading memories…</div>
+      <div class="empty-state csp-style-6">
+        <div class="csp-style-7">◈</div>
+        <div class="csp-style-8" data-i18n="sidebar_loading">Loading memories…</div>
       </div>
     </div>
     <nav class="sidebar-nav is-compact" id="sidebarNav">
-      <button id="memoriesBtn" class="sidebar-nav-btn sidebar-nav-btn--collapsed-only" onclick="expandSidebarToMemories()"
+      <button id="memoriesBtn" class="sidebar-nav-btn sidebar-nav-btn--collapsed-only" data-action="expandSidebarToMemories"
         data-i18n-attr-title="nav_memories_title" title="Memories — search your saved memories">
         <i class="bi bi-stars sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Memories</span>
       </button>
-      <button id="historyBtn" class="sidebar-nav-btn" onclick="toggleSessionsPanel()"
+      <button id="historyBtn" class="sidebar-nav-btn" data-action="toggleSessionsPanel"
         data-i18n-attr-title="nav_chats_title" title="Conversation history">
         <i class="bi bi-chat-left-text sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="nav_chats_plain">Chats</span>
       </button>
-      <button id="codegraphBtn" class="sidebar-nav-btn lite-hide" onclick="toggleCodegraphPanel()"
+      <button id="codegraphBtn" class="sidebar-nav-btn lite-hide" data-action="toggleCodegraphPanel"
               data-i18n-attr-title="nav_codegraph_title" title="Code graph">
         <i class="bi bi-diagram-3 sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Code</span>
       </button>
-      <button id="docgraphBtn" class="sidebar-nav-btn" onclick="toggleDocgraphPanel()"
+      <button id="docgraphBtn" class="sidebar-nav-btn" data-action="toggleDocgraphPanel"
               title="Documents — search your indexed PDFs, DOCX, notes…">
         <i class="bi bi-file-earmark-text sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Docs</span>
       </button>
-      <button id="wikiBtn" class="sidebar-nav-btn" onclick="toggleWikiPanel()"
+      <button id="wikiBtn" class="sidebar-nav-btn" data-action="toggleWikiPanel"
         title="Wiki — LLM-authored articles over your memories">
         <i class="bi bi-book sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Wiki</span>
       </button>
-      <button id="dbBtn" class="sidebar-nav-btn lite-hide" onclick="toggleDbPanel()"
+      <button id="dbBtn" class="sidebar-nav-btn lite-hide" data-action="toggleDbPanel"
         title="Database — browse all tables">
         <i class="bi bi-database sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">DB</span>
       </button>
-      <button id="agentsBtn" class="sidebar-nav-btn lite-hide" onclick="toggleAgentsPanel()"
+      <button id="agentsBtn" class="sidebar-nav-btn lite-hide" data-action="toggleAgentsPanel"
         title="Background agents — scheduled jobs over your store">
         <i class="bi bi-robot sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Agents</span>
       </button>
-      <button id="skillsBtn" class="sidebar-nav-btn lite-hide" onclick="toggleSkillsPanel()"
+      <button id="skillsBtn" class="sidebar-nav-btn lite-hide" data-action="toggleSkillsPanel"
         data-i18n-attr-title="skills_panel_nav_title" title="Skills — view, edit, create and toggle your agent's skills">
         <i class="bi bi-lightning-charge sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="skills_panel_label">Skills</span>
       </button>
-      <button id="configBtn" class="sidebar-nav-btn" onclick="toggleConfigPanel()"
+      <button id="configBtn" class="sidebar-nav-btn" data-action="toggleConfigPanel"
         title="Configuration — all .env-backed settings, edited in the UI">
         <i class="bi bi-gear-wide-connected sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Config</span>
       </button>
-      <button id="settingsBtn" class="sidebar-nav-btn" onclick="toggleSettingsPanel()"
+      <button id="settingsBtn" class="sidebar-nav-btn" data-action="toggleSettingsPanel"
         data-i18n-attr-title="nav_settings_title" title="Settings">
         <i class="bi bi-sliders sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="nav_settings_plain">Settings</span>
       </button>
-      <button id="systemBtn" class="sidebar-nav-btn lite-hide" onclick="toggleSystemPanel()"
+      <button id="systemBtn" class="sidebar-nav-btn lite-hide" data-action="toggleSystemPanel"
         title="System — server and machine metrics">
         <i class="bi bi-speedometer2 sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">System</span>
@@ -234,7 +235,7 @@
             </button>
           </div>
         </div>
-        <div class="mic-wrap" id="micWrap" style="display:none;">
+        <div class="mic-wrap csp-style-2" id="micWrap">
           <button class="mic-btn" id="micBtn" title="Voice input">
             <i class="bi bi-mic"></i>
           </button>
@@ -260,7 +261,7 @@
           <span class="branch-btn-label" data-i18n="branch_button_label">Branch</span>
         </button>
         <button class="send-btn" id="sendBtn" disabled title="Send (⌘ + ↵)">
-          <i class="bi bi-send-fill" style="font-size: var(--fs-chrome)"></i>
+          <i class="bi bi-send-fill csp-style-9"></i>
         </button>
         <button class="stop-btn" id="stopBtn" data-i18n-attr-title="chat_stop_title" title="Stop generating">■</button>
       </div>
@@ -273,11 +274,11 @@
 
 <div class="preview-modal">
   <div class="preview-content">
-    <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+    <div class="modal-header csp-style-10">
       <span class="type-badge"></span>
-      <button class="close-btn" onclick="closePreview()">&times;</button>
+      <button class="close-btn" data-action="closePreview">&times;</button>
     </div>
-    <h2 class="mtitle" style="margin:0 0 8px;"></h2>
+    <h2 class="mtitle csp-style-11"></h2>
     <hr class="modal-divider">
     <div class="mcontent"></div>
     <hr class="modal-divider">
@@ -298,18 +299,18 @@
         <span id="memTableCount" class="mem-table-title-count"></span>
       </span>
       <div class="mem-table-header-actions">
-        <button class="mem-table-close" onclick="refreshMemories()" title="Refresh">
+        <button class="mem-table-close" data-action="refreshMemories" title="Refresh">
           <i class="bi bi-arrow-clockwise"></i>
         </button>
-        <button class="mem-table-close" onclick="closeModal()" title="Close">
+        <button class="mem-table-close" data-action="closeModal" title="Close">
           <i class="bi bi-x-lg"></i>
         </button>
       </div>
     </div>
     <div class="mem-table-toolbar">
-      <div class="search-box" style="margin:0;">
+      <div class="search-box csp-style-12">
         <span class="search-icon">⌕</span>
-        <input type="text" id="memory-search" placeholder="Filter by title, content, tags…" oninput="handleSearch()" />
+        <input type="text" id="memory-search" placeholder="Filter by title, content, tags…" data-action-input="handleSearch" />
       </div>
       <span id="mem-filter-info" class="mem-col-filter-info"></span>
     </div>
@@ -317,12 +318,12 @@
       <div id="table-wrapper"></div>
     </div>
     <div class="mem-table-footer">
-      <div id="pagination-controls" class="mem-pagination" style="display:none;">
-        <button id="prev-page" class="mem-page-btn" onclick="changePage(-1)">
+      <div id="pagination-controls" class="mem-pagination csp-style-2">
+        <button id="prev-page" class="mem-page-btn" data-action="changePagePrev">
           <i class="bi bi-chevron-left"></i>
         </button>
         <span id="page-info" class="mem-page-info"></span>
-        <button id="next-page" class="mem-page-btn" onclick="changePage(1)">
+        <button id="next-page" class="mem-page-btn" data-action="changePageNext">
           <i class="bi bi-chevron-right"></i>
         </button>
       </div>
@@ -340,18 +341,18 @@
         <span id="selfMemTableCount" class="mem-table-title-count"></span>
       </span>
       <div class="mem-table-header-actions">
-        <button class="mem-table-close" onclick="refreshSelfMemories()" title="Refresh">
+        <button class="mem-table-close" data-action="refreshSelfMemories" title="Refresh">
           <i class="bi bi-arrow-clockwise"></i>
         </button>
-        <button class="mem-table-close" onclick="closeSelfMemoryModal()" title="Close">
+        <button class="mem-table-close" data-action="closeSelfMemoryModal" title="Close">
           <i class="bi bi-x-lg"></i>
         </button>
       </div>
     </div>
     <div class="mem-table-toolbar">
-      <div class="search-box" style="margin:0;">
+      <div class="search-box csp-style-12">
         <span class="search-icon">⌕</span>
-        <input type="text" id="self-memory-search" placeholder="Filter by title, content, tags…" oninput="handleSelfSearch()" />
+        <input type="text" id="self-memory-search" placeholder="Filter by title, content, tags…" data-action-input="handleSelfSearch" />
       </div>
       <span id="self-mem-filter-info" class="mem-col-filter-info"></span>
     </div>
@@ -359,12 +360,12 @@
       <div id="self-table-wrapper"></div>
     </div>
     <div class="mem-table-footer">
-      <div id="self-pagination-controls" class="mem-pagination" style="display:none;">
-        <button id="self-prev-page" class="mem-page-btn" onclick="changeSelfPage(-1)">
+      <div id="self-pagination-controls" class="mem-pagination csp-style-2">
+        <button id="self-prev-page" class="mem-page-btn" data-action="selfPagePrev">
           <i class="bi bi-chevron-left"></i>
         </button>
         <span id="self-page-info" class="mem-page-info"></span>
-        <button id="self-next-page" class="mem-page-btn" onclick="changeSelfPage(1)">
+        <button id="self-next-page" class="mem-page-btn" data-action="selfPageNext">
           <i class="bi bi-chevron-right"></i>
         </button>
       </div>
@@ -377,11 +378,11 @@
   <div class="confirm-content">
     <div class="confirm-header">
       <span class="confirm-title"></span>
-      <button class="confirm-close" onclick="closeConfirmModal()">&times;</button>
+      <button class="confirm-close" data-action="closeConfirmModal">&times;</button>
     </div>
     <p class="confirm-message"></p>
     <div class="confirm-actions">
-      <button class="confirm-btn confirm-btn--cancel" onclick="closeConfirmModal()">Cancel</button>
+      <button class="confirm-btn confirm-btn--cancel" data-action="closeConfirmModal">Cancel</button>
       <button class="confirm-btn confirm-btn--ok" id="confirmOkBtn"></button>
     </div>
   </div>
@@ -409,7 +410,7 @@
   <div class="confirm-content">
     <div class="confirm-header">
       <span class="confirm-title">Export database</span>
-      <button class="confirm-close" onclick="closeExportModal()">&times;</button>
+      <button class="confirm-close" data-action="closeExportModal">&times;</button>
     </div>
     <div class="export-options">
       <div class="export-option export-option--always">
@@ -434,27 +435,27 @@
       </label>
     </div>
     <div class="confirm-actions">
-      <button class="confirm-btn confirm-btn--cancel" onclick="closeExportModal()">Cancel</button>
+      <button class="confirm-btn confirm-btn--cancel" data-action="closeExportModal">Cancel</button>
       <button class="confirm-btn confirm-btn--ok" id="exportDoBtn">Export</button>
     </div>
   </div>
 </div>
 
-<div id="sessions-panel" class="sessions-panel" style="display:none;">
+<div id="sessions-panel" class="sessions-panel csp-style-2">
   <div class="sessions-panel-header">
     <span class="sessions-panel-title"><i class="bi bi-clock-history"></i> <span data-i18n="sessions_title">History</span></span>
     <div class="sessions-panel-header-actions">
-      <button id="sessionsSelectBtn" class="sessions-select-toggle" onclick="toggleSelectMode()" title="Select sessions">
+    <button id="sessionsSelectBtn" class="sessions-select-toggle" data-action="toggleSelectMode" title="Select sessions">
         <i class="bi bi-check2-square"></i> <span data-i18n="sessions_select">Select</span>
       </button>
-      <button class="sessions-panel-close" onclick="toggleSessionsPanel()">
+    <button class="sessions-panel-close" data-action="toggleSessionsPanel">
         <i class="bi bi-x-lg"></i>
       </button>
     </div>
   </div>
-  <div id="sessions-select-bar" class="sessions-select-bar" style="display:none;">
+  <div id="sessions-select-bar" class="sessions-select-bar csp-style-2">
     <span id="sessions-select-count" class="sessions-select-count">0 selected</span>
-    <button id="sessions-bulk-delete-btn" class="session-btn session-btn--bulk-delete" onclick="bulkDeleteSessions()" disabled>
+    <button id="sessions-bulk-delete-btn" class="session-btn session-btn--bulk-delete" data-action="bulkDeleteSessions" disabled>
       <i class="bi bi-trash3"></i> <span data-i18n="sessions_bulk_delete">Delete selected</span>
     </button>
   </div>
@@ -462,13 +463,13 @@
     <div class="sessions-empty" data-i18n="sessions_loading">Loading…</div>
   </div>
 </div>
-<div id="sessions-backdrop" class="sessions-backdrop" style="display:none;" onclick="toggleSessionsPanel()"></div>
+<div id="sessions-backdrop" class="sessions-backdrop csp-style-2" data-action="toggleSessionsPanel"></div>
 
 <!-- Wiki panel -->
-<div id="wiki-panel" class="wiki-panel" style="display:none;">
+<div id="wiki-panel" class="wiki-panel csp-style-2">
   <div class="wiki-panel-header">
     <span class="wiki-panel-title"><i class="bi bi-book"></i> Wiki</span>
-    <button class="wiki-panel-close" onclick="toggleWikiPanel()"><i class="bi bi-x-lg"></i></button>
+    <button class="wiki-panel-close" data-action="toggleWikiPanel"><i class="bi bi-x-lg"></i></button>
   </div>
   <div id="wiki-panel-toolbar" class="wiki-panel-toolbar">
     <input type="text" id="wikiSearchInput" class="wiki-search-input" placeholder="Search articles…" />
@@ -476,20 +477,20 @@
       <button class="wiki-chip wiki-chip--active" data-status="all">all</button>
       <button class="wiki-chip" data-status="fresh">fresh</button>
       <button class="wiki-chip" data-status="stale">stale</button>
-      <button class="wiki-chip" data-status="draft" id="wikiDraftChip" style="display:none">draft</button>
+      <button class="wiki-chip csp-style-13" data-status="draft" id="wikiDraftChip">draft</button>
     </div>
   </div>
   <div class="wiki-panel-body" id="wiki-panel-body">
     <div class="wiki-empty">Loading…</div>
   </div>
 </div>
-<div id="wiki-backdrop" class="wiki-backdrop" style="display:none;" onclick="toggleWikiPanel()"></div>
+<div id="wiki-backdrop" class="wiki-backdrop csp-style-2" data-action="toggleWikiPanel"></div>
 
 <!-- DB panel -->
-<div id="db-panel" class="db-panel" style="display:none;">
+<div id="db-panel" class="db-panel csp-style-2">
   <div class="db-panel-header">
     <span class="db-panel-title"><i class="bi bi-database"></i> Database</span>
-    <button class="db-panel-close" onclick="toggleDbPanel()"><i class="bi bi-x-lg"></i></button>
+    <button class="db-panel-close" data-action="toggleDbPanel"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="db-panel-conn">
     <label for="dbConnSelect">Database</label>
@@ -508,7 +509,7 @@
     <div class="db-empty">Loading…</div>
   </div>
 </div>
-<div id="db-backdrop" class="db-backdrop" style="display:none;" onclick="toggleDbPanel()"></div>
+<div id="db-backdrop" class="db-backdrop csp-style-2" data-action="toggleDbPanel"></div>
 
 <!-- Generic DB table modal -->
 <div id="dbTableModal" class="mem-table-modal">
@@ -532,7 +533,7 @@
       </div>
     </div>
     <div class="mem-table-toolbar">
-      <div class="search-box" style="margin:0;">
+      <div class="search-box csp-style-12">
         <span class="search-icon">⌕</span>
         <input type="text" id="dbt-search" placeholder="Filter rows…" />
       </div>
@@ -542,7 +543,7 @@
       <div id="dbt-wrapper"></div>
     </div>
     <div class="mem-table-footer">
-      <div id="dbt-pagination" class="mem-pagination" style="display:none;">
+      <div id="dbt-pagination" class="mem-pagination csp-style-2">
         <button id="dbt-prev" class="mem-page-btn"><i class="bi bi-chevron-left"></i></button>
         <span id="dbt-page-info" class="mem-page-info"></span>
         <button id="dbt-next" class="mem-page-btn"><i class="bi bi-chevron-right"></i></button>
@@ -552,10 +553,10 @@
 </div>
 
 <!-- Code graph panel -->
-<div id="codegraph-panel" class="cg-panel" style="display:none;">
+<div id="codegraph-panel" class="cg-panel csp-style-2">
   <div class="cg-panel-header">
     <span class="cg-panel-title"><i class="bi bi-diagram-3"></i> Code graph</span>
-    <button class="cg-panel-close" onclick="toggleCodegraphPanel()"><i class="bi bi-x-lg"></i></button>
+    <button class="cg-panel-close" data-action="toggleCodegraphPanel"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="cg-panel-toolbar">
     <input type="text" id="cgSearchInput" class="cg-search-input" placeholder="Search symbols…" />
@@ -572,13 +573,13 @@
   </div>
   <div class="cg-panel-body" id="cg-panel-body"></div>
 </div>
-<div id="codegraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleCodegraphPanel()"></div>
+<div id="codegraph-backdrop" class="cg-backdrop csp-style-2" data-action="toggleCodegraphPanel"></div>
 
 <!-- Document graph panel (reuses the cg-* panel styles) -->
-<div id="docgraph-panel" class="cg-panel" style="display:none;">
+<div id="docgraph-panel" class="cg-panel csp-style-2">
   <div class="cg-panel-header">
     <span class="cg-panel-title"><i class="bi bi-file-earmark-text"></i> Documents</span>
-    <button class="cg-panel-close" onclick="toggleDocgraphPanel()"><i class="bi bi-x-lg"></i></button>
+    <button class="cg-panel-close" data-action="toggleDocgraphPanel"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="cg-panel-toolbar">
     <input type="text" id="dgSearchInput" class="cg-search-input" placeholder="Search documents…" />
@@ -589,13 +590,13 @@
   </div>
   <div class="cg-panel-body" id="dg-panel-body"></div>
 </div>
-<div id="docgraph-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleDocgraphPanel()"></div>
+<div id="docgraph-backdrop" class="cg-backdrop csp-style-2" data-action="toggleDocgraphPanel"></div>
 
 <!-- Skills panel (reuses the cg-* panel styles; sk-* for rows + editor) -->
-<div id="skills-panel" class="cg-panel" style="display:none;">
+<div id="skills-panel" class="cg-panel csp-style-2">
   <div class="cg-panel-header">
     <span class="cg-panel-title"><i class="bi bi-lightning-charge"></i> <span data-i18n="skills_panel_label">Skills</span></span>
-    <button class="cg-panel-close" onclick="toggleSkillsPanel()"><i class="bi bi-x-lg"></i></button>
+    <button class="cg-panel-close" data-action="toggleSkillsPanel"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="cg-panel-toolbar">
     <input type="text" id="skSearchInput" class="cg-search-input" data-i18n-attr-placeholder="skills_panel_search_ph" placeholder="Search skills…" />
@@ -603,51 +604,51 @@
   </div>
   <div class="cg-panel-body" id="sk-panel-body"></div>
 </div>
-<div id="skills-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleSkillsPanel()"></div>
+<div id="skills-backdrop" class="cg-backdrop csp-style-2" data-action="toggleSkillsPanel"></div>
 
 <!-- Background-agents panel (reuses the cg-* panel styles) -->
-<div id="agents-panel" class="cg-panel" style="display:none;">
+<div id="agents-panel" class="cg-panel csp-style-2">
   <div class="cg-panel-header">
     <span class="cg-panel-title"><i class="bi bi-robot"></i> Agents</span>
-    <button class="cg-panel-close" onclick="toggleAgentsPanel()"><i class="bi bi-x-lg"></i></button>
+    <button class="cg-panel-close" data-action="toggleAgentsPanel"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="cg-panel-body" id="ag-panel-body"></div>
 </div>
-<div id="agents-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleAgentsPanel()"></div>
+<div id="agents-backdrop" class="cg-backdrop csp-style-2" data-action="toggleAgentsPanel"></div>
 
 <!-- Configuration panel (reuses the cg-* panel styles). Schema-driven from
      lib/config.js: every editable var gets a typed control; writes persist to the
      DB under config.<KEY> and apply on restart. Tier-0 bootstrap/security vars are
      read-only (edit in .env). Secrets are write-only: blank = keep current. -->
-<div id="config-panel" class="cg-panel" style="display:none;">
+<div id="config-panel" class="cg-panel csp-style-2">
   <div class="cg-panel-header">
     <span class="cg-panel-title"><i class="bi bi-gear-wide-connected"></i> Configuration</span>
-    <button class="cg-panel-close" onclick="toggleConfigPanel()"><i class="bi bi-x-lg"></i></button>
+    <button class="cg-panel-close" data-action="toggleConfigPanel"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="cg-panel-toolbar">
     <input type="text" id="cfgSearchInput" class="cg-search-input" placeholder="Search settings…" />
-    <button id="cfgSaveBtn" class="sk-new-btn" onclick="saveConfigSettings()"><i class="bi bi-check-lg"></i> Save</button>
+    <button id="cfgSaveBtn" class="sk-new-btn" data-action="saveConfigSettings"><i class="bi bi-check-lg"></i> Save</button>
   </div>
-  <div class="config-precedence-notice" id="configPrecedenceNotice" style="display:none;">
+  <div class="config-precedence-notice csp-style-2" id="configPrecedenceNotice">
     <i class="bi bi-file-earmark-text"></i>
     <span><code>APERIO_CONFIG_PRECEDENCE=env</code> — values set in <code>.env</code> override the UI. Fields marked <span class="config-field-source is-env">from .env</span> are controlled by the file; saving them here has no effect until you remove them from <code>.env</code>.</span>
   </div>
-  <div class="config-restart-banner" id="configRestartBanner" style="display:none;">
+  <div class="config-restart-banner csp-style-2" id="configRestartBanner">
     <i class="bi bi-arrow-repeat"></i>
     <span>Restart Aperio for these changes to take effect.</span>
-    <button id="configRestartBtn" class="config-restart-btn" onclick="restartAperio()">
+    <button id="configRestartBtn" class="config-restart-btn" data-action="restartAperio">
       <i class="bi bi-power"></i> Restart now
     </button>
   </div>
-  <div class="config-restart-banner config-reindex-banner" id="configReindexBanner" style="display:none;">
+  <div class="config-restart-banner config-reindex-banner csp-style-2" id="configReindexBanner">
     <i class="bi bi-database-exclamation"></i>
     <span>You changed the embedding provider or dimensions. Existing embeddings no longer match — rebuild the vector index (a fresh database) after restart, or old memories/graph results won't be found.</span>
   </div>
-  <div id="configWarnings" style="display:none;"></div>
+  <div id="configWarnings" class="csp-style-2"></div>
   <div class="model-select-status config-status" id="configStatus"></div>
   <div class="cg-panel-body" id="configSections"><span class="model-loading">Loading…</span></div>
 </div>
-<div id="config-backdrop" class="cg-backdrop" style="display:none;" onclick="toggleConfigPanel()"></div>
+<div id="config-backdrop" class="cg-backdrop csp-style-2" data-action="toggleConfigPanel"></div>
 
 <!-- Language map overlay: world map framed on Europe; countries whose language
      Aperio speaks glow, planned ones render dashed. Logic in scripts/lang-map.js;
@@ -690,7 +691,7 @@
 <div class="langmap-toast" id="langMapToast"></div>
 
 <!-- Restart overlay: shown while the server restarts; auto-reloads when it's back -->
-<div id="restartOverlay" class="restart-overlay" style="display:none;">
+<div id="restartOverlay" class="restart-overlay csp-style-2">
   <div class="restart-overlay-card">
     <div class="restart-spinner"></div>
     <div class="restart-overlay-title" id="restartOverlayTitle">Restarting Aperio…</div>
@@ -699,10 +700,10 @@
 </div>
 
 <!-- Settings panel -->
-<div id="settings-panel" class="settings-panel" style="display:none;">
+<div id="settings-panel" class="settings-panel csp-style-2">
   <div class="settings-panel-header">
     <span class="settings-panel-title"><i class="bi bi-sliders"></i> <span data-i18n="nav_settings_title">Settings</span></span>
-    <button class="settings-panel-close" onclick="toggleSettingsPanel()"><i class="bi bi-x-lg"></i></button>
+    <button class="settings-panel-close" data-action="toggleSettingsPanel"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="settings-panel-body">
     <details class="settings-section" id="fontSizeSection">
@@ -712,10 +713,10 @@
       </summary>
       <div class="settings-section-body">
         <div class="fontscale-slider-row" data-i18n-attr-title="nav_fontsize_title" title="Text size">
-          <span class="fontscale-end" aria-hidden="true" style="font-size:11px">A</span>
+          <span class="fontscale-end csp-style-14" aria-hidden="true">A</span>
           <input type="range" class="fontscale-slider" id="fontScaleSlider"
                  min="0.85" max="1.4" step="0.05" value="1" aria-label="Text size">
-          <span class="fontscale-end" aria-hidden="true" style="font-size:20px">A</span>
+          <span class="fontscale-end csp-style-15" aria-hidden="true">A</span>
           <output class="fontscale-value" id="fontScaleValue" for="fontScaleSlider">100%</output>
         </div>
       </div>
@@ -761,15 +762,15 @@
         <div class="paths-chips" id="paths-chips"></div>
         <div class="paths-add-row">
           <input type="text" id="path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
-          <button class="paths-pick-btn" onclick="_pickFolder()" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
+          <button class="paths-pick-btn" data-action="_pickFolder" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
             <i class="bi bi-folder2-open"></i>
           </button>
-          <button class="paths-add-btn" onclick="addPathChip()"><i class="bi bi-plus-lg"></i></button>
+          <button class="paths-add-btn" data-action="addPathChip"><i class="bi bi-plus-lg"></i></button>
         </div>
         <div class="paths-saved-note" data-i18n-html="paths_saved_note_html">
           <i class="bi bi-hdd"></i> Saved across sessions.
         </div>
-        <button class="paths-apply-btn" onclick="applyPaths()"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Save</span></button>
+        <button class="paths-apply-btn" data-action="applyPaths"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Save</span></button>
       </div>
     </details>
     <!-- Extras — optional skill dependencies (docx Python toolchain). Detects
@@ -819,19 +820,19 @@
         <textarea id="triageReposInput" class="busy-words-input" rows="3" spellcheck="false"
                   placeholder="octocat/Hello-World&#10;my-project"></textarea>
 
-        <span class="paths-section-hint" style="margin-top:.75rem;">GitHub token — optional for public repos (raises the rate limit), required for private repos and for creating/updating issues. Needs <code>repo</code> scope. <span id="githubTokenState"></span></span>
+        <span class="paths-section-hint csp-style-16">GitHub token — optional for public repos (raises the rate limit), required for private repos and for creating/updating issues. Needs <code>repo</code> scope. <span id="githubTokenState"></span></span>
         <input type="password" id="githubTokenInput" class="paths-text-input" autocomplete="off"
                placeholder="ghp_… (leave blank to keep current)" />
 
-        <span class="paths-section-hint" style="margin-top:.75rem;">Webhook secret — only needed if you point a GitHub webhook at this Aperio for instant issue capture. Must match the secret on the GitHub webhook. <span id="githubWebhookSecretState"></span></span>
+        <span class="paths-section-hint csp-style-16">Webhook secret — only needed if you point a GitHub webhook at this Aperio for instant issue capture. Must match the secret on the GitHub webhook. <span id="githubWebhookSecretState"></span></span>
         <input type="password" id="githubWebhookSecretInput" class="paths-text-input" autocomplete="off"
                placeholder="(leave blank to keep current)" />
 
-        <div class="paths-saved-note" style="margin-top:.75rem;">
+        <div class="paths-saved-note csp-style-16">
           <i class="bi bi-info-circle"></i> Triage runs as a background agent — enable background agents and the <code>issue-triage</code> job to start it.
         </div>
         <div class="model-select-status" id="githubTriageStatus"></div>
-        <button class="paths-apply-btn" onclick="saveGithubTriageSettings()"><i class="bi bi-check-lg"></i> Save</button>
+        <button class="paths-apply-btn" data-action="saveGithubTriageSettings"><i class="bi bi-check-lg"></i> Save</button>
       </div>
     </details>
     <!-- Database connections — named SQL connections the db_* tools can query.
@@ -868,19 +869,19 @@
     <input type="file" id="path-folder-input" webkitdirectory hidden>
   </div>
 </div>
-<div id="settings-backdrop" class="settings-backdrop" style="display:none;" onclick="toggleSettingsPanel()"></div>
+<div id="settings-backdrop" class="settings-backdrop csp-style-2" data-action="toggleSettingsPanel"></div>
 
 <!-- System panel -->
-<div id="system-panel" class="system-panel" style="display:none;">
+<div id="system-panel" class="system-panel csp-style-2">
   <div class="system-panel-header">
     <span class="system-panel-title"><i class="bi bi-speedometer2"></i> System</span>
-    <button class="system-panel-close" onclick="toggleSystemPanel()"><i class="bi bi-x-lg"></i></button>
+    <button class="system-panel-close" data-action="toggleSystemPanel"><i class="bi bi-x-lg"></i></button>
   </div>
   <div class="system-panel-body" id="system-metrics-body">
     <div class="system-loading">Loading metrics…</div>
   </div>
 </div>
-<div id="system-backdrop" class="system-backdrop" style="display:none;" onclick="toggleSystemPanel()"></div>
+<div id="system-backdrop" class="system-backdrop csp-style-2" data-action="toggleSystemPanel"></div>
 
 <script src="scripts/settings.js"></script>
 <script src="scripts/ambient.js"></script>

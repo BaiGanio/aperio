@@ -60,7 +60,7 @@ function renderMarkdown(text) {
     blocks.push(
       '<div class="code-block">' +
       '<div class="code-toolbar"><span class="code-lang">' + label + '</span>' +
-      '<button class="copy-btn" onclick="copyCode(\'' + id + '\')">' +
+      '<button class="copy-btn" data-action="copyCode" data-code-id="' + id + '">' +
       '<i class="bi bi-clipboard"></i> copy</button></div>' +
       '<pre><code id="' + id + '"' + langClass + '>' + escaped.trimEnd() + '</code></pre></div>'
     );

@@ -230,12 +230,16 @@ test("Security tests", async (t) => {
     });
     assert.notEqual(upRes.status, 403,
       `Static mount with cookie returns ${upRes.status}, not 403`);
+    assert.ok(upRes.headers["content-security-policy"],
+      "/uploads response carries a CSP header");
 
     const scRes = await request(authed, "/scratch/nonexistent", {
       headers: { Cookie: staticCookie },
     });
     assert.notEqual(scRes.status, 403,
       `Scratch mount with cookie returns ${scRes.status}, not 403`);
+    assert.ok(scRes.headers["content-security-policy"],
+      "/scratch response carries a CSP header");
   });
 
   // ══════════════════════════════════════════════════════════════════════

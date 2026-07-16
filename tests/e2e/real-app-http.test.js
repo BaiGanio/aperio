@@ -88,6 +88,12 @@ test("T19: Helmet security headers are present", async (t) => {
   // Helmet headers
   assert.ok(res.headers["x-content-type-options"], "X-Content-Type-Options present");
   assert.ok(res.headers["x-frame-options"], "X-Frame-Options present");
+  const csp = res.headers["content-security-policy"];
+  assert.ok(csp, "Content-Security-Policy present");
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /script-src[^;]*'self'/);
+  assert.match(csp, /style-src[^;]*'unsafe-inline'/);
+  assert.match(csp, /connect-src[^;]*wss:/);
   assert.ok(
     res.headers["content-type"]?.includes("application/json"),
     "API response is JSON"
@@ -98,6 +104,13 @@ test("T19: Helmet security headers are present", async (t) => {
     res.headers["access-control-allow-origin"] === "null",
     "No permissive CORS header"
   );
+});
+
+test("T19b: CSP report-only mode uses the report-only header", async (t) => {
+  const app = await startRealApp(t, { env: { APERIO_CSP: "report" } });
+  const res = await request(app, "/api/locale");
+  assert.ok(res.headers["content-security-policy-report-only"]);
+  assert.equal(res.headers["content-security-policy"], undefined);
 });
 
 // ─── T20: Unknown Host rejection ───────────────────────────────────────────
