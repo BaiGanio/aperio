@@ -16,6 +16,8 @@ import {
   isLocalProvider,
   isCloudProvider,
   resolvePerfProfile,
+  resolveKvCachePolicy,
+  kvCacheScale,
   getRecommendedModel,
   defaultLocalModel,
   PERF_PROFILES,
@@ -391,6 +393,31 @@ describe("resolvePerfProfile", () => {
 
   test("falls back to balanced for an unrecognized value", () => {
     assert.equal(resolvePerfProfile({ APERIO_LOCAL_PERF_PROFILE: "ultra-turbo" }), "balanced");
+  });
+});
+
+describe("resolveKvCachePolicy", () => {
+  const f16 = { cacheTypeK: "f16", cacheTypeV: "f16", forceFlashAttention: false, sizingScale: 1 };
+  const q8 = { cacheTypeK: "q8_0", cacheTypeV: "q8_0", forceFlashAttention: true, sizingScale: 0.5 };
+
+  test("maps every performance profile to a complete cache policy", () => {
+    assert.deepEqual(resolveKvCachePolicy({}), f16);
+    assert.deepEqual(resolveKvCachePolicy({ APERIO_LOCAL_PERF_PROFILE: "balanced" }), f16);
+    assert.deepEqual(resolveKvCachePolicy({ APERIO_LOCAL_PERF_PROFILE: "quality" }), f16);
+    assert.deepEqual(resolveKvCachePolicy({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }), q8);
+    assert.deepEqual(resolveKvCachePolicy({ APERIO_LOCAL_PERF_PROFILE: "long-context" }), f16);
+  });
+
+  test("inherits profile normalization and balanced fallback semantics", () => {
+    assert.deepEqual(resolveKvCachePolicy({ APERIO_LOCAL_PERF_PROFILE: "  LONG-CONTEXT " }), f16);
+    assert.deepEqual(resolveKvCachePolicy({ APERIO_LOCAL_PERF_PROFILE: "unknown" }), f16);
+  });
+
+  test("derives sizing scale from the selected cache type and rejects unsupported types", () => {
+    assert.equal(kvCacheScale("f16"), 1);
+    assert.equal(kvCacheScale("q8_0"), 0.5);
+    assert.throws(() => kvCacheScale("q4_0"), /Unsupported KV cache type/);
+    assert.throws(() => kvCacheScale(undefined), /Unsupported KV cache type/);
   });
 });
 
