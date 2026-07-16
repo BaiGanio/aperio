@@ -3,7 +3,8 @@
 
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { assertPublicUrl, isBlockedAddress } from "../../../lib/helpers/ssrfGuard.js";
+import http from "node:http";
+import { assertPublicUrl, isBlockedAddress, makePinnedLookup } from "../../../lib/helpers/ssrfGuard.js";
 
 afterEach(() => {
   delete process.env.APERIO_ALLOW_INTERNAL_FETCH;
@@ -58,5 +59,54 @@ describe("assertPublicUrl", () => {
   test("egress allowlist permits a listed host", async () => {
     process.env.APERIO_EGRESS_ALLOWLIST = "8.8.8.8";
     await assert.doesNotReject(() => assertPublicUrl("http://8.8.8.8/"));
+  });
+});
+
+describe("makePinnedLookup", () => {
+  test("answers the scalar form when all is not requested", (t, done) => {
+    makePinnedLookup("93.184.216.34", 4)("example.com", {}, (err, address, family) => {
+      assert.equal(err, null);
+      assert.equal(address, "93.184.216.34");
+      assert.equal(family, 4);
+      done();
+    });
+  });
+
+  test("answers the array form when called with { all: true }", (t, done) => {
+    makePinnedLookup("93.184.216.34", 4)("example.com", { all: true }, (err, addresses) => {
+      assert.equal(err, null);
+      assert.deepEqual(addresses, [{ address: "93.184.216.34", family: 4 }]);
+      done();
+    });
+  });
+
+  // Regression for "Invalid IP address: undefined": Node ≥20 sockets default to
+  // autoSelectFamily, which calls the custom lookup with { all: true } and
+  // expects an array — the old scalar-only callback broke every pinned fetch.
+  // Drive a real socket through http.request with the pinned lookup and assert
+  // the connection succeeds under the runtime's default socket options.
+  test("http.request connects through the pinned lookup (autoSelectFamily)", async () => {
+    const server = http.createServer((req, res) => res.end("ok"));
+    await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address();
+    try {
+      const body = await new Promise((resolve, reject) => {
+        const req = http.request({
+          hostname: "pinned-host.invalid", // never resolved: the lookup answers
+          port,
+          path: "/",
+          lookup: makePinnedLookup("127.0.0.1", 4),
+        }, (res) => {
+          const chunks = [];
+          res.on("data", c => chunks.push(c));
+          res.on("end", () => resolve(Buffer.concat(chunks).toString()));
+        });
+        req.on("error", reject);
+        req.end();
+      });
+      assert.equal(body, "ok");
+    } finally {
+      server.close();
+    }
   });
 });

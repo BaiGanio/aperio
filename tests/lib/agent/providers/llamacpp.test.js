@@ -419,6 +419,53 @@ describe("runLlamaCppLoop — successful response", () => {
     assert.match(bodies[1].messages[0].content, /do not call `wiki_write` again/i);
   });
 
+  // Regression for the 24 GB tier-exam failure (#282): matched skills inflated
+  // the system prompt past the served context; schema capping alone could not
+  // close the gap and the request was sent anyway, so llama.cpp answered
+  // 400 exceed_context_size_error. The preflight must fall back to the
+  // skill-free system prompt instead of sending a request it knows is doomed.
+  test("preflight falls back to the skill-free system prompt when over budget", async () => {
+    const bodies = [];
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      const tag = String(url);
+      if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
+      if (tag.includes("/chat/completions")) {
+        bodies.push(JSON.parse(opts.body));
+        return {
+          ok: true, status: 200, text: async () => "",
+          body: sseStream([
+            'data: {"choices":[{"index":0,"delta":{"content":"Done."},"finish_reason":null}]}\n\n',
+            'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":100,"output_tokens":2}}\n\n',
+            "data: [DONE]\n\n",
+          ]),
+        };
+      }
+      return { ok: false, status: 404, text: async () => "Not found" };
+    });
+
+    // Bloated prompt: far past 90% of the 8192-token window. The lean variant fits.
+    const skillBloat = "skill guidance filler ".repeat(4000);
+    const prepareModelContext = async () => ({
+      messages: [{ role: "user", content: "Run the syntax check" }],
+      systemPrompt: `You are a helpful assistant.\n\n${skillBloat}`,
+      systemPromptNoSkills: "You are a helpful assistant.",
+      tools: [],
+    });
+
+    const result = await runLlamaCppLoop(
+      [{ role: "user", content: "Run the syntax check" }],
+      { send: makeEmittersend() }, {}, undefined, () => {},
+      baseCtx("gemma4:e4b", { prepareModelContext }),
+    );
+
+    assert.equal(result, "Done.");
+    assert.equal(bodies.length, 1);
+    assert.doesNotMatch(bodies[0].messages[0].content, /skill guidance filler/,
+      "the request must carry the skill-free system prompt");
+    assert.ok(infoCalls.some(c => /dropped skill prompts/.test(String(c[0]))),
+      "the fallback is logged");
+  });
+
   test("returns error when API returns non-200", async () => {
     mock.method(globalThis, "fetch", async (url) => {
       const tag = String(url);

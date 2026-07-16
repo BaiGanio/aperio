@@ -2,9 +2,8 @@ import { z }                                               from "zod";
 import { createHash }                                      from "crypto";
 import { readFileSync, readdirSync, statSync, lstatSync, existsSync } from "fs";
 import fs                                                  from "fs/promises";
-import { join, extname, basename, dirname, relative, resolve as resolvePath } from "path";
+import { join, extname, basename, relative, resolve as resolvePath } from "path";
 import mammoth                                             from "mammoth";
-import { fileURLToPath }                                   from "url";
 import { v4 as uuidv4 }                                   from "uuid";
 import ExcelJS                                             from "exceljs";
 import {
@@ -19,8 +18,11 @@ import {
 } from "../../lib/routes/paths.js";
 import { createInterruptService } from "../../lib/security/interruptService.js";
 
-const __filesDirname = dirname(fileURLToPath(import.meta.url));
-const UPLOADS_DIR    = resolvePath(__filesDirname, "../../var/uploads");
+// Runtime var/ data anchors to process.cwd() — the same root as the path-guard
+// floor (lib/routes/paths.js BASE_DIR) and the SQLite default. Module-relative
+// anchoring let generated documents escape sandboxed runs into the install
+// tree (#282). Identical in normal launches, where cwd == repo root.
+const UPLOADS_DIR = resolvePath(process.cwd(), "var/uploads");
 
 const ALLOWED_EXTENSIONS = new Set([
   ".js", ".ts", ".jsx", ".tsx", ".py", ".go", ".rs", ".java",
@@ -95,6 +97,11 @@ function readConfirmToken(args) {
 // OR the turn is tainted by untrusted content. New/overwrite inside scratch in a
 // clean turn runs directly so skill output stays frictionless.
 function needsWriteConfirm(resolved, args) {
+  // Benchmark runs are headless — no user exists to answer, so a stashed write
+  // deadlocks the turn and invalidates the observation (#282). The bench
+  // sandbox is already isolated by an allowlist scoped to its temp workspace,
+  // so skipping the gate does not widen what the model can touch.
+  if (process.env.APERIO_BENCHMARK_RUN === "1") return false;
   const inScratch = resolved.includes("/var/scratch/");
   return !inScratch || args.__tainted === true;
 }

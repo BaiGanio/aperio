@@ -6,6 +6,8 @@ import { EventEmitter } from 'events';
 import net from 'net';
 import { promisify } from 'util';
 import { resolveModelCacheDir } from './lib/helpers/modelCache.js';
+import { downloadInProgressBytes } from './lib/helpers/modelProgress.js';
+import { parseDownloadProgress, stripAnsi } from './lib/helpers/downloadProgress.js';
 
 const execAsync = promisify(exec);
 
@@ -20,10 +22,11 @@ mkdirSync('./var', { recursive: true });
 let logStream = null;
 
 const logger = (msg, level = 'info') => {
-  const line = `[${new Date().toISOString()}] [${level.toUpperCase()}] ${msg}`;
+  const clean = stripAnsi(msg).replace(/\r/g, '\n').trim();
+  if (!clean) return;
   if (!logStream) logStream = createWriteStream('./var/bootstrap.log', { flags: 'a' });
-  logStream.write(line + '\n');
-  bootstrapEvents.emit('progress', { message: msg, level, ts: Date.now() });
+  logStream.write(`[${new Date().toISOString()}] [${level.toUpperCase()}] ${clean}\n`);
+  bootstrapEvents.emit('progress', { message: clean, level, ts: Date.now() });
 };
 
 // ── State ─────────────────────────────────────────────────────────────────
@@ -285,6 +288,26 @@ const primeLlamaCppModelOnPort = (repoWithQuant, scratchPort) => new Promise((re
 
   let settled = false;
   let poll;
+  const existingBytes = downloadInProgressBytes(repoWithQuant, LLAMA_CACHE_DIR);
+  let progress = { downloadedBytes: existingBytes, resumed: existingBytes > 0 };
+  let lineBuffer = '';
+  const consume = (chunk) => {
+    lineBuffer += stripAnsi(chunk.toString());
+    const lines = lineBuffer.split(/\r?\n|\r/);
+    lineBuffer = lines.pop() ?? '';
+    for (const line of lines) {
+      const parsed = parseDownloadProgress(line, progress);
+      logger(line.trim());
+      if (!parsed) continue;
+      progress = { ...progress, ...parsed };
+      bootstrapEvents.emit('progress', {
+        message: line.trim(),
+        level: 'info',
+        download: { model: repoWithQuant, status: 'downloading', ...parsed },
+        ts: Date.now(),
+      });
+    }
+  };
   const finish = (fn, arg) => {
     if (settled) return;
     settled = true;
@@ -293,8 +316,8 @@ const primeLlamaCppModelOnPort = (repoWithQuant, scratchPort) => new Promise((re
     fn(arg);
   };
 
-  proc.stdout.on('data', d => logger(d.toString().trim()));
-  proc.stderr.on('data', d => logger(d.toString().trim()));
+  proc.stdout.on('data', consume);
+  proc.stderr.on('data', consume);
   proc.on('error', err => finish(rejectPrime, err));
   proc.on('close', code => {
     if (!settled) finish(rejectPrime, new Error(`llama-server exited with code ${code} while downloading ${repoWithQuant}`));
@@ -347,7 +370,15 @@ const checkLlamaCppModel = async (model, { pullIfMissing = false } = {}) => {
   setStep('model', 'running', `Downloading ${model} — this may take a few minutes…`);
   try {
     await primeLlamaCppModel(model);
+    bootstrapEvents.emit('progress', {
+      message: `${model} download complete`, level: 'info',
+      download: { model, status: 'completed' }, ts: Date.now(),
+    });
   } catch (err) {
+    bootstrapEvents.emit('progress', {
+      message: `Model download failed: ${err.message}`, level: 'error',
+      download: { model, status: /abort|signal|cancel/i.test(err.message) ? 'aborted' : 'failed' }, ts: Date.now(),
+    });
     setStep('model', 'error', `Model download failed: ${err.message}`);
     throw err;
   }

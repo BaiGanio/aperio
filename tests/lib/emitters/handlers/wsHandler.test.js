@@ -59,7 +59,7 @@ function makeHandler(agentOverrides = {}) {
   return makeWsHandler({
     agent:      makeAgent(agentOverrides),
     store:      { listAll: async () => [] },
-    __dirname:  TEST_DIR,
+    varRoot:  TEST_DIR,
   });
 }
 
@@ -153,7 +153,7 @@ describe("message type: init", () => {
         runAgentLoop:   async () => { loopSpy.push(1); return ""; },
       }),
       store:     { listAll: async () => [{ id: "1", type: "fact", title: "t", content: "c", tags: [], importance: 3, created_at: null, pinned: false }] },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -176,7 +176,7 @@ describe("message type: init", () => {
         runAgentLoop:  async () => { loopSpy.push(1); return ""; },
       }),
       store:     { listAll: async () => [] },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -203,7 +203,7 @@ describe("message type: init", () => {
         runAgentLoop:  async (msgs) => { loopMsgs.push([...msgs]); return ""; },
       }),
       store:     { listAll: async () => [] },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -227,7 +227,7 @@ describe("message type: init", () => {
         runAgentLoop:  async (msgs) => { loopMsgs.push([...msgs]); return ""; },
       }),
       store:     { listAll: async () => [] },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -248,7 +248,7 @@ describe("message type: init", () => {
         runAgentLoop:   async (msgs, _emitter, opts) => { loopArgs.push(opts); return ""; },
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -269,7 +269,7 @@ describe("message type: init", () => {
         runAgentLoop: async (msgs, _emitter, opts) => { loopArgs.push(opts); return ""; },
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -287,7 +287,7 @@ describe("message type: init", () => {
         runAgentLoop: async (_msgs, _emitter, opts) => { loopArgs.push(opts); return ""; },
       }),
       store: { listAll: async () => [] },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -303,7 +303,7 @@ describe("message type: init", () => {
     const handler = makeWsHandler({
       agent: makeAgent({ buildGreeting: async () => { spy.push(1); return { prompt: "Hi", memCtx: "", preloadedMemCount: 0 }; } }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -325,7 +325,7 @@ describe("message type: init", () => {
       },
     });
 
-    makeWsHandler({ agent, store: {}, __dirname: TEST_DIR })(ws);
+    makeWsHandler({ agent, store: {}, varRoot: TEST_DIR })(ws);
     await ws.emit({ type: "init" });
 
     const providerMsgs = sentOf(ws, "provider");
@@ -359,7 +359,7 @@ describe("message type: chat", () => {
         },
       }),
       store: { listAll: async () => [] },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -410,7 +410,7 @@ describe("message type: chat", () => {
           }
         },
       }),
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
     handler(ws);
     const first = ws.emit({ type: "chat", text: "first", turnId: "turn-a" });
@@ -432,7 +432,7 @@ describe("message type: chat", () => {
         runAgentLoop: async (msgs) => { loopMsgs.push([...msgs]); return ""; },
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -451,7 +451,7 @@ describe("message type: chat", () => {
         runAgentLoop: async () => { order.push("loop"); return ""; },
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -471,7 +471,7 @@ describe("message type: chat", () => {
 
     const handler2 = makeWsHandler({
       agent: makeAgent({ runAgentLoop: async () => { sentOrder.push("loop"); return ""; } }),
-      store: {}, __dirname: TEST_DIR,
+      store: {}, varRoot: TEST_DIR,
     });
     handler2(ws2);
     await ws2.emit({ type: "chat", text: "hi" });
@@ -492,7 +492,7 @@ describe("message type: chat", () => {
         handleRememberIntent: async (text) => rememberCalls.push(text),
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -512,7 +512,7 @@ describe("message type: chat", () => {
         handleRememberIntent: async (text) => rememberCalls.push(text),
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -531,7 +531,7 @@ describe("message type: chat", () => {
         handleRememberIntent: async (text) => rememberCalls.push(text),
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -547,7 +547,7 @@ describe("message type: chat", () => {
     const handler = makeWsHandler({
       agent: makeAgent(),
       store:     { listAll: async () => { listAllSpy.push(1); return []; } },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -574,7 +574,7 @@ describe("message type: chat", () => {
     const handler = makeWsHandler({
       agent,
       store: { listAll: async () => [] },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -655,7 +655,7 @@ describe("message type: interrupt_decision", () => {
     const handler = makeWsHandler({
       agent: makeAgent(),
       store,
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -695,7 +695,7 @@ describe("message type: stop", () => {
         },
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -723,7 +723,7 @@ describe("message type: get_memories", () => {
     const handler = makeWsHandler({
       agent: makeAgent(),
       store:     { listAll: async () => rows },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -747,7 +747,7 @@ describe("message type: delete_memory", () => {
         callTool: async (name, args) => { toolCalls.push({ name, args }); return "OK"; },
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -770,7 +770,7 @@ describe("message type: delete_memory", () => {
         callTool: async () => { throw new Error("store unreachable"); },
       }),
       store:     {},
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
@@ -863,7 +863,7 @@ describe("error handling", () => {
     const handler = makeWsHandler({
       agent: makeAgent(),
       store:     { listAll: async () => { throw new Error("db down"); } },
-      __dirname: TEST_DIR,
+      varRoot: TEST_DIR,
     });
 
     handler(ws);
