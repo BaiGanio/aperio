@@ -3,6 +3,7 @@ import { spawn, execSync, exec } from 'child_process';
 import { createWriteStream, existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
 import { resolve, delimiter } from 'path';
 import { EventEmitter } from 'events';
+import net from 'net';
 import { promisify } from 'util';
 import { resolveModelCacheDir } from './lib/helpers/modelCache.js';
 
@@ -255,14 +256,27 @@ const isModelCached = async (repoWithQuant) => {
   } catch { return false; }
 };
 
-const primeLlamaCppModel = (repoWithQuant) => new Promise((resolvePrime, rejectPrime) => {
-  const scratchPort = String(Number(process.env.LLAMACPP_PORT || 8080) + 1000);
+export const getEphemeralPort = ({ createServer = net.createServer } = {}) => new Promise((resolvePort, rejectPort) => {
+  const server = createServer();
+  server.once('error', rejectPort);
+  server.listen(0, '127.0.0.1', () => {
+    const address = server.address();
+    const port = typeof address === 'object' && address ? address.port : null;
+    server.close(err => {
+      if (err) rejectPort(err);
+      else if (!port) rejectPort(new Error('OS did not assign a scratch port'));
+      else resolvePort(port);
+    });
+  });
+});
+
+const primeLlamaCppModelOnPort = (repoWithQuant, scratchPort) => new Promise((resolvePrime, rejectPrime) => {
   mkdirSync(LLAMA_CACHE_DIR, { recursive: true });
 
   const proc = spawn('llama-server', [
     '-hf', repoWithQuant,
     '--host', '127.0.0.1',
-    '--port', scratchPort,
+    '--port', String(scratchPort),
     '--jinja',
   ], {
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -295,6 +309,27 @@ const primeLlamaCppModel = (repoWithQuant) => new Promise((resolvePrime, rejectP
     } catch { /* not ready yet */ }
   }, 1000);
 });
+
+export async function primeLlamaCppModel(repoWithQuant, {
+  pickPort = getEphemeralPort,
+  primeOnPort = primeLlamaCppModelOnPort,
+} = {}) {
+  let attemptedPort = null;
+  let lastError;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      attemptedPort = await pickPort();
+      await primeOnPort(repoWithQuant, attemptedPort);
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw new Error(
+    `Failed to prime ${repoWithQuant} on scratch port ${attemptedPort ?? 'unavailable'}: ${lastError?.message || 'unknown error'}`,
+    { cause: lastError },
+  );
+}
 
 const checkLlamaCppModel = async (model, { pullIfMissing = false } = {}) => {
   setStep('model', 'running', `Checking for ${model}…`);

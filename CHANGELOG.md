@@ -42,6 +42,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   restart Aperio so the regenerated model preset takes effect.
 - Windows lite launchers now apply the complete `start:lite` environment,
   including database-first configuration precedence.
+- llama.cpp model priming now uses an OS-assigned scratch port, retries once
+  if the port is raced, and identifies the attempted port in failures.
+- Removed the orphaned generated `scripts/en-output.json` artifact.
 
 - Workflow suggestions now require two successful calls from an explicit set of
   meaningful action tools, excluding recall, file reads, searches, and failed
