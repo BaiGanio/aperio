@@ -2,25 +2,30 @@
 
 ## Current decision posture — 2026-07-16
 
-Gemma 4 E4B UD-Q4_K_XL is the preferred provisional candidate for the next
-stage. It is the strongest currently observed model for Aperio's tool loop, but
-it is not yet an approved installer default:
+Gemma 4 E4B UD-Q4_K_XL is the primary provisional model for all four Aperio
+RAM tiers: 8, 16, 24, and 32 GB. No broader model guessing is needed for the
+next stage. It is not yet an approved installer default because the final
+qualification and finalist evidence still have to be completed:
 
 - A fresh hardware-tier 32 GB `chain-recall-wiki` verification passed in 201.5s
   with `statePassed: true`, three successful tool results, zero persistent tool
   failures, and zero qualification swap growth.
 - Earlier isolated 8/16/24 GB runs passed the same chain case, but those lower
   tiers were simulated on the 32 GB host and remain provisional.
-- The subsequent five-case 32 GB funnel was invalid because the chain case hit
-  the fixed 300-second whole-turn deadline. It is harness-invalid evidence, not
-  a scored model failure, but it must be rerun and explained before promotion.
+- The later full 32 GB campaign passed all four native recall cases and both
+  guardrails, but was invalid after `chain-write-run-node` timed out. The
+  remaining chain cases were then exercised individually: document-existence,
+  web-source-memory, and wiki-provenance timed out; code-syntax-run exceeded
+  the llama.cpp context limit; the two file cases failed tool behavior. These
+  are preserved as evidence and are not silently scored as passes.
 - Gemma 4 12B was tested from a scratch catalog at simulated 16 GB; it timed
   out on `recall-filter-tag` after two slow but completed recall cases and is not
   a stronger candidate under the current bounded contract.
 
-The next stage is therefore E4B qualification and finalist evidence, not
-installer wiring. Keep the catalog role as `provisional-default` until the
-hard gates, real-tier caveat, full exam, and human review are complete.
+The next stage is one fresh complete 24 GB E4B qualification run, aggregated
+across all 14 cases, followed by the finalist exam and required repeats. Keep
+the catalog role as `provisional-default` until the hard gates, real-tier
+caveat, full exam, and human review are complete.
 
 ## Bounded live verification closeout — 2026-07-15
 

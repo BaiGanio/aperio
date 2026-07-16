@@ -34,6 +34,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `update_github_issue` now leads its tool description with the commenting
+  use-case so small models map "comment on the issue" onto it instead of
+  replying that no such capability exists (#237 Symptom B). Regression test
+  guards the description ordering.
+
 - Wiki writes now pass source-memory strings through MCP validation so the
   handler can omit malformed, expired, or unknown citations while preserving
   valid provenance. This prevents one mistyped memory UUID from invalidating an

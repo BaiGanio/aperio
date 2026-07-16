@@ -622,14 +622,15 @@ export function register(server, ctx) {
     "update_github_issue",
     {
       description:
-        "Update an existing GitHub issue: close or reopen it (`state`), edit `title`/`body`, replace " +
-        "`labels`/`assignees`, and/or add a `comment`. Identify the repo by EITHER a `project` name " +
-        "(an indexed directory, resolved to owner/repo via its git origin) OR an explicit `repo` as " +
-        "'owner/repo', plus the `issue` number. NOTE: `labels` and `assignees` REPLACE the existing " +
-        "sets (pass [] to clear them); a `comment` is additive. SAFETY: confirm-before-write. Call this " +
-        "tool ONCE to propose the change; the user is shown a confirm button and the SERVER applies it " +
-        "directly when they click. Do NOT set `confirmation_token` yourself and do NOT call again — just " +
-        "propose, then end your turn. Requires GITHUB_TOKEN with `repo` (issues:write) scope.",
+        "Comment on a GitHub issue, and/or update it. THE tool for posting a comment, reply, or note " +
+        "on an existing issue — pass the text as `comment` (additive; leaves every other field alone). " +
+        "Also closes or reopens the issue (`state`), edits `title`/`body`, and replaces " +
+        "`labels`/`assignees` (they REPLACE the existing sets — pass [] to clear). Identify the repo by " +
+        "EITHER a `project` name (an indexed directory, resolved to owner/repo via its git origin) OR " +
+        "an explicit `repo` as 'owner/repo', plus the `issue` number. SAFETY: confirm-before-write. " +
+        "Call this tool ONCE to propose the change; the user is shown a confirm button and the SERVER " +
+        "applies it directly when they click. Do NOT set `confirmation_token` yourself and do NOT call " +
+        "again — just propose, then end your turn. Requires GITHUB_TOKEN with `repo` (issues:write) scope.",
       inputSchema: z.object({
         project: z.string().optional().describe(
           "Name of an indexed directory, e.g. 'aperio'. Resolved to owner/repo via its git origin. Use this OR `repo`."
@@ -641,7 +642,7 @@ export function register(server, ctx) {
         body: z.string().optional().describe("New body (replaces the existing body)."),
         labels: z.array(z.string()).optional().describe("New label set — REPLACES all existing labels. Pass [] to clear."),
         assignees: z.array(z.string()).optional().describe("New assignee set — REPLACES all existing assignees. Pass [] to clear."),
-        comment: z.string().optional().describe("Add a comment to the issue (additive, separate from field edits)."),
+        comment: z.string().optional().describe("Comment text to post on the issue, Markdown supported (additive, separate from field edits)."),
         confirmation_token: z.string().optional().describe(
           "RESERVED for the server's confirm flow — do NOT set this. Leave it empty; the user's confirm " +
           "button click triggers the change server-side."

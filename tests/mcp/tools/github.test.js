@@ -12,6 +12,7 @@ import {
   updateGithubIssueHandler,
   listGithubIssuesHandler,
   recordIssueTriageHandler,
+  register,
 } from "../../../mcp/tools/github.js";
 
 // ─── Generic mock fetch helper ────────────────────────────────────────────────
@@ -468,5 +469,37 @@ describe("record_issue_triage", () => {
   test("rejects a bad repo", async () => {
     const res = await recordIssueTriageHandler({ repo: "noslash", issue_number: 1 }, { store: fakeStore() });
     assert.match(res.content[0].text, /repo.*required/);
+  });
+});
+
+// =============================================================================
+// Tool registration — discoverability contract (#237 Symptom B)
+// =============================================================================
+
+// Small models map "write a comment on the issue" onto a tool by lexical
+// overlap with its description. update_github_issue must therefore LEAD with
+// the commenting use-case, not bury `comment` behind close/edit/label verbs.
+describe("update_github_issue registration", () => {
+  function collectRegistrations() {
+    const tools = new Map();
+    const fakeServer = { registerTool: (name, config) => tools.set(name, config) };
+    register(fakeServer, {});
+    return tools;
+  }
+
+  test("description leads with the commenting use-case", () => {
+    const { description } = collectRegistrations().get("update_github_issue");
+    const firstSentence = description.split(/\.\s/)[0];
+    assert.match(firstSentence, /\bcomment\b/i);
+    assert.ok(
+      description.toLowerCase().indexOf("comment") < description.toLowerCase().indexOf("close"),
+      "commenting must be mentioned before close/reopen",
+    );
+  });
+
+  test("comment param description says what text to pass", () => {
+    const { inputSchema } = collectRegistrations().get("update_github_issue");
+    const desc = inputSchema.shape.comment.description;
+    assert.match(desc, /comment text to post/i);
   });
 });

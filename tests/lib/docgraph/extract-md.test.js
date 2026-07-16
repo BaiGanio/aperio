@@ -79,4 +79,81 @@ describe("extract-md", () => {
       assert.equal(md.slice(s.startOffset, s.endOffset), s.text);
     }
   });
+
+  describe("frontmatter", () => {
+    test("leading frontmatter is stripped from sections and parsed to flat scalars", async () => {
+      const md = [
+        "---",
+        "type: note",
+        'title: "Quoted Title"',
+        "tags:",
+        "  - one",
+        "---",
+        "Preamble text.",
+        "",
+        "# Heading",
+        "Body.",
+      ].join("\n");
+
+      const { title, frontmatter, sections } = await extract(md, "x.md");
+      assert.equal(frontmatter.type, "note");
+      assert.equal(frontmatter.title, "Quoted Title");
+      assert.equal(title, "Quoted Title");
+      // Nested/list values are skipped, not mangled.
+      assert.equal(frontmatter.tags, undefined);
+      // No section text contains the frontmatter block.
+      for (const s of sections) assert.doesNotMatch(s.text, /type: note/);
+      const preamble = sections.find(s => s.level === 0);
+      assert.match(preamble.text, /Preamble text/);
+    });
+
+    test("offsets still round-trip against the raw file when frontmatter is present", async () => {
+      const md = "---\ntype: note\n---\nintro\n\n# A\nalpha\n## B\nbeta";
+      const { sections } = await extract(md, "x.md");
+      assert.ok(sections.length >= 3);
+      for (const s of sections) {
+        assert.equal(md.slice(s.startOffset, s.endOffset), s.text);
+      }
+    });
+
+    test("frontmatter-less documents behave exactly as before", async () => {
+      const md = "Loose intro.\n\n# Title\nBody.";
+      const { frontmatter, sections } = await extract(md, "x.md");
+      assert.equal(frontmatter, null);
+      assert.equal(sections.find(s => s.level === 0).startOffset, 0);
+    });
+
+    test("a thematic break mid-file is not frontmatter", async () => {
+      const md = "# A\nalpha\n\n---\n\nmore text";
+      const { frontmatter, sections } = await extract(md, "x.md");
+      assert.equal(frontmatter, null);
+      assert.match(sections.find(s => s.heading === "A").text, /---/);
+    });
+
+    test("an unclosed opening --- is treated as content, not frontmatter", async () => {
+      const md = "---\nnot: closed\nno delimiter follows";
+      const { frontmatter, sections } = await extract(md, "x.md");
+      assert.equal(frontmatter, null);
+      assert.equal(sections.length, 1);
+      assert.equal(sections[0].startOffset, 0);
+      assert.match(sections[0].text, /not: closed/);
+    });
+
+    test("file that is only frontmatter yields no sections and keeps the title", async () => {
+      const md = "---\ntitle: Meta Only\ntype: stub\n---\n";
+      const { title, frontmatter, sections } = await extract(md, "meta.md");
+      assert.equal(title, "Meta Only");
+      assert.equal(frontmatter.type, "stub");
+      assert.equal(sections.length, 0);
+    });
+
+    test("frontmatter closed by ... and CRLF line endings both parse", async () => {
+      const md = "---\r\ntype: memo\r\n...\r\nbody line";
+      const { frontmatter, sections } = await extract(md, "x.md");
+      assert.equal(frontmatter.type, "memo");
+      assert.equal(md.slice(sections[0].startOffset, sections[0].endOffset), sections[0].text);
+      assert.match(sections[0].text, /body line/);
+      assert.doesNotMatch(sections[0].text, /type: memo/);
+    });
+  });
 });
