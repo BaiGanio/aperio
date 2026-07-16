@@ -1,4 +1,4 @@
-# Completed checkpoint: Stage 3 campaign preparation
+# Completed checkpoint: Stage 4 finalist evidence preparation
 
 ## Current decision posture — 2026-07-16
 
@@ -22,10 +22,21 @@ qualification and finalist evidence still have to be completed:
   out on `recall-filter-tag` after two slow but completed recall cases and is not
   a stronger candidate under the current bounded contract.
 
-The next stage is one fresh complete 24 GB E4B qualification run, aggregated
-across all 14 cases, followed by the finalist exam and required repeats. Keep
-the catalog role as `provisional-default` until the hard gates, real-tier
-caveat, full exam, and human review are complete.
+The fresh 24 GB confirmation was run on the 32 GB host as simulated-tier
+evidence in private campaign `20260716T120000Z-e4b-24gb-confirm`. It reached
+case 10 before `chain-code-syntax-run` exceeded the llama.cpp context size and
+therefore did not produce a valid 14-case aggregate. The overflow reproduced
+in isolated campaign `20260716T120000Z-e4b-24gb-chain-code-rerun`.
+
+The completed cases are retained as evidence: all four native recall cases and
+`chain-recall-wiki` passed; `file-read-selection`, `file-write-sandboxed`,
+`chain-write-run-node`, and `chain-recall-document-existence` completed with
+behavior failures. The unstarted continuation cases were exercised separately:
+`chain-web-source-memory` and `chain-recall-wiki-provenance` completed with
+behavior failures. The 24 GB guardrails were not rerun after the user accepted
+the prior 32 GB guardrail evidence. These results are sufficient to proceed to
+private finalist-exam evidence by explicit operator acceptance, but E4B is not
+fully qualified and must not be called an approved installer default.
 
 ## Bounded live verification closeout — 2026-07-15
 
@@ -110,9 +121,13 @@ The work is at **Stage 3 of 5 — bounded live verification complete**:
    operator-approved run was intentionally curtailed after representative
    cached placements; the full 38-placement catalog campaign was not required
    for this checkpoint and is not represented as complete.
-4. **Finalists and tier decisions — not started.** Full-exam evidence and human
-   review are still required.
-5. **Installer/runtime integration — not started.** Defaults must not change
+4. **Finalist evidence — next.** Execute the 65-drill exam once, then repeat
+   the four native recall and four multi-tool chain drills twice each. Record
+   all observations, tool results, state assertions, context, RAM/swap, and
+   native/scaffold recall split in private evidence.
+5. **Tier decisions — not started.** Generate decisions only after finalist
+   evidence validates, then obtain human review.
+6. **Installer/runtime integration — not started.** Defaults must not change
    before approved tier decisions exist.
 
 The tracked score viewer is now integrated at
@@ -121,10 +136,12 @@ visual deliverable is no longer part of the remaining benchmark-runner work.
 
 ## Next bounded checkpoint
 
-Review the bounded private artifacts and decide whether to proceed to finalist
-evidence. Do not promote a model from the pilot alone. A complete 32 GB
-verification or a new catalog-wide campaign requires a separate explicit
-operator decision.
+Proceed to the E4B finalist exam under the private evidence contract in
+`.github/model-tiers/full-exam.json`. Use the existing 24 GB campaign and its
+continuation artifacts as qualification context; do not overwrite them or
+rerun the already accepted benchmark cases. Do not generate `decisions.json`
+or change installer/runtime/catalog wiring until the full exam, required
+repeats, and human review are complete.
 
 Keep the deferred `aperio-main` model-progress alias issue and installer/runtime
 integration out of scope. Raw artifacts remain private under `var/`.

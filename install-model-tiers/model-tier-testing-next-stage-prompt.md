@@ -1,4 +1,4 @@
-# Next-session prompt: complete Gemma 4 E4B finalist qualification
+# Next-session prompt: execute Gemma 4 E4B finalist exam
 
 Continue the Aperio local-model tier campaign from
 `install-model-tiers/model-tier-testing-next-step.md` and the governing process
@@ -12,11 +12,12 @@ the remaining evidence work. Do not reopen broad model guessing or add another
 candidate unless the required 24 GB confirmation or finalist evidence gives a
 concrete reason to reject E4B.
 
-This is a selection posture, not yet an approved installer decision. Existing
-evidence shows E4B works across the tier ladder, but the lower-tier runs were
-simulated on a 32 GB host and the recent full 32 GB campaign was invalid after
-later chain cases timed out or exceeded context. Do not describe the model as
-fully qualified until the confirmation run and finalist gates below are green.
+This is a selection posture, not an approved installer decision. Existing
+evidence shows E4B works across the tier ladder, but all lower-tier evidence is
+simulated on the 32 GB host. The fresh 24 GB confirmation was accepted as
+qualification context despite invalid/incomplete cases: the code-syntax case
+reproduced a llama.cpp context overflow, and several file/chain cases completed
+with behavior failures. Do not describe E4B as fully qualified or approved.
 
 ## Candidate
 
@@ -27,45 +28,22 @@ fully qualified until the confirmation run and finalist gates below are green.
 
 ## Immediate next step
 
-Before the finalist exam, run one fresh, complete 14-case E4B qualification
-campaign at the 24 GB target tier. Use the real 24 GB hardware if available;
-otherwise record explicitly that this is simulated-tier evidence on the 32 GB
-host. Run every case in the documented order, with fresh isolated state and a
-new campaign id, then aggregate the results with `--aggregate`.
+Proceed directly to the private finalist exam by operator acceptance of the
+existing qualification evidence. Do not rerun the accepted benchmark cases or
+overwrite prior private artifacts. The primary qualification campaign is
+`20260716T120000Z-e4b-24gb-confirm`; its context-overflow rerun is
+`20260716T120000Z-e4b-24gb-chain-code-rerun`, with continuation artifacts under
+the same 24 GB E4B placement tree.
 
-The command must include all 14 cases from `.github/model-tiers/cases.json`:
-
-```bash
-npm run model-tier:pilot -- \
-  --model gemma4-e4b-ud-q4kxl --tier 24 \
-  --campaign <fresh-24gb-campaign-id> \
-  --case recall-semantic-nats \
-  --case recall-filter-type \
-  --case recall-filter-tag \
-  --case recall-update-by-id \
-  --case chain-recall-wiki \
-  --case file-read-selection \
-  --case file-write-sandboxed \
-  --case chain-write-run-node \
-  --case chain-recall-document-existence \
-  --case chain-code-syntax-run \
-  --case chain-web-source-memory \
-  --case chain-recall-wiki-provenance \
-  --case guardrail-out-of-scope-read \
-  --case guardrail-unsafe-shell-pipeline
-
-npm run model-tier:pilot -- --aggregate \
-  --tier 24 --campaign <fresh-24gb-campaign-id>
-```
-
-Inspect every case result, structured tool argument, RAM/swap metric, and
-teardown artifact. A timeout or explicit context overflow remains invalid
-evidence and must be reported; do not silently score it as a pass or failure.
+Inspect the existing case results, structured tool arguments, RAM/swap metrics,
+and teardown artifacts before exam execution. The 24 GB guardrails were not
+rerun after operator acceptance; prior 32 GB guardrail evidence remains the
+applicable safety evidence. A context overflow remains invalid evidence and is
+reported in the finalist record; it is not silently scored as a pass or failure.
 
 ## Finalist exam and remaining work to completion
 
-After the fresh 24 GB campaign is valid and the hard gates permit finalist
-advancement:
+After reviewing the accepted qualification evidence:
 
 1. Select E4B as the finalist with `--finalists` from the aggregate evidence.
 2. Execute the 65-drill full capability exam once.
@@ -93,8 +71,8 @@ advancement:
 - Served context is at least 8,192 tokens.
 - No material qualification swap growth.
 - No model crash or empty completion after retry.
-- All 14 cases complete validly; every timeout/context overflow is rerun and
-  explained before scoring.
+- Qualification evidence and accepted exceptions are explicitly listed; no
+  timeout/context overflow is silently scored as a pass or failure.
 - Full-exam evidence contains all 65 drills plus all required repeats, with no
   duplicate, missing, or unexpected observations.
 

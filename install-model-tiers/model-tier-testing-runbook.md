@@ -10,14 +10,10 @@ benchmarks are supporting evidence, not the deciding evidence.
 
 **Related material:**
 
-- `model-tiers-research.md` — current candidate shortlist and GGUF facts
-- `model-tiers-research-2.md` — older research retained for comparison
-- `install-model-tiers/configurable-model-tiers.md` — earlier implementation plan
-  for configurable tier defaults and GGUF-derived sizing
-- `install-model-tiers/configurable-model-tiers-tests.md` — companion acceptance
-  tests for that implementation plan
 - `.github/capability-exam/exam.md` — agent-operated full capability exam
 - `docs/exam/capability-exam.html` — human-operated exam and scorecard
+- `model-tier-testing-finalist-next-tranche-prompt.md` — current bounded finalist
+  exam continuation
 
 This runbook separates the bounded pilot workflow from catalog-wide campaign
 execution. Commands below are available only where the current implementation
@@ -863,22 +859,21 @@ implementation, identify the required `FEATURES.md`, `CHANGELOG.md`, README, and
 reference updates and obtain the user's confirmation required by the project
 documentation policy.
 
-### 13.1 Reconcile the earlier implementation plan
+### 13.1 Create a fresh implementation plan after approval
 
-Before coding, update `install-model-tiers/configurable-model-tiers.md` and its
-companion test file against the current repository. At minimum:
+After the finalist evidence and human decision are complete, create a fresh plan
+and companion test file under `trash/plans/` against the current repository. At
+minimum:
 
 1. Mark its proposed GGUF-parser steps as superseded by
    `lib/helpers/ggufModelFacts.js` and existing tests.
-2. Replace the plan's provisional July 11 defaults with the models approved by the
-   completed benchmark campaign.
+2. Use only models approved by the completed benchmark campaign.
 3. Decide whether tier overrides remain four separate config keys or become
    entries in one shared model catalog. Prefer the shared catalog as the source of
    truth; configuration should override catalog selection, not duplicate all model
    facts.
-4. Decide and test the `getRecommendedModel()` return contract. The older plan
-   changes it from a `MODEL_FACTS` key to a Hugging Face string, which affects
-   callers. Do not change that contract accidentally.
+4. Decide and test the `getRecommendedModel()` return contract without assuming
+   the obsolete plan's proposed key-to-Hugging-Face-string change.
 5. Re-run a grep-driven caller audit for `getRecommendedModel`, `MODEL_FACTS`,
    `factsForHf`, and cached GGUF inspection before editing.
 
