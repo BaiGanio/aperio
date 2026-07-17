@@ -14,4 +14,7 @@ test("setup page exposes quantitative model-download UI states", () => {
   assert.match(setupSource, /Resuming download/);
   assert.match(setupSource, /ETA/);
   assert.match(setupSource, /addEventListener\("progress"/);
+  assert.match(setupSource, /cachedModels/);
+  assert.match(setupSource, /Installed/);
+  assert.match(setupSource, /Download the recommended model/);
 });
