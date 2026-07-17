@@ -338,16 +338,19 @@ the full-exam manifest and human review are required before changing defaults.
 > clean slate? `restart` starts a fresh conversation; `restart --hard` relaunches.
 
 > **💡 Configure from the Web UI — no `.env` editing required.** The sidebar
-> **Configuration** panel exposes every setting as a typed control (toggle /
-> select / number / text / chips / secret): pick your `AI_PROVIDER`, paste API
-> keys, switch embeddings, toggle the code/doc graph, and more. Values are saved
-> to the database (precedence: `.env` > DB > default by default; set
-> `APERIO_CONFIG_PRECEDENCE=db` — or flip it in the panel — to let the UI win)
-> and apply after a restart
-> (a banner reminds you). Bootstrap/security plumbing (ports, DB creds, TLS,
-> auth token) stays read-only here — those live in `.env`. Editing `.env`
-> directly still works for developers; run `npm run config:sync` to import any
-> hand-added vars into the panel.
+> **Config** button opens the full-screen **Settings overlay**: plain-language
+> categories, search, and a Simple↔Advanced toggle, with every setting as a
+> typed control (toggle / select / number / text / chips / secret): pick your
+> `AI_PROVIDER`, paste API keys, switch embeddings, toggle the code/doc graph,
+> and more. Values are saved to the database — the UI is authoritative out of
+> the box (precedence: DB > `.env` > default; set
+> `APERIO_CONFIG_PRECEDENCE=env` to make the file win, e.g. to keep API keys
+> env-only) — and apply after a restart (a banner reminds you).
+> Bootstrap/security plumbing (ports, DB creds, TLS, auth token) stays
+> read-only here — those live in `.env`. Every variable is documented in the
+> generated [`docs/config-reference.md`](docs/config-reference.md); any of them
+> hand-written into `.env` still works. Run `npm run config:sync` to import
+> hand-added vars into the overlay.
 
 ### Q: Now what?
 

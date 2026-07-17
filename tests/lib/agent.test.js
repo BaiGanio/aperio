@@ -187,10 +187,12 @@ describe("Provider resolution", () => {
     process.env = { ...originalEnv };
   });
 
-  test("defaults to anthropic provider", () => {
+  test("unset provider is not-configured — never a silent anthropic boot (#252)", () => {
+    delete process.env.AI_PROVIDER;
     const p = resolveProvider();
-    assert.strictEqual(p.name, "anthropic");
-    assert.ok(p.client);
+    assert.strictEqual(p.name, "not-configured");
+    assert.strictEqual(p.notConfigured, true);
+    assert.strictEqual(p.client, null);
   });
 
   test("handles LLAMACPP_MODEL environment variable", () => {

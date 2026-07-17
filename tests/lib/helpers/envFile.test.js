@@ -144,11 +144,12 @@ describe("writeEnvFromWizard", () => {
 
   // ── Success paths ───────────────────────────────────────────────────────────
 
-  test("writes .env for llamacpp provider — sets LLAMACPP_MODEL", () => {
+  test("llamacpp: creates .env with NO uncommented tier-1 lines (#252 — those live in DB)", () => {
     writeEnvFromWizard({ provider: "llamacpp", model: "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M" });
     const env = readFileSync(ENV_PATH, "utf8");
-    assert.match(env, /^AI_PROVIDER="llamacpp"$/m);
-    assert.match(env, /^LLAMACPP_MODEL="Qwen\/Qwen2\.5-3B-Instruct-GGUF:Q4_K_M"$/m);
+    assert.doesNotMatch(env, /^AI_PROVIDER=/m, "provider choice belongs in DB settings");
+    assert.doesNotMatch(env, /^LLAMACPP_MODEL=/m, "model choice belongs in DB settings");
+    assert.match(env, /^# AI_PROVIDER=/m, "template line kept as a commented escape hatch");
   });
 
   test("persists APERIO_LITE=on when the wizard runs under the lite profile", (t) => {
@@ -166,41 +167,27 @@ describe("writeEnvFromWizard", () => {
     assert.doesNotMatch(env, /^APERIO_LITE=/m);
   });
 
-  test("writes .env for anthropic with API key and model", () => {
+  test("D2: cloud provider — .env contains no API key line, even validated ones (#252)", () => {
     writeEnvFromWizard({ provider: "anthropic", apiKey: "sk-ant-xxx", model: "claude-sonnet-4-6" });
     const env = readFileSync(ENV_PATH, "utf8");
-    assert.match(env, /^AI_PROVIDER="anthropic"$/m);
-    assert.match(env, /^ANTHROPIC_API_KEY="sk-ant-xxx"$/m);
-    assert.match(env, /^ANTHROPIC_MODEL="claude-sonnet-4-6"$/m);
+    assert.doesNotMatch(env, /^[A-Z_]*_API_KEY=/m, "no uncommented key line may exist");
+    assert.ok(!env.includes("sk-ant-xxx"), "the key value must never touch the file");
+    assert.doesNotMatch(env, /^ANTHROPIC_MODEL=/m);
+    assert.doesNotMatch(env, /^AI_PROVIDER=/m);
   });
 
-  test("writes .env for deepseek with API key", () => {
-    writeEnvFromWizard({ provider: "deepseek", apiKey: "sk-ds-xxx" });
-    const env = readFileSync(ENV_PATH, "utf8");
-    assert.match(env, /^AI_PROVIDER="deepseek"$/m);
-    assert.match(env, /^DEEPSEEK_API_KEY="sk-ds-xxx"$/m);
-  });
-
-  test("writes Codex config with cached-login auth and no API key", () => {
+  test("validation still gates codex cached-login (no key needed)", () => {
+    // codex uses cached CLI auth — must not throw without an apiKey
     writeEnvFromWizard({ provider: "codex" });
     const env = readFileSync(ENV_PATH, "utf8");
-    assert.match(env, /^AI_PROVIDER="codex"$/m);
     assert.doesNotMatch(env, /^CODEX_API_KEY=/m);
   });
 
-  test("writes optional Codex API key and model", () => {
-    writeEnvFromWizard({ provider: "codex", apiKey: "sk-codex", model: "gpt-5.5" });
-    const env = readFileSync(ENV_PATH, "utf8");
-    assert.match(env, /^CODEX_API_KEY="sk-codex"$/m);
-    assert.match(env, /^CODEX_MODEL="gpt-5\.5"$/m);
-  });
-
-  test("writes .env for gemini with API key and port", () => {
+  test("tier-0 PORT is still written to .env", () => {
     writeEnvFromWizard({ provider: "gemini", apiKey: "gm-xxx", port: 3456 });
     const env = readFileSync(ENV_PATH, "utf8");
-    assert.match(env, /^AI_PROVIDER="gemini"$/m);
-    assert.match(env, /^GEMINI_API_KEY="gm-xxx"$/m);
     assert.match(env, /^PORT="3456"$/m);
+    assert.ok(!env.includes("gm-xxx"), "the key value must never touch the file");
   });
 
   // ── The holy grail: an existing .env is never overwritten ───────────────────

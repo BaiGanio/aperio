@@ -985,10 +985,10 @@ describe("printConfig", () => {
     assert.ok(output.includes("anthropic"), "should show the provider value");
   });
 
-  test("AI_PROVIDER defaults to anthropic when unset", async () => {
+  test("AI_PROVIDER unset shows not-configured, never a silent anthropic default (#252)", async () => {
     delete process.env.AI_PROVIDER;
     const output = await capture();
-    assert.ok(output.includes("anthropic"), "should default to anthropic");
+    assert.ok(output.includes("not configured"), "should say not configured");
   });
 
   test("llamacpp provider shows LLAMACPP_MODEL, LLAMACPP_CTX, LLAMACPP_SERVE_CTX rows", async () => {

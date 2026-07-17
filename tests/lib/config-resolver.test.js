@@ -35,12 +35,20 @@ describe("config-resolver", () => {
     assert.ok(!EDITABLE_KEYS.includes(T0), "Tier-0 must not be editable");
   });
 
-  test("default precedence is env: a real .env value wins over the DB value", async () => {
+  test("default precedence is db: the DB value wins over a real .env value (#252)", async () => {
     delete process.env.APERIO_CONFIG_PRECEDENCE;
     process.env[T1] = "from-env";
     const applied = await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "from-db" }));
+    assert.equal(process.env[T1], "from-db");
+    assert.deepEqual(applied, [T1]);
+    assert.equal(process.env.APERIO_CONFIG_PRECEDENCE, "db");  // pinned default
+  });
+
+  test("default (db) with empty DB value: env value applies (resolver skips empties)", async () => {
+    delete process.env.APERIO_CONFIG_PRECEDENCE;
+    process.env[T1] = "from-env";
+    await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "" }));
     assert.equal(process.env[T1], "from-env");
-    assert.deepEqual(applied, []);          // env kept, DB not injected
   });
 
   test("env value is kept when DB has none", async () => {
@@ -155,6 +163,43 @@ describe("config-resolver", () => {
       [configSettingKey(T1)]: "from-db",
     }));
     assert.equal(process.env[T1], "from-env");        // …but .env wins
+  });
+
+  describe("precedence flip #252 (group B)", () => {
+    test("B2 edge: =env mode, var only in DB (no .env line) still applies — override, not ignore", async () => {
+      process.env.APERIO_CONFIG_PRECEDENCE = "env";
+      delete process.env[T1];
+      await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "from-db" }));
+      assert.equal(process.env[T1], "from-db");
+    });
+
+    test("B3: tier-0 immunity holds in db mode too", async () => {
+      delete process.env.APERIO_CONFIG_PRECEDENCE;   // db default
+      process.env[T0] = "31337";
+      await applyConfigToEnv(storeWith({ [configSettingKey(T0)]: "9999" }));
+      assert.equal(process.env[T0], "31337");
+    });
+
+    test("B4: lite forces db even when .env says env (unchanged behavior)", async () => {
+      process.env.APERIO_LITE = "on";
+      process.env.APERIO_CONFIG_PRECEDENCE = "env";
+      process.env[T1] = "from-env";
+      await applyConfigToEnv(storeWith({ [configSettingKey(T1)]: "from-db" }));
+      assert.equal(process.env[T1], "from-db");
+      delete process.env.APERIO_LITE;
+    });
+
+    test("B5: no stale env-default fallbacks left in the sources", async () => {
+      const { readFileSync } = await import("node:fs");
+      for (const f of ["lib/config-resolver.js", "lib/routes/api-config.js", "lib/terminal.js"]) {
+        const src = readFileSync(new URL(`../../${f}`, import.meta.url), "utf8");
+        for (const line of src.split("\n")) {
+          if (!line.includes("CONFIG_PRECEDENCE")) continue;
+          assert.ok(!/(\|\||\?\?)\s*["']env["']/.test(line),
+            `${f} still defaults precedence to "env": ${line.trim()}`);
+        }
+      }
+    });
   });
 
   test("missing / brokenstore is a safe no-op", async () => {

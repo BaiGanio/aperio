@@ -88,12 +88,23 @@ test("T19: Helmet security headers are present", async (t) => {
   // Helmet headers
   assert.ok(res.headers["x-content-type-options"], "X-Content-Type-Options present");
   assert.ok(res.headers["x-frame-options"], "X-Frame-Options present");
+  assert.equal(
+    res.headers["strict-transport-security"],
+    undefined,
+    "HSTS is absent from the default plain-HTTP listener"
+  );
   const csp = res.headers["content-security-policy"];
   assert.ok(csp, "Content-Security-Policy present");
   assert.match(csp, /default-src 'self'/);
   assert.match(csp, /script-src[^;]*'self'/);
   assert.match(csp, /style-src[^;]*'unsafe-inline'/);
   assert.match(csp, /connect-src[^;]*wss:/);
+  assert.ok(
+    !csp.includes("upgrade-insecure-requests"),
+    "upgrade-insecure-requests is absent on the plain-HTTP listener " +
+    "(Safari applies it to loopback subresources and requests https:// " +
+    "from the plain-HTTP server; Chrome/Firefox skip loopback upgrades)"
+  );
   assert.ok(
     res.headers["content-type"]?.includes("application/json"),
     "API response is JSON"

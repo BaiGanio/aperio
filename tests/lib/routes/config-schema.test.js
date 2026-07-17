@@ -279,7 +279,7 @@ describe("GET /api/config/schema", () => {
     });
 
     test("secret (env-wins, .env present, DB present) → both report 'env'", async () => {
-      delete process.env.APERIO_CONFIG_PRECEDENCE;
+      process.env.APERIO_CONFIG_PRECEDENCE = "env";   // opt-in since #252
       envAlign(SEC, "sk-from-env");
       store.current = fakeStore({ [configSettingKey(SEC)]: "sk-from-db" });
       await assertSourceMatch(SEC, "env");

@@ -13,8 +13,8 @@ aperio/
 ├── lib/
 │   ├── agent/             # Agent orchestration: providers, tool profiles, hooks
 │   ├── config.js          # Configuration registry (every knob in one place)
-│   ├── config-resolver.js # Resolve config from .env / DB / defaults (precedence)
-│   ├── config-sync.js     # Sync hand-edited .env vars into the DB panel
+│   ├── config-resolver.js # Resolve config from DB / .env / defaults (precedence, default db-first)
+│   ├── config-sync.js     # Sync hand-edited .env vars into the DB settings
 │   ├── load-env.js        # Early env loading (before the full config stack)
 │   ├── terminal.js        # Terminal chat client entry point
 │   ├── terminal/          # Terminal UI (REPL, streaming, formatting)
@@ -114,7 +114,7 @@ load-bearing — changing one side without the other breaks things in non-obviou
 | `mcp/tools/*` all depend on `mcp/index.js` ctx | Every tool registration file receives the same `ctx` object. Adding/removing/renaming a field in `createContext()` silently breaks any tool that uses it. |
 | `lib/routes/paths.js` → all file operations | Every `read_file`, `write_file`, `edit_file`, and shell tool gates through `paths.js`. A path traversal bug here is a security bug everywhere. |
 | `db/migrations/` ↔ `db/migrations-sqlite/` | Must stay in lockstep. A migration in one but not the other causes silent schema drift between backends. |
-| `lib/config.js` → `scripts/gen-env-example.js` | The config registry is the single source of truth; `gen-env-example.js` walks it to regenerate `.env.example`. Adding a config key without running the generator breaks CI. |
+| `lib/config.js` → `scripts/gen-env-example.js` | The config registry is the single source of truth; `gen-env-example.js` walks it to regenerate both the slim `.env.example` (only `envTemplate` keys) and the full `docs/config-reference.md`. Adding a config key without running the generator breaks CI (`gen:env:check` gates both files). |
 | `lib/agent/index.js` ↔ `lib/workers/skills.js` | Skill matching and injection is called during context assembly. Skill behavior changes propagate to every conversation. |
 | `server.js` → `lib/handlers/` → `lib/agent/index.js` | The Express/WS server routes messages through handlers into the agent orchestrator. The WebSocket message protocol between `public/index.js` and `lib/handlers/` has no formal schema — both sides must agree on message shapes. |
 
