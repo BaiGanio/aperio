@@ -110,8 +110,8 @@ describe("Config Panel (HTTP-level) — Phase 8", () => {
   test("schema includes precedence field", async () => {
     const schema = await fetchJSON(port, "/api/config/schema");
     assert.ok(schema.precedence, "precedence present");
-    // Default is "env" when APERIO_CONFIG_PRECEDENCE is unset
-    assert.equal(schema.precedence, "env");
+    // Default is "db" when APERIO_CONFIG_PRECEDENCE is unset (#252)
+    assert.equal(schema.precedence, "db");
   });
 
   // ── 8. Warnings array ──────────────────────────────────────────────

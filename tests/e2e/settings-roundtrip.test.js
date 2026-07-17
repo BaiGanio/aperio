@@ -191,10 +191,10 @@ describe("Config precedence switch (mocked)", () => {
     for (const [k, v] of Object.entries(savedEnv)) process.env[k] = v;
   });
 
-  // ── 1. Default precedence is "env" ─────────────────────────────────
-  test("schema reports precedence='env' by default", async () => {
+  // ── 1. Default precedence is "db" (#252) ───────────────────────────
+  test("schema reports precedence='db' by default", async () => {
     const schema = await getSchema(router);
-    assert.equal(schema.precedence, "env");
+    assert.equal(schema.precedence, "db");
   });
 
   // ── 2. Flip precedence via settings, schema reflects it ────────────
@@ -273,6 +273,8 @@ describe("Config precedence switch (mocked)", () => {
     // through the resolver (not the API, since API needs a real .env file
     // for provenance).
     // This test validates the RESOLVER behavior: env wins over DB.
+    // Since #252 env-wins is opt-in, not the default.
+    process.env.APERIO_CONFIG_PRECEDENCE = "env";
     process.env[T1] = "env-val";
 
     await applyConfigToEnv(store);

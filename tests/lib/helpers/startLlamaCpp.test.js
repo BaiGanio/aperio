@@ -558,7 +558,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     // fetch #2: /v1/models → contains the expected model
     mockFetchSequence(
       { ok: true },
-      jsonResponse({ data: [{ id: DEFAULT_MODEL }, { id: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF" }] }),
+      jsonResponse({ data: [{ id: "aperio-main" }, { id: "aperio-vlm" }] }),
     );
 
     let spawnCalled = false;
@@ -582,7 +582,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     // fetch #2: /v1/models → contains the expected models
     mockFetchSequence(
       { ok: true },
-      jsonResponse({ data: [{ id: DEFAULT_MODEL }, { id: "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF" }] }),
+      jsonResponse({ data: [{ id: "aperio-main" }, { id: "aperio-vlm" }] }),
     );
 
     let spawnCalled = false;
@@ -628,6 +628,27 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
 
     await ensureLlamaCpp(fakeSpawn(77777), fakeKill(true));
     assert.equal(getLlamaCppPid(), 77777);
+  });
+
+  test("uses the live port listener when state.json contains a stale PID", async () => {
+    const preset = buildModelsPreset({}, {});
+    writeStoredState(37991, preset);
+    mockFetchSequence(
+      { ok: true },
+      jsonResponse({ data: [{ id: "aperio-main" }, { id: "aperio-vlm" }] }),
+    );
+
+    let findCalls = 0;
+    const killed = [];
+    const result = await ensureLlamaCpp(
+      fakeSpawn(88888),
+      async pid => { killed.push(pid); return false; },
+      () => { findCalls++; return 37992; },
+      () => true,
+    );
+    assert.equal(result, false, "the injected failed kill keeps the test server from restarting");
+    assert.equal(findCalls, 1);
+    assert.deepEqual(killed, [37992], "the live listener is reconciled, not the stale state PID");
   });
 
   test("returns without spawning when kill fails (different user)", async () => {

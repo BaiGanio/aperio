@@ -85,4 +85,21 @@ describe("locale-drift-sync", () => {
     assert.equal(extra.length, 0,
       `Extra docs/locales/*.json not in LOCALE_META: ${extra.join(", ")}`);
   });
+
+  // The #177 lesson, made a gate (#252 test group G2): a key added to en.json
+  // without every sibling locale renders as a raw key in that language.
+  it("every public/locales/*.json has exactly the same keys as en.json", () => {
+    const dir = resolve(ROOT, "public", "locales");
+    const en = JSON.parse(readFileSync(resolve(dir, "en.json"), "utf8"));
+    const enKeys = new Set(Object.keys(en));
+    for (const f of readdirSync(dir).filter(f => f.endsWith(".json") && f !== "en.json")) {
+      const keys = new Set(Object.keys(JSON.parse(readFileSync(resolve(dir, f), "utf8"))));
+      const missing = [...enKeys].filter(k => !keys.has(k));
+      const extra = [...keys].filter(k => !enKeys.has(k));
+      assert.equal(missing.length, 0,
+        `${f} is missing ${missing.length} key(s) from en.json: ${missing.slice(0, 10).join(", ")}`);
+      assert.equal(extra.length, 0,
+        `${f} has ${extra.length} key(s) not in en.json: ${extra.slice(0, 10).join(", ")}`);
+    }
+  });
 });

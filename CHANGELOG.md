@@ -102,6 +102,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Breaking (#252):** `APERIO_CONFIG_PRECEDENCE` now defaults to `db` — settings
+  saved in the app's Settings UI win over `.env` lines. Developers who want the
+  file to rule set `APERIO_CONFIG_PRECEDENCE=env` once (the one-line remedy); a
+  new shadow warning (boot log + `GET /api/config/schema` warnings) names every
+  `.env` line being beaten by a differing DB value. Tier-0 bootstrap/security
+  vars remain env-only in both modes.
+- **Breaking (#252):** `.env.example` slimmed from ~420 lines to the essentials
+  (tier-0 bootstrap + a START-HERE provider block). Every other variable still
+  works when hand-written into `.env`; the full annotated catalog moved to the
+  generated `docs/config-reference.md`. `npm run gen:env` now emits both files
+  and `gen:env:check` gates both in CI.
+- An empty/unset `AI_PROVIDER` no longer silently falls back to `anthropic`:
+  fresh installs default to local `llamacpp` (initial model picked by machine
+  RAM tier), and a genuinely unconfigured provider now produces an explicit
+  not-configured notice in the CLI and the web UI instead of a key-less cloud
+  boot. The setup wizard writes provider choice/key/model to DB settings
+  instead of `.env` (tier-0 values like PORT still go to `.env`).
+- The right-side Config panel and the Settings drawer's config rows merged into
+  one full-screen **Settings overlay** (categories, search, Simple↔Advanced
+  toggle, provenance chips, secret masking, restart banner), driven by
+  `GET /api/config/schema` with new registry `category`/`advanced` metadata.
+  All overlay strings are localized in all 26 locales, and a locale key-parity
+  test now guards `public/locales/` against drift. Paths, DB-connections, and
+  GitHub-triage panels remain standalone until overlay phase B.
+
 - Push and pull-request CI now runs unit/integration coverage alongside the
   non-real E2E dashboard suite, preserving fresh dashboard data without starting
   real-app child processes. Real-app E2E remains available as a concurrency-

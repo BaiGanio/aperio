@@ -62,7 +62,7 @@ issue, commit message, or response. Do not commit files from `var/`.
 ```bash
 git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git
 cd aperio && npm install
-cp .env.example .env          # edit AI_PROVIDER + model
+cp .env.example .env          # boots as-is (local llamacpp); providers configurable in Settings
 npm run migrate               # or migrate:sqlite
 npm run start:local           # :31337, browser auto-opens
 ```
@@ -86,7 +86,12 @@ skills (`id/reference/skills.md`), testing (`id/reference/testing.md`).
 
 ## Configuration
 
-Three sources, resolved by precedence (`APERIO_CONFIG_PRECEDENCE`): `.env` → DB settings panel → `lib/config.js` defaults.
+Three sources, resolved by precedence (`APERIO_CONFIG_PRECEDENCE`, default `db`):
+DB Settings overlay → `.env` → `lib/config.js` defaults. Set
+`APERIO_CONFIG_PRECEDENCE=env` to make `.env` win (the developer/secrets escape
+hatch); tier-0 bootstrap vars are env-only in both modes. `.env.example` holds
+only the essentials — the full annotated catalog is the generated
+`docs/config-reference.md`.
 
 Critical env vars:
 - `AI_PROVIDER` — `llamacpp` | `anthropic` | `deepseek` | `gemini` | `claude-code` | `codex`
@@ -117,7 +122,8 @@ These are load-bearing. Changes have wide blast radius.
 
 ### `lib/config.js` — Configuration Registry
 Single source of truth for every config variable. Adding/modifying a key requires
-`npm run gen:env` (regenerates `.env.example`) AND `npm run gen:env:check` (CI gate).
+`npm run gen:env` (regenerates `.env.example` + `docs/config-reference.md`) AND
+`npm run gen:env:check` (CI gate, validates both).
 Missing either breaks CI.
 
 ### `db/migrations/` + `db/migrations-sqlite/` — Database Migrations

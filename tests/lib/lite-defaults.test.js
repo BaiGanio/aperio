@@ -98,9 +98,11 @@ describe("lite forces db precedence", () => {
     assert.equal(resolvePrecedence({ [configSettingKey("APERIO_LITE")]: "on" }), "db");
   });
 
-  test("lite off → normal resolution (env default)", () => {
+  test("lite off → normal resolution (db default, #252; =env still honored)", () => {
     delete process.env.APERIO_LITE;
     delete process.env.APERIO_CONFIG_PRECEDENCE;
+    assert.equal(resolvePrecedence({}), "db");
+    process.env.APERIO_CONFIG_PRECEDENCE = "env";
     assert.equal(resolvePrecedence({}), "env");
   });
 

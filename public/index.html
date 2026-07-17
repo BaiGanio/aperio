@@ -169,10 +169,10 @@
         <i class="bi bi-lightning-charge sidebar-nav-icon"></i>
         <span class="sidebar-nav-label" data-i18n="skills_panel_label">Skills</span>
       </button>
-      <button id="configBtn" class="sidebar-nav-btn" data-action="toggleConfigPanel"
-        title="Configuration — all .env-backed settings, edited in the UI">
+      <button id="configBtn" class="sidebar-nav-btn" data-action="toggleSettingsOverlay"
+        data-i18n-attr-title="stov_nav_title" title="Configuration — every setting, saved to the database">
         <i class="bi bi-gear-wide-connected sidebar-nav-icon"></i>
-        <span class="sidebar-nav-label">Config</span>
+        <span class="sidebar-nav-label" data-i18n="stov_nav_label">Config</span>
       </button>
       <button id="settingsBtn" class="sidebar-nav-btn" data-action="toggleSettingsPanel"
         data-i18n-attr-title="nav_settings_title" title="Settings">
@@ -616,39 +616,39 @@
 </div>
 <div id="agents-backdrop" class="cg-backdrop csp-style-2" data-action="toggleAgentsPanel"></div>
 
-<!-- Configuration panel (reuses the cg-* panel styles). Schema-driven from
-     lib/config.js: every editable var gets a typed control; writes persist to the
-     DB under config.<KEY> and apply on restart. Tier-0 bootstrap/security vars are
-     read-only (edit in .env). Secrets are write-only: blank = keep current. -->
-<div id="config-panel" class="cg-panel csp-style-2">
-  <div class="cg-panel-header">
-    <span class="cg-panel-title"><i class="bi bi-gear-wide-connected"></i> Configuration</span>
-    <button class="cg-panel-close" data-action="toggleConfigPanel"><i class="bi bi-x-lg"></i></button>
+<!-- Settings overlay (#252): the one configuration surface. Full-screen card
+     (language-map pattern), schema-driven from lib/config.js via
+     GET /api/config/schema: category nav, search, Simple↔Advanced toggle.
+     Writes persist to the DB under config.<KEY> and apply on restart. Tier-0
+     bootstrap/security vars are read-only (edit in .env). Secrets are
+     write-only: blank = keep current. Logic: scripts/settings-overlay.js. -->
+<div class="stov-overlay csp-style-2" id="settingsOverlay">
+  <div class="stov-card">
+    <div class="stov-head">
+      <h2 data-i18n="stov_title">Settings</h2>
+      <span class="stov-sub" data-i18n="stov_sub">saved to the database · .env can override</span>
+      <label class="stov-search">
+        <i class="bi bi-search"></i>
+        <input type="text" id="stovSearch" data-i18n-attr-placeholder="stov_search_ph" placeholder="Search settings…" />
+      </label>
+      <div class="stov-mode" id="stovModeToggle">
+        <button id="stovModeSimple" class="active" data-i18n="stov_mode_simple">Simple</button>
+        <button id="stovModeAdvanced" data-i18n="stov_mode_advanced">Advanced</button>
+      </div>
+      <button class="stov-close" data-action="toggleSettingsOverlay" data-i18n-attr-title="stov_close" title="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="stov-main">
+      <nav class="stov-nav" id="stovNav"></nav>
+      <div class="stov-body" id="stovBody"><div class="stov-empty" data-i18n="stov_loading">Loading…</div></div>
+    </div>
+    <div class="stov-foot" id="stovFoot">
+      <span class="stov-foot-msg" id="stovFootMsg"></span>
+      <span class="stov-spacer"></span>
+      <button class="stov-btn-ghost" id="stovDiscardBtn" data-i18n="stov_discard">Discard</button>
+      <button class="stov-btn-primary" id="stovSaveBtn" data-i18n="stov_save">Save</button>
+    </div>
   </div>
-  <div class="cg-panel-toolbar">
-    <input type="text" id="cfgSearchInput" class="cg-search-input" placeholder="Search settings…" />
-    <button id="cfgSaveBtn" class="sk-new-btn" data-action="saveConfigSettings"><i class="bi bi-check-lg"></i> Save</button>
-  </div>
-  <div class="config-precedence-notice csp-style-2" id="configPrecedenceNotice">
-    <i class="bi bi-file-earmark-text"></i>
-    <span><code>APERIO_CONFIG_PRECEDENCE=env</code> — values set in <code>.env</code> override the UI. Fields marked <span class="config-field-source is-env">from .env</span> are controlled by the file; saving them here has no effect until you remove them from <code>.env</code>.</span>
-  </div>
-  <div class="config-restart-banner csp-style-2" id="configRestartBanner">
-    <i class="bi bi-arrow-repeat"></i>
-    <span>Restart Aperio for these changes to take effect.</span>
-    <button id="configRestartBtn" class="config-restart-btn" data-action="restartAperio">
-      <i class="bi bi-power"></i> Restart now
-    </button>
-  </div>
-  <div class="config-restart-banner config-reindex-banner csp-style-2" id="configReindexBanner">
-    <i class="bi bi-database-exclamation"></i>
-    <span>You changed the embedding provider or dimensions. Existing embeddings no longer match — rebuild the vector index (a fresh database) after restart, or old memories/graph results won't be found.</span>
-  </div>
-  <div id="configWarnings" class="csp-style-2"></div>
-  <div class="model-select-status config-status" id="configStatus"></div>
-  <div class="cg-panel-body" id="configSections"><span class="model-loading">Loading…</span></div>
 </div>
-<div id="config-backdrop" class="cg-backdrop csp-style-2" data-action="toggleConfigPanel"></div>
 
 <!-- Language map overlay: world map framed on Europe; countries whose language
      Aperio speaks glow, planned ones render dashed. Logic in scripts/lang-map.js;
@@ -907,7 +907,7 @@
 <script src="scripts/skills-panel.js"></script>
 <script src="scripts/github-triage-panel.js"></script>
 <script src="scripts/db-connections-panel.js"></script>
-<script src="scripts/config-panel.js"></script>
+<script src="scripts/settings-overlay.js"></script>
 <script src="scripts/settings-panel.js"></script>
 <script src="scripts/lang-map.js"></script>
 <script src="scripts/chat.js"></script>
