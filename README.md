@@ -105,7 +105,7 @@ Your context, always available.
 │   └── index.html                # Web UI — themes, streaming, sidebar
 ├── 📂 skills/                    # Memory, reasoning, tools, coding standards, etc.
 ├── 📂 tests/      
-├── .env.example                  # Essentials + bootstrap only (everything else → Configuration panel)
+├── .env.example                  # Essentials + bootstrap only (everything else → Settings overlay)
 ├── package.json                  # Dependencies
 └── server.js                     # Express + WebSocket + agent loop
  
@@ -150,7 +150,7 @@ npm install
 ```
 > Ready to use `.env.example` for a fully local setup. The template is tiny —
 > just the essentials plus bootstrap plumbing; **everything else is configured
-> in the app's Configuration panel** (see below), not in `.env`:
+> in the app's **Settings overlay** (see below), not in `.env`:
 ```env
 # cp .env.example .env
 
@@ -160,7 +160,7 @@ LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
 # SQLITE_PATH=./sqlite/aperio.db  # default location for the single-file DB
 ```
 > Embeddings default to local `transformers` (no key) — switch to Voyage, or
-> change any other setting, in the Configuration panel.
+> change any other setting, in the Settings overlay.
 
 ### Step 2. Databases & Migrations
 
@@ -350,7 +350,9 @@ the full-exam manifest and human review are required before changing defaults.
 > read-only here — those live in `.env`. Every variable is documented in the
 > generated [`docs/config-reference.md`](docs/config-reference.md); any of them
 > hand-written into `.env` still works. Run `npm run config:sync` to import
-> hand-added vars into the overlay.
+> hand-added vars into the overlay. The same overlay also contains the
+> **Allowed folders**, **Database connections**, and **GitHub triage** views;
+> their existing flows remain available without opening a separate drawer.
 
 ### Q: Now what?
 
@@ -385,7 +387,7 @@ answers, **Agent B** reviews, A revises, B re-reviews — until they reach
 explicit `AGREED` or a hard round cap is hit. A single consensus bubble is
 rendered when they agree; otherwise both positions are shown side-by-side.
 
-**Enable it** in the **Configuration panel** (Round-table section), or with `ROUNDTABLE_AGENTS` in `.env`:
+**Enable it** in the **Settings overlay** (Round-table section), or with `ROUNDTABLE_AGENTS` in `.env`:
 
 ```env
 # Format: provider:model,provider:model
@@ -546,7 +548,7 @@ session or run owner from the model.
 The effective token threshold is capped at 25% of the active model's context
 window. Retrieval defaults to 8,192 content bytes per call, accepts at most
 24,000 content bytes, and caps the complete response at 32,000 bytes. Both
-offload thresholds are editable in the Configuration panel:
+offload thresholds are editable in the Settings overlay:
 
 ```env
 APERIO_TOOL_RESULT_OFFLOAD_TOKENS=20000
@@ -719,7 +721,7 @@ Aperio is open source and self-hosted because **your memories is yours**.
 
 ## AI Providers
 
-Switch in the **Configuration panel** (`AI_PROVIDER`), or with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
+Switch in the **Settings overlay** (`AI_PROVIDER`), or with a single line in `.env`. Everything else — memories, tools, UI — stays identical.
 
 ```env
 AI_PROVIDER=llamacpp     # "llamacpp" | "anthropic" | "deepseek" | "gemini" | "claude-code" | "codex"
@@ -909,7 +911,7 @@ The legacy `local-only` tag still works and automatically maps to **tier 2**.
 - `withhold` — tier-2 memories are filtered out of recall on cloud providers
 - `redact` — tier-2 memories are sent with PII scrubbed (EMAIL, PHONE, CARD,
   IBAN patterns), then restored in the model's response. Set in your
-  Configuration panel or `.env`.
+  Settings overlay or `.env`.
 
 On a **local llama.cpp** provider all tiers are shown regardless — nothing leaves
 your machine.

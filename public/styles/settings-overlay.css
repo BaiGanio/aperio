@@ -57,6 +57,16 @@
 .stov-close:hover { color: var(--text); border-color: var(--accent); }
 
 .stov-main { flex: 1; display: flex; min-height: 0; }
+.stov-body.is-hidden, .stov-special-body.is-hidden { display: none; }
+.stov-special-body { flex: 1; overflow-y: auto; padding: 24px 30px 96px; min-width: 0; }
+.stov-special-panel { max-width: 760px; }
+.stov-special-panel.is-hidden { display: none; }
+.stov-special-panel h3 { margin: 0 0 14px; font-size: calc(17px * var(--font-scale)); }
+.stov-special-panel h3 i { margin-right: 8px; color: var(--accent); }
+.stov-special-panel .paths-text-input,
+.stov-special-panel .busy-words-input { width: min(100%, 560px); }
+.stov-special-panel .paths-add-row { max-width: 560px; }
+.stov-special-panel .paths-apply-btn { margin-top: 14px; }
 
 /* Left nav */
 .stov-nav {

@@ -149,15 +149,9 @@ function applyPaths() {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  // Enter key submits in the add-path input
+  // Enter key submits in the overlay's add-path input.
   const inp = document.getElementById("path-input");
   if (inp) inp.addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); addPathChip(); }
-  });
-
-  // Load the list the first time the section is expanded.
-  const section = document.getElementById("allowedFoldersSection");
-  if (section) section.addEventListener("toggle", () => {
-    if (section.open) loadPaths();
   });
 });

@@ -645,6 +645,40 @@
     <div class="stov-main">
       <nav class="stov-nav" id="stovNav"></nav>
       <div class="stov-body" id="stovBody"><div class="stov-empty" data-i18n="stov_loading">Loading…</div></div>
+      <div class="stov-special-body is-hidden" id="stovSpecialBody">
+        <div class="stov-special-panel" data-cat="paths">
+          <h3><i class="bi bi-folder2-open"></i> Allowed folders</h3>
+          <p class="paths-section-hint" data-i18n="paths_allowed_hint">Folders the AI can read and edit. Generated files (pptx, xlsx) go to the session workspace.</p>
+          <div class="paths-chips" id="paths-chips"></div>
+          <div class="paths-add-row">
+            <input type="text" id="path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
+            <button class="paths-pick-btn" data-action="_pickFolder" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)"><i class="bi bi-folder2-open"></i></button>
+            <button class="paths-add-btn" data-action="addPathChip"><i class="bi bi-plus-lg"></i></button>
+          </div>
+          <div class="paths-saved-note" data-i18n-html="paths_saved_note_html"><i class="bi bi-hdd"></i> Saved across sessions.</div>
+          <button class="paths-apply-btn" data-action="applyPaths"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Save</span></button>
+        </div>
+        <div class="stov-special-panel" data-cat="dbconnections">
+          <h3><i class="bi bi-database"></i> Database connections</h3>
+          <p class="paths-section-hint">Databases the AI can query with the <code>db_*</code> tools — SQLite, Postgres, MySQL, or SQL Server. Read-only is ON by default.</p>
+          <div id="dbSampleBar" class="db-conn-sample-bar"></div>
+          <div id="dbConnList" class="db-conn-list"></div>
+          <div id="dbConnForm" class="db-conn-form"></div>
+          <div class="model-select-status" id="dbConnStatus"></div>
+        </div>
+        <div class="stov-special-panel" data-cat="github">
+          <h3><i class="bi bi-github"></i> GitHub triage</h3>
+          <p class="paths-section-hint">Repos for the daily issue-triage agent to rank. One per line — either <code>owner/repo</code> or an allowed folder name.</p>
+          <textarea id="triageReposInput" class="busy-words-input" rows="3" spellcheck="false" placeholder="octocat/Hello-World&#10;my-project"></textarea>
+          <p class="paths-section-hint">GitHub token — optional for public repos; required for private repos and issue writes. <span id="githubTokenState"></span></p>
+          <input type="password" id="githubTokenInput" class="paths-text-input" autocomplete="off" placeholder="ghp_… (leave blank to keep current)" />
+          <p class="paths-section-hint">Webhook secret — needed for instant issue capture. <span id="githubWebhookSecretState"></span></p>
+          <input type="password" id="githubWebhookSecretInput" class="paths-text-input" autocomplete="off" placeholder="(leave blank to keep current)" />
+          <div class="paths-saved-note"><i class="bi bi-info-circle"></i> Triage runs as a background agent.</div>
+          <div class="model-select-status" id="githubTriageStatus"></div>
+          <button class="paths-apply-btn" data-action="saveGithubTriageSettings"><i class="bi bi-check-lg"></i> Save</button>
+        </div>
+      </div>
     </div>
     <div class="stov-foot" id="stovFoot">
       <span class="stov-foot-msg" id="stovFootMsg"></span>
@@ -755,29 +789,6 @@
            target="_blank" rel="noopener" data-i18n="nav_model_guide">Not sure which to pick? Model guide →</a>
       </div>
     </details>
-    <!-- Allowed folders — expandable. The AI reads/edits files within these
-         folders; generated artifacts (pptx/xlsx) go to the session workspace. -->
-    <details class="settings-section" id="allowedFoldersSection">
-      <summary>
-        <i class="bi bi-folder2-open"></i>
-        <span data-i18n="paths_allowed_label">Allowed folders</span>
-      </summary>
-      <div class="settings-section-body">
-        <span class="paths-section-hint" data-i18n="paths_allowed_hint">Folders the AI can read and edit. Generated files (pptx, xlsx) go to the session workspace.</span>
-        <div class="paths-chips" id="paths-chips"></div>
-        <div class="paths-add-row">
-          <input type="text" id="path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
-          <button class="paths-pick-btn" data-action="_pickFolder" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)">
-            <i class="bi bi-folder2-open"></i>
-          </button>
-          <button class="paths-add-btn" data-action="addPathChip"><i class="bi bi-plus-lg"></i></button>
-        </div>
-        <div class="paths-saved-note" data-i18n-html="paths_saved_note_html">
-          <i class="bi bi-hdd"></i> Saved across sessions.
-        </div>
-        <button class="paths-apply-btn" data-action="applyPaths"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Save</span></button>
-      </div>
-    </details>
     <!-- Extras — optional skill dependencies (docx Python toolchain). Detects
          what's installed; auto-installs pip deps; shows guided commands for
          system binaries it can't safely install from the browser. -->
@@ -810,55 +821,6 @@
         </label>
       </span>
     </div>
-    <!-- GitHub triage — repos to triage + the GitHub token / webhook secret.
-         Stored in the DB settings store (no .env edit, no restart). The token
-         and secret are write-only: the server never sends their value back, it
-         only reports whether one is configured. -->
-    <details class="settings-section lite-hide" id="githubTriageSection">
-      <summary>
-        <i class="bi bi-github"></i>
-        <span>GitHub triage</span>
-        <span class="model-current" id="githubTriageSummary"></span>
-      </summary>
-      <div class="settings-section-body">
-        <span class="paths-section-hint">Repos for the daily issue-triage agent to rank. One per line — either <code>owner/repo</code> (e.g. <code>octocat/Hello-World</code>) or the name of an allowed folder (resolved via its git origin).</span>
-        <textarea id="triageReposInput" class="busy-words-input" rows="3" spellcheck="false"
-                  placeholder="octocat/Hello-World&#10;my-project"></textarea>
-
-        <span class="paths-section-hint csp-style-16">GitHub token — optional for public repos (raises the rate limit), required for private repos and for creating/updating issues. Needs <code>repo</code> scope. <span id="githubTokenState"></span></span>
-        <input type="password" id="githubTokenInput" class="paths-text-input" autocomplete="off"
-               placeholder="ghp_… (leave blank to keep current)" />
-
-        <span class="paths-section-hint csp-style-16">Webhook secret — only needed if you point a GitHub webhook at this Aperio for instant issue capture. Must match the secret on the GitHub webhook. <span id="githubWebhookSecretState"></span></span>
-        <input type="password" id="githubWebhookSecretInput" class="paths-text-input" autocomplete="off"
-               placeholder="(leave blank to keep current)" />
-
-        <div class="paths-saved-note csp-style-16">
-          <i class="bi bi-info-circle"></i> Triage runs as a background agent — enable background agents and the <code>issue-triage</code> job to start it.
-        </div>
-        <div class="model-select-status" id="githubTriageStatus"></div>
-        <button class="paths-apply-btn" data-action="saveGithubTriageSettings"><i class="bi bi-check-lg"></i> Save</button>
-      </div>
-    </details>
-    <!-- Database connections — named SQL connections the db_* tools can query.
-         Passwords are encrypted server-side and never sent back to the browser
-         (blank password on save keeps the stored one). The built-in `aperio`
-         connection (your own store, read-only) is always present and not listed
-         here. The list + add/edit form are rendered by db-connections-panel.js. -->
-    <details class="settings-section lite-hide" id="dbConnectionsSection">
-      <summary>
-        <i class="bi bi-database"></i>
-        <span>Database connections</span>
-        <span class="model-current" id="dbConnSummary"></span>
-      </summary>
-      <div class="settings-section-body">
-        <span class="paths-section-hint">Databases the AI can query with the <code>db_*</code> tools — SQLite, Postgres, or MySQL. Reads run freely; writes need your confirmation. Read-only is ON by default.</span>
-        <div id="dbSampleBar" class="db-conn-sample-bar"></div>
-        <div id="dbConnList" class="db-conn-list"></div>
-        <div id="dbConnForm" class="db-conn-form"></div>
-        <div class="model-select-status" id="dbConnStatus"></div>
-      </div>
-    </details>
     <details class="settings-section" id="extrasSection">
       <summary>
         <i class="bi bi-puzzle"></i>

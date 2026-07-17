@@ -125,7 +125,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `GET /api/config/schema` with new registry `category`/`advanced` metadata.
   All overlay strings are localized in all 26 locales, and a locale key-parity
   test now guards `public/locales/` against drift. Paths, DB-connections, and
-  GitHub-triage panels remain standalone until overlay phase B.
+  GitHub-triage now live as category views inside the same overlay, reusing
+  their existing path, encrypted connection, token, and webhook flows; the old
+  drawer entry points were removed.
 
 - Push and pull-request CI now runs unit/integration coverage alongside the
   non-real E2E dashboard suite, preserving fresh dashboard data without starting
