@@ -163,8 +163,6 @@
       wireLiteAdvanced();
       wireBusyWords();
       loadModels();
-      window.loadGithubTriageSettings?.();
-      window.loadDbConnections?.();
       p.style.display = "flex";
       b.style.display = "block";
     } else {

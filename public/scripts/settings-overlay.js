@@ -44,10 +44,14 @@
   // Changing either invalidates every stored vector → extra reindex warning.
   const REINDEX_KEYS = new Set(["EMBEDDING_PROVIDER", "EMBEDDING_DIMS"]);
 
-  // Sections with a dedicated live panel elsewhere (Paths / GitHub triage) stay
-  // hidden until overlay phase B absorbs those panels — two controls for the
-  // same setting would fight each other.
+  // The live panels below own their flows; their seed/config registry rows stay
+  // hidden so two controls never fight over one setting.
   const HIDDEN_SECTIONS = new Set(["github", "paths"]);
+  const SPECIAL_CATEGORIES = [
+    { id: "paths", label: "Allowed folders", icon: "bi-folder2-open" },
+    { id: "dbconnections", label: "Database connections", icon: "bi-database" },
+    { id: "github", label: "GitHub triage", icon: "bi-github" },
+  ];
 
   const CAT_ICONS = {
     provider: "bi-cpu", memory: "bi-shield-lock", features: "bi-stars",
@@ -257,7 +261,7 @@
   function catList() {
     let cats = schema.categories || [];
     if (liteBasic()) cats = cats.filter((c) => c.id !== "network" && c.id !== "advanced");
-    return cats;
+    return [...cats, ...(liteBasic() ? [] : SPECIAL_CATEGORIES)];
   }
 
   function fieldsFor(catId) {
@@ -284,12 +288,12 @@
       btn.dataset.cat = c.id;
       if (c.id === activeCat) btn.classList.add("active");
       const icon = document.createElement("i");
-      icon.className = `bi ${CAT_ICONS[c.id] || "bi-dot"} stov-nav-icon`;
+      icon.className = `bi ${CAT_ICONS[c.id] || SPECIAL_CATEGORIES.find((x) => x.id === c.id)?.icon || "bi-dot"} stov-nav-icon`;
       const name = document.createElement("span");
-      name.textContent = t(`stov_cat_${c.id}`);
+      name.textContent = SPECIAL_CATEGORIES.find((x) => x.id === c.id)?.label || t(`stov_cat_${c.id}`);
       const count = document.createElement("span");
       count.className = "stov-count";
-      count.textContent = String(fieldsFor(c.id).filter(inMode).length);
+      count.textContent = SPECIAL_CATEGORIES.some((x) => x.id === c.id) ? "" : String(fieldsFor(c.id).filter(inMode).length);
       btn.append(icon, name, count);
       btn.addEventListener("click", () => {
         activeCat = c.id;
@@ -336,8 +340,22 @@
     }
 
     applyProviderReveal(providerSelect ? providerSelect.value : "");
+    renderSpecialView();
     applyFilter();
     updateFoot();
+  }
+
+  function renderSpecialView() {
+    const special = $("stovSpecialBody");
+    if (!special) return;
+    const active = SPECIAL_CATEGORIES.some((c) => c.id === activeCat) && !($('stovSearch')?.value || '').trim();
+    special.classList.toggle("is-hidden", !active);
+    if (!active) return;
+    special.querySelectorAll(".stov-special-panel").forEach((p) =>
+      p.classList.toggle("is-hidden", p.dataset.cat !== activeCat));
+    if (activeCat === "paths") window.loadPaths?.();
+    if (activeCat === "dbconnections") window.loadDbConnections?.();
+    if (activeCat === "github") window.loadGithubTriageSettings?.();
   }
 
   // Visibility pass: active category (or search across all), Simple/Advanced.
@@ -346,6 +364,10 @@
     if (!bodyEl) return;
     const q = ($("stovSearch")?.value || "").trim().toLowerCase();
     const searching = q.length > 0;
+    const special = $("stovSpecialBody");
+    const specialActive = SPECIAL_CATEGORIES.some((c) => c.id === activeCat) && !searching;
+    bodyEl.classList.toggle("is-hidden", specialActive);
+    special?.classList.toggle("is-hidden", !specialActive);
     let anyVisible = false;
 
     for (const [catId, rows] of rowsByCat) {
@@ -378,6 +400,7 @@
     empty.textContent = searching ? t("stov_empty_search", { q }) : t("stov_empty_simple");
     empty.classList.toggle("is-hidden", anyVisible);
     empty.classList.toggle("stov-row", false);
+    if (specialActive) empty.classList.add("is-hidden");
   }
 
   function renderWarnings(host) {
