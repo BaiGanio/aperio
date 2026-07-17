@@ -84,6 +84,7 @@ describe("getSpecs — custom / non-catalog tier model", () => {
 
     const specs = getSpecs();
     assert.equal(specs.recommendedModelHf, repoId, "recommends the configured custom tier model");
+    assert.equal(specs.cachedModels[0].repo, "org/Custom-GGUF");
     // factsForHf() alone returned null here (not in MODEL_FACTS) → modelSizeGB
     // was null and the disk check silently passed. resolveModelFacts() inspects
     // the cached GGUF and reports its actual size.

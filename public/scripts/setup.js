@@ -25,6 +25,7 @@ const STEPS = [
 ];
 
 const _t = (k, p) => (window.t ? window.t(k, p) : k);
+const escapeHtml = value => String(value ?? "").replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
 
 const state = Object.fromEntries(STEPS.map(s => [s.id, { status: "idle", detail: _t("setup_detail_waiting") }]));
 let doneCount = 0;
@@ -329,6 +330,51 @@ const FALLBACK_MODEL_HF = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M";
 let recommendedModel = null;
 let recommendedModelHf = null;
 let shouldPullLocalModel = false;
+let selectedLocalModel = null;
+
+function modelFamily(repo) {
+  return String(repo || "").replace(/-qat(?=-GGUF$)/i, "");
+}
+
+function populateCachedModels(specs) {
+  const select = document.getElementById("wizModelSelect");
+  const cached = Array.isArray(specs.cachedModels) ? specs.cachedModels : [];
+  select.replaceChildren();
+  const recommendedRepo = String(specs.recommendedModelHf || "").split(":")[0];
+  const family = modelFamily(recommendedRepo);
+  const choices = cached
+    .filter(item => item?.repo && Array.isArray(item.files) && item.files.length)
+    .map(item => ({ ...item, installedFamily: modelFamily(item.repo) }))
+    .sort((a, b) => (a.installedFamily === family ? -1 : 0) - (b.installedFamily === family ? -1 : 0));
+  if (!choices.length) {
+    select.style.display = "none";
+    selectedLocalModel = null;
+    return;
+  }
+  const prompt = document.createElement("option");
+  prompt.value = "";
+  prompt.textContent = "Download the recommended model";
+  select.appendChild(prompt);
+  for (const item of choices) {
+    const option = document.createElement("option");
+    option.value = item.repo;
+    const size = Math.max(...item.files.map(file => file.sizeGB || 0));
+    option.textContent = `${item.installedFamily === family ? "✓ Recommended family — " : "✓ Installed — "}${item.repo} (${size.toFixed(1)} GB)`;
+    select.appendChild(option);
+  }
+  select.style.display = "";
+  const familyChoice = choices.find(item => item.installedFamily === family);
+  if (familyChoice && familyChoice.repo !== recommendedRepo) {
+    select.value = familyChoice.repo;
+    selectedLocalModel = familyChoice.repo;
+    shouldPullLocalModel = false;
+  }
+  select.onchange = () => {
+    selectedLocalModel = select.value || null;
+    shouldPullLocalModel = !selectedLocalModel;
+  };
+}
+
 async function loadSpecs() {
   const box = document.getElementById("wizSpecs");
   const go  = document.getElementById("wizLocalGo");
@@ -342,10 +388,13 @@ async function loadSpecs() {
     recommendedModel = s.recommendedModel;
     recommendedModelHf = s.recommendedModelHf;
     shouldPullLocalModel = true;
+    selectedLocalModel = null;
+    populateCachedModels(s);
     const disk = s.diskGB == null ? _t("wiz_specs_unknown") : `${s.diskGB} GB`;
     const size = s.modelSizeGB ? ` ${_t("wiz_download", { n: s.modelSizeGB })}` : "";
     let html = `<b>${s.ramGB} GB</b> ${_t("wiz_ram")} &middot; <b>${disk}</b> ${_t("wiz_disk")}<br>`
-             + `${_t("wiz_recommended")} <b>${s.recommendedModel}</b>${size}`;
+             + `${_t("wiz_recommended")} <b>${escapeHtml(s.recommendedModel)}</b>${size}`
+             + `<br><small>Model ID: <code>${escapeHtml(s.recommendedModelHf)}</code></small>`;
     if (!s.enoughDisk) html += `<br><span class="wiz-warn">${_t("wiz_disk_warn")}</span>`;
     box.innerHTML = html;
     go.disabled = false;
@@ -360,12 +409,12 @@ async function loadSpecs() {
   }
 }
 document.getElementById("wizLocalGo").addEventListener("click", () => {
-  const selected = document.getElementById("wizModelSelect").value;
+  const selected = selectedLocalModel || document.getElementById("wizModelSelect").value;
   const fallback = recommendedModelHf || FALLBACK_MODEL_HF;
   submitConfig({
     provider: "llamacpp",
     model: selected || fallback,
-    pullModel: shouldPullLocalModel,
+    pullModel: selected ? false : shouldPullLocalModel,
   });
 });
 
