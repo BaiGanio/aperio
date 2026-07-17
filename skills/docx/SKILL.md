@@ -2,6 +2,10 @@
 name: docx
 description: "Use this skill whenever the user wants to create, read, or convert Word documents (.docx files). Triggers include: any mention of 'Word doc', 'word document', '.docx', or requests to produce a document, report, memo, letter, summary, or template as a Word file. Also use when reading or extracting content from an existing .docx file, or converting a .docx to PDF. Do NOT use for PDFs, spreadsheets, Google Docs, or general coding tasks. For complex operations on existing documents (tracked changes, comments, XML editing, inserting images, custom styles), use the docx-advanced skill instead."
 license: Proprietary. LICENSE.txt has complete terms
+metadata:
+  keywords: "docx, word document, word doc, Microsoft Word"
+  category: "documents"
+  load: "on-demand"
 ---
 
 # DOCX — create, read, and convert

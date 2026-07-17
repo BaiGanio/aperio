@@ -55,6 +55,13 @@ test("T16: / serves the app shell (or setup redirect)", async (t) => {
       res.body.includes("<!DOCTYPE html") || res.body.includes("<html"),
       "Body contains HTML markup"
     );
+    // Locale stamp must be CSP-safe: an attribute on <html>, never an inline
+    // <script> (script-src has no 'unsafe-inline'/nonce, so the browser would
+    // refuse it and locale detection silently degrades).
+    assert.match(res.body, /<html[^>]*data-aperio-lang="[a-z]{2}"/,
+      "Server-detected locale is stamped as data-aperio-lang on <html>");
+    assert.ok(!res.body.includes("window.__APERIO_LANG__"),
+      "No inline __APERIO_LANG__ script is injected (CSP-blocked)");
   }
 });
 

@@ -354,6 +354,22 @@ describe("Bash", () => {
     const names = result.symbols.map(s => s.name);
     assert.ok(names.includes("greet"), "should find function");
   });
+
+  test("falls back safely when the Bash WASM scanner rejects a real script", async () => {
+    const source = `#!/usr/bin/env bash
+case "$1" in
+  start) echo start ;;
+  *) echo usage ;;
+esac
+cleanup() {
+  trap - EXIT
+  echo done
+}
+exec > >(tee "$LOG") 2>&1`;
+    const result = await extract(source, "runner.sh");
+    assert.ok(result.symbols.some(s => s.name === "cleanup"));
+    assert.deepEqual(result.edges, []);
+  });
 });
 
 // =============================================================================

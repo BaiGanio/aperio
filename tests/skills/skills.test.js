@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
-import { loadSkillIndex, matchSkill } from "../../lib/workers/skills.js";
+import { loadSkillIndex, matchSkill, matchSkills } from "../../lib/workers/skills.js";
 
 const __dirname  = dirname(fileURLToPath(import.meta.url));
 const ROOT       = resolve(__dirname, "..", "..");
@@ -108,6 +108,11 @@ describe("skill structure", () => {
 
 describe("skill matching", () => {
   const index = loadIndex();
+
+  test("a simple Markdown file write does not inject unrelated bundled skills", () => {
+    const prompt = "Create a new file called notes-for-me.md and write a short note inside it: Reminder — review the Lie Catcher results on Friday. Save it and confirm the file path.";
+    assert.deepEqual(matchSkills(prompt, index), []);
+  });
 
   for (const [skillName, fixture] of Object.entries(SKILL_FIXTURES)) {
     describe(skillName, () => {

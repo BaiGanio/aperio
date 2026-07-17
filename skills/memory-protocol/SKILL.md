@@ -8,7 +8,7 @@ description: >
   preference, shares a fact or decision, gives a correction, asks the agent to
   remember something, or starts a task where past context would affect the output.
 metadata:
-  keywords: "memory, remember, remind, reminder, note, appointment, preference, context, learn, correction, feedback, store, recall, history, decision, project, person, sql, postgres, vector, embedding"
+  keywords: "memory, remember, remind, reminder, note my correction, appointment, preference, context, learn, correction, feedback, store, recall, history, decision, project, person, sql, postgres, vector, embedding"
   category: "memory"
   load: "on-demand"
 ---

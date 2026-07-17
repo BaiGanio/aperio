@@ -86,6 +86,24 @@ describe("locale-drift-sync", () => {
       `Extra docs/locales/*.json not in LOCALE_META: ${extra.join(", ")}`);
   });
 
+  // English is never fetched from /locales/en.json — i18n.js bundles it inline
+  // as the immediate fallback and pre-seeds _localeLoaded with "en". A key in
+  // en.json but not in the bundle therefore renders as a raw key for English
+  // users (the gear-tooltip "stov_nav_title" bug, 2026-07-17).
+  it("i18n.js bundled English dict has exactly the same keys as en.json", () => {
+    const src = readFileSync(resolve(ROOT, "public", "scripts", "i18n.js"), "utf8");
+    const m = src.match(/const TRANSLATIONS = \{\s*en: \{([\s\S]*?)\n  \},\n\};/);
+    assert.ok(m, "Could not find the bundled TRANSLATIONS.en block in i18n.js");
+    const bundled = new Set([...m[1].matchAll(/^\s{4}([A-Za-z0-9_]+):/gm)].map(x => x[1]));
+    const en = JSON.parse(readFileSync(resolve(ROOT, "public", "locales", "en.json"), "utf8"));
+    const missing = Object.keys(en).filter(k => !bundled.has(k));
+    const extra = [...bundled].filter(k => !(k in en));
+    assert.equal(missing.length, 0,
+      `i18n.js bundle is missing ${missing.length} key(s) from en.json: ${missing.slice(0, 10).join(", ")}`);
+    assert.equal(extra.length, 0,
+      `i18n.js bundle has ${extra.length} key(s) not in en.json: ${extra.slice(0, 10).join(", ")}`);
+  });
+
   // The #177 lesson, made a gate (#252 test group G2): a key added to en.json
   // without every sibling locale renders as a raw key in that language.
   it("every public/locales/*.json has exactly the same keys as en.json", () => {

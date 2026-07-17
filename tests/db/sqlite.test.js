@@ -1159,3 +1159,50 @@ describe("recall (asOf temporal)", () => {
     assert.ok(Array.isArray(results));
   });
 });
+
+// =============================================================================
+// Wiki drafts (backend parity with PostgresStore — /api/wiki/drafts 500 bug)
+// =============================================================================
+describe("wiki drafts (store-level, parity with postgres)", () => {
+  test("listWikiDrafts returns proposed drafts with parsed tags", async () => {
+    await store.wiki.proposeDraft({
+      slug: "draft-parity-check", title: "Draft parity",
+      summary: "sqlite draft listing", body_md: "# Draft",
+      tags: ["t1", "t2"], generated_by: "test", source_memory_ids: [],
+    });
+    const drafts = await store.listWikiDrafts();
+    assert.ok(Array.isArray(drafts), "listWikiDrafts returns an array");
+    const d = drafts.find(x => x.slug === "draft-parity-check");
+    assert.ok(d, "proposed draft is listed");
+    assert.equal(d.title, "Draft parity");
+    assert.deepEqual(d.tags, ["t1", "t2"], "tags come back as an array, not a JSON string");
+    assert.equal(d.revision, 1);
+  });
+
+  test("publishWikiDraft flips status to fresh and removes it from the list", async () => {
+    const res = await store.publishWikiDraft("draft-parity-check");
+    assert.equal(res.slug, "draft-parity-check");
+    assert.equal(res.status, "fresh");
+    const row = store.db.prepare(
+      `SELECT status FROM wiki_articles WHERE slug = ?`).get("draft-parity-check");
+    assert.equal(row.status, "fresh");
+    const drafts = await store.listWikiDrafts();
+    assert.ok(!drafts.some(x => x.slug === "draft-parity-check"), "published draft no longer listed");
+  });
+
+  test("publishWikiDraft on a missing slug throws", async () => {
+    await assert.rejects(() => store.publishWikiDraft("no-such-draft"), /not found/);
+  });
+
+  test("proposeWikiDraft exists at the top level (wiki_propose handler parity)", async () => {
+    const res = await store.proposeWikiDraft({
+      slug: "draft-propose-parity", title: "Proposed via top-level",
+      summary: null, body_md: "# Body", tags: [], generated_by: "test",
+      source_memory_ids: [],
+    });
+    assert.equal(res.slug, "draft-propose-parity");
+    assert.equal(res.revision, 1);
+    const drafts = await store.listWikiDrafts();
+    assert.ok(drafts.some(d => d.slug === "draft-propose-parity"));
+  });
+});
