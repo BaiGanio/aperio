@@ -289,6 +289,7 @@
   "ctx_summarize":            "Resumir",
   "ctx_dismiss":              "Descartar",
   "ctx_capacity_tip":         "{pct}% do que a RAM da sua máquina pode conter — o tamanho da janela que o Aperio configura automaticamente para o seu hardware.",
+  "ctx_cost_tip":             "Esta sessão: ~${cost} ({model}). Estimativa com base nos preços publicados por token, não na fatura real do provedor — trate-a como orientação, não garantia.",
   "ctx_summarize_failed":     "⚠ Não foi possível resumir: {reason}",
   "ctx_summarize_no_save":    "Resumo gerado, mas não pôde ser salvo na memória — será perdido ao recarregar.",
   "ctx_summarize_ok":         "✓ Conversa resumida e salva na memória.",

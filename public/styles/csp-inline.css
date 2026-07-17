@@ -2,8 +2,6 @@
 .csp-style-1 { color-scheme: light dark; }
 .csp-style-2 { display:none; }
 .csp-style-3 { margin-left:auto; }
-.csp-style-4 { margin-left:6px;color:var(--text-muted);display:none }
-.csp-style-5 { display:none;font-size: calc(11px * var(--font-scale));color:var(--text-muted);margin-left:4px;font-family:var(--font-mono) }
 .csp-style-6 { padding:24px 16px; text-align:center; line-height:1.8; }
 .csp-style-7 { font-size: calc(22px * var(--font-scale)); margin-bottom:8px; opacity:.4 }
 .csp-style-8 { font-size: var(--fs-micro); color:var(--text-muted) }

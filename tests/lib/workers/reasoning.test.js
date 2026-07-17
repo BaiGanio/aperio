@@ -70,6 +70,15 @@ describe("reasoning.js", () => {
     assert.strictEqual(res.contentToken, "direct");
   });
 
+  test("DeepSeek-R1 adapter: also emits reasoning bubble events from delta.reasoning_content", () => {
+    const adapter = resolveReasoningAdapter("deepseek-r1");
+    const state = adapter.createState();
+    const events = [];
+    adapter.processDelta({ reasoning_content: "Thinking" }, state, (e) => events.push(e));
+    assert.deepEqual(events[0], { type: "reasoning_start" });
+    assert.deepEqual(events[1], { type: "reasoning_token", text: "Thinking" });
+  });
+
   test("Llama adapter: handles content and nulls", () => {
     const adapter = resolveReasoningAdapter("llama-3");
     assert.strictEqual(adapter.thinks, false);
@@ -117,6 +126,24 @@ describe("reasoning.js", () => {
       //    full answer is the feed result plus the post-stream flush.
       const res = adapter.processDelta({ content: "Hello" }, state, emit);
       assert.deepEqual(events[3], { type: "reasoning_done" });
+      assert.strictEqual((res.contentToken ?? "") + adapter.flushState(state), "Hello");
+    });
+
+    test("llama.cpp's delta.reasoning_content field emits the same bubble events as delta.reasoning", () => {
+      // llama-server (llama.cpp) streams native reasoning via `reasoning_content`,
+      // not Ollama's `reasoning` field. Ornith/Qwen3 run exclusively through
+      // llama.cpp now, so a model with real thinking capability produced no
+      // reasoning bubble at all until this field was handled here too.
+      const state = adapter.createState();
+      const events = [];
+      const emit = (e) => events.push(e);
+
+      adapter.processDelta({ reasoning_content: "Thinking" }, state, emit);
+      assert.deepEqual(events[0], { type: "reasoning_start" });
+      assert.deepEqual(events[1], { type: "reasoning_token", text: "Thinking" });
+
+      const res = adapter.processDelta({ content: "Hello" }, state, emit);
+      assert.deepEqual(events[2], { type: "reasoning_done" });
       assert.strictEqual((res.contentToken ?? "") + adapter.flushState(state), "Hello");
     });
 

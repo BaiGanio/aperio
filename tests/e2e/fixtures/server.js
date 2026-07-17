@@ -36,7 +36,7 @@ wss.on("connection", (ws) => {
 
   // Handshake
   send("status",          { text: "connected" });
-  send("provider",        { name: "stub", model: "stub", db: "sqlite", thinks: false, contextWindow: 4096, toolCount: 0 });
+  send("provider",        { name: "stub", model: "stub", db: "sqlite", thinks: false, contextWindow: 4096 });
   send("session_created", { id: sessionId });
 
   ws.on("message", (raw) => {
@@ -66,7 +66,6 @@ wss.on("connection", (ws) => {
         db: "sqlite",
         thinks: !!data.thinks,
         contextWindow: Number(data.contextWindow) || 4096,
-        toolCount: Number(data.toolCount) || 0,
       });
       return;
     }

@@ -289,6 +289,7 @@
   "ctx_summarize":            "Apibendrinti",
   "ctx_dismiss":              "Atmesti",
   "ctx_capacity_tip":         "{pct} % to, ką gali talpinti jūsų įrenginio RAM – lango dydis „Aperio“, automatiškai sukonfigūruotas jūsų aparatinei įrangai.",
+  "ctx_cost_tip":             "Ši sesija: ~${cost} ({model}). Įvertinta pagal viešai skelbiamas kainas už žetoną, o ne pagal faktinę teikėjo sąskaitą — laikykite tai orientaciniu dydžiu, o ne garantija.",
   "ctx_summarize_failed":     "⚠ Nepavyko apibendrinti: {reason}",
   "ctx_summarize_no_save":    "Santrauka sukurta, bet jos nepavyko išsaugoti atmintyje — ji bus prarasta perkrovus.",
   "ctx_summarize_ok":         "✓ Pokalbis apibendrintas ir išsaugotas atmintyje.",

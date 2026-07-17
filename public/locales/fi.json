@@ -289,6 +289,7 @@
   "ctx_summarize":            "Tee yhteenveto",
   "ctx_dismiss":              "Hylkää",
   "ctx_capacity_tip":         "{pct} % siitä, mitä koneesi RAM-muistiin mahtuu – ikkunan koko, joka Aperio on määritetty automaattisesti laitteistollesi.",
+  "ctx_cost_tip":             "Tämä istunto: ~${cost} ({model}). Arvioitu julkaistujen token-hintojen perusteella, ei palveluntarjoajan todellisen laskun — pidä tätä suuntaa-antavana, ei takuuna.",
   "ctx_summarize_failed":     "⚠ Yhteenvetoa ei voitu tehdä: {reason}",
   "ctx_summarize_no_save":    "Yhteenveto luotu mutta sitä ei voitu tallentaa muistiin — se häviää päivityksessä.",
   "ctx_summarize_ok":         "✓ Keskustelu on tiivistetty ja tallennettu muistiin.",

@@ -50,8 +50,6 @@ function makeAgent(overrides = {}) {
     THINKS:        false,
     mcpTools:             [],
     alwaysOnSkillNames:   [],
-    greetingToolCount:    0,
-    getToolCount:         () => 0,
     ...overrides,
   };
 }
@@ -123,11 +121,10 @@ describe("onConnection — immediate sends", () => {
     assert.strictEqual(ws.sent[1].thinks, true);
   });
 
-  test("provider message exposes tool eligibility independently of greeting tool count", (t) => {
+  test("provider message exposes tool eligibility", (t) => {
     const ws = makeWs(t);
-    makeHandler({ NO_TOOLS: false, greetingToolCount: 0 })(ws);
+    makeHandler({ NO_TOOLS: false })(ws);
 
-    assert.strictEqual(ws.sent[1].toolCount, 0);
     assert.strictEqual(ws.sent[1].toolEligible, true);
   });
 

@@ -18,7 +18,6 @@ let lastReasoningWrapForTok = null;
 let prevInputTokens = 0;
 let startupBannerShown = false;
 let pendingUserTokenEstimate = 0;
-let _preloadToolCount = 0;
 let _startupBreakdown = null;
 // Whether the active model surfaces reasoning. Non-thinking models must not leave
 // a "thinking…" breadcrumb behind — it reads as if the model were still working.
@@ -145,20 +144,6 @@ function handleMessage(msg) {
     _syncStartupContextBar();
   }
 
-  if (msg.type === "tool_count") {
-    _preloadToolCount = msg.count ?? 0;
-    const badge = document.getElementById("toolCountBadge");
-    if (badge) {
-      if (_preloadToolCount > 0) {
-        badge.textContent = `${_preloadToolCount}t`;
-        badge.style.display = "inline";
-        badge.title = `${_preloadToolCount} tool${_preloadToolCount === 1 ? "" : "s"} loaded`;
-      } else {
-        badge.style.display = "none";
-      }
-    }
-  }
-
   if (msg.type === "provider") {
     document.getElementById("startup-thinking")?.remove();
     // Track provider for cost display.
@@ -167,19 +152,6 @@ function handleMessage(msg) {
     if (Array.isArray(msg.agents)) _roundtableAgents = msg.agents;
     if (typeof window.applyRoundtableAvailability === "function") {
       window.applyRoundtableAvailability(Boolean(msg.roundtableAvailable), msg.roundtableReason);
-    }
-    if (msg.toolCount !== undefined) {
-      _preloadToolCount = msg.toolCount;
-      const toolBadge = document.getElementById("toolCountBadge");
-      if (toolBadge) {
-        if (_preloadToolCount > 0) {
-          toolBadge.textContent = `${_preloadToolCount}t`;
-          toolBadge.style.display = "inline";
-          toolBadge.title = `${_preloadToolCount} tool${_preloadToolCount === 1 ? "" : "s"} loaded`;
-        } else {
-          toolBadge.style.display = "none";
-        }
-      }
     }
     const badge = document.getElementById("providerBadge");
     if (badge) {

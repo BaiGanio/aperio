@@ -289,6 +289,7 @@
   "ctx_summarize":            "Apkopot",
   "ctx_dismiss":              "Aizvērt",
   "ctx_capacity_tip":         "{pct}% no tā, ko var ietilpt jūsu iekārtas RAM — loga lielums Aperio, kas automātiski konfigurēts jūsu aparatūrai.",
+  "ctx_cost_tip":             "Šī sesija: ~${cost} ({model}). Aprēķināts pēc publiski pieejamām cenām par marķieri, nevis pēc pakalpojumu sniedzēja faktiskā rēķina — uztveriet to kā orientējošu vērtību, nevis garantiju.",
   "ctx_summarize_failed":     "⚠ Nevarēja apkopot: {reason}",
   "ctx_summarize_no_save":    "Kopsavilkums izveidots, bet to nevarēja saglabāt atmiņā — tas pazudīs pārlādējot.",
   "ctx_summarize_ok":         "✓ Saruna ir apkopota un saglabāta atmiņā.",

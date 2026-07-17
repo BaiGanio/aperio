@@ -289,6 +289,7 @@
   "ctx_summarize":            "Resumér",
   "ctx_dismiss":              "Afvis",
   "ctx_capacity_tip":         "{pct} % af, hvad din maskines RAM kan rumme - vinduesstørrelsen Aperio, der er automatisk konfigureret til din hardware.",
+  "ctx_cost_tip":             "Denne session: ~${cost} ({model}). Estimeret ud fra offentliggjorte priser pr. token, ikke udbyderens faktiske regning — betragt det som en vejledning, ikke en garanti.",
   "ctx_summarize_failed":     "⚠ Kunne ikke resumere: {reason}",
   "ctx_summarize_no_save":    "Resumé oprettet men kunne ikke gemmes i mindet — det går tabt ved opdatering.",
   "ctx_summarize_ok":         "✓ Samtale opsummeret og gemt i hukommelsen.",
