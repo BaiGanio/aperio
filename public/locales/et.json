@@ -289,6 +289,7 @@
   "ctx_summarize":            "Tee kokkuvõte",
   "ctx_dismiss":              "Sulge",
   "ctx_capacity_tip":         "{pct}% sellest, mida teie masina RAM mahutab – teie riistvara jaoks automaatselt konfigureeritud Aperio akna suurus.",
+  "ctx_cost_tip":             "See seanss: ~${cost} ({model}). Hinnatud avaldatud tokeni hindade põhjal, mitte teenusepakkuja tegeliku arve järgi — käsitlege seda juhisena, mitte garantiina.",
   "ctx_summarize_failed":     "⚠ Kokkuvõtte tegemine ebaõnnestus: {reason}",
   "ctx_summarize_no_save":    "Kokkuvõte loodud, kuid seda ei saanud mällu salvestada — see kaob värskendamisel.",
   "ctx_summarize_ok":         "✓ Vestlusest tehakse kokkuvõte ja salvestatakse mällu.",

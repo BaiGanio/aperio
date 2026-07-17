@@ -289,6 +289,7 @@
   "ctx_summarize":            "Zhrnúť",
   "ctx_dismiss":              "Odmietnuť",
   "ctx_capacity_tip":         "{pct} % z toho, čo pojme RAM vášho počítača – veľkosť okna Aperio automaticky nakonfigurovaná pre váš hardvér.",
+  "ctx_cost_tip":             "Táto relácia: ~${cost} ({model}). Odhad na základe zverejnených cien za token, nie skutočnej faktúry poskytovateľa — berte to ako orientačnú hodnotu, nie záruku.",
   "ctx_summarize_failed":     "⚠ Zhrnutie zlyhalo: {reason}",
   "ctx_summarize_no_save":    "Zhrnutie bolo vytvorené, ale nemožno ho uložiť do pamäte — po obnovení stránky bude stratené.",
   "ctx_summarize_ok":         "✓ Konverzácia zhrnutá a uložená do pamäte.",

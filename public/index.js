@@ -217,19 +217,18 @@ function updateContextBar(used, max, outputTok = 0, trackCost = true) {
   _ctxHWM = Math.max(_ctxHWM, used) + outputTok;
   const display = _ctxHWM;
 
-  // Cost calculation.
+  // Cost calculation — local inference is free, so there's nothing worth
+  // showing there; only cloud providers get the (estimated) running total.
   const isLocal = _currentProvider === "llamacpp";
   if (trackCost && !isLocal && used > 0 && costEl) {
     const rates = _COST_RATES[_currentModel] || { in: 0.5, out: 2.0 };
     const turnCost = ((used / 1_000_000) * rates.in) + ((outputTok / 1_000_000) * rates.out);
     _sessionCost += turnCost;
-    costEl.textContent = `$${_sessionCost.toFixed(4)}`;
+    costEl.textContent = `~$${_sessionCost.toFixed(4)}`;
     costEl.style.display = "inline";
-    costEl.title = `This session: ~$${_sessionCost.toFixed(4)} (${_currentModel || "unknown"})`;
+    costEl.title = t("ctx_cost_tip", { cost: _sessionCost.toFixed(4), model: _currentModel || "unknown" });
   } else if (trackCost && isLocal && costEl) {
-    costEl.textContent = "local";
-    costEl.style.display = "inline";
-    costEl.title = "Running locally — no API cost";
+    costEl.style.display = "none";
   }
 
   if (!max || max <= 0) {

@@ -289,6 +289,7 @@
   "ctx_summarize":            "Podsumuj",
   "ctx_dismiss":              "Odrzuć",
   "ctx_capacity_tip":         "{pct}% tego, co może pomieścić pamięć RAM Twojej maszyny — rozmiar okna Aperio automatycznie konfigurowany dla Twojego sprzętu.",
+  "ctx_cost_tip":             "Ta sesja: ~${cost} ({model}). Szacunek na podstawie opublikowanych cen za token, a nie rzeczywistego rachunku dostawcy — traktuj to jako wskazówkę, a nie gwarancję.",
   "ctx_summarize_failed":     "⚠ Nie udało się podsumować: {reason}",
   "ctx_summarize_no_save":    "Podsumowanie wygenerowano, ale nie można go zapisać w pamięci — zostanie utracone po odświeżeniu.",
   "ctx_summarize_ok":         "✓ Podsumowanie rozmowy i zapisanie w pamięci.",

@@ -43,7 +43,6 @@ export function createTestAgent(opts = {}) {
     mcpTools: [],
     version: "0.0.0-test",
     NO_TOOLS: true,
-    greetingToolCount: 0,
     reasoningAdapter: { match: "__noop__" },
 
     // ── Stub methods ─────────────────────────────────────────────────────

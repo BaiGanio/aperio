@@ -351,6 +351,7 @@ const TRANSLATIONS = {
     ctx_summarize:            "Summarize",
     ctx_dismiss:              "Dismiss",
     ctx_capacity_tip:         "{pct}% of what your machine's RAM can hold — the window size Aperio auto-configured for your hardware.",
+    ctx_cost_tip:             "This session: ~${cost} ({model}). Estimated from published per-token pricing, not the provider's actual bill — treat it as a guide, not a guarantee.",
     ctx_summarize_failed:     "⚠ Could not summarize: {reason}",
     ctx_summarize_no_save:    "Summary generated but could not be saved to memory — it will be lost on refresh.",
     ctx_summarize_ok:         "✓ Conversation summarized and saved to memory.",

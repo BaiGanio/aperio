@@ -169,6 +169,13 @@
       color: var(--text);
       transition: color 0.3s;
     }
+    /* Real money, not just another muted stat — give it its own color instead
+       of blending into the context numbers (issue: price was easy to miss). */
+    .ctx-cost {
+      display: none;
+      margin-left: 6px;
+      color: #f59e0b;
+    }
     .ctx-track {
       height: 4px;
       border-radius: 2px;
