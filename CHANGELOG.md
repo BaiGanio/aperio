@@ -37,6 +37,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - zh, ja server-side locale detection in SUPPORTED_LOCALES (was 24, now 26 — mirrors i18n.js LOCALE_META).
 - Locale-drift sync test (`tests/locale-drift-sync.test.js`) that asserts server, client, and file-system locale lists are in lockstep.
 - Phase D audit: no verbatim tool output is rendered unescaped in the public UI (safe by design).
+- `npm run prompt-cache:bench` — parses llama-server's debug log (`sim_best`/
+  `f_keep`/prompt-eval timing per request) to report KV-cache prefix reuse
+  across a conversation (`scripts/prompt-cache-bench.js`,
+  `lib/helpers/promptCacheLog.js`).
 
 ### Fixed
 
@@ -53,6 +57,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
   restart Aperio so the regenerated model preset takes effect.
 - Windows lite launchers now apply the complete `start:lite` environment,
   including database-first configuration precedence.
+- Prompt-cache hygiene: the session memory pointer is now computed once at
+  session start instead of being rewritten on every `remember`/`forget`
+  mid-session, and the LLM-generated greeting was replaced with a static,
+  locale-aware line plus a background KV-cache warm-up request. Neither
+  source rewrites the system prompt mid-session anymore, so llama.cpp's slot
+  cache survives across turns instead of re-prefilling from scratch —
+  reprocessed-token volume on stable turns drops well below a cold start in
+  live testing. The clock directive and per-turn skill injection remain
+  unaddressed, unconditional cache-invalidation sources by design (see
+  `trash/plans/prompt-cache-hygiene/`).
 - llama.cpp model priming now uses an OS-assigned scratch port, retries once
   if the port is raced, and identifies the attempted port in failures.
 - Removed the orphaned generated `scripts/en-output.json` artifact.

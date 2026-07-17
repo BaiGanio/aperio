@@ -237,6 +237,7 @@ describe("createAgent initialization", () => {
     assert.ok(agent.runAgentLoop, "Agent should have runAgentLoop");
     assert.ok(agent.fetchMemories, "Agent should have fetchMemories");
     assert.ok(agent.buildGreeting, "Agent should have buildGreeting");
+    assert.ok(agent.warmCache, "Agent should have warmCache");
   });
 
   test("createAgent handles missing prompts directory gracefully", async (t) => {
@@ -938,9 +939,12 @@ describe("Agent Integration with Emitter", () => {
     stubMcpTransport(t);
 
     // Memory is no longer preloaded as content. A tool-capable model (the default
-    // anthropic provider) gets a lightweight pointer in memCtx — the memory count
-    // plus an instruction to call `recall` — so it fetches memories query-scoped
-    // on demand instead of carrying a blind top-N. See refreshSessionMemCtx.
+    // anthropic provider) gets a lightweight pointer in memCtx — bucketed, not an
+    // exact count (kept out of the prompt text so remember/forget never rewrites
+    // it mid-session — see refreshSessionMemCtx) — plus an instruction to call
+    // `recall`, so it fetches memories query-scoped on demand instead of a blind
+    // top-N. The exact count still comes back separately as preloadedMemCount,
+    // for the UI banner only.
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") {
         return { content: [{ type: "text", text: "[fact] User name is John\n---\n[preference] Likes Node.js" }] };
@@ -952,14 +956,14 @@ describe("Agent Integration with Emitter", () => {
     // earlier tests); deepseek constructs no SDK client, so no API key is needed.
     const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
 
-    const { prompt, memCtx, preloadedMemCount } = await agent.buildGreeting();
+    const { memCtx, preloadedMemCount } = await agent.buildGreeting();
 
-    assert.ok(prompt.includes("Greet me"));
     assert.ok(!memCtx.includes("User name is John"), "memory content must NOT be preloaded");
     assert.match(memCtx, /stored outside this conversation/, "memCtx must be the recall pointer");
-    assert.match(memCtx, /2 saved memories/, "pointer states the memory count");
+    assert.match(memCtx, /saved memories/, "pointer states memory is saved, without an exact count");
+    assert.doesNotMatch(memCtx, /\d/, "pointer text must contain no digits (count-free, for prompt-cache stability)");
     assert.match(memCtx, /recall/, "pointer steers the model to recall");
-    assert.strictEqual(preloadedMemCount, 2);
+    assert.strictEqual(preloadedMemCount, 2, "the exact count is still returned for the UI banner");
   });
 
   test("local (llama.cpp) models get no memory pointer — memory is skipped entirely", async (t) => {
@@ -1007,7 +1011,7 @@ describe("Agent Integration with Emitter", () => {
     const { memCtx } = await agent.buildGreeting();
 
     assert.strictEqual(agent.toolsEnabled, true, "allowlisted llama.cpp models are capable");
-    assert.match(memCtx, /1 saved memory\b/, "allowlisted models get the recall pointer");
+    assert.match(memCtx, /saved memories/, "allowlisted models get the recall pointer");
     const imageTurn = [{ role: "user", content: [
       { type: "text", text: "describe this image" },
       { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
@@ -1031,6 +1035,82 @@ describe("Agent Integration with Emitter", () => {
     assert.strictEqual(imageTools.length, 0, "a standalone inline image request must be offered no tools at all");
   });
 
+  // Prompt-cache hygiene (trash/plans/prompt-cache-hygiene, WS2): the greeting
+  // is always a static, locale-aware line — no model call, for any session
+  // type — and a separate background warm-up primes the KV cache instead.
+  test("buildGreeting always returns a static greeting — never a model call, even for a persona/character agent", async (t) => {
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "No memories found." }] }));
+
+    const defaultAgent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
+    const { staticGreeting: defaultGreeting } = await defaultAgent.buildGreeting();
+    assert.ok(typeof defaultGreeting === "string" && defaultGreeting.length > 0);
+
+    const personaAgent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", persona: "a pirate captain" });
+    const { staticGreeting: personaGreeting } = await personaAgent.buildGreeting();
+    assert.ok(typeof personaGreeting === "string" && personaGreeting.length > 0,
+      "a persona/character agent still gets a static greeting — the old LLM-voiced intro is gone");
+  });
+
+  describe("warmCache (prompt-cache hygiene WS2)", () => {
+    test("is a no-op on a non-local provider — never touches the network", async (t) => {
+      stubMcpTransport(t);
+      t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "OK" }] }));
+      let fetchCalled = false;
+      t.mock.method(globalThis, "fetch", async () => { fetchCalled = true; return { ok: false, status: 500 }; });
+
+      const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
+      const result = await agent.warmCache();
+
+      assert.strictEqual(result, false);
+      assert.strictEqual(fetchCalled, false, "a cloud provider must never trigger a warm-up fetch");
+    });
+
+    test("is a no-op when the local model is not yet loaded — must not race the model load", async (t) => {
+      stubMcpTransport(t);
+      t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "OK" }] }));
+      let chatCalled = false;
+      t.mock.method(globalThis, "fetch", async (url) => {
+        const tag = String(url);
+        if (tag.includes("/models")) {
+          return { ok: true, status: 200, json: async () => ({ data: [{ id: "aperio-main", status: { value: "unloaded" } }] }) };
+        }
+        if (tag.includes("/chat/completions")) { chatCalled = true; return { ok: true, status: 200, text: async () => "" }; }
+        return { ok: false, status: 404 };
+      });
+
+      const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", providerConfig: { name: "llamacpp", model: "qwen2.5:3b" } });
+      const result = await agent.warmCache();
+
+      assert.strictEqual(result, false, "no cache exists yet to warm while the model is still loading");
+      assert.strictEqual(chatCalled, false);
+    });
+
+    test("fires a real minimal warm-up request carrying the real system prompt when the model is already loaded", async (t) => {
+      stubMcpTransport(t);
+      t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "OK" }] }));
+      let capturedBody = null;
+      t.mock.method(globalThis, "fetch", async (url, opts) => {
+        const tag = String(url);
+        if (tag.includes("/models")) {
+          return { ok: true, status: 200, json: async () => ({ data: [{ id: "aperio-main", status: { value: "loaded" } }] }) };
+        }
+        if (tag.includes("/chat/completions")) { capturedBody = JSON.parse(opts.body); return { ok: true, status: 200, text: async () => "" }; }
+        return { ok: false, status: 404 };
+      });
+
+      const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", providerConfig: { name: "llamacpp", model: "qwen2.5:3b" } });
+      const result = await agent.warmCache();
+
+      assert.strictEqual(result, true);
+      assert.ok(capturedBody, "a warm-up chat-completion request must have been sent");
+      assert.equal(capturedBody.max_tokens, 1);
+      assert.equal(capturedBody.messages[0].role, "system");
+      assert.equal(capturedBody.messages[0].content, agent.getSystemPrompt("", "en", "", []),
+        "warm-up must carry the real system prompt, not a placeholder");
+    });
+  });
+
   test("buildGreeting handles no memories gracefully", async (t) => {
     stubMcpTransport(t);
 
@@ -1038,9 +1118,8 @@ describe("Agent Integration with Emitter", () => {
 
     t.mock.method(agent, "callTool", async () => "No memories found.");
 
-    const { prompt, memCtx, preloadedMemCount } = await agent.buildGreeting();
+    const { memCtx, preloadedMemCount } = await agent.buildGreeting();
 
-    assert.ok(prompt.includes("Greet me"));
     assert.strictEqual(memCtx, "");
     assert.strictEqual(preloadedMemCount, 0);
   });
@@ -1072,16 +1151,20 @@ describe("Agent Integration with Emitter", () => {
     ]);
     assert.match(laterTurn, /stored outside this conversation/,
       "memory pointer must persist into later turns' system prompt");
-    assert.match(laterTurn, /2 saved memories/, "pointer states the memory count");
+    assert.match(laterTurn, /saved memories/, "pointer states memory is saved, without an exact count");
   });
 
-  test("a memory saved mid-session updates the pointer count", async (t) => {
+  // Prompt-cache hygiene (trash/plans/prompt-cache-hygiene, WS1): the memory
+  // pointer is deliberately frozen for the session once buildGreeting sets it,
+  // so remember/forget mid-session can't rewrite the system prompt and bust the
+  // llama-server KV cache. See test group A in the companion tests file.
+  test("remember/forget mid-session does not rewrite the system prompt (WS1)", async (t) => {
     stubMcpTransport(t);
+    // Freeze Date so the (still-unaddressed) minute-granularity clock directive
+    // can't introduce an unrelated diff between the two getSystemPrompt() calls
+    // below and produce a false failure/false pass.
+    t.mock.timers.enable({ apis: ["Date"] });
 
-    // The greeting-time pointer is built once; a write later in the session must
-    // re-load it so the count reflects the new memory on subsequent turns. The
-    // write goes through callTool, which triggers the refresh for memory-write
-    // tools.
     let saved = false;
     t.mock.method(Client.prototype, "callTool", async ({ name }) => {
       if (name === "recall") {
@@ -1097,13 +1180,16 @@ describe("Agent Integration with Emitter", () => {
     const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", providerConfig: { name: "deepseek", model: "deepseek-v4-flash" } });
     await agent.buildGreeting();
 
-    assert.match(agent.getSystemPrompt("hi"), /1 saved memory\b/,
-      "pointer starts at one memory");
+    // Same user text both times — isolates the memory-pointer effect from
+    // per-turn skill-matching, which varies with the message text.
+    const before = agent.getSystemPrompt("hi");
+    assert.match(before, /saved memories/, "pointer is present before the write");
 
     await agent.callTool("remember", { type: "fact", title: "sushi", content: "User loves sushi" });
 
-    assert.match(agent.getSystemPrompt("and now?"), /2 saved memories/,
-      "saving a memory mid-session bumps the pointer count");
+    const after = agent.getSystemPrompt("hi");
+    assert.equal(after, before,
+      "system prompt must be byte-identical after a mid-session remember — the pointer only refreshes at next session's buildGreeting");
   });
 });
 

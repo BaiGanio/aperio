@@ -101,12 +101,13 @@ after(() => {
 
 // ─── Dynamic import ───────────────────────────────────────────────────────
 
-let runLlamaCppLoop;
+let runLlamaCppLoop, warmLlamaCppCache;
 
 before(async () => {
   process.env.LLAMACPP_VLM_MODEL = "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
   const mod = await import("../../../../lib/agent/providers/llamacpp.js");
   runLlamaCppLoop = mod.runLlamaCppLoop;
+  warmLlamaCppCache = mod.warmLlamaCppCache;
 });
 
 function reset() {
@@ -900,6 +901,60 @@ describe("runLlamaCppLoop — corrupted tool name", () => {
     assert.equal(chatCalls, 2, "one original + one retry, then give up");
     assert.ok(emitter.send.mock.calls.some(c => c.arguments[0]?.type === "retract"), "should retract the bad call");
     assert.match(result, /couldn't issue the call correctly/i);
+  });
+});
+
+// =============================================================================
+// test: warmLlamaCppCache (prompt-cache hygiene, WS2)
+// =============================================================================
+describe("warmLlamaCppCache", () => {
+  afterEach(() => {
+    reset();
+    mock.restoreAll();
+    mock.method(logger, "info",  (...args) => { infoCalls.push(args); });
+    mock.method(logger, "warn",  (...args) => { warnCalls.push(args); });
+    mock.method(logger, "error", (...args) => { errorCalls.push(args); });
+  });
+
+  const provider = () => baseCtx("qwen2.5-coder:7b").provider;
+
+  test("sends a minimal request: max_tokens 1, no tools, thinking suppressed, carrying the given system prompt", async () => {
+    let capturedBody = null;
+    mock.method(globalThis, "fetch", async (url, opts) => {
+      capturedBody = JSON.parse(opts.body);
+      return { ok: true, status: 200, text: async () => "" };
+    });
+
+    await warmLlamaCppCache(provider(), "SYSTEM PROMPT TEXT", () => null, () => {});
+
+    assert.equal(capturedBody.max_tokens, 1);
+    assert.equal(capturedBody.chat_template_kwargs.enable_thinking, false);
+    assert.equal(capturedBody.tools, undefined, "warm-up must not offer tools");
+    assert.equal(capturedBody.messages[0].role, "system");
+    assert.equal(capturedBody.messages[0].content, "SYSTEM PROMPT TEXT");
+  });
+
+  test("registers its controller via setAbort", async () => {
+    let registered = null;
+    mock.method(globalThis, "fetch", async () => ({ ok: true, status: 200, text: async () => "" }));
+
+    await warmLlamaCppCache(provider(), "sys", () => null, (c) => { registered = c; });
+
+    assert.ok(registered instanceof AbortController, "setAbort must receive the request's AbortController");
+  });
+
+  test("a network failure is swallowed — never throws, logs a warning", async () => {
+    mock.method(globalThis, "fetch", async () => { throw new Error("Connection refused"); });
+
+    await assert.doesNotReject(() => warmLlamaCppCache(provider(), "sys", () => null, () => {}));
+    assert.equal(warnCalls.length, 1);
+  });
+
+  test("an aborted warm-up is swallowed silently — no warning logged", async () => {
+    mock.method(globalThis, "fetch", async () => { throw Object.assign(new Error("aborted"), { name: "AbortError" }); });
+
+    await assert.doesNotReject(() => warmLlamaCppCache(provider(), "sys", () => null, () => {}));
+    assert.equal(warnCalls.length, 0, "an intentional abort is not a failure worth logging");
   });
 });
 

@@ -44,7 +44,8 @@ function makeAgent(overrides = {}) {
     runAgentLoop:         async () => "",
     handleRememberIntent: async () => {},
     fetchMemories:        async () => ({ raw: "", parsed: [] }),
-    buildGreeting:        async () => ({ prompt: "Greet me", memCtx: "", preloadedMemCount: 0 }),
+    buildGreeting:        async () => ({ memCtx: "", preloadedMemCount: 0, staticGreeting: "Hi! How can I help you today?" }),
+    warmCache:            async () => false,
     NO_TOOLS:      false,
     THINKS:        false,
     mcpTools:             [],
@@ -142,14 +143,19 @@ describe("onConnection — immediate sends", () => {
 // ─── "init" message ────────────────────────────────────────────────────────────
 
 describe("message type: init", () => {
-  test("sends memories, runs the greeting loop, then sends memories again", async (t) => {
+  // Prompt-cache hygiene (trash/plans/prompt-cache-hygiene, WS2): the greeting
+  // is always a static, locale-aware line now — never a model call, for any
+  // session (default identity or persona/character alike). It is deliberately
+  // NOT seeded into session history, so there is no seedGreeting distinction
+  // left to test — every real turn starts from a clean array.
+  test("sends memories, renders the static greeting via stream_end, sends memories again — never runs the inference loop", async (t) => {
     const ws      = makeWs(t);
     const greetSpy = [];
     const loopSpy  = [];
 
     const handler = makeWsHandler({
       agent: makeAgent({
-        buildGreeting:  async () => { greetSpy.push(1); return { prompt: "Hello!", memCtx: "", preloadedMemCount: 0 }; },
+        buildGreeting:  async () => { greetSpy.push(1); return { memCtx: "", preloadedMemCount: 0, staticGreeting: "Hello!" }; },
         runAgentLoop:   async () => { loopSpy.push(1); return ""; },
       }),
       store:     { listAll: async () => [{ id: "1", type: "fact", title: "t", content: "c", tags: [], importance: 3, created_at: null, pinned: false }] },
@@ -159,123 +165,77 @@ describe("message type: init", () => {
     handler(ws);
     await ws.emit({ type: "init" });
 
-    // greeting and loop each called once
     assert.strictEqual(greetSpy.length, 1);
-    assert.strictEqual(loopSpy.length,  1);
-    // two memories events (before and after the loop)
-    assert.strictEqual(sentOf(ws, "memories").length, 2);
-  });
-
-  test("static greeting: skips the loop and sends the greeting as stream_end text", async (t) => {
-    const ws      = makeWs(t);
-    const loopSpy = [];
-
-    const handler = makeWsHandler({
-      agent: makeAgent({
-        buildGreeting: async () => ({ prompt: "Hello!", memCtx: "", preloadedMemCount: 0, staticGreeting: "Hi! How can I help you today?" }),
-        runAgentLoop:  async () => { loopSpy.push(1); return ""; },
-      }),
-      store:     { listAll: async () => [] },
-      varRoot: TEST_DIR,
-    });
-
-    handler(ws);
-    await ws.emit({ type: "init" });
-
-    // No inference: the greeting loop must not run.
+    // No inference: the greeting is never a model call.
     assert.strictEqual(loopSpy.length, 0);
     // The static line is rendered via a stream_end carrying the text.
     const ends = sentOf(ws, "stream_end");
     assert.strictEqual(ends.length, 1);
-    assert.strictEqual(ends[0].text, "Hi! How can I help you today?");
-    // Memories are still sent (preview path is unchanged).
-    assert.ok(sentOf(ws, "memories").length >= 1);
+    assert.strictEqual(ends[0].text, "Hello!");
+    // two memories events (before and after the greeting)
+    assert.strictEqual(sentOf(ws, "memories").length, 2);
   });
 
-  test("default identity greeting runs the loop but is NOT seeded into session history", async (t) => {
-    const ws       = makeWs(t);
-    const loopMsgs = [];
+  test("fires a background cache warm-up after the greeting", async (t) => {
+    const ws = makeWs(t);
+    const warmSpy = [];
 
     const handler = makeWsHandler({
       agent: makeAgent({
-        // No staticGreeting and no seedGreeting → model-gen, throwaway array.
-        buildGreeting: async () => ({ prompt: "GREETING_PROMPT", memCtx: "", preloadedMemCount: 0 }),
-        runAgentLoop:  async (msgs) => { loopMsgs.push([...msgs]); return ""; },
+        warmCache: async (lang, getAbort, setAbort) => {
+          warmSpy.push({ lang, getAbort, setAbort });
+          return true;
+        },
       }),
-      store:     { listAll: async () => [] },
-      varRoot: TEST_DIR,
-    });
-
-    handler(ws);
-    await ws.emit({ type: "init" });                       // greeting loop
-    await ws.emit({ type: "chat", text: "hello world" });  // first real turn
-
-    // The greeting ran on its own array…
-    assert.ok(loopMsgs[0].some(m => m.content === "GREETING_PROMPT"));
-    // …but the following real turn does not carry the greeting exchange.
-    assert.ok(!loopMsgs[1].some(m => m.content === "GREETING_PROMPT"));
-    assert.ok(loopMsgs[1].some(m => m.role === "user" && m.content === "hello world"));
-  });
-
-  test("persona/character greeting IS seeded into session history", async (t) => {
-    const ws       = makeWs(t);
-    const loopMsgs = [];
-
-    const handler = makeWsHandler({
-      agent: makeAgent({
-        buildGreeting: async () => ({ prompt: "GREETING_PROMPT", memCtx: "", preloadedMemCount: 0, seedGreeting: true }),
-        runAgentLoop:  async (msgs) => { loopMsgs.push([...msgs]); return ""; },
-      }),
-      store:     { listAll: async () => [] },
+      store: { listAll: async () => [] },
       varRoot: TEST_DIR,
     });
 
     handler(ws);
     await ws.emit({ type: "init" });
-    await ws.emit({ type: "chat", text: "hello world" });
+    // warmCache is fire-and-forget (not awaited by init()); give its promise
+    // chain a tick to run before asserting.
+    await new Promise(resolve => setImmediate(resolve));
 
-    // Seeded: the greeting exchange persists into the next real turn.
-    assert.ok(loopMsgs[1].some(m => m.content === "GREETING_PROMPT"));
+    assert.strictEqual(warmSpy.length, 1);
+    assert.strictEqual(warmSpy[0].lang, "en");
+    assert.strictEqual(typeof warmSpy[0].getAbort, "function");
+    assert.strictEqual(typeof warmSpy[0].setAbort, "function");
   });
 
-  test("passes noTools:true and suppressThinking:true to runAgentLoop for non-anthropic providers", async (t) => {
-    const ws       = makeWs(t);
-    const loopArgs = [];
+  test("a real chat message aborts an in-flight warm-up without marking the turn interrupted", async (t) => {
+    const ws = makeWs(t);
+    let warmupController = null;
+    let warmupSettled = false;
 
     const handler = makeWsHandler({
       agent: makeAgent({
-        provider:       { name: "ollama", model: "llama3.1" },
-        runAgentLoop:   async (msgs, _emitter, opts) => { loopArgs.push(opts); return ""; },
+        warmCache: async (_lang, _getAbort, setAbort) => {
+          warmupController = new AbortController();
+          setAbort(warmupController);
+          await new Promise(resolve => { warmupController.signal.addEventListener("abort", resolve); });
+          warmupSettled = true;
+          return false;
+        },
+        runAgentLoop: async (_messages, emitter) => {
+          emitter.send({ type: "stream_end", text: "real answer" });
+          return "real answer";
+        },
       }),
-      store:     {},
+      store: { listAll: async () => [] },
       varRoot: TEST_DIR,
     });
 
     handler(ws);
     await ws.emit({ type: "init" });
+    await ws.emit({ type: "chat", text: "hello", turnId: "t1" });
 
-    // suppressThinking keeps a local reasoning model from ruminating over the
-    // cosmetic "say hello in one sentence" greeting turn.
-    assert.deepStrictEqual(loopArgs[0], { noTools: true, lang: "en", suppressThinking: true });
-  });
-
-  test("passes empty opts to runAgentLoop for the anthropic provider", async (t) => {
-    const ws       = makeWs(t);
-    const loopArgs = [];
-
-    const handler = makeWsHandler({
-      agent: makeAgent({
-        provider:     { name: "anthropic", model: "claude-haiku-4-5" },
-        runAgentLoop: async (msgs, _emitter, opts) => { loopArgs.push(opts); return ""; },
-      }),
-      store:     {},
-      varRoot: TEST_DIR,
-    });
-
-    handler(ws);
-    await ws.emit({ type: "init" });
-
-    assert.deepStrictEqual(loopArgs[0], { lang: "en" });
+    assert.ok(warmupController?.signal.aborted, "the warm-up's own controller must be aborted");
+    assert.ok(warmupSettled, "the warm-up promise must settle (not hang) after abort");
+    // The real turn must not be reported as interrupted — a background
+    // warm-up is never a "previous response the user saw get cut off".
+    const chatSent = sentOf(ws, "turn_complete");
+    assert.strictEqual(chatSent[0]?.status, "completed");
   });
 
   test("scopes Codex turns to the connection's Aperio session", async (t) => {
@@ -293,6 +253,7 @@ describe("message type: init", () => {
     handler(ws);
     const announcedId = sentOf(ws, "session_created")[0].id;
     await ws.emit({ type: "init" });
+    await ws.emit({ type: "chat", text: "hello" }); // real turns run the loop now, not init
 
     assert.equal(loopArgs[0].aperioSessionId, announcedId);
   });
@@ -301,7 +262,7 @@ describe("message type: init", () => {
     const ws     = makeWs(t);
     const spy    = [];
     const handler = makeWsHandler({
-      agent: makeAgent({ buildGreeting: async () => { spy.push(1); return { prompt: "Hi", memCtx: "", preloadedMemCount: 0 }; } }),
+      agent: makeAgent({ buildGreeting: async () => { spy.push(1); return { memCtx: "", preloadedMemCount: 0, staticGreeting: "Hi" }; } }),
       store:     {},
       varRoot: TEST_DIR,
     });
@@ -312,26 +273,6 @@ describe("message type: init", () => {
     await ws.emit({ type: "init" });
 
     assert.strictEqual(spy.length, 1);
-  });
-
-  test("re-announces provider when THINKS changes during the greeting loop", async (t) => {
-    const ws    = makeWs(t);
-    const agent = makeAgent({
-      THINKS: false,
-      runAgentLoop:  async function() {
-        // simulate the agent auto-detecting thinking mid-stream
-        agent.THINKS = true;
-        return "";
-      },
-    });
-
-    makeWsHandler({ agent, store: {}, varRoot: TEST_DIR })(ws);
-    await ws.emit({ type: "init" });
-
-    const providerMsgs = sentOf(ws, "provider");
-    // one on connection + one re-announcement
-    assert.strictEqual(providerMsgs.length, 2);
-    assert.strictEqual(providerMsgs[1].thinks, true);
   });
 
   test("does NOT re-announce provider when THINKS stays the same", async (t) => {

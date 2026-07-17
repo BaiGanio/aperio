@@ -102,13 +102,16 @@ export function createTestAgent(opts = {}) {
     },
 
     // ── buildGreeting: initial greeting for new sessions ─────────────────
+    // Always static — no model call (prompt-cache hygiene, WS2).
     async buildGreeting(_lang) {
       return {
-        prompt: "Say a friendly greeting.",
+        memCtx: "",
+        preloadedMemCount: 0,
         staticGreeting: "Hello! I'm the test agent. How can I help?",
-        seedGreeting: false,
-        greetingMemBlock: null,
       };
     },
+
+    // ── warmCache: background KV-cache warm-up (WS2) — no-op for the stub ──
+    async warmCache() { return false; },
   };
 }

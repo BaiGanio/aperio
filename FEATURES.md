@@ -2,7 +2,7 @@
 
 Single source of truth for **what exists**. If you add or remove a feature, change it here in the same PR — otherwise it didn't ship.
 
-Last reconciled: 2026-07-16 · Version: 0.67.4
+Last reconciled: 2026-07-17 · Version: 0.67.4
 
 ---
 
@@ -121,6 +121,7 @@ Last reconciled: 2026-07-16 · Version: 0.67.4
 - Background agents: scheduled, chat-less jobs over the store — interval, manual (`POST /api/agents/:id/run`), and codegraph/docgraph file-change (`watcher`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, DB-backed (`agent_jobs` table) with per-run history in the `agent_runs` table (newest-first in the agents panel), gated by `APERIO_AGENT_JOBS=on`; freeform jobs store validated `AgentSpec` definitions and legacy provider/persona/character fields are normalized safely on read/write; fresh stores include a disabled `nightly-maintenance` example for embedding backfill and dry-run dedupe (see `background-agents.md`)
 - Background-agents UI panel — right-side sidebar with live master switch, per-job trigger/mode/last-verdict, "Run now", and per-job run history (`lib/routes/api-agents.js`, `public/scripts/agents-panel.js`)
 - Personas via `id/whoami*.md`; 7 domain characters via `id/characters/` (architect, reviewer, security, product, socratic, doctor, space-engineer) overlayable per-agent via `ROUNDTABLE_CHARACTERS`
+- Prompt-cache hygiene — a session-frozen memory pointer (count-free, refreshed only at next session start) and a static, locale-aware greeting plus a background llama.cpp KV-cache warm-up (`agent.warmCache()`, gated on the model already being loaded) keep the system prompt's stable prefix byte-identical across turns; `npm run prompt-cache:bench` measures the resulting prefix reuse from llama-server's debug log
 
 ## Storage
 - SQLite + sqlite-vec + FTS5 — zero-config default, single file `var/aperio.db`
