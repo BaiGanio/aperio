@@ -21,6 +21,9 @@ async function main() {
 
   const provider = resolveProvider({ name: "llamacpp" });
   const profile = resolvePerfProfile();
+  // Router mode serves Aperio's stable alias, not the raw HF repo id. Keep
+  // the configured model in the heading, but send requests to the alias.
+  const requestModel = provider.requestModel || provider.model;
   // Read AFTER ensureLlamaCpp() — it resolves and publishes LLAMACPP_SERVE_CTX
   // when the .env doesn't pin one, so this reflects the value actually served.
   const servedCtx = process.env.LLAMACPP_SERVE_CTX ? parseInt(process.env.LLAMACPP_SERVE_CTX, 10) : null;
@@ -28,7 +31,7 @@ async function main() {
   console.log(`Benchmarking ${provider.model} (profile=${profile})…\n`);
   const result = await runBenchmark({
     baseURL: provider.baseURL,
-    model: provider.model,
+    model: requestModel,
     profile,
     servedCtx,
   });

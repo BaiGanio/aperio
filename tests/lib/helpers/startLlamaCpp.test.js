@@ -174,6 +174,19 @@ describe("buildModelsPreset", () => {
     assert.deepEqual(ctxLines, ["ctx-size = 4096", "ctx-size = 4096"]);
   });
 
+  test("LLAMACPP_SERVE_CTX above the bridge ceiling still leaves the VLM capped at 24576", () => {
+    // ensureLlamaCpp self-sets LLAMACPP_SERVE_CTX (the MAIN model's window)
+    // before building the preset. Uncapped, the VLM inherited that full window
+    // (131072 observed live in models.ini) — defeating VLM_BRIDGE_CTX_CEILING
+    // and flipping the RAM-fit check into swap mode.
+    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_SERVE_CTX: "131072" }, { totalRamGB: 32 });
+    const vlmIdx = ini.indexOf("[aperio-vlm]");
+    const mainSection = ini.slice(0, vlmIdx);
+    const vlmSection = ini.slice(vlmIdx);
+    assert.match(mainSection, /ctx-size = 131072/);
+    assert.match(vlmSection, /ctx-size = 24576/);
+  });
+
   test("ctx-size never exceeds each model's max context regardless of RAM", () => {
     const ini = buildModelsPreset({}, { totalRamGB: 512 });
     const ctxLines = ini.match(/ctx-size = (\d+)/g).map(l => parseInt(l.split(" = ")[1], 10));

@@ -161,6 +161,33 @@ describe("startModelProgressWatcher", () => {
     assert.equal(readies.length, 1);
   });
 
+  test("null probe (router busy/unknown model) stays silent — never claims loading", async () => {
+    const root = makeCache(MODEL, {});
+    const emitter = recordingEmitter();
+    const stop = startModelProgressWatcher(
+      { model: MODEL, emitter, cacheRoot: root, pollMs: 15, graceMs: 30 },
+      async () => null
+    );
+    await sleep(90); // several polls, all well past the grace period
+    stop();
+    assert.equal(emitter.events.length, 0);
+  });
+
+  test("probes the router with routerModelId (preset alias), not the hf id", async () => {
+    const root = makeCache(MODEL, {});
+    const emitter = recordingEmitter();
+    const probed = [];
+    const stop = startModelProgressWatcher(
+      { model: MODEL, routerModelId: "aperio-main", emitter, cacheRoot: root, pollMs: 15, graceMs: 500 },
+      async (id) => { probed.push(id); return "loaded"; }
+    );
+    await sleep(40);
+    stop();
+    assert.ok(probed.length > 0, "probe was never called");
+    assert.ok(probed.every(id => id === "aperio-main"), `probed with ${probed}`);
+    assert.equal(emitter.events.length, 0); // warm model stays silent
+  });
+
   test("stop() before the first poll emits nothing", async () => {
     const root = makeCache(MODEL, { "x.downloadInProgress": 1024 ** 3 });
     const emitter = recordingEmitter();
