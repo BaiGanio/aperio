@@ -215,6 +215,7 @@ body::before {
 
 @media (prefers-reduced-motion: reduce) {
     .aurora-text, .orb, .t-cursor { animation: none; }
+    .nav-links .main-nav-item > a { transition: color 0.15s, background 0.15s; }
     #hero::before { display: none; }
     .reveal { opacity: 1; transform: none; transition: none; }
 }
@@ -262,6 +263,14 @@ body::before {
     padding:6px 10px;border-radius:0;transition:color 0.15s,background 0.15s;display:block;
 }
 .nav-links a:hover { color:var(--text);background:var(--bg-raised); }
+.nav-links .main-nav-item > a {
+    font-size:14px;
+    transition:color 0.15s,background 0.15s,transform 0.2s ease;
+}
+.nav-links .main-nav-item > a:hover,
+.nav-links .main-nav-item > a:focus-visible {
+    transform:scale(1.07);
+}
 .nav-row-break { flex-basis:100%;height:0; }
 
 /* ── Theme switcher ── */

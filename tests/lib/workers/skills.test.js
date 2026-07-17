@@ -127,6 +127,29 @@ describe("skills.js", () => {
       const got = matchSkills("from where did you came with this response? where I write yo so you are writing me that way?", idx);
       assert.deepEqual(got, []);
     });
+
+    test("ordinary file instructions do not assemble unrelated keyword phrases", () => {
+      const idx = [
+        {
+          name: "docgraph",
+          description: "Find, outline, or quote content in indexed document folders containing notes and files.",
+          keywords: "find in my notes, where did I write about, what did I write, search my files, which file mentions",
+        },
+        {
+          name: "skill-creator",
+          description: "Create new skills and write skill evaluations.",
+          keywords: "skill, create skill, new skill, write skill, eval, benchmark",
+        },
+        {
+          name: "code-review-and-quality",
+          description: "Review a code change and write useful review comments.",
+          keywords: "code review, pull request, review the changes, diff review, review checklist",
+        },
+      ];
+      const prompt = "Create a new file called notes-for-me.md and write a short note inside it: Reminder — review the Lie Catcher results on Friday. Save it and confirm the file path.";
+
+      assert.deepEqual(matchSkills(prompt, idx), []);
+    });
   });
 
   // describe("executeSkill", () => {

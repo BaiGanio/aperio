@@ -8,7 +8,7 @@ description: >
   which defines the naming/style rules themselves; this skill is how a change
   gets reviewed against them and merged.
 metadata:
-  keywords: "code review, pull request, PR review, review my code, review the changes, diff review, request changes, approve the change, merge gate, reviewer, review checklist, ready for review, blocking comment, change size"
+  keywords: "code review, pull request, PR review, review my code, review the changes, diff review, diff, request changes, approve the change, merge gate, reviewer, review checklist, ready for review, blocking comment, blocking, change size"
   category: "engineering-discipline"
   load: "on-demand"
 ---

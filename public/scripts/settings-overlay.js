@@ -488,11 +488,13 @@
     const open = overlay.classList.contains("is-open");
     if (open) {
       overlay.classList.remove("is-open");
+      overlay.style.display = "none";
       return;
     }
     savedNeedsRestart = false;
     if (liteBasic()) mode = "simple";
     syncModeButtons();
+    overlay.style.display = "flex";
     overlay.classList.add("is-open");
     load();
     setTimeout(() => $("stovSearch")?.focus(), 60);

@@ -2,6 +2,10 @@
 name: preprocess-image
 description: "Use this skill before sending any image to a local llama.cpp vision model (Qwen2.5-VL, LLaVA, Gemma 3, etc.). Triggers when: an image attachment arrives via the web UI, a file path points to a .jpg/.jpeg/.png/.gif/.webp, or a local VLM produces unexpected output on an image (wrong colors, errors, silent failures). This skill normalize the image to RGB PNG at 896×896 with a solid background fill — the format local VLMs expect. Do NOT use for images already confirmed to be plain RGB PNGs with no alpha channel, or when sending images to cloud APIs (Anthropic, OpenAI) that handle raw uploads natively."
 compatibility: "Aperio MCP server — requires sharp (npm install sharp)"
+metadata:
+  keywords: "image attachment, preprocess image, image preprocessing, local vision model, local VLM, jpg, jpeg, png, gif, webp"
+  category: "image-processing"
+  load: "on-demand"
 ---
 
 # Image Preprocessing

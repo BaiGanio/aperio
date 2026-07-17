@@ -3,6 +3,15 @@
    UI language. Data: scripts/world-paths.js (lazy-loaded); logic:
    scripts/lang-map.js. Colors derive from theme tokens so all themes work. */
 
+.globe-icon {
+  display: block;
+  width: 17px;
+  height: 17px;
+  background: currentColor;
+  -webkit-mask: url("../assets/language-globe-mask.png") center / contain no-repeat;
+  mask: url("../assets/language-globe-mask.png") center / contain no-repeat;
+}
+
 .globe-btn:hover {
   background: var(--bg-panel);
   color: var(--accent);

@@ -1414,6 +1414,28 @@ export class SqliteStore {
     return rows.map(r => ({ ...rowToSelf(r), similarity: r.confidence ?? 1.0 }));
   }
 
+  // ── Wiki drafts (parity with PostgresStore — api-wiki.js and the
+  //    wiki_propose handler call these on the top-level store, not store.wiki) ─
+  async proposeWikiDraft(draft) {
+    return this.wiki.proposeDraft(draft);
+  }
+
+  async listWikiDrafts() {
+    const rows = this.db.prepare(`
+      SELECT id, slug, title, summary, tags, generated_by, generated_at, revision
+        FROM wiki_articles WHERE status = 'draft' ORDER BY generated_at DESC
+    `).all();
+    return rows.map(r => ({ ...r, tags: r.tags ? JSON.parse(r.tags) : [] }));
+  }
+
+  async publishWikiDraft(slug) {
+    const row = this.db.prepare(`SELECT id FROM wiki_articles WHERE slug = ? AND status = 'draft'`).get(slug);
+    if (!row) throw new Error(`Draft with slug "${slug}" not found`);
+    this.db.prepare(`UPDATE wiki_articles SET status = 'fresh', generated_at = ? WHERE id = ?`)
+      .run(nowIso(), row.id);
+    return { id: row.id, slug, status: 'fresh' };
+  }
+
   // ── Settings (k/v JSON) ───────────────────────────────────────────────────
   async getSetting(key) {
     const row = this.db.prepare(`SELECT value FROM settings WHERE key = ?`).get(key);

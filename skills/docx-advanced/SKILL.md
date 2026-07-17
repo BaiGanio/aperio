@@ -3,7 +3,7 @@ name: docx-advanced
 description: "Use this skill for complex Word document operations that go beyond simple creation: editing existing .docx files (tracked changes, comments, find-and-replace), inserting or replacing images, custom styles (headings, fonts, page size), footnotes, headers and footers, table of contents, multi-column layouts, numbered lists, bookmarks and hyperlinks, accepting or rejecting revisions, converting .doc to .docx, or when generate_docx is insufficient and a custom docx-js script is needed. Do NOT use for simple document creation — use the docx skill with generate_docx instead."
 license: Proprietary. LICENSE.txt has complete terms
 metadata:
-  keywords: "tracked changes, comments, revision, xml, edit existing, footnotes, headers, footers, custom styles, images, bookmarks, hyperlinks, table of contents, numbered list, multi-column, page size, letterhead, template"
+  keywords: "tracked changes, existing word document, comments, revision, xml, edit existing, footnotes, headers, footers, custom styles, images, bookmarks, hyperlinks, table of contents, numbered list, multi-column, page size, letterhead, template"
   depends-on: docx
 ---
 

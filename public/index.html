@@ -67,8 +67,8 @@
       </div>
     </div>
     <button id="langMapBtn" class="quit-btn globe-btn"
-            data-i18n-attr-title="nav_langmap_title" title="Language — pick on the map">
-      <i class="bi bi-globe2"></i>
+            data-i18n-attr-title="nav_langmap_title" title="Language — pick on the map" aria-label="Language — pick on the map">
+      <span class="globe-icon" aria-hidden="true"></span>
     </button>
     <div class="theme-switcher" id="ambientSwitcher" data-i18n-attr-title="nav_ambient_title" title="Ambient background">
       <button class="theme-btn ambient-btn" data-ambient="auto" data-i18n-attr-title="nav_ambient_auto" title="Auto">
@@ -153,6 +153,11 @@
         title="Wiki — LLM-authored articles over your memories">
         <i class="bi bi-book sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Wiki</span>
+      </button>
+      <button id="datasetLabBtn" class="sidebar-nav-btn lite-hide" data-action="toggleDatasetLabPanel"
+        title="Dataset Lab — evaluate retrieval quality">
+        <i class="bi bi-graph-up sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Dataset Lab</span>
       </button>
       <button id="dbBtn" class="sidebar-nav-btn lite-hide" data-action="toggleDbPanel"
         title="Database — browse all tables">
@@ -872,6 +877,16 @@
 <div id="settings-backdrop" class="settings-backdrop csp-style-2" data-action="toggleSettingsPanel"></div>
 
 <!-- System panel -->
+<div id="dataset-lab-panel" class="cg-panel csp-style-2">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-graph-up"></i> Dataset Lab</span>
+    <button class="cg-panel-close" data-action="toggleDatasetLabPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-body" id="dataset-lab-body"><div class="system-loading">Loading datasets…</div></div>
+</div>
+<div id="dataset-lab-backdrop" class="system-backdrop csp-style-2" data-action="toggleDatasetLabPanel"></div>
+
+<!-- System panel -->
 <div id="system-panel" class="system-panel csp-style-2">
   <div class="system-panel-header">
     <span class="system-panel-title"><i class="bi bi-speedometer2"></i> System</span>
@@ -903,6 +918,7 @@
 <script src="scripts/codegraph-panel.js"></script>
 <script src="scripts/docgraph-panel.js"></script>
 <script src="scripts/agents-panel.js"></script>
+<script src="scripts/dataset-lab-panel.js"></script>
 <script src="scripts/capabilities-panel.js"></script>
 <script src="scripts/skills-panel.js"></script>
 <script src="scripts/github-triage-panel.js"></script>
