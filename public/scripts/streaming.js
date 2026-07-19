@@ -147,10 +147,12 @@ function handleMessage(msg) {
   if (msg.type === "provider") {
     document.getElementById("startup-thinking")?.remove();
     // Track provider for cost display.
-    if (typeof setCostProvider === "function") setCostProvider(msg.name, msg.model);
+    if (typeof setCostProvider === "function") setCostProvider(msg.name, msg.model, msg.costRates);
     // Round-table: cache agent list and toggle the Discuss button accordingly.
+    // Sparse re-announces (llamacpp mid-turn ctx grow, model switch) omit the
+    // roundtable fields entirely — absence means "no change", not "disable".
     if (Array.isArray(msg.agents)) _roundtableAgents = msg.agents;
-    if (typeof window.applyRoundtableAvailability === "function") {
+    if ("roundtableAvailable" in msg && typeof window.applyRoundtableAvailability === "function") {
       window.applyRoundtableAvailability(Boolean(msg.roundtableAvailable), msg.roundtableReason);
     }
     const badge = document.getElementById("providerBadge");

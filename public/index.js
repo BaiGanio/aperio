@@ -190,20 +190,16 @@ let _sessionCost = 0;
 let _currentProvider = null;
 let _currentModel = null;
 
-// Approximate per-1M-token costs (USD). Local = free.
-const _COST_RATES = {
-  "deepseek-v4-pro":    { in: 0.55, out: 2.19 },
-  "deepseek-v4-flash":  { in: 0.27, out: 1.10 },
-  "claude-opus-4-8":    { in: 15.00, out: 75.00 },
-  "claude-sonnet-4-6":  { in: 3.00, out: 15.00 },
-  "claude-haiku-4-5":   { in: 0.80, out: 4.00 },
-  "gemini-2.5-flash":   { in: 0.15, out: 0.60 },
-  "gemini-2.5-pro":     { in: 1.25, out: 5.00 },
-};
+// Pricing fetched from OpenRouter catalog at boot, refreshed daily.
+// No hardcoded values — see trash/plans/honest-pricing for why.
+let _currentCostRates = null; // { in, out } from server, or null when unavailable
 
-function setCostProvider(name, model) {
+function setCostProvider(name, model, costRates) {
   _currentProvider = name;
   _currentModel = model;
+  // undefined = a sparse re-announce (llamacpp mid-turn ctx grow, model switch)
+  // that carries no pricing — keep what we have. null = "known unavailable".
+  if (costRates !== undefined) _currentCostRates = costRates ?? null;
 }
 
 function updateContextBar(used, max, outputTok = 0, trackCost = true) {
@@ -217,17 +213,25 @@ function updateContextBar(used, max, outputTok = 0, trackCost = true) {
   _ctxHWM = Math.max(_ctxHWM, used) + outputTok;
   const display = _ctxHWM;
 
-  // Cost calculation — local inference is free, so there's nothing worth
-  // showing there; only cloud providers get the (estimated) running total.
+  // Cost calculation — only when pricing data is available (from OpenRouter or
+  // user configuration). Local inference is always free, never show cost.
+  // Subscription-billed providers (flat fee, not per-token) get no estimate
+  // either — a $ figure there would be fiction, not a guide.
   const isLocal = _currentProvider === "llamacpp";
-  if (trackCost && !isLocal && used > 0 && costEl) {
-    const rates = _COST_RATES[_currentModel] || { in: 0.5, out: 2.0 };
-    const turnCost = ((used / 1_000_000) * rates.in) + ((outputTok / 1_000_000) * rates.out);
-    _sessionCost += turnCost;
-    costEl.textContent = `~$${_sessionCost.toFixed(4)}`;
-    costEl.style.display = "inline";
-    costEl.title = t("ctx_cost_tip", { cost: _sessionCost.toFixed(4), model: _currentModel || "unknown" });
-  } else if (trackCost && isLocal && costEl) {
+  const isSubscription = _currentProvider === "claude-code" || _currentProvider === "codex";
+  if (trackCost && !isLocal && !isSubscription && used > 0 && costEl) {
+    if (_currentCostRates) {
+      const turnCost = ((used / 1_000_000) * _currentCostRates.in) + ((outputTok / 1_000_000) * _currentCostRates.out);
+      _sessionCost += turnCost;
+      costEl.textContent = `~$${_sessionCost.toFixed(4)}`;
+      costEl.style.display = "inline";
+      costEl.title = t("ctx_cost_tip", { cost: _sessionCost.toFixed(4), model: _currentModel || "unknown" });
+    } else {
+      costEl.textContent = "—";
+      costEl.style.display = "inline";
+      costEl.title = t("ctx_cost_unavailable");
+    }
+  } else if (trackCost && (isLocal || isSubscription) && costEl) {
     costEl.style.display = "none";
   }
 
