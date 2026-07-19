@@ -6,9 +6,18 @@ $Port = if ($env:VMTEST_PORT) { $env:VMTEST_PORT } else { $listener=[Net.Sockets
 $TempHome = Join-Path ([IO.Path]::GetTempPath()) ("aperio-vms-home-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $TempHome | Out-Null
 $Server = $null
+$StdoutLog = Join-Path $InstallDir '.sqlite/vms-server.out.log'
+$StderrLog = Join-Path $InstallDir '.sqlite/vms-server.err.log'
+function Show-ServerLogs {
+  foreach ($path in @($StdoutLog, $StderrLog)) {
+    if (Test-Path $path) { Get-Content $path -ErrorAction SilentlyContinue | Write-Host }
+  }
+}
 try {
   Set-Location $InstallDir
-  $major = [int](node -p 'process.versions.node.split(".")[0]')
+  # Windows PowerShell 5 strips nested quotes when this script is launched
+  # through `powershell.exe -File`, so keep the Node expression quote-free.
+  $major = [int](node -p 'process.versions.node.match(/^\d+/)[0]')
   if ($major -lt 22) { throw "Node.js 22+ required (found $major)" }
   if (-not (Get-Command npm -ErrorAction SilentlyContinue)) { throw 'npm is not available' }
   Write-Host "+ toolchain: Node $(node --version), npm $(npm --version)"
@@ -24,13 +33,13 @@ try {
   if (-not (Test-Path '.sqlite/vms.db')) { throw 'migration did not create .sqlite/vms.db' }
   Write-Host '+ SQLite migrations'
   $env:PORT=$Port; $env:HOST='127.0.0.1'
-  $Server = Start-Process node -ArgumentList 'server.js' -RedirectStandardOutput '.sqlite/vms-server.log' -RedirectStandardError '.sqlite/vms-server.log' -PassThru
+  $Server = Start-Process node -ArgumentList 'server.js' -RedirectStandardOutput $StdoutLog -RedirectStandardError $StderrLog -PassThru
   $ready=$false
   for ($i=0; $i -lt 90; $i++) {
-    if ($Server.HasExited) { throw 'server exited before answering' }
+    if ($Server.HasExited) { Show-ServerLogs; throw 'server exited before answering' }
     try { $state=Invoke-RestMethod "http://127.0.0.1:$Port/api/bootstrap/state" -TimeoutSec 2; $ready=$true; break } catch { Start-Sleep -Seconds 1 }
   }
-  if (-not $ready) { throw 'no bootstrap response within 90 seconds' }
+  if (-not $ready) { Show-ServerLogs; throw 'no bootstrap response within 90 seconds' }
   Write-Host '+ HTTP bootstrap state'
   $html=Invoke-WebRequest "http://127.0.0.1:$Port/setup.html" -UseBasicParsing
   if ($html.Content -notmatch '<html' -or $html.Content -notmatch 'setup') { throw 'setup.html lacks expected UI markers' }

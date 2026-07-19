@@ -33,6 +33,7 @@ Vagrant.configure("2") do |config|
       APERIO_REPO_URL=file:///vagrant-repo \
         APERIO_BRANCH="#{ENV.fetch("APERIO_BRANCH", "dev")}" \
         APERIO_HOME="$HOME/aperio" \
+        APERIO_INSTALL_NO_START=1 \
         bash /vagrant-repo/.github/lite/install.sh
       (cd "$HOME/aperio" && npm install --prefer-offline --no-audit --no-fund)
       bash /vagrant-repo/vms/smoke.sh "$HOME/aperio"
