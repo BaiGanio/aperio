@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Conversational folder indexing through the main chat agent: explicit requests
+  can queue an authorized repository, document folder, or both through the shared
+  indexing service, with progress reported in the existing Code Graph and
+  Document Graph panels. Repeated and in-flight requests are idempotent, and the
+  tool never expands the configured Allowed Paths boundary.
 - Re-enabled browser Content-Security-Policy headers with CSP-safe static and
   dynamically generated UI event wiring; added `APERIO_CSP=on|report|off` modes.
 

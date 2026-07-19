@@ -314,7 +314,20 @@ describe("POST /codegraph/index", () => {
       body: { path: "/tmp" },
     });
     assert.strictEqual(status, 403);
-    assert.ok(body.error.includes("read ceiling") || body.error.includes("APERIO_ALLOWED_PATHS_TO_READ"));
+    assert.ok(body.error.includes("Allowed Paths"));
+  });
+
+  test("delegates accepted requests to the shared indexing service", async () => {
+    const calls = [];
+    const folderIndexer = {
+      async start(args) { calls.push(args); return { ok: true, path: "/work/repo", targets: [] }; },
+    };
+    const router = Router();
+    mountCodegraphRoutes(router, { store: makeStore(true), folderIndexer });
+
+    const { status } = await invoke(router, "POST", "/codegraph/index", { body: { path: "/work/repo" } });
+    assert.equal(status, 202);
+    assert.deepEqual(calls, [{ path: "/work/repo", target: "code" }]);
   });
 
   test("valid directory inside floor paths passes validation then hits handler error (no real db)", async () => {
