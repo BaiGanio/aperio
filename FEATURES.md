@@ -31,6 +31,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Fetch full article by slug with breadcrumb + optional stale-refresh (`wiki_get`)
 
 ## Code Graph
+- Conversational indexing: ask the main chat agent to index an authorized repository or folder; indexing starts asynchronously and progress remains visible in the Code Graph panel (`index_folder`)
 - tree-sitter symbol/call/import/`extends` extraction — JS/TS/JSX/TSX (+ extended langs)
 - One-shot index of a directory (`node lib/codegraph/indexer.js .`)
 - Live reindex on save via chokidar watcher (`APERIO_CODEGRAPH=on`)
@@ -44,6 +45,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Backends: Postgres and SQLite
 
 ## Doc Graph
+- Conversational indexing: ask the main chat agent to index an authorized document folder; indexing starts asynchronously and progress remains visible in the Document Graph panel (`index_folder`)
 - Extract + chunk documents — MD, TXT, HTML, PDF, DOCX, XLSX, PPTX, EML
 - One-shot index of a directory (`node lib/docgraph/indexer.js .`)
 - Live reindex on save via chokidar watcher (`APERIO_DOCGRAPH=on`)

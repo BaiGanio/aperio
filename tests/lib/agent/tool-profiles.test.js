@@ -10,11 +10,14 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, isCapableModel, needsRecallScaffold } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, isCapableModel, needsRecallScaffold } from "../../../lib/agent/tool-profiles.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
-  return new Set([...profiles].flatMap(p => [...(TOOL_PROFILES[p] ?? [])]));
+  return new Set([...profiles].flatMap((p) => [
+    ...(TOOL_PROFILES[p] ?? []),
+    ...(HOST_TOOL_PROFILES[p] ?? []),
+  ]));
 }
 
 describe("tool-profiles — read_docx availability (issue #125)", () => {
@@ -61,6 +64,28 @@ describe("tool-profiles — filesystem search availability", () => {
   test("a generic web search does not load filesystem search", () => {
     const tools = toolsFor("search the web for today's weather");
     assert.equal(tools.has("grep_files"), false);
+  });
+});
+
+describe("tool-profiles — conversational folder indexing", () => {
+  test("explicit indexing requests surface only the mutation tool needed for the action", () => {
+    for (const prompt of [
+      "Index this folder /srv/notes",
+      "Index repository ~/Projects/aperio",
+      "Please reindex the documents in /data/contracts",
+      "Start indexing the folder /srv/archive",
+    ]) {
+      assert.ok(toolsFor(prompt).has("index_folder"), prompt);
+    }
+  });
+
+  test("questions about already indexed content do not surface the mutation tool", () => {
+    for (const prompt of [
+      "Which code repositories are indexed?",
+      "Search my indexed documents for the invoice",
+    ]) {
+      assert.ok(!toolsFor(prompt).has("index_folder"), prompt);
+    }
   });
 });
 

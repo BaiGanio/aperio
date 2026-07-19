@@ -1375,5 +1375,69 @@ describe("persistAnswerArtifacts()", () => {
 // ---------------------------------------------------------------------------
 // Run the tests with coverage
 // ---------------------------------------------------------------------------
+describe("main-process host tools", () => {
+  test("offers index_folder to the model and executes it without crossing the MCP boundary", async (t) => {
+    const toolSse = (delta) => "data: " + JSON.stringify({ choices: [{ delta, finish_reason: null }] }) + "\n";
+    const done = "data: [DONE]\n";
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "listTools", async () => ({
+      tools: [{ name: "recall", description: "Recall memories", inputSchema: { type: "object", properties: {} } }],
+    }));
+    const mcpCalls = [];
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      mcpCalls.push(name);
+      return { content: [{ type: "text", text: "No memories found." }] };
+    });
+
+    let chatCalls = 0;
+    t.mock.method(globalThis, "fetch", (url) => {
+      if (String(url).includes("/health")) return Promise.resolve({ ok: true });
+      chatCalls++;
+      const chunks = chatCalls === 1
+        ? [toolSse({ tool_calls: [{ index: 0, id: "call_index", function: {
+            name: "index_folder",
+            arguments: JSON.stringify({ path: "/work/repo", target: "code" }),
+          } }] }), done]
+        : [toolSse({ content: "Indexing is underway." }), done];
+      return Promise.resolve(createMockResponseStream(chunks));
+    });
+
+    const oldProvider = process.env.AI_PROVIDER;
+    const oldModel = process.env.LLAMACPP_MODEL;
+    const oldCapable = process.env.APERIO_CAPABLE_MODELS;
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "llama3.1";
+    process.env.APERIO_CAPABLE_MODELS = "llama3.1";
+    t.after(() => {
+      if (oldProvider === undefined) delete process.env.AI_PROVIDER; else process.env.AI_PROVIDER = oldProvider;
+      if (oldModel === undefined) delete process.env.LLAMACPP_MODEL; else process.env.LLAMACPP_MODEL = oldModel;
+      if (oldCapable === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = oldCapable;
+    });
+
+    const hostCalls = [];
+    const agent = await createAgent({
+      root: FAKE_ROOT,
+      version: "1.0.0",
+      hostTools: [{
+        name: "index_folder",
+        description: "Index an authorized folder",
+        inputSchema: {
+          type: "object",
+          properties: { path: { type: "string" }, target: { type: "string", enum: ["code", "documents", "both"] } },
+          required: ["path", "target"],
+        },
+        handler: async (args) => { hostCalls.push(args); return "Indexing started. View progress in Code Graph."; },
+      }],
+    });
+    await agent.runAgentLoop(
+      [{ role: "user", content: "Index repository /work/repo" }],
+      { send: t.mock.fn() },
+    );
+
+    assert.deepEqual(hostCalls, [{ path: "/work/repo", target: "code" }]);
+    assert.ok(!mcpCalls.includes("index_folder"));
+  });
+});
+
 // To run with coverage:
 // node --test --experimental-test-coverage tests/agent.test.js
