@@ -1,7 +1,9 @@
 // tests/lib/helpers/startLlamaCpp.test.js
 import { describe, test, afterEach, before, after } from "node:test";
 import { createHash } from "crypto";
-import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync, appendFileSync, utimesSync } from "fs";
+import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync, appendFileSync, utimesSync, mkdtempSync, rmSync } from "fs";
+import { join } from "path";
+import { tmpdir } from "os";
 import assert from "node:assert/strict";
 import {
   buildModelsPreset,
@@ -10,6 +12,7 @@ import {
   vlmPresetMode,
   ensureLlamaCpp,
   presetModelIds,
+  shouldStartOffline,
   getLlamaCppPid,
   killByPid,
   stopLlamaCpp,
@@ -1035,5 +1038,110 @@ describe("session-scoped server log tee", () => {
     const removed = pruneServerLogs(0); // 0 would otherwise expire everything instantly
     assert.equal(removed, 0);
     assert.equal(existsSync(`${DIR}/${ID_FRESH}.log`), true);
+  });
+});
+
+// =============================================================================
+// shouldStartOffline — cached-everything ⇒ --offline (no surprise re-downloads)
+// =============================================================================
+describe("shouldStartOffline", () => {
+  const roots = [];
+  const savedCheckUpdates = process.env.LLAMACPP_CHECK_UPDATES;
+  afterEach(() => {
+    while (roots.length) rmSync(roots.pop(), { recursive: true, force: true });
+    if (savedCheckUpdates === undefined) delete process.env.LLAMACPP_CHECK_UPDATES;
+    else process.env.LLAMACPP_CHECK_UPDATES = savedCheckUpdates;
+  });
+
+  // Minimal HF-hub-layout cache entry: refs/main → snapshots/<rev>/<file>.
+  // Content is irrelevant — the gate only needs resolution, not GGUF parsing.
+  function fakeCachedRepo(cacheRoot, repo, fileName) {
+    const dir = join(cacheRoot, "models--" + repo.replaceAll("/", "--"));
+    const snap = join(dir, "snapshots", "abc");
+    mkdirSync(join(dir, "refs"), { recursive: true });
+    mkdirSync(snap, { recursive: true });
+    writeFileSync(join(dir, "refs", "main"), "abc");
+    writeFileSync(join(snap, fileName), "weights");
+  }
+
+  function fakeCache() {
+    const root = mkdtempSync(join(tmpdir(), "aperio-offline-"));
+    roots.push(root);
+    return root;
+  }
+
+  const PRESET_TWO_MODELS = [
+    "[*]", "jinja = true", "",
+    "[aperio-main]", "hf-repo = org/Main-GGUF:Q4_K_M", "ctx-size = 8192", "",
+    "[aperio-vlm]", "hf-repo = org/Vlm-GGUF", "ctx-size = 8192", "",
+  ].join("\n");
+
+  test("offline when every hf-repo in the preset resolves from cache", () => {
+    const cache = fakeCache();
+    fakeCachedRepo(cache, "org/Main-GGUF", "Main-Q4_K_M.gguf");
+    fakeCachedRepo(cache, "org/Vlm-GGUF", "Vlm-Q4_K_M.gguf");
+    assert.equal(shouldStartOffline(PRESET_TWO_MODELS, cache, {}), true);
+  });
+
+  test("stays online when any preset model is missing from cache — its first-load download must still work", () => {
+    const cache = fakeCache();
+    fakeCachedRepo(cache, "org/Main-GGUF", "Main-Q4_K_M.gguf");
+    assert.equal(shouldStartOffline(PRESET_TWO_MODELS, cache, {}), false);
+  });
+
+  test("stays online when the requested quant tag does not appear in the cached filename (llama.cpp's offline resolver would fail the load)", () => {
+    const cache = fakeCache();
+    // Repo cached, but as Q8_0 while the preset asks for Q4_K_M —
+    // findCachedGguf's largest-file fallback must not fool the gate.
+    fakeCachedRepo(cache, "org/Main-GGUF", "Main-Q8_0.gguf");
+    fakeCachedRepo(cache, "org/Vlm-GGUF", "Vlm-Q4_K_M.gguf");
+    assert.equal(shouldStartOffline(PRESET_TWO_MODELS, cache, {}), false);
+  });
+
+  test("quant tag matches case-insensitively with a [.-] terminator, mirroring llama.cpp's find_best_model", () => {
+    const cache = fakeCache();
+    fakeCachedRepo(cache, "org/Main-GGUF", "main-q4_k_m-00001-of-00002.gguf");
+    fakeCachedRepo(cache, "org/Vlm-GGUF", "Vlm-Q4_K_M.gguf");
+    assert.equal(shouldStartOffline(PRESET_TWO_MODELS, cache, {}), true);
+  });
+
+  test("LLAMACPP_CHECK_UPDATES=on forces online revalidation even with a fully cached preset", () => {
+    const cache = fakeCache();
+    fakeCachedRepo(cache, "org/Main-GGUF", "Main-Q4_K_M.gguf");
+    fakeCachedRepo(cache, "org/Vlm-GGUF", "Vlm-Q4_K_M.gguf");
+    assert.equal(shouldStartOffline(PRESET_TWO_MODELS, cache, { LLAMACPP_CHECK_UPDATES: "on" }), false);
+  });
+
+  test("a preset with no hf-repo entries never goes offline", () => {
+    assert.equal(shouldStartOffline("[*]\njinja = true\n", fakeCache(), {}), false);
+  });
+
+  test("ensureLlamaCpp passes --offline to llama-server when the whole preset is cached, and omits it when it is not", async () => {
+    const savedLlamaCache = process.env.LLAMA_CACHE;
+    try {
+      const cache = fakeCache();
+      process.env.LLAMA_CACHE = cache;
+      process.env.LLAMACPP_MODEL = "org/Main-GGUF:Q4_K_M";
+      process.env.LLAMACPP_VLM_MODEL = "org/Vlm-GGUF";
+      fakeCachedRepo(cache, "org/Main-GGUF", "Main-Q4_K_M.gguf");
+      fakeCachedRepo(cache, "org/Vlm-GGUF", "Vlm-Q4_K_M.gguf");
+
+      let capturedArgs = null;
+      const trackerSpawn = (_cmd, args) => { capturedArgs = args; return { on: () => {}, unref: () => {}, pid: 90001 }; };
+      mockFetchSequence({ ok: false }, { ok: true });
+      await ensureLlamaCpp(trackerSpawn);
+      assert.ok(capturedArgs.includes("--offline"), `fully cached preset should start offline, got: ${capturedArgs.join(" ")}`);
+
+      // Now break the cache for the VLM: the next start must go back online.
+      rmSync(join(cache, "models--org--Vlm-GGUF"), { recursive: true, force: true });
+      try { unlinkSync(STATE_FILE); } catch { /* keep runs independent */ }
+      capturedArgs = null;
+      mockFetchSequence({ ok: false }, { ok: true });
+      await ensureLlamaCpp(trackerSpawn);
+      assert.ok(!capturedArgs.includes("--offline"), `preset with an uncached model must not start offline, got: ${capturedArgs.join(" ")}`);
+    } finally {
+      if (savedLlamaCache === undefined) delete process.env.LLAMA_CACHE;
+      else process.env.LLAMA_CACHE = savedLlamaCache;
+    }
   });
 });

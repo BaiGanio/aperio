@@ -384,6 +384,21 @@ describe("DELETE /codegraph/repos", () => {
     assert.strictEqual(status, 400);
   });
 
+  test("deletes the repository and updates the allowlist", async () => {
+    const store = makeStore(true);
+    store.db.prepare = () => ({ run: () => ({ changes: 1 }) });
+    const router = Router();
+    mountCodegraphRoutes(router, { store });
+
+    const { status, body } = await invoke(router, "DELETE", "/codegraph/repos", {
+      body: { path: "/some/repo" },
+    });
+
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.enabled, true);
+    assert.strictEqual(body.deleted, true);
+  });
+
   test("stops the live watcher for the folder before dropping its rows", async () => {
     const store = makeStore(true);
     const router = Router();

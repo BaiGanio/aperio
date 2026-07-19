@@ -37,11 +37,30 @@ const LLAMACPP_BASE_URL = process.env.LLAMACPP_BASE_URL || "http://127.0.0.1:808
 const LLAMACPP_VLM_MODEL = process.env.LLAMACPP_VLM_MODEL || "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
 const LLAMACPP_MAIN_MODEL = process.env.LLAMACPP_MODEL || "";
 const LLAMACPP_VLM_TIMEOUT_MS = Number(process.env.LLAMACPP_VLM_TIMEOUT_MS) || 300_000;
+// A visual-analysis tool must return concise evidence, not consume the VLM's
+// entire context when a model/template combination fails to emit EOS. This is
+// a safety bound rather than a quality tuning knob: 512 tokens is ample for a
+// grounded caption/OCR summary and keeps a runaway request finite.
+const VLM_RESPONSE_TOKEN_LIMIT = 512;
 
 export function resolveDescribeModel(vlmModel, configuredVlmModel = LLAMACPP_VLM_MODEL, configuredMainModel = LLAMACPP_MAIN_MODEL) {
   return vlmModel === configuredVlmModel && isVisionModel(configuredMainModel)
     ? LLAMACPP_MAIN_ALIAS
     : (vlmModel === configuredVlmModel ? LLAMACPP_VLM_ALIAS : vlmModel);
+}
+
+/** Model identifier that actually receives the pixels (not its router alias). */
+export function resolveDescribeModelId(vlmModel, configuredVlmModel = LLAMACPP_VLM_MODEL, configuredMainModel = LLAMACPP_MAIN_MODEL) {
+  return vlmModel === configuredVlmModel && isVisionModel(configuredMainModel)
+    ? configuredMainModel
+    : vlmModel;
+}
+
+/** Refuse obviously corrupt generations rather than presenting them as evidence. */
+export function isDegenerateVlmOutput(text) {
+  const compact = String(text || "").replace(/\s/g, "");
+  if (compact.length < 32) return false;
+  return new Set(compact).size <= 2;
 }
 
 export function isLlamaCppProvider() {
@@ -74,6 +93,8 @@ export async function describeImageViaLlamaCpp(base64, prompt, model) {
           { type: "image_url", image_url: { url: `data:image/png;base64,${base64}` } },
         ],
       }],
+      max_tokens: VLM_RESPONSE_TOKEN_LIMIT,
+      chat_template_kwargs: { enable_thinking: false },
       stream: false,
     }),
     signal: AbortSignal.timeout(LLAMACPP_VLM_TIMEOUT_MS),
@@ -273,17 +294,20 @@ export async function describeImageHandler({
   }
 
   const vlmModel  = model  || LLAMACPP_VLM_MODEL;
+  const actualModel = resolveDescribeModelId(vlmModel);
   const vlmPrompt = prompt || "Describe this image in detail.";
   try {
-    logger.info(`🤖 describe_image → ${vlmModel} (${Math.round(base64.length * 0.75 / 1024)}KB image)`);
+    logger.info(`🤖 describe_image → ${actualModel} (${Math.round(base64.length * 0.75 / 1024)}KB image)`);
     const description = await describeImageViaLlamaCpp(base64, vlmPrompt, vlmModel);
     if (!description.trim()) {
-      logger.warn("⚠️  describe_image: VLM returned empty response");
-    } else {
-      const preview = description.length > 300 ? description.slice(0, 300) + "…" : description;
-      logger.info(`[VLM] ${vlmModel} raw output:\n${preview}`);
+      throw new Error(`VLM "${actualModel}" returned no visual evidence.`);
     }
-    return { content: [{ type: "text", text: description || "(The model returned an empty response.)" }] };
+    if (isDegenerateVlmOutput(description)) {
+      throw new Error(`VLM "${actualModel}" returned degenerate output; refusing to treat it as visual evidence.`);
+    }
+    const preview = description.length > 300 ? description.slice(0, 300) + "…" : description;
+    logger.info(`[VLM] ${actualModel} raw output:\n${preview}`);
+    return { content: [{ type: "text", text: description }] };
   } catch (err) {
     logger.error("❌ describe_image VLM error:", err);
     return { content: [{ type: "text", text: `❌ VLM call failed: ${err.message}` }] };

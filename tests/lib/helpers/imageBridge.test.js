@@ -329,6 +329,7 @@ describe("bridgeImagesToVLM()", () => {
     assert.ok(calledWith, "callTool should have been called");
     assert.equal(calledWith.name, "describe_image");
     assert.equal(calledWith.input.data, "rawbase64data");
+    assert.equal(calledWith.input.model, "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF");
   });
 
   test("passes the user's request to the VLM prompt", async () => {

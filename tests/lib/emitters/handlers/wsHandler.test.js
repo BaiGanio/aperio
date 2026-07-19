@@ -545,6 +545,21 @@ describe("message type: confirm_action", () => {
     assert.strictEqual(end.at(-1).text, "Wrote 1 row.");
   });
 
+  test("index_folder authorization: confirms through the host tool and refreshes Allowed Paths", async (t) => {
+    const ws = makeWs(t);
+    const callTool = t.mock.fn(async () => "✅ Authorized and indexing started.");
+    makeHandler({ callTool })(ws);
+
+    await ws.emit({ type: "confirm_action", token: "idx_918ap8", tool: "index_folder" });
+
+    assert.strictEqual(callTool.mock.calls.length, 1);
+    assert.deepStrictEqual(callTool.mock.calls[0].arguments,
+      ["index_folder", { confirmation_token: "idx_918ap8" }]);
+    assert.strictEqual(sentOf(ws, "error").length, 0);
+    assert.ok(sentOf(ws, "paths_updated").length >= 1, "the Paths panel receives the persisted allowlist");
+    assert.strictEqual(sentOf(ws, "stream_end").at(-1).text, "✅ Authorized and indexing started.");
+  });
+
   test("rejects an unknown tool as an invalid confirmation request", async (t) => {
     const ws = makeWs(t);
     const callTool = t.mock.fn(async () => "OK");

@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Ignoră",
   "ctx_capacity_tip":         "{pct}% din ceea ce poate stoca RAM-ul mașinii dvs. - dimensiunea ferestrei Aperio configurată automat pentru hardware-ul dvs.",
   "ctx_cost_tip":             "Această sesiune: ~${cost} ({model}). Estimare bazată pe prețurile publicate per token, nu pe factura reală a furnizorului — tratați-o ca pe un ghid, nu o garanție.",
+  "ctx_cost_unavailable":     "Nu sunt disponibile date despre prețuri. Aperio preia prețurile de la OpenRouter la pornire.",
   "ctx_summarize_failed":     "⚠ Nu s-a putut rezuma: {reason}",
   "ctx_summarize_no_save":    "Rezumatul a fost generat dar nu a putut fi salvat în memorie — se va pierde la reîmprospătare.",
   "ctx_summarize_ok":         "✓ Conversația rezumată și salvată în memorie.",

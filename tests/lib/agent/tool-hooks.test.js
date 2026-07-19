@@ -580,7 +580,7 @@ describe("callToolHooked() — WRITE-01 taint→confirm wiring", () => {
       validateWrittenFile: async () => ({ ok: true }),
       logger: silentLogger,
       WRITE_TOOLS: new Set(["write_file", "edit_file", "append_file"]),
-      CONFIRM_TOOLS: new Set(["write_file"]),
+      CONFIRM_TOOLS: new Set(["write_file", "index_folder"]),
       existsSync: () => true,
       statSync: () => ({ size: 1, isFile: () => true }),
       readdirSync: () => [],
@@ -617,6 +617,16 @@ describe("callToolHooked() — WRITE-01 taint→confirm wiring", () => {
     const r = await hooks.callToolHooked("write_file", { path: "/real/x.js", content: "y" });
     assert.ok(events.some((e) => e.type === "action_confirm_pending" && e.tool === "write_file"));
     assert.match(r, /Pending user confirmation/);
+  });
+
+  test("an indexing authorization returning an idx_ token raises action_confirm_pending", async () => {
+    const { hooks, events } = makeHooks((name) =>
+      name === "index_folder"
+        ? "📋 Folder authorization required.\n\nTarget: /outside/repo\n\nAction: Authorize and index repo\nToken: idx_abc123"
+        : "ok");
+    const result = await hooks.callToolHooked("index_folder", { path: "/outside/repo", target: "code" });
+    assert.ok(events.some((event) => event.type === "action_confirm_pending" && event.tool === "index_folder"));
+    assert.match(result, /Pending user confirmation/);
   });
 });
 

@@ -290,6 +290,7 @@
     "ctx_dismiss":              "閉じる",
     "ctx_capacity_tip":         "{pct}% — お使いのマシンの RAM が保持できる割合。Aperio がハードウェアに合わせて自動設定したウィンドウサイズです。",
     "ctx_cost_tip":             "このセッション: ~${cost}（{model}）。公開されているトークン単価から算出した概算であり、プロバイダーの実際の請求額ではありません — あくまで目安であり、正確性を保証するものではありません。",
+    "ctx_cost_unavailable":     "料金データを利用できません。Aperio は起動時に OpenRouter から料金を取得します。",
     "ctx_summarize_failed":     "⚠ 要約できませんでした: {reason}",
     "ctx_summarize_no_save":    "要約は生成されましたが、メモリーに保存できませんでした — リフレッシュすると失われます。",
     "ctx_summarize_ok":         "✓ 会話を要約し、メモリーに保存しました。",

@@ -31,6 +31,22 @@ describe("summarizeArgs()", () => {
     assert.equal(ta.summarizeArgs("tool", {}), "");
   });
 
+  test("summarizes describe_image without exposing base64 image data", () => {
+    const data = "iVBORw0KGgo" + "A".repeat(500);
+    const result = ta.summarizeArgs("describe_image", {
+      data,
+      prompt: "Describe the image",
+      model: "unsloth/Qwen3-VL-8B-Instruct-GGUF:Q4_K_M",
+    });
+    assert.equal(result, "unsloth/Qwen3-VL-8B-Instruct-GGUF:Q4_K_M · visual analysis");
+    assert.ok(!result.includes("iVBOR"));
+    assert.ok(!result.includes("…"));
+  });
+
+  test("uses a safe label when describe_image has no prompt", () => {
+    assert.equal(ta.summarizeArgs("describe_image", { data: "iVBORw0KGgo" }), "configured VLM · visual analysis");
+  });
+
   test("summarizes grep_files with its pattern and resolved path", () => {
     assert.equal(
       ta.summarizeArgs("grep_files", { pattern: "OAuthCallback", path: "/app/auth" }),

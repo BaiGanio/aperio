@@ -21,6 +21,90 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = resolve(__dirname, "..", "fixtures", "real-app-server.js");
 
 const READY_TIMEOUT = 15_000;
+const TERM_TIMEOUT = 5_000;
+const KILL_TIMEOUT = 1_000;
+const REQUEST_TIMEOUT = 15_000;
+
+/**
+ * Build an idempotent child-process stop function that resolves only after exit.
+ * `child.killed` cannot be used as an exit check: Node sets it as soon as a
+ * signal is sent, even when the process remains alive.
+ *
+ * @param {import("node:child_process").ChildProcess} child
+ * @param {object=} options
+ * @param {number=} options.termTimeout
+ * @param {number=} options.killTimeout
+ * @returns {() => Promise<void>}
+ */
+export function createChildStop(child, options = {}) {
+  const {
+    termTimeout = TERM_TIMEOUT,
+    killTimeout = KILL_TIMEOUT,
+  } = options;
+  let stopPromise = null;
+
+  return function stop() {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      return Promise.resolve();
+    }
+    if (stopPromise) return stopPromise;
+
+    stopPromise = new Promise((resolve, reject) => {
+      let termTimer;
+      let killTimer;
+      let settled = false;
+
+      const cleanup = () => {
+        clearTimeout(termTimer);
+        clearTimeout(killTimer);
+        child.off("exit", onExit);
+        child.off("error", onError);
+      };
+      const onExit = () => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve();
+      };
+      const onError = (err) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(err);
+      };
+      const forceKill = () => {
+        if (child.exitCode !== null || child.signalCode !== null) {
+          onExit();
+          return;
+        }
+
+        try {
+          child.kill("SIGKILL");
+        } catch (err) {
+          onError(err);
+          return;
+        }
+        killTimer = setTimeout(() => {
+          onError(new Error(
+            `Fixture process ${child.pid ?? "unknown"} did not exit after SIGKILL`
+          ));
+        }, killTimeout);
+      };
+
+      child.once("exit", onExit);
+      child.once("error", onError);
+      termTimer = setTimeout(forceKill, termTimeout);
+
+      try {
+        child.kill("SIGTERM");
+      } catch (err) {
+        onError(err);
+      }
+    });
+
+    return stopPromise;
+  };
+}
 
 /**
  * Start the real-app server fixture as a child process.
@@ -110,16 +194,9 @@ export async function startRealApp(t, options = {}) {
     });
   });
 
-  // Register cleanup (SIGTERM, not SIGKILL — give it a chance to clean up)
-  const stop = () => new Promise((resolve) => {
-    if (child.killed) return resolve();
-    const timeout = setTimeout(() => {
-      child.kill("SIGKILL");
-      resolve();
-    }, 5_000);
-    child.on("exit", () => { clearTimeout(timeout); resolve(); });
-    child.kill("SIGTERM");
-  });
+  // Register cleanup. Give SIGTERM a bounded grace period, then escalate and
+  // continue waiting until the child has actually exited.
+  const stop = createChildStop(child);
 
   // Register test-level cleanup when a test context is provided.
   // When t is null (suite-level manual lifecycle), the caller manages cleanup.
@@ -149,10 +226,16 @@ export async function startRealApp(t, options = {}) {
  * @param {string=} options.method      HTTP method (default: "GET")
  * @param {object=} options.headers     Request headers
  * @param {string=} options.body        Request body (string)
+ * @param {number=} options.timeout     Inactivity timeout in milliseconds
  * @returns {Promise<{status: number, headers: object, body: string, json: object|undefined}>}
  */
 export function request(app, path, options = {}) {
-  const { method = "GET", headers = {}, body } = options;
+  const {
+    method = "GET",
+    headers = {},
+    body,
+    timeout = REQUEST_TIMEOUT,
+  } = options;
   const { port } = app;
 
   return new Promise((resolve, reject) => {
@@ -161,6 +244,10 @@ export function request(app, path, options = {}) {
       (res) => {
         const chunks = [];
         res.on("data", (c) => chunks.push(c));
+        res.on("aborted", () => reject(new Error(
+          `${method} ${path} response was aborted`
+        )));
+        res.on("error", reject);
         res.on("end", () => {
           const bodyStr = Buffer.concat(chunks).toString("utf8");
           let json;
@@ -175,6 +262,9 @@ export function request(app, path, options = {}) {
       }
     );
     req.on("error", reject);
+    req.setTimeout(timeout, () => {
+      req.destroy(new Error(`${method} ${path} timed out after ${timeout}ms`));
+    });
     if (body) req.write(body);
     req.end();
   });

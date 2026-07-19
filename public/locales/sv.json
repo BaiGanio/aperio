@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Avfärda",
   "ctx_capacity_tip":         "{pct} % av vad din maskins RAM-minne kan rymma — fönsterstorleken Aperio som automatiskt konfigurerats för din hårdvara.",
   "ctx_cost_tip":             "Den här sessionen: ~${cost} ({model}). Uppskattat utifrån publicerade priser per token, inte leverantörens faktiska faktura — se det som en vägledning, inte en garanti.",
+  "ctx_cost_unavailable":     "Inga prisuppgifter är tillgängliga. Aperio hämtar priser från OpenRouter vid start.",
   "ctx_summarize_failed":     "⚠ Kunde inte sammanfatta: {reason}",
   "ctx_summarize_no_save":    "Sammanfattning skapades men kunde inte sparas i minnet — den försvinner vid uppdatering.",
   "ctx_summarize_ok":         "✓ Konversation sammanfattad och sparad i minnet.",

@@ -29,6 +29,22 @@ test("request preflight removes lowest-priority schemas until headroom is restor
   assert.ok(result.estimatedTokens <= 900);
 });
 
+test("request preflight estimates inline images at a flat allowance, not their base64 length", () => {
+  const tools = [{ type: "function", function: { name: "recall" } }];
+  // ~4MB of base64 tokenized as prose read as ~1M tokens and evicted every
+  // schema + skill prompt; llama-server encodes images via mmproj instead.
+  const hugeBase64 = "A".repeat(4_000_000);
+  const messages = [{ role: "user", content: [
+    { type: "text", text: "describe the image" },
+    { type: "image_url", image_url: { url: `data:image/png;base64,${hugeBase64}` } },
+  ]}];
+
+  const result = fitToolsToContext(messages, tools, 32_768);
+
+  assert.equal(result.removed, 0);
+  assert.ok(result.estimatedTokens < 5_000, `estimate should ignore base64 bulk, got ${result.estimatedTokens}`);
+});
+
 test("post-recall guidance completes an explicit wiki write directly and concisely", () => {
   const messages = [
     { role: "user", content: "Write a wiki article summarizing everything we know about Nimbus" },
@@ -420,12 +436,14 @@ describe("runLlamaCppLoop — successful response", () => {
     assert.match(bodies[1].messages[0].content, /do not call `wiki_write` again/i);
   });
 
-  // Regression for the 24 GB tier-exam failure (#282): matched skills inflated
-  // the system prompt past the served context; schema capping alone could not
-  // close the gap and the request was sent anyway, so llama.cpp answered
-  // 400 exceed_context_size_error. The preflight must fall back to the
-  // skill-free system prompt instead of sending a request it knows is doomed.
-  test("preflight falls back to the skill-free system prompt when over budget", async () => {
+  // Regression for the 24 GB tier-exam failure (#282), updated for the
+  // prompt-cache-tail-relocation WS-C redesign: matched skills now inflate
+  // the request's newest message (tailAppend), not the system prompt; schema
+  // capping alone could not close the gap and the request was sent anyway,
+  // so llama.cpp answered 400 exceed_context_size_error. The preflight must
+  // fall back to the skill-free messages variant instead of sending a
+  // request it knows is doomed.
+  test("preflight falls back to the skill-free messages when over budget", async () => {
     const bodies = [];
     mock.method(globalThis, "fetch", async (url, opts) => {
       const tag = String(url);
@@ -444,12 +462,13 @@ describe("runLlamaCppLoop — successful response", () => {
       return { ok: false, status: 404, text: async () => "Not found" };
     });
 
-    // Bloated prompt: far past 90% of the 8192-token window. The lean variant fits.
+    // Bloated tail: far past 90% of the 8192-token window. The skill-free
+    // messages variant (no tail block) fits.
     const skillBloat = "skill guidance filler ".repeat(4000);
     const prepareModelContext = async () => ({
-      messages: [{ role: "user", content: "Run the syntax check" }],
-      systemPrompt: `You are a helpful assistant.\n\n${skillBloat}`,
-      systemPromptNoSkills: "You are a helpful assistant.",
+      messages: [{ role: "user", content: `Run the syntax check\n\n${skillBloat}` }],
+      systemPrompt: "You are a helpful assistant.",
+      messagesNoSkills: [{ role: "user", content: "Run the syntax check" }],
       tools: [],
     });
 
@@ -461,8 +480,8 @@ describe("runLlamaCppLoop — successful response", () => {
 
     assert.equal(result, "Done.");
     assert.equal(bodies.length, 1);
-    assert.doesNotMatch(bodies[0].messages[0].content, /skill guidance filler/,
-      "the request must carry the skill-free system prompt");
+    assert.doesNotMatch(bodies[0].messages.at(-1).content, /skill guidance filler/,
+      "the request must carry the skill-free messages");
     assert.ok(infoCalls.some(c => /dropped skill prompts/.test(String(c[0]))),
       "the fallback is logged");
   });
@@ -612,25 +631,26 @@ describe("runLlamaCppLoop — successful response", () => {
     assert.equal(wireContent.find(b => b.type === "image_url").image_url.url, "data:image/png;base64,pixels");
   });
 
-  test("sends images directly to an allowlisted capable model", async () => {
+  test("bridges images for a capable but non-vision model instead of sending raw pixels", async () => {
+    // A model on the APERIO_CAPABLE_MODELS allowlist that cannot see (no
+    // mmproj — e.g. Ornith, gpt-oss) must still go through the VLM bridge:
+    // raw pixels on its main request make llama-server 500 with "image input
+    // is not supported". A standalone "describe" request is answered by the
+    // VLM directly, so no /chat/completions call happens at all.
     const previous = process.env.APERIO_CAPABLE_MODELS;
     process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
     try {
-      let requestBody;
-      mock.method(globalThis, "fetch", async (url, opts) => {
+      let chatCalls = 0;
+      mock.method(globalThis, "fetch", async (url) => {
         const tag = String(url);
         if (tag.includes("/health")) return { ok: true, status: 200, text: async () => "" };
-        requestBody = JSON.parse(opts.body);
-        return {
-          ok: true, status: 200, text: async () => "",
-          body: sseStream([
-            'data: {"choices":[{"index":0,"delta":{"content":"The capable model saw it."},"finish_reason":null}]}\n\n',
-            'data: {"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"input_tokens":10,"output_tokens":6}}\n\n',
-            "data: [DONE]\n\n",
-          ]),
-        };
+        chatCalls++;
+        assert.fail("a blind capable model must never receive the raw image request");
       });
-      const callTool = mock.fn(async () => assert.fail("capable model should not call the VLM bridge"));
+      const callTool = mock.fn(async (name) => {
+        assert.equal(name, "describe_image");
+        return "A futuristic city with flying saucers.";
+      });
       const result = await runLlamaCppLoop(
         [{ role: "user", content: [
           { type: "text", text: "Describe this image" },
@@ -640,9 +660,9 @@ describe("runLlamaCppLoop — successful response", () => {
         baseCtx("qwen3:32b", { callTool }),
       );
 
-      assert.equal(result, "The capable model saw it.");
-      const wireContent = requestBody.messages.at(-1).content;
-      assert.ok(wireContent.some(b => b.type === "image_url"));
+      assert.equal(result, "A futuristic city with flying saucers.");
+      assert.equal(callTool.mock.callCount(), 1);
+      assert.equal(chatCalls, 0);
     } finally {
       if (previous === undefined) delete process.env.APERIO_CAPABLE_MODELS;
       else process.env.APERIO_CAPABLE_MODELS = previous;

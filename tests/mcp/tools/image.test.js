@@ -11,7 +11,15 @@ import { installMemfs } from "../../helpers/memfs.js";
 // Install the fs mock BEFORE importing image.js so its named fs bindings read
 // from the in-RAM map. Image bytes are written/read entirely in memory.
 const mem = installMemfs({ root: "/mem/img" });
-const { detectMime, readImageHandler, isLlamaCppProvider, describeImageViaLlamaCpp, resolveDescribeModel } = await import("../../../mcp/tools/image.js");
+const {
+  detectMime,
+  readImageHandler,
+  isLlamaCppProvider,
+  describeImageViaLlamaCpp,
+  resolveDescribeModel,
+  resolveDescribeModelId,
+  isDegenerateVlmOutput,
+} = await import("../../../mcp/tools/image.js");
 after(() => mem.restore());
 
 const sandbox = { root: mem.root };
@@ -202,6 +210,8 @@ describe("describeImageViaLlamaCpp", () => {
       assert.match(capturedUrl, /\/v1\/chat\/completions$/);
       assert.equal(capturedBody.model, "aperio-vlm");
       assert.equal(capturedBody.stream, false);
+      assert.equal(capturedBody.max_tokens, 512);
+      assert.deepEqual(capturedBody.chat_template_kwargs, { enable_thinking: false });
       const content = capturedBody.messages[0].content;
       assert.deepEqual(content.find(b => b.type === "text"), { type: "text", text: "Describe this image in detail." });
       assert.equal(content.find(b => b.type === "image_url").image_url.url, "data:image/png;base64,cGl4ZWxz");
@@ -233,5 +243,23 @@ describe("describeImageViaLlamaCpp", () => {
       ),
       "aperio-main",
     );
+    assert.equal(
+      resolveDescribeModelId(
+        "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+        "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF",
+        "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+      ),
+      "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+    );
+  });
+});
+
+describe("isDegenerateVlmOutput", () => {
+  test("rejects long single-character output", () => {
+    assert.equal(isDegenerateVlmOutput("@".repeat(512)), true);
+  });
+
+  test("accepts a normal concise visual description", () => {
+    assert.equal(isDegenerateVlmOutput("A red bicycle is parked beside a brick wall."), false);
   });
 });

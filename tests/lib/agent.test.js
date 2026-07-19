@@ -682,6 +682,72 @@ describe("forced auto-recall scaffold gate (issue #188)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Deterministic document-index inventory
+// ---------------------------------------------------------------------------
+
+describe("deterministic document-index inventory", () => {
+  let saved;
+  beforeEach(() => {
+    saved = {
+      AI_PROVIDER: process.env.AI_PROVIDER,
+      LLAMACPP_MODEL: process.env.LLAMACPP_MODEL,
+      APERIO_CAPABLE_MODELS: process.env.APERIO_CAPABLE_MODELS,
+    };
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "gemma-test";
+    process.env.APERIO_CAPABLE_MODELS = "gemma-test";
+  });
+  afterEach(() => {
+    for (const [key, value] of Object.entries(saved)) {
+      if (value === undefined) delete process.env[key]; else process.env[key] = value;
+    }
+  });
+
+  const sse = (delta) => "data: " + JSON.stringify({ choices: [{ delta, finish_reason: null }] }) + "\n";
+  const DONE = "data: [DONE]\n";
+
+  test("executes doc_repos before the model and supplies its result as tool context", async (t) => {
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "listTools", async () => ({
+      tools: [
+        { name: "recall", description: "Recall memories", inputSchema: { type: "object", properties: {} } },
+        { name: "doc_repos", description: "List indexed document folders", inputSchema: { type: "object", properties: {} } },
+      ],
+    }));
+
+    const calls = [];
+    t.mock.method(Client.prototype, "callTool", async ({ name, arguments: args }) => {
+      calls.push({ name, args });
+      if (name === "doc_repos") {
+        return { content: [{ type: "text", text: '[{"folder":"/notes","documents":3,"by_mime":{"text/markdown":3}}]' }] };
+      }
+      return { content: [{ type: "text", text: "No memories found." }] };
+    });
+
+    const bodies = [];
+    t.mock.method(globalThis, "fetch", async (url, options) => {
+      if (String(url).includes("/health")) return { ok: true };
+      bodies.push(JSON.parse(options.body));
+      return createMockResponseStream([sse({ content: "The indexed folder is /notes." }), DONE]);
+    });
+
+    const events = [];
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
+    await agent.runAgentLoop(
+      [{ role: "user", content: "What folders do you have indexed? For each folder, tell me how many documents it contains and what file types are in it." }],
+      { send: event => events.push(event) },
+    );
+
+    assert.equal(calls.filter(call => call.name === "doc_repos").length, 1, "the read-only inventory tool runs exactly once");
+    assert.ok(events.some(event => event.type === "tool_start" && event.name === "doc_repos"), "the UI receives real tool activity");
+    const requestMessages = bodies[0]?.messages ?? [];
+    assert.ok(requestMessages.some(message => message.role === "assistant" && message.tool_calls?.some(call => call.function?.name === "doc_repos")), "the provider sees the deterministic tool call");
+    assert.ok(requestMessages.some(message => message.role === "tool" && message.content.includes('"folder":"/notes"')), "the provider receives the actual inventory result");
+    assert.ok(!bodies[0]?.tools?.some(tool => tool.function?.name === "doc_repos"), "the already-executed schema is withheld so the model cannot call it twice");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // History Management
 // ---------------------------------------------------------------------------
 
@@ -1084,6 +1150,29 @@ describe("Agent Integration with Emitter", () => {
 
       assert.strictEqual(result, false, "no cache exists yet to warm while the model is still loading");
       assert.strictEqual(chatCalled, false);
+    });
+
+    test("force: true skips the residency gate — the boot preload uses the warm-up itself to trigger the router's download+load", async (t) => {
+      stubMcpTransport(t);
+      t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "OK" }] }));
+      let probedResidency = false;
+      let chatCalled = false;
+      t.mock.method(globalThis, "fetch", async (url) => {
+        const tag = String(url);
+        if (tag.includes("/models")) {
+          probedResidency = true;
+          return { ok: true, status: 200, json: async () => ({ data: [{ id: "aperio-main", status: { value: "unloaded" } }] }) };
+        }
+        if (tag.includes("/chat/completions")) { chatCalled = true; return { ok: true, status: 200, text: async () => "" }; }
+        return { ok: false, status: 404 };
+      });
+
+      const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0", providerConfig: { name: "llamacpp", model: "qwen2.5:3b" } });
+      const result = await agent.warmCache("en", () => null, () => {}, { force: true });
+
+      assert.strictEqual(result, true);
+      assert.strictEqual(chatCalled, true, "forced warm-up must fire even though the model is not resident");
+      assert.strictEqual(probedResidency, false, "force skips the isModelLoaded probe entirely");
     });
 
     test("fires a real minimal warm-up request carrying the real system prompt when the model is already loaded", async (t) => {

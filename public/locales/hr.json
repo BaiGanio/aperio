@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Odbaci",
   "ctx_capacity_tip":         "{pct}% onoga što RAM vašeg računala može primiti — veličina prozora koju Aperio automatski konfigurira za vaš hardver.",
   "ctx_cost_tip":             "Ova sesija: ~${cost} ({model}). Procjena na temelju objavljenih cijena po tokenu, a ne stvarnog računa pružatelja usluge — shvatite to kao smjernicu, a ne jamstvo.",
+  "ctx_cost_unavailable":     "Podaci o cijenama nisu dostupni. Aperio dohvaća cijene s OpenRoutera pri pokretanju.",
   "ctx_summarize_failed":     "⚠ Sažimanje nije uspjelo: {reason}",
   "ctx_summarize_no_save":    "Sažetak je generiran ali nije mogao biti spremljen u sjećanje — bit će izgubljen pri osvježavanju.",
   "ctx_summarize_ok":         "✓ Razgovor je sažet i spremljen u memoriju.",

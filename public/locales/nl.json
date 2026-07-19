@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Sluiten",
   "ctx_capacity_tip":         "{pct}% van wat het RAM-geheugen van uw machine kan bevatten: de venstergrootte die Aperio automatisch heeft geconfigureerd voor uw hardware.",
   "ctx_cost_tip":             "Deze sessie: ~${cost} ({model}). Geschat op basis van gepubliceerde prijzen per token, niet de werkelijke rekening van de provider — beschouw het als richtlijn, geen garantie.",
+  "ctx_cost_unavailable":     "Geen prijsgegevens beschikbaar. Aperio haalt de prijzen bij het opstarten op van OpenRouter.",
   "ctx_summarize_failed":     "⚠ Kon niet samenvatten: {reason}",
   "ctx_summarize_no_save":    "Samenvatting gegenereerd maar kon niet worden opgeslagen — gaat verloren bij verversen.",
   "ctx_summarize_ok":         "✓ Gesprek samengevat en in het geheugen opgeslagen.",
