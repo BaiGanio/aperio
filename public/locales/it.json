@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Ignora",
   "ctx_capacity_tip":         "{pct}% di ciò che può contenere la RAM del tuo computer: la dimensione della finestra Aperio autoconfigurata per il tuo hardware.",
   "ctx_cost_tip":             "Questa sessione: ~${cost} ({model}). Stima basata sui prezzi pubblicati per token, non sulla fattura reale del provider — considerala indicativa, non garantita.",
+  "ctx_cost_unavailable":     "Nessun dato sui prezzi disponibile. Aperio recupera i prezzi da OpenRouter all’avvio.",
   "ctx_summarize_failed":     "⚠ Impossibile riassumere: {reason}",
   "ctx_summarize_no_save":    "Riepilogo generato ma non salvato in memoria — andrà perso al ricaricamento.",
   "ctx_summarize_ok":         "✓ Conversazione riepilogata e salvata in memoria.",

@@ -10,7 +10,7 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, isCapableModel, needsRecallScaffold } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent } from "../../../lib/agent/tool-profiles.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
@@ -48,6 +48,51 @@ describe("tool-profiles — docgraph availability", () => {
     assert.ok(toolsFor("search my documents for the invoice").has("doc_search"));
     assert.ok(toolsFor("find where I wrote about budgets in my notes").has("doc_search"));
     assert.ok(toolsFor("check this PDF and find me similar documents with a Customer ID field").has("doc_search"));
+  });
+
+  test("natural doc-search wording surfaces docgraph instead of web search", () => {
+    for (const prompt of [
+      "could you use your doc search tools to find me the document?",
+      'search some documents with this criteria "Merchant: Café du Terminal Aéroport de Paris-Roissy CDG"',
+    ]) {
+      const tools = toolsFor(prompt);
+      assert.ok(tools.has("doc_search"), `doc_search must be offered for: ${prompt}`);
+      assert.ok(!tools.has("web_search"), `web_search must not compete for: ${prompt}`);
+    }
+  });
+
+  test("document-index inventory wording surfaces doc_repos, never code_repos", () => {
+    const prompt = "What folders do you have indexed? For each folder, tell me how many documents it contains and what file types are in it.";
+    const tools = toolsFor(prompt);
+    assert.ok(tools.has("doc_repos"), "doc_repos must be offered for a document-index inventory");
+    assert.ok(!tools.has("code_repos"), "bare 'indexed' must not misroute the request to codegraph");
+    assert.ok(!tools.has("scan_project"), "document folders must not compete with filesystem scanning");
+  });
+
+  test("the recent-turn window does not let quoted receipt data add competing search scopes", () => {
+    const prompt = [
+      'search some documents with this criteria "Merchant: Café du Terminal Aéroport de Paris-Roissy CDG"',
+      "What folders do you have indexed? For each folder, tell me how many documents it contains and what file types are in it.",
+    ].join(" ");
+    const tools = toolsFor(prompt);
+    assert.ok(tools.has("doc_repos"));
+    for (const name of ["code_repos", "scan_project", "web_search", "run_shell"]) {
+      assert.ok(!tools.has(name), `${name} must not compete with doc_repos`);
+    }
+  });
+
+  test("detects explicit document-index inventory intent in either word order", () => {
+    for (const prompt of [
+      "What folders do you have indexed?",
+      "List the indexed document folders",
+      "show me your doc repos",
+    ]) assert.equal(isDocRepoInventoryIntent(prompt), true, prompt);
+
+    for (const prompt of [
+      "Which code repositories are indexed?",
+      "Scan this project folder",
+      "Search the web for document indexing tools",
+    ]) assert.equal(isDocRepoInventoryIntent(prompt), false, prompt);
   });
 
   test("a generic web search does not load docgraph", () => {

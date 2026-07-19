@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Agħlaq",
   "ctx_capacity_tip":         "{pct}% ta' dak li jista' jżomm ir-RAM tal-magna tiegħek — id-daqs tat-tieqa Aperio awtokonfigurat għall-ħardwer tiegħek.",
   "ctx_cost_tip":             "Din is-sessjoni: ~${cost} ({model}). Stima bbażata fuq il-prezzijiet ippubblikati għal kull token, mhux il-kont reali tal-fornitur — ħudha bħala gwida, mhux garanzija.",
+  "ctx_cost_unavailable":     "M'hemmx data dwar il-prezzijiet disponibbli. Aperio jġib il-prezzijiet minn OpenRouter waqt l-istartjar.",
   "ctx_summarize_failed":     "⚠ Ma setax jinġabar fil-qosor: {reason}",
   "ctx_summarize_no_save":    "Sommarju ġie ġġenerat iżda ma setax jiġi salvat fil-memorja — se jintilef mar-riffriskar.",
   "ctx_summarize_ok":         "✓ Konversazzjoni miġbura fil-qosor u ssejvjata għall-memorja.",

@@ -263,9 +263,23 @@ function handleMessage(msg) {
     }
     if (text) {
       const label = document.querySelector("#thinking .thinking-label");
-      if (label) label.textContent = text;
-      moveLiveIndicatorToBottom();
-      if (msg.status !== "ready") setStatus("thinking", text);
+      if (label) {
+        // Mid-request load: pin the stage onto the live thinking indicator.
+        // A boot-preload banner may still be up if the user sent a message
+        // mid-download — the label now owns the stage, so drop the banner.
+        dismissModelLoadingBanner();
+        label.textContent = text;
+        moveLiveIndicatorToBottom();
+        if (msg.status !== "ready") setStatus("thinking", text);
+      } else if (msg.status === "ready") {
+        // Boot preload finished with no request in flight — clear the banner.
+        dismissModelLoadingBanner();
+      } else {
+        // No request in flight (boot preload, helpers/modelPreload.js): the
+        // chat looks idle/ready, so surface the wait as the standalone banner
+        // rendering.js provides instead of a thinking label that isn't there.
+        showModelLoadingBanner(msg.status, text);
+      }
     }
   }
 
@@ -1794,6 +1808,12 @@ function _openSkillDoc(name) {
 
 // ── Tool activity cards ─────────────────────────────────────────────────────
 function _renderToolCard(msg) {
+  // The tool card is the authoritative live phase while a tool runs. Remove
+  // the generic whole-turn indicator without unlocking the composer; keeping
+  // both produced two clocks for the same operation (e.g. describe_image plus
+  // "Assembling…") and made a single wait look like duplicate work.
+  document.getElementById("thinking")?.remove();
+  stopWhimsy();
   const card = document.createElement("div");
   card.className = "tool-card pending";
   // Short args sit inline beside the tool name; long ones (e.g. a full shell
@@ -1980,6 +2000,10 @@ function _resolveToolCard(msg) {
   // "Using {name}…" sitting below a finished card (reads as if the tool is
   // still running, and went silent for minutes on slow models). Flip it to the
   // model's next phase: digesting the result before it answers.
+  // Restore the whole-turn phase only after the tool's own timer has settled.
+  // startLiveTimer remains active, so the restored clock preserves total turn
+  // time while never competing with the tool stopwatch.
+  if (!document.getElementById("thinking")) addThinking(false);
   const label = document.querySelector("#thinking .thinking-label");
   if (label) label.textContent = t("tool_reading_result");
   // Mark the reading phase so enterPhase() leaves a persistent breadcrumb when

@@ -3,10 +3,12 @@
 // Regenerates the two configuration artifacts from the registry in
 // lib/config.js, so neither can drift from what the code actually reads:
 //
-//   .env.example              slim bootstrap template containing only the
-//                             registry entries marked `envTemplate`.
-//   docs/config-reference.md  the complete annotated list of every variable,
-//                             readable on GitHub. Any of them still works in
+//   .env.example              the complete list of every variable Aperio
+//                             reads, grouped by risk, each keeping its own
+//                             commented/uncommented state from the registry
+//                             (`show`) — dev users get everything in one file.
+//   docs/config-reference.md  the same complete inventory as readable
+//                             markdown for GitHub. Any of them still works in
 //                             a hand-written .env (see APERIO_CONFIG_PRECEDENCE).
 //
 //   node scripts/gen-env-example.js                 → write both files
@@ -34,8 +36,9 @@ const REF_LINK = "docs/config-reference.md";
 
 const HEADER = `# Aperio — configuration bootstrap (AUTO-GENERATED)
 # Run \`npm run gen:env\` after editing lib/config.js; never edit this file by hand.
-# This slim template contains the ${CONFIG.filter((e) => e.envTemplate).length} START-HERE/bootstrap keys.
-# The complete ${CONFIG.length}-variable inventory and help is in ${REF_LINK}.
+# This is the complete list of every variable Aperio reads (${CONFIG.length} total),
+# grouped by how risky it is to touch. Only the START HERE block is normally edited.
+# The same inventory, as readable markdown, is in ${REF_LINK}.
 # Copy to \`.env\`, edit the START HERE values, and run \`npm start\`.
 # .env wins when APERIO_CONFIG_PRECEDENCE=env (the active default below).
 # Use \`npm run gen:env:check\` to detect drift.`;
@@ -56,26 +59,36 @@ const commentBlock = (text) => text.split("\n").map((l) => `# ${l}`.trimEnd()).j
 const sectionGroup = Object.fromEntries(SECTIONS.map((s) => [s.id, s.group]));
 const groupOf = (e) => sectionGroup[e.section];
 
-// ── slim .env.example ─────────────────────────────────────────────────────────
-// Only explicitly selected bootstrap/START-HERE entries belong in this file.
-// The complete inventory and explanations live in config-reference.md.
-function renderTemplateEntry(e, { withHelp, active = false }) {
+// ── complete .env.example ─────────────────────────────────────────────────────
+// Every registry entry belongs in this file — dev users get the full
+// inventory in one place, not split across .env.example + config-reference.md.
+// Only the "start" GROUP honors an entry's `show: "set"`; every other group
+// renders commented regardless of `show`, so a plain `cp .env.example .env`
+// activates the START HERE block only — never a known-default Postgres
+// password or a tier-1 default that would silently outrank a Settings value
+// once APERIO_CONFIG_PRECEDENCE=env is in play.
+function renderTemplateEntry(e, groupSafe) {
   const out = [];
-  if (withHelp && e.help) out.push(commentBlock(e.help));
-  if (withHelp && e.type === "select" && e.options) out.push(`# options: ${e.options.join(" | ")}`);
+  if (e.help) out.push(commentBlock(e.help));
+  if (e.type === "select" && e.options) out.push(`# options: ${e.options.join(" | ")}`);
   const value = e.example !== undefined ? e.example : e.default;
   const assign = `${e.key}=${value}`;
-  out.push(active && e.show === "set" ? assign : `# ${assign}`);
+  // `show: "set"` only takes effect inside the "start" group (GROUPS[].safe).
+  // A cp .env.example .env flow must only activate the START HERE block —
+  // everything past the STOP banner stays commented no matter what an
+  // individual entry's `show` says, so a known-default value (e.g. the
+  // Postgres block's aperio_secret password) never gets silently switched on.
+  const active = groupSafe && e.show === "set";
+  out.push(active ? assign : `# ${assign}`);
   return out.join("\n");
 }
 
 function buildTemplate() {
   const parts = [HEADER, ""];
-  const inTemplate = CONFIG.filter((e) => e.envTemplate);
   let bannerEmitted = false;
 
   for (const group of GROUPS) {
-    const inGroup = inTemplate.filter((e) => groupOf(e) === group.id);
+    const inGroup = CONFIG.filter((e) => groupOf(e) === group.id);
     if (!inGroup.length) continue;
 
     // The Settings banner sits between the START-HERE block and advanced keys.
@@ -90,10 +103,7 @@ function buildTemplate() {
       const entries = inGroup.filter((e) => e.section === section.id);
       if (!entries.length) continue;
       parts.push(rule(section.title));
-      parts.push(entries.map((e) => renderTemplateEntry(e, {
-        withHelp: false,
-        active: group.id === "start" && section.id === "essentials",
-      })).join("\n"));
+      parts.push(entries.map((e) => renderTemplateEntry(e, group.safe)).join("\n\n"));
       parts.push("");
     }
   }
@@ -109,7 +119,6 @@ function renderReferenceEntry(e) {
     `default: ${e.default === "" || e.default == null ? "*(unset)*" : `\`${e.default}\``}`,
   ];
   if (e.options) meta.push(`options: \`${e.options.join(" | ")}\``);
-  if (e.envTemplate) meta.push("in `.env.example`");
   if (e.advanced) meta.push("advanced");
   const lines = [`#### \`${e.key}\``, "", meta.join(" · "), ""];
   if (e.help) lines.push(e.help, "");
@@ -166,10 +175,9 @@ if (process.argv.includes("--check")) {
   console.log("✓ .env.example and config-reference.md are up to date.");
 } else {
   for (const o of selectedOutputs) writeFileSync(o.path, o.content);
-  const n = CONFIG.filter((e) => e.envTemplate).length;
   if (selectedOutputs.length === 1) {
-    console.log(`✓ Wrote .env.example (${CONFIG.length} variables; ${n} bootstrap/start keys).`);
+    console.log(`✓ Wrote .env.example (${CONFIG.length} variables).`);
   } else {
-    console.log(`✓ Wrote .env.example (${n} bootstrap/start keys) and ${REF_LINK} (${CONFIG.length} variables).`);
+    console.log(`✓ Wrote .env.example and ${REF_LINK} (${CONFIG.length} variables each).`);
   }
 }

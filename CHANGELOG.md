@@ -16,6 +16,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
   indexing service, with progress reported in the existing Code Graph and
   Document Graph panels. Repeated and in-flight requests are idempotent, and the
   tool never expands the configured Allowed Paths boundary.
+- llama.cpp offline start: when every model in the router preset is already in
+  the local cache, `llama-server` now starts with `--offline`, so loading a
+  model never re-checks Hugging Face — an upstream re-upload of the same repo
+  can no longer trigger a surprise multi-GB re-download mid-conversation. New
+  `LLAMACPP_CHECK_UPDATES=on` opts back into per-load revalidation; models not
+  yet cached are always downloaded regardless.
+- Boot-time model preload (`lib/helpers/modelPreload.js`): the main llama.cpp
+  model is downloaded/loaded right after `llama-server` starts — via the
+  prompt-cache warm-up, so the system-prompt prefix is prefilled by the same
+  request — instead of lazily on the user's first message. Download/load
+  progress is published on an app-wide `model_status` bus; every WebSocket
+  connection forwards it and replays the latest status on connect, so a
+  browser opened mid-download shows a "downloading model" banner instead of a
+  ready-looking chat.
+
 - Re-enabled browser Content-Security-Policy headers with CSP-safe static and
   dynamically generated UI event wiring; added `APERIO_CSP=on|report|off` modes.
 
@@ -48,6 +63,38 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `lib/helpers/promptCacheLog.js`).
 
 ### Fixed
+
+- `.env.example` generator now only activates the START HERE group; every
+  entry outside it renders commented regardless of its registry `show` field.
+  Previously the Postgres block (`POSTGRES_PASSWORD`/`DATABASE_URL`, known-default
+  `aperio_secret`) and a few advanced tier-1 keys shipped uncommented, so
+  `cp .env.example .env` could spin up a Docker Postgres with a public password
+  while `assertNonDefaultDbUrl()` rejected that same URL and silently fell back
+  to SQLite — and, combined with the template's `APERIO_CONFIG_PRECEDENCE=env`
+  default, those active lines would have outranked anything saved in Settings.
+- Prompt-cache tail relocation (WS-A): the model-context middleware pipeline
+  now detects each request's hop position within a tool-calling turn
+  (`isFirstHop`) and exposes a generic `tailAppend` mechanism that splices
+  content into a *clone* of the request's newest message instead of the
+  cached system prompt — laying the plumbing for moving per-turn skill
+  injection out of the byte-stable prefix without touching any provider code
+  (`trash/plans/prompt-cache-tail-relocation/`).
+- Removed the per-minute clock directive (`buildClockDirective()`,
+  `APERIO_INJECT_CLOCK`, `APERIO_CLOCK_TZ`) entirely rather than relocating
+  it: closing its cache-invalidation cost via relocation required a
+  nontrivial cross-hop caching mechanism, which wasn't worth it for a one-line
+  capability (date-awareness + a stale-training-data nudge) of uncertain
+  value. Agents no longer receive a "current date & time" line in the system
+  prompt.
+- Prompt-cache tail relocation (WS-C): per-turn skill injection now attaches
+  to the request's newest content (`tailAppend`) instead of the cached system
+  prompt, re-splicing at the turn's originating message on every hop of a
+  tool-calling turn (not just the first) so the request prefix stays
+  byte-stable for llama.cpp's KV cache regardless of which skill matched.
+  llama.cpp's small-context budget fallback (`exceed_context_size_error`) now
+  rebuilds the request without the tail's skill block instead of rebuilding
+  the system prompt; `deepseek.js` has no equivalent fallback today, so
+  nothing there needed updating (`trash/plans/prompt-cache-tail-relocation/`).
 
 - E2E dashboard reporting now includes top-level tests as well as nested suite
   cases, so the published totals match the tests executed by Node's runner.

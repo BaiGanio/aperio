@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Bezárás",
   "ctx_capacity_tip":         "{pct}%-a annak, amit a gép RAM-ja képes tárolni – az Aperio automatikusan beállított ablakmérete a hardverhez.",
   "ctx_cost_tip":             "Ez a munkamenet: ~${cost} ({model}). Becslés a közzétett token-alapú árak alapján, nem a szolgáltató tényleges számlája — irányadó érték, nem garancia.",
+  "ctx_cost_unavailable":     "Nem állnak rendelkezésre áradatok. Az Aperio indításkor lekéri az árakat az OpenRoutertől.",
   "ctx_summarize_failed":     "⚠ Nem sikerült összegezni: {reason}",
   "ctx_summarize_no_save":    "Az összefoglaló elkészült, de nem sikerült elmenteni az emlékezetbe — frissítéskor elveszik.",
   "ctx_summarize_ok":         "✓ A beszélgetés összefoglalva és a memóriába mentve.",

@@ -277,6 +277,21 @@ describe("DELETE /docgraph/repos", () => {
     assert.ok(body.error.includes("path is required"));
   });
 
+  test("deletes the folder and updates the allowlist", async () => {
+    const store = makeStore(true);
+    store.db.prepare = () => ({ run: () => ({ changes: 1 }) });
+    const router = Router();
+    mountDocgraphRoutes(router, { store });
+
+    const { status, body } = await invoke(router, "DELETE", "/docgraph/repos", {
+      body: { path: "/some/folder" },
+    });
+
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.enabled, true);
+    assert.strictEqual(body.deleted, true);
+  });
+
   test("stops the live watcher for the folder before dropping its rows", async () => {
     const store = makeStore(true);
     const router = Router();

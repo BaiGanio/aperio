@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Díbh",
   "ctx_capacity_tip":         "{pct} % den méid is féidir le RAM do mheaisín a choinneáil — méid na fuinneoige Auto-chumraithe le hAperio do do chrua-earraí.",
   "ctx_cost_tip":             "An seisiún seo: ~${cost} ({model}). Meastachán bunaithe ar phraghsanna foilsithe in aghaidh an cheadchomharthaí, ní an bille iarbhír ón soláthraí — glac leis mar threoir, ní ráthaíocht.",
+  "ctx_cost_unavailable":     "Níl sonraí praghsála ar fáil. Faigheann Aperio praghsanna ó OpenRouter ag am tosaithe.",
   "ctx_summarize_failed":     "⚠ Níorbh fhéidir achoimre a dhéanamh: {reason}",
   "ctx_summarize_no_save":    "Gineadh achoimre ach níorbh fhéidir í a shábháil sa chuimhne — caillfear í ar athlódáil.",
   "ctx_summarize_ok":         "✓ Achoimriú ar an gcomhrá agus sábháil cuimhne é.",

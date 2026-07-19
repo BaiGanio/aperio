@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Schließen",
   "ctx_capacity_tip":         "{pct} % des Arbeitsspeichers Ihrer Maschine – die Fenstergröße, die Aperio automatisch für Ihre Hardware konfiguriert.",
   "ctx_cost_tip":             "Diese Sitzung: ~${cost} ({model}). Geschätzt anhand veröffentlichter Preise pro Token, nicht der tatsächlichen Rechnung des Anbieters — als Richtwert, nicht als Garantie zu verstehen.",
+  "ctx_cost_unavailable":     "Keine Preisdaten verfügbar. Aperio ruft die Preise beim Start von OpenRouter ab.",
   "ctx_summarize_failed":     "⚠ Konnte nicht zusammenfassen: {reason}",
   "ctx_summarize_no_save":    "Zusammenfassung erstellt, konnte aber nicht im Gedächtnis gespeichert werden — sie geht beim Neuladen verloren.",
   "ctx_summarize_ok":         "✓ Konversation zusammengefasst und im Speicher gespeichert.",

@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Ignorer",
   "ctx_capacity_tip":         "{pct} % de ce que la RAM de votre ordinateur peut contenir — la taille de la fenêtre Aperio automatiquement configurée pour votre matériel.",
   "ctx_cost_tip":             "Cette session : ~${cost} ({model}). Estimation basée sur les tarifs publiés par jeton, pas la facture réelle du fournisseur — à considérer comme indicatif, non garanti.",
+  "ctx_cost_unavailable":     "Aucune donnée tarifaire disponible. Aperio récupère les tarifs auprès d’OpenRouter au démarrage.",
   "ctx_summarize_failed":     "⚠ Impossible de résumer : {reason}",
   "ctx_summarize_no_save":    "Résumé généré mais impossible à sauvegarder en mémoire — il sera perdu au rafraîchissement.",
   "ctx_summarize_ok":         "✓ Conversation résumée et enregistrée en mémoire.",

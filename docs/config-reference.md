@@ -19,7 +19,7 @@ The few values most setups need to get started.
 
 #### `AI_PROVIDER`
 
-select · tier 1 (Settings UI, restart to apply) · default: *(unset)* · options: `anthropic | deepseek | gemini | llamacpp | claude-code | codex` · in `.env.example`
+select · tier 1 (Settings UI, restart to apply) · default: *(unset)* · options: `anthropic | deepseek | gemini | llamacpp | claude-code | codex`
 
 Which AI backend to use.
 • anthropic / deepseek / gemini → cloud; paste the matching API key below.
@@ -29,33 +29,33 @@ Which AI backend to use.
 
 #### `ANTHROPIC_API_KEY`
 
-secret · tier 1 (Settings UI, restart to apply) · default: *(unset)* · in `.env.example`
+secret · tier 1 (Settings UI, restart to apply) · default: *(unset)*
 
 Anthropic — console.anthropic.com
 
 #### `ANTHROPIC_MODEL`
 
-text · tier 1 (Settings UI, restart to apply) · default: `claude-haiku-4-5-20251001` · in `.env.example`
+text · tier 1 (Settings UI, restart to apply) · default: `claude-haiku-4-5-20251001`
 
 #### `DEEPSEEK_API_KEY`
 
-secret · tier 1 (Settings UI, restart to apply) · default: *(unset)* · in `.env.example`
+secret · tier 1 (Settings UI, restart to apply) · default: *(unset)*
 
 DeepSeek — platform.deepseek.com
 
 #### `DEEPSEEK_MODEL`
 
-text · tier 1 (Settings UI, restart to apply) · default: `deepseek-v4-flash` · in `.env.example`
+text · tier 1 (Settings UI, restart to apply) · default: `deepseek-v4-flash`
 
 #### `GEMINI_API_KEY`
 
-secret · tier 1 (Settings UI, restart to apply) · default: *(unset)* · in `.env.example`
+secret · tier 1 (Settings UI, restart to apply) · default: *(unset)*
 
 Google Gemini — aistudio.google.com
 
 #### `GEMINI_MODEL`
 
-text · tier 1 (Settings UI, restart to apply) · default: `gemini-2.0-flash` · in `.env.example`
+text · tier 1 (Settings UI, restart to apply) · default: `gemini-2.0-flash`
 
 #### `OPENAI_API_KEY`
 
@@ -119,7 +119,7 @@ Alternative to running `claude` interactively when AI_PROVIDER=claude-code.
 
 #### `PORT`
 
-number · tier 0 (bootstrap — .env only) · default: `3000` · in `.env.example`
+number · tier 0 (bootstrap — .env only) · default: `3000`
 
 Port the web app runs on.
 
@@ -131,7 +131,7 @@ Lite profile for non-technical users (the desktop launchers set it). When on: th
 
 #### `APERIO_CONFIG_PRECEDENCE`
 
-select · tier 0 (bootstrap — .env only) · default: `db` · options: `db | env` · in `.env.example` · advanced
+select · tier 0 (bootstrap — .env only) · default: `db` · options: `db | env` · advanced
 
 Who wins when a setting is in BOTH the Settings UI (DB) and your .env:
 • db (default) → the Settings UI is authoritative; a saved value overrides .env, so you manage everything from the app without editing files.
@@ -301,6 +301,12 @@ path · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
 
 Override where llama-server caches downloaded GGUF weights. Leave unset to use the standard Hugging Face hub cache (HF_HUB_CACHE, else $HF_HOME/hub, else ~/.cache/huggingface/hub) — the same location llama-cli and every other HF tool use, so models you already have are reused instead of re-downloaded into the app folder. Set a path only to force a non-standard location.
 
+#### `LLAMACPP_CHECK_UPDATES`
+
+select · tier 1 (Settings UI, restart to apply) · default: `off` · options: `off | on` · advanced
+
+off (default): when every model in the router preset is already cached, llama-server starts with --offline, so it never re-checks Hugging Face on load — an upstream re-upload of the same repo can't trigger a surprise multi-GB re-download mid-conversation. on: revalidate against Hugging Face on every model load and pull upstream updates. Models not yet cached are always downloaded regardless of this setting.
+
 #### `APERIO_LOCAL_PERF_PROFILE`
 
 select · tier 1 (Settings UI, restart to apply) · default: `balanced` · options: `balanced | fast-low-vram | long-context | quality` · advanced
@@ -458,18 +464,6 @@ number · tier 1 (Settings UI, restart to apply) · default: `0` · advanced
 
 Days of background-agent run history to keep (GC'd daily). Unset or 0 keeps it forever; runs are also deletable in the UI.
 
-#### `APERIO_INJECT_CLOCK`
-
-boolean · tier 1 (Settings UI, restart to apply) · default: `on` · advanced
-
-Inject the current date & time into the system prompt each turn, so the agent knows 'now' and can tell when its training data is stale. Set to 'off' to omit it.
-
-#### `APERIO_CLOCK_TZ`
-
-text · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
-
-IANA timezone for the injected clock (e.g. 'America/New_York'). Empty uses the host system timezone.
-
 ### Privacy
 
 How sensitive memories are handled when a cloud provider is active.
@@ -534,6 +528,12 @@ boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advan
 
 Surface subprocess stderr that is hidden by default.
 
+#### `APERIO_NO_LLAMA_LOG`
+
+boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
+
+Suppress the shared llama-server log file. Session-scoped logs are still controlled by the retention setting.
+
 ## 3 · EXTERNAL INTEGRATIONS — keys & endpoints
 
 Credentials and connection details for third-party services. Leave blank to keep the integration off.
@@ -574,20 +574,20 @@ How and where Aperio stores its data. Read at startup before anything else, so t
 
 #### `DB_BACKEND`
 
-select · tier 0 (bootstrap — .env only) · default: `sqlite` · options: `sqlite | postgres` · in `.env.example`
+select · tier 0 (bootstrap — .env only) · default: `sqlite` · options: `sqlite | postgres`
 
 'postgres' (Docker required) | 'sqlite' (zero-config, default).
 Default: auto-detect — Postgres if Docker is running, else SQLite.
 
 #### `SQLITE_PATH`
 
-path · tier 0 (bootstrap — .env only) · default: `./.sqlite/aperio.db` · in `.env.example`
+path · tier 0 (bootstrap — .env only) · default: `./.sqlite/aperio.db`
 
 Where SQLite stores data (default shown).
 
 #### `APERIO_DB_ENCRYPT`
 
-boolean · tier 0 (bootstrap — .env only) · default: *(unset)* · in `.env.example`
+boolean · tier 0 (bootstrap — .env only) · default: *(unset)*
 
 Encrypt the SQLite database file on disk with AES-256-GCM. Key lives in your OS keychain. Off by default; SQLite only.
 
@@ -597,35 +597,35 @@ Only used when DB_BACKEND=postgres (or Docker is detected).
 
 #### `POSTGRES_HOST`
 
-text · tier 0 (bootstrap — .env only) · default: `localhost` · in `.env.example`
+text · tier 0 (bootstrap — .env only) · default: `localhost`
 
 #### `POSTGRES_PORT`
 
-number · tier 0 (bootstrap — .env only) · default: `5432` · in `.env.example`
+number · tier 0 (bootstrap — .env only) · default: `5432`
 
 #### `POSTGRES_DB`
 
-text · tier 0 (bootstrap — .env only) · default: `aperio` · in `.env.example`
+text · tier 0 (bootstrap — .env only) · default: `aperio`
 
 #### `POSTGRES_USER`
 
-text · tier 0 (bootstrap — .env only) · default: `aperio` · in `.env.example`
+text · tier 0 (bootstrap — .env only) · default: `aperio`
 
 #### `POSTGRES_PASSWORD`
 
-secret · tier 0 (bootstrap — .env only) · default: `aperio_secret` · in `.env.example`
+secret · tier 0 (bootstrap — .env only) · default: `aperio_secret`
 
 Change this!
 
 #### `DATABASE_URL`
 
-text · tier 0 (bootstrap — .env only) · default: `postgresql://aperio:aperio_secret@localhost:8008/aperio` · in `.env.example`
+text · tier 0 (bootstrap — .env only) · default: `postgresql://aperio:aperio_secret@localhost:8008/aperio`
 
 ### Server
 
 #### `HOST`
 
-text · tier 0 (bootstrap — .env only) · default: `127.0.0.1` · in `.env.example`
+text · tier 0 (bootstrap — .env only) · default: `127.0.0.1`
 
 Default 127.0.0.1 (loopback only — safe). Set 0.0.0.0 for LAN access only if you understand the risks.
 
@@ -659,23 +659,35 @@ text · tier 1 (Settings UI, restart to apply) · default: `en`
 
 Server-side fallback locale when no cookie or Accept-Language match is found. Must match a locale key in public/scripts/i18n.js LOCALE_META.
 
+#### `APERIO_UI_LANG`
+
+text · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
+
+Language for the terminal UI. A saved CLI preference wins over this value.
+
+#### `APERIO_CLI_PREFS`
+
+path · tier 1 (Settings UI, restart to apply) · default: `./var/cli-prefs.json` · advanced
+
+Optional path for persisted terminal preferences such as the examples toggle.
+
 ### Network security
 
 #### `APERIO_ALLOWED_HOSTS`
 
-list · tier 0 (bootstrap — .env only) · default: *(unset)* · in `.env.example`
+list · tier 0 (bootstrap — .env only) · default: *(unset)*
 
 Extra hostnames accepted by the Host-header / DNS-rebinding guard (comma-separated). Add these if you reach Aperio via a reverse proxy or LAN name.
 
 #### `APERIO_CSP`
 
-select · tier 0 (bootstrap — .env only) · default: `on` · options: `on | report | off` · in `.env.example`
+select · tier 0 (bootstrap — .env only) · default: `on` · options: `on | report | off`
 
 Content-Security-Policy mode. 'on' enforces the browser policy (default), 'report' sends it as report-only during rollout, and 'off' disables CSP temporarily for troubleshooting.
 
 #### `APERIO_AUTH_TOKEN`
 
-secret · tier 0 (bootstrap — .env only) · default: *(unset)* · in `.env.example`
+secret · tier 0 (bootstrap — .env only) · default: *(unset)*
 
 Opt-in shared-secret auth. When set, every /api request and WebSocket must present it (Authorization: Bearer, X-Aperio-Token, or ?token=). Set a long random value before exposing Aperio on a network.
 
@@ -705,7 +717,7 @@ Advanced: force the active provider to be treated as local (affects tool/memory 
 
 #### `APERIO_ALLOW_DEFAULT_DB_PASSWORD`
 
-boolean · tier 0 (bootstrap — .env only) · default: *(unset)* · in `.env.example`
+boolean · tier 0 (bootstrap — .env only) · default: *(unset)*
 
 Advanced: bypass the startup refusal to run Postgres with the shipped default password. Do NOT set in production.
 
@@ -713,19 +725,19 @@ Advanced: bypass the startup refusal to run Postgres with the shipped default pa
 
 #### `APERIO_TLS_CERT`
 
-path · tier 0 (bootstrap — .env only) · default: *(unset)* · in `.env.example`
+path · tier 0 (bootstrap — .env only) · default: *(unset)*
 
 Opt-in TLS. Set BOTH cert + key (PEM) to serve HTTPS; leave both unset for plain HTTP on loopback. Aperio does not generate certs.
 
 #### `APERIO_TLS_KEY`
 
-path · tier 0 (bootstrap — .env only) · default: *(unset)* · in `.env.example`
+path · tier 0 (bootstrap — .env only) · default: *(unset)*
 
 TLS private key (PEM). See APERIO_TLS_CERT.
 
 #### `APERIO_SESSION_KEY`
 
-secret · tier 0 (bootstrap — .env only) · default: *(unset)* · in `.env.example`
+secret · tier 0 (bootstrap — .env only) · default: *(unset)*
 
 Opt-in at-rest session encryption (AES-256-GCM). When set, session transcripts are encrypted on disk; existing plaintext still loads.
 
@@ -740,3 +752,9 @@ Which browser to open the UI in on startup (a private/incognito window). Falls b
 boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
 
 Launch the chosen browser with a dedicated profile under var/browser-profiles/<browser>, isolating Aperio's cookies/storage/extensions. Ignored for tor/ddg.
+
+#### `APERIO_LOCALES_DIR`
+
+path · tier 1 (Settings UI, restart to apply) · default: `./public/locales` · advanced
+
+Override the directory containing terminal locale JSON files. Intended for relocations and custom bundles.

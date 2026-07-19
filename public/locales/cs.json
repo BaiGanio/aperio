@@ -290,6 +290,7 @@
   "ctx_dismiss":              "Zavřít",
   "ctx_capacity_tip":         "{pct} % toho, co pojme RAM vašeho počítače – velikost okna Aperio automaticky nakonfigurovaná pro váš hardware.",
   "ctx_cost_tip":             "Tato relace: ~${cost} ({model}). Odhad na základě zveřejněných cen za token, nikoli skutečné vyúčtování poskytovatele — berte to jako orientační hodnotu, ne záruku.",
+  "ctx_cost_unavailable":     "Údaje o cenách nejsou k dispozici. Aperio načítá ceny z OpenRouter při spuštění.",
   "ctx_summarize_failed":     "⚠ Shrnutí se nezdařilo: {reason}",
   "ctx_summarize_no_save":    "Shrnutí bylo vytvořeno, ale nelze jej uložit do paměti — po obnovení stránky bude ztraceno.",
   "ctx_summarize_ok":         "✓ Shrnutí konverzace a uložení do paměti.",

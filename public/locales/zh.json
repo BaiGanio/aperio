@@ -290,6 +290,7 @@
     "ctx_dismiss":              "忽略",
     "ctx_capacity_tip":         "占您机器 RAM 容量的 {pct}% — Aperio 为您的硬件自动配置的窗口大小。",
     "ctx_cost_tip":             "本次会话：~${cost}（{model}）。根据公开的按 token 计价估算得出，并非服务商的实际账单 — 仅供参考，不作为准确保证。",
+    "ctx_cost_unavailable":     "暂无定价数据。Aperio 会在启动时从 OpenRouter 获取价格。",
     "ctx_summarize_failed":     "⚠ 无法总结：{reason}",
     "ctx_summarize_no_save":    "已生成摘要但无法保存到记忆 — 刷新后将丢失。",
     "ctx_summarize_ok":         "✓ 对话已总结并保存到记忆。",
