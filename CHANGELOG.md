@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- Extended `docs/evaluate/lie-catcher.html` from 5 to 11 tests across three new sections: gullibility (3 misleading-prompt tests) and memory recall (3 memory-set verification tests). Renamed to "Honesty &amp; Robustness" to reflect broader scope.
+- Extended `docs/evaluate/doc-graph.html` from 5 to 10 tests with a new vision pipeline section (5 VLM extraction tests). Renamed to "Document Graph &amp; Vision".
+- Cleaned up `trash/temp/`: removed superseded plan files and source materials whose content was ported to the evaluate pages.
+
 - Conversational folder indexing through the main chat agent: explicit requests
   can queue an authorized repository, document folder, or both through the shared
   indexing service, with progress reported in the existing Code Graph and
@@ -77,8 +81,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
   (`isFirstHop`) and exposes a generic `tailAppend` mechanism that splices
   content into a *clone* of the request's newest message instead of the
   cached system prompt — laying the plumbing for moving per-turn skill
-  injection out of the byte-stable prefix without touching any provider code
-  (`trash/plans/prompt-cache-tail-relocation/`).
+  injection out of the byte-stable prefix without touching any provider code.
 - Removed the per-minute clock directive (`buildClockDirective()`,
   `APERIO_INJECT_CLOCK`, `APERIO_CLOCK_TZ`) entirely rather than relocating
   it: closing its cache-invalidation cost via relocation required a
@@ -94,7 +97,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
   llama.cpp's small-context budget fallback (`exceed_context_size_error`) now
   rebuilds the request without the tail's skill block instead of rebuilding
   the system prompt; `deepseek.js` has no equivalent fallback today, so
-  nothing there needed updating (`trash/plans/prompt-cache-tail-relocation/`).
+  nothing there needed updating.
 
 - E2E dashboard reporting now includes top-level tests as well as nested suite
   cases, so the published totals match the tests executed by Node's runner.
@@ -119,9 +122,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   source rewrites the system prompt mid-session anymore, so llama.cpp's slot
   cache survives across turns instead of re-prefilling from scratch —
   reprocessed-token volume on stable turns drops well below a cold start in
-  live testing. The clock directive and per-turn skill injection remain
-  unaddressed, unconditional cache-invalidation sources by design (see
-  `trash/plans/prompt-cache-hygiene/`).
+  live testing. The clock directive and per-turn skill injection were left as
+  unaddressed, unconditional cache-invalidation sources at the time — both
+  are now closed (see the clock-directive removal and prompt-cache tail
+  relocation entries above).
 - llama.cpp model priming now uses an OS-assigned scratch port, retries once
   if the port is raced, and identifies the attempted port in failures.
 - Removed the orphaned generated `scripts/en-output.json` artifact.
