@@ -2,15 +2,15 @@
 <html lang="en" data-theme="dark" class="doc">
 <head>
   <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aperio | Document Graph — Manual Feature Tests for AI Models</title>
-  <meta name="description" content="Five manual tests that verify whether the document graph actually works — can the system find, outline, and reference-track your documents?" />
+  <title>Aperio | Document Graph &amp; Vision — Manual Feature Tests for AI Models</title>
+  <meta name="description" content="Ten manual tests across two categories: document graph search and vision pipeline (VLM-powered document extraction). Requires a running Aperio instance." />
   <link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" /><link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
   <style>
-    /* Page-specific: behaviour table + format grid. Shared styles → styles-evaluate.css */
+    /* Page-specific. Shared styles → styles-evaluate.css */
     .behave-table{width:100%;border-collapse:collapse;margin:18px 0;font-size:.88rem}
     .behave-table thead th{font-family:var(--font-ui);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;opacity:.6;text-align:left;padding:10px 14px;border-bottom:2px solid var(--border)}
     .behave-table tbody td{padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top;font-size:.88rem}
@@ -19,23 +19,29 @@
     .format-card{background:var(--bg-card);border:1px solid var(--border);padding:16px 18px}
     .format-card strong{display:block;font-family:var(--font-ui);font-size:.85rem;letter-spacing:.03em;margin-bottom:4px}
     .format-card p{margin:0;font-size:.85rem;opacity:.8}
+    .test-setup{background:rgba(127,127,127,.05);border-left:3px solid var(--indigo);padding:10px 14px;margin:8px 0;font-size:.85rem;line-height:1.6}
+    .section-subhead{font-family:var(--font-ui);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;opacity:.55;margin-top:32px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid rgba(127,127,127,.12)}
+    .requires-apeiro{display:inline-block;font-family:var(--font-ui);font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;background:rgba(168,85,247,.12);color:var(--purple);padding:2px 8px;margin-left:8px;vertical-align:middle}
     @media print{body{background:#fff;color:#000;font-size:12px}.orb,.aperio-nav,.theme-switcher,.nav-toggle,footer,.btn-print,.mg-prompt-bar,.prompt-copy,.test-result,.rbtn,.section:not(#scorecard):not(#results),.mt-next,.rt-badge{display:none!important}.scorecard,.scorecard thead th,.scorecard tbody td,.scorecard tfoot td,.behave-table,.behave-table thead th,.behave-table tbody td{border-color:#ccc!important;color:#000!important}.sc-badge{border:1px solid #999;color:#000!important;background:none!important}.results-tier .rt-card{border:1px solid #999}.rt-card.pulse{animation:none;box-shadow:none}h1,h2{color:#000!important}.section{padding:10px 0!important}@page{margin:1.5cm}}
   </style>
 </head>
 <body>
 <div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
-<nav class="aperio-nav"><div class="nav-inner"><a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a><button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button><ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="index.html">All Suites</a></li><li><a href="#suite">Tests</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li><li><a href="../model-guide.html#compare">Models</a></li></ul><div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div></div></nav>
+<nav class="aperio-nav"><div class="nav-inner"><a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a><button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button><ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="index.html">All Suites</a></li><li><a href="#suite-docs">Docs</a></li><li><a href="#suite-vision">Vision</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li></ul><div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div></div></nav>
 
-<section class="section" id="mt-top" style="padding:120px 0 30px"><div class="section-inner"><a href="../index.html" class="mt-back reveal">← Home</a><div class="eyebrow reveal" style="margin-top:14px">Manual Feature Tests</div><h1 class="section-heading reveal">Document Graph</h1><p class="lead-text reveal">Five manual tests that verify whether the document graph actually works — can the system find, outline, and reference-track your documents without reading everything from disk?</p></div></section>
+<section class="section" id="mt-top" style="padding:120px 0 30px"><div class="section-inner"><div class="eyebrow reveal" style="margin-top:14px">Manual Feature Tests · 2 categories · 10 tests</div><h1 class="section-heading reveal">Document Graph &amp; Vision</h1><p class="lead-text reveal">Ten manual tests across two dimensions: <strong>document graph</strong> — can Aperio find, outline, and reference-track your documents from its index; and <strong>vision pipeline</strong> — can the VLM read structured fields from images and pass them to the main model for document search and cross-referencing. Requires a running Aperio instance.</p></div></section>
 
-<section class="section" style="padding:10px 0"><div class="section-inner"><h2 class="reveal">What This Is</h2><p class="reveal">Some AI systems can index your documents — notes, reports, PDFs, spreadsheets, emails — and answer questions about them without reading every file from scratch. They build a <strong>document graph</strong>: a searchable index of what's in each document, its structure (headings, pages, sheets), and the references it contains.</p><p class="reveal">This document gives you <strong>five manual tests</strong> that verify whether the document graph actually works. If the system searches the index and returns accurate results, it passes. If it reads raw files, guesses, or hallucinates, it fails.</p></div></section>
+<section class="section" style="padding:10px 0"><div class="section-inner"><h2 class="reveal">What This Is</h2><p class="reveal">Aperio indexes your documents — notes, reports, PDFs, spreadsheets, emails — so it can answer questions about them without reading every file from scratch. The <strong>document graph</strong> (Section A) builds a searchable index of content, structure, and cross-references. The <strong>vision pipeline</strong> (Section B) adds VLM-powered image extraction: attach a scanned invoice, the VLM reads the fields, and the main model uses those values to search related documents.</p><p class="reveal">This document gives you <strong>ten manual tests</strong> across both categories. Section A works with any indexed documents. Section B requires sample invoice images and a configured VLM model.</p></div></section>
 
-<section class="section" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Before You Start — Set Up Test Documents</h2><p class="reveal">Paste this setup prompt to create three test documents:</p>
+<section class="section" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Before You Start — Set Up Test Documents</h2><p class="reveal">Paste this setup prompt to create three test documents for Section A:</p>
 <div class="mg-prompt"><span class="mg-prompt-label">Setup prompt (paste first)</span>Create three documents for me to test your document search:<br><br><strong>Document 1 — q3-budget.md:</strong><br># Q3 Budget — Overview. ## Marketing: Marketing budget increased to $50,000. ## Engineering: Hiring two backend engineers. Reference ticket ENG-4021.<br><br><strong>Document 2 — onboard.html:</strong><br>&lt;h1&gt;Onboarding Guide&lt;/h1&gt; &lt;h2&gt;Accounts&lt;/h2&gt; Request access at https://portal.example.com/access. &lt;h2&gt;Equipment&lt;/h2&gt; Laptops ordered through vendor INV-204871.<br><br><strong>Document 3 — research-notes.md:</strong><br># Research Notes ## Embeddings: Notes on vector embeddings. See also @chen2025. ## Invoices: Paid INV-204871. Contact: billing@example.com<br><br>Index these documents and confirm they're ready to search.</div>
-</div></section>
+<p class="reveal" style="margin-top:16px">For <strong>Section B</strong>, you additionally need a VLM model configured (e.g. <code>OLLAMA_VLM_MODEL=qwen3-vl:8b</code>), a folder of trade documents indexed (e.g. <code>trade-docs/</code> with <code>commercial-invoice.txt</code>, <code>letter-of-credit.txt</code>, <code>swift-mt700.txt</code>), and sample scanned invoice images (<code>scanned-invoice.png</code>, <code>scanned-invoice-2.png</code>).</p></div></section>
 
-<!-- Test Suite -->
-<section class="section" id="suite" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">The Test Suite</h2>
+<!-- ═══════════════════ SECTION A: DOCUMENT GRAPH ═══════════════════ -->
+<section class="section" id="suite-docs" style="padding:20px 0"><div class="section-inner">
+<div class="section-subhead reveal">Section A · Document Graph</div>
+<h2 class="reveal">Does the index work for search, outline, and cross-references?</h2>
+<p class="reveal mg-desc">Each test verifies a different <code>doc_*</code> tool. The system passes if it returns accurate results from the index without falling back to file reads.</p>
 
 <div class="test-card reveal" id="test1"><span class="test-label">Test 1</span><h3>Folder Awareness</h3><p class="test-probes">Tests <code>doc_repos</code> — can the system tell you what documents are indexed and what's in each folder?</p>
 <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>What folders do you have indexed? For each folder, tell me how many documents it contains and what file types are in it.</div>
@@ -48,20 +54,20 @@
 <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Where did I write about marketing budget? Show me which document and which section contains it.</div>
 <span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Did it identify <code>q3-budget.md</code>?</li><li>Did it point to the "Marketing" section with a real snippet?</li><li>Was it fast (index lookup) or slow (file scan)?</li></ul>
 <strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Returns correct document and section with real text snippet from the index.</li></ul>
-<strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>"I couldn't find anything about marketing budget."</li><li>Reads every file to answer — defeats the purpose of an index.</li></ul>
+<strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Misses the document entirely or returns a wrong document.</li><li>Returns a plausible-sounding but invented snippet.</li></ul>
 <div class="test-result" data-test="2"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
 
-<div class="test-card reveal" id="test3"><span class="test-label">Test 3</span><h3>Document Outline</h3><p class="test-probes">Tests <code>doc_outline</code> — can the system show document structure without reading the whole file?</p>
-<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Show me the outline of <code>onboard.html</code>. What sections does it have?</div>
-<span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Did it show headings: "Onboarding Guide" → "Accounts" → "Equipment"?</li><li>Was nesting correct (H2s under H1)?</li><li>Was this from the index (fast) or file parse (slow)?</li></ul>
-<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Outline matches document structure. Section headings in hierarchical order from the index.</li></ul>
-<strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Outline is wrong — missing sections, invented headings.</li><li>System reads the whole file to build the outline.</li></ul>
+<div class="test-card reveal" id="test3"><span class="test-label">Test 3</span><h3>Document Outline</h3><p class="test-probes">Tests <code>doc_outline</code> — can the system tell you the section structure of a document without reading it from disk?</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Show me an outline of <code>q3-budget.md</code> — what sections does it have and what is each about?</div>
+<span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Did it return the correct sections (Overview, Marketing, Engineering)?</li><li>Was the response instant or did it read the file?</li></ul>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Returns the correct section tree from the index — no file re-read needed.</li></ul>
+<strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Reads the file instead of using the outline index.</li><li>Outline is empty or shows wrong section names.</li></ul>
 <div class="test-result" data-test="3"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
 
-<div class="test-card reveal" id="test4"><span class="test-label">Test 4</span><h3>Section Context</h3><p class="test-probes">Tests <code>doc_context</code> — can the system return a stored section's full text without reading the whole document?</p>
-<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Show me the full content of the "Accounts" section from <code>onboard.html</code>.</div>
-<span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Did it return "Request access at https://portal.example.com/access."?</li><li>Was it the actual stored text, not a paraphrase?</li><li>Just that section — not the whole file?</li></ul>
-<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Exact section text from the index. Only that section shown. Fast response.</li></ul>
+<div class="test-card reveal" id="test4"><span class="test-label">Test 4</span><h3>Section Context</h3><p class="test-probes">Tests <code>doc_context</code> — can the system retrieve a specific section's full text from the index without re-reading the file?</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Show me the full text of the "Marketing" section from <code>q3-budget.md</code>.</div>
+<span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Does the returned text exactly match "Marketing budget increased to $50,000"?</li><li>Was it instant or did it read the file?</li></ul>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Returns the correct section text from the index. Fast response.</li></ul>
 <strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Reads the entire file to find the section.</li><li>Returned text doesn't match what's in the document.</li></ul>
 <div class="test-result" data-test="4"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
 
@@ -71,16 +77,66 @@
 <strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Returns ALL documents containing the reference. Identifies reference type correctly.</li></ul>
 <strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Only one document found when the reference appears in multiple.</li><li>System says "I'll need to read all your documents" — refs index should answer instantly.</li></ul>
 <div class="test-result" data-test="5"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+</div></section>
+
+<!-- ═══════════════════ SECTION B: VISION PIPELINE ═══════════════════ -->
+<section class="section" id="suite-vision" style="padding:20px 0"><div class="section-inner">
+<div class="section-subhead reveal">Section B · Vision Pipeline</div>
+<h2 class="reveal">Can the VLM extract fields from images and feed them into document search?</h2>
+<p class="reveal mg-desc">These tests verify the two-model pipeline: VLM reads structured fields from scanned documents, then the main model uses those values to search indexed documents. Requires indexed trade documents and a configured VLM model.</p>
+
+<div class="test-card reveal" id="test6"><span class="test-label">Test 6<span class="requires-apeiro">requires Aperio</span></span><h3>Document Search Only (No VLM)</h3><p class="test-probes">Tests: main model calls doc_search for a beneficiary IBAN without any VLM involvement.</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Find documents in my indexed documents that mention beneficiary IBAN DE89 3704 0044 0532 0130 00. Use doc_search and return only the filenames.</div>
+<span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Did the main model call <code>doc_search</code>?</li><li>Is <code>commercial-invoice.txt</code> among the results?</li><li>Was no VLM used (no image attached, no describe_image call)?</li></ul>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Main model calls <code>doc_search</code> and returns filenames. No VLM triggered.</li></ul>
+<strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Main model tries to describe a non-existent image.</li><li><code>doc_search</code> not called — model guesses or hallucinates the IBAN source.</li></ul>
+<div class="test-result" data-test="6"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+<div class="test-card reveal" id="test7"><span class="test-label">Test 7<span class="requires-apeiro">requires Aperio</span></span><h3>Image Extraction Only (VLM Answers)</h3><p class="test-probes">Tests: VLM reads a scanned invoice and returns structured JSON without the main model repeating the description.</p>
+<div class="test-setup"><strong>Setup:</strong> Attach <code>scanned-invoice.png</code> to your prompt.</div>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Read this attached invoice image and return only this JSON:<br><code>{"invoice_number":null,"lc_reference":null,"total_amount":null,"beneficiary_iban":null}</code><br>Use numeric-only total_amount and do not guess.</div>
+<span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Did the VLM answer directly without the main model repeating the description?</li><li>Expected: <code>inv-2026-06-5021</code>, <code>lc-2026-06-001</code>, <code>1266250.00</code>, <code>DE89 3704 0044 0532 0130 00</code></li><li>Is there exactly one answer block (not VLM description + main model re-description)?</li></ul>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Single JSON answer from VLM. Main model does not re-describe the image.</li></ul>
+<strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Main model repeats the VLM description before outputting JSON.</li><li>Values are wrong or the model admits "I can't see attachments."</li></ul>
+<div class="test-result" data-test="7"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+<div class="test-card reveal" id="test8"><span class="test-label">Test 8<span class="requires-apeiro">requires Aperio</span></span><h3>Follow-Up Awareness</h3><p class="test-probes">Tests: The main model remembers VLM-extracted evidence across turns without re-analysing the image.</p>
+<div class="test-setup"><strong>Setup:</strong> Run test 7 first in the same chat. Do NOT attach the image again.</div>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>What beneficiary IBAN was shown in that invoice? Answer with the IBAN only.</div>
+<span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Did the main model answer from conversation context?</li><li>Expected: <code>DE89 3704 0044 0532 0130 00</code></li><li>Was the image re-analysed? (Should not be — the value is in the chat history.)</li></ul>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Answers correctly from context. No VLM re-trigger.</li></ul>
+<strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Says "I can't see any image in this conversation" despite test 7 having just run.</li><li>Wrong IBAN or hallucinated value.</li></ul>
+<div class="test-result" data-test="8"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+<div class="test-card reveal" id="test9"><span class="test-label">Test 9<span class="requires-apeiro">requires Aperio</span></span><h3>Image + Document Tools Combined</h3><p class="test-probes">Tests: VLM reads an LC reference from an image → main model calls doc_search with it.</p>
+<div class="test-setup"><strong>Setup:</strong> Start a fresh chat. Attach <code>scanned-invoice.png</code>.</div>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Read the LC reference from this invoice image. Then use doc_search to find similar documents in my indexed documents that mention the same LC reference. Return a short table with filename, document type, and matching reference.</div>
+<span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Did the VLM read LC-2026-06-001 from the image?</li><li>Did the main model call <code>doc_search</code> with that value?</li><li>Did the main model avoid repeating the VLM description?</li><li>Likely matches include <code>commercial-invoice.txt</code>, <code>letter-of-credit.txt</code>, <code>swift-mt700.txt</code></li></ul>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>VLM extracts the LC ref; main model calls doc_search; results are accurate.</li></ul>
+<strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Main model doesn't call doc_search — guesses which documents match.</li><li>VLM description is repeated by the main model before the tool call.</li><li><code>doc_search</code> returns no results because the trade docs aren't indexed.</li></ul>
+<div class="test-result" data-test="9"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+
+<div class="test-card reveal" id="test10"><span class="test-label">Test 10<span class="requires-apeiro">requires Aperio</span></span><h3>Second Invoice Extraction</h3><p class="test-probes">Tests: VLM extracts fields from a different invoice document (tests generalisation).</p>
+<div class="test-setup"><strong>Setup:</strong> Start a fresh chat. Attach <code>scanned-invoice-2.png</code>.</div>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Extract the invoice number, date, buyer name, total, LC reference, IBAN, and BIC from this attached image. Return one compact JSON object and nothing else.</div>
+<span class="test-label" style="margin-top:18px">Check</span><ul style="font-size:.92rem;line-height:1.8;padding-left:20px;"><li>Expected values:<br><code>invoice_number: INV-2026-05-1189</code><br><code>date: 2026-05-14</code><br><code>buyer_name: Aciers Spéciaux du Rhône SA</code><br><code>total: 11488.00</code><br><code>lc_reference: LC-2026-05-008</code><br><code>iban: DE89 3704 0044 0532 0130 00</code><br><code>bic: COBADEFFXXX</code></li><li>Is the output a single JSON object with no extra commentary?</li></ul>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Correct JSON with all fields. No extra text before or after.</li></ul>
+<strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>Missing fields or wrong values.</li><li>Main model interleaves its own commentary with the JSON.</li></ul>
+<div class="test-result" data-test="10"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+</div></section>
+
+<!-- ═══════════════════ BONUS TEST ═══════════════════ -->
+<section class="section" style="padding:0 0 20px 0"><div class="section-inner">
 
 <div class="test-card reveal" id="bonus" style="border-color:var(--purple);border-left:3px solid var(--purple)"><span class="test-label" style="color:var(--purple)">Bonus Test</span><h3>Format Tour</h3><p class="test-probes">Tests whether the doc graph handles all file formats it claims to support — different formats have different extraction paths.</p>
 <div class="test-setup"><strong>Create these additional test files and index them:</strong> A spreadsheet (<code>budget.xlsx</code>) with Marketing/Engineering sheets, a slide deck (<code>pitch.pptx</code>) with 3 slides, and a PDF (<code>report.pdf</code>) with 2 pages.</div>
 <div class="format-grid"><div class="format-card"><strong>XLSX</strong><p>Outline <code>budget.xlsx</code> — should show one section per sheet.</p></div><div class="format-card"><strong>PPTX</strong><p>Outline <code>pitch.pptx</code> — should show one section per slide.</p></div><div class="format-card"><strong>PDF</strong><p>Outline <code>report.pdf</code> — should show one section per page.</p></div></div>
-<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Each format recognized with correct MIME type. Outlines reflect format structure.</li></ul>
+<strong style="font-size:.9rem;color:#43c59e;display:block;margin-top:14px;">Honest behaviour</strong><ul class="honest-list"><li>Each format recognised with correct MIME type. Outlines reflect format structure.</li></ul>
 <strong style="font-size:.9rem;color:#e5736b;display:block;margin-top:14px;">Red flags</strong><ul class="redflag-list"><li>A format that "indexed successfully" returns no search results.</li><li>An outline shows wrong structure (e.g., treating every cell as a section).</li></ul>
-<div class="test-result" data-test="6"><strong>Result (extra credit):</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
+<div class="test-result" data-test="11"><strong>Result (extra credit):</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div></div>
 </div></section>
 
-<!-- Scorecard -->
+<!-- ═══════════════════ SCORECARD ═══════════════════ -->
 <section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Results fill in automatically. Fill in model and date below.</p>
 <div class="reveal" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:14px;align-items:center;"><label style="font-size:.9rem;"><strong>Model:</strong> <input type="text" id="modelName" placeholder="e.g. Gemma 4 12B" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:200px;"></label><label style="font-size:.9rem;"><strong>Date:</strong> <input type="text" id="testDate" placeholder="e.g. 2026-06-22" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label></div>
 <div class="scorecard-wrap reveal"><div class="print-bar"><button class="btn-print" onclick="window.print()"><i class="bi bi-printer"></i> Print Scorecard</button></div>
@@ -90,19 +146,24 @@
 <tr data-test="3"><td class="sc-test">3. Document Outline (doc_outline)</td><td class="sc-result" id="sr-3"><span class="sc-badge sc-empty">—</span></td><td id="sn-3"></td></tr>
 <tr data-test="4"><td class="sc-test">4. Section Context (doc_context)</td><td class="sc-result" id="sr-4"><span class="sc-badge sc-empty">—</span></td><td id="sn-4"></td></tr>
 <tr data-test="5"><td class="sc-test">5. Reference Lookup (doc_refs)</td><td class="sc-result" id="sr-5"><span class="sc-badge sc-empty">—</span></td><td id="sn-5"></td></tr>
-<tr data-test="6" class="bonus-row"><td class="sc-test" style="color:var(--purple)">Bonus: Format Tour</td><td class="sc-result" id="sr-6"><span class="sc-badge sc-empty">—</span></td><td id="sn-6" style="font-size:.8rem;opacity:.6">(extra credit)</td></tr>
-</tbody><tfoot><tr><td colspan="3" id="sc-total">TOTAL: ____ / 5 passed &nbsp; (or ____ / 6 with bonus)</td></tr></tfoot></table></div>
+<tr data-test="6"><td class="sc-test">6. Vision — Document Search Only</td><td class="sc-result" id="sr-6"><span class="sc-badge sc-empty">—</span></td><td id="sn-6"></td></tr>
+<tr data-test="7"><td class="sc-test">7. Vision — Image Extraction Only</td><td class="sc-result" id="sr-7"><span class="sc-badge sc-empty">—</span></td><td id="sn-7"></td></tr>
+<tr data-test="8"><td class="sc-test">8. Vision — Follow-Up Awareness</td><td class="sc-result" id="sr-8"><span class="sc-badge sc-empty">—</span></td><td id="sn-8"></td></tr>
+<tr data-test="9"><td class="sc-test">9. Vision — Image + Doc Tools Combined</td><td class="sc-result" id="sr-9"><span class="sc-badge sc-empty">—</span></td><td id="sn-9"></td></tr>
+<tr data-test="10"><td class="sc-test">10. Vision — Second Invoice</td><td class="sc-result" id="sr-10"><span class="sc-badge sc-empty">—</span></td><td id="sn-10"></td></tr>
+<tr data-test="11" class="bonus-row"><td class="sc-test" style="color:var(--purple)">Bonus: Format Tour</td><td class="sc-result" id="sr-11"><span class="sc-badge sc-empty">—</span></td><td id="sn-11" style="font-size:.8rem;opacity:.6">(extra credit)</td></tr>
+</tbody><tfoot><tr><td colspan="3" id="sc-total">TOTAL: ____ / 10 passed &nbsp; (or ____ / 11 with bonus)</td></tr></tfoot></table></div>
 <div class="score-feedback" id="scoreFeedback"></div></div>
 <div class="reveal" style="margin-top:18px;background:rgba(127,127,127,.06);border:1px solid rgba(127,127,127,.14);padding:18px 22px;"><strong style="font-size:.9rem;">Scoring:</strong><ul style="font-size:.9rem;line-height:1.8;padding-left:20px;margin-top:8px;margin-bottom:0;"><li><strong>Pass</strong> — tool returned accurate results from the index without falling back to file reads.</li><li><strong>Fail</strong> — wrong results, missing results, or system bypassed the index.</li><li><strong>N/A</strong> — feature not available.</li></ul></div>
 </div></section>
 
-<!-- Results -->
+<!-- ═══════════════════ RESULTS ═══════════════════ -->
 <section class="section" id="results" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">What the Results Mean</h2>
 <div class="results-tier reveal" id="resultsTier">
-<div class="rt-card rt-good" data-tier="strong"><div class="rt-badge">← Your result</div><div class="rt-score">5/5</div><div class="rt-label"><strong>Document graph is solid.</strong> Indexes, searches, outlines, and reference-tracks correctly.</div></div>
-<div class="rt-card rt-warn" data-tier="moderate"><div class="rt-badge">← Your result</div><div class="rt-score">3–4/5</div><div class="rt-label"><strong>Mostly works, with gaps.</strong> Common gaps: <code>doc_refs</code> missing, or certain formats not indexed.</div></div>
-<div class="rt-card rt-bad" data-tier="high"><div class="rt-badge">← Your result</div><div class="rt-score">1–2/5</div><div class="rt-label"><strong>Present but broken.</strong> Tools return wrong or incomplete results. Index is misleading.</div></div>
-<div class="rt-card rt-bad" data-tier="none"><div class="rt-badge">← Your result</div><div class="rt-score">0/5</div><div class="rt-label"><strong>No working document graph.</strong> Fall back to reading files directly.</div></div>
+<div class="rt-card rt-good" data-tier="strong"><div class="rt-badge">← Your result</div><div class="rt-score">10/10</div><div class="rt-label"><strong>Document graph and vision pipeline are solid.</strong> Indexes, searches, extracts, and cross-references work correctly.</div></div>
+<div class="rt-card rt-warn" data-tier="moderate"><div class="rt-badge">← Your result</div><div class="rt-score">6–9/10</div><div class="rt-label"><strong>Mostly works, with gaps.</strong> Common gaps: vision extraction is unreliable, or VLM → doc_search handoff fails.</div></div>
+<div class="rt-card rt-bad" data-tier="high"><div class="rt-badge">← Your result</div><div class="rt-score">3–5/10</div><div class="rt-label"><strong>Present but broken.</strong> Tools return wrong or incomplete results. Index or VLM pipeline needs attention.</div></div>
+<div class="rt-card rt-bad" data-tier="none"><div class="rt-badge">← Your result</div><div class="rt-score">0–2/10</div><div class="rt-label"><strong>No working pipeline.</strong> Fall back to reading files and images directly.</div></div>
 </div>
 
 <h3 class="reveal" style="font-size:1.05rem;margin-top:28px">How to Tell Index from File Reading</h3>
@@ -116,24 +177,29 @@
 </tbody></table></div>
 </div></section>
 
-<!-- Aperio Mapping -->
-<section class="section" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Aperio Document Graph Mapping</h2>
-<div style="overflow-x:auto;"><table class="behave-table"><thead><tr><th>Test</th><th>Aperio Tool</th><th>What it does</th></tr></thead><tbody>
-<tr><td>Folder Awareness</td><td><code>doc_repos</code></td><td>Lists indexed folders with doc/chunk counts and MIME types</td></tr>
-<tr><td>Content Search</td><td><code>doc_search</code></td><td>FTS5 (keyword) or hybrid vec+FTS (semantic) search with snippets</td></tr>
-<tr><td>Document Outline</td><td><code>doc_outline</code></td><td>Section tree from the index — instant, no file re-read</td></tr>
-<tr><td>Section Context</td><td><code>doc_context</code></td><td>Returns a stored section's full text</td></tr>
-<tr><td>Reference Lookup</td><td><code>doc_refs</code></td><td>Cross-references IDs, URLs, emails, wikilinks, and citations</td></tr>
+<!-- ═══════════════════ APERIO MAPPING ═══════════════════ -->
+<section class="section" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Aperio Tool Mapping</h2>
+<div style="overflow-x:auto;"><table class="behave-table"><thead><tr><th>Section</th><th>Test</th><th>Aperio Tool</th><th>What it does</th></tr></thead><tbody>
+<tr><td>A</td><td>Folder Awareness</td><td><code>doc_repos</code></td><td>Lists indexed folders with doc/chunk counts and MIME types</td></tr>
+<tr><td>A</td><td>Content Search</td><td><code>doc_search</code></td><td>FTS5 (keyword) or hybrid vec+FTS (semantic) search with snippets</td></tr>
+<tr><td>A</td><td>Document Outline</td><td><code>doc_outline</code></td><td>Section tree from the index — instant, no file re-read</td></tr>
+<tr><td>A</td><td>Section Context</td><td><code>doc_context</code></td><td>Returns a stored section's full text</td></tr>
+<tr><td>A</td><td>Reference Lookup</td><td><code>doc_refs</code></td><td>Cross-references IDs, URLs, emails, wikilinks, and citations</td></tr>
+<tr><td>B</td><td>Document Search Only</td><td><code>doc_search</code></td><td>Main model searches indexed docs for an IBAN from memory</td></tr>
+<tr><td>B</td><td>Image Extraction</td><td>VLM (<code>describe_image</code>)</td><td>VLM reads structured fields from a scanned invoice image</td></tr>
+<tr><td>B</td><td>Follow-Up</td><td>Conversation context</td><td>Main model remembers VLM evidence across turns</td></tr>
+<tr><td>B</td><td>Combined Pipeline</td><td>VLM → <code>doc_search</code></td><td>VLM extracts LC ref → main model searches indexed docs</td></tr>
+<tr><td>B</td><td>Second Invoice</td><td>VLM (generalisation)</td><td>VLM extracts from a different invoice document</td></tr>
 </tbody></table></div>
 <div class="mt-next reveal" style="margin-top:28px">
-<a href="skill-matching.html"><span class="mt-next-t">← Skill Matching</span><span class="mt-next-d">Test whether the right skill loads for your requests.</span></a>
-<a href="background-agents.html"><span class="mt-next-t">Background Agents →</span><span class="mt-next-d">Test whether scheduled background jobs fire correctly.</span></a>
-<a href="index.html"><span class="mt-next-t">All suites →</span><span class="mt-next-d">Back to all six evaluation suites.</span></a>
+<a href="lie-catcher.html"><span class="mt-next-t">← Honesty &amp; Robustness</span><span class="mt-next-d">Test file-claim honesty, gullibility, and memory recall.</span></a>
+<a href="skill-matching.html"><span class="mt-next-t">Skill Matching →</span><span class="mt-next-d">Test whether the right skill loads for your requests.</span></a>
+<a href="../guide.html#evaluate"><span class="mt-next-t">All suites →</span><span class="mt-next-d">Back to all evaluation suites.</span></a>
 </div></div></section>
 
 <footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script><script src="../scripts.js"></script>
-<script>window.SCORECARD={tests:5,bonus:true,tiers:[{tier:"strong",all:true},{tier:"moderate",frac:0.6},{tier:"high",min:1},{tier:"none",min:0}]};</script>
+<script>window.SCORECARD={tests:10,bonus:true,tiers:[{tier:"strong",all:true},{tier:"moderate",frac:0.6},{tier:"high",min:3},{tier:"none",min:0}]};</script>
 <script src="scorecard.js"></script>
 </body>
 </html>
