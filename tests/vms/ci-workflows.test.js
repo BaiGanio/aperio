@@ -24,6 +24,7 @@ test("install matrix exercises local installer, update path, uninstall, and smok
   assert.match(workflow, /file:\/\/\$GITHUB_WORKSPACE/);
   assert.match(workflow, /git branch --force/);
   assert.match(workflow, /bash \.github\/lite\/install\.sh <\/dev\/null/);
+  assert.match(workflow, /APERIO_INSTALL_NO_START=1/);
   assert.match(workflow, /vmtest-sentinel/);
   assert.match(workflow, /uninstall\.sh/);
   assert.match(workflow, /test ! -e "\$install_dir"/);
@@ -46,6 +47,7 @@ test("nightly/full-suite job is pinned to ARM runner labels", async () => {
   assert.match(workflow, /windows-11-arm/);
   assert.match(workflow, /full-suite-arm/);
   assert.match(workflow, /npm run test:ci/);
+  assert.match(workflow, /name: Run full test suite\s+shell: bash\s+run: npm run test:ci/);
 });
 
 test("Codecov refreshes E2E dashboard without real-app tests, which remain manual", async () => {

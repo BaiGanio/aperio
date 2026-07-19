@@ -51,6 +51,8 @@ The argument must contain `package.json`, `node_modules`, `server.js`, `db/`,
 and `public/`. A temporary port is selected automatically; set `VMTEST_PORT`
 to force a specific port. The contract writes SQLite state and a server log
 under the target `.sqlite/` directory and removes its temporary `HOME`.
+On Windows, stdout and stderr are kept in separate `.sqlite/vms-server.*.log`
+files because Windows PowerShell does not allow both streams to target one file.
 
 ## Linux ARM64: Vagrant + Parallels
 
@@ -312,6 +314,11 @@ ruby -c vms/Vagrantfile
 Dispatch `ci.install-matrix.yml` with `full_suite=true` for the full ARM suite.
 Dispatch `ci.docker-smoke.yml` with a complete `ghcr.io/...@sha256:...` value
 to test a published image.
+
+The POSIX install-matrix sets `APERIO_INSTALL_NO_START=1`. This automation-only
+switch makes the real one-liner clone/update operation return before its normal
+long-running desktop launch; the shared smoke contract then starts and stops an
+isolated server itself. Normal interactive installs still launch Aperio.
 
 ## Troubleshooting
 

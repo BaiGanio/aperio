@@ -19,6 +19,7 @@ repo_branch="$(git -C "$STAGE" branch --show-current 2>/dev/null || true)"
 APERIO_HOME="$INSTALL_DIR" \
 APERIO_REPO_URL="file://$STAGE" \
 APERIO_BRANCH="$repo_branch" \
+APERIO_INSTALL_NO_START=1 \
   bash "$STAGE/.github/lite/install.sh" || fail "one-liner installer failed"
 
 cd "$INSTALL_DIR" || fail "installed directory is missing"

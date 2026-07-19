@@ -10,6 +10,8 @@
 # (fast-forward to origin/release); your memory DB (var/ and .sqlite/) is
 # git-ignored, so it is preserved across updates. This is the one install flow
 # that updates without a re-download; the zip is the click-nothing alternative.
+# Maintained automation may set APERIO_INSTALL_NO_START=1 to verify the real
+# clone/update path without handing control to the long-running app process.
 # ============================================================
 set -uo pipefail
 
@@ -28,6 +30,10 @@ die()  { printf "\n  ${RD}${B}✖  %s${R}\n\n" "$*" >&2; exit 1; }
 # Prompts must read the terminal — under `curl … | bash`, stdin is the pipe.
 ask() {
   local prompt="$1" ans=""
+  if [ "${APERIO_INSTALL_NO_START:-}" = "1" ]; then
+    printf '%s' "$ans"
+    return
+  fi
   [ -r /dev/tty ] && read -r -p "$prompt" ans </dev/tty || true
   printf '%s' "$ans"
 }
@@ -67,7 +73,9 @@ cp .github/lite/START.sh .github/lite/START.bat .github/lite/launch-hidden.sh \
 cp -r .github/lite/assets . 2>/dev/null || true
 chmod +x START.sh launch-hidden.sh uninstall.sh 2>/dev/null || true
 
-if [ -r /dev/tty ]; then
+if [ "${APERIO_INSTALL_NO_START:-}" = "1" ]; then
+  ok "Installed without launching (automation mode)."
+elif [ -r /dev/tty ]; then
   printf "\n  ${GR}${B}✔  Starting Aperio…${R}  ${D}(Node + deps install on first run)${R}\n\n"
   exec bash START.sh
 else

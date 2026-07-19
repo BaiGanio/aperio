@@ -10,6 +10,7 @@ function setTheme(theme) {
 root.setAttribute('data-theme', theme);
 localStorage.setItem(STORAGE_KEY, theme);
 btns.forEach(b => b.classList.toggle('active', b.dataset.theme === theme));
+btns.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.theme === theme)));
 }
 
 // Restore saved theme
@@ -21,8 +22,11 @@ btn.addEventListener('click', () => setTheme(btn.dataset.theme));
 });
 
 /* ── Mobile nav ── */
-document.getElementById('navToggle').addEventListener('click', () => {
-document.getElementById('navLinks').classList.toggle('open');
+const navToggle = document.getElementById('navToggle');
+const navLinks = document.getElementById('navLinks');
+navToggle.addEventListener('click', () => {
+const open = navLinks.classList.toggle('open');
+navToggle.setAttribute('aria-expanded', String(open));
 });
 
 /* ── Scroll reveal ── */
@@ -136,7 +140,6 @@ document.querySelectorAll('.mg-prompt').forEach(box => {
   if (label) label.replaceWith(bar);
   else box.prepend(bar);
 });
-
 
 
 

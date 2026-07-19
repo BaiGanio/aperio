@@ -57,6 +57,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   restart Aperio so the regenerated model preset takes effect.
 - Windows lite launchers now apply the complete `start:lite` environment,
   including database-first configuration precedence.
+- VM install verification now returns cleanly from automated one-liner installs,
+  keeps Windows smoke stdout/stderr separate, preserves PowerShell arguments,
+  and runs the scheduled ARM suite through Bash on every hosted OS.
 - Prompt-cache hygiene: the session memory pointer is now computed once at
   session start instead of being rewritten on every `remember`/`forget`
   mid-session, and the LLM-generated greeting was replaced with a static,

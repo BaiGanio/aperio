@@ -54,6 +54,7 @@ jobs:
           export APERIO_HOME="$install_dir"
           export APERIO_REPO_URL="file://$GITHUB_WORKSPACE"
           export APERIO_BRANCH="$CI_BRANCH"
+          export APERIO_INSTALL_NO_START=1
           bash .github/lite/install.sh </dev/null
           cd "$install_dir"
           npm install --prefer-offline --no-audit --no-fund
@@ -125,4 +126,5 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run full test suite
+        shell: bash
         run: npm run test:ci
