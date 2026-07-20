@@ -84,11 +84,41 @@ describe("skills.js", () => {
       assert.strictEqual(match.name, "html");
     });
 
+    test("does not borrow an earlier compound token to bypass name negation", () => {
+      const match = matchSkill(
+        "canvas-design, not design-randomizer, use theme-factory",
+        [{ name: "design-randomizer", description: "Create randomized layouts" }],
+      );
+      assert.strictEqual(match, null);
+    });
+
+    test("recognizes common negative contractions around direct skill names", () => {
+      for (const phrase of [
+        "Please don't use PDF, use HTML instead",
+        "This doesn't need PDF, use HTML instead",
+        "We can't use PDF, use HTML instead",
+        "I won’t use PDF, use HTML instead",
+      ]) {
+        const match = matchSkill(phrase, [
+          { name: "pdf", description: "PDF processing" },
+          { name: "html", description: "HTML frontend" },
+        ]);
+        assert.strictEqual(match?.name, "html", phrase);
+      }
+    });
+
     test("allows a positive mention after an earlier unrelated negation", () => {
       const match = matchSkill("Not PDF; use PDF for the appendix", [
         { name: "pdf", description: "PDF processing" },
       ]);
       assert.strictEqual(match.name, "pdf");
+    });
+
+    test("allows a positive mention after an earlier contracted negation", () => {
+      const match = matchSkill("Don't use PDF; use PDF for the appendix", [
+        { name: "pdf", description: "PDF processing" },
+      ]);
+      assert.strictEqual(match?.name, "pdf");
     });
 
     test("matches by keyword scoring in description", () => {

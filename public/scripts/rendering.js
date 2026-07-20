@@ -505,6 +505,8 @@ async function openGeneratedFileModal(url, name) {
     text = await res.text();
   } catch (e) {
     modal.querySelector(".fpm-code").textContent = `Could not load file: ${e.message}`;
+    modal.querySelector(".fpm-browser-btn").hidden = true;
+    modal.querySelector(".fpm-folder-btn").hidden = true;
     return;
   }
   renderFileModal(name, text, { artifactUrl: url });
