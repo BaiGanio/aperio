@@ -1455,15 +1455,14 @@ function finalizeStreamingBubble(ref, fullText, stats) {
 
   if (stats) {
     const answerTok = stats.outputTokens - (stats.thinkingTokens || 0);
-    const tokPerSec = (answerTok / stats.elapsedSec).toFixed(1);
     const secLabel = stats.elapsedSec.toFixed(1) + "s";
     const badge = document.createElement("div");
     badge.className = "msg-stats";
     let label;
     if (stats.thinkingTokens > 0) {
-      label = t("stats_with_thinking", { total: stats.outputTokens, answer: answerTok, thinking: stats.thinkingTokens, speed: tokPerSec, sec: secLabel });
+      label = t("stats_with_thinking", { total: stats.outputTokens, answer: answerTok, thinking: stats.thinkingTokens, sec: secLabel });
     } else {
-      label = t("stats_plain", { answer: answerTok, speed: tokPerSec, sec: secLabel });
+      label = t("stats_plain", { answer: answerTok, sec: secLabel });
     }
     // Providers that report prompt-context tokens can surface that occupancy
     // here. Aggregate agent-loop work (Codex) is deliberately excluded.
