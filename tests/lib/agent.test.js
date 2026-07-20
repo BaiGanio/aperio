@@ -1420,8 +1420,9 @@ describe("persistAnswerArtifacts()", () => {
 
   test("writes a fenced HTML deliverable to scratch intact", () => {
     const text = "Here you go:\n```html\n" + bigHtml + "\n```";
-    const n = persistAnswerArtifacts(text, dir);
-    assert.equal(n, 1);
+    const written = persistAnswerArtifacts(text, dir);
+    assert.equal(written.length, 1);
+    assert.match(written[0].filename, /^wealthpath-dashboard\.html$/);
     const files = fs.readdirSync(dir);
     assert.equal(files.length, 1);
     assert.match(files[0], /^[0-9a-f]{8}-wealthpath-dashboard\.html$/);
@@ -1431,31 +1432,46 @@ describe("persistAnswerArtifacts()", () => {
 
   test("persists HTML from a bare ``` fence (no language tag)", () => {
     const text = "Here:\n```\n" + bigHtml + "\n```\nPreview above.";
-    assert.equal(persistAnswerArtifacts(text, dir), 1);
+    assert.equal(persistAnswerArtifacts(text, dir).length, 1);
     assert.match(fs.readdirSync(dir)[0], /\.html$/);
   });
 
   test("persists RAW unfenced HTML wrapped in <pre><code>", () => {
     const text = "Brief…\n\n<pre><code>\n" + bigHtml + "\n</code></pre>\n\nPreview the page above.";
-    assert.equal(persistAnswerArtifacts(text, dir), 1);
+    assert.equal(persistAnswerArtifacts(text, dir).length, 1);
     const content = fs.readFileSync(path.join(dir, fs.readdirSync(dir)[0]), "utf8");
     assert.ok(content.startsWith("<!DOCTYPE html>") && content.includes("row 29"));
   });
 
   test("ignores small snippets and non-deliverable languages", () => {
     const text = "```js\nconsole.log(1)\n```\n```css\nbody{color:red}\n```\n```html\n<p>tiny</p>\n```";
-    assert.equal(persistAnswerArtifacts(text, dir), 0);
+    assert.equal(persistAnswerArtifacts(text, dir).length, 0);
     assert.equal(fs.readdirSync(dir).length, 0);
   });
 
-  test("returns 0 with no scratch dir", () => {
-    assert.equal(persistAnswerArtifacts("```html\n" + bigHtml + "\n```", null), 0);
+  // The URL is what lets the client's build card offer open-in-browser and
+  // show-in-folder; without it those actions have no file to point at.
+  test("reports a /scratch URL when written under var/scratch", () => {
+    const sessionDir = path.join(dir, "var", "scratch", "sess-1");
+    const written = persistAnswerArtifacts("```html\n" + bigHtml + "\n```", sessionDir);
+    assert.equal(written.length, 1);
+    assert.equal(written[0].url, "/scratch/sess-1/" + fs.readdirSync(sessionDir)[0]);
+    assert.ok(written[0].sizeKb >= 1);
+  });
+
+  test("reports a null URL outside the scratch workspace", () => {
+    const written = persistAnswerArtifacts("```html\n" + bigHtml + "\n```", dir);
+    assert.equal(written[0].url, null);
+  });
+
+  test("returns nothing with no scratch dir", () => {
+    assert.deepEqual(persistAnswerArtifacts("```html\n" + bigHtml + "\n```", null), []);
   });
 
   test("creates the scratch dir if it doesn't exist yet", () => {
     const missing = path.join(dir, "session-never-created");
     const bigMd = "# Title\n\n" + Array.from({ length: 30 }, (_, i) => `- item ${i}`).join("\n");
-    assert.equal(persistAnswerArtifacts("Here:\n```md\n" + bigMd + "\n```", missing), 1);
+    assert.equal(persistAnswerArtifacts("Here:\n```md\n" + bigMd + "\n```", missing).length, 1);
     assert.match(fs.readdirSync(missing)[0], /^[0-9a-f]{8}-build-1\.md$/);
   });
 });
