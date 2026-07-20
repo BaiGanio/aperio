@@ -108,15 +108,23 @@ jobs:
           # downloads (better-sqlite3, sqlite-vec, sharp) run noticeably
           # slower than on Linux/macOS runners, so give this more headroom
           # than the ~20s a POSIX install takes.
+          # Capture the launcher's own console output directly (not just its
+          # internal ignition.log, which npm can leave unflushed for minutes
+          # when its stdout isn't a real console) so a timeout is diagnosable
+          # from this run's output instead of a blind guess.
           $marker = Join-Path $install 'node_modules/.package-lock.json'
           $ignitionLog = Join-Path $install 'var/install/ignition.log'
-          $starter = Start-Process cmd.exe -WorkingDirectory $install -ArgumentList '/d', '/c', 'START.bat' -PassThru
+          $stdout = Join-Path $env:RUNNER_TEMP 'aperio-start-stdout.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'aperio-start-stderr.log'
+          $starter = Start-Process cmd.exe -WorkingDirectory $install -ArgumentList '/d', '/c', 'START.bat' -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
           try {
             for ($i = 0; $i -lt 480 -and -not (Test-Path $marker); $i++) {
               if ($starter.HasExited) { throw 'START.bat exited before installing dependencies' }
               Start-Sleep -Seconds 1
             }
             if (-not (Test-Path $marker)) {
+              Write-Host '--- START.bat stdout ---'; Get-Content $stdout -ErrorAction SilentlyContinue | Write-Host
+              Write-Host '--- START.bat stderr ---'; Get-Content $stderr -ErrorAction SilentlyContinue | Write-Host
               if (Test-Path $ignitionLog) { Write-Host '--- ignition.log ---'; Get-Content $ignitionLog | Write-Host }
               throw 'START.bat did not install dependencies in time'
             }
