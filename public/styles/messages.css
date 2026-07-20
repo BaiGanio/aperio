@@ -95,6 +95,15 @@
     }
     .message:hover .msg-stats { opacity: 1; }
 
+    .msg-stats-timings {
+      font-size: calc(var(--fs-micro) * 0.85);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      opacity: 0.6;
+      margin-top: 1px;
+    }
+    .message:hover .msg-stats-timings { opacity: 0.85; }
+
     /* Token chip below user bubbles — right-aligned to match bubble position */
     .msg-stats--user {
       align-self: flex-end;
