@@ -258,6 +258,20 @@ describe("tool-profiles — wiki authoring", () => {
   });
 });
 
+describe("tool-profiles — generic transformation intent (issue #301 finding #3)", () => {
+  test("generate without a file target does not surface file-edit tools", () => {
+    assert.ok(!classifyProfiles("generate a poem about the sea").has("file-edit"));
+  });
+
+  test("export without a file target does not surface file-edit tools", () => {
+    assert.ok(!classifyProfiles("which countries export the most coffee?").has("file-edit"));
+  });
+
+  test("convert without a file target does not surface file-edit tools", () => {
+    assert.ok(!classifyProfiles("convert 10 kilometers to miles").has("file-edit"));
+  });
+});
+
 // ─── CSV vs XLSX classification — issue #300 ──────────────────────────────────
 // Plain CSV requests must not activate the heavy file-generate profile or
 // offer generate_xlsx. They should use file-edit (write_file) instead.
