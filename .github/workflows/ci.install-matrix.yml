@@ -68,7 +68,13 @@ jobs:
           bash "$GITHUB_WORKSPACE/vms/smoke.sh" "$install_dir"
 
           printf 'y\n' | bash "$install_dir/uninstall.sh"
-          test ! -e "$install_dir"
+          # uninstall.sh deliberately leaves the container folder itself in
+          # place (documented "drag this folder to the Trash" step) — assert
+          # on the pieces it actually removes, not on the folder's existence.
+          test ! -e "$install_dir/node_modules"
+          test ! -e "$install_dir/vendor"
+          test ! -e "$install_dir/var"
+          test ! -e "$install_dir/.sqlite"
 
   install-windows:
     name: zip launcher & smoke (windows)
@@ -95,13 +101,18 @@ jobs:
           Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $zip -Force
           Expand-Archive -Path $zip -DestinationPath $install -Force
 
+          # npm creates node_modules/ almost instantly but populates it over
+          # the following seconds, so its mere presence is not a completion
+          # signal. node_modules/.package-lock.json is npm's own last write
+          # of an install — wait on that instead.
+          $marker = Join-Path $install 'node_modules/.package-lock.json'
           $starter = Start-Process cmd.exe -WorkingDirectory $install -ArgumentList '/d', '/c', 'START.bat' -PassThru
           try {
-            for ($i = 0; $i -lt 180 -and -not (Test-Path (Join-Path $install 'node_modules')); $i++) {
+            for ($i = 0; $i -lt 180 -and -not (Test-Path $marker); $i++) {
               if ($starter.HasExited) { throw 'START.bat exited before installing dependencies' }
               Start-Sleep -Seconds 1
             }
-            if (-not (Test-Path (Join-Path $install 'node_modules'))) { throw 'START.bat did not install dependencies in time' }
+            if (-not (Test-Path $marker)) { throw 'START.bat did not install dependencies in time' }
           } finally {
             taskkill.exe /PID $starter.Id /T /F 2>$null | Out-Null
           }
