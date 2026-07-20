@@ -80,6 +80,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Attachment handlers: PDF, DOCX, PPTX, text, image
 - PPTX generation via script + `run_node_script` (see `skills/pptx/`)
 - Advanced DOCX edit (tracked changes, comments, validation) via opt-in Python toolchain + `run_python_script` (see `skills/docx/`)
+- Generated HTML artifacts open in a large sandboxed Preview/Code modal, with direct Open in browser, Show in folder, and Copy actions; host-folder reveal is restricted to regular files inside `var/scratch/`
 
 ## Shell
 - Run a `.js` script in an allowed write path (`run_node_script`)
@@ -118,6 +119,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - First-class providers: llama.cpp (vendored, self-managed), Anthropic, DeepSeek, Gemini, Claude Code Agent SDK, and OpenAI Codex CLI
 - Codex provider: authenticated `codex exec --json`, Aperio MCP tool access, explicit sandbox/approval policy, session-scoped persisted thread resume, background completions, setup wizard, and round-table support
 - Skills matching per turn (`skills/`)
+- Frontend design guidance (`skills/frontend-design/`) for polished, responsive, accessible web interfaces and self-contained HTML artifacts; HTML-file requests activate it automatically
 - Reasoning / thinking mode with reasoning-chain replay
 - Round-table two-agent cross-review until `AGREED` or round cap (`ROUNDTABLE_AGENTS`); both participants are constructed from validated `AgentSpec` definitions derived from the configured provider/model/persona/character, and post-round manifestos from each agent are saved to `var/roundtables/` and served for preview/download
 - Background agents: scheduled, chat-less jobs over the store — interval, manual (`POST /api/agents/:id/run`), and codegraph/docgraph file-change (`watcher`) triggers, steps-mode tool pipelines and freeform `runAgentLoop` jobs, DB-backed (`agent_jobs` table) with per-run history in the `agent_runs` table (newest-first in the agents panel), gated by `APERIO_AGENT_JOBS=on`; freeform jobs store validated `AgentSpec` definitions and legacy provider/persona/character fields are normalized safely on read/write; fresh stores include a disabled `nightly-maintenance` example for embedding backfill and dry-run dedupe (see `background-agents.md`)

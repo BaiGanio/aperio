@@ -51,7 +51,7 @@ function invoke(router, method, url, { body = {}, query = {}, params = {} } = {}
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
-function makeRouter(agentOverrides = {}, storeOverrides = {}, watchdogOverrides = {}) {
+function makeRouter(agentOverrides = {}, storeOverrides = {}, watchdogOverrides = {}, routeOverrides = {}) {
   const router = Router();
   mountMetaRoutes(router, {
     agent: {
@@ -76,6 +76,7 @@ function makeRouter(agentOverrides = {}, storeOverrides = {}, watchdogOverrides 
       heartbeat: () => {},
       ...watchdogOverrides,
     },
+    ...routeOverrides,
   });
   return router;
 }
@@ -381,6 +382,36 @@ describe("POST /paths", () => {
     });
     assert.strictEqual(status, 400);
     assert.ok(body.error.includes("non-empty strings"));
+  });
+});
+
+describe("POST /artifact/reveal", () => {
+  test("forwards only the generated artifact URL to the reveal helper", async () => {
+    const calls = [];
+    const router = makeRouter({}, {}, {}, {
+      revealArtifact: async (url) => {
+        calls.push(url);
+        return "/tmp/generated/page.html";
+      },
+    });
+    const { status, body } = await invoke(router, "POST", "/artifact/reveal", {
+      body: { url: "/scratch/session-1/page.html" },
+    });
+    assert.equal(status, 200);
+    assert.equal(body.ok, true);
+    assert.deepEqual(calls, ["/scratch/session-1/page.html"]);
+  });
+
+  test("preserves validation status from the reveal helper", async () => {
+    const error = Object.assign(new Error("outside scratch workspace"), { status: 400 });
+    const router = makeRouter({}, {}, {}, {
+      revealArtifact: async () => { throw error; },
+    });
+    const { status, body } = await invoke(router, "POST", "/artifact/reveal", {
+      body: { url: "/scratch/../package.json" },
+    });
+    assert.equal(status, 400);
+    assert.match(body.error, /outside scratch/i);
   });
 });
 

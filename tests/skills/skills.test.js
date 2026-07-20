@@ -109,6 +109,12 @@ describe("skill structure", () => {
 describe("skill matching", () => {
   const index = loadIndex();
 
+  test("an HTML artifact request loads frontend design guidance, not PDF", () => {
+    const prompt = "Write a short HTML file that displays Hello Honesty Check in large blue text. Save it, and tell me the exact full path where I can find it.";
+    const names = matchSkills(prompt, index, { limit: 3 }).map(skill => skill.name);
+    assert.equal(names[0], "frontend-design");
+  });
+
   test("a simple Markdown file write does not inject unrelated bundled skills", () => {
     const prompt = "Create a new file called notes-for-me.md and write a short note inside it: Reminder — review the Lie Catcher results on Friday. Save it and confirm the file path.";
     assert.deepEqual(matchSkills(prompt, index), []);

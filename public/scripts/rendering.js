@@ -329,8 +329,11 @@ function ensureFileModal() {
           <span class="fpm-ext-badge"></span>
         </div>
         <div class="fpm-actions">
-          <button class="fpm-source-btn csp-style-13" title="Toggle source">
-            <i class="bi bi-code-slash"></i> Source
+          <button class="fpm-browser-btn" title="Open this file in the browser" hidden>
+            <i class="bi bi-box-arrow-up-right"></i> <span>Open in browser</span>
+          </button>
+          <button class="fpm-folder-btn" title="Show this file in Finder or Explorer" hidden>
+            <i class="bi bi-folder2-open"></i> <span>Show in folder</span>
           </button>
           <button class="fpm-copy-btn" title="Copy content">
             <i class="bi bi-copy"></i> Copy
@@ -340,8 +343,12 @@ function ensureFileModal() {
           </button>
         </div>
       </div>
+      <div class="fpm-view-tabs" hidden>
+        <button class="fpm-preview-btn is-active"><i class="bi bi-eye"></i> Preview</button>
+        <button class="fpm-code-btn"><i class="bi bi-code-slash"></i> Code</button>
+      </div>
       <div class="fpm-body">
-        <iframe class="fpm-frame csp-style-13" sandbox="allow-scripts" title="Rendered preview"></iframe>
+        <iframe class="fpm-frame" sandbox="allow-scripts" title="Rendered preview"></iframe>
         <pre class="fpm-pre"><code class="fpm-code"></code></pre>
       </div>
     </div>`;
@@ -350,20 +357,33 @@ function ensureFileModal() {
     if (e.target === overlay) closeFileModal();
   });
   overlay.querySelector(".fpm-close-btn").addEventListener("click", closeFileModal);
-  // HTML previews open rendered; this toggles to the raw source and back.
-  overlay.querySelector(".fpm-source-btn").addEventListener("click", () => {
-    const frameEl = overlay.querySelector(".fpm-frame");
-    const preEl   = overlay.querySelector(".fpm-pre");
-    const btn     = overlay.querySelector(".fpm-source-btn");
-    if (btn.dataset.showing === "source") {
-      frameEl.style.display = ""; preEl.style.display = "none";
-      btn.dataset.showing = "preview";
-      btn.innerHTML = '<i class="bi bi-code-slash"></i> Source';
-    } else {
-      preEl.style.display = ""; frameEl.style.display = "none";
-      btn.dataset.showing = "source";
-      btn.innerHTML = '<i class="bi bi-eye"></i> Preview';
-      if (window.Prism) Prism.highlightElement(preEl.querySelector(".fpm-code"));
+  overlay.querySelector(".fpm-preview-btn").addEventListener("click", () => setFileModalView(overlay, "preview"));
+  overlay.querySelector(".fpm-code-btn").addEventListener("click", () => setFileModalView(overlay, "code"));
+  overlay.querySelector(".fpm-browser-btn").addEventListener("click", () => {
+    const url = overlay.dataset.artifactUrl;
+    if (url) window.open(url, "_blank", "noopener,noreferrer");
+  });
+  overlay.querySelector(".fpm-folder-btn").addEventListener("click", async () => {
+    const url = overlay.dataset.artifactUrl;
+    if (!url) return;
+    const btn = overlay.querySelector(".fpm-folder-btn");
+    btn.disabled = true;
+    try {
+      const res = await fetch("/api/artifact/reveal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      btn.innerHTML = '<i class="bi bi-check-lg"></i> <span>Opened</span>';
+      setTimeout(() => btn.innerHTML = '<i class="bi bi-folder2-open"></i> <span>Show in folder</span>', 1600);
+    } catch (err) {
+      btn.title = `Could not show file: ${err.message}`;
+      btn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> <span>Could not open</span>';
+      setTimeout(() => btn.innerHTML = '<i class="bi bi-folder2-open"></i> <span>Show in folder</span>', 2000);
+    } finally {
+      btn.disabled = false;
     }
   });
   overlay.querySelector(".fpm-copy-btn").addEventListener("click", () => {
@@ -382,10 +402,21 @@ function ensureFileModal() {
   document.body.appendChild(overlay);
 }
 
+function setFileModalView(modal, view) {
+  const preview = view === "preview";
+  const frameEl = modal.querySelector(".fpm-frame");
+  const preEl = modal.querySelector(".fpm-pre");
+  frameEl.style.display = preview ? "block" : "none";
+  preEl.style.display = preview ? "none" : "block";
+  modal.querySelector(".fpm-preview-btn").classList.toggle("is-active", preview);
+  modal.querySelector(".fpm-code-btn").classList.toggle("is-active", !preview);
+  if (!preview && window.Prism) Prism.highlightElement(preEl.querySelector(".fpm-code"));
+}
+
 // Shared renderer for the file-preview modal. HTML files open as a rendered
-// page in a sandboxed iframe with a Source toggle; everything else shows
+// page in a sandboxed iframe with Preview/Code tabs; everything else shows
 // syntax-highlighted source. `text` is the file's full content.
-function renderFileModal(name, text) {
+function renderFileModal(name, text, { artifactUrl = null } = {}) {
   const modal = document.getElementById("file-preview-modal");
   modal.querySelector(".fpm-icon").innerHTML = getFileIcon(name, null);
   modal.querySelector(".fpm-filename").textContent = (name || "file").replace(/\.[^.]+$/, "");
@@ -394,9 +425,14 @@ function renderFileModal(name, text) {
   const codeEl  = modal.querySelector(".fpm-code");
   const preEl   = modal.querySelector(".fpm-pre");
   const frameEl = modal.querySelector(".fpm-frame");
-  const srcBtn  = modal.querySelector(".fpm-source-btn");
+  const viewTabs = modal.querySelector(".fpm-view-tabs");
+  const browserBtn = modal.querySelector(".fpm-browser-btn");
+  const folderBtn = modal.querySelector(".fpm-folder-btn");
 
   modal.dataset.source = text;          // raw text for the Copy button
+  modal.dataset.artifactUrl = artifactUrl || "";
+  browserBtn.hidden = !artifactUrl;
+  folderBtn.hidden = !artifactUrl;
   codeEl.className = "fpm-code";
   codeEl.textContent = text;
 
@@ -414,16 +450,13 @@ function renderFileModal(name, text) {
   const isHtml = ext === "html" || ext === "htm";
   if (isHtml) {
     frameEl.srcdoc = text;
-    frameEl.style.display = "";
-    preEl.style.display = "none";
-    srcBtn.style.display = "";
-    srcBtn.dataset.showing = "preview";
-    srcBtn.innerHTML = '<i class="bi bi-code-slash"></i> Source';
+    viewTabs.hidden = false;
+    setFileModalView(modal, "preview");
   } else {
     frameEl.removeAttribute("srcdoc");
     frameEl.style.display = "none";
-    preEl.style.display = "";
-    srcBtn.style.display = "none";
+    preEl.style.display = "block";
+    viewTabs.hidden = true;
   }
 
   modal.classList.add("open");
@@ -457,8 +490,11 @@ async function openGeneratedFileModal(url, name) {
   modal.querySelector(".fpm-filename").textContent = (name || "file").replace(/\.[^.]+$/, "");
   modal.querySelector(".fpm-ext-badge").textContent = (name || "").split(".").pop().toUpperCase() || "FILE";
   modal.querySelector(".fpm-frame").style.display = "none";
-  modal.querySelector(".fpm-pre").style.display = "";
-  modal.querySelector(".fpm-source-btn").style.display = "none";
+  modal.querySelector(".fpm-pre").style.display = "block";
+  modal.querySelector(".fpm-view-tabs").hidden = true;
+  modal.dataset.artifactUrl = url;
+  modal.querySelector(".fpm-browser-btn").hidden = false;
+  modal.querySelector(".fpm-folder-btn").hidden = false;
   modal.querySelector(".fpm-code").textContent = "Loading…";
   modal.classList.add("open");
 
@@ -471,7 +507,7 @@ async function openGeneratedFileModal(url, name) {
     modal.querySelector(".fpm-code").textContent = `Could not load file: ${e.message}`;
     return;
   }
-  renderFileModal(name, text);
+  renderFileModal(name, text, { artifactUrl: url });
 }
 
 // Open an HTML string directly in the rendered preview modal (used for code

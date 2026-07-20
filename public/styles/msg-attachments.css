@@ -236,8 +236,9 @@ button.gfc-btn {
   border: 1px solid var(--border);
   border-radius: 12px;
   width: 100%;
-  max-width: 780px;
-  max-height: 85vh;
+  max-width: 1120px;
+  height: min(780px, 88vh);
+  max-height: 88vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -292,7 +293,8 @@ button.gfc-btn {
   gap: 6px;
   flex-shrink: 0;
 }
-.fpm-copy-btn, .fpm-close-btn {
+.fpm-browser-btn, .fpm-folder-btn, .fpm-copy-btn, .fpm-close-btn,
+.fpm-preview-btn, .fpm-code-btn {
   display: flex;
   align-items: center;
   gap: 5px;
@@ -306,7 +308,8 @@ button.gfc-btn {
   cursor: pointer;
   transition: all 0.15s;
 }
-.fpm-copy-btn:hover {
+.fpm-browser-btn:hover, .fpm-folder-btn:hover, .fpm-copy-btn:hover,
+.fpm-preview-btn:hover, .fpm-code-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
@@ -318,10 +321,31 @@ button.gfc-btn {
   color: var(--text);
 }
 
+.fpm-view-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-hover);
+  flex-shrink: 0;
+}
+.fpm-view-tabs[hidden] { display: none; }
+.fpm-preview-btn, .fpm-code-btn { border-color: transparent; }
+.fpm-preview-btn.is-active, .fpm-code-btn.is-active {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+.fpm-actions button[hidden] { display: none; }
+.fpm-actions button:disabled { opacity: 0.6; cursor: wait; }
+
 /* Body / scrollable code area */
 .fpm-body {
   overflow: auto;
   flex: 1;
+  min-height: 0;
 }
 .fpm-pre {
   margin: 0;
@@ -342,8 +366,16 @@ button.gfc-btn {
 }
 .fpm-frame {
   width: 100%;
-  height: 70vh;
+  height: 100%;
   border: 0;
   background: #fff;
   display: block;
+}
+
+@media (max-width: 780px) {
+  .fpm-overlay { padding: 12px; }
+  .fpm-dialog { height: 92vh; max-height: 92vh; }
+  .fpm-browser-btn span, .fpm-folder-btn span { display: none; }
+  .fpm-browser-btn, .fpm-folder-btn { padding-inline: 8px; }
+  .fpm-filename { max-width: 180px; }
 }
