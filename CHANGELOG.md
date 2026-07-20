@@ -99,6 +99,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Shutdown signals received during late application boot now wait for boot to
+  install the full teardown path, ensuring scheduler, watchers, llama.cpp,
+  embeddings, store, and HTTP resources are all released. (#301)
+
 - Tool-schema capping now stops at an over-budget higher-priority intent tool
   instead of skipping it and admitting cheaper core tools, preserving priority
   order across small and large llama.cpp context windows. (#301)
