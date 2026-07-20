@@ -115,6 +115,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
   install the full teardown path, ensuring scheduler, watchers, llama.cpp,
   embeddings, store, and HTTP resources are all released. (#301)
 
+- Direct skill-name matching no longer loses naturally inflected mentions.
+  `hasPositiveSkillName` (`lib/workers/skills.js`) compared raw message tokens
+  against the skill name, so "extract the text from these PDFs" or "run a couple
+  of web searches" failed to name the `pdf` / `web-search` skills even though a
+  singular mention matched. Name and message tokens are now compared on the same
+  folded stems already used by keyword scoring; `foldToken`'s 3-character floor
+  keeps short names intact, so "cis" still does not fold onto a `ci` skill, and
+  negated mentions ("not PDFs", "don't use PDFs") remain suppressed. (#301)
+
 - Tool-schema capping now stops at an over-budget higher-priority intent tool
   instead of skipping it and admitting cheaper core tools, preserving priority
   order across small and large llama.cpp context windows. (#301)
