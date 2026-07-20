@@ -68,6 +68,26 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Windows one-liner installer (`assets/start.ps1`) no longer aborts silently
+  on benign `npm`/`winget` stderr output. `$ErrorActionPreference = "Stop"`
+  made Windows PowerShell treat any stderr line from a native command —
+  including routine `npm warn deprecated ...` warnings present in nearly
+  every install — as a terminating error, killing the script before its own
+  exit-code check ever ran. Real effect: double-clicking `START.bat` could
+  close the window with dependencies never installed and no error message.
+  Same trap fixed in `vms/smoke.ps1`'s migration step. Found via the
+  `ci.install-matrix.yml` Windows job, which exercises the real
+  zip-and-double-click install path.
+- `ci.install-matrix.yml`: the Windows job's dependency-install wait polled
+  for `node_modules/` existence, which npm creates almost instantly and
+  populates over the following seconds — the shared smoke check could run
+  against a half-installed tree. Now waits on `node_modules/.package-lock.json`
+  (npm's own last write of an install) and prints the launcher's live
+  console output on timeout for diagnosis. The POSIX jobs' post-uninstall
+  assertion also expected the whole install directory to disappear, but
+  `uninstall.sh`/`uninstall.ps1` deliberately leave the container folder in
+  place (the user drags it to Trash) — the assertion now checks the pieces
+  the uninstaller actually removes.
 - `.env.example` generator now only activates the START HERE group; every
   entry outside it renders commented regardless of its registry `show` field.
   Previously the Postgres block (`POSTGRES_PASSWORD`/`DATABASE_URL`, known-default
