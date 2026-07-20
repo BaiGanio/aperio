@@ -10,7 +10,7 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent } from "../../../lib/agent/tool-profiles.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
@@ -207,6 +207,24 @@ describe("capToolsForWindow", () => {
     for (const required of ["recall", "wiki_write", "wiki_search"]) {
       assert.ok(at11k.has(required), `${required} survives the 11k schema budget`);
       assert.ok(at16k.has(required), `${required} survives the 16k schema budget`);
+    }
+  });
+
+  test("does not replace an over-budget intent tool with a cheaper core tool", () => {
+    for (const contextWindow of [smallWin, bigWin]) {
+      const schemaBudget = Math.floor(contextWindow * TOOL_SCHEMA_BUDGET_RATIO);
+      const names = new Set(["recall", "fetch_github_issue", "remember"]);
+      const schemaTokenCosts = new Map([
+        ["recall", 100],
+        ["fetch_github_issue", schemaBudget],
+        ["remember", 1],
+      ]);
+
+      const capped = capToolsForWindow(names, contextWindow, { schemaTokenCosts });
+
+      assert.ok(capped.has("recall"), `recall floor survives at ${contextWindow} tokens`);
+      assert.ok(!capped.has("fetch_github_issue"), `over-budget intent is excluded at ${contextWindow} tokens`);
+      assert.ok(!capped.has("remember"), `lower-priority core cannot leapfrog intent at ${contextWindow} tokens`);
     }
   });
 
