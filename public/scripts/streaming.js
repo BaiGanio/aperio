@@ -1470,21 +1470,15 @@ function finalizeStreamingBubble(ref, fullText, stats) {
     if (stats.inputTokens > 0 && stats.inputTokensKind !== "aggregate") {
       label += " · " + t("stats_context_in", { n: stats.inputTokens.toLocaleString() });
     }
-    badge.textContent = label;
-
-    // llama-server timings breakdown (local llama.cpp only)
-    // Shows prompt evaluation vs generation speed separately.
+    // Append llama-server timings (prompt vs gen tok/s) to the same line.
     if (stats.timings?.prompt_per_second || stats.timings?.predicted_per_second) {
       const t = stats.timings;
       const parts = [];
       if (t.prompt_per_second) parts.push(`⚡P: ${t.prompt_per_second.toFixed(1)} tok/s`);
       if (t.predicted_per_second) parts.push(`💨G: ${t.predicted_per_second.toFixed(1)} tok/s`);
-      const sub = document.createElement("div");
-      sub.className = "msg-stats-timings";
-      sub.textContent = parts.join(" · ");
-      badge.appendChild(sub);
+      label += " · " + parts.join(" · ");
     }
-
+    badge.textContent = label;
     col.appendChild(badge);
   }
 
