@@ -30,6 +30,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- `frontend-design` skill for polished, responsive, accessible interfaces and
+  self-contained HTML artifacts. HTML page/file requests now load this guidance
+  automatically.
+- Generated-file previews now provide explicit Preview and Code tabs for HTML,
+  plus Open in browser, Show in folder, and Copy actions. Folder reveal is
+  limited to regular files inside Aperio's `var/scratch/` artifact workspace.
 - Regression tests for CSV vs XLSX classification: 6 tests covering plain CSV
   creation, CSV+Excel intent, CSV analysis, and CSV read scenarios in
   `tests/lib/agent/tool-profiles.test.js`. (#300)
@@ -93,6 +99,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- HTML artifact previews no longer open as an empty modal. The iframe and source
+  pane had inherited a CSP utility class that kept both views hidden.
 - Windows one-liner installer (`assets/start.ps1`) no longer aborts silently
   on benign `npm`/`winget` stderr output. `$ErrorActionPreference = "Stop"`
   made Windows PowerShell treat any stderr line from a native command —

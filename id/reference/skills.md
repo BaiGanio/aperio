@@ -20,7 +20,7 @@ Skills are loaded on demand. The `skills/` directory is a flat list; test files 
 `preprocess-pdf`, `preprocess-image`, `working-with-files`
 
 ### UI / Design
-`canvas-design`, `design-randomizer`, `theme-factory`, `webapp-testing`
+`canvas-design`, `design-randomizer`, `frontend-design`, `theme-factory`, `webapp-testing`
 
 ### Meta
 `skill-creator`, `autotune`, `mcp-builder`, `prompt-optimizer`, `wiki`
