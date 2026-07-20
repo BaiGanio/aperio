@@ -1101,6 +1101,81 @@ describe("Agent Integration with Emitter", () => {
     assert.strictEqual(imageTools.length, 0, "a standalone inline image request must be offered no tools at all");
   });
 
+  test("a task-shaped standalone visual request (still no lookup/mutation intent) also gets zero tools", async (t) => {
+    // Regression for the malformed-tool-call bug: a prompt phrased as a task
+    // ("Describe X. Report at least A, B, C.") rather than a bare "describe
+    // this image" is STILL a standalone visual request by isStandaloneVisionRequest's
+    // definition — no memory/lookup/mutation keyword flips it. It must get the
+    // exact same empty tool set as the bare "describe this image" case;
+    // otherwise leftover tools (recall/self_recall) give a weak local model
+    // something to hallucinate a malformed call against.
+    stubMcpTransport(t);
+    const prev = process.env.APERIO_CAPABLE_MODELS;
+    process.env.APERIO_CAPABLE_MODELS = "unsloth/gemma-4-e4b-it-qat-gguf:q4_k_xl";
+    t.after(() => { if (prev === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prev; });
+
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "recall") return { content: [{ type: "text", text: "[fact] User name is John" }] };
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+
+    const agent = await createAgent({
+      root: FAKE_ROOT, version: "1.0.0",
+      providerConfig: { name: "llamacpp", model: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL" },
+    });
+    await agent.buildGreeting();
+
+    const userText = "Describe this electricity bill. Report at least the provider, bill date, total amount, and currency.";
+    // Attachment blocks after the user's own text — the ordering every content
+    // producer (ws handler, and terminal.js post-fix) must use, since the first
+    // text block is what gets classified as the turn's intent.
+    const imageTurn = [{ role: "user", content: [
+      { type: "text", text: userText },
+      { type: "text", text: "[Image: electricity-bill-bg.png]" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+    ] }];
+    const tools = agent.getOpenAiTools(userText, imageTurn).map(t => t.function?.name);
+    assert.deepStrictEqual(tools, [], "a task-shaped but still-standalone visual request must be offered no tools at all");
+  });
+
+  test("a mixed-intent visual request (explicit db/save language) keeps non-image tools but still drops image tools", async (t) => {
+    stubMcpTransport(t);
+    const prev = process.env.APERIO_CAPABLE_MODELS;
+    process.env.APERIO_CAPABLE_MODELS = "unsloth/gemma-4-e4b-it-qat-gguf:q4_k_xl";
+    t.after(() => { if (prev === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prev; });
+
+    // The shared stub's tool list omits database tools — add them so the
+    // database profile has something real to offer.
+    t.mock.method(Client.prototype, "listTools", async () => ({
+      tools: [
+        "read_image", "preprocess_image", "describe_image", "recall", "remember",
+        "db_connections", "db_schema", "db_query", "db_execute",
+      ].map(name => ({ name, description: name, inputSchema: { type: "object", properties: {} } })),
+    }));
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "recall") return { content: [{ type: "text", text: "[fact] User name is John" }] };
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+
+    const agent = await createAgent({
+      root: FAKE_ROOT, version: "1.0.0",
+      providerConfig: { name: "llamacpp", model: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL" },
+    });
+    await agent.buildGreeting();
+
+    const userText = "Save the total amount and bill date from this receipt to my database.";
+    const imageTurn = [{ role: "user", content: [
+      { type: "text", text: userText },
+      { type: "text", text: "[Image: receipt.png]" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+    ] }];
+    const tools = agent.getOpenAiTools(userText, imageTurn).map(t => t.function?.name);
+    assert.ok(!tools.includes("read_image"), "still must not offer read_image for the inline image");
+    assert.ok(!tools.includes("preprocess_image"), "still must not offer preprocess_image for the inline image");
+    assert.ok(!tools.includes("describe_image"), "still must not offer describe_image for the inline image");
+    assert.ok(tools.includes("db_query") || tools.includes("db_execute"), "explicit database intent must still get database tools");
+  });
+
   // Prompt-cache hygiene: the greeting is always a static, locale-aware
   // line — no model call, for any session type — and a separate background
   // warm-up primes the KV cache instead.

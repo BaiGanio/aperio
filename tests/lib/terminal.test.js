@@ -57,6 +57,7 @@ import {
   isSessionsCommand,
   isModelCommand,
   isAttachCommand,
+  buildAttachedUserContent,
   isResumeCommand,
   printWelcome,
   printHelp,
@@ -305,6 +306,25 @@ describe("Session / Memory / Model Command Detection", () => {
     assert.strictEqual(isResumeCommand("resume"), false);
     assert.strictEqual(isResumeCommand("resume "), false);
     assert.strictEqual(isResumeCommand("RESUME abc"), false);
+  });
+
+  test("buildAttachedUserContent puts the user's typed text first, attachment blocks after", () => {
+    const pending = [
+      { type: "text", text: "[Image: bill.png]" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+    ];
+    const content = buildAttachedUserContent(pending, "Describe this electricity bill.");
+    // Every downstream intent classifier (tool-profile selection, skill
+    // matching, standalone-vision detection) extracts the FIRST text block as
+    // the user's request. If an attachment's own "[Image: ...]" label landed
+    // first, that label — not the user's actual request — would be what gets
+    // classified (issue: malformed image-tool calls from task-shaped prompts).
+    assert.deepStrictEqual(content[0], { type: "text", text: "Describe this electricity bill." });
+    assert.deepStrictEqual(content.slice(1), pending);
+  });
+
+  test("buildAttachedUserContent returns the raw string when nothing is queued", () => {
+    assert.strictEqual(buildAttachedUserContent([], "hello"), "hello");
   });
 });
 
