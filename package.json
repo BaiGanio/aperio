@@ -48,8 +48,8 @@
     "test:e2e:dashboard": "NODE_ENV=test node --test --test-concurrency=2 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/reporters/e2e-json.js --test-reporter-destination=e2e-results.json 'tests/e2e/**/*.test.js' && npm run e2e:dashboard"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.210",
-    "@anthropic-ai/sdk": "^0.111.0",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.215",
+    "@anthropic-ai/sdk": "^0.112.3",
     "@google/generative-ai": "^0.24.1",
     "@huggingface/transformers": "^4.2.0",
     "@modelcontextprotocol/sdk": "^1.28.0",
@@ -61,13 +61,13 @@
     "emphasize": "^7.0.0",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.5.2",
+    "express-rate-limit": "^8.6.0",
     "fast-xml-parser": "^5.10.0",
     "gpt-tokenizer": "^3.4.0",
     "helmet": "^8.3.0",
     "mammoth": "^1.12.0",
     "mssql": "^12.7.0",
-    "mysql2": "^3.23.0",
+    "mysql2": "^3.23.1",
     "open": "^11.0.0",
     "pdf-lib": "^1.17.1",
     "pdfjs-dist": "^6.1.200",
@@ -85,7 +85,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "c8": "^11.0.0"
+    "c8": "^12.0.0"
   },
   "overrides": {
     "@huggingface/transformers": {
