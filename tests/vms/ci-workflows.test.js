@@ -27,7 +27,11 @@ test("install matrix exercises local installer, update path, uninstall, and smok
   assert.match(workflow, /APERIO_INSTALL_NO_START=1/);
   assert.match(workflow, /vmtest-sentinel/);
   assert.match(workflow, /uninstall\.sh/);
-  assert.match(workflow, /test ! -e "\$install_dir"/);
+  // uninstall.sh deliberately leaves the container folder in place, so the
+  // workflow must assert on the pieces it actually removes, not the folder.
+  assert.match(workflow, /test ! -e "\$install_dir\/node_modules"/);
+  assert.match(workflow, /test ! -e "\$install_dir\/var"/);
+  assert.match(workflow, /test ! -e "\$install_dir\/\.sqlite"/);
   assert.match(workflow, /vms\/smoke\.sh/);
 });
 
@@ -39,6 +43,10 @@ test("install matrix packages the Windows launcher and runs PowerShell smoke", a
   assert.match(workflow, /START\.bat/);
   assert.match(workflow, /taskkill\.exe .*\/T \/F/);
   assert.match(workflow, /vms\/smoke\.ps1/);
+  // node_modules/ appears near-instantly but npm populates it over several
+  // seconds; the wait must key off npm's own last-write marker, not the
+  // directory's mere existence, or smoke.ps1 can run against a half-installed tree.
+  assert.match(workflow, /node_modules\/\.package-lock\.json/);
 });
 
 test("nightly/full-suite job is pinned to ARM runner labels", async () => {
