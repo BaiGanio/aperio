@@ -99,6 +99,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- File-edit tools no longer load for generic `generate`, `export`, or `convert`
+  prompts without an explicit file target, while CSV creation and conversion
+  requests retain their intended CSV/XLSX routing. (#301)
+
 - Windows artifact reveals no longer report a failure when `explorer.exe`
   successfully delegates to an existing Explorer process but exits with code 1;
   genuine launch errors such as `ENOENT` are still surfaced. (#301)
