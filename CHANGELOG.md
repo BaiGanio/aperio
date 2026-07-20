@@ -99,6 +99,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Tool-schema capping now stops at an over-budget higher-priority intent tool
+  instead of skipping it and admitting cheaper core tools, preserving priority
+  order across small and large llama.cpp context windows. (#301)
+
 - File-edit tools no longer load for generic `generate`, `export`, or `convert`
   prompts without an explicit file target, while CSV creation and conversion
   requests retain their intended CSV/XLSX routing. (#301)
