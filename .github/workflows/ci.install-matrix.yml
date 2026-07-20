@@ -104,15 +104,22 @@ jobs:
           # npm creates node_modules/ almost instantly but populates it over
           # the following seconds, so its mere presence is not a completion
           # signal. node_modules/.package-lock.json is npm's own last write
-          # of an install — wait on that instead.
+          # of an install — wait on that instead. Windows native-module
+          # downloads (better-sqlite3, sqlite-vec, sharp) run noticeably
+          # slower than on Linux/macOS runners, so give this more headroom
+          # than the ~20s a POSIX install takes.
           $marker = Join-Path $install 'node_modules/.package-lock.json'
+          $ignitionLog = Join-Path $install 'var/install/ignition.log'
           $starter = Start-Process cmd.exe -WorkingDirectory $install -ArgumentList '/d', '/c', 'START.bat' -PassThru
           try {
-            for ($i = 0; $i -lt 180 -and -not (Test-Path $marker); $i++) {
+            for ($i = 0; $i -lt 480 -and -not (Test-Path $marker); $i++) {
               if ($starter.HasExited) { throw 'START.bat exited before installing dependencies' }
               Start-Sleep -Seconds 1
             }
-            if (-not (Test-Path $marker)) { throw 'START.bat did not install dependencies in time' }
+            if (-not (Test-Path $marker)) {
+              if (Test-Path $ignitionLog) { Write-Host '--- ignition.log ---'; Get-Content $ignitionLog | Write-Host }
+              throw 'START.bat did not install dependencies in time'
+            }
           } finally {
             taskkill.exe /PID $starter.Id /T /F 2>$null | Out-Null
           }
