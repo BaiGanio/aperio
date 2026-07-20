@@ -1,7 +1,7 @@
 // tests/lib/helpers/promptCacheLog.test.js
 //
-// Prompt-cache hygiene WS3 (trash/plans/prompt-cache-hygiene), test group C1:
-// parseServerLog() against fixture lines lifted from real var/llamacpp/*.log
+// Prompt-cache hygiene: parseServerLog() against fixture lines lifted from
+// real var/llamacpp/*.log
 // output (llamacpp.md's LCP-similarity slot reuse logging).
 
 import { describe, test } from "node:test";

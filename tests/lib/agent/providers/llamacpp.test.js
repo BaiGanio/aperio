@@ -436,10 +436,10 @@ describe("runLlamaCppLoop — successful response", () => {
     assert.match(bodies[1].messages[0].content, /do not call `wiki_write` again/i);
   });
 
-  // Regression for the 24 GB tier-exam failure (#282), updated for the
-  // prompt-cache-tail-relocation WS-C redesign: matched skills now inflate
-  // the request's newest message (tailAppend), not the system prompt; schema
-  // capping alone could not close the gap and the request was sent anyway,
+  // Regression for the 24 GB tier-exam failure (#282): matched skills
+  // inflate the request's newest message (tailAppend), not the system
+  // prompt; schema capping alone could not close the gap and the request was
+  // sent anyway,
   // so llama.cpp answered 400 exceed_context_size_error. The preflight must
   // fall back to the skill-free messages variant instead of sending a
   // request it knows is doomed.

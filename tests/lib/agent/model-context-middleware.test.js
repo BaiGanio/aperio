@@ -80,7 +80,8 @@ test("composes trimming, memory pointers, skills, and tool profiles in named ord
   assert.equal(prepared.request.userText, "current request");
   assert.deepEqual(prepared.request.promptParts, ["BASE", "MEMORY POINTER"]);
   // Skill prompts attach to tailAppend (the request's newest content), not
-  // the cached system-prompt parts — see prompt-cache-tail-relocation WS-C.
+  // the cached system-prompt parts, so per-turn skill injection never busts
+  // the byte-stable prefix llama.cpp's KV cache relies on.
   assert.deepEqual(prepared.request.tailAppend, ["SKILL PROMPT"]);
   assert.deepEqual(selected.request.tools, tools);
   assert.deepEqual(calls, [
