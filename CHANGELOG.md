@@ -99,6 +99,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Standalone CLI chat messages that carry a queued `attach`ment placed the
+  attachment's `[Image: ...]` label block before the user's own typed text.
+  Every downstream intent classifier (tool-profile selection, skill matching,
+  standalone-vision detection) reads "the first text block" as the user's
+  request, so a task-shaped prompt like "Describe this bill. Report the
+  provider, date, and total." was silently replaced by the label text —
+  losing the standalone-vision classification that would otherwise withhold
+  all tools for an already-inlined image, and leaving a native-vision local
+  model to hallucinate malformed calls to `preprocess_image`/`read_image`.
+  `buildAttachedUserContent` (`lib/terminal/commands.js`) now puts the user's
+  text first, matching the WebSocket handler's existing ordering.
+
 - Shutdown signals received during late application boot now wait for boot to
   install the full teardown path, ensuring scheduler, watchers, llama.cpp,
   embeddings, store, and HTTP resources are all released. (#301)
