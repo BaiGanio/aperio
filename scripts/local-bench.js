@@ -11,11 +11,26 @@
 // All benchmarking logic lives in lib/helpers/localBench.js (pure, unit
 // tested with a mocked fetch); this script only does I/O.
 
-import { ensureLlamaCpp } from "../lib/helpers/startLlamaCpp.js";
-import { resolveProvider, resolvePerfProfile } from "../lib/providers/index.js";
-import { runBenchmark, formatReport } from "../lib/helpers/localBench.js";
+import { existsSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
+import dotenv from "dotenv";
+
+// A standalone script, not the server.js entrypoint — .env isn't loaded by
+// anything else in the process. Modules like startLlamaCpp.js read env vars
+// (LLAMACPP_PORT, etc.) at module-load time, so dotenv must run before they're
+// imported — a *static* import here would be hoisted ahead of this call
+// regardless of source order, so the local helpers are loaded dynamically
+// after config() instead.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envPath = resolve(__dirname, "..", ".env");
+if (existsSync(envPath)) dotenv.config({ path: envPath });
 
 async function main() {
+  const { ensureLlamaCpp } = await import("../lib/helpers/startLlamaCpp.js");
+  const { resolveProvider, resolvePerfProfile } = await import("../lib/providers/index.js");
+  const { runBenchmark, formatReport } = await import("../lib/helpers/localBench.js");
+
   console.log("Starting/confirming the local llama.cpp engine…");
   await ensureLlamaCpp();
 
@@ -30,7 +45,10 @@ async function main() {
 
   console.log(`Benchmarking ${provider.model} (profile=${profile})…\n`);
   const result = await runBenchmark({
-    baseURL: provider.baseURL,
+    // runBenchmark appends /v1/chat/completions itself — provider.baseURL
+    // already carries the /v1 suffix agent providers expect (an SDK client
+    // base), which doubled up into a 404. llamacppBaseURL is the bare origin.
+    baseURL: provider.llamacppBaseURL,
     model: requestModel,
     profile,
     servedCtx,

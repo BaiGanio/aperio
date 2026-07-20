@@ -31,6 +31,16 @@ const SKILL_FIXTURES = {
     noMatchPhrases:  [],
     requiredContent: [],
   },
+  "pdf": {
+    matchPhrases: [
+      "create a PDF document",
+      "extract text from this scanned PDF",
+    ],
+    noMatchPhrases: [
+      "Write a short HTML file that displays Hello Honesty Check in large blue text. Save it and tell me the exact full path.",
+    ],
+    requiredContent: [],
+  },
   "coding-standards": {
     // Name match: "coding" + "standards" both present
     matchPhrases:    [
