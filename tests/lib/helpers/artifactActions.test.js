@@ -1,6 +1,6 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, realpathSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, realpathSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -51,6 +51,38 @@ describe("resolveScratchArtifactUrl", () => {
     const { root } = fixture();
     assert.throws(() => resolveScratchArtifactUrl("/scratch/session-1/missing.html", root), /not found/i);
     assert.throws(() => resolveScratchArtifactUrl("/scratch/session-1", root), /invalid|file/i);
+  });
+
+  test("rejects a symlink inside scratch that escapes the workspace", () => {
+    const { root } = fixture();
+    const secret = join(root, "secret.txt");
+    writeFileSync(secret, "top secret");
+    symlinkSync(secret, join(root, "var", "scratch", "session-1", "escape.html"));
+
+    assert.throws(
+      () => resolveScratchArtifactUrl("/scratch/session-1/escape.html", root),
+      /outside/i,
+    );
+  });
+
+  test("rejects a sibling directory that shares the scratch root's prefix", () => {
+    const { root } = fixture();
+    const sibling = join(root, "var", "scratch-evil", "session-1");
+    mkdirSync(sibling, { recursive: true });
+    writeFileSync(join(sibling, "hello world.html"), "<!doctype html>");
+
+    assert.throws(
+      () => resolveScratchArtifactUrl("/scratch/../scratch-evil/session-1/hello%20world.html", root),
+      /invalid|outside/i,
+    );
+  });
+
+  test("reports a missing scratch root as not found rather than throwing raw", () => {
+    const root = mkdtempSync(join(tmpdir(), "aperio-artifact-actions-empty-"));
+    assert.throws(
+      () => resolveScratchArtifactUrl("/scratch/session-1/hello.html", root),
+      /not found/i,
+    );
   });
 });
 

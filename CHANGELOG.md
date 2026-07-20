@@ -115,6 +115,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
   install the full teardown path, ensuring scheduler, watchers, llama.cpp,
   embeddings, store, and HTTP resources are all released. (#301)
 
+- Artifact path safety now reuses the app-wide gate instead of a private copy.
+  `lib/helpers/artifactActions.js` hand-rolled its own realpath/containment
+  checks against raw `node:fs`, so any future hardening of traversal or symlink
+  handling in `lib/routes/paths.js` — the module `AGENTS.md` designates as the
+  single gate for every file operation — would not have reached scratch-artifact
+  reveal. `realpathSafe` and `isUnder` are now exported from `lib/routes/paths.js`
+  and consumed there. Both containment checks in that module also join on the
+  platform separator (`path.sep`) rather than a hardcoded `/`, which on Windows
+  had collapsed `isReadPathAllowed`/`isWritePathAllowed` to exact-path equality
+  and rejected every legitimate subpath of an allowed folder. (#301)
+
 - Direct skill-name matching no longer loses naturally inflected mentions.
   `hasPositiveSkillName` (`lib/workers/skills.js`) compared raw message tokens
   against the skill name, so "extract the text from these PDFs" or "run a couple
