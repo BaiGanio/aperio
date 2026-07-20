@@ -152,7 +152,21 @@ describe("capToolsForWindow", () => {
   const bigWin = SMALL_WINDOW_TOKENS + 1;
   const smallWin = 8191;
 
-  test("leaves a large window untouched", () => {
+  test("applies schema-token budget to a large window (no tool-count cap)", () => {
+    // A large window no longer passes through uncapped. With a 20% schema-token
+    // ratio, a very large set of tools should be reduced while the recall floor
+    // and intent tools survive.
+    const core = [...TOOL_PROFILES.memory, ...TOOL_PROFILES.self, ...TOOL_PROFILES.data];
+    const names = new Set([...core, "fetch_github_issue", "web_search", "read_file", "write_file", "grep_files"]);
+    const capped = capToolsForWindow(names, bigWin);
+    // The large window must still be capped by the schema-token budget when
+    // the set is too large to fit within the 20% ratio.
+    assert.ok(capped.size >= 2, "recall floor + intent tools survive");
+    assert.ok(capped.has("recall"), "recall floor survives on large windows");
+    assert.ok(capped.has("fetch_github_issue"), "intent tools survive on large windows");
+  });
+
+  test("leaves a large small-like window untouched when schema budget is sufficient", () => {
     const names = new Set(["recall", "remember", "fetch_github_issue", "fetch_url", "read_file", "scan_project", "code_search", "doc_search", "db_query", "web_search", "export_data", "import_data"]);
     assert.equal(capToolsForWindow(names, bigWin), names, "returns the same set unchanged");
   });
@@ -240,6 +254,80 @@ describe("tool-profiles — wiki authoring", () => {
       "Propose a wiki article about Nimbus for my review",
     ]) {
       assert.ok(filterToolsForIntent(toolsFor(text), text).has("propose_wiki"));
+    }
+  });
+});
+
+// ─── CSV vs XLSX classification — issue #300 ──────────────────────────────────
+// Plain CSV requests must not activate the heavy file-generate profile or
+// offer generate_xlsx. They should use file-edit (write_file) instead.
+// CSV + Excel intent should still offer generate_xlsx.
+describe("tool-profiles — CSV classification (issue #300)", () => {
+  test("plain CSV creation does NOT surface generate_xlsx but DOES surface write_file", () => {
+    const profiles = classifyProfiles("create a csv file with the data");
+    assert.ok(!profiles.has("file-generate"), "plain CSV must not activate file-generate");
+    assert.ok(profiles.has("file-edit"), "plain CSV should activate file-edit for write_file");
+  });
+
+  test("plain CSV write without Excel terms does NOT surface generate_xlsx", () => {
+    const profiles = classifyProfiles("write this data as a csv");
+    assert.ok(!profiles.has("file-generate"));
+    assert.ok(profiles.has("file-edit"));
+  });
+
+  test("plain CSV analysis does NOT surface generate_xlsx", () => {
+    const profiles = classifyProfiles("analyze this csv data and summarize it");
+    assert.ok(!profiles.has("file-generate"), "analysis alone must not load file-generate");
+  });
+
+  test("CSV + Excel intent DOES surface generate_xlsx", () => {
+    for (const prompt of [
+      "convert this csv to an xlsx file",
+      "import this csv into an excel spreadsheet",
+      "open this csv in excel and format it",
+    ]) {
+      const profiles = classifyProfiles(prompt);
+      assert.ok(profiles.has("file-generate"), `file-generate must activate for: ${prompt}`);
+    }
+  });
+
+  test("CSV + spreadsheet pairing surfaces generate_xlsx", () => {
+    const profiles = classifyProfiles("turn this csv into a formatted spreadsheet with formulas");
+    assert.ok(profiles.has("file-generate"));
+  });
+
+  test("reading a csv for inspection does NOT surface generate_xlsx", () => {
+    const profiles = classifyProfiles("read this csv file and show me the first 10 rows");
+    assert.ok(!profiles.has("file-generate"));
+    assert.ok(profiles.has("file-read"));
+  });
+
+  test("\"generate a CSV\" routes to file-edit instead of file-generate", () => {
+    const profiles = classifyProfiles("generate a CSV file with the data");
+    assert.ok(!profiles.has("file-generate"), "\"generate a CSV\" must not activate file-generate");
+    assert.ok(profiles.has("file-edit"), "\"generate a CSV\" must activate file-edit for write_file");
+  });
+
+  test("export as CSV surfaces file-edit for write_file", () => {
+    const profiles = classifyProfiles("export this data as CSV");
+    assert.ok(!profiles.has("file-generate"), "plain CSV export must not activate file-generate");
+    assert.ok(profiles.has("file-edit"), "CSV export must activate file-edit for write_file");
+  });
+
+  test("\"generate a chart\" still surfaces file-generate", () => {
+    const profiles = classifyProfiles("generate a chart from this data");
+    assert.ok(profiles.has("file-generate"), "\"generate a chart\" must still activate file-generate");
+  });
+
+  test("CSV to non-Excel conversion surfaces file-edit for read+write", () => {
+    for (const prompt of [
+      "convert this CSV to a JSON file",
+      "convert this tsv to a markdown file",
+      "convert this csv into yaml",
+    ]) {
+      const profiles = classifyProfiles(prompt);
+      assert.ok(!profiles.has("file-generate"), `CSV→non-Excel must not activate file-generate: ${prompt}`);
+      assert.ok(profiles.has("file-edit"), `CSV→non-Excel must activate file-edit: ${prompt}`);
     }
   });
 });

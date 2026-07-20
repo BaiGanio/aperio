@@ -273,6 +273,20 @@ export const getEphemeralPort = ({ createServer = net.createServer } = {}) => ne
   });
 });
 
+// The scratch priming server (below) runs during the wizard phase, before the
+// long-lived app has booted and registered its own SIGINT/SIGTERM handling —
+// so a killed/crashed parent orphans it (reparented to init, holding the
+// scratch port and CPU). Tracking the live child here lets server.js's
+// early, pre-boot signal handler reach in and kill it.
+let activePrimeProc = null;
+let primingCancelled = false;
+export function killActivePriming(signal = 'SIGTERM') {
+  if (!activePrimeProc) return;
+  primingCancelled = true;
+  try { activePrimeProc.kill(signal); } catch { /* already gone */ }
+  activePrimeProc = null;
+}
+
 const primeLlamaCppModelOnPort = (repoWithQuant, scratchPort) => new Promise((resolvePrime, rejectPrime) => {
   mkdirSync(LLAMA_CACHE_DIR, { recursive: true });
 
@@ -285,6 +299,7 @@ const primeLlamaCppModelOnPort = (repoWithQuant, scratchPort) => new Promise((re
     stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, LLAMA_CACHE: resolve(LLAMA_CACHE_DIR) },
   });
+  activePrimeProc = proc;
 
   let settled = false;
   let poll;
@@ -313,6 +328,7 @@ const primeLlamaCppModelOnPort = (repoWithQuant, scratchPort) => new Promise((re
     settled = true;
     clearInterval(poll);
     try { proc.kill('SIGTERM'); } catch { /* already gone */ }
+    if (activePrimeProc === proc) activePrimeProc = null;
     fn(arg);
   };
 
@@ -340,12 +356,14 @@ export async function primeLlamaCppModel(repoWithQuant, {
   let attemptedPort = null;
   let lastError;
   for (let attempt = 0; attempt < 2; attempt++) {
+    if (primingCancelled) throw new Error('Priming cancelled');
     try {
       attemptedPort = await pickPort();
       await primeOnPort(repoWithQuant, attemptedPort);
       return;
     } catch (err) {
       lastError = err;
+      if (primingCancelled) break;
     }
   }
   throw new Error(

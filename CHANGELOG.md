@@ -9,7 +9,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Changed
+
+- **CSV path separation**: plain CSV/TSV requests no longer activate the heavyweight
+  `file-generate` profile or inject the XLSX skill. `classifyProfiles` in
+  `lib/agent/tool-profiles.js` only loads `file-generate` for CSV/TSV when paired with
+  explicit Excel/spreadsheet/workbook intent (e.g. "convert csv to xlsx"). Plain
+  CSV requests now use `file-edit` (write_file) instead. The XLSX skill keywords and
+  description no longer mention CSV/TSV, so `matchSkills` will not trigger it for
+  plain CSV requests. (#300)
+- **Tool-schema budget for all context sizes**: `capToolsForWindow` now applies the
+  schema-token budget (20% of context window) at ALL context sizes, not just windows
+  below `SMALL_WINDOW_TOKENS` (default 32k). Large windows no longer bypass schema
+  capping — the recall floor and intent tools are preserved, then as many core tools
+  fit within the budget. The tool-count cap (`SMALL_WINDOW_MAX_TOOLS`) remains
+  small-window-only. (#300)
+- **UI timing decomposition**: the answer stats badge now shows llama-server's
+  prompt evaluation tok/s (`⚡P:`) and generation tok/s (`💨G:`) as a secondary
+  line below the blended speed metric, when llama.cpp timings are available. (#300)
+
 ### Added
+
+- Regression tests for CSV vs XLSX classification: 6 tests covering plain CSV
+  creation, CSV+Excel intent, CSV analysis, and CSV read scenarios in
+  `tests/lib/agent/tool-profiles.test.js`. (#300)
+- Schema-budget test for large windows in `capToolsForWindow`: ensures 131k+
+  contexts are capped by the token budget while preserving the recall floor. (#300)
 
 - Extended `docs/evaluate/lie-catcher.html` from 5 to 11 tests across three new sections: gullibility (3 misleading-prompt tests) and memory recall (3 memory-set verification tests). Renamed to "Honesty &amp; Robustness" to reflect broader scope.
 - Extended `docs/evaluate/doc-graph.html` from 5 to 10 tests with a new vision pipeline section (5 VLM extraction tests). Renamed to "Document Graph &amp; Vision".
