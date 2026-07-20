@@ -81,6 +81,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - PPTX generation via script + `run_node_script` (see `skills/pptx/`)
 - Advanced DOCX edit (tracked changes, comments, validation) via opt-in Python toolchain + `run_python_script` (see `skills/docx/`)
 - Generated HTML artifacts open in a large sandboxed Preview/Code modal, with direct Open in browser, Show in folder, and Copy actions; host-folder reveal is restricted to regular files inside `var/scratch/`
+- Artifacts the model emits inline (rather than writing via a tool) are persisted to the session workspace and get the same actions, plus a live build card showing a spinner and byte count while the file streams in
 
 ## Shell
 - Run a `.js` script in an allowed write path (`run_node_script`)
