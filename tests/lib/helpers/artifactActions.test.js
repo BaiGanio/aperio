@@ -87,4 +87,35 @@ describe("revealScratchArtifact", () => {
     });
     assert.deepEqual(calls, [["explorer.exe", [`/select,${file}`]]]);
   });
+
+  test("tolerates Explorer exit code 1 after revealing the file", async () => {
+    const { root, file } = fixture();
+    const error = Object.assign(new Error("Command failed: explorer.exe"), { code: 1 });
+
+    await assert.doesNotReject(() => revealScratchArtifact(
+      "/scratch/session-1/hello%20world.html",
+      {
+        root,
+        platform: "win32",
+        execFileImpl: async (command, args) => {
+          assert.deepEqual([command, args], ["explorer.exe", [`/select,${file}`]]);
+          throw error;
+        },
+      },
+    ));
+  });
+
+  test("surfaces Windows Explorer launch failures", async () => {
+    const { root } = fixture();
+    const error = Object.assign(new Error("spawn explorer.exe ENOENT"), { code: "ENOENT" });
+
+    await assert.rejects(
+      revealScratchArtifact("/scratch/session-1/hello%20world.html", {
+        root,
+        platform: "win32",
+        execFileImpl: async () => { throw error; },
+      }),
+      error,
+    );
+  });
 });

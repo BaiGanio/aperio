@@ -99,6 +99,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Windows artifact reveals no longer report a failure when `explorer.exe`
+  successfully delegates to an existing Explorer process but exits with code 1;
+  genuine launch errors such as `ENOENT` are still surfaced. (#301)
 - Skill-name negation matching now checks the actual multi-token match span,
   preventing an earlier compound word from making a later negated skill name
   appear positive. Common negative contractions such as `don't`, `doesn't`,
