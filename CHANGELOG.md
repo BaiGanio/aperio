@@ -99,6 +99,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `edit_file` confirmations no longer fail with "Target changed since confirmation
+  was requested" when two edits to the same file are proposed in the same turn
+  and confirmed back to back (#299). Each proposal used to snapshot a whole-file
+  digest and a pre-computed replacement from the file's pre-turn content, so
+  confirming the second edit after the first had already written would either
+  bounce on a stale digest or silently discard the first edit's change.
+  `edit_file` now revalidates and applies `old_string`/`new_string` against the
+  file's live content at execution time instead, so sequential edits to the same
+  file chain correctly. `write_file`/`append_file`/`delete_file` keep the
+  whole-file digest check, since a full overwrite/delete has no narrower target
+  to revalidate against.
+
+### Changed
+
+- **Confirm-on-write gate narrowed to tainted turns only** (#299 follow-up):
+  `write_file` / `edit_file` / `append_file` now execute directly for any target
+  already inside `APERIO_ALLOWED_PATHS_TO_WRITE`, instead of only inside the
+  session's ephemeral `var/scratch/` workspace. A model editing many fields in
+  one allowed file no longer needs a confirmation click per field. Confirmation
+  is still required — for any path, scratch or not — when the current turn has
+  read untrusted content (`__tainted`, set by the prompt-injection tool-hook),
+  and `delete_file`/`db_execute`/GitHub mutations are unaffected and remain
+  always confirmed. Writes outside the configured allowlist were, and remain,
+  rejected outright — this only changes the auto-execute boundary *within* the
+  already-allowed area.
 - HTML artifact previews no longer open as an empty modal. The iframe and source
   pane had inherited a CSP utility class that kept both views hidden.
 - Windows one-liner installer (`assets/start.ps1`) no longer aborts silently

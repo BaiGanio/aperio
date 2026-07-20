@@ -511,9 +511,19 @@ describe("appendFileHandler", () => {
 describe("write confirm gate (WRITE-01)", () => {
   const ctx = {};
 
-  test("write outside scratch proposes and does not write until confirmed", async () => {
+  // #299 follow-up: a write to any allowed path (not just the ephemeral
+  // scratch dir) now executes directly in a clean turn — isWritePathAllowed()
+  // is already the hard gate; the confirm flow is reserved for tainted turns.
+  test("write to an allowed path outside scratch executes directly in a clean turn", async () => {
     const p = join(TMP, "gated", "real.js");
     const r = await writeFileHandler(ctx, { path: p, content: "x" });
+    assert.match(r.content[0].text, /✅ Created/);
+    assert.equal(vfsRead(p), "x");
+  });
+
+  test("a tainted write outside scratch still proposes and does not write until confirmed", async () => {
+    const p = join(TMP, "gated", "tainted-real.js");
+    const r = await writeFileHandler(ctx, { path: p, content: "x", __tainted: true });
     assert.match(r.content[0].text, /pending your confirmation/);
     assert.match(r.content[0].text, /Token:\s*wr_/);
     assert.ok(!vfsExists(p), "nothing written until confirmed");
@@ -562,9 +572,16 @@ describe("write confirm gate (WRITE-01)", () => {
     assert.match(r.content[0].text, /invalid or expired/);
   });
 
-  test("edit_file outside scratch proposes with a diff, then commits", async () => {
+  test("edit_file to an allowed path outside scratch executes directly in a clean turn", async () => {
     const p = tmpFile("edit-gated.js", "const a = 1;\n");
-    const r1 = await editFileHandler(ctx, { path: p, old_string: "const a = 1;", new_string: "const a = 2;" });
+    const r = await editFileHandler(ctx, { path: p, old_string: "const a = 1;", new_string: "const a = 2;" });
+    assert.match(r.content[0].text, /✅ Edited/);
+    assert.equal(vfsRead(p), "const a = 2;\n");
+  });
+
+  test("a tainted edit_file outside scratch proposes with a diff, then commits", async () => {
+    const p = tmpFile("edit-gated-tainted.js", "const a = 1;\n");
+    const r1 = await editFileHandler(ctx, { path: p, old_string: "const a = 1;", new_string: "const a = 2;", __tainted: true });
     assert.match(r1.content[0].text, /pending your confirmation/);
     assert.match(r1.content[0].text, /```diff/);
     assert.match(r1.content[0].text, /- const a = 1;/);
@@ -582,7 +599,7 @@ describe("write confirm gate (WRITE-01)", () => {
     const durableCtx = { store, sessionId: "session-files" };
     const p = join(TMP, "durable-write.js");
 
-    const proposed = await writeFileHandler(durableCtx, { path: p, content: "durable\n" });
+    const proposed = await writeFileHandler(durableCtx, { path: p, content: "durable\n", __tainted: true });
     const token = proposed.content[0].text.match(/Token:\s*(wr_[a-z0-9]+)/)[1];
     const row = await store.getAgentInterrupt(token);
 
@@ -615,13 +632,55 @@ describe("write confirm gate (WRITE-01)", () => {
       path: p,
       old_string: "const a = 1;",
       new_string: "const a = 2;",
+      __tainted: true,
     });
     const token = proposed.content[0].text.match(/Token:\s*(wr_[a-z0-9]+)/)[1];
     vfsSetupFile(p, "const a = 9;\n");
 
     const committed = await editFileHandler(durableCtx, { confirmation_token: token });
-    assert.match(committed.content[0].text, /Target changed since confirmation was requested/);
+    assert.match(committed.content[0].text, /old_string not found.*changed since this edit was proposed/);
     assert.equal(vfsRead(p), "const a = 9;\n");
+  });
+
+  // #299: two edit_file proposals against the same file, both derived from the
+  // same pre-turn content, must chain instead of the second clobbering the
+  // first's change with a stale full-text snapshot (or bouncing on a whole-file
+  // digest mismatch caused entirely by the first edit's own write).
+  test("two sequential edit_file confirmations to the same file both apply", async () => {
+    const store = makeInterruptStore();
+    const durableCtx = { store, sessionId: "session-files" };
+    const p = tmpFile("config.txt", "theme: light\nfont_size: 14\ndebug: false\n");
+
+    const proposed1 = await editFileHandler(durableCtx, {
+      path: p, old_string: "font_size: 14", new_string: "font_size: 18", __tainted: true,
+    });
+    const token1 = proposed1.content[0].text.match(/Token:\s*(wr_[a-z0-9]+)/)[1];
+
+    const proposed2 = await editFileHandler(durableCtx, {
+      path: p, old_string: "debug: false", new_string: "debug: true", __tainted: true,
+    });
+    const token2 = proposed2.content[0].text.match(/Token:\s*(wr_[a-z0-9]+)/)[1];
+
+    const committed1 = await editFileHandler(durableCtx, { confirmation_token: token1 });
+    assert.match(committed1.content[0].text, /✅ Edited/);
+
+    const committed2 = await editFileHandler(durableCtx, { confirmation_token: token2 });
+    assert.match(committed2.content[0].text, /✅ Edited/);
+
+    assert.equal(vfsRead(p), "theme: light\nfont_size: 18\ndebug: true\n");
+  });
+
+  // The motivating case for dropping the scratch-only auto-execute rule: a
+  // model editing many fields of one allowed-path file in a clean turn should
+  // not need a confirmation click per field.
+  test("many clean-turn edits to the same allowed-path file all execute with no confirmation", async () => {
+    const p = tmpFile("many-fields.txt", "a: 1\nb: 1\nc: 1\nd: 1\ne: 1\n");
+    for (const field of ["a", "b", "c", "d", "e"]) {
+      const r = await editFileHandler(ctx, { path: p, old_string: `${field}: 1`, new_string: `${field}: 2` });
+      assert.match(r.content[0].text, /✅ Edited/);
+      assert.doesNotMatch(r.content[0].text, /pending your confirmation/);
+    }
+    assert.equal(vfsRead(p), "a: 2\nb: 2\nc: 2\nd: 2\ne: 2\n");
   });
 
   test("delete_file persists and reuses durable pending descriptors", async () => {

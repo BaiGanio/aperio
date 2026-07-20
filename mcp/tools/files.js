@@ -74,12 +74,17 @@ function formatPathError(action, filePath) {
 }
 
 // ─── write/edit/append confirm-before-write (WRITE-01) ──────────────────────
-// Mirrors delete_file's two-phase commit. write_file / edit_file / append_file
-// run directly for frictionless skill output INTO the session scratch workspace,
-// but a write that touches a real location (outside /var/scratch/) OR that
-// happens in a turn which already read untrusted content (__tainted, set by the
-// agent's tool-hook per INJECT-01) is stashed under a token and surfaced to the
-// user for confirmation before it executes.
+// Mirrors delete_file's two-phase commit, but only for the untrusted-content
+// case. write_file / edit_file / append_file run directly for any target
+// already inside APERIO_ALLOWED_PATHS_TO_WRITE (isWritePathAllowed() is a hard
+// gate the caller has already checked by the time needsWriteConfirm() runs —
+// a write outside the allowlist is rejected outright, never offered a confirm
+// flow). The one case that still stashes the write under a token for the user
+// to confirm is a turn that already read untrusted content (__tainted, set by
+// the agent's tool-hook per INJECT-01) — e.g. a web page, GitHub issue, or file
+// that could have tried to steer the edit. Without this, a model editing 100
+// allowed fields in a clean turn would otherwise deadlock behind 100 clicks
+// (#299 follow-up).
 
 const WRITE_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minutes
 const FILE_INTERRUPT_SESSION_ID = "mcp-file-actions";
@@ -93,17 +98,17 @@ function readConfirmToken(args) {
   return args.confirmation_token ?? args.token ?? args.confirm ?? args.confirmationToken ?? null;
 }
 
-// A write needs confirmation when it lands outside the session scratch workspace
-// OR the turn is tainted by untrusted content. New/overwrite inside scratch in a
-// clean turn runs directly so skill output stays frictionless.
-function needsWriteConfirm(resolved, args) {
+// A write needs confirmation only when the turn is tainted by untrusted
+// content. The target path itself is already vetted by isWritePathAllowed()
+// before this is called, so no separate scratch-vs-real-location distinction
+// is needed here.
+function needsWriteConfirm(args) {
   // Benchmark runs are headless — no user exists to answer, so a stashed write
   // deadlocks the turn and invalidates the observation (#282). The bench
   // sandbox is already isolated by an allowlist scoped to its temp workspace,
   // so skipping the gate does not widen what the model can touch.
   if (process.env.APERIO_BENCHMARK_RUN === "1") return false;
-  const inScratch = resolved.includes("/var/scratch/");
-  return !inScratch || args.__tainted === true;
+  return args.__tainted === true;
 }
 
 function taintNote(args) {
@@ -230,9 +235,17 @@ async function revalidateFileInterrupt({ canonicalArguments }) {
   if (!isWritePathAllowed(args.path)) throw new Error(`Write not allowed: ${args.path}`);
   if (args.path && isSecretFile(args.path)) throw new Error(`Secret/credential files cannot be modified: ${basename(args.path)}`);
   if (args.ext && !ALLOWED_EXTENSIONS.has(args.ext)) throw new Error(`File type not allowed: ${args.ext}`);
-  const current = await currentTargetDigest(args.path);
-  if (current !== args.targetDigest) {
-    throw new Error(`Target changed since confirmation was requested: ${args.path}`);
+  // edit_file has no targetDigest — it revalidates by reapplying old_string/new_string
+  // against the file's live content at execution time (see performEdit), so two
+  // sequential edits proposed in the same turn can chain instead of clobbering
+  // each other (#299). write_file/append_file/delete_file still snapshot a
+  // whole-file digest at propose time, since a full overwrite/delete has no
+  // narrower target to revalidate against.
+  if (args.targetDigest !== undefined) {
+    const current = await currentTargetDigest(args.path);
+    if (current !== args.targetDigest) {
+      throw new Error(`Target changed since confirmation was requested: ${args.path}`);
+    }
   }
   return args;
 }
@@ -288,10 +301,21 @@ async function performAppend({ path: resolved, content }) {
   }
 }
 
-async function performEdit({ path: filePath, updated, replaced, linesBefore, linesAfter }) {
+async function performEdit({ path: filePath, old_string, new_string, replace_all }) {
   try {
+    const original = await fs.readFile(filePath, "utf8");
+    const occurrences = original.split(old_string).length - 1;
+    if (occurrences === 0)
+      return textOut(`❌ old_string not found in ${filePath} — the file changed since this edit was proposed. Re-read it and retry.`);
+    if (!replace_all && occurrences > 1)
+      return textOut(`❌ old_string matches ${occurrences} times in ${filePath} now — the file changed since this edit was proposed. Re-read it and retry with more context, or set replace_all: true.`);
+
+    const updated = replace_all
+      ? original.split(old_string).join(new_string)
+      : original.replace(old_string, new_string);
+    const replaced = replace_all ? occurrences : 1;
     await fs.writeFile(filePath, updated, "utf8");
-    return textOut(`✅ Edited ${filePath} (replaced ${replaced} occurrence${replaced > 1 ? "s" : ""}, ${linesBefore} → ${linesAfter} lines)`);
+    return textOut(`✅ Edited ${filePath} (replaced ${replaced} occurrence${replaced > 1 ? "s" : ""}, ${original.split("\n").length} → ${updated.split("\n").length} lines)`);
   } catch (err) {
     return textOut(`❌ edit_file failed: ${err.message}`);
   }
@@ -423,7 +447,7 @@ export async function writeFileHandler(ctx, args) {
     existingSize,
   };
 
-  if (!needsWriteConfirm(resolved, args)) return performWrite(canonicalArguments);
+  if (!needsWriteConfirm(args)) return performWrite(canonicalArguments);
 
   const sizeKb = (Buffer.byteLength(content, "utf8") / 1024).toFixed(1);
   return proposeWrite(ctx, {
@@ -456,7 +480,7 @@ export async function appendFileHandler(ctx, args) {
     targetDigest: await currentTargetDigest(resolved),
   };
 
-  if (!needsWriteConfirm(resolved, args)) return performAppend(canonicalArguments);
+  if (!needsWriteConfirm(args)) return performAppend(canonicalArguments);
 
   return proposeWrite(ctx, {
     kind:  "append_file",
@@ -626,21 +650,15 @@ export async function editFileHandler(ctx, args) {
   if (!replace_all && occurrences > 1)
     return { content: [{ type: "text", text: `❌ old_string matches ${occurrences} times. Provide more context to make it unique, or set replace_all: true.` }] };
 
-  const updated = replace_all
-    ? original.split(old_string).join(new_string)
-    : original.replace(old_string, new_string);
+  // No targetDigest snapshot here (unlike write/append/delete): performEdit
+  // reapplies old_string/new_string against the file's live content at
+  // execution time, so this doesn't bake a stale full-text replacement that
+  // would silently discard an earlier edit confirmed earlier in the same
+  // turn (#299).
   const replaced = replace_all ? occurrences : 1;
-  const canonicalArguments = {
-    path: filePath,
-    updated,
-    replaced,
-    linesBefore: original.split("\n").length,
-    linesAfter: updated.split("\n").length,
-    targetDigest: digestText(original),
-    ext,
-  };
+  const canonicalArguments = { path: filePath, old_string, new_string, replace_all, ext };
 
-  if (!needsWriteConfirm(filePath, args)) return performEdit(canonicalArguments);
+  if (!needsWriteConfirm(args)) return performEdit(canonicalArguments);
 
   return proposeWrite(ctx, {
     kind:  "edit_file",
