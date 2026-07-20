@@ -29,9 +29,21 @@ let _nextBubbleAgent = null;
 let _roundtableAgents = [];
 let _roundtablePhaseChip = null;
 const _pendingGeneratedFiles = [];
+// Workspace descriptors for deliverables the model emitted inline, sent by the
+// server once it has written them to /scratch. The client builds the build-card
+// from the message text, so without these it has no path to the real file and
+// can only offer preview/download from the in-memory string. Matched to cards by
+// index — server and client extract deliverables in the same order. Ordinarily
+// this arrives after stream_end, so the handler also patches finalized cards.
+let _answerArtifacts = [];
 // Live tool-activity cards, keyed by the backend `seq` so a tool_result can
 // find the card its tool_start created.
 const _toolCards = new Map();
+
+// The streaming cursor's three comet dots. Structure only — the travel, the
+// stagger and the trail fade all live in `.cursor i` (tool-and-thinking-
+// indicators.css), so nothing here has to run per frame.
+const CURSOR_DOTS = "<i></i><i></i><i></i>";
 
 // ── Persistent action feed ──────────────────────────────────────────────────
 // The live "thinking…/typing…" dots bubble (#thinking) is a single moving
@@ -383,6 +395,7 @@ function handleMessage(msg) {
 
   if (msg.type === "stream_start") {
     streamStartTime = Date.now();
+    _answerArtifacts = [];   // belongs to the turn that just ended, not this one
     isReasoningActive = false;
     isThinking = true;
     sendBtn.disabled = true;
@@ -662,6 +675,14 @@ function handleMessage(msg) {
     if (lastBubble) lastBubble.appendChild(_buildGeneratedFileCard(msg));
     else messagesEl.appendChild(_buildGeneratedFileCard(msg));
     scrollToBottom();
+    return;
+  }
+
+  if (msg.type === "answer_artifacts") {
+    // Normally arrives just after stream_end, so the cards are already finalized
+    // and need patching in place; if it beats stream_end, finalize picks it up.
+    _answerArtifacts = Array.isArray(msg.files) ? msg.files : [];
+    if (!streamingBubble) _applyAnswerArtifactsToLastBubble();
     return;
   }
 
@@ -1076,7 +1097,7 @@ function createStreamingBubble(agentMeta = null) {
 
   const bubble = document.createElement("div");
   bubble.className = "bubble streaming";
-  bubble.innerHTML = '<span class="cursor">▋</span>';
+  bubble.innerHTML = `<span class="cursor">${CURSOR_DOTS}</span>`;
 
   const col = document.createElement("div");
   col.style.cssText = "display:flex;flex-direction:column;flex:1;min-width:0;";
@@ -1144,30 +1165,43 @@ function updateStreamingBubble(ref, text) {
     const codeContent = firstNewline > 0 ? inProgress.slice(firstNewline + 1) : inProgress;
 
     // Render everything before the open fence (any completed deliverables there
-    // stripped to cards), then handle the in-progress block.
+    // stripped to cards), then handle the in-progress block. Nodes are reused
+    // frame to frame — see _streamShell on why rebuilding froze the cursor.
     const { text: cleanBefore, files } = _stripDeliverables(before);
-    ref.bubble.innerHTML = renderMarkdown(cleanBefore);
-    files.forEach(f => ref.bubble.appendChild(_buildDeliverableCard(f, true)));
+    const { textEl, cursor } = _streamShell(ref.bubble);
+    const markup = renderMarkdown(cleanBefore);
+    if (textEl.dataset.markup !== markup) {
+      textEl.innerHTML = markup;
+      textEl.dataset.markup = markup;
+    }
 
     if (_isDeliverable(lang, codeContent)) {
-      // A build deliverable streaming in shows a "Building …" placeholder, never
+      // A build deliverable streaming in shows a live "building…" card, never
       // raw source — the file is saved and surfaced as a card on completion.
-      ref.bubble.appendChild(_buildDeliverableCard({ name: _deliverableName(lang, codeContent), content: codeContent }, true));
+      files.push({ name: _deliverableName(lang, codeContent), content: codeContent });
+      _syncDeliverableCards(ref.bubble, files, true, cursor);
+      ref.bubble.querySelector(":scope > .streaming-code-block")?.remove();
     } else {
+      _syncDeliverableCards(ref.bubble, files, true, cursor);
       const escaped = codeContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       const safeLabel = escapeHtml(lang || "code");
       const safeLangForClass = (lang && /^[a-zA-Z0-9_+-]+$/.test(lang)) ? lang : "";
       const langClass = safeLangForClass ? ` class="language-${safeLangForClass}"` : "";
-      const holder = document.createElement("div");
-      holder.innerHTML =
-        `<div class="code-block">` +
+      let block = ref.bubble.querySelector(":scope > .streaming-code-block");
+      if (!block) {
+        block = document.createElement("div");
+        block.className = "code-block streaming-code-block";
+      }
+      // Unconditional — this both inserts a new block and re-seats an existing
+      // one after the cards, which belong to earlier text and must stay above it.
+      ref.bubble.insertBefore(block, cursor);
+      block.innerHTML =
         `<div class="code-toolbar"><span class="code-lang">${safeLabel}</span>` +
         `<span class="csp-style-23">${t("msg_streaming")}</span></div>` +
-        `<pre><code${langClass}>${escaped}</code></pre></div>`;
-      ref.bubble.appendChild(holder.firstChild);
+        `<pre><code${langClass}>${escaped}</code></pre>`;
     }
-    ref.bubble.insertAdjacentHTML("beforeend", '<span class="cursor">▋</span>');
   } else {
+    ref.bubble.querySelector(":scope > .streaming-code-block")?.remove();
     _renderWithDeliverables(ref.bubble, text, true);
     highlightAll();
   }
@@ -1258,43 +1292,169 @@ function _stripDeliverables(text) {
   return { text: out.replace(/\n{3,}/g, "\n\n").trim(), files };
 }
 
-// The placeholder shown in place of a deliverable: "Building…" while streaming,
-// or a card with Preview/Download (built from the captured content) once done.
-function _buildDeliverableCard(file, building) {
+function _formatBuildSize(content) {
+  const bytes = content ? content.length : 0;
+  return bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`;
+}
+
+// The placeholder shown in place of a deliverable: a live "building…" card while
+// streaming, or a card with actions (built from the captured content) once done.
+//
+// Rendered in place rather than rebuilt, because a build is the one case where
+// the rest of the bubble does NOT change: the source is stripped out, so for the
+// whole generation the only moving thing on screen is this card. Recreating it
+// each frame restarted its spinner and left the user staring at a dead UI,
+// unable to tell a working build from a hung one.
+function _renderDeliverableCard(card, file, building, artifact) {
+  card._deliverable = file;   // kept so a late answer_artifacts can rebuild actions
+  card.querySelector(".build-card-icon").innerHTML = building
+    ? '<span class="build-card-spinner" aria-hidden="true"></span>'
+    : "📄";
+  // Server and client derive the filename independently, so once the server has
+  // reported what it actually wrote, that name wins — otherwise the card labels a
+  // file that isn't the one "show in folder" reveals.
+  const displayName = artifact?.filename || file.name;
+  card.querySelector(".build-card-name").textContent = displayName;
+  // The growing byte count is the only evidence the model is still writing.
+  card.querySelector(".build-card-sub").textContent = building
+    ? `building… ${_formatBuildSize(file.content)}`
+    : `saved to your workspace · ${_formatBuildSize(file.content)}`;
+  // Toggled, never added/removed: recreating the bar would restart its sweep on
+  // every frame, the same freeze the card itself is rendered in place to avoid.
+  card.querySelector(".build-card-progress").hidden = !building;
+
+  const actions = card.querySelector(".build-card-actions");
+  const signature = building ? "building" : `done:${artifact?.url || ""}`;
+  if (actions.dataset.signature === signature) return;
+  actions.dataset.signature = signature;
+  actions.innerHTML = "";
+  if (building) return;
+
+  const url = artifact?.url || null;
+  const previewable = /\.html?$/i.test(displayName);
+  if (previewable) {
+    const pv = _makeCodeBtn("bi-eye", "preview");
+    pv.addEventListener("click", () => previewHtmlString(file.content, displayName, url));
+    actions.appendChild(pv);
+  }
+  // Open in browser / show in folder need a real file on disk, so they appear
+  // only once the server has confirmed where it wrote this artifact. For a
+  // previewable file they'd be duplicates — the preview modal carries both — so
+  // the card keeps them only when there's no modal to reach them through.
+  if (url && !previewable) {
+    const open = _makeCodeBtn("bi-box-arrow-up-right", "open");
+    open.title = "Open this file in a new browser tab";
+    open.addEventListener("click", () => window.open(url, "_blank", "noopener,noreferrer"));
+    actions.appendChild(open);
+
+    const folder = _makeCodeBtn("bi-folder2-open", "folder");
+    folder.title = "Show this file in Finder or Explorer";
+    folder.addEventListener("click", async () => {
+      folder.disabled = true;
+      try {
+        const res = await fetch("/api/artifact/reveal", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+      } catch (err) {
+        folder.title = `Could not show file: ${err.message}`;
+      } finally {
+        folder.disabled = false;
+      }
+    });
+    actions.appendChild(folder);
+  }
+
+  const dl = _makeCodeBtn("bi-download", "download");
+  dl.addEventListener("click", () => {
+    const blob = new Blob([file.content], { type: "text/plain;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = displayName;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  actions.appendChild(dl);
+}
+
+function _buildDeliverableCard(file, building, artifact) {
   const card = document.createElement("div");
   card.className = "build-card";
   card.innerHTML =
-    `<span class="build-card-icon">${building ? "⏳" : "📄"}</span>` +
-    `<span class="build-card-name">${escapeHtml(file.name)}</span>` +
-    `<span class="build-card-sub">${building ? "building, saving to your workspace…" : "saved to your workspace"}</span>`;
-  if (!building) {
-    const actions = document.createElement("span");
-    actions.className = "build-card-actions";
-    if (/\.html?$/i.test(file.name)) {
-      const pv = _makeCodeBtn("bi-eye", "preview");
-      pv.addEventListener("click", () => previewHtmlString(file.content, file.name));
-      actions.appendChild(pv);
-    }
-    const dl = _makeCodeBtn("bi-download", "download");
-    dl.addEventListener("click", () => {
-      const blob = new Blob([file.content], { type: "text/plain;charset=utf-8" });
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(blob);
-      a.download = file.name;
-      a.click();
-      URL.revokeObjectURL(a.href);
-    });
-    actions.appendChild(dl);
-    card.appendChild(actions);
-  }
+    '<span class="build-card-icon"></span>' +
+    '<span class="build-card-name"></span>' +
+    '<span class="build-card-sub"></span>' +
+    '<span class="build-card-actions"></span>' +
+    '<span class="build-card-progress" hidden></span>';
+  _renderDeliverableCard(card, file, building, artifact);
   return card;
+}
+
+// Reconcile the bubble's build cards with the deliverables found this frame,
+// reusing existing card nodes so their spinners keep spinning. Cards are inserted
+// before `tail` (the cursor) so it stays last.
+function _syncDeliverableCards(bubble, files, building, tail = null) {
+  const existing = [...bubble.querySelectorAll(":scope > .build-card")];
+  files.forEach((file, i) => {
+    const artifact = building ? null : _answerArtifacts[i];
+    if (existing[i]) _renderDeliverableCard(existing[i], file, building, artifact);
+    else bubble.insertBefore(_buildDeliverableCard(file, building, artifact), tail);
+  });
+  existing.slice(files.length).forEach(node => node.remove());
+}
+
+// Re-render the finished build cards of the last answer once the server reports
+// where it wrote each file, which unlocks open-in-browser / show-in-folder.
+function _applyAnswerArtifactsToLastBubble() {
+  const bubble = [...messagesEl.querySelectorAll(".message.ai .bubble")].at(-1);
+  if (!bubble) return;
+  [...bubble.querySelectorAll(":scope > .build-card")].forEach((card, i) => {
+    if (card._deliverable) _renderDeliverableCard(card, card._deliverable, false, _answerArtifacts[i]);
+  });
+}
+
+// Streaming re-renders the answer on every frame, but the cursor must SURVIVE
+// those re-renders: a fresh node restarts its CSS animation from 0%, so at token
+// speed it never completes a cycle and renders permanently frozen mid-travel —
+// the stuck cursor that made a long build look like a hang. So the markdown
+// lives in its own container and the cursor is created once and left alone.
+function _streamShell(bubble) {
+  let textEl = bubble.querySelector(":scope > .stream-text");
+  let cursor = bubble.querySelector(":scope > .cursor");
+  if (!textEl) {
+    bubble.innerHTML = "";
+    textEl = document.createElement("div");
+    textEl.className = "stream-text";
+    bubble.appendChild(textEl);
+    cursor = null;
+  }
+  if (!cursor) {
+    cursor = document.createElement("span");
+    cursor.className = "cursor";
+    cursor.innerHTML = CURSOR_DOTS;
+    bubble.appendChild(cursor);
+  }
+  return { textEl, cursor };
 }
 
 // Render answer text with deliverables stripped out and shown as cards instead.
 function _renderWithDeliverables(bubble, text, streaming) {
   const { text: clean, files } = _stripDeliverables(text);
-  bubble.innerHTML = renderMarkdown(clean) + (streaming ? '<span class="cursor">▋</span>' : "");
-  files.forEach(f => bubble.appendChild(_buildDeliverableCard(f, streaming)));
+  if (!streaming) {
+    bubble.innerHTML = renderMarkdown(clean);
+    _syncDeliverableCards(bubble, files, false);
+    return files.length;
+  }
+  const { textEl, cursor } = _streamShell(bubble);
+  const markup = renderMarkdown(clean);
+  if (textEl.dataset.markup !== markup) {
+    textEl.innerHTML = markup;
+    textEl.dataset.markup = markup;
+  }
+  _syncDeliverableCards(bubble, files, true, cursor);
   return files.length;
 }
 

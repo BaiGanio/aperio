@@ -1,0 +1,84 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+// streaming.js is a classic script built on browser globals, and the project has
+// no DOM test library, so these are source-level invariants. Each one encodes a
+// bug that actually shipped: a build card that froze mid-generation, and one that
+// could never offer open-in-browser / show-in-folder.
+const source = readFileSync(resolve("public/scripts/streaming.js"), "utf8");
+const css = readFileSync(resolve("public/styles/messages.css"), "utf8");
+const indicatorCss = readFileSync(resolve("public/styles/tool-and-thinking-indicators.css"), "utf8");
+
+test("the streaming cursor is a reused node, never re-created per frame", () => {
+  // A fresh cursor node every token restarts its CSS animation from 0%, so it
+  // never completes a cycle and renders permanently frozen mid-travel.
+  assert.doesNotMatch(source, /insertAdjacentHTML\([^)]*class="cursor"/);
+  assert.match(source, /function _streamShell\(/);
+  assert.match(source, /querySelector\(":scope > \.cursor"\)/);
+});
+
+test("the streaming cursor travels rather than blinking in place", () => {
+  // A blink reads as an idle caret: during a long build, where the source is
+  // stripped out and nothing else moves, it could not distinguish working from
+  // hung. Travel can't look stalled without being stalled.
+  assert.match(source, /const CURSOR_DOTS = "<i><\/i><i><\/i><i><\/i>"/);
+  // Both construction sites must use it, or one path renders an empty span.
+  assert.doesNotMatch(source, /class="cursor">▋/);
+  assert.doesNotMatch(source, /cursor\.textContent = "▋"/);
+  assert.match(indicatorCss, /@keyframes comet-travel/);
+  assert.match(indicatorCss, /\.cursor i \{/);
+  // Motion is the signal, so reduced-motion slows it — never stops it.
+  assert.match(indicatorCss, /prefers-reduced-motion[\s\S]*\.cursor i \{ animation-duration/);
+});
+
+test("streaming markdown does not clobber the whole bubble", () => {
+  // bubble.innerHTML = … during streaming would take the cursor and the build
+  // cards with it. The markdown gets its own container instead.
+  assert.match(source, /textEl\.className = "stream-text"/);
+  assert.match(source, /textEl\.innerHTML = markup/);
+});
+
+test("build cards are reconciled in place so their spinner keeps running", () => {
+  assert.match(source, /function _syncDeliverableCards\(/);
+  assert.match(source, /_renderDeliverableCard\(existing\[i\], file, building/);
+});
+
+test("a building card reports progress rather than a static placeholder", () => {
+  assert.match(source, /build-card-spinner/);
+  assert.match(source, /building… \$\{_formatBuildSize\(file\.content\)\}/);
+  assert.match(css, /\.build-card-spinner\b/);
+  assert.match(css, /animation: spin/);
+});
+
+test("the build progress bar is toggled, not rebuilt, and only shows while building", () => {
+  // The byte counter ticks too slowly to read as motion, so the sweep carries
+  // it. Re-creating the element per frame would restart the sweep and freeze it.
+  assert.match(source, /querySelector\("\.build-card-progress"\)\.hidden = !building/);
+  assert.match(source, /class="build-card-progress" hidden/);
+  assert.match(css, /@keyframes build-sweep/);
+  // The bar needs a full-width row of its own; without wrap it collapses inline.
+  assert.match(css, /\.build-card \{[^}]*flex-wrap: wrap/);
+});
+
+test("open-in-browser and show-in-folder appear only where the modal can't carry them", () => {
+  assert.match(source, /bi-box-arrow-up-right/);
+  assert.match(source, /bi-folder2-open/);
+  assert.match(source, /fetch\("\/api\/artifact\/reveal"/);
+  // Both need a real workspace URL — they have no file to point at when the
+  // deliverable exists only as an in-memory string. Previewable files get them
+  // from the preview modal instead, so repeating them on the card is noise.
+  assert.match(source, /if \(url && !previewable\) \{/);
+  assert.match(source, /const previewable = \/\\\.html\?\$\/i\.test\(displayName\)/);
+});
+
+test("the preview action forwards the artifact URL to the modal", () => {
+  assert.match(source, /previewHtmlString\(file\.content, displayName, url\)/);
+});
+
+test("answer_artifacts is handled and can patch already-finalized cards", () => {
+  assert.match(source, /msg\.type === "answer_artifacts"/);
+  assert.match(source, /function _applyAnswerArtifactsToLastBubble\(/);
+  assert.match(source, /_answerArtifacts = \[\];\s*\/\/ belongs to the turn/);
+});

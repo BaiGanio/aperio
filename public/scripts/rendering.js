@@ -511,10 +511,13 @@ async function openGeneratedFileModal(url, name) {
 }
 
 // Open an HTML string directly in the rendered preview modal (used for code
-// blocks the model dumped inline rather than writing to a file).
-function previewHtmlString(html, name) {
+// blocks the model dumped inline rather than writing to a file). When the server
+// has persisted that block to the workspace it passes the artifact URL too, which
+// is what unlocks "open in browser" / "show in folder" — those need a real file,
+// not the in-memory string.
+function previewHtmlString(html, name, artifactUrl = null) {
   ensureFileModal();
-  renderFileModal(name || "preview.html", html);
+  renderFileModal(name || "preview.html", html, { artifactUrl });
 }
 
 // ── Image lightbox ────────────────────────────────────────────
