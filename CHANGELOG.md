@@ -99,6 +99,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Skill-name negation matching now checks the actual multi-token match span,
+  preventing an earlier compound word from making a later negated skill name
+  appear positive. Common negative contractions such as `don't`, `doesn't`,
+  `can't`, and `won't` are normalized before matching. (#301)
+- Generated-file preview actions are hidden when the artifact fetch fails, so
+  stale Open in browser and Show in folder buttons cannot target an unavailable
+  file. (#301)
 - `edit_file` confirmations no longer fail with "Target changed since confirmation
   was requested" when two edits to the same file are proposed in the same turn
   and confirmed back to back (#299). Each proposal used to snapshot a whole-file
