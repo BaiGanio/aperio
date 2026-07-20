@@ -121,6 +121,64 @@ describe("skills.js", () => {
       assert.strictEqual(match?.name, "pdf");
     });
 
+    test("matches a directly mentioned skill name in its singular form", () => {
+      const match = matchSkill("Extract the text from this PDF", [
+        { name: "pdf", description: "PDF processing" },
+      ]);
+      assert.strictEqual(match?.name, "pdf");
+    });
+
+    test("matches a directly mentioned skill name in plural or inflected form", () => {
+      for (const [phrase, expected] of [
+        ["Extract the text from these PDFs", "pdf"],
+        ["Merge the two docxes into one", "docx"],
+        ["The builds keep failing on CI", "build"],
+        ["We are publishing the release notes", "publish"],
+      ]) {
+        const match = matchSkill(phrase, [
+          { name: "pdf",     description: "PDF processing" },
+          { name: "docx",    description: "Word document processing" },
+          { name: "build",   description: "Compile the project" },
+          { name: "publish", description: "Ship a release" },
+        ]);
+        assert.strictEqual(match?.name, expected, phrase);
+      }
+    });
+
+    test("matches a multi-token skill name mentioned in plural form", () => {
+      const match = matchSkill("Please run a couple of web searches", mockIndex);
+      assert.strictEqual(match?.name, "web-search");
+    });
+
+    test("does not activate a plural skill mention when it is negated", () => {
+      for (const phrase of [
+        "Create this in HTML, not PDFs",
+        "Please don't use PDFs, use HTML instead",
+        "Build it in HTML without PDFs",
+      ]) {
+        const match = matchSkill(phrase, [
+          { name: "pdf",  description: "PDF processing" },
+          { name: "html", description: "HTML frontend" },
+        ]);
+        assert.strictEqual(match?.name, "html", phrase);
+      }
+    });
+
+    test("does not borrow a plural compound token to bypass name negation", () => {
+      const match = matchSkill(
+        "canvas-designs, not design-randomizers, use theme-factory",
+        [{ name: "design-randomizer", description: "Create randomized layouts" }],
+      );
+      assert.strictEqual(match, null);
+    });
+
+    test("does not fold short skill names into unrelated words", () => {
+      const match = matchSkill("Check the cis boundary conditions", [
+        { name: "ci", description: "Continuous integration pipelines" },
+      ]);
+      assert.strictEqual(match, null);
+    });
+
     test("matches by keyword scoring in description", () => {
       // "internet" and "info" are > 3 chars and exist in description
       const match = matchSkill("I need some internet info", mockIndex, 2);
