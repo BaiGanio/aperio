@@ -140,9 +140,9 @@ describe("onConnection — immediate sends", () => {
 // ─── "init" message ────────────────────────────────────────────────────────────
 
 describe("message type: init", () => {
-  // Prompt-cache hygiene (trash/plans/prompt-cache-hygiene, WS2): the greeting
-  // is always a static, locale-aware line now — never a model call, for any
-  // session (default identity or persona/character alike). It is deliberately
+  // Prompt-cache hygiene: the greeting is always a static, locale-aware line
+  // now — never a model call, for any session (default identity or
+  // persona/character alike). It is deliberately
   // NOT seeded into session history, so there is no seedGreeting distinction
   // left to test — every real turn starts from a clean array.
   test("sends memories, renders the static greeting via stream_end, sends memories again — never runs the inference loop", async (t) => {

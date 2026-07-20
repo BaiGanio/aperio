@@ -1,8 +1,8 @@
 // scripts/prompt-cache-bench.js
 //
-// Prompt-cache hygiene WS3 (trash/plans/prompt-cache-hygiene): reads a
-// llama-server debug log — a session-scoped var/llamacpp/<id>.log, or the
-// shared var/llamacpp/server.log when no argument is given — and reports
+// Prompt-cache hygiene: reads a llama-server debug log — a session-scoped
+// var/llamacpp/<id>.log, or the shared var/llamacpp/server.log when no
+// argument is given — and reports
 // each request's slot-cache reuse (selection kind, sim_best, f_keep,
 // reprocessed tokens/ms). Pure parsing/formatting lives in
 // lib/helpers/promptCacheLog.js (fixture-tested); this script only does I/O.

@@ -1101,9 +1101,9 @@ describe("Agent Integration with Emitter", () => {
     assert.strictEqual(imageTools.length, 0, "a standalone inline image request must be offered no tools at all");
   });
 
-  // Prompt-cache hygiene (trash/plans/prompt-cache-hygiene, WS2): the greeting
-  // is always a static, locale-aware line — no model call, for any session
-  // type — and a separate background warm-up primes the KV cache instead.
+  // Prompt-cache hygiene: the greeting is always a static, locale-aware
+  // line — no model call, for any session type — and a separate background
+  // warm-up primes the KV cache instead.
   test("buildGreeting always returns a static greeting — never a model call, even for a persona/character agent", async (t) => {
     stubMcpTransport(t);
     t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "No memories found." }] }));
@@ -1243,15 +1243,14 @@ describe("Agent Integration with Emitter", () => {
     assert.match(laterTurn, /saved memories/, "pointer states memory is saved, without an exact count");
   });
 
-  // Prompt-cache hygiene (trash/plans/prompt-cache-hygiene, WS1): the memory
-  // pointer is deliberately frozen for the session once buildGreeting sets it,
-  // so remember/forget mid-session can't rewrite the system prompt and bust the
-  // llama-server KV cache. See test group A in the companion tests file.
+  // Prompt-cache hygiene: the memory pointer is deliberately frozen for the
+  // session once buildGreeting sets it, so remember/forget mid-session can't
+  // rewrite the system prompt and bust the llama-server KV cache.
   test("remember/forget mid-session does not rewrite the system prompt (WS1)", async (t) => {
     stubMcpTransport(t);
-    // Freeze Date so the (still-unaddressed) minute-granularity clock directive
-    // can't introduce an unrelated diff between the two getSystemPrompt() calls
-    // below and produce a false failure/false pass.
+    // Freeze Date defensively — no clock directive reads it anymore (removed
+    // entirely), but freezing keeps this test independent of any future
+    // date-sensitive addition to the system prompt.
     t.mock.timers.enable({ apis: ["Date"] });
 
     let saved = false;
