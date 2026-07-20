@@ -29,7 +29,12 @@ try {
   }
   $env:HOME=$TempHome; $env:USERPROFILE=$TempHome; $env:DB_BACKEND='sqlite'
   $env:SQLITE_PATH='.sqlite/vms.db'; $env:EMBEDDING_PROVIDER='transformers'; $env:APERIO_LITE='on'; $env:APERIO_CONFIG_PRECEDENCE='env'
+  # npm's routine stderr warnings become terminating errors under
+  # $ErrorActionPreference = 'Stop', which would abort before the file
+  # check below ever runs.
+  $ErrorActionPreference = 'Continue'
   npm run migrate:sqlite | Out-Null
+  $ErrorActionPreference = 'Stop'
   if (-not (Test-Path '.sqlite/vms.db')) { throw 'migration did not create .sqlite/vms.db' }
   Write-Host '+ SQLite migrations'
   $env:PORT=$Port; $env:HOST='127.0.0.1'

@@ -48,7 +48,12 @@ if ($major -ge $MinNodeVersion) {
 } else {
     Warn "Node.js $MinNodeVersion+ not found - installing (one time)..."
     if (Get-Command winget -ErrorAction SilentlyContinue) {
+        # Native commands' stderr output (even benign warnings) becomes a
+        # terminating error under $ErrorActionPreference = "Stop", which
+        # would abort here before the exit-code check below ever runs.
+        $ErrorActionPreference = "Continue"
         winget install -e --id OpenJS.NodeJS.LTS --accept-source-agreements --accept-package-agreements --silent *>> $Log
+        $ErrorActionPreference = "Stop"
         # Pick up the freshly installed node without opening a new shell.
         $env:Path = [Environment]::GetEnvironmentVariable('Path','Machine') + ';' + [Environment]::GetEnvironmentVariable('Path','User')
     } else {
@@ -69,7 +74,12 @@ if (Test-Path 'node_modules') {
     Ok "Dependencies present"
 } else {
     Info "Installing dependencies (one time - this can take a minute)..."
+    # npm writes routine deprecation warnings to stderr on every install;
+    # under $ErrorActionPreference = "Stop" those become terminating errors
+    # and would kill the script before $LASTEXITCODE is ever checked.
+    $ErrorActionPreference = "Continue"
     npm install --prefer-offline --no-audit --no-fund *>> $Log
+    $ErrorActionPreference = "Stop"
     if ($LASTEXITCODE -ne 0) { Die "Dependency install failed." }
     Ok "Dependencies installed"
 }
@@ -121,5 +131,9 @@ Write-Host "    If your browser doesn't open, go to  http://localhost:31337" -Fo
 Write-Host "    Technical logs: $ServerLog" -ForegroundColor DarkGray
 Write-Host ""
 
+# Same stderr-becomes-terminating-error trap as above: Node/npm routinely
+# write benign warnings to stderr, which must not abort the running server.
+$ErrorActionPreference = "Continue"
 node server.js *>> $ServerLog
+$ErrorActionPreference = "Stop"
 Write-Host "`n  Aperio has stopped. You can close this window now.`n" -ForegroundColor DarkGray
