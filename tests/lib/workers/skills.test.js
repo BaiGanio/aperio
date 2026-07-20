@@ -76,6 +76,21 @@ describe("skills.js", () => {
       assert.strictEqual(match.name, "web-search");
     });
 
+    test("does not activate a directly mentioned skill when it is negated", () => {
+      const match = matchSkill("Create this in HTML, not PDF", [
+        { name: "pdf", description: "PDF processing" },
+        { name: "html", description: "HTML frontend" },
+      ]);
+      assert.strictEqual(match.name, "html");
+    });
+
+    test("allows a positive mention after an earlier unrelated negation", () => {
+      const match = matchSkill("Not PDF; use PDF for the appendix", [
+        { name: "pdf", description: "PDF processing" },
+      ]);
+      assert.strictEqual(match.name, "pdf");
+    });
+
     test("matches by keyword scoring in description", () => {
       // "internet" and "info" are > 3 chars and exist in description
       const match = matchSkill("I need some internet info", mockIndex, 2);
@@ -149,6 +164,23 @@ describe("skills.js", () => {
       const prompt = "Create a new file called notes-for-me.md and write a short note inside it: Reminder — review the Lie Catcher results on Friday. Save it and confirm the file path.";
 
       assert.deepEqual(matchSkills(prompt, idx), []);
+    });
+
+    test("does not let a negated direct name consume the skill limit", () => {
+      const idx = [
+        { name: "canvas-design", description: "Create visual designs" },
+        { name: "design-randomizer", description: "Create a design brief" },
+        { name: "pdf", description: "Process PDF files" },
+        { name: "theme-factory", description: "Style HTML frontend interfaces" },
+      ];
+      const got = matchSkills(
+        "Build HTML with canvas-design, design-randomizer, and theme-factory; not PDF",
+        idx,
+        { limit: 3 },
+      );
+      assert.deepEqual(got.map(skill => skill.name), [
+        "canvas-design", "design-randomizer", "theme-factory",
+      ]);
     });
   });
 

@@ -2,7 +2,7 @@
 name: design-randomizer
 description: Generate a randomized design brief before any frontend or UI work to prevent aesthetic convergence. Use this skill whenever starting a new website, UI component, dashboard, landing page, or any visual design — especially when the user hasn't specified a visual style. It rolls a design brief (movement, palette, typography, layout, energy) that becomes the binding constraint for the whole build. Also use when the user says designs "always look the same", wants something "unique", "different", or "not like typical AI sites".
 metadata:
-  keywords: "random design, unique design, design brief, aesthetic, style, varied, different, not generic, fresh, original, design direction, frontend style, ui style"
+  keywords: "random design, unique design, design brief, aesthetic, style, varied, different, not generic, fresh, original, design direction, frontend style, ui style, html file, write html, create html, build html, web page, website"
   category: "design"
   load: "on-demand"
 ---

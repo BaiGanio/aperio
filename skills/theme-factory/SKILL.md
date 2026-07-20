@@ -3,7 +3,7 @@ name: theme-factory
 description: Toolkit for styling artifacts with a theme, and for creating distinctive, production-grade frontend interfaces. Use for: applying pre-set or custom themes to slides, docs, reports, HTML pages; building web components, pages, dashboards, React components, HTML/CSS layouts; or styling/beautifying any web UI with high design quality. ALWAYS use this skill before building any frontend or UI — it prevents the default "clean SaaS with purple gradient" trap that makes every AI-built site look identical.
 license: Complete terms in LICENSE.txt
 metadata:
-  keywords: "theme, style, design, frontend, web, html, css, react, component, landing page, dashboard, typography, color, palette, artifact, ui, interface, aesthetic, movement, bauhaus, brutalism, art deco"
+  keywords: "theme, style, design, frontend, web, html, css, react, component, landing page, dashboard, typography, color, palette, artifact, ui, interface, aesthetic, movement, bauhaus, brutalism, art deco, html file, write html, create html, build html, web page, website"
   category: "design"
   load: "on-demand"
 ---
