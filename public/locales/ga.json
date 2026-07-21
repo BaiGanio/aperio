@@ -180,6 +180,7 @@
   "skills_always_badge":      "i gcónaí-ar",
   "skills_more":              "tuilleadh…",
   "skills_load_error":        "Níorbh fhéidir an scil a lódáil.",
+  "images_dropped_notice":  "Ní féidir le {provider} íomhánna a fheiceáil — reáchtálfar an seal seo mar théacs amháin.",
   "skills_panel_nav_title": "Scileanna — féach, cuir in eagar, cruthaigh agus scoránaigh scileanna d'ghníomhaire",
   "skills_panel_label": "Scileanna",
   "skills_panel_search_ph": "Cuardaigh scileanna…",

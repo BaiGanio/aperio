@@ -180,6 +180,7 @@
   "skills_always_badge":      "vienmēr ieslēgts",
   "skills_more":              "vairāk…",
   "skills_load_error":        "Nevarēja ielādēt prasmi.",
+  "images_dropped_notice":  "{provider} neredz attēlus — šis gājiens notiks tikai ar tekstu.",
   "skills_panel_nav_title": "Prasmes — apskati, rediģē, izveido un pārslēdz sava aģenta prasmes",
   "skills_panel_label": "Prasmes",
   "skills_panel_search_ph": "Meklēt prasmes…",

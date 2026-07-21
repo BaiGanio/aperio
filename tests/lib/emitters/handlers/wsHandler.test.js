@@ -525,6 +525,139 @@ describe("message type: chat", () => {
     assert.deepEqual(resets, [[sessionId, "codex"]]);
     assert.equal(sentOf(ws, "context_summarized").at(-1).ok, true);
   });
+
+  // provider-ux-parity WS6/F1: codex and claude-code build their prompt from
+  // text only, so an attached image vanishes with no explanation unless the
+  // server tells the user up front.
+  describe("capability_notice — image drop (WS6/F1)", () => {
+    // 1×1 transparent PNG — small enough to embed, real enough for sharp
+    // (imageHandler's normalisation step) to decode without mocking it.
+    const TINY_PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
+    function imageAttachment(name = "photo.png") {
+      return { name, type: "image/png", data: TINY_PNG };
+    }
+
+    test("attaching an image while codex is active emits a notice before the loop runs", async (t) => {
+      const ws = makeWs(t);
+      const handler = makeWsHandler({
+        agent: makeAgent({
+          provider: { name: "codex", model: "gpt-5.4-mini", contextWindow: 200000 },
+          runAgentLoop: async () => "",
+        }),
+        store: { listAll: async () => [] },
+        varRoot: TEST_DIR,
+      });
+
+      handler(ws);
+      await ws.emit({ type: "chat", text: "what's in this photo?", attachments: [imageAttachment()] });
+
+      const notices = sentOf(ws, "capability_notice");
+      assert.equal(notices.length, 1);
+      assert.deepEqual(notices[0], { type: "capability_notice", kind: "images_dropped", provider: "codex" });
+      // Sent at/before send time — must precede "thinking", which itself
+      // precedes the agent loop call (asserted separately above).
+      const noticeIdx = ws.sent.findIndex(m => m.type === "capability_notice");
+      const thinkingIdx = ws.sent.findIndex(m => m.type === "thinking");
+      assert.ok(noticeIdx !== -1 && thinkingIdx !== -1 && noticeIdx < thinkingIdx);
+    });
+
+    test("attaching an image while claude-code is active emits a notice", async (t) => {
+      const ws = makeWs(t);
+      const handler = makeWsHandler({
+        agent: makeAgent({
+          provider: { name: "claude-code", model: "claude-opus-4-8", contextWindow: 200000 },
+          runAgentLoop: async () => "",
+        }),
+        store: { listAll: async () => [] },
+        varRoot: TEST_DIR,
+      });
+
+      handler(ws);
+      await ws.emit({ type: "chat", text: "describe this", attachments: [imageAttachment()] });
+
+      assert.deepEqual(sentOf(ws, "capability_notice"), [
+        { type: "capability_notice", kind: "images_dropped", provider: "claude-code" },
+      ]);
+    });
+
+    test("multiple images in one turn produce exactly one notice", async (t) => {
+      const ws = makeWs(t);
+      const handler = makeWsHandler({
+        agent: makeAgent({
+          provider: { name: "codex", model: "gpt-5.4-mini", contextWindow: 200000 },
+          runAgentLoop: async () => "",
+        }),
+        store: { listAll: async () => [] },
+        varRoot: TEST_DIR,
+      });
+
+      handler(ws);
+      await ws.emit({
+        type: "chat",
+        text: "compare these",
+        attachments: [imageAttachment("a.png"), imageAttachment("b.png")],
+      });
+
+      assert.equal(sentOf(ws, "capability_notice").length, 1);
+    });
+
+    test("no notice when the active provider supports images", async (t) => {
+      const ws = makeWs(t);
+      const handler = makeWsHandler({
+        agent: makeAgent({
+          provider: { name: "anthropic", model: "claude-haiku-4-5", contextWindow: 200000 },
+          runAgentLoop: async () => "",
+        }),
+        store: { listAll: async () => [] },
+        varRoot: TEST_DIR,
+      });
+
+      handler(ws);
+      await ws.emit({ type: "chat", text: "what's in this photo?", attachments: [imageAttachment()] });
+
+      assert.equal(sentOf(ws, "capability_notice").length, 0);
+    });
+
+    test("no notice on a text-only turn even when the provider drops images", async (t) => {
+      const ws = makeWs(t);
+      const handler = makeWsHandler({
+        agent: makeAgent({
+          provider: { name: "codex", model: "gpt-5.4-mini", contextWindow: 200000 },
+          runAgentLoop: async () => "",
+        }),
+        store: { listAll: async () => [] },
+        varRoot: TEST_DIR,
+      });
+
+      handler(ws);
+      await ws.emit({ type: "chat", text: "hello, no attachment here" });
+
+      assert.equal(sentOf(ws, "capability_notice").length, 0);
+    });
+
+    test("switching provider away from codex stops the notice on the next turn", async (t) => {
+      const ws = makeWs(t);
+      const agent = makeAgent({
+        provider: { name: "codex", model: "gpt-5.4-mini", contextWindow: 200000 },
+        runAgentLoop: async () => "",
+      });
+      const handler = makeWsHandler({ agent, store: { listAll: async () => [] }, varRoot: TEST_DIR });
+
+      handler(ws);
+      await ws.emit({ type: "chat", text: "first", attachments: [imageAttachment()] });
+      assert.equal(sentOf(ws, "capability_notice").length, 1);
+
+      // No switch_model message path exercised here — the predicate reads
+      // agent.provider fresh on every turn, so mutating it stands in for the
+      // effect switch_model has (updating agent.provider) without coupling
+      // this test to that message's unrelated bookkeeping.
+      agent.provider = { name: "anthropic", model: "claude-haiku-4-5", contextWindow: 200000 };
+      await ws.emit({ type: "chat", text: "second", attachments: [imageAttachment()] });
+
+      assert.equal(sentOf(ws, "capability_notice").length, 1, "still just the first turn's notice");
+    });
+  });
 });
 
 // ─── "stop" message ───────────────────────────────────────────────────────────

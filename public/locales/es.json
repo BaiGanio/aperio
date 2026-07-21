@@ -180,6 +180,7 @@
   "skills_always_badge":      "siempre activo",
   "skills_more":              "más…",
   "skills_load_error":        "No se pudo cargar la habilidad.",
+  "images_dropped_notice":  "{provider} no puede ver imágenes — este turno se ejecutará solo con texto.",
   "skills_panel_nav_title": "Habilidades — ver, editar, crear y activar las habilidades de tu agente",
   "skills_panel_label": "Habilidades",
   "skills_panel_search_ph": "Buscar habilidades…",

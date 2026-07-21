@@ -180,6 +180,7 @@
   "skills_always_badge":      "vždy zapnuté",
   "skills_more":              "viac…",
   "skills_load_error":        "Nepodarilo sa načítať zručnosť.",
+  "images_dropped_notice":  "{provider} nevidí obrázky — toto kolo prebehne iba s textom.",
   "skills_panel_nav_title": "Zručnosti — zobrazenie, úprava, vytváranie a prepínanie zručností tvojho agenta",
   "skills_panel_label": "Zručnosti",
   "skills_panel_search_ph": "Hľadať zručnosti…",

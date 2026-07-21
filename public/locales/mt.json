@@ -180,6 +180,7 @@
   "skills_always_badge":      "dejjem mixgħula",
   "skills_more":              "aktar...",
   "skills_load_error":        "Ma setgħetx tagħbija ħiliet.",
+  "images_dropped_notice":  "{provider} ma jarax ritratti — dan id-dawra se titmexxa bit-test biss.",
   "skills_panel_nav_title": "Ħiliet — ara, editja, oħloq u aqleb il-ħiliet tal-aġent tiegħek",
   "skills_panel_label": "Ħiliet",
   "skills_panel_search_ph": "Fittex il-ħiliet…",

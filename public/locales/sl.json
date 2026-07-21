@@ -180,6 +180,7 @@
   "skills_always_badge":      "vedno vklopljen",
   "skills_more":              "več…",
   "skills_load_error":        "Spretnosti ni bilo mogoče naložiti.",
+  "images_dropped_notice":  "{provider} ne vidi slik — ta krog bo potekal samo z besedilom.",
   "skills_panel_nav_title": "Spretnosti — oglej si, uredi, ustvari in preklopi spretnosti svojega agenta",
   "skills_panel_label": "Spretnosti",
   "skills_panel_search_ph": "Iskanje spretnosti…",

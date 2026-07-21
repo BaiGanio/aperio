@@ -180,6 +180,7 @@
   "skills_always_badge":      "mindig bekapcsolva",
   "skills_more":              "tovább…",
   "skills_load_error":        "Nem sikerült betölteni a készségeket.",
+  "images_dropped_notice":  "A(z) {provider} nem lát képeket — ez a kör csak szöveggel fut.",
   "skills_panel_nav_title": "Képességek — az ügynököd képességeinek megtekintése, szerkesztése, létrehozása és be-/kikapcsolása",
   "skills_panel_label": "Képességek",
   "skills_panel_search_ph": "Képességek keresése…",

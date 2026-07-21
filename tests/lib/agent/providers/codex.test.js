@@ -257,6 +257,33 @@ describe("runCodexLoop", () => {
     assert.deepEqual(tools, ["run_shell", "recall"]);
   });
 
+  // ─── WS6 / group F2 — skills-absence is documented, not silently broken ───
+  // provider-ux-parity chose the documentation route for F2: skills matching
+  // genuinely never runs for codex (confirmed here it never calls
+  // getSystemPrompt, so ensureTurn/logTurnOnce's skills_matched chip can
+  // never fire), and that gap is written up in FEATURES.md instead of wired
+  // in. This test is the guardrail against silently regressing to "neither
+  // wired in nor documented."
+  test("F2: never calls ctx.getSystemPrompt (skills matching does not run for codex)", async () => {
+    const getSystemPrompt = mock.fn(() => "should not be called");
+    await runCodexLoop(
+      [{ role: "user", content: "Hello" }],
+      { send: mock.fn() },
+      {},
+      null,
+      () => {},
+      baseCtx({
+        getSystemPrompt,
+        codexSpawn: mockChild({
+          capture: {},
+          stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+        }),
+      }),
+    );
+
+    assert.equal(getSystemPrompt.mock.calls.length, 0);
+  });
+
   // ─── WS3 / group C — tool_start/tool_result card synthesis ────────────────
 
   describe("tool card synthesis (group C)", () => {

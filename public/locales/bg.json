@@ -180,6 +180,7 @@
   "skills_always_badge":      "винаги включен",
   "skills_more":              "повече...",
   "skills_load_error":        "Умението не можа да се зареди.",
+  "images_dropped_notice":  "{provider} не вижда изображения — тази реплика ще протече само с текст.",
   "skills_panel_nav_title": "Умения — преглед, редактиране, създаване и превключване на уменията на твоя агент",
   "skills_panel_label": "Умения",
   "skills_panel_search_ph": "Търсене на умения…",

@@ -39,6 +39,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Honest capability signals for Codex/Claude Code** (provider-ux-parity WS6):
+  attaching an image while either provider is active now surfaces a visible
+  notice (`capability_notice`/`images_dropped`) at send time instead of the
+  image silently vanishing — both providers build their prompt from the last
+  user message's text only and never saw it. New `providerDropsImages`
+  predicate in `lib/providers/index.js`. Skills matching's absence on these
+  two providers (neither calls `getSystemPrompt`, so no `skills_matched` chip
+  ever appears for them) is now documented in `FEATURES.md` as a known gap
+  rather than an undocumented one — no behavior change there, this workstream
+  confirmed the silence was already consistent and just made it legible.
 - **Error and empty-turn parity for Anthropic/Gemini** (provider-ux-parity WS5):
   Anthropic no longer throws on a failed stream open or a mid-stream error —
   both now stream the same `⚠️` token bubble + `stream_end` every other

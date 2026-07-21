@@ -180,6 +180,7 @@
   "skills_always_badge":      "alati sisse lülitatud",
   "skills_more":              "rohkem…",
   "skills_load_error":        "Oskust ei saanud laadida.",
+  "images_dropped_notice":  "{provider} ei näe pilte — see käik toimub ainult tekstiga.",
   "skills_panel_nav_title": "Oskused — vaata, muuda, loo ja lülita oma agendi oskuseid",
   "skills_panel_label": "Oskused",
   "skills_panel_search_ph": "Otsi oskusi…",

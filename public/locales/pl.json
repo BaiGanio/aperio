@@ -180,6 +180,7 @@
   "skills_always_badge":      "zawsze włączony",
   "skills_more":              "więcej…",
   "skills_load_error":        "Nie udało się wczytać umiejętności.",
+  "images_dropped_notice":  "{provider} nie widzi obrazów — ta tura zostanie wykonana tylko z tekstem.",
   "skills_panel_nav_title": "Umiejętności — przeglądaj, edytuj, twórz i przełączaj umiejętności swojego agenta",
   "skills_panel_label": "Umiejętności",
   "skills_panel_search_ph": "Szukaj umiejętności…",

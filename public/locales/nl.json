@@ -180,6 +180,7 @@
   "skills_always_badge":      "altijd aan",
   "skills_more":              "meer…",
   "skills_load_error":        "Kan vaardigheid niet laden.",
+  "images_dropped_notice":  "{provider} kan geen afbeeldingen zien — deze beurt wordt alleen met tekst uitgevoerd.",
   "skills_panel_nav_title": "Vaardigheden — bekijk, bewerk, maak en schakel de vaardigheden van je agent",
   "skills_panel_label": "Vaardigheden",
   "skills_panel_search_ph": "Vaardigheden zoeken…",

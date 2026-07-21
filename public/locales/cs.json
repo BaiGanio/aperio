@@ -180,6 +180,7 @@
   "skills_always_badge":      "stále zapnutý",
   "skills_more":              "více…",
   "skills_load_error":        "Nepodařilo se načíst dovednost.",
+  "images_dropped_notice":  "{provider} nevidí obrázky — toto kolo proběhne pouze s textem.",
   "skills_panel_nav_title": "Dovednosti — zobrazení, úprava, vytváření a přepínání dovedností tvého agenta",
   "skills_panel_label": "Dovednosti",
   "skills_panel_search_ph": "Hledat dovednosti…",

@@ -180,6 +180,7 @@
   "skills_always_badge":      "aina päällä",
   "skills_more":              "lisää…",
   "skills_load_error":        "Taitoa ei voitu ladata.",
+  "images_dropped_notice":  "{provider} ei näe kuvia — tämä vuoro suoritetaan vain tekstillä.",
   "skills_panel_nav_title": "Taidot — katso, muokkaa, luo ja kytke agenttisi taitoja",
   "skills_panel_label": "Taidot",
   "skills_panel_search_ph": "Hae taitoja…",

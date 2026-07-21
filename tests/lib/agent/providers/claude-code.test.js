@@ -130,6 +130,32 @@ describe("runClaudeCodeLoop — success", () => {
     assert.ok(infoCalls.some(a => a[0].includes("session_id: sess-mock-1")),
       "should log session id");
   });
+
+  // ─── WS6 / group F2 — skills-absence is documented, not silently broken ──
+  // provider-ux-parity chose the documentation route for F2: skills matching
+  // genuinely never runs for claude-code (confirmed here it never calls
+  // getSystemPrompt, so ensureTurn/logTurnOnce's skills_matched chip can
+  // never fire), and that gap is written up in FEATURES.md instead of wired
+  // in. This test is the guardrail against silently regressing to "neither
+  // wired in nor documented."
+  test("F2: never calls ctx.getSystemPrompt (skills matching does not run for claude-code)", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const getSystemPrompt = mock.fn(() => "should not be called");
+    const ctx = baseCtx({ getSystemPrompt });
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    assert.equal(getSystemPrompt.mock.calls.length, 0);
+  });
+
+  test("F2: never emits skills_matched (no chip without the underlying match)", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+    assert.ok(!emitter.send.mock.calls.some(c => c.arguments[0].type === "skills_matched"));
+  });
 });
 
 // =============================================================================
