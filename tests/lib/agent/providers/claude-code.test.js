@@ -38,10 +38,13 @@ after(() => {
 // ─── Dynamic import of provider ───────────────────────────────────────────
 
 let runClaudeCodeLoop;
+let __setMockEvents;
 
 before(async () => {
   const mod = await import("../../../../lib/agent/providers/claude-code.js");
   runClaudeCodeLoop = mod.runClaudeCodeLoop;
+  const mockSdk = await import("./__mocks__/claude-agent-sdk.js");
+  __setMockEvents = mockSdk.__setMockEvents;
 });
 
 function reset() {
@@ -51,6 +54,10 @@ function reset() {
 }
 
 function baseCtx(overrides = {}) {
+  // Mirrors production's shared callToolHooked seq allocator (lib/agent/tool-
+  // hooks.js `nextToolSeq`) — a fresh counter per call, just like a fresh
+  // per-turn hook instance in the real agent loop.
+  let seq = 0;
   return {
     provider: { name: "claude-code", model: "claude-sonnet-4-20250514" },
     callTool: mock.fn(async () => "Tool result"),
@@ -60,6 +67,7 @@ function baseCtx(overrides = {}) {
       { name: "recall", description: "Search memories" },
     ],
     claudeCodeState: {},
+    nextToolSeq: () => ++seq,
     ...overrides,
   };
 }
@@ -169,5 +177,154 @@ describe("runClaudeCodeLoop — error handling", () => {
 
     await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
     assert.ok(emitter.send.mock.calls.some(c => c.arguments[0].type === "stream_start"));
+  });
+});
+
+// =============================================================================
+// runClaudeCodeLoop — WS3 / group C: built-in tool cards, no double-carding
+// =============================================================================
+describe("runClaudeCodeLoop — tool card synthesis (group C)", () => {
+  afterEach(() => { reset(); });
+
+  test("C1/C3: a built-in Bash tool_use/tool_result pair yields one resolving card with a tool-like name", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_1", name: "Bash", input: { command: "echo hi" } },
+      ] } },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_1", content: "hi\n" },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Run echo hi" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const starts = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_start");
+    const results = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_result");
+    assert.equal(starts.length, 1);
+    assert.equal(results.length, 1);
+    assert.equal(starts[0].name, "Bash");
+    assert.ok(starts[0].name.length <= 40 && !/\s/.test(starts[0].name));
+    assert.equal(starts[0].arg, "echo hi");
+    assert.equal(results[0].seq, starts[0].seq);
+    assert.equal(results[0].ok, true);
+    assert.equal(results[0].summary, "hi");
+  });
+
+  test("P1: built-in tool_start shares the per-turn seq allocator with hooked Aperio tools, no collision", async () => {
+    // Simulate an Aperio tool call earlier this turn already having consumed
+    // seq 1 via callToolHooked (the SDK bridge handler calls ctx.callTool,
+    // which in production IS callToolHooked and increments this same shared
+    // counter). An independent counter for built-ins would also start at 1
+    // here, colliding on the frontend's seq-keyed card map.
+    let seq = 0;
+    const nextToolSeq = () => ++seq;
+    nextToolSeq(); // seq 1 "already used" by a preceding hooked Aperio call
+
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_5", name: "Bash", input: { command: "echo hi" } },
+      ] } },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_5", content: "hi\n" },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Recall something, then run echo hi" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx({ nextToolSeq }));
+
+    const start = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_start");
+    const result = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_result");
+    assert.equal(start.seq, 2, "must continue the shared per-turn sequence, not restart at 1");
+    assert.equal(result.seq, 2);
+  });
+
+  test("C2: an aperio (mcp__aperio__) tool_use is not double-carded — only the hook's own card would fire", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_2", name: "mcp__aperio__recall", input: { query: "test" } },
+      ] } },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_2", content: "no memories" },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Recall something" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const starts = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_start");
+    const results = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_result");
+    // The SDK-event bridge must not synthesize a card for aperio tools — those
+    // already get one from callToolHooked when the bridged handler runs (which
+    // this mock stream doesn't exercise, so zero here proves no double-card
+    // path exists on the stream_event side).
+    assert.equal(starts.length, 0);
+    assert.equal(results.length, 0);
+  });
+
+  test("C1 edge: a failing built-in tool resolves ok:false from is_error, without a fabricated summary", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_3", name: "WebFetch", input: { url: "https://example.com" } },
+      ] } },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_3", content: "", is_error: true },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Fetch a page" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const result = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_result");
+    assert.equal(result.ok, false);
+    assert.equal("summary" in result, false);
+  });
+
+  test("C1 edge: an unmatched tool_result (no prior tool_use seen) doesn't throw or emit a card", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "user", message: { content: [
+        { type: "tool_result", tool_use_id: "toolu_orphan", content: "stray" },
+      ] } },
+      { type: "result", subtype: "success", result: "Done", usage: { input_tokens: 5, output_tokens: 3 } },
+    ]);
+
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    const result = await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    assert.equal(result, "Done");
+    assert.equal(emitter.send.mock.calls.some(c => c.arguments[0].type === "tool_result"), false);
+  });
+
+  test("a card left pending when the SDK throws mid-stream resolves as failed, not stuck running", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "assistant", message: { content: [
+        { type: "tool_use", id: "toolu_4", name: "Bash", input: { command: "sleep 100" } },
+      ] } },
+      { __throw: new Error("stream disconnected") },
+    ]);
+
+    const messages = [{ role: "user", content: "Run something slow" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const results = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_result");
+    assert.equal(results.length, 1);
+    assert.equal(results[0].seq, emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_start").seq);
+    assert.equal(results[0].ok, false);
   });
 });
