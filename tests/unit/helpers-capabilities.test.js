@@ -151,7 +151,7 @@ let cap;
 
 before(async () => {
   resetMocks();
-  cap = await import("../../../lib/helpers/capabilities.js");
+  cap = await import("../../lib/helpers/capabilities.js");
 });
 
 after(() => {

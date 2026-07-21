@@ -5,8 +5,8 @@
 
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { stashWizardConfig, flushWizardConfig } from "../../../lib/helpers/setupPending.js";
-import { configSettingKey } from "../../../lib/config-resolver.js";
+import { stashWizardConfig, flushWizardConfig } from "../../lib/helpers/setupPending.js";
+import { configSettingKey } from "../../lib/config-resolver.js";
 
 const fakeStore = () => {
   const settings = {};

@@ -6,7 +6,7 @@
 
 import { describe, test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { createRagStore } from "../../../lib/context/ragStore.js";
+import { createRagStore } from "../../lib/context/ragStore.js";
 
 // ─── Helper: deterministic embedding mock ───────────────────────────────────
 // Returns unit vectors so cosine similarity is predictable:

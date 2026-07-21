@@ -29,7 +29,7 @@ function makeCtx(poolQuery, overrides = {}) {
 let cg;
 
 before(async () => {
-  cg = await import("../../../../lib/handlers/codegraph/codegraphHandlers.js");
+  cg = await import("../../lib/handlers/codegraph/codegraphHandlers.js");
 });
 
 // =============================================================================

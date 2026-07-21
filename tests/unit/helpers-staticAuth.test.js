@@ -3,7 +3,7 @@
 
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { createStaticGuard, STATIC_COOKIE } from "../../../lib/helpers/staticAuth.js";
+import { createStaticGuard, STATIC_COOKIE } from "../../lib/helpers/staticAuth.js";
 
 afterEach(() => { delete process.env.APERIO_AUTH_TOKEN; });
 

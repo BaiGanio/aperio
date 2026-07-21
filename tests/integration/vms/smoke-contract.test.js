@@ -5,7 +5,7 @@ import { constants } from "node:fs";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
-const ROOT = resolve(import.meta.dirname, "../..");
+const ROOT = resolve(import.meta.dirname, "../../..");
 
 async function exists(file) {
   try { await access(resolve(ROOT, file), constants.F_OK); return true; }
@@ -55,6 +55,7 @@ test("lite smoke workflow delegates to the shared contract", async () => {
   const workflow = await readFile(resolve(ROOT, ".github/workflows/ci.lite-smoke.yml"), "utf8");
   assert.match(workflow, /bash vms\/smoke\.sh \./);
   assert.match(workflow, /vms\\smoke\.ps1/);
+  assert.doesNotMatch(workflow, /ci.lite-smoke.yml.*ci.lite-smoke\.yml/);
   assert.doesNotMatch(workflow, /for _ in \$\(seq 1 90\)/);
 });
 

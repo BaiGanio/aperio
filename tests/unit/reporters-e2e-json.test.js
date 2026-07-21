@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { createE2EReporter } from "./e2e-json.js";
+import { createE2EReporter } from "../reporters/e2e-json.js";
 
 test("E2E reporter filters a full-suite event stream by source file", async () => {
   const reporter = createE2EReporter();

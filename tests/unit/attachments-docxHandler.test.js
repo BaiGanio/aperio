@@ -3,7 +3,7 @@
 
 import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
-import { handleDocx } from "../../../../lib/handlers/attachments/docxHandler.js";
+import { handleDocx } from "../../lib/handlers/attachments/docxHandler.js";
 
 // ─── Stubs ────────────────────────────────────────────────────────────────────
 

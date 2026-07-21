@@ -8,7 +8,7 @@
 import { describe, test, mock, before, after } from "node:test";
 import assert from "node:assert/strict";
 
-import logger from "../../../../lib/helpers/logger.js";
+import logger from "../../lib/helpers/logger.js";
 import {
   searchHandler,
   reposHandler,
@@ -16,7 +16,7 @@ import {
   contextHandler,
   refsHandler,
   deleteRepoHandler,
-} from "../../../../lib/handlers/docgraph/docgraphHandlers.js";
+} from "../../lib/handlers/docgraph/docgraphHandlers.js";
 
 // ─── Mock pool — routes SQL content to controlled rows ──────────────────────
 

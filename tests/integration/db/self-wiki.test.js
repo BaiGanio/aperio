@@ -17,7 +17,7 @@ before(async () => {
   oldDims = process.env.EMBEDDING_DIMS;
   process.env.SQLITE_PATH = ":memory:";
   process.env.EMBEDDING_DIMS = "4";
-  const { SqliteStore } = await import("../../db/sqlite.js");
+  const { SqliteStore } = await import("../../../db/sqlite.js");
   store = await SqliteStore.init();
 });
 

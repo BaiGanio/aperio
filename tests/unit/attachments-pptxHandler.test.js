@@ -5,7 +5,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import AdmZip from "adm-zip";
-import { handlePptx } from "../../../../lib/handlers/attachments/pptxHandler.js";
+import { handlePptx } from "../../lib/handlers/attachments/pptxHandler.js";
 
 // ─── Fixture builder ──────────────────────────────────────────────────────────
 

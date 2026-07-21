@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   getCodegraphStatus, markEnabled, markRootStarted, markRootProgress,
   markRootDone, markRootError, markAllDone,
-} from "../../../lib/codegraph/status.js";
+} from "../../lib/codegraph/status.js";
 
 // The status module is a singleton; each test re-seeds it via markEnabled().
 

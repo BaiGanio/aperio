@@ -13,7 +13,7 @@ import {
   listGithubIssuesHandler,
   recordIssueTriageHandler,
   register,
-} from "../../../mcp/tools/github.js";
+} from "../../mcp/tools/github.js";
 
 // ─── Generic mock fetch helper ────────────────────────────────────────────────
 

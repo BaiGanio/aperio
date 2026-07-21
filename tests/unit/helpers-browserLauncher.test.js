@@ -6,7 +6,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { BROWSERS, browserArgsFor } from "../../../lib/helpers/browserLauncher.js";
+import { BROWSERS, browserArgsFor } from "../../lib/helpers/browserLauncher.js";
 
 const URL = "https://localhost:1234";
 const DIR = "/tmp/aperio-profile";

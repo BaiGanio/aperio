@@ -2,8 +2,8 @@ import { EventEmitter } from "node:events";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { openChokidarWatcher } from "../../../lib/codegraph/watcher.js";
-import { walk } from "../../../lib/codegraph/indexer.js";
+import { openChokidarWatcher } from "../../lib/codegraph/watcher.js";
+import { walk } from "../../lib/codegraph/indexer.js";
 
 function fakeWatcher(event, value) {
   const watcher = new EventEmitter();

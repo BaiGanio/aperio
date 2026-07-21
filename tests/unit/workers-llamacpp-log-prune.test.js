@@ -1,6 +1,6 @@
 import { afterEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { createLlamaLogPruner } from "../../../lib/workers/llamacpp-log-prune.js";
+import { createLlamaLogPruner } from "../../lib/workers/llamacpp-log-prune.js";
 
 describe("llamacpp session-log pruning", () => {
   const originalRetention = process.env.LLAMACPP_LOG_RETENTION_DAYS;

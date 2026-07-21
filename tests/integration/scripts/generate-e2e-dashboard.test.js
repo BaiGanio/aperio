@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 import { test } from "node:test";
 
 const execFileAsync = promisify(execFile);
-const ROOT = resolve(import.meta.dirname, "../..");
+const ROOT = resolve(import.meta.dirname, "../../..");
 
 test("E2E dashboard generator transforms existing reporter JSON without running tests", async () => {
   const dir = await mkdtemp(join(tmpdir(), "aperio-e2e-dashboard-"));

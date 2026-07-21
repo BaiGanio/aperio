@@ -4,7 +4,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { MssqlDriver } from "../../../lib/db-connect/drivers/mssql.js";
+import { MssqlDriver } from "../../lib/db-connect/drivers/mssql.js";
 
 // ─── Mock pool / request factories ───────────────────────────────────────────
 

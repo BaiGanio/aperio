@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import { rmSync } from "node:fs";
 import Database from "better-sqlite3";
-import { SqliteDriver, openSqlite } from "../../lib/db-connect/drivers/sqlite.js";
+import { SqliteDriver, openSqlite } from "../../../lib/db-connect/drivers/sqlite.js";
 
 let dbPath;
 

@@ -10,7 +10,7 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent } from "../../lib/agent/tool-profiles.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);

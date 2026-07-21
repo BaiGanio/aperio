@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { parseDownloadProgress, stripAnsi } from "../../../lib/helpers/downloadProgress.js";
+import { parseDownloadProgress, stripAnsi } from "../../lib/helpers/downloadProgress.js";
 
 test("parses quantitative download progress and calculates ETA", () => {
   const result = parseDownloadProgress("download: 1.5 GiB / 6 GiB (25%)", {

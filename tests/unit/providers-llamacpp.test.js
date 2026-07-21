@@ -7,7 +7,7 @@
 
 import { describe, test, mock, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { estimateThinkingTokens, fitToolsToContext, getToolLoopGuidance } from "../../../../lib/agent/providers/llamacpp.js";
+import { estimateThinkingTokens, fitToolsToContext, getToolLoopGuidance } from "../../lib/agent/providers/llamacpp.js";
 
 test("request preflight removes lowest-priority schemas until headroom is restored", () => {
   const tools = ["recall", "wiki_write", "wiki_search", "wiki_list"].map(name => ({
@@ -99,7 +99,7 @@ test("post-write guidance allows a failed wiki mutation to retry", () => {
 
 // ─── Logger mock ──────────────────────────────────────────────────────────
 
-import logger from "../../../../lib/helpers/logger.js";
+import logger from "../../lib/helpers/logger.js";
 
 let infoCalls = [];
 let warnCalls = [];
@@ -121,7 +121,7 @@ let runLlamaCppLoop, warmLlamaCppCache;
 
 before(async () => {
   process.env.LLAMACPP_VLM_MODEL = "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
-  const mod = await import("../../../../lib/agent/providers/llamacpp.js");
+  const mod = await import("../../lib/agent/providers/llamacpp.js");
   runLlamaCppLoop = mod.runLlamaCppLoop;
   warmLlamaCppCache = mod.warmLlamaCppCache;
 });

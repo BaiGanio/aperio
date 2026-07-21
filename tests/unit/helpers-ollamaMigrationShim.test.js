@@ -5,7 +5,7 @@ import {
   formatOllamaMigrationMessage,
   checkOllamaMigrationOrExit,
   VAR_MAP,
-} from "../../../lib/helpers/ollamaMigrationShim.js";
+} from "../../lib/helpers/ollamaMigrationShim.js";
 
 describe("detectOllamaMigration", () => {
   test("clean llamacpp env needs no migration", () => {

@@ -10,7 +10,7 @@ import { rmSync } from "node:fs";
 import Database from "better-sqlite3";
 import {
   executeHandler, queryHandler, connectionsHandler,
-} from "../../lib/handlers/database/databaseHandlers.js";
+} from "../../../lib/handlers/database/databaseHandlers.js";
 
 let dbPath, ctx;
 

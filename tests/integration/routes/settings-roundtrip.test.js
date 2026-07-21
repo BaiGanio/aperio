@@ -6,10 +6,10 @@
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { Router } from "express";
-import { mountSettingsRoutes } from "../../lib/routes/api-settings.js";
-import { mountConfigRoutes } from "../../lib/routes/api-config.js";
-import { applyConfigToEnv, configSettingKey, configSourceLabel } from "../../lib/config-resolver.js";
-import { CONFIG } from "../../lib/config.js";
+import { mountSettingsRoutes } from "../../../lib/routes/api-settings.js";
+import { mountConfigRoutes } from "../../../lib/routes/api-config.js";
+import { applyConfigToEnv, configSettingKey, configSourceLabel } from "../../../lib/config-resolver.js";
+import { CONFIG } from "../../../lib/config.js";
 
 // ─── Well-known vars ──────────────────────────────────────────────────────
 const T1 = "LLAMACPP_MODEL";

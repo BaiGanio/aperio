@@ -1,8 +1,8 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import os from "os";
-import { makeWsHandler } from "../../../../lib/emitters/handlers/wsHandler.js";
-import logger from "../../../../lib/helpers/logger.js";
+import { makeWsHandler } from "../../lib/emitters/handlers/wsHandler.js";
+import logger from "../../lib/helpers/logger.js";
 
 // Suppress llama-server session log creation during tests. beginSessionLog()
 // guards against this env var so tests never write {uuid}.log files to the

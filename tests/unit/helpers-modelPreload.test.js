@@ -5,7 +5,7 @@
 // app-wide bus that wsHandler forwards to every connected browser.
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { preloadMainModel, onModelStatus, currentModelStatus } from "../../../lib/helpers/modelPreload.js";
+import { preloadMainModel, onModelStatus, currentModelStatus } from "../../lib/helpers/modelPreload.js";
 
 const BASE = { model: "org/Main-GGUF:Q4_K_M", routerModelId: "aperio-main", baseURL: "http://127.0.0.1:0", cacheRoot: "/nonexistent", retryDelayMs: 1 };
 

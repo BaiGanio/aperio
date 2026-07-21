@@ -5,7 +5,7 @@ import {
   AGENT_SPEC_VERSION,
   normalizeAgentSpec,
   validateAgentSpec,
-} from "../../../lib/agent/spec.js";
+} from "../../lib/agent/spec.js";
 
 test("normalizes a complete AgentSpec without mutating the input", () => {
   const input = {

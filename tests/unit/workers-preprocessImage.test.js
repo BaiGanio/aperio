@@ -6,8 +6,8 @@ import assert from "node:assert/strict";
 import {
   preprocessImage,
   preprocessBase64,
-} from "../../../../../lib/handlers/attachments/workers/preprocessImage.js";
-import logger from "../../../../../lib/helpers/logger.js";
+} from "../../lib/handlers/attachments/workers/preprocessImage.js";
+import logger from "../../lib/helpers/logger.js";
 
 // ─── Silence logger during tests ──────────────────────────────────────────────
 before(() => { mock.method(logger, "debug", () => {}); });

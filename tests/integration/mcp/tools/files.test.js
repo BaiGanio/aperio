@@ -18,8 +18,8 @@ import { mock, test, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { basename, join } from "path";
 import { createRequire } from "module";
-import { createToolHooks } from "../../../lib/agent/tool-hooks.js";
-import { parseSearchScopes } from "../../../lib/agent/search-scopes.js";
+import { createToolHooks } from "../../../../lib/agent/tool-hooks.js";
+import { parseSearchScopes } from "../../../../lib/agent/search-scopes.js";
 
 // ─── In-memory VFS ────────────────────────────────────────────────────────────
 
@@ -175,11 +175,11 @@ mock.method(fsAsync, "unlink",     mockRm);
 // Dynamic import: files.js loads here and binds to our patched functions.
 // paths.js also loads here and computes BASE_DIR = process.cwd() = TMP.
 const { readFileHandler, writeFileHandler, appendFileHandler, editFileHandler, deleteFileHandler, scanProjectHandler, grepFilesHandler } =
-  await import("../../../mcp/tools/files.js");
+  await import("../../../../mcp/tools/files.js");
 
 // paths.js is already cached from the files.js import above; this re-export
 // gives us the same pathStorage instance so runWithPaths affects the guards.
-const { runWithPaths } = await import("../../../lib/routes/paths.js");
+const { runWithPaths } = await import("../../../../lib/routes/paths.js");
 
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 

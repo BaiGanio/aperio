@@ -1,7 +1,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { deduplicateMemories } from "../../../lib/workers/deduplicate.js";
-import logger from "../../../lib/helpers/logger.js";
+import { deduplicateMemories } from "../../lib/workers/deduplicate.js";
+import logger from "../../lib/helpers/logger.js";
 
 const INITIAL_DELAY = 30_000;
 const INTERVAL      = 10 * 60 * 1000;

@@ -3,7 +3,7 @@ import { createServer } from "node:net";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { createChildStop, request } from "./real-app-helper.js";
+import { createChildStop, request } from "../e2e/helpers/real-app-helper.js";
 
 class SlowExitChild extends EventEmitter {
   constructor() {

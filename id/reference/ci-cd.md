@@ -5,7 +5,7 @@ GitHub Actions workflows in `.github/workflows/`:
 ## CI Workflows
 
 - `ci.codeql.yml` — CodeQL analysis
-- `ci.codecov.yml` — test coverage upload
+- `ci.codecov.yml` — test coverage upload + integration & E2E dashboard data
 - `ci.codacy.yml` — Codacy quality
 - `ci.sonarqube.yml` — SonarQube
 - `ci.npm-audit.yml` — dependency audit

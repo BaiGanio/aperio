@@ -3,7 +3,7 @@
 
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { encodeSession, decodeSession, encryptionEnabled } from "../../../lib/helpers/sessionCrypto.js";
+import { encodeSession, decodeSession, encryptionEnabled } from "../../lib/helpers/sessionCrypto.js";
 
 const sample = { id: "abc", title: "secret chat", messages: [{ role: "user", content: "hi" }] };
 

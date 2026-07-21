@@ -1,7 +1,7 @@
 // tests/lib/helpers/selfRestart.test.js
 import { describe, test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { isSupervised } from "../../../lib/helpers/selfRestart.js";
+import { isSupervised } from "../../lib/helpers/selfRestart.js";
 
 // Snapshot the env vars isSupervised() reads, so each test starts clean.
 const KEYS = ["APERIO_SUPERVISED", "KUBERNETES_SERVICE_HOST", "pm_id", "INVOCATION_ID"];

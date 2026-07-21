@@ -3,7 +3,7 @@
 
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { extractToken, isAuthorized, createAuthGuard } from "../../../lib/helpers/authGuard.js";
+import { extractToken, isAuthorized, createAuthGuard } from "../../lib/helpers/authGuard.js";
 
 afterEach(() => {
   delete process.env.APERIO_AUTH_TOKEN;

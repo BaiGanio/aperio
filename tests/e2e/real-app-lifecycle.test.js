@@ -209,7 +209,7 @@ test("CI and backend parity", async (t) => {
     // All real-app test files use the fixture which sets env vars to disable
     // external services: EMBEDDING_PROVIDER=none, APERIO_CODEGRAPH=off, etc.
     const charSrc = readFileSync(
-      resolve(REPO_ROOT, "tests/e2e/real-app-char.test.js"), "utf8"
+      resolve(REPO_ROOT, "tests/unit/real-app-char.test.js"), "utf8"
     );
     assert.ok(
       !charSrc.includes("fetch(") &&

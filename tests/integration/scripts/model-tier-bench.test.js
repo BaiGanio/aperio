@@ -46,7 +46,7 @@ import {
   validateTargetTier,
   classifyTimeoutEvidence,
   rescorePersistedRuns,
-} from "../../scripts/model-tier-bench.js";
+} from "../../../scripts/model-tier-bench.js";
 import {
   aggregateBenchmarkRuns,
   benchmarkSummaryCsv,
@@ -56,7 +56,7 @@ import {
   validateBenchmarkModels,
   validateFullExamManifest,
   validateFinalistEvidence,
-} from "../../lib/helpers/modelTierBench.js";
+} from "../../../lib/helpers/modelTierBench.js";
 
 const cases = [
   {
@@ -74,7 +74,7 @@ const cases = [
   },
 ];
 
-const RUNNER = fileURLToPath(new URL("../../scripts/model-tier-bench.js", import.meta.url));
+const RUNNER = fileURLToPath(new URL("../../../scripts/model-tier-bench.js", import.meta.url));
 const REPO_ROOT = dirname(dirname(RUNNER));
 const FULL_EXAM = validateFullExamManifest(JSON.parse(readFileSync(join(REPO_ROOT, ".github/model-tiers/full-exam.json"), "utf8")));
 

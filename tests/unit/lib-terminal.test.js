@@ -906,7 +906,7 @@ describe("readAttachment", () => {
   });
 
   test("reads existing file and returns metadata", () => {
-    const result = readAttachment("tests/lib/terminal.test.js");
+    const result = readAttachment("tests/unit/lib-terminal.test.js");
     assert.ok(result.name, "should have name");
     assert.ok(result.name.endsWith(".test.js"), `name should end with .test.js, got: ${result.name}`);
     assert.strictEqual(result.ext, ".js");

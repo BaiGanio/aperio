@@ -4,7 +4,7 @@
 import { test, describe, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import http from "node:http";
-import { assertPublicUrl, isBlockedAddress, makePinnedLookup } from "../../../lib/helpers/ssrfGuard.js";
+import { assertPublicUrl, isBlockedAddress, makePinnedLookup } from "../../lib/helpers/ssrfGuard.js";
 
 afterEach(() => {
   delete process.env.APERIO_ALLOW_INTERNAL_FETCH;

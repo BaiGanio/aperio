@@ -106,7 +106,7 @@ before(async () => {
   fsCalls.rmSync = [];
   process.env.SQLITE_PATH = "/mem/test/aperio.db";
 
-  sampleDbMod = await import("../../lib/db-connect/sample-db.js");
+  sampleDbMod = await import("../../../lib/db-connect/sample-db.js");
 });
 
 // The collector persists across the whole file, but each test that calls

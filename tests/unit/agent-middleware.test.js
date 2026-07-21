@@ -4,8 +4,8 @@ import {
   LIFECYCLE_HOOKS,
   LifecycleMiddlewareError,
   createLifecycleRunner,
-} from "../../../lib/agent/middleware.js";
-import { createLifecycleTrace } from "../../../lib/agent/lifecycle-trace.js";
+} from "../../lib/agent/middleware.js";
+import { createLifecycleTrace } from "../../lib/agent/lifecycle-trace.js";
 
 test("exports the complete ordered lifecycle hook contract", () => {
   assert.deepEqual(LIFECYCLE_HOOKS, [

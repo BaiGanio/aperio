@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 let queries;
 
 before(async () => {
-  queries = await import("../../../../lib/handlers/wiki/wikiQueries.js");
+  queries = await import("../../lib/handlers/wiki/wikiQueries.js");
 });
 
 // ─── Mock store factories ────────────────────────────────────────────────

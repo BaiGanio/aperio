@@ -1,7 +1,7 @@
 // tests/lib/privacy/redact.test.js
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
-import { redact, restore } from '../../../lib/privacy/redact.js';
+import { redact, restore } from '../../lib/privacy/redact.js';
 
 describe('redact — PII detection', () => {
   test('redacts an email address', () => {

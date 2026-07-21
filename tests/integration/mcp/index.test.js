@@ -2,7 +2,7 @@
 // Tests for startServer() in mcp/index.js.
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { startServer } from "../../mcp/index.js";
+import { startServer } from "../../../mcp/index.js";
 import os from "node:os";
 import path from "node:path";
 

@@ -1,7 +1,7 @@
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
-import { getEphemeralPort, primeLlamaCppModel } from "../bootstrap.js";
+import { getEphemeralPort, primeLlamaCppModel } from "../../bootstrap.js";
 
 const originalPort = process.env.LLAMACPP_PORT;
 

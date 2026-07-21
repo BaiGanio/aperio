@@ -1,7 +1,7 @@
 // tests/lib/helpers/hardware.test.js
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { detectHardware } from "../../../lib/helpers/hardware.js";
+import { detectHardware } from "../../lib/helpers/hardware.js";
 
 describe("detectHardware", () => {
   test("macOS: VRAM reported as unified with total RAM", () => {

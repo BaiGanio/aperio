@@ -1,6 +1,6 @@
 import { afterEach, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { createAgentRunPruner } from "../../../lib/workers/agent-run-prune.js";
+import { createAgentRunPruner } from "../../lib/workers/agent-run-prune.js";
 
 describe("agent run artifact pruning", () => {
   const originalRetention = process.env.AGENT_RUN_RETENTION_DAYS;

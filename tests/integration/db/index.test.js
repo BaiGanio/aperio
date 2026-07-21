@@ -19,20 +19,20 @@ let mockSqliteInitResult = null;
 // ─── Mock logger and store static methods ONCE ─────────────────────────────
 before(async () => {
   // Logger methods (on the default-export object) — mock once
-  const loggerMod = await import("../../lib/helpers/logger.js");
+  const loggerMod = await import("../../../lib/helpers/logger.js");
   for (const level of ["info", "warn", "error", "debug"]) {
     try { mock.method(loggerMod.default, level, () => {}); } catch { /* ok */ }
   }
 
   // PostgresStore.init — static method on a class (redefinable)
-  const pgMod = await import("../../db/postgres.js");
+  const pgMod = await import("../../../db/postgres.js");
   mock.method(pgMod.PostgresStore, "init", async () => {
     if (mockPgInitThrow) throw new Error(mockPgInitThrow);
     return mockPgInitResult;
   });
 
   // SqliteStore.init — same pattern
-  const sqliteMod = await import("../../db/sqlite.js");
+  const sqliteMod = await import("../../../db/sqlite.js");
   mock.method(sqliteMod.SqliteStore, "init", async () => {
     return mockSqliteInitResult;
   });
@@ -47,7 +47,7 @@ afterEach(() => {
 });
 
 // ─── Cache-busting import helper ───────────────────────────────────────────
-const _cacheBust = () => `../../db/index.js?t=${Date.now()}_${Math.random().toString(36).slice(2)}`;
+const _cacheBust = () => `../../../db/index.js?t=${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
 // =============================================================================
 // isDockerAvailable — verify it exists and is a function
@@ -101,7 +101,7 @@ describe("getStore", () => {
     process.env.DB_BACKEND = "sqlite";
     let initCount = 0;
     // Override the sqlite mock with a counting version
-    const sqliteMod = await import("../../db/sqlite.js");
+    const sqliteMod = await import("../../../db/sqlite.js");
     mock.method(sqliteMod.SqliteStore, "init", async () => {
       initCount++;
       return { db: {}, _sqlite: true };
@@ -117,7 +117,7 @@ describe("getStore", () => {
   test("resolves the same promise when called concurrently", async () => {
     process.env.DB_BACKEND = "sqlite";
     let initCount = 0;
-    const sqliteMod = await import("../../db/sqlite.js");
+    const sqliteMod = await import("../../../db/sqlite.js");
     mock.method(sqliteMod.SqliteStore, "init", async () => {
       initCount++;
       await new Promise(r => setTimeout(r, 5));

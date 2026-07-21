@@ -11,7 +11,7 @@ import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-import { createAgent } from "../../../lib/agent.js";
+import { createAgent } from "../../lib/agent.js";
 
 const FAKE_ROOT = "/fake/project";
 

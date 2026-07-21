@@ -12,8 +12,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { mkdtempSync, readFileSync, readdirSync, existsSync, rmSync } from "node:fs";
 import Database from "better-sqlite3";
-import { encryptFile } from "../../db/encrypt.js";
-import { _decryptDbFileInPlace } from "../../db/sqlite.js";
+import { encryptFile } from "../../../db/encrypt.js";
+import { _decryptDbFileInPlace } from "../../../db/sqlite.js";
 
 const MAGIC = "SQLite format 3\0";
 const KEY = Buffer.alloc(32, 0x5a);

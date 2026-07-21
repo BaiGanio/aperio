@@ -19,7 +19,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { TOOL_PROFILES, FIRST_TURN_TOOLS } from "../../lib/agent/tool-profiles.js";
+import { TOOL_PROFILES, FIRST_TURN_TOOLS } from "../../../lib/agent/tool-profiles.js";
 
 const TOOLS_DIR = fileURLToPath(new URL("../../mcp/tools/", import.meta.url));
 

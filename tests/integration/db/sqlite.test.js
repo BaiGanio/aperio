@@ -17,7 +17,7 @@ before(async () => {
   // Use low dims for fast vectors
   process.env.EMBEDDING_DIMS = "4";
 
-  const { SqliteStore } = await import("../../db/sqlite.js");
+  const { SqliteStore } = await import("../../../db/sqlite.js");
   store = await SqliteStore.init();
 });
 
@@ -1063,7 +1063,7 @@ describe("exportAll / importAll", () => {
   before(async () => {
     exported = await store.exportAll();
 
-    const { SqliteStore: SqliteStore2 } = await import("../../db/sqlite.js");
+    const { SqliteStore: SqliteStore2 } = await import("../../../db/sqlite.js");
     secondStore = await SqliteStore2.init();
   });
 
@@ -1099,7 +1099,7 @@ describe("exportAll / importAll", () => {
   });
 
   test("importAll handles agent_jobs and agent_runs", async () => {
-    const { SqliteStore: ThirdStore } = await import("../../db/sqlite.js");
+    const { SqliteStore: ThirdStore } = await import("../../../db/sqlite.js");
     const third = await ThirdStore.init();
 
     const result = await third.importAll({
@@ -1120,7 +1120,7 @@ describe("exportAll / importAll", () => {
     assert.ok(selfRow, "exported self_memories should include the seeded row");
     assert.equal(selfRow.title, "Self note");
 
-    const { SqliteStore: FourthStore } = await import("../../db/sqlite.js");
+    const { SqliteStore: FourthStore } = await import("../../../db/sqlite.js");
     const fourth = await FourthStore.init();
     const first = await fourth.importAll({ self_memories: [selfRow] });
     assert.equal(first.imported.self_memories, 1);
@@ -1138,7 +1138,7 @@ describe("exportAll / importAll", () => {
 // =============================================================================
 describe("close", () => {
   test("close does not throw on an :memory: store", async () => {
-    const { SqliteStore: CloseStore } = await import("../../db/sqlite.js");
+    const { SqliteStore: CloseStore } = await import("../../../db/sqlite.js");
     const cs = await CloseStore.init();
     // Should not throw
     await cs.close();

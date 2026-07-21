@@ -3,7 +3,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createErrorHandler } from "../../../lib/helpers/errorHandler.js";
+import { createErrorHandler } from "../../lib/helpers/errorHandler.js";
 
 function mockReqRes() {
   const res = {

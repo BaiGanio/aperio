@@ -5,7 +5,7 @@
 import { test, describe, after, mock } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "path";
-import { installMemfs } from "../../helpers/memfs.js";
+import { installMemfs } from "../../../helpers/memfs.js";
 
 // ─── In-memory workspace (zero real disk access) ──────────────────────────────
 // Install the fs mock BEFORE importing image.js so its named fs bindings read
@@ -19,7 +19,7 @@ const {
   resolveDescribeModel,
   resolveDescribeModelId,
   isDegenerateVlmOutput,
-} = await import("../../../mcp/tools/image.js");
+} = await import("../../../../mcp/tools/image.js");
 after(() => mem.restore());
 
 const sandbox = { root: mem.root };

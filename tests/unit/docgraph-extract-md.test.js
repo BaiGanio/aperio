@@ -4,7 +4,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { extract } from "../../../lib/docgraph/extract-md.js";
+import { extract } from "../../lib/docgraph/extract-md.js";
 
 describe("extract-md", () => {
   test("derives title from first H1 and builds heading hierarchy", async () => {

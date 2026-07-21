@@ -3,7 +3,7 @@
 
 import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
-import { processAttachments } from "../../../../lib/handlers/attachments/index.js";
+import { processAttachments } from "../../lib/handlers/attachments/index.js";
 
 // ─── Stubs ────────────────────────────────────────────────────────────────────
 

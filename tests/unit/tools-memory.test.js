@@ -13,7 +13,7 @@ import {
   forgetHandler,
   backfillHandler,
   dedupHandler,
-} from "../../../lib/handlers/memory/memoryHandlers.js";
+} from "../../lib/handlers/memory/memoryHandlers.js";
 
 // ─── ctx / store factories ────────────────────────────────────────────────────
 

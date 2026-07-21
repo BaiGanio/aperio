@@ -11,7 +11,7 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { CONFIG, GROUPS, SECTIONS } from "../../lib/config.js";
+import { CONFIG, GROUPS, SECTIONS } from "../../../lib/config.js";
 
 const sectionGroup = Object.fromEntries(SECTIONS.map((s) => [s.id, s.group]));
 const groupSafe = Object.fromEntries(GROUPS.map((g) => [g.id, !!g.safe]));

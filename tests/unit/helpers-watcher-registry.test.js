@@ -1,7 +1,7 @@
 // tests/lib/helpers/watcher-registry.test.js
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { createWatcherRegistry } from "../../../lib/helpers/watcher-registry.js";
+import { createWatcherRegistry } from "../../lib/helpers/watcher-registry.js";
 
 const fakeHandle = () => {
   let stopped = 0;

@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import {
   selfWikiWriteHandler,
   selfWikiGetHandler,
-} from "../../../lib/handlers/wiki/selfWikiHandlers.js";
+} from "../../lib/handlers/wiki/selfWikiHandlers.js";
 
 function makeSelfMem(id, title = "Self memory", updated_at = "2026-01-01T00:00:00.000Z") {
   return { id, title, updated_at };

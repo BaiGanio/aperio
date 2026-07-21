@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 let ta;
 
 before(async () => {
-  ta = await import("../../../lib/agent/toolActivity.js");
+  ta = await import("../../lib/agent/toolActivity.js");
 });
 
 // =============================================================================

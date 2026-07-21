@@ -3,7 +3,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { handleText } from "../../../../lib/handlers/attachments/textHandler.js";
+import { handleText } from "../../lib/handlers/attachments/textHandler.js";
 
 function makeAtt(content) {
   return { data: Buffer.from(content).toString("base64") };

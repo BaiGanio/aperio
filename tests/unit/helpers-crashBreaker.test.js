@@ -3,7 +3,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { createCrashBreaker } from "../../../lib/helpers/crashBreaker.js";
+import { createCrashBreaker } from "../../lib/helpers/crashBreaker.js";
 
 describe("crashBreaker", () => {
   test("trips once the threshold is reached within the window", () => {

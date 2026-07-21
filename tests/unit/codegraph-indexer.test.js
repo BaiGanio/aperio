@@ -15,7 +15,7 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const fsp = require("fs/promises");
 
-import logger from "../../../lib/helpers/logger.js";
+import logger from "../../lib/helpers/logger.js";
 
 // ─── Logger mocks ─────────────────────────────────────────────────────────
 
@@ -57,7 +57,7 @@ mock.method(fsp, "stat", async (path) => {
 let indexer;
 
 before(async () => {
-  indexer = await import("../../../lib/codegraph/indexer.js");
+  indexer = await import("../../lib/codegraph/indexer.js");
 });
 
 // ─── Helpers ──────────────────────────────────────────────────────────────

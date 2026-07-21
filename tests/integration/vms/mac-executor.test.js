@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
-const ROOT = resolve(import.meta.dirname, "../..");
+const ROOT = resolve(import.meta.dirname, "../../..");
 
 function run(command, args) {
   return new Promise((resolvePromise, reject) => {
