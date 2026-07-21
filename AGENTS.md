@@ -25,6 +25,11 @@ into thinking — flag the drift before flying it. Standing rules:
   DB, a non-default port, and tear it down + clean up any artifacts when done. The
   hard rule is *no stray state left in the repo tree*, not *no processes ever*.
 - **Never integrate new visuals unseen.** Standalone HTML preview → approval → integrate.
+- **Animated diagrams:** When a plan or implementation benefits from an explanatory visual,
+  use the `animated-sketch-diagram` skill for a standalone animated HTML/GIF preview. Keep
+  the Mermaid diagram mandatory for plans because it is text-based and diffable; the animated
+  diagram is a complementary presentation artifact, not a replacement. Do not integrate or
+  commit the visual until the developer has reviewed and approved the preview.
 - **Ask before touching Fragile / No-Touch Zones** (below) or writing to docs
   (see Documentation Sync).
 - **Done means verified**: tests green AND the affected flow exercised, not just compiled.
@@ -211,7 +216,9 @@ Every plan must include:
 
 1. **Objective** — one sentence: the problem being solved and why it matters
 2. **Diagram** — a [Mermaid](https://mermaid.js.org/) diagram showing key components and their
-   relationships. Mermaid is text-based, renders on GitHub, and is diffable. For UI mockups,
+   relationships. Mermaid is text-based, renders on GitHub, and is diffable. When the plan
+   benefits from a richer explanatory visual, optionally create a standalone preview with the
+   `animated-sketch-diagram` skill; obtain approval before integrating it. For UI mockups,
    generate a PNG with `sharp` or the `canvas-design` skill; store alongside as `<slug>.png`.
 
    ```mermaid
