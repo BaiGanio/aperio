@@ -804,4 +804,174 @@ describe("runCodexLoop", () => {
     assert.match(result, /Codex provider error: auth failed/);
     assert.ok(emitter.send.mock.calls.some(c => c.arguments[0].type === "token" && c.arguments[0].text.includes("auth failed")));
   });
+
+  // ─── WS4 / group D — reasoning parity ──────────────────────────────────────
+  // Verified live (2026-07-21): `--json` never emits a `reasoning` item unless
+  // `-c model_reasoning_summary=<auto|concise|detailed>` is passed — the CLI's
+  // own config.toml default only applies to the interactive TUI, not `codex
+  // exec`. `reasoning_output_tokens` in turn.completed.usage is unaffected
+  // either way (already correctly wired pre-WS4, see the D2 assertion in
+  // "returns final agent message and stores thread id" above).
+  describe("reasoning parity (group D)", () => {
+    afterEach(() => { delete process.env.CODEX_REASONING_SUMMARY; });
+
+    test("D1: passes model_reasoning_summary=auto by default", async () => {
+      const capture = {};
+      await runCodexLoop(
+        [{ role: "user", content: "Hi" }],
+        { send: mock.fn() }, {}, null, () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture,
+            stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+          }),
+        }),
+      );
+      assert.ok(capture.args.includes('model_reasoning_summary="auto"'));
+    });
+
+    test("D1: honors CODEX_REASONING_SUMMARY override, falls back to auto on an invalid value", async () => {
+      process.env.CODEX_REASONING_SUMMARY = "detailed";
+      const capture = {};
+      await runCodexLoop(
+        [{ role: "user", content: "Hi" }],
+        { send: mock.fn() }, {}, null, () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture,
+            stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+          }),
+        }),
+      );
+      assert.ok(capture.args.includes('model_reasoning_summary="detailed"'));
+
+      process.env.CODEX_REASONING_SUMMARY = "bogus";
+      const capture2 = {};
+      await runCodexLoop(
+        [{ role: "user", content: "Hi" }],
+        { send: mock.fn() }, {}, null, () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: capture2,
+            stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+          }),
+        }),
+      );
+      assert.ok(capture2.args.includes('model_reasoning_summary="auto"'));
+    });
+
+    test("D1: a completed reasoning item (no item.started) emits reasoning_start -> reasoning_token -> reasoning_done before the answer token", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Think about it" }],
+        emitter, {}, null, () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.completed", item: { id: "item_0", type: "reasoning", text: "**Planning the answer**" } },
+              { type: "item.completed", item: { type: "agent_message", text: "42" } },
+            ],
+          }),
+        }),
+      );
+
+      const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+      const types = events.map(e => e.type);
+      const startIdx = types.indexOf("reasoning_start");
+      const tokenIdx = types.indexOf("reasoning_token");
+      const doneIdx = types.indexOf("reasoning_done");
+      const firstAnswerTokenIdx = events.findIndex(e => e.type === "token" && e.text === "42");
+
+      assert.ok(startIdx !== -1 && tokenIdx !== -1 && doneIdx !== -1, "all three reasoning events must fire");
+      assert.ok(startIdx < tokenIdx && tokenIdx < doneIdx, "reasoning_start -> reasoning_token -> reasoning_done");
+      assert.ok(doneIdx < firstAnswerTokenIdx, "reasoning_done must precede the first answer token");
+      assert.equal(events[tokenIdx].text, "**Planning the answer**");
+      // No plain `token` event may carry reasoning text.
+      assert.ok(!events.some(e => e.type === "token" && e.text.includes("Planning the answer")));
+    });
+
+    test("D1: an item.started+item.completed reasoning pair still yields exactly one reasoning_start/done pair (no double bubble)", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Think about it" }],
+        emitter, {}, null, () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.started", item: { id: "item_0", type: "reasoning" } },
+              { type: "item.completed", item: { id: "item_0", type: "reasoning", text: "thinking" } },
+              { type: "item.completed", item: { type: "agent_message", text: "Done" } },
+            ],
+          }),
+        }),
+      );
+      const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+      assert.equal(types.filter(t => t === "reasoning_start").length, 1);
+      assert.equal(types.filter(t => t === "reasoning_done").length, 1);
+    });
+
+    test("D1: multiple reasoning items across a turn each get their own start/token/done triplet", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Use a tool then think again" }],
+        emitter, {}, null, () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.completed", item: { id: "item_0", type: "reasoning", text: "first thought" } },
+              { type: "item.started", item: { id: "item_1", type: "command_execution", command: "echo hi", status: "in_progress" } },
+              { type: "item.completed", item: { id: "item_1", type: "command_execution", command: "echo hi", status: "completed", exit_code: 0 } },
+              { type: "item.completed", item: { id: "item_2", type: "reasoning", text: "second thought" } },
+              { type: "item.completed", item: { type: "agent_message", text: "Done" } },
+            ],
+          }),
+        }),
+      );
+      const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+      assert.equal(events.filter(e => e.type === "reasoning_start").length, 2);
+      assert.equal(events.filter(e => e.type === "reasoning_done").length, 2);
+      assert.deepEqual(events.filter(e => e.type === "reasoning_token").map(e => e.text), ["first thought", "second thought"]);
+    });
+
+    test("D1 edge: a reasoning item with no text still opens and closes the bubble without emitting an empty reasoning_token", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Hi" }],
+        emitter, {}, null, () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.completed", item: { id: "item_0", type: "reasoning" } },
+              { type: "item.completed", item: { type: "agent_message", text: "Done" } },
+            ],
+          }),
+        }),
+      );
+      const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+      assert.equal(types.filter(t => t === "reasoning_start").length, 1);
+      assert.equal(types.filter(t => t === "reasoning_done").length, 1);
+      assert.equal(types.includes("reasoning_token"), false);
+    });
+
+    test("D1 edge: a reasoning item still open when the process exits (aborted mid-turn) closes the bubble instead of leaving it stuck", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Hi" }],
+        emitter, {}, null, () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [{ type: "item.started", item: { id: "item_0", type: "reasoning" } }],
+          }),
+        }),
+      );
+      const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+      assert.equal(types.filter(t => t === "reasoning_start").length, 1);
+      assert.equal(types.filter(t => t === "reasoning_done").length, 1);
+    });
+  });
 });

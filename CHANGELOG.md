@@ -39,6 +39,25 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Reasoning parity across all providers**: Anthropic, Gemini, Claude Code, and
+  Codex now stream the same collapsed `reasoning_start`/`reasoning_token`/
+  `reasoning_done` bubble the llama.cpp/DeepSeek loops already used, with a real
+  thinking-token count from each provider's own usage breakdown instead of an
+  estimate (Anthropic `output_tokens_details.thinking_tokens`, Gemini
+  `thoughtsTokenCount`, Codex `reasoning_output_tokens` — all pre-existing;
+  Claude Code's was hardcoded to 0, now read from the SDK's raw stream events).
+  Anthropic extended thinking is opt-in via new `ANTHROPIC_THINKING_BUDGET`
+  (default 0/off — thinking tokens are billed output); its `redacted_thinking`
+  content blocks (present when thinking content is encrypted rather than shown)
+  are preserved verbatim in replayed history, required for a subsequent
+  tool-use turn to validate. Gemini gates on the existing
+  `GEMINI_THINKING_BUDGET` plus new `includeThoughts: true`. Codex needs the
+  CLI's own `-c model_reasoning_summary` flag to emit a `reasoning` item at all
+  (new `CODEX_REASONING_SUMMARY`, default `auto` — free, a summary of tokens
+  already billed). Also fixes a latent bug where Claude Code's `stream_event`
+  messages never fired at all in production (missing
+  `includePartialMessages`), silently disabling not just reasoning but the
+  existing text-token streaming and built-in tool cards too.
 - `frontend-design` skill for polished, responsive, accessible interfaces and
   self-contained HTML artifacts. HTML page/file requests now load this guidance
   automatically.

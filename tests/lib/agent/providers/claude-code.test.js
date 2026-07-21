@@ -328,3 +328,120 @@ describe("runClaudeCodeLoop — tool card synthesis (group C)", () => {
     assert.equal(results[0].ok, false);
   });
 });
+
+// =============================================================================
+// Reasoning parity (WS4 / group D)
+// =============================================================================
+describe("runClaudeCodeLoop — reasoning parity (group D)", () => {
+  afterEach(() => { reset(); });
+
+  // Shape verified live (2026-07-21): adaptive thinking is on by default for
+  // supporting models, but the SDK never emits a stream_event at all unless
+  // `includePartialMessages: true` is set — the real bug this fix closes
+  // alongside D1/D2 (WS3's text/tool-card streaming was silently dead without it).
+  test("D1: emits reasoning_start -> reasoning_token -> reasoning_done before the first answer token", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "Let me work through this." } } },
+      { type: "stream_event", event: { type: "content_block_stop" } },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "text" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "42" } } },
+      { type: "stream_event", event: { type: "message_delta", usage: { output_tokens_details: { thinking_tokens: 34 } } } },
+      { type: "result", subtype: "success", result: "42", usage: { input_tokens: 5, output_tokens: 50 } },
+    ]);
+
+    const messages = [{ role: "user", content: "What is 6 times 7?" }];
+    const emitter = { send: mock.fn() };
+    const result = await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+    assert.equal(result, "42");
+
+    const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+    const types = events.map(e => e.type);
+    const startIdx = types.indexOf("reasoning_start");
+    const tokenIdx = types.indexOf("reasoning_token");
+    const doneIdx = types.indexOf("reasoning_done");
+    const answerTokenIdx = events.findIndex(e => e.type === "token" && e.text === "42");
+
+    assert.ok(startIdx !== -1 && tokenIdx !== -1 && doneIdx !== -1, "all three reasoning events must fire");
+    assert.ok(startIdx < tokenIdx && tokenIdx < doneIdx && doneIdx < answerTokenIdx);
+    assert.equal(events[tokenIdx].text, "Let me work through this.");
+    assert.ok(!events.some(e => e.type === "token" && e.text.includes("work through")), "no token event may carry reasoning text");
+  });
+
+  test("D1 edge: a turn with no thinking block emits no reasoning events", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    // Default mock fixture: plain text_delta, no thinking block.
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_token"), false);
+    assert.equal(types.includes("reasoning_done"), false);
+  });
+
+  test("D1 edge: a redacted/empty thinking_delta still opens/closes the bubble without an empty reasoning_token", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "" } } },
+      { type: "stream_event", event: { type: "content_block_stop" } },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "text" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "text_delta", text: "42" } } },
+      { type: "result", subtype: "success", result: "42", usage: { input_tokens: 5, output_tokens: 50 } },
+    ]);
+
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx());
+
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.filter(t => t === "reasoning_start").length, 1);
+    assert.equal(types.filter(t => t === "reasoning_done").length, 1);
+    assert.equal(types.includes("reasoning_token"), false);
+  });
+
+  test("D1 edge: a thinking block left open when the stream throws mid-turn still closes the bubble", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "still going" } } },
+      { __throw: new Error("stream disconnected") },
+    ]);
+
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx());
+
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.filter(t => t === "reasoning_start").length, 1);
+    assert.equal(types.filter(t => t === "reasoning_done").length, 1);
+  });
+
+  test("D2: thinking_tokens comes from the real output_tokens_details field instead of the hardcoded 0, and sets state.thinks", async () => {
+    __setMockEvents([
+      { type: "system", subtype: "init", session_id: "sess-mock-1" },
+      { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
+      { type: "stream_event", event: { type: "content_block_delta", delta: { type: "thinking_delta", thinking: "hmm" } } },
+      { type: "stream_event", event: { type: "content_block_stop" } },
+      { type: "stream_event", event: { type: "message_delta", usage: { output_tokens_details: { thinking_tokens: 34 } } } },
+      { type: "result", subtype: "success", result: "42", usage: { input_tokens: 5, output_tokens: 50 } },
+    ]);
+
+    const state = { thinks: false };
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx({ state }));
+
+    const end = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "stream_end");
+    assert.equal(end.usage.thinking_tokens, 34);
+    assert.equal(state.thinks, true);
+  });
+
+  test("D2 edge: no message_delta usage breakdown keeps thinking_tokens at 0, never NaN/negative", async () => {
+    const emitter = { send: mock.fn() };
+    // Default mock fixture: no thinking, no output_tokens_details.
+    await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx());
+
+    const end = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "stream_end");
+    assert.equal(end.usage.thinking_tokens, 0);
+  });
+});

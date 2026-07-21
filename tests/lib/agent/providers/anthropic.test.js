@@ -393,3 +393,181 @@ describe("runAnthropicLoop — context trimming", () => {
     assert.equal(result, "Hello world");
   });
 });
+
+// =============================================================================
+// Reasoning parity (WS4 / group D)
+// =============================================================================
+describe("runAnthropicLoop — reasoning parity (group D)", () => {
+  afterEach(() => { reset(); delete process.env.ANTHROPIC_THINKING_BUDGET; });
+
+  // Shape verified live (2026-07-21) against a real thinking-capable turn via
+  // the claude-agent-sdk, which shares this exact BetaRawMessageStreamEvent
+  // wire format with @anthropic-ai/sdk's messages.stream().
+  async function* thinkingStream() {
+    yield { type: "message_start", message: { usage: { input_tokens: 10, output_tokens: 0 } } };
+    yield { type: "content_block_start", index: 0, content_block: { type: "thinking" } };
+    yield { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "Let me work through this." } };
+    yield { type: "content_block_delta", index: 0, delta: { type: "signature_delta", signature: "sig-abc" } };
+    yield { type: "content_block_stop", index: 0 };
+    yield { type: "content_block_start", index: 1, content_block: { type: "text", text: "" } };
+    yield { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: "42" } };
+    yield { type: "content_block_stop", index: 1 };
+    yield { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 50, output_tokens_details: { thinking_tokens: 34 } } };
+  }
+
+  test("D1: emits reasoning_start -> reasoning_token -> reasoning_done before the first answer token, with a real signature", async () => {
+    process.env.ANTHROPIC_THINKING_BUDGET = "2048";
+    const ctx = baseCtx({ provider: testProvider(thinkingStream) });
+    const messages = [{ role: "user", content: "What is 6 times 7?" }];
+    const emitter = { send: mock.fn() };
+
+    const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
+    assert.equal(result, "42");
+
+    const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+    const types = events.map(e => e.type);
+    const startIdx = types.indexOf("reasoning_start");
+    const tokenIdx = types.indexOf("reasoning_token");
+    const doneIdx = types.indexOf("reasoning_done");
+    const answerTokenIdx = events.findIndex(e => e.type === "token" && e.text === "42");
+
+    assert.ok(startIdx !== -1 && tokenIdx !== -1 && doneIdx !== -1, "all three reasoning events must fire");
+    assert.ok(startIdx < tokenIdx && tokenIdx < doneIdx && doneIdx < answerTokenIdx);
+    assert.equal(events[tokenIdx].text, "Let me work through this.");
+    assert.ok(!events.some(e => e.type === "token" && e.text.includes("work through")), "no token event may carry reasoning text");
+
+    // The thinking block (with its signature) must ride back in history for a
+    // later tool-use turn to validate against.
+    const assistantMsg = messages.find(m => m.role === "assistant");
+    const thinkingBlock = assistantMsg.content.find(b => b.type === "thinking");
+    assert.equal(thinkingBlock.thinking, "Let me work through this.");
+    assert.equal(thinkingBlock.signature, "sig-abc");
+  });
+
+  test("D1 edge: thinking disabled (budget unset) never requests or emits reasoning events", async () => {
+    let wireRequest;
+    const provider = testProvider(request => { wireRequest = request; return textStream(); });
+    const ctx = baseCtx({ provider });
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+
+    await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
+
+    assert.equal("thinking" in wireRequest, false);
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_token"), false);
+    assert.equal(types.includes("reasoning_done"), false);
+  });
+
+  test("D1 edge: an empty thinking_delta still opens/closes the bubble without an empty reasoning_token", async () => {
+    process.env.ANTHROPIC_THINKING_BUDGET = "2048";
+    async function* redactedThinkingStream() {
+      yield { type: "message_start", message: { usage: { input_tokens: 10, output_tokens: 0 } } };
+      yield { type: "content_block_start", index: 0, content_block: { type: "thinking" } };
+      yield { type: "content_block_delta", index: 0, delta: { type: "thinking_delta", thinking: "" } };
+      yield { type: "content_block_stop", index: 0 };
+      yield { type: "content_block_start", index: 1, content_block: { type: "text", text: "" } };
+      yield { type: "content_block_delta", index: 1, delta: { type: "text_delta", text: "42" } };
+      yield { type: "content_block_stop", index: 1 };
+      yield { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 50, output_tokens_details: { thinking_tokens: 12 } } };
+    }
+    const ctx = baseCtx({ provider: testProvider(redactedThinkingStream) });
+    const emitter = { send: mock.fn() };
+
+    await runAnthropicLoop([{ role: "user", content: "Hi" }], emitter, {}, undefined, undefined, ctx);
+
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.filter(t => t === "reasoning_start").length, 1);
+    assert.equal(types.filter(t => t === "reasoning_done").length, 1);
+    assert.equal(types.includes("reasoning_token"), false);
+  });
+
+  // P1 review fix: a genuine `redacted_thinking` content block (opaque `data`,
+  // no deltas — a distinct block type from an empty-text `thinking` block above)
+  // must be preserved verbatim when it's replayed as history on the very next
+  // request, or Anthropic rejects the tool-use turn that followed it.
+  test("P1: a redacted_thinking block preceding tool_use is preserved verbatim in the replayed history", async () => {
+    process.env.ANTHROPIC_THINKING_BUDGET = "2048";
+    async function* redactedThenToolStream() {
+      yield { type: "message_start", message: { usage: { input_tokens: 10, output_tokens: 0 } } };
+      yield { type: "content_block_start", index: 0, content_block: { type: "redacted_thinking", data: "encrypted-blob-abc" } };
+      yield { type: "content_block_stop", index: 0 };
+      yield { type: "content_block_start", index: 1, content_block: { type: "tool_use", id: "tu-1", name: "get_time", input: {} } };
+      yield { type: "content_block_delta", index: 1, delta: { type: "input_json_delta", partial_json: "{}" } };
+      yield { type: "content_block_stop", index: 1 };
+      yield { type: "message_delta", delta: { stop_reason: "tool_use" }, usage: { output_tokens: 15, output_tokens_details: { thinking_tokens: 5 } } };
+    }
+
+    const wireRequests = [];
+    let callCount = 0;
+    const provider = testProvider(request => {
+      wireRequests.push(request);
+      callCount++;
+      return callCount === 1 ? redactedThenToolStream() : textStream();
+    });
+    const ctx = baseCtx({ provider, callTool: async () => "12:00" });
+    const messages = [{ role: "user", content: "What time is it?" }];
+    const emitter = { send: mock.fn() };
+
+    const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
+    assert.equal(result, "Hello world");
+
+    // Preserved in the mutated `messages` history...
+    const assistantMsg = messages.find(m => m.role === "assistant" && Array.isArray(m.content) && m.content.some(b => b.type === "tool_use"));
+    const redactedBlock = assistantMsg.content.find(b => b.type === "redacted_thinking");
+    assert.ok(redactedBlock, "redacted_thinking block must survive into the assistant history entry");
+    assert.equal(redactedBlock.data, "encrypted-blob-abc");
+
+    // ...and actually replayed on the wire for the very next (tool-continuation) request.
+    assert.equal(wireRequests.length, 2);
+    const secondRequestAssistantMsg = wireRequests[1].messages.find(m => m.role === "assistant" && Array.isArray(m.content));
+    const replayedBlock = secondRequestAssistantMsg?.content.find(b => b.type === "redacted_thinking");
+    assert.ok(replayedBlock, "the second request must replay the redacted_thinking block verbatim");
+    assert.equal(replayedBlock.data, "encrypted-blob-abc");
+
+    // No visible reasoning text for a fully redacted block, but the bubble
+    // still opens/closes (consistent with the empty-thinking_delta case).
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.ok(types.includes("reasoning_start"));
+    assert.ok(types.includes("reasoning_done"));
+    assert.equal(types.includes("reasoning_token"), false);
+  });
+
+  test("D2: thinking_tokens comes from the real API breakdown, not the encode-diff estimate", async () => {
+    process.env.ANTHROPIC_THINKING_BUDGET = "2048";
+    const ctx = baseCtx({ provider: testProvider(thinkingStream) });
+    const emitter = { send: mock.fn() };
+
+    await runAnthropicLoop([{ role: "user", content: "What is 6 times 7?" }], emitter, {}, undefined, undefined, ctx);
+
+    const end = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "stream_end");
+    assert.equal(end.usage.thinking_tokens, 34);
+  });
+
+  test("D2 edge: falls back to the encode-diff estimate when the API reports no breakdown, never NaN/negative", async () => {
+    const ctx = baseCtx({ provider: testProvider(textStream) });
+    const emitter = { send: mock.fn() };
+
+    await runAnthropicLoop([{ role: "user", content: "Hi" }], emitter, {}, undefined, undefined, ctx);
+
+    const end = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "stream_end");
+    assert.ok(Number.isFinite(end.usage.thinking_tokens));
+    assert.ok(end.usage.thinking_tokens >= 0);
+  });
+
+  test("requests extended thinking with budget_tokens and grows max_tokens past it; sets state.thinks", async () => {
+    process.env.ANTHROPIC_THINKING_BUDGET = "2048";
+    let wireRequest;
+    const provider = testProvider(request => { wireRequest = request; return thinkingStream(); });
+    const state = { thinks: false };
+    const ctx = baseCtx({ provider, state });
+    const emitter = { send: mock.fn() };
+
+    await runAnthropicLoop([{ role: "user", content: "Hi" }], emitter, {}, undefined, undefined, ctx);
+
+    assert.deepEqual(wireRequest.thinking, { type: "enabled", budget_tokens: 2048 });
+    assert.ok(wireRequest.max_tokens > 2048, "max_tokens must exceed budget_tokens (SDK requirement)");
+    assert.equal(state.thinks, true);
+  });
+});
