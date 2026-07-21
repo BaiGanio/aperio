@@ -37,7 +37,7 @@ test("frontend-design is a bundled skill with a concise artifact workflow", () =
 
 test("the skill's artifact threshold matches the code that enforces it", () => {
   const server = parseThreshold(
-    "lib/agent/index.js",
+    "lib/agent/deliverables.js",
     /body\.length < (\d+) && body\.split\("\\n"\)\.length < (\d+)/,
   );
   const client = parseThreshold(
@@ -54,9 +54,9 @@ test("the skill's artifact threshold matches the code that enforces it", () => {
 });
 
 test("the skill's filename claims match persistAnswerArtifacts", () => {
-  const src = readFileSync(resolve(root, "lib/agent/index.js"), "utf8");
+  const src = readFileSync(resolve(root, "lib/agent/deliverables.js"), "utf8");
   const body = readFileSync(skillPath, "utf8");
-  assert.match(src, /base = `\$\{slug\}\.html`/, "title-slug filename derivation moved");
+  assert.match(src, /base = ext === "html" \? "index\.html"/, "title-slug filename derivation moved");
   assert.match(src, /"index\.html"/, "index.html fallback moved");
   assert.match(body, /<title>` becomes the filename/i, "SKILL.md must document the title-as-filename rule");
   assert.match(body, /index\.html/, "SKILL.md must document the index.html fallback");

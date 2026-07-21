@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 
-const ROOT = resolve(import.meta.dirname, "../..");
+const ROOT = resolve(import.meta.dirname, "../../..");
 
 test("lite smoke covers five supported hosted OS/architecture runners", async () => {
   const workflow = await readFile(resolve(ROOT, ".github/workflows/ci.lite-smoke.yml"), "utf8");
@@ -72,7 +72,7 @@ test("Codecov refreshes E2E dashboard without real-app tests, which remain manua
   assert.doesNotMatch(e2eWorkflow, /^  (push|pull_request|schedule):/m);
   assert.match(e2eWorkflow, /npm run test:e2e:real/);
   assert.match(e2eWorkflow, /timeout-minutes:\s*10/);
-  assert.match(pkg.scripts["test:ci:unit"], /-not -path 'tests\/e2e\/\*'/);
+  assert.match(pkg.scripts["test:ci:unit"], /find tests\/unit -name/);
   assert.match(pkg.scripts["test:ci:unit"], /--test-concurrency=1/);
   assert.match(pkg.scripts["test:e2e:ci"], /-not -name 'real-app-\*\.test\.js'/);
   assert.match(pkg.scripts["test:e2e:ci"], /e2e-results\.json/);

@@ -48,12 +48,12 @@ function loadBrowserScript(file, elements, extras = {}) {
     ...extras,
   });
   context.window = context;
-  vm.runInContext(readFileSync(new URL(`../../${file}`, import.meta.url), "utf8"), context, { filename: file });
+  vm.runInContext(readFileSync(new URL(`../../../${file}`, import.meta.url), "utf8"), context, { filename: file });
   return context;
 }
 
 function actionForButton(id) {
-  const html = readFileSync(new URL("../../public/index.html", import.meta.url), "utf8");
+  const html = readFileSync(new URL("../../../public/index.html", import.meta.url), "utf8");
   const button = html.match(new RegExp(`<button\\s+id=["']${id}["'][^>]*>`, "i"))?.[0];
   assert.ok(button, `button #${id} exists in the real sidebar`);
   const action = button.match(/data-action=["']([^"']+)["']/i)?.[1];

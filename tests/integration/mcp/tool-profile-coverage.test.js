@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 
 import { TOOL_PROFILES, FIRST_TURN_TOOLS } from "../../../lib/agent/tool-profiles.js";
 
-const TOOLS_DIR = fileURLToPath(new URL("../../mcp/tools/", import.meta.url));
+const TOOLS_DIR = fileURLToPath(new URL("../../../mcp/tools/", import.meta.url));
 
 // A ctx that answers any property access (and call) with another such proxy, so
 // register()/createBoundHandlers() can read ctx freely without a real DB, store,

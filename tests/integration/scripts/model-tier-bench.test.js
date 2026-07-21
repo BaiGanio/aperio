@@ -1054,7 +1054,7 @@ test("runWsCase rejects a completed turn that contains a llama.cpp context overf
 test("offline audit rescoring covers the 24 GB Gemma and 32 GB Qwen recall-filter-type artifacts without writing var", () => {
   // Committed fixture tree (not volatile var/) so the audit outcomes are stable
   // across benchmark runs. base= overrides the production var/ artifact path.
-  const fixtureRoot = fileURLToPath(new URL("../fixtures/model-tier-rescore", import.meta.url));
+  const fixtureRoot = fileURLToPath(new URL("../../fixtures/model-tier-rescore", import.meta.url));
   const report = rescorePersistedRuns(fixtureRoot, join(fixtureRoot, "benchmarks/model-tiers"));
   const gemma = report.find(item => item.artifactPath.endsWith("24gb/gemma4-e4b-ud-q4kxl/20260715T083512Z/run.json"));
   const qwen = report.find(item => item.artifactPath.endsWith("32gb/qwen36-35b-a3b-mtp-ud-q4kxl/20260715T-qwen36-35b-ud-q4kxl/run.json"));

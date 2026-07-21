@@ -14,8 +14,8 @@ import { pathToFileURL, fileURLToPath } from "url";
 import { loadSkillIndex, matchSkill } from "../../../lib/workers/skills.js";
 
 const __dirname  = dirname(fileURLToPath(import.meta.url));
-// File lives at tests/skills/execution.test.js — go up twice to reach project root
-const ROOT       = resolve(__dirname, "..", "..");
+// File lives at tests/integration/skills/execution.test.js — go up three times to reach project root
+const ROOT       = resolve(__dirname, "..", "..", "..");
 const SKILLS_DIR = resolve(ROOT, "skills");
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────

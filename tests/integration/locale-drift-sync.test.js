@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /**
  * Extracts the SUPPORTED_LOCALES set from server.js via regex.
@@ -13,7 +13,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 function extractServerLocales() {
   // SUPPORTED_LOCALES moved to lib/server.js during composition-root extraction
   const src = readFileSync(resolve(ROOT, "lib/server.js"), "utf8");
-  const m = src.match(/\s*const SUPPORTED_LOCALES = new Set\(\[\n([\s\S]+?)\n\s*\]\)/);
+  const m = src.match(/\s*const SUPPORTED_LOCALES = new Set\(\[\n([\s\S]+?)\n\s*\]\);?/);
   if (!m) throw new Error("Could not find SUPPORTED_LOCALES in lib/server.js");
   const set = new Set();
   for (const line of m[1].split("\n")) {

@@ -17,7 +17,7 @@ const sectionGroup = Object.fromEntries(SECTIONS.map((s) => [s.id, s.group]));
 const groupSafe = Object.fromEntries(GROUPS.map((g) => [g.id, !!g.safe]));
 const isStartGroup = (e) => !!groupSafe[sectionGroup[e.section]];
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const SCRIPT = join(ROOT, "scripts", "gen-env-example.js");
 
 const run = (args, dir) =>
