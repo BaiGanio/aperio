@@ -115,6 +115,23 @@ Versions follow [Semantic Versioning](https://semver.org/).
   install the full teardown path, ensuring scheduler, watchers, llama.cpp,
   embeddings, store, and HTTP resources are all released. (#301)
 
+- **Speed metric restored for non-llamacpp providers**: the answer stats badge
+  now shows `🚙 speed: {n} tok/s` — an overall/average rate computed from the
+  displayed answer's token count ÷ full turn wall-clock time — for providers
+  that do not expose llama-server per-phase timings. The numerator is derived
+  from the visible answer text (not accumulated provider-reported usage which
+  includes tool-payload and intermediate-model tokens), and the elapsed timer
+  spans the whole request including tool execution and provider setup latency.
+  `settleTurnTimer` no longer consumes `requestStartTime`, so every stream in a
+  multi-stream turn (round-table, thought‑before‑tool) sees the same full
+  wall-clock — the per-stream timing fallback only activates when the request
+  timer has genuinely been cleared (abort/error). Elapsed is naturally
+  overwritten by the next `startLiveTimer()` call on the next message.
+  When llama.cpp timings
+  ARE available, only the `⚡P`/`💨G` split is shown. The `{speed}` placeholder
+  now works in all 26 locales (including the inline English defaults), and the
+  stripping logic for the llamacpp branch uses a locale-agnostic regex. (#301)
+
 - Artifact path safety now reuses the app-wide gate instead of a private copy.
   `lib/helpers/artifactActions.js` hand-rolled its own realpath/containment
   checks against raw `node:fs`, so any future hardening of traversal or symlink

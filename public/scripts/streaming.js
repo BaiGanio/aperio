@@ -461,7 +461,7 @@ function handleMessage(msg) {
   }
 
   if (msg.type === "stream_end") {
-    const elapsedSec = streamStartTime ? (Date.now() - streamStartTime) / 1000 : null;
+    const perStreamMs = streamStartTime ? (Date.now() - streamStartTime) : 0;
     streamStartTime = null;
     // A provider can emit text, then a tool event, then more text into the same
     // bubble. The tool event recreates the live indicator, so always clear it
@@ -479,11 +479,14 @@ function handleMessage(msg) {
     }
     accThinkingTokens += msg.usage?.thinking_tokens ?? 0;
     accOutputTokens += msg.usage?.output_tokens ?? 0;
-    const responseStats = (elapsedSec && msg.usage?.output_tokens)
+    const totalElapsedSec = requestStartTime
+      ? (Date.now() - requestStartTime) / 1000
+      : (perStreamMs / 1000);
+    const responseStats = (totalElapsedSec > 0 && msg.usage?.output_tokens)
       ? {
           outputTokens: accOutputTokens,
           thinkingTokens: accThinkingTokens,
-          elapsedSec,
+          elapsedSec: totalElapsedSec,
           inputTokens: msg.usage?.input_tokens ?? 0,
           inputTokensKind: msg.usage?.input_tokens_kind ?? "context",
           timings: msg.usage?.timings ?? null,
@@ -1456,13 +1459,23 @@ function finalizeStreamingBubble(ref, fullText, stats) {
   if (stats) {
     const answerTok = stats.outputTokens - (stats.thinkingTokens || 0);
     const secLabel = stats.elapsedSec.toFixed(1) + "s";
+    const displayTok = estimateTokens(fullText);
     const badge = document.createElement("div");
     badge.className = "msg-stats";
+    const hasTimings = stats.timings?.prompt_per_second || stats.timings?.predicted_per_second;
+    const overallSpeed = stats.elapsedSec > 0 ? (displayTok / stats.elapsedSec) : 0;
     let label;
-    if (stats.thinkingTokens > 0) {
-      label = t("stats_with_thinking", { total: stats.outputTokens, answer: answerTok, thinking: stats.thinkingTokens, sec: secLabel });
+    if (hasTimings) {
+      // LlamaCPP: show only ⚡P/💨G split — omit the `speed` param so {speed}
+      // stays as literal text, then strip the {speed} segment with a locale-
+      // agnostic regex that matches the next · separator.
+      const params = { total: stats.outputTokens, answer: answerTok, thinking: stats.thinkingTokens, sec: secLabel };
+      label = (stats.thinkingTokens > 0 ? t("stats_with_thinking", params) : t("stats_plain", params));
+      label = label.replace(/ · 🚙 [^·]+/g, "");
     } else {
-      label = t("stats_plain", { answer: answerTok, sec: secLabel });
+      // Non-llamacpp providers: show overall average rate (answer tok / elapsedSec).
+      const params = { total: stats.outputTokens, answer: answerTok, thinking: stats.thinkingTokens, sec: secLabel, speed: overallSpeed.toFixed(1) };
+      label = (stats.thinkingTokens > 0 ? t("stats_with_thinking", params) : t("stats_plain", params));
     }
     // Providers that report prompt-context tokens can surface that occupancy
     // here. Aggregate agent-loop work (Codex) is deliberately excluded.
@@ -1470,7 +1483,7 @@ function finalizeStreamingBubble(ref, fullText, stats) {
       label += " · " + t("stats_context_in", { n: stats.inputTokens.toLocaleString() });
     }
     // Append llama-server timings (prompt vs gen tok/s) to the same line.
-    if (stats.timings?.prompt_per_second || stats.timings?.predicted_per_second) {
+    if (hasTimings) {
       const t = stats.timings;
       const parts = [];
       if (t.prompt_per_second) parts.push(`⚡P: ${t.prompt_per_second.toFixed(1)} tok/s`);
@@ -1898,14 +1911,13 @@ function stopLiveTimer() {
 
 // Settle the live turn timer into a persistent breadcrumb ("done · 54.3s")
 // instead of letting the wall-clock that ticked next to the busy words vanish
-// with the pill. One settle per turn — requestStartTime is consumed. Note the
-// msg-stats "completed" figure times only the final stream; this line is the
-// whole turn: thinking, tools, and result digestion included.
+// with the pill. Does NOT consume requestStartTime — subsequent streams in
+// the same turn still see the full wall-clock for their speed/timing badges.
+// requestStartTime is naturally overwritten by the next startLiveTimer() call.
 function settleTurnTimer() {
   stopLiveTimer();
   if (!requestStartTime) return;
   const total = Date.now() - requestStartTime;
-  requestStartTime = null;
   const line = document.createElement("div");
   line.className = "action-phase done";
   line.innerHTML =
