@@ -27,6 +27,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - **UI timing decomposition**: the answer stats badge now shows llama-server's
   prompt evaluation tok/s (`⚡P:`) and generation tok/s (`💨G:`) as a secondary
   line below the blended speed metric, when llama.cpp timings are available. (#300)
+- **Honest pricing (OpenRouter sync)**: Removed all hardcoded, inaccurate cost rates.
+  Server now fetches real model pricing from OpenRouter's public catalog once per day,
+  caches to `var/pricing-cache.json`, and sends accurate $/1M rates to the client.
+  When pricing is unavailable (offline, API unreachable), navbar shows `—` instead of
+  a guess. Gracefully falls back to stale cache on network failure. Verified against
+  OpenRouter: DeepSeek V4 Flash was overstated 461%, Gemini 2.5 Flash underquoted by
+  100%. Context windows now accurate (e.g., DeepSeek: 1,048,576 not 128,000). Models
+  tracked: DeepSeek V4 Pro/Flash, Claude Opus/Sonnet/Haiku, Fable, Gemini 2.5,
+  GPT-5.6 variants.
 
 ### Added
 
