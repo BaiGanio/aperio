@@ -601,3 +601,116 @@ describe("runGeminiLoop — context trimming", () => {
     assert.ok(trimmedEvents.length >= 0); // may or may not trigger depending on estimateMsgTokens
   });
 });
+
+// =============================================================================
+// Reasoning parity (WS4 / group D)
+// =============================================================================
+describe("runGeminiLoop — reasoning parity (group D)", () => {
+  afterEach(() => { reset(); delete process.env.GEMINI_THINKING_BUDGET; });
+
+  // Shape verified live (2026-07-21) against gemini-2.5-flash with
+  // thinkingConfig: { thinkingBudget, includeThoughts: true } — `part.thought`
+  // is untyped in this SDK version (@google/generative-ai) but present on the
+  // real wire response.
+  function thoughtChunk(text) {
+    return { candidates: [{ content: { parts: [{ text, thought: true }] } }] };
+  }
+
+  function thinkingModel(chunks, usage = { promptTokenCount: 10, candidatesTokenCount: 2, thoughtsTokenCount: 34 }) {
+    return makeClient({
+      generateContentStream: async () => ({
+        stream: makeStream(chunks),
+        response: { usageMetadata: usage, functionCalls: () => [] },
+      }),
+    });
+  }
+
+  test("D1: emits reasoning_start -> reasoning_token -> reasoning_done before the first answer token", async () => {
+    process.env.GEMINI_THINKING_BUDGET = "2048";
+    const ctx = baseCtx({
+      provider: { name: "gemini", model: "gemini-2.5-flash", contextWindow: 8192, client: thinkingModel([thoughtChunk("Working it out."), textChunk("42")]) },
+    });
+    const emitter = { send: mock.fn() };
+
+    const result = await runGeminiLoop([{ role: "user", content: "What is 6 times 7?" }], emitter, {}, undefined, undefined, ctx);
+    assert.equal(result, "42");
+
+    const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+    const types = events.map(e => e.type);
+    const startIdx = types.indexOf("reasoning_start");
+    const tokenIdx = types.indexOf("reasoning_token");
+    const doneIdx = types.indexOf("reasoning_done");
+    const answerTokenIdx = events.findIndex(e => e.type === "token" && e.text === "42");
+
+    assert.ok(startIdx !== -1 && tokenIdx !== -1 && doneIdx !== -1, "all three reasoning events must fire");
+    assert.ok(startIdx < tokenIdx && tokenIdx < doneIdx && doneIdx < answerTokenIdx);
+    assert.equal(events[tokenIdx].text, "Working it out.");
+    assert.ok(!events.some(e => e.type === "token" && e.text.includes("Working it out")), "no token event may carry reasoning text");
+  });
+
+  test("D1 edge: thinking disabled (budget unset) never requests includeThoughts or emits reasoning events", async () => {
+    let generationConfig;
+    const ctx = baseCtx({
+      provider: {
+        name: "gemini", model: "gemini-2.5-flash", contextWindow: 8192,
+        client: { getGenerativeModel: (cfg) => { generationConfig = cfg.generationConfig; return { generateContentStream: async () => ({ stream: makeStream([textChunk("Hi")]), response: textResponse("Hi") }) }; } },
+      },
+    });
+    const emitter = { send: mock.fn() };
+
+    await runGeminiLoop([{ role: "user", content: "Hi" }], emitter, {}, undefined, undefined, ctx);
+
+    assert.deepEqual(generationConfig, {});
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_token"), false);
+    assert.equal(types.includes("reasoning_done"), false);
+  });
+
+  test("D1 edge: a thought part with no text still opens/closes the bubble without an empty reasoning_token", async () => {
+    process.env.GEMINI_THINKING_BUDGET = "2048";
+    const ctx = baseCtx({
+      provider: { name: "gemini", model: "gemini-2.5-flash", contextWindow: 8192, client: thinkingModel([{ candidates: [{ content: { parts: [{ thought: true }] } }] }, textChunk("42")]) },
+    });
+    const emitter = { send: mock.fn() };
+
+    await runGeminiLoop([{ role: "user", content: "Hi" }], emitter, {}, undefined, undefined, ctx);
+
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.filter(t => t === "reasoning_start").length, 1);
+    assert.equal(types.filter(t => t === "reasoning_done").length, 1);
+    assert.equal(types.includes("reasoning_token"), false);
+  });
+
+  test("passes includeThoughts alongside thinkingBudget and sets state.thinks", async () => {
+    process.env.GEMINI_THINKING_BUDGET = "2048";
+    let generationConfig;
+    const state = { thinks: false };
+    const ctx = baseCtx({
+      provider: {
+        name: "gemini", model: "gemini-2.5-flash", contextWindow: 8192,
+        client: { getGenerativeModel: (cfg) => { generationConfig = cfg.generationConfig; return { generateContentStream: async () => ({ stream: makeStream([textChunk("Hi")]), response: textResponse("Hi") }) }; } },
+      },
+      state,
+    });
+    const emitter = { send: mock.fn() };
+
+    await runGeminiLoop([{ role: "user", content: "Hi" }], emitter, {}, undefined, undefined, ctx);
+
+    assert.deepEqual(generationConfig.thinkingConfig, { thinkingBudget: 2048, includeThoughts: true });
+    assert.equal(state.thinks, true);
+  });
+
+  test("D2: thinking_tokens still comes from the real thoughtsTokenCount field", async () => {
+    process.env.GEMINI_THINKING_BUDGET = "2048";
+    const ctx = baseCtx({
+      provider: { name: "gemini", model: "gemini-2.5-flash", contextWindow: 8192, client: thinkingModel([thoughtChunk("Thinking."), textChunk("42")], { promptTokenCount: 10, candidatesTokenCount: 2, thoughtsTokenCount: 34 }) },
+    });
+    const emitter = { send: mock.fn() };
+
+    await runGeminiLoop([{ role: "user", content: "Hi" }], emitter, {}, undefined, undefined, ctx);
+
+    const end = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "stream_end");
+    assert.equal(end.usage.thinking_tokens, 34);
+  });
+});

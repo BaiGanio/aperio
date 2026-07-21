@@ -111,6 +111,12 @@ boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advan
 
 Pass --ignore-rules to `codex exec` so repo rule files (AGENTS.md etc.) are skipped for provider runs.
 
+#### `CODEX_REASONING_SUMMARY`
+
+select · tier 1 (Settings UI, restart to apply) · default: `auto` · options: `auto | concise | detailed | none` · advanced
+
+Codex reasoning-summary verbosity. `auto`/`concise`/`detailed` make the CLI emit `reasoning` items that Aperio renders as the collapsed thinking bubble (same UI as every other provider); `none` disables it. Doesn't add API cost — it's a summary of tokens already billed as reasoning_output_tokens.
+
 #### `CLAUDE_CODE_OAUTH_TOKEN`
 
 secret · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
@@ -313,15 +319,21 @@ select · tier 1 (Settings UI, restart to apply) · default: `balanced` · optio
 
 Hardware/perf preset for the local llama.cpp engine. balanced (default) = current sizing, unchanged. fast-low-vram = lower context ceiling, quantized KV cache (-ctk/-ctv q8_0), flash attention, a MoE-preferred model pick, MoE expert layers offloaded to CPU (--n-cpu-moe), and only one resident model at a time (--models-max 1) — the biggest speed win on tight VRAM. long-context = raised context ceiling and a larger share of RAM committed to the KV cache; trades throughput for a bigger window — expect noticeably slower tokens/sec. quality = the biggest model your RAM allows, accepting slower tokens/sec.
 
-### Gemini thinking budget
+### Extended thinking budgets
 
-Tokens reserved for reasoning. 0 = off. Range when on: 512–24576.
+Tokens reserved for reasoning on providers that charge for it. 0 = off.
 
 #### `GEMINI_THINKING_BUDGET`
 
 number · tier 1 (Settings UI, restart to apply) · default: `0` · advanced
 
 Tokens reserved for reasoning. 0 = off. Range when on: 512–24576.
+
+#### `ANTHROPIC_THINKING_BUDGET`
+
+number · tier 1 (Settings UI, restart to apply) · default: `0` · advanced
+
+Tokens reserved for Claude's extended thinking. 0 = off (default — thinking tokens are billed output). Range when on: 1024–24576. Reasoning streams as a collapsed bubble like every other provider.
 
 ### Round-table mode (two-agent cross-review)
 
