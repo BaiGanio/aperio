@@ -1,0 +1,115 @@
+/* public/styles/modals/preview.css — memory full-text preview modal. */
+
+    /* ── Preview modal ───────────────────────────────────────── */
+    .preview-modal {
+      display: none;
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      font-family: var(--font-mono);
+      background: rgba(0,0,0,0.5);
+      z-index: 1001;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .preview-modal.active {
+      display: flex !important;
+    }
+
+    .preview-content {
+      position: relative;
+      background: var(--bg-panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-lg);
+      padding: 20px;
+      border-radius: var(--radius);
+      width: 90%;
+      max-width: 800px;
+      max-height: 90vh;
+      overflow-y: auto;
+      line-height: 1.8rem;
+    }
+
+    .modal-divider {
+      border: 0;
+      height: 1px;
+      background: #e5e7eb;
+      margin: 20px 0;
+      width: 100%;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 10px; right: 15px;
+      font-size: calc(28px * var(--font-scale));
+      font-weight: bold;
+      line-height: 1;
+      color: #333;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 5px;
+      transition: color 0.2s ease;
+    }
+
+    .close-btn:hover,
+    .close-btn:focus {
+      color: #ff0000;
+      outline: none;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 10px;
+    }
+
+    .importance-rating {
+      font-weight: 600;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      user-select: none;
+    }
+
+    .stars {
+      color: #fbbf24;
+      font-weight: 900;
+      letter-spacing: 2px;
+      text-shadow: 0 0 1px rgba(251,191,36,0.3);
+    }
+
+    .mtags {
+      font-size: var(--fs-ui);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .mtags span, .mtags .tag {
+      background-color: #f9fafb;
+      color: #6b7280;
+      border: 1px solid #f3f4f6;
+      padding: 1px 8px;
+      font-size: var(--fs-micro);
+      line-height: 1.4;
+      border-radius: 4px;
+      font-weight: 500;
+      text-transform: lowercase;
+      display: inline-block;
+      transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease;
+      transform-origin: center;
+    }
+    .mtags span:hover, .mtags .tag:hover {
+      transform: scale(1.15);
+      background-color: #3b82f6;
+      color: #ffffff;
+      border-color: #2563eb;
+      cursor: pointer;
+      z-index: 10;
+    }

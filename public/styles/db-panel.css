@@ -1,6 +1,6 @@
 /* ── DB panel ────────────────────────────────────────────────── */
 /* Slide-in from the right (mirrors the wiki panel): lists the database tables.
-   The table viewer itself reuses the .mem-table-* modal styles in modals.css. */
+   The table viewer itself reuses the .mem-table-* modal styles in modals/memory-table.css. */
 .db-backdrop {
   position: fixed; inset: 0;
   background: rgba(0,0,0,.25);
