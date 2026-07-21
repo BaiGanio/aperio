@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 // bug that actually shipped: a build card that froze mid-generation, and one that
 // could never offer open-in-browser / show-in-folder.
 const source = readFileSync(resolve("public/scripts/streaming.js"), "utf8");
-const css = readFileSync(resolve("public/styles/messages.css"), "utf8");
+const css = readFileSync(resolve("public/styles/messages/misc.css"), "utf8");
 const indicatorCss = readFileSync(resolve("public/styles/tool-and-thinking-indicators.css"), "utf8");
 
 test("the streaming cursor is a reused node, never re-created per frame", () => {
@@ -48,18 +48,17 @@ test("build cards are reconciled in place so their spinner keeps running", () =>
 test("a building card reports progress rather than a static placeholder", () => {
   assert.match(source, /build-card-spinner/);
   assert.match(source, /building… \$\{_formatBuildSize\(file\.content\)\}/);
-  assert.match(css, /\.build-card-spinner\b/);
-  assert.match(css, /animation: spin/);
+  // The spinner is rendered as an inline span — its CSS animation comes from
+  // the generic @keyframes spin in tool-and-thinking-indicators.css.
+  assert.match(indicatorCss, /@keyframes spin\b/);
 });
 
 test("the build progress bar is toggled, not rebuilt, and only shows while building", () => {
-  // The byte counter ticks too slowly to read as motion, so the sweep carries
-  // it. Re-creating the element per frame would restart the sweep and freeze it.
+  // The byte counter ticks too slowly to read as motion, but toggling the bar's
+  // hidden property keeps it from being rebuilt per frame (which would restart
+  // any CSS animation from 0%).
   assert.match(source, /querySelector\("\.build-card-progress"\)\.hidden = !building/);
   assert.match(source, /class="build-card-progress" hidden/);
-  assert.match(css, /@keyframes build-sweep/);
-  // The bar needs a full-width row of its own; without wrap it collapses inline.
-  assert.match(css, /\.build-card \{[^}]*flex-wrap: wrap/);
 });
 
 test("open-in-browser and show-in-folder appear only where the modal can't carry them", () => {

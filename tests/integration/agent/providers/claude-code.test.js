@@ -43,7 +43,12 @@ let __setMockEvents;
 before(async () => {
   const mod = await import("../../../../lib/agent/providers/claude-code.js");
   runClaudeCodeLoop = mod.runClaudeCodeLoop;
-  const mockSdk = await import("../../../lib/agent/providers/__mocks__/claude-agent-sdk.js");
+  // Must import @anthropic-ai/claude-agent-sdk (not its resolved path) so the
+  // test and the provider share the same module instance via the resolve loader
+  // hook registered above. A direct file import creates a second module instance
+  // with its own queuedEvents, and __setMockEvents silently sets events the
+  // provider's query() never reads.
+  const mockSdk = await import("@anthropic-ai/claude-agent-sdk");
   __setMockEvents = mockSdk.__setMockEvents;
 });
 
