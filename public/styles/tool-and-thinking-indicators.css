@@ -431,17 +431,51 @@
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Streaming cursor */
-.cursor {
-    display: inline-block;
-    animation: blink .7s step-end infinite;
-    color: var(--accent);
-    font-weight: 300;
-}
-
+/* Still used by the pending tool-card dot and the live status dot below —
+   the streaming cursor no longer blinks, but those two do. */
 @keyframes blink {
     0%, 100% { opacity: 1; }
-    50%       { opacity: 0; }
+    50%      { opacity: 0; }
+}
+
+/* Streaming cursor — a comet tracking left-right rather than a blinking block.
+   A blink reads as "idle caret"; during a long build, where the source is
+   stripped out and nothing else on screen moves, it left no way to tell working
+   from hung. Travel does: it cannot look stalled without actually being stalled.
+   Three dots share one keyframe, offset in time, so the trail costs no extra
+   animation — and the node is created once and never replaced (see _streamShell)
+   so the cycle is never restarted mid-flight. */
+.cursor {
+    display: inline-block;
+    position: relative;
+    vertical-align: middle;
+    width: 48px;
+    height: 8px;
+}
+
+.cursor i {
+    position: absolute;
+    top: 1px;
+    left: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: comet-travel 1.2s cubic-bezier(.45, 0, .55, 1) infinite alternate;
+}
+
+.cursor i:nth-child(2) { opacity: .45; animation-delay: .09s; }
+.cursor i:nth-child(3) { opacity: .2;  animation-delay: .18s; }
+
+@keyframes comet-travel { to { left: 42px; } }
+
+/* Motion is the signal here, so it is slowed rather than stopped — a frozen
+   cursor is exactly the ambiguity this replaced. The trail collapses to a
+   single dot, since three offset dots are the fidgety part. */
+@media (prefers-reduced-motion: reduce) {
+    .cursor i { animation-duration: 3s; }
+    .cursor i:nth-child(2),
+    .cursor i:nth-child(3) { display: none; }
 }
 
 /* Thinking indicator */

@@ -246,6 +246,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Generated-file preview actions are hidden when the artifact fetch fails, so
   stale Open in browser and Show in folder buttons cannot target an unavailable
   file. (#301)
+- Streaming cursor no longer appears frozen during a build. The answer bubble was
+  rebuilt on every streamed chunk, so the cursor was a new DOM node each token and
+  its blink animation restarted before completing a cycle, rendering permanently
+  solid. Markdown now streams into its own container and the cursor persists across
+  frames. Because a build's source is stripped from the bubble, nothing else on
+  screen changed for the whole generation — the UI looked hung while the model was
+  working normally.
+- Build cards now report progress instead of a static `⏳` placeholder: they are
+  reconciled in place rather than recreated each frame, which lets them carry a
+  spinner and a live byte count as the artifact is written.
+- Inline HTML artifacts now offer Open in browser and Show in folder, matching
+  tool-written files. `persistAnswerArtifacts` returns file descriptors (name, URL,
+  size) and the server emits `answer_artifacts`, so a card built from the message
+  text can reach the real file in `var/scratch/`. Previously those actions were
+  hidden because the client only had the in-memory string, never a path. The card
+  also now shows the filename the server actually wrote, rather than an
+  independently derived guess that could differ from the file on disk.
+- The "answered with code instead of writing files" warning no longer fires when
+  the model's code block was captured and persisted to the workspace. The file
+  exists on disk in that case, so the warning was simply false; a persisted
+  artifact now clears the no-tool streak the same way a tool call does.
 - `edit_file` confirmations no longer fail with "Target changed since confirmation
   was requested" when two edits to the same file are proposed in the same turn
   and confirmed back to back (#299). Each proposal used to snapshot a whole-file
