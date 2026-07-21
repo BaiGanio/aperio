@@ -39,6 +39,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Error and empty-turn parity for Anthropic/Gemini** (provider-ux-parity WS5):
+  Anthropic no longer throws on a failed stream open or a mid-stream error —
+  both now stream the same `⚠️` token bubble + `stream_end` every other
+  provider loop already used, instead of surfacing through wsHandler's
+  separate `error` event path. The "(model produced no response)"
+  empty-completion fallback (previously only reachable via the
+  llama.cpp/DeepSeek `ToolExecutor` path) is now a single shared helper
+  (`emitEmptyResponseFallback` in `lib/tools/executor.js`) that Anthropic and
+  Gemini's terminal branches call too, so a genuinely empty or whitespace-only
+  completion shows the fallback bubble instead of a silent empty turn.
 - **Reasoning parity across all providers**: Anthropic, Gemini, Claude Code, and
   Codex now stream the same collapsed `reasoning_start`/`reasoning_token`/
   `reasoning_done` bubble the llama.cpp/DeepSeek loops already used, with a real
