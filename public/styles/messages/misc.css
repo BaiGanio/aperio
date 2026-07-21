@@ -1,0 +1,141 @@
+/* public/styles/messages/misc.css — no-tool-use warning chip, collapsed code blocks, build-deliverable card, choice pills. */
+
+/* ── No-tool-use warning chip ───────────────────────────────────────────── */
+.no-tool-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warning, #f59e0b) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--warning, #f59e0b) 35%, transparent);
+  font-size: var(--fs-chrome);
+  line-height: 1.5;
+  color: var(--text);
+}
+.no-tool-warning-icon {
+  font-size: var(--fs-secondary);
+  color: var(--warning, #f59e0b);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.no-tool-warning-text {
+  flex: 1;
+}
+.no-tool-warning-dismiss {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: var(--fs-chrome);
+  padding: 0 2px;
+  flex-shrink: 0;
+  line-height: 1;
+  margin-top: 2px;
+}
+.no-tool-warning-dismiss:hover {
+  color: var(--text);
+}
+
+/* ── Collapsed inline code blocks ──────────────────────────────
+   A large code block the model pasted inline is clipped to a preview
+   height with a fade, so a 10k-line file doesn't flood the transcript.
+   The toolbar's expand/download/preview buttons handle the rest. */
+.code-block--collapsed {
+  position: relative;
+}
+.code-block--collapsed pre {
+  max-height: 220px;
+  overflow: hidden;
+}
+/* While the answer is still streaming, cap any in-progress code block so a large
+   file doesn't push the rest of the conversation off-screen as it arrives. */
+.bubble.streaming .code-block pre {
+  max-height: 260px;
+  overflow: hidden;
+}
+.code-block--collapsed::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 56px;
+  pointer-events: none;
+  background: linear-gradient(to bottom, transparent, var(--bg));
+}
+
+/* ── Build deliverable placeholder ─────────────────────────────
+   Shown where a build's source code would be. The real file is saved to the
+   workspace and offered via the generated-file card that follows. */
+.build-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-hover);
+  font-family: var(--font-mono);
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+}
+.build-card-icon { flex-shrink: 0; }
+.build-card-name { color: var(--text); font-weight: 500; }
+.build-card-sub { opacity: 0.7; }
+
+/* ── Choice pills ──────────────────────────────────────────────
+   Clickable shortcuts for "pick an option" prompts. Typing a free-form
+   answer in the input still works — these are a shortcut, not a gate. */
+.choice-pills-wrap {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.choice-pills-caption {
+  font-size: var(--fs-micro);
+  font-family: var(--font-sans);
+  color: var(--text-muted, var(--text));
+  opacity: 0.7;
+  margin-bottom: 8px;
+}
+.choice-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.choice-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: var(--fs-chrome);
+  font-family: var(--font-sans);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition), color var(--transition);
+}
+.choice-pill::before {
+  /* Affordance: a leading glyph that signals "this is a clickable choice". */
+  content: "›";
+  font-weight: 700;
+  opacity: 0.7;
+}
+.choice-pill:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+/* Topic pills need the user's own input, so they seed the box rather than send.
+   A pencil + dashed border telegraphs "fill this in" instead of "submit". */
+.choice-pill--topic {
+  border-style: dashed;
+}
+.choice-pill--topic::before {
+  content: "✎";
+  font-weight: 400;
+}

@@ -1,0 +1,47 @@
+/* public/styles/messages/tables.css — markdown pipe-table rendering inside bubbles. */
+
+/* ── Table styles (markdown pipe tables) ── */
+.bubble table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 12px 0;
+  font-size: calc(13.5px * var(--font-scale));
+  line-height: 1.55;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.bubble thead th {
+  text-align: left;
+  padding: 9px 14px;
+  font-weight: 600;
+  font-size: var(--fs-micro);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: var(--bg-hover);
+  border-bottom: 2px solid var(--border);
+}
+
+.bubble td {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--bg-hover);
+  vertical-align: top;
+}
+
+/* Zebra striping */
+.bubble tbody tr:nth-child(even) td {
+  background: var(--bg-hover);
+}
+
+.bubble tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Row hover — distinct from zebra stripe so hover is always visible */
+.bubble tbody tr:hover td {
+  background: var(--accent-soft);
+}
+
