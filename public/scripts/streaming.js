@@ -147,7 +147,7 @@ function handleMessage(msg) {
   if (msg.type === "provider") {
     document.getElementById("startup-thinking")?.remove();
     // Track provider for cost display.
-    if (typeof setCostProvider === "function") setCostProvider(msg.name, msg.model, msg.costRates);
+    if (typeof setCostProvider === "function") setCostProvider(msg.name, msg.model, msg.costRates, msg.local, msg.subscription);
     // Round-table: cache agent list and toggle the Discuss button accordingly.
     // Sparse re-announces (llamacpp mid-turn ctx grow, model switch) omit the
     // roundtable fields entirely — absence means "no change", not "disable".
@@ -196,7 +196,13 @@ function handleMessage(msg) {
     if (toggle) toggle.style.display = msg.thinks ? "flex" : "none";
 
     if (msg.contextWindow) maxCtx = msg.contextWindow;
-    window.maxCtxCapacityPct = (typeof msg.contextCapacityPct === "number") ? msg.contextCapacityPct : null;
+    // Sparse re-announces (llamacpp mid-turn ctx grow) omit this key entirely —
+    // absence means "no change", not "unknown, clear it". A boot/switch_model
+    // message always includes the key (possibly with value null for a genuinely
+    // non-local provider), so presence still lets that case clear it correctly.
+    if ("contextCapacityPct" in msg) {
+      window.maxCtxCapacityPct = (typeof msg.contextCapacityPct === "number") ? msg.contextCapacityPct : null;
+    }
     if (typeof msg.imageTokens === "number") _imageTokenCost = msg.imageTokens;
     // These two boot events may arrive in either order. Re-sync once capacity
     // is known so the navbar can render both sides of the estimate.
