@@ -229,7 +229,7 @@ describe("runCodexLoop", () => {
     assert.ok(capture.args.includes('mcp_servers.aperio.default_tools_approval_mode="approve"'));
   });
 
-  test("emits tool activity for command and MCP items", async () => {
+  test("emits tool activity for command and MCP items with canonical names", async () => {
     const emitter = { send: mock.fn() };
     await runCodexLoop(
       [{ role: "user", content: "Use tools" }],
@@ -241,18 +241,261 @@ describe("runCodexLoop", () => {
         codexSpawn: mockChild({
           capture: {},
           stdoutLines: [
-            { type: "item.started", item: { type: "command_execution", command: "npm test" } },
-            { type: "item.started", item: { type: "mcp_tool_call", tool: "recall", server: "aperio" } },
+            { type: "item.started", item: { id: "item_0", type: "command_execution", command: "npm test" } },
+            { type: "item.started", item: { id: "item_1", type: "mcp_tool_call", tool: "recall", server: "aperio" } },
             { type: "item.completed", item: { type: "agent_message", text: "Done" } },
           ],
         }),
       }),
     );
 
+    // Surface #10 fix: the shell item's legacy label uses the canonical tool
+    // name, not the raw command text (that lives in tool_start.arg instead).
     const tools = emitter.send.mock.calls
       .filter(c => c.arguments[0].type === "tool")
       .map(c => c.arguments[0].name);
-    assert.deepEqual(tools, ["npm test", "recall"]);
+    assert.deepEqual(tools, ["run_shell", "recall"]);
+  });
+
+  // ─── WS3 / group C — tool_start/tool_result card synthesis ────────────────
+
+  describe("tool card synthesis (group C)", () => {
+    test("C1: shell, mcp, and web_search items yield a resolving tool_start/tool_result pair", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Use tools" }],
+        emitter,
+        {},
+        null,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.started", item: { id: "item_0", type: "command_execution", command: "echo hi", status: "in_progress", exit_code: null, aggregated_output: "" } },
+              { type: "item.completed", item: { id: "item_0", type: "command_execution", command: "echo hi", status: "completed", exit_code: 0, aggregated_output: "hi\n" } },
+              { type: "item.started", item: { id: "item_1", type: "mcp_tool_call", tool: "recall", server: "aperio", status: "in_progress" } },
+              { type: "item.completed", item: { id: "item_1", type: "mcp_tool_call", tool: "recall", server: "aperio", status: "completed" } },
+              { type: "item.started", item: { id: "item_2", type: "web_search", query: "aperio docs", status: "in_progress" } },
+              { type: "item.completed", item: { id: "item_2", type: "web_search", query: "aperio docs", status: "completed" } },
+              { type: "item.completed", item: { type: "agent_message", text: "Done" } },
+            ],
+          }),
+        }),
+      );
+
+      const starts = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_start");
+      const results = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_result");
+
+      assert.equal(starts.length, 3);
+      assert.equal(results.length, 3);
+
+      // seq: unique, monotonically increasing, and shared between start/result pairs
+      const seqs = starts.map(s => s.seq);
+      assert.deepEqual(seqs, [...new Set(seqs)].sort((a, b) => a - b), "seqs must be unique");
+      assert.deepEqual(seqs, [1, 2, 3]);
+      assert.deepEqual(results.map(r => r.seq), seqs);
+
+      const shellStart = starts[0];
+      assert.equal(shellStart.name, "run_shell");
+      assert.equal(shellStart.arg, "echo hi");
+      const shellResult = results[0];
+      assert.equal(shellResult.ok, true);
+      assert.equal(shellResult.summary, "hi");
+      assert.equal(typeof shellResult.ms, "number");
+
+      const mcpStart = starts[1];
+      assert.equal(mcpStart.name, "recall");
+      const mcpResult = results[1];
+      assert.equal(mcpResult.ok, true);
+      // The codex item stream carries no result text for mcp_tool_call — never
+      // fabricate one.
+      assert.equal("summary" in mcpResult, false);
+
+      const searchStart = starts[2];
+      assert.equal(searchStart.name, "web_search");
+      assert.equal(searchStart.arg, '"aperio docs"');
+    });
+
+    test("C1 edge: a failed shell command resolves ok:false without inventing a timing/summary it never reported", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Run a failing command" }],
+        emitter,
+        {},
+        null,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.started", item: { id: "item_0", type: "command_execution", command: "false", status: "in_progress" } },
+              { type: "item.completed", item: { id: "item_0", type: "command_execution", command: "false", status: "failed", exit_code: 1, aggregated_output: "" } },
+              { type: "item.completed", item: { type: "agent_message", text: "It failed" } },
+            ],
+          }),
+        }),
+      );
+
+      const result = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_result");
+      assert.equal(result.ok, false);
+      assert.equal("summary" in result, false);
+    });
+
+    test("C1 edge: item.completed without a matching item.started does not throw or emit a card", async () => {
+      const emitter = { send: mock.fn() };
+      const result = await runCodexLoop(
+        [{ role: "user", content: "Hi" }],
+        emitter,
+        {},
+        null,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.completed", item: { id: "item_0", type: "command_execution", command: "echo hi", status: "completed", exit_code: 0 } },
+              { type: "item.completed", item: { type: "agent_message", text: "Done" } },
+            ],
+          }),
+        }),
+      );
+
+      assert.equal(result, "Done");
+      assert.equal(emitter.send.mock.calls.some(c => c.arguments[0].type === "tool_result"), false);
+    });
+
+    test("C1 edge: unknown item types emit no tool_start/tool_result/tool card", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Hi" }],
+        emitter,
+        {},
+        null,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.started", item: { id: "item_0", type: "reasoning" } },
+              { type: "item.completed", item: { id: "item_0", type: "reasoning" } },
+              { type: "item.completed", item: { type: "agent_message", text: "Done" } },
+            ],
+          }),
+        }),
+      );
+
+      const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+      assert.equal(types.includes("tool"), false);
+      assert.equal(types.includes("tool_start"), false);
+      assert.equal(types.includes("tool_result"), false);
+    });
+
+    test("C1 edge: a declined item (approval policy rejected it) resolves ok:false, not a fabricated success", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Run something risky" }],
+        emitter,
+        {},
+        null,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.started", item: { id: "item_0", type: "command_execution", command: "rm -rf /", status: "in_progress" } },
+              { type: "item.completed", item: { id: "item_0", type: "command_execution", command: "rm -rf /", status: "declined" } },
+              { type: "item.completed", item: { type: "agent_message", text: "Declined" } },
+            ],
+          }),
+        }),
+      );
+
+      const result = emitter.send.mock.calls.map(c => c.arguments[0]).find(m => m.type === "tool_result");
+      assert.equal(result.ok, false);
+    });
+
+    test("a card left pending when the process exits without item.completed resolves as failed, not stuck running", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Run a slow command" }],
+        emitter,
+        {},
+        null,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            // No item.completed for item_0 at all — process just exits (e.g. crash).
+            stdoutLines: [
+              { type: "item.started", item: { id: "item_0", type: "command_execution", command: "sleep 100" } },
+            ],
+          }),
+        }),
+      );
+
+      const results = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_result");
+      assert.equal(results.length, 1);
+      assert.equal(results[0].ok, false);
+      assert.equal(typeof results[0].ms, "number");
+    });
+
+    test("a card left pending when the turn is aborted resolves as failed, not stuck running", async () => {
+      const controller = new AbortController();
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Stop mid-tool" }],
+        emitter,
+        {},
+        () => controller,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.started", item: { id: "item_0", type: "command_execution", command: "sleep 100" } },
+            ],
+            beforeClose: () => { controller.abort(); },
+          }),
+        }),
+      );
+
+      const results = emitter.send.mock.calls.map(c => c.arguments[0]).filter(m => m.type === "tool_result");
+      assert.equal(results.length, 1);
+      assert.equal(results[0].ok, false);
+    });
+
+    // C3 — chip label sanity: every name the codex bridge can emit is short
+    // and tool-like, never a raw command dump.
+    test("C3: emitted tool names stay short and tool-like, never a raw command line", async () => {
+      const emitter = { send: mock.fn() };
+      await runCodexLoop(
+        [{ role: "user", content: "Use tools" }],
+        emitter,
+        {},
+        null,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture: {},
+            stdoutLines: [
+              { type: "item.started", item: { id: "item_0", type: "command_execution", command: "git log --oneline -n 50 --all --source --graph" } },
+              { type: "item.completed", item: { id: "item_0", type: "command_execution", command: "git log --oneline -n 50 --all --source --graph", status: "completed", exit_code: 0 } },
+              { type: "item.completed", item: { type: "agent_message", text: "Done" } },
+            ],
+          }),
+        }),
+      );
+
+      const names = emitter.send.mock.calls
+        .map(c => c.arguments[0])
+        .filter(m => m.type === "tool_start" || m.type === "tool")
+        .map(m => m.name);
+      for (const name of names) {
+        assert.ok(name.length <= 40, `name "${name}" should be <=40 chars`);
+        assert.ok(!/\s/.test(name), `name "${name}" should not contain whitespace`);
+      }
+    });
   });
 
   test("separates multiple assistant message items", async () => {

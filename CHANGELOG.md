@@ -108,6 +108,25 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Tool cards now visible on Codex and Claude Code turns**: both providers ran
+  tool calls invisibly to the user. Codex's shell/MCP calls execute in a
+  subprocess that bypasses the shared tool hook entirely, so no card was ever
+  emitted; Claude Code's SDK built-in tools (Bash, WebFetch, Read, …) had no
+  card path at all, only its Aperio MCP tools (bridged through the existing
+  hook) did. Codex now synthesizes `tool_start`/`tool_result` cards from
+  `item.started`/`item.completed` events — canonical tool name (the raw shell
+  command no longer leaks into the chip label), real command/args, and an
+  honest ok/timing readout that never fabricates a checkmark for a status the
+  subprocess didn't report (a `declined` item — rejected by approval policy —
+  now correctly renders as failed, not a false success). Claude Code
+  synthesizes cards for SDK built-in tools from `assistant`/`user` message
+  tool_use/tool_result blocks, filtered by the `mcp__aperio__` prefix so its
+  already-hooked Aperio tools are never double-carded; both loops share the
+  hook's per-turn card sequence so a mixed turn (one Aperio tool + one
+  built-in) can't collide on the same sequence number. On either provider, a
+  card left pending by an abort, crash, or a dropped completion event now
+  resolves as failed instead of staying stuck "running" forever.
+
 - Standalone CLI chat messages that carry a queued `attach`ment placed the
   attachment's `[Image: ...]` label block before the user's own typed text.
   Every downstream intent classifier (tool-profile selection, skill matching,
