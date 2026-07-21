@@ -180,6 +180,7 @@
     "skills_always_badge":      "常驻",
     "skills_more":              "更多…",
     "skills_load_error":        "无法加载技能。",
+    "images_dropped_notice":  "{provider} 无法识别图片——本轮仅以文本方式运行。",
     "skills_panel_nav_title": "技能 — 查看、编辑、创建并切换你的智能体的技能",
     "skills_panel_label": "技能",
     "skills_panel_search_ph": "搜索技能…",

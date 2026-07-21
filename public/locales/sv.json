@@ -180,6 +180,7 @@
   "skills_always_badge":      "alltid på",
   "skills_more":              "mer...",
   "skills_load_error":        "Kunde inte ladda skicklighet.",
+  "images_dropped_notice":  "{provider} kan inte se bilder — den här turen körs endast med text.",
   "skills_panel_nav_title": "Färdigheter — visa, redigera, skapa och växla din agents färdigheter",
   "skills_panel_label": "Färdigheter",
   "skills_panel_search_ph": "Sök färdigheter…",

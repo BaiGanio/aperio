@@ -180,6 +180,7 @@
   "skills_always_badge":      "visada įjungtas",
   "skills_more":              "daugiau…",
   "skills_load_error":        "Nepavyko įkelti įgūdžių.",
+  "images_dropped_notice":  "{provider} nemato paveikslėlių — šis ėjimas vyks tik su tekstu.",
   "skills_panel_nav_title": "Įgūdžiai — peržiūrėk, redaguok, kurk ir perjunk savo agento įgūdžius",
   "skills_panel_label": "Įgūdžiai",
   "skills_panel_search_ph": "Ieškoti įgūdžių…",

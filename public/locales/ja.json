@@ -180,6 +180,7 @@
     "skills_always_badge":      "常時オン",
     "skills_more":              "もっと見る…",
     "skills_load_error":        "スキルを読み込めませんでした。",
+    "images_dropped_notice":  "{provider}は画像を認識できません — このターンはテキストのみで実行されます。",
     "skills_panel_nav_title": "スキル — エージェントのスキルを表示・編集・作成・切り替え",
     "skills_panel_label": "スキル",
     "skills_panel_search_ph": "スキルを検索…",

@@ -180,6 +180,7 @@
   "skills_always_badge":      "mereu pornit",
   "skills_more":              "mai mult…",
   "skills_load_error":        "Abilitatea nu s-a putut încărca.",
+  "images_dropped_notice":  "{provider} nu poate vedea imagini — această tură se va desfășura doar cu text.",
   "skills_panel_nav_title": "Abilități — vizualizează, editează, creează și comută abilitățile agentului tău",
   "skills_panel_label": "Abilități",
   "skills_panel_search_ph": "Caută abilități…",

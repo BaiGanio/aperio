@@ -27,6 +27,8 @@ import {
   residentFootprintGB,
   MODEL_TIER_DEFAULTS,
   modelDisplayName,
+  isSubscriptionProvider,
+  providerDropsImages,
 } from "../../lib/providers/index.js";
 
 mock.method(os, "totalmem", () => 32 * 1024 ** 3);
@@ -193,6 +195,28 @@ describe("isLocalProvider / isCloudProvider", () => {
   test("empty string is not local", () => { assert.ok(!isLocalProvider("")); });
   test("null is not local", () => { assert.ok(!isLocalProvider(null)); });
   test("undefined is not local", () => { assert.ok(!isLocalProvider(undefined)); });
+});
+
+// ── providerDropsImages — WS6/F1 image-drop notice predicate ──────────────────
+// A deliberately separate set from isSubscriptionProvider (see comment at the
+// definition) even though membership coincides today — the two properties
+// (billing model, multimodal capability) are unrelated.
+describe("providerDropsImages", () => {
+  test("codex drops images", () => { assert.ok(providerDropsImages("codex")); });
+  test("claude-code drops images", () => { assert.ok(providerDropsImages("claude-code")); });
+  test("anthropic does not drop images", () => { assert.ok(!providerDropsImages("anthropic")); });
+  test("gemini does not drop images", () => { assert.ok(!providerDropsImages("gemini")); });
+  test("deepseek does not drop images", () => { assert.ok(!providerDropsImages("deepseek")); });
+  test("llamacpp does not drop images", () => { assert.ok(!providerDropsImages("llamacpp")); });
+  test("case-insensitive: CODEX drops images", () => { assert.ok(providerDropsImages("CODEX")); });
+  test("empty string does not drop images", () => { assert.ok(!providerDropsImages("")); });
+  test("null does not drop images", () => { assert.ok(!providerDropsImages(null)); });
+  test("undefined does not drop images", () => { assert.ok(!providerDropsImages(undefined)); });
+  test("membership matches isSubscriptionProvider today, by coincidence not by reuse", () => {
+    for (const name of ["codex", "claude-code", "anthropic", "gemini", "deepseek", "llamacpp"]) {
+      assert.equal(providerDropsImages(name), isSubscriptionProvider(name));
+    }
+  });
 });
 
 // ── machineCapacityPct — estimated model + KV footprint as % of RAM ───────────

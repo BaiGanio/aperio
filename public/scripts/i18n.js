@@ -237,6 +237,7 @@ const TRANSLATIONS = {
     skills_always_badge:      "always-on",
     skills_more:              "more…",
     skills_load_error:        "Could not load skill.",
+    images_dropped_notice:    "{provider} can't see images — this turn will run text-only.",
     skills_panel_one_shot_label: "use on next prompt",
     skills_panel_one_shot_title: "Include this skill in your next message only — the box unchecks itself after sending. Unchecked: automatic skill matching decides.",
     skills_panel_nav_title:    "Skills — view, edit, create and toggle your agent's skills",

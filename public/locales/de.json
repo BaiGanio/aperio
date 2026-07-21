@@ -180,6 +180,7 @@
   "skills_always_badge":      "immer an",
   "skills_more":              "mehr…",
   "skills_load_error":        "Der Skill konnte nicht geladen werden.",
+  "images_dropped_notice":  "{provider} kann keine Bilder sehen — dieser Zug läuft nur mit Text.",
   "skills_panel_nav_title": "Skills — deine Agent-Skills ansehen, bearbeiten, erstellen und umschalten",
   "skills_panel_label": "Skills",
   "skills_panel_search_ph": "Skills durchsuchen…",

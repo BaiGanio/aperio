@@ -180,6 +180,7 @@
   "skills_always_badge":      "altid tændt",
   "skills_more":              "mere…",
   "skills_load_error":        "Kunne ikke indlæse færdighed.",
+  "images_dropped_notice":  "{provider} kan ikke se billeder — denne tur køres kun med tekst.",
   "skills_panel_nav_title": "Færdigheder — se, rediger, opret og slå din agents færdigheder til/fra",
   "skills_panel_label": "Færdigheder",
   "skills_panel_search_ph": "Søg i færdigheder…",

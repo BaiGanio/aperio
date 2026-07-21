@@ -180,6 +180,7 @@
   "skills_always_badge":      "sempre attivo",
   "skills_more":              "Di più…",
   "skills_load_error":        "Impossibile caricare l'abilità.",
+  "images_dropped_notice":  "{provider} non può vedere le immagini — questo turno verrà eseguito solo con testo.",
   "skills_panel_nav_title": "Competenze — visualizza, modifica, crea e attiva le competenze del tuo agente",
   "skills_panel_label": "Competenze",
   "skills_panel_search_ph": "Cerca competenze…",
