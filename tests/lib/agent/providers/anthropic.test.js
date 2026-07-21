@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 // ─── Logger mock ──────────────────────────────────────────────────────────
 
 import logger from "../../../../lib/helpers/logger.js";
+import { EMPTY_RESPONSE_FALLBACK } from "../../../../lib/tools/executor.js";
 
 let infoCalls = [];
 let warnCalls = [];
@@ -198,25 +199,32 @@ describe("runAnthropicLoop — tool call cycle", () => {
 });
 
 // =============================================================================
-// Error handling
+// Error handling — WS5 test group E, E1 (deepseek error contract: no throw,
+// stream the ⚠️ bubble, return the error text)
 // =============================================================================
-describe("runAnthropicLoop — error handling", () => {
+describe("runAnthropicLoop — error handling (group E)", () => {
   afterEach(() => { reset(); });
 
-  test("throws when stream creation fails", async () => {
+  test("E1 edge: stream creation failure (before stream_start) still produces the bubble pair, no throw", async () => {
     const ctx = baseCtx({
       provider: testProvider(() => { throw new Error("API connection failed"); }),
     });
     const messages = [{ role: "user", content: "Hi" }];
     const emitter = { send: mock.fn() };
 
-    await assert.rejects(
-      () => runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx),
-      { message: /API connection failed/ }
-    );
+    const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
+    assert.equal(result, "API connection failed");
+
+    const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+    const tokenEvent = events.find(e => e.type === "token");
+    assert.ok(tokenEvent, "must emit a token event even when the stream never opened");
+    assert.ok(tokenEvent.text.startsWith("⚠️"));
+    const endEvent = events.find(e => e.type === "stream_end");
+    assert.ok(endEvent);
+    assert.equal(endEvent.text, "API connection failed");
   });
 
-  test("throws when stream iteration errors", async () => {
+  test("E1: stream iteration error does not propagate; emits ⚠️ token then stream_end with the error text", async () => {
     const throwingStream = async function*() {
       yield { type: "message_start", message: { usage: { input_tokens: 5, output_tokens: 0 } } };
       throw new Error("Stream interrupted");
@@ -226,10 +234,15 @@ describe("runAnthropicLoop — error handling", () => {
     const messages = [{ role: "user", content: "Hello" }];
     const emitter = { send: mock.fn() };
 
-    await assert.rejects(
-      () => runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx),
-      { message: /Stream interrupted/ }
-    );
+    const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
+    assert.equal(result, "Stream interrupted");
+
+    const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+    const tokenIdx = events.findIndex(e => e.type === "token");
+    const endIdx = events.findIndex(e => e.type === "stream_end");
+    assert.ok(tokenIdx !== -1 && tokenIdx < endIdx, "⚠️ token must precede stream_end");
+    assert.ok(events[tokenIdx].text.startsWith("⚠️"));
+    assert.equal(events[endIdx].text, "Stream interrupted");
   });
 });
 
@@ -391,6 +404,49 @@ describe("runAnthropicLoop — context trimming", () => {
     const emitter = { send: mock.fn() };
     const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
     assert.equal(result, "Hello world");
+  });
+});
+
+// =============================================================================
+// Empty-response fallback — WS5 test group E, E2
+// =============================================================================
+describe("runAnthropicLoop — empty-response fallback (group E, E2)", () => {
+  afterEach(() => { reset(); });
+
+  test("E2: empty completion with no tool calls emits the shared fallback instead of a silent stream_end", async () => {
+    async function* emptyStream() {
+      yield { type: "message_start", message: { usage: { input_tokens: 10, output_tokens: 0 } } };
+      yield { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } };
+      yield { type: "content_block_stop", index: 0 };
+      yield { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 0 } };
+    }
+    const ctx = baseCtx({ provider: testProvider(emptyStream) });
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+
+    const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
+    assert.equal(result, EMPTY_RESPONSE_FALLBACK);
+
+    const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+    const end = events.find(e => e.type === "stream_end");
+    assert.equal(end.text, EMPTY_RESPONSE_FALLBACK);
+    assert.ok(events.some(e => e.type === "token" && e.text === EMPTY_RESPONSE_FALLBACK));
+  });
+
+  test("E2 edge: whitespace-only completion counts as empty", async () => {
+    async function* whitespaceStream() {
+      yield { type: "message_start", message: { usage: { input_tokens: 10, output_tokens: 0 } } };
+      yield { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } };
+      yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "   " } };
+      yield { type: "content_block_stop", index: 0 };
+      yield { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: { output_tokens: 1 } };
+    }
+    const ctx = baseCtx({ provider: testProvider(whitespaceStream) });
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+
+    const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
+    assert.equal(result, EMPTY_RESPONSE_FALLBACK);
   });
 });
 

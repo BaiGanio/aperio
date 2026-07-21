@@ -9,6 +9,7 @@ import assert from "node:assert/strict";
 // ─── Logger mock ──────────────────────────────────────────────────────────
 
 import logger from "../../../../lib/helpers/logger.js";
+import { EMPTY_RESPONSE_FALLBACK } from "../../../../lib/tools/executor.js";
 
 let infoCalls = [];
 let warnCalls = [];
@@ -136,6 +137,58 @@ describe("runGeminiLoop — text response", () => {
     const lastMsg = messages[messages.length - 1];
     assert.equal(lastMsg.role, "assistant");
     assert.equal(lastMsg.content, "Output text");
+  });
+});
+
+// =============================================================================
+// runGeminiLoop — empty-response fallback — WS5 test group E, E2
+// =============================================================================
+describe("runGeminiLoop — empty-response fallback (group E, E2)", () => {
+  afterEach(() => { reset(); });
+
+  test("E2: empty completion with no function calls emits the shared fallback instead of a silent stream_end", async () => {
+    const ctx = baseCtx({
+      provider: {
+        name: "gemini", model: "gemini-2.0-flash",
+        contextWindow: 8192,
+        client: makeClient({
+          generateContentStream: async () => ({
+            stream: makeStream([]),
+            response: textResponse(""),
+          }),
+        }),
+      },
+    });
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+
+    const result = await runGeminiLoop(messages, emitter, {}, undefined, undefined, ctx);
+    assert.equal(result, EMPTY_RESPONSE_FALLBACK);
+
+    const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+    const end = events.find(e => e.type === "stream_end");
+    assert.equal(end.text, EMPTY_RESPONSE_FALLBACK);
+    assert.ok(events.some(e => e.type === "token" && e.text === EMPTY_RESPONSE_FALLBACK));
+  });
+
+  test("E2 edge: whitespace-only completion counts as empty", async () => {
+    const ctx = baseCtx({
+      provider: {
+        name: "gemini", model: "gemini-2.0-flash",
+        contextWindow: 8192,
+        client: makeClient({
+          generateContentStream: async () => ({
+            stream: makeStream([textChunk("   ")]),
+            response: textResponse("   "),
+          }),
+        }),
+      },
+    });
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+
+    const result = await runGeminiLoop(messages, emitter, {}, undefined, undefined, ctx);
+    assert.equal(result, EMPTY_RESPONSE_FALLBACK);
   });
 });
 
