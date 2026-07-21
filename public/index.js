@@ -194,12 +194,20 @@ let _currentModel = null;
 // No hardcoded values — see trash/plans/honest-pricing for why.
 let _currentCostRates = null; // { in, out } from server, or null when unavailable
 
-function setCostProvider(name, model, costRates) {
+// Server-sent flags (provider message `local`/`subscription`) — the single
+// source of truth for whether to show a $ estimate, replacing name matches
+// like `_currentProvider === "llamacpp"` that silently miss new providers.
+let _currentIsLocal = false;
+let _currentIsSubscription = false;
+
+function setCostProvider(name, model, costRates, local, subscription) {
   _currentProvider = name;
   _currentModel = model;
   // undefined = a sparse re-announce (llamacpp mid-turn ctx grow, model switch)
   // that carries no pricing — keep what we have. null = "known unavailable".
   if (costRates !== undefined) _currentCostRates = costRates ?? null;
+  if (local !== undefined) _currentIsLocal = Boolean(local);
+  if (subscription !== undefined) _currentIsSubscription = Boolean(subscription);
 }
 
 function updateContextBar(used, max, outputTok = 0, trackCost = true) {
@@ -217,8 +225,8 @@ function updateContextBar(used, max, outputTok = 0, trackCost = true) {
   // user configuration). Local inference is always free, never show cost.
   // Subscription-billed providers (flat fee, not per-token) get no estimate
   // either — a $ figure there would be fiction, not a guide.
-  const isLocal = _currentProvider === "llamacpp";
-  const isSubscription = _currentProvider === "claude-code" || _currentProvider === "codex";
+  const isLocal = _currentIsLocal;
+  const isSubscription = _currentIsSubscription;
   if (trackCost && !isLocal && !isSubscription && used > 0 && costEl) {
     if (_currentCostRates) {
       const turnCost = ((used / 1_000_000) * _currentCostRates.in) + ((outputTok / 1_000_000) * _currentCostRates.out);

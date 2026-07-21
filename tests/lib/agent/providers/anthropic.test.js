@@ -93,7 +93,7 @@ describe("runAnthropicLoop — text response", () => {
     const messages = [{ role: "user", content: "Hello" }];
     const emitter = { send: mock.fn() };
 
-    const result = await runAnthropicLoop(messages, emitter, {}, ctx);
+    const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
     assert.equal(result, "Hello world");
   });
 
@@ -102,7 +102,7 @@ describe("runAnthropicLoop — text response", () => {
     const messages = [{ role: "user", content: "Hi" }];
     const emitter = { send: mock.fn() };
 
-    await runAnthropicLoop(messages, emitter, {}, ctx);
+    await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
     const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
     assert.ok(types.includes("stream_start"));
     assert.ok(types.includes("stream_end"));
@@ -113,7 +113,7 @@ describe("runAnthropicLoop — text response", () => {
     const messages = [{ role: "user", content: "Hello" }];
     const emitter = { send: mock.fn() };
 
-    await runAnthropicLoop(messages, emitter, {}, ctx);
+    await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
     const lastMsg = messages[messages.length - 1];
     assert.equal(lastMsg.role, "assistant");
     assert.equal(lastMsg.content[0].type, "text");
@@ -146,7 +146,7 @@ describe("runAnthropicLoop — text response", () => {
       getAnthropicTools: () => { throw new Error("legacy tool path used"); },
     });
 
-    await runAnthropicLoop([{ role: "user", content: "raw message" }], { send: mock.fn() }, {}, ctx);
+    await runAnthropicLoop([{ role: "user", content: "raw message" }], { send: mock.fn() }, {}, undefined, undefined, ctx);
 
     assert.equal(prepareModelContext.mock.callCount(), 1);
     assert.equal(wireRequest.system, "prepared system");
@@ -184,7 +184,7 @@ describe("runAnthropicLoop — tool call cycle", () => {
     const messages = [{ role: "user", content: "What time is it?" }];
     const emitter = { send: mock.fn() };
 
-    const result = await runAnthropicLoop(messages, emitter, {}, ctx);
+    const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
     assert.equal(result, "Hello world");
 
     assert.ok(messages.some(m =>
@@ -211,7 +211,7 @@ describe("runAnthropicLoop — error handling", () => {
     const emitter = { send: mock.fn() };
 
     await assert.rejects(
-      () => runAnthropicLoop(messages, emitter, {}, ctx),
+      () => runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx),
       { message: /API connection failed/ }
     );
   });
@@ -227,9 +227,143 @@ describe("runAnthropicLoop — error handling", () => {
     const emitter = { send: mock.fn() };
 
     await assert.rejects(
-      () => runAnthropicLoop(messages, emitter, {}, ctx),
+      () => runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx),
       { message: /Stream interrupted/ }
     );
+  });
+});
+
+// =============================================================================
+// Abort (Stop button) — WS2 test group B, B1
+// =============================================================================
+describe("runAnthropicLoop — abort", () => {
+  afterEach(() => { reset(); });
+
+  test("registers its AbortController via setAbort before the stream opens", async () => {
+    let setAbortCallsAtStreamOpen = null;
+    const setAbort = mock.fn();
+    const provider = testProvider(() => {
+      setAbortCallsAtStreamOpen = setAbort.mock.calls.length;
+      return textStream();
+    });
+    const ctx = baseCtx({ provider });
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+
+    await runAnthropicLoop(messages, emitter, {}, () => null, setAbort, ctx);
+
+    assert.equal(setAbort.mock.calls.length, 1);
+    assert.ok(setAbort.mock.calls[0].arguments[0] instanceof AbortController);
+    assert.equal(setAbortCallsAtStreamOpen, 1, "setAbort must be called before the stream opens");
+  });
+
+  test("aborting the captured controller mid-stream returns '' and settles on a bare stream_end", async () => {
+    const neverEndingStream = (params, options) => (async function*() {
+      yield { type: "message_start", message: { usage: { input_tokens: 5, output_tokens: 0 } } };
+      await new Promise((_, reject) => {
+        options.signal.addEventListener("abort", () => reject(Object.assign(new Error("aborted"), { name: "APIUserAbortError" })));
+      });
+    })();
+
+    const setAbort = mock.fn();
+    const ctx = baseCtx({ provider: testProvider(neverEndingStream) });
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+
+    const resultPromise = runAnthropicLoop(messages, emitter, {}, () => null, setAbort, ctx);
+    await new Promise(r => setTimeout(r, 10));
+    assert.equal(setAbort.mock.calls.length, 1, "controller must already be registered by the time the stream is open");
+    setAbort.mock.calls[0].arguments[0].abort();
+
+    const result = await resultPromise;
+    assert.equal(result, "");
+
+    const events = emitter.send.mock.calls.map(c => c.arguments[0]);
+    const last = events[events.length - 1];
+    assert.equal(last.type, "stream_end");
+    assert.equal(last.text, "");
+    assert.equal(events.filter(e => e.type === "stream_end").length, 1, "no events after stream_end");
+  });
+
+  test("abort observed between a tool call and the next request iteration terminates the loop", async () => {
+    let requestCount = 0;
+    const ctx = baseCtx({
+      provider: testProvider(() => { requestCount++; return toolStream(); }),
+      callTool: async () => "12:00",
+    });
+    const messages = [{ role: "user", content: "What time is it?" }];
+    const emitter = { send: mock.fn() };
+
+    let calls = 0;
+    const getAbort = () => ({ signal: { aborted: calls++ > 0 } });
+
+    const result = await runAnthropicLoop(messages, emitter, {}, getAbort, () => {}, ctx);
+
+    assert.equal(result, "");
+    assert.equal(requestCount, 1, "should not open a second stream once the abort is observed");
+    const last = emitter.send.mock.calls[emitter.send.mock.calls.length - 1].arguments[0];
+    assert.equal(last.type, "stream_end");
+    assert.equal(last.text, "");
+  });
+
+  // Regression: wsHandler's `case "stop"` (lib/emitters/handlers/wsHandler.js)
+  // aborts its controller AND nulls its own closure reference in the same
+  // synchronous tick — so getAbort() can no longer see the abort once control
+  // returns to the loop. A Stop pressed while callTool()/prepareModelContext()
+  // is in flight (no fetch/stream listening on the signal at that moment) must
+  // still be honored via a locally-latched flag, not just a live getAbort() read.
+  test("Stop pressed during tool execution is not lost even after wsHandler nulls its abortController reference", async () => {
+    let requestCount = 0;
+    let currentController = null;
+    const getAbort = () => currentController;
+    const setAbort = (c) => { currentController = c; };
+
+    const ctx = baseCtx({
+      provider: testProvider(() => { requestCount++; return toolStream(); }),
+      callTool: async () => {
+        // Simulate wsHandler's stop handler firing mid-tool-call.
+        currentController.abort();
+        currentController = null;
+        return "12:00";
+      },
+    });
+    const messages = [{ role: "user", content: "What time is it?" }];
+    const emitter = { send: mock.fn() };
+
+    const result = await runAnthropicLoop(messages, emitter, {}, getAbort, setAbort, ctx);
+
+    assert.equal(result, "");
+    assert.equal(requestCount, 1, "must not start a follow-up generation after Stop was observed mid-tool-call");
+    const last = emitter.send.mock.calls[emitter.send.mock.calls.length - 1].arguments[0];
+    assert.equal(last.type, "stream_end");
+    assert.equal(last.text, "");
+  });
+
+  test("Stop pressed during prepareModelContext is not lost even after wsHandler nulls its abortController reference", async () => {
+    let requestCount = 0;
+    let currentController = null;
+    const getAbort = () => currentController;
+    const setAbort = (c) => { currentController = c; };
+
+    const prepareModelContext = mock.fn(async () => {
+      currentController.abort();
+      currentController = null;
+      return { messages: [{ role: "user", content: "hi" }], systemPrompt: "sys", tools: [] };
+    });
+    const ctx = baseCtx({
+      provider: testProvider(() => { requestCount++; return textStream(); }),
+      prepareModelContext,
+    });
+    const messages = [{ role: "user", content: "Hello" }];
+    const emitter = { send: mock.fn() };
+
+    const result = await runAnthropicLoop(messages, emitter, {}, getAbort, setAbort, ctx);
+
+    assert.equal(result, "");
+    assert.equal(requestCount, 0, "must never open the stream once Stop was observed during context prep");
+    const last = emitter.send.mock.calls[emitter.send.mock.calls.length - 1].arguments[0];
+    assert.equal(last.type, "stream_end");
+    assert.equal(last.text, "");
   });
 });
 
@@ -255,7 +389,7 @@ describe("runAnthropicLoop — context trimming", () => {
     }
 
     const emitter = { send: mock.fn() };
-    const result = await runAnthropicLoop(messages, emitter, {}, ctx);
+    const result = await runAnthropicLoop(messages, emitter, {}, undefined, undefined, ctx);
     assert.equal(result, "Hello world");
   });
 });
