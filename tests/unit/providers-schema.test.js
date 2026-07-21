@@ -9,7 +9,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
-import { jsonSchemaToZodShape } from "../../../lib/providers/schema.js";
+import { jsonSchemaToZodShape } from "../../lib/providers/schema.js";
 
 // The exact JSON Schema the MCP wire produces for fetch_url (mcp/tools/web.js).
 const FETCH_URL_SCHEMA = {

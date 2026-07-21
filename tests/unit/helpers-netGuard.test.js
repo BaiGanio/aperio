@@ -8,7 +8,7 @@ import {
   parseOriginHost,
   buildAllowedHosts,
   createNetGuard,
-} from "../../../lib/helpers/netGuard.js";
+} from "../../lib/helpers/netGuard.js";
 
 afterEach(() => {
   delete process.env.APERIO_ALLOWED_HOSTS;

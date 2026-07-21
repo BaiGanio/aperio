@@ -3,7 +3,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { extractPdfText } from "../../../../../lib/handlers/attachments/workers/preprocessPdf.js";
+import { extractPdfText } from "../../lib/handlers/attachments/workers/preprocessPdf.js";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

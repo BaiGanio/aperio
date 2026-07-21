@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   buildWorkflowSuggestion,
   isMeaningfulWorkflowTool,
-} from "../../../lib/agent/workflow-detection.js";
+} from "../../lib/agent/workflow-detection.js";
 
 describe("workflow detection", () => {
   test("documents the meaningful tool boundary", () => {

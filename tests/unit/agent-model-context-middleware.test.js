@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createLifecycleRunner } from "../../../lib/agent/middleware.js";
+import { createLifecycleRunner } from "../../lib/agent/middleware.js";
 import {
   MODEL_CONTEXT_MIDDLEWARE_NAMES,
   TOOL_RESULT_OFFLOAD_MIDDLEWARE_NAME,
@@ -8,7 +8,7 @@ import {
   createModelContextMiddleware,
   createToolResultOffloadMiddleware,
   projectObservedInputTokens,
-} from "../../../lib/agent/model-context-middleware.js";
+} from "../../lib/agent/model-context-middleware.js";
 
 const noop = () => {};
 const logger = { info: noop, warn: noop };

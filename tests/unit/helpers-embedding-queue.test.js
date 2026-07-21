@@ -7,7 +7,7 @@
 import { describe, test, mock, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import logger from "../../../lib/helpers/logger.js";
+import logger from "../../lib/helpers/logger.js";
 
 // ─── Logger mocks ─────────────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ after(() => {
 let createEmbeddingQueue;
 
 before(async () => {
-  const mod = await import("../../../lib/helpers/embedding-queue.js");
+  const mod = await import("../../lib/helpers/embedding-queue.js");
   createEmbeddingQueue = mod.createEmbeddingQueue;
 });
 

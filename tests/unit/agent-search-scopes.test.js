@@ -5,7 +5,7 @@ import {
   parseSearchScopes,
   selectSearchScope,
   resolveScopedSearchPath,
-} from "../../../lib/agent/search-scopes.js";
+} from "../../lib/agent/search-scopes.js";
 
 const RAW = [
   "[PREFERENCE] Auth search (importance: 4)",

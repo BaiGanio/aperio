@@ -83,7 +83,7 @@ Key commands: `npm run chat:local`, `npm run mcp`, `npm test`, `npm run test:ci`
 - **MCP**: `@modelcontextprotocol/sdk` stdio transport — `npm run mcp`
 - **Embeddings**: HuggingFace `@huggingface/transformers` (local, default) or Voyage AI (cloud)
 - **AI providers**: llama.cpp (vendored, local), Anthropic, DeepSeek, Gemini, Claude Code, Codex CLI
-- **Testing**: Node.js native test runner (`node --test`), `c8` coverage
+- **Testing**: Node.js native test runner (`node --test`), `c8` coverage, three-tier classification (unit/integration/e2e)
 - **Code graph**: `web-tree-sitter` + `tree-sitter-wasms` — pinned at `^0.24.7` (ABI 14). Do NOT upgrade until `tree-sitter-wasms` ships ABI-15 grammars.
 
 Reference: architecture (`id/reference/architecture.md`), MCP tools (`id/reference/mcp-tools.md`),
@@ -183,6 +183,53 @@ Verify: run `npm run test:memory` + tool tests for any ctx field touched.
 - **Defensive error handling** — `server.js` has global `uncaughtException`/`unhandledRejection` guards
 - **Path operations** — always use `lib/routes/paths.js`, never raw `fs`
 - **`package.json` version** — never bump manually; release workflow reads commits
+
+## Refactoring and Resource Stewardship
+
+Refactoring is a core engineering value. Every change should leave the affected code at
+least as understandable, bounded, and resource-efficient as it was before.
+
+### Module size
+
+- **500 lines is a recommendation, not a strict limit.** When a change causes a hand-written
+  source file to exceed roughly 500 lines, or materially grows a file already above that
+  size, consider whether it contains responsibilities that would be clearer as separate
+  modules.
+- When a cohesive split is convenient, low-risk, and within the task's scope, prefer making
+  it as part of the change. Otherwise, do not force a split; mention a worthwhile future
+  refactoring opportunity in the handoff when one exists.
+- Split by responsibility, lifecycle, or domain boundary — never merely to satisfy a line
+  count. A cohesive file may remain above 500 lines. Generated files, migrations, fixtures,
+  snapshots, and declarative data are exempt.
+- Do not let a broad cleanup silently expand a focused task. Perform safe local refactors
+  as part of the change; propose larger architectural work separately.
+
+### Performance and lifecycle review
+
+While reading or changing code, actively look for avoidable resource costs, data exposure,
+and lifecycle bugs, including:
+
+- unbounded arrays, maps, caches, queues, logs, buffers, or retained conversation data;
+- sensitive or transient data retained, logged, cached, or shared beyond its intended scope;
+- event listeners, timers, workers, streams, sockets, file handles, or database resources
+  that are not released on success, failure, cancellation, and disconnect;
+- repeated parsing, serialization, embedding, allocation, file reads, or database queries;
+- N+1 queries, unnecessarily materialized result sets, missing pagination, and avoidable
+  sequential I/O;
+- concurrency without limits, missing backpressure, abandoned promises, and work that
+  continues after its result is no longer needed;
+- large objects or closures retained longer than their useful lifetime.
+
+When a meaningful issue is found, report:
+
+1. the observed risk or measured bottleneck;
+2. the proposed refactor;
+3. the expected effect on CPU, memory, I/O, latency, data exposure, or maintainability;
+4. how the improvement will be verified.
+
+Do not claim a performance improvement from intuition alone. Establish a relevant baseline
+and verify significant optimizations with profiling, benchmarks, resource measurements, or
+a regression test. Correctness and readability must not be traded for speculative savings.
 
 ## Contribution Conventions
 

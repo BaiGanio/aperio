@@ -18,7 +18,7 @@ import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 import { join } from "node:path";
 import { createRequire } from "node:module";
-import { installMemfs } from "../../helpers/memfs.js";
+import { installMemfs } from "../../../helpers/memfs.js";
 
 const mem = installMemfs({ root: "/mem/shell" });
 
@@ -44,11 +44,11 @@ const { mock } = await import("node:test");
 mock.method(cp, "spawn", (...args) => _spawnImpl(...args));
 
 // ─── Setup: register the in-memory root as allowed, enable shell ─────────────
-const { setAllowlist } = await import("../../../lib/routes/paths.js");
+const { setAllowlist } = await import("../../../../lib/routes/paths.js");
 await setAllowlist([mem.root]);
 process.env.APERIO_ENABLE_SHELL = "1";
 
-const shell = await import("../../../mcp/tools/shell.js");
+const shell = await import("../../../../mcp/tools/shell.js");
 
 after(() => mem.restore());
 

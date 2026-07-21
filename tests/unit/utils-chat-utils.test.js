@@ -36,7 +36,7 @@ import {
   // misc
   detectMightThink, makeStderrShim,
   parseServerPort,
-} from "../../../lib/utils/chat-utils.js";
+} from "../../lib/utils/chat-utils.js";
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 

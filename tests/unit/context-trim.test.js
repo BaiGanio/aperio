@@ -5,7 +5,7 @@ import {
   trimByTokens,
   dropOrphanedToolResults,
   estimateMsgTokens,
-} from "../../../lib/context/trim.js";
+} from "../../lib/context/trim.js";
 
 // Regression coverage for the "agent ran the tool but reported nothing" bug:
 // a single oversized tool result (e.g. a 150KB `npm test` dump ~37k tokens) on

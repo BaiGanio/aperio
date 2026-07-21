@@ -1,7 +1,7 @@
 import { describe, test, mock } from "node:test";
 import assert from "node:assert/strict";
 
-import { completeWithCodex } from "../../../lib/helpers/completion.js";
+import { completeWithCodex } from "../../lib/helpers/completion.js";
 
 describe("completeWithCodex", () => {
   test("runs an ephemeral read-only completion and returns the final message", async () => {

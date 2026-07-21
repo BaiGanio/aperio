@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { loadSkillIndex, matchSkills } from "../../lib/workers/skills.js";
+import { loadSkillIndex, matchSkills } from "../../../lib/workers/skills.js";
 
 const root = resolve(process.cwd());
 const skillPath = resolve(root, "skills/frontend-design/SKILL.md");

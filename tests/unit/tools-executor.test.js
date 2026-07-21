@@ -1,8 +1,8 @@
 // tests/lib/tools/executor.test.js
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, extractBracketToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../../lib/tools/executor.js";
+import logger from "../../lib/helpers/logger.js";
+import { extractTextToolCall, extractBracketToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall

@@ -3,7 +3,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { redactSecrets, redactMessages } from "../../../lib/helpers/redactSecrets.js";
+import { redactSecrets, redactMessages } from "../../lib/helpers/redactSecrets.js";
 
 describe("redactSecrets", () => {
   test("redacts an Anthropic-style key", () => {

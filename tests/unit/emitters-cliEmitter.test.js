@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { makeCliEmitter } from "../../../lib/emitters/cliEmitter.js";
+import { makeCliEmitter } from "../../lib/emitters/cliEmitter.js";
 
 /**
  * Drive the emitter through a full turn and capture everything written to

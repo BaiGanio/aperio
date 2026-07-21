@@ -10,7 +10,7 @@ import {
   selfRecallHandler,
   selfUpdateHandler,
   selfForgetHandler,
-} from "../../../lib/handlers/memory/selfMemoryHandlers.js";
+} from "../../lib/handlers/memory/selfMemoryHandlers.js";
 
 function makeSelf(overrides = {}) {
   return {

@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { normalizeAgentSpec } from "../../../lib/agent/spec.js";
+import { normalizeAgentSpec } from "../../lib/agent/spec.js";
 import {
   AgentPermissionNarrowingError,
   assertPermissionNarrowing,
   createPermissionPolicyFromAgentSpec,
   evaluatePermission,
   normalizePermissionPolicy,
-} from "../../../lib/security/agentPermissions.js";
+} from "../../lib/security/agentPermissions.js";
 
 test("evaluates ordered first-match rules with default deny", () => {
   const policy = normalizePermissionPolicy({

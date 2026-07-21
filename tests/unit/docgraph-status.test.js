@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   getDocgraphStatus, markEnabled, markRootStarted, markRootProgress,
   markRootDone, markRootError, markAllDone,
-} from "../../../lib/docgraph/status.js";
+} from "../../lib/docgraph/status.js";
 
 // The status module is a singleton; each test re-seeds it via markEnabled().
 

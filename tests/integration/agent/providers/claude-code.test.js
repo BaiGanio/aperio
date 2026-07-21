@@ -43,7 +43,7 @@ let __setMockEvents;
 before(async () => {
   const mod = await import("../../../../lib/agent/providers/claude-code.js");
   runClaudeCodeLoop = mod.runClaudeCodeLoop;
-  const mockSdk = await import("./__mocks__/claude-agent-sdk.js");
+  const mockSdk = await import("../../../lib/agent/providers/__mocks__/claude-agent-sdk.js");
   __setMockEvents = mockSdk.__setMockEvents;
 });
 

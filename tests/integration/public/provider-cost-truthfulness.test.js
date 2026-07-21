@@ -1,7 +1,7 @@
 // tests/public/provider-cost-truthfulness.test.js
 //
 // Group A of trash/plans/provider-ux-parity/provider-ux-parity-tests.md (WS1 —
-// cost truthfulness). Loads the real public/index.js + public/scripts/streaming.js
+// cost truthfulness). Loads the real public/index.js + the public/scripts/streaming/
 // in a vm context with a minimal auto-vivifying fake DOM (same pattern as
 // tests/public/panel-visibility.test.js), so these tests exercise production
 // source rather than a reimplemented copy.
@@ -76,9 +76,10 @@ function makeDocument() {
   };
 }
 
-// Loads the real frontend source (index.js + streaming.js) into one shared vm
-// context, standing in for two <script> tags sharing a window in a browser —
-// which is how they actually run in production (no bundler, no modules).
+// Loads the real frontend source (index.js + the streaming/ modules) into one
+// shared vm context, standing in for a sequence of <script> tags sharing a
+// window in a browser — which is how they actually run in production (no
+// bundler, no modules).
 function loadApp() {
   const doc = makeDocument();
   const roundtableCalls = [];
@@ -100,13 +101,16 @@ function loadApp() {
   context.syncChipStateLabel = () => {};
 
   vm.runInContext(
-    readFileSync(new URL("../../public/index.js", import.meta.url), "utf8"),
+    readFileSync(new URL("../../../public/index.js", import.meta.url), "utf8"),
     context, { filename: "public/index.js" },
   );
-  vm.runInContext(
-    readFileSync(new URL("../../public/scripts/streaming.js", import.meta.url), "utf8"),
-    context, { filename: "public/scripts/streaming.js" },
-  );
+  for (const part of ["state", "handler", "roundtable", "deliverables", "badges", "tool-cards", "interrupts"]) {
+    const filename = `public/scripts/streaming/${part}.js`;
+    vm.runInContext(
+      readFileSync(new URL(`../../../${filename}`, import.meta.url), "utf8"),
+      context, { filename },
+    );
+  }
 
   return { context, doc, roundtableCalls };
 }

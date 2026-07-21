@@ -12,7 +12,7 @@
 import { describe, test, mock, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import logger from "../../../../lib/helpers/logger.js";
+import logger from "../../lib/helpers/logger.js";
 
 // ─── Logger mocks ─────────────────────────────────────────────────────────
 
@@ -116,7 +116,7 @@ before(async () => {
   process.env.AI_PROVIDER = "ollama";
   process.env.OLLAMA_MODEL = "llama3.1";
 
-  wiki = await import("../../../../lib/handlers/wiki/wikiHandlers.js");
+  wiki = await import("../../lib/handlers/wiki/wikiHandlers.js");
 });
 
 // =============================================================================

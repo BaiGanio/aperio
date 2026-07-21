@@ -22,7 +22,7 @@ let mockExecResult = "";
 let mockExecThrow = false;
 
 // ─── Cache-busting import helper ───────────────────────────────────────────
-const _cacheBust = () => `../../db/encrypt.js?t=${Date.now()}_${Math.random().toString(36).slice(2)}`;
+const _cacheBust = () => `../../../db/encrypt.js?t=${Date.now()}_${Math.random().toString(36).slice(2)}`;
 
 // ─── Mock execSync + execFileSync ONCE ────────────────────────────────────
 // Both are only used for platform keychain commands — no winston dependency.

@@ -48,7 +48,7 @@ describe("provider not-configured (#252 group D)", () => {
 
   test("explicit anthropic still resolves with a client", () => {
     process.env.AI_PROVIDER = "anthropic";
-    process.env.ANTHROPIC_API_KEY = "sk-test";
+    process.env.ANTHROPIC_API_KEY= "[redacted]"
     const p = resolveProvider();
     assert.equal(p.name, "anthropic");
     assert.ok(p.client, "anthropic client constructed when explicitly chosen");

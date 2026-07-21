@@ -6,12 +6,12 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { extract as extractHtml } from "../../../lib/docgraph/extract-html.js";
-import { extract as extractDocx } from "../../../lib/docgraph/extract-docx.js";
-import { extract as extractPdf } from "../../../lib/docgraph/extract-pdf.js";
-import { extract as extractXlsx } from "../../../lib/docgraph/extract-xlsx.js";
-import { extract as extractPptx } from "../../../lib/docgraph/extract-pptx.js";
-import { extract as extractEml } from "../../../lib/docgraph/extract-eml.js";
+import { extract as extractHtml } from "../../lib/docgraph/extract-html.js";
+import { extract as extractDocx } from "../../lib/docgraph/extract-docx.js";
+import { extract as extractPdf } from "../../lib/docgraph/extract-pdf.js";
+import { extract as extractXlsx } from "../../lib/docgraph/extract-xlsx.js";
+import { extract as extractPptx } from "../../lib/docgraph/extract-pptx.js";
+import { extract as extractEml } from "../../lib/docgraph/extract-eml.js";
 
 describe("extract-html", () => {
   test("sections on h1–h6, strips tags/entities, nests by level", async () => {

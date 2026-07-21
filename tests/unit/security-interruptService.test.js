@@ -5,7 +5,7 @@ import {
   InterruptValidationError,
   createInterruptService,
   interruptDigest,
-} from "../../../lib/security/interruptService.js";
+} from "../../lib/security/interruptService.js";
 
 function makeStore() {
   const rows = new Map();

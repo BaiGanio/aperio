@@ -4,7 +4,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { fetchUrlHandler, webSearchHandler, parseDdgResults } from "../../../mcp/tools/web.js";
+import { fetchUrlHandler, webSearchHandler, parseDdgResults } from "../../mcp/tools/web.js";
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
 // Node 18+ has global fetch. We replace it per-test and restore after.

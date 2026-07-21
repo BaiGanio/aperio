@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 let extract;
 
 before(async () => {
-  const mod = await import("../../../lib/codegraph/extract-ts.js");
+  const mod = await import("../../lib/codegraph/extract-ts.js");
   extract = mod.extract;
 });
 

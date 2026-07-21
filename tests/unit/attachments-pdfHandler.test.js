@@ -3,7 +3,7 @@
 
 import { test, describe, mock } from "node:test";
 import assert from "node:assert/strict";
-import { handlePdf } from "../../../../lib/handlers/attachments/pdfHandler.js";
+import { handlePdf } from "../../lib/handlers/attachments/pdfHandler.js";
 
 // ─── Stubs ────────────────────────────────────────────────────────────────────
 

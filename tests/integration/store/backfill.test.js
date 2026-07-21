@@ -6,7 +6,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 
-import { makeMockStore } from "../mockStore.js";
+import { makeMockStore } from "../../mockStore.js";
 
 // ─── Functions under test ─────────────────────────────────────────────────────
 // These mirror the handlers in mcp/index.js but accept (store, generateEmbedding)

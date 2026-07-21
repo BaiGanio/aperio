@@ -3,7 +3,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { extractRefs } from "../../../lib/docgraph/extract-refs.js";
+import { extractRefs } from "../../lib/docgraph/extract-refs.js";
 
 const valuesOf = (refs, kind) => refs.filter(r => r.kind === kind).map(r => r.value);
 

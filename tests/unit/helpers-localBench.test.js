@@ -6,7 +6,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { computeLoadMs, buildMediumPrompt, runBenchmark, formatReport } from "../../../lib/helpers/localBench.js";
+import { computeLoadMs, buildMediumPrompt, runBenchmark, formatReport } from "../../lib/helpers/localBench.js";
 
 describe("computeLoadMs", () => {
   test("wall time minus prompt_ms+predicted_ms accounts for the one-time load cost", () => {

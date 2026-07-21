@@ -4,7 +4,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { MysqlDriver } from "../../../lib/db-connect/drivers/mysql.js";
+import { MysqlDriver } from "../../lib/db-connect/drivers/mysql.js";
 
 // ─── Mock pool factories ─────────────────────────────────────────────────────
 

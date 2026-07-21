@@ -1,6 +1,6 @@
 import { afterEach, test } from "node:test";
 import assert from "node:assert/strict";
-import { checkLlamaCppModelServed, refreshRequestModel, regenerateArticle } from "../../../../lib/handlers/wiki/regenerate.js";
+import { checkLlamaCppModelServed, refreshRequestModel, regenerateArticle } from "../../lib/handlers/wiki/regenerate.js";
 
 const originalFetch = globalThis.fetch;
 const originalRefreshProvider = process.env.WIKI_REFRESH_PROVIDER;

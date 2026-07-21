@@ -5,7 +5,7 @@ import {
   fixUnclosedFence,
   validateOutput,
   validateOutputSafe,
-} from "../../../lib/helpers/validateOutput.js";
+} from "../../lib/helpers/validateOutput.js";
 
 // =============================================================================
 describe("fixUnclosedFence", () => {

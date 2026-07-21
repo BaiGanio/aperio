@@ -9,6 +9,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **Integration test tier**: formal three-tier test classification (unit/integration/e2e).
+  Tests moved to `tests/unit/` (103 files, pure function), `tests/integration/` (89 files,
+  module wiring), and `tests/e2e/` (10 files, real server). New npm scripts:
+  `test:unit`, `test:integration`, `test:ci:unit`, `test:ci:integration`,
+  `integration:dashboard`. New reporter at `tests/reporters/integration-json.js` and
+  dashboard at `docs/integration-dashboard.html`.
+
 ### Changed
 
 - **CSV path separation**: plain CSV/TSV requests no longer activate the heavyweight

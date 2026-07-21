@@ -23,7 +23,13 @@ test("CSP: generated templates have no inline event-handler attributes", () => {
     "public/scripts/markdown.js",
     "public/scripts/rendering.js",
     "public/scripts/sessions.js",
-    "public/scripts/streaming.js",
+    "public/scripts/streaming/state.js",
+    "public/scripts/streaming/handler.js",
+    "public/scripts/streaming/roundtable.js",
+    "public/scripts/streaming/deliverables.js",
+    "public/scripts/streaming/badges.js",
+    "public/scripts/streaming/tool-cards.js",
+    "public/scripts/streaming/interrupts.js",
     "public/scripts/wiki-panel.js",
   ]) {
     assert.doesNotMatch(read(file), /on(click|change|input|error)\s*=\s*["'`]/i, `${file} still emits inline handlers`);

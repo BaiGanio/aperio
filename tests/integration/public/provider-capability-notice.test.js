@@ -2,8 +2,8 @@
 //
 // Group F of trash/plans/provider-ux-parity/provider-ux-parity-tests.md (WS6 —
 // honest capability signals), F1 only: the client-side render half of the
-// image-drop notice. Loads the real public/index.js + public/scripts/streaming.js
-// in a vm context with a minimal auto-vivifying fake DOM (same pattern as
+// image-drop notice. Loads the real public/index.js + the public/scripts/streaming/
+// modules in a vm context with a minimal auto-vivifying fake DOM (same pattern as
 // tests/public/provider-cost-truthfulness.test.js), so these tests exercise
 // production source rather than a reimplemented copy.
 //
@@ -83,7 +83,7 @@ function makeDocument() {
 }
 
 // Loads the real frontend source into one shared vm context, standing in for
-// two <script> tags sharing a window (no bundler, no modules — same as prod).
+// a sequence of <script> tags sharing a window (no bundler, no modules — same as prod).
 function loadApp() {
   const doc = makeDocument();
   const tCalls = [];
@@ -115,13 +115,16 @@ function loadApp() {
   context.scrollToBottom = () => {};
 
   vm.runInContext(
-    readFileSync(new URL("../../public/index.js", import.meta.url), "utf8"),
+    readFileSync(new URL("../../../public/index.js", import.meta.url), "utf8"),
     context, { filename: "public/index.js" },
   );
-  vm.runInContext(
-    readFileSync(new URL("../../public/scripts/streaming.js", import.meta.url), "utf8"),
-    context, { filename: "public/scripts/streaming.js" },
-  );
+  for (const part of ["state", "handler", "roundtable", "deliverables", "badges", "tool-cards", "interrupts"]) {
+    const filename = `public/scripts/streaming/${part}.js`;
+    vm.runInContext(
+      readFileSync(new URL(`../../../${filename}`, import.meta.url), "utf8"),
+      context, { filename },
+    );
+  }
 
   return { context, doc, messagesEl, tCalls };
 }

@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { createIndexFolderTool } from "../../../lib/agent/host-tools/index-folder.js";
-import { createFolderIndexingService } from "../../../lib/services/folder-indexing.js";
+import { createIndexFolderTool } from "../../lib/agent/host-tools/index-folder.js";
+import { createFolderIndexingService } from "../../lib/services/folder-indexing.js";
 
 test("index_folder tells the model to invoke it for paths outside Allowed Paths", () => {
   const tool = createIndexFolderTool({ start: async () => ({ targets: [] }) });

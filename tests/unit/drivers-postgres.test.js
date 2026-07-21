@@ -4,7 +4,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { PostgresDriver } from "../../../lib/db-connect/drivers/postgres.js";
+import { PostgresDriver } from "../../lib/db-connect/drivers/postgres.js";
 
 // ─── Mock pool factories ─────────────────────────────────────────────────────
 

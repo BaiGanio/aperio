@@ -1,7 +1,7 @@
 // tests/lib/streaming/llamacppHandler.test.js
 import { describe, test, mock } from "node:test";
 import assert from "node:assert/strict";
-import { LlamaCppStreamHandler } from "../../../lib/streaming/llamacppHandler.js";
+import { LlamaCppStreamHandler } from "../../lib/streaming/llamacppHandler.js";
 
 // =============================================================================
 // Helpers

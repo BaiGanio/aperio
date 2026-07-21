@@ -1,29 +1,59 @@
 # Testing
 
-Uses Node.js native test runner (`node --test`). Tests mirror the source structure under `tests/`.
+Uses Node.js native test runner (`node --test`). Tests are organized into three tiers
+under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
+
+## Test Tiers
+
+### Unit (`tests/unit/`)
+- Pure functions — input in, output out, no side effects
+- No `fs`, `path`, `os`, `child_process`, `http` imports
+- No mock of external modules (mock of function arguments OK)
+- Runs in <5ms per test
+- ~103 files covering parsing, formatting, validation, config resolution
+
+### Integration (`tests/integration/`)
+- Module wiring — Express Router, mock stores, DB adapters, temp files, real crypto
+- May import real modules, use mock stores, invoke Express Router directly
+- Must NOT bind a TCP port or spawn a server process
+- Runs in <500ms per test
+- ~89 files covering routes, DB, store, MCP, skills, handlers, context, tools, agents, workers
+- Uses `tests/mockDB.js` and `tests/mockStore.js` as shared helpers
+
+### E2E (`tests/e2e/`)
+- Spawned server process, real HTTP/WS connections, real ports
+- May start real Express + WebSocket server as a child process
+- Runs in <30s per test
+- ~10 files covering WebSocket lifecycle, streaming, config provenance, real-app fixtures
 
 ## Commands
 
 ```bash
-npm test                       # All tests
-npm run test:unit              # Unit/integration tests (excludes tests/e2e)
-npm run test:skills            # skills/*.test.js
-npm run test:store             # store/*.test.js
-npm run test:memory            # tools/memory.test.js
-npm run test:execution         # Skill execution tests only
-npm run test:backfill          # Embedding backfill tests only
+npm test                       # All tests (unit + integration + e2e)
+npm run test:unit              # Unit tests only (tests/unit/)
+npm run test:integration       # Integration tests only (tests/integration/)
+npm run test:skills            # skills integration tests
+npm run test:store             # store integration tests
+npm run test:memory            # tools memory unit tests
+npm run test:execution         # Skill execution integration tests
+npm run test:backfill          # Embedding backfill integration tests
 npm run test:e2e               # All E2E tests (protocol + real-app)
 npm run test:e2e:real          # Real-app E2E tests only (no mock fixtures)
 npm run test:e2e:ci            # Dashboard E2E tests (excludes real-app)
-npm run test:ci                # CI mode with coverage
-npm run test:ci:unit           # Unit/integration CI coverage (excludes tests/e2e)
+npm run test:ci                # CI mode with coverage (unit + integration)
+npm run test:ci:unit           # Unit tests CI (no coverage, fast gate)
+npm run test:ci:integration    # Integration tests CI with c8 coverage
 npm run test:only -- --test-name-pattern="pattern"  # Filter by name
 npm run coverage               # Generate lcov report from c8
+npm run integration:dashboard  # Generate integration test dashboard data
+npm run e2e:dashboard          # Generate E2E test dashboard data
 ```
 
-The primary Codecov workflow runs `test:ci:unit` and the non-real E2E dashboard
-suite as separate jobs. Pushes and pull requests therefore refresh both
-coverage and E2E dashboard data without starting real server fixtures. Run the
+The primary Codecov workflow runs `test:ci:unit` (fast gate, no coverage),
+`test:ci:integration` (c8 coverage + dashboard data), and the non-real E2E
+dashboard suite as separate jobs. Pushes and pull requests therefore refresh
+coverage, integration dashboard, and E2E dashboard data without starting real
+server fixtures. Run the
 separate **Real-app E2E (manual)** GitHub Actions workflow when production-
 process validation is needed. Its concurrency is capped at 2 and it does not
 require a model service; Postgres parity remains opt-in through
@@ -55,6 +85,11 @@ and clean up their guest state on failure as well as success. See
 - `tests/mockDB.js` — in-memory SQLite store for tests
 - `tests/mockStore.js` — mock store factory
 - `tests/reporters/quiet.js` — CI reporter (used when `APERIO_AGENT_RUN` is set)
+- `tests/reporters/integration-json.js` — structured JSON reporter for integration dashboard.
+  Usage: `node --test --test-reporter=./tests/reporters/integration-json.js
+  --test-reporter-destination=integration-results.json`
+- `scripts/generate-integration-dashboard.js` — converts reporter JSON to `docs/integration-data.js`.
+  Run: `npm run integration:dashboard`
 - `tests/e2e/helpers/ws-helper.js` — shared buffered-connect helpers for WebSocket E2E tests.
   `connectBuffered()` attaches the message listener before `open` resolves, eliminating the
   handshake race. `collectUntil(endType)` replaces fixed-sleep collection with event-driven

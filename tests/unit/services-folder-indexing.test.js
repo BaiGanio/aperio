@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import {
   FolderIndexingError,
   createFolderIndexingService,
-} from "../../../lib/services/folder-indexing.js";
+} from "../../lib/services/folder-indexing.js";
 
 function harness({ allowed = true, directory = true, roots = {}, startWatchers = {} } = {}) {
   const calls = [];

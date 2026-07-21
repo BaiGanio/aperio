@@ -2,7 +2,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import net from "node:net";
-import { ensurePort, isEphemeralPort } from "../../../lib/helpers/ensurePort.js";
+import { ensurePort, isEphemeralPort } from "../../lib/helpers/ensurePort.js";
 
 // Helper: bind port 0 and return the assigned port, leaving the server open
 async function occupyPort() {

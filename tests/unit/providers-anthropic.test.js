@@ -8,8 +8,8 @@ import assert from "node:assert/strict";
 
 // ─── Logger mock ──────────────────────────────────────────────────────────
 
-import logger from "../../../../lib/helpers/logger.js";
-import { EMPTY_RESPONSE_FALLBACK } from "../../../../lib/tools/executor.js";
+import logger from "../../lib/helpers/logger.js";
+import { EMPTY_RESPONSE_FALLBACK } from "../../lib/tools/executor.js";
 
 let infoCalls = [];
 let warnCalls = [];
@@ -30,7 +30,7 @@ after(() => {
 let runAnthropicLoop;
 
 before(async () => {
-  const mod = await import("../../../../lib/agent/providers/anthropic.js");
+  const mod = await import("../../lib/agent/providers/anthropic.js");
   runAnthropicLoop = mod.runAnthropicLoop;
 });
 

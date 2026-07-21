@@ -4,10 +4,10 @@ import { readdirSync, readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
 
-import { loadSkillIndex, matchSkill, matchSkills } from "../../lib/workers/skills.js";
+import { loadSkillIndex, matchSkill, matchSkills } from "../../../lib/workers/skills.js";
 
 const __dirname  = dirname(fileURLToPath(import.meta.url));
-const ROOT       = resolve(__dirname, "..", "..");
+const ROOT       = resolve(__dirname, "..", "..", "..");
 const SKILLS_DIR = resolve(ROOT, "skills");
 
 const SKILL_FIXTURES = {

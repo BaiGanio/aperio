@@ -1,7 +1,7 @@
 // tests/lib/helpers/shutdownGuard.test.js
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { createWatchdog } from "../../../lib/helpers/shutdownGuard.js";
+import { createWatchdog } from "../../lib/helpers/shutdownGuard.js";
 
 // Helpers ─────────────────────────────────────────────────────────────────────
 

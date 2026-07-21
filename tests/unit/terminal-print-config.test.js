@@ -9,8 +9,8 @@
 
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { applyConfigToEnv, configSettingKey, configSourceLabel, configSourceOf } from "../../../lib/config-resolver.js";
-import { CONFIG } from "../../../lib/config.js";
+import { applyConfigToEnv, configSettingKey, configSourceLabel, configSourceOf } from "../../lib/config-resolver.js";
+import { CONFIG } from "../../lib/config.js";
 
 // ─── ANSI constants (mirrors lib/utils/chat-utils.js) ────────────────────
 const R      = "\x1b[0m";

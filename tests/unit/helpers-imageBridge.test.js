@@ -9,7 +9,7 @@
 import { describe, test, mock, before, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import logger from "../../../lib/helpers/logger.js";
+import logger from "../../lib/helpers/logger.js";
 
 // ─── Logger mocks ─────────────────────────────────────────────────────────
 // These must be set up BEFORE the dynamic import of imageBridge.js because
@@ -39,7 +39,7 @@ let imageBridge;
 before(async () => {
   // Set a known VLM model for deterministic tests
   process.env.LLAMACPP_VLM_MODEL = "ggml-org/Qwen2.5-VL-7B-Instruct-GGUF";
-  imageBridge = await import("../../../lib/helpers/imageBridge.js");
+  imageBridge = await import("../../lib/helpers/imageBridge.js");
 });
 
 // =============================================================================

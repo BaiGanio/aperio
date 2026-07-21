@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 
 // ─── Logger mock ──────────────────────────────────────────────────────────
 
-import logger from "../../../../lib/helpers/logger.js";
+import logger from "../../lib/helpers/logger.js";
 
 let infoCalls = [];
 let warnCalls = [];
@@ -30,7 +30,7 @@ after(() => {
 let runDeepSeekLoop;
 
 before(async () => {
-  const mod = await import("../../../../lib/agent/providers/deepseek.js");
+  const mod = await import("../../lib/agent/providers/deepseek.js");
   runDeepSeekLoop = mod.runDeepSeekLoop;
 });
 
