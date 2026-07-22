@@ -126,6 +126,39 @@ describe("runNodeScriptHandler", () => {
     assert.ok(r.content[0].text.includes("✅ Exit 0"));
     assert.deepEqual(spawnCalls.at(-1)[1].slice(1), [output]);
   });
+
+  // Regression: a script called pdf-lib's doc.save(name) — which returns
+  // bytes and never touches disk — then logged "Successfully created" anyway.
+  // Exit 0 + confident stdout is not proof the file exists; the response text
+  // should flag the mismatch instead of letting the model repeat the claim.
+  test("warns when stdout claims a file that was never actually written", async () => {
+    _spawnImpl = () => createMockChild({ exitCode: 0, stdout: "Successfully created aperio-title.pdf" });
+    const r = await shell.runNodeScriptHandler({ script });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"));
+    assert.match(r.content[0].text, /stdout claims .*aperio-title\.pdf.* was created, but no such file exists/i);
+  });
+
+  test("does not warn when the claimed file actually exists in cwd", async () => {
+    writeTmp("real-output.pdf", "%PDF-1.7 fake bytes");
+    _spawnImpl = () => createMockChild({ exitCode: 0, stdout: "Successfully created real-output.pdf" });
+    const r = await shell.runNodeScriptHandler({ script });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"));
+    assert.doesNotMatch(r.content[0].text, /stdout claims/i);
+  });
+
+  test("does not warn on stdout with no creation claim", async () => {
+    _spawnImpl = () => createMockChild({ exitCode: 0, stdout: "reading config.json for options" });
+    const r = await shell.runNodeScriptHandler({ script });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"));
+    assert.doesNotMatch(r.content[0].text, /stdout claims/i);
+  });
+
+  test("does not run the artifact check on a non-zero exit", async () => {
+    _spawnImpl = () => createMockChild({ exitCode: 1, stdout: "Successfully created never-happened.pdf" });
+    const r = await shell.runNodeScriptHandler({ script });
+    assert.ok(r.content[0].text.includes("❌ Exit 1"));
+    assert.doesNotMatch(r.content[0].text, /stdout claims/i);
+  });
 });
 
 // =============================================================================

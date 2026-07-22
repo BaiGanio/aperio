@@ -43,6 +43,7 @@
     { "id": "hard.review",  "set": "hard", "prompt": "Look over my diff before it lands and tell me what's blocking versus a nit.", "expect": "code-review-and-quality" },
     { "id": "hard.simplify","set": "hard", "prompt": "Untangle this overcomplicated module and cut the dead code, keep behavior identical.", "expect": "code-simplification" },
     { "id": "hard.neg.function-words", "set": "hard", "prompt": "You know what I mean? Or can you not even read the screen?", "expectNot": ["docgraph", "code-review-and-quality"] },
-    { "id": "hard.neg.inflection", "set": "hard", "prompt": "from where did you came with this Bulgarian response? where I write yo to Bulgarian so you are writing me that way?", "expectNot": ["doc-coauthoring", "test-driven-development"] }
+    { "id": "hard.neg.inflection", "set": "hard", "prompt": "from where did you came with this Bulgarian response? where I write yo to Bulgarian so you are writing me that way?", "expectNot": ["doc-coauthoring", "test-driven-development"] },
+    { "id": "hard.neg.stack-remember", "set": "hard", "prompt": "I mostly work with React and TypeScript, and I prefer functional components over class components. Remember that.", "expectNot": ["theme-factory"] }
   ]
 }
