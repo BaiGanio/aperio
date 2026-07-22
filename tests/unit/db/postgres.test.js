@@ -9,6 +9,16 @@ import { createRequire } from "node:module";
 const require = createRequire(import.meta.url);
 const pg = require("pg");
 
+// memories/self_memories use native Postgres UUID columns — PostgresStore
+// short-circuits any non-UUID-shaped id to a not-found result before it ever
+// reaches the (mocked) query. "Happy path" fixture ids below must be
+// UUID-shaped so they still reach the mock; "missing"-style ids are left as
+// plain strings since they're meant to hit the not-found guard directly.
+const FIXTURE_ID = "a1a1a1a1-1111-4111-8111-111111111111";
+const FIXTURE_ID_OLD = "b2b2b2b2-2222-4222-8222-222222222222";
+const FIXTURE_ID_SURVIVOR = "d4d4d4d4-4444-4444-8444-444444444444";
+const FIXTURE_ID_DUP = "e5e5e5e5-5555-4555-8555-555555555555";
+
 // ─── Mock pg.Pool ─────────────────────────────────────────────────────────
 // pg is CJS, so mock.method on the module object works.
 
@@ -139,7 +149,7 @@ describe("PostgresStore — CRUD", () => {
   test("getById returns a memory", async () => {
     _poolQuery = async () => ({ rows: [sampleRow] });
     const store = await PostgresStore.init();
-    const mem = await store.getById("abc-123");
+    const mem = await store.getById(FIXTURE_ID);
     assert.equal(mem.id, "abc-123");
   });
 
@@ -160,7 +170,7 @@ describe("PostgresStore — CRUD", () => {
   test("delete removes a memory and returns title", async () => {
     _poolQuery = async () => ({ rows: [{ title: "Deleted" }] });
     const store = await PostgresStore.init();
-    const title = await store.delete("abc-123");
+    const title = await store.delete(FIXTURE_ID);
     assert.equal(title, "Deleted");
   });
 
@@ -203,7 +213,7 @@ describe("PostgresStore — update", () => {
       return { rows: [] };
     };
     const store = await PostgresStore.init();
-    const updated = await store.update("old-id", { title: "Updated", importance: 5 });
+    const updated = await store.update(FIXTURE_ID_OLD, { title: "Updated", importance: 5 });
     assert.equal(updated.id, "new-id");
     assert.equal(updated.title, "Updated");
   });
@@ -278,7 +288,7 @@ describe("PostgresStore — pin / expiry", () => {
   test("setPin returns true when row updated", async () => {
     _poolQuery = async () => ({ rows: [{ id: "abc" }] });
     const store = await PostgresStore.init();
-    const ok = await store.setPin("abc", true);
+    const ok = await store.setPin(FIXTURE_ID, true);
     assert.equal(ok, true);
   });
 
@@ -292,7 +302,7 @@ describe("PostgresStore — pin / expiry", () => {
   test("setExpiry returns true when row updated", async () => {
     _poolQuery = async () => ({ rows: [{ id: "abc" }] });
     const store = await PostgresStore.init();
-    const ok = await store.setExpiry("abc", new Date().toISOString());
+    const ok = await store.setExpiry(FIXTURE_ID, new Date().toISOString());
     assert.equal(ok, true);
   });
 });
@@ -388,7 +398,7 @@ describe("PostgresStore — setEmbedding", () => {
       return { rows: [] };
     };
     const store = await PostgresStore.init();
-    await store.setEmbedding("abc", [0.1, 0.2, 0.3]);
+    await store.setEmbedding(FIXTURE_ID, [0.1, 0.2, 0.3]);
     assert.ok(capturedSql.includes("UPDATE memories SET embedding"));
   });
 });
@@ -591,14 +601,14 @@ describe("PostgresStore — mergeDuplicate", () => {
       queries.push({ sql: sql.slice(0, 60), params });
       if (sql.includes("WHERE id = ANY")) {
         return { rows: [
-          { id: "survivor", content: "Survivor content" },
-          { id: "dup", content: "Dup content for merging" },
+          { id: FIXTURE_ID_SURVIVOR, content: "Survivor content" },
+          { id: FIXTURE_ID_DUP, content: "Dup content for merging" },
         ]};
       }
       return { rows: [] };
     };
     const store = await PostgresStore.init();
-    await store.mergeDuplicate("survivor", "dup");
+    await store.mergeDuplicate(FIXTURE_ID_SURVIVOR, FIXTURE_ID_DUP);
     assert.ok(queries.length >= 3);
     // Should have done the content append, stale marking, source re-pointing, and DELETE
     assert.ok(queries.some(q => q.sql.includes("UPDATE memories SET content")));
@@ -1187,7 +1197,7 @@ describe("PostgresStore — update with embedding", () => {
       return { rows: [] };
     };
     const store = await PostgresStore.init();
-    const updated = await store.update("old-id", { title: "Updated" }, [0.5, 0.5, 0.5]);
+    const updated = await store.update(FIXTURE_ID_OLD, { title: "Updated" }, [0.5, 0.5, 0.5]);
     assert.equal(updated.title, "Updated");
     assert.equal(updated.id, "new-id");
   });
@@ -1197,7 +1207,7 @@ describe("PostgresStore — update with embedding", () => {
     _poolQuery = async () => ({ rows: [superseded] });
     const store = await PostgresStore.init();
     await assert.rejects(
-      () => store.update("old-id", { title: "Nope" }),
+      () => store.update(FIXTURE_ID_OLD, { title: "Nope" }),
       { message: /superseded/ }
     );
   });
@@ -1240,7 +1250,7 @@ describe("PostgresStore — pin/expiry edge cases", () => {
   test("setPin(false) returns true when row updated", async () => {
     _poolQuery = async () => ({ rows: [{ id: "abc" }] });
     const store = await PostgresStore.init();
-    const ok = await store.setPin("abc", false);
+    const ok = await store.setPin(FIXTURE_ID, false);
     assert.equal(ok, true);
   });
 
