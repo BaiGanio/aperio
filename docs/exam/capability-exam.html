@@ -33,12 +33,12 @@
 <section class="section" id="mt-top" style="padding:120px 0 30px"><div class="section-inner">
 <div class="eyebrow reveal" style="margin-top:14px">System Benchmark</div>
 <h1 class="section-heading reveal">Capability Exam</h1>
-<p class="lead-text reveal">An aggregate scorecard across all 14 evaluate suites. Run each suite, type your pass count below, and get a total tier + a shareable template you can paste into <a href="https://github.com/BaiGanio/aperio/issues/129" target="_blank">issue #129</a>. The exam pages that used to duplicate suite content have been removed — the suites are now the source of truth.</p>
+<p class="lead-text reveal">A scorecard notebook across all 14 evaluate suites. Run the suites that matter for your model, record each pass count below, and get an aggregate tier plus a shareable template you can paste into <a href="https://github.com/BaiGanio/aperio/issues/129" target="_blank">issue #129</a>. The old exam section pages have been removed — the suites are now the source of truth.</p>
 </div></section>
 
 <!-- ── How it works ── -->
 <section class="section" style="padding:10px 0"><div class="section-inner">
-<div class="note-box reveal"><strong>How to run the exam:</strong> Click a section card below to open its evaluate suite. Run the tasks, click Pass/Fail as you go. Come back here, type the number of passes into the scorecard. The tier and template auto-update. The full exam takes ~2–4 hours across all suites, or pick individual sections. Each suite page has its own scorecard — the exam hub just aggregates.</div>
+<div class="note-box reveal"><strong>How to use the scorecard:</strong> Click a section card below to open its evaluate suite. Run the tasks and record the number of passes here when you return. The tier and shareable result template auto-update. Complete all suites for a full benchmark, or record only the sections relevant to your model. Each suite page owns its detailed task scorecard; this page only aggregates.</div>
 </div></section>
 
 <!-- ── Setup ── -->
@@ -65,7 +65,7 @@
 
 <!-- ── Evaluate suite grid ── -->
 <section class="section" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Section Suites</h2>
-<p class="reveal mg-desc">Open each suite, run the tasks, then enter your pass count in the scorecard below.</p>
+<p class="reveal mg-desc">Open any suite, run its detailed tasks, then enter that suite's pass count in the scorecard below. The 14 suite cards are the scored inputs; Roundtable is the only bonus drill.</p>
 <div class="ex-grid">
 
 <a class="feat-card reveal ex-card" href="../evaluate/memory-wiki-skills.html"><div class="feat-icon"><i class="bi bi-database-fill"></i></div><div class="feat-title">§1 Memory &amp; Wiki <span class="tier-pill tier-feature">10 drills</span></div><p class="feat-desc">remember, recall, update, forget, wiki_search, wiki_get, wiki_write, self-memory, types, full knowledge cycle.</p><span class="ex-meta">Open suite <span class="ex-arrow">→</span></span></a>
@@ -109,7 +109,7 @@
 </div></section>
 
 <!-- ── Scorecard ── -->
-<section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Run each suite above, then enter the number of passes here. Totals and tier auto-calculate.</p>
+<section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Enter the pass count reported by each suite. Totals and tier auto-calculate; blank rows remain unscored until completed.</p>
 <div class="reveal" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
 <label style="font-size:.9rem;"><strong>Model:</strong> <input type="text" id="modelName" placeholder="e.g. deepseek:deepseek-chat" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:240px;"></label>
 <label style="font-size:.9rem;"><strong>Date:</strong> <input type="text" id="testDate" placeholder="e.g. 2026-07-22" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label>
@@ -169,16 +169,21 @@ function P(t){document.querySelectorAll('#resultsTier .rt-card').forEach(c=>{c.c
 function U(){
   let totalPassed=0,totalMax=0,allFilled=true;
   SECTIONS.forEach(s=>{
-    let val=parseInt(document.getElementById('s-'+s.n).value)||0;
+    let input=document.getElementById('s-'+s.n),raw=input.value.trim();
+    let val=raw===''?0:parseInt(raw,10);
+    if(!Number.isFinite(val))val=0;
     let clamped=Math.min(Math.max(val,0),s.max);
-    document.getElementById('s-'+s.n).value=clamped||'';
+    if(raw!==''){
+      input.value=String(clamped);
+      localStorage.setItem('exam-s-'+s.n,String(clamped));
+    }
     totalPassed+=clamped;totalMax+=s.max;
     let sr=document.getElementById('sr-'+s.n);
     let pct=s.max>0?clamped/s.max:0;
     let cls=pct>=.9?'sc-pass':pct>=.5?'sc-fail':clamped>0?'sc-fail':'sc-empty';
     let lbl=clamped>0?clamped+' / '+s.max:'— / '+s.max;
     sr.innerHTML='<span class="sc-badge '+cls+'">'+lbl+'</span>';
-    if(!document.getElementById('s-'+s.n).value)allFilled=false;
+    if(raw==='')allFilled=false;
   });
 
   let tr=document.getElementById('sc-total'),fb=document.getElementById('scoreFeedback');
@@ -200,7 +205,8 @@ function U(){
     let val=parseInt(document.getElementById('s-'+s.n).value)||0;
     lines.push(' - §'+s.n+': '+val+'/'+s.max+' passed');
   });
-  lines.push('','Total: '+totalPassed+'/'+totalMax+' ('+Math.round(pct*100)+'%)','Tier: '+pct>=.9?'Excellent':pct>=.75?'Strong':pct>=.5?'Partial':'Weak','Notes: ','```');
+  let tierLabel=allFilled?(pct>=.9?'Excellent':pct>=.75?'Strong':pct>=.5?'Partial':'Weak'):'Incomplete';
+  lines.push('','Total: '+totalPassed+'/'+totalMax+' ('+Math.round(pct*100)+'%)','Tier: '+tierLabel,'Notes: ','```');
   tmpl.textContent=lines.join('\n');
 }
 
@@ -219,7 +225,7 @@ SECTIONS.forEach(s=>{let v=localStorage.getItem('exam-s-'+s.n);if(v)document.get
 SECTIONS.forEach(s=>{document.getElementById('s-'+s.n).addEventListener('input',()=>{localStorage.setItem('exam-s-'+s.n,document.getElementById('s-'+s.n).value);U()})});
 ['modelName','testDate','osInfo'].forEach(id=>document.getElementById(id).addEventListener('input',U));
 document.getElementById('copyBtn').addEventListener('click',()=>{let t=document.getElementById('resultTemplate').textContent;navigator.clipboard.writeText(t).then(()=>{let b=document.getElementById('copyBtn');b.textContent='Copied!';b.classList.add('copied');setTimeout(()=>{b.textContent='Copy';b.classList.remove('copied')},2000)})});
-document.getElementById('resetBtn').addEventListener('click',()=>{if(confirm('Clear all exam scores?')){SECTIONS.forEach(s=>localStorage.removeItem('exam-s-'+s.n));location.reload()}});
+document.getElementById('resetBtn').addEventListener('click',()=>{if(confirm('Clear all exam scores?')){SECTIONS.forEach(s=>localStorage.removeItem('exam-s-'+s.n));localStorage.removeItem('exam-pct');location.reload()}});
 /* Restore model info */
 ['exam-model','exam-date','exam-os'].forEach((k,i)=>{let id=['modelName','testDate','osInfo'][i];let v=localStorage.getItem(k);if(v)document.getElementById(id).value=v;document.getElementById(id).addEventListener('change',function(){localStorage.setItem(k,this.value)})});
 
