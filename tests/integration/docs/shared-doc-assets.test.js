@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
-import { join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 
@@ -14,6 +14,71 @@ function htmlFiles(directory = DOCS) {
     return entry.name.endsWith(".html") ? [path] : [];
   });
 }
+
+function navbarLinks(path) {
+  const html = readFileSync(path, "utf8");
+  const nav = html.match(/<nav\b[^>]*class=["'][^"']*aperio-nav[^"']*["'][^>]*>([\s\S]*?)<\/nav>/i)?.[1] || "";
+  const list = nav.match(/<ul\b[^>]*class=["'][^"']*nav-links[^"']*["'][^>]*>([\s\S]*?)<\/ul>/i)?.[1] || "";
+  return [...list.matchAll(/<a\b[^>]*href=["']([^"']+)["']/gi)].map((match) => match[1]);
+}
+
+test("docs HTML contains no missing local files or fragments", () => {
+  const broken = [];
+  for (const source of htmlFiles()) {
+    const html = readFileSync(source, "utf8");
+    const hrefs = [...html.matchAll(/href=["']([^"']+)["']/gi)].map((match) => match[1]);
+    for (const href of hrefs) {
+      if (/^(?:https?:|mailto:)/.test(href)) continue;
+      const hashAt = href.indexOf("#");
+      const relativePath = hashAt >= 0 ? href.slice(0, hashAt) : href;
+      const fragment = hashAt >= 0 ? href.slice(hashAt + 1) : "";
+      const target = relativePath ? resolve(dirname(source), relativePath) : source;
+      if (!readFileExists(target)) {
+        broken.push(`${relative(ROOT, source)} -> ${href} (missing file)`);
+        continue;
+      }
+      if (!fragment) continue;
+      const targetHtml = readFileSync(target, "utf8");
+      if (!targetHtml.includes(`id="${fragment}"`) && !targetHtml.includes(`id='${fragment}'`)) {
+        broken.push(`${relative(ROOT, source)} -> ${href} (missing fragment)`);
+      }
+    }
+  }
+  assert.deepEqual(broken, []);
+});
+
+function readFileExists(path) {
+  try {
+    readFileSync(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+test("dashboard navbars expose one canonical link set", () => {
+  const expected = [
+    "index.html",
+    "model-tier-score-viewer.html",
+    "coverage-dashboard.html",
+    "unit-dashboard.html",
+    "integration-dashboard.html",
+    "e2e-dashboard.html",
+    "https://codecov.io/gh/BaiGanio/aperio",
+  ];
+  for (const name of ["coverage-dashboard.html", "e2e-dashboard.html", "integration-dashboard.html", "unit-dashboard.html", "model-tier-score-viewer.html"]) {
+    assert.deepEqual(navbarLinks(join(DOCS, name)), expected, name);
+  }
+});
+
+test("evaluation and tour navbars use their canonical hubs", () => {
+  for (const path of htmlFiles(join(DOCS, "evaluate"))) {
+    assert.deepEqual(navbarLinks(path).slice(0, 3), ["../index.html", "../guide.html", "../guide.html#evaluate"], relative(DOCS, path));
+  }
+  for (const path of htmlFiles(join(DOCS, "tours"))) {
+    assert.deepEqual(navbarLinks(path).slice(0, 3), ["../index.html", "../guide.html", "../guide.html#tours"], relative(DOCS, path));
+  }
+});
 
 test("every docs theme switcher loads the shared theme implementation", () => {
   const missing = htmlFiles()
