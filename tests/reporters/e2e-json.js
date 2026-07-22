@@ -2,7 +2,7 @@
 // Custom test reporter that outputs structured JSON for the e2e dashboard.
 // Usage: node --test --test-reporter=spec --test-reporter-destination=stdout
 //   --test-reporter=./tests/reporters/e2e-json.js
-//   --test-reporter-destination=e2e-results.json 'tests/**/*.test.js'
+//   --test-reporter-destination=tests/results/e2e-results.json 'tests/**/*.test.js'
 //
 // The reporter may observe the full test suite. Only events whose source file is
 // under tests/e2e/ are included in the dashboard result.

@@ -79,13 +79,15 @@ test("Codecov refreshes complete coverage and test dashboards", async () => {
   assert.match(pkg.scripts["test:ci"], /--reporter=lcov/);
   assert.match(pkg.scripts["test:ci"], /find tests\/unit tests\/integration -name/);
   assert.match(pkg.scripts["test:ci"], /ci-json\.js/);
-  assert.match(pkg.scripts["test:ci"], /test-results\.json/);
+  assert.match(pkg.scripts["test:ci"], /tests\/results\/test-results\.json/);
   assert.doesNotMatch(pkg.scripts["test:ci"], /unit-json\.js|integration-json\.js/);
   assert.match(pkg.scripts["test:unit:ci"], /find tests\/unit -name/);
   assert.match(pkg.scripts["test:integration:ci"], /find tests\/integration -name/);
   assert.match(pkg.scripts["test:e2e:ci"], /find tests\/e2e -name/);
   assert.doesNotMatch(pkg.scripts["test:e2e:ci"], /-not -name/);
-  assert.match(pkg.scripts["test:e2e:ci"], /e2e-results\.json/);
+  assert.match(pkg.scripts["test:e2e:ci"], /tests\/results\/e2e-results\.json/);
+  assert.match(pkg.scripts["test:unit:ci"], /tests\/results\/unit-results\.json/);
+  assert.match(pkg.scripts["test:integration:ci"], /tests\/results\/integration-results\.json/);
   assert.equal(pkg.scripts["test:ci:unit"], "npm run test:unit:ci");
   assert.equal(pkg.scripts["test:ci:integration"], "npm run test:integration:ci");
   assert.equal(pkg.scripts["test:unit:dashboard"], "npm run test:unit:ci:dashboard");

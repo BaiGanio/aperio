@@ -261,6 +261,10 @@ npm run test:ci         # Unit/integration coverage + combined dashboard JSON
 npm run test:ci:dashboard # Refresh coverage, unit, integration, and E2E data
 ```
 
+Structured reporter output is written under `tests/results/`; generated JSON is
+ignored by Git and never scattered across the repository root. c8 keeps its
+conventional instrumentation output under `coverage/`.
+
 The real-app fixtures use temporary working directories and SQLite databases,
 ephemeral localhost ports, and a test-agent stub; they remove their runtime
 state after success or failure, and no model service is required. Postgres E2E

@@ -56,7 +56,7 @@ npm run e2e:dashboard          # Generate E2E test dashboard data
 
 The primary Codecov workflow runs `test:ci` once for unit and integration
 coverage. The console reporter and `tests/reporters/ci-json.js` share that run;
-the latter writes `test-results.json` with separate `unit` and `integration`
+the latter writes `tests/results/test-results.json` with separate `unit` and `integration`
 sections, avoiding a third `node:test` reporter pipeline and its
 `TestsStream` max-listener warning. The workflow generates coverage, unit, and
 integration dashboard data from that run, while a parallel E2E job runs every
@@ -93,14 +93,15 @@ and clean up their guest state on failure as well as success. See
 - `tests/mockStore.js` — mock store factory
 - `tests/reporters/quiet.js` — CI reporter (used when `APERIO_AGENT_RUN` is set)
 - `tests/reporters/ci-json.js` — combined unit/integration coverage reporter. It emits
-  one `test-results.json` payload with independent `unit` and `integration` sections,
+  one `tests/results/test-results.json` payload with independent `unit` and
+  `integration` sections,
   so CI needs only one structured reporter pipeline.
 - `tests/reporters/unit-json.js` — structured JSON reporter for the unit dashboard.
   Usage: `node --test --test-reporter=./tests/reporters/unit-json.js
-  --test-reporter-destination=unit-results.json`
+  --test-reporter-destination=tests/results/unit-results.json`
 - `tests/reporters/integration-json.js` — structured JSON reporter for integration dashboard.
   Usage: `node --test --test-reporter=./tests/reporters/integration-json.js
-  --test-reporter-destination=integration-results.json`
+  --test-reporter-destination=tests/results/integration-results.json`
 - `scripts/generate-integration-dashboard.js` — converts reporter JSON to `docs/dashboards/integration-data.js`.
   Run: `npm run integration:dashboard`
 - `tests/e2e/helpers/ws-helper.js` — shared buffered-connect helpers for WebSocket E2E tests.

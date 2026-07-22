@@ -12,7 +12,7 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const inputPath = resolve(ROOT, option("--input", "unit-results.json"));
+const inputPath = resolve(ROOT, option("--input", "tests/results/unit-results.json"));
 const outputPath = resolve(ROOT, option("--output", "docs/dashboards/unit-data.js"));
 
 async function run() {
