@@ -9,6 +9,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- **Silent dedup-worker failures**: `deduplicateMemories`'s 10-minute background
+  loop (`lib/workers/deduplicate.js`) swallowed any error from
+  `deduplicate_memories` with an empty `catch {}` — a persistent failure (e.g.
+  embedding backend down) produced zero trace anywhere. Now logs via
+  `logger.warn`, matching every other background worker (`session-prune.js`,
+  `agent-run-prune.js`, `llamacpp-log-prune.js`, `infer.js`).
+
 ### Added
 
 - **Integration test tier**: formal three-tier test classification (unit/integration/e2e).
