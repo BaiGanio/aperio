@@ -77,6 +77,16 @@ describe("summarizeArgs()", () => {
     assert.equal(result, cmd); // under the 160 cap → shown verbatim
   });
 
+  test("summarizes structured shell steps as a visible chain", () => {
+    const result = ta.summarizeArgs("run_shell", {
+      steps: [
+        { program: "node", args: ["--version"] },
+        { program: "npm", args: ["test"] },
+      ],
+    });
+    assert.equal(result, "node --version → npm test");
+  });
+
   test("truncates a very long command to 160 chars", () => {
     const result = ta.summarizeArgs("run_shell", { command: "x".repeat(300) });
     assert.ok(result.length <= 160); // trunc with n=160 → 159 + …
