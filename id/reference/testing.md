@@ -10,14 +10,14 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - No `fs`, `path`, `os`, `child_process`, `http` imports
 - No mock of external modules (mock of function arguments OK)
 - Runs in <5ms per test
-- 104 files covering parsing, formatting, validation, config resolution
+- 109 files covering parsing, formatting, validation, config resolution
 
 ### Integration (`tests/integration/`)
 - Module wiring — Express Router, mock stores, DB adapters, temp files, real crypto
 - May import real modules, use mock stores, invoke Express Router directly
 - Must NOT bind a TCP port or spawn a server process
 - Runs in <500ms per test
-- 93 files covering routes, DB, store, MCP, skills, handlers, context, tools, agents, workers
+- 100 files covering routes, DB, store, MCP, skills, handlers, context, tools, agents, workers
 - Uses `tests/mockDB.js` and `tests/mockStore.js` as shared helpers
 
 ### E2E (`tests/e2e/`)
@@ -104,6 +104,12 @@ and clean up their guest state on failure as well as success. See
   --test-reporter-destination=tests/results/integration-results.json`
 - `scripts/generate-integration-dashboard.js` — converts reporter JSON to `docs/dashboards/integration-data.js`.
   Run: `npm run integration:dashboard`
+- `tests/helpers/streamingScripts.js` — the ordered list of `public/scripts/streaming/*`
+  classic scripts, shared by every suite that loads the browser streaming client into a
+  `vm` context. It is the single source of truth for load order: `state.js` → `handler.js`
+  (which owns the event router) → renderers → `events/*.js` (which register into it).
+  `tests/integration/public/streaming-router.test.js` asserts `public/index.html` loads
+  exactly this list, so adding a module to the page without adding it here fails.
 - `tests/e2e/helpers/ws-helper.js` — shared buffered-connect helpers for WebSocket E2E tests.
   `connectBuffered()` attaches the message listener before `open` resolves, eliminating the
   handshake race. `collectUntil(endType)` replaces fixed-sleep collection with event-driven
