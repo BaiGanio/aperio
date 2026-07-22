@@ -440,30 +440,37 @@ export class SqliteStore {
   }
 
   // ── Insert / bulkInsert ───────────────────────────────────────────────────
+  // Synchronous core of insert() — just the row write, no cache refresh. Split
+  // out so approvePending() can compose it into ITS OWN db.transaction() (the
+  // pending-row status check and the memory insert must commit atomically, or
+  // two concurrent approvals of the same pending id can both pass the
+  // status='pending' check and each create a promoted memory). Callers are
+  // responsible for awaiting refreshCache() afterward, same as insert() does.
+  _insertRowSync(input, embedding) {
+    const id = randomUUID();
+    const info = this.db.prepare(`
+      INSERT INTO memories (id, type, title, content, tags, importance, tier, expires_at, source, lang, confidence)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, input.type, input.title, input.content,
+      JSON.stringify(input.tags ?? []),
+      input.importance ?? 3,
+      input.tier ?? 1,
+      input.expires_at ? new Date(input.expires_at).toISOString() : null,
+      input.source ?? 'manual',
+      input.lang ?? 'english',
+      input.confidence ?? 1.0,
+    );
+    if (embedding) {
+      this.db.prepare(`INSERT INTO vec_memories (rowid, embedding) VALUES (?, ?)`)
+        .run(BigInt(info.lastInsertRowid), vecBuf(embedding));
+    }
+    return id;
+  }
+
   async insert(input, embedding) {
-    const id  = randomUUID();
-    const tx  = this.db.transaction(() => {
-      const info = this.db.prepare(`
-        INSERT INTO memories (id, type, title, content, tags, importance, tier, expires_at, source, lang, confidence)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(
-        id, input.type, input.title, input.content,
-        JSON.stringify(input.tags ?? []),
-        input.importance ?? 3,
-        input.tier ?? 1,
-        input.expires_at ? new Date(input.expires_at).toISOString() : null,
-        input.source ?? 'manual',
-        input.lang ?? 'english',
-        input.confidence ?? 1.0,
-      );
-      const rowid = info.lastInsertRowid;
-      if (embedding) {
-        this.db.prepare(`INSERT INTO vec_memories (rowid, embedding) VALUES (?, ?)`)
-          .run(BigInt(rowid), vecBuf(embedding));
-      }
-      return rowid;
-    });
-    tx();
+    const tx = this.db.transaction(() => this._insertRowSync(input, embedding));
+    const id = tx();
     await this.refreshCache();
     return this.getById(id);
   }
@@ -532,24 +539,38 @@ export class SqliteStore {
     ).get().c;
   }
 
-  approvePending(id) {
-    const row = this.db.prepare(
-      `SELECT * FROM pending_memories WHERE id = ? AND status = 'pending'`
-    ).get(id);
-    if (!row) throw new Error(`Pending memory ${id} not found`);
-    const tx = this.db.transaction(() => {
-      const memId = this.insert({
+  // async only for the refreshCache() at the end — the promotion itself (pending
+  // row check + memory insert + status flip) runs inside ONE db.transaction(),
+  // using the shared _insertRowSync() core so it never awaits mid-transaction.
+  // That atomicity matters: without it, two concurrent approvals of the same
+  // pending id could both pass the status='pending' check before either writes
+  // 'approved', each promoting its own duplicate memory. The status UPDATE is
+  // itself re-guarded by `AND status = 'pending'` and checked via info.changes,
+  // so a losing concurrent call fails loudly (and rolls back its insert) instead
+  // of silently double-promoting.
+  async approvePending(id) {
+    const result = this.db.transaction(() => {
+      const row = this.db.prepare(
+        `SELECT * FROM pending_memories WHERE id = ? AND status = 'pending'`
+      ).get(id);
+      if (!row) throw new Error(`Pending memory ${id} not found`);
+
+      const memId = this._insertRowSync({
         type: row.type, title: row.title, content: row.content,
         tags: JSON.parse(row.tags ?? '[]'), importance: row.importance,
         tier: row.tier, source: row.source, lang: row.lang,
-        confidence: row.confidence
+        confidence: row.confidence,
       }, null);
-      this.db.prepare(
-        `UPDATE pending_memories SET status = 'approved', reviewed_at = ? WHERE id = ?`
+
+      const info = this.db.prepare(
+        `UPDATE pending_memories SET status = 'approved', reviewed_at = ? WHERE id = ? AND status = 'pending'`
       ).run(nowIso(), id);
-      return { id: memId.id, title: memId.title };
-    });
-    return tx();
+      if (info.changes === 0) throw new Error(`Pending memory ${id} was already reviewed`);
+
+      return { id: memId, title: row.title };
+    })();
+    await this.refreshCache();
+    return result;
   }
 
   rejectPending(id) {
