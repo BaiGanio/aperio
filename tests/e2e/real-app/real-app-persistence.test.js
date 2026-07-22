@@ -12,7 +12,46 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { WebSocket } from "ws";
 import { startRealApp, request } from "../helpers/real-app-helper.js";
+
+// ─── WS-0 helper: invoke a real MCP tool over WS chat via the test-agent's
+// sentinel (see tests/e2e/helpers/test-agent.js). Opens a connection, sends
+// the sentinel chat message, waits for the tool result, and closes.
+async function callToolViaSentinel(fixture, toolName, args) {
+  const ws = new WebSocket(`ws://127.0.0.1:${fixture.port}`);
+  await new Promise((resolvePromise, reject) => {
+    const tid = setTimeout(() => reject(new Error("WS didn't open")), 5_000);
+    ws.on("open", () => { clearTimeout(tid); });
+    ws.on("error", reject);
+    ws.on("message", (raw) => {
+      const parsed = JSON.parse(raw.toString());
+      if (parsed.type === "session_created") resolvePromise();
+    });
+    ws.once("close", () => reject(new Error("WS closed during handshake")));
+  });
+
+  const text = await new Promise((resolvePromise, reject) => {
+    const tid = setTimeout(() => reject(new Error("No stream_end within timeout")), 15_000);
+    const handler = (raw) => {
+      const parsed = JSON.parse(raw.toString());
+      if (parsed.type === "stream_end") {
+        clearTimeout(tid);
+        ws.off("message", handler);
+        resolvePromise(parsed.text ?? "");
+      }
+    };
+    ws.on("message", handler);
+    ws.send(JSON.stringify({
+      type: "chat",
+      text: `__e2e_call_tool__:${toolName}:${JSON.stringify(args)}`,
+      turnId: `sentinel-${randomUUID().slice(0, 8)}`,
+    }));
+  });
+
+  ws.close();
+  return text;
+}
 
 // ─── Suite-level state (shared fixture) ──────────────────────────────────────
 let fixture;
@@ -159,6 +198,115 @@ test("Persistence tests", async (t) => {
       body: JSON.stringify({ value: "test" }),
     });
     assert.equal(badSetting.status, 400, "Unknown setting key rejected");
+  });
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // Group F: Memory inbox flow (WS-0 → propose_memory → approve/reject)
+  // Runs before T28 — that test stops and replaces the shared `fixture`
+  // handle for the restart check, so anything using the original fixture
+  // must run first.
+  // ══════════════════════════════════════════════════════════════════════════
+  await t.test("F1: propose_memory via WS-0 appears in pending count", async () => {
+    const marker = `e2e-pending-${randomUUID().slice(0, 8)}`;
+    const resultText = await callToolViaSentinel(fixture, "propose_memory", {
+      title: marker,
+      content: "test pending memory content",
+      type: "fact",
+    });
+    assert.ok(!resultText.startsWith("❌"), `Tool call succeeded: ${resultText}`);
+    assert.match(resultText, /Memory proposed for review/, "Confirms proposal");
+
+    const countRes = await request(fixture, "/api/memories/pending/count");
+    assert.equal(countRes.status, 200, "Pending count succeeds");
+    assert.ok(countRes.json.count >= 1, "At least one pending memory");
+
+    const listRes = await request(fixture, "/api/memories/pending");
+    assert.equal(listRes.status, 200, "Pending list succeeds");
+    const found = listRes.json.pending.find(p => p.title === marker);
+    assert.ok(found, "Proposed memory appears in pending list");
+  });
+
+  await t.test("F2: pending memory does not appear in regular list", async () => {
+    const marker = `e2e-pending-notlisted-${randomUUID().slice(0, 8)}`;
+    await callToolViaSentinel(fixture, "propose_memory", {
+      title: marker,
+      content: "should stay pending",
+      type: "fact",
+    });
+
+    const listRes = await request(fixture, "/api/memories");
+    assert.equal(listRes.status, 200, "Regular list succeeds");
+    const found = listRes.json.raw.find(m => m.title === marker);
+    assert.ok(!found, "Pending memory is absent from the regular list");
+  });
+
+  await t.test("F3: approve pending memory promotes it", async () => {
+    const marker = `e2e-approve-${randomUUID().slice(0, 8)}`;
+    await callToolViaSentinel(fixture, "propose_memory", {
+      title: marker,
+      content: "to be approved",
+      type: "fact",
+    });
+
+    const pendingRes = await request(fixture, "/api/memories/pending");
+    const pendingRow = pendingRes.json.pending.find(p => p.title === marker);
+    assert.ok(pendingRow, "Pending row exists before approval");
+
+    const countBefore = (await request(fixture, "/api/memories/pending/count")).json.count;
+
+    const approveRes = await request(fixture, `/api/memories/pending/${pendingRow.id}/approve`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Aperio-Client": "e2e" },
+    });
+    assert.equal(approveRes.status, 200, "Approve succeeds");
+
+    const countAfter = (await request(fixture, "/api/memories/pending/count")).json.count;
+    assert.ok(countAfter < countBefore, "Pending count dropped");
+
+    const listRes = await request(fixture, "/api/memories");
+    const found = listRes.json.raw.find(m => m.title === marker);
+    assert.ok(found, "Approved memory now appears in the regular list");
+
+    // Edge: approve non-existent ID → 404
+    const badApprove = await request(fixture, "/api/memories/pending/does-not-exist/approve", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Aperio-Client": "e2e" },
+    });
+    assert.equal(badApprove.status, 404, "Approving unknown ID returns 404");
+  });
+
+  await t.test("F4: reject pending memory removes it from pending", async () => {
+    const marker = `e2e-reject-${randomUUID().slice(0, 8)}`;
+    await callToolViaSentinel(fixture, "propose_memory", {
+      title: marker,
+      content: "to be rejected",
+      type: "fact",
+    });
+
+    const pendingRes = await request(fixture, "/api/memories/pending");
+    const pendingRow = pendingRes.json.pending.find(p => p.title === marker);
+    assert.ok(pendingRow, "Pending row exists before rejection");
+
+    const rejectRes = await request(fixture, `/api/memories/pending/${pendingRow.id}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Aperio-Client": "e2e" },
+    });
+    assert.equal(rejectRes.status, 200, "Reject succeeds");
+
+    const listRes = await request(fixture, "/api/memories/pending");
+    const stillPending = listRes.json.pending.find(p => p.id === pendingRow.id);
+    assert.ok(!stillPending, "Rejected row no longer pending");
+
+    const regularRes = await request(fixture, "/api/memories");
+    const inRegular = regularRes.json.raw.find(m => m.title === marker);
+    assert.ok(!inRegular, "Rejected memory does not appear in the regular list");
+
+    // Edge: reject already-rejected ID → 404
+    const badReject = await request(fixture, `/api/memories/pending/${pendingRow.id}/reject`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Aperio-Client": "e2e" },
+    });
+    assert.equal(badReject.status, 404, "Rejecting an already-decided row returns 404");
   });
 
   // ══════════════════════════════════════════════════════════════════════════

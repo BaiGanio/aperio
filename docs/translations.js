@@ -29,7 +29,7 @@ const EN_LOCALE = {
     "nav_webui": "Web UI",
     "nav_setup": "Setup",
     "nav_lite": "Lite",
-    "nav_guide": "Guide",
+    "nav_guide": "Guides",
     "nav_coverage": "Coverage",
     "hero_eyebrow": "Open Source · Self-Hosted · Privacy-First · Local by Default",
     "hero_h1": "Every agent. One memory.<br><span class=\"aurora-text\">Total recall.</span>",

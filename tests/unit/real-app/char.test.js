@@ -47,9 +47,10 @@ test("CHAR-2: lib/server.js holds hardcoded mutable paths", () => {
   // The mutable runtime paths are in lib/server.js (not server.js).
   // Runtime var/ data (uploads, scratch, roundtables) anchors to
   // process.cwd(), matching the writers, the path-guard floor, and the
-  // SQLite default (#282). The bootstrap lock stays install-anchored.
+  // SQLite default (#282). The bootstrap lock and agent artifacts use the
+  // caller-provided runtime root so isolated fixtures cannot share state.
   const hardcodedPaths = [
-    'resolve(__dirname, "var/bootstrap.lock")',
+    'resolve(RUNTIME_ROOT, "var/bootstrap.lock")',
     'resolve(process.cwd(), "var/uploads")',
     'resolve(process.cwd(), "var/scratch")',
     'resolve(process.cwd(), "var/roundtables")',

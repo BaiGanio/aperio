@@ -10,7 +10,7 @@
 // starts quickly and serves the HTTP surface only — enough to test middleware,
 // routes, static mounts, security guards, path isolation, and shutdown.
 
-import { mkdirSync } from "fs";
+import { mkdirSync, writeFileSync } from "fs";
 import { resolve } from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
@@ -44,6 +44,19 @@ try {
   // Default: skip boot (lightweight HTTP-only for middleware tests).
   const skipBoot = process.env.APERIO_E2E_SKIP_BOOT !== "0";
 
+  // The lightweight fixture intentionally skips bootApp, but still exercises
+  // the normal post-bootstrap HTTP surface (locale, static shell, security
+  // middleware). Keep that marker in the isolated runtime root, never in the
+  // repository's shared var/ directory.
+  if (skipBoot) {
+    mkdirSync(resolve(RUNTIME_ROOT, "var"), { recursive: true });
+    writeFileSync(resolve(RUNTIME_ROOT, "var/bootstrap.lock"), JSON.stringify({
+      completedAt: new Date().toISOString(),
+      model: null,
+      engine: null,
+    }));
+  }
+
   // APERIO_E2E_INJECT_AGENT=1 creates a contract-faithful test-agent stub
   // and injects it into createApp, so bootApp runs fully (DB + API + WebSocket)
   // without needing a real model provider.
@@ -55,6 +68,7 @@ try {
 
   const app = await createApp({
     root: REPO_ROOT,
+    runtimeRoot: RUNTIME_ROOT,
     skipBoot,
     skipBrowser: true,
     autoListen: false,

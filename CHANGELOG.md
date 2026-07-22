@@ -73,6 +73,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `test:integration:ci:dashboard`, and `integration:dashboard`. New reporters at
   `tests/reporters/unit-json.js` and `tests/reporters/integration-json.js`, with
   dashboards at `docs/dashboards/unit.html` and `docs/dashboards/integration.html`.
+- **Expanded real-app E2E coverage** (18% → 35%+ route coverage): 28 new tests
+  across agent job lifecycle (create/run/history/delete/gate-toggle), session
+  lifecycle (chat/list/get/pin/delete), data import round-trips, WebSocket
+  `resume_session`/`switch_model`/`set_paths`, the memory inbox
+  (`propose_memory` → approve/reject), file-write interrupts
+  (confirm/reject), and a code graph smoke test (index/repos/search/outline).
+  The test-agent stub (`tests/e2e/helpers/test-agent.js`) gained an opt-in
+  sentinel (`__e2e_call_tool__:<name>:<args>`) that spawns a real, scoped
+  `mcp/index.js` child to exercise tool-only surfaces (`propose_memory`,
+  `write_file`) that `injectAgent` mode has no other path to reach.
 
 ### Changed
 
