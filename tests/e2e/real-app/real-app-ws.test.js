@@ -11,7 +11,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { WebSocket } from "ws";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { startRealApp, request } from "../helpers/real-app-helper.js";
@@ -316,5 +316,75 @@ test("WebSocket tests", async (t) => {
     const c1Handshake = c1.handshake[2]; // session_created
     const c2Handshake = c2.handshake[2];
     assert.notEqual(c1Handshake?.id, c2Handshake?.id, "Distinct session IDs");
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // Group E: resume_session, switch_model, set_paths (plan Step WS-E)
+  // ═══════════════════════════════════════════════════════════════════════
+  await t.test("E1: resume_session acknowledges the session", async () => {
+    // Deliberately not closed — finaliseSession() (on close) deletes a
+    // session with zero real messages as "trivial", which would make the
+    // resume target disappear before we get to it.
+    const original = await connect(fixture);
+    t.after(() => closeWs(original.ws));
+    const sid1 = original.handshake[2]?.id;
+    assert.ok(sid1, "Original session has an ID");
+
+    const { ws } = await connect(fixture);
+    t.after(() => closeWs(ws));
+    ws.send(JSON.stringify({ type: "resume_session", id: sid1 }));
+
+    const resumed = await waitForMessage(ws, (m) => m.type === "session_resumed" || m.type === "error", 10_000);
+    assert.equal(resumed.type, "session_resumed", `Resume acknowledged: ${JSON.stringify(resumed)}`);
+    assert.equal(resumed.id, sid1, "Resumed event references the original session ID");
+
+    // Edge: resume with an invalid/unknown session ID → handled gracefully (no crash)
+    const { ws: ws2 } = await connect(fixture);
+    t.after(() => closeWs(ws2));
+    ws2.send(JSON.stringify({ type: "resume_session", id: "does-not-exist" }));
+    const errorMsg = await waitForMessage(ws2, (m) => m.type === "error" || m.type === "session_resumed", 10_000);
+    assert.equal(errorMsg.type, "error", "Unknown session ID produces an error event, not a crash");
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  await t.test("E2: switch_model emits a new provider event", async () => {
+    const { ws } = await connect(fixture);
+    t.after(() => closeWs(ws));
+
+    ws.send(JSON.stringify({ type: "switch_model", provider: "gemini", model: "gemini-2.5-flash" }));
+    const providerEvent = await waitForMessage(ws, (m) => m.type === "provider", 5_000);
+    assert.ok(providerEvent.name || providerEvent.model, "Provider event carries name/model metadata");
+
+    // Edge: missing model field → silently ignored (typeof guard), no crash;
+    // a normal chat afterwards still works.
+    ws.send(JSON.stringify({ type: "switch_model", provider: "gemini" }));
+    const turnId = `after-switch-${randomUUID().slice(0, 8)}`;
+    ws.send(JSON.stringify({ type: "chat", text: "still alive", turnId }));
+    const tc = await waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === turnId, 10_000);
+    assert.equal(tc.status, "completed", "Connection survives a malformed switch_model");
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  await t.test("E3: set_paths updates the read/write allowlist", async () => {
+    const { ws } = await connect(fixture);
+    t.after(() => closeWs(ws));
+
+    // setAllowlist() normalizes via realpath — on macOS /var is a symlink to
+    // /private/var, so the round-tripped path won't string-match the raw
+    // runtimeRoot unless we resolve it the same way before comparing.
+    const resolvedRoot = realpathSync(fixture.runtimeRoot);
+
+    ws.send(JSON.stringify({ type: "set_paths", paths: [fixture.runtimeRoot] }));
+    const updated = await waitForMessage(ws, (m) => m.type === "paths_updated", 5_000);
+    assert.ok(Array.isArray(updated.paths), "paths_updated carries a paths array");
+    assert.ok(
+      updated.paths.some(p => p === resolvedRoot || resolvedRoot.startsWith(p)),
+      "Updated allowlist includes the requested path",
+    );
+
+    // Edge: empty paths array → handled gracefully (still acknowledged)
+    ws.send(JSON.stringify({ type: "set_paths", paths: [] }));
+    const updatedEmpty = await waitForMessage(ws, (m) => m.type === "paths_updated", 5_000);
+    assert.ok(Array.isArray(updatedEmpty.paths), "Empty set_paths still acknowledged without crashing");
   });
 });

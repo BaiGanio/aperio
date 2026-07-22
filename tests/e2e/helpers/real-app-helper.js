@@ -177,6 +177,11 @@ export async function startRealApp(t, options = {}) {
   let port;
   try {
     port = await new Promise((resolve, reject) => {
+      if (readyData?.port) {
+        resolve(readyData.port);
+        return;
+      }
+
       const tid = setTimeout(() => {
         const lastLines = stdoutLines.slice(-10).join("\n");
         reject(new Error(
@@ -187,17 +192,17 @@ export async function startRealApp(t, options = {}) {
       }, readyTimeout);
 
       const check = (chunk) => {
-        try {
-          const lines = chunk.toString().split("\n").filter(Boolean);
-          for (const line of lines) {
+        const lines = chunk.toString().split("\n").filter(Boolean);
+        for (const line of lines) {
+          try {
             const parsed = JSON.parse(line);
             if (parsed.type === "ready" && parsed.port) {
               clearTimeout(tid);
               resolve(parsed.port);
               return;
             }
-          }
-        } catch { /* partial line — wait for more */ }
+          } catch { /* partial line — wait for more */ }
+        }
       };
 
       child.stdout.on("data", check);

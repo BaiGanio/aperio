@@ -283,3 +283,9 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Evidence-gated slow-turn diagnostic — after 3 consecutive local turns below a real-tok/s floor (llama-server's own reported `timings`, not wall-clock), a one-shot UI hint suggests a profile/context change; never fires for cloud providers
 - Docker production config (`docker/docker-compose.prod.yml`)
 - Test suite: 2953 unit tests (`npm test`) and 40 e2e tests (`npm run test:e2e`)
+- Real-app E2E route coverage expansion (`npm run test:e2e:real`, 49 → 82 tests):
+  agent job lifecycle, session lifecycle, data import round-trips, WS
+  `resume_session`/`switch_model`/`set_paths`, the memory inbox, file-write
+  interrupts, and a code graph smoke test — plus a scripted real-MCP
+  tool-call capability in the test-agent stub so tool-only surfaces
+  (`propose_memory`, `write_file`) are reachable at all under `injectAgent`
