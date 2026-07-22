@@ -23,7 +23,13 @@ before(() => {
   mock.method(logger, "debug", () => {});
 });
 
-after(() => mock.restoreAll());
+// Each mounted router owns a metrics sampler; release them so no test leaves a
+// background timer holding its store.
+const mounted = [];
+after(() => {
+  for (const handle of mounted.splice(0)) handle?.stop?.();
+  mock.restoreAll();
+});
 
 // ─── Invoke helper ────────────────────────────────────────────────────────────
 
@@ -53,7 +59,7 @@ function invoke(router, method, url, { body = {}, query = {}, params = {} } = {}
 
 function makeRouter(agentOverrides = {}, storeOverrides = {}, watchdogOverrides = {}, routeOverrides = {}) {
   const router = Router();
-  mountMetaRoutes(router, {
+  mounted.push(mountMetaRoutes(router, {
     agent: {
       version:  "1.2.3",
       provider: { name: "anthropic", model: "claude-haiku-4-5" },
@@ -77,7 +83,7 @@ function makeRouter(agentOverrides = {}, storeOverrides = {}, watchdogOverrides 
       ...watchdogOverrides,
     },
     ...routeOverrides,
-  });
+  }));
   return router;
 }
 
@@ -622,6 +628,29 @@ describe("GET /system", () => {
     assert.strictEqual(status, 200);
     assert.ok(typeof body.rss === "number");
     assert.ok(typeof body.heap === "number");
+  });
+});
+
+describe("metrics sampler ownership", () => {
+  test("mounting returns a stop handle that halts sampling", async () => {
+    let sampled = 0;
+    let stopped = false;
+    const router = Router();
+    const handle = mountMetaRoutes(router, {
+      getAgent: () => null, getWatchdog: () => null, store: {},
+      metricsSampler: {
+        start: () => { sampled += 1; },
+        stop:  () => { stopped = true; },
+        getMetrics: () => ({ rss: 1 }),
+      },
+    });
+
+    assert.strictEqual(sampled, 1, "sampling starts with the routes");
+    const { body } = await invoke(router, "GET", "/metrics");
+    assert.deepStrictEqual(body, { rss: 1 });
+
+    handle.stop();
+    assert.strictEqual(stopped, true, "the caller can release the sampler");
   });
 });
 
