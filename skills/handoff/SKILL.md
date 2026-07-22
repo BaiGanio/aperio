@@ -5,7 +5,7 @@ description: >
   Compact the current conversation into a handoff document a fresh agent can read to continue the work without re-deriving context. Use this when the context window is filling up, when the user says "handoff", "compact", "rotate context", "fresh agent", or "summarize for next session", or before a long-running task is paused. Pairs with `conversation-lifecycle` and `memory-protocol`.
 
 metadata:
-  keywords: handoff compact rotate context window fresh agent summary transfer continue resume dumb zone shrink
+  keywords: "handoff, compact, compact conversation, compact context, rotate, rotate context, context window, fresh agent, summarize for next session, transfer to another agent, resume in a new session, dumb zone, shrink context"
   category: productivity
 ---
 

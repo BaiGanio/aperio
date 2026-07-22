@@ -254,6 +254,33 @@ describe("skills.js", () => {
       assert.deepEqual(matchSkills(prompt, idx), []);
     });
 
+    test("generic product and actor vocabulary cannot complete a weak intent match", () => {
+      const idx = [{
+        name: "memory-like",
+        description: "Use the persistent memory store for Aperio agents.",
+        keywords: "memory, remember, recall",
+        source: "bundled",
+      }];
+
+      assert.deepEqual(
+        matchSkills("Aperio — Personal Memory Layer for AI Agents. Every agent included.", idx),
+        [],
+      );
+    });
+
+    test("user-authored skills retain product and actor vocabulary", () => {
+      const idx = [{
+        name: "agent-coordinator",
+        description: "Coordinate agents for delegated work.",
+        source: "user",
+      }];
+
+      assert.deepEqual(
+        matchSkills("coordinate agents", idx).map(skill => skill.name),
+        ["agent-coordinator"],
+      );
+    });
+
     test("does not let a negated direct name consume the skill limit", () => {
       const idx = [
         { name: "canvas-design", description: "Create visual designs" },

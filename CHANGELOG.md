@@ -11,6 +11,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Skill matching collisions from Aperio vocabulary**: bundled skill
+  descriptions no longer treat generic host/actor terms such as `Aperio`,
+  `agent`, and `every` as independent intent evidence. Presentation prompts
+  describing Aperio's personal-memory layer now load only `pptx`, rather than
+  also injecting `memory-protocol`, `handoff`, or `conversation-lifecycle`.
+  Handoff keywords are now explicit intent phrases while preserving natural
+  requests such as “compact this conversation” and “rotate the context”; user
+  and agent-authored skills retain their full description vocabulary.
+- **PptxGenJS API hallucination guidance**: the PPTX skill now requires reading
+  its installed-version API reference before generating code and documents
+  common invented methods alongside their working v4 equivalents. Generated
+  CommonJS scripts also receive a fail-fast API compatibility guard.
 - **Truthful generated-file reporting**: XLSX/DOCX generator calls now execute
   in the trusted agent host so they retain the active session scratch context.
   The model receives the exact verified artifact path returned by the tool;
