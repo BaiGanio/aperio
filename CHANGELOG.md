@@ -11,6 +11,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Complete, synchronized test dashboards**: E2E CI no longer drops the five
+  `real-app` files, recursive dashboard discovery now lists all nested test files,
+  and unit/integration reporters include top-level skipped tests and correctly
+  group root-level files. The Codecov job now runs unit and integration coverage
+  together with explicit LCOV output and feeds both dashboards from one combined
+  `test-results.json` artifact. A combined structured reporter replaces the two
+  parallel JSON reporter pipelines, eliminating Node 26's `TestsStream`
+  max-listener warning without suppressing warnings or raising global limits.
+  Real-app fixtures run from disposable working directories and clean them on
+  startup failure as well as normal shutdown.
 - **Silent dedup-worker failures**: `deduplicateMemories`'s 10-minute background
   loop (`lib/workers/deduplicate.js`) swallowed any error from
   `deduplicate_memories` with an empty `catch {}` — a persistent failure (e.g.
@@ -21,13 +31,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Added
 
 - **Integration test tier**: formal three-tier test classification (unit/integration/e2e).
-  Tests moved to `tests/unit/` (103 files, pure function), `tests/integration/` (89 files,
+  Tests moved to `tests/unit/` (104 files, pure function), `tests/integration/` (93 files,
   module wiring), and `tests/e2e/` (10 files, real server), with unit and E2E tests
   grouped into descriptive subdirectories. New npm scripts:
   `test:unit`, `test:integration`, `test:ci:unit`, `test:ci:integration`,
   `test:integration:ci:dashboard`, and `integration:dashboard`. New reporters at
   `tests/reporters/unit-json.js` and `tests/reporters/integration-json.js`, with
-  dashboards at `docs/unit-dashboard.html` and `docs/integration-dashboard.html`.
+  dashboards at `docs/dashboards/unit.html` and `docs/dashboards/integration.html`.
 
 ### Changed
 
@@ -460,9 +470,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   drawer entry points were removed.
 
 - Push and pull-request CI now runs unit/integration coverage alongside the
-  non-real E2E dashboard suite, preserving fresh dashboard data without starting
-  real-app child processes. Real-app E2E remains available as a concurrency-
-  limited, manually dispatched workflow when production-process validation is needed.
+  complete E2E dashboard suite, including isolated real-app child processes.
+  Real-app E2E remains available as a concurrency-limited, manually dispatched
+  workflow for focused production-process validation.
 
 - Model-tier evidence now records Gemma 4 E4B UD-Q4_K_XL as the preferred
   provisional candidate pending full qualification, finalist examination,

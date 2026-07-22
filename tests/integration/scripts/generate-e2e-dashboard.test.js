@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -31,7 +31,6 @@ test("E2E dashboard generator transforms existing reporter JSON without running 
       "scripts/generate-e2e-dashboard.js",
       "--input", input,
       "--output", output,
-      "--exclude-real-app",
     ], { cwd: ROOT });
 
     const generated = await readFile(output, "utf8");
@@ -41,9 +40,19 @@ test("E2E dashboard generator transforms existing reporter JSON without running 
     assert.equal(data.passed, 1);
     assert.equal(typeof data.commit, "string");
     assert.ok(Array.isArray(data.files));
-    assert.ok(data.files.length > 0);
-    assert.ok(data.files.every((file) => !file.name.startsWith("real-app-")));
+    assert.equal(data.files.length, await countTestFiles(resolve(ROOT, "tests/e2e")));
+    assert.ok(data.files.some((file) => file.name.startsWith("real-app/real-app-")));
+    assert.ok(data.files.every((file) => file.name.includes("/")));
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
 });
+
+async function countTestFiles(dir) {
+  let count = 0;
+  for (const entry of await readdir(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) count += await countTestFiles(resolve(dir, entry.name));
+    else if (entry.name.endsWith(".test.js")) count++;
+  }
+  return count;
+}

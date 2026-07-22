@@ -10,14 +10,14 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - No `fs`, `path`, `os`, `child_process`, `http` imports
 - No mock of external modules (mock of function arguments OK)
 - Runs in <5ms per test
-- ~103 files covering parsing, formatting, validation, config resolution
+- 104 files covering parsing, formatting, validation, config resolution
 
 ### Integration (`tests/integration/`)
 - Module wiring — Express Router, mock stores, DB adapters, temp files, real crypto
 - May import real modules, use mock stores, invoke Express Router directly
 - Must NOT bind a TCP port or spawn a server process
 - Runs in <500ms per test
-- ~89 files covering routes, DB, store, MCP, skills, handlers, context, tools, agents, workers
+- 93 files covering routes, DB, store, MCP, skills, handlers, context, tools, agents, workers
 - Uses `tests/mockDB.js` and `tests/mockStore.js` as shared helpers
 
 ### E2E (`tests/e2e/`)
@@ -40,10 +40,12 @@ npm run test:execution         # Skill execution integration tests
 npm run test:backfill          # Embedding backfill integration tests
 npm run test:e2e               # All E2E tests (protocol + real-app)
 npm run test:e2e:real          # Real-app E2E tests only (no mock fixtures)
-npm run test:e2e:ci            # Dashboard E2E tests (excludes real-app)
-npm run test:ci                # CI mode with coverage (unit + integration)
-npm run test:ci:unit           # Unit tests CI with c8 coverage and unit JSON reporter
-npm run test:ci:integration    # Integration tests CI with c8 coverage and JSON reporter
+npm run test:e2e:ci            # All E2E tests with dashboard JSON reporter
+npm run test:ci                # Unit + integration coverage and combined dashboard JSON
+npm run test:ci:unit           # Unit tests with unit JSON reporter
+npm run test:ci:integration    # Integration tests with integration JSON reporter
+npm run test:ci:dashboard      # Refresh all four dashboard data artifacts
+npm run test:unit:ci:dashboard # Unit tests plus unit dashboard data
 npm run test:integration:ci:dashboard # Integration tests plus dashboard data
 npm run test:only -- --test-name-pattern="pattern"  # Filter by name
 npm run coverage               # Generate lcov report from c8
@@ -52,16 +54,17 @@ npm run integration:dashboard  # Generate integration test dashboard data
 npm run e2e:dashboard          # Generate E2E test dashboard data
 ```
 
-The primary Codecov workflow runs `test:ci:unit` (unit coverage plus the
-`tests/reporters/unit-json.js` reporter), `test:ci:integration` (integration
-coverage plus the integration JSON reporter), and the non-real E2E dashboard
-suite as separate jobs. Unit, integration, and E2E dashboard data are generated
-from those jobs; dashboard artifacts are published for master pushes without
-starting real server fixtures. Run the
-separate **Real-app E2E (manual)** GitHub Actions workflow when production-
-process validation is needed. Its concurrency is capped at 2 and it does not
-require a model service; Postgres parity remains opt-in through
-`APERIO_E2E_POSTGRES_URL`.
+The primary Codecov workflow runs `test:ci` once for unit and integration
+coverage. The console reporter and `tests/reporters/ci-json.js` share that run;
+the latter writes `test-results.json` with separate `unit` and `integration`
+sections, avoiding a third `node:test` reporter pipeline and its
+`TestsStream` max-listener warning. The workflow generates coverage, unit, and
+integration dashboard data from that run, while a parallel E2E job runs every
+file under `tests/e2e/`, including real-app fixtures. Dashboard artifacts are
+published for master pushes. The separate **Real-app E2E (manual)** workflow
+remains available for focused production-process validation. E2E concurrency
+is capped at 2, no model service is required, and Postgres parity remains
+opt-in through `APERIO_E2E_POSTGRES_URL`.
 
 ## Installation smoke tests
 
@@ -89,6 +92,9 @@ and clean up their guest state on failure as well as success. See
 - `tests/mockDB.js` — in-memory SQLite store for tests
 - `tests/mockStore.js` — mock store factory
 - `tests/reporters/quiet.js` — CI reporter (used when `APERIO_AGENT_RUN` is set)
+- `tests/reporters/ci-json.js` — combined unit/integration coverage reporter. It emits
+  one `test-results.json` payload with independent `unit` and `integration` sections,
+  so CI needs only one structured reporter pipeline.
 - `tests/reporters/unit-json.js` — structured JSON reporter for the unit dashboard.
   Usage: `node --test --test-reporter=./tests/reporters/unit-json.js
   --test-reporter-destination=unit-results.json`

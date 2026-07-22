@@ -20,7 +20,10 @@ const REPO_ROOT = resolve(__dirname, "..", "..", "..");  // tests/e2e/fixtures/.
 
 // Ensure the runtime root exists. All mutable paths will be created here
 // when DB_BACKEND, SQLITE_PATH, and CWD point to it.
-const RUNTIME_ROOT = process.env.APERIO_E2E_ROOT || resolve(REPO_ROOT, "var", "e2e-scratch");
+if (!process.env.APERIO_E2E_ROOT) {
+  throw new Error("APERIO_E2E_ROOT is required; real-app fixtures must run in isolated scratch storage");
+}
+const RUNTIME_ROOT = resolve(process.env.APERIO_E2E_ROOT);
 mkdirSync(RUNTIME_ROOT, { recursive: true });
 
 // Print diagnostic info for the test harness

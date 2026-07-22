@@ -36,14 +36,14 @@ body.e2e-dashboard .shell{max-width:1280px;margin:auto;padding:48px 28px 64px;po
     body.e2e-dashboard .grid{display:grid;gap:16px}
 
     
-    body.e2e-dashboard .metrics{grid-template-columns:1.35fr repeat(3,1fr)}
+    body.e2e-dashboard .metrics{grid-template-columns:repeat(6,minmax(0,1fr))}
     body.e2e-dashboard .panel{background:var(--bg-card);border:1px solid var(--border);border-radius:0;box-shadow:0 20px 50px rgba(0,0,0,.25);transition:border-color .2s,transform .2s}
     body.e2e-dashboard .panel:hover{border-color:var(--border-hi)}
     body.e2e-dashboard .metric,body.e2e-dashboard .panel-pad{padding:22px}
     body.e2e-dashboard .metric{min-height:142px}
     body.e2e-dashboard .metric h2{margin:0 0 18px;color:var(--muted);font:11px var(--font-ui);font-weight:400;text-transform:uppercase;letter-spacing:.12em}
     body.e2e-dashboard .score{display:flex;align-items:baseline;gap:10px}
-    body.e2e-dashboard .score b{font:700 49px/.9 var(--font-ui);letter-spacing:-.05em}
+    body.e2e-dashboard .score b{font:700 clamp(32px,3.2vw,49px)/.9 var(--font-ui);letter-spacing:-.05em}
     body.e2e-dashboard .score span,body.e2e-dashboard small{color:var(--muted)}
     body.e2e-dashboard .meter{height:7px;background:var(--bg-raised);border-radius:0;overflow:hidden;margin-top:20px}
     body.e2e-dashboard .meter i,body.e2e-dashboard .bar i{display:block;height:100%;border-radius:0}
@@ -107,7 +107,8 @@ body.e2e-dashboard .shell{max-width:1280px;margin:auto;padding:48px 28px 64px;po
     body.e2e-dashboard .file-mark{font:500 12px/1 var(--font-mono);color:currentColor;letter-spacing:.02em}
     body.e2e-dashboard .file-name{font:12px var(--font-mono);color:var(--text);display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     body.e2e-dashboard .file-size{display:block;margin-top:5px;font:11px var(--font-mono);color:var(--dim)}
-    @media(max-width:560px){body.e2e-dashboard .file-grid{grid-template-columns:repeat(2,minmax(0,1fr))}body.e2e-dashboard .file-tile{min-height:118px}body.e2e-dashboard .files-panel-head{align-items:flex-start;flex-direction:column;gap:3px}}
+    @media(max-width:1180px){body.e2e-dashboard .metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(max-width:560px){body.e2e-dashboard .metrics{grid-template-columns:1fr}body.e2e-dashboard .file-grid{grid-template-columns:repeat(2,minmax(0,1fr))}body.e2e-dashboard .file-tile{min-height:118px}body.e2e-dashboard .files-panel-head{align-items:flex-start;flex-direction:column;gap:3px}}
 
 /* result-dashboard */
 body.result-dashboard .shell{max-width:1280px;margin:auto;padding:48px 28px 64px;position:relative;z-index:1}
@@ -122,14 +123,14 @@ body.result-dashboard .shell{max-width:1280px;margin:auto;padding:48px 28px 64px
     body.result-dashboard .grid{display:grid;gap:16px}
 
     
-    body.result-dashboard .metrics{grid-template-columns:1.35fr repeat(3,1fr)}
+    body.result-dashboard .metrics{grid-template-columns:repeat(6,minmax(0,1fr))}
     body.result-dashboard .panel{background:var(--bg-card);border:1px solid var(--border);border-radius:0;box-shadow:0 20px 50px rgba(0,0,0,.25);transition:border-color .2s,transform .2s}
     body.result-dashboard .panel:hover{border-color:var(--border-hi)}
     body.result-dashboard .metric,body.result-dashboard .panel-pad{padding:22px}
     body.result-dashboard .metric{min-height:142px}
     body.result-dashboard .metric h2{margin:0 0 18px;color:var(--muted);font:11px var(--font-ui);font-weight:400;text-transform:uppercase;letter-spacing:.12em}
     body.result-dashboard .score{display:flex;align-items:baseline;gap:10px}
-    body.result-dashboard .score b{font:700 49px/.9 var(--font-ui);letter-spacing:-.05em}
+    body.result-dashboard .score b{font:700 clamp(32px,3.2vw,49px)/.9 var(--font-ui);letter-spacing:-.05em}
     body.result-dashboard .score span,body.result-dashboard small{color:var(--muted)}
     body.result-dashboard .meter{height:7px;background:var(--bg-raised);border-radius:0;overflow:hidden;margin-top:20px}
     body.result-dashboard .meter i,body.result-dashboard .bar i{display:block;height:100%;border-radius:0}
@@ -202,3 +203,6 @@ body.result-dashboard .shell{max-width:1280px;margin:auto;padding:48px 28px 64px
     body.result-dashboard .footer a{color:var(--indigo);text-decoration:none}
     body.result-dashboard .empty-state{padding:40px;text-align:center;color:var(--muted);grid-column:1/-1}
     body.result-dashboard .empty-state h3{color:var(--text);margin:0 0 10px}
+
+    @media(max-width:1180px){body.result-dashboard .metrics{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media(max-width:560px){body.result-dashboard .metrics{grid-template-columns:1fr}}

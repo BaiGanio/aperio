@@ -8,7 +8,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execSync } from "node:child_process";
-import { mkdtempSync, rmSync, readFileSync, existsSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, existsSync, realpathSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
@@ -65,9 +65,15 @@ test("Shutdown and lifecycle", async (t) => {
 
     // Record the port before stopping
     const port = fixture.port;
+    const runtimeRoot = fixture.runtimeRoot;
+    assert.equal(realpathSync(fixture.bootingData?.cwd), realpathSync(runtimeRoot));
+    assert.equal(realpathSync(fixture.bootingData?.runtimeRoot), realpathSync(runtimeRoot));
+    assert.ok(!realpathSync(runtimeRoot).startsWith(`${realpathSync(REPO_ROOT)}/`),
+      "Fixture runtime is outside the repository");
 
     // Stop the fixture (sends SIGTERM)
     await fixture.stop();
+    assert.equal(existsSync(runtimeRoot), false, "Fixture runtime is removed after shutdown");
 
     // Port should be released — try to bind it
     const net = await import("node:net");

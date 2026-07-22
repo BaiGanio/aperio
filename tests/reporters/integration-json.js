@@ -21,6 +21,7 @@ const GROUP_LABELS = {
   scripts: "Scripts",
   public:  "Public",
   docs:    "Docs",
+  e2e:     "E2E",
   vms:     "VMs",
   "db-connect":"DB Connect",
   codegraph:"Code Graph",
@@ -32,6 +33,7 @@ function groupFromFile(file) {
   // Extract the subdirectory immediately after tests/integration/
   const match = file.match(/[/\\]tests[/\\]integration[/\\]([^/\\]+)/);
   if (!match) return "Other";
+  if (match[1].endsWith(".test.js")) return "Root";
   return GROUP_LABELS[match[1]] || match[1];
 }
 
@@ -94,7 +96,7 @@ export function createIntegrationReporter() {
           }
         } else if (type === "test:skip" || type === "test:todo") {
           const nesting = data?.nesting ?? 0;
-          if (nesting >= 1) {
+          if (nesting >= 0 && data?.details?.type !== "suite") {
             counts.skipped++;
             counts.total++;
             tests.push({

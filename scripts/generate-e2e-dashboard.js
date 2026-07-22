@@ -8,14 +8,14 @@
 
 import { execFileSync } from "node:child_process";
 import { readFile, writeFile } from "node:fs/promises";
-import { resolve, dirname } from "node:path";
+import { readdirSync, statSync } from "node:fs";
+import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const inputPath = resolve(ROOT, option("--input", "e2e-results.json"));
 const outputPath = resolve(ROOT, option("--output", "docs/dashboards/e2e-data.js"));
-const excludeRealApp = process.argv.includes("--exclude-real-app");
 
 async function run() {
   let data;
@@ -40,14 +40,24 @@ async function run() {
 
   // Add test file list from the filesystem
   try {
-    const { readdirSync, statSync } = await import("node:fs");
     const e2eDir = resolve(ROOT, "tests/e2e");
-    const files = readdirSync(e2eDir)
-      .filter((f) => f.endsWith(".test.js") && (!excludeRealApp || !f.startsWith("real-app-")))
-      .map((f) => ({
-        name: f,
-        size: statSync(resolve(e2eDir, f)).size,
-      }));
+    const files = [];
+
+    function scanDir(dir) {
+      for (const entry of readdirSync(dir, { withFileTypes: true })) {
+        const fullPath = resolve(dir, entry.name);
+        if (entry.isDirectory()) scanDir(fullPath);
+        else if (entry.name.endsWith(".test.js")) {
+          files.push({
+            name: relative(e2eDir, fullPath),
+            size: statSync(fullPath).size,
+          });
+        }
+      }
+    }
+
+    scanDir(e2eDir);
+    files.sort((a, b) => a.name.localeCompare(b.name));
     data.files = files;
   } catch {
     data.files = [];

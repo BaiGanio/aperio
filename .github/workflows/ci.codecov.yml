@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 jobs:
-  unit-tests:
+  coverage-tests:
     name: Unit and integration coverage
     runs-on: ubuntu-latest
     steps:
@@ -31,15 +31,19 @@ jobs:
       - name: Run unit and integration tests with coverage
         id: tests
         continue-on-error: true
-        run: npm run test:ci:unit
+        run: npm run test:ci
 
       - name: Generate coverage dashboard data
         if: always() && hashFiles('coverage/lcov.info') != ''
         run: npm run coverage:dashboard
 
       - name: Generate unit dashboard data
-        if: always() && hashFiles('unit-results.json') != ''
-        run: npm run unit:dashboard
+        if: always() && hashFiles('test-results.json') != ''
+        run: npm run unit:dashboard -- --input test-results.json
+
+      - name: Generate integration dashboard data
+        if: always() && hashFiles('test-results.json') != ''
+        run: npm run integration:dashboard -- --input test-results.json
 
       - name: Upload results to Codecov
         if: >-
@@ -79,12 +83,24 @@ jobs:
           path: ./docs/dashboards/unit-data.js
           retention-days: 7
 
+      - name: Upload integration dashboard data
+        if: >-
+          always() &&
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/master' &&
+          hashFiles('docs/dashboards/integration-data.js') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: integration-dashboard-data
+          path: ./docs/dashboards/integration-data.js
+          retention-days: 7
+
       - name: Preserve test failure status
         if: always() && steps.tests.outcome == 'failure'
         run: exit 1
 
   e2e-dashboard:
-    name: E2E tests and dashboard data (excluding real-app)
+    name: E2E tests and dashboard data
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -100,7 +116,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run non-real E2E tests and generate dashboard data
+      - name: Run all E2E tests and generate dashboard data
         run: npm run test:e2e:ci:dashboard
 
       - name: Upload E2E dashboard data
@@ -114,46 +130,14 @@ jobs:
           path: ./docs/dashboards/e2e-data.js
           retention-days: 7
 
-  integration-dashboard:
-    name: Integration tests and dashboard data
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.2.2 # v4
-        with:
-          fetch-depth: 2
-
-      - name: Set up Node
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
-        with:
-          node-version: 26
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Run integration tests and generate dashboard data
-        run: npm run test:integration:ci:dashboard
-
-      - name: Upload integration dashboard data
-        if: >-
-          github.event_name == 'push' &&
-          github.ref == 'refs/heads/master' &&
-          hashFiles('docs/dashboards/integration-data.js') != ''
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: integration-dashboard-data
-          path: ./docs/dashboards/integration-data.js
-          retention-days: 7
-
   pages-source:
     name: Assemble Pages source
-    needs: [unit-tests, e2e-dashboard, integration-dashboard]
+    needs: [coverage-tests, e2e-dashboard]
     if: >-
       github.event_name == 'push' &&
       github.ref == 'refs/heads/master' &&
-      needs.unit-tests.result == 'success' &&
-      needs.e2e-dashboard.result == 'success' &&
-      needs.integration-dashboard.result == 'success'
+      needs.coverage-tests.result == 'success' &&
+      needs.e2e-dashboard.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout

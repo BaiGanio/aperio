@@ -248,21 +248,24 @@ npm run vmtest:windows        # Windows 11 ARM + clean snapshot
 ### Test suites
 
 Use `npm test` for the complete local suite. Push and pull-request CI runs
-unit/integration coverage plus the lightweight E2E dashboard suite, while real
-server fixtures remain opt-in:
+unit/integration coverage plus the complete E2E dashboard suite, including the
+isolated real-app fixtures:
 
 ```bash
-npm run test:unit       # Unit/integration tests, excluding tests/e2e
+npm run test:unit       # Unit tests only
+npm run test:integration # Integration tests only
 npm run test:e2e        # Protocol and real-app E2E, concurrency capped at 2
 npm run test:e2e:real   # Focused production-server E2E only
-npm run test:e2e:ci     # Dashboard E2E suite, excluding real-app fixtures
-npm run test:ci:unit    # Unit/integration coverage used by Codecov CI
+npm run test:e2e:ci     # Complete E2E suite with dashboard JSON reporter
+npm run test:ci         # Unit/integration coverage + combined dashboard JSON
+npm run test:ci:dashboard # Refresh coverage, unit, integration, and E2E data
 ```
 
-The real-app fixtures use temporary SQLite databases, ephemeral localhost
-ports, and a test-agent stub; no model service is required. Postgres E2E parity
-is enabled only when `APERIO_E2E_POSTGRES_URL` is configured. To run them in
-GitHub Actions, manually dispatch the **Real-app E2E (manual)** workflow.
+The real-app fixtures use temporary working directories and SQLite databases,
+ephemeral localhost ports, and a test-agent stub; they remove their runtime
+state after success or failure, and no model service is required. Postgres E2E
+parity is enabled only when `APERIO_E2E_POSTGRES_URL` is configured. The
+**Real-app E2E (manual)** workflow remains available for focused reruns.
 
 ### Model-tier benchmark campaigns (maintainers)
 
