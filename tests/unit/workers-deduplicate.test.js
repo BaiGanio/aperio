@@ -70,15 +70,18 @@ describe("deduplicateMemories", () => {
     assert.strictEqual(calls.length, 0);
   });
 
-  test("silently swallows errors thrown by callTool", async (t) => {
+  test("logs (rather than silently swallowing) errors thrown by callTool", async (t) => {
     t.mock.timers.enable({ apis: ["setTimeout", "setInterval"] });
+
+    const warnings = [];
+    t.mock.method(logger, "warn", (...args) => warnings.push(args.map(String).join(" ")));
 
     deduplicateMemories(async () => { throw new Error("network failure"); });
 
     t.mock.timers.tick(INITIAL_DELAY);
     await drain(); await drain();
-    // reaching here without an unhandled rejection means the error was swallowed
-    assert.ok(true);
+    // reaching here without an unhandled rejection means the error didn't escape the worker
+    assert.ok(warnings.some(w => w.includes("deduplication run failed") && w.includes("network failure")));
   });
 
   test("logs when the result has more than one non-empty line", async (t) => {
