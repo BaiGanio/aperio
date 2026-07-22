@@ -29,9 +29,17 @@ let _nextBubbleAgent = null;
 let _roundtableAgents = [];
 let _roundtablePhaseChip = null;
 const _pendingGeneratedFiles = [];
+// Workspace descriptors for deliverables emitted inline. The server sends these
+// after persisting the files, often just after stream_end, so finished cards can
+// be patched with the real filename and URL without being rebuilt.
+let _answerArtifacts = [];
 // Live tool-activity cards, keyed by the backend `seq` so a tool_result can
 // find the card its tool_start created.
 const _toolCards = new Map();
+
+// Structure for the streaming cursor's three travelling dots. Animation lives
+// in tool-and-thinking-indicators.css so the node only needs to be created once.
+const CURSOR_DOTS = "<i></i><i></i><i></i>";
 
 // ── Persistent action feed ──────────────────────────────────────────────────
 // The live "thinking…/typing…" dots bubble (#thinking) is a single moving

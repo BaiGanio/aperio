@@ -16,6 +16,7 @@
 import { describe, test, after } from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
+import { PassThrough } from "node:stream";
 import { join } from "node:path";
 import { createRequire } from "node:module";
 import { installMemfs } from "../../../helpers/memfs.js";
@@ -28,20 +29,27 @@ const cp = require("child_process");
 
 function createMockChild({ exitCode = 0, stdout = "", stderr = "" } = {}) {
   const child = new EventEmitter();
-  child.stdout = new EventEmitter();
-  child.stderr = new EventEmitter();
+  child.stdin = new PassThrough();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
   child.kill = () => {};
   process.nextTick(() => {
-    if (stdout) child.stdout.emit("data", Buffer.from(stdout));
-    if (stderr) child.stderr.emit("data", Buffer.from(stderr));
+    if (stdout) child.stdout.end(Buffer.from(stdout));
+    else child.stdout.end();
+    if (stderr) child.stderr.end(Buffer.from(stderr));
+    else child.stderr.end();
     child.emit("close", exitCode);
   });
   return child;
 }
 
 let _spawnImpl = () => createMockChild({ exitCode: 0 });
+let spawnCalls = [];
 const { mock } = await import("node:test");
-mock.method(cp, "spawn", (...args) => _spawnImpl(...args));
+mock.method(cp, "spawn", (...args) => {
+  spawnCalls.push(args);
+  return _spawnImpl(...args);
+});
 
 // ─── Setup: register the in-memory root as allowed, enable shell ─────────────
 const { setAllowlist } = await import("../../../../lib/routes/paths.js");
@@ -136,9 +144,10 @@ describe("runShellHandler", () => {
     assert.ok(r.content[0].text.includes("Command not allowed"));
   });
 
-  test("rejects quoted program name", async () => {
-    const r = await shell.runShellHandler({ command: "'node' --version" });
-    assert.ok(r.content[0].text.includes("program name"));
+  test("accepts a quoted program name without invoking a shell", async () => {
+    _spawnImpl = () => createMockChild({ exitCode: 0 });
+    const r = await shell.runShellHandler({ command: "'node' --version", cwd: mem.root });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
   });
 
   test("rejects empty pipe segment", async () => {
@@ -152,15 +161,88 @@ describe("runShellHandler", () => {
   });
 
   test("executes allowed command", async () => {
+    spawnCalls = [];
     _spawnImpl = () => createMockChild({ exitCode: 0, stdout: "v26.0.0" });
     const r = await shell.runShellHandler({ command: "node --version", cwd: mem.root });
     assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
+    assert.equal(spawnCalls[0][0], "node");
+    assert.deepEqual(spawnCalls[0][1], ["--version"]);
+    assert.equal(spawnCalls[0][2].shell, undefined, "must never invoke a shell");
   });
 
   test("allows wc in a pipe", async () => {
     _spawnImpl = () => createMockChild({ exitCode: 0, stdout: "0" });
     const r = await shell.runShellHandler({ command: "ls | wc -l", cwd: mem.root });
     assert.ok(r.content[0].text.includes("✅ Exit 0"), r.content[0].text);
+  });
+
+  test("rejects a literal-newline command injection before spawning", async () => {
+    spawnCalls = [];
+    const r = await shell.runShellHandler({ command: "ls\nsudo rm", cwd: mem.root });
+    assert.match(r.content[0].text, /Newlines/);
+    assert.equal(spawnCalls.length, 0);
+  });
+
+  test("rejects command substitution inside double quotes", async () => {
+    spawnCalls = [];
+    const r = await shell.runShellHandler({ command: 'ls "$(node evil.js)"', cwd: mem.root });
+    assert.match(r.content[0].text, /operator "\$\("/);
+    assert.equal(spawnCalls.length, 0);
+  });
+
+  test("rejects backticks inside double quotes", async () => {
+    spawnCalls = [];
+    const r = await shell.runShellHandler({ command: 'ls "`node evil.js`"', cwd: mem.root });
+    assert.match(r.content[0].text, /operator "`"/);
+    assert.equal(spawnCalls.length, 0);
+  });
+
+  test("redirect attempt gives write_file guidance for the screenshot workflow", async () => {
+    spawnCalls = [];
+    const r = await shell.runShellHandler({ command: 'echo "const x = 1" > import.js', cwd: mem.root });
+    assert.match(r.content[0].text, /write_file/);
+    assert.equal(spawnCalls.length, 0);
+  });
+
+  test("executes structured steps sequentially", async () => {
+    spawnCalls = [];
+    _spawnImpl = (program) => createMockChild({ exitCode: 0, stdout: program });
+    const r = await shell.runShellHandler({
+      steps: [
+        { program: "node", args: ["--version"] },
+        { program: "npm", args: ["test"] },
+      ],
+      cwd: mem.root,
+    });
+    assert.deepEqual(spawnCalls.map(call => call[0]), ["node", "npm"]);
+    assert.match(r.content[0].text, /Step 1\/2/);
+    assert.match(r.content[0].text, /Step 2\/2/);
+  });
+
+  test("structured steps stop after the first failure by default", async () => {
+    spawnCalls = [];
+    _spawnImpl = (program) => createMockChild({ exitCode: program === "node" ? 1 : 0 });
+    await shell.runShellHandler({
+      steps: [
+        { program: "node", args: ["build.js"] },
+        { program: "npm", args: ["test"] },
+      ],
+      cwd: mem.root,
+    });
+    assert.deepEqual(spawnCalls.map(call => call[0]), ["node"]);
+  });
+
+  test("validates every structured step before executing any", async () => {
+    spawnCalls = [];
+    const r = await shell.runShellHandler({
+      steps: [
+        { program: "node", args: ["--version"] },
+        { program: "sudo", args: ["rm"] },
+      ],
+      cwd: mem.root,
+    });
+    assert.match(r.content[0].text, /Command not allowed/);
+    assert.equal(spawnCalls.length, 0);
   });
 });
 

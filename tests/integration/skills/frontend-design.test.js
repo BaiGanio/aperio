@@ -41,7 +41,7 @@ test("the skill's artifact threshold matches the code that enforces it", () => {
     /body\.length < (\d+) && body\.split\("\\n"\)\.length < (\d+)/,
   );
   const client = parseThreshold(
-    "public/scripts/streaming.js",
+    "public/scripts/streaming/deliverables.js",
     /text\.length >= (\d+) \|\| text\.split\("\\n"\)\.length >= (\d+)/,
   );
   assert.deepEqual(client, server, "client _isDeliverable drifted from persistAnswerArtifacts");

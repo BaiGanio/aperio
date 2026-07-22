@@ -336,6 +336,7 @@ function handleMessage(msg) {
 
   if (msg.type === "stream_start") {
     streamStartTime = Date.now();
+    _answerArtifacts = [];   // belongs to the turn that just ended, not this one
     isReasoningActive = false;
     isThinking = true;
     sendBtn.disabled = true;
@@ -623,6 +624,14 @@ function handleMessage(msg) {
     if (lastBubble) lastBubble.appendChild(_buildGeneratedFileCard(msg));
     else messagesEl.appendChild(_buildGeneratedFileCard(msg));
     scrollToBottom();
+    return;
+  }
+
+  if (msg.type === "answer_artifacts") {
+    // Normally arrives just after stream_end, so the cards are already finalized
+    // and need patching in place; if it beats stream_end, finalization picks it up.
+    _answerArtifacts = Array.isArray(msg.files) ? msg.files : [];
+    if (!streamingBubble) _applyAnswerArtifactsToLastBubble();
     return;
   }
 

@@ -1,10 +1,11 @@
 import { z }            from "zod";
 import { spawn }         from "child_process";
-import { dirname, resolve as resolvePath, extname, isAbsolute } from "path";
+import { dirname, resolve as resolvePath, extname } from "path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratchDir } from "../../lib/routes/paths.js";
 import { pythonInterpreter } from "../../lib/helpers/capabilities.js";
 import logger from "../../lib/helpers/logger.js";
+import { ALLOWED_CMDS, parsePipeline, validatePipeline } from "./shell/command.js";
 
 // Hard cap on captured stdout/stderr, applied per stream. Small-context local
 // models drown in long logs (a 4B model can't use 24K tokens of build output),
@@ -83,10 +84,7 @@ const SHELL_ENABLED = process.env.APERIO_ENABLE_SHELL === "1";
 // the full validation chain whenever a program is added to this set. Every new
 // binary brings its own argument-parsing edge cases that could bypass the
 // allowlist or the operator ban.
-const ALLOWED_CMDS = new Set([
-  "node", "npm", "git", "ls", "cat", "grep", "rg", "find", "head", "tail", "wc",
-  "python3", "soffice", "pdftoppm",
-]);
+const MAX_SHELL_STEPS = 10;
 
 function formatPathError(scriptPath) {
   const { writePaths } = getActivePaths();
@@ -322,188 +320,125 @@ export async function runPythonScriptHandler({ script, args = [] }) {
   return { content: [{ type: "text", text }] };
 }
 
-// ── run_shell validation ──────────────────────────────────────────────────
-// Quote-aware checks so a grep alternation pattern (e.g. "lorem|ipsum") inside
-// quotes is never mistaken for a shell pipe or operator.
+// ── run_shell execution ───────────────────────────────────────────────────
+// Parsing and per-program validation live in shell/command.js. Execution here
+// never invokes a shell: argv arrays are passed directly to spawn(), and pipes
+// are connected as streams. This keeps the accepted grammar auditable and
+// prevents shell expansion from outrunning validation.
 
-// Scan for banned unquoted operators that could chain commands past the
-// allowlist or redirect I/O. A single unquoted "|" pipe is permitted (handled
-// by splitOnPipes), so it is not banned here.
-function checkBannedOperators(command) {
-  let inS = false, inD = false;
-  for (let i = 0; i < command.length; i++) {
-    const c = command[i];
-    if (inS) { if (c === "'") inS = false; continue; }
-    if (inD) { if (c === '"') inD = false; continue; }
-    if (c === "'") { inS = true; continue; }
-    if (c === '"') { inD = true; continue; }
-    if (c === ";" || c === "&" || c === "<" || c === ">" || c === "`") return c;
-    if (c === "$" && command[i + 1] === "(") return "$(";
-  }
-  return null;
+function displayPipeline(pipeline) {
+  return pipeline.map(argv => argv.map(value => /\s/.test(value) ? JSON.stringify(value) : value).join(" ")).join(" | ");
 }
 
-// Split on unquoted "|" only. A "||" yields an empty segment, which the caller
-// rejects — logical-OR chaining is therefore blocked.
-function splitOnPipes(command) {
-  const segs = [];
-  let cur = "", inS = false, inD = false;
-  for (let i = 0; i < command.length; i++) {
-    const c = command[i];
-    if (inS) { cur += c; if (c === "'") inS = false; continue; }
-    if (inD) { cur += c; if (c === '"') inD = false; continue; }
-    if (c === "'") { inS = true; cur += c; continue; }
-    if (c === '"') { inD = true; cur += c; continue; }
-    if (c === "|") { segs.push(cur); cur = ""; continue; }
-    cur += c;
-  }
-  segs.push(cur);
-  return segs;
-}
+function collectPipeline(pipeline, cwd, timeoutMs) {
+  return new Promise((resolveResult) => {
+    const outBuf = makeTailBiasedSink();
+    const errBuf = makeTailBiasedSink();
+    const children = [];
+    const exitCodes = Array(pipeline.length).fill(null);
+    let closed = 0, settled = false, timedOut = false;
 
-// ── Per-program argument validation (SHELL-01) ──────────────────────────────
-// The allowlist checks only the program name; on its own that is not a boundary
-// (`node -e`/`python3 -c` = inline RCE, `find -exec` runs any program, `git -c`
-// executes config-injected commands, `cat /etc/passwd` reads outside the
-// allowlist). These rules constrain each program's arguments so enabling shell
-// no longer voids the path guards that protect the rest of the app.
+    const finish = (extra = {}) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolveResult({
+        exitCode: exitCodes.find(code => code !== null && code !== 0) ?? exitCodes.at(-1) ?? null,
+        timedOut,
+        stdout: outBuf.toString().trimEnd(),
+        stderr: errBuf.toString().trimEnd(),
+        stdoutBytes: outBuf.bytes,
+        stderrBytes: errBuf.bytes,
+        ...extra,
+      });
+    };
 
-const READ_UTILS   = new Set(["cat", "head", "tail", "grep", "rg", "wc"]);
-const GIT_READONLY = new Set(["log", "status", "diff", "show", "remote", "branch", "rev-parse", "ls-files", "describe", "blame"]);
-const FIND_ACTIONS = new Set(["-exec", "-execdir", "-ok", "-okdir", "-delete", "-fprintf", "-fprint", "-fls"]);
+    const timer = setTimeout(() => {
+      timedOut = true;
+      for (const child of children) {
+        try { child.kill("SIGTERM"); } catch { /* best effort */ }
+      }
+    }, Math.max(1, timeoutMs));
 
-// Quote-aware tokenizer: split a pipe segment into argv-style tokens, stripping
-// surrounding quotes so a quoted regex like "lorem|ipsum" stays a single token
-// (and is never mistaken for a path).
-function tokenizeSegment(seg) {
-  const tokens = [];
-  let cur = "", inS = false, inD = false, started = false;
-  for (const c of seg) {
-    if (inS) { if (c === "'") inS = false; else cur += c; started = true; continue; }
-    if (inD) { if (c === '"') inD = false; else cur += c; started = true; continue; }
-    if (c === "'") { inS = true; started = true; continue; }
-    if (c === '"') { inD = true; started = true; continue; }
-    if (/\s/.test(c)) { if (started) { tokens.push(cur); cur = ""; started = false; } continue; }
-    cur += c; started = true;
-  }
-  if (started) tokens.push(cur);
-  return tokens;
-}
-
-// A token denoting a filesystem path we must bound: absolute, ~home, or
-// containing a separator. Bare words (flags, grep patterns, numbers) are not
-// paths and resolve harmlessly inside the pinned cwd, so they are left alone.
-function looksLikePath(tok) {
-  return tok.startsWith("/") || tok.startsWith("~") || tok.includes("/");
-}
-
-// Resolve a path-looking token for the allow-check. `~` is left for isUnder to
-// expand; relative tokens resolve against the shell cwd (not process.cwd()), so
-// "subdir/x" is judged where it will actually run.
-function resolveArg(tok, cwd) {
-  if (tok.startsWith("~") || isAbsolute(tok)) return tok;
-  return resolvePath(cwd, tok);
-}
-
-// node: -e/--eval/-p/--print/- (and =value / bundled -pe forms) run inline code.
-function isNodeEvalFlag(a) {
-  return /^-[ep]+$/.test(a) || /^--(eval|print)(=|$)/.test(a) || /^-(e|p)=/.test(a) || a === "-";
-}
-// python3: -c runs inline code; - reads the program from stdin.
-function isPyEvalFlag(a) {
-  return a === "-c" || /^-c=/.test(a) || a === "-";
-}
-
-// Returns an error string if the segment's arguments break containment, else null.
-function validateSegmentArgs(prog, tokens, cwd) {
-  const args = tokens.slice(1);
-
-  if (prog === "node" || prog === "python3") {
-    const isEval = prog === "node" ? isNodeEvalFlag : isPyEvalFlag;
-    for (const a of args)
-      if (isEval(a))
-        return `${prog} inline-code flag "${a}" is not allowed — write a script file and run it by path (this is exactly what run_${prog === "node" ? "node" : "python"}_script does).`;
-    // The script (any path-looking arg) must sit in an allowed write path,
-    // mirroring run_node_script / run_python_script.
-    for (const a of args) {
-      if (a.startsWith("-") || !looksLikePath(a)) continue;
-      if (!isWritePathAllowed(resolveArg(a, cwd)))
-        return `${prog}: script path is not in an allowed path: ${a}`;
+    try {
+      for (let i = 0; i < pipeline.length; i++) {
+        const [program, ...args] = pipeline[i];
+        const child = spawn(program, args, {
+          cwd,
+          stdio: [i === 0 ? "ignore" : "pipe", "pipe", "pipe"],
+          env: { ...process.env, APERIO_AGENT_RUN: "1" },
+        });
+        children.push(child);
+        child.stderr.on("data", chunk => errBuf.push(chunk));
+        child.on("error", spawnError => {
+          for (const running of children) {
+            try { running.kill("SIGTERM"); } catch { /* best effort */ }
+          }
+          finish({ spawnError });
+        });
+        child.on("close", code => {
+          exitCodes[i] = code;
+          closed++;
+          if (closed === pipeline.length) finish();
+        });
+        if (i > 0) children[i - 1].stdout.pipe(child.stdin);
+      }
+      children.at(-1).stdout.on("data", chunk => outBuf.push(chunk));
+    } catch (spawnError) {
+      for (const child of children) {
+        try { child.kill("SIGTERM"); } catch { /* best effort */ }
+      }
+      finish({ spawnError });
     }
-    return null;
-  }
-
-  if (prog === "git") {
-    for (const a of args)
-      if (a === "-c" || /^--exec-path=/.test(a))
-        return `git "${a}" is not allowed — it can execute arbitrary commands.`;
-    const sub = args.find(a => !a.startsWith("-"));
-    if (!sub || !GIT_READONLY.has(sub))
-      return `git "${sub ?? "(no subcommand)"}" is not allowed via run_shell — only read-only git: ${[...GIT_READONLY].join(", ")}.`;
-    return null;
-  }
-
-  if (prog === "find") {
-    for (const a of args)
-      if (FIND_ACTIONS.has(a))
-        return `find "${a}" is not allowed — it runs arbitrary programs or mutates files.`;
-    return null;
-  }
-
-  if (READ_UTILS.has(prog)) {
-    for (const a of args) {
-      if (a.startsWith("-") || !looksLikePath(a)) continue;
-      if (!isReadPathAllowed(resolveArg(a, cwd)))
-        return `${prog}: file is not in an allowed read path: ${a}`;
-    }
-    return null;
-  }
-
-  return null; // npm, ls, soffice, pdftoppm — no extra argument constraints
+  });
 }
 
-export async function runShellHandler({ command, cwd: cwdArg }) {
+function normalizeShellSteps({ command, steps }) {
+  if (command != null && steps != null) return { error: "Provide either command or steps, not both" };
+  if (steps != null) {
+    if (!Array.isArray(steps) || !steps.length) return { error: "steps must be a non-empty array" };
+    if (steps.length > MAX_SHELL_STEPS) return { error: `run_shell accepts at most ${MAX_SHELL_STEPS} steps` };
+    const pipelines = [];
+    for (const [index, step] of steps.entries()) {
+      if (!step || typeof step.program !== "string" || !step.program ||
+          !Array.isArray(step.args ?? []) || (step.args ?? []).some(value => typeof value !== "string")) {
+        return { error: `Step ${index + 1} needs a program and an optional string args array` };
+      }
+      pipelines.push([[step.program, ...(step.args ?? [])]]);
+    }
+    for (const pipeline of pipelines) {
+      if (!ALLOWED_CMDS.has(pipeline[0][0])) {
+        return { error: `Command not allowed: "${pipeline[0][0]}". Allowed: ${[...ALLOWED_CMDS].join(", ")}` };
+      }
+    }
+    return { pipelines };
+  }
+  const parsed = parsePipeline(command);
+  if (parsed.error) return parsed;
+  for (const argv of parsed.pipeline) {
+    if (!ALLOWED_CMDS.has(argv[0])) {
+      return { error: `Command not allowed: "${argv[0]}". Allowed: ${[...ALLOWED_CMDS].join(", ")}` };
+    }
+  }
+  return { pipelines: [parsed.pipeline] };
+}
+
+function shellSyntaxError(error, operator) {
+  const screenshotHint = operator === ">" || operator === "<"
+    ? "Create or update files with write_file; do not use echo/cat redirection."
+    : "For sequential work, pass the commands as structured steps; each step needs program and args.";
+  return `❌ ${error}.\n\n${screenshotHint}`;
+}
+
+export async function runShellHandler({ command, steps, stop_on_error = true, cwd: cwdArg }) {
   if (!SHELL_ENABLED) {
     return { content: [{ type: "text", text: `❌ run_shell is disabled. Set APERIO_ENABLE_SHELL=1 to enable it.` }] };
   }
-  if (typeof command !== "string" || !command.trim()) {
-    return { content: [{ type: "text", text: `❌ No command provided` }] };
-  }
 
-  const banned = checkBannedOperators(command);
-  if (banned) {
-    logger.warn(`[run_shell] rejected operator "${banned}": ${command}`);
-    return { content: [{ type: "text", text:
-      `❌ Shell operator "${banned}" is not allowed.\n\n` +
-      `Common mistakes:\n` +
-      `  • 2>&1  — do not use stderr redirection; run_node_script captures both streams automatically\n` +
-      `  • &&, ||, ; — chain commands in a .js script instead (see below)\n` +
-      `  • > or <  — write output in a script; use fetch_url (not curl) to download URLs\n\n` +
-      `For multi-step operations: write a .js script to the session scratch workspace ` +
-      `(the path is in your system prompt under "Session scratch workspace"), ` +
-      `then run it with run_node_script. It captures stdout+stderr, enforces the same timeout, ` +
-      `and the file is cleaned up automatically when the session expires.`
-    }] };
-  }
-
-  // Validate the program in each pipe segment against the allowlist. These
-  // checks are cwd-independent, so they run first (before the workspace is
-  // resolved) to keep error ordering stable.
-  const segments = [];
-  for (const seg of splitOnPipes(command)) {
-    const t = seg.trim();
-    if (!t) {
-      return { content: [{ type: "text", text: `❌ Empty command segment — check your pipes.` }] };
-    }
-    const prog = t.match(/^(\S+)/)[1];
-    if (prog.startsWith("'") || prog.startsWith('"')) {
-      return { content: [{ type: "text", text: `❌ Each command must start with a program name, not a quote.` }] };
-    }
-    if (!ALLOWED_CMDS.has(prog)) {
-      logger.warn(`[run_shell] command not allowed: ${prog}`);
-      return { content: [{ type: "text", text: `❌ Command not allowed: "${prog}".\nAllowed: ${[...ALLOWED_CMDS].join(", ")}` }] };
-    }
-    segments.push({ prog, t });
+  const normalized = normalizeShellSteps({ command, steps });
+  if (normalized.error) {
+    logger.warn(`[run_shell] rejected request: ${normalized.error}`);
+    return { content: [{ type: "text", text: shellSyntaxError(normalized.error, normalized.operator) }] };
   }
 
   // Pin cwd to the session workspace (same boundary write_file uses). An
@@ -522,13 +457,12 @@ export async function runShellHandler({ command, cwd: cwdArg }) {
     return { content: [{ type: "text", text: `❌ No working directory: run_shell needs an active session workspace, or pass a cwd within an allowed write path.` }] };
   }
 
-  // With cwd known, constrain each program's arguments — the rules that make the
-  // allowlist a real boundary (no interpreter inline-eval, no find -exec,
-  // read-only git, file args resolved against cwd and kept inside the allowlist).
-  for (const { prog, t } of segments) {
-    const argError = validateSegmentArgs(prog, tokenizeSegment(t), cwd);
+  // Validate every step before executing the first one. A malformed later step
+  // must never leave an earlier step's partial side effects behind.
+  for (const pipeline of normalized.pipelines) {
+    const argError = validatePipeline(pipeline, cwd);
     if (argError) {
-      logger.warn(`[run_shell] arg rejected (${prog}): ${argError}`);
+      logger.warn(`[run_shell] command rejected: ${argError}`);
       return { content: [{ type: "text", text: `❌ ${argError}` }] };
     }
   }
@@ -537,57 +471,33 @@ export async function runShellHandler({ command, cwd: cwdArg }) {
   // spawn doesn't throw ENOENT when the directory hasn't been created yet.
   try { mkdirSync(cwd, { recursive: true }); } catch { /* non-fatal */ }
 
-  logger.info(`[run_shell] start: ${command} (cwd=${cwd})`);
-
-  // A shell is required to wire the optional pipe and parse quoted args. The
-  // allowlist + operator checks above bound what `sh -c` can actually run.
-  let child;
-  try {
-    // Tag every command the model runs so scripts can lighten their output for a
-    // local model's small, slow context — e.g. package.json's test:ci drops
-    // --experimental-test-coverage when APERIO_AGENT_RUN is set, sparing a slow
-    // model the ~12k-token coverage table it can't use anyway. CI leaves the var
-    // unset, so it still gets full coverage.
-    child = spawn("sh", ["-c", command], {
-      cwd,
-      stdio: ["ignore", "pipe", "pipe"],
-      env: { ...process.env, APERIO_AGENT_RUN: "1" },
-    });
-  } catch (err) {
-    logger.error(`[run_shell] spawn threw: ${err.message}`);
-    return { content: [{ type: "text", text: `❌ Failed to spawn shell: ${err.message}` }] };
-  }
-
-  const r = await collectOutput(child, "run_shell");
-  if (r.spawnError) {
-    logger.error(`[run_shell] child error: ${r.spawnError.message}`);
-    return { content: [{ type: "text", text: `❌ Failed to start command: ${r.spawnError.message}` }] };
-  }
-
-  // Missing binary → skip, not failure. Preserves the soffice/pdftoppm visual
-  // QA semantics: an absent optional binary must not be reported as a failure.
-  if (r.exitCode === 127 || /not found|No such file|command not found/i.test(r.stderr)) {
-    logger.warn(`[run_shell] command not found: ${command}`);
-    return { content: [{ type: "text", text:
-      `⚠️ Command not found while running: ${command}\n${r.stderr}\n\n` +
-      `The program is not installed on this machine. If this was an optional QA binary (soffice / pdftoppm), ` +
-      `treat visual QA as skipped — that is NOT a failure — and rely on verify.js + read.js. The deck/file itself is unaffected.`
-    }] };
-  }
-
   const meta = sessionMeta(cwd);
-  if (r.timedOut) {
-    logger.error(`[run_shell] timeout after ${TIMEOUT_MS}ms: ${command}`, meta);
-  } else if (r.exitCode !== 0) {
-    logger.error(`[run_shell] exit ${r.exitCode}: ${command} stderr: ${r.stderr.slice(0, 1000)}`, meta);
-  } else if (r.stderr) {
-    logger.warn(`[run_shell] exit 0 with stderr: ${command} stderr: ${r.stderr.slice(0, 500)}`, meta);
-  } else {
-    logger.info(`[run_shell] ok: ${command}`);
-  }
+  const deadline = Date.now() + TIMEOUT_MS;
+  const outputs = [];
+  for (const [index, pipeline] of normalized.pipelines.entries()) {
+    const label = displayPipeline(pipeline);
+    logger.info(`[run_shell] step ${index + 1}/${normalized.pipelines.length}: ${label} (cwd=${cwd})`);
+    const r = await collectPipeline(pipeline, cwd, deadline - Date.now());
+    if (r.spawnError) {
+      const missing = r.spawnError.code === "ENOENT";
+      const text = missing
+        ? `⚠️ Command not found: ${label}\n\nThe program is not installed on this machine.`
+        : `❌ Failed to start command: ${r.spawnError.message}`;
+      outputs.push(text);
+      logger[missing ? "warn" : "error"](`[run_shell] spawn failed: ${label}: ${r.spawnError.message}`, meta);
+      if (stop_on_error) break;
+      continue;
+    }
+    if (r.timedOut) logger.error(`[run_shell] timeout after ${TIMEOUT_MS}ms: ${label}`, meta);
+    else if (r.exitCode !== 0) logger.error(`[run_shell] exit ${r.exitCode}: ${label} stderr: ${r.stderr.slice(0, 1000)}`, meta);
+    else if (r.stderr) logger.warn(`[run_shell] exit 0 with stderr: ${label} stderr: ${r.stderr.slice(0, 500)}`, meta);
+    else logger.info(`[run_shell] ok: ${label}`);
 
-  const text = buildResponseText({ ...r, scriptPath: command });
-  return { content: [{ type: "text", text }] };
+    const prefix = normalized.pipelines.length > 1 ? `Step ${index + 1}/${normalized.pipelines.length}\n` : "";
+    outputs.push(prefix + buildResponseText({ ...r, scriptPath: label }));
+    if (r.timedOut || (r.exitCode !== 0 && stop_on_error)) break;
+  }
+  return { content: [{ type: "text", text: outputs.join("\n\n") }] };
 }
 
 export async function syntaxCheckHandler({ path: filePath }) {
@@ -675,10 +585,17 @@ export function register(server) {
   server.registerTool(
     "run_shell",
     {
-      description: "Run a shell command and return its stdout/stderr. ⚠️ Enabling run_shell (APERIO_ENABLE_SHELL=1) grants full host-level command execution as the Aperio user — it is NOT a sandbox. Pipes ('|') between allowlisted programs are permitted. Only allowlisted programs run: node, npm, git (read-only subcommands only), ls, cat, grep, rg, find, head, tail, wc, python3, soffice, pdftoppm. Interpreters cannot run inline code (no `node -e` / `python3 -c`); file arguments must resolve inside an allowed path; use fetch_url to download URLs (curl is not available). No ; && || & < > backticks or $(). For multi-step operations write a .js script to the session scratch workspace (see system prompt) and run it with run_node_script — those files are cleaned up with the session.",
+      description: `Run allowlisted programs directly and return stdout/stderr. ⚠️ Enabling run_shell (APERIO_ENABLE_SHELL=1) grants host-level process execution as the Aperio user — the cwd check is NOT an OS sandbox. For one command or a pipeline, pass command. For safe sequential chaining, pass structured steps [{ program, args }]; steps stop at the first failure unless stop_on_error is false. Programs are spawned directly without sh, so shell expansion and control operators (; && || & < > backticks, $(), and newlines) are unavailable. To create a script, call write_file first—never use echo > file—then use run_node_script/run_python_script or a structured step. Pipes ('|') remain available in command. Allowed programs: ${[...ALLOWED_CMDS].join(", ")}. Interpreters cannot run inline code; file arguments must resolve inside allowed paths; use fetch_url instead of curl.`,
       inputSchema: z.object({
-        command: z.string().describe('The command to run, e.g. node /abs/path/scripts/read.js out.pptx | grep -iE "lorem|ipsum"'),
+        command: z.string().max(16_000).optional().describe('One command or pipeline, e.g. node /abs/path/read.js out.pptx | grep -iE "lorem|ipsum"'),
+        steps: z.array(z.object({
+          program: z.string().min(1).describe("Allowlisted executable name"),
+          args: z.array(z.string()).max(100).optional().describe("Exact argv values; no shell quoting or expansion"),
+        })).min(1).max(MAX_SHELL_STEPS).optional().describe("Sequential commands. Use this instead of &&, ||, or ;"),
+        stop_on_error: z.boolean().optional().describe("Stop after the first failed step (default true)"),
         cwd: z.string().optional().describe("Working directory (must be within an allowed write path). Defaults to the project root, or the session scratch workspace once files have been generated there."),
+      }).refine(value => (value.command == null) !== (value.steps == null), {
+        message: "Provide exactly one of command or steps",
       }),
     },
     runShellHandler
