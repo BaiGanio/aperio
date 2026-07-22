@@ -369,6 +369,28 @@ describe("flushRemainingTokenBuffer", () => {
 });
 
 // =============================================================================
+// flushBufferedContent
+// =============================================================================
+
+describe("flushBufferedContent", () => {
+  test("emits buffered tokens as a plain token event, without restarting the stream", () => {
+    const h = buildHandler();
+    h.tokenBuffer = "the rest of the sentence";
+    h.flushBufferedContent();
+    const calls = h.emitter.send.mock.calls;
+    assert.equal(calls.length, 1);
+    assert.deepEqual(calls[0].arguments[0], { type: "token", text: "the rest of the sentence" });
+    assert.equal(h.tokenBuffer, "");
+  });
+
+  test("does nothing when tokenBuffer is empty", () => {
+    const h = buildHandler();
+    h.flushBufferedContent();
+    assert.equal(h.emitter.send.mock.calls.length, 0);
+  });
+});
+
+// =============================================================================
 // process — full stream lifecycle
 // =============================================================================
 

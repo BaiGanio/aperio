@@ -185,7 +185,8 @@ function _buildGeneratedFileCard({ filename, url, sizeKb }) {
   const ext  = (name.split(".").pop() || "").toLowerCase();
   const { icon, label } = _fileKind(ext);
   const canPreviewSpreadsheet = ext === "xlsx";
-  const canPreview = !_BINARY_EXT.has(ext) || canPreviewSpreadsheet;
+  const canPreviewPdf = ext === "pdf";
+  const canPreview = !_BINARY_EXT.has(ext) || canPreviewSpreadsheet || canPreviewPdf;
 
   const card = document.createElement("div");
   card.className = "generated-file-card";
@@ -210,6 +211,7 @@ function _buildGeneratedFileCard({ filename, url, sizeKb }) {
   if (canPreview) {
     card.querySelector(".gfc-preview-btn").addEventListener("click", () => {
       if (canPreviewSpreadsheet) openGeneratedSpreadsheetModal(url, name);
+      else if (canPreviewPdf) openGeneratedPdfModal(url, name);
       else openGeneratedFileModal(url, name);
     });
   }

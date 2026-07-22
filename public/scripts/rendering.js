@@ -463,6 +463,7 @@ function renderFileModal(name, text, { artifactUrl = null } = {}) {
   if (langMap[ext]) codeEl.className = `fpm-code language-${langMap[ext]}`;
 
   const isHtml = ext === "html" || ext === "htm";
+  frameEl.removeAttribute("src");
   if (isHtml) {
     frameEl.srcdoc = text;
     viewTabs.hidden = false;
@@ -526,6 +527,35 @@ async function openGeneratedFileModal(url, name) {
     return;
   }
   renderFileModal(name, text, { artifactUrl: url });
+}
+
+// Generated PDF preview. Browsers render PDFs natively when navigated to
+// directly, so — unlike openGeneratedFileModal — this points the iframe at
+// the artifact URL instead of fetching and decoding the bytes as text (which
+// would just show binary garbage for a PDF).
+function openGeneratedPdfModal(url, name) {
+  ensureFileModal();
+  const modal = document.getElementById("file-preview-modal");
+  if (typeof resetSpreadsheetModal === "function") resetSpreadsheetModal(modal);
+  modal.querySelector(".fpm-icon").innerHTML = '<i class="bi bi-file-earmark-pdf"></i>';
+  modal.querySelector(".fpm-filename").textContent = (name || "file.pdf").replace(/\.[^.]+$/, "");
+  modal.querySelector(".fpm-ext-badge").textContent = "PDF";
+
+  const frameEl = modal.querySelector(".fpm-frame");
+  frameEl.removeAttribute("srcdoc");
+  frameEl.src = url;
+  frameEl.style.display = "block";
+  modal.querySelector(".fpm-pre").style.display = "none";
+  modal.querySelector(".fpm-view-tabs").hidden = true;
+  modal.querySelector(".fpm-copy-btn").hidden = true;
+
+  modal.dataset.artifactUrl = url;
+  const browserBtn = modal.querySelector(".fpm-browser-btn");
+  browserBtn.hidden = false;
+  browserBtn.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> <span>Open in browser</span>';
+  browserBtn.title = "Open this file in the browser";
+  modal.querySelector(".fpm-folder-btn").hidden = false;
+  modal.classList.add("open");
 }
 
 // Open an HTML string directly in the rendered preview modal (used for code
