@@ -347,9 +347,19 @@ function ensureFileModal() {
         <button class="fpm-preview-btn is-active"><i class="bi bi-eye"></i> Preview</button>
         <button class="fpm-code-btn"><i class="bi bi-code-slash"></i> Code</button>
       </div>
+      <div class="fpm-pathbar" hidden>
+        <span class="fpm-path-label">Saved at</span>
+        <span class="fpm-path-value"></span>
+        <span class="fpm-verified"><i class="bi bi-check-circle-fill"></i> Verified artifact</span>
+      </div>
       <div class="fpm-body">
         <iframe class="fpm-frame" sandbox="allow-scripts" title="Rendered preview"></iframe>
         <pre class="fpm-pre"><code class="fpm-code"></code></pre>
+        <div class="fpm-sheet-preview" hidden>
+          <div class="fpm-sheet-formula"><span class="fpm-cell-address">A1</span><span class="fpm-formula-value"></span></div>
+          <div class="fpm-sheet-scroll"></div>
+          <div class="fpm-sheet-footer"><div class="fpm-sheet-tabs"></div><span class="fpm-sheet-meta"></span></div>
+        </div>
       </div>
     </div>`;
 
@@ -418,6 +428,7 @@ function setFileModalView(modal, view) {
 // syntax-highlighted source. `text` is the file's full content.
 function renderFileModal(name, text, { artifactUrl = null } = {}) {
   const modal = document.getElementById("file-preview-modal");
+  if (typeof resetSpreadsheetModal === "function") resetSpreadsheetModal(modal);
   modal.querySelector(".fpm-icon").innerHTML = getFileIcon(name, null);
   modal.querySelector(".fpm-filename").textContent = (name || "file").replace(/\.[^.]+$/, "");
   modal.querySelector(".fpm-ext-badge").textContent = (name || "").split(".").pop().toUpperCase() || "FILE";
@@ -428,11 +439,15 @@ function renderFileModal(name, text, { artifactUrl = null } = {}) {
   const viewTabs = modal.querySelector(".fpm-view-tabs");
   const browserBtn = modal.querySelector(".fpm-browser-btn");
   const folderBtn = modal.querySelector(".fpm-folder-btn");
+  const copyBtn = modal.querySelector(".fpm-copy-btn");
 
   modal.dataset.source = text;          // raw text for the Copy button
   modal.dataset.artifactUrl = artifactUrl || "";
   browserBtn.hidden = !artifactUrl;
   folderBtn.hidden = !artifactUrl;
+  copyBtn.hidden = false;
+  browserBtn.innerHTML = '<i class="bi bi-box-arrow-up-right"></i> <span>Open in browser</span>';
+  browserBtn.title = "Open this file in the browser";
   codeEl.className = "fpm-code";
   codeEl.textContent = text;
 
@@ -486,6 +501,7 @@ function closeFileModal() {
 async function openGeneratedFileModal(url, name) {
   ensureFileModal();
   const modal = document.getElementById("file-preview-modal");
+  if (typeof resetSpreadsheetModal === "function") resetSpreadsheetModal(modal);
   modal.querySelector(".fpm-icon").innerHTML = getFileIcon(name, null);
   modal.querySelector(".fpm-filename").textContent = (name || "file").replace(/\.[^.]+$/, "");
   modal.querySelector(".fpm-ext-badge").textContent = (name || "").split(".").pop().toUpperCase() || "FILE";

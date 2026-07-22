@@ -11,6 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Truthful generated-file reporting**: XLSX/DOCX generator calls now execute
+  in the trusted agent host so they retain the active session scratch context.
+  The model receives the exact verified artifact path returned by the tool;
+  filename directory components are treated as display input instead of a
+  promised destination, and the final-answer guard no longer falsely retracts
+  generator artifacts that exist outside the requested prose path.
 - **Graph progress started from chat**: Code Graph and Document Graph panels now
   reload their indexed-folder lists whenever reopened and keep a bounded status
   poll alive while visible, so indexing started through `index_folder` appears
@@ -38,6 +44,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Spreadsheet artifact preview**: generated `.xlsx` cards now open a bounded,
+  sandboxed table modal with sheet tabs, formula inspection, styled header cells,
+  and both horizontal and vertical scrolling for large worksheets. Preview parsing
+  is server-side and restricted to verified files under `/scratch` or the legacy
+  `/uploads` compatibility mount.
 - **Integration test tier**: formal three-tier test classification (unit/integration/e2e).
   Tests moved to `tests/unit/` (104 files, pure function), `tests/integration/` (93 files,
   module wiring), and `tests/e2e/` (10 files, real server), with unit and E2E tests
@@ -49,6 +60,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Session-owned artifact storage**: new generated XLSX/DOCX files and persisted
+  image/scanned-PDF attachments now live under `var/scratch/<session-id>/` and are
+  deleted or retained with their owning session. Standalone MCP generation uses
+  isolated `var/scratch/mcp-<run-id>/` workspaces pruned with
+  `SESSION_RETENTION_DAYS`. `/uploads` remains a cookie-protected, read-only
+  compatibility mount for existing session cards, but receives no new writes.
 - **CSV path separation**: plain CSV/TSV requests no longer activate the heavyweight
   `file-generate` profile or inject the XLSX skill. `classifyProfiles` in
   `lib/agent/tool-profiles.js` only loads `file-generate` for CSV/TSV when paired with

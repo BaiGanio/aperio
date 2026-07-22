@@ -19,6 +19,7 @@ import path from "node:path";
 import { fixUnclosedFence } from "../../lib/helpers/validateOutput.js";
 import { makeWsEmitter } from "../../lib/emitters/wsEmitter.js";
 import { makeCliEmitter } from "../../lib/emitters/cliEmitter.js";
+import { runWithPaths } from "../../lib/routes/paths.js";
 
 // Synthetic root — never a real path on the user's machine.
 // createAgent wraps all readFileSync calls in try/catch, so missing
@@ -249,6 +250,34 @@ describe("createAgent initialization", () => {
     });
 
     assert.ok(agent, "Should still create agent even without prompts");
+  });
+
+  test("generated files execute in-process and inherit the active session scratch", async (t) => {
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "listTools", async () => ({
+      tools: [{
+        name: "generate_xlsx",
+        description: "Generate spreadsheet",
+        inputSchema: { type: "object", properties: {} },
+      }],
+    }));
+    const mcpCall = t.mock.method(Client.prototype, "callTool", async () => {
+      throw new Error("generator crossed the MCP boundary");
+    });
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "aperio-agent-generate-"));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const scratch = path.join(root, "session-123");
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
+
+    const result = await runWithPaths([root], [root], scratch, () => agent.callTool("generate_xlsx", {
+      filename: "report.xlsx",
+      sheets: [{ name: "Data", headers: ["A"], rows: [[1]] }],
+    }));
+
+    assert.ok(result.startsWith("APERIO_FILE:"));
+    const artifact = JSON.parse(result.slice("APERIO_FILE:".length));
+    assert.ok(artifact.path.startsWith(`${scratch}${path.sep}`));
+    assert.equal(mcpCall.mock.callCount(), 0);
   });
 
   test("createAgent builds a compatibility AgentSpec for legacy callers", async (t) => {

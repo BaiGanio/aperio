@@ -54,7 +54,7 @@ aperio/
 ├── docker/                # Docker Compose files (dev + prod)
 ├── docs/                  # GitHub Pages site + docs assets
 ├── id/                    # Agent persona files (whoami.md, characters/, reference/)
-├── var/                   # Runtime data (sessions, uploads, logs, DB files, plans)
+├── var/                   # Runtime data (sessions, session/run scratch, legacy uploads, logs, DB files, plans)
 ├── scripts/               # Build/utility scripts
 └── .github/               # CI/CD workflows, lite installer, contributor data
 ```
@@ -93,6 +93,31 @@ Browser / Terminal / MCP host
                                                      ▼
                                                db/ (SQLite or Postgres)
 ```
+
+### Generated artifact ownership
+
+Generated files are owned by the conversation or standalone run that created
+them; model-supplied filenames are display names, not internal destinations.
+The web and terminal agents override the MCP-advertised XLSX/DOCX generators
+with trusted in-process handlers so the active AsyncLocalStorage scratch context
+is preserved without exposing a writable workspace argument to the model.
+
+```text
+Web/terminal session ──► host generator ──► var/scratch/<session-id>/
+                                      └──► /scratch/<session-id>/<artifact>
+
+Inbound image/scanned PDF ───────────────► var/scratch/<session-id>/attachments/
+
+Standalone MCP run ─────► MCP generator ─► var/scratch/mcp-<run-id>/
+                                      └──► retention sweep
+
+Legacy download card ────────────────────► /uploads (read-only compatibility)
+```
+
+Deleting or pruning a session recursively removes its generated files and
+attachments. Standalone `mcp-*` workspaces use `SESSION_RETENTION_DAYS`. Both
+static routes remain cookie/auth protected, and preview/reveal resolution uses
+realpath containment checks before opening an artifact.
 
 **Key insight**: the agent orchestrator (`lib/agent/index.js`) and the MCP server (`mcp/index.js`)
 share the same tool implementations and `db/` store. When the agent calls a tool internally,

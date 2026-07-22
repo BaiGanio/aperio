@@ -75,13 +75,15 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Two-phase token-confirmed delete (`delete_file`)
 - Traverse a project folder — tree + key files (`scan_project`)
 - Recursively search allowed code/text files with literal, line-numbered matches (`grep_files`); skips secrets, symlinks, dependencies, build output, and files over 500 KB
-- Generate multi-sheet `.xlsx`, served for download (`generate_xlsx`)
-- Generate `.docx` via Node `docx` lib (`generate_docx`); read `.docx` text (`read_docx`)
-- Attachment handlers: PDF, DOCX, PPTX, text, image
+- Generate multi-sheet `.xlsx` in the owning session scratch workspace, with an exact verified path and download card (`generate_xlsx`)
+- Generate `.docx` in the owning session scratch workspace via Node `docx` lib (`generate_docx`); read `.docx` text (`read_docx`)
+- Attachment handlers: PDF, DOCX, PPTX, text, image; persisted images and scanned PDFs live under `var/scratch/<session-id>/attachments/`
 - PPTX generation via script + `run_node_script` (see `skills/pptx/`)
 - Advanced DOCX edit (tracked changes, comments, validation) via opt-in Python toolchain + `run_python_script` (see `skills/docx/`)
 - Generated HTML artifacts open in a large sandboxed Preview/Code modal, with direct Open in browser, Show in folder, and Copy actions; host-folder reveal is restricted to regular files inside `var/scratch/`
+- Generated XLSX artifacts open in a bounded spreadsheet modal with sheet tabs, formulas, header styling, and horizontal/vertical scrolling for large tables
 - Artifacts the model emits inline (rather than writing via a tool) are persisted to the session workspace and get the same actions, plus a live build card showing a spinner and byte count while the file streams in
+- Standalone MCP generation uses isolated `var/scratch/mcp-<run-id>/` workspaces that age out with `SESSION_RETENTION_DAYS`; `/uploads` is retained only as a read-only compatibility mount for older cards
 
 ## Shell
 - Run a `.js` script in an allowed write path (`run_node_script`)
@@ -229,7 +231,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 **Network & hosting**
 - DNS-rebinding / Host + cross-site Origin guard + `X-Aperio-Client` requirement on state-changing `/api` (`APERIO_ALLOWED_HOSTS`)
 - Opt-in shared-secret auth gate on `/api` + WS (`APERIO_AUTH_TOKEN`; Bearer / header / query, constant-time compare)
-- Static `/uploads` + `/scratch` mounts gated by a per-process cookie (or auth token)
+- Static `/scratch` and legacy read-only `/uploads` mounts gated by a per-process cookie (or auth token)
 - Rate limiting on setup + indexing/import endpoints; Helmet headers; 256 kb JSON body cap
 - Opt-in TLS/HTTPS (`APERIO_TLS_CERT` + `APERIO_TLS_KEY`, fail-loud on partial config)
 - Opt-in AES-256-GCM session encryption at rest (`APERIO_SESSION_KEY`)

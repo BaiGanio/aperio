@@ -147,9 +147,9 @@ export function register(server, ctx) {
   server.registerTool(
     "generate_xlsx",
     {
-      description: "Generate a .xlsx Excel file and make it available for download. Use this whenever the user asks to create a spreadsheet, budget, table, or any Excel file. Strings starting with '=' in rows are treated as Excel formulas.",
+      description: "Generate a .xlsx Excel file in Aperio's protected artifact workspace and make it available for download. The filename is a display name, not a destination path; directory components are discarded. Always report the exact verified path returned by the tool. Use this whenever the user asks to create a spreadsheet, budget, table, or any Excel file. Strings starting with '=' in rows are treated as Excel formulas.",
       inputSchema: z.object({
-        filename: z.string().describe("Output filename, e.g. 'budget_2024.xlsx'"),
+        filename: z.string().describe("Display filename only, e.g. 'budget_2024.xlsx'. Do not include a directory; the tool returns the exact artifact path."),
         sheets: z.array(
           z.object({
             name:    z.string().describe("Sheet tab name"),

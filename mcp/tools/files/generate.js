@@ -1,29 +1,18 @@
 // mcp/tools/files/generate.js — generate_xlsx, generate_docx.
 
 import fs from "fs/promises";
-import { join, basename, resolve as resolvePath } from "path";
+import { join, basename } from "path";
 import { v4 as uuidv4 } from "uuid";
 import ExcelJS from "exceljs";
 import {
   Document, Packer, Paragraph, TextRun, HeadingLevel,
   TableRow, TableCell, Table, WidthType,
 } from "docx";
-import { getActiveScratchDir } from "../../../lib/routes/paths.js";
-
-// Runtime var/ data anchors to process.cwd() — the same root as the path-guard
-// floor (lib/routes/paths.js BASE_DIR) and the SQLite default. Module-relative
-// anchoring let generated documents escape sandboxed runs into the install
-// tree (#282). Identical in normal launches, where cwd == repo root.
-const UPLOADS_DIR = resolvePath(process.cwd(), "var/uploads");
+import { getArtifactWorkspace } from "../../../lib/helpers/artifactWorkspace.js";
 
 export async function generateXlsxHandler({ filename, sheets }) {
   try {
-    // Write into the session scratch workspace when one is active (so the file
-    // is pruned with the session); fall back to var/uploads outside a session
-    // context (e.g. CLI). The matching static mount serves each location.
-    const scratchDir = getActiveScratchDir();
-    const outDir     = scratchDir ?? UPLOADS_DIR;
-    const urlBase    = scratchDir ? `/scratch/${basename(scratchDir)}` : "/uploads";
+    const { dir: outDir, urlBase } = await getArtifactWorkspace();
     await fs.mkdir(outDir, { recursive: true });
 
     const safeName  = basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -82,9 +71,7 @@ export async function generateXlsxHandler({ filename, sheets }) {
 
 export async function generateDocxHandler({ filename, sections }) {
   try {
-    const scratchDir = getActiveScratchDir();
-    const outDir     = scratchDir ?? UPLOADS_DIR;
-    const urlBase    = scratchDir ? `/scratch/${basename(scratchDir)}` : "/uploads";
+    const { dir: outDir, urlBase } = await getArtifactWorkspace();
     await fs.mkdir(outDir, { recursive: true });
 
     const safeName = basename(filename).replace(/[^a-zA-Z0-9._-]/g, "_");
