@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Capability exam scorecard normalization**: negative pass counts now clamp to
+  zero without becoming blank, while genuinely blank rows remain incomplete.
+  Clamped values persist consistently, Reset clears derived score state, and
+  result templates emit the correct tier label.
 - **Skill matching collisions from Aperio vocabulary**: bundled skill
   descriptions no longer treat generic host/actor terms such as `Aperio`,
   `agent`, and `every` as independent intent evidence. Presentation prompts
