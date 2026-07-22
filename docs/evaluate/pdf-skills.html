@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | PDF Skills — Model Evaluation for Document Generation</title>
+  <meta name="description" content="Ten self-contained PDF tasks that probe how well a model creates, edits, merges, splits, and fills PDF files — from simple pdf-lib text pages to AcroForm filling, static form annotation, and multi-step pipelines. Paste the prompt, run the verify command, score the result." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" />
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* Page-specific overrides */
+    .arch-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .arch-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .arch-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .arch-table code { font-size: .82rem; }
+    .diff-badge { display: inline-block; font-family: var(--font-mono); font-size: .72rem; font-weight: 600; padding: 2px 8px; margin-left: 6px; }
+    .diff-badge.diff-easy { background: rgba(67,197,158,.12); color: #43c59e; }
+    .diff-badge.diff-med  { background: rgba(224,169,63,.10); color: var(--amber); }
+    .diff-badge.diff-hard { background: rgba(168,85,247,.12); color: var(--purple); }
+    .setup-box { background: var(--bg-raised); border: 1px solid var(--border); padding: 18px 22px; margin: 16px 0; }
+    .setup-box pre { margin: 8px 0 0 0; font-size: .85rem; }
+    .mg-prompt { background: var(--bg-raised); border: 1px solid var(--border); padding: 18px 20px; margin: 14px 0; font-size: .88rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; position: relative; }
+    .mg-prompt-label { font-family: var(--font-ui); font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; opacity: .5; display: block; margin-bottom: 8px; }
+    .mg-prompt code { font-size: .82rem; }
+    .scoring-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .scoring-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .scoring-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .verify-inline { background: rgba(67,197,158,.06); border-left: 3px solid #43c59e; padding: 12px 16px; margin: 10px 0; font-size: .85rem; font-family: var(--font-mono); line-height: 1.8; word-break: break-all; }
+    @media print {  .orb, .aperio-nav, .theme-switcher, .nav-toggle, footer, .btn-print, .mg-prompt-bar, .prompt-copy, .test-result, .rbtn, .section:not(#scorecard):not(#results), .mt-next, .rt-badge { display: none !important; } .scorecard, .scorecard thead th, .scorecard tbody td, .scorecard tfoot td { border-color: #ccc !important; color: #000 !important; } .sc-badge { border: 1px solid #999; color: #000 !important; background: none !important; } .results-tier .rt-card { border: 1px solid #999; } .rt-card.pulse { animation: none; box-shadow: none; }    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+
+<nav class="aperio-nav"><div class="nav-inner">
+  <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+  <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+  <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="../guide.html">Guide</a></li><li><a href="../guide.html#evaluate">Evaluate</a></li><li><a href="#suite">Tests</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li></ul>
+  <div class="theme-switcher" id="themeSwitcher">
+    <button class="theme-btn active" data-theme="dark" title="Dark">🌙</button>
+    <button class="theme-btn" data-theme="light" title="Light">☀️</button>
+    <button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
+    <button class="theme-btn" data-theme="system" title="System">⊙</button>
+  </div>
+</div></nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="pdf-top" style="padding:120px 0 30px"><div class="section-inner">
+  <a href="../index.html" class="mt-back reveal"><i class="bi bi-arrow-left"></i> Aperio Home</a>
+  <a href="../guide.html#evaluate" class="mt-back reveal" style="margin-left:12px"><i class="bi bi-arrow-left"></i> All Suites</a>
+
+  <div class="eyebrow reveal" style="margin-top:18px">PDF Skills Evaluation</div>
+  <h1 class="section-heading reveal">Document Generation, Editing &amp; Form Filling</h1>
+  <p class="lead-text reveal">Ten self-contained PDF tasks that probe how well a model creates, edits, merges, splits, and fills PDF files — from simple <code>pdf-lib</code> text pages to AcroForm filling, static form annotation, and multi-step document pipelines. Each task has a copy-paste prompt, a verify command, and clear pass criteria.</p>
+
+  <p class="reveal" style="margin-top:12px;opacity:.75;">These tasks test the <code>pdf</code> skill — the model's ability to produce and manipulate PDF files using <code>pdf-lib</code>, <code>qpdf</code>, the project's PDF scripts, and the DOCX→PDF conversion pipeline. Tasks 1–3 cover pdf-lib creation. Tasks 4–5 use qpdf for splitting and rotating. Task 6 covers the DOCX→PDF route. Tasks 7–9 cover extraction, AcroForm filling, and static form annotation. Task 10 is a comprehensive multi-step pipeline. Start at Task&nbsp;1 and work up.</p>
+</div></section>
+
+<!-- ── Technology Quick Reference ─────────────────────────────── -->
+<section class="section" id="arch" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">PDF Technology (Quick Reference)</h2>
+  <p class="reveal mg-desc">These tasks use pdf-lib for programmatic creation, qpdf for document manipulation, and the project's own PDF scripts for form handling and annotation. Knowing these conventions helps you evaluate whether the model followed the skill correctly.</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="arch-table">
+      <thead><tr><th>Concept</th><th>Rule</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>pdf-lib</td><td>Use for programmatic PDF creation from scratch</td><td>Zero extra deps, already installed</td></tr>
+        <tr><td>DOCX→PDF</td><td>Preferred for formatted documents</td><td>LibreOffice gives proper typography</td></tr>
+        <tr><td>qpdf</td><td>merge, split, rotate, decrypt</td><td>System CLI, powerful document surgery</td></tr>
+        <tr><td>rgb()</td><td>pdf-lib colors: <code>rgb(0, 0, 0)</code></td><td>Values 0.0–1.0, not 0–255</td></tr>
+        <tr><td>Standard fonts</td><td>Embed via <code>StandardFonts.Helvetica</code></td><td>No external font files needed</td></tr>
+        <tr><td>Page size</td><td>US Letter = 612×792 points</td><td>Default; set explicitly when needed</td></tr>
+        <tr><td>AcroForm</td><td>Check with <code>check_fillable_fields.js</code></td><td>Detect if form is fillable or static</td></tr>
+        <tr><td>Static forms</td><td><code>extract_form_structure.js</code> → annotate</td><td>Find text position first, then overlay</td></tr>
+        <tr><td>Validation</td><td><code>check_bounding_boxes.js</code></td><td>Catch overlapping annotation boxes</td></tr>
+        <tr><td>Images</td><td><code>convert_pdf_to_images.js</code> (needs poppler)</td><td>Visual QA of PDF output</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Setup ──────────────────────────────────────────────────── -->
+<section class="section" id="setup" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Setup</h2>
+  <p class="reveal mg-desc">You need one terminal with the Aperio server running. Paste each task prompt into the chat. The model will write scripts and use CLI tools to produce <code>.pdf</code> files.</p>
+  <div class="setup-box reveal">
+    <strong style="font-size:.88rem;opacity:.75;">Terminal — Aperio server</strong>
+    <pre><code>npm run start:local</code></pre>
+  </div>
+  <p class="reveal" style="margin-top:12px;font-size:.9rem;opacity:.7;">Paste each task prompt into the chat. Use a fresh conversation per task when possible. Verify commands use <code>pdf-lib</code>, <code>qpdf</code>, and the project's PDF scripts.</p>
+
+  <div class="reveal" style="margin-top:24px">
+    <h3 style="font-size:1rem;">Dependencies by task</h3>
+    <p style="font-size:.9rem;opacity:.7;">Some tasks require system tools not installed by default:</p>
+    <div class="setup-box">
+      <pre><code># qpdf — needed for Tasks 4, 5, 10
+brew install qpdf
+
+# LibreOffice — needed for Task 6
+brew install --cask libreoffice
+
+# poppler — needed for convert_pdf_to_images.js (optional)
+brew install poppler</code></pre>
+    </div>
+  </div>
+
+  <div class="reveal" style="margin-top:24px">
+    <h3 style="font-size:1rem;">Cleanup between runs</h3>
+    <p style="font-size:.9rem;opacity:.7;">Clean up output files before re-running against a different model:</p>
+    <div class="setup-box">
+      <pre><code>rm -f trash/test-*.pdf trash/create-*.js trash/fields-*.json</code></pre>
+    </div>
+  </div>
+</div></section>
+
+<!-- ── Tasks ──────────────────────────────────────────────────── -->
+<section class="section" id="suite" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">The Tasks</h2>
+  <p class="reveal mg-desc">Ordered by complexity: pdf-lib creation first (single page, multi-page, merge), then qpdf manipulation, DOCX→PDF conversion, text extraction, AcroForm filling, static form annotation, and finally a full pipeline. Each task lists dependencies, difficulty, what to look for, the prompt to paste, and the verify command.</p>
+
+  <!-- TASK 1: pdf-lib Single Page -->
+  <div class="test-card reveal" id="task1">
+    <span class="test-label">Task 1 — pdf-lib Creation</span>
+    <h3>Simple Title Page <span class="diff-badge diff-easy">★☆☆☆☆</span></h3>
+    <p class="test-probes">Probes: pdf-lib API, text positioning, font embedding, page setup</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-title.js</code> → <code>trash/test-title.pdf</code>)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(67,197,158,.08);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> pdf-lib (built-in)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a Node.js script at <code>trash/create-title.js</code> that creates <code>trash/test-title.pdf</code> using <code>pdf-lib</code>:
+
+- US Letter page (612 × 792 points)
+- Embed Helvetica-Bold font via <code>StandardFonts.HelveticaBold</code>
+- Draw a title: "Aperio — Personal Memory Layer" at x=72, y=650, size=28pt, dark navy color (rgb(0.1, 0.15, 0.27))
+- Draw a subtitle: "One brain. Every agent. Nothing forgotten." at x=72, y=600, size=14pt, gray color (rgb(0.39, 0.42, 0.45))
+- Draw a horizontal line using <code>drawLine</code> from x=72 to x=540, at y=580, thickness=1.5, purple color (rgb(0.48, 0.23, 0.93))
+- Draw a date line: "Generated: July 2026" at x=72, y=540, size=10pt, gray
+- Use ES module <code>import</code> syntax and top-level await
+- Save with <code>writeFileSync</code></div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the script compile and run without errors?</li>
+      <li>Does the output file start with <code>%PDF-</code> magic bytes?</li>
+      <li>Is the PDF exactly 1 page?</li>
+      <li>Are all text elements present at correct positions?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>head -c 5 trash/test-title.pdf | grep -q '%PDF-' && echo "Valid PDF header OK" || echo "NOT a PDF"</code><br><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-title.pdf');const d=await PDFDocument.load(b);console.log('Pages:',d.getPageCount());process.exit(d.getPageCount()===1?0:1)})"</code></div>
+
+    <div class="test-result" data-test="1"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 2: pdf-lib Multi-Page -->
+  <div class="test-card reveal" id="task2">
+    <span class="test-label">Task 2 — Multi-Page pdf-lib</span>
+    <h3>Multi-Page Report <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: addPage, multi-page document, repeated elements</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-report.js</code> → <code>trash/test-report.pdf</code>)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(67,197,158,.08);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> pdf-lib (built-in)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a Node.js script at <code>trash/create-report.js</code> that creates a 3-page PDF at <code>trash/test-report.pdf</code>:
+
+<strong>Page 1 (Cover):</strong> Title "Q2 2026 Performance Report" (28pt, bold), subtitle "Confidential" (12pt, italic, gray), date line
+
+<strong>Page 2 (Content):</strong> Heading "Revenue Analysis" (18pt, bold), 4 paragraphs of text about quarterly revenue trends (use <code>drawText</code> with line wrapping — approximate by drawing multiple lines manually). Section heading "Cost Breakdown" (16pt, bold) with bullet-like text lines below.
+
+<strong>Page 3 (Summary):</strong> Heading "Key Takeaways" (18pt, bold), 3 bullet-like text lines, footer "— End of Report —" centered at bottom.
+
+Each page should have:
+- A thin header line near the top (use <code>drawLine</code>)
+- Page number footer: "Page X of Y" centered at bottom (x=306, y=30)
+
+Use Helvetica font. US Letter size. ES module syntax.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are there exactly 3 pages?</li>
+      <li>Does each page have a header line and page number?</li>
+      <li>Is the content different on each page?</li>
+      <li>Does the PDF header validate correctly?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-report.pdf');const d=await PDFDocument.load(b);console.log('Pages:',d.getPageCount());process.exit(d.getPageCount()===3?0:1)})"</code></div>
+
+    <div class="test-result" data-test="2"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 3: Merge PDFs -->
+  <div class="test-card reveal" id="task3">
+    <span class="test-label">Task 3 — Merge PDFs</span>
+    <h3>Combine Two PDFs <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: PDFDocument.copyPages, multi-document merge, page ordering</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-merge.js</code> → <code>trash/test-merged.pdf</code>)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(67,197,158,.08);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> pdf-lib (built-in)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a Node.js script at <code>trash/create-merge.js</code> that:
+
+1. Creates two separate PDFs in memory using pdf-lib:
+   - <strong>PDF A</strong> (1 page): Title "Part 1 — Introduction" (24pt), centered. Helvetica font.
+   - <strong>PDF B</strong> (2 pages): Page 1 heading "Part 2 — Analysis" (20pt) with a paragraph of body text. Page 2 heading "Part 2 — Conclusion" (20pt) with a paragraph.
+
+2. Merges them into a single PDF: PDF A then PDF B (3 total pages).
+   Use <code>copyPages</code> to copy pages from each source document into a new document.
+
+3. Adds a centered page number "Page X of 3" at the bottom of each merged page.
+
+4. Saves to <code>trash/test-merged.pdf</code>.
+
+Use ES module syntax. US Letter size.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are there exactly 3 pages in the merged output?</li>
+      <li>Are pages in the correct order (Part 1 → Part 2 pages)?</li>
+      <li>Is <code>copyPages</code> used (not regenerating content)?</li>
+      <li>Are page numbers present on each page?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-merged.pdf');const d=await PDFDocument.load(b);console.log('Pages:',d.getPageCount());process.exit(d.getPageCount()===3?0:1)})"</code></div>
+
+    <div class="test-result" data-test="3"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 4: Split with qpdf -->
+  <div class="test-card reveal" id="task4">
+    <span class="test-label">Task 4 — qpdf Split</span>
+    <h3>Split Pages from a PDF <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: qpdf CLI usage, page range extraction, file management</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">Script + output &nbsp;(first create source → then split → <code>trash/test-split-pages2-3.pdf</code>)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(231,154,51,.10);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> qpdf (system tool — <code>brew install qpdf</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a 4-page PDF, then split out pages 2–3 into a new file.
+
+<strong>Step 1 — Create source.pdf</strong>
+Write a pdf-lib script <code>trash/create-source.js</code> that creates <code>trash/test-source.pdf</code> with 4 pages. Each page should have a large page number visible (e.g., "Page 1", "Page 2", etc.) drawn with <code>drawText</code> at center.
+
+<strong>Step 2 — Split</strong>
+Use qpdf to split pages 2 and 3 into a separate file:
+<code>qpdf trash/test-source.pdf --pages . 2-3 -- trash/test-split-pages2-3.pdf</code>
+
+<strong>Step 3 — Verify</strong>
+Check that the output has exactly 2 pages (formerly pages 2 and 3) using pdf-lib:
+<code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-split-pages2-3.pdf');const d=await PDFDocument.load(b);console.log('Pages:',d.getPageCount());process.exit(d.getPageCount()===2?0:1)})"</code></div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does qpdf produce a valid 2-page PDF?</li>
+      <li>Is the source PDF free of corruption?</li>
+      <li>Does the model use <code>qpdf --pages</code> correctly?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>head -c 5 trash/test-split-pages2-3.pdf | grep -q '%PDF-' && echo "Valid PDF"</code><br><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-split-pages2-3.pdf');const d=await PDFDocument.load(b);console.log('Split pages:',d.getPageCount());process.exit(d.getPageCount()===2?0:1)})"</code></div>
+
+    <div class="test-result" data-test="4"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 5: Rotate with qpdf -->
+  <div class="test-card reveal" id="task5">
+    <span class="test-label">Task 5 — qpdf Rotate</span>
+    <h3>Rotate a Page <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: qpdf page rotation, multi-page PDF with mixed orientations</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">Script + output &nbsp;(create → rotate → <code>trash/test-rotated.pdf</code>)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(231,154,51,.10);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> qpdf (system tool — <code>brew install qpdf</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a 2-page PDF, then rotate the second page 90 degrees clockwise.
+
+<strong>Step 1 — Create source</strong>
+Write a pdf-lib script <code>trash/create-rotate-source.js</code> that creates <code>trash/test-rotate-source.pdf</code>. Page 1: "Normal Page" (portrait orientation). Page 2: "This text should rotate" — also drawn in portrait but will be rotated with qpdf.
+
+<strong>Step 2 — Rotate page 2</strong>
+<code>qpdf trash/test-rotate-source.pdf --rotate=+90:2 -- trash/test-rotated.pdf</code>
+
+<strong>Step 3 — Verify</strong>
+Check that the output has 2 pages and that the rotation was applied. The verify command loads the PDF and checks that page 2 has a non-zero rotation.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are both pages present after rotation?</li>
+      <li>Does page 2 have a 90° rotation applied?</li>
+      <li>Is the <code>--rotate</code> flag syntax correct?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-rotated.pdf');const d=await PDFDocument.load(b);const p2=d.getPage(1);const rot=p2.getRotation().angle;console.log('Pages:',d.getPageCount(),'Rotation pg2:',rot);process.exit(d.getPageCount()===2&&(rot===90||rot===270)?0:1)})"</code></div>
+
+    <div class="test-result" data-test="5"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 6: DOCX → PDF -->
+  <div class="test-card reveal" id="task6">
+    <span class="test-label">Task 6 — DOCX to PDF Conversion</span>
+    <h3>Formatted Document via LibreOffice <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: generate_docx tool, soffice.py conversion pipeline, file path handling</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">DOCX → PDF &nbsp;(via <code>generate_docx</code> + <code>soffice.py</code>)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(231,154,51,.10);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> LibreOffice (<code>brew install --cask libreoffice</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Demonstrate the formatted DOCX→PDF pipeline:
+
+<strong>Step 1 — Create a Word document</strong>
+Use the <code>generate_docx</code> MCP tool to create <code>trash/test-source.docx</code> — a structured report with:
+- Title: "Aperio Technical Report — Q3 2026" (Heading 1)
+- Section 1 "Architecture Overview" (Heading 2) — 2 paragraphs of text
+- Section 2 "Performance Benchmarks" (Heading 2) — a table with 3 columns (Metric, Result, Status) and 4 data rows
+- Arial font, professional styling
+
+<strong>Step 2 — Convert to PDF</strong>
+Use the LibreOffice conversion script. Note the absolute path of the docx from the <code>Saved at:</code> output:
+<code>python3 skills/docx/scripts/office/soffice.py --headless --convert-to pdf /absolute/path/to/trash/test-source.docx --outdir /absolute/path/to/trash</code>
+
+The output will be <code>trash/test-source.pdf</code>.
+
+<strong>Step 3 — Verify</strong>
+Check the resulting PDF is valid and has multiple pages using pdf-lib.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the conversion produce a valid PDF?</li>
+      <li>Is the PDF content from the source DOCX preserved?</li>
+      <li>Does the PDF have multiple pages (text + table)?</li>
+      <li>Is <code>soffice.py</code> called with correct args?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>head -c 5 trash/test-source.pdf | grep -q '%PDF-' && echo "Valid PDF"</code><br><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-source.pdf');const d=await PDFDocument.load(b);console.log('Pages:',d.getPageCount());process.exit(d.getPageCount()>=1?0:1)})"</code></div>
+
+    <div class="test-result" data-test="6"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 7: Text Extraction -->
+  <div class="test-card reveal" id="task7">
+    <span class="test-label">Task 7 — PDF Text Extraction</span>
+    <h3>Read Text from a PDF <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: pdfjs-dist usage, text content extraction, page iteration</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(create → then read back with pdfjs-dist)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(67,197,158,.08);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> pdfjs-dist (built-in)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a PDF with known content, then write a script to extract and verify the text.
+
+<strong>Step 1 — Create</strong>
+Write a pdf-lib script <code>trash/create-text-source.js</code> that creates <code>trash/test-text-source.pdf</code> (2 pages) with these exact strings embedded:
+- Page 1: "Aperio Memory Layer" (title), "Context is everything." (subtitle)
+- Page 2: "Architecture Overview", "SQLite and Postgres backends"
+
+Use Helvetica. US Letter. ES module syntax.
+
+<strong>Step 2 — Read &amp; verify</strong>
+Write a script <code>trash/read-pdf.js</code> that uses <code>pdfjs-dist</code> (import from <code>"pdfjs-dist/legacy/build/pdf.mjs"</code>) to load <code>trash/test-text-source.pdf</code>, extract text from all pages, and print it to console. The script should count pages and confirm specific strings exist in the extracted text.
+
+Run with: <code>node trash/read-pdf.js</code></div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the read script load the PDF successfully?</li>
+      <li>Does extracted text contain the expected strings?</li>
+      <li>Are all 2 pages processed?</li>
+      <li>Is the correct pdfjs-dist import path used?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-text-source.pdf');const d=await PDFDocument.load(b);console.log('Source pages:',d.getPageCount());process.exit(d.getPageCount()===2?0:1)})"</code><br><br><code>node trash/read-pdf.js 2>&1 | head -20</code></div>
+
+    <div class="test-result" data-test="7"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 8: AcroForm Fill -->
+  <div class="test-card reveal" id="task8">
+    <span class="test-label">Task 8 — AcroForm Filling</span>
+    <h3>Create &amp; Fill a Fillable PDF Form <span class="diff-badge diff-hard">★★★★☆</span></h3>
+    <p class="test-probes">Probes: pdf-lib form creation, AcroForm fields, field extraction, field filling</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">Scripts + JSON + output &nbsp;(form → extract → fill)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(67,197,158,.08);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> pdf-lib (built-in)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a fillable PDF form, inspect it, and fill it.
+
+<strong>Step 1 — Create a fillable form</strong>
+Write a pdf-lib script <code>trash/create-form.js</code> that creates <code>trash/test-form.pdf</code> with 3 AcroForm text fields using <code>doc.createForm()</code>:
+- Field "name" at position (x=100, y=650, w=300, h=30) — label: "Full Name:"
+- Field "email" at position (x=100, y=580, w=300, h=30) — label: "Email Address:"
+- Field "company" at position (x=100, y=510, w=300, h=30) — label: "Company:"
+- Title at top: "Registration Form" (24pt, bold)
+- Each field should have a border and be easily fillable
+
+<strong>Step 2 — Extract field info</strong>
+Run: <code>node skills/pdf/scripts/check_fillable_fields.js trash/test-form.pdf</code>
+Then: <code>node skills/pdf/scripts/extract_form_field_info.js trash/test-form.pdf trash/fields-info.json</code>
+Read the <code>fields-info.json</code> to confirm the 3 fields.
+
+<strong>Step 3 — Fill the form</strong>
+Create <code>trash/fields-values.json</code> by adding <code>"value"</code> keys to each field entry from step 2. Values:
+- name: "Dr. Sarah Chen"
+- email: "sarah.chen@novacloud.io"
+- company: "NovaCloud Systems"
+Run: <code>node skills/pdf/scripts/fill_fillable_fields.js trash/test-form.pdf trash/fields-values.json trash/test-filled.pdf</code>
+
+<strong>Step 4 — Verify</strong>
+Confirm the output PDF has filled fields using pdf-lib's <code>doc.getForm()</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the source PDF have 3 AcroForm fields?</li>
+      <li>Does the extraction script detect the fields correctly?</li>
+      <li>Does the filling script produce a valid output PDF?</li>
+      <li>Are the filled values readable in the output?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-filled.pdf');const d=await PDFDocument.load(b);const f=d.getForm();const fields=f.getFields();console.log('Filled fields:',fields.length);fields.forEach(f=>console.log(' ',f.getName(),f.getText()));process.exit(fields.length>=3?0:1)})"</code></div>
+
+    <div class="test-result" data-test="8"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 9: Static Form Annotation -->
+  <div class="test-card reveal" id="task9">
+    <span class="test-label">Task 9 — Static Form Annotation</span>
+    <h3>Fill a Non-Fillable Form by Overlaying Text <span class="diff-badge diff-hard">★★★★★</span></h3>
+    <p class="test-probes">Probes: extract_form_structure.js, fill_pdf_form_with_annotations.js, bounding boxes</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">Script pipeline &nbsp;(create static form → extract structure → annotate → fill)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(67,197,158,.08);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> pdf-lib (built-in), project scripts</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a static (non-fillable) form PDF, analyze its structure, and overlay text at the correct positions.
+
+<strong>Step 1 — Create static form</strong>
+Write a pdf-lib script <code>trash/create-static-form.js</code> that creates <code>trash/test-static-form.pdf</code>. This should look like a form but NOT have AcroForm fields:
+- Title: "Employee Onboarding Form" (20pt, bold)
+- Label "Employee Name:" at (x=72, y=650) followed by a horizontal line (underscore area) at (x=220, y=648, w=300) for the user to write on
+- Label "Department:" at (x=72, y=600) with underscore line
+- Label "Start Date:" at (x=72, y=550) with underscore line
+- A bordered box section "HR Use Only" at the bottom
+
+<strong>Step 2 — Analyze structure</strong>
+Run: <code>node skills/pdf/scripts/check_fillable_fields.js trash/test-static-form.pdf</code> — it should report no fillable fields.
+Run: <code>node skills/pdf/scripts/extract_form_structure.js trash/test-static-form.pdf trash/structure.json</code> — this finds label positions, lines, and checkbox rectangles.
+
+<strong>Step 3 — Create field values JSON</strong>
+Create <code>trash/annotate-fields.json</code> with entries for each field. Use PDF coordinates (in points, origin at bottom-left). Each entry needs:
+<code>{"entry_bounding_box": [x1, y1, x2, y2], "entry_text": "value"}</code>
+
+<strong>Step 4 — Annotate and fill</strong>
+Run <code>node skills/pdf/scripts/check_bounding_boxes.js trash/annotate-fields.json</code> to validate coordinates.
+Then: <code>node skills/pdf/scripts/fill_pdf_form_with_annotations.js trash/test-static-form.pdf trash/annotate-fields.json trash/test-annotated.pdf</code>
+
+<strong>Step 5 — Verify</strong>
+Check the output PDF is valid and has correct page count.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does <code>check_fillable_fields.js</code> correctly report no AcroForm fields?</li>
+      <li>Does <code>extract_form_structure.js</code> find the labels and lines?</li>
+      <li>Does <code>check_bounding_boxes.js</code> validate the coordinates?</li>
+      <li>Does the annotated PDF have overlaid text at the expected positions?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>head -c 5 trash/test-annotated.pdf | grep -q '%PDF-' && echo "Valid PDF"</code><br><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-annotated.pdf');const d=await PDFDocument.load(b);console.log('Annotated pages:',d.getPageCount());process.exit(d.getPageCount()===1?0:1)})"</code></div>
+
+    <div class="test-result" data-test="9"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 10: Full Pipeline -->
+  <div class="test-card reveal" id="task10">
+    <span class="test-label">Task 10 — Comprehensive Pipeline</span>
+    <h3>Create → Split → Rotate → Merge → Extract <span class="diff-badge diff-hard">★★★★★</span></h3>
+    <p class="test-probes">Probes: end-to-end PDF workflow, multiple tools, output verification at each step</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">Multi-step pipeline &nbsp;(create → split → rotate → merge → extract)</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(231,154,51,.10);padding:8px 12px;margin-top:4px;"><strong>Deps:</strong> pdf-lib, qpdf, pdfjs-dist (all available)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Execute a full document pipeline with multiple tools. Do the following steps in order:
+
+<strong>Step 1 — Create 3 source PDFs</strong>
+Write a pdf-lib script that creates 3 separate PDFs in <code>trash/</code>:
+- <code>test-a.pdf</code>: Title "Section A — Overview" (1 page)
+- <code>test-b.pdf</code>: Title "Section B — Technical Details" (2 pages: Technical Details, Architecture)
+- <code>test-c.pdf</code>: Title "Section C — Appendices" (2 pages: Appendix 1, Appendix 2)
+
+<strong>Step 2 — Split test-c</strong>
+Use qpdf to split test-c.pdf pages 1 (Appendix 1) into <code>trash/test-appendix1.pdf</code>:
+<code>qpdf trash/test-c.pdf --pages . 1 -- trash/test-appendix1.pdf</code>
+
+<strong>Step 3 — Rotate test-b page 2</strong>
+Rotate the Architecture page 90° clockwise:
+<code>qpdf trash/test-b.pdf --rotate=+90:2 -- trash/test-b-rotated.pdf</code>
+
+<strong>Step 4 — Merge all parts</strong>
+Use qpdf to merge: test-a.pdf + test-b-rotated.pdf + test-appendix1.pdf into <code>trash/test-final.pdf</code>:
+<code>qpdf --empty --pages trash/test-a.pdf trash/test-b-rotated.pdf trash/test-appendix1.pdf -- trash/test-final.pdf</code>
+
+<strong>Step 5 — Verify with pdf-lib</strong>
+Check the merged output has 4 total pages (1 + 2 + 1) and page 2 (from test-b) has the rotation applied.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are all intermediate files created without corruption?</li>
+      <li>Does the final merge have 4 pages?</li>
+      <li>Is the rotated page still in the correct position?</li>
+      <li>Are all qpdf commands using correct syntax?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('pdf-lib').then(async({PDFDocument})=>{const b=require('fs').readFileSync('trash/test-final.pdf');const d=await PDFDocument.load(b);const p2=d.getPage(1);const rot=p2.getRotation().angle;console.log('Final pages:',d.getPageCount(),'Page2 rotation:',rot);process.exit(d.getPageCount()===4&&(rot===90||rot===270)?0:1)})"</code></div>
+
+    <div class="test-result" data-test="10"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+</div></section>
+
+<!-- ── Per‑Task Scoring Rubric ───────────────────────────────── -->
+<section class="section" id="rubric" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Per‑Task Scoring Rubric</h2>
+  <p class="reveal mg-desc">Apply these five signals to each task after running the verify command. They measure not just "does the file exist" but also "did the model use the right tool for the job and verify its own work".</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="scoring-table">
+      <thead><tr><th>Signal</th><th style="width:140px">0 = fail</th><th style="width:140px">1 = pass</th></tr></thead>
+      <tbody>
+        <tr><td>Output is valid PDF</td><td>corrupt / missing / wrong format</td><td>starts with <code>%PDF-</code>, loads in pdf-lib</td></tr>
+        <tr><td>Correct tool for the job</td><td>wrote Python/reportlab when pdf-lib is available, or script when qpdf is simpler</td><td>pdf-lib for creation, qpdf for manipulation, project scripts for forms</td></tr>
+        <tr><td>Correct page count and content</td><td>wrong pages, missing content</td><td>expected pages, expected strings present</td></tr>
+        <tr><td>Follows API conventions</td><td>rgb values in 0-255 range, "#" in hex colors, wrong font API</td><td>correct rgb(0-1), no "#", proper font embedding</td></tr>
+        <tr><td>Model verified its own work</td><td>claimed success without checking</td><td>ran pdf-lib load, qpdf check, or read script</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Scorecard ─────────────────────────────────────────────── -->
+<section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Results fill in automatically as you click the buttons above.</p>
+  <div class="reveal" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+    <label style="font-size:.9rem;"><strong>Model:</strong> <input type="text" id="modelName" placeholder="e.g. Gemma 4 12B" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:200px;"></label>
+    <label style="font-size:.9rem;"><strong>Date:</strong> <input type="text" id="testDate" placeholder="e.g. 2026-07-22" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label>
+  </div>
+  <div class="scorecard-wrap reveal"><div class="print-bar"><button class="btn-print" onclick="window.print()"><i class="bi bi-printer"></i> Print Scorecard</button></div>
+  <div style="overflow-x:auto;"><table class="scorecard" id="scorecardTable">
+    <thead><tr><th style="width:55%">Test</th><th style="width:20%">Result</th><th style="width:25%">Notes</th></tr></thead>
+    <tbody>
+      <tr data-test="1"><td class="sc-test">1. pdf-lib Title Page</td><td class="sc-result" id="sr-1"><span class="sc-badge sc-empty">—</span></td><td id="sn-1"></td></tr>
+      <tr data-test="2"><td class="sc-test">2. Multi-Page Report</td><td class="sc-result" id="sr-2"><span class="sc-badge sc-empty">—</span></td><td id="sn-2"></td></tr>
+      <tr data-test="3"><td class="sc-test">3. Merge PDFs</td><td class="sc-result" id="sr-3"><span class="sc-badge sc-empty">—</span></td><td id="sn-3"></td></tr>
+      <tr data-test="4"><td class="sc-test">4. Split Pages (qpdf)</td><td class="sc-result" id="sr-4"><span class="sc-badge sc-empty">—</span></td><td id="sn-4"></td></tr>
+      <tr data-test="5"><td class="sc-test">5. Rotate Page (qpdf)</td><td class="sc-result" id="sr-5"><span class="sc-badge sc-empty">—</span></td><td id="sn-5"></td></tr>
+      <tr data-test="6"><td class="sc-test">6. DOCX→PDF Conversion</td><td class="sc-result" id="sr-6"><span class="sc-badge sc-empty">—</span></td><td id="sn-6"></td></tr>
+      <tr data-test="7"><td class="sc-test">7. PDF Text Extraction</td><td class="sc-result" id="sr-7"><span class="sc-badge sc-empty">—</span></td><td id="sn-7"></td></tr>
+      <tr data-test="8"><td class="sc-test">8. AcroForm Fill</td><td class="sc-result" id="sr-8"><span class="sc-badge sc-empty">—</span></td><td id="sn-8"></td></tr>
+      <tr data-test="9"><td class="sc-test">9. Static Form Annotation</td><td class="sc-result" id="sr-9"><span class="sc-badge sc-empty">—</span></td><td id="sn-9"></td></tr>
+      <tr data-test="10"><td class="sc-test">10. Full Pipeline</td><td class="sc-result" id="sr-10"><span class="sc-badge sc-empty">—</span></td><td id="sn-10"></td></tr>
+    </tbody>
+    <tfoot><tr><td colspan="3" id="sc-total">TOTAL: ____ / 10 passed</td></tr></tfoot>
+  </table></div>
+  <div class="score-feedback" id="scoreFeedback"></div></div>
+
+  <div class="reveal" style="margin-top:18px;background:rgba(127,127,127,.06);border:1px solid rgba(127,127,127,.14);padding:18px 22px;">
+    <strong style="font-size:.9rem;">Scoring notes:</strong>
+    <ul style="font-size:.9rem;line-height:1.8;padding-left:20px;margin-top:8px;margin-bottom:0;">
+      <li><strong>Pass</strong> — valid PDF output, correct page count, tools used correctly.</li>
+      <li><strong>Fail</strong> — corrupt PDF, wrong page count, missing content, incorrect tool choice.</li>
+      <li><strong>N/A</strong> — system dependency not installed (qpdf for Tasks 4/5/10, LibreOffice for Task 6).</li>
+      <li>Tasks 4/5/10 require <code>qpdf</code>. Install with <code>brew install qpdf</code>.</li>
+      <li>Task 6 requires LibreOffice. Install with <code>brew install --cask libreoffice</code>.</li>
+      <li>Tasks 8–9 require the project's PDF scripts in <code>skills/pdf/scripts/</code>.</li>
+      <li>A model that passes Tasks 1–3 but fails 4+ knows pdf-lib creation but not document manipulation.</li>
+    </ul>
+  </div>
+</div></section>
+
+<!-- ── Results ───────────────────────────────────────────────── -->
+<section class="section" id="results" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">What the Results Mean</h2>
+
+  <div class="results-tier reveal" id="resultsTier">
+    <div class="rt-card rt-good" data-tier="elite">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">9–10/10</div>
+      <div class="rt-label"><strong>Production-ready document generation.</strong> The model handles the full PDF stack: programmatic creation with pdf-lib, document manipulation with qpdf, formatted DOCX→PDF conversion, AcroForm filling, static form annotation, and multi-step pipelines. Trust it for real document workflows.</div>
+    </div>
+    <div class="rt-card rt-good" data-tier="strong">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">7–8/10</div>
+      <div class="rt-label"><strong>Strong PDF skills.</strong> Handles pdf-lib creation and merge/split/rotate with qpdf. May struggle with AcroForm, static forms, or the DOCX→PDF conversion pipeline. Reliable for programmatic document generation.</div>
+    </div>
+    <div class="rt-card rt-warn" data-tier="moderate">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">4–6/10</div>
+      <div class="rt-label"><strong>Moderate ability.</strong> Can create simple PDFs with pdf-lib. Struggles with multi-page layout, document manipulation via qpdf, and form filling. Double-check page counts and content positioning.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="low">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">1–3/10</div>
+      <div class="rt-label"><strong>Limited PDF ability.</strong> May produce a single-page PDF with basic text. Not reliable for multi-page, merge/split, or any form-related tasks.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="none">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">0/10</div>
+      <div class="rt-label"><strong>Cannot produce working PDFs.</strong> This model cannot reliably create or manipulate <code>.pdf</code> files.</div>
+    </div>
+  </div>
+
+  <h3 class="reveal" style="font-size:1.05rem;margin-top:28px">What the progression reveals</h3>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">The task order traces a curve from shallow to deep PDF-creation understanding:</p>
+  <div class="reveal" style="background:var(--bg-raised);border:1px solid var(--border);padding:18px 22px;margin:14px 0;">
+    <code style="font-size:.88rem;line-height:2;word-break:break-all;">
+      pdf-lib single page (1) → multi-page document (2) → merge documents (3) → qpdf split (4) → qpdf rotate (5) → DOCX→PDF (6) → text extraction (7) → AcroForm fill pipeline (8) → static form annotation (9) → full create/split/rotate/merge pipeline (10)
+    </code>
+  </div>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">A model that drops off after Task&nbsp;3 can create PDFs but not manipulate them. One that drops off after Task&nbsp;6 understands creation and basic manipulation but not forms. A model that passes all 10 understands the complete PDF toolchain.</p>
+</div></section>
+
+<!-- ── Next / Footer ─────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0"><div class="section-inner">
+  <div class="mt-next reveal" style="margin-top:28px">
+    <a href="pptx-skills.html"><span class="mt-next-t">← PPTX Skills</span><span class="mt-next-d">Test presentation generation with charts, icons, and slides.</span></a>
+    <a href="../guide.html#evaluate"><span class="mt-next-t">All suites →</span><span class="mt-next-d">Back to all evaluation suites.</span></a>
+    <a href="../exam/capability-exam.html"><span class="mt-next-t">Next → Capability Exam</span><span class="mt-next-d">The full system benchmark — 65+ drills across every tool category.</span></a>
+  </div>
+</div></section>
+
+<footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+<script>window.SCORECARD={tests:10,bonus:false,tiers:[{tier:"elite",min:9},{tier:"strong",min:7},{tier:"moderate",min:4},{tier:"low",min:1},{tier:"none",min:0}]};</script>
+<script src="scorecard.js"></script>
+</body>
+</html>

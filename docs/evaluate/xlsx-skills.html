@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | XLSX Skills — Model Evaluation for Spreadsheet Generation</title>
+  <meta name="description" content="Ten self-contained spreadsheet tasks that probe how well a model handles Excel workbook creation — from simple tables to multi-sheet financial models with cross-sheet formulas, color coding, and edge-case error prevention. No technical knowledge needed: paste the prompt, run the verify command, score the result." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" />
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* Page-specific overrides */
+    .arch-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .arch-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .arch-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .arch-table code { font-size: .82rem; }
+    .diff-badge { display: inline-block; font-family: var(--font-mono); font-size: .72rem; font-weight: 600; padding: 2px 8px; margin-left: 6px; }
+    .diff-badge.diff-easy { background: rgba(67,197,158,.12); color: #43c59e; }
+    .diff-badge.diff-med  { background: rgba(224,169,63,.10); color: var(--amber); }
+    .diff-badge.diff-hard { background: rgba(168,85,247,.12); color: var(--purple); }
+    .setup-box { background: var(--bg-raised); border: 1px solid var(--border); padding: 18px 22px; margin: 16px 0; }
+    .setup-box pre { margin: 8px 0 0 0; font-size: .85rem; }
+    .mg-prompt { background: var(--bg-raised); border: 1px solid var(--border); padding: 18px 20px; margin: 14px 0; font-size: .88rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; position: relative; }
+    .mg-prompt-label { font-family: var(--font-ui); font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; opacity: .5; display: block; margin-bottom: 8px; }
+    .scoring-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .scoring-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .scoring-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .mg-prompt code { font-size: .82rem; }
+    .verify-inline { background: rgba(67,197,158,.06); border-left: 3px solid #43c59e; padding: 12px 16px; margin: 10px 0; font-size: .85rem; font-family: var(--font-mono); line-height: 1.8; word-break: break-all; }
+    @media print {  .orb, .aperio-nav, .theme-switcher, .nav-toggle, footer, .btn-print, .mg-prompt-bar, .prompt-copy, .test-result, .rbtn, .section:not(#scorecard):not(#results), .mt-next, .rt-badge { display: none !important; } .scorecard, .scorecard thead th, .scorecard tbody td, .scorecard tfoot td { border-color: #ccc !important; color: #000 !important; } .sc-badge { border: 1px solid #999; color: #000 !important; background: none !important; } .results-tier .rt-card { border: 1px solid #999; } .rt-card.pulse { animation: none; box-shadow: none; }    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+
+<nav class="aperio-nav"><div class="nav-inner">
+  <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+  <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+  <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="../guide.html">Guide</a></li><li><a href="../guide.html#evaluate">Evaluate</a></li><li><a href="#suite">Tests</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li></ul>
+  <div class="theme-switcher" id="themeSwitcher">
+    <button class="theme-btn active" data-theme="dark" title="Dark">🌙</button>
+    <button class="theme-btn" data-theme="light" title="Light">☀️</button>
+    <button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
+    <button class="theme-btn" data-theme="system" title="System">⊙</button>
+  </div>
+</div></nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="xl-top" style="padding:120px 0 30px"><div class="section-inner">
+  <a href="../index.html" class="mt-back reveal"><i class="bi bi-arrow-left"></i> Aperio Home</a>
+  <a href="../guide.html#evaluate" class="mt-back reveal" style="margin-left:12px"><i class="bi bi-arrow-left"></i> All Suites</a>
+
+  <div class="eyebrow reveal" style="margin-top:18px">XLSX Skills Evaluation</div>
+  <h1 class="section-heading reveal">Spreadsheet Generation &amp; Formula Discipline</h1>
+  <p class="lead-text reveal">Ten self-contained spreadsheet tasks that probe how well a model creates Excel workbooks — from simple data tables with SUM formulas to multi-sheet financial models with cross-sheet references, strict color coding, DIV/0 guarding, and wide-column mappings past Z. Each task has a copy-paste prompt, a verify command, and clear pass criteria.</p>
+
+  <p class="reveal" style="margin-top:12px;opacity:.75;">These tasks test the <code>xlsx</code> skill — the model's ability to produce well-structured, correct, and professional <code>.xlsx</code> files using ExcelJS. Tasks progress from create-only to edit-and-recalculate, edge-case prevention, and complex multi-workbook orchestration. Start at Task&nbsp;1 and work up.</p>
+</div></section>
+
+<!-- ── Technology Quick Reference ─────────────────────────────── -->
+<section class="section" id="arch" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">XLSX Technology (Quick Reference)</h2>
+  <p class="reveal mg-desc">These tasks use the <code>generate_xlsx</code> MCP tool and ExcelJS. Knowing the conventions helps you evaluate whether the model followed the skill correctly.</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="arch-table">
+      <thead><tr><th>Concept</th><th>Rule</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Formulas</td><td>Always use Excel formulas, never hardcoded JS results</td><td>Spreadsheet stays dynamic when data changes</td></tr>
+        <tr><td>Assumptions</td><td>Place rates/margins in separate cells, reference them</td><td>One change updates all projections</td></tr>
+        <tr><td>Blue text</td><td>RGB 0,0,255 — hardcoded inputs the user changes</td><td>Industry-standard financial model convention</td></tr>
+        <tr><td>Black text</td><td>RGB 0,0,0 — formulas and calculations</td><td>Immediately visible what's computed vs entered</td></tr>
+        <tr><td>Green text</td><td>RGB 0,128,0 — cross-sheet links</td><td>Traces dependencies across workbooks</td></tr>
+        <tr><td>Yellow fill</td><td>RGB 255,255,0 — key assumptions</td><td>What to tweak when scenario planning</td></tr>
+        <tr><td>Zero as dash</td><td>Format <code>$#,##0;($#,##0);-</code></td><td>Cleaner than showing "$0"</td></tr>
+        <tr><td>Recalc</td><td>Always recalculate after creation or edit</td><td>Formula strings need LibreOffice to resolve cached values</td></tr>
+        <tr><td>Column Z+</td><td>Column 27 = AA, 52 = AZ, 64 = BL, not BK</td><td>Off-by-one errors in column mapping break everything</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Setup ──────────────────────────────────────────────────── -->
+<section class="section" id="setup" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Setup</h2>
+  <p class="reveal mg-desc">You need one terminal with the Aperio server running on your preferred AI provider. Paste each task prompt into the chat (web UI or CLI). All output files go to <code>trash/</code> — no project files are modified.</p>
+  <div class="setup-box reveal">
+    <strong style="font-size:.88rem;opacity:.75;">Terminal — Aperio server</strong>
+    <pre><code>npm run start:local        # or any AI_PROVIDER, port 31337</code></pre>
+  </div>
+  <p class="reveal" style="margin-top:12px;font-size:.9rem;opacity:.7;">Paste each task's prompt into the chat. Use a fresh conversation per task when possible. After the model responds, check that the <code>.xlsx</code> file was created, then run the <strong>Verify</strong> command. The verify commands use Node.js inline scripts with <code>exceljs</code> — no LibreOffice needed.</p>
+
+  <div class="reveal" style="margin-top:24px">
+    <h3 style="font-size:1rem;">Cleanup between runs</h3>
+    <p style="font-size:.9rem;opacity:.7;">If you want to re-run tasks against a different model, clean up the output files first:</p>
+    <div class="setup-box">
+      <pre><code>rm -f trash/test-*.xlsx</code></pre>
+    </div>
+  </div>
+</div></section>
+
+<!-- ── Tasks ──────────────────────────────────────────────────── -->
+<section class="section" id="suite" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">The Tasks</h2>
+  <p class="reveal mg-desc">Ordered by complexity: simple tables first, then single-sheet formulas, financial-model conventions, multi-sheet workbooks, editing existing files, data cleaning, wide-column handling, and edge-case prevention. Each task lists difficulty, what to look for, the prompt to paste, and the verify command.</p>
+
+  <!-- TASK 1: Expense Tracker -->
+  <div class="test-card reveal" id="task1">
+    <span class="test-label">Task 1 — Basic Table + SUM</span>
+    <h3>Expense Tracker <span class="diff-badge diff-easy">★☆☆☆☆</span></h3>
+    <p class="test-probes">Probes: table structure, formula usage, basic formatting</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-expenses.xlsx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a spreadsheet at <code>trash/test-expenses.xlsx</code> with columns: Date, Category, Description, Amount. Add 10 sample expense rows across at least 3 categories (Food, Transport, Utilities, Entertainment). Add a SUM formula at the bottom of the Amount column. Use Arial font, bold headers, and auto-fit column widths. Use an Excel formula for the total — do NOT hardcode the sum.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the file contain a SUM formula (not a hardcoded number)?</li>
+      <li>Are headers bold and readable?</li>
+      <li>Are there 10 data rows across 3+ categories?</li>
+      <li>Is the file saved to <code>trash/test-expenses.xlsx</code>?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-expenses.xlsx').then(w=>{const s=w.getWorksheet(1),v=s.getCell(s.rowCount,2).value;if(v&&v.formula&&v.formula.includes('SUM')){console.log('OK — SUM formula found:',v.formula);process.exit(0)}else{console.log('FAIL — no SUM formula or not a formula cell:',JSON.stringify(v));process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="1"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 2: Gradebook with IF -->
+  <div class="test-card reveal" id="task2">
+    <span class="test-label">Task 2 — Formulas + IF Logic</span>
+    <h3>Gradebook <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: IF formula chaining, SUM/AVERAGE, cell referencing</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-grades.xlsx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a gradebook at <code>trash/test-grades.xlsx</code>. Columns: Student Name, Assignment 1, Assignment 2, Assignment 3, Assignment 4 (each scored 0–100), Total, Average, Letter Grade. Add 8 students with varied scores. Use Excel formulas: SUM for Total, AVERAGE for Average, and a nested IF formula for Letter Grade: A ≥ 90, B ≥ 80, C ≥ 70, D ≥ 60, F below 60. Bold the headers. Use a professional font (Arial). Make sure the letter grade formula handles all five ranges correctly.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are Total, Average, and Letter Grade all formula-driven?</li>
+      <li>Does the IF chain cover A, B, C, D, F correctly?</li>
+      <li>Does a student averaging 94 get A, an 85 get B, etc.?</li>
+      <li>Are at least 3 different letter grades represented?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-grades.xlsx').then(w=>{const s=w.getWorksheet(1);let grades={};for(let r=2;r<=9;r++){let g=s.getCell(r,8).value;if(g&&g.result)grades[s.getCell(r,1).value]=g.result};let distinct=new Set(Object.values(grades));console.log('Grades found:',Object.values(grades));if(distinct.size>=3){console.log('OK —',distinct.size,'distinct grades');process.exit(0)}else{console.log('FAIL — only',distinct.size,'distinct grades');process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="2"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 3: Financial Model -->
+  <div class="test-card reveal" id="task3">
+    <span class="test-label">Task 3 — Financial Model Conventions</span>
+    <h3>Income Statement Projection <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: assumption extraction, cell referencing, industry-standard color/number formatting</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-finmodel.xlsx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Build a 5-year income statement projection at <code>trash/test-finmodel.xlsx</code>. Layout:
+• Top section — <strong>Assumptions</strong> block: Revenue Growth 10%, COGS % 60%, SG&A % 15%, Tax Rate 21%. Each in its own cell with a label.
+• Below — <strong>Income Statement</strong>: rows for Revenue, COGS, Gross Profit, SG&A, EBIT, Taxes, Net Income. Columns: Year 1 through Year 5.
+
+Apply strict financial-model formatting:
+- <strong>Blue text</strong> (RGB 0,0,255) for all hardcoded inputs (the assumption values)
+- <strong>Black text</strong> (RGB 0,0,0) for all formulas
+- <strong>Yellow background</strong> (RGB 255,255,0) for the assumption value cells
+- Currency: <code>$#,##0;($#,##0);-</code> (negatives in parens, zeros as dash)
+- Percentages: <code>0.0%</code>
+
+All formulas must reference the assumption cells — no hardcoded numbers in formula expressions (e.g., use <code>=B5*(1+$B$2)</code>, not <code>=B5*1.1</code>).</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are assumption values in separate cells, referenced by formulas?</li>
+      <li>Are inputs blue text, formulas black text, assumptions yellow fill?</li>
+      <li>Is the currency format showing zeros as dash?</li>
+      <li>Are percentages formatted as 0.0%?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-finmodel.xlsx').then(w=>{const s=w.getWorksheet(1);let fcount=0,blue=0;for(let r=1;r<=s.rowCount;r++){for(let c=1;c<=s.columnCount;c++){const cell=s.getCell(r,c);if(cell.value&&cell.value.formula)fcount++;if(cell.font&&cell.font.color&&cell.font.color.argb==='FF0000FF')blue++}};console.log('Formulas:',fcount,'Blue cells:',blue);if(fcount>=20&&blue>=2){console.log('OK —',fcount,'formulas,',blue,'blue input cells');process.exit(0)}else{console.log('FAIL — too few formulas or blue cells');process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="3"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 4: Multi-Sheet Budget -->
+  <div class="test-card reveal" id="task4">
+    <span class="test-label">Task 4 — Cross-Sheet Formulas</span>
+    <h3>Multi-Sheet Budget <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: multi-sheet workbook structure, cross-sheet references, green text convention</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-budget.xlsx</code>) — 3 sheets</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a personal budget workbook at <code>trash/test-budget.xlsx</code> with 3 sheets:
+
+<strong>Sheet 1 — "Income"</strong>: columns for Month (Jan–Dec), Salary, Freelance, Investments, and Total. Add realistic monthly values. Total row at bottom with SUM formulas.
+
+<strong>Sheet 2 — "Expenses"</strong>: columns for Month (Jan–Dec), Housing, Food, Transport, Utilities, Entertainment, Savings, and Total. Add realistic values. Total row with SUM. Grand Total row below.
+
+<strong>Sheet 3 — "Summary"</strong>: cells showing:<br>
+A1: "Total Income" — B1: <code>=SUM(Income!E2:E13)</code> or similar cross-sheet SUM<br>
+A2: "Total Expenses" — B2: cross-sheet SUM from Expenses<br>
+A3: "Net Savings" — B3: formula subtracting expenses from income<br>
+A4: "Savings Rate" — B4: Net Savings / Total Income, formatted as 0.0%
+
+Use <strong>green text</strong> (RGB 0,128,0) for all cross-sheet formula cells. No hardcoded values in Summary — all formulas must reference the other sheets. Bold the labels in Summary.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are Summary values cross-sheet formulas, not hardcoded?</li>
+      <li>Are cross-sheet formula cells in green text?</li>
+      <li>Do the three sheets have correct names (Income, Expenses, Summary)?</li>
+      <li>Does the Savings Rate formula resolve without errors?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-budget.xlsx').then(w=>{let names=w.worksheets.map(s=>s.name);let s3=w.getWorksheet('Summary');let c1=s3.getCell('B1'),c2=s3.getCell('B2'),c3=s3.getCell('B3');let crossSheet=(c1.value&&c1.value.formula&&c1.value.formula.includes('Income'))&&(c2.value&&c2.value.formula&&c2.value.formula.includes('Expenses'));let green=c1.font&&c1.font.color&&c1.font.color.argb==='FF008000';console.log('Sheets:',names);console.log('Cross-sheet formulas:',!!c1.value?.formula,!!c2.value?.formula);console.log('Green text:',green);if(crossSheet&&green){console.log('OK — cross-sheet refs with green text');process.exit(0)}else{console.log('FAIL — missing cross-sheet refs or green text');process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="4"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 5: Data Cleaning -->
+  <div class="test-card reveal" id="task5">
+    <span class="test-label">Task 5 — Data Cleaning</span>
+    <h3>Messy CSV to Clean XLSX <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: parsing, missing-value handling, notes annotation, totals logic</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-cleaned.xlsx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Take this pipe-delimited raw data and turn it into a professional spreadsheet at <code>trash/test-cleaned.xlsx</code>. Handle the missing values:
+
+<code style="display:block;background:var(--bg-card);padding:12px;margin:8px 0;font-size:.82rem;white-space:pre;line-height:1.6;">Name|Age|City|Salary|Dept
+Alice|30|NYC|55000|Eng
+Bob||LA|62000|Eng
+Charlie|35||47000|Mktg
+Diana|28|SF||Sales
+Eve|42|CHI|71000|Mktg
+Frank|39|SEA|53000|Eng
+Grace|31||68000|Sales
+Hank|27|BOS||Mktg</code>
+
+Requirements:
+- Bold header row with a colored background (any muted color)
+- Add a "Notes" column that flags any cell with missing data (e.g., "Missing: Age, City")
+- Add a Total row at the bottom: COUNTA for Name, AVERAGE for Age and Salary (ignoring blanks), department counts below
+- Below the main table, add a small summary table showing count of employees per department (using formulas)
+- Use Arial font throughout</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are blank cells flagged in the Notes column?</li>
+      <li>Is the header styled (bold, colored background)?</li>
+      <li>Does the Total row show AVERAGE for Age and Salary, COUNTA for Name?</li>
+      <li>Is there a department count table using formulas?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-cleaned.xlsx').then(w=>{const s=w.getWorksheet(1);let notesCol=0,header=s.getRow(1);header.eachCell((c,i)=>{if(c.value&&c.value.toString().toLowerCase().includes('note'))notesCol=i});let hasNotes=notesCol>0;let hasTotal=false;for(let r=2;r<=s.rowCount;r++){let val=s.getCell(r,1).value;if(val&&val.toString().toLowerCase().includes('total'))hasTotal=true};let boldHeader=header.getCell(1).font&&header.getCell(1).font.bold;console.log('Notes column:',notesCol,'Has total row:',hasTotal,'Bold header:',boldHeader);if(hasNotes&&hasTotal&&boldHeader){console.log('OK — cleaned, annotated, totalled');process.exit(0)}else{console.log('FAIL — missing notes, totals, or bold header');process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="5"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 6: Insert & Enhance -->
+  <div class="test-card reveal" id="task6">
+    <span class="test-label">Task 6 — Editing Existing XLSX</span>
+    <h3>Insert Column, Add Rows, Reformat <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: reading existing file, surgical edits, formatting preservation</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-enhanced.xlsx</code>) — based on the output of Task&nbsp;1</p>
+    <p style="font-size:.82rem;opacity:.6;background:rgba(168,85,247,.08);padding:8px 12px;margin-top:4px;"><strong>Prerequisite:</strong> Complete Task&nbsp;1 first, or manually create <code>trash/test-expenses.xlsx</code> with the structure described there.</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Open the file <code>trash/test-expenses.xlsx</code> and save an enhanced version to <code>trash/test-enhanced.xlsx</code>. Changes:
+<strong>1.</strong> Insert a new "VAT Amount" column between Description and Amount. VAT = 20% of the Amount. Use an Excel formula, not a hardcoded value.
+<strong>2.</strong> Insert 3 new expense rows with realistic data (after row 10 but before the total).
+<strong>3.</strong> Apply UK pound format <code>£#,##0.00</code> to the Amount and VAT columns.
+<strong>4.</strong> Freeze the header row.
+<strong>5.</strong> The SUM formula at the bottom should still cover all data rows (including the new ones).</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Is VAT column formula-driven (not hardcoded)?</li>
+      <li>Are there 13 data rows (original 10 + 3 new)?</li>
+      <li>Is the currency format <code>£#,##0.00</code>?</li>
+      <li>Is the header row frozen?</li>
+      <li>Does the SUM range cover all rows including the new ones?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-enhanced.xlsx').then(w=>{const s=w.getWorksheet(1);let vatCol=0,frozen=s.views&&s.views[0]&&s.views[0].state==='frozen';s.getRow(1).eachCell((c,i)=>{if(c.value&&c.value.toString().toLowerCase().includes('vat'))vatCol=i});let vatFormula=s.getCell(3,vatCol).value;let isFormula=vatFormula&&vatFormula.formula&&vatFormula.formula.includes('*0.2');let dataRows=s.rowCount-(frozen?1:0);let poundFormat=s.getCell(3,vatCol).numFmt&&s.getCell(3,vatCol).numFmt.includes('£');console.log('VAT col:',vatCol,'Formula:',isFormula,'Frozen:',frozen,'£ format:',poundFormat,'Data rows:',dataRows);if(isFormula&&frozen&&poundFormat&&dataRows>=13){console.log('OK — enhanced correctly');process.exit(0)}else{console.log('FAIL — missing criteria');process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="6"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 7: PMO Workbook -->
+  <div class="test-card reveal" id="task7">
+    <span class="test-label">Task 7 — Multi-Sheet Dashboard</span>
+    <h3>Project Management Office Workbook <span class="diff-badge diff-hard">★★★★☆</span></h3>
+    <p class="test-probes">Probes: COUNTIF/SUMIF, multi-sheet orchestration, dashboard layout</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-pmo.xlsx</code>) — 3 sheets</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a project management workbook at <code>trash/test-pmo.xlsx</code> with 3 sheets:
+
+<strong>Sheet 1 — "Projects"</strong>: columns for Project Name, Owner, Status (Not Started / In Progress / Complete / On Hold), Priority (High/Med/Low), Start Date, End Date, Budget ($), Spent ($), Remaining (=Budget−Spent). Add 10 projects in mixed states with varied priorities.
+
+<strong>Sheet 2 — "Risks"</strong>: columns for Risk ID, Project Name, Description, Likelihood (1‑5), Impact (1‑5), Risk Score (=Likelihood × Impact), Mitigation. Add 8 risks tied to the projects.
+
+<strong>Sheet 3 — "Dashboard"</strong>: 2‑column layout with formula-driven summaries:
+- Count of projects per status (use COUNTIF)
+- Total Budget vs Total Spent (SUMIF or SUM)
+- Average Risk Score
+- Count of High‑Priority projects
+- Count of In Progress projects
+
+Style the Dashboard: centered headings, alternating row background colors, clear section labels. No hardcoded summary values — all formulas.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are all 3 sheets present with correct names?</li>
+      <li>Are Dashboard values formula-driven (COUNTIF, SUMIF, AVERAGE)?</li>
+      <li>Is Risk Score a formula (Likelihood × Impact)?</li>
+      <li>Does the Dashboard show correct counts matching the source data?</li>
+      <li>Is there styling (centered headings, alternating rows)?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-pmo.xlsx').then(w=>{let names=w.worksheets.map(s=>s.name);let proj=w.getWorksheet('Projects'),risks=w.getWorksheet('Risks'),dash=w.getWorksheet('Dashboard');let missing=[];if(!proj)missing.push('Projects');if(!risks)missing.push('Risks');if(!dash)missing.push('Dashboard');if(missing.length){console.log('FAIL — missing sheets:',missing);process.exit(1)};let projRows=0;proj.eachRow((r,i)=>{if(i>1)projRows++});riskRows=0;risks.eachRow((r,i)=>{if(i>1)riskRows++});let dashFormulas=0;dash.eachRow(r=>{r.eachCell(c=>{if(c.value&&c.value.formula)dashFormulas++})});console.log('Sheets:',names,'Projects:',projRows,'Risks:',riskRows,'Dashboard formulas:',dashFormulas);if(projRows>=10&&riskRows>=8&&dashFormulas>=4){console.log('OK — full PMO workbook');process.exit(0)}else{console.log('FAIL — missing data or formulas');process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="7"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 8: Wide Columns Past Z -->
+  <div class="test-card reveal" id="task8">
+    <span class="test-label">Task 8 — Wide Column Mapping</span>
+    <h3>Annual Sales Forecast (Columns past Z) <span class="diff-badge diff-hard">★★★★☆</span></h3>
+    <p class="test-probes">Probes: column-letter arithmetic, no #REF! errors, range correctness</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-forecast.xlsx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a sales forecast at <code>trash/test-forecast.xlsx</code>:
+- 12 months (Jan–Dec) as column groups. Each month has 3 sub-columns: Sales, Cost, Profit. That's 36 data columns starting at column B (B=Jan Sales, C=Jan Cost, D=Jan Profit, E=Feb Sales, … going past column Z into AA, AB, AC…).
+- 15 product rows (Product A through Product O).
+- For each product, Profit = Sales − Cost (formula).
+- At the far right (after Dec Profit, around column AN), add one more column "Annual Total" showing SUM of all 12 monthly Sales for that product.
+- Below row 15, add a totals row with SUM formulas for each month's Sales, Cost, and Profit.
+- Bold the headers. Use currency format <code>$#,##0</code> for dollar values. Set appropriate column widths.
+
+Critical: Every formula must reference the correct column letters. Double-check that column AA is correct (not ZA), that ranges span exactly 12 months of data, and that no #REF! errors exist.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are columns past Z (AA, AB, etc.) used correctly?</li>
+      <li>Does the Annual Total SUM cover all 12 months?</li>
+      <li>Are there 15 product rows + a totals row?</li>
+      <li>Are Profit cells formula-driven?</li>
+      <li>No #REF! errors in any cell?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-forecast.xlsx').then(w=>{const s=w.getWorksheet(1);let profitFormulas=0,annualTotals=0,errors=0;for(let r=2;r<=16;r++){let p=s.getCell(r,4).value;if(p&&p.formula&&p.formula.includes('-'))profitFormulas++;let at=s.getCell(r,37).value;if(at&&at.formula&&at.formula.includes('SUM'))annualTotals++};for(let r=1;r<=s.rowCount;r++){for(let c=1;c<=s.columnCount;c++){let v=s.getCell(r,c).value;if(typeof v==='string'&&v.startsWith('#'))errors++}};console.log('Profit formulas:',profitFormulas,'Annual totals:',annualTotals,'Errors:',errors);if(profitFormulas>=14&&annualTotals>=14&&errors===0){console.log('OK — wide columns correct, zero formula errors');process.exit(0)}else{console.log('FAIL —',errors,'errors, or missing formulas');process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="8"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 9: Formula Edge Cases -->
+  <div class="test-card reveal" id="task9">
+    <span class="test-label">Task 9 — Error Prevention</span>
+    <h3>Formula Edge Case Guards <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: #DIV/0! prevention, IFERROR, defensive formula design</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-safeguards.xlsx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a spreadsheet at <code>trash/test-safeguards.xlsx</code> that demonstrates correct handling of formula edge cases. The spreadsheet has two sections:
+
+<strong>Section 1 — Division Safety</strong>: Columns for Product, Revenue, Cost, Margin %. Use an IF guard to prevent #DIV/0! when Cost is zero or blank. Add these rows: Product A (Rev 1000, Cost 600), Product B (Rev 500, Cost 0), Product C (Rev 2000, Cost 1200), Product D (Rev 0, Cost 0), Product E (Rev 800, Cost blank). The Margin % should show a dash or "0.0%" instead of #DIV/0! for rows B, D, E.
+
+<strong>Section 2 — Growth Calculator</strong>: Columns for Year, Revenue, YoY Growth %. Use IFERROR or an IF guard to handle the first year (no prior year) and any zero-revenue edge cases. Add 6 years of data (2025–2030) with at least one zero-revenue year.
+
+Use professional formatting: percentage format <code>0.0%</code>, dashes for zero values, Arial font, bold headers.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are DIV/0 cases guarded with IF or IFERROR?</li>
+      <li>Does the first year of growth show a dash or "N/A" instead of #DIV/0!?</li>
+      <li>Are percentage cells formatted as 0.0%?</li>
+      <li>Are zero values displayed as dash?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-safeguards.xlsx').then(w=>{const s=w.getWorksheet(1);let errors=0,ifs=0;for(let r=1;r<=s.rowCount;r++){for(let c=1;c<=s.columnCount;c++){let v=s.getCell(r,c).value;if(typeof v==='string'&&v.startsWith('#'))errors++;if(v&&v.formula&&(v.formula.includes('IF(')||v.formula.includes('IFERROR')))ifs++}};console.log('Errors:',errors,'IF/IFERROR guards:',ifs);if(errors===0&&ifs>=2){console.log('OK — zero formula errors with IF guards');process.exit(0)}else{console.log('FAIL —',errors,'errors remaining or no IF guards');process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="9"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 10: Full Budget Cycle -->
+  <div class="test-card reveal" id="task10">
+    <span class="test-label">Task 10 — Comprehensive Budget</span>
+    <h3>Full Annual Budget with Verification <span class="diff-badge diff-hard">★★★★☆</span></h3>
+    <p class="test-probes">Probes: end-to-end spreadsheet discipline, assumptions separation, cross-sheet integrity, recalc verification</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-annual-budget.xlsx</code>) — 4 sheets</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Build a complete annual budget workbook at <code>trash/test-annual-budget.xlsx</code> with 4 sheets, no formula errors, no hardcoded calculated values anywhere:
+
+<strong>Sheet 1 — "Assumptions"</strong>:
+- Salary Growth: 5%, Bonus Rate: 15%, Rent Escalation: 3%, Inflation: 2.5%, Tax Rate: 20%, Savings Target: 20%
+- Yellow background on assumption value cells, blue text
+
+<strong>Sheet 2 — "Income"</strong>:
+- 12 months (Jan–Dec). Columns: Salary, Bonus (=Salary × Bonus Rate, referencing Assumptions), Investments, Other, Total Income
+- Salary grows each month by (Salary Growth / 12). Reference the Assumptions sheet.
+
+<strong>Sheet 3 — "Expenses"</strong>:
+- 12 months. Columns: Rent, Utilities, Food, Transport, Entertainment, Savings Contribution (=Total Income × Savings Target from Assumptions), Other, Total Expenses
+- Rent escalates by 3% annually. Other expenses inflate at 2.5%. All rates from Assumptions.
+
+<strong>Sheet 4 — "Summary"</strong>:
+- Total Annual Income (SUM cross-sheet), Total Annual Expenses, Net Savings, Savings Rate (Net Savings / Total Income)
+- Cross-sheet references in green text.
+- Below: a small "What If" section — add cells where the user can override the Savings Target and Tax Rate, with formulas that recalculate the entire budget based on the overridden values. Label these clearly.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are all 4 sheets present with correct names?</li>
+      <li>Are all assumptions referenced (not hardcoded in formulas)?</li>
+      <li>Are cross-sheet references in green text?</li>
+      <li>Are assumption value cells blue text with yellow background?</li>
+      <li>Does the "What If" section actually use overridden values and recalculate?</li>
+      <li>Are there zero formula errors (#REF!, #DIV/0!, #VALUE!)?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node -e "import('exceljs').then(E=>{new E.Workbook().xlsx.readFile('trash/test-annual-budget.xlsx').then(w=>{let names=w.worksheets.map(s=>s.name);let missing=[];['Assumptions','Income','Expenses','Summary'].forEach(n=>{if(!names.includes(n))missing.push(n)});if(missing.length){console.log('FAIL — missing:',missing);process.exit(1)};let redir=w.getWorksheet('Summary'),greenCount=0,formulaCount=0,blueCount=0,yellowCount=0;redir.eachRow(r=>{r.eachCell(c=>{if(c.value&&c.value.formula)formulaCount++;if(c.font&&c.font.color&&c.font.color.argb==='FF008000')greenCount++})});let as=w.getWorksheet('Assumptions');as.eachRow(r=>{r.eachCell(c=>{if(c.font&&c.font.color&&c.font.color.argb==='FF0000FF')blueCount++;if(c.fill&&c.fill.fgColor&&c.fill.fgColor.argb==='FFFFFF00')yellowCount++})});let errors=0;w.worksheets.forEach(s=>{s.eachRow(r=>{r.eachCell(c=>{if(typeof c.value==='string'&&c.value.startsWith('#'))errors++})})});console.log('Formulas:',formulaCount,'Green:',greenCount,'Blue:',blueCount,'Yellow:',yellowCount,'Errors:',errors);if(formulaCount>=5&&greenCount>=2&&blueCount>=2&&yellowCount>=2&&errors===0){console.log('OK — comprehensive budget with zero errors');process.exit(0)}else{console.log('FAIL — missing criteria or errors found');process.exit(1)}})})"</code></div>
+
+    <div class="test-result" data-test="10"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+</div></section>
+
+<!-- ── Per‑Task Scoring Rubric ───────────────────────────────── -->
+<section class="section" id="rubric" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Per‑Task Scoring Rubric</h2>
+  <p class="reveal mg-desc">Apply these five signals to each task after running the verify command. They measure not just "does the file exist" but also "did the model follow the skill's conventions and actually verify its own work".</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="scoring-table">
+      <thead><tr><th>Signal</th><th style="width:140px">0 = fail</th><th style="width:140px">1 = pass</th></tr></thead>
+      <tbody>
+        <tr><td>File is created at correct path</td><td>wrong path / wrong extension / wrong format</td><td>correct <code>trash/test-*.xlsx</code></td></tr>
+        <tr><td>Verify command passes</td><td>red / errors / missing file</td><td>green, zero errors</td></tr>
+        <tr><td>Uses formulas, not hardcoded values</td><td>JS‑computed values baked into cells</td><td>Excel formulas throughout</td></tr>
+        <tr><td>Follows skill conventions (colors, fonts, refs)</td><td>wrong colors, mixed conventions, no assumptions separation</td><td>matches xlsx skill standards</td></tr>
+        <tr><td>Model actually verified (ran recalc / checked)</td><td>claimed "looks good" without checking</td><td>ran a verify step or fixed errors found</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Scorecard ─────────────────────────────────────────────── -->
+<section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Results fill in automatically as you click the buttons above.</p>
+  <div class="reveal" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+    <label style="font-size:.9rem;"><strong>Model:</strong> <input type="text" id="modelName" placeholder="e.g. Gemma 4 12B" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:200px;"></label>
+    <label style="font-size:.9rem;"><strong>Date:</strong> <input type="text" id="testDate" placeholder="e.g. 2026-07-22" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label>
+  </div>
+  <div class="scorecard-wrap reveal"><div class="print-bar"><button class="btn-print" onclick="window.print()"><i class="bi bi-printer"></i> Print Scorecard</button></div>
+  <div style="overflow-x:auto;"><table class="scorecard" id="scorecardTable">
+    <thead><tr><th style="width:55%">Test</th><th style="width:20%">Result</th><th style="width:25%">Notes</th></tr></thead>
+    <tbody>
+      <tr data-test="1"><td class="sc-test">1. Expense Tracker (SUM)</td><td class="sc-result" id="sr-1"><span class="sc-badge sc-empty">—</span></td><td id="sn-1"></td></tr>
+      <tr data-test="2"><td class="sc-test">2. Gradebook (IF Logic)</td><td class="sc-result" id="sr-2"><span class="sc-badge sc-empty">—</span></td><td id="sn-2"></td></tr>
+      <tr data-test="3"><td class="sc-test">3. Financial Model (Color Coding)</td><td class="sc-result" id="sr-3"><span class="sc-badge sc-empty">—</span></td><td id="sn-3"></td></tr>
+      <tr data-test="4"><td class="sc-test">4. Multi-Sheet Budget (Cross-Sheet)</td><td class="sc-result" id="sr-4"><span class="sc-badge sc-empty">—</span></td><td id="sn-4"></td></tr>
+      <tr data-test="5"><td class="sc-test">5. Data Cleaning (Missing Values)</td><td class="sc-result" id="sr-5"><span class="sc-badge sc-empty">—</span></td><td id="sn-5"></td></tr>
+      <tr data-test="6"><td class="sc-test">6. Insert &amp; Enhance (Edit Existing)</td><td class="sc-result" id="sr-6"><span class="sc-badge sc-empty">—</span></td><td id="sn-6"></td></tr>
+      <tr data-test="7"><td class="sc-test">7. PMO Workbook (COUNTIF/SUMIF)</td><td class="sc-result" id="sr-7"><span class="sc-badge sc-empty">—</span></td><td id="sn-7"></td></tr>
+      <tr data-test="8"><td class="sc-test">8. Wide Columns Past Z</td><td class="sc-result" id="sr-8"><span class="sc-badge sc-empty">—</span></td><td id="sn-8"></td></tr>
+      <tr data-test="9"><td class="sc-test">9. Formula Edge Case Guards</td><td class="sc-result" id="sr-9"><span class="sc-badge sc-empty">—</span></td><td id="sn-9"></td></tr>
+      <tr data-test="10"><td class="sc-test">10. Full Annual Budget</td><td class="sc-result" id="sr-10"><span class="sc-badge sc-empty">—</span></td><td id="sn-10"></td></tr>
+    </tbody>
+    <tfoot><tr><td colspan="3" id="sc-total">TOTAL: ____ / 10 passed</td></tr></tfoot>
+  </table></div>
+  <div class="score-feedback" id="scoreFeedback"></div></div>
+
+  <div class="reveal" style="margin-top:18px;background:rgba(127,127,127,.06);border:1px solid rgba(127,127,127,.14);padding:18px 22px;">
+    <strong style="font-size:.9rem;">Scoring notes:</strong>
+    <ul style="font-size:.9rem;line-height:1.8;padding-left:20px;margin-top:8px;margin-bottom:0;">
+      <li><strong>Pass</strong> — the file exists at the right path, formulas work, and the verify command passes.</li>
+      <li><strong>Fail</strong> — the verify failed, wrong file path, hardcoded values instead of formulas, or formula errors present.</li>
+      <li><strong>N/A</strong> — prerequisite task not completed, or the test doesn't apply in your setup.</li>
+      <li>Task&nbsp;6 requires the output of Task&nbsp;1 — complete Task&nbsp;1 first or create the prerequisite file manually.</li>
+      <li>A model that passes Tasks 1–6 but fails 7–10 handles basic spreadsheet tasks but struggles with complex orchestration.</li>
+    </ul>
+  </div>
+</div></section>
+
+<!-- ── Results ───────────────────────────────────────────────── -->
+<section class="section" id="results" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">What the Results Mean</h2>
+
+  <div class="results-tier reveal" id="resultsTier">
+    <div class="rt-card rt-good" data-tier="elite">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">9–10/10</div>
+      <div class="rt-label"><strong>Production-ready spreadsheet generation.</strong> The model understands ExcelJS conventions, always uses formulas over hardcoded values, respects financial-model color/number standards, and handles complex multi-sheet workbooks with cross-sheet references and edge-case prevention. Trust it for real spreadsheet work.</div>
+    </div>
+    <div class="rt-card rt-good" data-tier="strong">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">7–8/10</div>
+      <div class="rt-label"><strong>Strong spreadsheet skills.</strong> Handles basic and intermediate create/edit tasks well. May struggle with wide columns past Z, edge-case prevention, or the full budget cycle. Good for most day-to-day spreadsheet work.</div>
+    </div>
+    <div class="rt-card rt-warn" data-tier="moderate">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">4–6/10</div>
+      <div class="rt-label"><strong>Moderate ability.</strong> Can create simple tables and basic formulas. Struggles with financial-model conventions, multi-sheet workbooks, and complex formula orchestration. Verify its output carefully.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="low">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">1–3/10</div>
+      <div class="rt-label"><strong>Limited spreadsheet ability.</strong> May handle a single table with a SUM formula. Not reliable for anything involving IF logic, cross-sheet references, or formatting conventions.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="none">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">0/10</div>
+      <div class="rt-label"><strong>Cannot produce working spreadsheets.</strong> This model cannot reliably create or edit <code>.xlsx</code> files with correct formulas and formatting.</div>
+    </div>
+  </div>
+
+  <h3 class="reveal" style="font-size:1.05rem;margin-top:28px">What the progression reveals</h3>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">The task order traces a curve from shallow to deep spreadsheet understanding:</p>
+  <div class="reveal" style="background:var(--bg-raised);border:1px solid var(--border);padding:18px 22px;margin:14px 0;">
+    <code style="font-size:.88rem;line-height:2;word-break:break-all;">
+      basic tables (1) → formulas with IF logic (2) → formatting conventions (3) → cross-sheet orchestration (4) → data cleaning (5) → editing existing files (6) → multi-sheet dashboards with COUNTIF/SUMIF (7) → wide-column mapping past Z (8) → defensive formula design (9) → comprehensive budget (10)
+    </code>
+  </div>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">A model that drops off after Task&nbsp;2 knows table creation but not formula logic. One that drops off after Task&nbsp;6 understands creating and editing but not complex orchestration. A model that passes all 10 understands spreadsheet creation — and its pitfalls — deeply.</p>
+</div></section>
+
+<!-- ── Next / Footer ─────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0"><div class="section-inner">
+  <div class="mt-next reveal" style="margin-top:28px">
+    <a href="../guide.html#evaluate"><span class="mt-next-t">All suites →</span><span class="mt-next-d">Back to all evaluation suites.</span></a>
+    <a href="../exam/capability-exam.html"><span class="mt-next-t">Next → Capability Exam</span><span class="mt-next-d">The full system benchmark — 65+ drills across every tool category.</span></a>
+  </div>
+</div></section>
+
+<footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+<script>window.SCORECARD={tests:10,bonus:false,tiers:[{tier:"elite",min:9},{tier:"strong",min:7},{tier:"moderate",min:4},{tier:"low",min:1},{tier:"none",min:0}]};</script>
+<script src="scorecard.js"></script>
+</body>
+</html>
