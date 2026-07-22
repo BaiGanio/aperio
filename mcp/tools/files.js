@@ -87,20 +87,14 @@ export function register(server, ctx) {
     "edit_file",
     {
       description: "Replace an exact string in a file. Fails if old_string appears more than once unless replace_all is true. Use read_file first to confirm the exact text.",
-      // old_string/new_string are the canonical params, but weaker models
-      // frequently guess `old`/`new`, `oldText`/`newText`, etc. — those used to
-      // fail schema validation and trigger a wasteful retry loop. We make the
-      // canonical fields optional, declare the common aliases, and .passthrough()
-      // any other key so the handler can normalize whatever the model sent
-      // instead of bouncing the call. See editFileHandler.
+      // Keep the canonical pair required in the model-facing schema. Alias pairs
+      // from weaker models are canonicalized by the agent tool hook before MCP
+      // validation; making every spelling optional here permits incomplete calls
+      // such as { newText } and defeats constrained tool generation.
       inputSchema: z.object({
         path:        z.string().describe("Absolute path to the file"),
-        old_string:  z.string().optional().describe("Exact text to find (must be unique in the file unless replace_all is true)"),
-        new_string:  z.string().optional().describe("Text to replace it with"),
-        old:         z.string().optional().describe("Alias for old_string"),
-        new:         z.string().optional().describe("Alias for new_string"),
-        oldText:     z.string().optional().describe("Alias for old_string"),
-        newText:     z.string().optional().describe("Alias for new_string"),
+        old_string:  z.string().describe("Exact text to find (must be unique in the file unless replace_all is true)"),
+        new_string:  z.string().describe("Text to replace it with"),
         replace_all: z.boolean().optional().describe("Replace every occurrence of old_string. Default false."),
       }).passthrough(),
     },

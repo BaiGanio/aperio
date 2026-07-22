@@ -62,7 +62,7 @@ function cardsFor(paths) {
 // Did the guard emit a "not actually in the workspace" correction?
 function warned(events) {
   return events.some(
-    (e) => e.type === "token" && /not actually in the workspace/.test(e.text || ""),
+    (e) => e.type === "token" && /\*\*Correction:\*\*/.test(e.text || ""),
   );
 }
 
@@ -161,6 +161,129 @@ describe("verifyFileClaims() — hallucination guard", () => {
       sizeKb: "6.9",
       path: generatedPath,
     });
+  });
+
+  function makeArtifactLifecycleHooks({ onDisk = [], resultFor }) {
+    const scratch = "/scratch";
+    const files = new Set(onDisk);
+    const events = [];
+    const factory = createToolHooks({
+      callTool: async (name, input) => resultFor(name, input?.parameters ?? input),
+      summarizeArgs: () => "",
+      summarizeResult: (_name, result) => ({
+        ok: typeof result === "string" && !result.startsWith("❌"),
+        summary: "",
+      }),
+      getActiveScratchDir: () => scratch,
+      resolveScratchPath: p => (p.startsWith("/") ? p : join(scratch, p)),
+      validateWrittenFile: async () => ({ ok: true }),
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(["write_file", "edit_file", "append_file"]),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: p => files.has(basename(p)),
+      statSync: p => ({ size: basename(p).endsWith(".pptx") ? 4096 : 256, isFile: () => true, mtimeMs: Date.now() }),
+      readdirSync: (_path, options) => options?.withFileTypes
+        ? [...files].map(name => ({ name, isFile: () => true }))
+        : [...files],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory({ send: event => events.push(event) }, Date.now());
+    return { ...hooks, events, files };
+  }
+
+  test("blocks the exact false-success sequence: failed run, rewrite, no rerun", async () => {
+    let runCount = 0;
+    const hooks = makeArtifactLifecycleHooks({
+      onDisk: ["aperio-title.js"],
+      resultFor(name) {
+        if (name === "run_node_script") {
+          runCount++;
+          return "❌ Exit 1 — /scratch/aperio-title.js\n\nTypeError: pptx.setSlideSize is not a function";
+        }
+        return "✅ Wrote /scratch/aperio-title.js";
+      },
+    });
+
+    await hooks.callToolHooked("write_file", { path: "aperio-title.js", content: "first" });
+    await hooks.callToolHooked("run_node_script", { script: "aperio-title.js" });
+    await hooks.callToolHooked("write_file", { path: "aperio-title.js", content: "repair" });
+    hooks.verifyFileClaims(
+      "The script aperio-title.js has been successfully written and executed.\n\n" +
+      "Output Path: ./aperio-title.pptx (located in /scratch/)",
+    );
+
+    assert.equal(runCount, 1);
+    assert.equal(warned(hooks.events), true);
+    assert.match(
+      hooks.events.find(event => event.type === "token" && /Correction/.test(event.text))?.text ?? "",
+      /not actually in the workspace|latest script revision was not executed/i,
+    );
+  });
+
+  test("does not accept an on-disk PPTX until the verifier records it", async () => {
+    const hooks = makeArtifactLifecycleHooks({
+      onDisk: ["build.js", "deck.pptx"],
+      resultFor(name) {
+        if (name === "run_node_script") return "✅ Exit 0 — /scratch/build.js";
+        return "✅ Wrote /scratch/build.js";
+      },
+    });
+
+    await hooks.callToolHooked("write_file", { path: "build.js", content: "builder" });
+    await hooks.callToolHooked("run_node_script", { script: "build.js" });
+    hooks.verifyFileClaims("I generated deck.pptx for you.");
+
+    assert.equal(warned(hooks.events), true);
+    assert.match(
+      hooks.events.find(event => event.type === "token" && /Correction/.test(event.text))?.text ?? "",
+      /not verified/i,
+    );
+  });
+
+  test("accepts a PPTX verified after the current generator revision ran", async () => {
+    const hooks = makeArtifactLifecycleHooks({
+      onDisk: ["build.js", "deck.pptx", "verify.js"],
+      resultFor(name, args) {
+        if (name === "run_node_script" && basename(args.script) === "verify.js") {
+          return '✅ Exit 0 — /skills/pptx/scripts/verify.js\nAPERIO_PPTX:{"action":"verify","path":"/scratch/deck.pptx","size":4096}';
+        }
+        if (name === "run_node_script") return "✅ Exit 0 — /scratch/build.js";
+        return "✅ Wrote /scratch/build.js";
+      },
+    });
+
+    await hooks.callToolHooked("write_file", { path: "build.js", content: "builder" });
+    await hooks.callToolHooked("run_node_script", { script: "build.js" });
+    await hooks.callToolHooked("run_node_script", { script: "/skills/pptx/scripts/verify.js" });
+    hooks.verifyFileClaims("I generated deck.pptx for you.");
+
+    assert.equal(warned(hooks.events), false);
+  });
+
+  test("invalidates PPTX verification when its executed generator is rewritten", async () => {
+    const hooks = makeArtifactLifecycleHooks({
+      onDisk: ["build.js", "deck.pptx", "verify.js"],
+      resultFor(name, args) {
+        if (name === "run_node_script" && basename(args.script) === "verify.js") {
+          return '✅ Exit 0 — /skills/pptx/scripts/verify.js\nAPERIO_PPTX:{"action":"verify","path":"/scratch/deck.pptx","size":4096}';
+        }
+        if (name === "run_node_script") return "✅ Exit 0 — /scratch/build.js";
+        return "✅ Wrote /scratch/build.js";
+      },
+    });
+
+    await hooks.callToolHooked("write_file", { path: "build.js", content: "builder" });
+    await hooks.callToolHooked("run_node_script", { script: "build.js" });
+    await hooks.callToolHooked("run_node_script", { script: "/skills/pptx/scripts/verify.js" });
+    await hooks.callToolHooked("write_file", { path: "build.js", content: "revised builder" });
+    hooks.verifyFileClaims("I generated deck.pptx for you.");
+
+    assert.equal(warned(hooks.events), true);
+    assert.match(
+      hooks.events.find(event => event.type === "token" && /Correction/.test(event.text))?.text ?? "",
+      /latest script revision was not executed|verification is stale/i,
+    );
   });
 });
 
@@ -650,6 +773,27 @@ describe("callToolHooked() — WRITE-01 taint→confirm wiring", () => {
     await hooks.callToolHooked("write_file", { path: "/scratch/x.js", content: "y" });
     const w = seenArgs.find((s) => s.name === "write_file");
     assert.notEqual(w.args.__tainted, true);
+  });
+
+  test("canonicalizes a complete edit_file alias pair before MCP validation", async () => {
+    const { hooks, seenArgs } = makeHooks(() => "✅ Edited /scratch/x.js");
+    const input = { path: "/scratch/x.js", oldText: "before", newText: "after", replace_all: true };
+    await hooks.callToolHooked("edit_file", input);
+    const edit = seenArgs.find((s) => s.name === "edit_file");
+    assert.equal(edit.args.old_string, "before");
+    assert.equal(edit.args.new_string, "after");
+    assert.equal(edit.args.replace_all, true);
+    assert.equal(edit.args.oldText, undefined);
+    assert.equal(edit.args.newText, undefined);
+  });
+
+  test("does not invent a missing edit_file operand from a half alias call", async () => {
+    const { hooks, seenArgs } = makeHooks(() => "❌ rejected");
+    await hooks.callToolHooked("edit_file", { path: "/scratch/x.js", newText: "after" });
+    const edit = seenArgs.find((s) => s.name === "edit_file");
+    assert.equal(edit.args.new_string, "after");
+    assert.equal(edit.args.newText, undefined);
+    assert.equal(edit.args.old_string, undefined);
   });
 
   test("a write returning a wr_ token raises action_confirm_pending", async () => {

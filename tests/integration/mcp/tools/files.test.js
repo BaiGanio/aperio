@@ -18,6 +18,7 @@ import { mock, test, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { basename, join } from "path";
 import { createRequire } from "module";
+import { z } from "zod";
 import { createToolHooks } from "../../../../lib/agent/tool-hooks.js";
 import { parseSearchScopes } from "../../../../lib/agent/search-scopes.js";
 
@@ -174,7 +175,7 @@ mock.method(fsAsync, "unlink",     mockRm);
 
 // Dynamic import: files.js loads here and binds to our patched functions.
 // paths.js also loads here and computes BASE_DIR = process.cwd() = TMP.
-const { readFileHandler, writeFileHandler, appendFileHandler, editFileHandler, deleteFileHandler, scanProjectHandler, grepFilesHandler } =
+const { readFileHandler, writeFileHandler, appendFileHandler, editFileHandler, deleteFileHandler, scanProjectHandler, grepFilesHandler, register } =
   await import("../../../../mcp/tools/files.js");
 
 // paths.js is already cached from the files.js import above; this re-export
@@ -200,6 +201,17 @@ function tmpFile(name, content = "line1\nline2\nline3\n") {
   vfsSetupFile(p, content);
   return p;
 }
+
+test("edit_file advertises both canonical operands as required", () => {
+  const tools = new Map();
+  register({
+    registerTool(name, config) { tools.set(name, config); },
+  }, {});
+  const schema = tools.get("edit_file").inputSchema;
+  assert.deepEqual(z.toJSONSchema(schema).required, ["path", "old_string", "new_string"]);
+  assert.doesNotThrow(() => schema.parse({ path: "/tmp/a.js", old_string: "a", new_string: "b" }));
+  assert.throws(() => schema.parse({ path: "/tmp/a.js", newText: "b" }));
+});
 
 function makeInterruptStore() {
   const rows = new Map();

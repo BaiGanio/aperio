@@ -1,6 +1,6 @@
 import { z }            from "zod";
 import { spawn }         from "child_process";
-import { dirname, resolve as resolvePath, extname } from "path";
+import { dirname, resolve as resolvePath, extname, sep } from "path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratchDir } from "../../lib/routes/paths.js";
 import { pythonInterpreter } from "../../lib/helpers/capabilities.js";
@@ -17,6 +17,11 @@ const MAX_OUTPUT_BYTES = parseInt(process.env.APERIO_SHELL_MAX_OUTPUT_BYTES || "
 const HEAD_BYTES       = Math.floor(MAX_OUTPUT_BYTES / 4);
 const TAIL_BYTES       = MAX_OUTPUT_BYTES - HEAD_BYTES;
 const TIMEOUT_MS       = 60_000;
+const BUNDLED_SKILLS_DIR = resolvePath("skills");
+
+function isBundledSkillPath(filePath) {
+  return filePath === BUNDLED_SKILLS_DIR || filePath.startsWith(BUNDLED_SKILLS_DIR + sep);
+}
 
 // Streaming sink that retains the first HEAD_BYTES and the last TAIL_BYTES of a
 // stream, dropping the middle, with bounded memory (it never holds more than
@@ -212,6 +217,9 @@ export async function runNodeScriptHandler({ script, args = [] }) {
 
   if (!existsSync(resolved)) {
     logger.warn(`[run_node_script] script not found: ${resolved}`);
+    if (isBundledSkillPath(resolved)) {
+      return { content: [{ type: "text", text: `❌ Bundled skill helper not found: ${resolved}. Do not create or overwrite files under \`skills/\`. Check the skill's documented helper names. For artifact generation, call write_file first to create a task-specific builder in the session workspace, then call run_node_script with that exact builder path.` }] };
+    }
     return { content: [{ type: "text", text: `❌ Script not found: ${resolved}. If you intended to create and run this script, call write_file with this exact path FIRST, then run_node_script — they must be separate, ordered steps (write before run).` }] };
   }
 

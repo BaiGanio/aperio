@@ -32,7 +32,7 @@ test("Persistence tests", async (t) => {
       APERIO_E2E_INJECT_AGENT: "1",
       DB_BACKEND: "sqlite",
       SQLITE_PATH: dbPath,
-      AI_PROVIDER: "codex",
+      AI_PROVIDER: "stub",
       EMBEDDING_PROVIDER: "none",
       APERIO_CODEGRAPH: "off",
       APERIO_DOCGRAPH: "off",
@@ -186,15 +186,15 @@ test("Persistence tests", async (t) => {
     // Stop the shared fixture
     await fixture.stop();
 
-    // Start a new fixture with the same SQLite file
-    fixture = await startRealApp(t, {
+    // Start a new fixture with the same SQLite file (isolated from shared fixture)
+    const restartFixture = await startRealApp(t, {
       readyTimeout: 20_000,
       env: {
         APERIO_E2E_SKIP_BOOT: "0",
         APERIO_E2E_INJECT_AGENT: "1",
         DB_BACKEND: "sqlite",
         SQLITE_PATH: dbPath,
-        AI_PROVIDER: "codex",
+        AI_PROVIDER: "stub",
         EMBEDDING_PROVIDER: "none",
         APERIO_CODEGRAPH: "off",
         APERIO_DOCGRAPH: "off",
@@ -202,28 +202,29 @@ test("Persistence tests", async (t) => {
         APERIO_CONFIG_PRECEDENCE: "env",
       },
     });
+    t.after(async () => { try { await restartFixture.stop(); } catch {} });
 
     // Verify memory survived
-    const listRes = await request(fixture, "/api/memories");
+    const listRes = await request(restartFixture, "/api/memories");
     assert.equal(listRes.status, 200, "List succeeds after restart");
     const found = listRes.json.raw.find(m => m.title === marker);
     assert.ok(found, `Memory "${marker}" survived restart`);
 
     // Verify setting survived
-    const getRes = await request(fixture, "/api/settings/config.LLAMACPP_MODEL");
+    const getRes = await request(restartFixture, "/api/settings/config.LLAMACPP_MODEL");
     assert.equal(getRes.status, 200, "Setting readable after restart");
     assert.equal(getRes.json.value, settingValue, "Setting value survived restart");
 
     // New data works after restart
     const marker2 = `e2e-after-restart-${randomUUID().slice(0, 8)}`;
-    await request(fixture, "/api/memories/import", {
+    await request(restartFixture, "/api/memories/import", {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Aperio-Client": "e2e" },
       body: JSON.stringify({
         memories: [{ title: marker2, content: `After restart: ${marker2}`, type: "decision" }],
       }),
     });
-    const listRes2 = await request(fixture, "/api/memories");
+    const listRes2 = await request(restartFixture, "/api/memories");
     const found2 = listRes2.json.raw.find(m => m.title === marker2);
     assert.ok(found2, "New memory after restart works");
   });

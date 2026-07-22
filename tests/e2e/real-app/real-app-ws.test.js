@@ -207,6 +207,10 @@ test("WebSocket tests", async (t) => {
     const { ws } = await connect(fixture);
     t.after(() => closeWs(ws));
 
+    // Collect all messages for stream_end verification (registered before turn starts)
+    const allMsgs = [];
+    ws.on("message", (raw) => allMsgs.push(JSON.parse(raw.toString())));
+
     const turnId = `stop-${randomUUID().slice(0, 8)}`;
     ws.send(JSON.stringify({ type: "chat", text: "a b c d e f g h i j k l m n o p", turnId }));
 
@@ -219,6 +223,10 @@ test("WebSocket tests", async (t) => {
     // Expect turn_complete for the interrupted turn
     const tc = await waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === turnId, 10_000);
     assert.ok(tc, "Interrupted turn gets turn_complete");
+
+    // Verify stream_end was emitted before turn_complete (no orphan state left)
+    const hasStreamEnd = allMsgs.some(m => m.type === "stream_end");
+    assert.ok(hasStreamEnd, "Interrupted turn emitted stream_end");
 
     // Send a new chat to verify connection is still alive
     const turn2 = `after-stop-${randomUUID().slice(0, 8)}`;

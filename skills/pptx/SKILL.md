@@ -10,6 +10,16 @@ metadata:
 
 # PPTX Skill
 
+## Creation Execution Contract
+
+Creating a presentation always starts with `write_file`, not `run_node_script`:
+
+1. Write a task-specific PptxGenJS builder (for example, `<session-workspace>/create-deck.js`) into the session workspace.
+2. Only after that write succeeds, call `run_node_script` with the exact builder path you just wrote.
+3. Run the existing `skills/pptx/scripts/verify.js` and `skills/pptx/scripts/read.js` helpers against the output.
+
+The bundled `scripts/` directory contains read/edit/pack/QA helpers, not a general presentation generator. Never guess a helper filename and never create or overwrite files under `skills/`; creation code belongs in the session workspace.
+
 ## Quick Reference
 
 | Task | Guide |
