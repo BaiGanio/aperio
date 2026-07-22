@@ -34,8 +34,11 @@
   let _repos = [];
   let _statusTimer = null;
   let _statusPolling = false;
+  let _statusGeneration = 0;
   let _lastStatusPhase = null;
   let _status = null;         // last /api/docgraph/status payload (drives the live region)
+  const ACTIVE_STATUS_POLL_MS = 1500;
+  const IDLE_STATUS_POLL_MS = 5000;
 
   function escapeHtml(s) {
     return String(s ?? "")
@@ -83,24 +86,37 @@
       <div class="cg-status-roots">${rows}</div>
     </div>`;
   }
-  async function pollStatusOnce() {
-    _status = await fetchStatus();
+  async function pollStatusOnce(generation) {
+    const status = await fetchStatus();
+    // The panel may have closed (and even reopened) while the request was in
+    // flight. Ignore responses from an invalidated polling generation.
+    if (generation !== _statusGeneration || panel().style.display === "none") return;
+    _status = status;
     const phase = _status?.phase ?? "idle";
     // While indexing (and once more on the final tick), refresh the folder list
     // so each one appears the moment it commits, not only when the whole batch is
     // done. Cheap query; only runs during indexing.
-    if (phase === "indexing" || _lastStatusPhase === "indexing") await loadRepos();
+    if (phase === "indexing" || _lastStatusPhase === "indexing") {
+      await loadRepos();
+      if (generation !== _statusGeneration || panel().style.display === "none") return;
+    }
     // Update only the live region (banner + folders/empty) — never the add-folder
     // form below it, so the user's input/selection is preserved across ticks.
     if (!input().value) renderLiveRegion();
     _lastStatusPhase = phase;
-    if (phase === "indexing") _statusTimer = setTimeout(pollStatusOnce, 1500);
-    else _statusPolling = false;
+    // Keep a slower discovery poll alive while the panel is open. Indexing can
+    // begin from chat, so stopping at idle/ready leaves the panel permanently
+    // stale until some panel-local action happens to restart polling.
+    _statusTimer = setTimeout(
+      () => pollStatusOnce(generation),
+      phase === "indexing" ? ACTIVE_STATUS_POLL_MS : IDLE_STATUS_POLL_MS,
+    );
   }
   function startStatusPolling() {
     if (_statusPolling) return;
     _statusPolling = true;
-    pollStatusOnce();
+    const generation = ++_statusGeneration;
+    pollStatusOnce(generation);
   }
 
   // ── Repos view (empty state when no search query) ─────────────────────────
@@ -328,11 +344,15 @@
       backdrop().style.display = "none";
       clearTimeout(_statusTimer);
       _statusPolling = false;
+      _statusGeneration += 1;
       return;
     }
     panel().style.display = "flex";
     backdrop().style.display = "block";
-    if (_enabled === null) await loadRepos();
+    // The index can change while this panel is closed (for example through the
+    // chat index_folder tool), so its cached repository list is never reliable
+    // across opens.
+    await loadRepos();
     if (_enabled === false) {
       setBody(`<div class="cg-empty">
         The document graph requires the SQLite or Postgres backend.

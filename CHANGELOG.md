@@ -11,6 +11,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Graph progress started from chat**: Code Graph and Document Graph panels now
+  reload their indexed-folder lists whenever reopened and keep a bounded status
+  poll alive while visible, so indexing started through `index_folder` appears
+  without requiring a panel-local action or page refresh. Polling slows while
+  idle, accelerates during active indexing, and is invalidated cleanly when a
+  panel closes.
 - **Complete, synchronized test dashboards**: E2E CI no longer drops the five
   `real-app` files, recursive dashboard discovery now lists all nested test files,
   and unit/integration reporters include top-level skipped tests and correctly
