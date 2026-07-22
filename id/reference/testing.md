@@ -24,7 +24,8 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - Spawned server process, real HTTP/WS connections, real ports
 - May start real Express + WebSocket server as a child process
 - Runs in <30s per test
-- ~10 files covering WebSocket lifecycle, streaming, config provenance, real-app fixtures
+- ~10 files grouped under `bootstrap/`, `real-app/`, `websocket/`, and `ui/`; shared
+  `fixtures/` and `helpers/` remain alongside those groups
 
 ## Commands
 
@@ -41,19 +42,22 @@ npm run test:e2e               # All E2E tests (protocol + real-app)
 npm run test:e2e:real          # Real-app E2E tests only (no mock fixtures)
 npm run test:e2e:ci            # Dashboard E2E tests (excludes real-app)
 npm run test:ci                # CI mode with coverage (unit + integration)
-npm run test:ci:unit           # Unit tests CI (no coverage, fast gate)
-npm run test:ci:integration    # Integration tests CI with c8 coverage
+npm run test:ci:unit           # Unit tests CI with c8 coverage and unit JSON reporter
+npm run test:ci:integration    # Integration tests CI with c8 coverage and JSON reporter
+npm run test:integration:ci:dashboard # Integration tests plus dashboard data
 npm run test:only -- --test-name-pattern="pattern"  # Filter by name
 npm run coverage               # Generate lcov report from c8
+npm run unit:dashboard         # Generate unit test dashboard data
 npm run integration:dashboard  # Generate integration test dashboard data
 npm run e2e:dashboard          # Generate E2E test dashboard data
 ```
 
-The primary Codecov workflow runs `test:ci:unit` (fast gate, no coverage),
-`test:ci:integration` (c8 coverage + dashboard data), and the non-real E2E
-dashboard suite as separate jobs. Pushes and pull requests therefore refresh
-coverage, integration dashboard, and E2E dashboard data without starting real
-server fixtures. Run the
+The primary Codecov workflow runs `test:ci:unit` (unit coverage plus the
+`tests/reporters/unit-json.js` reporter), `test:ci:integration` (integration
+coverage plus the integration JSON reporter), and the non-real E2E dashboard
+suite as separate jobs. Unit, integration, and E2E dashboard data are generated
+from those jobs; dashboard artifacts are published for master pushes without
+starting real server fixtures. Run the
 separate **Real-app E2E (manual)** GitHub Actions workflow when production-
 process validation is needed. Its concurrency is capped at 2 and it does not
 require a model service; Postgres parity remains opt-in through
@@ -85,6 +89,9 @@ and clean up their guest state on failure as well as success. See
 - `tests/mockDB.js` — in-memory SQLite store for tests
 - `tests/mockStore.js` — mock store factory
 - `tests/reporters/quiet.js` — CI reporter (used when `APERIO_AGENT_RUN` is set)
+- `tests/reporters/unit-json.js` — structured JSON reporter for the unit dashboard.
+  Usage: `node --test --test-reporter=./tests/reporters/unit-json.js
+  --test-reporter-destination=unit-results.json`
 - `tests/reporters/integration-json.js` — structured JSON reporter for integration dashboard.
   Usage: `node --test --test-reporter=./tests/reporters/integration-json.js
   --test-reporter-destination=integration-results.json`
@@ -125,7 +132,7 @@ stdout and stderr lines in the test error.
 ### Helper API
 
 ```js
-import { startRealApp, request } from "./helpers/real-app-helper.js";
+import { startRealApp, request } from "../helpers/real-app-helper.js";
 
 test("my test", async (t) => {
   const app = await startRealApp(t, {
@@ -148,20 +155,19 @@ test("my test", async (t) => {
 
 | File | Purpose |
 |------|---------|
-| `fixtures/real-app-server.js` | Child-process entrypoint (imports `createApp`) |
-| `helpers/real-app-helper.js` | `startRealApp()`, `request()` |
-| `helpers/test-agent.js` | `createTestAgent(opts)` — stub agent |
+| `tests/e2e/fixtures/real-app-server.js` | Child-process entrypoint (imports `createApp`) |
+| `tests/e2e/helpers/real-app-helper.js` | `startRealApp()`, `request()` |
+| `tests/e2e/helpers/test-agent.js` | `createTestAgent(opts)` — stub agent |
 
 ### Test files
 
 | File | Tests | Coverage |
 |------|-------|----------|
-| `real-app-char.test.js` | 6 | Architecture, port-0, path audit |
-| `real-app-http.test.js` | 9 | HTTP middleware, headers, limits, Host guard |
-| `real-app-persistence.test.js` | 6 | Memory import, settings, export, restart |
-| `real-app-ws.test.js` | 8 | Handshake, chat streaming, stop, concurrency |
-| `real-app-security.test.js` | 12 | Auth, WS auth, cookies, traversal, Origin |
-| `real-app-lifecycle.test.js` | 9 | SIGTERM, restart, hermetic, CI scripts |
+| `tests/e2e/real-app/real-app-http.test.js` | 9 | HTTP middleware, headers, limits, Host guard |
+| `tests/e2e/real-app/real-app-persistence.test.js` | 6 | Memory import, settings, export, restart |
+| `tests/e2e/real-app/real-app-ws.test.js` | 8 | Handshake, chat streaming, stop, concurrency |
+| `tests/e2e/real-app/real-app-security.test.js` | 12 | Auth, WS auth, cookies, traversal, Origin |
+| `tests/e2e/real-app/real-app-lifecycle.test.js` | 9 | SIGTERM, restart, hermetic, CI scripts |
 
 Key patterns: WebSocket tests correlate by `turnId` and wait for `turn_complete`,
 not `stream_end`. Persistence tests use UUID-markers to identify test data.
