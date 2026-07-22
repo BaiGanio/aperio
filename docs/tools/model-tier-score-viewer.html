@@ -9,7 +9,7 @@
   <!-- Shared Aperio typography — mirrors docs/index.html -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="../styles.css" />
   <style>
     /* ── Fonts (shared with the landing page) ── */
     :root {
@@ -410,9 +410,9 @@
 
   <nav class="aperio-nav">
     <div class="nav-inner">
-      <a href="index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+      <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
       <button class="nav-toggle" id="navToggle" aria-label="Open navigation">☰</button>
-      <ul class="nav-links" id="navLinks"><li><a href="index.html">Home</a></li><li><a href="model-tier-score-viewer.html">Benchmarking</a></li><li><a href="coverage-dashboard.html">Coverage</a></li><li><a href="unit-dashboard.html">Unit</a></li><li><a href="integration-dashboard.html">Integration</a></li><li><a href="e2e-dashboard.html">E2E</a></li></ul>
+      <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="model-tier-score-viewer.html">Benchmarking</a></li><li><a href="../dashboards/coverage.html">Coverage</a></li><li><a href="../dashboards/unit.html">Unit</a></li><li><a href="../dashboards/integration.html">Integration</a></li><li><a href="../dashboards/e2e.html">E2E</a></li></ul>
       <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark" type="button">🌙</button><button class="theme-btn" data-theme="light" title="Light" type="button">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora" type="button">✦</button><button class="theme-btn" data-theme="system" title="System" type="button">⊙</button></div>
     </div>
   </nav>
@@ -903,6 +903,6 @@ npm run model-tier:pilot -- \
 
     render(currentRun);
   </script>
-  <script src="scripts.js"></script>
+  <script src="../scripts.js"></script>
 </body>
 </html>

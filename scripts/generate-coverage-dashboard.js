@@ -5,7 +5,7 @@ import path from "node:path";
 import process from "node:process";
 
 const input = option("--input", "coverage/lcov.info");
-const output = option("--output", "docs/coverage-data.js");
+const output = option("--output", "docs/dashboards/coverage-data.js");
 
 const text = await readFile(input, "utf8");
 const files = text.split("end_of_record").map(parseRecord).filter(Boolean);

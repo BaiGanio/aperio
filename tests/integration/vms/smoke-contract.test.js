@@ -60,7 +60,7 @@ test("lite smoke workflow delegates to the shared contract", async () => {
 });
 
 test("visual VM guide links to maintained instructions and describes both desktop reset modes", async () => {
-  const guide = await readFile(resolve(ROOT, "docs/vms.html"), "utf8");
+  const guide = await readFile(resolve(ROOT, "docs/guides/vms.html"), "utf8");
   assert.doesNotMatch(guide, /href="README\.md"/);
   assert.match(guide, /snapshot \+ linked clone/i);
   assert.match(guide, /private paths and runtime details/i);

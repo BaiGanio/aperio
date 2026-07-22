@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/generate-unit-dashboard.js
-// Converts the unit test reporter output into docs/unit-data.js.
+// Converts the unit test reporter output into docs/dashboards/unit-data.js.
 // Usage: node scripts/generate-unit-dashboard.js
 //   npm run unit:dashboard
 
@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const inputPath = resolve(ROOT, option("--input", "unit-results.json"));
-const outputPath = resolve(ROOT, option("--output", "docs/unit-data.js"));
+const outputPath = resolve(ROOT, option("--output", "docs/dashboards/unit-data.js"));
 
 async function run() {
   let data;
