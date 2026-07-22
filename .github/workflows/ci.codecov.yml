@@ -38,12 +38,12 @@ jobs:
         run: npm run coverage:dashboard
 
       - name: Generate unit dashboard data
-        if: always() && hashFiles('test-results.json') != ''
-        run: npm run unit:dashboard -- --input test-results.json
+        if: always() && hashFiles('tests/results/test-results.json') != ''
+        run: npm run unit:dashboard -- --input tests/results/test-results.json
 
       - name: Generate integration dashboard data
-        if: always() && hashFiles('test-results.json') != ''
-        run: npm run integration:dashboard -- --input test-results.json
+        if: always() && hashFiles('tests/results/test-results.json') != ''
+        run: npm run integration:dashboard -- --input tests/results/test-results.json
 
       - name: Upload results to Codecov
         if: >-

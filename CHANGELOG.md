@@ -16,7 +16,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   and unit/integration reporters include top-level skipped tests and correctly
   group root-level files. The Codecov job now runs unit and integration coverage
   together with explicit LCOV output and feeds both dashboards from one combined
-  `test-results.json` artifact. A combined structured reporter replaces the two
+  `tests/results/test-results.json` artifact. All transient reporter JSON now
+  lives under the ignored `tests/results/` directory instead of the repository
+  root. A combined structured reporter replaces the two
   parallel JSON reporter pipelines, eliminating Node 26's `TestsStream`
   max-listener warning without suppressing warnings or raising global limits.
   Real-app fixtures run from disposable working directories and clean them on
