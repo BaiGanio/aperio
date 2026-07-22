@@ -24,7 +24,7 @@
     "test:only": "NODE_ENV=test node --test --test-name-pattern",
     "test": "NODE_ENV=test node --test $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) $(find tests/unit tests/integration tests/e2e -name '*.test.js' -print)",
     "test:unit": "NODE_ENV=test node --test $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) $(find tests/unit -name '*.test.js' -print)",
-    "test:integration": "NODE_ENV=test node --test $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) $(find tests/integration -name '*.test.js' -print)",
+    "test:integration": "NODE_ENV=test node --test --test-concurrency=1 $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) $(find tests/integration -name '*.test.js' -print)",
     "test:e2e": "NODE_ENV=test node --test --test-concurrency=2 'tests/e2e/**/*.test.js'",
     "test:e2e:real": "NODE_ENV=test node --test --test-concurrency=2 'tests/e2e/real-app-*.test.js'",
     "test:e2e:ci": "NODE_ENV=test node --test --test-concurrency=2 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/reporters/e2e-json.js --test-reporter-destination=e2e-results.json $(find tests/e2e -name '*.test.js' -not -name 'real-app-*.test.js' -print)",
@@ -48,6 +48,8 @@
     "coverage:dashboard": "node scripts/generate-coverage-dashboard.js",
     "e2e:dashboard": "node scripts/generate-e2e-dashboard.js",
     "integration:dashboard": "node scripts/generate-integration-dashboard.js",
+    "unit:dashboard": "node scripts/generate-unit-dashboard.js",
+    "test:unit:dashboard": "NODE_ENV=test node --test --test-concurrency=1 $(find tests/unit -name '*.test.js' -print) 2>&1 | tail -1 && node trash/temp/make-unit-results.mjs && npm run unit:dashboard",
     "test:e2e:dashboard": "NODE_ENV=test node --test --test-concurrency=2 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/reporters/e2e-json.js --test-reporter-destination=e2e-results.json 'tests/e2e/**/*.test.js' && npm run e2e:dashboard"
   },
   "dependencies": {
