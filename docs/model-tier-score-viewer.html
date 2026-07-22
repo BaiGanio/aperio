@@ -901,12 +901,6 @@ npm run model-tier:pilot -- \
     ["dragleave", "drop"].forEach(type => $("dropZone").addEventListener(type, event => { event.preventDefault(); $("dropZone").classList.remove("dragging"); }));
     $("dropZone").addEventListener("drop", event => handleFiles(event.dataTransfer.files));
 
-    // Theme switcher — mirrors the landing page (dark / light / aurora / system).
-    document.querySelectorAll(".theme-btn").forEach(button => button.addEventListener("click", () => {
-      document.documentElement.dataset.theme = button.dataset.theme;
-      document.querySelectorAll(".theme-btn").forEach(other => other.classList.toggle("active", other === button));
-    }));
-
     render(currentRun);
   </script>
   <script src="scripts.js"></script>

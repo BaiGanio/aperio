@@ -9,102 +9,9 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <style>
-    .shell{max-width:1280px;margin:auto;padding:48px 28px 64px;position:relative;z-index:1}
-    .int-header{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:32px}
-    .int-title{margin:7px 0 4px;font-family:var(--font-ui);font-size:clamp(2.4rem,5.5vw,4.4rem);font-weight:400;line-height:1.1;letter-spacing:.03em}
-    .int-lede{color:var(--subtle);max-width:650px;margin:0}
-    .int-run{color:var(--muted);text-align:right;font:12px var(--font-mono)}
-    .int-run strong{color:var(--text);display:block;font-family:var(--font-ui);font-size:14px}
-    .orientation{margin:0 0 16px;padding:18px 22px;background:var(--bg-card);border:1px solid var(--border);color:var(--subtle);line-height:1.55}
-    .orientation strong{color:var(--text)}
-    .orientation p{margin:0 0 8px}.orientation p:last-child{margin-bottom:0}
-    .grid{display:grid;gap:16px}
-
-    /* Metric Cards */
-    .metrics{grid-template-columns:1.35fr repeat(3,1fr)}
-    .panel{background:var(--bg-card);border:1px solid var(--border);border-radius:0;box-shadow:0 20px 50px rgba(0,0,0,.25);transition:border-color .2s,transform .2s}
-    .panel:hover{border-color:var(--border-hi)}
-    .metric,.panel-pad{padding:22px}
-    .metric{min-height:142px}
-    .metric h2{margin:0 0 18px;color:var(--muted);font:11px var(--font-ui);font-weight:400;text-transform:uppercase;letter-spacing:.12em}
-    .score{display:flex;align-items:baseline;gap:10px}
-    .score b{font:700 49px/.9 var(--font-ui);letter-spacing:-.05em}
-    .score span,small{color:var(--muted)}
-    .meter{height:7px;background:var(--bg-raised);border-radius:0;overflow:hidden;margin-top:20px}
-    .meter i,.bar i{display:block;height:100%;border-radius:0}
-    .metric .value{font:700 29px var(--font-ui)}
-    .metric small{display:block;margin-top:7px}
-
-    /* Group cards */
-    .group-grid{display:grid;gap:16px;margin-top:16px}
-    .group-card{border:1px solid var(--border);background:var(--bg-card);box-shadow:0 20px 50px rgba(0,0,0,.25);transition:border-color .2s}
-    .group-card:hover{border-color:var(--border-hi)}
-    .group-head{padding:18px 22px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;user-select:none}
-    .group-head::-webkit-details-marker{display:none}
-    .group-head::before{content:'▸';color:var(--muted);font-size:13px;transition:transform .2s;margin-right:4px}
-    details[open] .group-head::before{content:'▾'}
-    .group-name{font:400 20px var(--font-ui);letter-spacing:.02em;color:var(--text)}
-    .group-name small{font:12px var(--font-mono);color:var(--muted);margin-left:8px}
-    .group-meta{display:flex;gap:16px;align-items:center;font:12px var(--font-mono);color:var(--muted)}
-    .group-meta .tag{font:10px var(--font-ui);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--border-hi);border-radius:0}
-    .tag-ok{color:var(--green)}
-    .tag-warn{color:var(--amber)}
-    .tag-fail{color:#e06c75}
-
-    /* Group bar */
-    .group-bar{display:flex;height:6px;margin:12px 0 0}
-    .group-bar i{height:100%}
-    .group-bar .bar-pass{background:var(--green)}
-    .group-bar .bar-fail{background:var(--amber)}
-    .group-bar .bar-skip{background:var(--dim)}
-
-    /* File table */
-    .group-body{padding:0 22px 18px}
-    .file-table{width:100%;border-collapse:collapse;font:13px var(--font-mono);margin-top:4px}
-    .file-table th{text-align:left;color:var(--muted);font:10px var(--font-ui);font-weight:400;text-transform:uppercase;letter-spacing:.1em;padding:8px 6px 6px;border-bottom:1px solid var(--border)}
-    .file-table td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
-    .file-table tr:last-child td{border-bottom:0}
-    .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;flex-shrink:0}
-    .status-dot.pass{background:var(--green)}
-    .status-dot.fail{background:var(--amber)}
-    .status-dot.skip{background:var(--dim)}
-    .test-name{display:flex;align-items:center;color:var(--text);word-break:break-word}
-    .test-duration{color:var(--muted);white-space:nowrap;text-align:right}
-    .test-error{color:var(--amber);font-size:11px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-
-    /* Color palette for groups */
-    .g-Routes{--g-color:#a884f7}
-    .g-Database{--g-color:#e5c07b}
-    .g-Store{--g-color:#56b6c2}
-    .g-MCP{--g-color:#98c379}
-    .g-Skills{--g-color:#c678dd}
-    .g-Handlers{--g-color:#61afef}
-    .g-Context{--g-color:#d19a66}
-    .g-Tools{--g-color:#e06c75}
-    .g-Agent{--g-color:#abb2bf}
-    .g-Workers{--g-color:#7ec8e3}
-    .g-Helpers{--g-color:#98c379}
-    .g-Scripts{--g-color:#c3e88d}
-    .g-Public{--g-color:#f78c6c}
-    .g-Docs{--g-color:#89ddff}
-    .g-VMs{--g-color:#f07178}
-    .g-DB\\ Connect{--g-color:#e5c07b}
-    .g-Code\\ Graph{--g-color:#b392f0}
-    .g-Doc\\ Graph{--g-color:#79b8ff}
-    .g-Other{--g-color:var(--muted)}
-    .group-head{border-left:3px solid var(--g-color,var(--border))}
-
-    /* Footer & Legend */
-    .legend{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:18px;color:var(--muted);font:11px var(--font-ui)}
-    .legend i{width:13px;height:13px;border-radius:50%;display:inline-block}
-    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:22px;color:var(--muted);font:11px var(--font-ui)}
-    .footer a{color:var(--indigo);text-decoration:none}
-    .empty-state{padding:40px;text-align:center;color:var(--muted);grid-column:1/-1}
-    .empty-state h3{color:var(--text);margin:0 0 10px}
-  </style>
+  <link rel="stylesheet" href="styles-dashboard.css">
 </head>
-<body>
+<body class="result-dashboard">
 <div class="orb orb-1"></div>
 <div class="orb orb-2"></div>
 <div class="orb orb-3"></div>
@@ -248,5 +155,6 @@ const groupsHtml = (data.groups || []).map((g) => {
 
 document.querySelector('#groups').innerHTML = groupsHtml;
 </script>
+<script src="scripts.js"></script>
 </body>
 </html>

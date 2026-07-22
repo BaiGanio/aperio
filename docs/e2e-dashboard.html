@@ -9,94 +9,9 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <style>
-    .shell{max-width:1280px;margin:auto;padding:48px 28px 64px;position:relative;z-index:1}
-    .e2e-header{display:flex;justify-content:space-between;align-items:end;gap:24px;margin-bottom:32px}
-    .e2e-title{margin:7px 0 4px;font-family:var(--font-ui);font-size:clamp(2.4rem,5.5vw,4.4rem);font-weight:400;line-height:1.1;letter-spacing:.03em}
-    .e2e-lede{color:var(--subtle);max-width:650px;margin:0}
-    .e2e-run{color:var(--muted);text-align:right;font:12px var(--font-mono)}
-    .e2e-run strong{color:var(--text);display:block;font-family:var(--font-ui);font-size:14px}
-    .orientation{margin:0 0 16px;padding:18px 22px;background:var(--bg-card);border:1px solid var(--border);color:var(--subtle);line-height:1.55}
-    .orientation strong{color:var(--text)}
-    .orientation p{margin:0 0 8px}.orientation p:last-child{margin-bottom:0}
-    .grid{display:grid;gap:16px}
-
-    /* Metric Cards */
-    .metrics{grid-template-columns:1.35fr repeat(3,1fr)}
-    .panel{background:var(--bg-card);border:1px solid var(--border);border-radius:0;box-shadow:0 20px 50px rgba(0,0,0,.25);transition:border-color .2s,transform .2s}
-    .panel:hover{border-color:var(--border-hi)}
-    .metric,.panel-pad{padding:22px}
-    .metric{min-height:142px}
-    .metric h2{margin:0 0 18px;color:var(--muted);font:11px var(--font-ui);font-weight:400;text-transform:uppercase;letter-spacing:.12em}
-    .score{display:flex;align-items:baseline;gap:10px}
-    .score b{font:700 49px/.9 var(--font-ui);letter-spacing:-.05em}
-    .score span,small{color:var(--muted)}
-    .meter{height:7px;background:var(--bg-raised);border-radius:0;overflow:hidden;margin-top:20px}
-    .meter i,.bar i{display:block;height:100%;border-radius:0}
-    .metric .value{font:700 29px var(--font-ui)}
-    .metric small{display:block;margin-top:7px}
-
-    /* Suite Cards */
-    .suite-grid{display:grid;gap:16px;margin-top:16px}
-    .suite-card{border:1px solid var(--border);background:var(--bg-card);box-shadow:0 20px 50px rgba(0,0,0,.25);transition:border-color .2s}
-    .suite-card:hover{border-color:var(--border-hi)}
-    .suite-head{padding:18px 22px 14px;display:flex;justify-content:space-between;align-items:center;gap:12px;cursor:pointer;user-select:none}
-    .suite-head::-webkit-details-marker{display:none}
-    .suite-head::before{content:'▸';color:var(--muted);font-size:13px;transition:transform .2s;margin-right:4px}
-    details[open] .suite-head::before{content:'▾'}
-    .suite-name{font:400 20px var(--font-ui);letter-spacing:.02em;color:var(--text)}
-    .suite-purpose{padding:0 22px 16px;color:var(--subtle);font-size:13px;line-height:1.5;max-width:900px}
-    .suite-meta{display:flex;gap:16px;align-items:center;font:12px var(--font-mono);color:var(--muted)}
-    .suite-meta .tag{font:10px var(--font-ui);letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border:1px solid var(--border-hi);border-radius:0}
-    .tag-ok{color:var(--green)}
-    .tag-fail{color:var(--amber)}
-
-    /* Test Table */
-    .suite-body{padding:0 22px 18px}
-    .test-table{width:100%;border-collapse:collapse;font:13px var(--font-mono);margin-top:4px}
-    .test-table th{text-align:left;color:var(--muted);font:10px var(--font-ui);font-weight:400;text-transform:uppercase;letter-spacing:.1em;padding:8px 6px 6px;border-bottom:1px solid var(--border)}
-    .test-table td{padding:8px 6px;border-bottom:1px solid var(--border);vertical-align:top}
-    .test-table tr:last-child td{border-bottom:0}
-    .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:8px;flex-shrink:0}
-    .status-dot.pass{background:var(--green)}
-    .status-dot.fail{background:var(--amber)}
-    .status-dot.skip{background:var(--dim)}
-    .test-name{display:flex;align-items:center;color:var(--text);word-break:break-word}
-    .test-duration{color:var(--muted);white-space:nowrap;text-align:right}
-    .test-error{color:var(--amber);font-size:11px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .test-help{font-family:var(--font-ui);color:var(--subtle);line-height:1.45;max-width:680px}
-
-    /* Footer & Legend */
-    .legend{display:flex;justify-content:flex-end;align-items:center;gap:14px;margin-top:18px;color:var(--muted);font:11px var(--font-ui)}
-    .legend i{width:13px;height:13px;border-radius:50%;display:inline-block}
-    .status-gauge{display:flex;gap:3px;align-items:center}
-    .status-gauge i{width:18px;height:8px;border-radius:0}
-
-    .footer{display:flex;justify-content:space-between;align-items:center;margin-top:22px;color:var(--muted);font:11px var(--font-ui)}
-    .footer a{color:var(--indigo);text-decoration:none}
-
-    .empty-state{padding:40px;text-align:center;color:var(--muted);grid-column:1/-1}
-    .empty-state h3{color:var(--text);margin:0 0 10px}
-
-    /* Test file glyphs — shared visual language with the coverage dashboard. */
-    .files-panel{margin-top:16px;border:1px solid var(--border);background:var(--bg-card)}
-    .files-panel-head{padding:14px 22px;display:flex;justify-content:space-between;align-items:center;gap:14px;border-bottom:1px solid var(--border)}
-    .files-panel-title{font:400 17px var(--font-ui);letter-spacing:.05em;color:var(--text)}
-    .files-panel-title::before{content:'▾';display:inline-block;color:var(--purple);font-size:13px;margin-right:8px}
-    .files-panel-hint{color:var(--muted);font:11px var(--font-mono)}
-    .file-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(126px,1fr));gap:20px 12px;padding:18px 22px 22px}
-    .file-tile{min-height:122px;padding:8px 8px 0;color:var(--text);background:transparent;border:0;transition:transform .15s;display:flex;flex-direction:column;align-items:center;text-align:center;cursor:pointer;font:inherit}
-    .file-tile:hover{transform:translateY(-2px)}
-    .file-tile:focus-visible{outline:2px solid var(--purple);outline-offset:4px}
-    .file-tile:hover .file-glyph,.file-tile:focus-visible .file-glyph{background:var(--tile-color);color:var(--bg-card);transform:translateY(-1px)}
-    .file-glyph{position:relative;flex:0 0 auto;width:58px;height:58px;border:1px solid var(--tile-color);border-radius:12px;background:color-mix(in srgb,var(--tile-color) 12%,transparent);margin:2px auto 12px;color:var(--tile-color);display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s,transform .15s}
-    .file-mark{font:500 12px/1 var(--font-mono);color:currentColor;letter-spacing:.02em}
-    .file-name{font:12px var(--font-mono);color:var(--text);display:block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-    .file-size{display:block;margin-top:5px;font:11px var(--font-mono);color:var(--dim)}
-    @media(max-width:560px){.file-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.file-tile{min-height:118px}.files-panel-head{align-items:flex-start;flex-direction:column;gap:3px}}
-  </style>
+  <link rel="stylesheet" href="styles-dashboard.css">
 </head>
-<body>
+<body class="e2e-dashboard">
 <div class="orb orb-1"></div>
 <div class="orb orb-2"></div>
 <div class="orb orb-3"></div>
