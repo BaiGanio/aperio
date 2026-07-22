@@ -196,22 +196,37 @@ export class PostgresStore {
     return rows[0].c;
   }
 
+  // The memory insert runs on THIS client (not this.insert(), which grabs its
+  // own autocommit connection from the pool and would commit outside this
+  // transaction) so a rollback here can't leave an orphaned promoted memory
+  // behind. `FOR UPDATE` takes the row lock at the SELECT, and the UPDATE is
+  // re-guarded by `AND status = 'pending'` with its row count checked, so a
+  // second concurrent approval of the same id blocks on the lock, then — once
+  // this transaction commits — finds the row no longer pending and fails
+  // loudly instead of silently promoting a duplicate memory.
   async approvePending(id) {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       const { rows: [row] } = await client.query(
-        `SELECT * FROM pending_memories WHERE id = $1 AND status = 'pending'`, [id]
+        `SELECT * FROM pending_memories WHERE id = $1 AND status = 'pending' FOR UPDATE`, [id]
       );
       if (!row) throw new Error(`Pending memory ${id} not found`);
-      const mem = await this.insert({
-        type: row.type, title: row.title, content: row.content,
-        tags: row.tags, importance: row.importance, tier: row.tier,
-        source: row.source, lang: row.lang, confidence: row.confidence
-      }, null);
-      await client.query(
-        `UPDATE pending_memories SET status = 'approved', reviewed_at = NOW() WHERE id = $1`, [id]
+
+      const { rows: [mem] } = await client.query(
+        `INSERT INTO memories
+           (type, title, content, tags, importance, tier, expires_at, source, embedding, lang, confidence, valid_from)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
+         RETURNING id, title`,
+        [row.type, row.title, row.content, row.tags, row.importance, row.tier,
+         null, row.source, null, row.lang, row.confidence]
       );
+
+      const { rowCount } = await client.query(
+        `UPDATE pending_memories SET status = 'approved', reviewed_at = NOW() WHERE id = $1 AND status = 'pending'`, [id]
+      );
+      if (rowCount === 0) throw new Error(`Pending memory ${id} was already reviewed`);
+
       await client.query('COMMIT');
       return { id: mem.id, title: mem.title };
     } catch (e) {
