@@ -4,6 +4,7 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { generateEmbedding, initEmbeddings, _setTransformersPipeline } from "../../../lib/helpers/embeddings.js";
+import { getEmbeddingBacklogSize } from "../../../lib/helpers/embedding-backlog.js";
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
 function withMockFetch(mockFn, testFn) {
@@ -161,6 +162,24 @@ describe("generateEmbedding — Transformers (default)", () => {
 
 // =============================================================================
 describe("initEmbeddings", () => {
+
+  test("exposes pending memory and wiki work while startup backfill is active", async () => {
+    const baseline = getEmbeddingBacklogSize();
+    let finishEmbedding;
+    const embeddingGate = new Promise(resolve => { finishEmbedding = resolve; });
+    const store = {
+      counts: async () => ({ total: 1, embedded: 0 }),
+      listWithoutEmbeddings: async () => [{ id: 1, title: "T", content: "C" }],
+      setEmbedding: async () => {},
+    };
+    await initEmbeddings(store, async () => embeddingGate);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(getEmbeddingBacklogSize(), baseline + 1);
+
+    finishEmbedding([0.1]);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(getEmbeddingBacklogSize(), baseline);
+  });
 
   test("logs ready with no memories when store is empty", async () => {
     const store = makeStore({ total: 0, embedded: 0 });
