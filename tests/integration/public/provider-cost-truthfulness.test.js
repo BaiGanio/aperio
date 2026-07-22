@@ -10,6 +10,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import vm from "node:vm";
+import { STREAMING_SCRIPTS } from "../../helpers/streamingScripts.js";
 
 class FakeClassList {
   #classes = new Set();
@@ -104,8 +105,7 @@ function loadApp() {
     readFileSync(new URL("../../../public/index.js", import.meta.url), "utf8"),
     context, { filename: "public/index.js" },
   );
-  for (const part of ["state", "handler", "roundtable", "deliverables", "badges", "tool-cards", "interrupts"]) {
-    const filename = `public/scripts/streaming/${part}.js`;
+  for (const filename of STREAMING_SCRIPTS) {
     vm.runInContext(
       readFileSync(new URL(`../../../${filename}`, import.meta.url), "utf8"),
       context, { filename },
