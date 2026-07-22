@@ -92,10 +92,10 @@ test("dashboard footers expose the Codecov link", () => {
 
 test("evaluation and tour navbars use their canonical hubs", () => {
   for (const path of htmlFiles(join(DOCS, "evaluate"))) {
-    assert.deepEqual(navbarLinks(path).slice(0, 3), ["../index.html", "../guide.html", "../guide.html#evaluate"], relative(DOCS, path));
+    assert.deepEqual(navbarLinks(path).slice(0, 3), ["../index.html", "../guides.html", "../guides.html#evaluate"], relative(DOCS, path));
   }
   for (const path of htmlFiles(join(DOCS, "tours"))) {
-    assert.deepEqual(navbarLinks(path).slice(0, 3), ["../index.html", "../guide.html", "../guide.html#tours"], relative(DOCS, path));
+    assert.deepEqual(navbarLinks(path).slice(0, 3), ["../index.html", "../guides.html", "../guides.html#tours"], relative(DOCS, path));
   }
 });
 
