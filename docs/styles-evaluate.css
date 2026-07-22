@@ -81,3 +81,11 @@
 .prompt-pair{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
 .prompt-pair .mg-prompt{margin:0}
 @media(max-width:700px){.prompt-pair{grid-template-columns:1fr}}
+
+/* ── Shared print baseline ── */
+@media print{
+  body{background:#fff;color:#000;font-size:12px}
+  h1,h2{color:#000!important}
+  .section{padding:10px 0!important}
+}
+@page{margin:1.5cm}
