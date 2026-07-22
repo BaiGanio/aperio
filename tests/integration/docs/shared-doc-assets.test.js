@@ -22,6 +22,14 @@ function navbarLinks(path) {
   return [...list.matchAll(/<a\b[^>]*href=["']([^"']+)["']/gi)].map((match) => match[1]);
 }
 
+function footerLinks(path) {
+  const html = readFileSync(path, "utf8");
+  const footer = html.match(/<footer\b[^>]*>([\s\S]*?)<\/footer>/i)?.[1]
+    || html.match(/<div\b[^>]*class=["'][^"']*footer[^"']*["'][^>]*>([\s\S]*?)<\/div>/i)?.[1]
+    || "";
+  return [...footer.matchAll(/<a\b[^>]*href=["']([^"']+)["']/gi)].map((match) => match[1]);
+}
+
 test("docs HTML contains no missing local files or fragments", () => {
   const broken = [];
   for (const source of htmlFiles()) {
@@ -64,10 +72,17 @@ test("dashboard navbars expose one canonical link set", () => {
     "unit-dashboard.html",
     "integration-dashboard.html",
     "e2e-dashboard.html",
-    "https://codecov.io/gh/BaiGanio/aperio",
   ];
   for (const name of ["coverage-dashboard.html", "e2e-dashboard.html", "integration-dashboard.html", "unit-dashboard.html", "model-tier-score-viewer.html"]) {
     assert.deepEqual(navbarLinks(join(DOCS, name)), expected, name);
+  }
+});
+
+test("dashboard footers expose the Codecov link", () => {
+  const expected = "https://codecov.io/gh/BaiGanio/aperio";
+  for (const name of ["coverage-dashboard.html", "e2e-dashboard.html", "integration-dashboard.html", "unit-dashboard.html", "model-tier-score-viewer.html"]) {
+    assert.equal(footerLinks(join(DOCS, name)).filter((href) => href === expected).length, 1, name);
+    assert.doesNotMatch(readFileSync(join(DOCS, name), "utf8").match(/<nav\b[\s\S]*?<\/nav>/i)?.[0] || "", /codecov/i, name);
   }
 });
 
