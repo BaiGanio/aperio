@@ -130,6 +130,32 @@ describe("skill matching", () => {
     assert.deepEqual(matchSkills(prompt, index), []);
   });
 
+  test("an Aperio presentation request loads pptx without memory or handoff", () => {
+    const prompt = `Write a PptxGenJS script aperio-title.js that creates aperio-title.pptx with a single title slide:
+- Layout: 16x9
+- Title: "Aperio — Personal Memory Layer for AI Agents"
+- Subtitle: "One brain. Every agent. Nothing forgotten."
+- A thin accent line centered below the title
+- Background: white
+
+Use require("pptxgenjs") (CommonJS). Save with writeFile. Print the output path to console.`;
+
+    assert.deepEqual(matchSkills(prompt, index).map(skill => skill.name), ["pptx"]);
+  });
+
+  test("natural context-rotation requests still load handoff", () => {
+    for (const prompt of [
+      "compact this conversation",
+      "please compact the current conversation",
+      "rotate the context",
+    ]) {
+      assert.ok(
+        matchSkills(prompt, index).some(skill => skill.name === "handoff"),
+        `Expected handoff to match: ${prompt}`,
+      );
+    }
+  });
+
   for (const [skillName, fixture] of Object.entries(SKILL_FIXTURES)) {
     describe(skillName, () => {
       for (const phrase of fixture.matchPhrases ?? []) {

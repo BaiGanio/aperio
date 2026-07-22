@@ -14,6 +14,34 @@
 
 ---
 
+## ⚠️ Common Hallucinated APIs — Do Not Use
+
+LLMs frequently invent PptxGenJS methods that DO NOT EXIST in any version. These will crash at runtime with `TypeError`. The only correct API is what works when you `require("pptxgenjs")` from this project's `node_modules`. Never use:
+
+| Wrong (hallucinated) | Correct (v4.x actual API, confirmed working) |
+|---|---|
+| `pres.setSlideSize("16:9")` | `pres.layout = "LAYOUT_16x9"` or `pres.defineLayout({ name: "CUSTOM", width: 13.33, height: 7.5 })` |
+| `pres.getSlides()[0]` | `let slide = pres.addSlide();` — capture the return value |
+| `slide.getBackground().solid().color("FFF")` | `slide.background = { fill: "FFFFFF" }` — plain property setter |
+| `slide.getShapes()[0]` | Track shapes via return values of `addText()` / `addShape()` |
+| `PptxGenJS.shapes.rectangle` | `pres.shapes.RECTANGLE` (all caps, on instance) or `pres.ShapeType.rect` |
+| `shape.getPr()` / `shape.getCTMer()` | All positioning goes in the options argument: `slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 0.04, fill: { color: "7C3AED" } })` |
+
+### Runtime Guard — add to every generated `.cjs` script
+
+Insert this version check right after `require` and `new` to catch wrong-API scripts early:
+
+```javascript
+const PptxGenJS = require("pptxgenjs");
+const pres = new PptxGenJS();
+// Guard: fail fast if API contract isn't met
+if (typeof pres.defineLayout !== "function") {
+  throw new Error("This script requires pptxgenjs v4+ (defineLayout missing)");
+}
+```
+
+---
+
 ## Setup & Basic Structure
 
 ```javascript

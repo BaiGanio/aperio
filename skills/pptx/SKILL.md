@@ -58,7 +58,7 @@ node scripts/unpack.js presentation.pptx unpacked/
 
 ## Creating from Scratch
 
-**Read [pptxgenjs.md](pptxgenjs.md) for full details.**
+**⚠️ MANDATORY: Read [pptxgenjs.md](pptxgenjs.md) before writing any code.** The companion file contains the exact API surface for the installed version. Do NOT guess PptxGenJS method names from training data — LLMs commonly hallucinate non-existent methods like `setSlideSize()`, `getSlides()`, `getBackground()`, `shapes.rectangle`, `getPr()`, and `getCTMer()`. These will crash at runtime. The companion file lists only methods that actually work. If you haven't read it, you haven't started.
 
 Use when no template or reference presentation is available.
 
