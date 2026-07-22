@@ -18,6 +18,72 @@ Creating a presentation always starts with `write_file`, not `run_node_script`:
 2. Only after that write succeeds, call `run_node_script` with the exact builder path you just wrote.
 3. Run the existing `skills/pptx/scripts/verify.js` and `skills/pptx/scripts/read.js` helpers against the output.
 
+## Runtime API Contract (PptxGenJS 4.0.1)
+
+This repository currently pins PptxGenJS 4.0.1. The installed package is the
+source of truth; do not infer names from generic PowerPoint, CSS, or another
+PPTX library. Before authoring a builder, run a runtime probe through
+`run_node_script` after writing the probe into the session workspace:
+
+```js
+import PptxGenJS from "pptxgenjs";
+
+const pres = new PptxGenJS();
+console.log(JSON.stringify({
+  version: pres._version,
+  layouts: Object.keys(pres.LAYOUTS),
+  hasAddSlide: typeof pres.addSlide === "function",
+  hasDefineLayout: typeof pres.defineLayout === "function",
+  hasWriteFile: typeof pres.writeFile === "function",
+  rectangle: pres.shapes?.RECTANGLE,
+  rect: pres.ShapeType?.rect,
+}));
+```
+
+The probe must report the properties used by the builder. If it does not, stop
+and inspect the installed package before writing generation code. Never repair
+an API mismatch by guessing a new property name.
+
+### Authoritative property map
+
+| Need | Use | Do not use |
+|---|---|---|
+| Slide ratio | `pres.layout = "LAYOUT_16x9"` | `PptxGenJS.layouts.*`, `pres.setSlideSize()` |
+| Custom ratio | `pres.defineLayout({ name, width, height })`, then `pres.layout = name` | `pres.slideSize = …` |
+| New slide | `const slide = pres.addSlide()` | `pres.getSlides()` |
+| Shape type | `pres.shapes.RECTANGLE` or `pres.ShapeType.rect` | `PptxGenJS.shapes.*` |
+| Shape geometry | options passed to `slide.addShape(type, { x, y, w, h, ... })` | CSS blocks or guessed shape setters |
+| Save | `await pres.writeFile({ fileName: outputPath })` | `pres.save()`, un-awaited writes |
+
+The package does not expose a static `PptxGenJS.layouts` object. `LAYOUTS` is
+an instance property. The package also does not use CSS syntax: never write
+constructs such as `presentation.slide { ... }`; use JavaScript assignments and
+method calls only.
+
+Use this smallest known-good builder shape as the starting point:
+
+```js
+import PptxGenJS from "pptxgenjs";
+
+const pres = new PptxGenJS();
+pres.layout = "LAYOUT_16x9";
+pres.author = "Aperio";
+pres.title = "Example";
+
+const slide = pres.addSlide();
+slide.background = { color: "FFFFFF" };
+slide.addText("Hello World", {
+  x: 0.5, y: 0.5, w: 9, h: 0.6,
+  fontSize: 36, bold: true, color: "1A2744", align: "center",
+});
+slide.addShape(pres.ShapeType.rect, {
+  x: 1, y: 1.4, w: 8, h: 0.04,
+  fill: { color: "7C3AED" }, line: { color: "7C3AED", transparency: 100 },
+});
+
+await pres.writeFile({ fileName: outputPath });
+```
+
 The bundled `scripts/` directory contains read/edit/pack/QA helpers, not a general presentation generator. Never guess a helper filename and never create or overwrite files under `skills/`; creation code belongs in the session workspace.
 
 ## Quick Reference

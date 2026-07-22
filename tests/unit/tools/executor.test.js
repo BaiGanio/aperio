@@ -230,6 +230,40 @@ describe("extractTextToolCall", () => {
     assert.equal(result?.name, "remember");
     assert.deepEqual(result.input, { content: "first, second", type: "fact" });
   });
+
+  test("with a known toolNames list, the kwarg fallback still recovers a real leaked call", () => {
+    const text = "<|tool_call>call: fetch_github_issue(issue_url='https://github.com/BaiGanio/aperio/issues/229')";
+    const result = extractTextToolCall(text, [], ["fetch_github_issue", "write_file"]);
+    assert.equal(result?.name, "fetch_github_issue");
+  });
+
+  // Regression: an ordinary final answer describing a PDF's page size —
+  // "...US Letter (612 × 792 points)..." — ends in a bare "Letter (...)" shape
+  // that the unbounded kwarg-style fallback used to read as a call to a tool
+  // named "Letter". That got dispatched for real and MCP correctly rejected it
+  // with -32602 "Tool Letter not found", surfacing as a confusing failed tool
+  // step glued onto an otherwise-successful answer. With a known toolNames
+  // list, an extracted name that isn't registered must not be recovered.
+  test("does NOT misread a trailing descriptive parenthetical as a tool call", () => {
+    const text =
+      "I have created the test-title.pdf artifact, adhering to the US Letter (612 × 792 points)";
+    const toolNames = ["write_file", "run_node_script", "read_file"];
+    assert.equal(extractTextToolCall(text, [], toolNames), null);
+  });
+
+  test("does NOT misread a trailing brace-style descriptive phrase as a tool call", () => {
+    const text = "The bounding box is {width: 612, height: 792}";
+    const toolNames = ["write_file", "run_node_script"];
+    assert.equal(extractTextToolCall(text, [], toolNames), null);
+  });
+
+  test("without a toolNames list (legacy callers), unbounded fallbacks are unchanged", () => {
+    // Backward compatibility: callers that don't pass toolNames keep the old,
+    // permissive behavior — this is what every pre-existing test above relies on.
+    const text = "Letter (612, 792)";
+    const result = extractTextToolCall(text, []);
+    assert.equal(result?.name, "Letter");
+  });
 });
 
 // =============================================================================
@@ -869,6 +903,11 @@ describe("findPriorToolResult", () => {
   test("returns the prior result for an identical in-turn call", () => {
     const msgs = turnWith("fetch_github_issue", { url: "u/49" }, "ISSUE BODY");
     assert.equal(findPriorToolResult(msgs, "fetch_github_issue", { url: "u/49" }), "ISSUE BODY");
+  });
+
+  test("does not replay a stateful script call after its file may have changed", () => {
+    const msgs = turnWith("run_node_script", { script: "/scratch/build.js" }, "OLD FAILURE");
+    assert.equal(findPriorToolResult(msgs, "run_node_script", { script: "/scratch/build.js" }), null);
   });
 
   test("is order-independent on argument keys", () => {
