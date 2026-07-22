@@ -110,34 +110,39 @@ function explainTest(name) {
 }
 
 // Run info
-document.querySelector('#run').innerHTML = `<strong>${data.branch || 'e2e run'}${data.commit ? ' · ' + data.commit : ''}</strong>Generated ${new Date(data.generatedAt).toLocaleString()} · ${data.total} tests · ${data.suites.length} suites`;
+document.querySelector('#run').innerHTML = data.branch
+  ? `<strong>e2e run</strong><span style="color:var(--indigo)">${escapeHtml(data.branch)}</span>@${escapeHtml(data.commit || '')} · ${escapeHtml(new Date(data.generatedAt).toLocaleString())}`
+  : '<strong>e2e run</strong>local data';
 
 // Metrics
-const passColor = data.passRate >= 100 ? 'var(--green)' : data.passRate >= 80 ? 'var(--amber)' : 'var(--amber)';
-const durationColor = 'var(--cyan)';
+const passRate = data.total > 0 ? ((data.passed / data.total) * 100).toFixed(1) : 100;
 document.querySelector('#metrics').innerHTML = `
   <article class="panel metric">
-    <h2>pass rate</h2>
-    <div class="score"><b style="color:${passColor}">${pct(data.passRate)}</b><span>${data.passed}/${data.total} tests</span></div>
-    <div class="meter"><i style="width:${data.passRate}%;background:${passColor}"></i></div>
+    <h2>Total Tests</h2>
+    <div class="score"><b>${data.total}</b></div>
   </article>
   <article class="panel metric">
-    <h2>failed</h2>
-    <div class="value" style="color:${data.failed > 0 ? 'var(--amber)' : 'var(--green)'}">${data.failed}</div>
-    <small>${data.passed} passed · ${data.skipped} skipped</small>
-    <div class="meter"><i style="width:${data.total > 0 ? (data.failed / data.total * 100).toFixed(1) : 0}%;background:var(--amber)"></i></div>
+    <h2>Passed</h2>
+    <div class="score"><b style="color:var(--green)">${data.passed}</b></div>
+    <div class="meter"><i style="width:${passRate}%;background:var(--green)"></i></div>
   </article>
   <article class="panel metric">
-    <h2>suites</h2>
-    <div class="value" style="color:var(--purple)">${data.suites.length}</div>
-    <small>${data.total} individual tests</small>
-    <div class="meter"><i style="width:${data.suites.length ? Math.min(data.suites.filter(s => s.failed === 0).length / data.suites.length * 100, 100) : 0}%;background:var(--purple)"></i></div>
+    <h2>Failed</h2>
+    <div class="score"><b style="color:var(--amber)">${data.failed}</b></div>
+    <small>${data.skipped} skipped</small>
   </article>
   <article class="panel metric">
-    <h2>duration</h2>
-    <div class="value" style="color:${durationColor}">${fmt(data.duration_ms)}</div>
+    <h2>Pass Rate</h2>
+    <div class="score"><b style="color:${data.failed === 0 ? 'var(--green)' : 'var(--amber)'}">${passRate}%</b></div>
+  </article>
+  <article class="panel metric">
+    <h2>Suites</h2>
+    <div class="score"><b style="color:var(--purple)">${data.suites.length}</b></div>
+  </article>
+  <article class="panel metric">
+    <h2>Duration</h2>
+    <div class="score"><b>${fmt(data.duration_ms)}</b></div>
     <small>total wall-clock</small>
-    <div class="meter"><i style="width:100%;background:var(--purple)"></i></div>
   </article>
 `;
 

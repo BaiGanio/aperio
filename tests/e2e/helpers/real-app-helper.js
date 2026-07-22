@@ -13,6 +13,8 @@
 //   });
 
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { request as httpRequest } from "node:http";
@@ -118,6 +120,7 @@ export function createChildStop(child, options = {}) {
  */
 export async function startRealApp(t, options = {}) {
   const { readyTimeout = READY_TIMEOUT, env = {} } = options;
+  const runtimeRoot = mkdtempSync(resolve(tmpdir(), "aperio-e2e-"));
 
   // Child process env — build from current env + overrides
   // PORT=0 by default so ensurePort() never races on a shared port.
@@ -128,12 +131,24 @@ export async function startRealApp(t, options = {}) {
     NODE_ENV: "test",
     APERIO_BENCHMARK_RUN: "1",
     ...env,
+    APERIO_E2E_ROOT: runtimeRoot,
   };
 
   const child = spawn(process.execPath, [FIXTURE], {
     stdio: ["ignore", "pipe", "pipe"],
     env: childEnv,
+    cwd: runtimeRoot,
   });
+
+  const stopChild = createChildStop(child);
+  let cleanupPromise = null;
+  const stop = () => {
+    if (cleanupPromise) return cleanupPromise;
+    cleanupPromise = stopChild().finally(() => {
+      rmSync(runtimeRoot, { recursive: true, force: true });
+    });
+    return cleanupPromise;
+  };
 
   const stdoutLines = [];
   const stderrLines = [];
@@ -159,45 +174,49 @@ export async function startRealApp(t, options = {}) {
   });
 
   // Wait for the READY line
-  const port = await new Promise((resolve, reject) => {
-    const tid = setTimeout(() => {
-      const lastLines = stdoutLines.slice(-10).join("\n");
-      reject(new Error(
-        `Real-app fixture did not produce READY within ${readyTimeout}ms.\n` +
-        `Last stdout lines:\n${lastLines}\n` +
-        `Stderr:\n${stderrLines.slice(-5).join("\n")}`
-      ));
-    }, readyTimeout);
+  let port;
+  try {
+    port = await new Promise((resolve, reject) => {
+      const tid = setTimeout(() => {
+        const lastLines = stdoutLines.slice(-10).join("\n");
+        reject(new Error(
+          `Real-app fixture did not produce READY within ${readyTimeout}ms.\n` +
+          `Last stdout lines:\n${lastLines}\n` +
+          `Stderr:\n${stderrLines.slice(-5).join("\n")}`
+        ));
+      }, readyTimeout);
 
-    const check = (chunk) => {
-      try {
-        const lines = chunk.toString().split("\n").filter(Boolean);
-        for (const line of lines) {
-          const parsed = JSON.parse(line);
-          if (parsed.type === "ready" && parsed.port) {
-            clearTimeout(tid);
-            resolve(parsed.port);
-            return;
+      const check = (chunk) => {
+        try {
+          const lines = chunk.toString().split("\n").filter(Boolean);
+          for (const line of lines) {
+            const parsed = JSON.parse(line);
+            if (parsed.type === "ready" && parsed.port) {
+              clearTimeout(tid);
+              resolve(parsed.port);
+              return;
+            }
           }
-        }
-      } catch { /* partial line — wait for more */ }
-    };
+        } catch { /* partial line — wait for more */ }
+      };
 
-    child.stdout.on("data", check);
-    child.on("exit", (code) => {
-      clearTimeout(tid);
-      reject(new Error(
-        `Fixture exited early (code ${code}) before READY\n` +
-        `Last stdout lines:\n${stdoutLines.slice(-10).join("\n")}\n` +
-        `Stderr:\n${stderrLines.slice(-5).join("\n")}`
-      ));
+      child.stdout.on("data", check);
+      child.on("exit", (code) => {
+        clearTimeout(tid);
+        reject(new Error(
+          `Fixture exited early (code ${code}) before READY\n` +
+          `Last stdout lines:\n${stdoutLines.slice(-10).join("\n")}\n` +
+          `Stderr:\n${stderrLines.slice(-5).join("\n")}`
+        ));
+      });
     });
-  });
+  } catch (err) {
+    await stop().catch(() => {});
+    throw err;
+  }
 
   // Register cleanup. Give SIGTERM a bounded grace period, then escalate and
   // continue waiting until the child has actually exited.
-  const stop = createChildStop(child);
-
   // Register test-level cleanup when a test context is provided.
   // When t is null (suite-level manual lifecycle), the caller manages cleanup.
   if (t && typeof t.after === "function") {
@@ -214,6 +233,7 @@ export async function startRealApp(t, options = {}) {
     stderr: stderrLines,
     bootingData,
     readyData,
+    runtimeRoot,
   };
 }
 

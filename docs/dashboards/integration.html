@@ -83,7 +83,6 @@ document.querySelector('#metrics').innerHTML = `
   <div class="panel metric">
     <h2>Total Tests</h2>
     <div class="score"><b>${data.total}</b></div>
-    <small style="margin-top:10px;display:block">${data.groups.length} groups · ${(data.files || []).length} files</small>
   </div>
   <div class="panel metric">
     <h2>Passed</h2>
@@ -98,7 +97,15 @@ document.querySelector('#metrics').innerHTML = `
   <div class="panel metric">
     <h2>Pass Rate</h2>
     <div class="score"><b style="color:${data.failed === 0 ? 'var(--green)' : 'var(--amber)'}">${passRate}%</b></div>
-    <small>${fmt(data.duration_ms)} total</small>
+  </div>
+  <div class="panel metric">
+    <h2>Suites</h2>
+    <div class="score"><b style="color:var(--purple)">${data.groups.length}</b></div>
+  </div>
+  <div class="panel metric">
+    <h2>Duration</h2>
+    <div class="score"><b>${fmt(data.duration_ms)}</b></div>
+    <small>total wall-clock</small>
   </div>
 `;
 

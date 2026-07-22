@@ -18,7 +18,8 @@ const outputPath = resolve(ROOT, option("--output", "docs/dashboards/unit-data.j
 async function run() {
   let data;
   try {
-    data = JSON.parse(await readFile(inputPath, "utf8"));
+    const parsed = JSON.parse(await readFile(inputPath, "utf8"));
+    data = parsed.unit || parsed;
   } catch (err) {
     throw new Error(
       `Failed to read reporter JSON from ${inputPath}: ${err.message}`

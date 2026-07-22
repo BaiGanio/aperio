@@ -52,6 +52,26 @@ test("E2E reporter includes top-level tests that are not suites", async () => {
   assert.deepEqual(result.suites[0].tests.map((item) => item.name), ["top-level chat"]);
 });
 
+test("E2E reporter includes top-level skipped tests but not skipped suites", async () => {
+  const reporter = createE2EReporter();
+  let output = "";
+  reporter.on("data", (chunk) => { output += chunk.toString(); });
+
+  reporter.write(event("test:skip", "top-level skipped", 0, 1, 0, "/repo/tests/e2e/chat.test.js", "test"));
+  reporter.write(event("test:skip", "skipped suite", 0, 2, 0, "/repo/tests/e2e/chat.test.js", "suite"));
+  reporter.end();
+  await new Promise((resolve, reject) => {
+    reporter.on("end", resolve);
+    reporter.on("error", reject);
+    reporter.resume();
+  });
+
+  const result = JSON.parse(output);
+  assert.equal(result.total, 1);
+  assert.equal(result.skipped, 1);
+  assert.deepEqual(result.suites[0].tests.map((item) => item.name), ["top-level skipped"]);
+});
+
 function event(type, name, nesting, testId, parentId, file, detailType) {
   return {
     type,
@@ -61,7 +81,9 @@ function event(type, name, nesting, testId, parentId, file, detailType) {
       testId,
       parentId,
       file,
-      details: type === "test:pass" ? { duration_ms: 5, type: detailType ?? (nesting ? "test" : "suite") } : undefined,
+      details: type === "test:pass" || type === "test:skip"
+        ? { duration_ms: 5, type: detailType ?? (nesting ? "test" : "suite") }
+        : undefined,
     },
   };
 }

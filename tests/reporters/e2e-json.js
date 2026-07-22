@@ -62,7 +62,7 @@ export function createE2EReporter() {
         }
       } else if (type === "test:skip" || type === "test:todo") {
         const nesting = data?.nesting ?? 0;
-        if (nesting >= 1) {
+        if (nesting >= 0 && data?.details?.type !== "suite") {
           counts.skipped++;
           counts.total++;
           tests.push({

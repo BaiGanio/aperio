@@ -58,23 +58,37 @@ test("nightly/full-suite job is pinned to ARM runner labels", async () => {
   assert.match(workflow, /name: Run full test suite\s+shell: bash\s+run: npm run test:ci/);
 });
 
-test("Codecov refreshes E2E dashboard without real-app tests, which remain manual", async () => {
+test("Codecov refreshes complete coverage and test dashboards", async () => {
   const coverageWorkflow = await readFile(resolve(ROOT, ".github/workflows/ci.codecov.yml"), "utf8");
   const e2eWorkflow = await readFile(resolve(ROOT, ".github/workflows/ci.e2e-real.yml"), "utf8");
   const pkg = JSON.parse(await readFile(resolve(ROOT, "package.json"), "utf8"));
 
-  assert.match(coverageWorkflow, /^  unit-tests:/m);
-  assert.match(coverageWorkflow, /npm run test:ci:unit/);
+  assert.match(coverageWorkflow, /^  coverage-tests:/m);
+  assert.match(coverageWorkflow, /npm run test:ci/);
+  assert.match(coverageWorkflow, /npm run coverage:dashboard/);
+  assert.match(coverageWorkflow, /npm run unit:dashboard/);
+  assert.match(coverageWorkflow, /npm run integration:dashboard/);
   assert.match(coverageWorkflow, /^  e2e-dashboard:/m);
   assert.match(coverageWorkflow, /npm run test:e2e:ci:dashboard/);
-  assert.match(coverageWorkflow, /needs: \[unit-tests, e2e-dashboard\]/);
+  assert.match(coverageWorkflow, /needs: \[coverage-tests, e2e-dashboard\]/);
   assert.match(e2eWorkflow, /^  workflow_dispatch:\s*$/m);
   assert.doesNotMatch(e2eWorkflow, /^  (push|pull_request|schedule):/m);
   assert.match(e2eWorkflow, /npm run test:e2e:real/);
   assert.match(e2eWorkflow, /timeout-minutes:\s*10/);
-  assert.match(pkg.scripts["test:ci:unit"], /find tests\/unit -name/);
-  assert.match(pkg.scripts["test:ci:unit"], /--test-concurrency=1/);
-  assert.match(pkg.scripts["test:e2e:ci"], /-not -name 'real-app-\*\.test\.js'/);
+
+  assert.match(pkg.scripts["test:ci"], /--reporter=lcov/);
+  assert.match(pkg.scripts["test:ci"], /find tests\/unit tests\/integration -name/);
+  assert.match(pkg.scripts["test:ci"], /ci-json\.js/);
+  assert.match(pkg.scripts["test:ci"], /test-results\.json/);
+  assert.doesNotMatch(pkg.scripts["test:ci"], /unit-json\.js|integration-json\.js/);
+  assert.match(pkg.scripts["test:unit:ci"], /find tests\/unit -name/);
+  assert.match(pkg.scripts["test:integration:ci"], /find tests\/integration -name/);
+  assert.match(pkg.scripts["test:e2e:ci"], /find tests\/e2e -name/);
+  assert.doesNotMatch(pkg.scripts["test:e2e:ci"], /-not -name/);
   assert.match(pkg.scripts["test:e2e:ci"], /e2e-results\.json/);
+  assert.equal(pkg.scripts["test:ci:unit"], "npm run test:unit:ci");
+  assert.equal(pkg.scripts["test:ci:integration"], "npm run test:integration:ci");
+  assert.equal(pkg.scripts["test:unit:dashboard"], "npm run test:unit:ci:dashboard");
+  assert.equal(pkg.scripts["test:e2e:dashboard"], "npm run test:e2e:ci:dashboard");
   assert.match(pkg.scripts["test:e2e:real"], /--test-concurrency=2/);
 });
