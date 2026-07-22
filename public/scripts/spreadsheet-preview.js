@@ -95,7 +95,10 @@ async function openGeneratedSpreadsheetModal(url, name) {
   modal.querySelector(".fpm-icon").innerHTML = '<i class="bi bi-file-earmark-spreadsheet"></i>';
   modal.querySelector(".fpm-filename").textContent = (name || "spreadsheet.xlsx").replace(/\.[^.]+$/, "");
   modal.querySelector(".fpm-ext-badge").textContent = "XLSX";
-  modal.querySelector(".fpm-frame").style.display = "none";
+  const frameEl = modal.querySelector(".fpm-frame");
+  frameEl.removeAttribute("src");
+  frameEl.removeAttribute("srcdoc");
+  frameEl.style.display = "none";
   modal.querySelector(".fpm-pre").style.display = "none";
   modal.querySelector(".fpm-view-tabs").hidden = true;
   modal.querySelector(".fpm-copy-btn").hidden = true;

@@ -741,7 +741,7 @@ describe("ToolExecutor", () => {
     let streamHandler;
 
     beforeEach(() => {
-      streamHandler = { flushRemainingTokenBuffer: mock.fn() };
+      streamHandler = { flushRemainingTokenBuffer: mock.fn(), flushBufferedContent: mock.fn() };
     });
 
     test("intercepts tool call from cleanText when no toolCalls", async () => {
@@ -757,6 +757,12 @@ describe("ToolExecutor", () => {
       const result = await executor.executeThinkingResponse("", tc, streamHandler, true);
       assert.equal(result, null);
       assert.equal(callTool.mock.calls.length, 1);
+    });
+
+    test("flushes buffered content before finalizing on toolCalls path", async () => {
+      const tc = [{ id: "tc1", name: "list_dir", args: '{"path":"."}' }];
+      await executor.executeThinkingResponse("preamble text", tc, streamHandler, true);
+      assert.equal(streamHandler.flushBufferedContent.mock.calls.length, 1);
     });
 
     test("returns validated text when no toolCalls and no interception", async () => {
@@ -803,7 +809,7 @@ describe("ToolExecutor", () => {
     let streamHandler;
 
     beforeEach(() => {
-      streamHandler = { flushRemainingTokenBuffer: mock.fn(), tokenBuffer: "buffered text" };
+      streamHandler = { flushRemainingTokenBuffer: mock.fn(), flushBufferedContent: mock.fn(), tokenBuffer: "buffered text" };
     });
 
     test("executes toolCalls when present", async () => {
@@ -811,6 +817,12 @@ describe("ToolExecutor", () => {
       const result = await executor.executeNonThinkingResponse("", tc, streamHandler);
       assert.equal(result, null);
       assert.equal(callTool.mock.calls.length, 1);
+    });
+
+    test("flushes buffered content before finalizing on toolCalls path", async () => {
+      const tc = [{ id: "t1", name: "read_file", args: "{}" }];
+      await executor.executeNonThinkingResponse("preamble text", tc, streamHandler);
+      assert.equal(streamHandler.flushBufferedContent.mock.calls.length, 1);
     });
 
     test("emits stream_end with empty on tool calls path", async () => {
