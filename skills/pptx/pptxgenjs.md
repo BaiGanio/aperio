@@ -1,4 +1,8 @@
-# PptxGenJS Tutorial
+# PptxGenJS 4.0.1 Tutorial
+
+This file documents the PptxGenJS version installed in Aperio. It is not a
+generic PowerPoint API guide. Run the runtime probe in `SKILL.md` if the
+dependency changes; the installed object wins over this document.
 
 ## Writing Scripts — Required Workflow
 
@@ -16,27 +20,29 @@
 
 ## ⚠️ Common Hallucinated APIs — Do Not Use
 
-LLMs frequently invent PptxGenJS methods that DO NOT EXIST in any version. These will crash at runtime with `TypeError`. The only correct API is what works when you `require("pptxgenjs")` from this project's `node_modules`. Never use:
+LLMs frequently invent PptxGenJS methods that DO NOT EXIST in any version. These will crash at runtime with `TypeError`. The only correct API is what works when you import `pptxgenjs` from this project's `node_modules`. Never use:
 
 | Wrong (hallucinated) | Correct (v4.x actual API, confirmed working) |
 |---|---|
+| `PptxGenJS.layouts.LAYOUT_16x9` | `pres.layout = "LAYOUT_16x9"` — `LAYOUTS` is on the instance |
 | `pres.setSlideSize("16:9")` | `pres.layout = "LAYOUT_16x9"` or `pres.defineLayout({ name: "CUSTOM", width: 13.33, height: 7.5 })` |
 | `pres.getSlides()[0]` | `let slide = pres.addSlide();` — capture the return value |
-| `slide.getBackground().solid().color("FFF")` | `slide.background = { fill: "FFFFFF" }` — plain property setter |
+| `slide.getBackground().solid().color("FFF")` | `slide.background = { color: "FFFFFF" }` — plain property setter |
 | `slide.getShapes()[0]` | Track shapes via return values of `addText()` / `addShape()` |
 | `PptxGenJS.shapes.rectangle` | `pres.shapes.RECTANGLE` (all caps, on instance) or `pres.ShapeType.rect` |
 | `shape.getPr()` / `shape.getCTMer()` | All positioning goes in the options argument: `slide.addShape(pres.ShapeType.rect, { x: 1, y: 1, w: 2, h: 0.04, fill: { color: "7C3AED" } })` |
 
-### Runtime Guard — add to every generated `.cjs` script
+### Runtime Guard — add to every generated script
 
-Insert this version check right after `require` and `new` to catch wrong-API scripts early:
+Insert this version check right after the import and constructor to catch
+wrong-API scripts early. ESM is preferred in this project:
 
 ```javascript
-const PptxGenJS = require("pptxgenjs");
+import PptxGenJS from "pptxgenjs";
 const pres = new PptxGenJS();
-// Guard: fail fast if API contract isn't met
-if (typeof pres.defineLayout !== "function") {
-  throw new Error("This script requires pptxgenjs v4+ (defineLayout missing)");
+if (!pres.LAYOUTS?.LAYOUT_16x9 || typeof pres.addSlide !== "function" ||
+    typeof pres.writeFile !== "function") {
+  throw new Error("Aperio requires the verified PptxGenJS runtime API");
 }
 ```
 
@@ -45,17 +51,17 @@ if (typeof pres.defineLayout !== "function") {
 ## Setup & Basic Structure
 
 ```javascript
-const pptxgen = require("pptxgenjs");
+import PptxGenJS from "pptxgenjs";
 
-let pres = new pptxgen();
+const pres = new PptxGenJS();
 pres.layout = 'LAYOUT_16x9';  // or 'LAYOUT_16x10', 'LAYOUT_4x3', 'LAYOUT_WIDE'
 pres.author = 'Your Name';
 pres.title = 'Presentation Title';
 
-let slide = pres.addSlide();
+const slide = pres.addSlide();
 slide.addText("Hello World!", { x: 0.5, y: 0.5, fontSize: 36, color: "363636" });
 
-pres.writeFile({ fileName: "Presentation.pptx" });
+await pres.writeFile({ fileName: "Presentation.pptx" });
 ```
 
 ## Layout Dimensions

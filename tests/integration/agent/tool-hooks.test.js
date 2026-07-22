@@ -37,7 +37,9 @@ function makeHooks({ scratch = "/scratch", onDisk = [] } = {}) {
     // verifyFileClaims uses existsSync directly to verify cited scratch paths.
     existsSync: (p) => onDisk.includes(basename(p)),
     statSync: () => ({ size: 1, isFile: () => true }),
-    readdirSync: () => onDisk,
+    readdirSync: (_path, options) => options?.withFileTypes
+      ? onDisk.map((name) => ({ name, isFile: () => true, isDirectory: () => false }))
+      : onDisk,
     copyFileSync: noop,
     basename,
     join,
@@ -118,6 +120,82 @@ describe("verifyFileClaims() — hallucination guard", () => {
     const { verifyFileClaims, events } = makeHooks({ onDisk: [] });
     verifyFileClaims("Done — the report.xlsx is available in your workspace.");
     assert.equal(warned(events), true);
+  });
+
+  // Regression: a model asked for a PPTX/PDF invents its own output folder
+  // name (observed: "outputs/deck.pptx") instead of writing a bare filename
+  // directly into scratch. A flat readdirSync never sees one level down, so
+  // the deliverable silently got no download/preview card even though the
+  // file existed and was perfectly valid — this is what surfaceScratchArtifacts
+  // and verifyFileClaims must both handle via listFilesRecursive.
+  test("surfaces a deliverable nested one directory level inside scratch", () => {
+    const scratch = "/var/scratch/session-nested";
+    const events = [];
+    const now = Date.now();
+    const tree = {
+      [join(scratch)]: [{ name: "outputs", isFile: () => false, isDirectory: () => true }],
+      [join(scratch, "outputs")]: [{ name: "deck.pptx", isFile: () => true, isDirectory: () => false }],
+    };
+    const factory = createToolHooks({
+      callTool: noop,
+      summarizeArgs: noop,
+      summarizeResult: noop,
+      getActiveScratchDir: () => scratch,
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 4096, isFile: () => true, mtimeMs: now }),
+      readdirSync: (path) => tree[path] || [],
+      copyFileSync: noop,
+      basename,
+      join,
+    });
+    const hooks = factory({ send: (e) => events.push(e) }, now);
+
+    hooks.surfaceScratchArtifacts();
+    hooks.flushDownloadCards();
+
+    const cards = events.filter((e) => e.type === "generated_file");
+    assert.equal(cards.length, 1);
+    assert.equal(cards[0].filename, "deck.pptx");
+    assert.equal(cards[0].url, `/scratch/${join("session-nested", "outputs", "deck.pptx").replace(/\\/g, "/")}`);
+  });
+
+  // Same nested-output shape, but for the hallucination guard: the model's
+  // claim must be verified as present even though it isn't a direct child of
+  // scratch, so a genuinely-created nested file is never reported as missing.
+  test("verifyFileClaims does NOT flag a claimed file nested one directory level inside scratch", () => {
+    const scratch = "/var/scratch/session-nested-2";
+    const events = [];
+    const tree = {
+      [join(scratch)]: [{ name: "outputs", isFile: () => false, isDirectory: () => true }],
+      [join(scratch, "outputs")]: [{ name: "deck.pptx", isFile: () => true, isDirectory: () => false }],
+    };
+    const factory = createToolHooks({
+      callTool: noop,
+      summarizeArgs: noop,
+      summarizeResult: noop,
+      getActiveScratchDir: () => scratch,
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 4096, isFile: () => true }),
+      readdirSync: (path) => tree[path] || [],
+      copyFileSync: noop,
+      basename,
+      join,
+    });
+    const hooks = factory({ send: (e) => events.push(e) }, Date.now());
+
+    hooks.verifyFileClaims("I generated deck.pptx for you.");
+
+    assert.equal(warned(events), false);
   });
 
   test("trusts a verified generator artifact outside scratch and preserves its real path", async () => {
@@ -341,7 +419,7 @@ describe("surfaceCodeArtifacts() — execution-aware code deliverables", () => {
   // Hooks whose scratch dir contains `onDisk` (Dirent-like) files, all modified
   // this turn. resolveScratchPath joins bare names to the scratch root so the
   // executed-script path matches what the end-of-turn scan computes.
-  function makeCodeHooks({ onDisk = [] } = {}) {
+  function makeCodeHooks({ onDisk = [], userText = "" } = {}) {
     const scratch = "/var/scratch/sess";
     const events = [];
     const factory = createToolHooks({
@@ -360,7 +438,13 @@ describe("surfaceCodeArtifacts() — execution-aware code deliverables", () => {
       copyFileSync: noop,
       basename, join,
     });
-    const hooks = factory({ send: (e) => events.push(e) }, Date.now());
+    const hooks = factory(
+      { send: (e) => events.push(e) },
+      Date.now(),
+      null,
+      null,
+      { userText },
+    );
     return { ...hooks, events };
   }
 
@@ -369,15 +453,68 @@ describe("surfaceCodeArtifacts() — execution-aware code deliverables", () => {
 
   // The developer case: "generate me a TypeScript file." Written, never run.
   test("surfaces a code file written but never executed (the deliverable)", () => {
-    const { flushDownloadCards, events } = makeCodeHooks({ onDisk: ["widget.ts", "Service.cs"] });
+    const { flushDownloadCards, events } = makeCodeHooks({
+      onDisk: ["widget.ts", "Service.cs"],
+      userText: "Generate widget.ts and Service.cs for me.",
+    });
     flushDownloadCards();
     assert.deepEqual(cardNames(events), ["Service.cs", "widget.ts"]);
+  });
+
+  // Regression: session 0005bfd2 wrote create-deck.js during a PPTX request,
+  // then stopped before executing it. The unfinished generator is not the
+  // requested deliverable and must never be surfaced as the result.
+  test("does NOT surface an unexecuted generator for a PPTX request", () => {
+    const { flushDownloadCards, events } = makeCodeHooks({
+      onDisk: ["create-deck.js"],
+      userText: "Create aperio-title.pptx with a single 16x9 title slide.",
+    });
+    flushDownloadCards();
+    assert.equal(cardNames(events).length, 0);
+  });
+
+  test("tells the model to execute a script written for a PPTX request", async () => {
+    const { callToolHooked } = makeCodeHooks({
+      onDisk: ["create-deck.js"],
+      userText: "Create aperio-title.pptx with a single 16x9 title slide.",
+    });
+    const result = await callToolHooked("write_file", {
+      path: "create-deck.js",
+      content: "console.log('build deck')",
+    });
+    assert.match(result, /intermediate generator/i);
+    assert.match(result, /run_node_script/i);
+    assert.match(result, /verify/i);
+  });
+
+  test("does not label a requested code file as an intermediate generator", async () => {
+    const { callToolHooked } = makeCodeHooks({
+      onDisk: ["build.js"],
+      userText: "Create build.js for me.",
+    });
+    const result = await callToolHooked("write_file", {
+      path: "build.js",
+      content: "console.log('hello')",
+    });
+    assert.doesNotMatch(result, /intermediate generator/i);
+  });
+
+  test("does NOT surface an unexecuted code file without explicit code intent", () => {
+    const { flushDownloadCards, events } = makeCodeHooks({
+      onDisk: ["build.py"],
+      userText: "Generate a polished PDF report.",
+    });
+    flushDownloadCards();
+    assert.equal(cardNames(events).length, 0);
   });
 
   // The generator case: a .js the model RUNS to build a PDF must not be offered
   // as the result — execution, not extension, is what excludes it.
   test("does NOT surface a script the model executed this turn", async () => {
-    const { callToolHooked, flushDownloadCards, events } = makeCodeHooks({ onDisk: ["build.js"] });
+    const { callToolHooked, flushDownloadCards, events } = makeCodeHooks({
+      onDisk: ["build.js"],
+      userText: "Create build.js for me.",
+    });
     await callToolHooked("run_node_script", { script: "build.js" });
     flushDownloadCards();
     assert.equal(cardNames(events).length, 0);
@@ -386,7 +523,10 @@ describe("surfaceCodeArtifacts() — execution-aware code deliverables", () => {
   // Mixed turn: the executed generator is excluded, a non-executed code file is
   // still surfaced.
   test("excludes executed generators but keeps non-executed code", async () => {
-    const { callToolHooked, flushDownloadCards, events } = makeCodeHooks({ onDisk: ["build.js", "helper.ts"] });
+    const { callToolHooked, flushDownloadCards, events } = makeCodeHooks({
+      onDisk: ["build.js", "helper.ts"],
+      userText: "Create a TypeScript helper and its JavaScript build script.",
+    });
     await callToolHooked("run_node_script", { script: "build.js" });
     flushDownloadCards();
     assert.deepEqual(cardNames(events), ["helper.ts"]);

@@ -1,6 +1,6 @@
 import { z }            from "zod";
 import { spawn }         from "child_process";
-import { dirname, resolve as resolvePath, extname, sep } from "path";
+import { basename, dirname, resolve as resolvePath, extname, sep } from "path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync } from "fs";
 import { isWritePathAllowed, isReadPathAllowed, getActivePaths, getActiveScratchDir } from "../../lib/routes/paths.js";
 import { pythonInterpreter } from "../../lib/helpers/capabilities.js";
@@ -99,6 +99,41 @@ function formatPathError(scriptPath) {
       text: `❌ Script not allowed: ${scriptPath}\nAllowed paths: ${writePaths.join(", ")}`,
     }],
   };
+}
+
+// Some local models copy the documented CLI form into the structured tool
+// call, putting the verifier's argument after the script path in `script`:
+//   { script: "/.../verify.js /.../deck.pptx" }
+// Recover this only when the prefix is an existing .js file. Normal calls
+// should use the separate `args` array.
+function recoverInlineNodeArgs(script) {
+  if (typeof script !== "string" || extname(script).toLowerCase() === ".js") return null;
+  for (const match of script.matchAll(/\.js(?=\s|$)/gi)) {
+    const candidate = script.slice(0, match.index + 3).trim();
+    const remainder = script.slice(match.index + 3).trim();
+    if (!remainder || !existsSync(resolvePath(candidate))) continue;
+    logger.warn(`[run_node_script] recovered inline args from script field; use args[] for ${candidate}`);
+    return { script: candidate, args: remainder.split(/\s+/) };
+  }
+  return null;
+}
+
+// run_node_script pins cwd to the session workspace. Weak models sometimes
+// still pass a project-looking relative artifact path such as
+// `var/scratch/output.pptx`; inside the child that becomes the duplicated
+// `<session>/var/scratch/output.pptx`. Rebase only this known shorthand, only
+// when a same-named file already exists directly in cwd. Absolute paths and all
+// other arguments remain byte-for-byte unchanged.
+function normalizeScratchArtifactArgs(args, cwd) {
+  return args.map(value => {
+    if (typeof value !== "string") return value;
+    const normalized = value.replace(/\\/g, "/");
+    if (!/^(?:\.\/)?var\/scratch\//i.test(normalized)) return value;
+    const candidate = resolvePath(cwd, basename(normalized));
+    if (!existsSync(candidate)) return value;
+    logger.warn(`[run_node_script] rebased scratch artifact arg ${value} -> ${candidate}`);
+    return candidate;
+  });
 }
 
 // Aperio's project root is `"type": "module"`, so Node treats every `.js` file
@@ -203,6 +238,8 @@ function collectOutput(child, label) {
 }
 
 export async function runNodeScriptHandler({ script, args = [] }) {
+  const recovered = recoverInlineNodeArgs(script);
+  if (recovered) ({ script, args } = recovered);
   if (extname(script).toLowerCase() !== ".js") {
     logger.warn(`[run_node_script] rejected non-.js path: ${script}`);
     return { content: [{ type: "text", text: `❌ Only .js scripts are allowed` }] };
@@ -227,6 +264,7 @@ export async function runNodeScriptHandler({ script, args = [] }) {
   // land there (served via /scratch) rather than inside the skill's own folder.
   // Scripts always know their own directory via import.meta.url / __dirname.
   const cwd = getActiveScratchDir() ?? dirname(resolved);
+  args = normalizeScratchArtifactArgs(args, cwd);
   const { runTarget, cleanup } = prepareNodeTarget(resolved);
   logger.info(`[run_node_script] start ${resolved} cwd=${cwd} args=${JSON.stringify(args)}`);
 

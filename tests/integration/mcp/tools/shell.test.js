@@ -102,6 +102,30 @@ describe("runNodeScriptHandler", () => {
     assert.ok(r.content[0].text.includes("✅ Exit 0"));
     assert.ok(r.content[0].text.includes("hello from node"));
   });
+
+  test("recovers CLI-style verifier args accidentally folded into script", async () => {
+    spawnCalls = [];
+    _spawnImpl = () => createMockChild({ exitCode: 0, stdout: "verified" });
+    const output = tmpPath("aperio-title.pptx");
+    const r = await shell.runNodeScriptHandler({ script: `${script} ${output}` });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"));
+    assert.deepEqual(spawnCalls.at(-1)[1].slice(1), [output]);
+  });
+
+  // Regression: session 0cef2a8c passed a project-looking relative path while
+  // the helper already ran with the session workspace as cwd. Without repair,
+  // verify.js looked under <session>/var/scratch/... instead of beside the deck.
+  test("rebases var/scratch artifact args onto the active script workspace", async () => {
+    spawnCalls = [];
+    _spawnImpl = () => createMockChild({ exitCode: 0, stdout: "verified" });
+    const output = writeTmp("aperio-bullets.pptx", "pptx bytes");
+    const r = await shell.runNodeScriptHandler({
+      script,
+      args: ["var/scratch/aperio-bullets.pptx"],
+    });
+    assert.ok(r.content[0].text.includes("✅ Exit 0"));
+    assert.deepEqual(spawnCalls.at(-1)[1].slice(1), [output]);
+  });
 });
 
 // =============================================================================
