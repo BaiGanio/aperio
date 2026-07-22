@@ -21,6 +21,8 @@ const deps = {
   _handlePdf:   mockHandlePdf,
   _handleDocx:  mockHandleDocx,
   _handlePptx:  mockHandlePptx,
+  storageDir:   "/srv/app/var/scratch/session-123/attachments",
+  urlBase:      "/scratch/session-123/attachments",
 };
 
 function resetAll() {
@@ -58,6 +60,8 @@ describe("processAttachments", () => {
 
     assert.equal(mockHandleImage.mock.calls.length, 1);
     assert.equal(mockHandleText.mock.calls.length, 0);
+    assert.equal(mockHandleImage.mock.calls[0].arguments[2].uploadDir, deps.storageDir);
+    assert.equal(mockHandleImage.mock.calls[0].arguments[2].urlBase, deps.urlBase);
   });
 
   test("routes all image extensions to handleImage", async () => {
@@ -81,6 +85,8 @@ describe("processAttachments", () => {
     await processAttachments([att("doc.pdf")], DIR, deps);
 
     assert.equal(mockHandlePdf.mock.calls.length, 1);
+    assert.equal(mockHandlePdf.mock.calls[0].arguments[2], deps.storageDir);
+    assert.equal(mockHandlePdf.mock.calls[0].arguments[3].urlBase, deps.urlBase);
   });
 
   test("routes .docx to handleDocx", async () => {

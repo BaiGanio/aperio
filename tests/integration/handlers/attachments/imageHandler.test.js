@@ -19,6 +19,7 @@ const mockGenerateThumbnail = mock.fn(async () => "dGh1bWJuYWls");
 
 const deps = {
   uploadDir:          mem.root,
+  urlBase:            "/scratch/session-123/attachments",
   _preprocessBase64:  mockPreprocessBase64,
   _generateThumbnail: mockGenerateThumbnail,
 };
@@ -117,6 +118,14 @@ describe("handleImage", () => {
     const result = await handleImage(makeAtt(), "photo.jpg", deps);
 
     assert.equal(result.meta.type, "image/png");
+  });
+
+  test("meta.url points at the owning session scratch directory", async () => {
+    reset();
+    const result = await handleImage(makeAtt(), "photo.jpg", deps);
+
+    assert.match(result.meta.url, /^\/scratch\/session-123\/attachments\/aperio_.+\.png$/);
+    assert.ok(!result.meta.url.startsWith("/uploads/"));
   });
 
   test("returns empty blocks and error hint when preprocessBase64 throws", async () => {

@@ -415,6 +415,37 @@ describe("POST /artifact/reveal", () => {
   });
 });
 
+describe("GET /artifact/preview", () => {
+  test("returns a bounded spreadsheet preview for the generated artifact URL", async () => {
+    const calls = [];
+    const preview = {
+      path: "/repo/var/scratch/session-123/table.xlsx",
+      sheets: [{ name: "Expenses", rowCount: 2, columnCount: 2, rows: [] }],
+    };
+    const router = makeRouter({}, {}, {}, {
+      previewArtifact: async url => { calls.push(url); return preview; },
+    });
+    const { status, body } = await invoke(router, "GET", "/artifact/preview", {
+      query: { url: "/scratch/session-123/table.xlsx" },
+    });
+    assert.equal(status, 200);
+    assert.deepEqual(body, preview);
+    assert.deepEqual(calls, ["/scratch/session-123/table.xlsx"]);
+  });
+
+  test("preserves preview validation errors", async () => {
+    const error = Object.assign(new Error("Only .xlsx artifacts can be previewed."), { status: 415 });
+    const router = makeRouter({}, {}, {}, {
+      previewArtifact: async () => { throw error; },
+    });
+    const { status, body } = await invoke(router, "GET", "/artifact/preview", {
+      query: { url: "/uploads/report.pdf" },
+    });
+    assert.equal(status, 415);
+    assert.match(body.error, /xlsx/i);
+  });
+});
+
 // =============================================================================
 // GET /files
 // =============================================================================

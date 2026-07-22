@@ -119,6 +119,49 @@ describe("verifyFileClaims() — hallucination guard", () => {
     verifyFileClaims("Done — the report.xlsx is available in your workspace.");
     assert.equal(warned(events), true);
   });
+
+  test("trusts a verified generator artifact outside scratch and preserves its real path", async () => {
+    const scratch = "/var/scratch/session-1";
+    const generatedPath = "/repo/var/uploads/93722e91-test-expenses.xlsx";
+    const events = [];
+    const factory = createToolHooks({
+      callTool: async () => `APERIO_FILE:${JSON.stringify({
+        filename: "test-expenses.xlsx",
+        url: "/uploads/93722e91-test-expenses.xlsx",
+        sizeKb: "6.9",
+        path: generatedPath,
+      })}`,
+      summarizeArgs: () => "test-expenses.xlsx",
+      summarizeResult: () => ({ ok: true, summary: "created" }),
+      getActiveScratchDir: () => scratch,
+      resolveScratchPath: p => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: p => p === generatedPath,
+      statSync: () => ({ size: 7066, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename,
+      join,
+    });
+    const hooks = factory({ send: event => events.push(event) }, Date.now());
+
+    const result = await hooks.callToolHooked("generate_xlsx", { filename: "trash/test-expenses.xlsx" });
+    hooks.verifyFileClaims("Created test-expenses.xlsx successfully.");
+    hooks.flushDownloadCards();
+
+    assert.match(result, new RegExp(generatedPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.equal(warned(events), false);
+    assert.deepEqual(events.find(event => event.type === "generated_file"), {
+      type: "generated_file",
+      filename: "test-expenses.xlsx",
+      url: "/uploads/93722e91-test-expenses.xlsx",
+      sizeKb: "6.9",
+      path: generatedPath,
+    });
+  });
 });
 
 describe("surfaceArtifact() — download-card filtering", () => {

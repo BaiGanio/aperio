@@ -155,6 +155,17 @@ describe("handlePdf", () => {
     assert.ok(filePath.endsWith(".pdf"));
   });
 
+  test("scanned PDF URL uses the supplied scratch URL base", async () => {
+    setExtractResult({ type: "scanned", text: "", pageCount: 1, scannedPages: [1] });
+    const result = await handlePdf(makeAtt(), "scan.pdf", "/tmp/scratch/attachments", {
+      ...deps,
+      urlBase: "/scratch/session-123/attachments",
+    });
+
+    assert.match(result.meta.url, /^\/scratch\/session-123\/attachments\/.+\.pdf$/);
+    assert.ok(!result.meta.url.startsWith("/uploads/"));
+  });
+
   test("meta.name and meta.type are set on success", async () => {
     setExtractResult({ type: "text", text: "content" });
     const result = await handlePdf(makeAtt(), "report.pdf", "/tmp/uploads", deps);

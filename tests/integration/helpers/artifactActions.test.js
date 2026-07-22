@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { tmpdir } from "node:os";
 
 import {
+  resolveGeneratedArtifactUrl,
   resolveScratchArtifactUrl,
   revealScratchArtifact,
 } from "../../../lib/helpers/artifactActions.js";
@@ -15,12 +16,32 @@ function fixture() {
   mkdirSync(folder, { recursive: true });
   const file = join(folder, "hello world.html");
   writeFileSync(file, "<!doctype html><title>Hello</title>");
+  const uploads = join(root, "var", "uploads");
+  mkdirSync(uploads, { recursive: true });
+  const upload = join(uploads, "93722e91-table.xlsx");
+  writeFileSync(upload, "xlsx");
   return {
     root,
     folder: realpathSync(folder),
     file: realpathSync(file),
+    upload: realpathSync(upload),
   };
 }
+
+describe("resolveGeneratedArtifactUrl", () => {
+  test("accepts both session scratch and generated upload URLs", () => {
+    const { root, file, upload } = fixture();
+    assert.equal(resolveGeneratedArtifactUrl("/scratch/session-1/hello%20world.html", root), file);
+    assert.equal(resolveGeneratedArtifactUrl("/uploads/93722e91-table.xlsx", root), upload);
+  });
+
+  test("keeps uploads traversal and nested paths outside the artifact boundary", () => {
+    const { root } = fixture();
+    for (const url of ["/uploads/../package.json", "/uploads/%2e%2e/package.json", "/uploads/nested/file.xlsx"]) {
+      assert.throws(() => resolveGeneratedArtifactUrl(url, root), /invalid|outside/i, url);
+    }
+  });
+});
 
 describe("resolveScratchArtifactUrl", () => {
   test("maps an encoded scratch URL to an existing generated file", () => {
