@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+<meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Aperio | Code Graph — Code Navigation Tests</title>
+<meta name="description" content="Ten tests that probe whether the model correctly uses code navigation tools — code_repos, code_search, code_outline, code_context, code_callers, and code_callees — to find symbols, understand relationships, and assess change impact without reading whole files." />
+<link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" />
+<link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+<style>
+.mg-prompt{background:var(--bg-raised);border:1px solid var(--border);padding:18px 20px;margin:14px 0;font-size:.88rem;line-height:1.7;white-space:pre-wrap;word-break:break-word;position:relative}.mg-prompt-label{font-family:var(--font-ui);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;opacity:.5;display:block;margin-bottom:8px}.mg-prompt code{font-size:.82rem}.setup-box{background:var(--bg-raised);border:1px solid var(--border);padding:18px 22px;margin:16px 0}.setup-box pre{margin:8px 0 0 0;font-size:.85rem}
+@media print{.orb,.aperio-nav,.theme-switcher,.nav-toggle,footer,.btn-print,.test-result,.rbtn,.section:not(#scorecard):not(#results),.mt-next,.rt-badge{display:none!important}.scorecard,.scorecard thead th,.scorecard tbody td,.scorecard tfoot td{border-color:#ccc!important;color:#000!important}.sc-badge{border:1px solid #999;color:#000!important;background:none!important}.results-tier .rt-card{border:1px solid #999}.rt-card.pulse{animation:none}}
+</style>
+</head>
+<body>
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+
+<nav class="aperio-nav"><div class="nav-inner">
+<a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+<button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+<ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="../guide.html">Guide</a></li><li><a href="../guide.html#evaluate">Evaluate</a></li><li><a href="#suite">Tests</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li></ul>
+<div class="theme-switcher" id="themeSwitcher">
+<button class="theme-btn active" data-theme="dark" title="Dark">🌙</button>
+<button class="theme-btn" data-theme="light" title="Light">☀️</button>
+<button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
+<button class="theme-btn" data-theme="system" title="System">⊙</button>
+</div>
+</div></nav>
+
+<section class="section" id="cg-top" style="padding:120px 0 30px"><div class="section-inner">
+<a href="../index.html" class="mt-back reveal"><i class="bi bi-arrow-left"></i> Aperio Home</a>
+<a href="../guide.html#evaluate" class="mt-back reveal" style="margin-left:12px"><i class="bi bi-arrow-left"></i> All Suites</a>
+<div class="eyebrow reveal" style="margin-top:18px">Code Graph Evaluation</div>
+<h1 class="section-heading reveal">Code Navigation &amp; Understanding</h1>
+<p class="lead-text reveal">Ten tests that probe whether the model correctly uses code navigation tools — <code>code_repos</code>, <code>code_search</code>, <code>code_outline</code>, <code>code_context</code>, <code>code_callers</code>, and <code>code_callees</code> — to find symbols, understand relationships, and assess change impact without reading whole files. Unlike the Coding Assistant suite (which tests <em>writing</em> code), this tests <em>reading/understanding</em> an existing codebase.</p>
+<p class="reveal" style="margin-top:12px;opacity:.75;">Observation-based tests. Paste the prompt, watch which tools the model calls and whether it correctly interprets the results. The verify step is the model's own response — did it find the right symbol, identify the correct callers, and give an accurate answer about the code?</p>
+</div></section>
+
+<section class="section" id="setup" style="padding:20px 0"><div class="section-inner">
+<h2 class="reveal">Setup</h2>
+<p class="reveal mg-desc">The Aperio codebase must be indexed. Start the server with code graph enabled, then paste prompts into a chat session.</p>
+<div class="setup-box reveal"><pre><code>APERIO_CODEGRAPH=on npm run start:local
+# Index the repo:
+node lib/codegraph/indexer.js /path/to/aperio
+# In another terminal:
+npm run chat:local</code></pre></div>
+<p class="reveal" style="margin-top:12px;font-size:.9rem;opacity:.7;">These tests assume the Aperio repo itself is indexed. Run the indexer before starting. Tasks reference real symbols in the Aperio codebase (<code>lib/agent/index.js</code>, <code>server.js</code>, etc.).</p>
+</div></section>
+
+<section class="section" id="suite" style="padding:20px 0"><div class="section-inner">
+<h2 class="reveal">The Tests</h2>
+
+<!-- TASK 1: code_repos -->
+<div class="test-card reveal" id="task1">
+<span class="test-label">Task 1 — List Repos</span>
+<h3>What's Indexed <span class="diff-badge diff-easy">★☆☆☆☆</span></h3>
+<p class="test-probes">Probes: calls code_repos, correctly reads results, answers from tool data not training memory</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>What code repositories does the code graph have indexed right now? Use the code graph tools, not your training data.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does the model call <code>code_repos</code> (not guess from training data)?</li>
+<li>Does it correctly list the repo name(s) and root path(s)?</li>
+<li>If the index is empty, does it say so honestly?</li>
+</ul>
+<div class="test-result" data-test="1"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+
+<!-- TASK 2: code_search -->
+<div class="test-card reveal" id="task2">
+<span class="test-label">Task 2 — Find a Function</span>
+<h3>Symbol Search <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+<p class="test-probes">Probes: calls code_search with a relevant query, picks the right result from the list</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Find the function in the Aperio codebase that handles the MCP "recall" tool. Search the code graph for it — don't read whole files.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does the model call <code>code_search</code> with a relevant query (e.g., "recall")?</li>
+<li>Does it pick the correct result from the list (not just the first one)?</li>
+<li>Does the answer reference the correct file path (likely in <code>mcp/tools/</code>)?</li>
+</ul>
+<div class="test-result" data-test="2"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+
+<!-- TASK 3: code_context -->
+<div class="test-card reveal" id="task3">
+<span class="test-label">Task 3 — Read a Symbol</span>
+<h3>Source Slice <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+<p class="test-probes">Probes: calls code_context with a qualified name, displays the source, adds padding</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Show me the source code of the function that starts the Aperio HTTP server. Use the code graph to find it and read just that function — no full file reads.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does the model call <code>code_search</code> then <code>code_context</code> with the qualified name?</li>
+<li>Does the source slice include the function signature and body?</li>
+<li>Does it add context padding (at least 2 lines above/below) for readability?</li>
+<li>Does it avoid reading the entire file?</li>
+</ul>
+<div class="test-result" data-test="3"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+
+<!-- TASK 4: code_outline -->
+<div class="test-card reveal" id="task4">
+<span class="test-label">Task 4 — File Outline</span>
+<h3>Get the Structure of a File <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+<p class="test-probes">Probes: calls code_outline, correctly lists symbols and their kinds</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>What symbols are exported from the MCP index file? Outline the server.js file using the code graph.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does the model call <code>code_outline</code> on the correct file?</li>
+<li>Does the outline list symbols with their kinds (function, class, const, export)?</li>
+<li>Are functions listed with their line ranges?</li>
+<li>Does the answer give a useful summary of the file structure?</li>
+</ul>
+<div class="test-result" data-test="4"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+
+<!-- TASK 5: code_callers -->
+<div class="test-card reveal" id="task5">
+<span class="test-label">Task 5 — Find Callers</span>
+<h3>Who Calls This Function? <span class="diff-badge diff-med">★★★☆☆</span></h3>
+<p class="test-probes">Probes: calls code_callers, correctly identifies calling functions</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>I'm thinking of changing the signature of the function that starts the Aperio server. Before I do, find out what calls it using the code graph — I need to know who's affected.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does the model call <code>code_callers</code> with the correct qualified name?</li>
+<li>Does it list caller functions with file paths and line numbers?</li>
+<li>Does it give a clear answer about the blast radius?</li>
+<li>If depth is limited, does it mention the limitation?</li>
+</ul>
+<div class="test-result" data-test="5"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+
+<!-- TASK 6: code_callees -->
+<div class="test-card reveal" id="task6">
+<span class="test-label">Task 6 — Find Callees</span>
+<h3>What Does This Call? <span class="diff-badge diff-med">★★★☆☆</span></h3>
+<p class="test-probes">Probes: calls code_callees, traces internal dependencies</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Show me what internal functions the MCP tool handler calls. Use the code graph to trace its dependencies — I want to understand what it delegates to.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does the model search → context → call <code>code_callees</code> on the right symbol?</li>
+<li>Does it list each callee with file path and line number?</li>
+<li>Does it distinguish internal vs external calls?</li>
+<li>Does it summarize what the function depends on?</li>
+</ul>
+<div class="test-result" data-test="6"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+
+<!-- TASK 7: Multi-Step Flow -->
+<div class="test-card reveal" id="task7">
+<span class="test-label">Task 7 — Impact Analysis</span>
+<h3>Trace a Request from Entry to Handler <span class="diff-badge diff-hard">★★★★☆</span></h3>
+<p class="test-probes">Probes: search → context → callers → callees chain, multi-hop reasoning</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>I need to understand what happens when a user sends a "remember" request in the chat. Trace the full execution path using the code graph — find the handler, show what it calls, and show what calls it. Walk me through the chain from entry point to data store.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does the model chain multiple tools: search → context → callers → callees?</li>
+<li>Does it correctly trace the path (e.g., chat endpoint → handler → store)?</li>
+<li>Does each hop use the correct qualified name with repo prefix?</li>
+<li>Does it summarize the full execution chain clearly?</li>
+</ul>
+<div class="test-result" data-test="7"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+
+<!-- TASK 8: Repo-Qualified Names -->
+<div class="test-card reveal" id="task8">
+<span class="test-label">Task 8 — Qualified Names</span>
+<h3>Correct Repo Resolution <span class="diff-badge diff-med">★★★☆☆</span></h3>
+<p class="test-probes">Probes: uses qualified names verbatim, passes repo to follow-up tools, avoids cross-repo confusion</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Find the function called "runAgent" in the indexed repos. Show me its source and tell me which repo and file it's in. Use the code graph — don't guess.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does the model use the qualified name from code_search verbatim?</li>
+<li>Does it pass <code>repo</code> to follow-up tools (code_context)?</li>
+<li>Does it correctly identify the repo and file path?</li>
+<li>Does it avoid guessing the repo from the path alone?</li>
+</ul>
+<div class="test-result" data-test="8"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+
+<!-- TASK 9: Depth-Limited Call Graph -->
+<div class="test-card reveal" id="task9">
+<span class="test-label">Task 9 — Transitive Callers</span>
+<h3>Multi-Hop Dependency Check <span class="diff-badge diff-hard">★★★★☆</span></h3>
+<p class="test-probes">Probes: depth parameter, transitive caller resolution, summary without explosion</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Find a frequently-called utility function in the codebase (like a logging helper or error formatter), then trace its callers up to 2 levels deep. I want to know who ultimately depends on it. Use the code graph with depth control.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does the model use a <code>depth</code> parameter (≥2) on code_callers?</li>
+<li>Does it summarize the transitive call graph without dumping raw output?</li>
+<li>Does it handle the potentially large result set gracefully?</li>
+<li>Does it correctly identify the utility function first?</li>
+</ul>
+<div class="test-result" data-test="9"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+
+<!-- TASK 10: Stale Index -->
+<div class="test-card reveal" id="task10">
+<span class="test-label">Task 10 — Edge Cases</span>
+<h3>Stale Index &amp; Missing Symbols <span class="diff-badge diff-hard">★★★★★</span></h3>
+<p class="test-probes">Probes: handles stale index gracefully, falls back to file reads when needed, reports honestly</p>
+<div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Search the code graph for a symbol that probably doesn't exist — like "nonexistentFunction123". If it's not found, try to find it by searching for "imaginaryUtility" as well. Tell me honestly what you find. Then, search for a function you know exists (like the main server start function) to confirm the index is working.</div>
+<span class="test-label" style="margin-top:18px">What to evaluate</span>
+<ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+<li>Does it search for the nonexistent symbol and report honestly "not found"?</li>
+<li>Does it avoid hallucinating a result?</li>
+<li>Does it gracefully handle the missing symbol without erroring out?</li>
+<li>Does it then succeed on a known-good search to confirm the index works?</li>
+<li>If the index is stale, does it recognize and report the situation?</li>
+</ul>
+<div class="test-result" data-test="10"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+</div>
+</div></section>
+
+<section class="section" id="rubric" style="padding:20px 0"><div class="section-inner">
+<h2 class="reveal">Scoring Rubric</h2>
+<table class="scoring-table"><thead><tr><th>Signal</th><th>0 = fail</th><th>1 = pass</th></tr></thead>
+<tbody>
+<tr><td>Called code graph tools</td><td>guessed from training data, read full files, used grep</td><td>code_repos / search / context / callers / callees</td></tr>
+<tr><td>Used qualified names correctly</td><td>reconstructed by hand, didn't pass repo, wrong format</td><td>verbatim qualified name, repo parameter passed</td></tr>
+<tr><td>Returned accurate information</td><td>hallucinated symbol locations, wrong file paths</td><td>correct file, correct symbol, correct callers</td></tr>
+<tr><td>Chained tools appropriately</td><td>did one search and stopped; missed follow-up</td><td>search → context → callers typical flow completed</td></tr>
+<tr><td>Handled missing/stale gracefully</td><td>hallucinated results for missing symbols</td><td>"not found" honestly, suggested reindex</td></tr>
+</tbody></table>
+</div></section>
+
+<section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Click Pass/Fail as you observe each test.</p>
+<div class="reveal" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+<label style="font-size:.9rem;"><strong>Model:</strong> <input type="text" id="modelName" placeholder="e.g. Gemma 4 12B" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:200px;"></label>
+<label style="font-size:.9rem;"><strong>Date:</strong> <input type="text" id="testDate" placeholder="e.g. 2026-07-22" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label>
+</div>
+<div class="scorecard-wrap reveal"><div class="print-bar"><button class="btn-print" onclick="window.print()"><i class="bi bi-printer"></i> Print Scorecard</button></div>
+<table class="scorecard" id="scorecardTable">
+<thead><tr><th style="width:55%">Test</th><th style="width:20%">Result</th><th style="width:25%">Notes</th></tr></thead>
+<tbody>
+<tr data-test="1"><td class="sc-test">1. List Repos</td><td class="sc-result" id="sr-1"><span class="sc-badge sc-empty">—</span></td><td id="sn-1"></td></tr>
+<tr data-test="2"><td class="sc-test">2. Find a Function</td><td class="sc-result" id="sr-2"><span class="sc-badge sc-empty">—</span></td><td id="sn-2"></td></tr>
+<tr data-test="3"><td class="sc-test">3. Source Slice</td><td class="sc-result" id="sr-3"><span class="sc-badge sc-empty">—</span></td><td id="sn-3"></td></tr>
+<tr data-test="4"><td class="sc-test">4. File Outline</td><td class="sc-result" id="sr-4"><span class="sc-badge sc-empty">—</span></td><td id="sn-4"></td></tr>
+<tr data-test="5"><td class="sc-test">5. Find Callers</td><td class="sc-result" id="sr-5"><span class="sc-badge sc-empty">—</span></td><td id="sn-5"></td></tr>
+<tr data-test="6"><td class="sc-test">6. Find Callees</td><td class="sc-result" id="sr-6"><span class="sc-badge sc-empty">—</span></td><td id="sn-6"></td></tr>
+<tr data-test="7"><td class="sc-test">7. Impact Analysis Chain</td><td class="sc-result" id="sr-7"><span class="sc-badge sc-empty">—</span></td><td id="sn-7"></td></tr>
+<tr data-test="8"><td class="sc-test">8. Qualified Names</td><td class="sc-result" id="sr-8"><span class="sc-badge sc-empty">—</span></td><td id="sn-8"></td></tr>
+<tr data-test="9"><td class="sc-test">9. Transitive Callers</td><td class="sc-result" id="sr-9"><span class="sc-badge sc-empty">—</span></td><td id="sn-9"></td></tr>
+<tr data-test="10"><td class="sc-test">10. Stale Index Handling</td><td class="sc-result" id="sr-10"><span class="sc-badge sc-empty">—</span></td><td id="sn-10"></td></tr>
+</tbody>
+<tfoot><tr><td colspan="3" id="sc-total">TOTAL: ____ / 10 passed</td></tr></tfoot>
+</table>
+<div class="score-feedback" id="scoreFeedback"></div>
+<div class="reveal" style="margin-top:18px;background:rgba(127,127,127,.06);border:1px solid rgba(127,127,127,.14);padding:18px 22px;">
+<strong style="font-size:.9rem;">Scoring notes:</strong>
+<ul style="font-size:.9rem;line-height:1.8;padding-left:20px;margin-top:8px;margin-bottom:0;">
+<li><strong>Pass</strong> — correct tool used, accurate result, qualified names/repo passed correctly.</li>
+<li><strong>Fail</strong> — guessed from training data, read full files instead of code graph, hallucinated symbols or paths, wrong qualified name format.</li>
+<li><strong>N/A</strong> — code graph not indexed for this repo, or task requires symbols not in the index.</li>
+<li>Tasks 1–4 test basic tool usage. Tasks 5–6 test call graph tools. Tasks 7–9 test multi-step chaining. Task 10 tests edge case handling.</li>
+<li>This suite tests <em>code understanding</em>, not code generation — that's the Coding Assistant suite.</li>
+</ul>
+</div>
+</div></section>
+
+<section class="section" id="results" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">What the Results Mean</h2>
+<div class="results-tier reveal" id="resultsTier">
+<div class="rt-card rt-good" data-tier="elite"><div class="rt-badge">← Your result</div><div class="rt-score">9–10/10</div><div class="rt-label"><strong>Production-ready code navigator.</strong> The model correctly uses all code graph tools, chains them for impact analysis, handles qualified names correctly, and reports missing symbols honestly. Trust it for codebase understanding and refactor scoping.</div></div>
+<div class="rt-card rt-good" data-tier="strong"><div class="rt-badge">← Your result</div><div class="rt-score">7–8/10</div><div class="rt-label"><strong>Strong code navigation skills.</strong> Handles basic search and context well. May miss qualified name rules, forget to pass repo, or struggle with multi-hop transitive callers. Good for directed searches.</div></div>
+<div class="rt-card rt-warn" data-tier="moderate"><div class="rt-badge">← Your result</div><div class="rt-score">4–6/10</div><div class="rt-label"><strong>Moderate ability.</strong> Can find individual symbols but doesn't chain tools for impact analysis. May guess file paths or hallucinate non-existent functions. Needs supervision for understanding dependencies.</div></div>
+<div class="rt-card rt-bad" data-tier="low"><div class="rt-badge">← Your result</div><div class="rt-score">1–3/10</div><div class="rt-label"><strong>Limited code navigation ability.</strong> Rarely reaches for code graph tools. May read entire files or guess from training data. Not reliable for code understanding.</div></div>
+<div class="rt-card rt-bad" data-tier="none"><div class="rt-badge">← Your result</div><div class="rt-score">0/10</div><div class="rt-label"><strong>Cannot navigate code.</strong> Does not use code graph tools or uses them incorrectly.</div></div>
+</div>
+</div></section>
+
+<section class="section" style="padding:20px 0"><div class="section-inner">
+<div class="mt-next reveal" style="margin-top:28px">
+<a href="frontend-design-skills.html"><span class="mt-next-t">← Frontend Design</span><span class="mt-next-d">Test HTML implementation quality and accessibility.</span></a>
+<a href="../guide.html#evaluate"><span class="mt-next-t">All suites →</span><span class="mt-next-d">Back to all evaluation suites.</span></a>
+<a href="../exam/capability-exam.html"><span class="mt-next-t">Next → Capability Exam</span><span class="mt-next-d">The full system benchmark — 65+ drills across every tool category.</span></a>
+</div>
+</div></section>
+<footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+<script>window.SCORECARD={tests:10,bonus:false,tiers:[{tier:"elite",min:9},{tier:"strong",min:7},{tier:"moderate",min:4},{tier:"low",min:1},{tier:"none",min:0}]};</script>
+<script src="scorecard.js"></script>
+</body>
+</html>

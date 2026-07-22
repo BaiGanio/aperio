@@ -358,7 +358,7 @@
       <a class="feat-card reveal ev-card" href="evaluate/lie-catcher.html">
         <div class="feat-icon"><i class="bi bi-patch-question-fill"></i></div>
         <div class="feat-title">Honesty &amp; Robustness <span class="tier-pill tier-honesty">honesty</span></div>
-        <p class="feat-desc">Eleven tests across three dimensions: file-claim honesty, gullibility to confabulated claims, and memory-recall accuracy. Catches the model that lies about files, amplifies misinformation, or hallucinates stored knowledge.</p>
+        <p class="feat-desc">Eleven tests across three dimensions: file-claim honesty (does it lie about creating files?), gullibility (does it amplify false claims?), and memory recall truthfulness (does it correctly report stored data vs hallucinate?). The Memory &amp; Wiki suite tests tool proficiency — this tests truthfulness about the result.</p>
         <span class="ev-meta">Open suite</span>
       </a>
 
@@ -383,28 +383,77 @@
         <span class="ev-meta">Open suite</span>
       </a>
 
-      <a class="feat-card reveal ev-card" href="evaluate/background-agents.html" style="transition-delay:.24s">
+      <a class="feat-card reveal ev-card" href="evaluate/memory-wiki-skills.html" style="transition-delay:.24s">
+        <div class="feat-icon"><i class="bi bi-database-fill"></i></div>
+        <div class="feat-title">Memory &amp; Wiki <span class="tier-pill tier-accuracy">accuracy</span></div>
+        <p class="feat-desc">Ten tests probing whether the model correctly uses Aperio's persistent memory and wiki tools — recall, remember, update, forget, wiki_search, wiki_get, wiki_write, and the self-memory quad. Tests the core value proposition.</p>
+        <span class="ev-meta">Open suite</span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/background-agents.html" style="transition-delay:.30s">
         <div class="feat-icon"><i class="bi bi-robot"></i></div>
         <div class="feat-title">Background Agents <span class="tier-pill tier-feature">feature</span></div>
         <p class="feat-desc">Do scheduled jobs that run without you typing anything actually fire? Verifies that background agents wake on time, do their work, and report back — all from the web UI, no command line.</p>
         <span class="ev-meta">Open suite</span>
       </a>
 
-      <a class="feat-card reveal ev-card" href="evaluate/coding-assistant.html" style="transition-delay:.30s">
+      <a class="feat-card reveal ev-card" href="evaluate/coding-assistant.html" style="transition-delay:.36s">
         <div class="feat-icon"><i class="bi bi-code-slash"></i></div>
         <div class="feat-title">Coding Assistant <span class="tier-pill tier-feature">feature</span></div>
         <p class="feat-desc">Can your local model actually write working code inside Aperio? Ten progressive tasks — from pure helpers to cross-cutting DB changes — with copy-paste prompts and verify commands.</p>
         <span class="ev-meta">Open suite</span>
       </a>
 
-      <a class="feat-card reveal ev-card" href="evaluate/design-diversity.html" style="transition-delay:.36s">
+      <a class="feat-card reveal ev-card" href="evaluate/code-graph-skills.html" style="transition-delay:.42s">
+        <div class="feat-icon"><i class="bi bi-node-plus-fill"></i></div>
+        <div class="feat-title">Code Graph <span class="tier-pill tier-accuracy">accuracy</span></div>
+        <p class="feat-desc">Ten tests probing whether the model uses code graph tools (search, outline, context, call graph) to navigate and understand code instead of guessing or reading entire files. Distinct from the Coding Assistant (writing) suite.</p>
+        <span class="ev-meta">Open suite</span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/design-diversity.html" style="transition-delay:.48s">
         <div class="feat-icon"><i class="bi bi-palette-fill"></i></div>
         <div class="feat-title">Design Diversity <span class="tier-pill tier-aesthetic">aesthetic</span></div>
         <p class="feat-desc">Does the model design for the project, or default to one look? Checks whether a kids' app and a luxury boutique get genuinely distinct fonts and palettes — or the same convergent template every time.</p>
         <span class="ev-meta">Open suite</span>
       </a>
 
-      <a class="feat-card reveal ev-card" href="exam/capability-exam.html" style="transition-delay:.42s">
+      <a class="feat-card reveal ev-card" href="evaluate/frontend-design-skills.html" style="transition-delay:.54s">
+        <div class="feat-icon"><i class="bi bi-layout-three-columns"></i></div>
+        <div class="feat-title">Frontend Design <span class="tier-pill tier-feature">feature</span></div>
+        <p class="feat-desc">Ten tests of implementation quality — accessibility, responsive layout, form validation, dark mode, motion safety, and empty/error states. Different from Design Diversity: this asks whether the output actually works.</p>
+        <span class="ev-meta">Open suite</span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/docx-skills.html" style="transition-delay:.60s">
+        <div class="feat-icon"><i class="bi bi-file-earmark-text-fill"></i></div>
+        <div class="feat-title">DOCX Skills <span class="tier-pill tier-accuracy">accuracy</span></div>
+        <p class="feat-desc">Ten progressive Word document tasks — from simple memos via generate_docx to advanced docx-js scripting with custom styles, tables of contents, headers/footers, embedded images, and tracked changes via XML editing.</p>
+        <span class="ev-meta">Open suite</span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/xlsx-skills.html" style="transition-delay:.66s">
+        <div class="feat-icon"><i class="bi bi-table"></i></div>
+        <div class="feat-title">XLSX Skills <span class="tier-pill tier-accuracy">accuracy</span></div>
+        <p class="feat-desc">Ten progressive spreadsheet tasks — from simple tables to multi-sheet financial models with cross-sheet formulas, color coding, IF logic, and DIV/0 prevention. Tests whether the model follows the xlsx skill's conventions or hardcodes values.</p>
+        <span class="ev-meta">Open suite</span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/pptx-skills.html" style="transition-delay:.72s">
+        <div class="feat-icon"><i class="bi bi-easel-fill"></i></div>
+        <div class="feat-title">PPTX Skills <span class="tier-pill tier-accuracy">accuracy</span></div>
+        <p class="feat-desc">Ten progressive presentation tasks — from title slides to multi-slide decks with charts, images, shapes, react-icons, speaker notes, and the full unpack-edit-repack XML pipeline. Tests PptxGenJS conventions and file safety.</p>
+        <span class="ev-meta">Open suite</span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="evaluate/pdf-skills.html" style="transition-delay:.78s">
+        <div class="feat-icon"><i class="bi bi-filetype-pdf"></i></div>
+        <div class="feat-title">PDF Skills <span class="tier-pill tier-accuracy">accuracy</span></div>
+        <p class="feat-desc">Ten progressive PDF tasks — from programmatic pdf-lib creation to merge/split/rotate with qpdf, DOCX→PDF conversion, AcroForm filling, static form annotation, and comprehensive document pipelines.</p>
+        <span class="ev-meta">Open suite</span>
+      </a>
+
+      <a class="feat-card reveal ev-card" href="exam/capability-exam.html" style="transition-delay:.84s">
         <div class="feat-icon"><i class="bi bi-clipboard-check-fill"></i></div>
         <div class="feat-title">Capability Exam <span class="tier-pill tier-feature">benchmark</span></div>
         <p class="feat-desc">The full system benchmark — 65+ drills across every tool category. Run the canonical exam from <code>exam.md</code> and record section scores here. Takes 30–60 minutes but tells you everything.</p>

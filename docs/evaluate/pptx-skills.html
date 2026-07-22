@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | PPTX Skills — Model Evaluation for Presentation Generation</title>
+  <meta name="description" content="Ten self-contained presentation tasks that probe how well a model creates, formats, and edits .pptx files — from simple title slides to multi-slide decks with charts, images, icons, speaker notes, and XML-based editing. Paste the prompt, run the verify command, score the result." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" />
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* Page-specific overrides */
+    .arch-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .arch-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .arch-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .arch-table code { font-size: .82rem; }
+    .diff-badge { display: inline-block; font-family: var(--font-mono); font-size: .72rem; font-weight: 600; padding: 2px 8px; margin-left: 6px; }
+    .diff-badge.diff-easy { background: rgba(67,197,158,.12); color: #43c59e; }
+    .diff-badge.diff-med  { background: rgba(224,169,63,.10); color: var(--amber); }
+    .diff-badge.diff-hard { background: rgba(168,85,247,.12); color: var(--purple); }
+    .setup-box { background: var(--bg-raised); border: 1px solid var(--border); padding: 18px 22px; margin: 16px 0; }
+    .setup-box pre { margin: 8px 0 0 0; font-size: .85rem; }
+    .mg-prompt { background: var(--bg-raised); border: 1px solid var(--border); padding: 18px 20px; margin: 14px 0; font-size: .88rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; position: relative; }
+    .mg-prompt-label { font-family: var(--font-ui); font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; opacity: .5; display: block; margin-bottom: 8px; }
+    .mg-prompt code { font-size: .82rem; }
+    .scoring-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .scoring-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .scoring-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .verify-inline { background: rgba(67,197,158,.06); border-left: 3px solid #43c59e; padding: 12px 16px; margin: 10px 0; font-size: .85rem; font-family: var(--font-mono); line-height: 1.8; word-break: break-all; }
+    @media print {  .orb, .aperio-nav, .theme-switcher, .nav-toggle, footer, .btn-print, .mg-prompt-bar, .prompt-copy, .test-result, .rbtn, .section:not(#scorecard):not(#results), .mt-next, .rt-badge { display: none !important; } .scorecard, .scorecard thead th, .scorecard tbody td, .scorecard tfoot td { border-color: #ccc !important; color: #000 !important; } .sc-badge { border: 1px solid #999; color: #000 !important; background: none !important; } .results-tier .rt-card { border: 1px solid #999; } .rt-card.pulse { animation: none; box-shadow: none; }    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+
+<nav class="aperio-nav"><div class="nav-inner">
+  <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+  <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+  <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="../guide.html">Guide</a></li><li><a href="../guide.html#evaluate">Evaluate</a></li><li><a href="#suite">Tests</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li></ul>
+  <div class="theme-switcher" id="themeSwitcher">
+    <button class="theme-btn active" data-theme="dark" title="Dark">🌙</button>
+    <button class="theme-btn" data-theme="light" title="Light">☀️</button>
+    <button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
+    <button class="theme-btn" data-theme="system" title="System">⊙</button>
+  </div>
+</div></nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="ppt-top" style="padding:120px 0 30px"><div class="section-inner">
+  <a href="../index.html" class="mt-back reveal"><i class="bi bi-arrow-left"></i> Aperio Home</a>
+  <a href="../guide.html#evaluate" class="mt-back reveal" style="margin-left:12px"><i class="bi bi-arrow-left"></i> All Suites</a>
+
+  <div class="eyebrow reveal" style="margin-top:18px">PPTX Skills Evaluation</div>
+  <h1 class="section-heading reveal">Presentation Generation &amp; Editing</h1>
+  <p class="lead-text reveal">Ten self-contained presentation tasks that probe how well a model creates and edits <code>.pptx</code> files — from a simple title slide to multi-slide decks with tables, charts, images, icons, custom layouts, speaker notes, and XML-based slide editing. Each task has a copy-paste prompt, a verify command, and clear pass criteria.</p>
+
+  <p class="reveal" style="margin-top:12px;opacity:.75;">These tasks test the <code>pptx</code> skill — the model's ability to produce well-structured, visually coherent presentations using PptxGenJS. Tasks 1–4 cover basic slides (title, bullets, tables, images). Tasks 5–10 add charts, shapes, icons, speaker notes, and the unpack-edit-repack workflow. All tasks produce Node.js scripts using <code>pptxgenjs</code>. Start at Task&nbsp;1 and work up.</p>
+</div></section>
+
+<!-- ── Technology Quick Reference ─────────────────────────────── -->
+<section class="section" id="arch" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">PPTX Technology (Quick Reference)</h2>
+  <p class="reveal mg-desc">These tasks use PptxGenJS for creating presentations from scratch and the project's PPTX scripts for unpacking, editing, and verifying. Knowing these conventions helps you evaluate whether the model followed the skill correctly.</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="arch-table">
+      <thead><tr><th>Concept</th><th>Rule</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>No "#" in colors</td><td>Use <code>"FF0000"</code>, not <code>"#FF0000"</code></td><td>Hash prefix corrupts the file</td></tr>
+        <tr><td>No 8-char hex</td><td>Never encode opacity in color strings</td><td>Use <code>opacity</code> property instead</td></tr>
+        <tr><td>Bullets</td><td>Use <code>bullet: true</code> in rich text array</td><td>Unicode bullets create double bullets</td></tr>
+        <tr><td>breakLine</td><td>Required between rich text array items</td><td>Last item doesn't need it</td></tr>
+        <tr><td>Layout</td><td>Set explicitly: <code>LAYOUT_16x9</code> (default)</td><td>Consistent aspect ratio</td></tr>
+        <tr><td>Icons</td><td>react-icons → sharp rasterize → base64 PNG</td><td>Universal compatibility</td></tr>
+        <tr><td>Charts</td><td><code>slide.addChart(pres.charts.BAR, ...)</code></td><td>Built-in PptxGenJS chart types</td></tr>
+        <tr><td>Images</td><td><code>path</code>, <code>data</code> (base64), or <code>url</code></td><td>Use <code>sizing</code> for fit/cover/crop</td></tr>
+        <tr><td>Verify</td><td><code>node scripts/verify.js output.pptx</code></td><td>Checks structure, slides, placeholders</td></tr>
+        <tr><td>Read</td><td><code>node scripts/read.js output.pptx</code></td><td>Extracts text for content review</td></tr>
+        <tr><td>Editing</td><td>unpack → edit XML → clean → pack</td><td>Use <code>add_slide.js</code> to duplicate</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Setup ──────────────────────────────────────────────────── -->
+<section class="section" id="setup" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Setup</h2>
+  <p class="reveal mg-desc">You need one terminal with the Aperio server running on your preferred AI provider. Paste each task prompt into the chat (web UI or CLI).</p>
+  <div class="setup-box reveal">
+    <strong style="font-size:.88rem;opacity:.75;">Terminal — Aperio server</strong>
+    <pre><code>npm run start:local        # or any AI_PROVIDER, port 31337</code></pre>
+  </div>
+  <p class="reveal" style="margin-top:12px;font-size:.9rem;opacity:.7;">Paste each task's prompt into the chat. Use a fresh conversation per task when possible. The model will write a PptxGenJS script and run it to produce the <code>.pptx</code> file. After it completes, run the <strong>Verify</strong> command.</p>
+
+  <p class="reveal" style="margin-top:12px;font-size:.9rem;opacity:.7;">The verify commands use the project's own <code>skills/pptx/scripts/verify.js</code> for structural validation and Python 3 (stdlib <code>zipfile</code>) for XML inspection. PptxGenJS scripts run as Node.js scripts inside the session workspace and <code>trash/</code> directory.</p>
+
+  <div class="reveal" style="margin-top:24px">
+    <h3 style="font-size:1rem;">Cleanup between runs</h3>
+    <p style="font-size:.9rem;opacity:.7;">If you want to re-run tasks against a different model, clean up the output files first:</p>
+    <div class="setup-box">
+      <pre><code>rm -f trash/test-*.pptx
+rm -f trash/create-*.js</code></pre>
+    </div>
+  </div>
+</div></section>
+
+<!-- ── Tasks ──────────────────────────────────────────────────── -->
+<section class="section" id="suite" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">The Tasks</h2>
+  <p class="reveal mg-desc">Ordered by complexity: simple slides first (title, bullets, tables, images), then multi-slide decks, charts, shapes, icons, speaker notes, and finally the unpack-edit-repack XML editing workflow. Each task lists difficulty, what to look for, the prompt to paste, and the verify command.</p>
+
+  <!-- TASK 1: Title Slide -->
+  <div class="test-card reveal" id="task1">
+    <span class="test-label">Task 1 — Basic PptxGenJS Script</span>
+    <h3>Title Slide <span class="diff-badge diff-easy">★☆☆☆☆</span></h3>
+    <p class="test-probes">Probes: PptxGenJS script structure, text positioning, layout setting</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-title.js</code> → <code>trash/test-title.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a PptxGenJS script at <code>trash/create-title.js</code> that creates <code>trash/test-title.pptx</code> with a single title slide:
+
+- Layout: 16x9
+- Title: "Aperio — Personal Memory Layer for AI Agents" (centered, bold, 36pt, dark navy color "1A2744")
+- Subtitle: "One brain. Every agent. Nothing forgotten." (centered, 18pt, gray "64748B")
+- A thin accent line (a RECTANGLE shape, 2" wide, 0.04" tall, color "7C3AED") centered below the title
+- Background: white ("FFFFFF")
+
+Use <code>require("pptxgenjs")</code> (CommonJS). Save with <code>writeFile</code>. Print the output path to console. No "#" in hex colors.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the script compile and run without errors?</li>
+      <li>Does the output file contain exactly 1 slide?</li>
+      <li>Are there no "#" prefixes in hex colors?</li>
+      <li>Are the title and subtitle texts present?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-title.pptx</code><br><br><code>node -e "require('skills/pptx/scripts/read')('trash/test-title.pptx').then(t=>{const hasAperio=t.toLowerCase().includes('aperio');const hasMemory=t.toLowerCase().includes('memory');console.log('Contains Aperio:',hasAperio,'Contains Memory:',hasMemory);process.exit(hasAperio&&hasMemory?0:1)})"</code></div>
+
+    <div class="test-result" data-test="1"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 2: Bulleted Content -->
+  <div class="test-card reveal" id="task2">
+    <span class="test-label">Task 2 — Bullet Lists</span>
+    <h3>Content Slides with Proper Bullets <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: rich text arrays, bullet: true, breakLine, no unicode bullets</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-bullets.js</code> → <code>trash/test-bullets.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a PptxGenJS script at <code>trash/create-bullets.js</code> that creates <code>trash/test-bullets.pptx</code> with 3 slides:
+
+<strong>Slide 1 — "Why Memory Matters"</strong>
+- Title at top: "Why Memory Matters" (24pt, bold)
+- 5 bullet points about AI memory (Context window limits, Session isolation, Knowledge persistence, Cross-agent sharing, Personalization)
+- Use <code>bullet: true</code> and <code>breakLine: true</code> in a rich text array — do NOT use unicode bullet characters
+- Title font: Arial, body: Arial 16pt, dark gray "374151"
+
+<strong>Slide 2 — "Key Features"</strong>
+- Title: "Key Features" (same style)
+- 4 bullet points (MCP Integration, Multi-Provider, Code Graph, Vector Search)
+- Same bullet style
+
+<strong>Slide 3 — "Getting Started"</strong>
+- Title: "Getting Started"
+- A numbered list (use <code>bullet: { type: "number" }</code>) with 4 setup steps
+- Body font: Arial 16pt
+
+Layout: 16x9. Background: white. No "#" in colors. Use <code>require("pptxgenjs")</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are all 3 slides present?</li>
+      <li>Are bullets using PptxGenJS <code>bullet: true</code>, not unicode characters?</li>
+      <li>Does slide 3 use numbered bullets?</li>
+      <li>Are there no "#" in colors?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-bullets.pptx</code><br><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-bullets.pptx'); xml=z.read('ppt/slides/slide1.xml').decode(); import re; bullet_refs=len(re.findall(r'<a:buChar', xml)); unicode_bullets=len(re.findall(r'[\\u2022\\u2023]', xml)); print('Bullet char refs:',bullet_refs,'Unicode bullets:',unicode_bullets); assert unicode_bullets==0, 'Has unicode bullets'; print('OK — proper bullets, no unicode')"</code></div>
+
+    <div class="test-result" data-test="2"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 3: Table Slide -->
+  <div class="test-card reveal" id="task3">
+    <span class="test-label">Task 3 — Tables</span>
+    <h3>Data Table Slide <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: addTable, header styling, cell formatting</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-table.js</code> → <code>trash/test-table.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a PptxGenJS script at <code>trash/create-table.js</code> that creates <code>trash/test-table.pptx</code> with:
+
+<strong>Slide 1 — Title: "Q4 Performance Metrics"</strong> (bold, 24pt, centered)
+
+<strong>Slide 2 — Data table:</strong>
+- A table with 4 columns: Product, Revenue ($), Growth (%), Market Share (%)
+- 6 data rows with realistic SaaS metrics
+- Header row: dark blue fill ("1E3A5F"), white bold text
+- Data rows: alternating light gray ("F8F9FA") and white fills
+- Font: Arial 14pt body, 16pt header
+- Table positioned centered on the slide with appropriate width (~8")
+- Border style: thin gray lines
+
+<strong>Slide 3 — Key Takeaways</strong>
+- Title: "Key Takeaways"
+- 3 bullet points summarizing the data (highest growth product, market leader, etc.)
+
+Layout: 16x9. No "#" in colors. Use <code>require("pptxgenjs")</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are all 3 slides present?</li>
+      <li>Does slide 2 contain a table with header row?</li>
+      <li>Are header cells styled (different fill/color)?</li>
+      <li>Are there 4 columns and at least 5 data rows?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-table.pptx</code><br><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-table.pptx'); xml=z.read('ppt/slides/slide2.xml').decode(); tbl=xml.count('<a:tbl'); rows=xml.count('<a:tr'); print('Table elements:',tbl,'Rows:',rows); assert tbl>=1 and rows>=6, 'Need table with >=6 rows'; print('OK — table with 6+ rows')"</code></div>
+
+    <div class="test-result" data-test="3"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 4: Image Slide -->
+  <div class="test-card reveal" id="task4">
+    <span class="test-label">Task 4 — Images</span>
+    <h3>Slide with Embedded Image <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: addImage, file path loading, sizing, alt text</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-image.js</code> → <code>trash/test-image.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a PptxGenJS script at <code>trash/create-image.js</code> that creates <code>trash/test-image.pptx</code> with:
+
+<strong>Slide 1 — Title: "Our Technology Stack"</strong> (centered, 28pt, bold)
+
+<strong>Slide 2 — Image showcase:</strong>
+- Load <code>public/assets/aperio-logo.png</code> (or any PNG in <code>public/assets/</code>) using <code>fs.readFileSync</code>
+- Display it centered on the slide with <code>addImage</code> using <code>sizing: { type: 'contain', w: 6, h: 3 }</code>
+- Below the image: caption text "Reference Architecture" in italic, 12pt, centered, gray "6B7280"
+- Use <code>altText</code> on the image for accessibility
+
+<strong>Slide 3 — "Image Details"</strong>
+- 2 bullet points: the image source path and its format
+- Smaller inset version of the same image in the bottom-right corner (2" × 1.5")
+
+Layout: 16x9. Arial font. No "#" in colors. Use <code>require("pptxgenjs")</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are image relationships present in the PPTX XML?</li>
+      <li>Are there 3 slides?</li>
+      <li>Is <code>altText</code> specified on the image?</li>
+      <li>Does the script load the image from disk successfully?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-image.pptx</code><br><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-image.pptx'); files=z.namelist(); media=[f for f in files if 'media' in f]; rels=z.read('ppt/slides/_rels/slide2.xml.rels').decode(); has_image='image/' in rels; print('Media files:',len(media),'Image rel:',has_image); assert len(media)>=1 and has_image, 'Need media and image rel'; print('OK — image embedded')"</code></div>
+
+    <div class="test-result" data-test="4"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 5: Multi-Slide Pitch Deck -->
+  <div class="test-card reveal" id="task5">
+    <span class="test-label">Task 5 — Multi-Slide Deck</span>
+    <h3>5-Slide Pitch Deck <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: multi-slide structure, varied layouts, theme application</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-pitch.js</code> → <code>trash/test-pitch.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a PptxGenJS script at <code>trash/create-pitch.js</code> that creates a 5-slide pitch deck at <code>trash/test-pitch.pptx</code>. Use a consistent color theme: dark navy ("1A2744") for headers, purple ("7C3AED") for accents, dark gray ("374151") for body text.
+
+<strong>Slide 1 — Title:</strong> "Aperio" (36pt, bold, centered) + subtitle "The Memory Layer for AI Agents" + a thin purple accent line
+
+<strong>Slide 2 — "The Problem"</strong>: title (24pt, bold) + 4 bullet points about AI session isolation and context limits
+
+<strong>Slide 3 — "Our Solution"</strong>: title + 3 content blocks laid out horizontally (use RECTANGLE shapes as cards with text inside each): "Persistent Memory", "MCP Integration", "Multi-Provider". Each card should have a light purple fill ("EDE9FE"), 16pt dark text, and be positioned side by side.
+
+<strong>Slide 4 — "Architecture"</strong>: title + text explaining the stack (SQLite/Postgres + Embeddings + AI Providers) + a simple visual: 3 rectangles stacked vertically with connecting text
+
+<strong>Slide 5 — "Get Started"</strong>: title + 4 numbered steps (git clone, npm install, configure, run) + footer text "aperio.dev" in italic
+
+Layout: 16x9. Background: white. No "#" in colors. Use <code>require("pptxgenjs")</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are exactly 5 slides present?</li>
+      <li>Does Slide 3 use shapes for card layout?</li>
+      <li>Is the color theme consistent?</li>
+      <li>Are there no "#" in hex colors?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-pitch.pptx</code><br><br><code>node -e "require('skills/pptx/scripts/read')('trash/test-pitch.pptx').then(t=>{const slides=t.split('Slide').length-1;console.log('Slides:',slides);process.exit(slides>=5?0:1)})"</code></div>
+
+    <div class="test-result" data-test="5"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 6: Chart Slide -->
+  <div class="test-card reveal" id="task6">
+    <span class="test-label">Task 6 — Charts</span>
+    <h3>Presentation with Chart <span class="diff-badge diff-hard">★★★★☆</span></h3>
+    <p class="test-probes">Probes: addChart, chart options, data series, modern styling</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-chart.js</code> → <code>trash/test-chart.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a PptxGenJS script at <code>trash/create-chart.js</code> that creates <code>trash/test-chart.pptx</code> with:
+
+<strong>Slide 1 — "Q1 2026 Performance"</strong> (title)
+
+<strong>Slide 2 — Bar chart:</strong>
+- Use <code>pres.charts.BAR</code> with barDir "col"
+- 3 series: Revenue, Costs, Profit over 4 quarters
+- Modern styling: custom chart colors ("7C3AED", "10B981", "F59E0B"), white chart area, rounded corners, muted axis labels, subtle grid lines, data labels on bars, no legend for single-series, show title "Quarterly Performance ($K)"
+- Position: covering most of the slide area
+
+<strong>Slide 3 — Pie chart:</strong>
+- Use <code>pres.charts.PIE</code> showing expense breakdown (4 categories)
+- Show percentages with <code>showPercent: true</code>
+- Custom colors matching the theme
+
+<strong>Slide 4 — Key insights</strong> as bullet points
+
+Layout: 16x9. No "#" in colors. Use <code>require("pptxgenjs")</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are there 4 slides?</li>
+      <li>Does slide 2 contain a chart (bar or column)?</li>
+      <li>Does slide 3 contain a pie chart?</li>
+      <li>Are chart options applied (colors, labels, styling)?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-chart.pptx</code><br><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-chart.pptx'); charts=[f for f in z.namelist() if 'chart' in f.lower()]; print('Chart XML files:',charts); assert len(charts)>=2, 'Need >=2 chart definitions'; print('OK — charts present')"</code></div>
+
+    <div class="test-result" data-test="6"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 7: Shapes & Visual Layout -->
+  <div class="test-card reveal" id="task7">
+    <span class="test-label">Task 7 — Shapes & Layout</span>
+    <h3>Visual Layout with Shapes <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: addShape, rectangles, ovals, lines, alignment, visual composition</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-shapes.js</code> → <code>trash/test-shapes.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a PptxGenJS script at <code>trash/create-shapes.js</code> that creates <code>trash/test-shapes.pptx</code> with a visual process diagram using shapes:
+
+<strong>Slide 1 — "How Aperio Works"</strong> (title, 28pt)
+
+<strong>Slide 2 — Process flow diagram:</strong>
+- 3 rounded rectangles (use ROUNDED_RECTANGLE with rectRadius 0.15) arranged horizontally: "Input" → "Process" → "Store"
+- Each rectangle: 2.5" wide, 1.5" tall, purple fill ("7C3AED") with white bold text
+- Arrows between them: use LINE shapes (triangle arrow or just small right-pointing triangles / chevrons)
+- Below: 3 OVAL shapes as bullet markers, each with a short label text below
+- A horizontal LINE separator (full width, thin, gray "D1D5DB") between the top diagram and bottom section
+
+<strong>Slide 3 — "Architecture Layers"</strong>
+- 4 stacked RECTANGLE shapes representing layers: UI Layer, API Layer, Memory Store, Vector Index
+- Different subtle fill colors for each layer ("EDE9FE", "DBEAFE", "D1FAE5", "FEF3C7")
+- Each has white bold text with the layer name
+- All same width (7") with small gaps between them
+
+Layout: 16x9. No "#" in colors. Use <code>require("pptxgenjs")</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are there 3 slides?</li>
+      <li>Does slide 2 use ROUNDED_RECTANGLE shapes?</li>
+      <li>Does slide 2 contain arrow/line shapes connecting the boxes?</li>
+      <li>Does slide 3 use stacked RECTANGLE shapes?</li>
+      <li>Are shapes positioned with meaningful spacing and alignment?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-shapes.pptx</code><br><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-shapes.pptx'); s2=z.read('ppt/slides/slide2.xml').decode(); s3=z.read('ppt/slides/slide3.xml').decode(); shapes2=s2.count('<p:sp>'); shapes3=s3.count('<p:sp>'); print('Shapes slide2:',shapes2,'slide3:',shapes3); assert shapes2>=6 and shapes3>=4, 'Need shapes on both slides'; print('OK — shapes present')"</code></div>
+
+    <div class="test-result" data-test="7"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 8: Icon Slide -->
+  <div class="test-card reveal" id="task8">
+    <span class="test-label">Task 8 — Icons from react-icons</span>
+    <h3>Slide with Rendered Icons <span class="diff-badge diff-hard">★★★★☆</span></h3>
+    <p class="test-probes">Probes: react-icons, sharp rasterization, base64 PNG embedding</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-icons.js</code> → <code>trash/test-icons.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a PptxGenJS script at <code>trash/create-icons.js</code> that creates <code>trash/test-icons.pptx</code> with icon-enhanced slides:
+
+<strong>Slide 1 — "Key Capabilities"</strong> (title, 28pt, bold)
+
+<strong>Slide 2 — Feature grid with icons:</strong>
+Create 4 feature cards arranged in a 2×2 grid. Each card is a RECTANGLE shape (light gray fill "F9FAFB") containing:
+- An icon from react-icons (use <code>react-icons/fi</code> or <code>react-icons/fa</code>) rasterized to a base64 PNG via <code>sharp</code>
+- A bold label below the icon
+- A short description text
+- Icon-to-PNG: <code>renderIconSvg(IconComponent, color, size) → sharp → base64 PNG → addImage(data)</code>
+
+Suggested icons and features:
+- FiDatabase → "Persistent Memory"
+- FiLink → "MCP Integration"  
+- FiCode → "Code Graph"
+- FiSearch → "Vector Search"
+
+<strong>Slide 3 — Summary</strong>: Title "Built for Extensibility" with 3 bullet points
+
+Layout: 16x9. Icon color: purple "7C3AED". Icon size: 0.5" × 0.5". Cards evenly spaced. No "#" in colors.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are icons rendered as base64 PNG images in the PPTX?</li>
+      <li>Are the icons embedded in the image relationship?</li>
+      <li>Are there 3 slides?</li>
+      <li>Is the react-icons + sharp pipeline used correctly?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-icons.pptx</code><br><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-icons.pptx'); media=[f for f in z.namelist() if 'media' in f]; s2=z.read('ppt/slides/slide2.xml').decode(); images=s2.count('<p:blipFill'); print('Media files:',len(media),'Image fills:',images); assert len(media)>=4 and images>=4, 'Need >=4 images and blipFills'; print('OK — embedded icons' )"</code></div>
+
+    <div class="test-result" data-test="8"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 9: Speaker Notes -->
+  <div class="test-card reveal" id="task9">
+    <span class="test-label">Task 9 — Speaker Notes</span>
+    <h3>Presentation with Speaker Notes <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: addNotes, notes XML structure, per-slide notes content</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-notes.js</code> → <code>trash/test-notes.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a PptxGenJS script at <code>trash/create-notes.js</code> that creates <code>trash/test-notes.pptx</code> — a 3-slide deck where each slide has speaker notes:
+
+<strong>Slide 1 — "Introduction"</strong> (title slide)
+- Bold title "Aperio Overview", subtitle "Personal Memory for AI"
+- Speaker note: "Start by asking the audience how many have experienced losing context with their AI assistant. This sets up the pain point."
+
+<strong>Slide 2 — "Core Architecture"</strong>
+- Title: "Core Architecture"
+- 3 bullet points about the tech stack
+- Speaker note: "Emphasize the pluggable backend — SQLite for single users, Postgres for teams. Mention the MCP integration point."
+
+<strong>Slide 3 — "Roadmap"</strong>
+- Title: "Roadmap & Next Steps"  
+- 4 bullet points (Q1-Q4 milestones)
+- Speaker note: "For Q3, the focus is on multi-agent memory sync. We're also exploring a hosted option. Open for questions at the end."
+
+Use <code>slide.addNotes("...")</code> to attach notes to each slide. Layout: 16x9. No "#" in colors.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are notes files present in the PPTX for each slide?</li>
+      <li>Does each slide have non-empty notes content?</li>
+      <li>Are there 3 slides with distinct notes?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-notes.pptx</code><br><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-notes.pptx'); notes=[f for f in z.namelist() if 'notesSlide' in f]; print('Notes files:',notes); assert len(notes)>=3, 'Need >=3 notes slides'; for n in notes: xml=z.read(n).decode(); assert 'context' in xml.lower() or 'slide' in xml.lower() or len(xml)>500, f'{n} seems empty'; print('OK — speaker notes present on all slides')"</code></div>
+
+    <div class="test-result" data-test="9"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 10: Edit Existing via XML -->
+  <div class="test-card reveal" id="task10">
+    <span class="test-label">Task 10 — XML Editing Pipeline</span>
+    <h3>Unpack → Edit → Clean → Repack <span class="diff-badge diff-hard">★★★★★</span></h3>
+    <p class="test-probes">Probes: unpack workflow, XML editing, slide manipulation, pack workflow</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">Source + output &nbsp;(create <code>trash/test-source.pptx</code> first → edit → <code>trash/test-edited.pptx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Demonstrate the full PPTX editing pipeline. Do the following steps in order:
+
+<strong>Step 1 — Create a source presentation</strong>
+Write a PptxGenJS script that creates <code>trash/test-source.pptx</code> with 4 slides:
+- Slide 1: Title "Quarterly Review" + subtitle "Q4 2025"
+- Slide 2: "Financial Summary" with a table (3 columns × 4 rows)
+- Slide 3: "Key Metrics" with 4 bullet points
+- Slide 4: "Next Steps" with 3 bullet points
+
+<strong>Step 2 — Unpack</strong>
+Run: <code>node skills/pptx/scripts/unpack.js trash/test-source.pptx trash/test-unpacked</code>
+
+<strong>Step 3 — Edit XML</strong>
+Edit <code>trash/test-unpacked/ppt/slides/slide1.xml</code> to change the title from "Quarterly Review" to "Annual Review 2025" (find and replace the text content).
+
+<strong>Step 4 — Reorder slides</strong>
+Edit <code>trash/test-unpacked/ppt/presentation.xml</code> to move the last slide (Next Steps) to the second position. Adjust the order in <code>&lt;p:sldIdLst&gt;</code>.
+
+<strong>Step 5 — Clean &amp; Pack</strong>
+Run: <code>node skills/pptx/scripts/clean.js trash/test-unpacked</code>
+Then: <code>node skills/pptx/scripts/pack.js trash/test-unpacked trash/test-edited.pptx</code>
+
+<strong>Verify</strong> with <code>node skills/pptx/scripts/verify.js trash/test-edited.pptx</code> and <code>node skills/pptx/scripts/read.js trash/test-edited.pptx</code> to confirm the title change and reorder.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the unpack/clean/pack pipeline complete without errors?</li>
+      <li>Is the title updated in slide1.xml?</li>
+      <li>Are the slides reordered (Next Steps moved to second)?</li>
+      <li>Does <code>verify.js</code> pass on the output?</li>
+      <li>Does the output open without corruption?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>node skills/pptx/scripts/verify.js trash/test-edited.pptx</code><br><br><code>node -e "require('skills/pptx/scripts/read')('trash/test-edited.pptx').then(t=>{const hasAnnual=t.includes('Annual');const slide2=t.split('Slide')[3]||'';const hasNextSteps=slide2.includes('Next Steps');console.log('Contains Annual:',hasAnnual,'Slide 2 is Next Steps:',hasNextSteps);process.exit(hasAnnual&&hasNextSteps?0:1)})"</code></div>
+
+    <div class="test-result" data-test="10"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+</div></section>
+
+<!-- ── Per‑Task Scoring Rubric ───────────────────────────────── -->
+<section class="section" id="rubric" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Per‑Task Scoring Rubric</h2>
+  <p class="reveal mg-desc">Apply these five signals to each task after running the verify command. They measure not just "does the file exist" but also "did the model follow the skill's conventions and verify its own work".</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="scoring-table">
+      <thead><tr><th>Signal</th><th style="width:140px">0 = fail</th><th style="width:140px">1 = pass</th></tr></thead>
+      <tbody>
+        <tr><td>File created at correct path</td><td>wrong path / wrong format / script error</td><td>correct <code>trash/test-*.pptx</code></td></tr>
+        <tr><td>Verify command passes</td><td>verify.js reports errors, placeholders > 0, or missing file</td><td>green with expected slide count</td></tr>
+        <tr><td>Follows PPTX conventions</td><td>"#" in hex colors, unicode bullets, 8-char hex with opacity</td><td>clean colors, proper bullets, correct opacity</td></tr>
+        <tr><td>Uses correct API for the task</td><td>wrong chart type, no ImageRun type, missing breakLine</td><td>correct PptxGenJS API per task</td></tr>
+        <tr><td>Model verified its own work</td><td>claimed "looks good" without verify.js</td><td>ran verify.js and fixed issues found</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Scorecard ─────────────────────────────────────────────── -->
+<section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Results fill in automatically as you click the buttons above.</p>
+  <div class="reveal" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+    <label style="font-size:.9rem;"><strong>Model:</strong> <input type="text" id="modelName" placeholder="e.g. Gemma 4 12B" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:200px;"></label>
+    <label style="font-size:.9rem;"><strong>Date:</strong> <input type="text" id="testDate" placeholder="e.g. 2026-07-22" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label>
+  </div>
+  <div class="scorecard-wrap reveal"><div class="print-bar"><button class="btn-print" onclick="window.print()"><i class="bi bi-printer"></i> Print Scorecard</button></div>
+  <div style="overflow-x:auto;"><table class="scorecard" id="scorecardTable">
+    <thead><tr><th style="width:55%">Test</th><th style="width:20%">Result</th><th style="width:25%">Notes</th></tr></thead>
+    <tbody>
+      <tr data-test="1"><td class="sc-test">1. Title Slide</td><td class="sc-result" id="sr-1"><span class="sc-badge sc-empty">—</span></td><td id="sn-1"></td></tr>
+      <tr data-test="2"><td class="sc-test">2. Bulleted Content Slides</td><td class="sc-result" id="sr-2"><span class="sc-badge sc-empty">—</span></td><td id="sn-2"></td></tr>
+      <tr data-test="3"><td class="sc-test">3. Data Table Slide</td><td class="sc-result" id="sr-3"><span class="sc-badge sc-empty">—</span></td><td id="sn-3"></td></tr>
+      <tr data-test="4"><td class="sc-test">4. Image Slide</td><td class="sc-result" id="sr-4"><span class="sc-badge sc-empty">—</span></td><td id="sn-4"></td></tr>
+      <tr data-test="5"><td class="sc-test">5. Multi-Slide Pitch Deck</td><td class="sc-result" id="sr-5"><span class="sc-badge sc-empty">—</span></td><td id="sn-5"></td></tr>
+      <tr data-test="6"><td class="sc-test">6. Charts (Bar + Pie)</td><td class="sc-result" id="sr-6"><span class="sc-badge sc-empty">—</span></td><td id="sn-6"></td></tr>
+      <tr data-test="7"><td class="sc-test">7. Visual Layout with Shapes</td><td class="sc-result" id="sr-7"><span class="sc-badge sc-empty">—</span></td><td id="sn-7"></td></tr>
+      <tr data-test="8"><td class="sc-test">8. Rendered Icons (react-icons)</td><td class="sc-result" id="sr-8"><span class="sc-badge sc-empty">—</span></td><td id="sn-8"></td></tr>
+      <tr data-test="9"><td class="sc-test">9. Speaker Notes</td><td class="sc-result" id="sr-9"><span class="sc-badge sc-empty">—</span></td><td id="sn-9"></td></tr>
+      <tr data-test="10"><td class="sc-test">10. XML Editing (Unpack→Edit→Repack)</td><td class="sc-result" id="sr-10"><span class="sc-badge sc-empty">—</span></td><td id="sn-10"></td></tr>
+    </tbody>
+    <tfoot><tr><td colspan="3" id="sc-total">TOTAL: ____ / 10 passed</td></tr></tfoot>
+  </table></div>
+  <div class="score-feedback" id="scoreFeedback"></div></div>
+
+  <div class="reveal" style="margin-top:18px;background:rgba(127,127,127,.06);border:1px solid rgba(127,127,127,.14);padding:18px 22px;">
+    <strong style="font-size:.9rem;">Scoring notes:</strong>
+    <ul style="font-size:.9rem;line-height:1.8;padding-left:20px;margin-top:8px;margin-bottom:0;">
+      <li><strong>Pass</strong> — verify.js passes, read.js confirms content, correct conventions used.</li>
+      <li><strong>Fail</strong> — verify.js errors, "#" in hex colors, unicode bullets, script errors, or missing slides.</li>
+      <li><strong>N/A</strong> — prerequisite dependency missing (e.g., sharp not installed for Task&nbsp;8).</li>
+      <li>Tasks 5–8 require optional packages: Task&nbsp;8 needs <code>react-icons</code>, <code>react</code>, <code>react-dom</code>, <code>sharp</code>. Install with <code>npm install react-icons react react-dom sharp</code>.</li>
+      <li>Task&nbsp;10 requires the full unpack/edit/repack pipeline. Failed pack usually means XML broke during editing.</li>
+      <li>A model that passes Tasks 1–5 but fails 6–10 can create simple decks but struggles with charts, icons, and XML editing.</li>
+    </ul>
+  </div>
+</div></section>
+
+<!-- ── Results ───────────────────────────────────────────────── -->
+<section class="section" id="results" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">What the Results Mean</h2>
+
+  <div class="results-tier reveal" id="resultsTier">
+    <div class="rt-card rt-good" data-tier="elite">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">9–10/10</div>
+      <div class="rt-label"><strong>Production-ready presentation generation.</strong> The model handles the full spectrum — from simple title slides to charts, icons, shapes, speaker notes, and the XML editing pipeline. It follows conventions (no "#" in colors, proper bullets, correct opacity handling) and runs verify.js before claiming success. Trust it for professional decks.</div>
+    </div>
+    <div class="rt-card rt-good" data-tier="strong">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">7–8/10</div>
+      <div class="rt-label"><strong>Strong presentation skills.</strong> Handles basic slides, multi-slide decks, and tables. May struggle with charts, icons, or the XML editing pipeline. Reliable for content-rich presentations.</div>
+    </div>
+    <div class="rt-card rt-warn" data-tier="moderate">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">4–6/10</div>
+      <div class="rt-label"><strong>Moderate ability.</strong> Good with basic slides and bullet points. Struggles with visual layouts using shapes, images, and complex formatting. Double-check for "#" in hex colors and unicode bullets.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="low">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">1–3/10</div>
+      <div class="rt-label"><strong>Limited presentation ability.</strong> May produce a single title slide. Not reliable for multi-slide decks, tables, or any visual formatting.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="none">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">0/10</div>
+      <div class="rt-label"><strong>Cannot produce working presentations.</strong> This model cannot reliably create or edit <code>.pptx</code> files.</div>
+    </div>
+  </div>
+
+  <h3 class="reveal" style="font-size:1.05rem;margin-top:28px">What the progression reveals</h3>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">The task order traces a curve from shallow to deep presentation-creation understanding:</p>
+  <div class="reveal" style="background:var(--bg-raised);border:1px solid var(--border);padding:18px 22px;margin:14px 0;">
+    <code style="font-size:.88rem;line-height:2;word-break:break-all;">
+      title slide (1) → bulleted content (2) → data tables (3) → embedded images (4) → multi-slide deck (5) → charts (6) → shapes & layout (7) → react-icons rasterization (8) → speaker notes (9) → XML editing pipeline (10)
+    </code>
+  </div>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">A model that drops off after Task&nbsp;4 can create basic slides but not multi-slide structure. One that drops off after Task&nbsp;7 can build visual decks but not icons or editing. A model that passes all 10 understands the full presentation-creation stack.</p>
+</div></section>
+
+<!-- ── Next / Footer ─────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0"><div class="section-inner">
+  <div class="mt-next reveal" style="margin-top:28px">
+    <a href="docx-skills.html"><span class="mt-next-t">← DOCX Skills</span><span class="mt-next-d">Test Word document generation with styles and tracked changes.</span></a>
+    <a href="xlsx-skills.html"><span class="mt-next-t">← XLSX Skills</span><span class="mt-next-d">Test spreadsheet generation with formulas and conventions.</span></a>
+    <a href="../guide.html#evaluate"><span class="mt-next-t">All suites →</span><span class="mt-next-d">Back to all evaluation suites.</span></a>
+    <a href="../exam/capability-exam.html"><span class="mt-next-t">Next → Capability Exam</span><span class="mt-next-d">The full system benchmark — 65+ drills across every tool category.</span></a>
+  </div>
+</div></section>
+
+<footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+<script>window.SCORECARD={tests:10,bonus:false,tiers:[{tier:"elite",min:9},{tier:"strong",min:7},{tier:"moderate",min:4},{tier:"low",min:1},{tier:"none",min:0}]};</script>
+<script src="scorecard.js"></script>
+</body>
+</html>

@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark" class="doc">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Aperio | DOCX Skills — Model Evaluation for Word Document Generation</title>
+  <meta name="description" content="Ten self-contained Word document tasks that probe how well a model creates, formats, and edits .docx files — from simple memos to multi-section reports with tables of contents, headers/footers, styled text, and tracked changes. No technical knowledge needed: paste the prompt, run the verify command, score the result." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="../styles.css" /><link rel="stylesheet" href="../styles-evaluate.css" />
+  <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
+
+  <style>
+    /* Page-specific overrides */
+    .arch-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .arch-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .arch-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .arch-table code { font-size: .82rem; }
+    .diff-badge { display: inline-block; font-family: var(--font-mono); font-size: .72rem; font-weight: 600; padding: 2px 8px; margin-left: 6px; }
+    .diff-badge.diff-easy { background: rgba(67,197,158,.12); color: #43c59e; }
+    .diff-badge.diff-med  { background: rgba(224,169,63,.10); color: var(--amber); }
+    .diff-badge.diff-hard { background: rgba(168,85,247,.12); color: var(--purple); }
+    .setup-box { background: var(--bg-raised); border: 1px solid var(--border); padding: 18px 22px; margin: 16px 0; }
+    .setup-box pre { margin: 8px 0 0 0; font-size: .85rem; }
+    .mg-prompt { background: var(--bg-raised); border: 1px solid var(--border); padding: 18px 20px; margin: 14px 0; font-size: .88rem; line-height: 1.7; white-space: pre-wrap; word-break: break-word; position: relative; }
+    .mg-prompt-label { font-family: var(--font-ui); font-size: .6rem; letter-spacing: .12em; text-transform: uppercase; opacity: .5; display: block; margin-bottom: 8px; }
+    .mg-prompt code { font-size: .82rem; }
+    .scoring-table { width: 100%; border-collapse: collapse; margin: 18px 0; font-size: .9rem; }
+    .scoring-table th { font-family: var(--font-ui); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; opacity: .6; text-align: left; padding: 8px 12px; border-bottom: 2px solid var(--border); }
+    .scoring-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .verify-inline { background: rgba(67,197,158,.06); border-left: 3px solid #43c59e; padding: 12px 16px; margin: 10px 0; font-size: .85rem; font-family: var(--font-mono); line-height: 1.8; word-break: break-all; }
+    @media print {  .orb, .aperio-nav, .theme-switcher, .nav-toggle, footer, .btn-print, .mg-prompt-bar, .prompt-copy, .test-result, .rbtn, .section:not(#scorecard):not(#results), .mt-next, .rt-badge { display: none !important; } .scorecard, .scorecard thead th, .scorecard tbody td, .scorecard tfoot td { border-color: #ccc !important; color: #000 !important; } .sc-badge { border: 1px solid #999; color: #000 !important; background: none !important; } .results-tier .rt-card { border: 1px solid #999; } .rt-card.pulse { animation: none; box-shadow: none; }    }
+  </style>
+</head>
+<body>
+
+<div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div>
+
+<nav class="aperio-nav"><div class="nav-inner">
+  <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+  <button class="nav-toggle" id="navToggle"><i class="bi bi-list"></i></button>
+  <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="../guide.html">Guide</a></li><li><a href="../guide.html#evaluate">Evaluate</a></li><li><a href="#suite">Tests</a></li><li><a href="#scorecard">Scorecard</a></li><li><a href="#results">Results</a></li></ul>
+  <div class="theme-switcher" id="themeSwitcher">
+    <button class="theme-btn active" data-theme="dark" title="Dark">🌙</button>
+    <button class="theme-btn" data-theme="light" title="Light">☀️</button>
+    <button class="theme-btn" data-theme="aurora" title="Aurora">✦</button>
+    <button class="theme-btn" data-theme="system" title="System">⊙</button>
+  </div>
+</div></nav>
+
+<!-- ── Header ─────────────────────────────────────────────────── -->
+<section class="section" id="doc-top" style="padding:120px 0 30px"><div class="section-inner">
+  <a href="../index.html" class="mt-back reveal"><i class="bi bi-arrow-left"></i> Aperio Home</a>
+  <a href="../guide.html#evaluate" class="mt-back reveal" style="margin-left:12px"><i class="bi bi-arrow-left"></i> All Suites</a>
+
+  <div class="eyebrow reveal" style="margin-top:18px">DOCX Skills Evaluation</div>
+  <h1 class="section-heading reveal">Word Document Generation &amp; Editing</h1>
+  <p class="lead-text reveal">Ten self-contained Word document tasks that probe how well a model creates and edits <code>.docx</code> files — from simple <code>generate_docx</code> memos to advanced docx-js scripts with custom styles, tables of contents, headers/footers, embedded images, and tracked changes via XML editing. Each task has a copy-paste prompt, a verify command, and clear pass criteria.</p>
+
+  <p class="reveal" style="margin-top:12px;opacity:.75;">These tasks test the <code>docx</code> and <code>docx-advanced</code> skills — the model's ability to produce well-structured, professional <code>.docx</code> files using the <code>generate_docx</code> MCP tool and the docx-js library. Tasks 1–4 use <code>generate_docx</code> (simple). Tasks 5–10 require docx-js scripting (advanced). Start at Task&nbsp;1 and work up.</p>
+</div></section>
+
+<!-- ── Technology Quick Reference ─────────────────────────────── -->
+<section class="section" id="arch" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">DOCX Technology (Quick Reference)</h2>
+  <p class="reveal mg-desc">These tasks use the <code>generate_docx</code> MCP tool and the <code>docx</code> npm package for scripting. Knowing the conventions helps you evaluate whether the model followed the skill correctly.</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="arch-table">
+      <thead><tr><th>Concept</th><th>Rule</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>generate_docx</td><td>Use for simple documents. Sections with heading + paragraphs + tables.</td><td>Zero scripting — fast and reliable</td></tr>
+        <tr><td>docx-js</td><td>Use for images, custom styles, TOC, headers/footers, footnotes.</td><td>Advanced features not in generate_docx</td></tr>
+        <tr><td>Page size</td><td>Always set explicitly (US Letter 12240×15840 DXA)</td><td>docx-js defaults to A4</td></tr>
+        <tr><td>Lists</td><td>Never unicode bullets — use LevelFormat.BULLET + numbering config</td><td>Survives round-trip in Word / Google Docs</td></tr>
+        <tr><td>Tables</td><td>Dual widths: columnWidths array + cell width, both WidthType.DXA</td><td>Never use PERCENTAGE (breaks Google Docs)</td></tr>
+        <tr><td>Shading</td><td>Use ShadingType.CLEAR, never SOLID</td><td>SOLID makes backgrounds opaque in Word</td></tr>
+        <tr><td>PageBreak</td><td>Must be inside a Paragraph</td><td>docx-js requires it</td></tr>
+        <tr><td>ImageRun</td><td>Requires <code>type</code> field ("png" / "jpeg")</td><td>Missing type produces corrupt documents</td></tr>
+        <tr><td>Smart quotes</td><td>Use XML entities: <code>&amp;#x201C;</code> / <code>&amp;#x201D;</code></td><td>Raw Unicode breaks in some XML parsers</td></tr>
+        <tr><td>Tracked changes</td><td><code>&lt;w:ins&gt;</code> for insertions, <code>&lt;w:del&gt;</code> for deletions</td><td>Author must be "Claude"</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Setup ──────────────────────────────────────────────────── -->
+<section class="section" id="setup" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Setup</h2>
+  <p class="reveal mg-desc">You need one terminal with the Aperio server running on your preferred AI provider. Paste each task prompt into the chat (web UI or CLI).</p>
+  <div class="setup-box reveal">
+    <strong style="font-size:.88rem;opacity:.75;">Terminal — Aperio server</strong>
+    <pre><code>npm run start:local        # or any AI_PROVIDER, port 31337</code></pre>
+  </div>
+  <p class="reveal" style="margin-top:12px;font-size:.9rem;opacity:.7;">Paste each task's prompt into the chat. Use a fresh conversation per task when possible. After the model responds, check that the <code>.docx</code> file was created, then run the <strong>Verify</strong> command.</p>
+
+  <p class="reveal" style="margin-top:12px;font-size:.9rem;opacity:.7;">Tasks 1–4 use the <code>generate_docx</code> MCP tool — no scripting needed. Tasks 5–10 require docx-js scripting where the model writes a Node.js script using the <code>docx</code> npm package. The verify commands use Python 3 (stdlib <code>zipfile</code> for XML inspection) and the project's own <code>validate.py</code> script.</p>
+
+  <div class="reveal" style="margin-top:24px">
+    <h3 style="font-size:1rem;">Cleanup between runs</h3>
+    <p style="font-size:.9rem;opacity:.7;">If you want to re-run tasks against a different model, clean up the output files first:</p>
+    <div class="setup-box">
+      <pre><code>rm -f trash/test-*.docx
+rm -rf trash/test-unpacked</code></pre>
+    </div>
+  </div>
+</div></section>
+
+<!-- ── Tasks ──────────────────────────────────────────────────── -->
+<section class="section" id="suite" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">The Tasks</h2>
+  <p class="reveal mg-desc">Ordered by complexity: simple generate_docx first (memos, letters, reports), then docx-js scripting (lists, styles, TOC, headers/footers, images, tracked changes). Each task lists difficulty, what to look for, the prompt to paste, and the verify command.</p>
+
+  <!-- TASK 1: Simple Memo -->
+  <div class="test-card reveal" id="task1">
+    <span class="test-label">Task 1 — Simple generate_docx</span>
+    <h3>Internal Memorandum <span class="diff-badge diff-easy">★☆☆☆☆</span></h3>
+    <p class="test-probes">Probes: basic generate_docx usage, heading + paragraphs structure</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-memo.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a Word document at <code>trash/test-memo.docx</code> using the <code>generate_docx</code> tool. It should be an internal memorandum with:
+- A heading "MEMORANDUM"
+- A block of fields: To, From, Date, Subject (each on its own line, bold labels)
+- 2–3 body paragraphs about Q4 quarterly results (meeting targets, growth highlights, next steps)
+- Use Arial font throughout
+
+Do NOT write a script — use the generate_docx tool directly.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Is the file created at the right path?</li>
+      <li>Does it contain a heading and at least 3 paragraphs?</li>
+      <li>Are the To/From/Date/Subject fields present?</li>
+      <li>Is Arial font used?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-memo.docx'); xml=z.read('word/document.xml').decode(); p=xml.count('<w:p'); h=xml.count('<w:pStyle'); print('Paragraphs:',p,'Styled runs:',h); assert p>=5 and h>=1, 'Need >=5 paragraphs and >=1 styled heading'; print('OK — memo structure valid')"</code></div>
+
+    <div class="test-result" data-test="1"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 2: Meeting Minutes with Table -->
+  <div class="test-card reveal" id="task2">
+    <span class="test-label">Task 2 — Table in Document</span>
+    <h3>Meeting Minutes <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: generate_docx with table, structured content</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-minutes.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a Word document at <code>trash/test-minutes.docx</code> using <code>generate_docx</code>. Structure:
+- Heading 1: "Meeting Minutes — Project Alpha Kickoff"
+- Paragraph: date, location, attendees summary
+- A table with columns: Agenda Item, Owner, Time Allotted, Notes. Fill with 5 agenda items (Project Overview, Timeline Review, Budget Discussion, Risk Assessment, Next Steps).
+- Paragraph: "Action Items" heading followed by a brief list of next steps.
+- Use Arial font. Bold the table header row.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the document contain a table?</li>
+      <li>Are there 5 agenda rows + a header row?</li>
+      <li>Is the heading present?</li>
+      <li>Are action items listed?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-minutes.docx'); xml=z.read('word/document.xml').decode(); tbl=xml.count('<w:tbl'); rows=xml.count('<w:tr'); print('Tables:',tbl,'Rows:',rows); assert tbl>=1 and rows>=5, 'Need >=1 table and >=5 rows'; print('OK — meeting minutes contain table')"</code></div>
+
+    <div class="test-result" data-test="2"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 3: Professional Letter -->
+  <div class="test-card reveal" id="task3">
+    <span class="test-label">Task 3 — Structured Layout</span>
+    <h3>Business Letter <span class="diff-badge diff-easy">★★☆☆☆</span></h3>
+    <p class="test-probes">Probes: generate_docx layout control, multi-paragraph structure, spacing</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-letter.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a formal business letter at <code>trash/test-letter.docx</code> using <code>generate_docx</code>. Include:
+- Sender block: "Aperio Inc., 123 Tech Street, San Francisco, CA 94105"
+- Date line: current date
+- Recipient block: "Dr. Sarah Chen, Chief AI Officer, NovaCloud Systems"
+- Salutation: "Dear Dr. Chen,"
+- Body: 2 paragraphs proposing a partnership for integrating Aperio's memory layer into NovaCloud's agent platform
+- Closing: "Sincerely,", a blank line, then "Lyuben Kikov, CTO, Aperio Inc."
+- Use a professional layout with appropriate spacing between sections. Use Arial font, 11pt.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are all letter components present (sender, date, recipient, salutation, body, closing)?</li>
+      <li>Is there visual spacing between sections?</li>
+      <li>Is Arial 11pt used?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-letter.docx'); xml=z.read('word/document.xml').decode(); p=xml.count('<w:p'); print('Paragraphs:',p); chk=['Aperio','Chen','Sincerely']; missing=[c for c in chk if c.lower() not in xml.lower()]; assert p>=8 and not missing, f'Missing: {missing}'; print('OK — letter structure complete')"</code></div>
+
+    <div class="test-result" data-test="3"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 4: Multi-Section Report -->
+  <div class="test-card reveal" id="task4">
+    <span class="test-label">Task 4 — Multi-Section Document</span>
+    <h3>Structured Report <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: generate_docx with multiple sections, heading hierarchy, varied content</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 new file &nbsp;(<code>trash/test-report.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Create a structured report at <code>trash/test-report.docx</code> using <code>generate_docx</code>. It must have exactly 3 sections, each with a heading and content:
+
+<strong>Section 1 — "Executive Summary"</strong>
+- A brief overview paragraph describing Aperio as a personal memory layer for AI agents.
+- A small table with metrics: Active Users, Stored Memories, API Calls (use realistic numbers).
+
+<strong>Section 2 — "Technical Architecture"</strong>
+- 2 paragraphs describing the modular design: SQLite/Postgres backend, MCP integration, plugin system.
+- Key features listed as plain text lines (not a real list — just separate paragraphs with feature names).
+
+<strong>Section 3 — "Roadmap"</strong>
+- 2 paragraphs covering Q1 and Q2 milestones.
+- A closing note about community contributions.
+
+Use Heading 1 for the document title and section headings. Use Arial font throughout.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are there 3 distinct sections with headings?</li>
+      <li>Does at least one section contain a table?</li>
+      <li>Are there sufficient paragraphs across all sections?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-report.docx'); xml=z.read('word/document.xml').decode(); p=xml.count('<w:p'); tbl=xml.count('<w:tbl'); print('Paragraphs:',p,'Tables:',tbl); assert p>=10 and tbl>=1, 'Need >=10 paragraphs and >=1 table'; # Check headings via style refs; import re; heading_styles=len(re.findall(r'<w:pStyle w:val=\"Heading', xml)); print('Heading styles:',heading_styles); assert heading_styles>=3, 'Need >=3 heading references'; print('OK — report has 3+ sections')"</code></div>
+
+    <div class="test-result" data-test="4"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 5: Bulleted & Numbered Lists -->
+  <div class="test-card reveal" id="task5">
+    <span class="test-label">Task 5 — docx-js Scripting: Lists</span>
+    <h3>Proper Bulleted &amp; Numbered Lists <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: docx-js numbering config, LevelFormat, no unicode bullets</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-lists.js</code> → <code>trash/test-lists.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a docx-js script <code>trash/create-lists.js</code> that creates <code>trash/test-lists.docx</code> with:
+
+<strong>Section 1 — Bulleted list</strong> of 5 Aperio features (Memory Layer, MCP Integration, Code Graph, Wiki, Multi-Provider). Use <strong>proper numbering config</strong> with <code>LevelFormat.BULLET</code> — do NOT use unicode bullet characters.
+
+<strong>Section 2 — Numbered list</strong> of 5 setup steps (Clone Repo, Install Dependencies, Configure .env, Run Migrations, Start Server). Use <code>LevelFormat.DECIMAL</code>.
+
+Requirements:
+- Use <code>import</code> syntax with the <code>docx</code> npm package
+- Set page size explicitly to US Letter
+- Arial font, 11pt body text
+- The script must use <code>writeFileSync</code> to save to <code>trash/test-lists.docx</code>
+- Print the output path to console when done</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the script use proper <code>numbering.config</code> with <code>LevelFormat</code>?</li>
+      <li>Does the output contain <code>&lt;w:numPr&gt;</code> elements (no unicode bullets)?</li>
+      <li>Are there 5 bullet items and 5 numbered items?</li>
+      <li>Does the script compile and run without errors?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-lists.docx', 'r'); xml=z.read('word/document.xml').decode(); import re; nums=len(re.findall(r'<w:numPr>', xml)); unicode_bullets=len(re.findall(r'[\\u2022\\u2023\\u25E6\\u2043]', xml)); print('numPr references:',nums,'Unicode bullets:',unicode_bullets); assert nums>=8, 'Need >=8 numbering references'; assert unicode_bullets==0, 'Has unicode bullets — FAIL'; print('OK — proper numbering with zero unicode bullets')"</code></div>
+
+    <div class="test-result" data-test="5"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 6: Custom Styles -->
+  <div class="test-card reveal" id="task6">
+    <span class="test-label">Task 6 — Custom Heading Styles</span>
+    <h3>Styled Document with Custom Heading Levels <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: docx-js styles config, heading level overrides, font consistency</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-styles.js</code> → <code>trash/test-styles.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a docx-js script <code>trash/create-styles.js</code> that creates <code>trash/test-styles.docx</code> with custom heading styles:
+
+<strong>Custom styles:</strong>
+- <strong>Heading 1</strong>: 28pt, bold, Arial, color: dark blue (003366), spacing before 240 after 120
+- <strong>Heading 2</strong>: 22pt, bold, Arial, color: dark teal (004d40), spacing before 180 after 80
+- <strong>Normal</strong>: 11pt, Arial
+
+<strong>Document content:</strong>
+- Heading 1: "Project Charter"
+- 2 paragraphs of body text
+- Heading 2: "Scope"
+- 1 paragraph
+- Heading 2: "Deliverables"
+- A table with columns: Deliverable, Owner, Deadline (3 rows)
+- Heading 2: "Budget"
+- 1 paragraph
+
+Run the script with <code>node trash/create-styles.js</code> to produce the output.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are custom style definitions present in the document XML (styles.xml)?</li>
+      <li>Do heading IDs match "Heading1", "Heading2" for TOC compatibility?</li>
+      <li>Are colors and sizes correctly applied?</li>
+      <li>Does <code>validate.py</code> pass?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-styles.docx'); sx=z.read('word/styles.xml').decode(); dx=z.read('word/document.xml').decode(); h1=sx.count('Heading1'); h2=sx.count('Heading2'); tbl=dx.count('<w:tbl'); print('Heading1 defs:',h1,'Heading2 defs:',h2,'Tables:',tbl); assert h1>=2 and h2>=2 and tbl>=1, 'Need Heading1/2 style defs and table'; print('OK — custom styles present')"<br><br>python3 skills/docx/scripts/office/validate.py trash/test-styles.docx</code></div>
+
+    <div class="test-result" data-test="6"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 7: Table of Contents -->
+  <div class="test-card reveal" id="task7">
+    <span class="test-label">Task 7 — Table of Contents</span>
+    <h3>Multi-Page Document with TOC <span class="diff-badge diff-hard">★★★★☆</span></h3>
+    <p class="test-probes">Probes: TableOfContents, headingStyleRange, outlineLevel, page breaks</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-toc.js</code> → <code>trash/test-toc.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a docx-js script <code>trash/create-toc.js</code> that creates <code>trash/test-toc.docx</code> — a multi-page document with a Table of Contents:
+
+<strong>Requirements:</strong>
+- Set page size to US Letter
+- <strong>Title page</strong>: centered "Aperio Technical Reference", then a PageBreak
+- <strong>Table of Contents</strong> using <code>TableOfContents</code> with <code>headingStyleRange: "1-2"</code> and hyperlinks enabled
+- Followed by these sections, each starting on a new page (PageBreak before each):
+  - **Heading 1 "Introduction"** — 2 paragraphs of text
+  - **Heading 2 "Core Architecture"** — 1 paragraph
+  - **Heading 2 "Plugin System"** — 1 paragraph
+  - **Heading 1 "Installation Guide"** — 2 paragraphs
+  - **Heading 2 "Prerequisites"** — 1 paragraph
+  - **Heading 2 "Configuration"** — 1 paragraph
+  - **Heading 1 "API Reference"** — 2 paragraphs
+- Headings MUST use <code>HeadingLevel</code> values only (not custom strings)
+- Include <code>outlineLevel</code> in heading paragraph properties (0 for H1, 1 for H2)
+- Arial font throughout
+
+Run with <code>node trash/create-toc.js</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the document contain a TOC field?</li>
+      <li>Are headings using <code>HeadingLevel</code> with <code>outlineLevel</code>?</li>
+      <li>Are there at least 3 Heading 1 and 4 Heading 2 references?</li>
+      <li>Does the script compile and run?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-toc.docx'); dx=z.read('word/document.xml').decode(); import re; h1=len(re.findall(r'Heading1', dx)); h2=len(re.findall(r'Heading2', dx)); toc='TableOfContents' in dx; outline=dx.count('outlineLevel'); print('H1 refs:',h1,'H2 refs:',h2,'TOC:',toc,'outlineLevel:',outline); assert h1>=3 and h2>=4 and toc and outline>=5, 'Need >=3 H1, >=4 H2, TOC, and outlineLevel'; print('OK — TOC and heading structure valid')"</code></div>
+
+    <div class="test-result" data-test="7"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 8: Header/Footer -->
+  <div class="test-card reveal" id="task8">
+    <span class="test-label">Task 8 — Headers and Footers</span>
+    <h3>Document with Running Header &amp; Page Numbers <span class="diff-badge diff-med">★★★☆☆</span></h3>
+    <p class="test-probes">Probes: Header/Footer elements, PageNumber, multi-page layout</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-header.js</code> → <code>trash/test-header.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a docx-js script <code>trash/create-header.js</code> that creates <code>trash/test-header.docx</code>:
+
+<strong>Layout:</strong>
+- US Letter page size, 1-inch margins
+- <strong>Header</strong> (default): Left-aligned text "Aperio — Internal Document" in italic, 9pt
+- <strong>Footer</strong> (default): Centered "Page X" using <code>PageNumber.CURRENT</code>
+- Title: "Employee Handbook" (Heading 1, centered)
+- Paragraph: brief introduction
+- PageBreak
+- Heading 2 "Code of Conduct" + 1 paragraph
+- PageBreak
+- Heading 2 "Remote Work Policy" + 1 paragraph
+
+The header must appear on all pages. Use Arial font. Run with <code>node trash/create-header.js</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Are header and footer elements present in the document XML?</li>
+      <li>Does the footer reference <code>PageNumber</code>?</li>
+      <li>Are page breaks used between sections?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-header.docx'); import re; files=z.namelist(); header_files=[f for f in files if 'header' in f.lower()]; footer_files=[f for f in files if 'footer' in f.lower()]; dx=z.read('word/document.xml').decode(); has_pagebreak='w:br' in dx and 'type=\"page\"' in dx; print('Header files:',header_files,'Footer files:',footer_files,'PageBreak:',has_pagebreak); assert len(header_files)>=1 and len(footer_files)>=1, 'Need header and footer files'; assert has_pagebreak, 'Need page breaks'; print('OK — header, footer, and page breaks present')"</code></div>
+
+    <div class="test-result" data-test="8"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 9: Images -->
+  <div class="test-card reveal" id="task9">
+    <span class="test-label">Task 9 — Embedded Images</span>
+    <h3>Document with Image <span class="diff-badge diff-hard">★★★★☆</span></h3>
+    <p class="test-probes">Probes: ImageRun, data loading, alt text, type field</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 script + 1 output &nbsp;(<code>trash/create-image.js</code> → <code>trash/test-image.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Write a docx-js script <code>trash/create-image.js</code> that creates <code>trash/test-image.docx</code> with an embedded image:
+
+<strong>Requirements:</strong>
+- US Letter page, 1-inch margins
+- Title: "Aperio Logo Reference" (Heading 1, centered)
+- A paragraph: "The official Aperio logo appears below."
+- An <strong>ImageRun</strong> embedding <code>public/assets/aperio-logo.png</code> (or any PNG in <code>public/assets/</code> — use <code>fs.readFileSync</code> to load it)
+  - <code>type</code> must be specified (e.g., "png")
+  - <code>transformation</code>: width 300, height auto-proportional
+  - <code>altText</code> with title and description
+- Below the image: a caption paragraph in italic
+- A second paragraph: "The Aperio favicon is also available." followed by a second ImageRun embedding the favicon from <code>public/assets/favicon.ico</code> (may need to skip if format unsupported — just load a PNG if .ico fails)
+- Use Arial font throughout
+
+Run with <code>node trash/create-image.js</code>.</div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Is an image relationship present in <code>word/_rels/document.xml.rels</code>?</li>
+      <li>Is the image file inside <code>word/media/</code> inside the docx?</li>
+      <li>Is the <code>type</code> field specified on ImageRun?</li>
+      <li>Is alt text provided?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-image.docx'); files=z.namelist(); rels=z.read('word/_rels/document.xml.rels').decode(); media=[f for f in files if 'media' in f]; has_image='Image' in rels or 'image/' in rels; print('Media files:',media,'Image in rels:',has_image); assert len(media)>=1 and has_image, 'Need image in media/ and relationship'; print('OK — image embedded with relationship')"</code></div>
+
+    <div class="test-result" data-test="9"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+
+  <!-- TASK 10: Tracked Changes -->
+  <div class="test-card reveal" id="task10">
+    <span class="test-label">Task 10 — XML Editing: Tracked Changes</span>
+    <h3>Unpack → Edit with Tracked Changes + Comment → Repack <span class="diff-badge diff-hard">★★★★★</span></h3>
+    <p class="test-probes">Probes: unpack/edit/repack pipeline, tracked changes XML, comments</p>
+    <strong style="font-size:.85rem;margin-bottom:12px;display:block;">Files:</strong>
+    <p style="font-size:.88rem;opacity:.8;margin-bottom:16px;">1 source file + output &nbsp;(create <code>trash/test-source.docx</code> first → edit → <code>trash/test-tracked.docx</code>)</p>
+
+    <div class="mg-prompt"><span class="mg-prompt-label">Paste this</span>Demonstrate the full docx editing pipeline. Do the following steps in order:
+
+<strong>Step 1 — Create a source document</strong>
+First, use <code>generate_docx</code> to create <code>trash/test-source.docx</code>. It should be a simple contract clause: heading "Service Agreement — Section 4: Payment Terms" followed by 3 paragraphs of legalese about payment schedules, late fees, and invoicing.
+
+<strong>Step 2 — Unpack</strong>
+Unpack the source file using the project's unpack script:
+<code>python3 skills/docx/scripts/office/unpack.py /abs/path/to/trash/test-source.docx /abs/path/to/trash/test-unpacked</code>
+
+<strong>Step 3 — Add tracked changes</strong>
+Edit <code>trash/test-unpacked/word/document.xml</code> to add tracked changes:
+- Change the payment period from "30 days" to "45 days" using a tracked deletion (<code>&lt;w:del&gt;</code>) of "30" and tracked insertion (<code>&lt;w:ins&gt;</code>) of "45"
+- Change the late fee from "1.5%" to "2.0%" using the same pattern
+- Use author="Claude" and a reasonable date
+
+<strong>Step 4 — Add a comment</strong>
+Run <code>python3 skills/docx/scripts/comment.py /abs/path/to/trash/test-unpacked 0 "Needs legal review before signing."</code>
+Then add <code>&lt;w:commentRangeStart&gt;</code>, <code>&lt;w:commentRangeEnd&gt;</code>, and <code>&lt;w:commentReference&gt;</code> around the first tracked change.
+
+<strong>Step 5 — Repack</strong>
+<code>python3 skills/docx/scripts/office/pack.py /abs/path/to/trash/test-unpacked /abs/path/to/trash/test-tracked.docx --original /abs/path/to/trash/test-source.docx</code>
+
+Verify with:
+<code>python3 skills/docx/scripts/office/validate.py trash/test-tracked.docx --original trash/test-source.docx</code></div>
+
+    <span class="test-label" style="margin-top:18px">What to evaluate</span>
+    <ul style="font-size:.92rem;line-height:1.8;padding-left:20px;">
+      <li>Does the packed document contain tracked changes XML (<code>&lt;w:ins&gt;</code> and <code>&lt;w:del&gt;</code>)?</li>
+      <li>Is the comment present in <code>word/comments.xml</code>?</li>
+      <li>Does <code>validate.py --original</code> detect and report the changes correctly?</li>
+      <li>Are the author attributes set to "Claude"?</li>
+    </ul>
+
+    <div class="test-setup"><strong>Verify:</strong><br><code>python3 -c "from zipfile import ZipFile; z=ZipFile('trash/test-tracked.docx'); dx=z.read('word/document.xml').decode(); has_ins='<w:ins' in dx; has_del='<w:del' in dx; has_comment='comments.xml' in z.namelist(); print('Tracked insertions:',has_ins,'Deletions:',has_del,'Comments file:',has_comment); assert has_ins and has_del and has_comment, 'Need tracked changes and comments'; print('OK — tracked changes and comments present')"<br><br>python3 skills/docx/scripts/office/validate.py trash/test-tracked.docx --original trash/test-source.docx</code></div>
+
+    <div class="test-result" data-test="10"><strong>Result:</strong><button class="rbtn rbtn-pass" data-value="pass">✓ Pass</button><button class="rbtn rbtn-fail" data-value="fail">✗ Fail</button><button class="rbtn rbtn-na" data-value="na">— N/A</button></div>
+  </div>
+</div></section>
+
+<!-- ── Per‑Task Scoring Rubric ───────────────────────────────── -->
+<section class="section" id="rubric" style="padding:20px 0"><div class="section-inner">
+  <h2 class="reveal">Per‑Task Scoring Rubric</h2>
+  <p class="reveal mg-desc">Apply these five signals to each task after running the verify command. They measure not just "does the file exist" but also "did the model follow the skill's conventions and verify its own work".</p>
+  <div class="reveal" style="overflow-x:auto;">
+    <table class="scoring-table">
+      <thead><tr><th>Signal</th><th style="width:140px">0 = fail</th><th style="width:140px">1 = pass</th></tr></thead>
+      <tbody>
+        <tr><td>File created at correct path</td><td>wrong path / wrong format</td><td>correct <code>trash/test-*.docx</code></td></tr>
+        <tr><td>Verify command passes</td><td>red / missing file / Python errors</td><td>green, zero warnings</td></tr>
+        <tr><td>Uses correct tool for the task</td><td>wrote a script when generate_docx was enough</td><td>generate_docx for 1–4, docx-js script for 5–9, pipeline for 10</td></tr>
+        <tr><td>Follows skill conventions</td><td>unicode bullets, no page size, missing ImageRun type</td><td>proper numbering, explicit page size, correct XML</td></tr>
+        <tr><td>Model verified its own work</td><td>claimed "looks good" without checking</td><td>ran validate.py or inspected the output</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div></section>
+
+<!-- ── Scorecard ─────────────────────────────────────────────── -->
+<section class="section" id="scorecard" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">Scorecard</h2><p class="reveal mg-desc">Results fill in automatically as you click the buttons above.</p>
+  <div class="reveal" style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:14px;align-items:center;">
+    <label style="font-size:.9rem;"><strong>Model:</strong> <input type="text" id="modelName" placeholder="e.g. Gemma 4 12B" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:200px;"></label>
+    <label style="font-size:.9rem;"><strong>Date:</strong> <input type="text" id="testDate" placeholder="e.g. 2026-07-22" style="background:var(--bg-raised);border:1px solid var(--border);color:var(--text);padding:6px 12px;font-family:var(--font-sans);font-size:.9rem;border-radius:0;width:160px;"></label>
+  </div>
+  <div class="scorecard-wrap reveal"><div class="print-bar"><button class="btn-print" onclick="window.print()"><i class="bi bi-printer"></i> Print Scorecard</button></div>
+  <div style="overflow-x:auto;"><table class="scorecard" id="scorecardTable">
+    <thead><tr><th style="width:55%">Test</th><th style="width:20%">Result</th><th style="width:25%">Notes</th></tr></thead>
+    <tbody>
+      <tr data-test="1"><td class="sc-test">1. Memo (generate_docx)</td><td class="sc-result" id="sr-1"><span class="sc-badge sc-empty">—</span></td><td id="sn-1"></td></tr>
+      <tr data-test="2"><td class="sc-test">2. Meeting Minutes (Table)</td><td class="sc-result" id="sr-2"><span class="sc-badge sc-empty">—</span></td><td id="sn-2"></td></tr>
+      <tr data-test="3"><td class="sc-test">3. Business Letter</td><td class="sc-result" id="sr-3"><span class="sc-badge sc-empty">—</span></td><td id="sn-3"></td></tr>
+      <tr data-test="4"><td class="sc-test">4. Multi-Section Report</td><td class="sc-result" id="sr-4"><span class="sc-badge sc-empty">—</span></td><td id="sn-4"></td></tr>
+      <tr data-test="5"><td class="sc-test">5. Proper Bulleted/Numbered Lists</td><td class="sc-result" id="sr-5"><span class="sc-badge sc-empty">—</span></td><td id="sn-5"></td></tr>
+      <tr data-test="6"><td class="sc-test">6. Custom Heading Styles</td><td class="sc-result" id="sr-6"><span class="sc-badge sc-empty">—</span></td><td id="sn-6"></td></tr>
+      <tr data-test="7"><td class="sc-test">7. Table of Contents</td><td class="sc-result" id="sr-7"><span class="sc-badge sc-empty">—</span></td><td id="sn-7"></td></tr>
+      <tr data-test="8"><td class="sc-test">8. Header/Footer &amp; Page Numbers</td><td class="sc-result" id="sr-8"><span class="sc-badge sc-empty">—</span></td><td id="sn-8"></td></tr>
+      <tr data-test="9"><td class="sc-test">9. Embedded Images</td><td class="sc-result" id="sr-9"><span class="sc-badge sc-empty">—</span></td><td id="sn-9"></td></tr>
+      <tr data-test="10"><td class="sc-test">10. Tracked Changes Pipeline</td><td class="sc-result" id="sr-10"><span class="sc-badge sc-empty">—</span></td><td id="sn-10"></td></tr>
+    </tbody>
+    <tfoot><tr><td colspan="3" id="sc-total">TOTAL: ____ / 10 passed</td></tr></tfoot>
+  </table></div>
+  <div class="score-feedback" id="scoreFeedback"></div></div>
+
+  <div class="reveal" style="margin-top:18px;background:rgba(127,127,127,.06);border:1px solid rgba(127,127,127,.14);padding:18px 22px;">
+    <strong style="font-size:.9rem;">Scoring notes:</strong>
+    <ul style="font-size:.9rem;line-height:1.8;padding-left:20px;margin-top:8px;margin-bottom:0;">
+      <li><strong>Pass</strong> — the file exists at the right path, structure is valid, verify passes.</li>
+      <li><strong>Fail</strong> — verify fails, wrong tool used (script when generate_docx would work), unicode bullets, missing ImageRun type, or script errors.</li>
+      <li><strong>N/A</strong> — prerequisite not available (e.g., no PNG in assets for Task&nbsp;9).</li>
+      <li>Tasks 5–10 require the <code>docx</code> npm package (already a dependency).</li>
+      <li>Task&nbsp;10 requires Python 3 for the unpack/comment/pack/validate scripts — verify these scripts exist before scoring.</li>
+      <li>A model that passes Tasks 1–4 but fails 5–10 can use generate_docx but not docx-js scripting.</li>
+    </ul>
+  </div>
+</div></section>
+
+<!-- ── Results ───────────────────────────────────────────────── -->
+<section class="section" id="results" style="padding:20px 0"><div class="section-inner"><h2 class="reveal">What the Results Mean</h2>
+
+  <div class="results-tier reveal" id="resultsTier">
+    <div class="rt-card rt-good" data-tier="elite">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">9–10/10</div>
+      <div class="rt-label"><strong>Production-ready document generation.</strong> The model handles both the simple generate_docx tool and advanced docx-js scripting. It follows conventions (no unicode bullets, proper page size, correct ImageRun type) and can unpack/edit/repack documents with tracked changes. Trust it for professional document work.</div>
+    </div>
+    <div class="rt-card rt-good" data-tier="strong">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">7–8/10</div>
+      <div class="rt-label"><strong>Strong document skills.</strong> Handles generate_docx and most docx-js scripting. May struggle with TOC, images, or tracked changes. Reliable for reports, letters, and basic styled documents.</div>
+    </div>
+    <div class="rt-card rt-warn" data-tier="moderate">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">4–6/10</div>
+      <div class="rt-label"><strong>Moderate ability.</strong> Good with generate_docx for simple documents. Struggles with docx-js scripting — lists may use unicode bullets, styles may be inconsistent. Double-check output before sending to clients.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="low">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">1–3/10</div>
+      <div class="rt-label"><strong>Limited document ability.</strong> May produce a basic memo or letter. Not reliable for tables, lists, or any advanced formatting.</div>
+    </div>
+    <div class="rt-card rt-bad" data-tier="none">
+      <div class="rt-badge">← Your result</div>
+      <div class="rt-score">0/10</div>
+      <div class="rt-label"><strong>Cannot produce working Word documents.</strong> This model cannot reliably create or edit <code>.docx</code> files.</div>
+    </div>
+  </div>
+
+  <h3 class="reveal" style="font-size:1.05rem;margin-top:28px">What the progression reveals</h3>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">The task order traces a curve from shallow to deep document-creation understanding:</p>
+  <div class="reveal" style="background:var(--bg-raised);border:1px solid var(--border);padding:18px 22px;margin:14px 0;">
+    <code style="font-size:.88rem;line-height:2;word-break:break-all;">
+      generate_docx memos (1) → tables in documents (2) → structured letters (3) → multi-section reports (4) → proper numbered lists (5) → custom heading styles (6) → TOC with heading levels (7) → headers/footers with page numbers (8) → embedded images (9) → tracked changes via XML editing (10)
+    </code>
+  </div>
+  <p class="reveal" style="font-size:.92rem;opacity:.8;">A model that drops off after Task&nbsp;4 knows generate_docx but not docx-js. One that drops off after Task&nbsp;7 can script basic docs but not advanced features. A model that passes all 10 understands the full document-creation stack.</p>
+</div></section>
+
+<!-- ── Next / Footer ─────────────────────────────────────────── -->
+<section class="section" style="padding:20px 0"><div class="section-inner">
+  <div class="mt-next reveal" style="margin-top:28px">
+    <a href="xlsx-skills.html"><span class="mt-next-t">← XLSX Skills</span><span class="mt-next-d">Test spreadsheet generation with formulas and conventions.</span></a>
+    <a href="../guide.html#evaluate"><span class="mt-next-t">All suites →</span><span class="mt-next-d">Back to all evaluation suites.</span></a>
+    <a href="../exam/capability-exam.html"><span class="mt-next-t">Next → Capability Exam</span><span class="mt-next-d">The full system benchmark — 65+ drills across every tool category.</span></a>
+  </div>
+</div></section>
+
+<footer><div class="footer-warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div></footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../scripts.js"></script>
+<script>window.SCORECARD={tests:10,bonus:false,tiers:[{tier:"elite",min:9},{tier:"strong",min:7},{tier:"moderate",min:4},{tier:"low",min:1},{tier:"none",min:0}]};</script>
+<script src="scorecard.js"></script>
+</body>
+</html>
