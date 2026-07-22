@@ -95,7 +95,7 @@ and clean up their guest state on failure as well as success. See
 - `tests/reporters/integration-json.js` — structured JSON reporter for integration dashboard.
   Usage: `node --test --test-reporter=./tests/reporters/integration-json.js
   --test-reporter-destination=integration-results.json`
-- `scripts/generate-integration-dashboard.js` — converts reporter JSON to `docs/integration-data.js`.
+- `scripts/generate-integration-dashboard.js` — converts reporter JSON to `docs/dashboards/integration-data.js`.
   Run: `npm run integration:dashboard`
 - `tests/e2e/helpers/ws-helper.js` — shared buffered-connect helpers for WebSocket E2E tests.
   `connectBuffered()` attaches the message listener before `open` resolves, eliminating the
