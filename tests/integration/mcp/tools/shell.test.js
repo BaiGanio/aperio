@@ -84,6 +84,16 @@ describe("runNodeScriptHandler", () => {
   test("rejects missing script", async () => {
     const r = await shell.runNodeScriptHandler({ script: tmpPath("ghost.js") });
     assert.ok(r.content[0].text.includes("not found"));
+    assert.match(r.content[0].text, /write_file with this exact path/i);
+  });
+
+  test("does not tell the model to create a missing bundled skill helper", async () => {
+    const missingHelper = join(process.cwd(), "skills", "pptx", "scripts", "generate.js");
+    const r = await shell.runNodeScriptHandler({ script: missingHelper });
+    assert.match(r.content[0].text, /bundled skill helper not found/i);
+    assert.match(r.content[0].text, /session workspace/i);
+    assert.match(r.content[0].text, /do not create or overwrite files under [`']?skills\//i);
+    assert.doesNotMatch(r.content[0].text, /write_file with this exact path/i);
   });
 
   test("executes and returns output", async () => {

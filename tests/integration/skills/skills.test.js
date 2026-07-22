@@ -184,6 +184,12 @@ describe("skill matching", () => {
 describe("skill content", () => {
   const index = loadIndex();
 
+  test("pptx creation requires a workspace builder before execution", () => {
+    const content = index.find(s => s.name === "pptx")?.content ?? "";
+    assert.match(content, /always starts with `write_file`, not `run_node_script`/i);
+    assert.match(content, /never create or overwrite files under `skills\/`/i);
+  });
+
   for (const [skillName, fixture] of Object.entries(SKILL_FIXTURES)) {
     if (!fixture.requiredContent?.length) continue;
 
