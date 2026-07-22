@@ -12,7 +12,7 @@ import { WIKI_SEED } from '../wiki-seed.js';
 import { SELF_MEMORY_SEED } from '../self-memory-seed.js';
 import { AGENT_JOB_SEED } from '../agent-job-seed.js';
 import { normalizeAgentJobDefinition } from '../../lib/agent/job-spec.js';
-import { assertJsonPersistable, rowToMemory, rowToSelf, toVec } from './mappers.js';
+import { assertJsonPersistable, isUuid, rowToMemory, rowToSelf, toIso, toVec } from './mappers.js';
 import { recallMemories, recallSelfMemories } from './search.js';
 
 // The example/default Postgres password shipped in .env.example. Connecting
@@ -160,6 +160,7 @@ export class PostgresStore {
   }
 
   async getById(id) {
+    if (!isUuid(id)) return null;
     const { rows } = await this.pool.query(
       `SELECT * FROM memories WHERE id = $1`, [id]
     );
@@ -293,6 +294,7 @@ export class PostgresStore {
   }
 
   async setEmbedding(id, embedding) {
+    if (!isUuid(id)) return;
     await this.pool.query(
       `UPDATE memories SET embedding = $1 WHERE id = $2`,
       [toVec(embedding), id]
@@ -332,6 +334,7 @@ export class PostgresStore {
   }
 
   async setPin(id, pinned) {
+    if (!isUuid(id)) return false;
     const { rows } = await this.pool.query(
       `UPDATE memories SET pinned = $1 WHERE id = $2 AND valid_until IS NULL RETURNING id`,
       [!!pinned, id]
@@ -340,6 +343,7 @@ export class PostgresStore {
   }
 
   async setExpiry(id, expiresAt) {
+    if (!isUuid(id)) return false;
     const { rows } = await this.pool.query(
       `UPDATE memories SET expires_at = $1 WHERE id = $2 AND valid_until IS NULL RETURNING id`,
       [expiresAt ? new Date(expiresAt) : null, id]
@@ -379,6 +383,7 @@ export class PostgresStore {
   }
 
   async mergeDuplicate(id_a, id_b) {
+    if (!isUuid(id_a) || !isUuid(id_b)) return;
     const { rows } = await this.pool.query(
       `SELECT id, content FROM memories WHERE id = ANY($1)`, [[id_a, id_b]]
     );
@@ -412,6 +417,7 @@ export class PostgresStore {
   }
 
   async delete(id) {
+    if (!isUuid(id)) return null;
     const { rows } = await this.pool.query(
       `DELETE FROM memories WHERE id = $1 RETURNING title`, [id]
     );
@@ -437,6 +443,7 @@ export class PostgresStore {
   }
 
   async getSelfById(id) {
+    if (!isUuid(id)) return null;
     const { rows } = await this.pool.query(`SELECT * FROM self_memories WHERE id = $1`, [id]);
     return rows.length ? rowToSelf(rows[0]) : null;
   }
@@ -473,10 +480,12 @@ export class PostgresStore {
   }
 
   async setSelfEmbedding(id, embedding) {
+    if (!isUuid(id)) return;
     await this.pool.query(`UPDATE self_memories SET embedding = $1 WHERE id = $2`, [toVec(embedding), id]);
   }
 
   async deleteSelf(id) {
+    if (!isUuid(id)) return null;
     const { rows } = await this.pool.query(
       `DELETE FROM self_memories WHERE id = $1 RETURNING title`, [id]
     );
@@ -580,8 +589,8 @@ export class PostgresStore {
       id: row.id,
       enabled: row.enabled,
       ...row.definition,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
+      created_at: toIso(row.created_at),
+      updated_at: toIso(row.updated_at),
     });
   }
 
@@ -636,7 +645,7 @@ export class PostgresStore {
       `SELECT * FROM agent_runs WHERE job_id = $1 ORDER BY started_at DESC, id DESC LIMIT $2`,
       [jobId, limit]
     );
-    return rows;
+    return rows.map(r => ({ ...r, started_at: toIso(r.started_at), finished_at: toIso(r.finished_at) }));
   }
 
   // Delete one run by id (manual cleanup from the History view). Returns true
@@ -670,12 +679,12 @@ export class PostgresStore {
       decision_payload: row.decision_payload ?? null,
       claim_id: row.claim_id ?? null,
       status: row.status,
-      created_at: row.created_at,
-      updated_at: row.updated_at,
-      decided_at: row.decided_at ?? null,
-      claimed_at: row.claimed_at ?? null,
-      completed_at: row.completed_at ?? null,
-      expires_at: row.expires_at ?? null,
+      created_at: toIso(row.created_at),
+      updated_at: toIso(row.updated_at),
+      decided_at: toIso(row.decided_at) ?? null,
+      claimed_at: toIso(row.claimed_at) ?? null,
+      completed_at: toIso(row.completed_at) ?? null,
+      expires_at: toIso(row.expires_at) ?? null,
     };
   }
 

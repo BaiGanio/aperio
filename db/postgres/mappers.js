@@ -23,6 +23,25 @@ export function toVec(embedding) {
   return `[${embedding.join(',')}]`;
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Postgres' native UUID columns (memories, self_memories) throw a hard 22P02
+// syntax error for any non-UUID-shaped input instead of matching zero rows —
+// SQLite's TEXT id columns just no-op on the same input. Callers on those
+// tables check this first so a missing/malformed id behaves like SQLite
+// (not-found), not a crash.
+export function isUuid(value) {
+  return typeof value === 'string' && UUID_RE.test(value);
+}
+
+// node-postgres auto-parses TIMESTAMPTZ columns into JS Date objects; SQLite's
+// TEXT columns return the raw ISO string untouched. agent_jobs/agent_runs/
+// agent_interrupts have no row mapper on the SQLite side either, so ISO
+// string is the de facto shared contract — normalize Postgres to match.
+export function toIso(value) {
+  return value instanceof Date ? value.toISOString() : value;
+}
+
 export function assertJsonPersistable(value, field) {
   if (value === undefined) return null;
   const seen = new WeakSet();
