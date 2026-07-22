@@ -11,6 +11,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Bounded dataset-run, folder-authorization, and metrics retention**: dataset
+  experiments no longer keep a second copy of every result row in memory once
+  the artifact is persisted — finished runs collapse to a small status/summary
+  record, expire after a grace period, and the registry is capped, while active
+  runs stay queryable and cancellable. Historical results are read back from the
+  persisted artifact, which now honors an injected artifact root on the read path
+  as well as the write path. Abandoned `index_folder` authorization proposals are
+  pruned once their window closes instead of holding a validated host path for
+  the process lifetime. Metrics sampling moved to an owned sampler with explicit
+  `start`/`stop`, a single-flight guard so a slow `store.counts()` or `vm_stat`
+  cannot overlap the next sample, and release through graceful shutdown, so a
+  re-mounted API router no longer leaves an earlier sampler running.
 - **Capability exam scorecard normalization**: negative pass counts now clamp to
   zero without becoming blank, while genuinely blank rows remain incomplete.
   Clamped values persist consistently, Reset clears derived score state, and
@@ -83,6 +95,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
   sentinel (`__e2e_call_tool__:<name>:<args>`) that spawns a real, scoped
   `mcp/index.js` child to exercise tool-only surfaces (`propose_memory`,
   `write_file`) that `injectAgent` mode has no other path to reach.
+
+### Removed
+
+- **Unreferenced streaming duplicate**: deleted `public/scripts/streaming.js`, a
+  2,395-line copy of the browser streaming client that nothing loaded — the page
+  and every test use the split `public/scripts/streaming/*` modules.
 
 ### Changed
 

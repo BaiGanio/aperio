@@ -83,3 +83,61 @@ test("index_folder confirmation authorizes an outside path and immediately start
   const replay = await tool.handler({ confirmation_token: "idx_confirm123" });
   assert.match(replay, /expired|invalid/i, "confirmation tokens are single-use");
 });
+
+// ── Pending-authorization lifecycle ──────────────────────────────────────────
+// A proposal the user never confirms must not keep a validated host path in
+// memory for the process lifetime.
+
+function outsidePathIndexer() {
+  return {
+    async start(args) {
+      const error = new Error(`Path is outside Allowed Paths: ${args.path}`);
+      error.code = "PATH_NOT_ALLOWED";
+      error.path = args.path;
+      throw error;
+    },
+  };
+}
+
+test("abandoned folder authorizations expire without being submitted", async () => {
+  let clock = 0;
+  let issued = 0;
+  const authorized = [];
+  const tool = createIndexFolderTool(outsidePathIndexer(), {
+    createToken: () => `idx_${issued++}`,
+    authorizePath: async (path) => { authorized.push(path); },
+    runWithUpdatedPaths: (fn) => fn(),
+    now: () => clock,
+    authorizationTtlMs: 1000,
+  });
+
+  await tool.handler({ path: "/Users/me/abandoned", target: "code" });
+
+  clock = 1001;                     // the window closes with nothing submitted
+  // A later proposal prunes the abandoned entry; the stale token is then unusable.
+  await tool.handler({ path: "/Users/me/other", target: "code" });
+  const replay = await tool.handler({ confirmation_token: "idx_0" });
+
+  assert.match(replay, /invalid or expired/i);
+  assert.deepEqual(authorized, [], "an expired proposal never widens Allowed Paths");
+});
+
+test("a flood of unanswered proposals stays bounded", async () => {
+  let issued = 0;
+  const tool = createIndexFolderTool(outsidePathIndexer(), {
+    createToken: () => `idx_${issued++}`,
+    authorizePath: async () => {},
+    runWithUpdatedPaths: (fn) => fn(),
+    maxPendingAuthorizations: 3,
+  });
+
+  for (let i = 0; i < 10; i++) {
+    await tool.handler({ path: `/Users/me/folder-${i}`, target: "code" });
+  }
+
+  // The oldest proposals were shed; only the most recent ones still confirm.
+  const stale = await tool.handler({ confirmation_token: "idx_0" });
+  assert.match(stale, /invalid or expired/i);
+  const recent = await tool.handler({ confirmation_token: "idx_9" });
+  assert.doesNotMatch(recent, /invalid or expired/i);
+});
