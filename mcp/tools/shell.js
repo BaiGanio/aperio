@@ -180,7 +180,36 @@ function prepareNodeTarget(resolved) {
   }
 }
 
-function buildResponseText({ exitCode, timedOut, stdout, stderr, stdoutBytes, stderrBytes, scriptPath }) {
+// Matches "<created/saved/wrote/...> ... <filename.ext>" so we can cross-check
+// a script's own success claim against what actually landed on disk. Deliberately
+// narrow: only filenames near a creation verb, with a known artifact extension —
+// this is a heuristic nudge, not a general-purpose stdout parser.
+const ARTIFACT_EXT = "pdf|docx?|xlsx?|pptx?|png|jpe?g|gif|svg|csv|json|md|txt|html?|zip|mp3|mp4|wav|ico|webp";
+const ARTIFACT_CLAIM_RE = new RegExp(
+  String.raw`\b(?:creat(?:ed|ing)|sav(?:ed|ing)|wrote|writing|written|generat(?:ed|ing)|export(?:ed|ing)|output(?:ted)?|produc(?:ed|ing))\b[^\n]{0,40}?([\w./\\-]+\.(?:${ARTIFACT_EXT}))\b`,
+  "gi",
+);
+
+// A script that logs "Successfully created foo.pdf" isn't proof foo.pdf
+// exists — e.g. pdf-lib's `doc.save(name)` silently ignores the argument and
+// returns bytes instead of writing a file, so a script that forgets
+// writeFileSync still exits 0 with a confident, false success message. Cross-
+// check stdout's own claims against cwd after the process exits and surface
+// any mismatch as a warning (never blocks or rewrites the actual result).
+function findClaimedButMissingArtifacts(stdout, cwd) {
+  if (!stdout) return [];
+  const claimed = new Set();
+  for (const match of stdout.matchAll(ARTIFACT_CLAIM_RE)) claimed.add(match[1]);
+
+  const missing = [];
+  for (const name of claimed) {
+    const candidate = /^(?:[a-zA-Z]:[\\/]|[\\/])/.test(name) ? name : resolvePath(cwd, name);
+    if (!existsSync(candidate)) missing.push(name);
+  }
+  return missing;
+}
+
+function buildResponseText({ exitCode, timedOut, stdout, stderr, stdoutBytes, stderrBytes, scriptPath, missingArtifacts }) {
   const parts = [];
 
   if (timedOut) parts.push(`❌ Script timed out after ${TIMEOUT_MS / 1000}s: ${scriptPath}`);
@@ -195,6 +224,11 @@ function buildResponseText({ exitCode, timedOut, stdout, stderr, stdoutBytes, st
   if (stdoutBytes > MAX_OUTPUT_BYTES) truncNotes.push(`stdout truncated (${Math.round(stdoutBytes / 1024)}KB > ${MAX_OUTPUT_BYTES / 1024}KB)`);
   if (stderrBytes > MAX_OUTPUT_BYTES) truncNotes.push(`stderr truncated (${Math.round(stderrBytes / 1024)}KB > ${MAX_OUTPUT_BYTES / 1024}KB)`);
   if (truncNotes.length) parts.push(`⚠️ ${truncNotes.join("; ")}`);
+
+  if (missingArtifacts && missingArtifacts.length) {
+    const list = missingArtifacts.map(m => `\`${m}\``).join(", ");
+    parts.push(`⚠️ stdout claims ${list} was created, but no such file exists in the working directory after exit. The script may have called an API that returns data without writing to disk (e.g. pdf-lib's \`doc.save(name)\` returns bytes — you must \`writeFileSync(name, await doc.save())\`). Do not tell the user the file was created until you confirm it actually exists.`);
+  }
 
   return parts.join("\n\n");
 }
@@ -295,7 +329,8 @@ export async function runNodeScriptHandler({ script, args = [] }) {
     logger.info(`[run_node_script] ok ${resolved}`);
   }
 
-  const text = buildResponseText({ ...r, scriptPath: resolved });
+  const missingArtifacts = (!r.timedOut && r.exitCode === 0) ? findClaimedButMissingArtifacts(r.stdout, cwd) : [];
+  const text = buildResponseText({ ...r, scriptPath: resolved, missingArtifacts });
   return { content: [{ type: "text", text }] };
 }
 

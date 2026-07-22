@@ -33,6 +33,8 @@ page.drawText("Hello, PDF", { x: 72, y: 700, size: 24, font, color: rgb(0, 0, 0)
 writeFileSync("output.pdf", await doc.save());
 ```
 
+`doc.save()` takes **no filename** and returns the PDF bytes (`Promise<Uint8Array>`) — it does not write anything to disk by itself. Never call `doc.save("output.pdf")` expecting it to persist the file; you must pass those bytes to `writeFileSync` yourself, as above.
+
 Do **not** reach for Python/reportlab — those libraries are not installed. `pdf-lib`, `pdfjs-dist`, and `sharp` are.
 
 ## Dependencies
