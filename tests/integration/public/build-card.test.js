@@ -3,16 +3,14 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { STREAMING_SCRIPTS } from "../../helpers/streamingScripts.js";
+
 // The streaming modules are classic scripts built on shared browser globals, and
 // the project has no DOM test library, so these are source-level invariants over
 // the exact files loaded by public/index.html. Each one encodes a bug that
 // actually shipped: a build card that froze mid-generation, and one that could
 // never offer open-in-browser / show-in-folder.
-const source = [
-  "public/scripts/streaming/state.js",
-  "public/scripts/streaming/handler.js",
-  "public/scripts/streaming/deliverables.js",
-].map(file => readFileSync(resolve(file), "utf8")).join("\n");
+const source = STREAMING_SCRIPTS.map(file => readFileSync(resolve(file), "utf8")).join("\n");
 const indexSource = readFileSync(resolve("public/index.html"), "utf8");
 const css = readFileSync(resolve("public/styles/messages/misc.css"), "utf8");
 const indicatorCss = readFileSync(resolve("public/styles/tool-and-thinking-indicators.css"), "utf8");
@@ -96,7 +94,7 @@ test("the preview action forwards the artifact URL to the modal", () => {
 });
 
 test("answer_artifacts is handled and can patch already-finalized cards", () => {
-  assert.match(source, /msg\.type === "answer_artifacts"/);
+  assert.match(source, /onStreamEvent\("answer_artifacts"/);
   assert.match(source, /function _applyAnswerArtifactsToLastBubble\(/);
   assert.match(source, /_answerArtifacts = \[\];\s*\/\/ belongs to the turn/);
 });

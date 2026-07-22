@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+import { STREAMING_SCRIPTS } from "../helpers/streamingScripts.js";
+
 const root = resolve(process.cwd());
 const read = (file) => readFileSync(resolve(root, file), "utf8");
 
@@ -23,13 +25,7 @@ test("CSP: generated templates have no inline event-handler attributes", () => {
     "public/scripts/markdown.js",
     "public/scripts/rendering.js",
     "public/scripts/sessions.js",
-    "public/scripts/streaming/state.js",
-    "public/scripts/streaming/handler.js",
-    "public/scripts/streaming/roundtable.js",
-    "public/scripts/streaming/deliverables.js",
-    "public/scripts/streaming/badges.js",
-    "public/scripts/streaming/tool-cards.js",
-    "public/scripts/streaming/interrupts.js",
+    ...STREAMING_SCRIPTS,
     "public/scripts/wiki-panel.js",
   ]) {
     assert.doesNotMatch(read(file), /on(click|change|input|error)\s*=\s*["'`]/i, `${file} still emits inline handlers`);

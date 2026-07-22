@@ -104,6 +104,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Streaming events dispatch through one router**: the browser client's ~45-branch
+  `handleMessage()` if-chain became an explicit type→handler map owned by
+  `streaming/handler.js`, with the handlers themselves registered by domain files
+  under `public/scripts/streaming/events/` (lifecycle, turn, context, knowledge,
+  tools, round table). Behavior is unchanged: each type still has exactly one
+  handler, duplicate registration is now a load-time error, and an unrecognized
+  type remains a deliberate silent ignore. New contract tests pin the full type
+  list, the page's module load order, and an end-to-end streamed turn.
 - **Session-owned artifact storage**: new generated XLSX/DOCX files and persisted
   image/scanned-PDF attachments now live under `var/scratch/<session-id>/` and are
   deleted or retained with their owning session. Standalone MCP generation uses
