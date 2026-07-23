@@ -42,6 +42,6 @@ test("CSP: static UI styles are class-based", () => {
 test("CSP: external wiring and policy configuration are present", () => {
   assert.match(read("public/index.js"), /data-action/);
   assert.match(read("lib/server.js"), /APERIO_CSP/);
-  assert.match(read("lib/server.js"), /sandboxStatic/);
+  assert.match(read("lib/server/setupRoutes.js"), /sandboxStatic/);
   assert.match(read(".env.example"), /APERIO_CSP=on/);
 });
