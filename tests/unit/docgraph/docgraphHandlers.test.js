@@ -12,6 +12,7 @@ import logger from "../../../lib/helpers/logger.js";
 import {
   searchHandler,
   reposHandler,
+  batchHandler,
   outlineHandler,
   contextHandler,
   refsHandler,
@@ -127,6 +128,59 @@ describe("reposHandler", () => {
     const ctx = { store: { pool }, generateEmbedding: async () => null, vectorEnabled: () => false };
     const result = await reposHandler(ctx);
     assert.ok(isError(result));
+  });
+});
+
+// =============================================================================
+// batchHandler — cancellation signal wiring
+// =============================================================================
+//
+// Regression: ctx has no per-request `signal` field (it's one shared,
+// process-lifetime object — see mcp/index.js's createContext), so
+// `ctx.signal` used to always be undefined and every abort check inside
+// retrieveInBatches was dead in real tool calls. The real signal must be the
+// MCP SDK's per-call RequestHandlerExtra#signal, passed as batchHandler's
+// third argument (mirroring mcp/tools/docgraph.js's `(args, extra) =>
+// batchHandler(ctx, args, extra?.signal)` wiring), not read off ctx.
+
+describe("batchHandler", () => {
+  test("an already-aborted request signal stops retrieval before any read", async () => {
+    const pool = mockPool({}); // must never be reached — retrieval aborts first
+    const ctx = { store: { pool }, generateEmbedding: async () => null, vectorEnabled: () => false };
+    const controller = new AbortController();
+    controller.abort();
+    const result = await batchHandler(ctx, { candidates: [{ id: 1, rel_path: "a.md", size: 10 }] }, controller.signal);
+    assert.ok(isError(result));
+    assert.ok(result.content[0].text.includes("aborted"));
+  });
+
+  test("a live (non-aborted) request signal lets the batch complete normally", async () => {
+    const pool = mockPool({
+      "FROM docgraph_documents": [{ id: 1, mime: "text/markdown", title: "Doc", rel_path: "a.md", root_path: "/repo", text: "hello" }],
+    });
+    const ctx = { store: { pool }, generateEmbedding: async () => null, vectorEnabled: () => false };
+    const controller = new AbortController();
+    const result = await batchHandler(ctx, { candidates: [{ id: 1, rel_path: "a.md", size: 10 }] }, controller.signal);
+    assert.strictEqual(result.isError, undefined);
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.coverage.read, 1);
+  });
+
+  test("ctx.signal is never consulted — a signal on ctx must not substitute for the real request signal", async () => {
+    const pool = mockPool({}); // must never be reached
+    const abortedCtxSignal = new AbortController();
+    abortedCtxSignal.abort();
+    // If _batch ever regresses back to reading ctx.signal, this aborted
+    // decoy would cause a false-positive abort even though the real request
+    // signal (passed as the third arg) is live and unaborted.
+    const ctx = { store: { pool }, generateEmbedding: async () => null, vectorEnabled: () => false, signal: abortedCtxSignal.signal };
+    const livePool = mockPool({
+      "FROM docgraph_documents": [{ id: 1, mime: "text/markdown", title: "Doc", rel_path: "a.md", root_path: "/repo", text: "hello" }],
+    });
+    ctx.store.pool = livePool;
+    const controller = new AbortController();
+    const result = await batchHandler(ctx, { candidates: [{ id: 1, rel_path: "a.md", size: 10 }] }, controller.signal);
+    assert.strictEqual(result.isError, undefined, "a decoy aborted ctx.signal must not abort a call with a live request signal");
   });
 });
 

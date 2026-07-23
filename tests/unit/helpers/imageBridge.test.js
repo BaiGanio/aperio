@@ -194,6 +194,20 @@ describe("isStandaloneVisionRequest()", () => {
   });
 });
 
+describe("isTaskShapedVisionRequest()", () => {
+  test("recognizes structured inline-image field extraction", () => {
+    assert.ok(imageBridge.isTaskShapedVisionRequest(
+      "Extract provider, date, total, and currency from this scan",
+      { hasImage: true },
+    ));
+  });
+
+  test("does not classify generic descriptions or text-only prompts", () => {
+    assert.ok(!imageBridge.isTaskShapedVisionRequest("Describe this image", { hasImage: true }));
+    assert.ok(!imageBridge.isTaskShapedVisionRequest("Extract the total from this scan", { hasImage: false }));
+  });
+});
+
 // =============================================================================
 // bridgeImagesToVLM — helper factories
 // =============================================================================
