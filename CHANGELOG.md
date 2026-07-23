@@ -9,6 +9,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Memory-compaction WS0 baseline** (issue #286): `npm run memory:baseline` measures real token cost for the self-memory preload and formatted `recall` payloads, and scores recall hit-rate@k separately for semantic and full-text search, against a throwaway seeded SQLite DB — the measurement gate every future compaction rule must clear before shipping. Found and corrected several stale assumptions along the way: there is no wiki-preload path today (only on-demand `wiki_get`), and a fresh in-memory DB is not actually empty (`SqliteStore.init()` seeds baseline demo content unconditionally). Plan and companion tests: `trash/plans/memory-compaction/`.
 - Reorganized benchmark inputs under `docs/benchmarks/tools/`, grouped test dashboards under `docs/benchmarks/`, and added a private-safe metrics export for the model-tier viewer.
 - Renamed the model-tier viewer integration test to `benchmarking.test.js` and made qualification-case cards collapsed by default.
 - Extracted the WebSocket chat/init turn-interruption mutex out of `lib/emitters/handlers/wsHandler.js` into `lib/emitters/handlers/ws/turnLock.js` (`createTurnLock()`), isolating the concurrency-safety logic from `handleChat`'s business logic (issue #307 Phase 5b). No behavior change; added characterization coverage for a previously-untested socket-close-during-active-turn scenario and a deeper interruption race.

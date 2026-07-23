@@ -255,6 +255,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Local-engine hardware/perf profiles (`APERIO_LOCAL_PERF_PROFILE`: balanced/fast-low-vram/long-context/quality) — MoE-aware model pick, KV-cache quantization + flash attention + single-resident-model on tight VRAM, raised context ceiling for long-context, biggest-model-RAM-allows for quality; best-effort VRAM detection (macOS unified memory, `nvidia-smi`, else unknown)
 - Memory-aware llama.cpp vision bridge — native-vision main models omit the dedicated VLM; when the main model and VLM cannot fit together, the router keeps both entries but uses `models-max = 1` to swap them on demand, with the selected mode logged at startup
 - `npm run local:bench` — short + medium fixed-prompt benchmark against the local llama.cpp engine; reports load overhead, prompt/gen tok/s, served context, profile, model, and a recommendation string (issue #222)
+- `npm run memory:baseline` — memory-compaction WS0 baseline (issue #286): against a throwaway seeded in-memory SQLite DB, reports token cost of the self-memory preload, the (content-free) session-memory pointer, and formatted `recall` payloads, plus recall hit-rate@k scored separately for semantic and full-text search modes; results append to `var/memory-compaction/baseline.tsv`
 - Model-tier pilot benchmark — runs fixed tool-use qualification cases against a
   selected local llama.cpp model and RAM tier in an isolated temporary SQLite
   app/workspace, records readiness, tool sequence, state assertions, timings,
