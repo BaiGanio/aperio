@@ -103,7 +103,7 @@ console.log(`${SEP}`);
 
 if (failures.length === 0) {
   console.log(`${GREEN}✅ CI pipeline verified locally — all steps passed.${RESET}`);
-  console.log(`   Refresh docs/tools/dashboards/*/*.html to see the results.`);
+  console.log(`   Refresh docs/benchmarks/{code-cov,unit,integration,e2e}/*.html to see the results.`);
 } else {
   console.log(`${RED}❌ ${failures.length} step(s) failed:${RESET}`);
   for (const f of failures) {

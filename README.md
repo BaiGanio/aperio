@@ -297,7 +297,7 @@ npm run model-tier:pilot -- \
   --campaign audit-YYYYMMDD-gemma-e4b-16gb-chain-recall
 ```
 
-The model catalog is in `benchmarks/models.json`; supported tier
+The model catalog is in `docs/benchmarks/tools/models.json`; supported tier
 values are `8`, `16`, `24`, and `32`. The runner starts an isolated temporary
 SQLite app/workspace, imports the qualification fixture, waits for app/model/
 embedding/graph readiness, runs the selected case, and tears the processes and
@@ -310,8 +310,9 @@ var/benchmarks/model-tiers/<tier>gb/<model>/<campaign-id>/
 Keep this directory private and never commit it. Important files are
 `run.json`, `cases.jsonl`, `transcript.jsonl`, `application.log`,
 `llamacpp.log`, and `metrics.csv`. Each completed run also writes
-`dashboard-data.js`, a metrics-only export for `docs/tools/benchmarking.html` and
-the latest copy under `docs/tools/benchmarks/dashboard-data.js`;
+`qualification-data.js`, a metrics-only export for
+`docs/benchmarks/pilot/qualification.html` and the latest copy under
+`docs/benchmarks/pilot/qualification-data.js`;
 it excludes prompts, answers, memories, paths, and transcripts. Inspect the
 private logs before rerunning: a
 `exceed_context_size_error` is explicit context-limit evidence and makes the

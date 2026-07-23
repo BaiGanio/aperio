@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/generate-integration-dashboard.js
-// Converts the integration test reporter output into docs/tools/dashboards/integration/integration-data.js.
+// Converts the integration test reporter output into docs/benchmarks/integration/integration-data.js.
 // Usage: node scripts/generate-integration-dashboard.js
 //   npm run integration:dashboard
 
@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const inputPath = resolve(ROOT, option("--input", "tests/results/integration-results.json"));
-const outputPath = resolve(ROOT, option("--output", "docs/tools/dashboards/integration/integration-data.js"));
+const outputPath = resolve(ROOT, option("--output", "docs/benchmarks/integration/integration-data.js"));
 
 async function run() {
   let data;

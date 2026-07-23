@@ -244,7 +244,7 @@ test("selectBenchmarkCases preserves suite order and rejects unknown ids", () =>
 });
 
 test("the checked-in qualification suite is the canonical 14-case funnel", () => {
-  const suite = JSON.parse(readFileSync("benchmarks/cases.json", "utf8"));
+  const suite = JSON.parse(readFileSync("docs/benchmarks/tools/cases.json", "utf8"));
   const validated = validateBenchmarkCases(suite);
   assert.equal(QUALIFICATION_SUITE_VERSION, 1);
   assert.equal(validated.length, QUALIFICATION_CASE_COUNT);
@@ -283,7 +283,7 @@ test("the checked-in qualification suite is the canonical 14-case funnel", () =>
 
 test("the qualification memory fixture is exactly 28 tagged memories", () => {
   const fixture = JSON.parse(readFileSync(".github/capability-exam/exam.memories.json", "utf8"));
-  const contract = JSON.parse(readFileSync("benchmarks/fixture-contract.json", "utf8"));
+  const contract = JSON.parse(readFileSync("docs/benchmarks/tools/fixture-contract.json", "utf8"));
   assert.deepEqual(validateQualificationFixture(fixture, contract), {
     memoryCount: 28,
     tag: "aperio-exam",

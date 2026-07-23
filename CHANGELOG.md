@@ -9,7 +9,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-- Reorganized benchmark inputs under `benchmarks/`, grouped test dashboards under `docs/tools/dashboards/`, and added a private-safe metrics export for the model-tier viewer.
+- Reorganized benchmark inputs under `docs/benchmarks/tools/`, grouped test dashboards under `docs/benchmarks/`, and added a private-safe metrics export for the model-tier viewer.
 - Renamed the model-tier viewer integration test to `benchmarking.test.js` and made qualification-case cards collapsed by default.
 
 ### Fixed
@@ -87,7 +87,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `test:unit`, `test:integration`, `test:ci:unit`, `test:ci:integration`,
   `test:integration:ci:dashboard`, and `integration:dashboard`. New reporters at
   `tests/reporters/unit-json.js` and `tests/reporters/integration-json.js`, with
-  dashboards at `docs/tools/dashboards/unit/unit.html` and `docs/tools/dashboards/integration/integration.html`.
+  dashboards at `docs/benchmarks/unit/unit.html` and `docs/benchmarks/integration/integration.html`.
 - **Expanded real-app E2E coverage** (18% → 35%+ route coverage): 28 new tests
   across agent job lifecycle (create/run/history/delete/gate-toggle), session
   lifecycle (chat/list/get/pin/delete), data import round-trips, WebSocket

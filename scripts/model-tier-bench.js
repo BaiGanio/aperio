@@ -611,7 +611,7 @@ async function main() {
       try {
         writeDashboardData(modelDir);
         writeDashboardData(modelDir, {
-          outputPath: join(ROOT, "docs/tools/benchmarks/dashboard-data.js"),
+          outputPath: join(ROOT, "docs/benchmarks/pilot/qualification-data.js"),
         });
       } catch (error) {
         console.error(`dashboard metrics export failed: ${error.message}`);

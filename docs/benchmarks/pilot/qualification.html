@@ -9,7 +9,7 @@
   <!-- Shared Aperio typography — mirrors docs/index.html -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="../styles.css" />
+  <link rel="stylesheet" href="../../styles.css" />
   <style>
     /* ── Fonts (shared with the landing page) ── */
     :root {
@@ -420,9 +420,9 @@
 
   <nav class="aperio-nav">
     <div class="nav-inner">
-      <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+      <a href="../../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
       <button class="nav-toggle" id="navToggle" aria-label="Open navigation">☰</button>
-      <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="benchmarking.html">Benchmarking</a></li><li><a href="dashboards/coverage/coverage.html">Coverage</a></li><li><a href="dashboards/unit/unit.html">Unit</a></li><li><a href="dashboards/integration/integration.html">Integration</a></li><li><a href="dashboards/e2e/e2e.html">E2E</a></li></ul>
+      <ul class="nav-links" id="navLinks"><li><a href="../../index.html">Home</a></li><li><a href="qualification.html">Benchmarking</a></li><li><a href="../code-cov/coverage.html">Coverage</a></li><li><a href="../unit/unit.html">Unit</a></li><li><a href="../integration/integration.html">Integration</a></li><li><a href="../e2e/e2e.html">E2E</a></li></ul>
       <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark" type="button">🌙</button><button class="theme-btn" data-theme="light" title="Light" type="button">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora" type="button">✦</button><button class="theme-btn" data-theme="system" title="System" type="button">⊙</button></div>
     </div>
   </nav>
@@ -444,7 +444,7 @@
 
     <label class="drop-zone" id="dropZone">
       <span class="drop-icon">↧</span>
-      <span><span class="drop-title">Latest exported benchmark</span><span class="drop-copy">This page loads docs/tools/benchmarks/dashboard-data.js automatically. The controls below are available for inspecting another local export.</span></span>
+      <span><span class="drop-title">Latest exported benchmark</span><span class="drop-copy">This page loads docs/benchmarks/pilot/qualification-data.js automatically. The controls below are available for inspecting another local export.</span></span>
       <span class="file-types">JAVASCRIPT DATA</span>
       <input id="fileInput" type="file" multiple accept=".js,application/javascript,text/javascript">
     </label>
@@ -473,7 +473,7 @@
     <details class="guide">
       <summary>Where do these files come from, and how do I load them?</summary>
       <div class="guide-body">
-        <p>This page displays the latest metrics-only export committed at <code>docs/tools/benchmarks/dashboard-data.js</code>. Re-run the export command after a benchmark to replace that file. The full run evidence remains private; the export deliberately excludes prompts, answers, memories, transcripts, and paths.</p>
+        <p>This page displays the latest metrics-only export committed at <code>docs/benchmarks/pilot/qualification-data.js</code>. Re-run the export command after a benchmark to replace that file. The full run evidence remains private; the export deliberately excludes prompts, answers, memories, transcripts, and paths.</p>
 
         <h4>1 · Produce a run (person with the project checked out)</h4>
         <p>From the project folder, in a terminal, validate first, then run one isolated case. The tiers are 8, 16, 24, and 32 GB:</p>
@@ -497,7 +497,7 @@ npm run model-tier:pilot -- \
         <h4>2 · Find the safe dashboard file</h4>
         <p>Every run saves them under a folder named by tier, model, and campaign ID:</p>
         <p class="path">var/benchmarks/model-tiers/&lt;tier&gt;gb/&lt;model-id&gt;/&lt;campaign-id&gt;/</p>
-        <p>The command also replaces <code>docs/tools/benchmarks/dashboard-data.js</code>, which this page loads automatically. It contains only model identity, case statuses and timings, tool/turn status flags, and RAM/timing samples. The original <code>run.json</code>, <code>cases.jsonl</code>, <code>metrics.csv</code>, logs, and transcripts stay in the private run folder for debugging.</p>
+        <p>The command also replaces <code>docs/benchmarks/pilot/qualification-data.js</code>, which this page loads automatically. It contains only model identity, case statuses and timings, tool/turn status flags, and RAM/timing samples. The original <code>run.json</code>, <code>cases.jsonl</code>, <code>metrics.csv</code>, logs, and transcripts stay in the private run folder for debugging.</p>
         <p>If you supplied <code>--campaign</code>, look for that exact folder name. Otherwise, open the newest timestamp-named folder. On a Mac, open Finder → <strong>Go → Go to Folder…</strong> and paste the full project path plus the path above.</p>
         <p>Never upload or commit the original run files. The viewer only needs the safe export.</p>
 
@@ -578,7 +578,7 @@ npm run model-tier:pilot -- \
     </footer>
   </main>
 
-  <script src="benchmarks/dashboard-data.js"></script>
+  <script src="qualification-data.js"></script>
   <script>
     const DEMO = {
       pilot: true,
@@ -903,8 +903,8 @@ npm run model-tier:pilot -- \
     $("dropZone").addEventListener("drop", event => handleFiles(event.dataTransfer.files));
 
     render(currentRun, currentMetrics);
-    if (bundledRun) $("sourceLabel").textContent = "docs/tools/benchmarks/dashboard-data.js";
+    if (bundledRun) $("sourceLabel").textContent = "docs/benchmarks/pilot/qualification-data.js";
   </script>
-  <script src="../scripts.js"></script>
+  <script src="../../scripts.js"></script>
 </body>
 </html>

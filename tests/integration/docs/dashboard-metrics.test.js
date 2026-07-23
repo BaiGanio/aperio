@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
-const DASHBOARDS = resolve(ROOT, "docs/tools/dashboards");
+const DASHBOARDS = resolve(ROOT, "docs/benchmarks");
 const DASHBOARD_FILES = ["unit/unit.html", "integration/integration.html", "e2e/e2e.html"];
 const EXPECTED_HEADINGS = ["Total Tests", "Passed", "Failed", "Pass Rate", "Suites", "Duration"];
 

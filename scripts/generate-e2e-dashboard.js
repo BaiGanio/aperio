@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/generate-e2e-dashboard.js
-// Converts the E2E reporter output into docs/tools/dashboards/e2e/e2e-data.js.
+// Converts the E2E reporter output into docs/benchmarks/e2e/e2e-data.js.
 // Test execution is deliberately separate so CI can collect coverage and E2E
 // dashboard results from the same Node.js test run.
 // Usage: node scripts/generate-e2e-dashboard.js [--input tests/results/e2e-results.json]
@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
 const inputPath = resolve(ROOT, option("--input", "tests/results/e2e-results.json"));
-const outputPath = resolve(ROOT, option("--output", "docs/tools/dashboards/e2e/e2e-data.js"));
+const outputPath = resolve(ROOT, option("--output", "docs/benchmarks/e2e/e2e-data.js"));
 
 async function run() {
   let data;
