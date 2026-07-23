@@ -10,6 +10,7 @@ import { WebSocket } from "ws";
 import { LLAMACPP_MAIN_ALIAS } from "../lib/helpers/llamacppAliases.js";
 import { runBenchmark } from "../lib/helpers/localBench.js";
 import { resolveModelCacheDir } from "../lib/helpers/modelCache.js";
+import { writeDashboardData } from "../lib/helpers/modelTierDashboard.js";
 import { validateBenchmarkCases, validateBenchmarkModels, validateFullExamManifest } from "../lib/helpers/modelTierBench.js";
 import {
   QUALIFICATION_SUITE_VERSION,
@@ -607,6 +608,11 @@ async function main() {
         sample.phase, sample.at, sample.usedRamBytes, sample.aperioRssBytes, sample.llamaRssBytes, sample.swapBytes ?? "",
       ].join(",")).join("\n");
       writeFileSync(join(modelDir, "metrics.csv"), metricHeader + metricRows + "\n", { mode: 0o600 });
+      try {
+        writeDashboardData(modelDir);
+      } catch (error) {
+        console.error(`dashboard metrics export failed: ${error.message}`);
+      }
       atomicJson(join(modelDir, "campaign.json"), {
         campaignId: id,
         targetTierGB: args.tier,

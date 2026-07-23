@@ -76,7 +76,7 @@ const cases = [
 
 const RUNNER = fileURLToPath(new URL("../../../scripts/model-tier-bench.js", import.meta.url));
 const REPO_ROOT = dirname(dirname(RUNNER));
-const FULL_EXAM = validateFullExamManifest(JSON.parse(readFileSync(join(REPO_ROOT, ".github/model-tiers/full-exam.json"), "utf8")));
+const FULL_EXAM = validateFullExamManifest(JSON.parse(readFileSync(join(REPO_ROOT, "benchmarks/full-exam.json"), "utf8")));
 
 function finalistEvidence(overrides = {}) {
   const repeatIds = new Set(Object.values(FULL_EXAM.repeatGroups).flat());
@@ -489,7 +489,7 @@ test("validateTargetTier requires model eligibility", () => {
 });
 
 test("catalog contains the user's verified candidate matrix", () => {
-  const models = JSON.parse(readFileSync(".github/model-tiers/models.json", "utf8"));
+  const models = JSON.parse(readFileSync("benchmarks/models.json", "utf8"));
   const validated = validateBenchmarkModels(models);
   assert.equal(validated.length, 8);
   assert.equal(validated.reduce((count, model) => count + model.tiers.length, 0), 24);

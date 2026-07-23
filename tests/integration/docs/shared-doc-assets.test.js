@@ -72,19 +72,19 @@ test("dashboard navbars expose one canonical link set", () => {
   const expected = [
     "index.html",
     "tools/benchmarking.html",
-    "dashboards/coverage.html",
-    "dashboards/unit.html",
-    "dashboards/integration.html",
-    "dashboards/e2e.html",
+    "tools/dashboards/coverage/coverage.html",
+    "tools/dashboards/unit/unit.html",
+    "tools/dashboards/integration/integration.html",
+    "tools/dashboards/e2e/e2e.html",
   ];
-  for (const name of ["dashboards/coverage.html", "dashboards/e2e.html", "dashboards/integration.html", "dashboards/unit.html", "tools/benchmarking.html"]) {
+  for (const name of ["tools/dashboards/coverage/coverage.html", "tools/dashboards/e2e/e2e.html", "tools/dashboards/integration/integration.html", "tools/dashboards/unit/unit.html", "tools/benchmarking.html"]) {
     assert.deepEqual(normalizedNavbarLinks(join(DOCS, name)), expected, name);
   }
 });
 
 test("dashboard footers expose the Codecov link", () => {
   const expected = "https://codecov.io/gh/BaiGanio/aperio";
-  for (const name of ["dashboards/coverage.html", "dashboards/e2e.html", "dashboards/integration.html", "dashboards/unit.html", "tools/benchmarking.html"]) {
+  for (const name of ["tools/dashboards/coverage/coverage.html", "tools/dashboards/e2e/e2e.html", "tools/dashboards/integration/integration.html", "tools/dashboards/unit/unit.html", "tools/benchmarking.html"]) {
     assert.equal(footerLinks(join(DOCS, name)).filter((href) => href === expected).length, 1, name);
     assert.doesNotMatch(readFileSync(join(DOCS, name), "utf8").match(/<nav\b[\s\S]*?<\/nav>/i)?.[0] || "", /codecov/i, name);
   }
@@ -139,9 +139,9 @@ test("shared theme implementation restores and persists the selected docs theme"
 });
 
 test("test dashboards use the shared dashboard stylesheet without inline CSS", () => {
-  for (const name of ["dashboards/coverage.html", "dashboards/e2e.html", "dashboards/integration.html", "dashboards/unit.html"]) {
+  for (const name of ["tools/dashboards/coverage/coverage.html", "tools/dashboards/e2e/e2e.html", "tools/dashboards/integration/integration.html", "tools/dashboards/unit/unit.html"]) {
     const html = readFileSync(join(DOCS, name), "utf8");
-    assert.match(html, /<link rel="stylesheet" href="styles\.css">/);
+    assert.match(html, /<link rel="stylesheet" href="\.\.\/\.\.\/\.\.\/styles-dashboards\.css">/);
     assert.doesNotMatch(html, /<style(?:\s[^>]*)?>/);
   }
 });
@@ -162,7 +162,7 @@ test("shared evaluate CSS owns the repeated print baseline", () => {
 });
 
 test("unit dashboard copy and commands describe unit tests", () => {
-  const html = readFileSync(join(DOCS, "dashboards/unit.html"), "utf8");
+  const html = readFileSync(join(DOCS, "tools/dashboards/unit/unit.html"), "utf8");
   assert.match(html, />Unit<\/a>/);
   assert.match(html, /<strong>unit run<\/strong>/);
   assert.match(html, /npm run unit:dashboard/);

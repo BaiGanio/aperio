@@ -4,8 +4,8 @@ import { resolve } from "node:path";
 import test from "node:test";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
-const DASHBOARDS = resolve(ROOT, "docs/dashboards");
-const DASHBOARD_FILES = ["unit.html", "integration.html", "e2e.html"];
+const DASHBOARDS = resolve(ROOT, "docs/tools/dashboards");
+const DASHBOARD_FILES = ["unit/unit.html", "integration/integration.html", "e2e/e2e.html"];
 const EXPECTED_HEADINGS = ["Total Tests", "Passed", "Failed", "Pass Rate", "Suites", "Duration"];
 
 function source(name) {
@@ -41,14 +41,14 @@ test("unit, integration, and E2E dashboards share the approved six-card summary"
 });
 
 test("six-card dashboard summaries use available group or suite counts", () => {
-  for (const name of ["unit.html", "integration.html"]) {
+  for (const name of ["unit/unit.html", "integration/integration.html"]) {
     assert.match(metricsTemplate(source(name)), /<h2>Suites<\/h2>[\s\S]*?data\.groups\.length/, name);
   }
-  assert.match(metricsTemplate(source("e2e.html")), /<h2>Suites<\/h2>[\s\S]*?data\.suites\.length/);
+  assert.match(metricsTemplate(source("e2e/e2e.html")), /<h2>Suites<\/h2>[\s\S]*?data\.suites\.length/);
 });
 
 test("E2E run metadata follows the unit and integration format", () => {
-  const html = source("e2e.html");
+  const html = source("e2e/e2e.html");
   const run = html.match(/\/\/ Run info\n([\s\S]*?)\n\n\/\/ Metrics/)?.[1] || "";
   assert.match(run, /<strong>e2e run<\/strong>/);
   assert.match(run, /data\.branch/);
@@ -57,7 +57,7 @@ test("E2E run metadata follows the unit and integration format", () => {
 });
 
 test("six-card summaries remain responsive", () => {
-  const css = source("styles.css");
+  const css = readFileSync(resolve(ROOT, "docs/styles-dashboards.css"), "utf8");
   assert.match(css, /body\.e2e-dashboard \.metrics\{grid-template-columns:repeat\(6,minmax\(0,1fr\)\)\}/);
   assert.match(css, /body\.result-dashboard \.metrics\{grid-template-columns:repeat\(6,minmax\(0,1fr\)\)\}/);
   assert.match(css, /@media\(max-width:1180px\)[\s\S]*?\.metrics\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)\}/);

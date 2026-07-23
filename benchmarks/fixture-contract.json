@@ -3,7 +3,7 @@
   "source": ".github/capability-exam/exam.memories.json",
   "memoryCount": 28,
   "tag": "aperio-exam",
-  "workspace": ".github/model-tiers/workspace",
+  "workspace": "benchmarks/workspace",
   "reset": {
     "beforeSuite": "fresh-database",
     "beforeRetry": "fresh-session",

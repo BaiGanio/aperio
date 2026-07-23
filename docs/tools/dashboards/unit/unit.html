@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Aperio Integration — Test Dashboard</title>
-  <meta name="description" content="Aperio integration test dashboard.">
+  <title>Aperio Unit — Test Dashboard</title>
+  <meta name="description" content="Aperio unit test dashboard.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../styles.css">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="../../../styles.css">
+  <link rel="stylesheet" href="../../../styles-dashboards.css">
 </head>
 <body class="result-dashboard">
 <div class="orb orb-1"></div>
@@ -17,9 +17,9 @@
 <div class="orb orb-3"></div>
 <nav class="aperio-nav">
   <div class="nav-inner">
-    <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+    <a href="../../../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
     <button class="nav-toggle" id="navToggle" aria-label="Open navigation">☰</button>
-    <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="../tools/benchmarking.html">Benchmarking</a></li><li><a href="coverage.html">Coverage</a></li><li><a href="unit.html">Unit</a></li><li><a href="integration.html">Integration</a></li><li><a href="e2e.html">E2E</a></li></ul>
+    <ul class="nav-links" id="navLinks"><li><a href="../../../index.html">Home</a></li><li><a href="../../benchmarking.html">Benchmarking</a></li><li><a href="../coverage/coverage.html">Coverage</a></li><li><a href="unit.html">Unit</a></li><li><a href="../integration/integration.html">Integration</a></li><li><a href="../e2e/e2e.html">E2E</a></li></ul>
     <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div>
   </div>
 </nav>
@@ -28,16 +28,16 @@
   <!-- Header -->
   <div class="int-header">
     <div>
-      <h1 class="int-title">◈ Integration Tests</h1>
-      <p class="int-lede">Module wiring verification — Express Router with mock req/res, DB adapters with temp files, MCP tools, skill loader, context assembly, and agent orchestration. No server processes.</p>
+      <h1 class="int-title">◈ Unit Tests</h1>
+      <p class="int-lede">Fast, isolated verification of Aperio modules and helpers using controlled fixtures, mocks, and deterministic inputs. No server processes.</p>
     </div>
     <div class="int-run" id="run">
-      <strong>integration run</strong>loading…
+      <strong>unit run</strong>loading…
     </div>
   </div>
 
   <div class="orientation">
-    <p><strong>How to read this page:</strong> each module area is a color-coded group. Expand a group to see per-file pass/fail breakdown. Integration tests wire real modules together — stores, routers, DB adapters — but never bind a TCP port or spawn a child process.</p>
+    <p><strong>How to read this page:</strong> each module area is a color-coded group. Expand a group to see its per-file pass/fail breakdown. Unit tests exercise focused behavior with dependencies isolated wherever practical.</p>
     <p>Groups are ordered alphabetically. A group with failures (<span style="color:var(--amber)">●</span>) means one or more module contracts are broken. Click any file name to jump to its detail.</p>
   </div>
 
@@ -56,14 +56,14 @@
   </div>
 
   <div class="footer">
-    <span><a href="coverage.html">coverage</a> · <a href="e2e.html">e2e</a> · <a href="../index.html">index</a> · <a href="https://codecov.io/gh/BaiGanio/aperio" target="_blank" rel="noreferrer">codecov</a></span>
+    <span><a href="../coverage/coverage.html">coverage</a> · <a href="../integration/integration.html">integration</a> · <a href="../e2e/e2e.html">e2e</a> · <a href="../../../index.html">index</a> · <a href="https://codecov.io/gh/BaiGanio/aperio" target="_blank" rel="noreferrer">codecov</a></span>
     <span>aperio · <a href="https://github.com/BaiGanio/aperio">github</a></span>
   </div>
 </main>
 
-<script src="integration-data.js"></script>
+<script src="unit-data.js"></script>
 <script>
-const data = window.APERIO_INTEGRATION;
+const data = window.APERIO_UNIT;
 const pct = (v) => `${Number(v || 0).toFixed(1)}%`;
 const fmt = (ms) => ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`;
 
@@ -74,8 +74,8 @@ function escapeHtml(str) {
 
 // Run info
 document.querySelector('#run').innerHTML = data.branch
-  ? `<strong>integration run</strong><span style="color:var(--indigo)">${escapeHtml(data.branch)}</span>@${escapeHtml(data.commit || '')} · ${escapeHtml(new Date(data.generatedAt).toLocaleString())}`
-  : '';
+  ? `<strong>unit run</strong><span style="color:var(--indigo)">${escapeHtml(data.branch)}</span>@${escapeHtml(data.commit || '')} · ${escapeHtml(new Date(data.generatedAt).toLocaleString())}`
+  : '<strong>unit run</strong>local data';
 
 // Metric cards
 const passRate = data.total > 0 ? ((data.passed / data.total) * 100).toFixed(1) : 100;
@@ -158,10 +158,10 @@ const groupsHtml = (data.groups || []).map((g) => {
     ` : '<p style="color:var(--muted);font:12px var(--font-mono)">No file-level detail available.</p>'}
   </div>
 </details>`;
-}).join('') || '<div class="empty-state"><h3>No test data</h3><p>Run <code style="font:12px var(--font-mono)">npm run integration:dashboard</code> to generate results.</p></div>';
+}).join('') || '<div class="empty-state"><h3>No test data</h3><p>Run <code style="font:12px var(--font-mono)">npm run unit:dashboard</code> to generate results.</p></div>';
 
 document.querySelector('#groups').innerHTML = groupsHtml;
 </script>
-<script src="../scripts.js"></script>
+<script src="../../../scripts.js"></script>
 </body>
 </html>

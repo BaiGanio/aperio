@@ -412,7 +412,7 @@
     <div class="nav-inner">
       <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
       <button class="nav-toggle" id="navToggle" aria-label="Open navigation">☰</button>
-      <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="benchmarking.html">Benchmarking</a></li><li><a href="../dashboards/coverage.html">Coverage</a></li><li><a href="../dashboards/unit.html">Unit</a></li><li><a href="../dashboards/integration.html">Integration</a></li><li><a href="../dashboards/e2e.html">E2E</a></li></ul>
+      <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="benchmarking.html">Benchmarking</a></li><li><a href="dashboards/coverage/coverage.html">Coverage</a></li><li><a href="dashboards/unit/unit.html">Unit</a></li><li><a href="dashboards/integration/integration.html">Integration</a></li><li><a href="dashboards/e2e/e2e.html">E2E</a></li></ul>
       <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark" type="button">🌙</button><button class="theme-btn" data-theme="light" title="Light" type="button">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora" type="button">✦</button><button class="theme-btn" data-theme="system" title="System" type="button">⊙</button></div>
     </div>
   </nav>
@@ -434,11 +434,11 @@
 
     <label class="drop-zone" id="dropZone">
       <span class="drop-icon">↧</span>
-      <span><span class="drop-title">Drop a pilot result here</span><span class="drop-copy">Choose the whole result folder, or select run.json, cases.jsonl, and metrics.csv. Files are read locally; nothing leaves this browser.</span></span>
-      <span class="file-types">JSON · JSONL · CSV</span>
-      <input id="fileInput" type="file" multiple accept=".json,.jsonl,.csv,application/json,text/csv">
+      <span><span class="drop-title">Drop dashboard-data.js here</span><span class="drop-copy">Choose the metrics-only export generated inside a completed benchmark folder. Files are read locally; nothing leaves this browser.</span></span>
+      <span class="file-types">JAVASCRIPT DATA</span>
+      <input id="fileInput" type="file" multiple accept=".js,application/javascript,text/javascript">
     </label>
-    <input id="folderInput" type="file" webkitdirectory multiple accept=".json,.jsonl,.csv" hidden>
+    <input id="folderInput" type="file" webkitdirectory multiple accept=".js,application/javascript,text/javascript" hidden>
 
     <div class="notice" id="notice"><span>◆</span><span><strong>Pilot evidence only.</strong> A short qualification run validates the harness and the model's tool behavior. It is not enough on its own to promote, reject, or rank an installer model.</span></div>
 
@@ -463,7 +463,7 @@
     <details class="guide">
       <summary>Where do these files come from, and how do I load them?</summary>
       <div class="guide-body">
-        <p>You need three files from a completed pilot run. If you haven't run one yet, ask whoever set up the benchmark, or produce one yourself with the steps below. The files contain private prompts and paths — keep them local, never upload or commit them.</p>
+        <p>You need the metrics-only export from a completed pilot run. If you haven't run one yet, ask whoever set up the benchmark, or produce one yourself with the steps below. The full run evidence remains private; the export deliberately excludes prompts, answers, memories, transcripts, and paths.</p>
 
         <h4>1 · Produce a run (person with the project checked out)</h4>
         <p>From the project folder, in a terminal, validate first, then run one isolated case. The tiers are 8, 16, 24, and 32 GB:</p>
@@ -476,24 +476,24 @@ npm run model-tier:pilot -- \
   --tier 16 \
   --case chain-recall-wiki \
   --campaign audit-YYYYMMDD-gemma-e4b-16gb-chain-recall</code>
+        <p>A completed run automatically writes <code>dashboard-data.js</code> beside the full private evidence. For an older run, generate it separately:</p>
+        <code class="cmd">npm run model-tier:export -- \
+  --model gemma4-e4b-ud-q4kxl \
+  --tier 16 \
+  --campaign audit-YYYYMMDD-gemma-e4b-16gb-chain-recall</code>
         <p><strong>What is a campaign ID?</strong> It is simply the unique label and result-folder name for a run. You can choose a descriptive one after <code>--campaign</code>. If you omit that option for a single run, Aperio generates a UTC timestamp such as <code>20260715T112103Z</code>.</p>
         <p>The run uses a temporary workspace and SQLite database, starts isolated Aperio and llama.cpp processes, waits for readiness, performs the case, verifies tool and state evidence, then stops the processes and removes the temporary runtime folder.</p>
 
-        <h4>2 · Find the three files</h4>
+        <h4>2 · Find the safe dashboard file</h4>
         <p>Every run saves them under a folder named by tier, model, and campaign ID:</p>
         <p class="path">var/benchmarks/model-tiers/&lt;tier&gt;gb/&lt;model-id&gt;/&lt;campaign-id&gt;/</p>
-        <p>Inside that folder you want exactly these three:</p>
-        <ol>
-          <li><strong>run.json</strong> — the overall result and summary numbers.</li>
-          <li><strong>cases.jsonl</strong> — one line per task, with what passed and failed.</li>
-          <li><strong>metrics.csv</strong> — the memory-usage samples for the timeline chart.</li>
-        </ol>
+        <p>Inside that folder, use <strong>dashboard-data.js</strong>. It contains only model identity, case statuses and timings, tool/turn status flags, and RAM/timing samples. The original <code>run.json</code>, <code>cases.jsonl</code>, <code>metrics.csv</code>, logs, and transcripts stay in the same folder for private debugging.</p>
         <p>If you supplied <code>--campaign</code>, look for that exact folder name. Otherwise, open the newest timestamp-named folder. On a Mac, open Finder → <strong>Go → Go to Folder…</strong> and paste the full project path plus the path above.</p>
-        <p>The folder also contains private logs, transcripts, and tool diagnostics. The viewer ignores those files, but they may contain prompts, memories, model output, and local paths—never upload or commit them.</p>
+        <p>Never upload or commit the original run files. The viewer only needs the safe export.</p>
 
         <h4>3 · Load them onto this page</h4>
         <ol>
-          <li>Select all three files (run.json, cases.jsonl, metrics.csv).</li>
+          <li>Select <strong>dashboard-data.js</strong>.</li>
           <li>Drag them onto the dashed drop zone, click <strong>Open result folder</strong>, or click <strong>Open run files</strong>.</li>
           <li>The report fills in instantly. Loading only some files still works; missing values show <strong>Unavailable</strong>.</li>
         </ol>
@@ -605,7 +605,7 @@ npm run model-tier:pilot -- \
     }));
 
     const $ = id => document.getElementById(id);
-    const REQUIRED_FILES = ["run.json", "cases.jsonl", "metrics.csv"];
+    const REQUIRED_FILES = ["dashboard-data.js"];
     let currentRun = structuredClone(DEMO);
     let currentMetrics = [];
 
@@ -750,18 +750,15 @@ npm run model-tier:pilot -- \
       host.innerHTML = cases.map(item => {
         const status = ["pass", "fail", "invalid"].includes(item.status) ? item.status : "invalid";
         const symbol = status === "pass" ? "✓" : status === "fail" ? "×" : "!";
-        const expected = item.expectedToolSequence?.length ? toolSequence(item.expectedToolSequence) : toolSequence(null, "none expected");
         const guardrail = item.kind === "guardrail" ? check(guardrailLabel(item.guardrailMode), item.guardrailMode === "application_guardrail" ? true : null, "Model refusal and application guardrail enforcement are recorded separately.") : "";
         const verdict = verdictSummary(item);
         return `<article class="case ${status}">
           <div class="case-status" aria-label="${status}">${symbol}</div>
-          <div><div class="case-name">${escapeHtml(caseLabel(item))}</div><div class="case-id">${escapeHtml(item.id)}</div><div class="case-objective">${escapeHtml(item.objective || "Objective unavailable")}</div>${item.prompt ? `<div class="case-prompt"><span class="case-prompt-label">Prompt sent</span><span class="case-prompt-text">${escapeHtml(item.prompt)}</span></div>` : ""}<div class="case-tags"><span class="case-tag">${escapeHtml(item.section || "unsectioned")}</span><span class="case-tag">${escapeHtml(item.kind || "unknown")}</span>${item.hardGate ? '<span class="case-tag gate">hard gate</span>' : ""}</div></div>
+          <div><div class="case-name">${escapeHtml(caseLabel(item))}</div><div class="case-id">${escapeHtml(item.id)}</div><div class="case-tags"><span class="case-tag">${escapeHtml(item.section || "unsectioned")}</span><span class="case-tag">${escapeHtml(item.kind || "unknown")}</span>${item.hardGate ? '<span class="case-tag gate">hard gate</span>' : ""}</div></div>
           <div class="case-detail">
             <div class="tool-line"><span class="tool-caption">actual</span>${toolSequence(item.actualToolSequence)}</div>
-            <div class="tool-line"><span class="tool-caption">expected</span>${expected}</div>
             <div class="checks">
               ${check("tool order", item.toolSequencePassed)}
-              ${check("answer terms", item.answerTermsPassed)}
               ${check("tool results", item.toolsSuccessful)}
               ${check("state", item.statePassed)}
               ${check("turn complete", item.completed)}
@@ -779,7 +776,7 @@ npm run model-tier:pilot -- \
     function renderChart(samples) {
       const host = $("chartHost");
       if (samples.length < 2) {
-        host.innerHTML = '<div class="chart-empty">Unavailable — load metrics.csv to render the timeline</div>';
+        host.innerHTML = '<div class="chart-empty">Unavailable — load dashboard-data.js to render the timeline</div>';
         $("sampleCount").textContent = samples.length ? "1 metric sample" : "Unavailable";
         return;
       }
@@ -841,11 +838,14 @@ npm run model-tier:pilot -- \
       renderChart(currentMetrics);
     }
 
-    function parseCsv(text) {
-      const lines = text.trim().split(/\r?\n/).filter(Boolean);
-      if (lines.length < 2) return [];
-      const headers = lines[0].split(",");
-      return lines.slice(1).map(line => Object.fromEntries(line.split(",").map((value, index) => [headers[index], index < 2 ? value : Number(value)])));
+    function parseDashboardData(text) {
+      const match = String(text).trim().match(/^window\.APERIO_BENCHMARK\s*=\s*(\{[\s\S]*\});?$/);
+      if (!match) throw new Error("dashboard-data.js is not an Aperio metrics export.");
+      const data = JSON.parse(match[1]);
+      if (data.privateDataExcluded !== true || data.schemaVersion !== 1) {
+        throw new Error("dashboard-data.js has an unsupported or unsafe schema.");
+      }
+      return data;
     }
 
     async function loadFiles(files) {
@@ -854,26 +854,10 @@ npm run model-tier:pilot -- \
       const names = supported.map(file => file.name.toLowerCase());
       const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
       if (duplicates.length) throw new Error("Choose files from one result folder only.");
-      if (!supported.length) throw new Error("Choose a result folder or run.json, cases.jsonl, and metrics.csv.");
-      let run = null, cases = null, metrics = [];
-      for (const file of supported) {
-        const text = await file.text();
-        const name = file.name.toLowerCase();
-        if (name === "metrics.csv") metrics = parseCsv(text);
-        else if (name === "cases.jsonl") cases = text.split(/\r?\n/).filter(Boolean).map((line, index) => {
-          try { return JSON.parse(line); }
-          catch (error) { throw new Error(`cases.jsonl line ${index + 1}: ${error.message}`); }
-        });
-        else if (name === "run.json") run = JSON.parse(text);
-      }
-      if (!run) run = { caseResults: cases ?? [] };
-      if (cases) run.caseResults = cases;
-      if (!Array.isArray(run.caseResults)) run.caseResults = [];
-      if (!run.campaignId && supported[0]?.webkitRelativePath) {
-        const parts = supported[0].webkitRelativePath.split("/");
-        run.campaignId = parts.at(-2) || null;
-      }
-      render(run, metrics);
+      if (!supported.length) throw new Error("Choose dashboard-data.js from a completed benchmark folder.");
+      const data = parseDashboardData(await supported[0].text());
+      const run = { ...(data.run ?? {}), caseResults: Array.isArray(data.cases) ? data.cases : [] };
+      render(run, Array.isArray(data.metrics) ? data.metrics : []);
       $("sourceLabel").textContent = supported.map(file => file.name).join(" · ");
       return { loadedNames: names, ignoredCount: incoming.length - supported.length };
     }

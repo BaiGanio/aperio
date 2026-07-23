@@ -60,13 +60,15 @@ test("viewer explains campaign IDs as optional user labels with timestamp fallba
   assert.match(html, /What is a campaign ID\?/);
   assert.match(html, /If you omit that option for a single run, Aperio generates a UTC timestamp/);
   assert.match(html, /var\/benchmarks\/model-tiers\/&lt;tier&gt;gb\/&lt;model-id&gt;\/&lt;campaign-id&gt;\//);
+  assert.match(html, /dashboard-data\.js/);
+  assert.doesNotMatch(html, /class="case-prompt"/);
   assert.match(html, /id="demoBtn"/);
   assert.match(html, /class="overview"/);
   assert.match(html, /class="panel panel-pad score-panel"/);
   assert.match(html, /id="metricChart"/);
 });
 
-test("campaign-folder import reads exact viewer artifacts and renders retry evidence", async () => {
+test("metrics export import renders statuses and retry metrics", async () => {
   const { context, node } = viewerRuntime();
   const firstAttempt = {
     status: "fail",
@@ -80,32 +82,35 @@ test("campaign-folder import reads exact viewer artifacts and renders retry evid
     expectedToolSequence: ["recall", "wiki_write"],
     statePassed: true,
   };
-  const run = {
-    status: "complete",
-    campaignId: "audit-human-readable-id",
-    targetTierGB: 16,
-    servedContext: 16384,
-    model: { id: "gemma4-e4b-ud-q4kxl" },
-    caseResults: [{
+  const data = {
+    schemaVersion: 1,
+    privateDataExcluded: true,
+    run: {
+      status: "complete",
+      campaignId: "audit-human-readable-id",
+      targetTierGB: 16,
+      servedContext: 16384,
+      model: { id: "gemma4-e4b-ud-q4kxl" },
+    },
+    cases: [{
       ...retry,
       id: "chain-recall-wiki",
-      title: "Recall and write a wiki article",
       retried: true,
       firstAttempt,
       retry,
     }],
+    metrics: [
+      { phase: "qualification", at: "2026-07-15T11:21:03.247Z", usedRamBytes: 100, aperioRssBytes: 20, llamaRssBytes: 50, swapBytes: 0 },
+      { phase: "qualification", at: "2026-07-15T11:21:04.247Z", usedRamBytes: 110, aperioRssBytes: 21, llamaRssBytes: 55, swapBytes: 0 },
+    ],
   };
   context.files = [
-    browserFile("campaign.json", { campaignId: "must-not-replace-run" }, "audit-human-readable-id/campaign.json"),
-    browserFile("transcript.jsonl", "{}\n", "audit-human-readable-id/transcript.jsonl"),
-    browserFile("run.json", run, "audit-human-readable-id/run.json"),
-    browserFile("cases.jsonl", `${JSON.stringify(run.caseResults[0])}\n`, "audit-human-readable-id/cases.jsonl"),
-    browserFile("metrics.csv", "phase,at,usedRamBytes,aperioRssBytes,llamaRssBytes,swapBytes\nqualification,2026-07-15T11:21:03.247Z,100,20,50,0\nqualification,2026-07-15T11:21:04.247Z,110,21,55,0\n", "audit-human-readable-id/metrics.csv"),
+    browserFile("dashboard-data.js", `window.APERIO_BENCHMARK = ${JSON.stringify(data)};\n`, "audit-human-readable-id/dashboard-data.js"),
   ];
 
   const result = await vm.runInContext("loadFiles(files)", context);
-  assert.deepEqual([...result.loadedNames].sort(), ["cases.jsonl", "metrics.csv", "run.json"]);
-  assert.equal(result.ignoredCount, 2);
+  assert.deepEqual([...result.loadedNames].sort(), ["dashboard-data.js"]);
+  assert.equal(result.ignoredCount, 0);
   assert.equal(node("campaignId").textContent, "audit-human-readable-id");
   assert.match(node("caseList").innerHTML, /First attempt/);
   assert.match(node("caseList").innerHTML, /Retry/);
@@ -114,33 +119,31 @@ test("campaign-folder import reads exact viewer artifacts and renders retry evid
   assert.equal(vm.runInContext("currentMetrics[0].at", context), "2026-07-15T11:21:03.247Z");
 });
 
-test("partial cases-only import does not fabricate run metadata", async () => {
+test("non-export files are rejected", async () => {
   const { context, node } = viewerRuntime();
-  context.files = [browserFile("cases.jsonl", `${JSON.stringify({ id: "chain-recall-wiki", status: "pass" })}\n`, "generated-campaign-id/cases.jsonl")];
+  context.files = [browserFile("run.json", { status: "complete" })];
 
-  await vm.runInContext("loadFiles(files)", context);
-  assert.equal(node("modelName").textContent, "Unavailable");
-  assert.equal(node("campaignId").textContent, "generated-campaign-id");
-  assert.equal(node("peakLlama").textContent, "Unavailable");
-  assert.match(node("chartHost").innerHTML, /Unavailable/);
+  await vm.runInContext("handleFiles(files)", context);
+  assert.match(node("notice").innerHTML, /Could not read/);
 });
 
 test("explicit context evidence is not relabeled as a generic timeout or harness failure", async () => {
   const { context, node } = viewerRuntime();
-  const run = {
-    status: "invalid",
-    invalidReason: "case exceeded context",
-    caseResults: [{
+  const data = {
+    schemaVersion: 1,
+    privateDataExcluded: true,
+    run: { status: "invalid", campaignId: "context-check" },
+    cases: [{
       id: "chain-recall-wiki",
       status: "invalid",
       timeoutKind: "llamacpp-context-limit",
-      invalidReason: "request (11470 tokens) exceeds the available context size (11264 tokens)",
     }],
+    metrics: [],
   };
-  context.files = [browserFile("run.json", run)];
+  context.files = [browserFile("dashboard-data.js", `window.APERIO_BENCHMARK = ${JSON.stringify(data)};`)];
 
   await vm.runInContext("loadFiles(files)", context);
   assert.equal(node("runStatus").textContent, "Explicit context-limit failure");
   assert.doesNotMatch(node("notice").innerHTML, /Harness \/ readiness failure/);
-  assert.match(node("caseList").innerHTML, /11,470|11470/);
+  assert.doesNotMatch(node("caseList").innerHTML, /11,470|11470/);
 });
