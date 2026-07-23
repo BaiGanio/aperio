@@ -66,6 +66,7 @@
     "prompt-cache:bench": "node scripts/prompt-cache-bench.js",
     "model-tier:pilot": "node scripts/model-tier-bench.js",
     "model-tier:export": "node scripts/model-tier-export.js",
+    "memory:baseline": "SQLITE_PATH=:memory: node scripts/memory-compact-baseline.js",
 
     "// 8  vm / install testing": "── exercise the installer end-to-end in disposable VMs/containers per OS ──",
     "vmtest:linux": "bash vms/run-vagrant.sh ubuntu-lite",
