@@ -10,7 +10,7 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools } from "../../../lib/agent/tool-profiles.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
@@ -418,5 +418,84 @@ describe("needsRecallScaffold (issue #188 capability-gate doctrine)", () => {
     const provider = { name: "llamacpp", model: "gemma3:4b" };
     assert.ok(!isCapableModel(provider));
     assert.ok(!needsRecallScaffold(provider));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 5a (issue #307): pure category-2 helpers extracted from the inline
+// logic in lib/agent/index.js's ensureTurn()/resolveToolNamesForTurn().
+// ---------------------------------------------------------------------------
+
+describe("computeSchemaTokenCosts", () => {
+  test("estimates cost from a tool's serialized openai schema", () => {
+    const schema = { function: { name: "recall", parameters: { type: "object", properties: { query: { type: "string" } } } } };
+    const openaiByName = new Map([["recall", schema]]);
+    const costs = computeSchemaTokenCosts(new Set(["recall"]), openaiByName);
+    assert.strictEqual(costs.get("recall"), Math.max(1, Math.ceil(JSON.stringify(schema).length / 3)));
+  });
+
+  test("falls back to the bare name's length when no schema is registered for it", () => {
+    const openaiByName = new Map();
+    const costs = computeSchemaTokenCosts(new Set(["mystery_tool"]), openaiByName);
+    assert.strictEqual(costs.get("mystery_tool"), Math.max(1, Math.ceil(JSON.stringify("mystery_tool").length / 3)));
+  });
+
+  test("cost is always at least 1", () => {
+    const openaiByName = new Map([["x", {}]]);
+    const costs = computeSchemaTokenCosts(new Set(["x"]), openaiByName);
+    assert.ok(costs.get("x") >= 1);
+  });
+});
+
+describe("filterVisionTools", () => {
+  const IMAGE_TOOLS = new Set(["read_image", "preprocess_image", "describe_image", "recall", "remember"]);
+
+  test("leaves tools untouched when the provider is not local", () => {
+    const result = filterVisionTools(IMAGE_TOOLS, {
+      hasInlineImage: true, standaloneVision: false, providerIsLocal: false, modelHandlesInlineImage: true,
+    });
+    assert.deepStrictEqual([...result].sort(), [...IMAGE_TOOLS].sort());
+  });
+
+  test("leaves tools untouched when there is no inline image", () => {
+    const result = filterVisionTools(IMAGE_TOOLS, {
+      hasInlineImage: false, standaloneVision: false, providerIsLocal: true, modelHandlesInlineImage: true,
+    });
+    assert.deepStrictEqual([...result].sort(), [...IMAGE_TOOLS].sort());
+  });
+
+  test("leaves tools untouched when the local model does not itself handle inline images", () => {
+    const result = filterVisionTools(IMAGE_TOOLS, {
+      hasInlineImage: true, standaloneVision: false, providerIsLocal: true, modelHandlesInlineImage: false,
+    });
+    assert.deepStrictEqual([...result].sort(), [...IMAGE_TOOLS].sort());
+  });
+
+  test("drops only the image-reading tools for a non-standalone vision turn on a capable local model", () => {
+    const result = filterVisionTools(IMAGE_TOOLS, {
+      hasInlineImage: true, standaloneVision: false, providerIsLocal: true, modelHandlesInlineImage: true,
+    });
+    assert.deepStrictEqual([...result].sort(), ["recall", "remember"]);
+  });
+
+  test("clears every tool for a standalone vision turn on a capable local model", () => {
+    const result = filterVisionTools(IMAGE_TOOLS, {
+      hasInlineImage: true, standaloneVision: true, providerIsLocal: true, modelHandlesInlineImage: true,
+    });
+    assert.strictEqual(result.size, 0);
+  });
+});
+
+describe("filterSelfMemoryTools", () => {
+  test("leaves self-memory/self-wiki tools untouched on a local provider", () => {
+    const names = new Set(["self_recall", "self_update", "self_wiki_write", "recall"]);
+    const result = filterSelfMemoryTools(names, { providerIsLocal: true });
+    assert.deepStrictEqual([...result].sort(), [...names].sort());
+  });
+
+  test("drops all self-memory and self-wiki tools on a cloud provider", () => {
+    const names = new Set(["self_recall", "self_update", "self_wiki_write", "self_wiki_get", "recall"]);
+    const result = filterSelfMemoryTools(names, { providerIsLocal: false });
+    assert.deepStrictEqual([...result], ["recall"]);
   });
 });
