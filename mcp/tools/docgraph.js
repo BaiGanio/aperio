@@ -44,7 +44,7 @@ const TOOLS = [
   },
   {
     name: "doc_manifest",
-    description: "Build a deterministic, bounded manifest of indexed documents before reading content. Discovers all indexed folders at runtime, deduplicates content twins, and reports selection reasons and truncation. Use this for document aggregation when the location is unknown.",
+    description: "Build a deterministic, bounded manifest of indexed documents before reading content. Discovers all indexed folders at runtime, deduplicates content twins (see each candidate's `duplicates` list — merged copies, not dropped silently), and reports selection reasons and truncation. Each candidate carries `file_mtime` (filesystem timestamp — indexing/edit time, NOT a document date) separately from `filename_date_hint` (best-effort date parsed from the filename/title only, or null). Neither is the document's real date; for that, read the body with doc_batch and use its per-document `dates` field. Use this for document aggregation when the location is unknown.",
     schema: {
       query: z.string().describe("The user's document question or retrieval task."),
       folder: z.string().optional().describe("Optional indexed-folder substring; omit to discover across all folders."),
@@ -55,7 +55,7 @@ const TOOLS = [
   },
   {
     name: "doc_batch",
-    description: "Read a doc_manifest candidate list in bounded batches. Returns text plus found/read/skipped coverage and per-file reasons. Do not call once per file; pass the manifest candidates together.",
+    description: "Read a doc_manifest candidate list in bounded batches. Returns one entry per document with found/read/skipped coverage and per-file reasons. Each read document carries the raw `text` (for verification) plus structured evidence extracted from it: `dates` — an array of {role, raw, value, confidence}, where role is one of invoice_date/document_date/statement_date/receipt_date/payment_date/due_date/service_period_start/service_period_end/unlabeled_date, and `value` is ISO YYYY-MM-DD or null when the raw token's format is ambiguous; `amounts` — an array of {value, currency, raw, label}, where currency is a 3-letter code or null when undetectable, and label (e.g. amount_due/subtotal/total/paid) is null when no nearby money label was found. An empty `dates`/`amounts` array means none were found — never treat a missing field as zero or as 'not present in the source', only as 'not detected by extraction'; fall back to `text` to check. Do not call once per file; pass the manifest candidates together.",
     schema: {
       candidates: z.array(z.object({
         id: z.number(),

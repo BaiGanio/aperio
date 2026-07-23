@@ -16,6 +16,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Docgraph retrieval evidence contract** (issue #311): `doc_manifest`'s
+  `date_hint` blended filesystem `mtime` with filename/title text into one
+  field, letting indexing-time noise masquerade as a document date and wrongly
+  exclude eligible documents from period-filtered manifests. Replaced with
+  `file_mtime` (raw, always labeled as filesystem time) and
+  `filename_date_hint` (derived only from the filename/title, never mtime);
+  period filtering no longer uses mtime at all. Content-duplicate merges now
+  record the dropped copies under `duplicates` instead of silently discarding
+  them. `doc_batch` now extracts role-labeled `dates` (invoice/document/
+  statement/receipt/payment/due/service-period) and currency-tagged `amounts`
+  from each read document's real text via a new `lib/docgraph/extract-facts.js`
+  module, so missing/ambiguous fields are explicit empty arrays or `null`
+  rather than requiring the model to parse an undifferentiated blob or
+  silently reading a gap as zero.
 - **Bounded dataset-run, folder-authorization, and metrics retention**: dataset
   experiments no longer keep a second copy of every result row in memory once
   the artifact is persisted — finished runs collapse to a small status/summary
