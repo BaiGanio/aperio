@@ -10,7 +10,7 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, isDocumentAggregationIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools } from "../../../lib/agent/tool-profiles.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
@@ -97,6 +97,53 @@ describe("tool-profiles — docgraph availability", () => {
 
   test("a generic web search does not load docgraph", () => {
     assert.ok(!toolsFor("search the web for letter of credit").has("doc_search"));
+  });
+
+  test("bare aggregation questions surface the manifest-first retrieval tools", () => {
+    for (const prompt of [
+      "How much did I pay for utilities last month?",
+      "What was the total I spent in the household folder last month?",
+    ]) {
+      assert.equal(isDocumentAggregationIntent(prompt), true, prompt);
+      const tools = toolsFor(prompt);
+      assert.ok(tools.has("doc_manifest"), `manifest must be offered for: ${prompt}`);
+      assert.ok(tools.has("doc_batch"), `batch must be offered for: ${prompt}`);
+      assert.ok(!tools.has("web_search"), `web search must not compete for: ${prompt}`);
+    }
+  });
+
+  test("money+aggregate language without a personal or corpus cue is NOT a document question", () => {
+    // Regression: these satisfy the old money+aggregate-only check but are
+    // ordinary, non-personal questions with no reference to the user's own
+    // records — routing them to document preflight was the bug.
+    for (const prompt of [
+      "How much does fuel cost each month?",
+      "How much does internet cost each month?",
+      "What is the total monthly cost of groceries in a typical household?",
+    ]) {
+      assert.equal(isDocumentAggregationIntent(prompt), false, prompt);
+    }
+  });
+
+  test("a personal pronoun or an indexed-folder mention restores the aggregation match", () => {
+    for (const prompt of [
+      "How much does fuel cost me each month?",
+      "How much do I pay for internet each month?",
+      "What's the total cost of groceries in my indexed folder each month?",
+    ]) {
+      assert.equal(isDocumentAggregationIntent(prompt), true, prompt);
+    }
+  });
+
+  test("explicit mentions of the new doc_manifest/doc_batch tools activate docgraph", () => {
+    for (const prompt of [
+      "Use doc_manifest to inspect my corpus",
+      "Call doc_batch on these candidates",
+    ]) {
+      const tools = toolsFor(prompt);
+      assert.ok(tools.has("doc_manifest"), `docgraph tools must activate for: ${prompt}`);
+      assert.ok(tools.has("doc_batch"), `docgraph tools must activate for: ${prompt}`);
+    }
   });
 });
 

@@ -135,6 +135,58 @@ describe("docgraph sqlite backend", () => {
     assert.equal(r.by_mime["text/markdown"], 2);
   });
 
+  test("doc_manifest discovers and bounds candidates before content reads", async () => {
+    const manifest = await backend.manifest(store, { query: "marketing budget", folder: docsDir, limit: 1 });
+    assert.equal(manifest.found, 2);
+    assert.equal(manifest.selected, 1);
+    assert.equal(manifest.truncated, true);
+    assert.equal(manifest.candidates[0].rel_path, "budget.md");
+    assert.ok(manifest.candidates[0].selection_reason.includes("matched"));
+    // Regression: the manifest query must never GROUP_CONCAT full section
+    // bodies (that's the point of manifest-first — bounded metadata before
+    // any content read). Scoring off headings alone is still enough to match
+    // "marketing" (a subheading in budget.md, not in its title/rel_path).
+    assert.ok(!("content" in manifest.candidates[0]), "manifest candidates must not carry full document body text");
+  });
+
+  test("doc_batch reassembles sections in document order (s.ord), not row-insertion order", async () => {
+    // Regression: GROUP_CONCAT without an explicit ORDER BY can rearrange
+    // sections depending on the query planner. Seed sections in reverse
+    // insertion order relative to their `ord` value — if the fix regresses,
+    // the reassembled text comes back "Third / Second / First" instead.
+    const repoId = store.db.prepare(
+      `INSERT INTO docgraph_repos (root_path, last_indexed_at) VALUES (?, ?)`
+    ).run("/fictional/ordering-test", new Date().toISOString()).lastInsertRowid;
+    const docId = store.db.prepare(
+      `INSERT INTO docgraph_documents (repo_id, rel_path, mime, size, sha256, title)
+       VALUES (?, 'ordering.md', 'text/markdown', 10, 'ordering-sha', 'Ordering Test')`
+    ).run(repoId).lastInsertRowid;
+    const insertSection = store.db.prepare(
+      `INSERT INTO docgraph_sections (document_id, ord, level, heading, text) VALUES (?, ?, 1, ?, ?)`
+    );
+    // Inserted out of `ord` order on purpose.
+    insertSection.run(docId, 2, "Third", "Third section text.");
+    insertSection.run(docId, 0, "First", "First section text.");
+    insertSection.run(docId, 1, "Second", "Second section text.");
+
+    const result = await backend.batch(store, {
+      candidates: [{ id: Number(docId), rel_path: "ordering.md", size: 10 }],
+    });
+    assert.equal(result.documents[0].status, "read");
+    const lines = result.documents[0].text.split("\n\n");
+    assert.deepEqual(lines, ["First section text.", "Second section text.", "Third section text."]);
+  });
+
+  test("doc_batch reads a manifest in one bounded call with coverage", async () => {
+    const manifest = await backend.manifest(store, { query: "budget invoices" });
+    const result = await backend.batch(store, { candidates: manifest.candidates, batch_size: 6 });
+    assert.equal(result.coverage.found, manifest.candidates.length);
+    assert.equal(result.coverage.read, manifest.candidates.length);
+    assert.equal(result.coverage.skipped, 0);
+    assert.equal(result.coverage.complete, true);
+    assert.ok(result.documents.every(d => d.status === "read" && d.text.length > 0));
+  });
+
   test("FTS-only search finds the right section", async () => {
     const { matches, mode } = await backend.search(
       store, { query: "marketing spend" }, { generateEmbedding: fakeEmbed, vectorEnabled: () => false }

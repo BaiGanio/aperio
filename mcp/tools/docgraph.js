@@ -3,6 +3,8 @@ import { z } from "zod";
 import {
   searchHandler,
   reposHandler,
+  manifestHandler,
+  batchHandler,
   outlineHandler,
   contextHandler,
   refsHandler,
@@ -11,6 +13,12 @@ import {
 const createBoundHandlers = (ctx) => ({
   search:  (args) => searchHandler(ctx, args),
   repos:   (args) => reposHandler(ctx, args),
+  manifest:(args) => manifestHandler(ctx, args),
+  // Only doc_batch's underlying retrieveInBatches() actually polls an abort
+  // signal mid-request — thread the SDK's per-call `extra.signal` through so
+  // cancelling/timing out a real doc_batch call stops retrieval instead of
+  // running to completion after the caller has stopped listening.
+  batch:   (args, extra) => batchHandler(ctx, args, extra?.signal),
   outline: (args) => outlineHandler(ctx, args),
   context: (args) => contextHandler(ctx, args),
   refs:    (args) => refsHandler(ctx, args),
@@ -33,6 +41,37 @@ const TOOLS = [
     description: "List every folder indexed in the document graph, with document + chunk counts, a by-mime breakdown, and last index time. Call this first when you don't know where something lives or what's available.",
     schema: {},
     getHandler: (h) => h.repos,
+  },
+  {
+    name: "doc_manifest",
+    description: "Build a deterministic, bounded manifest of indexed documents before reading content. Discovers all indexed folders at runtime, deduplicates content twins, and reports selection reasons and truncation. Use this for document aggregation when the location is unknown.",
+    schema: {
+      query: z.string().describe("The user's document question or retrieval task."),
+      folder: z.string().optional().describe("Optional indexed-folder substring; omit to discover across all folders."),
+      mime: z.string().optional().describe("Optional MIME filter."),
+      limit: z.number().int().min(1).max(48).optional().describe("Maximum candidates; the default is bounded."),
+    },
+    getHandler: (h) => h.manifest,
+  },
+  {
+    name: "doc_batch",
+    description: "Read a doc_manifest candidate list in bounded batches. Returns text plus found/read/skipped coverage and per-file reasons. Do not call once per file; pass the manifest candidates together.",
+    schema: {
+      candidates: z.array(z.object({
+        id: z.number(),
+        repo_id: z.number().optional(),
+        root_path: z.string().optional(),
+        rel_path: z.string(),
+        mime: z.string().optional(),
+        size: z.number().optional(),
+        sha256: z.string().nullable().optional(),
+      })).max(48),
+      batch_size: z.number().int().min(1).max(6).optional(),
+      max_file_bytes: z.number().int().positive().max(120000).optional(),
+      max_batch_bytes: z.number().int().positive().max(160000).optional(),
+      max_total_bytes: z.number().int().positive().max(160000).optional(),
+    },
+    getHandler: (h) => h.batch,
   },
   {
     name: "doc_outline",
