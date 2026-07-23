@@ -16,10 +16,24 @@ All tools registered in `mcp/index.js`. Each tool file in `mcp/tools/` exports a
 | Shell | `run_shell`, `run_node_script`, `run_python_script`, `syntax_check` | `shell.js` |
 | Wiki | `wiki_get`, `wiki_write`, `wiki_list`, `wiki_search` | `wiki.js` |
 | Code graph | `code_search`, `code_context`, `code_outline`, `code_callers`, `code_callees`, `code_repos` | `codegraph.js` |
-| Doc graph | `doc_search`, `doc_context`, `doc_outline`, `doc_refs`, `doc_repos` | `docgraph.js` |
+| Doc graph | `doc_search`, `doc_context`, `doc_outline`, `doc_refs`, `doc_repos`, `doc_manifest`, `doc_batch` | `docgraph.js` |
 | GitHub | `fetch_github_issue`, `create_github_issue`, `update_github_issue`, `list_github_issues`, `record_issue_triage` | `github.js` |
 | Data | `export_data`, `import_data` | `data.js` |
 | Database | `db_query`, `db_execute`, `db_schema`, `db_connections` (external DB connections) | `database.js` |
+
+### Doc graph manifest/batch evidence contract
+
+`doc_manifest` candidates carry `file_mtime` (filesystem timestamp — indexing/edit
+time, never a document date) separate from `filename_date_hint` (best-effort date
+parsed from the filename/title only, or `null`); content-identical duplicates are
+merged with the dropped copies listed under `duplicates`, never silently discarded.
+`doc_batch` attaches `dates` (role-labeled: `invoice_date`, `document_date`,
+`statement_date`, `receipt_date`, `payment_date`, `due_date`,
+`service_period_start`/`_end`, `unlabeled_date`; ISO `value` or `null` when the raw
+token's format is locale-ambiguous) and `amounts` (`value`/`currency`/`label`,
+`currency: null` when undetectable) extracted from each read document's real text —
+an empty array means none were detected, never a fabricated value. See
+`lib/docgraph/extract-facts.js` and `lib/docgraph/retrieval.js`.
 
 ## Tool Context (`ctx`)
 
