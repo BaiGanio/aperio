@@ -259,7 +259,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
   selected local llama.cpp model and RAM tier in an isolated temporary SQLite
   app/workspace, records readiness, tool sequence, state assertions, timings,
   context-limit evidence, and private logs under `var/benchmarks/model-tiers/`
-- Model-tier campaign execution — sequentially runs the validated catalog's 38
+- Model-tier campaign execution — sequentially runs the validated catalog's 24
   tier/model placements from private plans, with a non-live dry-run mode and
   private execution ledgers; individual cases can be audited with
   `npm run model-tier:pilot -- --model <id> --tier <8|16|24|32> --case <id>`
@@ -271,6 +271,10 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 - Model-tier evidence review — offline finalist manifests and full-exam tier
   decisions from validated campaign artifacts; raw evidence remains private
   under `var/`, and pilot evidence alone cannot promote an installer default
+- Model-tier dashboard export — automatically writes a metrics-only
+  `dashboard-data.js` beside each private run for safe loading in
+  `docs/tools/benchmarking.html`; prompts, answers, memories, paths, and
+  transcripts are excluded
 - Model-tier diagnostics — persisted retry transcripts and timeout evidence
   distinguish generic loop deadlines, explicit llama.cpp context-limit
   failures, harness/readiness failures, and valid completions; terminal context

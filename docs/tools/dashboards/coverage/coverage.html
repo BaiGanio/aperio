@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="../styles.css">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="../../../styles.css">
+  <link rel="stylesheet" href="../../../styles-dashboards.css">
 </head>
 <body class="coverage-dashboard">
 <div class="orb orb-1"></div>
@@ -17,9 +17,9 @@
 <div class="orb orb-3"></div>
 <nav class="aperio-nav">
   <div class="nav-inner">
-    <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+    <a href="../../../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
     <button class="nav-toggle" id="navToggle" aria-label="Open navigation">☰</button>
-    <ul class="nav-links" id="navLinks"><li><a href="../index.html">Home</a></li><li><a href="../tools/benchmarking.html">Benchmarking</a></li><li><a href="coverage.html">Coverage</a></li><li><a href="unit.html">Unit</a></li><li><a href="integration.html">Integration</a></li><li><a href="e2e.html">E2E</a></li></ul>
+    <ul class="nav-links" id="navLinks"><li><a href="../../../index.html">Home</a></li><li><a href="../../benchmarking.html">Benchmarking</a></li><li><a href="coverage.html">Coverage</a></li><li><a href="../unit/unit.html">Unit</a></li><li><a href="../integration/integration.html">Integration</a></li><li><a href="../e2e/e2e.html">E2E</a></li></ul>
     <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div>
   </div>
 </nav>
@@ -70,6 +70,6 @@
     return `<details class="heat-section"${index === 0 ? ' open' : ''}><summary><div class="heat-section-head"><h4>${section}</h4><span>${files.length} files · ${pct(stats.average)} average</span></div></summary><div class="folder-tree">${folderTree(files, section === 'entrypoints' ? '' : `${section}`)}</div><div class="heat-scale"><span>coverage scale</span>${[10,35,55,75,90,99].map((value) => `<i style="--tile-color:${colorFor(value)}"></i>`).join('')}<span>higher</span></div></details>`;
   }).join('');
 </script>
-<script src="../scripts.js"></script>
+<script src="../../../scripts.js"></script>
 </body>
 </html>

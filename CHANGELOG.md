@@ -9,6 +9,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- Reorganized benchmark inputs under `benchmarks/`, grouped test dashboards under `docs/tools/dashboards/`, and added a private-safe metrics export for the model-tier viewer.
+
 ### Fixed
 
 - **Bounded dataset-run, folder-authorization, and metrics retention**: dataset
@@ -84,7 +86,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `test:unit`, `test:integration`, `test:ci:unit`, `test:ci:integration`,
   `test:integration:ci:dashboard`, and `integration:dashboard`. New reporters at
   `tests/reporters/unit-json.js` and `tests/reporters/integration-json.js`, with
-  dashboards at `docs/dashboards/unit.html` and `docs/dashboards/integration.html`.
+  dashboards at `docs/tools/dashboards/unit/unit.html` and `docs/tools/dashboards/integration/integration.html`.
 - **Expanded real-app E2E coverage** (18% → 35%+ route coverage): 28 new tests
   across agent job lifecycle (create/run/history/delete/gate-toggle), session
   lifecycle (chat/list/get/pin/delete), data import round-trips, WebSocket
@@ -104,6 +106,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Server boot/resource composition split**: `lib/server.js`'s ~330-line `bootApp()`
+  and setup-wizard routing moved into six cohesive `lib/server/` modules —
+  `hydrateRuntime.js` (DB/config/embeddings/allowlist), `graphWatchers.js`
+  (codegraph/docgraph watcher boot), `roundtable.js` (Discuss agent pair),
+  `backgroundWorkers.js` (dedup/infer/pruners), and `locale.js` + `setupRoutes.js`
+  (locale detection, static/setup routes, bootstrap SSE). `createApp()`'s public
+  contract, the pre-boot signal-handling race, and route registration order are
+  unchanged — this is a structural refactor only (#307 Phase 4).
 - **Streaming events dispatch through one router**: the browser client's ~45-branch
   `handleMessage()` if-chain became an explicit type→handler map owned by
   `streaming/handler.js`, with the handlers themselves registered by domain files

@@ -16,6 +16,7 @@
     "local:bench": "node scripts/local-bench.js",
     "prompt-cache:bench": "node scripts/prompt-cache-bench.js",
     "model-tier:pilot": "node scripts/model-tier-bench.js",
+    "model-tier:export": "node scripts/model-tier-export.js",
     "test:skills": "NODE_ENV=test node --test tests/integration/skills/skills.test.js",
     "test:execution": "NODE_ENV=test node --test tests/integration/skills/execution.test.js",
     "test:store": "NODE_ENV=test node --test tests/integration/store/store.test.js",

@@ -102,7 +102,7 @@ and clean up their guest state on failure as well as success. See
 - `tests/reporters/integration-json.js` — structured JSON reporter for integration dashboard.
   Usage: `node --test --test-reporter=./tests/reporters/integration-json.js
   --test-reporter-destination=tests/results/integration-results.json`
-- `scripts/generate-integration-dashboard.js` — converts reporter JSON to `docs/dashboards/integration-data.js`.
+- `scripts/generate-integration-dashboard.js` — converts reporter JSON to `docs/tools/dashboards/integration/integration-data.js`.
   Run: `npm run integration:dashboard`
 - `tests/helpers/streamingScripts.js` — the ordered list of `public/scripts/streaming/*`
   classic scripts, shared by every suite that loads the browser streaming client into a
