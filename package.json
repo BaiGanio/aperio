@@ -5,6 +5,7 @@
   "type": "module",
   "license": "MIT",
   "scripts": {
+    "// 1  server & chat": "── boot the app (server or terminal client) in cloud/local/lite mode ──",
     "mcp": "node mcp/index.js",
     "start": "node server.js",
     "start:cloud": "PORT=1701 node server.js",
@@ -13,10 +14,8 @@
     "chat": "node lib/terminal.js",
     "chat:cloud": "PORT=1701 node lib/terminal.js",
     "chat:local": "AI_PROVIDER=llamacpp PORT=31337 node lib/terminal.js",
-    "local:bench": "node scripts/local-bench.js",
-    "prompt-cache:bench": "node scripts/prompt-cache-bench.js",
-    "model-tier:pilot": "node scripts/model-tier-bench.js",
-    "model-tier:export": "node scripts/model-tier-export.js",
+
+    "// 2  tests: dev": "── run once locally; test:only takes a --test-name-pattern arg ──",
     "test:skills": "NODE_ENV=test node --test tests/integration/skills/skills.test.js",
     "test:execution": "NODE_ENV=test node --test tests/integration/skills/execution.test.js",
     "test:store": "NODE_ENV=test node --test tests/integration/store/store.test.js",
@@ -28,6 +27,8 @@
     "test:integration": "NODE_ENV=test node --test --test-concurrency=1 $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) $(find tests/integration -name '*.test.js' -print)",
     "test:e2e": "NODE_ENV=test node --test --test-concurrency=2 --test-timeout=30000 'tests/e2e/**/*.test.js'",
     "test:e2e:real": "NODE_ENV=test node --test --test-concurrency=2 --test-timeout=30000 'tests/e2e/real-app/real-app-*.test.js'",
+
+    "// 3  tests: ci": "── same suites, with json reporters for the results dashboards; test:ci also runs coverage ──",
     "test:e2e:ci": "NODE_ENV=test node --test --test-concurrency=2 --test-timeout=30000 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/reporters/e2e-json.js --test-reporter-destination=tests/results/e2e-results.json $(find tests/e2e -name '*.test.js' -print)",
     "test:e2e:ci:dashboard": "npm run test:e2e:ci && npm run e2e:dashboard",
     "test:unit:ci": "NODE_ENV=test node --test --test-concurrency=1 --test-reporter=$([ -n \"$APERIO_AGENT_RUN\" ] && echo ./tests/reporters/quiet.js || echo spec) --test-reporter-destination=stdout --test-reporter=./tests/reporters/unit-json.js --test-reporter-destination=tests/results/unit-results.json $(find tests/unit -name '*.test.js' -print)",
@@ -38,17 +39,8 @@
     "test:ci:unit": "npm run test:unit:ci",
     "test:ci:integration": "npm run test:integration:ci",
     "test:ci:dashboard": "npm run test:ci && npm run coverage:dashboard && npm run unit:dashboard -- --input tests/results/test-results.json && npm run integration:dashboard -- --input tests/results/test-results.json && npm run test:e2e:ci:dashboard",
-    "gen:env": "node scripts/gen-env-example.js",
-    "gen:env:check": "node scripts/gen-env-example.js --check",
-    "i18n:check": "node scripts/diff-locales.js && node scripts/check-docs-i18n.js",
-    "config:sync": "node scripts/config-sync.js",
-    "migrate": "node db/migrate.js",
-    "migrate:sqlite": "node -e \"import('./db/sqlite.js').then(m => m.SqliteStore.init().then(s => s.close()))\"",
-    "vmtest:linux": "bash vms/run-vagrant.sh ubuntu-lite",
-    "vmtest:linux:debian": "bash vms/run-vagrant.sh debian-dev",
-    "vmtest:mac": "bash vms/mac/run.sh",
-    "vmtest:docker": "bash vms/docker/run.sh",
-    "vmtest:windows": "bash vms/win/run.sh",
+
+    "// 4  coverage & dashboards": "── render tests/results/*.json (from the ci scripts above) into HTML dashboards ──",
     "coverage": "c8 report --reporter=lcov --reporter=text",
     "dashboards": "node scripts/generate-all-dashboards.js",
     "dashboards-ci": "node scripts/generate-all-dashboards-ci.js",
@@ -57,7 +49,30 @@
     "integration:dashboard": "node scripts/generate-integration-dashboard.js",
     "unit:dashboard": "node scripts/generate-unit-dashboard.js",
     "test:unit:dashboard": "npm run test:unit:ci:dashboard",
-    "test:e2e:dashboard": "npm run test:e2e:ci:dashboard"
+    "test:e2e:dashboard": "npm run test:e2e:ci:dashboard",
+
+    "// 5  config & env": "── keep lib/config.js, .env.example, docs/config-reference.md and locales in sync ──",
+    "gen:env": "node scripts/gen-env-example.js",
+    "gen:env:check": "node scripts/gen-env-example.js --check",
+    "i18n:check": "node scripts/diff-locales.js && node scripts/check-docs-i18n.js",
+    "config:sync": "node scripts/config-sync.js",
+
+    "// 6  database": "── apply migrations (Postgres by default, or the sqlite bootstrap) ──",
+    "migrate": "node db/migrate.js",
+    "migrate:sqlite": "node -e \"import('./db/sqlite.js').then(m => m.SqliteStore.init().then(s => s.close()))\"",
+
+    "// 7  benchmarking": "── measure local model / prompt-cache performance, outside the test suite ──",
+    "local:bench": "node scripts/local-bench.js",
+    "prompt-cache:bench": "node scripts/prompt-cache-bench.js",
+    "model-tier:pilot": "node scripts/model-tier-bench.js",
+    "model-tier:export": "node scripts/model-tier-export.js",
+
+    "// 8  vm / install testing": "── exercise the installer end-to-end in disposable VMs/containers per OS ──",
+    "vmtest:linux": "bash vms/run-vagrant.sh ubuntu-lite",
+    "vmtest:linux:debian": "bash vms/run-vagrant.sh debian-dev",
+    "vmtest:mac": "bash vms/mac/run.sh",
+    "vmtest:docker": "bash vms/docker/run.sh",
+    "vmtest:windows": "bash vms/win/run.sh"
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.217",
