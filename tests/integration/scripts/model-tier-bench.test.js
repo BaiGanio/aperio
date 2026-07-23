@@ -488,23 +488,24 @@ test("validateTargetTier requires model eligibility", () => {
   assert.throws(() => validateTargetTier(model, 12), /tier must be/);
 });
 
-test("catalog contains the complete verified candidate matrix", () => {
+test("catalog contains the user's verified candidate matrix", () => {
   const models = JSON.parse(readFileSync(".github/model-tiers/models.json", "utf8"));
   const validated = validateBenchmarkModels(models);
-  assert.equal(validated.length, 16);
-  assert.equal(validated.reduce((count, model) => count + model.tiers.length, 0), 39);
+  assert.equal(validated.length, 8);
+  assert.equal(validated.reduce((count, model) => count + model.tiers.length, 0), 24);
   assert.deepEqual(validated.filter(model => model.tiers.includes(8)).map(model => model.id), [
-    "gemma4-e4b-ud-q4kxl", "qwen35-4b-ud-q4kxl", "ministral3-3b-q4km", "granite40-h-tiny-ud-q4kxl",
+    "gemma4-e4b-ud-q4kxl", "gemma4-e2b-ud-q4kxl", "qwen35-4b-q4km",
   ]);
   assert.deepEqual(validated.filter(model => model.tiers.includes(16)).map(model => model.id), [
-    "gemma4-e4b-ud-q4kxl", "qwen35-4b-ud-q4kxl", "ministral3-3b-q4km", "granite40-h-tiny-ud-q4kxl",
-    "qwen35-9b-q4km", "ministral3-14b-q4km", "granite41-8b-q4km", "gpt-oss-20b-mxfp4",
+    "gemma4-12b-ud-q4kxl", "ornith1-9b-mtp-q4km", "qwen3-vl-8b-q4km",
+    "gemma4-e4b-ud-q4kxl", "gemma4-e2b-ud-q4kxl", "qwen35-4b-q4km",
   ]);
   const gemma = validated.find(model => model.id === "gemma4-e4b-ud-q4kxl");
   assert.equal(gemma.hf, "unsloth/gemma-4-E4B-it-qat-GGUF:UD-Q4_K_XL");
   assert.equal(gemma.quant, "UD-Q4_K_XL");
   assert.equal(gemma.verification.repository, "https://huggingface.co/unsloth/gemma-4-E4B-it-qat-GGUF");
-  assert.equal(validated.find(model => model.id === "gpt-oss-20b-mxfp4").quant, "mxfp4");
+  assert.equal(validated.find(model => model.id === "gemma4-e2b-ud-q4kxl").hf, "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL");
+  assert.equal(validated.find(model => model.id === "qwen35-4b-q4km").quant, "Q4_K_M");
 });
 
 test("catalog validation rejects repository/quant drift and incomplete verification metadata", () => {
