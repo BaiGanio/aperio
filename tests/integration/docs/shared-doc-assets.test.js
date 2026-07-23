@@ -71,20 +71,20 @@ function readFileExists(path) {
 test("dashboard navbars expose one canonical link set", () => {
   const expected = [
     "index.html",
-    "tools/model-tier-score-viewer.html",
+    "tools/benchmarking.html",
     "dashboards/coverage.html",
     "dashboards/unit.html",
     "dashboards/integration.html",
     "dashboards/e2e.html",
   ];
-  for (const name of ["dashboards/coverage.html", "dashboards/e2e.html", "dashboards/integration.html", "dashboards/unit.html", "tools/model-tier-score-viewer.html"]) {
+  for (const name of ["dashboards/coverage.html", "dashboards/e2e.html", "dashboards/integration.html", "dashboards/unit.html", "tools/benchmarking.html"]) {
     assert.deepEqual(normalizedNavbarLinks(join(DOCS, name)), expected, name);
   }
 });
 
 test("dashboard footers expose the Codecov link", () => {
   const expected = "https://codecov.io/gh/BaiGanio/aperio";
-  for (const name of ["dashboards/coverage.html", "dashboards/e2e.html", "dashboards/integration.html", "dashboards/unit.html", "tools/model-tier-score-viewer.html"]) {
+  for (const name of ["dashboards/coverage.html", "dashboards/e2e.html", "dashboards/integration.html", "dashboards/unit.html", "tools/benchmarking.html"]) {
     assert.equal(footerLinks(join(DOCS, name)).filter((href) => href === expected).length, 1, name);
     assert.doesNotMatch(readFileSync(join(DOCS, name), "utf8").match(/<nav\b[\s\S]*?<\/nav>/i)?.[0] || "", /codecov/i, name);
   }
@@ -147,7 +147,7 @@ test("test dashboards use the shared dashboard stylesheet without inline CSS", (
 });
 
 test("model-tier viewer delegates theme persistence to the shared implementation", () => {
-  const html = readFileSync(join(DOCS, "tools/model-tier-score-viewer.html"), "utf8");
+  const html = readFileSync(join(DOCS, "tools/benchmarking.html"), "utf8");
   assert.doesNotMatch(html, /Theme switcher — mirrors the landing page/);
 });
 

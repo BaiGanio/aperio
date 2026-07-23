@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 
-const viewerPath = resolve("docs/tools/model-tier-score-viewer.html");
+const viewerPath = resolve("docs/tools/benchmarking.html");
 
 function viewerRuntime() {
   const html = readFileSync(viewerPath, "utf8");
