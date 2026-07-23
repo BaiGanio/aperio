@@ -29,6 +29,8 @@ function makeWs(t) {
       const result = listeners["message"]?.(Buffer.from(JSON.stringify(data)));
       if (result instanceof Promise) await result;
     },
+    /** Fires the registered "close" listener directly (mirrors ws's own close event). */
+    triggerClose: () => listeners["close"]?.(),
   };
 }
 
@@ -359,6 +361,79 @@ describe("message type: chat", () => {
       { type: "turn_complete", turnId: "turn-a", status: "interrupted" },
       { type: "turn_complete", turnId: "turn-b", status: "completed" },
     ]);
+  });
+
+  test("three rapid overlapping chats: the first two are interrupted, only the third completes", async (t) => {
+    const ws = makeWs(t);
+    let calls = 0;
+    let releaseA, releaseB;
+    const startedA = new Promise(resolve => { releaseA = resolve; });
+    const startedB = new Promise(resolve => { releaseB = resolve; });
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        runAgentLoop: async (_messages, _emitter, _opts, _getAbort, setAbort) => {
+          calls++;
+          if (calls === 3) return; // third turn completes normally
+          const controller = new AbortController();
+          setAbort(controller);
+          (calls === 1 ? releaseA : releaseB)();
+          await new Promise((_resolve, reject) => {
+            controller.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+          });
+        },
+      }),
+      varRoot: TEST_DIR,
+    });
+    handler(ws);
+    const a = ws.emit({ type: "chat", text: "first", turnId: "turn-a" });
+    await startedA;
+    const b = ws.emit({ type: "chat", text: "second", turnId: "turn-b" });
+    await startedB;
+    const c = ws.emit({ type: "chat", text: "third", turnId: "turn-c" });
+    await Promise.all([a, b, c]);
+    assert.deepStrictEqual(sentOf(ws, "turn_complete"), [
+      { type: "turn_complete", turnId: "turn-a", status: "interrupted" },
+      { type: "turn_complete", turnId: "turn-b", status: "interrupted" },
+      { type: "turn_complete", turnId: "turn-c", status: "completed" },
+    ]);
+  });
+
+  test("closing the socket during an active generating turn does not throw and suppresses the late rejection", async (t) => {
+    const ws = makeWs(t);
+    const loggedErrors = [];
+    t.mock.method(logger, "error", (...args) => loggedErrors.push(args.map(String).join(" ")));
+
+    let releaseStarted;
+    const started = new Promise(resolve => { releaseStarted = resolve; });
+    let controller;
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        runAgentLoop: async (_messages, _emitter, _opts, _getAbort, setAbort) => {
+          controller = new AbortController();
+          setAbort(controller);
+          releaseStarted();
+          await new Promise((_resolve, reject) => {
+            controller.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+          });
+        },
+      }),
+      store: { listAll: async () => [] },
+      varRoot: TEST_DIR,
+    });
+
+    handler(ws);
+    const chatPromise = ws.emit({ type: "chat", text: "hello", turnId: "turn-close" });
+    await started;
+
+    assert.doesNotThrow(() => ws.triggerClose());
+    assert.ok(controller.signal.aborted, "close handler aborts the live turn's controller");
+
+    await chatPromise;
+
+    assert.ok(
+      !loggedErrors.some(l => l.includes("finaliseSession error") || l.includes("message handler error")),
+      `no error should be logged for an expected socket-close abort: ${JSON.stringify(loggedErrors)}`
+    );
   });
 
   test("pushes the user message to history and calls runAgentLoop", async (t) => {

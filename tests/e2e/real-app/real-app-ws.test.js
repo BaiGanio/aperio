@@ -319,6 +319,82 @@ test("WebSocket tests", async (t) => {
   });
 
   // ═══════════════════════════════════════════════════════════════════════
+  // T44/T45: turnLock live verification (Phase 5b, issue #307) — real socket
+  // close mid-turn and a real overlapping-turn race, against the actual
+  // createTurnLock() extraction, not a mock.
+  // ═══════════════════════════════════════════════════════════════════════
+  await t.test("T44: closing the socket mid-turn does not crash the server or leak errors", async () => {
+    const { ws } = await connect(fixture);
+
+    const turnId = `close-mid-turn-${randomUUID().slice(0, 8)}`;
+    ws.send(JSON.stringify({ type: "chat", text: "a b c d e f g h i j k l m n o p", turnId }));
+
+    // Wait until the turn is actively streaming (abort controller is live),
+    // same signal T37 uses for "stop".
+    await waitForMessage(ws, (m) => m.type === "token" && m.text?.length > 0, 5_000);
+
+    // Client-initiated close — exercises the server's real ws.on("close", ...)
+    // handler (turnLock.abortForClose()) while a turn is generating, instead
+    // of a clean "stop" message.
+    closeWs(ws);
+    await new Promise((resolve) => ws.once("close", resolve));
+
+    // Give the server a moment to run its close handler and let the aborted
+    // turn's promise settle.
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // The server must still be alive and serving other connections.
+    const healthRes = await request(fixture, "/api/locale");
+    assert.equal(healthRes.status, 200, "HTTP still works after a mid-turn socket close");
+
+    const { ws: ws2 } = await connect(fixture);
+    t.after(() => closeWs(ws2));
+    const turnId2 = `after-close-${randomUUID().slice(0, 8)}`;
+    ws2.send(JSON.stringify({ type: "chat", text: "still alive", turnId: turnId2 }));
+    const tc2 = await waitForMessage(ws2, (m) => m.type === "turn_complete" && m.turnId === turnId2, 10_000);
+    assert.equal(tc2.status, "completed", "A fresh connection completes a normal turn after the close");
+
+    // No uncaught exception or connection-setup-error noise from the close.
+    const badLines = [...fixture.stdout, ...fixture.stderr].filter(
+      (l) => /connection setup error|Uncaught|unhandledRejection/i.test(l)
+    );
+    assert.deepEqual(badLines, [], `no crash/error noise expected: ${JSON.stringify(badLines)}`);
+  });
+
+  await t.test("T45: three rapid overlapping chats — first two interrupted, third completes, connection survives", async () => {
+    const { ws } = await connect(fixture);
+    t.after(() => closeWs(ws));
+
+    const t1 = `race-${randomUUID().slice(0, 8)}`;
+    const t2 = `race-${randomUUID().slice(0, 8)}`;
+    const t3 = `race-${randomUUID().slice(0, 8)}`;
+
+    ws.send(JSON.stringify({ type: "chat", text: "one two three four five", turnId: t1 }));
+    await waitForMessage(ws, (m) => m.type === "token" && m.text?.length > 0, 5_000);
+
+    ws.send(JSON.stringify({ type: "chat", text: "six seven eight nine ten", turnId: t2 }));
+    await waitForMessage(ws, (m) => m.type === "token" && m.text?.length > 0, 5_000);
+
+    ws.send(JSON.stringify({ type: "chat", text: "eleven", turnId: t3 }));
+
+    const [tc1, tc2, tc3] = await Promise.all([
+      waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t1, 10_000),
+      waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t2, 10_000),
+      waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t3, 10_000),
+    ]);
+
+    assert.equal(tc1.status, "interrupted", "First turn was superseded");
+    assert.equal(tc2.status, "interrupted", "Second turn was superseded");
+    assert.equal(tc3.status, "completed", "Third turn completed normally");
+
+    // The connection survives a three-deep supersession — no lock corruption.
+    const turn4 = `after-race-${randomUUID().slice(0, 8)}`;
+    ws.send(JSON.stringify({ type: "chat", text: "ping", turnId: turn4 }));
+    const tc4 = await waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === turn4, 10_000);
+    assert.equal(tc4.status, "completed", "A fourth chat on the same connection still completes normally");
+  });
+
+  // ═══════════════════════════════════════════════════════════════════════
   // Group E: resume_session, switch_model, set_paths (plan Step WS-E)
   // ═══════════════════════════════════════════════════════════════════════
   await t.test("E1: resume_session acknowledges the session", async () => {

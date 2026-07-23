@@ -11,6 +11,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 - Reorganized benchmark inputs under `docs/benchmarks/tools/`, grouped test dashboards under `docs/benchmarks/`, and added a private-safe metrics export for the model-tier viewer.
 - Renamed the model-tier viewer integration test to `benchmarking.test.js` and made qualification-case cards collapsed by default.
+- Extracted the WebSocket chat/init turn-interruption mutex out of `lib/emitters/handlers/wsHandler.js` into `lib/emitters/handlers/ws/turnLock.js` (`createTurnLock()`), isolating the concurrency-safety logic from `handleChat`'s business logic (issue #307 Phase 5b). No behavior change; added characterization coverage for a previously-untested socket-close-during-active-turn scenario and a deeper interruption race.
 
 ### Fixed
 
