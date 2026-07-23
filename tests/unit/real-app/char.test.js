@@ -19,6 +19,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(__dirname, "../../..");  // tests/unit/real-app/../../../ = repo root
 const SERVER = resolve(REPO_ROOT, "server.js");
 const LIBSERVER = resolve(REPO_ROOT, "lib/server.js");
+const SETUP_ROUTES = resolve(REPO_ROOT, "lib/server/setupRoutes.js");
 
 // ─── CHAR-1: Port-0 readiness (FIXED) ────────────────────────────────────────
 
@@ -41,28 +42,33 @@ test("CHAR-1: lib/server.js uses address().port for accurate URL", () => {
 
 // ─── CHAR-2: Path isolation (MOVED) ──────────────────────────────────────────
 
-test("CHAR-2: lib/server.js holds hardcoded mutable paths", () => {
+test("CHAR-2: lib/server.js and lib/server/setupRoutes.js hold hardcoded mutable paths", () => {
   const src = readFileSync(LIBSERVER, "utf8");
+  const setupRoutesSrc = readFileSync(SETUP_ROUTES, "utf8");
 
-  // The mutable runtime paths are in lib/server.js (not server.js).
-  // Runtime var/ data (uploads, scratch, roundtables) anchors to
-  // process.cwd(), matching the writers, the path-guard floor, and the
-  // SQLite default (#282). The bootstrap lock and agent artifacts use the
-  // caller-provided runtime root so isolated fixtures cannot share state.
-  const hardcodedPaths = [
-    'resolve(RUNTIME_ROOT, "var/bootstrap.lock")',
+  // The mutable runtime paths are in lib/server.js and lib/server/setupRoutes.js
+  // (not server.js). Runtime var/ data (uploads, scratch, roundtables) anchors
+  // to process.cwd(), matching the writers, the path-guard floor, and the
+  // SQLite default (#282) — registered by setupRoutes.js since the #307 Phase 4
+  // split. The bootstrap lock and agent artifacts use the caller-provided
+  // runtime root and stay in lib/server.js so isolated fixtures cannot share state.
+  assert.ok(
+    src.includes('resolve(RUNTIME_ROOT, "var/bootstrap.lock")'),
+    'Path is in lib/server.js: resolve(RUNTIME_ROOT, "var/bootstrap.lock")'
+  );
+
+  const setupRoutePaths = [
     'resolve(process.cwd(), "var/uploads")',
     'resolve(process.cwd(), "var/scratch")',
     'resolve(process.cwd(), "var/roundtables")',
   ];
-
-  for (const p of hardcodedPaths) {
-    assert.ok(src.includes(p), `Path is in lib/server.js: ${p}`);
+  for (const p of setupRoutePaths) {
+    assert.ok(setupRoutesSrc.includes(p), `Path is in lib/server/setupRoutes.js: ${p}`);
   }
 
-  // server.js should NOT have these paths anymore
+  // server.js should NOT have any of these paths anymore
   const serverSrc = readFileSync(SERVER, "utf8");
-  for (const p of hardcodedPaths) {
+  for (const p of ['resolve(RUNTIME_ROOT, "var/bootstrap.lock")', ...setupRoutePaths]) {
     assert.ok(!serverSrc.includes(p), `server.js does NOT contain ${p}`);
   }
 });

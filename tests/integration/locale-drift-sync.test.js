@@ -7,14 +7,14 @@ import { fileURLToPath } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 /**
- * Extracts the SUPPORTED_LOCALES set from server.js via regex.
+ * Extracts the SUPPORTED_LOCALES set from lib/server/locale.js via regex.
  * Safe: does NOT import server.js (importing it starts the server).
  */
 function extractServerLocales() {
-  // SUPPORTED_LOCALES moved to lib/server.js during composition-root extraction
-  const src = readFileSync(resolve(ROOT, "lib/server.js"), "utf8");
+  // SUPPORTED_LOCALES lives in lib/server/locale.js since the #307 Phase 4 split
+  const src = readFileSync(resolve(ROOT, "lib/server/locale.js"), "utf8");
   const m = src.match(/\s*const SUPPORTED_LOCALES = new Set\(\[\n([\s\S]+?)\n\s*\]\);?/);
-  if (!m) throw new Error("Could not find SUPPORTED_LOCALES in lib/server.js");
+  if (!m) throw new Error("Could not find SUPPORTED_LOCALES in lib/server/locale.js");
   const set = new Set();
   for (const line of m[1].split("\n")) {
     for (const q of line.matchAll(/"([^"]+)"/g)) {

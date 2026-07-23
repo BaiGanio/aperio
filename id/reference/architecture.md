@@ -9,6 +9,10 @@ aperio/
 ├── lib/server.js          # Callable composition root — createApp() builds Express +
 │                           # HTTP + WebSocket + lifecycle. Accepts { skipBoot,
 │                           # injectAgent, autoListen } for test isolation.
+├── lib/server/            # browser.js, ws.js, shutdown.js (existing) plus
+│                           # hydrateRuntime.js, graphWatchers.js, roundtable.js,
+│                           # backgroundWorkers.js, locale.js, setupRoutes.js —
+│                           # bootApp()'s domain boundaries, split out per #307 Phase 4
 ├── bootstrap.js           # First-run setup wizard (DB init, config, embeddings)
 ├── lib/
 │   ├── agent/             # Agent orchestration: providers, tool profiles, hooks
