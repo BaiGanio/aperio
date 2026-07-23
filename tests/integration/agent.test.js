@@ -20,6 +20,8 @@ import { fixUnclosedFence } from "../../lib/helpers/validateOutput.js";
 import { makeWsEmitter } from "../../lib/emitters/wsEmitter.js";
 import { makeCliEmitter } from "../../lib/emitters/cliEmitter.js";
 import { runWithPaths } from "../../lib/routes/paths.js";
+import logger from "../../lib/helpers/logger.js";
+import { resolveReasoningAdapter } from "../../lib/workers/reasoning.js";
 
 // Synthetic root — never a real path on the user's machine.
 // createAgent wraps all readFileSync calls in try/catch, so missing
@@ -1382,6 +1384,258 @@ describe("Agent Integration with Emitter", () => {
     const after = agent.getSystemPrompt("hi");
     assert.equal(after, before,
       "system prompt must be byte-identical after a mid-session remember — the pointer only refreshes at next session's buildGreeting");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 5a (issue #307) characterization tests — written BEFORE the
+// lib/agent/index.js split, to lock in behavior the split must preserve.
+// See trash/plans/agent-index-split-tests.md.
+// ---------------------------------------------------------------------------
+
+describe("setProvider (real agent)", () => {
+  let prevEnableShell, prevShellLocal, prevCapable;
+  beforeEach(() => {
+    prevEnableShell = process.env.APERIO_ENABLE_SHELL;
+    prevShellLocal = process.env.APERIO_SHELL_LOCAL;
+    prevCapable = process.env.APERIO_CAPABLE_MODELS;
+  });
+  afterEach(() => {
+    if (prevEnableShell === undefined) delete process.env.APERIO_ENABLE_SHELL; else process.env.APERIO_ENABLE_SHELL = prevEnableShell;
+    if (prevShellLocal === undefined) delete process.env.APERIO_SHELL_LOCAL; else process.env.APERIO_SHELL_LOCAL = prevShellLocal;
+    if (prevCapable === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prevCapable;
+  });
+
+  test("updates provider identity, reasoning adapter, and clears selfMemCtx on local→cloud switch", async (t) => {
+    stubMcpTransport(t);
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
+
+    t.mock.method(Client.prototype, "listTools", async () => ({
+      tools: ["recall", "remember", "self_recall", "self_update"].map(name => ({
+        name, description: name, inputSchema: { type: "object", properties: {} },
+      })),
+    }));
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "self_recall") return { content: [{ type: "text", text: "[note] Prior session left off debugging the parser." }] };
+      if (name === "recall") return { content: [{ type: "text", text: "[fact] User name is John" }] };
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+
+    const agent = await createAgent({
+      root: FAKE_ROOT, version: "1.0.0",
+      providerConfig: { name: "llamacpp", model: "qwen3:32b" },
+    });
+    await agent.buildGreeting();
+    // buildGreeting's returned memCtx is sessionMemCtx only (not selfMemCtx) —
+    // check the self-memory pointer via the assembled system prompt instead,
+    // which folds in both via getMemoryPointers().
+    const beforePrompt = agent.getSystemPrompt("hi", "en", "", []);
+    assert.match(beforePrompt, /SELF —/, "sanity check: local provider preloads self-notes before switching");
+
+    const localTools = agent.getOpenAiTools("what do you remember about yourself?", []).map(t => t.function?.name);
+    assert.ok(localTools.includes("self_recall"), "sanity check: self_recall is offered while local");
+
+    agent.setProvider({ name: "anthropic", model: "claude-haiku-4-5-20251001" });
+
+    assert.strictEqual(agent.provider.name, "anthropic");
+    assert.strictEqual(agent.provider.model, "claude-haiku-4-5-20251001");
+
+    const expectedAdapter = resolveReasoningAdapter("claude-haiku-4-5-20251001");
+    assert.strictEqual(agent.reasoningAdapter.match, expectedAdapter.match,
+      "agentObj.reasoningAdapter must be reassigned on provider switch");
+
+    const cloudTools = agent.getOpenAiTools("what do you remember about yourself, please", []).map(t => t.function?.name);
+    assert.ok(!cloudTools.includes("self_recall"), "self_recall must be dropped once the provider is cloud");
+    assert.ok(!cloudTools.includes("self_update"), "self_update must be dropped once the provider is cloud");
+
+    const afterPrompt = agent.getSystemPrompt("hi again", "en", "", []);
+    assert.doesNotMatch(afterPrompt, /SELF —/, "selfMemCtx must be cleared immediately on switching to a cloud provider");
+  });
+
+  test("re-evaluates shell tool availability from the new provider", async (t) => {
+    stubMcpTransport(t);
+    process.env.APERIO_ENABLE_SHELL = "1";
+    delete process.env.APERIO_SHELL_LOCAL; // local providers stay disallowed unless explicitly opted in
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
+
+    t.mock.method(Client.prototype, "listTools", async () => ({
+      tools: ["run_shell", "recall", "remember"].map(name => ({
+        name, description: name, inputSchema: { type: "object", properties: {} },
+      })),
+    }));
+    t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "OK" }] }));
+
+    const agent = await createAgent({
+      root: FAKE_ROOT, version: "1.0.0",
+      providerConfig: { name: "llamacpp", model: "qwen3:32b" },
+    });
+
+    const beforeTools = agent.getOpenAiTools("run a shell command to check status", []).map(t => t.function?.name);
+    assert.ok(!beforeTools.includes("run_shell"), "local provider without APERIO_SHELL_LOCAL must not get run_shell");
+
+    agent.setProvider({ name: "anthropic", model: "claude-haiku-4-5-20251001" });
+
+    // Different text than "beforeTools" — ensureTurn caches by (turnNum, userText),
+    // and both calls use an empty messages array (turnNum 0), so an identical
+    // string here would return the stale cached turn instead of exercising the
+    // post-switch shellBox state.
+    const afterTools = agent.getOpenAiTools("run a shell command to check status now", []).map(t => t.function?.name);
+    assert.ok(afterTools.includes("run_shell"), "cloud provider with APERIO_ENABLE_SHELL=1 must get run_shell after switching");
+  });
+});
+
+describe("ensureTurn schema-token budget", () => {
+  let prevCtx, prevCapable;
+  beforeEach(() => {
+    prevCtx = process.env.LLAMACPP_CTX;
+    prevCapable = process.env.APERIO_CAPABLE_MODELS;
+  });
+  afterEach(() => {
+    if (prevCtx === undefined) delete process.env.LLAMACPP_CTX; else process.env.LLAMACPP_CTX = prevCtx;
+    if (prevCapable === undefined) delete process.env.APERIO_CAPABLE_MODELS; else process.env.APERIO_CAPABLE_MODELS = prevCapable;
+  });
+
+  // A tool list wide enough (and with big-enough schemas) that its combined
+  // estimated schema-token cost exceeds a small window's 20% budget.
+  const WIDE_TOOL_NAMES = [
+    "recall", "remember", "read_file", "write_file", "edit_file", "append_file",
+    "grep_files", "scan_project", "code_search", "code_outline", "code_context",
+    "doc_search", "doc_outline", "db_query", "db_schema", "fetch_url",
+  ];
+  const wideToolsStub = () => WIDE_TOOL_NAMES.map(name => ({
+    name,
+    description: `${name} — a tool with a moderately large schema so its serialized cost is non-trivial`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        a: { type: "string", description: "first argument, described at some length for realism" },
+        b: { type: "string", description: "second argument, also described at some length for realism" },
+        c: { type: "number", description: "a third, numeric argument" },
+      },
+    },
+  }));
+
+  test("caps the attached tool set and logs the cap on a small llama.cpp context window", async (t) => {
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "listTools", async () => ({ tools: wideToolsStub() }));
+    t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "OK" }] }));
+    const infoLines = [];
+    t.mock.method(logger, "info", (...args) => { infoLines.push(args.join(" ")); });
+
+    process.env.LLAMACPP_CTX = "4096";
+    process.env.APERIO_CAPABLE_MODELS = "qwen3:32b";
+    const agent = await createAgent({
+      root: FAKE_ROOT, version: "1.0.0",
+      providerConfig: { name: "llamacpp", model: "qwen3:32b" },
+    });
+
+    const cappedCount = agent.getToolCount("search the codebase for a symbol and read the file", []);
+    assert.ok(cappedCount < WIDE_TOOL_NAMES.length,
+      `expected capping to reduce below ${WIDE_TOOL_NAMES.length}, got ${cappedCount}`);
+    assert.match(infoLines.join("\n"), /\[tools\] schema budget \(\d+ tok\): capped tools \d+→\d+/,
+      "the schema-budget cap must log its before/after counts");
+  });
+
+  test("does not cap on a large-context cloud provider for the same tool profile", async (t) => {
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "listTools", async () => ({ tools: wideToolsStub() }));
+    t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "OK" }] }));
+
+    const agent = await createAgent({
+      root: FAKE_ROOT, version: "1.0.0",
+      providerConfig: { name: "anthropic", model: "claude-haiku-4-5-20251001" },
+    });
+
+    const count = agent.getToolCount("search the codebase for a symbol and read the file", []);
+    const uncappedProfileCount = agent.getOpenAiTools("search the codebase for a symbol and read the file", []).length;
+    assert.strictEqual(count, uncappedProfileCount,
+      "capToolsForProvider is a no-op for non-llamacpp providers — count must equal the uncapped profile match");
+  });
+});
+
+describe("refreshSessionMemCtx / refreshSelfMemCtx — MCP failure handling", () => {
+  // Discovery while writing this characterization test: callTool() never lets
+  // an MCP/host-handler error propagate — its own try/catch always converts a
+  // thrown error into a "\u274c Tool error (...)" STRING return (lib/agent/index.js,
+  // the `catch (err)` block inside callTool). That means the try/catch inside
+  // refreshSessionMemCtx/refreshSelfMemCtx around `await callTool(...)` can
+  // only ever fire from something other than a normal MCP failure (e.g. a bug
+  // in memCountFromRaw itself) — a normal recall/self_recall failure takes the
+  // "callTool resolved with an error string" path instead. These tests
+  // characterize what ACTUALLY happens on that path today, so the Phase 5
+  // split doesn't accidentally change it.
+  test("callTool converts an MCP throw into an error-string return, it does not propagate the throw", async (t) => {
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "callTool", async () => { throw new Error("mcp down"); });
+    const agent = await createAgent({ root: FAKE_ROOT, version: "1.0.0" });
+    const result = await agent.callTool("recall", { limit: 1 });
+    assert.match(result, /^\u274c Tool error \(recall\): mcp down/);
+  });
+
+  test("refreshSelfMemCtx treats a callTool error string as \"no self-notes\" — no SELF pointer, no crash, no warning", async (t) => {
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "self_recall") throw new Error("mcp down");
+      if (name === "recall") return { content: [{ type: "text", text: "[fact] User name is John" }] };
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+    const warnLines = [];
+    t.mock.method(logger, "warn", (...args) => { warnLines.push(args.join(" ")); });
+
+    const agent = await createAgent({
+      root: FAKE_ROOT, version: "1.0.0",
+      providerConfig: { name: "llamacpp", model: "qwen2.5:3b" },
+    });
+
+    const prompt = await (async () => {
+      await agent.buildGreeting();
+      return agent.getSystemPrompt("hi", "en", "", []);
+    })();
+    assert.doesNotMatch(prompt, /SELF —/, "self-memory portion must be absent when self_recall errors");
+    // refreshSelfMemCtx's own explicit "\u274c"-prefix check handles this — the
+    // try/catch's `logger.warn("self-memory preload refresh failed")` branch is
+    // NOT reached via a normal callTool failure (see callTool's own error
+    // swallowing above), so no warning is expected here.
+    assert.strictEqual(warnLines.length, 0);
+  });
+
+  test("KNOWN GAP: refreshSessionMemCtx's memCountFromRaw does not recognize a callTool error string, so a failing recall is currently miscounted as 1 memory", async (t) => {
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "callTool", async ({ name }) => {
+      if (name === "recall") throw new Error("mcp down");
+      return { content: [{ type: "text", text: "OK" }] };
+    });
+
+    const agent = await createAgent({
+      root: FAKE_ROOT, version: "1.0.0",
+      providerConfig: { name: "deepseek", model: "deepseek-v4-flash" },
+    });
+
+    const { memCtx, preloadedMemCount } = await agent.buildGreeting();
+    // This locks in TODAY's behavior, which is arguably a pre-existing minor
+    // bug (not introduced by, and out of scope for, the Phase 5 split): the
+    // error string returned by callTool has no "---" separator, so
+    // memCountFromRaw's fallback `raw.split("---").filter(Boolean).length`
+    // counts it as one "memory" and the recall pointer is injected as if
+    // memory were healthy. Flagged for a follow-up ticket, not fixed here —
+    // fixing it would be an unrelated behavior change bundled into a refactor.
+    assert.strictEqual(preloadedMemCount, 1);
+    assert.match(memCtx, /saved memories/);
+  });
+});
+
+describe("getSystemPrompt ctx-ordering regression (issue #307 Phase 5a)", () => {
+  test("system prompt includes the correct provider tag without relying on ctx being pre-initialized", async (t) => {
+    stubMcpTransport(t);
+    t.mock.method(Client.prototype, "callTool", async () => ({ content: [{ type: "text", text: "OK" }] }));
+
+    const agent = await createAgent({
+      root: FAKE_ROOT, version: "1.0.0",
+      providerConfig: { name: "deepseek", model: "deepseek-v4-flash" },
+    });
+
+    const prompt = agent.getSystemPrompt("hello", "en", "", []);
+    assert.match(prompt, /You are running as: DeepSeek \(deepseek-v4-flash\)/);
   });
 });
 

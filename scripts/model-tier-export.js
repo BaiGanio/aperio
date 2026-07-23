@@ -28,7 +28,7 @@ try {
   // fixture so benchmarking.html always shows the most recently exported run.
   writeDashboardData(artifactDir);
   const docsOutputPath = writeDashboardData(artifactDir, {
-    outputPath: join(ROOT, "docs/tools/benchmarks/dashboard-data.js"),
+    outputPath: join(ROOT, "docs/benchmarks/pilot/qualification-data.js"),
   });
   const outputPath = option("--output")
     ? writeDashboardData(artifactDir, { outputPath: resolve(option("--output")) })

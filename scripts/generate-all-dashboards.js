@@ -66,7 +66,7 @@ console.log(`\n${"=".repeat(50)}`);
 if (allPassed) {
   console.log("✅ All four dashboards generated successfully.");
   console.log("   Refresh the dashboards in your browser to see updated results.");
-  console.log(`   Location: docs/tools/dashboards/`);
+  console.log(`   Location: docs/benchmarks/{code-cov,unit,integration,e2e}/`);
 } else {
   console.log("❌ Some dashboards failed to generate (see errors above).");
   console.log("   Common causes:");

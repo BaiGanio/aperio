@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import vm from "node:vm";
 
-const viewerPath = resolve("docs/tools/benchmarking.html");
+const viewerPath = resolve("docs/benchmarks/pilot/qualification.html");
 
 function viewerRuntime() {
   const html = readFileSync(viewerPath, "utf8");
