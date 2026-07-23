@@ -113,6 +113,9 @@ test("metrics export import renders statuses and retry metrics", async () => {
   assert.equal(result.ignoredCount, 0);
   assert.equal(node("campaignId").textContent, "audit-human-readable-id");
   assert.match(node("caseList").innerHTML, /First attempt/);
+  assert.match(node("caseList").innerHTML, /<details class="case pass">/);
+  assert.match(node("caseList").innerHTML, /<summary class="case-summary">/);
+  assert.doesNotMatch(node("caseList").innerHTML, /<details class="case pass" open>/);
   assert.match(node("caseList").innerHTML, /Retry/);
   assert.match(node("caseList").innerHTML, /Final persisted result/);
   assert.match(node("caseList").innerHTML, /wiki_search → recall → wiki_write/);

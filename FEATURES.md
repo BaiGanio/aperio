@@ -272,9 +272,10 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
   decisions from validated campaign artifacts; raw evidence remains private
   under `var/`, and pilot evidence alone cannot promote an installer default
 - Model-tier dashboard export — automatically writes a metrics-only
-  `dashboard-data.js` beside each private run for safe loading in
-  `docs/tools/benchmarking.html`; prompts, answers, memories, paths, and
-  transcripts are excluded
+  `dashboard-data.js` beside each private run and replaces the latest copy at
+  `docs/tools/benchmarks/dashboard-data.js`, which
+  `docs/tools/benchmarking.html` loads automatically; prompts, answers,
+  memories, paths, and transcripts are excluded
 - Model-tier diagnostics — persisted retry transcripts and timeout evidence
   distinguish generic loop deadlines, explicit llama.cpp context-limit
   failures, harness/readiness failures, and valid completions; terminal context
