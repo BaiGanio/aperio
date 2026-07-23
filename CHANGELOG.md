@@ -10,6 +10,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## Unreleased
 
 - Reorganized benchmark inputs under `benchmarks/`, grouped test dashboards under `docs/tools/dashboards/`, and added a private-safe metrics export for the model-tier viewer.
+- Renamed the model-tier viewer integration test to `benchmarking.test.js` and made qualification-case cards collapsed by default.
 
 ### Fixed
 

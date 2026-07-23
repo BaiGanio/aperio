@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aperio — Model Tier Pilot</title>
-  <meta name="description" content="Standalone visual score viewer for Aperio model-tier pilot artifacts.">
+  <meta name="description" content="Latest Aperio model-tier pilot dashboard.">
 
   <!-- Shared Aperio typography — mirrors docs/index.html -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -272,22 +272,32 @@
 
     .case-list { display: grid; gap: 12px; }
     .case {
-      display: grid;
-      grid-template-columns: 42px minmax(180px, .75fr) minmax(360px, 1.5fr) 92px;
-      gap: 18px;
-      align-items: center;
-      min-height: 108px;
-      padding: 18px 20px;
       border: 1px solid var(--line);
       background: var(--panel);
     }
+    .case-summary {
+      display: grid;
+      grid-template-columns: 42px minmax(180px, .75fr) 92px 18px;
+      gap: 18px;
+      align-items: center;
+      min-height: 72px;
+      padding: 13px 20px;
+      list-style: none;
+      cursor: pointer;
+    }
+    .case-summary::-webkit-details-marker { display: none; }
+    .case-summary::after { content: "▸"; color: var(--purple); font: 14px var(--mono); transition: transform .18s; }
+    .case[open] .case-summary::after { transform: rotate(90deg); }
+    .case-summary:hover { background: var(--purple-soft); }
     .case-status { width: 34px; height: 34px; display: grid; place-items: center; font: 700 16px var(--mono); border-radius: 50%; }
     .case.pass .case-status { background: var(--green-soft); color: var(--green); }
     .case.fail .case-status { background: var(--red-soft); color: var(--red); }
     .case.invalid .case-status { background: var(--amber-soft); color: var(--amber); }
     .case-name { font-weight: 650; }
     .case-id { color: var(--dim); font: 11px var(--mono); margin-top: 5px; }
+    .case-heading .case-id { margin-top: 3px; }
     .case-objective { color: var(--muted); font-size: 12px; margin-top: 7px; }
+    .case-detail { padding: 0 20px 18px 80px; border-top: 1px solid var(--line); }
     .case-prompt { margin-top: 9px; padding: 8px 10px; border-left: 2px solid var(--line); background: rgba(120,120,140,.06); border-radius: 0 4px 4px 0; }
     .case-prompt-label { display: block; color: var(--dim); font: 10px var(--mono); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 3px; }
     .case-prompt-text { color: var(--text); font-size: 12.5px; line-height: 1.45; overflow-wrap: anywhere; word-break: break-word; }
@@ -383,8 +393,8 @@
       .hero { grid-template-columns: 1fr; }
       .actions { justify-content: flex-start; }
       .overview, .metrics-grid { grid-template-columns: 1fr; }
-      .case { grid-template-columns: 40px 1fr 90px; }
-      .case-detail { grid-column: 2 / -1; grid-row: 2; }
+      .case-summary { grid-template-columns: 40px 1fr 90px 18px; }
+      .case-detail { padding-left: 78px; }
     }
 
     @media (max-width: 620px) {
@@ -396,9 +406,9 @@
       .file-types { display: none; }
       .score-panel { grid-template-columns: 1fr; }
       .donut { width: 150px; }
-      .case { grid-template-columns: 36px 1fr; gap: 12px; }
-      .duration { grid-column: 2; text-align: left; }
-      .case-detail { grid-column: 2; }
+      .case-summary { grid-template-columns: 36px 1fr 18px; gap: 12px; }
+      .case-summary .duration { grid-column: 2; text-align: left; }
+      .case-detail { padding: 0 14px 16px 60px; }
       .section-head, .footer { align-items: flex-start; flex-direction: column; }
     }
   </style>
@@ -434,7 +444,7 @@
 
     <label class="drop-zone" id="dropZone">
       <span class="drop-icon">↧</span>
-      <span><span class="drop-title">Drop dashboard-data.js here</span><span class="drop-copy">Choose the metrics-only export generated inside a completed benchmark folder. Files are read locally; nothing leaves this browser.</span></span>
+      <span><span class="drop-title">Latest exported benchmark</span><span class="drop-copy">This page loads docs/tools/benchmarks/dashboard-data.js automatically. The controls below are available for inspecting another local export.</span></span>
       <span class="file-types">JAVASCRIPT DATA</span>
       <input id="fileInput" type="file" multiple accept=".js,application/javascript,text/javascript">
     </label>
@@ -463,7 +473,7 @@
     <details class="guide">
       <summary>Where do these files come from, and how do I load them?</summary>
       <div class="guide-body">
-        <p>You need the metrics-only export from a completed pilot run. If you haven't run one yet, ask whoever set up the benchmark, or produce one yourself with the steps below. The full run evidence remains private; the export deliberately excludes prompts, answers, memories, transcripts, and paths.</p>
+        <p>This page displays the latest metrics-only export committed at <code>docs/tools/benchmarks/dashboard-data.js</code>. Re-run the export command after a benchmark to replace that file. The full run evidence remains private; the export deliberately excludes prompts, answers, memories, transcripts, and paths.</p>
 
         <h4>1 · Produce a run (person with the project checked out)</h4>
         <p>From the project folder, in a terminal, validate first, then run one isolated case. The tiers are 8, 16, 24, and 32 GB:</p>
@@ -476,7 +486,7 @@ npm run model-tier:pilot -- \
   --tier 16 \
   --case chain-recall-wiki \
   --campaign audit-YYYYMMDD-gemma-e4b-16gb-chain-recall</code>
-        <p>A completed run automatically writes <code>dashboard-data.js</code> beside the full private evidence. For an older run, generate it separately:</p>
+        <p>A completed run writes a private copy beside the full evidence and refreshes the docs copy. For an older run, generate it separately:</p>
         <code class="cmd">npm run model-tier:export -- \
   --model gemma4-e4b-ud-q4kxl \
   --tier 16 \
@@ -487,15 +497,15 @@ npm run model-tier:pilot -- \
         <h4>2 · Find the safe dashboard file</h4>
         <p>Every run saves them under a folder named by tier, model, and campaign ID:</p>
         <p class="path">var/benchmarks/model-tiers/&lt;tier&gt;gb/&lt;model-id&gt;/&lt;campaign-id&gt;/</p>
-        <p>Inside that folder, use <strong>dashboard-data.js</strong>. It contains only model identity, case statuses and timings, tool/turn status flags, and RAM/timing samples. The original <code>run.json</code>, <code>cases.jsonl</code>, <code>metrics.csv</code>, logs, and transcripts stay in the same folder for private debugging.</p>
+        <p>The command also replaces <code>docs/tools/benchmarks/dashboard-data.js</code>, which this page loads automatically. It contains only model identity, case statuses and timings, tool/turn status flags, and RAM/timing samples. The original <code>run.json</code>, <code>cases.jsonl</code>, <code>metrics.csv</code>, logs, and transcripts stay in the private run folder for debugging.</p>
         <p>If you supplied <code>--campaign</code>, look for that exact folder name. Otherwise, open the newest timestamp-named folder. On a Mac, open Finder → <strong>Go → Go to Folder…</strong> and paste the full project path plus the path above.</p>
         <p>Never upload or commit the original run files. The viewer only needs the safe export.</p>
 
         <h4>3 · Load them onto this page</h4>
         <ol>
-          <li>Select <strong>dashboard-data.js</strong>.</li>
-          <li>Drag them onto the dashed drop zone, click <strong>Open result folder</strong>, or click <strong>Open run files</strong>.</li>
-          <li>The report fills in instantly. Loading only some files still works; missing values show <strong>Unavailable</strong>.</li>
+          <li>Open this page after exporting; the latest committed dashboard appears automatically.</li>
+          <li>Use the file controls only when you need to inspect a different local export.</li>
+          <li>Private source files are not dashboard inputs; missing metrics show <strong>Unavailable</strong>.</li>
         </ol>
 
         <h4>Glossary — what the labels mean</h4>
@@ -568,6 +578,7 @@ npm run model-tier:pilot -- \
     </footer>
   </main>
 
+  <script src="benchmarks/dashboard-data.js"></script>
   <script>
     const DEMO = {
       pilot: true,
@@ -606,8 +617,12 @@ npm run model-tier:pilot -- \
 
     const $ = id => document.getElementById(id);
     const REQUIRED_FILES = ["dashboard-data.js"];
-    let currentRun = structuredClone(DEMO);
-    let currentMetrics = [];
+    const bundledData = globalThis.APERIO_BENCHMARK;
+    const bundledRun = bundledData && bundledData.privateDataExcluded === true && bundledData.schemaVersion === 1
+      ? { ...(bundledData.run ?? {}), caseResults: Array.isArray(bundledData.cases) ? bundledData.cases : [] }
+      : null;
+    let currentRun = bundledRun ?? structuredClone(DEMO);
+    let currentMetrics = bundledData?.metrics ?? [];
 
     function escapeHtml(value) {
       return String(value ?? "").replace(/[&<>'"]/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" })[character]);
@@ -752,9 +767,12 @@ npm run model-tier:pilot -- \
         const symbol = status === "pass" ? "✓" : status === "fail" ? "×" : "!";
         const guardrail = item.kind === "guardrail" ? check(guardrailLabel(item.guardrailMode), item.guardrailMode === "application_guardrail" ? true : null, "Model refusal and application guardrail enforcement are recorded separately.") : "";
         const verdict = verdictSummary(item);
-        return `<article class="case ${status}">
-          <div class="case-status" aria-label="${status}">${symbol}</div>
-          <div><div class="case-name">${escapeHtml(caseLabel(item))}</div><div class="case-id">${escapeHtml(item.id)}</div><div class="case-tags"><span class="case-tag">${escapeHtml(item.section || "unsectioned")}</span><span class="case-tag">${escapeHtml(item.kind || "unknown")}</span>${item.hardGate ? '<span class="case-tag gate">hard gate</span>' : ""}</div></div>
+        return `<details class="case ${status}">
+          <summary class="case-summary">
+            <div class="case-status" aria-label="${status}">${symbol}</div>
+            <div class="case-heading"><div class="case-name">${escapeHtml(caseLabel(item))}</div><div class="case-id">${escapeHtml(item.id)}</div><div class="case-tags"><span class="case-tag">${escapeHtml(item.section || "unsectioned")}</span><span class="case-tag">${escapeHtml(item.kind || "unknown")}</span>${item.hardGate ? '<span class="case-tag gate">hard gate</span>' : ""}</div></div>
+            <div class="duration">${formatDuration(Number(item.durationMs))}<span>wall time</span></div>
+          </summary>
           <div class="case-detail">
             <div class="tool-line"><span class="tool-caption">actual</span>${toolSequence(item.actualToolSequence)}</div>
             <div class="checks">
@@ -768,15 +786,14 @@ npm run model-tier:pilot -- \
             <div class="case-verdict"><span class="verdict-label">${escapeHtml(verdict.label)}.</span> <span class="verdict-text">${escapeHtml(verdict.text)}</span></div>
             ${attemptSummary(item)}
           </div>
-          <div class="duration">${formatDuration(Number(item.durationMs))}<span>wall time</span></div>
-        </article>`;
+        </details>`;
       }).join("");
     }
 
     function renderChart(samples) {
       const host = $("chartHost");
       if (samples.length < 2) {
-        host.innerHTML = '<div class="chart-empty">Unavailable — load dashboard-data.js to render the timeline</div>';
+        host.innerHTML = '<div class="chart-empty">Unavailable — no metric samples in dashboard-data.js</div>';
         $("sampleCount").textContent = samples.length ? "1 metric sample" : "Unavailable";
         return;
       }
@@ -885,7 +902,8 @@ npm run model-tier:pilot -- \
     ["dragleave", "drop"].forEach(type => $("dropZone").addEventListener(type, event => { event.preventDefault(); $("dropZone").classList.remove("dragging"); }));
     $("dropZone").addEventListener("drop", event => handleFiles(event.dataTransfer.files));
 
-    render(currentRun);
+    render(currentRun, currentMetrics);
+    if (bundledRun) $("sourceLabel").textContent = "docs/tools/benchmarks/dashboard-data.js";
   </script>
   <script src="../scripts.js"></script>
 </body>

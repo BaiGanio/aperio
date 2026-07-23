@@ -310,7 +310,8 @@ var/benchmarks/model-tiers/<tier>gb/<model>/<campaign-id>/
 Keep this directory private and never commit it. Important files are
 `run.json`, `cases.jsonl`, `transcript.jsonl`, `application.log`,
 `llamacpp.log`, and `metrics.csv`. Each completed run also writes
-`dashboard-data.js`, a metrics-only export for `docs/tools/benchmarking.html`;
+`dashboard-data.js`, a metrics-only export for `docs/tools/benchmarking.html` and
+the latest copy under `docs/tools/benchmarks/dashboard-data.js`;
 it excludes prompts, answers, memories, paths, and transcripts. Inspect the
 private logs before rerunning: a
 `exceed_context_size_error` is explicit context-limit evidence and makes the

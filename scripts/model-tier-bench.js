@@ -610,6 +610,9 @@ async function main() {
       writeFileSync(join(modelDir, "metrics.csv"), metricHeader + metricRows + "\n", { mode: 0o600 });
       try {
         writeDashboardData(modelDir);
+        writeDashboardData(modelDir, {
+          outputPath: join(ROOT, "docs/tools/benchmarks/dashboard-data.js"),
+        });
       } catch (error) {
         console.error(`dashboard metrics export failed: ${error.message}`);
       }
