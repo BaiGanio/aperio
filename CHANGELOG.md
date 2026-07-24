@@ -9,6 +9,26 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Sub-agent spawn/delegation** (agent-harness-epic WS2): `lib/agent/spawn.js`
+  adds `spawnChild()`/`spawnParallel()`, letting an agent delegate work to
+  child agents built from its own `AgentSpec` (`lib/agent/spec.js`) instead of
+  a hand-rolled multi-agent mode. Every spawn narrows — never widens — the
+  parent's permissions: `recursionDepth` decrements by exactly one per hop and
+  a spec with none left refuses to spawn further (a graceful, parent-visible
+  refusal, not a thrown error), while a narrower `toolAllowlist` is enforced
+  by reusing `lib/agent/bundle.js`'s existing administrator-narrowing checks
+  (extracted into a new `narrowAgentSpec()` export — the "future delegated
+  agents" hook already referenced in that file's comments). Each child runs
+  the same `createAgent()`/`runAgentLoop()` path as any other agent, through
+  an emitter that tags every event with a distinct `agent_id` and forwards it
+  into the parent's own event stream; a child that fails or trips its
+  tool-failure budget resolves as `{ ok: false }` rather than rejecting, so
+  `spawnParallel()` always returns every sibling's result. Verified by 5 new
+  harness tests (`tests/harness/spawn.test.js`, G2 group) covering 3 parallel
+  children merging into the parent stream, failure isolation, the
+  recursion-depth refusal, and the tool-allowlist narrowing invariant.
+  `lib/workers/roundtable.js` (the prior, hard-coded two-agent mode) is
+  intentionally left unrefactored — noted in `A2D.md` as follow-up work.
 - **Agent planning loop** (agent-harness-epic WS1, experimental — off by
   default via `APERIO_AGENT_PLANNING`): the model may lead a multi-step turn
   with a machine-readable `APERIO_PLAN:` JSON plan before calling tools.

@@ -141,6 +141,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Personas via `id/whoami*.md`; 7 domain characters via `id/characters/` (architect, reviewer, security, product, socratic, doctor, space-engineer) overlayable per-agent via `ROUNDTABLE_CHARACTERS`
 - Prompt-cache hygiene — a session-frozen memory pointer (count-free, refreshed only at next session start) and a static, locale-aware greeting plus a background llama.cpp KV-cache warm-up (`agent.warmCache()`, gated on the model already being loaded) keep the system prompt's stable prefix byte-identical across turns; `npm run prompt-cache:bench` measures the resulting prefix reuse from llama-server's debug log
 - Planning loop (experimental, `APERIO_AGENT_PLANNING=on`, off by default) — the model may lead a multi-step turn with a machine-readable `APERIO_PLAN:` JSON block (`steps: [{tool, args, purpose}]` + `parallel` groups reserved for future sub-agent delegation) before calling tools; the plan's tool names are validated against the turn's real tool set, execution is tracked step-by-step against the plan, and any mismatch is reported to the model as a reflection prompt on the next turn rather than blocked (`lib/agent/planning-middleware.js`). Fail-safe by construction: no plan, or an invalid one, and the loop behaves exactly as it does with the gate off. Emits `plan_created`/`plan_step`/`plan_drift` events for the UI and the regression harness.
+- Sub-agent spawn/delegation (`lib/agent/spawn.js`) — `spawnChild()`/`spawnParallel()` let an agent delegate a task to child agents built from its own `AgentSpec`, running the same `createAgent()`/`runAgentLoop()` path as any other agent. Every child spec is strictly narrower than its parent: `recursionDepth` decrements by one per hop (a spec with none left refuses to spawn further, without throwing) and `toolAllowlist` can never widen, enforced by reusing `lib/agent/bundle.js`'s administrator-narrowing checks via a new `narrowAgentSpec()` export. Each child's events are tagged with a distinct `agent_id` and forwarded into the parent's emitter; a failed or budget-exhausted child resolves as `{ ok: false }` instead of rejecting, so `spawnParallel()` always returns every sibling's result. `lib/workers/roundtable.js`'s hard-coded two-agent mode is not yet built on top of this (tracked in `A2D.md`).
 
 ## Storage
 - SQLite + sqlite-vec + FTS5 — zero-config default, single file `var/aperio.db`
@@ -230,6 +231,15 @@ the plan and the tool actually called is recorded as drift without blocking
 it; every original scenario produces the identical observable event sequence
 with the planning gate on and off; and the lifecycle trace confirms the
 tool-safety middleware always runs before planning's drift-tracking hook.
+
+`tests/harness/spawn.test.js` covers the sub-agent delegation feature above:
+3 parallel scripted children merge their results into the parent's event
+stream, each tagged with its own `agent_id`; one child tripping its
+tool-failure budget surfaces that to the parent without losing the other two
+children's results; a spec at its recursion-depth limit refuses to spawn
+without throwing; and a child spec attempting to widen the parent's
+`toolAllowlist` is rejected by the same `AgentBundleError` an on-disk
+permission bundle would get for the same violation.
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel, voice input + TTS readout
