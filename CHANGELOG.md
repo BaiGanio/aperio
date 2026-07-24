@@ -9,6 +9,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Live Postgres in CI** (issue #310): `ci.codecov.yml`'s `coverage-tests` and
+  `e2e-dashboard` jobs now provision a `pgvector/pgvector:pg16` service
+  container and set `APERIO_E2E_POSTGRES_URL`, so the SQLite/Postgres store
+  contract suite (`tests/integration/db/contract/`, issue #307 Phase 3) runs
+  its Postgres backend automatically on every push instead of only when a
+  developer opts in locally. `real-app-lifecycle.test.js`'s T64 check now
+  exercises the real URL-shape assertion instead of always skipping.
 - **Memory-compaction WS0 baseline** (issue #286): `npm run memory:baseline` measures real token cost for the self-memory preload and formatted `recall` payloads, and scores recall hit-rate@k separately for semantic and full-text search, against a throwaway seeded SQLite DB — the measurement gate every future compaction rule must clear before shipping. Found and corrected several stale assumptions along the way: there is no wiki-preload path today (only on-demand `wiki_get`), and a fresh in-memory DB is not actually empty (`SqliteStore.init()` seeds baseline demo content unconditionally). Plan and companion tests: `trash/plans/memory-compaction/`.
 - Reorganized benchmark inputs under `docs/benchmarks/tools/`, grouped test dashboards under `docs/benchmarks/`, and added a private-safe metrics export for the model-tier viewer.
 - Renamed the model-tier viewer integration test to `benchmarking.test.js` and made qualification-case cards collapsed by default.
