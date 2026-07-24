@@ -198,24 +198,32 @@ describe("isLocalProvider / isCloudProvider", () => {
 });
 
 // ── providerDropsImages — WS6/F1 image-drop notice predicate ──────────────────
-// A deliberately separate set from isSubscriptionProvider (see comment at the
-// definition) even though membership coincides today — the two properties
-// (billing model, multimodal capability) are unrelated.
+// provider-native-capabilities WS-A1/WS-A2 wired real image passthrough for
+// both codex and claude-code, so IMAGE_DROPPING_PROVIDERS is empty today —
+// kept (not deleted) as live infrastructure for a future text-only provider.
+// These are regression guards against silently re-adding codex/claude-code to
+// the drop set, not proof the mechanism itself is gone.
 describe("providerDropsImages", () => {
-  test("codex drops images", () => { assert.ok(providerDropsImages("codex")); });
-  test("claude-code drops images", () => { assert.ok(providerDropsImages("claude-code")); });
+  test("codex does NOT drop images (WS-A1)", () => { assert.ok(!providerDropsImages("codex")); });
+  test("claude-code does NOT drop images (WS-A2)", () => { assert.ok(!providerDropsImages("claude-code")); });
   test("anthropic does not drop images", () => { assert.ok(!providerDropsImages("anthropic")); });
   test("gemini does not drop images", () => { assert.ok(!providerDropsImages("gemini")); });
   test("deepseek does not drop images", () => { assert.ok(!providerDropsImages("deepseek")); });
   test("llamacpp does not drop images", () => { assert.ok(!providerDropsImages("llamacpp")); });
-  test("case-insensitive: CODEX drops images", () => { assert.ok(providerDropsImages("CODEX")); });
+  test("case-insensitive: CODEX still does not drop images", () => { assert.ok(!providerDropsImages("CODEX")); });
   test("empty string does not drop images", () => { assert.ok(!providerDropsImages("")); });
   test("null does not drop images", () => { assert.ok(!providerDropsImages(null)); });
   test("undefined does not drop images", () => { assert.ok(!providerDropsImages(undefined)); });
-  test("membership matches isSubscriptionProvider today, by coincidence not by reuse", () => {
+  test("no provider name currently drops images, decoupled from isSubscriptionProvider", () => {
+    // The coincidence this test used to assert (drop-set == subscription-set)
+    // is exactly what the plan's comment at the definition warned would
+    // diverge once a subscription provider gained real image support — it now
+    // has, so this asserts the decoupling instead of a stale equality.
     for (const name of ["codex", "claude-code", "anthropic", "gemini", "deepseek", "llamacpp"]) {
-      assert.equal(providerDropsImages(name), isSubscriptionProvider(name));
+      assert.equal(providerDropsImages(name), false);
     }
+    assert.ok(isSubscriptionProvider("codex"));
+    assert.ok(isSubscriptionProvider("claude-code"));
   });
 });
 

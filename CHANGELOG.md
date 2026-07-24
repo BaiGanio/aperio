@@ -9,6 +9,25 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Codex/Claude Code native image + skill support**: closes the two gaps
+  `provider-ux-parity` (issue #290's sibling epic) documented as "known"
+  instead of wiring in. Codex passes attached images through via the CLI's
+  real `-i/--image <FILE>...` flag (temp files under the session scratch dir,
+  cleaned up after the turn); Claude Code passes images through by switching
+  `query({prompt})` from a plain string to the Agent SDK's
+  `AsyncIterable<SDKUserMessage>` form. Both providers now run Aperio's own
+  skill matcher every turn via a new `ctx.getSkillsBlock` export (skill
+  content only, not the full base identity prompt — avoids duplicating
+  identity content the SDK/CLI already provide on their own) and correctly
+  emit the `skills_matched` chip. Also fixes `runClaudeCodeLoop` silently
+  ignoring its entire `opts` parameter, so `extraSystem` (memory pointers, RAG
+  context, workspace directives) now reaches Claude Code turns for the first
+  time. `providerDropsImages()`/`IMAGE_DROPPING_PROVIDERS` machinery is kept
+  (now empty) rather than deleted, for a future text-only provider. Codex's
+  live-smoke verification (real image → real description) is tracked
+  separately in issue #316 pending an authenticated local `codex` session;
+  Claude Code's live smokes (image, skill-directed response, extraSystem
+  fact-injection) were run against a real subscription session.
 - **Codegraph graph intelligence** (issue #283, backend steps 1–4): the persistent
   code graph gains confidence-aware relationships, working file-level import edges,
   arbitrary traversal, and deterministic native community analysis. Migration `010`
