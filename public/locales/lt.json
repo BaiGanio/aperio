@@ -38,6 +38,8 @@
   "langmap_foot":             "Nematote savosios? Aperio agentas jus vis tiek supranta — rašykite bet kuria kalba.",
   "langmap_switched":         "Kalba pakeista į {name}",
   "nav_chats_title":          "Pokalbių istorija",
+  "cg_mode_list":             "Sąrašas",
+  "cg_mode_map":              "Žemėlapis",
   "nav_codegraph_title":      "Kodo grafikas",
   "nav_memories_title":       "Prisiminimai – ieškokite išsaugotų prisiminimų",
   "nav_reasoning_title":      "Įjungti samprotavimą",

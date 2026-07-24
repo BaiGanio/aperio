@@ -562,9 +562,12 @@
     <span class="cg-panel-title"><i class="bi bi-diagram-3"></i> Code graph</span>
     <button class="cg-panel-close" data-action="toggleCodegraphPanel"><i class="bi bi-x-lg"></i></button>
   </div>
-  <div class="cg-panel-toolbar">
+  <div class="cg-panel-toolbar" id="cgToolbar">
     <input type="text" id="cgSearchInput" class="cg-search-input" placeholder="Search symbols…" />
     <div class="cg-toolbar-row">
+      <button id="cgMapOpenBtn" class="cg-map-btn" type="button" title="Open the code graph atlas in a new tab">
+        <i class="bi bi-map"></i> <span data-i18n="cg_mode_map">Map</span>
+      </button>
       <select id="cgRepoSelect" class="cg-select"><option value="">All repos</option></select>
       <select id="cgKindSelect" class="cg-select">
         <option value="">All kinds</option>

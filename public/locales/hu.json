@@ -38,6 +38,8 @@
   "langmap_foot":             "Nem látod a tiédet? Az Aperio ügynöke így is megért — írj bármilyen nyelven.",
   "langmap_switched":         "Nyelv átváltva: {name}",
   "nav_chats_title":          "Beszélgetési előzmények",
+  "cg_mode_list":             "Lista",
+  "cg_mode_map":              "Térkép",
   "nav_codegraph_title":      "Kódgrafikon",
   "nav_memories_title":       "Emlékek — kereshet a mentett emlékei között",
   "nav_reasoning_title":      "Érvelés engedélyezése",

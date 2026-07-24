@@ -38,6 +38,8 @@
   "langmap_foot":             "Ihre Sprache fehlt? Aperios Agent versteht Sie trotzdem — schreiben Sie in jeder beliebigen Sprache.",
   "langmap_switched":         "Sprache gewechselt zu {name}",
   "nav_chats_title":          "Gesprächsverlauf",
+  "cg_mode_list":             "Liste",
+  "cg_mode_map":              "Karte",
   "nav_codegraph_title":      "Codediagramm",
   "nav_memories_title":       "Erinnerungen – Durchsuchen Sie Ihre gespeicherten Erinnerungen",
   "nav_reasoning_title":      "Überlegung aktivieren",

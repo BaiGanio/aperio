@@ -38,6 +38,8 @@
   "langmap_foot":             "Ma tarax tiegħek? L-aġent ta' Aperio xorta jifhmek — ikteb bi kwalunkwe lingwa.",
   "langmap_switched":         "Il-lingwa nbidlet għal {name}",
   "nav_chats_title":          "Storja tal-konversazzjonijiet",
+  "cg_mode_list":             "Lista",
+  "cg_mode_map":              "Mappa",
   "nav_codegraph_title":      "Graff tal-kodiċi",
   "nav_memories_title":       "Memorji — fittex il-memorji salvati tiegħek",
   "nav_reasoning_title":      "Ippermetti r-raġunar",

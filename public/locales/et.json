@@ -38,6 +38,8 @@
   "langmap_foot":             "Ei näe enda oma? Aperio agent mõistab sind niikuinii — kirjuta ükskõik millises keeles.",
   "langmap_switched":         "Keel vahetatud: {name}",
   "nav_chats_title":          "Vestluste ajalugu",
+  "cg_mode_list":             "Loend",
+  "cg_mode_map":              "Kaart",
   "nav_codegraph_title":      "Koodigraafik",
   "nav_memories_title":       "Mälestused — salvestatud mälestuste otsimine",
   "nav_reasoning_title":      "Luba arutlemine",

@@ -38,6 +38,8 @@
   "langmap_foot":             "Zie je de jouwe niet? De agent van Aperio begrijpt je toch — schrijf in elke taal.",
   "langmap_switched":         "Taal gewijzigd naar {name}",
   "nav_chats_title":          "Gespreksgeschiedenis",
+  "cg_mode_list":             "Lijst",
+  "cg_mode_map":              "Kaart",
   "nav_codegraph_title":      "Codegrafiek",
   "nav_memories_title":       "Herinneringen — doorzoek uw opgeslagen herinneringen",
   "nav_reasoning_title":      "Redeneren inschakelen",

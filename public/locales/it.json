@@ -38,6 +38,8 @@
   "langmap_foot":             "Non vedi la tua? L'agente di Aperio ti capisce comunque — scrivi in qualsiasi lingua.",
   "langmap_switched":         "Lingua cambiata in {name}",
   "nav_chats_title":          "Cronologia conversazioni",
+  "cg_mode_list":             "Elenco",
+  "cg_mode_map":              "Mappa",
   "nav_codegraph_title":      "Grafico del codice",
   "nav_memories_title":       "Ricordi: cerca i tuoi ricordi salvati",
   "nav_reasoning_title":      "Attiva ragionamento",

@@ -38,6 +38,8 @@
   "langmap_foot":             "Ní fheiceann tú do cheann féin? Tuigeann gníomhaire Aperio thú mar sin féin — scríobh in aon teanga.",
   "langmap_switched":         "Teanga athraithe go {name}",
   "nav_chats_title":          "Stair chomhráite",
+  "cg_mode_list":             "Liosta",
+  "cg_mode_map":              "Léarscáil",
   "nav_codegraph_title":      "Graf cód",
   "nav_memories_title":       "Cuimhní cinn - cuardaigh do chuid cuimhní cinn sábháilte",
   "nav_reasoning_title":      "Cumasaigh réasúnaíocht",

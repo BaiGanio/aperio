@@ -38,6 +38,8 @@
   "langmap_foot":             "Ne vidite svojega? Aperiov agent vas vseeno razume — pišite v katerem koli jeziku.",
   "langmap_switched":         "Jezik zamenjan v {name}",
   "nav_chats_title":          "Zgodovina pogovorov",
+  "cg_mode_list":             "Seznam",
+  "cg_mode_map":              "Zemljevid",
   "nav_codegraph_title":      "Kodni graf",
   "nav_memories_title":       "Spomini — poiščite svoje shranjene spomine",
   "nav_reasoning_title":      "Omogoči sklepanje",

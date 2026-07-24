@@ -27,6 +27,15 @@ housekeeping go in `A2D.md`, not here.
 
 ## Codegraph
 
+- 2026-07-24 (#283) Every panel that follows the `csp-style-2` (hidden-by-default) +
+  `panel().style.display !== "none"` toggle pattern (codegraph, docgraph, wiki, db, …)
+  swallows its first click after page load: the class hides via CSS `display:none` but the
+  JS toggle reads the *inline* style, which starts as `""` (not `"none"`), so the first click
+  is treated as "already open" and closes a no-op. Second click actually opens it. Found while
+  testing the codegraph Map overlay. Fix would be checking computed style or an explicit
+  `data-open` flag instead of inline `style.display`; touches every panel using the pattern,
+  so out of scope for the current change.
+
 - 2026-07-24 (#283) `loadGraph(store, repoId)` reads the *entire* repo graph into memory on
   every `code_neighbors`/`code_path`/`code_insights`/`/graph` request. Fine at the 10k-node
   target and matches the "shared adapter loads one repository" design, but a depth-1 neighbors

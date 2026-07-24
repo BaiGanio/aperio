@@ -38,6 +38,8 @@
   "langmap_foot":             "Etkö näe omaasi? Aperion agentti ymmärtää sinua silti — kirjoita millä tahansa kielellä.",
   "langmap_switched":         "Kieleksi vaihdettu {name}",
   "nav_chats_title":          "Keskusteluhistoria",
+  "cg_mode_list":             "Luettelo",
+  "cg_mode_map":              "Kartta",
   "nav_codegraph_title":      "Koodikaavio",
   "nav_memories_title":       "Muistot — etsi tallennettuja muistojasi",
   "nav_reasoning_title":      "Ota päättely käyttöön",
