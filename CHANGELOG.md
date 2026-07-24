@@ -23,6 +23,37 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Preflight auto-batch context flooding, and missing Bulgarian date-role
+  labels** (issue #313 follow-up): running the WS0-R red harness with a
+  genuinely bare prompt ("How much did I pay for utilities last month?") on
+  the 2B target model, instead of the heavily-steered prompts that had been
+  propping up earlier green runs, exposed two real bugs the steered prompts
+  never triggered. First, `lib/agent/preflight.js`'s pre-turn shortcut
+  auto-executes `doc_manifest` then `doc_batch` before the model's turn
+  starts, forwarding `buildCandidateManifest()`'s entire candidate list with
+  no bound; once #313 removed the manifest's own hard `score >= 5` floor,
+  nothing capped this shortcut, so a bare prompt handed a small model the
+  whole indexed corpus in one turn — travel receipts, trade documents, tax
+  notices included — and it never converged (300s timeout, zero output).
+  Added `AUTO_BATCH_CANDIDATE_CAP` (16) in `preflight.js`, slicing the
+  already-score-sorted candidate list before this specific auto-forward step
+  only; `buildCandidateManifest()`'s own output, and any interactive
+  `doc_manifest`/`doc_batch` call the model makes itself, are untouched, so
+  #312/#313's fix is unaffected. A truncation note is appended to the
+  synthesized tool result so the model knows to call `doc_manifest`/
+  `doc_batch` itself if coverage still looks incomplete. Second, once the
+  model could actually finish a turn, it reported the wrong billing month:
+  `extract-facts.js`'s date-role `LABELS` table had zero non-English
+  patterns, unlike its sibling `AMOUNT_LABELS` (already BG/DE/FR-aware since
+  #312) — every date on a Bulgarian invoice fell through to
+  `unlabeled_date`, giving the model no signal to prefer the June
+  invoice/due date over the May consumption period ("Период на отчитане")
+  printed in the same bill. Added Bulgarian `invoice_date`/`due_date`/
+  `service_period`/`document_date` patterns mirroring the amount side's
+  existing scope disclaimer (evidenced against the household fixture corpus,
+  not a general translation table). Confirmed via the harness: gate now
+  passes end-to-end (260.50 BGN, all four utility bills counted, correct
+  month) where it previously either hung or under-counted.
 - **Docgraph amount-label extraction, language-agnostic signals** (issue
   #312): `lib/docgraph/extract-facts.js`'s `AMOUNT_LABELS` keyword matching
   only recognized English (plus BG/DE/FR patches from the household
