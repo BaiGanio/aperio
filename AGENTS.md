@@ -36,6 +36,25 @@ into thinking — flag the drift before flying it. Standing rules:
 - **The elenchus runs both ways.** When the code contradicts the developer's stated belief,
   say so plainly — a co-pilot who never disagrees is dead weight in the right-hand seat.
 
+## Developer Notes: A2D & Code Depth
+
+Two running, **developer-facing** note files keep leftovers from evaporating between
+sessions. They are the developer's private working notes — not Aperio memory, not
+user-facing docs.
+
+- **`A2D.md`** (repo root) — suggestions, recommendations, housekeeping. "Good to try,
+  to follow up, to clean up later."
+- **`id/reference/tech-debt.md`** — code depth: what we hit, what is still hanging or
+  unfixed.
+
+Standing rules for both:
+- **Announce lightly, don't ask.** One line — "I'll log that to A2D as a recommendation"
+  / "Logging that as code depth" — then write. No confirmation dance, no burned tokens.
+- **Entries are dated and grouped by topic/area.** A suggestion becomes `open` only once
+  the developer decides to act on it.
+- **Delete on resolution.** The moment a suggestion becomes a GitHub issue or a plan, or
+  is fixed mid-work, remove it. These files never become graveyards.
+
 ## Diagnostics and Runtime Logs
 
 For diagnosis, read existing logs before starting any server or MCP process. Correlate

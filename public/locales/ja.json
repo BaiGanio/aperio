@@ -38,6 +38,8 @@
     "langmap_foot":             "お使いの言語が見つかりませんか？ Aperio のエージェントはどの言語でも理解します — 任意の言語で入力してください。",
     "langmap_switched":         "言語を {name} に切り替えました",
     "nav_chats_title":          "会話履歴",
+    "cg_mode_list":             "リスト",
+    "cg_mode_map":              "マップ",
     "nav_codegraph_title":      "コードグラフ",
     "nav_memories_title":       "メモリー — 保存したメモリーを検索",
     "nav_reasoning_title":      "推論を有効化",

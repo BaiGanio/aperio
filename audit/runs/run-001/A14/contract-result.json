@@ -1,0 +1,83 @@
+{
+  "$schema": "aperio-audit-database-contract-v1",
+  "slice_id": "A14",
+  "checks": {
+    "migration_parity": {
+      "pg_count": 10,
+      "sqlite_count": 10,
+      "pg_files": [
+        "001_core.sql",
+        "002_agent_jobs.sql",
+        "003_codegraph.sql",
+        "004_docgraph.sql",
+        "005_issue_triage.sql",
+        "006_self_memories.sql",
+        "007_self_wiki.sql",
+        "008_agent_interrupts.sql",
+        "009_memory_inbox.sql",
+        "010_codegraph_intelligence.sql"
+      ],
+      "sqlite_files": [
+        "001_core.sql",
+        "002_agent_jobs.sql",
+        "003_codegraph.sql",
+        "004_docgraph.sql",
+        "005_issue_triage.sql",
+        "006_self_memories.sql",
+        "007_self_wiki.sql",
+        "008_agent_interrupts.sql",
+        "009_memory_inbox.sql",
+        "010_codegraph_intelligence.sql"
+      ],
+      "results": [
+        {
+          "invariant": "Migration counts match",
+          "passed": true,
+          "detail": "Both backends: 10 migrations"
+        },
+        {
+          "invariant": "Migration file names are mirrored",
+          "passed": true,
+          "detail": "All 10 migration names match between backends"
+        }
+      ],
+      "passed": true
+    },
+    "store_operations": {
+      "results": [
+        {
+          "invariant": "Postgres migration runner (db/migrate.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "SQLite migration runner (db/migrate-sqlite.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "SQLite store (db/sqlite/store.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Postgres store (db/postgres/store.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Encryption module has focused integration tests",
+          "passed": true,
+          "detail": "tests/integration/db/encrypt.test.js present"
+        },
+        {
+          "invariant": "Store factory (db/index.js) exists and references both backends",
+          "passed": true,
+          "detail": "Present"
+        }
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

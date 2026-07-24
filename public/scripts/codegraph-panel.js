@@ -1,11 +1,15 @@
 // public/scripts/codegraph-panel.js
-// Right-side sidebar for the code knowledge graph. Text-only first pass —
-// graph rendering can land later as a separate view inside this panel.
-//
-// Three views in one body, swapped in-place:
+// Right-side sidebar for the code knowledge graph — text-only views, swapped
+// in-place in the panel body:
 //   • repos        — indexed roots with counts (the empty state for search)
 //   • search       — ranked symbol matches as you type
 //   • symbol       — qualified symbol detail: source + callers + callees
+//
+// Map is a dedicated full page (the "Codegraph Atlas", #283 step 6 — see
+// codegraph-atlas.html/.js), opened in a new tab from the panel's Map button.
+// A modal was tried first and didn't hold up: the atlas needs a real window,
+// not a fixed-size card, and closing a modal on every node click made
+// browsing several symbols in a row unworkable.
 
 (() => {
   const panel    = () => document.getElementById("codegraph-panel");
@@ -359,8 +363,7 @@
       </div>`);
       return;
     }
-    if (input().value) runSearch(input().value);
-    else renderRepos();
+    if (input().value) runSearch(input().value); else renderRepos();
     setTimeout(() => input().focus(), 50);
   };
 
@@ -372,5 +375,11 @@
     });
     repoSel().addEventListener("change", () => runSearch(input().value));
     kindSel().addEventListener("change", () => runSearch(input().value));
+
+    document.getElementById("cgMapOpenBtn")?.addEventListener("click", () => {
+      const repo = repoSel().value;
+      const url = "/codegraph-atlas" + (repo ? `?repo=${encodeURIComponent(repo)}` : "");
+      window.open(url, "_blank", "noopener");
+    });
   });
 })();

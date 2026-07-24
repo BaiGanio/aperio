@@ -38,6 +38,8 @@
   "langmap_foot":             "Kan du ikke se dit? Aperios agent forstår dig alligevel — skriv på et hvilket som helst sprog.",
   "langmap_switched":         "Sproget er skiftet til {name}",
   "nav_chats_title":          "Samtalehistorik",
+  "cg_mode_list":             "Liste",
+  "cg_mode_map":              "Kort",
   "nav_codegraph_title":      "Kode graf",
   "nav_memories_title":       "Erindringer — søg i dine gemte minder",
   "nav_reasoning_title":      "Aktivér ræsonnement",

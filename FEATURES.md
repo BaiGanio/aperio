@@ -41,6 +41,13 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Reverse call graph — who calls this (`code_callers`)
 - Forward call graph — what does this call (`code_callees`)
 - List indexed repos with file/symbol counts + last-indexed (`code_repos`)
+- Relation-agnostic neighborhood traversal — calls/imports/`extends`/references, in/out/both, depth 1–3, honest truncation (`code_neighbors`)
+- Bounded shortest path between two symbols — directed or undirected, with a distinct disconnected result (`code_path`)
+- Architecture insights — communities, hotspots, cross-community bridges, and import cycles (`code_insights`)
+- Confidence-aware edges — `EXTRACTED` (direct syntax) vs `INFERRED` (name/import resolution), with provenance; no fabricated destinations
+- Synthetic per-file nodes with persisted import edges and file-level import-cycle detection
+- Deterministic community detection (seeded Louvain), computed lazily per graph revision and cached
+- Bounded UI graph payload for visualization (`GET /api/codegraph/graph`)
 - Multi-repo support, honors `APERIO_ALLOWED_PATHS_TO_READ`
 - Backends: Postgres and SQLite
 
