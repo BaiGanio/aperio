@@ -103,6 +103,11 @@ describe("tool-profiles — docgraph availability", () => {
     for (const prompt of [
       "How much did I pay for utilities last month?",
       "What was the total I spent in the household folder last month?",
+      // Regression (T-R5.2, 2026-07-24): "spending" (gerund) fell through the
+      // money regex's exact "spend"/"spent" alternatives, so this realistic
+      // phrasing never triggered the doc_manifest/doc_batch preflight
+      // shortcut — the model saw no document tools at all and gave up.
+      "What's my total spending this month, broken down by category?",
     ]) {
       assert.equal(isDocumentAggregationIntent(prompt), true, prompt);
       const tools = toolsFor(prompt);
