@@ -82,4 +82,58 @@ describe("extractAmountCandidates", () => {
     assert.deepEqual(extractAmountCandidates(""), []);
     assert.deepEqual(extractAmountCandidates("no money mentioned here"), []);
   });
+
+  test("labels the Bulgarian final-total line, not an itemized breakdown line above it (household corpus fixture)", () => {
+    const text = [
+      "Краен срок за плащане: 30.06.2026",
+      "Топлинна енергия за отопление:     0,310 MWh x 152,00 лв  =  47,12 лв",
+      "Стойност без ДДС:                               54,00 лв",
+      "ДДС 20%:                                        10,80 лв",
+      "ЗА ПЛАЩАНЕ (с ДДС):                              64,80 лв",
+      "Основание за плащане: Парно 05/2026, аб. № 8800123",
+    ].join("\n");
+    const amounts = extractAmountCandidates(text);
+    const total = amounts.find(a => a.label === "amount_due");
+    assert.ok(total, "expected an amount_due label from 'ЗА ПЛАЩАНЕ'");
+    assert.equal(total.value, 64.8);
+    const subtotal = amounts.find(a => a.label === "subtotal");
+    assert.equal(subtotal.value, 54);
+    // "Краен срок за плащане" (payment deadline) and "Основание за плащане"
+    // (payment reference) both contain the same words but are NOT the total
+    // — must not produce a spurious second amount_due from the date/text.
+    assert.equal(amounts.filter(a => a.label === "amount_due").length, 1);
+  });
+
+  test("labels the German grand-total and subtotal lines", () => {
+    const text = "Zwischensumme   128,00\nGESAMTBETRAG:   128,00 EUR";
+    const amounts = extractAmountCandidates(text);
+    assert.ok(amounts.some(a => a.label === "subtotal" && a.value === 128));
+    assert.ok(amounts.some(a => a.label === "grand_total" && a.value === 128));
+  });
+
+  test("labels a French subtotal as 'subtotal', not 'total', despite the shared substring, in document order", () => {
+    const amounts = extractAmountCandidates("Sous-total HT:   15,42\nTOTAL:   18,50 EUR");
+    assert.deepEqual(amounts.map(a => ({ label: a.label, value: a.value })), [
+      { label: "subtotal", value: 15.42 },
+      { label: "total", value: 18.5 },
+    ]);
+  });
+
+  test("likely_total fallback tags the last currency-bearing unlabeled amount for an unmodeled language", () => {
+    // Simulated invoice in a language with no AMOUNT_LABELS coverage: a
+    // breakdown line, then a final total, neither carrying a recognized word
+    // (and no accidental substring overlap with any existing pattern).
+    const amounts = extractAmountCandidates("Articol: 100.00 EUR\nSumă de plată: 120.00 EUR");
+    assert.deepEqual(amounts.map(a => ({ label: a.label, value: a.value })), [
+      { label: null, value: 100 },
+      { label: "likely_total", value: 120 },
+    ]);
+  });
+
+  test("likely_total fallback never fires when every candidate already has a real label or no currency", () => {
+    const labeled = extractAmountCandidates("Total: 100.00 BGN");
+    assert.equal(labeled[0].label, "total");
+    const noCurrency = extractAmountCandidates("Reference number 4471203 printed here.");
+    assert.deepEqual(noCurrency, []);
+  });
 });
