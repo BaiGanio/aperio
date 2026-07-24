@@ -36,6 +36,25 @@ Versions follow [Semantic Versioning](https://semver.org/).
   whose breakdown we recognized but whose actual total keyword we don't
   still gets a total guess instead of silence. `doc_batch`'s tool
   description updated to match.
+- **Docgraph split-field amounts and utility-query over-filtering** (issue
+  #313): `extractAmountCandidates()` returned `[]` for bilingual bank-transfer
+  forms where the amount and currency are declared on separate labeled lines
+  ("Сума (Amount): 29,99" / "Валута (Currency): BGN") rather than adjacent —
+  added a narrowly-anchored `"(Amount)"`/`"(Currency)"` gloss pair (scoped to
+  avoid matching unrelated "amount"/"currency" text elsewhere in a document)
+  that links the two. Separately, `buildCandidateManifest()`'s "utilities"
+  scoring bonus had hardened into a hard `score >= 5` floor that eliminated
+  *every* candidate below it from the pool whenever the query said
+  "utilities"/"utility" — not just as a tie-break. A query naming several
+  categories in one breath (the household eval corpus's actual gate prompt:
+  "Break it down by category: utilities, fuel, groceries, transport, and
+  internet") silently dropped every document whose title/filename didn't
+  happen to carry a utility keyword — including a fuel receipt and the
+  corpus's internet-bill payment form — even though the candidate pool was
+  nowhere near the 48-candidate bound and nothing needed truncating. The
+  bonus now only affects ranking, never elimination, matching the existing
+  period-filter's "never hard-exclude when nothing needs truncating"
+  contract.
 - **Docgraph retrieval evidence contract** (issue #311): `doc_manifest`'s
   `date_hint` blended filesystem `mtime` with filename/title text into one
   field, letting indexing-time noise masquerade as a document date and wrongly

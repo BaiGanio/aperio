@@ -124,6 +124,24 @@ describe("document retrieval contract", () => {
     });
   });
 
+  test("a multi-category query naming 'utilities' alongside other categories doesn't drop documents outside the utility keyword set (#313)", () => {
+    // The real #313 household gate prompt asks for utilities AND fuel AND
+    // internet in one breath. A fuel receipt and a generic "payment order"
+    // form (the household corpus's internet bill, whose title/filename carry
+    // none of electric/water/heating/waste/internet/utility) must not be
+    // hard-filtered out of a small pool that was never at risk of truncation.
+    const rows = [
+      { id: 1, repo_id: 1, root_path: "/a", rel_path: "electricity-bill.txt", mime: "text/plain", size: 10, sha256: "electric" },
+      { id: 2, repo_id: 1, root_path: "/a", rel_path: "fuel-receipt-2.txt", mime: "text/plain", size: 10, sha256: "fuel-2" },
+      { id: 3, repo_id: 1, root_path: "/a", rel_path: "payment-form-completed-2.txt", mime: "text/plain", size: 10, sha256: "internet-form" },
+    ];
+    const query = "Break it down by category: utilities, fuel, groceries, transport, and internet. Give me each category total.";
+    const result = buildCandidateManifest(rows, { query });
+    assert.equal(result.found, 3);
+    assert.equal(result.selected, 3, "no candidate should be silently dropped when the pool never exceeds the bound");
+    assert.deepEqual(result.candidates.map(c => c.sha256).sort(), ["electric", "fuel-2", "internet-form"]);
+  });
+
   test("reads bounded batches and accounts for every outcome", async () => {
     const calls = [];
     const result = await retrieveInBatches([
