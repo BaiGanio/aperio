@@ -23,6 +23,31 @@ function sha256(content) {
 //   excludes: glob or path patterns to skip during directory walks
 
 const SLICE_DEFS = {
+  A01: {
+    name: "Bootstrap and shutdown",
+    invariant: "Production entrypoint, first-run bootstrap, and graceful shutdown all exist; crash breaker protects against repeated fatal errors; tests cover startup and shutdown lifecycle.",
+    include: [
+      ["server.js", "Production entrypoint — global error guards, signal handling"],
+      ["bootstrap.js", "First-run setup — llama.cpp download, config, engine install"],
+      ["lib/server.js", "Composition root — createApp(), Express + WS + lifecycle"],
+      ["lib/server/shutdown.js", "Graceful shutdown — workers, WS, HTTP, store, cleanup"],
+      ["lib/load-env.js", ".env loader — boot-time environment loading"],
+      ["lib/server/hydrateRuntime.js", "Runtime hydration — DB, config, embeddings init"],
+      ["lib/helpers/crashBreaker.js", "Crash breaker — exits on repeated fatals"],
+      ["lib/config-resolver.js", "Boot-time config resolution"],
+    ],
+    coupled: [
+      ["lib/server/setupRoutes.js", "Route registration — lifecycle concern, tested under A03"],
+      ["lib/server/ws.js", "WebSocket setup — covered under A04"],
+      ["lib/agent/index.js", "Agent factory — boot dependency, covered under A05"],
+    ],
+    testFiles: [
+      "tests/e2e/bootstrap/bootstrap.test.js",
+      "tests/e2e/real-app/real-app-lifecycle.test.js",
+      "tests/integration/server/server.test.js",
+      "tests/unit/lib/server.shutdown.test.js",
+    ],
+  },
   A03: {
     name: "HTTP routes and security",
     invariant: "Every route is registered, guarded by auth/rate-limit/net-guard middleware, and has matching tests; path safety and security modules exist.",
