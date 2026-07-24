@@ -1,0 +1,335 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A13",
+  "slice_name": "Memory, wiki, and embeddings",
+  "invariant": "Memory, wiki, self-memory, and embedding modules exist for both backends; search modules are mirrored; handlers and tests are complete.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "token_estimate": 41028,
+  "token_ceiling": 30000,
+  "exceeds_ceiling": true,
+  "entries": [
+    {
+      "path": "db/memory-seed.js",
+      "reason": "Memory seed data",
+      "status": "present",
+      "hash": "2309644d626d62fa1e3e827f97aedb9ec04fdb8a1de411c19340c1b3c0f6d810",
+      "bytes": 8384
+    },
+    {
+      "path": "db/memory-seed-lite.js",
+      "reason": "Memory seed data (lite variant)",
+      "status": "present",
+      "hash": "55cb1fe71a69323818181fa27ab197c6a2a36d49f4d0477f43eee372a655f9e7",
+      "bytes": 4896
+    },
+    {
+      "path": "db/self-memory-seed.js",
+      "reason": "Self-memory seed data",
+      "status": "present",
+      "hash": "ae5747e51c3f0db4f48fdd8a27b1063aebce5b12ccf497e346134c8fc367f84a",
+      "bytes": 8240
+    },
+    {
+      "path": "db/wiki-seed.js",
+      "reason": "Wiki seed data",
+      "status": "present",
+      "hash": "13bcfcf1e18578429ee966bf6a965d4207a19f0d72d56b5f89c85f3047ce5436",
+      "bytes": 46986
+    },
+    {
+      "path": "db/sqlite/wiki.js",
+      "reason": "SQLite wiki implementation",
+      "status": "present",
+      "hash": "163f6cda973fd458d0c68f835c7fc817e83174b9f74d656c07e24d29bafbe9a9",
+      "bytes": 10401
+    },
+    {
+      "path": "lib/handlers/memory/memoryHandlers.js",
+      "reason": "Memory CRUD handlers",
+      "status": "present",
+      "hash": "350e99ce014ed2e0783c4d658e26dd91cb0a6ca84148ce1a7a79c0f3cb4820ac",
+      "bytes": 10041
+    },
+    {
+      "path": "lib/handlers/memory/selfMemoryHandlers.js",
+      "reason": "Self-memory CRUD handlers",
+      "status": "present",
+      "hash": "e00c88270daa65984703c60eca8500e8462b3956ea242c95d82156bc4ee56adc",
+      "bytes": 5486
+    },
+    {
+      "path": "lib/helpers/embeddings.js",
+      "reason": "Embedding generation",
+      "status": "present",
+      "hash": "f7b4d2d1ec4c2c9b474e99480bbebbf6e9c664baaac1172d30a6346b7564a01a",
+      "bytes": 7297
+    },
+    {
+      "path": "lib/helpers/embedding-queue.js",
+      "reason": "Embedding queue manager",
+      "status": "present",
+      "hash": "a8d6600e992c20b1949af3536bb938210c8fe3c71b3f6f4b8225f5e03e95b4cf",
+      "bytes": 1461
+    },
+    {
+      "path": "lib/helpers/embedding-backlog.js",
+      "reason": "Embedding backlog processing",
+      "status": "present",
+      "hash": "9e4a57794a3c8a3b85b81394ae700330c68294af25671b50500d7e7ef3e85437",
+      "bytes": 456
+    },
+    {
+      "path": "lib/helpers/embedding-worker.js",
+      "reason": "Embedding worker process",
+      "status": "present",
+      "hash": "7bfe08fd7fdfbdf41c6fb8f080a572bfa03724f1285b54d1d2bde1108ba7586f",
+      "bytes": 2275
+    },
+    {
+      "path": "lib/helpers/embedding-worker-client.js",
+      "reason": "Embedding worker client",
+      "status": "present",
+      "hash": "e63274725af2b0cd1477a849bd91dc3f8ab5c9634d3f1ad0bc202d0e8f8e709c",
+      "bytes": 2960
+    },
+    {
+      "path": "lib/memory/compactionBaseline.js",
+      "reason": "Memory compaction baseline",
+      "status": "present",
+      "hash": "89f8ee6df4f1e000591a5ac6f66d422b37e1fe1d0bbdef41bfd1aefe57721007",
+      "bytes": 5541
+    },
+    {
+      "path": "lib/memory/tokenCount.js",
+      "reason": "Memory token counting",
+      "status": "present",
+      "hash": "667955475585528f923e72ddbde58edcbfc2a10a68aba1bf1685fd5b2ccdefd7",
+      "bytes": 660
+    },
+    {
+      "path": "db/migrations/001_core.sql",
+      "reason": "Migration: 001_core.sql (postgres)",
+      "status": "present",
+      "hash": "510db3d26d19c77510f310947aacaeccbbaa6c973d848eaf540ffebd7ffda601",
+      "bytes": 6484
+    },
+    {
+      "path": "db/migrations/002_agent_jobs.sql",
+      "reason": "Migration: 002_agent_jobs.sql (postgres)",
+      "status": "present",
+      "hash": "2a640a320e22fe9124478244001e460e9a6778c6bf0f3a5f71cbb6ef7f46f47c",
+      "bytes": 962
+    },
+    {
+      "path": "db/migrations/003_codegraph.sql",
+      "reason": "Migration: 003_codegraph.sql (postgres)",
+      "status": "present",
+      "hash": "1381d494bb81f88045bfb74a01572d2f7382810ac4421495ce1d1e1520628ff9",
+      "bytes": 1863
+    },
+    {
+      "path": "db/migrations/004_docgraph.sql",
+      "reason": "Migration: 004_docgraph.sql (postgres)",
+      "status": "present",
+      "hash": "4c4f80e96002ed2d5073b165311ac5412b3b0bf698c3a8b6fbd4a8d36e88a9e8",
+      "bytes": 2244
+    },
+    {
+      "path": "db/migrations/005_issue_triage.sql",
+      "reason": "Migration: 005_issue_triage.sql (postgres)",
+      "status": "present",
+      "hash": "8f5c77ea3a7401eab2e87e7adfde863397928e4a6c1b9e59eaf9aed52858c65a",
+      "bytes": 592
+    },
+    {
+      "path": "db/migrations/006_self_memories.sql",
+      "reason": "Migration: 006_self_memories.sql (postgres)",
+      "status": "present",
+      "hash": "b38c623738f8550f70bbfe24bc3e30ce0a752835ee7b80ccd649526fdf32783a",
+      "bytes": 1607
+    },
+    {
+      "path": "db/migrations/007_self_wiki.sql",
+      "reason": "Migration: 007_self_wiki.sql (postgres)",
+      "status": "present",
+      "hash": "3a671ccd7a2e37c6c417063419944a02efc4f17ce12ba13dee834cefbae3f052",
+      "bytes": 3027
+    },
+    {
+      "path": "db/migrations/008_agent_interrupts.sql",
+      "reason": "Migration: 008_agent_interrupts.sql (postgres)",
+      "status": "present",
+      "hash": "c795e57cceb43df60eaf6a74cbe9c7fd87bc1962e6658c6a7abe5c1f30739c73",
+      "bytes": 1567
+    },
+    {
+      "path": "db/migrations/009_memory_inbox.sql",
+      "reason": "Migration: 009_memory_inbox.sql (postgres)",
+      "status": "present",
+      "hash": "e0336e972261c03f562a17807bf8d953ee0b1cb238a8c7526417015b75678dbc",
+      "bytes": 1197
+    },
+    {
+      "path": "db/migrations/010_codegraph_intelligence.sql",
+      "reason": "Migration: 010_codegraph_intelligence.sql (postgres)",
+      "status": "present",
+      "hash": "41393099b6064c4d11e7b14975af890edba9aaa48a9d0cbc2403752da424c3ec",
+      "bytes": 3483
+    },
+    {
+      "path": "db/migrations-sqlite/001_core.sql",
+      "reason": "Migration: 001_core.sql (sqlite)",
+      "status": "present",
+      "hash": "81b9ff0c22710bc7b5e4d1c4b0f542c060591b15c897a8ad6a0defb48cbd3f23",
+      "bytes": 6743
+    },
+    {
+      "path": "db/migrations-sqlite/002_agent_jobs.sql",
+      "reason": "Migration: 002_agent_jobs.sql (sqlite)",
+      "status": "present",
+      "hash": "5e18991109485d1df23078bfd71bead61db62784ed2218154b6b9f7a651ee185",
+      "bytes": 1037
+    },
+    {
+      "path": "db/migrations-sqlite/003_codegraph.sql",
+      "reason": "Migration: 003_codegraph.sql (sqlite)",
+      "status": "present",
+      "hash": "73f0eef8dafc8b10ca952242082db9ea44ef981caa03d3786f2ad812aec42bb9",
+      "bytes": 2795
+    },
+    {
+      "path": "db/migrations-sqlite/004_docgraph.sql",
+      "reason": "Migration: 004_docgraph.sql (sqlite)",
+      "status": "present",
+      "hash": "82c875853c5e875948f21766f171da0449cd204e832fd06401fd6c67984019c1",
+      "bytes": 3163
+    },
+    {
+      "path": "db/migrations-sqlite/005_issue_triage.sql",
+      "reason": "Migration: 005_issue_triage.sql (sqlite)",
+      "status": "present",
+      "hash": "17037ae76f53b5c239d7f86497f23db577d3e360952377aa70fddbcfb41420f8",
+      "bytes": 569
+    },
+    {
+      "path": "db/migrations-sqlite/006_self_memories.sql",
+      "reason": "Migration: 006_self_memories.sql (sqlite)",
+      "status": "present",
+      "hash": "ec34f60d16a0730b243b198388ded9ce21052e98523e788b025c1aafde4f21b1",
+      "bytes": 2366
+    },
+    {
+      "path": "db/migrations-sqlite/007_self_wiki.sql",
+      "reason": "Migration: 007_self_wiki.sql (sqlite)",
+      "status": "present",
+      "hash": "ace5e3f0069218898d2a4b4fda19ea9bca11516a9e105f0cd20920f34be6db5e",
+      "bytes": 2724
+    },
+    {
+      "path": "db/migrations-sqlite/008_agent_interrupts.sql",
+      "reason": "Migration: 008_agent_interrupts.sql (sqlite)",
+      "status": "present",
+      "hash": "49103bd91b3673faaa4bd4fdfcda4460d974941dd7071574b57a6744e001b389",
+      "bytes": 1834
+    },
+    {
+      "path": "db/migrations-sqlite/009_memory_inbox.sql",
+      "reason": "Migration: 009_memory_inbox.sql (sqlite)",
+      "status": "present",
+      "hash": "418df08a7bc3701f9d5e693eeee9d9cb7560d8c745eb2d8ad9f39abd0462e78d",
+      "bytes": 1237
+    },
+    {
+      "path": "db/migrations-sqlite/010_codegraph_intelligence.sql",
+      "reason": "Migration: 010_codegraph_intelligence.sql (sqlite)",
+      "status": "present",
+      "hash": "114b523b22077661e88be5e85f09a8b35bd08812e1554e88a2d2cf25de32b9e2",
+      "bytes": 3532
+    }
+  ],
+  "coupled_exclusions": [
+    {
+      "path": "db/sqlite/search.js",
+      "reason": "Search implementation — tested under A14 contract"
+    },
+    {
+      "path": "db/postgres/search.js",
+      "reason": "Search implementation — tested under A14 contract"
+    },
+    {
+      "path": "db/sqlite/store.js",
+      "reason": "Store operations — tested under A14 contract"
+    },
+    {
+      "path": "db/postgres/store.js",
+      "reason": "Store operations — tested under A14 contract"
+    }
+  ],
+  "test_files": [
+    {
+      "path": "tests/unit/tools/memory.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/tools/self-memory.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/tools/self-wiki.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/wiki/wikiHandlers.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/wiki/wikiQueries.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/helpers/embeddings.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/helpers/embedding-queue.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/helpers/embedding-backlog.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/helpers/embedding-worker-client.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/db/memory-seed.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/db/contract/memories.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/db/contract/wiki.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/db/contract/self-memory.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/db/contract/embeddings.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/db/self-wiki.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/memory/compactionBaseline.test.js",
+      "status": "missing"
+    }
+  ],
+  "aggregate_hash": "460257872f6e4928c8e88e74d4080d72cb06d1398dc8e66d3dc2bf8ccd73a1a7"
+}

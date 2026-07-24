@@ -1,0 +1,162 @@
+{
+  "$schema": "aperio-audit-memory-contract-v1",
+  "slice_id": "A13",
+  "checks": {
+    "memory_files": {
+      "results": [
+        {
+          "invariant": "Memory seed data (db/memory-seed.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Self-memory seed data (db/self-memory-seed.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Wiki seed data (db/wiki-seed.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "SQLite wiki implementation (db/sqlite/wiki.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Memory seed data (lite) (db/memory-seed-lite.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Memory CRUD handlers (lib/handlers/memory/memoryHandlers.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Self-memory handlers (lib/handlers/memory/selfMemoryHandlers.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Embedding generation (lib/helpers/embeddings.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Embedding queue (lib/helpers/embedding-queue.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Embedding backlog (lib/helpers/embedding-backlog.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Embedding worker (lib/helpers/embedding-worker.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Embedding worker client (lib/helpers/embedding-worker-client.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Memory compaction baseline (lib/memory/compactionBaseline.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Memory token counting (lib/memory/tokenCount.js) exists",
+          "passed": true,
+          "detail": "Present"
+        }
+      ],
+      "passed": true
+    },
+    "memory_tests": {
+      "results": [
+        {
+          "invariant": "Test file tests/unit/tools/memory.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/unit/tools/self-memory.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/unit/tools/self-wiki.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/unit/wiki/wikiHandlers.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/unit/wiki/wikiQueries.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/unit/helpers/embeddings.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/unit/helpers/embedding-queue.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/unit/helpers/embedding-backlog.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/unit/helpers/embedding-worker-client.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/unit/db/memory-seed.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/integration/db/contract/memories.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/integration/db/contract/wiki.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/integration/db/contract/self-memory.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/integration/db/contract/embeddings.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/integration/db/self-wiki.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        }
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}
