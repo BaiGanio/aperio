@@ -23,6 +23,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Docgraph amount-label extraction, language-agnostic signals** (issue
+  #312): `lib/docgraph/extract-facts.js`'s `AMOUNT_LABELS` keyword matching
+  only recognized English (plus BG/DE/FR patches from the household
+  eval corpus), so every other language's amount evidence came back
+  `label: null` and small models grabbed an early line-item figure instead
+  of the real total. Added two structural signals that need no per-locale
+  translation: an unlabeled amount on the line immediately after a
+  tax/VAT percentage figure (`"%"` needs no translation) is now tagged
+  `likely_total`, and the whole-document `likely_total` fallback no longer
+  disables itself when only a `subtotal`-shaped label matched — a document
+  whose breakdown we recognized but whose actual total keyword we don't
+  still gets a total guess instead of silence. `doc_batch`'s tool
+  description updated to match.
 - **Docgraph retrieval evidence contract** (issue #311): `doc_manifest`'s
   `date_hint` blended filesystem `mtime` with filename/title text into one
   field, letting indexing-time noise masquerade as a document date and wrongly
