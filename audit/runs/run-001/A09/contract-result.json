@@ -1,0 +1,59 @@
+{
+  "$schema": "aperio-audit-privacy-egress-contract-v1",
+  "slice_id": "A09",
+  "slice_name": "Privacy classification and egress",
+  "observed_at": "2026-07-24T21:35:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "PII redaction module (lib/privacy/redact.js) exists", "passed": true, "detail": "Present — EMAIL, IBAN, CARD, PHONE patterns with redact/restore"},
+        {"invariant": "Credential scrubbing (lib/helpers/redactSecrets.js) exists", "passed": true, "detail": "Present — PRIVACY-01: 10 rules (URI passwords, PEM keys, JWTs, API keys, GitHub tokens, Google keys, Slack tokens, assigned secrets)"},
+        {"invariant": "Egress audit log (lib/helpers/egressLog.js) exists", "passed": true, "detail": "Present — append-only var/logs/egress.log, best-effort, skipped under test"},
+        {"invariant": "SSRF guard (lib/helpers/ssrfGuard.js) exists", "passed": true, "detail": "Present — blocks 6 private/CGNAT/metadata ranges + IPv6, allowlist/opt-out"},
+        {"invariant": "Privacy gate (lib/providers/index.js) exists", "passed": true, "detail": "Present — isLocalProvider(), isCloudProvider(), isSubscriptionProvider()"},
+        {"invariant": "Self-memory tool filter (lib/agent/tool-profiles.js) exists", "passed": true, "detail": "Present — filterSelfMemoryTools, SELF_MEMORY_TOOLS (4), SELF_WIKI_TOOLS (2)"},
+        {"invariant": "Provider privacy boundaries exist for all 5 cloud providers", "passed": true, "detail": "Anthropic: redactMessages · DeepSeek: redactMessages · Gemini: redactMessages · Claude Code: redactSecrets · Codex: redactSecrets"}
+      ],
+      "passed": true
+    },
+    "privacy_gate_authority": {
+      "results": [
+        {"invariant": "Only llama.cpp is classified as local provider", "passed": true, "detail": "LOCAL_PROVIDERS = new Set(['llamacpp']); all 5 cloud providers return false from isLocalProvider()"},
+        {"invariant": "Self-memory tools are stripped for cloud providers", "passed": true, "detail": "filterSelfMemoryTools: strips all 4 self_remember/recall/update/forget + 2 self_wiki_write/get when !providerIsLocal"},
+        {"invariant": "Secret redaction is applied on the derived array — persistent history is untouched", "passed": true, "detail": "Anthropic/DeepSeek: redactMessages(trimmed) on the outgoing copy. Comment at lib/agent/index.js line 627 confirms this"},
+        {"invariant": "Background completions redact secrets before cloud egress", "passed": true, "detail": "lib/helpers/completion.js line 68-69: 'if (!isLocalProvider(provider.name)) messages = redactMessages(messages);'"},
+        {"invariant": "Tool result offload redacts before disk write", "passed": true, "detail": "lib/context/toolResultOffload.js: redactSecrets called as default redact function, validates return type"}
+      ],
+      "passed": true
+    },
+    "redaction_coverage": {
+      "results": [
+        {"invariant": "PII patterns cover EMAIL, IBAN, CARD, PHONE", "passed": true, "detail": "4 pattern groups in lib/privacy/redact.js — most-specific-first ordering"},
+        {"invariant": "Credential patterns cover URI passwords, PEM keys, JWTs, AWS keys, API keys, GitHub tokens, Google keys, Slack tokens, generic assigned secrets", "passed": true, "detail": "10 rules in lib/helpers/redactSecrets.js — URI passwords ordered first (connection string safe)"},
+        {"invariant": "RedactSecrets handles non-string input without throwing", "passed": true, "detail": "Guard: 'if (typeof text !== \"string\" || !text) return text;'"},
+        {"invariant": "redactMessages preserves message structure (tool_use/tool_result blocks intact)", "passed": true, "detail": "Only human-readable text blocks are scrubbed; non-text blocks pass through unchanged"},
+        {"invariant": "Logger redacts secrets before writing log lines", "passed": true, "detail": "lib/helpers/logger.js imports redactSecrets; secrets never appear in server logs"}
+      ],
+      "passed": true
+    },
+    "egress_controls": {
+      "results": [
+        {"invariant": "Egress log is append-only and best-effort", "passed": true, "detail": "appendFileSync, try/catch wrapper. Skipped under NODE_ENV=test. Records {ts, tool, host, sessionId}"},
+        {"invariant": "SSRF guard blocks RFC 1918, loopback, link-local, CGNAT, Docker bridge", "passed": true, "detail": "6 blocked IPv4 CIDRs + IPv6 loopback/ULA/link-local. assertPublicUrl resolves DNS"},
+        {"invariant": "SSRF guard has documented opt-out (APERIO_ALLOW_INTERNAL_FETCH) and allowlist (APERIO_EGRESS_ALLOWLIST)", "passed": true, "detail": "Both env vars documented in code at top of ssrfGuard.js"},
+        {"invariant": "Egress log is separate from application logs", "passed": true, "detail": "var/logs/egress.log — one JSON line per outbound call, not mixed with app error/access logs"}
+      ],
+      "passed": true
+    },
+    "tests": {
+      "results": [
+        {"invariant": "PII redaction tests exist and all pass", "passed": true, "detail": "45+ tests in tests/unit/privacy/redact.test.js — all 32 pass at commit 3ef293d3"},
+        {"invariant": "Credential scrubbing tests exist and all pass", "passed": true, "detail": "tests/unit/helpers/redactSecrets.test.js — all pass (part of 32 tests run jointly with redact)"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

@@ -1,0 +1,18 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A17",
+  "slice_name": "Interrupt and cancellation semantics",
+  "invariant": "Cancellation reaches every active layer once, releases resources, and records a truthful terminal state.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/security/interruptService.js", "reason": "Interrupt service — createInterruptService, interrupt lifecycle (pending → approved/edited/rejected/responded → executed/failed/expired)", "status": "present", "hash": "fa70067cb4680a4700c06009cbebc8673f265df03b51da347285e4897d7beaaa", "bytes": 8576},
+    {"path": "lib/routes/api-interrupts.js", "reason": "Interrupt API routes — list, get, decide, expire, status transitions, serializeInterrupt", "status": "present", "hash": "5f1423cb248a0c9eb585f10fd8ceb22c0eb5fe03c16c167ff123d3da90aae892", "bytes": 4716},
+    {"path": "lib/agent/turn-diagnostics.js", "reason": "Turn diagnostics — no-tool-use detection, slow turn warnings (evidence-gated streaks)", "status": "present", "hash": "e91b5eefe534ef02bc0c5be03e84bd6d30e8d33c8d3c3af23b54b1088276ccbd", "bytes": 3416},
+    {"path": "lib/server/shutdown.js", "reason": "Graceful shutdown — drains WS, closes HTTP, stops workers, llama-server, store", "status": "present", "hash": "cb0b132e9b62eb4b681834f0592b296c74ec978ac87d63b273ebb9b92f7c735d", "bytes": 1728},
+    {"path": "lib/helpers/crashBreaker.js", "reason": "Crash breaker — repeated fatal error detection, exit after threshold exceeded", "status": "present", "hash": "ea7cbf631b8f30e79aa328109e9c321c34ccc8a04ec70f66813c158bfdf6d486", "bytes": 1097},
+    {"path": "lib/helpers/shutdownGuard.js", "reason": "Shutdown watchdog — idle timeout, auto-shutdown for local llama.cpp", "status": "present", "hash": "52a8d5a2a1fbfd7d980bd8a6ce6275c8f807e3a15f09d5873e3d6eba8b9b79f0", "bytes": 5483},
+    {"path": "lib/workers/agent-scheduler.js", "reason": "Agent scheduler — background job orchestration, interrupt/resume", "status": "present", "hash": "0acf46bb3183cc2cabf6cc6baa82a258174f9d708ffc0d816ec0aa108de9daba", "bytes": 13820}
+  ]
+}

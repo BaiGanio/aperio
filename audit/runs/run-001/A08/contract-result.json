@@ -1,0 +1,30 @@
+{
+  "$schema": "aperio-audit-artifact-contract-v1",
+  "slice_id": "A08",
+  "slice_name": "Artifact lifecycle and retrieval",
+  "observed_at": "2026-07-24T21:48:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Artifact store (lib/context/artifactStore.js) exists", "passed": true, "detail": "Present — put/get/list with disk-backed storage, subdirectories per kind"},
+        {"invariant": "Artifact retrieval (lib/context/artifactRetrieval.js) exists", "passed": true, "detail": "Present — createArtifactReader reads by kind+id, appendArtifactReadTool adds read_artifact tool"},
+        {"invariant": "Tool result offload (lib/context/toolResultOffload.js) exists", "passed": true, "detail": "Present — model-context hook, token/byte limits, redactSecrets before persist"},
+        {"invariant": "Artifact lifecycle (lib/agent/artifact-lifecycle.js) exists", "passed": true, "detail": "Present — lifecycle hooks for artifact creation/retrieval/persistence"}
+      ],
+      "passed": true
+    },
+    "lifecycle_contract": {
+      "results": [
+        {"invariant": "Offloaded content is addressable by ID", "passed": true, "detail": "artifactStore.get(kind, id); artifactReader reads by kind+id"},
+        {"invariant": "Offloaded content is scoped (per-session or per-run)", "passed": true, "detail": "artifactContext in runAgentLoop: scope='session' or 'run', ownerId from scratchDir or sessionId"},
+        {"invariant": "Offloaded content is bounded (soft token limit + hard byte limit)", "passed": true, "detail": "tokenLimit + byteLimit in createToolResultOffloader"},
+        {"invariant": "Offloaded content is redacted before storage", "passed": true, "detail": "redactSecrets is the default redact function; return type is validated"},
+        {"invariant": "Artifact read tool is dynamically added when retrievable content exists", "passed": true, "detail": "appendArtifactReadTool — conditionally added per turn by hasRetrievableOffloadedArtifacts()"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

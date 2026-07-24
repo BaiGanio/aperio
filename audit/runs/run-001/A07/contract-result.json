@@ -1,0 +1,38 @@
+{
+  "$schema": "aperio-audit-context-contract-v1",
+  "slice_id": "A07",
+  "slice_name": "Context assembly and trimming",
+  "observed_at": "2026-07-24T21:47:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Context trimmer (lib/context/trim.js) exists", "passed": true, "detail": "Present — 201 lines, estimateTotalTokens, trimByTokens, dropOrphanedToolResults"},
+        {"invariant": "RAG store (lib/context/ragStore.js) exists", "passed": true, "detail": "Present — retrieve() relevant past exchanges after compression"},
+        {"invariant": "Artifact store (lib/context/artifactStore.js) exists", "passed": true, "detail": "Present — put/get/list for offloaded tool results"},
+        {"invariant": "Tool result offload (lib/context/toolResultOffload.js) exists", "passed": true, "detail": "Present — createToolResultOffloader with token/byte limits, redactSecrets"},
+        {"invariant": "Artifact retrieval (lib/context/artifactRetrieval.js) exists", "passed": true, "detail": "Present — createArtifactReader, appendArtifactReadTool"},
+        {"invariant": "Model context middleware (lib/agent/model-context-middleware.js) exists", "passed": true, "detail": "Present — lifecycle hook for offload + capping"}
+      ],
+      "passed": true
+    },
+    "context_bounds": {
+      "results": [
+        {"invariant": "Context thresholds are configurable per window size (60%/72%/75%/80%/90%)", "passed": true, "detail": "CTX_WARN/HANDOFF/TRIM/SUMMARIZE/EMERGENCY targets as fractions"},
+        {"invariant": "Absolute caps prevent large-window drift (80K warn, 120K handoff)", "passed": true, "detail": "CTX_WARN_ABS_CAP=80K, CTX_HANDOFF_ABS_CAP=120K"},
+        {"invariant": "Auto-summarize triggers at 80%", "passed": true, "detail": "CTX_SUMMARIZE_TARGET=0.80 — enforced in wsHandler.js handleChat"},
+        {"invariant": "Tool result offload has both token limit and byte limit", "passed": true, "detail": "createToolResultOffloader: tokenLimit + byteLimit, redactSecrets before store"},
+        {"invariant": "RAG store retrieves relevant content after compression", "passed": true, "detail": "ragStore.retrieve() called in wsHandler.js handleChat when size > 0"}
+      ],
+      "passed": true
+    },
+    "tests": {
+      "results": [
+        {"invariant": "Context trim tests exist and pass", "passed": true, "detail": "trim.test.js — part of unit test suite"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

@@ -137,7 +137,7 @@ diff <(node audit/scripts/inventory.js --no-timestamp) \
 
 Open `audit/runs/run-001/baseline.json`. It answers:
 
-> At commit `e344e2f0` on branch `feat/codegraph-intelligence-283`,
+> At commit `3ef293d3` on branch `master`,
 > how many X does the repo have?
 
 Key fields:
@@ -146,7 +146,7 @@ Key fields:
 |-------|--------------|-------------------|
 | `source_files.total` | 401 | Spikes or drops without explanation |
 | `test_files.total` | 271 | Drops mean tests deleted (flag for review) |
-| `providers` | 6 items | Adding a new provider must also add it to dispatch |
+| `providers` | 6 | Adding a provider must also add to dispatch |
 | `database.migration_count_postgres` | 10 | Must always equal `migration_count_sqlite` |
 | `database.migration_parity` | true | If false, a migration was added to only one backend |
 | `locales.count` | 26 | Adding a locale should touch the i18n pipeline too |
@@ -226,17 +226,21 @@ tokens and uses local models for reconnaissance.
 | `npm run test:audit` | Runs all audit harness tests | 80/80 pass |
 | `audit/README.md` | This file — developer instructions | Updated after each phase |
 
+**Now expanded to all 22 slices (A01–A22)** — every slice has a `manifest.json`
+with content-hashed file inventory and a `contract-result.json` with deterministic
+invariant checks. All contract gates passed.
+
 ### What the plan describes but doesn't exist yet
 
 | Component | Purpose | Needed for |
 |-----------|---------|------------|
-| Wave 1–5 execution | 22 slice audits | Full audit run |
+| Wave 5 execution | 12 boundary journeys + matrix | Full audit run |
 | Delta trigger system | Rerun only changed slices | After Run 1 closeout |
-| Slice definitions for A01, A04–A12, A14, A15–A22 | Remaining 18 slice definitions in manifest.js | Full audit run |
+| Wave 1 triage | Human triage and ledger close | Per-wave process |
 
-A14 (Database), A02 (Configuration), A03 (Routes), and A13 (Memory) areas are complete: manifest → contract gate →
-red/green proof → run records saved. All 80 tests pass.
-Next: expand to remaining 18 slices.
+**Run 1 — 22/22 component slices complete** (A01–A22). All manifests + contract
+results recorded at commit `3ef293d3` on `master`. All 80 audit harness tests pass.
+Next: Wave 5 — 12 end-to-end boundary journeys and cross-domain matrix.
 
 ---
 

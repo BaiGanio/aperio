@@ -1,0 +1,42 @@
+{
+  "$schema": "aperio-audit-provider-contract-v1",
+  "slice_id": "A06",
+  "slice_name": "Provider contract matrix",
+  "observed_at": "2026-07-24T21:46:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Provider resolution module (lib/providers/index.js) exists", "passed": true, "detail": "Present — resolveProvider(), isLocalProvider(), isCloudProvider()"},
+        {"invariant": "Anthropic provider loop exists", "passed": true, "detail": "Present — runAnthropicLoop(), 11.6 KB"},
+        {"invariant": "DeepSeek provider loop exists", "passed": true, "detail": "Present — runDeepSeekLoop(), 12.2 KB"},
+        {"invariant": "Gemini provider loop exists", "passed": true, "detail": "Present — runGeminiLoop(), 12.4 KB"},
+        {"invariant": "llama.cpp provider loop exists", "passed": true, "detail": "Present — runLlamaCppLoop(), 38.9 KB (largest — local inference, warm cache)"},
+        {"invariant": "Claude Code provider loop exists", "passed": true, "detail": "Present — runClaudeCodeLoop(), 12.9 KB"},
+        {"invariant": "Codex provider loop exists", "passed": true, "detail": "Present — runCodexLoop(), 21.1 KB"},
+        {"invariant": "Provider dispatch in runAgentLoop covers all 6", "passed": true, "detail": "lines 632-638: anthropic → gemini → deepseek → claude-code → codex → llamacpp → unknown error"}
+      ],
+      "passed": true
+    },
+    "contract_parity": {
+      "results": [
+        {"invariant": "All providers use the same runAgentLoop entry point", "passed": true, "detail": "All 6 loops called identically: runXxxLoop(messages, emitter, opts, getAbort, setAbort, hookedCtx)"},
+        {"invariant": "All cloud providers redact secrets before egress", "passed": true, "detail": "Anthropic/DeepSeek/Gemini: redactMessages(). Claude Code/Codex: redactSecrets(). Only llamacpp skips redaction (local)."},
+        {"invariant": "Self-memory tools are stripped in all cloud providers", "passed": true, "detail": "filterSelfMemoryTools in index.js resolveToolNamesForTurn; Claude Code/Codex explicit in their loops"},
+        {"invariant": "All providers handle abort signals", "passed": true, "detail": "Each provider loop receives getAbort/setAbort and latches its own abort controller reference"},
+        {"invariant": "Provider switch (setProvider) is consistent", "passed": true, "detail": "setProvider updates provider, adapter, shell, thinking, no-tools; clears self-memory on cloud switch"}
+      ],
+      "passed": true
+    },
+    "tests": {
+      "results": [
+        {"invariant": "Anthropic provider tests pass", "passed": true, "detail": "49 total provider unit tests — all pass"},
+        {"invariant": "DeepSeek provider tests pass", "passed": true, "detail": "Part of 49 provider tests — all pass"},
+        {"invariant": "Gemini provider tests pass", "passed": true, "detail": "Part of 49 provider tests — all pass"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

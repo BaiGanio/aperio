@@ -1,0 +1,34 @@
+{
+  "$schema": "aperio-audit-interrupt-cancel-contract-v1",
+  "slice_id": "A17",
+  "slice_name": "Interrupt and cancellation semantics",
+  "observed_at": "2026-07-24T21:54:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Interrupt service (lib/security/interruptService.js) exists", "passed": true, "detail": "Present — 239 lines, state machine (pending → 4 executable statuses + expired), conflict/validation errors"},
+        {"invariant": "Interrupt API routes (lib/routes/api-interrupts.js) exists", "passed": true, "detail": "Present — list, get, decide, expire, canTransition"},
+        {"invariant": "Turn diagnostics (lib/agent/turn-diagnostics.js) exists", "passed": true, "detail": "Present — no-tool-use (2-streak evidence gate), slow-turn (3-streak + perf recommendation)"},
+        {"invariant": "Graceful shutdown (lib/server/shutdown.js) exists", "passed": true, "detail": "Present — full teardown sequence, double-close → process.exit(130)"},
+        {"invariant": "Crash breaker (lib/helpers/crashBreaker.js) exists", "passed": true, "detail": "Present — threshold 5 / 60s window, PROC-01"},
+        {"invariant": "Shutdown watchdog (lib/helpers/shutdownGuard.js) exists", "passed": true, "detail": "Present — idle timeout, auto-shutdown for local providers"},
+        {"invariant": "Agent scheduler (lib/workers/agent-scheduler.js) exists", "passed": true, "detail": "Present — job queue, runJob, interrupt support"}
+      ],
+      "passed": true
+    },
+    "interrupt_lifecycle": {
+      "results": [
+        {"invariant": "Interrupt state machine has defined transitions", "passed": true, "detail": "interruptService.js: pending → approved/edited/rejected/responded/expired → executed/failed/claimed. 4 allowed decisions (approve/edit/reject/respond)"},
+        {"invariant": "Interrupt conflicts are detected and reported", "passed": true, "detail": "InterruptConflictError: raised when status transition is impossible"},
+        {"invariant": "Provider abort controllers latch reference independently of wsHandler", "passed": true, "detail": "anthropic.js/gemini.js lines 55-61: locally-latched abortFlag prevents stop loss after wsHandler nulls reference"},
+        {"invariant": "Socket close aborts active turn", "passed": true, "detail": "wsHandler.js close handler: turnLock.abortForClose() + finaliseSession"},
+        {"invariant": "Crash breaker exits after repeated fatals (5 in 60s)", "passed": true, "detail": "server.js: crashBreaker threshold=5, windowMs=60000 — process.exit(1)"},
+        {"invariant": "Double-shutdown escalates to immediate exit", "passed": true, "detail": "shutdown.js: 'if (shuttingDown) process.exit(130);'"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

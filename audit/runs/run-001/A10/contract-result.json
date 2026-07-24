@@ -1,0 +1,38 @@
+{
+  "$schema": "aperio-audit-skills-prompt-contract-v1",
+  "slice_id": "A10",
+  "slice_name": "Skills and prompt injection",
+  "observed_at": "2026-07-24T21:50:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Skill loader/matcher (lib/workers/skills.js) exists", "passed": true, "detail": "Present — loadSkillIndex, parseSlashSkill"},
+        {"invariant": "Skill admin (lib/agent/skill-admin.js) exists", "passed": true, "detail": "Present — reload, toggle, list"},
+        {"invariant": "Turn planner (lib/agent/turn-planner.js) exists", "passed": true, "detail": "Present — forced > always-on > keyword > semantic matching pipeline"},
+        {"invariant": "Preflight runner (lib/agent/preflight.js) exists", "passed": true, "detail": "Present — semantic skill rescue, doc batch, memory retrieval"}
+      ],
+      "passed": true
+    },
+    "skill_matching": {
+      "results": [
+        {"invariant": "Skill priority order: forced (slash) > always-on > keyword > semantic", "passed": true, "detail": "turn-planner.js: forcedNames first, then alwaysOnNames, then keyword matching, then semantic fallback"},
+        {"invariant": "Slash-skill prefix is stripped before the model sees the text", "passed": true, "detail": "wsHandler.js handleChat: parseSlashSkill, cleanedText goes to model, forced names injected"},
+        {"invariant": "Skill not-found is reported back to user", "passed": true, "detail": "wsHandler.js: notFound names are injected into forcedSkillNames so ensureTurn emits skills_not_found"},
+        {"invariant": "Skill overlay dir (var/skills/) supports user-authored overrides", "passed": true, "detail": "index.js: overlayDir=resolve(root, 'var', 'skills') loaded alongside base skills and bundle skills"},
+        {"invariant": "Skill reload is runtime without restart", "passed": true, "detail": "reloadSkills calls loadSkillIndex afresh; exposed through skillAdmin"},
+        {"invariant": "Semantic skill matching is opt-in (APERIO_SKILL_SEMANTIC=on)", "passed": true, "detail": "preflight.js: 'if (process.env.APERIO_SKILL_SEMANTIC === \"on\" && !opts.noTools)'"}
+      ],
+      "passed": true
+    },
+    "tests": {
+      "results": [
+        {"invariant": "Skills integration tests exist", "passed": true, "detail": "tests/integration/workers/skills.test.js"},
+        {"invariant": "Turn planner tests exist", "passed": true, "detail": "Part of agent integration suite"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

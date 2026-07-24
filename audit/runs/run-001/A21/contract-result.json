@@ -1,0 +1,27 @@
+{
+  "$schema": "aperio-audit-codegraph-docgraph-contract-v1",
+  "slice_id": "A21",
+  "slice_name": "Codegraph/docgraph ingestion",
+  "observed_at": "2026-07-24T21:59:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Code graph indexer (lib/codegraph/indexer.js) exists", "passed": true, "detail": "Present — tree-sitter parsing"},
+        {"invariant": "Code graph graph (lib/codegraph/graph.js) exists", "passed": true, "detail": "Present — symbol relationships"},
+        {"invariant": "Code graph watcher (lib/codegraph/watcher.js) exists", "passed": true, "detail": "Present — file watching + re-index triggers"},
+        {"invariant": "Code graph backend (SQLite + Postgres) exist", "passed": true, "detail": "Both backends/sqlite.js and backends/postgres.js present"},
+        {"invariant": "Code graph analysis service (lib/codegraph/analysisService.js) exists", "passed": true, "detail": "Present — symbol search, call graph, source slices"},
+        {"invariant": "Code symbol embedding queue exists", "passed": true, "detail": "symbol-embedding-queue.js — async embedding with backpressure"},
+        {"invariant": "Doc graph indexer (lib/docgraph/indexer.js) exists", "passed": true, "detail": "Present — multi-format extraction"},
+        {"invariant": "Doc graph watcher (lib/docgraph/watcher.js) exists", "passed": true, "detail": "Present — file system watching"},
+        {"invariant": "Doc graph backends (SQLite + Postgres) exist", "passed": true, "detail": "Both backends present"},
+        {"invariant": "Doc chunk embedding queue exists", "passed": true, "detail": "chunk-embedding-queue.js — async processing"},
+        {"invariant": "Doc retrieval (lib/docgraph/retrieval.js) exists", "passed": true, "detail": "Present — passage search + relevance ranking"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

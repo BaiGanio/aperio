@@ -1,0 +1,34 @@
+{
+  "$schema": "aperio-audit-tool-discovery-contract-v1",
+  "slice_id": "A11",
+  "slice_name": "Tool discovery and execution",
+  "observed_at": "2026-07-24T21:51:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Tool profiles (lib/agent/tool-profiles.js) exists", "passed": true, "detail": "Present — 451 lines, intent-based tool profile classification"},
+        {"invariant": "Tool executor (lib/tools/executor.js) exists", "passed": true, "detail": "Present — 562 lines, callTool dispatch, JSON comment stripping, brace repair"},
+        {"invariant": "Schema check (lib/tools/schemaCheck.js) exists", "passed": true, "detail": "Present — zod argument validation with repair hints"},
+        {"invariant": "Post-write validation (lib/tools/validateWrittenFile.js) exists", "passed": true, "detail": "Present — JS--check, JSON.parse, XML validation, fail-open"},
+        {"invariant": "Tool hooks (lib/agent/tool-hooks.js) exists", "passed": true, "detail": "Present — makeTurnHooks: pre/post/caps with path safety, confirmation, lifecycle trace"},
+        {"invariant": "Tool safety middleware (lib/agent/tool-safety-middleware.js) exists", "passed": true, "detail": "Present — capability gating, shell allow, local-only enforcement"},
+        {"invariant": "MCP tool catalog (lib/agent/mcp-connect.js) exists", "passed": true, "detail": "Present — connectMcp, build schemas by provider format"}
+      ],
+      "passed": true
+    },
+    "tool_gating": {
+      "results": [
+        {"invariant": "Only intended tools are exposed via intent-based profiles", "passed": true, "detail": "planTurnTools selects profiles by intent (memory, self, data, wiki, file-read, file-edit, file-generate, etc.)"},
+        {"invariant": "Destructive tools have a mandatory baseline set", "passed": true, "detail": "DESTRUCTIVE_TOOLS: 15 built-in floor + APERIO_EXTRA_DESTRUCTIVE_TOOLS additive only"},
+        {"invariant": "Self-memory tools are stripped from cloud providers", "passed": true, "detail": "filterSelfMemoryTools: all 6 self_* tools removed for non-local providers"},
+        {"invariant": "Vision tools are filtered when model has inline vision", "passed": true, "detail": "filterVisionTools: read_image/preprocess_image/describe_image removed"},
+        {"invariant": "Schema token budget caps tools for local models with small windows", "passed": true, "detail": "capToolsForProvider: only aplicable for llamacpp, uses computeSchemaTokenCosts"},
+        {"invariant": "Tool confirmations require user approval for mutating operations", "passed": true, "detail": "CONFIRM_TOOLS: edit/write/delete/create tools require confirmation token"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

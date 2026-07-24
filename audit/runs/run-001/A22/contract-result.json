@@ -1,0 +1,26 @@
+{
+  "$schema": "aperio-audit-ui-packaging-contract-v1",
+  "slice_id": "A22",
+  "slice_name": "Web UI, i18n, packaging and delivery",
+  "observed_at": "2026-07-24T22:00:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Main web UI (public/index.html) exists", "passed": true, "detail": "Present — 46.9 KB, chat interface with WebSocket client"},
+        {"invariant": "UI scripts (public/index.js) exist", "passed": true, "detail": "Present — 11.8 KB"},
+        {"invariant": "UI styles (public/index.css) exist", "passed": true, "detail": "Present — responsive layout"},
+        {"invariant": "Setup wizard (public/setup.html) exists", "passed": true, "detail": "Present — 22.6 KB, first-run configuration"},
+        {"invariant": "Help page (public/help.html) exists", "passed": true, "detail": "Present — 8.3 KB"},
+        {"invariant": "i18n locales directory exists with 26 languages", "passed": true, "detail": "public/locales/*.json: 26 locale files"},
+        {"invariant": ".env.example generator (scripts/gen-env-example.js) exists", "passed": true, "detail": "Present — 9.4 KB, config registry → .env"},
+        {"invariant": "Dockerfile exists", "passed": true, "detail": "Present"},
+        {"invariant": "Docker Compose file exists", "passed": true, "detail": "Present — Postgres + app"},
+        {"invariant": "Generated config reference (docs/config-reference.md) exists", "passed": true, "detail": "Present — annotated env vars"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

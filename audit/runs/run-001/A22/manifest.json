@@ -1,0 +1,22 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A22",
+  "slice_name": "Web UI, i18n, packaging and delivery",
+  "invariant": "Shipped paths match documented behavior and enforce the same workflow, security, config, and observability contracts.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "public/index.html", "reason": "Main web UI — chat interface, setup routes, WebSocket client", "status": "present", "hash": "f5b54cf7280efadda0384a965a62063157e8325e805caf2e1d403bef64d5cf9b", "bytes": 46934},
+    {"path": "public/index.js", "reason": "UI scripts — WebSocket client, DOM management, settings, memory panel", "status": "present", "hash": "30fc59da35fbe2f9e07064e126aadefc2583f9d8c18d153bfd78011a92d4d202", "bytes": 11813},
+    {"path": "public/index.css", "reason": "UI styles — responsive layout, themes", "status": "present", "hash": "fa2b8094b5f846d7734341852d10e6b6abb6501ceb19c720b2bcc8077eb5a067", "bytes": 1139},
+    {"path": "public/setup.html", "reason": "Setup wizard — first-run configuration UI", "status": "present", "hash": "7e30bd7322d78a199309144d5c76b462fb5bfdab935ef3da127c67942b1737ec", "bytes": 22638},
+    {"path": "public/help.html", "reason": "Help page — usage instructions, tool references", "status": "present", "hash": "16ccea0bdda7f82599de5da34aca37b0088bf9788c04edae0615412af0851a2d", "bytes": 8292},
+    {"path": "public/locales/", "reason": "i18n locale files — 26 languages", "status": "present", "hash": "(26 files)", "bytes": 0},
+    {"path": "scripts/gen-env-example.js", "reason": ".env.example generator — config registry to .env + doc sync", "status": "present", "hash": "9fb27bba7a301796f89cb56cb5379db9623bd0388598444384b081530d6140d6", "bytes": 9434},
+    {"path": "docker/Dockerfile", "reason": "Docker image — container build", "status": "present", "hash": "8bbc7ac9bfffc2afc1d7cf051b11759a1bae3a21d82a161604d280b48fcdd82c", "bytes": 773},
+    {"path": "docker/docker-compose.yml", "reason": "Docker Compose — Postgres + app orchestration", "status": "present", "hash": "af7f1e28ce661f595717e6a37dec2b082a73909a2138baf6f9cbef572cf73326", "bytes": 991},
+    {"path": "docs/config-reference.md", "reason": "Generated config reference — all env vars annotated", "status": "present", "hash": "(generated file)", "bytes": 0},
+    {"path": "docs/index.html", "reason": "Documentation site — landing page for docs", "status": "present", "hash": "(docs dir)", "bytes": 0}
+  ]
+}

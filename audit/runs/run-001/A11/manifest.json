@@ -1,0 +1,20 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A11",
+  "slice_name": "Tool discovery and execution",
+  "invariant": "Only intended tools are exposed; arguments/results are validated, bounded, and correctly paired.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/agent/tool-profiles.js", "reason": "Tool profiles — WRITE_TOOLS, CONFIRM_TOOLS, TOOL_PROFILES, capToolsForProvider, filterSelfMemoryTools, filterVisionTools", "status": "present", "hash": "aa905ded6db70007fa6f0e2092199fbafd9583b0baa8e716b049231f9c0e4dce", "bytes": 26982},
+    {"path": "lib/agent/toolActivity.js", "reason": "Tool activity — summarizeArgs, summarizeResult for lifecycle trace", "status": "present", "hash": "cb3e0f1d1c609d3e70dd5a4ed114f69b0bb695172a51f70ec54f8f1c55a69706", "bytes": 3931},
+    {"path": "lib/agent/turn-planner.js", "reason": "Turn planning — planTurnTools selects tool profiles by intent", "status": "present", "hash": "710dc3bc7714b8da54d0a5bdf97d21278e42a4c705b1c210e050e3bf119df1fe", "bytes": 5824},
+    {"path": "lib/tools/executor.js", "reason": "Tool executor — callTool dispatch, destructive tool set, JSON repair, output validation", "status": "present", "hash": "3cdfbfc03505bc8bb56e7fc5b4b08032e7556f2609bdaf4304acdc505326e3ad", "bytes": 31651},
+    {"path": "lib/tools/schemaCheck.js", "reason": "Schema check — zod argument validation, hintFromIssues, logToolRepairEvents", "status": "present", "hash": "d8d28e260eb1e817a4a7bb3b86aac30928d6b31036ef1f1e1a8d31ef0f4e7896", "bytes": 7368},
+    {"path": "lib/tools/validateWrittenFile.js", "reason": "Post-write validation — JS syntax check, JSON parse, XML validation", "status": "present", "hash": "9994a786b618ed408e53b42c02c5c9672879f7bda397424decbbf3e622c2f818", "bytes": 3543},
+    {"path": "lib/agent/tool-hooks.js", "reason": "Tool hooks — pre/post hooks with path safety, confirmation gating, lifecycle trace", "status": "present", "hash": "67476462107ea095187b7d6c193a79b982d537c2c29dbbcf9ef922980d0ad883", "bytes": 34575},
+    {"path": "lib/agent/tool-safety-middleware.js", "reason": "Tool safety middleware — capability gating, shell allow, local-only tools", "status": "present", "hash": "c05b3abe353beaeb1ead42079bb5941fb0f1bb6472ab1c40a0876470da5e80c9", "bytes": 7456},
+    {"path": "lib/agent/mcp-connect.js", "reason": "MCP tool catalog — connect MCP, build schemas, register host tools", "status": "present", "hash": "4aae22cbf9bed01fc96c12486bee7a24000b08d36b35052e4239baefe133a9f5", "bytes": 5125}
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A20",
+  "slice_name": "Background agents and recovery",
+  "invariant": "Jobs are isolated, idempotent, budgeted, interruptible, and safely resumed after partial failure.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/workers/agent-scheduler.js", "reason": "Agent scheduler — job queue, runJob, job lifecycle (queued/running/completed/failed/interrupted)", "status": "present", "hash": "0acf46bb3183cc2cabf6cc6baa82a258174f9d708ffc0d816ec0aa108de9daba", "bytes": 13820},
+    {"path": "lib/workers/roundtable.js", "reason": "Round table orchestrator — multi-agent consensus with failure isolation", "status": "present", "hash": "c25b5a3c7560832b9bc1174fd9b0c7b407a8f03f0b1117c61cafd664806d8320", "bytes": 32225},
+    {"path": "lib/server/backgroundWorkers.js", "reason": "Background workers — dedup, inference, prune, logPrune, runPrune", "status": "present", "hash": "61dafdc1980e1ea34e4b15a9e6ad3b8cfaf0af3b09e0991169aa86e6ed17431d", "bytes": 9952},
+    {"path": "lib/workers/session-prune.js", "reason": "Session pruner — session retention, age-based expiration", "status": "present", "hash": "410f37a834d17262bdea01f2ccf30d6bd3fe004f32c02b1af08c488d3052988c", "bytes": 8025},
+    {"path": "lib/agent/job-spec.js", "reason": "Job spec — background agent configuration", "status": "present", "hash": "42bc710a8b23dce2156cd213cc05dfbbd50f51472108ea783bad8611c084004d", "bytes": 1938}
+  ]
+}

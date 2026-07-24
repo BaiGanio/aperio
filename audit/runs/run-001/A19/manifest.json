@@ -1,0 +1,18 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A19",
+  "slice_name": "Budgets, quotas, and runaway prevention",
+  "invariant": "Every recursive/long-running loop has a measurable limit, one accounting source, and a safe exhausted state.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/workers/roundtable.js", "reason": "Round table orchestrator — per-agent turn budgets, consensus limits", "status": "present", "hash": "c25b5a3c7560832b9bc1174fd9b0c7b407a8f03f0b1117c61cafd664806d8320", "bytes": 32225},
+    {"path": "lib/workers/agent-scheduler.js", "reason": "Agent scheduler — job run limits, retry budgets, interrupt gate", "status": "present", "hash": "0acf46bb3183cc2cabf6cc6baa82a258174f9d708ffc0d816ec0aa108de9daba", "bytes": 13820},
+    {"path": "lib/helpers/rateLimit.js", "reason": "Rate limiting middleware — Express middleware, configurable window/limit", "status": "present", "hash": "f8716ac0bc32f228b303b183ff64c322d500d71e54a32ea99d4bbfc81627c266", "bytes": 2013},
+    {"path": "lib/context/trim.js", "reason": "Context thresholds — 60%/72%/75%/80%/90% tiers, absolute caps (80K/120K)", "status": "present", "hash": "648d790c8a37f7c3eed7a7df032c59aa1732cd793c60a01a6df53aace2022228", "bytes": 8516},
+    {"path": "lib/agent/turn-diagnostics.js", "reason": "Turn diagnostics — no-tool-use streak (2), slow-turn streak (3), SLOW_TURN_EVIDENCE", "status": "present", "hash": "e91b5eefe534ef02bc0c5be03e84bd6d30e8d33c8d3c3af23b54b1088276ccbd", "bytes": 3416},
+    {"path": "lib/tools/executor.js", "reason": "Tool executor — tool timeout (60s default, 300s VLM), destructive tool set", "status": "present", "hash": "3cdfbfc03505bc8bb56e7fc5b4b08032e7556f2609bdaf4304acdc505326e3ad", "bytes": 31651},
+    {"path": "lib/helpers/startLlamaCpp.js", "reason": "llama.cpp process lifecycle — process spawning, timeout, signal handling", "status": "present", "hash": "7e065921a850ca9826da0b665684574aa8e766d6008712ac66aa81f2ef52e668", "bytes": 21891}
+  ]
+}

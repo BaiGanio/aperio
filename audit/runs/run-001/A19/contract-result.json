@@ -1,0 +1,31 @@
+{
+  "$schema": "aperio-audit-budgets-contract-v1",
+  "slice_id": "A19",
+  "slice_name": "Budgets, quotas, and runaway prevention",
+  "observed_at": "2026-07-24T21:56:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Round table orchestrator (lib/workers/roundtable.js) exists", "passed": true, "detail": "Present — per-agent turn budgets, consensus limits"},
+        {"invariant": "Agent scheduler (lib/workers/agent-scheduler.js) exists", "passed": true, "detail": "Present — job run limits, retry budgets"},
+        {"invariant": "Rate limit middleware (lib/helpers/rateLimit.js) exists", "passed": true, "detail": "Present — configurable window/limit for Express routes"},
+        {"invariant": "Context thresholds (lib/context/trim.js) exists", "passed": true, "detail": "Present — 5-tier threshold system with absolute caps"},
+        {"invariant": "Turn diagnostics (lib/agent/turn-diagnostics.js) exists", "passed": true, "detail": "Present — evidence-gated streak counters for no-tool and slow-turn"}
+      ],
+      "passed": true
+    },
+    "budget_enforcement": {
+      "results": [
+        {"invariant": "Context has 5 tiers (warn/handoff/trim/summarize/emergency) with absolute caps", "passed": true, "detail": "60%/72%/75%/80%/90% + 80K warn / 120K handoff absolute caps"},
+        {"invariant": "Tool timeout is bounded (60s default, 300s for VLM)", "passed": true, "detail": "DEFAULT_TOOL_TIMEOUT_MS=60000, TOOL_TIMEOUT_MS map override"},
+        {"invariant": "Rate limit exists for API routes", "passed": true, "detail": "rateLimit.js — Express middleware, applied at route level"},
+        {"invariant": "No-tool-use warning fires after 2-streak evidence gate", "passed": true, "detail": "checkNoToolUse in turn-diagnostics: streak ≥ 2 without tool call + proseWithCode"},
+        {"invariant": "Slow-turn warning fires after 3-streak with perf recommendation", "passed": true, "detail": "checkSlowTurn: SLOW_TURN_EVIDENCE=3, recommendPerfFix with profile/throughput"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

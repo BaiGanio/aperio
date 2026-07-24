@@ -1,0 +1,17 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A07",
+  "slice_name": "Context assembly and trimming",
+  "invariant": "Context limits preserve system authority, tool-pair validity, ordering, provenance, and recoverability.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/context/trim.js", "reason": "Context trimmer — token estimation, trimByTokens, multi-tier thresholds (warn/handoff/summarize/emergency)", "status": "present", "hash": "648d790c8a37f7c3eed7a7df032c59aa1732cd793c60a01a6df53aace2022228", "bytes": 8516},
+    {"path": "lib/context/ragStore.js", "reason": "RAG store — relevant past exchange retrieval after context compression", "status": "present", "hash": "a5cf9a5049798364a5452c91aefba3e511a8e62391e364043fd18db713077ac2", "bytes": 2517},
+    {"path": "lib/context/artifactStore.js", "reason": "Artifact store — disk-backed offloaded tool result storage", "status": "present", "hash": "bab89e59242867337190abeb688903aba837a2d4143284ae6b46659dcd522886", "bytes": 8674},
+    {"path": "lib/context/toolResultOffload.js", "reason": "Tool result offload — oversized result truncation, redactSecrets, artifact storage", "status": "present", "hash": "b954de0126b7da1cc12dcf6d1035d1c78ffd46f02a0b05c06af2b7d40955d141", "bytes": 5052},
+    {"path": "lib/context/artifactRetrieval.js", "reason": "Artifact retrieval — read offloaded artifacts by ID", "status": "present", "hash": "87e07cc84a47cb911fe107fe329a3ed22f007d7d70e3c828c25e350c6954a3d0", "bytes": 4680},
+    {"path": "lib/agent/model-context-middleware.js", "reason": "Model context middleware — tool result offload, token capping lifecycle hook", "status": "present", "hash": "6d2c21e5bcb12004645bde1b4453e1429d5ee46169b7bad86144c54108bd09d3", "bytes": 8295}
+  ]
+}
