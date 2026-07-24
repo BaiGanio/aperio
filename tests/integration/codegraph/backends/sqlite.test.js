@@ -17,7 +17,11 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS cg_repos (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
     root_path       TEXT    NOT NULL UNIQUE,
-    last_indexed_at TEXT
+    last_indexed_at TEXT,
+    index_schema_version INTEGER NOT NULL DEFAULT 0,
+    graph_revision       INTEGER NOT NULL DEFAULT 0,
+    analyzed_revision    INTEGER,
+    analyzed_at          TEXT
   );
 
   CREATE TABLE IF NOT EXISTS cg_files (
@@ -48,7 +52,31 @@ const SCHEMA = `
     dst_symbol_id   INTEGER,
     dst_unresolved  TEXT,
     kind            TEXT,
-    src_line        INTEGER
+    src_line        INTEGER,
+    confidence       TEXT NOT NULL DEFAULT 'EXTRACTED'
+      CHECK (confidence IN ('EXTRACTED','INFERRED','AMBIGUOUS')),
+    confidence_score REAL
+      CHECK (confidence_score IS NULL OR (confidence_score >= 0 AND confidence_score <= 1)),
+    provenance       TEXT,
+    relation_context TEXT
+  );
+
+  CREATE TABLE IF NOT EXISTS cg_communities (
+    repo_id      INTEGER NOT NULL REFERENCES cg_repos(id) ON DELETE CASCADE,
+    community_id INTEGER NOT NULL,
+    label        TEXT,
+    size         INTEGER NOT NULL DEFAULT 0,
+    cohesion     REAL,
+    PRIMARY KEY (repo_id, community_id)
+  );
+
+  CREATE TABLE IF NOT EXISTS cg_symbol_metrics (
+    symbol_id     INTEGER PRIMARY KEY REFERENCES cg_symbols(id) ON DELETE CASCADE,
+    repo_id       INTEGER NOT NULL REFERENCES cg_repos(id) ON DELETE CASCADE,
+    community_id  INTEGER,
+    degree        INTEGER NOT NULL DEFAULT 0,
+    hotspot_score REAL,
+    bridge_score  REAL
   );
 
   CREATE VIRTUAL TABLE IF NOT EXISTS cg_symbols_fts USING fts5(

@@ -33,7 +33,10 @@ aperio/
 │   ├── helpers/           # Cross-cutting: logger, embeddings, auth, net guard, TLS, browser launcher
 │   ├── workers/           # Background workers (embedding queue, etc.)
 │   ├── utils/             # Pure utilities (path resolution, token counting, etc.)
-│   ├── codegraph/         # Code symbol graph (tree-sitter index)
+│   ├── codegraph/         # Code symbol graph: tree-sitter index (extract-*, indexer, backends/),
+│   │                      #   confidence-aware edges + synthetic file nodes (resolve.js), shared
+│   │                      #   traversal (graph.js), native Louvain/SCC analysis (analysis.js),
+│   │                      #   lazy revision-invalidated persistence (analysisService.js)
 │   ├── docgraph/          # Document graph (full-text + vector index)
 │   └── db-connect/        # External DB connection management
 ├── mcp/

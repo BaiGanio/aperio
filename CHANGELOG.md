@@ -9,6 +9,29 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Codegraph graph intelligence** (issue #283, backend steps 1–4): the persistent
+  code graph gains confidence-aware relationships, working file-level import edges,
+  arbitrary traversal, and deterministic native community analysis. Migration `010`
+  (mirrored SQLite/Postgres) adds edge `confidence`/`confidence_score`/`provenance`/
+  `relation_context`, per-repo graph revisioning (`index_schema_version`,
+  `graph_revision`, `analyzed_revision`), and `cg_communities` + `cg_symbol_metrics`
+  snapshot tables. Every indexed file now gets a synthetic `kind=file` symbol, which
+  fixes a latent bug where `__file__` import edges were silently dropped — imports and
+  file-level import cycles now persist. Confidence policy: direct syntax facts are
+  `EXTRACTED`/1.0, unique-name and relative-import resolutions are `INFERRED`/0.8, and
+  no destination is ever fabricated. New read-only surfaces: MCP tools `code_neighbors`
+  (relation-agnostic neighborhood, direction/depth/kind filters, honest truncation),
+  `code_path` (bounded directed/undirected shortest path with a distinct `found:false`),
+  and `code_insights` (`summary|communities|hotspots|bridges|cycles`); HTTP endpoints
+  `GET /api/codegraph/{neighbors,path,insights,graph}`. Community detection uses
+  Graphology's Louvain over an undirected projection with a seeded RNG (deterministic,
+  repeatable); hotspots exclude file/built-in-noise nodes; bridges rank by
+  cross-community ratio·degree·confidence with no quadratic betweenness; import cycles
+  return one representative cycle per strongly-connected component via iterative Tarjan.
+  Analysis is computed lazily on the first read after a graph revision changes and
+  persisted with compare-before-commit so stale watcher results can't overwrite newer
+  data. Adds `graphology` + `graphology-communities-louvain` (no Python/NetworkX). The
+  interactive D3 visualization (steps 5–6) is tracked separately.
 - **Live Postgres in CI** (issue #310): `ci.codecov.yml`'s `coverage-tests` and
   `e2e-dashboard` jobs now provision a `pgvector/pgvector:pg16` service
   container and set `APERIO_E2E_POSTGRES_URL`, so the SQLite/Postgres store

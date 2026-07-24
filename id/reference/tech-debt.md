@@ -25,6 +25,15 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## Codegraph
+
+- 2026-07-24 (#283) `loadGraph(store, repoId)` reads the *entire* repo graph into memory on
+  every `code_neighbors`/`code_path`/`code_insights`/`/graph` request. Fine at the 10k-node
+  target and matches the "shared adapter loads one repository" design, but a depth-1 neighbors
+  query still materializes the whole repo. If large-repo latency bites, add a bounded
+  DB-side BFS fast-path for shallow neighbors, or cache the built graph per (repoId,
+  graph_revision) so warm traversals skip the reload. Not urgent.
+
 ---
 
 ## Intentional deferrals
