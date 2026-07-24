@@ -1,0 +1,337 @@
+{
+  "$schema": "aperio-audit-wave5-contract-v1",
+  "slice_id": "wave-5",
+  "slice_name": "12 Cross-Domain Journeys + Boundary Matrix",
+  "observed_at": "2026-07-24T23:00:00.000Z",
+  "commit": "45b5f7c",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {
+          "invariant": "Journey 1 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-1.md — Fresh Lite install → bootstrap → SQLite → local model → first memory recall"
+        },
+        {
+          "invariant": "Journey 2 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-2.md — Browser chat → WebSocket → agent → tool → confirmation → UI result"
+        },
+        {
+          "invariant": "Journey 3 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-3.md — External MCP host → ctx → memory/files tool → database/path guard"
+        },
+        {
+          "invariant": "Journey 4 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-4.md — Provider switch mid-session"
+        },
+        {
+          "invariant": "Journey 5 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-5.md — Cloud egress with secrets/self-memory/attachments/tool results"
+        },
+        {
+          "invariant": "Journey 6 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-6.md — Background job → permissions/budget → interrupt → persisted run → restart/resume"
+        },
+        {
+          "invariant": "Journey 7 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-7.md — Document/code indexing → parser → embedding queue → backend → retrieval → deletion"
+        },
+        {
+          "invariant": "Journey 8 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-8.md — Non-loopback deployment → TLS/auth/origin/rate-limit"
+        },
+        {
+          "invariant": "Journey 9 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-9.md — Browser disconnect/reconnect during streaming and mutating tool call"
+        },
+        {
+          "invariant": "Journey 10 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-10.md — Concurrent MCP host + browser on same memory/path/artifact/DB"
+        },
+        {
+          "invariant": "Journey 11 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-11.md — Tool result too large → offload → retrieval → switch → resume → cleanup"
+        },
+        {
+          "invariant": "Journey 12 report exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/journeys/journey-12.md — Permission/model change during background job lifecycle"
+        },
+        {
+          "invariant": "Boundary matrix exists",
+          "passed": true,
+          "detail": "audit/runs/run-001/matrix.json — 7 callers × 5 invariants, all cells populated"
+        }
+      ],
+      "passed": true
+    },
+    "journey_coverage": {
+      "results": [
+        {
+          "invariant": "Journey 1 has named hops with contracts",
+          "passed": true,
+          "detail": "6 hops traced: Download → server.js → createApp → bootstrap → bootApp → memory recall"
+        },
+        {
+          "invariant": "Journey 2 has named hops with contracts",
+          "passed": true,
+          "detail": "7 hops traced: WS connect → init → chat dispatch → agent/tool → streaming → confirmation → rendering"
+        },
+        {
+          "invariant": "Journey 3 has named hops with contracts",
+          "passed": true,
+          "detail": "6 hops traced: MCP start → memory tools → self-memory gate → files/path guard → wiki → DB store resolution"
+        },
+        {
+          "invariant": "Journey 4 has named hops with contracts",
+          "passed": true,
+          "detail": "6 hops traced: switch_model → setProvider → normalizeMessages → provider resolution → provider loop → session persistence"
+        },
+        {
+          "invariant": "Journey 5 has named hops with contracts",
+          "passed": true,
+          "detail": "7 hops traced: secret redaction → tier filtering → self-memory gate → memory injection → image egress → tool offload → provider locality"
+        },
+        {
+          "invariant": "Journey 6 has named hops with contracts",
+          "passed": true,
+          "detail": "5 hops traced: job creation → permission/budget → interrupt → run persistence → shutdown/resume"
+        },
+        {
+          "invariant": "Journey 7 has named hops with contracts",
+          "passed": true,
+          "detail": "6 hops traced: indexer → parser → embedding queue → embedding/storage → retrieval → watcher/deletion"
+        },
+        {
+          "invariant": "Journey 8 has named hops with contracts",
+          "passed": true,
+          "detail": "5 hops traced: TLS → NetGuard → auth → rate-limit → WS verifyClient"
+        },
+        {
+          "invariant": "Journey 9 has named hops with contracts",
+          "passed": true,
+          "detail": "6 hops traced: WS close → turn abort → provider stream abort → session finalisation → session resume → mutating tool during disconnect"
+        },
+        {
+          "invariant": "Journey 10 has named hops with contracts",
+          "passed": true,
+          "detail": "7 hops traced: shared store → cache race → WAL/concurrent → approvePending → updateMemory race → path isolation → Postgres locking"
+        },
+        {
+          "invariant": "Journey 11 has named hops with contracts",
+          "passed": true,
+          "detail": "6 hops traced: tool result offload → artifact store → artifact retrieval → provider switch → session resume → retention cleanup"
+        },
+        {
+          "invariant": "Journey 12 has named hops with contracts",
+          "passed": true,
+          "detail": "5 hops traced: job spec frozen → permission change queued → permission change running → model change queued → interrupt during change"
+        }
+      ],
+      "passed": true
+    },
+    "matrix_completeness": {
+      "results": [
+        {
+          "invariant": "Browser REST × Agent/context",
+          "passed": true,
+          "detail": "Covered — Journey 1 (H5-6), Journey 5 (H4). Stale UI after config mutation: no explicit test."
+        },
+        {
+          "invariant": "Browser REST × MCP/tools",
+          "passed": true,
+          "detail": "Covered — Journey 3 (all hops). Files path guard: 1111-line integration suite."
+        },
+        {
+          "invariant": "Browser REST × Provider/cloud",
+          "passed": true,
+          "detail": "Covered — Journey 5 (H7), Journey 4 (H4). Provider selection, secret handling."
+        },
+        {
+          "invariant": "Browser REST × DB/artifacts",
+          "passed": true,
+          "detail": "Covered — Journey 1 (H5), Journey 11 (H1-3). CRUD, migrations, artifacts."
+        },
+        {
+          "invariant": "Browser REST × Background/interrupt",
+          "passed": true,
+          "detail": "Covered — Journey 12 (H2-3), Journey 6 (H3). Job CRUD, interrupt via API."
+        },
+        {
+          "invariant": "Browser WebSocket × Agent/context",
+          "passed": true,
+          "detail": "Covered — Journey 1 (H6), Journey 9 (H1-5). Turn ordering, reconnect, per-session context."
+        },
+        {
+          "invariant": "Browser WebSocket × MCP/tools",
+          "passed": false,
+          "detail": "Covered with gaps — Journey 2 (H6). CONFIRMABLE_TOOLS path untested. Critical gap."
+        },
+        {
+          "invariant": "Browser WebSocket × Provider/cloud",
+          "passed": false,
+          "detail": "Covered with gaps — Journey 4 (H3). normalizeMessages drops images. Session persistence after switch untested."
+        },
+        {
+          "invariant": "Browser WebSocket × DB/artifacts",
+          "passed": true,
+          "detail": "Covered — Journey 9 (H4-5), Journey 11 (H1-3). Session persistence, artifact references."
+        },
+        {
+          "invariant": "Browser WebSocket × Background/interrupt",
+          "passed": true,
+          "detail": "Covered — Journey 2 (H6), Journey 6 (H3). Interrupt lifecycle, cancellation."
+        },
+        {
+          "invariant": "Terminal client × Agent/context",
+          "passed": true,
+          "detail": "Covered — Journey 9 (H5). Same WS handler, same session module."
+        },
+        {
+          "invariant": "Terminal client × MCP/tools",
+          "passed": true,
+          "detail": "Covered — Journey 3 (H2-4). Same MCP tools, same wsEmitter."
+        },
+        {
+          "invariant": "Terminal client × Provider/cloud",
+          "passed": false,
+          "detail": "Covered with gaps — Journey 4 (all). Same normalizeMessages gap as browser. Verified auth via J8-H5."
+        },
+        {
+          "invariant": "Terminal client × DB/artifacts",
+          "passed": true,
+          "detail": "Covered — Journey 1 (H5), Journey 9 (H4). Same persistence, same store."
+        },
+        {
+          "invariant": "Terminal client × Background/interrupt",
+          "passed": true,
+          "detail": "Covered — Journey 6 (H3), Journey 12 (H5). Same interrupt service."
+        },
+        {
+          "invariant": "External MCP host × Agent/context",
+          "passed": true,
+          "detail": "Covered — Journey 3 (H1). No browser assumptions. No per-session scratch context (paths.js doc)."
+        },
+        {
+          "invariant": "External MCP host × MCP/tools",
+          "passed": true,
+          "detail": "Covered — Journey 3 (all hops). Ctx completeness, confirmations, error contract all tested."
+        },
+        {
+          "invariant": "External MCP host × Provider/cloud",
+          "passed": true,
+          "detail": "Covered — Journey 5 (all), Journey 3 (H3). providerIsLocal in ctx. Self-memory gate enforced. No provider-backed MCP path exists."
+        },
+        {
+          "invariant": "External MCP host × DB/artifacts",
+          "passed": false,
+          "detail": "Covered with gaps — Journey 10 (H1-3). MCP + browser share store instance (MEDIUM-HIGH). No per-session path scope. No busy_timeout."
+        },
+        {
+          "invariant": "External MCP host × Background/interrupt",
+          "passed": true,
+          "detail": "Covered — Journey 11 (H3), Journey 3 (H4). Paginated retrieval, abort-signal, timeout controllers."
+        },
+        {
+          "invariant": "Internal foreground agent × Agent/context",
+          "passed": true,
+          "detail": "Covered — Journey 5 (H3-4), Journey 4 (H2). Self-memory gate, setProvider clears ctx."
+        },
+        {
+          "invariant": "Internal foreground agent × MCP/tools",
+          "passed": true,
+          "detail": "Covered — Journey 2 (H4), Journey 3 (H4). Safety middleware, path guard, needsWriteConfirm."
+        },
+        {
+          "invariant": "Internal foreground agent × Provider/cloud",
+          "passed": true,
+          "detail": "Covered — Journey 5 (H1-2), Journey 4 (H5). Redaction, capability filtering, usage, retry."
+        },
+        {
+          "invariant": "Internal foreground agent × DB/artifacts",
+          "passed": false,
+          "detail": "Covered with gaps — Journey 11 (H1-3), Journey 10 (H5). updateMemory race (no locking). Offload/retrieval tested."
+        },
+        {
+          "invariant": "Internal foreground agent × Background/interrupt",
+          "passed": true,
+          "detail": "Covered — Journey 6 (H3), Journey 2 (H6). Interrupt service, turnLock cleanup."
+        },
+        {
+          "invariant": "Scheduled/background agent × Agent/context",
+          "passed": false,
+          "detail": "Covered with gaps — Journey 12 (H1-4). Static isolation strong. Config changes don't propagate. switch_model ignores background jobs."
+        },
+        {
+          "invariant": "Scheduled/background agent × MCP/tools",
+          "passed": true,
+          "detail": "Covered — Journey 12 (H3), Journey 6 (H2). Permissions frozen. No user-in-loop confirmation."
+        },
+        {
+          "invariant": "Scheduled/background agent × Provider/cloud",
+          "passed": true,
+          "detail": "Covered — Journey 12 (H1), Journey 6 (H2). Budget, retry, provider frozen at creation."
+        },
+        {
+          "invariant": "Scheduled/background agent × DB/artifacts",
+          "passed": true,
+          "detail": "Covered — Journey 6 (H4), Journey 12 (H3). Run persistence, cross-backend contract tests, single-flight idempotency."
+        },
+        {
+          "invariant": "Scheduled/background agent × Background/interrupt",
+          "passed": false,
+          "detail": "Covered with gaps — Journey 6 (H1-5). Full lifecycle E2E tested. No crash recovery. Budget exhaustion untested."
+        },
+        {
+          "invariant": "Shutdown/restart/recovery × Agent/context",
+          "passed": true,
+          "detail": "Covered — Journey 1 (H3), Journey 6 (H5). Session finalised. No crash-recovery for background jobs."
+        },
+        {
+          "invariant": "Shutdown/restart/recovery × MCP/tools",
+          "passed": true,
+          "detail": "Covered — Journey 6 (H5), Journey 11 (H6). Tools cannot be called after close. Results persisted."
+        },
+        {
+          "invariant": "Shutdown/restart/recovery × Provider/cloud",
+          "passed": true,
+          "detail": "Covered — Journey 1 (H3), Journey 9 (H3). Abort fires, streams closed, controllers tested."
+        },
+        {
+          "invariant": "Shutdown/restart/recovery × DB/artifacts",
+          "passed": true,
+          "detail": "Covered — Journey 1 (H5), Journey 11 (H6). store.close(), pruners, workers shutdown."
+        },
+        {
+          "invariant": "Shutdown/restart/recovery × Background/interrupt",
+          "passed": true,
+          "detail": "Covered — Journey 6 (H5), Journey 12 (H2-3). Jobs lost in flight on crash. Safe rescheduling on next boot."
+        }
+      ],
+      "passed": false,
+      "failures": [
+        "Browser WebSocket × MCP/tools — CONFIRMABLE_TOOLS path critical gap",
+        "Browser WebSocket × Provider/cloud — normalizeMessages drops images",
+        "Terminal client × Provider/cloud — inherits same gap",
+        "External MCP host × DB/artifacts — shared store, no isolation (MEDIUM-HIGH)",
+        "Internal foreground agent × DB/artifacts — updateMemory race",
+        "Scheduled/background agent × Agent/context — config changes don't propagate",
+        "Scheduled/background agent × Background/interrupt — no crash recovery"
+      ],
+      "summary": "35 of 35 cells populated. 7 cells have documented gaps. 1 cell rated MEDIUM-HIGH RISK (concurrent store access)."
+    }
+  },
+  "passed": false,
+  "summary": "Wave 5 complete: 12 journey reports written, boundary matrix populated. 7 cells have documented gaps requiring follow-up. The most critical finding is Journey 10 (concurrent access) rated MEDIUM-HIGH RISK."
+}

@@ -33,8 +33,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
   interrupt semantics (A17), permissions (A18), budgets (A19), background agents (A20),
   codegraph/docgraph ingestion (A21), and UI/i18n/packaging (A22). Pre-existing:
   bootstrap (A01), config/secrets (A02), HTTP routes (A03), memory/wiki/embeddings (A13),
-  database parity (A14). All contract gates passed. Remaining: Wave 5 — 12 end-to-end
-  boundary journeys and cross-domain matrix.
+   database parity (A14). All contract gates passed.
+- **Wave 5 — 12 cross-domain journeys and boundary matrix complete**:
+  all 12 end-to-end journeys traced, each with named hops, contracts,
+  test-coverage evidence, findings, and a verdict. Boundary matrix (7 callers × 5
+  invariants) fully populated. Summary: 4 journeys PASS, 3 PASS with notes,
+  3 DEFERRED, 1 MEDIUM-HIGH RISK (concurrent store access — see
+  [#318](https://github.com/BaiGanio/aperio/issues/318)). Reports in
+  `audit/runs/run-001/journeys/`.
 - **Codex/Claude Code native image + skill support**: closes the two gaps
   `provider-ux-parity` (issue #290's sibling epic) documented as "known"
   instead of wiring in. Codex passes attached images through via the CLI's
