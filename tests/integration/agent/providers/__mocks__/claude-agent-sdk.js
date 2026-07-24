@@ -18,7 +18,14 @@ export function createSdkMcpServer({ name, tools }) {
 let queuedEvents = null;
 export function __setMockEvents(events) { queuedEvents = events; }
 
+// Tests inspect the exact `prompt`/`options` shape the provider constructed
+// (e.g. the async-iterable prompt form carrying image blocks, or
+// queryOptions.systemPrompt) without needing query() itself to consume them.
+let lastQueryArgs = null;
+export function __getLastQueryArgs() { return lastQueryArgs; }
+
 export function query({ prompt, options }) {
+  lastQueryArgs = { prompt, options };
   const events = queuedEvents;
   queuedEvents = null;
   const gen = (async function*() {

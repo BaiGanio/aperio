@@ -217,7 +217,13 @@ tokens and uses local models for reconnaissance.
 | `runs/run-001/A14/contract-result.json` | A14 contract gate result (passing) | Verified |
 | `runs/run-001/A02/manifest.json` | A02 evidence packet | Verified |
 | `runs/run-001/A02/contract-result.json` | A02 contract gate result (passing) | Verified |
-| `npm run test:audit` | Runs all audit harness tests | 66/66 pass |
+| `scripts/contracts/routes.js` | A03 Route contract gate (17 route files, 5 security modules, api.js mount refs) | 7 pass |
+| `runs/run-001/A03/manifest.json` | A03 evidence packet | Verified |
+| `runs/run-001/A03/contract-result.json` | A03 contract gate result (passing) | Verified |
+| `scripts/contracts/memory.js` | A13 Memory contract gate (14 files, 15 test files) | 7 pass |
+| `runs/run-001/A13/manifest.json` | A13 evidence packet | Verified |
+| `runs/run-001/A13/contract-result.json` | A13 contract gate result (passing) | Verified |
+| `npm run test:audit` | Runs all audit harness tests | 80/80 pass |
 | `audit/README.md` | This file — developer instructions | Updated after each phase |
 
 ### What the plan describes but doesn't exist yet
@@ -226,11 +232,11 @@ tokens and uses local models for reconnaissance.
 |-----------|---------|------------|
 | Wave 1–5 execution | 22 slice audits | Full audit run |
 | Delta trigger system | Rerun only changed slices | After Run 1 closeout |
-| Slice definitions for A01, A03–A13, A15–A22 | Remaining 20 slice definitions in manifest.js | Full audit run |
+| Slice definitions for A01, A04–A12, A14, A15–A22 | Remaining 18 slice definitions in manifest.js | Full audit run |
 
-A14 (Database) and A02 (Configuration) areas are complete: manifest → contract gate →
-red/green proof → run records saved. All 66 tests pass.
-Next: expand to remaining 20 slices.
+A14 (Database), A02 (Configuration), A03 (Routes), and A13 (Memory) areas are complete: manifest → contract gate →
+red/green proof → run records saved. All 80 tests pass.
+Next: expand to remaining 18 slices.
 
 ---
 

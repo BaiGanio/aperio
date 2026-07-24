@@ -1,0 +1,77 @@
+{
+  "$schema": "aperio-audit-bootstrap-contract-v1",
+  "slice_id": "A01",
+  "checks": {
+    "boot_files": {
+      "results": [
+        {
+          "invariant": "Production entrypoint (server.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "First-run bootstrap (bootstrap.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Composition root (createApp) (lib/server.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Graceful shutdown (lib/server/shutdown.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": ".env loader (lib/load-env.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Runtime hydration (lib/server/hydrateRuntime.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Crash breaker (lib/helpers/crashBreaker.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Boot-time config resolution (lib/config-resolver.js) exists",
+          "passed": true,
+          "detail": "Present"
+        }
+      ],
+      "passed": true
+    },
+    "boot_tests": {
+      "results": [
+        {
+          "invariant": "Test file tests/e2e/bootstrap/bootstrap.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/e2e/real-app/real-app-lifecycle.test.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Test file tests/integration/server/server.test.js exists",
+          "passed": false,
+          "detail": "MISSING"
+        },
+        {
+          "invariant": "Test file tests/unit/lib/server.shutdown.test.js exists",
+          "passed": false,
+          "detail": "MISSING"
+        }
+      ],
+      "passed": false
+    }
+  },
+  "passed": false
+}

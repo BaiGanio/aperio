@@ -39,6 +39,7 @@ after(() => {
 
 let runClaudeCodeLoop;
 let __setMockEvents;
+let __getLastQueryArgs;
 
 before(async () => {
   const mod = await import("../../../../lib/agent/providers/claude-code.js");
@@ -50,6 +51,7 @@ before(async () => {
   // provider's query() never reads.
   const mockSdk = await import("@anthropic-ai/claude-agent-sdk");
   __setMockEvents = mockSdk.__setMockEvents;
+  __getLastQueryArgs = mockSdk.__getLastQueryArgs;
 });
 
 function reset() {
@@ -136,14 +138,14 @@ describe("runClaudeCodeLoop — success", () => {
       "should log session id");
   });
 
-  // ─── WS6 / group F2 — skills-absence is documented, not silently broken ──
-  // provider-ux-parity chose the documentation route for F2: skills matching
-  // genuinely never runs for claude-code (confirmed here it never calls
-  // getSystemPrompt, so ensureTurn/logTurnOnce's skills_matched chip can
-  // never fire), and that gap is written up in FEATURES.md instead of wired
-  // in. This test is the guardrail against silently regressing to "neither
-  // wired in nor documented."
-  test("F2: never calls ctx.getSystemPrompt (skills matching does not run for claude-code)", async () => {
+  // ─── WS6/F2 superseded by WS-B (group I below) ────────────────────────────
+  // provider-native-capabilities WS-B wires skill matching in via the narrow
+  // ctx.getSkillsBlock, not the full ctx.getSystemPrompt — claude-code still
+  // never calls getSystemPrompt itself (that would duplicate Aperio's base
+  // identity prompt on top of the SDK's own `claude_code` preset identity).
+  // This guard now documents that permanent design choice rather than a
+  // still-open gap.
+  test("F2: never calls ctx.getSystemPrompt (skill content is injected via ctx.getSkillsBlock instead)", async () => {
     const messages = [{ role: "user", content: "Hi" }];
     const emitter = { send: mock.fn() };
     const getSystemPrompt = mock.fn(() => "should not be called");
@@ -153,13 +155,126 @@ describe("runClaudeCodeLoop — success", () => {
     assert.equal(getSystemPrompt.mock.calls.length, 0);
   });
 
-  test("F2: never emits skills_matched (no chip without the underlying match)", async () => {
+  test("F2: the loop itself never fabricates a skills_matched event (emission is ctx.getSkillsBlock's job)", async () => {
     const messages = [{ role: "user", content: "Hi" }];
     const emitter = { send: mock.fn() };
     const ctx = baseCtx();
 
     await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
     assert.ok(!emitter.send.mock.calls.some(c => c.arguments[0].type === "skills_matched"));
+  });
+});
+
+// =============================================================================
+// WS-B / group I — skill matcher reuse, WS-C / group J — extraSystem fix
+// =============================================================================
+describe("runClaudeCodeLoop — skill matcher + extraSystem (groups I & J)", () => {
+  afterEach(() => { reset(); });
+
+  test("I2: calls ctx.getSkillsBlock once and appends its content via queryOptions.systemPrompt", async () => {
+    const getSkillsBlock = mock.fn(() => "## SKILL_CONTENT_MARKER\ndo the thing");
+    const messages = [{ role: "user", content: "Use the pptx skill" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, { lang: "en" }, null, () => {}, baseCtx({ getSkillsBlock }));
+
+    assert.equal(getSkillsBlock.mock.calls.length, 1);
+    assert.equal(getSkillsBlock.mock.calls[0].arguments[0], "Use the pptx skill");
+    assert.equal(getSkillsBlock.mock.calls[0].arguments[1], "en");
+
+    const { options } = __getLastQueryArgs();
+    assert.deepEqual(options.systemPrompt?.type, "preset");
+    assert.deepEqual(options.systemPrompt?.preset, "claude_code");
+    assert.match(options.systemPrompt?.append ?? "", /SKILL_CONTENT_MARKER/);
+  });
+
+  test("J1: opts.extraSystem reaches queryOptions.systemPrompt.append", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, { extraSystem: "UNIQUE_MARKER_TEXT" }, null, () => {}, baseCtx());
+
+    const { options } = __getLastQueryArgs();
+    assert.match(options.systemPrompt?.append ?? "", /UNIQUE_MARKER_TEXT/);
+  });
+
+  test("J2: a matched skill (WS-B) and opts.extraSystem (WS-C) concatenate, neither clobbers the other", async () => {
+    const getSkillsBlock = () => "## SKILL_CONTENT_MARKER";
+    const messages = [{ role: "user", content: "Use the pptx skill" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(
+      messages, emitter, { extraSystem: "UNIQUE_MARKER_TEXT" }, null, () => {},
+      baseCtx({ getSkillsBlock }),
+    );
+
+    const { options } = __getLastQueryArgs();
+    assert.match(options.systemPrompt.append, /SKILL_CONTENT_MARKER/);
+    assert.match(options.systemPrompt.append, /UNIQUE_MARKER_TEXT/);
+  });
+
+  test("J3: no matched skill and no extraSystem means no systemPrompt.append is injected at all", async () => {
+    const messages = [{ role: "user", content: "Hi" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const { options } = __getLastQueryArgs();
+    assert.equal(options.systemPrompt, undefined);
+  });
+
+  test("J3 edge: extraSystem unset but a skill matches still injects only the skill content, no stray empty piece", async () => {
+    const getSkillsBlock = () => "## SKILL_CONTENT_MARKER";
+    const messages = [{ role: "user", content: "Use the pptx skill" }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx({ getSkillsBlock }));
+
+    const { options } = __getLastQueryArgs();
+    assert.equal(options.systemPrompt.append, "## SKILL_CONTENT_MARKER");
+  });
+});
+
+// =============================================================================
+// WS-A2 / group H — image passthrough
+// =============================================================================
+describe("runClaudeCodeLoop — image passthrough (group H)", () => {
+  afterEach(() => { reset(); });
+
+  const PNG_BASE64 = Buffer.from("fake-png-bytes").toString("base64");
+
+  async function drain(iterable) {
+    const out = [];
+    for await (const item of iterable) out.push(item);
+    return out;
+  }
+
+  test("H1: prompt switches to the async-iterable form carrying text + image blocks", async () => {
+    const messages = [{ role: "user", content: [
+      { type: "text", text: "What's in this image?" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: PNG_BASE64 } },
+    ] }];
+    const emitter = { send: mock.fn() };
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+
+    const { prompt } = __getLastQueryArgs();
+    assert.notEqual(typeof prompt, "string", "prompt should be an async iterable, not a string");
+    const drained = await drain(prompt);
+    assert.equal(drained.length, 1);
+    const msg = drained[0];
+    assert.equal(msg.type, "user");
+    assert.equal(msg.message.role, "user");
+    const blockTypes = msg.message.content.map(b => b.type);
+    assert.deepEqual(blockTypes, ["text", "image"]);
+    assert.equal(msg.message.content[0].text, "What's in this image?");
+    assert.deepEqual(msg.message.content[1].source, { type: "base64", media_type: "image/png", data: PNG_BASE64 });
+  });
+
+  test("H1 edge: a text-only turn still produces a single-block async prompt (no image block, no regression)", async () => {
+    const messages = [{ role: "user", content: "Hello" }];
+    const emitter = { send: mock.fn() };
+    const result = await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
+    assert.equal(result, "Mock response");
+
+    const { prompt } = __getLastQueryArgs();
+    const drained = await drain(prompt);
+    assert.equal(drained.length, 1);
+    assert.equal(drained[0].message.content, "Hello");
   });
 });
 

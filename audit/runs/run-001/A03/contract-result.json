@@ -1,0 +1,147 @@
+{
+  "$schema": "aperio-audit-routes-contract-v1",
+  "slice_id": "A03",
+  "checks": {
+    "route_files": {
+      "results": [
+        {
+          "invariant": "Route file lib/routes/api.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-agents.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-codegraph.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-config.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-data.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-database.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-datasets.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-docgraph.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-github-webhook.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-interrupts.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-memories.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-meta.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-restart.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-sessions.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-settings.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/api-wiki.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Route file lib/routes/paths.js exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "api.js references all domain mount functions",
+          "passed": true,
+          "detail": "All mount functions referenced"
+        }
+      ],
+      "passed": true
+    },
+    "security_modules": {
+      "results": [
+        {
+          "invariant": "Route registration module (lib/server/setupRoutes.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Rate limiting middleware (lib/helpers/rateLimit.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "DNS rebinding / CSRF protection (lib/helpers/netGuard.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Agent permission enforcement (lib/security/agentPermissions.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Interrupt service (lib/security/interruptService.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Path safety gate (lib/routes/paths.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "setupRoutes.js imports rateLimit middleware",
+          "passed": true,
+          "detail": "makeRateLimiter imported"
+        },
+        {
+          "invariant": "setupRoutes.js imports staticAuth guard",
+          "passed": true,
+          "detail": "createStaticGuard imported"
+        }
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

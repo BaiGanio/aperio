@@ -82,6 +82,15 @@ function mockStatSync(path) {
   };
 }
 
+function mockWriteFileSync(path, data) {
+  vfsSetFile(path, Buffer.isBuffer(data) ? data : Buffer.from(String(data)));
+}
+
+function mockUnlinkSync(path) {
+  if (!vfs.has(path)) throw Object.assign(new Error(`ENOENT: '${path}'`), { code: "ENOENT" });
+  vfs.delete(path);
+}
+
 // ─── Patch CJS module objects BEFORE importing codex.js ───────────────────────
 // Node.js reads named-export values from the CJS module cache at first-import
 // time.  Patching before the dynamic import ensures codex.js sees our mocks.
@@ -94,6 +103,8 @@ mock.method(fsSync, "readdirSync", mockReaddirSync);
 mock.method(fsSync, "mkdirSync", mockMkdirSync);
 mock.method(fsSync, "renameSync", mockRenameSync);
 mock.method(fsSync, "statSync", mockStatSync);
+mock.method(fsSync, "writeFileSync", mockWriteFileSync);
+mock.method(fsSync, "unlinkSync", mockUnlinkSync);
 
 // Dynamic import: codex.js loads here and binds to our patched functions.
 const { runCodexLoop } = await import("../../../../lib/agent/providers/codex.js");
@@ -205,6 +216,111 @@ describe("runCodexLoop", () => {
     assert.equal(end.usage.thinking_tokens, 2);
   });
 
+  // ─── WS-A1 / group G — image passthrough ─────────────────────────────────
+  describe("image passthrough (group G)", () => {
+    const PNG_BASE64 = Buffer.from("fake-png-bytes").toString("base64");
+
+    test("G1: one image block becomes one -i <tempfile> pair, file holds the decoded bytes, zero images means no -i arg", async () => {
+      const scratch = "/fake/aperture-project/var/scratch/session-g1";
+      const capture = {};
+      let contentDuringRun;
+      await runCodexLoop(
+        [{ role: "user", content: [
+          { type: "text", text: "What's in this image?" },
+          { type: "image", source: { type: "base64", media_type: "image/png", data: PNG_BASE64 } },
+        ] }],
+        { send: mock.fn() },
+        {},
+        null,
+        () => {},
+        baseCtx({
+          getActiveScratchDir: () => scratch,
+          codexSpawn: mockChild({
+            capture,
+            stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+            // Snapshot the temp file's content while codex is still "running",
+            // before this turn's post-exit cleanup (group G2) removes it.
+            beforeClose: () => {
+              const imgPath = capture.args[capture.args.indexOf("-i") + 1];
+              contentDuringRun = vfsGet(imgPath);
+            },
+          }),
+        }),
+      );
+
+      const iIdx = capture.args.indexOf("-i");
+      assert.ok(iIdx >= 0, "expected a -i flag in codex args");
+      const imgPath = capture.args[iIdx + 1];
+      assert.ok(imgPath.startsWith(scratch), "temp image path should live under the scratch dir");
+      assert.ok(contentDuringRun, "temp image file should have existed while codex was running");
+      assert.equal(contentDuringRun.content.toString("base64"), PNG_BASE64);
+
+      // No image blocks at all → no -i arg (regression guard).
+      const capture2 = {};
+      await runCodexLoop(
+        [{ role: "user", content: "Hello, no image here" }],
+        { send: mock.fn() }, {}, null, () => {},
+        baseCtx({
+          getActiveScratchDir: () => scratch,
+          codexSpawn: mockChild({
+            capture: capture2,
+            stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+          }),
+        }),
+      );
+      assert.equal(capture2.args.includes("-i"), false);
+    });
+
+    test("G1 edge: two images in one turn produce two distinct -i <path> pairs", async () => {
+      const scratch = "/fake/aperture-project/var/scratch/session-g1b";
+      const capture = {};
+      await runCodexLoop(
+        [{ role: "user", content: [
+          { type: "text", text: "Compare these" },
+          { type: "image", source: { type: "base64", media_type: "image/png", data: PNG_BASE64 } },
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: PNG_BASE64 } },
+        ] }],
+        { send: mock.fn() }, {}, null, () => {},
+        baseCtx({
+          getActiveScratchDir: () => scratch,
+          codexSpawn: mockChild({
+            capture,
+            stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+          }),
+        }),
+      );
+
+      const paths = capture.args.reduce((acc, arg, i) => {
+        if (arg === "-i") acc.push(capture.args[i + 1]);
+        return acc;
+      }, []);
+      assert.equal(paths.length, 2);
+      assert.notEqual(paths[0], paths[1]);
+    });
+
+    test("G2: per-turn image temp files no longer exist once the codex child has exited", async () => {
+      const scratch = "/fake/aperture-project/var/scratch/session-g2";
+      const capture = {};
+      await runCodexLoop(
+        [{ role: "user", content: [
+          { type: "text", text: "What's this?" },
+          { type: "image", source: { type: "base64", media_type: "image/png", data: PNG_BASE64 } },
+        ] }],
+        { send: mock.fn() }, {}, null, () => {},
+        baseCtx({
+          getActiveScratchDir: () => scratch,
+          codexSpawn: mockChild({
+            capture,
+            stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+          }),
+        }),
+      );
+
+      const imgPath = capture.args[capture.args.indexOf("-i") + 1];
+      assert.equal(vfsGet(imgPath), undefined, "temp image file should be cleaned up after the turn");
+    });
+  });
+
   test("falls back from invalid ambient CLI enum settings", async () => {
     process.env.CODEX_SANDBOX = "seatbelt";
     process.env.CODEX_APPROVAL_POLICY = "interactive";
@@ -257,14 +373,84 @@ describe("runCodexLoop", () => {
     assert.deepEqual(tools, ["run_shell", "recall"]);
   });
 
-  // ─── WS6 / group F2 — skills-absence is documented, not silently broken ───
-  // provider-ux-parity chose the documentation route for F2: skills matching
-  // genuinely never runs for codex (confirmed here it never calls
-  // getSystemPrompt, so ensureTurn/logTurnOnce's skills_matched chip can
-  // never fire), and that gap is written up in FEATURES.md instead of wired
-  // in. This test is the guardrail against silently regressing to "neither
-  // wired in nor documented."
-  test("F2: never calls ctx.getSystemPrompt (skills matching does not run for codex)", async () => {
+  // ─── WS-B / group I — skill matcher reuse ─────────────────────────────────
+  // Deviation from the original plan text (noted at implementation time): the
+  // plan called for codex to invoke the full `ctx.prepareModelContext`, but
+  // that would fold Aperio's entire base identity/persona/memory-pointer
+  // prompt into every codex turn on top of codex's own AGENTS.md-driven
+  // identity — real, avoidable prompt bloat every turn. `ctx.getSkillsBlock`
+  // is the same skill-content-only helper WS-B already specifies for
+  // claude-code (to avoid a parallel identity conflict there); reusing it for
+  // both keeps the "reuse Aperio's own skill matcher" objective without the
+  // duplication cost.
+  test("I1: calls ctx.getSkillsBlock once and its returned content reaches the constructed prompt", async () => {
+    const getSkillsBlock = mock.fn(() => "## SKILL_CONTENT_MARKER\ndo the thing");
+    const capture = {};
+    await runCodexLoop(
+      [{ role: "user", content: "Use the pptx skill" }],
+      { send: mock.fn() },
+      { lang: "en" },
+      null,
+      () => {},
+      baseCtx({
+        getSkillsBlock,
+        codexSpawn: mockChild({
+          capture,
+          stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+        }),
+      }),
+    );
+
+    assert.equal(getSkillsBlock.mock.calls.length, 1);
+    assert.equal(getSkillsBlock.mock.calls[0].arguments[0], "Use the pptx skill");
+    assert.equal(getSkillsBlock.mock.calls[0].arguments[1], "en");
+    assert.match(capture.args.at(-1), /SKILL_CONTENT_MARKER/);
+  });
+
+  test("I1 edge: skill content and opts.extraSystem both reach the prompt without clobbering each other", async () => {
+    const capture = {};
+    await runCodexLoop(
+      [{ role: "user", content: "Use the pptx skill" }],
+      { send: mock.fn() },
+      { extraSystem: "Session scratch workspace: /tmp/session-i1" },
+      null,
+      () => {},
+      baseCtx({
+        getSkillsBlock: () => "## SKILL_CONTENT_MARKER",
+        codexSpawn: mockChild({
+          capture,
+          stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+        }),
+      }),
+    );
+
+    assert.match(capture.args.at(-1), /SKILL_CONTENT_MARKER/);
+    assert.match(capture.args.at(-1), /Session scratch workspace: \/tmp\/session-i1/);
+  });
+
+  test("I1 edge: an absent ctx.getSkillsBlock (e.g. an older ctx shape) doesn't throw", async () => {
+    const capture = {};
+    const result = await runCodexLoop(
+      [{ role: "user", content: "Hello" }],
+      { send: mock.fn() }, {}, null, () => {},
+      baseCtx({
+        codexSpawn: mockChild({
+          capture,
+          stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+        }),
+      }),
+    );
+    assert.equal(result, "Done");
+  });
+
+  // ─── WS6/F2 superseded by WS-B (group I above) ────────────────────────────
+  // provider-native-capabilities WS-B wires skill matching in via the narrow
+  // ctx.getSkillsBlock (group I), not the full ctx.getSystemPrompt — codex
+  // still never calls getSystemPrompt itself (that would duplicate Aperio's
+  // whole base identity prompt on top of codex's own AGENTS.md-driven
+  // identity). This guard now documents that permanent design choice rather
+  // than a still-open gap.
+  test("F2: never calls ctx.getSystemPrompt (skill content is injected via ctx.getSkillsBlock instead)", async () => {
     const getSystemPrompt = mock.fn(() => "should not be called");
     await runCodexLoop(
       [{ role: "user", content: "Hello" }],
