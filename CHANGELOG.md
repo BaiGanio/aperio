@@ -23,6 +23,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Document-aggregation intent missed "spending"** (issue #250 follow-up,
+  T-R5.2): running the WS0-R red harness with a realistic full-month prompt
+  ("What's my total spending this month, broken down by category?") failed
+  before any retrieval happened — the model called `recall`, found nothing,
+  and told the user it had no access to their financial data.
+  `lib/agent/tool-profiles.js`'s `isDocumentAggregationIntent()` gates the
+  preflight auto `doc_manifest`→`doc_batch` shortcut behind a money+aggregate+
+  personal regex test; its money alternatives included `spend`/`spent` but
+  not the gerund `spending`, so this common phrasing never matched and
+  `doc_manifest`/`doc_batch` were never even offered as tools. Extended the
+  pattern to `spend(?:ing|s)?`. Regression test added to
+  `tests/unit/agent/tool-profiles.test.js`.
 - **Preflight auto-batch context flooding, and missing Bulgarian date-role
   labels** (issue #313 follow-up): running the WS0-R red harness with a
   genuinely bare prompt ("How much did I pay for utilities last month?") on
