@@ -140,6 +140,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Background-agents UI panel — right-side sidebar with live master switch, per-job trigger/mode/last-verdict, "Run now", and per-job run history (`lib/routes/api-agents.js`, `public/scripts/agents-panel.js`)
 - Personas via `id/whoami*.md`; 7 domain characters via `id/characters/` (architect, reviewer, security, product, socratic, doctor, space-engineer) overlayable per-agent via `ROUNDTABLE_CHARACTERS`
 - Prompt-cache hygiene — a session-frozen memory pointer (count-free, refreshed only at next session start) and a static, locale-aware greeting plus a background llama.cpp KV-cache warm-up (`agent.warmCache()`, gated on the model already being loaded) keep the system prompt's stable prefix byte-identical across turns; `npm run prompt-cache:bench` measures the resulting prefix reuse from llama-server's debug log
+- Planning loop (experimental, `APERIO_AGENT_PLANNING=on`, off by default) — the model may lead a multi-step turn with a machine-readable `APERIO_PLAN:` JSON block (`steps: [{tool, args, purpose}]` + `parallel` groups reserved for future sub-agent delegation) before calling tools; the plan's tool names are validated against the turn's real tool set, execution is tracked step-by-step against the plan, and any mismatch is reported to the model as a reflection prompt on the next turn rather than blocked (`lib/agent/planning-middleware.js`). Fail-safe by construction: no plan, or an invalid one, and the loop behaves exactly as it does with the gate off. Emits `plan_created`/`plan_step`/`plan_drift` events for the UI and the regression harness.
 
 ## Storage
 - SQLite + sqlite-vec + FTS5 — zero-config default, single file `var/aperio.db`
@@ -220,6 +221,15 @@ npm run test:harness
 Results are visualized on the "Behavior" dashboard alongside the
 coverage/unit/integration/e2e dashboards (`npm run harness:dashboard` →
 `docs/benchmarks/harness/harness.html`).
+
+`tests/harness/planning.test.js` extends the same harness to the planning
+loop above: a well-formed plan is extracted and tracked step-by-step with no
+drift; a plan naming a nonexistent tool is caught every time and never
+becomes active while the turn still completes; a genuine mismatch between
+the plan and the tool actually called is recorded as drift without blocking
+it; every original scenario produces the identical observable event sequence
+with the planning gate on and off; and the lifecycle trace confirms the
+tool-safety middleware always runs before planning's drift-tracking hook.
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel, voice input + TTS readout

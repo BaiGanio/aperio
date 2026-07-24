@@ -63,5 +63,5 @@ export async function runScenario(t, scenario) {
   // harness driver emits it itself once the turn is done, same as a real turn.
   sink.emitter.send({ type: "turn_complete", status: "completed" });
 
-  return { events: sink.events, finalText, scratchDir, root };
+  return { events: sink.events, finalText, scratchDir, root, agent };
 }

@@ -476,6 +476,16 @@ number · tier 1 (Settings UI, restart to apply) · default: `0` · advanced
 
 Days of background-agent run history to keep (GC'd daily). Unset or 0 keeps it forever; runs are also deletable in the UI.
 
+### Agent planning loop (experimental)
+
+Asks the model to lead multi-step turns with a machine-readable plan, then tracks drift between the plan and what actually ran.
+
+#### `APERIO_AGENT_PLANNING`
+
+boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
+
+Ask the model to lead multi-step turns with a JSON plan, then track drift between the plan and what actually ran (plan_created/plan_step/plan_drift events). Fail-safe: no plan, or an invalid one, and the turn proceeds exactly as it does with this off. Off unless set to exactly 'on'.
+
 ### Privacy
 
 How sensitive memories are handled when a cloud provider is active.

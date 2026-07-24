@@ -9,6 +9,16 @@
 // ctx.provider.script is a flat array of turns, each either:
 //   { tool: "read_file", args: { path: "x" } }   — one scripted tool call
 //   { text: "final answer" }                     — ends the script, returns text
+//   { plan: "APERIO_PLAN:{...}" }                — a leading, non-terminal text
+//                                                   message (agent-harness-epic
+//                                                   WS1); the script continues
+//                                                   after it. Lets a scenario
+//                                                   script the model announcing
+//                                                   its plan before its first
+//                                                   tool call, the same way a
+//                                                   real provider can interleave
+//                                                   a text preamble with tool
+//                                                   calls.
 //
 // A string arg value of "$lastArtifactId" is substituted with the artifact ID
 // parsed out of the immediately preceding tool call's raw result text (the
@@ -60,6 +70,14 @@ export async function runMockLoop(messages, emitter, opts = {}, getAbort = () =>
         extraSystem: opts.extraSystem,
         providerLabel: "mock",
       });
+    }
+
+    if (turn.plan !== undefined) {
+      emitter.send({ type: "stream_start" });
+      emitter.send({ type: "token", text: turn.plan });
+      emitter.send({ type: "stream_end", text: turn.plan, usage: zeroUsage() });
+      messages.push({ role: "assistant", content: [{ type: "text", text: turn.plan }] });
+      continue;
     }
 
     if (turn.text !== undefined) {

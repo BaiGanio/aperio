@@ -9,6 +9,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Agent planning loop** (agent-harness-epic WS1, experimental — off by
+  default via `APERIO_AGENT_PLANNING`): the model may lead a multi-step turn
+  with a machine-readable `APERIO_PLAN:` JSON plan before calling tools.
+  `lib/agent/planning-middleware.js` validates each planned step's tool name
+  against the turn's real tool set, tracks execution against the plan one
+  step at a time, and — on a mismatch — surfaces a reflection prompt to the
+  model on the *next* turn instead of blocking the call that drifted. Wired
+  through the existing `beforeModel`/`afterTool`/`afterModel` lifecycle hooks
+  (`lib/agent/index.js`, `lib/agent/tool-hooks.js`), so no provider loop file
+  needed to change. Fail-safe by construction: no plan, or an invalid one,
+  and the loop is byte-identical to the gate being off — verified by 11 new
+  harness tests (`tests/harness/planning.test.js`) that also confirm every
+  WS0 scenario stays green with the gate on and off, and that tool-safety
+  middleware always runs before planning's drift tracking. Emits
+  `plan_created`/`plan_step`/`plan_drift` events.
 - **Deterministic assistant-behavior test harness** (agent-harness-epic WS0):
   a scripted, fake-model conversation now drives the real agent loop,
   middleware stack, and tool hooks in `tests/harness/` — no network, no live
