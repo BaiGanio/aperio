@@ -178,4 +178,23 @@ describe("extractAmountCandidates", () => {
       { label: "total", value: 45 },
     ]);
   });
+
+  test("links a value and currency declared on separate labeled lines (bilingual bank-transfer form, #313)", () => {
+    const text = [
+      "  Сума (Amount):              29,99",
+      "  Валута (Currency):          BGN",
+      "  Основание (Payment details):Интернет 05/2026, кл. № N-4821",
+    ].join("\n");
+    const amounts = extractAmountCandidates(text);
+    assert.deepEqual(amounts, [
+      { value: 29.99, currency: "BGN", raw: "29,99", label: "amount" },
+    ]);
+  });
+
+  test("does not backfill a currency onto an amount that already has one, or one with no money label at all (#313)", () => {
+    const withRealCurrency = extractAmountCandidates("Total: 45.00 EUR\nValuta (Currency): BGN");
+    assert.equal(withRealCurrency.find(a => a.label === "total").currency, "EUR");
+    const noLabel = extractAmountCandidates("Reference 4471203\nValuta (Currency): BGN");
+    assert.deepEqual(noLabel, []);
+  });
 });
