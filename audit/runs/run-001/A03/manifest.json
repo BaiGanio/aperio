@@ -1,0 +1,367 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A03",
+  "slice_name": "HTTP routes and security",
+  "invariant": "Every route is registered, guarded by auth/rate-limit/net-guard middleware, and has matching tests; path safety and security modules exist.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "token_estimate": 43906,
+  "token_ceiling": 30000,
+  "exceeds_ceiling": true,
+  "entries": [
+    {
+      "path": "lib/routes/api.js",
+      "reason": "Route composition — mounts all domain sub-routers",
+      "status": "present",
+      "hash": "1eb10f764de65a67e23adfba08f485255622964b8ef3c74c3790fec270daaa6c",
+      "bytes": 3654
+    },
+    {
+      "path": "lib/routes/api-agents.js",
+      "reason": "Agent API routes",
+      "status": "present",
+      "hash": "51258e6a261a1f12d7f7fa1be14933f9e715574a4410802b78ce9cd94eea5975",
+      "bytes": 8607
+    },
+    {
+      "path": "lib/routes/api-codegraph.js",
+      "reason": "Codegraph API routes",
+      "status": "present",
+      "hash": "72c588b94bf4a2d5c4b110619ed5bda998b302a9eec5c531cbd5f0a8b94be45b",
+      "bytes": 6305
+    },
+    {
+      "path": "lib/routes/api-config.js",
+      "reason": "Config API routes",
+      "status": "present",
+      "hash": "5942d26b32a411ef8373afa33cf3f47c866815ffcafe7ae66c7629bb973404f8",
+      "bytes": 7080
+    },
+    {
+      "path": "lib/routes/api-data.js",
+      "reason": "Data API routes",
+      "status": "present",
+      "hash": "a5e95f1fc4ee81f67ba5011843aac7278e1580e258d589ee7cc0e9ad79073d57",
+      "bytes": 4057
+    },
+    {
+      "path": "lib/routes/api-database.js",
+      "reason": "Database API routes",
+      "status": "present",
+      "hash": "eeb0d31dbe23d7a20bc354d8711e2c96110937f35c20e2772eb6070e93f50537",
+      "bytes": 7889
+    },
+    {
+      "path": "lib/routes/api-datasets.js",
+      "reason": "Datasets API routes",
+      "status": "present",
+      "hash": "2443690eecac91f80e1bb6fc7cc348307f48265c9955913d0edfe369acfc3e08",
+      "bytes": 3205
+    },
+    {
+      "path": "lib/routes/api-docgraph.js",
+      "reason": "Docgraph API routes",
+      "status": "present",
+      "hash": "cf580a323acf427d0219225895a671c69143815d5b65459d06865c2b4c312c7d",
+      "bytes": 4159
+    },
+    {
+      "path": "lib/routes/api-github-webhook.js",
+      "reason": "GitHub webhook routes",
+      "status": "present",
+      "hash": "60c8632f118866add0c2374df71f6e3e7c4d3eaaadd750b3aa4023d1fa4cd43b",
+      "bytes": 2778
+    },
+    {
+      "path": "lib/routes/api-interrupts.js",
+      "reason": "Interrupt API routes",
+      "status": "present",
+      "hash": "5f1423cb248a0c9eb585f10fd8ceb22c0eb5fe03c16c167ff123d3da90aae892",
+      "bytes": 4716
+    },
+    {
+      "path": "lib/routes/api-memories.js",
+      "reason": "Memory API routes",
+      "status": "present",
+      "hash": "1f94ad842b2561c95326cefec739660fd80fd91f76d4ef07df8cba95b22e06c2",
+      "bytes": 8522
+    },
+    {
+      "path": "lib/routes/api-meta.js",
+      "reason": "Meta API routes",
+      "status": "present",
+      "hash": "f78779dbb3f844d32cd93efa403b34f63b5c98d0ab8a8c2429a528cbf55017dd",
+      "bytes": 15351
+    },
+    {
+      "path": "lib/routes/api-restart.js",
+      "reason": "Restart API routes",
+      "status": "present",
+      "hash": "70a3bafc30fb09d31f5768565f34b3f1d8f6cb28365480643ffd9681f39afa02",
+      "bytes": 1054
+    },
+    {
+      "path": "lib/routes/api-sessions.js",
+      "reason": "Session API routes",
+      "status": "present",
+      "hash": "9e672d4c41418eb38acc29c0333589a085cb2a8c94a06b96dfa976623c65d5d7",
+      "bytes": 1773
+    },
+    {
+      "path": "lib/routes/api-settings.js",
+      "reason": "Settings API routes",
+      "status": "present",
+      "hash": "153dd18acde727c94610937496eeff52cabf0d1189c1599e7c2c9a09d2d95a2a",
+      "bytes": 4202
+    },
+    {
+      "path": "lib/routes/api-wiki.js",
+      "reason": "Wiki API routes",
+      "status": "present",
+      "hash": "8de72a19f4f9aabe05812a8de52913868d4508075690bdd5aead6b12df43785d",
+      "bytes": 2514
+    },
+    {
+      "path": "lib/routes/paths.js",
+      "reason": "Path safety — read/write gate for all file ops",
+      "status": "present",
+      "hash": "ec8a983c2f5518116ff3961fa20e2fcee1d0da7f16bf4f593a9b246280b5e40e",
+      "bytes": 11254
+    },
+    {
+      "path": "lib/server/setupRoutes.js",
+      "reason": "Route registration — wires everything to Express",
+      "status": "present",
+      "hash": "4ad633c20e966c1002599c83eb7448cb0bdea4c8f55c3cf230d5bb091a52ef9c",
+      "bytes": 8556
+    },
+    {
+      "path": "lib/helpers/rateLimit.js",
+      "reason": "Rate limiting middleware",
+      "status": "present",
+      "hash": "f8716ac0bc32f228b303b183ff64c322d500d71e54a32ea99d4bbfc81627c266",
+      "bytes": 648
+    },
+    {
+      "path": "lib/helpers/netGuard.js",
+      "reason": "DNS rebinding / CSRF protection",
+      "status": "present",
+      "hash": "d8ce8fb054b7f87d7d791a68641391ff8069f97898fb63d98c0061e6b11240bc",
+      "bytes": 3195
+    },
+    {
+      "path": "lib/security/agentPermissions.js",
+      "reason": "Agent permission enforcement",
+      "status": "present",
+      "hash": "f1a69fdfd1fb3eb9404e275951a0b4d388d70bc2709b721f0ac8a0fb95f91c66",
+      "bytes": 8501
+    },
+    {
+      "path": "lib/security/interruptService.js",
+      "reason": "Interrupt service",
+      "status": "present",
+      "hash": "fa70067cb4680a4700c06009cbebc8673f265df03b51da347285e4897d7beaaa",
+      "bytes": 8576
+    },
+    {
+      "path": "db/migrations/001_core.sql",
+      "reason": "Migration: 001_core.sql (postgres)",
+      "status": "present",
+      "hash": "510db3d26d19c77510f310947aacaeccbbaa6c973d848eaf540ffebd7ffda601",
+      "bytes": 6484
+    },
+    {
+      "path": "db/migrations/002_agent_jobs.sql",
+      "reason": "Migration: 002_agent_jobs.sql (postgres)",
+      "status": "present",
+      "hash": "2a640a320e22fe9124478244001e460e9a6778c6bf0f3a5f71cbb6ef7f46f47c",
+      "bytes": 962
+    },
+    {
+      "path": "db/migrations/003_codegraph.sql",
+      "reason": "Migration: 003_codegraph.sql (postgres)",
+      "status": "present",
+      "hash": "1381d494bb81f88045bfb74a01572d2f7382810ac4421495ce1d1e1520628ff9",
+      "bytes": 1863
+    },
+    {
+      "path": "db/migrations/004_docgraph.sql",
+      "reason": "Migration: 004_docgraph.sql (postgres)",
+      "status": "present",
+      "hash": "4c4f80e96002ed2d5073b165311ac5412b3b0bf698c3a8b6fbd4a8d36e88a9e8",
+      "bytes": 2244
+    },
+    {
+      "path": "db/migrations/005_issue_triage.sql",
+      "reason": "Migration: 005_issue_triage.sql (postgres)",
+      "status": "present",
+      "hash": "8f5c77ea3a7401eab2e87e7adfde863397928e4a6c1b9e59eaf9aed52858c65a",
+      "bytes": 592
+    },
+    {
+      "path": "db/migrations/006_self_memories.sql",
+      "reason": "Migration: 006_self_memories.sql (postgres)",
+      "status": "present",
+      "hash": "b38c623738f8550f70bbfe24bc3e30ce0a752835ee7b80ccd649526fdf32783a",
+      "bytes": 1607
+    },
+    {
+      "path": "db/migrations/007_self_wiki.sql",
+      "reason": "Migration: 007_self_wiki.sql (postgres)",
+      "status": "present",
+      "hash": "3a671ccd7a2e37c6c417063419944a02efc4f17ce12ba13dee834cefbae3f052",
+      "bytes": 3027
+    },
+    {
+      "path": "db/migrations/008_agent_interrupts.sql",
+      "reason": "Migration: 008_agent_interrupts.sql (postgres)",
+      "status": "present",
+      "hash": "c795e57cceb43df60eaf6a74cbe9c7fd87bc1962e6658c6a7abe5c1f30739c73",
+      "bytes": 1567
+    },
+    {
+      "path": "db/migrations/009_memory_inbox.sql",
+      "reason": "Migration: 009_memory_inbox.sql (postgres)",
+      "status": "present",
+      "hash": "e0336e972261c03f562a17807bf8d953ee0b1cb238a8c7526417015b75678dbc",
+      "bytes": 1197
+    },
+    {
+      "path": "db/migrations/010_codegraph_intelligence.sql",
+      "reason": "Migration: 010_codegraph_intelligence.sql (postgres)",
+      "status": "present",
+      "hash": "41393099b6064c4d11e7b14975af890edba9aaa48a9d0cbc2403752da424c3ec",
+      "bytes": 3483
+    },
+    {
+      "path": "db/migrations-sqlite/001_core.sql",
+      "reason": "Migration: 001_core.sql (sqlite)",
+      "status": "present",
+      "hash": "81b9ff0c22710bc7b5e4d1c4b0f542c060591b15c897a8ad6a0defb48cbd3f23",
+      "bytes": 6743
+    },
+    {
+      "path": "db/migrations-sqlite/002_agent_jobs.sql",
+      "reason": "Migration: 002_agent_jobs.sql (sqlite)",
+      "status": "present",
+      "hash": "5e18991109485d1df23078bfd71bead61db62784ed2218154b6b9f7a651ee185",
+      "bytes": 1037
+    },
+    {
+      "path": "db/migrations-sqlite/003_codegraph.sql",
+      "reason": "Migration: 003_codegraph.sql (sqlite)",
+      "status": "present",
+      "hash": "73f0eef8dafc8b10ca952242082db9ea44ef981caa03d3786f2ad812aec42bb9",
+      "bytes": 2795
+    },
+    {
+      "path": "db/migrations-sqlite/004_docgraph.sql",
+      "reason": "Migration: 004_docgraph.sql (sqlite)",
+      "status": "present",
+      "hash": "82c875853c5e875948f21766f171da0449cd204e832fd06401fd6c67984019c1",
+      "bytes": 3163
+    },
+    {
+      "path": "db/migrations-sqlite/005_issue_triage.sql",
+      "reason": "Migration: 005_issue_triage.sql (sqlite)",
+      "status": "present",
+      "hash": "17037ae76f53b5c239d7f86497f23db577d3e360952377aa70fddbcfb41420f8",
+      "bytes": 569
+    },
+    {
+      "path": "db/migrations-sqlite/006_self_memories.sql",
+      "reason": "Migration: 006_self_memories.sql (sqlite)",
+      "status": "present",
+      "hash": "ec34f60d16a0730b243b198388ded9ce21052e98523e788b025c1aafde4f21b1",
+      "bytes": 2366
+    },
+    {
+      "path": "db/migrations-sqlite/007_self_wiki.sql",
+      "reason": "Migration: 007_self_wiki.sql (sqlite)",
+      "status": "present",
+      "hash": "ace5e3f0069218898d2a4b4fda19ea9bca11516a9e105f0cd20920f34be6db5e",
+      "bytes": 2724
+    },
+    {
+      "path": "db/migrations-sqlite/008_agent_interrupts.sql",
+      "reason": "Migration: 008_agent_interrupts.sql (sqlite)",
+      "status": "present",
+      "hash": "49103bd91b3673faaa4bd4fdfcda4460d974941dd7071574b57a6744e001b389",
+      "bytes": 1834
+    },
+    {
+      "path": "db/migrations-sqlite/009_memory_inbox.sql",
+      "reason": "Migration: 009_memory_inbox.sql (sqlite)",
+      "status": "present",
+      "hash": "418df08a7bc3701f9d5e693eeee9d9cb7560d8c745eb2d8ad9f39abd0462e78d",
+      "bytes": 1237
+    },
+    {
+      "path": "db/migrations-sqlite/010_codegraph_intelligence.sql",
+      "reason": "Migration: 010_codegraph_intelligence.sql (sqlite)",
+      "status": "present",
+      "hash": "114b523b22077661e88be5e85f09a8b35bd08812e1554e88a2d2cf25de32b9e2",
+      "bytes": 3532
+    }
+  ],
+  "coupled_exclusions": [
+    {
+      "path": "lib/server/ws.js",
+      "reason": "WebSocket handler — audited under A04 separately"
+    },
+    {
+      "path": "lib/helpers/staticAuth.js",
+      "reason": "Static file auth — internal to setupRoutes"
+    }
+  ],
+  "test_files": [
+    {
+      "path": "tests/integration/routes/api-memories.test.js",
+      "status": "missing"
+    },
+    {
+      "path": "tests/integration/routes/api-sessions.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/routes/api-settings.test.js",
+      "status": "missing"
+    },
+    {
+      "path": "tests/integration/routes/api-config.test.js",
+      "status": "missing"
+    },
+    {
+      "path": "tests/integration/routes/api-codegraph.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/routes/api-docgraph.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/routes/api-agents.test.js",
+      "status": "missing"
+    },
+    {
+      "path": "tests/integration/routes/api-interrupts.test.js",
+      "status": "missing"
+    },
+    {
+      "path": "tests/integration/routes/api-restart.test.js",
+      "status": "missing"
+    },
+    {
+      "path": "tests/unit/security/agentPermissions.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/unit/security/interruptService.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/helpers/netGuard.test.js",
+      "status": "missing"
+    }
+  ],
+  "aggregate_hash": "257f014994c242f3aa6910c59e4e734afebfb052d4e9578031c9c8c57da6da78"
+}
