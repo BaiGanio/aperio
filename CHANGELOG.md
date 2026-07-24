@@ -9,6 +9,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Audit Run 1 — all 22 component slices complete** (A01–A22): every slice now
+  has a content-hashed `manifest.json` and a `contract-result.json` with
+  deterministic invariant checks. Completed slices span WebSocket/session lifecycle
+  (A04), agent factory (A05), provider contract matrix (A06), context assembly (A07),
+  artifact lifecycle (A08), privacy and egress (A09), skills and prompt injection (A10),
+  tool discovery (A11), MCP boundary (A12), filesystem/shell (A15), network egress (A16),
+  interrupt semantics (A17), permissions (A18), budgets (A19), background agents (A20),
+  codegraph/docgraph ingestion (A21), and UI/i18n/packaging (A22). Pre-existing:
+  bootstrap (A01), config/secrets (A02), HTTP routes (A03), memory/wiki/embeddings (A13),
+  database parity (A14). All contract gates passed. Remaining: Wave 5 — 12 end-to-end
+  boundary journeys and cross-domain matrix.
 - **Codegraph backend parity coverage** (tests only, no production change).
   Closing out #283 surfaced that the graph-intelligence API shipped with a test
   on the SQLite side only, and that the migration guard compared *filenames*
