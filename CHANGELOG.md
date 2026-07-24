@@ -803,3 +803,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
   no on-disk record; they are now appended to a persistent ledger at
   `var/toolrepair/failures.tsv` (`ts, model, kind, persisted, detail`), with
   `persisted=1` marking the cases a retry did not recover.
+- **Roundtable Discuss now supports `llamacpp` agents** (`lib/server/roundtable.js`,
+  `lib/helpers/roundtableBudget.js`): `parseRoundtableAgents` validates against a
+  hardcoded `SUPPORTED` set that was missing `"llamacpp"` — added it so the Discuss
+  toggle can boot roundtable agents on a local llama.cpp provider. The RAM-budget gate
+  (`shouldEnableRoundtable`) was double-counting the main provider's already-loaded model
+  in the footprint estimate and using curated `MODEL_FACTS` defaults (8 GB weights,
+  144 KB/token KV) instead of real GGUF metadata for unknown models; both fixed.
+  `estimateLlamaCppFootprintGB` now calls `resolveModelFacts` which reads actual file
+  headers from cached GGUFs. Confirmed: all 29 roundtable + budget tests pass with 3
+  different local models (gemma-4-E2B main, Qwen3.5-4B + Phi-4-mini roundtable).

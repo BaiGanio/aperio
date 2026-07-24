@@ -102,16 +102,17 @@ describe("parseRoundtableAgents", () => {
     assert.ok(warn, "expected warn about unsupported provider");
   });
 
-  test("supports all supported providers: anthropic, deepseek, gemini, claude-code, codex", () => {
+  test("supports all supported providers: anthropic, deepseek, gemini, claude-code, codex, llamacpp", () => {
     const result = parseRoundtableAgents(
-      "anthropic:model-a, deepseek:model-b, gemini:model-c, claude-code:model-d, codex:model-e"
+      "anthropic:model-a, deepseek:model-b, gemini:model-c, claude-code:model-d, codex:model-e, llamacpp:model-f"
     );
-    assert.strictEqual(result.length, 5);
+    assert.strictEqual(result.length, 6);
     assert.strictEqual(result[0].name, "anthropic");
     assert.strictEqual(result[1].name, "deepseek");
     assert.strictEqual(result[2].name, "gemini");
     assert.strictEqual(result[3].name, "claude-code");
     assert.strictEqual(result[4].name, "codex");
+    assert.strictEqual(result[5].name, "llamacpp");
   });
 
   test("skips entry with empty model and logs warning", () => {

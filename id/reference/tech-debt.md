@@ -34,6 +34,19 @@ housekeeping go in `A2D.md`, not here.
   DB-side BFS fast-path for shallow neighbors, or cache the built graph per (repoId,
   graph_revision) so warm traversals skip the reload. Not urgent.
 
+## Providers
+
+- 2026-07-24 `MODEL_FACTS` in `lib/providers/index.js` is a hand-maintained hardcoded
+  dictionary. Every new model needs a manual entry or it falls through to
+  `GENERIC_MODEL_FACTS` (8 GB weights, 512 KB/token KV) which is wildly pessimistic —
+  guesstimates ~25 GB per model instead of the GGUF header's real 2-4 GB. `resolveModelFacts`
+  already reads real GGUF metadata from cached files, so the curated dict is a stale
+  bottleneck: models that haven't been downloaded yet can't be inspected, but once cached
+  the dict is redundant. Should be replaced with a DB table or `.env`-driven overrides keyed
+  by HF repo path, falling back to `inspectCachedModel` for anything local and only using
+  GENERIC_MODEL_FACTS as a last resort for truly uncached remote refs. Affects:
+  context-window sizing, RAM-usage readouts, model-tier benchmarks, and roundtable budget.
+
 ---
 
 ## Intentional deferrals
