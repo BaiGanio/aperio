@@ -38,6 +38,8 @@
   "langmap_foot":             "Nevidíte ten svoj? Agent Aperio vám aj tak rozumie — píšte v akomkoľvek jazyku.",
   "langmap_switched":         "Jazyk prepnutý na {name}",
   "nav_chats_title":          "História konverzácií",
+  "cg_mode_list":             "Zoznam",
+  "cg_mode_map":              "Mapa",
   "nav_codegraph_title":      "Graf kódu",
   "nav_memories_title":       "Spomienky — vyhľadajte svoje uložené spomienky",
   "nav_reasoning_title":      "Povoliť uvažovanie",

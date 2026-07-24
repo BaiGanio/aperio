@@ -38,6 +38,8 @@
     "langmap_foot":             "没找到您的语言？Aperio 的代理仍然能理解您 — 直接用任何语言输入即可。",
     "langmap_switched":         "语言已切换到 {name}",
     "nav_chats_title":          "对话历史",
+    "cg_mode_list":             "列表",
+    "cg_mode_map":              "图谱",
     "nav_codegraph_title":      "代码图谱",
     "nav_memories_title":       "记忆 — 搜索已保存的记忆",
     "nav_reasoning_title":      "启用推理",

@@ -50,12 +50,17 @@ before(() => {
   corpusPath = join(tmpDir, "corpus.json");
   writeFileSync(examPath, JSON.stringify({ memories: TINY_MEMORIES }));
   writeFileSync(corpusPath, JSON.stringify({ queries: TINY_QUERIES }));
-  rmSync(LEDGER_DIR, { recursive: true, force: true });
+  // Scoped to this file's own ledger file, never the shared LEDGER_DIR:
+  // node --test runs test files concurrently by default, so any sibling
+  // test file that also writes into var/memory-compaction/ could have its
+  // in-progress ledger deleted by an rmSync(LEDGER_DIR, {recursive:true})
+  // here (a real race, hit once during this EPIC's development).
+  rmSync(LEDGER_FILE, { force: true });
 });
 
 after(() => {
   rmSync(tmpDir, { recursive: true, force: true });
-  rmSync(LEDGER_DIR, { recursive: true, force: true });
+  rmSync(LEDGER_FILE, { force: true });
 });
 
 function runScript(extraEnv = {}) {
@@ -179,10 +184,10 @@ describe("memory-compact-baseline script (G0-4)", () => {
 
 describe("memory-compact-baseline script (G0-5)", () => {
   test("npm run memory:baseline exits 0 and writes nothing outside var/memory-compaction/", () => {
-    // Earlier describe blocks in this file already ran the script and left
-    // var/memory-compaction/ behind (only the file-level after() cleans it
-    // up) — clear it here so "before" is a true pre-run snapshot.
-    rmSync(LEDGER_DIR, { recursive: true, force: true });
+    // Scoped to this file's own ledger (see before()/after() above) — a
+    // directory-wide rmSync here would race against any sibling test file
+    // that also writes into the shared var/memory-compaction/ dir.
+    rmSync(LEDGER_FILE, { force: true });
     const before = existsSync(join(REPO_ROOT, "var")) ? readdirSync(join(REPO_ROOT, "var")) : [];
     execFileSync("npm", ["run", "memory:baseline"], {
       cwd: REPO_ROOT,
@@ -191,7 +196,10 @@ describe("memory-compact-baseline script (G0-5)", () => {
     });
     const afterList = readdirSync(join(REPO_ROOT, "var"));
     const newEntries = afterList.filter(e => !before.includes(e));
-    assert.deepEqual(newEntries, ["memory-compaction"]);
+    // "memory-compaction" may or may not be new depending on whether a
+    // concurrently-run sibling test file already created the shared dir —
+    // either way, nothing else at the top level of var/ may appear.
+    assert.ok(newEntries.every(e => e === "memory-compaction"), `unexpected top-level var/ entries: ${newEntries}`);
     assert.ok(existsSync(LEDGER_FILE));
   });
 });

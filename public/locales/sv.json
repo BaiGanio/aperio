@@ -38,6 +38,8 @@
   "langmap_foot":             "Ser du inte ditt? Aperios agent förstår dig ändå — skriv på vilket språk som helst.",
   "langmap_switched":         "Språk bytt till {name}",
   "nav_chats_title":          "Konversationshistorik",
+  "cg_mode_list":             "Lista",
+  "cg_mode_map":              "Karta",
   "nav_codegraph_title":      "Kodgraf",
   "nav_memories_title":       "Minnen – sök i dina sparade minnen",
   "nav_reasoning_title":      "Aktivera resonemang",

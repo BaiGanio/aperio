@@ -93,6 +93,8 @@ const TRANSLATIONS = {
     langmap_foot:             "Don't see yours? Aperio's agent understands you anyway — just write in any language.",
     langmap_switched:         "Language switched to {name}",
     nav_chats_title:          "Conversation history",
+    cg_mode_list: "List",
+    cg_mode_map: "Map",
     nav_codegraph_title:      "Code graph",
     nav_memories_title:       "Memories — search your saved memories",
     nav_reasoning_title:      "Enable reasoning",

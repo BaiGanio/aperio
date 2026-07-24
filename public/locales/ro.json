@@ -38,6 +38,8 @@
   "langmap_foot":             "Nu o vezi pe a ta? Agentul Aperio te înțelege oricum — scrie în orice limbă.",
   "langmap_switched":         "Limba schimbată în {name}",
   "nav_chats_title":          "Istoric conversații",
+  "cg_mode_list":             "Listă",
+  "cg_mode_map":              "Hartă",
   "nav_codegraph_title":      "Graficul codului",
   "nav_memories_title":       "Amintiri — căutați amintirile salvate",
   "nav_reasoning_title":      "Activează raționamentul",

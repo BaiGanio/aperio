@@ -9,6 +9,29 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Codegraph graph intelligence** (issue #283, backend steps 1–4): the persistent
+  code graph gains confidence-aware relationships, working file-level import edges,
+  arbitrary traversal, and deterministic native community analysis. Migration `010`
+  (mirrored SQLite/Postgres) adds edge `confidence`/`confidence_score`/`provenance`/
+  `relation_context`, per-repo graph revisioning (`index_schema_version`,
+  `graph_revision`, `analyzed_revision`), and `cg_communities` + `cg_symbol_metrics`
+  snapshot tables. Every indexed file now gets a synthetic `kind=file` symbol, which
+  fixes a latent bug where `__file__` import edges were silently dropped — imports and
+  file-level import cycles now persist. Confidence policy: direct syntax facts are
+  `EXTRACTED`/1.0, unique-name and relative-import resolutions are `INFERRED`/0.8, and
+  no destination is ever fabricated. New read-only surfaces: MCP tools `code_neighbors`
+  (relation-agnostic neighborhood, direction/depth/kind filters, honest truncation),
+  `code_path` (bounded directed/undirected shortest path with a distinct `found:false`),
+  and `code_insights` (`summary|communities|hotspots|bridges|cycles`); HTTP endpoints
+  `GET /api/codegraph/{neighbors,path,insights,graph}`. Community detection uses
+  Graphology's Louvain over an undirected projection with a seeded RNG (deterministic,
+  repeatable); hotspots exclude file/built-in-noise nodes; bridges rank by
+  cross-community ratio·degree·confidence with no quadratic betweenness; import cycles
+  return one representative cycle per strongly-connected component via iterative Tarjan.
+  Analysis is computed lazily on the first read after a graph revision changes and
+  persisted with compare-before-commit so stale watcher results can't overwrite newer
+  data. Adds `graphology` + `graphology-communities-louvain` (no Python/NetworkX). The
+  interactive D3 visualization (steps 5–6) is tracked separately.
 - **Live Postgres in CI** (issue #310): `ci.codecov.yml`'s `coverage-tests` and
   `e2e-dashboard` jobs now provision a `pgvector/pgvector:pg16` service
   container and set `APERIO_E2E_POSTGRES_URL`, so the SQLite/Postgres store
@@ -16,7 +39,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
   its Postgres backend automatically on every push instead of only when a
   developer opts in locally. `real-app-lifecycle.test.js`'s T64 check now
   exercises the real URL-shape assertion instead of always skipping.
-- **Memory-compaction WS0 baseline** (issue #286): `npm run memory:baseline` measures real token cost for the self-memory preload and formatted `recall` payloads, and scores recall hit-rate@k separately for semantic and full-text search, against a throwaway seeded SQLite DB — the measurement gate every future compaction rule must clear before shipping. Found and corrected several stale assumptions along the way: there is no wiki-preload path today (only on-demand `wiki_get`), and a fresh in-memory DB is not actually empty (`SqliteStore.init()` seeds baseline demo content unconditionally). Plan and companion tests: `trash/plans/memory-compaction/`.
+- **Memory compaction investigated and closed as a negative result** (issue #286, closed): built
+  an eval-gated pipeline to compress stored memory content for recurring input-token savings
+  (a deterministic filler-phrase rewriter, borrowed from the `/caveman-compress` idea, with
+  protected-span masking and a per-item inflation guard) and measured it against real data before
+  shipping. The eval gate — run against the 28-entry capability-exam corpus and, separately,
+  every real row in the dev database — found **0.00% token savings**: 0 of the memories tested
+  contained any of the target filler phrases. Confirmed independently via gzip compressibility
+  (real memory content compresses markedly worse than filler-laden control text of the same
+  length), ruling out a fixture artifact. Root cause: Aperio's stored memories are terse,
+  third-person, LLM-extracted fact/decision prose with no removable conversational filler — a
+  fundamentally different shape than the chat-log/verbose-note text the borrowed technique
+  targets. The rewriter, its rule pack, and the before/after eval harness were removed; the
+  token-counting convention and the recall token-cost/hit-rate@k measurement harness were kept
+  as standalone tooling (`lib/memory/tokenCount.js`, `lib/memory/compactionBaseline.js`,
+  `npm run memory:baseline`) since they're useful independent of compaction. See the closing
+  comment on issue #286 for the full writeup.
 - Reorganized benchmark inputs under `docs/benchmarks/tools/`, grouped test dashboards under `docs/benchmarks/`, and added a private-safe metrics export for the model-tier viewer.
 - Renamed the model-tier viewer integration test to `benchmarking.test.js` and made qualification-case cards collapsed by default.
 - Extracted the WebSocket chat/init turn-interruption mutex out of `lib/emitters/handlers/wsHandler.js` into `lib/emitters/handlers/ws/turnLock.js` (`createTurnLock()`), isolating the concurrency-safety logic from `handleChat`'s business logic (issue #307 Phase 5b). No behavior change; added characterization coverage for a previously-untested socket-close-during-active-turn scenario and a deeper interruption race.
@@ -765,3 +803,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
   no on-disk record; they are now appended to a persistent ledger at
   `var/toolrepair/failures.tsv` (`ts, model, kind, persisted, detail`), with
   `persisted=1` marking the cases a retry did not recover.
+- **Roundtable Discuss now supports `llamacpp` agents** (`lib/server/roundtable.js`,
+  `lib/helpers/roundtableBudget.js`): `parseRoundtableAgents` validates against a
+  hardcoded `SUPPORTED` set that was missing `"llamacpp"` — added it so the Discuss
+  toggle can boot roundtable agents on a local llama.cpp provider. The RAM-budget gate
+  (`shouldEnableRoundtable`) was double-counting the main provider's already-loaded model
+  in the footprint estimate and using curated `MODEL_FACTS` defaults (8 GB weights,
+  144 KB/token KV) instead of real GGUF metadata for unknown models; both fixed.
+  `estimateLlamaCppFootprintGB` now calls `resolveModelFacts` which reads actual file
+  headers from cached GGUFs. Confirmed: all 29 roundtable + budget tests pass with 3
+  different local models (gemma-4-E2B main, Qwen3.5-4B + Phi-4-mini roundtable).

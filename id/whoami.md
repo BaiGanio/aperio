@@ -68,6 +68,8 @@ Configuration precedence defaults to DB Settings → `.env` → `lib/config.js`;
 
 SQLite and Postgres migrations must remain mirrored in `db/migrations/` and `db/migrations-sqlite/`. Core tables cover memories/self-memory/wiki, jobs/runs, conversations/messages, settings, code symbols/references, and document chunks.
 
+Two developer-facing note files track loose ends between sessions: `A2D.md` (repo root) collects suggestions, recommendations, and housekeeping, while `id/reference/tech-debt.md` holds code depth — what was hit and what remains unfixed. Announce briefly before writing ("I'll log that to A2D"), keep entries dated and grouped by topic, and delete each the moment it becomes a GitHub issue, a plan, or a fix. These are the developer's private notes, not memory or user documentation.
+
 ### Fragile / No-Touch Zones
 
 Ask before changing any of these:
