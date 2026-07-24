@@ -16,7 +16,22 @@ Versions follow [Semantic Versioning](https://semver.org/).
   its Postgres backend automatically on every push instead of only when a
   developer opts in locally. `real-app-lifecycle.test.js`'s T64 check now
   exercises the real URL-shape assertion instead of always skipping.
-- **Memory-compaction WS0 baseline** (issue #286): `npm run memory:baseline` measures real token cost for the self-memory preload and formatted `recall` payloads, and scores recall hit-rate@k separately for semantic and full-text search, against a throwaway seeded SQLite DB — the measurement gate every future compaction rule must clear before shipping. Found and corrected several stale assumptions along the way: there is no wiki-preload path today (only on-demand `wiki_get`), and a fresh in-memory DB is not actually empty (`SqliteStore.init()` seeds baseline demo content unconditionally). Plan and companion tests: `trash/plans/memory-compaction/`.
+- **Memory compaction investigated and closed as a negative result** (issue #286, closed): built
+  an eval-gated pipeline to compress stored memory content for recurring input-token savings
+  (a deterministic filler-phrase rewriter, borrowed from the `/caveman-compress` idea, with
+  protected-span masking and a per-item inflation guard) and measured it against real data before
+  shipping. The eval gate — run against the 28-entry capability-exam corpus and, separately,
+  every real row in the dev database — found **0.00% token savings**: 0 of the memories tested
+  contained any of the target filler phrases. Confirmed independently via gzip compressibility
+  (real memory content compresses markedly worse than filler-laden control text of the same
+  length), ruling out a fixture artifact. Root cause: Aperio's stored memories are terse,
+  third-person, LLM-extracted fact/decision prose with no removable conversational filler — a
+  fundamentally different shape than the chat-log/verbose-note text the borrowed technique
+  targets. The rewriter, its rule pack, and the before/after eval harness were removed; the
+  token-counting convention and the recall token-cost/hit-rate@k measurement harness were kept
+  as standalone tooling (`lib/memory/tokenCount.js`, `lib/memory/compactionBaseline.js`,
+  `npm run memory:baseline`) since they're useful independent of compaction. See the closing
+  comment on issue #286 for the full writeup.
 - Reorganized benchmark inputs under `docs/benchmarks/tools/`, grouped test dashboards under `docs/benchmarks/`, and added a private-safe metrics export for the model-tier viewer.
 - Renamed the model-tier viewer integration test to `benchmarking.test.js` and made qualification-case cards collapsed by default.
 - Extracted the WebSocket chat/init turn-interruption mutex out of `lib/emitters/handlers/wsHandler.js` into `lib/emitters/handlers/ws/turnLock.js` (`createTurnLock()`), isolating the concurrency-safety logic from `handleChat`'s business logic (issue #307 Phase 5b). No behavior change; added characterization coverage for a previously-untested socket-close-during-active-turn scenario and a deeper interruption race.

@@ -1,11 +1,14 @@
 #!/usr/bin/env node
 // scripts/memory-compact-baseline.js
 //
-// WS0 baseline for the memory-compaction EPIC (#286): prints a deterministic
-// token-cost + recall hit-rate@k report against a throwaway in-memory SQLite
-// DB, seeded fresh on every invocation. Never touches a real/production DB —
-// refuses to run unless SQLITE_PATH=":memory:" (Co-pilot Contract: no stray
-// state). Appends one row per metric to var/memory-compaction/baseline.tsv,
+// Originally WS0 baseline for the memory-compaction EPIC (#286, closed as a
+// negative result — see CHANGELOG.md: real memory content carries no
+// removable redundancy, so no compaction rewriter shipped). Kept standalone
+// as reusable measurement tooling: prints a deterministic token-cost +
+// recall hit-rate@k report against a throwaway in-memory SQLite DB, seeded
+// fresh on every invocation. Never touches a real/production DB — refuses to
+// run unless SQLITE_PATH=":memory:" (Co-pilot Contract: no stray state).
+// Appends one row per metric to var/memory-compaction/baseline.tsv,
 // following the same append-only, lazily-headered TSV convention as
 // var/toolrepair/events.tsv and var/autotune/results.tsv.
 //
@@ -37,7 +40,7 @@ process.env.DB_BACKEND = "sqlite";
 const { getStore } = await import("../db/index.js");
 const { generateEmbedding } = await import("../lib/helpers/embeddings.js");
 const { countTokens } = await import("../lib/memory/tokenCount.js");
-const { formatRecallPayload, formatSelfPreload, SESSION_POINTER, median, avg, isHit, clearSeedData } =
+const { formatSelfPreload, SESSION_POINTER, median, avg, clearSeedData, measureRecallPayloadTokens, measureHitRate } =
   await import("../lib/memory/compactionBaseline.js");
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -101,26 +104,6 @@ async function measureSelfPreload(store) {
   return { tokens: countTokens(formatSelfPreload(rows)), sampleN: rows.length };
 }
 
-async function measureRecallPayload(store, queries) {
-  const tokenCounts = [];
-  for (const q of queries) {
-    const queryEmbedding = await generateEmbedding(q.query, "query");
-    const rows = await store.recall({ query: q.query, queryEmbedding, limit: 10, mode: "auto" });
-    tokenCounts.push(countTokens(formatRecallPayload(rows)));
-  }
-  return tokenCounts;
-}
-
-async function measureHitRate(store, queries, mode) {
-  let hits = 0;
-  for (const q of queries) {
-    const queryEmbedding = mode === "fulltext" ? null : await generateEmbedding(q.query, "query");
-    const rows = await store.recall({ query: q.query, queryEmbedding, limit: K, mode });
-    if (isHit(q.expectedTitles, rows)) hits++;
-  }
-  return queries.length ? hits / queries.length : 0;
-}
-
 function appendLedgerRow(fields) {
   mkdirSync(LEDGER_DIR, { recursive: true });
   if (!existsSync(LEDGER_FILE)) appendFileSync(LEDGER_FILE, LEDGER_HEADER + "\n");
@@ -140,9 +123,9 @@ async function main() {
 
   const selfPreload = await measureSelfPreload(store);
   const sessionPointerTokens = countTokens(SESSION_POINTER);
-  const recallTokenCounts = await measureRecallPayload(store, corpus);
-  const semanticHitRate = await measureHitRate(store, corpus, "semantic");
-  const fulltextHitRate = await measureHitRate(store, corpus, "fulltext");
+  const recallTokenCounts = await measureRecallPayloadTokens(store, corpus, generateEmbedding);
+  const semanticHitRate = await measureHitRate(store, corpus, "semantic", generateEmbedding, K);
+  const fulltextHitRate = await measureHitRate(store, corpus, "fulltext", generateEmbedding, K);
 
   console.log("=== Memory Compaction — WS0 Baseline ===");
   console.log(`Seeded ${memCount} memories, ${SELF_SAMPLE.length} self-memories, ${corpus.length} corpus queries.\n`);
