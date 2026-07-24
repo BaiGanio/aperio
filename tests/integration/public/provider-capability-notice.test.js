@@ -7,9 +7,11 @@
 // tests/public/provider-cost-truthfulness.test.js), so these tests exercise
 // production source rather than a reimplemented copy.
 //
-// F2 (skills-absence) has no client render surface — the plan's documentation
-// route was chosen, verified instead by tests/lib/agent/*.test.js confirming
-// codex/claude-code never call getSystemPrompt, plus the FEATURES.md note.
+// F2 (skills-absence) never had a client render surface. It's since been
+// superseded by provider-native-capabilities WS-B: codex/claude-code now do
+// get real skill matching + a skills_matched chip, via ctx.getSkillsBlock
+// rather than ctx.getSystemPrompt (verified in
+// tests/integration/agent/providers/{codex,claude-code}.test.js groups I).
 
 import test from "node:test";
 import assert from "node:assert/strict";
