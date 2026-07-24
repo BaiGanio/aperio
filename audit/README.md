@@ -212,9 +212,12 @@ tokens and uses local models for reconnaissance.
 | `scripts/manifest.js` | Evidence packet builder with content hashes | 9 pass |
 | `scripts/contracts/database.js` | A14 DB contract gate (migration parity, store existence, encryption tests) | 7 pass |
 | `runs/run-001/baseline.json` | Frozen baseline at e344e2f0 | — |
+| `scripts/contracts/config.js` | A02 Config contract gate (file existence, .env.example, routes, gen:env) | 7 pass |
 | `runs/run-001/A14/manifest.json` | A14 evidence packet | Verified |
 | `runs/run-001/A14/contract-result.json` | A14 contract gate result (passing) | Verified |
-| `npm run test:audit` | Runs all audit harness tests | 59/59 pass |
+| `runs/run-001/A02/manifest.json` | A02 evidence packet | Verified |
+| `runs/run-001/A02/contract-result.json` | A02 contract gate result (passing) | Verified |
+| `npm run test:audit` | Runs all audit harness tests | 66/66 pass |
 | `audit/README.md` | This file — developer instructions | Updated after each phase |
 
 ### What the plan describes but doesn't exist yet
@@ -223,11 +226,11 @@ tokens and uses local models for reconnaissance.
 |-----------|---------|------------|
 | Wave 1–5 execution | 22 slice audits | Full audit run |
 | Delta trigger system | Rerun only changed slices | After Run 1 closeout |
-| Slice definitions for A01–A13, A15–A22 | Remaining 21 slice definitions in manifest.js | Full audit run |
+| Slice definitions for A01, A03–A13, A15–A22 | Remaining 20 slice definitions in manifest.js | Full audit run |
 
-The A14 (Database) vertical pilot is complete: manifest → contract gate →
-red/green proof → first run record with a clean result. All 59 tests pass.
-Next: expand to remaining slices (A01–A13, A15–A22).
+A14 (Database) and A02 (Configuration) areas are complete: manifest → contract gate →
+red/green proof → run records saved. All 66 tests pass.
+Next: expand to remaining 20 slices.
 
 ---
 
