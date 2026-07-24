@@ -27,6 +27,33 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - ~10 files grouped under `bootstrap/`, `real-app/`, `websocket/`, and `ui/`; shared
   `fixtures/` and `helpers/` remain alongside those groups
 
+## Mocking Policy
+
+All tests must mock external dependencies instead of using real
+implementations. "External" includes:
+
+- **Filesystem**: never read/write real files. Use `installMemfs` from
+  `tests/helpers/memfs.js` (patches the CJS `fs` module, which ESM
+  `import from "fs"` reads from) when the module under test touches the
+  filesystem through session data, log files, or config files. Import
+  modules that transitively use `"fs"` via dynamic `await import(...)`
+  inside `before()`, never via static `import`, so the memfs patch is
+  installed before ESM bindings snapshot.
+- **Network**: mock `fetch` / `WebSocket` / `child_process.spawn` /
+  HTTP requests. Never connect to a real service.
+- **AI providers**: mock `complete()` or inject a stub via DI
+  (`deps.complete` / `deps.logger` overrides).
+- **Global timers**: mock `setTimeout` / `setInterval` /
+  `clearTimeout` / `clearInterval` with `mock.method(globalThis, …)`
+  so no real waits or intervals fire.
+- **process.exit**: mock with a throwing implementation to prevent
+  accidental test termination.
+- **stdout / stdin**: mock `process.stdout.write` and
+  `process.stdin.pause` when the module writes to the terminal.
+
+These mocks keep tests hermetic, fast (<500ms per integration test),
+and safe to run in CI without external services.
+
 ## Commands
 
 ```bash
