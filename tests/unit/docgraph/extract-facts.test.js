@@ -136,4 +136,46 @@ describe("extractAmountCandidates", () => {
     const noCurrency = extractAmountCandidates("Reference number 4471203 printed here.");
     assert.deepEqual(noCurrency, []);
   });
+
+  test("a tax-percentage line predicts the very next line's amount as the total, independent of any subtotal keyword already matched (#312)", () => {
+    // The filler line pushes "Tax 19%"/"GRANDFINALX" outside LABEL_LOOKBACK
+    // (60 chars) of "Subtotal" — otherwise labelFor() would find "Subtotal"
+    // as the nearest label for those amounts too and this test would be
+    // exercising that unrelated lookback-window behavior, not the new signal.
+    const amounts = extractAmountCandidates(
+      "Subtotal: 100.00 EUR\n" +
+      "Items purchased across several unrelated categories, not itemized in this line at all.\n" +
+      "Tax 19%: 19.00 EUR\nGRANDFINALX: 119.00 EUR"
+    );
+    assert.deepEqual(amounts.map(a => ({ label: a.label, value: a.value })), [
+      { label: "subtotal", value: 100 },
+      { label: null, value: 19 },
+      { label: "likely_total", value: 119 },
+    ]);
+  });
+
+  test("tax-percentage adjacency never overrides an amount that already matched a real label (#312)", () => {
+    const amounts = extractAmountCandidates("Tax 20%: 10.00 EUR\nTotal: 64.80 EUR");
+    const total = amounts.find(a => a.value === 64.8);
+    assert.equal(total.label, "total", "a real 'total' keyword match must win over the heuristic guess");
+  });
+
+  test("a subtotal-only match doesn't block the whole-document likely_total fallback — only a terminal label disqualifies it (#312)", () => {
+    const amounts = extractAmountCandidates(
+      "Subtotal: 100.00 EUR\n" +
+      "Items purchased across several unrelated categories, not itemized in this line at all.\n" +
+      "SUMTOPAY: 130.00 EUR"
+    );
+    const subtotal = amounts.find(a => a.label === "subtotal");
+    assert.equal(subtotal.value, 100);
+    const guess = amounts.find(a => a.label === "likely_total");
+    assert.equal(guess.value, 130, "the unmatched final-total-shaped line should still get a likely_total guess even though subtotal matched a known keyword elsewhere");
+  });
+
+  test("a percentage figure whose very next line carries no amount at all is a no-op, not a crash (#312)", () => {
+    const amounts = extractAmountCandidates("Rate 15% shown above.\nNo amount here at all.\nTotal: 45.00 EUR");
+    assert.deepEqual(amounts.map(a => ({ label: a.label, value: a.value })), [
+      { label: "total", value: 45 },
+    ]);
+  });
 });
