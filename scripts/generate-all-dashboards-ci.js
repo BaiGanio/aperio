@@ -86,6 +86,16 @@ if (existsSync(resolve(ROOT, "tests/results/test-results.json"))) {
   console.warn(`${YELLOW}⚠ tests/results/test-results.json not found — skipping integration dashboard${RESET}`);
 }
 
+// Step 1e: Run the deterministic agent-loop harness and generate its dashboard
+// (CI: `npm run test:harness:ci:dashboard`, unconditional in coverage-tests so
+// the Pages site always has fresh data even on pushes that don't touch
+// lib/agent/**  — the path-filtered ci.agent-harness.yml workflow is the fast
+// PR gate, this is the always-on data source for the dashboard).
+step(
+  "Run the assistant loop behavior checks and generate their dashboard",
+  "npm", ["run", "test:harness:ci:dashboard"],
+);
+
 // ── Phase 2: same as CI's `e2e-dashboard` job ──
 console.log(`\n${CYAN}╔${"═".repeat(54)}╗`);
 console.log(`║  Phase 2: E2E tests and dashboard data  ║`);
@@ -103,7 +113,7 @@ console.log(`${SEP}`);
 
 if (failures.length === 0) {
   console.log(`${GREEN}✅ CI pipeline verified locally — all steps passed.${RESET}`);
-  console.log(`   Refresh docs/benchmarks/{code-cov,unit,integration,e2e}/*.html to see the results.`);
+  console.log(`   Refresh docs/benchmarks/{code-cov,unit,integration,e2e,harness}/*.html to see the results.`);
 } else {
   console.log(`${RED}❌ ${failures.length} step(s) failed:${RESET}`);
   for (const f of failures) {

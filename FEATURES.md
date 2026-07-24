@@ -193,6 +193,34 @@ memory/skill ordering, canonical tool selection, provider-local serialization,
 offload failure isolation, bounded trace eviction, and trace privacy/fail-open
 behavior.
 
+## Deterministic assistant-behavior harness
+
+A scripted, fake-model conversation drives the real agent loop, middleware
+stack, and tool hooks with no network, no live AI model, and no real MCP
+subprocess — so a code change to the loop itself, not a model's judgment
+call, is what turns a check red. Six behaviors are checked in under a second:
+
+```bash
+npm run test:harness
+```
+
+- A normal multi-step task (fetch data, analyze it, save a report,
+  double-check it, send it) completes with every step recorded correctly.
+- Claiming to have saved a file that was never actually written triggers an
+  immediate correction.
+- Three broken tool requests in a row stop the assistant before it repeats
+  the same mistake again.
+- A very large tool result is stored separately instead of flooding the
+  conversation, and the assistant can still read it back in pieces.
+- After reading content from an untrusted source, the assistant is blocked
+  from writing a file in that same turn.
+- Trying the exact same failing action three times in a row stops the
+  assistant instead of letting it loop forever.
+
+Results are visualized on the "Behavior" dashboard alongside the
+coverage/unit/integration/e2e dashboards (`npm run harness:dashboard` →
+`docs/benchmarks/harness/harness.html`).
+
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel, voice input + TTS readout
 - Inline input autocomplete — ghost-text suggestion accepted with Tab/→
