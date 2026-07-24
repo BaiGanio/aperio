@@ -1,0 +1,334 @@
+/* public/styles/modals/memories.css — memory list panel: search, list rows, inbox, tags. */
+
+    .search-box {
+      position: relative;
+    }
+
+    .search-box input {
+      width: 100%;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 7px 44px 7px 30px;
+      font-family: var(--font-sans);
+      font-size: var(--fs-ui);
+      color: var(--text);
+      outline: none;
+      transition: border-color var(--transition);
+    }
+
+    .search-count-badge {
+      position: absolute;
+      right: 9px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      pointer-events: none;
+      opacity: .55;
+    }
+
+    .search-box input:focus { border-color: var(--accent); }
+    .search-box input::placeholder { color: var(--text-muted); }
+
+    .search-icon {
+      position: absolute;
+      left: 9px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: var(--fs-chrome);
+      pointer-events: none;
+    }
+
+    .memories-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+    }
+
+    .memories-list::-webkit-scrollbar { width: 4px; }
+    .memories-list::-webkit-scrollbar-track { background: transparent; }
+    .memories-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .type-group { margin-bottom: 4px; }
+
+    .type-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-radius: var(--radius-sm);
+      transition: background var(--transition);
+      user-select: none;
+    }
+
+    .type-header:hover { background: var(--bg-hover); }
+
+    .type-chevron {
+      margin-left: auto;
+      font-size: var(--fs-micro);
+      transition: transform 200ms ease;
+      color: var(--text-muted);
+    }
+
+    .type-chevron.open { transform: rotate(90deg); }
+
+    .type-group-body {
+      overflow: hidden;
+      transition: all 200ms ease;
+    }
+
+    .type-group-body.collapsed { display: none; }
+
+    .type-count {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      font-size: var(--fs-micro);
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+
+    .memory-card {
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      margin-bottom: 2px;
+      cursor: default;
+      transition: background var(--transition);
+      border: 1px solid transparent;
+    }
+
+    .memory-card:hover {
+      background: var(--bg-hover);
+      border-color: var(--border);
+      cursor: pointer;
+    }
+
+    .memory-title {
+      font-size: var(--fs-secondary);
+      font-weight: 500;
+      color: var(--text);
+      margin-bottom: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+    }
+
+    .memory-preview {
+      font-size: var(--fs-ui);
+      color: var(--text-muted);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .memory-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 3px;
+      margin-top: 5px;
+    }
+
+    .tag-filter-chip {
+      display: flex; align-items: center; gap: 6px;
+      margin: 0 4px 8px 4px;
+      padding: 6px 10px;
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-sm);
+      font-size: var(--fs-micro);
+    }
+    .tag-filter-chip-label { color: var(--text-muted); }
+    .tag-filter-chip-value {
+      font-family: var(--font-mono); font-weight: 600;
+      color: var(--accent);
+    }
+    .tag-filter-chip-clear {
+      display: flex; align-items: center;
+      margin-left: auto;
+      background: none; border: none;
+      color: var(--text-muted); cursor: pointer;
+      font-size: 10px; padding: 2px;
+    }
+    .tag-filter-chip-clear:hover { color: var(--text); }
+
+    /* ── Inbox (pending memory review) ──────────────────────────── */
+    .inbox-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px;
+      margin-left: 6px;
+      padding: 0 5px;
+      background: var(--accent); color: #fff;
+      font-size: 10px; font-weight: 700;
+      border-radius: 999px;
+      line-height: 1;
+    }
+    .inbox-section { margin-bottom: 4px; }
+    /* Inbox reuses the collapsible .type-header pattern, accented so a pending
+       item still draws the eye. */
+    .type-header--inbox { color: var(--accent); }
+    .type-header--inbox .type-count { background: var(--accent); color: #fff; }
+    .inbox-item {
+      padding: 8px 10px; margin: 0 4px 4px;
+      border: 1px solid var(--border);
+      border-left: 2px solid var(--accent);
+      border-radius: var(--radius-sm);
+      background: color-mix(in srgb, var(--accent) 6%, var(--bg));
+    }
+    /* Clickable body (title + preview) opens the full-text modal via the shared
+       .memory-preview handler. Neutralize the memory-card clamp/muting here so
+       the title keeps its own styling; the content div does its own clamping. */
+    .inbox-item-body {
+      display: block; cursor: pointer;
+      -webkit-line-clamp: unset; font-size: inherit; color: inherit;
+      overflow: visible; border-radius: var(--radius-sm);
+    }
+    .inbox-item-body:hover .inbox-item-title { color: var(--accent); }
+    .inbox-item-title {
+      font-size: var(--fs-chrome); font-weight: 600;
+      color: var(--text); margin-bottom: 3px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .inbox-item-content {
+      font-size: var(--fs-micro); color: var(--text-muted);
+      line-height: 1.4;
+      overflow: hidden; display: -webkit-box;
+      -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+      margin-bottom: 6px;
+    }
+    .inbox-item-meta {
+      display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+      margin-bottom: 6px;
+    }
+    .inbox-item-type {
+      font-size: var(--fs-micro); font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase; letter-spacing: .03em;
+    }
+    .inbox-item-actions {
+      display: flex; gap: 6px;
+    }
+    .inbox-btn {
+      font: inherit; font-size: var(--fs-micro); font-weight: 600;
+      padding: 4px 10px; border-radius: var(--radius-sm);
+      cursor: pointer; border: 1px solid var(--border);
+      background: var(--bg); color: var(--text);
+      transition: background .12s, border-color .12s;
+    }
+    .inbox-btn--approve:hover {
+      background: color-mix(in srgb, var(--accent) 15%, var(--bg));
+      border-color: var(--accent); color: var(--accent);
+    }
+    .inbox-btn--reject:hover {
+      background: color-mix(in srgb, #c0392b 10%, var(--bg));
+      border-color: #c0392b; color: #c0392b;
+    }
+    .inbox-btn:disabled { opacity: .5; cursor: default; }
+
+    .tag {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      padding: 1px 6px;
+      border-radius: 4px;
+      cursor: pointer; user-select: none;
+      transition: background .12s, color .12s;
+    }
+    .tag:hover {
+      background: var(--accent-soft);
+      color: var(--accent);
+    }
+    .tag--active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .importance-bar {
+      display: flex;
+      gap: 2px;
+      margin-top: 5px;
+    }
+
+    .memory-source {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      margin-top: 3px;
+      opacity: 0.7;
+    }
+
+    .importance-pip {
+      width: 14px; height: 3px;
+      border-radius: 2px;
+      background: var(--border);
+    }
+    .importance-pip.filled { background: var(--accent); }
+
+    .memory-ts {
+      margin-left: auto;
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      opacity: .7;
+      font-family: var(--font-mono);
+    }
+
+    .memory-card-header {
+      display: flex;
+      align-items: flex-start;
+      gap: 4px;
+    }
+
+    .memory-title {
+      flex: 1;
+    }
+
+    .delete-btn {
+      opacity: 0;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 0 2px;
+      font-size: var(--fs-chrome);
+      line-height: 1;
+      border-radius: 4px;
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+
+    .memory-card:hover .delete-btn { opacity: 1; }
+    .delete-btn:hover { color: #ef4444; background: rgba(239,68,68,.1); }
+
+    .show-more-btn {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 5px 8px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      cursor: pointer;
+      text-align: left;
+      border-radius: var(--radius-sm);
+      transition: all var(--transition);
+      letter-spacing: 0.06em;
+    }
+    .show-more-btn:hover { background: var(--bg-hover); color: var(--accent); }
+
+    .empty-state {
+      padding: 24px 16px;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: var(--fs-chrome);
+    }

@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="system" class="csp-style-1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Aperio — Setup</title>
+
+  <!-- Same fonts as index.html -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+
+   <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+  <!-- Pull in the app's CSS variables (accent, font-mono, radius-sm, etc.) -->
+
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <script src="scripts/http-guard.js"></script>
+  <script src="scripts/i18n.js"></script>
+
+<style>
+/* ── Layout ───────────────────────────────────────────────────────────────── */
+.setup-root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  /* `safe center` centers when it fits but falls back to the top when the
+     content is taller than the viewport, so nothing is clipped out of reach. */
+  justify-content: safe center;
+  padding: 32px 16px 48px;
+  gap: 0;
+}
+
+/* ── Intro copy ───────────────────────────────────────────────────────────── */
+.setup-intro {
+  text-align: center;
+  margin-bottom: 32px;
+  opacity: 0;
+  animation: su-fade 0.4s 0.12s ease both;
+}
+.setup-intro h1 {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.setup-intro p {
+  font-size: 13px;
+  color: var(--text-muted, #888);
+  line-height: 1.65;
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────────────── */
+.setup-progress-wrap {
+  width: 100%;
+  max-width: 480px;
+  margin-bottom: 20px;
+  opacity: 0;
+  animation: su-fade 0.4s 0.18s ease both;
+}
+.setup-progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono, "Berkeley Mono", monospace);
+  font-size: 10px;
+  color: var(--text-muted, #888);
+  margin-bottom: 6px;
+}
+.setup-progress-track {
+  height: 2px;
+  background: var(--border, rgba(128,128,128,0.15));
+  border-radius: 2px;
+  overflow: hidden;
+}
+.setup-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--accent, #7c6aff);
+  border-radius: 2px;
+  transition: width 0.55s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Cards stack ──────────────────────────────────────────────────────────── */
+.setup-cards {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ── Individual step card ─────────────────────────────────────────────────── */
+.step-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 16px;
+  border-radius: var(--radius, 12px);
+  border: 1px solid var(--border, rgba(128,128,128,0.15));
+  background: var(--bg-surface, var(--bg, #fff));
+  transition: border-color 0.25s, background 0.25s, opacity 0.25s;
+  /* cards start invisible and slide up when they become active */
+  opacity: 0.38;
+  transform: translateY(0);
+}
+
+/* Pop-in animation when a card first becomes active */
+@keyframes card-arrive {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.step-card[data-status="running"] {
+  opacity: 1;
+  border-color: var(--accent, #7c6aff);
+  background: var(--bg-hover, rgba(124,106,255,0.04));
+  animation: card-arrive 0.3s ease both;
+}
+.step-card[data-status="done"],
+.step-card[data-status="skipped"] {
+  opacity: 1;
+  border-color: var(--border, rgba(128,128,128,0.15));
+  background: transparent;
+}
+.step-card[data-status="error"] {
+  opacity: 1;
+  border-color: var(--danger, #e05252);
+  background: var(--bg-hover, rgba(224,82,82,0.04));
+}
+
+/* ── Icon cell ────────────────────────────────────────────────────────────── */
+.step-icon-wrap {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border, rgba(128,128,128,0.15));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 15px;
+  color: var(--text-muted, #888);
+  transition: border-color 0.25s, color 0.25s, background 0.25s;
+}
+.step-card[data-status="running"] .step-icon-wrap {
+  border-color: var(--accent, #7c6aff);
+  color: var(--accent, #7c6aff);
+  background: var(--bg-hover, rgba(124,106,255,0.07));
+}
+.step-card[data-status="done"] .step-icon-wrap,
+.step-card[data-status="skipped"] .step-icon-wrap {
+  color: var(--success, #4caf85);
+  border-color: var(--success, #4caf85);
+}
+.step-card[data-status="error"] .step-icon-wrap {
+  color: var(--danger, #e05252);
+  border-color: var(--danger, #e05252);
+}
+.model-download { display: none; margin-top: 8px; font-family: var(--font-mono, "Berkeley Mono", monospace); font-size: 10px; color: var(--text-muted, #888); }
+.model-download.show { display: block; }
+.model-download__row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px; }
+.model-download__bar { height: 3px; background: var(--border, rgba(128,128,128,0.15)); overflow: hidden; }
+.model-download__fill { height: 100%; width: 0%; background: var(--accent, #7c6aff); transition: width .25s ease; }
+.model-download[data-status="completed"] .model-download__fill { background: var(--success, #4caf85); }
+.model-download[data-status="failed"], .model-download[data-status="aborted"] { color: var(--danger, #e05252); }
+
+/* ── Text cell ────────────────────────────────────────────────────────────── */
+.step-text {
+  flex: 1;
+  min-width: 0;
+}
+.step-label {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-detail {
+  font-family: var(--font-mono, "Berkeley Mono", monospace);
+  font-size: 10.5px;
+  color: var(--text-muted, #888);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 14px;
+  transition: color 0.2s;
+}
+.step-card[data-status="running"] .step-detail { color: var(--accent, #7c6aff); }
+.step-card[data-status="done"]    .step-detail,
+.step-card[data-status="skipped"] .step-detail { color: var(--success, #4caf85); }
+.step-card[data-status="error"]   .step-detail { color: var(--danger, #e05252); }
+
+/* ── Right badge ──────────────────────────────────────────────────────────── */
+.step-badge {
+  font-family: var(--font-mono, "Berkeley Mono", monospace);
+  font-size: 9.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  padding: 3px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+}
+.badge-idle    { color: var(--text-muted, #888); border-color: var(--border, rgba(128,128,128,0.2)); }
+.badge-running { color: var(--accent, #7c6aff);  border-color: var(--accent, #7c6aff); background: var(--bg-hover, rgba(124,106,255,0.07)); }
+.badge-done    { color: var(--success, #4caf85); border-color: var(--success, #4caf85); }
+.badge-skipped { color: var(--success, #4caf85); border-color: var(--success, #4caf85); opacity: 0.7; }
+.badge-error   { color: var(--danger, #e05252);  border-color: var(--danger, #e05252); }
+
+/* ── Spinner (replaces icon when running) ─────────────────────────────────── */
+.step-spinner {
+  display: none;
+  width: 15px;
+  height: 15px;
+  border: 1.5px solid color-mix(in srgb, var(--accent, #7c6aff) 25%, transparent);
+  border-top-color: var(--accent, #7c6aff);
+  border-radius: 50%;
+  animation: spin 0.65s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.step-card[data-status="running"] .step-spinner { display: block; }
+.step-card[data-status="running"] .step-bi-icon  { display: none; }
+
+/* ── Done / error banners ─────────────────────────────────────────────────── */
+.setup-done, .setup-error {
+  width: 100%;
+  max-width: 480px;
+  margin-top: 12px;
+  padding: 13px 16px;
+  border-radius: var(--radius-sm, 8px);
+  font-size: 13px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  animation: su-fade 0.35s ease both;
+}
+.setup-done.show  { display: flex; border: 1px solid var(--success, #4caf85); color: var(--success, #4caf85); }
+.setup-error.show { display: flex; border: 1px solid var(--danger, #e05252); color: var(--danger, #e05252); }
+.setup-error__message {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.55;
+}
+.setup-error__retry {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+  border-radius: var(--radius-sm, 8px);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.setup-error__retry:hover { opacity: 0.82; }
+
+.setup-launch {
+  display: none;
+  width: 100%;
+  max-width: 480px;
+  margin-top: 10px;
+  padding: 12px;
+  background: var(--accent, #7c6aff);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm, 8px);
+  font-family: var(--font-sans, "DM Sans", sans-serif);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  letter-spacing: -0.01em;
+  transition: opacity 0.2s;
+}
+.setup-launch:hover:not(:disabled) { opacity: 0.88; }
+.setup-launch:disabled { opacity: 0.6; cursor: default; }
+.setup-launch.show  { display: block; animation: su-fade 0.35s 0.1s ease both; }
+
+.setup-help-link {
+  display: none;
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--text-muted, #8b8fa3);
+  text-decoration: none;
+}
+.setup-help-link:hover { color: var(--accent, #7c6aff); }
+.setup-help-link.show  { display: inline-block; animation: su-fade 0.35s 0.2s ease both; }
+
+/* ── Shared keyframe ──────────────────────────────────────────────────────── */
+@keyframes su-fade {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Wizard ─────────────────────────────────────────────────────────────── */
+.wiz-screen {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: su-fade 0.3s ease both;
+}
+.wiz-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  text-align: left;
+  border-radius: var(--radius, 12px);
+  border: 1px solid var(--border, rgba(128,128,128,0.18));
+  background: var(--bg-surface, var(--bg, #fff));
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.1s;
+  font-family: inherit;
+  color: inherit;
+}
+.wiz-card:hover { border-color: var(--accent, #7c6aff); background: var(--bg-hover, rgba(124,106,255,0.04)); }
+.wiz-card:active { transform: scale(0.995); }
+.wiz-card-icon {
+  width: 38px; height: 38px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border, rgba(128,128,128,0.18));
+  color: var(--accent, #7c6aff); font-size: 17px;
+}
+.wiz-card-text { flex: 1; min-width: 0; }
+.wiz-card-title { font-size: 14px; font-weight: 500; margin-bottom: 3px; }
+.wiz-card-sub { font-size: 12px; color: var(--text-muted, #888); line-height: 1.5; }
+.wiz-chev { color: var(--text-muted, #888); flex-shrink: 0; }
+
+.wiz-label { font-size: 12px; font-weight: 500; color: var(--text-muted, #888); margin-top: 4px; }
+.wiz-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 13px;
+  line-height: 1.3;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border, rgba(128,128,128,0.2));
+  background: var(--bg-surface, var(--bg, #fff));
+  color: inherit;
+  font-family: var(--font-mono, "Berkeley Mono", monospace);
+  font-size: 13px;
+}
+/* Make <select> honor the same box model as <input> (native selects clamp height). */
+select.wiz-input {
+  -webkit-appearance: none; appearance: none;
+  padding-right: 34px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 13px center;
+  cursor: pointer;
+}
+.wiz-input:focus { outline: none; border-color: var(--accent, #7c6aff); }
+.wiz-help { font-size: 11.5px; color: var(--accent, #7c6aff); text-decoration: none; }
+.wiz-help:hover { text-decoration: underline; }
+
+.wiz-specs {
+  padding: 14px 16px;
+  border-radius: var(--radius-sm, 8px);
+  border: 1px solid var(--border, rgba(128,128,128,0.18));
+  background: var(--bg-surface, var(--bg, #fff));
+  font-size: 13px;
+  line-height: 1.7;
+}
+.wiz-warn { color: var(--danger, #e05252); }
+
+.wiz-actions { display: flex; gap: 10px; align-items: center; margin-top: 6px; }
+.wiz-back {
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted, #888); font-family: inherit; font-size: 13px;
+}
+.wiz-back:hover { color: inherit; }
+.wiz-continue {
+  flex: 1;
+  padding: 11px;
+  background: var(--accent, #7c6aff);
+  color: #fff; border: none;
+  border-radius: var(--radius-sm, 8px);
+  font-family: inherit; font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: opacity 0.2s;
+}
+.wiz-continue:hover:not(:disabled) { opacity: 0.88; }
+.wiz-continue:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Setup-page overrides ────────────────────────────────────────────────── */
+/* Narrower, sharper shapes — fewer big rounded corners. */
+.setup-root .step-card,
+.setup-root .setup-done,
+.setup-root .setup-error,
+.setup-root .setup-launch,
+.setup-root .wiz-card,
+.setup-root .wiz-input,
+.setup-root .wiz-specs,
+.setup-root .wiz-continue,
+.setup-root .step-icon-wrap,
+.setup-root .wiz-card-icon { border-radius: 3px; }
+.setup-root .step-badge { border-radius: 2px; }
+/* Finished steps: bare green checkmark, no pill box. */
+.setup-root .step-badge.badge-done,
+.setup-root .step-badge.badge-skipped {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+.setup-root .setup-progress-track,
+.setup-root .setup-progress-fill { border-radius: 0; }
+
+/* Clean wordmark — drop the boxed white "A" tile that belongs to the sidebar. */
+.setup-root .logo-icon { display: none; }
+</style>
+  <link rel="stylesheet" href="index.css" />
+  <link rel="stylesheet" href="styles/csp-inline.css" />
+  <style>
+  /* index.css locks document scroll for the SPA (html, body { overflow: hidden }).
+     The setup flow is a normal document that can grow taller than the viewport,
+     so restore scrolling here — otherwise the launch button is unreachable. */
+  html, body { height: auto; min-height: 100%; overflow: auto; }
+  </style>
+</head>
+<body>
+
+<!-- file:// guard (#157 Part C): the wizard talks to Aperio's server over HTTP.
+     If someone double-clicks setup.html straight off disk it opens as file://,
+     every /api call fails, and the page looks broken for no clear reason. Catch
+     that early and tell them to use the START launcher instead. -->
+
+<div class="setup-root">
+<header>
+    <div class="logo">
+      <div class="logo-icon">A</div>
+      Aperio
+    </div>
+  </header>
+
+  <!-- ── Wizard (shown first) ─────────────────────────────────────────── -->
+  <div id="wizardView">
+    <div class="setup-intro">
+      <h1 data-i18n="wiz_welcome_h1">Welcome to Aperio</h1>
+      <p data-i18n-html="wiz_welcome_p_html">How would you like to run the AI? You can change this later in the <strong>Configuration</strong> panel.</p>
+    </div>
+
+    <!-- Choice -->
+    <div class="wiz-screen" id="wizChoice">
+      <button class="wiz-card" data-choice="cloud">
+        <div class="wiz-card-icon"><i class="bi bi-cloud"></i></div>
+        <div class="wiz-card-text">
+          <div class="wiz-card-title" data-i18n="wiz_cloud_title">Use a cloud AI</div>
+          <div class="wiz-card-sub" data-i18n="wiz_cloud_sub">Fastest to start — just paste one API key. (Anthropic or DeepSeek)</div>
+        </div>
+        <i class="bi bi-chevron-right wiz-chev"></i>
+      </button>
+      <button class="wiz-card" data-choice="local">
+        <div class="wiz-card-icon"><i class="bi bi-hdd"></i></div>
+        <div class="wiz-card-text">
+          <div class="wiz-card-title" data-i18n="wiz_local_title">Run locally — free &amp; private</div>
+          <div class="wiz-card-sub" data-i18n="wiz_local_sub">No key, nothing leaves your machine. We'll pick a model that fits your computer.</div>
+        </div>
+        <i class="bi bi-chevron-right wiz-chev"></i>
+      </button>
+    </div>
+
+    <!-- Cloud -->
+    <div class="wiz-screen csp-style-13" id="wizCloud">
+      <label class="wiz-label" for="wizProvider" data-i18n="wiz_provider_label">Provider</label>
+      <select id="wizProvider" class="wiz-input">
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="codex">OpenAI Codex (CLI login or API key)</option>
+        <!-- Gemini hidden — uncomment to expose it in the setup wizard -->
+        <!-- <option value="gemini">Google Gemini</option> -->
+      </select>
+      <label class="wiz-label" for="wizKey" data-i18n="wiz_key_label">API key</label>
+      <input id="wizKey" class="wiz-input" type="password" data-i18n-attr-placeholder="wiz_key_placeholder" placeholder="Paste your API key" autocomplete="off" spellcheck="false" />
+      <a id="wizKeyHelp" class="wiz-help" target="_blank" rel="noreferrer" data-i18n="wiz_key_help">Where do I get a key? ↗</a>
+      <div class="wiz-actions">
+        <button class="wiz-back" data-back data-i18n="wiz_back">← Back</button>
+        <button class="wiz-continue" id="wizCloudGo" data-i18n="wiz_continue">Continue</button>
+      </div>
+    </div>
+
+    <!-- Local -->
+    <div class="wiz-screen csp-style-13" id="wizLocal">
+      <div class="wiz-specs" id="wizSpecs" data-i18n="wiz_checking">Checking your machine…</div>
+      <select id="wizModelSelect" class="wiz-input csp-style-13"></select>
+      <div class="wiz-actions">
+        <button class="wiz-back" data-back data-i18n="wiz_back">← Back</button>
+        <button class="wiz-continue" id="wizLocalGo" disabled data-i18n="wiz_install_continue">Install &amp; continue</button>
+      </div>
+    </div>
+  </div><!-- /#wizardView -->
+
+  <!-- ── Progress (revealed after the wizard) ─────────────────────────── -->
+  <div id="progressView" class="csp-style-13">
+  <!-- Intro -->
+  <div class="setup-intro">
+    <h1 data-i18n="setup_intro_h1">One-time setup</h1>
+    <p data-i18n-html="setup_intro_p_html">Installing dependencies — this only happens once.<br>Future starts are instant.</p>
+  </div>
+
+  <!-- Progress bar -->
+  <div class="setup-progress-wrap">
+    <div class="setup-progress-row">
+      <span id="progressLabel" data-i18n="setup_starting">Starting…</span>
+      <span id="progressFrac">0 / 5</span>
+    </div>
+    <div class="setup-progress-track">
+      <div class="setup-progress-fill" id="progressFill"></div>
+    </div>
+  </div>
+
+  <!-- Step cards -->
+  <div class="setup-cards" id="cardList"></div>
+
+  <!-- Done banner + launch button -->
+  <div class="setup-done" id="doneBanner">
+    <i class="bi bi-check-circle"></i>
+    <span data-i18n="setup_done_banner">Setup complete — Aperio is ready.</span>
+  </div>
+  <button class="setup-launch" id="launchBtn" data-action="launchApp">
+    <span data-i18n="setup_open_aperio">Open Aperio</span> <i class="bi bi-arrow-right"></i>
+  </button>
+  <a class="setup-help-link" id="helpLink" href="/help.html" target="_blank" rel="noreferrer"
+     data-i18n="setup_help_link">What was installed on my computer? →</a>
+
+  <!-- Error banner -->
+  <div class="setup-error" id="errorBanner">
+    <i class="bi bi-exclamation-triangle"></i>
+    <span class="setup-error__message" id="errorText" data-i18n="setup_error_default">Setup failed. Check bootstrap.log for details.</span>
+    <button class="setup-error__retry" id="retrySetupBtn" type="button">Try again</button>
+  </div>
+  </div><!-- /#progressView -->
+
+  <!-- Confirm modal (reuses the same .confirm-modal classes as the main app) -->
+  <div id="confirmModal" class="confirm-modal">
+    <div class="confirm-content">
+      <div class="confirm-header">
+        <span class="confirm-title">Error</span>
+        <button class="confirm-close" data-action="closeSetupErrorModal">&times;</button>
+      </div>
+      <p class="confirm-message"></p>
+      <div class="confirm-actions">
+        <button class="confirm-btn confirm-btn--cancel csp-style-13" data-action="closeSetupErrorModal">Cancel</button>
+        <button class="confirm-btn confirm-btn--ok" id="confirmOkBtn" data-action="closeSetupErrorModal">Close</button>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /.setup-root -->
+
+<script src="scripts/setup.js"></script>
+</body>
+</html>

@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="en" class="csp-style-1">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light dark" />
+  <title>Aperio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet" />
+
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <!-- Prism syntax highlighting — NO external theme CSS (causes font override on dark themes) -->
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js" defer></script>
+  <link rel="stylesheet" href="index.css" />
+  <link rel="stylesheet" href="styles/csp-inline.css" />
+  <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <!-- i18n must load before any other UI script so t() and applyTranslations() are ready
+       before scripts that build DOM nodes referring to translations. -->
+  <script src="scripts/http-guard.js"></script>
+  <script src="scripts/i18n.js"></script>
+  <!-- lite.js must load in <head>: it stamps data-lite on <html> from a cached
+       flag so lite-hidden surfaces never flash visible while the page builds. -->
+  <script src="scripts/lite.js"></script>
+</head>
+<body>
+<!-- Ambient background wash (issue #185 §A) — fixed, behind everything, no layout impact.
+     Controlled by scripts/ambient.js via data-ambient on <html>; styled in styles/ambient.css. -->
+<div id="ambient" aria-hidden="true"></div>
+<div class="app">
+
+  <!-- Header -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">A</div>
+      Aperio
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Toggle sidebar (⌘B)">
+      <i class="bi bi-layout-sidebar"></i>
+    </button>
+    <!-- Model chip: one navbar element for provider/model identity + connection
+         state (connected / disconnected / busy via data-state). Long activity
+         text (downloads, tool labels) lives in the chat thinking indicator and
+         this chip's tooltip — never rendered here (navbar leakage fix). -->
+    <div class="status-pill" id="modelChip" data-state="disconnected">
+      <div class="status-dot" id="statusDot"></div>
+      <span class="model-chip-state" id="statusText" data-i18n="status_connecting">connecting…</span>
+      <span class="model-chip-name csp-style-2" id="providerBadge"></span>
+    </div>
+    <label id="reasoningToggle" class="reasoning-toggle csp-style-2" data-action="toggleReasoning"
+      data-i18n-attr-title="nav_reasoning_title" title="Enable reasoning">
+      <span class="reasoning-toggle-label" data-i18n="nav_reasoning_label">reasoning</span>
+      <span class="reasoning-toggle-track" id="reasoningToggleTrack">
+        <span class="reasoning-toggle-thumb"></span>
+      </span>
+    </label>
+    <div class="ctx-window csp-style-3" id="ctxWindow">
+      <div class="ctx-header">
+        <span class="ctx-label" data-i18n="ctx_label">context</span>
+        <span class="ctx-value" id="ctxText">— / —</span>
+        <span class="ctx-value ctx-cost" id="costText"></span>
+      </div>
+      <div class="ctx-track">
+        <div class="ctx-fill" id="ctxFill"></div>
+      </div>
+    </div>
+    <button id="langMapBtn" class="quit-btn globe-btn"
+            data-i18n-attr-title="nav_langmap_title" title="Language — pick on the map" aria-label="Language — pick on the map">
+      <span class="globe-icon" aria-hidden="true"></span>
+    </button>
+    <div class="theme-switcher" id="ambientSwitcher" data-i18n-attr-title="nav_ambient_title" title="Ambient background">
+      <button class="theme-btn ambient-btn" data-ambient="auto" data-i18n-attr-title="nav_ambient_auto" title="Auto">
+        <span class="theme-btn-icon">◐</span>
+      </button>
+      <button class="theme-btn ambient-btn" data-ambient="on" data-i18n-attr-title="nav_ambient_on" title="On">
+        <span class="theme-btn-icon">✦</span>
+      </button>
+      <button class="theme-btn ambient-btn" data-ambient="off" data-i18n-attr-title="nav_ambient_off" title="Off">
+        <span class="theme-btn-icon">○</span>
+      </button>
+    </div>
+    <div class="theme-switcher" data-i18n-attr-title="nav_theme_title" title="Theme">
+      <button class="theme-btn" data-theme="light" data-i18n-attr-title="nav_theme_light" title="Light">
+        <span class="theme-btn-icon">☀️</span>
+      </button>
+      <button class="theme-btn" data-theme="dark" data-i18n-attr-title="nav_theme_dark" title="Dark">
+        <span class="theme-btn-icon">🌙</span>
+      </button>
+      <button class="theme-btn" data-theme="aurora" data-i18n-attr-title="nav_theme_aurora" title="Aurora">
+        <span class="theme-btn-icon">✦</span>
+      </button>
+      <button class="theme-btn active" data-theme="system" data-i18n-attr-title="nav_theme_system" title="System">
+        <span class="theme-btn-icon">⊙</span>
+      </button>
+    </div>
+    <div class="power-menu" id="powerMenu">
+      <button id="powerBtn" class="quit-btn" aria-haspopup="menu" aria-expanded="false"
+              data-i18n-attr-title="nav_power_title" title="Power — restart or quit Aperio">
+        <i class="bi bi-power"></i>
+      </button>
+      <div class="power-popover" id="powerPopover" role="menu">
+        <button type="button" class="power-option" role="menuitem" data-action="requestRestartAperio">
+          <i class="bi bi-arrow-repeat"></i>
+          <span data-i18n="nav_power_restart">Restart server</span>
+        </button>
+        <button type="button" class="power-option power-option--danger" id="powerQuitBtn" role="menuitem" data-action="quitAperio">
+          <i class="bi bi-power"></i>
+          <span data-i18n="nav_power_quit">Quit Aperio</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="search-box">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" data-i18n-attr-placeholder="sidebar_search" placeholder="Search memories…" />
+        <span id="memoryCountBadge" class="search-count-badge"></span>
+      </div>
+    </div>
+    <div class="memories-list" id="memoriesList">
+      <div class="empty-state csp-style-6">
+        <div class="csp-style-7">◈</div>
+        <div class="csp-style-8" data-i18n="sidebar_loading">Loading memories…</div>
+      </div>
+    </div>
+    <nav class="sidebar-nav is-compact" id="sidebarNav">
+      <button id="memoriesBtn" class="sidebar-nav-btn sidebar-nav-btn--collapsed-only" data-action="expandSidebarToMemories"
+        data-i18n-attr-title="nav_memories_title" title="Memories — search your saved memories">
+        <i class="bi bi-stars sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Memories</span>
+      </button>
+      <button id="historyBtn" class="sidebar-nav-btn" data-action="toggleSessionsPanel"
+        data-i18n-attr-title="nav_chats_title" title="Conversation history">
+        <i class="bi bi-chat-left-text sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_chats_plain">Chats</span>
+      </button>
+      <button id="codegraphBtn" class="sidebar-nav-btn lite-hide" data-action="toggleCodegraphPanel"
+              data-i18n-attr-title="nav_codegraph_title" title="Code graph">
+        <i class="bi bi-diagram-3 sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Code</span>
+      </button>
+      <button id="docgraphBtn" class="sidebar-nav-btn" data-action="toggleDocgraphPanel"
+              title="Documents — search your indexed PDFs, DOCX, notes…">
+        <i class="bi bi-file-earmark-text sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Docs</span>
+      </button>
+      <button id="wikiBtn" class="sidebar-nav-btn" data-action="toggleWikiPanel"
+        title="Wiki — LLM-authored articles over your memories">
+        <i class="bi bi-book sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Wiki</span>
+      </button>
+      <button id="datasetLabBtn" class="sidebar-nav-btn lite-hide" data-action="toggleDatasetLabPanel"
+        title="Dataset Lab — evaluate retrieval quality">
+        <i class="bi bi-graph-up sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Dataset Lab</span>
+      </button>
+      <button id="dbBtn" class="sidebar-nav-btn lite-hide" data-action="toggleDbPanel"
+        title="Database — browse all tables">
+        <i class="bi bi-database sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">DB</span>
+      </button>
+      <button id="agentsBtn" class="sidebar-nav-btn lite-hide" data-action="toggleAgentsPanel"
+        title="Background agents — scheduled jobs over your store">
+        <i class="bi bi-robot sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Agents</span>
+      </button>
+      <button id="skillsBtn" class="sidebar-nav-btn lite-hide" data-action="toggleSkillsPanel"
+        data-i18n-attr-title="skills_panel_nav_title" title="Skills — view, edit, create and toggle your agent's skills">
+        <i class="bi bi-lightning-charge sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="skills_panel_label">Skills</span>
+      </button>
+      <button id="configBtn" class="sidebar-nav-btn" data-action="toggleSettingsOverlay"
+        data-i18n-attr-title="stov_nav_title" title="Configuration — every setting, saved to the database">
+        <i class="bi bi-gear-wide-connected sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="stov_nav_label">Config</span>
+      </button>
+      <button id="settingsBtn" class="sidebar-nav-btn" data-action="toggleSettingsPanel"
+        data-i18n-attr-title="nav_settings_title" title="Settings">
+        <i class="bi bi-sliders sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label" data-i18n="nav_settings_plain">Settings</span>
+      </button>
+      <button id="systemBtn" class="sidebar-nav-btn lite-hide" data-action="toggleSystemPanel"
+        title="System — server and machine metrics">
+        <i class="bi bi-speedometer2 sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">System</span>
+      </button>
+      <button id="navDensityToggle" class="sidebar-nav-btn" title="Expand to full list">
+        <i class="bi bi-arrows-expand sidebar-nav-icon"></i>
+        <span class="sidebar-nav-label">Expand</span>
+      </button>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span id="version-display"></span>
+    </div>
+  </aside>
+
+  <!-- Chat -->
+  <div class="chat-area">
+    <div class="messages" id="messages">
+      <div class="thinking" id="startup-thinking">
+        <div class="avatar ai">A</div>
+        <div class="thinking-dots">
+          <div class="thinking-dots-row">
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+            <div class="thinking-dot"></div>
+          </div>
+          <div class="thinking-label" data-i18n="chat_loading_label">loading…</div>
+        </div>
+      </div>
+    </div>
+    <div class="input-bar">
+      <div class="attach-preview" id="attachPreview"></div>
+      <div class="input-wrap">
+        <div class="plus-wrap">
+          <button class="attach-btn" id="attachBtn" type="button" aria-haspopup="menu" aria-expanded="false"
+                  data-i18n-attr-title="plus_btn_title" title="Attach or more actions">
+            <i class="bi bi-plus-lg"></i>
+          </button>
+          <div class="plus-menu" id="plusMenu" role="menu">
+            <button class="plus-item" id="pmAttach" type="button" role="menuitem">
+              <span class="plus-item-ic"><i class="bi bi-paperclip"></i></span>
+              <span class="plus-item-tx">
+                <span class="plus-item-ti" data-i18n="plus_menu_attach_title">Attach files</span>
+                <span class="plus-item-de" data-i18n="plus_menu_attach_desc">Images, PDFs, code — anything the model should look at.</span>
+              </span>
+            </button>
+            <button class="plus-item lite-hide" id="pmBranch" type="button" role="menuitem">
+              <span class="plus-item-ic"><i class="bi bi-diagram-2"></i></span>
+              <span class="plus-item-tx">
+                <span class="plus-item-ti" data-i18n="plus_menu_branch_title">Branch conversation</span>
+                <span class="plus-item-de" data-i18n="plus_menu_branch_desc">Start a new conversation with context from this one. Both conversations stay in Sessions.</span>
+              </span>
+            </button>
+          </div>
+        </div>
+        <div class="mic-wrap csp-style-2" id="micWrap">
+          <button class="mic-btn" id="micBtn" title="Voice input">
+            <i class="bi bi-mic"></i>
+          </button>
+          <button class="mic-continuous-chip" id="micContinuousChip" type="button" title="Continuous voice mode">∞</button>
+        </div>
+        <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md,.js,.py,.html,.css,.json,.docx,.pptx" multiple hidden>
+        <textarea
+          id="chatInput"
+          data-i18n-attr-placeholder="chat_placeholder"
+          placeholder="Ask anything — or say 'scan my project at ~/…'"
+          rows="1"
+        ></textarea>
+        <span class="char-counter" id="charCounter"></span>
+        <button class="discuss-btn lite-hide" id="discussBtn" type="button" disabled aria-pressed="false"
+                data-i18n-attr-title="discuss_button_tooltip" title="Two agents will cross-review answers">
+          <i class="bi bi-chat-left-dots"></i>
+          <span class="discuss-btn-label" data-i18n="discuss_button_label">Discuss</span>
+        </button>
+        <button class="branch-btn-labeled lite-hide" id="branchBtn" type="button"
+                data-i18n-attr-title="branch_button_tooltip"
+                title="Start a new conversation with context from this one. This conversation stays in Sessions.">
+          <i class="bi bi-diagram-2"></i>
+          <span class="branch-btn-label" data-i18n="branch_button_label">Branch</span>
+        </button>
+        <button class="send-btn" id="sendBtn" disabled title="Send (⌘ + ↵)">
+          <i class="bi bi-send-fill csp-style-9"></i>
+        </button>
+        <button class="stop-btn" id="stopBtn" data-i18n-attr-title="chat_stop_title" title="Stop generating">■</button>
+      </div>
+      <div class="input-hint" id="inputHint">⌘ + ↵ to send &nbsp;·&nbsp; ↵ for newline</div>
+      <div class="input-warning" id="inputWarning" data-i18n="chat_input_warning">Your AI agent is not almighty. Do not trust the output blindly!</div>
+    </div>
+  </div>
+
+</div>
+
+<div class="preview-modal">
+  <div class="preview-content">
+    <div class="modal-header csp-style-10">
+      <span class="type-badge"></span>
+      <button class="close-btn" data-action="closePreview">&times;</button>
+    </div>
+    <h2 class="mtitle csp-style-11"></h2>
+    <hr class="modal-divider">
+    <div class="mcontent"></div>
+    <hr class="modal-divider">
+    <div class="modal-footer">
+      <p class="mtags"></p>
+      <div class="importance-rating"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Memory table modal -->
+<div id="memoryModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-table"></i>
+        Memory Table
+        <span id="memTableCount" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <button class="mem-table-close" data-action="refreshMemories" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" data-action="closeModal" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box csp-style-12">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="memory-search" placeholder="Filter by title, content, tags…" data-action-input="handleSearch" />
+      </div>
+      <span id="mem-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="table-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="pagination-controls" class="mem-pagination csp-style-2">
+        <button id="prev-page" class="mem-page-btn" data-action="changePagePrev">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <span id="page-info" class="mem-page-info"></span>
+        <button id="next-page" class="mem-page-btn" data-action="changePageNext">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Self-memory table modal (agent's own walled-off notes; oversight: read + delete) -->
+<div id="selfMemoryModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-stars"></i>
+        Self-memories
+        <span id="selfMemTableCount" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <button class="mem-table-close" data-action="refreshSelfMemories" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" data-action="closeSelfMemoryModal" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box csp-style-12">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="self-memory-search" placeholder="Filter by title, content, tags…" data-action-input="handleSelfSearch" />
+      </div>
+      <span id="self-mem-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="self-table-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="self-pagination-controls" class="mem-pagination csp-style-2">
+        <button id="self-prev-page" class="mem-page-btn" data-action="selfPagePrev">
+          <i class="bi bi-chevron-left"></i>
+        </button>
+        <span id="self-page-info" class="mem-page-info"></span>
+        <button id="self-next-page" class="mem-page-btn" data-action="selfPageNext">
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm modal (export / import) -->
+<div id="confirmModal" class="confirm-modal">
+  <div class="confirm-content">
+    <div class="confirm-header">
+      <span class="confirm-title"></span>
+      <button class="confirm-close" data-action="closeConfirmModal">&times;</button>
+    </div>
+    <p class="confirm-message"></p>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" data-action="closeConfirmModal">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="confirmOkBtn"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Shared input modal (agent action editing / interrupt responses) -->
+<div id="inputModal" class="confirm-modal" aria-hidden="true">
+  <div class="confirm-content input-modal-content" role="dialog" aria-modal="true" aria-labelledby="inputModalTitle">
+    <div class="confirm-header">
+      <span class="confirm-title" id="inputModalTitle"></span>
+      <button class="confirm-close" id="inputModalClose" type="button" aria-label="Close">&times;</button>
+    </div>
+    <p class="confirm-message" id="inputModalMessage"></p>
+    <textarea id="inputModalField" class="input-modal-field" rows="8"></textarea>
+    <p id="inputModalError" class="input-modal-error" role="alert" hidden></p>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" id="inputModalCancel" type="button">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="inputModalSubmit" type="button">Submit</button>
+    </div>
+  </div>
+</div>
+
+<!-- Export modal (checkbox form) -->
+<div id="exportModal" class="confirm-modal">
+  <div class="confirm-content">
+    <div class="confirm-header">
+      <span class="confirm-title">Export database</span>
+      <button class="confirm-close" data-action="closeExportModal">&times;</button>
+    </div>
+    <div class="export-options">
+      <div class="export-option export-option--always">
+        <span class="export-option-label">Memories</span>
+        <span class="export-option-count" id="exportCountMem">0</span>
+      </div>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeSelfMemories" checked>
+        <span class="export-option-label">Self-memories</span>
+        <span class="export-option-count" id="exportCountSelf">0</span>
+      </label>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeWiki" checked>
+        <span class="export-option-label">Wiki articles</span>
+        <span class="export-option-count" id="exportCountWiki">0</span>
+      </label>
+      <label class="export-option">
+        <input type="checkbox" id="exportIncludeJobs" checked>
+        <span class="export-option-label">Agent jobs + recent runs</span>
+        <span class="export-option-count" id="exportCountJobs">0</span>
+        <span class="export-option-sub">+ <span id="exportCountRuns">0</span> runs</span>
+      </label>
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-btn confirm-btn--cancel" data-action="closeExportModal">Cancel</button>
+      <button class="confirm-btn confirm-btn--ok" id="exportDoBtn">Export</button>
+    </div>
+  </div>
+</div>
+
+<div id="sessions-panel" class="sessions-panel csp-style-2">
+  <div class="sessions-panel-header">
+    <span class="sessions-panel-title"><i class="bi bi-clock-history"></i> <span data-i18n="sessions_title">History</span></span>
+    <div class="sessions-panel-header-actions">
+    <button id="sessionsSelectBtn" class="sessions-select-toggle" data-action="toggleSelectMode" title="Select sessions">
+        <i class="bi bi-check2-square"></i> <span data-i18n="sessions_select">Select</span>
+      </button>
+    <button class="sessions-panel-close" data-action="toggleSessionsPanel">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+  </div>
+  <div id="sessions-select-bar" class="sessions-select-bar csp-style-2">
+    <span id="sessions-select-count" class="sessions-select-count">0 selected</span>
+    <button id="sessions-bulk-delete-btn" class="session-btn session-btn--bulk-delete" data-action="bulkDeleteSessions" disabled>
+      <i class="bi bi-trash3"></i> <span data-i18n="sessions_bulk_delete">Delete selected</span>
+    </button>
+  </div>
+  <div class="sessions-panel-body" id="sessions-list">
+    <div class="sessions-empty" data-i18n="sessions_loading">Loading…</div>
+  </div>
+</div>
+<div id="sessions-backdrop" class="sessions-backdrop csp-style-2" data-action="toggleSessionsPanel"></div>
+
+<!-- Wiki panel -->
+<div id="wiki-panel" class="wiki-panel csp-style-2">
+  <div class="wiki-panel-header">
+    <span class="wiki-panel-title"><i class="bi bi-book"></i> Wiki</span>
+    <button class="wiki-panel-close" data-action="toggleWikiPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div id="wiki-panel-toolbar" class="wiki-panel-toolbar">
+    <input type="text" id="wikiSearchInput" class="wiki-search-input" placeholder="Search articles…" />
+    <div class="wiki-status-chips">
+      <button class="wiki-chip wiki-chip--active" data-status="all">all</button>
+      <button class="wiki-chip" data-status="fresh">fresh</button>
+      <button class="wiki-chip" data-status="stale">stale</button>
+      <button class="wiki-chip csp-style-13" data-status="draft" id="wikiDraftChip">draft</button>
+    </div>
+  </div>
+  <div class="wiki-panel-body" id="wiki-panel-body">
+    <div class="wiki-empty">Loading…</div>
+  </div>
+</div>
+<div id="wiki-backdrop" class="wiki-backdrop csp-style-2" data-action="toggleWikiPanel"></div>
+
+<!-- DB panel -->
+<div id="db-panel" class="db-panel csp-style-2">
+  <div class="db-panel-header">
+    <span class="db-panel-title"><i class="bi bi-database"></i> Database</span>
+    <button class="db-panel-close" data-action="toggleDbPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="db-panel-conn">
+    <label for="dbConnSelect">Database</label>
+    <select id="dbConnSelect" class="db-conn-select"></select>
+  </div>
+  <div class="db-panel-toolbar">
+    <button id="exportBtn" class="db-action-btn" data-i18n-attr-title="sidebar_export_title" title="Export memories to JSON">
+      <i class="bi bi-download"></i> <span data-i18n="sidebar_export">Export</span>
+    </button>
+    <button id="importBtn" class="db-action-btn" data-i18n-attr-title="sidebar_import_title" title="Import memories from JSON">
+      <i class="bi bi-upload"></i> <span data-i18n="sidebar_import">Import</span>
+    </button>
+    <input type="file" id="importFileInput" accept=".json" hidden>
+  </div>
+  <div class="db-panel-body" id="db-panel-body">
+    <div class="db-empty">Loading…</div>
+  </div>
+</div>
+<div id="db-backdrop" class="db-backdrop csp-style-2" data-action="toggleDbPanel"></div>
+
+<!-- Generic DB table modal -->
+<div id="dbTableModal" class="mem-table-modal">
+  <div class="mem-table-content">
+    <div class="mem-table-header">
+      <span class="mem-table-title">
+        <i class="bi bi-table"></i>
+        <span id="dbt-title">Table</span>
+        <span id="dbt-count" class="mem-table-title-count"></span>
+      </span>
+      <div class="mem-table-header-actions">
+        <a id="dbt-export" class="mem-table-close" title="Export this table as JSON" download>
+          <i class="bi bi-download"></i>
+        </a>
+        <button class="mem-table-close" id="dbt-refresh" title="Refresh">
+          <i class="bi bi-arrow-clockwise"></i>
+        </button>
+        <button class="mem-table-close" id="dbt-close" title="Close">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+    </div>
+    <div class="mem-table-toolbar">
+      <div class="search-box csp-style-12">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="dbt-search" placeholder="Filter rows…" />
+      </div>
+      <span id="dbt-filter-info" class="mem-col-filter-info"></span>
+    </div>
+    <div class="mem-table-body">
+      <div id="dbt-wrapper"></div>
+    </div>
+    <div class="mem-table-footer">
+      <div id="dbt-pagination" class="mem-pagination csp-style-2">
+        <button id="dbt-prev" class="mem-page-btn"><i class="bi bi-chevron-left"></i></button>
+        <span id="dbt-page-info" class="mem-page-info"></span>
+        <button id="dbt-next" class="mem-page-btn"><i class="bi bi-chevron-right"></i></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Code graph panel -->
+<div id="codegraph-panel" class="cg-panel csp-style-2">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-diagram-3"></i> Code graph</span>
+    <button class="cg-panel-close" data-action="toggleCodegraphPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="cgSearchInput" class="cg-search-input" placeholder="Search symbols…" />
+    <div class="cg-toolbar-row">
+      <select id="cgRepoSelect" class="cg-select"><option value="">All repos</option></select>
+      <select id="cgKindSelect" class="cg-select">
+        <option value="">All kinds</option>
+        <option value="function">function</option>
+        <option value="class">class</option>
+        <option value="method">method</option>
+        <option value="const">const</option>
+      </select>
+    </div>
+  </div>
+  <div class="cg-panel-body" id="cg-panel-body"></div>
+</div>
+<div id="codegraph-backdrop" class="cg-backdrop csp-style-2" data-action="toggleCodegraphPanel"></div>
+
+<!-- Document graph panel (reuses the cg-* panel styles) -->
+<div id="docgraph-panel" class="cg-panel csp-style-2">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-file-earmark-text"></i> Documents</span>
+    <button class="cg-panel-close" data-action="toggleDocgraphPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="dgSearchInput" class="cg-search-input" placeholder="Search documents…" />
+    <div class="cg-toolbar-row">
+      <select id="dgFolderSelect" class="cg-select"><option value="">All folders</option></select>
+      <select id="dgMimeSelect" class="cg-select"><option value="">All types</option></select>
+    </div>
+  </div>
+  <div class="cg-panel-body" id="dg-panel-body"></div>
+</div>
+<div id="docgraph-backdrop" class="cg-backdrop csp-style-2" data-action="toggleDocgraphPanel"></div>
+
+<!-- Skills panel (reuses the cg-* panel styles; sk-* for rows + editor) -->
+<div id="skills-panel" class="cg-panel csp-style-2">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-lightning-charge"></i> <span data-i18n="skills_panel_label">Skills</span></span>
+    <button class="cg-panel-close" data-action="toggleSkillsPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-toolbar">
+    <input type="text" id="skSearchInput" class="cg-search-input" data-i18n-attr-placeholder="skills_panel_search_ph" placeholder="Search skills…" />
+    <button id="skNewBtn" class="sk-new-btn"><i class="bi bi-plus-lg"></i> <span data-i18n="skills_panel_new_btn">New skill</span></button>
+  </div>
+  <div class="cg-panel-body" id="sk-panel-body"></div>
+</div>
+<div id="skills-backdrop" class="cg-backdrop csp-style-2" data-action="toggleSkillsPanel"></div>
+
+<!-- Background-agents panel (reuses the cg-* panel styles) -->
+<div id="agents-panel" class="cg-panel csp-style-2">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-robot"></i> Agents</span>
+    <button class="cg-panel-close" data-action="toggleAgentsPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-body" id="ag-panel-body"></div>
+</div>
+<div id="agents-backdrop" class="cg-backdrop csp-style-2" data-action="toggleAgentsPanel"></div>
+
+<!-- Settings overlay (#252): the one configuration surface. Full-screen card
+     (language-map pattern), schema-driven from lib/config.js via
+     GET /api/config/schema: category nav, search, Simple↔Advanced toggle.
+     Writes persist to the DB under config.<KEY> and apply on restart. Tier-0
+     bootstrap/security vars are read-only (edit in .env). Secrets are
+     write-only: blank = keep current. Logic: scripts/settings-overlay.js. -->
+<div class="stov-overlay csp-style-2" id="settingsOverlay">
+  <div class="stov-card">
+    <div class="stov-head">
+      <h2 data-i18n="stov_title">Settings</h2>
+      <span class="stov-sub" data-i18n="stov_sub">saved to the database · .env can override</span>
+      <label class="stov-search">
+        <i class="bi bi-search"></i>
+        <input type="text" id="stovSearch" data-i18n-attr-placeholder="stov_search_ph" placeholder="Search settings…" />
+      </label>
+      <div class="stov-mode" id="stovModeToggle">
+        <button id="stovModeSimple" class="active" data-i18n="stov_mode_simple">Simple</button>
+        <button id="stovModeAdvanced" data-i18n="stov_mode_advanced">Advanced</button>
+      </div>
+      <button class="stov-close" data-action="toggleSettingsOverlay" data-i18n-attr-title="stov_close" title="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="stov-main">
+      <nav class="stov-nav" id="stovNav"></nav>
+      <div class="stov-body" id="stovBody"><div class="stov-empty" data-i18n="stov_loading">Loading…</div></div>
+      <div class="stov-special-body is-hidden" id="stovSpecialBody">
+        <div class="stov-special-panel" data-cat="paths">
+          <h3><i class="bi bi-folder2-open"></i> Allowed folders</h3>
+          <p class="paths-section-hint" data-i18n="paths_allowed_hint">Folders the AI can read and edit. Generated files (pptx, xlsx) go to the session workspace.</p>
+          <div class="paths-chips" id="paths-chips"></div>
+          <div class="paths-add-row">
+            <input type="text" id="path-input" class="paths-text-input" data-i18n-attr-placeholder="paths_input_placeholder" placeholder="/Users/you/your-project" />
+            <button class="paths-pick-btn" data-action="_pickFolder" data-i18n-attr-title="paths_pick_title" title="Browse for folder (opens Finder)"><i class="bi bi-folder2-open"></i></button>
+            <button class="paths-add-btn" data-action="addPathChip"><i class="bi bi-plus-lg"></i></button>
+          </div>
+          <div class="paths-saved-note" data-i18n-html="paths_saved_note_html"><i class="bi bi-hdd"></i> Saved across sessions.</div>
+          <button class="paths-apply-btn" data-action="applyPaths"><i class="bi bi-check-lg"></i> <span data-i18n="paths_apply">Save</span></button>
+        </div>
+        <div class="stov-special-panel" data-cat="dbconnections">
+          <h3><i class="bi bi-database"></i> Database connections</h3>
+          <p class="paths-section-hint">Databases the AI can query with the <code>db_*</code> tools — SQLite, Postgres, MySQL, or SQL Server. Read-only is ON by default.</p>
+          <div id="dbSampleBar" class="db-conn-sample-bar"></div>
+          <div id="dbConnList" class="db-conn-list"></div>
+          <div id="dbConnForm" class="db-conn-form"></div>
+          <div class="model-select-status" id="dbConnStatus"></div>
+        </div>
+        <div class="stov-special-panel" data-cat="github">
+          <h3><i class="bi bi-github"></i> GitHub triage</h3>
+          <p class="paths-section-hint">Repos for the daily issue-triage agent to rank. One per line — either <code>owner/repo</code> or an allowed folder name.</p>
+          <textarea id="triageReposInput" class="busy-words-input" rows="3" spellcheck="false" placeholder="octocat/Hello-World&#10;my-project"></textarea>
+          <p class="paths-section-hint">GitHub token — optional for public repos; required for private repos and issue writes. <span id="githubTokenState"></span></p>
+          <input type="password" id="githubTokenInput" class="paths-text-input" autocomplete="off" placeholder="ghp_… (leave blank to keep current)" />
+          <p class="paths-section-hint">Webhook secret — needed for instant issue capture. <span id="githubWebhookSecretState"></span></p>
+          <input type="password" id="githubWebhookSecretInput" class="paths-text-input" autocomplete="off" placeholder="(leave blank to keep current)" />
+          <div class="paths-saved-note"><i class="bi bi-info-circle"></i> Triage runs as a background agent.</div>
+          <div class="model-select-status" id="githubTriageStatus"></div>
+          <button class="paths-apply-btn" data-action="saveGithubTriageSettings"><i class="bi bi-check-lg"></i> Save</button>
+        </div>
+      </div>
+    </div>
+    <div class="stov-foot" id="stovFoot">
+      <span class="stov-foot-msg" id="stovFootMsg"></span>
+      <span class="stov-spacer"></span>
+      <button class="stov-btn-ghost" id="stovDiscardBtn" data-i18n="stov_discard">Discard</button>
+      <button class="stov-btn-primary" id="stovSaveBtn" data-i18n="stov_save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Language map overlay: world map framed on Europe; countries whose language
+     Aperio speaks glow, planned ones render dashed. Logic in scripts/lang-map.js;
+     country shapes lazy-load from scripts/world-paths.js on first open. -->
+<div class="langmap-overlay" id="langMapOverlay">
+  <div class="langmap-card">
+    <div class="langmap-head">
+      <h2 data-i18n="langmap_heading">Choose your language</h2>
+      <span class="langmap-sub" id="langMapCount"></span>
+      <button class="langmap-close" id="langMapClose" title="Close"><i class="bi bi-x-lg"></i></button>
+    </div>
+    <div class="langmap-main">
+      <div class="langmap-map">
+        <div class="langmap-glow"></div>
+        <svg id="langMapSvg" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="langmap-loading" id="langMapLoading">…</div>
+        <div class="langmap-controls">
+          <button id="langMapViewEurope" class="active" data-i18n="langmap_view_europe">Europe</button>
+          <button id="langMapViewWorld" data-i18n="langmap_view_world">World</button>
+        </div>
+        <div class="langmap-hint" data-i18n="langmap_hint">drag to pan · scroll to zoom</div>
+        <div class="langmap-legend">
+          <span><i class="lm-swatch on"></i><span data-i18n="langmap_legend_available">available</span></span>
+          <span><i class="lm-swatch soon"></i><span data-i18n="langmap_soon_hint">coming soon</span></span>
+          <span><i class="lm-swatch off"></i><span data-i18n="langmap_legend_not">not yet</span></span>
+        </div>
+      </div>
+      <div class="langmap-list-pane">
+        <div class="langmap-search">
+          <input id="langMapSearch" type="text" data-i18n-attr-placeholder="langmap_search" placeholder="Search languages…">
+        </div>
+        <div class="langmap-list" id="langMapList"></div>
+        <div class="langmap-foot" data-i18n="langmap_foot">Don't see yours? Aperio's agent understands you anyway — just write in any language.</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="langmap-tip" id="langMapTip"></div>
+<div class="langmap-choose" id="langMapChooser"></div>
+<div class="langmap-toast" id="langMapToast"></div>
+
+<!-- Restart overlay: shown while the server restarts; auto-reloads when it's back -->
+<div id="restartOverlay" class="restart-overlay csp-style-2">
+  <div class="restart-overlay-card">
+    <div class="restart-spinner"></div>
+    <div class="restart-overlay-title" id="restartOverlayTitle">Restarting Aperio…</div>
+    <div class="restart-overlay-msg" id="restartOverlayMsg">Applying your changes. This usually takes a few seconds.</div>
+  </div>
+</div>
+
+<!-- Settings panel -->
+<div id="settings-panel" class="settings-panel csp-style-2">
+  <div class="settings-panel-header">
+    <span class="settings-panel-title"><i class="bi bi-sliders"></i> <span data-i18n="nav_settings_title">Settings</span></span>
+    <button class="settings-panel-close" data-action="toggleSettingsPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="settings-panel-body">
+    <details class="settings-section" id="fontSizeSection">
+      <summary>
+        <i class="bi bi-fonts"></i>
+        <span data-i18n="nav_fontsize_title">Text size</span>
+      </summary>
+      <div class="settings-section-body">
+        <div class="fontscale-slider-row" data-i18n-attr-title="nav_fontsize_title" title="Text size">
+          <span class="fontscale-end csp-style-14" aria-hidden="true">A</span>
+          <input type="range" class="fontscale-slider" id="fontScaleSlider"
+                 min="0.85" max="1.4" step="0.05" value="1" aria-label="Text size">
+          <span class="fontscale-end csp-style-15" aria-hidden="true">A</span>
+          <output class="fontscale-value" id="fontScaleValue" for="fontScaleSlider">100%</output>
+        </div>
+      </div>
+    </details>
+    <div class="settings-row">
+      <span class="settings-row-label">
+        <i class="bi bi-volume-up"></i>
+        <span data-i18n="nav_sound_title">Voice responses</span>
+      </span>
+      <span class="settings-row-control">
+        <span class="settings-state" id="settingsSoundState">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="settingsSoundToggle" />
+          <span class="switch-track"></span>
+        </label>
+      </span>
+    </div>
+    <!-- Model selector — expandable list grouped by provider. -->
+    <details class="settings-section" id="modelSelectorSection">
+      <summary>
+        <i class="bi bi-cpu"></i>
+        <span data-i18n="nav_model_title">AI Model</span>
+        <span class="model-current" id="modelCurrent"></span>
+      </summary>
+      <div class="settings-section-body">
+        <div class="model-list" id="modelList">
+          <span class="model-loading">Loading…</span>
+        </div>
+        <div class="model-select-status" id="modelStatus"></div>
+        <a class="model-guide-link" href="https://baiganio.github.io/aperio/model-guide.html"
+           target="_blank" rel="noopener" data-i18n="nav_model_guide">Not sure which to pick? Model guide →</a>
+      </div>
+    </details>
+    <!-- Extras — optional skill dependencies (docx Python toolchain). Detects
+         what's installed; auto-installs pip deps; shows guided commands for
+         system binaries it can't safely install from the browser. -->
+    <!-- Busy words — words Aperio cycles through next to the live cursor while
+         it's working. Defaults ship in code; these are the user's additions. -->
+    <details class="settings-section" id="busyWordsSection">
+      <summary>
+        <i class="bi bi-chat-square-dots"></i>
+        <span>Busy words</span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Words Aperio shows while it's busy. Add your own (one per line) — they join the built-in set.</span>
+        <textarea id="busyWordsInput" class="busy-words-input" rows="5" spellcheck="false"
+                  placeholder="Marinating&#10;Percolating&#10;Compiling thoughts"></textarea>
+      </div>
+    </details>
+    <!-- Advanced mode — only rendered in the lite profile (.lite-only). Reveals
+         the developer surfaces lite hides (code graph, DB browser, agents,
+         skills, full config, GitHub triage, database connections). -->
+    <div class="settings-row lite-only" id="liteAdvancedRow">
+      <span class="settings-row-label">
+        <i class="bi bi-unlock"></i>
+        <span>Advanced mode</span>
+      </span>
+      <span class="settings-row-control">
+        <span class="settings-state" id="liteAdvancedState">OFF</span>
+        <label class="switch">
+          <input type="checkbox" id="liteAdvancedToggle" />
+          <span class="switch-track"></span>
+        </label>
+      </span>
+    </div>
+    <details class="settings-section" id="extrasSection">
+      <summary>
+        <i class="bi bi-puzzle"></i>
+        <span>Extras</span>
+        <span class="model-current" id="extrasSummary"></span>
+      </summary>
+      <div class="settings-section-body">
+        <span class="paths-section-hint">Optional dependencies that unlock advanced document features (e.g. editing Word docs with tracked changes). Aperio works without them.</span>
+        <div id="extras-tiers"><span class="model-loading">Checking…</span></div>
+      </div>
+    </details>
+    <!-- Hidden folder input for the browser fallback picker -->
+    <input type="file" id="path-folder-input" webkitdirectory hidden>
+  </div>
+</div>
+<div id="settings-backdrop" class="settings-backdrop csp-style-2" data-action="toggleSettingsPanel"></div>
+
+<!-- System panel -->
+<div id="dataset-lab-panel" class="cg-panel csp-style-2">
+  <div class="cg-panel-header">
+    <span class="cg-panel-title"><i class="bi bi-graph-up"></i> Dataset Lab</span>
+    <button class="cg-panel-close" data-action="toggleDatasetLabPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="cg-panel-body" id="dataset-lab-body"><div class="system-loading">Loading datasets…</div></div>
+</div>
+<div id="dataset-lab-backdrop" class="system-backdrop csp-style-2" data-action="toggleDatasetLabPanel"></div>
+
+<!-- System panel -->
+<div id="system-panel" class="system-panel csp-style-2">
+  <div class="system-panel-header">
+    <span class="system-panel-title"><i class="bi bi-speedometer2"></i> System</span>
+    <button class="system-panel-close" data-action="toggleSystemPanel"><i class="bi bi-x-lg"></i></button>
+  </div>
+  <div class="system-panel-body" id="system-metrics-body">
+    <div class="system-loading">Loading metrics…</div>
+  </div>
+</div>
+<div id="system-backdrop" class="system-backdrop csp-style-2" data-action="toggleSystemPanel"></div>
+
+<script src="scripts/settings.js"></script>
+<script src="scripts/ambient.js"></script>
+<script src="scripts/system.js"></script>
+<script src="scripts/api.js"></script>
+<script src="scripts/input-bar.js"></script>
+<script src="scripts/voice.js"></script>
+<script src="scripts/tts.js"></script>
+<script src="scripts/theme-and-timestamp.js"></script>
+<script src="scripts/font-scale.js"></script>
+<script src="scripts/markdown.js"></script>
+<script src="scripts/rendering.js"></script>
+<script src="scripts/spreadsheet-preview.js"></script>
+<script src="scripts/stream-prefix-guard.js"></script>
+<script src="scripts/streaming/state.js"></script>
+<script src="scripts/streaming/handler.js"></script>
+<script src="scripts/streaming/roundtable.js"></script>
+<script src="scripts/streaming/deliverables.js"></script>
+<script src="scripts/streaming/badges.js"></script>
+<script src="scripts/streaming/tool-cards.js"></script>
+<script src="scripts/streaming/interrupts.js"></script>
+<script src="scripts/streaming/events/lifecycle.js"></script>
+<script src="scripts/streaming/events/turn.js"></script>
+<script src="scripts/streaming/events/context.js"></script>
+<script src="scripts/streaming/events/knowledge.js"></script>
+<script src="scripts/streaming/events/tools.js"></script>
+<script src="scripts/streaming/events/roundtable.js"></script>
+<script src="scripts/sessions.js"></script>
+<script src="scripts/paths-panel.js"></script>
+<script src="scripts/wiki-panel.js"></script>
+<script src="scripts/db-panel.js"></script>
+<script src="scripts/codegraph-panel.js"></script>
+<script src="scripts/docgraph-panel.js"></script>
+<script src="scripts/agents-panel.js"></script>
+<script src="scripts/dataset-lab-panel.js"></script>
+<script src="scripts/capabilities-panel.js"></script>
+<script src="scripts/skills-panel.js"></script>
+<script src="scripts/github-triage-panel.js"></script>
+<script src="scripts/db-connections-panel.js"></script>
+<script src="scripts/settings-overlay.js"></script>
+<script src="scripts/settings-panel.js"></script>
+<script src="scripts/lang-map.js"></script>
+<script src="scripts/chat.js"></script>
+<script src="scripts/memories.js"></script>
+<script src="scripts/memory-table.js"></script>
+<script src="scripts/self-memory-table.js"></script>
+<script src="scripts/autocomplete.js"></script>
+<script src="index.js"></script>
+</body>
+</html>

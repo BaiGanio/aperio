@@ -1,0 +1,25 @@
+{
+  "_comment": "No-match ground truth for the semantic-rescue floor calibration (skills/autotune/calibrate.mjs). These are turns where the keyword matcher correctly finds nothing and the semantic tier should ALSO stay quiet — greetings, acknowledgements, chit-chat, generic one-liners. The floor is chosen to reject these while still rescuing genuine paraphrased skill requests. Authored set; replace/extend with real chat-log negatives when available (see project memory).",
+  "negatives": [
+    "hey, how's it going?",
+    "thanks, that's perfect",
+    "can you be a bit more concise?",
+    "hmm, not sure that's right",
+    "what's the weather like where you are?",
+    "give me a sec",
+    "never mind, forget it",
+    "who won the game last night?",
+    "tell me a joke",
+    "good morning",
+    "that makes sense, thanks",
+    "what time is it?",
+    "can you repeat that?",
+    "cool, appreciate it",
+    "no rush, take your time",
+    "sounds good to me",
+    "what's your favorite color?",
+    "ok let's do it",
+    "you know what I mean? or can you not even read the screen?",
+    "from where did you came with this Bulgarian response? where I write yo to Bulgarian so you are writing me that way?"
+  ]
+}

@@ -1,0 +1,25 @@
+{
+  "status": "complete",
+  "model": { "id": "gemma4-e4b-ud-q4kxl" },
+  "targetTierGB": 24,
+  "caseResults": [
+    {
+      "id": "recall-filter-type",
+      "status": "fail",
+      "completed": true,
+      "toolSequencePassed": true,
+      "answerTermsPassed": true,
+      "toolsSuccessful": true,
+      "statePassed": true,
+      "argumentAssertionsPassed": false,
+      "argumentAssertions": [
+        {
+          "tool": "recall",
+          "expected": { "type": "note" },
+          "observed": { "type": "note", "limit": 5 },
+          "passed": false
+        }
+      ]
+    }
+  ]
+}

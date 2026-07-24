@@ -1,0 +1,532 @@
+/* public/styles/messages/bubbles.css — chat message bubbles: avatars, layout, glow/float, prism token colors, markdown, memory-suggestion, buttons. */
+
+    /* ── Chat area ───────────────────────────────────────────── */
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .messages::-webkit-scrollbar { width: 4px; }
+    .messages::-webkit-scrollbar-track { background: transparent; }
+    .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .message {
+      display: flex;
+      gap: 16px;
+      width: 100%;
+      max-width: 1100px;
+      animation: fadeUp .2s ease;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      flex-direction: row-reverse;
+    }
+
+    .avatar {
+      width: 28px; height: 28px;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: var(--fs-chrome);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .avatar.ai {
+      background: var(--text);
+      color: var(--bg);
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: var(--fs-chrome);
+    }
+
+    .avatar.user {
+      background: var(--accent);
+      color: white;
+    }
+
+    .bubble {
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: var(--fs-reading);
+      line-height: 1.65;
+      max-width: 100%;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+
+    .message.ai .bubble {
+      background: var(--bg-msg-ai);
+      border: 1px solid var(--border);
+      border-top-left-radius: 4px;
+      width: 100%;
+    }
+
+    .msg-timestamp {
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 3px;
+      opacity: 0;
+      transition: opacity var(--transition);
+    }
+    .message:hover .msg-timestamp { opacity: 1; }
+
+    .msg-stats {
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 2px;
+      opacity: 0.75;
+      transition: opacity var(--transition);
+    }
+    .message:hover .msg-stats { opacity: 1; }
+
+    /* Token chip below user bubbles — right-aligned to match bubble position */
+    .msg-stats--user {
+      align-self: flex-end;
+      padding-right: 44px; /* 28px avatar + 16px message gap */
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      text-align: right;
+      opacity: 0.55;
+    }
+    .msg-stats--user:hover { opacity: 1; }
+
+    .msg-user-copy-btn {
+      background: none;
+      border: none;
+      padding: 0 2px;
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      cursor: pointer;
+      line-height: 1;
+      transition: color var(--transition);
+    }
+    .msg-user-copy-btn:hover { color: var(--accent); }
+    .msg-user-copy-btn.copied { color: #22c55e; }
+
+    .message.user .bubble {
+      background: var(--bg-msg-user);
+      color: var(--text-user);
+      border-top-right-radius: 4px;
+    }
+
+    /* ── Bubble glow + float ─────────────────────────────────────
+       A soft theme-colored halo behind each bubble that breathes slowly, and
+       a gentle levitation on the newest bubbles. Both stay off the layout/paint
+       hot paths: the halo pulses via opacity on an ::after layer, the float is
+       a transform. prefers-reduced-motion stills both (halo stays, static). */
+    .message.ai .bubble { --bubble-halo: color-mix(in srgb, var(--accent) 32%, transparent); }
+    .message.user .bubble { --bubble-halo: color-mix(in srgb, var(--bg-msg-user) 65%, transparent); }
+
+    .bubble::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      pointer-events: none;
+      box-shadow: 0 3px 12px var(--bubble-halo), 0 10px 38px var(--bubble-halo);
+      animation: bubble-glow 4.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes bubble-glow {
+      from { opacity: .45; }
+      to   { opacity: 1; }
+    }
+
+    /* Only the newest bubbles levitate — keeps long histories calm and cheap.
+       The 2n variant desyncs neighbors so they don't bob in formation. */
+    .message:nth-last-child(-n+6) .bubble {
+      animation: bubble-float 6s ease-in-out infinite alternate;
+    }
+    .message:nth-last-child(-n+6):nth-child(2n) .bubble {
+      animation-duration: 7.2s;
+      animation-delay: -2.4s;
+    }
+
+    @keyframes bubble-float {
+      from { transform: translateY(0); }
+      to   { transform: translateY(-7px); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bubble::after,
+      .message:nth-last-child(-n+6) .bubble { animation: none; }
+    }
+
+    /* Ambient off = calm UI everywhere: no halo, no levitation, whatever the
+       theme. data-ambient lives on <html>, kept in sync by scripts/ambient.js. */
+    :root[data-ambient="off"] .bubble::after { display: none; }
+    :root[data-ambient="off"] .message .bubble { animation: none; }
+
+    /* Markdown-ish in bubbles */
+    .bubble code {
+      font-family: var(--font-mono);
+      font-size: calc(12.5px * var(--font-scale));
+      background: var(--bg-hover);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    .message.user .bubble code {
+      background: rgba(255,255,255,.15);
+    }
+
+    .chat-image {
+      display: block;
+      max-width: 100%;
+      height: auto;
+      margin: 8px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+    }
+
+    .code-block {
+      margin: 8px 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+    }
+
+    .code-block pre {
+      overflow-x: auto;
+      white-space: pre;
+      margin: 0 !important;
+      padding: 14px 16px !important;
+      background: transparent !important;
+      line-height: 1.55 !important;
+    }
+
+    .code-block pre code,
+    .code-block code {
+      white-space: pre !important;
+      display: block;
+      font-family: var(--font-mono) !important;
+      font-size: calc(12.5px * var(--font-scale)) !important;
+      line-height: 1.55 !important;
+      background: none !important;
+      padding: 0 !important;
+      border-radius: 0 !important;
+    }
+
+    .code-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      background: var(--bg-hover);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-lang {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      letter-spacing: 0.06em;
+      text-transform: lowercase;
+      margin-right: auto;
+    }
+
+    .copy-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .copy-btn.copied { color: #22c55e; border-color: #22c55e; }
+
+    .bubble-copy-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      opacity: 0;
+      background: var(--bg-hover);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 3px 5px;
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      cursor: pointer;
+      line-height: 1;
+      transition: opacity var(--transition), color var(--transition);
+      z-index: 1;
+    }
+    .message.ai .bubble:hover .bubble-copy-btn { opacity: 1; }
+    .bubble-copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+    .bubble-copy-btn.copied { color: #22c55e; border-color: #22c55e; opacity: 1; }
+
+    .delete-confirm-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 8px 12px;
+      margin: 4px 0 4px 36px;
+      border-left: 2px solid #ef4444;
+      background: var(--bg-hover);
+      border-radius: 0 6px 6px 0;
+    }
+    .delete-confirm-header {
+      font-size: var(--fs-chrome);
+      font-weight: 600;
+      color: var(--text);
+      font-family: var(--font-sans);
+    }
+    .delete-confirm-meta {
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+    }
+    .delete-confirm-token {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      color: #ef4444;
+    }
+    .delete-confirm-hint {
+      color: var(--text-muted);
+    }
+    .delete-confirm-btn {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      font-size: var(--fs-micro);
+      font-family: var(--font-sans);
+      color: #ef4444;
+      background: transparent;
+      border: 1px solid #ef4444;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .delete-confirm-btn:hover {
+      background: #ef4444;
+      color: #fff;
+    }
+
+    /* Generic confirm-before-write (e.g. GitHub issue create/update) — accent,
+       not destructive-red like delete. */
+    .action-confirm-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding: 8px 12px;
+      margin: 4px 0 4px 36px;
+      border-left: 2px solid var(--accent);
+      background: var(--bg-hover);
+      border-radius: 0 6px 6px 0;
+    }
+    .action-confirm-header {
+      font-size: var(--fs-chrome);
+      font-weight: 600;
+      color: var(--text);
+      font-family: var(--font-sans);
+    }
+    .action-confirm-summary {
+      font-size: var(--fs-micro);
+      color: var(--text-muted);
+      font-family: var(--font-sans);
+      white-space: pre-wrap;
+    }
+    .action-confirm-btn {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      font-size: var(--fs-micro);
+      font-family: var(--font-sans);
+      color: var(--accent);
+      background: transparent;
+      border: 1px solid var(--accent);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .action-confirm-btn:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    .action-confirm-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+    .action-confirm-cancel {
+      color: var(--text-muted);
+      border-color: var(--border);
+    }
+    .action-confirm-cancel:hover {
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .bubble pre {
+      background: var(--bg) !important;
+      padding: 12px !important;
+      overflow-x: auto;
+      margin: 0 !important;
+      font-family: var(--font-mono);
+      font-size: calc(12.5px * var(--font-scale));
+      line-height: 1.6 !important;
+    }
+
+    /* ── Prism token colors ── */
+    code[class*="language-"], pre[class*="language-"] {
+      font-family: var(--font-mono) !important;
+      background: none !important;
+      text-shadow: none !important;
+    }
+    .token { font-family: var(--font-mono) !important; }
+
+    [data-theme="light"] .token.keyword,
+    [data-theme="system"] .token.keyword    { color: #7c3aed; }
+    [data-theme="light"] .token.string,
+    [data-theme="system"] .token.string     { color: #059669; }
+    [data-theme="light"] .token.comment,
+    [data-theme="system"] .token.comment    { color: #9ca3af; font-style: italic; }
+    [data-theme="light"] .token.function,
+    [data-theme="system"] .token.function   { color: #2563eb; }
+    [data-theme="light"] .token.number,
+    [data-theme="system"] .token.number     { color: #d97706; }
+    [data-theme="light"] .token.operator,
+    [data-theme="system"] .token.operator   { color: #db2777; }
+    [data-theme="light"] .token.class-name,
+    [data-theme="system"] .token.class-name { color: #dc2626; }
+    [data-theme="light"] .token.builtin,
+    [data-theme="system"] .token.builtin    { color: #7c3aed; }
+
+    [data-theme="dark"] .token.keyword    { color: #a78bfa; }
+    [data-theme="dark"] .token.string     { color: #34d399; }
+    [data-theme="dark"] .token.comment    { color: #6b7280; font-style: italic; }
+    [data-theme="dark"] .token.function   { color: #60a5fa; }
+    [data-theme="dark"] .token.number     { color: #fbbf24; }
+    [data-theme="dark"] .token.operator   { color: #f472b6; }
+    [data-theme="dark"] .token.class-name { color: #f87171; }
+    [data-theme="dark"] .token.builtin    { color: #a78bfa; }
+    [data-theme="dark"] .token.punctuation{ color: #94a3b8; }
+
+    [data-theme="aurora"] .token.keyword    { color: #c084fc; }
+    [data-theme="aurora"] .token.string     { color: #34d399; }
+    [data-theme="aurora"] .token.comment    { color: #6b5e8a; font-style: italic; }
+    [data-theme="aurora"] .token.function   { color: #818cf8; }
+    [data-theme="aurora"] .token.number     { color: #f9a8d4; }
+    [data-theme="aurora"] .token.operator   { color: #e879f9; }
+    [data-theme="aurora"] .token.class-name { color: #f472b6; }
+    [data-theme="aurora"] .token.builtin    { color: #c084fc; }
+    [data-theme="aurora"] .token.punctuation{ color: #8b7fb8; }
+
+    .bubble strong { font-weight: 600; }
+    .bubble em { font-style: italic; opacity: .85; }
+    .bubble p { margin-bottom: 6px; }
+    .bubble p:last-child { margin-bottom: 0; }
+    .bubble ol, .bubble ul { padding-left: 1.4em; margin-bottom: 6px; }
+    .bubble ol { list-style: decimal; }
+    .bubble ul { list-style: disc; }
+    .bubble li { margin-bottom: 3px; padding-left: 0.2em; }
+    .bubble li:last-child { margin-bottom: 0; }
+
+    /* Memory suggestion block */
+    .memory-suggestion {
+      background: var(--accent-soft);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-top: 10px;
+    }
+
+    .memory-suggestion-title {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+
+    .suggestion-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+      font-size: var(--fs-ui);
+    }
+
+    .suggestion-num {
+      font-family: var(--font-mono);
+      font-size: var(--fs-micro);
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      color: white;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .suggestion-actions {
+      display: flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: var(--radius-sm);
+      font-family: var(--font-sans);
+      font-size: var(--fs-ui);
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: white;
+    }
+    .btn-primary:hover { opacity: .88; }
+
+    .btn-ghost {
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { color: var(--text); }
+
+    /* Input locked state while AI is thinking */
+    .input-locked textarea {
+      opacity: 0.5;
+    }
+    .input-locked .input-hint {
+      color: var(--accent);
+      opacity: 0.8;
+    }
+

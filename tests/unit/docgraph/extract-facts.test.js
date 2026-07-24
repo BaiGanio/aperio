@@ -1,0 +1,200 @@
+// tests/unit/docgraph/extract-facts.test.js
+// Unit tests for the date-role and amount/currency extractor (#311). Pure functions.
+
+import { describe, test } from "node:test";
+import assert from "node:assert/strict";
+import { extractDateCandidates, extractAmountCandidates } from "../../../lib/docgraph/extract-facts.js";
+
+describe("extractDateCandidates", () => {
+  test("labels a June invoice date and a May service period distinctly (the #311 fixture)", () => {
+    const text = [
+      "Invoice Date: 03.06.2026",
+      "Service Period: 01.05.2026 to 31.05.2026",
+      "Due Date: 20.06.2026",
+    ].join("\n");
+    const dates = extractDateCandidates(text);
+    const byRole = Object.fromEntries(dates.map(d => [d.role, d]));
+    assert.equal(byRole.invoice_date.value, "2026-06-03");
+    assert.equal(byRole.service_period_start.value, "2026-05-01");
+    assert.equal(byRole.service_period_end.value, "2026-05-31");
+    assert.equal(byRole.due_date.value, "2026-06-20");
+    assert.ok(dates.every(d => d.confidence === "high"));
+  });
+
+  test("recognizes ISO and month-name date shapes", () => {
+    const dates = extractDateCandidates("Statement Date: 2026-06-03. Receipt Date: June 5, 2026.");
+    const byRole = Object.fromEntries(dates.map(d => [d.role, d]));
+    assert.equal(byRole.statement_date.value, "2026-06-03");
+    assert.equal(byRole.receipt_date.value, "2026-06-05");
+  });
+
+  test("labels an unlabeled date as unlabeled_date with low confidence instead of dropping it", () => {
+    const dates = extractDateCandidates("Printed on 03.06.2026 for internal records.");
+    assert.equal(dates.length, 1);
+    assert.equal(dates[0].role, "unlabeled_date");
+    assert.equal(dates[0].confidence, "low");
+    assert.equal(dates[0].value, "2026-06-03");
+  });
+
+  test("a single service-period date without a range end is reported without inventing the end", () => {
+    const dates = extractDateCandidates("Billing Period: starting 01.05.2026, ongoing.");
+    assert.deepEqual(dates.map(d => d.role), ["service_period_start"]);
+  });
+
+  test("a locale-ambiguous slash date keeps its raw token but reports value: null", () => {
+    const dates = extractDateCandidates("Due Date: 06/03/2026");
+    assert.equal(dates.length, 1);
+    assert.equal(dates[0].raw, "06/03/2026");
+    assert.equal(dates[0].value, null, "MM/DD vs DD/MM is genuinely ambiguous without a locale — must not guess");
+  });
+
+  test("empty / no-date text yields nothing", () => {
+    assert.deepEqual(extractDateCandidates(""), []);
+    assert.deepEqual(extractDateCandidates("no dates in this sentence at all"), []);
+  });
+});
+
+describe("extractAmountCandidates", () => {
+  test("tags amount, currency, and the nearest money label — not the first label in the document", () => {
+    const text = "Amount Due: 142.50 BGN\nSubtotal: 130.00 BGN\nTotal: 272.50 BGN\n";
+    const amounts = extractAmountCandidates(text);
+    assert.deepEqual(amounts, [
+      { value: 142.5, currency: "BGN", raw: "142.50 BGN", label: "amount_due" },
+      { value: 130, currency: "BGN", raw: "130.00 BGN", label: "subtotal" },
+      { value: 272.5, currency: "BGN", raw: "272.50 BGN", label: "total" },
+    ]);
+  });
+
+  test("handles a currency symbol prefix and a European decimal comma", () => {
+    const amounts = extractAmountCandidates("Paid $50.00 and later 42,50 EUR was refunded.");
+    assert.deepEqual(amounts.map(a => ({ value: a.value, currency: a.currency })), [
+      { value: 50, currency: "USD" },
+      { value: 42.5, currency: "EUR" },
+    ]);
+  });
+
+  test("reports a money-labeled bare number with currency: null instead of dropping it", () => {
+    const amounts = extractAmountCandidates("Balance: 45.20\nno money here");
+    assert.deepEqual(amounts, [{ value: 45.2, currency: null, raw: "45.20", label: "balance" }]);
+  });
+
+  test("empty / no-amount text yields nothing, never a fabricated zero", () => {
+    assert.deepEqual(extractAmountCandidates(""), []);
+    assert.deepEqual(extractAmountCandidates("no money mentioned here"), []);
+  });
+
+  test("labels the Bulgarian final-total line, not an itemized breakdown line above it (household corpus fixture)", () => {
+    const text = [
+      "Краен срок за плащане: 30.06.2026",
+      "Топлинна енергия за отопление:     0,310 MWh x 152,00 лв  =  47,12 лв",
+      "Стойност без ДДС:                               54,00 лв",
+      "ДДС 20%:                                        10,80 лв",
+      "ЗА ПЛАЩАНЕ (с ДДС):                              64,80 лв",
+      "Основание за плащане: Парно 05/2026, аб. № 8800123",
+    ].join("\n");
+    const amounts = extractAmountCandidates(text);
+    const total = amounts.find(a => a.label === "amount_due");
+    assert.ok(total, "expected an amount_due label from 'ЗА ПЛАЩАНЕ'");
+    assert.equal(total.value, 64.8);
+    const subtotal = amounts.find(a => a.label === "subtotal");
+    assert.equal(subtotal.value, 54);
+    // "Краен срок за плащане" (payment deadline) and "Основание за плащане"
+    // (payment reference) both contain the same words but are NOT the total
+    // — must not produce a spurious second amount_due from the date/text.
+    assert.equal(amounts.filter(a => a.label === "amount_due").length, 1);
+  });
+
+  test("labels the German grand-total and subtotal lines", () => {
+    const text = "Zwischensumme   128,00\nGESAMTBETRAG:   128,00 EUR";
+    const amounts = extractAmountCandidates(text);
+    assert.ok(amounts.some(a => a.label === "subtotal" && a.value === 128));
+    assert.ok(amounts.some(a => a.label === "grand_total" && a.value === 128));
+  });
+
+  test("labels a French subtotal as 'subtotal', not 'total', despite the shared substring, in document order", () => {
+    const amounts = extractAmountCandidates("Sous-total HT:   15,42\nTOTAL:   18,50 EUR");
+    assert.deepEqual(amounts.map(a => ({ label: a.label, value: a.value })), [
+      { label: "subtotal", value: 15.42 },
+      { label: "total", value: 18.5 },
+    ]);
+  });
+
+  test("likely_total fallback tags the last currency-bearing unlabeled amount for an unmodeled language", () => {
+    // Simulated invoice in a language with no AMOUNT_LABELS coverage: a
+    // breakdown line, then a final total, neither carrying a recognized word
+    // (and no accidental substring overlap with any existing pattern).
+    const amounts = extractAmountCandidates("Articol: 100.00 EUR\nSumă de plată: 120.00 EUR");
+    assert.deepEqual(amounts.map(a => ({ label: a.label, value: a.value })), [
+      { label: null, value: 100 },
+      { label: "likely_total", value: 120 },
+    ]);
+  });
+
+  test("likely_total fallback never fires when every candidate already has a real label or no currency", () => {
+    const labeled = extractAmountCandidates("Total: 100.00 BGN");
+    assert.equal(labeled[0].label, "total");
+    const noCurrency = extractAmountCandidates("Reference number 4471203 printed here.");
+    assert.deepEqual(noCurrency, []);
+  });
+
+  test("a tax-percentage line predicts the very next line's amount as the total, independent of any subtotal keyword already matched (#312)", () => {
+    // The filler line pushes "Tax 19%"/"GRANDFINALX" outside LABEL_LOOKBACK
+    // (60 chars) of "Subtotal" — otherwise labelFor() would find "Subtotal"
+    // as the nearest label for those amounts too and this test would be
+    // exercising that unrelated lookback-window behavior, not the new signal.
+    const amounts = extractAmountCandidates(
+      "Subtotal: 100.00 EUR\n" +
+      "Items purchased across several unrelated categories, not itemized in this line at all.\n" +
+      "Tax 19%: 19.00 EUR\nGRANDFINALX: 119.00 EUR"
+    );
+    assert.deepEqual(amounts.map(a => ({ label: a.label, value: a.value })), [
+      { label: "subtotal", value: 100 },
+      { label: null, value: 19 },
+      { label: "likely_total", value: 119 },
+    ]);
+  });
+
+  test("tax-percentage adjacency never overrides an amount that already matched a real label (#312)", () => {
+    const amounts = extractAmountCandidates("Tax 20%: 10.00 EUR\nTotal: 64.80 EUR");
+    const total = amounts.find(a => a.value === 64.8);
+    assert.equal(total.label, "total", "a real 'total' keyword match must win over the heuristic guess");
+  });
+
+  test("a subtotal-only match doesn't block the whole-document likely_total fallback — only a terminal label disqualifies it (#312)", () => {
+    const amounts = extractAmountCandidates(
+      "Subtotal: 100.00 EUR\n" +
+      "Items purchased across several unrelated categories, not itemized in this line at all.\n" +
+      "SUMTOPAY: 130.00 EUR"
+    );
+    const subtotal = amounts.find(a => a.label === "subtotal");
+    assert.equal(subtotal.value, 100);
+    const guess = amounts.find(a => a.label === "likely_total");
+    assert.equal(guess.value, 130, "the unmatched final-total-shaped line should still get a likely_total guess even though subtotal matched a known keyword elsewhere");
+  });
+
+  test("a percentage figure whose very next line carries no amount at all is a no-op, not a crash (#312)", () => {
+    const amounts = extractAmountCandidates("Rate 15% shown above.\nNo amount here at all.\nTotal: 45.00 EUR");
+    assert.deepEqual(amounts.map(a => ({ label: a.label, value: a.value })), [
+      { label: "total", value: 45 },
+    ]);
+  });
+
+  test("links a value and currency declared on separate labeled lines (bilingual bank-transfer form, #313)", () => {
+    const text = [
+      "  Сума (Amount):              29,99",
+      "  Валута (Currency):          BGN",
+      "  Основание (Payment details):Интернет 05/2026, кл. № N-4821",
+    ].join("\n");
+    const amounts = extractAmountCandidates(text);
+    assert.deepEqual(amounts, [
+      { value: 29.99, currency: "BGN", raw: "29,99", label: "amount" },
+    ]);
+  });
+
+  test("does not backfill a currency onto an amount that already has one, or one with no money label at all (#313)", () => {
+    const withRealCurrency = extractAmountCandidates("Total: 45.00 EUR\nValuta (Currency): BGN");
+    assert.equal(withRealCurrency.find(a => a.label === "total").currency, "EUR");
+    const noLabel = extractAmountCandidates("Reference 4471203\nValuta (Currency): BGN");
+    assert.deepEqual(noLabel, []);
+  });
+});
