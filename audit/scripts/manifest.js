@@ -23,6 +23,29 @@ function sha256(content) {
 //   excludes: glob or path patterns to skip during directory walks
 
 const SLICE_DEFS = {
+  A02: {
+    name: "Configuration and secrets",
+    invariant: "Config precedence is DB > env > defaults; secrets never leak through Settings API; registry and generated env/docs stay in sync.",
+    include: [
+      ["lib/config.js", "Config registry — every user-facing config var"],
+      ["lib/config-resolver.js", "Config resolver — DB > env > default resolution"],
+      ["lib/config-sync.js", "Config sync — env/registry reconciliation"],
+      ["lib/load-env.js", "Load .env into process.env at import time"],
+      ["lib/routes/api-settings.js", "Settings CRUD API — secret write-only enforcement"],
+      ["lib/routes/api-config.js", "Config API endpoint"],
+      ["scripts/gen-env-example.js", ".env.example generator from config registry"],
+    ],
+    coupled: [
+      [".env.example", "Generated file — verified separately by gen:env:check"],
+      ["docs/config-reference.md", "Generated doc — verified separately by gen:env:check"],
+      ["lib/pricing.js", "Provider pricing — not a config concern"],
+    ],
+    testFiles: [
+      "tests/unit/lib/config-sync.test.js",
+      "tests/integration/routes/api-settings.test.js",
+      "tests/integration/routes/api-config.test.js",
+    ],
+  },
   A14: {
     name: "Database parity and encryption",
     invariant: "SQLite and Postgres adapters implement equivalent store operations; migrations are in parity; encryption has focused tests for both backends.",

@@ -1,0 +1,72 @@
+{
+  "$schema": "aperio-audit-config-contract-v1",
+  "slice_id": "A02",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {
+          "invariant": "Config registry (lib/config.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Config resolver (lib/config-resolver.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Config sync (lib/config-sync.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": ".env loader (lib/load-env.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Settings API route (lib/routes/api-settings.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": "Config API route (lib/routes/api-config.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": ".env.example generator (scripts/gen-env-example.js) exists",
+          "passed": true,
+          "detail": "Present"
+        },
+        {
+          "invariant": ".env.example has real config entries",
+          "passed": true,
+          "detail": "9 non-comment lines"
+        },
+        {
+          "invariant": "Config and Settings API routes are present in lib/routes/",
+          "passed": true,
+          "detail": "api-settings.js and api-config.js both present"
+        }
+      ],
+      "passed": true
+    },
+    "invariants": {
+      "results": [
+        {
+          "invariant": "gen-env-example script has drift-check capability",
+          "passed": true,
+          "detail": "Drift check present"
+        },
+        {
+          "invariant": "Generated config reference doc exists",
+          "passed": true,
+          "detail": "Present"
+        }
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

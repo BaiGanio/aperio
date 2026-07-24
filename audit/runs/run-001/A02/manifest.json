@@ -1,0 +1,230 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A02",
+  "slice_name": "Configuration and secrets",
+  "invariant": "Config precedence is DB > env > defaults; secrets never leak through Settings API; registry and generated env/docs stay in sync.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "token_estimate": 33401,
+  "token_ceiling": 30000,
+  "exceeds_ceiling": true,
+  "entries": [
+    {
+      "path": "lib/config.js",
+      "reason": "Config registry — every user-facing config var",
+      "status": "present",
+      "hash": "5630b8cba8bb954b27ef8b41e9c56d8d7687239f2ac5843d4e9b44523d69affe",
+      "bytes": 48131
+    },
+    {
+      "path": "lib/config-resolver.js",
+      "reason": "Config resolver — DB > env > default resolution",
+      "status": "present",
+      "hash": "2cac8169f41ca684bb22105367aeca06a5df4b0df5cc836ddaf2a582c0587960",
+      "bytes": 8831
+    },
+    {
+      "path": "lib/config-sync.js",
+      "reason": "Config sync — env/registry reconciliation",
+      "status": "present",
+      "hash": "2e270bb9952c0383c73ab80aa0773dbcc621158e3c830cfc791a6bb4c6c953be",
+      "bytes": 5870
+    },
+    {
+      "path": "lib/load-env.js",
+      "reason": "Load .env into process.env at import time",
+      "status": "present",
+      "hash": "784aa5d3835ce272cd9fbdd60a9281de91050b13fa2f51c46d0b4a119a57c3ca",
+      "bytes": 1029
+    },
+    {
+      "path": "lib/routes/api-settings.js",
+      "reason": "Settings CRUD API — secret write-only enforcement",
+      "status": "present",
+      "hash": "153dd18acde727c94610937496eeff52cabf0d1189c1599e7c2c9a09d2d95a2a",
+      "bytes": 4202
+    },
+    {
+      "path": "lib/routes/api-config.js",
+      "reason": "Config API endpoint",
+      "status": "present",
+      "hash": "5942d26b32a411ef8373afa33cf3f47c866815ffcafe7ae66c7629bb973404f8",
+      "bytes": 7080
+    },
+    {
+      "path": "scripts/gen-env-example.js",
+      "reason": ".env.example generator from config registry",
+      "status": "present",
+      "hash": "9fb27bba7a301796f89cb56cb5379db9623bd0388598444384b081530d6140d6",
+      "bytes": 9434
+    },
+    {
+      "path": "db/migrations/001_core.sql",
+      "reason": "Migration: 001_core.sql (postgres)",
+      "status": "present",
+      "hash": "510db3d26d19c77510f310947aacaeccbbaa6c973d848eaf540ffebd7ffda601",
+      "bytes": 6484
+    },
+    {
+      "path": "db/migrations/002_agent_jobs.sql",
+      "reason": "Migration: 002_agent_jobs.sql (postgres)",
+      "status": "present",
+      "hash": "2a640a320e22fe9124478244001e460e9a6778c6bf0f3a5f71cbb6ef7f46f47c",
+      "bytes": 962
+    },
+    {
+      "path": "db/migrations/003_codegraph.sql",
+      "reason": "Migration: 003_codegraph.sql (postgres)",
+      "status": "present",
+      "hash": "1381d494bb81f88045bfb74a01572d2f7382810ac4421495ce1d1e1520628ff9",
+      "bytes": 1863
+    },
+    {
+      "path": "db/migrations/004_docgraph.sql",
+      "reason": "Migration: 004_docgraph.sql (postgres)",
+      "status": "present",
+      "hash": "4c4f80e96002ed2d5073b165311ac5412b3b0bf698c3a8b6fbd4a8d36e88a9e8",
+      "bytes": 2244
+    },
+    {
+      "path": "db/migrations/005_issue_triage.sql",
+      "reason": "Migration: 005_issue_triage.sql (postgres)",
+      "status": "present",
+      "hash": "8f5c77ea3a7401eab2e87e7adfde863397928e4a6c1b9e59eaf9aed52858c65a",
+      "bytes": 592
+    },
+    {
+      "path": "db/migrations/006_self_memories.sql",
+      "reason": "Migration: 006_self_memories.sql (postgres)",
+      "status": "present",
+      "hash": "b38c623738f8550f70bbfe24bc3e30ce0a752835ee7b80ccd649526fdf32783a",
+      "bytes": 1607
+    },
+    {
+      "path": "db/migrations/007_self_wiki.sql",
+      "reason": "Migration: 007_self_wiki.sql (postgres)",
+      "status": "present",
+      "hash": "3a671ccd7a2e37c6c417063419944a02efc4f17ce12ba13dee834cefbae3f052",
+      "bytes": 3027
+    },
+    {
+      "path": "db/migrations/008_agent_interrupts.sql",
+      "reason": "Migration: 008_agent_interrupts.sql (postgres)",
+      "status": "present",
+      "hash": "c795e57cceb43df60eaf6a74cbe9c7fd87bc1962e6658c6a7abe5c1f30739c73",
+      "bytes": 1567
+    },
+    {
+      "path": "db/migrations/009_memory_inbox.sql",
+      "reason": "Migration: 009_memory_inbox.sql (postgres)",
+      "status": "present",
+      "hash": "e0336e972261c03f562a17807bf8d953ee0b1cb238a8c7526417015b75678dbc",
+      "bytes": 1197
+    },
+    {
+      "path": "db/migrations/010_codegraph_intelligence.sql",
+      "reason": "Migration: 010_codegraph_intelligence.sql (postgres)",
+      "status": "present",
+      "hash": "41393099b6064c4d11e7b14975af890edba9aaa48a9d0cbc2403752da424c3ec",
+      "bytes": 3483
+    },
+    {
+      "path": "db/migrations-sqlite/001_core.sql",
+      "reason": "Migration: 001_core.sql (sqlite)",
+      "status": "present",
+      "hash": "81b9ff0c22710bc7b5e4d1c4b0f542c060591b15c897a8ad6a0defb48cbd3f23",
+      "bytes": 6743
+    },
+    {
+      "path": "db/migrations-sqlite/002_agent_jobs.sql",
+      "reason": "Migration: 002_agent_jobs.sql (sqlite)",
+      "status": "present",
+      "hash": "5e18991109485d1df23078bfd71bead61db62784ed2218154b6b9f7a651ee185",
+      "bytes": 1037
+    },
+    {
+      "path": "db/migrations-sqlite/003_codegraph.sql",
+      "reason": "Migration: 003_codegraph.sql (sqlite)",
+      "status": "present",
+      "hash": "73f0eef8dafc8b10ca952242082db9ea44ef981caa03d3786f2ad812aec42bb9",
+      "bytes": 2795
+    },
+    {
+      "path": "db/migrations-sqlite/004_docgraph.sql",
+      "reason": "Migration: 004_docgraph.sql (sqlite)",
+      "status": "present",
+      "hash": "82c875853c5e875948f21766f171da0449cd204e832fd06401fd6c67984019c1",
+      "bytes": 3163
+    },
+    {
+      "path": "db/migrations-sqlite/005_issue_triage.sql",
+      "reason": "Migration: 005_issue_triage.sql (sqlite)",
+      "status": "present",
+      "hash": "17037ae76f53b5c239d7f86497f23db577d3e360952377aa70fddbcfb41420f8",
+      "bytes": 569
+    },
+    {
+      "path": "db/migrations-sqlite/006_self_memories.sql",
+      "reason": "Migration: 006_self_memories.sql (sqlite)",
+      "status": "present",
+      "hash": "ec34f60d16a0730b243b198388ded9ce21052e98523e788b025c1aafde4f21b1",
+      "bytes": 2366
+    },
+    {
+      "path": "db/migrations-sqlite/007_self_wiki.sql",
+      "reason": "Migration: 007_self_wiki.sql (sqlite)",
+      "status": "present",
+      "hash": "ace5e3f0069218898d2a4b4fda19ea9bca11516a9e105f0cd20920f34be6db5e",
+      "bytes": 2724
+    },
+    {
+      "path": "db/migrations-sqlite/008_agent_interrupts.sql",
+      "reason": "Migration: 008_agent_interrupts.sql (sqlite)",
+      "status": "present",
+      "hash": "49103bd91b3673faaa4bd4fdfcda4460d974941dd7071574b57a6744e001b389",
+      "bytes": 1834
+    },
+    {
+      "path": "db/migrations-sqlite/009_memory_inbox.sql",
+      "reason": "Migration: 009_memory_inbox.sql (sqlite)",
+      "status": "present",
+      "hash": "418df08a7bc3701f9d5e693eeee9d9cb7560d8c745eb2d8ad9f39abd0462e78d",
+      "bytes": 1237
+    },
+    {
+      "path": "db/migrations-sqlite/010_codegraph_intelligence.sql",
+      "reason": "Migration: 010_codegraph_intelligence.sql (sqlite)",
+      "status": "present",
+      "hash": "114b523b22077661e88be5e85f09a8b35bd08812e1554e88a2d2cf25de32b9e2",
+      "bytes": 3532
+    }
+  ],
+  "coupled_exclusions": [
+    {
+      "path": ".env.example",
+      "reason": "Generated file — verified separately by gen:env:check"
+    },
+    {
+      "path": "docs/config-reference.md",
+      "reason": "Generated doc — verified separately by gen:env:check"
+    },
+    {
+      "path": "lib/pricing.js",
+      "reason": "Provider pricing — not a config concern"
+    }
+  ],
+  "test_files": [
+    {
+      "path": "tests/unit/lib/config-sync.test.js",
+      "status": "present"
+    },
+    {
+      "path": "tests/integration/routes/api-settings.test.js",
+      "status": "missing"
+    },
+    {
+      "path": "tests/integration/routes/api-config.test.js",
+      "status": "missing"
+    }
+  ],
+  "aggregate_hash": "902d032ddab49a7e20fe287ea4b4027c523bc23ff25e78c1e97867448c9f72c7"
+}
