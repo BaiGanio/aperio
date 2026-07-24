@@ -5,7 +5,11 @@ GitHub Actions workflows in `.github/workflows/`:
 ## CI Workflows
 
 - `ci.codeql.yml` — CodeQL analysis
-- `ci.codecov.yml` — test coverage upload + unit, integration, and E2E dashboard data
+- `ci.codecov.yml` — test coverage upload + unit, integration, and E2E dashboard
+  data. `coverage-tests` and `e2e-dashboard` jobs run a `pgvector/pgvector:pg16`
+  service container (`APERIO_E2E_POSTGRES_URL`) so the SQLite/Postgres store
+  contract suite (`tests/integration/db/contract/`) exercises its Postgres
+  backend on every run.
 - `ci.codacy.yml` — Codacy quality
 - `ci.sonarqube.yml` — SonarQube
 - `ci.npm-audit.yml` — dependency audit
