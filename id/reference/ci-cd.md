@@ -18,37 +18,6 @@ GitHub Actions workflows in `.github/workflows/`:
   data itself is generated unconditionally inside `ci.codecov.yml`'s
   `coverage-tests` job instead (so the Pages site stays fresh even when this
   workflow doesn't fire).
-- `ci.lite-smoke.yml` — lite install-path boot gate. On every push/PR touching the
-  server boot path (`server.js`, `bootstrap.js`, `lib/**`, `db/**`, `mcp/**`) or
-  the launchers under `.github/lite/**`, across Linux, macOS, and Windows:
-  install deps, syntax-check the shell launchers, parse-check the PowerShell
-  launchers, then boot `node server.js` headless and assert
-  `/api/bootstrap/state` answers. No llama.cpp engine, model download, or
-  bootstrap required — it catches launcher/zip/boot regressions that would
-  otherwise ship green.
-- `ci.install-matrix.yml` — the release-facing install flows end to end: the
-  one-liner installer on `ubuntu-latest` and `macos-latest`, the packaged
-  Windows zip launcher flow, and an opt-in `full_suite` job on ARM runners.
-  Triggered by PRs touching `.github/lite/**`, `vms/**`, `server.js`, `db/**`,
-  or the manifests; nightly at 03:17 UTC (scheduled runs are `dev`-only); or by
-  dispatch. Both POSIX and Windows jobs drive the shared `vms/smoke` contract,
-  so they stay in lockstep with the local VM executors below.
-- `ci.docker-smoke.yml` — builds `docker/Dockerfile` and smokes the resulting
-  local image; a second job smokes an explicit GHCR reference or digest supplied
-  through the `ghcr_digest` dispatch input. PR-triggered on `docker/**`,
-  `vms/docker/**`, `server.js`, `db/**`, `lib/**`, and the manifests.
-- `ci.e2e-real.yml` — manual only (`workflow_dispatch`): runs
-  `npm run test:e2e:real`, the real-app end-to-end suite, on `ubuntu-latest`.
-- `ci.generated-artifacts.yml` — lockstep gate for every file generated from a
-  source of truth rather than hand-written: `lib/config.js` → `.env.example` +
-  `docs/config-reference.md` (`npm run gen:env:check`), and
-  `id/agent-rules/aperio-memory.md` → `integrations/agent-rules/**`
-  (`npm run gen:agent-rules:check`). Both generators byte-compare the committed
-  artifact against a fresh build, so changing a source without regenerating
-  fails here instead of drifting silently. Path-filtered to those sources and
-  outputs; no database, model, or network, so it stays a sub-minute job. Note
-  `gen:env:check` had no workflow at all before this one existed despite being
-  described as a CI gate — it is enforced now.
 - `ci.codacy.yml` — Codacy quality
 - `ci.sonarqube.yml` — SonarQube
 - `ci.npm-audit.yml` — dependency audit

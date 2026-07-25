@@ -9,57 +9,30 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
-- **New `code-minimalism` skill — a pre-write decision ladder** (#285 WS1).
-  Aperio had a post-write cleanup skill (`code-simplification`) but nothing that
-  fired before the code existed. The new skill walks an ordered gate before a
-  line is written — does this need to exist at all, is it already in this
-  codebase, can the stdlib do it, can the native platform (SQLite FTS5,
-  `pgvector`, Express, the DOM) do it, can an already-installed dependency do
-  it, can it be a few inline lines — and only then minimum viable code. Rung 2
-  is anamnesis applied to code: recall what the codebase already knows before
-  writing it again. A `When NOT to Use` section names the non-negotiables
-  outright, because the predictable misreading is the dangerous one: validation,
-  error handling, security checks and tests are never what gets trimmed —
-  minimalism is not corner-cutting. The ladder is adapted from
-  [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail), MIT.
-  Keywords are phrase-only by design: the skill index is one shared namespace,
-  and broad verbs would steal match slots from `pptx` and `frontend-design`.
-  Five positive and three `expectNot` cases were added to the autotune eval plus
-  two doc-only-edit turns to the semantic-floor negatives; train accuracy rises
-  0.8049 → 0.8367 with holdout flat and the pre-existing failing-case set
-  unchanged. `tests/integration/skills/code-minimalism.test.js` pins the
-  frontmatter, the ladder's order, the non-negotiables, the attribution, both
-  matching directions, and the no-regression baseline by case id rather than by
-  accuracy float — so adding eval cases later cannot quietly disarm it.
-- **Portable memory-discipline ruleset for agents on other hosts** (#285 WS3).
-  Aperio's memory discipline reached agents only through MCP tool descriptions,
-  which describe parameters and not judgment — the observed failure mode being a
-  model that treats the session preload as the entire store and never calls
-  `recall`. It now has a single canonical source,
-  `id/agent-rules/aperio-memory.md` (hand-written, ≤80 lines so it survives
-  another agent's context budget), covering when a `recall` is owed, `remember`
-  when the user asked versus `propose_memory` when the agent noticed, correcting
-  via `update_memory` rather than duplicating, wiki-as-synthesis, the walled-off
-  self-memory store, and what must never be stored. `npm run gen:agent-rules`
-  fans it out to `integrations/agent-rules/` in three formats — a generic
-  `AGENTS.md` snippet, a Cursor `.mdc` rule, and a Claude Code skill — each
-  deriving its own frontmatter from the canonical file's. The adapters are
-  generated artifacts and carry an AUTO-GENERATED banner naming their source;
-  `npm run gen:agent-rules:check` byte-compares them and fails on drift. The
-  in-repo `memory-protocol` skill keeps the tool API and SQL detail and now
-  cross-links the portable ruleset. Distribution pattern (one canonical ruleset,
-  mechanical per-platform copies, a check script that fails the build on drift)
-  adapted from [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail),
-  MIT. 23 tests in `tests/integration/scripts/gen-agent-rules.test.js`, including
-  one asserting that every tool the ruleset cites is actually registered under
-  `mcp/tools/`, so a future rename cannot leave the doctrine describing a tool
-  that no longer exists.
-- **New `ci.generated-artifacts.yml` workflow** — lockstep gate for generated
-  files, running `gen:agent-rules:check` and `gen:env:check`. The latter is the
-  fix for a pre-existing hole: `gen:env:check` was described as a CI gate in
-  `AGENTS.md` but was referenced by no workflow at all, and its test only
-  exercised `--check` inside a temp directory, so the committed `.env.example`
-  and `docs/config-reference.md` were never actually verified as fresh.
+- **Codegraph backend parity coverage** (tests only, no production change).
+  Closing out #283 surfaced that the graph-intelligence API shipped with a test
+  on the SQLite side only, and that the migration guard compared *filenames*
+  rather than schemas — so a column present in one backend and missing in the
+  other would have passed CI silently, which is precisely the drift the
+  lockstep rule exists to prevent. Two guards close that:
+  `tests/unit/db/migration-lockstep.test.js` now parses both
+  `010_codegraph_intelligence.sql` files and asserts column-level parity —
+  same columns in the same order, equivalent type families (SQLite `REAL` ↔
+  Postgres `DOUBLE PRECISION`, `TEXT` ↔ `TIMESTAMPTZ`), identical nullability,
+  defaults, `CHECK`s, cascade rules, indexes, and an identical v10 backfill
+  `UPDATE`; unrecognized statement forms fail loudly instead of being skipped.
+  New `tests/integration/codegraph/backends/postgres.test.js` covers the
+  previously untested Postgres backend: export-surface and arity parity against
+  the SQLite backend, matching `userFacing` errors for absent/ambiguous repos,
+  `loadGraph` excluding unresolved (`dst NULL`) edges and deriving the same repo
+  basename, and the full `persistAnalysis` lifecycle — commit on a matching
+  revision, `ROLLBACK` without writing when a newer revision won the race or the
+  repo vanished, rethrow-and-release on a write error, with the pooled client
+  released on every path. The SQLite half runs against a real migrated
+  in-memory store; the Postgres half uses a recording mock pool, per the
+  docgraph backend convention. Both guards were teeth-checked (dropping a column
+  from one migration, and unexporting one backend function, each turn exactly
+  the intended tests red). Remaining #283 gaps filed as #322.
 - **Agent-loop harness: confirm-before-act and mid-chain abort coverage**
   (tests only, no production change). Two guardrails that were only verifiable
   by hand now have deterministic scenarios. `confirm-pending-delete` and

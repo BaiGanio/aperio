@@ -41,7 +41,20 @@ housekeeping go in `A2D.md`, not here.
   target and matches the "shared adapter loads one repository" design, but a depth-1 neighbors
   query still materializes the whole repo. If large-repo latency bites, add a bounded
   DB-side BFS fast-path for shallow neighbors, or cache the built graph per (repoId,
-  graph_revision) so warm traversals skip the reload. Not urgent.
+  graph_revision) so warm traversals skip the reload. Not urgent. (Measuring this is
+  item 3 of #322.)
+
+- 2026-07-25 (#283) `tests/integration/codegraph/backends/sqlite.test.js` hand-copies the
+  codegraph schema as a string literal ("Mirrors db/migrations-sqlite/…") instead of applying
+  the migrations, so a schema change never reaches it and the fixture can silently describe a
+  schema that no longer exists. The new `backends/postgres.test.js` builds its SQLite half
+  from a real migrated `SqliteStore.init()` store — the older file should follow. Noted in #322.
+
+- 2026-07-25 (#283) Neither backend applies an `ORDER BY` when listing candidates for an
+  ambiguous `repo` argument (`resolveRepoIdSync` / `resolveRepoIdByPool`), so the
+  `Ambiguous repo '…' — matches: …` message is order-unstable across backends and query
+  plans. Cosmetic — the parity test compares the matched set, not the order — but it makes the
+  error text unassertable verbatim.
 
 ## Providers
 
@@ -71,19 +84,6 @@ housekeeping go in `A2D.md`, not here.
   accept side of the confirm protocol, so it wants its own change + a test asserting the
   two lists are the same object. No harness scenario covers the confirm path at all today
   (see `tests/harness/README.md` §8).
-
-## Test suite
-
-- 2026-07-25 `npm test` fails 3 of 4481 on a clean `master` (80299fc), unrelated to any
-  in-flight change — found while verifying #285 WS3, confirmed by stashing and re-running:
-  (a) `dashboard navbars expose one canonical link set`
-  (`tests/integration/docs/shared-doc-assets.test.js:81`) — the harness dashboard added
-  `benchmarks/harness/harness.html` to the navbars but the test's expected link set was
-  never updated; a one-line fix, but it belongs to whoever owns the dashboard work.
-  (b) `T45: three rapid overlapping chats` (`tests/e2e/real-app/real-app-ws.test.js`) —
-  **passes standalone, fails only inside the full suite**, so it is load/parallelism
-  flake rather than a real regression; the third chat's completion is timing-sensitive
-  under a loaded box. Both were already failing before WS3 touched anything.
 
 ---
 

@@ -10,15 +10,23 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - No `fs`, `path`, `os`, `child_process`, `http` imports
 - No mock of external modules (mock of function arguments OK)
 - Runs in <5ms per test
-- 109 files covering parsing, formatting, validation, config resolution
+- 130 files covering parsing, formatting, validation, config resolution
 
 ### Integration (`tests/integration/`)
 - Module wiring — Express Router, mock stores, DB adapters, temp files, real crypto
 - May import real modules, use mock stores, invoke Express Router directly
 - Must NOT bind a TCP port or spawn a server process
 - Runs in <500ms per test
-- 100 files covering routes, DB, store, MCP, skills, handlers, context, tools, agents, workers
+- 126 files covering routes, DB, store, MCP, skills, handlers, context, tools, agents, workers
 - Uses `tests/mockDB.js` and `tests/mockStore.js` as shared helpers
+- **Backend parity**: anything that touches both DB backends needs a test on
+  each side (`tests/integration/{codegraph,docgraph}/backends/`). Convention:
+  the SQLite half runs against a real migrated in-memory store, the Postgres
+  half against a recording mock pool, and a parity block asserts the two export
+  the same surface and behave identically where a caller could tell. Schema
+  parity is guarded separately by `tests/unit/db/migration-lockstep.test.js`,
+  which compares migration pairs column by column — filenames alone would let a
+  missing column through
 
 ### E2E (`tests/e2e/`)
 - Spawned server process, real HTTP/WS connections, real ports
