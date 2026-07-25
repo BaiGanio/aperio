@@ -41,7 +41,20 @@ housekeeping go in `A2D.md`, not here.
   target and matches the "shared adapter loads one repository" design, but a depth-1 neighbors
   query still materializes the whole repo. If large-repo latency bites, add a bounded
   DB-side BFS fast-path for shallow neighbors, or cache the built graph per (repoId,
-  graph_revision) so warm traversals skip the reload. Not urgent.
+  graph_revision) so warm traversals skip the reload. Not urgent. (Measuring this is
+  item 3 of #322.)
+
+- 2026-07-25 (#283) `tests/integration/codegraph/backends/sqlite.test.js` hand-copies the
+  codegraph schema as a string literal ("Mirrors db/migrations-sqlite/…") instead of applying
+  the migrations, so a schema change never reaches it and the fixture can silently describe a
+  schema that no longer exists. The new `backends/postgres.test.js` builds its SQLite half
+  from a real migrated `SqliteStore.init()` store — the older file should follow. Noted in #322.
+
+- 2026-07-25 (#283) Neither backend applies an `ORDER BY` when listing candidates for an
+  ambiguous `repo` argument (`resolveRepoIdSync` / `resolveRepoIdByPool`), so the
+  `Ambiguous repo '…' — matches: …` message is order-unstable across backends and query
+  plans. Cosmetic — the parity test compares the matched set, not the order — but it makes the
+  error text unassertable verbatim.
 
 ## Providers
 

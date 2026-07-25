@@ -9,6 +9,30 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Codegraph backend parity coverage** (tests only, no production change).
+  Closing out #283 surfaced that the graph-intelligence API shipped with a test
+  on the SQLite side only, and that the migration guard compared *filenames*
+  rather than schemas — so a column present in one backend and missing in the
+  other would have passed CI silently, which is precisely the drift the
+  lockstep rule exists to prevent. Two guards close that:
+  `tests/unit/db/migration-lockstep.test.js` now parses both
+  `010_codegraph_intelligence.sql` files and asserts column-level parity —
+  same columns in the same order, equivalent type families (SQLite `REAL` ↔
+  Postgres `DOUBLE PRECISION`, `TEXT` ↔ `TIMESTAMPTZ`), identical nullability,
+  defaults, `CHECK`s, cascade rules, indexes, and an identical v10 backfill
+  `UPDATE`; unrecognized statement forms fail loudly instead of being skipped.
+  New `tests/integration/codegraph/backends/postgres.test.js` covers the
+  previously untested Postgres backend: export-surface and arity parity against
+  the SQLite backend, matching `userFacing` errors for absent/ambiguous repos,
+  `loadGraph` excluding unresolved (`dst NULL`) edges and deriving the same repo
+  basename, and the full `persistAnalysis` lifecycle — commit on a matching
+  revision, `ROLLBACK` without writing when a newer revision won the race or the
+  repo vanished, rethrow-and-release on a write error, with the pooled client
+  released on every path. The SQLite half runs against a real migrated
+  in-memory store; the Postgres half uses a recording mock pool, per the
+  docgraph backend convention. Both guards were teeth-checked (dropping a column
+  from one migration, and unexporting one backend function, each turn exactly
+  the intended tests red). Remaining #283 gaps filed as #322.
 - **Agent-loop harness: confirm-before-act and mid-chain abort coverage**
   (tests only, no production change). Two guardrails that were only verifiable
   by hand now have deterministic scenarios. `confirm-pending-delete` and
