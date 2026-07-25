@@ -12,8 +12,12 @@ Skills are loaded on demand. The `skills/` directory is a flat list; test files 
 
 ### Code
 `coding-standards`, `coding-examples` (redirect to coding-standards),
-`code-review-and-quality`, `code-simplification`, `test-driven-development`,
-`security-and-hardening`, `codegraph`
+`code-review-and-quality`, `code-minimalism`, `code-simplification`,
+`test-driven-development`, `security-and-hardening`, `codegraph`
+
+`code-minimalism` and `code-simplification` are phase siblings, not duplicates:
+the first is a pre-write gate (should this code exist, and how little of it?),
+the second a post-write cleanup (this works — why is it this complicated?).
 
 ### Documents / Files
 `pdf`, `docx`, `docx-advanced`, `pptx`, `xlsx`, `doc-coauthoring`, `docgraph`,

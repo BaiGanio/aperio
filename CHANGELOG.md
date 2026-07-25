@@ -9,6 +9,28 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **New `code-minimalism` skill — a pre-write decision ladder** (#285 WS1).
+  Aperio had a post-write cleanup skill (`code-simplification`) but nothing that
+  fired before the code existed. The new skill walks an ordered gate before a
+  line is written — does this need to exist at all, is it already in this
+  codebase, can the stdlib do it, can the native platform (SQLite FTS5,
+  `pgvector`, Express, the DOM) do it, can an already-installed dependency do
+  it, can it be a few inline lines — and only then minimum viable code. Rung 2
+  is anamnesis applied to code: recall what the codebase already knows before
+  writing it again. A `When NOT to Use` section names the non-negotiables
+  outright, because the predictable misreading is the dangerous one: validation,
+  error handling, security checks and tests are never what gets trimmed —
+  minimalism is not corner-cutting. The ladder is adapted from
+  [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail), MIT.
+  Keywords are phrase-only by design: the skill index is one shared namespace,
+  and broad verbs would steal match slots from `pptx` and `frontend-design`.
+  Five positive and three `expectNot` cases were added to the autotune eval plus
+  two doc-only-edit turns to the semantic-floor negatives; train accuracy rises
+  0.8049 → 0.8367 with holdout flat and the pre-existing failing-case set
+  unchanged. `tests/integration/skills/code-minimalism.test.js` pins the
+  frontmatter, the ladder's order, the non-negotiables, the attribution, both
+  matching directions, and the no-regression baseline by case id rather than by
+  accuracy float — so adding eval cases later cannot quietly disarm it.
 - **Portable memory-discipline ruleset for agents on other hosts** (#285 WS3).
   Aperio's memory discipline reached agents only through MCP tool descriptions,
   which describe parameters and not judgment — the observed failure mode being a
