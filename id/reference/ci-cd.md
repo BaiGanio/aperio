@@ -43,7 +43,41 @@ and one-time VM setup are documented in [`vms/README.md`](../../vms/README.md).
 
 - `cd.release.yml` — release automation (version bump, changelog, publish)
 - `cd.gh-pages.yml` — docs site deployment
+- `cd.k3s-deploy.yml` — cross-compiles the ARM64 image with QEMU on GitHub's
+  AMD64 runners, pushes it to `ghcr.io`, then sends an HMAC-signed webhook to the
+  Raspberry Pi k3s cluster so it pulls and rolls out. Fires on pushes to `master`
+  touching the boot path, `public/**`, `docker/**`, or `k8s/**`, or by dispatch
+  (with `branch` and `skip_build` inputs). Requires the `APERIO_PI_WEBHOOK_URL`
+  and `APERIO_PI_WEBHOOK_SECRET` repository secrets; Pi-side setup is documented
+  in the workflow header and `k8s/aperio-webhook.service`.
 
 ## Bot Workflows
 
-- Issue claims, moderation, stale claims, nuke, pin SHAs to actions
+- `bot.issue-claim-guard.yml` — handles `/claim` comments (and `Yes`
+  confirmations) on issues, skipping anything labelled `status: cooldown`
+- `bot.issue-moderation.yml` — labels, locks, and milestones newly opened issues,
+  and reacts to label removal
+- `bot.stale-claims.yml` — daily at midnight UTC, releases claims that went stale
+- `bot.nuke.yml` — dispatch-only blocklist enforcement over users and/or orgs,
+  dry-run by default
+- `bot.pin-shas-to-actions.yml` — pins third-party action references to commit
+  SHAs on any PR touching `.github/workflows/**`
+
+## Community Workflows
+
+- `community.contributor-agreement.yml` — watches issue comments for "I agree"
+  and records the contributor agreement
+- `community.update-leaderboard.yml` — awards XP when a PR is merged by a
+  non-bot author; dispatchable with a `pr_number` to award retroactively
+
+## Sync Workflows
+
+- `sync.milestone-dates.yml` — mirrors milestone dates onto the date fields of
+  every issue in project #18 on milestone create/edit and issue
+  milestone/demilestone events
+- `sync.update-dev-branch.yml` — after a successful `(cd) Release & Versioning`
+  run on `master`, refreshes the `dev` branch's files
+
+Retired workflows are parked in `.github/workflows/obsolete/`
+(`cd.aperio-lite-launchers.yml`, `sync.leaderboard-to-wiki.yml`) — kept for
+reference, not scheduled by GitHub.
