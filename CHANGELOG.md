@@ -9,6 +9,35 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Portable memory-discipline ruleset for agents on other hosts** (#285 WS3).
+  Aperio's memory discipline reached agents only through MCP tool descriptions,
+  which describe parameters and not judgment — the observed failure mode being a
+  model that treats the session preload as the entire store and never calls
+  `recall`. It now has a single canonical source,
+  `id/agent-rules/aperio-memory.md` (hand-written, ≤80 lines so it survives
+  another agent's context budget), covering when a `recall` is owed, `remember`
+  when the user asked versus `propose_memory` when the agent noticed, correcting
+  via `update_memory` rather than duplicating, wiki-as-synthesis, the walled-off
+  self-memory store, and what must never be stored. `npm run gen:agent-rules`
+  fans it out to `integrations/agent-rules/` in three formats — a generic
+  `AGENTS.md` snippet, a Cursor `.mdc` rule, and a Claude Code skill — each
+  deriving its own frontmatter from the canonical file's. The adapters are
+  generated artifacts and carry an AUTO-GENERATED banner naming their source;
+  `npm run gen:agent-rules:check` byte-compares them and fails on drift. The
+  in-repo `memory-protocol` skill keeps the tool API and SQL detail and now
+  cross-links the portable ruleset. Distribution pattern (one canonical ruleset,
+  mechanical per-platform copies, a check script that fails the build on drift)
+  adapted from [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail),
+  MIT. 23 tests in `tests/integration/scripts/gen-agent-rules.test.js`, including
+  one asserting that every tool the ruleset cites is actually registered under
+  `mcp/tools/`, so a future rename cannot leave the doctrine describing a tool
+  that no longer exists.
+- **New `ci.generated-artifacts.yml` workflow** — lockstep gate for generated
+  files, running `gen:agent-rules:check` and `gen:env:check`. The latter is the
+  fix for a pre-existing hole: `gen:env:check` was described as a CI gate in
+  `AGENTS.md` but was referenced by no workflow at all, and its test only
+  exercised `--check` inside a temp directory, so the committed `.env.example`
+  and `docs/config-reference.md` were never actually verified as fresh.
 - **Agent-loop harness: confirm-before-act and mid-chain abort coverage**
   (tests only, no production change). Two guardrails that were only verifiable
   by hand now have deterministic scenarios. `confirm-pending-delete` and

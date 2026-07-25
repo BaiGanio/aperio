@@ -13,6 +13,11 @@ metadata:
   load: "on-demand"
 ---
 
+> **Portable sibling:** the judgment half of this skill — when to reach for memory at
+> all — lives in `id/agent-rules/aperio-memory.md`, the canonical ruleset that
+> `npm run gen:agent-rules` ships to other agent hosts (Cursor, Claude Code, plain
+> `AGENTS.md`). Read it there when you need the discipline without the SQL.
+
 ## Tools
 
 ### recall

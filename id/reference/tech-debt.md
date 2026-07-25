@@ -72,6 +72,19 @@ housekeeping go in `A2D.md`, not here.
   two lists are the same object. No harness scenario covers the confirm path at all today
   (see `tests/harness/README.md` §8).
 
+## Test suite
+
+- 2026-07-25 `npm test` fails 3 of 4481 on a clean `master` (80299fc), unrelated to any
+  in-flight change — found while verifying #285 WS3, confirmed by stashing and re-running:
+  (a) `dashboard navbars expose one canonical link set`
+  (`tests/integration/docs/shared-doc-assets.test.js:81`) — the harness dashboard added
+  `benchmarks/harness/harness.html` to the navbars but the test's expected link set was
+  never updated; a one-line fix, but it belongs to whoever owns the dashboard work.
+  (b) `T45: three rapid overlapping chats` (`tests/e2e/real-app/real-app-ws.test.js`) —
+  **passes standalone, fails only inside the full suite**, so it is load/parallelism
+  flake rather than a real regression; the third chat's completion is timing-sensitive
+  under a loaded box. Both were already failing before WS3 touched anything.
+
 ---
 
 ## Intentional deferrals

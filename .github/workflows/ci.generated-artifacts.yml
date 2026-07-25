@@ -1,0 +1,66 @@
+name: (ci) generated artifacts
+
+# Lockstep gate for every file in the repo that is generated from a source of
+# truth rather than hand-written:
+#
+#   lib/config.js              → .env.example, docs/config-reference.md
+#   id/agent-rules/*.md        → integrations/agent-rules/**
+#
+# Both generators expose a --check mode that byte-compares the committed
+# artifact against a fresh build, so a change to a source without a
+# regeneration fails here instead of drifting silently. Path-filtered, per the
+# per-concern workflow convention of ci.agent-harness.yml / ci.lite-smoke.yml.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master, dev]
+    paths:
+      - lib/config.js
+      - id/agent-rules/**
+      - integrations/agent-rules/**
+      - scripts/gen-env-example.js
+      - scripts/gen-agent-rules.js
+      - .env.example
+      - docs/config-reference.md
+      - .github/workflows/ci.generated-artifacts.yml
+  pull_request:
+    branches: [master, dev]
+    paths:
+      - lib/config.js
+      - id/agent-rules/**
+      - integrations/agent-rules/**
+      - scripts/gen-env-example.js
+      - scripts/gen-agent-rules.js
+      - .env.example
+      - docs/config-reference.md
+      - .github/workflows/ci.generated-artifacts.yml
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Generated artifacts are in lockstep
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v4.2.2 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 26
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Neither generator needs a database, a model, or the network — they read
+      # a source file and render text, so this stays a sub-minute job.
+      - name: .env.example and docs/config-reference.md match lib/config.js
+        run: npm run gen:env:check
+
+      - name: integrations/agent-rules/** matches id/agent-rules/aperio-memory.md
+        run: npm run gen:agent-rules:check

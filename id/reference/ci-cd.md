@@ -39,6 +39,16 @@ GitHub Actions workflows in `.github/workflows/`:
   `vms/docker/**`, `server.js`, `db/**`, `lib/**`, and the manifests.
 - `ci.e2e-real.yml` — manual only (`workflow_dispatch`): runs
   `npm run test:e2e:real`, the real-app end-to-end suite, on `ubuntu-latest`.
+- `ci.generated-artifacts.yml` — lockstep gate for every file generated from a
+  source of truth rather than hand-written: `lib/config.js` → `.env.example` +
+  `docs/config-reference.md` (`npm run gen:env:check`), and
+  `id/agent-rules/aperio-memory.md` → `integrations/agent-rules/**`
+  (`npm run gen:agent-rules:check`). Both generators byte-compare the committed
+  artifact against a fresh build, so changing a source without regenerating
+  fails here instead of drifting silently. Path-filtered to those sources and
+  outputs; no database, model, or network, so it stays a sub-minute job. Note
+  `gen:env:check` had no workflow at all before this one existed despite being
+  described as a CI gate — it is enforced now.
 - `ci.codacy.yml` — Codacy quality
 - `ci.sonarqube.yml` — SonarQube
 - `ci.npm-audit.yml` — dependency audit
