@@ -1,0 +1,16 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A10",
+  "slice_name": "Skills and prompt injection",
+  "invariant": "Deterministic match/force/reload behavior; bounded prompt cost; untrusted content cannot silently become authority.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/workers/skills.js", "reason": "Skill loader/matcher — loadSkillIndex, getAlwaysOnSkills, injectSkill, parseSlashSkill", "status": "present", "hash": "52da80fcc9d5c0c67ba7925ff85b239dd4ee49a1115fec7d8a629c0722ab637a", "bytes": 1741},
+    {"path": "lib/agent/skill-admin.js", "reason": "Skill admin — reload, toggle, list skills runtime management", "status": "present", "hash": "329dd83557bc65d572dfa917928ab0e466b79355fd70115863b7b7210c927962", "bytes": 4924},
+    {"path": "lib/agent/turn-planner.js", "reason": "Turn planning — forced > always-on > keyword > semantic skill matching", "status": "present", "hash": "710dc3bc7714b8da54d0a5bdf97d21278e42a4c705b1c210e050e3bf119df1fe", "bytes": 5824},
+    {"path": "lib/agent/preflight.js", "reason": "Preflight runner — semantic skill rescue tier, doc batch, memory retrieval", "status": "present", "hash": "7928f08a36d9788a0f75870b5ab960a600553d92dcb06a6b2c2569de9457b95a", "bytes": 11417},
+    {"path": "lib/agent/index.js", "reason": "Agent factory — skill loading, reloadSkills, setPendingForcedSkills", "status": "present", "hash": "63694f1d4528600c7bc3edf8b9927cb938105687cb9e0d5131df2a4be9748dcf", "bytes": 37092}
+  ]
+}

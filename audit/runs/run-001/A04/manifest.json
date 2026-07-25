@@ -1,0 +1,172 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A04",
+  "slice_name": "WebSocket and session lifecycle",
+  "invariant": "Per-connection state cannot leak or mutate another session; messages are ordered and bounded.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {
+      "path": "lib/server/ws.js",
+      "reason": "WS server creation — origin verification + auth guard",
+      "status": "present",
+      "hash": "b26c355a6ef6bb3d91597b6cd416ef227ac1a8667cc1daa4db79d253b02e7a30",
+      "bytes": 1775
+    },
+    {
+      "path": "lib/emitters/handlers/wsHandler.js",
+      "reason": "Main WS connection handler — message dispatch, per-connection closure state, chat lifecycle",
+      "status": "present",
+      "hash": "625e02685f1779abf0e24584769e4720d9e49f3db7eebe53c71a2ead2c5afef4",
+      "bytes": 32616
+    },
+    {
+      "path": "lib/emitters/handlers/ws/session.js",
+      "reason": "Branch/resume session switching",
+      "status": "present",
+      "hash": "328731ebd3bd8de35f8762c06a170657fa101e7f0135c45839bbc770a4fa4461",
+      "bytes": 3040
+    },
+    {
+      "path": "lib/emitters/handlers/ws/turnLock.js",
+      "reason": "Turn-interruption mutex — identity-guarded concurrent-turn barrier",
+      "status": "present",
+      "hash": "ba21b3342ebf8c4689fd57b6c037a61da52d3afe02d8aecef4fbe3b6f0c8381f",
+      "bytes": 4060
+    },
+    {
+      "path": "lib/emitters/handlers/ws/helpers.js",
+      "reason": "Per-turn text helpers — message normalisation, summarise intent, history text",
+      "status": "present",
+      "hash": "95b22cf11aadf2503e6fa257178d54f9c30e2150924363a260f1f7a266818007",
+      "bytes": 2050
+    },
+    {
+      "path": "lib/emitters/handlers/ws/memories.js",
+      "reason": "Memory/interrupt broadcast helpers, delete_memory handler",
+      "status": "present",
+      "hash": "f645c21c85a74d1fd4cdc92beb049e8cf29737727daab6ce0f37252f67a0d4f0",
+      "bytes": 2698
+    },
+    {
+      "path": "lib/emitters/handlers/ws/interrupts.js",
+      "reason": "Confirm_action and interrupt_decision handlers",
+      "status": "present",
+      "hash": "412e5ab2a45b0f9b9f7f65bdd72b77a06efc78a3f0a85dd6f3499d17b08cb804",
+      "bytes": 3502
+    },
+    {
+      "path": "lib/emitters/handlers/ws/suggestions.js",
+      "reason": "Save suggestions handler",
+      "status": "present",
+      "hash": "3eac7342e5cd5bf4ec1967804b450dcf3bf077c0d78f90b46c223ea362ff5543",
+      "bytes": 2193
+    },
+    {
+      "path": "lib/emitters/handlers/ws/summarize.js",
+      "reason": "Summarize and discuss_start handlers",
+      "status": "present",
+      "hash": "bb0b6b57722f6cb6addd9abf569d1610056658030818407499fd09a1a0a26e48",
+      "bytes": 5831
+    },
+    {
+      "path": "lib/emitters/handlers/ws/handoff.js",
+      "reason": "Handoff handler — session context transfer",
+      "status": "present",
+      "hash": "e63b2a901baa99ade99f990a74703732339766af44ec02a4995298c1ac59dc67",
+      "bytes": 4486
+    },
+    {
+      "path": "lib/emitters/wsEmitter.js",
+      "reason": "WS message emitter (JSON-serialize + send)",
+      "status": "present",
+      "hash": "80ccaffaf50beeb602e0cd2450377e688f255cd717991da2adbef18e34c8da37",
+      "bytes": 1090
+    },
+    {
+      "path": "lib/emitters/sinkEmitter.js",
+      "reason": "Headless sink emitter (background agents)",
+      "status": "present",
+      "hash": "138ed36d6e59a92db0100d00abc4d88479056ea2d1ad1ccbf03f7aa050a57a30",
+      "bytes": 1083
+    },
+    {
+      "path": "lib/helpers/sessions.js",
+      "reason": "Session CRUD, meaningfulness filter, title derivation, finalisation",
+      "status": "present",
+      "hash": "ec66a272832684a27bd8441512b8c7022072c5590044ab18340a7fba626c59cf",
+      "bytes": 22064
+    },
+    {
+      "path": "lib/helpers/sessionCrypto.js",
+      "reason": "AES-256-GCM session encryption (APERIO_SESSION_KEY)",
+      "status": "present",
+      "hash": "2b154de71ac9c8653eac64171be9413d7be8c5774341c44c4b5e03dc1e839465",
+      "bytes": 2881
+    },
+    {
+      "path": "lib/helpers/secureFile.js",
+      "reason": "0600/0700 secure file write for session files",
+      "status": "present",
+      "hash": "41c9ded50043d4ff69aefa80f507d19653de2a50770fa7bf57c6f978c296389d",
+      "bytes": 991
+    },
+    {
+      "path": "lib/server.js",
+      "reason": "Composition root — agent init, model preload, ws server creation, shutdown",
+      "status": "present",
+      "hash": "7c240b3f8e57fbb17e7dd55bec11c380687e631465b31e88bf96f0cbe56763a2",
+      "bytes": 21563
+    },
+    {
+      "path": "lib/server/shutdown.js",
+      "reason": "Graceful shutdown — drains WS, closes HTTP, stops workers",
+      "status": "present",
+      "hash": "cb0b132e9b62eb4b681834f0592b296c74ec978ac87d63b273ebb9b92f7c735d",
+      "bytes": 1728
+    },
+    {
+      "path": "server.js",
+      "reason": "Production entrypoint — global error guards, signal handling",
+      "status": "present",
+      "hash": "2cb8d255ba197f2c6a22cf3c58b39af3c22462ceb5a3d3bea1a81f7cae28b727",
+      "bytes": 4365
+    },
+    {
+      "path": "tests/unit/handlers/wsHandler.test.js",
+      "reason": "Unit tests: 43 tests — message routing, turn lifecycle, error handling",
+      "status": "present",
+      "hash": "32fd0016f7f65b3dd5657c38192b86b3ebec1634ebb47fc29b0a8746a3235732",
+      "bytes": 36733
+    },
+    {
+      "path": "tests/e2e/real-app/real-app-ws.test.js",
+      "reason": "E2E WS tests: turn lifecycle, concurrent clients, socket close, overlap",
+      "status": "present",
+      "hash": "b3cc5cc55089dcbe153ad122ef454bfd0a2e103064ca87ee7a3905bd5e9b0fd8",
+      "bytes": 24092
+    },
+    {
+      "path": "tests/e2e/real-app/real-app-sessions.test.js",
+      "reason": "E2E session tests: resume_session, switch_model, set_paths",
+      "status": "present",
+      "hash": "40c857d11380f98d642c478b73c586e9c01ec8e3487b70b3df0bf67537f8b273",
+      "bytes": 6635
+    },
+    {
+      "path": "tests/e2e/real-app/real-app-interrupts.test.js",
+      "reason": "E2E interrupt tests: tool confirmation, interrupt decision",
+      "status": "present",
+      "hash": "93a51ae78073eede309c2da43b3ac5105d1a55c767b4e2fbf41f6290dc792943",
+      "bytes": 7685
+    },
+    {
+      "path": "tests/e2e/real-app/real-app-persistence.test.js",
+      "reason": "E2E persistence tests: session save/summarize/retention",
+      "status": "present",
+      "hash": "3b9feaea3e5e92f5121b77530a64582b8553deadde9d7577d402e265ad9b3baf",
+      "bytes": 18156
+    }
+  ]
+}

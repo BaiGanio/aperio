@@ -1,0 +1,191 @@
+{
+  "$schema": "aperio-audit-ws-session-contract-v1",
+  "slice_id": "A04",
+  "slice_name": "WebSocket and session lifecycle",
+  "observed_at": "2026-07-24T21:30:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {
+          "invariant": "WS server creation (lib/server/ws.js) exists",
+          "passed": true,
+          "detail": "Present — creates WebSocketServer with origin/auth verifyClient"
+        },
+        {
+          "invariant": "WS connection handler (lib/emitters/handlers/wsHandler.js) exists",
+          "passed": true,
+          "detail": "Present — 634 lines, per-connection closure factory"
+        },
+        {
+          "invariant": "Turn-interruption mutex (ws/turnLock.js) exists",
+          "passed": true,
+          "detail": "Present — identity-guarded preempt/awaitPrevious/registerChatTurn/finishChatTurn"
+        },
+        {
+          "invariant": "Session management (lib/helpers/sessions.js) exists",
+          "passed": true,
+          "detail": "Present — 585 lines, create/finalise/meaningfulness/prune"
+        },
+        {
+          "invariant": "Session encryption (lib/helpers/sessionCrypto.js) exists",
+          "passed": true,
+          "detail": "Present — AES-256-GCM via APERIO_SESSION_KEY"
+        },
+        {
+          "invariant": "Graceful shutdown (lib/server/shutdown.js) exists",
+          "passed": true,
+          "detail": "Present — drains WS clients, closes HTTP, stops workers"
+        },
+        {
+          "invariant": "WS handler extracted modules exist (ws/session.js, ws/memories.js, ws/interrupts.js, ws/summarize.js, ws/suggestions.js, ws/handoff.js, ws/helpers.js)",
+          "passed": true,
+          "detail": "All 8 extracted modules present under lib/emitters/handlers/ws/"
+        },
+        {
+          "invariant": "WS emitter (lib/emitters/wsEmitter.js) exists",
+          "passed": true,
+          "detail": "Present — JSON-serialize and send, with round-table tagging"
+        },
+        {
+          "invariant": "Secure file write (lib/helpers/secureFile.js) exists",
+          "passed": true,
+          "detail": "Present — 0600 session files, 0700 session dirs"
+        },
+        {
+          "invariant": "Production entrypoint with global error guards (server.js) exists",
+          "passed": true,
+          "detail": "Present — uncaughtException/unhandledRejection handlers with crash breaker"
+        }
+      ],
+      "passed": true
+    },
+    "per_connection_isolation": {
+      "results": [
+        {
+          "invariant": "Each connection gets its own messages[] array",
+          "passed": true,
+          "detail": "wsHandler.js line 84: `const messages = [];` inside onConnection closure"
+        },
+        {
+          "invariant": "Each connection gets its own turnLock instance",
+          "passed": true,
+          "detail": "wsHandler.js line 92: `const turnLock = createTurnLock();` inside onConnection closure"
+        },
+        {
+          "invariant": "Each connection gets its own scratchDir",
+          "passed": true,
+          "detail": "wsHandler.js line 135: `const scratchDir = sessionScratchDir(sessionId);` per connection"
+        },
+        {
+          "invariant": "Session encryption is backwards-compatible without key",
+          "passed": true,
+          "detail": "sessionCrypto.js: when no APERIO_SESSION_KEY, encodeSession returns plain JSON"
+        },
+        {
+          "invariant": "Session files are 0600 when written",
+          "passed": true,
+          "detail": "sessions.js write() uses writeSecureFile which enforces 0600 via mkdtemp+rename"
+        }
+      ],
+      "passed": true
+    },
+    "turn_lifecycle": {
+      "results": [
+        {
+          "invariant": "Turn preempt isolates abortController from turnLock's interrupted flag",
+          "passed": true,
+          "detail": "turnLock.js: preempt() sets activeChatTurn.interrupted=true, aborts controller. WarmupAbortController is SEPARATE (line 99 in wsHandler.js)"
+        },
+        {
+          "invariant": "Identity-guarded finishChatTurn prevents late cleanup from clobbering newer turn",
+          "passed": true,
+          "detail": "turnLock.js finishChatTurn: 'if (activeTurn === turn.promise) activeTurn = null; if (activeChatTurn === turn) activeChatTurn = null;'"
+        },
+        {
+          "invariant": "Stop message aborts turn without affecting interrupted flag",
+          "passed": true,
+          "detail": "wsHandler.js line 317-319: 'case \"stop\": turnLock.stop(); send(\"stream_end\", {text: \"\"});'"
+        },
+        {
+          "invariant": "Socket close triggers abortForClose without throwing",
+          "passed": true,
+          "detail": "wsHandler.js line 237-239: turnLock.abortForClose() guarded by try/catch"
+        },
+        {
+          "invariant": "Socket close finalises the session",
+          "passed": true,
+          "detail": "wsHandler.js line 246: finaliseSession(sessionId, messages, msgAttachments, sessionHadAttachments, { onShutdown: ... })"
+        }
+      ],
+      "passed": true
+    },
+    "error_handling": {
+      "results": [
+        {
+          "invariant": "Socket-close errors are suppressed during shutdown",
+          "passed": true,
+          "detail": "wsHandler.js line 429: 'if (socketClosed || isShuttingDown()) return;'"
+        },
+        {
+          "invariant": "Per-session logger exists",
+          "passed": true,
+          "detail": "wsHandler.js line 130: const sessionLogger = createSessionLogger(sessionId, ...)"
+        },
+        {
+          "invariant": "Session logger is closed on socket close",
+          "passed": true,
+          "detail": "wsHandler.js line 249: try { sessionLogger.close(); } catch { /* non-fatal */ }"
+        },
+        {
+          "invariant": "Server.js has crash breaker with threshold 5 / 60s window",
+          "passed": true,
+          "detail": "server.js: 'createCrashBreaker({ threshold: 5, windowMs: 60_000 })'"
+        }
+      ],
+      "passed": true
+    },
+    "auth_and_origin": {
+      "results": [
+        {
+          "invariant": "WebSocket server verifies origin against allowedHosts",
+          "passed": true,
+          "detail": "server/ws.js verifyClient: parses origin URL, checks hostname against allowedHosts set"
+        },
+        {
+          "invariant": "WebSocket server verifies auth token",
+          "passed": true,
+          "detail": "server/ws.js verifyClient: calls isAuthorized(req)"
+        }
+      ],
+      "passed": true
+    },
+    "tests": {
+      "results": [
+        {
+          "invariant": "wsHandler unit tests exist and all pass",
+          "passed": true,
+          "detail": "43 tests in tests/unit/handlers/wsHandler.test.js — all pass at commit 3ef293d3"
+        },
+        {
+          "invariant": "turnLock unit tests exist and all pass",
+          "passed": true,
+          "detail": "tests/unit/handlers/ws/turnLock.test.js — pass (part of 24 tests run jointly with sessionCrypto)"
+        },
+        {
+          "invariant": "sessionCrypto unit tests exist and all pass",
+          "passed": true,
+          "detail": "6 tests in tests/unit/helpers/sessionCrypto.test.js — all pass"
+        },
+        {
+          "invariant": "E2E WS tests exist and pass (turn lifecycle, concurrent clients, socket close, overlap)",
+          "passed": true,
+          "detail": "32 pass / 1 skip in real-app-ws.test.js, real-app-sessions.test.js, real-app-interrupts.test.js, real-app-persistence.test.js"
+        }
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

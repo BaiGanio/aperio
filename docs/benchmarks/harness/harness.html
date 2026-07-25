@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aperio Behavior Checks — Assistant Loop Dashboard</title>
+  <meta name="description" content="Confirms Aperio's assistant conversation loop still behaves correctly after every code change, using a scripted fake conversation instead of a live AI model.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles.css">
+  <link rel="stylesheet" href="../../styles-dashboards.css">
+</head>
+<body class="result-dashboard">
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+<nav class="aperio-nav">
+  <div class="nav-inner">
+    <a href="../../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+    <button class="nav-toggle" id="navToggle" aria-label="Open navigation">☰</button>
+    <ul class="nav-links" id="navLinks"><li><a href="../../index.html">Home</a></li><li><a href="../pilot/qualification.html">Benchmarking</a></li><li><a href="../code-cov/coverage.html">Coverage</a></li><li><a href="../unit/unit.html">Unit</a></li><li><a href="../integration/integration.html">Integration</a></li><li><a href="../e2e/e2e.html">E2E</a></li><li><a href="harness.html">Behavior</a></li></ul>
+    <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div>
+  </div>
+</nav>
+
+<main class="shell">
+  <!-- Header -->
+  <div class="int-header">
+    <div>
+      <h1 class="int-title">◈ Assistant Behavior Checks</h1>
+      <p class="int-lede">Confirms Aperio's core conversation loop still behaves correctly after every code change — using a scripted, fake conversation instead of a real AI model, so every check is exact and gives the same result every time it runs.</p>
+    </div>
+    <div class="int-run" id="run">
+      <strong>harness run</strong>loading…
+    </div>
+  </div>
+
+  <div class="orientation">
+    <p><strong>How to read this page:</strong> each check below plays out one specific real-world situation — finishing a normal multi-step task, catching itself after a false claim, giving up after repeated errors, handling a huge result safely, refusing to act on untrusted content, and breaking out of a failure loop. A red check means a code change broke one of these behaviors, not that an AI model made a bad judgment call.</p>
+    <p>This is the fast, repeatable sibling of the live model-tier <a href="../pilot/qualification.html">benchmarking</a> exam: that page answers "is this AI model good enough to drive Aperio?"; this page answers "did today's code change break how the assistant behaves, regardless of which AI model is used?".</p>
+  </div>
+
+  <!-- Metric Cards -->
+  <div class="grid metrics" id="metrics"></div>
+
+  <!-- Group-by-group results -->
+  <div class="group-grid" id="groups"></div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <span><i style="background:var(--green)"></i> pass</span>
+    <span><i style="background:var(--amber)"></i> fail</span>
+    <span><i style="background:var(--dim)"></i> skip</span>
+    <span style="margin-left:8px">Source: <code style="font:11px var(--font-mono);color:var(--text)">tests/harness/</code> · <code style="font:11px var(--font-mono);color:var(--text)">npm run test:harness</code></span>
+  </div>
+
+  <div class="footer">
+    <span><a href="../code-cov/coverage.html">coverage</a> · <a href="../unit/unit.html">unit</a> · <a href="../integration/integration.html">integration</a> · <a href="../e2e/e2e.html">e2e</a> · <a href="../../index.html">index</a></span>
+    <span>aperio · <a href="https://github.com/BaiGanio/aperio">github</a></span>
+  </div>
+</main>
+
+<script src="harness-data.js"></script>
+<script>
+const data = window.APERIO_HARNESS;
+const pct = (v) => `${Number(v || 0).toFixed(1)}%`;
+const fmt = (ms) => ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`;
+
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Run info
+document.querySelector('#run').innerHTML = data.branch
+  ? `<strong>harness run</strong><span style="color:var(--indigo)">${escapeHtml(data.branch)}</span>@${escapeHtml(data.commit || '')} · ${escapeHtml(new Date(data.generatedAt).toLocaleString())}`
+  : '<strong>harness run</strong>local data';
+
+// Metric cards
+const passRate = data.total > 0 ? ((data.passed / data.total) * 100).toFixed(1) : 100;
+document.querySelector('#metrics').innerHTML = `
+  <div class="panel metric">
+    <h2>Total Tests</h2>
+    <div class="score"><b>${data.total}</b></div>
+  </div>
+  <div class="panel metric">
+    <h2>Passed</h2>
+    <div class="score"><b style="color:var(--green)">${data.passed}</b></div>
+    <div class="meter"><i style="width:${passRate}%;background:var(--green)"></i></div>
+  </div>
+  <div class="panel metric">
+    <h2>Failed</h2>
+    <div class="score"><b style="color:var(--amber)">${data.failed}</b></div>
+    <small>${data.skipped} skipped</small>
+  </div>
+  <div class="panel metric">
+    <h2>Pass Rate</h2>
+    <div class="score"><b style="color:${data.failed === 0 ? 'var(--green)' : 'var(--amber)'}">${passRate}%</b></div>
+  </div>
+  <div class="panel metric">
+    <h2>Scenarios</h2>
+    <div class="score"><b style="color:var(--purple)">${data.scenarioCount ?? '—'}</b></div>
+  </div>
+  <div class="panel metric">
+    <h2>Duration</h2>
+    <div class="score"><b>${fmt(data.duration_ms)}</b></div>
+    <small>total wall-clock</small>
+  </div>
+`;
+
+// Group cards
+const groupsHtml = (data.groups || []).map((g) => {
+  const barPct = (n) => g.testCount > 0 ? ((n / g.testCount) * 100).toFixed(1) : 0;
+  const testsInGroup = (data.tests || []).filter((t) => t.group === g.group);
+  const passClass = g.failed === 0 ? 'tag-ok' : (g.passed > 0 ? 'tag-warn' : 'tag-fail');
+  const gTag = g.failed === 0 ? (g.skipped > 0 ? 'partial' : 'pass') : 'fail';
+
+  return `
+<details class="group-card g-${g.group.replace(/[^a-zA-Z0-9\\-]/g, '_')}" open>
+  <summary class="group-head">
+    <span class="group-name">${escapeHtml(g.group)} <small>${g.testCount} tests</small></span>
+    <span class="group-meta">
+      <span class="tag ${passClass}">${gTag}</span>
+      ${g.passed}/${g.testCount}
+      <span>${fmt(g.duration_ms)}</span>
+    </span>
+  </summary>
+  <div class="group-bar">
+    <i class="bar-pass" style="width:${barPct(g.passed)}%"></i>
+    <i class="bar-fail" style="width:${barPct(g.failed)}%"></i>
+    <i class="bar-skip" style="width:${barPct(g.skipped)}%"></i>
+  </div>
+  <div class="group-body">
+    ${testsInGroup.length > 0 ? `
+    <table class="file-table">
+      <thead><tr><th style="width:64%">Scenario / check</th><th style="width:12%">Status</th><th style="width:24%;text-align:right">Duration</th></tr></thead>
+      <tbody>
+        ${testsInGroup.map((t) => `<tr>
+            <td><span class="test-name"><i class="status-dot ${t.status === 'pass' ? 'pass' : (t.status === 'skip' ? 'skip' : 'fail')}"></i>${escapeHtml(t.name)}</span></td>
+            <td style="color:${t.status === 'pass' ? 'var(--green)' : (t.status === 'skip' ? 'var(--dim)' : 'var(--amber)')}">${t.status}</td>
+            <td class="test-duration">${fmt(t.duration_ms)}</td>
+          </tr>${t.error ? `<tr><td colspan="3" style="color:var(--amber);font:11px var(--font-mono);white-space:pre-wrap">${escapeHtml(t.error)}</td></tr>` : ''}`).join('')}
+      </tbody>
+    </table>
+    ` : '<p style="color:var(--muted);font:12px var(--font-mono)">No test-level detail available.</p>'}
+  </div>
+</details>`;
+}).join('') || '<div class="empty-state"><h3>No test data</h3><p>Run <code style="font:12px var(--font-mono)">npm run test:harness:ci:dashboard</code> to generate results.</p></div>';
+
+document.querySelector('#groups').innerHTML = groupsHtml;
+</script>
+<script src="../../scripts.js"></script>
+</body>
+</html>

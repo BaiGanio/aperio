@@ -1,0 +1,15 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A08",
+  "slice_name": "Artifact lifecycle and retrieval",
+  "invariant": "Offloaded content remains addressable, scoped, bounded, attributable, and deleted with its owner.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/context/artifactStore.js", "reason": "Artifact store — disk-backed put/get/list for offloaded results", "status": "present", "hash": "bab89e59242867337190abeb688903aba837a2d4143284ae6b46659dcd522886", "bytes": 8674},
+    {"path": "lib/context/artifactRetrieval.js", "reason": "Artifact retrieval — read offloaded artifacts by ID into context", "status": "present", "hash": "87e07cc84a47cb911fe107fe329a3ed22f007d7d70e3c828c25e350c6954a3d0", "bytes": 4680},
+    {"path": "lib/context/toolResultOffload.js", "reason": "Tool result offload — oversized result truncation with redactSecrets", "status": "present", "hash": "b954de0126b7da1cc12dcf6d1035d1c78ffd46f02a0b05c06af2b7d40955d141", "bytes": 5052},
+    {"path": "lib/agent/artifact-lifecycle.js", "reason": "Artifact lifecycle — creation, retrieval, persistence hooks for agent turns", "status": "present", "hash": "8e1fd61a8ecc99de187a0237e60f71cf0647bcd56c8e5e189da83827845f2376", "bytes": 3638}
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "aperio-audit-mcp-boundary-contract-v1",
+  "slice_id": "A12",
+  "slice_name": "MCP standalone boundary",
+  "observed_at": "2026-07-24T21:52:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "MCP server entry (mcp/index.js) exists", "passed": true, "detail": "Present — createMcpServer() with stdio transport, tool registration"},
+        {"invariant": "File tools registered (mcp/tools/files.js)", "passed": true, "detail": "Present — read, write, edit, append, delete, grep, scan, generate_docx, generate_xlsx"},
+        {"invariant": "Shell tools registered (mcp/tools/shell.js)", "passed": true, "detail": "Present — run_shell, run_node_script, run_python_script"},
+        {"invariant": "Memory tools registered (mcp/tools/memory.js)", "passed": true, "detail": "Present — 7 memory tools"},
+        {"invariant": "Wiki tools registered (mcp/tools/wiki.js)", "passed": true, "detail": "Present — 5 wiki tools"},
+        {"invariant": "Self-memory/wall registered (mcp/tools/self-memory.js, self-wiki.js)", "passed": true, "detail": "Present — 4 self-memory + 2 self-wiki tools"},
+        {"invariant": "Web tools registered (mcp/tools/web.js)", "passed": true, "detail": "Present — fetch_url, web_search"},
+        {"invariant": "GitHub tools registered (mcp/tools/github.js)", "passed": true, "detail": "Present — full GitHub issue management"},
+        {"invariant": "Database tools registered (mcp/tools/database.js)", "passed": true, "detail": "Present — db_execute"},
+        {"invariant": "Image tools registered (mcp/tools/image.js)", "passed": true, "detail": "Present — read_image, describe_image, preprocess_image"},
+        {"invariant": "Code graph tools registered (mcp/tools/codegraph.js)", "passed": true, "detail": "Present — symbol search, source slices"},
+        {"invariant": "Doc graph tools registered (mcp/tools/docgraph.js)", "passed": true, "detail": "Present — passage search, document queries"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

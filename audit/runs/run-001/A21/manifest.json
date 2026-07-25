@@ -1,0 +1,22 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A21",
+  "slice_name": "Codegraph/docgraph ingestion",
+  "invariant": "Untrusted documents cannot escape resource limits; backend results and lifecycle agree.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/codegraph/indexer.js", "reason": "Code graph indexer — tree-sitter parsing, symbol extraction", "status": "present", "hash": "832481e3b1e7d0ccf002cdae2501b626a46569f9d06674b747376c94b9d0f82b", "bytes": 5977},
+    {"path": "lib/codegraph/graph.js", "reason": "Code graph — symbol relationships, reference tracking", "status": "present", "hash": "93e979168bc1772aa59f412811cb9afabfcee01e9c5c16edea6bcf02711a77d5", "bytes": 7770},
+    {"path": "lib/codegraph/watcher.js", "reason": "Code graph watcher — file system watching, re-index triggers", "status": "present", "hash": "12f17048265bf252628286ac58c4e07f79f9dee657f8e8f13dec2e7ab0d7d7ce", "bytes": 8624},
+    {"path": "lib/codegraph/symbol-embedding-queue.js", "reason": "Code symbol embedding queue — async embedding, backpressure", "status": "present", "hash": "a4f35c16d5a9d5eaaf2f54df5755eebc050be6ce384977a6429b2bcde8845e6c", "bytes": 636},
+    {"path": "lib/codegraph/analysisService.js", "reason": "Code graph analysis service — call graph, source slices, symbol search", "status": "present", "hash": "f2702d6f2afd04a1b307752033a4450681acbb0d5faf795a9fd72f511087bae7", "bytes": 8842},
+    {"path": "lib/codegraph/backends/sqlite.js", "reason": "Code graph SQLite backend — symbol/reference/relationship persistence", "status": "present", "hash": "0531e5eea7a5a51cf23484c0e9515cee672813b7388ecd92706127ab56f3a8b1", "bytes": 4789},
+    {"path": "lib/codegraph/backends/postgres.js", "reason": "Code graph Postgres backend — symbol/reference/relationship persistence", "status": "present", "hash": "ed518621b6ba1ae930ad8e58cfa434873f4e8abde9d5698b4cff3ed997d789eb", "bytes": 4921},
+    {"path": "lib/docgraph/indexer.js", "reason": "Doc graph indexer — multi-format extraction, chunking, embedding", "status": "present", "hash": "4b5e7007fe3012f6618b75ff471876be12c51a8f964b2135e505381c72e3ad09", "bytes": 8281},
+    {"path": "lib/docgraph/watcher.js", "reason": "Doc graph watcher — file system watching, re-index on change", "status": "present", "hash": "19661f835873ef2b10acdccb85329c8eba00b2b07ff128573f3cfc9fb7c20f4f", "bytes": 8601},
+    {"path": "lib/docgraph/chunk-embedding-queue.js", "reason": "Doc chunk embedding queue — async processing, rate-limited", "status": "present", "hash": "7a58bb9e5119c59b59ad4ecefb3b075c2f1711cb91fcded1e2d3a7c3090b3c12", "bytes": 745},
+    {"path": "lib/docgraph/retrieval.js", "reason": "Doc retrieval — passage search, relevance ranking", "status": "present", "hash": "d2b7a9a3f4a6ef626ca5421de7b8b3298bb880b43b59c3c0b4d9812ee4de359c", "bytes": 14941}
+  ]
+}

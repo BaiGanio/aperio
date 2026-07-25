@@ -1,0 +1,25 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A12",
+  "slice_name": "MCP standalone boundary",
+  "invariant": "Internal and external callers receive equivalent contracts and guardrails; ctx shape is complete.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "mcp/index.js", "reason": "MCP server entry — createMcpServer, register all tools, shared ctx construction", "status": "present", "hash": "20626754b129d6dfba4f35c26faaf6095a05537c7f93c48d9ba4d11c130cbbbe", "bytes": 4543},
+    {"path": "mcp/tools/files.js", "reason": "File tool registration barrel — 8 file tools (read/write/edit/append/delete/generate/scan/grep)", "status": "present", "hash": "41922172869718b28771e6281ea0ce1321812a388cd54ffde68a9e646c18b48f", "bytes": 10039},
+    {"path": "mcp/tools/shell.js", "reason": "Shell tool — run_shell, run_node_script, run_python_script", "status": "present", "hash": "4d4ec521e26947b8ab4e0c5ed1c3665b1fc6ce532ab717800f9d2841a591fdf6", "bytes": 34317},
+    {"path": "mcp/tools/memory.js", "reason": "Memory tools — remember, recall, update_memory, forget, propose_memory, backfill_embeddings, deduplicate_memories", "status": "present", "hash": "0a1a7c66ea69cd724f3ea0425ae19d7dba82958b139ab3264b1ada3888bd476b", "bytes": 7285},
+    {"path": "mcp/tools/wiki.js", "reason": "Wiki tools — wiki_write, wiki_get, wiki_search, wiki_list, propose_wiki", "status": "present", "hash": "c86304896c7b18c2bfc2157d252f8d21dc4df7147571dc5fef257f9ea52bba18", "bytes": 6541},
+    {"path": "mcp/tools/self-memory.js", "reason": "Self-memory tools — self_remember, self_recall, self_update, self_forget", "status": "present", "hash": "d12c45739be58b73ec0c2ab00eb70a5b4f2a5eaf52ba867f59aa4a0400874460", "bytes": 3389},
+    {"path": "mcp/tools/self-wiki.js", "reason": "Self-wiki tools — self_wiki_write, self_wiki_get", "status": "present", "hash": "4ac1f3decc0dcbee21ca49087dd35bc767b6d5d7ef8cfdd46fdf9f4bf044861b", "bytes": 2539},
+    {"path": "mcp/tools/web.js", "reason": "Web tools — fetch_url, web_search, browser-based tools", "status": "present", "hash": "a497e6e3e982463a5fca4e23b73066d49531383512b15f171ce90619a5cec2bb", "bytes": 7481},
+    {"path": "mcp/tools/github.js", "reason": "GitHub tools — issue CRUD, full GitHub API integration", "status": "present", "hash": "0d9ae1403e3ec97410ea6dd523e07ad8c6d31c7b93665802fddfc343c67a52d7", "bytes": 34203},
+    {"path": "mcp/tools/database.js", "reason": "Database tools — db_execute for SQL queries", "status": "present", "hash": "5c0bc620c7f5b65ef08e3002abe4f2291c3dad7a26157ed9dc899184bdddb1e1", "bytes": 5422},
+    {"path": "mcp/tools/data.js", "reason": "Data tools — export_data, import_data", "status": "present", "hash": "1c8a96eed49aa4bf2fe576e777cd667689e486d81a53cffbab8d2473dd5e32cb", "bytes": 1926},
+    {"path": "mcp/tools/image.js", "reason": "Image tools — read_image, describe_image, preprocess_image", "status": "present", "hash": "915d8fee807c15cd879b14274d80c3fc0d637d0ec62b51ddaa30511334f49527", "bytes": 19737},
+    {"path": "mcp/tools/codegraph.js", "reason": "Code graph tools — symbol search, source slices, call graph", "status": "present", "hash": "15340e021793260edbb292180549d519a2821db774dfa6be91f329a72a1c6a3e", "bytes": 7690},
+    {"path": "mcp/tools/docgraph.js", "reason": "Doc graph tools — passage search, document indexing, queries", "status": "present", "hash": "bc38c7160f2d53d942dce86dfad6d94fb2b9e26738317d0b482cd8ac648cfd8d", "bytes": 8178}
+  ]
+}

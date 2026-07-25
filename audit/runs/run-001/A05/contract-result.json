@@ -1,0 +1,54 @@
+{
+  "$schema": "aperio-audit-agent-lifecycle-contract-v1",
+  "slice_id": "A05",
+  "slice_name": "Agent factory and lifecycle",
+  "observed_at": "2026-07-24T21:45:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Agent factory (lib/agent/index.js) exists", "passed": true, "detail": "Present — 749 lines, createAgent(), runAgentLoop(), setProvider()"},
+        {"invariant": "Lifecycle middleware runner (lib/agent/middleware.js) exists", "passed": true, "detail": "Present — 6 hooks (beforeModel, selectTools, beforeTool, afterTool, afterModel, onInterrupt) + onError"},
+        {"invariant": "Lifecycle trace (lib/agent/lifecycle-trace.js) exists", "passed": true, "detail": "Present — bounded (default 200, max 1,000), metadata-only, no request/prompt/result storage"},
+        {"invariant": "Agent spec normalization (lib/agent/spec.js) exists", "passed": true, "detail": "Present — normalizeAgentSpec() with provider, identity, rules"},
+        {"invariant": "Agent bundle loader (lib/agent/bundle.js) exists", "passed": true, "detail": "Present — loadAgentBundle(), skills/config/identity merging"},
+        {"invariant": "Job spec (lib/agent/job-spec.js) exists", "passed": true, "detail": "Present — background agent job configuration spec"},
+        {"invariant": "Tool hooks (lib/agent/tool-hooks.js) exists", "passed": true, "detail": "Present — makeTurnHooks, pre/post/caps hooks with lifecycle trace recording"},
+        {"invariant": "Model context middleware (lib/agent/model-context-middleware.js) exists", "passed": true, "detail": "Present — tool result offload, token capping"},
+        {"invariant": "Memory context (lib/agent/memory-context.js) exists", "passed": true, "detail": "Present — session/self memory retrieval for context assembly"}
+      ],
+      "passed": true
+    },
+    "lifecycle_management": {
+      "results": [
+        {"invariant": "runAgentLoop creates a fresh lifecycleTrace per call", "passed": true, "detail": "line 570: 'const lifecycleTrace = createLifecycleTrace();' — per-turn trace"},
+        {"invariant": "Lifecycle hooks are run by name in registration order", "passed": true, "detail": "middleware.js: createLifecycleRunner runs hooks by name, registration order preserved"},
+        {"invariant": "Middleware hooks receive immutable request snapshots", "passed": true, "detail": "middleware.js: cloneData deep-clones plain objects/arrays, preserves class instances"},
+        {"invariant": "Hooks return { update } or { stop } — never mutate in place", "passed": true, "detail": "middleware.js: returns either undefined, { update }, or { stop, value, update? }"},
+        {"invariant": "Failed hooks are wrapped with LifecycleMiddlewareError", "passed": true, "detail": "middleware.js: LifecycleMiddlewareError class with hook, middleware, cause fields"},
+        {"invariant": "onError observers notified but never replace original error", "passed": true, "detail": "middleware.js: 'observer failures never replace the original error'"},
+        {"invariant": "setProvider clears self-memory context on cloud switch", "passed": true, "detail": "line 744: 'if (!isLocalProvider(newProvider.name)) memoryCtx.clearSelfMemCtx();'"},
+        {"invariant": "Self-memory is local-only: dropped immediately on cloud provider switch", "passed": true, "detail": "line 741-744: self-notes cleared when switching from local to cloud"}
+      ],
+      "passed": true
+    },
+    "scoped_state": {
+      "results": [
+        {"invariant": "Agent state is scoped to the agent closure (no global mutable state for turns)", "passed": true, "detail": "All turn state (turnCache, lifecycleTrace, pendingForcedSkillNames) is closure-local inside createAgent()"},
+        {"invariant": "Tool timeout is bounded per tool (60s default, 300s for VLM)", "passed": true, "detail": "DEFAULT_TOOL_TIMEOUT_MS=60_000; TOOL_TIMEOUT_MS map for per-tool overrides"},
+        {"invariant": "Lifecycle trace does not store requests, prompts, results, or artifact content", "passed": true, "detail": "lifecycle-trace.js: 'Requests, arguments, prompts, results, and artifact content have no storage path'"}
+      ],
+      "passed": true
+    },
+    "tests": {
+      "results": [
+        {"invariant": "Agent integration tests exist", "passed": true, "detail": "tests/integration/agent/agent.test.js — agent factory and lifecycle"},
+        {"invariant": "Lifecycle middleware tests exist", "passed": true, "detail": "tests/unit/agent/middleware.test.js — middleware runner"},
+        {"invariant": "Tool hooks tests exist", "passed": true, "detail": "Covered by agent integration tests"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

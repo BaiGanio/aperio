@@ -1,0 +1,16 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A16",
+  "slice_name": "Network, GitHub, external DB egress",
+  "invariant": "Destinations, credentials, queries, and egress are authorized, bounded, and auditable.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/helpers/ssrfGuard.js", "reason": "SSRF guard — assertPublicUrl, blocks private/loopback/CGNAT ingress, allowlist/opt-out", "status": "present", "hash": "9bbaea94c0104ea7014b8d290bfdfd7db4d8d1a8b24f05a8042a631de2a4c68c", "bytes": 8073},
+    {"path": "lib/helpers/egressLog.js", "reason": "Egress audit log — append-only var/logs/egress.log, tool/host/sessionId", "status": "present", "hash": "1bf0de2802d21f8c9f3b6a394ec4a0cd452522cf90d1b1e274d69dedf3392eb1", "bytes": 809},
+    {"path": "mcp/tools/web.js", "reason": "Web tools — fetch_url with SSRF guard, web_search", "status": "present", "hash": "a497e6e3e982463a5fca4e23b73066d49531383512b15f171ce90619a5cec2bb", "bytes": 7481},
+    {"path": "mcp/tools/github.js", "reason": "GitHub tools — issue CRUD with API token auth, bounded pagination", "status": "present", "hash": "0d9ae1403e3ec97410ea6dd523e07ad8c6d31c7b93665802fddfc343c67a52d7", "bytes": 34203},
+    {"path": "mcp/tools/database.js", "reason": "Database tools — db_execute with SQL validation, query limits", "status": "present", "hash": "5c0bc620c7f5b65ef08e3002abe4f2291c3dad7a26157ed9dc899184bdddb1e1", "bytes": 5422}
+  ]
+}

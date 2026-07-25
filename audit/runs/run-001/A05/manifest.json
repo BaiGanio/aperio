@@ -1,0 +1,31 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A05",
+  "slice_name": "Agent factory and lifecycle",
+  "invariant": "Session-scoped state is not shared accidentally; lifecycle transitions are explicit and replayable.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/agent/index.js", "reason": "Agent factory — createAgent(), runAgentLoop(), setProvider()", "status": "present", "hash": "63694f1d4528600c7bc3edf8b9927cb938105687cb9e0d5131df2a4be9748dcf", "bytes": 37092},
+    {"path": "lib/agent.js", "reason": "Agent barrel export", "status": "present", "hash": "e17e30ad597a9d0968c3feca433fc0157591c2d3de8f250b0543738f566c2ee5", "bytes": 34},
+    {"path": "lib/agent/middleware.js", "reason": "Lifecycle middleware runner — 6 hooks (beforeModel, selectTools, beforeTool, afterTool, afterModel, onInterrupt) + onError observer", "status": "present", "hash": "c739f29184645ea546135e0c2745ad69342b5b982cc34e1f5e899a0f24f2281b", "bytes": 7849},
+    {"path": "lib/agent/lifecycle-trace.js", "reason": "Bounded metadata-only lifecycle trace (default 200, max 1000)", "status": "present", "hash": "30fb58367861fafc46938bcbf9c80fcf113c37c8a663cb231c3ddf531f4aa73f", "bytes": 2117},
+    {"path": "lib/agent/spec.js", "reason": "Agent spec normalization — provider, identity, capabilities rules", "status": "present", "hash": "e54d8f0cf59c907bb609c5f8406693e1d3d3b41ff4155116a8dcea126a75bff9", "bytes": 9487},
+    {"path": "lib/agent/bundle.js", "reason": "Agent bundle loader — skills, config, identity files", "status": "present", "hash": "083120f08055abb4410f525f1ab76f693c9215fc8a01ae8784eec92d619ca2bc", "bytes": 6589},
+    {"path": "lib/agent/job-spec.js", "reason": "Job spec — background agent configuration", "status": "present", "hash": "42bc710a8b23dce2156cd213cc05dfbbd50f51472108ea783bad8611c084004d", "bytes": 1938},
+    {"path": "lib/agent/tool-hooks.js", "reason": "Tool hooks — pre/post hooks with path safety, confirmation, lifecycle trace", "status": "present", "hash": "67476462107ea095187b7d6c193a79b982d537c2c29dbbcf9ef922980d0ad883", "bytes": 34575},
+    {"path": "lib/agent/tool-safety-middleware.js", "reason": "Tool safety middleware — capability gating, shell allow, local-only enforcement", "status": "present", "hash": "c05b3abe353beaeb1ead42079bb5941fb0f1bb6472ab1c40a0876470da5e80c9", "bytes": 7456},
+    {"path": "lib/agent/model-context-middleware.js", "reason": "Model context middleware — tool result offload, token capping", "status": "present", "hash": "6d2c21e5bcb12004645bde1b4453e1429d5ee46169b7bad86144c54108bd09d3", "bytes": 8295},
+    {"path": "lib/agent/turn-planner.js", "reason": "Turn planning — tool profile selection, skill matching", "status": "present", "hash": "710dc3bc7714b8da54d0a5bdf97d21278e42a4c705b1c210e050e3bf119df1fe", "bytes": 5824},
+    {"path": "lib/agent/preflight.js", "reason": "Preflight runner — doc batch, memory retrieval, semantic skill rescue", "status": "present", "hash": "7928f08a36d9788a0f75870b5ab960a600553d92dcb06a6b2c2569de9457b95a", "bytes": 11417},
+    {"path": "lib/agent/memory-context.js", "reason": "Memory context builder — session/self memory retrieval", "status": "present", "hash": "dec4d5c2c9616ff7047d17c5f66fca6d26a12abb5617a8139c1c2672d0e30997", "bytes": 4757},
+    {"path": "lib/agent/mcp-connect.js", "reason": "MCP tool catalog — connect MCP, register host tools, build schemas", "status": "present", "hash": "4aae22cbf9bed01fc96c12486bee7a24000b08d36b35052e4239baefe133a9f5", "bytes": 5125},
+    {"path": "lib/agent/skill-admin.js", "reason": "Skill admin — reload, toggle, list skills", "status": "present", "hash": "329dd83557bc65d572dfa917928ab0e466b79355fd70115863b7b7210c927962", "bytes": 4924},
+    {"path": "lib/agent/language.js", "reason": "Language directive builder", "status": "present", "hash": "8ce08f3df1560c650b1c7c757e917570f1ea261bffd236a3e52acf4200e51320", "bytes": 1266},
+    {"path": "lib/agent/workflow-detection.js", "reason": "Workflow detection — tool sequence intent analysis", "status": "present", "hash": "a184371fc63e23dfc13e4b9c37068c607813b15521d21deb7030e3c8df8a6392", "bytes": 1035},
+    {"path": "lib/agent/deliverables.js", "reason": "Answer artifact persistence", "status": "present", "hash": "17f7123efe5874a1e456856feb4a7c753df1dc54936b97d41415dfafe600f131", "bytes": 5119},
+    {"path": "lib/agent/turn-diagnostics.js", "reason": "Turn diagnostics — no-tool-use detection, slow turn warning", "status": "present", "hash": "e91b5eefe534ef02bc0c5be03e84bd6d30e8d33c8d3c3af23b54b1088276ccbd", "bytes": 3416},
+    {"path": "lib/agent/artifact-lifecycle.js", "reason": "Artifact lifecycle — creation, retrieval, persistence", "status": "present", "hash": "8e1fd61a8ecc99de187a0237e60f71cf0647bcd56c8e5e189da83827845f2376", "bytes": 3638}
+  ]
+}

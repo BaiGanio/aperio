@@ -126,6 +126,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Lossless large-result offloading — oversized text tool results are secret-redacted and stored immutably under a private session/run scope; the model receives a bounded head/tail preview with an artifact ID instead of losing the full result to context trimming (`APERIO_TOOL_RESULT_OFFLOAD_TOKENS`, `APERIO_TOOL_RESULT_OFFLOAD_BYTES`)
 - Chunked result recovery — after an offload in the active run, the read-only `read_artifact` tool pages the complete result by byte offset/limit under code-enforced session/run ownership (8,192-byte default chunk, 24,000-byte maximum chunk, 32,000-byte maximum response)
 - Artifact lifecycle and observability — session artifacts are deleted/pruned with sessions; run artifacts follow `AGENT_RUN_RETENTION_DAYS`; logs and background-run history expose only offload IDs/scopes/counts/byte totals, never stored content
+- Structured tool-result envelope (agent-harness-epic WS3) — `summarizeResult()` produces one documented shape, `{ok, summary, detail?, artifact?: {id, tokenCount, byteCount}}`, for the `tool_result` WebSocket event; an offloaded result's artifact pointer is folded into this envelope (computed after provenance fencing, same ordering as before) instead of only reaching the UI via a separate event or the model-facing preview text, and the raw pre-redaction `detail`/`details`/`memories` fields are dropped from the event whenever an artifact is present so an oversized result's un-redacted content never reaches the socket (`lib/agent/toolActivity.js`, `lib/agent/tool-hooks.js`)
 - First-class providers: llama.cpp (vendored, self-managed), Anthropic, DeepSeek, Gemini, Claude Code Agent SDK, and OpenAI Codex CLI
 - Codex provider: authenticated `codex exec --json`, Aperio MCP tool access, explicit sandbox/approval policy, session-scoped persisted thread resume, background completions, setup wizard, and round-table support
 - Tool-activity card parity for Codex and Claude Code — both providers previously ran tool calls invisibly to the user (Codex's shell/MCP items ran in a subprocess bypassing the tool hook entirely; Claude Code's SDK built-in tools like Bash/WebFetch had no card at all). Codex now synthesizes `tool_start`/`tool_result` cards from `item.started`/`item.completed` events (canonical tool name, real command/args, honest ok/timing — never a fabricated checkmark for a status the subprocess didn't report); Claude Code synthesizes cards for SDK built-in tools from `assistant`/`user` message tool_use/tool_result blocks, deduplicated against the Aperio MCP tools that already get a card via the shared tool hook (both loops share the same per-turn card sequence to avoid seq collisions). Cards left pending by an abort, crash, or dropped event resolve as failed rather than staying stuck "running".
@@ -140,6 +141,8 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Background-agents UI panel — right-side sidebar with live master switch, per-job trigger/mode/last-verdict, "Run now", and per-job run history (`lib/routes/api-agents.js`, `public/scripts/agents-panel.js`)
 - Personas via `id/whoami*.md`; 7 domain characters via `id/characters/` (architect, reviewer, security, product, socratic, doctor, space-engineer) overlayable per-agent via `ROUNDTABLE_CHARACTERS`
 - Prompt-cache hygiene — a session-frozen memory pointer (count-free, refreshed only at next session start) and a static, locale-aware greeting plus a background llama.cpp KV-cache warm-up (`agent.warmCache()`, gated on the model already being loaded) keep the system prompt's stable prefix byte-identical across turns; `npm run prompt-cache:bench` measures the resulting prefix reuse from llama-server's debug log
+- Planning loop (experimental, `APERIO_AGENT_PLANNING=on`, off by default) — the model may lead a multi-step turn with a machine-readable `APERIO_PLAN:` JSON block (`steps: [{tool, args, purpose}]` + `parallel` groups reserved for future sub-agent delegation) before calling tools; the plan's tool names are validated against the turn's real tool set, execution is tracked step-by-step against the plan, and any mismatch is reported to the model as a reflection prompt on the next turn rather than blocked (`lib/agent/planning-middleware.js`). Fail-safe by construction: no plan, or an invalid one, and the loop behaves exactly as it does with the gate off. Emits `plan_created`/`plan_step`/`plan_drift` events for the UI and the regression harness.
+- Sub-agent spawn/delegation (`lib/agent/spawn.js`) — `spawnChild()`/`spawnParallel()` let an agent delegate a task to child agents built from its own `AgentSpec`, running the same `createAgent()`/`runAgentLoop()` path as any other agent. Every child spec is strictly narrower than its parent: `recursionDepth` decrements by one per hop (a spec with none left refuses to spawn further, without throwing) and `toolAllowlist` can never widen, enforced by reusing `lib/agent/bundle.js`'s administrator-narrowing checks via a new `narrowAgentSpec()` export. Each child's events are tagged with a distinct `agent_id` and forwarded into the parent's emitter; a failed or budget-exhausted child resolves as `{ ok: false }` instead of rejecting, so `spawnParallel()` always returns every sibling's result. `lib/workers/roundtable.js`'s hard-coded two-agent mode is not yet built on top of this (tracked in `A2D.md`).
 
 ## Storage
 - SQLite + sqlite-vec + FTS5 — zero-config default, single file `var/aperio.db`
@@ -192,6 +195,52 @@ and offload ordering. Model-context coverage verifies bounded immutable history,
 memory/skill ordering, canonical tool selection, provider-local serialization,
 offload failure isolation, bounded trace eviction, and trace privacy/fail-open
 behavior.
+
+## Deterministic assistant-behavior harness
+
+A scripted, fake-model conversation drives the real agent loop, middleware
+stack, and tool hooks with no network, no live AI model, and no real MCP
+subprocess — so a code change to the loop itself, not a model's judgment
+call, is what turns a check red. Six behaviors are checked in under a second:
+
+```bash
+npm run test:harness
+```
+
+- A normal multi-step task (fetch data, analyze it, save a report,
+  double-check it, send it) completes with every step recorded correctly.
+- Claiming to have saved a file that was never actually written triggers an
+  immediate correction.
+- Three broken tool requests in a row stop the assistant before it repeats
+  the same mistake again.
+- A very large tool result is stored separately instead of flooding the
+  conversation, and the assistant can still read it back in pieces.
+- After reading content from an untrusted source, the assistant is blocked
+  from writing a file in that same turn.
+- Trying the exact same failing action three times in a row stops the
+  assistant instead of letting it loop forever.
+
+Results are visualized on the "Behavior" dashboard alongside the
+coverage/unit/integration/e2e dashboards (`npm run harness:dashboard` →
+`docs/benchmarks/harness/harness.html`).
+
+`tests/harness/planning.test.js` extends the same harness to the planning
+loop above: a well-formed plan is extracted and tracked step-by-step with no
+drift; a plan naming a nonexistent tool is caught every time and never
+becomes active while the turn still completes; a genuine mismatch between
+the plan and the tool actually called is recorded as drift without blocking
+it; every original scenario produces the identical observable event sequence
+with the planning gate on and off; and the lifecycle trace confirms the
+tool-safety middleware always runs before planning's drift-tracking hook.
+
+`tests/harness/spawn.test.js` covers the sub-agent delegation feature above:
+3 parallel scripted children merge their results into the parent's event
+stream, each tagged with its own `agent_id`; one child tripping its
+tool-failure budget surfaces that to the parent without losing the other two
+children's results; a spec at its recursion-depth limit refuses to spawn
+without throwing; and a child spec attempting to widen the parent's
+`toolAllowlist` is rejected by the same `AgentBundleError` an on-disk
+permission bundle would get for the same violation.
 
 ## Interfaces
 - Web UI: streaming chat, themes, sidebar, code panel, voice input + TTS readout

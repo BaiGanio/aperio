@@ -1,0 +1,17 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A18",
+  "slice_name": "Permission and capability enforcement",
+  "invariant": "Authority is explicit, least-privilege, immutable during an action, and enforced at execution — not only selection/UI.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {"path": "lib/security/agentPermissions.js", "reason": "Agent permission policy — read/write/execute/network/database/memory, first-match-wins rules", "status": "present", "hash": "f1a69fdfd1fb3eb9404e275951a0b4d388d70bc2709b721f0ac8a0fb95f91c66", "bytes": 8501},
+    {"path": "lib/agent/tool-safety-middleware.js", "reason": "Tool safety middleware — capability gating, shell allow, local-only tool enforcement", "status": "present", "hash": "c05b3abe353beaeb1ead42079bb5941fb0f1bb6472ab1c40a0876470da5e80c9", "bytes": 7456},
+    {"path": "lib/agent/spec.js", "reason": "Agent spec normalization — toolAllowlist, provider config, identity rules", "status": "present", "hash": "e54d8f0cf59c907bb609c5f8406693e1d3d3b41ff4155116a8dcea126a75bff9", "bytes": 9487},
+    {"path": "lib/agent/tool-profiles.js", "reason": "Tool profiles — isShellAllowedFor, isCapableModel, filterSelfMemoryTools, confirmable tools", "status": "present", "hash": "aa905ded6db70007fa6f0e2092199fbafd9583b0baa8e716b049231f9c0e4dce", "bytes": 26982},
+    {"path": "lib/agent/job-spec.js", "reason": "Job spec — background agent permission spec", "status": "present", "hash": "42bc710a8b23dce2156cd213cc05dfbbd50f51472108ea783bad8611c084004d", "bytes": 1938},
+    {"path": "lib/security/interruptService.js", "reason": "Interrupt service — confirmation/runtime permission gate for tool execution", "status": "present", "hash": "fa70067cb4680a4700c06009cbebc8673f265df03b51da347285e4897d7beaaa", "bytes": 8576}
+  ]
+}

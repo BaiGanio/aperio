@@ -1,0 +1,67 @@
+{
+  "$schema": "aperio-audit-filesystem-shell-contract-v1",
+  "slice_id": "A15",
+  "slice_name": "Filesystem, shell, and generated artifacts",
+  "observed_at": "2026-07-24T21:40:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Path validation (lib/routes/paths.js) exists", "passed": true, "detail": "Present — realpathSafe, expandTilde, allowlist with floor, AsyncLocalStorage per-connection"},
+        {"invariant": "File tool barrel (mcp/tools/files.js) exists", "passed": true, "detail": "Present — 8 registered file tools: read/write/append/edit/delete/generate_xlsx/generate_docx + grep/scan"},
+        {"invariant": "File read/write handlers exist with path guards", "passed": true, "detail": "read.js (4 handlers), write.js (3 handlers), delete.js (1 handler), helpers.js (extension allowlist + secret-file deny)"},
+        {"invariant": "File tool confirm-before-write (files/interrupt.js) exists", "passed": true, "detail": "Present — two-phase commit for writes outside session scratch or after untrusted reads"},
+        {"invariant": "Shell tool (mcp/tools/shell.js) exists", "passed": true, "detail": "Present — run_shell, run_node_script, run_python_script with binary allowlist, pipeline validation, 60s timeout"},
+        {"invariant": "Shell command validation (mcp/tools/shell/command.js) exists", "passed": true, "detail": "Present — ALLOWED_CMDS set, checkBannedOperators, validatePipeline"},
+        {"invariant": "Tool executor (lib/tools/executor.js) exists", "passed": true, "detail": "Present — destructive tool set with mandatory floor, JSON comment stripping, brace repair, output validateOutputSafe"},
+        {"invariant": "Post-write validation (lib/tools/validateWrittenFile.js) exists", "passed": true, "detail": "Present — JS --check, JSON.parse, XML validation with fail-open on internal errors"},
+        {"invariant": "Output sanitisation (lib/helpers/validateOutput.js) exists", "passed": true, "detail": "Present — XSS tag/attr stripping, control char removal, fence fixing/normalisation"},
+        {"invariant": "Agent permissions (lib/security/agentPermissions.js) exists", "passed": true, "detail": "Present — 6 capabilities (read/write/execute/network/database/memory), first-match-wins policy"},
+        {"invariant": "Tool safety middleware (lib/agent/tool-safety-middleware.js) exists", "passed": true, "detail": "Present — capability gating, shell allow, local-only tool enforcement"}
+      ],
+      "passed": true
+    },
+    "path_safety": {
+      "results": [
+        {"invariant": "realpathSafe resolves symlinks on longest existing prefix", "passed": true, "detail": "Recursive realpathSync, handles write targets that don't exist yet"},
+        {"invariant": "Allowlist has a hard floor (cwd + scratch root) that cannot be excluded", "passed": true, "detail": "FLOOR = [BASE_DIR, SCRATCH_ROOT] merged via withFloor(); also mergeFloor at write-paths check"},
+        {"invariant": "Secret-file deny list blocks .env, .pem, .key, etc.", "passed": true, "detail": "isSecretFile: .env* prefix, 8 denied basenames, 5 denied extensions"},
+        {"invariant": "Extension allowlist restricts readable file types", "passed": true, "detail": "ALLOWED_EXTENSIONS: 19 code/text extensions"},
+        {"invariant": "Per-connection path isolation via AsyncLocalStorage", "passed": true, "detail": "runWithPaths() sets per-connection scratchDir + optional override; getActivePaths() reads sync"},
+        {"invariant": "Path checks use allowlist-aware formatPathError with visible allowed paths", "passed": true, "detail": "Shows active readPaths/writePaths in error messages so model can self-correct"}
+      ],
+      "passed": true
+    },
+    "shell_safety": {
+      "results": [
+        {"invariant": "Shell binary allowlist restricts execution to declared programs", "passed": true, "detail": "ALLOWED_CMDS in command.js — curated set, curl explicitly excluded"},
+        {"invariant": "Shell timeout is bounded (60s)", "passed": true, "detail": "TIMEOUT_MS = 60_000 — enforced via race with setTimeout + SIGTERM"},
+        {"invariant": "Shell operators are banned (no ;, &&, ||, backticks, $())", "passed": true, "detail": "checkBannedOperators in command.js — shell expansion detects and rejects"},
+        {"invariant": "Shell steps are bounded (max 10)", "passed": true, "detail": "MAX_SHELL_STEPS = 10"},
+        {"invariant": "Shell is off by default — gated by APERIO_ENABLE_SHELL=1", "passed": true, "detail": "isShellAllowedFor() checks env var; cloud providers allowed, local needs APERIO_SHELL_LOCAL=1"},
+        {"invariant": "run_node_script and run_python_script accept only .js/.mjs/.cjs and .py files", "passed": true, "detail": "Extension check before spawn; cwd is session scratch dir"}
+      ],
+      "passed": true
+    },
+    "output_validation": {
+      "results": [
+        {"invariant": "XSS tags are stripped (script, iframe, object, embed, form, style, link, meta, base, svg)", "passed": true, "detail": "XSS_TAG_RE sanitiser — operates only outside code fences"},
+        {"invariant": "XSS event handlers are stripped (onerror, onload, onclick)", "passed": true, "detail": "XSS_ATTR_RE removes on* attributes from non-code text"},
+        {"invariant": "Control/zero-width chars are stripped", "passed": true, "detail": "CONTROL_CHAR_RE removes Unicode control chars, zero-width spaces, BOM"},
+        {"invariant": "Unclosed code fences are detected and fixed", "passed": true, "detail": "fixUnclosedFence: odd count of ``` and not already ending with one → append"},
+        {"invariant": "Fence formatting is normalised", "passed": true, "detail": "Trailing whitespace stripped, opening fence gets newline, closing fence trim trailing space"},
+        {"invariant": "Post-write validation catches invalid JS/JSON/XML syntax", "passed": true, "detail": "validateWrittenFile dispatches by extension to node --check, JSON.parse, or fast-xml-parser"}
+      ],
+      "passed": true
+    },
+    "tests": {
+      "results": [
+        {"invariant": "validateOutput tests exist and all pass", "passed": true, "detail": "17 tests in validateOutput.test.js — all pass"},
+        {"invariant": "File tool tests exist", "passed": true, "detail": "Unit tests for files.js handlers — exercised by integration test suite"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

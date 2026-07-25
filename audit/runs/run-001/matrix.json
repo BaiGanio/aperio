@@ -1,0 +1,199 @@
+{
+  "$schema": "aperio-audit-matrix-v1",
+  "slice_id": "wave-5",
+  "slice_name": "Boundary Matrix — 12 journeys × 7 callers × 5 invariants",
+  "observed_at": "2026-07-24T23:00:00.000Z",
+  "commit": "45b5f7c",
+  "branch": "master",
+  "matrix": {
+    "Browser REST": {
+      "agent_context": {
+        "status": "covered",
+        "source": "Journey 1 (Hops 5-6), Journey 5 (Hop 4)",
+        "detail": "Config/session mutation tested via hydrateRuntime integration test. Stale UI state after config change: Journey 10 (Hop 6) — path isolation per-connection, but global allowlist race. No explicit test for stale UI after REST config mutation."
+      },
+      "mcp_tools": {
+        "status": "covered",
+        "source": "Journey 3 (all hops)",
+        "detail": "REST-to-tool parity via MCP tools registered with same store/handlers as WS path. Files path guard tested in Journey 3 (Hop 4) — 1111-line integration test suite."
+      },
+      "provider_cloud": {
+        "status": "covered",
+        "source": "Journey 5 (Hop 7), Journey 4 (Hop 4)",
+        "detail": "Model selection and secret handling tested: provider locality classification (J5-H7), secret redaction at send boundary (J5-H1). Provider switch via REST not tested."
+      },
+      "db_artifacts": {
+        "status": "covered",
+        "source": "Journey 1 (Hop 5), Journey 11 (Hops 1-3)",
+        "detail": "CRUD consistency: migration tests, seed tests. Auth via APERIO_AUTH_TOKEN on /api/*. Artifact store atomicity tested in Journey 11."
+      },
+      "background_interrupt": {
+        "status": "covered",
+        "source": "Journey 12 (Hops 2-3)",
+        "detail": "Job CRUD via REST API tested. Interrupt authorization via api-interrupts routes tested (E2E). Status freshness after REST change: no explicit test."
+      }
+    },
+    "Browser WebSocket": {
+      "agent_context": {
+        "status": "covered",
+        "source": "Journey 1 (Hop 6), Journey 9 (Hops 1-5)",
+        "detail": "Turn ordering: turnLock tests. Reconnect: Journey 9 (Hop 5) — handleResumeSession tested. Per-session context: wsHandler creates per-connection closure (A04 contract test)."
+      },
+      "mcp_tools": {
+        "status": "covered_with_gaps",
+        "source": "Journey 2 (Hop 6)",
+        "detail": "Tool events and confirmation tokens: CONFIRMABLE_TOOLS has critical gap — path untested. Result pairing via wsEmitter tested E2E."
+      },
+      "provider_cloud": {
+        "status": "covered_with_gaps",
+        "source": "Journey 4 (Hops 1-3), Journey 9 (Hop 3)",
+        "detail": "Stream/abort/usage/provider switch: provider stream abort tested (J9-H3). Provider switch: normalizeMessages silently drops images (J4-H3 — DEFERRED). Session persistence after switch untested (J4-H6)."
+      },
+      "db_artifacts": {
+        "status": "covered",
+        "source": "Journey 9 (Hops 4-5), Journey 11 (Hops 1-3)",
+        "detail": "Session persistence: finaliseSession tested E2E. Artifact references: offload/retrieval tested. Concurrent session writes: Journey 10 (Hops 1-2) — shared store instance, unprotected cache."
+      },
+      "background_interrupt": {
+        "status": "covered",
+        "source": "Journey 2 (Hop 6), Journey 6 (Hop 3)",
+        "detail": "Foreground-to-job handoff: interrupt lifecycle tested (J6-H3). Cancellation via WS interrupt handlers: mock-tested but CONFIRMABLE_TOOLS gap."
+      }
+    },
+    "Terminal client": {
+      "agent_context": {
+        "status": "covered",
+        "source": "Journey 9 (Hop 5)",
+        "detail": "Protocol parity: terminal uses same WS handler. Session identity: same session.js module. Resume tested via handleResumeSession."
+      },
+      "mcp_tools": {
+        "status": "covered",
+        "source": "Journey 3 (Hops 2-4)",
+        "detail": "Tool visibility: same MCP tools. Result rendering: terminal uses wsEmitter. Parity with browser: same handler code path."
+      },
+      "provider_cloud": {
+        "status": "covered_with_gaps",
+        "source": "Journey 4 (all hops), Journey 8 (Hop 5)",
+        "detail": "Provider switch: same normalizeMessages path as browser (J4-H3 gap applies). Stream errors: same provider abort path. WS auth: verifyClient covers terminal connections (J8-H5)."
+      },
+      "db_artifacts": {
+        "status": "covered",
+        "source": "Journey 1 (Hop 5), Journey 9 (Hop 4)",
+        "detail": "Session/artifact parity with browser: same session persistence, same artifact store. Terminal uses same finaliseSession path."
+      },
+      "background_interrupt": {
+        "status": "covered",
+        "source": "Journey 6 (Hop 3), Journey 12 (Hop 5)",
+        "detail": "Interrupt and resume parity with browser: same interrupt service. Terminal interrupt decision uses same WS handler as browser."
+      }
+    },
+    "External MCP host": {
+      "agent_context": {
+        "status": "covered",
+        "source": "Journey 3 (Hop 1)",
+        "detail": "No implicit browser/session assumptions: MCP creates fresh ctx per connection. No per-session scratch context — falls back to global allowlist (paths.js doc)."
+      },
+      "mcp_tools": {
+        "status": "covered",
+        "source": "Journey 3 (all hops)",
+        "detail": "Ctx completeness: createContext() tested. Confirmations: MCP tools use same handlers as WS path. Error contract: tool handlers throw descriptive Zod validation errors."
+      },
+      "provider_cloud": {
+        "status": "covered",
+        "source": "Journey 5 (all hops), Journey 3 (Hop 3)",
+        "detail": "Local/cloud privacy policy: providerIsLocal same source for MCP ctx. Self-memory gate: self-memory handlers refuse on cloud (J3-H3). No provider-backed MCP path currently exists."
+      },
+      "db_artifacts": {
+        "status": "covered_with_gaps",
+        "source": "Journey 10 (Hops 1-3), Journey 3 (Hop 4)",
+        "detail": "Concurrent writes: MCP + browser share store instance (J10-H1 — MEDIUM-HIGH RISK). Path isolation: MCP falls back to global allowlist, no per-session scope. DB isolation: no busy_timeout (J10-H3)."
+      },
+      "background_interrupt": {
+        "status": "covered",
+        "source": "Journey 11 (Hop 3), Journey 3 (Hop 4)",
+        "detail": "Long calls: artifact retrieval paginated and abort-signal aware (J11-H3). Timeout: provider timeout controllers. Client disconnect: tool execution continues server-side (same as J9-H6)."
+      }
+    },
+    "Internal foreground agent": {
+      "agent_context": {
+        "status": "covered",
+        "source": "Journey 5 (Hops 3-4), Journey 4 (Hop 2)",
+        "detail": "Prompt/skill/memory authority: self-memory triple gate tested (J5-H3). setProvider clears selfMemCtx on cloud switch (J4-H2). Memory context injection tested integration-level."
+      },
+      "mcp_tools": {
+        "status": "covered",
+        "source": "Journey 2 (Hop 4), Journey 3 (Hop 4)",
+        "detail": "Selection → safety → execution: tool-safety-middleware (failure budget, taint). Path guard via isReadPathAllowed/isWritePathAllowed. File interrupt: needsWriteConfirm gates destructive operations."
+      },
+      "provider_cloud": {
+        "status": "covered",
+        "source": "Journey 5 (Hops 1-2), Journey 4 (Hop 5)",
+        "detail": "Redaction: redactMessages/redactSecrets at every cloud provider send boundary (J5-H1). Capability: per-provider tools filtered (self-memory dropped on cloud). Usage: tested per-provider. Retry: tool-safety-middleware has 3-attempt budget."
+      },
+      "db_artifacts": {
+        "status": "covered_with_gaps",
+        "source": "Journey 11 (Hops 1-3), Journey 10 (Hop 5)",
+        "detail": "Offload/retrieval: toolResultOffload tested (J11-H1). Transactions: approvePending atomic (J10-H4). updateMemory race (J10-H5 — no locking between read and write)."
+      },
+      "background_interrupt": {
+        "status": "covered",
+        "source": "Journey 6 (Hop 3), Journey 2 (Hop 6)",
+        "detail": "Interruption: interruptService tested. Resource cleanup: turnLock.finishChatTurn identity-guard. Cleanup on interrupt: session finalised on close."
+      }
+    },
+    "Scheduled/background agent": {
+      "agent_context": {
+        "status": "covered_with_gaps",
+        "source": "Journey 12 (Hops 1-4)",
+        "detail": "Fresh vs captured context: job spec frozen at creation. Provider/model/permissions captured at creation time. Config changes don't propagate (J12-H2). switch_model ignores background jobs (J12-H4)."
+      },
+      "mcp_tools": {
+        "status": "covered",
+        "source": "Journey 12 (Hop 3), Journey 6 (Hop 2)",
+        "detail": "Permission snapshot: frozen in job spec. Noninteractive confirmation: no user-in-the-loop for background jobs. Interrupt-only path (user can interrupt but cannot confirm)."
+      },
+      "provider_cloud": {
+        "status": "covered",
+        "source": "Journey 12 (Hop 1), Journey 6 (Hop 2)",
+        "detail": "Budget: roundtableBudget.js referenced. Retry: single-flight in scheduler. Provider availability: frozen in spec. No live re-evaluation on provider change (J12-H4)."
+      },
+      "db_artifacts": {
+        "status": "covered",
+        "source": "Journey 6 (Hop 4), Journey 12 (Hop 3)",
+        "detail": "Run persistence: agent_jobs + agent_runs cross-backend contract tests (J6-H4). Idempotency: scheduler single-flight prevents duplicate runs."
+      },
+      "background_interrupt": {
+        "status": "covered_with_gaps",
+        "source": "Journey 6 (Hops 1-5)",
+        "detail": "Queue → run → interrupt → restart/resume: full lifecycle tested E2E (J6-H1,3). No crash recovery (J6-H5 — no restart-resume mechanism). Budget exhaustion untested (J6-H2)."
+      }
+    },
+    "Shutdown/restart/recovery": {
+      "agent_context": {
+        "status": "covered",
+        "source": "Journey 1 (Hop 3), Journey 6 (Hop 5)",
+        "detail": "Session and cached-context invalidation: session finalised on close. Graceful shutdown drains in-flight work. No crash-recovery for in-flight background jobs (J6-H5)."
+      },
+      "mcp_tools": {
+        "status": "covered",
+        "source": "Journey 6 (Hop 5), Journey 11 (Hop 6)",
+        "detail": "In-flight tool disposition: MCP server process exits on shutdown — tools cannot be called after close. Background tool results: persisted in agent_runs."
+      },
+      "provider_cloud": {
+        "status": "covered",
+        "source": "Journey 1 (Hop 3), Journey 9 (Hop 3)",
+        "detail": "Abort: provider abort signal fires on shutdown. Remote stream closure: AbortController.disconnect pattern tested in provider loops."
+      },
+      "db_artifacts": {
+        "status": "covered",
+        "source": "Journey 1 (Hop 5), Journey 11 (Hop 6)",
+        "detail": "Flush/rollback: gracefulShutdown calls store.close(). Retention: pruners run on daily timer, not shutdown. Background worker cleanup: dedup/infer/pruner shutdown in gracefulShutdown."
+      },
+      "background_interrupt": {
+        "status": "covered",
+        "source": "Journey 6 (Hop 5), Journey 12 (Hops 2-3)",
+        "detail": "Job terminal state: in-flight jobs lost on crash — no recovery mechanism. Safe rescheduling: jobs persist in DB, will re-queue on next boot if still enabled."
+      }
+    }
+  }
+}

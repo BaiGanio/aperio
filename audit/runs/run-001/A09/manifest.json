@@ -1,0 +1,137 @@
+{
+  "$schema": "aperio-audit-manifest-v1",
+  "slice_id": "A09",
+  "slice_name": "Privacy classification and egress",
+  "invariant": "Nothing marked local/private/secret crosses a cloud or logging boundary; derived redaction never corrupts local truth.",
+  "revised_at": "/Users/lk/Projects/BaiGanio/aperio",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "entries": [
+    {
+      "path": "lib/privacy/redact.js",
+      "reason": "PII redaction — EMAIL/IBAN/CARD/PHONE pattern detection with stable placeholders",
+      "status": "present",
+      "hash": "63057c91b70e81fd35082b019dd16c1a6fbe9142941182aa72d13f599adbd82d",
+      "bytes": 2186
+    },
+    {
+      "path": "lib/helpers/redactSecrets.js",
+      "reason": "PRIVACY-01 credential scrubbing — URI passwords, PEM keys, JWTs, API keys, tokens, assigned secrets",
+      "status": "present",
+      "hash": "29418c113c8b2e9b3136643c3009ccbbad2aa24729fbdec65ea0c8e05e8679ad",
+      "bytes": 3528
+    },
+    {
+      "path": "lib/helpers/egressLog.js",
+      "reason": "EGRESS-01 append-only network egress audit trail",
+      "status": "present",
+      "hash": "1bf0de2802d21f8c9f3b6a394ec4a0cd452522cf90d1b1e274d69dedf3392eb1",
+      "bytes": 809
+    },
+    {
+      "path": "lib/helpers/ssrfGuard.js",
+      "reason": "SSRF guard — blocks loopback/private/CGNAT/Docker egress (EGRESS-01 superset)",
+      "status": "present",
+      "hash": "9bbaea94c0104ea7014b8d290bfdfd7db4d8d1a8b24f05a8042a631de2a4c68c",
+      "bytes": 8073
+    },
+    {
+      "path": "lib/providers/index.js",
+      "reason": "isLocalProvider/isCloudProvider — single source of truth for privacy gating",
+      "status": "present",
+      "hash": "9758ff0b0d09e1c5aed3775d767fb4cd35cda6675eae98e3fb0fb4def5f36129",
+      "bytes": 28568
+    },
+    {
+      "path": "lib/agent/tool-profiles.js",
+      "reason": "filterSelfMemoryTools — SELF_MEMORY_TOOLS/SELF_WIKI_TOOLS stripped from cloud providers",
+      "status": "present",
+      "hash": "aa905ded6db70007fa6f0e2092199fbafd9583b0baa8e716b049231f9c0e4dce",
+      "bytes": 26982
+    },
+    {
+      "path": "lib/agent/index.js",
+      "reason": "Tool resolution pipeline — applies filterSelfMemoryTools in resolveToolNamesForTurn",
+      "status": "present",
+      "hash": "63694f1d4528600c7bc3edf8b9927cb938105687cb9e0d5131df2a4be9748dcf",
+      "bytes": 37092
+    },
+    {
+      "path": "lib/agent/providers/anthropic.js",
+      "reason": "Anthropic provider — redactMessages on outgoing derived array (PRIVACY-01)",
+      "status": "present",
+      "hash": "f97241ac827036dc97ee120ed42bfb61dfb6585ecd0d5b3039b4011def56acf5",
+      "bytes": 11615
+    },
+    {
+      "path": "lib/agent/providers/deepseek.js",
+      "reason": "DeepSeek provider — redactMessages on outgoing derived array (PRIVACY-01)",
+      "status": "present",
+      "hash": "55b5ad7035a76132f5fe868a86b29ce9a8200232c7bf549a978c742eed9593e6",
+      "bytes": 12217
+    },
+    {
+      "path": "lib/agent/providers/gemini.js",
+      "reason": "Gemini provider — redactMessages on outgoing derived history (PRIVACY-01)",
+      "status": "present",
+      "hash": "1af66428b1f526a2c54c95b1330c512eb6ed2efc2a691ec65a29ffdee501530c",
+      "bytes": 12420
+    },
+    {
+      "path": "lib/agent/providers/claude-code.js",
+      "reason": "Claude Code provider — redactSecrets on user content (PRIVACY-01, subscription egress)",
+      "status": "present",
+      "hash": "014e0836ecf2326481f6f3cb442a220f139235db26523e9afee06f74c0869c35",
+      "bytes": 12864
+    },
+    {
+      "path": "lib/agent/providers/codex.js",
+      "reason": "Codex provider — redactSecrets on conversation history (PRIVACY-01)",
+      "status": "present",
+      "hash": "cbe4b831068a74c27e2f3d3b73904768858be3c470dc0bb2b7865a9888554064",
+      "bytes": 21112
+    },
+    {
+      "path": "lib/context/toolResultOffload.js",
+      "reason": "Tool result offload — redactSecrets before storing artifacts",
+      "status": "present",
+      "hash": "b954de0126b7da1cc12dcf6d1035d1c78ffd46f02a0b05c06af2b7d40955d141",
+      "bytes": 5052
+    },
+    {
+      "path": "lib/helpers/completion.js",
+      "reason": "Background completions — redactMessages for cloud provider egress (PRIVACY-01)",
+      "status": "present",
+      "hash": "db482dc77f0b40ae477f6769a4e078828e978737365cafcafcb1fe20d5fac8e0",
+      "bytes": 4875
+    },
+    {
+      "path": "lib/helpers/logger.js",
+      "reason": "App logger — redactSecrets before writing log lines",
+      "status": "present",
+      "hash": "abde3cc1b0795ec93144bae20abd11eb70aadb9d37f36a675abb0d7b73cdefa6",
+      "bytes": 6063
+    },
+    {
+      "path": "lib/emitters/handlers/ws/handoff.js",
+      "reason": "Session handoff — redactSecrets in written handoff file",
+      "status": "present",
+      "hash": "e63b2a901baa99ade99f990a74703732339766af44ec02a4995298c1ac59dc67",
+      "bytes": 4486
+    },
+    {
+      "path": "tests/unit/privacy/redact.test.js",
+      "reason": "Unit tests: PII redact/restore round-trips — email, phone, card, IBAN",
+      "status": "present",
+      "hash": "1e5b472b20611044a8676d482372a5119973b146c231b265c71665837d767237",
+      "bytes": 5087
+    },
+    {
+      "path": "tests/unit/helpers/redactSecrets.test.js",
+      "reason": "Unit tests: PRIVACY-01 credential scrubbing — keys, tokens, passwords",
+      "status": "present",
+      "hash": "0d78b561c83accb3787bc8edb2f349191e46f72f714f8556fc089fd3e2b98ac2",
+      "bytes": 3184
+    }
+  ]
+}

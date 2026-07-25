@@ -1,0 +1,31 @@
+{
+  "$schema": "aperio-audit-permission-contract-v1",
+  "slice_id": "A18",
+  "slice_name": "Permission and capability enforcement",
+  "observed_at": "2026-07-24T21:55:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Agent permissions policy (lib/security/agentPermissions.js) exists", "passed": true, "detail": "Present — 232 lines, PERMISSION_CAPABILITIES (read/write/execute/network/database/memory), first-match-wins"},
+        {"invariant": "Tool safety middleware (lib/agent/tool-safety-middleware.js) exists", "passed": true, "detail": "Present — capability gating, shell allow, local-only enforcement"},
+        {"invariant": "Agent spec normalization (lib/agent/spec.js) exists", "passed": true, "detail": "Present — normalizeAgentSpec with toolAllowlist"},
+        {"invariant": "Tool profiles (lib/agent/tool-profiles.js) exists", "passed": true, "detail": "Present — isShellAllowedFor, isCapableModel, needsRecallScaffold"}
+      ],
+      "passed": true
+    },
+    "permission_enforcement": {
+      "results": [
+        {"invariant": "Permissions are first-match-wins with default deny", "passed": true, "detail": "agentPermissions.js: 'first matching rule wins, and no match means deny'"},
+        {"invariant": "Child permissions must fit inside parent allow — narrowing is checked", "passed": true, "detail": "agentPermissions.js: 'a child allow must fit inside a parent allow without crossing an earlier parent deny'"},
+        {"invariant": "Shell execution is gated by capability check", "passed": true, "detail": "isShellAllowedFor: APERIO_ENABLE_SHELL=1 required, local models need APERIO_SHELL_LOCAL=1"},
+        {"invariant": "Self-memory tools gated by provider type — local-only", "passed": true, "detail": "filterSelfMemoryTools: all 6 self_* tools stripped for non-local providers"},
+        {"invariant": "Tool allowlist can restrict MCP tool exposure per agent spec", "passed": true, "detail": "createAgent: toolAllowlist from agentSpec passed to createToolCatalog"},
+        {"invariant": "Permission rules support path narrowing (tilde expansion, resolve)", "passed": true, "detail": "normalizePathResource expands tilde and resolves to absolute path"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

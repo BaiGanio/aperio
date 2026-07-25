@@ -1,0 +1,31 @@
+{
+  "$schema": "aperio-audit-network-egress-contract-v1",
+  "slice_id": "A16",
+  "slice_name": "Network, GitHub, external DB egress",
+  "observed_at": "2026-07-24T21:58:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "SSRF guard (lib/helpers/ssrfGuard.js) exists", "passed": true, "detail": "Present — assertPublicUrl, safeFetch, 6 blocked IPv4 CIDRs + IPv6"},
+        {"invariant": "Egress log (lib/helpers/egressLog.js) exists", "passed": true, "detail": "Present — append-only, tool/host/sessionId"},
+        {"invariant": "Web tools (mcp/tools/web.js) exist", "passed": true, "detail": "Present — fetch_url uses safeFetch, egress logging"},
+        {"invariant": "GitHub tools (mcp/tools/github.js) exist", "passed": true, "detail": "Present — safeFetch + logEgress for all outbound API calls"},
+        {"invariant": "Database tools (mcp/tools/database.js) exist", "passed": true, "detail": "Present — db_execute with SQL validation"}
+      ],
+      "passed": true
+    },
+    "egress_controls": {
+      "results": [
+        {"invariant": "fetch_url uses SSRF guard via safeFetch", "passed": true, "detail": "web.js line 6: imports safeFetch from ssrfGuard"},
+        {"invariant": "GitHub tools use SSRF guard via safeFetch", "passed": true, "detail": "github.js line 11: imports safeFetch from ssrfGuard"},
+        {"invariant": "All outbound tool calls use egress logging", "passed": true, "detail": "web.js and github.js both import and call logEgress"},
+        {"invariant": "SSRF guard blocks 6 private ranges + IPv6 loopback/ULA/link-local", "passed": true, "detail": "BLOCKED_V4: 0.0.0.0/8, 10/8, 100.64/10, 127/8, 169.254/16, 172.16/12, 192.168/16. V6: ::1, fe80::, fc00::/7"},
+        {"invariant": "SSRF guard has documented opt-out (APERIO_ALLOW_INTERNAL_FETCH) and allowlist (APERIO_EGRESS_ALLOWLIST)", "passed": true, "detail": "Documented at top of ssrfGuard.js"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

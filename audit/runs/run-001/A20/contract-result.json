@@ -1,0 +1,31 @@
+{
+  "$schema": "aperio-audit-background-agents-contract-v1",
+  "slice_id": "A20",
+  "slice_name": "Background agents and recovery",
+  "observed_at": "2026-07-24T21:57:00.000Z",
+  "commit": "3ef293d3f00e513218e8a4118480bbdebe17ce94",
+  "branch": "master",
+  "checks": {
+    "file_existence": {
+      "results": [
+        {"invariant": "Agent scheduler (lib/workers/agent-scheduler.js) exists", "passed": true, "detail": "Present — createAgentScheduler with job queue, runJob, inFlight set"},
+        {"invariant": "Round table orchestrator (lib/workers/roundtable.js) exists", "passed": true, "detail": "Present — multi-agent consensus, failure isolation"},
+        {"invariant": "Background workers (lib/server/backgroundWorkers.js) exists", "passed": true, "detail": "Present — dedup, inference, prune, logPrune, runPrune workers"},
+        {"invariant": "Session pruner (lib/workers/session-prune.js) exists", "passed": true, "detail": "Present — age-based retention, session cleanup"},
+        {"invariant": "Job spec (lib/agent/job-spec.js) exists", "passed": true, "detail": "Present — background agent job configuration spec"}
+      ],
+      "passed": true
+    },
+    "job_lifecycle": {
+      "results": [
+        {"invariant": "Jobs are queued with lifecycle states", "passed": true, "detail": "agent-scheduler: queued → running → completed/failed/interrupted"},
+        {"invariant": "Jobs have isolation via in-flight set", "passed": true, "detail": "inFlight set tracks running jobs, prevents duplicate scheduling"},
+        {"invariant": "Background workers have stop method", "passed": true, "detail": "backgroundWorkers: dedup.stop(), infer.stop(), pruner.stop(), logPruner.stop(), runPruner.stop()"},
+        {"invariant": "Session pruner enforces retention policy", "passed": true, "detail": "session-prune: age-based expiration via APERIO_SESSION_RETENTION_DAYS"},
+        {"invariant": "Scheduler supports interrupt/cancel for running jobs", "passed": true, "detail": "agent-scheduler: interrupt support, jobs can be cancelled mid-run"}
+      ],
+      "passed": true
+    }
+  },
+  "passed": true
+}

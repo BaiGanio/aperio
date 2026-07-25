@@ -107,6 +107,7 @@ export class SqliteStore {
     db.pragma(encrypted ? 'journal_mode = DELETE' : 'journal_mode = WAL');
     db.pragma('foreign_keys = ON');
     db.pragma('synchronous = NORMAL');
+    db.pragma('busy_timeout = 5000');
 
     // Load sqlite-vec extension. allow_load_extension is required for ext APIs.
     db.loadExtension = db.loadExtension.bind(db);   // safety: ensure presence
@@ -687,6 +688,9 @@ export class SqliteStore {
   async clearAllEmbeddings() {
     this.db.prepare(`DELETE FROM vec_memories`).run();
     this.db.prepare(`DELETE FROM vec_wiki`).run();
+    this.db.prepare(`DELETE FROM vec_self_memories`).run();
+    this.db.prepare(`DELETE FROM vec_cg_symbols`).run();
+    this.db.prepare(`DELETE FROM vec_docgraph_chunks`).run();
   }
 
   async setPin(id, pinned) {

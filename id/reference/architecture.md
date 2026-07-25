@@ -134,6 +134,32 @@ it hits the same code path as an external MCP client — there's only one implem
 No Express server, no WebSocket, no browser. This is how external agents (Claude Desktop,
 Codex CLI, CodeWhale, etc.) connect.
 
+### Sub-agent delegation
+
+`lib/agent/spawn.js` (`spawnChild()`/`spawnParallel()`, agent-harness-epic WS2) lets an
+agent delegate a task to child agents instead of hard-coding a second multi-agent mode.
+A child is just another `createAgent()` call, built from an `AgentSpec` (`lib/agent/spec.js`)
+that is strictly narrower than its parent's:
+
+```text
+parent AgentSpec ──narrowAgentSpec()──► child AgentSpec ──createAgent()──► child agent
+      │                (lib/agent/bundle.js)                                    │
+      │  recursionDepth − 1, toolAllowlist ⊆ parent's                           │
+      └──────────────────────── agent_id-tagged emitter ◄───────────────────────┘
+                                  (forwarded into the parent's own event stream)
+```
+
+`narrowAgentSpec()` is the same permission-narrowing machinery `loadAgentBundle()` uses for
+on-disk agent bundles (an `AgentBundleError` if a child ever tries to widen `toolAllowlist`,
+filesystem, or memory-scope access beyond its parent), extracted into a reusable export for
+exactly this purpose. `recursionDepth` is a decrementing budget, not a depth counter: a spec
+with `0` left refuses to spawn further — a graceful, parent-visible refusal rather than a
+thrown error — while `concurrency` caps how many children `spawnParallel()` runs at once.
+A child that fails, including tripping its own tool-failure budget, resolves as `{ ok: false }`
+instead of rejecting, so a parent turn driving several children completes with whatever
+results land. `lib/workers/roundtable.js` (a hard-coded, pre-created two-agent mode) predates
+this and is not yet refactored onto it — see `A2D.md`.
+
 ## Module Coupling Map
 
 Not every directory boundary is a clean module boundary. These implicit couplings are
@@ -160,6 +186,8 @@ load-bearing — changing one side without the other breaks things in non-obviou
 | `lib/config.js` | Configuration registry — single source of truth for all settings |
 | `lib/config-resolver.js` | Resolves config from .env / DB / defaults with precedence |
 | `lib/agent/index.js` | Agent orchestration — creates AI clients, wires tools, manages sessions |
+| `lib/agent/spec.js` | AgentSpec validation/normalization — the runtime contract for chat, background, and delegated agents |
+| `lib/agent/spawn.js` | Sub-agent spawn/delegation — `spawnChild()`/`spawnParallel()` |
 | `mcp/index.js` | MCP server entry — creates context, registers all tools, stdio transport |
 | `db/index.js` | Store factory — auto-detects SQLite or Postgres |
 | `lib/routes/paths.js` | Path resolution and validation for all file operations |
