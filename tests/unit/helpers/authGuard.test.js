@@ -74,4 +74,9 @@ describe("createAuthGuard", () => {
     const r = run(createAuthGuard(), { headers: { authorization: "Bearer s3cret" } });
     assert.equal(r.nexted, true);
   });
+  test("webhook /api/github/webhook bypasses auth even when token set", () => {
+    process.env.APERIO_AUTH_TOKEN = "s3cret";
+    const r = run(createAuthGuard(), { path: "/api/github/webhook" });
+    assert.equal(r.nexted, true);
+  });
 });

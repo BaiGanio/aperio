@@ -9,6 +9,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Tool-result envelope unification** (agent-harness-epic WS3, closes #288):
+  `summarizeResult()` (`lib/agent/toolActivity.js`) and the offload boundary
+  (`lib/agent/tool-hooks.js`, `lib/agent/model-context-middleware.js`) now
+  produce one documented envelope — `{ok, summary, detail?, artifact?: {id,
+  tokenCount, byteCount}}` — for the `tool_result` event, instead of the UI
+  activity card only learning about an offloaded result via a separate
+  `tool_result_offloaded` event or by scraping the pointer out of the
+  model-facing preview text. Fixes an incidental data-exposure bug found while
+  wiring this up: the card's `detail` field was shipping up to 2000 raw,
+  un-redacted characters of an oversized result over the socket, because the
+  summary was always built *before* the offload/redaction step ran — the
+  card's "full text" was never actually the redacted copy the model saw.
+  `ok`/`summary`/`detail`/`details`/`memories` are still computed from the
+  untouched raw result exactly as before (byte-identical for every ordinary
+  call), but `detail`/`details`/`memories` are now dropped from the emitted
+  event whenever this call produced an artifact — the raw content stays out of
+  the socket entirely once it's been offloaded, and the card gets the
+  artifact pointer + summary instead. Offloading itself is unchanged: it still
+  only ever runs after provenance fencing, so the fence guarding untrusted
+  content still applies to whatever ends up stored. Verified by a new harness
+  test (`tests/harness/harness.test.js`, G3-1) asserting both the envelope
+  shape and the absence of `detail` on the existing `oversized-offload`
+  scenario; the `tool-hooks.js` integration suite's "offloads after provenance
+  fencing" test (already in place) confirms the ordering didn't regress. This
+  was the last open workstream of the agent-harness-epic (WS0–WS3 all
+  shipped).
 - **Sub-agent spawn/delegation** (agent-harness-epic WS2): `lib/agent/spawn.js`
   adds `spawnChild()`/`spawnParallel()`, letting an agent delegate work to
   child agents built from its own `AgentSpec` (`lib/agent/spec.js`) instead of

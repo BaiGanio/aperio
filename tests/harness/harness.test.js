@@ -133,3 +133,24 @@ describe("Behavior checks — does the assistant's conversation loop still work 
     assert.equal(events.filter(e => e.type === "tool_budget_exhausted").length, 1);
   });
 });
+
+describe("Envelope checks — does the tool result card carry a structured artifact pointer instead of a raw-text leak?", () => {
+  // G3-1
+  test("an offloaded result's tool_result event carries {ok, summary, artifact: {id, tokenCount, byteCount}}", async (t) => {
+    const scenario = loadScenario("oversized-offload");
+    const { events } = await runScenario(t, scenario);
+    const offloaded = events.find(e => e.type === "tool_result_offloaded");
+    const toolResult = events.find(e => e.type === "tool_result" && e.name === "fetch_large_dataset");
+    assert.ok(toolResult, "expected a tool_result event for fetch_large_dataset");
+    assert.equal(toolResult.ok, true);
+    assert.equal(typeof toolResult.summary, "string");
+    assert.ok(toolResult.artifact, "expected the tool_result event to carry an artifact pointer");
+    assert.equal(toolResult.artifact.id, offloaded.artifactId);
+    assert.equal(toolResult.artifact.tokenCount, offloaded.tokenCount);
+    assert.equal(toolResult.artifact.byteCount, offloaded.byteCount);
+    // The raw (pre-redaction) result must never also ship over this event once
+    // it has an artifact pointer — that would leak un-redacted content the
+    // offload step exists specifically to keep out of the socket.
+    assert.equal(Object.hasOwn(toolResult, "detail"), false, "an offloaded result must not also carry a raw detail blob");
+  });
+});
