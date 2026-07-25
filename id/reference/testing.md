@@ -10,15 +10,23 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - No `fs`, `path`, `os`, `child_process`, `http` imports
 - No mock of external modules (mock of function arguments OK)
 - Runs in <5ms per test
-- 109 files covering parsing, formatting, validation, config resolution
+- 130 files covering parsing, formatting, validation, config resolution
 
 ### Integration (`tests/integration/`)
 - Module wiring — Express Router, mock stores, DB adapters, temp files, real crypto
 - May import real modules, use mock stores, invoke Express Router directly
 - Must NOT bind a TCP port or spawn a server process
 - Runs in <500ms per test
-- 100 files covering routes, DB, store, MCP, skills, handlers, context, tools, agents, workers
+- 126 files covering routes, DB, store, MCP, skills, handlers, context, tools, agents, workers
 - Uses `tests/mockDB.js` and `tests/mockStore.js` as shared helpers
+- **Backend parity**: anything that touches both DB backends needs a test on
+  each side (`tests/integration/{codegraph,docgraph}/backends/`). Convention:
+  the SQLite half runs against a real migrated in-memory store, the Postgres
+  half against a recording mock pool, and a parity block asserts the two export
+  the same surface and behave identically where a caller could tell. Schema
+  parity is guarded separately by `tests/unit/db/migration-lockstep.test.js`,
+  which compares migration pairs column by column — filenames alone would let a
+  missing column through
 
 ### E2E (`tests/e2e/`)
 - Spawned server process, real HTTP/WS connections, real ports
@@ -26,6 +34,29 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - Runs in <30s per test
 - ~10 files grouped under `bootstrap/`, `real-app/`, `websocket/`, and `ui/`; shared
   `fixtures/` and `helpers/` remain alongside those groups
+
+### Harness (`tests/harness/`)
+- Deterministic assistant-behavior regression net for the agent loop
+  (agent-harness-epic WS0): a scripted `mock` AI provider drives the REAL
+  `runAgentLoop`, lifecycle middleware, and tool hooks — no network, no live
+  AI model, no real MCP subprocess (the MCP client is stubbed at the SDK
+  layer, tool execution is faked via `createAgent({ hostTools })`)
+- The `mock` provider only resolves when `NODE_ENV=test`
+  (`lib/providers/index.js`); resolving it otherwise throws
+- 12 scenario JSON files under `tests/harness/scenarios/`, one real-fs-backed
+  ("does a file actually land in the workspace"), five guardrail checks
+  (hallucination correction, failure budget, oversized-result offload +
+  retrieval, taint write-gate, repeated-call break), two confirm-before-act
+  checks (destructive and non-destructive: the event fires and the turn stops),
+  one mid-chain abort ("the user pressed stop") and three planning-loop checks
+  (valid plan, unknown tool in a plan, plan drift)
+- Runs in well under 1s total
+- **Read `tests/harness/README.md` before changing anything under
+  `lib/agent/`, `lib/tools/`, `lib/context/`, or `lib/providers/`** — it
+  documents the harness contract, what each scenario pins, how to add one,
+  what the harness deliberately does *not* cover, and the manual G0-4 drill
+  (temporarily break an event name, confirm the suite goes red, revert) that
+  proves the net has real teeth
 
 ## Mocking Policy
 
@@ -57,9 +88,10 @@ and safe to run in CI without external services.
 ## Commands
 
 ```bash
-npm test                       # All tests (unit + integration + e2e)
+npm test                       # All tests (unit + integration + e2e + harness)
 npm run test:unit              # Unit tests only (tests/unit/)
 npm run test:integration       # Integration tests only (tests/integration/)
+npm run test:harness           # Deterministic assistant-behavior harness (tests/harness/)
 npm run test:skills            # skills integration tests
 npm run test:store             # store integration tests
 npm run test:memory            # tools memory unit tests
@@ -71,14 +103,16 @@ npm run test:e2e:ci            # All E2E tests with dashboard JSON reporter
 npm run test:ci                # Unit + integration coverage and combined dashboard JSON
 npm run test:ci:unit           # Unit tests with unit JSON reporter
 npm run test:ci:integration    # Integration tests with integration JSON reporter
-npm run test:ci:dashboard      # Refresh all four dashboard data artifacts
+npm run test:ci:dashboard      # Refresh all five dashboard data artifacts
 npm run test:unit:ci:dashboard # Unit tests plus unit dashboard data
 npm run test:integration:ci:dashboard # Integration tests plus dashboard data
+npm run test:harness:ci:dashboard # Harness tests plus behavior-checks dashboard data
 npm run test:only -- --test-name-pattern="pattern"  # Filter by name
 npm run coverage               # Generate lcov report from c8
 npm run unit:dashboard         # Generate unit test dashboard data
 npm run integration:dashboard  # Generate integration test dashboard data
 npm run e2e:dashboard          # Generate E2E test dashboard data
+npm run harness:dashboard      # Generate behavior-checks (harness) dashboard data
 ```
 
 The primary Codecov workflow runs `test:ci` once for unit and integration
@@ -87,11 +121,15 @@ the latter writes `tests/results/test-results.json` with separate `unit` and `in
 sections, avoiding a third `node:test` reporter pipeline and its
 `TestsStream` max-listener warning. The workflow generates coverage, unit, and
 integration dashboard data from that run, while a parallel E2E job runs every
-file under `tests/e2e/`, including real-app fixtures. Dashboard artifacts are
-published for master pushes. The separate **Real-app E2E (manual)** workflow
-remains available for focused production-process validation. E2E concurrency
-is capped at 2, no model service is required, and Postgres parity remains
-opt-in through `APERIO_E2E_POSTGRES_URL`.
+file under `tests/e2e/`, including real-app fixtures. The same job also runs
+the harness unconditionally (not path-filtered) so the behavior-checks
+dashboard always has fresh data, even on a push that doesn't touch
+`lib/agent/**` — the separate, path-filtered `ci.agent-harness.yml` workflow
+is the fast PR gate for agent-loop changes specifically. Dashboard artifacts
+are published for master pushes. The separate **Real-app E2E (manual)**
+workflow remains available for focused production-process validation. E2E
+concurrency is capped at 2, no model service is required, and Postgres parity
+remains opt-in through `APERIO_E2E_POSTGRES_URL`.
 
 ## Installation smoke tests
 
@@ -131,6 +169,17 @@ and clean up their guest state on failure as well as success. See
   --test-reporter-destination=tests/results/integration-results.json`
 - `scripts/generate-integration-dashboard.js` — converts reporter JSON to `docs/benchmarks/integration/integration-data.js`.
   Run: `npm run integration:dashboard`
+- `tests/reporters/harness-json.js` — structured JSON reporter for the behavior-checks
+  dashboard; groups by `describe()` block ("Safety checks" vs. "Behavior checks")
+  rather than subdirectory, since `tests/harness/` is a flat directory.
+  Usage: `node --test --test-reporter=./tests/reporters/harness-json.js
+  --test-reporter-destination=tests/results/harness-results.json`
+- `scripts/generate-harness-dashboard.js` — converts reporter JSON to `docs/benchmarks/harness/harness-data.js`.
+  Run: `npm run harness:dashboard`
+- `tests/harness/host-tools.js` / `run-scenario.js` — shared fixtures for the
+  deterministic harness: fake in-process tool handlers and the scenario driver
+  (stubs the MCP client at the SDK layer, wraps `createAgent()` + `runAgentLoop()`
+  in an isolated `mkdtemp` scratch dir).
 - `tests/helpers/streamingScripts.js` — the ordered list of `public/scripts/streaming/*`
   classic scripts, shared by every suite that loads the browser streaming client into a
   `vm` context. It is the single source of truth for load order: `state.js` → `handler.js`

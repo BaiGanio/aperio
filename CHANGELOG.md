@@ -9,6 +9,149 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Codegraph backend parity coverage** (tests only, no production change).
+  Closing out #283 surfaced that the graph-intelligence API shipped with a test
+  on the SQLite side only, and that the migration guard compared *filenames*
+  rather than schemas — so a column present in one backend and missing in the
+  other would have passed CI silently, which is precisely the drift the
+  lockstep rule exists to prevent. Two guards close that:
+  `tests/unit/db/migration-lockstep.test.js` now parses both
+  `010_codegraph_intelligence.sql` files and asserts column-level parity —
+  same columns in the same order, equivalent type families (SQLite `REAL` ↔
+  Postgres `DOUBLE PRECISION`, `TEXT` ↔ `TIMESTAMPTZ`), identical nullability,
+  defaults, `CHECK`s, cascade rules, indexes, and an identical v10 backfill
+  `UPDATE`; unrecognized statement forms fail loudly instead of being skipped.
+  New `tests/integration/codegraph/backends/postgres.test.js` covers the
+  previously untested Postgres backend: export-surface and arity parity against
+  the SQLite backend, matching `userFacing` errors for absent/ambiguous repos,
+  `loadGraph` excluding unresolved (`dst NULL`) edges and deriving the same repo
+  basename, and the full `persistAnalysis` lifecycle — commit on a matching
+  revision, `ROLLBACK` without writing when a newer revision won the race or the
+  repo vanished, rethrow-and-release on a write error, with the pooled client
+  released on every path. The SQLite half runs against a real migrated
+  in-memory store; the Postgres half uses a recording mock pool, per the
+  docgraph backend convention. Both guards were teeth-checked (dropping a column
+  from one migration, and unexporting one backend function, each turn exactly
+  the intended tests red). Remaining #283 gaps filed as #322.
+- **Agent-loop harness: confirm-before-act and mid-chain abort coverage**
+  (tests only, no production change). Two guardrails that were only verifiable
+  by hand now have deterministic scenarios. `confirm-pending-delete` and
+  `confirm-pending-index-folder` cover the emit half of the confirm protocol
+  (`lib/agent/tool-hooks.js`): a `CONFIRM_TOOLS` result carrying a `Token:` line
+  must become an `action_confirm_pending` event with the right label, summary
+  and `destructive` flag **and** end the turn, since nothing has happened yet —
+  the delete scenario keeps a second tool call and a final answer queued behind
+  it specifically to prove neither runs. Both fixtures mirror the real
+  producers' output (`mcp/tools/files/delete.js`,
+  `lib/agent/host-tools/index-folder.js`) byte-for-byte, because that text is
+  what the hook parses. `abort-mid-chain` covers a user pressing stop: a new
+  `abortAfterTools: N` scenario field trips a real `AbortController` wired as
+  `ws/turnLock.js` wires it, and the scenario asserts no further tool starts, no
+  files from the steps that never ran, a closing `stream_end`, no
+  `tool_failure`/`tool_budget_exhausted` (an abort is not a model failure), and
+  `turn_complete{status: "interrupted"}`. Both new checks were verified by the
+  teeth drill — breaking `emitter._confirmPending` and the provider's abort
+  check each turns exactly the intended test red. Harness now 28 tests / 12
+  scenarios, still well under 1s. `tests/harness/README.md` was rewritten as the
+  harness's developer entry point (what is real vs faked, when to run it, how to
+  add a scenario, failure-to-layer lookup, and the coverage it deliberately does
+  not provide) and is now pointed at from `AGENTS.md` and
+  `id/reference/testing.md`. Remaining gaps filed as #319 (sub-agent spawn has
+  no production caller), #320 (`plan_*` events have no consumer) and #321
+  (harness is single-turn: no trim / prefix-stability / cross-turn coverage).
+- **Tool-result envelope unification** (agent-harness-epic WS3, closes #288):
+  `summarizeResult()` (`lib/agent/toolActivity.js`) and the offload boundary
+  (`lib/agent/tool-hooks.js`, `lib/agent/model-context-middleware.js`) now
+  produce one documented envelope — `{ok, summary, detail?, artifact?: {id,
+  tokenCount, byteCount}}` — for the `tool_result` event, instead of the UI
+  activity card only learning about an offloaded result via a separate
+  `tool_result_offloaded` event or by scraping the pointer out of the
+  model-facing preview text. Fixes an incidental data-exposure bug found while
+  wiring this up: the card's `detail` field was shipping up to 2000 raw,
+  un-redacted characters of an oversized result over the socket, because the
+  summary was always built *before* the offload/redaction step ran — the
+  card's "full text" was never actually the redacted copy the model saw.
+  `ok`/`summary`/`detail`/`details`/`memories` are still computed from the
+  untouched raw result exactly as before (byte-identical for every ordinary
+  call), but `detail`/`details`/`memories` are now dropped from the emitted
+  event whenever this call produced an artifact — the raw content stays out of
+  the socket entirely once it's been offloaded, and the card gets the
+  artifact pointer + summary instead. Offloading itself is unchanged: it still
+  only ever runs after provenance fencing, so the fence guarding untrusted
+  content still applies to whatever ends up stored. Verified by a new harness
+  test (`tests/harness/harness.test.js`, G3-1) asserting both the envelope
+  shape and the absence of `detail` on the existing `oversized-offload`
+  scenario; the `tool-hooks.js` integration suite's "offloads after provenance
+  fencing" test (already in place) confirms the ordering didn't regress. This
+  was the last open workstream of the agent-harness-epic (WS0–WS3 all
+  shipped).
+- **Sub-agent spawn/delegation** (agent-harness-epic WS2): `lib/agent/spawn.js`
+  adds `spawnChild()`/`spawnParallel()`, letting an agent delegate work to
+  child agents built from its own `AgentSpec` (`lib/agent/spec.js`) instead of
+  a hand-rolled multi-agent mode. Every spawn narrows — never widens — the
+  parent's permissions: `recursionDepth` decrements by exactly one per hop and
+  a spec with none left refuses to spawn further (a graceful, parent-visible
+  refusal, not a thrown error), while a narrower `toolAllowlist` is enforced
+  by reusing `lib/agent/bundle.js`'s existing administrator-narrowing checks
+  (extracted into a new `narrowAgentSpec()` export — the "future delegated
+  agents" hook already referenced in that file's comments). Each child runs
+  the same `createAgent()`/`runAgentLoop()` path as any other agent, through
+  an emitter that tags every event with a distinct `agent_id` and forwards it
+  into the parent's own event stream; a child that fails or trips its
+  tool-failure budget resolves as `{ ok: false }` rather than rejecting, so
+  `spawnParallel()` always returns every sibling's result. Verified by 5 new
+  harness tests (`tests/harness/spawn.test.js`, G2 group) covering 3 parallel
+  children merging into the parent stream, failure isolation, the
+  recursion-depth refusal, and the tool-allowlist narrowing invariant.
+  `lib/workers/roundtable.js` (the prior, hard-coded two-agent mode) is
+  intentionally left unrefactored — noted in `A2D.md` as follow-up work.
+- **Agent planning loop** (agent-harness-epic WS1, experimental — off by
+  default via `APERIO_AGENT_PLANNING`): the model may lead a multi-step turn
+  with a machine-readable `APERIO_PLAN:` JSON plan before calling tools.
+  `lib/agent/planning-middleware.js` validates each planned step's tool name
+  against the turn's real tool set, tracks execution against the plan one
+  step at a time, and — on a mismatch — surfaces a reflection prompt to the
+  model on the *next* turn instead of blocking the call that drifted. Wired
+  through the existing `beforeModel`/`afterTool`/`afterModel` lifecycle hooks
+  (`lib/agent/index.js`, `lib/agent/tool-hooks.js`), so no provider loop file
+  needed to change. Fail-safe by construction: no plan, or an invalid one,
+  and the loop is byte-identical to the gate being off — verified by 11 new
+  harness tests (`tests/harness/planning.test.js`) that also confirm every
+  WS0 scenario stays green with the gate on and off, and that tool-safety
+  middleware always runs before planning's drift tracking. Emits
+  `plan_created`/`plan_step`/`plan_drift` events.
+- **Deterministic assistant-behavior test harness** (agent-harness-epic WS0):
+  a scripted, fake-model conversation now drives the real agent loop,
+  middleware stack, and tool hooks in `tests/harness/` — no network, no live
+  AI model, no real MCP subprocess — so every future change to `lib/agent/**`,
+  `lib/tools/**`, `lib/context/**`, or `lib/providers/**` is checked against
+  six concrete behaviors in under a second: a normal multi-step task
+  completing correctly, a false "I saved your file" claim self-correcting,
+  three broken tool calls in a row stopping the assistant, a huge tool result
+  being stored separately and read back in pieces, untrusted web content
+  blocking a following file write, and a repeated identical failure breaking
+  the loop. Run with `npm run test:harness` (included in `npm test`); gated
+  in CI by the new path-filtered `ci.agent-harness.yml` workflow. A matching
+  "Behavior" dashboard (`docs/benchmarks/harness/harness.html`) joins the
+  existing coverage/unit/integration/e2e dashboards, generated by
+  `npm run harness:dashboard` and published to the same GitHub Pages site.
+- **Audit Run 1 — all 22 component slices complete** (A01–A22): every slice now
+  has a content-hashed `manifest.json` and a `contract-result.json` with
+  deterministic invariant checks. Completed slices span WebSocket/session lifecycle
+  (A04), agent factory (A05), provider contract matrix (A06), context assembly (A07),
+  artifact lifecycle (A08), privacy and egress (A09), skills and prompt injection (A10),
+  tool discovery (A11), MCP boundary (A12), filesystem/shell (A15), network egress (A16),
+  interrupt semantics (A17), permissions (A18), budgets (A19), background agents (A20),
+  codegraph/docgraph ingestion (A21), and UI/i18n/packaging (A22). Pre-existing:
+  bootstrap (A01), config/secrets (A02), HTTP routes (A03), memory/wiki/embeddings (A13),
+   database parity (A14). All contract gates passed.
+- **Wave 5 — 12 cross-domain journeys and boundary matrix complete**:
+  all 12 end-to-end journeys traced, each with named hops, contracts,
+  test-coverage evidence, findings, and a verdict. Boundary matrix (7 callers × 5
+  invariants) fully populated. Summary: 4 journeys PASS, 3 PASS with notes,
+  3 DEFERRED, 1 MEDIUM-HIGH RISK (concurrent store access — see
+  [#318](https://github.com/BaiGanio/aperio/issues/318)). Reports in
+  `audit/runs/run-001/journeys/`.
 - **Codex/Claude Code native image + skill support**: closes the two gaps
   `provider-ux-parity` (issue #290's sibling epic) documented as "known"
   instead of wiring in. Codex passes attached images through via the CLI's

@@ -82,6 +82,58 @@ describe("normalizeMessages", () => {
     // Empty text results in empty trimmed string — message is dropped
     assert.deepEqual(msgs, []);
   });
+
+  test("preserves image blocks alongside text when present", () => {
+    const msgs = [
+      {
+        role: "user",
+        content: [
+          { type: "text", text: "What's in this image?" },
+          { type: "image", source: { type: "base64", media_type: "image/png", data: "abc" } },
+        ],
+      },
+    ];
+    normalizeMessages(msgs);
+    assert.equal(msgs.length, 1);
+    assert.equal(msgs[0].role, "user");
+    assert.equal(msgs[0].content[0].type, "text");
+    assert.equal(msgs[0].content[0].text, "What's in this image?");
+    assert.equal(msgs[0].content[1].type, "image");
+    assert.equal(msgs[0].content[1].source.type, "base64");
+  });
+
+  test("preserves image-only messages (no text blocks)", () => {
+    const msgs = [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: "image/png", data: "imgdata" } },
+        ],
+      },
+    ];
+    normalizeMessages(msgs);
+    assert.equal(msgs.length, 1);
+    assert.equal(msgs[0].content.length, 1);
+    assert.equal(msgs[0].content[0].type, "image");
+  });
+
+  test("strips tool_use blocks but keeps image + text in the same message", () => {
+    const msgs = [
+      {
+        role: "assistant",
+        content: [
+          { type: "text", text: "Here's the result:" },
+          { type: "image", source: { type: "url", url: "https://example.com/chart.png" } },
+          { type: "tool_use", id: "tu_1", name: "get_data", input: {} },
+        ],
+      },
+    ];
+    normalizeMessages(msgs);
+    assert.equal(msgs.length, 1);
+    assert.equal(msgs[0].content.length, 2);
+    assert.equal(msgs[0].content[0].type, "text");
+    assert.equal(msgs[0].content[1].type, "image");
+  });
 });
 
 // =============================================================================

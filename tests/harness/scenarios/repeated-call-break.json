@@ -1,0 +1,11 @@
+{
+  "id": "repeated-call-break",
+  "title": "Repeating the exact same failing action three times stops the assistant",
+  "userMessage": "Try the flaky tool until it works.",
+  "providerScript": [
+    { "tool": "flaky_tool", "args": { "attempt": 1 } },
+    { "tool": "flaky_tool", "args": { "attempt": 1 } },
+    { "tool": "flaky_tool", "args": { "attempt": 1 } },
+    { "text": "The tool kept failing identically, so I stopped." }
+  ]
+}

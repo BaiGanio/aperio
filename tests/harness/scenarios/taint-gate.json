@@ -1,0 +1,10 @@
+{
+  "id": "taint-gate",
+  "title": "Reading content from an untrusted source blocks a file write in the same turn",
+  "userMessage": "Fetch that URL and save what it says to a file.",
+  "providerScript": [
+    { "tool": "fetch_url", "args": { "url": "https://example.invalid/notes" } },
+    { "tool": "write_file", "args": { "filename": "notes.txt", "content": "untrusted body" } },
+    { "text": "I fetched the page but the write was blocked because the content was untrusted." }
+  ]
+}

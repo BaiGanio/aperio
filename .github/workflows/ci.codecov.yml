@@ -66,6 +66,14 @@ jobs:
         if: always() && hashFiles('tests/results/test-results.json') != ''
         run: npm run integration:dashboard -- --input tests/results/test-results.json
 
+      # Unconditional (not path-filtered): the Pages site needs fresh behavior-
+      # check data on every push, even one that doesn't touch lib/agent/**. The
+      # fast PR gate for agent-loop changes is the separate, path-filtered
+      # ci.agent-harness.yml workflow — this step is what feeds the dashboard.
+      - name: Run assistant loop behavior checks and generate their dashboard data
+        if: always()
+        run: npm run test:harness:ci:dashboard
+
       - name: Upload results to Codecov
         if: >-
           always() &&
@@ -114,6 +122,18 @@ jobs:
         with:
           name: integration-dashboard-data
           path: ./docs/benchmarks/integration/integration-data.js
+          retention-days: 7
+
+      - name: Upload behavior-checks dashboard data
+        if: >-
+          always() &&
+          github.event_name == 'push' &&
+          github.ref == 'refs/heads/master' &&
+          hashFiles('docs/benchmarks/harness/harness-data.js') != ''
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: harness-dashboard-data
+          path: ./docs/benchmarks/harness/harness-data.js
           retention-days: 7
 
       - name: Preserve test failure status
@@ -205,6 +225,12 @@ jobs:
         with:
           name: e2e-dashboard-data
           path: ./docs/benchmarks/e2e
+
+      - name: Download behavior-checks dashboard data
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: harness-dashboard-data
+          path: ./docs/benchmarks/harness
 
       - name: Upload Pages source
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

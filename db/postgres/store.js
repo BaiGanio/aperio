@@ -248,25 +248,31 @@ export class PostgresStore {
   }
 
   async update(id, input, embedding) {
-    const existing = await this.getById(id);
-    if (!existing) throw new Error(`Memory ${id} not found`);
-    if (existing.valid_until) throw new Error(`Memory ${id} has been superseded`);
-
-    const merged = {
-      type:       input.type       ?? existing.type,
-      title:      input.title      ?? existing.title,
-      content:    input.content    ?? existing.content,
-      tags:       input.tags       ?? existing.tags,
-      importance: input.importance ?? existing.importance,
-      expires_at: existing.expires_at ?? null,
-      source:     existing.source,
-      lang:       existing.lang,
-      confidence: input.confidence ?? existing.confidence,
-    };
-
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Lock the existing row so no concurrent transaction can tombstone
+      // or modify this memory between the read and the write.
+      const { rows: lockRows } = await client.query(
+        `SELECT * FROM memories WHERE id = $1 FOR UPDATE`, [id]
+      );
+      const existing = lockRows.length ? rowToMemory(lockRows[0]) : null;
+      if (!existing) throw new Error(`Memory ${id} not found`);
+      if (existing.valid_until) throw new Error(`Memory ${id} has been superseded`);
+
+      const merged = {
+        type:       input.type       ?? existing.type,
+        title:      input.title      ?? existing.title,
+        content:    input.content    ?? existing.content,
+        tags:       input.tags       ?? existing.tags,
+        importance: input.importance ?? existing.importance,
+        expires_at: existing.expires_at ?? null,
+        source:     existing.source,
+        lang:       existing.lang,
+        confidence: input.confidence ?? existing.confidence,
+      };
+
       await client.query(
         `UPDATE memories SET valid_until = now() WHERE id = $1`, [id]
       );

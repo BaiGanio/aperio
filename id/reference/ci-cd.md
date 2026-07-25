@@ -10,6 +10,14 @@ GitHub Actions workflows in `.github/workflows/`:
   service container (`APERIO_E2E_POSTGRES_URL`) so the SQLite/Postgres store
   contract suite (`tests/integration/db/contract/`) exercises its Postgres
   backend on every run.
+- `ci.agent-harness.yml` — deterministic assistant-behavior harness
+  (`tests/harness/`, agent-harness-epic WS0). Path-filtered to
+  `lib/agent/**`, `lib/tools/**`, `lib/context/**`, `lib/providers/**`,
+  `tests/harness/**` — a fast (~5 min budget, sub-second actual run), no-model,
+  no-network regression gate for the agent loop. The behavior-checks dashboard
+  data itself is generated unconditionally inside `ci.codecov.yml`'s
+  `coverage-tests` job instead (so the Pages site stays fresh even when this
+  workflow doesn't fire).
 - `ci.codacy.yml` — Codacy quality
 - `ci.sonarqube.yml` — SonarQube
 - `ci.npm-audit.yml` — dependency audit

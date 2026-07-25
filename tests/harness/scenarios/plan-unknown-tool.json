@@ -1,0 +1,12 @@
+{
+  "id": "plan-unknown-tool",
+  "title": "A plan referencing a nonexistent tool is caught and never becomes active",
+  "userMessage": "Pull the sales data.",
+  "providerScript": [
+    { "plan": "APERIO_PLAN:{\"steps\":[{\"tool\":\"frobnicate_file\",\"purpose\":\"nonexistent tool\"}]}" },
+    { "tool": "fetch_data", "args": {} },
+    { "text": "Done — pulled the data." }
+  ],
+  "expectedToolSequence": ["fetch_data"],
+  "requiredAnswerTerms": ["data"]
+}
