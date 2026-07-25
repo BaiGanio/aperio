@@ -7,8 +7,8 @@
 // via APERIO_AGENT_PLANNING — each test sets/restores it around its own run
 // so the suite is order-independent regardless of node --test's scheduling.
 //
-// Companion criteria: trash/plans/agent-harness-epic/agent-harness-epic-tests.md
-// (G1-1..G1-4).
+// G1-1..G1-4 are the acceptance-criterion IDs from the epic that built this;
+// see README.md in this directory for the harness contract.
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";

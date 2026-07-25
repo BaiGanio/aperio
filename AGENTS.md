@@ -400,6 +400,7 @@ Detailed reference material lives in `id/reference/` — read on demand, not eve
 | MCP tools catalog | `id/reference/mcp-tools.md` |
 | Skills system | `id/reference/skills.md` |
 | Testing guide | `id/reference/testing.md` |
+| Agent-loop regression harness — **read before touching `lib/agent/`, `lib/tools/`, `lib/context/`, `lib/providers/`; run `npm run test:harness`** | `tests/harness/README.md` |
 | Troubleshooting | `id/reference/troubleshooting.md` |
 | CI/CD workflows | `id/reference/ci-cd.md` |
 | Known tech debt | `id/reference/tech-debt.md` |

@@ -56,6 +56,22 @@ housekeeping go in `A2D.md`, not here.
   GENERIC_MODEL_FACTS as a last resort for truly uncached remote refs. Affects:
   context-window sizing, RAM-usage readouts, model-tier benchmarks, and roundtable budget.
 
+## Agent loop
+
+- 2026-07-25 The confirm-before-write tool list is duplicated across two modules with
+  no import between them: `CONFIRM_TOOLS` (`lib/agent/tool-profiles.js:14`, read by
+  `tool-hooks.js` to decide whether a `Token:` line becomes an `action_confirm_pending`
+  event) and `CONFIRMABLE_TOOLS` (`lib/helpers/confirmableTools.js`, read by the WS
+  handler and the HTTP interrupts route to decide whether a confirm/deny round-trip is
+  accepted). The two Sets are currently identical, character for character. Adding a
+  confirmable tool to one and not the other yields either a confirm button whose reply is
+  rejected, or a confirmable tool that never gets a button — both silent. `confirmableTools.js`
+  was extracted precisely to stop this class of drift between the WS and HTTP sites; it
+  just stopped one layer short. Fix is one import, but it crosses the emit side and the
+  accept side of the confirm protocol, so it wants its own change + a test asserting the
+  two lists are the same object. No harness scenario covers the confirm path at all today
+  (see `tests/harness/README.md` §8).
+
 ---
 
 ## Intentional deferrals

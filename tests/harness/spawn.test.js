@@ -5,8 +5,8 @@
 // provider + host-tool fixtures as the rest of tests/harness/, so every
 // child runs the REAL runAgentLoop + middleware stack with zero network.
 //
-// Companion criteria: trash/plans/agent-harness-epic/agent-harness-epic-tests.md
-// (G2-1..G2-3).
+// G2-1..G2-3 are the acceptance-criterion IDs from the epic that built this;
+// see README.md in this directory for the harness contract.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

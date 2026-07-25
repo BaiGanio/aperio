@@ -8,10 +8,14 @@
 // the MCP client itself is stubbed at the SDK layer by each harness test
 // (see harness.test.js), so listTools()/callTool() never leave the process.
 //
-// Two tool names are deliberately real Aperio tool identifiers because the
+// Four tool names are deliberately real Aperio tool identifiers because the
 // safety middleware keys off them literally (lib/agent/tool-profiles.js):
-//   - "fetch_url"  — a member of UNTRUSTED_CONTENT_TOOLS (taints the turn)
-//   - "write_file" — a member of WRITE_TOOLS (receives the __tainted flag)
+//   - "fetch_url"    — a member of UNTRUSTED_CONTENT_TOOLS (taints the turn)
+//   - "write_file"   — a member of WRITE_TOOLS (receives the __tainted flag)
+//   - "delete_file"  — a member of CONFIRM_TOOLS, and the one name tool-hooks
+//                      styles as destructive with a path-derived label
+//   - "index_folder" — a member of CONFIRM_TOOLS, non-destructive, whose label
+//                      comes from the result's own "Action:" line
 // Every other tool name here is synthetic and carries no special handling,
 // so scenarios that don't need a specific gate can't accidentally trip one.
 
@@ -88,6 +92,37 @@ export function createHarnessHostTools({ scratchDir }) {
     {
       name: "flaky_tool", description: "A tool that always fails", inputSchema: genericSchema,
       handler: async () => "❌ Tool error (flaky_tool): transient upstream failure",
+    },
+
+    // ── confirm-pending: results carrying a `Token:` line ───────────────
+    // Both handlers mirror the real producers' output format verbatim, because
+    // tool-hooks.js parses that text to build the confirm payload:
+    //   delete_file  → mcp/tools/files/delete.js (Target:/Token:, no Action:)
+    //   index_folder → lib/agent/host-tools/index-folder.js (📋/Target:/Action:/Token:)
+    // Neither handler performs its action — a `Token:` result means nothing has
+    // happened yet, which is precisely the state under test.
+    {
+      name: "delete_file", description: "Delete a file (confirm-before-act)", inputSchema: genericSchema,
+      handler: async (args) => {
+        const target = args?.path || "unknown";
+        return `⚠️ Deletion pending confirmation\nTarget: ${target}\nToken: del_h4rn3s\n\n`
+          + `To complete this deletion, confirm with token "del_h4rn3s". This token expires in 2 minutes.`;
+      },
+    },
+    {
+      name: "index_folder", description: "Authorize and index a folder (confirm-before-act)", inputSchema: genericSchema,
+      handler: async (args) => {
+        const target = args?.path || "unknown";
+        return [
+          "📋 Folder authorization required — nothing has been changed yet.",
+          "",
+          `Target: ${target}`,
+          "Index: Code Graph",
+          "",
+          `Action: Authorize and index ${target}`,
+          "Token: idx_h4rn3s",
+        ].join("\n");
+      },
     },
   ];
 }

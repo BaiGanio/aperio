@@ -35,15 +35,20 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   layer, tool execution is faked via `createAgent({ hostTools })`)
 - The `mock` provider only resolves when `NODE_ENV=test`
   (`lib/providers/index.js`); resolving it otherwise throws
-- 6 scenario JSON files under `tests/harness/scenarios/`, one real-fs-backed
-  ("does a file actually land in the workspace") and five guardrail checks
+- 12 scenario JSON files under `tests/harness/scenarios/`, one real-fs-backed
+  ("does a file actually land in the workspace"), five guardrail checks
   (hallucination correction, failure budget, oversized-result offload +
-  retrieval, taint write-gate, repeated-call break)
-- Runs in well under 1s total; see `tests/harness/README.md` for the one
-  manual drill (G0-4: temporarily break an event name, confirm the suite
-  goes red, revert) that proves the harness has real teeth
-- Plan: `trash/plans/agent-harness-epic/agent-harness-epic.md` +
-  companion `agent-harness-epic-tests.md`
+  retrieval, taint write-gate, repeated-call break), two confirm-before-act
+  checks (destructive and non-destructive: the event fires and the turn stops),
+  one mid-chain abort ("the user pressed stop") and three planning-loop checks
+  (valid plan, unknown tool in a plan, plan drift)
+- Runs in well under 1s total
+- **Read `tests/harness/README.md` before changing anything under
+  `lib/agent/`, `lib/tools/`, `lib/context/`, or `lib/providers/`** — it
+  documents the harness contract, what each scenario pins, how to add one,
+  what the harness deliberately does *not* cover, and the manual G0-4 drill
+  (temporarily break an event name, confirm the suite goes red, revert) that
+  proves the net has real teeth
 
 ## Mocking Policy
 

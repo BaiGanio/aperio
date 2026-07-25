@@ -3,10 +3,10 @@
 // WS0 — deterministic loop-regression harness (agent-harness-epic, G0 group).
 // Drives the REAL runAgentLoop, middleware stack, and tool hooks against a
 // scripted mock provider (see mock-provider.js) — no network, no real MCP
-// subprocess, no live model. Companion criteria:
-// trash/plans/agent-harness-epic/agent-harness-epic-tests.md
-// (test names below are plain-language for the dashboard; the G0-x IDs in
-// comments are how each test maps back to that companion file.)
+// subprocess, no live model. See README.md in this directory for what the
+// harness covers, when to run it, and how to add a scenario.
+// (Test names below are plain-language for the dashboard; the G0-x IDs in
+// comments are the acceptance-criterion IDs from the epic that built this.)
 //
 // G0-4 (regression teeth) is NOT automated here by design (per the test plan):
 // it is a manual drill — temporarily rename the `tool_start` emission in
@@ -131,6 +131,79 @@ describe("Behavior checks — does the assistant's conversation loop still work 
     const starts = events.filter(e => e.type === "tool_start" && e.name === "flaky_tool");
     assert.equal(starts.length, 3, "the break should fire on the 3rd identical failure, not a 4th attempt");
     assert.equal(events.filter(e => e.type === "tool_budget_exhausted").length, 1);
+  });
+});
+
+describe("Confirmation checks — does a confirm-before-act tool stop the turn and ask?", () => {
+  // The emit side of the confirm protocol (lib/agent/tool-hooks.js): a result
+  // carrying a `Token:` line from a CONFIRM_TOOLS tool must become an
+  // action_confirm_pending event AND end the turn, because nothing has been
+  // done yet — the action runs only after the user's confirm round-trip
+  // (lib/emitters/handlers/ws/interrupts.js, outside this harness).
+  test("a destructive action stops and asks, running nothing else in the turn, even though more steps were queued", async (t) => {
+    const scenario = loadScenario("confirm-pending-delete");
+    const { events, finalText } = await runScenario(t, scenario);
+
+    const pending = events.find(e => e.type === "action_confirm_pending");
+    assert.ok(pending, "expected an action_confirm_pending event");
+    assert.equal(pending.tool, "delete_file");
+    assert.equal(pending.token, "del_h4rn3s");
+    assert.equal(pending.destructive, true, "delete_file must be styled destructive");
+    // Label is derived from the path's basename, summary from the Target: line.
+    assert.equal(pending.label, "Delete q1-draft.txt");
+    assert.match(pending.summary, /reports\/q1-draft\.txt/);
+
+    // The turn must END here: the script had a second tool call and a final
+    // answer queued, and neither may run while the user hasn't decided.
+    const toolNames = events.filter(e => e.type === "tool_start").map(e => e.name);
+    assert.deepEqual(toolNames, ["delete_file"], "no tool may run after a confirm is pending");
+    assert.equal(finalText, "", "a pending confirm must not produce a final answer");
+
+    // The card still gets its tool_result — the model still gets told to stop.
+    const toolResult = events.find(e => e.type === "tool_result" && e.name === "delete_file");
+    assert.ok(toolResult, "expected a tool_result for the pending delete");
+  });
+
+  test("a non-destructive action needing permission is labelled from its own Action line", async (t) => {
+    const scenario = loadScenario("confirm-pending-index-folder");
+    const { events } = await runScenario(t, scenario);
+
+    const pending = events.find(e => e.type === "action_confirm_pending");
+    assert.ok(pending, "expected an action_confirm_pending event");
+    assert.equal(pending.tool, "index_folder");
+    assert.equal(pending.token, "idx_h4rn3s");
+    assert.equal(pending.destructive, false, "only delete_file and db_execute are destructive");
+    assert.equal(pending.label, "Authorize and index /home/dev/notes");
+    // The 📋 header line is stripped; everything above the Action: line remains.
+    assert.match(pending.summary, /^Target: \/home\/dev\/notes/);
+    assert.doesNotMatch(pending.summary, /📋/);
+    assert.equal(events.filter(e => e.type === "tool_start").length, 1);
+  });
+});
+
+describe("Interruption checks — does pressing stop mid-task end the turn cleanly?", () => {
+  test("stopping after the first step runs nothing further, writes no files, and closes the stream", async (t) => {
+    const scenario = loadScenario("abort-mid-chain");
+    const { events, finalText, scratchDir } = await runScenario(t, scenario);
+
+    const toolNames = events.filter(e => e.type === "tool_start").map(e => e.name);
+    assert.deepEqual(toolNames, ["fetch_data"], "no tool may start after the abort");
+    assert.equal(finalText, "", "an aborted turn returns no answer");
+
+    // The stream must be closed, not left hanging — the UI ends its typing
+    // state on stream_end, so a missing one leaves a permanently "thinking" turn.
+    assert.ok(events.some(e => e.type === "stream_end"), "expected a closing stream_end");
+
+    // Side effects of the steps that never ran must not exist.
+    assert.equal(fs.existsSync(path.join(scratchDir, "should-never-exist.txt")), false);
+
+    // No guardrail should misread a user abort as a model failure.
+    assert.equal(events.filter(e => e.type === "tool_failure").length, 0);
+    assert.equal(events.filter(e => e.type === "tool_budget_exhausted").length, 0);
+
+    // Same interrupted/completed distinction wsHandler draws (wsHandler.js:304).
+    assert.equal(events.at(-1).type, "turn_complete");
+    assert.equal(events.at(-1).status, "interrupted");
   });
 });
 

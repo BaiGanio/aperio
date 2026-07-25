@@ -28,6 +28,32 @@ function stubMcpTransport(t) {
 }
 
 /**
+ * Wires the scenario's optional `abortAfterTools: N` into a real AbortController,
+ * tripped from inside the event stream after the Nth tool_result — the closest
+ * deterministic stand-in for a user pressing "stop" mid-chain. Production's
+ * controller comes from the per-connection turn lock (lib/emitters/handlers/ws/
+ * turnLock.js: getAbort() returns it, "stop" calls .abort()), and every provider
+ * loop checks `getAbort()?.signal?.aborted` at the top of each iteration — so
+ * aborting here lets the in-flight tool finish and stops the *next* turn, exactly
+ * as it does against a real model.
+ *
+ * The sink's own `send` is patched in place rather than wrapped in a new object:
+ * tool-hooks.js sets `emitter._confirmPending` on the emitter it was handed, and
+ * the provider loop reads it back off the same reference.
+ */
+function installAbortTrigger(sink, abortAfterTools) {
+  if (!(abortAfterTools > 0)) return { getAbort: () => null, aborted: () => false };
+  const controller = new AbortController();
+  const originalSend = sink.emitter.send.bind(sink.emitter);
+  let toolResults = 0;
+  sink.emitter.send = (obj) => {
+    originalSend(obj);
+    if (obj?.type === "tool_result" && ++toolResults === abortAfterTools) controller.abort();
+  };
+  return { getAbort: () => controller, aborted: () => controller.signal.aborted };
+}
+
+/**
  * @param {import("node:test").TestContext} t
  * @param {object} scenario — parsed scenario JSON (providerScript + userMessage)
  * @returns {Promise<{ events: object[], finalText: string, scratchDir: string }>}
@@ -52,16 +78,18 @@ export async function runScenario(t, scenario) {
   });
 
   const sink = makeSinkEmitter();
+  const abort = installAbortTrigger(sink, Number(scenario.abortAfterTools) || 0);
   const messages = [{ role: "user", content: scenario.userMessage ?? "" }];
 
   const finalText = await runWithPaths([root], [root], scratchDir, () =>
-    agent.runAgentLoop(messages, sink.emitter, {}, () => null, () => {}));
+    agent.runAgentLoop(messages, sink.emitter, {}, abort.getAbort, () => {}));
 
   // runAgentLoop itself never emits turn_complete — that's wsHandler's job in
   // production (lib/emitters/handlers/wsHandler.js). The scorer
   // (evaluateBenchmarkCase, lib/helpers/modelTierBench.js) requires it, so the
-  // harness driver emits it itself once the turn is done, same as a real turn.
-  sink.emitter.send({ type: "turn_complete", status: "completed" });
+  // harness driver emits it itself once the turn is done, same as a real turn —
+  // including wsHandler's own interrupted/completed distinction (wsHandler.js:304).
+  sink.emitter.send({ type: "turn_complete", status: abort.aborted() ? "interrupted" : "completed" });
 
   return { events: sink.events, finalText, scratchDir, root, agent };
 }

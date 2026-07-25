@@ -9,6 +9,32 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Agent-loop harness: confirm-before-act and mid-chain abort coverage**
+  (tests only, no production change). Two guardrails that were only verifiable
+  by hand now have deterministic scenarios. `confirm-pending-delete` and
+  `confirm-pending-index-folder` cover the emit half of the confirm protocol
+  (`lib/agent/tool-hooks.js`): a `CONFIRM_TOOLS` result carrying a `Token:` line
+  must become an `action_confirm_pending` event with the right label, summary
+  and `destructive` flag **and** end the turn, since nothing has happened yet —
+  the delete scenario keeps a second tool call and a final answer queued behind
+  it specifically to prove neither runs. Both fixtures mirror the real
+  producers' output (`mcp/tools/files/delete.js`,
+  `lib/agent/host-tools/index-folder.js`) byte-for-byte, because that text is
+  what the hook parses. `abort-mid-chain` covers a user pressing stop: a new
+  `abortAfterTools: N` scenario field trips a real `AbortController` wired as
+  `ws/turnLock.js` wires it, and the scenario asserts no further tool starts, no
+  files from the steps that never ran, a closing `stream_end`, no
+  `tool_failure`/`tool_budget_exhausted` (an abort is not a model failure), and
+  `turn_complete{status: "interrupted"}`. Both new checks were verified by the
+  teeth drill — breaking `emitter._confirmPending` and the provider's abort
+  check each turns exactly the intended test red. Harness now 28 tests / 12
+  scenarios, still well under 1s. `tests/harness/README.md` was rewritten as the
+  harness's developer entry point (what is real vs faked, when to run it, how to
+  add a scenario, failure-to-layer lookup, and the coverage it deliberately does
+  not provide) and is now pointed at from `AGENTS.md` and
+  `id/reference/testing.md`. Remaining gaps filed as #319 (sub-agent spawn has
+  no production caller), #320 (`plan_*` events have no consumer) and #321
+  (harness is single-turn: no trim / prefix-stability / cross-turn coverage).
 - **Tool-result envelope unification** (agent-harness-epic WS3, closes #288):
   `summarizeResult()` (`lib/agent/toolActivity.js`) and the offload boundary
   (`lib/agent/tool-hooks.js`, `lib/agent/model-context-middleware.js`) now

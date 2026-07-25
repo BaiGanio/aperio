@@ -1,9 +1,10 @@
 name: (ci) agent loop regression harness
 
-# Deterministic regression net for the agent loop (agent-harness-epic WS0,
-# trash/plans/agent-harness-epic/). No network, no live model, no real MCP
-# subprocess — a scripted mock provider drives the real runAgentLoop,
-# middleware, and tool hooks. Path-filtered (not the shared ci.codecov.yml
+# Deterministic regression net for the agent loop (agent-harness-epic WS0).
+# No network, no live model, no real MCP subprocess — a scripted mock provider
+# drives the real runAgentLoop, middleware, and tool hooks. Contract, scenario
+# list, and how to add one: tests/harness/README.md.
+# Path-filtered (not the shared ci.codecov.yml
 # job) so it only runs on changes to the code it actually watches, mirroring
 # ci.lite-smoke.yml's per-concern workflow convention.
 
