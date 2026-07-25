@@ -18,6 +18,27 @@ GitHub Actions workflows in `.github/workflows/`:
   data itself is generated unconditionally inside `ci.codecov.yml`'s
   `coverage-tests` job instead (so the Pages site stays fresh even when this
   workflow doesn't fire).
+- `ci.lite-smoke.yml` — lite install-path boot gate. On every push/PR touching the
+  server boot path (`server.js`, `bootstrap.js`, `lib/**`, `db/**`, `mcp/**`) or
+  the launchers under `.github/lite/**`, across Linux, macOS, and Windows:
+  install deps, syntax-check the shell launchers, parse-check the PowerShell
+  launchers, then boot `node server.js` headless and assert
+  `/api/bootstrap/state` answers. No llama.cpp engine, model download, or
+  bootstrap required — it catches launcher/zip/boot regressions that would
+  otherwise ship green.
+- `ci.install-matrix.yml` — the release-facing install flows end to end: the
+  one-liner installer on `ubuntu-latest` and `macos-latest`, the packaged
+  Windows zip launcher flow, and an opt-in `full_suite` job on ARM runners.
+  Triggered by PRs touching `.github/lite/**`, `vms/**`, `server.js`, `db/**`,
+  or the manifests; nightly at 03:17 UTC (scheduled runs are `dev`-only); or by
+  dispatch. Both POSIX and Windows jobs drive the shared `vms/smoke` contract,
+  so they stay in lockstep with the local VM executors below.
+- `ci.docker-smoke.yml` — builds `docker/Dockerfile` and smokes the resulting
+  local image; a second job smokes an explicit GHCR reference or digest supplied
+  through the `ghcr_digest` dispatch input. PR-triggered on `docker/**`,
+  `vms/docker/**`, `server.js`, `db/**`, `lib/**`, and the manifests.
+- `ci.e2e-real.yml` — manual only (`workflow_dispatch`): runs
+  `npm run test:e2e:real`, the real-app end-to-end suite, on `ubuntu-latest`.
 - `ci.codacy.yml` — Codacy quality
 - `ci.sonarqube.yml` — SonarQube
 - `ci.npm-audit.yml` — dependency audit
