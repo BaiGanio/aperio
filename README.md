@@ -554,6 +554,31 @@ bounded sheet-tab modal with formula details and two-axis scrolling before downl
 
 > **💡 Tip:** Check [Aperio MCP Tools Guide](https://github.com/BaiGanio/aperio/wiki/MCP-Tools-Guide) for call examples.
 
+### Teaching your agent to use memory well
+
+Tool schemas describe parameters, not judgment. An agent that can call `recall`
+still has to know *when* it owes you one — and the common failure is treating the
+handful of memories preloaded at session start as if they were the whole store.
+
+That discipline ships as a short ruleset you can install into whatever agent you
+run, alongside the MCP connection:
+
+| Your agent | Install |
+|---|---|
+| Cursor | copy `integrations/agent-rules/cursor/aperio-memory.mdc` into your project's `.cursor/rules/` |
+| Claude Code | copy `integrations/agent-rules/claude-code/aperio-memory/` into your `skills/` (or `~/.claude/skills/`) |
+| Anything reading `AGENTS.md` / `CLAUDE.md` | paste `integrations/agent-rules/AGENTS.snippet.md` into that file |
+
+All three are generated from one source, `id/agent-rules/aperio-memory.md` — edit
+that and run `npm run gen:agent-rules`, never the adapters themselves. It covers
+when to `recall`, `remember` (you asked) versus `propose_memory` (the agent
+noticed), correcting a wrong memory instead of duplicating it, the wiki as
+synthesis, the agent's own walled-off self-memory, and what must never be stored.
+
+The distribution pattern — one canonical ruleset, mechanical per-platform copies,
+a check script that fails the build on drift — is adapted from
+[DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) (MIT).
+
 ### Large tool results
 
 When a shell command, file read, or other tool returns more content than the

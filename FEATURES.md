@@ -261,6 +261,7 @@ permission bundle would get for the same violation.
 - Sticky navbar — a compact, width-aware status strip (model · mode · Docker · storage) reprinted above every prompt; `status` is the on-demand superset (adds language/reasoning/stats/examples)
 - `restart` command — bare `restart` starts a fresh session in-process (standalone) or relaunches (proxy); `restart --hard` always re-execs the process, reloading `.env`/config
 - MCP server entry point (`mcp/index.js`)
+- **Portable agent rules** — Aperio's memory discipline (when the session preload isn't enough and a `recall` is owed, `remember` when asked vs `propose_memory` when the agent noticed it, correcting instead of duplicating, what must never be stored) ships to agents running on other hosts, not just those inside Aperio. One canonical ruleset (`id/agent-rules/aperio-memory.md`) generates adapters for a generic `AGENTS.md`, Cursor (`.mdc`), and Claude Code (skill) into `integrations/agent-rules/` via `npm run gen:agent-rules`; `gen:agent-rules:check` fails CI when a copy drifts from the source
 
 ## Security & Hardening
 Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`, `SECURITY.md`).
