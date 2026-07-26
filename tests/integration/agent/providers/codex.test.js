@@ -173,6 +173,9 @@ describe("runCodexLoop", () => {
     delete process.env.CODEX_APPROVAL_POLICY;
     delete process.env.CODEX_MCP_APPROVAL_MODE;
     delete process.env.CODEX_API_KEY;
+    delete process.env.CODEX_TURN_MAX_TOOL_CALLS;
+    delete process.env.CODEX_TURN_MAX_PROCESSED_TOKENS;
+    delete process.env.CODEX_TURN_MAX_SECONDS;
   });
 
   test("returns final agent message and stores thread id", async () => {
@@ -214,6 +217,107 @@ describe("runCodexLoop", () => {
     assert.equal(end.usage.input_tokens_kind, "aggregate");
     assert.equal(end.usage.cache_read_input_tokens, 4);
     assert.equal(end.usage.thinking_tokens, 2);
+  });
+
+  test("records deterministic turn metrics without confusing aggregate usage", async () => {
+    const emitter = { send: mock.fn() };
+    await runCodexLoop(
+      [{ role: "user", content: "Use one tool" }],
+      emitter, {}, null, () => {},
+      baseCtx({
+        codexSpawn: mockChild({
+          capture: {},
+          stdoutLines: [
+            { type: "item.started", item: { id: "item_0", type: "command_execution", command: "echo hi" } },
+            { type: "item.completed", item: { id: "item_0", type: "command_execution", status: "completed", exit_code: 0 } },
+            { type: "item.completed", item: { type: "agent_message", text: "Done" } },
+            { type: "turn.completed", usage: { input_tokens: 120, cached_input_tokens: 80, output_tokens: 10, reasoning_output_tokens: 3 } },
+          ],
+        }),
+      }),
+    );
+
+    const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
+    assert.equal(end.usage.input_tokens, 120);
+    assert.equal(end.usage.input_tokens_kind, "aggregate");
+    assert.equal(end.usage.tool_calls, 1);
+    assert.equal(typeof end.usage.elapsed_ms, "number");
+    assert.equal(end.usage.guardrail, null);
+  });
+
+  test("interrupts a pathological tool loop at the configured tool-call budget", async () => {
+    process.env.CODEX_TURN_MAX_TOOL_CALLS = "1";
+    const emitter = { send: mock.fn() };
+    const result = await runCodexLoop(
+      [{ role: "user", content: "Keep investigating" }],
+      emitter, {}, null, () => {},
+      baseCtx({
+        codexSpawn: mockChild({
+          capture: {},
+          stdoutLines: [
+            { type: "item.started", item: { id: "item_0", type: "command_execution", command: "echo one" } },
+            { type: "item.completed", item: { id: "item_0", type: "command_execution", status: "completed", exit_code: 0 } },
+            { type: "item.started", item: { id: "item_1", type: "command_execution", command: "echo two" } },
+            { type: "item.completed", item: { id: "item_1", type: "command_execution", status: "completed", exit_code: 0 } },
+          ],
+        }),
+      }),
+    );
+
+    assert.match(result, /turn limit reached/i);
+    const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
+    assert.equal(end.usage.tool_calls, 1);
+    assert.deepEqual(end.usage.guardrail, { kind: "tool_calls", limit: 1, value: 2 });
+    assert.equal(emitter.send.mock.calls.filter(c => c.arguments[0].type === "tool_start").length, 1);
+  });
+
+  test("reports processed-token exhaustion when Codex returns aggregate usage", async () => {
+    process.env.CODEX_TURN_MAX_PROCESSED_TOKENS = "100";
+    const emitter = { send: mock.fn() };
+    const result = await runCodexLoop(
+      [{ role: "user", content: "Answer" }],
+      emitter, {}, null, () => {},
+      baseCtx({
+        codexSpawn: mockChild({
+          capture: {},
+          stdoutLines: [
+            { type: "item.completed", item: { type: "agent_message", text: "Too much work" } },
+            { type: "turn.completed", usage: { input_tokens: 101, cached_input_tokens: 90, output_tokens: 5 } },
+          ],
+        }),
+      }),
+    );
+
+    assert.match(result, /turn limit reached/i);
+    const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
+    assert.deepEqual(end.usage.guardrail, { kind: "processed_tokens", limit: 100, value: 101 });
+  });
+
+  test("interrupts a stalled Codex process at the configured elapsed-time budget", async () => {
+    process.env.CODEX_TURN_MAX_SECONDS = "0.001";
+    const emitter = { send: mock.fn() };
+    const result = await runCodexLoop(
+      [{ role: "user", content: "Wait" }],
+      emitter, {}, null, () => {},
+      baseCtx({
+        codexSpawn: (command, args, options) => {
+          const child = new EventEmitter();
+          child.stdout = new PassThrough();
+          child.stderr = new PassThrough();
+          setTimeout(() => {
+            child.stdout.push(null);
+            child.stderr.push(null);
+            child.emit("close", 0);
+          }, 20);
+          return child;
+        },
+      }),
+    );
+
+    assert.match(result, /turn limit reached/i);
+    const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
+    assert.equal(end.usage.guardrail.kind, "elapsed_seconds");
+    assert.ok(end.usage.elapsed_ms >= 1);
   });
 
   // ─── WS-A1 / group G — image passthrough ─────────────────────────────────
