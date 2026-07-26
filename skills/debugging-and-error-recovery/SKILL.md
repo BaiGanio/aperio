@@ -8,7 +8,7 @@ description: >
   and is looping. This skill is about FINDING the cause systematically, not about
   writing new features.
 metadata:
-  keywords: "debug, debugging, bug, fix the bug, stack trace, traceback, exception, crash, broken, not working, wrong output, root cause, reproduce, isolate, hypothesis, why is this failing, error message"
+  keywords: "debug, debugging, bug, fix the bug, stack trace, traceback, exception, crash, broken, not working, wrong output, root cause, reproduce, isolate, hypothesis, why is this failing, error message, typeerror, empty input, blank white screen, passed yesterday"
   category: "engineering-discipline"
   load: "on-demand"
 ---
