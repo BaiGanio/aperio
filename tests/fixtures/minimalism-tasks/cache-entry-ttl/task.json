@@ -1,0 +1,4 @@
+{
+  "id": "cache-entry-ttl",
+  "prompt": "This project already has a small in-memory key/value store — see lib/store.js, lib/index.js, and the existing tests in tests/store.test.js. It needs to support entries that expire after a TTL: store.set(key, value, ttlMs) should make get/has stop returning the entry once ttlMs milliseconds have passed. Don't reinvent the wheel or reach for a new dependency — extend what's already there, keep the existing tests passing, add your own test(s) for the new behavior, and reject a negative or non-numeric ttlMs by throwing rather than silently ignoring it."
+}

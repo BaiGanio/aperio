@@ -38,6 +38,9 @@
     { "id": "7.22", "set": "exam", "prompt": "This function is overcomplicated — simplify it and reduce the nesting without changing behavior.", "expect": "code-simplification" },
 
     { "id": "hard.debug",   "set": "hard", "prompt": "Something is throwing an exception on startup and I need to find the cause.", "expect": "debugging-and-error-recovery" },
+    { "id": "hard.debug.symptom-typeerror", "set": "hard", "prompt": "The helper function throws a TypeError on empty input — find out why.", "expect": "debugging-and-error-recovery" },
+    { "id": "hard.debug.symptom-blank",     "set": "hard", "prompt": "The page loads as a blank white screen after the deploy — nothing in the console.", "expect": "debugging-and-error-recovery" },
+    { "id": "hard.debug.symptom-regression","set": "hard", "prompt": "My tests all passed yesterday, now half of them fail and I don't know what changed.", "expect": "debugging-and-error-recovery" },
     { "id": "hard.tdd",     "set": "hard", "prompt": "Use red-green-refactor: write the failing test, then the code to satisfy it.", "expect": "test-driven-development" },
     { "id": "hard.security","set": "hard", "prompt": "Make sure untrusted input to this endpoint is sanitized and the query is parameterized.", "expect": "security-and-hardening" },
     { "id": "hard.review",  "set": "hard", "prompt": "Look over my diff before it lands and tell me what's blocking versus a nit.", "expect": "code-review-and-quality" },

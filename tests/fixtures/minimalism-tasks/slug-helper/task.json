@@ -1,4 +1,4 @@
 {
   "id": "slug-helper",
-  "prompt": "I need a small helper that converts a post title into a URL-friendly slug — lowercase, hyphens instead of spaces, alphanumeric only."
+  "prompt": "I need a small helper that converts a post title into a URL-friendly slug — lowercase, hyphens instead of spaces, alphanumeric only. Save it to slugify.js."
 }

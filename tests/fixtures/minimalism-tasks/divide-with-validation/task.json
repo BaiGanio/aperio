@@ -1,4 +1,4 @@
 {
   "id": "divide-with-validation",
-  "prompt": "Write a small helper that divides two numbers safely, validating bad input rather than silently returning NaN or Infinity."
+  "prompt": "Write a small helper that divides two numbers safely, validating bad input rather than silently returning NaN or Infinity. Save it to divide.js."
 }
