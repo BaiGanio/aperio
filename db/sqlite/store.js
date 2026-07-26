@@ -636,6 +636,7 @@ export class SqliteStore {
       content:    input.content    ?? existing.content,
       tags:       input.tags       ?? existing.tags,
       importance: input.importance ?? existing.importance,
+      tier:       input.tier       ?? existing.tier,
       expires_at: existing.expires_at ?? null,
       source:     existing.source,
       lang:       existing.lang,
@@ -646,12 +647,13 @@ export class SqliteStore {
     const tx = this.db.transaction(() => {
       this.db.prepare(`UPDATE memories SET valid_until = ? WHERE id = ?`).run(nowIso(), id);
       const info = this.db.prepare(`
-        INSERT INTO memories (id, type, title, content, tags, importance, expires_at, source, lang, confidence)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO memories (id, type, title, content, tags, importance, tier, expires_at, source, lang, confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).run(
         newId, merged.type, merged.title, merged.content,
         JSON.stringify(merged.tags ?? []),
         merged.importance,
+        merged.tier ?? 1,
         merged.expires_at ? new Date(merged.expires_at).toISOString() : null,
         merged.source, merged.lang, merged.confidence,
       );
@@ -685,6 +687,13 @@ export class SqliteStore {
       .run(BigInt(row.rowid), vecBuf(embedding));
   }
 
+  async hasEmbedding(id) {
+    const row = this.db.prepare(`
+      SELECT 1 FROM vec_memories WHERE rowid = (SELECT rowid FROM memories WHERE id = ?)
+    `).get(id);
+    return !!row;
+  }
+
   async clearAllEmbeddings() {
     this.db.prepare(`DELETE FROM vec_memories`).run();
     this.db.prepare(`DELETE FROM vec_wiki`).run();
@@ -712,6 +721,13 @@ export class SqliteStore {
   async delete(id) {
     const row = this.db.prepare(`SELECT title FROM memories WHERE id = ?`).get(id);
     if (!row) return null;
+    // Mark citing wiki articles stale before the delete cascades away the
+    // source links — same staleness contract as update()'s tombstone path.
+    this.db.prepare(`
+      UPDATE wiki_articles SET status = 'stale'
+       WHERE status = 'fresh'
+         AND id IN (SELECT article_id FROM wiki_article_sources WHERE memory_id = ?)
+    `).run(id);
     this.db.prepare(`DELETE FROM memories WHERE id = ?`).run(id);
     await this.refreshCache();
     return row.title;

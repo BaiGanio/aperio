@@ -5,8 +5,9 @@
 // for store.pool (postgres) or store.db (sqlite). We provide a mock pool
 // so the real postgres backend functions execute against controlled data.
 
-import { describe, test, mock, before, after } from "node:test";
+import { describe, test, mock, before, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 
 import logger from "../../../lib/helpers/logger.js";
 import {
@@ -181,6 +182,298 @@ describe("batchHandler", () => {
     const controller = new AbortController();
     const result = await batchHandler(ctx, { candidates: [{ id: 1, rel_path: "a.md", size: 10 }] }, controller.signal);
     assert.strictEqual(result.isError, undefined, "a decoy aborted ctx.signal must not abort a call with a live request signal");
+  });
+});
+
+// =============================================================================
+// batchHandler — docgraph → memory bridge (#314)
+// =============================================================================
+//
+// The bridge auto-promotes high-confidence terminal facts (amount_due/
+// grand_total + due_date/invoice_date/service_period) read during a batch
+// into the memory store, gated behind process.env.DOCGRAPH_AUTO_MEMORY.
+// composeMemoryFromDoc's own selection logic is covered exhaustively in
+// retrieval.test.js; these tests exercise the handler-level wiring around
+// it: dedup lookup, the no-op/hasEmbedding gate, retry-queue enqueue on a
+// failed embedding, stale-doc retirement, and duplicate reconciliation.
+
+// Mirrors the handler's private bridgeTag() so fixtures can pre-seed a
+// matching dedup tag deterministically, without exporting the internal fn.
+function expectedDedupTag(rootPath, relPath) {
+  const hash = createHash("sha256").update(`${rootPath}/${relPath}`).digest("hex");
+  return "dag:" + hash.slice(0, 16);
+}
+
+// A bill with an invoice date, a May service period, and an amount due —
+// the same fixture retrieval.test.js uses for "attaches structured
+// date/amount evidence" — guaranteed to produce a qualifying memory.
+const QUALIFYING_TEXT = [
+  "ACME Utilities Co.",
+  "Invoice Date: 03.06.2026",
+  "Service Period: 01.05.2026 to 31.05.2026",
+  "Amount Due: 142.50 BGN",
+].join("\n");
+const QUALIFYING_REL_PATH = "bills/electricity-june-invoice.txt";
+const QUALIFYING_ROOT_PATH = "/repo";
+const QUALIFYING_DOC_ROW = {
+  id: 1, mime: "text/plain", title: null,
+  rel_path: QUALIFYING_REL_PATH, root_path: QUALIFYING_ROOT_PATH,
+  text: QUALIFYING_TEXT,
+};
+const QUALIFYING_DEDUP_TAG = expectedDedupTag(QUALIFYING_ROOT_PATH, QUALIFYING_REL_PATH);
+const EXPECTED_TITLE = "bills/electricity-june-invoice summary — 2026-05";
+const EXPECTED_CONTENT = "bills/electricity-june-invoice summary — 2026-05: 142.50 BGN. Service period 2026-05";
+const FAKE_EMBEDDING = [0.01, 0.02, 0.03];
+
+// A memory row that exactly matches what composeMemoryFromDoc would produce
+// for QUALIFYING_DOC_ROW, so the no-op path is reachable in fixtures.
+function matchingBridgeRow(overrides = {}) {
+  return {
+    id: "mem-existing",
+    title: EXPECTED_TITLE,
+    content: EXPECTED_CONTENT,
+    tags: ["fact", "bill", "docgraph", QUALIFYING_DEDUP_TAG],
+    importance: 4,
+    tier: 2,
+    source: "docgraph",
+    ...overrides,
+  };
+}
+
+// A tiny in-memory fake standing in for the memory store's bridge-relevant
+// methods (recall/insert/update/delete/hasEmbedding), so dedup/reconciliation
+// behavior can be exercised against realistic tag-filtering semantics
+// instead of hand-scripted fixed returns. `_hasEmbedding: true` on a seed
+// row marks it as already embedded.
+function makeMemoryStore(initial = []) {
+  let seq = 0;
+  const rows = initial.map(m => ({ ...m }));
+  const embedded = new Set(initial.filter(m => m._hasEmbedding).map(m => m.id));
+  return {
+    _rows: rows,
+    recall: mock.fn(async ({ tags = [] } = {}) =>
+      rows.filter(m => tags.every(t => m.tags.includes(t)))),
+    insert: mock.fn(async (input, embedding) => {
+      const row = { id: `mem-new-${++seq}`, ...input };
+      rows.push(row);
+      if (embedding) embedded.add(row.id);
+      return row;
+    }),
+    update: mock.fn(async (id, input, embedding) => {
+      const idx = rows.findIndex(r => r.id === id);
+      rows[idx] = { ...rows[idx], ...input };
+      if (embedding) embedded.add(id); else embedded.delete(id);
+      return rows[idx];
+    }),
+    delete: mock.fn(async (id) => {
+      const idx = rows.findIndex(r => r.id === id);
+      if (idx >= 0) rows.splice(idx, 1);
+      embedded.delete(id);
+    }),
+    hasEmbedding: mock.fn(async (id) => embedded.has(id)),
+  };
+}
+
+function makeBridgeCtx({ docRow = QUALIFYING_DOC_ROW, memoryRows = [], generateEmbedding = async () => FAKE_EMBEDDING, embeddingQueue } = {}) {
+  const pool = mockPool({ "FROM docgraph_documents": [docRow] });
+  const memStore = makeMemoryStore(memoryRows);
+  // vectorEnabled matches generateEmbedding presence: when a generator is
+  // provided the bridge considers embeddings enabled and checks hasEmbedding;
+  // when null the check is skipped entirely.
+  const ctx = { store: { pool, ...memStore }, generateEmbedding, vectorEnabled: () => generateEmbedding != null };
+  if (embeddingQueue !== undefined) ctx.embeddingQueue = embeddingQueue;
+  return { ctx, memStore };
+}
+
+const qualifyingArgs = { candidates: [{ id: 1, rel_path: QUALIFYING_REL_PATH, size: 10 }] };
+
+describe("batchHandler — docgraph → memory bridge (#314)", () => {
+  beforeEach(() => { delete process.env.DOCGRAPH_AUTO_MEMORY; });
+  afterEach(() => { delete process.env.DOCGRAPH_AUTO_MEMORY; });
+
+  test("is a no-op when DOCGRAPH_AUTO_MEMORY is unset", async () => {
+    const { ctx, memStore } = makeBridgeCtx();
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.recall.mock.callCount(), 0);
+    assert.strictEqual(memStore.insert.mock.callCount(), 0);
+  });
+
+  test("creates a new bridge memory for a qualifying document", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const { ctx, memStore } = makeBridgeCtx();
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.insert.mock.callCount(), 1);
+    const [input, embedding] = memStore.insert.mock.calls[0].arguments;
+    assert.strictEqual(input.title, EXPECTED_TITLE);
+    assert.strictEqual(input.content, EXPECTED_CONTENT);
+    assert.strictEqual(input.source, "docgraph");
+    assert.strictEqual(input.tier, 2);
+    assert.strictEqual(input.confidence, 1.0);
+    assert.ok(input.tags.includes("docgraph"));
+    assert.ok(input.tags.includes(QUALIFYING_DEDUP_TAG));
+    assert.deepEqual(embedding, FAKE_EMBEDDING);
+  });
+
+  test("skips as a no-op when content is unchanged and the memory already has an embedding", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const { ctx, memStore } = makeBridgeCtx({ memoryRows: [matchingBridgeRow({ _hasEmbedding: true })] });
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.hasEmbedding.mock.callCount(), 1);
+    assert.strictEqual(memStore.update.mock.callCount(), 0);
+    assert.strictEqual(memStore.insert.mock.callCount(), 0);
+    assert.strictEqual(memStore.delete.mock.callCount(), 0);
+  });
+
+  test("requeues existing memory for embedding retry without versioning when content matches but embedding is missing", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const queue = [];
+    const { ctx, memStore } = makeBridgeCtx({
+      memoryRows: [matchingBridgeRow()], // no _hasEmbedding — missing embedding
+      embeddingQueue: { enqueue: (id, text) => queue.push({ id, text }) },
+    });
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.hasEmbedding.mock.callCount(), 1);
+    // No versioning — the existing memory is requeued without update/delete
+    assert.strictEqual(memStore.update.mock.callCount(), 0);
+    assert.strictEqual(memStore.insert.mock.callCount(), 0);
+    assert.strictEqual(memStore.delete.mock.callCount(), 0);
+    assert.strictEqual(queue.length, 1);
+    assert.strictEqual(queue[0].id, "mem-existing");
+  });
+
+  test("never queries hasEmbedding when embeddings are disabled (ctx.generateEmbedding absent)", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    // null, not omitted — default-parameter destructuring only substitutes
+    // for an omitted/undefined property, so this must be an explicit falsy
+    // value to actually simulate "no ctx.generateEmbedding" here.
+    const { ctx, memStore } = makeBridgeCtx({ memoryRows: [matchingBridgeRow()], generateEmbedding: null });
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.hasEmbedding.mock.callCount(), 0);
+    assert.strictEqual(memStore.update.mock.callCount(), 0);
+    assert.strictEqual(memStore.insert.mock.callCount(), 0);
+  });
+
+  test("enqueues for retry when embedding generation returns null", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const enqueue = mock.fn();
+    const { ctx, memStore } = makeBridgeCtx({ generateEmbedding: async () => null, embeddingQueue: { enqueue } });
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.insert.mock.callCount(), 1);
+    const [, embedding] = memStore.insert.mock.calls[0].arguments;
+    assert.strictEqual(embedding, null);
+    assert.strictEqual(enqueue.mock.callCount(), 1);
+    const [enqueuedId, enqueuedText] = enqueue.mock.calls[0].arguments;
+    assert.strictEqual(enqueuedId, "mem-new-1");
+    assert.strictEqual(enqueuedText, `${EXPECTED_TITLE}. ${EXPECTED_CONTENT}`);
+  });
+
+  test("retires an existing bridge memory when the document no longer has qualifying facts", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const plainRelPath = "notes/plain.txt";
+    const plainDocRow = {
+      id: 1, mime: "text/plain", title: null,
+      rel_path: plainRelPath, root_path: QUALIFYING_ROOT_PATH,
+      text: "Just a plain note with no financial data.",
+    };
+    const staleTag = expectedDedupTag(QUALIFYING_ROOT_PATH, plainRelPath);
+    const staleRow = matchingBridgeRow({ id: "mem-stale", tags: ["fact", "bill", "docgraph", staleTag] });
+    const { ctx, memStore } = makeBridgeCtx({ docRow: plainDocRow, memoryRows: [staleRow] });
+    const result = await batchHandler(ctx, { candidates: [{ id: 1, rel_path: plainRelPath, size: 10 }] });
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.delete.mock.callCount(), 1);
+    assert.strictEqual(memStore.delete.mock.calls[0].arguments[0], "mem-stale");
+    assert.strictEqual(memStore.insert.mock.callCount(), 0);
+    assert.strictEqual(memStore.update.mock.callCount(), 0);
+  });
+
+  test("reconciles duplicate bridge memories sharing the same dedup tag before mutating", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const dupA = matchingBridgeRow({ id: "mem-dup-a", _hasEmbedding: true });
+    const dupB = matchingBridgeRow({ id: "mem-dup-b", _hasEmbedding: true });
+    const { ctx, memStore } = makeBridgeCtx({ memoryRows: [dupA, dupB] });
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    // Only the second (non-surviving) duplicate is retired...
+    assert.strictEqual(memStore.delete.mock.callCount(), 1);
+    assert.strictEqual(memStore.delete.mock.calls[0].arguments[0], "mem-dup-b");
+    // ...and the survivor, already matching and embedded, is left as a no-op.
+    assert.strictEqual(memStore.update.mock.callCount(), 0);
+    assert.strictEqual(memStore.insert.mock.callCount(), 0);
+  });
+
+  test("never mutates a non-bridge memory that happens to carry a matching dedup tag", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const userRow = matchingBridgeRow({ id: "mem-user", source: "user" });
+    const { ctx, memStore } = makeBridgeCtx({ memoryRows: [userRow] });
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(memStore.update.mock.callCount(), 0);
+    assert.strictEqual(memStore.delete.mock.callCount(), 0);
+    // Treated as "no bridge-owned memory exists yet" — a new one is created
+    // alongside the untouched user memory, never overwriting it.
+    assert.strictEqual(memStore.insert.mock.callCount(), 1);
+    assert.ok(memStore._rows.some(r => r.id === "mem-user" && r.source === "user"));
+  });
+
+  test("cleans up a concurrent duplicate inserted between the pre-insert recall and this insert", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const rows = [];
+    let insertCallCount = 0;
+    const store = {
+      pool: mockPool({ "FROM docgraph_documents": [QUALIFYING_DOC_ROW] }),
+      recall: async ({ tags = [] } = {}) => rows.filter(m => tags.every(t => m.tags.includes(t))),
+      insert: async (input) => {
+        insertCallCount++;
+        const row = { id: "mem-primary", ...input };
+        rows.push(row);
+        // Simulate a second doc_batch call racing in a duplicate bridge-owned
+        // memory for the same document between this insert and the handler's
+        // post-insert dedup recall.
+        rows.push({ id: "mem-concurrent", ...input });
+        return row;
+      },
+      update: mock.fn(),
+      delete: async (id) => {
+        const idx = rows.findIndex(r => r.id === id);
+        if (idx >= 0) rows.splice(idx, 1);
+      },
+      hasEmbedding: async () => false,
+    };
+    const ctx = { store, generateEmbedding: async () => FAKE_EMBEDDING, vectorEnabled: () => false };
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    assert.strictEqual(insertCallCount, 1);
+    assert.strictEqual(rows.length, 1);
+    assert.strictEqual(rows[0].id, "mem-primary");
+  });
+
+  test("does not touch the memory store for a skipped (unread) document", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const { ctx, memStore } = makeBridgeCtx();
+    const result = await batchHandler(ctx, { ...qualifyingArgs, max_file_bytes: 1 });
+    assert.strictEqual(result.isError, undefined);
+    const payload = JSON.parse(result.content[0].text);
+    assert.strictEqual(payload.documents[0].status, "skipped");
+    assert.strictEqual(memStore.recall.mock.callCount(), 0);
+    assert.strictEqual(memStore.insert.mock.callCount(), 0);
+  });
+
+  test("a bridge-store failure for one document is logged and does not fail the batch", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const { ctx, memStore } = makeBridgeCtx();
+    memStore.recall.mock.mockImplementationOnce(async () => { throw new Error("store unavailable"); });
+    const result = await batchHandler(ctx, qualifyingArgs);
+    assert.strictEqual(result.isError, undefined);
+    const payload = JSON.parse(result.content[0].text);
+    assert.strictEqual(payload.documents[0].status, "read");
+    assert.strictEqual(memStore.insert.mock.callCount(), 0);
+    assert.strictEqual(logger.error.mock.callCount() > 0, true);
   });
 });
 

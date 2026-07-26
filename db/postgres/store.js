@@ -267,6 +267,7 @@ export class PostgresStore {
         content:    input.content    ?? existing.content,
         tags:       input.tags       ?? existing.tags,
         importance: input.importance ?? existing.importance,
+        tier:       input.tier       ?? existing.tier,
         expires_at: existing.expires_at ?? null,
         source:     existing.source,
         lang:       existing.lang,
@@ -278,12 +279,13 @@ export class PostgresStore {
       );
       const { rows } = await client.query(
         `INSERT INTO memories
-           (type, title, content, tags, importance, expires_at, source, embedding, lang, confidence, valid_from)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10, now())
+           (type, title, content, tags, importance, tier, expires_at, source, embedding, lang, confidence, valid_from)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11, now())
          RETURNING *`,
         [
           merged.type, merged.title, merged.content,
           merged.tags, merged.importance,
+          merged.tier ?? 1,
           merged.expires_at, merged.source,
           embedding ? toVec(embedding) : null,
           merged.lang, merged.confidence,
@@ -305,6 +307,14 @@ export class PostgresStore {
       `UPDATE memories SET embedding = $1 WHERE id = $2`,
       [toVec(embedding), id]
     );
+  }
+
+  async hasEmbedding(id) {
+    if (!isUuid(id)) return false;
+    const { rows } = await this.pool.query(
+      `SELECT 1 FROM memories WHERE id = $1 AND embedding IS NOT NULL`, [id]
+    );
+    return rows.length > 0;
   }
 
   async listAll() {
@@ -424,6 +434,13 @@ export class PostgresStore {
 
   async delete(id) {
     if (!isUuid(id)) return null;
+    // Mark citing wiki articles stale before the delete cascades away the
+    // source links — same staleness contract as update()'s tombstone path.
+    await this.pool.query(`
+      UPDATE wiki_articles SET status = 'stale'
+       WHERE status = 'fresh'
+         AND id IN (SELECT article_id FROM wiki_article_sources WHERE memory_id = $1)
+    `, [id]);
     const { rows } = await this.pool.query(
       `DELETE FROM memories WHERE id = $1 RETURNING title`, [id]
     );

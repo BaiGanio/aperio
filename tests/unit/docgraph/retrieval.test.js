@@ -4,6 +4,7 @@ import {
   RETRIEVAL_LIMITS,
   buildCandidateManifest,
   retrieveInBatches,
+  composeMemoryFromDoc,
 } from "../../../lib/docgraph/retrieval.js";
 
 describe("document retrieval contract", () => {
@@ -318,5 +319,263 @@ describe("document retrieval contract", () => {
     assert.ok(RETRIEVAL_LIMITS.batchSize > 0);
     assert.ok(RETRIEVAL_LIMITS.maxBatchBytes > 0);
     assert.ok(RETRIEVAL_LIMITS.maxTotalBytes >= RETRIEVAL_LIMITS.maxBatchBytes);
+  });
+});
+
+describe("composeMemoryFromDoc — docgraph → memory bridge (#314)", () => {
+  // ── Guard / edge cases ────────────────────────────────────────────
+
+  test("returns null when dates or amounts are empty", () => {
+    assert.equal(composeMemoryFromDoc([], [{ value: 100, currency: "BGN", raw: "100 BGN", label: "amount_due" }]), null);
+    assert.equal(composeMemoryFromDoc([{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }], []), null);
+    assert.equal(composeMemoryFromDoc([], []), null);
+    assert.equal(composeMemoryFromDoc(null, [{ value: 100, currency: "BGN", raw: "100 BGN", label: "amount_due" }]), null);
+    assert.equal(composeMemoryFromDoc([{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }], null), null);
+  });
+
+  test("returns null when no terminal-labeled amount exists", () => {
+    const dates = [{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }];
+    const amounts = [{ value: 100, currency: "BGN", raw: "100 BGN", label: "subtotal" }];
+    assert.equal(composeMemoryFromDoc(dates, amounts), null);
+  });
+
+  test("returns null when no high-confidence terminal date exists", () => {
+    const dates = [{ role: "unlabeled_date", raw: "03.06.2026", value: "2026-06-03", confidence: "low" }];
+    const amounts = [{ value: 142.5, currency: "BGN", raw: "142.50 BGN", label: "amount_due" }];
+    assert.equal(composeMemoryFromDoc(dates, amounts), null);
+  });
+
+  test("ignores likely_total amounts (not terminal-confidence)", () => {
+    const dates = [{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }];
+    const amounts = [{ value: 100, currency: "BGN", raw: "100 BGN", label: "likely_total" }];
+    assert.equal(composeMemoryFromDoc(dates, amounts), null);
+  });
+
+  // ── Amount selection: amount_due > grand_total (semantic, not numeric) ─
+
+  test("prefers amount_due over grand_total regardless of value", () => {
+    // A partially paid 100 BGN invoice with 20 BGN still due must promote 20.
+    const dates = [{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }];
+    const amounts = [
+      { value: 100, currency: "BGN", raw: "100.00 BGN", label: "grand_total" },
+      { value: 20, currency: "BGN", raw: "20.00 BGN", label: "amount_due" },
+    ];
+    const mem = composeMemoryFromDoc(dates, amounts);
+    assert.match(mem.content, /20\.00 BGN/);
+    assert.doesNotMatch(mem.content, /100\.00 BGN/);
+  });
+
+  test("falls back to grand_total when amount_due is absent", () => {
+    const dates = [{ role: "service_period_start", raw: "01.05.2026", value: "2026-05-01", confidence: "high" }];
+    const amounts = [
+      { value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "subtotal" },
+      { value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "grand_total" },
+    ];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "noamountdue" });
+    assert.match(mem.content, /64,80 BGN/);
+  });
+
+  test("rejects terminal amounts with no resolved currency", () => {
+    const dates = [{ role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" }];
+    const amounts = [{ value: 100, currency: null, raw: "100", label: "amount_due" }];
+    assert.equal(composeMemoryFromDoc(dates, amounts), null);
+  });
+
+  test("rejects same numeric value in different currencies (100 USD vs 100 EUR)", () => {
+    const dates = [{ role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" }];
+    const amounts = [
+      { value: 100, currency: "USD", raw: "100.00 USD", label: "amount_due" },
+      { value: 100, currency: "EUR", raw: "100.00 EUR", label: "amount_due" },
+    ];
+    assert.equal(composeMemoryFromDoc(dates, amounts), null);
+  });
+
+  // ── Period selection: service_period > invoice_date > due_date ──────
+
+  test("uses service_period_start as the period, appends due date as context", () => {
+    // May service period, June due date — the memory belongs to May, not June.
+    const dates = [
+      { role: "service_period_start", raw: "01.05.2026", value: "2026-05-01", confidence: "high" },
+      { role: "service_period_end", raw: "31.05.2026", value: "2026-05-31", confidence: "high" },
+      { role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" },
+    ];
+    const amounts = [{ value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "grand_total" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "sp", root_path: "/docs", rel_path: "bills/may-heating.txt" });
+    assert.match(mem.title, /may-heating summary — 2026-05/);
+    assert.match(mem.content, /Service period 2026-05/);
+    assert.match(mem.content, /Due 2026-06-20/);
+  });
+
+  test("uses invoice_date as period when no service period exists", () => {
+    // Only invoice date + due date — period comes from the invoice date.
+    const dates = [
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
+      { role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" },
+    ];
+    const amounts = [{ value: 142.5, currency: "BGN", raw: "142.50 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "id", root_path: "/docs", rel_path: "bills/june-invoice.txt" });
+    assert.match(mem.title, /june-invoice summary — 2026-06/);
+    assert.match(mem.content, /Issued 2026-06-0?1/);
+    assert.match(mem.content, /Due 2026-06-20/);
+  });
+
+  test("uses due_date as period only when it is the only terminal date", () => {
+    const dates = [{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }];
+    const amounts = [{ value: 29.99, currency: "BGN", raw: "29,99 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "nodate" });
+    assert.match(mem.title, /document summary — 2026-06/);
+    assert.match(mem.content, /Due 2026-06-20/);
+  });
+
+  test("skips ambiguous (value: null) dates and falls back to a valid one (#314)", () => {
+    // service_period_start has value: null (unparseable format), so the
+    // period must fall back to invoice_date instead of returning null.
+    const dates = [
+      { role: "service_period_start", raw: "03/06/2026", value: null, confidence: "high" },
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
+    ];
+    const amounts = [{ value: 100, currency: "BGN", raw: "100.00 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "nullval" });
+    assert.notEqual(mem, null);
+    assert.match(mem.content, /Issued 2026-06-01/);
+  });
+
+  // ── Multi-record guard ────────────────────────────────────────────
+
+  test("rejects when multiple amounts share the winning label (two invoices)", () => {
+    const dates = [{ role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" }];
+    const amounts = [
+      { value: 100, currency: "BGN", raw: "100.00 BGN", label: "amount_due" },
+      { value: 200, currency: "BGN", raw: "200.00 BGN", label: "amount_due" },
+    ];
+    assert.equal(composeMemoryFromDoc(dates, amounts), null);
+  });
+
+  test("rejects when multiple dates share the winning role (two invoice dates)", () => {
+    const dates = [
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
+      { role: "invoice_date", raw: "15.06.2026", value: "2026-06-15", confidence: "high" },
+    ];
+    const amounts = [{ value: 100, currency: "BGN", raw: "100.00 BGN", label: "amount_due" }];
+    assert.equal(composeMemoryFromDoc(dates, amounts), null);
+  });
+
+  test("allows one amount_due + one grand_total (single invoice, both present)", () => {
+    const dates = [{ role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" }];
+    const amounts = [
+      { value: 20, currency: "BGN", raw: "20.00 BGN", label: "amount_due" },
+      { value: 100, currency: "BGN", raw: "100.00 BGN", label: "grand_total" },
+    ];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "single" });
+    assert.notEqual(mem, null);
+    assert.match(mem.content, /20\.00 BGN/);
+  });
+
+  test("accepts repeated identical amount_due values (payment stub/footer duplication)", () => {
+    const dates = [{ role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" }];
+    const amounts = [
+      { value: 142.5, currency: "BGN", raw: "142.50 BGN", label: "amount_due" },
+      { value: 142.5, currency: "BGN", raw: "142.50 BGN", label: "amount_due" }, // duplicate in footer
+    ];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "footerrepeat" });
+    assert.notEqual(mem, null);
+    assert.match(mem.content, /142\.50 BGN/);
+  });
+
+  test("accepts repeated identical invoice_date values (header/footer duplication)", () => {
+    const dates = [
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" }, // duplicate in footer
+    ];
+    const amounts = [{ value: 100, currency: "BGN", raw: "100.00 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "datefooterrepeat" });
+    assert.notEqual(mem, null);
+    assert.match(mem.content, /Issued 2026-06-01/);
+  });
+
+  test("suppresses due-date context when multiple distinct due dates exist", () => {
+    // Original due date (15th) and revised due date (20th) — ambiguous.
+    const dates = [
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
+      { role: "due_date", raw: "15.06.2026", value: "2026-06-15", confidence: "high" },
+      { role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" },
+    ];
+    const amounts = [{ value: 142.5, currency: "BGN", raw: "142.50 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "ambigdd" });
+    assert.notEqual(mem, null);
+    assert.match(mem.content, /Issued 2026-06-01/);
+    // Due date suppressed — neither date appears in output
+    assert.doesNotMatch(mem.content, /Due 2026-06/);
+  });
+
+  test("includes due-date context when exactly one due date exists", () => {
+    // Single due date — unambiguous, included as context.
+    const dates = [
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
+      { role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" },
+    ];
+    const amounts = [{ value: 100, currency: "BGN", raw: "100.00 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "singledd" });
+    assert.match(mem.content, /Due 2026-06-20/);
+  });
+
+  test("includes due-date context when the same due date is repeated (header + footer dedup)", () => {
+    const dates = [
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
+      { role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" },
+      { role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }, // footer duplicate
+    ];
+    const amounts = [{ value: 100, currency: "BGN", raw: "100.00 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "ddrepeat" });
+    assert.match(mem.content, /Due 2026-06-20/);
+  });
+
+  // ── No PII or filesystem paths in returned tags ─────────────────────
+
+  test("includes only semantic tags — no filesystem paths", () => {
+    const dates = [{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }];
+    const amounts = [{ value: 100, currency: "BGN", raw: "100 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, {
+      sha256: "abc", root_path: "/home/user/docs", rel_path: "bills/water.txt",
+    });
+    assert.deepEqual(mem.tags, ["fact", "bill"]);
+    assert.equal(mem.importance, 4);
+    // composeMemoryFromDoc no longer returns dedupKey — it lives in the handler
+    assert.equal(mem.dedupKey, undefined);
+  });
+
+  // ── Content composition ────────────────────────────────────────────
+
+  test("composes full content with period context + separate due line", () => {
+    const dates = [
+      { role: "service_period_start", raw: "01.05.2026", value: "2026-05-01", confidence: "high" },
+      { role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" },
+    ];
+    const amounts = [{ value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "grand_total" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "x", title: "heating.pdf" });
+    assert.equal(mem.content,
+      "heating summary — 2026-05: 64,80 BGN. Service period 2026-05. Due 2026-06-20");
+  });
+
+  test("uses rel_path as fallback title when no title is provided", () => {
+    const dates = [{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }];
+    const amounts = [{ value: 100, currency: "BGN", raw: "100 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "x", rel_path: "bills/water.txt" });
+    assert.match(mem.title, /water summary/);
+  });
+
+  test("does not duplicate currency already present in raw amount text", () => {
+    const dates = [{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }];
+    const amounts = [{ value: 142.5, currency: "BGN", raw: "142.50 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "nodup" });
+    assert.match(mem.content, /142\.50 BGN\. /);
+    assert.doesNotMatch(mem.content, /BGN BGN/);
+  });
+
+  test("appends currency when raw amount lacks it (separate-label case)", () => {
+    const dates = [{ role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" }];
+    const amounts = [{ value: 29.99, currency: "BGN", raw: "29,99", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "append" });
+    assert.match(mem.content, /29,99 BGN\. /);
   });
 });
