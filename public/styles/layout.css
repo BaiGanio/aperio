@@ -98,7 +98,7 @@
     }
 
     /* Model chip — dot encodes state (connected / disconnected / busy),
-       name slot carries the provider glyph + short model name. Once a model is
+       name slot carries the provider glyph + exact model name. Once a model is
        known (.has-model) the label switches from free-form boot text to the
        written state word (connected / busy / disconnected) so the state is
        readable, not just a color. */
@@ -113,7 +113,10 @@
       padding: 4px 12px;
       border-radius: 20px;
       border: 1px solid var(--border);
-      max-width: 280px;
+      /* The model identity is user-facing information. Let the pill grow to
+         fit it and let the flexible context meter absorb the remaining space. */
+      width: max-content;
+      max-width: none;
       min-width: 0;
       flex-shrink: 1;
       transition: opacity var(--transition), border-color var(--transition);
@@ -127,8 +130,6 @@
     .model-chip-state { white-space: nowrap; }
 
     .model-chip-name {
-      overflow: hidden;
-      text-overflow: ellipsis;
       white-space: nowrap;
       font-weight: 600;
       letter-spacing: 0.02em;
