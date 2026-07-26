@@ -8,7 +8,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import {
-  countSourceLoc, locDelta, sumUsage, runFixtureTests, median, medianAbsoluteDeviation, computeVerdict, REPO_ROOT,
+  countSourceLoc, locDelta, sumUsage, runFixtureTests, median, medianAbsoluteDeviation, computeVerdict,
+  renderTranscript, renderReport, REPO_ROOT,
 } from "../../../lib/helpers/minimalismBench.js";
 import { buildRunPlan, buildFixtureCellPlan, createBenchHostTools } from "../../../scripts/minimalism-bench.js";
 import {
@@ -355,6 +356,96 @@ describe("scripts/minimalism-bench.js — cross-platform workspace containment",
     } finally {
       rmSync(workspaceDir, { recursive: true, force: true });
     }
+  });
+
+  test("a tool call is recorded into the given emitter's event stream, in call order", async () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-safe-"));
+    const events = [];
+    const emitter = { send: (obj) => events.push(obj) };
+    try {
+      const tools = createBenchHostTools(workspaceDir, emitter);
+      await tools.find(t => t.name === "write_file").handler({ path: "a.js", content: "x" });
+      await tools.find(t => t.name === "read_file").handler({ path: "a.js" });
+      assert.deepEqual(events.map(e => e.type), ["tool_call", "tool_call"]);
+      assert.equal(events[0].name, "write_file");
+      assert.deepEqual(events[0].args, { path: "a.js", content: "x" });
+      assert.match(events[0].result, /^wrote /);
+      assert.equal(events[1].name, "read_file");
+      assert.equal(events[1].result, "x");
+    } finally {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+
+  test("no emitter given (existing single-arg call shape) — handlers still work, nothing to record into", async () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-safe-"));
+    try {
+      const writeFile = createBenchHostTools(workspaceDir).find(t => t.name === "write_file");
+      const result = await writeFile.handler({ path: "a.js", content: "x" });
+      assert.match(result, /^wrote /);
+    } finally {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("renderTranscript — human-readable per-cell conversation", () => {
+  const meta = {
+    task: "slug-helper", arm: "A", repeat: 1, discard: false, model: "test-model",
+    correct: true, loc: 3, inputTokens: 100, outputTokens: 20, netTokens: 120,
+    wallMs: 1500, prompt: "Write a slug() helper.",
+  };
+
+  test("includes the prompt, tool calls with args/result, and assistant turns, in event order", () => {
+    const events = [
+      { type: "stream_start" },
+      { type: "tool_call", name: "write_file", args: { path: "slug.js", content: "export function slug(s) {}" }, result: "wrote slug.js" },
+      { type: "stream_end", text: "Added slug.js." },
+    ];
+    const md = renderTranscript(meta, events);
+    assert.match(md, /## Prompt/);
+    assert.match(md, /Write a slug\(\) helper\./);
+    assert.match(md, /## Conversation/);
+    assert.match(md, /\*\*Tool call:\*\* `write_file\(.*"path":"slug\.js".*\)`/);
+    assert.match(md, /wrote slug\.js/);
+    assert.match(md, /\*\*Assistant:\*\*/);
+    assert.match(md, /Added slug\.js\./);
+    // conversation order: tool call text appears before the assistant text that follows it
+    assert.ok(md.indexOf("wrote slug.js") < md.indexOf("Added slug.js."));
+  });
+
+  test("a cell with no events (e.g. an errored-out turn) still renders prompt + metadata, not a crash", () => {
+    const md = renderTranscript(meta, []);
+    assert.match(md, /## Prompt/);
+    assert.match(md, /correct: yes/);
+  });
+
+  test("a discarded warm-up is labeled as such", () => {
+    const md = renderTranscript({ ...meta, discard: true, repeat: 0 }, []);
+    assert.match(md, /\(discarded warm-up\)/);
+  });
+});
+
+describe("renderReport — human-readable run summary", () => {
+  const row = (task, arm, repeat, overrides = {}) => ({
+    task, arm, repeat, loc: 0, input_tokens: 1000, output_tokens: 200, net_tokens: 1200,
+    correct: true, wall_ms: 5000, model: "test-model", skill_sha: "abc", ...overrides,
+  });
+
+  test("one row per task/arm, with a correctness fraction and medians, plus the verdict", () => {
+    const rows = [
+      row("slug-helper", "A", 1), row("slug-helper", "A", 2, { correct: false }),
+      row("slug-helper", "B", 1), row("slug-helper", "B", 2),
+    ];
+    const md = renderReport(rows);
+    assert.match(md, /\| slug-helper \| A \| 1\/2 \|/);
+    assert.match(md, /\| slug-helper \| B \| 2\/2 \|/);
+    assert.match(md, new RegExp(`\\*\\*Verdict: ${computeVerdict(rows)}\\*\\*`));
+  });
+
+  test("no rows — reports N/A rather than crashing on an empty matrix", () => {
+    const md = renderReport([]);
+    assert.match(md, /\*\*Verdict: N\/A/);
   });
 });
 

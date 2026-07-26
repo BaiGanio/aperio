@@ -68,10 +68,13 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   `runWithPaths`, MCP stubbed at the SDK layer) but drives a live provider
   instead of a scripted one — the harness answers "did my refactor break the
   loop?"; this answers "does this skill earn the tokens it costs?"
-- 6 held-out task fixtures under `tests/fixtures/minimalism-tasks/` (prompts
-  absent from `skills/autotune/eval.json`/`eval.holdout.json`), two of which
-  carry `anti-solution/` — a corner-cutting answer that must fail its own
-  reference tests, so a "minimal" answer that skips validation scores as
+- 7 held-out task fixtures under `tests/fixtures/minimalism-tasks/` (prompts
+  absent from `skills/autotune/eval.json`/`eval.holdout.json`): 6 single-file
+  "sanity tier" fixtures plus `cache-entry-ttl`, a multi-file "feature tier"
+  fixture with room for over-engineering to actually manifest (see
+  `trash/plans/ponytail-borrow/ponytail-borrow-ws2-feature-tier.md`). Three
+  fixtures carry `anti-solution/` — a corner-cutting answer that must fail its
+  own reference tests, so a "minimal" answer that skips validation scores as
   incorrect, not as a win
 - `--dry-run` replays a deterministic mock script built from each fixture's
   `reference/` solution, exercising the whole pipeline (sandbox, metrics,
@@ -83,10 +86,23 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   recommendation: `18080`, with `LLAMACPP_BASE_URL=http://127.0.0.1:18080`),
   a dedicated temporary runtime/log root outside the repository, and a
   dedicated ledger outside `var/autotune/`. Do not attach the evaluator to the
-  app's normal server, database, logs, or current ledger.
+  app's normal server, database, logs, or current ledger. Two things both
+  have to point at the isolated port, not just one: the evaluator-owned
+  llama-server's own lifecycle (`scripts/minimalism-live-server.js`, given
+  `LLAMACPP_PORT`/`LLAMACPP_BASE_URL` via its spawn env), *and* this
+  process's own `createAgent()` calls, since `resolveProvider()`
+  (`lib/providers/index.js`) reads `process.env.LLAMACPP_BASE_URL` directly
+  with no override path through `providerConfig` — `runMatrix()` sets that
+  env var itself for the duration of a live run and restores it after.
 - Start and own llama-server for the evaluator, wait for `/health` and the
   requested model before the first cell, and tear down that process in a
-  `finally`/signal handler. A live run is invalid and must stop before writing
+  `finally`/signal handler. `scripts/minimalism-live-server.js` keeps itself
+  alive with a real timer (`setInterval`), not a bare `await new Promise(()
+  => {})` — the server child it owns is spawned `detached` + `.unref()`'d
+  (correct for the main app, which has its own listeners keeping it alive
+  regardless), so an unresolved promise with nothing else pending makes Node
+  exit with code 13 ("Unfinished Top-Level Await") as soon as that child is
+  up, orphaning it. A live run is invalid and must stop before writing
   comparison results when any cell has zero model usage (`input_tokens=0` and
   `output_tokens=0`) or when the readiness check fails.
 - The repository ledger path `var/autotune/minimalism.tsv` is reserved for
@@ -102,6 +118,17 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   The live runner starts `scripts/minimalism-live-server.js` in its temporary
   runtime root; do not start or attach a normal Aperio server for this eval.
   Live evaluation remains manual and is not part of CI.
+- Every run (dry or live) writes two more artifacts next to its ledger, both
+  meant to be opened directly — a terminal (`cat`/`less`) or a browser, no
+  server involved: `<ledger-name>.report.md` (a human-readable summary table —
+  per task/arm correctness and median input/output/net tokens and wall time —
+  plus the verdict), and `transcripts/<ledger-name>/` (one markdown file per
+  cell: the fixture prompt, every tool call in order with its args and
+  result, and the model's full turn text — not just tool names, the actual
+  conversation). The runner also prints one progress line per cell to the
+  terminal as it runs (`▶ [n/total] task/arm/repeatN`, then a result line),
+  since the sparse internal agent logs alone don't say whether a live run is
+  progressing or stuck.
 
 ## Mocking Policy
 

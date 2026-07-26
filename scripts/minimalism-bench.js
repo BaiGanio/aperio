@@ -15,7 +15,7 @@
 // the verdict to #285 is a separate, explicitly-gated step).
 
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -24,7 +24,7 @@ import { makeSinkEmitter } from "../lib/emitters/sinkEmitter.js";
 import { runWithPaths } from "../lib/routes/paths.js";
 import {
   REPO_ROOT, buildSandbox, sha256File, snapshotDir, locDelta, sumUsage,
-  runFixtureTests, appendLedgerRow, computeVerdict,
+  runFixtureTests, appendLedgerRow, computeVerdict, renderTranscript, renderReport,
 } from "../lib/helpers/minimalismBench.js";
 import {
   LIVE_EVAL_BASE_URL, createLiveEvalPaths, waitForLlamaReadiness,
@@ -76,7 +76,12 @@ function stubMcp() {
 
 const genericSchema = { type: "object", properties: {}, additionalProperties: true };
 
-export function createBenchHostTools(workspaceDir) {
+// `emitter` is optional (existing dry-run tests call this with one arg) — when
+// given, every call is recorded into its event stream alongside the model's
+// stream_start/token/stream_end events, so a transcript built from that
+// stream sees tool calls and assistant turns in the order they actually
+// happened, not two separately-ordered lists.
+export function createBenchHostTools(workspaceDir, emitter = null) {
   // A raw prefix check (`abs.startsWith(workspaceDir + "/")`) breaks on
   // Windows, where resolve() returns backslash-separated paths — relative()
   // is the platform-correct containment check on both POSIX and Windows.
@@ -88,29 +93,40 @@ export function createBenchHostTools(workspaceDir) {
     }
     return abs;
   };
+  // Display-only: some tool-call plumbing upstream of these handlers resolves
+  // a "path" arg to its sandbox-absolute form before the handler ever sees
+  // it, which is correct for the actual read/write below but unreadable in a
+  // transcript — a temp-dir-prefixed path per cell, every cell.
+  const displayPath = (p) => (p && isAbsolute(p) ? (relative(workspaceDir, p) || ".") : p);
+  const record = (name, args, result) => {
+    const displayArgs = args?.path ? { ...args, path: displayPath(args.path) } : args;
+    emitter?.send({ type: "tool_call", name, args: displayArgs, result });
+    return result;
+  };
   return [
     // createAgent's preflight unconditionally probes "recall" once per turn
     // (lib/agent/preflight.js) — a neutral stub keeps that path quiet, same
     // reason tests/harness/host-tools.js stubs it.
     { name: "recall", description: "Recall stored memories", inputSchema: genericSchema,
-      handler: async () => "No memories found." },
+      handler: async (args) => record("recall", args, "No memories found.") },
     { name: "write_file", description: "Write a file in the workspace", inputSchema: genericSchema,
       handler: async (args) => {
         const abs = safe(args?.path);
         mkdirSync(dirname(abs), { recursive: true });
         writeFileSync(abs, args?.content ?? "", "utf8");
-        return `wrote ${args?.path}`;
+        return record("write_file", args, `wrote ${displayPath(args?.path)}`);
       } },
     { name: "read_file", description: "Read a file from the workspace", inputSchema: genericSchema,
       handler: async (args) => {
         const abs = safe(args?.path);
-        return existsSync(abs) ? readFileSync(abs, "utf8") : `❌ ${args?.path} not found`;
+        const result = existsSync(abs) ? readFileSync(abs, "utf8") : `❌ ${displayPath(args?.path)} not found`;
+        return record("read_file", args, result);
       } },
     { name: "list_files", description: "List files in the workspace", inputSchema: genericSchema,
       handler: async (args) => {
         const abs = safe(args?.path ?? ".");
-        if (!existsSync(abs)) return `❌ ${args?.path ?? "."} not found`;
-        return readdirSync(abs).join("\n") || "(empty)";
+        const result = !existsSync(abs) ? `❌ ${args?.path ?? "."} not found` : (readdirSync(abs).join("\n") || "(empty)");
+        return record("list_files", args, result);
       } },
   ];
 }
@@ -127,21 +143,27 @@ export function buildMockScript(fixture) {
 
 const activeSandboxes = new Set();
 
-async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, discard = false }) {
+async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, discard = false, transcriptDir = null, progress = null }) {
   const sandbox = buildSandbox({ arm });
   activeSandboxes.add(sandbox);
+  const label = `${fixture.id}/${arm}/repeat${repeat}${discard ? " (warm-up)" : ""}`;
+  if (progress) console.log(`▶ [${progress.index}/${progress.total}] ${label}`);
   try {
     if (existsSync(fixture.seedDir)) cpSync(fixture.seedDir, sandbox.workspaceDir, { recursive: true });
     const before = snapshotDir(sandbox.workspaceDir);
 
+    // Created before createAgent so the host tools can record into the SAME
+    // event stream the model's own stream_start/token/stream_end land in —
+    // one chronologically-ordered log, not two lists a transcript has to
+    // re-interleave by guesswork.
+    const sink = makeSinkEmitter();
     const providerConfig = dryRun ? { name: "mock", script: buildMockScript(fixture) } : { name: "llamacpp", model };
     const agent = await createAgent({
       root: sandbox.root,
       version: "1.0.0-minimalism-bench",
       providerConfig,
-      hostTools: createBenchHostTools(sandbox.workspaceDir),
+      hostTools: createBenchHostTools(sandbox.workspaceDir, sink.emitter),
     });
-    const sink = makeSinkEmitter();
     const messages = [{ role: "user", content: fixture.prompt }];
     const startedAt = Date.now();
     await runWithPaths([sandbox.root], [sandbox.root], sandbox.workspaceDir, () =>
@@ -151,13 +173,14 @@ async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, disca
     const after = snapshotDir(sandbox.workspaceDir);
     const usage = sumUsage(sink.events);
     const correct = runFixtureTests({ testsDir: fixture.testsDir, solutionDir: sandbox.workspaceDir });
+    const loc = locDelta(before, after);
 
     const row = {
       ts: new Date().toISOString(),
       task: fixture.id,
       arm,
       repeat,
-      loc: locDelta(before, after),
+      loc,
       input_tokens: usage.input,
       output_tokens: usage.output,
       net_tokens: usage.net,
@@ -169,6 +192,14 @@ async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, disca
     // A discarded warm-up exists only to pay the cold model-load/cache cost
     // before the recorded matrix starts — it must never land in the ledger.
     if (!discard && !dryRun) assertLiveUsage(row);
+
+    if (transcriptDir) {
+      mkdirSync(transcriptDir, { recursive: true });
+      const meta = { task: fixture.id, arm, repeat, discard, model: row.model, correct, loc, inputTokens: usage.input, outputTokens: usage.output, netTokens: usage.net, wallMs, prompt: fixture.prompt };
+      const transcriptPath = join(transcriptDir, `${fixture.id}-${arm}-repeat${repeat}${discard ? "-warmup" : ""}.md`);
+      writeFileSync(transcriptPath, renderTranscript(meta, sink.events), "utf8");
+    }
+    if (progress) console.log(`  ${correct ? "✔" : "✖"} correct=${correct ? "yes" : "no"} tokens=${usage.input}/${usage.output}/${usage.net} wall=${wallMs}ms`);
     return row;
   } finally {
     sandbox.cleanup();
@@ -214,17 +245,52 @@ export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.
   if (!dryRun) await waitForLlamaReadiness({ baseURL: LIVE_EVAL_BASE_URL, model, fetchImpl: live.fetchImpl });
   const skillSha = sha256File(SKILL_MD_PATH);
 
-  const rows = [];
-  for (const fixture of fixtures) {
-    for (const { repeat, arm, discard } of buildFixtureCellPlan({ dryRun, repeats })) {
-      const row = await runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, discard });
+  // resolveProvider() (lib/providers/index.js) reads process.env.LLAMACPP_BASE_URL
+  // directly and has no override path through providerConfig — the isolated
+  // server's port only reaches the evaluator-owned CHILD process's env
+  // (startIsolatedLlamaEval's spawn). Without this, every inference call in
+  // THIS process falls back to the hardcoded default 127.0.0.1:8080 instead
+  // of the isolated evaluator server, silently defeating the isolation.
+  const priorBaseURL = process.env.LLAMACPP_BASE_URL;
+  if (!dryRun) process.env.LLAMACPP_BASE_URL = LIVE_EVAL_BASE_URL;
+
+  try {
+    const outputLedger = ledgerPath || LEDGER_PATH;
+    mkdirSync(dirname(outputLedger), { recursive: true });
+    const ledgerName = basename(outputLedger, ".tsv");
+    // Sibling to the ledger, not inside it — a browser or `less` opens these
+    // directly; nothing here is a server this eval has any business running.
+    const transcriptDir = join(dirname(outputLedger), "transcripts", ledgerName);
+    const reportPath = join(dirname(outputLedger), `${ledgerName}.report.md`);
+
+    const cellPlan = [];
+    for (const fixture of fixtures) {
+      for (const cell of buildFixtureCellPlan({ dryRun, repeats })) cellPlan.push({ fixture, ...cell });
+    }
+
+    const rows = [];
+    let index = 0;
+    for (const { fixture, repeat, arm, discard } of cellPlan) {
+      index++;
+      const row = await runOneCell({
+        fixture, arm, repeat, dryRun, skillSha, model, discard, transcriptDir,
+        progress: { index, total: cellPlan.length },
+      });
       if (!discard) rows.push(row);
     }
+
+    for (const row of rows) appendLedgerRow(outputLedger, row);
+    if (rows.length) writeFileSync(reportPath, renderReport(rows), "utf8");
+    console.log(`[minimalism-bench] ledger:      ${outputLedger}`);
+    console.log(`[minimalism-bench] report:      ${reportPath}`);
+    console.log(`[minimalism-bench] transcripts: ${transcriptDir}`);
+    return rows;
+  } finally {
+    if (!dryRun) {
+      if (priorBaseURL === undefined) delete process.env.LLAMACPP_BASE_URL;
+      else process.env.LLAMACPP_BASE_URL = priorBaseURL;
+    }
   }
-  const outputLedger = ledgerPath || LEDGER_PATH;
-  mkdirSync(dirname(outputLedger), { recursive: true });
-  for (const row of rows) appendLedgerRow(outputLedger, row);
-  return rows;
 }
 
 async function main() {
