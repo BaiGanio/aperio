@@ -79,6 +79,7 @@ test("Interrupt tests", async (t) => {
       // Confirmation is skipped entirely under benchmark mode (headless runs
       // have no user to answer) — this suite needs the real confirm path.
       APERIO_BENCHMARK_RUN: "0",
+      APERIO_INTERRUPT_TTL_MS: "3000", // 3s TTL: long enough for G1-G3, short enough for G4 expiry test
     },
   });
 
@@ -172,12 +173,30 @@ test("Interrupt tests", async (t) => {
     assert.equal(badDecision.status, 404, "Unknown interrupt ID returns 404");
   });
 
-  // G4 (expired interrupt): WRITE_TOKEN_TTL_MS is a hard-coded 2-minute
-  // constant in mcp/tools/files/interrupt.js with no test override — waiting
-  // it out would make this suite 2+ minutes slower for one assertion.
-  // Diagnostic skip per the plan's own fallback ("if TTL is not configurable
-  // for tests, skip this with a diagnostic").
-  await t.test("G4: expired interrupt cannot be approved (skipped — no TTL override)", (t) => {
-    t.skip("WRITE_TOKEN_TTL_MS is a fixed 2-minute constant; no test hook to shorten it");
+  await t.test("G4: expired interrupt cannot be approved", async () => {
+    const path = targetPath(`e2e-expired-${randomUUID().slice(0, 8)}.txt`);
+    const resultText = await callToolViaSentinel(fixture, "write_file", {
+      path,
+      content: "will expire",
+      __tainted: true,
+    });
+
+    // Parse the interrupt token from the WS result (proposeWrite outputs "Token: ...")
+    const tokenMatch = resultText.match(/Token: (\S+)/);
+    assert.ok(tokenMatch, `Token found in result: ${resultText}`);
+    const token = tokenMatch[1];
+
+    // Wait long enough for the 3s TTL to expire (with margin)
+    await new Promise(r => setTimeout(r, 3100));
+
+    // Try to approve the expired interrupt
+    const decisionRes = await request(fixture, `/api/interrupts/${token}/decision`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Aperio-Client": "e2e" },
+      body: JSON.stringify({ decision: "approve" }),
+    });
+    assert.equal(decisionRes.status, 200, "Decision succeeds with expired message");
+    assert.match(decisionRes.json.result, /expired/i, "Response indicates token has expired");
+    assert.ok(!existsSync(path), "File was never written");
   });
 });
