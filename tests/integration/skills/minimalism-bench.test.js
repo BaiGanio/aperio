@@ -16,7 +16,23 @@ import { loadFixtures } from "../../../scripts/minimalism-bench.js";
 const FIXTURES_DIR = resolve(REPO_ROOT, "tests/fixtures/minimalism-tasks");
 const RUNNER_SCRIPT = resolve(REPO_ROOT, "scripts/minimalism-bench.js");
 const LEDGER_PATH = resolve(REPO_ROOT, "var/autotune/minimalism.tsv");
+const REPORT_PATH = resolve(REPO_ROOT, "var/autotune/minimalism.report.md");
+const TRANSCRIPTS_ROOT = resolve(REPO_ROOT, "var/autotune/transcripts");
+const TRANSCRIPTS_DIR = join(TRANSCRIPTS_ROOT, "minimalism");
 const fixtures = loadFixtures(null);
+
+// The runner always writes the ledger, its sibling report.md, and a
+// transcripts/ dir together — every test that touches the ledger touches all
+// three, so cleanup (before AND after, matching the existing rmSync(LEDGER_PATH)
+// convention) has to sweep all three or leaves the other two as stray state
+// across test runs. Removing the whole transcripts/ root, not just its
+// "minimalism" leaf, avoids leaving an empty parent dir behind — this suite
+// never uses any other ledger name.
+function cleanRunArtifacts() {
+  rmSync(LEDGER_PATH, { force: true });
+  rmSync(REPORT_PATH, { force: true });
+  rmSync(TRANSCRIPTS_ROOT, { recursive: true, force: true });
+}
 
 // ── E1 — Arm construction (offline, no model) ────────────────────────────
 describe("E1 — arm construction", () => {
@@ -113,7 +129,7 @@ describe("E3 — task fixtures", () => {
 // ── E4 — Runner + ledger (dry-run, CI-safe) ──────────────────────────────
 describe("E4 — dry-run runner + ledger", () => {
   test("--dry-run reproduces the eval end-to-end with no live model", () => {
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
     const result = spawnSync(process.execPath, [RUNNER_SCRIPT, "--dry-run", "--tasks=slug-helper,debounce-stdlib", "--repeats=1"], {
       cwd: REPO_ROOT,
       encoding: "utf8",
@@ -123,11 +139,11 @@ describe("E4 — dry-run runner + ledger", () => {
     const lines = readFileSync(LEDGER_PATH, "utf8").trim().split("\n");
     // header + 2 tasks x 2 arms x 1 repeat = 5 lines
     assert.equal(lines.length, 5, `expected 1 header + 4 rows, got:\n${lines.join("\n")}`);
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
   });
 
   test("without NODE_ENV pre-set, --dry-run still works (sets it itself rather than failing loudly)", () => {
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
     const env = { ...process.env };
     delete env.NODE_ENV;
     const result = spawnSync(process.execPath, [RUNNER_SCRIPT, "--dry-run", "--tasks=slug-helper", "--repeats=1"], {
@@ -136,11 +152,11 @@ describe("E4 — dry-run runner + ledger", () => {
       env,
     });
     assert.equal(result.status, 0, result.stderr);
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
   });
 
   test("ledger rows are complete and typed", () => {
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
     const result = spawnSync(process.execPath, [RUNNER_SCRIPT, "--dry-run", "--tasks=slug-helper,divide-with-validation", "--repeats=1"], {
       cwd: REPO_ROOT,
       encoding: "utf8",
@@ -163,14 +179,40 @@ describe("E4 — dry-run runner + ledger", () => {
     }
     // skill_sha identical across the whole run
     assert.equal(new Set(rows.map(r => r.skill_sha)).size, 1);
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
+  });
+
+  test("--dry-run also writes a per-cell transcript and a run report, not just the ledger", () => {
+    cleanRunArtifacts();
+    const result = spawnSync(process.execPath, [RUNNER_SCRIPT, "--dry-run", "--tasks=slug-helper", "--repeats=1"], {
+      cwd: REPO_ROOT,
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0, result.stderr);
+
+    assert.ok(existsSync(REPORT_PATH), "report.md was not written");
+    const report = readFileSync(REPORT_PATH, "utf8");
+    assert.match(report, /\| slug-helper \| A \|/);
+    assert.match(report, /\| slug-helper \| B \|/);
+    assert.match(report, /\*\*Verdict: /);
+
+    assert.ok(existsSync(TRANSCRIPTS_DIR), "transcripts/ was not written");
+    const files = readdirSync(TRANSCRIPTS_DIR).sort();
+    // 1 task x 2 arms x 1 repeat, no warm-up in dry-run mode
+    assert.deepEqual(files, ["slug-helper-A-repeat1.md", "slug-helper-B-repeat1.md"]);
+
+    const transcript = readFileSync(join(TRANSCRIPTS_DIR, "slug-helper-A-repeat1.md"), "utf8");
+    assert.match(transcript, /## Prompt/);
+    assert.match(transcript, /## Conversation/);
+    assert.match(transcript, /\*\*Tool call:\*\* `write_file/);
+    cleanRunArtifacts();
   });
 });
 
 // ── E6 — Hygiene ──────────────────────────────────────────────────────────
 describe("E6 — hygiene", () => {
   test("no stray state after a dry run", () => {
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
     const gitBefore = spawnSync("git", ["status", "--porcelain"], { cwd: REPO_ROOT, encoding: "utf8" }).stdout;
 
     const result = spawnSync(process.execPath, [RUNNER_SCRIPT, "--dry-run", "--tasks=slug-helper", "--repeats=1"], {
@@ -184,7 +226,7 @@ describe("E6 — hygiene", () => {
     // the porcelain output must be byte-identical before and after.
     assert.equal(gitAfter, gitBefore);
     assert.ok(existsSync(LEDGER_PATH), "the one expected write (the ledger) did not happen");
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
   });
 
   test("teardown survives a forced throw mid-run", () => {
@@ -204,7 +246,7 @@ describe("E6 — hygiene", () => {
   });
 
   test("SIGINT mid-run removes every sandbox the run had already created", async () => {
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
     const before = new Set(readdirSync(tmpdir()).filter(n => n.startsWith("aperio-minimalism-")));
 
     const child = spawn(process.execPath, [RUNNER_SCRIPT, "--dry-run", "--tasks=slug-helper,debounce-stdlib,reuse-query-parser,includes-wrapper,divide-with-validation,parse-config-value,cache-entry-ttl", "--repeats=3"], {
@@ -220,6 +262,6 @@ describe("E6 — hygiene", () => {
 
     const after = readdirSync(tmpdir()).filter(n => n.startsWith("aperio-minimalism-") && !before.has(n));
     assert.deepEqual(after, [], `orphaned sandbox dirs after SIGINT: ${after.join(", ")}`);
-    rmSync(LEDGER_PATH, { force: true });
+    cleanRunArtifacts();
   });
 });

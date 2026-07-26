@@ -52,31 +52,47 @@ Versions follow [Semantic Versioning](https://semver.org/).
   `createAgent()` + `runAgentLoop()` (MCP stubbed at the SDK layer, same
   pattern as the agent-loop harness), measuring lines of code, *net* tokens
   (input+output — output alone would flatter the skill by hiding its own
-  prompt cost), correctness, and wall time. 6 held-out task fixtures live
-  under `tests/fixtures/minimalism-tasks/`, two of which ship a corner-cutting
-  `anti-solution/` that must fail its own reference tests, so a "minimal"
-  answer that skips validation scores as incorrect rather than as a win.
-  `--dry-run` replays a deterministic mock script built from each fixture's
-  reference solution, exercising the whole pipeline in CI with no live model;
-  a live run discards one warm-up repeat per fixture and alternates A/B/B/A
-  across repeats so cold-cache and thermal drift can't land on one arm.
-  Live evaluation is isolated behind an evaluator-owned llama-server on port
-  18080, with readiness/model guards, per-model ledgers outside `var/`,
-  transactional writes, and teardown on completion or signal; a zero-usage
-  cell invalidates the run. Results from dry runs append to
+  prompt cost), correctness, and wall time. 7 held-out task fixtures live
+  under `tests/fixtures/minimalism-tasks/` — 6 single-file "sanity tier"
+  fixtures plus `cache-entry-ttl`, a multi-file "feature tier" fixture with
+  room for over-engineering to actually manifest — three of which ship a
+  corner-cutting `anti-solution/` that must fail its own reference tests, so
+  a "minimal" answer that skips validation scores as incorrect rather than
+  as a win. `--dry-run` replays a deterministic mock script built from each
+  fixture's reference solution, exercising the whole pipeline in CI with no
+  live model; a live run discards one warm-up repeat per fixture and
+  alternates A/B/B/A across repeats so cold-cache and thermal drift can't
+  land on one arm. Live evaluation is isolated behind an evaluator-owned
+  llama-server on port 18080, with readiness/model guards, per-model ledgers
+  outside `var/`, transactional writes, and teardown on completion or
+  signal; a zero-usage cell invalidates the run. Isolation covers both
+  halves: the evaluator's own server lifecycle (`scripts/minimalism-live-server.js`,
+  kept alive with a real timer rather than an unresolved promise with nothing
+  else pending — the latter made Node exit with code 13 and orphan the
+  server child it had just spawned) and this process's own inference calls
+  (`runMatrix()` now points `LLAMACPP_BASE_URL` at the isolated port for the
+  duration of a live run — `resolveProvider()` has no override path through
+  `providerConfig`, so without this every call silently fell back to the
+  shared default port 8080, defeating the isolation). Every run also writes
+  a `<ledger>.report.md` human-readable summary (per task/arm correctness and
+  median tokens/wall-time, plus the verdict) and a `transcripts/<ledger-name>/`
+  directory with one markdown file per cell — prompt, every tool call with
+  its args/result, and the model's full turn text, opened directly in a
+  terminal or browser — plus a one-line-per-cell progress indicator on
+  stdout, since the sparse internal agent logs alone don't show whether a
+  live run is progressing or stuck. Results from dry runs append to
   `var/autotune/minimalism.tsv`; `computeVerdict()`
   (`lib/helpers/minimalismBench.js`) applies a pre-registered KEEP / TRIM /
   DROP / INCONCLUSIVE rule to the medians, where a correctness regression
   (judged by per-task pass rate, not an all-or-nothing gate — a baseline that
   itself isn't flawless can still regress) disqualifies a verdict no matter
-  how good the token numbers look. 38 tests across
+  how good the token numbers look. 52 tests across
   `tests/unit/helpers/minimalism-bench.test.js` and
   `tests/integration/skills/minimalism-bench.test.js` cover arm construction,
   fixture correctness, the dry-run pipeline, ledger integrity, verdict
-  thresholds, and sandbox teardown hygiene (forced failure and `SIGINT`). The
-  live run against llama.cpp and its verdict on #285 are a deliberately
-  separate, manually-gated next step — the runner is guarded, but no model
-  verdict has been recorded yet.
+  thresholds, transcript/report rendering, and sandbox teardown hygiene
+  (forced failure and `SIGINT`). Model verdicts against live providers remain
+  a separate, manually-gated exercise tracked on #285.
 - **Audit Run 1 — all 22 component slices complete** (A01–A22): every slice now
   has a content-hashed `manifest.json` and a `contract-result.json` with
   deterministic invariant checks. Completed slices span WebSocket/session lifecycle
