@@ -156,7 +156,7 @@
 
   window.toggleSettingsPanel = function () {
     const p = panel(), b = backdrop();
-    const opening = p.style.display === "none";
+    const opening = getComputedStyle(p).display === "none";
     if (opening) {
       wireSound();
       syncSound();

@@ -10,7 +10,8 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, isDocumentAggregationIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, CONFIRM_TOOLS, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, isDocumentAggregationIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools } from "../../../lib/agent/tool-profiles.js";
+import { CONFIRMABLE_TOOLS } from "../../../lib/helpers/confirmableTools.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
@@ -19,6 +20,15 @@ function toolsFor(text) {
     ...(HOST_TOOL_PROFILES[p] ?? []),
   ]));
 }
+
+describe("tool-profiles — confirm tool lists are the same object", () => {
+  test("CONFIRM_TOOLS === CONFIRMABLE_TOOLS", () => {
+    assert.equal(CONFIRM_TOOLS, CONFIRMABLE_TOOLS,
+      "CONFIRM_TOOLS (emit side) and CONFIRMABLE_TOOLS (accept side) must be the same Set; " +
+      "adding a confirmable tool to only one list silently breaks either the confirm button " +
+      "or the reply handler.");
+  });
+});
 
 describe("tool-profiles — read_docx availability (issue #125)", () => {
   test("docx→xlsx conversion prompt surfaces read_docx", () => {

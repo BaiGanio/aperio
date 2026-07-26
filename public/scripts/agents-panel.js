@@ -553,7 +553,7 @@
   }
 
   // ── Open/close ────────────────────────────────────────────────────────────────
-  function isOpen() { return panel().style.display !== "none"; }
+  function isOpen() { return getComputedStyle(panel()).display !== "none"; }
 
   window.toggleAgentsPanel = function () {
     if (isOpen()) {

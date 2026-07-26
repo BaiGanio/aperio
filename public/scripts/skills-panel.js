@@ -32,7 +32,7 @@
     const names = [..._oneShot];
     if (!names.length) return names;
     _oneShot.clear();
-    if (panel() && panel().style.display !== "none") render();
+    if (panel() && getComputedStyle(panel()).display !== "none") render();
     return names;
   };
 
@@ -280,7 +280,7 @@
 
   // ── Toggle ────────────────────────────────────────────────────────────────────
   window.toggleSkillsPanel = function () {
-    const open = panel().style.display !== "none";
+    const open = getComputedStyle(panel()).display !== "none";
     if (open) {
       panel().style.display = "none";
       backdrop().style.display = "none";
@@ -301,7 +301,7 @@
   // t() once; on a language switch, re-render the list and drop the cached
   // modal so it's rebuilt in the new language next time it opens.
   document.addEventListener("aperio:lang-changed", () => {
-    if (panel().style.display !== "none") render();
+    if (getComputedStyle(panel()).display !== "none") render();
     document.getElementById("skill-edit-modal")?.remove();
   });
 })();
