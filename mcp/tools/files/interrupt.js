@@ -20,7 +20,7 @@ import { createInterruptService } from "../../../lib/security/interruptService.j
 import { ALLOWED_EXTENSIONS, isSecretFile, textOut } from "./helpers.js";
 import { performWrite, performAppend, performEdit, performDelete } from "./perform.js";
 
-const WRITE_TOKEN_TTL_MS = 2 * 60 * 1000; // 2 minutes
+const WRITE_TOKEN_TTL_MS = parseInt(process.env.APERIO_INTERRUPT_TTL_MS, 10) || (2 * 60 * 1000); // 2 minutes; override via env for tests
 export const FILE_INTERRUPT_SESSION_ID = "mcp-file-actions";
 const fallbackInterruptStore = makeMemoryInterruptStore();
 

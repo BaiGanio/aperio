@@ -388,21 +388,22 @@ describe("runCodexLoop", () => {
             // Snapshot the temp file's content while codex is still "running",
             // before this turn's post-exit cleanup (group G2) removes it.
             beforeClose: () => {
-              const imgPath = capture.args[capture.args.indexOf("-i") + 1];
+              const imgArg = capture.args.find(arg => arg.startsWith("--image="));
+              const imgPath = imgArg.slice("--image=".length);
               contentDuringRun = vfsGet(imgPath);
             },
           }),
         }),
       );
 
-      const iIdx = capture.args.indexOf("-i");
-      assert.ok(iIdx >= 0, "expected a -i flag in codex args");
-      const imgPath = capture.args[iIdx + 1];
+      const imgArg = capture.args.find(arg => arg.startsWith("--image="));
+      assert.ok(imgArg, "expected an --image=<path> argument in codex args");
+      const imgPath = imgArg.slice("--image=".length);
       assert.ok(imgPath.startsWith(scratch), "temp image path should live under the scratch dir");
       assert.ok(contentDuringRun, "temp image file should have existed while codex was running");
       assert.equal(contentDuringRun.content.toString("base64"), PNG_BASE64);
 
-      // No image blocks at all → no -i arg (regression guard).
+      // No image blocks at all → no --image arg (regression guard).
       const capture2 = {};
       await runCodexLoop(
         [{ role: "user", content: "Hello, no image here" }],
@@ -415,10 +416,10 @@ describe("runCodexLoop", () => {
           }),
         }),
       );
-      assert.equal(capture2.args.includes("-i"), false);
+      assert.equal(capture2.args.some(arg => arg.startsWith("--image=")), false);
     });
 
-    test("G1 edge: two images in one turn produce two distinct -i <path> pairs", async () => {
+    test("G1 edge: two images in one turn produce two distinct --image=<path> args", async () => {
       const scratch = "/fake/aperture-project/var/scratch/session-g1b";
       const capture = {};
       await runCodexLoop(
@@ -438,11 +439,12 @@ describe("runCodexLoop", () => {
       );
 
       const paths = capture.args.reduce((acc, arg, i) => {
-        if (arg === "-i") acc.push(capture.args[i + 1]);
+        if (arg.startsWith("--image=")) acc.push(arg.slice("--image=".length));
         return acc;
       }, []);
       assert.equal(paths.length, 2);
       assert.notEqual(paths[0], paths[1]);
+      assert.match(capture.args.at(-1), /Compare these/);
     });
 
     test("G2: per-turn image temp files no longer exist once the codex child has exited", async () => {
@@ -463,7 +465,8 @@ describe("runCodexLoop", () => {
         }),
       );
 
-      const imgPath = capture.args[capture.args.indexOf("-i") + 1];
+      const imgArg = capture.args.find(arg => arg.startsWith("--image="));
+      const imgPath = imgArg.slice("--image=".length);
       assert.equal(vfsGet(imgPath), undefined, "temp image file should be cleaned up after the turn");
     });
   });
