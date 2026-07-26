@@ -1,7 +1,7 @@
 // tests/lib/helpers/modelProgress.test.js
 import { describe, test, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { mkdirSync, writeFileSync, truncateSync, rmSync, mkdtempSync } from "fs";
+import { mkdirSync, writeFileSync, truncateSync, rmSync, mkdtempSync, utimesSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import {
@@ -67,6 +67,14 @@ describe("downloadInProgressBytes", () => {
     assert.equal(downloadInProgressBytes(MODEL, root), 0);
     assert.equal(downloadInProgressBytes("org/never-fetched", root), 0);
     assert.equal(downloadInProgressBytes("bare-alias", root), 0);
+  });
+
+  test("ignores an orphaned marker that has not changed recently", () => {
+    const root = makeCache(MODEL, { "orphan.downloadInProgress": 1500 });
+    const marker = join(root, cacheDirNameFor(MODEL), "blobs", "orphan.downloadInProgress");
+    const stale = (Date.now() - 16 * 60 * 1000) / 1000;
+    utimesSync(marker, stale, stale);
+    assert.equal(downloadInProgressBytes(MODEL, root), 0);
   });
 });
 
