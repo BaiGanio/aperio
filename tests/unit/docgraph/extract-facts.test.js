@@ -52,6 +52,20 @@ describe("extractDateCandidates", () => {
     assert.deepEqual(extractDateCandidates(""), []);
     assert.deepEqual(extractDateCandidates("no dates in this sentence at all"), []);
   });
+
+  test("labels a date following the bilingual \"Дата (Date):\" format (payment form, #313)", () => {
+    const text = [
+      "  Сума (Amount):              29,99",
+      "  Валута (Currency):          BGN",
+      "  Основание (Payment details):Интернет 05/2026, кл. № N-4821",
+      "  Дата (Date):                12.06.2026",
+    ].join("\n");
+    const dates = extractDateCandidates(text);
+    assert.equal(dates.length, 1);
+    assert.equal(dates[0].role, "document_date");
+    assert.equal(dates[0].confidence, "high");
+    assert.equal(dates[0].value, "2026-06-12");
+  });
 });
 
 describe("extractAmountCandidates", () => {
