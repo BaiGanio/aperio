@@ -10,11 +10,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ## Unreleased
 
 - **Codex turn guardrails** (#302): the Codex provider now records aggregate
-  processed/cached/output/reasoning usage together with tool-call count, elapsed time,
-  and guardrail status. Configurable per-turn limits interrupt pathological tool loops
-  and stalled processes with an actionable message; aggregate-token limits are enforced
-  when the Codex CLI reports usage. Defaults are 32 tool calls, 250,000 processed
-  tokens, and 900 seconds.
+  processed/cached/output/reasoning usage together with distinct tool-call and internal
+  step counts, elapsed time, and guardrail status. Configurable live tool, step, and
+  timeout limits interrupt pathological turns with an actionable message. The current
+  Codex CLI's post-turn processed-token ceiling is reported as observed telemetry and
+  preserves the completed answer. Defaults are 64 tool calls, 128 work steps,
+  1,200,000 ms, and 300,000 processed tokens.
 - **New skill: `code-minimalism`** — a pre-write decision ladder (#285 WS1). Aperio
   had a post-write cleanup skill (`code-simplification`) but nothing that fired
   *before* the code existed. The new skill asks, in order: does this need to exist →

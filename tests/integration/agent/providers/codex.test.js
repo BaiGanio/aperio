@@ -174,8 +174,9 @@ describe("runCodexLoop", () => {
     delete process.env.CODEX_MCP_APPROVAL_MODE;
     delete process.env.CODEX_API_KEY;
     delete process.env.CODEX_TURN_MAX_TOOL_CALLS;
+    delete process.env.CODEX_TURN_MAX_STEPS;
+    delete process.env.CODEX_TURN_TIMEOUT_MS;
     delete process.env.CODEX_TURN_MAX_PROCESSED_TOKENS;
-    delete process.env.CODEX_TURN_MAX_SECONDS;
   });
 
   test("returns final agent message and stores thread id", async () => {
@@ -266,9 +267,39 @@ describe("runCodexLoop", () => {
 
     assert.match(result, /turn limit reached/i);
     const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
-    assert.equal(end.usage.tool_calls, 1);
-    assert.deepEqual(end.usage.guardrail, { kind: "tool_calls", limit: 1, value: 2 });
+    assert.equal(end.usage.tool_calls, 2);
+    assert.deepEqual(end.usage.guardrail, {
+      kind: "tool_calls", limit: 1, value: 2,
+      enforcement: "live", setting: "CODEX_TURN_MAX_TOOL_CALLS",
+    });
     assert.equal(emitter.send.mock.calls.filter(c => c.arguments[0].type === "tool_start").length, 1);
+  });
+
+  test("interrupts distinct internal work at the configured step budget", async () => {
+    process.env.CODEX_TURN_MAX_STEPS = "1";
+    const emitter = { send: mock.fn() };
+    const result = await runCodexLoop(
+      [{ role: "user", content: "Think then act" }],
+      emitter, {}, null, () => {},
+      baseCtx({
+        codexSpawn: mockChild({
+          capture: {},
+          stdoutLines: [
+            { type: "item.started", item: { id: "reason-1", type: "reasoning" } },
+            { type: "item.completed", item: { id: "reason-1", type: "reasoning", text: "plan" } },
+            { type: "item.started", item: { id: "tool-1", type: "command_execution", command: "echo work" } },
+          ],
+        }),
+      }),
+    );
+
+    assert.match(result, /CODEX_TURN_MAX_STEPS/);
+    const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
+    assert.deepEqual(end.usage.guardrail, {
+      kind: "internal_steps", limit: 1, value: 2,
+      enforcement: "live", setting: "CODEX_TURN_MAX_STEPS",
+    });
+    assert.equal(end.usage.internal_steps, 2);
   });
 
   test("reports processed-token exhaustion when Codex returns aggregate usage", async () => {
@@ -288,14 +319,18 @@ describe("runCodexLoop", () => {
       }),
     );
 
-    assert.match(result, /turn limit reached/i);
+    assert.match(result, /observed aggregate-token ceiling/i);
+    assert.match(result, /Too much work/);
     const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
-    assert.deepEqual(end.usage.guardrail, { kind: "processed_tokens", limit: 100, value: 101 });
+    assert.deepEqual(end.usage.guardrail, {
+      kind: "processed_tokens", limit: 100, value: 101,
+      enforcement: "observed", setting: "CODEX_TURN_MAX_PROCESSED_TOKENS",
+    });
   });
 
   test("interrupts a stalled Codex process at the configured elapsed-time budget", async () => {
-    process.env.CODEX_TURN_MAX_SECONDS = "0.001";
     const emitter = { send: mock.fn() };
+    let now = 0;
     const result = await runCodexLoop(
       [{ role: "user", content: "Wait" }],
       emitter, {}, null, () => {},
@@ -304,19 +339,27 @@ describe("runCodexLoop", () => {
           const child = new EventEmitter();
           child.stdout = new PassThrough();
           child.stderr = new PassThrough();
-          setTimeout(() => {
+          setImmediate(() => {
             child.stdout.push(null);
             child.stderr.push(null);
             child.emit("close", 0);
-          }, 20);
+          });
           return child;
         },
+        codexSetTimeout: callback => {
+          now = 1;
+          callback();
+          return { unref() {} };
+        },
+        codexClearTimeout: () => {},
+        codexClock: { now: () => now },
+        codexTurnEnv: { CODEX_TURN_TIMEOUT_MS: "1" },
       }),
     );
 
     assert.match(result, /turn limit reached/i);
     const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
-    assert.equal(end.usage.guardrail.kind, "elapsed_seconds");
+    assert.equal(end.usage.guardrail.kind, "elapsed_ms");
     assert.ok(end.usage.elapsed_ms >= 1);
   });
 
