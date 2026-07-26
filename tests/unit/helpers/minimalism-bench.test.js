@@ -3,7 +3,7 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -11,8 +11,105 @@ import {
   countSourceLoc, locDelta, sumUsage, runFixtureTests, median, medianAbsoluteDeviation, computeVerdict, REPO_ROOT,
 } from "../../../lib/helpers/minimalismBench.js";
 import { buildRunPlan, buildFixtureCellPlan, createBenchHostTools } from "../../../scripts/minimalism-bench.js";
+import {
+  LIVE_EVAL_PORT, LIVE_EVAL_BASE_URL, createLiveEvalPaths, waitForLlamaReadiness,
+  assertLiveUsage, teardownLiveEval, startIsolatedLlamaEval,
+} from "../../../lib/helpers/minimalismLiveEval.js";
 
 const FIXTURE = (id) => resolve(REPO_ROOT, "tests/fixtures/minimalism-tasks", id);
+
+describe("live minimalism-bench isolation", () => {
+  test("uses the dedicated port and keeps runtime state outside the repository", () => {
+    const paths = createLiveEvalPaths("org/model:Q4_K_M");
+    try {
+      assert.equal(LIVE_EVAL_PORT, "18080");
+      assert.equal(LIVE_EVAL_BASE_URL, "http://127.0.0.1:18080");
+      assert.ok(!paths.runtimeRoot.startsWith(REPO_ROOT));
+      assert.ok(!paths.ledgerPath.startsWith(resolve(REPO_ROOT, "var", "autotune")));
+      assert.match(paths.ledgerPath, /org_model_Q4_K_M/);
+    } finally {
+      rmSync(paths.runtimeRoot, { recursive: true, force: true });
+      rmSync(paths.ledgerPath, { force: true });
+    }
+  });
+
+  test("readiness requires health and the requested model", async () => {
+    const calls = [];
+    const fetchImpl = async (url) => {
+      calls.push(url);
+      if (url.endsWith("/health")) return { ok: true, status: 200 };
+      return { ok: true, status: 200, json: async () => ({ data: [{ id: "aperio-main" }] }) };
+    };
+    const result = await waitForLlamaReadiness({ model: "org/model:Q4_K_M", fetchImpl, timeoutMs: 20, pollMs: 1 });
+    assert.equal(result.ready, true);
+    assert.deepEqual(calls, ["http://127.0.0.1:18080/health", "http://127.0.0.1:18080/v1/models"]);
+  });
+
+  test("startup owns the child with the dedicated URL, port, model, and temporary cwd", () => {
+    const paths = createLiveEvalPaths("org/model:Q4_K_M");
+    let captured;
+    try {
+      const handle = startIsolatedLlamaEval({
+        model: "org/model:Q4_K_M",
+        paths,
+        bootstrapPath: "/repo/scripts/minimalism-live-server.js",
+        env: { KEEP_ME: "yes" },
+        spawnImpl: (...args) => {
+          captured = args;
+          return { pid: 7, exitCode: 0, signalCode: null };
+        },
+      });
+      assert.equal(handle.child.pid, 7);
+      assert.equal(captured[0], process.execPath);
+      assert.deepEqual(captured[1], ["/repo/scripts/minimalism-live-server.js"]);
+      assert.equal(captured[2].cwd, paths.runtimeRoot);
+      assert.equal(captured[2].env.LLAMACPP_PORT, "18080");
+      assert.equal(captured[2].env.LLAMACPP_BASE_URL, LIVE_EVAL_BASE_URL);
+      assert.equal(captured[2].env.LLAMACPP_MODEL, "org/model:Q4_K_M");
+      assert.equal(captured[2].env.KEEP_ME, "yes");
+    } finally {
+      rmSync(paths.runtimeRoot, { recursive: true, force: true });
+      rmSync(paths.ledgerPath, { force: true });
+    }
+  });
+
+  test("readiness fails when the requested model is unavailable", async () => {
+    await assert.rejects(
+      waitForLlamaReadiness({
+        model: "org/missing:Q4_K_M",
+        fetchImpl: async (url) => url.endsWith("/health")
+          ? { ok: true, status: 200 }
+          : { ok: true, status: 200, json: async () => ({ data: [{ id: "aperio-main", hf_repo: "org/other:Q4_K_M" }] }) },
+        timeoutMs: 5,
+        pollMs: 1,
+      }),
+      /requested model is unavailable/,
+    );
+  });
+
+  test("zero-usage cells invalidate a live run", () => {
+    assert.throws(() => assertLiveUsage({ task: "slug-helper", arm: "A", repeat: 1, input_tokens: 0, output_tokens: 0 }), /zero token usage/);
+    assert.doesNotThrow(() => assertLiveUsage({ task: "slug-helper", arm: "A", repeat: 1, input_tokens: 1, output_tokens: 0 }));
+  });
+
+  test("teardown signals the owned child and removes its runtime root", async () => {
+    const paths = createLiveEvalPaths("org/model");
+    const listeners = new Map();
+    const child = { pid: 424242, exitCode: null, signalCode: null, once(event, fn) { listeners.set(event, fn); } };
+    const signals = [];
+    await teardownLiveEval({ child, runtimeRoot: paths.runtimeRoot }, {
+      kill: (pid, signal) => {
+        signals.push([pid, signal]);
+        child.exitCode = 0;
+        listeners.get("exit")?.();
+      },
+      timeoutMs: 20,
+    });
+    assert.deepEqual(signals, [[424242, "SIGTERM"]]);
+    assert.equal(existsSync(paths.runtimeRoot), false);
+    rmSync(paths.ledgerPath, { force: true });
+  });
+});
 
 // ── E2 — Metrics ──────────────────────────────────────────────────────────
 describe("E2 — LOC counter ignores blanks and comments", () => {
