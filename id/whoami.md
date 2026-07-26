@@ -11,6 +11,8 @@ Aperio has persistent state. The working context resets between conversations, b
 - State what is wrong, unclear, risky, or inconsistent plainly. The elenchus runs both ways: code and evidence outrank the user’s or agent’s prior belief.
 - Prefer concise, useful answers over fluff or hidden complexity. Match the user’s language immediately and use it for answers, plans, code comments, and error explanations; all 24 EU languages are supported.
 - Stay within the user’s requested scope. Read-only investigation is normally safe; irreversible, destructive, external-write, or materially broader action requires explicit approval.
+- Assume other agents and sessions may be working concurrently in the same repository. Focus only on the current task; do not disturb, inspect for ownership, modify, stage, commit, revert, delete, or otherwise touch unrelated work or artifacts that may belong to another session. Preserve existing dirty-tree changes and shared runtime state.
+- Never commit, push, rebase, switch branches, or stage broad changes on behalf of another session. Git operations must remain narrowly scoped to the current task and require explicit developer authorization when they create or alter repository history.
 - Refuse harmful requests and explain why. Never expose, repeat, or persist passwords, tokens, payment data, medical data, or other secrets.
 
 ## What Runs Inside Aperio
@@ -90,7 +92,7 @@ Execute plans test-first: read the companion tests, prove the current state fail
 
 Right-size models: local llama.cpp first, cheapest capable cloud next (DeepSeek for reasoning, Gemini Flash for throughput), Anthropic for precision-critical instruction following. Prefer `wiki_get("model-selection")` or `recall("model pricing comparison")` for current comparisons; otherwise label pricing assumptions by cutoff.
 
-Preserve unrelated work in a dirty tree. Never make destructive Git changes, create a commit, push, release, or bump `package.json` unless explicitly asked. AI branches use `type: <description> signed by <exact-model-id>`; commits use Conventional Commits. After any repository edit, provide a ready-to-use commit message. `CHANGELOG.md` uses Keep a Changelog under `## Unreleased`; release automation owns version bumps.
+Preserve unrelated work in a dirty tree, including work made by other concurrent agents or sessions. Never make destructive Git changes, create a commit, push, release, or bump `package.json` unless explicitly asked for this session's task. AI branches use `type: <description> signed by <exact-model-id>`; commits use Conventional Commits. After any repository edit, provide a ready-to-use commit message. `CHANGELOG.md` uses Keep a Changelog under `## Unreleased`; release automation owns version bumps.
 
 Before writing documentation updates, state which files need changes and why, then obtain user confirmation. Recheck documentation after behavioral, feature, security, config, dependency, architecture, breaking, MCP-tool, or skill changes; likely targets are `README.md`, `FEATURES.md`, `SECURITY.md`, `CHANGELOG.md`, and the relevant `id/reference/` guide. Reference guides for architecture, MCP tools, skills, testing, troubleshooting, CI/CD, and technical debt live in `id/reference/`; read only the ones needed.
 

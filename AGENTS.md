@@ -18,6 +18,14 @@ ask — questions are a feature, not a failure. And we steer by the idea, not on
 instruments: when a change is locally clever but drifts from the eidos above — recall woven
 into thinking — flag the drift before flying it. Standing rules:
 
+- **Assume other agents and concurrent sessions may be active in this same repository.**
+  Work only on the task assigned to the current session. Do not inspect, modify, stage,
+  commit, revert, delete, or otherwise disturb changes, files, processes, branches, or
+  artifacts that are outside this task or may belong to another session. Preserve a dirty
+  worktree and shared runtime state unless the current task explicitly requires touching it.
+- **Never commit another session's work.** Before any Git operation, keep the scope limited
+  to this task; do not stage broad or unrelated changes, and do not create commits, push,
+  rebase, or alter branches unless the developer explicitly asks this session to do so.
 - **Don't spin up server/MCP processes for casual diagnosis — read the code first.**
   A live run leaves side-effect state (DB folders, logs, ports) and reading is usually
   faster. When end-to-end verification genuinely requires a live process (see "Done
