@@ -37,13 +37,15 @@ const SKILL_MD_PATH = resolve(REPO_ROOT, "skills/code-minimalism/SKILL.md");
 const LIVE_BOOTSTRAP_PATH = resolve(REPO_ROOT, "scripts/minimalism-live-server.js");
 
 export function parseArgs(argv) {
-  const args = { dryRun: false, tasks: null, repeats: 3, verdict: false, model: null };
+  const args = { dryRun: false, tasks: null, repeats: 3, verdict: false, model: null, existingServer: false, provider: "llamacpp" };
   for (const arg of argv) {
     if (arg === "--dry-run") args.dryRun = true;
     else if (arg === "--verdict") args.verdict = true;
     else if (arg.startsWith("--tasks=")) args.tasks = arg.slice("--tasks=".length).split(",").filter(Boolean);
     else if (arg.startsWith("--repeats=")) args.repeats = parseInt(arg.slice("--repeats=".length), 10);
     else if (arg.startsWith("--model=")) args.model = arg.slice("--model=".length);
+    else if (arg === "--existing-server") args.existingServer = true;
+    else if (arg.startsWith("--provider=")) args.provider = arg.slice("--provider=".length);
   }
   return args;
 }
@@ -143,7 +145,7 @@ export function buildMockScript(fixture) {
 
 const activeSandboxes = new Set();
 
-async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, discard = false, transcriptDir = null, progress = null }) {
+async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, discard = false, transcriptDir = null, progress = null, provider = "llamacpp" }) {
   const sandbox = buildSandbox({ arm });
   activeSandboxes.add(sandbox);
   const label = `${fixture.id}/${arm}/repeat${repeat}${discard ? " (warm-up)" : ""}`;
@@ -157,7 +159,7 @@ async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, disca
     // one chronologically-ordered log, not two lists a transcript has to
     // re-interleave by guesswork.
     const sink = makeSinkEmitter();
-    const providerConfig = dryRun ? { name: "mock", script: buildMockScript(fixture) } : { name: "llamacpp", model };
+    const providerConfig = dryRun ? { name: "mock", script: buildMockScript(fixture) } : { name: provider, model };
     const agent = await createAgent({
       root: sandbox.root,
       version: "1.0.0-minimalism-bench",
@@ -230,7 +232,7 @@ export function buildFixtureCellPlan({ dryRun, repeats }) {
   return plan;
 }
 
-export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.LLAMACPP_MODEL, ledgerPath = LEDGER_PATH, live = {} }) {
+export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.LLAMACPP_MODEL, ledgerPath = LEDGER_PATH, live = {}, provider = "llamacpp" }) {
   if (dryRun) {
     // The mock provider refuses to resolve outside NODE_ENV=test
     // (lib/providers/index.js) — set it rather than silently falling through
@@ -239,10 +241,12 @@ export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.
   }
   stubMcp();
   const fixtures = loadFixtures(taskIds);
-  const liveHandle = dryRun ? null : live.handle;
-  if (!dryRun && !model) throw new Error("live eval requires --model=<huggingface-repo[:quant]>");
-  if (!dryRun && !liveHandle) throw new Error("live eval server was not started by the evaluator");
-  if (!dryRun) await waitForLlamaReadiness({ baseURL: LIVE_EVAL_BASE_URL, model, fetchImpl: live.fetchImpl });
+    const liveHandle = dryRun ? null : live.handle;
+  const liveUrl = live.baseURL || LIVE_EVAL_BASE_URL;
+  const isCloud = provider !== "llamacpp";
+  if (!dryRun && !isCloud && !model) throw new Error("live eval requires --model=<huggingface-repo[:quant]>");
+  if (!dryRun && !isCloud && !liveHandle) throw new Error("live eval server was not started by the evaluator");
+  if (!dryRun && !isCloud) await waitForLlamaReadiness({ baseURL: liveUrl, model, fetchImpl: live.fetchImpl });
   const skillSha = sha256File(SKILL_MD_PATH);
 
   // resolveProvider() (lib/providers/index.js) reads process.env.LLAMACPP_BASE_URL
@@ -252,7 +256,7 @@ export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.
   // THIS process falls back to the hardcoded default 127.0.0.1:8080 instead
   // of the isolated evaluator server, silently defeating the isolation.
   const priorBaseURL = process.env.LLAMACPP_BASE_URL;
-  if (!dryRun) process.env.LLAMACPP_BASE_URL = LIVE_EVAL_BASE_URL;
+  if (!dryRun && !isCloud) process.env.LLAMACPP_BASE_URL = liveUrl;
 
   try {
     const outputLedger = ledgerPath || LEDGER_PATH;
@@ -274,7 +278,7 @@ export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.
       index++;
       const row = await runOneCell({
         fixture, arm, repeat, dryRun, skillSha, model, discard, transcriptDir,
-        progress: { index, total: cellPlan.length },
+        progress: { index, total: cellPlan.length }, provider,
       });
       if (!discard) rows.push(row);
     }
@@ -286,7 +290,7 @@ export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.
     console.log(`[minimalism-bench] transcripts: ${transcriptDir}`);
     return rows;
   } finally {
-    if (!dryRun) {
+    if (!dryRun && !isCloud) {
       if (priorBaseURL === undefined) delete process.env.LLAMACPP_BASE_URL;
       else process.env.LLAMACPP_BASE_URL = priorBaseURL;
     }
@@ -295,6 +299,7 @@ export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  const isCloudProvider = args.provider !== "llamacpp";
   let liveHandle = null;
   const onSignal = () => {
     for (const sandbox of activeSandboxes) sandbox.cleanup();
@@ -304,7 +309,7 @@ async function main() {
   process.on("SIGTERM", onSignal);
 
   try {
-    if (!args.dryRun) {
+    if (!args.dryRun && !args.existingServer && !isCloudProvider) {
       const model = args.model || process.env.LLAMACPP_MODEL;
       const paths = createLiveEvalPaths(model);
       liveHandle = startIsolatedLlamaEval({ model, paths, bootstrapPath: LIVE_BOOTSTRAP_PATH });
@@ -312,10 +317,16 @@ async function main() {
         if (code !== null && code !== 0) console.error(`isolated llama-server exited before matrix completion (code ${code})`);
       });
     }
-    const rows = await runMatrix({ dryRun: args.dryRun, taskIds: args.tasks, repeats: args.repeats, model: args.model || process.env.LLAMACPP_MODEL, ledgerPath: liveHandle?.ledgerPath, live: { handle: liveHandle } });
+    const liveInfo = { handle: liveHandle };
+    if (args.existingServer) {
+      liveInfo.handle = { noop: true };
+      liveInfo.baseURL = `http://127.0.0.1:8080`;
+      liveInfo.fetchImpl = globalThis.fetch;
+    }
+    const rows = await runMatrix({ dryRun: args.dryRun, taskIds: args.tasks, repeats: args.repeats, model: args.model, ledgerPath: liveHandle?.ledgerPath, live: liveInfo, provider: args.provider });
     if (args.verdict) console.log(computeVerdict(rows));
   } finally {
-    await teardownLiveEval(liveHandle);
+    if (!args.existingServer && !isCloudProvider) await teardownLiveEval(liveHandle);
   }
 }
 

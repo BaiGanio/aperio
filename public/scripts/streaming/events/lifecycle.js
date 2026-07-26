@@ -30,14 +30,14 @@ onStreamEvent("provider", (msg) => {
   if (badge) {
     const isLlamaCpp = msg.name === "llamacpp";
     const isDeepSeek = msg.name === "deepseek";
+    const model = String(msg.model || "");
     let label;
     if (isLlamaCpp) {
-      label = `⬡ ${shortModelName(msg.model)}`;
+      label = `⬡ ${model}`;
     } else if (isDeepSeek) {
-      label = `◈ ${msg.model}`;
+      label = `◈ ${model}`;
     } else {
-      const m = msg.model;
-      label = `✦ ${m.includes("haiku") ? "haiku" : m.includes("sonnet") ? "sonnet" : m.includes("opus") ? "opus" : m}`;
+      label = `✦ ${model}`;
     }
     badge.textContent = label;
     badge.className = "model-chip-name " +
