@@ -79,13 +79,29 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - Live runs discard one warm-up repeat per fixture (a cold model/cache would
   otherwise always land on arm A, which runs first — `buildFixtureCellPlan()`)
   and alternate A/B/B/A across repeats to spread thermal/cache drift evenly
-- Ledger: `var/autotune/minimalism.tsv`, one row per task×arm×repeat;
+- Live-run isolation is mandatory: use a dedicated llama-server port (default
+  recommendation: `18080`, with `LLAMACPP_BASE_URL=http://127.0.0.1:18080`),
+  a dedicated temporary runtime/log root outside the repository, and a
+  dedicated ledger outside `var/autotune/`. Do not attach the evaluator to the
+  app's normal server, database, logs, or current ledger.
+- Start and own llama-server for the evaluator, wait for `/health` and the
+  requested model before the first cell, and tear down that process in a
+  `finally`/signal handler. A live run is invalid and must stop before writing
+  comparison results when any cell has zero model usage (`input_tokens=0` and
+  `output_tokens=0`) or when the readiness check fails.
+- The repository ledger path `var/autotune/minimalism.tsv` is reserved for
+  dry-run/legacy compatibility only; live runs use one private ledger per
+  model, one row per task×arm×repeat;
   `computeVerdict()` (`lib/helpers/minimalismBench.js`) applies the
   pre-registered KEEP/TRIM/DROP/INCONCLUSIVE rule to the medians — a
   correctness regression (by per-task *pass rate*, not an all-or-nothing
   gate) disqualifies a verdict no matter how good the token numbers look
-- Run: `node scripts/minimalism-bench.js --dry-run [--tasks=id1,id2] [--repeats=N]`;
-  drop `--dry-run` for a live run against llama.cpp (manual, not part of CI)
+- Run dry: `node scripts/minimalism-bench.js --dry-run [--tasks=id1,id2] [--repeats=N]`.
+  Live runs name the model explicitly, for example:
+  `node scripts/minimalism-bench.js --model=org/model:Q4_K_M --tasks=id1,id2 --repeats=3`.
+  The live runner starts `scripts/minimalism-live-server.js` in its temporary
+  runtime root; do not start or attach a normal Aperio server for this eval.
+  Live evaluation remains manual and is not part of CI.
 
 ## Mocking Policy
 

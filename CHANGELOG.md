@@ -60,7 +60,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
   reference solution, exercising the whole pipeline in CI with no live model;
   a live run discards one warm-up repeat per fixture and alternates A/B/B/A
   across repeats so cold-cache and thermal drift can't land on one arm.
-  Results append to `var/autotune/minimalism.tsv`; `computeVerdict()`
+  Live evaluation is isolated behind an evaluator-owned llama-server on port
+  18080, with readiness/model guards, per-model ledgers outside `var/`,
+  transactional writes, and teardown on completion or signal; a zero-usage
+  cell invalidates the run. Results from dry runs append to
+  `var/autotune/minimalism.tsv`; `computeVerdict()`
   (`lib/helpers/minimalismBench.js`) applies a pre-registered KEEP / TRIM /
   DROP / INCONCLUSIVE rule to the medians, where a correctness regression
   (judged by per-task pass rate, not an all-or-nothing gate — a baseline that
@@ -71,7 +75,8 @@ Versions follow [Semantic Versioning](https://semver.org/).
   fixture correctness, the dry-run pipeline, ledger integrity, verdict
   thresholds, and sandbox teardown hygiene (forced failure and `SIGINT`). The
   live run against llama.cpp and its verdict on #285 are a deliberately
-  separate, manually-gated next step — not part of this change.
+  separate, manually-gated next step — the runner is guarded, but no model
+  verdict has been recorded yet.
 - **Audit Run 1 — all 22 component slices complete** (A01–A22): every slice now
   has a content-hashed `manifest.json` and a `contract-result.json` with
   deterministic invariant checks. Completed slices span WebSocket/session lifecycle

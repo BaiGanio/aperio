@@ -26,18 +26,24 @@ import {
   REPO_ROOT, buildSandbox, sha256File, snapshotDir, locDelta, sumUsage,
   runFixtureTests, appendLedgerRow, computeVerdict,
 } from "../lib/helpers/minimalismBench.js";
+import {
+  LIVE_EVAL_BASE_URL, createLiveEvalPaths, waitForLlamaReadiness,
+  assertLiveUsage, startIsolatedLlamaEval, teardownLiveEval,
+} from "../lib/helpers/minimalismLiveEval.js";
 
 const FIXTURES_DIR = resolve(REPO_ROOT, "tests/fixtures/minimalism-tasks");
 const LEDGER_PATH = resolve(REPO_ROOT, "var/autotune/minimalism.tsv");
 const SKILL_MD_PATH = resolve(REPO_ROOT, "skills/code-minimalism/SKILL.md");
+const LIVE_BOOTSTRAP_PATH = resolve(REPO_ROOT, "scripts/minimalism-live-server.js");
 
 export function parseArgs(argv) {
-  const args = { dryRun: false, tasks: null, repeats: 3, verdict: false };
+  const args = { dryRun: false, tasks: null, repeats: 3, verdict: false, model: null };
   for (const arg of argv) {
     if (arg === "--dry-run") args.dryRun = true;
     else if (arg === "--verdict") args.verdict = true;
     else if (arg.startsWith("--tasks=")) args.tasks = arg.slice("--tasks=".length).split(",").filter(Boolean);
     else if (arg.startsWith("--repeats=")) args.repeats = parseInt(arg.slice("--repeats=".length), 10);
+    else if (arg.startsWith("--model=")) args.model = arg.slice("--model=".length);
   }
   return args;
 }
@@ -121,14 +127,14 @@ export function buildMockScript(fixture) {
 
 const activeSandboxes = new Set();
 
-async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, discard = false }) {
+async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, discard = false }) {
   const sandbox = buildSandbox({ arm });
   activeSandboxes.add(sandbox);
   try {
     if (existsSync(fixture.seedDir)) cpSync(fixture.seedDir, sandbox.workspaceDir, { recursive: true });
     const before = snapshotDir(sandbox.workspaceDir);
 
-    const providerConfig = dryRun ? { name: "mock", script: buildMockScript(fixture) } : { name: "llamacpp" };
+    const providerConfig = dryRun ? { name: "mock", script: buildMockScript(fixture) } : { name: "llamacpp", model };
     const agent = await createAgent({
       root: sandbox.root,
       version: "1.0.0-minimalism-bench",
@@ -162,7 +168,7 @@ async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, discard = fa
     };
     // A discarded warm-up exists only to pay the cold model-load/cache cost
     // before the recorded matrix starts — it must never land in the ledger.
-    if (!discard) appendLedgerRow(LEDGER_PATH, row);
+    if (!discard && !dryRun) assertLiveUsage(row);
     return row;
   } finally {
     sandbox.cleanup();
@@ -193,7 +199,7 @@ export function buildFixtureCellPlan({ dryRun, repeats }) {
   return plan;
 }
 
-export async function runMatrix({ dryRun, taskIds, repeats }) {
+export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.LLAMACPP_MODEL, ledgerPath = LEDGER_PATH, live = {} }) {
   if (dryRun) {
     // The mock provider refuses to resolve outside NODE_ENV=test
     // (lib/providers/index.js) — set it rather than silently falling through
@@ -202,30 +208,49 @@ export async function runMatrix({ dryRun, taskIds, repeats }) {
   }
   stubMcp();
   const fixtures = loadFixtures(taskIds);
-  mkdirSync(dirname(LEDGER_PATH), { recursive: true });
+  const liveHandle = dryRun ? null : live.handle;
+  if (!dryRun && !model) throw new Error("live eval requires --model=<huggingface-repo[:quant]>");
+  if (!dryRun && !liveHandle) throw new Error("live eval server was not started by the evaluator");
+  if (!dryRun) await waitForLlamaReadiness({ baseURL: LIVE_EVAL_BASE_URL, model, fetchImpl: live.fetchImpl });
   const skillSha = sha256File(SKILL_MD_PATH);
 
   const rows = [];
   for (const fixture of fixtures) {
     for (const { repeat, arm, discard } of buildFixtureCellPlan({ dryRun, repeats })) {
-      const row = await runOneCell({ fixture, arm, repeat, dryRun, skillSha, discard });
+      const row = await runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, discard });
       if (!discard) rows.push(row);
     }
   }
+  const outputLedger = ledgerPath || LEDGER_PATH;
+  mkdirSync(dirname(outputLedger), { recursive: true });
+  for (const row of rows) appendLedgerRow(outputLedger, row);
   return rows;
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
+  let liveHandle = null;
   const onSignal = () => {
     for (const sandbox of activeSandboxes) sandbox.cleanup();
-    process.exit(130);
+    void teardownLiveEval(liveHandle).finally(() => process.exit(130));
   };
   process.on("SIGINT", onSignal);
   process.on("SIGTERM", onSignal);
 
-  const rows = await runMatrix({ dryRun: args.dryRun, taskIds: args.tasks, repeats: args.repeats });
-  if (args.verdict) console.log(computeVerdict(rows));
+  try {
+    if (!args.dryRun) {
+      const model = args.model || process.env.LLAMACPP_MODEL;
+      const paths = createLiveEvalPaths(model);
+      liveHandle = startIsolatedLlamaEval({ model, paths, bootstrapPath: LIVE_BOOTSTRAP_PATH });
+      liveHandle.child.on("exit", (code) => {
+        if (code !== null && code !== 0) console.error(`isolated llama-server exited before matrix completion (code ${code})`);
+      });
+    }
+    const rows = await runMatrix({ dryRun: args.dryRun, taskIds: args.tasks, repeats: args.repeats, model: args.model || process.env.LLAMACPP_MODEL, ledgerPath: liveHandle?.ledgerPath, live: { handle: liveHandle } });
+    if (args.verdict) console.log(computeVerdict(rows));
+  } finally {
+    await teardownLiveEval(liveHandle);
+  }
 }
 
 const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLToPath(import.meta.url));
