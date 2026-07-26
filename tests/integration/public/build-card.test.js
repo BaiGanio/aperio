@@ -18,6 +18,8 @@ const badgeSource = readFileSync(resolve("public/scripts/streaming/badges.js"), 
 const renderingSource = readFileSync(resolve("public/scripts/rendering.js"), "utf8");
 const spreadsheetSource = readFileSync(resolve("public/scripts/spreadsheet-preview.js"), "utf8");
 const attachmentCss = readFileSync(resolve("public/styles/msg-attachments.css"), "utf8");
+const turnSource = readFileSync(resolve("public/scripts/streaming/events/turn.js"), "utf8");
+const knowledgeSource = readFileSync(resolve("public/scripts/streaming/events/knowledge.js"), "utf8");
 
 test("build-card invariants cover the streaming assets loaded by the app shell", () => {
   assert.match(indexSource, /scripts\/streaming\/state\.js/);
@@ -105,6 +107,75 @@ test("generated XLSX cards open the spreadsheet preview modal", () => {
   assert.match(indexSource, /scripts\/spreadsheet-preview\.js/);
   assert.match(spreadsheetSource, /fetch\(`\/api\/artifact\/preview\?url=/);
   assert.match(spreadsheetSource, /table\.className = "fpm-sheet-table"/);
+});
+
+test("generated file cards expose the Aperio hierarchy and responsive treatment", () => {
+  assert.match(badgeSource, /generated-file-card aperio-file-card/);
+  assert.match(badgeSource, /Ready to preview/);
+  assert.match(badgeSource, /gfc-actions/);
+  assert.match(badgeSource, /gfc-download-btn/);
+  assert.match(attachmentCss, /\.gfc-status/);
+  assert.match(attachmentCss, /\.gfc-actions/);
+  assert.match(attachmentCss, /@media \(max-width: 620px\)/);
+});
+
+test("the generated-file plate is drawn, theme-derived, and kind-aware", () => {
+  // A flat glyph made every artifact look identical; the plate illustration is
+  // what tells a spreadsheet from a source file at a glance.
+  assert.match(badgeSource, /function _fileArt\(/);
+  for (const art of ["sheet", "image", "slides", "doc"]) {
+    assert.match(badgeSource, new RegExp(`"${art}"`), `missing ${art} art variant`);
+  }
+  assert.match(badgeSource, /_fileArt\(art\)/);
+  // Source files must name their language, not shout the extension.
+  assert.match(badgeSource, /_LANG_LABEL\[ext\] \|\| label/);
+  // The plate follows the theme accent rather than hardcoding indigo.
+  assert.match(attachmentCss, /\.gfc-icon\s*\{[^}]*var\(--accent\)/s);
+  assert.match(attachmentCss, /\.gfc-art \.sheet/);
+});
+
+test("the workspace chip states where the file landed, never a memory claim", () => {
+  // A chip has to be backed by something the card actually knows.
+  assert.match(badgeSource, /\/\\\/uploads\\\/\/\.test\(url \|\| ""\) \? "uploads" : "workspace"/);
+  assert.match(attachmentCss, /\.gfc-chip/);
+});
+
+test("an inline code block is only collapsed once it is genuinely long", () => {
+  // Collapsing at 12 lines hid the answer itself: a 26-line function arrived
+  // behind an "expand" button, with copy/download chrome duplicating the card
+  // sitting right below it.
+  assert.match(source, /lineCount > 50 \|\| text\.length > 6000/);
+  assert.doesNotMatch(source, /lineCount > 12/);
+});
+
+test("a code block duplicating a saved file is dropped, but only on proof", () => {
+  assert.match(badgeSource, /function _dropInlineDuplicateOfFile\(/);
+  assert.match(badgeSource, /_dropInlineDuplicateOfFile\(container, msg\)/);
+  // Proof = the bytes actually saved, not a filename or language guess.
+  assert.match(badgeSource, /await fetch\(url\)/);
+  assert.match(badgeSource, /saved\.includes\(inline\) \|\| inline\.includes\(saved\)/);
+  // A one-liner is a substring of anything, so short blocks are never removed.
+  assert.match(badgeSource, /text\.split\("\\n"\)\.length >= 5 \|\| text\.length >= 200/);
+  // A failed fetch must leave the block alone rather than delete unseen content.
+  assert.match(badgeSource, /catch \{ return; \}\s*\/\/ offline/);
+});
+
+test("several generated files share one rack and lay out in rows", () => {
+  // Five files in a turn used to render as a five-storey column of full-width
+  // cards. They go into one rack that flows 2–3 per row instead.
+  assert.match(badgeSource, /function _appendGeneratedFileCard\(/);
+  assert.match(badgeSource, /rack\.className = "gfc-rack"/);
+  assert.match(badgeSource, /rack\.dataset\.cards = n >= 3 \? "3\+" : String\(n\)/);
+  // Every call site must go through the rack, or a card escapes the grid.
+  assert.doesNotMatch(turnSource, /appendChild\(_buildGeneratedFileCard/);
+  assert.doesNotMatch(knowledgeSource, /appendChild\(_buildGeneratedFileCard/);
+  assert.match(turnSource, /_appendGeneratedFileCard\(/);
+  assert.match(knowledgeSource, /_appendGeneratedFileCard\(/);
+  // Rows are the CSS half of the same contract.
+  assert.match(attachmentCss, /\.gfc-rack\[data-cards="2"\][^}]*repeat\(2, minmax\(0, 1fr\)\)/s);
+  assert.match(attachmentCss, /\.gfc-rack\[data-cards="3\+"\][^}]*repeat\(auto-fit, minmax\(220px, 1fr\)\)/s);
+  // …and a racked card drops to its compact form so the buttons still fit.
+  assert.match(attachmentCss, /\.gfc-rack:not\(\[data-cards="1"\]\) \.generated-file-card/);
 });
 
 test("spreadsheet preview scrolls vertically and horizontally for large tables", () => {

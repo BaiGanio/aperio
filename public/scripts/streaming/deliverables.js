@@ -339,7 +339,10 @@ function _collapseLargeCodeBlocks(bubble) {
     if (!code || !toolbar) return;
     const text = code.textContent;
     const lineCount = text.split("\n").length;
-    const isLarge = lineCount > 12 || text.length > 800;
+    // Up to 50 lines reads fine inline — collapsing a 20-line function behind an
+    // "expand" button hides the answer the user asked for. The character bound
+    // only catches the pathological case (few lines, enormous minified strings).
+    const isLarge = lineCount > 50 || text.length > 6000;
     if (!isLarge) return;
     block.dataset.enhanced = "1";
 

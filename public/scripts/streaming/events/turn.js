@@ -250,7 +250,7 @@ onStreamEvent("stream_end", (msg) => {
   if (streamingBubble && streamingText.trim()) {
     settleTurnTimer();
     finalizeStreamingBubble(streamingBubble, streamingText, responseStats);
-    for (const f of _pendingGeneratedFiles) streamingBubble.bubble.appendChild(_buildGeneratedFileCard(f)); _pendingGeneratedFiles.length = 0;
+    for (const f of _pendingGeneratedFiles) _appendGeneratedFileCard(streamingBubble.bubble, f); _pendingGeneratedFiles.length = 0;
     window.Aperio?.tts?.speak(streamingText);
     window.Aperio?.voice?.onStreamEnd?.();
     _refineStartupBanner(msg.usage?.input_tokens, msg.usage?.input_tokens_kind);
@@ -275,10 +275,7 @@ onStreamEvent("stream_end", (msg) => {
   // Fallback: if the card is still pending (e.g. no streaming text), attach to last AI bubble
   if (_pendingGeneratedFiles.length) {
     const lastBubble = [...messagesEl.querySelectorAll(".message.ai .bubble")].at(-1);
-    for (const f of _pendingGeneratedFiles) {
-      if (lastBubble) lastBubble.appendChild(_buildGeneratedFileCard(f));
-      else messagesEl.appendChild(_buildGeneratedFileCard(f));
-    }
+    for (const f of _pendingGeneratedFiles) _appendGeneratedFileCard(lastBubble || messagesEl, f);
     _pendingGeneratedFiles.length = 0;
   }
   document.getElementById("preparing-answer")?.remove();
