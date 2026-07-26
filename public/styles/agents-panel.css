@@ -151,3 +151,17 @@ summary.ag-run-head::before {
   padding: 0 3px; border-radius: 3px;
   background: var(--bg-alt, var(--bg)); border: 1px solid var(--border);
 }
+
+/* Collapsible "Advanced" section (freeform provider/model/timeout). */
+.ag-advanced {
+  border-left: 2px solid var(--border); padding-left: 10px; margin-top: 4px;
+}
+.ag-advanced > summary {
+  cursor: pointer; user-select: none; list-style: none;
+  font-size: var(--fs-micro); font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-muted);
+}
+.ag-advanced > summary::-webkit-details-marker { display: none; }
+.ag-advanced > summary::before { content: "▸ "; }
+.ag-advanced[open] > summary::before { content: "▾ "; }
+.ag-advanced > .ag-field { margin-top: 10px; }

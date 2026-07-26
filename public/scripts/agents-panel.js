@@ -43,6 +43,32 @@
     if (ms == null) return "";
     return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`;
   }
+  // Plain-English label for a timeout preset (30s / 1m / 2m / 5m / 10m).
+  function fmtTimeoutLabel(ms) {
+    if (ms < 60000) return `${Math.round(ms / 1000)}s`;
+    const m = ms / 60000;
+    return `${Number.isInteger(m) ? m : m.toFixed(1)}m`;
+  }
+  // Common timeout choices, plus the job's current value if it doesn't match
+  // one of them (e.g. set via the API) so the select never silently changes it.
+  function timeoutOptions(currentMs) {
+    const presets = [30000, 60000, 120000, 300000, 600000];
+    const all = presets.includes(currentMs) ? presets : [...presets, currentMs].sort((a, b) => a - b);
+    return all.map(ms =>
+      `<option value="${ms}"${ms === currentMs ? " selected" : ""}>${fmtTimeoutLabel(ms)}</option>`
+    ).join("");
+  }
+  // Turn a raw JSON.parse SyntaxError into a line/column pointer when the
+  // engine's message includes a character offset ("...at position 42").
+  function jsonErrorDetail(text, err) {
+    const m = /position (\d+)/.exec(err.message);
+    if (!m) return err.message;
+    const pos = Math.min(Number(m[1]), text.length);
+    const before = text.slice(0, pos);
+    const line = before.split("\n").length;
+    const col = pos - before.lastIndexOf("\n");
+    return `line ${line}, column ${col} — ${err.message}`;
+  }
   function jobMode(job) {
     if (Array.isArray(job.steps) && job.steps.length) return "steps";
     if (typeof job.prompt === "string" && job.prompt.trim()) return "freeform";
@@ -204,6 +230,22 @@
         { tool: "deduplicate_memories", input: { threshold: 0.97, dry_run: true } },
       ],
     },
+    "hourly-dedup-check": {
+      id: "hourly-dedup-check",
+      enabled: false,
+      trigger: { kind: "interval", everyMs: 3600000 },
+      steps: [
+        { tool: "deduplicate_memories", input: { threshold: 0.97, dry_run: true } },
+      ],
+    },
+    "daily-backup": {
+      id: "daily-backup",
+      enabled: false,
+      trigger: { kind: "interval", everyMs: 86400000 },
+      steps: [
+        { tool: "export_data", input: {} },
+      ],
+    },
     "doc-digest": {
       id: "doc-digest",
       enabled: true,
@@ -216,6 +258,20 @@
       enabled: true,
       trigger: { kind: "interval", everyMs: 604800000 },
       prompt: "Recall the most recent memories and write a 3-bullet summary of what we've been working on lately. Do not call write tools.",
+      timeoutMs: 120000,
+    },
+    "daily-priority-summary": {
+      id: "daily-priority-summary",
+      enabled: true,
+      trigger: { kind: "interval", everyMs: 86400000 },
+      prompt: "Recall my current top-priority memories and write a short summary I can start my day with. Do not call write tools.",
+      timeoutMs: 120000,
+    },
+    "code-changelog": {
+      id: "code-changelog-notes",
+      enabled: false,
+      trigger: { kind: "watcher", source: "codegraph", debounceMs: 5000 },
+      prompt: "Summarise the code that just changed in 2-3 bullets, then append a new entry describing the change in plain English under \"## Unreleased\" in CHANGELOG.md.",
       timeoutMs: 120000,
     },
   };
@@ -256,9 +312,13 @@
           <span>Start from a template</span>
           <select id="agfTemplate">
             <option value=""${sel(tplKey, "")}>Blank — start from scratch</option>
-            <option value="nightly-maintenance"${sel(tplKey, "nightly-maintenance")}>Nightly maintenance — re-embed + dedupe memories daily</option>
-            <option value="doc-digest"${sel(tplKey, "doc-digest")}>Doc-change digest — summarise changed docs (watcher)</option>
-            <option value="memory-digest"${sel(tplKey, "memory-digest")}>Weekly memory digest — summarise recent memories</option>
+            <option value="nightly-maintenance"${sel(tplKey, "nightly-maintenance")}>Every night: clean up duplicate memories</option>
+            <option value="hourly-dedup-check"${sel(tplKey, "hourly-dedup-check")}>Every hour: check for duplicate memories and report them</option>
+            <option value="daily-backup"${sel(tplKey, "daily-backup")}>Every day: back up my data</option>
+            <option value="doc-digest"${sel(tplKey, "doc-digest")}>When a document changes: summarise what's new</option>
+            <option value="memory-digest"${sel(tplKey, "memory-digest")}>Every week: a summary of what I've been working on</option>
+            <option value="daily-priority-summary"${sel(tplKey, "daily-priority-summary")}>Every day: a summary of my top-priority memories</option>
+            <option value="code-changelog"${sel(tplKey, "code-changelog")}>When code changes: write a changelog entry</option>
           </select>
           <span class="ag-hint">A template fills every field below with a working example. Edit anything (start with the id) before saving.</span>
         </label>`}
@@ -266,6 +326,7 @@
         <label class="ag-field">
           <span>Job id</span>
           <input id="agfId" type="text" placeholder="my-job" value="${escapeHtml(job.id || "")}" ${isEdit ? "disabled" : ""}>
+          <span class="ag-hint">Any short name — letters, numbers, dashes. Must be unique among your jobs; avoid spaces and slashes since it's used in the job's URL.</span>
         </label>
 
         <label class="ag-field ag-field-inline">
@@ -298,10 +359,12 @@
               <option value="codegraph"${sel(t.source, "codegraph")}>codegraph</option>
               <option value="docgraph"${sel(t.source, "docgraph")}>docgraph</option>
             </select>
+            <span class="ag-hint">codegraph = your indexed code, docgraph = your indexed documents (notes, PDFs, reports). Leave on "both" if you're not sure.</span>
           </label>
           <label class="ag-field">
-            <span>Debounce (ms)</span>
-            <input id="agfDebounce" type="number" min="0" value="${t.debounceMs ?? 2000}">
+            <span>Wait after a change (seconds)</span>
+            <input id="agfDebounceSec" type="number" min="0" value="${Math.round((t.debounceMs ?? 2000) / 1000)}">
+            <span class="ag-hint">Waits this long after the last change before running, so a burst of edits triggers one run instead of many.</span>
           </label>
         </div>
 
@@ -318,7 +381,11 @@
           <label class="ag-field">
             <span>Steps (JSON array of { tool, input })</span>
             <textarea id="agfStepsJson" rows="6" spellcheck="false">${escapeHtml(stepsJson)}</textarea>
-            <span class="ag-hint">Each entry runs one tool in order. Maintenance tools: <code>backfill_embeddings</code>, <code>deduplicate_memories</code>. Tip: load a template to see a real example.</span>
+            <span class="ag-hint">Each entry runs one tool in order. Common tools:
+              <code>backfill_embeddings</code> — generate embeddings for memories that don't have one yet;
+              <code>deduplicate_memories</code> — find near-duplicate memories and suggest merges (add <code>"dry_run": true</code> to only report, not merge);
+              <code>export_data</code> — back up all memories and wiki articles to a JSON file.
+              Tip: load a template above to see a real example.</span>
           </label>
         </div>
 
@@ -328,18 +395,22 @@
             <textarea id="agfPrompt" rows="4" placeholder="Summarise what changed…">${escapeHtml(job.prompt || "")}</textarea>
             <span class="ag-hint">A plain-English task. The model can read memories, the wiki, and your code graph. Say "do not call write tools" if you only want a read-only summary.</span>
           </label>
-          <label class="ag-field">
-            <span>Provider name (blank = chat default)</span>
-            <input id="agfProvName" type="text" placeholder="deepseek" value="${escapeHtml(prov.name || "")}">
-          </label>
-          <label class="ag-field">
-            <span>Model</span>
-            <input id="agfProvModel" type="text" placeholder="deepseek-v4-flash" value="${escapeHtml(prov.model || "")}">
-          </label>
-          <label class="ag-field">
-            <span>Timeout (ms)</span>
-            <input id="agfTimeout" type="number" min="1000" value="${job.timeoutMs ?? 300000}">
-          </label>
+          <details class="ag-advanced"${(prov.name || prov.model) ? " open" : ""}>
+            <summary>Advanced (provider, model, timeout)</summary>
+            <label class="ag-field">
+              <span>Provider name (blank = chat default)</span>
+              <input id="agfProvName" type="text" placeholder="deepseek" value="${escapeHtml(prov.name || "")}">
+            </label>
+            <label class="ag-field">
+              <span>Model</span>
+              <input id="agfProvModel" type="text" placeholder="deepseek-v4-flash" value="${escapeHtml(prov.model || "")}">
+            </label>
+            <label class="ag-field">
+              <span>Timeout</span>
+              <select id="agfTimeout">${timeoutOptions(job.timeoutMs ?? 300000)}</select>
+              <span class="ag-hint">How long a run may take before it's stopped as stuck.</span>
+            </label>
+          </details>
         </div>
 
         <div class="ag-form-actions">
@@ -387,7 +458,8 @@
       if (!(min > 0)) { msg.textContent = "⚠ interval needs a positive number of minutes"; return; }
       job.trigger = { kind: "interval", everyMs: min * 60000 };
     } else if (kind === "watcher") {
-      job.trigger = { kind: "watcher", debounceMs: parseInt(val("agfDebounce"), 10) || 2000 };
+      const sec = parseInt(val("agfDebounceSec"), 10);
+      job.trigger = { kind: "watcher", debounceMs: (sec >= 0 ? sec : 2) * 1000 };
       const src = document.getElementById("agfSource").value;
       if (src) job.trigger.source = src;
     }
@@ -396,8 +468,9 @@
     const mode = document.getElementById("agfMode").value;
     if (mode === "steps") {
       let steps;
-      try { steps = JSON.parse(val("agfStepsJson")); }
-      catch (e) { msg.textContent = `⚠ steps is not valid JSON: ${e.message}`; return; }
+      const stepsText = val("agfStepsJson");
+      try { steps = JSON.parse(stepsText); }
+      catch (e) { msg.textContent = `⚠ steps is not valid JSON — ${jsonErrorDetail(stepsText, e)}`; return; }
       if (!Array.isArray(steps) || !steps.length) { msg.textContent = "⚠ steps must be a non-empty array"; return; }
       job.steps = steps;
     } else {
