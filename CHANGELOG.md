@@ -9,6 +9,19 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Plain-English background-job form** (#169): the background-agents job
+  form (`public/scripts/agents-panel.js`) targeted non-coders with a raw JSON
+  steps textarea, millisecond fields, and jargony labels. Quick wins: template
+  dropdown labels rewritten in plain English plus 4 new templates (hourly
+  dedup check, daily backup, daily priority summary, code-change → changelog
+  entry — the write-capable ones seeded `enabled: false`); debounce now shown
+  in seconds and timeout as a preset dropdown (30s/1m/2m/5m/10m) instead of
+  raw ms; freeform's provider/model/timeout collapsed behind an "Advanced"
+  section; invalid steps-JSON now reports `line N, column M` instead of the
+  raw parser message; job-id, watcher-source, debounce, and common step-tool
+  hints rewritten in plain English. The visual (no-JSON) steps builder and
+  the natural-language job wizard — the issue's bigger bets — are split into
+  their own issues: #326 and #327.
 - **Docgraph → Memory Bridge** (#314): when `DOCGRAPH_AUTO_MEMORY=on` and a
   `doc_batch` read extracts high-confidence terminal facts (amount_due/grand_total
   + due_date/invoice_date/service_period_start with high confidence), a compact
