@@ -207,7 +207,7 @@ describe("E6 — hygiene", () => {
     rmSync(LEDGER_PATH, { force: true });
     const before = new Set(readdirSync(tmpdir()).filter(n => n.startsWith("aperio-minimalism-")));
 
-    const child = spawn(process.execPath, [RUNNER_SCRIPT, "--dry-run", "--tasks=slug-helper,debounce-stdlib,reuse-query-parser,includes-wrapper,divide-with-validation,parse-config-value", "--repeats=3"], {
+    const child = spawn(process.execPath, [RUNNER_SCRIPT, "--dry-run", "--tasks=slug-helper,debounce-stdlib,reuse-query-parser,includes-wrapper,divide-with-validation,parse-config-value,cache-entry-ttl", "--repeats=3"], {
       cwd: REPO_ROOT,
       stdio: "ignore",
     });
