@@ -1013,3 +1013,68 @@ describe("callToolHooked() — workflow and search-scope heuristics", () => {
     assert.equal(seenArgs[0].args.path, "/project/billing");
   });
 });
+
+describe("surfaceCodeArtifacts() — a written file always gets a card", () => {
+  // The regression: asked to "write a function that parses a numeric config
+  // value", the model saved parse-numeric-config.js to the workspace and said
+  // so — but the prompt named no file, so the intent heuristic suppressed the
+  // card and the user was left with a claim they could not open.
+  const NO_FILE_INTENT = "Keep it minimal, but write a function that parses a " +
+    "numeric config value from an env string and handles missing or malformed input explicitly.";
+
+  function makeWriteHooks({ userText, executed = [] } = {}) {
+    const events = [];
+    const factory = createToolHooks({
+      callTool: async () => "ok",
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: true, summary: "" }),
+      getActiveScratchDir: () => "/var/scratch/session-1",
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: async () => ({ ok: true }),
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(["write_file", "edit_file", "append_file"]),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1024, isFile: () => true, mtimeMs: Date.now() }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory({ send: (e) => events.push(e) }, Date.now(), null, null, { userText });
+    return { hooks, events, executed };
+  }
+
+  const cards = (events) => events.filter((e) => e.type === "generated_file");
+
+  test("surfaces a code file the model wrote even when the prompt never asked for one", async () => {
+    const { hooks, events } = makeWriteHooks({ userText: NO_FILE_INTENT });
+    await hooks.callToolHooked("write_file", {
+      path: "/var/scratch/session-1/parse-numeric-config.js",
+      content: "export function parseNumericConfig() {}",
+    });
+    hooks.flushDownloadCards();
+
+    assert.deepEqual(cards(events).map((c) => c.filename), ["parse-numeric-config.js"]);
+    assert.equal(cards(events)[0].url, "/scratch/session-1/parse-numeric-config.js");
+  });
+
+  test("still withholds a card for a generator script the model ran", async () => {
+    const { hooks, events } = makeWriteHooks({ userText: NO_FILE_INTENT });
+    await hooks.callToolHooked("write_file", {
+      path: "/var/scratch/session-1/build-deck.js",
+      content: "// writes deck.pptx",
+    });
+    await hooks.callToolHooked("run_node_script", { script: "/var/scratch/session-1/build-deck.js" });
+    hooks.flushDownloadCards();
+
+    assert.deepEqual(cards(events), [], "an executed script is a generator, not the result");
+  });
+
+  test("a file written outside the workspace is not surfaced", async () => {
+    const { hooks, events } = makeWriteHooks({ userText: NO_FILE_INTENT });
+    await hooks.callToolHooked("write_file", { path: "/repo/src/index.js", content: "x" });
+    hooks.flushDownloadCards();
+
+    assert.deepEqual(cards(events), []);
+  });
+});

@@ -31,8 +31,7 @@ onStreamEvent("generated_file", (msg) => {
   // Otherwise the answer is already rendered: attach to it, or — if the answer
   // was empty so no bubble exists — stand the card up on its own.
   const lastBubble = [...messagesEl.querySelectorAll(".message.ai .bubble")].at(-1);
-  if (lastBubble) lastBubble.appendChild(_buildGeneratedFileCard(msg));
-  else messagesEl.appendChild(_buildGeneratedFileCard(msg));
+  _appendGeneratedFileCard(lastBubble || messagesEl, msg);
   scrollToBottom();
 });
 
