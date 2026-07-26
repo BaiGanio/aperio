@@ -57,6 +57,10 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - One-shot index of a directory (`node lib/docgraph/indexer.js .`)
 - Live reindex on save via chokidar watcher (`APERIO_DOCGRAPH=on`)
 - Hybrid FTS + semantic chunk search (`doc_search`)
+- Auto-memory bridge (`DOCGRAPH_AUTO_MEMORY=on`): extracts terminal facts (amounts,
+  dates) from doc_batch reads and promotes compact privacy-safe memories for
+  trend-question recall — tier 2 (sensitive), namespaced opaque dedup tags,
+  multi-record guards
 - Document outline by section/heading (`doc_outline`)
 - Chunk slice for a document with surrounding context (`doc_context`)
 - Cross-document reference extraction — links/citations (`doc_refs`)

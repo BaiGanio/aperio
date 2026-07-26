@@ -490,6 +490,12 @@ list · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
 
 Extra regex patterns (comma-separated) for cross-reference extraction, e.g. ticket IDs.
 
+#### `DOCGRAPH_AUTO_MEMORY`
+
+boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
+
+Auto-promote high-confidence docgraph facts (amount_due/grand_total + due_date/invoice_date/service_period) into the memory store for trend-question recall. Off unless set to exactly 'on'.
+
 ### Background agents (scheduled, chat-less jobs)
 
 Master switch for the background-agent scheduler and how long run history is kept.

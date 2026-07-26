@@ -9,6 +9,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Docgraph → Memory Bridge** (#314): when `DOCGRAPH_AUTO_MEMORY=on` and a
+  `doc_batch` read extracts high-confidence terminal facts (amount_due/grand_total
+  + due_date/invoice_date/service_period_start with high confidence), a compact
+  fact memory is auto-promoted into the store for trend-question recall. Privacy
+  tier 2 (sensitive) by default — withheld from cloud providers. Opaque hashed
+  dedup tags prevent PII leaks. Multi-record and ambiguous-fact guards. The
+  spike report at `trash/plans/docgraph-memory-bridge-spike/spike-report.md`
+  validated 100% semantic recall@3 for 10 trend queries.
+- `store.update()` now preserves the memory `tier` field (was silently resetting
+  to tier 1). `store.delete()` now marks citing wiki articles stale (same
+  staleness contract as `update()`'s tombstone path). Both backends.
+
 - **Codex turn guardrails** (#302): the Codex provider now records aggregate
   processed/cached/output/reasoning usage together with distinct tool-call and internal
   step counts, elapsed time, and guardrail status. Configurable live tool, step, and

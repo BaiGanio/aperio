@@ -65,6 +65,11 @@ token's format is locale-ambiguous) and `amounts` (`value`/`currency`/`label`,
 `currency: null` when undetectable) extracted from each read document's real text —
 an empty array means none were detected, never a fabricated value. See
 `lib/docgraph/extract-facts.js` and `lib/docgraph/retrieval.js`.
+When `DOCGRAPH_AUTO_MEMORY=on`, doc_batch also auto-promotes high-confidence
+terminal facts (amount_due/grand_total + due_date/invoice_date/service_period
+at high confidence) into the memory store. Promoted memories are tier 2
+(sensitive), carry opaque hashed dedup tags, and are owned by `source="docgraph"`
+to prevent user-memory collisions. See `lib/handlers/docgraph/docgraphHandlers.js`.
 
 ## Tool Context (`ctx`)
 
