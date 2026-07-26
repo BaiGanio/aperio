@@ -59,7 +59,7 @@ export function register(server, ctx) {
   server.registerTool(
     "write_file",
     {
-      description: "Write content to a file on disk. Creates the file if it doesn't exist, overwrites if it does. Confirm-before-write: a write outside the session workspace (or after reading untrusted content) is proposed for the user to confirm — just call once and end your turn; do NOT fabricate confirmation_token.",
+      description: "Write content to a file on disk. Creates the file if it doesn't exist, overwrites if it does. Do NOT call this just to persist a small code answer (a single short function or snippet) that already fits in your reply — answer inline instead. Only write to disk when the user asks to save/export/persist it, names a target file, or the output is genuinely multi-file or substantial (more than one function/module). Confirm-before-write: a write outside the session workspace (or after reading untrusted content) is proposed for the user to confirm — just call once and end your turn; do NOT fabricate confirmation_token.",
       inputSchema: z.object({
         path:        z.string().describe("Absolute or ~ path to the file to write"),
         content:     z.string().optional().describe("Full content to write to the file"),
