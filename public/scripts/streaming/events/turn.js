@@ -240,6 +240,10 @@ onStreamEvent("stream_end", (msg) => {
         elapsedSec: totalElapsedSec,
         inputTokens: msg.usage?.input_tokens ?? 0,
         inputTokensKind: msg.usage?.input_tokens_kind ?? "context",
+        toolCalls: msg.usage?.tool_calls ?? 0,
+        internalSteps: msg.usage?.internal_steps ?? 0,
+        workElapsedMs: msg.usage?.elapsed_ms ?? null,
+        guardrail: msg.usage?.guardrail ?? null,
         timings: msg.usage?.timings ?? null,
       }
     : null;

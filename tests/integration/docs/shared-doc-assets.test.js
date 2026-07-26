@@ -76,6 +76,7 @@ test("dashboard navbars expose one canonical link set", () => {
     "benchmarks/unit/unit.html",
     "benchmarks/integration/integration.html",
     "benchmarks/e2e/e2e.html",
+    "benchmarks/harness/harness.html",
   ];
   for (const name of ["benchmarks/code-cov/coverage.html", "benchmarks/e2e/e2e.html", "benchmarks/integration/integration.html", "benchmarks/unit/unit.html", "benchmarks/pilot/qualification.html"]) {
     assert.deepEqual(normalizedNavbarLinks(join(DOCS, name)), expected, name);

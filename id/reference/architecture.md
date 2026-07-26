@@ -24,6 +24,7 @@ aperio/
 │   ├── terminal/          # Terminal UI (REPL, streaming, formatting)
 │   ├── context/           # Context assembly (system prompt, memories, wiki, skills)
 │   ├── agent/providers/   # Provider loops (Anthropic, llama.cpp, DeepSeek, Gemini, Claude Code, Codex)
+│   │   └── codex-turn-meter.js # Codex per-turn work accounting and guardrails
 │   ├── providers/         # Provider/model resolution and schema helpers
 │   ├── streaming/         # SSE + WebSocket streaming to the browser
 │   ├── tools/             # Agent-side tool implementations (browser-facing)

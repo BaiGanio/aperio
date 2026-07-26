@@ -119,21 +119,27 @@ Codex reasoning-summary verbosity. `auto`/`concise`/`detailed` make the CLI emit
 
 #### `CODEX_TURN_MAX_TOOL_CALLS`
 
-number · tier 1 (Settings UI, restart to apply) · default: `32` · advanced
+number · tier 1 (Settings UI, restart to apply) · default: `64` · advanced
 
-Maximum Codex tool/action items allowed in one turn. Set to 0 to disable this guardrail.
+Maximum distinct Codex tool/action items allowed in one turn. Live limit; set to 0 to disable it.
+
+#### `CODEX_TURN_MAX_STEPS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `128` · advanced
+
+Maximum distinct Codex reasoning/tool/plan work items allowed in one turn. Live limit; set to 0 to disable it.
+
+#### `CODEX_TURN_TIMEOUT_MS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `1200000` · advanced
+
+Maximum wall-clock milliseconds for one Codex turn. Live subprocess deadline; set to 0 to disable it.
 
 #### `CODEX_TURN_MAX_PROCESSED_TOKENS`
 
-number · tier 1 (Settings UI, restart to apply) · default: `250000` · advanced
+number · tier 1 (Settings UI, restart to apply) · default: `300000` · advanced
 
-Maximum aggregate processed input tokens reported for one Codex turn. Because the CLI reports this at turn completion, enforcement occurs when usage arrives. Set to 0 to disable it.
-
-#### `CODEX_TURN_MAX_SECONDS`
-
-number · tier 1 (Settings UI, restart to apply) · default: `900` · advanced
-
-Maximum wall-clock seconds for one Codex turn. Set to 0 to disable this guardrail.
+Observed ceiling for aggregate processed input tokens in one Codex turn. The current CLI reports usage only at turn completion, so this preserves the answer and warns instead of live-aborting. Set to 0 to disable it.
 
 #### `CLAUDE_CODE_OAUTH_TOKEN`
 

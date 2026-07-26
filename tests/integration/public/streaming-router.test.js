@@ -222,6 +222,46 @@ test("a full streamed turn renders one answer bubble and settles the UI", () => 
   assert.equal(context.stopBtn.style.display, "none", "the stop button is retired");
 });
 
+test("aggregate Codex work metrics never update context occupancy", () => {
+  const { context } = loadApp();
+  const finalized = [];
+  const contextBarCalls = [];
+  const bubble = { wrap: new FakeElement(), bubble: new FakeElement() };
+  context.createStreamingBubble = () => bubble;
+  context.finalizeStreamingBubble = (b, text, stats) => finalized.push({ text, stats });
+  context.addThinking = () => {};
+  context.removeThinking = () => {};
+  context.removeToolIndicator = () => {};
+  context.setStatus = () => {};
+  context.settleTurnTimer = () => {};
+  context.updateContextBar = (...args) => contextBarCalls.push(args);
+  context._scheduleStreamRender = () => {};
+  context._refineStartupBanner = () => {};
+  context._annotateTokenBadges = () => {};
+  context.chatInput = new FakeElement();
+  context.sendBtn = new FakeElement();
+  context.stopBtn = new FakeElement();
+  vm.runInContext("requestStartTime = Date.now() - 1000", context);
+
+  context.handleMessage({ type: "stream_start" });
+  context.handleMessage({ type: "token", text: "Done" });
+  context.handleMessage({ type: "stream_end", usage: {
+    input_tokens: 900000,
+    input_tokens_kind: "aggregate",
+    output_tokens: 10,
+    tool_calls: 12,
+    internal_steps: 24,
+    elapsed_ms: 4500,
+  } });
+
+  assert.equal(contextBarCalls.length, 0);
+  assert.equal(finalized.length, 1);
+  assert.equal(finalized[0].stats.inputTokensKind, "aggregate");
+  assert.equal(finalized[0].stats.toolCalls, 12);
+  assert.equal(finalized[0].stats.internalSteps, 24);
+  assert.equal(finalized[0].stats.workElapsedMs, 4500);
+});
+
 test("a retract drops the streamed bubble and its buffered text", () => {
   const { context } = loadApp();
   const bubble = { wrap: new FakeElement(), bubble: new FakeElement() };
