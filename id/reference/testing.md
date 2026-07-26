@@ -58,6 +58,35 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   (temporarily break an event name, confirm the suite goes red, revert) that
   proves the net has real teeth
 
+### Minimalism Eval (`scripts/minimalism-bench.js`)
+- Before/after A-B evaluator for the `code-minimalism` skill (ponytail-borrow
+  epic #285, WS2): same task, same model, skill present (arm A) vs. skill
+  absent (arm B — a sandbox whose `skills/` copy omits `code-minimalism/`,
+  zero production change), measuring lines of code, *net* tokens
+  (input+output, not output alone), correctness, and wall time
+- Same in-process pattern as the harness (`createAgent` + `makeSinkEmitter` +
+  `runWithPaths`, MCP stubbed at the SDK layer) but drives a live provider
+  instead of a scripted one — the harness answers "did my refactor break the
+  loop?"; this answers "does this skill earn the tokens it costs?"
+- 6 held-out task fixtures under `tests/fixtures/minimalism-tasks/` (prompts
+  absent from `skills/autotune/eval.json`/`eval.holdout.json`), two of which
+  carry `anti-solution/` — a corner-cutting answer that must fail its own
+  reference tests, so a "minimal" answer that skips validation scores as
+  incorrect, not as a win
+- `--dry-run` replays a deterministic mock script built from each fixture's
+  `reference/` solution, exercising the whole pipeline (sandbox, metrics,
+  ledger) in CI with no live model and no network
+- Live runs discard one warm-up repeat per fixture (a cold model/cache would
+  otherwise always land on arm A, which runs first — `buildFixtureCellPlan()`)
+  and alternate A/B/B/A across repeats to spread thermal/cache drift evenly
+- Ledger: `var/autotune/minimalism.tsv`, one row per task×arm×repeat;
+  `computeVerdict()` (`lib/helpers/minimalismBench.js`) applies the
+  pre-registered KEEP/TRIM/DROP/INCONCLUSIVE rule to the medians — a
+  correctness regression (by per-task *pass rate*, not an all-or-nothing
+  gate) disqualifies a verdict no matter how good the token numbers look
+- Run: `node scripts/minimalism-bench.js --dry-run [--tasks=id1,id2] [--repeats=N]`;
+  drop `--dry-run` for a live run against llama.cpp (manual, not part of CI)
+
 ## Mocking Policy
 
 All tests must mock external dependencies instead of using real
