@@ -28,8 +28,7 @@ Versions follow [Semantic Versioning](https://semver.org/).
   fact memory is auto-promoted into the store for trend-question recall. Privacy
   tier 2 (sensitive) by default — withheld from cloud providers. Opaque hashed
   dedup tags prevent PII leaks. Multi-record and ambiguous-fact guards. The
-  spike report at `trash/plans/docgraph-memory-bridge-spike/spike-report.md`
-  validated 100% semantic recall@3 for 10 trend queries.
+  spike validated 100% semantic recall@3 for 10 trend queries.
 - `store.update()` now preserves the memory `tier` field (was silently resetting
   to tier 1). `store.delete()` now marks citing wiki articles stale (same
   staleness contract as `update()`'s tombstone path). Both backends.
@@ -41,6 +40,20 @@ Versions follow [Semantic Versioning](https://semver.org/).
   Codex CLI's post-turn processed-token ceiling is reported as observed telemetry and
   preserves the completed answer. Defaults are 64 tool calls, 128 work steps,
   1,200,000 ms, and 300,000 processed tokens.
+- **T-R5 retrieval gate passes (deepseek-v4-pro)** (#250 WS0-R): the document
+  intelligence harness runs the full retrieval pipeline (auto doc_batch preflight
+  → fact extraction → categorized breakdown) against the rebuilt 9-period oracle.
+  deepseek-v4-pro passes all 10 gate checks: 5 category totals exact (260.50 /
+  215.60 / 140.75 / 50.00 / 29.99 BGN), grand total 696.84 BGN correct, EUR
+  travel items separated, no double-counting, full coverage, no oracle/path leak.
+  deepseek-v4-flash passes everything except EUR-travel exclusion. Unblocks WS1.
+- **Fix: DeepSeek v4 provider multi-turn tool calls** — DeepSeek v4 models
+  require `reasoning_content` on every assistant message with `tool_calls`,
+  including synthetic ones from the auto-batch preflight. Without it the API
+  returns "must be passed back" errors on the second model turn. Fixed in
+  `toOpenAIMessages()` to emit `reasoning_content: ""` when missing. Also
+  split the reasoning adapter into `deepseek-v4-flash` / `deepseek-v4-pro`
+  variants — pro supports `thinking_mode` natively; flash is equivalent.
 - **New skill: `code-minimalism`** — a pre-write decision ladder (#285 WS1). Aperio
   had a post-write cleanup skill (`code-simplification`) but nothing that fired
   *before* the code existed. The new skill asks, in order: does this need to exist →
