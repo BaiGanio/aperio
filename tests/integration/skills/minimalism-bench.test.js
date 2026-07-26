@@ -80,17 +80,17 @@ describe("E3 — task fixtures", () => {
     }
   });
 
-  test("both non-negotiable fixtures ship a reference test file with real assertions", () => {
-    for (const id of ["divide-with-validation", "parse-config-value"]) {
+  test("non-negotiable fixtures ship a reference test file with real assertions", () => {
+    for (const id of ["divide-with-validation", "parse-config-value", "cache-entry-ttl"]) {
       const testFile = readdirSync(join(FIXTURES_DIR, id, "tests")).find(f => f.endsWith(".test.js"));
       const body = readFileSync(join(FIXTURES_DIR, id, "tests", testFile), "utf8");
       assert.ok(/assert\.(equal|throws|deepEqual)/.test(body), `${id}'s reference tests have no real assertions`);
     }
   });
 
-  test("corner-cutting anti-solutions fail the two non-negotiable tasks", async () => {
+  test("corner-cutting anti-solutions fail the non-negotiable tasks", async () => {
     const { runFixtureTests } = await import("../../../lib/helpers/minimalismBench.js");
-    for (const id of ["divide-with-validation", "parse-config-value"]) {
+    for (const id of ["divide-with-validation", "parse-config-value", "cache-entry-ttl"]) {
       const fixture = fixtures.find(f => f.id === id);
       const antiDir = join(fixture.dir, "anti-solution");
       assert.ok(existsSync(antiDir), `${id} is missing anti-solution/`);

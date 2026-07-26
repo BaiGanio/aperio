@@ -1,4 +1,4 @@
 {
   "id": "debounce-stdlib",
-  "prompt": "Our CLI needs to debounce a callback before it fires — do I need a library for this, or does Node already give us enough?"
+  "prompt": "Our CLI needs to debounce a callback before it fires — do I need a library for this, or does Node already give us enough? Save your answer to debounce.js."
 }

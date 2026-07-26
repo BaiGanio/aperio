@@ -69,6 +69,18 @@ housekeeping go in `A2D.md`, not here.
   GENERIC_MODEL_FACTS as a last resort for truly uncached remote refs. Affects:
   context-window sizing, RAM-usage readouts, model-tier benchmarks, and roundtable budget.
 
+## llama.cpp lifecycle
+
+- 2026-07-26 (#325) `state.json`/`STATE_FILE`/`PRESET_PATH` in `lib/helpers/llamacpp/constants.js`
+  are fixed, unparameterized paths — one global record for "the" managed llama-server,
+  repo-wide. Two concurrent Aperio processes against the same checkout (two dev sessions, a
+  benchmark script alongside a live session) can reap each other's llama-server via
+  `ensureLlamaCpp()`'s stale-PID logic, even when each sets a different `LLAMACPP_PORT` —
+  the port override isolates the network layer only, not the state-tracking layer. Happened
+  for real during epic #285 WS2 Step 5: one session's `ensureLlamaCpp({port: 8090})` killed
+  the other's live server on port 8080 mid-request. See #325 for repro and possible fixes
+  (key state by port, or verify the recorded PID actually owns the port before reaping it).
+
 ## Agent loop
 
 - 2026-07-25 The confirm-before-write tool list is duplicated across two modules with

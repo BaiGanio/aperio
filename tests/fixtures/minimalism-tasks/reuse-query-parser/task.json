@@ -1,4 +1,4 @@
 {
   "id": "reuse-query-parser",
-  "prompt": "Before you reinvent the wheel, check whether we already parse a URL query string somewhere in this project, and use that."
+  "prompt": "Before you reinvent the wheel, check whether we already parse a URL query string somewhere in this project, and use that. Whatever you land on, save it to index.js."
 }
