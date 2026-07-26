@@ -9,6 +9,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Codex turn guardrails** (#302): the Codex provider now records aggregate
+  processed/cached/output/reasoning usage together with tool-call count, elapsed time,
+  and guardrail status. Configurable per-turn limits interrupt pathological tool loops
+  and stalled processes with an actionable message; aggregate-token limits are enforced
+  when the Codex CLI reports usage. Defaults are 32 tool calls, 250,000 processed
+  tokens, and 900 seconds.
+- **New skill: `code-minimalism`** — a pre-write decision ladder (#285 WS1). Aperio
+  had a post-write cleanup skill (`code-simplification`) but nothing that fired
+  *before* the code existed. The new skill asks, in order: does this need to exist →
+  is it already in this codebase → can the language or stdlib do it → can the native
+  platform (SQLite FTS5/`sqlite-vec`, `pgvector`, Express, the DOM) do it → can an
+  already-installed dependency → can it be a few inline lines → and only then, the
+  minimum viable module. Rung 2 is anamnesis applied to code: recall what the
+  codebase already knows before writing it again. The two skills are phase siblings,
+  not duplicates — `code-minimalism` fires before a line is written and produces
+  *less code written*; `code-simplification` fires after the code works and produces
+  *same behaviour, less code kept*. A "When NOT to Use" section pins the
+  non-negotiables — validation, error handling, security checks, and tests are never
+  what gets trimmed — and the skill is `load: "on-demand"`, so it costs no context
+  on turns that do not match it. Keyword selection was the only real design problem:
+  the skill index is one shared namespace, and broad verbs ("write", "create", "add")
+  would have stolen slots from `pptx`, `frontend-design`, and
+  `debugging-and-error-recovery`, two of which are pinned by exact-match house tests.
+  Every entry is therefore a multi-word phrase or a genuinely discriminating term,
+  tuned against `skills/autotune/score.mjs`: train accuracy rose 0.8049 → 0.8367 with
+  holdout flat at 0.4286 (watched as the overfitting check) and no new failing case
+  id. `skills/autotune/eval.json` gained four positives and three `expectNot` cases,
+  and `tests/integration/skills/code-minimalism.test.js` (M1–M6, 24 assertions) covers
+  frontmatter and index registration, ladder/non-negotiables/cross-links/attribution
+  content, positive matching, negative matching plus the two pinned house prompts, eval
+  coverage in both directions, and the regression floor. The ladder is adapted from
+  [ponytail](https://github.com/DietrichGebert/ponytail) (MIT), attributed in the skill
+  body. Remaining in #285: WS2 (before/after eval) and WS4 (codegraph-backed reuse rung).
 - **Audit Run 1 — all 22 component slices complete** (A01–A22): every slice now
   has a content-hashed `manifest.json` and a `contract-result.json` with
   deterministic invariant checks. Completed slices span WebSocket/session lifecycle

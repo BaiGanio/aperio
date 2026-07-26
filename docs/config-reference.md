@@ -117,6 +117,24 @@ select · tier 1 (Settings UI, restart to apply) · default: `auto` · options: 
 
 Codex reasoning-summary verbosity. `auto`/`concise`/`detailed` make the CLI emit `reasoning` items that Aperio renders as the collapsed thinking bubble (same UI as every other provider); `none` disables it. Doesn't add API cost — it's a summary of tokens already billed as reasoning_output_tokens.
 
+#### `CODEX_TURN_MAX_TOOL_CALLS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `32` · advanced
+
+Maximum Codex tool/action items allowed in one turn. Set to 0 to disable this guardrail.
+
+#### `CODEX_TURN_MAX_PROCESSED_TOKENS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `250000` · advanced
+
+Maximum aggregate processed input tokens reported for one Codex turn. Because the CLI reports this at turn completion, enforcement occurs when usage arrives. Set to 0 to disable it.
+
+#### `CODEX_TURN_MAX_SECONDS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `900` · advanced
+
+Maximum wall-clock seconds for one Codex turn. Set to 0 to disable this guardrail.
+
 #### `CLAUDE_CODE_OAUTH_TOKEN`
 
 secret · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
