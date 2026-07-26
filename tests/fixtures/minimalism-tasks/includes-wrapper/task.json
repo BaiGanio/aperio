@@ -1,0 +1,4 @@
+{
+  "id": "includes-wrapper",
+  "prompt": "Add a small utility that wraps Array.includes so we can check whether a list contains a value — though maybe that is over-engineering something Array already does."
+}

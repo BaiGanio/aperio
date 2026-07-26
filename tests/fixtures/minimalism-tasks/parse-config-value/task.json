@@ -1,0 +1,4 @@
+{
+  "id": "parse-config-value",
+  "prompt": "Keep it minimal, but write a function that parses a numeric config value from an env string and handles missing or malformed input explicitly."
+}

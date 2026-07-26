@@ -10,6 +10,7 @@ import { join, resolve } from "node:path";
 import {
   countSourceLoc, locDelta, sumUsage, runFixtureTests, median, medianAbsoluteDeviation, computeVerdict, REPO_ROOT,
 } from "../../../lib/helpers/minimalismBench.js";
+import { buildRunPlan, buildFixtureCellPlan, createBenchHostTools } from "../../../scripts/minimalism-bench.js";
 
 const FIXTURE = (id) => resolve(REPO_ROOT, "tests/fixtures/minimalism-tasks", id);
 
@@ -174,6 +175,21 @@ describe("E7 — pre-registered thresholds produce the pre-registered verdicts",
     assert.equal(computeVerdict(rows), "DROP");
   });
 
+  test("a PARTIAL correctness regression disqualifies too, even when the baseline itself wasn't flawless", () => {
+    // B passes 2/3 repeats (bRows.every(...) is already false); A passes 0/3.
+    // A's pass rate (0) is still strictly worse than B's (2/3) — this must
+    // register as a regression, not fall through to a token/LOC-driven KEEP.
+    const rows = [
+      row("t1", "B", 1, { loc: 100, net_tokens: 500, correct: true }),
+      row("t1", "B", 2, { loc: 100, net_tokens: 500, correct: true }),
+      row("t1", "B", 3, { loc: 100, net_tokens: 500, correct: false }),
+      row("t1", "A", 1, { loc: 60, net_tokens: 200, correct: false }),
+      row("t1", "A", 2, { loc: 60, net_tokens: 200, correct: false }),
+      row("t1", "A", 3, { loc: 60, net_tokens: 200, correct: false }),
+    ];
+    assert.equal(computeVerdict(rows), "DROP");
+  });
+
   test("an effect smaller than the inter-repeat spread returns INCONCLUSIVE, never a rounded-up KEEP", () => {
     const rows = [
       row("t1", "B", 1, { loc: 100, net_tokens: 500 }), row("t1", "B", 2, { loc: 100, net_tokens: 500 }), row("t1", "B", 3, { loc: 100, net_tokens: 500 }),
@@ -203,6 +219,45 @@ describe("E7 — medians, not means", () => {
     const withOutlier = base.map(r => (r.task === "t1" && r.arm === "A" && r.repeat === 4) ? { ...r, loc: 1000 } : r);
     assert.equal(computeVerdict(base), computeVerdict(withOutlier));
     assert.equal(computeVerdict(withOutlier), "KEEP");
+  });
+});
+
+// ── Runner fixes (code review, WS2) ────────────────────────────────────────
+describe("scripts/minimalism-bench.js — warm-up discard", () => {
+  test("a dry run has no warm-up cell", () => {
+    const plan = buildFixtureCellPlan({ dryRun: true, repeats: 2 });
+    assert.equal(plan.some(c => c.discard), false);
+    assert.deepEqual(plan.map(c => c.arm), buildRunPlan(2).map(c => c.arm));
+  });
+
+  test("a live run's first cell is a discarded arm-A warm-up, ahead of the recorded matrix", () => {
+    const plan = buildFixtureCellPlan({ dryRun: false, repeats: 3 });
+    assert.equal(plan[0].discard, true);
+    assert.equal(plan[0].arm, "A");
+    assert.deepEqual(plan.slice(1), buildRunPlan(3).map(c => ({ ...c, discard: false })));
+  });
+});
+
+describe("scripts/minimalism-bench.js — cross-platform workspace containment", () => {
+  test("a nested subdirectory path is allowed", async () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-safe-"));
+    try {
+      const writeFile = createBenchHostTools(workspaceDir).find(t => t.name === "write_file");
+      const result = await writeFile.handler({ path: "lib/nested/foo.js", content: "x" });
+      assert.match(result, /^wrote /);
+    } finally {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+
+  test("a traversal path is rejected regardless of the host platform's separator", async () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-safe-"));
+    try {
+      const readFile = createBenchHostTools(workspaceDir).find(t => t.name === "read_file");
+      await assert.rejects(readFile.handler({ path: "../../etc/passwd" }), /escapes workspace/);
+    } finally {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
   });
 });
 

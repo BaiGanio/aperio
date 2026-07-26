@@ -42,7 +42,36 @@ Versions follow [Semantic Versioning](https://semver.org/).
   content, positive matching, negative matching plus the two pinned house prompts, eval
   coverage in both directions, and the regression floor. The ladder is adapted from
   [ponytail](https://github.com/DietrichGebert/ponytail) (MIT), attributed in the skill
-  body. Remaining in #285: WS2 (before/after eval) and WS4 (codegraph-backed reuse rung).
+  body. Remaining in #285: WS4 (codegraph-backed reuse rung).
+- **`code-minimalism` before/after eval harness** (#285 WS2): the skill costs
+  ~1.7k input tokens on every turn it matches, so WS1 shipped the skill on
+  taste alone — WS2 builds the instrument to check whether it earns that cost
+  in numbers. `scripts/minimalism-bench.js` runs the same task twice, once
+  with the skill available (arm A) and once from a sandbox whose `skills/`
+  copy omits it (arm B — zero production change), in-process against a real
+  `createAgent()` + `runAgentLoop()` (MCP stubbed at the SDK layer, same
+  pattern as the agent-loop harness), measuring lines of code, *net* tokens
+  (input+output — output alone would flatter the skill by hiding its own
+  prompt cost), correctness, and wall time. 6 held-out task fixtures live
+  under `tests/fixtures/minimalism-tasks/`, two of which ship a corner-cutting
+  `anti-solution/` that must fail its own reference tests, so a "minimal"
+  answer that skips validation scores as incorrect rather than as a win.
+  `--dry-run` replays a deterministic mock script built from each fixture's
+  reference solution, exercising the whole pipeline in CI with no live model;
+  a live run discards one warm-up repeat per fixture and alternates A/B/B/A
+  across repeats so cold-cache and thermal drift can't land on one arm.
+  Results append to `var/autotune/minimalism.tsv`; `computeVerdict()`
+  (`lib/helpers/minimalismBench.js`) applies a pre-registered KEEP / TRIM /
+  DROP / INCONCLUSIVE rule to the medians, where a correctness regression
+  (judged by per-task pass rate, not an all-or-nothing gate — a baseline that
+  itself isn't flawless can still regress) disqualifies a verdict no matter
+  how good the token numbers look. 38 tests across
+  `tests/unit/helpers/minimalism-bench.test.js` and
+  `tests/integration/skills/minimalism-bench.test.js` cover arm construction,
+  fixture correctness, the dry-run pipeline, ledger integrity, verdict
+  thresholds, and sandbox teardown hygiene (forced failure and `SIGINT`). The
+  live run against llama.cpp and its verdict on #285 are a deliberately
+  separate, manually-gated next step — not part of this change.
 - **Audit Run 1 — all 22 component slices complete** (A01–A22): every slice now
   has a content-hashed `manifest.json` and a `contract-result.json` with
   deterministic invariant checks. Completed slices span WebSocket/session lifecycle
