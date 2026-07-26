@@ -5,6 +5,7 @@ import {
   buildCandidateManifest,
   retrieveInBatches,
   composeMemoryFromDoc,
+  buildDocumentHighlights,
 } from "../../../lib/docgraph/retrieval.js";
 
 describe("document retrieval contract", () => {
@@ -577,5 +578,100 @@ describe("composeMemoryFromDoc — docgraph → memory bridge (#314)", () => {
     const amounts = [{ value: 29.99, currency: "BGN", raw: "29,99", label: "amount_due" }];
     const mem = composeMemoryFromDoc(dates, amounts, { sha256: "append" });
     assert.match(mem.content, /29,99 BGN\. /);
+  });
+});
+
+describe("buildDocumentHighlights — doc_batch highlights (#313)", () => {
+  test("reports zero documents when given an empty array", () => {
+    assert.match(buildDocumentHighlights([]), /0 documents read/);
+  });
+
+  test("returns a zero-note when no documents have terminal amounts", () => {
+    const docs = [
+      { status: "read", rel_path: "notes/plain.txt", title: "plain.txt", amounts: [] },
+      { status: "read", rel_path: "form/blank.pdf", title: "blank.pdf", amounts: [] },
+    ];
+    const result = buildDocumentHighlights(docs);
+    assert.match(result, /none with detected terminal amounts/);
+  });
+
+  test("lists only documents with terminal amount_due or grand_total, filtered from non-terminal labels", () => {
+    const docs = [
+      { status: "read", rel_path: "bills/electric.txt", title: "electric.txt",
+        amounts: [{ value: 142.5, currency: "BGN", raw: "142.50 BGN", label: "amount_due" }] },
+      { status: "read", rel_path: "bills/water.txt", title: "water.txt",
+        amounts: [{ value: 38.2, currency: "BGN", raw: "38.20 BGN", label: "subtotal" }] },
+      { status: "read", rel_path: "fuel/receipt.txt", title: "receipt.txt",
+        amounts: [{ value: 215.6, currency: "BGN", raw: "215.60 BGN", label: "total" }] },
+    ];
+    const result = buildDocumentHighlights(docs);
+    // Only amount_due is terminal => only electric shows up
+    assert.match(result, /electric\.txt/);
+    assert.doesNotMatch(result, /water\.txt/);
+    assert.doesNotMatch(result, /receipt\.txt/);
+  });
+
+  test("assigns correct category hints from filenames", () => {
+    const docs = [
+      { status: "read", rel_path: "bills/electricity-jun.txt", title: "electricity-jun.txt",
+        amounts: [{ value: 142.5, currency: "BGN", raw: "142.50 BGN", label: "amount_due" }] },
+      { status: "read", rel_path: "fuel/petrol-receipt.txt", title: "petrol-receipt.txt",
+        amounts: [{ value: 50, currency: "BGN", raw: "50.00 BGN", label: "grand_total" }] },
+      { status: "read", rel_path: "shop/grocery-receipt.txt", title: "grocery-receipt.txt",
+        amounts: [{ value: 45, currency: "BGN", raw: "45.00 BGN", label: "amount_due" }] },
+      { status: "read", rel_path: "commute/transport-topup.txt", title: "transport-topup.txt",
+        amounts: [{ value: 50, currency: "BGN", raw: "50.00 BGN", label: "amount_due" }] },
+      { status: "read", rel_path: "web/internet-payment.txt", title: "internet-payment.txt",
+        amounts: [{ value: 29.99, currency: "BGN", raw: "29.99 BGN", label: "amount_due" }] },
+      { status: "read", rel_path: "tax/notice-2026.txt", title: "notice-2026.txt",
+        amounts: [{ value: 100, currency: "BGN", raw: "100.00 BGN", label: "amount_due" }] },
+      { status: "read", rel_path: "trade/commercial-invoice.txt", title: "commercial-invoice.txt",
+        amounts: [{ value: 1000, currency: "EUR", raw: "1000.00 EUR", label: "amount_due" }] },
+    ];
+    const result = buildDocumentHighlights(docs);
+    assert.match(result, /electricity-jun\.txt.*utility/);
+    assert.match(result, /petrol-receipt\.txt.*fuel/);
+    assert.match(result, /grocery-receipt\.txt.*groceries/);
+    assert.match(result, /transport-topup\.txt.*transport/);
+    assert.match(result, /internet-payment\.txt.*internet/);
+    assert.match(result, /notice-2026\.txt.*tax_notice/);
+    assert.match(result, /commercial-invoice\.txt.*commercial/);
+  });
+
+  test("assigns null category hint for unrecognized filenames", () => {
+    const docs = [
+      { status: "read", rel_path: "misc/unknown-file.txt", title: "unknown-file.txt",
+        amounts: [{ value: 50, currency: "BGN", raw: "50.00 BGN", label: "amount_due" }] },
+    ];
+    const result = buildDocumentHighlights(docs);
+    assert.match(result, /unknown-file\.txt.*—/);
+  });
+
+  test("skips skipped documents silently (only read docs are counted)", () => {
+    const docs = [
+      { status: "read", rel_path: "bills/electric.txt", title: "electric.txt",
+        amounts: [{ value: 100, currency: "BGN", raw: "100.00 BGN", label: "amount_due" }] },
+      { status: "skipped", rel_path: "bills/unread.txt", title: "unread.txt",
+        amounts: [{ value: 200, currency: "BGN", raw: "200.00 BGN", label: "amount_due" }] },
+    ];
+    const result = buildDocumentHighlights(docs);
+    assert.match(result, /electric\.txt/);
+    assert.doesNotMatch(result, /unread\.txt/);
+  });
+
+  test("rejects amounts with null currency", () => {
+    const docs = [
+      { status: "read", rel_path: "bills/bill.txt", title: "bill.txt",
+        amounts: [{ value: 100, currency: null, raw: "100", label: "amount_due" }] },
+    ];
+    assert.match(buildDocumentHighlights(docs), /none with detected terminal amounts/);
+  });
+
+  test("rejects amounts with null value", () => {
+    const docs = [
+      { status: "read", rel_path: "bills/bill.txt", title: "bill.txt",
+        amounts: [{ value: null, currency: "BGN", raw: "N/A", label: "amount_due" }] },
+    ];
+    assert.match(buildDocumentHighlights(docs), /none with detected terminal amounts/);
   });
 });
