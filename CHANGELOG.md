@@ -294,6 +294,12 @@ Versions follow [Semantic Versioning](https://semver.org/).
 - Reorganized benchmark inputs under `docs/benchmarks/tools/`, grouped test dashboards under `docs/benchmarks/`, and added a private-safe metrics export for the model-tier viewer.
 - Renamed the model-tier viewer integration test to `benchmarking.test.js` and made qualification-case cards collapsed by default.
 - Extracted the WebSocket chat/init turn-interruption mutex out of `lib/emitters/handlers/wsHandler.js` into `lib/emitters/handlers/ws/turnLock.js` (`createTurnLock()`), isolating the concurrency-safety logic from `handleChat`'s business logic (issue #307 Phase 5b). No behavior change; added characterization coverage for a previously-untested socket-close-during-active-turn scenario and a deeper interruption race.
+- **Confirm tool list drift fixed**: `CONFIRM_TOOLS` (emit side) now imports the canonical `CONFIRMABLE_TOOLS` Set from `lib/helpers/confirmableTools.js` instead of maintaining a duplicate literal. Added identity-assertion test preventing future silent drift when adding confirmable tools.
+- **llama.cpp state isolation**: the managed-server state file is now port-keyed (`state-${LLAMACPP_PORT}.json`) so two concurrent Aperio processes with different ports never share (and inadvertently reap) each other's llama-server.
+- **`APERIO_MODEL_FACTS_OVERRIDES` env var**: JSON object keyed by HF repo path, slotted between GGUF inspection and the curated `MODEL_FACTS` dict in `resolveModelFacts`. Registered in config.js (tier 1, llama.cpp section).
+- **Codegraph repo-resolution ORDER BY**: both SQLite and Postgres backends now order ambiguous-repo candidates by `root_path`, making the "Ambiguous repo …" error message deterministic and assertable.
+- **Codegraph SQLite test fixture migrated from hand-copied schema**: `tests/integration/codegraph/backends/sqlite.test.js` now applies real migrations via `runSqliteMigrations()` instead of a hand-copied schema literal that could silently drift from the migration files.
+- **Panel toggle first-click bug fixed**: 7 side-panel toggle functions (`codegraph`, `docgraph`, `wiki`, `db`, `settings`, `agents`, `skills`) now read the rendered display value via `getComputedStyle()` instead of the inline `style` attribute, which starts as `""` (not `"none"`) on CSS-hidden elements — fixing the "first click does nothing" UX bug on page load.
 
 ### Fixed
 

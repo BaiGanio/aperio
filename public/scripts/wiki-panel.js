@@ -326,7 +326,7 @@
   // forceList=true forces the list view even if a detail was open.
   window.toggleWikiPanel = function (forceList) {
     const p = panel(), b = backdrop();
-    const opening = p.style.display === "none";
+    const opening = getComputedStyle(p).display === "none";
     if (opening) {
       p.style.display = "flex";
       b.style.display = "block";

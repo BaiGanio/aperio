@@ -338,7 +338,7 @@
   }
 
   window.toggleDocgraphPanel = async function () {
-    const open = panel().style.display !== "none";
+    const open = getComputedStyle(panel()).display !== "none";
     if (open) {
       panel().style.display = "none";
       backdrop().style.display = "none";

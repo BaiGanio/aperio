@@ -313,6 +313,12 @@ text · tier 1 (Settings UI, restart to apply) · default: `ggml-org/Qwen2.5-VL-
 
 Hugging Face repo[:quant] used for image understanding; llama-server's router loads/swaps it on demand.
 
+#### `APERIO_MODEL_FACTS_OVERRIDES`
+
+text · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
+
+JSON object keyed by HF repo path (with optional :quant suffix) overriding the curated MODEL_FACTS dict for uncached or custom models. Each value has { sizeGB, maxContext, kvBytesPerToken, architecture?, activeParams? }. Slotted between GGUF inspection and the curated catalog in resolveModelFacts.
+
 #### `LLAMACPP_CTX`
 
 number · tier 1 (Settings UI, restart to apply) · default: `32768` · advanced

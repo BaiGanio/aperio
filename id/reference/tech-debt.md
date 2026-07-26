@@ -27,15 +27,6 @@ housekeeping go in `A2D.md`, not here.
 
 ## Codegraph
 
-- 2026-07-24 (#283) Every panel that follows the `csp-style-2` (hidden-by-default) +
-  `panel().style.display !== "none"` toggle pattern (codegraph, docgraph, wiki, db, …)
-  swallows its first click after page load: the class hides via CSS `display:none` but the
-  JS toggle reads the *inline* style, which starts as `""` (not `"none"`), so the first click
-  is treated as "already open" and closes a no-op. Second click actually opens it. Found while
-  testing the codegraph Map overlay. Fix would be checking computed style or an explicit
-  `data-open` flag instead of inline `style.display`; touches every panel using the pattern,
-  so out of scope for the current change.
-
 - 2026-07-24 (#283) `loadGraph(store, repoId)` reads the *entire* repo graph into memory on
   every `code_neighbors`/`code_path`/`code_insights`/`/graph` request. Fine at the 10k-node
   target and matches the "shared adapter loads one repository" design, but a depth-1 neighbors
@@ -43,59 +34,6 @@ housekeeping go in `A2D.md`, not here.
   DB-side BFS fast-path for shallow neighbors, or cache the built graph per (repoId,
   graph_revision) so warm traversals skip the reload. Not urgent. (Measuring this is
   item 3 of #322.)
-
-- 2026-07-25 (#283) `tests/integration/codegraph/backends/sqlite.test.js` hand-copies the
-  codegraph schema as a string literal ("Mirrors db/migrations-sqlite/…") instead of applying
-  the migrations, so a schema change never reaches it and the fixture can silently describe a
-  schema that no longer exists. The new `backends/postgres.test.js` builds its SQLite half
-  from a real migrated `SqliteStore.init()` store — the older file should follow. Noted in #322.
-
-- 2026-07-25 (#283) Neither backend applies an `ORDER BY` when listing candidates for an
-  ambiguous `repo` argument (`resolveRepoIdSync` / `resolveRepoIdByPool`), so the
-  `Ambiguous repo '…' — matches: …` message is order-unstable across backends and query
-  plans. Cosmetic — the parity test compares the matched set, not the order — but it makes the
-  error text unassertable verbatim.
-
-## Providers
-
-- 2026-07-24 `MODEL_FACTS` in `lib/providers/index.js` is a hand-maintained hardcoded
-  dictionary. Every new model needs a manual entry or it falls through to
-  `GENERIC_MODEL_FACTS` (8 GB weights, 512 KB/token KV) which is wildly pessimistic —
-  guesstimates ~25 GB per model instead of the GGUF header's real 2-4 GB. `resolveModelFacts`
-  already reads real GGUF metadata from cached files, so the curated dict is a stale
-  bottleneck: models that haven't been downloaded yet can't be inspected, but once cached
-  the dict is redundant. Should be replaced with a DB table or `.env`-driven overrides keyed
-  by HF repo path, falling back to `inspectCachedModel` for anything local and only using
-  GENERIC_MODEL_FACTS as a last resort for truly uncached remote refs. Affects:
-  context-window sizing, RAM-usage readouts, model-tier benchmarks, and roundtable budget.
-
-## llama.cpp lifecycle
-
-- 2026-07-26 (#325) `state.json`/`STATE_FILE`/`PRESET_PATH` in `lib/helpers/llamacpp/constants.js`
-  are fixed, unparameterized paths — one global record for "the" managed llama-server,
-  repo-wide. Two concurrent Aperio processes against the same checkout (two dev sessions, a
-  benchmark script alongside a live session) can reap each other's llama-server via
-  `ensureLlamaCpp()`'s stale-PID logic, even when each sets a different `LLAMACPP_PORT` —
-  the port override isolates the network layer only, not the state-tracking layer. Happened
-  for real during epic #285 WS2 Step 5: one session's `ensureLlamaCpp({port: 8090})` killed
-  the other's live server on port 8080 mid-request. See #325 for repro and possible fixes
-  (key state by port, or verify the recorded PID actually owns the port before reaping it).
-
-## Agent loop
-
-- 2026-07-25 The confirm-before-write tool list is duplicated across two modules with
-  no import between them: `CONFIRM_TOOLS` (`lib/agent/tool-profiles.js:14`, read by
-  `tool-hooks.js` to decide whether a `Token:` line becomes an `action_confirm_pending`
-  event) and `CONFIRMABLE_TOOLS` (`lib/helpers/confirmableTools.js`, read by the WS
-  handler and the HTTP interrupts route to decide whether a confirm/deny round-trip is
-  accepted). The two Sets are currently identical, character for character. Adding a
-  confirmable tool to one and not the other yields either a confirm button whose reply is
-  rejected, or a confirmable tool that never gets a button — both silent. `confirmableTools.js`
-  was extracted precisely to stop this class of drift between the WS and HTTP sites; it
-  just stopped one layer short. Fix is one import, but it crosses the emit side and the
-  accept side of the confirm protocol, so it wants its own change + a test asserting the
-  two lists are the same object. No harness scenario covers the confirm path at all today
-  (see `tests/harness/README.md` §8).
 
 ---
 

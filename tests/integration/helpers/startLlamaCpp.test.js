@@ -23,6 +23,7 @@ import {
   deleteServerLog,
   pruneServerLogs,
 } from "../../../lib/helpers/startLlamaCpp.js";
+import { LLAMACPP_PORT } from "../../../lib/helpers/llamacpp/constants.js";
 import { recommendContextLength, MODEL_FACTS, resolveModelFacts } from "../../../lib/providers/index.js";
 
 // ensureLlamaCpp() takes an injectable _spawn (default: the real
@@ -51,7 +52,7 @@ const originalFetch = globalThis.fetch;
 const ENV_KEYS = ["LLAMACPP_MODEL", "LLAMACPP_VLM_MODEL", "LLAMACPP_VLM_MMPROJ", "LLAMACPP_SERVE_CTX", "LLAMACPP_CTX",
   "LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"];
 const savedEnv = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
-const STATE_FILE = "./var/llamacpp/state.json";
+const STATE_FILE = `./var/llamacpp/state-${LLAMACPP_PORT}.json`;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -59,8 +60,10 @@ afterEach(() => {
     if (savedEnv[k] === undefined) delete process.env[k];
     else process.env[k] = savedEnv[k];
   }
-  // Clean up state file so reconciliation tests don't pollute each other
+  // Clean up state files so reconciliation tests don't pollute each other
   try { if (existsSync(STATE_FILE)) unlinkSync(STATE_FILE); } catch {}
+  // Also clean up the legacy fixed-path state.json (pre-port-keyed)
+  try { if (existsSync("./var/llamacpp/state.json")) unlinkSync("./var/llamacpp/state.json"); } catch {}
 });
 
 function mockFetchSequence(...responses) {
