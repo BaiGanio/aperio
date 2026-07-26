@@ -225,7 +225,7 @@ describe("deleteRepoHandler", () => {
   });
 
   test("deletes repo", async () => {
-    const ctx = makeCtx(async () => ({ rowCount: 1 }));
+    const ctx = makeCtx(async () => ({ rows: [{ id: 1 }], rowCount: 1 }));
     const result = await cg.deleteRepoHandler(ctx, { path: "/repo" });
     const parsed = JSON.parse(result.content[0].text);
     assert.equal(parsed.deleted, true);

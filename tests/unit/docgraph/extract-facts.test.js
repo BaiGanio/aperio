@@ -186,9 +186,11 @@ describe("extractAmountCandidates", () => {
       "  Основание (Payment details):Интернет 05/2026, кл. № N-4821",
     ].join("\n");
     const amounts = extractAmountCandidates(text);
-    assert.deepEqual(amounts, [
-      { value: 29.99, currency: "BGN", raw: "29,99", label: "amount" },
-    ]);
+    assert.equal(amounts.length, 1);
+    assert.equal(amounts[0].value, 29.99);
+    assert.equal(amounts[0].currency, "BGN");
+    assert.equal(amounts[0].label, "amount_due", "the bilingual (Amount) gloss maps to amount_due, not generic amount — helps model categorization and memory-bridge promotion");
+    assert.equal(amounts[0].description, "Интернет 05/2026, кл. № N-4821");
   });
 
   test("does not backfill a currency onto an amount that already has one, or one with no money label at all (#313)", () => {
