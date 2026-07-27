@@ -44,15 +44,6 @@ housekeeping go in `A2D.md`, not here.
   found while running the public suite for the generated-file-card redesign. **Not fixed:**
   outside that task; the fix is one stub function in the test's globals.
 
-## llama.cpp tests
-
-- 2026-07-27 `tests/integration/helpers/startLlamaCpp.test.js` can still reach the real
-  port-8080 router despite `ensureLlamaCpp`'s injected spawn/kill/find-PID seams. Running the
-  file while Aperio was active replaced the managed router and overwrote `models.ini` with
-  test models; the real `.env` preset and managed state were restored immediately. The suite
-  needs an isolated port/runtime root plus a hard assertion that no default spawn or live
-  port probe is reachable before it is safe in a shared worktree.
-
 ## Docgraph
 
 - 2026-07-26 `lib/docgraph/extract-facts.js` drops the **sign** of negative amounts.
