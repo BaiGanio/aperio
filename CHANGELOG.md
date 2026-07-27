@@ -9,6 +9,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Fix: inline code requests no longer create unsolicited files.** Bare requests
+  such as "write a function" or "create a helper" now receive code inline instead
+  of being treated as filesystem-mutation intent. Naming a file/path, asking to
+  save the result, or requesting an edit still offers the file tools. The
+  `code-minimalism` skill now states the same delivery boundary explicitly.
 - **Plain-English background-job form** (#169): the background-agents job
   form (`public/scripts/agents-panel.js`) targeted non-coders with a raw JSON
   steps textarea, millisecond fields, and jargony labels. Quick wins: template

@@ -352,6 +352,29 @@ describe("tool-profiles — generic transformation intent (issue #301 finding #3
   });
 });
 
+describe("tool-profiles — code delivery is not implicit file intent", () => {
+  test("bare write/create code requests do not surface filesystem edit tools", () => {
+    for (const text of [
+      "Keep it minimal, but write a function that parses a numeric config value.",
+      "Write me a helper for turning a title into a URL slug.",
+      "Create a JavaScript function that validates an email address.",
+    ]) {
+      assert.ok(!classifyProfiles(text).has("file-edit"), `unexpected file-edit profile for: ${text}`);
+    }
+  });
+
+  test("named-file and explicit persistence requests still surface filesystem edit tools", () => {
+    for (const text of [
+      "Write the numeric config helper to parseConfigValue.js.",
+      "Create a JavaScript file named parseConfigValue.js.",
+      "Save this helper locally.",
+      "Modify the existing helper to reject NaN.",
+    ]) {
+      assert.ok(classifyProfiles(text).has("file-edit"), `missing file-edit profile for: ${text}`);
+    }
+  });
+});
+
 // ─── CSV vs XLSX classification — issue #300 ──────────────────────────────────
 // Plain CSV requests must not activate the heavy file-generate profile or
 // offer generate_xlsx. They should use file-edit (write_file) instead.
