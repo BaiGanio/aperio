@@ -1,6 +1,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { estimateLlamaCppFootprintGB, shouldEnableRoundtable } from "../../../lib/helpers/roundtableBudget.js";
+import { installCuratedModelFacts } from "../../fixtures/model-facts.js";
+
+installCuratedModelFacts();
 
 describe("estimateLlamaCppFootprintGB", () => {
   test("estimates a non-zero footprint for local llama.cpp models", () => {

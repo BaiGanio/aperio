@@ -702,6 +702,25 @@ export class PostgresStore {
     return rows.length > 0;
   }
 
+  async getModelFacts() {
+    const { rows } = await this.pool.query(`
+      SELECT alias, hf, size_gb, max_context, kv_bytes_per_token,
+             architecture, active_params, mmproj
+        FROM model_facts
+       ORDER BY alias
+    `);
+    return rows.map(row => ({
+      alias: row.alias,
+      hf: row.hf,
+      sizeGB: Number(row.size_gb),
+      maxContext: Number(row.max_context),
+      kvBytesPerToken: Number(row.kv_bytes_per_token),
+      architecture: row.architecture,
+      activeParams: row.active_params == null ? null : Number(row.active_params),
+      mmproj: row.mmproj,
+    }));
+  }
+
   // ── Background-agent jobs + run history (Phase 4) ─────────────────────────
   // definition is JSONB; pg parses it back to a JS object on read. _rowToJob
   // re-merges id/enabled into the flat object the scheduler and API expect.

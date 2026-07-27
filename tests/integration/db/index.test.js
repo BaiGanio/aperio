@@ -97,12 +97,12 @@ describe("getStore", () => {
     assert.ok(store._sqlite, "should fall back to SQLite when Postgres fails");
   });
 
-  test("returns cached instance on subsequent calls", async () => {
+  test("returns cached instance on subsequent calls", async (t) => {
     process.env.DB_BACKEND = "sqlite";
     let initCount = 0;
     // Override the sqlite mock with a counting version
     const sqliteMod = await import("../../../db/sqlite.js");
-    mock.method(sqliteMod.SqliteStore, "init", async () => {
+    t.mock.method(sqliteMod.SqliteStore, "init", async () => {
       initCount++;
       return { db: {}, _sqlite: true };
     });
@@ -114,11 +114,11 @@ describe("getStore", () => {
     assert.strictEqual(initCount, 1, "init() should only be called once");
   });
 
-  test("resolves the same promise when called concurrently", async () => {
+  test("resolves the same promise when called concurrently", async (t) => {
     process.env.DB_BACKEND = "sqlite";
     let initCount = 0;
     const sqliteMod = await import("../../../db/sqlite.js");
-    mock.method(sqliteMod.SqliteStore, "init", async () => {
+    t.mock.method(sqliteMod.SqliteStore, "init", async () => {
       initCount++;
       await new Promise(r => setTimeout(r, 5));
       return { db: {}, _sqlite: true };
@@ -128,6 +128,39 @@ describe("getStore", () => {
     const [a, b] = await Promise.all([getStore(), getStore()]);
     assert.strictEqual(a, b);
     assert.strictEqual(initCount, 1);
+  });
+
+  test("does not publish the singleton until runtime catalogs finish hydrating", async () => {
+    process.env.DB_BACKEND = "sqlite";
+    let releaseHydration;
+    let markHydrationStarted;
+    const hydrationStarted = new Promise(resolve => { markHydrationStarted = resolve; });
+    const hydrationGate = new Promise(resolve => { releaseHydration = resolve; });
+    mockSqliteInitResult = {
+      db: {},
+      _sqlite: true,
+      async getModelFacts() {
+        markHydrationStarted();
+        await hydrationGate;
+        return [];
+      },
+    };
+
+    const { getStore } = await import(_cacheBust());
+    const first = getStore();
+    await hydrationStarted;
+
+    let secondSettled = false;
+    const second = getStore().then(store => {
+      secondSettled = true;
+      return store;
+    });
+    await new Promise(resolve => setImmediate(resolve));
+    const settledBeforeHydration = secondSettled;
+    releaseHydration();
+    const [a, b] = await Promise.all([first, second]);
+    assert.equal(settledBeforeHydration, false, "concurrent callers must wait for catalog hydration");
+    assert.strictEqual(a, b);
   });
 });
 

@@ -66,10 +66,11 @@ describe("formatOllamaMigrationMessage", () => {
     assert.ok(/not reused|NOT reused/i.test(msg));
   });
 
-  test("lists curated model download sizes", () => {
+  test("lists configured replacement models without opening the DB", () => {
     const msg = formatOllamaMigrationMessage({ providerIsOllama: true, ollamaVarsSet: [] });
     assert.ok(msg.includes("unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL"));
-    assert.ok(/~3\.9 GB/.test(msg));
+    assert.ok(msg.includes("LLAMACPP_MODEL_TIER_8"));
+    assert.ok(!/~3\.9 GB/.test(msg));
   });
 
   test("omits the AI_PROVIDER line when only a lingering var triggered it", () => {

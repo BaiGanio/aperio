@@ -279,6 +279,34 @@ describe("PostgresStore — settings", () => {
   });
 });
 
+describe("PostgresStore — model facts", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("normalizes numeric model_facts columns", async () => {
+    _poolQuery = async () => ({ rows: [{
+      alias: "qwen:test",
+      hf: "example/Qwen-GGUF:Q4_K_M",
+      size_gb: "5.3",
+      max_context: "262144",
+      kv_bytes_per_token: "32768",
+      architecture: "moe",
+      active_params: "3",
+      mmproj: null,
+    }] });
+    const store = new PostgresStore(new MockPool());
+    assert.deepEqual(await store.getModelFacts(), [{
+      alias: "qwen:test",
+      hf: "example/Qwen-GGUF:Q4_K_M",
+      sizeGB: 5.3,
+      maxContext: 262144,
+      kvBytesPerToken: 32768,
+      architecture: "moe",
+      activeParams: 3,
+      mmproj: null,
+    }]);
+  });
+});
+
 // =============================================================================
 // PostgresStore — pin / expiry
 // =============================================================================
