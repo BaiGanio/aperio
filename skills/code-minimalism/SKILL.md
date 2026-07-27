@@ -29,6 +29,13 @@ a local model are the ones never generated. This is the pre-write gate;
 - Planning work with [[reasoning-planning]] — the ladder belongs in the plan, not
   in the review afterwards
 
+## Delivery Boundary
+
+A request to write, create, provide, or return code does not by itself authorize
+saving or writing a file. Unless the user names a file or path, asks to save the
+result, or asks to change code in an existing project, answer with the minimal code
+inline. Use filesystem tools only when that persistence intent is explicit.
+
 ## When NOT to Use
 
 **Never trim these.** Minimalism is about *how much gets built*, not about how

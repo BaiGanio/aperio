@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 import { loadSkillIndex, matchSkills } from "../../../lib/workers/skills.js";
+import { planTurnTools } from "../../../lib/agent/turn-planner.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..", "..", "..");
@@ -98,6 +99,12 @@ describe("M2 — body integrity", () => {
       assert.ok(body.includes(heading), `missing house section: ${heading}`);
     }
   });
+
+  test("distinguishes inline code requests from file-delivery requests", () => {
+    assert.match(body, /does not by itself authorize\s+(?:saving|writing).+file/is);
+    assert.match(body, /answer.+inline/is);
+    assert.match(body, /names? a file|file(?:name)? or path/is);
+  });
 });
 
 // ── M3 — positive matching ───────────────────────────────────────────────────
@@ -121,6 +128,32 @@ describe("M3 — positive matching", () => {
     // injected skill — the skill has to actually win a slot somewhere.
     const firsts = positives.map(p => names(p)[0]);
     assert.ok(firsts.includes("code-minimalism"), `never ranked first: [${firsts.join(", ")}]`);
+  });
+
+  test("the reported bare-code prompt loads the skill without offering write_file", () => {
+    const prompt = "Keep it minimal, but write a function that parses a numeric config " +
+      "value from an env string and handles missing or malformed input explicitly.";
+    const planned = planTurnTools([], prompt, {
+      turnNum: 1,
+      skillIndex: index,
+      shellAllowed: false,
+    });
+
+    assert.ok(planned.skills.some(s => s.name === "code-minimalism"));
+    assert.ok(!planned.names.has("write_file"));
+  });
+
+  test("an explicit filename restores write_file for the same task", () => {
+    const prompt = "Keep it minimal, but write a function that parses a numeric config " +
+      "value from an env string. Save it to parseConfigValue.js.";
+    const planned = planTurnTools([], prompt, {
+      turnNum: 1,
+      skillIndex: index,
+      shellAllowed: false,
+    });
+
+    assert.ok(planned.skills.some(s => s.name === "code-minimalism"));
+    assert.ok(planned.names.has("write_file"));
   });
 });
 
