@@ -5,7 +5,22 @@ import { writeFileSync, readFileSync, mkdirSync, existsSync, unlinkSync, appendF
 import { join } from "path";
 import { tmpdir } from "os";
 import assert from "node:assert/strict";
-import {
+
+// This suite exercises ensureLlamaCpp()'s real state/preset/log-file lifecycle
+// against disk. It must run against a private, per-run tmp directory instead
+// of the shared "./var/llamacpp" a real Aperio process reads and writes —
+// PRESET_DIR (lib/helpers/llamacpp/constants.js) is a module-level const,
+// frozen at import time, so the override env var has to be set BEFORE the
+// dynamic import below (a static import here would read the default and
+// reconnect this suite to real runtime state). Without this, running the
+// file directly (bypassing `npm test`'s NODE_ENV=test) can overwrite a live
+// developer's models.ini/server.log/state file and even reap its real
+// llama-server PID — see id/reference/tech-debt.md, 2026-07-27, and issue #325.
+const RUNTIME_DIR = mkdtempSync(join(tmpdir(), "aperio-llamacpp-test-"));
+process.env.APERIO_LLAMACPP_RUNTIME_DIR = RUNTIME_DIR;
+process.env.NODE_ENV ??= "test"; // belt-and-suspenders: also gates real PID discovery/ownership checks off
+
+const {
   buildModelsPreset,
   collectExtraLlamaCppModels,
   mainPlusVlmFit,
@@ -22,10 +37,13 @@ import {
   pumpServerLogTee,
   deleteServerLog,
   pruneServerLogs,
-} from "../../../lib/helpers/startLlamaCpp.js";
-import { LLAMACPP_PORT } from "../../../lib/helpers/llamacpp/constants.js";
-import { recommendContextLength, resolveModelFacts } from "../../../lib/providers/index.js";
-import { installCuratedModelFacts } from "../../fixtures/model-facts.js";
+} = await import("../../../lib/helpers/startLlamaCpp.js");
+const { PRESET_DIR, STATE_FILE, SERVER_LOG_PATH } = await import("../../../lib/helpers/llamacpp/constants.js");
+const { recommendContextLength, resolveModelFacts } = await import("../../../lib/providers/index.js");
+const { installCuratedModelFacts } = await import("../../fixtures/model-facts.js");
+
+assert.equal(PRESET_DIR, RUNTIME_DIR, "llamacpp constants must resolve inside this suite's isolated runtime dir, never the shared var/llamacpp");
+after(() => { rmSync(RUNTIME_DIR, { recursive: true, force: true }); });
 
 const MODEL_FACTS = installCuratedModelFacts();
 
@@ -55,7 +73,6 @@ const originalFetch = globalThis.fetch;
 const ENV_KEYS = ["LLAMACPP_MODEL", "LLAMACPP_VLM_MODEL", "LLAMACPP_VLM_MMPROJ", "LLAMACPP_SERVE_CTX", "LLAMACPP_CTX",
   "LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"];
 const savedEnv = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
-const STATE_FILE = `./var/llamacpp/state-${LLAMACPP_PORT}.json`;
 
 afterEach(() => {
   globalThis.fetch = originalFetch;
@@ -65,8 +82,6 @@ afterEach(() => {
   }
   // Clean up state files so reconciliation tests don't pollute each other
   try { if (existsSync(STATE_FILE)) unlinkSync(STATE_FILE); } catch {}
-  // Also clean up the legacy fixed-path state.json (pre-port-keyed)
-  try { if (existsSync("./var/llamacpp/state.json")) unlinkSync("./var/llamacpp/state.json"); } catch {}
 });
 
 function mockFetchSequence(...responses) {
@@ -537,7 +552,7 @@ describe("ensureLlamaCpp", () => {
     assert.equal(typeof capturedOpts.stdio[1], "number");  // stdout → log fd
     assert.equal(capturedOpts.stdio[1], capturedOpts.stdio[2]); // stderr shares the same fd
     // The log file was actually created at the documented path.
-    assert.ok(existsSync("./var/llamacpp/server.log"));
+    assert.ok(existsSync(SERVER_LOG_PATH));
   });
 
   test("throws when llama-server does not start within timeout", { timeout: 20_000 }, async (t) => {
@@ -568,7 +583,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
   // helper: write a state file with the given preset hash and PID
   function writeStoredState(pid, preset) {
     const hash = createHash("sha256").update(preset).digest("hex");
-    mkdirSync("./var/llamacpp", { recursive: true });
+    mkdirSync(PRESET_DIR, { recursive: true });
     writeFileSync(STATE_FILE, JSON.stringify({ pid, hash, at: Date.now() }));
   }
 
@@ -636,7 +651,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
   test("kills and restarts when preset hash differs from stored state", async () => {
     // Write a state with a WRONG hash (hash of an empty string)
     const wrongHash = createHash("sha256").update("old-preset").digest("hex");
-    mkdirSync("./var/llamacpp", { recursive: true });
+    mkdirSync(PRESET_DIR, { recursive: true });
     writeFileSync(STATE_FILE, JSON.stringify({ pid: 99999, hash: wrongHash, at: Date.now() }));
 
     // fetch #1: /health → ok
@@ -675,7 +690,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
 
   test("returns without spawning when kill fails (different user)", async () => {
     const wrongHash = createHash("sha256").update("old-preset").digest("hex");
-    mkdirSync("./var/llamacpp", { recursive: true });
+    mkdirSync(PRESET_DIR, { recursive: true });
     writeFileSync(STATE_FILE, JSON.stringify({ pid: 55555, hash: wrongHash, at: Date.now() }));
 
     // Server is up
@@ -780,7 +795,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     // in this module's lifetime). Since the module variable persists across
     // tests, we can't guarantee this. Instead: store an explicit PID=0 to
     // force the "unowned" branch.
-    mkdirSync("./var/llamacpp", { recursive: true });
+    mkdirSync(PRESET_DIR, { recursive: true });
     writeFileSync(STATE_FILE, JSON.stringify({ pid: 0, hash: "x".repeat(64), at: Date.now() }));
 
     // Server is UP (fetch returns ok)
@@ -891,14 +906,15 @@ describe("stopLlamaCpp — owner + preset guard", () => {
 
 // =============================================================================
 describe("session-scoped server log tee", () => {
-  const DIR = "./var/llamacpp";
+  const DIR = PRESET_DIR;
   const SERVER_LOG = `${DIR}/server.log`;
   // v4-shaped ids that can never collide with a real randomUUID session log
   const ID_OLD   = "00000000-0000-4000-8000-000000000001";
   const ID_FRESH = "00000000-0000-4000-8000-000000000002";
 
-  // These tests exercise the real var/llamacpp dir (same pattern as the rest of
-  // this file) — preserve and restore the developer's live server.log.
+  // DIR is this suite's isolated runtime dir, shared with the rest of the
+  // file's describe blocks — preserve/restore SERVER_LOG so this block
+  // doesn't clobber state an earlier describe left behind.
   let originalServerLog = null;
   before(() => {
     mkdirSync(DIR, { recursive: true });
