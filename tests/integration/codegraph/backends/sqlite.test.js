@@ -96,11 +96,13 @@ describe("listSymbolsWithoutEmbeddings()", () => {
     store.db.prepare(`INSERT INTO vec_cg_symbols (rowid, embedding) VALUES (?, ?)`)
       .run(BigInt(embedId), new Float32Array(1024));
 
-    const pending = await sqliteBackend.listSymbolsWithoutEmbeddings(store);
-    assert.ok(pending.some(p => p.id === noEmbedId));
-    assert.ok(!pending.some(p => p.id === embedId));
-    const found = pending.find(p => p.id === noEmbedId);
+    const pendingNoEmbed = await sqliteBackend.listSymbolsWithoutEmbeddings(store, "/repo/noEmbed");
+    assert.ok(pendingNoEmbed.some(p => p.id === noEmbedId));
+    const found = pendingNoEmbed.find(p => p.id === noEmbedId);
     assert.equal(found.text, "noEmbed. (). does a thing");
+
+    const pendingHasEmbed = await sqliteBackend.listSymbolsWithoutEmbeddings(store, "/repo/hasEmbed");
+    assert.ok(!pendingHasEmbed.some(p => p.id === embedId));
   });
 
   test("returns an empty list when every symbol already has a vector", async () => {
@@ -108,7 +110,19 @@ describe("listSymbolsWithoutEmbeddings()", () => {
     const id = await seedSymbol(store.db, { name: "solo" });
     store.db.prepare(`INSERT INTO vec_cg_symbols (rowid, embedding) VALUES (?, ?)`)
       .run(BigInt(id), new Float32Array(1024));
-    assert.deepEqual(await sqliteBackend.listSymbolsWithoutEmbeddings(store), []);
+    assert.deepEqual(await sqliteBackend.listSymbolsWithoutEmbeddings(store, "/repo/solo"), []);
+  });
+
+  test("scopes results to rootPath's own repo — does not return another watched root's pending symbols", async () => {
+    const store = { db: await createDb() };
+    const aId = await seedSymbol(store.db, { name: "rootA" });
+    const bId = await seedSymbol(store.db, { name: "rootB" });
+
+    const pendingA = await sqliteBackend.listSymbolsWithoutEmbeddings(store, "/repo/rootA");
+    assert.deepEqual(pendingA.map(p => p.id), [aId], "must not include rootB's pending symbol");
+
+    const pendingB = await sqliteBackend.listSymbolsWithoutEmbeddings(store, "/repo/rootB");
+    assert.deepEqual(pendingB.map(p => p.id), [bId], "must not include rootA's pending symbol");
   });
 });
 
