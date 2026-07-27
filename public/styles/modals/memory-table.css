@@ -16,7 +16,8 @@
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow-lg);
-      width: 820px;
+      width: 72vw;
+      min-width: min(820px, 94vw);
       max-width: 94vw;
       max-height: 88vh;
       display: flex;

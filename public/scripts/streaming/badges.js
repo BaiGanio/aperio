@@ -24,16 +24,25 @@ function _startupBannerInner(bd, realTotal) {
   const est = _startupComponentsTotal(bd);
   const total = realTotal || est;
 
-  const items = [[t("startup_bd_identity"), bd.identity || 0]];
+  // Third element (when present) is which "more..." modal section the row's
+  // own expand button opens — each row drills into its own modal, not a
+  // shared one, so a skill row or the scaffolding row (no matching section)
+  // gets no button at all.
+  const items = [[t("startup_bd_identity"), bd.identity || 0, "identity"]];
   for (const s of (bd.skills || [])) items.push([t("startup_bd_skill_named", { name: s.name }), s.tokens || 0]);
-  if (bd.toolSchemas)  items.push([t("startup_bd_tools"), bd.toolSchemas]);
-  if (bd.memoryTokens) items.push([t("startup_bd_memory_pointer"), bd.memoryTokens]);
+  if (bd.toolSchemas)  items.push([t("startup_bd_tools"), bd.toolSchemas, "tools"]);
+  if (bd.memoryTokens) items.push([t("startup_bd_memory_pointer"), bd.memoryTokens, "memory"]);
   if (realTotal) {
     const other = Math.max(0, realTotal - est);
     if (other) items.push([t("startup_bd_other"), other]);
   }
   const rows = items
-    .map(([label, n]) => `<div class="ctx-bd-row"><span>${label}</span><span>~${n.toLocaleString()}</span></div>`)
+    .map(([label, n, section]) => {
+      const more = section
+        ? ` <button class="ctx-bd-more" data-action="openStartupInfoModal" data-action-arg="${section}">${t("startup_bd_more")}</button>`
+        : "";
+      return `<div class="ctx-bd-row"><span>${label}</span><span>~${n.toLocaleString()}${more}</span></div>`;
+    })
     .join("");
 
   const headline = realTotal

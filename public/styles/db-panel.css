@@ -97,7 +97,7 @@
 }
 
 /* The generic browser needs more room than the memory table for wide schemas. */
-#dbTableModal .mem-table-content { width: 1180px; }
+#dbTableModal .mem-table-content { width: 78vw; min-width: min(1180px, 94vw); }
 
 /* The wrapper is the single scroll container (both axes) so the column header
    stays sticky and the horizontal scrollbar sits at the bottom of the viewport

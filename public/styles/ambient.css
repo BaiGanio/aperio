@@ -6,9 +6,13 @@
    Visibility is driven by the `data-ambient` attribute on <html>
    (set by scripts/ambient.js from the aperio-ambient=auto|on|off setting):
      off  → layer hidden, animation loop stopped.
-     on   → visible + animated (user opt-in; ignores reduced-motion).
+     on   → visible + animated (user opt-in; ignores reduced-motion). Panels
+            stay opaque — the starfield only shows in the gaps around them.
      auto → visible; animated UNLESS the OS asks for reduced motion, in which
             case the script paints a single static frame (default, safe).
+            Also "glass mode": every panel/modal surface goes translucent
+            (see styles/glass-mode.css) so the starfield shows through the
+            UI itself, not just the gaps.
    Reduced-motion handling lives in the script (it must stop the rAF loop),
    not here — there is no CSS animation to disable anymore.
 

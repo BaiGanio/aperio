@@ -1,0 +1,53 @@
+/* Glass mode (issue #185) — when ambient is "auto" (data-ambient="auto" on
+   <html>, set by scripts/ambient.js), every panel/modal/bubble surface in
+   the app turns translucent so the starfield behind them reads through the
+   UI itself, not just the gaps around it.
+
+   Implemented at the token level: --bg, --bg-panel and --bg-msg-ai already
+   drive every panel/drawer/modal-card/bubble background in the app (see
+   tokens.css) — redefining them here cascades the effect everywhere for
+   free instead of touching every component file individually. --border is
+   left untouched: it's already a subtle, desaturated hairline per theme,
+   and doubles as the "barely visible contour" glass mode wants without
+   needing its own variant.
+
+   Deliberately out of scope: the dark dimming scrims behind modals
+   (rgba(0,0,0,.25/.5/.55/.85) in the various *-backdrop/-overlay/-modal
+   rules). Their job is to dim what's behind the modal for focus — a
+   different concern from being part of the glass chrome, and a
+   translucent scrim would undercut the very focus it's there to create. */
+
+:root[data-ambient="auto"] {
+  --bg:        rgba(var(--glass-rgb), 0.12);
+  --bg-panel:  rgba(var(--glass-rgb), 0.1);
+  --bg-msg-ai: rgba(var(--glass-rgb), 0.08);
+}
+
+:root[data-ambient="auto"] .message.user .bubble {
+  background: color-mix(in srgb, var(--bg-msg-user) 22%, transparent);
+}
+
+/* Primary chrome and modal "card" surfaces get their own blur so text
+   stays legible over the moving starfield. Smaller chips/popovers inherit
+   the translucent fill above without paying for their own blur layer —
+   stacking backdrop-filter on every minor element adds up in paint cost. */
+:root[data-ambient="auto"] header,
+:root[data-ambient="auto"] .sidebar,
+:root[data-ambient="auto"] .input-bar,
+:root[data-ambient="auto"] .cg-panel,
+:root[data-ambient="auto"] .wiki-panel,
+:root[data-ambient="auto"] .db-panel,
+:root[data-ambient="auto"] .sessions-panel,
+:root[data-ambient="auto"] .system-panel,
+:root[data-ambient="auto"] .settings-panel,
+:root[data-ambient="auto"] .mem-table-content,
+:root[data-ambient="auto"] .confirm-content,
+:root[data-ambient="auto"] .preview-content,
+:root[data-ambient="auto"] .idm-dialog,
+:root[data-ambient="auto"] .stov-card,
+:root[data-ambient="auto"] .langmap-card,
+:root[data-ambient="auto"] .fpm-dialog,
+:root[data-ambient="auto"] .bubble {
+  backdrop-filter: blur(3px) saturate(150%);
+  -webkit-backdrop-filter: blur(3px) saturate(150%);
+}

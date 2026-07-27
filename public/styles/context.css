@@ -102,6 +102,17 @@
       color: var(--text-muted);
       white-space: nowrap;
     }
+    .ctx-bd-more {
+      background: none;
+      border: none;
+      padding: 0;
+      margin-left: 6px;
+      color: var(--accent);
+      cursor: pointer;
+      font: inherit;
+      text-decoration: underline;
+    }
+    .ctx-bd-more:hover { opacity: 0.8; }
     .ctx-bd-note {
       margin-top: 6px;
       opacity: 0.7;
