@@ -9,26 +9,20 @@ import { createEmbeddingQueue } from "../lib/helpers/embedding-queue.js";
 import packageJson from "../package.json" with { type: "json" };
 import logger from "../lib/helpers/logger.js";
 
-// Tool Registrations
-import { register as registerMemory }  from "./tools/memory.js";
-import { register as registerSelfMemory } from "./tools/self-memory.js";
-import { register as registerSelfWiki } from "./tools/self-wiki.js";
-import { register as registerFiles }   from "./tools/files.js";
-import { register as registerWeb }     from "./tools/web.js";
-import { register as registerImage }   from "./tools/image.js";
-import { register as registerShell }   from "./tools/shell.js";
-import { register as registerWiki }    from "./tools/wiki.js";
-import { register as registerCodegraph } from "./tools/codegraph.js";
-import { register as registerDocgraph }  from "./tools/docgraph.js";
-import { register as registerGithub }    from "./tools/github.js";
-import { register as registerData }     from "./tools/data.js";
-import { register as registerDatabase } from "./tools/database.js";
+// Tool Registrations are dynamically imported inside startServer(), AFTER DB
+// Settings are hydrated into process.env — several tool modules read
+// process.env into module-level constants at import time (mcp/tools/shell.js's
+// SHELL_ENABLED and MAX_OUTPUT_BYTES; mcp/tools/image.js's LLAMACPP_* config).
+// A static import here would evaluate those modules — and freeze their
+// constants from raw .env/defaults — before hydration ever runs, which for
+// SHELL_ENABLED means a DB Settings toggle to disable host command execution
+// would silently have no effect. See startServer() below.
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 dotenv.config({ path: resolve(__dirname, "../.env") });
 
 /**
- * The Context (ctx) should only contain "Services"—stateful objects 
+ * The Context (ctx) should only contain "Services"—stateful objects
  * that tools need to interact with the outside world (DB, AI, etc.)
  */
 async function createContext(store, opts) {
@@ -37,7 +31,10 @@ async function createContext(store, opts) {
   // Detects a provider/model/dim change before the queue is built — without
   // this, an MCP-only deployment (no lib/server/hydrateRuntime.js in its boot
   // path) never notices a provider switch and writes new-space vectors next
-  // to old-space ones.
+  // to old-space ones. DB Settings are already hydrated into process.env by
+  // startServer() before this runs, so EMBEDDING_PROVIDER/VOYAGE_MODEL/
+  // EMBEDDING_DIMS here reflect the default `db` precedence (AGENTS.md), not
+  // raw .env.
   await checkEmbeddingProvider(store);
 
   // Initialize Embeddings engine
@@ -68,15 +65,60 @@ export async function startServer(opts = {}) {
     throw new Error("Store failed");
   }
 
+  // Resolve DB-backed Settings into process.env BEFORE importing any tool
+  // module below — this must run first, not inside createContext, because
+  // several tool modules read process.env into module-level constants at
+  // static-import time (mcp/tools/shell.js's SHELL_ENABLED and
+  // MAX_OUTPUT_BYTES; mcp/tools/image.js's LLAMACPP_* config), which freezes
+  // before any function in this file would otherwise run. A standalone
+  // `npm run mcp` deployment has no earlier hydration point — unlike the HTTP
+  // server, which runs hydrateRuntime() in the parent process before spawning
+  // this as a child with an already-resolved env (lib/agent/mcp-connect.js).
+  // Without this, DB Settings disabling the shell tool would have no effect:
+  // the tool stays live on whatever raw .env/default said at import time.
+  const { applyConfigToEnv } = await import("../lib/config-resolver.js");
+  await applyConfigToEnv(store);
+
   // 1. Create the service context
   const ctx = await createContext(store, opts);
 
   // 2. Initialize the MCP Server
   const server = new McpServer({ name: packageJson.name, version: packageJson.version });
 
-  // 3. Register tools
+  // 3. Register tools — dynamically imported only now, after the hydration
+  // above, so their import-time env reads see the resolved configuration.
   // Note: registrees like 'registerFiles' import path validation
   // directly from '../lib/routes/paths.js' instead of getting it from ctx.
+  const [
+    { register: registerMemory },
+    { register: registerSelfMemory },
+    { register: registerSelfWiki },
+    { register: registerFiles },
+    { register: registerWeb },
+    { register: registerImage },
+    { register: registerShell },
+    { register: registerWiki },
+    { register: registerCodegraph },
+    { register: registerDocgraph },
+    { register: registerGithub },
+    { register: registerData },
+    { register: registerDatabase },
+  ] = await Promise.all([
+    import("./tools/memory.js"),
+    import("./tools/self-memory.js"),
+    import("./tools/self-wiki.js"),
+    import("./tools/files.js"),
+    import("./tools/web.js"),
+    import("./tools/image.js"),
+    import("./tools/shell.js"),
+    import("./tools/wiki.js"),
+    import("./tools/codegraph.js"),
+    import("./tools/docgraph.js"),
+    import("./tools/github.js"),
+    import("./tools/data.js"),
+    import("./tools/database.js"),
+  ]);
+
   registerMemory(server, ctx);
   registerSelfMemory(server, ctx);
   registerSelfWiki(server, ctx);

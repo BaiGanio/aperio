@@ -140,12 +140,27 @@ describe("docgraph sqlite backend", () => {
     // Simulates exactly the scenario the review flagged: a provider change
     // clears vec_docgraph_chunks, and this chunk's file never changes again,
     // so re-indexing would never revisit it — only a direct scan finds it.
-    const pending = await backend.listChunksWithoutEmbeddings(store);
+    const pending = await backend.listChunksWithoutEmbeddings(store, stillPendingDir);
     assert.ok(pending.some(p => p.id === id), "unembedded chunk must be found by the direct scan");
 
     await backend.setChunkEmbedding(store, id, await fakeEmbed("stale content"));
-    const afterEmbed = await backend.listChunksWithoutEmbeddings(store);
+    const afterEmbed = await backend.listChunksWithoutEmbeddings(store, stillPendingDir);
     assert.ok(!afterEmbed.some(p => p.id === id), "once embedded, the chunk must drop out of the pending list");
+
+    // Regression: a second watched root's own pending chunk must not leak
+    // into stillPendingDir's scan (the bug the review flagged).
+    const otherDir = join(mem.root, "other-root");
+    mem.mkdirp(otherDir);
+    mem.writeFile(join(otherDir, "other.md"), "# Other\nBelongs to a different watched root.");
+    const otherCounts = await backend.indexRepoFiles(store, otherDir, filesOf(otherDir, ["other.md"]), {
+      generateEmbedding: fakeEmbed,
+      deferEmbedding: true,
+    });
+    const otherId = otherCounts.pending[0].id;
+    const scoped = await backend.listChunksWithoutEmbeddings(store, stillPendingDir);
+    assert.ok(!scoped.some(p => p.id === otherId), "must not include another watched root's pending chunk");
+    const otherScoped = await backend.listChunksWithoutEmbeddings(store, otherDir);
+    assert.ok(otherScoped.some(p => p.id === otherId), "the other root's own scan must still find its chunk");
   });
 
   test("doc_repos reports counts and a by-mime breakdown", async () => {

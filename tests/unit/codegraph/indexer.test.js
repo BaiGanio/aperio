@@ -249,15 +249,18 @@ describe("listPendingEmbeddings()", () => {
     assert.deepEqual(await indexer.listPendingEmbeddings({}), []);
   });
 
-  test("delegates to the backend and returns its {id, text} rows", async () => {
-    const ctx = makeCtx(async (sql) => {
-      if (sql.includes("WHERE embedding IS NULL")) {
+  test("delegates to the backend, scoped to rootPath, and returns its {id, text} rows", async () => {
+    let seenParams;
+    const ctx = makeCtx(async (sql, params) => {
+      if (sql.includes("embedding IS NULL")) {
+        seenParams = params;
         return { rows: [{ id: 7, name: "foo", signature: null, doc: null }] };
       }
       return { rowCount: 0 };
     });
-    const pending = await indexer.listPendingEmbeddings(ctx.store);
+    const pending = await indexer.listPendingEmbeddings(ctx.store, "/repo/a");
     assert.deepEqual(pending, [{ id: 7, text: "foo" }]);
+    assert.deepEqual(seenParams, ["/repo/a"], "must scope the query to the given root, not the whole graph");
   });
 });
 

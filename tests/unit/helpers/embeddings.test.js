@@ -3,7 +3,7 @@
 // Imports directly from embeddings.js — no inline copies.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { generateEmbedding, initEmbeddings, checkEmbeddingProvider, getEmbeddingSignature, _setTransformersPipeline } from "../../../lib/helpers/embeddings.js";
+import { generateEmbedding, initEmbeddings, checkEmbeddingProvider, getEmbeddingSignature, validateVoyageDims, _setTransformersPipeline } from "../../../lib/helpers/embeddings.js";
 import { getEmbeddingBacklogSize } from "../../../lib/helpers/embedding-backlog.js";
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
@@ -346,13 +346,15 @@ describe("checkEmbeddingProvider", () => {
     // voyage (unlike transformers) actually honors EMBEDDING_DIMS via
     // output_dimension, so it's the right provider to exercise a real dims
     // change against — see the transformers-specific tests below for why
-    // transformers itself must never take this path.
-    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", EMBEDDING_DIMS: "768" }, async () => {
-      const store = makeFingerprintStore({ provider: "voyage", model: "voyage-3", dims: 1024 });
+    // transformers itself must never take this path. Uses voyage-3-large
+    // (Matryoshka-capable) with a dims value it actually supports — voyage-3
+    // itself rejects output_dimension entirely (see validateVoyageDims tests).
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", VOYAGE_MODEL: "voyage-3-large", EMBEDDING_DIMS: "512" }, async () => {
+      const store = makeFingerprintStore({ provider: "voyage", model: "voyage-3-large", dims: 1024 });
       await checkEmbeddingProvider(store);
-      assert.equal(store.calls.resizeVectorStorageCalledWith, 768);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, 512);
       assert.equal(store.calls.clearAllEmbeddingsCalled, false);
-      assert.equal(store.fingerprint.dims, 768);
+      assert.equal(store.fingerprint.dims, 512);
     })
   );
 
@@ -366,7 +368,7 @@ describe("checkEmbeddingProvider", () => {
   );
 
   test("fresh DB with a non-default EMBEDDING_DIMS — resizes on first boot even though there's no stored fingerprint (Gap 4 P2)", () =>
-    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", EMBEDDING_DIMS: "512" }, async () => {
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", VOYAGE_MODEL: "voyage-3-large", EMBEDDING_DIMS: "512" }, async () => {
       // stored fingerprint is null (never booted before); physical storage is
       // hardcoded 1024 by migrations regardless of EMBEDDING_DIMS.
       const store = makeFingerprintStore(null, { physicalDims: 1024 });
@@ -377,14 +379,14 @@ describe("checkEmbeddingProvider", () => {
   );
 
   test("stale fingerprint already matches config but storage was never actually resized — resizes anyway (Gap 4 P2)", () =>
-    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", EMBEDDING_DIMS: "512" }, async () => {
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", VOYAGE_MODEL: "voyage-3-large", EMBEDDING_DIMS: "512" }, async () => {
       // Simulates a DB upgraded from before resizeVectorStorage existed: an
       // old checkEmbeddingProvider already recorded dims:512 in the
       // fingerprint without ever touching physical storage, which is still
       // 1024-wide. A fingerprint-only comparison would see "no change" and
       // skip repair forever.
       const store = makeFingerprintStore(
-        { provider: "voyage", model: "voyage-3", dims: 512 },
+        { provider: "voyage", model: "voyage-3-large", dims: 512 },
         { physicalDims: 1024 }
       );
       await checkEmbeddingProvider(store);
@@ -393,9 +395,9 @@ describe("checkEmbeddingProvider", () => {
   );
 
   test("physical dims already match — no-op even on repeat boots (steady state)", () =>
-    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", EMBEDDING_DIMS: "512" }, async () => {
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", VOYAGE_MODEL: "voyage-3-large", EMBEDDING_DIMS: "512" }, async () => {
       const store = makeFingerprintStore(
-        { provider: "voyage", model: "voyage-3", dims: 512 },
+        { provider: "voyage", model: "voyage-3-large", dims: 512 },
         { physicalDims: 512 }
       );
       await checkEmbeddingProvider(store);
@@ -423,6 +425,101 @@ describe("checkEmbeddingProvider", () => {
       const sig = getEmbeddingSignature();
       assert.equal(sig.dims, 1024);
       return Promise.resolve();
+    })
+  );
+});
+
+// ─── validateVoyageDims (review finding P1: validate before resizing/requesting) ──
+describe("validateVoyageDims", () => {
+  test("accepts a Matryoshka-capable model at one of its documented dims", () => {
+    for (const dims of [256, 512, 1024, 2048]) {
+      assert.doesNotThrow(() => validateVoyageDims("voyage-3-large", dims));
+    }
+  });
+
+  test("rejects a Matryoshka-capable model at an undocumented dims value", () => {
+    assert.throws(() => validateVoyageDims("voyage-3-large", 768), /not supported/);
+  });
+
+  test("accepts a fixed-width model only at its own native dims", () => {
+    assert.doesNotThrow(() => validateVoyageDims("voyage-3", 1024));
+    // voyage-large-2's native width is 1536, not the 1024 every other
+    // fixed-width model happens to share — the review's P2 finding.
+    assert.doesNotThrow(() => validateVoyageDims("voyage-large-2", 1536));
+    assert.doesNotThrow(() => validateVoyageDims("voyage-code-2", 1536));
+  });
+
+  test("rejects a fixed-width model at any dims other than its own native width", () => {
+    assert.throws(() => validateVoyageDims("voyage-3", 768), /fixed-width at 1024/);
+    assert.throws(() => validateVoyageDims("voyage-3", 512), /fixed-width at 1024/);
+    // 1024 looks like the "default", but it's wrong for this specific model.
+    assert.throws(() => validateVoyageDims("voyage-large-2", 1024), /fixed-width at 1536/);
+  });
+
+  test("does not throw for a model absent from both known-model tables — VOYAGE_MODEL is a free-form override", () => {
+    assert.doesNotThrow(() => validateVoyageDims("some-future-voyage-model", 999));
+  });
+
+  test("checkEmbeddingProvider rejects an invalid voyage config before doing anything destructive", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", VOYAGE_MODEL: "voyage-3", EMBEDDING_DIMS: "768" }, async () => {
+      const store = makeFingerprintStore({ provider: "transformers", model: "mixedbread-ai/mxbai-embed-large-v1", dims: 1024 });
+      await assert.rejects(() => checkEmbeddingProvider(store), /fixed-width at 1024/);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, null, "must not resize storage on an invalid config");
+      assert.equal(store.calls.clearAllEmbeddingsCalled, false, "must not clear embeddings on an invalid config");
+    })
+  );
+
+  test("getEmbeddingSignature defaults dims to a known fixed-width model's own native width, not a shared 1024", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_MODEL: "voyage-large-2", EMBEDDING_DIMS: undefined }, () => {
+      const sig = getEmbeddingSignature();
+      assert.equal(sig.dims, 1536);
+      return Promise.resolve();
+    })
+  );
+
+  test("generateEmbedding never sends output_dimension for a fixed-width model, even when its native dims differ from 1024", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "test-key", VOYAGE_MODEL: "voyage-large-2", EMBEDDING_DIMS: undefined }, () => {
+      let capturedBody;
+      return withMockFetch(async (_url, opts) => {
+        capturedBody = JSON.parse(opts.body);
+        return { ok: true, json: async () => ({ data: [{ embedding: new Array(1536).fill(0.1) }] }) };
+      }, async () => {
+        await generateEmbedding("test text");
+        assert.equal("output_dimension" in capturedBody, false, "voyage-large-2 doesn't accept output_dimension even though its dims (1536) != 1024");
+      });
+    })
+  );
+
+  test("generateEmbedding still sends output_dimension for an unrecognized (future/custom) Matryoshka model — review P2 regression", () =>
+    // validateVoyageDims trusts a model absent from both known-model tables
+    // (free-form VOYAGE_MODEL override) and lets a non-1024 EMBEDDING_DIMS
+    // through unvalidated. The API call must honor that same trust — if it
+    // silently drops output_dimension for an unknown model, storage gets
+    // resized to the configured width while Voyage keeps returning its
+    // default-width vector, and every subsequent insert fails.
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "test-key", VOYAGE_MODEL: "voyage-4-hypothetical", EMBEDDING_DIMS: "512" }, () => {
+      let capturedBody;
+      return withMockFetch(async (_url, opts) => {
+        capturedBody = JSON.parse(opts.body);
+        return { ok: true, json: async () => ({ data: [{ embedding: new Array(512).fill(0.1) }] }) };
+      }, async () => {
+        await generateEmbedding("test text");
+        assert.equal(capturedBody.output_dimension, 512, "an unrecognized model with a non-default EMBEDDING_DIMS must still request that width");
+      });
+    })
+  );
+
+  test("generateEmbedding rejects an invalid voyage config before issuing the request", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "test-key", VOYAGE_MODEL: "voyage-3", EMBEDDING_DIMS: "768" }, () => {
+      let fetchCalled = false;
+      return withMockFetch(async () => {
+        fetchCalled = true;
+        return { ok: true, json: async () => ({ data: [{ embedding: [0.5] }] }) };
+      }, async () => {
+        const result = await generateEmbedding("test text");
+        assert.equal(result, null, "generateEmbedding logs and returns null rather than throwing, matching its other error paths");
+        assert.equal(fetchCalled, false, "must not send the HTTP request for an invalid dims/model pair");
+      });
     })
   );
 });

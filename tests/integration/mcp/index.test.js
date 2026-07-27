@@ -121,6 +121,72 @@ describe("startServer — initialization", () => {
       assert.equal(storedFingerprint.provider, "transformers");
     });
   });
+
+  test("resolves DB-backed Settings before checking the embedding provider (review P1 — MCP config gap)", async () => {
+    // Under default 'db' precedence a Settings-selected provider must win over
+    // an unset/differing .env, exactly like lib/server/hydrateRuntime.js
+    // (which calls applyConfigToEnv before checkEmbeddingProvider). Without
+    // this, MCP would see only raw env (transformers, the default), treat a
+    // real Voyage fingerprint as a provider change, and destructively clear it.
+    await withEnv({ EMBEDDING_PROVIDER: undefined, VOYAGE_MODEL: undefined, EMBEDDING_DIMS: undefined, APERIO_CONFIG_PRECEDENCE: undefined }, async () => {
+      let clearedCalled = false;
+      let storedFingerprint = { provider: "voyage", model: "voyage-3", dims: 1024 };
+      const store = {
+        counts:      async () => ({ total: 0, embedded: 0 }),
+        table:       async () => ({ add: async () => {}, countRows: async () => 0 }),
+        search:      async () => [],
+        getSettings: async () => ({ "config.EMBEDDING_PROVIDER": "voyage" }),
+        getSetting:  async (key) => key === "embedding_provider" ? storedFingerprint : null,
+        setSetting:  async (key, value) => { if (key === "embedding_provider") storedFingerprint = value; },
+        clearAllEmbeddings: async () => { clearedCalled = true; },
+      };
+
+      await startServer({ transport: makeTransport(), store, vectorEnabled: false });
+
+      assert.equal(process.env.EMBEDDING_PROVIDER, "voyage", "DB Settings must be applied to process.env before the fingerprint check reads it");
+      assert.equal(clearedCalled, false, "a Settings-selected provider matching the stored fingerprint must not be treated as a change");
+      assert.equal(storedFingerprint.provider, "voyage");
+    });
+  });
+
+  test("a DB Settings toggle reaches shell.js's import-time SHELL_ENABLED constant (review P1 — security-sensitive)", async () => {
+    // mcp/tools/shell.js reads process.env.APERIO_ENABLE_SHELL into a
+    // module-level const at static-import time (line 76). Once this test file
+    // has imported it anywhere else, Node's module cache freezes that value
+    // for the rest of this process — so the only way to genuinely prove
+    // startServer() hydrates DB Settings BEFORE shell.js is ever imported is a
+    // fresh child process, mirroring how `npm run mcp` actually runs.
+    const { execFileSync } = await import("node:child_process");
+    const mcpIndexUrl = new URL("../../../mcp/index.js", import.meta.url).href;
+    const shellToolUrl = new URL("../../../mcp/tools/shell.js", import.meta.url).href;
+    const script = `
+      process.env.APERIO_ENABLE_SHELL = "1";      // raw/.env value: enabled
+      process.env.APERIO_CONFIG_PRECEDENCE = "db"; // force default precedence regardless of this repo's real .env
+      const { startServer } = await import(${JSON.stringify(mcpIndexUrl)});
+      const transport = { start: async()=>{}, close: async()=>{}, onclose:()=>{}, onerror:()=>{}, onmessage:()=>{}, send: async()=>{} };
+      const store = {
+        counts: async () => ({ total: 0, embedded: 0 }),
+        table:  async () => ({ add: async () => {}, countRows: async () => 0 }),
+        search: async () => [],
+        // DB Settings say disabled — must win under default 'db' precedence.
+        getSettings: async () => ({ "config.APERIO_ENABLE_SHELL": "0" }),
+      };
+      await startServer({ transport, store, vectorEnabled: false });
+      const shellTool = await import(${JSON.stringify(shellToolUrl)});
+      const result = await shellTool.runShellHandler({ command: "echo hi" });
+      process.stdout.write(JSON.stringify(result));
+    `;
+    const out = execFileSync(process.execPath, ["--input-type=module", "-e", script], {
+      encoding: "utf8",
+      env:      process.env,
+    });
+    const result = JSON.parse(out.trim().split("\n").pop());
+    assert.match(
+      result.content[0].text,
+      /disabled/i,
+      "DB Settings disabling the shell tool must actually disable it, not just update process.env after shell.js already froze SHELL_ENABLED"
+    );
+  });
 });
 
 // =============================================================================
