@@ -9,6 +9,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Codegraph: per-repo graph cache** (issue #283 follow-up). `code_neighbors`,
+  `code_path`, `code_insights`, and `GET /api/codegraph/graph` no longer refetch
+  and rebuild the full repo graph from the DB on every request. `lib/codegraph/graphCache.js`
+  caches the built `{nodes, edges, graph}` per `(store, repoId)`, keyed on the
+  existing `graph_revision` counter so a warm read reuses the cache and any
+  mutation (new symbols/edges) invalidates it on the next read; concurrent
+  misses coalesce into a single load, entries are LRU-bounded per store, and
+  `deleteRepo()` evicts explicitly. Covered by `tests/unit/codegraph/graphCache.test.js`
+  (9 tests: warm reuse, revision-bump invalidation, per-store isolation,
+  stampede coalescing, stale-in-flight rejection, failed-load non-caching,
+  explicit eviction, LRU bounding).
 - **Database-backed llama.cpp model facts.** Curated download size, context,
   KV-cache, architecture, and optional vision-projector metadata now live in a
   lockstep `model_facts` table for SQLite and Postgres instead of the
