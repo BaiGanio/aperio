@@ -11,6 +11,7 @@ import Database from "better-sqlite3";
 import {
   executeHandler, queryHandler, connectionsHandler,
 } from "../../../lib/handlers/database/databaseHandlers.js";
+import { normalizeAmount } from "../../../lib/handlers/database/amounts.js";
 
 let dbPath, ctx;
 
@@ -106,6 +107,13 @@ function makeStore(connections, { interrupts = false } = {}) {
 }
 
 const textOf = (res) => res.content[0].text;
+
+async function confirmed(args) {
+  const proposed = await executeHandler(ctx, args);
+  const token = textOf(proposed).match(/Token:\s*(db_[a-z0-9]+)/)?.[1];
+  assert.ok(token, `expected confirmation token: ${textOf(proposed)}`);
+  return executeHandler(ctx, { confirmation_token: token });
+}
 
 before(() => {
   dbPath = join(tmpdir(), `aperio-confirm-test-${randomBytes(6).toString("hex")}.db`);
@@ -244,5 +252,41 @@ describe("db_execute two-phase confirm", () => {
     const res = await executeHandler(ctx, { connection: "rw", sql: "DELETE FROM t; DROP TABLE t" });
     assert.ok(res.isError);
     assert.match(textOf(res), /ONE statement/i);
+  });
+});
+
+describe("WS1 extraction SQL round-trip", () => {
+  test("appends normalized locale amounts and aggregates by currency without FX", async () => {
+    await confirmed({
+      connection: "rw",
+      sql: "CREATE TABLE extraction_rows (category TEXT, source_amount TEXT, amount REAL, currency TEXT)",
+    });
+    const rows = [
+      ["Utilities", "142.50 BGN"],
+      ["Utilities", "1 266 250,00 EUR"],
+      ["Utilities", "-12,50 BGN"],
+    ].map(([category, source]) => {
+      const normalized = normalizeAmount(source);
+      return [category, normalized.source, normalized.amount, normalized.currency];
+    });
+    for (const params of rows) {
+      await confirmed({
+        connection: "rw",
+        sql: "INSERT INTO extraction_rows (category, source_amount, amount, currency) VALUES (?, ?, ?, ?)",
+        params,
+      });
+    }
+    const result = JSON.parse(textOf(await queryHandler(ctx, {
+      connection: "rw",
+      sql: "SELECT currency, SUM(amount) AS total FROM extraction_rows GROUP BY currency ORDER BY currency",
+    })));
+    assert.deepEqual(result.rows, [
+      { currency: "BGN", total: 130 },
+      { currency: "EUR", total: 1266250 },
+    ]);
+    const source = JSON.parse(textOf(await queryHandler(ctx, {
+      connection: "rw", sql: "SELECT source_amount FROM extraction_rows ORDER BY rowid",
+    })));
+    assert.deepEqual(source.rows.map(row => row.source_amount), ["142.50 BGN", "1 266 250,00 EUR", "-12,50 BGN"]);
   });
 });

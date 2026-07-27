@@ -38,12 +38,14 @@ after(() => {
 // ─── Dynamic import of provider ───────────────────────────────────────────
 
 let runClaudeCodeLoop;
+let TOOL_RESULT_NUDGE;
 let __setMockEvents;
 let __getLastQueryArgs;
 
 before(async () => {
   const mod = await import("../../../../lib/agent/providers/claude-code.js");
   runClaudeCodeLoop = mod.runClaudeCodeLoop;
+  TOOL_RESULT_NUDGE = mod.TOOL_RESULT_NUDGE;
   // Must import @anthropic-ai/claude-agent-sdk (not its resolved path) so the
   // test and the provider share the same module instance via the resolve loader
   // hook registered above. A direct file import creates a second module instance
@@ -210,23 +212,23 @@ describe("runClaudeCodeLoop — skill matcher + extraSystem (groups I & J)", () 
     assert.match(options.systemPrompt.append, /UNIQUE_MARKER_TEXT/);
   });
 
-  test("J3: no matched skill and no extraSystem means no systemPrompt.append is injected at all", async () => {
+  test("J3: no matched skill and no extraSystem still injects the always-on tool-result task nudge", async () => {
     const messages = [{ role: "user", content: "Hi" }];
     const emitter = { send: mock.fn() };
     await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
 
     const { options } = __getLastQueryArgs();
-    assert.equal(options.systemPrompt, undefined);
+    assert.equal(options.systemPrompt.append, TOOL_RESULT_NUDGE);
   });
 
-  test("J3 edge: extraSystem unset but a skill matches still injects only the skill content, no stray empty piece", async () => {
+  test("J3 edge: extraSystem unset but a skill matches appends the skill content after the task nudge", async () => {
     const getSkillsBlock = () => "## SKILL_CONTENT_MARKER";
     const messages = [{ role: "user", content: "Use the pptx skill" }];
     const emitter = { send: mock.fn() };
     await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx({ getSkillsBlock }));
 
     const { options } = __getLastQueryArgs();
-    assert.equal(options.systemPrompt.append, "## SKILL_CONTENT_MARKER");
+    assert.equal(options.systemPrompt.append, `${TOOL_RESULT_NUDGE}\n\n---\n\n## SKILL_CONTENT_MARKER`);
   });
 });
 
