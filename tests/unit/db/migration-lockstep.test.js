@@ -131,6 +131,32 @@ describe("migration lockstep", () => {
     assert.ok(sqlNames(pgDir).has("010_codegraph_intelligence.sql"));
     assert.ok(sqlNames(liteDir).has("010_codegraph_intelligence.sql"));
   });
+
+  test("011_model_facts exists in both backends", () => {
+    assert.ok(sqlNames(pgDir).has("011_model_facts.sql"));
+    assert.ok(sqlNames(liteDir).has("011_model_facts.sql"));
+  });
+});
+
+describe("011_model_facts seed parity", () => {
+  const MIGRATION = "011_model_facts.sql";
+  const normalizedSeedRows = (dir) => {
+    const sql = stripComments(readFileSync(path.join(dir, MIGRATION), "utf8"));
+    const values = sql.match(/INSERT INTO model_facts[\s\S]*?VALUES\s*([\s\S]*?);/i)?.[1];
+    assert.ok(values, `${dir} is missing the model_facts seed INSERT`);
+    return squash(values).replaceAll("::jsonb", "");
+  };
+
+  test("both backends create the same table and indexes", () => {
+    const pg = parseMigration(path.join(pgDir, MIGRATION));
+    const lite = parseMigration(path.join(liteDir, MIGRATION));
+    assert.deepEqual(pg.tables.model_facts, lite.tables.model_facts);
+    assert.deepEqual(pg.indexes, lite.indexes);
+  });
+
+  test("both backends seed identical curated rows", () => {
+    assert.equal(normalizedSeedRows(pgDir), normalizedSeedRows(liteDir));
+  });
 });
 
 describe("010_codegraph_intelligence column parity", () => {

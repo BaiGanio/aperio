@@ -27,25 +27,32 @@ async function initBackend(backend) {
   return store;
 }
 
+async function hydrateRuntimeCatalogs(store) {
+  const { hydrateModelFacts } = await import('../lib/providers/model-facts.js');
+  await hydrateModelFacts(store);
+  return store;
+}
+
 export async function getStore() {
   if (instance) return instance;
   if (initializationPromise) return initializationPromise;
 
   initializationPromise = (async () => {
     const backend = resolveBackend();
+    let store = null;
 
     // Postgres can fail (no Docker, bad URL, etc.) — fall back to SQLite so
     // the app boots in single-process mode rather than refusing to start.
     if (backend === 'postgres') {
       try {
-        instance = await initBackend('postgres');
-        return instance;
+        store = await initBackend('postgres');
       } catch (err) {
         logError('[aperio:db] Postgres failed — falling back to SQLite', err);
       }
     }
 
-    instance = await initBackend('sqlite');
+    if (!store) store = await initBackend('sqlite');
+    instance = await hydrateRuntimeCatalogs(store);
     return instance;
   })();
 
@@ -108,5 +115,5 @@ function resolveBackend() {
 }
 
 export async function createVectorStore() {
-  return initBackend(resolveBackend());
+  return hydrateRuntimeCatalogs(await initBackend(resolveBackend()));
 }

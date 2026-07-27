@@ -24,7 +24,10 @@ import {
   pruneServerLogs,
 } from "../../../lib/helpers/startLlamaCpp.js";
 import { LLAMACPP_PORT } from "../../../lib/helpers/llamacpp/constants.js";
-import { recommendContextLength, MODEL_FACTS, resolveModelFacts } from "../../../lib/providers/index.js";
+import { recommendContextLength, resolveModelFacts } from "../../../lib/providers/index.js";
+import { installCuratedModelFacts } from "../../fixtures/model-facts.js";
+
+const MODEL_FACTS = installCuratedModelFacts();
 
 // ensureLlamaCpp() takes an injectable _spawn (default: the real
 // child_process.spawn) instead of relying on mock.method() interception —

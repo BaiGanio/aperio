@@ -323,7 +323,7 @@ Hugging Face repo[:quant] used for image understanding; llama-server's router lo
 
 text · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
 
-JSON object keyed by HF repo path (with optional :quant suffix) overriding the curated MODEL_FACTS dict for uncached or custom models. Each value has { sizeGB, maxContext, kvBytesPerToken, architecture?, activeParams? }. Slotted between GGUF inspection and the curated catalog in resolveModelFacts.
+JSON object keyed by HF repo path (with optional :quant suffix) overriding both cached GGUF inspection and the curated model_facts database catalog. Each value has { sizeGB, maxContext, kvBytesPerToken, architecture?, activeParams? }. Resolution order: configured override → cached GGUF → model_facts catalog → conservative generic facts.
 
 #### `LLAMACPP_CTX`
 

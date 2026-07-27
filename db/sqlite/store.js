@@ -999,6 +999,20 @@ export class SqliteStore {
     return info.changes > 0;
   }
 
+  async getModelFacts() {
+    return this.db.prepare(`
+      SELECT alias, hf,
+             size_gb AS sizeGB,
+             max_context AS maxContext,
+             kv_bytes_per_token AS kvBytesPerToken,
+             architecture,
+             active_params AS activeParams,
+             mmproj
+        FROM model_facts
+       ORDER BY alias
+    `).all();
+  }
+
   // ── Background-agent jobs + run history (Phase 4) ─────────────────────────
   // A job's heterogeneous shape lives in the `definition` JSON blob; id/enabled
   // are promoted columns. _rowToJob re-merges them into the flat object the

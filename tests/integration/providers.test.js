@@ -10,7 +10,6 @@ import {
   recommendContextLength,
   estimateKvBytesPerToken,
   resolveProvider,
-  MODEL_FACTS,
   factsForHf,
   resolveModelFacts,
   isLocalProvider,
@@ -30,8 +29,10 @@ import {
   isSubscriptionProvider,
   providerDropsImages,
 } from "../../lib/providers/index.js";
+import { installCuratedModelFacts } from "../fixtures/model-facts.js";
 
 mock.method(os, "totalmem", () => 32 * 1024 ** 3);
+const MODEL_FACTS = installCuratedModelFacts();
 
 function minimalGgufHeader() {
   const u64 = n => { const b = Buffer.alloc(8); b.writeBigUInt64LE(BigInt(n)); return b; };
@@ -522,6 +523,26 @@ describe("resolveModelFacts", () => {
   test("uses the catalog for a curated HF model before download", () => {
     const facts = resolveModelFacts("unsloth/Qwen3.5-9B-GGUF:Q4_K_M", { LLAMA_CACHE: "/definitely/not/a/cache" });
     assert.equal(facts, MODEL_FACTS["qwen3.5:9b"]);
+  });
+
+  test("configured overrides win even when the model has inspectable cached GGUF facts", () => {
+    const root = mkdtempSync(join(tmpdir(), "aperio-facts-override-"));
+    const model = "test-org/override-model-GGUF:Q4_K_M";
+    const repoDir = join(root, "models--test-org--override-model-GGUF");
+    const snapshotDir = join(repoDir, "snapshots", "revision");
+    mkdirSync(snapshotDir, { recursive: true });
+    mkdirSync(join(repoDir, "refs"), { recursive: true });
+    writeFileSync(join(repoDir, "refs", "main"), "revision");
+    writeFileSync(join(snapshotDir, "override-model-Q4_K_M.gguf"), minimalGgufHeader());
+    const override = { sizeGB: 1.5, maxContext: 4096, kvBytesPerToken: 256 };
+    const facts = resolveModelFacts(model, {
+      LLAMA_CACHE: root,
+      APERIO_MODEL_FACTS_OVERRIDES: JSON.stringify({
+        "test-org/override-model-GGUF": override,
+      }),
+    });
+    assert.deepEqual(facts, override);
+    rmSync(root, { recursive: true, force: true });
   });
 
   test("does not poison a later GGUF lookup with an earlier generic miss", () => {

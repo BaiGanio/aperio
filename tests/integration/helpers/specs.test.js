@@ -5,6 +5,9 @@ import { mkdtempSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
 import { getSpecs } from "../../../lib/helpers/specs.js";
+import { installCuratedModelFacts } from "../../fixtures/model-facts.js";
+
+installCuratedModelFacts();
 
 // A minimal GGUF header the shared inspector can parse (same shape as the
 // ggufModelFacts fixtures) so a cached-but-non-catalog model reports a real

@@ -9,6 +9,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Database-backed llama.cpp model facts.** Curated download size, context,
+  KV-cache, architecture, and optional vision-projector metadata now live in a
+  lockstep `model_facts` table for SQLite and Postgres instead of the
+  hand-maintained `MODEL_FACTS` source dictionary. Store initialization hydrates
+  an immutable synchronous snapshot before sizing consumers run. Resolution is
+  now configured DB/.env override → cached GGUF inspection → database catalog →
+  conservative generic facts; setup specs hydrate the catalog before reporting
+  disk requirements, while the pre-database Ollama migration gate derives model
+  IDs from the config registry.
 - **Fix: inline code requests no longer create unsolicited files.** Bare requests
   such as "write a function" or "create a helper" now receive code inline instead
   of being treated as filesystem-mutation intent. Naming a file/path, asking to

@@ -9,6 +9,9 @@ import {
   downloadInProgressBytes,
   startModelProgressWatcher,
 } from "../../../lib/helpers/modelProgress.js";
+import { installCuratedModelFacts } from "../../fixtures/model-facts.js";
+
+installCuratedModelFacts();
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
