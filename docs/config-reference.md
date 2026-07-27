@@ -147,6 +147,12 @@ secret · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanc
 
 Alternative to running `claude` interactively when AI_PROVIDER=claude-code.
 
+#### `APERIO_CLAUDE_CODE_CWD`
+
+path · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
+
+Working directory for the claude-code provider's CLI subprocess (AI_PROVIDER=claude-code). Left unset, the subprocess inherits the server process's own cwd — the repo root for a normal Aperio install, which is the intended behavior. Set only to sandbox that subprocess away from the real project tree (e.g. an isolated test harness).
+
 #### `PORT`
 
 number · tier 0 (bootstrap — .env only) · default: `3000`

@@ -11,6 +11,7 @@ import {
   schemaHandler,
   queryHandler,
   executeHandler,
+  normalizeAmount,
 } from "../../lib/handlers/database/databaseHandlers.js";
 
 const createBoundHandlers = (ctx) => ({
@@ -62,6 +63,21 @@ const TOOLS = [
       limit: z.number().min(1).max(1000).optional().describe("Max rows to return (default 200)."),
     },
     getHandler: (h) => h.query,
+  },
+  {
+    name: "db_normalize_amount",
+    description:
+      "Normalize one extracted document amount in JavaScript before inserting it with db_execute. " +
+      "Returns a numeric amount and ISO currency while preserving the source string. Supports BG/DE/FR/EN " +
+      "decimal conventions and currency symbols; rejects genuinely ambiguous separators. Never converts FX.",
+    schema: {
+      amount: z.union([z.string(), z.number()]).describe("Source amount, e.g. '1 266 250,00 EUR' or '142.50 BGN'."),
+      currency: z.string().length(3).optional().describe("ISO 4217 currency when the source has no currency."),
+      locale: z.string().optional().describe("Source locale, e.g. bg, de, fr, or en."),
+    },
+    getHandler: () => async ({ amount, currency, locale }) => ({
+      content: [{ type: "text", text: JSON.stringify(normalizeAmount(amount, { currency, locale })) }],
+    }),
   },
   {
     name: "db_execute",
