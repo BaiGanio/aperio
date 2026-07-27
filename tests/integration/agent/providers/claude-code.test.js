@@ -483,11 +483,15 @@ describe("runClaudeCodeLoop — tool card synthesis (group C)", () => {
 describe("runClaudeCodeLoop — reasoning parity (group D)", () => {
   afterEach(() => { reset(); });
 
-  // Shape verified live (2026-07-21): adaptive thinking is on by default for
-  // supporting models, but the SDK never emits a stream_event at all unless
-  // `includePartialMessages: true` is set — the real bug this fix closes
-  // alongside D1/D2 (WS3's text/tool-card streaming was silently dead without it).
-  test("D1: emits reasoning_start -> reasoning_token -> reasoning_done before the first answer token", async () => {
+  // Retired 2026-07-27: the reasoning bubble was giving claude-code the same
+  // collapsed-thinking UI every other provider uses, but live verification
+  // showed adaptive thinking regularly opens/closes a `thinking` block with
+  // zero `thinking_delta` text in between (still billing real thinking
+  // tokens) — Aperio can't control whether Anthropic discloses a summary
+  // that turn, and a bubble that opens and shows nothing reads as broken.
+  // D1 now asserts the opposite of before: no reasoning_* events ever fire,
+  // for any shape of thinking block. D2 (token accounting) is unaffected.
+  test("D1: no reasoning_start/token/done events fire even when a thinking block carries real narration", async () => {
     __setMockEvents([
       { type: "system", subtype: "init", session_id: "sess-mock-1" },
       { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
@@ -504,17 +508,11 @@ describe("runClaudeCodeLoop — reasoning parity (group D)", () => {
     const result = await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, baseCtx());
     assert.equal(result, "42");
 
-    const events = emitter.send.mock.calls.map(c => c.arguments[0]);
-    const types = events.map(e => e.type);
-    const startIdx = types.indexOf("reasoning_start");
-    const tokenIdx = types.indexOf("reasoning_token");
-    const doneIdx = types.indexOf("reasoning_done");
-    const answerTokenIdx = events.findIndex(e => e.type === "token" && e.text === "42");
-
-    assert.ok(startIdx !== -1 && tokenIdx !== -1 && doneIdx !== -1, "all three reasoning events must fire");
-    assert.ok(startIdx < tokenIdx && tokenIdx < doneIdx && doneIdx < answerTokenIdx);
-    assert.equal(events[tokenIdx].text, "Let me work through this.");
-    assert.ok(!events.some(e => e.type === "token" && e.text.includes("work through")), "no token event may carry reasoning text");
+    const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_token"), false);
+    assert.equal(types.includes("reasoning_done"), false);
+    assert.ok(!emitter.send.mock.calls.some(c => c.arguments[0].type === "token" && c.arguments[0].text.includes("work through")), "no token event may carry reasoning text");
   });
 
   test("D1 edge: a turn with no thinking block emits no reasoning events", async () => {
@@ -529,7 +527,7 @@ describe("runClaudeCodeLoop — reasoning parity (group D)", () => {
     assert.equal(types.includes("reasoning_done"), false);
   });
 
-  test("D1 edge: a redacted/empty thinking_delta still opens/closes the bubble without an empty reasoning_token", async () => {
+  test("D1 edge: a redacted/empty thinking_delta emits no reasoning events either", async () => {
     __setMockEvents([
       { type: "system", subtype: "init", session_id: "sess-mock-1" },
       { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
@@ -544,12 +542,12 @@ describe("runClaudeCodeLoop — reasoning parity (group D)", () => {
     await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx());
 
     const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
-    assert.equal(types.filter(t => t === "reasoning_start").length, 1);
-    assert.equal(types.filter(t => t === "reasoning_done").length, 1);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_done"), false);
     assert.equal(types.includes("reasoning_token"), false);
   });
 
-  test("D1 edge: a thinking block left open when the stream throws mid-turn still closes the bubble", async () => {
+  test("D1 edge: a thinking block left open when the stream throws mid-turn doesn't emit or throw", async () => {
     __setMockEvents([
       { type: "system", subtype: "init", session_id: "sess-mock-1" },
       { type: "stream_event", event: { type: "content_block_start", content_block: { type: "thinking" } } },
@@ -561,8 +559,8 @@ describe("runClaudeCodeLoop — reasoning parity (group D)", () => {
     await runClaudeCodeLoop([{ role: "user", content: "Hi" }], emitter, {}, null, () => {}, baseCtx());
 
     const types = emitter.send.mock.calls.map(c => c.arguments[0].type);
-    assert.equal(types.filter(t => t === "reasoning_start").length, 1);
-    assert.equal(types.filter(t => t === "reasoning_done").length, 1);
+    assert.equal(types.includes("reasoning_start"), false);
+    assert.equal(types.includes("reasoning_done"), false);
   });
 
   test("D2: thinking_tokens comes from the real output_tokens_details field instead of the hardcoded 0, and sets state.thinks", async () => {

@@ -150,6 +150,18 @@
   "startup_bd_tools":         "Tool schemas",
   "startup_bd_other":         "Conversation scaffolding",
   "startup_bd_note":          "Skills & tool schemas are re-sent every turn — LLM APIs are stateless, so this is the cost of context, not duplication.",
+  "startup_bd_more":          "more…",
+
+  "idm_title":                "Startup prompt details",
+  "idm_identity_heading":     "Identity — id/whoami.md",
+  "idm_identity_hint":        "This is the identity Aperio reads at startup. Edits are saved to id/whoami.md and take effect on the next turn.",
+  "idm_identity_saved":       "Saved",
+  "idm_identity_save_error":  "Could not save whoami.md.",
+  "idm_tools_heading":        "Tool schemas",
+  "idm_tools_empty":          "No tools available for the current model.",
+  "idm_memory_heading":       "Memory index",
+  "idm_memory_open_browser":  "Open memory browser",
+  "idm_load_error":           "Could not load this information.",
 
   "ttl_chip_in_days":         "expires in {n} days",
   "ttl_chip_tomorrow":        "expires tomorrow",

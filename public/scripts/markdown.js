@@ -43,6 +43,71 @@ function normalizeMath(text) {
     .replace(/\\([{}[\]()])/g, "$1");
 }
 
+// Some models call PlantUML's component dialect "Mermaid". Mermaid has no
+// componentDiagram type, so repair that narrow, unambiguous shape first.
+function normalizeMermaidSource(source) {
+  const lines = String(source).replace(/\r/g, "").split("\n");
+  if (lines[0]?.trim().toLowerCase() !== "componentdiagram") return String(source);
+  const out = ["flowchart TD"];
+  for (const line of lines.slice(1)) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    if (trimmed === "}") { out.push("end"); continue; }
+    const packageMatch = trimmed.match(/^package\s+"([^"]+)"\s*\{$/i);
+    if (packageMatch) {
+      const id = packageMatch[1].replace(/[^a-zA-Z0-9_]/g, "") || "Subsystems";
+      out.push(`subgraph ${id}["${packageMatch[1].replace(/\"/g, "'")}"]`);
+      continue;
+    }
+    const componentMatch = trimmed.match(/^component\s+"([^"]+)"\s+as\s+([a-zA-Z0-9_]+)$/i);
+    if (componentMatch) {
+      out.push(`${componentMatch[2]}["${componentMatch[1].replace(/\"/g, "'")}"]`);
+      continue;
+    }
+    const databaseMatch = trimmed.match(/^database\s+"([^"]+)"\s+as\s+([a-zA-Z0-9_]+)$/i);
+    if (databaseMatch) {
+      out.push(`${databaseMatch[2]}[("${databaseMatch[1].replace(/\"/g, "'")}")]`);
+      continue;
+    }
+    const edgeMatch = trimmed.match(/^([a-zA-Z0-9_]+)\s+(<-->|-->|<--|---)\s+(?:"([^"]+)"|([a-zA-Z0-9_]+))(?:\s*:\s*(.+))?$/);
+    if (edgeMatch) {
+      const target = edgeMatch[4] || `${edgeMatch[3].replace(/[^a-zA-Z0-9_]/g, "") || "Node"}["${edgeMatch[3].replace(/\"/g, "'")}"]`;
+      const label = edgeMatch[5] ? `|${edgeMatch[5].replace(/[|\"<>]/g, "")} |` : "";
+      out.push(`${edgeMatch[1]} ${edgeMatch[2]}${label} ${target}`);
+      continue;
+    }
+    out.push(`%% ${trimmed}`);
+  }
+  return out.join("\n");
+}
+
+function scheduleMermaidRender() {
+  if (!window.mermaid || scheduleMermaidRender.queued) return;
+  if (!scheduleMermaidRender.initialized) {
+    window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "base" });
+    scheduleMermaidRender.initialized = true;
+  }
+  scheduleMermaidRender.queued = true;
+  queueMicrotask(async () => {
+    scheduleMermaidRender.queued = false;
+    const nodes = [...document.querySelectorAll(".mermaid:not([data-mermaid-rendered])")];
+    if (!nodes.length) return;
+    nodes.forEach(node => { node.dataset.mermaidRendered = "pending"; });
+    try {
+      await window.mermaid.run({ nodes });
+    } catch (err) {
+      nodes.forEach(node => {
+        if (node.dataset.mermaidRendered === "pending") {
+          node.dataset.mermaidRendered = "error";
+          node.classList.add("mermaid-error");
+          node.textContent = node.dataset.mermaidSource || node.textContent;
+        }
+      });
+      console.warn("Mermaid diagram could not be rendered", err);
+    }
+  });
+}
+
 function renderMarkdown(text) {
   const blocks = [];
   // A model that opened a ``` code fence but never closed it (common with weak
@@ -53,8 +118,19 @@ function renderMarkdown(text) {
   if (((text.match(/```/g) || []).length) % 2 === 1) text += "\n```";
   text = text.replace(/```(\w*)[ \t]*\r?\n?([\s\S]*?)```/g, (_, lang, code) => {
     const id = "cb-" + Math.random().toString(36).slice(2, 8);
-    const label = lang || "code";
-    const langClass = lang ? ' class="language-' + lang + '"' : "";
+    const label = escapeHtml(lang || "code");
+    const safeLang = /^[a-zA-Z0-9_+-]+$/.test(lang) ? lang : "";
+    const langClass = safeLang ? ' class="language-' + escapeHtml(safeLang) + '"' : "";
+    if (safeLang.toLowerCase() === "mermaid") {
+      const diagram = normalizeMermaidSource(code.trim());
+      blocks.push(
+        '<div class="mermaid-block"><div class="mermaid" data-mermaid-source="' +
+        escapeHtml(diagram) + '">' + escapeHtml(diagram) + '</div>' +
+        '<details><summary>Mermaid source</summary><pre><code>' +
+        escapeHtml(diagram) + '</code></pre></details></div>'
+      );
+      return "\x00" + (blocks.length - 1) + "\x00";
+    }
     const escaped = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
     const idx = blocks.length;
     blocks.push(
@@ -177,8 +253,11 @@ function renderMarkdown(text) {
     .replace(/(<\/(?:[uo]l|h[1-6]|div|table|thead|tbody|tr)>)<br>/g, "$1");
 
   text = text.replace(/\x00(\d+)\x00/g, (_, i) => blocks[Number.parseInt(i)]);
+  scheduleMermaidRender();
   return text;
 }
+
+window.addEventListener("load", scheduleMermaidRender);
 
 function highlightAll() {
   if (window.Prism) Prism.highlightAll();

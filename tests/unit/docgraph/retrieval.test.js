@@ -120,6 +120,56 @@ describe("document retrieval contract", () => {
     assert.equal(june.filename_date_hint, null, "the filename carries no date token — mtime must not leak into it");
   });
 
+  test("recognizes a month-name path as a filename date hint when a year is also present (household corpus convention)", () => {
+    // Real corpus layout: a year folder, a month-NAME folder, and a day-month
+    // abbreviation in the filename — no adjacent digit pair anywhere, so the
+    // numeric-only pattern never matches and the period filter silently
+    // never engaged on this corpus before this fix.
+    const rows = [
+      { id: 1, repo_id: 1, root_path: "/h", rel_path: "2026/June/electricity-bill-03-jun.txt", mime: "text/plain", size: 10, sha256: "june-elec" },
+      { id: 2, repo_id: 1, root_path: "/h", rel_path: "2026/May/electricity-bill-04-may.txt", mime: "text/plain", size: 10, sha256: "may-elec" },
+    ];
+    // Query deliberately names no period, so the hint is checked without
+    // triggering the period filter (which is exercised separately below).
+    const result = buildCandidateManifest(rows, { query: "electricity bill" });
+    const june = result.candidates.find(c => c.sha256 === "june-elec");
+    const may = result.candidates.find(c => c.sha256 === "may-elec");
+    assert.equal(june.filename_date_hint, "2026-06");
+    assert.equal(may.filename_date_hint, "2026-05");
+  });
+
+  test("a bare month name with no year still resolves to a null filename date hint", () => {
+    // "utilities/june.txt" alone is not a date — requiring a year alongside
+    // the month name keeps this test's original guarantee intact.
+    const rows = [
+      { id: 1, repo_id: 1, root_path: "/a", rel_path: "utilities/june.txt", mime: "text/plain", size: 10, sha256: "bare-june" },
+    ];
+    const result = buildCandidateManifest(rows, { query: "utilities" });
+    assert.equal(result.candidates[0].filename_date_hint, null);
+  });
+
+  test("a month-name period filter excludes unrelated months from a corpus that exceeds maxCandidates", () => {
+    // The real regression: once the household corpus's ~9 months of
+    // month-name-dated documents exceed the 48-candidate cap, June-specific
+    // documents (bank statement, transport top-up, waste fee) must not lose
+    // to unrelated months on a flat aggregation-cue score alone.
+    const otherMonths = Array.from({ length: 50 }, (_, i) => ({
+      id: i + 1, repo_id: 1, root_path: "/h",
+      rel_path: `2026/January/aaa-bill-${String(i).padStart(2, "0")}-jan.txt`,
+      mime: "text/plain", size: 10, sha256: `unrelated-${i}`,
+    }));
+    const june = [
+      { id: 201, repo_id: 1, root_path: "/h", rel_path: "2026/June/zzz-bank-statement-jun.txt", mime: "text/plain", size: 10, sha256: "june-statement" },
+      { id: 202, repo_id: 1, root_path: "/h", rel_path: "2026/June/zzz-transport-topup-28-jun.txt", mime: "text/plain", size: 10, sha256: "june-transport" },
+    ];
+    const result = buildCandidateManifest([...otherMonths, ...june], { query: "How much did I spend in total in June 2026, broken down by category?" });
+    assert.deepEqual(
+      result.candidates.map(c => c.sha256).sort(),
+      ["june-statement", "june-transport"],
+      "the requested month's documents must survive the bound even when the period is spelled with a month name",
+    );
+  });
+
   test("returns an empty manifest without assuming a repository", () => {
     assert.deepEqual(buildCandidateManifest([], { query: "utilities" }), {
       candidates: [], found: 0, selected: 0, truncated: false, continuation: null,

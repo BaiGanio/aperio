@@ -17,6 +17,10 @@
 //     styles/ambient.css shows/hides the layer off that attribute.
 //   • auto honors prefers-reduced-motion → a single static frame, no loop.
 //     on is an explicit user override and keeps animating.
+//   • auto is also "glass mode": every panel/modal surface in the app turns
+//     translucent (glass-mode.css, keyed off [data-ambient="auto"]) so the
+//     starfield reads through the actual UI, not just the gaps around it.
+//     on stays today's behavior — opaque panels, starfield only in the gaps.
 //   • setLevel(0..1) — voice (issue #185 §C) drives intensity: brighter and
 //     faster drift. Mirrored into --ambient-level for the CSS opacity formula.
 //   • Hues + blend mode come from --ambient-c1..c6 / --ambient-blend on

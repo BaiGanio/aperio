@@ -300,6 +300,65 @@ describe("POST /skill/reset", () => {
 });
 
 // =============================================================================
+// Identity (whoami.md) + tool catalog — startup banner "more..." modal
+// =============================================================================
+
+describe("GET /identity/whoami", () => {
+  test("returns the current whoami.md content", async () => {
+    const router = makeRouter({ getWhoamiContent: () => "# I am Aperio" });
+    const { status, body } = await invoke(router, "GET", "/identity/whoami");
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.content, "# I am Aperio");
+  });
+});
+
+describe("PUT /identity/whoami", () => {
+  test("saves new content and reports ok", async () => {
+    let saved;
+    const router = makeRouter({ saveWhoamiContent: (content) => { saved = content; } });
+    const { status, body } = await invoke(router, "PUT", "/identity/whoami", {
+      body: { content: "# Updated identity" },
+    });
+    assert.strictEqual(status, 200);
+    assert.strictEqual(body.ok, true);
+    assert.strictEqual(saved, "# Updated identity");
+  });
+
+  test("returns 400 when saveWhoamiContent throws", async () => {
+    const router = makeRouter({ saveWhoamiContent: () => { throw new Error("disk full"); } });
+    const { status, body } = await invoke(router, "PUT", "/identity/whoami", {
+      body: { content: "x" },
+    });
+    assert.strictEqual(status, 400);
+    assert.ok(body.error.includes("disk full"));
+  });
+});
+
+describe("GET /tools", () => {
+  test("returns name + description for each tool", async () => {
+    const router = makeRouter({
+      mcpTools: [
+        { name: "recall", description: "Search memory" },
+        { name: "remember", description: undefined },
+      ],
+    });
+    const { status, body } = await invoke(router, "GET", "/tools");
+    assert.strictEqual(status, 200);
+    assert.deepStrictEqual(body.tools, [
+      { name: "recall", description: "Search memory" },
+      { name: "remember", description: "" },
+    ]);
+  });
+
+  test("returns an empty array when the agent has no tools", async () => {
+    const router = makeRouter({ mcpTools: undefined });
+    const { status, body } = await invoke(router, "GET", "/tools");
+    assert.strictEqual(status, 200);
+    assert.deepStrictEqual(body.tools, []);
+  });
+});
+
+// =============================================================================
 // PUT /provider
 // =============================================================================
 

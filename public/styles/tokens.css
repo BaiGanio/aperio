@@ -52,6 +52,7 @@
       --shadow:      0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
       --shadow-lg:   0 8px 32px rgba(0,0,0,.10);
       --dot-color:   #d4d0c8;
+      --glass-rgb:   245, 244, 240; /* rgb(--bg); glass-mode.css translucent surfaces */
     }
 
     /* ── THEME: Dark ─────────────────────────────────────────── */
@@ -74,6 +75,7 @@
       --shadow:      0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
       --shadow-lg:   0 8px 32px rgba(0,0,0,.4);
       --dot-color:   #2a2a2a;
+      --glass-rgb:   20, 20, 20;
     }
 
     /* ── THEME: Aurora (indigo-pink) ─────────────────────────── */
@@ -97,6 +99,7 @@
       --shadow-lg:   0 8px 32px rgba(120,50,255,.25);
       --dot-color:   #1e1638;
       --gradient-accent: linear-gradient(135deg, #7c3aed, #ec4899);
+      --glass-rgb:   15, 11, 30;
     }
 
     /* ── System default fallback ─────────────────────────────── */
@@ -120,6 +123,7 @@
         --shadow:      0 1px 3px rgba(0,0,0,.07), 0 4px 12px rgba(0,0,0,.04);
         --shadow-lg:   0 8px 32px rgba(0,0,0,.10);
         --dot-color:   #d4d0c8;
+        --glass-rgb:   245, 244, 240;
       }
     }
 
@@ -143,6 +147,7 @@
         --shadow:      0 1px 3px rgba(0,0,0,.3), 0 4px 12px rgba(0,0,0,.2);
         --shadow-lg:   0 8px 32px rgba(0,0,0,.4);
         --dot-color:   #2a2a2a;
+        --glass-rgb:   20, 20, 20;
       }
     }
 
