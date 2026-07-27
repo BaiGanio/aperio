@@ -126,6 +126,28 @@ describe("docgraph sqlite backend", () => {
     assert.equal(after, 1, "setChunkEmbedding backfills the vector");
   });
 
+  test("listChunksWithoutEmbeddings finds a still-unembedded chunk after a clear (Gap 1 P1 backfill)", async () => {
+    const stillPendingDir = join(mem.root, "still-pending");
+    mem.mkdirp(stillPendingDir);
+    mem.writeFile(join(stillPendingDir, "stale.md"), "# Stale\nThis chunk stays unembedded on purpose.");
+
+    const counts = await backend.indexRepoFiles(store, stillPendingDir, filesOf(stillPendingDir, ["stale.md"]), {
+      generateEmbedding: fakeEmbed,
+      deferEmbedding: true,
+    });
+    const id = counts.pending[0].id;
+
+    // Simulates exactly the scenario the review flagged: a provider change
+    // clears vec_docgraph_chunks, and this chunk's file never changes again,
+    // so re-indexing would never revisit it — only a direct scan finds it.
+    const pending = await backend.listChunksWithoutEmbeddings(store);
+    assert.ok(pending.some(p => p.id === id), "unembedded chunk must be found by the direct scan");
+
+    await backend.setChunkEmbedding(store, id, await fakeEmbed("stale content"));
+    const afterEmbed = await backend.listChunksWithoutEmbeddings(store);
+    assert.ok(!afterEmbed.some(p => p.id === id), "once embedded, the chunk must drop out of the pending list");
+  });
+
   test("doc_repos reports counts and a by-mime breakdown", async () => {
     const { repos } = await backend.repos(store);
     const r = repos.find((x) => x.root_path === docsDir);

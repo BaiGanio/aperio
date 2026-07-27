@@ -3,7 +3,7 @@
 // Imports directly from embeddings.js — no inline copies.
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { generateEmbedding, initEmbeddings, _setTransformersPipeline } from "../../../lib/helpers/embeddings.js";
+import { generateEmbedding, initEmbeddings, checkEmbeddingProvider, getEmbeddingSignature, _setTransformersPipeline } from "../../../lib/helpers/embeddings.js";
 import { getEmbeddingBacklogSize } from "../../../lib/helpers/embedding-backlog.js";
 
 // ─── fetch mock ───────────────────────────────────────────────────────────────
@@ -93,6 +93,45 @@ describe("generateEmbedding — Voyage (default)", () => {
         assert.equal(result, null);
       })
     )
+  );
+
+  test("honors VOYAGE_MODEL override in the actual API call (Gap 3)", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "test-key", VOYAGE_MODEL: "voyage-3-large" }, () => {
+      let capturedBody;
+      return withMockFetch(async (_url, opts) => {
+        capturedBody = JSON.parse(opts.body);
+        return { ok: true, json: async () => ({ data: [{ embedding: [0.5] }] }) };
+      }, async () => {
+        await generateEmbedding("test text");
+        assert.equal(capturedBody.model, "voyage-3-large");
+      });
+    })
+  );
+
+  test("requests output_dimension when EMBEDDING_DIMS deviates from the 1024 default (Gap 4 P1)", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "test-key", VOYAGE_MODEL: "voyage-3-large", EMBEDDING_DIMS: "512" }, () => {
+      let capturedBody;
+      return withMockFetch(async (_url, opts) => {
+        capturedBody = JSON.parse(opts.body);
+        return { ok: true, json: async () => ({ data: [{ embedding: new Array(512).fill(0.1) }] }) };
+      }, async () => {
+        await generateEmbedding("test text");
+        assert.equal(capturedBody.output_dimension, 512);
+      });
+    })
+  );
+
+  test("omits output_dimension at the 1024 default — plain voyage-3 keeps its original request shape", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "test-key", VOYAGE_MODEL: undefined, EMBEDDING_DIMS: undefined }, () => {
+      let capturedBody;
+      return withMockFetch(async (_url, opts) => {
+        capturedBody = JSON.parse(opts.body);
+        return { ok: true, json: async () => ({ data: [{ embedding: [0.5] }] }) };
+      }, async () => {
+        await generateEmbedding("test text");
+        assert.equal("output_dimension" in capturedBody, false);
+      });
+    })
   );
 });
 
@@ -219,6 +258,24 @@ describe("initEmbeddings", () => {
     assert.equal(embedded[1], "Second. content two");
   });
 
+  test("backfills self-memories too, routed through setSelfEmbedding not setEmbedding (Gap 1 P1)", async () => {
+    const selfSetCalls = [];
+    const memSetCalls = [];
+    const store = {
+      counts:                     async () => ({ total: 0, embedded: 0 }),
+      listWithoutEmbeddings:      async () => [],
+      listSelfWithoutEmbeddings:  async () => [{ id: "s1", title: "Self fact", content: "about the agent" }],
+      setEmbedding:               async (id) => { memSetCalls.push(id); },
+      setSelfEmbedding:           async (id, embedding) => { selfSetCalls.push({ id, embedding }); },
+    };
+
+    await initEmbeddings(store, async () => [0.9, 0.9]);
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.deepEqual(selfSetCalls, [{ id: "s1", embedding: [0.9, 0.9] }]);
+    assert.equal(memSetCalls.length, 0, "self-memory rows must not go through the memories setEmbedding path");
+  });
+
   test("counts failed rows when generateEmbeddingFn returns null", async () => {
     const rows = [{ id: 1, title: "T", content: "C" }];
     const store = {
@@ -243,4 +300,129 @@ describe("initEmbeddings", () => {
     await new Promise(resolve => setImmediate(resolve));
     // Should swallow the error gracefully
   });
+});
+
+// =============================================================================
+function makeFingerprintStore(storedFingerprint, { physicalDims = null } = {}) {
+  let fingerprint = storedFingerprint;
+  let dims = physicalDims;
+  let clearAllEmbeddingsCalled = false;
+  let resizeVectorStorageCalledWith = null;
+  return {
+    getSetting: async (key) => (key === "embedding_provider" ? fingerprint : null),
+    setSetting: async (key, value) => { if (key === "embedding_provider") fingerprint = value; },
+    clearAllEmbeddings: async () => { clearAllEmbeddingsCalled = true; },
+    resizeVectorStorage: async (newDims) => { resizeVectorStorageCalledWith = newDims; dims = newDims; },
+    // Only present when the test opts in — mirrors real stores exposing
+    // getVectorDims but keeps the no-physical-check code path exercised too.
+    ...(physicalDims !== null ? { getVectorDims: async () => dims } : {}),
+    get calls() { return { clearAllEmbeddingsCalled, resizeVectorStorageCalledWith }; },
+    get fingerprint() { return fingerprint; },
+  };
+}
+
+describe("checkEmbeddingProvider", () => {
+  test("first run — sets the fingerprint without clearing anything", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers", EMBEDDING_DIMS: undefined }, async () => {
+      const store = makeFingerprintStore(null);
+      await checkEmbeddingProvider(store);
+      assert.equal(store.calls.clearAllEmbeddingsCalled, false);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, null);
+      assert.equal(store.fingerprint.provider, "transformers");
+    })
+  );
+
+  test("provider change with same dims — clears embeddings, does not resize (Gap 3 regression guard)", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", VOYAGE_MODEL: "voyage-3-large", EMBEDDING_DIMS: "1024" }, async () => {
+      const store = makeFingerprintStore({ provider: "transformers", model: "mixedbread-ai/mxbai-embed-large-v1", dims: 1024 });
+      await checkEmbeddingProvider(store);
+      assert.equal(store.calls.clearAllEmbeddingsCalled, true);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, null);
+      assert.equal(store.fingerprint.model, "voyage-3-large");
+    })
+  );
+
+  test("dims change — resizes vector storage instead of a plain clear (Gap 4)", () =>
+    // voyage (unlike transformers) actually honors EMBEDDING_DIMS via
+    // output_dimension, so it's the right provider to exercise a real dims
+    // change against — see the transformers-specific tests below for why
+    // transformers itself must never take this path.
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", EMBEDDING_DIMS: "768" }, async () => {
+      const store = makeFingerprintStore({ provider: "voyage", model: "voyage-3", dims: 1024 });
+      await checkEmbeddingProvider(store);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, 768);
+      assert.equal(store.calls.clearAllEmbeddingsCalled, false);
+      assert.equal(store.fingerprint.dims, 768);
+    })
+  );
+
+  test("no change — neither clear nor resize runs", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers", EMBEDDING_DIMS: "1024" }, async () => {
+      const store = makeFingerprintStore({ provider: "transformers", model: "mixedbread-ai/mxbai-embed-large-v1", dims: 1024 });
+      await checkEmbeddingProvider(store);
+      assert.equal(store.calls.clearAllEmbeddingsCalled, false);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, null);
+    })
+  );
+
+  test("fresh DB with a non-default EMBEDDING_DIMS — resizes on first boot even though there's no stored fingerprint (Gap 4 P2)", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", EMBEDDING_DIMS: "512" }, async () => {
+      // stored fingerprint is null (never booted before); physical storage is
+      // hardcoded 1024 by migrations regardless of EMBEDDING_DIMS.
+      const store = makeFingerprintStore(null, { physicalDims: 1024 });
+      await checkEmbeddingProvider(store);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, 512);
+      assert.equal(store.fingerprint.dims, 512);
+    })
+  );
+
+  test("stale fingerprint already matches config but storage was never actually resized — resizes anyway (Gap 4 P2)", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", EMBEDDING_DIMS: "512" }, async () => {
+      // Simulates a DB upgraded from before resizeVectorStorage existed: an
+      // old checkEmbeddingProvider already recorded dims:512 in the
+      // fingerprint without ever touching physical storage, which is still
+      // 1024-wide. A fingerprint-only comparison would see "no change" and
+      // skip repair forever.
+      const store = makeFingerprintStore(
+        { provider: "voyage", model: "voyage-3", dims: 512 },
+        { physicalDims: 1024 }
+      );
+      await checkEmbeddingProvider(store);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, 512);
+    })
+  );
+
+  test("physical dims already match — no-op even on repeat boots (steady state)", () =>
+    withEnv({ EMBEDDING_PROVIDER: "voyage", VOYAGE_API_KEY: "k", EMBEDDING_DIMS: "512" }, async () => {
+      const store = makeFingerprintStore(
+        { provider: "voyage", model: "voyage-3", dims: 512 },
+        { physicalDims: 512 }
+      );
+      await checkEmbeddingProvider(store);
+      assert.equal(store.calls.clearAllEmbeddingsCalled, false);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, null);
+    })
+  );
+
+  test("transformers ignores a misconfigured EMBEDDING_DIMS — signature always reports the pipeline's real 1024 output (Gap 4 P1)", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers", EMBEDDING_DIMS: "512" }, async () => {
+      // A misconfigured EMBEDDING_DIMS must never reach resizeVectorStorage
+      // for transformers — mxbai-embed-large-v1 has no truncation support,
+      // so resizing storage to 512 would make every subsequent insert of a
+      // real (1024-length) vector fail forever.
+      const store = makeFingerprintStore({ provider: "transformers", model: "mixedbread-ai/mxbai-embed-large-v1", dims: 1024 });
+      await checkEmbeddingProvider(store);
+      assert.equal(store.calls.resizeVectorStorageCalledWith, null);
+      assert.equal(store.calls.clearAllEmbeddingsCalled, false);
+      assert.equal(store.fingerprint.dims, 1024);
+    })
+  );
+
+  test("getEmbeddingSignature always reports transformers at 1024 dims regardless of EMBEDDING_DIMS", () =>
+    withEnv({ EMBEDDING_PROVIDER: "transformers", EMBEDDING_DIMS: "256" }, () => {
+      const sig = getEmbeddingSignature();
+      assert.equal(sig.dims, 1024);
+      return Promise.resolve();
+    })
+  );
 });

@@ -98,6 +98,29 @@ describe("startServer — initialization", () => {
       )
     );
   });
+
+  test("detects an embedding provider change on boot (Gap 2 — MCP-only deployments)", async () => {
+    // A stale fingerprint stored under a previous provider must be caught here,
+    // the same way lib/server/hydrateRuntime.js catches it for the HTTP server —
+    // otherwise an MCP-only deployment never notices a provider switch.
+    await withEnv({ EMBEDDING_PROVIDER: "transformers" }, async () => {
+      let clearedCalled = false;
+      let storedFingerprint = { provider: "voyage", model: "voyage-3", dims: 1024 };
+      const store = {
+        counts:                async () => ({ total: 0, embedded: 0 }),
+        table:                 async () => ({ add: async () => {}, countRows: async () => 0 }),
+        search:                async () => [],
+        getSetting:            async (key) => key === "embedding_provider" ? storedFingerprint : null,
+        setSetting:            async (key, value) => { if (key === "embedding_provider") storedFingerprint = value; },
+        clearAllEmbeddings:    async () => { clearedCalled = true; },
+      };
+
+      await startServer({ transport: makeTransport(), store, vectorEnabled: false });
+
+      assert.equal(clearedCalled, true, "provider change should clear embeddings before the queue is built");
+      assert.equal(storedFingerprint.provider, "transformers");
+    });
+  });
 });
 
 // =============================================================================

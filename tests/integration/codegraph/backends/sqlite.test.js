@@ -74,6 +74,45 @@ describe("indexRepoFiles()", () => {
 });
 
 // =============================================================================
+// listSymbolsWithoutEmbeddings — Gap 1 P1 backfill
+// =============================================================================
+describe("listSymbolsWithoutEmbeddings()", () => {
+  async function seedSymbol(db, { name, signature = null, doc = null }) {
+    db.prepare(`INSERT INTO cg_repos (root_path) VALUES (?)`).run(`/repo/${name}`);
+    const repoId = db.prepare(`SELECT id FROM cg_repos WHERE root_path = ?`).get(`/repo/${name}`).id;
+    db.prepare(`INSERT INTO cg_files (repo_id, path, language, sha256, mtime) VALUES (?, 'a.js', 'js', 'x', 'x')`).run(repoId);
+    const fileId = db.prepare(`SELECT id FROM cg_files WHERE repo_id = ?`).get(repoId).id;
+    const info = db.prepare(`
+      INSERT INTO cg_symbols (file_id, kind, name, qualified, start_line, end_line, signature, doc)
+      VALUES (?, 'function', ?, ?, 1, 1, ?, ?)
+    `).run(fileId, name, name, signature, doc);
+    return Number(info.lastInsertRowid);
+  }
+
+  test("lists a symbol with no vec_cg_symbols row and excludes one that has one", async () => {
+    const store = { db: await createDb() };
+    const noEmbedId = await seedSymbol(store.db, { name: "noEmbed", signature: "()", doc: "does a thing" });
+    const embedId = await seedSymbol(store.db, { name: "hasEmbed" });
+    store.db.prepare(`INSERT INTO vec_cg_symbols (rowid, embedding) VALUES (?, ?)`)
+      .run(BigInt(embedId), new Float32Array(1024));
+
+    const pending = await sqliteBackend.listSymbolsWithoutEmbeddings(store);
+    assert.ok(pending.some(p => p.id === noEmbedId));
+    assert.ok(!pending.some(p => p.id === embedId));
+    const found = pending.find(p => p.id === noEmbedId);
+    assert.equal(found.text, "noEmbed. (). does a thing");
+  });
+
+  test("returns an empty list when every symbol already has a vector", async () => {
+    const store = { db: await createDb() };
+    const id = await seedSymbol(store.db, { name: "solo" });
+    store.db.prepare(`INSERT INTO vec_cg_symbols (rowid, embedding) VALUES (?, ?)`)
+      .run(BigInt(id), new Float32Array(1024));
+    assert.deepEqual(await sqliteBackend.listSymbolsWithoutEmbeddings(store), []);
+  });
+});
+
+// =============================================================================
 // deleteRepo
 // =============================================================================
 describe("deleteRepo()", () => {

@@ -558,6 +558,148 @@ describe("PostgresStore — clearAllEmbeddings", () => {
     assert.ok(queries.some(q => q.includes("memories") && q.includes("SET embedding = NULL")));
     assert.ok(queries.some(q => q.includes("wiki_articles") && q.includes("SET embedding = NULL")));
   });
+
+  test("clears embeddings from all 5 vector-bearing tables (Gap 1)", async () => {
+    const queries = [];
+    _poolQuery = async (sql) => {
+      queries.push(sql);
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    await store.clearAllEmbeddings();
+    for (const table of ["memories", "wiki_articles", "self_memories", "cg_symbols", "docgraph_chunks"]) {
+      assert.ok(
+        queries.some(q => q.includes(table) && q.includes("SET embedding = NULL")),
+        `expected a clear query for ${table}`
+      );
+    }
+  });
+});
+
+// =============================================================================
+// PostgresStore — resizeVectorStorage (Gap 4 — dims-change crash guard)
+// =============================================================================
+describe("PostgresStore — resizeVectorStorage", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("nulls, re-types, and re-indexes all 5 embedding columns at the new dims", async () => {
+    const queries = [];
+    _poolQuery = async (sql) => {
+      queries.push(sql);
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    await store.resizeVectorStorage(768);
+
+    for (const table of ["memories", "wiki_articles", "self_memories", "cg_symbols", "docgraph_chunks"]) {
+      assert.ok(queries.some(q => q.includes(`UPDATE ${table} SET embedding = NULL`)), `${table}: expected null-out`);
+      assert.ok(queries.some(q => q.includes(table) && q.includes("ALTER COLUMN embedding TYPE vector(768)")), `${table}: expected ALTER TYPE`);
+      assert.ok(queries.some(q => q.includes(`ON ${table} USING hnsw`)), `${table}: expected index recreation`);
+    }
+  });
+
+  test("rejects a non-positive-integer dims value without querying", async () => {
+    const queries = [];
+    _poolQuery = async (sql) => { queries.push(sql); return { rows: [] }; };
+    const store = await PostgresStore.init();
+    const before = queries.length;
+    await assert.rejects(() => store.resizeVectorStorage(0));
+    await assert.rejects(() => store.resizeVectorStorage(-10));
+    await assert.rejects(() => store.resizeVectorStorage(1.5));
+    assert.equal(queries.length, before, "no DDL/DML should run for an invalid dims value");
+  });
+
+  test("rejects dims above pgvector's 2000-dim HNSW limit before touching DDL (Gap 4 P2)", async () => {
+    const queries = [];
+    _poolQuery = async (sql) => { queries.push(sql); return { rows: [] }; };
+    const store = await PostgresStore.init();
+    const before = queries.length;
+    // A real, valid Voyage config (voyage-3-large at 2048) — succeeds the
+    // ALTER but fails CREATE INDEX and rolls back on every boot if unchecked.
+    await assert.rejects(() => store.resizeVectorStorage(2048), /HNSW/);
+    assert.equal(queries.length, before, "no DDL/DML should run for a dims value above the HNSW limit");
+  });
+
+  test("accepts exactly the 2000-dim HNSW boundary", async () => {
+    const queries = [];
+    _poolQuery = async (sql) => { queries.push(sql); return { rows: [] }; };
+    const store = await PostgresStore.init();
+    await assert.doesNotReject(() => store.resizeVectorStorage(2000));
+  });
+
+  test("drops and recreates memories_without_embeddings around the memories ALTER (P1)", async () => {
+    const queries = [];
+    _poolQuery = async (sql) => { queries.push(sql); return { rows: [] }; };
+    const store = await PostgresStore.init();
+    const before = queries.length;
+    await store.resizeVectorStorage(768);
+    const resizeQueries = queries.slice(before);
+
+    const dropViewIdx = resizeQueries.findIndex(q => q.includes("DROP VIEW IF EXISTS memories_without_embeddings"));
+    // "ALTER TABLE memories " (trailing space) to avoid matching "self_memories".
+    const alterIdx = resizeQueries.findIndex(q => q.includes("ALTER TABLE memories ") && q.includes("ALTER COLUMN embedding TYPE vector(768)"));
+    const createViewIdx = resizeQueries.findIndex(q => q.includes("CREATE OR REPLACE VIEW memories_without_embeddings"));
+
+    assert.notEqual(dropViewIdx, -1, "expected the view to be dropped");
+    assert.notEqual(createViewIdx, -1, "expected the view to be recreated");
+    assert.ok(dropViewIdx < alterIdx, "view must be dropped before the ALTER that depends on it");
+    assert.ok(createViewIdx > alterIdx, "view must be recreated after the ALTER");
+  });
+
+  test("wraps the whole resize in a single transaction", async () => {
+    const queries = [];
+    _poolQuery = async (sql) => { queries.push(sql); return { rows: [] }; };
+    const store = await PostgresStore.init();
+    const before = queries.length;
+    await store.resizeVectorStorage(768);
+    const resizeQueries = queries.slice(before);
+    assert.equal(resizeQueries.filter(q => q === "BEGIN").length, 1);
+    assert.equal(resizeQueries.filter(q => q === "COMMIT").length, 1);
+    assert.equal(resizeQueries.some(q => q === "ROLLBACK"), false);
+  });
+
+  test("rolls back on failure instead of leaving storage half-resized", async () => {
+    const queries = [];
+    _poolQuery = async (sql) => {
+      queries.push(sql);
+      if (sql.includes("ALTER COLUMN embedding TYPE vector(768)") && sql.includes("cg_symbols")) {
+        throw new Error("simulated failure");
+      }
+      return { rows: [] };
+    };
+    const store = await PostgresStore.init();
+    const before = queries.length;
+    await assert.rejects(() => store.resizeVectorStorage(768));
+    const resizeQueries = queries.slice(before);
+    assert.ok(resizeQueries.includes("ROLLBACK"));
+    assert.equal(resizeQueries.includes("COMMIT"), false);
+  });
+});
+
+// =============================================================================
+// PostgresStore — getVectorDims (Gap 4 P2 — physical dims verification)
+// =============================================================================
+describe("PostgresStore — getVectorDims", () => {
+  afterEach(() => { _poolQuery = null; });
+
+  test("reads the physical dimension from pg_attribute.atttypmod", async () => {
+    let capturedSql;
+    _poolQuery = async (sql) => {
+      capturedSql = sql;
+      return { rows: [{ dims: 1024 }] };
+    };
+    const store = await PostgresStore.init();
+    const dims = await store.getVectorDims();
+    assert.equal(dims, 1024);
+    assert.ok(capturedSql.includes("pg_attribute"));
+    assert.ok(capturedSql.includes("atttypmod"));
+  });
+
+  test("returns null when the column can't be found", async () => {
+    _poolQuery = async () => ({ rows: [] });
+    const store = await PostgresStore.init();
+    assert.equal(await store.getVectorDims(), null);
+  });
 });
 
 // =============================================================================

@@ -240,6 +240,28 @@ describe("setSymbolEmbedding()", () => {
 });
 
 // =============================================================================
+// listPendingEmbeddings (Gap 1 P1 — watcher-startup backfill dispatcher)
+// =============================================================================
+describe("listPendingEmbeddings()", () => {
+  afterEach(() => { resetTest(); });
+
+  test("returns [] when no backend is available", async () => {
+    assert.deepEqual(await indexer.listPendingEmbeddings({}), []);
+  });
+
+  test("delegates to the backend and returns its {id, text} rows", async () => {
+    const ctx = makeCtx(async (sql) => {
+      if (sql.includes("WHERE embedding IS NULL")) {
+        return { rows: [{ id: 7, name: "foo", signature: null, doc: null }] };
+      }
+      return { rowCount: 0 };
+    });
+    const pending = await indexer.listPendingEmbeddings(ctx.store);
+    assert.deepEqual(pending, [{ id: 7, text: "foo" }]);
+  });
+});
+
+// =============================================================================
 // indexRepo (full indexing via walk generator)
 // =============================================================================
 describe("indexRepo()", () => {

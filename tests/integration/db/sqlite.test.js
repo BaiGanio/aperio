@@ -764,6 +764,52 @@ describe("clearAllEmbeddings", () => {
 });
 
 // =============================================================================
+// resizeVectorStorage (Gap 4 — dims-change crash guard)
+// =============================================================================
+describe("resizeVectorStorage", () => {
+  test("recreates vec0 tables at the new dimension so a differently-sized insert succeeds", async () => {
+    // The fixture's vec0 tables are FLOAT[1024] (see vec1024() below — the
+    // EMBEDDING_DIMS=4 env var set in `before` isn't read by table creation).
+    // Resize down to 8, prove the new dimension is what's accepted, then
+    // restore 1024 so later describe blocks (which use vec1024()) are unaffected.
+    await store.resizeVectorStorage(8);
+
+    const mem = await store.insert({
+      type: "fact", title: "Resize test", content: "resized vector",
+      tags: [], importance: 3, source: "manual",
+    });
+    await assert.doesNotReject(() => store.setEmbedding(mem.id, [1, 0, 0, 0, 0, 0, 0, 0]));
+
+    const dims = store.db.prepare(`SELECT vec_length(embedding) AS d FROM vec_memories LIMIT 1`).get();
+    assert.equal(dims.d, 8);
+
+    await store.resizeVectorStorage(1024);
+  });
+
+  test("rejects a non-positive-integer dims value", async () => {
+    await assert.rejects(() => store.resizeVectorStorage(0));
+    await assert.rejects(() => store.resizeVectorStorage(-4));
+    await assert.rejects(() => store.resizeVectorStorage(1.5));
+  });
+
+  test("rejects dims above sqlite-vec's 8192 max before touching any table (Gap 4 P2)", async () => {
+    const before = await store.getVectorDims();
+    await assert.rejects(
+      () => store.resizeVectorStorage(9000),
+      /must be an integer from 1 to 8192/
+    );
+    // Validation happens before any DDL runs — no table should be touched.
+    assert.equal(await store.getVectorDims(), before);
+  });
+
+  test("accepts exactly the 8192 boundary", async () => {
+    await assert.doesNotReject(() => store.resizeVectorStorage(8192));
+    assert.equal(await store.getVectorDims(), 8192);
+    await store.resizeVectorStorage(1024);
+  });
+});
+
+// =============================================================================
 // setEmbedding (on memories)
 // =============================================================================
 describe("setEmbedding", () => {

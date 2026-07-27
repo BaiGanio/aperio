@@ -15,6 +15,11 @@ import { normalizeAgentJobDefinition } from '../../lib/agent/job-spec.js';
 import { assertJsonPersistable, isUuid, rowToMemory, rowToSelf, toIso, toVec } from './mappers.js';
 import { recallMemories, recallSelfMemories } from './search.js';
 
+// pgvector's HNSW index type supports at most this many dimensions per
+// vector — the vector(N) column type itself allows up to 16000, but an HNSW
+// index build on a wider column fails outright.
+const PGVECTOR_HNSW_MAX_DIMS = 2000;
+
 // The example/default Postgres password shipped in .env.example. Connecting
 // with it means the user never set a real one — refuse rather than run with a
 // known-public credential. APERIO_ALLOW_DEFAULT_DB_PASSWORD=1 opts out for
@@ -507,6 +512,18 @@ export class PostgresStore {
     await this.pool.query(`UPDATE self_memories SET embedding = $1 WHERE id = $2`, [toVec(embedding), id]);
   }
 
+  // Self-memories missing a vector — mirrors listWithoutEmbeddings() for the
+  // user-facing `memories` table so initEmbeddings() can backfill this store
+  // the same way. Without this, a provider/model change (or a dims resize)
+  // that clears self_memories.embedding leaves self-memory search
+  // permanently disabled — nothing else scans for and re-embeds these rows.
+  async listSelfWithoutEmbeddings() {
+    const { rows } = await this.pool.query(
+      `SELECT id, title, content FROM self_memories WHERE embedding IS NULL`
+    );
+    return rows;
+  }
+
   async deleteSelf(id) {
     if (!isUuid(id)) return null;
     const { rows } = await this.pool.query(
@@ -525,6 +542,88 @@ export class PostgresStore {
   async clearAllEmbeddings() {
     await this.pool.query(`UPDATE memories SET embedding = NULL`);
     await this.pool.query(`UPDATE wiki_articles SET embedding = NULL`);
+    await this.pool.query(`UPDATE self_memories SET embedding = NULL`);
+    await this.pool.query(`UPDATE cg_symbols SET embedding = NULL`);
+    await this.pool.query(`UPDATE docgraph_chunks SET embedding = NULL`);
+  }
+
+  // Nulls out and re-types every embedding column at the new dimension.
+  // pgvector columns are vector(N) fixed at CREATE time — a plain
+  // clearAllEmbeddings() empties the values but leaves every subsequent
+  // insert at the old N failing once EMBEDDING_DIMS changes. The HNSW index
+  // is dropped/recreated around the ALTER since it depends on the column,
+  // and memories_without_embeddings (which reads memories.embedding) has to
+  // be dropped/recreated too — Postgres refuses to ALTER a column a view
+  // depends on. Runs as one transaction so a mid-resize failure can't leave
+  // a table without its index or view.
+  async resizeVectorStorage(dims) {
+    if (!Number.isInteger(dims) || dims <= 0) {
+      throw new Error(`resizeVectorStorage: invalid dims ${dims}`);
+    }
+    if (dims > PGVECTOR_HNSW_MAX_DIMS) {
+      // Catch this before any DDL runs — otherwise the ALTER succeeds, the
+      // subsequent CREATE INDEX fails, the whole transaction rolls back, and
+      // the app hits this same failure on every boot as long as
+      // EMBEDDING_DIMS stays set to an unsupported width.
+      throw new Error(
+        `resizeVectorStorage: dims ${dims} exceeds pgvector's HNSW index limit of ${PGVECTOR_HNSW_MAX_DIMS} — ` +
+        `choose an EMBEDDING_DIMS at or below ${PGVECTOR_HNSW_MAX_DIMS}, or a Voyage model/output_dimension that fits it`
+      );
+    }
+    const targets = [
+      { table: "memories",        index: "idx_memories_embedding" },
+      { table: "wiki_articles",   index: "idx_wiki_embedding" },
+      { table: "self_memories",   index: "idx_self_memories_embedding" },
+      { table: "cg_symbols",      index: "idx_cg_symbols_embedding" },
+      { table: "docgraph_chunks", index: "idx_dc_embedding" },
+    ];
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      for (const { table, index } of targets) {
+        await client.query(`UPDATE ${table} SET embedding = NULL`);
+        await client.query(`DROP INDEX IF EXISTS ${index}`);
+        if (table === "memories") {
+          await client.query(`DROP VIEW IF EXISTS memories_without_embeddings`);
+        }
+        await client.query(`ALTER TABLE ${table} ALTER COLUMN embedding TYPE vector(${dims}) USING NULL`);
+        if (table === "memories") {
+          await client.query(`
+            CREATE OR REPLACE VIEW memories_without_embeddings AS
+            SELECT id, title, content, type, tags
+            FROM memories
+            WHERE embedding IS NULL
+          `);
+        }
+        await client.query(
+          `CREATE INDEX ${index} ON ${table} USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64)`
+        );
+      }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // Physical width of the memories.embedding column, read from Postgres
+  // catalog metadata rather than trusting the stored fingerprint — a
+  // freshly-created DB (hardcoded vector(1024) at migration time) or a DB
+  // upgraded from before resizeVectorStorage existed can both have a
+  // fingerprint that already claims the configured dims without storage
+  // ever having been resized to match.
+  async getVectorDims() {
+    const { rows } = await this.pool.query(`
+      SELECT atttypmod AS dims
+      FROM pg_attribute
+      WHERE attrelid = 'memories'::regclass
+        AND attname = 'embedding'
+        AND NOT attisdropped
+    `);
+    const dims = rows[0]?.dims;
+    return Number.isInteger(dims) && dims > 0 ? dims : null;
   }
 
   // ── Wiki drafts ──────────────────────────────────────────────────────────
