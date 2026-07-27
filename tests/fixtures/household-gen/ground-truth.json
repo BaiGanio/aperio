@@ -8166,14 +8166,7 @@
       "reason": "SWIFT MT700 letter-of-credit message accompanying the commercial invoice; B2B, not household spending"
     }
   ],
-  "known_extractor_gaps": [
-    {
-      "finding": "lib/docgraph/extract-facts.js drops the SIGN of a negative amount: 2026/February/electricity-credit-note-10-feb.txt yields 34.20 under likely_total instead of -34.20, and no label is recognised for 'СУМА ЗА ВЪЗСТАНОВЯВАНЕ' (credit/refund).",
-      "found": "2026-07-26, by running extractAmountCandidates over the newly generated months",
-      "effect": "Any aggregation built on those candidates will overstate 2026-02 Utilities by 68.40 BGN (34.20 counted positive instead of negative).",
-      "status": "reported, NOT fixed here — extract-facts.js carries uncommitted changes from another session"
-    }
-  ],
+  "known_extractor_gaps": [],
   "verification": {
     "arithmetic": "All figures computed in integer стотинки; validate-oracle.mjs re-derives every category total, every monthly total and every bill's own net/VAT/total from the specification and compares in integer minor units.",
     "corpus_coverage": "validate-oracle.mjs asserts that every file present in the corpus has exactly one disposition, and that every disposition points at a file that exists.",

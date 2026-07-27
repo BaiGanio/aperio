@@ -35,28 +35,6 @@ housekeeping go in `A2D.md`, not here.
   graph_revision) so warm traversals skip the reload. Not urgent. (Measuring this is
   item 3 of #322.)
 
-## Front-end tests
-
-- 2026-07-26 `tests/integration/public/graph-panel-refresh.test.js` — all 4 tests fail with
-  `ReferenceError: getComputedStyle is not defined` at `public/scripts/codegraph-panel.js:343`.
-  The suite's hand-rolled DOM stub never grew a `getComputedStyle`, so the panel-open path
-  throws before any assertion runs. Pre-existing (reproduced with an otherwise clean tree),
-  found while running the public suite for the generated-file-card redesign. **Not fixed:**
-  outside that task; the fix is one stub function in the test's globals.
-
-## Docgraph
-
-- 2026-07-26 `lib/docgraph/extract-facts.js` drops the **sign** of negative amounts.
-  A Bulgarian credit note (`КРЕДИТНО ИЗВЕСТИЕ`, total `-34,20 лв`) comes back as
-  `34.20 [likely_total]`, and no `AMOUNT_LABELS` pattern matches the credit wording
-  (`СУМА ЗА ВЪЗСТАНОВЯВАНЕ`). Any aggregation over those candidates counts a refund as a
-  charge — in the document-intelligence corpus that overstates 2026-02 Utilities by 68.40 BGN.
-  Found by running `extractAmountCandidates` over the newly generated household months
-  (14/15 sampled documents across 7 languages were otherwise correct). **Not fixed:** the
-  file had uncommitted changes from another session at the time. Fixture to test against:
-  `/Users/lk/Projects/household/2026/February/electricity-credit-note-10-feb.txt`; oracle
-  records it under `known_extractor_gaps`.
-
 ---
 
 ## Intentional deferrals
