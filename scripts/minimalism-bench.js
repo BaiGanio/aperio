@@ -23,8 +23,9 @@ import { createAgent } from "../lib/agent.js";
 import { makeSinkEmitter } from "../lib/emitters/sinkEmitter.js";
 import { runWithPaths } from "../lib/routes/paths.js";
 import {
-  REPO_ROOT, buildSandbox, sha256File, snapshotDir, locDelta, sumUsage,
-  runFixtureTests, appendLedgerRow, computeVerdict, renderTranscript, renderReport,
+  REPO_ROOT, buildSandbox, sha256File, snapshotDir, locDelta, sumUsage, collectCellMetrics,
+  runFixtureTests, appendLedgerRow, computeVerdict, isMatrixComplete, renderTranscript, renderReport,
+  DUPLICATE_FAILURE_BUDGET, EVAL_MODE,
 } from "../lib/helpers/minimalismBench.js";
 import {
   LIVE_EVAL_BASE_URL, createLiveEvalPaths, waitForLlamaReadiness,
@@ -118,7 +119,14 @@ export function buildBenchPrompt(fixture) {
 // stream_start/token/stream_end events, so a transcript built from that
 // stream sees tool calls and assistant turns in the order they actually
 // happened, not two separately-ordered lists.
-export function createBenchHostTools(workspaceDir, emitter = null) {
+//
+// `onDuplicateFailureBudgetExceeded` (optional) fires once a given tool
+// call's (name, args) signature has failed DUPLICATE_FAILURE_BUDGET times
+// across the WHOLE cell — not per turn, unlike tool-safety-middleware's own
+// loop-break, which resets every turn and so never bounds a model that gets
+// stopped, retries a different way, and repeats the same failure again in a
+// later turn (issue #336).
+export function createBenchHostTools(workspaceDir, emitter = null, { onDuplicateFailureBudgetExceeded } = {}) {
   // A raw prefix check (`abs.startsWith(workspaceDir + "/")`) breaks on
   // Windows, where resolve() returns backslash-separated paths — relative()
   // is the platform-correct containment check on both POSIX and Windows.
@@ -141,9 +149,20 @@ export function createBenchHostTools(workspaceDir, emitter = null) {
     }
     return null;
   };
+  const failureSignatureCounts = new Map();
+  let budgetTripped = false;
   const record = (name, args, result) => {
     const displayArgs = args?.path ? { ...args, path: displayPath(args.path) } : args;
     emitter?.send({ type: "tool_call", name, args: displayArgs, result });
+    if (!budgetTripped && typeof result === "string" && result.startsWith("❌")) {
+      const signature = `${name}:${JSON.stringify(args ?? {})}`;
+      const count = (failureSignatureCounts.get(signature) || 0) + 1;
+      failureSignatureCounts.set(signature, count);
+      if (count >= DUPLICATE_FAILURE_BUDGET) {
+        budgetTripped = true;
+        onDuplicateFailureBudgetExceeded?.({ name, args, count });
+      }
+    }
     return result;
   };
   return [
@@ -204,21 +223,38 @@ async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, disca
     // re-interleave by guesswork.
     const sink = makeSinkEmitter();
     const providerConfig = dryRun ? { name: "mock", script: buildMockScript(fixture) } : { name: provider, model };
+    // The provider loops store their in-flight AbortController here via
+    // setAbort() every request and check getAbort()?.signal?.aborted at the
+    // top of the next iteration (see e.g. lib/agent/providers/llamacpp.js) —
+    // the same mechanism a UI "stop" button uses. Tripping the duplicate-
+    // failure budget below calls .abort() on whatever's currently stored,
+    // which lands between the failing tool call and the loop's next request.
+    const abortBox = { controller: null };
+    let duplicateFailureBudget = null;
     const agent = await createAgent({
       root: sandbox.root,
       version: "1.0.0-minimalism-bench",
       providerConfig,
       spec: { id: "minimalism-bench", toolAllowlist: BENCH_TOOL_ALLOWLIST },
-      hostTools: createBenchHostTools(sandbox.workspaceDir, sink.emitter),
+      hostTools: createBenchHostTools(sandbox.workspaceDir, sink.emitter, {
+        onDuplicateFailureBudgetExceeded: (info) => {
+          duplicateFailureBudget = info;
+          abortBox.controller?.abort();
+        },
+      }),
     });
     const messages = [{ role: "user", content: buildBenchPrompt(fixture) }];
     const startedAt = Date.now();
     await runWithPaths([sandbox.root], [sandbox.root], sandbox.workspaceDir, () =>
-      agent.runAgentLoop(messages, sink.emitter, {}, () => null, () => {}));
+      agent.runAgentLoop(messages, sink.emitter, {}, () => abortBox.controller, (c) => { abortBox.controller = c; }));
     const wallMs = Date.now() - startedAt;
+    const outcome = duplicateFailureBudget
+      ? `duplicate_failure_budget_exceeded(${duplicateFailureBudget.name},${duplicateFailureBudget.count}x)`
+      : "completed";
 
     const after = snapshotDir(sandbox.workspaceDir);
     const usage = sumUsage(sink.events);
+    const metrics = collectCellMetrics(sink.events);
     const correct = runFixtureTests({ testsDir: fixture.testsDir, solutionDir: sandbox.workspaceDir });
     const loc = locDelta(before, after);
 
@@ -231,9 +267,17 @@ async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, disca
       input_tokens: usage.input,
       output_tokens: usage.output,
       net_tokens: usage.net,
+      request_count: metrics.requestCount,
+      tool_call_count: metrics.toolCallCount,
+      tool_error_count: metrics.toolErrorCount,
+      duplicate_call_count: metrics.duplicateCallCount,
+      context_trim_count: metrics.contextTrimCount,
+      max_input_tokens: metrics.maxInputTokens,
       correct,
+      outcome,
       wall_ms: wallMs,
       model: agent.provider?.model ?? "",
+      mode: EVAL_MODE,
       skill_sha: skillSha,
     };
     // A discarded warm-up exists only to pay the cold model-load/cache cost
@@ -242,7 +286,14 @@ async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, disca
 
     if (transcriptDir) {
       mkdirSync(transcriptDir, { recursive: true });
-      const meta = { task: fixture.id, arm, repeat, discard, model: row.model, correct, loc, inputTokens: usage.input, outputTokens: usage.output, netTokens: usage.net, wallMs, prompt: fixture.prompt };
+      const meta = {
+        task: fixture.id, arm, repeat, discard, model: row.model, mode: row.mode, correct, outcome, loc,
+        inputTokens: usage.input, outputTokens: usage.output, netTokens: usage.net,
+        requestCount: metrics.requestCount, toolCallCount: metrics.toolCallCount,
+        toolErrorCount: metrics.toolErrorCount, duplicateCallCount: metrics.duplicateCallCount,
+        contextTrimCount: metrics.contextTrimCount, maxInputTokens: metrics.maxInputTokens,
+        wallMs, prompt: fixture.prompt,
+      };
       const transcriptPath = join(transcriptDir, `${fixture.id}-${arm}-repeat${repeat}${discard ? "-warmup" : ""}.md`);
       writeFileSync(transcriptPath, renderTranscript(meta, sink.events), "utf8");
     }
@@ -264,20 +315,23 @@ export function buildRunPlan(repeats) {
 }
 
 /**
- * Per-fixture cell plan: a discarded warm-up (live runs only) ahead of the
- * recorded A/B/B/A matrix. Without it, the first measured cell for every
- * fixture is always arm A on a cold model/cache (arm A always runs first —
- * see buildRunPlan), biasing the comparison in arm B's favor. The mock
- * provider has no cache/thermal state, so a dry run skips the warm-up.
+ * Per-fixture cell plan: a discarded warm-up per arm (live runs only) ahead
+ * of the recorded A/B/B/A matrix. Arm A and arm B load a DIFFERENT skills/
+ * tree (code-minimalism/ present vs. removed — see buildSandbox), so they
+ * warm a different prompt cache; warming only arm A (the original approach)
+ * left arm B measured cold on every fixture, biasing latency/cache-sensitive
+ * results in arm A's favor. Warming both arms independently keeps the
+ * treatment symmetric. The mock provider has no cache/thermal state, so a
+ * dry run skips both warm-ups.
  */
 export function buildFixtureCellPlan({ dryRun, repeats }) {
   const plan = [];
-  if (!dryRun) plan.push({ repeat: 0, arm: "A", discard: true });
+  if (!dryRun) plan.push({ repeat: 0, arm: "A", discard: true }, { repeat: 0, arm: "B", discard: true });
   for (const cell of buildRunPlan(repeats)) plan.push({ ...cell, discard: false });
   return plan;
 }
 
-export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.LLAMACPP_MODEL, ledgerPath = LEDGER_PATH, live = {}, provider = "llamacpp" }) {
+export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.LLAMACPP_MODEL, ledgerPath = LEDGER_PATH, live = {}, provider = "llamacpp", verdict = false }) {
   if (dryRun) {
     // The mock provider refuses to resolve outside NODE_ENV=test
     // (lib/providers/index.js) — set it rather than silently falling through
@@ -317,6 +371,11 @@ export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.
       for (const cell of buildFixtureCellPlan({ dryRun, repeats })) cellPlan.push({ fixture, ...cell });
     }
 
+    // Each completed cell is appended to the ledger and the report re-rendered
+    // IMMEDIATELY, not batched until the whole matrix finishes — an
+    // interrupted run (killed, crashed, out of budget) otherwise has
+    // transcripts on disk but no ledger row and no report for the cells it
+    // did complete, discarding real (and expensive) evidence.
     const rows = [];
     let index = 0;
     for (const { fixture, repeat, arm, discard } of cellPlan) {
@@ -325,14 +384,21 @@ export async function runMatrix({ dryRun, taskIds, repeats, model = process.env.
         fixture, arm, repeat, dryRun, skillSha, model, discard, transcriptDir,
         progress: { index, total: cellPlan.length }, provider,
       });
-      if (!discard) rows.push(row);
+      if (!discard) {
+        rows.push(row);
+        appendLedgerRow(outputLedger, row);
+        writeFileSync(reportPath, renderReport(rows, { fixtures, repeats }), "utf8");
+      }
     }
 
-    for (const row of rows) appendLedgerRow(outputLedger, row);
-    if (rows.length) writeFileSync(reportPath, renderReport(rows), "utf8");
     console.log(`[minimalism-bench] ledger:      ${outputLedger}`);
     console.log(`[minimalism-bench] report:      ${reportPath}`);
     console.log(`[minimalism-bench] transcripts: ${transcriptDir}`);
+    if (verdict) {
+      console.log(isMatrixComplete(rows, fixtures, repeats)
+        ? computeVerdict(rows)
+        : `INCOMPLETE — ${rows.length}/${fixtures.length * repeats * 2} expected cells recorded, verdict withheld`);
+    }
     return rows;
   } finally {
     if (!dryRun && !isCloud) {
@@ -368,8 +434,7 @@ async function main() {
       liveInfo.baseURL = `http://127.0.0.1:8080`;
       liveInfo.fetchImpl = globalThis.fetch;
     }
-    const rows = await runMatrix({ dryRun: args.dryRun, taskIds: args.tasks, repeats: args.repeats, model: args.model, ledgerPath: liveHandle?.ledgerPath, live: liveInfo, provider: args.provider });
-    if (args.verdict) console.log(computeVerdict(rows));
+    await runMatrix({ dryRun: args.dryRun, taskIds: args.tasks, repeats: args.repeats, model: args.model, ledgerPath: liveHandle?.ledgerPath, live: liveInfo, provider: args.provider, verdict: args.verdict });
   } finally {
     if (!args.existingServer && !isCloudProvider) await teardownLiveEval(liveHandle);
   }
