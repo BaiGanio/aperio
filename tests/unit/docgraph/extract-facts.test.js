@@ -118,6 +118,41 @@ describe("extractAmountCandidates", () => {
     assert.equal(amounts.filter(a => a.label === "amount_due").length, 1);
   });
 
+  test("preserves the sign of a negative amount on a credit note (household corpus fixture)", () => {
+    // Mirrors 2026/February/electricity-credit-note-10-feb.txt: a Bulgarian
+    // credit note prints every figure with a bare minus directly against the
+    // digit, no space. Dropping the sign turns a refund into a charge.
+    const text = [
+      "Стойност без ДДС:                              -28,50 лв",
+      "ДДС 20%:                                        -5,70 лв",
+      "СУМА ЗА ВЪЗСТАНОВЯВАНЕ (с ДДС):                -34,20 лв",
+    ].join("\n");
+    const amounts = extractAmountCandidates(text);
+    assert.equal(amounts.length, 3);
+    assert.ok(amounts.every(a => a.value < 0), "every figure on the credit note is negative");
+    const subtotal = amounts.find(a => a.label === "subtotal");
+    assert.equal(subtotal.value, -28.5);
+    assert.equal(subtotal.raw, "-28,50 лв");
+    const total = amounts.find(a => a.label === "likely_total");
+    assert.ok(total, "the tax-percentage-adjacency fallback should still guess the final line as the total");
+    assert.equal(total.value, -34.2);
+    assert.equal(total.raw, "-34,20 лв");
+  });
+
+  test("does not mistake a hyphenated range for a negative sign", () => {
+    const amounts = extractAmountCandidates("Range 10-20 EUR");
+    assert.equal(amounts.length, 1);
+    assert.equal(amounts[0].value, 20);
+    assert.equal(amounts[0].raw, "20 EUR");
+  });
+
+  test("does not mistake a hyphenated identifier for a negative sign", () => {
+    const amounts = extractAmountCandidates("Order 123-45.20 EUR");
+    assert.equal(amounts.length, 1);
+    assert.equal(amounts[0].value, 45.2);
+    assert.equal(amounts[0].raw, "45.20 EUR");
+  });
+
   test("labels the German grand-total and subtotal lines", () => {
     const text = "Zwischensumme   128,00\nGESAMTBETRAG:   128,00 EUR";
     const amounts = extractAmountCandidates(text);
