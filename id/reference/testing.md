@@ -79,9 +79,12 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
 - `--dry-run` replays a deterministic mock script built from each fixture's
   `reference/` solution, exercising the whole pipeline (sandbox, metrics,
   ledger) in CI with no live model and no network
-- Live runs discard one warm-up repeat per fixture (a cold model/cache would
-  otherwise always land on arm A, which runs first — `buildFixtureCellPlan()`)
-  and alternate A/B/B/A across repeats to spread thermal/cache drift evenly
+- Live runs discard one warm-up repeat PER ARM (`buildFixtureCellPlan()`) — a
+  cold model/cache would otherwise always land on arm A, which runs first, but
+  arm A and arm B also load a different `skills/` tree (arm B's omits
+  `code-minimalism/`), so warming only one arm biases the other's cache/
+  latency numbers (issue #336) — and alternate A/B/B/A across repeats to
+  spread thermal/cache drift evenly
 - Live-run isolation is mandatory: use a dedicated llama-server port (default
   recommendation: `18080`, with `LLAMACPP_BASE_URL=http://127.0.0.1:18080`),
   a dedicated temporary runtime/log root outside the repository, and a
@@ -107,11 +110,42 @@ under `tests/unit/`, `tests/integration/`, and `tests/e2e/`.
   `output_tokens=0`) or when the readiness check fails.
 - The repository ledger path `var/autotune/minimalism.tsv` is reserved for
   dry-run/legacy compatibility only; live runs use one private ledger per
-  model, one row per task×arm×repeat;
+  model, one row per task×arm×repeat. Each row/`appendLedgerRow()` call is
+  written IMMEDIATELY after its cell completes (not batched until the whole
+  matrix finishes), and `renderReport()` re-renders after every row, so an
+  interrupted run keeps every cell it already paid for instead of discarding
+  it (issue #336). Beyond the token totals, each row also carries
+  `collectCellMetrics()`'s per-cell counts — model request count, tool-call
+  and tool-error count, duplicate-call count, context-trim count, and max
+  single-request input tokens — so a cell that spiraled through retries reads
+  differently from one that didn't, even at the same cumulative token total.
+  `isMatrixComplete(rows, fixtures, repeats)` gates the verdict: a partial
+  matrix (fewer rows than planned) reports "INCOMPLETE MATRIX" instead of
+  computing a verdict from an unfinished A/B comparison.
   `computeVerdict()` (`lib/helpers/minimalismBench.js`) applies the
   pre-registered KEEP/TRIM/DROP/INCONCLUSIVE rule to the medians — a
   correctness regression (by per-task *pass rate*, not an all-or-nothing
   gate) disqualifies a verdict no matter how good the token numbers look
+- A model that repeats an identical failing tool call can spiral for minutes
+  and >100k tokens before recovering — the real agent's own loop-break
+  (`tool-safety-middleware.js`) caps this at 3 identical failures, but only
+  *per turn*, so a model told to stop that retries differently and repeats
+  the same failure later was never bounded (issue #336). `createBenchHostTools()`
+  tracks identical tool failures across the WHOLE cell and, past
+  `DUPLICATE_FAILURE_BUDGET` (3), aborts the cell through the same
+  `getAbort`/`setAbort` `AbortController` handshake every provider loop
+  already honors — the real agent/tool-safety layer is untouched. The
+  ledger's `outcome` column records `completed` vs.
+  `duplicate_failure_budget_exceeded(name,Nx)` rather than only a final
+  `correct` boolean
+- Every row/report/transcript also carries a `mode` field (`EVAL_MODE` in
+  `lib/helpers/minimalismBench.js`, currently always `"real-agent"`) — the
+  benchmark runs substantial real Aperio machinery (identity, skills,
+  preflight, middleware) even behind its four-tool allowlist, which is a
+  valid "real agent" measurement but not a clean isolated measurement of the
+  skill alone. A `skill-isolation` mode remains an undecided, unbuilt design
+  question (issue #336); `mode` exists so a report states which measurement
+  produced a result instead of leaving it implicit
 - Run dry: `node scripts/minimalism-bench.js --dry-run [--tasks=id1,id2] [--repeats=N]`.
   Live runs name the model explicitly, for example:
   `node scripts/minimalism-bench.js --model=org/model:Q4_K_M --tasks=id1,id2 --repeats=3`.

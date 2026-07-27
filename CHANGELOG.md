@@ -156,6 +156,44 @@ Versions follow [Semantic Versioning](https://semver.org/).
   thresholds, transcript/report rendering, and sandbox teardown hygiene
   (forced failure and `SIGINT`). Model verdicts against live providers remain
   a separate, manually-gated exercise tracked on #285.
+- **`code-minimalism` eval harness hardening** (issue #336, follow-up to #285
+  WS2): the live WS2 evaluation exposed evidence-quality and lifecycle gaps in
+  `scripts/minimalism-bench.js`/`lib/helpers/minimalismBench.js`. Fixed:
+  cumulative token totals were the only signal a cell reported, hiding how
+  much of the total was retry/recovery cost rather than prompt size —
+  `collectCellMetrics()` now derives per-cell model request count, tool-call
+  and tool-error count, duplicate-call count, context-trim count, and the max
+  single-request input tokens from the same event stream, all new ledger/
+  report/transcript columns. The warm-up discard was asymmetric (arm A only,
+  since only arm A loads `code-minimalism`), biasing cache-sensitive results
+  toward arm A — `buildFixtureCellPlan()` now discards one warm-up per arm.
+  `runMatrix()` previously batched every ledger row and the report until the
+  whole matrix finished, so an interrupted run kept transcripts but no
+  ledger/report evidence — rows now append and the report re-renders after
+  every completed cell; a new `isMatrixComplete()` gate makes `renderReport()`
+  state "INCOMPLETE MATRIX" and withhold the verdict when any task/arm hasn't
+  hit its planned repeat count. A model that repeats an identical failing
+  tool call can rack up ~200s and >130k cumulative tokens before finally
+  succeeding once — the real agent's `tool-safety-middleware.js` loop-break
+  already caps this at 3 identical failures, but only *per turn*, so a model
+  that's told to stop, retries differently, and repeats the same failure in
+  a later turn was never bounded. `createBenchHostTools()` now tracks
+  identical tool failures across the WHOLE cell and, past
+  `DUPLICATE_FAILURE_BUDGET` (3), aborts the cell via the same
+  `getAbort`/`setAbort` `AbortController` handshake every provider loop
+  already honors — no changes to the real agent/tool-safety layer. The
+  ledger's new `outcome` column records `completed` vs.
+  `duplicate_failure_budget_exceeded(name,3x)` instead of collapsing the
+  recovery story into the final `correct` boolean alone. Finally, the
+  benchmark runs substantial real Aperio machinery (identity, skills,
+  preflight, middleware) even with its four-tool allowlist — a valid
+  "real Aperio agent" measurement, but not a clean isolated measurement of
+  the skill alone. A `skill-isolation` mode (minimal identity/middleware)
+  remains undecided/unbuilt; every row/report/transcript now carries an
+  explicit `mode` field (`EVAL_MODE`, currently always `"real-agent"`) so the
+  report states which mode produced a result rather than leaving it implicit.
+  18 new unit tests plus updates to the existing warm-up/report tests; all 60
+  unit + 14 integration tests green.
 - **Audit Run 1 — all 22 component slices complete** (A01–A22): every slice now
   has a content-hashed `manifest.json` and a `contract-result.json` with
   deterministic invariant checks. Completed slices span WebSocket/session lifecycle
