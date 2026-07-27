@@ -14,7 +14,7 @@
 // llama.cpp (Step 5 — not wired up by WS2; wiring the live run and posting
 // the verdict to #285 is a separate, explicitly-gated step).
 
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -76,7 +76,42 @@ function stubMcp() {
   };
 }
 
-const genericSchema = { type: "object", properties: {}, additionalProperties: true };
+const recallSchema = { type: "object", properties: {}, additionalProperties: false };
+const writeFileSchema = {
+  type: "object",
+  properties: {
+    path: { type: "string", description: "Relative file path inside the workspace, for example debounce.js." },
+    content: { type: "string", description: "Complete UTF-8 file contents to write." },
+  },
+  required: ["path", "content"],
+  additionalProperties: false,
+};
+const readFileSchema = {
+  type: "object",
+  properties: {
+    path: { type: "string", description: "Relative file path inside the workspace, not the workspace directory itself." },
+  },
+  required: ["path"],
+  additionalProperties: false,
+};
+const listFilesSchema = {
+  type: "object",
+  properties: {
+    path: { type: "string", description: "Relative directory path inside the workspace; use . for the workspace root." },
+  },
+  additionalProperties: false,
+};
+
+export const BENCH_TOOL_ALLOWLIST = Object.freeze(["recall", "read_file", "write_file", "list_files"]);
+
+const WORKSPACE_INSTRUCTIONS = [
+  "Work in the temporary workspace. Use relative file paths (for example `debounce.js`), never the workspace directory or an absolute path, with `read_file`/`write_file`.",
+  "Use `list_files` with `.` for the workspace root. Finish by writing the requested implementation with `write_file`, not only describing it.",
+].join("\n");
+
+export function buildBenchPrompt(fixture) {
+  return `${WORKSPACE_INSTRUCTIONS}\n\nTask:\n${fixture.prompt}`;
+}
 
 // `emitter` is optional (existing dry-run tests call this with one arg) — when
 // given, every call is recorded into its event stream alongside the model's
@@ -100,6 +135,12 @@ export function createBenchHostTools(workspaceDir, emitter = null) {
   // it, which is correct for the actual read/write below but unreadable in a
   // transcript — a temp-dir-prefixed path per cell, every cell.
   const displayPath = (p) => (p && isAbsolute(p) ? (relative(workspaceDir, p) || ".") : p);
+  const fileTarget = (abs, requestedPath, operation) => {
+    if (existsSync(abs) && statSync(abs).isDirectory()) {
+      return `❌ ${operation} path must name a file, not a directory: ${displayPath(requestedPath) || "."}. Use a filename such as debounce.js.`;
+    }
+    return null;
+  };
   const record = (name, args, result) => {
     const displayArgs = args?.path ? { ...args, path: displayPath(args.path) } : args;
     emitter?.send({ type: "tool_call", name, args: displayArgs, result });
@@ -109,22 +150,25 @@ export function createBenchHostTools(workspaceDir, emitter = null) {
     // createAgent's preflight unconditionally probes "recall" once per turn
     // (lib/agent/preflight.js) — a neutral stub keeps that path quiet, same
     // reason tests/harness/host-tools.js stubs it.
-    { name: "recall", description: "Recall stored memories", inputSchema: genericSchema,
+    { name: "recall", description: "Recall stored memories", inputSchema: recallSchema,
       handler: async (args) => record("recall", args, "No memories found.") },
-    { name: "write_file", description: "Write a file in the workspace", inputSchema: genericSchema,
+    { name: "write_file", description: "Write a complete file using a relative file path; do not pass the workspace directory", inputSchema: writeFileSchema,
       handler: async (args) => {
         const abs = safe(args?.path);
+        const targetError = fileTarget(abs, args?.path, "write_file");
+        if (targetError) return record("write_file", args, targetError);
         mkdirSync(dirname(abs), { recursive: true });
         writeFileSync(abs, args?.content ?? "", "utf8");
         return record("write_file", args, `wrote ${displayPath(args?.path)}`);
       } },
-    { name: "read_file", description: "Read a file from the workspace", inputSchema: genericSchema,
+    { name: "read_file", description: "Read one file using a relative file path; do not pass the workspace directory", inputSchema: readFileSchema,
       handler: async (args) => {
         const abs = safe(args?.path);
-        const result = existsSync(abs) ? readFileSync(abs, "utf8") : `❌ ${displayPath(args?.path)} not found`;
+        const targetError = fileTarget(abs, args?.path, "read_file");
+        const result = targetError || (existsSync(abs) ? readFileSync(abs, "utf8") : `❌ ${displayPath(args?.path)} not found`);
         return record("read_file", args, result);
       } },
-    { name: "list_files", description: "List files in the workspace", inputSchema: genericSchema,
+    { name: "list_files", description: "List files in a workspace directory; use . for the workspace root", inputSchema: listFilesSchema,
       handler: async (args) => {
         const abs = safe(args?.path ?? ".");
         const result = !existsSync(abs) ? `❌ ${args?.path ?? "."} not found` : (readdirSync(abs).join("\n") || "(empty)");
@@ -164,9 +208,10 @@ async function runOneCell({ fixture, arm, repeat, dryRun, skillSha, model, disca
       root: sandbox.root,
       version: "1.0.0-minimalism-bench",
       providerConfig,
+      spec: { id: "minimalism-bench", toolAllowlist: BENCH_TOOL_ALLOWLIST },
       hostTools: createBenchHostTools(sandbox.workspaceDir, sink.emitter),
     });
-    const messages = [{ role: "user", content: fixture.prompt }];
+    const messages = [{ role: "user", content: buildBenchPrompt(fixture) }];
     const startedAt = Date.now();
     await runWithPaths([sandbox.root], [sandbox.root], sandbox.workspaceDir, () =>
       agent.runAgentLoop(messages, sink.emitter, {}, () => null, () => {}));

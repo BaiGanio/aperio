@@ -82,5 +82,31 @@ for (const backend of await contractBackends()) {
       assert.ok(!all.some((m) => m.title === marker), "user listAll leaked a self-note");
       await store.deleteSelf(row.id);
     });
+
+    test("listSelfWithoutEmbeddings finds an unembedded row and excludes an embedded one (Gap 1 P1 backfill)", async () => {
+      const noEmbedTitle = contractId("self-noembed");
+      const embedTitle = contractId("self-embed-present");
+      const noEmbed = await store.insertSelf({ title: noEmbedTitle, content: "x" });
+      const withEmbed = await store.insertSelf({ title: embedTitle, content: "x" }, randomEmbedding());
+
+      const pending = await store.listSelfWithoutEmbeddings();
+      assert.ok(pending.some((r) => r.id === noEmbed.id), "unembedded row must be listed as pending");
+      assert.ok(!pending.some((r) => r.id === withEmbed.id), "already-embedded row must not be listed as pending");
+
+      await store.deleteSelf(noEmbed.id);
+      await store.deleteSelf(withEmbed.id);
+    });
+
+    test("listSelfWithoutEmbeddings picks a row back up after clearAllEmbeddings", async () => {
+      const title = contractId("self-cleared");
+      const row = await store.insertSelf({ title, content: "x" }, randomEmbedding());
+      assert.ok(!(await store.listSelfWithoutEmbeddings()).some((r) => r.id === row.id));
+
+      await store.clearAllEmbeddings();
+      const pending = await store.listSelfWithoutEmbeddings();
+      assert.ok(pending.some((r) => r.id === row.id), "clearAllEmbeddings must make the row reappear as pending");
+
+      await store.deleteSelf(row.id);
+    });
   });
 }

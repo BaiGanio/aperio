@@ -55,6 +55,8 @@ import {
 
 const EMBED_DIMS = parseInt(process.env.EMBEDDING_DIMS || '1024', 10);
 const DEFAULT_PATH = process.env.SQLITE_PATH || './.sqlite/aperio.db';
+// sqlite-vec's vec0 rejects FLOAT[N] columns wider than this at CREATE time.
+const SQLITE_VEC_MAX_DIMS = 8192;
 
 // ── Main store ──────────────────────────────────────────────────────────────
 export class SqliteStore {
@@ -702,6 +704,52 @@ export class SqliteStore {
     this.db.prepare(`DELETE FROM vec_docgraph_chunks`).run();
   }
 
+  // Drops and recreates every vec0 sidecar table at the new dimension. Needed
+  // because vec0 columns are FLOAT[N] fixed at CREATE time — a plain
+  // clearAllEmbeddings() empties the rows but leaves every subsequent insert
+  // at the old N failing once EMBEDDING_DIMS changes.
+  async resizeVectorStorage(dims) {
+    if (!Number.isInteger(dims) || dims <= 0 || dims > SQLITE_VEC_MAX_DIMS) {
+      throw new Error(`resizeVectorStorage: invalid dims ${dims} (must be an integer from 1 to ${SQLITE_VEC_MAX_DIMS})`);
+    }
+    const tables = ["vec_memories", "vec_wiki", "vec_self_memories", "vec_cg_symbols", "vec_docgraph_chunks"];
+    // sqlite-vec's vec0 CREATE VIRTUAL TABLE does not participate in
+    // SQLite's transaction rollback (confirmed empirically: its shadow-table
+    // setup commits independently of an enclosing BEGIN/ROLLBACK), so this
+    // loop can't be made atomic with a wrapping transaction the way ordinary
+    // DDL could. The dims-range check above is the real defense — it
+    // eliminates the only failure this loop was actually hitting in
+    // practice (a width above sqlite-vec's max). Anything else that fails
+    // mid-loop is fatal with a diagnostic naming exactly which tables were
+    // and weren't replaced, rather than continuing into a half-resized DB.
+    for (let i = 0; i < tables.length; i++) {
+      const table = tables[i];
+      try {
+        this.db.prepare(`DROP TABLE IF EXISTS ${table}`).run();
+        this.db.prepare(`CREATE VIRTUAL TABLE ${table} USING vec0(rowid INTEGER PRIMARY KEY, embedding FLOAT[${dims}])`).run();
+      } catch (err) {
+        const done = tables.slice(0, i);
+        const notDone = tables.slice(i);
+        throw new Error(
+          `resizeVectorStorage: failed replacing ${table} (${err.message}) — already replaced at ${dims} dims: [${done.join(", ") || "none"}]; not replaced: [${notDone.join(", ")}]`
+        );
+      }
+    }
+  }
+
+  // Physical width of vec_memories, read from the table's own CREATE SQL
+  // rather than trusting the stored fingerprint — a freshly-created DB
+  // (migrations hardcode FLOAT[1024]) or a DB upgraded from before
+  // resizeVectorStorage existed can both have a fingerprint that already
+  // claims the configured dims without storage ever having been resized.
+  async getVectorDims() {
+    const row = this.db.prepare(
+      `SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'vec_memories'`
+    ).get();
+    const match = row?.sql?.match(/FLOAT\[(\d+)\]/);
+    return match ? parseInt(match[1], 10) : null;
+  }
+
   async setPin(id, pinned) {
     const info = this.db.prepare(`
       UPDATE memories SET pinned = ? WHERE id = ? AND valid_until IS NULL
@@ -878,6 +926,20 @@ export class SqliteStore {
     this.db.prepare(`DELETE FROM vec_self_memories WHERE rowid = ?`).run(BigInt(row.rowid));
     this.db.prepare(`INSERT INTO vec_self_memories (rowid, embedding) VALUES (?, ?)`)
       .run(BigInt(row.rowid), vecBuf(embedding));
+  }
+
+  // Self-memories missing a vector — same shape as listWithoutEmbeddings()
+  // for the user-facing `memories` table, so initEmbeddings() can backfill
+  // this store the same way. Without this, a provider/model change (or a
+  // dims resize) that clears vec_self_memories leaves self-memory search
+  // permanently disabled — nothing else scans for and re-embeds these rows.
+  async listSelfWithoutEmbeddings() {
+    return this.db.prepare(`
+      SELECT sm.id, sm.title, sm.content
+      FROM self_memories sm
+      LEFT JOIN vec_self_memories v ON v.rowid = sm.rowid
+      WHERE v.rowid IS NULL
+    `).all();
   }
 
   async deleteSelf(id) {

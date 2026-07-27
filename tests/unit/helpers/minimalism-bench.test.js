@@ -11,7 +11,7 @@ import {
   countSourceLoc, locDelta, sumUsage, runFixtureTests, median, medianAbsoluteDeviation, computeVerdict,
   renderTranscript, renderReport, REPO_ROOT,
 } from "../../../lib/helpers/minimalismBench.js";
-import { buildRunPlan, buildFixtureCellPlan, createBenchHostTools } from "../../../scripts/minimalism-bench.js";
+import { buildRunPlan, buildFixtureCellPlan, buildBenchPrompt, BENCH_TOOL_ALLOWLIST, createBenchHostTools } from "../../../scripts/minimalism-bench.js";
 import {
   LIVE_EVAL_PORT, LIVE_EVAL_BASE_URL, createLiveEvalPaths, waitForLlamaReadiness,
   assertLiveUsage, teardownLiveEval, startIsolatedLlamaEval,
@@ -337,6 +337,53 @@ describe("scripts/minimalism-bench.js — warm-up discard", () => {
 });
 
 describe("scripts/minimalism-bench.js — cross-platform workspace containment", () => {
+  test("file tools expose explicit path/content schemas", () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-schema-"));
+    const tools = createBenchHostTools(workspaceDir);
+    try {
+      const writeFile = tools.find(t => t.name === "write_file");
+      const readFile = tools.find(t => t.name === "read_file");
+      const listFiles = tools.find(t => t.name === "list_files");
+      assert.deepEqual(writeFile.inputSchema.required, ["path", "content"]);
+      assert.deepEqual(readFile.inputSchema.required, ["path"]);
+      assert.equal(writeFile.inputSchema.properties.path.type, "string");
+      assert.equal(writeFile.inputSchema.properties.content.type, "string");
+      assert.equal(listFiles.inputSchema.properties.path.type, "string");
+      assert.equal(writeFile.inputSchema.additionalProperties, false);
+    } finally {
+      // The directory is intentionally cleaned by the test; the tool factory
+      // itself does not own the caller's workspace.
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+
+  test("task prompts explain relative file paths and the required write", () => {
+    const prompt = buildBenchPrompt({ prompt: "Save the implementation to debounce.js." });
+    assert.match(prompt, /temporary workspace/);
+    assert.match(prompt, /relative file paths/);
+    assert.match(prompt, /never the workspace directory/);
+    assert.match(prompt, /write_file/);
+  });
+
+  test("the benchmark allowlist keeps unrelated Aperio tools out of the agent", () => {
+    assert.deepEqual(BENCH_TOOL_ALLOWLIST, ["recall", "read_file", "write_file", "list_files"]);
+  });
+
+  test("file tools return a repairable message for directory targets", async () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-directory-target-"));
+    try {
+      const tools = createBenchHostTools(workspaceDir);
+      const readResult = await tools.find(t => t.name === "read_file").handler({ path: "." });
+      const writeResult = await tools.find(t => t.name === "write_file").handler({ path: workspaceDir, content: "x" });
+      assert.match(readResult, /must name a file, not a directory/);
+      assert.match(readResult, /Use a filename such as debounce\.js/);
+      assert.match(writeResult, /must name a file, not a directory/);
+      assert.equal(existsSync(join(workspaceDir, "x")), false);
+    } finally {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+
   test("a nested subdirectory path is allowed", async () => {
     const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-safe-"));
     try {

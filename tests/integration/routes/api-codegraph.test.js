@@ -386,7 +386,10 @@ describe("DELETE /codegraph/repos", () => {
 
   test("deletes the repository and updates the allowlist", async () => {
     const store = makeStore(true);
-    store.db.prepare = () => ({ run: () => ({ changes: 1 }) });
+    store.db.prepare = () => ({
+      get: () => ({ id: 1 }),
+      run: () => ({ changes: 1 }),
+    });
     const router = Router();
     mountCodegraphRoutes(router, { store });
 

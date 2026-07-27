@@ -4,7 +4,7 @@ import dotenv                   from "dotenv";
 import { fileURLToPath }        from "url";
 import { dirname, resolve }     from "path";
 import { getStore }             from "../db/index.js";
-import { generateEmbedding, initEmbeddings } from "../lib/helpers/embeddings.js";
+import { generateEmbedding, initEmbeddings, checkEmbeddingProvider } from "../lib/helpers/embeddings.js";
 import { createEmbeddingQueue } from "../lib/helpers/embedding-queue.js";
 import packageJson from "../package.json" with { type: "json" };
 import logger from "../lib/helpers/logger.js";
@@ -33,6 +33,12 @@ dotenv.config({ path: resolve(__dirname, "../.env") });
  */
 async function createContext(store, opts) {
   let vectorEnabled = opts.vectorEnabled !== undefined ? opts.vectorEnabled : true;
+
+  // Detects a provider/model/dim change before the queue is built — without
+  // this, an MCP-only deployment (no lib/server/hydrateRuntime.js in its boot
+  // path) never notices a provider switch and writes new-space vectors next
+  // to old-space ones.
+  await checkEmbeddingProvider(store);
 
   // Initialize Embeddings engine
   await initEmbeddings(store, (text, inputType) =>

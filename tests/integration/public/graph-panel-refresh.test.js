@@ -40,6 +40,9 @@ function loadPanel(kind) {
     console,
     document,
     window: null,
+    getComputedStyle(target) {
+      return target.style;
+    },
     setTimeout(fn, delay) {
       const timer = { fn, delay, cleared: false };
       timers.push(timer);
