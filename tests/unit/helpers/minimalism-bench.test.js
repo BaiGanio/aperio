@@ -8,8 +8,8 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 import {
-  countSourceLoc, locDelta, sumUsage, runFixtureTests, median, medianAbsoluteDeviation, computeVerdict,
-  renderTranscript, renderReport, REPO_ROOT,
+  countSourceLoc, locDelta, sumUsage, collectCellMetrics, runFixtureTests, median, medianAbsoluteDeviation,
+  computeVerdict, isMatrixComplete, renderTranscript, renderReport, REPO_ROOT, DUPLICATE_FAILURE_BUDGET, EVAL_MODE,
 } from "../../../lib/helpers/minimalismBench.js";
 import { buildRunPlan, buildFixtureCellPlan, buildBenchPrompt, BENCH_TOOL_ALLOWLIST, createBenchHostTools } from "../../../scripts/minimalism-bench.js";
 import {
@@ -188,6 +188,52 @@ describe("E2 — token accounting", () => {
   });
 });
 
+describe("collectCellMetrics — per-request/recovery counts (issue #336)", () => {
+  test("counts requests, tool calls/errors, duplicate calls, context trims, and the max single-request input", () => {
+    const events = [
+      { type: "stream_end", usage: { input_tokens: 100, output_tokens: 20 } },
+      { type: "tool_call", name: "read_file", args: { path: "a.js" }, result: "❌ a.js not found" },
+      { type: "tool_call", name: "read_file", args: { path: "a.js" }, result: "❌ a.js not found" },
+      { type: "context_trimmed", dropped: 2, pct: 0.3 },
+      { type: "stream_end", usage: { input_tokens: 4000, output_tokens: 30 } },
+      { type: "tool_call", name: "write_file", args: { path: "a.js", content: "x" }, result: "wrote a.js" },
+    ];
+    assert.deepEqual(collectCellMetrics(events), {
+      requestCount: 2,
+      toolCallCount: 3,
+      toolErrorCount: 2,
+      duplicateCallCount: 1,
+      contextTrimCount: 1,
+      maxInputTokens: 4000,
+    });
+  });
+
+  test("empty/missing events produce all-zero metrics, never NaN or a throw", () => {
+    assert.deepEqual(collectCellMetrics([]), {
+      requestCount: 0, toolCallCount: 0, toolErrorCount: 0,
+      duplicateCallCount: 0, contextTrimCount: 0, maxInputTokens: 0,
+    });
+    assert.deepEqual(collectCellMetrics(undefined), {
+      requestCount: 0, toolCallCount: 0, toolErrorCount: 0,
+      duplicateCallCount: 0, contextTrimCount: 0, maxInputTokens: 0,
+    });
+  });
+
+  test("a third identical call counts as a second duplicate, not capped at one", () => {
+    const events = [
+      { type: "tool_call", name: "read_file", args: { path: "a.js" }, result: "❌ not found" },
+      { type: "tool_call", name: "read_file", args: { path: "a.js" }, result: "❌ not found" },
+      { type: "tool_call", name: "read_file", args: { path: "a.js" }, result: "❌ not found" },
+    ];
+    assert.equal(collectCellMetrics(events).duplicateCallCount, 2);
+  });
+
+  test("stream_end frames without usage do not count as a request", () => {
+    const events = [{ type: "stream_end", text: "done" }];
+    assert.equal(collectCellMetrics(events).requestCount, 0);
+  });
+});
+
 describe("E2 — correctness runner reports honest failure", () => {
   const testsDir = join(FIXTURE("slug-helper"), "tests");
 
@@ -328,11 +374,13 @@ describe("scripts/minimalism-bench.js — warm-up discard", () => {
     assert.deepEqual(plan.map(c => c.arm), buildRunPlan(2).map(c => c.arm));
   });
 
-  test("a live run's first cell is a discarded arm-A warm-up, ahead of the recorded matrix", () => {
+  test("a live run's first two cells are discarded warm-ups, one per arm, ahead of the recorded matrix", () => {
     const plan = buildFixtureCellPlan({ dryRun: false, repeats: 3 });
     assert.equal(plan[0].discard, true);
     assert.equal(plan[0].arm, "A");
-    assert.deepEqual(plan.slice(1), buildRunPlan(3).map(c => ({ ...c, discard: false })));
+    assert.equal(plan[1].discard, true);
+    assert.equal(plan[1].arm, "B");
+    assert.deepEqual(plan.slice(2), buildRunPlan(3).map(c => ({ ...c, discard: false })));
   });
 });
 
@@ -436,6 +484,73 @@ describe("scripts/minimalism-bench.js — cross-platform workspace containment",
   });
 });
 
+describe("createBenchHostTools — bounded duplicate-failure policy (issue #336)", () => {
+  test("the same failing call repeated DUPLICATE_FAILURE_BUDGET times trips the callback exactly once, with the offending name/args/count", async () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-safe-"));
+    try {
+      const trips = [];
+      const tools = createBenchHostTools(workspaceDir, null, {
+        onDuplicateFailureBudgetExceeded: (info) => trips.push(info),
+      });
+      const readFile = tools.find(t => t.name === "read_file");
+      for (let i = 0; i < DUPLICATE_FAILURE_BUDGET + 2; i++) {
+        await readFile.handler({ path: "missing.js" });
+      }
+      assert.equal(trips.length, 1, "callback must fire exactly once, not once per call past the budget");
+      assert.equal(trips[0].name, "read_file");
+      assert.deepEqual(trips[0].args, { path: "missing.js" });
+      assert.equal(trips[0].count, DUPLICATE_FAILURE_BUDGET);
+    } finally {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+
+  test("failures with DIFFERENT args never trip the budget, even past the count — only an identical signature counts", async () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-safe-"));
+    try {
+      const trips = [];
+      const tools = createBenchHostTools(workspaceDir, null, {
+        onDuplicateFailureBudgetExceeded: (info) => trips.push(info),
+      });
+      const readFile = tools.find(t => t.name === "read_file");
+      for (let i = 0; i < DUPLICATE_FAILURE_BUDGET + 2; i++) {
+        await readFile.handler({ path: `missing-${i}.js` });
+      }
+      assert.equal(trips.length, 0);
+    } finally {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+
+  test("a successful call never counts toward the failure budget", async () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-safe-"));
+    try {
+      const trips = [];
+      const writeFile = createBenchHostTools(workspaceDir, null, {
+        onDuplicateFailureBudgetExceeded: (info) => trips.push(info),
+      }).find(t => t.name === "write_file");
+      for (let i = 0; i < DUPLICATE_FAILURE_BUDGET + 2; i++) {
+        await writeFile.handler({ path: "a.js", content: "x" });
+      }
+      assert.equal(trips.length, 0);
+    } finally {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+
+  test("no callback given — repeated failures still work, nothing throws", async () => {
+    const workspaceDir = mkdtempSync(join(tmpdir(), "minimalism-safe-"));
+    try {
+      const readFile = createBenchHostTools(workspaceDir).find(t => t.name === "read_file");
+      for (let i = 0; i < DUPLICATE_FAILURE_BUDGET + 2; i++) {
+        await readFile.handler({ path: "missing.js" });
+      }
+    } finally {
+      rmSync(workspaceDir, { recursive: true, force: true });
+    }
+  });
+});
+
 describe("renderTranscript — human-readable per-cell conversation", () => {
   const meta = {
     task: "slug-helper", arm: "A", repeat: 1, discard: false, model: "test-model",
@@ -473,6 +588,30 @@ describe("renderTranscript — human-readable per-cell conversation", () => {
   });
 });
 
+describe("evaluation mode is reported, not left implicit (issue #336, finding 5)", () => {
+  test("EVAL_MODE is the current single execution path, real-agent — no skill-isolation path exists yet", () => {
+    assert.equal(EVAL_MODE, "real-agent");
+  });
+
+  test("renderTranscript states the mode a row-less caller would otherwise have to assume", () => {
+    const md = renderTranscript({ task: "t", arm: "A", repeat: 1, model: "m", mode: "real-agent", correct: true, loc: 0, prompt: "p" }, []);
+    assert.match(md, /mode: real-agent/);
+  });
+
+  test("renderTranscript falls back to EVAL_MODE when no mode is given (existing call shape)", () => {
+    const md = renderTranscript({ task: "t", arm: "A", repeat: 1, model: "m", correct: true, loc: 0, prompt: "p" }, []);
+    assert.match(md, new RegExp(`mode: ${EVAL_MODE}`));
+  });
+
+  test("renderReport's header states the mode of the rows it summarizes", () => {
+    const rows = [
+      { task: "t1", arm: "A", repeat: 1, loc: 0, input_tokens: 1, output_tokens: 1, net_tokens: 2, correct: true, wall_ms: 1, model: "m", mode: "real-agent" },
+    ];
+    const md = renderReport(rows);
+    assert.match(md, /mode `real-agent`/);
+  });
+});
+
 describe("renderReport — human-readable run summary", () => {
   const row = (task, arm, repeat, overrides = {}) => ({
     task, arm, repeat, loc: 0, input_tokens: 1000, output_tokens: 200, net_tokens: 1200,
@@ -493,6 +632,55 @@ describe("renderReport — human-readable run summary", () => {
   test("no rows — reports N/A rather than crashing on an empty matrix", () => {
     const md = renderReport([]);
     assert.match(md, /\*\*Verdict: N\/A/);
+  });
+
+  test("no {fixtures, repeats} given — verdict computed from whatever rows exist (existing call shape)", () => {
+    const rows = [row("slug-helper", "A", 1), row("slug-helper", "B", 1)];
+    const md = renderReport(rows);
+    assert.match(md, new RegExp(`\\*\\*Verdict: ${computeVerdict(rows)}\\*\\*`));
+  });
+
+  test("an interrupted run (fewer rows than planned) reports incomplete and withholds the verdict", () => {
+    const rows = [row("slug-helper", "A", 1), row("slug-helper", "B", 1)]; // repeats=3 planned, only repeat 1 landed
+    const fixtures = [{ id: "slug-helper" }];
+    const md = renderReport(rows, { fixtures, repeats: 3 });
+    assert.match(md, /INCOMPLETE MATRIX/);
+    assert.match(md, /2\/6 expected cells/);
+    assert.doesNotMatch(md, /\*\*Verdict:/);
+  });
+
+  test("a complete matrix ({fixtures, repeats} given, every task/arm has enough repeats) shows the verdict", () => {
+    const rows = [
+      row("slug-helper", "A", 1), row("slug-helper", "A", 2),
+      row("slug-helper", "B", 1), row("slug-helper", "B", 2),
+    ];
+    const fixtures = [{ id: "slug-helper" }];
+    const md = renderReport(rows, { fixtures, repeats: 2 });
+    assert.match(md, new RegExp(`\\*\\*Verdict: ${computeVerdict(rows)}\\*\\*`));
+    assert.doesNotMatch(md, /INCOMPLETE/);
+  });
+});
+
+describe("isMatrixComplete — plan-aware completeness (issue #336)", () => {
+  const r = (task, arm, repeat) => ({ task, arm, repeat, loc: 0, correct: true });
+
+  test("every fixture with both arms at the planned repeat count is complete", () => {
+    const fixtures = [{ id: "t1" }, { id: "t2" }];
+    const rows = ["t1", "t2"].flatMap(task => ["A", "B"].flatMap(arm => [r(task, arm, 1), r(task, arm, 2)]));
+    assert.equal(isMatrixComplete(rows, fixtures, 2), true);
+  });
+
+  test("one fixture missing a repeat on one arm is incomplete", () => {
+    const fixtures = [{ id: "t1" }, { id: "t2" }];
+    const rows = [
+      r("t1", "A", 1), r("t1", "A", 2), r("t1", "B", 1), r("t1", "B", 2),
+      r("t2", "A", 1), r("t2", "A", 2), r("t2", "B", 1), // t2/B missing repeat 2
+    ];
+    assert.equal(isMatrixComplete(rows, fixtures, 2), false);
+  });
+
+  test("no rows at all against a non-empty plan is incomplete", () => {
+    assert.equal(isMatrixComplete([], [{ id: "t1" }], 2), false);
   });
 });
 
