@@ -139,21 +139,33 @@ Your context, always available.
 - [Voyage AI API key](https://www.voyageai.com/) — (optional, for cloud embeddings)
 
 ### Step 1. Clone & Configure Environment Variables
-Dedicated `dev` branch stripped from the file/folder noise. Only what's needed.
+This step downloads the Aperio source code and installs the small software packages
+that Aperio needs to run. `git clone` creates a local copy of the project, `cd`
+opens that project folder in your terminal, and `npm install` downloads its
+JavaScript dependencies. You only need to repeat these commands when setting up a
+new machine (or when you deliberately want to refresh the installation).
+
+The `dev` branch is the full source-code version intended for developers and
+contributors. If you do not write code, use Aperio-lite above instead.
 ```bash
-# dedicated developer branch - no extra files
+# Download the full developer version of Aperio.
 git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git
+# Move into the folder that was just downloaded.
 cd aperio
 
-# restore dependencies
+# Download Aperio's required software packages.
 npm install
 ```
-> Ready to use `.env.example` for a fully local setup. The template is tiny —
-> just the essentials plus bootstrap plumbing; **everything else is configured
-> in the app's **Settings overlay** (see below), not in `.env`:
+`.env` is Aperio's optional configuration file. Copy the example if you want to
+choose a provider or database before the first launch; otherwise the Web UI can
+configure most settings for you after startup. The example is intentionally small:
+it contains only the settings needed to get started, while the Settings overlay
+contains the full catalogue.
+```bash
+# Create your personal configuration file.
+cp .env.example .env
+```
 ```env
-# cp .env.example .env
-
 AI_PROVIDER=llamacpp
 LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
 # DB_BACKEND=sqlite               # default (auto-detected); uncomment to force
@@ -164,8 +176,11 @@ LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
 
 ### Step 2. Databases & Migrations
 
-Aperio supports two storage backends. **You don't need to choose** — auto-detect picks
-the right one based on whether Docker is running:
+Aperio stores memories, conversations, settings, and search indexes in a database.
+“Migrations” are the one-time setup scripts that create or update those tables;
+they do not erase your existing memories. Aperio supports two storage backends.
+**You don't need to choose** — auto-detect picks the right one based on whether
+Docker is running:
 
 | Backend | When to use | Requires |
 |---------|-------------|----------|
@@ -173,21 +188,23 @@ the right one based on whether Docker is running:
 | **Postgres + pgvector** | Multi-agent, persistent, production-like | Docker |
 
 ```bash
-# SQLite is the default — no extra steps needed.
-# Skip the Docker commands below and go directly to Step 3.
+# SQLite is the default and is created automatically on first launch.
+# If you are using SQLite, skip the Docker commands below and go to Step 3.
 ```
 
 > **💡 Tip:** Set `DB_BACKEND=sqlite` in `.env` to force SQLite, or `DB_BACKEND=postgres` for Postgres.   
 > If not set, Aperio auto-detects: uses Postgres when Docker is running, SQLite otherwise.
 
 ```bash
-# POSTGRES MODE — start the database and run migrations (run from the repo root)
-# --env-file .env is required: the compose file lives in docker/ but .env is at
-# the repo root, and Compose only looks for .env next to the compose file.
+# POSTGRES MODE — start the local database in the background.
+# Run this from the Aperio project folder. The --env-file option tells Docker
+# where the configuration file is because the Compose file lives in docker/.
 docker compose -f docker/docker-compose.yml --env-file .env up -d
+# Create the Aperio tables and search indexes in that database.
 npm run migrate
 
-# PRODUCTION — full stack (app + Postgres) in one go. Same --env-file rule applies.
+# OPTIONAL: start both the Aperio application and Postgres as one managed stack.
+# Use this when you want Docker to run the complete service for you.
 docker compose -f docker/docker-compose.prod.yml --env-file .env up -d
 ```
 
@@ -205,19 +222,34 @@ docker compose -f docker/docker-compose.prod.yml --env-file .env up -d
 > server parameter first.
 
 ### Step 3. Local AI Engine — Nothing to Install
+This step explains what happens when Aperio uses a local AI model. A model is the
+file that produces answers; a model engine is the program that runs it. You do not
+need to install either one manually: Aperio downloads the engine and the selected
+model when they are first needed. The first request can therefore take longer and
+may use several gigabytes of disk space.
+
 > **💡 Tip:** Skip this step entirely when using a cloud or CLI-backed `AI_PROVIDER`.
 > For `AI_PROVIDER=llamacpp`, there is no separate engine to install or run —
 > Aperio vendors and manages `llama-server` itself: it downloads the pinned
 > binary on first run, spawns and monitors it, and downloads the GGUF model
 > you pick (or the one `LLAMACPP_MODEL` names) the first time it's needed.
+
+Choose one model by putting its name in `.env`. The smaller fallback starts on
+more modest computers; the larger options generally produce stronger answers but
+need more memory. Leave the existing example in place if you are unsure.
 ```env
 LLAMACPP_MODEL=Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M     # strong reasoning, MoE, best tool-calling
 # LLAMACPP_MODEL=ggml-org/gemma-4-12B-it-GGUF:Q4_K_M   # general-purpose, dense
 # LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M  # lightweight fallback, runs anywhere
 ```
 ### Step 4. Start Aperio Web UI
+
+The Web UI is the main place to chat with Aperio, browse memories, and change
+settings. This command starts the local web server; it does not publish your data
+to the internet. Keep this terminal window open while you use Aperio.
 ```bash
-npm run start:local              # localhost:31337 → browser opens automatically
+# Start Aperio and open its local Web UI in your browser.
+npm run start:local
 ```
 
 > The Web UI includes a flag-based switcher for all 24 official EU languages, plus
@@ -227,38 +259,56 @@ npm run start:local              # localhost:31337 → browser opens automatical
 > referenced UI keys with `npm run i18n:check`.
 
 ### Step 5. Start Aperio terminal chat
+
+This is an optional text-only interface for people who prefer a terminal or want
+to connect another program to Aperio. It uses the same database and memory as the
+Web UI, so you normally use either interface, not both for the same conversation.
 ```bash
-npm run chat:local               # runs as proxy or standalone
+# Start an interactive chat session in this terminal.
+npm run chat:local
 ```
 
 > That's it. No API keys. No cloud. Full semantic memory on your machine.
 
 ### Installation smoke tests
 
-Contributors with an Apple Silicon Mac can verify fresh ARM64 installs in
-disposable Parallels environments. See [`vms/README.md`](vms/README.md) for
-prerequisites, snapshot setup, logs, and troubleshooting:
+These are developer checks, not required for normal use. They install Aperio in a
+temporary virtual machine and confirm that the installer works on a clean system.
+They require an Apple Silicon Mac and the tools described in
+[`vms/README.md`](vms/README.md); most users can skip this section.
 
 ```bash
-npm run vmtest:linux          # Ubuntu ARM64 + one-liner installer
-npm run vmtest:linux:debian   # Debian ARM64 + development install
-npm run vmtest:windows        # Windows 11 ARM + clean snapshot
+# Test the one-command installer on a clean Ubuntu ARM64 machine.
+npm run vmtest:linux
+# Test the developer-style installation on clean Debian ARM64.
+npm run vmtest:linux:debian
+# Test the one-command installer on a clean Windows 11 ARM machine.
+npm run vmtest:windows
 ```
 
 ### Test suites
 
-Use `npm test` for the complete local suite. Push and pull-request CI runs
-unit/integration coverage plus the complete E2E dashboard suite, including the
-isolated real-app fixtures:
+Tests are for contributors who change the source code. They check that individual
+functions still work, that components work together, and that a complete running
+Aperio instance can be used from the outside. Start with `npm test` for the normal
+local check. The commands below are useful when you need to focus on one layer or
+when you want the same reports used by continuous integration (CI).
 
 ```bash
-npm run test:unit       # Unit tests only
-npm run test:integration # Integration tests only
-npm run test:e2e        # Protocol and real-app E2E, concurrency capped at 2
-npm run test:e2e:real   # Focused production-server E2E only
-npm run test:e2e:ci     # Complete E2E suite with dashboard JSON reporter
-npm run test:ci         # Unit/integration coverage + combined dashboard JSON
-npm run test:ci:dashboard # Refresh coverage, unit, integration, and E2E data
+# Check one small function or module at a time; this is usually the fastest suite.
+npm run test:unit
+# Check interactions between multiple Aperio components and the database.
+npm run test:integration
+# Test the running app through its network interfaces, like a real user or client.
+npm run test:e2e
+# Run only the end-to-end tests against the production-style app fixture.
+npm run test:e2e:real
+# Run the complete end-to-end suite and produce machine-readable CI reports.
+npm run test:e2e:ci
+# Run unit and integration tests with coverage and a combined report.
+npm run test:ci
+# Rebuild all coverage and dashboard data used to inspect test results.
+npm run test:ci:dashboard
 ```
 
 Structured reporter output is written under `tests/results/`; generated JSON is
