@@ -45,10 +45,13 @@ test("Windows smoke contract survives legacy PowerShell argument passing and kee
 
 test("one-liner installer exposes a documented automation mode without changing interactive launch", async () => {
   const installer = await readFile(resolve(ROOT, ".github/lite/install.sh"), "utf8");
+  const starter = await readFile(resolve(ROOT, ".github/lite/START.sh"), "utf8");
   assert.match(installer, /APERIO_INSTALL_NO_START/);
   assert.match(installer, /ask\(\)[\s\S]+APERIO_INSTALL_NO_START[\s\S]+return/);
   assert.match(installer, /elif \[ -r \/dev\/tty \]/);
   assert.match(installer, /exec bash START\.sh/);
+  assert.match(starter, /APERIO_START_NO_RUN/);
+  assert.match(starter, /Runtime prepared \(automation mode\)/);
 });
 
 test("lite smoke workflow delegates to the shared contract", async () => {

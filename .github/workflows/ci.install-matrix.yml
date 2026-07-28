@@ -57,14 +57,14 @@ jobs:
           export APERIO_INSTALL_NO_START=1
           bash .github/lite/install.sh </dev/null
           cd "$install_dir"
-          npm install --prefer-offline --no-audit --no-fund
+          APERIO_START_NO_RUN=1 bash START.sh
           bash "$GITHUB_WORKSPACE/vms/smoke.sh" "$install_dir"
 
           mkdir -p var
           printf 'installer-update-sentinel\n' > var/vmtest-sentinel
           bash "$GITHUB_WORKSPACE/.github/lite/install.sh" </dev/null
           test "$(cat var/vmtest-sentinel)" = installer-update-sentinel
-          npm install --prefer-offline --no-audit --no-fund
+          APERIO_START_NO_RUN=1 bash START.sh
           bash "$GITHUB_WORKSPACE/vms/smoke.sh" "$install_dir"
 
           printf 'y\n' | bash "$install_dir/uninstall.sh"

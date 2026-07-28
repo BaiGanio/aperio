@@ -27,6 +27,9 @@ test("Vagrant executor is syntactically valid and isolates host dependencies", a
   assert.match(vagrantfile, /bento\/debian-12/);
   assert.equal((vagrantfile.match(/box_architecture = "arm64"/g) ?? []).length, 2);
   assert.match(vagrantfile, /provider\s+"parallels"/);
+  assert.match(vagrantfile, /cp \/vagrant-repo\/\.github\/lite\/START\.sh/);
+  assert.match(vagrantfile, /APERIO_START_NO_RUN=1 bash START\.sh/);
+  assert.doesNotMatch(vagrantfile, /npm install --prefer-offline/);
   assert.match(vagrantfile, /vms\/smoke\.sh/);
 });
 
