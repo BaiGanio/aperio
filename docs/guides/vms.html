@@ -21,8 +21,10 @@
     .vm-section + .vm-section { border-top: 1px solid var(--border); }
     .vm-section h2 { margin-bottom: 12px; }
     .section-lead { color: var(--subtle); max-width: 760px; }
-    .vm-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-top: 34px; }
+    .vm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 34px; }
+    #choose .vm-grid { grid-template-columns: repeat(4, 1fr); }
     @media(max-width: 820px) { .vm-grid { grid-template-columns: 1fr; } }
+    @media(max-width: 820px) { #choose .vm-grid { grid-template-columns: 1fr; } }
     .vm-card { display:flex; flex-direction:column; min-height:280px; text-decoration:none; color:inherit; }
     .vm-card:hover { transform: translateY(-3px); }
     .vm-card .feat-icon { margin-bottom: 18px; }
