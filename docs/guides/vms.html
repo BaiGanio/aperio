@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Aperio | Installation lab</title>
-  <meta name="description" content="Choose the simplest way to verify an Aperio installation on Linux, macOS, Windows, or Docker." />
+  <title>Aperio | VM installation tests</title>
+  <meta name="description" content="Choose, run, and understand Aperio's disposable VM and Docker installation tests." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet" />
@@ -13,42 +13,45 @@
   <link rel="stylesheet" href="../styles.css" />
   <link rel="icon" type="image/x-icon" href="../assets/favicon.ico" />
   <style>
-    .vm-intro { max-width: 760px; margin: 0 auto; text-align: center; }
-    .vm-intro .lead-text { max-width: 680px; margin-left: auto; margin-right: auto; }
-    .vm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 42px; }
+    .vm-intro { max-width: 820px; margin: 0 auto; text-align: center; }
+    .vm-intro .lead-text { max-width: 720px; margin-left: auto; margin-right: auto; }
+    .vm-section { padding: 72px 0; }
+    .vm-section + .vm-section { border-top: 1px solid var(--border); }
+    .vm-section h2 { margin-bottom: 12px; }
+    .section-lead { color: var(--subtle); max-width: 760px; }
+    .vm-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 34px; }
     @media(max-width: 820px) { .vm-grid { grid-template-columns: 1fr; } }
-    .vm-card { display:flex; flex-direction:column; min-height:220px; }
+    .vm-card { display:flex; flex-direction:column; min-height:280px; text-decoration:none; color:inherit; }
+    .vm-card:hover { transform: translateY(-3px); }
     .vm-card .feat-icon { margin-bottom: 18px; }
     .vm-card .feat-title { display:flex; align-items:center; gap:8px; }
-    .vm-card .vm-best { margin-top:auto; padding-top:18px; font-family:var(--font-mono); font-size:10px; color:var(--green); text-transform:uppercase; letter-spacing:.08em; }
+    .vm-card .feat-desc { color:var(--subtle); }
+    .vm-card .vm-best { margin-top:auto; padding-top:18px; font:10px var(--font-mono); color:var(--green); text-transform:uppercase; letter-spacing:.08em; }
     .vm-card .vm-best::before { content:'→ '; color:var(--purple); }
-    .vm-section { padding: 78px 0; }
-    .vm-section + .vm-section { border-top:1px solid var(--border); }
-    .vm-section h2 { margin-bottom: 12px; }
-    .vm-section .section-lead { color:var(--subtle); max-width:680px; }
-    .vm-flow { display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin-top:40px; }
-    @media(max-width:700px) { .vm-flow { grid-template-columns:1fr 1fr; } }
-    .vm-flow-step { position:relative; padding:24px 20px; border:1px solid var(--border); border-right:0; background:var(--bg-card); }
-    .vm-flow-step:last-child { border-right:1px solid var(--border); }
-    @media(max-width:700px) { .vm-flow-step:nth-child(2) { border-right:1px solid var(--border); } .vm-flow-step:nth-child(n+3) { border-top:0; } }
-    .vm-flow-num { font-family:var(--font-ui); color:var(--purple); font-size:11px; letter-spacing:.12em; }
-    .vm-flow-title { margin-top:14px; font-family:var(--font-ui); font-size:11px; text-transform:uppercase; letter-spacing:.08em; }
-    .vm-flow-copy { margin-top:8px; color:var(--subtle); font-size:13px; line-height:1.55; }
+    .vm-steps { display:grid; grid-template-columns:repeat(4,1fr); gap:0; margin-top:34px; }
+    @media(max-width:700px) { .vm-steps { grid-template-columns:1fr 1fr; } }
+    .vm-step { padding:22px 18px; border:1px solid var(--border); border-right:0; background:var(--bg-card); }
+    .vm-step:last-child { border-right:1px solid var(--border); }
+    @media(max-width:700px) { .vm-step:nth-child(2) { border-right:1px solid var(--border); } .vm-step:nth-child(n+3) { border-top:0; } }
+    .vm-step-num, .step-num { color:var(--purple); font:11px var(--font-ui); letter-spacing:.12em; }
+    .vm-step-title { margin-top:13px; font:11px var(--font-ui); text-transform:uppercase; letter-spacing:.08em; }
+    .vm-step-copy { margin-top:8px; color:var(--subtle); font-size:13px; line-height:1.55; }
     .vm-command { margin-top:22px; }
-    .vm-command .code-block { margin-top:0; }
     .vm-command-label { display:flex; justify-content:space-between; padding:10px 14px; background:var(--bg-raised); border:1px solid var(--border); border-bottom:0; color:var(--muted); font:10px var(--font-mono); letter-spacing:.08em; text-transform:uppercase; }
     .vm-command-label .vm-platform { color:var(--purple); }
-    .vm-command-result { padding:10px 14px; border:1px solid var(--border); border-top:0; color:var(--subtle); font-size:12px; }
+    .vm-command-result { padding:12px 14px; border:1px solid var(--border); border-top:0; color:var(--subtle); font-size:12px; }
     .vm-note { margin-top:18px; padding:16px 18px; border-left:2px solid var(--amber); background:rgba(251,191,36,.06); color:var(--subtle); font-size:13px; }
     .vm-note strong { color:var(--text); }
-    .vm-table-wrap { overflow-x:auto; margin-top:34px; }
-    .vm-table { width:100%; border-collapse:collapse; min-width:620px; font-size:13px; }
+    .vm-table-wrap { overflow-x:auto; margin-top:28px; }
+    .vm-table { width:100%; border-collapse:collapse; min-width:650px; font-size:13px; }
     .vm-table th { color:var(--muted); font:10px var(--font-ui); letter-spacing:.1em; text-transform:uppercase; text-align:left; padding:12px 14px; border-bottom:1px solid var(--border-hi); }
-    .vm-table td { padding:14px; border-bottom:1px solid var(--border); color:var(--subtle); }
+    .vm-table td { padding:14px; border-bottom:1px solid var(--border); color:var(--subtle); vertical-align:top; }
     .vm-table td:first-child { color:var(--text); font-weight:500; }
-    .vm-table tr:hover td { background:rgba(127,127,127,.06); }
     .vm-check { color:var(--green); font-family:var(--font-mono); font-size:11px; }
     .vm-footer-links { display:flex; gap:20px; flex-wrap:wrap; }
+    .vm-kicker { margin-top:28px; color:var(--green); font:11px var(--font-mono); letter-spacing:.08em; text-transform:uppercase; }
+    .vm-kicker::before { content:'→ '; color:var(--purple); }
+    .vm-command code, .vm-table code { color:var(--purple); }
   </style>
 </head>
 <body>
@@ -56,73 +59,72 @@
 <nav class="aperio-nav"><div class="nav-inner">
   <a href="../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
   <button class="nav-toggle" id="navToggle" aria-label="Open navigation" aria-controls="navLinks" aria-expanded="false"><i class="bi bi-list"></i></button>
-  
-  <ul class="nav-links" id="navLinks"><li><a href="../index.html"><img width="48" height="48" src="https://img.icons8.com/doodle-line/48/home.png" alt="home"/></a></li><li>/</li><li><a href="#"><img width="32" height="32" src="https://img.icons8.com/pulsar-gradient/32/circled-up-2.png" alt="circled-up-2"/></a></li><li><a href="#choose">Choose</a></li><li><a href="#use">Use</a></li><li><a href="#run">Run</a></li><li><a href="#understand">Results</a></li><li><a href="#help">Help</a></li></ul>
+  <ul class="nav-links" id="navLinks"><li><a href="../index.html"><img width="48" height="48" src="https://img.icons8.com/doodle-line/48/home.png" alt="home"/></a></li><li>/</li><li><a href="#hero">VM tests</a></li><li><a href="#choose">Choose</a></li><li><a href="#start">Start here</a></li><li><a href="#workflows">Workflows</a></li><li><a href="#setup">Setup</a></li><li><a href="#files">Files</a></li><li><a href="#results">Results</a></li><li><a href="#help">Help</a></li></ul>
   <div class="theme-switcher" id="themeSwitcher" aria-label="Color theme"><button class="theme-btn active" data-theme="dark" title="Dark" aria-label="Use dark theme">🌙</button><button class="theme-btn" data-theme="light" title="Light" aria-label="Use light theme">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora" aria-label="Use aurora theme">✦</button><button class="theme-btn" data-theme="system" title="System" aria-label="Use system theme">⊙</button></div>
 </div></nav>
 
 <main class="z1">
   <section class="section" style="padding:126px 0 70px" id="hero"><div class="section-inner vm-intro">
     <div class="eyebrow reveal">Installation lab</div>
-    <h1 class="section-heading reveal">A clean machine. <span class="aurora-text">A clear answer.</span></h1>
-    <p class="lead-text reveal">Aperio’s VM tests prove that installation works outside a developer’s laptop: native dependencies load, the database migrates, the server answers, and the setup screen appears.</p>
-    <div class="vm-note reveal"><strong>For maintainers and contributors.</strong><br>Downloaded a release? Use the main Aperio installer instead. Testing a change? Choose Docker for the quickest disposable check, or a clean platform guest to exercise the real installer.</div>
+    <h1 class="section-heading reveal">Test Aperio on a <span class="aurora-text">clean machine.</span></h1>
+    <p class="lead-text reveal">These tests answer one practical question: can Aperio install, load its native modules, create SQLite, start HTTP, and serve the setup page somewhere that has none of your developer baggage?</p>
+    <div class="vm-note reveal"><strong>This page is for contributors and maintainers.</strong> If you only want to use Aperio, follow the <a href="../index.html#setup">main setup guide</a>. The machines described here are disposable verification environments; do not put real memories in them.</div>
   </div></section>
 
   <section class="section vm-section" id="choose"><div class="section-inner wide">
-    <div class="eyebrow reveal">First decision</div><h2 class="section-heading reveal">What are you trying to prove?</h2><p class="section-lead reveal">You do not need every virtual machine. Pick the smallest test that answers your question.</p>
+    <div class="eyebrow reveal">Choose one path</div><h2 class="section-heading reveal">Start with the question you need answered.</h2>
+    <p class="section-lead reveal">Click a card to jump to its prerequisites and exact command. You normally run one path, not all four.</p>
     <div class="vm-grid">
-      <article class="feat-card vm-card reveal"><div class="feat-icon"><i class="bi bi-box-seam"></i></div><div class="feat-title">Fast, isolated smoke test</div><p class="feat-desc">You already have Docker and an Aperio image, and want to check that it boots, migrates SQLite, serves HTTP, and exposes the setup UI.</p><div class="vm-best">Docker required</div></article>
-      <article class="feat-card vm-card reveal" style="transition-delay:.08s"><div class="feat-icon"><i class="bi bi-terminal"></i></div><div class="feat-title">Linux installer confidence</div><p class="feat-desc">On an Apple-silicon Mac with Parallels Pro or Business, create a disposable Ubuntu or Debian ARM64 guest that installs dependencies natively and cleans itself up.</p><div class="vm-best">Vagrant + Parallels</div></article>
-      <article class="feat-card vm-card reveal" style="transition-delay:.16s"><div class="feat-icon"><i class="bi bi-laptop"></i></div><div class="feat-title">Real desktop installer</div><p class="feat-desc">On an Apple-silicon Mac with Parallels Pro or Business, test the one-click path on a clean macOS or Windows ARM machine without borrowing host files.</p><div class="vm-best">Snapshot + linked clone</div></article>
+      <a class="feat-card vm-card reveal" href="#docker"><div class="feat-icon"><i class="bi bi-box-seam"></i></div><div class="feat-title">I need the fastest check</div><p class="feat-desc">Build a local Docker image and verify it boots in an isolated container. Best for a quick smoke test after a code or image change.</p><div class="vm-best">Docker · minutes</div></a>
+      <a class="feat-card vm-card reveal" href="#linux"><div class="feat-icon"><i class="bi bi-terminal"></i></div><div class="feat-title">I need Linux installer confidence</div><p class="feat-desc">On Apple silicon, install into a fresh Ubuntu or Debian ARM64 guest. Best for checking native npm dependencies and the installer lifecycle.</p><div class="vm-best">Vagrant + Parallels</div></a>
+      <a class="feat-card vm-card reveal" href="#desktop"><div class="feat-icon"><i class="bi bi-laptop"></i></div><div class="feat-title">I need a real desktop test</div><p class="feat-desc">Run the installer inside a clean macOS or Windows ARM guest. Best before calling a one-click desktop install ready.</p><div class="vm-best">Snapshot + linked clone</div></a>
     </div>
   </div></section>
 
-  <section class="section vm-section" id="folders"><div class="section-inner wide">
-    <div class="eyebrow reveal">Open the folder</div><h2 class="section-heading reveal">What lives inside <code>vms/</code>?</h2><p class="section-lead reveal">This is not where Aperio stores your memories. It is a small testing workshop: recipes for creating clean machines, scripts that perform the check, and logs that explain the result.</p>
-    <div class="vm-table-wrap reveal"><table class="vm-table"><thead><tr><th>File or folder</th><th>In plain English</th><th>When you touch it</th></tr></thead><tbody>
-      <tr><td><code>Vagrantfile</code></td><td>The recipe for Linux test guests: operating system, memory, CPU, shared source files, and automatic commands.</td><td>When changing Linux test environments or adding a profile.</td></tr>
-      <tr><td><code>run-vagrant.sh</code></td><td>The host-side button behind the Linux commands. It selects a profile, starts Vagrant, streams a log, and destroys the disposable guest.</td><td>Usually never. Use its environment variables when you need a different branch.</td></tr>
-      <tr><td><code>smoke.sh</code><br><code>smoke.ps1</code></td><td>The shared checklist for POSIX systems and Windows: load, migrate, start, and serve the setup page.</td><td>Run directly when dependencies are already installed, or extend the checklist for a new critical path.</td></tr>
-      <tr><td><code>mac/</code><br><code>win/</code></td><td>Desktop-specific launchers. They attach a read-only source share, run the real installer, collect logs, and clean up the clone or snapshot.</td><td>When preparing a clean Parallels desktop test.</td></tr>
-      <tr><td><code>docker/</code></td><td>The container runner. It checks an image using a temporary container, volume, and non-default port.</td><td>When validating a production image without a full VM.</td></tr>
-      <tr><td><code>out/</code></td><td>Disposable evidence: timestamped logs from VM and Docker runs.</td><td>Read it when something fails. Do not edit or commit it.</td></tr>
+  <section class="section vm-section" id="start"><div class="section-inner wide">
+    <div class="eyebrow reveal">Before you run anything</div><h2 class="section-heading reveal">Prepare once, then use the matching command.</h2>
+    <p class="section-lead reveal">Run these from the repository root. Keep the terminal open: a passing run prints checkmarks; a failed run prints the evidence-log path.</p>
+    <div class="vm-steps reveal"><div class="vm-step"><div class="vm-step-num">01 · GET THE CODE</div><div class="vm-step-title">Use a real checkout</div><div class="vm-step-copy">The runners stage this repository and read the current Git branch. Do not run them from a copied folder without <code>.git</code>.</div></div><div class="vm-step"><div class="vm-step-num">02 · INSTALL HOST TOOLS</div><div class="vm-step-title">Pick your dependency</div><div class="vm-step-copy">Docker needs Docker Desktop. Linux and desktop tests need an Apple-silicon Mac, Parallels Pro or Business, and <code>prlctl</code>.</div></div><div class="vm-step"><div class="vm-step-num">03 · RUN ONE TEST</div><div class="vm-step-title">Choose the smallest proof</div><div class="vm-step-copy">Use Docker for speed, Linux for native install confidence, or a desktop guest for the actual one-click experience.</div></div><div class="vm-step"><div class="vm-step-num">04 · READ THE LOG</div><div class="vm-step-title">Keep the evidence</div><div class="vm-step-copy">Runner logs are saved in <code>vms/out/</code>. They are private, ignored by Git, and are the first place to look after a red run.</div></div></div>
+    <div class="vm-command reveal"><div class="vm-command-label"><span class="vm-platform">One-time local preparation</span><span>repository root</span></div><div class="code-block"><div class="c"># install the host-side JavaScript dependencies</div><div>npm install</div><div class="c"># optional: see every available VM command</div><div>npm run</div></div><div class="vm-command-result">The VM runners install dependencies again inside the clean guest. Host <code>node_modules</code> is never copied into a VM.</div></div>
+  </div></section>
+
+  <section class="section vm-section" id="workflows"><div class="section-inner wide">
+    <div class="eyebrow reveal">Run the test</div><h2 class="section-heading reveal">Four workflows, one contract.</h2><p class="section-lead reveal">Every workflow ends by checking Node/npm, native modules, SQLite migration, an HTTP bootstrap response, <code>/setup.html</code>, and runtime hygiene.</p>
+    <div class="vm-command reveal" id="docker"><div class="vm-command-label"><span class="vm-platform">01 · Fastest path</span><span>Docker</span></div><div class="code-block"><div class="c"># build the image from this checkout</div><div>docker build -f docker/Dockerfile -t aperio:test-local .</div><div class="c"># run the isolated image check</div><div>npm run vmtest:docker -- --image aperio:test-local</div></div><div class="vm-command-result"><span class="vm-check">Pass:</span> the runner chooses a non-default host port, creates a temporary volume, polls <code>/api/bootstrap/state</code>, checks <code>/setup.html</code>, then removes the container and volume.</div></div>
+    <div class="vm-command reveal" id="linux"><div class="vm-command-label"><span class="vm-platform">02 · Native Linux install</span><span>Apple silicon + Parallels</span></div><div class="code-block"><div class="c"># install the provider once</div><div>vagrant plugin install vagrant-parallels</div><div class="c"># Ubuntu: one-line installer, smoke test, uninstall</div><div>npm run vmtest:linux</div><div class="c"># Debian: Git clone, npm install, migration, smoke</div><div>npm run vmtest:linux:debian</div></div><div class="vm-command-result"><span class="vm-check">Pass:</span> the selected guest is destroyed on success, failure, or interruption. Set <code>APERIO_BRANCH=my-branch</code> before the command to test another branch.</div></div>
+    <div class="vm-command reveal" id="desktop"><div class="vm-command-label"><span class="vm-platform">03 · Real desktop installer</span><span>pre-created Parallels guests</span></div><div class="code-block"><div class="c"># macOS: linked clone of aperio-mac-pristine</div><div>npm run vmtest:mac</div><div class="c"># Windows: reset the clean snapshot named clean</div><div>npm run vmtest:windows</div></div><div class="vm-command-result"><span class="vm-check">Pass:</span> the macOS linked clone is deleted and the Windows guest is restored to its clean snapshot. These commands require the one-time guest setup described below.</div></div>
+    <div class="vm-note reveal"><strong>If Vagrant is interrupted:</strong> inspect first with <code>vagrant global-status</code> and <code>VAGRANT_CWD="$PWD/vms" vagrant status</code>. Destroy only the selected profile, for example <code>VAGRANT_CWD="$PWD/vms" vagrant destroy -f ubuntu-lite</code>.</div>
+    <div class="vm-command reveal" id="smoke"><div class="vm-command-label"><span class="vm-platform">04 · Run only the shared checklist</span><span>existing install</span></div><div class="code-block"><div class="c"># use this when node_modules already exists in a target directory</div><div>bash vms/smoke.sh /path/to/aperio</div><div class="c"># Windows PowerShell equivalent</div><div>.\vms\smoke.ps1 C:\path\to\aperio</div></div><div class="vm-command-result">The target must contain <code>package.json</code>, <code>node_modules</code>, <code>server.js</code>, <code>db/</code>, and <code>public/</code>. It writes temporary database state under that target's <code>.sqlite/</code>.</div></div>
+  </div></section>
+
+  <section class="section vm-section" id="files"><div class="section-inner wide">
+    <div class="eyebrow reveal">Know where to look</div><h2 class="section-heading reveal">What lives inside <code>vms/</code>?</h2><p class="section-lead reveal">Think of the folder as a test bench: a host remote control, a clean-machine procedure, one shared checklist, and private evidence.</p>
+    <div class="vm-table-wrap reveal"><table class="vm-table"><thead><tr><th>Path</th><th>Role</th><th>Touch it when…</th></tr></thead><tbody>
+      <tr><td><code>run-vagrant.sh</code></td><td>Host launcher. Selects <code>ubuntu-lite</code> or <code>debian-dev</code>, starts Vagrant, records output, and destroys the guest.</td><td>You need a different branch or Linux profile.</td></tr>
+      <tr><td><code>Vagrantfile</code></td><td>Machine definition and provisioning: ARM64 box, 4 GB RAM, 2 CPUs, rsync exclusions, and the commands run inside each guest.</td><td>You are changing what a clean Linux install means.</td></tr>
+      <tr><td><code>smoke.sh</code><br><code>smoke.ps1</code></td><td>Platform-neutral acceptance checklist. It does not create a VM; it proves an already-staged install works.</td><td>You add a critical install/runtime assertion.</td></tr>
+      <tr><td><code>docker/run.sh</code></td><td>Build-output checker. Creates a temporary container and volume, tests HTTP/UI, captures metadata, and cleans up.</td><td>You are validating a Docker image.</td></tr>
+      <tr><td><code>mac/</code>, <code>win/</code></td><td>Desktop host and guest launchers. They stage files read-only, run the real installer, collect logs, and clean up.</td><td>You are testing the installer on a clean desktop OS.</td></tr>
+      <tr><td><code>out/</code></td><td>Timestamped host logs. These may contain private paths and runtime details.</td><td>A run fails. Read, redact, and never commit them.</td></tr>
     </tbody></table></div>
-    <div class="vm-note reveal"><strong>Safe mental model:</strong> the host runner is the remote control, the guest script is the person inside the clean machine, and the smoke script is the examiner asking the same questions everywhere.</div>
   </div></section>
 
-  <section class="section vm-section" id="vagrant"><div class="section-inner wide">
-    <div class="eyebrow reveal">The Linux recipe</div><h2 class="section-heading reveal">Vagrantfile, explained.</h2><p class="section-lead reveal">Vagrant turns a text recipe into a repeatable virtual machine. Aperio keeps this recipe small: a clean ARM64 Ubuntu or Debian guest, a read-only project share, and an automatic test.</p>
-    <div class="vm-grid">
-      <article class="step-card reveal"><div class="step-num">01 · SOURCE</div><div class="step-title">Share the checkout, not the baggage</div><p class="feat-desc">The recipe maps the repository into the guest as <code>/vagrant-repo</code>. It excludes <code>node_modules/</code>, <code>var/</code>, <code>.sqlite/</code>, and <code>vms/out/</code> so host-built binaries, private runtime data, and old logs cannot contaminate the test.</p></article>
-      <article class="step-card reveal" style="transition-delay:.08s"><div class="step-num">02 · RESOURCES</div><div class="step-title">Give the guest enough room</div><p class="feat-desc">The default is 4096 MB RAM and 2 CPUs. Native npm packages may compile during installation, so these resources make a clean install practical.</p></article>
-      <article class="step-card reveal" style="transition-delay:.16s"><div class="step-num">03 · PROFILES</div><div class="step-title">Two Linux questions</div><p class="feat-desc"><code>ubuntu-lite</code> tests the one-line installer and uninstall path. <code>debian-dev</code> tests a developer-like Git clone, migration, and smoke flow. Both use ARM64 boxes for Apple Silicon hosts.</p></article>
-    </div>
-    <div class="vm-command reveal"><div class="vm-command-label"><span class="vm-platform">What the recipe configures</span><span>Vagrantfile</span></div><div class="code-block"><div><span class="v">config.vm.synced_folder</span> <span class="s">"..", "/vagrant-repo"</span></div><div><span class="v">prl.memory</span> = <span class="n">4096</span></div><div><span class="v">prl.cpus</span> = <span class="n">2</span></div><div><span class="v">vm.box</span> = <span class="s">"bento/ubuntu-24.04"</span></div><div class="c"># provision: install tools → install Aperio → smoke → clean up</div></div></div>
-    <div class="vm-note reveal"><strong>What can you configure?</strong> Choose a Git branch with <code>APERIO_BRANCH=my-branch</code>, change disposable VM names in the desktop runners, or adjust Docker’s image and port. Change the Vagrantfile’s box, CPU, memory, or provisioning only when intentionally changing what “clean Linux install” means.</div>
+  <section class="section vm-section" id="setup"><div class="section-inner wide">
+    <div class="eyebrow reveal">One-time desktop setup</div><h2 class="section-heading reveal">Prepare clean guests only when you need them.</h2>
+    <p class="section-lead reveal">Docker and Vagrant are self-contained. Desktop workflows need a pristine machine because they test the real installer, not just the application after <code>npm install</code>.</p>
+    <div class="vm-grid"><article class="step-card reveal"><div class="step-num">MACOS · <code>aperio-mac-pristine</code></div><div class="step-title">Create a pristine macOS ARM VM</div><p class="feat-desc">Create an Apple-silicon macOS guest, finish account setup, install Parallels Tools, confirm <code>/Volumes/psf/</code> works, and do not install Node or Aperio. Shut it down and name it <code>aperio-mac-pristine</code>. Each run makes and deletes a linked clone named <code>aperio-mac-run</code>.</p></article><article class="step-card reveal"><div class="step-num">WINDOWS · <code>aperio-win-test</code></div><div class="step-title">Create a clean Windows snapshot</div><p class="feat-desc">Create a Windows 11 ARM VM, finish setup, install Parallels Tools, create an administrator test user, and do not install Node or Aperio. Shut it down and create the snapshot used by the runner:</p><div class="code-block"><div>prlctl snapshot aperio-win-test -n clean</div></div></article><article class="step-card reveal"><div class="step-num">LINUX · VAGRANT</div><div class="step-title">Let Vagrant create the guest</div><p class="feat-desc">Vagrant downloads the selected ARM64 box the first time. The recipe maps the checkout to <code>/vagrant-repo</code> but excludes host dependencies, runtime data, SQLite state, and old logs. Do not hand-edit the guest to “fix” a test.</p></article></div>
+    <div class="vm-note reveal"><strong>Safety boundary:</strong> the macOS pristine VM is never started or deleted by the runner. The Windows runner restores the named snapshot. If a run is interrupted, inspect exact VM names before removing anything.</div>
   </div></section>
 
-  <section class="section vm-section" id="use"><div class="section-inner wide">
-    <div class="eyebrow reveal">For people who do not live in terminals</div><h2 class="section-heading reveal">How would I use this?</h2><p class="section-lead reveal">Most people only need one of these workflows. The machines and their data are disposable.</p>
-    <div class="vm-flow reveal"><div class="vm-flow-step"><div class="vm-flow-num">A</div><div class="vm-flow-title">I downloaded a release</div><div class="vm-flow-copy">Use the main Aperio installer. The <code>vms/</code> folder is for maintainers who want to prove that installer on a clean OS.</div></div><div class="vm-flow-step"><div class="vm-flow-num">B</div><div class="vm-flow-title">I changed Aperio</div><div class="vm-flow-copy">Build the image or choose a Linux profile. Green means the change survives a clean install, not only your laptop.</div></div><div class="vm-flow-step"><div class="vm-flow-num">C</div><div class="vm-flow-title">I got an install error</div><div class="vm-flow-copy">Run the matching smoke script or Docker check, then read the timestamped file under <code>vms/out/</code>.</div></div><div class="vm-flow-step"><div class="vm-flow-num">D</div><div class="vm-flow-title">I want to add a platform</div><div class="vm-flow-copy">Copy the pattern: host launcher, guest setup script, shared smoke contract, cleanup trap, and a test under <code>tests/vms/</code>.</div></div></div>
+  <section class="section vm-section" id="results"><div class="section-inner wide">
+    <div class="eyebrow reveal">Understand the result</div><h2 class="section-heading reveal">A green run is evidence, not magic.</h2><p class="section-lead reveal">The runner changes the environment; the smoke contract asks Aperio the same questions everywhere.</p>
+    <div class="vm-table-wrap reveal"><table class="vm-table"><thead><tr><th>Check</th><th>What it proves</th><th>Typical output</th></tr></thead><tbody><tr><td>Toolchain</td><td>Node 22+, npm, and dependencies are available in the target.</td><td><span class="vm-check">✔ toolchain</span></td></tr><tr><td>Native modules</td><td><code>better-sqlite3</code>, <code>sqlite-vec</code>, and <code>sharp</code> load for this OS/architecture.</td><td><span class="vm-check">✔ native module</span></td></tr><tr><td>SQLite</td><td>A fresh install can create its schema.</td><td><span class="vm-check">✔ SQLite migrations</span></td></tr><tr><td>HTTP + UI</td><td>The server answers bootstrap state and serves <code>/setup.html</code>.</td><td><span class="vm-check">✔ HTTP bootstrap · ✔ UI shell</span></td></tr><tr><td>Hygiene</td><td>Temporary runtime state does not leak into the test user's home directory.</td><td><span class="vm-check">✔ runtime hygiene</span></td></tr></tbody></table></div>
+    <div class="vm-kicker reveal">Where to look next</div><p class="section-lead reveal">Read the newest file in <code>vms/out/</code>. For Linux/macOS guests, the runner also collects <code>/tmp/aperio-vmtest.log</code>; Windows writes <code>C:\aperio-vmtest.log</code>. Docker includes container logs and inspect output.</p>
   </div></section>
 
-  <section class="section vm-section" id="run"><div class="section-inner wide">
-    <div class="eyebrow reveal">The shared contract</div><h2 class="section-heading reveal">Every route ends the same way.</h2><p class="section-lead reveal">The runner changes the environment. The smoke contract checks Aperio itself.</p>
-    <div class="vm-flow reveal"><div class="vm-flow-step"><div class="vm-flow-num">01</div><div class="vm-flow-title">Prepare</div><div class="vm-flow-copy">Stage source without host runtime data or native modules.</div></div><div class="vm-flow-step"><div class="vm-flow-num">02</div><div class="vm-flow-title">Install</div><div class="vm-flow-copy">Install dependencies inside the target OS or container.</div></div><div class="vm-flow-step"><div class="vm-flow-num">03</div><div class="vm-flow-title">Smoke</div><div class="vm-flow-copy">Load native modules, migrate SQLite, and start HTTP.</div></div><div class="vm-flow-step"><div class="vm-flow-num">04</div><div class="vm-flow-title">Clean up</div><div class="vm-flow-copy">Collect logs, stop the process, and remove disposable state.</div></div></div>
-    <div class="vm-command reveal"><div class="vm-command-label"><span class="vm-platform">Docker · quickest path</span><span>Docker required</span></div><div class="code-block" style="position:relative"><button class="copy-btn" data-target=".vm-copy">Copy</button><div class="c"># build the production image</div><div class="vm-copy">docker build -f docker/Dockerfile -t aperio:test-local .</div><div class="c"># run the isolated image smoke test</div><div class="vm-copy">npm run vmtest:docker -- --image aperio:test-local</div></div><div class="vm-command-result">Expect ✔ checks followed by automatic container and volume cleanup. Evidence lands in <code>vms/out/</code>.</div></div>
-    <div class="vm-command reveal"><div class="vm-command-label"><span class="vm-platform">Linux ARM64 · Vagrant</span><span>Apple Silicon + Parallels Pro/Business</span></div><div class="code-block" style="position:relative"><button class="copy-btn" data-target=".vm-copy">Copy</button><div class="c"># install once, then choose a clean guest</div><div class="vm-copy">vagrant plugin install vagrant-parallels</div><div class="vm-copy">npm run vmtest:linux</div><div class="c"># Debian developer-style clone</div><div class="vm-copy">npm run vmtest:linux:debian</div></div><div class="vm-command-result">Expect the guest to install, print ✔ checks, uninstall where applicable, and be destroyed even on failure.</div></div>
-    <div class="vm-command reveal"><div class="vm-command-label"><span class="vm-platform">Desktop installers</span><span>pre-created clean Parallels guests</span></div><div class="code-block" style="position:relative"><button class="copy-btn" data-target=".vm-copy">Copy</button><div class="c"># macOS: linked clone of aperio-mac-pristine</div><div class="vm-copy">npm run vmtest:mac</div><div class="c"># Windows: reset the clean snapshot first</div><div class="vm-copy">npm run vmtest:windows</div></div><div class="vm-command-result">Expect the disposable clone or snapshot cycle to reset automatically. Complete the one-time setup in the full README first.</div></div>
-  </div></section>
-
-  <section class="section vm-section" id="understand"><div class="section-inner wide">
-    <div class="eyebrow reveal">Read the result</div><h2 class="section-heading reveal">Green means more than “it started.”</h2><p class="section-lead reveal">The shared smoke contract checks the pieces that commonly fail when native binaries or runtime state leak across machines.</p>
-    <div class="vm-table-wrap reveal"><table class="vm-table"><thead><tr><th>Check</th><th>Why it matters</th><th>What success looks like</th></tr></thead><tbody><tr><td>Node + npm</td><td>The target machine has the supported toolchain.</td><td><span class="vm-check">✔ versions printed</span></td></tr><tr><td>Native modules</td><td><code>better-sqlite3</code>, <code>sqlite-vec</code>, and <code>sharp</code> match the guest architecture.</td><td><span class="vm-check">✔ imports load</span></td></tr><tr><td>SQLite migration</td><td>The empty install can create its own database schema.</td><td><span class="vm-check">✔ migration exits 0</span></td></tr><tr><td>HTTP bootstrap</td><td>The server can start and report setup state.</td><td><span class="vm-check">✔ JSON responds</span></td></tr><tr><td>Setup UI</td><td>The browser shell was served; this does not prove it rendered correctly.</td><td><span class="vm-check">✔ /setup.html served</span></td></tr><tr><td>Home hygiene</td><td>Runtime state stays inside the install directory.</td><td><span class="vm-check">✔ no stray sqlite</span></td></tr></tbody></table></div>
-    <div class="vm-note reveal"><strong>Need visual proof?</strong> Tunnel the guest's loopback port and open it in your host browser. The exact SSH example is in the full VM README; Chromium is not an Aperio runtime dependency.</div>
-  </div></section>
-
-  <section class="section vm-section" id="help"><div class="section-inner wide"><div class="eyebrow reveal">When something is red</div><h2 class="section-heading reveal">The short troubleshooting map.</h2><div class="vm-grid"><article class="step-card reveal"><div class="step-num">01</div><div class="step-title">Native module fails</div><p class="feat-desc">The guest probably received the wrong architecture’s <code>node_modules</code>. Remove guest dependencies and run <code>npm install</code> inside the guest.</p></article><article class="step-card reveal"><div class="step-num">02</div><div class="step-title">Guest never becomes ready</div><p class="feat-desc">Parallels Tools may be missing, or the shared-folder path may be wrong. Reboot the guest and confirm the share is visible.</p></article><article class="step-card reveal"><div class="step-num">03</div><div class="step-title">Docker image missing</div><p class="feat-desc">Local tags are never pulled automatically. Build <code>aperio:test-local</code> first, then run the Docker command again.</p></article></div><div class="setup-cta-box reveal"><strong>Keep the evidence private:</strong> runner logs under <code>vms/out/</code> may contain private paths and runtime details. Inspect them when debugging, never commit them, and redact before sharing.</div></div></section>
+  <section class="section vm-section" id="help"><div class="section-inner wide"><div class="eyebrow reveal">When something fails</div><h2 class="section-heading reveal">Use the failure location to choose your next move.</h2><div class="vm-grid"><article class="step-card reveal"><div class="step-num">INSTALL / NATIVE MODULE</div><div class="step-title">Wrong architecture or missing build tools</div><p class="feat-desc">Confirm the guest is ARM64, remove guest <code>node_modules</code>, and let that guest run <code>npm install</code>. Never copy host dependencies into it.</p></article><article class="step-card reveal"><div class="step-num">VM / GUEST READY</div><div class="step-title">Parallels Tools or share problem</div><p class="feat-desc">The desktop runners require Parallels Tools for <code>prlctl exec</code> and shared folders. Confirm the pristine/snapshot VM name and that the host share is visible before changing the scripts.</p></article><article class="step-card reveal"><div class="step-num">DOCKER / IMAGE</div><div class="step-title">The image is missing or never answers</div><p class="feat-desc">Build the exact local tag first. The Docker runner never pulls a missing local tag. Then inspect the log for image metadata, container output, and the bootstrap timeout.</p></article></div><div class="vm-note reveal"><strong>Still stuck?</strong> Share the relevant redacted log from <code>vms/out/</code>, the command you ran, your host OS/architecture, and whether the failure happened during provisioning, install, smoke, or cleanup.</div></div></section>
 </main>
 <footer><div class="footer-inner"><a href="../index.html" class="footer-brand"><div class="footer-logo-mark">A</div><div><div class="footer-name">Aperio</div><div class="footer-sub">one brain · every agent</div></div></a><div class="vm-footer-links"><a class="footer-link" href="https://github.com/BaiGanio/aperio/blob/master/vms/README.md"><i class="bi bi-file-text"></i> Full VM README</a><a class="footer-link" href="../index.html#setup"><i class="bi bi-arrow-left"></i> Main setup guide</a></div></div><div class="footer-warning">⚠️ Disposable guests are for verification. Keep your memories in the real install.</div></footer>
 <script src="../scripts.js"></script>
-</body></html>
+</body>
+</html>

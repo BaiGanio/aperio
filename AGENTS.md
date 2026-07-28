@@ -39,7 +39,7 @@ into thinking — flag the drift before flying it. Standing rules:
   diagram is a complementary presentation artifact, not a replacement. Do not integrate or
   commit the visual until the developer has reviewed and approved the preview.
 - **Ask before touching Fragile / No-Touch Zones** (below) or writing to docs
-  (see Documentation Sync).
+  (see the `sync-documentation` skill).
 - **Done means verified**: tests green AND the affected flow exercised, not just compiled.
 - **The elenchus runs both ways.** When the code contradicts the developer's stated belief,
   say so plainly — a co-pilot who never disagrees is dead weight in the right-hand seat.
@@ -63,54 +63,8 @@ Standing rules for both:
 - **Delete on resolution.** The moment a suggestion becomes a GitHub issue or a plan, or
   is fixed mid-work, remove it. These files never become graveyards.
 
-## Diagnostics and Runtime Logs
-
-For diagnosis, read existing logs before starting any server or MCP process. Correlate
-artifacts using the shared conversation UUID:
-
-- `var/sessions/<session-id>.json` — persisted conversation history and metadata. Files may
-  be encrypted when `APERIO_SESSION_KEY` is configured; do not assume unreadable content is
-  corruption.
-- `var/logs/<session-id>.log` — Aperio application errors associated with that conversation.
-- `var/llamacpp/<session-id>.log` — llama-server output captured during that conversation.
-  These logs are short-lived and pruned according to `LLAMACPP_LOG_RETENTION_DAYS`.
-- `var/logs/error-YYYY-MM-DD.log` — process-wide error log, rotated daily and retained
-  according to `APERIO_LOG_RETENTION`.
-- `var/llamacpp/server.log` — shared current llama-server output. Prefer the session-scoped
-  log when a session ID is known because the shared file may contain unrelated activity.
-
-Recommended trace order: conversation JSON → matching application log → matching llama.cpp
-log → daily process log. Use timestamps when no session ID is available. An absent
-session-scoped application log usually means that no application error was recorded; an
-absent or empty llama.cpp session log can mean the conversation did not use llama.cpp.
-
-Treat everything under `var/` as private runtime data: it may contain conversation text,
-file paths, prompts, model output, and operational details. Inspect only what is needed,
-never modify logs during diagnosis, and redact sensitive content before quoting it in an
-issue, commit message, or response. Do not commit files from `var/`.
-
-## Quick Start
-
-```bash
-git clone --depth 1 -b dev https://github.com/BaiGanio/aperio.git
-cd aperio && npm install
-cp .env.example .env          # boots as-is (local llamacpp); providers configurable in Settings
-npm run migrate               # or migrate:sqlite
-npm run start:local           # :31337, browser auto-opens
-```
-
-Key commands: `npm run chat:local`, `npm run mcp`, `npm test`, `npm run test:ci`,
-`npm run gen:env`, `npm run gen:env:check`, `npm run config:sync`.
-
 ## Tech Stack
 
-- **Runtime**: Node.js ESM — `import`/`export`, no `require`
-- **Server**: Express 5 + WebSocket (`ws`)
-- **Database**: SQLite (`better-sqlite3` + `sqlite-vec` + FTS5) or Postgres (`pg` + `pgvector`). Auto-detected by `db/index.js`.
-- **MCP**: `@modelcontextprotocol/sdk` stdio transport — `npm run mcp`
-- **Embeddings**: HuggingFace `@huggingface/transformers` (local, default) or Voyage AI (cloud)
-- **AI providers**: llama.cpp (vendored, local), Anthropic, DeepSeek, Gemini, Claude Code, Codex CLI
-- **Testing**: Node.js native test runner (`node --test`), `c8` coverage, three-tier classification (unit/integration/e2e)
 - **Code graph**: `web-tree-sitter` + `tree-sitter-wasms` — pinned at `^0.24.7` (ABI 14). Do NOT upgrade until `tree-sitter-wasms` ships ABI-15 grammars.
 
 Reference: architecture (`id/reference/architecture.md`), MCP tools (`id/reference/mcp-tools.md`),
@@ -190,24 +144,9 @@ Verify: run `npm run test:memory` + tool tests for any ctx field touched.
 | `lib/agent/index.js` ↔ `lib/workers/skills.js` | Skill matching runs during context assembly; changes propagate to every conversation |
 | `server.js` → `lib/handlers/` → `lib/agent/index.js` | WS message protocol has no formal schema; both sides must agree on message shapes |
 
-## Security Model
-
-- **Path safety**: all file ops through `lib/routes/paths.js`. Read/write gated separately via
-  `APERIO_ALLOWED_PATHS_TO_READ` / `APERIO_ALLOWED_PATHS_TO_WRITE`. Default: project root only.
-- **Network guard**: `lib/helpers/netGuard.js` — DNS rebinding, host/Origin validation
-- **Auth**: optional shared-secret token (`APERIO_AUTH_TOKEN`), per-session cookie for `/uploads`/`/scratch`
-- **Rate limiting**: Express middleware in `lib/helpers/rateLimit.js`
-- **Shell sandbox**: allowlisted binaries, no operators, 60s timeout, off by default
-- **DB encryption**: AES-256-GCM, key in OS keychain (`db/encrypt.js`)
-- **Crash breaker**: `lib/helpers/crashBreaker.js` — exits on repeated fatals, supervisor restarts
-
 ## Code Conventions
 
-- **ESM only** — `import`/`export`, no `require`. `createRequire` only where unavoidable.
-- **Node.js native test runner** — `node --test`, `import assert from "node:assert/strict"`
-- **No TypeScript** — plain JavaScript with JSDoc annotations
 - **Config-driven** — all tunables through `lib/config.js` registry, never hardcoded
-- **Defensive error handling** — `server.js` has global `uncaughtException`/`unhandledRejection` guards
 - **Path operations** — always use `lib/routes/paths.js`, never raw `fs`
 - **`package.json` version** — never bump manually; release workflow reads commits
 
@@ -279,124 +218,6 @@ the actual diff. Do not create the commit unless the developer explicitly asks f
 `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/). Add entries under
 `## Unreleased`. Release workflow handles version bumps — never manually bump `package.json`.
 Versioning: [SemVer](https://semver.org/).
-
-## Plans
-
-When asked to write or design a plan — architecture, feature design, migration strategy,
-refactor roadmap — produce a plan document at `trash/plans/<slug-folder-name>/<slug-name-itself>.md`. Use kebab-case slugs.
-
-### Plan structure
-Every plan must include:
-
-1. **Objective** — one sentence: the problem being solved and why it matters
-2. **Diagram** — a [Mermaid](https://mermaid.js.org/) diagram showing key components and their
-   relationships. Mermaid is text-based, renders on GitHub, and is diffable. When the plan
-   benefits from a richer explanatory visual, optionally create a standalone preview with the
-   `animated-sketch-diagram` skill; obtain approval before integrating it. For UI mockups,
-   generate a PNG with `sharp` or the `canvas-design` skill; store alongside as `<slug>.png`.
-
-   ```mermaid
-   graph TD
-       A[Input] --> B[Process]
-       B --> C[Output]
-   ```
-
-3. **Model recommendation** — which model/provider to use for execution, with rationale.
-   See model selection principles below. Include: recommended model, estimated input/output
-   tokens, estimated cost, and one-sentence rationale.
-
-4. **Steps** — ordered, each with a concrete acceptance criterion ("works when…"), and a
-   reference to the companion test file (`trash/plans/<slug>-tests.md`) where each step's
-   tests are defined in detail.
-5. **Risks** — what can go wrong, mitigation for each
-6. **Doc updates** — which files need changes after implementation (see Documentation Sync)
-
-### TDD — Tests First
-
-Every plan MUST have a companion test file at `trash/plans/<slug>-tests.md`, produced
-alongside the plan itself. When the plan is executed, the verification criteria defined
-in the test file are validated **before** the implementation is considered complete —
-verify-first, not verify-after.
-
-Tests adapt to the plan's domain — "test" means "provable criterion that the work is done
-right." The structure is universal; the content is domain-specific:
-
-| Plan domain | What a "test" means |
-|-------------|---------------------|
-| Software feature | Code test (unit, integration, e2e, contract) |
-| Engineering (e.g., water mill) | Physical criterion (flow rate, RPM, load, tolerances) |
-| Business / strategy | Measurable outcome (revenue, conversion, time-to-market) |
-| Content / documentation | Review checklist, accuracy checks, style compliance |
-| Infrastructure / ops | Health checks, SLO thresholds, chaos-test assertions |
-
-**Test file structure** (`trash/plans/<slug>-tests.md`):
-
-1. **Coverage map** — which plan steps each test group covers, so nothing falls through
-   the cracks. Use a simple table:
-
-   | Plan step | Test group | Coverage |
-   |-----------|-----------|----------|
-   | Step 1    | Unit: …   | …        |
-   | Step 2    | …         | …        |
-
-2. **Test cases** — each test case has:
-   - **Name** — descriptive, unique across the file
-   - **Input / setup** — preconditions, fixtures, mock data, or domain-specific preparation
-   - **Expected behavior** — concrete, measurable outcome; avoid "should work"
-   - **Assertions** — the specific checks that must pass (code assertions, physical
-     measurements, financial targets — whatever the domain demands)
-   - **Edge cases** — boundary conditions, failure modes, edge inputs, worst-case scenarios
-
-3. **Test execution order** — dependencies between test groups. Tests within a group
-   are independent; groups may depend on earlier groups.
-
-4. **Diagrams** (optional) — if a test scenario involves data flow, state transitions,
-   or component interactions that are easier to see than read, include a Mermaid diagram.
-
-5. **Required setup** — any fixtures, tools, environment, migrations, config, or seed
-   data needed before the test suite can run.
-
-When a plan is executed:
-1. Read the companion test file first
-2. Prepare the verification criteria and confirm the current state does **not** satisfy
-   them — red means the test file has teeth (for code: write stubs and watch them fail;
-   for engineering: measure the current output against the target)
-3. Implement the plan steps until all criteria are met (green)
-4. Update the test file if discoveries during implementation change the expected outcome
-5. Confirm the coverage map still holds — no orphaned plan steps, no untested paths
-
-### Model selection
-Right-size the model to the task. A typo fix does not need a frontier model. A security
-audit does not belong on a 7B local model. Default priority:
-
-1. **Local first** — llama.cpp for code edits, file ops, structured reasoning. Zero API cost.
-2. **Cheapest capable cloud** — DeepSeek for reasoning-heavy work, Gemini Flash for throughput
-3. **Precision-critical only** — Anthropic when instruction-following is paramount
-
-For current pricing and capability comparisons, query the project's own memory/wiki:
-`wiki_get("model-selection")` or `recall("model pricing comparison")`.
-If that data is unavailable, use published pricing as of your knowledge cutoff.
-
-## Documentation Sync
-
-After any change that alters behavior, adds a feature, fixes a security issue,
-or changes configuration, check whether these files need updates:
-
-| Change type | Files to update |
-|-------------|-----------------|
-| New feature / tool | `FEATURES.md`, `CHANGELOG.md` |
-| API / config change | `README.md` (if documented there), `CHANGELOG.md` |
-| Security fix | `SECURITY.md`, `CHANGELOG.md` |
-| Dependency change | `README.md` (if listed), `CHANGELOG.md` |
-| Architecture change | `id/reference/architecture.md`, `CHANGELOG.md` |
-| Breaking change | `README.md`, `FEATURES.md`, `CHANGELOG.md` |
-| New/removed MCP tool | `id/reference/mcp-tools.md`, `CHANGELOG.md` |
-| New/removed skill | `id/reference/skills.md`, `CHANGELOG.md` |
-
-**Always confirm with the user before writing doc updates.** State which files need changes
-and why. Wait for confirmation. Never silently modify documentation.
-
-After a commit, push, or release, re-check this table and offer to update any stale docs.
 
 ## Reference Files
 
