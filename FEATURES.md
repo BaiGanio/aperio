@@ -303,7 +303,7 @@ Defenses for the local-first → LAN/hosted threat model (see `security-plan.md`
 
 ## Onboarding & Install (Aperio-lite)
 - Browser setup wizard (`public/setup.html`) driven over `/api/bootstrap/stream` — provider choice, llama.cpp, model download, DB, all without editing config files; `file://` guard redirects users who open the page directly instead of via the launcher
-- Vendored llama.cpp — installs a private, pinned, checksum-verified `llama-server` copy into `vendor/llamacpp` (never system-wide); idle auto-shutdown watchdog + in-app Quit
+- Vendored llama.cpp — installs a private, pinned, checksum-verified `llama-server` copy into `vendor/llamacpp` (never system-wide); Docker keeps it with the model cache in the persistent `/app/var` volume; idle auto-shutdown watchdog + in-app Quit
 - One-click launchers (`.github/lite/`): `START.sh` (macOS/Linux) / `START.bat` (Windows) do only what a browser can't — ensure Node + `npm install`, then start — and drop a hidden-window "Aperio" Desktop launcher for later runs
 - Uninstaller (`uninstall.sh` / `uninstall.bat`) — stops the server + our vendored llama.cpp, removes `vendor/` · `node_modules/` · `var/` · `.sqlite/` + the Desktop launcher, offers to delete the downloaded model, and leaves system Node untouched (honest "left behind" wording via `nodePreexisting` in `bootstrap.lock`)
 - Lite profile (`APERIO_LITE=on`) — SQLite + transformers + docgraph defaults, forced DB config-precedence (the Settings UI rules, never `.env`), essentials-only Web UI with a runtime **Advanced** escape hatch, and non-coder starter memories + a self-contained `public/help.html`

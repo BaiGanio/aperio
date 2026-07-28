@@ -26,7 +26,7 @@ Most changes need only Docker. Use Ubuntu or Debian when native Linux
 installation matters. Use macOS or Windows when testing the desktop installer
 itself.
 
-## A. First run: Docker
+## 01 · Fastest path Docker
 
 Install the host dependencies once:
 
@@ -44,7 +44,12 @@ npm run vmtest:docker -- --image aperio:test-local
 
 The runner chooses a non-default host port, creates a temporary volume, starts
 the image with SQLite/lite settings, checks `/api/bootstrap/state` and
-`/setup.html`, captures logs, and removes the container and volume.
+`/setup.html`, captures logs, and removes the container and volume. It does not
+leave Aperio running, download the local-AI model, or test a real chat. A pass
+proves that the image built, started, and served the setup page.
+
+If your goal is to use Aperio and keep its data, skip the disposable test and
+continue with [Run and keep Aperio](#run-and-keep-aperio).
 
 To debug with a known port or a longer readiness window:
 
@@ -53,11 +58,109 @@ VMTEST_DOCKER_PORT=31338 npm run vmtest:docker -- --image aperio:test-local
 VMTEST_DOCKER_READY_ATTEMPTS=180 npm run vmtest:docker -- --image aperio:test-local
 ```
 
+`VMTEST_DOCKER_READY_ATTEMPTS` is the number of one-second polls allowed while
+waiting for the container's `/api/bootstrap/state` endpoint. The default is 90
+(about 90 seconds); use 180 (about three minutes) only when Docker is slow to
+start or the image is being pulled. It does not change the application timeout
+or make the server faster.
+
 The runner never pulls a missing local tag. Published images must be passed as
 a complete registry reference, preferably a digest:
 
 ```bash
 npm run vmtest:docker -- --image ghcr.io/baiganio/aperio@sha256:<digest>
+```
+
+`<digest>` is a placeholder, not text to copy literally. For the latest
+published image, either use the moving tag directly:
+
+```bash
+npm run vmtest:docker -- --image ghcr.io/baiganio/aperio:latest
+```
+
+Or obtain the immutable digest yourself. Pulling the tag prints a `Digest:`
+line; Docker can also show it afterward:
+
+```bash
+docker pull ghcr.io/baiganio/aperio:latest
+docker image inspect --format '{{index .RepoDigests 0}}' ghcr.io/baiganio/aperio:latest
+```
+
+The package page is [GitHub Packages — Aperio](https://github.com/BaiGanio/aperio/pkgs/container/aperio).
+The deployment workflow publishes `latest` and a commit-SHA tag to GHCR. Use a
+digest when you need to test exactly one published image; use `:latest` when
+you simply want the newest published image.
+
+### Run and keep Aperio
+
+Use this path to open the setup wizard, download a model, chat, and preserve
+your setup between restarts. Start Docker Desktop, open a terminal in the
+Aperio repository root, and run:
+
+```bash
+docker build -f docker/Dockerfile -t aperio:test-local .
+docker volume create aperio-local-var
+
+docker run -d \
+  --name aperio-local \
+  --mount type=volume,source=aperio-local-var,target=/app/var \
+  -e DB_BACKEND=sqlite \
+  -e SQLITE_PATH=/app/var/aperio.db \
+  -e APERIO_LITE=on \
+  -e APERIO_CONFIG_PRECEDENCE=env \
+  -p 127.0.0.1:31338:31337 \
+  aperio:test-local
+```
+
+Docker prints a long container ID when it starts successfully. Open
+`http://127.0.0.1:31338/setup` in your host browser. The container
+listens on port `31337`; host port `31338` is used here to avoid colliding with
+an Aperio instance already running locally. Docker cannot open a browser from
+inside the container, so the URL must be opened manually.
+
+The first local setup downloads about 3.6 GB for Gemma E2B's model and
+multimedia files. Setup shows downloaded bytes and an active progress bar; an
+exact percentage is unavailable while llama.cpp discovers the files. Closing
+and reopening the browser does not discard downloaded data. Model loading may
+take another minute or two. In CPU-only Docker, the first chat response can
+take several minutes, but it must not fail with a context-size error.
+
+Follow the container logs with:
+
+```bash
+docker logs -f aperio-local
+```
+
+Press `Ctrl+C` to stop following the log; Aperio keeps running. Stop it when
+you are finished for now, then start the same container later:
+
+```bash
+docker stop aperio-local
+docker start aperio-local
+```
+
+The named volume preserves the setup state, database, bundled llama.cpp engine,
+and downloaded model cache. A replacement container can therefore reuse the
+completed local-AI setup instead of downloading it again. To delete all
+persisted Docker data, first stop and remove the container:
+
+```bash
+docker stop aperio-local
+docker rm aperio-local
+```
+
+If Docker says the name `aperio-local` is already in use, use
+`docker start aperio-local` rather than creating another copy. If port `31338`
+is already allocated, change only the left side of the mapping to
+`-p 127.0.0.1:31339:31337`, then open
+`http://127.0.0.1:31339/setup`.
+
+The following command permanently erases the setup, memories, SQLite database,
+bundled llama.cpp engine, and downloaded models. Run it only when that is the
+intended result:
+
+```bash
+docker volume rm aperio-local-var
 ```
 
 ## B. Linux ARM64: Vagrant and Parallels

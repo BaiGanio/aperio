@@ -9,6 +9,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Fix: truthful, durable local-AI setup.** The setup wizard now labels total
+  RAM and free model-cache storage explicitly, measures the filesystem that
+  will actually hold the model, and recommends Gemma 4 E2B
+  (`unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL`) for the ≤8 GiB tier. Failed
+  downloads no longer display invented 35% progress or “waiting” transfer text;
+  active downloads report persisted bytes with an indeterminate progress bar,
+  including after reconnecting to setup. Full step errors remain readable.
+  The 8 GiB E2B profile now serves an 8K context (with last-resort prompt
+  compaction) so Aperio's startup context cannot overflow the former 4K window.
+  Docker now stores both the pinned
+  llama.cpp engine, Hugging Face model cache, and Transformers cache in
+  `/app/var`, so recreating a container with its named volume cannot retain
+  `bootstrap.lock` while losing
+  the runtime it describes.
+
 - **Lite installer VM bootstrap:** Linux and macOS installer checks now run the
   real `START.sh` Node.js/dependency bootstrap in non-launching automation mode,
   catching missing-runtime failures on clean guests instead of assuming `npm`

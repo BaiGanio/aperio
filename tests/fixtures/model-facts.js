@@ -1,6 +1,7 @@
 import { getModelFactsCatalog, installModelFacts } from "../../lib/providers/model-facts.js";
 
 export const CURATED_MODEL_FACT_ROWS = [
+  { alias: "gemma4:e2b-qat", hf: "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL", sizeGB: 2.62, maxContext: 131072, kvBytesPerToken: 172032, architecture: "dense", activeParams: null, mmproj: null },
   { alias: "gemma4:e4b-qat", hf: "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL", sizeGB: 3.9, maxContext: 131072, kvBytesPerToken: 172032, architecture: "dense", activeParams: null, mmproj: null },
   { alias: "qwen3.5:9b", hf: "unsloth/Qwen3.5-9B-GGUF:Q4_K_M", sizeGB: 5.3, maxContext: 262144, kvBytesPerToken: 32768, architecture: "dense", activeParams: null, mmproj: null },
   { alias: "qwen3.6:35b-a3b-mtp", hf: "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL", sizeGB: 21.3, maxContext: 262144, kvBytesPerToken: 22528, architecture: "moe", activeParams: 3, mmproj: null },

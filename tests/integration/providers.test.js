@@ -456,7 +456,7 @@ describe("resolveKvCachePolicy", () => {
 
 describe("getRecommendedModel — configurable RAM tiers", () => {
   const defaults = [
-    "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL",
+    "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL",
     "unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
     "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL",
     "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL",

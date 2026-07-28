@@ -136,6 +136,11 @@ describe("migration lockstep", () => {
     assert.ok(sqlNames(pgDir).has("011_model_facts.sql"));
     assert.ok(sqlNames(liteDir).has("011_model_facts.sql"));
   });
+
+  test("012_gemma4_e2b_model_fact exists in both backends", () => {
+    assert.ok(sqlNames(pgDir).has("012_gemma4_e2b_model_fact.sql"));
+    assert.ok(sqlNames(liteDir).has("012_gemma4_e2b_model_fact.sql"));
+  });
 });
 
 describe("011_model_facts seed parity", () => {
@@ -156,6 +161,18 @@ describe("011_model_facts seed parity", () => {
 
   test("both backends seed identical curated rows", () => {
     assert.equal(normalizedSeedRows(pgDir), normalizedSeedRows(liteDir));
+  });
+});
+
+describe("012_gemma4_e2b_model_fact parity", () => {
+  const MIGRATION = "012_gemma4_e2b_model_fact.sql";
+
+  test("both backends install the same E2B model identity and sizing facts", () => {
+    const normalize = dir => squash(stripComments(readFileSync(path.join(dir, MIGRATION), "utf8")))
+      .replaceAll("EXCLUDED", "excluded");
+    assert.equal(normalize(pgDir), normalize(liteDir));
+    assert.match(normalize(pgDir), /gemma4:e2b-qat/);
+    assert.match(normalize(pgDir), /unsloth\/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/);
   });
 });
 

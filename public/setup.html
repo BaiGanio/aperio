@@ -164,6 +164,14 @@
 .model-download__row { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 5px; }
 .model-download__bar { height: 3px; background: var(--border, rgba(128,128,128,0.15)); overflow: hidden; }
 .model-download__fill { height: 100%; width: 0%; background: var(--accent, #7c6aff); transition: width .25s ease; }
+.model-download__fill.is-indeterminate {
+  width: 28%;
+  animation: model-download-indeterminate 1.1s ease-in-out infinite;
+}
+@keyframes model-download-indeterminate {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(360%); }
+}
 .model-download[data-status="completed"] .model-download__fill { background: var(--success, #4caf85); }
 .model-download[data-status="failed"], .model-download[data-status="aborted"] { color: var(--danger, #e05252); }
 
@@ -193,7 +201,11 @@
 .step-card[data-status="running"] .step-detail { color: var(--accent, #7c6aff); }
 .step-card[data-status="done"]    .step-detail,
 .step-card[data-status="skipped"] .step-detail { color: var(--success, #4caf85); }
-.step-card[data-status="error"]   .step-detail { color: var(--danger, #e05252); }
+.step-card[data-status="error"]   .step-detail {
+  color: var(--danger, #e05252);
+  white-space: normal;
+  overflow: visible;
+}
 
 /* ── Right badge ──────────────────────────────────────────────────────────── */
 .step-badge {

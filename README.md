@@ -167,7 +167,7 @@ cp .env.example .env
 ```
 ```env
 AI_PROVIDER=llamacpp
-LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
+LLAMACPP_MODEL=unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL
 # DB_BACKEND=sqlite               # default (auto-detected); uncomment to force
 # SQLITE_PATH=./sqlite/aperio.db  # default location for the single-file DB
 ```
@@ -240,7 +240,7 @@ need more memory. Leave the existing example in place if you are unsure.
 ```env
 LLAMACPP_MODEL=Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M     # strong reasoning, MoE, best tool-calling
 # LLAMACPP_MODEL=ggml-org/gemma-4-12B-it-GGUF:Q4_K_M   # general-purpose, dense
-# LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M  # lightweight fallback, runs anywhere
+# LLAMACPP_MODEL=unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL  # lightweight fallback, runs anywhere
 ```
 ### Step 4. Start Aperio Web UI
 
@@ -829,7 +829,7 @@ No API keys, no data leaving your machine. Aperio vendors and fully manages the
 
 ```env
 AI_PROVIDER=llamacpp
-LLAMACPP_MODEL=Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M
+LLAMACPP_MODEL=unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL
 LLAMACPP_BASE_URL=http://127.0.0.1:8080
 ```
 
@@ -837,7 +837,7 @@ Recommended models (an HF repo[:quant] string — downloaded automatically on fi
 
 | Model | Best for |
 |-------|----------|
-| `Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M` | **Default** — lightweight, runs anywhere (≥ 8 GB RAM) |
+| `unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL` | **Default** — lightweight Gemma 4 QAT model for machines with up to 8 GiB RAM |
 | `ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M` | General-purpose, good tool-calling (≥ 8 GB RAM) |
 | `ggml-org/gemma-4-12B-it-GGUF:Q4_K_M` | Stronger general-purpose (≥ 24 GB RAM) |
 | `Qwen/Qwen3-30B-A3B-GGUF:Q4_K_M` | Heavy reasoning, MoE — fast even on modest hardware via expert offload (≥ 48 GB RAM, or use the `fast-low-vram` perf profile) |

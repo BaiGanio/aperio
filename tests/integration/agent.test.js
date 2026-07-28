@@ -169,7 +169,7 @@ describe("RAM-based model selection", () => {
 
   test("selects the 8 GB tier for low RAM", () => {
     mock.method(os, "totalmem", () => 4 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL");
+    assert.strictEqual(getRecommendedModel(), "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL");
   });
 });
 

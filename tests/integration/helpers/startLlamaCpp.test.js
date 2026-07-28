@@ -223,6 +223,17 @@ describe("buildModelsPreset", () => {
     for (const ctx of ctxLines) assert.ok(ctx <= 4096, `expected a small window on a 4GB machine, got ${ctx}`);
   });
 
+  test("the 8 GiB Gemma E2B tier receives enough context for Aperio's startup prompt", () => {
+    const model = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
+    const noCache = { modelCacheDir: "/definitely/not/a/cache" };
+    const atEightGiB = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.8 });
+    const belowTier = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.4 });
+    const mainSection = ini => ini.slice(ini.indexOf("[aperio-main]"), ini.indexOf("[aperio-vlm]"));
+
+    assert.match(mainSection(atEightGiB), /ctx-size = 8192/);
+    assert.doesNotMatch(mainSection(belowTier), /ctx-size = 8192/);
+  });
+
   test("uses curated hybrid facts conservatively when no inspectable cache is supplied", () => {
     const noCache = { totalRamGB: 32, modelCacheDir: "/definitely/not/a/cache" };
     const q35 = buildModelsPreset({ LLAMACPP_MODEL: "unsloth/Qwen3.5-9B-GGUF:Q4_K_M" }, noCache);

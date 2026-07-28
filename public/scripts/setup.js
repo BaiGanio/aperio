@@ -62,6 +62,7 @@ function applyStep(id, status, detail) {
   const det   = document.getElementById(`detail-${id}`);
   if (!card) return;
 
+  state[id] = { status, detail: detail || "" };
   card.dataset.status  = status;
   badge.className      = `step-badge badge-${status}`;
   if (status === "done" || status === "skipped") {
@@ -113,14 +114,46 @@ function applyDownloadProgress(download) {
   const fill = document.getElementById("modelDownloadFill");
   const labels = { downloading: "Downloading", completed: "Complete", failed: "Download failed", aborted: "Download aborted" };
   status.textContent = download.resumed ? "Resuming download" : (labels[download.status] || "Downloading");
-  if (download.status === "completed") { status.textContent = "Download complete"; fill.style.width = "100%"; }
-  else if (download.percent != null) fill.style.width = `${Math.min(100, download.percent)}%`;
-  else fill.style.width = "35%";
+  const hasTransfer = download.percent != null || download.downloadedBytes != null;
+  if (hasTransfer) fill.dataset.hasTransfer = "true";
+  fill.classList.toggle(
+    "is-indeterminate",
+    download.status === "downloading" && download.downloadedBytes != null && download.totalBytes == null,
+  );
+  if (download.status === "completed") {
+    status.textContent = "Download complete";
+    fill.style.width = "100%";
+  } else if (download.percent != null) {
+    fill.style.width = `${Math.min(100, download.percent)}%`;
+  } else if (!fill.dataset.hasTransfer) {
+    fill.style.width = "0%";
+  }
   if (download.downloadedBytes != null && download.totalBytes != null) {
     stats.textContent = `${formatBytes(download.downloadedBytes)} / ${formatBytes(download.totalBytes)} · ${Math.round(download.percent ?? 0)}% · ${formatBytes(download.speedBytesPerSecond)}/s · ETA ${formatDuration(download.etaSeconds)}`;
   } else if (download.downloadedBytes != null) {
     stats.textContent = `${formatBytes(download.downloadedBytes)} downloaded · total unknown`;
-  } else stats.textContent = "Waiting for transfer details…";
+  } else if (download.status === "failed" || download.status === "aborted") {
+    stats.textContent = fill.dataset.hasTransfer
+      ? "Transfer interrupted — retry will resume."
+      : "Download did not start.";
+  } else {
+    stats.textContent = "Waiting for transfer details…";
+  }
+}
+
+function resetDownloadProgress() {
+  const box = document.getElementById("modelDownload");
+  const status = document.getElementById("modelDownloadStatus");
+  const stats = document.getElementById("modelDownloadStats");
+  const fill = document.getElementById("modelDownloadFill");
+  if (!box || !status || !stats || !fill) return;
+  box.classList.remove("show");
+  delete box.dataset.status;
+  status.textContent = "Waiting for download…";
+  stats.textContent = "";
+  fill.style.width = "0%";
+  fill.classList.remove("is-indeterminate");
+  delete fill.dataset.hasTransfer;
 }
 
 function updateProgress(done, total) {
@@ -132,7 +165,7 @@ function updateProgress(done, total) {
     labelEl.textContent = _t("setup_all_done");
   } else {
     delete labelEl.dataset.i18n;
-    labelEl.textContent = _t("setup_step_of", { n: done + 1, total });
+    labelEl.textContent = _t("setup_step_of", { n: done, total });
   }
 }
 
@@ -192,8 +225,9 @@ function showError(msg) {
 
 document.getElementById("retrySetupBtn")?.addEventListener("click", () => {
   esStarted = false;
+  resetDownloadProgress();
   progressView.style.display = "none";
-  wizardView.style.display = "";
+  wizardView.style.display = "block";
   document.getElementById("errorBanner").classList.remove("show");
   document.querySelectorAll(".wiz-continue").forEach(b => b.disabled = false);
 });
@@ -234,14 +268,14 @@ const progressView = document.getElementById("progressView");
 let esStarted = false;
 function startProgress() {
   wizardView.style.display   = "none";
-  progressView.style.display = "";
+  progressView.style.display = "block";
   if (esStarted) return;
   esStarted = true;
 
   const es = new EventSource("/api/bootstrap/stream");
 
   es.addEventListener("snapshot", e => {
-    const { steps } = JSON.parse(e.data);
+    const { steps, download } = JSON.parse(e.data);
     let done = 0;
     steps.forEach(s => {
       applyStep(s.id, s.status, "");
@@ -249,15 +283,14 @@ function startProgress() {
     });
     doneCount = done;
     updateProgress(done, STEPS.length);
+    if (download) applyDownloadProgress(download);
   });
 
   es.addEventListener("step", e => {
     const { id, status, detail } = JSON.parse(e.data);
     applyStep(id, status, detail);
-    if (status === "done" || status === "skipped") {
-      doneCount++;
-      updateProgress(doneCount, STEPS.length);
-    }
+    doneCount = Object.values(state).filter(step => step.status === "done" || step.status === "skipped").length;
+    updateProgress(doneCount, STEPS.length);
   });
 
   es.addEventListener("progress", e => {
@@ -267,11 +300,14 @@ function startProgress() {
 
   es.addEventListener("complete", () => { es.close(); showDone(); });
   es.addEventListener("error", function(e) {
+    // A native EventSource transport error has no data; leave the connection
+    // open so the browser can reconnect. Bootstrap's named error event carries
+    // JSON data and is terminal.
+    if (!e.data) return;
     try {
       es.close();
       esStarted = false;
       const data = JSON.parse(e.data);
-      applyDownloadProgress({ status: /abort|cancel/i.test(data.message || "") ? "aborted" : "failed" });
       showError(data.message);
     }
     catch (_e) { /* SSE connection drop — browser will retry automatically */ }
@@ -285,7 +321,10 @@ const wizLocal  = document.getElementById("wizLocal");
 
 function showScreen(el) {
   [wizChoice, wizCloud, wizLocal].forEach(s => s.style.display = "none");
-  el.style.display = "";
+  // Cloud/local screens carry csp-style-13, whose stylesheet default is
+  // display:none. Clearing the inline style leaves them hidden, so restore the
+  // flex layout explicitly when the user selects a screen.
+  el.style.display = "flex";
 }
 
 document.querySelectorAll("[data-choice]").forEach(btn => {
@@ -326,7 +365,7 @@ document.getElementById("wizCloudGo").addEventListener("click", () => {
 // ── Local screen ───────────────────────────────────────────────────────────
 // llama.cpp is the only local engine. /api/setup/specs recommends a model
 // sized to this machine's RAM.
-const FALLBACK_MODEL_HF = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M";
+const FALLBACK_MODEL_HF = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
 let recommendedModel = null;
 let recommendedModelHf = null;
 let shouldPullLocalModel = false;
@@ -390,9 +429,10 @@ async function loadSpecs() {
     shouldPullLocalModel = true;
     selectedLocalModel = null;
     populateCachedModels(s);
-    const disk = s.diskGB == null ? _t("wiz_specs_unknown") : `${s.diskGB} GB`;
+    const disk = s.diskGB == null ? _t("wiz_specs_unknown") : `${s.diskGB} GiB`;
     const size = s.modelSizeGB ? ` ${_t("wiz_download", { n: s.modelSizeGB })}` : "";
-    let html = `<b>${s.ramGB} GB</b> ${_t("wiz_ram")} &middot; <b>${disk}</b> ${_t("wiz_disk")}<br>`
+    const diskPath = s.diskPath ? ` <code>${escapeHtml(s.diskPath)}</code>` : "";
+    let html = `<b>${s.ramGB} GiB</b> ${_t("wiz_ram")} &middot; <b>${disk}</b> ${_t("wiz_disk")}${diskPath}<br>`
              + `${_t("wiz_recommended")} <b>${escapeHtml(s.recommendedModel)}</b>${size}`
              + `<br><small>Model ID: <code>${escapeHtml(s.recommendedModelHf)}</code></small>`;
     if (!s.enoughDisk) html += `<br><span class="wiz-warn">${_t("wiz_disk_warn")}</span>`;

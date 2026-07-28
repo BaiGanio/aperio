@@ -12,7 +12,7 @@ for (const backend of await contractBackends()) {
 
     test("returns the curated catalog with one normalized shape", async () => {
       const rows = await store.getModelFacts();
-      assert.equal(rows.length, 5);
+      assert.equal(rows.length, 6);
       const qwen = rows.find(row => row.alias === "qwen3.6:35b-a3b-mtp");
       assert.ok(qwen);
       assert.deepEqual(qwen, {
