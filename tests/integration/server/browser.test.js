@@ -1,8 +1,8 @@
 // Tests for browser.js — auto-launch the user's browser at boot.
 //
 // openBrowser() uses child_process.execFile and fs.mkdirSync internally.
-// The function accepts deps.execFile and deps.mkdirSync so tests can
-// inject spies without touching the built-in module bindings.
+// The function accepts deps.execFile, deps.mkdirSync, and deps.platform so
+// tests can inject spies and a target OS without touching built-in bindings.
 // The function is synchronous (fire-and-forget); the mock execFile
 // delivers its callback synchronously so all assertions are immediate.
 
@@ -91,7 +91,11 @@ before(async () => {
 describe("openBrowser (macOS darwin)", () => {
   const URL  = "http://localhost:31337";
   const ROOT = "/tmp/aperio-test";
-  const DEPS = { execFile: mockExecFile, mkdirSync: mockMkdirSync };
+  const DEPS = {
+    execFile: mockExecFile,
+    mkdirSync: mockMkdirSync,
+    platform: "darwin",
+  };
 
   beforeEach(() => {
     resetMockState();
