@@ -277,6 +277,12 @@ number · tier 1 (Settings UI, restart to apply) · default: `8080` · advanced
 
 Port the vendored llama-server listens on (127.0.0.1 only).
 
+#### `LLAMACPP_VENDOR_DIR`
+
+path · tier 0 (bootstrap — .env only) · default: `vendor/llamacpp`
+
+Private directory containing Aperio's pinned llama-server binary. Docker points this into its persistent runtime volume; normal installs keep it inside the app folder.
+
 #### `LLAMACPP_BASE_URL`
 
 text · tier 1 (Settings UI, restart to apply) · default: `http://127.0.0.1:8080` · advanced
@@ -285,13 +291,13 @@ llama-server chat API base URL.
 
 #### `LLAMACPP_MODEL`
 
-text · tier 1 (Settings UI, restart to apply) · default: `Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M`
+text · tier 1 (Settings UI, restart to apply) · default: `unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL`
 
 Hugging Face repo[:quant] for the main model (llama-server -hf format). Becomes the hf-repo of the router's `aperio-main` preset entry; requests send that stable alias as the `model` field (not the raw repo id, which would load a second, full-context copy).
 
 #### `LLAMACPP_MODEL_TIER_8`
 
-text · tier 1 (Settings UI, restart to apply) · default: `unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL` · advanced
+text · tier 1 (Settings UI, restart to apply) · default: `unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL` · advanced
 
 Recommended llama.cpp model for machines with up to 8 GB RAM (Hugging Face repo[:quant]).
 
@@ -330,6 +336,12 @@ JSON object keyed by HF repo path (with optional :quant suffix) overriding both 
 number · tier 1 (Settings UI, restart to apply) · default: `32768` · advanced
 
 Context window (tokens) the app assumes for its trim/cap math. Successor of OLLAMA_NUM_CTX. The real KV cache is sized by LLAMACPP_SERVE_CTX (the model's --ctx-size in the router preset); Aperio passes this through when it starts llama-server for you.
+
+#### `LLAMACPP_MIN_AGENT_CTX`
+
+number · tier 1 (Settings UI, restart to apply) · default: `8192` · advanced
+
+Minimum served context for Aperio's default Gemma 4 E2B local agent on machines with at least 7.5 GiB RAM. Prevents the identity, memory pointer, and minimum tool schema from exceeding a tiny llama.cpp window.
 
 #### `LLAMACPP_SERVE_CTX`
 

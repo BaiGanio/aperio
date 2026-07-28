@@ -1044,8 +1044,7 @@ describe("printConfig", () => {
     delete process.env.LLAMACPP_CTX;
     delete process.env.LLAMACPP_SERVE_CTX;
     const output = await capture();
-    // LLAMACPP_MODEL defaults to the curated Qwen model in the row fallback.
-    assert.ok(output.includes("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"), "LLAMACPP_MODEL should fall back to the curated default");
+    assert.ok(output.includes("unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL"), "LLAMACPP_MODEL should fall back to the curated default");
   });
 });
 

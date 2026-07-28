@@ -67,4 +67,9 @@ test("visual VM guide links to maintained instructions and describes both deskto
   assert.doesNotMatch(guide, /href="README\.md"/);
   assert.match(guide, /snapshot \+ linked clone/i);
   assert.match(guide, /private paths and runtime details/i);
+  assert.match(guide, /does not leave Aperio running/i);
+  assert.match(guide, /Run and keep Aperio/i);
+  assert.match(guide, /Permanent deletion/i);
+  assert.match(guide, /first response in CPU-only Docker can take several minutes/i);
+  assert.match(guide, /aria-label="Copy persistent Docker setup commands"/);
 });

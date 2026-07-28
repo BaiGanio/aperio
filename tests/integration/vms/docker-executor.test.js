@@ -27,12 +27,17 @@ test("Docker runner requires an image and never pulls missing local tags", async
 
 test("Docker runner uses isolated non-default networking and volume state", async () => {
   const script = await readFile(resolve(ROOT, "vms/docker/run.sh"), "utf8");
+  const dockerfile = await readFile(resolve(ROOT, "docker/Dockerfile"), "utf8");
   assert.match(script, /docker volume create/);
   assert.match(script, /--mount "type=volume/);
   assert.match(script, /DB_BACKEND=sqlite/);
   assert.match(script, /127\.0\.0\.1:\$\{PORT\}:31337/);
   assert.match(script, /PORT.*31337/);
   assert.match(script, /SQLITE_PATH=\/app\/var\/vms\.db/);
+  assert.match(dockerfile, /HOME=\/app\/var\/home/);
+  assert.match(dockerfile, /TRANSFORMERS_CACHE=\/app\/var\/cache\/transformers/);
+  assert.match(dockerfile, /LLAMA_CACHE=\/app\/var\/models/);
+  assert.match(dockerfile, /LLAMACPP_VENDOR_DIR=\/app\/var\/llamacpp/);
 });
 
 test("Docker runner records metadata, checks the UI contract, and always cleans up", async () => {

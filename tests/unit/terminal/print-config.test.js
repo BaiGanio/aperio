@@ -37,7 +37,7 @@ function buildExpectedOutput({ get, precedence, warnings }) {
   out += `  ${GRAY}${"precedence".padEnd(22)}${R}${precedence}\n`;
   out += formatRow("AI_PROVIDER", "AI_PROVIDER", get, "anthropic");
   if (provider === "llamacpp") {
-    out += formatRow("LLAMACPP_MODEL", "LLAMACPP_MODEL", get, "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M");
+    out += formatRow("LLAMACPP_MODEL", "LLAMACPP_MODEL", get, "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL");
     out += formatRow("LLAMACPP_CTX", "LLAMACPP_CTX", get, "32768");
     out += formatRow("LLAMACPP_SERVE_CTX", "LLAMACPP_SERVE_CTX", get);
   }
@@ -152,7 +152,7 @@ describe("CLI /config output format", () => {
 
     const plain = stripAnsi(out);
     // The row() function's fallback for LLAMACPP_MODEL is the curated default
-    assert.ok(plain.includes("Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M"), "unset LLAMACPP_MODEL shows curated fallback");
+    assert.ok(plain.includes("unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL"), "unset LLAMACPP_MODEL shows curated fallback");
     assert.ok(plain.includes("(unset)"), "unset value without fallback shows '(unset)'");
   });
 

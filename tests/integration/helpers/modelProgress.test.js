@@ -7,6 +7,7 @@ import { tmpdir } from "os";
 import {
   cacheDirNameFor,
   downloadInProgressBytes,
+  downloadedModelBytes,
   startModelProgressWatcher,
 } from "../../../lib/helpers/modelProgress.js";
 import { installCuratedModelFacts } from "../../fixtures/model-facts.js";
@@ -78,6 +79,24 @@ describe("downloadInProgressBytes", () => {
     const stale = (Date.now() - 16 * 60 * 1000) / 1000;
     utimesSync(marker, stale, stale);
     assert.equal(downloadInProgressBytes(MODEL, root), 0);
+  });
+});
+
+describe("downloadedModelBytes", () => {
+  const MODEL = "unsloth/Qwen3.6-27B-GGUF:Q4_K_M";
+
+  test("keeps completed and in-progress shards in one monotonic byte count", () => {
+    const root = makeCache(MODEL, {
+      "aaa.downloadInProgress": 1000,
+      "bbb": 500,
+    });
+    assert.equal(downloadedModelBytes(MODEL, root), 1500);
+  });
+
+  test("returns 0 for a missing repo or a bare alias", () => {
+    const root = makeCache(MODEL, {});
+    assert.equal(downloadedModelBytes("org/missing", root), 0);
+    assert.equal(downloadedModelBytes("bare-alias", root), 0);
   });
 });
 

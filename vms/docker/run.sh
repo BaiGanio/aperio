@@ -128,4 +128,9 @@ html="$(curl -fsS "http://127.0.0.1:${PORT}/setup.html")" || { echo "setup page 
 grep -q '<html' <<<"$html" || { echo "setup page is not HTML" >&2; exit 1; }
 grep -q 'setup' <<<"$html" || { echo "setup page lacks setup markers" >&2; exit 1; }
 printf '✔ UI shell: /setup.html\n'
+
+specs="$(curl -fsS "http://127.0.0.1:${PORT}/api/setup/specs")" || { echo "setup specs endpoint failed" >&2; exit 1; }
+node -e "const data=JSON.parse(process.argv[1]); if (!data || typeof data !== 'object') process.exit(1)" "$specs" \
+  || { echo "setup specs response is not valid JSON" >&2; exit 1; }
+printf '✔ Setup specs: /api/setup/specs\n'
 status=0

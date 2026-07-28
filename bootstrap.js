@@ -1,13 +1,19 @@
 // bootstrap.js
 import { spawn, execSync, exec } from 'child_process';
 import { createWriteStream, existsSync, writeFileSync, readFileSync, mkdirSync } from 'fs';
-import { resolve, delimiter } from 'path';
+import { resolve } from 'path';
 import { EventEmitter } from 'events';
 import net from 'net';
 import { promisify } from 'util';
 import { resolveModelCacheDir } from './lib/helpers/modelCache.js';
-import { downloadInProgressBytes } from './lib/helpers/modelProgress.js';
+import { downloadInProgressBytes, downloadedModelBytes } from './lib/helpers/modelProgress.js';
 import { parseDownloadProgress, stripAnsi } from './lib/helpers/downloadProgress.js';
+import {
+  ensureLlamaCppVendorOnPath,
+  llamaCppBinaryName,
+  resolveLlamaCppVendorDir,
+} from './lib/helpers/llamacppBinary.js';
+import { defaultLocalModel } from './lib/providers/index.js';
 
 const execAsync = promisify(exec);
 
@@ -41,6 +47,18 @@ export const STEPS = [
 
 // 'idle' | 'running' | 'done' | 'skipped' | 'error'
 export const stepState = Object.fromEntries(STEPS.map(s => [s.id, 'idle']));
+let bootstrapDownload = null;
+export const getBootstrapDownload = () => bootstrapDownload ? { ...bootstrapDownload } : null;
+
+const emitDownload = (download, message = '', level = 'info') => {
+  bootstrapDownload = { ...download };
+  bootstrapEvents.emit('progress', {
+    message,
+    level,
+    download: { ...bootstrapDownload },
+    ts: Date.now(),
+  });
+};
 
 const setStep = (id, status, detail = '') => {
   stepState[id] = status;
@@ -99,11 +117,11 @@ const runSilently = (command, args = [], options = {}) =>
 // No headless, no-admin installer fits every platform, so we vendor the
 // official prebuilt `llama-server` release asset. Pinned to a single build
 // (b9938) + sha256 verified against GitHub's reported digest (see
-// llamacpp.md Phase 0 spike report); bump deliberately. Windows/Linux ship
-// the Vulkan build (broadest single choice per the spike's risk-table
-// decision — CPU-only assets exist as a documented fallback for power users,
-// not wired here). macOS ships arm64/Metal only (Intel Mac out of scope,
-// matching the plan's binary matrix).
+// llamacpp.md Phase 0 spike report); bump deliberately. Windows and Linux x64
+// ship the Vulkan build. Linux ARM64 uses the CPU build because Docker Desktop
+// on Apple Silicon is an ARM64 guest and a slim container has no Vulkan runtime.
+// macOS ships arm64/Metal only (Intel Mac out of scope, matching the plan's
+// binary matrix).
 // Wired into runBootstrap() via the 'engine' step (see the `engine` param).
 const LLAMACPP_VER            = 'b9938';
 const LLAMACPP_BASE           = `https://github.com/ggml-org/llama.cpp/releases/download/${LLAMACPP_VER}`;
@@ -111,74 +129,71 @@ const LLAMACPP_MAC_URL        = `${LLAMACPP_BASE}/llama-${LLAMACPP_VER}-bin-maco
 const LLAMACPP_SHA_MAC        = '9290822c15c1275ff6edaba0801e0c9db1aceec6919792efcadda260c79a04a3';
 const LLAMACPP_WIN_URL        = `${LLAMACPP_BASE}/llama-${LLAMACPP_VER}-bin-win-vulkan-x64.zip`;
 const LLAMACPP_SHA_WIN        = '9afc70c01aed1e6847de572bd00bcb2783cfd8100d22c1a7310d5c1ad0961b35';
-const LLAMACPP_LINUX_URL      = `${LLAMACPP_BASE}/llama-${LLAMACPP_VER}-bin-ubuntu-vulkan-x64.tar.gz`;
-const LLAMACPP_SHA_LINUX      = 'a79ff739931ca3da1401250892a5e0a492bfc81743b925a7afd05ba4cc538cd9';
-const VENDOR_LLAMACPP_DIR     = './vendor/llamacpp';
-const LLAMACPP_BIN            = process.platform === 'win32' ? 'llama-server.exe' : 'llama-server';
-
-// If a prior run vendored llama.cpp, make it discoverable to execSync/spawn('llama-server').
-const ensureLlamaCppVendorOnPath = () => {
-  if (!existsSync(`${VENDOR_LLAMACPP_DIR}/${LLAMACPP_BIN}`)) return;
-  const abs = resolve(VENDOR_LLAMACPP_DIR);
-  if (!process.env.PATH.split(delimiter).includes(abs)) {
-    process.env.PATH = `${abs}${delimiter}${process.env.PATH}`;
-  }
-};
-
+const LLAMACPP_LINUX_ARM64    = `${LLAMACPP_BASE}/llama-${LLAMACPP_VER}-bin-ubuntu-arm64.tar.gz`;
+const LLAMACPP_LINUX_X64      = `${LLAMACPP_BASE}/llama-${LLAMACPP_VER}-bin-ubuntu-vulkan-x64.tar.gz`;
+const LLAMACPP_URL_LINUX      = process.arch === 'arm64' ? LLAMACPP_LINUX_ARM64 : LLAMACPP_LINUX_X64;
+const LLAMACPP_SHA_LINUX      = process.arch === 'arm64'
+  ? '69db3ad52797ee959dcfe0069504220ab4b34360a20cd66141405e417326ffb9'
+  : 'a79ff739931ca3da1401250892a5e0a492bfc81743b925a7afd05ba4cc538cd9';
 // macOS: download → verify → extract into ./vendor/llamacpp. The release tar
 // nests everything under a `llama-<tag>/` folder; --strip-components=1 flattens
 // it to match Ollama's vendor-dir layout (binary directly at VENDOR_DIR/llama-server).
 const installLlamaCppMac = async () => {
   setStep('engine', 'running', 'Downloading the llama.cpp engine (~50 MB, one time)…');
-  mkdirSync(VENDOR_LLAMACPP_DIR, { recursive: true });
+  const vendorDir = resolveLlamaCppVendorDir();
+  mkdirSync(vendorDir, { recursive: true });
   const tgz = './var/llamacpp-macos.tgz';
   await runSilently('sh', ['-c', `curl -fL "${LLAMACPP_MAC_URL}" -o "${tgz}"`]);
   const got = execSync(`shasum -a 256 "${tgz}"`, { encoding: 'utf8' }).trim().split(/\s+/)[0];
   if (got !== LLAMACPP_SHA_MAC) throw new Error('llama.cpp checksum mismatch — refusing to install');
   await runSilently('sh', ['-c',
-    `tar -xzf "${tgz}" -C "${VENDOR_LLAMACPP_DIR}" --strip-components=1 && rm -f "${tgz}" && chmod +x "${VENDOR_LLAMACPP_DIR}/llama-server"`
+    `tar -xzf "${tgz}" -C "${vendorDir}" --strip-components=1 && rm -f "${tgz}" && chmod +x "${vendorDir}/llama-server"`
   ]);
   ensureLlamaCppVendorOnPath();
-  setStep('engine', 'done', 'llama.cpp engine installed (vendored)');
+  setStep('engine', 'done', `Bundled llama.cpp engine installed (official ggml-org release ${LLAMACPP_VER})`);
 };
 
 // Windows: download → verify → extract via PowerShell into ./vendor/llamacpp.
 // The Windows zip has no wrapper folder, so this is a plain Expand-Archive.
 const installLlamaCppWin = async () => {
   setStep('engine', 'running', 'Downloading the llama.cpp engine (one time)…');
-  mkdirSync(VENDOR_LLAMACPP_DIR, { recursive: true });
+  const vendorDir = resolveLlamaCppVendorDir();
+  mkdirSync(vendorDir, { recursive: true });
   const zip = './var/llamacpp-windows.zip';
   const ps = (cmd) => runSilently('powershell', ['-NoProfile', '-NonInteractive', '-Command', cmd]);
   await ps(`Invoke-WebRequest -Uri '${LLAMACPP_WIN_URL}' -OutFile '${zip}'`);
   const got = execSync(`powershell -NoProfile -Command "(Get-FileHash '${zip}' -Algorithm SHA256).Hash"`, { encoding: 'utf8' }).trim().toLowerCase();
   if (got !== LLAMACPP_SHA_WIN) throw new Error('llama.cpp checksum mismatch — refusing to install');
-  await ps(`Expand-Archive -Path '${zip}' -DestinationPath '${VENDOR_LLAMACPP_DIR}' -Force; Remove-Item '${zip}'`);
+  await ps(`Expand-Archive -Path '${zip}' -DestinationPath '${vendorDir}' -Force; Remove-Item '${zip}'`);
   ensureLlamaCppVendorOnPath();
-  setStep('engine', 'done', 'llama.cpp engine installed (vendored)');
+  setStep('engine', 'done', `Bundled llama.cpp engine installed (official ggml-org release ${LLAMACPP_VER})`);
 };
 
 // Linux: llama.cpp has no installer script, so vendor here too. Same
 // nested-folder tar layout as macOS.
 const installLlamaCppLinux = async () => {
   setStep('engine', 'running', 'Downloading the llama.cpp engine (~80 MB, one time)…');
-  mkdirSync(VENDOR_LLAMACPP_DIR, { recursive: true });
+  const vendorDir = resolveLlamaCppVendorDir();
+  mkdirSync(vendorDir, { recursive: true });
   const tgz = './var/llamacpp-linux.tgz';
-  await runSilently('sh', ['-c', `curl -fL "${LLAMACPP_LINUX_URL}" -o "${tgz}"`]);
+  await runSilently('sh', ['-c', `curl -fL "${LLAMACPP_URL_LINUX}" -o "${tgz}"`]);
   const got = execSync(`sha256sum "${tgz}"`, { encoding: 'utf8' }).trim().split(/\s+/)[0];
   if (got !== LLAMACPP_SHA_LINUX) throw new Error('llama.cpp checksum mismatch — refusing to install');
   await runSilently('sh', ['-c',
-    `tar -xzf "${tgz}" -C "${VENDOR_LLAMACPP_DIR}" --strip-components=1 && rm -f "${tgz}" && chmod +x "${VENDOR_LLAMACPP_DIR}/llama-server"`
+    `tar -xzf "${tgz}" -C "${vendorDir}" --strip-components=1 && rm -f "${tgz}" && chmod +x "${vendorDir}/llama-server"`
   ]);
   ensureLlamaCppVendorOnPath();
-  setStep('engine', 'done', 'llama.cpp engine installed (vendored)');
+  setStep('engine', 'done', `Bundled llama.cpp engine installed (official ggml-org release ${LLAMACPP_VER})`);
 };
 
 // Install if missing.
 const checkLlamaCpp = async () => {
   setStep('engine', 'running', 'Checking llama.cpp…');
-  ensureLlamaCppVendorOnPath();
-  if (isInstalled('llama-server')) {
-    setStep('engine', 'skipped', 'llama.cpp already installed');
+  const usingBundledEngine = ensureLlamaCppVendorOnPath();
+  if (isInstalled(llamaCppBinaryName())) {
+    setStep('engine', 'skipped', usingBundledEngine
+      ? `Bundled llama.cpp engine ready (official ggml-org release ${LLAMACPP_VER})`
+      : 'llama.cpp engine already available on PATH');
     return;
   }
   if (process.platform === 'darwin') await installLlamaCppMac();
@@ -305,6 +320,7 @@ const primeLlamaCppModelOnPort = (repoWithQuant, scratchPort) => new Promise((re
   let poll;
   const existingBytes = downloadInProgressBytes(repoWithQuant, LLAMA_CACHE_DIR);
   let progress = { downloadedBytes: existingBytes, resumed: existingBytes > 0 };
+  let lastCacheBytes = -1;
   let lineBuffer = '';
   const consume = (chunk) => {
     lineBuffer += stripAnsi(chunk.toString());
@@ -315,12 +331,7 @@ const primeLlamaCppModelOnPort = (repoWithQuant, scratchPort) => new Promise((re
       logger(line.trim());
       if (!parsed) continue;
       progress = { ...progress, ...parsed };
-      bootstrapEvents.emit('progress', {
-        message: line.trim(),
-        level: 'info',
-        download: { model: repoWithQuant, status: 'downloading', ...parsed },
-        ts: Date.now(),
-      });
+      emitDownload({ model: repoWithQuant, status: 'downloading', ...parsed }, line.trim());
     }
   };
   const finish = (fn, arg) => {
@@ -342,6 +353,17 @@ const primeLlamaCppModelOnPort = (repoWithQuant, scratchPort) => new Promise((re
   const deadline = Date.now() + 20 * 60 * 1000; // large GGUFs can take a while
   poll = setInterval(async () => {
     if (Date.now() > deadline) { finish(rejectPrime, new Error(`Timed out downloading ${repoWithQuant}`)); return; }
+    const cacheBytes = downloadedModelBytes(repoWithQuant, LLAMA_CACHE_DIR);
+    if (cacheBytes > 0 && cacheBytes !== lastCacheBytes) {
+      lastCacheBytes = cacheBytes;
+      emitDownload({
+        model: repoWithQuant,
+        status: 'downloading',
+        downloadedBytes: cacheBytes,
+        resumed: progress.resumed,
+        indeterminate: true,
+      }, `${repoWithQuant}: ${cacheBytes} bytes downloaded`);
+    }
     try {
       const r = await fetch(`http://127.0.0.1:${scratchPort}/health`, { signal: AbortSignal.timeout(1000) });
       if (r.ok) finish(resolvePrime, undefined);
@@ -388,15 +410,13 @@ const checkLlamaCppModel = async (model, { pullIfMissing = false } = {}) => {
   setStep('model', 'running', `Downloading ${model} — this may take a few minutes…`);
   try {
     await primeLlamaCppModel(model);
-    bootstrapEvents.emit('progress', {
-      message: `${model} download complete`, level: 'info',
-      download: { model, status: 'completed' }, ts: Date.now(),
-    });
+    emitDownload({ model, status: 'completed' }, `${model} download complete`);
   } catch (err) {
-    bootstrapEvents.emit('progress', {
-      message: `Model download failed: ${err.message}`, level: 'error',
-      download: { model, status: /abort|signal|cancel/i.test(err.message) ? 'aborted' : 'failed' }, ts: Date.now(),
-    });
+    emitDownload(
+      { model, status: /abort|signal|cancel/i.test(err.message) ? 'aborted' : 'failed' },
+      `Model download failed: ${err.message}`,
+      'error',
+    );
     setStep('model', 'error', `Model download failed: ${err.message}`);
     throw err;
   }
@@ -423,6 +443,7 @@ const checkSqlite = async () => {
 // provider — no local engine/model steps to run).
 export const runBootstrap = async ({ model, engine = null, pullModel = false } = {}) => {
   for (const step of STEPS) stepState[step.id] = 'idle';
+  bootstrapDownload = null;
   logger('=== Bootstrap starting ===');
   bootstrapEvents.emit('start');
 
@@ -435,7 +456,7 @@ export const runBootstrap = async ({ model, engine = null, pullModel = false } =
       setStep('engine', 'skipped', 'Using a cloud provider');
       setStep('model',  'skipped', 'Using a cloud provider');
     } else if (engine === 'llamacpp') {
-      resolvedModel = model || 'Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M';
+      resolvedModel = model || defaultLocalModel();
       await checkLlamaCpp();
       await checkLlamaCppModel(resolvedModel, { pullIfMissing: pullModel });
     }

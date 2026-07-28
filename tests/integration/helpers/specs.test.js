@@ -71,7 +71,7 @@ function cacheWithModel(repoId) {
 
 describe("getSpecs — custom / non-catalog tier model", () => {
   test("uses an explicit first-install model instead of a larger RAM-tier recommendation", () => {
-    const model = "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL";
+    const model = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
     process.env.LLAMACPP_MODEL = model;
     for (const k of ["LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"]) {
       process.env[k] = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL";
@@ -107,5 +107,15 @@ describe("getSpecs — custom / non-catalog tier model", () => {
     if (specs.diskGB != null) {
       assert.equal(specs.enoughDisk, specs.diskGB > specs.modelSizeGB + 2);
     }
+  });
+
+  test("reports free space for the model-cache filesystem even before the cache directory exists", () => {
+    const root = mkdtempSync(join(tmpdir(), "aperio-specs-cache-root-")); roots.push(root);
+    process.env.LLAMA_CACHE = join(root, "missing", "nested", "hub");
+
+    const specs = getSpecs();
+    assert.equal(specs.diskPath, process.env.LLAMA_CACHE);
+    assert.equal(typeof specs.diskGB, "number");
+    assert.ok(specs.diskGB > 0);
   });
 });

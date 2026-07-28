@@ -7,7 +7,12 @@
 
 import { describe, test, mock, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { estimateThinkingTokens, fitToolsToContext, getToolLoopGuidance } from "../../../lib/agent/providers/llamacpp.js";
+import {
+  compactSystemPromptToContext,
+  estimateThinkingTokens,
+  fitToolsToContext,
+  getToolLoopGuidance,
+} from "../../../lib/agent/providers/llamacpp.js";
 
 test("request preflight removes lowest-priority schemas until headroom is restored", () => {
   const tools = ["recall", "wiki_write", "wiki_search", "wiki_list"].map(name => ({
@@ -43,6 +48,20 @@ test("request preflight estimates inline images at a flat allowance, not their b
 
   assert.equal(result.removed, 0);
   assert.ok(result.estimatedTokens < 5_000, `estimate should ignore base64 bulk, got ${result.estimatedTokens}`);
+});
+
+test("request preflight compacts an oversized system prompt below a small local budget", () => {
+  const messages = [
+    { role: "system", content: `identity-start\n${"detail ".repeat(5000)}\nprovider-tail` },
+    { role: "user", content: "hey dude" },
+  ];
+  const result = compactSystemPromptToContext(messages, [], 4096);
+
+  assert.ok(result.removedTokens > 0);
+  assert.ok(result.estimatedTokens <= Math.floor(4096 * 0.9));
+  assert.match(result.messages[0].content, /identity-start/);
+  assert.match(result.messages[0].content, /provider-tail/);
+  assert.match(result.messages[0].content, /compacted to fit/);
 });
 
 test("post-recall guidance completes an explicit wiki write directly and concisely", () => {
