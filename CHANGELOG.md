@@ -9,6 +9,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Lite installer VM bootstrap:** Linux and macOS installer checks now run the
+  real `START.sh` Node.js/dependency bootstrap in non-launching automation mode,
+  catching missing-runtime failures on clean guests instead of assuming `npm`
+  is already installed. The bootstrap now requires the same Node.js 22 baseline
+  as the smoke contract on POSIX and Windows, and handles nvm under
+  strict-shell mode.
+
 - **Codegraph: per-repo graph cache** (issue #283 follow-up). `code_neighbors`,
   `code_path`, `code_insights`, and `GET /api/codegraph/graph` no longer refetch
   and rebuild the full repo graph from the DB on every request. `lib/codegraph/graphCache.js`

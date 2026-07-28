@@ -23,6 +23,10 @@ APERIO_INSTALL_NO_START=1 \
   bash "$STAGE/.github/lite/install.sh" || fail "one-liner installer failed"
 
 cd "$INSTALL_DIR" || fail "installed directory is missing"
-npm install --prefer-offline --no-audit --no-fund || fail "guest dependency install failed"
+APERIO_START_NO_RUN=1 bash START.sh || fail "guest runtime bootstrap failed"
+set +u
+. "$HOME/.nvm/nvm.sh"
+nvm use --lts >/dev/null || fail "guest Node.js activation failed"
+set -u
 bash "$STAGE/vms/smoke.sh" "$INSTALL_DIR" || fail "shared smoke contract failed"
 printf '✔ macOS ARM64 guest install and smoke\n'

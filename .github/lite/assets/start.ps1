@@ -10,7 +10,7 @@
 $ErrorActionPreference = "Stop"
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 
-$MinNodeVersion = 18
+$MinNodeVersion = 22
 
 # --- Resolve the app root (the folder that holds package.json) ---
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -38,7 +38,7 @@ Write-Host "  |   Aperio-lite  - starting up...      |" -ForegroundColor Cyan
 Write-Host "  +--------------------------------------+" -ForegroundColor Cyan
 Write-Host ""
 
-# --- 1. Node.js (>= 18) -----------------------------------------------------
+# --- 1. Node.js (>= 22) -----------------------------------------------------
 $major = 0
 if (Get-Command node -ErrorAction SilentlyContinue) {
     $major = ((node -v) -replace 'v','').Split('.')[0] -as [int]

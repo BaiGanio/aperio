@@ -35,10 +35,19 @@ Vagrant.configure("2") do |config|
         APERIO_HOME="$HOME/aperio" \
         APERIO_INSTALL_NO_START=1 \
         bash /vagrant-repo/.github/lite/install.sh
-      (cd "$HOME/aperio" && npm install --prefer-offline --no-audit --no-fund)
+      # The installer clones the selected branch; overlay the staged launcher
+      # so local VM runs exercise the exact checkout under test as well.
+      cp /vagrant-repo/.github/lite/START.sh "$HOME/aperio/START.sh"
+      (cd "$HOME/aperio" && APERIO_START_NO_RUN=1 bash START.sh)
+      set +u
+      . "$HOME/.nvm/nvm.sh"
+      nvm use --lts >/dev/null
+      set -u
       bash /vagrant-repo/vms/smoke.sh "$HOME/aperio"
       printf 'y\n' | bash "$HOME/aperio/uninstall.sh"
-      test ! -e "$HOME/aperio"
+      test ! -e "$HOME/aperio/node_modules"
+      test ! -e "$HOME/aperio/var"
+      test ! -e "$HOME/aperio/.sqlite"
     SHELL
   end
 
@@ -55,7 +64,12 @@ Vagrant.configure("2") do |config|
       rm -rf "$HOME/aperio"
       git clone --depth 1 file:///vagrant-repo "$HOME/aperio"
       cd "$HOME/aperio"
-      npm install
+      cp .github/lite/START.sh ./START.sh
+      APERIO_START_NO_RUN=1 bash START.sh
+      set +u
+      . "$HOME/.nvm/nvm.sh"
+      nvm use --lts >/dev/null
+      set -u
       npm run migrate:sqlite
       bash /vagrant-repo/vms/smoke.sh "$HOME/aperio"
     SHELL
