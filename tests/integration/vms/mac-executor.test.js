@@ -44,7 +44,7 @@ test("macOS guest runner asserts Darwin ARM64 and invokes the shared smoke contr
   assert.match(guest, /uname -s/);
   assert.match(guest, /uname -m/);
   assert.match(guest, /APERIO_REPO_URL="file:\/\/\$STAGE"/);
-  assert.match(guest, /npm install/);
+  assert.match(guest, /APERIO_START_NO_RUN=1 bash START\.sh/);
   assert.match(guest, /vms\/smoke\.sh/);
   assert.match(guest, /exec > .*tee "\$LOG"/);
 });
