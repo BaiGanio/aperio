@@ -1,6 +1,12 @@
 # Stage 1: install production deps only
 FROM node:24-slim AS deps
 WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 RUN npm ci --omit=dev
 
