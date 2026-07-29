@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // scripts/generate-all-dashboards.js
-// Runs all five dashboard generators from existing test results / coverage data.
+// Runs all six dashboard generators from existing test results / coverage data.
 // Use when you've already run tests and just need to regenerate the dashboard
 // data files — then refresh the browser to see updated results.
 // Usage: node scripts/generate-all-dashboards.js
@@ -39,6 +39,12 @@ const generators = [
     description: "end-to-end test results",
   },
   {
+    name: "Browser",
+    script: "scripts/generate-browser-dashboard.js",
+    defaultInput: "tests/results/browser-results.json",
+    description: "Chromium browser journey results",
+  },
+  {
     name: "Behavior",
     script: "scripts/generate-harness-dashboard.js",
     defaultInput: "tests/results/harness-results.json",
@@ -70,9 +76,9 @@ for (const gen of generators) {
 
 console.log(`\n${"=".repeat(50)}`);
 if (allPassed) {
-  console.log("✅ All five dashboards generated successfully.");
+  console.log("✅ All six dashboards generated successfully.");
   console.log("   Refresh the dashboards in your browser to see updated results.");
-  console.log(`   Location: docs/benchmarks/{code-cov,unit,integration,e2e,harness}/`);
+  console.log(`   Location: docs/benchmarks/{code-cov,unit,integration,e2e,browser,harness}/`);
 } else {
   console.log("❌ Some dashboards failed to generate (see errors above).");
   console.log("   Common causes:");

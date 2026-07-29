@@ -104,16 +104,16 @@
               renderField(step, index, name, fieldSchema, required.has(name), tool.fields?.[name])
             ).join("")
           : `<div class="ag-step-warning">This tool is not offered by the visual builder. Its input is preserved and can be edited in Raw JSON.</div>`;
-        return `<article class="ag-step-card" data-step-index="${index}">
+        return `<article class="ag-step-card" data-step-index="${index}" data-testid="agent-step-card">
           <div class="ag-step-head">
-            <span class="ag-step-handle" draggable="true" data-drag-index="${index}" title="Drag to reorder" aria-label="Drag step ${index + 1} to reorder">⠿</span>
+            <span class="ag-step-handle" draggable="true" data-drag-index="${index}" data-testid="agent-step-drag-handle" title="Drag to reorder" aria-label="Drag step ${index + 1} to reorder">⠿</span>
             <select class="ag-step-tool" data-step-tool="${index}" aria-label="Tool for step ${index + 1}">
               ${renderToolOptions(step.tool)}
             </select>
             <span class="ag-step-actions">
-              <button type="button" class="ag-step-icon" data-step-up="${index}" title="Move up"${index === 0 ? " disabled" : ""}>↑</button>
-              <button type="button" class="ag-step-icon" data-step-down="${index}" title="Move down"${index === steps.length - 1 ? " disabled" : ""}>↓</button>
-              <button type="button" class="ag-step-icon delete" data-step-delete="${index}" title="Delete step">×</button>
+              <button type="button" class="ag-step-icon" data-step-up="${index}" title="Move up" aria-label="Move step ${index + 1} up"${index === 0 ? " disabled" : ""}>↑</button>
+              <button type="button" class="ag-step-icon" data-step-down="${index}" title="Move down" aria-label="Move step ${index + 1} down"${index === steps.length - 1 ? " disabled" : ""}>↓</button>
+              <button type="button" class="ag-step-icon delete" data-step-delete="${index}" title="Delete step" aria-label="Delete step ${index + 1}">×</button>
             </span>
           </div>
           <div class="ag-step-body">

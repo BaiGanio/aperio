@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // scripts/generate-all-dashboards-ci.js
 // Mirrors the exact CI pipeline from .github/workflows/ci.codecov.yml locally.
-// Runs unit + integration tests with c8 coverage, then generates all four
+// Runs unit + integration, E2E, and browser tests, then generates all six
 // dashboards using the same input paths that CI uses.
 // Use this to verify locally that CI will produce the right dashboard data.
 // Usage: node scripts/generate-all-dashboards-ci.js
@@ -106,6 +106,16 @@ step(
   "npm", ["run", "test:e2e:ci:dashboard"],
 );
 
+// ── Phase 3: same browser run and dashboard transform used by Browser CI ──
+console.log(`\n${CYAN}╔${"═".repeat(54)}╗`);
+console.log(`║  Phase 3: Browser tests and dashboard data  ║`);
+console.log(`╚${"═".repeat(54)}╝${RESET}`);
+
+step(
+  "Run Chromium browser tests and generate dashboard",
+  "npm", ["run", "test:browser:ci:dashboard"],
+);
+
 // ── Summary ──
 console.log(`\n${SEP}`);
 console.log(`${CYAN}SUMMARY${RESET}`);
@@ -113,7 +123,7 @@ console.log(`${SEP}`);
 
 if (failures.length === 0) {
   console.log(`${GREEN}✅ CI pipeline verified locally — all steps passed.${RESET}`);
-  console.log(`   Refresh docs/benchmarks/{code-cov,unit,integration,e2e,harness}/*.html to see the results.`);
+  console.log(`   Refresh docs/benchmarks/{code-cov,unit,integration,e2e,browser,harness}/*.html to see the results.`);
 } else {
   console.log(`${RED}❌ ${failures.length} step(s) failed:${RESET}`);
   for (const f of failures) {

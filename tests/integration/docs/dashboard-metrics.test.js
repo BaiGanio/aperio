@@ -5,7 +5,7 @@ import test from "node:test";
 
 const ROOT = resolve(import.meta.dirname, "../../..");
 const DASHBOARDS = resolve(ROOT, "docs/benchmarks");
-const DASHBOARD_FILES = ["unit/unit.html", "integration/integration.html", "e2e/e2e.html"];
+const DASHBOARD_FILES = ["unit/unit.html", "integration/integration.html", "e2e/e2e.html", "browser/browser.html"];
 const EXPECTED_HEADINGS = ["Total Tests", "Passed", "Failed", "Pass Rate", "Suites", "Duration"];
 
 function source(name) {
@@ -24,7 +24,7 @@ function metricChunks(template) {
   }));
 }
 
-test("unit, integration, and E2E dashboards share the approved six-card summary", () => {
+test("unit, integration, E2E, and Browser dashboards share the approved six-card summary", () => {
   for (const name of DASHBOARD_FILES) {
     const cards = metricChunks(metricsTemplate(source(name)));
     assert.deepEqual(cards.map(({ heading }) => heading), EXPECTED_HEADINGS, name);
@@ -45,6 +45,7 @@ test("six-card dashboard summaries use available group or suite counts", () => {
     assert.match(metricsTemplate(source(name)), /<h2>Suites<\/h2>[\s\S]*?data\.groups\.length/, name);
   }
   assert.match(metricsTemplate(source("e2e/e2e.html")), /<h2>Suites<\/h2>[\s\S]*?data\.suites\.length/);
+  assert.match(metricsTemplate(source("browser/browser.html")), /<h2>Suites<\/h2>[\s\S]*?data\.suites\.length/);
 });
 
 test("E2E run metadata follows the unit and integration format", () => {
@@ -54,6 +55,13 @@ test("E2E run metadata follows the unit and integration format", () => {
   assert.match(run, /data\.branch/);
   assert.match(run, /data\.commit/);
   assert.doesNotMatch(run, /data\.total|data\.suites/);
+});
+
+test("Browser run metadata follows the other test dashboards", () => {
+  const html = source("browser/browser.html");
+  assert.match(html, /<strong>browser run<\/strong>/);
+  assert.match(html, /data\.branch/);
+  assert.match(html, /data\.commit/);
 });
 
 test("six-card summaries remain responsive", () => {

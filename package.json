@@ -30,6 +30,11 @@
     "test:integration": "NODE_ENV=test node --test --test-concurrency=1 $([ -n \"$APERIO_AGENT_RUN\" ] && echo --test-reporter=./tests/reporters/quiet.js --test-reporter-destination=stdout) $(find tests/integration -name '*.test.js' -print)",
     "test:e2e": "NODE_ENV=test node --test --test-concurrency=2 --test-timeout=30000 'tests/e2e/**/*.test.js'",
     "test:e2e:real": "NODE_ENV=test node --test --test-concurrency=2 --test-timeout=30000 'tests/e2e/real-app/real-app-*.test.js'",
+    "test:browser": "playwright test -c tests/playwright.config.js",
+    "test:browser:headed": "playwright test -c tests/playwright.config.js --headed",
+    "test:browser:debug": "playwright test -c tests/playwright.config.js --debug",
+    "test:browser:report": "playwright show-report playwright",
+    "test:browser:ci:dashboard": "npm run test:browser && npm run browser:dashboard",
     "// 3  tests: ci": "── same suites, with json reporters for the results dashboards; test:ci also runs coverage ──",
     "test:e2e:ci": "NODE_ENV=test node --test --test-concurrency=2 --test-timeout=30000 --test-reporter=spec --test-reporter-destination=stdout --test-reporter=./tests/reporters/e2e-json.js --test-reporter-destination=tests/results/e2e-results.json $(find tests/e2e -name '*.test.js' -print)",
     "test:e2e:ci:dashboard": "npm run test:e2e:ci && npm run e2e:dashboard",
@@ -49,11 +54,13 @@
     "dashboards-ci": "node scripts/generate-all-dashboards-ci.js",
     "coverage:dashboard": "node scripts/generate-coverage-dashboard.js",
     "e2e:dashboard": "node scripts/generate-e2e-dashboard.js",
+    "browser:dashboard": "node scripts/generate-browser-dashboard.js",
     "integration:dashboard": "node scripts/generate-integration-dashboard.js",
     "unit:dashboard": "node scripts/generate-unit-dashboard.js",
     "harness:dashboard": "node scripts/generate-harness-dashboard.js",
     "test:unit:dashboard": "npm run test:unit:ci:dashboard",
     "test:e2e:dashboard": "npm run test:e2e:ci:dashboard",
+    "test:browser:dashboard": "npm run test:browser:ci:dashboard",
     "// 5  config & env": "── keep lib/config.js, .env.example, docs/config-reference.md and locales in sync ──",
     "gen:env": "node scripts/gen-env-example.js",
     "gen:env:check": "node scripts/gen-env-example.js --check",
@@ -119,6 +126,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.0",
     "c8": "^12.0.0"
   },
   "overrides": {
