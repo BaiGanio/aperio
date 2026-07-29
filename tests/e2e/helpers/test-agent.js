@@ -100,7 +100,14 @@ export function createTestAgent(opts = {}) {
     persona: null,
     character: null,
     toolsEnabled: false,
-    mcpTools: [],
+    // The real app's background-job routes validate deterministic steps against
+    // the live catalog. Advertise one inert schema so the lifecycle E2E can
+    // exercise steps mode without starting an MCP child.
+    mcpTools: [{
+      name: "backfill_embeddings",
+      description: "Generate embeddings for memories that do not have one yet.",
+      inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false },
+    }],
     version: "0.0.0-test",
     NO_TOOLS: true,
     reasoningAdapter: { match: "__noop__" },

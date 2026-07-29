@@ -883,6 +883,60 @@ describe("POST /agents", () => {
     const { status } = await invoke(router, "POST", "/agents", { body: { id: "dup", prompt: "x" } });
     assert.strictEqual(status, 409);
   });
+
+  test("validates deterministic steps against the live tool registry", async () => {
+    const agent = {
+      mcpTools: [{
+        name: "backfill_embeddings",
+        inputSchema: {
+          type: "object",
+          properties: { limit: { type: "number", minimum: 1, maximum: 100 } },
+          required: [],
+          additionalProperties: false,
+        },
+      }],
+    };
+    const store = {
+      getAgentJob: async () => null,
+      upsertAgentJob: async job => job,
+    };
+
+    const valid = await invoke(makeRouter({ agent, store }), "POST", "/agents", {
+      body: { id: "valid-step", steps: [{ tool: "backfill_embeddings", input: { limit: 20 } }] },
+    });
+    assert.strictEqual(valid.status, 201);
+
+    const unknown = await invoke(makeRouter({ agent, store }), "POST", "/agents", {
+      body: { id: "unknown-step", steps: [{ tool: "imaginary_tool", input: {} }] },
+    });
+    assert.strictEqual(unknown.status, 400);
+    assert.match(unknown.body.error, /imaginary_tool.*not registered/);
+
+    const invalidInput = await invoke(makeRouter({ agent, store }), "POST", "/agents", {
+      body: { id: "invalid-input", steps: [{ tool: "backfill_embeddings", input: { limit: 500 } }] },
+    });
+    assert.strictEqual(invalidInput.status, 400);
+    assert.match(invalidInput.body.error, /limit must be at most 100/);
+  });
+});
+
+describe("GET /agents/tools", () => {
+  test("returns curated tools with schemas from the live registry", async () => {
+    const schema = {
+      type: "object",
+      properties: { limit: { type: "number", maximum: 100 } },
+      required: [],
+    };
+    const router = makeRouter({ agent: { mcpTools: [
+      { name: "recall", description: "Search", inputSchema: { type: "object", properties: {} } },
+      { name: "backfill_embeddings", description: "Backfill", inputSchema: schema },
+    ] } });
+    const { status, body } = await invoke(router, "GET", "/agents/tools");
+    assert.strictEqual(status, 200);
+    assert.deepEqual(body.tools.map(tool => tool.name), ["backfill_embeddings"]);
+    assert.deepEqual(body.tools[0].inputSchema, schema);
+    assert.equal(body.tools[0].label, "Generate missing embeddings");
+  });
 });
 
 describe("PUT /agents/:id", () => {
@@ -902,6 +956,23 @@ describe("PUT /agents/:id", () => {
     const router = makeRouter({ store: { getAgentJob: async () => null } });
     const { status } = await invoke(router, "PUT", "/agents/nope", { body: { prompt: "x" } });
     assert.strictEqual(status, 404);
+  });
+
+  test("rejects an unregistered deterministic step before saving", async () => {
+    let saved = false;
+    const router = makeRouter({
+      agent: { mcpTools: [] },
+      store: {
+        getAgentJob: async () => ({ id: "a" }),
+        upsertAgentJob: async job => { saved = true; return job; },
+      },
+    });
+    const { status, body } = await invoke(router, "PUT", "/agents/a", {
+      body: { steps: [{ tool: "removed_tool", input: {} }] },
+    });
+    assert.strictEqual(status, 400);
+    assert.match(body.error, /removed_tool.*not registered/);
+    assert.strictEqual(saved, false);
   });
 });
 

@@ -16,6 +16,8 @@
   const body     = () => document.getElementById("ag-panel-body");
 
   let _enabled = false;   // master switch: APERIO_AGENT_JOBS=on
+  let _jobTools = [];
+  let _jobToolsPromise = null;
 
   function escapeHtml(s) {
     return String(s ?? "")
@@ -69,6 +71,20 @@
     const col = pos - before.lastIndexOf("\n");
     return `line ${line}, column ${col} — ${err.message}`;
   }
+  async function ensureJobTools() {
+    if (!_jobToolsPromise) {
+      _jobToolsPromise = get("/api/agents/tools")
+        .then(data => {
+          _jobTools = Array.isArray(data.tools) ? data.tools : [];
+          return _jobTools;
+        })
+        .catch(err => {
+          _jobToolsPromise = null;
+          throw err;
+        });
+    }
+    return _jobToolsPromise;
+  }
   function jobMode(job) {
     if (Array.isArray(job.steps) && job.steps.length) return "steps";
     if (typeof job.prompt === "string" && job.prompt.trim()) return "freeform";
@@ -106,7 +122,7 @@
     const el = document.getElementById("agMasterToggle");
     if (el) el.addEventListener("click", toggleMaster);
     const nb = document.getElementById("agNewJob");
-    if (nb) nb.addEventListener("click", () => renderForm(null));
+    if (nb) nb.addEventListener("click", openNewForm);
   }
   async function toggleMaster() {
     const next = !_enabled;
@@ -276,20 +292,32 @@
     },
   };
 
-  // Fetch the existing definition, then render the form populated with it.
+  async function openNewForm() {
+    setBody(`<div class="cg-hint">Loading tools…</div>`);
+    try {
+      await ensureJobTools();
+      renderForm(null);
+    } catch (err) {
+      setBody(`<div class="cg-empty">Error: ${escapeHtml(err.message)}</div>`);
+    }
+  }
+
+  // Fetch the existing definition and tool catalog, then render the populated form.
   async function openForm(id) {
     setBody(`<div class="cg-hint">Loading…</div>`);
     try {
-      const job = await get(`/api/agents/${encodeURIComponent(id)}`);
+      const [job] = await Promise.all([
+        get(`/api/agents/${encodeURIComponent(id)}`),
+        ensureJobTools(),
+      ]);
       renderForm(job);
     } catch (err) {
       setBody(`<div class="cg-empty">Error: ${escapeHtml(err.message)}</div>`);
     }
   }
 
-  // job === null → create; otherwise edit (id is locked). Steps are edited as raw
-  // JSON because a step's { tool, input } shape is heterogeneous; freeform jobs get
-  // structured fields. Trigger-kind and mode selects toggle their sub-sections.
+  // job === null → create; otherwise edit (id is locked). Deterministic jobs use
+  // a schema-driven row builder with synchronized raw JSON for power users.
   function renderForm(job, isEdit, tplKey = "") {
     if (isEdit === undefined) isEdit = !!job;
     job = job || {};
@@ -297,9 +325,9 @@
     const kind = t.kind || (isEdit ? "manual" : "interval");
     const mode = jobMode(job) === "freeform" ? "freeform" : "steps";
     const everyMin = t.everyMs ? Math.round(t.everyMs / 60000) : 60;
-    const stepsJson = (Array.isArray(job.steps) && job.steps.length)
-      ? JSON.stringify(job.steps, null, 2)
-      : `[\n  { "tool": "backfill_embeddings", "input": {} }\n]`;
+    const initialSteps = (Array.isArray(job.steps) && job.steps.length)
+      ? job.steps
+      : _jobTools.length ? [{ tool: _jobTools[0].name, input: {} }] : [];
     const prov = job.provider || {};
     const sel = (a, b) => a === b ? " selected" : "";
 
@@ -378,15 +406,19 @@
         </label>
 
         <div id="agfSteps" class="ag-mode-sub">
-          <label class="ag-field">
-            <span>Steps (JSON array of { tool, input })</span>
-            <textarea id="agfStepsJson" rows="6" spellcheck="false">${escapeHtml(stepsJson)}</textarea>
-            <span class="ag-hint">Each entry runs one tool in order. Common tools:
-              <code>backfill_embeddings</code> — generate embeddings for memories that don't have one yet;
-              <code>deduplicate_memories</code> — find near-duplicate memories and suggest merges (add <code>"dry_run": true</code> to only report, not merge);
-              <code>export_data</code> — back up all memories and wiki articles to a JSON file.
-              Tip: load a template above to see a real example.</span>
-          </label>
+          <div class="ag-steps-heading">
+            <span>Steps</span>
+            <small>Run in this order</small>
+          </div>
+          <div id="agfStepList" class="ag-step-list"></div>
+          <button type="button" class="ag-btn ag-add-step" id="agfAddStep">+ Add step</button>
+          <details class="ag-advanced ag-raw-steps">
+            <summary>Raw JSON — power users</summary>
+            <p class="ag-hint">Changes are synchronized with the visual builder. Registered tools that are not offered above can still be preserved here.</p>
+            <label class="ag-field">
+              <textarea id="agfStepsJson" rows="7" spellcheck="false"></textarea>
+            </label>
+          </details>
         </div>
 
         <div id="agfFreeform" class="ag-mode-sub">
@@ -440,6 +472,16 @@
     if (tpl) tpl.addEventListener("change", (e) => {
       const key = e.target.value;
       renderForm(key ? TEMPLATES[key] : null, false, key);
+    });
+    window.createAgentStepsBuilder({
+      tools: _jobTools,
+      initialSteps,
+      list: document.getElementById("agfStepList"),
+      raw: document.getElementById("agfStepsJson"),
+      addButton: document.getElementById("agfAddStep"),
+      message: document.getElementById("agfMsg"),
+      escapeHtml,
+      jsonErrorDetail,
     });
   }
 
