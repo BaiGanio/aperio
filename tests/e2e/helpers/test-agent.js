@@ -101,13 +101,44 @@ export function createTestAgent(opts = {}) {
     character: null,
     toolsEnabled: false,
     // The real app's background-job routes validate deterministic steps against
-    // the live catalog. Advertise one inert schema so the lifecycle E2E can
-    // exercise steps mode without starting an MCP child.
-    mcpTools: [{
-      name: "backfill_embeddings",
-      description: "Generate embeddings for memories that do not have one yet.",
-      inputSchema: { type: "object", properties: {}, required: [], additionalProperties: false },
-    }],
+    // the live catalog. Advertise inert versions of the visual builder's curated
+    // tools so browser and lifecycle E2E can exercise steps mode without
+    // starting an MCP child or executing any side effects.
+    mcpTools: [
+      {
+        name: "backfill_embeddings",
+        description: "Generate embeddings for memories that do not have one yet.",
+        inputSchema: {
+          type: "object",
+          properties: { limit: { type: "number", minimum: 1, maximum: 100 } },
+          required: [],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: "deduplicate_memories",
+        description: "Find near-duplicate memories.",
+        inputSchema: {
+          type: "object",
+          properties: {
+            threshold: { type: "number", minimum: 0.5, maximum: 1 },
+            dry_run: { type: "boolean" },
+          },
+          required: [],
+          additionalProperties: false,
+        },
+      },
+      {
+        name: "export_data",
+        description: "Export Aperio data to a portable JSON file.",
+        inputSchema: {
+          type: "object",
+          properties: { output_path: { type: "string" } },
+          required: [],
+          additionalProperties: false,
+        },
+      },
+    ],
     version: "0.0.0-test",
     NO_TOOLS: true,
     reasoningAdapter: { match: "__noop__" },

@@ -165,7 +165,7 @@
         <span class="sidebar-nav-label">DB</span>
       </button>
       <button id="agentsBtn" class="sidebar-nav-btn lite-hide" data-action="toggleAgentsPanel"
-        title="Background agents — scheduled jobs over your store">
+        title="Background agents — scheduled jobs over your store" aria-label="Agents">
         <i class="bi bi-robot sidebar-nav-icon"></i>
         <span class="sidebar-nav-label">Agents</span>
       </button>
@@ -380,10 +380,10 @@
 
 <!-- Confirm modal (export / import) -->
 <div id="confirmModal" class="confirm-modal">
-  <div class="confirm-content">
+  <div class="confirm-content" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
     <div class="confirm-header">
-      <span class="confirm-title"></span>
-      <button class="confirm-close" data-action="closeConfirmModal">&times;</button>
+      <span class="confirm-title" id="confirmModalTitle"></span>
+      <button class="confirm-close" data-action="closeConfirmModal" aria-label="Close">&times;</button>
     </div>
     <p class="confirm-message"></p>
     <div class="confirm-actions">

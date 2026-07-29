@@ -168,6 +168,8 @@ _TeamCity*
 
 # c8 / Istanbul coverage output
 coverage/
+playwright/
+test-results/playwright/
 
 # Coverlet is a free, cross platform Code Coverage Tool
 coverage*.json

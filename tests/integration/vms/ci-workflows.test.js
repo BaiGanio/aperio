@@ -70,7 +70,11 @@ test("Codecov refreshes complete coverage and test dashboards", async () => {
   assert.match(coverageWorkflow, /npm run integration:dashboard/);
   assert.match(coverageWorkflow, /^  e2e-dashboard:/m);
   assert.match(coverageWorkflow, /npm run test:e2e:ci:dashboard/);
-  assert.match(coverageWorkflow, /needs: \[coverage-tests, e2e-dashboard\]/);
+  assert.match(coverageWorkflow, /^  browser-dashboard:/m);
+  assert.match(coverageWorkflow, /npm run test:browser/);
+  assert.match(coverageWorkflow, /npm run browser:dashboard/);
+  assert.match(coverageWorkflow, /continue-on-error:\s*true/);
+  assert.match(coverageWorkflow, /needs: \[coverage-tests, e2e-dashboard, browser-dashboard\]/);
   assert.match(e2eWorkflow, /^  workflow_dispatch:\s*$/m);
   assert.doesNotMatch(e2eWorkflow, /^  (push|pull_request|schedule):/m);
   assert.match(e2eWorkflow, /npm run test:e2e:real/);
@@ -92,5 +96,6 @@ test("Codecov refreshes complete coverage and test dashboards", async () => {
   assert.equal(pkg.scripts["test:ci:integration"], "npm run test:integration:ci");
   assert.equal(pkg.scripts["test:unit:dashboard"], "npm run test:unit:ci:dashboard");
   assert.equal(pkg.scripts["test:e2e:dashboard"], "npm run test:e2e:ci:dashboard");
+  assert.equal(pkg.scripts["test:browser:dashboard"], "npm run test:browser:ci:dashboard");
   assert.match(pkg.scripts["test:e2e:real"], /--test-concurrency=2/);
 });

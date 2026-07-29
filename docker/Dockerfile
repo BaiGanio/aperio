@@ -49,7 +49,7 @@ ENV LLAMA_CACHE=/app/var/models
 EXPOSE 31337
 
 CMD ["node", "server.js"]
-
+whatg
 # docker compose --project-directory . -f docker/docker-compose.yml up -d
 # docker compose --project-directory . -f docker/docker-compose.yml down -v
 # npm run migrate

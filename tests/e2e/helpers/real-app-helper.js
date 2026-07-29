@@ -115,12 +115,21 @@ export function createChildStop(child, options = {}) {
  * @param {object=}       options
  * @param {number=}       options.readyTimeout  Milliseconds to wait for READY
  * @param {object=}       options.env           Extra env vars for the child
+ * @param {(runtimeRoot: string) => (void|Promise<void>)=} options.prepareRuntime
+ *   Optional setup hook that runs after the temporary root is created and
+ *   before the child starts. A failing hook removes the temporary root.
  * @returns {Promise<{port: number, pid: number, stop: () => Promise<void>,
  *   stdout: string[], stderr: string[]}>}
  */
 export async function startRealApp(t, options = {}) {
-  const { readyTimeout = READY_TIMEOUT, env = {} } = options;
+  const { readyTimeout = READY_TIMEOUT, env = {}, prepareRuntime } = options;
   const runtimeRoot = mkdtempSync(resolve(tmpdir(), "aperio-e2e-"));
+  try {
+    await prepareRuntime?.(runtimeRoot);
+  } catch (err) {
+    rmSync(runtimeRoot, { recursive: true, force: true });
+    throw err;
+  }
 
   // Child process env — build from current env + overrides
   // PORT=0 by default so ensurePort() never races on a shared port.

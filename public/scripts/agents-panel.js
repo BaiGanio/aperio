@@ -151,7 +151,7 @@
     const cards = jobs.map(job => {
       const lr = job.lastRun;
       return `
-      <div class="cg-repo" data-id="${escapeHtml(job.id)}">
+      <div class="cg-repo" data-id="${escapeHtml(job.id)}" role="article" aria-label="Job ${escapeHtml(job.id)}">
         <div class="ag-job-head">
           <span class="ag-job-id">${escapeHtml(job.id)}</span>
           <span class="ag-tag ${job.enabled ? "on" : "off"}">${job.enabled ? "enabled" : "disabled"}</span>
@@ -364,7 +364,7 @@
 
         <label class="ag-field">
           <span>Trigger</span>
-          <select id="agfKind">
+          <select id="agfKind" aria-label="Trigger">
             <option value="interval"${sel(kind, "interval")}>interval</option>
             <option value="watcher"${sel(kind, "watcher")}>watcher</option>
             <option value="manual"${sel(kind, "manual")}>manual (run-now only)</option>
@@ -398,7 +398,7 @@
 
         <label class="ag-field">
           <span>Mode</span>
-          <select id="agfMode">
+          <select id="agfMode" aria-label="Mode">
             <option value="steps"${sel(mode, "steps")}>steps (deterministic, no model)</option>
             <option value="freeform"${sel(mode, "freeform")}>freeform (runs a model)</option>
           </select>
@@ -416,7 +416,7 @@
             <summary>Raw JSON — power users</summary>
             <p class="ag-hint">Changes are synchronized with the visual builder. Registered tools that are not offered above can still be preserved here.</p>
             <label class="ag-field">
-              <textarea id="agfStepsJson" rows="7" spellcheck="false"></textarea>
+              <textarea id="agfStepsJson" rows="7" spellcheck="false" aria-label="Raw JSON steps"></textarea>
             </label>
           </details>
         </div>
@@ -449,7 +449,7 @@
           <button class="ag-btn primary" id="agfSave">${isEdit ? "Save changes" : "Create job"}</button>
           <button class="ag-btn" id="agfCancel">Cancel</button>
         </div>
-        <div class="ag-msg" id="agfMsg"></div>
+        <div class="ag-msg" id="agfMsg" role="alert"></div>
       </div>`);
 
     // Show only the sub-sections relevant to the current trigger kind / mode.

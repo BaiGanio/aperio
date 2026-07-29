@@ -76,16 +76,17 @@ test("dashboard navbars expose one canonical link set", () => {
     "benchmarks/unit/unit.html",
     "benchmarks/integration/integration.html",
     "benchmarks/e2e/e2e.html",
+    "benchmarks/browser/browser.html",
     "benchmarks/harness/harness.html",
   ];
-  for (const name of ["benchmarks/code-cov/coverage.html", "benchmarks/e2e/e2e.html", "benchmarks/integration/integration.html", "benchmarks/unit/unit.html", "benchmarks/pilot/qualification.html"]) {
+  for (const name of ["benchmarks/code-cov/coverage.html", "benchmarks/e2e/e2e.html", "benchmarks/browser/browser.html", "benchmarks/integration/integration.html", "benchmarks/unit/unit.html", "benchmarks/pilot/qualification.html", "benchmarks/harness/harness.html"]) {
     assert.deepEqual(normalizedNavbarLinks(join(DOCS, name)), expected, name);
   }
 });
 
 test("dashboard footers expose the Codecov link", () => {
   const expected = "https://codecov.io/gh/BaiGanio/aperio";
-  for (const name of ["benchmarks/code-cov/coverage.html", "benchmarks/e2e/e2e.html", "benchmarks/integration/integration.html", "benchmarks/unit/unit.html", "benchmarks/pilot/qualification.html"]) {
+  for (const name of ["benchmarks/code-cov/coverage.html", "benchmarks/e2e/e2e.html", "benchmarks/browser/browser.html", "benchmarks/integration/integration.html", "benchmarks/unit/unit.html", "benchmarks/pilot/qualification.html"]) {
     assert.equal(footerLinks(join(DOCS, name)).filter((href) => href === expected).length, 1, name);
     assert.doesNotMatch(readFileSync(join(DOCS, name), "utf8").match(/<nav\b[\s\S]*?<\/nav>/i)?.[0] || "", /codecov/i, name);
   }
@@ -140,11 +141,19 @@ test("shared theme implementation restores and persists the selected docs theme"
 });
 
 test("test dashboards use the shared dashboard stylesheet without inline CSS", () => {
-  for (const name of ["benchmarks/code-cov/coverage.html", "benchmarks/e2e/e2e.html", "benchmarks/integration/integration.html", "benchmarks/unit/unit.html"]) {
+  for (const name of ["benchmarks/code-cov/coverage.html", "benchmarks/e2e/e2e.html", "benchmarks/browser/browser.html", "benchmarks/integration/integration.html", "benchmarks/unit/unit.html"]) {
     const html = readFileSync(join(DOCS, name), "utf8");
     assert.match(html, /<link rel="stylesheet" href="\.\.\/\.\.\/styles-dashboards\.css">/);
     assert.doesNotMatch(html, /<style(?:\s[^>]*)?>/);
   }
+});
+
+test("Browser dashboard keeps Aperio's square geometry", () => {
+  const html = readFileSync(join(DOCS, "benchmarks/browser/browser.html"), "utf8");
+  const css = readFileSync(join(DOCS, "styles-dashboards.css"), "utf8");
+  assert.match(html, /class="e2e-dashboard browser-dashboard"/);
+  assert.match(css, /body\.browser-dashboard[\s\S]*?border-radius:0/);
+  assert.doesNotMatch(html, /border-radius\s*:/);
 });
 
 test("model-tier viewer delegates theme persistence to the shared implementation", () => {

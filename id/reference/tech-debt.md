@@ -25,6 +25,14 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## Test harness
+
+- 2026-07-29 The aggregate `npm test` runner makes real-app WebSocket T45 load-sensitive:
+  the second of three overlapping chats sometimes completes instead of being interrupted
+  when all 4,816 tests run concurrently. The intended `test:e2e:real` suite passes 85/85 at
+  concurrency 2, including T45, but two aggregate runs reproduced the failure. Stabilizing
+  the overlap barrier or bounding aggregate concurrency is outside issue #338.
+
 ---
 
 ## Intentional deferrals

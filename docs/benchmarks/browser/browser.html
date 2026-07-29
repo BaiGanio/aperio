@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aperio Browser — Test Dashboard</title>
+  <meta name="description" content="Aperio Chromium browser test dashboard.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&family=Berkeley+Mono:ital,wght@0,100..700;1,100..700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../styles.css">
+  <link rel="stylesheet" href="../../styles-dashboards.css">
+</head>
+<body class="e2e-dashboard browser-dashboard">
+<div class="orb orb-1"></div>
+<div class="orb orb-2"></div>
+<div class="orb orb-3"></div>
+<nav class="aperio-nav">
+  <div class="nav-inner">
+    <a href="../../index.html" class="brand"><div class="logo-mark">A</div><span class="brand-name">Aperio</span></a>
+    <button class="nav-toggle" id="navToggle" aria-label="Open navigation">☰</button>
+    <ul class="nav-links" id="navLinks"><li><a href="../../index.html">Home</a></li><li><a href="../pilot/qualification.html">Benchmarking</a></li><li><a href="../code-cov/coverage.html">Coverage</a></li><li><a href="../unit/unit.html">Unit</a></li><li><a href="../integration/integration.html">Integration</a></li><li><a href="../e2e/e2e.html">E2E</a></li><li><a href="browser.html">Browser</a></li><li><a href="../harness/harness.html">Behavior</a></li></ul>
+    <div class="theme-switcher" id="themeSwitcher"><button class="theme-btn active" data-theme="dark" title="Dark">🌙</button><button class="theme-btn" data-theme="light" title="Light">☀️</button><button class="theme-btn" data-theme="aurora" title="Aurora">✦</button><button class="theme-btn" data-theme="system" title="System">⊙</button></div>
+  </div>
+</nav>
+
+<main class="shell">
+  <div class="e2e-header">
+    <div>
+      <h1 class="e2e-title">◈ Browser Tests</h1>
+      <p class="e2e-lede">Chromium journeys against a real, isolated Aperio server—covering the app shell and visual background-job step builder from click to persistence.</p>
+    </div>
+    <div class="e2e-run" id="run"><strong>browser run</strong>loading…</div>
+  </div>
+
+  <div class="orientation">
+    <p><strong>How to read this page:</strong> each result is a complete browser journey. The worker starts its own temporary runtime, SQLite database, and OS-assigned port, then removes them after it exits.</p>
+    <p>Expand a suite for individual journeys. The Playwright report remains the detailed failure artifact for traces, screenshots, console errors, and fixture logs.</p>
+  </div>
+
+  <div class="grid metrics" id="metrics"></div>
+
+  <section class="files-panel" aria-labelledby="files-title">
+    <div class="files-panel-head">
+      <span class="files-panel-title" id="files-title">Test files</span>
+      <span class="files-panel-hint">Chromium · isolated worker fixture</span>
+    </div>
+    <div class="file-grid" id="files"></div>
+  </section>
+
+  <div class="suite-grid" id="suites"></div>
+
+  <div class="legend">
+    <span class="status-gauge"><i style="background:var(--green)"></i> pass</span>
+    <span class="status-gauge"><i style="background:var(--amber)"></i> fail</span>
+    <span class="status-gauge"><i style="background:var(--dim)"></i> skip</span>
+    <span style="margin-left:8px">Totals reflect final Playwright test attempts.</span>
+  </div>
+
+  <div class="footer">
+    <span><a href="../e2e/e2e.html">e2e</a> · <a href="../code-cov/coverage.html">coverage</a> · <a href="../../index.html">index</a> · <a href="https://codecov.io/gh/BaiGanio/aperio" target="_blank" rel="noreferrer">codecov</a></span>
+    <span>aperio · <a href="https://github.com/BaiGanio/aperio">github</a></span>
+  </div>
+</main>
+
+<script src="browser-data.js"></script>
+<script>
+const data = window.APERIO_BROWSER;
+const fmt = (ms) => ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`;
+const escapeHtml = (val) => String(val ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+const suitePurpose = {
+  'Agent step builder': 'Protects deterministic job creation, ordering, Raw JSON recovery, persistence, deletion, and server-side rejection of unknown tools.',
+  'App shell smoke': 'Confirms the real application shell, browser entry points, static builder asset, and curated tool catalog load cleanly.'
+};
+
+document.querySelector('#run').innerHTML = data.branch
+  ? `<strong>browser run</strong><span style="color:var(--indigo)">${escapeHtml(data.branch)}</span>@${escapeHtml(data.commit)} · ${escapeHtml(new Date(data.generatedAt).toLocaleString())}`
+  : '<strong>browser run</strong>local data';
+
+const passRate = data.total > 0 ? ((data.passed / data.total) * 100).toFixed(1) : 100;
+document.querySelector('#metrics').innerHTML = `
+  <article class="panel metric"><h2>Total Tests</h2><div class="score"><b>${data.total}</b></div></article>
+  <article class="panel metric"><h2>Passed</h2><div class="score"><b style="color:var(--green)">${data.passed}</b></div><div class="meter"><i style="width:${passRate}%;background:var(--green)"></i></div></article>
+  <article class="panel metric"><h2>Failed</h2><div class="score"><b style="color:var(--amber)">${data.failed}</b></div><small>${data.skipped} skipped</small></article>
+  <article class="panel metric"><h2>Pass Rate</h2><div class="score"><b style="color:${data.failed === 0 ? 'var(--green)' : 'var(--amber)'}">${passRate}%</b></div></article>
+  <article class="panel metric"><h2>Suites</h2><div class="score"><b style="color:var(--purple)">${data.suites.length}</b></div></article>
+  <article class="panel metric"><h2>Duration</h2><div class="score"><b>${fmt(data.duration_ms)}</b></div><small>total wall-clock</small></article>`;
+
+document.querySelector('#files').innerHTML = (data.files || []).map((file, index) => `
+  <button class="file-tile" type="button" data-file="${escapeHtml(file.name)}" style="--tile-color:${['var(--purple)','var(--indigo)','var(--green)','var(--amber)'][index % 4]}">
+    <span class="file-glyph" aria-hidden="true"><strong class="file-mark">.js</strong></span>
+    <span class="file-name">${escapeHtml(file.name)}</span>
+    <span class="file-size">${file.testCount} ${file.testCount === 1 ? 'journey' : 'journeys'} · ${(file.size / 1024).toFixed(1)} KB</span>
+  </button>`).join('');
+
+document.querySelector('#suites').innerHTML = data.suites.map((suite, index) => `
+  <details class="suite-card" id="suite-${index}" data-files="${escapeHtml([...new Set(suite.tests.map(test => test.file))].join('|'))}">
+    <summary class="suite-head">
+      <span class="suite-name">${escapeHtml(suite.name)}</span>
+      <span class="suite-meta"><span class="tag ${suite.failed === 0 ? 'tag-ok' : 'tag-fail'}">${suite.failed === 0 ? 'pass' : `${suite.failed} fail`}</span><span>${suite.passed}/${suite.testCount}</span><span>${fmt(suite.duration_ms)}</span></span>
+    </summary>
+    <div class="suite-purpose">${escapeHtml(suitePurpose[suite.name] || 'Groups related browser journeys for a user-visible Aperio workflow.')}</div>
+    <div class="suite-body">
+      <table class="test-table">
+        <thead><tr><th>journey</th><th>file</th><th style="text-align:right">duration</th></tr></thead>
+        <tbody>${suite.tests.map(test => `
+          <tr><td><span class="test-name"><i class="status-dot ${test.status}"></i>${escapeHtml(test.name)}</span></td><td class="test-help">${escapeHtml(test.file)}</td><td class="test-duration">${fmt(test.duration_ms)}</td></tr>
+          ${test.error ? `<tr><td colspan="3" class="test-error">${escapeHtml(test.error)}</td></tr>` : ''}`).join('')}</tbody>
+      </table>
+    </div>
+  </details>`).join('');
+
+const suiteCards = [...document.querySelectorAll('.suite-card')];
+document.querySelectorAll('.file-tile').forEach(tile => {
+  tile.addEventListener('click', () => {
+    const target = suiteCards.find(suite => suite.dataset.files.split('|').includes(tile.dataset.file));
+    if (!target) return;
+    target.open = true;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+<script src="../../scripts.js"></script>
+</body>
+</html>

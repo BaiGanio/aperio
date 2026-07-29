@@ -88,6 +88,28 @@ test("Shutdown and lifecycle", async (t) => {
   });
 
   // ════════════════════════════════════════════════════════════════════
+  // T56: Fixture setup failure removes its temporary runtime
+  // ════════════════════════════════════════════════════════════════════
+  await t.test("T56: setup failure removes temporary runtime", async () => {
+    let failedRuntimeRoot;
+    await assert.rejects(
+      startRealApp(null, {
+        prepareRuntime(runtimeRoot) {
+          failedRuntimeRoot = runtimeRoot;
+          throw new Error("intentional fixture setup failure");
+        },
+      }),
+      /intentional fixture setup failure/
+    );
+    assert.ok(failedRuntimeRoot, "Setup hook received the temporary runtime path");
+    assert.equal(
+      existsSync(failedRuntimeRoot),
+      false,
+      "Temporary runtime is removed when fixture setup fails"
+    );
+  });
+
+  // ════════════════════════════════════════════════════════════════════
   // T57: Immediate same-root restart succeeds
   // ════════════════════════════════════════════════════════════════════
   await t.test("T57: same SQLite root restarts without stale lock", async () => {
