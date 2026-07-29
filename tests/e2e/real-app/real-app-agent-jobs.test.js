@@ -52,7 +52,7 @@ test("Agent job lifecycle tests", async (t) => {
       headers: { "Content-Type": "application/json", "X-Aperio-Client": "e2e" },
       body: JSON.stringify({
         id: jobId,
-        steps: [{ tool: "recall", input: { limit: 1 } }],
+        steps: [{ tool: "backfill_embeddings", input: {} }],
         trigger: { kind: "manual" },
       }),
     });
