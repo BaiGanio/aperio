@@ -9,6 +9,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Visual background-job step builder + "what should this job do?" wizard**
+  (#326, #327): the background-agents job form's `steps` mode replaces the raw
+  JSON textarea with a row-based builder — a tool dropdown sourced from the
+  live MCP registry (`GET /api/agents/tools`), dynamic input fields driven by
+  each tool's schema, add/reorder (drag or arrows)/delete per step, and a
+  synchronized raw-JSON fallback for power users. New job steps are now
+  validated against the live tool registry at create/update time
+  (`lib/workers/background-job-tools.js`). A first-step wizard
+  (`POST /api/agents/wizard`) turns a plain-English description ("every
+  night, clean up duplicate memories and regenerate their embeddings") into a
+  suggested job — trigger, plus either a steps pipeline or a freeform prompt —
+  which prefills the form for review; suggestions default to `enabled: false`
+  and any schema-validation warnings are surfaced inline rather than blocking
+  the draft.
+
 - **Fix: truthful, durable local-AI setup.** The setup wizard now labels total
   RAM and free model-cache storage explicitly, measures the filesystem that
   will actually hold the model, and recommends Gemma 4 E2B
