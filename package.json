@@ -19,6 +19,7 @@
     "test:execution": "NODE_ENV=test node --test tests/integration/skills/execution.test.js",
     "test:store": "NODE_ENV=test node --test tests/integration/store/store.test.js",
     "test:backfill": "NODE_ENV=test node --test tests/integration/store/backfill.test.js",
+    "embeddings:reindex": "node scripts/embeddings-reindex.js",
     "test:memory": "NODE_ENV=test node --test tests/unit/tools/memory.test.js",
     "test:audit": "NODE_ENV=test node --test audit/tests/inventory.test.js audit/tests/schema.test.js audit/tests/manifest.test.js audit/tests/database-contract.test.js audit/tests/config-contract.test.js audit/tests/routes-contract.test.js audit/tests/memory-contract.test.js audit/tests/bootstrap-contract.test.js",
     "test:audit:inventory": "NODE_ENV=test node --test audit/tests/inventory.test.js",

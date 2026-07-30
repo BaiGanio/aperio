@@ -144,3 +144,15 @@ document.querySelectorAll('.mg-prompt').forEach(box => {
 
 
 
+
+/* ── Flip cards (team section + MCP tool chips) ── */
+document.querySelectorAll('.flip-card').forEach(card => {
+  const toggle = () => {
+    const flipped = card.classList.toggle('is-flipped');
+    card.setAttribute('aria-pressed', flipped ? 'true' : 'false');
+  };
+  card.addEventListener('click', toggle);
+  card.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+  });
+});

@@ -211,14 +211,16 @@ export class SqliteWiki {
     return rows.map(r => ({ ...rowToArticle(r), score: Number(r.score) }));
   }
 
-  async listWithoutEmbeddings() {
+  async listWithoutEmbeddings({ limit = null, offset = 0 } = {}) {
     const { articles, vec } = this.t;
     return this.db.prepare(`
       SELECT a.id, a.title, a.body_md
         FROM ${articles} a
         LEFT JOIN ${vec} v ON v.rowid = a.rowid
        WHERE v.rowid IS NULL
-    `).all();
+       ORDER BY a.rowid
+       LIMIT ? OFFSET ?
+    `).all(limit ?? -1, offset);
   }
 
   async setEmbedding(id, embedding) {

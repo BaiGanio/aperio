@@ -336,6 +336,16 @@
         <button class="cg-back-btn" id="agFormBack">← Back to jobs</button>
         <div class="cg-symbol-title">${isEdit ? "Edit job" : "New job"}</div>
         ${isEdit ? "" : `
+        <label class="ag-field ag-wizard">
+          <span>Describe what you want</span>
+          <textarea id="agfWizardText" rows="2" placeholder="e.g. Every night, clean up duplicate memories and regenerate their embeddings"></textarea>
+          <div class="ag-wizard-actions">
+            <button type="button" class="ag-btn" id="agfWizardGo">Suggest a job</button>
+            <span class="ag-wizard-msg" id="agfWizardMsg" role="status"></span>
+          </div>
+          <span class="ag-hint">Drafts the fields below from your active model. Off by default — review everything before enabling or saving.</span>
+        </label>`}
+        ${isEdit ? "" : `
         <label class="ag-field">
           <span>Start from a template</span>
           <select id="agfTemplate">
@@ -473,6 +483,8 @@
       const key = e.target.value;
       renderForm(key ? TEMPLATES[key] : null, false, key);
     });
+    const wizGo = document.getElementById("agfWizardGo");
+    if (wizGo) wizGo.addEventListener("click", suggestWizardJob);
     window.createAgentStepsBuilder({
       tools: _jobTools,
       initialSteps,
@@ -483,6 +495,37 @@
       escapeHtml,
       jsonErrorDetail,
     });
+  }
+
+  // "What should this job do?" wizard — sends the plain-English description to
+  // the active model and re-renders the (still create-mode) form pre-filled
+  // with its suggestion, exactly like picking a template does.
+  async function suggestWizardJob() {
+    const msg = document.getElementById("agfWizardMsg");
+    const btn = document.getElementById("agfWizardGo");
+    const description = document.getElementById("agfWizardText").value.trim();
+    if (!description) { msg.textContent = "⚠ describe the job first"; return; }
+    btn.disabled = true;
+    msg.textContent = "Thinking…";
+    try {
+      const res = await fetch("/api/agents/wizard", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ description }),
+      });
+      const d = await res.json().catch(() => ({}));
+      if (!res.ok) { msg.textContent = `⚠ ${d.error || res.statusText}`; btn.disabled = false; return; }
+      renderForm(d.job, false);
+      const formMsg = document.getElementById("agfMsg");
+      if (formMsg) {
+        formMsg.textContent = d.warnings?.length
+          ? `⚠ Review before saving: ${d.warnings.join("; ")}`
+          : "Suggestion drafted — review every field before saving.";
+      }
+    } catch (err) {
+      msg.textContent = `Error: ${err.message}`;
+      btn.disabled = false;
+    }
   }
 
   // Read the form into a job object, validate, and POST (create) or PUT (edit).

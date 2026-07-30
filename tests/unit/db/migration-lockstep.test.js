@@ -137,6 +137,11 @@ describe("migration lockstep", () => {
     assert.ok(sqlNames(liteDir).has("011_model_facts.sql"));
   });
 
+  test("013_vec_meta exists in both backends", () => {
+    assert.ok(sqlNames(pgDir).has("013_vec_meta.sql"));
+    assert.ok(sqlNames(liteDir).has("013_vec_meta.sql"));
+  });
+
   test("012_gemma4_e2b_model_fact exists in both backends", () => {
     assert.ok(sqlNames(pgDir).has("012_gemma4_e2b_model_fact.sql"));
     assert.ok(sqlNames(liteDir).has("012_gemma4_e2b_model_fact.sql"));
@@ -253,5 +258,63 @@ describe("010_codegraph_intelligence column parity", () => {
     assert.match(backfill, /DST_SYMBOL_ID IS NOT NULL/);
     assert.match(backfill, /CONFIDENCE = 'INFERRED'/);
     assert.match(backfill, /CONFIDENCE_SCORE = 0\.8/);
+  });
+});
+
+// ── 013_vec_meta parity ─────────────────────────────────────────────────────
+// vec_meta drives which stores are allowed to serve vector search. A column or
+// CHECK constraint present on one backend but not the other means one backend
+// silently accepts a status the other rejects — the exact class of drift the
+// lockstep rule exists to catch.
+describe("013_vec_meta parity", () => {
+  const MIGRATION = "013_vec_meta.sql";
+  const pg = squash(stripComments(readFileSync(path.join(pgDir, MIGRATION), "utf8")));
+  const lite = squash(stripComments(readFileSync(path.join(liteDir, MIGRATION), "utf8")));
+
+  test("both sides create vec_meta with the same columns", () => {
+    for (const col of ["store_name", "signature", "dims", "status", "vectors_cleared",
+                       "reindex_owner", "reindex_expires_at", "updated_at"]) {
+      assert.ok(pg.includes(col), `postgres missing ${col}`);
+      assert.ok(lite.includes(col), `sqlite missing ${col}`);
+    }
+  });
+
+  test("store_name is the primary key on both sides", () => {
+    assert.match(pg, /store_name\s+TEXT PRIMARY KEY/i);
+    assert.match(lite, /store_name\s+TEXT PRIMARY KEY/i);
+  });
+
+  test("both sides constrain status to the same three values", () => {
+    for (const [name, sql] of [["postgres", pg], ["sqlite", lite]]) {
+      assert.match(sql, /CHECK \(status IN \('current', 'stale', 'reindexing'\)\)/i, `${name} status CHECK`);
+      assert.match(sql, /DEFAULT 'current'/i, `${name} status default`);
+    }
+  });
+
+  test("both sides index status", () => {
+    assert.match(pg, /CREATE INDEX idx_vec_meta_status ON vec_meta \(status\)/i);
+    assert.match(lite, /CREATE INDEX idx_vec_meta_status ON vec_meta \(status\)/i);
+  });
+
+  test("the reindex lease exists on both sides", () => {
+    // The lease is what stops two runners from clearing and re-embedding the
+    // same store; a backend missing it silently loses that guarantee.
+    assert.match(pg, /reindex_owner\s+TEXT/i);
+    assert.match(pg, /reindex_expires_at\s+TIMESTAMPTZ/i);
+    assert.match(lite, /reindex_owner\s+TEXT/i);
+    assert.match(lite, /reindex_expires_at\s+TEXT/i);
+  });
+
+  test("the clear checkpoint exists on both sides and defaults to false", () => {
+    // Without it, a crash between "status = reindexing" and the actual clear
+    // resumes into a store that skips the clear and is then declared current
+    // with its entire old embedding space still in place.
+    assert.match(pg, /vectors_cleared\s+BOOLEAN NOT NULL DEFAULT false/i);
+    assert.match(lite, /vectors_cleared\s+INTEGER NOT NULL DEFAULT 0/i);
+  });
+
+  test("dims is an integer family on both sides", () => {
+    assert.match(pg, /dims\s+INT\b/i);
+    assert.match(lite, /dims\s+INTEGER\b/i);
   });
 });

@@ -374,6 +374,20 @@ body::before {
 .vid-wrapper { line-height:0; }
 .demo-video { width:100%;display:block; }
 
+/* hero mascot */
+.hero-mascot {
+    display:block;height:256px;width:auto;margin:0 auto 20px;
+    filter:drop-shadow(0 14px 28px rgba(124,58,237,0.35));
+    animation:mascot-bob 6s ease-in-out infinite;
+}
+@keyframes mascot-bob {
+    0%,100% { transform:translateY(0); }
+    50%     { transform:translateY(-9px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hero-mascot { animation:none; }
+}
+
 /* eyebrow */
 .eyebrow {
     font-family:var(--font-ui);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
@@ -537,13 +551,93 @@ h2.section-heading {
 .tool-cat-label i{font-size:14px;opacity:.9;}
 .tool-cat-label .cat-count{font-family:var(--font-mono);font-size:9px;letter-spacing:0.06em;padding:3px 8px;border:1px solid var(--border);color:var(--indigo);background:rgba(129,140,248,0.06);white-space:nowrap;}
 .tool-cat-label::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--border),transparent);}
-.tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;text-align:left;}
+/* Wider columns than a plain chip would need — the flipped side carries a prompt. */
+.tools-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:10px;text-align:left;}
 .tool-chip{background:var(--bg-card);border:1px solid var(--border);border-radius:0;padding:16px 18px;display:flex;align-items:flex-start;gap:14px;transition:border-color 0.15s,transform 0.15s,box-shadow 0.15s,background 0.3s;}
 .tool-chip:hover{border-color:var(--border-hi);transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,0.35);}
 .tool-chip:hover .tool-icon{border-color:var(--border-hi);background:rgba(168,85,247,0.14);}
 .tool-icon{font-size:16px;color:var(--purple);flex-shrink:0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:rgba(168,85,247,0.08);border:1px solid var(--border);transition:border-color 0.15s,background 0.15s;}
 .tool-name{font-family:var(--font-mono);font-size:12px;color:var(--indigo);margin-bottom:5px;}
 .tool-desc{font-size:12.5px;color:var(--muted);line-height:1.55;}
+
+/* ══════════════════════════════════════════════════════════
+    FLIP CARDS — the front states the situation, the back holds
+    the prompt you would actually type. Used by the team section
+    and by every MCP tool chip.
+══════════════════════════════════════════════════════════ */
+.flip-card{perspective:1400px;cursor:pointer;transition:transform 0.15s;}
+.flip-card:focus-visible{outline:1px solid var(--purple);outline-offset:3px;}
+
+.flip-inner{
+    display:grid;position:relative;height:100%;
+    transform-style:preserve-3d;
+    transition:transform 0.62s cubic-bezier(.22,.68,.28,1);
+}
+.flip-card.is-flipped .flip-inner{transform:rotateY(180deg);}
+
+/* Both faces share one grid cell, so a card is always as tall as
+   its tallest side — flipping never reflows the grid. */
+.flip-face{
+    grid-area:1/1;
+    backface-visibility:hidden;-webkit-backface-visibility:hidden;
+    background:var(--bg-card);border:1px solid var(--border);border-radius:0;
+    position:relative;overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:border-color 0.15s,box-shadow 0.15s;
+}
+.flip-face::after{content:"";position:absolute;top:0;left:0;right:0;height:1px;background:var(--aurora);opacity:0;transition:opacity 0.2s;}
+.flip-card:hover .flip-face::after{opacity:1;}
+.flip-card:hover .flip-face{border-color:var(--border-hi);}
+.flip-back{transform:rotateY(180deg);background:var(--bg-raised);}
+
+.flip-prompt{
+    font-family:var(--font-mono);line-height:1.8;color:var(--subtle);
+    border-left:2px solid rgba(124,58,237,0.45);padding-left:14px;margin:0;
+}
+.flip-prompt-label{
+    font-family:var(--font-ui);letter-spacing:0.12em;text-transform:uppercase;
+    color:var(--purple);display:flex;align-items:center;gap:7px;
+}
+
+.flip-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.flip-hint{
+    font-family:var(--font-ui);font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;
+    color:var(--muted);display:inline-flex;align-items:center;gap:6px;transition:color 0.2s;
+}
+.flip-card:hover .flip-hint{color:var(--purple);}
+.flip-hint i{transition:transform 0.3s;}
+.flip-card:hover .flip-hint i{transform:rotate(180deg);}
+
+/* ── team-section flavour: roomy card, hint pinned to the bottom ── */
+.features-grid .flip-face{padding:28px 26px 52px;}
+.features-grid .flip-prompt{font-size:12.5px;}
+.features-grid .flip-prompt-label{font-size:9.5px;margin-bottom:12px;}
+.features-grid .flip-foot{position:absolute;left:26px;right:26px;bottom:18px;}
+.flip-card:hover{transform:translateY(-5px);}
+.flip-card:hover .flip-face{box-shadow:0 20px 50px rgba(0,0,0,0.4);}
+.flip-card:hover .feat-icon{background:var(--aurora);color:#fff;border-color:transparent;transform:scale(1.06);box-shadow:0 0 24px rgba(124,58,237,0.45);}
+
+/* ── tool-chip flavour: compact, reads like the static chips it replaced ── */
+.flip-chip:hover{transform:translateY(-2px);}
+.flip-chip:hover .flip-face{box-shadow:0 8px 30px rgba(0,0,0,0.35);}
+.flip-chip:hover .tool-icon{border-color:var(--border-hi);background:rgba(168,85,247,0.14);}
+.flip-chip .flip-face{padding:16px 18px;}
+.flip-chip .flip-front,.flip-chip .flip-back{justify-content:center;}
+.flip-chip .chip-row{display:flex;align-items:flex-start;gap:14px;}
+.flip-chip .chip-body{min-width:0;}
+.flip-chip .flip-prompt{font-size:11.5px;line-height:1.7;padding-left:11px;}
+.flip-chip .flip-prompt-label{font-family:var(--font-mono);font-size:9px;letter-spacing:0.04em;text-transform:none;margin-bottom:9px;opacity:.85;}
+.flip-corner{
+    position:absolute;top:10px;right:11px;font-size:11px;color:var(--muted);
+    opacity:.4;transition:opacity 0.2s,color 0.2s,transform 0.3s;
+}
+.flip-chip:hover .flip-corner{opacity:1;color:var(--purple);transform:rotate(180deg);}
+
+@media(prefers-reduced-motion:reduce){
+    .flip-inner,.flip-hint i,.flip-corner{transition:none;}
+    .flip-card:hover .flip-hint i,.flip-chip:hover .flip-corner{transform:none;}
+    .flip-card:hover,.flip-chip:hover{transform:none;}
+}
 
 /* ══════════════════════════════════════════════════════════
     BUILD ON TOP SECTION
