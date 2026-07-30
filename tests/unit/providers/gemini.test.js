@@ -615,6 +615,131 @@ describe("runGeminiLoop — tool call cycle", () => {
     const resultIds = toolResultMsg.content.filter(b => b.type === "tool_result").map(b => b.tool_use_id);
     assert.deepEqual(resultIds, toolUseIds, "tool_result ids must match their corresponding tool_use ids in order");
   });
+
+  // Regression: Gemini 3 attaches a thought_signature to each functionCall part
+  // and 400s ("... is missing a thought_signature") if a replayed call doesn't
+  // carry the exact same one back. The SDK's own result.response aggregation
+  // (aggregateResponses in @google/generative-ai) hand-copies only
+  // text/functionCall/executableCode/codeExecutionResult onto merged parts —
+  // it predates Gemini 3 and drops thoughtSignature entirely, so it must never
+  // appear on `response.candidates` here (a prior, insufficient version of this
+  // fix read from there and passed only because the mock put it there directly,
+  // which the real SDK never does). The signature is only ever present on the
+  // raw stream chunks, which is where it must be captured instead.
+  test("carries a functionCall's thought_signature through to the next request", async () => {
+    let callCount = 0;
+    let secondCallContents = null;
+
+    const ctx = baseCtx({
+      provider: {
+        name: "gemini", model: "gemini-3.5-flash-lite",
+        contextWindow: 8192,
+        client: makeClient({
+          generateContentStream: async ({ contents }) => {
+            callCount++;
+            if (callCount === 1) {
+              return {
+                stream: makeStream([{
+                  candidates: [{ content: { parts: [
+                    { functionCall: { name: "get_weather", args: { city: "Paris" } }, thoughtSignature: "sig-abc123" },
+                  ] } }],
+                }]),
+                // Deliberately no `candidates` here, matching the real SDK's
+                // aggregated response shape — thoughtSignature never reaches it.
+                response: {
+                  usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 1, thoughtsTokenCount: 0 },
+                  functionCalls: () => [{ name: "get_weather", args: { city: "Paris" } }],
+                },
+              };
+            }
+            secondCallContents = contents;
+            return {
+              stream: makeStream([textChunk("Sunny in Paris.")]),
+              response: textResponse("Sunny in Paris."),
+            };
+          },
+        }),
+      },
+      callTool: async () => "Sunny, 22°C",
+    });
+
+    const messages = [{ role: "user", content: "Weather in Paris?" }];
+    const emitter = { send: mock.fn() };
+
+    await runGeminiLoop(messages, emitter, {}, undefined, undefined, ctx);
+
+    const toolUseMsg = messages.find(m => Array.isArray(m.content) && m.content.some(b => b.type === "tool_use"));
+    const toolUseBlock = toolUseMsg.content.find(b => b.type === "tool_use");
+    assert.equal(toolUseBlock.thoughtSignature, "sig-abc123", "thought_signature must be captured on the tool_use block");
+
+    const replayedFunctionCallPart = secondCallContents
+      .flatMap(c => c.parts)
+      .find(p => p.functionCall);
+    assert.equal(replayedFunctionCallPart.thoughtSignature, "sig-abc123", "thought_signature must be echoed back verbatim on replay");
+  });
+
+  // Regression: on a parallel-call turn Gemini 3 often signs only the first
+  // (or last) functionCall part and leaves the rest unsigned — this is the
+  // exact "Function call ... is missing a thought_signature ... position 2"
+  // 400 seen live against gemini-3.5-flash-lite with 3 parallel calls. Omitting
+  // the field for unsigned parts (the naive fix) still 400s; the API's own
+  // documented escape hatch is the literal sentinel string
+  // "skip_thought_signature_validator", which must be sent for any functionCall
+  // part that didn't get a real signature back.
+  test("fills in the skip_thought_signature_validator sentinel for parallel calls the model left unsigned", async () => {
+    let callCount = 0;
+    let secondCallContents = null;
+
+    const ctx = baseCtx({
+      provider: {
+        name: "gemini", model: "gemini-3.5-flash-lite",
+        contextWindow: 8192,
+        client: makeClient({
+          generateContentStream: async ({ contents }) => {
+            callCount++;
+            if (callCount === 1) {
+              return {
+                stream: makeStream([{
+                  candidates: [{ content: { parts: [
+                    { functionCall: { name: "get_weather", args: { city: "Paris" } }, thoughtSignature: "sig-only-first" },
+                    { functionCall: { name: "get_weather", args: { city: "Berlin" } } },
+                    { functionCall: { name: "get_weather", args: { city: "Rome" } } },
+                  ] } }],
+                }]),
+                response: {
+                  usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 1, thoughtsTokenCount: 0 },
+                  functionCalls: () => [
+                    { name: "get_weather", args: { city: "Paris" } },
+                    { name: "get_weather", args: { city: "Berlin" } },
+                    { name: "get_weather", args: { city: "Rome" } },
+                  ],
+                },
+              };
+            }
+            secondCallContents = contents;
+            return {
+              stream: makeStream([textChunk("Weather fetched.")]),
+              response: textResponse("Weather fetched."),
+            };
+          },
+        }),
+      },
+      callTool: async (name, args) => `weather for ${args.city}`,
+    });
+
+    const messages = [{ role: "user", content: "Weather in Paris, Berlin, and Rome?" }];
+    const emitter = { send: mock.fn() };
+
+    await runGeminiLoop(messages, emitter, {}, undefined, undefined, ctx);
+
+    const replayedFunctionCallParts = secondCallContents
+      .flatMap(c => c.parts)
+      .filter(p => p.functionCall);
+    assert.equal(replayedFunctionCallParts.length, 3);
+    assert.equal(replayedFunctionCallParts[0].thoughtSignature, "sig-only-first", "a real signature must still win over the sentinel");
+    assert.equal(replayedFunctionCallParts[1].thoughtSignature, "skip_thought_signature_validator");
+    assert.equal(replayedFunctionCallParts[2].thoughtSignature, "skip_thought_signature_validator");
+  });
 });
 
 // =============================================================================

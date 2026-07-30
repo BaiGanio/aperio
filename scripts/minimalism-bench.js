@@ -38,7 +38,7 @@ const SKILL_MD_PATH = resolve(REPO_ROOT, "skills/code-minimalism/SKILL.md");
 const LIVE_BOOTSTRAP_PATH = resolve(REPO_ROOT, "scripts/minimalism-live-server.js");
 
 export function parseArgs(argv) {
-  const args = { dryRun: false, tasks: null, repeats: 3, verdict: false, model: null, existingServer: false, provider: "llamacpp" };
+  const args = { dryRun: false, tasks: null, repeats: 3, verdict: false, model: null, existingServer: false, provider: "llamacpp", ledger: null };
   for (const arg of argv) {
     if (arg === "--dry-run") args.dryRun = true;
     else if (arg === "--verdict") args.verdict = true;
@@ -47,6 +47,7 @@ export function parseArgs(argv) {
     else if (arg.startsWith("--model=")) args.model = arg.slice("--model=".length);
     else if (arg === "--existing-server") args.existingServer = true;
     else if (arg.startsWith("--provider=")) args.provider = arg.slice("--provider=".length);
+    else if (arg.startsWith("--ledger=")) args.ledger = arg.slice("--ledger=".length);
   }
   return args;
 }
@@ -431,10 +432,13 @@ async function main() {
     const liveInfo = { handle: liveHandle };
     if (args.existingServer) {
       liveInfo.handle = { noop: true };
-      liveInfo.baseURL = `http://127.0.0.1:8080`;
+      // Never default to the developer's normal app port (8080) — an
+      // externally-started server for this eval is always the isolated
+      // instance on LIVE_EVAL_BASE_URL unless the caller overrides it.
+      liveInfo.baseURL = process.env.LLAMACPP_BASE_URL || LIVE_EVAL_BASE_URL;
       liveInfo.fetchImpl = globalThis.fetch;
     }
-    await runMatrix({ dryRun: args.dryRun, taskIds: args.tasks, repeats: args.repeats, model: args.model, ledgerPath: liveHandle?.ledgerPath, live: liveInfo, provider: args.provider, verdict: args.verdict });
+    await runMatrix({ dryRun: args.dryRun, taskIds: args.tasks, repeats: args.repeats, model: args.model, ledgerPath: args.ledger || liveHandle?.ledgerPath, live: liveInfo, provider: args.provider, verdict: args.verdict });
   } finally {
     if (!args.existingServer && !isCloudProvider) await teardownLiveEval(liveHandle);
   }
