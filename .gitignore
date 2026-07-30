@@ -15,7 +15,10 @@
 *.lancedb/
 .sqlite/
 var/
-trash/
+trash/*
+!trash/plans/
+!trash/plans/**
+trash/plans/**/.DS_Store
 A2D.md
 
 
