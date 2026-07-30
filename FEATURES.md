@@ -157,6 +157,14 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - SQLite at-rest encryption — AES-256-GCM, key stored in OS keychain (`APERIO_DB_ENCRYPT=1`)
 - Embedding providers: local transformers (default), Voyage AI (cloud)
 - Embedding retry queue for resilient vector writes
+- Per-store embedding signatures (`vec_meta`) — a provider/model/dimension change marks each
+  affected store stale instead of wiping every vector; stale stores keep answering via full-text
+  search rather than scoring queries against vectors from a different embedding space
+- Resumable reindex — rebuilds stale stores in the background on boot, resumes where it stopped
+  after an interruption (one embedding call per row, never two), and leases each store so a
+  second process can't reindex it concurrently
+- `npm run embeddings:reindex` — operator-triggered rebuild with per-store progress
+  (`--status` to report only, `--store a,b` to scope)
 - Data portability — `export_data` (portable JSON backup) and `import_data` (idempotent restore, deduplicates by ID/slug, queues embeddings for backfill)
 - Private agent-artifact store — immutable SHA-256-verified metadata/content pairs scoped to a chat session or headless run, written atomically with `0700` directories and `0600` files
 

@@ -76,6 +76,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
   stampede coalescing, stale-in-flight rejection, failed-load non-caching,
   explicit eviction, LRU bounding).
 
+- **Changing your embedding provider no longer wipes every vector — and search
+  degrades honestly while it rebuilds** (issue #287). Each vector store
+  (`memories`, `wiki`, `self_memories`, codegraph, docgraph) now records the
+  embedding signature its vectors belong to in a new `vec_meta` table. When you
+  change `EMBEDDING_PROVIDER`, `VOYAGE_MODEL` or `EMBEDDING_DIMS`, the affected
+  stores are marked **stale** instead of having every embedding deleted, and
+  they answer with full-text search only until they have been reindexed —
+  previously they would keep scoring new queries against vectors from the old
+  model, which returns confident nonsense rather than a visible error. An
+  explicit `search_mode: "semantic"` request is downgraded to full-text in that
+  window rather than falling through to an unranked listing, and `dedup` refuses
+  to run (it merges rows, so acting on cross-space similarity destroys data).
+  Rebuilding happens automatically in the background when the server starts, or
+  on demand with the new **`npm run embeddings:reindex`** (`--status` to report
+  without rebuilding, `--store a,b` to scope it). The rebuild is resumable: it
+  costs exactly one embedding call per row however many times it is interrupted,
+  and each store is leased so a background rebuild and a CLI run cannot process
+  the same store at once. A dimension change still has to recreate storage —
+  vec0 tables and pgvector columns are fixed-width — but that is now tracked
+  per store rather than silently clearing everything.
+
 - **Fix: switching embedding provider, model, or dimensions no longer leaves
   vector search silently broken** (issue #287). Changing `EMBEDDING_PROVIDER`,
   `VOYAGE_MODEL`, or `EMBEDDING_DIMS` used to clear embeddings and then fail to

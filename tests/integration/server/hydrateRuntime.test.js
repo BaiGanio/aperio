@@ -167,4 +167,36 @@ describe("hydrateRuntime (in-memory SQLite)", () => {
     const result = await hydrateRuntime();
     await result.shutdownEmbeddings();
   });
+
+  // ─── Reindex must not run destructively when embeddings are disabled ───
+  // (review follow-up: with EMBEDDING_PROVIDER=none, a store previously
+  // marked stale by a real provider must not have its vectors cleared and
+  // then get stuck in `reindexing` forever — generateEmbedding always
+  // returns null under this config, so every row would fail.)
+
+  test("does not clear or reindex a stale store while embeddings are disabled", async () => {
+    const result = await hydrateRuntime();
+    const { store } = result;
+
+    const fakeVector = Array.from({ length: 1024 }, (_, i) => (i % 7) / 10);
+    const memory = await store.insert({ type: "fact", title: "kept", content: "body" }, fakeVector);
+    assert.strictEqual(await store.hasEmbedding(memory.id), true);
+
+    // Simulate a store left stale by a provider that was enabled before this
+    // process started — exactly the state checkEmbeddingProvider produces on
+    // a real config change.
+    await store.updateVecMeta("memories", { status: "stale" });
+
+    const clearSpy = mock.method(store, "clearStoreEmbeddings");
+    await hydrateRuntime();
+    // No background driver should have started to race this assertion, but
+    // give any accidentally-started work a tick to run before checking.
+    await new Promise(r => setImmediate(r));
+
+    assert.strictEqual(clearSpy.mock.callCount(), 0, "a disabled provider must never clear a store's vectors");
+    assert.strictEqual(await store.hasEmbedding(memory.id), true, "the existing vector must survive");
+
+    const row = await store.getVecMeta("memories");
+    assert.notStrictEqual(row.status, "reindexing", "must not be left claimed by a driver that can never finish");
+  });
 });
