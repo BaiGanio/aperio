@@ -9,9 +9,16 @@ After rebooting, run these commands in order to get a definitive verdict on `ski
 rm -f var/autotune/minimalism.tsv var/autotune/minimalism.report.md
 rm -rf var/autotune/transcripts
 
-# Start isolated server with 8K context (avoids Metal OOM on 78K ctx)
+# Start isolated server. Do NOT hardcode LLAMACPP_SERVE_CTX/LLAMACPP_CTX — leave
+# them unset and let ensureLlamaCpp() auto-size from the model's real GGUF facts
+# (lib/helpers/llamacpp/sizing.js): balanced profile caps at a 131072 ceiling
+# regardless of RAM headroom; long-context raises the ceiling to 262144 and
+# computes the model's true fit. On a 32GB machine with a ~9B model this fits
+# comfortably (weights + full KV cache well under half of RAM) — verify per-model
+# with `factsFromGguf()`/`recommendContextLength()` before assuming a number,
+# rather than copying a context value from a different model's run.
 cd ~/Projects/BaiGanio/aperio
-LLAMACPP_PORT=18080 LLAMACPP_SERVE_CTX=8192 LLAMACPP_CTX=8192 \
+LLAMACPP_PORT=18080 APERIO_LOCAL_PERF_PROFILE=long-context \
   node scripts/minimalism-live-server.js
 ```
 
@@ -21,7 +28,7 @@ Wait for `✅ llama-server ready`. Then in another terminal:
 # Smoke test: one fixture, 1 repeat, check tokens are non-zero
 cd ~/Projects/BaiGanio/aperio
 node scripts/minimalism-bench.js \
-  --model="unsloth/Qwen2.5-Coder-14B-Instruct-128K-GGUF:Q4_K_M" \
+  --model="protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M" \
   --tasks=debounce-stdlib \
   --repeats=1 \
   --existing-server
@@ -29,25 +36,48 @@ node scripts/minimalism-bench.js \
 
 If this prints a cell with `tokens=...` (not zeroes), the setup works.
 
-## 2. Full run — definitive verdict
+## 2. Sanity-tier floor check — gate before spending on the feature tier
+
+Per `ponytail-borrow-ws2-feature-tier.md`: a model that can't reliably write a
+syntactically valid 10-line file has no business being the subject of the pricier
+feature-tier matrix. Run the 6 sanity fixtures first and check correctness clears
+the floor before running `cache-entry-ttl`.
 
 ```bash
-# All 7 fixtures, 3 repeats (42 recorded cells + 7 warmups)
 cd ~/Projects/BaiGanio/aperio
 node scripts/minimalism-bench.js \
-  --model="unsloth/Qwen2.5-Coder-14B-Instruct-128K-GGUF:Q4_K_M" \
+  --model="protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M" \
   --tasks=debounce-stdlib,divide-with-validation,includes-wrapper,\
-parse-config-value,reuse-query-parser,slug-helper,cache-entry-ttl \
+parse-config-value,reuse-query-parser,slug-helper \
   --repeats=3 \
   --existing-server \
   --verdict
 ```
 
-Expected time: ~30-45 minutes (49 cells × ~40s avg on 14B Q4_K_M).
+If correctness clears the floor, proceed to the feature tier below. If it doesn't,
+escalate the model (`Qwen3.5-4B`, then `gemma-4-12B`) and re-run this floor check
+before touching the feature tier at all — that's the epic's own INCONCLUSIVE/stop
+discipline, not optional.
 
-The `--verdict` flag prints `KEEP`/`TRIM`/`DROP`/`INCONCLUSIVE` at the end.
+## 3. Feature-tier run — definitive verdict (only after the floor check clears)
 
-## 3. Review results
+```bash
+# The over-engineering-room fixture, 3 repeats (3 recorded cells + 1 warmup)
+cd ~/Projects/BaiGanio/aperio
+node scripts/minimalism-bench.js \
+  --model="protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M" \
+  --tasks=cache-entry-ttl \
+  --repeats=3 \
+  --existing-server \
+  --verdict
+```
+
+The `--verdict` flag prints `KEEP`/`TRIM`/`DROP`/`INCONCLUSIVE` at the end. Sanity
+and feature tiers are separate verdicts — `computeVerdict()` runs once per tier via
+`--tasks=`, never pooled, since a pooled median would blend two different questions
+into one number.
+
+## 4. Review results
 
 ```bash
 cat var/autotune/minimalism.report.md

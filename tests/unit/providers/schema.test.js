@@ -9,7 +9,7 @@
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { z } from "zod";
-import { jsonSchemaToZodShape } from "../../../lib/providers/schema.js";
+import { jsonSchemaToZodShape, zodToJsonSchema } from "../../../lib/providers/schema.js";
 
 // The exact JSON Schema the MCP wire produces for fetch_url (mcp/tools/web.js).
 const FETCH_URL_SCHEMA = {
@@ -70,5 +70,36 @@ describe("jsonSchemaToZodShape", () => {
     });
     assert.doesNotThrow(() => z.object(shape).parse({ tags: ["a", "b"] }));
     assert.throws(() => z.object(shape).parse({ tags: "not-an-array" }));
+  });
+});
+
+// Gemini's protobuf Schema (function-calling surface) 400s on JSON Schema
+// keywords it doesn't recognize (additionalProperties, exclusiveMinimum, ...).
+// Regression guard: forGemini must strip those, and only for callers that ask —
+// DeepSeek/llama.cpp (OpenAI-shaped) get the full schema, min/max included.
+describe("zodToJsonSchema — forGemini stripping", () => {
+  const RAW_SCHEMA = {
+    type: "object",
+    properties: {
+      limit: { type: "number", minimum: 1, exclusiveMinimum: 0, maximum: 100 },
+    },
+    required: ["limit"],
+    additionalProperties: false,
+  };
+
+  test("default (OpenAI/DeepSeek/llama.cpp path) preserves min/max/additionalProperties", () => {
+    const result = zodToJsonSchema(RAW_SCHEMA);
+    assert.equal(result.additionalProperties, false);
+    assert.equal(result.properties.limit.minimum, 1);
+    assert.equal(result.properties.limit.exclusiveMinimum, 0);
+  });
+
+  test("forGemini: true strips additionalProperties and min/max keywords", () => {
+    const result = zodToJsonSchema(RAW_SCHEMA, { forGemini: true });
+    assert.equal("additionalProperties" in result, false);
+    assert.equal("minimum" in result.properties.limit, false);
+    assert.equal("exclusiveMinimum" in result.properties.limit, false);
+    assert.equal("maximum" in result.properties.limit, false);
+    assert.equal(result.properties.limit.type, "number");
   });
 });
