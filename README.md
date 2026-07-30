@@ -3,8 +3,9 @@
 <h1>✨ Aperio</h1>
 
 **One brain. Every agent. Nothing forgotten.**     
-A self-hosted memory layer **and** agent runtime — one store your own agents think from,   
-and any external agent plugs into over MCP. SQLite (or Postgres) + MCP + llama.cpp.   
+A self-hosted memory layer with an agent runtime built in — run any model, local or cloud,   
+and share the same memory with Claude Code, Codex and other MCP tools.   
+SQLite (or Postgres) + MCP + llama.cpp.   
 Zero-config by default; one file holds your memories, wiki, and code graph.  
 Your context, always available.  
 ##### • Download 👉 [Aperio-lite](https://github.com/BaiGanio/aperio/releases/latest/download/aperio-lite.zip) for non-code users. • Small tool for big ideas • [How to Install & Use?](https://github.com/BaiGanio/aperio/wiki/How-to-Install-&-Use-Aperio%E2%80%90lite%3F) •      

@@ -9,6 +9,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Landing page: flip cards for the team and MCP-tools sections**: the six
+  "Team Ready" cards and all 54 tool chips now flip on click. The front states
+  the situation the feature addresses (team) or what the tool does (chips); the
+  back carries the everyday prompt you would actually type to trigger it — 60
+  new prompts in total. Cards are keyboard-operable (`role="button"`,
+  Enter/Space, `aria-pressed`) and honour `prefers-reduced-motion`; both faces
+  share one grid cell so flipping never reflows the grid. Tool-chip columns
+  widened to 310px, which makes the tools section shorter than before despite
+  the added copy. All new strings are localizable (`tool_*_prompt`, `team_*`,
+  `flip_*`); non-English locales fall back to English until translated.
+
 - **Aperio mascot**: the retro-radio robot joins the brand — aurora-palette
   (purple/indigo/pink) artwork with an Electrolize aurora-gradient "A" on the
   chest. New `docs/assets/mascot/` suite (transparent PNGs, icon set,
