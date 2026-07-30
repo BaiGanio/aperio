@@ -374,6 +374,20 @@ body::before {
 .vid-wrapper { line-height:0; }
 .demo-video { width:100%;display:block; }
 
+/* hero mascot */
+.hero-mascot {
+    display:block;height:172px;width:auto;margin:0 auto 20px;
+    filter:drop-shadow(0 14px 28px rgba(124,58,237,0.35));
+    animation:mascot-bob 6s ease-in-out infinite;
+}
+@keyframes mascot-bob {
+    0%,100% { transform:translateY(0); }
+    50%     { transform:translateY(-9px); }
+}
+@media (prefers-reduced-motion: reduce) {
+    .hero-mascot { animation:none; }
+}
+
 /* eyebrow */
 .eyebrow {
     font-family:var(--font-ui);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;

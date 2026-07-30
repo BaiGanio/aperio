@@ -9,6 +9,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Aperio mascot**: the retro-radio robot joins the brand — aurora-palette
+  (purple/indigo/pink) artwork with an Electrolize aurora-gradient "A" on the
+  chest. New `docs/assets/mascot/` suite (transparent PNGs, icon set,
+  wallpapers up to 4K), new favicon for both the landing page and the web UI,
+  landing hero now features the mascot, and social-card images point at the
+  512px icon.
+
 - **Visual background-job step builder + "what should this job do?" wizard**
   (#326, #327): the background-agents job form's `steps` mode replaces the raw
   JSON textarea with a row-based builder — a tool dropdown sourced from the
