@@ -195,6 +195,45 @@ load-bearing — changing one side without the other breaks things in non-obviou
 | `lib/agent/index.js` ↔ `lib/workers/skills.js` | Skill matching and injection is called during context assembly. Skill behavior changes propagate to every conversation. |
 | `server.js` → `lib/handlers/` → `lib/agent/index.js` | The Express/WS server routes messages through handlers into the agent orchestrator. The WebSocket message protocol between `public/index.js` and `lib/handlers/` has no formal schema — both sides must agree on message shapes. |
 
+## Vector store lifecycle
+
+Every vector-bearing store — `memories`, `wiki`, `self_memories`, `codegraph`,
+`docgraph` — carries its own row in `vec_meta` recording the embedding
+signature (`provider:model:dims`) its vectors belong to, plus a status:
+
+```
+current  ──signature no longer matches configuration──▶  stale
+stale    ──reindex driver claims the store and clears it──▶  reindexing
+reindexing ──every row re-embedded──▶  current
+```
+
+Only a `current` store is vector-searchable. `stale` and `reindexing` both
+degrade to full-text search, because a partially reindexed store holds a mix of
+old- and new-space vectors and scoring a query against those produces confident
+nonsense rather than a visible error. `lib/helpers/vecMeta.js` owns the rules;
+both DB backends only do row CRUD, so they cannot drift.
+
+Detection runs from every entry point that opens a store —
+`lib/server/hydrateRuntime.js`, `mcp/index.js`, and the reindex CLI. Detection
+never deletes: a signature change marks stores stale and leaves their vectors
+in place. The single exception is a dimension change, where vec0 tables and
+pgvector columns are physically fixed-width and storage must be recreated
+before anything can be written at the new width.
+
+Rebuilding is handled by `lib/embeddings/reindex.js`. It clears a store's
+vectors exactly once, on the `stale → reindexing` edge, after which "rows still
+needing work" is just the without-embeddings scan each store already has — so an
+interrupted run resumes from where it stopped and costs exactly one embedding
+call per row no matter how often it is killed. Each store is claimed under a
+lease (`reindex_owner`/`reindex_expires_at`) so the server's background rebuild
+and an operator's `npm run embeddings:reindex` cannot process the same store at
+once; a crashed runner's lease expires and the store is reclaimed.
+
+The HTTP server rebuilds in the background on boot. MCP processes deliberately
+do not — they are spawned per agent session, so several can be alive at once and
+each running its own reindex would multiply embedding calls; they report the
+stale stores and leave the work to the server or the CLI.
+
 ## Key Files Reference
 
 | File | Purpose |
@@ -211,6 +250,8 @@ load-bearing — changing one side without the other breaks things in non-obviou
 | `lib/providers/model-facts.js` | DB-hydrated llama.cpp sizing catalog and override/GGUF/fallback resolution |
 | `lib/routes/paths.js` | Path resolution and validation for all file operations |
 | `lib/helpers/embeddings.js` | Embedding generation (transformers or Voyage) |
+| `lib/helpers/vecMeta.js` | Per-store embedding signature state machine (current/stale/reindexing) |
+| `lib/embeddings/reindex.js` | Resumable, leased reindex driver |
 | `lib/helpers/logger.js` | Winston logger with daily rotation |
 | `lib/context/` | Context assembly — system prompts, memory injection, skills |
 | `lib/agent/providers/` | Provider loops, including Claude Code and Codex CLI |

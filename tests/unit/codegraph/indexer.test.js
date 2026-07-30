@@ -260,7 +260,22 @@ describe("listPendingEmbeddings()", () => {
     });
     const pending = await indexer.listPendingEmbeddings(ctx.store, "/repo/a");
     assert.deepEqual(pending, [{ id: 7, text: "foo" }]);
-    assert.deepEqual(seenParams, ["/repo/a"], "must scope the query to the given root, not the whole graph");
+    assert.deepEqual(seenParams, ["/repo/a", null, 0], "must scope the query to the given root, not the whole graph, and default to an unbounded page");
+  });
+
+  test("passes the reindex driver's page bounds through to the backend", async () => {
+    // The driver pages a large repository rather than materializing every
+    // pending symbol; the root scope must survive that.
+    let seenParams;
+    const ctx = makeCtx(async (sql, params) => {
+      if (sql.includes("embedding IS NULL")) {
+        seenParams = params;
+        return { rows: [] };
+      }
+      return { rowCount: 0 };
+    });
+    await indexer.listPendingEmbeddings(ctx.store, "/repo/a", { limit: 200, offset: 3 });
+    assert.deepEqual(seenParams, ["/repo/a", 200, 3]);
   });
 });
 

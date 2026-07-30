@@ -37,6 +37,23 @@ async function createContext(store, opts) {
   // raw .env.
   await checkEmbeddingProvider(store);
 
+  // Deliberately no background reindex here, unlike the HTTP server. MCP
+  // processes are spawned per agent session, so several can be alive at once —
+  // each running its own full reindex would multiply embedding calls by the
+  // number of children with no benefit. Stale stores still serve full-text
+  // results correctly; the long-lived server rebuilds them, or an operator
+  // runs the CLI. Say so rather than degrading silently.
+  try {
+    const { listPendingStores } = await import("../lib/embeddings/reindex.js");
+    const pending = await listPendingStores(store);
+    if (pending.length) {
+      console.error(
+        `[aperio-mcp] ${pending.map(p => p.store_name).join(", ")} awaiting embedding reindex — ` +
+        `serving full-text results for those stores. Run "npm run embeddings:reindex" or start the Aperio server to rebuild.`
+      );
+    }
+  } catch { /* status reporting must never block MCP boot */ }
+
   // Initialize Embeddings engine
   await initEmbeddings(store, (text, inputType) =>
     vectorEnabled ? generateEmbedding(text, inputType) : null

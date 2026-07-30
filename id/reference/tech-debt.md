@@ -25,6 +25,43 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## Embeddings
+
+- 2026-07-30 `initEmbeddings`'s legacy startup backfill loop (`lib/helpers/embeddings.js`,
+  the `[...memPending, ...wikiPending, ...selfPending]` loop) reads `row.content` uniformly,
+  but SQLite's `wiki.listWithoutEmbeddings()` returns `body_md`, not `content` — every wiki
+  article backfilled through this path (not through the new #287 reindex driver, which was
+  fixed) embeds `"Title. undefined"`. Pre-existing, found while fixing the same bug in
+  `lib/embeddings/reindex.js`'s wiki adapter; out of scope for that fix.
+
+- 2026-07-30 Ordinary (non-reindex) embedding writes — `rememberHandler`/`updateMemoryHandler`,
+  `selfRememberHandler`/`selfUpdateHandler`, the import backfills, the retry queues, and
+  `initEmbeddings`'s startup backfill — persist whatever the writing process's own
+  `EMBEDDING_PROVIDER` produces with no check against the target store's `vec_meta` status or
+  signature. `isVectorSearchable()` gates reads but nothing gates writes, so in Postgres's
+  multi-agent mode a still-on-the-old-config process can land a foreign-space vector on a row
+  during another process's reindex clear→settle→finalize window; the row then has *a* vector,
+  drops out of the reindex driver's pending scan, and the store finalizes `current` with a
+  mixed embedding space the existing store-level signature check can't detect. Review finding
+  (P1) against `lib/embeddings/reindex.js:409-410`, but the fix belongs on the write side
+  (~8 files, none in the #287 branch's current diff) — tracked as issue #340.
+
+## Codegraph / docgraph watchers
+
+- 2026-07-30 `startWatcher()` in `lib/codegraph/watcher.js` / `lib/docgraph/watcher.js` has no
+  dependency-injection point (`indexRepo`, the embed queue, `generateEmbedding` are all
+  module-level imports) and the returned handle exposes only `{ root, stop }` — no way to
+  observe the embed queue's contents or force its 5s unref'd flush timer. This blocked a
+  direct regression test for the #287 review fix that gates the startup embedding backfill
+  behind `pendingStoreNames()` (skip when the reindex driver already owns the store), and for
+  its follow-up refinement (only defer when the root already existed before this indexRepo
+  call — a brand-new root can't have been in the reindex driver's already-captured
+  `listRepoRoots()` snapshot for its current run, so it must always self-embed regardless of
+  overall store status). Both fixes reuse patterns already covered by `initEmbeddings`'s and
+  the reindex driver's own tests; only the watcher-level call site is unverified by an
+  automated test. A real test would need either
+  an injectable embed-queue/flush hook on the watcher, or a slow (~5s) timer-driven wait.
+
 ## Test harness
 
 - 2026-07-29 The aggregate `npm test` runner makes real-app WebSocket T45 load-sensitive:

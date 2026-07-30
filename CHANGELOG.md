@@ -9,6 +9,39 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Landing page: flip cards for the team and MCP-tools sections**: the six
+  "Team Ready" cards and all 54 tool chips now flip on click. The front states
+  the situation the feature addresses (team) or what the tool does (chips); the
+  back carries the everyday prompt you would actually type to trigger it — 60
+  new prompts in total. Cards are keyboard-operable (`role="button"`,
+  Enter/Space, `aria-pressed`) and honour `prefers-reduced-motion`; both faces
+  share one grid cell so flipping never reflows the grid. Tool-chip columns
+  widened to 310px, which makes the tools section shorter than before despite
+  the added copy. All new strings are localizable (`tool_*_prompt`, `team_*`,
+  `flip_*`); non-English locales fall back to English until translated.
+
+- **Aperio mascot**: the retro-radio robot joins the brand — aurora-palette
+  (purple/indigo/pink) artwork with an Electrolize aurora-gradient "A" on the
+  chest. New `docs/assets/mascot/` suite (transparent PNGs, icon set,
+  wallpapers up to 4K), new favicon for both the landing page and the web UI,
+  landing hero now features the mascot, and social-card images point at the
+  512px icon.
+
+- **Visual background-job step builder + "what should this job do?" wizard**
+  (#326, #327): the background-agents job form's `steps` mode replaces the raw
+  JSON textarea with a row-based builder — a tool dropdown sourced from the
+  live MCP registry (`GET /api/agents/tools`), dynamic input fields driven by
+  each tool's schema, add/reorder (drag or arrows)/delete per step, and a
+  synchronized raw-JSON fallback for power users. New job steps are now
+  validated against the live tool registry at create/update time
+  (`lib/workers/background-job-tools.js`). A first-step wizard
+  (`POST /api/agents/wizard`) turns a plain-English description ("every
+  night, clean up duplicate memories and regenerate their embeddings") into a
+  suggested job — trigger, plus either a steps pipeline or a freeform prompt —
+  which prefills the form for review; suggestions default to `enabled: false`
+  and any schema-validation warnings are surfaced inline rather than blocking
+  the draft.
+
 - **Fix: truthful, durable local-AI setup.** The setup wizard now labels total
   RAM and free model-cache storage explicitly, measures the filesystem that
   will actually hold the model, and recommends Gemma 4 E2B
@@ -42,6 +75,64 @@ Versions follow [Semantic Versioning](https://semver.org/).
   (9 tests: warm reuse, revision-bump invalidation, per-store isolation,
   stampede coalescing, stale-in-flight rejection, failed-load non-caching,
   explicit eviction, LRU bounding).
+
+- **Changing your embedding provider no longer wipes every vector — and search
+  degrades honestly while it rebuilds** (issue #287). Each vector store
+  (`memories`, `wiki`, `self_memories`, codegraph, docgraph) now records the
+  embedding signature its vectors belong to in a new `vec_meta` table. When you
+  change `EMBEDDING_PROVIDER`, `VOYAGE_MODEL` or `EMBEDDING_DIMS`, the affected
+  stores are marked **stale** instead of having every embedding deleted, and
+  they answer with full-text search only until they have been reindexed —
+  previously they would keep scoring new queries against vectors from the old
+  model, which returns confident nonsense rather than a visible error. An
+  explicit `search_mode: "semantic"` request is downgraded to full-text in that
+  window rather than falling through to an unranked listing, and `dedup` refuses
+  to run (it merges rows, so acting on cross-space similarity destroys data).
+  Rebuilding happens automatically in the background when the server starts, or
+  on demand with the new **`npm run embeddings:reindex`** (`--status` to report
+  without rebuilding, `--store a,b` to scope it). The rebuild is resumable: it
+  costs exactly one embedding call per row however many times it is interrupted,
+  and each store is leased so a background rebuild and a CLI run cannot process
+  the same store at once. A dimension change still has to recreate storage —
+  vec0 tables and pgvector columns are fixed-width — but that is now tracked
+  per store rather than silently clearing everything.
+
+- **Fix: switching embedding provider, model, or dimensions no longer leaves
+  vector search silently broken** (issue #287). Changing `EMBEDDING_PROVIDER`,
+  `VOYAGE_MODEL`, or `EMBEDDING_DIMS` used to clear embeddings and then fail to
+  regenerate them in several real configurations. Fixed across the board:
+  `VOYAGE_MODEL` is now actually sent to the Voyage API instead of a hardcoded
+  `voyage-3` (previously a provider change wiped every store and re-embedded
+  with the old model — a destructive no-op), and model/dimension pairs are
+  validated *before* anything destructive runs, so an unsupported
+  `EMBEDDING_DIMS` is rejected up front rather than after storage has been
+  erased. Postgres's `clearAllEmbeddings()` now covers all five vector stores
+  (it previously missed `self_memories`, `cg_symbols`, and `docgraph_chunks`),
+  and all five can now self-heal: self-memories, codegraph symbols, and
+  docgraph chunks gained backfill scans, so a provider change no longer
+  permanently disables search over stores nothing ever re-embedded. A
+  dimension change now resizes vector storage (recreating SQLite vec0 tables /
+  re-typing and re-indexing pgvector columns) instead of crash-looping on
+  every subsequent insert, with the widths validated against sqlite-vec's
+  8192 and pgvector's 2000-dim HNSW ceilings before any DDL. Standalone
+  `npm run mcp` deployments now run this check at all — previously they never
+  detected a provider change.
+
+- **Fix: MCP tool settings from the database are applied before tools load.**
+  `mcp/index.js` imported its tool modules statically, so they froze
+  `process.env` values at import time — before the DB Settings overlay was
+  applied. Under the default `db` precedence this meant a standalone
+  `npm run mcp` server read `APERIO_ENABLE_SHELL` (and the llama.cpp image
+  settings) from raw `.env` only: disabling `run_shell` in Settings left host
+  command execution enabled. Configuration is now hydrated at the top of
+  `startServer()` and tool registration happens afterwards.
+
+- **Fix: codegraph/docgraph startup backfill is scoped to the watched root.**
+  With multiple watched roots, each watcher's startup scan queried the whole
+  graph, so every root re-enqueued every other root's pending symbols and
+  chunks — up to one redundant embedding API call per symbol/chunk per extra
+  root.
+
 - **Database-backed llama.cpp model facts.** Curated download size, context,
   KV-cache, architecture, and optional vision-projector metadata now live in a
   lockstep `model_facts` table for SQLite and Postgres instead of the

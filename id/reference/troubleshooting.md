@@ -32,3 +32,7 @@
 |---------|-------|
 | `generateEmbedding` returns null | Embedding provider not initialized. Check `EMBEDDING_PROVIDER` (default: `transformers`). First run downloads the model — this can take a while |
 | High memory usage | Local transformers load the model into RAM. Switch to `voyage` (cloud) for low-memory environments |
+| Search got noticeably worse after changing `EMBEDDING_PROVIDER`, `VOYAGE_MODEL` or `EMBEDDING_DIMS` | Expected, and temporary. Those stores are marked stale in `vec_meta` and answer with full-text search only until they are reindexed — comparing new queries against vectors from the old model would return confident nonsense. Check progress with `npm run embeddings:reindex -- --status` |
+| A store is stuck at `stale` or `reindexing` | The rebuild runs in the background when the server starts, so a headless or never-restarted instance may never have run it. Run `npm run embeddings:reindex`. If it reports failures, the embedding provider is unreachable — the store stays marked and resumes on the next run |
+| `run_shell`/`dedup` says embeddings are being reindexed | Deliberate: dedup merges rows based on similarity, and similarity across two embedding spaces is meaningless. Wait for the reindex, or run it explicitly |
+| `vec_meta` shows a `reindex_owner` that no longer exists | A runner crashed mid-reindex. The lease expires on its own (2 minutes) and the next run reclaims the store; nothing needs to be done by hand |
