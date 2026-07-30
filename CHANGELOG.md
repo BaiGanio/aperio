@@ -75,6 +75,43 @@ Versions follow [Semantic Versioning](https://semver.org/).
   (9 tests: warm reuse, revision-bump invalidation, per-store isolation,
   stampede coalescing, stale-in-flight rejection, failed-load non-caching,
   explicit eviction, LRU bounding).
+
+- **Fix: switching embedding provider, model, or dimensions no longer leaves
+  vector search silently broken** (issue #287). Changing `EMBEDDING_PROVIDER`,
+  `VOYAGE_MODEL`, or `EMBEDDING_DIMS` used to clear embeddings and then fail to
+  regenerate them in several real configurations. Fixed across the board:
+  `VOYAGE_MODEL` is now actually sent to the Voyage API instead of a hardcoded
+  `voyage-3` (previously a provider change wiped every store and re-embedded
+  with the old model — a destructive no-op), and model/dimension pairs are
+  validated *before* anything destructive runs, so an unsupported
+  `EMBEDDING_DIMS` is rejected up front rather than after storage has been
+  erased. Postgres's `clearAllEmbeddings()` now covers all five vector stores
+  (it previously missed `self_memories`, `cg_symbols`, and `docgraph_chunks`),
+  and all five can now self-heal: self-memories, codegraph symbols, and
+  docgraph chunks gained backfill scans, so a provider change no longer
+  permanently disables search over stores nothing ever re-embedded. A
+  dimension change now resizes vector storage (recreating SQLite vec0 tables /
+  re-typing and re-indexing pgvector columns) instead of crash-looping on
+  every subsequent insert, with the widths validated against sqlite-vec's
+  8192 and pgvector's 2000-dim HNSW ceilings before any DDL. Standalone
+  `npm run mcp` deployments now run this check at all — previously they never
+  detected a provider change.
+
+- **Fix: MCP tool settings from the database are applied before tools load.**
+  `mcp/index.js` imported its tool modules statically, so they froze
+  `process.env` values at import time — before the DB Settings overlay was
+  applied. Under the default `db` precedence this meant a standalone
+  `npm run mcp` server read `APERIO_ENABLE_SHELL` (and the llama.cpp image
+  settings) from raw `.env` only: disabling `run_shell` in Settings left host
+  command execution enabled. Configuration is now hydrated at the top of
+  `startServer()` and tool registration happens afterwards.
+
+- **Fix: codegraph/docgraph startup backfill is scoped to the watched root.**
+  With multiple watched roots, each watcher's startup scan queried the whole
+  graph, so every root re-enqueued every other root's pending symbols and
+  chunks — up to one redundant embedding API call per symbol/chunk per extra
+  root.
+
 - **Database-backed llama.cpp model facts.** Curated download size, context,
   KV-cache, architecture, and optional vision-projector metadata now live in a
   lockstep `model_facts` table for SQLite and Postgres instead of the
