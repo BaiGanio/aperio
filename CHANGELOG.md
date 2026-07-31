@@ -9,6 +9,31 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+- **Mascot across the web UI**: the robot now speaks in the app, not just on the
+  landing page. Every AI chat bubble carries the mascot as its avatar (48px,
+  round-table agents keep their identity through a coloured ring instead of a
+  coloured fill); the empty memories list and a new offline banner show a quiet
+  greyscale robot; the setup wizard and the help page lead with it. Derived
+  assets are generated from the masters by `npm run gen:mascot`
+  (`gen:mascot:check` guards drift) and the PNG favicon set now also loads on
+  `docs/guides.html`, `public/index.html`, `setup.html`, `help.html` and
+  `codegraph-atlas.html`. The README header carries the mascot too. No new
+  translation keys — the offline banner reuses the existing status strings.
+
+- **Mascot on the landing page and a real 404**: three `.mascot-bubble`
+  moments — Why Aperio, Aperio-lite and Quick Start — where the robot delivers
+  the line the section already led with (the existing `data-i18n` element moves
+  inside the bubble, so no locale gains a string). The hero terminal's provider
+  row now wears the mascot's head instead of the 🤖 emoji, the footer offers the
+  four wallpapers as lazy-loaded thumbnails labelled by resolution, and
+  `docs/404.html` finally exists: "This page isn't in my memory." All new bytes
+  on the landing page total 41 KB; every animation honours
+  `prefers-reduced-motion`.
+
+- **Mascot in the terminal**: `help` now draws a four-line ASCII robot down the
+  left margin of its header, with the version beside the title. Terminals
+  narrower than 80 columns get the plain header as before.
+
 - **Landing page: flip cards for the team and MCP-tools sections**: the six
   "Team Ready" cards and all 54 tool chips now flip on click. The front states
   the situation the feature addresses (team) or what the tool does (chips); the

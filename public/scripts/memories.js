@@ -30,7 +30,7 @@ function renderMemories(memories) {
   if (!filtered.length) {
     window.memoriesList.innerHTML = `
       <div class="empty-state csp-style-6">
-        <div class="csp-style-20">◈</div>
+        <img class="empty-mascot" src="assets/mascot/mono.png" alt="" width="128" height="128" />
         <div class="csp-style-21" data-i18n="sidebar_empty_title">${t("sidebar_empty_title")}</div>
         <div class="csp-style-22" data-i18n-html="sidebar_empty_hint_html">${t("sidebar_empty_hint_html")}</div>
       </div>`;

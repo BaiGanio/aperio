@@ -35,6 +35,13 @@ window.statusText   = document.getElementById("statusText");
 window.memoriesList = document.getElementById("memoriesList");
 window.searchInput  = document.getElementById("searchInput");
 
+// The socket drops on every server restart, so the banner is a plain toggle:
+// no timers, no state of its own, nothing to leak.
+function setOfflineBanner(offline) {
+  const banner = document.getElementById("offlineBanner");
+  if (banner) banner.hidden = !offline;
+}
+
 // ── WebSocket ────────────────────────────────────────────────
 function connect() {
   const proto = location.protocol === "https:" ? "wss:" : "ws:";
@@ -46,6 +53,7 @@ function connect() {
 
   window.ws.onopen = () => {
     document.getElementById("startup-thinking")?.remove();
+    setOfflineBanner(false);
     if (!window.hasInitialized) {
       window.hasInitialized = true;
       setStatus("thinking", t("status_loading"));
@@ -71,6 +79,7 @@ function connect() {
 
   window.ws.onclose = () => {
     setStatus("", t("status_disconnected"));
+    setOfflineBanner(true);
     window.sendBtn.disabled = true;
     setTimeout(connect, 3000);
   };

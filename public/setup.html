@@ -17,6 +17,9 @@
   <!-- Pull in the app's CSS variables (accent, font-mono, radius-sm, etc.) -->
 
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/mascot/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/mascot/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/mascot/apple-touch-icon.png" />
   <script src="scripts/http-guard.js"></script>
   <script src="scripts/i18n.js"></script>
 
@@ -40,6 +43,14 @@
   margin-bottom: 32px;
   opacity: 0;
   animation: su-fade 0.4s 0.12s ease both;
+}
+/* The mascot greets first — it is the thing the wizard is setting up. */
+.setup-mascot {
+  display: block;
+  width: 104px;
+  height: 104px;
+  margin: 0 auto 10px;
+  object-fit: contain;
 }
 .setup-intro h1 {
   font-size: 20px;
@@ -458,6 +469,7 @@ select.wiz-input {
   <!-- ── Wizard (shown first) ─────────────────────────────────────────── -->
   <div id="wizardView">
     <div class="setup-intro">
+      <img class="setup-mascot" src="assets/mascot/body-256.webp" alt="" width="104" height="104" />
       <h1 data-i18n="wiz_welcome_h1">Welcome to Aperio</h1>
       <p data-i18n-html="wiz_welcome_p_html">How would you like to run the AI? You can change this later in the <strong>Configuration</strong> panel.</p>
     </div>
