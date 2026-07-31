@@ -154,6 +154,38 @@
       50%       { opacity: .3; }
     }
 
+    /* ── Offline banner ────────────────────────────────────── */
+    .offline-banner {
+      position: fixed;
+      top: 0; left: 50%;
+      transform: translateX(-50%);
+      z-index: 60;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 4px 16px 4px 8px;
+      border: 1px solid color-mix(in srgb, #ef4444 35%, var(--border));
+      border-top: none;
+      border-radius: 0 0 12px 12px;
+      background: var(--bg-hover);
+      color: var(--text-muted);
+      font-size: var(--fs-chrome);
+      box-shadow: var(--shadow);
+      animation: offlineDrop .28s ease;
+    }
+    .offline-banner[hidden] { display: none; }
+    /* Head tilted, as if listening for the server to come back. */
+    .offline-banner-mascot { width: 44px; height: 44px; object-fit: contain; rotate: -8deg; }
+
+    @keyframes offlineDrop {
+      from { transform: translate(-50%, -100%); }
+      to   { transform: translate(-50%, 0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .offline-banner { animation: none; }
+    }
+
     /* ── Nav action pill (reasoning · history · paths) ─────── */
     .nav-actions-pill {
       display: flex;

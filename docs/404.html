@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aperio | Not in my memory</title>
+  <meta name="robots" content="noindex" />
+
+  <!-- GitHub Pages serves this file for any missing path under /aperio/, at any
+       depth, so every reference here is absolute and the styling is inline —
+       a relative path would break on /aperio/guides/whatever. -->
+  <link rel="icon" type="image/x-icon" href="/aperio/assets/favicon.ico" />
+  <link rel="icon" type="image/png" sizes="32x32" href="/aperio/assets/mascot/favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/aperio/assets/mascot/apple-touch-icon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Electrolize&family=DM+Sans:opsz,wght@9..40,300;9..40,400&display=swap" rel="stylesheet" />
+
+  <style>
+    :root {
+      --bg: #0d0d14; --text: #e8e6f5; --subtle: #9d9ab0; --muted: #6b6880;
+      --border: #1e1e35; --purple: #a855f7;
+      --aurora-text: linear-gradient(90deg,#a855f7 0%,#c084fc 40%,#ec4899 100%);
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f4f4f8; --text: #1a1728; --subtle: #4a4660; --muted: #6b6880;
+        --border: #d8d6e8; --purple: #7c3aed;
+        --aurora-text: linear-gradient(90deg,#7c3aed 0%,#a855f7 50%,#db2777 100%);
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      background: var(--bg); color: var(--text);
+      font-family: 'DM Sans', system-ui, sans-serif; font-size: 15px; line-height: 1.65;
+      padding: 40px 24px; text-align: center;
+    }
+    .wrap { max-width: 520px; }
+    .robot {
+      width: 190px; height: 190px; object-fit: contain; margin: 0 auto 24px; display: block;
+      filter: drop-shadow(0 14px 28px rgba(124,58,237,0.35));
+      animation: bob 6s ease-in-out infinite;
+    }
+    @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-9px); } }
+    @media (prefers-reduced-motion: reduce) { .robot { animation: none; } }
+    .code {
+      font-family: 'Electrolize', monospace; font-size: 11px; letter-spacing: .2em;
+      text-transform: uppercase; color: var(--purple); margin-bottom: 14px;
+    }
+    h1 {
+      font-family: 'Electrolize', monospace; font-size: clamp(1.6rem, 4vw, 2.4rem);
+      line-height: 1.15; letter-spacing: -.02em; font-weight: 400; margin-bottom: 14px;
+      background: var(--aurora-text); -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p { color: var(--subtle); margin-bottom: 28px; }
+    a.home {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-family: 'Electrolize', monospace; font-size: 11px; letter-spacing: .12em;
+      text-transform: uppercase; text-decoration: none; color: var(--text);
+      border: 1px solid var(--border); padding: 13px 30px; transition: border-color .15s, color .15s;
+    }
+    a.home:hover { border-color: var(--purple); color: var(--purple); }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <img class="robot" src="/aperio/assets/mascot/body-256.webp" alt="" aria-hidden="true" />
+    <div class="code">404</div>
+    <h1>This page isn't in my memory.</h1>
+    <p>I keep what I am given — and this one never arrived. Let's go back to something I do remember.</p>
+    <a class="home" href="/aperio/">Back to Aperio</a>
+  </div>
+</body>
+</html>

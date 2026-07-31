@@ -47,12 +47,23 @@
       margin-top: 2px;
     }
 
+    /* The AI speaker is the mascot. Every renderer (chat, sessions, deliverables,
+       round-table) still writes a letter into this node; it stays in the DOM for
+       assistive tech and is masked visually, so the robot arrives everywhere
+       without touching five JS call sites. */
     .avatar.ai {
-      background: var(--text);
-      color: var(--bg);
+      width: 48px; height: 48px;
+      margin-top: 0;
+      border-radius: 0;
+      background: transparent center/contain no-repeat;
+      background-image: image-set(
+        url("../../assets/mascot/avatar-56.png") 1x,
+        url("../../assets/mascot/avatar-112.png") 2x
+      );
+      color: transparent;
       font-family: var(--font-mono);
       font-weight: 700;
-      font-size: var(--fs-chrome);
+      font-size: 0;
     }
 
     .avatar.user {

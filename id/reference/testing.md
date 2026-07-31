@@ -206,6 +206,8 @@ npm run test:backfill          # Embedding backfill integration tests
 npm run test:e2e               # All E2E tests (protocol + real-app)
 npm run test:e2e:real          # Real-app E2E tests only (no mock fixtures)
 npm run test:e2e:ci            # All E2E tests with dashboard JSON reporter
+npm run test:browser           # Playwright specs (tests/browser/) against a real app boot
+npm run test:browser:headed    # Same, with a visible browser
 npm run test:ci                # Unit + integration coverage and combined dashboard JSON
 npm run test:ci:unit           # Unit tests with unit JSON reporter
 npm run test:ci:integration    # Integration tests with integration JSON reporter

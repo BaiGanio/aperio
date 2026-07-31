@@ -5,8 +5,9 @@ name: (ci) generated artifacts
 #
 #   lib/config.js              → .env.example, docs/config-reference.md
 #   id/agent-rules/*.md        → integrations/agent-rules/**
+#   docs/assets/mascot/*       → the derived mascot set in docs/ and public/
 #
-# Both generators expose a --check mode that byte-compares the committed
+# Every generator exposes a --check mode that byte-compares the committed
 # artifact against a fresh build, so a change to a source without a
 # regeneration fails here instead of drifting silently. Path-filtered, per the
 # per-concern workflow convention of ci.agent-harness.yml / ci.lite-smoke.yml.
@@ -21,8 +22,11 @@ on:
       - integrations/agent-rules/**
       - scripts/gen-env-example.js
       - scripts/gen-agent-rules.js
+      - scripts/gen-mascot-derivatives.js
       - .env.example
       - docs/config-reference.md
+      - docs/assets/mascot/**
+      - public/assets/mascot/**
       - .github/workflows/ci.generated-artifacts.yml
   pull_request:
     branches: [master, dev]
@@ -32,8 +36,11 @@ on:
       - integrations/agent-rules/**
       - scripts/gen-env-example.js
       - scripts/gen-agent-rules.js
+      - scripts/gen-mascot-derivatives.js
       - .env.example
       - docs/config-reference.md
+      - docs/assets/mascot/**
+      - public/assets/mascot/**
       - .github/workflows/ci.generated-artifacts.yml
 
 permissions:
@@ -57,10 +64,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Neither generator needs a database, a model, or the network — they read
-      # a source file and render text, so this stays a sub-minute job.
+      # No generator needs a database, a model, or the network — they read a
+      # source file and render text or images, so this stays a sub-minute job.
       - name: .env.example and docs/config-reference.md match lib/config.js
         run: npm run gen:env:check
 
       - name: integrations/agent-rules/** matches id/agent-rules/aperio-memory.md
         run: npm run gen:agent-rules:check
+
+      - name: derived mascot assets match the masters
+        run: npm run gen:mascot:check

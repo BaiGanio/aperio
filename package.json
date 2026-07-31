@@ -65,6 +65,8 @@
     "// 5  config & env": "── keep lib/config.js, .env.example, docs/config-reference.md and locales in sync ──",
     "gen:env": "node scripts/gen-env-example.js",
     "gen:env:check": "node scripts/gen-env-example.js --check",
+    "gen:mascot": "node scripts/gen-mascot-derivatives.js",
+    "gen:mascot:check": "node scripts/gen-mascot-derivatives.js --check",
     "gen:agent-rules": "node scripts/gen-agent-rules.js",
     "gen:agent-rules:check": "node scripts/gen-agent-rules.js --check",
     "i18n:check": "node scripts/diff-locales.js && node scripts/check-docs-i18n.js",
