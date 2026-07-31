@@ -148,7 +148,7 @@
           <span class="t-title" data-i18n="terminal_title">aperio — local · private · yours</span>
         </div>
         <div class="terminal-body">
-          <div><span class="t-ok">🤖</span> <span class="t-out" data-i18n="terminal_provider">Provider: llama.cpp (qwen3:4b)</span></div>
+          <div><img class="t-mascot" src="assets/mascot/head-64.webp" alt="" aria-hidden="true" width="18" height="18" /> <span class="t-out" data-i18n="terminal_provider">Provider: llama.cpp (qwen3:4b)</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out" data-i18n="terminal_db_connected">Connected to Aperio database</span></div>
           <div><span class="t-ok">✅</span> <span class="t-out" data-i18n="terminal_semantic_ready">pgvector enabled — semantic search active (16/16 memories embedded)</span></div>
           <div><span class="t-ok">🧠</span> <span class="t-out" data-i18n="terminal_mcp_running">Aperio MCP server v2.0 running</span></div>
@@ -1633,7 +1633,12 @@
   <div class="section-inner wide">
     <div class="eyebrow reveal" data-i18n="compare_eyebrow">Why Aperio</div>
     <h2 class="section-heading reveal" data-i18n="compare_h2">Your data. Your rules.</h2>
-    <p class="lead-text reveal" data-i18n-html="compare_lead">Commercial memory services are great products.<br>Aperio is a different choice — self-hosted, open source, fully customizable.</p>
+    <div class="mascot-bubble reveal">
+      <img src="assets/mascot/body-256.webp" alt="" aria-hidden="true" loading="lazy" width="96" height="96" />
+      <div class="mascot-bubble-body">
+        <p class="lead-text" data-i18n-html="compare_lead">Commercial memory services are great products.<br>Aperio is a different choice — self-hosted, open source, fully customizable.</p>
+      </div>
+    </div>
     <div class="compare-wrap reveal">
       <table>
         <thead>
@@ -1680,7 +1685,12 @@
   <div class="section-inner wide">
     <div class="eyebrow reveal" data-i18n="setup_eyebrow">Quick Start</div>
     <h2 class="section-heading reveal" data-i18n="setup_h2">Up in 5 minutes.</h2>
-    <p class="lead-text reveal" data-i18n="setup_lead">Three ways in — pick your comfort level. Everything runs 100% local by default: no API keys, no cloud.</p>
+    <div class="mascot-bubble reveal">
+      <img src="assets/mascot/body-256.webp" alt="" aria-hidden="true" loading="lazy" width="96" height="96" />
+      <div class="mascot-bubble-body">
+        <p class="lead-text" data-i18n="setup_lead">Three ways in — pick your comfort level. Everything runs 100% local by default: no API keys, no cloud.</p>
+      </div>
+    </div>
 
     <!-- ── Three install methods · overview ── -->
     <div class="steps-grid" style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:44px">
@@ -1804,7 +1814,12 @@
   <div class="section-inner wide">
     <div class="eyebrow reveal" data-i18n="lite_eyebrow">Aperio-lite · For non-code humans</div>
     <h2 class="section-heading reveal" data-i18n-html="lite_h2">Small tool. Big ideas. 🧐<br><span class="aurora-text">No coding skills required.</span></h2>
-    <code class="lead-text reveal" data-i18n-html="lite_lead">The fastest path to your own private AI.<br>Runs 100% on your machine. No Money. No Cloud. No <code>register your email</code> here and there.<br><strong>Download → unzip → double-click. That's it.</strong></code>
+    <div class="mascot-bubble reveal">
+      <img src="assets/mascot/body-256.webp" alt="" aria-hidden="true" loading="lazy" width="96" height="96" />
+      <div class="mascot-bubble-body">
+        <code class="lead-text" data-i18n-html="lite_lead">The fastest path to your own private AI.<br>Runs 100% on your machine. No Money. No Cloud. No <code>register your email</code> here and there.<br><strong>Download → unzip → double-click. That's it.</strong></code>
+      </div>
+    </div>
 
     <div class="badge-row reveal" style="margin-bottom:48px">
       <span class="tech-badge"><i class="bi bi-mouse me-1"></i> <span data-i18n="lite_badge_launch">Double-click Launch</span></span>
@@ -1958,6 +1973,25 @@
 
 <!-- ── Footer ─────────────────────────────────────────────────── -->
 <footer>
+  <!-- Wallpapers: labelled by resolution only, so the strip needs no translation. -->
+  <div class="wallpaper-strip">
+    <a href="assets/mascot/wallpaper-1920x1080.jpg" download>
+      <img src="assets/mascot/wallpaper-1920x1080-thumb.webp" alt="" aria-hidden="true" loading="lazy" />
+      <span>1920 × 1080</span>
+    </a>
+    <a href="assets/mascot/wallpaper-2560x1440.jpg" download>
+      <img src="assets/mascot/wallpaper-2560x1440-thumb.webp" alt="" aria-hidden="true" loading="lazy" />
+      <span>2560 × 1440</span>
+    </a>
+    <a href="assets/mascot/wallpaper-3840x2160.jpg" download>
+      <img src="assets/mascot/wallpaper-3840x2160-thumb.webp" alt="" aria-hidden="true" loading="lazy" />
+      <span>3840 × 2160</span>
+    </a>
+    <a class="is-phone" href="assets/mascot/wallpaper-phone-1170x2532.jpg" download>
+      <img src="assets/mascot/wallpaper-phone-1170x2532-thumb.webp" alt="" aria-hidden="true" loading="lazy" />
+      <span>1170 × 2532</span>
+    </a>
+  </div>
   <div class="footer-warning" data-i18n="footer_warning">⚠️ Warning: Excessive use of AI agents may cause your brain to atrophy, leading to irreversible stupidity. Use responsibly.</div>
 </footer>
 

@@ -1,6 +1,7 @@
 <a id="top"></a>
 <div align="center">
-<h1>✨ Aperio</h1>
+<img src="docs/assets/mascot/robot-aurora-512.png" alt="Aperio" height="160">
+<h1>Aperio</h1>
 
 **One brain. Every agent. Nothing forgotten.**     
 A self-hosted memory layer with an agent runtime built in — run any model, local or cloud,   

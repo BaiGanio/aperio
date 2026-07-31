@@ -332,3 +332,14 @@
       color: var(--text-muted);
       font-size: var(--fs-chrome);
     }
+
+    /* Nothing to hand back yet — the robot waits instead of a bare glyph.
+       The image ships pre-dimmed (greyscale at 50% alpha), so it stays quiet
+       on both themes without a second opacity rule. */
+    .empty-state .empty-mascot {
+      display: block;
+      width: 128px;
+      height: 128px;
+      margin: 0 auto 10px;
+      object-fit: contain;
+    }

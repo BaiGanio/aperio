@@ -388,6 +388,41 @@ body::before {
     .hero-mascot { animation:none; }
 }
 
+/* ── Mascot bubble ──
+   The robot says the line the section already leads with — three places on the
+   page, no more: the bubble is a signature, not wallpaper. It carries no copy
+   of its own; the existing lead element moves inside it, keeping its data-i18n
+   key, so no locale gains a single string. */
+.mascot-bubble {
+    display:flex;align-items:center;gap:18px;
+    max-width:920px;margin:0 auto 40px;text-align:left;
+}
+.mascot-bubble img { width:96px;height:96px;flex:none;object-fit:contain; }
+.mascot-bubble-body {
+    position:relative;flex:1 1 auto;min-width:0;
+    padding:18px 24px;background:var(--bg-raised);
+    border:1px solid var(--border);
+}
+/* Aurora edge on the speaking side. */
+.mascot-bubble-body::after {
+    content:"";position:absolute;left:-1px;top:-1px;bottom:-1px;width:2px;background:var(--aurora);
+}
+/* Tail — a small square rotated into the gap, so it reads as speech. */
+.mascot-bubble-body::before {
+    content:"";position:absolute;left:-7px;top:50%;width:12px;height:12px;
+    background:var(--bg-raised);border-left:1px solid var(--border);border-bottom:1px solid var(--border);
+    transform:translateY(-50%) rotate(45deg);
+}
+.mascot-bubble .lead-text { margin:0;max-width:none;text-align:left; }
+
+@media (max-width:640px) {
+    .mascot-bubble { flex-direction:column;gap:12px;text-align:center; }
+    .mascot-bubble img { width:80px;height:80px; }
+    .mascot-bubble .lead-text { text-align:center; }
+    .mascot-bubble-body::before { left:50%;top:-7px;transform:translateX(-50%) rotate(135deg); }
+    .mascot-bubble-body::after { left:-1px;right:-1px;top:-1px;bottom:auto;width:auto;height:2px; }
+}
+
 /* eyebrow */
 .eyebrow {
     font-family:var(--font-ui);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;
@@ -466,6 +501,8 @@ h2.section-heading {
 .t-title { font-family:var(--font-mono);font-size:11px;color:var(--muted);margin-left:10px; }
 .terminal-body { padding:24px 28px 28px;font-family:var(--font-mono);font-size:12.5px;line-height:2;text-align:left; }
 .t-ok{color:var(--green);} .t-out{color:var(--muted);}
+/* The provider line is the robot itself, so it wears the head rather than an emoji. */
+.t-mascot{width:18px;height:18px;vertical-align:-4px;}
 .t-prompt{color:var(--purple);font-weight:600;} .t-cmd{color:var(--text);}
 .t-tool{color:var(--indigo);} .t-val{color:var(--amber);}
 .t-cursor{display:inline-block;width:8px;height:15px;background:var(--purple);vertical-align:middle;animation:blink .9s step-end infinite;}
@@ -806,6 +843,15 @@ footer{border-top:1px solid var(--border);padding:36px 0;position:relative;z-ind
 .footer-link{font-family:var(--font-ui);font-size:9px;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);text-decoration:none;display:flex;align-items:center;gap:6px;transition:color 0.15s;}
 .footer-link:hover{color:var(--purple);}
 .footer-warning {width: 100%;text-align: center;font-size: 1.0rem;letter-spacing: 0.01em;line-height: 1.5;}
+
+/* Wallpaper strip — resolutions only, so it stays legible in every locale. */
+.wallpaper-strip{display:flex;justify-content:center;flex-wrap:wrap;gap:14px;max-width:1100px;margin:0 auto 28px;padding:0 24px;}
+.wallpaper-strip a{display:block;width:132px;text-decoration:none;border:1px solid var(--border);transition:border-color 0.15s,transform 0.15s;}
+.wallpaper-strip a:hover{border-color:var(--purple);transform:translateY(-2px);}
+.wallpaper-strip img{display:block;width:100%;height:74px;object-fit:cover;}
+.wallpaper-strip a.is-phone img{object-position:center 30%;}
+.wallpaper-strip span{display:block;padding:6px 8px;font-family:var(--font-mono);font-size:10px;letter-spacing:0.06em;color:var(--dim);text-align:center;}
+@media(prefers-reduced-motion:reduce){ .wallpaper-strip a:hover{transform:none;} }
 /* ══════════════════════════════════════════════════════════
     SCROLL REVEAL
 ══════════════════════════════════════════════════════════ */

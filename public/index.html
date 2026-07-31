@@ -17,6 +17,9 @@
   <link rel="stylesheet" href="index.css" />
   <link rel="stylesheet" href="styles/csp-inline.css" />
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/mascot/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="assets/mascot/favicon-16.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/mascot/apple-touch-icon.png">
   <!-- i18n must load before any other UI script so t() and applyTranslations() are ready
        before scripts that build DOM nodes referring to translations. -->
   <script src="scripts/http-guard.js"></script>
@@ -29,6 +32,14 @@
 <!-- Ambient background wash (issue #185 §A) — fixed, behind everything, no layout impact.
      Controlled by scripts/ambient.js via data-ambient on <html>; styled in styles/ambient.css. -->
 <div id="ambient" aria-hidden="true"></div>
+<!-- Offline banner: shown while the WebSocket is down so a dead connection is
+     attended rather than silent. Copy reuses the existing status keys — the
+     mascot is the same mono.png the empty state already warmed in cache, so it
+     still renders once the server is unreachable. -->
+<div id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>
+  <img class="offline-banner-mascot" src="assets/mascot/mono.png" alt="" width="44" height="44" />
+  <span data-i18n="status_disconnected">disconnected</span>
+</div>
 <div class="app">
 
   <!-- Header -->
@@ -124,7 +135,7 @@
     </div>
     <div class="memories-list" id="memoriesList">
       <div class="empty-state csp-style-6">
-        <div class="csp-style-7">◈</div>
+        <img class="empty-mascot" src="assets/mascot/mono.png" alt="" width="128" height="128" />
         <div class="csp-style-8" data-i18n="sidebar_loading">Loading memories…</div>
       </div>
     </div>

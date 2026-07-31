@@ -18,13 +18,14 @@ relevant criterion fails (red) before implementing each workstream.
 ### T0 — Derived assets
 
 **T0.1 asset-inventory**
-- Setup: WS0 script has run.
-- Expected: `avatar-56.png`, `avatar-112.png`, `peek.png`, `mono.png`, `head-64.webp`
-  exist in `docs/assets/mascot/` AND `public/assets/mascot/`.
-- Assertions: each file ≤ 30 KB; PIL check `Image.open(f).mode == "RGBA"` (webp: has alpha);
-  `avatar-56.png` is exactly 56×56.
+- Setup: `npm run gen:mascot` has run.
+- Expected: `avatar-56.png`, `avatar-112.png`, `body-256.webp`, `mono.png`, `head-64.webp`
+  exist in `docs/assets/mascot/` AND `public/assets/mascot/`, plus the mirrored favicon
+  set (`favicon-16/32.png`, `apple-touch-icon.png`) in `public/assets/mascot/`.
+- Assertions: each file ≤ 30 KB; transparency preserved (RGBA, or palette + tRNS where
+  quantized); `avatar-56.png` is exactly 56×56; `npm run gen:mascot:check` exits 0.
 - Edge cases: webp alpha actually preserved (some encoders drop it); mono variant still
-  recognizable at 56px on both `#0d0d14` and `#f4f4f8` backgrounds.
+  recognizable at ~100px on both `#0d0d14` and `#f4f4f8` backgrounds.
 
 **T0.2 contact-sheet-approval**
 - Expected: a single preview sheet shown to the developer; explicit "approved" reply
