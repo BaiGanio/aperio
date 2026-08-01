@@ -19,7 +19,20 @@ import logger from "../lib/helpers/logger.js";
 // would silently have no effect. See startServer() below.
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-dotenv.config({ path: resolve(__dirname, "../.env") });
+// dotenv writes its logs via console.log (stdout), and stdout is the JSON-RPC
+// channel for a stdio MCP server — a stray line there is a protocol violation
+// for strict clients. `quiet: true` covers the normal injection line, but
+// DOTENV_CONFIG_DEBUG (from the parent env OR the .env file, re-read after
+// populate) overrides quiet, so silence console.log for the duration of the
+// config call — dotenv's only stdout writer. dotenv is synchronous and this
+// block awaits nothing, so nothing else can log during the patch window.
+const originalConsoleLog = console.log;
+console.log = () => {};
+try {
+  dotenv.config({ path: resolve(__dirname, "../.env"), quiet: true });
+} finally {
+  console.log = originalConsoleLog;
+}
 
 /**
  * The Context (ctx) should only contain "Services"—stateful objects

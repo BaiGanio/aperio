@@ -12,6 +12,7 @@ import { WIKI_SEED } from '../wiki-seed.js';
 import { SELF_MEMORY_SEED } from '../self-memory-seed.js';
 import { AGENT_JOB_SEED } from '../agent-job-seed.js';
 import { normalizeAgentJobDefinition } from '../../lib/agent/job-spec.js';
+import logger from '../../lib/helpers/logger.js';
 import { assertJsonPersistable, isUuid, rowToMemory, rowToSelf, toIso, toVec } from './mappers.js';
 import { recallMemories, recallSelfMemories } from './search.js';
 
@@ -113,7 +114,11 @@ export class PostgresStore {
         }
       }
     } catch (err) {
-      console.warn('[postgres] baseline seed skipped:', err.message);
+      // logger (not console) so the line lands on stderr in MCP mode — stdout
+      // is the JSON-RPC channel there. err.message is interpolated into the
+      // message itself: this logger has no splat format, so a second argument
+      // would be dropped and the failure would become undiagnosable.
+      logger.warn(`[postgres] baseline seed skipped: ${err.message}`);
     }
   }
 

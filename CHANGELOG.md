@@ -47,6 +47,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The standalone MCP server wrote logs to stdout, corrupting the JSON-RPC
+  channel**: `npm run mcp` (and Aperio's spawned MCP child) emitted dotenv's
+  "injected env" line and every winston console line on stdout — the same pipe
+  MCP clients parse for JSON-RPC. The Node SDK client tolerated the noise, but
+  strict clients would misparse or drop the connection. dotenv now loads
+  quietly, and the logger routes its console output to stderr whenever the
+  process is the MCP server (`APERIO_PROC_ROLE=mcp` or the entry is
+  `mcp/index.js`), keeping stdout protocol-clean. The Postgres baseline-seed
+  warning follows the same path with its error text preserved (interpolated
+  into the message — the logger has no splat format, so a second argument
+  would be dropped). dotenv's console output is silenced for the whole config
+  call, not just its injection line — `DOTENV_CONFIG_DEBUG` (from the parent
+  environment or the `.env` file) overrides `quiet: true`, and its
+  diagnostics would otherwise still corrupt the JSON-RPC stream.
+
 - **A chat superseded before it started could still run and report `completed`**:
   the per-connection turn lock claimed a chat turn only *after* awaiting the
   previous one, so two messages arriving while a turn was still generating both
