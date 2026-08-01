@@ -25,8 +25,6 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
-## Embeddings
-
 ## Test harness
 
 - 2026-07-29 The aggregate `npm test` runner makes real-app WebSocket T45 load-sensitive:
