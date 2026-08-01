@@ -41,12 +41,24 @@ function collectMessages(ws, { filter = () => true, max = 100 } = {}) {
   });
 }
 
-/** Wait for the next message matching the predicate. */
-function waitForMessage(ws, predicate, timeout = 8_000) {
+/**
+ * Wait for the next message matching the predicate.
+ *
+ * `label` names what is being awaited and the timeout error replays the message
+ * types that did arrive — without both, a load-induced timeout here is
+ * indistinguishable from a real server-side hang (which is exactly what made
+ * the T45 flake expensive to classify).
+ */
+function waitForMessage(ws, predicate, timeout = 8_000, label = "message") {
   return new Promise((resolve, reject) => {
-    const tid = setTimeout(() => reject(new Error("Timeout waiting for message")), timeout);
+    const seen = [];
+    const tid = setTimeout(() => {
+      ws.off("message", handler);
+      reject(new Error(`Timeout waiting for ${label} after ${timeout}ms; saw: ${seen.join(", ") || "(nothing)"}`));
+    }, timeout);
     const handler = (raw) => {
       const parsed = JSON.parse(raw.toString());
+      seen.push(parsed.turnId ? `${parsed.type}(${parsed.turnId})` : parsed.type);
       if (predicate(parsed)) {
         clearTimeout(tid);
         ws.off("message", handler);
@@ -54,7 +66,7 @@ function waitForMessage(ws, predicate, timeout = 8_000) {
       }
     };
     ws.on("message", handler);
-    ws.once("close", () => { clearTimeout(tid); reject(new Error("WS closed")); });
+    ws.once("close", () => { clearTimeout(tid); reject(new Error(`WS closed while waiting for ${label}`)); });
   });
 }
 
@@ -369,19 +381,35 @@ test("WebSocket tests", async (t) => {
     const t2 = `race-${randomUUID().slice(0, 8)}`;
     const t3 = `race-${randomUUID().slice(0, 8)}`;
 
-    ws.send(JSON.stringify({ type: "chat", text: "one two three four five", turnId: t1 }));
-    await waitForMessage(ws, (m) => m.type === "token" && m.text?.length > 0, 5_000);
+    // Two barriers keep this a race test rather than a coin flip, without a
+    // single fixed sleep:
+    //
+    //   • Each turn_complete listener is attached BEFORE its chat is sent.
+    //     Attaching them after all three sends loses any turn that finished in
+    //     the meantime — under load the first turn's turn_complete arrives
+    //     while the test is still waiting for the second turn's first token.
+    //   • Tokens carry no turnId, so each turn echoes a distinct marker word
+    //     and the test waits for that turn's OWN marker. Waiting for "a token"
+    //     can match one the previous turn had already queued, which sends the
+    //     next chat before the intended turn is even generating.
+    //
+    // The markers repeat so a turn always has many tokens left to stream when
+    // the next chat lands — the supersession must interrupt live generation.
+    const wordsA = Array(60).fill("alpha").join(" ");
+    const wordsB = Array(60).fill("bravo").join(" ");
 
-    ws.send(JSON.stringify({ type: "chat", text: "six seven eight nine ten", turnId: t2 }));
-    await waitForMessage(ws, (m) => m.type === "token" && m.text?.length > 0, 5_000);
+    const done1 = waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t1, 10_000, "turn_complete for the first turn");
+    ws.send(JSON.stringify({ type: "chat", text: wordsA, turnId: t1 }));
+    await waitForMessage(ws, (m) => m.type === "token" && m.text?.includes("alpha"), 5_000, "a token from the first turn");
 
+    const done2 = waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t2, 10_000, "turn_complete for the second turn");
+    ws.send(JSON.stringify({ type: "chat", text: wordsB, turnId: t2 }));
+    await waitForMessage(ws, (m) => m.type === "token" && m.text?.includes("bravo"), 5_000, "a token from the second turn");
+
+    const done3 = waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t3, 10_000, "turn_complete for the third turn");
     ws.send(JSON.stringify({ type: "chat", text: "eleven", turnId: t3 }));
 
-    const [tc1, tc2, tc3] = await Promise.all([
-      waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t1, 10_000),
-      waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t2, 10_000),
-      waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t3, 10_000),
-    ]);
+    const [tc1, tc2, tc3] = await Promise.all([done1, done2, done3]);
 
     assert.equal(tc1.status, "interrupted", "First turn was superseded");
     assert.equal(tc2.status, "interrupted", "Second turn was superseded");
@@ -390,8 +418,66 @@ test("WebSocket tests", async (t) => {
     // The connection survives a three-deep supersession — no lock corruption.
     const turn4 = `after-race-${randomUUID().slice(0, 8)}`;
     ws.send(JSON.stringify({ type: "chat", text: "ping", turnId: turn4 }));
-    const tc4 = await waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === turn4, 10_000);
+    const tc4 = await waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === turn4, 10_000, "turn_complete for the fourth turn");
     assert.equal(tc4.status, "completed", "A fourth chat on the same connection still completes normally");
+  });
+
+  await t.test("T46: a chat superseded while still queued behind the previous turn never reports completed", async () => {
+    const { ws } = await connect(fixture);
+    t.after(() => closeWs(ws));
+
+    const t1 = `queued-${randomUUID().slice(0, 8)}`;
+    const t2 = `queued-${randomUUID().slice(0, 8)}`;
+    const t3 = `queued-${randomUUID().slice(0, 8)}`;
+
+    const done1 = waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t1, 10_000, "turn_complete for the first turn");
+    ws.send(JSON.stringify({ type: "chat", text: Array(60).fill("alpha").join(" "), turnId: t1 }));
+    await waitForMessage(ws, (m) => m.type === "token" && m.text?.includes("alpha"), 5_000, "a token from the first turn");
+
+    // T45 sends each chat only once the previous turn is visibly generating.
+    // This test pins the other half of the window: t3 leaves together with t2,
+    // so it is guaranteed to arrive while t2 is still queued behind the first
+    // turn's unwind — before t2 has started or registered any abort controller.
+    // That is the interleaving aggregate-load timing produces by accident, and
+    // it is the one the old lock got wrong.
+    const supersededTokens = [];
+    const tokenSpy = (raw) => {
+      const m = JSON.parse(raw.toString());
+      if (m.type === "token" && m.text?.includes("bravo")) supersededTokens.push(m.text);
+    };
+    ws.on("message", tokenSpy);
+    t.after(() => ws.off("message", tokenSpy));
+
+    const done2 = waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t2, 10_000, "turn_complete for the queued turn");
+    const done3 = waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === t3, 10_000, "turn_complete for the newest turn");
+    // cork/uncork puts both frames in ONE socket write, so the server reads
+    // them in a single chunk and `ws` emits both "message" events inside the
+    // same macrotask — the second handler therefore runs while the first is
+    // still parked on its first await. Two plain sends usually, but not
+    // reliably, coalesce; corking makes the window a certainty instead of a
+    // timing accident, which is the whole point of a regression test.
+    assert.ok(ws._socket, "corking needs the raw socket — a `ws` upgrade changed its internals");
+    ws._socket.cork();
+    ws.send(JSON.stringify({ type: "chat", text: Array(20).fill("bravo").join(" "), turnId: t2 }));
+    ws.send(JSON.stringify({ type: "chat", text: "zulu", turnId: t3 }));
+    ws._socket.uncork();
+
+    const [tc1, tc2, tc3] = await Promise.all([done1, done2, done3]);
+
+    assert.equal(tc1.status, "interrupted", "First turn was superseded");
+    assert.equal(tc2.status, "interrupted", "A turn superseded while queued is interrupted, not completed");
+    assert.equal(tc3.status, "completed", "The newest turn completed normally");
+
+    // The queued-then-superseded turn must never have generated: if it had, it
+    // would have streamed concurrently with the newest turn, interleaving two
+    // assistant replies into one connection's shared transcript.
+    assert.deepEqual(supersededTokens, [], `superseded turn must not stream tokens: ${JSON.stringify(supersededTokens)}`);
+
+    // The lock is not corrupted by the queued supersession.
+    const turn4 = `after-queued-${randomUUID().slice(0, 8)}`;
+    ws.send(JSON.stringify({ type: "chat", text: "ping", turnId: turn4 }));
+    const tc4 = await waitForMessage(ws, (m) => m.type === "turn_complete" && m.turnId === turn4, 10_000, "turn_complete for the follow-up turn");
+    assert.equal(tc4.status, "completed", "A later chat on the same connection still completes normally");
   });
 
   // ═══════════════════════════════════════════════════════════════════════
