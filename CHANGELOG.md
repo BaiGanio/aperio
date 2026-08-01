@@ -27,9 +27,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 ### Removed
 
 - **`code-minimalism` and its dedicated evaluator**: removed the on-demand
-  pre-write skill, matcher cases, A/B runner, fixtures, and tests. The archived
-  evaluation evidence remains under `docs/benchmarks/minimalism/` so future
-  work can review the result instead of repeating the experiment.
+  pre-write skill, matcher cases, A/B runner, fixtures, and tests. The skill did
+  not earn its context cost; `code-simplification` remains as the post-write
+  sibling. Verdict recorded on issue #285.
 
 - **Mascot across the web UI**: the robot now speaks in the app, not just on the
   landing page. Every AI chat bubble carries the mascot as its avatar (48px,
