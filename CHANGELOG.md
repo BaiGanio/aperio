@@ -9,6 +9,21 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- **Ordinary writes can no longer plant a foreign-signature vector** (#340).
+  `vec_meta` gated the read path but not the write path, so any ordinary write —
+  `remember`, `wiki_write`, `self_remember`, import backfills, the retry queues,
+  the startup backfill, the code/doc graph indexers — persisted whatever the
+  *writing* process's `EMBEDDING_PROVIDER` produced, with no reference to the
+  target store's status. In Postgres's multi-agent mode a second process could
+  land an off-signature vector on a row a reindex had just cleared; since
+  vectors carry no per-row provenance, that row dropped out of the driver's
+  missing-vector scan and the store finalized `current` holding two embedding
+  spaces. Every ordinary write now gates on the store's `vec_meta` status,
+  before and after the embedding call, and writes the row without a vector for
+  the store's own reindex driver to fill.
+
 - **Mascot across the web UI**: the robot now speaks in the app, not just on the
   landing page. Every AI chat bubble carries the mascot as its avatar (48px,
   round-table agents keep their identity through a coloured ring instead of a

@@ -24,7 +24,10 @@ const { SqliteStore } = await import("../../../db/sqlite.js");
 const {
   VECTOR_STORES, VEC_STATUS, signatureString, supportsVecMeta,
   isVectorSearchable, vectorGate, ensureVecMeta,
+  canPersistEmbedding, embedForStore, markReindexing,
 } = await import("../../../lib/helpers/vecMeta.js");
+const { rememberHandler, updateMemoryHandler } = await import("../../../lib/handlers/memory/memoryHandlers.js");
+const { wikiWriteHandler } = await import("../../../lib/handlers/wiki/wikiHandlers.js");
 const { runReindex, listPendingStores } = await import("../../../lib/embeddings/reindex.js");
 const { checkEmbeddingProvider, getEmbeddingSignature } = await import("../../../lib/helpers/embeddings.js");
 
@@ -1051,5 +1054,214 @@ describe("reindexOne re-sweeps sources before finalizing a multi-root store", ()
 
     const row = await store.getVecMeta("codegraph");
     assert.equal(row.status, VEC_STATUS.REINDEXING, "the store must stay reindexing so a later run can resume and confirm quiescence");
+  });
+});
+
+// =============================================================================
+// Issue #340 — ordinary writes must not plant a foreign-signature vector
+//
+// isVectorSearchable() gates the READ path. Until this, nothing gated the
+// WRITE path: any ordinary write persisted whatever the *writing process's*
+// EMBEDDING_PROVIDER produced, with no reference to the target store's
+// vec_meta status. Because vectors are opaque blobs with no per-row
+// provenance, a foreign-space vector landing on a freshly-cleared row is
+// invisible afterwards — the row stops matching the driver's missing-vector
+// pending scan, the settle pass finds nothing left, and the store finalizes
+// `current` holding two embedding spaces under a store-level signature that
+// looks perfectly correct.
+// =============================================================================
+describe("issue #340 — write-time signature gate", () => {
+  let store;
+  beforeEach(async () => {
+    await store?.close?.();
+    store = await freshStore();
+    await ensureVecMeta(store, { signature: SIG_A, dims: 1024 });
+  });
+  after(async () => { await store?.close?.(); });
+
+  const ctxFor = (embedder, extra = {}) => ({
+    store, generateEmbedding: embedder, vectorEnabled: () => true, ...extra,
+  });
+
+  // A fresh store ships with seeded memories and wiki articles, all of them
+  // unembedded — so "is there an unembedded row" proves nothing here. Every
+  // assertion below has to name the row the test actually wrote.
+  const rememberedId = (res) => {
+    const m = res.content[0].text.match(/\(id: ([0-9a-f-]{36})\)/i);
+    assert.ok(m, `could not read the new memory id out of: ${res.content[0].text}`);
+    return m[1];
+  };
+
+  test("canPersistEmbedding refuses exactly what isVectorSearchable refuses", async () => {
+    // One notion of "this store's vectors are mine", both directions. If these
+    // ever diverge, a store can be readable but unwritable (or worse).
+    for (const status of [VEC_STATUS.CURRENT, VEC_STATUS.STALE, VEC_STATUS.REINDEXING]) {
+      await store.updateVecMeta("memories", { status });
+      assert.equal(
+        await canPersistEmbedding(store, "memories"),
+        await isVectorSearchable(store, "memories"),
+        `write gate and read gate disagree at status=${status}`
+      );
+    }
+  });
+
+  for (const status of [VEC_STATUS.STALE, VEC_STATUS.REINDEXING]) {
+    test(`remember writes the row bare while the store is ${status}`, async () => {
+      await store.updateVecMeta("memories", { status });
+      const embedder = countingEmbedder();
+
+      const res = await rememberHandler(ctxFor(embedder), { title: "t", content: "c" });
+
+      assert.equal(embedder.calls, 0, "a closed gate must skip the inference entirely, not just discard it");
+      assert.equal(await store.hasEmbedding(rememberedId(res)), false, "no vector may land while the store is not ours to write");
+      assert.match(res.content[0].text, /reindexed/, "the tool result must say why semantic search is missing");
+    });
+  }
+
+  test("remember writes the row bare while the store is current under ANOTHER process's signature", async () => {
+    // The nastiest case: status is `current`, so a status-only check would
+    // wave this through. Only the signature comparison catches it.
+    await store.updateVecMeta("memories", { signature: SIG_B, status: VEC_STATUS.CURRENT });
+    const embedder = countingEmbedder();
+
+    const res = await rememberHandler(ctxFor(embedder), { title: "t", content: "c" });
+
+    assert.equal(embedder.calls, 0);
+    assert.equal(await store.hasEmbedding(rememberedId(res)), false);
+  });
+
+  test("a gate that closes DURING the embedding call still blocks the write", async () => {
+    // This is the whole reason the gate is checked on both sides of the model
+    // call. The embedding is by far the slowest thing on the write path; an
+    // early-only check would leave a window the length of a full inference for
+    // a reindex to claim the store, and the vector would land anyway.
+    const embedder = async () => {
+      await markReindexing(store, "memories");
+      return fakeVector();
+    };
+
+    const res = await rememberHandler(ctxFor(embedder), { title: "t", content: "c" });
+
+    assert.equal(
+      await store.hasEmbedding(rememberedId(res)), false,
+      "a reindex that started mid-inference must still win — this is the late check's only job"
+    );
+  });
+
+  test("a deferred write is never handed to the retry queue", async () => {
+    // The queue would re-race the same gate three times and then drop the row
+    // anyway. Worse, a queue held open for the length of a reindex is
+    // unbounded growth on a busy store.
+    await markReindexing(store, "memories");
+    const enqueued = [];
+    const embedder = countingEmbedder();
+    await rememberHandler(
+      ctxFor(embedder, { embeddingQueue: { enqueue: (id, text) => enqueued.push({ id, text }) } }),
+      { title: "t", content: "c" }
+    );
+    assert.equal(embedder.calls, 0, "gate must have refused — otherwise this test proves nothing");
+    assert.deepEqual(enqueued, [], "the reindex driver owns this row, not the retry queue");
+  });
+
+  test("embedForStore reports deferral distinctly from an ordinary embedding failure", async () => {
+    // Callers branch on this: `deferred` means "the reindex driver owns this
+    // row, do not queue it"; a null embedding without `deferred` is a provider
+    // failure and must still go to the retry queue. Collapsing the two would
+    // either abandon rows during an outage or re-race the gate forever.
+    const failing = async () => null;
+    assert.deepEqual(
+      await embedForStore(store, "memories", failing),
+      { embedding: null, deferred: false }
+    );
+
+    await markReindexing(store, "memories");
+    assert.deepEqual(
+      await embedForStore(store, "memories", async () => fakeVector()),
+      { embedding: null, deferred: true }
+    );
+  });
+
+  test("wiki_write is gated too — wiki is a tracked vector store", async () => {
+    // Not in issue #340's original file list, but `wiki` is one of the five
+    // VECTOR_STORES and wikiWriteHandler wrote its vector unconditionally.
+    await markReindexing(store, "wiki");
+    const embedder = countingEmbedder();
+
+    const res = await wikiWriteHandler({ store, generateEmbedding: embedder },
+      { slug: "a-page", title: "A Page", summary: "s", body_md: "body" });
+
+    assert.match(res.content[0].text, /Created|Updated/, "the article itself must still be written");
+    assert.equal(embedder.calls, 0, "no embedding may be computed for a store being reindexed");
+    const pending = await store.wiki.listWithoutEmbeddings({ limit: 100, offset: 0 });
+    assert.ok(
+      pending.some(r => r.title === "A Page"),
+      "the article must be left for the wiki reindex adapter to embed"
+    );
+  });
+
+  test("an update that cannot embed does not queue the new row for retry", async () => {
+    const mem = await store.insert({ type: "fact", title: "old", content: "body" }, fakeVector());
+    await markReindexing(store, "memories");
+
+    const enqueued = [];
+    const embedder = countingEmbedder();
+    await updateMemoryHandler(
+      ctxFor(embedder, { embeddingQueue: { enqueue: (id) => enqueued.push(id) } }),
+      { id: mem.id, content: "new body" }
+    );
+    assert.equal(embedder.calls, 0, "gate must have refused — otherwise this test proves nothing");
+    assert.deepEqual(enqueued, []);
+  });
+
+  test("the reindex driver's own writes stay ungated", async () => {
+    // The driver deliberately writes while status is `reindexing`. Gating its
+    // adapters (or the shared low-level setters they call) would deadlock the
+    // feature: nothing could ever leave `reindexing`.
+    const mem = await store.insert({ type: "fact", title: "t", content: "c" }, null);
+    await store.updateVecMeta("memories", { status: VEC_STATUS.STALE });
+
+    const embedder = countingEmbedder();
+    await runReindex(store, { generateEmbedding: embedder, signature: SIG_A, dims: 1024, stores: ["memories"] });
+
+    assert.ok(embedder.calls > 0, "the driver must embed while the store is reindexing");
+    assert.equal(await store.hasEmbedding(mem.id), true);
+    assert.equal((await store.getVecMeta("memories")).status, VEC_STATUS.CURRENT);
+    assert.equal((await store.listWithoutEmbeddings()).length, 0);
+  });
+
+  test("end-to-end: a concurrent write mid-reindex is picked up by the driver, not planted", async () => {
+    // The full mechanism from the issue. A "second process" lands an ordinary
+    // remember() while this run is embedding. Before the write gate, that row
+    // arrived WITH a vector from the other embedding space, dropped out of the
+    // driver's missing-vector scan, and the store finalized `current` over a
+    // mixed space. Now it arrives bare, the settle pass re-finds it, and the
+    // driver embeds it under the signature that owns the store.
+    await store.insert({ type: "fact", title: "existing", content: "body" }, null);
+    await store.updateVecMeta("memories", { status: VEC_STATUS.STALE });
+
+    const otherProcess = countingEmbedder();
+    let concurrentId = null;
+    const driverEmbedder = async () => {
+      if (!concurrentId) {
+        concurrentId = rememberedId(
+          await rememberHandler(ctxFor(otherProcess), { title: "concurrent", content: "landed mid-reindex" })
+        );
+      }
+      return fakeVector();
+    };
+
+    const { results } = await runReindex(store, {
+      generateEmbedding: driverEmbedder, signature: SIG_A, dims: 1024, stores: ["memories"], owner: "runner-a",
+    });
+
+    assert.equal(otherProcess.calls, 0, "the concurrent write must not have computed a vector at all");
+    assert.equal(results[0].completed, true, "the driver must still be able to finish");
+    assert.equal(
+      await store.hasEmbedding(concurrentId), true,
+      "the concurrently-written row must have been embedded by the driver's settle pass, in the driver's space"
+    );
+    assert.equal((await store.listWithoutEmbeddings()).length, 0);
+    assert.equal((await store.getVecMeta("memories")).status, VEC_STATUS.CURRENT);
+    assert.equal(await isVectorSearchable(store, "memories"), true);
   });
 });
