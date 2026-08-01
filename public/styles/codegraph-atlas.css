@@ -1,0 +1,61 @@
+/* public/styles/codegraph-atlas.css
+   Full-page chrome for the Codegraph Atlas (#283 step 6) — its own tab, not a
+   modal. A modal was tried first: fixed card dimensions fought the force
+   layout, and there was nowhere to put a symbol-search box without crowding
+   the header. A real page gives the sky the whole window; the drawer +
+   search patterns carry over unchanged from that attempt.
+   The sky itself (.cgm-*) and shared component classes (.cg-select,
+   .cg-search-input, .cg-match*, .cg-symbol-detail, .cg-edge*) live in
+   codegraph-panel.css, loaded alongside this file. */
+
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: var(--font-sans); font-size: var(--fs-ui);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+
+.cga-head {
+  display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.cga-brand { display: flex; align-items: center; gap: 8px; font-weight: 700; flex: 0 0 auto; }
+.cga-brand-icon {
+  width: 24px; height: 24px; border-radius: 6px; background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+}
+.cga-head h1 { font-size: calc(16px * var(--font-scale)); font-weight: 700; margin: 0; flex: 0 0 auto; }
+
+.cga-search-wrap { position: relative; flex: 1 1 260px; max-width: 340px; }
+.cga-search-results {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 5;
+  background: var(--bg-panel); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  max-height: min(50vh, 420px); overflow-y: auto; padding: 4px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .3);
+}
+
+.cga-head .cg-select { margin-left: auto; }
+
+.cga-main { position: relative; flex: 1; min-height: 0; display: flex; }
+
+/* Fills the remaining viewport; no scroll — the sky pans instead. */
+.cga-body { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+
+/* Symbol detail drawer — slides in over the sky, so clicking through several
+   nodes/callers/callees never navigates away from the atlas. */
+.cga-detail {
+  position: absolute; inset: 0 0 0 auto; width: min(480px, 92%);
+  background: var(--bg-panel); border-left: 1px solid var(--border);
+  box-shadow: -12px 0 32px rgba(0, 0, 0, .25);
+  overflow-y: auto; padding: 16px;
+  transform: translateX(16px); opacity: 0; pointer-events: none;
+  transition: transform .18s ease, opacity .18s ease;
+}
+.cga-detail.is-open { transform: none; opacity: 1; pointer-events: auto; }
+.cga-detail[hidden] { display: block; }
+
+@media (max-width: 720px) {
+  .cga-head { flex-wrap: wrap; }
+  .cga-search-wrap { order: 3; flex-basis: 100%; max-width: none; }
+  .cga-detail { width: 100%; }
+}
