@@ -258,6 +258,28 @@ describe("initEmbeddings", () => {
     assert.equal(embedded[1], "Second. content two");
   });
 
+  test("backfills SQLite wiki body content instead of undefined", async () => {
+    const wikiSetCalls = [];
+    const store = {
+      counts: async () => ({ total: 0, embedded: 0 }),
+      listWithoutEmbeddings: async () => [],
+      wiki: {
+        listWithoutEmbeddings: async () => [{ id: "wiki-1", title: "Architecture", body_md: "The memory layer indexes decisions." }],
+        setEmbedding: async (id, embedding) => { wikiSetCalls.push({ id, embedding }); },
+      },
+    };
+    const embedded = [];
+
+    await initEmbeddings(store, async (text) => {
+      embedded.push(text);
+      return [0.3, 0.4];
+    });
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.deepEqual(embedded, ["Architecture. The memory layer indexes decisions."]);
+    assert.deepEqual(wikiSetCalls, [{ id: "wiki-1", embedding: [0.3, 0.4] }]);
+  });
+
   test("backfills self-memories too, routed through setSelfEmbedding not setEmbedding (Gap 1 P1)", async () => {
     const selfSetCalls = [];
     const memSetCalls = [];

@@ -27,13 +27,6 @@ housekeeping go in `A2D.md`, not here.
 
 ## Embeddings
 
-- 2026-07-30 `initEmbeddings`'s legacy startup backfill loop (`lib/helpers/embeddings.js`,
-  the `[...memPending, ...wikiPending, ...selfPending]` loop) reads `row.content` uniformly,
-  but SQLite's `wiki.listWithoutEmbeddings()` returns `body_md`, not `content` — every wiki
-  article backfilled through this path (not through the new #287 reindex driver, which was
-  fixed) embeds `"Title. undefined"`. Pre-existing, found while fixing the same bug in
-  `lib/embeddings/reindex.js`'s wiki adapter; out of scope for that fix.
-
 - 2026-07-30 Ordinary (non-reindex) embedding writes — `rememberHandler`/`updateMemoryHandler`,
   `selfRememberHandler`/`selfUpdateHandler`, the import backfills, the retry queues, and
   `initEmbeddings`'s startup backfill — persist whatever the writing process's own

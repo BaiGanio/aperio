@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **SQLite wiki startup embedding backfill uses article bodies**: the legacy
+  backfill loop now reads SQLite's `body_md` field, rather than embedding
+  `"Title. undefined"` for every pending wiki article.
+
 - **Ordinary writes can no longer plant a foreign-signature vector** (#340).
   `vec_meta` gated the read path but not the write path, so any ordinary write —
   `remember`, `wiki_write`, `self_remember`, import backfills, the retry queues,
