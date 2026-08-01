@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 
-import { openChokidarWatcher } from "../../../lib/codegraph/watcher.js";
+import { openChokidarWatcher, startWatcher } from "../../../lib/codegraph/watcher.js";
 import { walk } from "../../../lib/codegraph/indexer.js";
 
 function fakeWatcher(event, value) {
@@ -11,6 +11,32 @@ function fakeWatcher(event, value) {
   watcher.close = async () => { watcher.closed = true; };
   queueMicrotask(() => watcher.emit(event, value));
   return watcher;
+}
+
+function watcherDeps({ knownRoot }) {
+  const enqueued = [];
+  const watcher = new EventEmitter();
+  watcher.close = async () => {};
+  return {
+    enqueued,
+    deps: {
+      isReadPathAllowed: () => true,
+      isCodegraphAvailable: () => true,
+      listRepoRoots: async () => knownRoot ? ["/repo"] : [],
+      createSymbolEmbeddingQueue: () => ({
+        enqueueMany: (rows) => enqueued.push(rows),
+        shutdown: () => {},
+      }),
+      generateEmbedding: async () => [0.1],
+      indexRepo: async () => ({ indexed: 1, pending: [{ id: "bulk" }] }),
+      pendingStoreNames: async () => new Set(["codegraph"]),
+      listPendingEmbeddings: async () => [{ id: "existing" }],
+      sweepMissing: async () => ({ removed: 0 }),
+      indexFile: async () => ({}),
+      removeFile: async () => {},
+      openChokidarWatcher: async () => ({ watcher, mode: "native" }),
+    },
+  };
 }
 
 describe("codegraph watcher startup", () => {
@@ -50,6 +76,22 @@ describe("codegraph watcher startup", () => {
       }),
       /permission|privacy|access/i,
     );
+  });
+
+  test("defers a known root's pending embeddings to an active reindex", async () => {
+    const { deps, enqueued } = watcherDeps({ knownRoot: true });
+    const handle = await startWatcher({}, "/repo", undefined, deps);
+
+    assert.deepEqual(enqueued, []);
+    await handle.stop();
+  });
+
+  test("embeds a new root even while a reindex is active", async () => {
+    const { deps, enqueued } = watcherDeps({ knownRoot: false });
+    const handle = await startWatcher({}, "/repo", undefined, deps);
+
+    assert.deepEqual(enqueued, [[{ id: "bulk" }], [{ id: "existing" }]]);
+    await handle.stop();
   });
 });
 
