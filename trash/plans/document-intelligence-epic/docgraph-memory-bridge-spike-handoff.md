@@ -2,6 +2,11 @@
 
 **Use this prompt in a fresh agent session to continue from the T-R5 pass.**
 
+**WS0-R status: GREEN (2026-08-01).** T-R5 passed live on the local hero model
+(Gemma 4 E4B) with the deterministic fact pipeline — see the new row below. All
+rows before it measured free-form model arithmetic (the failure class the
+pipeline removes). WS1 (writable destination) is now the next step.
+
 ---
 
 
@@ -19,9 +24,9 @@
 | local (gemma-4-E2B) rerun | 2/5 | ❌ | ✅ | none | **failed, 2026-07-27**, 230.3s; full retrieval, no timeout |
 | local (gemma-4-26B-A4B) | 4/5 | ❌ | ✅ | none | **failed, 2026-07-27**, 472.5s; Fuel overcount and total 816.84 BGN |
 | local (gemma-4-E4B) | 3/5 | ❌ | ✅ | none | **failed, 2026-07-27**, 278.1s; Fuel/Utilities errors and total 806.84 BGN |
+| local (gemma-4-E4B) — deterministic pipeline | ✅ | ✅ | ✅ | none | **full gate pass, 2026-08-01**, 372.6s; answered from `doc_batch.aggregate` (facts pipeline, no model arithmetic); all totals exact, EUR 196.40 separate, clean teardown |
 | local (Ornith-1.0-9B) | 2/5 | ❌ | ✅ | statement shortcut | **failed, 2026-07-27**, 292.5s; used statement total 260.75 BGN |
 | local (gemma-4-12B) | 0/of 5 (timeout) | ❌ | — | none | 600s harness timeout after full retrieval |
 
 
 ---
-
