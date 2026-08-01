@@ -186,6 +186,104 @@ describe("batchHandler", () => {
 });
 
 // =============================================================================
+// batchHandler — deterministic aggregation (facts pipeline, issue #250)
+// =============================================================================
+//
+// doc_batch must hand the model settled totals, not raw documents to add up:
+// the facts pipeline (aggregateDocuments) runs over the documents the batch
+// actually read, with duplicates merged and unresolvable documents excluded
+// with reasons. These tests exercise the handler-level wiring — field-name
+// normalization (rel_path/root_path → document/root) is covered in
+// extract.test.js; totals, dedup, period filtering, and the skipped-document
+// boundary are covered here against the real retrieval + extraction code.
+
+// The June-gate fixtures, kept small: a fuel receipt, the statement row that
+// records the same purchase, and an electricity bill. Together they exercise
+// terminal-amount picking, adjudicated dedup, and per-category totals.
+const AGG_FUEL_RECEIPT = [
+  "P E T R O L M A X",
+  "Fuel Station #17 - Sofia",
+  "FISCAL RECEIPT",
+  "Date: 09.06.2026",
+  "Receipt No: 0417-000239",
+  "TOTAL                         120.00 BGN",
+  "Card payment                  120.00 BGN",
+].join("\n");
+
+const AGG_STATEMENT = [
+  "FIRST DIGITAL BANK",
+  "Account Statement",
+  "Currency:         BGN",
+  "Opening balance:  4 250.00 BGN",
+  " Date        Description                    Category     Amount (BGN)",
+  " 07.06.2026  FreshMarket #218 groceries      Groceries          -87.45",
+  " 09.06.2026  PetrolMax fuel station         Fuel              -120.00",
+].join("\n");
+
+const AGG_ELECTRICITY = [
+  "СофияЕнерго ЕАД",
+  "ФАКТУРА ЗА ЕЛЕКТРОЕНЕРГИЯ",
+  "Фактура №: 0000451287",
+  "Дата на издаване: 03.06.2026",
+  "ЗА ПЛАЩАНЕ (с ДДС): 142,50 лв",
+].join("\n");
+
+describe("batchHandler — deterministic aggregation", () => {
+  const rows = [
+    { id: 1, mime: "text/plain", title: null, rel_path: "June/fuel-receipt-09-jun.txt", root_path: "/repo/household", text: AGG_FUEL_RECEIPT },
+    { id: 2, mime: "text/plain", title: null, rel_path: "June/bank-statement-jun.txt", root_path: "/repo/household", text: AGG_STATEMENT },
+    { id: 3, mime: "text/plain", title: null, rel_path: "June/electricity-bill-03-jun.txt", root_path: "/repo/household", text: AGG_ELECTRICITY },
+  ];
+  const pool = mockPool({ "FROM docgraph_documents": rows });
+  const ctx = { store: { pool }, generateEmbedding: async () => null, vectorEnabled: () => false };
+  const args = { candidates: rows.map(r => ({ id: r.id, rel_path: r.rel_path, size: 10 })) };
+
+  test("attaches deterministic per-category totals computed by application code", async () => {
+    const result = await batchHandler(ctx, args);
+    assert.strictEqual(result.isError, undefined);
+    const payload = JSON.parse(result.content[0].text);
+    assert.ok(payload.aggregate, "doc_batch must expose the facts pipeline's totals");
+    const bgn = payload.aggregate.by_currency.BGN;
+    // The receipt and the statement row that records it are one purchase;
+    // the bill adds its own charge.
+    assert.equal(bgn.by_category.Fuel.total, 120);
+    assert.equal(bgn.by_category.Groceries.total, 87.45);
+    assert.equal(bgn.by_category.Utilities.total, 142.5);
+    assert.equal(bgn.total, 349.95);
+    assert.equal(payload.aggregate.duplicates.length, 1);
+    assert.equal(payload.aggregate.duplicates[0].kept.document, "June/fuel-receipt-09-jun.txt");
+    assert.equal(payload.aggregate.coverage.documents_seen, 3);
+  });
+
+  test("aggregate_period restricts totals and reports out-of-period documents", async () => {
+    const result = await batchHandler(ctx, { ...args, aggregate_period: "2026-07" });
+    assert.strictEqual(result.isError, undefined);
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.aggregate.period, "2026-07");
+    assert.deepEqual(payload.aggregate.by_currency, {});
+    // Four facts total (receipt, two statement rows, bill), all in June.
+    assert.equal(payload.aggregate.excluded.filter(e => e.reason === "out_of_period").length, 4);
+    assert.equal(payload.aggregate.coverage.facts_extracted, 4);
+    assert.equal(payload.aggregate.coverage.facts_in_period, 0);
+  });
+
+  test("skipped documents never leak into the aggregate as no_text exclusions", async () => {
+    // Candidate 99 has no row in the mock store — retrieval reports it
+    // skipped with a reason, and the aggregate must not re-flag it.
+    const result = await batchHandler(ctx, {
+      ...args,
+      candidates: [...args.candidates, { id: 99, rel_path: "gone.txt", size: 10 }],
+    });
+    assert.strictEqual(result.isError, undefined);
+    const payload = JSON.parse(result.content[0].text);
+    assert.equal(payload.coverage.skipped, 1);
+    assert.equal(payload.coverage.skipped_reasons["gone.txt"], "reader returned no result");
+    assert.equal(payload.aggregate.coverage.documents_seen, 3);
+    assert.ok(!payload.aggregate.excluded.some(e => e.document === "gone.txt"));
+  });
+});
+
+// =============================================================================
 // batchHandler — docgraph → memory bridge (#314)
 // =============================================================================
 //

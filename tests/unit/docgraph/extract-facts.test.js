@@ -133,10 +133,32 @@ describe("extractAmountCandidates", () => {
     const subtotal = amounts.find(a => a.label === "subtotal");
     assert.equal(subtotal.value, -28.5);
     assert.equal(subtotal.raw, "-28,50 лв");
-    const total = amounts.find(a => a.label === "likely_total");
-    assert.ok(total, "the tax-percentage-adjacency fallback should still guess the final line as the total");
+    // "СУМА ЗА ВЪЗСТАНОВЯВАНЕ" is now a labelled terminal amount in its own
+    // right (refund_due), so this line no longer needs the structural
+    // tax-percentage-adjacency fallback to be recognized as the total.
+    const total = amounts.find(a => a.label === "refund_due");
+    assert.ok(total, "the credit note's refund line is a terminal amount, not a structural guess");
     assert.equal(total.value, -34.2);
     assert.equal(total.raw, "-34,20 лв");
+  });
+
+  test("normalizes an unsigned credit-note refund to a negative value", () => {
+    // Some printers emit the refund line without the minus ("СУМА ЗА
+    // ВЪЗСТАНОВЯВАНЕ: 34,20 лв"). The label is still a refund — money coming
+    // back — and a positive value here would inflate spending totals
+    // downstream instead of reducing them.
+    const text = [
+      "Стойност без ДДС:                              -28,50 лв",
+      "ДДС 20%:                                        -5,70 лв",
+      "СУМА ЗА ВЪЗСТАНОВЯВАНЕ (с ДДС):                34,20 лв",
+    ].join("\n");
+    const amounts = extractAmountCandidates(text);
+    const refund = amounts.find(a => a.label === "refund_due");
+    assert.ok(refund, "the refund line is recognized as refund_due");
+    assert.equal(refund.value, -34.2, "an unsigned refund is a credit");
+    assert.equal(refund.raw, "34,20 лв", "the printed token is preserved");
+    // The signed figures on the same note are untouched by normalization.
+    assert.equal(amounts.find(a => a.label === "subtotal").value, -28.5);
   });
 
   test("does not mistake a hyphenated range for a negative sign", () => {

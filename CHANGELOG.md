@@ -9,6 +9,42 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Added
+
+- **Deterministic document-fact aggregation** (`lib/docgraph/facts/`): a
+  structured fact contract and a pure-JS reconciliation/aggregation pass that
+  take monthly-spending arithmetic away from the model. Documents are turned
+  into bounded facts (amount in integer minor units, currency, assignment
+  period, category, merchant, evidence kind, payment status, identifiers);
+  records that describe one purchase are collapsed — by shared identifier where
+  one exists, otherwise as an explicitly adjudicated receipt↔statement-row match
+  carrying its evidence and its uncertainty; totals are summed per currency and
+  category with no invented exchange rates. Bank statements are parsed row by
+  row, so purchases evidenced only on a statement are recovered and purchases
+  evidenced twice are counted once. Anything that cannot be settled — no
+  terminal amount, no currency, no resolvable month, business trade-finance
+  documents, incoming credits, other periods — is reported with a reason rather
+  than dropped or guessed. A charge belongs to the month of its own issue or
+  transaction date, never the service period it bills — and a payment order
+  settles a charge rather than creating one, so a January bill paid in February
+  stays in January. Merchants are compared across scripts, so the "MobiTel" a
+  bank statement prints and the "МобиТел" on the till receipt are recognized as
+  one purchase instead of two. Verified against the household corpus:
+  **all nine periods (2025-11 … 2026-07) reconcile exactly**, including the
+  frozen June gate — Utilities 260.50, Fuel 215.60, Groceries 140.75, Transport
+  50.00, Internet 29.99, **696.84 BGN**, with EUR 196.40 reported separately
+  (issue #250, WS0-R).
+
+### Changed
+
+- **Document extraction recognizes four more everyday Bulgarian amount
+  labels**: "Сума за плащане" / "Обща сума за плащане" (amount due), "СУМА ЗА
+  ВЪЗСТАНОВЯВАНЕ" (a credit note's refund, given its own `refund_due` label),
+  "ОБЩА СУМА" (a till receipt's grand total) and "Междинна сума" (subtotal).
+  Documents phrased this way previously produced no terminal amount at all and
+  were reported as having none — which silently dropped ordinary grocery and
+  restaurant receipts, and every credit note, from any total built on them.
+
 ### Fixed
 
 - **A chat superseded before it started could still run and report `completed`**:
