@@ -150,7 +150,12 @@ describe("runAnthropicLoop — text response", () => {
     await runAnthropicLoop([{ role: "user", content: "raw message" }], { send: mock.fn() }, {}, undefined, undefined, ctx);
 
     assert.equal(prepareModelContext.mock.callCount(), 1);
-    assert.equal(wireRequest.system, "prepared system");
+    // System and the final message each carry a prompt-cache breakpoint (#290).
+    assert.deepEqual(wireRequest.system, [
+      { type: "text", text: "prepared system", cache_control: { type: "ephemeral" } },
+    ]);
+    // A bare-string content is never reshaped to hold a marker (#290), so the
+    // prepared message goes out exactly as prepareModelContext produced it.
     assert.deepEqual(wireRequest.messages, [{ role: "user", content: "prepared message" }]);
     assert.deepEqual(wireRequest.tools, [{
       name: "recall",
@@ -625,5 +630,150 @@ describe("runAnthropicLoop — reasoning parity (group D)", () => {
     assert.deepEqual(wireRequest.thinking, { type: "enabled", budget_tokens: 2048 });
     assert.ok(wireRequest.max_tokens > 2048, "max_tokens must exceed budget_tokens (SDK requirement)");
     assert.equal(state.thinks, true);
+  });
+});
+
+// =============================================================================
+// Prompt caching (#290) — cache_control breakpoints + cache usage reporting
+// =============================================================================
+describe("runAnthropicLoop — prompt caching (#290)", () => {
+  afterEach(() => { reset(); });
+
+  test("marks the system prompt with an ephemeral breakpoint (caches tools + system)", async () => {
+    let wireRequest;
+    const provider = testProvider(request => { wireRequest = request; return textStream(); });
+    const ctx = baseCtx({ provider });
+
+    await runAnthropicLoop([{ role: "user", content: "Hello" }], { send: mock.fn() }, {}, undefined, undefined, ctx);
+
+    assert.deepEqual(wireRequest.system, [
+      { type: "text", text: "You are a helpful assistant.", cache_control: { type: "ephemeral" } },
+    ]);
+    // Never more than the 4 breakpoints a request may carry.
+    const marks = JSON.stringify(wireRequest).match(/"cache_control"/g) ?? [];
+    assert.ok(marks.length <= 4, `expected ≤4 breakpoints, got ${marks.length}`);
+  });
+
+  test("never reshapes a bare-string message to carry a marker", async () => {
+    let wireRequest;
+    const provider = testProvider(request => { wireRequest = request; return textStream(); });
+    const ctx = baseCtx({ provider });
+
+    await runAnthropicLoop([{ role: "user", content: "Hello" }], { send: mock.fn() }, {}, undefined, undefined, ctx);
+
+    // Same shape on every request is what makes the cached prefix match; a
+    // string promoted to a text block here and left a string next time would
+    // not be a byte-identical prefix.
+    assert.deepEqual(wireRequest.messages, [{ role: "user", content: "Hello" }]);
+  });
+
+  test("falls back one message so a plain chat still caches its history", async () => {
+    let wireRequest;
+    const provider = testProvider(request => { wireRequest = request; return textStream(); });
+    const ctx = baseCtx({ provider });
+    const messages = [
+      { role: "user", content: "First" },
+      { role: "assistant", content: [{ type: "text", text: "Earlier answer" }] },
+      { role: "user", content: "Follow-up" },
+    ];
+
+    await runAnthropicLoop(messages, { send: mock.fn() }, {}, undefined, undefined, ctx);
+
+    const assistant = wireRequest.messages.find(m => m.role === "assistant");
+    assert.deepEqual(assistant.content.at(-1).cache_control, { type: "ephemeral" });
+    assert.equal(wireRequest.messages.at(-1).content, "Follow-up", "the trailing line stays outside the cached span");
+  });
+
+  test("does not leak cache_control into the persistent messages history", async () => {
+    const ctx = baseCtx({ provider: testProvider(textStream) });
+    const original = { role: "assistant", content: [{ type: "text", text: "Earlier answer" }] };
+    const messages = [{ role: "user", content: "Hi" }, original];
+
+    await runAnthropicLoop(messages, { send: mock.fn() }, {}, undefined, undefined, ctx);
+
+    assert.equal(messages[1], original, "the history entry must not be replaced");
+    assert.equal(JSON.stringify(messages.slice(0, 2)).includes("cache_control"), false);
+  });
+
+  test("moves the message breakpoint onto the tool_result turn on the next loop iteration", async () => {
+    const wireRequests = [];
+    let callCount = 0;
+    const provider = testProvider(request => {
+      wireRequests.push(request);
+      callCount++;
+      return callCount === 1 ? toolStream() : textStream();
+    });
+    const ctx = baseCtx({ provider, callTool: async () => "12:00" });
+
+    await runAnthropicLoop([{ role: "user", content: "What time is it?" }], { send: mock.fn() }, {}, undefined, undefined, ctx);
+
+    assert.equal(wireRequests.length, 2);
+    const last = wireRequests[1].messages.at(-1);
+    assert.equal(last.role, "user");
+    assert.equal(last.content.at(-1).type, "tool_result");
+    assert.deepEqual(last.content.at(-1).cache_control, { type: "ephemeral" });
+    // Only the final block is marked — earlier tool_result blocks stay clean.
+    const marked = wireRequests[1].messages
+      .flatMap(m => (Array.isArray(m.content) ? m.content : []))
+      .filter(b => b.cache_control);
+    assert.equal(marked.length, 1);
+  });
+
+  test("skips the message breakpoint when no lookback block can carry cache_control", async () => {
+    let wireRequest;
+    const provider = testProvider(request => { wireRequest = request; return textStream(); });
+    const ctx = baseCtx({ provider });
+    const messages = [
+      { role: "user", content: "Hi" },
+      { role: "assistant", content: [{ type: "thinking", thinking: "hmm", signature: "sig" }] },
+      { role: "user", content: "And again" },
+    ];
+
+    await runAnthropicLoop(messages, { send: mock.fn() }, {}, undefined, undefined, ctx);
+
+    const marked = wireRequest.messages
+      .flatMap(m => (Array.isArray(m.content) ? m.content : []))
+      .filter(b => b.cache_control);
+    assert.equal(marked.length, 0, "a thinking block must never be given a cache_control marker");
+    assert.ok(Array.isArray(wireRequest.system), "the system breakpoint still applies");
+  });
+
+  test("surfaces cache_read/cache_creation tokens and keeps input_tokens the full prompt", async () => {
+    async function* cachedStream() {
+      yield { type: "message_start", message: { usage: {
+        input_tokens: 12, cache_read_input_tokens: 4000, cache_creation_input_tokens: 800, output_tokens: 0,
+      } } };
+      yield { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } };
+      yield { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: "Hi" } };
+      yield { type: "content_block_stop", index: 0 };
+      yield { type: "message_delta", delta: { stop_reason: "end_turn" }, usage: {
+        input_tokens: 12, cache_read_input_tokens: 4000, cache_creation_input_tokens: 800, output_tokens: 6,
+      } };
+    }
+    const ctx = baseCtx({ provider: testProvider(cachedStream) });
+    const emitter = { send: mock.fn() };
+
+    await runAnthropicLoop([{ role: "user", content: "Hello" }], emitter, {}, undefined, undefined, ctx);
+
+    const end = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "stream_end");
+    assert.equal(end.usage.cache_read_input_tokens, 4000);
+    assert.equal(end.usage.cache_creation_input_tokens, 800);
+    // Cumulative totals are assigned, not accumulated, across the two events.
+    assert.equal(end.usage.input_tokens, 4812);
+    assert.equal(end.usage.output_tokens, 6);
+    assert.ok(infoCalls.some(a => String(a[0]).includes("[anthropic] cache: read=4000 created=800")));
+  });
+
+  test("reports zeroed cache fields and an unchanged input_tokens when nothing was cached", async () => {
+    const ctx = baseCtx({ provider: testProvider(textStream) });
+    const emitter = { send: mock.fn() };
+
+    await runAnthropicLoop([{ role: "user", content: "Hello" }], emitter, {}, undefined, undefined, ctx);
+
+    const end = emitter.send.mock.calls.map(c => c.arguments[0]).find(e => e.type === "stream_end");
+    assert.equal(end.usage.input_tokens, 10);
+    assert.equal(end.usage.cache_read_input_tokens, 0);
+    assert.equal(end.usage.cache_creation_input_tokens, 0);
+    assert.equal(infoCalls.some(a => String(a[0]).includes("[anthropic] cache:")), false);
   });
 });
