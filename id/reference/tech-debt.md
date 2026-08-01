@@ -25,6 +25,32 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## Docgraph — document facts (#250)
+
+- 2026-08-01 `composeMemoryFromDoc()` (`lib/docgraph/retrieval.js:400`) picks a
+  memory's period as **service period > invoice date > due date**, the opposite
+  of the corpus policy — a June-issued bill for May consumption is promoted as
+  "summary — 2026-05". Harmless while `DOCGRAPH_AUTO_MEMORY` is off; must be
+  re-pointed at `resolveAssignmentDate()` (`lib/docgraph/facts/contract.js`),
+  which now owns period assignment and gets this right, before the bridge is
+  ever enabled by default.
+- 2026-08-01 **A bilingual payment form can silently yield a 10× wrong amount
+  in plain text.** `extract-facts.js` `LABEL_FORWARD_WINDOW` scans a fixed 20
+  characters after a money label for a currency-less number. The corpus's
+  payment forms fit by one character ("Сума (Amount):              29,99" is
+  exactly 20); a form with one more digit or one more space truncates to
+  "235,2", which then parses as 2352 because the comma reads as a thousands
+  separator. Not reachable through the real corpus today — DOCX extraction
+  collapses the padding — but a plain-text form with wider columns hits it, and
+  the failure is silent and financial. Fix is to bound the scan by end-of-line
+  rather than a character count.
+- 2026-08-01 **Image-only receipts still contribute nothing.** PNG receipts
+  yield `no_text` and are recovered only when a bank-statement row happens to
+  cover them. All nine corpus months now reconcile exactly, but that is because
+  every image-only receipt in this corpus has a statement row or a `.txt`
+  sibling; a household whose receipts are photos only would come up short. The
+  deterministic path needs the native-vision seam to close this properly.
+
 ---
 
 ## Intentional deferrals
