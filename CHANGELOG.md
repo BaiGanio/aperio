@@ -11,6 +11,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Benchmark dashboard tabs now use the mascot favicon**: all seven generated
+  dashboard pages link the existing 32px mascot asset instead of showing a
+  blank browser icon.
+
 - **Graph watcher reindex handoff is regression-tested**: both codegraph and
   docgraph watchers now expose a test seam around indexing and embedding work,
   covering the distinction between known roots owned by an active reindex and
