@@ -153,6 +153,26 @@ category coverage. WS0-R remains not green; stop before WS1.
 - Graceful teardown completed; scratch runtime data and model process were
   cleaned up.
 
+## T-R5 Gemma 4 E4B rerun — PASSED 2026-08-01 (deterministic pipeline)
+
+- Model: `unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`; isolated scratch SQLite
+  harness with dedicated HTTP/llama ports; oracle withheld; fixture set T-R5
+  (2026-06). This is the first T-R5 live pass on a local model.
+- Corpus indexing: 18/18 primary and 1/1 secondary documents; retrieval: one
+  `doc_batch`, full 55.8 KB coverage; the turn invoked retrieval directly
+  (`toolSequence: [doc_batch]`) and answered from the deterministic
+  `aggregate` rather than free-form arithmetic.
+- P1 (full-month question) completed in 372.6s, within the 600s budget.
+- Gate: all checks pass — Utilities 260.50, Fuel 215.60, Groceries 140.75,
+  Transport 50.00, Internet 29.99; grand total 696.84 BGN; EUR 196.40 reported
+  separately; no failure signatures (no statement shortcut, no receipt↔statement
+  double-count); no excluded leak; full per-event coverage; retrieval invoked;
+  no oracle exposure; clean corpus fence.
+- Teardown: graceful llama-server shutdown; scratch workdir/DB removed. The
+  harness's fresh run record overwrote the tracked
+  `document-intelligence-run-answers.json`; that file was restored to its
+  committed state and is flagged in A2D as tracked against the plan's rule.
+
 ## T-R5 Gemma 4 E4B rerun — failed 2026-07-27
 
 - Model: `unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`; isolated scratch SQLite

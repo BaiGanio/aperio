@@ -2,7 +2,7 @@
 
 **Issue:** [#250](https://github.com/BaiGanio/aperio/issues/250)  
 **Companion tests:** [`document-intelligence-epic-tests.md`](./document-intelligence-epic-tests.md)  
-**Status:** (2026-07-26) Oracle and corpus rebuilt per `ground-truth-review.md` — 9-period generated corpus, schema-v3 oracle, structured gate, repaired harness; 723/723 oracle checks and 17/17 gate mutation tests pass. T-R5 not yet re-run against a model. Prior status: WS0-R implemented through retrieval/vision seams; T-R5.1 (bare utilities) PASSES on master (4760b55, 8baa106). T-R5.2 (bare full-month) found and fixed a real routing bug (`isDocumentAggregationIntent` missed "spending"); after the fix, retrieval engages correctly and fuel dedup/travel exclusion/groceries all pass, but Internet stays undiscovered (#313), Utilities arithmetic is wrong even with the right documents in hand, and an unrelated B2B trade document leaked in as a false-positive spending category. Stop before WS1 — T-R5.2 not yet green.
+**Status:** (2026-08-01) Deterministic fact pipeline and period-aware retrieval landed (`2eb0e2b`); unit gate green (June + all nine periods reconcile); **T-R5 live re-run PASSED on the local hero model Gemma 4 E4B** — first local-model pass, all totals exact, EUR separate, no leaks, clean teardown. WS1 (writable destination) is next. Prior status: WS0-R implemented through retrieval/vision seams; first live T-R5 pass on deepseek-v4-pro (2026-07-26); local-model arithmetic failures recorded in the evidence log until the deterministic pipeline removed them.
 **Reset:** 2026-07-23
 
 This is the canonical plan. It replaces the original field-extraction spike, the
