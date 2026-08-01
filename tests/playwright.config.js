@@ -8,7 +8,7 @@ const browserResults = resolve(ROOT, "tests/results/browser-results.json");
 
 export default defineConfig({
   testDir: resolve(ROOT, "tests/browser"),
-  outputDir: resolve(ROOT, "test-results/playwright"),
+  outputDir: resolve(ROOT, "tests/test-results/playwright"),
   fullyParallel: true,
   timeout: 30_000,
   expect: {

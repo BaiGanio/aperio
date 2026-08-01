@@ -80,7 +80,6 @@
     "model-tier:pilot": "node scripts/model-tier-bench.js",
     "model-tier:export": "node scripts/model-tier-export.js",
     "memory:baseline": "SQLITE_PATH=:memory: node scripts/memory-compact-baseline.js",
-    "minimalism:bench": "node --env-file=.env scripts/minimalism-bench.js",
     "// 8  vm / install testing": "── exercise the installer end-to-end in disposable VMs/containers per OS ──",
     "vmtest:linux": "bash vms/run-vagrant.sh ubuntu-lite",
     "vmtest:linux:debian": "bash vms/run-vagrant.sh debian-dev",

@@ -47,16 +47,6 @@
     { "id": "hard.simplify","set": "hard", "prompt": "Untangle this overcomplicated module and cut the dead code, keep behavior identical.", "expect": "code-simplification" },
     { "id": "hard.neg.function-words", "set": "hard", "prompt": "You know what I mean? Or can you not even read the screen?", "expectNot": ["docgraph", "code-review-and-quality"] },
     { "id": "hard.neg.inflection", "set": "hard", "prompt": "from where did you came with this Bulgarian response? where I write yo to Bulgarian so you are writing me that way?", "expectNot": ["doc-coauthoring", "test-driven-development"] },
-    { "id": "hard.neg.stack-remember", "set": "hard", "prompt": "I mostly work with React and TypeScript, and I prefer functional components over class components. Remember that.", "expectNot": ["theme-factory"] },
-
-    { "id": "min.helper",   "set": "hard", "prompt": "Write me a helper for turning a title into a URL slug.", "expect": "code-minimalism" },
-    { "id": "min.feature",  "set": "hard", "prompt": "Add a small feature to the export command: an optional date range.", "expect": "code-minimalism" },
-    { "id": "min.library",  "set": "hard", "prompt": "Do I need a library for this, or can we do it with what we already have?", "expect": "code-minimalism" },
-    { "id": "min.minimal",  "set": "hard", "prompt": "Keep it minimal — just the minimum viable code that solves it.", "expect": "code-minimalism" },
-    { "id": "min.overeng",  "set": "hard", "prompt": "Don't over-engineer this — the simplest thing that could work is fine.", "expect": "code-minimalism" },
-
-    { "id": "min.neg.debug",  "set": "hard", "prompt": "The helper function throws a TypeError on empty input — find out why.", "expectNot": ["code-minimalism"] },
-    { "id": "min.neg.docs",   "set": "hard", "prompt": "Fix a typo in the README and update the heading.", "expectNot": ["code-minimalism"] },
-    { "id": "min.neg.note",   "set": "hard", "prompt": "Create a new file called notes-for-me.md and write a short note inside it.", "expectNot": ["code-minimalism"] }
+    { "id": "hard.neg.stack-remember", "set": "hard", "prompt": "I mostly work with React and TypeScript, and I prefer functional components over class components. Remember that.", "expectNot": ["theme-factory"] }
   ]
 }
