@@ -212,6 +212,8 @@ describe("runCodexLoop", () => {
     assert.ok(capture.args.includes("--ignore-user-config"));
     assert.equal(capture.args[capture.args.indexOf("--sandbox") + 1], "workspace-write");
     assert.ok(capture.args.includes('mcp_servers.aperio.default_tools_approval_mode="approve"'));
+    assert.equal(capture.args.at(-2), "--");
+    assert.equal(capture.args.at(-1), "Hello");
     assert.ok(emitter.send.mock.calls.some(c => c.arguments[0].type === "stream_start"));
     const end = emitter.send.mock.calls.find(c => c.arguments[0].type === "stream_end").arguments[0];
     assert.equal(end.usage.input_tokens, 10);
@@ -908,7 +910,29 @@ describe("runCodexLoop", () => {
     const resumeAt = capture.args.indexOf("resume");
     assert.ok(resumeAt > 0);
     assert.equal(capture.args[resumeAt + 1], "thread-existing");
-    assert.equal(capture.args[resumeAt + 2], "Follow up");
+    assert.equal(capture.args[resumeAt + 2], "--");
+    assert.equal(capture.args[resumeAt + 3], "Follow up");
+  });
+
+  test("protects a skill-frontmatter prompt from CLI option parsing", async () => {
+    const capture = {};
+    await runCodexLoop(
+      [{ role: "user", content: "Write a helper" }],
+      { send: mock.fn() },
+      {},
+      null,
+      () => {},
+      baseCtx({
+        getSkillsBlock: () => "---\nname: code-simplification\n---\nSimplify safely.",
+        codexSpawn: mockChild({
+          capture,
+          stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+        }),
+      }),
+    );
+
+    assert.equal(capture.args.at(-2), "--");
+    assert.match(capture.args.at(-1), /^---\nname: code-simplification/);
   });
 
   test("bootstraps a new thread with compact local history", async () => {
@@ -964,6 +988,7 @@ describe("runCodexLoop", () => {
     );
 
     assert.equal(capture.args.includes("resume"), false);
+    assert.equal(capture.args.includes("--ephemeral"), true);
     assert.equal(state.sessionId, "global-thread");
     assert.deepEqual(updates, []);
   });
