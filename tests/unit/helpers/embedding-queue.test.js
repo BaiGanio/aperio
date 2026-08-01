@@ -448,3 +448,123 @@ describe("size()", () => {
     queue.shutdown();
   });
 });
+
+// =============================================================================
+// Issue #340 — the retry queue must not plant an off-signature vector
+// =============================================================================
+describe("write-time signature gate (#340)", () => {
+  let runningSignature;
+
+  before(async () => {
+    const { signatureString } = await import("../../../lib/helpers/vecMeta.js");
+    const { getEmbeddingSignature } = await import("../../../lib/helpers/embeddings.js");
+    runningSignature = signatureString(getEmbeddingSignature());
+  });
+
+  afterEach(() => {
+    resetLogCalls();
+  });
+
+  // A store double that satisfies supportsVecMeta() and reports a status. The
+  // real gate only needs getVecMeta; the other three are the capability probe.
+  //
+  // `signature` defaults to the running configuration's, because `current`
+  // alone is not enough to open the gate — a store finalized by another
+  // process under a *different* signature is current and still unwritable.
+  function makeVecMetaStore(status, setEmbeddingFn, signature = runningSignature) {
+    const row = { store_name: "memories", status, signature };
+    return {
+      setEmbedding: setEmbeddingFn ?? (async () => {}),
+      listVecMeta:   async () => [row],
+      seedVecMeta:   async () => false,
+      updateVecMeta: async () => {},
+      getVecMeta:    async () => row,
+    };
+  }
+
+  test("a reindexing store's entry is dropped without embedding or writing", async (t) => {
+    t.mock.timers.enable({ apis: ["setInterval", "Date"] });
+    const genEmb = successfulEmbedding();
+    const setEmb = mock.fn(async () => {});
+    const queue = createEmbeddingQueue({
+      store: makeVecMetaStore("reindexing", setEmb),
+      generateEmbedding: genEmb,
+    });
+
+    queue.enqueue("id-1", "text one");
+    t.mock.timers.tick(60_000);
+    await flushAll(queue);
+
+    assert.equal(genEmb.mock.calls.length, 0, "no inference for a vector that cannot be stored");
+    assert.equal(setEmb.mock.calls.length, 0, "no vector may land in a store being reindexed");
+    assert.equal(
+      queue.size(), 0,
+      "the entry must be dropped, not held — the reindex driver's pending scan owns this row, " +
+      "and a queue held for the length of a reindex grows without bound"
+    );
+
+    queue.shutdown();
+  });
+
+  test("a current store still embeds and writes as before", async (t) => {
+    // The gate must not become a blanket off switch: the ordinary path is by
+    // far the common one and has to be untouched.
+    t.mock.timers.enable({ apis: ["setInterval", "Date"] });
+    const genEmb = successfulEmbedding();
+    const setEmb = mock.fn(async () => {});
+    const queue = createEmbeddingQueue({
+      store: makeVecMetaStore("current", setEmb),
+      generateEmbedding: genEmb,
+    });
+
+    queue.enqueue("id-1", "text one");
+    t.mock.timers.tick(60_000);
+    await flushAll(queue);
+
+    assert.equal(genEmb.mock.calls.length, 1);
+    assert.equal(setEmb.mock.calls.length, 1);
+    assert.equal(queue.size(), 0);
+
+    queue.shutdown();
+  });
+
+  test("a store current under another process's signature is gated too", async (t) => {
+    // Status-only checking would wave this through — and this is the case the
+    // read-side gate cannot help with, because the store-level signature is
+    // consistent; it is simply not ours.
+    t.mock.timers.enable({ apis: ["setInterval", "Date"] });
+    const setEmb = mock.fn(async () => {});
+    const queue = createEmbeddingQueue({
+      store: makeVecMetaStore("current", setEmb, "voyage:voyage-3:1024"),
+      generateEmbedding: successfulEmbedding(),
+    });
+
+    queue.enqueue("id-1", "text one");
+    t.mock.timers.tick(60_000);
+    await flushAll(queue);
+
+    assert.equal(setEmb.mock.calls.length, 0);
+    assert.equal(queue.size(), 0);
+
+    queue.shutdown();
+  });
+
+  test("a store predating vec_meta is never gated", async (t) => {
+    // Pre-migration databases and the many test doubles that are just
+    // { setEmbedding } must keep working exactly as before.
+    t.mock.timers.enable({ apis: ["setInterval", "Date"] });
+    const setEmb = mock.fn(async () => {});
+    const queue = createEmbeddingQueue({
+      store: makeStore(setEmb),
+      generateEmbedding: successfulEmbedding(),
+    });
+
+    queue.enqueue("id-1", "text one");
+    t.mock.timers.tick(60_000);
+    await flushAll(queue);
+
+    assert.equal(setEmb.mock.calls.length, 1);
+
+    queue.shutdown();
+  });
+});
