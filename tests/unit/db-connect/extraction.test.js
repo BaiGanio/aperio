@@ -150,10 +150,32 @@ describe("extractionDbPath", () => {
     assert.equal(before_, after);
   });
 
-  test("P1: changing only the username (same host/port/database) resolves to the SAME file", () => {
+  // P1 review finding (corrects the previous round's assumption above): the
+  // username is a ROLE, not merely a credential like the password — two
+  // roles on the same host/port/database can have different default
+  // search_path settings and see entirely different tables. Collapsing them
+  // onto one identity would route their extraction writes into the SAME
+  // local file, exposing or overwriting each other's data.
+  test("P1: changing only the username (role) resolves to a DIFFERENT file — role is part of the logical namespace, not a credential", () => {
     const before_ = extractionMod.extractionDbPath(postgresStore("postgresql://alice:pw@db.example.com:5432/aperio"));
     const after = extractionMod.extractionDbPath(postgresStore("postgresql://bob:pw@db.example.com:5432/aperio"));
-    assert.equal(before_, after);
+    assert.notEqual(before_, after);
+  });
+
+  // P1 review finding: two profiles can share host/port/database/role and
+  // still see different tables via an explicit search_path — e.g. one
+  // Postgres user configured with `options=-c search_path=tenant_a` and
+  // another with `tenant_b`. That must resolve to different files too.
+  test("P1: two profiles sharing host/port/database/role but different search_path resolve to DIFFERENT files", () => {
+    const a = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20search_path%3Dtenant_a"));
+    const b = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20search_path%3Dtenant_b"));
+    assert.notEqual(a, b);
+  });
+
+  test("P1: an explicit search_path query param (same host/port/database/role) resolves to a DIFFERENT file", () => {
+    const a = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?search_path=tenant_a"));
+    const b = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?search_path=tenant_b"));
+    assert.notEqual(a, b);
   });
 
   test("changing the host still resolves to a DIFFERENT file (identity isn't just the database name)", () => {

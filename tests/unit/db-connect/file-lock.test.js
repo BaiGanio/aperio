@@ -11,9 +11,9 @@ import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import { acquireLock } from "../../../lib/db-connect/file-lock.js";
 
-function writeLockFile(lockPath, pid) {
+function writeLockFile(lockPath, pid, signature = "") {
   const fd = openSync(lockPath, "w");
-  writeSync(fd, `${pid}\n`);
+  writeSync(fd, `${pid}\n${signature}`);
   closeSync(fd);
 }
 
@@ -60,5 +60,25 @@ describe("file-lock stale reclamation", () => {
     release();
 
     assert.ok(elapsed < 15_000, `expected reclaim to succeed within the 15s acquire deadline, took ${elapsed}ms`);
+  });
+
+  // P2 review finding: a matching pid alone isn't proof of the SAME holder —
+  // after a crash (or reboot) leaves the lock behind, the OS can reuse that
+  // pid for a completely unrelated, genuinely live process. Before this fix,
+  // isAlive(pid) alone would report that unrelated process as the "still
+  // live" original holder forever, wedging every acquirer until it happened
+  // to exit. Using our OWN pid (guaranteed alive throughout this test) with a
+  // deliberately bogus recorded signature simulates exactly that: a pid
+  // that's alive, but demonstrably NOT the process that wrote this lock.
+  test("P2: a lock whose pid is alive but whose recorded start-signature no longer matches (pid reused by a different process) is reclaimed", async () => {
+    const lockPath = scratchLockPath();
+    writeLockFile(lockPath, process.pid, "bogus-signature-that-will-never-match-000000");
+
+    const start = Date.now();
+    const release = await acquireLock(lockPath);
+    const elapsed = Date.now() - start;
+    release();
+
+    assert.ok(elapsed < 5000, `expected reclaim once the recorded signature didn't match this (live) pid's real one, took ${elapsed}ms`);
   });
 });
