@@ -73,6 +73,226 @@ start.
 WS0-R is not green: T-R5 failed at P2. Do not begin WS1 or extraction-template
 plumbing.
 
+## WS1 — writable destination — implemented and tested 2026-08-01 (T-G1.1–T-G1.4)
+
+WS0-R's T-R5 gate passed on the local hero model (Gemma 4 E4B) the same day (see
+below), unblocking WS1. Destination decision: **preferred** option taken — Aperio
+provisions a clearly named user extraction database on first use, behind the
+already-existing `db_execute` confirm-before-write boundary, rather than the
+Settings-UI fallback. Rationale: `db_execute`, `db_query`, `db_normalize_amount` and
+the two-phase confirm flow already existed (issue #170, plus locale-normalization
+landed early under a prior session's "ai leftovers" commit `01c545c`); the only real
+gap was that a clean profile has no writable connection at all and WS1 explicitly
+forbids hand-edited config. `extraction` is now a reserved connection name:
+referencing it in `db_execute` on a profile where it is not yet configured is not
+treated as an unknown-connection error — the propose step discloses that a new
+personal SQLite database will be created, and provisioning happens exactly once,
+at confirmed-commit time (never at propose or decline). Declining creates nothing;
+re-confirming a second write against the name reuses the same connection
+(already-provisioned is a no-op, not an error).
+
+- `lib/db-connect/extraction.js` (new) — `provisionExtractionConnection()`,
+  idempotent, modeled on the existing `sample-db.js` pattern (file placed next to
+  the app's own SQLite store via `SQLITE_PATH`, registered through
+  `saveConnections()`). Owns only the connection's existence — table/column
+  names belong to whoever calls `db_execute`, so "schema is user-selected or
+  provisioned, never path-derived" holds because nothing here ever reads a
+  document path.
+- `lib/handlers/database/databaseHandlers.js` — `validateExecutionArgs` special-cases
+  the reserved, not-yet-configured `extraction` name; `proposeAction`'s summary
+  discloses the pending creation; `executeTool` provisions immediately before the
+  confirmed write runs. The built-in `aperio` connection's read-only resolution in
+  `registry.js` is untouched and was re-verified under the new tests.
+- `mcp/tools/database.js` — `db_execute`/`db_connections` tool descriptions updated
+  so the model can discover and use `extraction` without any Settings UI step.
+- T-G1.3 (locale normalization) and most of T-G1.2/T-G1.4's generic SQL round-trip
+  were already covered by the prior session's `lib/handlers/database/amounts.js`
+  (`normalizeAmount` / `db_normalize_amount`) and its existing tests; this pass adds
+  the missing clean-profile provisioning piece and closes out the T-G1 edge cases
+  end to end.
+
+Tests (all new, all green):
+- `tests/unit/db-connect/extraction.test.js` — 8 tests, zero real filesystem access
+  (same mocking technique as `sample-db.test.js`): path derivation, idempotent
+  provisioning, directory/file creation, preserves other connections.
+- `tests/integration/handlers/database-confirm.test.js`, new describe block
+  "WS1 writable destination — clean-profile provisioning" — 10 tests against the
+  real confirm-flow/SQLite stack in an isolated tmp `SQLITE_PATH` per test:
+  clean-profile connection listing, built-in `aperio` rejects writes by name,
+  propose discloses creation without provisioning, decline provisions nothing,
+  confirm provisions once and `aperio` stays read-only after, re-confirm reuses
+  the same connection (already-exists), append-and-round-trip across two
+  extractions, duplicate `source_hash` surfaced as a clear constraint error (not
+  silently deduplicated or accepted), field drift on a later extraction surfaced
+  as a clear error (not a silent partial write), and mixed BGN/EUR rows aggregated
+  into separate per-currency `SUM()` totals with no blended figure — structurally
+  guaranteed because no row/column in the schema ever carries an exchange rate.
+- Full suites re-run clean: `npm run test:unit` 2404/2404, `npm run test:integration`
+  2402/2402.
+
+T-G1.4's "response states no conversion was applied" and "a model-volunteered FX
+rate is a hard fail" are behavioral assertions against the model's own final
+answer and belong to the S2/WS4 hero-model gate (T-G6), not a WS1 unit test; they
+are structurally supported here by the extraction schema never carrying a rate
+column and `normalizeAmount` never converting currencies — verified above.
+
+No new `lib/config.js` key was needed: the extraction file path reuses the
+already-registered `SQLITE_PATH`, exactly as `sample-db.js` already does.
+
+WS2 (skill), WS3 (migrations/handlers/MCP templates) and WS4 were not started, per
+scope.
+
+### Review fixes — 2026-08-01 (same day)
+
+Two P1/P2 findings from review, both fixed and tested:
+
+- **P1 (data loss under the supported Postgres deployment).** `extractionDbPath()`
+  derived its location from `SQLITE_PATH`'s directory, which is unset and
+  irrelevant when `DB_BACKEND=postgres` — the supported production Compose file
+  (`docker/docker-compose.prod.yml`) persists only `aperio_var:/app/var`, so the
+  extraction file would live outside any persisted volume and vanish on container
+  recreation while the connection row survived in Postgres, pointing at a file that
+  no longer existed. Fixed: the path is now fixed under the app's own `var/`
+  directory, computed from the module's own location exactly the way
+  `lib/db-connect/secrets.js` already does for its machine-local key — no env
+  dependency, no new `lib/config.js` key, matches the one durable volume the
+  deployment actually mounts.
+- **P2 (reserved name not actually reserved).** `findExtractionConnection` matched
+  by name only, so a pre-existing or headlessly-seeded (`DB_CONNECTIONS` env)
+  connection that happened to be named `extraction` would be silently treated as
+  the managed destination: if writable, document rows would land in an unrelated
+  user database; if read-only, self-provisioning would appear blocked behind a
+  misleading "turn off its read-only flag" message. Fixed: the connection row now
+  carries a `provisioned: true` marker written only by
+  `provisionExtractionConnection()`, and both `findExtractionConnection` and
+  `validateExecutionArgs` require it — a same-named row lacking it is a collision,
+  rejected with an explicit "reserved name" error rather than reused, redirected
+  into, or mistaken for a block. Also added `extraction` to the UI-level reserved-name
+  guard in `lib/routes/api-database.js` (alongside `aperio`) so the collision can no
+  longer be created through Settings going forward.
+
+Tests updated/added for both fixes: `tests/unit/db-connect/extraction.test.js` (12
+tests — path no longer varies with `SQLITE_PATH`, collision rejection on both
+`findExtractionConnection` and `provisionExtractionConnection`, read-only and
+writable collision variants) and two new cases in
+`tests/integration/handlers/database-confirm.test.js`'s WS1 describe block (26
+tests total in that file) exercising the collision end to end through
+`db_execute`. Per-test isolation switched from a SQLITE_PATH swap to deleting the
+real (now-fixed-path) `var/extraction.db` before/after each test, since the path
+is no longer test-parameterizable by design (that was the point of the fix).
+Full suites re-verified clean after the fix: `npm run test:unit` 2408/2408,
+`npm run test:integration` 2404/2404. No stray files left in the repo tree.
+
+### Review fixes, round 2 — 2026-08-01 (same day)
+
+Two more P1 findings from a second review pass, both on the round-1 fix itself:
+
+- **P1 (cross-profile data sharing).** The round-1 fix moved the extraction file
+  under a fixed path in the app's own `var/` directory — durable, but a single
+  fixed path for the whole installation. Two Aperio profiles sharing one code
+  checkout (separate installs, or separate `SQLITE_PATH`/`DATABASE_URL` configs)
+  would resolve to the exact same file and could read or overwrite each other's
+  extracted documents. Fixed: the filename is now namespaced by a hash of the
+  live store's OWN resolved identity — `store.db.name` (the real sqlite file
+  path) for the sqlite backend, `store.pool.options.connectionString` for
+  Postgres — the same `store.db`/`store.pool` duck-typing
+  `lib/db-connect/drivers/aperio.js` already uses to answer "which real database
+  is this profile talking to". Hashed (SHA-256, truncated), never embedded raw,
+  since a Postgres connection string carries its password. Two profiles now
+  reliably resolve to two different files under `var/extraction/`; one profile
+  restarted (same identity) still resolves to the same file, so durability from
+  the round-1 fix is unaffected. `extractionDbPath()` and
+  `provisionExtractionConnection()` both now take `store` as a required
+  parameter — the one production call site (`databaseHandlers.js`'s propose
+  summary) was updated to pass `ctx.store`.
+- **P1 (tests could delete real user data).** The round-1 integration tests'
+  `beforeEach`/`afterEach` called `rmSync(extractionDbPath())` — a hardcoded,
+  no-argument path — before and after every test, in a checkout that could
+  contain a real developer's actual extraction data at that same path. Fixed
+  structurally: `extractionDbPath()` now requires a `store` argument, so it is
+  no longer possible to compute "the" path without deliberately supplying an
+  identity. Every test now uses its own fresh, random, synthetic identity
+  (`test-profile:<random-hex>`, a shape no real `SqliteStore`/`PostgresStore`
+  could ever produce) and cleanup removes only the exact file that test's own
+  identity resolved to — never a fixed or shared path. A dedicated sentinel
+  test creates a file for a separate, unrelated synthetic profile before any
+  test in the suite runs, and asserts it is byte-for-byte unchanged after every
+  test has finished — proof, not just assertion, that the suite cannot reach a
+  file it did not itself create. Verified the sentinel actually catches a
+  regression (not a no-op check): temporarily reintroduced the identity
+  collision by hand, reran, watched the sentinel test fail (the file was
+  deleted out from under it, exactly the round-1 failure mode), then restored
+  the real fix and reran clean.
+
+Tests: `tests/unit/db-connect/extraction.test.js` grew to 17 (added multi-profile
+isolation cases — two sqlite profiles, two postgres profiles, stability across
+repeated calls, no raw connection string ever embedded in the path).
+`tests/integration/handlers/database-confirm.test.js`'s WS1 block stayed at 12
+tests with all identity plumbing reworked, plus the sentinel `before`/`after`
+pair. Full suites re-verified clean: `npm run test:unit` 2413/2413,
+`npm run test:integration` 2404/2404. No stray files or directories left in the
+repo tree (`var/extraction/` is removed by the sentinel's `after()` once empty;
+confirmed via `git status` and a directory listing after the run).
+
+### Review fixes, round 3 — 2026-08-01 (same day)
+
+Three more findings from a third review pass:
+
+- **P1 (bypassed at-rest encryption).** `provisionExtractionConnection` opened a
+  plain `better-sqlite3` file directly, so `APERIO_DB_ENCRYPT=1` had no effect on
+  extracted bills/receipts/statements even though it fully protects the app's own
+  store. Fixed with a new `lib/db-connect/drivers/managed-sqlite.js`:
+  `createManagedSqliteFile`/`openManagedSqlite` reuse `db/encrypt.js`'s existing
+  AES-256-GCM lifecycle (`prepareDatabase`/`finalizeDatabase`/`encryptFile`) —
+  decrypt-to-scratch-temp on open, re-encrypt-and-remove-temp on close — scoped
+  only to connections carrying the `provisioned` marker (`registry.js`'s
+  `openDriver` routes on that flag, never touching a user's own external sqlite
+  file). The resolved key is cached at module scope (`managedEncryptionKey()`) so
+  a keychain shell-out happens at most once per process, not once per
+  db_execute/db_query call. Found and fixed a real bug while wiring this up: a
+  brand-new `better-sqlite3` database that is opened and closed without ever
+  writing to it is a genuine 0-byte file on disk (SQLite defers its header page
+  until the first write transaction) — encrypting that 0-byte scratch file made
+  `prepareDatabase`'s own magic-header verification fail on every subsequent
+  open with "Decrypted file is not a valid SQLite database". Fixed by forcing a
+  real header write (`db.pragma("user_version = 0")`) before the scratch file is
+  read and encrypted.
+- **P2 (in-memory profiles share data).** `SQLITE_PATH=:memory:` is a supported
+  configuration (`db/sqlite/store.js`), and every such store's `store.db.name` is
+  the literal string `":memory:"` — the profile-identity hash from the prior
+  round's fix would therefore collapse every separate in-memory profile onto the
+  same persisted extraction file. Fixed: `:memory:` is special-cased to a random,
+  module-load-scoped identity (`IN_MEMORY_PROCESS_TAG`) — stable for the lifetime
+  of one running profile (so writes/reads still round-trip normally within that
+  run), but never shared with another run, verified via cache-busted dynamic
+  re-imports simulating separate processes.
+- **P2 (unusable Edit/Test controls).** Once provisioned, `listConnections()`
+  already returns the extraction row's `provisioned: true` field (unchanged), but
+  the Settings panel rendered ordinary Edit/Delete buttons for it — Edit (and Test,
+  reachable only from inside the Edit form) always 400 because `validate()`
+  rejects the reserved name. Fixed in `public/scripts/db-connections-panel.js`:
+  a `provisioned` row now renders a "managed" badge instead of an Edit button
+  (mirroring the existing built-in-`aperio` badge pattern) while keeping Delete —
+  unlike the true built-in connection, this one holds the user's own data and
+  they may reasonably want to remove it. `startEdit()` also gained a defense-in-
+  depth guard. No backend response shape change was needed; `provisioned` was
+  already there. Also added `extraction` to `api-database.js`'s reserved-name
+  guard (alongside `aperio`) so the collision this whole chain of fixes exists
+  for can no longer be created through Settings going forward.
+
+Tests: `lib/db-connect/drivers/managed-sqlite.js` covered end-to-end by a new
+`tests/integration/db-connect/extraction-encryption.test.js` (3 tests) — mocks
+`execSync`/`execFileSync` before import exactly like the existing
+`tests/integration/db/encrypt.test.js` does (never touches the real OS
+keychain; verified afterward with a direct `security find-generic-password`
+check — no stray entry). Confirms: the file is never plaintext immediately
+after provisioning; a confirmed `db_execute` write leaves the on-disk file
+non-plaintext and the content round-trips correctly through `db_query`; a
+second write appends without corruption. `tests/unit/db-connect/extraction.test.js`
+grew to 21 (added a 4-test in-memory-profile-isolation group, P2). Full suites
+re-verified clean: `npm run test:unit` 2417/2417, `npm run test:integration`
+2407/2407. No stray files, directories, or keychain entries left behind.
+
 ## T-R5 rerun — E2B Q4_K_XL, 300-second budget — failed 2026-07-23
 
 - Harness: same isolated direct-composition-root run; scratch SQLite, 21 copied

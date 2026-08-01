@@ -13,7 +13,7 @@ import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { existsSync, writeFileSync, readFileSync, unlinkSync } from "node:fs";
+import { existsSync, writeFileSync, readFileSync, unlinkSync, readdirSync } from "node:fs";
 
 const require = createRequire(import.meta.url);
 
@@ -263,6 +263,70 @@ describe("prepareDatabase", () => {
     const tempPath = mod.prepareDatabase(missingPath, Buffer.alloc(32, 0x42));
     assert.ok(typeof tempPath === "string", "should return temp path for fresh start");
     assert.ok(!existsSync(missingPath), "no source file created for fresh start");
+  });
+
+  // P1 review finding: the legacy temp-path scheme only encoded 6 bytes of
+  // dbPath, so unrelated databases routinely share the exact same legacy
+  // name (any two paths under the same OS tmp dir do). A file found there
+  // therefore can NOT be safely attributed to any one dbPath — merging it
+  // into encPath (an earlier version of this fix did exactly that) risks
+  // silently overwriting an unrelated database with someone else's data.
+  //
+  // (The companion "retains the file when the quarantine move itself fails"
+  // case — read quarantineAmbiguousLegacyTemp's try/catch — is verified by
+  // code inspection rather than an automated test here: reliably forcing a
+  // renameSync failure requires mocking node:fs's OWN renameSync export, and
+  // Node's builtin ESM named exports are resolved once per process the first
+  // time anything imports them — by the time this test runs, 'node:fs' has
+  // already been imported elsewhere, so a later reassignment is not visible
+  // to db/encrypt.js's own `import { renameSync } from 'node:fs'` binding.
+  // A test that only sometimes catches this, depending on unrelated import
+  // order elsewhere in the suite, is worse than no automated test.)
+  test("quarantines (never merges) an ambiguous legacy temp file rather than risking cross-database corruption", async () => {
+    process.env.APERIO_DB_ENCRYPT = "1";
+    const mod = await import(_cacheBust());
+    const key = Buffer.alloc(32, 0x77);
+
+    const dbPathB = tmpPath("legacy-quarantine-b.db");
+    // The OLD getTempPath formula: first 6 bytes of the raw path, hex-encoded.
+    // dbPathB shares it with every other tmpPath() call (same OS tmp dir
+    // prefix) — exactly the ambiguity this test exercises.
+    const legacyHash = Buffer.from(dbPathB).toString("hex").slice(0, 12);
+    const legacyTempPath = join(tmpdir(), `aperio-db-${legacyHash}.sqlite`);
+    const legacyContent = Buffer.concat([
+      Buffer.from("SQLite format 3\0"),
+      Buffer.from("uncommitted writes from an unclean shutdown, owner unknown"),
+    ]);
+    // dbPathB's own, genuinely pre-existing plaintext content (about to be
+    // migrated to encrypted storage) — distinct from the legacy content, so
+    // a wrongful merge into dbPathB would be directly observable.
+    const bOwnContent = Buffer.concat([
+      Buffer.from("SQLite format 3\0"),
+      Buffer.from("dbPathB's own real, unrelated content"),
+    ]);
+
+    const before = new Set(readdirSync(tmpdir()));
+    let tempPathB;
+    try {
+      writeFileSync(dbPathB, bOwnContent);
+      writeFileSync(legacyTempPath, legacyContent);
+
+      tempPathB = mod.prepareDatabase(dbPathB, key);
+      const bContent = readFileSync(tempPathB);
+      assert.ok(bContent.equals(bOwnContent), "dbPathB must decrypt to its own real content");
+      assert.ok(!bContent.equals(legacyContent), "an unrelated/unattributable database must never receive the ambiguous legacy file's content");
+
+      assert.ok(!existsSync(legacyTempPath), "the ambiguous legacy path itself must be vacated (moved, not left in place)");
+
+      const quarantined = readdirSync(tmpdir()).filter((f) => !before.has(f) && f.startsWith("aperio-legacy-recovery-"));
+      assert.strictEqual(quarantined.length, 1, "exactly one quarantine file should appear");
+      const quarantinedContent = readFileSync(join(tmpdir(), quarantined[0]));
+      assert.ok(quarantinedContent.equals(legacyContent), "the quarantined file must preserve the original legacy content untouched — it may still be some OTHER database's real crash data");
+      cleanup(join(tmpdir(), quarantined[0]));
+    } finally {
+      cleanup(dbPathB, legacyTempPath);
+      if (tempPathB) cleanup(tempPathB, tempPathB + "-wal", tempPathB + "-shm", tempPathB + "-journal");
+    }
   });
 });
 

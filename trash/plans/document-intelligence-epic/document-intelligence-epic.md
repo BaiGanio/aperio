@@ -2,7 +2,7 @@
 
 **Issue:** [#250](https://github.com/BaiGanio/aperio/issues/250)  
 **Companion tests:** [`document-intelligence-epic-tests.md`](./document-intelligence-epic-tests.md)  
-**Status:** (2026-08-01) Deterministic fact pipeline and period-aware retrieval landed (`2eb0e2b`); unit gate green (June + all nine periods reconcile); **T-R5 live re-run PASSED on the local hero model Gemma 4 E4B** — first local-model pass, all totals exact, EUR separate, no leaks, clean teardown. WS1 (writable destination) is next. Prior status: WS0-R implemented through retrieval/vision seams; first live T-R5 pass on deepseek-v4-pro (2026-07-26); local-model arithmetic failures recorded in the evidence log until the deterministic pipeline removed them.
+**Status:** (2026-08-01) Deterministic fact pipeline and period-aware retrieval landed (`2eb0e2b`); unit gate green (June + all nine periods reconcile); **T-R5 live re-run PASSED on the local hero model Gemma 4 E4B** — first local-model pass, all totals exact, EUR separate, no leaks, clean teardown. **WS1 (writable destination) implemented and tested same day** — self-provisioning `extraction` connection behind the existing `db_execute` confirm boundary; T-G1.1–T-G1.4 all green (18 new tests, full suites 2404/2402 clean). WS2 (skill) is next. Prior status: WS0-R implemented through retrieval/vision seams; first live T-R5 pass on deepseek-v4-pro (2026-07-26); local-model arithmetic failures recorded in the evidence log until the deterministic pipeline removed them.
 **Reset:** 2026-07-23
 
 This is the canonical plan. It replaces the original field-extraction spike, the
@@ -103,7 +103,16 @@ graph TD
 - S1, S3, public pages, multi-model scorecards, real-bill drills, and demo v4 remain
   follow-ups gated on S2 passing.
 
-### Deferred decision
+### Deferred decision — resolved 2026-08-01
+
+WS0-R passed; the writable destination is the **preferred** option: Aperio
+provisions a clearly named user extraction database (`extraction`, a reserved
+`db_execute` connection name) on first confirmed write, behind the existing
+`db_execute` confirmation boundary. Tested from a clean profile; the built-in
+`aperio` connection's read-only guarantee is unaffected. Details and test
+evidence in `document-intelligence-epic-evidence.md` (WS1 section).
+
+<details><summary>Original deferred-decision text</summary>
 
 After WS0-R passes, choose the writable destination:
 
@@ -113,6 +122,8 @@ After WS0-R passes, choose the writable destination:
 
 The choice must be tested from a clean profile and must not weaken the read-only
 guarantee of the built-in database.
+
+</details>
 
 ## 5. Model recommendation
 
@@ -170,16 +181,16 @@ Each step references its detailed test group in
    *Works when:* Utilities is 260.50 BGN; full S2 is 696.84 BGN including Internet 29.99;
    no category is silently omitted; no oracle is visible; teardown is clean (T-R5).
 
-### WS1 — Writable destination → T-G1
+### WS1 — Writable destination → T-G1 — **done 2026-08-01**
 
 7. **Implement the selected writable-destination flow.** Preserve the read-only built-in
    connection and the existing confirmation boundary.
    *Works when:* a clean profile can create, append, and query an extraction table without
-   hand-editing config or deriving schema names from paths (T-G1.1–G1.2).
+   hand-editing config or deriving schema names from paths (T-G1.1–G1.2). ✅
 
 8. **Normalize amounts on write and group by currency.**
    *Works when:* BGN and DE-formatted EUR values become numeric database values, SQL sums
-   each currency correctly, and no blended/converted total is produced (T-G1.3–G1.4).
+   each currency correctly, and no blended/converted total is produced (T-G1.3–G1.4). ✅
 
 ### WS2 — Orchestration skill → T-G2
 
