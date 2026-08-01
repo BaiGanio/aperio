@@ -11,6 +11,33 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A chat superseded before it started could still run and report `completed`**:
+  the per-connection turn lock claimed a chat turn only *after* awaiting the
+  previous one, so two messages arriving while a turn was still generating both
+  waited on the same promise and then both registered — the older one last. It
+  was therefore invisible to the newer chat's preemption, generated alongside
+  it into the same connection's transcript, and finished with
+  `turn_complete: completed` even though the user had already replaced it. A
+  turn is now claimed the instant its message arrives, dispatches are
+  serialized in arrival order, and a turn superseded while queued has its
+  controller aborted the moment the provider registers it, so it never
+  streams. Covers the load-sensitive T45 flake.
+
+- **A superseded chat no longer runs pre-provider work for a turn nobody
+  awaits**: a chat killed before it started still parsed its `/skill` prefix
+  and staged the forced skills on the shared agent, where the *next* turn's
+  context assembly picked them up, and could route into the summarize or
+  round-table flows — a model call and session writes for a dead turn. It now
+  records the user's message (dropping it would silently lose something the
+  user typed) and stops there.
+
+- **The "you were interrupted" note never reached the model**: the note was
+  written into the message's content block, but a message without attachments
+  was then stored from the pre-note text, so every interrupted plain-text turn
+  — nearly all of them — told the model nothing. The note now survives into
+  history, and it is attached to the turn that actually generates rather than
+  to one that was superseded before it replied.
+
 - **Benchmark dashboard tabs now use the mascot favicon**: all seven generated
   dashboard pages link the existing 32px mascot asset instead of showing a
   blank browser icon.

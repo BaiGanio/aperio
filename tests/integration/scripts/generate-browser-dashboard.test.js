@@ -1,13 +1,26 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
+import { readdirSync } from "node:fs";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { join, relative, resolve } from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 
 const execFileAsync = promisify(execFile);
 const ROOT = resolve(import.meta.dirname, "../../..");
+const BROWSER_DIR = resolve(ROOT, "tests/browser");
+
+/** Every browser spec on disk, named and ordered the way the generator emits them. */
+function browserSpecsOnDisk(dir = BROWSER_DIR) {
+  return readdirSync(dir, { withFileTypes: true })
+    .flatMap((entry) => {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) return browserSpecsOnDisk(full);
+      return entry.name.endsWith(".spec.js") ? [relative(BROWSER_DIR, full).replaceAll("\\", "/")] : [];
+    })
+    .sort((a, b) => a.localeCompare(b));
+}
 
 test("Browser dashboard generator transforms Playwright reporter JSON without running tests", async () => {
   const dir = await mkdtemp(join(tmpdir(), "aperio-browser-dashboard-"));
@@ -56,10 +69,11 @@ test("Browser dashboard generator transforms Playwright reporter JSON without ru
     assert.equal(data.total, 1);
     assert.equal(data.passed, 1);
     assert.equal(typeof data.commit, "string");
-    assert.deepEqual(data.files.map(file => file.name), [
-      "agents/agent-steps-builder.spec.js",
-      "smoke/app-shell.spec.js",
-    ]);
+    // The generator lists every spec on disk, not just the ones the reporter
+    // JSON mentions — that is how a spec nobody ran still shows up with a zero
+    // test count. Derive the expectation the same way instead of hardcoding it,
+    // so adding a browser spec doesn't fail an unrelated test.
+    assert.deepEqual(data.files.map(file => file.name), browserSpecsOnDisk());
     assert.equal(data.files.find(file => file.name === "smoke/app-shell.spec.js").testCount, 1);
   } finally {
     await rm(dir, { recursive: true, force: true });

@@ -398,6 +398,107 @@ describe("message type: chat", () => {
     ]);
   });
 
+  test("the interrupted note reaches the transcript of a plain message, not just one with attachments", async (t) => {
+    const ws = makeWs(t);
+    let calls = 0;
+    let releaseFirst;
+    const firstStarted = new Promise(resolve => { releaseFirst = resolve; });
+    let historyAtSecondTurn = null;
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        runAgentLoop: async (messages, _emitter, _opts, _getAbort, setAbort) => {
+          calls++;
+          if (calls === 1) {
+            const controller = new AbortController();
+            setAbort(controller);
+            releaseFirst();
+            await new Promise((_resolve, reject) => {
+              controller.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+            });
+            return;
+          }
+          historyAtSecondTurn = messages.map(m => m.content);
+        },
+      }),
+      varRoot: TEST_DIR,
+    });
+    handler(ws);
+
+    const first = ws.emit({ type: "chat", text: "first", turnId: "turn-a" });
+    await firstStarted;
+    const second = ws.emit({ type: "chat", text: "second", turnId: "turn-b" });
+    await Promise.all([first, second]);
+
+    assert.equal(historyAtSecondTurn[0], "first");
+    assert.match(
+      historyAtSecondTurn[1],
+      /^\[Note: you were interrupted[\s\S]*\n\nsecond$/,
+      "a message with no attachments still carries the note into history",
+    );
+  });
+
+  test("a chat superseded while still queued records the user message but runs no turn work", async (t) => {
+    const ws = makeWs(t);
+    let calls = 0;
+    let releaseA;
+    const startedA = new Promise(resolve => { releaseA = resolve; });
+    let historyAtLastTurn = null;
+    const setPendingForcedSkills = t.mock.fn();
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        getSkillList: () => [{ name: "debugging" }],
+        setPendingForcedSkills,
+        runAgentLoop: async (messages, _emitter, _opts, _getAbort, setAbort) => {
+          calls++;
+          if (calls === 1) {
+            const controller = new AbortController();
+            setAbort(controller);
+            releaseA();
+            await new Promise((_resolve, reject) => {
+              controller.signal.addEventListener("abort", () => reject(new Error("aborted")), { once: true });
+            });
+            return;
+          }
+          historyAtLastTurn = messages.map(m => (typeof m.content === "string" ? m.content : m.content[0].text));
+        },
+      }),
+      varRoot: TEST_DIR,
+    });
+    handler(ws);
+
+    const a = ws.emit({ type: "chat", text: "first", turnId: "turn-a" });
+    await startedA;
+    // Both handlers are entered before either can register: turn-c supersedes
+    // turn-b while turn-b is still parked behind turn-a's unwind.
+    const b = ws.emit({ type: "chat", text: "/debugging second", turnId: "turn-b" });
+    const c = ws.emit({ type: "chat", text: "third", turnId: "turn-c" });
+    await Promise.all([a, b, c]);
+
+    assert.deepStrictEqual(sentOf(ws, "turn_complete"), [
+      { type: "turn_complete", turnId: "turn-a", status: "interrupted" },
+      { type: "turn_complete", turnId: "turn-b", status: "interrupted" },
+      { type: "turn_complete", turnId: "turn-c", status: "completed" },
+    ]);
+
+    // Exactly two turns ran a model call — the queued one never reached the
+    // provider, so it also never emitted "thinking" for a turn nobody awaited.
+    assert.equal(calls, 2, "the superseded queued turn must not run the agent loop");
+    assert.equal(sentOf(ws, "thinking").length, 2);
+
+    // Its forced skill must not leak into the next turn's context assembly.
+    assert.equal(setPendingForcedSkills.mock.callCount(), 0, "a dead turn must not stage forced skills");
+
+    // But the user really sent it, so it stays in the transcript, in order.
+    assert.equal(historyAtLastTurn.length, 3);
+    assert.equal(historyAtLastTurn[0], "first");
+    assert.equal(historyAtLastTurn[1], "second", "the queued turn's message is recorded, without an interrupted note");
+    assert.match(
+      historyAtLastTurn[2],
+      /^\[Note: you were interrupted/,
+      "the note is handed to the turn that actually generates",
+    );
+  });
+
   test("closing the socket during an active generating turn does not throw and suppresses the late rejection", async (t) => {
     const ws = makeWs(t);
     const loggedErrors = [];

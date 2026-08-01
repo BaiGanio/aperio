@@ -44,7 +44,7 @@ test("docs HTML contains no missing local files or fragments", () => {
       const hashAt = href.indexOf("#");
       const relativePath = hashAt >= 0 ? href.slice(0, hashAt) : href;
       const fragment = hashAt >= 0 ? href.slice(hashAt + 1) : "";
-      const target = relativePath ? resolve(dirname(source), relativePath) : source;
+      const target = relativePath ? resolveHref(source, relativePath) : source;
       if (!readFileExists(target)) {
         broken.push(`${relative(ROOT, source)} -> ${href} (missing file)`);
         continue;
@@ -58,6 +58,23 @@ test("docs HTML contains no missing local files or fragments", () => {
   }
   assert.deepEqual(broken, []);
 });
+
+// docs/ is published as a GitHub Pages *project* site (no CNAME), so the whole
+// tree is served under /aperio/. Root-absolute hrefs therefore resolve against
+// the docs root, not the filesystem root — 404.html has to use them because
+// Pages serves that one page for missing URLs at any depth, where a relative
+// asset path would point somewhere different on every 404.
+const PAGES_BASE = "/aperio";
+
+function resolveHref(source, relativePath) {
+  if (!relativePath.startsWith("/")) return resolve(dirname(source), relativePath);
+  const withinSite = relativePath === PAGES_BASE || relativePath.startsWith(`${PAGES_BASE}/`)
+    ? relativePath.slice(PAGES_BASE.length)
+    : relativePath;
+  const target = join(DOCS, withinSite);
+  // A directory URL ("/aperio/") is served by its index.html.
+  return relativePath.endsWith("/") ? join(target, "index.html") : target;
+}
 
 function readFileExists(path) {
   try {
