@@ -38,8 +38,17 @@
       const badge = c.readOnly === false
         ? `<span class="db-conn-badge db-conn-badge--rw">writable</span>`
         : `<span class="db-conn-badge">read-only</span>`;
+      // A `provisioned` row (currently just the self-provisioned `extraction`
+      // connection) is Aperio's own, created behind db_execute's confirm
+      // flow — Edit/Test always 400 server-side for its reserved name, so
+      // those controls are never offered. Delete stays available: unlike the
+      // built-in `aperio` connection this one holds the user's OWN data and
+      // they may reasonably want to wipe it.
       const actions = c.builtin
         ? `<span class="db-conn-builtin">built-in</span>`
+        : c.provisioned
+        ? `<span class="db-conn-builtin" title="Created by Aperio for document extraction — not editable">managed</span>
+           <button class="db-conn-icon" data-del="${esc(c.name)}" title="Delete"><i class="bi bi-trash"></i></button>`
         : `<button class="db-conn-icon" data-edit="${esc(c.name)}" title="Edit"><i class="bi bi-pencil"></i></button>
            <button class="db-conn-icon" data-del="${esc(c.name)}" title="Delete"><i class="bi bi-trash"></i></button>`;
       return `<div class="db-conn-row">
@@ -53,7 +62,8 @@
     host.querySelectorAll("[data-edit]").forEach((b) =>
       b.addEventListener("click", () => startEdit(connections.find((c) => c.name === b.dataset.edit))));
     host.querySelectorAll("[data-del]").forEach((b) =>
-      b.addEventListener("click", () => removeConn(b.dataset.del)));
+      b.addEventListener("click", () =>
+        removeConn(b.dataset.del, connections.find((c) => c.name === b.dataset.del)?.provisioned === true)));
 
     const summary = $("dbConnSummary");
     if (summary) {
@@ -137,7 +147,7 @@
     $("dbConnForm").innerHTML = `
       <div class="db-conn-form-title">${editing ? `Edit "${esc(editing)}"` : "Add a connection"}</div>
       <input type="text" id="dbcName" class="paths-text-input" placeholder="connection name (e.g. shop)"
-             value="${esc(c.name || "")}" ${editing ? "readonly" : ""} autocomplete="off" />
+             value="${esc(c.name || "")}" autocomplete="off" />
       <select id="dbcEngine" class="paths-text-input">
         <option value="sqlite"${sel("sqlite")}>SQLite</option>
         <option value="postgres"${sel("postgres")}>Postgres</option>
@@ -211,7 +221,18 @@
   async function saveForm() {
     status("Saving…");
     try {
-      await api("POST", "", collectForm());
+      const conn = collectForm();
+      // Renaming (P2 review finding): the regular upsert-by-name POST below
+      // always resolves the row by the SUBMITTED name, so it can't express
+      // "rename this row" — it would instead create a second, separate row
+      // under the new name and leave the old one behind. Do the rename first
+      // (server-side, so the still-encrypted password carries over without
+      // being retyped); the POST that follows then updates that same,
+      // already-renamed row with whatever else changed on the form.
+      if (editing && conn.name && conn.name.toLowerCase() !== editing.toLowerCase()) {
+        await api("POST", `/${encodeURIComponent(editing)}/rename`, { newName: conn.name });
+      }
+      await api("POST", "", conn);
       editing = null;
       status("Saved.", "ok");
       await window.loadDbConnections();
@@ -222,14 +243,21 @@
   }
 
   function startEdit(conn) {
-    if (!conn || conn.builtin) return;
+    if (!conn || conn.builtin || conn.provisioned) return;
     editing = conn.name;
     renderForm(conn);
     status("");
   }
 
-  async function removeConn(name) {
-    if (!await askConfirmModal("Delete database connection", `Delete connection "${name}"?`, "Delete")) return;
+  async function removeConn(name, managed) {
+    // A managed row's delete button doesn't just drop a settings entry — the
+    // server also permanently deletes the on-disk database file and every
+    // extracted document in it (P1 review finding: the generic "Delete
+    // connection ...?" wording made that read as reversible config removal).
+    const msg = managed
+      ? `Delete the managed "${name}" database? This permanently deletes the extracted-document database file and everything in it — this cannot be undone.`
+      : `Delete connection "${name}"?`;
+    if (!await askConfirmModal("Delete database connection", msg, "Delete")) return;
     try {
       await api("DELETE", `/${encodeURIComponent(name)}`);
       if (editing === name) { editing = null; renderForm(null); }

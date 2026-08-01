@@ -19,8 +19,8 @@
 // Crash recovery: if a temp file from a previous run exists and is newer
 // than the encrypted file, it's restored (it has more recent committed data).
 
-import { randomBytes, createCipheriv, createDecipheriv } from 'node:crypto';
-import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import { randomBytes, createHash, createCipheriv, createDecipheriv } from 'node:crypto';
+import { readFileSync, writeFileSync, unlinkSync, existsSync, mkdirSync, statSync, renameSync } from 'node:fs';
 import { execSync, execFileSync } from 'node:child_process';
 import { tmpdir, homedir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -285,9 +285,57 @@ export function decryptFile(srcPath, destPath, keyBuf) {
   writeFileSync(destPath, plain, { mode: 0o600 });
 }
 
+// A real hash of the FULL path, not just a prefix: two managed databases that
+// share a directory (e.g. the primary store and the extraction db, both under
+// the same var/ tree) previously collided here because the old scheme only
+// encoded the first 6 bytes of the path — every install's absolute path
+// shares that prefix, so every profile resolved to the identical temp file
+// and concurrent opens raced, overwriting each other's decrypted writes.
 function getTempPath(dbPath) {
+  const hash = createHash('sha256').update(dbPath).digest('hex').slice(0, 16);
+  return join(tmpdir(), `aperio-db-${hash}.sqlite`);
+}
+
+// The PRE-upgrade scheme getTempPath used to derive this same file's temp
+// path. Kept only so prepareDatabase can find and recover a crash-orphaned
+// temp file that was written under the old name before this process's binary
+// was upgraded — see the crash-recovery migration below.
+function getLegacyTempPath(dbPath) {
   const hash = Buffer.from(dbPath).toString('hex').slice(0, 12);
   return join(tmpdir(), `aperio-db-${hash}.sqlite`);
+}
+
+// Move an ambiguous legacy temp file (and any sidecars) out from under its
+// shared name to a uniquely-named quarantine path, so it is preserved rather
+// than lost AND never mistaken for THIS dbPath's own data. A no-op if nothing
+// is there (the common case, and also what every call after the first one —
+// from any profile sharing the legacy hash — will see once quarantined).
+// `currentTempPath` is only used to skip the (practically impossible, but
+// checked defensively) case where the legacy and current-scheme paths
+// happen to coincide, since that IS this dbPath's own current temp file.
+function quarantineAmbiguousLegacyTemp(legacyTempPath, currentTempPath) {
+  if (legacyTempPath === currentTempPath || !existsSync(legacyTempPath)) return;
+
+  const quarantinePath = join(tmpdir(), `aperio-legacy-recovery-${randomBytes(8).toString('hex')}.sqlite`);
+  let moved = false;
+  for (const suffix of ['', '-wal', '-shm', '-journal']) {
+    const src = legacyTempPath + suffix;
+    if (!existsSync(src)) continue;
+    try {
+      renameSync(src, quarantinePath + suffix);
+      moved = true;
+    } catch (err) {
+      logger.warn(`[encrypt] Could not quarantine legacy temp file ${src}: ${err.message}`);
+    }
+  }
+  if (moved) {
+    logger.warn(
+      `[encrypt] Found a temp database at a pre-upgrade path shared by every profile whose database path ` +
+      `starts with the same 6 characters — it cannot be safely attributed to this database, so instead of ` +
+      `merging it in, it was moved out of the way to ${quarantinePath}. If you had an unclean shutdown just ` +
+      `before upgrading and are missing recent writes, inspect that file by hand; otherwise it can be deleted.`
+    );
+  }
 }
 
 function removeTempFiles(tempPath) {
@@ -374,6 +422,23 @@ export function prepareDatabase(dbPath, keyBuf) {
 
   const tempPath = getTempPath(dbPath);
   const encPath  = dbPath; // The file at SQLITE_PATH IS the encrypted file
+
+  // One-time migration: an unclean shutdown on a version before the temp-path
+  // hash changed (collision fix, see getTempPath's comment) can leave writes
+  // committed only at the OLD prefix-derived path. That old name is only 6
+  // bytes of dbPath, hex-encoded — every path sharing that prefix (e.g.
+  // everything under /Users/<same-user>) collides on it, so an orphaned file
+  // found there CANNOT be attributed to THIS dbPath with any confidence: it
+  // may just as easily be a different profile's own crash leftover.
+  // Automatically merging it into encPath, as an earlier version of this fix
+  // did, risks overwriting an unrelated database with someone else's data —
+  // silent corruption, not recovery. Ownership can't be established from the
+  // file alone, so it is never touched in place: it's quarantined (moved out
+  // from under the shared legacy name, so this check is self-terminating)
+  // and surfaced with a loud warning naming the quarantine path, so a human
+  // can inspect and manually restore it if it does turn out to be this
+  // database's own crash data. Nothing is deleted if the move itself fails.
+  quarantineAmbiguousLegacyTemp(getLegacyTempPath(dbPath), tempPath);
 
   // Crash recovery: if a temp file from a previous crash exists, check if
   // it's newer than the encrypted file. If so, the temp has more recent

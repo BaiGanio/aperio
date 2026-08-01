@@ -29,7 +29,9 @@ const TOOLS = [
       "— never any password or secret. Always includes the built-in `aperio` connection (Aperio's own internal " +
       "store: memories, wiki, sessions — read-only). Call this FIRST when you don't know which connections exist " +
       "or what their names are; the name is what you pass to db_schema / db_query / db_execute. Connections are " +
-      "configured by the user in Settings → Database connections, never passed as tool arguments.",
+      "configured by the user in Settings → Database connections, never passed as tool arguments — the one " +
+      "exception is `extraction`, a reserved writable name for document-extraction data that db_execute " +
+      "provisions itself on first confirmed write, so it will not appear here until then.",
     schema: {},
     getHandler: (h) => h.connections,
   },
@@ -87,7 +89,10 @@ const TOOLS = [
       "shown a confirm button and the SERVER runs it when they click. Do NOT set `confirmation_token` yourself and " +
       "do NOT call this tool again — just propose, then end your turn. It rejects read statements (use db_query), " +
       "multi-statement batches, and read-only connections (including the built-in `aperio`). ALWAYS pass values " +
-      "through `params` (placeholders), never string-concatenated into `sql`.",
+      "through `params` (placeholders), never string-concatenated into `sql`. To save extracted document data " +
+      "(bills, receipts, statements), use connection name `extraction` — it does not need to exist yet: on first " +
+      "confirmed write it is created automatically as your own writable SQLite database, no Settings edit needed. " +
+      "You choose the table/column names in your CREATE TABLE statement.",
     schema: {
       // connection/sql are required when PROPOSING (enforced in the handler), but
       // optional in the schema because the server's confirm step re-invokes this
