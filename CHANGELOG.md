@@ -47,6 +47,24 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Postgres extraction identity hardened and upgraded profiles never orphaned**
+  (`lib/db-connect/extraction.js`, `lib/db-connect/file-lock.js`): the
+  self-provisioned extraction connection's file identity now resolves the
+  effective Postgres role (PGUSER / OS user) when the URL omits a username —
+  two processes sharing a credential-less URL but different implicit roles no
+  longer collapse onto one file — and hashes only namespace-affecting
+  `options` (e.g. `search_path`), canonicalized so editing or reordering
+  timeouts/logging never changes the extraction path. Rows provisioned under
+  the earlier host/port/database (or intermediate role/options) identity are
+  adopted rather than rejected, so upgrading never leaves existing extracted
+  data stranded behind a reserved-name collision. The managed-SQLite lock's
+  stale reclamation is serialized behind a reclaimer marker (`<lock>.reclaim`,
+  O_EXCL): a concurrent reclaimer can no longer delete a fresh holder's lock
+  after inspecting a PID-reused stale record, and a marker abandoned by a
+  crashed reclaimer is stolen after the staleness threshold. Holder
+  process-start signatures are now also resolved on Windows via PowerShell's
+  `Get-Process` instead of the nonexistent `ps`.
+
 - **The standalone MCP server wrote logs to stdout, corrupting the JSON-RPC
   channel**: `npm run mcp` (and Aperio's spawned MCP child) emitted dotenv's
   "injected env" line and every winston console line on stdout — the same pipe

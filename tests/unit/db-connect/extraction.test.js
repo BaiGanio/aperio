@@ -178,6 +178,75 @@ describe("extractionDbPath", () => {
     assert.notEqual(a, b);
   });
 
+  // P1 review finding: for a valid URL such as postgresql://host/aperio,
+  // node-postgres resolves the role from PGUSER / the OS user — the URL's
+  // username field stays empty. Resolving the same way here means two
+  // processes sharing one checkout and URL but different implicit roles can
+  // no longer collapse onto the same extraction file.
+  test("P1: a URL with no username resolves the role from PGUSER — different implicit roles get DIFFERENT files", () => {
+    const url = "postgresql://db.example.com:5432/aperio";
+    const prev = process.env.PGUSER;
+    try {
+      process.env.PGUSER = "alice";
+      const a = extractionMod.extractionDbPath(postgresStore(url));
+      process.env.PGUSER = "bob";
+      const b = extractionMod.extractionDbPath(postgresStore(url));
+      assert.notEqual(a, b);
+    } finally {
+      if (prev === undefined) delete process.env.PGUSER; else process.env.PGUSER = prev;
+    }
+  });
+
+  // The identity must reflect the role the pool actually connects as, not the
+  // URL's spelling: an explicit `alice` and an implicit role resolved to the
+  // same user are the SAME Postgres role and belong on the SAME file.
+  test("P1: an explicit username and the same role resolved implicitly resolve to the SAME file", () => {
+    const prev = process.env.PGUSER;
+    try {
+      process.env.PGUSER = "alice";
+      const explicit = extractionMod.extractionDbPath(postgresStore("postgresql://alice:pw@db.example.com:5432/aperio"));
+      const implicit = extractionMod.extractionDbPath(postgresStore("postgresql://db.example.com:5432/aperio"));
+      assert.equal(explicit, implicit);
+    } finally {
+      if (prev === undefined) delete process.env.PGUSER; else process.env.PGUSER = prev;
+    }
+  });
+
+  // P2 review finding: the FULL `options` value previously joined the
+  // identity, so editing or merely reordering behavior-only settings
+  // (statement_timeout, application_name, ...) changed the extraction path and
+  // made an already-saved row fail isManagedExtractionFile — inaccessible
+  // despite connecting to the same tables. Only namespace-affecting settings
+  // (search_path) may hash in, canonicalized.
+  test("P2: behavior-only options (statement_timeout, application_name) do NOT change the extraction file", () => {
+    const plain = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio"));
+    const withTimeout = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20statement_timeout%3D1000"));
+    const withAppName = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20application_name%3Dx%20-c%20statement_timeout%3D5000"));
+    assert.equal(plain, withTimeout);
+    assert.equal(plain, withAppName);
+  });
+
+  test("P2: reordering options (mixing behavior-only and namespace ones) never changes the extraction file", () => {
+    const a = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20statement_timeout%3D100%20-c%20search_path%3Dtenant_a"));
+    const b = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20search_path%3Dtenant_a%20-c%20statement_timeout%3D500"));
+    assert.equal(a, b);
+  });
+
+  test("P2: a repeated namespace option keeps only the LAST (effective) assignment", () => {
+    const a = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20search_path%3Dtenant_a%20-c%20search_path%3Dtenant_b"));
+    const b = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20search_path%3Dtenant_b"));
+    assert.equal(a, b);
+  });
+
+  // Quoted option values may contain spaces ("tenant a" vs "tenant b"); a
+  // naive whitespace tokenizer would truncate both at the space and collapse
+  // two genuinely different namespaces onto one file.
+  test("P2: quoted search_path values containing spaces stay distinct (never truncated to a shared prefix)", () => {
+    const a = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20search_path%3D%22tenant%20a%22"));
+    const b = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20search_path%3D%22tenant%20b%22"));
+    assert.notEqual(a, b);
+  });
+
   test("changing the host still resolves to a DIFFERENT file (identity isn't just the database name)", () => {
     const a = extractionMod.extractionDbPath(postgresStore("postgresql://u:p@host-a.example.com:5432/aperio"));
     const b = extractionMod.extractionDbPath(postgresStore("postgresql://u:p@host-b.example.com:5432/aperio"));
@@ -209,6 +278,65 @@ describe("extractionDbPath", () => {
     const store = sqliteStore("/data/profile-a/aperio.db");
     assert.equal(store._encryptSourcePath, undefined);
     assert.equal(extractionMod.extractionDbPath(store), extractionMod.extractionDbPath({ ...store, _encryptSourcePath: "/data/profile-a/aperio.db" }));
+  });
+});
+
+
+describe("legacy identity adoption (P1)", () => {
+  const legacyRow = (file) => ({ name: "extraction", engine: "sqlite", file, readOnly: false, provisioned: true });
+
+  // P1 review finding: upgrading a Postgres profile whose URL carries a
+  // username or options changed the extraction hash away from the previous
+  // host/port/database identity, so a saved row still pointing at the old
+  // file stopped matching isManagedExtractionFile and provision
+  // ExtrationConnection reported a reserved-name collision — orphaning every
+  // pre-existing extracted document. Rows hashed from any earlier identity
+  // must be adopted (recognized as this module's own file for this profile),
+  // not rejected.
+  test("P1: a row provisioned under the pre-expansion host/port/database identity is adopted, not rejected", async () => {
+    const url = "postgresql://alice:pw@db.example.com:5432/aperio";
+    const store = postgresStore(url);
+    const legacyPaths = extractionMod.legacyExtractionDbPaths(store);
+    assert.notEqual(legacyPaths[0], extractionMod.extractionDbPath(store), "the legacy identity genuinely differs for a URL with a username");
+
+    const withLegacyRow = postgresStore(url, [legacyRow(legacyPaths[0])]);
+    assert.equal(extractionMod.isManagedExtractionFile(legacyRow(legacyPaths[0]), store), true);
+
+    // Adoption is in place: the same row comes back unchanged — no collision
+    // error, no new file created, no rename.
+    const connection = await extractionMod.provisionExtractionConnection(withLegacyRow);
+    assert.equal(connection.file, legacyPaths[0]);
+    assert.equal(fsCalls.mkdirSync.length, 0, "adoption must not create files");
+  });
+
+  test("P1: a row provisioned under the intermediate literal-role/raw-options identity is adopted too", async () => {
+    // c42ae99 hashed the FULL raw options; the P2 canonicalization now filters
+    // behavior-only ones away, so the two identities differ for this URL and
+    // the intermediate row must still be recognized.
+    const url = "postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20statement_timeout%3D1000";
+    const store = postgresStore(url);
+    const legacyPaths = extractionMod.legacyExtractionDbPaths(store);
+    const current = extractionMod.extractionDbPath(store);
+    assert.ok(legacyPaths.length >= 2, "v0 and v1 legacy identities are both recognized");
+    assert.ok(legacyPaths.every((p) => p !== current), "each legacy identity differs from the current one for this URL");
+
+    for (const legacyPath of legacyPaths) {
+      const withLegacyRow = postgresStore(url, [legacyRow(legacyPath)]);
+      assert.equal(extractionMod.isManagedExtractionFile(legacyRow(legacyPath), store), true);
+      const connection = await extractionMod.provisionExtractionConnection(withLegacyRow);
+      assert.equal(connection.file, legacyPath);
+    }
+  });
+
+  test("P1: adoption is per-profile — a legacy path from a DIFFERENT host is not adopted", () => {
+    const store = postgresStore("postgresql://alice:pw@db.example.com:5432/aperio");
+    const otherHostLegacy = extractionMod.legacyExtractionDbPaths(postgresStore("postgresql://alice:pw@other.example.com:5432/aperio"))[0];
+    assert.equal(extractionMod.isManagedExtractionFile(legacyRow(otherHostLegacy), store), false);
+  });
+
+  test("P1: a SQLite store's identity never changed — its legacy path is the current path (no adoption branch taken)", () => {
+    const store = sqliteStore("/data/profile-a/aperio.db");
+    assert.deepEqual(extractionMod.legacyExtractionDbPaths(store), [extractionMod.extractionDbPath(store)]);
   });
 });
 

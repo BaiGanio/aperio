@@ -4,7 +4,7 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { openSync, writeSync, closeSync } from "node:fs";
+import { openSync, writeSync, closeSync, readFileSync, unlinkSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
@@ -80,5 +80,61 @@ describe("file-lock stale reclamation", () => {
     release();
 
     assert.ok(elapsed < 5000, `expected reclaim once the recorded signature didn't match this (live) pid's real one, took ${elapsed}ms`);
+  });
+
+  // P1 review finding: multiple waiters inspecting the same PID-reused stale
+  // record can race — one unlinks it, a new holder acquires the path, and a
+  // second waiter then blindly unlinks the NEW holder's lock, allowing
+  // concurrent managed-SQLite access. Reclaimers are now serialized behind a
+  // marker file (${lockPath}.reclaim, O_EXCL): while a marker exists, NO other
+  // reclaimer may touch the lock, so a fresh holder's lock can never be
+  // deleted out from under it. This test simulates "another reclaimer is
+  // mid-flight" by planting a fresh marker over a stale lock and asserting the
+  // lock is left completely untouched; only once the marker is released does
+  // acquisition complete.
+  test("P1: a fresh reclaimer marker defers ALL reclamation — a concurrent reclaimer can never unlink a new holder's lock", async () => {
+    const lockPath = scratchLockPath();
+    const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+    writeLockFile(lockPath, dead.pid);
+    const markerPath = `${lockPath}.reclaim`;
+    const markerFd = openSync(markerPath, "w");
+    writeSync(markerFd, `${process.pid}\n`);
+    closeSync(markerFd);
+
+    const acquiring = acquireLock(lockPath);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // The fresh marker must have deferred reclamation entirely: the stale lock
+    // is byte-for-byte untouched, not replaced by a reclaimer's own record.
+    const stillThere = readFileSync(lockPath, "utf8");
+    assert.equal(stillThere.trim().split("\n")[0], String(dead.pid));
+
+    // The other reclaimer finishes without having unlinked — now acquisition
+    // proceeds normally (next poll reclaims the still-stale lock).
+    unlinkSync(markerPath);
+    const release = await acquiring;
+    release();
+  });
+
+  // P1: a marker left behind by a reclaimer that CRASHED mid-reclaim must not
+  // wedge reclamation forever — after the staleness threshold it is stolen and
+  // the stale lock is reclaimed within the acquire window.
+  test("P1: a reclaim marker abandoned by a crashed reclaimer is stolen after the staleness threshold", async () => {
+    const lockPath = scratchLockPath();
+    const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+    writeLockFile(lockPath, dead.pid);
+    const markerPath = `${lockPath}.reclaim`;
+    const markerFd = openSync(markerPath, "w");
+    writeSync(markerFd, `${process.pid}\n`);
+    closeSync(markerFd);
+    const abandoned = new Date(Date.now() - 10_000);
+    utimesSync(markerPath, abandoned, abandoned);
+
+    const start = Date.now();
+    const release = await acquireLock(lockPath);
+    const elapsed = Date.now() - start;
+    release();
+
+    assert.ok(elapsed < 10_000, `expected reclaim after the abandoned marker was stolen, took ${elapsed}ms`);
   });
 });
