@@ -11,6 +11,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Graph watcher reindex handoff is regression-tested**: both codegraph and
+  docgraph watchers now expose a test seam around indexing and embedding work,
+  covering the distinction between known roots owned by an active reindex and
+  new roots that must embed themselves immediately.
+
 - **SQLite wiki startup embedding backfill uses article bodies**: the legacy
   backfill loop now reads SQLite's `body_md` field, rather than embedding
   `"Title. undefined"` for every pending wiki article.
