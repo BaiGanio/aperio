@@ -205,6 +205,9 @@ Each step references its detailed test group in
 
 ### WS3 — Persistent templates → T-G3 through T-G5
 
+Detailed sub-plan: [`document-intelligence-ws3-templates.md`](./document-intelligence-ws3-templates.md)
+(companion tests: [`document-intelligence-ws3-templates-tests.md`](./document-intelligence-ws3-templates-tests.md)).
+
 11. **Add mirrored migrations** for global `extraction_templates` and `extraction_log`.
     Ask before touching both migration directories.
     *Works when:* fresh SQLite and Postgres migrations apply in lockstep and rerun safely

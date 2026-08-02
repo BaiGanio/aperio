@@ -83,6 +83,32 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
+## Document Intelligence — cold-start template proposals (#250)
+
+- 2026-08-02 **`inferTemplateProposal()`'s `match_keywords` heuristic is crude
+  and unvalidated against real bill diversity.** (`lib/handlers/extraction/extractHandlers.js`)
+  When a document matches no known template, the proposed template's
+  `match_keywords` come from `matchHandlers.significantWords()` — the top
+  8 most-frequent Unicode-letter words (length ≥ 4) anywhere in the document
+  text. This is a deliberate, documented deviation from the WS3 plan, which
+  never specified a concrete heuristic; the design choice itself (picking
+  literal document words over the field's own English role names) is sound
+  and language-agnostic, evidenced only by the T-G4.3 synthetic-text tests in
+  `tests/integration/handlers/extraction/extractionHandlers.test.js` — never
+  against the real household-gen corpus or any real bill. Known weaknesses:
+  (1) no distinction between a distinctive issuer name and generic boilerplate
+  words ("invoice", "total", "payment") that would appear on every bill from
+  every provider, so two DIFFERENT providers' bills could plausibly propose
+  near-identical keyword sets and collide in `matchTemplates`' ranking; (2) no
+  weighting toward header/title lines, where an issuer name is most likely to
+  live, vs. the body; (3) untested on scanned/OCR'd text, which is noisier
+  than the clean synthetic snippets used here. Needs real-corpus evidence
+  (ideally household-gen bills from several distinct providers) before this
+  heuristic can be trusted for genuine cold-start learning rather than just
+  passing its own unit tests.
+
+---
+
 ## Db-connect — extraction identity / managed lock
 
 - 2026-08-01 A v1-era extraction row whose connection string is edited BEFORE

@@ -133,6 +133,7 @@ export async function startServer(opts = {}) {
     { register: registerGithub },
     { register: registerData },
     { register: registerDatabase },
+    { register: registerExtraction },
   ] = await Promise.all([
     import("./tools/memory.js"),
     import("./tools/self-memory.js"),
@@ -147,6 +148,7 @@ export async function startServer(opts = {}) {
     import("./tools/github.js"),
     import("./tools/data.js"),
     import("./tools/database.js"),
+    import("./tools/extraction.js"),
   ]);
 
   registerMemory(server, ctx);
@@ -162,6 +164,7 @@ export async function startServer(opts = {}) {
   registerGithub(server, ctx);
   registerData(server, ctx);
   registerDatabase(server, ctx);
+  registerExtraction(server, ctx);
 
   // 4. Connect transport
   const transport = opts.transport || new StdioServerTransport();

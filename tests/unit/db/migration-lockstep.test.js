@@ -146,6 +146,11 @@ describe("migration lockstep", () => {
     assert.ok(sqlNames(pgDir).has("012_gemma4_e2b_model_fact.sql"));
     assert.ok(sqlNames(liteDir).has("012_gemma4_e2b_model_fact.sql"));
   });
+
+  test("014_extraction_templates exists in both backends", () => {
+    assert.ok(sqlNames(pgDir).has("014_extraction_templates.sql"));
+    assert.ok(sqlNames(liteDir).has("014_extraction_templates.sql"));
+  });
 });
 
 describe("011_model_facts seed parity", () => {
@@ -316,5 +321,79 @@ describe("013_vec_meta parity", () => {
   test("dims is an integer family on both sides", () => {
     assert.match(pg, /dims\s+INT\b/i);
     assert.match(lite, /dims\s+INTEGER\b/i);
+  });
+});
+
+// ── 014_extraction_templates parity ─────────────────────────────────────────
+// extraction_templates/extraction_log are fresh CREATE TABLEs (no ALTER), so
+// this follows the 013_vec_meta squash+regex style rather than parseMigration's
+// deepEqual — the mini-parser's TYPE_FAMILY map has no "serial" entry and would
+// misreport a genuine SERIAL/INTEGER AUTOINCREMENT PK pair as drift.
+describe("014_extraction_templates parity", () => {
+  const MIGRATION = "014_extraction_templates.sql";
+  const pg = squash(stripComments(readFileSync(path.join(pgDir, MIGRATION), "utf8")));
+  const lite = squash(stripComments(readFileSync(path.join(liteDir, MIGRATION), "utf8")));
+
+  test("both sides create extraction_templates and extraction_log", () => {
+    for (const table of ["extraction_templates", "extraction_log"]) {
+      assert.ok(pg.includes(`CREATE TABLE ${table}`), `postgres missing ${table}`);
+      assert.ok(lite.includes(`CREATE TABLE ${table}`), `sqlite missing ${table}`);
+    }
+  });
+
+  test("both sides create the same columns on both tables", () => {
+    for (const col of [
+      "id", "name", "match_keywords", "fields", "confidence", "created_at", "updated_at",
+      "source_hash", "source_path", "template_id", "extraction_connection",
+      "verification_state", "row_count", "extracted_at",
+    ]) {
+      assert.ok(pg.includes(col), `postgres missing ${col}`);
+      assert.ok(lite.includes(col), `sqlite missing ${col}`);
+    }
+  });
+
+  test("name and source_hash stay UNIQUE on both sides", () => {
+    assert.match(pg, /name\s+TEXT NOT NULL UNIQUE/i);
+    assert.match(lite, /name\s+TEXT NOT NULL UNIQUE/i);
+    assert.match(pg, /source_hash\s+TEXT NOT NULL UNIQUE/i);
+    assert.match(lite, /source_hash\s+TEXT NOT NULL UNIQUE/i);
+  });
+
+  test("match_keywords/fields are JSON on both sides", () => {
+    // Postgres: native JSONB. SQLite: TEXT gated by json_valid() — same
+    // convention 008_agent_interrupts already established for JSON columns.
+    assert.match(pg, /match_keywords\s+JSONB NOT NULL/i);
+    assert.match(pg, /fields\s+JSONB NOT NULL/i);
+    assert.match(lite, /match_keywords\s+TEXT NOT NULL CHECK \(json_valid\(match_keywords\)\)/i);
+    assert.match(lite, /fields\s+TEXT NOT NULL CHECK \(json_valid\(fields\)\)/i);
+  });
+
+  test("confidence is bounded 0..1 with a 0 default on both sides", () => {
+    for (const sql of [pg, lite]) {
+      assert.match(sql, /confidence\s+REAL NOT NULL DEFAULT 0/i);
+      assert.match(sql, /CHECK \(confidence >= 0 AND confidence <= 1\)/i);
+    }
+  });
+
+  test("template_id is a nullable FK that SET NULLs on delete", () => {
+    assert.match(pg, /template_id\s+INT REFERENCES extraction_templates\(id\) ON DELETE SET NULL/i);
+    assert.match(lite, /template_id\s+INTEGER REFERENCES extraction_templates\(id\) ON DELETE SET NULL/i);
+  });
+
+  test("verification_state is constrained to the same three values on both sides", () => {
+    for (const sql of [pg, lite]) {
+      assert.match(sql, /verification_state\s+TEXT NOT NULL DEFAULT 'unverified'/i);
+      assert.match(sql, /CHECK \(verification_state IN \('unverified', 'verified', 'rejected'\)\)/i);
+    }
+  });
+
+  test("extraction_connection defaults to 'extraction' on both sides", () => {
+    assert.match(pg, /extraction_connection\s+TEXT NOT NULL DEFAULT 'extraction'/i);
+    assert.match(lite, /extraction_connection\s+TEXT NOT NULL DEFAULT 'extraction'/i);
+  });
+
+  test("both sides index extraction_log by template_id", () => {
+    assert.match(pg, /CREATE INDEX idx_extraction_log_template ON extraction_log \(template_id\)/i);
+    assert.match(lite, /CREATE INDEX idx_extraction_log_template ON extraction_log \(template_id\)/i);
   });
 });
