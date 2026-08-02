@@ -993,8 +993,9 @@ describe("runCodexLoop", () => {
     assert.deepEqual(updates, []);
   });
 
-  test("passes CODEX_API_KEY through to codex exec", async () => {
+  test("passes CODEX_API_KEY through to codex exec and maps it to OPENAI_API_KEY", async () => {
     process.env.CODEX_API_KEY = "codex-test-key";
+    delete process.env.OPENAI_API_KEY;
     const capture = {};
     await runCodexLoop(
       [{ role: "user", content: "Hello" }],
@@ -1011,6 +1012,76 @@ describe("runCodexLoop", () => {
     );
 
     assert.equal(capture.options.env.CODEX_API_KEY, "codex-test-key");
+    assert.equal(capture.options.env.OPENAI_API_KEY, "codex-test-key");
+  });
+
+  test("prefers the Codex-specific key over a generic OPENAI_API_KEY already set", async () => {
+    process.env.CODEX_API_KEY = "codex-test-key";
+    process.env.OPENAI_API_KEY = "openai-unrelated-key";
+    const capture = {};
+    try {
+      await runCodexLoop(
+        [{ role: "user", content: "Hello" }],
+        { send: mock.fn() },
+        {},
+        null,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture,
+            stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+          }),
+        }),
+      );
+
+      assert.equal(capture.options.env.OPENAI_API_KEY, "codex-test-key");
+    } finally {
+      delete process.env.OPENAI_API_KEY;
+    }
+  });
+
+  test("leaves an unrelated OPENAI_API_KEY untouched when CODEX_API_KEY is not set", async () => {
+    delete process.env.CODEX_API_KEY;
+    process.env.OPENAI_API_KEY = "openai-unrelated-key";
+    const capture = {};
+    try {
+      await runCodexLoop(
+        [{ role: "user", content: "Hello" }],
+        { send: mock.fn() },
+        {},
+        null,
+        () => {},
+        baseCtx({
+          codexSpawn: mockChild({
+            capture,
+            stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Done" } }],
+          }),
+        }),
+      );
+
+      assert.equal(capture.options.env.OPENAI_API_KEY, "openai-unrelated-key");
+    } finally {
+      delete process.env.OPENAI_API_KEY;
+    }
+  });
+
+  test("omits the Aperio MCP server when noTools is set", async () => {
+    const capture = {};
+    await runCodexLoop(
+      [{ role: "user", content: "Summarize this" }],
+      { send: mock.fn() },
+      { noTools: true },
+      null,
+      () => {},
+      baseCtx({
+        codexSpawn: mockChild({
+          capture,
+          stdoutLines: [{ type: "item.completed", item: { type: "agent_message", text: "Summary" } }],
+        }),
+      }),
+    );
+
+    assert.equal(capture.args.some(a => typeof a === "string" && a.startsWith("mcp_servers.aperio.")), false);
   });
 
   test("loads and persists a thread id scoped to the Aperio session", async () => {
