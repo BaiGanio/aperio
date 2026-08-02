@@ -70,6 +70,29 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
+## Sessions — persisted transcript
+
+- 2026-08-02 **Every session's real first message is silently dropped from its
+  persisted transcript.** `finaliseSession` (`lib/helpers/sessions.js:483`,
+  and the `isMeaningful`/`deriveTitle` helpers around it) does
+  `messages.slice(1)`, documented as "skip the internal greeting prompt at
+  [0]" — but nothing in the current ws or CLI flow ever seeds a synthetic
+  message at index 0 (`wsHandler.js`'s comment at ~L272 confirms the greeting
+  is deliberately NOT put into `messages`; `handleChat`'s first `messages.push`
+  is the user's real first turn). Verified directly against the real code
+  path (not just reading): a 4-exchange session's opening user message never
+  appears in the saved `s.messages`. Only affects the FIRST-EVER finalise of a
+  session — `[0]` genuinely IS synthetic (the resume/branch context note) on
+  every subsequent finalise of a resumed/branched session, per the round-12
+  `isContinuation` fix in the same function, so this is a distinct bug, not
+  the one that fix addressed. Likely explains why History/RAG on any given
+  conversation seem to be missing its opening line. Needs its own review: the
+  fix must distinguish a genuine synthetic first entry (resume/branch) from an
+  ordinary first user turn, which this function currently has no way to tell
+  apart.
+
+---
+
 ## GitHub tooling — egress logging
 
 - 2026-08-02 The GitHub **write** path logs no egress at all:

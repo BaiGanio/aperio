@@ -308,6 +308,12 @@ describe("sessionScratchDir()", () => {
     const result = sessions.sessionScratchDir("my-session-id");
     assert.ok(result.includes("var/scratch/my-session-id"));
   });
+
+  test("throws on a path-traversal id instead of resolving outside var/scratch (security)", () => {
+    // A traversal id here would let close-time cleanup (deleteSessionScratch's
+    // rmSync recursive:true) delete an arbitrary directory outside var/scratch.
+    assert.throws(() => sessions.sessionScratchDir("../../etc"), /Invalid session id/);
+  });
 });
 
 // =============================================================================
@@ -662,6 +668,16 @@ describe("finaliseSession()", () => {
     sessions.finaliseSession("nonexistent", []);
   });
 
+  // NOTE: an earlier version of this suite had finaliseSession() release the
+  // doc_batch dedup cache (lib/docgraph/retrieval.js's sessionReadFacts)
+  // directly. Round-3 review found that cache lives inside the separate MCP
+  // child process — a same-process call from this module (or this test) is
+  // a no-op against a different module instance in a different OS process.
+  // The real cleanup now happens at the ws-close call site in
+  // lib/emitters/handlers/wsHandler.js via callTool("docgraph_clear_session_
+  // cache", ...), which sessions.js has no handle for. See the cross-process
+  // integration test at tests/integration/mcp/docgraph-clear-session-cache.test.js.
+
   test("deletes session log and scratch for discarded trivial sessions", () => {
     seedSession({ id: "discard-me" });
 
@@ -710,6 +726,100 @@ describe("finaliseSession()", () => {
     assert.ok(memFS.has(p), "a summarized session must not be discarded as trivial");
     const saved = JSON.parse(memFS.get(p));
     assert.ok(saved.endedAt, "it was finalised (endedAt stamped), not deleted");
+  });
+
+  test("appends to (never replaces) an already-persisted transcript when a resumed session is finalised again (round 12, P1)", () => {
+    // Regression: handleResumeSession injects only a compact resume context
+    // (buildResumeContext) into `messages`, NOT the session's full prior
+    // history — deliberately, to protect the context window. Finalising with
+    // a plain `s.messages = toReadableMessages(...)` therefore replaced the
+    // session's real transcript with just the short post-resume suffix,
+    // permanently erasing everything it held before the resume.
+    seedSession({
+      id: "resumed-session",
+      title: "Original topic",
+      endedAt: "2026-07-01T00:00:00.000Z", // already finalised once before
+      summaries: [],
+      messages: [
+        { role: "user", content: "What's the deal with tee designs?" },
+        { role: "assistant", content: "Here's the rundown..." },
+      ],
+    });
+
+    // What the connection actually holds after a resume: [0] is the synthetic
+    // resume-context note (buildResumeContext's output), not a real user turn.
+    const postResumeMessages = [
+      { role: "user", content: "You are resuming a previous conversation..." },
+      { role: "assistant", content: "Welcome back! What would you like to continue?" },
+      { role: "user", content: "Let's also talk about material costs" },
+      { role: "assistant", content: "Sure, here's a cost breakdown..." },
+    ];
+
+    sessions.finaliseSession("resumed-session", postResumeMessages);
+
+    const p = join(mockCwd, "var/sessions/resumed-session.json");
+    const saved = JSON.parse(memFS.get(p));
+    // 2 prior turns + 3 new readable turns (the resume-context note at [0] is
+    // excluded — same slice(1) as the internal-greeting case — but its
+    // "Welcome back!" reply IS a real assistant turn and is kept).
+    assert.equal(saved.messages.length, 5, "prior 2 turns + new 3 turns, not just the new ones");
+    assert.equal(saved.messages[0].content, "What's the deal with tee designs?", "original first turn must survive");
+    assert.equal(saved.messages[1].content, "Here's the rundown...");
+    assert.equal(saved.messages[2].content, "Welcome back! What would you like to continue?");
+    assert.equal(saved.messages[3].content, "Let's also talk about material costs");
+    assert.equal(saved.messages[4].content, "Sure, here's a cost breakdown...");
+  });
+
+  test("a resumed session with only trivial post-resume chatter is never discarded (round 12, P1)", () => {
+    // Regression: isMeaningful() only ever saw the connection's own (resume-
+    // truncated) `messages`, so a "hi"/"bye" exchange after resuming a
+    // substantial old conversation looked trivial and deleted the whole
+    // session file — not just overwrote it.
+    seedSession({
+      id: "resumed-trivial",
+      title: "Real prior conversation",
+      endedAt: "2026-07-01T00:00:00.000Z",
+      messages: [
+        { role: "user", content: "A long real conversation happened here" },
+        { role: "assistant", content: "Indeed it did" },
+      ],
+    });
+
+    const postResumeMessages = [
+      { role: "user", content: "resume context note" },
+      { role: "assistant", content: "Welcome back!" },
+      { role: "user", content: "bye" },
+    ];
+
+    sessions.finaliseSession("resumed-trivial", postResumeMessages);
+
+    const p = join(mockCwd, "var/sessions/resumed-trivial.json");
+    assert.ok(memFS.has(p), "a continuation must never be discarded as trivial");
+    const saved = JSON.parse(memFS.get(p));
+    assert.equal(saved.messages[0].content, "A long real conversation happened here", "original history preserved");
+  });
+
+  test("a resumed session with no new substantive turn keeps its existing title (round 12, P1)", () => {
+    seedSession({
+      id: "resumed-no-title-clobber",
+      title: "A perfectly good existing title",
+      endedAt: "2026-07-01T00:00:00.000Z",
+      messages: [
+        { role: "user", content: "Original substantive question" },
+        { role: "assistant", content: "Original substantive answer" },
+      ],
+    });
+
+    const postResumeMessages = [
+      { role: "user", content: "resume context note" },
+      { role: "assistant", content: "Welcome back!" },
+    ];
+
+    sessions.finaliseSession("resumed-no-title-clobber", postResumeMessages);
+
+    const p = join(mockCwd, "var/sessions/resumed-no-title-clobber.json");
+    const saved = JSON.parse(memFS.get(p));
+    assert.equal(saved.title, "A perfectly good existing title", "title must not be clobbered with 'Untitled session'");
   });
 
   test("onShutdown keeps a short, non-summarized session the user was mid-way through (Ctrl+C interrupt)", () => {
@@ -960,6 +1070,16 @@ describe("getSession()", () => {
     const result = sessions.getSession("nonexistent");
     assert.equal(result, null);
   });
+
+  test("rejects a path-traversal id instead of escaping SESSIONS_DIR (security)", () => {
+    // Regression: getSession("../../package") used to resolve inside
+    // SESSIONS_DIR to the repo's own package.json (a valid JSON file one
+    // level below the app root) and return its parsed content as if it were
+    // a session. A client-controlled id (resume_session over the websocket,
+    // GET /api/sessions/:id) must never reach a raw path join.
+    const result = sessions.getSession("../../package");
+    assert.equal(result, null, "a traversal id must be treated as not-found, never resolved");
+  });
 });
 
 // =============================================================================
@@ -1028,6 +1148,11 @@ describe("deleteSession()", () => {
     const result = sessions.deleteSession("no-log");
     assert.equal(result, true);
   });
+
+  test("rejects a path-traversal id instead of deleting a file outside var/sessions (security)", () => {
+    const result = sessions.deleteSession("../../package");
+    assert.equal(result, false, "a traversal id must never be treated as an existing, deletable session");
+  });
 });
 
 // =============================================================================
@@ -1056,6 +1181,11 @@ describe("pinSession()", () => {
 
   test("returns false if session does not exist", () => {
     const result = sessions.pinSession("nonexistent", true);
+    assert.equal(result, false);
+  });
+
+  test("rejects a path-traversal id instead of writing pinned state to a file outside var/sessions (security)", () => {
+    const result = sessions.pinSession("../../package", true);
     assert.equal(result, false);
   });
 });

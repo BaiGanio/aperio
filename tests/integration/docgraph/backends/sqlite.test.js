@@ -214,6 +214,136 @@ describe("docgraph sqlite backend", () => {
     assert.deepEqual(lines, ["First section text.", "Second section text.", "Third section text."]);
   });
 
+  test("doc_batch never trusts a model-supplied sha256 for dedup identity — it is always overwritten with the value actually stored for the candidate's id (P1 fix)", async () => {
+    // Two distinct real documents, A and B, each with its own real sha256.
+    const repoId = store.db.prepare(
+      `INSERT INTO docgraph_repos (root_path, last_indexed_at) VALUES (?, ?)`
+    ).run("/fictional/sha256-trust-test", new Date().toISOString()).lastInsertRowid;
+    const docAId = store.db.prepare(
+      `INSERT INTO docgraph_documents (repo_id, rel_path, mime, size, sha256, title)
+       VALUES (?, 'doc-a.md', 'text/markdown', 10, 'real-sha-a', 'Doc A')`
+    ).run(repoId).lastInsertRowid;
+    const docBId = store.db.prepare(
+      `INSERT INTO docgraph_documents (repo_id, rel_path, mime, size, sha256, title)
+       VALUES (?, 'doc-b.md', 'text/markdown', 10, 'real-sha-b', 'Doc B')`
+    ).run(repoId).lastInsertRowid;
+    store.db.prepare(`INSERT INTO docgraph_sections (document_id, ord, level, heading, text) VALUES (?, 0, 1, NULL, ?)`)
+      .run(docAId, "Document A's real content.");
+    store.db.prepare(`INSERT INTO docgraph_sections (document_id, ord, level, heading, text) VALUES (?, 0, 1, NULL, ?)`)
+      .run(docBId, "Document B's real content.");
+
+    const sessionId = "sha256-trust-session";
+    // Read A for real, priming the session's dedup cache under A's REAL sha256.
+    const firstA = await backend.batch(store, {
+      candidates: [{ id: Number(docAId), rel_path: "doc-a.md", size: 10, sha256: "real-sha-a" }],
+      sessionId,
+    });
+    assert.equal(firstA.documents[0].text, "Document A's real content.");
+
+    // Now request B, but with a MODEL-SUPPLIED sha256 that is stale/copied
+    // from A — as if the model echoed an old manifest row by mistake, or a
+    // hand-crafted tool call. Before the fix, the dedup-hit branch trusted
+    // this value directly and would have returned A's cached text/facts
+    // under B's id and rel_path — silently corrupting aggregation. After the
+    // fix, the true DB row for B's id is looked up first, overwriting the
+    // untrustworthy candidate.sha256 before dedup ever runs.
+    const requestForB = await backend.batch(store, {
+      candidates: [{ id: Number(docBId), rel_path: "doc-b.md", size: 10, sha256: "real-sha-a" }],
+      sessionId,
+    });
+    const docB = requestForB.documents[0];
+    assert.equal(docB.rel_path, "doc-b.md");
+    assert.equal(
+      docB.text, "Document B's real content.",
+      "B's own real content must be returned — a stale/mismatched sha256 in the request must never dedup B against A's cache entry",
+    );
+    assert.ok(!docB.dedup, "B was never actually read in this session before — it must not be reported as a dedup hit");
+  });
+
+  test("doc_batch falls back to sha256: null (never dedup) for a candidate id no longer in the index", async () => {
+    const result = await backend.batch(store, {
+      candidates: [{ id: 999999, rel_path: "gone.md", size: 10, sha256: "whatever-the-caller-supplied" }],
+      sessionId: "sha256-trust-session-2",
+    });
+    // Not found by readBatch's own id-based query either — reported as
+    // skipped, not silently coerced into a dedup hit against unrelated state.
+    assert.equal(result.documents[0].status, "skipped");
+  });
+
+  test("two indexed documents sharing a sha256 never misattribute identity — the second twin's dedup hit carries ITS OWN id/path/title (round 8, P1)", async () => {
+    const repoId = store.db.prepare(
+      `INSERT INTO docgraph_repos (root_path, last_indexed_at) VALUES (?, ?)`
+    ).run("/fictional/twin-test", new Date().toISOString()).lastInsertRowid;
+    const twinAId = store.db.prepare(
+      `INSERT INTO docgraph_documents (repo_id, rel_path, mime, size, sha256, title)
+       VALUES (?, 'a/invoice.md', 'text/markdown', 10, 'shared-twin-sha', 'Twin A')`
+    ).run(repoId).lastInsertRowid;
+    const twinBId = store.db.prepare(
+      `INSERT INTO docgraph_documents (repo_id, rel_path, mime, size, sha256, title)
+       VALUES (?, 'b/invoice.md', 'text/markdown', 10, 'shared-twin-sha', 'Twin B')`
+    ).run(repoId).lastInsertRowid;
+    const sharedText = "Invoice with Amount Due: 99.00 BGN on 15.06.2026.";
+    store.db.prepare(`INSERT INTO docgraph_sections (document_id, ord, level, heading, text) VALUES (?, 0, 1, NULL, ?)`)
+      .run(twinAId, sharedText);
+    store.db.prepare(`INSERT INTO docgraph_sections (document_id, ord, level, heading, text) VALUES (?, 0, 1, NULL, ?)`)
+      .run(twinBId, sharedText);
+
+    const sessionId = "twin-session";
+    // Read twin A for real — primes the dedup cache under the shared sha256
+    // with A's identity.
+    await backend.batch(store, {
+      candidates: [{ id: Number(twinAId), rel_path: "a/invoice.md", size: 10, sha256: "shared-twin-sha" }],
+      sessionId,
+    });
+
+    // Now request twin B: same content, DIFFERENT document. Its dedup hit
+    // must carry B's OWN identity — before the fix, the cached A identity
+    // (id/rel_path/title) was spread back over B's result, attaching B's
+    // facts to A's stable path downstream (aggregation/auto-memory).
+    const twinB = await backend.batch(store, {
+      candidates: [{ id: Number(twinBId), rel_path: "b/invoice.md", size: 10, sha256: "shared-twin-sha" }],
+      sessionId,
+    });
+    const doc = twinB.documents[0];
+    assert.equal(doc.dedup, true, "sanity: identical content dedups within the session");
+    assert.equal(doc.id, Number(twinBId), "identity follows the requested document");
+    assert.equal(doc.rel_path, "b/invoice.md");
+    assert.equal(doc.title, "Twin B");
+    assert.match(doc.text, /Amount Due: 99.00 BGN/, "content facts still come from the cache");
+  });
+
+  test("a renamed-but-unchanged document returns its CURRENT DB identity on a dedup hit, not the original read's (round 8, P1)", async () => {
+    const repoId = store.db.prepare(
+      `INSERT INTO docgraph_repos (root_path, last_indexed_at) VALUES (?, ?)`
+    ).run("/fictional/rename-test", new Date().toISOString()).lastInsertRowid;
+    const docId = store.db.prepare(
+      `INSERT INTO docgraph_documents (repo_id, rel_path, mime, size, sha256, title)
+       VALUES (?, 'old-name.md', 'text/markdown', 10, 'rename-stable-sha', 'Rename Doc')`
+    ).run(repoId).lastInsertRowid;
+    store.db.prepare(`INSERT INTO docgraph_sections (document_id, ord, level, heading, text) VALUES (?, 0, 1, NULL, ?)`)
+      .run(docId, "Content that never changes, Amount Due: 12.00 BGN on 01.07.2026.");
+
+    const sessionId = "rename-session";
+    await backend.batch(store, {
+      candidates: [{ id: Number(docId), rel_path: "old-name.md", size: 10, sha256: "rename-stable-sha" }],
+      sessionId,
+    });
+
+    // The file is renamed on disk and re-indexed — the row keeps its id and
+    // sha256; only rel_path changes. The model's next doc_batch call still
+    // carries the OLD manifest row (stale rel_path).
+    store.db.prepare(`UPDATE docgraph_documents SET rel_path = 'new-name.md' WHERE id = ?`).run(docId);
+
+    const renamed = await backend.batch(store, {
+      candidates: [{ id: Number(docId), rel_path: "old-name.md", size: 10, sha256: "rename-stable-sha" }],
+      sessionId,
+    });
+    const doc = renamed.documents[0];
+    assert.equal(doc.dedup, true, "same id + same content still dedups");
+    assert.equal(doc.rel_path, "new-name.md",
+      "the trust lookup refreshes identity from the CURRENT row — a dedup hit never returns the original read's stale path");
+  });
+
   test("doc_batch reads a manifest in one bounded call with coverage", async () => {
     const manifest = await backend.manifest(store, { query: "budget invoices" });
     const result = await backend.batch(store, { candidates: manifest.candidates, batch_size: 6 });

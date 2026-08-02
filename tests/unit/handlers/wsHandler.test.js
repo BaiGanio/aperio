@@ -1095,3 +1095,208 @@ describe("error handling", () => {
     assert.ok(logged.some(l => l.includes("db down")));
   });
 });
+
+// ─── Session switching releases the abandoned session's dedup cache ───────────
+// (llamacpp-multiturn-latency.md Step 3 review, round 5, P2): resume_session
+// reassigns this connection's sessionId to a different conversation, but the
+// close handler only ever clears whatever sessionId is CURRENT at close time
+// — an earlier session this same socket switched away from would otherwise
+// keep its cached raw document text alive for the rest of the connection,
+// not just until the socket eventually closes.
+//
+// The dedup cache namespace is `docSessionId` — a random id fixed for the
+// life of the CONNECTION — never the persisted `sessionId` (round 6, P1):
+// two different WebSockets can resume/branch to the SAME persisted session,
+// each with its own independent `messages` array, so keying the cache by
+// `sessionId` let one socket's real read populate a cache the other socket's
+// later doc_batch call would then hit, handing it an "already read" pointer
+// for text its own model never received. switchSessionId() clears THIS
+// connection's docSessionId-keyed cache on every switch (not the raw
+// sessionId(s) involved), and the close handler clears it again.
+
+describe("resume_session clears the CONNECTION's doc_batch dedup cache immediately, not deferred to socket close", () => {
+  test("switching sessions clears the connection's docSessionId cache — never the raw sessionId — right away; closing clears it again", async (t) => {
+    const { createSession } = await import("../../../lib/helpers/sessions.js");
+    const ws = makeWs(t);
+    const clearCalls = [];
+
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        clearDocSessionCache: async (id) => { clearCalls.push(id); },
+      }),
+      store: { listAll: async () => [] },
+      varRoot: TEST_DIR,
+    });
+
+    handler(ws);
+    await ws.emit({ type: "init" });
+
+    const originalSessionId = sentOf(ws, "session_created")[0].id;
+    const otherId = createSession({ model: "claude-haiku-4-5", provider: "anthropic", source: "web" });
+
+    await ws.emit({ type: "resume_session", id: otherId });
+
+    assert.equal(clearCalls.length, 1, "resume_session must clear the cache exactly once, right away");
+    const docSessionId = clearCalls[0];
+    assert.notEqual(docSessionId, originalSessionId, "the dedup namespace must not be the persisted sessionId this connection started with");
+    assert.notEqual(docSessionId, otherId, "the dedup namespace must not be the persisted sessionId being resumed either");
+
+    ws.triggerClose();
+
+    assert.deepEqual(
+      clearCalls, [docSessionId, docSessionId],
+      "closing the socket must clear the SAME connection-scoped docSessionId again — it never changes for this connection's lifetime",
+    );
+  });
+
+  test("two sockets resuming the SAME persisted session get independent dedup caches, so one's real read can never surface as a false 'already read' pointer on the other (round 6, P1)", async (t) => {
+    const { createSession } = await import("../../../lib/helpers/sessions.js");
+    const sharedSessionId = createSession({ model: "claude-haiku-4-5", provider: "anthropic", source: "web" });
+
+    // One shared agent — as in the real server, both sockets are served by
+    // the same agent and therefore the same MCP child / sessionReadFacts
+    // map. Isolation has to come from the id each connection passes, not
+    // from separate processes.
+    const clearCalls = [];
+    const handler = makeWsHandler({
+      agent: makeAgent({ clearDocSessionCache: async (id) => { clearCalls.push(id); } }),
+      store: { listAll: async () => [] },
+      varRoot: TEST_DIR,
+    });
+
+    const wsA = makeWs(t);
+    const wsB = makeWs(t);
+    handler(wsA);
+    handler(wsB);
+    await wsA.emit({ type: "init" });
+    await wsB.emit({ type: "init" });
+
+    await wsA.emit({ type: "resume_session", id: sharedSessionId });
+    const docSessionIdA = clearCalls.at(-1);
+
+    await wsB.emit({ type: "resume_session", id: sharedSessionId });
+    const docSessionIdB = clearCalls.at(-1);
+
+    assert.notEqual(
+      docSessionIdA, docSessionIdB,
+      "both sockets resumed the SAME persisted session id, but each must clear (and therefore later populate) its OWN dedup namespace, not a shared one keyed by that persisted id",
+    );
+  });
+
+  test("resuming the session ALREADY active on this socket still clears the doc cache — resume replaces messages[] even when the persisted id doesn't change (round 7, P2)", async (t) => {
+    const ws = makeWs(t);
+    const clearCalls = [];
+
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        clearDocSessionCache: async (id) => { clearCalls.push(id); },
+      }),
+      store: { listAll: async () => [] },
+      varRoot: TEST_DIR,
+    });
+
+    handler(ws);
+    await ws.emit({ type: "init" });
+    const currentId = sentOf(ws, "session_created")[0].id;
+
+    // Resume the session that is ALREADY this connection's active session:
+    // handleResumeSession still wipes messages[] and injects a compact resume
+    // context, so the old document text (and its dedup cache entries) is no
+    // longer reachable by the model even though the persisted id is unchanged.
+    await ws.emit({ type: "resume_session", id: currentId });
+
+    assert.equal(clearCalls.length, 1,
+      "an unchanged-id resume must still drop the connection's dedup cache — the old equality check left stale 'already read' pointers for text the model can no longer see",
+    );
+    assert.equal(typeof clearCalls[0], "string");
+    assert.notEqual(clearCalls[0], currentId,
+      "the clear must target the connection's fixed docSessionId, never the persisted session id",
+    );
+  });
+
+  test("the cache invalidation completes BEFORE the switch is acknowledged — session_resumed never precedes the MCP round trip (round 10, P2)", async (t) => {
+    const { createSession } = await import("../../../lib/helpers/sessions.js");
+    const ws = makeWs(t);
+    let releaseClear;
+    const clearGate = new Promise(resolve => { releaseClear = resolve; });
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        clearDocSessionCache: async () => { await clearGate; },
+      }),
+      store: { listAll: async () => [] },
+      varRoot: TEST_DIR,
+    });
+    handler(ws);
+    await ws.emit({ type: "init" });
+    const otherId = createSession({ model: "claude-haiku-4-5", provider: "anthropic", source: "web" });
+
+    // Do NOT await yet — the handler must be stuck awaiting the invalidation.
+    const pendingResume = ws.emit({ type: "resume_session", id: otherId });
+    await new Promise(resolve => setImmediate(resolve));
+
+    assert.equal(sentOf(ws, "session_resumed").length, 0,
+      "the ack must wait for the invalidation to complete — otherwise an immediate follow-up chat could race a doc_batch ahead of it");
+
+    releaseClear();
+    await pendingResume;
+    assert.equal(sentOf(ws, "session_resumed").length, 1,
+      "the ack is emitted only after the invalidation completed");
+  });
+
+  test("resuming a session rebinds the scratch workspace and workspace directive to the resumed id — post-resume artifacts land under the resumed session (round 10, P1)", async (t) => {
+    const { createSession } = await import("../../../lib/helpers/sessions.js");
+    const ws = makeWs(t);
+    let lastExtraSystem = null;
+    const handler = makeWsHandler({
+      agent: makeAgent({
+        clearDocSessionCache: async () => {},
+        runAgentLoop: async (_messages, _emitter, opts) => { lastExtraSystem = opts.extraSystem; return ""; },
+      }),
+      store: { listAll: async () => [] },
+      varRoot: TEST_DIR,
+    });
+    handler(ws);
+    await ws.emit({ type: "init" });
+    const originalId = sentOf(ws, "session_created")[0].id;
+    const resumedId = createSession({ model: "claude-haiku-4-5", provider: "anthropic", source: "web" });
+
+    await ws.emit({ type: "resume_session", id: resumedId });
+    // A chat after the switch must carry the RESUMED session's scratch
+    // workspace in its system directive (that is where the model is told to
+    // write generated artifacts, and where uploads land via runWithPaths).
+    await ws.emit({ type: "chat", text: "hello", turnId: "t1" });
+
+    assert.ok(lastExtraSystem, "the chat ran with a workspace directive");
+    assert.ok(lastExtraSystem.includes(resumedId),
+      "the directive must point at the resumed session's scratch workspace");
+    assert.ok(!lastExtraSystem.includes(originalId),
+      "the directive must NOT still point at the socket's original temporary session — before the fix, post-resume artifacts were written under the abandoned session while close-time finaliseSession/scratchHasFiles checked the resumed id");
+  });
+
+  test("resuming a DIFFERENT session finalises the abandoned temporary session — its session resources are gone afterward (round 11, P2)", async (t) => {
+    const { createSession, getSession, deleteSession } = await import("../../../lib/helpers/sessions.js");
+    const ws = makeWs(t);
+    const handler = makeWsHandler({
+      agent: makeAgent({ clearDocSessionCache: async () => {} }),
+      store: { listAll: async () => [] },
+      varRoot: TEST_DIR,
+    });
+    handler(ws);
+    await ws.emit({ type: "init" });
+    const tempId = sentOf(ws, "session_created")[0].id;
+    // A saved session, as if from a previous connection.
+    const savedId = createSession({ model: "claude-haiku-4-5", provider: "anthropic", source: "web" });
+    try {
+      assert.ok(getSession(tempId), "sanity: the socket's temporary session exists before the resume");
+      assert.ok(getSession(savedId), "sanity: the saved session resolves");
+
+      await ws.emit({ type: "resume_session", id: savedId });
+
+      assert.equal(getSession(tempId), null,
+        "the abandoned temporary session must be finalised on resume — before the fix, every resume leaked an empty session file (and its llama log)");
+      assert.ok(getSession(savedId), "the resumed session itself is untouched by the cleanup");
+    } finally {
+      deleteSession(savedId);
+    }
+  });
+});
