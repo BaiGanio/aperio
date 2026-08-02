@@ -54,16 +54,28 @@ Versions follow [Semantic Versioning](https://semver.org/).
   two processes sharing a credential-less URL but different implicit roles no
   longer collapse onto one file — and hashes only namespace-affecting
   `options` (e.g. `search_path`), canonicalized so editing or reordering
-  timeouts/logging never changes the extraction path. Rows provisioned under
-  the earlier host/port/database (or intermediate role/options) identity are
-  adopted rather than rejected, so upgrading never leaves existing extracted
-  data stranded behind a reserved-name collision. The managed-SQLite lock's
-  stale reclamation is serialized behind a reclaimer marker (`<lock>.reclaim`,
-  O_EXCL): a concurrent reclaimer can no longer delete a fresh holder's lock
-  after inspecting a PID-reused stale record, and a marker abandoned by a
-  crashed reclaimer is stolen after the staleness threshold. Holder
-  process-start signatures are now also resolved on Windows via PowerShell's
-  `Get-Process` instead of the nonexistent `ps`.
+  timeouts/logging never changes the extraction path; the attached short
+  option form (`-csearch_path=…`) is parsed alongside the spaced and long
+  forms, so two attached spellings that select different namespaces resolve to
+  different extraction files instead of collapsing onto one shared one. Rows
+  provisioned under the earlier host/port/database identity are adopted in
+  place, and rows provisioned under the intermediate raw-options identity are
+  adopted then migrated to the stable current path at their FIRST touch — a
+  confirmed write or any connection resolution (reads included) — so upgrading
+  never leaves existing extracted data stranded behind a reserved-name
+  collision, and a later behavior-only option edit (e.g. dropping
+  `statement_timeout`) cannot orphan the adopted row again.
+  The managed-SQLite lock's stale reclamation is serialized behind a reclaimer
+  marker (`<lock>.reclaim`, O_EXCL): a concurrent reclaimer can no longer
+  delete a fresh holder's lock after inspecting a PID-reused stale record, and
+  a marker abandoned by a crashed reclaimer is taken over atomically — renamed
+  to a private claim path, deleted only when the object actually removed still
+  proves to be the abandoned marker, and restored (never deleted) when a
+  replacement appeared between the taker's stat and rename, so a stale
+  observation can never unlink a replacement marker. A reclaimer also only
+  removes its own marker when done. Holder process-start signatures are now
+  also resolved on Windows via PowerShell's `Get-Process` instead of the
+  nonexistent `ps`.
 
 - **The standalone MCP server wrote logs to stdout, corrupting the JSON-RPC
   channel**: `npm run mcp` (and Aperio's spawned MCP child) emitted dotenv's

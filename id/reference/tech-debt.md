@@ -53,6 +53,19 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
+## Db-connect — extraction identity / managed lock
+
+- 2026-08-01 A v1-era extraction row whose connection string is edited BEFORE
+  the new build's first touch (no read, write, or provisioning since upgrade)
+  stays orphaned: the old raw options are gone and the saved hash cannot be
+  inverted, so the row is rejected rather than silently adopting an arbitrary
+  `var/extraction/<hash>.db` path (which would reopen the forged-`provisioned`
+  hole). Documented in `lib/db-connect/extraction.js` +
+  `tests/unit/db-connect/extraction.test.js`; closing it soundly would require
+  persisting the adopted identity at first recognition.
+
+---
+
 ## Intentional deferrals
 
 These are intentional deferrals. Do not "fix" them without discussion.

@@ -4,12 +4,21 @@
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { openSync, writeSync, closeSync, readFileSync, unlinkSync, utimesSync } from "node:fs";
+import { openSync, writeSync, closeSync, readFileSync, unlinkSync, renameSync, existsSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomBytes } from "node:crypto";
-import { spawnSync } from "node:child_process";
-import { acquireLock } from "../../../lib/db-connect/file-lock.js";
+import { spawn, spawnSync } from "node:child_process";
+import { acquireLock, takeoverStaleMarker, decideTakeoverClaim } from "../../../lib/db-connect/file-lock.js";
+
+// A live process OTHER than this one — the pid a genuine concurrent reclaimer
+// would write into its marker. (The reclaimer's finally only unlinks a marker
+// it can prove is its own, so planting OUR pid would make the marker look
+// self-owned and break the "someone else is mid-flight" simulations below.)
+function liveOtherPid() {
+  const child = spawn(process.execPath, ["-e", "setInterval(() => {}, 1000)"], { stdio: "ignore" });
+  return { pid: child.pid, kill: () => { try { child.kill(); } catch { /* already gone */ } } };
+}
 
 function writeLockFile(lockPath, pid, signature = "") {
   const fd = openSync(lockPath, "w");
@@ -96,24 +105,32 @@ describe("file-lock stale reclamation", () => {
     const lockPath = scratchLockPath();
     const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
     writeLockFile(lockPath, dead.pid);
-    const markerPath = `${lockPath}.reclaim`;
-    const markerFd = openSync(markerPath, "w");
-    writeSync(markerFd, `${process.pid}\n`);
-    closeSync(markerFd);
+    const other = liveOtherPid();
+    try {
+      const markerPath = `${lockPath}.reclaim`;
+      const markerFd = openSync(markerPath, "w");
+      writeSync(markerFd, `${other.pid}\n`);
+      closeSync(markerFd);
 
-    const acquiring = acquireLock(lockPath);
-    await new Promise((resolve) => setTimeout(resolve, 300));
+      const acquiring = acquireLock(lockPath);
+      await new Promise((resolve) => setTimeout(resolve, 300));
 
-    // The fresh marker must have deferred reclamation entirely: the stale lock
-    // is byte-for-byte untouched, not replaced by a reclaimer's own record.
-    const stillThere = readFileSync(lockPath, "utf8");
-    assert.equal(stillThere.trim().split("\n")[0], String(dead.pid));
+      // The fresh marker must have deferred reclamation entirely: the stale lock
+      // is byte-for-byte untouched, not replaced by a reclaimer's own record,
+      // and the other reclaimer's marker is still there (the reclaimer's
+      // finally never unlinks a marker that is not provably its own).
+      const stillThere = readFileSync(lockPath, "utf8");
+      assert.equal(stillThere.trim().split("\n")[0], String(dead.pid));
+      assert.equal(existsSync(markerPath), true, "another reclaimer's fresh marker is left in place");
 
-    // The other reclaimer finishes without having unlinked — now acquisition
-    // proceeds normally (next poll reclaims the still-stale lock).
-    unlinkSync(markerPath);
-    const release = await acquiring;
-    release();
+      // The other reclaimer finishes without having unlinked — now acquisition
+      // proceeds normally (next poll reclaims the still-stale lock).
+      unlinkSync(markerPath);
+      const release = await acquiring;
+      release();
+    } finally {
+      other.kill();
+    }
   });
 
   // P1: a marker left behind by a reclaimer that CRASHED mid-reclaim must not
@@ -136,5 +153,153 @@ describe("file-lock stale reclamation", () => {
     release();
 
     assert.ok(elapsed < 10_000, `expected reclaim after the abandoned marker was stolen, took ${elapsed}ms`);
+  });
+
+  // P1 review finding: a stat-then-unlink takeover was not atomic — two
+  // waiters could both stat the same stale marker, and after one unlinked it
+  // and created a fresh marker on its next poll, the other could still delete
+  // that FRESH marker from its stale observation, reopening the concurrent-
+  // reclaimer race. Takeover is now ownership-preserving: the taker RENAMES
+  // the marker to a claim path it alone owns and deletes only a claim whose
+  // own mtime proves it is the abandoned marker — a fresh replacement is
+  // restored, never unlinked. This test simulates the exact interleaving: a
+  // first waiter already took the aged marker over (renamed it to its claim)
+  // and left a fresh marker behind; a second waiter's acquire must leave BOTH
+  // the claim and the fresh marker untouched, and only proceed once the fresh
+  // marker is released.
+  test("P1: a stale observation can never unlink a replacement marker — takeover is ownership-preserving", async () => {
+    const lockPath = scratchLockPath();
+    const dead = spawnSync(process.execPath, ["-e", "process.exit(0)"]);
+    writeLockFile(lockPath, dead.pid);
+
+    const markerPath = `${lockPath}.reclaim`;
+    const aged = openSync(markerPath, "w");
+    writeSync(aged, "111\n");
+    closeSync(aged);
+    const old = new Date(Date.now() - 10_000);
+    utimesSync(markerPath, old, old);
+
+    // First waiter takes the abandoned marker over (atomic rename to its own
+    // claim) and moves on, leaving a fresh marker for its next poll.
+    const other = liveOtherPid();
+    try {
+      const claimPath = `${markerPath}.steal-1-aaaaaaaaaaaa`;
+      renameSync(markerPath, claimPath);
+      const fresh = openSync(markerPath, "w");
+      writeSync(fresh, `${other.pid}\n`);
+      closeSync(fresh);
+
+      // Second waiter with a stale observation: must not delete the first
+      // waiter's claim OR the fresh marker.
+      const acquiring = acquireLock(lockPath);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      assert.equal(existsSync(claimPath), true, "the first waiter's claim file is untouched");
+      assert.equal(existsSync(markerPath), true, "the fresh marker is untouched");
+      assert.equal(readFileSync(markerPath, "utf8").trim().split("\n")[0], String(other.pid));
+
+      // The fresh marker is released; only now does acquisition proceed.
+      unlinkSync(markerPath);
+      const release = await acquiring;
+      release();
+      unlinkSync(claimPath); // tidy up the simulated first-waiter claim
+    } finally {
+      other.kill();
+    }
+  });
+
+  // Direct protocol tests for takeoverStaleMarker: the staleness decision is
+  // made from the object actually renamed away, so an abandoned marker is
+  // deleted but a FRESH marker — live reclaimer's or replacement — is restored
+  // and never unlinked (P1 review finding).
+  test("P1: takeoverStaleMarker deletes only a genuinely abandoned marker", () => {
+    const markerPath = `${scratchLockPath()}.reclaim`;
+    const fd = openSync(markerPath, "w");
+    writeSync(fd, "111\n"); // a reclaimer that crashed mid-reclaim
+    closeSync(fd);
+    const aged = new Date(Date.now() - 10_000);
+    utimesSync(markerPath, aged, aged);
+    try {
+      assert.equal(takeoverStaleMarker(markerPath), true, "the abandoned marker is taken over");
+      assert.equal(existsSync(markerPath), false, "the abandoned marker is removed");
+    } finally {
+      try { unlinkSync(markerPath); } catch { /* already gone */ }
+    }
+  });
+
+  test("P1: takeoverStaleMarker restores a fresh marker instead of deleting it", () => {
+    const markerPath = `${scratchLockPath()}.reclaim`;
+    const fd = openSync(markerPath, "w");
+    writeSync(fd, `${process.pid}\n`);
+    closeSync(fd);
+    try {
+      assert.equal(takeoverStaleMarker(markerPath), false, "a fresh marker defers the takeover");
+      assert.equal(existsSync(markerPath), true, "the fresh marker is untouched");
+      assert.equal(readFileSync(markerPath, "utf8").trim(), String(process.pid));
+    } finally {
+      try { unlinkSync(markerPath); } catch { /* already gone */ }
+    }
+  });
+
+  // P1: the takeover's post-rename decision (decideTakeoverClaim). A taker
+  // can observe an AGED marker and then have its rename land on a FRESH
+  // replacement (a live reclaimer's marker, or one created after another
+  // taker's takeover). The claim's own mtime decides: fresh claims are
+  // restored to the marker path, never unlinked — a stale observation can
+  // never delete a replacement marker.
+  test("P1: a fresh claim is restored to the marker path, never deleted", () => {
+    const markerPath = `${scratchLockPath()}.reclaim`;
+    const claimPath = `${markerPath}.steal-1-aaaaaaaaaaaa`;
+    const fd = openSync(claimPath, "w");
+    writeSync(fd, `${process.pid}\n`);
+    closeSync(fd);
+    try {
+      assert.equal(decideTakeoverClaim(claimPath, markerPath), false, "a fresh claim is not taken over");
+      assert.equal(existsSync(markerPath), true, "the fresh marker is restored to the marker path");
+      assert.equal(readFileSync(markerPath, "utf8").trim(), String(process.pid), "the replacement's content is intact");
+      assert.equal(existsSync(claimPath), false, "the claim is consumed by the restore");
+    } finally {
+      try { unlinkSync(markerPath); } catch { /* already gone */ }
+      try { unlinkSync(claimPath); } catch { /* already gone */ }
+    }
+  });
+
+  test("P1: a fresh claim never clobbers a marker path re-occupied in the instant the taker held the claim", () => {
+    const markerPath = `${scratchLockPath()}.reclaim`;
+    const claimPath = `${markerPath}.steal-1-aaaaaaaaaaaa`;
+    const fd = openSync(claimPath, "w");
+    writeSync(fd, `${process.pid}\n`);
+    closeSync(fd);
+    const occupant = openSync(markerPath, "w");
+    writeSync(occupant, "222\n");
+    closeSync(occupant);
+    try {
+      assert.equal(decideTakeoverClaim(claimPath, markerPath), false);
+      assert.equal(readFileSync(markerPath, "utf8").trim(), "222", "the occupant marker survives");
+      assert.equal(existsSync(claimPath), false, "the dropped claim is removed");
+    } finally {
+      try { unlinkSync(markerPath); } catch { /* already gone */ }
+      try { unlinkSync(claimPath); } catch { /* already gone */ }
+    }
+  });
+
+  test("P1: a genuinely abandoned claim is deleted even when the marker path was re-occupied", () => {
+    const markerPath = `${scratchLockPath()}.reclaim`;
+    const claimPath = `${markerPath}.steal-1-aaaaaaaaaaaa`;
+    const fd = openSync(claimPath, "w");
+    writeSync(fd, "111\n");
+    closeSync(fd);
+    const aged = new Date(Date.now() - 10_000);
+    utimesSync(claimPath, aged, aged);
+    const occupant = openSync(markerPath, "w");
+    writeSync(occupant, "222\n");
+    closeSync(occupant);
+    try {
+      assert.equal(decideTakeoverClaim(claimPath, markerPath), true, "the abandoned marker is removed");
+      assert.equal(readFileSync(markerPath, "utf8").trim(), "222", "the occupant marker survives untouched");
+      assert.equal(existsSync(claimPath), false);
+    } finally {
+      try { unlinkSync(markerPath); } catch { /* already gone */ }
+      try { unlinkSync(claimPath); } catch { /* already gone */ }
+    }
   });
 });
