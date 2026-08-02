@@ -4,6 +4,17 @@
 //   DOCINT_PHASE=coverage   node trash/plans/document-intelligence-epic/document-intelligence-skill-harness.mjs
 //   DOCINT_PHASE=provenance node trash/plans/document-intelligence-epic/document-intelligence-skill-harness.mjs
 //
+// Default evaluation provider/model is DeepSeek deepseek-v4-flash (see
+// EVALUATION_PROVIDER/EVALUATION_MODEL below); Codex gpt-5.6-terra is the
+// other recorded pair. To instead run against a local llama.cpp model — the
+// actual target model, not a cloud proxy for it — set both:
+//   DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
+//     LLAMACPP_MODEL=unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL \
+//     node trash/plans/document-intelligence-epic/document-intelligence-skill-harness.mjs
+// This boots a fully isolated llama-server (own port, own preset/state dir
+// under the scratch runtime) and tears it down in the same finally block
+// that cleans up everything else — it never touches a shared/dev instance.
+//
 // Same isolation pattern as document-intelligence-red-harness.mjs (T-R5): scratch
 // SQLite DB, non-default ports, a copied fixture set, oracle withheld, full
 // teardown. This script is new because the T-G2 gate needs different things per
@@ -52,13 +63,21 @@ const FIXTURE_SET = PHASE === "coverage" ? "multi-month" : "T-R5";
 let webPort = Number(process.env.APERIO_HARNESS_PORT ?? 0);
 let isolatedLlamaPort = 0;
 const TIMEOUT_MS = Number(process.env.APERIO_HARNESS_TIMEOUT_MS ?? 600_000);
-// WS2 provenance is deliberately a cloud-provider verification. Keep this
-// independent of .env's interactive-provider selection and never provide a
-// llama.cpp setting from this harness. A caller must select one of the exact,
-// recorded provider/model pairs below; it cannot silently fall back.
+// WS2 defaults to a cloud-provider verification and stays independent of
+// .env's interactive-provider selection. A caller must select one of the
+// exact, recorded provider/model pairs below; it cannot silently fall back.
+// DOCINT_EVALUATION_PROVIDER=llamacpp is the one additive exception — it
+// drives an isolated local llama-server (own port, own preset/state dir, own
+// scratch runtime — see isolatedLlamaPort below) so a real run against the
+// actual target model can be validated, not just DeepSeek/Codex as a proxy
+// for it. The model comes from LLAMACPP_MODEL (the real Aperio config var),
+// not a DOCINT_-prefixed one, so an invocation reads the same way any other
+// llama.cpp model selection does.
 const EVALUATION_PROVIDER = process.env.DOCINT_EVALUATION_PROVIDER ?? "deepseek";
 const EVALUATION_MODEL = process.env.DOCINT_EVALUATION_MODEL
-  ?? (EVALUATION_PROVIDER === "codex" ? "gpt-5.6-terra" : "deepseek-v4-flash");
+  ?? (EVALUATION_PROVIDER === "codex" ? "gpt-5.6-terra"
+    : EVALUATION_PROVIDER === "llamacpp" ? process.env.LLAMACPP_MODEL
+    : "deepseek-v4-flash");
 const PROVENANCE_FOLLOW_UP_CAP = 8;
 
 const PHASE_PROMPTS = {
@@ -331,8 +350,9 @@ async function writeArtifact(extra = {}) {
 try {
   const evaluationIsDeepSeek = EVALUATION_PROVIDER === "deepseek" && EVALUATION_MODEL === "deepseek-v4-flash";
   const evaluationIsCodexTerra = EVALUATION_PROVIDER === "codex" && EVALUATION_MODEL === "gpt-5.6-terra";
-  if (!evaluationIsDeepSeek && !evaluationIsCodexTerra) {
-    throw new Error("provenance harness requires DeepSeek deepseek-v4-flash or Codex gpt-5.6-terra; refusing a fallback");
+  const evaluationIsLlamaCpp = EVALUATION_PROVIDER === "llamacpp" && !!EVALUATION_MODEL;
+  if (!evaluationIsDeepSeek && !evaluationIsCodexTerra && !evaluationIsLlamaCpp) {
+    throw new Error("provenance harness requires DeepSeek deepseek-v4-flash, Codex gpt-5.6-terra, or an explicit llamacpp model (DOCINT_EVALUATION_PROVIDER=llamacpp + LLAMACPP_MODEL=...); refusing a fallback");
   }
   if (evaluationIsDeepSeek && !process.env.DEEPSEEK_API_KEY?.trim()) {
     throw new Error("DeepSeek credentials are unavailable; refusing to fall back to a local model");
@@ -402,6 +422,8 @@ async function runModelPhase({ primary, secondary, dbPath }) {
     AI_PROVIDER: EVALUATION_PROVIDER,
     ...(EVALUATION_PROVIDER === "deepseek"
       ? { DEEPSEEK_MODEL: EVALUATION_MODEL }
+      : EVALUATION_PROVIDER === "llamacpp"
+      ? { LLAMACPP_MODEL: EVALUATION_MODEL }
       : { CODEX_MODEL: EVALUATION_MODEL }),
     // The database tool writes only through Aperio's scratch runtime. Keep
     // Codex's native tools read-only so this shared repository cannot be
