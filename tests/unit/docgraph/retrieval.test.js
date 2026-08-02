@@ -6,6 +6,8 @@ import {
   retrieveInBatches,
   composeMemoryFromDoc,
   buildDocumentHighlights,
+  _resetDocBatchSessionCacheForTests,
+  clearSessionFacts,
 } from "../../../lib/docgraph/retrieval.js";
 
 describe("document retrieval contract", () => {
@@ -370,6 +372,541 @@ describe("document retrieval contract", () => {
     assert.ok(RETRIEVAL_LIMITS.batchSize > 0);
     assert.ok(RETRIEVAL_LIMITS.maxBatchBytes > 0);
     assert.ok(RETRIEVAL_LIMITS.maxTotalBytes >= RETRIEVAL_LIMITS.maxBatchBytes);
+  });
+});
+
+describe("session-scoped doc_batch dedup (T-L3, llamacpp-multiturn-latency.md Step 3)", () => {
+  // A realistic document is hundreds to thousands of bytes, not a bare couple
+  // of lines — the dedup pointer's own message is a fixed ~200 bytes, so a
+  // toy-sized fixture would make the "order of magnitude smaller" assertion
+  // meaningless (or fail outright, as it did before this fixture was padded).
+  const invoiceText = [
+    "ACME Utilities Co. — Monthly Statement",
+    "Account: 000-4471-2",
+    "Billing period: 01.05.2026 to 31.05.2026",
+    "Invoice Date: 03.06.2026",
+    "Previous balance: 0.00 BGN",
+    "Usage charges: 120.00 BGN",
+    "VAT (20%): 22.50 BGN",
+    "Amount Due: 142.50 BGN",
+    "Payment is due within 14 days of the invoice date. Late payments accrue interest at the statutory rate.",
+    "Terms and conditions apply — see the reverse of this statement or acme-utilities.example/terms for full details, including dispute and metering-error procedures.".repeat(20),
+  ].join("\n");
+
+  test("a second doc_batch call for the same sha256 in the same session carries the real text (for aggregation) plus a short pointer (for the model), and a small `bytes`", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "bills/electricity-june.txt", sha256: "hash-electricity" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+
+    const first = await retrieveInBatches([candidate], { sessionId: "conv-1", readBatch });
+    const firstDoc = first.documents[0];
+    assert.equal(firstDoc.status, "read");
+    assert.equal(firstDoc.text, invoiceText);
+    assert.ok(!firstDoc.dedup);
+
+    const second = await retrieveInBatches([candidate], { sessionId: "conv-1", readBatch });
+    const secondDoc = second.documents[0];
+    assert.equal(secondDoc.status, "read", "still counts as read for coverage purposes");
+    assert.equal(secondDoc.dedup, true);
+    // `text` stays the REAL cached content — retrieveInBatches's own contract
+    // is "same values a fresh read would produce"; only a caller that has
+    // already finished aggregating (docgraphHandlers.js) shrinks `text` to
+    // `dedupPointerText` for the model-facing payload. `bytes`, however,
+    // already reflects the SMALL pointer size — that's the actual budget/
+    // coverage-accounting number, matching what the model ends up receiving.
+    assert.equal(secondDoc.text, invoiceText, "real text is preserved for a caller's aggregation pass");
+    assert.match(secondDoc.dedupPointerText, /already read/i);
+    assert.ok(
+      secondDoc.bytes * 10 < Buffer.byteLength(invoiceText, "utf8"),
+      `reported bytes (${secondDoc.bytes}) must reflect the pointer's small size, not the real text's, by at least an order of magnitude`,
+    );
+    // Facts (dates/amounts) must be preserved from the first read so a later
+    // deterministic aggregate call over a combined candidate list is not
+    // silently missing this document's contribution.
+    assert.deepEqual(secondDoc.dates, firstDoc.dates);
+    assert.deepEqual(secondDoc.amounts, firstDoc.amounts);
+  });
+
+  test("a document with a different sha256 is read in full every time, even in the same session", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    await retrieveInBatches([{ id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" }], { sessionId: "conv-1", readBatch });
+    const result = await retrieveInBatches([{ id: 2, size: 10, rel_path: "b.txt", sha256: "hash-b" }], { sessionId: "conv-1", readBatch });
+    assert.equal(result.documents[0].status, "read");
+    assert.ok(!result.documents[0].dedup);
+    assert.equal(result.documents[0].text, invoiceText);
+  });
+
+  test("a mixed batch returns full text for new documents and real text + a pointer for already-read ones in the same response", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    await retrieveInBatches([{ id: 1, size: 10, rel_path: "already-read.txt", sha256: "hash-seen" }], { sessionId: "conv-1", readBatch });
+
+    const mixed = await retrieveInBatches([
+      { id: 1, size: 10, rel_path: "already-read.txt", sha256: "hash-seen" },
+      { id: 2, size: 10, rel_path: "brand-new.txt", sha256: "hash-new" },
+    ], { sessionId: "conv-1", readBatch });
+
+    const seen = mixed.documents.find(d => d.id === 1);
+    const fresh = mixed.documents.find(d => d.id === 2);
+    assert.equal(seen.dedup, true);
+    assert.equal(seen.text, invoiceText);
+    assert.match(seen.dedupPointerText, /already read/i);
+    assert.equal(fresh.dedup, undefined);
+    assert.equal(fresh.text, invoiceText);
+  });
+
+  test("aggregateDocuments produces the SAME totals across a fresh read and a deduped repeat (P1: aggregation correctness)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    // Import lazily so this file's other describe blocks (which don't need
+    // the facts pipeline) aren't coupled to it.
+    const { aggregateDocuments } = await import("../../../lib/docgraph/facts/index.js");
+    const candidate = { id: 1, size: 10, rel_path: "bills/electricity-june.txt", sha256: "hash-electricity" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+
+    const first = await retrieveInBatches([candidate], { sessionId: "conv-agg", readBatch });
+    const second = await retrieveInBatches([candidate], { sessionId: "conv-agg", readBatch });
+    assert.equal(second.documents[0].dedup, true, "sanity: this run is actually exercising the dedup path");
+
+    const firstAgg = aggregateDocuments(first.documents.filter(d => d.status === "read"), {});
+    const secondAgg = aggregateDocuments(second.documents.filter(d => d.status === "read"), {});
+    assert.ok(firstAgg.coverage.facts_counted > 0, "sanity: the fresh read must actually produce a countable fact");
+    assert.deepEqual(
+      secondAgg.by_currency, firstAgg.by_currency,
+      "a deduped repeat must contribute the SAME deterministic facts as a fresh read — dates/amounts alone are not enough input for factsFromDocument (statement/commercial detection, merchant/locator extraction, category classification all read raw text)",
+    );
+    assert.equal(secondAgg.coverage.facts_counted, firstAgg.coverage.facts_counted);
+  });
+
+  test("without a sessionId, dedup never triggers — every call reads in full (existing callers unaffected)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    const first = await retrieveInBatches([candidate], { readBatch });
+    const second = await retrieveInBatches([candidate], { readBatch });
+    assert.ok(!first.documents[0].dedup);
+    assert.ok(!second.documents[0].dedup);
+    assert.equal(second.documents[0].text, invoiceText);
+  });
+
+  test("a candidate with no sha256 is never deduped (nothing to key identity on)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: null };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    await retrieveInBatches([candidate], { sessionId: "conv-1", readBatch });
+    const second = await retrieveInBatches([candidate], { sessionId: "conv-1", readBatch });
+    assert.ok(!second.documents[0].dedup);
+    assert.equal(second.documents[0].text, invoiceText);
+  });
+
+  test("two different sessions do not leak dedup state into each other", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    await retrieveInBatches([candidate], { sessionId: "conv-A", readBatch });
+    const otherSession = await retrieveInBatches([candidate], { sessionId: "conv-B", readBatch });
+    assert.ok(!otherSession.documents[0].dedup, "conv-B never read this document, so it must not be deduped there");
+  });
+
+  test("existing doc_batch coverage/aggregation-relevant fields are unaffected by dedup (T-L3.2)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    await retrieveInBatches([candidate], { sessionId: "conv-1", readBatch });
+    const result = await retrieveInBatches([candidate], { sessionId: "conv-1", readBatch });
+    assert.deepEqual(result.coverage, {
+      found: 1, read: 1, skipped: 0, bytes: result.documents[0].bytes, complete: true, skipped_reasons: {},
+    });
+  });
+
+  test("a dedup pointer still respects maxTotalBytes — an exhausted/tiny budget skips it instead of reporting complete: true", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    await retrieveInBatches([candidate], { sessionId: "conv-1", readBatch });
+
+    // The pointer message alone is a couple hundred bytes; a 1-byte budget
+    // must reject it exactly like it would reject a real read, not silently
+    // exceed it because "it's only a pointer".
+    const result = await retrieveInBatches([candidate], {
+      sessionId: "conv-1", readBatch, maxTotalBytes: 1,
+    });
+    const doc = result.documents[0];
+    assert.equal(doc.status, "skipped");
+    assert.equal(doc.reason, "retrieval exceeds maxTotalBytes");
+    assert.equal(result.coverage.complete, false);
+    assert.equal(result.coverage.bytes, 0);
+  });
+
+  test("a per-session facts cache exceeding MAX_FACTS_PER_SESSION evicts the oldest entry (bounded heap)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    const CAP = 200; // must match MAX_FACTS_PER_SESSION in lib/docgraph/retrieval.js
+    for (let i = 0; i < CAP; i++) {
+      await retrieveInBatches(
+        [{ id: i, size: 10, rel_path: `doc-${i}.txt`, sha256: `hash-${i}` }],
+        { sessionId: "conv-1", readBatch },
+      );
+    }
+    // hash-0 is still within the cap — a repeat read must still be deduped.
+    const stillCached = await retrieveInBatches(
+      [{ id: 0, size: 10, rel_path: "doc-0.txt", sha256: "hash-0" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    assert.equal(stillCached.documents[0].dedup, true, "sanity: cache holds at least CAP entries before overflow");
+
+    // One more distinct document pushes the session's facts map past the cap,
+    // evicting the least-recently-used entry (hash-0, never touched again
+    // since the "stillCached" check above already refreshed it — so the
+    // NEXT-oldest untouched hash, hash-1, is the one that must be evicted).
+    await retrieveInBatches(
+      [{ id: CAP, size: 10, rel_path: `doc-${CAP}.txt`, sha256: `hash-${CAP}` }],
+      { sessionId: "conv-1", readBatch },
+    );
+    const evicted = await retrieveInBatches(
+      [{ id: 1, size: 10, rel_path: "doc-1.txt", sha256: "hash-1" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    assert.ok(!evicted.documents[0].dedup, "hash-1 must have been evicted once the per-session cap was exceeded");
+    assert.equal(evicted.documents[0].text, invoiceText, "evicted document is read in full again, not silently dropped");
+  });
+
+  test("a mid-batch failure does not phantom-cache the sub-batches that succeeded before it (P2: no commit without a successful return)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    // Two candidates, each too big to share a sub-batch with the other
+    // (maxBatchBytes forces a split), so readBatch is invoked twice — once
+    // per candidate. The second invocation throws, simulating a genuine
+    // mid-batch failure (a DB error, a dropped connection) AFTER the first
+    // candidate has already been successfully read and its facts staged.
+    let call = 0;
+    const readBatch = async batch => {
+      call++;
+      if (call === 2) throw new Error("simulated mid-batch failure");
+      return batch.map(c => ({ id: c.id, text: invoiceText }));
+    };
+
+    await assert.rejects(
+      () => retrieveInBatches([
+        { id: 1, size: 100, rel_path: "a.txt", sha256: "hash-a" },
+        { id: 2, size: 100, rel_path: "b.txt", sha256: "hash-b" },
+      ], { sessionId: "conv-1", readBatch, maxBatchBytes: 150 }),
+      /simulated mid-batch failure/,
+    );
+
+    // The whole call surfaced as an error — the model/conversation never saw
+    // ANY text from this batch, including candidate 1's, which was read
+    // successfully moments before candidate 2's failure. A retry for
+    // candidate 1 must therefore do a FRESH read, not report it as already
+    // read — the commit-on-success discipline must have discarded that
+    // sub-batch's staged fact along with the whole failed call.
+    const retry = await retrieveInBatches(
+      [{ id: 1, size: 100, rel_path: "a.txt", sha256: "hash-a" }],
+      { sessionId: "conv-1", readBatch: async batch => batch.map(c => ({ id: c.id, text: invoiceText })) },
+    );
+    assert.ok(!retry.documents[0].dedup, "candidate 1 must not be phantom-cached from the failed batch");
+    assert.equal(retry.documents[0].text, invoiceText);
+  });
+
+  test("deferCommit:true withholds the session-cache commit until the caller explicitly calls commitSessionFacts() (P1: commit-before-delivery, round 5)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+
+    const first = await retrieveInBatches([candidate], { sessionId: "conv-defer", readBatch, deferCommit: true });
+    assert.equal(typeof first.commitSessionFacts, "function", "deferCommit:true must return a commit function");
+
+    // Never called first.commitSessionFacts() — as if the caller's own
+    // request was aborted/timed out before it could safely commit. A retry
+    // must do a fresh read, not report a phantom "already read".
+    const second = await retrieveInBatches([candidate], { sessionId: "conv-defer", readBatch });
+    assert.ok(!second.documents[0].dedup, "nothing was ever committed, so this must be a fresh read");
+
+    // Now actually commit, simulating the caller confirming successful
+    // delivery, and confirm the NEXT read is deduped as normal.
+    second.commitSessionFacts?.(); // no-op here; commit happens on `first`, not `second`
+    first.commitSessionFacts();
+    const third = await retrieveInBatches([candidate], { sessionId: "conv-defer", readBatch });
+    assert.equal(third.documents[0].dedup, true, "after commitSessionFacts() runs, a repeat read must dedupe normally");
+  });
+
+  test("without deferCommit, retrieveInBatches auto-commits exactly like before (default behavior unchanged for existing callers)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+
+    const first = await retrieveInBatches([candidate], { sessionId: "conv-auto", readBatch });
+    assert.equal(first.commitSessionFacts, undefined, "auto-commit mode must not expose a commit function");
+    const second = await retrieveInBatches([candidate], { sessionId: "conv-auto", readBatch });
+    assert.equal(second.documents[0].dedup, true, "default (non-deferred) behavior still auto-commits");
+  });
+
+  test("clearSessionFacts(sessionId) forces a fresh read on the next doc_batch call for that session only (P1: summarization staleness, P2: session-end cleanup)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+
+    await retrieveInBatches([candidate], { sessionId: "conv-1", readBatch });
+    await retrieveInBatches([candidate], { sessionId: "conv-2", readBatch });
+
+    clearSessionFacts("conv-1");
+
+    const afterClear1 = await retrieveInBatches([candidate], { sessionId: "conv-1", readBatch });
+    assert.ok(!afterClear1.documents[0].dedup, "conv-1's cache was cleared — the same sha256 must be read in full again");
+    assert.equal(afterClear1.documents[0].text, invoiceText);
+
+    const stillCached2 = await retrieveInBatches([candidate], { sessionId: "conv-2", readBatch });
+    assert.equal(stillCached2.documents[0].dedup, true, "clearing conv-1 must not affect conv-2's independent cache");
+  });
+
+  test("clearSessionFacts is a no-op for an unknown or falsy sessionId (never throws)", () => {
+    _resetDocBatchSessionCacheForTests();
+    assert.doesNotThrow(() => clearSessionFacts("never-seen-before"));
+    assert.doesNotThrow(() => clearSessionFacts(null));
+    assert.doesNotThrow(() => clearSessionFacts(undefined));
+  });
+
+  // ── Round 8, P1: dedup identity follows the REQUESTED document ──────────
+  // The cache is keyed by sha256, which two DIFFERENT documents can share
+  // (content twins) and which is unchanged by a rename — so a dedup hit must
+  // carry the requested document's OWN id/path/title, never the first
+  // reader's cached identity (which would misattribute aggregation and
+  // auto-memory output to the wrong source).
+
+  test("two documents sharing a sha256 never misattribute identity — the second twin's dedup hit carries ITS OWN id/path/title (round 8, P1)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    // Read twin A for real — primes the cache under the shared hash with A's
+    // identity.
+    await retrieveInBatches(
+      [{ id: 1, size: 10, rel_path: "a/invoice.txt", root_path: "/repo/a", mime: "text/plain", title: "Invoice A", sha256: "shared-hash" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    // Twin B has identical content (same sha256) but is a DIFFERENT document.
+    const twinB = await retrieveInBatches(
+      [{ id: 2, size: 10, rel_path: "b/invoice.txt", root_path: "/repo/b", mime: "text/plain", title: "Invoice B", sha256: "shared-hash" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    const doc = twinB.documents[0];
+    assert.equal(doc.dedup, true, "sanity: identical content dedups");
+    assert.equal(doc.id, 2, "identity follows the REQUESTED document, not the first reader");
+    assert.equal(doc.rel_path, "b/invoice.txt");
+    assert.equal(doc.root_path, "/repo/b");
+    assert.equal(doc.mime, "text/plain");
+    assert.equal(doc.title, "Invoice B");
+    assert.equal(doc.text, invoiceText, "content facts still come from the cache");
+  });
+
+  test("a renamed-but-unchanged document returns its CURRENT identity on a dedup hit, not the original read's (round 8, P1)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    await retrieveInBatches(
+      [{ id: 9, size: 10, rel_path: "old-name.txt", root_path: "/repo", mime: "text/plain", title: "Bill", sha256: "stable-hash" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    const renamed = await retrieveInBatches(
+      [{ id: 9, size: 10, rel_path: "new-name.txt", root_path: "/repo", mime: "text/plain", title: "Bill", sha256: "stable-hash" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    const doc = renamed.documents[0];
+    assert.equal(doc.dedup, true, "sanity: same id + same content still dedups");
+    assert.equal(doc.id, 9);
+    assert.equal(doc.rel_path, "new-name.txt", "the current request's path wins over the original read's");
+  });
+
+  test("a dedup hit falls back to cached identity ONLY for fields a direct caller omitted (round 8, P1)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    await retrieveInBatches(
+      [{ id: 1, size: 10, rel_path: "a.txt", root_path: "/repo", mime: "text/plain", title: "Doc", sha256: "hash-a" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    const partial = await retrieveInBatches(
+      [{ id: 1, sha256: "hash-a" }], // no identity fields at all
+      { sessionId: "conv-1", readBatch },
+    );
+    const doc = partial.documents[0];
+    assert.equal(doc.dedup, true);
+    assert.equal(doc.id, 1, "the requested id always wins");
+    assert.equal(doc.rel_path, "a.txt", "omitted fields fall back to the cached read's values");
+    assert.equal(doc.root_path, "/repo");
+    assert.equal(doc.title, "Doc");
+  });
+
+  // ── Round 8, P2: mixed cached/fresh batches emit in INPUT order ─────────
+  // Previously a cached candidate was pushed to `documents` the moment it
+  // was scanned, while fresh candidates were appended only after readBatch
+  // resolved — so a fresh candidate preceding a cached one in the manifest
+  // came out AFTER it, making ranked results and generated highlights
+  // depend on cache state.
+
+  test("mixed cached/fresh batches preserve input (manifest) order — a cached candidate never jumps ahead of a fresh one (round 8, P2)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    // Prime the cache for the MIDDLE candidate only.
+    await retrieveInBatches(
+      [{ id: 2, size: 10, rel_path: "b.txt", sha256: "hash-b" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    const result = await retrieveInBatches([
+      { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" },
+      { id: 2, size: 10, rel_path: "b.txt", sha256: "hash-b" },
+      { id: 3, size: 10, rel_path: "c.txt", sha256: "hash-c" },
+    ], { sessionId: "conv-1", readBatch });
+
+    assert.deepEqual(result.documents.map(d => d.id), [1, 2, 3],
+      "output order must match the manifest order regardless of cache state — previously the cached id 2 was pushed before the fresh id 1");
+    assert.equal(result.documents[1].dedup, true);
+    assert.equal(result.documents[0].dedup, undefined);
+    assert.equal(result.documents[2].dedup, undefined);
+  });
+
+  test("mixed cached/fresh batches preserve input order when the cached candidate sits at the FRONT (round 8, P2)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    await retrieveInBatches(
+      [{ id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    const result = await retrieveInBatches([
+      { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" },
+      { id: 2, size: 10, rel_path: "b.txt", sha256: "hash-b" },
+    ], { sessionId: "conv-1", readBatch });
+    assert.deepEqual(result.documents.map(d => d.id), [1, 2], "input order is preserved in both directions");
+    assert.equal(result.documents[0].dedup, true);
+    assert.equal(result.documents[1].dedup, undefined);
+  });
+
+  // ── Round 9, P2: the cache key is bound to the hash read with the text ──
+  // The trust lookup and the content read are separate awaited queries on
+  // Postgres; a concurrent re-index between them used to let retrieval cache
+  // the newly read text under the OLD hash (or vice versa), so a later dedup
+  // hit returned content that did not match the hash it claimed. The fresh
+  // path now keys the cache by result.sha256 — the hash read from the SAME
+  // row as the text — making every entry internally consistent.
+
+  test("the session cache is keyed by the sha256 read WITH the content (result.sha256), never the pre-read candidate hash (round 9, P2)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    // Simulates a re-index landing between the trust lookup (candidate still
+    // says hash-old) and the content read (the row now has hash-new): the
+    // readBatch row reports its OWN hash.
+    const readBatch = async batch => batch.map(c => ({ id: c.id, sha256: "hash-new", text: invoiceText }));
+
+    // First read: candidate claims hash-old, but the row says hash-new.
+    await retrieveInBatches(
+      [{ id: 1, size: 10, rel_path: "a.txt", sha256: "hash-old" }],
+      { sessionId: "conv-1", readBatch },
+    );
+
+    // A later request carrying hash-new (fresh manifest after the re-index)
+    // dedups against text that genuinely has hash-new — never a mismatch.
+    const hit = await retrieveInBatches(
+      [{ id: 1, size: 10, rel_path: "a.txt", sha256: "hash-new" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    assert.equal(hit.documents[0].dedup, true, "content read under hash-new must be findable by hash-new");
+    assert.equal(hit.documents[0].text, invoiceText, "the hit returns the content that genuinely has that hash");
+
+    // And the OLD hash is NOT associated with the new content — a request
+    // still carrying hash-old must miss and read in full, never a dedup hit
+    // returning mismatched content.
+    const oldHashRequest = await retrieveInBatches(
+      [{ id: 1, size: 10, rel_path: "a.txt", sha256: "hash-old" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    assert.ok(!oldHashRequest.documents[0].dedup, "an old hash must never hit content that belongs to a new hash");
+    assert.equal(oldHashRequest.documents[0].text, invoiceText);
+  });
+
+  test("a readBatch result without sha256 falls back to the candidate hash (backward-compatible injected readers)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText })); // no sha256 field
+    await retrieveInBatches(
+      [{ id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    const hit = await retrieveInBatches(
+      [{ id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" }],
+      { sessionId: "conv-1", readBatch },
+    );
+    assert.equal(hit.documents[0].dedup, true, "keyed by candidate.sha256 when the reader reports no hash");
+  });
+
+  // ── Round 10, P2: budget is charged in INPUT order, not read-completion order ──
+  // A cached pointer used to be charged to bytes the moment it was scanned —
+  // before a PRECEDING fresh candidate's real text size was known. When the
+  // fresh candidate's declared size understated its text, the lower-ranked
+  // cached document consumed the budget first and the higher-ranked fresh one
+  // was skipped. Budget now resolves in manifest order: a candidate can only
+  // be skipped because of its OWN real cost, never because a later (lower
+  // priority) candidate was charged ahead of it.
+
+  test("a cached pointer is never charged before a preceding fresh candidate's real size — the higher-ranked fresh doc wins the budget (round 10, P2)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    // Prime the cache for id 2 so it dedups on the next call.
+    await retrieveInBatches(
+      [{ id: 2, size: 10, rel_path: "b.txt", sha256: "hash-b" }],
+      { sessionId: "conv-1", readBatch },
+    );
+
+    // id 1 (HIGHER rank) declares a tiny size (10) but its real text is huge;
+    // id 2 is cached (pointer ~200B). Budget = real_text + pointer - 1, so
+    // estimate + pointer fits but real_text + pointer does not. The fresh
+    // candidate is charged FIRST (input order) and succeeds on its own cost;
+    // the cached pointer then overflows and is skipped. Before the fix, the
+    // pointer was charged first and the higher-ranked fresh doc was skipped
+    // instead.
+    const pointerBytes = Buffer.byteLength(
+      `Already read earlier in this conversation (unchanged — sha256 match, originally read as "b.txt"). Full text omitted to save context; dates/amounts below are preserved from that earlier read.`,
+      "utf8",
+    );
+    const invoiceBytes = Buffer.byteLength(invoiceText, "utf8");
+    const maxTotalBytes = invoiceBytes + pointerBytes - 1;
+    assert.ok(10 + pointerBytes <= maxTotalBytes, "sanity: the estimate plus pointer fits the budget");
+
+    const result = await retrieveInBatches([
+      { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" },
+      { id: 2, size: 10, rel_path: "b.txt", sha256: "hash-b" },
+    ], { sessionId: "conv-1", readBatch, maxTotalBytes });
+
+    assert.equal(result.documents[0].status, "read", "the higher-ranked fresh candidate is judged on its own real cost");
+    assert.ok(!result.documents[0].dedup);
+    assert.equal(result.documents[1].status, "skipped", "the lower-ranked cached pointer loses the budget race it used to win");
+    assert.equal(result.documents[1].reason, "retrieval exceeds maxTotalBytes");
+    assert.equal(result.documents[0].text, invoiceText);
+  });
+
+  // ── Round 11, P1: only budget-ACCEPTED documents are cached ─────────────
+  // The session fact used to be staged while resolving fresh reads — before
+  // the input-order budget pass marked a document skipped for exceeding the
+  // remaining maxTotalBytes. The deferred commit then recorded text that was
+  // never delivered as "already read", so a later request with a larger
+  // budget got a pointer instead of the document.
+
+  test("a document budget-skipped on actual bytes is never cached — a later request with a larger budget reads it in full (round 11, P1)", async () => {
+    _resetDocBatchSessionCacheForTests();
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: invoiceText }));
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" };
+    const invoiceBytes = Buffer.byteLength(invoiceText, "utf8");
+
+    // First call: the declared size (10) fits the budget, but the extracted
+    // text exceeds it — the document is read then budget-skipped.
+    const first = await retrieveInBatches([candidate], {
+      sessionId: "conv-1", readBatch,
+      maxTotalBytes: invoiceBytes - 1,
+    });
+    assert.equal(first.documents[0].status, "skipped");
+    assert.equal(first.documents[0].reason, "retrieval exceeds maxTotalBytes");
+
+    // Second call with a LARGER budget: must read in full — never an
+    // "already read" pointer for text that was never delivered.
+    const second = await retrieveInBatches([candidate], {
+      sessionId: "conv-1", readBatch,
+      maxTotalBytes: invoiceBytes + 1000,
+    });
+    assert.equal(second.documents[0].status, "read");
+    assert.ok(!second.documents[0].dedup, "never-delivered text must never be deduped");
+    assert.equal(second.documents[0].text, invoiceText);
   });
 });
 

@@ -868,6 +868,80 @@ describe("callToolHooked() — INJECT-01 provenance fencing + taint", () => {
     assert.match(result, /external page text/);
     assert.match(warnings[0], /result offload failed.*disk full/);
   });
+
+  test("an offloaded doc_batch result clears the connection's doc_batch dedup cache (round 14, P1)", async () => {
+    // Regression: docgraphHandlers.js's doc_batch commits the session dedup
+    // cache inside the MCP child process the instant the tool call returns —
+    // before this hook ever inspects the result. When the result is large
+    // enough to be offloaded here, the model only receives the preview
+    // (this function's return value), yet the dedup cache already claims the
+    // full document was "already read". Wired end-to-end through
+    // createToolHooks/makeTurnHooks (not just the middleware in isolation)
+    // to prove clearDocSessionCache actually receives toolCallMeta.docSessionId.
+    const cleared = [];
+    const factory = createToolHooks({
+      callTool: async () => "doc_batch payload ".repeat(5000),
+      offloadToolResult: () => ({
+        result: "bounded preview",
+        artifacts: [{ id: "artifact-1", scope: "session", byteCount: 200_000, originalTokenCount: 50_000 }],
+      }),
+      clearDocSessionCache: async (sessionId) => { cleared.push(sessionId); },
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: true, summary: "" }),
+      getActiveScratchDir: () => "/scratch",
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory(
+      { send: noop }, Date.now(),
+      { scope: "session", ownerId: "session-1", contextWindow: 32_000 },
+      null, null, null,
+      { docSessionId: "conn-dedup-1" }, // toolCallMeta
+    );
+
+    const result = await hooks.callToolHooked("doc_batch", { candidates: [] });
+    assert.equal(result, "bounded preview");
+    assert.deepEqual(cleared, ["conn-dedup-1"]);
+  });
+
+  test("a doc_batch result that stays under the offload threshold never clears the dedup cache", async () => {
+    const cleared = [];
+    const factory = createToolHooks({
+      callTool: async () => "small doc_batch payload",
+      offloadToolResult: (result) => ({ result, artifacts: [] }),
+      clearDocSessionCache: async (sessionId) => { cleared.push(sessionId); },
+      summarizeArgs: () => "",
+      summarizeResult: () => ({ ok: true, summary: "" }),
+      getActiveScratchDir: () => "/scratch",
+      resolveScratchPath: (p) => p,
+      validateWrittenFile: noop,
+      logger: silentLogger,
+      WRITE_TOOLS: new Set(),
+      CONFIRM_TOOLS: new Set(),
+      existsSync: () => true,
+      statSync: () => ({ size: 1, isFile: () => true }),
+      readdirSync: () => [],
+      copyFileSync: noop,
+      basename, join,
+    });
+    const hooks = factory(
+      { send: noop }, Date.now(),
+      { scope: "session", ownerId: "session-1", contextWindow: 32_000 },
+      null, null, null,
+      { docSessionId: "conn-dedup-1" },
+    );
+
+    await hooks.callToolHooked("doc_batch", { candidates: [] });
+    assert.deepEqual(cleared, []);
+  });
 });
 
 describe("callToolHooked() — WRITE-01 taint→confirm wiring", () => {

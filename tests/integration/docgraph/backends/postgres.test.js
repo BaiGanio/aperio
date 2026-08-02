@@ -251,6 +251,110 @@ describe("repos", () => {
 });
 
 // =============================================================================
+// batch — sha256 trust (llamacpp-multiturn-latency.md Step 3 review, round 3, P1)
+// =============================================================================
+
+describe("batch — sha256 trust", () => {
+  test("overwrites a model-supplied sha256 with the value actually stored for the candidate's id before dedup uses it", async () => {
+    let callIdx = 0;
+    const store = makeStore((sql) => {
+      callIdx++;
+      // Call 1: withTrustedSha256Postgres's own id -> sha256 lookup. Returns
+      // document B's REAL sha256, deliberately different from whatever the
+      // caller supplied below — simulating a stale/copied hash in the
+      // request payload (e.g. the model echoing an old manifest row).
+      if (callIdx === 1) return [{ id: 42, sha256: "real-sha-b" }];
+      // Call 2: readBatch's own content query.
+      return [{ id: 42, mime: "text/markdown", title: "Doc B", rel_path: "doc-b.md", root_path: "/repo", text: "Document B's real content." }];
+    });
+
+    const result = await pg.batch(store, {
+      candidates: [{ id: 42, rel_path: "doc-b.md", size: 10, sha256: "stale-sha-a-copied-by-mistake" }],
+    });
+
+    assert.equal(result.documents[0].status, "read");
+    assert.equal(result.documents[0].text, "Document B's real content.");
+    // The trust lookup ran, keyed by id — not by the caller's untrusted sha256.
+    assert.match(store._calls[0].sql, /sha256/);
+    assert.deepEqual(store._calls[0].params, [[42]]);
+  });
+
+  test("falls back to sha256: null (reported as skipped, never a phantom dedup hit) for a candidate id no longer in the index", async () => {
+    const store = makeStore(() => []);
+    const result = await pg.batch(store, {
+      candidates: [{ id: 999, rel_path: "gone.md", size: 10, sha256: "whatever-the-caller-supplied" }],
+    });
+    assert.equal(result.documents[0].status, "skipped");
+  });
+
+  test("refreshes the FULL current identity (not just sha256) for a dedup hit — a stale candidate path never wins over the current DB row (round 8, P1)", async () => {
+    let callIdx = 0;
+    const store = makeStore(() => {
+      callIdx++;
+      // Call 1: trust lookup for the FIRST batch — the row still has the old path.
+      if (callIdx === 1) return [{ id: 42, sha256: "stable-sha", rel_path: "old-name.md", mime: "text/markdown", title: "Rename Doc", root_path: "/repo" }];
+      // Call 2: readBatch content read for the FIRST batch.
+      if (callIdx === 2) return [{ id: 42, mime: "text/markdown", title: "Rename Doc", rel_path: "old-name.md", root_path: "/repo", text: "Same content, Amount Due: 5.00 BGN on 01.07.2026." }];
+      // Call 3: trust lookup for the SECOND batch — the file was renamed on
+      // disk and re-indexed, so the CURRENT row's rel_path has changed.
+      if (callIdx === 3) return [{ id: 42, sha256: "stable-sha", rel_path: "new-name.md", mime: "text/markdown", title: "Rename Doc", root_path: "/repo" }];
+      return [];
+    });
+
+    // First batch primes the session dedup cache under the stable sha256.
+    await pg.batch(store, {
+      candidates: [{ id: 42, rel_path: "old-name.md", size: 10, sha256: "stable-sha" }],
+      sessionId: "pg-rename-session",
+    });
+
+    // Second batch: the model's candidate is stale (still old-name.md), but
+    // the trust lookup refreshes identity from the CURRENT row, so the dedup
+    // hit must return new-name.md — not the cached original read's old path.
+    const result = await pg.batch(store, {
+      candidates: [{ id: 42, rel_path: "old-name.md", size: 10, sha256: "stable-sha" }],
+      sessionId: "pg-rename-session",
+    });
+    const doc = result.documents[0];
+    assert.equal(doc.dedup, true, "sanity: same id + same content still dedups");
+    assert.equal(doc.rel_path, "new-name.md", "dedup-hit identity comes from the CURRENT DB row via the trust refresh");
+  });
+
+  test("the content read fetches sha256 from the SAME row as the text, so a concurrent re-index can never cache new text under an old hash (round 9, P2)", async () => {
+    let callIdx = 0;
+    const store = makeStore(() => {
+      callIdx++;
+      // Call 1: trust lookup for the FIRST batch — snapshot taken BEFORE the
+      // concurrent re-index commits (stale hash).
+      if (callIdx === 1) return [{ id: 42, sha256: "hash-before-reindex", rel_path: "doc.md", mime: "text/markdown", title: "Doc", root_path: "/repo" }];
+      // Call 2: the content read — the re-index has committed by now, so the
+      // row carries the NEW hash alongside the NEW text.
+      if (callIdx === 2) return [{ id: 42, sha256: "hash-after-reindex", mime: "text/markdown", title: "Doc", rel_path: "doc.md", root_path: "/repo", text: "Content that was re-indexed between the two queries." }];
+      // Call 3: trust lookup for the SECOND batch — current manifest hash.
+      if (callIdx === 3) return [{ id: 42, sha256: "hash-after-reindex", rel_path: "doc.md", mime: "text/markdown", title: "Doc", root_path: "/repo" }];
+      return [];
+    });
+
+    await pg.batch(store, {
+      candidates: [{ id: 42, rel_path: "doc.md", size: 10, sha256: "hash-before-reindex" }],
+      sessionId: "pg-hash-race-session",
+    });
+    // The content query must itself select sha256 — that is what lets
+    // retrieveInBatches key the cache by the hash read with the text.
+    assert.match(store._calls[1].sql, /sha256/, "the content read must fetch sha256 in the same query as the text");
+
+    // Follow-up request with the current manifest hash: dedups against
+    // content that genuinely has that hash — never a hash/content mismatch.
+    const second = await pg.batch(store, {
+      candidates: [{ id: 42, rel_path: "doc.md", size: 10, sha256: "hash-after-reindex" }],
+      sessionId: "pg-hash-race-session",
+    });
+    const doc = second.documents[0];
+    assert.equal(doc.dedup, true, "content read under hash-after-reindex must be findable by hash-after-reindex");
+    assert.equal(doc.text, "Content that was re-indexed between the two queries.");
+  });
+});
+
+// =============================================================================
 // refs
 // =============================================================================
 

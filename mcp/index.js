@@ -1,5 +1,7 @@
 import { McpServer }          from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { RequestSchema }        from "@modelcontextprotocol/sdk/types.js";
+import { z }                    from "zod";
 import dotenv                   from "dotenv";
 import { fileURLToPath }        from "url";
 import { dirname, resolve }     from "path";
@@ -134,6 +136,7 @@ export async function startServer(opts = {}) {
     { register: registerData },
     { register: registerDatabase },
     { register: registerExtraction },
+    { clearSessionCacheHandler },
   ] = await Promise.all([
     import("./tools/memory.js"),
     import("./tools/self-memory.js"),
@@ -149,6 +152,7 @@ export async function startServer(opts = {}) {
     import("./tools/data.js"),
     import("./tools/database.js"),
     import("./tools/extraction.js"),
+    import("../lib/handlers/docgraph/docgraphHandlers.js"),
   ]);
 
   registerMemory(server, ctx);
@@ -165,6 +169,30 @@ export async function startServer(opts = {}) {
   registerData(server, ctx);
   registerDatabase(server, ctx);
   registerExtraction(server, ctx);
+
+  // Control channel for the main server process to invalidate docgraph's
+  // session-scoped doc_batch dedup cache (lib/docgraph/retrieval.js's
+  // sessionReadFacts) inside THIS child. Deliberately NOT registered as an
+  // MCP tool: every tool a McpServer registers is discoverable via
+  // tools/list() by any connected client — including a subscription
+  // provider's own MCP client (Codex spawns and talks to its own separate
+  // instance of this same mcp/index.js directly; runClaudeCodeLoop builds
+  // its tool list from the full mcpTools catalog, not the per-turn profile-
+  // filtered subset) — so a tool named e.g. "docgraph_clear_session_cache"
+  // would be a real, model-callable tool regardless of what
+  // lib/agent/tool-profiles.js says (llamacpp-multiturn-latency.md Step 3
+  // review, round 5, P2). A custom JSON-RPC method on the low-level Server,
+  // outside the Tools capability entirely, is invisible to tools/list() for
+  // every client — see lib/agent/index.js's clearDocSessionCache(), the only
+  // caller, which uses the SDK's generic Protocol#request() to reach it.
+  const ClearDocSessionCacheRequestSchema = RequestSchema.extend({
+    method: z.literal("aperio/clearDocSessionCache"),
+    params: z.object({ sessionId: z.string() }).passthrough(),
+  });
+  server.server.setRequestHandler(ClearDocSessionCacheRequestSchema, async (request) => {
+    await clearSessionCacheHandler(ctx, request.params);
+    return { ok: true };
+  });
 
   // 4. Connect transport
   const transport = opts.transport || new StdioServerTransport();

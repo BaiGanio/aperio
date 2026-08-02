@@ -196,6 +196,16 @@ describe("GET /sessions/:id", () => {
     assert.strictEqual(status, 404);
     assert.ok(body.error.includes("Session not found"));
   });
+
+  test("returns 404 (not 500, and never the escaped file) for a path-traversal id (security)", async () => {
+    // Regression: "../../package" resolves inside the sessions dir to the
+    // repo's own package.json (valid JSON, one level below tmpDir) — before
+    // the id-validation gate, this returned package.json's contents as if it
+    // were a real session.
+    const { status, body } = await invoke("GET", "/sessions/..%2F..%2Fpackage");
+    assert.strictEqual(status, 404);
+    assert.ok(body.error.includes("Session not found"));
+  });
 });
 
 // =============================================================================
@@ -221,6 +231,12 @@ describe("DELETE /sessions/:id", () => {
 
   test("returns 404 for non-existent id", async () => {
     const { status, body } = await invoke("DELETE", "/sessions/nonexistent");
+    assert.strictEqual(status, 404);
+    assert.ok(body.error.includes("Session not found"));
+  });
+
+  test("returns 404 (not 500) for a path-traversal id and never touches the escaped file (security)", async () => {
+    const { status, body } = await invoke("DELETE", "/sessions/..%2F..%2Fpackage");
     assert.strictEqual(status, 404);
     assert.ok(body.error.includes("Session not found"));
   });
@@ -273,6 +289,14 @@ describe("PATCH /sessions/:id/pin", () => {
 
   test("returns 404 for non-existent id", async () => {
     const { status, body } = await invoke("PATCH", "/sessions/nonexistent/pin", {
+      body: { pinned: true },
+    });
+    assert.strictEqual(status, 404);
+    assert.ok(body.error.includes("Session not found"));
+  });
+
+  test("returns 404 (not 500) for a path-traversal id and never writes to the escaped file (security)", async () => {
+    const { status, body } = await invoke("PATCH", "/sessions/..%2F..%2Fpackage/pin", {
       body: { pinned: true },
     });
     assert.strictEqual(status, 404);

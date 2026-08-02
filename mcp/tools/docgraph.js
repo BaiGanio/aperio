@@ -18,7 +18,12 @@ const createBoundHandlers = (ctx) => ({
   // signal mid-request — thread the SDK's per-call `extra.signal` through so
   // cancelling/timing out a real doc_batch call stops retrieval instead of
   // running to completion after the caller has stopped listening.
-  batch:   (args, extra) => batchHandler(ctx, args, extra?.signal),
+  // `extra._meta.docSessionId` (set by lib/agent/index.js's callTool, see
+  // llamacpp-multiturn-latency.md Step 3) identifies which conversation this
+  // call belongs to, for session-scoped repeat-read dedup — it never reaches
+  // the model, since it rides MCP's own request metadata channel, not the
+  // Zod-validated `arguments`.
+  batch:   (args, extra) => batchHandler(ctx, args, extra?.signal, extra?._meta?.docSessionId),
   outline: (args) => outlineHandler(ctx, args),
   context: (args) => contextHandler(ctx, args),
   refs:    (args) => refsHandler(ctx, args),
@@ -105,6 +110,18 @@ const TOOLS = [
     getHandler: (h) => h.refs,
   },
 ];
+
+// A doc_batch dedup-cache invalidation control channel used to live here as
+// a "docgraph_clear_session_cache" tool. It was moved to a custom (non-tool)
+// JSON-RPC method in mcp/index.js's startServer(): every MCP tool registered
+// via server.registerTool() is visible through tools/list() to ANY connected
+// client, including a subscription provider's own MCP client (Codex spawns
+// and talks to its own separate instance of this mcp/index.js directly;
+// runClaudeCodeLoop builds its tool list from the full mcpTools catalog, not
+// the per-turn profile-filtered subset) — so it was a real, model-callable
+// tool on both regardless of lib/agent/tool-profiles.js (llamacpp-multiturn-
+// latency.md Step 3 review, round 5, P2). See lib/agent/index.js's
+// clearDocSessionCache() for the only caller.
 
 function buildInputSchema(tool) {
   return z.object(tool.schema);

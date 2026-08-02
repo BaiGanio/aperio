@@ -179,6 +179,95 @@ test("tool-result offloading is an afterTool middleware and fails open", async (
   assert.match(warnings[0], /disk full/);
 });
 
+test("offloading a result clears the docgraph session dedup cache (round 14, P1)", async () => {
+  // Regression: docgraphHandlers.js's doc_batch commits the session dedup
+  // cache (sessionReadFacts) inside the MCP child process the instant the
+  // tool call returns — before this middleware ever runs. When the result is
+  // large enough to be offloaded here, the model only receives the preview
+  // (finalizeToolResult returns THIS middleware's `result`), yet the dedup
+  // cache already claims the full document was "already read". Without
+  // invalidating it here, a later doc_batch for the same document (once
+  // read_artifact's turn-scoped exposure has expired) would return only the
+  // dedup pointer, permanently withholding content the model never saw.
+  const cleared = [];
+  const runner = createLifecycleRunner([
+    createToolResultOffloadMiddleware({
+      offloadToolResult: () => ({
+        result: "preview",
+        artifacts: [{ id: "artifact-1", scope: "session", byteCount: 200_000, originalTokenCount: 50_000 }],
+      }),
+      artifactContext: { scope: "session", ownerId: "session-1", contextWindow: 8_000 },
+      artifactIds: new Set(),
+      emitter: { send: noop },
+      logger,
+      clearDocSessionCache: async (sessionId) => { cleared.push(sessionId); },
+      docSessionId: "conn-dedup-1",
+    }),
+  ]);
+
+  await runner.run("afterTool", { name: "docgraph_doc_batch", result: "a huge doc_batch payload" });
+  assert.deepEqual(cleared, ["conn-dedup-1"], "the connection's doc_batch dedup cache must be invalidated when its result is offloaded");
+});
+
+test("a tool result that is NOT offloaded never clears the dedup cache", async () => {
+  const cleared = [];
+  const runner = createLifecycleRunner([
+    createToolResultOffloadMiddleware({
+      offloadToolResult: (result) => ({ result, artifacts: [] }), // under the size threshold — no offload
+      artifactContext: { scope: "session", ownerId: "session-1", contextWindow: 8_000 },
+      artifactIds: new Set(),
+      emitter: { send: noop },
+      logger,
+      clearDocSessionCache: async (sessionId) => { cleared.push(sessionId); },
+      docSessionId: "conn-dedup-1",
+    }),
+  ]);
+
+  await runner.run("afterTool", { name: "docgraph_doc_batch", result: "small result" });
+  assert.deepEqual(cleared, [], "no offload happened, so the dedup cache must be left alone");
+});
+
+test("no docSessionId or no clearDocSessionCache callback never throws and never clears", async () => {
+  const runner = createLifecycleRunner([
+    createToolResultOffloadMiddleware({
+      offloadToolResult: () => ({
+        result: "preview",
+        artifacts: [{ id: "artifact-1", scope: "session", byteCount: 200_000, originalTokenCount: 50_000 }],
+      }),
+      artifactContext: { scope: "session", ownerId: "session-1", contextWindow: 8_000 },
+      artifactIds: new Set(),
+      emitter: { send: noop },
+      logger,
+      // clearDocSessionCache/docSessionId both omitted — e.g. a non-WebSocket caller (CLI/harness).
+    }),
+  ]);
+
+  const result = await runner.run("afterTool", { name: "docgraph_doc_batch", result: "a huge doc_batch payload" });
+  assert.equal(result.request.result, "preview");
+});
+
+test("a throwing clearDocSessionCache fails open — the offload result still returns", async () => {
+  const warnings = [];
+  const runner = createLifecycleRunner([
+    createToolResultOffloadMiddleware({
+      offloadToolResult: () => ({
+        result: "preview",
+        artifacts: [{ id: "artifact-1", scope: "session", byteCount: 200_000, originalTokenCount: 50_000 }],
+      }),
+      artifactContext: { scope: "session", ownerId: "session-1", contextWindow: 8_000 },
+      artifactIds: new Set(),
+      emitter: { send: noop },
+      logger: { info: noop, warn: message => warnings.push(message) },
+      clearDocSessionCache: async () => { throw new Error("mcp round trip failed"); },
+      docSessionId: "conn-dedup-1",
+    }),
+  ]);
+
+  const result = await runner.run("afterTool", { name: "docgraph_doc_batch", result: "a huge doc_batch payload" });
+  assert.equal(result.request.result, "preview", "the offload itself must still succeed even if the cache clear failed");
+  assert.match(warnings[0], /mcp round trip failed/);
+});
+
 // ── WS-A: shared tail-attachment plumbing ─────────────────────────────────
 // isFirstHop detection (context-trimming stage) + appendTailToMessages, the
 // generic clone-and-splice mechanism that WS-B (clock) and WS-C (skills) will
@@ -387,4 +476,140 @@ test("C4: multimodal first message — skill tail lands in the text block, image
   assert.match(blocks[0].text, /IMAGE SKILL GUIDANCE/);
   // Original untouched.
   assert.doesNotMatch(userMsg.content[0].text, /IMAGE SKILL GUIDANCE/);
+});
+
+// ── Dedup-cache invalidation on context shed (Step 3 review, round 7, P1) ────
+// onModelContextShed must fire whenever the model-facing context sheds content
+// that was previously visible — the token-pressure trim OR the maxHistory cap —
+// because tool results that carried document text (or offloaded-artifact
+// pointers) may be among the shed messages. The caller invalidates
+// session-scoped caches (the doc_batch dedup cache) on this signal: cache
+// validity must follow the model-facing context, not the untrimmed
+// conversation lifetime.
+
+test("onModelContextShed fires with dropped>0 when the token-pressure trim sheds messages", async () => {
+  const sheds = [];
+  const middleware = stubMiddleware({
+    onModelContextShed: shed => sheds.push(shed),
+  });
+  const messages = Array.from({ length: 12 }, (_, index) => ({
+    role: index % 2 ? "assistant" : "user",
+    content: "x".repeat(2_000),
+  }));
+
+  await runBeforeModel(middleware, {
+    messages,
+    observedInputTokens: 20_000,
+    contextWindow: 4_000,
+  });
+
+  assert.equal(sheds.length, 1, "token-pressure trim must notify the observer exactly once");
+  assert.ok(sheds[0].dropped > 0, "carries the dropped count");
+  assert.equal(sheds[0].historyCapped, false);
+  assert.equal(typeof sheds[0].pct, "number");
+});
+
+test("onModelContextShed fires with historyCapped when the maxHistory cap sheds messages without token pressure", async () => {
+  const sheds = [];
+  const middleware = stubMiddleware({
+    maxHistory: 3,
+    onModelContextShed: shed => sheds.push(shed),
+  });
+  const messages = [
+    { role: "user", content: "oldest" },
+    { role: "assistant", content: "older" },
+    { role: "user", content: "previous" },
+    { role: "assistant", content: "recent" },
+    { role: "user", content: "current request" },
+  ];
+
+  await runBeforeModel(middleware, {
+    messages,
+    observedInputTokens: 0,
+    contextWindow: 100_000, // no token pressure — only the cap can shed
+  });
+
+  assert.equal(sheds.length, 1, "history-cap shed must notify the observer exactly once");
+  assert.equal(sheds[0].dropped, 0, "no token-pressure trim happened");
+  assert.equal(sheds[0].historyCapped, true, "the cap is what shed content");
+  assert.deepEqual(messages.map(m => m.content), ["oldest", "older", "previous", "recent", "current request"],
+    "observer must not mutate the caller's history");
+});
+
+test("onModelContextShed does not fire when nothing sheds (no token pressure, under the cap)", async () => {
+  const sheds = [];
+  const middleware = stubMiddleware({
+    maxHistory: 20,
+    onModelContextShed: shed => sheds.push(shed),
+  });
+  await runBeforeModel(middleware, {
+    messages: [
+      { role: "user", content: "one" },
+      { role: "assistant", content: "two" },
+    ],
+    observedInputTokens: 0,
+    contextWindow: 100_000,
+  });
+  assert.deepEqual(sheds, [], "nothing shed — observer must stay silent");
+});
+
+test("onModelContextShed fires when capToolResults truncates a tool result — even with no dropped messages and no history cap (round 9, P1)", async () => {
+  const sheds = [];
+  const middleware = stubMiddleware({
+    onModelContextShed: shed => sheds.push(shed),
+  });
+  const messages = [
+    { role: "user", content: "read these and summarize" },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "1", content: "y".repeat(20_000) }] },
+  ];
+
+  await runBeforeModel(middleware, {
+    messages,
+    observedInputTokens: 0,
+    contextWindow: 4_000, // 25% budget = 1k tokens — the 20k-char result is capped
+  });
+
+  assert.equal(sheds.length, 1, "a capped tool result is a shed: its truncated middle is no longer model-visible");
+  assert.equal(sheds[0].cappedToolResults, true);
+  assert.equal(sheds[0].dropped, 0, "no message was dropped — only the result was truncated in place");
+  assert.equal(sheds[0].historyCapped, false, "no history cap either — capping is the only shed signal");
+});
+
+test("onModelContextShed reports cappedToolResults: false when nothing was capped", async () => {
+  const sheds = [];
+  const middleware = stubMiddleware({
+    onModelContextShed: shed => sheds.push(shed),
+  });
+  const messages = Array.from({ length: 12 }, (_, index) => ({
+    role: index % 2 ? "assistant" : "user",
+    content: "x".repeat(2_000),
+  }));
+
+  await runBeforeModel(middleware, {
+    messages,
+    observedInputTokens: 20_000,
+    contextWindow: 4_000,
+  });
+
+  assert.equal(sheds.length, 1);
+  assert.ok(sheds[0].dropped > 0, "sanity: the token trim is what shed here");
+  assert.equal(sheds[0].cappedToolResults, false, "plain-string messages are never capped");
+});
+
+test("a throwing onModelContextShed fails open: the trim still produces its request", async () => {
+  const middleware = stubMiddleware({
+    onModelContextShed: () => { throw new Error("cache clear exploded"); },
+  });
+  const messages = Array.from({ length: 12 }, (_, index) => ({
+    role: index % 2 ? "assistant" : "user",
+    content: "x".repeat(2_000),
+  }));
+
+  const prepared = await runBeforeModel(middleware, {
+    messages,
+    observedInputTokens: 20_000,
+    contextWindow: 4_000,
+  });
+
+  assert.ok(prepared.request.dropped > 0, "trimmed request still produced despite observer failure");
 });

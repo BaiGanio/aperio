@@ -18,6 +18,7 @@ import {
   contextHandler,
   refsHandler,
   deleteRepoHandler,
+  clearSessionCacheHandler,
 } from "../../../lib/handlers/docgraph/docgraphHandlers.js";
 
 // ─── Mock pool — routes SQL content to controlled rows ──────────────────────
@@ -280,6 +281,83 @@ describe("batchHandler — deterministic aggregation", () => {
     assert.equal(payload.coverage.skipped_reasons["gone.txt"], "reader returned no result");
     assert.equal(payload.aggregate.coverage.documents_seen, 3);
     assert.ok(!payload.aggregate.excluded.some(e => e.document === "gone.txt"));
+  });
+});
+
+// =============================================================================
+// batchHandler — session-scoped doc_batch dedup (T-L3, llamacpp-multiturn-
+// latency.md Step 3), end-to-end through the real handler + facts pipeline
+// =============================================================================
+//
+// Lower-level dedup mechanics (bytes, LRU, cross-session isolation) are
+// covered in retrieval.test.js. These tests exercise the full handler-level
+// wiring: a repeat doc_batch call must shrink `text` to a short pointer in
+// the MODEL-FACING JSON payload, while `aggregate` — computed from the real
+// cached text, not the pointer — still reports the identical deterministic
+// totals a fresh read would. AGG_STATEMENT is deliberately reused: it is a
+// multi-row bank statement, the shape most exposed by caching dates/amounts
+// alone instead of real text (statement-row parsing has no other way to
+// recover its facts).
+
+describe("batchHandler — session-scoped doc_batch dedup, end-to-end", () => {
+  const rows = [
+    { id: 1, mime: "text/plain", title: null, rel_path: "June/fuel-receipt-09-jun.txt", root_path: "/repo/household", text: AGG_FUEL_RECEIPT, sha256: "sha-fuel" },
+    { id: 2, mime: "text/plain", title: null, rel_path: "June/bank-statement-jun.txt", root_path: "/repo/household", text: AGG_STATEMENT, sha256: "sha-statement" },
+    { id: 3, mime: "text/plain", title: null, rel_path: "June/electricity-bill-03-jun.txt", root_path: "/repo/household", text: AGG_ELECTRICITY, sha256: "sha-electricity" },
+  ];
+  const pool = mockPool({ "FROM docgraph_documents": rows });
+  const ctx = { store: { pool }, generateEmbedding: async () => null, vectorEnabled: () => false };
+  const args = { candidates: rows.map(r => ({ id: r.id, rel_path: r.rel_path, size: 10, sha256: r.sha256 })) };
+
+  test("a repeat call shrinks text to a pointer for the model but keeps the SAME aggregate totals as the fresh read", async () => {
+    const first = await batchHandler(ctx, args, undefined, "conv-e2e");
+    const firstPayload = JSON.parse(first.content[0].text);
+    assert.ok(!firstPayload.documents.some(d => d.dedup), "sanity: nothing is deduped yet");
+    assert.equal(firstPayload.aggregate.by_currency.BGN.total, 349.95);
+
+    const second = await batchHandler(ctx, args, undefined, "conv-e2e");
+    const secondPayload = JSON.parse(second.content[0].text);
+    const dedupedDocs = secondPayload.documents.filter(d => d.dedup);
+    assert.equal(dedupedDocs.length, 3, "every document was read in the first call, so all three dedup on the repeat");
+
+    // Model-facing: text is the short pointer, not the raw statement/receipt/
+    // invoice bodies, and no internal-only field leaks into the JSON.
+    for (const doc of dedupedDocs) {
+      assert.match(doc.text, /already read/i);
+      assert.equal(doc.dedupPointerText, undefined, "the internal handoff field must not leak into the model-facing payload");
+    }
+
+    // Application-facing: the SAME deterministic totals, computed from the
+    // real cached text — a statement's multiple transaction rows, a fuel
+    // receipt/statement duplicate merge, and an invoice's category all
+    // required raw text, not just cached dates/amounts, to reproduce.
+    assert.deepEqual(secondPayload.aggregate.by_currency, firstPayload.aggregate.by_currency);
+    assert.equal(secondPayload.aggregate.duplicates.length, 1);
+    assert.equal(secondPayload.aggregate.coverage.facts_counted, firstPayload.aggregate.coverage.facts_counted);
+  });
+
+  test("a mixed cached/fresh doc_batch preserves the manifest order in the model-facing payload (round 8, P2)", async () => {
+    const c = (id) => {
+      const row = rows.find(r => r.id === id);
+      return { id, rel_path: row.rel_path, size: 10, sha256: row.sha256 };
+    };
+    // Prime the cache for docs 1 and 2.
+    const first = await batchHandler(ctx, { candidates: [c(1), c(2)] }, undefined, "conv-order");
+    const firstPayload = JSON.parse(first.content[0].text);
+    assert.ok(!firstPayload.documents.some(d => d.dedup), "sanity: first call reads everything fresh");
+
+    // Re-request in a DIFFERENT manifest order with one fresh doc at the
+    // FRONT: doc 3 is new, docs 1/2 are cached. Output must follow the
+    // manifest order — before the fix, cached docs 1/2 were pushed
+    // immediately while fresh doc 3 waited for readBatch, so the payload
+    // came back [1, 2, 3] instead of [3, 1, 2].
+    const second = await batchHandler(ctx, { candidates: [c(3), c(1), c(2)] }, undefined, "conv-order");
+    const payload = JSON.parse(second.content[0].text);
+    assert.deepEqual(payload.documents.map(d => d.id), [3, 1, 2],
+      "output order must follow the manifest order regardless of cache state");
+    assert.equal(payload.documents[0].dedup, undefined);
+    assert.equal(payload.documents[1].dedup, true);
+    assert.equal(payload.documents[2].dedup, true);
   });
 });
 
@@ -576,6 +654,68 @@ describe("batchHandler — docgraph → memory bridge (#314)", () => {
 });
 
 // =============================================================================
+// batchHandler — deferred session-cache commit (llamacpp-multiturn-latency.md
+// Step 3 review, round 5, P1). retrieveInBatches used to commit its dedup
+// cache write before returning; _batch's own post-processing (highlights,
+// aggregation, the memory bridge above — all of which can genuinely take a
+// while) runs AFTER that. If the caller's request is aborted/times out
+// during THAT window, the model never receives the result at all, yet the
+// document would already have been recorded as "already read". These tests
+// use the memory-bridge fixtures above (DOCGRAPH_AUTO_MEMORY=on) because the
+// bridge is the one part of _batch's post-processing that actually awaits
+// anything — a real, reachable gap for an abort to land in, not a
+// synchronous one.
+// =============================================================================
+
+describe("batchHandler — deferred session-cache commit is skipped when the request is aborted mid-flight", () => {
+  beforeEach(() => { delete process.env.DOCGRAPH_AUTO_MEMORY; });
+  afterEach(() => { delete process.env.DOCGRAPH_AUTO_MEMORY; });
+
+  test("an abort that fires during the memory-bridge post-processing (after the real read already succeeded) prevents the dedup commit — a retry reads fresh, not a phantom 'already read'", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const docRow = { ...QUALIFYING_DOC_ROW, sha256: "sha-abort-commit-test" };
+    const args = { candidates: [{ id: 1, rel_path: QUALIFYING_REL_PATH, size: 10, sha256: "sha-abort-commit-test" }] };
+    const { ctx, memStore } = makeBridgeCtx({ docRow });
+
+    const controller = new AbortController();
+    // Simulate the caller's request being aborted/timed out WHILE the memory
+    // bridge is still running — after retrieveInBatches already returned a
+    // successful read, but before batchHandler has finished and committed
+    // the session dedup cache.
+    memStore.recall.mock.mockImplementationOnce(async () => {
+      controller.abort();
+      return [];
+    });
+
+    const first = await batchHandler(ctx, args, controller.signal, "conv-abort-commit-test");
+    const firstPayload = JSON.parse(first.content[0].text);
+    assert.strictEqual(firstPayload.documents[0].status, "read");
+
+    const second = await batchHandler(ctx, args, new AbortController().signal, "conv-abort-commit-test");
+    const secondPayload = JSON.parse(second.content[0].text);
+    assert.ok(
+      !secondPayload.documents[0].dedup,
+      "the aborted first call must never have committed to the session cache — the model never received the delivered result, so a retry must read the document fresh",
+    );
+  });
+
+  test("a normal (non-aborted) call still commits the session cache as before", async () => {
+    process.env.DOCGRAPH_AUTO_MEMORY = "on";
+    const docRow = { ...QUALIFYING_DOC_ROW, sha256: "sha-normal-commit-test" };
+    const args = { candidates: [{ id: 1, rel_path: QUALIFYING_REL_PATH, size: 10, sha256: "sha-normal-commit-test" }] };
+    const { ctx } = makeBridgeCtx({ docRow });
+
+    const first = await batchHandler(ctx, args, new AbortController().signal, "conv-normal-commit-test");
+    const firstPayload = JSON.parse(first.content[0].text);
+    assert.strictEqual(firstPayload.documents[0].status, "read");
+
+    const second = await batchHandler(ctx, args, new AbortController().signal, "conv-normal-commit-test");
+    const secondPayload = JSON.parse(second.content[0].text);
+    assert.equal(secondPayload.documents[0].dedup, true, "a normal, non-aborted call must still commit and dedupe on repeat");
+  });
+});
+
+// =============================================================================
 // outlineHandler
 // =============================================================================
 
@@ -708,5 +848,43 @@ describe("deleteRepoHandler", () => {
     const result = await deleteRepoHandler(ctx, { path: "/repo" });
     assert.ok(isError(result));
     assert.ok(result.content[0].text.includes("delete failed"));
+  });
+});
+
+// =============================================================================
+// clearSessionCacheHandler — internal, never model-facing (llamacpp-multiturn-
+// latency.md Step 3 review, round 3, P1). Needs no backend/store at all —
+// it operates purely on lib/docgraph/retrieval.js's in-process cache, which
+// is exactly why this handler must run inside the SAME MCP child process
+// that doc_batch's retrieveInBatches runs in (see the cross-process
+// integration test at tests/integration/mcp/docgraph-clear-session-cache.test.js
+// for proof this actually crosses the process boundary correctly).
+// =============================================================================
+
+describe("clearSessionCacheHandler", () => {
+  test("clears the named session's dedup cache and leaves other sessions untouched", async () => {
+    const { retrieveInBatches, _resetDocBatchSessionCacheForTests } = await import(
+      "../../../lib/docgraph/retrieval.js"
+    );
+    _resetDocBatchSessionCacheForTests();
+    const candidate = { id: 1, size: 10, rel_path: "a.txt", sha256: "hash-a" };
+    const readBatch = async batch => batch.map(c => ({ id: c.id, text: "some document text" }));
+
+    await retrieveInBatches([candidate], { sessionId: "conv-x", readBatch });
+    await retrieveInBatches([candidate], { sessionId: "conv-y", readBatch });
+
+    const result = await clearSessionCacheHandler({}, { sessionId: "conv-x" });
+    assert.deepEqual(JSON.parse(result.content[0].text), { ok: true });
+
+    const afterClear = await retrieveInBatches([candidate], { sessionId: "conv-x", readBatch });
+    assert.ok(!afterClear.documents[0].dedup, "conv-x's cache was cleared");
+
+    const untouched = await retrieveInBatches([candidate], { sessionId: "conv-y", readBatch });
+    assert.equal(untouched.documents[0].dedup, true, "conv-y must be unaffected");
+  });
+
+  test("is a no-op for a missing/falsy sessionId — never throws", async () => {
+    const result = await clearSessionCacheHandler({}, {});
+    assert.deepEqual(JSON.parse(result.content[0].text), { ok: true });
   });
 });

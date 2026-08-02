@@ -20,10 +20,12 @@ describe("handleSummarize", () => {
       runAgentLoop: mock.fn(async () => "- Key point about TypeScript\n- Another key point"),
       currentLang: "en",
       sessionId: "session-1",
+      docSessionId: "doc-session-1",
       providerSessionSourceId: "ps-1",
       provider: () => ({ name: "anthropic", model: "claude-3" }),
       resetProviderSession: mock.fn(),
       callTool: mock.fn(async () => "OK"),
+      clearDocSessionCache: mock.fn(async () => {}),
       emitter: mock.fn(),
       makeSinkEmitter: () => ({ emitter: mock.fn() }),
       send: mock.fn(),
@@ -217,6 +219,29 @@ describe("handleSummarize", () => {
     const ctxIdx = sendTypes.indexOf("context_summarized");
     const memoriesIdx = sendTypes.indexOf("memories");
     assert.ok(memoriesIdx > ctxIdx, "memories broadcast after context_summarized");
+  });
+
+  test("invalidates the CONNECTION's doc_batch dedup cache via clearDocSessionCache, keyed by docSessionId not sessionId, since messages[] and ragStore both drop tool-result content on summarization (P1 fix, round 3; wiring updated round 5; keyed by docSessionId round 6 P1)", async () => {
+    const { handleSummarize } = await import(
+      "../../../../lib/emitters/handlers/ws/summarize.js"
+    );
+    // The dedup cache (lib/docgraph/retrieval.js's sessionReadFacts) lives
+    // inside the separate MCP child process, not this one — handleSummarize
+    // cannot reach it with a same-process function call. clearDocSessionCache
+    // (lib/agent/index.js) reaches it via a custom, non-tool JSON-RPC method
+    // (mcp/index.js's "aperio/clearDocSessionCache" — deliberately NOT an MCP
+    // tool, so it's invisible to every provider's own tool discovery, not
+    // just filtered by lib/agent/tool-profiles.js; see the cross-process
+    // integration test at tests/integration/mcp/docgraph-clear-session-cache.test.js).
+    // Here we only verify the WIRING: called exactly once with the CONNECTION's
+    // fixed docSessionId — never the persisted sessionId, which a second
+    // WebSocket resuming the same saved conversation could share (wsHandler.js).
+    const clearDocSessionCache = mock.fn(async () => {});
+    const deps = makeDeps({ clearDocSessionCache, sessionId: "session-1", docSessionId: "doc-session-1" });
+    await handleSummarize({}, deps);
+
+    assert.equal(clearDocSessionCache.mock.calls.length, 1, "must call the cache-clear exactly once");
+    assert.deepEqual(clearDocSessionCache.mock.calls[0].arguments, ["doc-session-1"]);
   });
 });
 

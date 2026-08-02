@@ -82,6 +82,59 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **doc_batch's session dedup cache no longer outlives an offloaded result**
+  (`lib/agent/model-context-middleware.js`, `lib/agent/tool-hooks.js`,
+  `lib/agent/index.js`): the docgraph session dedup cache is committed inside
+  the MCP child process the instant `doc_batch` returns, unconditional on the
+  eventual delivered size — but the main agent process's tool-result
+  offloader can still replace an oversized result (>80KB or >25% of context)
+  with a head/tail preview + artifact pointer afterward, and that preview,
+  not the raw text, is what actually reaches the model. Once the turn ends,
+  the offloaded artifact becomes unreachable (`read_artifact` is exposed only
+  for the turn that produced it), so a later retry for the same document
+  returned only the "already read" pointer, permanently withholding content
+  the model never actually saw. `createToolResultOffloadMiddleware` now
+  invalidates the connection's doc_batch dedup cache whenever it actually
+  offloads a result, mirroring the same cache-follows-model-visible-context
+  fix already applied to context trimming.
+
+- **Session ids are validated before touching the filesystem, closing a path-traversal hole**
+  (`lib/helpers/sessions.js`): a client-controlled session id — `resume_session`'s
+  `id` over the websocket, or the `/api/sessions/:id` route param
+  (GET/DELETE/PATCH) — was joined straight into a filesystem path with no
+  shape check. An id like `../../package` resolved inside the sessions
+  directory to the repo's own `package.json`, which `getSession()` returned
+  as if it were a real session; resuming it rebound scratch/log paths to
+  that escaped file, and closing the connection or explicitly deleting the
+  "session" could overwrite or delete it outright. Added a shared
+  `isValidSessionId()` check (reusing the safe-token pattern already used
+  elsewhere in this file) to the three path-constructing functions
+  (`sessionPath`, `sessionScratchDir`, `deleteSessionLog`) and to the public
+  `getSession`/`deleteSession`/`pinSession`, so a malformed id now resolves
+  cleanly to "not found" instead of resolving outside the session
+  directories.
+
+- **Resumed sessions no longer lose their persisted transcript, and a failed
+  resume no longer strands the connection** (`lib/helpers/sessions.js`,
+  `lib/emitters/handlers/ws/session.js`): `finaliseSession` unconditionally
+  replaced a session's stored `messages` with whatever the connection held —
+  correct for a session started fresh on this connection, but `handleResumeSession`
+  deliberately seeds only a compact resume context (not full history) to
+  protect the context window, so closing any resumed conversation silently
+  overwrote its real transcript with that short suffix; a trivial post-resume
+  exchange could delete the session file outright, and a title-derivation
+  fallback could clobber an already-meaningful title. `finaliseSession` now
+  detects a continuation (a session already finalised once before) and
+  appends rather than replaces, never discards it as trivial, and never
+  clobbers its title with the no-candidate fallback. Separately,
+  `handleResumeSession` used to finalise the outgoing session and wipe
+  `messages` *before* confirming the resume's bootstrap model call actually
+  succeeded — a failure left the socket pinned to the old `sessionId` while
+  `messages` held the new session's context, with the old session already
+  finalised. It now snapshots the pre-resume messages, rolls them back on
+  failure, and only finalises the outgoing session after the resume
+  succeeds.
+
 - **Postgres extraction identity hardened and upgraded profiles never orphaned**
   (`lib/db-connect/extraction.js`, `lib/db-connect/file-lock.js`): the
   self-provisioned extraction connection's file identity now resolves the

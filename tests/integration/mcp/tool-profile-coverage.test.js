@@ -12,6 +12,11 @@
 // shipping a stranded tool. The registered set is captured from the REAL register()
 // functions via a mock server, and the module list is read from the filesystem so a
 // brand-new mcp/tools/*.js file is covered automatically.
+//
+// A tool meant to be server-internal only (never model-callable) does NOT belong
+// in mcp/tools/*.js's register()-driven catalog at all — see mcp/index.js's
+// custom "aperio/clearDocSessionCache" JSON-RPC method for that pattern, which
+// this test never sees (by design: it isn't registered via server.registerTool()).
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
