@@ -30,6 +30,59 @@ describe("tool-profiles — confirm tool lists are the same object", () => {
   });
 });
 
+describe("tool-profiles — extraction availability (Document Intelligence WS3, review finding P1)", () => {
+  // Registering mcp/tools/extraction.js with the MCP child alone does not
+  // make the tools reachable from the web agent — planTurnTools() only
+  // attaches names present in TOOL_PROFILES via classifyProfiles(). This
+  // whole describe block is the regression guard for that gap; the coverage
+  // bijection test (tests/integration/mcp/tool-profile-coverage.test.js)
+  // would also fail loudly if TOOL_PROFILES.extraction went missing again.
+
+  test("CONFIRM_TOOLS recognizes the propose tool by its PUBLIC name", () => {
+    // The tool-hook checks the name the MODEL calls (extraction_template_
+    // propose), not the interrupt's internal toolName — those must be the
+    // same string or the self-confirmation guard never triggers (review
+    // finding P1, "Route template proposals through the confirmation gate").
+    assert.ok(CONFIRM_TOOLS.has("extraction_template_propose"));
+  });
+
+  test("a document-aggregation turn surfaces extraction tools alongside docgraph, not instead of it", () => {
+    const tools = toolsFor("how much did I spend on utilities last month across my indexed documents?");
+    assert.ok(tools.has("doc_manifest"), "sanity check: this is the existing docgraph-triggering phrasing");
+    assert.ok(tools.has("extraction_apply"));
+    assert.ok(tools.has("extraction_template_match"));
+    assert.ok(tools.has("extraction_template_propose"));
+    assert.ok(tools.has("extraction_log_record"));
+  });
+
+  test("an explicit template/extraction request surfaces extraction tools without any aggregate language", () => {
+    const tools = toolsFor("learn a template from this invoice so future ones extract automatically");
+    assert.ok(tools.has("extraction_template_propose"));
+  });
+
+  test("extraction intent always loads database too — the documented persistence/dedup follow-up is otherwise unreachable in the same turn (review finding P1)", () => {
+    // extraction_apply's own results are useless without a same-turn
+    // db_execute to write them, and extraction_log_record (round 3's fix)
+    // requires a genuine db_execute_token — neither phrasing below mentions
+    // SQL/database/table at all, so database's own separate keyword regex
+    // would never have added it on its own.
+    for (const text of [
+      "how much did I spend on utilities last month across my indexed documents?",
+      "learn a template from this invoice so future ones extract automatically",
+    ]) {
+      const tools = toolsFor(text);
+      assert.ok(tools.has("db_execute"), `db_execute must load alongside extraction for: "${text}"`);
+      assert.ok(tools.has("db_query"));
+    }
+  });
+
+  test("a plain document-search question does not drag in extraction tools uninvited", () => {
+    const tools = toolsFor("search my documents for the Q3 planning notes");
+    assert.ok(!tools.has("extraction_apply"));
+    assert.ok(!tools.has("extraction_template_propose"));
+  });
+});
+
 describe("tool-profiles — read_docx availability (issue #125)", () => {
   test("docx→xlsx conversion prompt surfaces read_docx", () => {
     const tools = toolsFor("extract the data from 3a12f719-Aperio_Summary.docx into an xlsx file");

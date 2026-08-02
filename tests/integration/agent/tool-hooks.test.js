@@ -871,7 +871,7 @@ describe("callToolHooked() — INJECT-01 provenance fencing + taint", () => {
 });
 
 describe("callToolHooked() — WRITE-01 taint→confirm wiring", () => {
-  function makeHooks(resultFor) {
+  function makeHooks(resultFor, extraConfirmTools = []) {
     const events = [];
     const seenArgs = [];
     const factory = createToolHooks({
@@ -886,7 +886,7 @@ describe("callToolHooked() — WRITE-01 taint→confirm wiring", () => {
       validateWrittenFile: async () => ({ ok: true }),
       logger: silentLogger,
       WRITE_TOOLS: new Set(["write_file", "edit_file", "append_file"]),
-      CONFIRM_TOOLS: new Set(["write_file", "index_folder"]),
+      CONFIRM_TOOLS: new Set(["write_file", "index_folder", ...extraConfirmTools]),
       existsSync: () => true,
       statSync: () => ({ size: 1, isFile: () => true }),
       readdirSync: () => [],
@@ -954,6 +954,36 @@ describe("callToolHooked() — WRITE-01 taint→confirm wiring", () => {
     const result = await hooks.callToolHooked("index_folder", { path: "/outside/repo", target: "code" });
     assert.ok(events.some((event) => event.type === "action_confirm_pending" && event.tool === "index_folder"));
     assert.match(result, /Pending user confirmation/);
+  });
+
+  test("a template proposal returning a tpl_ token raises action_confirm_pending and never returns the raw token to the model (Document Intelligence WS3, review finding P1)", async () => {
+    // Reproduces mcp/tools/extraction.js's real extraction_template_propose
+    // response shape. Before the fix, "tpl_" wasn't in the token-prefix
+    // regex and the public tool name wasn't in CONFIRM_TOOLS — this whole
+    // block would have been skipped and the model would see the real token
+    // verbatim, free to call the tool again with it and self-approve a
+    // template save with no user confirmation ever happening.
+    const { hooks: proposeHooks, events } = makeHooks((name) =>
+      name === "extraction_template_propose"
+        ? [
+            "📋 **New template proposed — pending your confirmation. Nothing has been saved yet.**",
+            "",
+            "**Name:** bg-utility-bill",
+            "**Keywords:** acme, power",
+            "**Fields:** total (total_due)",
+            "",
+            "Action: Learn new template \"bg-utility-bill\"",
+            "Token: tpl_abc12345",
+          ].join("\n")
+        : "ok",
+      ["extraction_template_propose"]);
+    const result = await proposeHooks.callToolHooked("extraction_template_propose", { text: "Acme Power bill..." });
+    const pending = events.find((e) => e.type === "action_confirm_pending" && e.tool === "extraction_template_propose");
+    assert.ok(pending, "must raise a real confirm-pending event, the same as db_execute/write_file");
+    assert.equal(pending.token, "tpl_abc12345");
+    assert.equal(pending.label, 'Learn new template "bg-utility-bill"');
+    assert.doesNotMatch(result, /tpl_abc12345/, "the raw token must never reach the model — otherwise it can call the tool again and self-approve");
+    assert.match(result, /do NOT call extraction_template_propose again/);
   });
 });
 
