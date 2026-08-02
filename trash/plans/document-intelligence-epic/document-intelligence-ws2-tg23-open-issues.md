@@ -123,6 +123,78 @@ and confirm turn-by-turn, not just `grading.status`.
 
 ---
 
+## Update 2026-08-02 (same day, later session): harness fixed; gemma4's real
+## blocker turns out to be latency, not a SKILL.md gap
+
+All three grading-harness bugs above are fixed in
+`trash/plans/document-intelligence-epic/document-intelligence-skill-harness.mjs`
+and `tests/fixtures/household-gen/harness-gate.mjs`:
+
+- `followUpCitesSql`/`followUpNarratesDecimalTotal` now require the follow-up
+  turn's own `db_query` to have actually returned non-empty rows (parsed from
+  the tool result's `detail`/`summary`, via new `dbQueryReturnedRows()`) before
+  crediting any prose about a total; a new `insertedRealRows()` check
+  separately requires a confirmed `db_execute` **INSERT** with
+  `rowsAffected>0` somewhere in the conversation — a confirmed `CREATE TABLE`
+  with zero rows affected, as gemma4 produced, no longer satisfies
+  "db_execute was exercised."
+- `grandTotalCorrect` (`tests/fixtures/household-gen/harness-gate.mjs`) is now
+  exclusive: any total-cue line that combines two or more currencies into one
+  figure without an explicit non-blending disclosure fails the gate on its
+  own, even when a separate, correct BGN-only total line exists elsewhere in
+  the same answer — closing exactly the "893.24 (696.84 BGN + 196.40 EUR)"
+  gap. 2 new mutation tests added (`harness-gate.test.mjs`); 19/19 pass.
+- `followUpSatisfied` (the dynamic follow-up loop's stop condition) now also
+  requires `dbQueryReturnedRows()` on the latest turn before stopping, so the
+  escalation ladder no longer cuts short on an honest "the query came back
+  empty" admission.
+
+**Re-running the fixed harness against gemma4 twice, back to back, confirms
+the grader no longer false-passes — `grading.status: "fail"` both times, for
+accurate reasons — but also surfaces that gemma4's real blocker here is
+latency, not a SKILL.md guidance gap:**
+
+- **Run 1**: turn 1 ran the full 600s timeout without completing. The raw
+  output contained a malformed pseudo-tool-call
+  (`<execute_tool_call>db_execute{...}</execute_tool_call>`, with
+  `<|"|>`-style placeholder quote tokens) instead of a real structured tool
+  call. `lib/tools/executor.js`'s leak-detection regex
+  (`TOOL_LEAK_PATTERNS`) does not catch this exact tag shape — a real,
+  separate, low-risk bug — but generation itself never terminated within
+  budget, which no leak-detection fix addresses on its own.
+- **Run 2** (immediate re-run, same model/prompt): behaved completely
+  differently — real `db_execute` calls, a real confirmed `CREATE TABLE`,
+  real INSERTs. But turns 1-3 each took 350-410 **seconds**, and turn 4
+  (asked only to run a `SELECT`) then *also* hit the full 600s timeout.
+  Turn 3's own usage numbers (39,498 input tokens, 2,409 output tokens) imply
+  roughly 140-165 tok/s prefill dominating the turn, not generation speed —
+  and this matches an identical calculation against the already-recorded
+  DeepSeek/gemma4 pass above (41,479 input tokens, 367s turn → ~140 tok/s).
+  Total session time ≈29 minutes; still never reached a real `db_query` with
+  rows.
+
+Root cause (verified against the code, not just inferred from timing):
+`lib/agent/index.js`'s `ensureTurn()`/`planTurnTools()` picks a different
+tool-schema subset **every turn**, driven by that turn's own message text
+(`classifyProfiles()`) plus a shrinking-context schema-budget cap
+(`capToolsForProvider`). Since the `tools` array is sent fresh on every
+`/chat/completions` request and virtually every tool-calling chat template
+renders it near the start of the prompt, any difference invalidates
+llama-server's default prefix/KV-cache reuse for the **entire** growing
+conversation on every turn where the tool set changes — which is most turns.
+Large `doc_batch` results (55.9 KB / ~14K tokens in this run, re-read a
+second time mid-conversation in run 2) then get fully reprocessed from
+scratch, repeatedly, as the conversation grows.
+
+**This is not a SKILL.md wording problem** — no prompt change fixes a
+structural cache invalidation. A full investigation and remediation plan is
+written up separately: `trash/plans/llamacpp-multiturn-latency/`
+(`llamacpp-multiturn-latency.md` + companion tests). WS2's T-G2.3/T-G2.4 on
+gemma4 stay open pending that plan; this file's harness-grading concerns are
+now closed.
+
+---
+
 ## DeepSeek run, 2026-08-02 — full clean pass (unchanged from the original writeup below)
 
 Model under test: **DeepSeek `deepseek-v4-flash`**, via the cloud API — the

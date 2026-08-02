@@ -46,6 +46,34 @@ const SYNONYMS = {
 
 const TOTAL_CUES = [/\btotal\b/i, /\bsum\b/i, /\ball categories\b/i, /общо/i, /общa сума/i, /сума за/i, /grand total/i];
 
+// A currency code/symbol adjacent to a money token, so a total-cue line's own
+// currencies can be counted without re-parsing every money token in the answer.
+const CURRENCY_TAG = /\b(?:BGN|EUR|USD|GBP)\b|лв\.?|€|(?<![A-Za-z])\$|£/gi;
+
+// Language the DeepSeek pass used to explicitly decline a blend ("I'm not
+// combining the two currencies into one number...") — a line saying it will
+// NOT combine currencies is the honest behaviour T-G2.4 asks for, not a leak.
+const NON_BLEND_DISCLOSURE = /not combin|not merging|kept separate|haven'?t (?:been asked|converted)|without (?:an?|)\s*(?:fx|exchange|conversion)|no (?:fx|exchange|conversion)/i;
+
+/**
+ * A total-cue line that tags two or more distinct currencies is either an
+ * honest refusal to blend them (allowed) or an undisclosed single figure
+ * computed by adding amounts across currencies — exactly the "893.24 (696.84
+ * BGN + 196.40 EUR)" pattern a hero-model run produced while a *separate*,
+ * correct BGN-only total line also existed elsewhere in the same answer. A
+ * permissive "does any total line match?" check credits the correct line and
+ * never notices the extra, wrong one — this is the one place that must be
+ * exclusive: any offending line fails the gate regardless of what else it says.
+ */
+function currencyBlendedTotalLines(text) {
+  return text.split(/\r?\n/).filter(line => {
+    if (!TOTAL_CUES.some(cue => cue.test(line))) return false;
+    if (NON_BLEND_DISCLOSURE.test(line)) return false;
+    const distinctCurrencies = new Set([...line.matchAll(CURRENCY_TAG)].map(m => m[0].toUpperCase().replace("ЛВ.", "BGN").replace("ЛВ", "BGN")));
+    return distinctCurrencies.size >= 2;
+  });
+}
+
 /**
  * Which figures did the answer attach to which category?
  * Same-line association only, with one narrow fallback: a category heading whose
@@ -124,10 +152,17 @@ export function evaluateAnswer({ answer = "", toolSequence = [], toolCalls = [],
     }
   }
 
-  const grandTotalOk = grandTotals.some(value => Math.abs(value - expectations.monthlyTotal) < 0.005);
-  if (!grandTotalOk) {
+  const correctTotalPresent = grandTotals.some(value => Math.abs(value - expectations.monthlyTotal) < 0.005);
+  if (!correctTotalPresent) {
     failures.push(`grand total: expected ${expectations.monthlyTotal.toFixed(2)} on a total line, saw ${grandTotals.map(value => value.toFixed(2)).join("/") || "no total line"}`);
   }
+  const blendedLines = currencyBlendedTotalLines(text);
+  for (const line of blendedLines) {
+    failures.push(`grand total: a total-cue line combines multiple currencies into one figure without disclosing that it isn't converting — "${line.trim().slice(0, 120)}"`);
+  }
+  // Exclusive, not permissive: a correct BGN-only total line existing elsewhere
+  // in the answer does not excuse a second, blended total line stated alongside it.
+  const grandTotalOk = correctTotalPresent && blendedLines.length === 0;
 
   // Failure signatures with a known cause.
   const signatures = {};

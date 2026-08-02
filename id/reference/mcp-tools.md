@@ -20,6 +20,7 @@ All tools registered in `mcp/index.js`. Each tool file in `mcp/tools/` exports a
 | GitHub | `fetch_github_issue`, `create_github_issue`, `update_github_issue`, `list_github_issues`, `record_issue_triage` | `github.js` |
 | Data | `export_data`, `import_data` | `data.js` |
 | Database | `db_query`, `db_execute`, `db_schema`, `db_connections` (external DB connections) | `database.js` |
+| Extraction | `extraction_template_list`, `extraction_template_get`, `extraction_template_match`, `extraction_template_propose`, `extraction_template_delete`, `extraction_apply`, `extraction_log_check`, `extraction_log_record` | `extraction.js` |
 
 ### Code graph intelligence contract (`code_neighbors` / `code_path` / `code_insights`)
 
@@ -70,6 +71,41 @@ terminal facts (amount_due/grand_total + due_date/invoice_date/service_period
 at high confidence) into the memory store. Promoted memories are tier 2
 (sensitive), carry opaque hashed dedup tags, and are owned by `source="docgraph"`
 to prevent user-memory collisions. See `lib/handlers/docgraph/docgraphHandlers.js`.
+
+### Extraction template contract (Document Intelligence WS3, issue #250)
+
+Recognizes and reuses a learned document *shape* on top of the ad-hoc `db_execute`
+flow — a document matching no known template still falls through to that flow
+unchanged. `extraction_template_match` ranks a document's text against every known
+template by Unicode-aware whole-word keyword overlap (never substring — a `gas`
+keyword does not match inside "Vegas") and returns `confident` / `ambiguous` / `none`,
+never silently picking between two close scores. A `none` match makes
+`extraction_template_propose` infer a new template from the document's own labeled
+evidence (`lib/docgraph/extract-facts.js`'s amount/date roles) — this is the only
+write path, and it is confirm-gated the same way as `db_execute`: propose once, the
+user confirms, only then does `templateHandlers.create` run. `extraction_apply`
+extracts fields against a matched (or explicitly named) template — regex/label-first,
+then one targeted LLM completion for whatever's still unresolved, never a full
+re-extraction; a field unresolved by both is reported `missing`, never fabricated.
+
+`extraction_log_record` is the dedup contract's other half, and its own confirm
+boundary is unusual: it requires `db_execute_token` — the *same* token that
+confirmed the real write — and verifies server-side, before recording anything, that
+the interrupt reached `status: "executed"` against the `extraction` connection, that
+the confirmed statement's `classify()` keyword was `INSERT` (not e.g. a bare
+`CREATE TABLE`), and that the `source_hash` being recorded appears literally among
+that INSERT's own bound `params`. A confirmed write for an unrelated or nonexistent
+source can never be used to falsely mark a different document "already extracted."
+`extraction_apply`'s own description tells the model to include `sourceHash` as an
+INSERT column value for exactly this reason.
+
+Reachable from the web agent via `TOOL_PROFILES.extraction` in
+`lib/agent/tool-profiles.js`, loaded alongside `docgraph` and `database` on the same
+`isDocumentAggregationIntent` signal that already unlocks document-aggregation
+turns — extraction's own persistence/dedup follow-up needs `db_execute` in the same
+turn, so `database` is loaded whenever `extraction` is. MCP registration alone does
+not make a tool reachable here; `tests/integration/mcp/tool-profile-coverage.test.js`
+enforces a strict registered⇔reachable bijection across every MCP tool in the repo.
 
 ## Tool Context (`ctx`)
 

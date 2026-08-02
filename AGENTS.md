@@ -100,7 +100,8 @@ Migrations must stay in lockstep: every migration in `db/migrations/` needs a mi
 `db/migrations-sqlite/`. Schema drift here is silent and catastrophic.
 
 Key tables: `memories`, `self_memories`, `wiki`, `self_wiki_*`, `agent_jobs`/`agent_runs`,
-`conversations`/`messages`, `settings`, `code_symbols`/`code_references`, `doc_chunks`.
+`conversations`/`messages`, `settings`, `code_symbols`/`code_references`, `doc_chunks`,
+`extraction_templates`/`extraction_log`.
 
 ## Fragile / No-Touch Zones
 

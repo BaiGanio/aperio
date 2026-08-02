@@ -35,6 +35,41 @@ Versions follow [Semantic Versioning](https://semver.org/).
   50.00, Internet 29.99, **696.84 BGN**, with EUR 196.40 reported separately
   (issue #250, WS0-R).
 
+- **Persistent extraction templates** (Document Intelligence WS3, issue #250):
+  recognizes and reuses a document's shape instead of re-deriving field labels
+  and a `CREATE TABLE` from scratch every time. New `extraction_templates`/
+  `extraction_log` tables (mirrored across Postgres/SQLite); 8 new MCP tools
+  (`extraction_template_{list,get,match,propose,delete}`, `extraction_apply`,
+  `extraction_log_{check,record}`). Matching is Unicode-aware whole-word
+  keyword overlap over known templates — reports `confident`/`ambiguous`/`none`,
+  never silently guessing between two close scores. A `none` match lets the
+  model propose a new template inferred from the document's own labeled
+  amount/date evidence, confirm-gated the same two-phase way as `db_execute` —
+  nothing persists until the user confirms. Extraction is regex/label-first
+  against `extract-facts.js`'s existing evidence, falling back to one targeted
+  LLM completion only for fields still unresolved (never a full
+  re-extraction); a field neither step resolves is reported `missing`, never
+  fabricated. Each successful extraction feeds the template's own rolling
+  confidence score (an exponential moving average). Duplicate-source
+  prevention (`extraction_log_record`) requires the SAME token that confirmed
+  the actual `db_execute` write, and verifies server-side — before recording
+  anything — that the write reached `executed` against the `extraction`
+  connection, that the confirmed statement was genuinely an `INSERT`, and that
+  the source hash appears among that INSERT's own bound parameters; a
+  confirmed write for an unrelated or nonexistent source can never falsely
+  mark a different document "already extracted." Reachable from the web agent
+  via a new `extraction` tool profile, loaded alongside `docgraph`/`database`
+  on the same document-aggregation intent signal (MCP registration alone does
+  not make a tool reachable from the primary chat flow — a new coverage test,
+  `tests/integration/mcp/tool-profile-coverage.test.js`, enforces a strict
+  registered⇔reachable bijection across every MCP tool in the repo). Verified
+  end-to-end against a real household-gen corpus document: match → propose →
+  confirm → apply → `db_execute` write → log record → Excel export, every
+  value matching the ground-truth oracle exactly in both the database row and
+  the workbook. 5123/5123 across the full project test suite. Postgres
+  branches share the same code paths but are not yet live-verified (no
+  local/CI Postgres available this cycle).
+
 ### Changed
 
 - **Document extraction recognizes four more everyday Bulgarian amount
