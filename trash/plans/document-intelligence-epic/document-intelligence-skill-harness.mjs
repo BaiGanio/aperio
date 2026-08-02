@@ -146,6 +146,12 @@ function summarizeToolCalls(events) {
       arguments: start.arguments,
       ok: outcome?.ok,
       summary: outcome?.summary,
+      // Full (capped) result text — db_query's rowCount/rows and db_execute's
+      // rowsAffected live here, not in `summary` (see toolActivity.js's
+      // withDetail: a short ack like "✅ Executed on..." can fit entirely in
+      // `summary`, but db_query's JSON payload almost always exceeds the
+      // 80-char cutoff and collapses `summary` to a byte-size string instead).
+      detail: outcome?.detail,
       ms: outcome?.ms,
       pending: !outcome,
     };
@@ -467,6 +473,14 @@ async function runModelPhase({ primary, secondary, dbPath }) {
     const followUpSatisfied = turns => {
       const last = turns.at(-1);
       if (!last || last.status !== "completed" || !last.toolSequence.includes("db_query")) return false;
+      // The 2026-08-02 gemma4 run stopped the escalation ladder right here:
+      // db_query ran, the answer was decimal-shaped prose, but the query had
+      // come back empty (no INSERT had ever landed) and the model was openly
+      // reciting a remembered breakdown instead. Require the db_query in THIS
+      // turn to have actually returned rows before any prose is trusted —
+      // otherwise the 2nd–8th escalation prompts (written for exactly this
+      // scenario) never get sent.
+      if (!dbQueryReturnedRows(last.toolCalls)) return false;
       const answer = String(last.answerRaw ?? "").trim();
       // A raw "✅ Executed on <connection>..." confirmation is the tool's own
       // ack for a write the model made mid-turn (e.g. fixing a missed row) —
@@ -575,17 +589,33 @@ function gradePhase() {
     const proposeTurn = results[0];
     const followUpTurn = results.at(-1);
     const allToolNames = results.flatMap(r => r.toolSequence);
+    const allToolCalls = results.flatMap(r => r.toolCalls);
     checks.calledDbExecute = allToolNames.includes("db_execute");
     checks.interruptApproved = results.some(r => r.interruptApproved);
+    // Mechanical, not prose-based: a CREATE TABLE with rowsAffected:0 and no
+    // INSERT ever attempted (the 2026-08-02 gemma4 failure) must not count as
+    // "the writable-destination path exercised" just because db_execute was
+    // called at all — something in this conversation must have actually
+    // affected a row via an INSERT statement.
+    checks.insertedRealRows = insertedRealRows(allToolCalls);
     checks.calledDbQueryAfterConfirm = followUpTurn?.toolSequence.includes("db_query") ?? false;
-    checks.followUpCitesSql = /sql|query|db_query/i.test(followUpTurn?.answerRaw ?? "");
-    checks.followUpNarratesDecimalTotal = hasNarratedDecimalTotal(followUpTurn?.answerRaw);
+    // Same reasoning as followUpSatisfied above: db_query being *called* proves
+    // nothing about what it returned. Gate the two prose checks below on the
+    // follow-up turn's own db_query having actually come back with rows —
+    // otherwise an honest "the query returned no results, so from memory..."
+    // admission (which mentions "query" and still states a decimal figure)
+    // sails through both checks unfixed, exactly as it did on gemma4.
+    checks.dbQueryReturnedRealRows = dbQueryReturnedRows(followUpTurn?.toolCalls);
+    checks.followUpCitesSql = checks.dbQueryReturnedRealRows && /sql|query|db_query/i.test(followUpTurn?.answerRaw ?? "");
+    checks.followUpNarratesDecimalTotal = checks.dbQueryReturnedRealRows && hasNarratedDecimalTotal(followUpTurn?.answerRaw);
     checks.completed = results.every(r => r.status === "completed");
     if (!checks.calledDbExecute) failures.push("db_execute was never proposed — no writable-destination path exercised");
     if (checks.calledDbExecute && !checks.interruptApproved) failures.push("db_execute was proposed but the confirm interrupt was never observed/approved");
+    if (!checks.insertedRealRows) failures.push("no confirmed db_execute INSERT with rowsAffected>0 was ever observed — rows were never actually written, regardless of what the answer claims");
     if (!checks.calledDbQueryAfterConfirm) failures.push("follow-up turn did not call db_query for the SQL-derived total");
-    if (!checks.followUpCitesSql) failures.push("follow-up answer does not cite SQL as the source of the figure");
-    if (!checks.followUpNarratesDecimalTotal) failures.push("follow-up answer does not narrate an actual decimal total");
+    if (checks.calledDbQueryAfterConfirm && !checks.dbQueryReturnedRealRows) failures.push("follow-up turn's db_query returned zero rows — any total in the answer is not sourced from the database");
+    if (!checks.followUpCitesSql) failures.push("follow-up answer does not cite a genuine (non-empty) SQL query result as the source of the figure");
+    if (!checks.followUpNarratesDecimalTotal) failures.push("follow-up answer does not narrate an actual decimal total backed by a genuine query result");
     if (!checks.completed) failures.push("one or more turns did not complete");
 
     if (expectations) {
@@ -603,6 +633,37 @@ function gradePhase() {
   }
 
   return { status: failures.length === 0 ? "pass" : "fail", checks, failures };
+}
+
+// T-G2.3's actual claim is that the model wrote real rows and then read them
+// back — prose alone can't prove that (a model that never inserted anything
+// can still write a decimal-shaped sentence). These two checks look past the
+// model's words at the tool evidence itself: did any confirmed db_execute
+// INSERT actually affect a row, and did the db_query that follows it actually
+// come back with data. The 2026-08-02 gemma4 run had a CREATE TABLE with
+// rowsAffected:0 and no INSERT ever attempted, then a db_query that correctly
+// returned zero rows — both checks below now catch exactly that.
+function insertedRealRows(toolCalls) {
+  return toolCalls.some(call => {
+    if (call.name !== "db_execute") return false;
+    const sql = String(call.arguments?.sql ?? "");
+    if (!/^\s*insert\b/i.test(sql)) return false;
+    const evidence = `${call.summary ?? ""} ${call.detail ?? ""}`;
+    const match = evidence.match(/"rowsAffected"\s*:\s*(\d+)/);
+    return match ? Number(match[1]) > 0 : false;
+  });
+}
+
+function dbQueryReturnedRows(toolCalls) {
+  return (toolCalls ?? []).some(call => {
+    if (call.name !== "db_query") return false;
+    const evidence = `${call.summary ?? ""} ${call.detail ?? ""}`;
+    const rowCountMatch = evidence.match(/"rowCount"\s*:\s*(\d+)/);
+    if (rowCountMatch) return Number(rowCountMatch[1]) > 0;
+    // rowCount can fall outside the capped detail on a very wide result; a
+    // non-empty rows array is equally good evidence.
+    return /"rows"\s*:\s*\[\s*[{[]/.test(evidence);
+  });
 }
 
 function hasNarratedDecimalTotal(answer) {

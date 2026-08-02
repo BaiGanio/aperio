@@ -67,6 +67,15 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - List indexed doc repos with counts + last-indexed (`doc_repos`)
 - Backends: Postgres and SQLite
 
+## Extraction Templates
+- Learns a document's shape once, confirmed, and recognizes/reuses it on later documents instead of re-deriving field labels and a `CREATE TABLE` from scratch every time — a document matching no learned template still falls through to the ad-hoc extraction flow unchanged
+- Rank a document's text against every known template by Unicode-aware whole-word keyword overlap; reports `confident` / `ambiguous` / `none`, never silently guessing between two close-scoring templates (`extraction_template_match`)
+- Propose a new template from a document's own labeled amount/date evidence — confirm-before-save, same two-phase gate as `db_execute`; nothing persists until the user confirms (`extraction_template_propose`)
+- Extract fields against a matched or named template: regex/label-first, then one targeted LLM lookup for anything still unresolved — never a full re-extraction, and a field is only ever reported missing if both steps found nothing (`extraction_apply`)
+- Duplicate-source prevention: a source is only ever recorded as extracted after its `db_execute` write is independently verified server-side (the confirmed statement really was an INSERT, and the source hash appears in its own bound parameters) — a re-read of the same document reports "already extracted" instead of silently re-running (`extraction_log_check`, `extraction_log_record`)
+- List/get/delete learned templates (`extraction_template_list`, `extraction_template_get`, `extraction_template_delete`)
+- Backends: Postgres and SQLite
+
 ## Databases
 - Generic SQL client over named connections — the user's own SQLite / Postgres / MySQL / SQL Server databases **and** Aperio's internal store (the built-in `aperio` connection, read-only)
 - List connections without leaking secrets (`db_connections`)

@@ -195,6 +195,30 @@ test("MUTATION oracle exposure and path leaks fail", () => {
   assert.equal(leaked.gate.cleanCorpusFence, false);
 });
 
+test("MUTATION currency blend: an undisclosed combined total fails even alongside a correct one", () => {
+  // Reproduces the 2026-08-02 gemma4 provenance run: a correct BGN-only total
+  // line exists, but a second "grand total" line adds it to a separately
+  // reported EUR figure with no disclosed conversion. The old permissive
+  // "any matching line" check credited the first line and never saw the second.
+  const result = run(`${CORRECT_ANSWER}
+
+Separately, EUR travel (excluded above): 196.40 EUR.
+
+Overall Grand Total: 893.24 (696.84 BGN + 196.40 EUR)`);
+  assert.equal(result.status, "fail");
+  assert.equal(result.gate.grandTotalCorrect, false);
+  assert.ok(result.failures.some(failure => failure.includes("combines multiple currencies")), result.failures.join("; "));
+});
+
+test("explicitly declining to blend currencies is not penalized", () => {
+  const result = run(`${CORRECT_ANSWER}
+
+Grand total: 696.84 BGN and 196.40 EUR reported separately — not combining
+these into one number because that would require an FX conversion I haven't
+been authorized to apply.`);
+  assert.equal(result.status, "pass", result.failures.join("; "));
+});
+
 test("naming an excluded item while explaining the exclusion is not a leak", () => {
   const result = run(CORRECT_ANSWER);
   assert.equal(result.gate.noExcludedLeak, true);
