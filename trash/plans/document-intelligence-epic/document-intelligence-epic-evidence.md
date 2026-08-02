@@ -393,6 +393,26 @@ category coverage. WS0-R remains not green; stop before WS1.
   `document-intelligence-run-answers.json`; that file was restored to its
   committed state and is flagged in A2D as tracked against the plan's rule.
 
+## T-R5 Gemma 4 E4B rerun — PASSED 2026-08-02 (second confirmation)
+
+- Model: `unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`; isolated scratch SQLite
+  harness with dedicated HTTP/llama ports; oracle withheld; fixture set T-R5
+  (2026-06). Second consecutive clean pass on the local hero model, run
+  independently the day after the 2026-08-01 pass, before starting WS2.
+- Corpus indexing: 18/18 primary and 1/1 secondary documents; retrieval: one
+  `doc_batch`, full 55.8 KB coverage; single-turn retrieval
+  (`toolSequence: [doc_batch]`).
+- P1 completed in 278.1s, within the 600s budget.
+- Gate: all checks pass — Utilities 260.50, Fuel 215.60, Groceries 140.75,
+  Transport 50.00, Internet 29.99; grand total 696.84 BGN; EUR 196.40 (hotel,
+  train, airport) reported separately and excluded from BGN spending; no
+  failure signatures; no excluded leak; full coverage; no oracle exposure;
+  clean corpus fence.
+- Teardown: llama-server stopped gracefully, scratch workdir/DB removed. The
+  harness again overwrote the tracked `document-intelligence-run-answers.json`;
+  restored to its committed state via `git checkout --` (same friction already
+  flagged in A2D.md 2026-08-01 — recommend untracking it).
+
 ## T-R5 Gemma 4 E4B rerun — failed 2026-07-27
 
 - Model: `unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`; isolated scratch SQLite

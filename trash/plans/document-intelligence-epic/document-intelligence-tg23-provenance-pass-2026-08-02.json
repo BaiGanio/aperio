@@ -1,0 +1,815 @@
+{
+  "harness": "document-intelligence-skill-harness",
+  "phase": "provenance",
+  "fixtureSet": "T-R5",
+  "provider": "deepseek",
+  "model": "deepseek-v4-flash",
+  "period": "2026-06",
+  "timeoutMs": 900000,
+  "generatedAt": "2026-08-02T10:07:05.688Z",
+  "prompts": [
+    "Add up everything I spent on documented bills and receipts for June 2026, broken down by category. Save the results so I can query them again later, and give me the total."
+  ],
+  "results": [
+    {
+      "prompt": "Add up everything I spent on documented bills and receipts for June 2026, broken down by category. Save the results so I can query them again later, and give me the total.",
+      "wallMs": 90970,
+      "toolSequence": [
+        "doc_batch",
+        "doc_batch",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_normalize_amount",
+        "db_connections",
+        "db_execute"
+      ],
+      "toolCalls": [
+        {
+          "seq": 1,
+          "name": "doc_batch",
+          "arguments": {
+            "candidates": [
+              {
+                "id": 8,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/internet-payment-12-jun.txt",
+                "mime": "text/plain",
+                "size": 1709,
+                "file_mtime": "2026-08-02T10:04:29.294Z",
+                "sha256": "346c686548dfa72af3f94eda28beadee6b5fd7eb35943ab9ebb786ac2b41560e",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 6 query terms",
+                "score": 6
+              },
+              {
+                "id": 3,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/electricity-bill-03-jun.txt",
+                "mime": "text/plain",
+                "size": 2373,
+                "file_mtime": "2026-08-02T10:04:29.293Z",
+                "sha256": "aa61b3d79448ee01faf29293fb7b94d5e4ed594b83419a674ead661add29afbb",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 5 query terms",
+                "score": 5
+              },
+              {
+                "id": 4,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/fuel-receipt-09-jun.txt",
+                "mime": "text/plain",
+                "size": 945,
+                "file_mtime": "2026-08-02T10:04:29.293Z",
+                "sha256": "af6ade86a82d19ae8f9b349e62faeb746fbf0f7e729aabdca9be568ef295929f",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 5 query terms",
+                "score": 5
+              },
+              {
+                "id": 5,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/fuel-receipt-25-jun.txt",
+                "mime": "text/plain",
+                "size": 934,
+                "file_mtime": "2026-08-02T10:04:29.293Z",
+                "sha256": "f490962d0aae5fceeb8358fb00a1e040f2b1ca0751ba54eeff818aa22d936379",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 5 query terms",
+                "score": 5
+              },
+              {
+                "id": 6,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/heating-bill-15-jun.txt",
+                "mime": "text/plain",
+                "size": 1899,
+                "file_mtime": "2026-08-02T10:04:29.291Z",
+                "sha256": "6dea8b98c0b9becc919e80dfd1bbd3d44381fbb45578456181ca526329760e4c",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 5 query terms",
+                "score": 5
+              },
+              {
+                "id": 14,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/water-bill-05-jun.txt",
+                "mime": "text/plain",
+                "size": 2132,
+                "file_mtime": "2026-08-02T10:04:29.295Z",
+                "sha256": "f939db6e44b510a1763fd93fb2ec46ecd5600886563e805258cb9f5da9ef2b54",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 5 query terms",
+                "score": 5
+              },
+              {
+                "id": 2,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/bank-statement-jun.txt",
+                "mime": "text/plain",
+                "size": 1416,
+                "file_mtime": "2026-08-02T10:04:29.293Z",
+                "sha256": "bae8da854086561c784619454b076cb81ea5704262a303f189f939eca68eb6e5",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 4 query terms",
+                "score": 4
+              },
+              {
+                "id": 12,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/transport-topup-28-jun.txt",
+                "mime": "text/plain",
+                "size": 1244,
+                "file_mtime": "2026-08-02T10:04:29.295Z",
+                "sha256": "59b6efdc7b06e84fb5c618ef5ba930bc1b6f8c739b75dc29c62a2b9f7daf0cc1",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 4 query terms",
+                "score": 4
+              },
+              {
+                "id": 1,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/airport-paris-16-jun.pdf",
+                "mime": "application/pdf",
+                "size": 1903,
+                "file_mtime": "2026-08-02T10:04:29.290Z",
+                "sha256": "f193366ed9419ef28c921fc961cee371cb13e4621a45f1b557e9306f1f4bb3ca",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 7,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/hotel-berlin-14-15-jun.pdf",
+                "mime": "application/pdf",
+                "size": 2046,
+                "file_mtime": "2026-08-02T10:04:29.294Z",
+                "sha256": "2f973882856b0dbac624daff51eb1e04b557ba75b7e3a532fe774fe80986c3c2",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 11,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/train-berlin-munich-14-jun.txt",
+                "mime": "text/plain",
+                "size": 938,
+                "file_mtime": "2026-08-02T10:04:29.291Z",
+                "sha256": "a7d7479d62aeb6d63860fae4a7a765b8b363f7d67f935d04e2c97b4e7dd51243",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 13,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/waste-fee-22-jun.txt",
+                "mime": "text/plain",
+                "size": 1585,
+                "file_mtime": "2026-08-02T10:04:29.292Z",
+                "sha256": "e1ac7926c15ea8c4ec2f009f9243480080e0b4ed967a5fafccb67afd3f374ecb",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 17,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "trade-docs/commercial-invoice.txt",
+                "mime": "text/plain",
+                "size": 4397,
+                "file_mtime": "2026-08-02T10:04:29.297Z",
+                "sha256": "9af4491663682a5116329351761f8ef70adffb7ec3a7f3fb82cf755773a91dee",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 15,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "templates/payment-form-blank.docx",
+                "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "size": 9207,
+                "file_mtime": "2026-08-02T10:04:29.296Z",
+                "sha256": "24891529412858a42f0d1cd2bdb05cff729b700bed7254c5a7326bc6ca64e65a",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 2 query terms",
+                "score": 2
+              },
+              {
+                "id": 16,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "templates/payment-form-blank.txt",
+                "mime": "text/plain",
+                "size": 1731,
+                "file_mtime": "2026-08-02T10:04:29.296Z",
+                "sha256": "9bbc24df258ab6f7a6eb19b41812f69bed9843a67f493f0a8613763332c05ae0",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 2 query terms",
+                "score": 2
+              },
+              {
+                "id": 9,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/tax-increase-notice-bg-30-jun.txt",
+                "mime": "text/plain",
+                "size": 1805,
+                "file_mtime": "2026-08-02T10:04:29.290Z",
+                "sha256": "ef4f5c6e8d428899c051c642239655127ccba33973bcfb19dd19288cd1b8840e",
+                "filename_date_hint": null,
+                "duplicates": [
+                  {
+                    "id": 19,
+                    "rel_path": "tax-increase-notice-bg-30-jun.txt",
+                    "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/secondary"
+                  }
+                ],
+                "selection_reason": "matched 1 query term",
+                "score": 1
+              }
+            ]
+          },
+          "ok": true,
+          "summary": "55.9 KB",
+          "ms": 45,
+          "pending": false
+        },
+        {
+          "seq": 2,
+          "name": "doc_batch",
+          "arguments": {
+            "candidates": [
+              {
+                "id": 10,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "June/tax-increase-notice-en-30-jun.txt",
+                "mime": "text/plain",
+                "size": 967,
+                "file_mtime": "2026-08-02T10:04:29.292Z",
+                "sha256": "908725b018146e0a9896c05df96ef962544fdc1db98743c579573f7d3441fc75",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 1 query term",
+                "score": 1
+              },
+              {
+                "id": 18,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-j6WIdy/corpus/primary",
+                "rel_path": "trade-docs/swift-mt700.txt",
+                "mime": "text/plain",
+                "size": 3408,
+                "file_mtime": "2026-08-02T10:04:29.297Z",
+                "sha256": "c2f5bf0b9d4a7bc0664436f4d10a897db8fc5b0dd84b09d143dc313bca59ce1e",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "indexed-corpus fallback",
+                "score": 0
+              }
+            ]
+          },
+          "ok": true,
+          "summary": "8.0 KB",
+          "ms": 8,
+          "pending": false
+        },
+        {
+          "seq": 3,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "29,99",
+            "currency": "BGN",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "{\"amount\":29.99,\"currency\":\"BGN\",\"source\":\"29,99\"}",
+          "ms": 3,
+          "pending": false
+        },
+        {
+          "seq": 4,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "142,50 лв",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "currency is required (ISO 4217 code or a supported symbol)",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 5,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "64,80 лв",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "currency is required (ISO 4217 code or a supported symbol)",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 6,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "38,20 лв",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "currency is required (ISO 4217 code or a supported symbol)",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 7,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "15,00 лв",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "currency is required (ISO 4217 code or a supported symbol)",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 8,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "50,00 лв",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "currency is required (ISO 4217 code or a supported symbol)",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 9,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "120.00 BGN",
+            "locale": "en"
+          },
+          "ok": true,
+          "summary": "{\"amount\":120,\"currency\":\"BGN\",\"source\":\"120.00 BGN\"}",
+          "ms": 0,
+          "pending": false
+        },
+        {
+          "seq": 10,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "95.60 BGN",
+            "locale": "en"
+          },
+          "ok": true,
+          "summary": "{\"amount\":95.6,\"currency\":\"BGN\",\"source\":\"95.60 BGN\"}",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 11,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "87.45",
+            "currency": "BGN",
+            "locale": "en"
+          },
+          "ok": true,
+          "summary": "{\"amount\":87.45,\"currency\":\"BGN\",\"source\":\"87.45\"}",
+          "ms": 0,
+          "pending": false
+        },
+        {
+          "seq": 12,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "53.30",
+            "currency": "BGN",
+            "locale": "en"
+          },
+          "ok": true,
+          "summary": "{\"amount\":53.3,\"currency\":\"BGN\",\"source\":\"53.30\"}",
+          "ms": 0,
+          "pending": false
+        },
+        {
+          "seq": 13,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "18,50 EUR",
+            "locale": "fr"
+          },
+          "ok": true,
+          "summary": "{\"amount\":18.5,\"currency\":\"EUR\",\"source\":\"18,50 EUR\"}",
+          "ms": 0,
+          "pending": false
+        },
+        {
+          "seq": 14,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "128,00 EUR",
+            "locale": "de"
+          },
+          "ok": true,
+          "summary": "{\"amount\":128,\"currency\":\"EUR\",\"source\":\"128,00 EUR\"}",
+          "ms": 0,
+          "pending": false
+        },
+        {
+          "seq": 15,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "49,90 EUR",
+            "locale": "de"
+          },
+          "ok": true,
+          "summary": "{\"amount\":49.9,\"currency\":\"EUR\",\"source\":\"49,90 EUR\"}",
+          "ms": 0,
+          "pending": false
+        },
+        {
+          "seq": 16,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "142,50",
+            "currency": "BGN",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "{\"amount\":142.5,\"currency\":\"BGN\",\"source\":\"142,50\"}",
+          "ms": 2,
+          "pending": false
+        },
+        {
+          "seq": 17,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "64,80",
+            "currency": "BGN",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "{\"amount\":64.8,\"currency\":\"BGN\",\"source\":\"64,80\"}",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 18,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "38,20",
+            "currency": "BGN",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "{\"amount\":38.2,\"currency\":\"BGN\",\"source\":\"38,20\"}",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 19,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "15,00",
+            "currency": "BGN",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "{\"amount\":15,\"currency\":\"BGN\",\"source\":\"15,00\"}",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 20,
+          "name": "db_normalize_amount",
+          "arguments": {
+            "amount": "50,00",
+            "currency": "BGN",
+            "locale": "bg"
+          },
+          "ok": true,
+          "summary": "{\"amount\":50,\"currency\":\"BGN\",\"source\":\"50,00\"}",
+          "ms": 1,
+          "pending": false
+        },
+        {
+          "seq": 21,
+          "name": "db_connections",
+          "arguments": {},
+          "ok": true,
+          "summary": "230 B",
+          "ms": 3,
+          "pending": false
+        },
+        {
+          "seq": 22,
+          "name": "db_execute",
+          "arguments": {
+            "connection": "extraction",
+            "sql": "CREATE TABLE june_2026_bills (\n  id INTEGER PRIMARY KEY AUTOINCREMENT,\n  doc_path TEXT NOT NULL,\n  category TEXT NOT NULL,\n  merchant TEXT,\n  doc_date TEXT,\n  amount REAL NOT NULL,\n  currency TEXT NOT NULL,\n  source_amount TEXT NOT NULL,\n  evidence_kind TEXT\n)"
+          },
+          "ok": true,
+          "summary": "643 B",
+          "ms": 4,
+          "pending": false
+        }
+      ],
+      "interruptApproved": true,
+      "approvedCount": 1,
+      "answerRaw": "✅ Executed on extraction (sqlite). {\"rowsAffected\":0,\"lastInsertRowid\":0}",
+      "usage": null,
+      "status": "completed"
+    },
+    {
+      "prompt": "Now give me the category breakdown and the grand total you just saved — query it per category (SUM grouped by category and currency), not from your own arithmetic.",
+      "wallMs": 36809,
+      "toolSequence": [
+        "db_connections",
+        "db_schema",
+        "db_query",
+        "db_execute"
+      ],
+      "toolCalls": [
+        {
+          "seq": 1,
+          "name": "db_connections",
+          "arguments": {},
+          "ok": true,
+          "summary": "463 B",
+          "ms": 3,
+          "pending": false
+        },
+        {
+          "seq": 2,
+          "name": "db_schema",
+          "arguments": {
+            "connection": "extraction",
+            "table": "june_2026_bills"
+          },
+          "ok": true,
+          "summary": "1.3 KB",
+          "ms": 16,
+          "pending": false
+        },
+        {
+          "seq": 3,
+          "name": "db_query",
+          "arguments": {
+            "connection": "extraction",
+            "sql": "SELECT COUNT(*) AS row_count FROM june_2026_bills"
+          },
+          "ok": true,
+          "summary": "179 B",
+          "ms": 7,
+          "pending": false
+        },
+        {
+          "seq": 4,
+          "name": "db_execute",
+          "arguments": {
+            "connection": "extraction",
+            "sql": "INSERT INTO june_2026_bills\n  (doc_path, category, merchant, doc_date, amount, currency, source_amount, evidence_kind)\nVALUES\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?),\n  (?, ?, ?, ?, ?, ?, ?, ?)",
+            "params": [
+              "June/electricity-bill-03-jun.txt",
+              "Utilities",
+              "СофияЕнерго ЕАД",
+              "2026-06-03",
+              142.5,
+              "BGN",
+              "142,50",
+              "invoice",
+              "June/heating-bill-15-jun.txt",
+              "Utilities",
+              "ТоплоСофия ЕАД",
+              "2026-06-15",
+              64.8,
+              "BGN",
+              "64,80",
+              "invoice",
+              "June/water-bill-05-jun.txt",
+              "Utilities",
+              "ВодаСофия ЕАД",
+              "2026-06-05",
+              38.2,
+              "BGN",
+              "38,20",
+              "invoice",
+              "June/waste-fee-22-jun.txt",
+              "Utilities",
+              "СТОЛИЧНА ОБЩИНА (примерна)",
+              "2026-06-22",
+              15,
+              "BGN",
+              "15,00",
+              "notice",
+              "June/internet-payment-12-jun.txt",
+              "Internet",
+              "НетЛинк ЕООД",
+              "2026-06-12",
+              29.99,
+              "BGN",
+              "29,99",
+              "payment_order",
+              "June/fuel-receipt-09-jun.txt",
+              "Fuel",
+              "PETROLMAX",
+              "2026-06-09",
+              120,
+              "BGN",
+              "120.00 BGN",
+              "receipt",
+              "June/fuel-receipt-25-jun.txt",
+              "Fuel",
+              "PETROLMAX",
+              "2026-06-25",
+              95.6,
+              "BGN",
+              "95.60 BGN",
+              "receipt",
+              "June/bank-statement-jun.txt",
+              "Groceries",
+              "FreshMarket #218 groceries",
+              "2026-06-07",
+              87.45,
+              "BGN",
+              "87.45",
+              "statement_row",
+              "June/bank-statement-jun.txt",
+              "Groceries",
+              "EuroMarket groceries",
+              "2026-06-18",
+              53.3,
+              "BGN",
+              "53.30",
+              "statement_row",
+              "June/transport-topup-28-jun.txt",
+              "Transport",
+              "ГРАДСКИ ТРАНСПОРТ СОФИЯ",
+              "2026-06-28",
+              50,
+              "BGN",
+              "50,00",
+              "receipt",
+              "June/hotel-berlin-14-15-jun.pdf",
+              "Travel",
+              "Hotel Lindenhof Berlin",
+              "2026-06-14",
+              128,
+              "EUR",
+              "128,00 EUR",
+              "invoice",
+              "June/train-berlin-munich-14-jun.txt",
+              "Travel",
+              "BahnReise AG",
+              "2026-06-14",
+              49.9,
+              "EUR",
+              "49,90 EUR",
+              "ticket",
+              "June/airport-paris-16-jun.pdf",
+              "Travel",
+              "Café du Terminal, Paris CDG",
+              "2026-06-16",
+              18.5,
+              "EUR",
+              "18,50 EUR",
+              "receipt"
+            ]
+          },
+          "ok": true,
+          "summary": "2.2 KB",
+          "ms": 5,
+          "pending": false
+        }
+      ],
+      "interruptApproved": true,
+      "approvedCount": 1,
+      "answerRaw": "✅ Executed on extraction (sqlite). {\"rowsAffected\":13,\"lastInsertRowid\":13}",
+      "usage": null,
+      "status": "completed"
+    },
+    {
+      "prompt": "If the rows aren't in the table yet, finish saving them now (a single multi-row INSERT is fine — it's still one statement), then run the per-category SQL query and give me the breakdown and total.",
+      "wallMs": 27134,
+      "toolSequence": [
+        "db_query",
+        "db_query",
+        "db_query"
+      ],
+      "toolCalls": [
+        {
+          "seq": 1,
+          "name": "db_query",
+          "arguments": {
+            "connection": "extraction",
+            "sql": "SELECT COUNT(*) AS row_count, COUNT(DISTINCT doc_path) AS doc_count FROM june_2026_bills"
+          },
+          "ok": true,
+          "summary": "220 B",
+          "ms": 4,
+          "pending": false
+        },
+        {
+          "seq": 2,
+          "name": "db_query",
+          "arguments": {
+            "connection": "extraction",
+            "sql": "SELECT category, currency,\n       COUNT(*) AS n,\n       ROUND(SUM(amount), 2) AS total\nFROM june_2026_bills\nGROUP BY category, currency\nORDER BY currency, total DESC"
+          },
+          "ok": true,
+          "summary": "795 B",
+          "ms": 7,
+          "pending": false
+        },
+        {
+          "seq": 3,
+          "name": "db_query",
+          "arguments": {
+            "connection": "extraction",
+            "sql": "SELECT currency,\n       COUNT(*) AS n,\n       ROUND(SUM(amount), 2) AS total\nFROM june_2026_bills\nGROUP BY currency\nORDER BY currency"
+          },
+          "ok": true,
+          "summary": "314 B",
+          "ms": 5,
+          "pending": false
+        }
+      ],
+      "interruptApproved": false,
+      "approvedCount": 0,
+      "answerRaw": "Done. The rows were saved (13 rows, 12 documents — the bank statement contributes two rows), and everything below comes straight from `db_query` on the `extraction` database, table `june_2026_bills`:\n\n## Category breakdown — June 2026\n\n**BGN (10 rows, total 696.84 лв.)**\n\n| Category | Transactions | Total |\n|---|---|---|\n| Utilities | 4 | 260.50 |\n| Fuel | 2 | 215.60 |\n| Groceries | 2 | 140.75 |\n| Transport | 1 | 50.00 |\n| Internet | 1 | 29.99 |\n\n**EUR (3 rows, total €196.40)**\n\n| Category | Transactions | Total |\n|---|---|---|\n| Travel | 3 | 196.40 |\n\n## Grand total\n\n- **696.84 BGN** (10 transactions)\n- **196.40 EUR** (3 transactions)\n\nI'm not combining the two currencies into one number because that would require an FX conversion I haven't been asked (or authorized) to apply — and it would hide the real figure. If you want a single grand total, tell me the rate (or that I should fetch one), and I'll add it.\n\n**To query this later yourself** — the data is saved in the `extraction` database, table `june_2026_bills`, with columns `doc_path, category, merchant, doc_date, amount, currency, source_amount, evidence_kind`. The breakdown query was:\n\n```sql\nSELECT category, currency, COUNT(*) AS n, ROUND(SUM(amount), 2) AS total\nFROM june_2026_bills\nGROUP BY category, currency\nORDER BY currency, total DESC;\n```\n\nOne housekeeping note: the previous turn ended without the INSERT being proposed, so the table was empty when you asked — that's why I had to write the rows before querying. The table now holds exactly the 13 verified rows, so the numbers above are consistent with the document extraction (deduplicated: the 09‑Jun fuel receipt counted once, not twice).\n\nShould I remember this query/schema for reuse next month?",
+      "usage": {
+        "input_tokens": 20249,
+        "output_tokens": 546,
+        "thinking_tokens": 84
+      },
+      "status": "completed"
+    }
+  ],
+  "grading": {
+    "status": "pass",
+    "checks": {
+      "calledDbExecute": true,
+      "interruptApproved": true,
+      "calledDbQueryAfterConfirm": true,
+      "followUpCitesSql": true,
+      "followUpNarratesDecimalTotal": true,
+      "completed": true,
+      "fullMonthGate": true,
+      "noFxBlend": true
+    },
+    "failures": []
+  }
+}

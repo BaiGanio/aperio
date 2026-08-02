@@ -53,6 +53,36 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
+## Tool profiles / schema budgeting
+
+- 2026-08-02 `SMALL_WINDOW_TOKENS` defaults to **32768** in code
+  (`lib/agent/tool-profiles.js:105`) but the registry documents **8192**
+  (`lib/config.js:224-226`), and registry defaults are never injected into
+  `process.env` (`lib/config.js:565-578`). The tool-count cap therefore fires on
+  far more models than the documentation implies. Found while auditing schema
+  budgeting for the Git co-pilot map (#345/#346).
+- 2026-08-02 `capToolsForWindow` **`break`s** on the first tool that overflows the
+  `0.20 × contextWindow` budget rather than skipping it
+  (`lib/agent/tool-profiles.js:125-134`), so an over-budget profile is truncated
+  mid-set with only a `logger.info` (`lib/agent/index.js:239`). Benign for
+  read-only profiles; becomes a correctness problem for any future tool group
+  where a partial set is worse than none. Tracked as a decision in #354.
+
+---
+
+## GitHub tooling — egress logging
+
+- 2026-08-02 The GitHub **write** path logs no egress at all:
+  `create_github_issue` / `update_github_issue` POST/PATCH without a `logEgress`
+  call (`mcp/tools/github.js:435,451,459`), and `fetch_github_issue`'s primary
+  issue + comments GETs are unlogged too (`github.js:104,121`). Only 4 sites call
+  `logEgress`, hostname-only, and `var/logs/egress.log` has no rotation, no
+  redaction, no size cap, and no explicit file mode (`lib/helpers/egressLog.js:14-19`).
+  So "which repo did the agent write to" is not recoverable after the fact. Found
+  during the #346 audit.
+
+---
+
 ## Db-connect — extraction identity / managed lock
 
 - 2026-08-01 A v1-era extraction row whose connection string is edited BEFORE

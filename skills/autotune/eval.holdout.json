@@ -7,6 +7,7 @@
     { "id": "ho.memory",    "prompt": "Remember this as my standing preference going forward.", "expect": "memory-protocol" },
     { "id": "ho.prompt-opt","prompt": "Rework this fuzzy request into a precise, well-scoped ask.", "expect": "prompt-optimizer" },
     { "id": "ho.wiki",      "prompt": "Publish an internal knowledge page about the incident.", "expect": "wiki" },
-    { "id": "ho.reminder",  "prompt": "Set a reminder for my doctor's appointment tomorrow.", "expect": "memory-protocol" }
+    { "id": "ho.reminder",  "prompt": "Set a reminder for my doctor's appointment tomorrow.", "expect": "memory-protocol" },
+    { "id": "ho.docint",    "prompt": "Total up my fuel and grocery spending for the quarter.", "expect": "document-intelligence" }
   ]
 }
