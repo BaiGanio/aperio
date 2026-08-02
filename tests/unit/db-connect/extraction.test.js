@@ -247,6 +247,23 @@ describe("extractionDbPath", () => {
     assert.notEqual(a, b);
   });
 
+  // P1 review finding: libpq also accepts the ATTACHED short-option form
+  // `-csearch_path=tenant_a`. Skipping every single-dash token other than an
+  // exact `-c` discarded the assignment, collapsing `-csearch_path=tenant_a`
+  // and `-csearch_path=tenant_b` onto one identity — different namespaces
+  // sharing one extraction file.
+  test("P1: attached -c namespace assignments (-csearch_path=...) resolve to DIFFERENT files", () => {
+    const a = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-csearch_path%3Dtenant_a"));
+    const b = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-csearch_path%3Dtenant_b"));
+    assert.notEqual(a, b);
+  });
+
+  test("P1: attached and spaced -c spellings of the SAME namespace resolve to the SAME file", () => {
+    const attached = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-csearch_path%3Dtenant_a"));
+    const spaced = extractionMod.extractionDbPath(postgresStore("postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20search_path%3Dtenant_a"));
+    assert.equal(attached, spaced);
+  });
+
   test("changing the host still resolves to a DIFFERENT file (identity isn't just the database name)", () => {
     const a = extractionMod.extractionDbPath(postgresStore("postgresql://u:p@host-a.example.com:5432/aperio"));
     const b = extractionMod.extractionDbPath(postgresStore("postgresql://u:p@host-b.example.com:5432/aperio"));
@@ -288,8 +305,8 @@ describe("legacy identity adoption (P1)", () => {
   // P1 review finding: upgrading a Postgres profile whose URL carries a
   // username or options changed the extraction hash away from the previous
   // host/port/database identity, so a saved row still pointing at the old
-  // file stopped matching isManagedExtractionFile and provision
-  // ExtrationConnection reported a reserved-name collision — orphaning every
+  // file stopped matching isManagedExtractionFile and
+  // provisionExtractionConnection() reported a reserved-name collision — orphaning every
   // pre-existing extracted document. Rows hashed from any earlier identity
   // must be adopted (recognized as this module's own file for this profile),
   // not rejected.
@@ -309,7 +326,7 @@ describe("legacy identity adoption (P1)", () => {
     assert.equal(fsCalls.mkdirSync.length, 0, "adoption must not create files");
   });
 
-  test("P1: a row provisioned under the intermediate literal-role/raw-options identity is adopted too", async () => {
+  test("P1: a row provisioned under the intermediate literal-role/raw-options identity is adopted, then migrated to the stable current path", async () => {
     // c42ae99 hashed the FULL raw options; the P2 canonicalization now filters
     // behavior-only ones away, so the two identities differ for this URL and
     // the intermediate row must still be recognized.
@@ -320,12 +337,105 @@ describe("legacy identity adoption (P1)", () => {
     assert.ok(legacyPaths.length >= 2, "v0 and v1 legacy identities are both recognized");
     assert.ok(legacyPaths.every((p) => p !== current), "each legacy identity differs from the current one for this URL");
 
-    for (const legacyPath of legacyPaths) {
-      const withLegacyRow = postgresStore(url, [legacyRow(legacyPath)]);
-      assert.equal(extractionMod.isManagedExtractionFile(legacyRow(legacyPath), store), true);
-      const connection = await extractionMod.provisionExtractionConnection(withLegacyRow);
-      assert.equal(connection.file, legacyPath);
-    }
+    // v0 row: adopted in place — same file back, nothing created.
+    const v0Store = postgresStore(url, [legacyRow(legacyPaths[0])]);
+    assert.equal(extractionMod.isManagedExtractionFile(legacyRow(legacyPaths[0]), store), true);
+    const v0 = await extractionMod.provisionExtractionConnection(v0Store);
+    assert.equal(v0.file, legacyPaths[0]);
+
+    // v1 row: its saved hash depends on the raw options, so it is MIGRATED to
+    // the stable current path at provisioning (P1 review finding) — the stored
+    // row now points at the current path, not the v1 path.
+    const v1Store = postgresStore(url, [legacyRow(legacyPaths[1])]);
+    assert.equal(extractionMod.isManagedExtractionFile(legacyRow(legacyPaths[1]), store), true);
+    const v1 = await extractionMod.provisionExtractionConnection(v1Store);
+    assert.equal(v1.file, current, "a v1-adopted row is migrated to the current identity path");
+    const stored = await v1Store.getSetting(SETTINGS_KEY);
+    assert.equal(stored[0].file, current, "the migration is persisted in the settings row");
+    assert.equal(fsCalls.mkdirSync.length, 0, "migration must not create files");
+  });
+
+  // P1 review finding: a v1-adopted row kept at the old raw-options hash would
+  // be orphaned by any later behavior-only option edit, because the recomputed
+  // v1 path changes while the canonical current path stays stable. After the
+  // migration, removing statement_timeout must leave the row fully managed.
+  test("P1: after v1 migration, editing a behavior-only option no longer orphans the adopted row", async () => {
+    const withTimeout = "postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20statement_timeout%3D1000";
+    const withoutTimeout = "postgresql://svc:pw@db.example.com:5432/aperio";
+    const migratedRow = legacyRow(extractionMod.extractionDbPath(postgresStore(withTimeout)));
+
+    // Same stored row, but the user has since dropped statement_timeout: the
+    // canonical current path is unchanged, so the migrated row still matches.
+    const editedStore = postgresStore(withoutTimeout, [migratedRow]);
+    assert.equal(extractionMod.isManagedExtractionFile(migratedRow, editedStore), true);
+    const connection = await extractionMod.provisionExtractionConnection(editedStore);
+    assert.equal(connection.file, migratedRow.file);
+  });
+
+  // P1 review finding: the migration must happen at the FIRST touch of the
+  // adopted row, not only at provisioning — a profile that only READS the
+  // extraction database never provisions, and a v1 row left at the raw-
+  // options hash would then be orphaned by the first behavior-only option
+  // edit. Every connection resolution (getDriver → adoptManagedExtractionRow)
+  // migrates the row before any edit can orphan it, so reads, schema
+  // introspection and writes all get the same guarantee.
+  test("P1: the read path (adoptManagedExtractionRow) migrates a v1-adopted row at first touch, so a later options edit cannot orphan it", async () => {
+    const withTimeout = "postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20statement_timeout%3D1000";
+    const withoutTimeout = "postgresql://svc:pw@db.example.com:5432/aperio";
+    const v1Path = extractionMod.legacyExtractionDbPaths(postgresStore(withTimeout))[1];
+    const current = extractionMod.extractionDbPath(postgresStore(withTimeout));
+    assert.notEqual(v1Path, current, "the v1 path genuinely differs from the canonical current path for this URL");
+
+    // First touch (e.g. a db_query resolving the extraction connection): the
+    // v1 row is migrated to the stable current path and persisted.
+    const firstStore = postgresStore(withTimeout, [legacyRow(v1Path)]);
+    const adopted = await extractionMod.adoptManagedExtractionRow(firstStore, legacyRow(v1Path));
+    assert.equal(adopted.file, current, "a v1-adopted row is migrated at first touch");
+    const stored = (await firstStore.getSetting(SETTINGS_KEY))[0];
+    assert.equal(stored.file, current, "the read-path migration is persisted in the settings row");
+
+    // The user then drops statement_timeout: the canonical current path is
+    // unchanged, so the migrated row is still this profile's managed row and
+    // provisioning reuses it instead of throwing a reserved-name collision.
+    const editedStore = postgresStore(withoutTimeout, [stored]);
+    assert.equal(extractionMod.isManagedExtractionFile(stored, editedStore), true);
+    const connection = await extractionMod.provisionExtractionConnection(editedStore);
+    assert.equal(connection.file, current);
+  });
+
+  // P1: adoptManagedExtractionRow is the resolution-path gate — it must never
+  // touch rows that are not this profile's own, or the forged-`provisioned`
+  // TOCTOU protection would silently accept attacker-chosen paths.
+  test("P1: adoptManagedExtractionRow leaves forged and other-profile rows untouched", async () => {
+    const store = postgresStore("postgresql://alice:pw@db.example.com:5432/aperio");
+    const forged = { name: "extraction", engine: "sqlite", file: "/attacker/chosen/path.db", readOnly: false, provisioned: true };
+    assert.equal(await extractionMod.adoptManagedExtractionRow(store, forged), forged);
+
+    const otherProfileRow = legacyRow(
+      extractionMod.legacyExtractionDbPaths(postgresStore("postgresql://alice:pw@other.example.com:5432/aperio"))[0],
+    );
+    assert.equal(await extractionMod.adoptManagedExtractionRow(store, otherProfileRow), otherProfileRow);
+    assert.deepEqual(await store.getSetting(SETTINGS_KEY), [], "nothing was persisted");
+  });
+
+  // The one remaining corner, closed by the first-touch migration: a v1 row
+  // whose connection string is edited BEFORE the new build has EVER resolved
+  // this profile's extraction connection (no read, write, or provisioning
+  // since the upgrade) has no derivable identity left — the old raw options
+  // are gone and the saved hash cannot be inverted — so it stays rejected
+  // rather than silently adopting an arbitrary var/extraction path (which
+  // would reopen the forged-`provisioned` hole).
+  test("P1: a v1 row edited before the new build's first touch stays rejected (identity not derivable — documented corner)", async () => {
+    const withTimeout = "postgresql://svc:pw@db.example.com:5432/aperio?options=-c%20statement_timeout%3D1000";
+    const withoutTimeout = "postgresql://svc:pw@db.example.com:5432/aperio";
+    const v1Path = extractionMod.legacyExtractionDbPaths(postgresStore(withTimeout))[1];
+
+    const editedStore = postgresStore(withoutTimeout, [legacyRow(v1Path)]);
+    assert.equal(extractionMod.isManagedExtractionFile(legacyRow(v1Path), editedStore), false);
+    await assert.rejects(
+      () => extractionMod.provisionExtractionConnection(editedStore),
+      /reserved/i,
+    );
   });
 
   test("P1: adoption is per-profile — a legacy path from a DIFFERENT host is not adopted", () => {
