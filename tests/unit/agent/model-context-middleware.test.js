@@ -95,6 +95,149 @@ test("composes trimming, memory pointers, skills, and tool profiles in named ord
   assert.deepEqual(messages[1], { role: "assistant", content: "older" });
 });
 
+// P1 review finding (llamacpp-multiturn-latency.md Step 2, round 9):
+// ensureTurn's tool/skill selection was always fed the context-trimming
+// stage's own OUTPUT (request.messages, already trimmed by the time the
+// skill-injection/tool-profile-selection stages run) — turn-planner.js's
+// sticky pin/carry fold reconstructs purely by re-scanning whatever
+// `messages` it receives for historical tool-using turns, so a trimmed-away
+// turn was indistinguishable from "no tool used in a while," silently
+// resetting the pin (or, via countUserTurns, undercounting turnNum) with no
+// TOOL_PIN_TURNS gap ever having occurred. Fixed by threading the caller's
+// real, untrimmed conversation through as `untrimmedMessages`.
+test("ensureTurn's tool/skill selection uses untrimmedMessages when given, not the trimmed tail", async () => {
+  const calls = [];
+  const trimmedAwayMessages = [
+    { role: "user", content: "oldest" },
+    { role: "assistant", content: "older" },
+    { role: "user", content: "previous" },
+    { role: "assistant", content: "recent" },
+    { role: "user", content: "current request" },
+  ];
+  const untrimmedMessages = [
+    { role: "user", content: "way back at the start of this long conversation" },
+    ...trimmedAwayMessages,
+  ];
+  const turn = { skills: [] };
+  const middleware = createModelContextMiddleware({
+    emitter: { send: noop },
+    logger,
+    maxHistory: 3,
+    getMemoryPointers: () => [],
+    ensureTurn(receivedMessages, userText) {
+      calls.push(["ensureTurn", receivedMessages, userText]);
+      return turn;
+    },
+    logTurnOnce: noop,
+    getSkillPrompts: () => [],
+    getSelectedTools: () => [],
+    untrimmedMessages,
+  });
+  const runner = createLifecycleRunner(middleware);
+
+  await runner.run("beforeModel", {
+    messages: trimmedAwayMessages,
+    observedInputTokens: 0,
+    contextWindow: 100_000,
+    providerLabel: "test",
+    promptParts: [],
+    tailAppend: [],
+  });
+
+  assert.deepEqual(calls, [["ensureTurn", untrimmedMessages, "current request"]]);
+});
+
+test("falls back to request.messages (the trimmed tail) when untrimmedMessages is omitted", async () => {
+  // Every existing caller that doesn't pass untrimmedMessages must keep
+  // getting exactly today's behavior — no silent change for callers that
+  // haven't opted in.
+  const calls = [];
+  const messages = [
+    { role: "user", content: "oldest" },
+    { role: "assistant", content: "older" },
+    { role: "user", content: "current request" },
+  ];
+  const turn = { skills: [] };
+  const middleware = createModelContextMiddleware({
+    emitter: { send: noop },
+    logger,
+    getMemoryPointers: () => [],
+    ensureTurn(receivedMessages, userText) {
+      calls.push(["ensureTurn", receivedMessages, userText]);
+      return turn;
+    },
+    logTurnOnce: noop,
+    getSkillPrompts: () => [],
+    getSelectedTools: () => [],
+  });
+  const runner = createLifecycleRunner(middleware);
+
+  const prepared = await runner.run("beforeModel", {
+    messages,
+    observedInputTokens: 0,
+    contextWindow: 100_000,
+    providerLabel: "test",
+    promptParts: [],
+    tailAppend: [],
+  });
+
+  assert.deepEqual(calls, [["ensureTurn", prepared.request.messages, "current request"]]);
+});
+
+// P2 review finding: ensureTurn's `messages` arg is intentionally the FULL
+// untrimmed history (so the sticky pin/carry fold can see historical
+// tool-using turns the context-trimmer already shed — see the test above),
+// but planTurnTools' hasInlineImage/standaloneVision must NOT be derived from
+// that same untrimmed array — an image old enough to have fallen out of the
+// trimmed, model-facing context is no longer visible to the model, so it must
+// not still classify an unrelated later turn as standalone vision. Both
+// call sites in this middleware must pass the TRIMMED request.messages as
+// ensureTurn's third (imageMessages) argument, distinct from the untrimmed
+// first argument.
+test("threads the trimmed request.messages as ensureTurn's imageMessages argument, separate from the untrimmed messages argument", async () => {
+  const calls = [];
+  const trimmedTail = [
+    { role: "user", content: "previous" },
+    { role: "assistant", content: "recent" },
+    { role: "user", content: "current request" },
+  ];
+  const untrimmedMessages = [
+    { role: "user", content: [
+      { type: "text", text: "describe this image" },
+      { type: "image", source: { type: "base64", media_type: "image/png", data: "pixels" } },
+    ] },
+    ...trimmedTail,
+  ];
+  const turn = { skills: [] };
+  const middleware = createModelContextMiddleware({
+    emitter: { send: noop },
+    logger,
+    maxHistory: 20,
+    getMemoryPointers: () => [],
+    ensureTurn(receivedMessages, userText, imageMessages) {
+      calls.push(["ensureTurn", receivedMessages, userText, imageMessages]);
+      return turn;
+    },
+    logTurnOnce: noop,
+    getSkillPrompts: () => [],
+    getSelectedTools: () => [],
+    untrimmedMessages,
+  });
+  const runner = createLifecycleRunner(middleware);
+
+  const prepared = await runner.run("beforeModel", {
+    messages: trimmedTail,
+    observedInputTokens: 0,
+    contextWindow: 100_000,
+    providerLabel: "test",
+    promptParts: [],
+    tailAppend: [],
+  });
+
+  assert.deepEqual(calls, [["ensureTurn", untrimmedMessages, "current request", prepared.request.messages]]);
+  assert.notDeepEqual(prepared.request.messages, untrimmedMessages, "imageMessages must be the trimmed tail, not the untrimmed history the stale image lives in");
+});
+
 test("context trimming emits the existing bounded event without mutating history", async () => {
   const events = [];
   const messages = Array.from({ length: 12 }, (_, index) => ({

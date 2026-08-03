@@ -10,8 +10,9 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, CONFIRM_TOOLS, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, isDocumentAggregationIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, CONFIRM_TOOLS, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, isDocumentAggregationIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools, parsePinTurns } from "../../../lib/agent/tool-profiles.js";
 import { CONFIRMABLE_TOOLS } from "../../../lib/helpers/confirmableTools.js";
+import { applyConfigToEnv, configSettingKey } from "../../../lib/config-resolver.js";
 
 function toolsFor(text) {
   const profiles = classifyProfiles(text);
@@ -343,6 +344,46 @@ describe("capToolsForWindow", () => {
     }
   });
 
+  // Step 2 of the llamacpp-multiturn-latency plan: pin-for-N-turns tool-set
+  // stability (turn-planner.js's computeStickyProfiles) can carry a stale
+  // profile's tools forward from earlier in a flow. Under a tight schema
+  // budget, this turn's OWN newly-relevant tools must never be silently
+  // truncated in favor of that stale carryover — the plan's locked decision
+  // that correctness of tool availability isn't traded for cache stability.
+  test("prioritizes this turn's own tools over stale carried-over ones under a tight budget", () => {
+    const schemaBudget = Math.floor(smallWin * TOOL_SCHEMA_BUDGET_RATIO);
+    // Insertion order deliberately puts the stale tool FIRST, so a pass would
+    // only happen by genuinely consulting currentTurnNames, not by accident.
+    const names = new Set(["recall", "stale_carried_tool", "new_pivot_tool"]);
+    const schemaTokenCosts = new Map([
+      ["recall", 100],
+      ["stale_carried_tool", 1500],
+      ["new_pivot_tool", 1500],
+    ]);
+    const currentTurnNames = new Set(["new_pivot_tool"]);
+
+    const capped = capToolsForWindow(names, smallWin, { schemaTokenCosts, currentTurnNames });
+
+    assert.ok(capped.has("recall"), "recall floor survives");
+    assert.ok(capped.has("new_pivot_tool"), "this turn's own newly-relevant tool survives the budget");
+    assert.ok(!capped.has("stale_carried_tool"), "a stale carried-over tool loses out to the current turn's own tool");
+    assert.ok(schemaBudget > 0, "sanity: budget is non-trivial at this window size");
+  });
+
+  test("falls back to plain insertion order when currentTurnNames is not given", () => {
+    const names = new Set(["recall", "first_tool", "second_tool"]);
+    const schemaTokenCosts = new Map([
+      ["recall", 100],
+      ["first_tool", 1500],
+      ["second_tool", 1500],
+    ]);
+
+    const capped = capToolsForWindow(names, smallWin, { schemaTokenCosts });
+
+    assert.ok(capped.has("first_tool"), "insertion order wins without currentTurnNames");
+    assert.ok(!capped.has("second_tool"), "second candidate is still budget-truncated");
+  });
+
   test("keeps non-llama.cpp provider tool contracts unchanged", () => {
     const names = new Set([
       "recall", "wiki_write", "wiki_get", "wiki_search", "wiki_list", "propose_wiki",
@@ -357,6 +398,77 @@ describe("capToolsForWindow", () => {
         `${name} keeps its complete selected tool set`,
       );
     }
+  });
+});
+
+// A P2 review finding on Step 2's first cut: Number(raw) || 3 silently
+// replaced an explicit APERIO_TOOL_PIN_TURNS=0 (a valid, meaningful "disable
+// follow-up pinning" value) with the default 3, since 0 is falsy.
+describe("parsePinTurns (APERIO_TOOL_PIN_TURNS)", () => {
+  test("preserves an explicit 0 (disables follow-up pinning)", () => {
+    assert.strictEqual(parsePinTurns("0"), 0);
+  });
+
+  test("parses a valid positive value", () => {
+    assert.strictEqual(parsePinTurns("5"), 5);
+  });
+
+  test("falls back to the default 3 when unset", () => {
+    assert.strictEqual(parsePinTurns(undefined), 3);
+    assert.strictEqual(parsePinTurns(""), 3);
+  });
+
+  test("falls back to the default 3 for a non-finite or negative value", () => {
+    assert.strictEqual(parsePinTurns("not-a-number"), 3);
+    assert.strictEqual(parsePinTurns("-1"), 3);
+    assert.strictEqual(parsePinTurns("NaN"), 3);
+  });
+
+  test("falls back to the default 3 for a fractional value (P2 review finding)", () => {
+    // sinceLastToolUse advances one whole turn at a time; a fractional
+    // TOOL_PIN_TURNS like 1.5 would silently pin 2 follow-up turns (both
+    // 0 < 1.5 and 1 < 1.5 hold), not the value actually configured.
+    assert.strictEqual(parsePinTurns("1.5"), 3);
+    assert.strictEqual(parsePinTurns("0.5"), 3);
+    assert.strictEqual(parsePinTurns("2.99"), 3);
+  });
+});
+
+// P2 review finding: TOOL_PIN_TURNS (above) is a module-level constant read
+// from process.env at import time. standalone.js used to statically import
+// the agent module (which transitively imports this file) at the TOP of the
+// file, before runStandalone() ever calls applyConfigToEnv() to hydrate
+// DB-stored config into process.env — so a value saved via the Settings UI
+// was silently ineffective in standalone/CLI mode, even though the server
+// path picked it up correctly. Fixed by making standalone.js's agent import
+// a dynamic `await import(...)` performed AFTER hydration (mirroring
+// server.js/hydrateRuntime.js's existing pattern). This test proves the
+// mechanism the fix relies on: a fresh import of this module reflects a
+// DB-hydrated value, but only if hydration ran first — a cache-busted
+// dynamic import is used because this file's own top-level static import
+// (above) has already frozen the ordinary TOOL_PIN_TURNS binding for this
+// process.
+const cacheBustToolProfiles = () =>
+  import(`../../../lib/agent/tool-profiles.js?t=${Date.now()}_${Math.random().toString(36).slice(2)}`);
+const storeWith = (settings = {}) => ({ async getSettings() { return { ...settings }; } });
+
+describe("TOOL_PIN_TURNS DB-hydration ordering (P2 review finding)", () => {
+  let saved;
+  beforeEach(() => { saved = { ...process.env }; });
+  afterEach(() => { process.env = saved; });
+
+  test("reflects a DB-configured value when the module is (re)imported AFTER applyConfigToEnv runs", async () => {
+    delete process.env.APERIO_TOOL_PIN_TURNS;
+    await applyConfigToEnv(storeWith({ [configSettingKey("APERIO_TOOL_PIN_TURNS")]: "7" }));
+    const mod = await cacheBustToolProfiles();
+    assert.strictEqual(mod.TOOL_PIN_TURNS, 7);
+  });
+
+  test("stays at the pre-hydration default when the module is imported BEFORE applyConfigToEnv runs — the exact bug a static top-level import caused", async () => {
+    delete process.env.APERIO_TOOL_PIN_TURNS;
+    const mod = await cacheBustToolProfiles();
+    await applyConfigToEnv(storeWith({ [configSettingKey("APERIO_TOOL_PIN_TURNS")]: "7" }));
+    assert.strictEqual(mod.TOOL_PIN_TURNS, 3, "a module already evaluated before hydration keeps its module-level constant frozen at the default forever, regardless of a later DB write");
   });
 });
 
