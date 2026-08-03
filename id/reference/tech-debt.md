@@ -72,6 +72,19 @@ housekeeping go in `A2D.md`, not here.
 
 ## Sessions — persisted transcript
 
+- 2026-08-03 **The no-tool-use diagnostic falsely warns on conversational
+  code answers that correctly had no file target.** `checkNoToolUse()`
+  (`lib/agent/turn-diagnostics.js:24-40`) increments its streak for any fenced
+  answer with zero tool calls; it receives neither the user intent nor the
+  tools actually offered. After two such turns it tells the user the model
+  answered with code "instead of writing files", even though tool-profile
+  policy deliberately withholds `file-edit` for bare requests such as
+  "Implement a LRU cache from scratch" (`lib/agent/tool-profiles.js:389-403`,
+  enforced by `tests/unit/agent/tool-profiles.test.js:472-490`). Confirmed in
+  real session `10d42bab-7081-4842-aa51-b9913dfc9e14`: llama.cpp completed
+  normally, and the amber chip was solely this diagnostic. The check needs to
+  be gated on explicit persistence intent and an offered mutation tool (or be
+  reworded as a generic advisory rather than claiming a missed file write).
 - 2026-08-02 **Every session's real first message is silently dropped from its
   persisted transcript.** `finaliseSession` (`lib/helpers/sessions.js:483`,
   and the `isMeaningful`/`deriveTitle` helpers around it) does
