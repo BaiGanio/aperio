@@ -245,6 +245,12 @@ number · tier 1 (Settings UI, restart to apply) · default: `10` · advanced
 
 Maximum tools attached per turn on a small-window model (see APERIO_SMALL_WINDOW_TOKENS). The recall floor and the turn's intent tools are kept first.
 
+#### `APERIO_TOOL_PIN_TURNS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `3` · advanced
+
+After a turn whose assistant response calls a tool, keep the attached tool set stable (only ever adding, never dropping) for this many follow-up turns before re-classifying from scratch. Keeps llama.cpp's prompt/KV-cache prefix reusable across a multi-turn tool-using flow instead of invalidating it every turn.
+
 ### Tool-call safety
 
 Tools treated as destructive get strict handling: malformed JSON arguments are never auto-repaired (a 'fixed' string could silently corrupt a file or row) and a failed call returns a plain error instead of a coercion hint. The built-in list (write_file, edit_file, db_execute, run_shell, …) can't be weakened; you can only extend it.
