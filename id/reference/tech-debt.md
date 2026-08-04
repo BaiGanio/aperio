@@ -70,26 +70,32 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
-## Sessions — persisted transcript
+## Terminal — resume doesn't rebind session identity
 
-- 2026-08-02 **Every session's real first message is silently dropped from its
-  persisted transcript.** `finaliseSession` (`lib/helpers/sessions.js:483`,
-  and the `isMeaningful`/`deriveTitle` helpers around it) does
-  `messages.slice(1)`, documented as "skip the internal greeting prompt at
-  [0]" — but nothing in the current ws or CLI flow ever seeds a synthetic
-  message at index 0 (`wsHandler.js`'s comment at ~L272 confirms the greeting
-  is deliberately NOT put into `messages`; `handleChat`'s first `messages.push`
-  is the user's real first turn). Verified directly against the real code
-  path (not just reading): a 4-exchange session's opening user message never
-  appears in the saved `s.messages`. Only affects the FIRST-EVER finalise of a
-  session — `[0]` genuinely IS synthetic (the resume/branch context note) on
-  every subsequent finalise of a resumed/branched session, per the round-12
-  `isContinuation` fix in the same function, so this is a distinct bug, not
-  the one that fix addressed. Likely explains why History/RAG on any given
-  conversation seem to be missing its opening line. Needs its own review: the
-  fix must distinguish a genuine synthetic first entry (resume/branch) from an
-  ordinary first user turn, which this function currently has no way to tell
-  apart.
+- 2026-08-04 `handleResume()` (`lib/terminal/standalone.js:332`) never
+  reassigns the outer `sessionId` variable to the resumed session's `id` —
+  only `providerSessionSourceId` and `state.sessionMessages`' content change.
+  Found while fixing the persisted-transcript first-message bug (finaliseSession
+  no longer always drops `messages[0]`; see the commit that closed it), which
+  needed to audit every place `messages[0]` gets reseeded. Practical effect:
+  after `/resume <id>` in the CLI, every subsequent turn is still written to
+  the OLD (pre-resume) session file on exit/restart — the resumed session's
+  own file is never updated with the new turns, and its `endedAt` is never
+  re-stamped. No test currently exercises `/resume` end-to-end. The `ws` path
+  (`handleResumeSession` in `lib/emitters/handlers/ws/session.js`) does this
+  correctly via `switchSessionId()`; the CLI path needs the equivalent
+  `sessionId = id` (plus `scratchDir`/`workspaceDirective`/`sessionLogger`
+  rebind, mirroring `switchSessionId`) added to `handleResume`.
+- 2026-08-04 `appendSummary`'s `messageCount: messages.length - 1`
+  (`lib/helpers/sessions.js:454`) still hardcodes "drop index 0 as the
+  internal greeting", the same wrong assumption `finaliseSession` had until
+  today's fix — a fresh (never resumed/branched) session's summary undercounts
+  by one real message. Cosmetic only: `messageCount` just feeds the "N
+  messages" line in the session-summary UI (`public/scripts/sessions.js`,
+  `chat.js`). Not fixed here because `appendSummary`'s 3 call sites
+  (`lib/emitters/handlers/ws/summarize.js`, `lib/terminal/standalone.js` ×2)
+  would each need the same `firstMessageSynthetic` flag threaded in for a
+  display-only off-by-one.
 
 ---
 
