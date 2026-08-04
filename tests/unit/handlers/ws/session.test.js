@@ -95,6 +95,10 @@ describe("handleBranchConversation", () => {
         send.mock.calls.some(c => c.arguments[0] === "session_branched"), true,
         "the ack is emitted only after the invalidation completed",
       );
+      assert.equal(
+        result.firstMessageSynthetic, true,
+        "messages[0] was just reseeded with the branch-context note — the caller must know to drop it on the next finalise",
+      );
     } finally {
       if (childId) deleteSession(childId);
       deleteSession(parentId);
@@ -166,6 +170,10 @@ describe("handleResumeSession", () => {
       assert.ok(result, "a real, just-created session must resolve");
       assert.equal(result.sessionId, id, "sessionId must be the RESUMED conversation's id, not left for the caller to infer");
       assert.equal(result.providerSessionSourceId, id);
+      assert.equal(
+        result.firstMessageSynthetic, true,
+        "messages[0] was just reseeded with the resume-context note — the caller must know to drop it on the next finalise",
+      );
     } finally {
       deleteSession(id);
     }

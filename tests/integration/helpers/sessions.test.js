@@ -568,7 +568,8 @@ describe("finaliseSession()", () => {
   test("finalises a meaningful session", () => {
     seedSession({ id: "final", title: null, summaries: [], messages: [] });
 
-    // Need 7+ real messages (after index 0 is sliced off) for isMeaningful
+    // Need 7+ messages for isMeaningful (index 0 here is a system-role
+    // fixture \u2014 filtered out by role regardless of firstMessageSynthetic).
     const messages = [
       { role: "system", content: "internal greeting" },
       { role: "user", content: "Hello" },
@@ -588,6 +589,38 @@ describe("finaliseSession()", () => {
     assert.ok(saved.title, "should have a title");
     assert.ok(Array.isArray(saved.messages), "should have messages");
     assert.ok(saved.messages.every(m => m.role !== "system"), "system messages should be filtered out");
+  });
+
+  test("a fresh session's real first message survives finalisation (2026-08-04 fix)", () => {
+    // Regression: finaliseSession used to unconditionally slice(1), dropping
+    // whatever sat at messages[0] \u2014 correct for a resumed/branched session
+    // (where [0] really is a synthetic context note) but wrong for an
+    // ordinary fresh session, where nothing ever seeds a placeholder at [0]
+    // and it's the user's real opening message (id/reference/tech-debt.md,
+    // "Sessions \u2014 persisted transcript"). No firstMessageSynthetic passed
+    // here \u2014 this is the ordinary, non-resumed path.
+    seedSession({ id: "fresh-first-msg", title: null, summaries: [], messages: [] });
+
+    const messages = [
+      { role: "user", content: "I need to build a web scraper with Node.js and Puppeteer, walk me through it" },
+      { role: "assistant", content: "Sure! Let's start by installing puppeteer\u2026" },
+      { role: "user", content: "What about handling pagination?" },
+      { role: "assistant", content: "You can loop through pages like this\u2026" },
+      { role: "user", content: "How do I handle rate limiting?" },
+      { role: "assistant", content: "Add delays between requests\u2026" },
+      { role: "user", content: "Thanks, that's very helpful" },
+      { role: "assistant", content: "You\u2019re welcome!" },
+    ];
+
+    sessions.finaliseSession("fresh-first-msg", messages);
+
+    const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions/fresh-first-msg.json")));
+    assert.equal(saved.messages.length, 8, "no message should be silently dropped");
+    assert.equal(
+      saved.messages[0].content,
+      "I need to build a web scraper with Node.js and Puppeteer, walk me through it",
+      "the real opening message must be persisted, not dropped as if it were a synthetic placeholder"
+    );
   });
 
   test("discards a trivial session (greetings only)", () => {
@@ -755,13 +788,13 @@ describe("finaliseSession()", () => {
       { role: "assistant", content: "Sure, here's a cost breakdown..." },
     ];
 
-    sessions.finaliseSession("resumed-session", postResumeMessages);
+    sessions.finaliseSession("resumed-session", postResumeMessages, null, false, { firstMessageSynthetic: true });
 
     const p = join(mockCwd, "var/sessions/resumed-session.json");
     const saved = JSON.parse(memFS.get(p));
     // 2 prior turns + 3 new readable turns (the resume-context note at [0] is
-    // excluded — same slice(1) as the internal-greeting case — but its
-    // "Welcome back!" reply IS a real assistant turn and is kept).
+    // excluded because the caller marked it synthetic — but its "Welcome
+    // back!" reply IS a real assistant turn and is kept).
     assert.equal(saved.messages.length, 5, "prior 2 turns + new 3 turns, not just the new ones");
     assert.equal(saved.messages[0].content, "What's the deal with tee designs?", "original first turn must survive");
     assert.equal(saved.messages[1].content, "Here's the rundown...");
@@ -791,7 +824,7 @@ describe("finaliseSession()", () => {
       { role: "user", content: "bye" },
     ];
 
-    sessions.finaliseSession("resumed-trivial", postResumeMessages);
+    sessions.finaliseSession("resumed-trivial", postResumeMessages, null, false, { firstMessageSynthetic: true });
 
     const p = join(mockCwd, "var/sessions/resumed-trivial.json");
     assert.ok(memFS.has(p), "a continuation must never be discarded as trivial");
@@ -815,7 +848,7 @@ describe("finaliseSession()", () => {
       { role: "assistant", content: "Welcome back!" },
     ];
 
-    sessions.finaliseSession("resumed-no-title-clobber", postResumeMessages);
+    sessions.finaliseSession("resumed-no-title-clobber", postResumeMessages, null, false, { firstMessageSynthetic: true });
 
     const p = join(mockCwd, "var/sessions/resumed-no-title-clobber.json");
     const saved = JSON.parse(memFS.get(p));
@@ -1455,7 +1488,7 @@ describe("isMeaningful — trivial detection", () => {
   test("session with substantive content is meaningful", () => {
     seedSession({ id: "substantive" });
 
-    // 7+ real messages (after index 0 is sliced) to pass isMeaningful's count check
+    // 7+ messages to pass isMeaningful's count check
     const messages = [
       { role: "system", content: "internal" },
       { role: "user", content: "hi" },
