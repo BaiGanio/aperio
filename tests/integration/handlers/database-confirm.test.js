@@ -9,7 +9,7 @@ import { randomBytes } from "node:crypto";
 import { rmSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import Database from "better-sqlite3";
 import {
-  executeHandler, queryHandler, connectionsHandler,
+  executeHandler, queryHandler, connectionsHandler, decideDatabaseInterrupt,
 } from "../../../lib/handlers/database/databaseHandlers.js";
 import { normalizeAmount } from "../../../lib/handlers/database/amounts.js";
 import { EXTRACTION_CONNECTION, extractionDbPath, findExtractionConnection } from "../../../lib/db-connect/extraction.js";
@@ -253,6 +253,309 @@ describe("db_execute two-phase confirm", () => {
     const res = await executeHandler(ctx, { connection: "rw", sql: "DELETE FROM t; DROP TABLE t" });
     assert.ok(res.isError);
     assert.match(textOf(res), /ONE statement/i);
+  });
+
+  test("rejects too many params before ever proposing (regression: T-L4.1 silent-drop bug)", async () => {
+    // Real failure mode: an 8-placeholder INSERT given 11 params passed
+    // propose-time validation, then threw an uncaught RangeError from
+    // better-sqlite3 at confirm time, silently dropping the row.
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (a) VALUES (?)",
+      params: [1, 2, 3],
+    });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /expects 1 bound parameter/i);
+    assert.match(textOf(res), /3 were provided/i);
+    assert.doesNotMatch(textOf(res), /Token:/);
+  });
+
+  test("rejects too few params before ever proposing", async () => {
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (id, a) VALUES (?, ?)",
+      params: [1],
+    });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /expects 2 bound parameters/i);
+    assert.match(textOf(res), /1 was provided/i);
+  });
+
+  test("SQLite named placeholders bound via a single object — genuinely writes (regression)", async () => {
+    // better-sqlite3 binds :name/@name/$name from one object argument, not
+    // one array slot per name — confirmed live against the real driver.
+    const res = await confirmed({
+      connection: "rw",
+      sql: "INSERT INTO t (a) VALUES (:a)",
+      params: [{ a: 777 }],
+    });
+    assert.match(textOf(res), /✅ Executed/);
+    const db = new Database(dbPath, { readonly: true });
+    const row = db.prepare("SELECT a FROM t WHERE a = 777").get();
+    db.close();
+    assert.ok(row);
+  });
+
+  test("SQLite named placeholders mixed with an anonymous BLOB value are not misread as a second named object at propose time (P2 regression)", async () => {
+    // Confirmed live: better-sqlite3 accepts a Buffer/Uint8Array as an
+    // ordinary scalar BLOB bind value alongside a real named-parameter
+    // object in the same call (`stmt.run({id: 900}, Buffer.from(...))`).
+    // A validator that classified the Buffer as a SECOND named-parameter
+    // object (typeof === "object" alone) would reject this genuinely valid
+    // write before ever proposing it — this only exercises PROPOSE-time
+    // validation (validateExecutionArgs/validateBoundParams), not a full
+    // confirm round-trip: the confirm-flow's interrupt store persists
+    // `canonical_arguments` as JSON for durability/auditability (both the
+    // in-memory fallback and the real SQLite/Postgres stores), which would
+    // itself turn a raw Buffer into a plain `{type:"Buffer",data:[...]}`
+    // object on the way back out — a separate, pre-existing property of
+    // that persistence layer, not the isPlainObject predicate this finding
+    // is about. In practice `params` only ever arrives as MCP-transported
+    // JSON anyway (no code path constructs a real Buffer for it today), so
+    // this is a defensive-correctness fix to the shared predicate.
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (id, a) VALUES (:id, ?)",
+      params: [{ id: 900 }, Buffer.from([9, 9, 9])],
+    });
+    assert.match(textOf(res), /Token:\s*db_[a-z0-9]+/);
+    assert.doesNotMatch(textOf(res), /named\/numbered placeholder/i);
+  });
+
+  test("SQLite named placeholders: a repeated name needs only one key, and genuinely writes", async () => {
+    const res = await confirmed({
+      connection: "rw",
+      sql: "INSERT INTO t (id, a) VALUES (:x, :x)",
+      params: [{ x: 55 }],
+    });
+    assert.match(textOf(res), /✅ Executed/);
+    const db = new Database(dbPath, { readonly: true });
+    const row = db.prepare("SELECT id, a FROM t WHERE id = 55 AND a = 55").get();
+    db.close();
+    assert.ok(row);
+  });
+
+  test("SQLite named placeholders: wrong shape (plain array of values) is rejected before proposing", async () => {
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (id, a) VALUES (:x, :y)",
+      params: [1, 2],
+    });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /named\/numbered placeholder/i);
+    assert.doesNotMatch(textOf(res), /Token:/);
+  });
+
+  test("SQLite named placeholders: object missing a required key is rejected before proposing", async () => {
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (id, a) VALUES (:x, :y)",
+      params: [{ x: 1 }],
+    });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /missing key/i);
+  });
+
+  test("SQLite named placeholders: a name colliding with an inherited Object.prototype member is rejected before proposing, not left to fail at confirm (P2 regression)", async () => {
+    // `"toString" in {}` is true (Object.prototype), but better-sqlite3 only
+    // binds an object's OWN properties — confirmed live that
+    // `db.prepare("INSERT INTO t VALUES (:toString)").run({})` still throws
+    // `Missing named parameter "toString"`. A validator using `in` instead
+    // of Object.hasOwn would wrongly treat `{}` as satisfying `:toString`,
+    // passing validation only to fail at confirm time — exactly the failure
+    // this pre-proposal check exists to prevent.
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (a) VALUES (:toString)",
+      params: [{}],
+    });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /missing key/i);
+    assert.doesNotMatch(textOf(res), /Token:/);
+  });
+
+  test("SQLite numbered placeholders (?1, ?2) bound via a single object — genuinely write (regression)", async () => {
+    // better-sqlite3's native binder treats ?N and :name identically — both
+    // are populated from one object argument, keyed by the digit string for
+    // ?N — confirmed live against the real driver (src/util/binder.cpp).
+    const res = await confirmed({
+      connection: "rw",
+      sql: "INSERT INTO t (id, a) VALUES (?1, ?2)",
+      params: [{ "1": 61, "2": 62 }],
+    });
+    assert.match(textOf(res), /✅ Executed/);
+    const db = new Database(dbPath, { readonly: true });
+    const row = db.prepare("SELECT id, a FROM t WHERE id = 61 AND a = 62").get();
+    db.close();
+    assert.ok(row);
+  });
+
+  test("SQLite numbered placeholders: wrong shape (plain array of values) is rejected before proposing", async () => {
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (id, a) VALUES (?1, ?2)",
+      params: [1, 2],
+    });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /named\/numbered placeholder/i);
+    assert.doesNotMatch(textOf(res), /Token:/);
+  });
+
+  test("SQLite numbered placeholder used alone (?2) needs an extra gap-filler value — genuinely writes (regression)", async () => {
+    // ?2 alone still reserves nameless index 1 in SQLite; without accounting
+    // for that gap, {"2": 99} alone would pass a naive count check here but
+    // throw "Too few parameter values were provided" at confirm time —
+    // exactly the failure class this validation exists to prevent.
+    const res = await confirmed({
+      connection: "rw",
+      sql: "INSERT INTO t (a) VALUES (?2)",
+      params: [0, { "2": 88 }],
+    });
+    assert.match(textOf(res), /✅ Executed/);
+    const db = new Database(dbPath, { readonly: true });
+    const row = db.prepare("SELECT a FROM t WHERE a = 88").get();
+    db.close();
+    assert.ok(row);
+  });
+
+  test("SQLite numbered placeholder gap: omitting the filler is rejected before proposing, not left to fail at confirm", async () => {
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (a) VALUES (?2)",
+      params: [{ "2": 88 }],
+    });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /also has 1 anonymous.*placeholder/i);
+    assert.doesNotMatch(textOf(res), /Token:/);
+  });
+
+  test("SQLite $value$ is one named parameter (trailing '$' in the name) — genuinely writes (regression)", async () => {
+    // Confirmed live: better-sqlite3 requires the object key to be "value$"
+    // (with the trailing $), not "value" — and this must not be misread as
+    // an (unterminated) Postgres-style dollar-quoted string.
+    const res = await confirmed({
+      connection: "rw",
+      sql: "INSERT INTO t (a) VALUES ($value$)",
+      params: [{ "value$": 91 }],
+    });
+    assert.match(textOf(res), /✅ Executed/);
+    const db = new Database(dbPath, { readonly: true });
+    const row = db.prepare("SELECT a FROM t WHERE a = 91").get();
+    db.close();
+    assert.ok(row);
+  });
+
+  test("SQLite: a '$' embedded in a real unquoted column name is not mistaken for a placeholder — genuinely writes (regression)", async () => {
+    // CREATE TABLE t (foo$bar INT) is one real column; foo$bar must not be
+    // parsed as identifier "foo" plus a $bar placeholder — confirmed live.
+    const db = new Database(dbPath);
+    db.exec("CREATE TABLE dollar_ident_t (foo$bar INTEGER)");
+    db.close();
+
+    const res = await confirmed({
+      connection: "rw",
+      sql: "UPDATE dollar_ident_t SET foo$bar = 42",
+    });
+    assert.match(textOf(res), /✅ Executed/);
+  });
+
+  test("SQLite: a numbered placeholder above the driver's max (?32767) is rejected before proposing, not left to fail at prepare", async () => {
+    // Confirmed live: better-sqlite3 throws "variable number must be between
+    // ?1 and ?32766" at prepare time — this must be caught before ever
+    // proposing the write, with a clear message instead of that raw error.
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (a) VALUES (?32767)",
+      params: [{ "32767": 1 }],
+    });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /32766/);
+    assert.doesNotMatch(textOf(res), /Token:/);
+  });
+
+  test("SQLite: '?0' is rejected as an invalid parameter number, not as an impossible parameter shape", async () => {
+    // better-sqlite3 rejects ?0 at prepare with the same "must be between ?1
+    // and ?32766" error as ?32767 (confirmed live), so it must be caught on
+    // the same path. Before the range check covered the lower bound it fell
+    // through as a named "0" with an anonymous count of -1, producing a
+    // nonsensical "expects -1 bound parameters" message.
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (a) VALUES (?0)",
+      params: [{ 0: 1 }],
+    });
+    assert.ok(res.isError);
+    assert.match(textOf(res), /\?1 to \?32766/);
+    assert.doesNotMatch(textOf(res), /-1/);
+    assert.doesNotMatch(textOf(res), /Token:/);
+  });
+
+  test("SQLite: an absurdly large numbered placeholder (?1000000000) is rejected instantly, not left to hang", async () => {
+    const start = Date.now();
+    const res = await executeHandler(ctx, {
+      connection: "rw",
+      sql: "INSERT INTO t (a) VALUES (?1000000000)",
+      params: [{ "1000000000": 1 }],
+    });
+    const elapsedMs = Date.now() - start;
+    assert.ok(res.isError);
+    assert.match(textOf(res), /32766/);
+    assert.ok(elapsedMs < 200, `expected near-instant rejection, took ${elapsedMs}ms`);
+  });
+
+  test("a backslash-terminated literal does not swallow the real placeholder after it (regression)", async () => {
+    // SQLite (and standard-conforming Postgres) give backslash no special
+    // meaning inside a '...' string: '\' is the one-character string `\`,
+    // and the following ' genuinely closes it — confirmed live above against
+    // the actual write, not just the validator's own count.
+    const db = new Database(dbPath);
+    db.exec("CREATE TABLE backslash_t (id INTEGER PRIMARY KEY, path TEXT)");
+    db.prepare("INSERT INTO backslash_t (id, path) VALUES (1, 'old')").run();
+    db.close();
+
+    const write = await confirmed({
+      connection: "rw",
+      sql: "UPDATE backslash_t SET path='\\' WHERE id = ?",
+      params: [1],
+    });
+    assert.match(textOf(write), /✅ Executed/);
+
+    const check = new Database(dbPath, { readonly: true });
+    const row = check.prepare("SELECT path FROM backslash_t WHERE id = 1").get();
+    check.close();
+    assert.equal(row.path, "\\");
+  });
+
+  test("a bracket-quoted identifier is not mistaken for a placeholder (regression)", async () => {
+    // SQLite (and SQL Server) accept [ident] as an alternate identifier quote;
+    // `[?]` here is a real column named literally "?", not a bind parameter.
+    const db = new Database(dbPath);
+    db.exec("CREATE TABLE bracket_t ([?] INTEGER)");
+    db.close();
+    const res = await confirmed({ connection: "rw", sql: "UPDATE bracket_t SET [?] = 5" });
+    assert.match(textOf(res), /✅ Executed/);
+  });
+
+  test("edit decision re-validates the edited params, catching a mismatch introduced at edit time", async () => {
+    // decideDatabaseInterrupt lets a revalidate() failure on the "edit" phase
+    // throw (pre-existing behavior for every validation error on this path,
+    // not specific to the placeholder check) — callers (ws/interrupts.js,
+    // the HTTP /interrupts/:id/decision route) are the ones that catch it.
+    const store = makeStore([
+      { name: "rw", engine: "sqlite", file: dbPath, readOnly: false },
+    ], { interrupts: true });
+    const durableCtx = { store };
+
+    const propose = await executeHandler(durableCtx, { connection: "rw", sql: "INSERT INTO t (a) VALUES (?)", params: [42] });
+    const token = textOf(propose).match(/Token:\s*(db_[a-z0-9]+)/)[1];
+
+    await assert.rejects(
+      () => decideDatabaseInterrupt(durableCtx, token, {
+        decision: "edit",
+        editedArguments: { connection: "rw", sql: "INSERT INTO t (a) VALUES (?)", params: [1, 2] },
+      }),
+      /expects 1 bound parameter/i,
+    );
   });
 });
 

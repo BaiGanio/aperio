@@ -83,6 +83,7 @@ Last reconciled: 2026-07-17 · Version: 0.67.4
 - Read path — one read statement, server-side row cap (`db_query`); rejects writes/DDL and multi-statement batches
 - Write/DDL path — two-phase confirm-before-write (`db_execute`); rejects reads, multi-statement batches, and read-only connections
 - Statement classifier strips comments, rejects multi-statement batches, and escalates data-modifying CTEs/`EXPLAIN ANALYZE` off the free read path
+- Bound-parameter validation before a write is ever proposed — the SQL's placeholders are counted with each engine's real rules (mysql2's `?`/`??` and its executable-comment forms, Postgres `$N` and dollar-quoting, SQL Server `@pN`, SQLite's anonymous/numbered/named mix including index gaps and aliases), so a `params` array that wouldn't actually bind is rejected with a clear message instead of failing at execution after the user confirms
 - Read-only by default; reads enforced at the connection level (read-only handle / READ ONLY transaction) as defense in depth; parameters always bound, never interpolated
 - Connections configured in **Settings → Database connections** (or `DB_CONNECTIONS` headless seed); passwords field-encrypted at rest (`var/db-connect.key`) and never returned to the browser
 - Engines: SQLite, Postgres, MySQL (`mysql2`) and SQL Server (`mssql`) all bundled; the MySQL/SQL Server drivers still import lazily so they only load when used. SQL Server read-only is enforced at the tool level (its row cap uses result streaming, not a TOP/subquery wrapper)
