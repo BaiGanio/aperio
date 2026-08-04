@@ -82,6 +82,162 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The no-tool-use diagnostic no longer warns on conversational code answers
+  that correctly had no file target** (`lib/agent/turn-diagnostics.js`,
+  `lib/agent/index.js`, `lib/agent/tool-profiles.js`): `checkNoToolUse()`
+  used to increment its streak for any fenced code answer with zero tool
+  calls, with no idea whether a file tool was ever offered that turn. After
+  two such turns it told the user the model answered with code "instead of
+  writing files" — even for a bare "Implement an LRU cache from scratch"
+  prompt, where tool-profiles.js deliberately withholds `file-edit` because
+  there's no file target to write to. Confirmed live in session
+  `10d42bab-7081-4842-aa51-b9913dfc9e14`: llama.cpp completed normally and
+  the amber chip was solely this false positive. `checkNoToolUse()` now
+  takes a `hadMutationToolOffered` flag, checked against the turn's FINAL
+  attached tool-NAME set (the new `MUTATION_FILE_TOOLS` export — `write_file`/
+  `edit_file`/`append_file`/`generate_xlsx`/`generate_docx`) rather than the
+  pre-cap profile plan: a code-review pass caught that checking `file-edit`/
+  `file-generate` profile membership directly still false-warns whenever an
+  agent's `toolAllowlist` excludes those tools, or `capToolsForProvider`'s
+  schema-budget cap strips them, since the profile can stay "active" even
+  after every one of its tools is gone. A turn with no mutation tool actually
+  attached is neutral evidence and neither builds nor breaks the streak. A
+  second review pass caught that the tool-NAME check alone still false-warned
+  for an INCAPABLE local model (absent from `APERIO_CAPABLE_MODELS`):
+  `getSelectedTools()`/`getAnthropicTools()`/`getOpenAiTools()`/
+  `getGeminiTools()` all short-circuit to an empty tool list for such a
+  model, but the cached turn plan is built from the user's text alone and
+  has no idea whether THIS model is capable — so a weak local model given a
+  file-edit-shaped prompt was still planned a "file-edit" tool set it was
+  never actually sent. `hadMutationToolOffered` now also requires
+  `modelIsCapable()`. New harness coverage (`tests/harness/
+  no-tool-use-diagnostic.test.js`) drives real two-turn `runAgentLoop`s
+  through: the false-positive case (narrowed allowlist), a counter-case
+  proving the diagnostic still fires when a mutation tool is genuinely
+  available and ignored, and the incapable-local-model case (driving the
+  real llama.cpp provider loop against a mocked `fetch`, since the mock
+  provider is always treated as cloud/capable). A third review pass caught
+  that the cached plan is also PRE-vision-filter: `resolveToolNamesForTurn()`
+  applies `filterVisionTools()` afterward, which clears every tool for a
+  capable local model on a standalone-vision turn — so an image-only turn
+  following a file-edit-shaped one still named `write_file` in the cache
+  while the model received no tools at all, and a fenced-code OCR answer
+  re-armed the same false warning. The flag is now derived from the
+  post-vision selected set, with a fourth harness scenario covering it.
+
+- **`db_execute` rejects a bound-parameter/placeholder mismatch before ever
+  proposing a write, instead of silently dropping the row**
+  (`lib/db-connect/classify.js`, `lib/handlers/database/databaseHandlers.js`):
+  a `params` array that didn't actually satisfy the SQL's placeholders passed
+  propose-time validation (only checked that `sql` was present), then threw
+  an uncaught `RangeError` from `better-sqlite3` at confirm time — the write
+  silently never landed, the interrupt was marked "failed" server-side only,
+  and the model had no way to notice or retry. Found live in a real
+  household-gen document-intelligence session where the model proposed 11
+  params against an 8-placeholder `INSERT` and kept asserting the save had
+  succeeded. Added `countPlaceholders()` for mysql/postgres/mssql and
+  `describeSqlitePlaceholders()` for SQLite, both verified directly against
+  each driver's real binding code (not assumed from grammar docs), with every
+  dialect-specific quirk below gated to the dialect that actually has it:
+  - `#` is only a line comment for `engine === "mysql"` — Postgres uses `#`
+    for jsonb operators (`#-`, `#>`, `#>>`), where masking it as a comment
+    ate real placeholders after it;
+  - backslash is only a string escape for `engine === "mysql"`, EXCEPT
+    Postgres `E'...'`/`e'...'` extended strings, which always interpret
+    backslash escapes regardless of `standard_conforming_strings` — both
+    directions of this were wrong at different points: masking backslash
+    everywhere swallowed real placeholders after a plain `'\'` string in
+    SQLite/Postgres, and then not masking it inside an `E'...'` string did
+    the same thing for the opposite reason;
+  - dollar-quoted strings (`$$...$$`/`$tag$...$tag$`) are Postgres-only —
+    SQLite's own named-parameter grammar allows `$` inside the name itself
+    (`$value$` is ONE parameter named `"value$"`, confirmed live), which the
+    masking previously misread as an unterminated dollar-quote, eating the
+    rest of the statement;
+  - `[...]` bracket-quoted identifiers are sqlite/mssql only (Postgres uses
+    `[...]` for array literals/subscripts, e.g. `ARRAY[$1,$2]`);
+  - mysql2's `??` identifier placeholder (`UPDATE ?? SET ?? = ?`) now counts
+    as one bound value each, matching the `sql-escaper` formatter it uses
+    internally, instead of two;
+  - a `/* ... */` block comment is masked to a single SPACE, not nothing —
+    a comment sitting directly between two placeholder runs on the same
+    line (`UPDATE ??/* alias */?? SET value = ?`) previously masked to
+    nothing, merging the two `??` runs into one run of 4 that mysql's
+    run-length rule (3+ consecutive `?` is not a placeholder at all) then
+    counted as ZERO instead of the two real identifier slots, rejecting a
+    genuinely valid 3-param call before ever proposing it (confirmed live
+    against `mysql2.format()`, P2 review finding);
+  - SQLite's `?N` (numbered) placeholders are recognized as the same
+    binding mechanism as `:name`/`@name`/`$name` (confirmed against
+    better-sqlite3's native binder) — bound from a single object argument
+    keyed by the digit string, not rejected outright — with names no longer
+    restricted to a letter/underscore-led character class, since SQLite
+    allows purely numeric or `$`-suffixed names (`:1`, `$2`, `$value$`);
+  - a `?N` used without every lower number also present (e.g. `?2` alone)
+    still reserves a nameless "gap" slot in SQLite's own parameter count
+    (mirroring its `sqlite3ExprAssignVarNumber` high-water-mark algorithm)
+    that only an extra anonymous value can fill — previously unmodeled, so
+    `params: [{"2": 5}]` alone passed validation but still threw "Too few
+    parameter values were provided" at confirm time, the exact failure mode
+    this fix exists to prevent. That gap count is a closed-form subtraction
+    (`nVar - claimed.size`), not a loop over every index up to `N` — an
+    earlier version of this fix DID loop, so a single proposal containing
+    e.g. `?1000000000` could block the event loop for a synchronous billion
+    iterations; numbers above SQLite's actual compiled-in limit (32766) are
+    now also rejected outright with a clear message, rather than ever
+    reaching that math or SQLite's own confirm-time prepare() error;
+  - `$` is a valid, non-leading, UNQUOTED identifier character in both
+    SQLite and Postgres (`foo$bar`/`foo$1` can be one real column name), and
+    `@` is one in SQL Server (`foo@p0`) — a sigil immediately preceded by an
+    identifier character is now recognized as part of that identifier, not
+    a placeholder, in all three engines;
+  - `?0` is rejected on that same out-of-range path (better-sqlite3 throws
+    the identical "variable number must be between ?1 and ?32766" for it,
+    confirmed live). A later review pass caught that the range check only
+    covered the upper bound, so `?0` fell through as a named parameter "0"
+    that never advanced the high-water mark — yielding an impossible
+    anonymous count of **-1** and a nonsensical shape error instead of the
+    real invalid-number one;
+  - comment spans are masked per-dialect, matching what actually consumes
+    `params` in each engine (review pass): MySQL's `--` only opens a comment
+    when followed by whitespace or end-of-input, and its `/*! … */` /
+    `/*+ … */` forms are not comments at all — mysql2's bundled `sql-escaper`
+    formatter scans both for placeholders (confirmed live: `format('UPDATE t
+    SET a=?--x + ? WHERE id=?', [1,2,3])` fills all three), so masking them
+    under-counted and rejected valid calls. Postgres and SQL Server NEST
+    block comments, so stopping at the first `*/` exposed the outer
+    comment's tail — `UPDATE t SET a=$1 /* x /* y */ $99 */ WHERE id=$2`
+    demanded 99 parameters instead of 2;
+  - a `?N` that aliases an index an earlier BARE `?` already claimed (e.g.
+    `VALUES (?, ?1)`) now retroactively converts that slot from anonymous to
+    named — confirmed live that better-sqlite3 rejects `params: [v]` for
+    that exact statement ("Too many parameter values were provided") and
+    only accepts `params: [{"1": v}]`. A code-review pass caught that the
+    existing alias-detection (added for the `:x, ?1` case, where the earlier
+    claim is already named) only skipped re-adding a key — it never checked
+    whether the slot being aliased was anonymous, so it kept counting it as
+    a positional value, reproducing the same confirm-time failure this
+    validator exists to catch before proposing.
+  Wired into `validateExecutionArgs()` so a mismatch is a clear, immediate
+  `userFacing` error surfaced through the same path as every other
+  validation failure — checked at propose time and again at every
+  decide/claim revalidation, so an edit that reintroduces a mismatch is
+  caught too. One related limitation is intentionally NOT addressed here —
+  see `id/reference/tech-debt.md` (Db-connect — placeholder validation):
+  MySQL's `NO_BACKSLASH_ESCAPES` and Postgres's legacy
+  `standard_conforming_strings = off` are per-connection settings this
+  validation has no way to detect without a live round-trip query, so
+  backslash-escaping assumptions match each engine's DEFAULT mode only.
+  A code-review pass also caught that `validateBoundParams()`'s
+  `isPlainObject()` (`lib/handlers/database/databaseHandlers.js`) classified
+  ANY non-array object as a named-parameter object, including a Buffer or
+  Uint8Array — better-sqlite3 accepts those as ordinary scalar BLOB bind
+  values alongside a real named-parameter object in the same call
+  (`stmt.run({name: "x"}, Buffer.from(data))` for `VALUES (:name, ?)`,
+  confirmed live), so a genuinely valid mixed named+BLOB write hit
+  `objectEntries.length !== 1` and was rejected before ever being proposed.
+  Restricted to records whose prototype is `Object.prototype` or `null`.
+
 - **doc_batch's session dedup cache no longer outlives an offloaded result**
   (`lib/agent/model-context-middleware.js`, `lib/agent/tool-hooks.js`,
   `lib/agent/index.js`): the docgraph session dedup cache is committed inside

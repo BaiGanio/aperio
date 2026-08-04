@@ -72,19 +72,6 @@ housekeeping go in `A2D.md`, not here.
 
 ## Sessions — persisted transcript
 
-- 2026-08-03 **The no-tool-use diagnostic falsely warns on conversational
-  code answers that correctly had no file target.** `checkNoToolUse()`
-  (`lib/agent/turn-diagnostics.js:24-40`) increments its streak for any fenced
-  answer with zero tool calls; it receives neither the user intent nor the
-  tools actually offered. After two such turns it tells the user the model
-  answered with code "instead of writing files", even though tool-profile
-  policy deliberately withholds `file-edit` for bare requests such as
-  "Implement a LRU cache from scratch" (`lib/agent/tool-profiles.js:389-403`,
-  enforced by `tests/unit/agent/tool-profiles.test.js:472-490`). Confirmed in
-  real session `10d42bab-7081-4842-aa51-b9913dfc9e14`: llama.cpp completed
-  normally, and the amber chip was solely this diagnostic. The check needs to
-  be gated on explicit persistence intent and an offered mutation tool (or be
-  reworded as a generic advisory rather than claiming a missed file write).
 - 2026-08-02 **Every session's real first message is silently dropped from its
   persisted transcript.** `finaliseSession` (`lib/helpers/sessions.js:483`,
   and the `isMeaningful`/`deriveTitle` helpers around it) does
@@ -155,6 +142,40 @@ housekeeping go in `A2D.md`, not here.
   hole). Documented in `lib/db-connect/extraction.js` +
   `tests/unit/db-connect/extraction.test.js`; closing it soundly would require
   persisting the adopted identity at first recognition.
+
+---
+
+## Db-connect — placeholder validation (db_execute)
+
+- 2026-08-03 `validateBoundParams()`'s backslash-escaping assumption
+  (`lib/db-connect/classify.js`, `maskLiteralsAndComments`) is per-ENGINE,
+  not per-CONNECTION: MySQL is assumed to have backslash escapes enabled
+  (true unless the connection's session has `NO_BACKSLASH_ESCAPES` set) and
+  Postgres is assumed to have them disabled outside `E'...'` strings (true
+  unless the connection has the long-deprecated `standard_conforming_strings
+  = off`). Both are correct for the overwhelming majority of real
+  connections — matching each engine's default — but a connection actually
+  running the non-default mode would see the opposite masking behavior:
+  correct placeholders inside a `'...'` string containing a backslash could
+  be miscounted, rejecting a valid write before it's ever proposed. Aperio
+  has no way to know the connection's actual mode without adding a live
+  `SHOW VARIABLES LIKE 'sql_mode'` / `SHOW standard_conforming_strings`
+  round-trip (and caching) before every `db_execute` validation, which is
+  disproportionate machinery for this. Not attempted; would need a per-
+  connection setting (set once when the connection is configured) rather
+  than a runtime query, if ever addressed.
+- 2026-08-04 `splitStatements()` (same file) still applies ONE dialect-neutral
+  comment grammar, while `maskLiteralsAndComments()` is now dialect-aware for
+  both comment forms. It therefore diverges from MySQL (`--x` with no space is
+  not a comment there, and `/*! … */` is executed) and from Postgres/SQL
+  Server (block comments nest). A `;` hidden inside such a span makes a real
+  multi-statement batch classify as a single statement. Not a routing hole in
+  practice: the classifier's job there is only to pick db_query vs db_execute,
+  and every driver is opened with multi-statement execution disabled (mysql2's
+  `multipleStatements` defaults to false), so the extra statement fails at the
+  driver rather than running. Fixing it would mean plumbing `engine` through
+  `splitStatements()` and every `classify()` caller; deliberately not done for
+  a case with no reachable consequence.
 
 ---
 
