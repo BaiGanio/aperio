@@ -113,7 +113,7 @@ describe("planTurnTools — tool profile classification", () => {
   });
 });
 
-// Step 2 of the llamacpp-multiturn-latency plan (trash/plans/llamacpp-multiturn-latency/):
+// Step 2 of the llamacpp-multiturn-latency plan (trash/plans/document-intelligence-epic/llamacpp-latency/):
 // once a turn's assistant response actually calls a tool, the attached tool
 // set stays pinned (union-only, never dropping) for up to TOOL_PIN_TURNS
 // follow-up turns, instead of re-classifying the bare 2-turn window from
