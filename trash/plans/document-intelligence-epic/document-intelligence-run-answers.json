@@ -1,31 +1,19 @@
 {
-  "model": "protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M",
+  "harness": "document-intelligence-skill-harness",
+  "phase": "provenance",
   "fixtureSet": "T-R5",
+  "provider": "llamacpp",
+  "model": "unsloth/gemma-4-26B-A4B-it-qat-GGUF:Q4_K_XL",
   "period": "2026-06",
-  "timeoutMs": 600000,
-  "generatedAt": "2026-07-27T06:26:52.363Z",
-  "oraclePath": "/Users/lk/Projects/BaiGanio/aperio/trash/plans/document-intelligence-epic/ground-truth.json",
-  "expected": {
-    "categoryTotals": {
-      "Fuel": 215.6,
-      "Groceries": 140.75,
-      "Internet": 29.99,
-      "Transport": 50,
-      "Utilities": 260.5
-    },
-    "monthlyTotal": 696.84
-  },
+  "timeoutMs": 180000,
+  "generatedAt": "2026-08-04T08:52:33.348Z",
   "prompts": [
-    {
-      "promptId": "P1",
-      "prompt": "How much did I spend in total in June 2026, broken down by category?"
-    }
+    "Add up everything I spent on documented bills and receipts for June 2026, broken down by category. Save the results so I can query them again later, and give me the total."
   ],
   "results": [
     {
-      "promptId": "P1",
-      "prompt": "How much did I spend in total in June 2026, broken down by category?",
-      "wallMs": 292450,
+      "prompt": "Add up everything I spent on documented bills and receipts for June 2026, broken down by category. Save the results so I can query them again later, and give me the total.",
+      "wallMs": 180040,
       "toolSequence": [
         "doc_batch"
       ],
@@ -36,27 +24,13 @@
           "arguments": {
             "candidates": [
               {
-                "id": 6,
-                "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
-                "rel_path": "June/heating-bill-15-jun.txt",
-                "mime": "text/plain",
-                "size": 1899,
-                "file_mtime": "2026-07-27T06:21:53.815Z",
-                "sha256": "6dea8b98c0b9becc919e80dfd1bbd3d44381fbb45578456181ca526329760e4c",
-                "filename_date_hint": null,
-                "duplicates": [],
-                "selection_reason": "matched 6 query terms",
-                "score": 6
-              },
-              {
                 "id": 8,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
                 "rel_path": "June/internet-payment-12-jun.txt",
                 "mime": "text/plain",
                 "size": 1709,
-                "file_mtime": "2026-07-27T06:21:53.818Z",
+                "file_mtime": "2026-08-04T08:49:03.688Z",
                 "sha256": "346c686548dfa72af3f94eda28beadee6b5fd7eb35943ab9ebb786ac2b41560e",
                 "filename_date_hint": null,
                 "duplicates": [],
@@ -66,110 +40,138 @@
               {
                 "id": 3,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
                 "rel_path": "June/electricity-bill-03-jun.txt",
                 "mime": "text/plain",
                 "size": 2373,
-                "file_mtime": "2026-07-27T06:21:53.817Z",
+                "file_mtime": "2026-08-04T08:49:03.688Z",
                 "sha256": "aa61b3d79448ee01faf29293fb7b94d5e4ed594b83419a674ead661add29afbb",
                 "filename_date_hint": null,
                 "duplicates": [],
-                "selection_reason": "matched 4 query terms",
-                "score": 4
+                "selection_reason": "matched 5 query terms",
+                "score": 5
               },
               {
                 "id": 4,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
                 "rel_path": "June/fuel-receipt-09-jun.txt",
                 "mime": "text/plain",
                 "size": 945,
-                "file_mtime": "2026-07-27T06:21:53.817Z",
+                "file_mtime": "2026-08-04T08:49:03.687Z",
                 "sha256": "af6ade86a82d19ae8f9b349e62faeb746fbf0f7e729aabdca9be568ef295929f",
                 "filename_date_hint": null,
                 "duplicates": [],
-                "selection_reason": "matched 4 query terms",
-                "score": 4
+                "selection_reason": "matched 5 query terms",
+                "score": 5
               },
               {
                 "id": 5,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
                 "rel_path": "June/fuel-receipt-25-jun.txt",
                 "mime": "text/plain",
                 "size": 934,
-                "file_mtime": "2026-07-27T06:21:53.817Z",
+                "file_mtime": "2026-08-04T08:49:03.687Z",
                 "sha256": "f490962d0aae5fceeb8358fb00a1e040f2b1ca0751ba54eeff818aa22d936379",
                 "filename_date_hint": null,
                 "duplicates": [],
-                "selection_reason": "matched 4 query terms",
-                "score": 4
+                "selection_reason": "matched 5 query terms",
+                "score": 5
               },
               {
-                "id": 7,
+                "id": 6,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
-                "rel_path": "June/hotel-berlin-14-15-jun.pdf",
-                "mime": "application/pdf",
-                "size": 2046,
-                "file_mtime": "2026-07-27T06:21:53.818Z",
-                "sha256": "2f973882856b0dbac624daff51eb1e04b557ba75b7e3a532fe774fe80986c3c2",
-                "filename_date_hint": null,
-                "duplicates": [],
-                "selection_reason": "matched 4 query terms",
-                "score": 4
-              },
-              {
-                "id": 11,
-                "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
-                "rel_path": "June/train-berlin-munich-14-jun.txt",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/heating-bill-15-jun.txt",
                 "mime": "text/plain",
-                "size": 938,
-                "file_mtime": "2026-07-27T06:21:53.815Z",
-                "sha256": "a7d7479d62aeb6d63860fae4a7a765b8b363f7d67f935d04e2c97b4e7dd51243",
+                "size": 1899,
+                "file_mtime": "2026-08-04T08:49:03.684Z",
+                "sha256": "6dea8b98c0b9becc919e80dfd1bbd3d44381fbb45578456181ca526329760e4c",
                 "filename_date_hint": null,
                 "duplicates": [],
-                "selection_reason": "matched 4 query terms",
-                "score": 4
+                "selection_reason": "matched 5 query terms",
+                "score": 5
               },
               {
                 "id": 14,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
                 "rel_path": "June/water-bill-05-jun.txt",
                 "mime": "text/plain",
                 "size": 2132,
-                "file_mtime": "2026-07-27T06:21:53.819Z",
+                "file_mtime": "2026-08-04T08:49:03.690Z",
                 "sha256": "f939db6e44b510a1763fd93fb2ec46ecd5600886563e805258cb9f5da9ef2b54",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 5 query terms",
+                "score": 5
+              },
+              {
+                "id": 2,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/bank-statement-jun.txt",
+                "mime": "text/plain",
+                "size": 1416,
+                "file_mtime": "2026-08-04T08:49:03.687Z",
+                "sha256": "bae8da854086561c784619454b076cb81ea5704262a303f189f939eca68eb6e5",
                 "filename_date_hint": null,
                 "duplicates": [],
                 "selection_reason": "matched 4 query terms",
                 "score": 4
               },
               {
-                "id": 2,
+                "id": 12,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
-                "rel_path": "June/bank-statement-jun.txt",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/transport-topup-28-jun.txt",
                 "mime": "text/plain",
-                "size": 1416,
-                "file_mtime": "2026-07-27T06:21:53.817Z",
-                "sha256": "bae8da854086561c784619454b076cb81ea5704262a303f189f939eca68eb6e5",
+                "size": 1244,
+                "file_mtime": "2026-08-04T08:49:03.689Z",
+                "sha256": "59b6efdc7b06e84fb5c618ef5ba930bc1b6f8c739b75dc29c62a2b9f7daf0cc1",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 4 query terms",
+                "score": 4
+              },
+              {
+                "id": 1,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/airport-paris-16-jun.pdf",
+                "mime": "application/pdf",
+                "size": 1903,
+                "file_mtime": "2026-08-04T08:49:03.683Z",
+                "sha256": "f193366ed9419ef28c921fc961cee371cb13e4621a45f1b557e9306f1f4bb3ca",
                 "filename_date_hint": null,
                 "duplicates": [],
                 "selection_reason": "matched 3 query terms",
                 "score": 3
               },
               {
-                "id": 12,
+                "id": 7,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
-                "rel_path": "June/transport-topup-28-jun.txt",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/hotel-berlin-14-15-jun.pdf",
+                "mime": "application/pdf",
+                "size": 2046,
+                "file_mtime": "2026-08-04T08:49:03.688Z",
+                "sha256": "2f973882856b0dbac624daff51eb1e04b557ba75b7e3a532fe774fe80986c3c2",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 11,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/train-berlin-munich-14-jun.txt",
                 "mime": "text/plain",
-                "size": 1244,
-                "file_mtime": "2026-07-27T06:21:53.819Z",
-                "sha256": "59b6efdc7b06e84fb5c618ef5ba930bc1b6f8c739b75dc29c62a2b9f7daf0cc1",
+                "size": 938,
+                "file_mtime": "2026-08-04T08:49:03.684Z",
+                "sha256": "a7d7479d62aeb6d63860fae4a7a765b8b363f7d67f935d04e2c97b4e7dd51243",
                 "filename_date_hint": null,
                 "duplicates": [],
                 "selection_reason": "matched 3 query terms",
@@ -178,11 +180,11 @@
               {
                 "id": 13,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
                 "rel_path": "June/waste-fee-22-jun.txt",
                 "mime": "text/plain",
                 "size": 1585,
-                "file_mtime": "2026-07-27T06:21:53.816Z",
+                "file_mtime": "2026-08-04T08:49:03.685Z",
                 "sha256": "e1ac7926c15ea8c4ec2f009f9243480080e0b4ed967a5fafccb67afd3f374ecb",
                 "filename_date_hint": null,
                 "duplicates": [],
@@ -192,11 +194,11 @@
               {
                 "id": 17,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
                 "rel_path": "trade-docs/commercial-invoice.txt",
                 "mime": "text/plain",
                 "size": 4397,
-                "file_mtime": "2026-07-27T06:21:53.821Z",
+                "file_mtime": "2026-08-04T08:49:03.692Z",
                 "sha256": "9af4491663682a5116329351761f8ef70adffb7ec3a7f3fb82cf755773a91dee",
                 "filename_date_hint": null,
                 "duplicates": [],
@@ -204,14 +206,28 @@
                 "score": 3
               },
               {
-                "id": 1,
+                "id": 15,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
-                "rel_path": "June/airport-paris-16-jun.pdf",
-                "mime": "application/pdf",
-                "size": 1903,
-                "file_mtime": "2026-07-27T06:21:53.814Z",
-                "sha256": "f193366ed9419ef28c921fc961cee371cb13e4621a45f1b557e9306f1f4bb3ca",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "templates/payment-form-blank.docx",
+                "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                "size": 9207,
+                "file_mtime": "2026-08-04T08:49:03.691Z",
+                "sha256": "24891529412858a42f0d1cd2bdb05cff729b700bed7254c5a7326bc6ca64e65a",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 2 query terms",
+                "score": 2
+              },
+              {
+                "id": 16,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "templates/payment-form-blank.txt",
+                "mime": "text/plain",
+                "size": 1731,
+                "file_mtime": "2026-08-04T08:49:03.690Z",
+                "sha256": "9bbc24df258ab6f7a6eb19b41812f69bed9843a67f493f0a8613763332c05ae0",
                 "filename_date_hint": null,
                 "duplicates": [],
                 "selection_reason": "matched 2 query terms",
@@ -220,158 +236,401 @@
               {
                 "id": 9,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
                 "rel_path": "June/tax-increase-notice-bg-30-jun.txt",
                 "mime": "text/plain",
                 "size": 1805,
-                "file_mtime": "2026-07-27T06:21:53.812Z",
+                "file_mtime": "2026-08-04T08:49:03.682Z",
                 "sha256": "ef4f5c6e8d428899c051c642239655127ccba33973bcfb19dd19288cd1b8840e",
                 "filename_date_hint": null,
                 "duplicates": [
                   {
                     "id": 19,
                     "rel_path": "tax-increase-notice-bg-30-jun.txt",
-                    "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/secondary"
+                    "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/secondary"
                   }
                 ],
-                "selection_reason": "matched 2 query terms",
-                "score": 2
-              },
+                "selection_reason": "matched 1 query term",
+                "score": 1
+              }
+            ]
+          },
+          "ok": true,
+          "summary": "55.9 KB",
+          "detail": "{\n  \"documents\": [\n    {\n      \"id\": 8,\n      \"repo_id\": 1,\n      \"root_path\": \"/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary\",\n      \"rel_path\": \"June/internet-payment-12-jun.txt\",\n      \"mime\": \"text/plain\",\n      \"size\": 1709,\n      \"sha256\": \"346c686548dfa72af3f94eda28beadee6b5fd7eb35943ab9ebb786ac2b41560e\",\n      \"title\": \"internet-payment-12-jun\",\n      \"text\": \"ПЛАТЕЖНО НАРЕЖДАНЕ / ВНОСНА БЕЛЕЖКА\\nPayment order (completed example 2 - internet bill)\\n\\nЗа кредитен превод в лева / For BGN credit transfer\\n\\n-------------------------------------------------------------\\nНАРЕДИТЕЛ (Payer)\\n-------------------------------------------------------------\\n  Име (Name):                 Иван Петров\\n  Адрес (Address):            ул. Витоша 15, ет. 3, ап. 7, 1000 София\\n  IBAN на наредителя:         BG80BNBG96611020345678\\n  Банка / BIC:                Първа Дигитална Банка / BNBGBGSD\\n\\n-------------------------------------------------------------\\nПОЛУЧАТЕЛ (Beneficiary)\\n-------------------------------------------------------------\\n  Име (Name):                 НетЛинк ЕООД\\n  IBAN на получателя:         BG27FINV91501201234567\\n  Банка / BIC:                Първа Инвестиционна Банка / FINVBGSF\\n\\n-------------------------------------------------------------\\nПЛАЩАНЕ (Payment)\\n-------------------------------------------------------------\\n  Сума (Amount):              29,99\\n  Валута (Currency):          BGN\\n  Основание (Payment details):Интернет 05/2026, кл. № N-4821\\n  Клиентски номер (Client No): N-4821\\n  Дата (Date):                12.06.2026\\n\\n  Подпис на наредителя (Signature): И. Петров\\n\\n-------------------------------------------------------------\\nФиктивен примерен формуляр за демонстрационни цели.\\nFictional sample form for demonstration purposes.\\n\",\n      \"bytes\": 1709,\n      \"status\": \"read\",\n      \"dates\": [\n        {\n          \"role\": \"document_date\",\n          \"raw\": \"12.06.2026\",\n    …",
+          "ms": 50,
+          "pending": false
+        }
+      ],
+      "interruptApproved": false,
+      "approvedCount": 0,
+      "answerRaw": "",
+      "usage": null,
+      "status": "timeout"
+    },
+    {
+      "prompt": "Now give me the category breakdown and the grand total you just saved — query it per category (SUM grouped by category and currency), not from your own arithmetic.",
+      "wallMs": 4011,
+      "toolSequence": [],
+      "toolCalls": [],
+      "interruptApproved": false,
+      "approvedCount": 0,
+      "answerRaw": "",
+      "usage": null,
+      "status": "completed"
+    },
+    {
+      "prompt": "If the rows aren't in the table yet, finish saving them now (a single multi-row INSERT is fine — it's still one statement), then run the per-category SQL query and give me the breakdown and total.",
+      "wallMs": 4010,
+      "toolSequence": [],
+      "toolCalls": [],
+      "interruptApproved": false,
+      "approvedCount": 0,
+      "answerRaw": "",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0
+      },
+      "status": "completed"
+    },
+    {
+      "prompt": "The rows should be saved by now — run SELECT category, currency, SUM(amount) GROUP BY category, currency against the extraction table now and give me the resulting breakdown and total.",
+      "wallMs": 4008,
+      "toolSequence": [
+        "doc_batch"
+      ],
+      "toolCalls": [
+        {
+          "seq": 1,
+          "name": "doc_batch",
+          "arguments": {
+            "candidates": [
               {
-                "id": 10,
+                "id": 13,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
-                "rel_path": "June/tax-increase-notice-en-30-jun.txt",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/waste-fee-22-jun.txt",
                 "mime": "text/plain",
-                "size": 967,
-                "file_mtime": "2026-07-27T06:21:53.816Z",
-                "sha256": "908725b018146e0a9896c05df96ef962544fdc1db98743c579573f7d3441fc75",
+                "size": 1585,
+                "file_mtime": "2026-08-04T08:49:03.685Z",
+                "sha256": "e1ac7926c15ea8c4ec2f009f9243480080e0b4ed967a5fafccb67afd3f374ecb",
                 "filename_date_hint": null,
                 "duplicates": [],
-                "selection_reason": "matched 2 query terms",
-                "score": 2
+                "selection_reason": "matched 5 query terms",
+                "score": 5
+              },
+              {
+                "id": 2,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/bank-statement-jun.txt",
+                "mime": "text/plain",
+                "size": 1416,
+                "file_mtime": "2026-08-04T08:49:03.687Z",
+                "sha256": "bae8da854086561c784619454b076cb81ea5704262a303f189f939eca68eb6e5",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 4 query terms",
+                "score": 4
+              },
+              {
+                "id": 3,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/electricity-bill-03-jun.txt",
+                "mime": "text/plain",
+                "size": 2373,
+                "file_mtime": "2026-08-04T08:49:03.688Z",
+                "sha256": "aa61b3d79448ee01faf29293fb7b94d5e4ed594b83419a674ead661add29afbb",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 4 query terms",
+                "score": 4
+              },
+              {
+                "id": 8,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/internet-payment-12-jun.txt",
+                "mime": "text/plain",
+                "size": 1709,
+                "file_mtime": "2026-08-04T08:49:03.688Z",
+                "sha256": "346c686548dfa72af3f94eda28beadee6b5fd7eb35943ab9ebb786ac2b41560e",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 4 query terms",
+                "score": 4
+              },
+              {
+                "id": 12,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/transport-topup-28-jun.txt",
+                "mime": "text/plain",
+                "size": 1244,
+                "file_mtime": "2026-08-04T08:49:03.689Z",
+                "sha256": "59b6efdc7b06e84fb5c618ef5ba930bc1b6f8c739b75dc29c62a2b9f7daf0cc1",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 4 query terms",
+                "score": 4
+              },
+              {
+                "id": 4,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/fuel-receipt-09-jun.txt",
+                "mime": "text/plain",
+                "size": 945,
+                "file_mtime": "2026-08-04T08:49:03.687Z",
+                "sha256": "af6ade86a82d19ae8f9b349e62faeb746fbf0f7e729aabdca9be568ef295929f",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 5,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/fuel-receipt-25-jun.txt",
+                "mime": "text/plain",
+                "size": 934,
+                "file_mtime": "2026-08-04T08:49:03.687Z",
+                "sha256": "f490962d0aae5fceeb8358fb00a1e040f2b1ca0751ba54eeff818aa22d936379",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 6,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/heating-bill-15-jun.txt",
+                "mime": "text/plain",
+                "size": 1899,
+                "file_mtime": "2026-08-04T08:49:03.684Z",
+                "sha256": "6dea8b98c0b9becc919e80dfd1bbd3d44381fbb45578456181ca526329760e4c",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 14,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/water-bill-05-jun.txt",
+                "mime": "text/plain",
+                "size": 2132,
+                "file_mtime": "2026-08-04T08:49:03.690Z",
+                "sha256": "f939db6e44b510a1763fd93fb2ec46ecd5600886563e805258cb9f5da9ef2b54",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
               },
               {
                 "id": 15,
                 "repo_id": 1,
-                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-Y34SPa/corpus/primary",
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
                 "rel_path": "templates/payment-form-blank.docx",
                 "mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                 "size": 9207,
-                "file_mtime": "2026-07-27T06:21:53.820Z",
+                "file_mtime": "2026-08-04T08:49:03.691Z",
                 "sha256": "24891529412858a42f0d1cd2bdb05cff729b700bed7254c5a7326bc6ca64e65a",
                 "filename_date_hint": null,
                 "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 16,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "templates/payment-form-blank.txt",
+                "mime": "text/plain",
+                "size": 1731,
+                "file_mtime": "2026-08-04T08:49:03.690Z",
+                "sha256": "9bbc24df258ab6f7a6eb19b41812f69bed9843a67f493f0a8613763332c05ae0",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 3 query terms",
+                "score": 3
+              },
+              {
+                "id": 1,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/airport-paris-16-jun.pdf",
+                "mime": "application/pdf",
+                "size": 1903,
+                "file_mtime": "2026-08-04T08:49:03.683Z",
+                "sha256": "f193366ed9419ef28c921fc961cee371cb13e4621a45f1b557e9306f1f4bb3ca",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 2 query terms",
+                "score": 2
+              },
+              {
+                "id": 7,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/hotel-berlin-14-15-jun.pdf",
+                "mime": "application/pdf",
+                "size": 2046,
+                "file_mtime": "2026-08-04T08:49:03.688Z",
+                "sha256": "2f973882856b0dbac624daff51eb1e04b557ba75b7e3a532fe774fe80986c3c2",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 2 query terms",
+                "score": 2
+              },
+              {
+                "id": 11,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/train-berlin-munich-14-jun.txt",
+                "mime": "text/plain",
+                "size": 938,
+                "file_mtime": "2026-08-04T08:49:03.684Z",
+                "sha256": "a7d7479d62aeb6d63860fae4a7a765b8b363f7d67f935d04e2c97b4e7dd51243",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 2 query terms",
+                "score": 2
+              },
+              {
+                "id": 17,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "trade-docs/commercial-invoice.txt",
+                "mime": "text/plain",
+                "size": 4397,
+                "file_mtime": "2026-08-04T08:49:03.692Z",
+                "sha256": "9af4491663682a5116329351761f8ef70adffb7ec3a7f3fb82cf755773a91dee",
+                "filename_date_hint": null,
+                "duplicates": [],
+                "selection_reason": "matched 2 query terms",
+                "score": 2
+              },
+              {
+                "id": 9,
+                "repo_id": 1,
+                "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary",
+                "rel_path": "June/tax-increase-notice-bg-30-jun.txt",
+                "mime": "text/plain",
+                "size": 1805,
+                "file_mtime": "2026-08-04T08:49:03.682Z",
+                "sha256": "ef4f5c6e8d428899c051c642239655127ccba33973bcfb19dd19288cd1b8840e",
+                "filename_date_hint": null,
+                "duplicates": [
+                  {
+                    "id": 19,
+                    "rel_path": "tax-increase-notice-bg-30-jun.txt",
+                    "root_path": "/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/secondary"
+                  }
+                ],
                 "selection_reason": "indexed-corpus fallback",
                 "score": 0
               }
             ]
           },
           "ok": true,
-          "summary": "47.3 KB",
-          "ms": 36,
+          "summary": "34.1 KB",
+          "detail": "{\n  \"documents\": [\n    {\n      \"id\": 13,\n      \"repo_id\": 1,\n      \"root_path\": \"/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary\",\n      \"rel_path\": \"June/waste-fee-22-jun.txt\",\n      \"mime\": \"text/plain\",\n      \"size\": 1585,\n      \"sha256\": \"e1ac7926c15ea8c4ec2f009f9243480080e0b4ed967a5fafccb67afd3f374ecb\",\n      \"title\": \"waste-fee-22-jun\",\n      \"status\": \"read\",\n      \"bytes\": 212,\n      \"text\": \"Already read earlier in this conversation (unchanged — sha256 match, originally read as \\\"June/waste-fee-22-jun.txt\\\"). Full text omitted to save context; dates/amounts below are preserved from that earlier read.\",\n      \"dates\": [\n        {\n          \"role\": \"document_date\",\n          \"raw\": \"22.06.2026\",\n          \"value\": \"2026-06-22\",\n          \"confidence\": \"high\"\n        },\n        {\n          \"role\": \"due_date\",\n          \"raw\": \"30.06.2026\",\n          \"value\": \"2026-06-30\",\n          \"confidence\": \"high\"\n        }\n      ],\n      \"amounts\": [\n        {\n          \"value\": 15,\n          \"currency\": \"BGN\",\n          \"raw\": \"15,00 лв\",\n          \"label\": null\n        },\n        {\n          \"value\": 15,\n          \"currency\": \"BGN\",\n          \"raw\": \"15,00 лв\",\n          \"label\": \"amount_due\"\n        }\n      ],\n      \"dedup\": true\n    },\n    {\n      \"id\": 2,\n      \"repo_id\": 1,\n      \"root_path\": \"/var/folders/s4/8tjr525d47z0h1fxn0wjg9r00000gn/T/aperio-document-intelligence-skill-pC57nv/corpus/primary\",\n      \"rel_path\": \"June/bank-statement-jun.txt\",\n      \"mime\": \"text/plain\",\n      \"size\": 1416,\n      \"sha256\": \"bae8da854086561c784619454b076cb81ea5704262a303f189f939eca68eb6e5\",\n      \"title\": \"bank-statement-jun\",\n      \"status\": \"read\",\n      \"bytes\": 214,\n      \"text\": \"Already read earlier in this conversation (unchanged — sha256 match, originally read as \\\"June/bank-statement-jun.txt\\\"). Full text omitted to save context; dates/amounts below are preserved from that earlier read.\",\n      \"dates\": [\n      …",
+          "ms": 17,
           "pending": false
         }
       ],
-      "answerRaw": "Here's the breakdown of your June 2026 spending by category:\n\n## June 2026 Spending Summary\n\n| Category | Item | Amount |\n|---|---|---|\n| **Utilities** | Electricity bill (May usage) | 142.50 лв |\n| **Utilities** | Heating bill (May usage) | 64.80 лв |\n| **Utilities** | Water bill (May usage) | 38.20 лв |\n| **Utilities** | Waste fee (Q2) | 15.00 лв |\n| **Fuel** | Diesel (09 Jun) | 120.00 лв |\n| **Fuel** | Gasoline (25 Jun) | 95.60 лв |\n| **Travel** | Hotel Berlin (1 night) | 128.00 € |\n| **Travel** | Train Berlin → Munich | 49.90 € |\n| **Travel** | Airport café Paris CDG | 18.50 € |\n| **Transport** | City transport top-up (30-day pass) | 50.00 лв |\n| **Groceries** | FreshMarket (07 Jun) | 87.45 лв |\n| **Groceries** | EuroMarket (18 Jun) | 53.30 лв |\n| **Internet** | Monthly payment (12 Jun) | 29.99 лв |\n\n**Total card payments** (from bank statement): **260.75 лв** (groceries + fuel)\n\n> ⚠️ Note: The hotel, train, and airport café are in EUR (~1.95 BGN/€). The three cash purchases (utilities, waste fee, transport top-up) aren't reflected in the bank statement since they were paid at counters or by transfer.",
+      "interruptApproved": false,
+      "approvedCount": 0,
+      "answerRaw": "",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0
+      },
+      "status": "completed"
+    },
+    {
+      "prompt": "Run the per-category SQL query against the extraction table now and state the breakdown and total it returns, in your own words.",
+      "wallMs": 4013,
+      "toolSequence": [],
+      "toolCalls": [],
+      "interruptApproved": false,
+      "approvedCount": 0,
+      "answerRaw": "",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0
+      },
+      "status": "completed"
+    },
+    {
+      "prompt": "You already ran that query earlier in this conversation — just restate its breakdown and total in your own words now, without calling any more tools.",
+      "wallMs": 4009,
+      "toolSequence": [],
+      "toolCalls": [],
+      "interruptApproved": false,
+      "approvedCount": 0,
+      "answerRaw": "",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0
+      },
+      "status": "completed"
+    },
+    {
+      "prompt": "Answer now, in plain prose: what is the category breakdown and grand total from the extraction table you already queried?",
+      "wallMs": 4010,
+      "toolSequence": [],
+      "toolCalls": [],
+      "interruptApproved": false,
+      "approvedCount": 0,
+      "answerRaw": "",
+      "usage": {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "thinking_tokens": 0
+      },
       "status": "completed"
     }
   ],
-  "evaluation": {
+  "grading": {
     "status": "fail",
-    "gate": {
-      "invokedRetrieval": true,
-      "categories": {
-        "Fuel": false,
-        "Groceries": false,
-        "Internet": true,
-        "Transport": true,
-        "Utilities": false
-      },
-      "grandTotalCorrect": false,
-      "noFailureSignatures": false,
-      "noExcludedLeak": true,
-      "fullCoverage": true,
-      "noOracleExposure": true,
-      "cleanCorpusFence": true
-    },
-    "detail": {
-      "categories": {
-        "Fuel": {
-          "expected": 215.6,
-          "found": [
-            120,
-            95.6
-          ],
-          "ok": false
-        },
-        "Groceries": {
-          "expected": 140.75,
-          "found": [
-            87.45,
-            53.3
-          ],
-          "ok": false
-        },
-        "Internet": {
-          "expected": 29.99,
-          "found": [
-            29.99
-          ],
-          "ok": true
-        },
-        "Transport": {
-          "expected": 50,
-          "found": [
-            50
-          ],
-          "ok": true
-        },
-        "Utilities": {
-          "expected": 260.5,
-          "found": [
-            142.5,
-            64.8,
-            38.2,
-            15
-          ],
-          "ok": false
-        }
-      },
-      "grandTotals": [
-        260.75
-      ],
-      "signatures": {
-        "fuelDoubleCounted_120.00": {
-          "value": 240,
-          "hit": false,
-          "means": "the bank-statement row and the receipt for the same Fuel payment (120.00) were counted as two payments"
-        },
-        "groceriesDoubleCounted_87.45": {
-          "value": 174.9,
-          "hit": false,
-          "means": "the bank-statement row and the receipt for the same Groceries payment (87.45) were counted as two payments"
-        },
-        "groceriesDoubleCounted_53.30": {
-          "value": 106.6,
-          "hit": false,
-          "means": "the bank-statement row and the receipt for the same Groceries payment (53.30) were counted as two payments"
-        },
-        "statementShortcut": {
-          "value": 260.75,
-          "hit": true,
-          "means": "this is the statement's own total debits — the answer came from reading only the statement"
-        }
-      },
-      "leaks": [],
-      "uncovered": []
+    "checks": {
+      "calledDbExecute": false,
+      "interruptApproved": false,
+      "insertedRealRows": false,
+      "calledDbQueryAfterConfirm": false,
+      "dbQueryReturnedRealRows": false,
+      "followUpCitesSql": false,
+      "followUpNarratesDecimalTotal": false,
+      "completed": false,
+      "withinTotalWallClockCeiling": true,
+      "withinPerTurnWallClockCeiling": false,
+      "fullMonthGate": false,
+      "noFxBlend": true
     },
     "failures": [
-      "Fuel: expected 215.60, answer attributed 120.00/95.60",
-      "Groceries: expected 140.75, answer attributed 87.45/53.30",
-      "Utilities: expected 260.50, answer attributed 142.50/64.80/38.20/15.00",
-      "grand total: expected 696.84 on a total line, saw 260.75",
-      "statementShortcut: 260.75 appears in the answer — this is the statement's own total debits — the answer came from reading only the statement"
+      "a single turn took 180040ms, exceeding the 180000ms T-L4 per-turn ceiling",
+      "db_execute was never proposed — no writable-destination path exercised",
+      "no confirmed db_execute INSERT with rowsAffected>0 was ever observed — rows were never actually written, regardless of what the answer claims",
+      "follow-up turn did not call db_query for the SQL-derived total",
+      "follow-up answer does not cite a genuine (non-empty) SQL query result as the source of the figure",
+      "follow-up answer does not narrate an actual decimal total backed by a genuine query result",
+      "one or more turns did not complete",
+      "full-month gate: Fuel: expected 215.60, answer attributed no figure to this category",
+      "full-month gate: Groceries: expected 140.75, answer attributed no figure to this category",
+      "full-month gate: Internet: expected 29.99, answer attributed no figure to this category",
+      "full-month gate: Transport: expected 50.00, answer attributed no figure to this category",
+      "full-month gate: Utilities: expected 260.50, answer attributed no figure to this category",
+      "full-month gate: grand total: expected 696.84 on a total line, saw no total line"
     ]
   }
 }

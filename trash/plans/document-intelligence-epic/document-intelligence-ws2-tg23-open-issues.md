@@ -32,7 +32,7 @@ Command:
 ```
 DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
   LLAMACPP_MODEL=unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL \
-  node trash/plans/document-intelligence-epic/document-intelligence-skill-harness.mjs
+  node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
 ```
 Evidence (raw, unredacted): `document-intelligence-tg23-provenance-gemma4-2026-08-02.json`.
 
@@ -127,7 +127,7 @@ and confirm turn-by-turn, not just `grading.status`.
 ## blocker turns out to be latency, not a SKILL.md gap
 
 All three grading-harness bugs above are fixed in
-`trash/plans/document-intelligence-epic/document-intelligence-skill-harness.mjs`
+`trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs`
 and `tests/fixtures/household-gen/harness-gate.mjs`:
 
 - `followUpCitesSql`/`followUpNarratesDecimalTotal` now require the follow-up
@@ -188,7 +188,7 @@ scratch, repeatedly, as the conversation grows.
 
 **This is not a SKILL.md wording problem** — no prompt change fixes a
 structural cache invalidation. A full investigation and remediation plan is
-written up separately: `trash/plans/llamacpp-multiturn-latency/`
+written up separately: `trash/plans/document-intelligence-epic/llamacpp-latency/`
 (`llamacpp-multiturn-latency.md` + companion tests). WS2's T-G2.3/T-G2.4 on
 gemma4 stay open pending that plan; this file's harness-grading concerns are
 now closed.
@@ -206,7 +206,7 @@ llama.cpp check above.
 
 Re-run with:
 ```
-DOCINT_PHASE=provenance node trash/plans/document-intelligence-epic/document-intelligence-skill-harness.mjs
+DOCINT_PHASE=provenance node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
 ```
 (`DEEPSEEK_API_KEY` must be set; no other env var is required.) Run in
 background — a clean pass now takes ~3 turns / ~2.5 minutes total, but a

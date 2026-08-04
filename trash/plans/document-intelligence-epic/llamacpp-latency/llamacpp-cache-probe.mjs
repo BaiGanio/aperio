@@ -1,6 +1,6 @@
 // T-L1 isolated cache-hit probe for llamacpp-multiturn-latency.md Step 1.
 //
-//   node trash/plans/llamacpp-multiturn-latency/llamacpp-cache-probe.mjs
+//   node trash/plans/document-intelligence-epic/llamacpp-latency/llamacpp-cache-probe.mjs
 //
 // Spawns its OWN llama-server (own port, own log file, offline, killed on
 // exit) — does not touch Aperio's app, DB, or the product's managed
