@@ -34,22 +34,17 @@ housekeeping go in `A2D.md`, not here.
   re-pointed at `resolveAssignmentDate()` (`lib/docgraph/facts/contract.js`),
   which now owns period assignment and gets this right, before the bridge is
   ever enabled by default.
-- 2026-08-01 **A bilingual payment form can silently yield a 10× wrong amount
-  in plain text.** `extract-facts.js` `LABEL_FORWARD_WINDOW` scans a fixed 20
-  characters after a money label for a currency-less number. The corpus's
-  payment forms fit by one character ("Сума (Amount):              29,99" is
-  exactly 20); a form with one more digit or one more space truncates to
-  "235,2", which then parses as 2352 because the comma reads as a thousands
-  separator. Not reachable through the real corpus today — DOCX extraction
-  collapses the padding — but a plain-text form with wider columns hits it, and
-  the failure is silent and financial. Fix is to bound the scan by end-of-line
-  rather than a character count.
 - 2026-08-01 **Image-only receipts still contribute nothing.** PNG receipts
   yield `no_text` and are recovered only when a bank-statement row happens to
   cover them. All nine corpus months now reconcile exactly, but that is because
   every image-only receipt in this corpus has a statement row or a `.txt`
   sibling; a household whose receipts are photos only would come up short. The
-  deterministic path needs the native-vision seam to close this properly.
+  deterministic path needs a provider-neutral native-vision seam to close this
+  properly: cloud-capable models must remain supported; a vision-capable local
+  model (for example Gemma 4) should receive the image directly, while a
+  text-only local model (for example Qwen, Ornith, or Phi-4) should route
+  through the configured VLM. The extraction result must be structured,
+  uncertainty-aware, and never silently treated as deterministic text.
 
 ---
 
@@ -70,22 +65,8 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
-## Terminal — resume doesn't rebind session identity
+## Terminal — session summaries
 
-- 2026-08-04 `handleResume()` (`lib/terminal/standalone.js:332`) never
-  reassigns the outer `sessionId` variable to the resumed session's `id` —
-  only `providerSessionSourceId` and `state.sessionMessages`' content change.
-  Found while fixing the persisted-transcript first-message bug (finaliseSession
-  no longer always drops `messages[0]`; see the commit that closed it), which
-  needed to audit every place `messages[0]` gets reseeded. Practical effect:
-  after `/resume <id>` in the CLI, every subsequent turn is still written to
-  the OLD (pre-resume) session file on exit/restart — the resumed session's
-  own file is never updated with the new turns, and its `endedAt` is never
-  re-stamped. No test currently exercises `/resume` end-to-end. The `ws` path
-  (`handleResumeSession` in `lib/emitters/handlers/ws/session.js`) does this
-  correctly via `switchSessionId()`; the CLI path needs the equivalent
-  `sessionId = id` (plus `scratchDir`/`workspaceDirective`/`sessionLogger`
-  rebind, mirroring `switchSessionId`) added to `handleResume`.
 - 2026-08-04 `appendSummary`'s `messageCount: messages.length - 1`
   (`lib/helpers/sessions.js:454`) still hardcodes "drop index 0 as the
   internal greeting", the same wrong assumption `finaliseSession` had until
@@ -96,19 +77,6 @@ housekeeping go in `A2D.md`, not here.
   (`lib/emitters/handlers/ws/summarize.js`, `lib/terminal/standalone.js` ×2)
   would each need the same `firstMessageSynthetic` flag threaded in for a
   display-only off-by-one.
-
----
-
-## GitHub tooling — egress logging
-
-- 2026-08-02 The GitHub **write** path logs no egress at all:
-  `create_github_issue` / `update_github_issue` POST/PATCH without a `logEgress`
-  call (`mcp/tools/github.js:435,451,459`), and `fetch_github_issue`'s primary
-  issue + comments GETs are unlogged too (`github.js:104,121`). Only 4 sites call
-  `logEgress`, hostname-only, and `var/logs/egress.log` has no rotation, no
-  redaction, no size cap, and no explicit file mode (`lib/helpers/egressLog.js:14-19`).
-  So "which repo did the agent write to" is not recoverable after the fact. Found
-  during the #346 audit.
 
 ---
 

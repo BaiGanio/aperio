@@ -72,6 +72,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Cold-start extraction template proposals now select bounded, deterministic
+  issuer/header keywords** (`lib/handlers/extraction/`): header terms are
+  favored, field-label boilerplate is penalized, and repeated OCR noise is
+  ignored while preserving Unicode-aware matching and confirmation gates.
+
 - **Document extraction recognizes four more everyday Bulgarian amount
   labels**: "Сума за плащане" / "Обща сума за плащане" (amount due), "СУМА ЗА
   ВЪЗСТАНОВЯВАНЕ" (a credit note's refund, given its own `refund_due` label),
