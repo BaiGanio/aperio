@@ -434,6 +434,19 @@ describe("summarizeResult() — generic", () => {
   });
 });
 
+describe("summarizeResult() — text reads", () => {
+  test("shows bytes and an estimated token count for file reads", () => {
+    const result = ta.summarizeResult("doc_batch", "A short document\nwith two lines.");
+    assert.match(result.summary, /^\d+ B · ~\d+ tok$/);
+    assert.equal(result.ok, true);
+  });
+
+  test("keeps the token estimate approximate because provider tokenizers differ", () => {
+    const result = ta.summarizeResult("read_file", "x".repeat(5000));
+    assert.match(result.summary, /^4\.9 KB · ~\d+(\.\d+)?(?:k)? tok$/);
+  });
+});
+
 // =============================================================================
 // summarizeResult — detail (full text the card expands on click)
 // =============================================================================
