@@ -82,6 +82,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Terminal session resume now rebinds the active session identity** so
+  post-resume turns, generated artifacts, summaries, and close/restart
+  finalization are written to the resumed session instead of the abandoned CLI
+  session.
+
+- **WebSocket resume now synchronizes synthetic-context state before awaits**
+  and restores it if the bootstrap resume fails, so a disconnect during resume
+  cannot persist the synthetic context note as real conversation content.
+
 - **The no-tool-use diagnostic no longer warns on conversational code answers
   that correctly had no file target** (`lib/agent/turn-diagnostics.js`,
   `lib/agent/index.js`, `lib/agent/tool-profiles.js`): `checkNoToolUse()`
