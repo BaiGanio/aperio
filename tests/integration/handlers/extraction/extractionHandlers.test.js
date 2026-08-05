@@ -242,6 +242,74 @@ describe("T-G4.2 matching and extraction", () => {
 });
 
 // ─── T-G4.3 — confirmed cold-start learning ──────────────────────────────────
+describe("cold-start proposal keyword selection", () => {
+  test("deprioritizes generic boilerplate labels", () => {
+    const text = [
+      "Invoice and Payment Notice",
+      "Invoice: 12345",
+      "Payment: 20.00 EUR",
+      "Total: 20.00 EUR",
+      "Distinctive issuer wording appears below.",
+    ].join("\n");
+    const keywords = matchHandlers.proposalKeywords(text);
+
+    assert.ok(!keywords.includes("invoice"));
+    assert.ok(!keywords.includes("payment"));
+    assert.ok(!keywords.includes("total"));
+    assert.ok(keywords.includes("distinctive"));
+  });
+
+  test("favors distinctive issuer/header terms over body frequency", () => {
+    const text = [
+      "Asterion Municipal Energy",
+      "Invoice Date: 2026-07-01",
+      "Amount Due: 88.40 EUR",
+      "invoice payment total invoice payment total invoice payment total",
+    ].join("\n");
+    const keywords = matchHandlers.proposalKeywords(text);
+
+    assert.deepEqual(keywords.slice(0, 3), ["asterion", "municipal", "energy"]);
+    assert.ok(!keywords.includes("invoice"));
+    assert.ok(!keywords.includes("payment"));
+    assert.ok(!keywords.includes("total"));
+  });
+
+  test("keeps different providers distinguishable when the body is shared", () => {
+    const common = "Invoice Date: June 3, 2026\nPayment: 20.00 EUR\nTotal: 20.00 EUR";
+    const north = matchHandlers.proposalKeywords(`Northstar Fiber Network\n${common}`);
+    const south = matchHandlers.proposalKeywords(`Bluehaven Fiber Network\n${common}`);
+    const overlap = north.filter((word) => south.includes(word));
+
+    assert.ok(north.includes("northstar"));
+    assert.ok(south.includes("bluehaven"));
+    assert.ok(overlap.length < Math.min(north.length, south.length));
+  });
+
+  test("remains useful on noisy OCR-like text", () => {
+    const text = [
+      "Z3nith Gass C0rp !!!",
+      "lnvoice Date: Sept 1, 2026",
+      "T0tal: 12.00 USD",
+      "xxxxx qqqq !!!! 0000",
+    ].join("\n");
+    const keywords = matchHandlers.proposalKeywords(text);
+
+    assert.ok(keywords.includes("z3nith"));
+    assert.ok(keywords.includes("gass"));
+    assert.ok(!keywords.includes("xxxxx"));
+    assert.ok(!keywords.includes("qqqq"));
+  });
+
+  test("existing synthetic cold-start shape still yields issuer keywords and fields", () => {
+    const text = "Nova Telecom Ltd.\nInvoice Date: July 1, 2026\nTotal Due: 45.90 EUR";
+    const proposal = extractHandlers.inferTemplateProposal(text, { name: "nova-telecom-bill" });
+
+    assert.deepEqual(proposal.match_keywords.slice(0, 2), ["nova", "telecom"]);
+    assert.ok(proposal.fields.some((field) => field.amount_label === "total_due"));
+    assert.ok(proposal.fields.some((field) => field.date_role === "invoice_date"));
+  });
+});
+
 describe("T-G4.3 confirmed cold-start learning", () => {
   const NEW_SHAPE_TEXT_1 = [
     "Nova Telecom Ltd.",
