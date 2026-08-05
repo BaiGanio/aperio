@@ -99,6 +99,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
   reads, creates, updates, comments, and paginated triage fetches, with a
   repository/issue target so the write destination is recoverable.
 
+- **The egress audit log now rotates at 5 MiB**, keeps one rotated backup, and
+  creates both the log directory and files with private permissions.
+
 - **The no-tool-use diagnostic no longer warns on conversational code answers
   that correctly had no file target** (`lib/agent/turn-diagnostics.js`,
   `lib/agent/index.js`, `lib/agent/tool-profiles.js`): `checkNoToolUse()`
