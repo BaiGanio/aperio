@@ -101,6 +101,7 @@ export async function fetchGithubIssueHandler({ url, include_comments = true, in
   // ── Fetch issue ──────────────────────────────────────────────────────────────
   let issue;
   try {
+    logEgress({ tool: "fetch_github_issue", host: "api.github.com", target: `${owner}/${repo}#${number}` });
     const resp = await fetch(`${API_BASE}/repos/${owner}/${repo}/issues/${number}`, {
       headers,
       signal: AbortSignal.timeout(10_000),
@@ -118,6 +119,7 @@ export async function fetchGithubIssueHandler({ url, include_comments = true, in
   let comments = [];
   if (include_comments) {
     try {
+      logEgress({ tool: "fetch_github_issue", host: "api.github.com", target: `${owner}/${repo}#${number}/comments` });
       const resp = await fetch(
         `${API_BASE}/repos/${owner}/${repo}/issues/${number}/comments?per_page=50`,
         { headers, signal: AbortSignal.timeout(10_000) },
@@ -283,7 +285,7 @@ export async function listGithubIssuesHandler(args, ctx) {
         if (since)  url.searchParams.set("since", since);
         if (labels) url.searchParams.set("labels", Array.isArray(labels) ? labels.join(",") : labels);
 
-        logEgress({ tool: "list_github_issues", host: "api.github.com" });
+        logEgress({ tool: "list_github_issues", host: "api.github.com", target: repoStr });
         const resp = await fetch(url, { headers, signal: AbortSignal.timeout(15_000) });
         if (!resp.ok) {
           const body = await resp.text().catch(() => "");
@@ -432,6 +434,7 @@ async function executeGithubAction(toolName, args, ctx) {
   if (!authToken) return textOut("❌ No GitHub token configured.");
   if (toolName === "create_github_issue") {
     const { owner, repo, title, body = "", labels, assignees } = args;
+    logEgress({ tool: "create_github_issue", host: "api.github.com", target: `${owner}/${repo}` });
     const resp = await fetch(`${API_BASE}/repos/${owner}/${repo}/issues`, {
       method: "POST",
       headers: { ...githubHeaders(authToken), "Content-Type": "application/json" },
@@ -448,6 +451,7 @@ async function executeGithubAction(toolName, args, ctx) {
     const base = `${API_BASE}/repos/${owner}/${repo}/issues/${issue}`;
     const done = [];
     if (Object.keys(patch).length) {
+      logEgress({ tool: "update_github_issue", host: "api.github.com", target: `${owner}/${repo}#${issue}` });
       const resp = await fetch(base, {
         method: "PATCH", headers: { ...githubHeaders(authToken), "Content-Type": "application/json" },
         body: JSON.stringify(patch), signal: AbortSignal.timeout(15_000),
@@ -456,6 +460,7 @@ async function executeGithubAction(toolName, args, ctx) {
       done.push(...Object.keys(patch).map(k => k === "state" ? `state→${patch.state}` : k));
     }
     if (comment) {
+      logEgress({ tool: "update_github_issue", host: "api.github.com", target: `${owner}/${repo}#${issue}/comments` });
       const resp = await fetch(`${base}/comments`, {
         method: "POST", headers: { ...githubHeaders(authToken), "Content-Type": "application/json" },
         body: JSON.stringify({ body: comment }), signal: AbortSignal.timeout(15_000),

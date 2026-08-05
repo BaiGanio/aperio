@@ -95,6 +95,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   through a fixed character window, preventing padded multi-digit values from
   being truncated and misparsed.
 
+- **GitHub egress auditing now records every issue API request**, including
+  reads, creates, updates, comments, and paginated triage fetches, with a
+  repository/issue target so the write destination is recoverable.
+
 - **The no-tool-use diagnostic no longer warns on conversational code answers
   that correctly had no file target** (`lib/agent/turn-diagnostics.js`,
   `lib/agent/index.js`, `lib/agent/tool-profiles.js`): `checkNoToolUse()`
