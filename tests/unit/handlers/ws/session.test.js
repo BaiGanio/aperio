@@ -191,6 +191,7 @@ describe("handleResumeSession", () => {
       let releaseClear;
       const clearGate = new Promise(resolve => { releaseClear = resolve; });
       let clearCalled = false;
+      let synthetic = false;
       const send = mock.fn();
       const deps = mockDeps({
         send,
@@ -201,12 +202,16 @@ describe("handleResumeSession", () => {
           await clearGate;
         },
         docSessionId: "conn-dedup-1",
+        firstMessageSynthetic: synthetic,
+        setFirstMessageSynthetic: (value) => { synthetic = value; },
       });
 
       const pending = handleResumeSession(id, deps); // do NOT await yet
       await new Promise(resolve => setImmediate(resolve));
 
       assert.equal(clearCalled, true, "the handler starts the invalidation");
+      assert.equal(synthetic, true,
+        "the synthetic flag must be set before awaited invalidation so socket close finalises the reseeded state correctly");
       assert.equal(
         send.mock.calls.some(c => c.arguments[0] === "session_resumed"), false,
         "the ack must NOT be emitted while the invalidation is still in flight — an immediate follow-up chat could otherwise race a doc_batch ahead of it",
@@ -245,16 +250,20 @@ describe("handleResumeSession", () => {
         { role: "assistant", content: "still going" },
       ];
       const messages = originalMessages.slice();
+      let synthetic = false;
       const deps = mockDeps({
         messages,
         sessionId: oldId,
         msgAttachments: new Map(),
+        firstMessageSynthetic: synthetic,
+        setFirstMessageSynthetic: (value) => { synthetic = value; },
         runAgentLoop: mock.fn(async () => { throw new Error("provider unavailable"); }),
       });
 
       await assert.rejects(() => handleResumeSession(targetId, deps), /provider unavailable/);
 
       assert.deepEqual(messages, originalMessages, "messages must be rolled back to their pre-resume content");
+      assert.equal(synthetic, false, "a failed resume must restore the synthetic-message flag with the messages");
       assert.equal(deps.setAbort.mock.calls.some(c => c.arguments[0] === null), true, "setAbort(null) still runs on failure");
 
       const oldSession = getSession(oldId);
