@@ -8,7 +8,7 @@
  *   icon-512.png          square head mark (headphones + antenna)
  *
  * Derivatives (this script):
- *   avatar-56.png / avatar-112.png  chat AI avatar (@1x / @2x), full body
+ *   avatar-124.png / avatar-248.webp  chat AI avatar (@1x / @2x), full body
  *   body-256.webp                   full body for page headers and the 404
  *   mono.png                        quiet desaturated body for empty/offline states
  *   head-64.webp                    inline terminal-demo icon — the one slot where
@@ -44,6 +44,13 @@ async function avatar(size) {
   return body()
     .resize(size, size, { fit: 'contain', background: TRANSPARENT })
     .png({ compressionLevel: 9 })
+    .toBuffer();
+}
+
+async function avatarWebp(size) {
+  return body()
+    .resize(size, size, { fit: 'contain', background: TRANSPARENT })
+    .webp({ quality: 90, alphaQuality: 100, effort: 6 })
     .toBuffer();
 }
 
@@ -125,6 +132,8 @@ const docsOnly = new Set([
 const derivatives = {
   'avatar-56.png': () => avatar(56),
   'avatar-112.png': () => avatar(112),
+  'avatar-124.png': () => avatar(124),
+  'avatar-248.webp': () => avatarWebp(248),
   'body-256.webp': () => bodyWebp(),
   'mono.png': () => mono(),
   'head-64.webp': () => headWebp(),

@@ -22,6 +22,7 @@
 
     .message {
       display: flex;
+      align-items: flex-start;
       gap: 16px;
       width: 100%;
       max-width: 1100px;
@@ -52,13 +53,13 @@
        assistive tech and is masked visually, so the robot arrives everywhere
        without touching five JS call sites. */
     .avatar.ai {
-      width: 48px; height: 48px;
+      width: 124px; height: 124px;
       margin-top: 0;
       border-radius: 0;
       background: transparent center/contain no-repeat;
       background-image: image-set(
-        url("../../assets/mascot/avatar-56.png") 1x,
-        url("../../assets/mascot/avatar-112.png") 2x
+        url("../../assets/mascot/avatar-124.png") 1x,
+        url("../../assets/mascot/avatar-248.webp") 2x
       );
       color: transparent;
       font-family: var(--font-mono);
@@ -540,4 +541,3 @@
       color: var(--accent);
       opacity: 0.8;
     }
-

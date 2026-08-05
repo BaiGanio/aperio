@@ -6,8 +6,8 @@ import { test, expect } from "../fixtures/aperio.js";
 
 test("mascot assets are served to the app", async ({ request }) => {
   for (const asset of [
-    "/assets/mascot/avatar-56.png",
-    "/assets/mascot/avatar-112.png",
+    "/assets/mascot/avatar-124.png",
+    "/assets/mascot/avatar-248.webp",
     "/assets/mascot/mono.png",
     "/assets/mascot/body-256.webp",
     "/assets/mascot/favicon-32.png",
@@ -26,16 +26,22 @@ test("the AI avatar renders the mascot instead of a letter", async ({ page }) =>
 
   const styles = await avatar.evaluate(node => {
     const computed = getComputedStyle(node);
+    const bubble = node.parentElement?.querySelector(".bubble");
+    const avatarRect = node.getBoundingClientRect();
+    const bubbleRect = bubble?.getBoundingClientRect();
     return {
       backgroundImage: computed.backgroundImage,
       color: computed.color,
       width: computed.width,
+      avatarHeight: avatarRect.height,
+      bubbleHeight: bubbleRect?.height,
     };
   });
-  expect(styles.backgroundImage).toContain("avatar-56.png");
+  expect(styles.backgroundImage).toContain("avatar-124.png");
   // The letter stays in the DOM for assistive tech but must not be visible.
   expect(styles.color).toBe("rgba(0, 0, 0, 0)");
-  expect(styles.width).toBe("48px");
+  expect(styles.width).toBe("124px");
+  expect(styles.bubbleHeight).toBeLessThan(styles.avatarHeight);
 });
 
 test("the empty memories list shows the quiet mascot", async ({ page }) => {
