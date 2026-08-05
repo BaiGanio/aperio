@@ -91,6 +91,10 @@ Versions follow [Semantic Versioning](https://semver.org/).
   and restores it if the bootstrap resume fails, so a disconnect during resume
   cannot persist the synthetic context note as real conversation content.
 
+- **Payment-form amounts are now scanned to the end of their line** instead of
+  through a fixed character window, preventing padded multi-digit values from
+  being truncated and misparsed.
+
 - **The no-tool-use diagnostic no longer warns on conversational code answers
   that correctly had no file target** (`lib/agent/turn-diagnostics.js`,
   `lib/agent/index.js`, `lib/agent/tool-profiles.js`): `checkNoToolUse()`
