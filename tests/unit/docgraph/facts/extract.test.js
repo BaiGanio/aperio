@@ -284,6 +284,24 @@ describe("payment orders", () => {
     assert.equal(facts[0].period, "2026-06");
     assert.equal(facts[0].category, "Internet");
   });
+
+  test("reads a longer padded currency-less amount to the end of its line", () => {
+    const { facts } = factsFromDocument({
+      document: "June/wide-payment-form.txt",
+      text: [
+        "ПЛАТЕЖНО НАРЕЖДАНЕ / ВНОСНА БЕЛЕЖКА",
+        "ПОЛУЧАТЕЛ (Beneficiary)",
+        "  Име (Name):                 ТоплоСофия ЕАД",
+        `  Сума (Amount):${" ".repeat(15)}1234,56`,
+        "  Валута (Currency):          BGN",
+        "  Основание (Payment details):Парно 06/2026",
+        "  Дата (Date):                04.07.2026",
+      ].join("\n"),
+    });
+    assert.equal(facts.length, 1);
+    assert.equal(facts[0].amount, 1234.56);
+    assert.equal(facts[0].currency, "BGN");
+  });
 });
 
 describe("bounded extraction", () => {
