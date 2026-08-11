@@ -551,7 +551,8 @@ blank page:
   surfaced through `recall`, is the natural next integration.
 - **Autotune.** This skill's `metadata.keywords` have never been through the `autotune`
   loop; the eval set has no Wayfinder prompts yet.
-- **`agents/openai.yaml`** carries `allow_implicit_invocation: false`, matching the
-  upstream `disable-model-invocation: true`. Aperio's loader has no equivalent flag — here
-  the skill is discoverable by keyword match. Keep that in mind when tuning keywords: a
-  map is an expensive thing to start by accident.
+- **Invocation guard.** Upstream ships this skill with `disable-model-invocation: true`
+  (and an `agents/openai.yaml` carrying `allow_implicit_invocation: false`) so a map can
+  only be started deliberately. Aperio's loader has no equivalent flag — here the skill is
+  discoverable by keyword match alone. Keep that in mind when tuning keywords: a map is an
+  expensive thing to start by accident.
