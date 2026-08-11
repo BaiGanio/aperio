@@ -9,6 +9,11 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Documentation
+
+- Shortened the README to a quick installation and first-run guide; moved
+  advanced configuration and developer references to `docs/advanced-guide.md`.
+
 ### Added
 
 - **Deterministic document-fact aggregation** (`lib/docgraph/facts/`): a
