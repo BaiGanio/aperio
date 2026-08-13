@@ -84,5 +84,25 @@ whatever happens with the cache-reuse gap above.
 
 **Grader bug found the same run**, opposite direction from the three fixed
 2026-08-02 false-passes: the `noFxBlend`/`fullMonthGate` check false-flagged
-an honest, correctly-disclosed non-blended answer as a violation. Not fixed
-this session — see the run entry for detail.
+an honest, correctly-disclosed non-blended answer as a violation. Fixed
+2026-08-13 — see the run entry for detail.
+
+## 2026-08-13 T-L4.3 follow-up: cache-reuse root-caused, three new gemma4 gaps found
+
+A same-day re-run (`APERIO_LOG_CACHE_FINGERPRINT=on`, a new opt-in request
+fingerprint in `lib/agent/providers/llamacpp.js`) plus llama-server's own
+slot-selection log confirmed the mechanism behind the cache-reuse gap: the
+tool-schema *count* changes turn to turn (38→40→38) even when the logged
+`profiles=[...]` label list stays identical, and each such shift collapses
+`sim_best` from ~0.99 to ~0.2-0.3, forcing a near-full reprocess of the
+growing conversation. Not fixed — logged as tech debt with a fix direction
+(`id/reference/tech-debt.md` → "Tool profiles / schema budgeting").
+
+Also found and fixed a real harness grading bug (`insertedRealRows()` was
+structurally blind to a successful INSERT — see the T-L4.3 run entry in
+`../document-intelligence-ws2-tg23-open-issues.md`) and three distinct,
+reproducible gemma4 SKILL.md-adherence gaps in the save/insert flow, the
+most serious being a hallucinated re-insertion that fabricates rows and
+reclassifies excluded documents as legitimate spending — logged as tech debt
+(`id/reference/tech-debt.md` → "Document Intelligence — save/insert
+mechanics on gemma4").

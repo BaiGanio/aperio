@@ -62,6 +62,27 @@ housekeeping go in `A2D.md`, not here.
   mid-set with only a `logger.info` (`lib/agent/index.js:239`). Benign for
   read-only profiles; becomes a correctness problem for any future tool group
   where a partial set is worse than none. Tracked as a decision in #354.
+- 2026-08-13 **Root-caused the llamacpp-multiturn-latency cache-reuse gap
+  (T-L4, `trash/plans/document-intelligence-epic/llamacpp-latency/`), not yet
+  fixed.** A live WS2 T-G2.3 run with a new request-fingerprint hash
+  (`APERIO_LOG_CACHE_FINGERPRINT=on`, `lib/agent/providers/llamacpp.js`) plus
+  llama-server's own slot-selection log confirmed: the attached tool-schema
+  *count* changes turn to turn (38→40→38 across one 7-turn conversation) even
+  when `ensureTurn`'s logged `profiles=[...]` label list is byte-identical —
+  almost certainly the sticky-pin "carry forward" logic (`f1377b1e`) adding a
+  newly-invoked tool (e.g. `db_query`) into the schema set for later turns.
+  Because llama.cpp's Jinja tool-calling templates render the tools block near
+  the very front of the prompt, any such shift collapses `sim_best` from
+  ~0.99 to ~0.2-0.3 (`f_keep` ~0.18-0.2 — an 80%+ KV-cache loss), forcing a
+  near-total reprocess of the whole growing conversation (30K+ tokens,
+  150-210s at this hardware's throughput) on that turn alone. This is the
+  dominant mechanism behind the multi-minute turn latencies chased throughout
+  this epic — not a mystery `cache_n=0`, a specific and reproducible cause.
+  Needs: either stop `capToolsForProvider`/the carry-forward fold from
+  changing the resolved tool SET once a conversation is underway (pin harder
+  than today's within-turn pin), or move the tools block to a position in the
+  request the template renders after the stable conversation prefix (template-
+  dependent, may not be controllable from the request side at all).
 
 ---
 
@@ -103,6 +124,56 @@ housekeeping go in `A2D.md`, not here.
   (ideally household-gen bills from several distinct providers) before this
   heuristic can be trusted for genuine cold-start learning rather than just
   passing its own unit tests.
+
+---
+
+## Document Intelligence — save/insert mechanics on gemma4 (#250)
+
+Gemma 4 E4B's own SKILL.md-adherence gaps in the propose→confirm write flow,
+found live on the 2026-08-13 T-L4.3 WS2 provenance run (harness-level grading
+bugs from the same run are fixed, not listed here — see
+`trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`).
+Genuinely bigger than a one-session fix: each needs a SKILL.md wording
+iteration plus a fresh live gemma4 run to validate, and the three below
+likely interact (fixing the re-insert hallucination might also fix the
+per-row-INSERT habit if both stem from the model not trusting/checking its
+own prior state).
+
+- 2026-08-13 **Hallucinated re-insertion on a second save attempt.** Told
+  (follow-up prompt: "if the rows aren't in the table yet, finish saving them
+  now"), the model did not check what was already saved via `db_query` first
+  — it inserted 12 new rows with **fabricated placeholder hashes**
+  (`"hash1"`…`"hash12"` instead of real `sha256` values), **invented category
+  labels never present in the source documents** (`Rent`, `Subscriptions`,
+  `Bills/Housing` — the real categories are Utilities/Fuel/Groceries/
+  Transport/Internet), **systematically mismatched `amount_normalized` vs
+  `original_amount_string` pairs** (e.g. amount `95.6` paired with original
+  string `"29.99"` — two different real documents' values shuffled together),
+  and **reclassified two of the three explicitly-excluded EUR travel
+  receipts as legitimate categorized spending** (the Munich train receipt as
+  `Subscriptions`, the Berlin hotel as `Bills/Housing`) — the exact exclusion
+  the fixture tests for. This is worse than a wasteful duplicate: it writes
+  confabulated financial data into the user's real database as if genuine.
+  SKILL.md doesn't currently tell the model to verify existing state via
+  `db_query`/`db_schema` before a second save attempt.
+- 2026-08-13 **Per-row INSERT despite explicit multi-row guidance.** The same
+  12-row batch above was issued as 12 separate single-row `db_execute`
+  confirms, not the one multi-row `INSERT ... VALUES (...), (...), ...`
+  SKILL.md §5 already explicitly requires — even though the follow-up prompt
+  itself said "a single multi-row INSERT is fine — it's still one statement."
+  Confirms this is a live, reproducible gap, not a stale/already-fixed one.
+- 2026-08-13 **Wrong column name in the model's own follow-up query.** Turn 4
+  ran `SELECT ... SUM(amount) ... FROM spending_june_2026`, but the model's
+  own `CREATE TABLE` (confirmed two turns earlier, and re-confirmed via its
+  own `db_schema` call in this same turn) named the column
+  `amount_normalized`, not `amount`. The failed query then ran into the
+  600s per-turn hard timeout with no retry, cascading into two more turns of
+  empty answers — the same "broken connection after hard timeout" pattern
+  documented from earlier runs. A cheap, well-scoped fix on its own (SKILL.md
+  could tell the model to always re-read its own `db_schema` result's exact
+  column names into the query, or the harness/agent loop could surface a
+  same-turn retry on a `no such column` error) — separated out because it's
+  independent of the two hallucination-flavored issues above.
 
 ---
 

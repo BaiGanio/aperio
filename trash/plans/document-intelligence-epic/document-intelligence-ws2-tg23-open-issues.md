@@ -1,3 +1,122 @@
+## gemma4 run, 2026-08-13 T-L4.3 — cache-reuse root-caused; insertedRealRows grader bug found & fixed; three real gemma4 gaps found
+
+**Command:** same invocation as T-L4.2 below, plus `APERIO_LOG_CACHE_FINGERPRINT=on`
+(new opt-in request-fingerprint hash added to `lib/agent/providers/llamacpp.js`
+this session — off by default, no production cost).
+
+**Verdict: FAIL** (`grading.status: "fail"`), same as T-L4.2, but for a
+different and more precise set of reasons — see below. Total wall time
+≈1,824,082ms (~30.4 min) across 7 turns: 479034 / 320714 / 89484 / 326829 /
+600005 (hard timeout) / 4004 / 4012 ms.
+
+### 1. Cache-reuse gap: root-caused, not just reproduced
+
+Watched live via llama-server's own slot-selection log (`slot get_availabl`)
+plus the new fingerprint hash. Within a turn, requests are byte-identical and
+get `sim_best≈0.99` (near-perfect reuse) — confirmed across 8 consecutive
+internal calls in turn 0. **Across turn 1→2, the tool-schema COUNT changed
+38→40 while the logged `profiles=[...]` LABEL LIST stayed identical**
+(`memory,self,data,docgraph,extraction,database,file-edit` both times) — and
+at that exact boundary, `sim_best` collapsed 0.99→0.229 (`f_keep=0.182`),
+forcing llama-server to reprocess ~32K tokens almost from scratch (watched in
+real time: 585→170 tok/s falling as the prompt grew, ~210s for that one
+request). The same thing happened again turn 3→4 (tool count reverted
+40→38, another full reprocess). **This corrects the T-L4.2 framing below**:
+it isn't that a stable-looking schema set mysteriously produced `cache_n=0`
+— "same profile labels" was hiding a real content change, most likely the
+sticky-pin carry-forward logic (`f1377b1e`) pulling a newly-used tool (e.g.
+`db_query`) into later turns' schema sets. Full writeup and fix direction:
+`id/reference/tech-debt.md` → "Tool profiles / schema budgeting". Not fixed
+this session — this is the next actionable step for whoever picks up T-L4.
+
+Also shipped: the harness now copies the isolated llama-server's own
+`server.log` (the source of the `sim_best`/`f_keep`/selection-kind lines,
+richer than the OpenAI-shaped `timings.cache_n` alone) out to
+`llamacpp-latency/server-log-latest.log` (gitignored) before scratch cleanup,
+fixing an ordering bug where the original attempt copied it *after*
+`gracefulShutdown()`, which unlinks that same file as part of normal
+`stopLlamaCpp()` bookkeeping — the first capture attempt silently copied
+nothing. `scripts/prompt-cache-bench.js llamacpp-latency/server-log-latest.log`
+now works on any future run's log.
+
+### 2. `insertedRealRows()` grader bug found & fixed — real INSERTs DID land this run
+
+The harness's own `insertedRealRows()` check only ever scanned
+`toolCalls[].detail` for a confirmed `rowsAffected`, but that field only ever
+holds the **propose** step's own ack ("📋 Pending your confirmation — nothing
+has been written yet"). The real execution ack — after the WS interrupt is
+approved — arrives as a plain `✅ Executed on extraction (sqlite).
+{"rowsAffected":N,...}` assistant message, often on a **later turn** than the
+one that proposed the write, never as a paired `tool_result` event. The check
+was structurally blind to a genuine success, not just to the known
+CREATE-TABLE-only failure mode it was written for. Fixed to also scan every
+turn's own answer text (`document-intelligence-skill-harness.mjs`).
+
+Verified against this run's real (unredacted) `document-intelligence-run-answers.json`:
+turn 1's confirm ack was `{"rowsAffected":1,"lastInsertRowid":1}` and turn 2's
+final confirm was `{"rowsAffected":1,"lastInsertRowid":13}` — **13 real rows
+did land in the table this run.** The "gemma4 never actually inserts"
+framing from T-L4.2 does not hold universally; INSERT mechanics worked here.
+What actually failed is worse and more specific — see below.
+
+### 3. Three real gemma4 gaps found (logged as tech debt, not fixed this session)
+
+Logged in full at `id/reference/tech-debt.md` → "Document Intelligence —
+save/insert mechanics on gemma4 (#250)":
+
+- **Hallucinated re-insertion**: told to "finish saving them now" without
+  checking existing state first, the model inserted 12 rows with fabricated
+  placeholder hashes, invented category labels (`Rent`, `Subscriptions`,
+  `Bills/Housing` — none real), mismatched amount/original-string pairs, and
+  **reclassified 2 of the 3 explicitly-excluded EUR travel receipts as
+  legitimate spending** — confabulated data, not just a wasteful duplicate.
+- **Per-row INSERT** despite the follow-up prompt explicitly saying "a single
+  multi-row INSERT is fine" and SKILL.md §5 already saying the same — 12
+  separate single-row confirms instead of one multi-row statement.
+- **Wrong column name** in the model's own follow-up query (`amount` vs. the
+  `amount_normalized` column it had just re-confirmed via `db_schema`),
+  which failed, then ran into the 600s hard timeout with no retry, cascading
+  into 2 more empty-answer turns (the known "broken connection after hard
+  timeout" pattern).
+
+### 4. Grader fix from this session confirmed working live
+
+`noFxBlend` correctly did **not** false-flag turn 0's honest, per-currency
+disclosure this run (the exact false-negative the earlier
+[grader false-negative fix](#grader-false-negative-from-the-run-below--fixed-2026-08-13)
+below was written for). Separately, `fullMonthGate` correctly failed turn 3's
+closing line ("The total documented spending for June 2026 is 696.84 BGN and
+196.40 EUR") for lacking the explicit non-conversion disclosure SKILL.md §6
+requires — a real, deserved failure (juxtaposing two totals with "and" is not
+the same as the "why there's no single number" sentence the skill asks for),
+not a grader bug.
+
+**Bottom line:** WS4/T-G6 stays blocked. The cache-reuse mechanism is now
+understood well enough to fix (tech debt, not a mystery); the save/insert
+path has three distinct, well-evidenced gaps logged as tech debt, of which
+the hallucinated-reinsertion one is the most serious (data integrity, not
+just UX/latency).
+
+---
+
+## Grader false-negative (from the run below) — fixed 2026-08-13
+
+`NON_BLEND_DISCLOSURE` in `tests/fixtures/household-gen/harness-gate.mjs` only
+recognized refusal phrasing ("not combining...", "kept separate", "haven't
+converted"), not absence phrasing. Turn 0's honest line — *"there is no
+single grand total; the totals are provided per currency"* — tags two
+currencies on a `grand total`-cue line and was flagged as an undisclosed
+blend, when it's the opposite: a denial that any combined figure exists.
+Added `no single (?:grand )?total|no (?:combined|blended|merged) total` to
+the disclosure regex. Regression test added
+(`harness-gate.test.mjs`: "denying a single combined total exists is not
+penalized"); all 20 tests in the file pass, including the existing mutation
+test that still correctly fails the real undisclosed-blend case
+(`893.24 (696.84 BGN + 196.40 EUR)`). Not yet re-run through the live T-G2.3
+harness — only unit-verified.
+
+---
+
 ## gemma4 run, 2026-08-13 — T-L4.2, genuine FAIL, first real result since the cache/INSERT fixes
 
 **Command:**

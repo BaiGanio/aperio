@@ -53,7 +53,11 @@ const CURRENCY_TAG = /\b(?:BGN|EUR|USD|GBP)\b|лв\.?|€|(?<![A-Za-z])\$|£/gi;
 // Language the DeepSeek pass used to explicitly decline a blend ("I'm not
 // combining the two currencies into one number...") — a line saying it will
 // NOT combine currencies is the honest behaviour T-G2.4 asks for, not a leak.
-const NON_BLEND_DISCLOSURE = /not combin|not merging|kept separate|haven'?t (?:been asked|converted)|without (?:an?|)\s*(?:fx|exchange|conversion)|no (?:fx|exchange|conversion)/i;
+// Also covers the gemma4 2026-08-13 phrasing ("there is no single grand
+// total; the totals are provided per currency") — a denial that any single
+// combined figure exists is the same disclosure, just worded as an absence
+// rather than a refusal.
+const NON_BLEND_DISCLOSURE = /not combin|not merging|kept separate|haven'?t (?:been asked|converted)|without (?:an?|)\s*(?:fx|exchange|conversion)|no (?:fx|exchange|conversion)|no single (?:grand )?total|no (?:combined|blended|merged) total/i;
 
 /**
  * A total-cue line that tags two or more distinct currencies is either an

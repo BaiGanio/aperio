@@ -57,6 +57,7 @@ import {
 const HOUSEHOLD = process.env.HOUSEHOLD_ROOT ?? "/Users/lk/Projects/household";
 const ORACLE_PATH = resolve(process.env.ORACLE_PATH ?? "tests/fixtures/household-gen/ground-truth.json");
 const ANSWERS_PATH = resolve("trash/plans/document-intelligence-epic/document-intelligence-run-answers.json");
+const SERVER_LOG_CAPTURE_PATH = resolve("trash/plans/document-intelligence-epic/llamacpp-latency/server-log-latest.log");
 const PHASE = process.env.DOCINT_PHASE ?? "routing"; // routing | coverage | provenance
 const SETUP_ONLY = process.argv.includes("--setup-only");
 const FIXTURE_SET = PHASE === "coverage" ? "multi-month" : "T-R5";
@@ -430,6 +431,23 @@ try {
   process.exitCode = 1;
 } finally {
   console.error("HARNESS cleanup");
+  // The isolated llama-server's own stdout/stderr (var/llamacpp/server.log
+  // under APERIO_LLAMACPP_RUNTIME_DIR — see startLlamaCpp.js's SERVER_LOG_PATH)
+  // carries the per-request "slot get_availabl"/"slot launch_slot_"/"slot
+  // print_timing" lines lib/helpers/promptCacheLog.js parses for real
+  // cache-reuse evidence (selection kind, sim_best, f_keep) — richer than the
+  // cache_n the OpenAI-shaped `timings` block alone exposes. Copy it out
+  // BEFORE gracefulShutdown: stopLlamaCpp() (startLlamaCpp.js line ~236)
+  // unlinks SERVER_LOG_PATH itself as part of normal shutdown bookkeeping, so
+  // capturing after that call silently copies nothing (confirmed empty-handed
+  // on the 2026-08-13 T-L4.3 run — the file was already gone by the time this
+  // ran after gracefulShutdown).
+  if (scratch) {
+    try {
+      await cp(join(scratch, "isolated-local-runtime", "server.log"), SERVER_LOG_CAPTURE_PATH);
+      console.error(`HARNESS captured llama-server log -> ${SERVER_LOG_CAPTURE_PATH}`);
+    } catch { /* e.g. non-llamacpp evaluation provider never wrote one */ }
+  }
   await gracefulShutdown?.().catch(() => {});
   try { app?.httpServer?.close?.(); } catch { /* already closed */ }
   if (scratch) {
@@ -619,7 +637,7 @@ function gradePhase() {
     // "the writable-destination path exercised" just because db_execute was
     // called at all — something in this conversation must have actually
     // affected a row via an INSERT statement.
-    checks.insertedRealRows = insertedRealRows(allToolCalls);
+    checks.insertedRealRows = insertedRealRows(allToolCalls, results.map(r => String(r.answerRaw ?? "")));
     checks.calledDbQueryAfterConfirm = followUpTurn?.toolSequence.includes("db_query") ?? false;
     // Same reasoning as followUpSatisfied above: db_query being *called* proves
     // nothing about what it returned. Gate the two prose checks below on the
@@ -671,15 +689,29 @@ function gradePhase() {
 // come back with data. The 2026-08-02 gemma4 run had a CREATE TABLE with
 // rowsAffected:0 and no INSERT ever attempted, then a db_query that correctly
 // returned zero rows — both checks below now catch exactly that.
-function insertedRealRows(toolCalls) {
-  return toolCalls.some(call => {
-    if (call.name !== "db_execute") return false;
-    const sql = String(call.arguments?.sql ?? "");
-    if (!/^\s*insert\b/i.test(sql)) return false;
-    const evidence = `${call.summary ?? ""} ${call.detail ?? ""}`;
-    const match = evidence.match(/"rowsAffected"\s*:\s*(\d+)/);
-    return match ? Number(match[1]) > 0 : false;
-  });
+// 2026-08-13 T-L4.2 cache-run: this originally scanned only toolCalls[].detail
+// for the confirmed rowsAffected — but the propose→confirm flow's SECOND
+// phase (the actual execution, after the WS interrupt is approved) is never
+// delivered as a paired `tool_result` event for the original db_execute
+// tool_start. It arrives as a plain "✅ Executed on <connection>… {rowsAffected:N,…}"
+// assistant message, often on a LATER turn than the one that proposed the
+// write — so toolCalls[].detail always shows the propose step's own
+// "Pending your confirmation" ack, never the real number, regardless of
+// whether the INSERT actually landed. This made the check structurally blind
+// to a genuine success, not just to the known CREATE-TABLE-only failure mode
+// it was written for. Scan every turn's own answer text too.
+function insertedRealRows(toolCalls, allAnswers = []) {
+  const hasInsertProposal = toolCalls.some(call =>
+    call.name === "db_execute" && /^\s*insert\b/i.test(String(call.arguments?.sql ?? "")));
+  if (!hasInsertProposal) return false;
+  const evidence = [
+    ...toolCalls.map(call => `${call.summary ?? ""} ${call.detail ?? ""}`),
+    ...allAnswers,
+  ].join(" ");
+  // matchAll, not match: a CREATE TABLE's own rowsAffected:0 ack can appear
+  // earlier in the concatenated evidence than a later INSERT's rowsAffected>0
+  // one — the first match alone would silently prefer the wrong one.
+  return [...evidence.matchAll(/"rowsAffected"\s*:\s*(\d+)/g)].some(m => Number(m[1]) > 0);
 }
 
 function dbQueryReturnedRows(toolCalls) {
