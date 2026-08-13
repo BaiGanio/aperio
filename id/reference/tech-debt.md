@@ -151,6 +151,22 @@ housekeeping go in `A2D.md`, not here.
   `splitStatements()` and every `classify()` caller; deliberately not done for
   a case with no reachable consequence.
 
+## CI — Windows native-module builds
+
+- 2026-08-13 The "zip launcher & smoke (windows)" check (`ci.install-matrix.yml`)
+  fails on every PR that touches `package.json`/`package-lock.json`, unrelated
+  to what's actually being bumped: `npm install` on the Windows runner tries to
+  rebuild `better-sqlite3` from source via node-gyp, and node-gyp's
+  `VisualStudioFinder` doesn't recognize the runner image's now-preinstalled
+  Visual Studio 2026 (v18) — `gyp ERR! find VS unknown version "undefined"
+  found at "...\Visual Studio\18\Enterprise"`. Confirmed across many unrelated
+  Dependabot PRs (2026-08-11/12), so this is a GitHub-runner-image regression,
+  not a package-bump regression. Needs either a node-gyp/npm bump that
+  recognizes VS 18, or an explicit `msvs_version`/build-tools pin in the
+  workflow. Not fixed as part of the 2026-08-13 dependency-PR merge batch —
+  those were merged with this check red, on the understanding it was already
+  broken beforehand.
+
 ---
 
 ## Intentional deferrals
