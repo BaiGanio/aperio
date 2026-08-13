@@ -42,6 +42,11 @@ of categories: everything is discovered at runtime.
 - **A destination that already has rows in it** (the user asks to query
   extracted data they know exists) → go straight to `db_schema`/`db_query` on
   the `extraction` connection; you don't need a fresh retrieval pass.
+- **One document of a shape Aperio has seen before** (this month's electricity
+  bill, the same landlord's invoice again) → the `extraction_*` tools in
+  step 7 extract its fields against a learned template instead of re-deriving
+  them. That path is for *one recognized document*; the manifest/batch flow
+  above is still what answers a "total across everything" question.
 - When unsure whether documents are indexed at all, call `doc_repos` first —
   don't guess a folder name from the question.
 
@@ -72,7 +77,11 @@ build scope     → doc_manifest (bounded, deterministic candidate list for the 
 read + evidence → doc_batch    (bounded batch read; per-document dates/amounts + coverage
                                  + a deterministic `aggregate`, computed by application code)
 persist (opt.)  → db_execute   (propose a write to the `extraction` connection; user confirms)
+verify the save → read the confirm ack's rowsAffected — a CREATE TABLE is not a save
 final figure    → db_query     (SQL SUM/GROUP BY — the number you report, never hand math)
+
+recognized doc  → extraction_template_match → extraction_apply → db_execute → extraction_log_record
+                                 (step 7 — one already-learned document shape, not a whole corpus)
 ```
 
 ### 1. Discover before assuming
@@ -169,11 +178,28 @@ second time to "retry" a proposal.
   row for one logical save in a single `INSERT`, not one confirm per row.
   Confirming a whole table's worth of rows one at a time wastes a
   confirmation round-trip per row for no accuracy benefit.
+- Every value goes through `params`, never concatenated into `sql` — and the
+  number of entries in `params` must match the number of placeholders in the
+  statement. A mismatch is rejected when you propose it, with a count in the
+  error; fix the array to match, don't work around the rejection by inlining
+  the values into the SQL string.
 - Automatic/repeated inserts for a recognized document shape are opt-in per
   template and still require the user's confirmation on each write; nothing
-  here silently learns a template and writes without asking.
+  here silently learns a template and writes without asking. See step 7.
 - Show the normalized rows you're about to write before proposing the
   insert, so the user can catch a bad extraction before it's committed.
+
+**Then verify the write actually landed, before saying anything was saved.**
+The confirm acknowledgment reports `rowsAffected` — read it. A confirmed
+`CREATE TABLE` returns `rowsAffected: 0` and saves no data; a table now
+exists and it is empty. This is a real, recorded failure: a run created the
+table, never issued the `INSERT`, then reported a category breakdown from its
+own earlier arithmetic when the follow-up `db_query` came back with zero
+rows. If a query returns no rows, the correct response is to finish the
+`INSERT` (one multi-row statement) and re-query — **never** to fall back on
+remembered numbers. Reciting a total the database does not contain is the
+single failure this whole flow exists to prevent, and saying "I couldn't
+query it, so here is what I extracted earlier" does not make it acceptable.
 
 ### 6. Currency: never blend, never convert
 
@@ -181,6 +207,50 @@ Aggregate strictly by currency. If a document set spans BGN and EUR, report
 two totals, not one converted figure — and say plainly that no conversion
 was applied. If you find yourself reaching for an exchange rate to produce
 a single number, stop: that is the one thing this skill must never do.
+
+This includes the closing line. Correct per-currency tables followed by an
+"Overall Grand Total: 893.24 (696.84 BGN + 196.40 EUR)" is a failure, not a
+courtesy — adding two currencies is an implicit exchange rate of 1.0, which
+is simply a wrong one. Getting it right earlier in the answer does not earn
+the summary line. When the user asks for "the total" and the documents span
+currencies, the honest answer is two totals plus one sentence saying why
+there is no single number.
+
+### 7. Reusing a learned document shape (templates)
+
+When the work is *one document Aperio has seen the shape of before*, don't
+re-derive its fields from raw text — run it against the learned templates:
+
+```
+extraction_template_match(text)   → status: confident | ambiguous | none
+  confident → extraction_apply(text, template)   (regex/label first, one targeted
+                                                  LLM lookup only for what's left;
+                                                  returns per-field provenance,
+                                                  a confidence, and a sourceHash)
+  ambiguous → name a template explicitly; don't guess between two close scores
+  none      → extraction_template_propose(...)   (confirm-before-save, same contract
+                                                  as db_execute — propose once, stop),
+                                                  or just fall through to the ad-hoc
+                                                  CREATE TABLE/INSERT flow above
+```
+
+Two contracts here are easy to skip and silently break the feature:
+
+- **Carry `sourceHash` into the write.** `extraction_apply` returns a
+  `sourceHash`; include it as one of your `INSERT`'s column values (e.g. a
+  `source_hash` column). It has to appear among the confirmed statement's own
+  bound parameters or the write cannot be verified afterwards.
+- **Record the extraction after the write is confirmed.** Call
+  `extraction_log_record` exactly once, passing that same `sourceHash` and
+  the `db_execute` `confirmation_token` as `db_execute_token`. Nothing does
+  this for you. Skip it and the same document can be silently re-extracted
+  and double-counted later — `extraction_apply`'s duplicate detection reads
+  the log, and an unwritten log is an empty one.
+
+`extraction_log_check` answers "was this already extracted?" on its own, and
+`extraction_apply` returns the prior log entry instead of re-running when the
+source is a known duplicate. `extraction_template_delete` removes only the
+template definition — already-extracted rows and log entries stay.
 
 ---
 
@@ -192,6 +262,15 @@ a single number, stop: that is the one thing this skill must never do.
   the full scope, get a second bounded manifest/batch for what's left, or
   narrow the question and say so — never fetch the remainder one document
   at a time.
+- **A document in the manifest is a candidate, not a confirmed expense.**
+  The manifest ranks by relevance to the question, and relevance is not the
+  same as belonging in the answer. Recorded false positives from real runs: a
+  B2B steel/freight commercial invoice (~€1.27M) reported as a household
+  spending category, and EUR travel receipts saved into `Transport`/`Dining`
+  alongside domestic BGN spending. Before a document contributes to a
+  category, satisfy yourself from its own body that it is the user's own
+  spending, in the period asked about — tax notices, business invoices,
+  blank templates, and quotes all read as money-shaped to a ranker.
 - **`file_mtime` is not the document's date.** It's a filesystem timestamp.
   Use each document's own extracted `dates` (or read `text`) for anything
   date-sensitive.

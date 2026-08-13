@@ -34,7 +34,9 @@ DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
   LLAMACPP_MODEL=unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL \
   node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
 ```
-Evidence (raw, unredacted): `document-intelligence-tg23-provenance-gemma4-2026-08-02.json`.
+Evidence (raw, unredacted): `document-intelligence-tg23-provenance-gemma4-2026-08-02.json`,
+deleted 2026-08-13 once the three grading bugs it exposed were fixed and the run was
+superseded by two later gemma runs; recoverable from git history if ever needed.
 
 Isolated llama-server booted cleanly (offline, model already cached — no
 download), served ctx=113,664 (LLAMACPP_CTX=104,570), and was killed cleanly
@@ -210,9 +212,9 @@ DOCINT_PHASE=provenance node trash/plans/document-intelligence-epic/llamacpp-lat
 ```
 (`DEEPSEEK_API_KEY` must be set; no other env var is required.) Run in
 background — a clean pass now takes ~3 turns / ~2.5 minutes total, but a
-regression could still run long. Restore
-`document-intelligence-run-answers.json` via `git checkout --` afterward (the
-harness overwrites it every run).
+regression could still run long. `document-intelligence-run-answers.json` is
+git-ignored as of 2026-08-13, so the old `git checkout --` restore step after a
+run is no longer needed.
 
 ---
 

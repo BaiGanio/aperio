@@ -8,7 +8,7 @@ Skills are loaded on demand. The `skills/` directory is a flat list; test files 
 
 ### Agent behavior
 `agent-conduct`, `reasoning-planning`, `conversation-lifecycle`, `memory-protocol`,
-`tool-integration`, `debugging-and-error-recovery`, `handoff`
+`tool-integration`, `debugging-and-error-recovery`, `handoff`, `wayfinder`
 
 ### Code
 `coding-standards`, `coding-examples` (redirect to coding-standards),
@@ -17,7 +17,7 @@ Skills are loaded on demand. The `skills/` directory is a flat list; test files 
 
 ### Documents / Files
 `pdf`, `docx`, `docx-advanced`, `pptx`, `xlsx`, `doc-coauthoring`, `docgraph`,
-`preprocess-pdf`, `preprocess-image`, `working-with-files`
+`document-intelligence`, `preprocess-pdf`, `preprocess-image`, `working-with-files`
 
 ### UI / Design
 `canvas-design`, `design-randomizer`, `frontend-design`, `theme-factory`, `webapp-testing`

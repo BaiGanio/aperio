@@ -182,7 +182,8 @@ Useful overrides include `DOCINT_EVALUATION_PROVIDER=codex` with
 `APERIO_HARNESS_TIMEOUT_MS=...`, `PROBE_REPEATS=...`, and `PROBE_CTX=...`.
 Do not treat `document-intelligence-run-answers.json` as source truth: it is a
 fresh, overwritten diagnostic artifact containing prompts, tool traces, and
-raw answers.
+raw answers. It is now git-ignored rather than tracked, so a run no longer
+dirties the worktree and no `git checkout --` restore step is needed.
 
 ## Main evidence files
 
@@ -190,8 +191,11 @@ raw answers.
   and T-R5 evidence.
 - `document-intelligence-ws2-tg23-open-issues.md` — corrected Gemma failure
   and DeepSeek pass.
-- `document-intelligence-ws3-templates.md` — WS3 implementation and review log.
 - `llamacpp-latency/README.md` — latency diagnosis and Gemma capability results.
-- `document-intelligence-epic-tests.md` and `document-intelligence-ws3-templates-tests.md`
-  — acceptance/test definitions.
+- `document-intelligence-epic-tests.md` — acceptance/test definitions.
+
+WS3's own plan/test/review files (`document-intelligence-ws3-templates*.md`) were
+deleted on 2026-08-13 once that workstream closed on both backends; the epic's
+evidence log carries the outcome, and `git log -- trash/plans/document-intelligence-epic/`
+still has the full review history if it is ever needed.
 

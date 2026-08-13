@@ -92,6 +92,23 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **The `document-intelligence` skill now matches the shipped feature.** It was
+  written before the extraction-template surface landed and had drifted in four
+  ways: it never mentioned the eight `extraction_*` tools or the two contracts
+  that silently disable them (`extraction_apply`'s `sourceHash` must appear
+  among the confirmed `INSERT`'s bound parameters, and `extraction_log_record`
+  must be called afterwards with the `db_execute` confirmation token or
+  duplicate detection never fires); it never told the model to check
+  `rowsAffected` before reporting data as saved, so a confirmed `CREATE TABLE`
+  could be mistaken for a successful write and a total recited from memory
+  after an empty query; it said nothing about bound parameters having to match
+  the statement's placeholders; and its currency rule stopped short of the
+  closing summary line, which is exactly where an observed run added BGN and
+  EUR into a single "grand total". Also documents that a document ranked into
+  the manifest is a candidate, not a confirmed expense — recorded false
+  positives include a B2B freight invoice reported as household spending. The
+  skill's frontmatter is unchanged, so skill matching is unaffected.
+
 - **Terminal session resume now rebinds the active session identity** so
   post-resume turns, generated artifacts, summaries, and close/restart
   finalization are written to the resumed session instead of the abandoned CLI
