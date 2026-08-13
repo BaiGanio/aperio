@@ -164,6 +164,17 @@ propose the statement, then stop; the user confirms and the server executes
 it. Never set `confirmation_token` yourself and never call `db_execute` a
 second time to "retry" a proposal.
 
+- **Before a second or follow-up save attempt on a table you (or an earlier
+  turn) already wrote to** — a prompt like "finish saving them," "did the
+  rest go in?," or anything implying resumed/incomplete work — run
+  `db_query`/`db_schema` first to see what rows already exist. Never
+  re-derive the full row set from the source documents again from scratch;
+  that is how fabricated data ends up in the table (placeholder hashes,
+  invented category labels, amount/original-string pairs shuffled across
+  documents) instead of a duplicate of the real values you extracted the
+  first time. Insert only the rows that are actually missing, using the same
+  real per-document values already confirmed earlier in the conversation —
+  not new ones you make up to fill the gap.
 - Connection name is always `extraction` — it doesn't need to exist yet; it
   is provisioned automatically as the user's own writable SQLite database on
   first confirmed write. Never invent or ask for a different connection name.
@@ -286,3 +297,9 @@ template definition — already-extracted rows and log entries stay.
 - **The built-in `aperio` database connection stays read-only.** It is never
   a valid target for extracted document data — that's what `extraction` is
   for.
+- **Query columns by the name your own `db_schema`/`CREATE TABLE` actually
+  used, not the name you remember using.** A query against a column typed
+  from memory (e.g. `amount` when the table was created with
+  `amount_normalized`) fails outright — re-read the exact column list from
+  the schema you already have in this conversation before writing the next
+  query against it, rather than retyping it from recall.
