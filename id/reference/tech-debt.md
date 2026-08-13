@@ -467,8 +467,11 @@ these are the model, not the rig.
   Rows were never written, which is the *core* claim of T-G2.3. Alongside it,
   the model emitted `db_execute` calls with the `sql` argument missing
   (`` `sql` is required ``) three times in one run — malformed tool calls, not
-  a rejected proposal. Worth checking against `lib/tools/schemaCheck.js`'s
-  arg/schema mismatch ledger before assuming it is purely a model defect.
+  a rejected proposal. **Checked against the ledger 2026-08-13, and it is NOT
+  purely a model defect** — see "db_execute — a malformed call the model is
+  never told how to fix" below. The model's own error was real (a nested-array
+  `params` for a multi-row INSERT), but nothing in the loop could tell it that,
+  which is why it repeated the same shape three times.
 - 2026-08-13 **The currency rule fails while present, explicit, and in
   context — the strongest single result of the session.** Round 12's answer
   contained `**Total Spending:** 893.24 (696.84 BGN + 196.40 EUR)`.
@@ -483,18 +486,81 @@ these are the model, not the rig.
   runs blended anyway. If this is to be fixed, it needs a mechanism (a
   post-generation check on the answer, or deriving the closing line from the
   query result rather than from prose), not more prompt.
-- 2026-08-13 **Arithmetic double-count with no rule against it.** Round 11
-  attributed Fuel 431.20 against a true 215.60 — one of two June fuel receipts
-  counted twice, propagating into a 912.44 grand total (696.84 + 215.60).
-  The same expense appearing both as its own receipt and as a bank-statement
-  row is a known shape — `harness-gate.test.mjs` has a `doubled fuel` mutation
-  test for exactly it — but **SKILL.md contains no instruction against it**,
-  unlike the currency case. Unlike the entry above, this one has not yet been
-  tried in prompt, so a skill rule is still an untested option here.
+- 2026-08-13 **Arithmetic double-count.** Round 11 attributed Fuel 431.20
+  against a true 215.60, propagating into a 912.44 grand total (696.84 +
+  215.60). This was the one defect in the section that had **never** been
+  tried in prompt, unlike the currency rule, so prose was the cheap first
+  move rather than a repeat of a failed one.
+  **SKILL.md rule landed 2026-08-13** (§4, after the persistence paragraph —
+  placed inside §4 deliberately, not as a new numbered section, because
+  tech-debt and the plan docs cross-reference "§5"/"§6" throughout and
+  renumbering would invalidate all of it). It names the mechanism rather than
+  the symptom: `doc_batch`'s `aggregate` merges duplicates, but hand-building
+  `INSERT` rows re-derives from raw documents and loses that merge. Both
+  corpus shapes are stated — the same document as `.txt` + `.png` scan sharing
+  a receipt number, and a receipt plus its bank-statement row — along with the
+  anti-rule that makes this hard, taken from the oracle's own policy: equal
+  amounts never establish duplication, and neither does the same merchant on
+  the same card. June has exactly that trap (two PetrolMax fills, same card
+  suffix 4417, 09 Jun 120.00 and 25 Jun 95.60, explicitly separate events), so
+  a rule saying "merge what looks alike" would break the corpus in the other
+  direction. Ends with a checkable step: reconcile per-category totals against
+  `aggregate` before proposing the write.
+  **Unvalidated — needs a live run.** Also note the round-11 arithmetic was
+  never fully reconstructed: 431.20 is 2 × 215.60, i.e. the whole Fuel
+  category doubled, which matches neither the statement-overlap signature
+  (240.00) nor "one of two receipts counted twice" (335.60 or 311.20). The
+  earlier characterisation of it as a single receipt double-counted does not
+  survive arithmetic. The transcript was overwritten before the per-run
+  archive existed, so the true shape is unrecoverable and the new rule is
+  aimed at the documented duplication shapes rather than at that run.
 - 2026-08-13 **The EUR row lands as `Uncategorized`/`Travel-Other` (196.40 EUR)
-  while every BGN row is categorized.** A real extraction gap in the EUR path,
-  visible in round 11's own output table. Currently ungraded, so it fails
-  silently on every run.
+  while every BGN row is categorized.** ~~Currently ungraded~~ **Now graded, and
+  the attribution was wrong: this is not model behaviour.** Filed under this
+  heading originally; it belongs to the deterministic pipeline. `CATEGORY_RULES`
+  (`lib/docgraph/facts/contract.js:78-95`) has no Travel or Accommodation
+  category at all and its patterns are Bulgarian + English by construction (the
+  docstring says so: "a starting taxonomy, not a claim of universal coverage"),
+  so `classifyCategory()` returns `null` for June's three EUR documents — a
+  German train ticket, a German hotel bill and a French airport café — and
+  `aggregate.js`'s `UNCATEGORIZED` bucket takes them. Verified by running the
+  real classifier against all three: `{category: null, score: 0}` each. Round
+  12's answer table even labels it `**Uncategorized** (Travel/Lodging)` — the
+  model knew what the charges were and was relaying Aperio's own bucket name.
+  The oracle disagrees with that bucket: `other_currency_totals.EUR` is 196.40
+  over 3 documents and every one of them is `category: "Travel"`.
+  **Graded 2026-08-13**: `buildExpectations` now derives `otherCurrencies` from
+  the oracle, and the provenance phase gained `foreignCurrencyRowsCategorized`
+  — structural, reading the row objects a `db_query` came back with rather than
+  the answer prose, deliberately, because three of this gate's checks are
+  already substring tests over prose and two of them invalidated whole runs (see
+  the grader section above). Containment against the oracle's own category, so
+  `Travel-Other` and `Travel/Lodging` pass and `Uncategorized` does not; vacuous
+  when the run wrote no foreign-currency row or the rows carry no category
+  column. New predicates `queriedRows` (with a brace-matched salvage for a
+  `detail` string capped at 2,000 chars by `lib/agent/toolActivity.js`) and
+  `unresolvedForeignCurrencyRows` in `grading-predicates.mjs`; 6 + 4 tests.
+  Replaying the recorded round-12 run through it introduces no failure — that
+  run's only `db_query` returned zero rows, so the check is correctly silent.
+  **Still open, and now the real item:** the taxonomy gap itself. A
+  document-intelligence product whose corpus spans seven destinations, seven
+  languages and four currencies cannot categorise any of the non-domestic
+  spending. Fixing it means adding a Travel/Accommodation category with
+  de/fr/en patterns to `CATEGORY_RULES` — product code that changes how real
+  users' documents are categorised, so it deserves its own review rather than
+  riding along with a harness change. Until then this check fails any run whose
+  model reports the EUR total from the pipeline's own bucket, and the failure
+  message names the taxonomy rather than the model.
+- 2026-08-13 **`/\bcafé\b/i` in `CATEGORY_RULES`' Dining rule can never match
+  "café".** `é` is a non-word character, so the trailing `\b` demands a word
+  character *after* it: the pattern is false for `"Café du Terminal"`, `"café"`
+  and `"le café."`, and true only for `"cafés"` — the exact inverse of the
+  intent. Found while tracing the EUR categorisation above. Harmless today
+  because the unaccented `/\bcafe\b/i` sits beside it and catches the ASCII
+  spelling, so only accented text is affected; the fix is dropping the trailing
+  `\b` (or using `(?![\p{L}])` with the `u` flag). Worth checking the other
+  patterns for the same shape — `/\bбон №/i` and anything ending in a
+  non-ASCII letter are candidates.
 
 **What is not yet decided (the actual blocker on T-G2.3):** whether a model
 that passes 1-in-4 with four distinct failure modes clears this gate at all.
@@ -503,6 +569,70 @@ pass-rate threshold, or fix the defects at their source — and no further runs
 resolve it; it is a judgment call, not a measurement. A planned 6-run
 measurement (3 baseline + 3 with a SKILL.md change) was cut after round 12,
 because the round-12 blend retired the premise of the second arm.
+
+---
+
+## db_execute — a malformed call the model is never told how to fix
+
+- 2026-08-13 **Root-caused from the `var/toolrepair/events.tsv` ledger, which
+  recorded all three of round 12's failures at 17:21:46, 17:24:42 and 17:28:14.**
+  The ask was to check the ledger before booking these as a model defect. The
+  ledger's own rows are the finding: every one is `unknown_param`, and there is
+  **no `missing_required` row for `sql` anywhere** — the one issue that was
+  actionable. Four independent things line up:
+  1. **The mangling happened upstream of Aperio.** The garbled argument key is
+     full of `<|"|>` tokens, which appear nowhere in this repo (`grep` over
+     `lib/` and `mcp/`) — it is llama.cpp's own template quote marker. What
+     arrived over the OpenAI-compatible API was already an object with
+     `connection`, a `params` holding only the FIRST row's 7 values, and rows
+     2..N flattened into a key ending `,sql`. The `sql` argument was consumed
+     into that key before any Aperio code ran. Corroborating detail: a receipt
+     description containing colons (`Diesel B7, Pump: 4, Operator: 0`) was
+     re-read as object entries — `"Diesel B7, Pump": 4, "Operator": 0` — which
+     is a parser that lost sync mid-value, not a model emitting nonsense.
+  2. **`checkArgs` structurally cannot report the real issue.** `db_execute`
+     declares `connection` and `sql` as `.optional()`
+     (`mcp/tools/database.js:100-101`) because they are only required when
+     PROPOSING, with the handler enforcing it. So `zodToJsonSchema` yields
+     `required: []` and `checkArgs` can never emit `missing_required` for
+     `sql` — verified by running both against the real schema.
+  3. **The hint was suppressed for this tool.** `db_execute` is in
+     `DESTRUCTIVE_TOOLS` (`lib/tools/executor.js:14`), and
+     `lib/agent/index.js` returned `null` from `repairHint()` for destructive
+     tools. This was the only gate that actually fired.
+  What the model DID receive, all three times, was the handler's own
+  `errText("\`sql\` is required.")` — `callTool` returns an `isError` result's
+  text to the model, and already appended the hint on that path. So "it was
+  never told" is wrong: it was told the bare fact and not the diagnosis. It
+  repeated the same malformed shape anyway, which is a genuine model failure on
+  top of the plumbing one.
+  `pickSql` already recovers near-miss keys (`query`, `statement`, `sql_query`,
+  `stmt`) but cannot help here: the statement was never a value, it was part of
+  a key name.
+  **Fixed 2026-08-13 for (2) and (3); (1) is upstream.**
+  - (3) The hint gate no longer keys on `DESTRUCTIVE_TOOLS`. That set conflated
+    two different guards: `parseArgs` refuses to REPAIR malformed args for
+    destructive tools because a regex repair can shift string boundaries and
+    land a corrupted write — untouched, and it must stay, along with
+    `findPriorToolResult`'s exclusion. Declining to EXPLAIN a failure protects
+    nothing. Moving `db_execute` out of the set was considered and rejected: it
+    would have bought the hint at the cost of both real guards, on the exact
+    write path this gate exercises, against an explicit comment in the source
+    calling the set a non-removable floor.
+  - (2) `checkArgs` still cannot emit `missing_required` for an optional-by-
+    schema param, but it no longer reports the debris as `unknown_param`.
+    A key longer than 64 chars or carrying `,[]{}`/newlines is structural
+    debris, and once any key in the object is debris the short ones alongside
+    it are too (round 12's `Operator`, 8 chars, from a colon inside a receipt
+    description). New kind `mangled_args`, whose ledger row and hint carry
+    only `«mangled:2773ch»` — never the payload, so a bad call no longer also
+    poisons the context window and no longer writes ~3 KB per TSV row. The
+    hint names the tool's real parameters once for the whole group. Verified
+    against round 12's verbatim arguments: all three calls now classify as
+    mangled, and a hallucinated param on a clean parse still reads as
+    `unknown_param`. 7 tests in `tests/integration/tools/schemaCheck.test.js`.
+  - Unvalidated live: whether the better hint changes gemma4-E4B's retry. The
+    recorded evidence only shows it repeating under the bare message.
 
 ---
 

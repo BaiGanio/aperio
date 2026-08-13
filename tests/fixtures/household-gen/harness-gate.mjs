@@ -301,11 +301,30 @@ export function buildExpectations(oracle, period, { corpusRoot }) {
       means: "this is the statement's own total debits — the answer came from reading only the statement",
     };
   }
+  // Non-BGN spending the corpus declares in its own currency. The oracle keeps
+  // it out of the BGN totals but still states it (policy.currency: "Per-currency
+  // totals only ... reported separately"), and until now nothing derived from it
+  // — so a run could attribute the whole EUR total to a category the corpus
+  // never assigned and no check would notice. Categories come from the events
+  // themselves, keyed by document, so this follows the corpus rather than
+  // hardcoding "Travel".
+  const categoryOfDocument = new Map((data.excluded_events ?? []).map(event => [event.document, event.category]));
+  const otherCurrencies = {};
+  for (const [currency, entry] of Object.entries(data.other_currency_totals ?? {})) {
+    const items = entry.items ?? [];
+    otherCurrencies[currency] = {
+      total: entry.total,
+      documents: entry.documents ?? items.length,
+      categories: [...new Set(items.map(item => categoryOfDocument.get(item.document)).filter(Boolean))],
+    };
+  }
+
   return {
     period,
     corpusRoot,
     categoryTotals: data.category_totals_bgn,
     monthlyTotal: data.monthly_total_bgn,
+    otherCurrencies,
     signatures,
     excluded: data.excluded_events.map(event => ({
       document: event.document,
