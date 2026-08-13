@@ -76,6 +76,45 @@ describe("checkArgs", () => {
     const issues = checkArgs({ path: "/a", __parse_error__: "x" }, schema);
     assert.deepEqual(issues, []);
   });
+
+  // A lost-sync parse folds argument VALUES into a key. Reporting that as
+  // `unknown_param` was misleading and wrote kilobytes per row into the ledger:
+  // the 2026-08-13 db_execute run logged four such rows and no record that
+  // `sql` had gone missing, because `sql` was inside the key.
+  describe("mangled argument keys", () => {
+    test("a key carrying JSON structure is mangled, not a hallucinated param", () => {
+      const key = '"a","b"],["c","d"],sql';
+      const issues = checkArgs({ path: "/a", [key]: 1 }, schema);
+      assert.deepEqual(issues, [{ kind: "mangled_args", param: `«mangled:${key.length}ch»`, expected: undefined, received: `${key.length}ch` }]);
+    });
+
+    test("an over-long key is mangled even without JSON punctuation", () => {
+      const key = "x".repeat(65);
+      const issues = checkArgs({ path: "/a", [key]: 1 }, schema);
+      assert.equal(issues[0].kind, "mangled_args");
+    });
+
+    test("the key itself never reaches the issue — only its length", () => {
+      const key = `${"sql text ".repeat(400)},[`;
+      const issues = checkArgs({ path: "/a", [key]: 1 }, schema);
+      assert.equal(issues.length, 1);
+      assert.ok(!JSON.stringify(issues).includes("sql text"), "the payload must not be echoed into the ledger or the model's context");
+      assert.match(issues[0].received, /^\d+ch$/);
+    });
+
+    test("short debris alongside a mangled key is debris too", () => {
+      // Round 12's `Operator`: 8 chars, from a colon inside a receipt
+      // description re-read as an object entry. Indistinguishable from a made-up
+      // param alone, obvious in company.
+      const issues = checkArgs({ path: "/a", Operator: 0, 'rows"],[more': 1 }, schema);
+      assert.deepEqual(issues.map(i => i.kind), ["mangled_args", "mangled_args"]);
+    });
+
+    test("a hallucinated param on a CLEAN parse is still unknown_param", () => {
+      const issues = checkArgs({ path: "/a", flavor: "spicy" }, schema);
+      assert.deepEqual(issues.map(i => i.kind), ["unknown_param"]);
+    });
+  });
 });
 
 describe("hintFromIssues", () => {
@@ -97,6 +136,29 @@ describe("hintFromIssues", () => {
     assert.match(hint, /path/);
     assert.match(hint, /flavor/);
     assert.match(hint, /read_file/);
+  });
+
+  test("the mangled hint names the real parameters and collapses to one line", () => {
+    // The whole value of this hint: the model already knows the call failed
+    // (`sql` is required), it does not know its arguments arrived as one key.
+    const hint = hintFromIssues(
+      "db_execute",
+      [
+        { kind: "mangled_args", param: "«mangled:2773ch»", received: "2773ch" },
+        { kind: "mangled_args", param: "«mangled:314ch»", received: "314ch" },
+      ],
+      ["connection", "sql", "params"],
+    );
+    assert.match(hint, /2 argument keys were/);
+    assert.match(hint, /did not parse as JSON/);
+    assert.match(hint, /`connection`, `sql`, `params`/);
+    assert.equal(hint.split("did not parse as JSON").length, 2, "advice appears once, not once per stray key");
+  });
+
+  test("the mangled hint degrades gracefully with no param names", () => {
+    const hint = hintFromIssues("db_execute", [{ kind: "mangled_args", param: "«mangled:99ch»", received: "99ch" }]);
+    assert.match(hint, /one argument key was/);
+    assert.match(hint, /the documented parameters/);
   });
 });
 

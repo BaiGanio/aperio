@@ -16,7 +16,13 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { hasNarratedDecimalTotal, dbQueryReturnedRows, citesQueryProvenance } from "./grading-predicates.mjs";
+import {
+  hasNarratedDecimalTotal,
+  dbQueryReturnedRows,
+  citesQueryProvenance,
+  queriedRows,
+  unresolvedForeignCurrencyRows,
+} from "./grading-predicates.mjs";
 
 test("hasNarratedDecimalTotal — round-8 regressions (markdown emphasis)", () => {
   // Turn 3's actual total lines — the correct answer the ladder walked past.
@@ -123,4 +129,78 @@ test("dbQueryReturnedRows — rows vs empty vs wrong tool", () => {
   assert.equal(dbQueryReturnedRows(call("db_execute", '{"rowCount": 6, "rows": [{"a":1}]}')), false);
   assert.equal(dbQueryReturnedRows([]), false);
   assert.equal(dbQueryReturnedRows(undefined), false);
+});
+
+// --- Foreign-currency row categorisation (added 2026-08-13) -----------------
+//
+// The EUR path was ungraded on every run of this epic. Round 12's own answer
+// table read `| **Uncategorized** (Travel/Lodging) | EUR | 196.40 |` and the
+// gate said nothing, because every check here grades BGN. The oracle declares
+// the EUR side explicitly (periods["2026-06"].other_currency_totals.EUR.total
+// = 196.40 over three documents, all of them category "Travel"), so there is a
+// ground truth to grade against — it simply was not wired up.
+
+const EUR_EXPECTATIONS = { EUR: { total: 196.4, documents: 3, categories: ["Travel"] } };
+const queryCall = detail => [{ name: "db_query", detail, summary: "" }];
+
+test("queriedRows — parses row objects, and salvages them from a capped detail", () => {
+  const whole = '{"columns":["category","currency_iso","total_spent"],"rows":[{"category":"Fuel","currency_iso":"BGN","total_spent":215.6},{"category":"Uncategorized","currency_iso":"EUR","total_spent":196.4}],"rowCount":2}';
+  assert.deepEqual(queriedRows(queryCall(whole)).map(r => r.category), ["Fuel", "Uncategorized"]);
+
+  // lib/agent/toolActivity.js caps `detail` at 2000 chars and appends "…", so a
+  // wide result arrives as invalid JSON. The complete rows must still be read —
+  // a grader that gave up here would go blind precisely on the biggest results.
+  const capped = '{"columns":["category","cur"],"rows":[{"category":"Fuel","cur":"BGN"},{"category":"Uncategorized","cur":"EUR"},{"category":"Gro…';
+  assert.deepEqual(queriedRows(queryCall(capped)).map(r => r.category), ["Fuel", "Uncategorized"]);
+
+  // A brace inside a string value must not end the scan early.
+  const braced = '{"rows":[{"category":"Fuel {special}","cur":"BGN"},{"category":"Travel","cur":"EUR"}]}';
+  assert.deepEqual(queriedRows(queryCall(braced)).map(r => r.category), ["Fuel {special}", "Travel"]);
+
+  assert.deepEqual(queriedRows([{ name: "db_execute", detail: whole }]), []);
+  assert.deepEqual(queriedRows(undefined), []);
+});
+
+test("unresolvedForeignCurrencyRows — the observed Uncategorized EUR row fails", () => {
+  // Round 5's INSERT and rounds 11/12's tables, in row form.
+  const rows = [
+    { category: "Fuel", currency_iso: "BGN", total_spent: 215.6 },
+    { category: "Uncategorized", currency_iso: "EUR", total_spent: 196.4 },
+  ];
+  const found = unresolvedForeignCurrencyRows(rows, EUR_EXPECTATIONS);
+  assert.equal(found.length, 1);
+  assert.equal(found[0].currency, "EUR");
+  assert.equal(found[0].category, "Uncategorized");
+});
+
+test("unresolvedForeignCurrencyRows — a row that names the corpus category passes", () => {
+  // Containment, not equality: the corpus assigns "Travel", and a label that
+  // says Travel has resolved the charge even with a qualifier attached. Round
+  // 11's `Travel-Other` is this case and should not be graded as a failure.
+  for (const category of ["Travel", "travel", "Travel-Other", "Travel/Lodging", "Business Travel"]) {
+    assert.deepEqual(
+      unresolvedForeignCurrencyRows([{ category, cur: "EUR", total: 196.4 }], EUR_EXPECTATIONS),
+      [],
+      `${category} should count as naming the corpus category`,
+    );
+  }
+});
+
+test("unresolvedForeignCurrencyRows — a household category on a EUR row is unresolved", () => {
+  // The travel-receipt leak in row form: the corpus calls these Travel, so
+  // filing one under Transport is a misattribution, not a resolution.
+  const found = unresolvedForeignCurrencyRows([{ category: "Transport", cur: "EUR", amount: 49.9 }], EUR_EXPECTATIONS);
+  assert.equal(found.length, 1);
+  assert.equal(found[0].category, "Transport");
+});
+
+test("unresolvedForeignCurrencyRows — vacuous rather than inventing a verdict", () => {
+  // BGN rows are graded by categoryTotals, not here.
+  assert.deepEqual(unresolvedForeignCurrencyRows([{ category: "Fuel", cur: "BGN" }], EUR_EXPECTATIONS), []);
+  // No category-ish column: nothing to judge. Guessing which column meant
+  // "category" is exactly how the prose predicates above went wrong.
+  assert.deepEqual(unresolvedForeignCurrencyRows([{ label: "Uncategorized", cur: "EUR" }], EUR_EXPECTATIONS), []);
+  // No expectations (a period with no foreign currency, or an older artifact).
+  assert.deepEqual(unresolvedForeignCurrencyRows([{ category: "Uncategorized", cur: "EUR" }], {}), []);
+  assert.deepEqual(unresolvedForeignCurrencyRows([], EUR_EXPECTATIONS), []);
 });

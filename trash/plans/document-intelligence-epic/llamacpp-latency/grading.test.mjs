@@ -307,3 +307,74 @@ test("the archived transcript keeps the figures the stdout dump redacts", async 
     "the archive must be written from the same un-redacted payload as ANSWERS_PATH",
   );
 });
+
+// --- Foreign-currency row categorisation (added 2026-08-13) -----------------
+//
+// Grades the EUR side, which nothing did before: the oracle declares
+// other_currency_totals.EUR = 196.40 over three documents it categorises as
+// Travel, and rounds 5/11/12 all wrote that total into a single row labelled
+// `Uncategorized` (or `Travel-Other`) with no check to notice.
+
+async function realExpectations() {
+  const { buildExpectations } = await import("../../../../tests/fixtures/household-gen/harness-gate.mjs");
+  const oracle = JSON.parse(await readFile(resolve("tests/fixtures/household-gen/ground-truth.json"), "utf8"));
+  return buildExpectations(oracle, "2026-06", { corpusRoot: "/tmp/corpus-root" });
+}
+
+function resultsWithQueriedRows(rows) {
+  const results = passingProvenanceResults();
+  results[1].toolCalls[0].detail = JSON.stringify({ rowCount: rows.length, rows });
+  return results;
+}
+
+test("buildExpectations derives the foreign-currency side from the oracle", async () => {
+  const expectations = await realExpectations();
+  assert.deepEqual(expectations.otherCurrencies, {
+    EUR: { total: 196.4, documents: 3, categories: ["Travel"] },
+  });
+});
+
+test("provenance: an Uncategorized EUR row is now a named failure", async () => {
+  const expectations = await realExpectations();
+  const grading = gradePhase({
+    phase: "provenance",
+    results: resultsWithQueriedRows([
+      { category: "Fuel", currency_iso: "BGN", total_spent: 215.6 },
+      { category: "Uncategorized", currency_iso: "EUR", total_spent: 196.4 },
+    ]),
+    expectations,
+    ladderName: "mechanism",
+    log: silent,
+  });
+  assert.equal(grading.checks.foreignCurrencyRowsCategorized, false);
+  const failure = grading.failures.find(f => f.startsWith("foreign-currency category:"));
+  assert.ok(failure, "the failure names the check");
+  assert.ok(failure.includes("Uncategorized") && failure.includes("Travel"), failure);
+});
+
+test("provenance: a EUR row naming the corpus category clears the check", async () => {
+  const expectations = await realExpectations();
+  const grading = gradePhase({
+    phase: "provenance",
+    results: resultsWithQueriedRows([
+      { category: "Fuel", currency_iso: "BGN", total_spent: 215.6 },
+      { category: "Travel-Other", currency_iso: "EUR", total_spent: 196.4 },
+    ]),
+    expectations,
+    ladderName: "mechanism",
+    log: silent,
+  });
+  assert.equal(grading.checks.foreignCurrencyRowsCategorized, true);
+  assert.equal(grading.failures.some(f => f.startsWith("foreign-currency category:")), false);
+});
+
+test("provenance: the check stays out of the way when no expectations are supplied", () => {
+  const grading = gradePhase({
+    phase: "provenance",
+    results: resultsWithQueriedRows([{ category: "Uncategorized", currency_iso: "EUR", total_spent: 196.4 }]),
+    ladderName: "mechanism",
+    log: silent,
+  });
+  assert.equal(grading.status, "pass");
+  assert.equal("foreignCurrencyRowsCategorized" in grading.checks, false);
+});

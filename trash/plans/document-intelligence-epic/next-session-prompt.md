@@ -1,50 +1,106 @@
 Pick up the last open gate of the document-intelligence epic (#250): WS2 T-G2.3 (SQL provenance)
-on the local hero model, gemma4-E4B. Rounds 9-11 finished the infrastructure work and **committed
-it**. Three consecutive live runs confirm the KV-reuse fixes and both wall-clock ceilings. The
-gate still reports `fail`, and after two grader fixes it is now failing on **model behaviour**,
-not on the harness. What is left is a decision about the model, not another repair.
+on the local hero model, gemma4-E4B. The infrastructure work is finished and merged (PR #452).
+What is left is **a decision about the model, not another repair** — and one live run to test the
+two changes made since the last measurement.
 
-**Verify before you build on any of this.** The code is committed; read it rather than trusting
-this summary — `git show <this commit>` and
-`trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`. Two of
-the last three handoffs contained a confident claim that turned out to be false (round 7's "the
-maxHistory cap is benign", cost 473 s; round 8's worktree note said `lib/agent/providers/llamacpp.js`
-was a stray diagnostic, when half of it was load-bearing and excluding it would have broken the
-small-context overflow fallback). Distrust accordingly.
+**Verify before you build on any of this.** Read the code rather than trusting this summary —
+`git log --oneline -10` and `id/reference/tech-debt.md`. This epic has a consistent history of
+confident handoff claims that turned out false: round 7's "the `maxHistory` cap is benign" (cost
+473 s), round 6's preflight attribution (exonerated), round 4's extraction-accuracy finding (did
+not reproduce), and in this session two of my own — "the model was never told `sql` was missing"
+(it was told, all three times) and "the `isError` path never delivers a hint" (it already did,
+`lib/agent/index.js`, the line after the image block). Distrust accordingly, including this file.
 
 ## Read first
 
-1. The rounds 9-11 section at the top of
-   `trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`.
-2. `id/reference/tech-debt.md` → the "Document-intelligence harness — grader (#250)" section,
-   in particular the *pattern* entry about lexical predicates and the two `fullMonthGate` entries.
+1. `id/reference/tech-debt.md` → the four `#250` sections. In particular the **gemma4-E4B model
+   behaviour** section, which holds the actual blocker, and the **grader** section's *pattern*
+   entry about lexical predicates.
+2. `trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`.
 
-## What is settled, and should not be re-opened
+## The blocker, unchanged and still yours to call
 
-**The prompt prefix is stable across a flow. Verified live three times, rounds 9/10/11.**
-6/6, 8/8 and 9/9 request boundaries respectively, every one `pure append -- prefix intact`,
-`sysHash` constant within each run, `toolsHash=0ef511af95bc` in all three. Both ceilings passed
-in all three (max turn 421-475 s of 550 s; totals 583 k / 981 k / 1,034 k of 2,400 k). The two
-causes — the skill block relocating, and `maxHistory` cutting the cached prefix on every hop —
-are fixed in `lib/agent/turn-planner.js` (`computeSkillPin` + `resolvePinnedSkills`, pinned per
-conversation via a WeakMap in `lib/agent/index.js`) and `lib/agent/model-context-middleware.js`
-(hysteresis). This is no longer a single-run result.
+Four live runs, same command, same fixtures: **round 9 clean 16/16, rounds 10-12 fail, and no two
+failed the same way** — a currency blend, an arithmetic double-count, runaway reasoning that spent
+a full 900 s budget on thinking tokens and emitted nothing, and `insertedRealRows: false` on a run
+that proposed `db_execute` and had the confirm approved.
 
-**Both grader defects are fixed**, and both were the same shape — a substring test over free
-prose rejecting a correct answer. `hasNarratedDecimalTotal` could not see markdown emphasis
-(`**Total in BGN:** 696.84`); `citesQueryProvenance` (was `followUpCitesSql`) demanded SQL jargon
-where the model named its source table. Both now live in
-`llamacpp-latency/grading-predicates.mjs` with 20 tests in `grading-predicates.test.mjs`.
+One pass in four with four distinct failure modes is not a gate result, it is a coin. The honest
+options have not moved: **raise the model, lower the gate to a stated pass-rate threshold, or fix
+the defects at their source.** No further runs resolve this; it is a judgment call. A planned
+6-run measurement (3 baseline + 3 with a SKILL.md change) was cut after round 12 because the
+round-12 blend retired the premise of its second arm.
 
-## Your job: decide whether gemma4-E4B passes this gate
+## What changed since the last measurement, and what a run would now test
 
-Three runs under the current grader: round 9 scores **16/16**, rounds 10 and 11 fail on genuine
-model defects — a currency blend (`893.24` = 696.84 BGN + 196.40 EUR) and an arithmetic
-double-count (Fuel `431.20` against a true `215.60`, one of two June fuel receipts counted
-twice). One clean in three, two distinct failure modes.
+Two things landed that no live run has exercised:
 
-The useful next step is a **measured pass rate**, not another fix. Run the gate unchanged 3-5
-more times and count:
+1. **A SKILL.md rule against counting one payment twice** (§4). This targets round 11's
+   double-count and is the only defect in this epic that had never been tried in prompt. Note it
+   was written against the corpus's documented duplication shapes, **not** against round 11 —
+   see the caveat below.
+2. **Better tool-call correction on malformed arguments.** A lost-sync parse is now classified as
+   its own kind and the model gets a hint naming the tool's real parameters, where before it got
+   only "`sql` is required" and retried the same broken shape three times. This targets round
+   12's `insertedRealRows: false`.
+
+A run measures both at once, which is exactly what you do NOT want if either fires — so record
+which one moved. Neither addresses the runaway-reasoning mode or the currency blend.
+
+## Do not re-open
+
+- **The currency blend as a prompt problem.** `skills/document-intelligence/SKILL.md:261` already
+  quotes the failing string `893.24 (696.84 BGN + 196.40 EUR)` character-for-character as a
+  labelled counter-example, calls it "a failure, not a courtesy", and adds a pre-send re-read
+  imperative. It was pinned in the cached system prompt every turn, and round 11's model cited the
+  skill by name. 2 of 4 runs blended anyway. This wording has had a fair test and failed it. If it
+  is to be fixed it needs a mechanism — deriving the closing line per currency out of the query
+  result so no single blendable figure exists — not a fifth sentence.
+- **The KV-reuse and wall-clock work.** Three consecutive clean runs; both ceilings passed. If a
+  future run is slow, look at the per-token prefill depth curve (7.71 → 13.5 → 16.8 → 20.4
+  ms/token, uninvestigated, hardware/attention-depth) rather than at the cache.
+- Round 5's `msgCount=20` rebuild inference (it was the `maxHistory` cap), round 6's preflight
+  suspicion, round 7 run A's "the cap is benign", round 4's extraction-accuracy finding.
+- **Moving `db_execute` out of `DESTRUCTIVE_TOOLS`.** That set gates three things; two are
+  load-bearing on this exact write path (`parseArgs` refusing to regex-repair args, which can
+  shift string boundaries and land an altered statement, and `findPriorToolResult` never replaying
+  a destructive result). The hint suppression was the only one worth changing and it is done.
+
+## Caveat on the new duplicate rule
+
+Round 11's arithmetic does not reconstruct. It claimed Fuel 431.20 against a true 215.60 — that is
+2 × 215.60, the whole category doubled, which matches neither the fixture's statement-overlap
+signature (240.00 = 120 × 2) nor "one of two receipts counted twice" (335.60 or 311.20). The
+existing description of it as a single receipt double-counted does not survive arithmetic, and the
+transcript was overwritten before the per-run archive existed. So the rule is aimed at the
+duplication shapes the corpus documents, and a run testing it measures the rule — it does not
+reproduce round 11.
+
+## Known-open, none of them blockers
+
+- **The EUR row's category is now graded** (`foreignCurrencyRowsCategorized`), and the root cause
+  is not the model: `CATEGORY_RULES` (`lib/docgraph/facts/contract.js`) has no Travel or
+  Accommodation category and its patterns are Bulgarian + English only, so `classifyCategory()`
+  returns `null` for a German train ticket, a German hotel bill and a French airport café alike.
+  Verified by running the real classifier against all three. **The check will therefore fail any
+  run whose model reports the EUR total from the pipeline's own bucket** — the failure message
+  names the taxonomy, not the model. Closing it means extending the taxonomy, which is product
+  code touching how real users' documents are categorised and deserves its own review.
+- `/\bcafé\b/i` in that same rule set can never match "café" — `é` is a non-word character, so the
+  trailing `\b` demands a word character after it. Harmless today (the unaccented variant sits
+  beside it); worth checking the other patterns for the same shape.
+- **The grader's prose predicates are brittle as a class.** Three checks are substring tests over
+  free prose; two produced run-invalidating false negatives in consecutive rounds. The structural
+  checks carry the evidentiary weight. An audit of the remaining ones was deferred by the
+  developer, not dismissed — it is now cheap, since `replay-grading.mjs` re-grades an archived run
+  offline with a before/after diff.
+- **The hysteresis cut has never been observed firing.** Runs peaked at 36 messages against a
+  41-message threshold. Verified: the cap no longer fires early. Unverified: the single amortized
+  cut it should make at 41.
+- Whether grading should prefer the turn that *satisfied* the ladder over the last turn with
+  content. Latent, not active — on a clean run they are the same turn.
+
+## The command
 
 ```
 DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
@@ -56,69 +112,16 @@ DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
   > /tmp/roundN.log 2>&1
 ```
 
-Budget 10-20 min per run (turn 0's cold prefill alone is ~420-475 s and is unavoidable). Analyse
-the cache with `python3 trash/plans/document-intelligence-epic/llamacpp-latency/msgdiff.py`.
-A cache or latency regression would be new information; none is expected.
-
-Then decide with the developer what the bar is. "Passes sometimes" is not a gate. The honest
-options are: raise the model, lower the gate to a stated pass-rate threshold, or fix the two
-observed defects at their source.
-
-## Newly testable, and the most promising lead
-
-**The premise that retired SKILL.md work has been reversed by this session's own fix.** The
-"do not re-open SKILL.md wording" rule existed because the skill was not in context on the turn
-it targeted. That was true when the block lived in a relocating tail message. It is false now:
-the block sits in the cached system prompt, is pinned for the flow, `skills=[document-intelligence]`
-is logged on every turn, and **round 11's model cited the skill by name** —
-*"as per the core principles of the `document-intelligence` skill"*.
-
-So an explicit never-sum-across-currencies instruction in SKILL.md is now a real experiment
-rather than a repeat of a failed one. It targets round 10's exact failure. Note the cost of
-being wrong is low but the cost of *assuming* it works is not — measure it over several runs,
-since the baseline itself is only 1-in-3.
-
-## Known-open, none of them blockers
-
-- **`fullMonthGate` over-triggers — now OBSERVED (round 11), not suspected.** It failed
-  `"**Overall Combined Total:** **912.44 BGN + 196.40 EUR**"` for combining currencies
-  "without disclosing that it isn't converting", while the next line of the same answer read
-  *"(Note: No FX conversion was applied…)"*. Two figures, one per currency, with an adjacent
-  disclosure. Fix this before relying on the check — it will produce false failures.
-- **The grader's prose predicates are brittle as a class.** Three of this gate's checks are
-  substring tests over free prose; two have now produced run-invalidating false negatives in
-  consecutive rounds, each fixed reactively. The structural checks (`dbQueryReturnedRows`,
-  `insertedRealRows`) carry the evidentiary weight. Consider moving provenance grading off
-  substring matching before pointing this gate at a new model.
-- **Per-token prefill cost climbs with context depth: 7.71 → 13.5 → 16.8 → 20.4 ms/token.**
-  The largest remaining latency item; nobody has investigated it. Hardware/attention-depth,
-  not cache.
-- **The hysteresis cut has never been observed firing.** Rounds 9-11 peaked at 30 messages,
-  below the 41 threshold. Verified: the cap no longer fires early. Unverified: the single
-  amortized cut it should make at 41.
-- **The EUR row lands as `Uncategorized`/`Travel-Other`** (196.40 EUR) while every BGN row is
-  categorized. Not graded; a real extraction gap in the EUR path.
-
-## Do not re-open
-
-- Round 5's inference that `msgCount=20` on consecutive requests means the array is rebuilt.
-  It was the `maxHistory` cap. Retired twice.
-- Round 6's preflight suspicion — exonerated by byte-identical `doc_manifest`/`doc_batch` hashes.
-- Round 4's extraction-accuracy finding — did not reproduce.
-- Round 7 run A's "the `maxHistory` cap is benign" — falsified by run B.
-- **The KV-reuse and wall-clock work generally.** Three consecutive clean runs. If a future run
-  is slow, look at the per-token depth curve above, not at the cache.
+Budget 10-20 min per run; turn 0's cold prefill alone is ~420-475 s and is unavoidable. Analyse
+the cache with `msgdiff.py`, re-grade an archived run with `replay-grading.mjs` (no path takes the
+newest; `--list` enumerates). The developer's standing rule: **kill the run on the first turn that
+repeats a known failure shape** rather than letting the ladder run out.
 
 ## State of the worktree
 
-The agent fixes, both grader fixes, the tests, `CHANGELOG.md`, `id/reference/tech-debt.md` and
-the plan docs are **committed** on
-`fix/docint-cache-and-skill-stickiness-250-signed-by-claude-opus-5`.
-`tests/unit` + `tests/harness`: **2687 pass / 0 fail**.
-
-`.gitignore`, `package.json`, `manual/`, `output/`, `scripts/manual-build.mjs`,
-`tests/{unit,integration}/manual/` and `trash/plans/manual-visual-system-prototypes/` belong to
-ANOTHER SESSION — they were deliberately left uncommitted. Do not touch, stage, or commit them.
-Note `tests/integration/manual/build/preview.test.js` currently fails; it is that session's, not
-ours, which is why a scoped `tests/unit`+`tests/harness` run is the meaningful check here rather
-than a bare `npm test`.
+Committed on `fix/toolcall-hints-and-docint-duplicate-rule-250-signed-by-claude-opus-5`
+(branched from `master`, which already carries the merged PR #452). 229 tests pass across the
+affected suites: `tests/integration/tools/schemaCheck.test.js`, `tests/unit/tools/executor.test.js`,
+`tests/integration/workers/skills.test.js`, `tests/fixtures/household-gen/harness-gate.test.mjs`,
+and the two `llamacpp-latency/*.test.mjs` files. The harness tests are not in the `npm test` glob
+and must be run directly with `node --test`.

@@ -157,6 +157,34 @@ If no destination exists and the user explicitly wants persistence, say so
 and offer to create one (below) rather than doing an unpersisted, uncitable
 mental sum in its place.
 
+**One payment is often documented more than once. Count the event, not the
+documents.** Two things above are in tension: `aggregate` merges duplicates,
+but the moment you hand-build rows for an `INSERT` you are re-deriving from
+the raw documents and that merge is gone. The two shapes that recur:
+
+- **The same document in two formats.** A receipt saved as both `.txt` and a
+  `.png` scan, carrying the same receipt or invoice number and the same
+  printed content, is one document photographed twice — not two purchases.
+- **A receipt and a bank-statement row for the same purchase.** Matching
+  merchant, transaction date, amount and currency, with card evidence on
+  both, means the statement line *is* that receipt's payment showing up in
+  the bank's records. Counting both turns one purchase into two.
+
+And the harder half, which is why "merge anything that looks alike" is not
+the rule: **equal amounts never establish duplication, and neither does the
+same merchant on the same card.** Two fills at the same petrol station,
+paid with the same card, on different dates are two separate purchases;
+collapsing them understates the total exactly as badly as double-counting
+overstates it. You need a shared identifier, or the full tuple —
+merchant, date, amount, currency, card evidence, document role — before
+you merge anything.
+
+The check that costs you nothing: before proposing the write, compare your
+per-category totals against `aggregate`'s. If a category of yours comes out
+higher, you have counted one event twice; if lower, you have dropped or
+wrongly merged one. Either way, resolve it before the `INSERT`, not in the
+narration afterwards.
+
 ### 5. Writing to the extraction destination
 
 `db_execute` writes are propose-then-confirm — you call `db_execute` once to

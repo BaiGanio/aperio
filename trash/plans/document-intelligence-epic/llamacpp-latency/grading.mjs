@@ -22,6 +22,8 @@ import {
   hasNarratedDecimalTotal,
   dbQueryReturnedRows,
   citesQueryProvenance,
+  queriedRows,
+  unresolvedForeignCurrencyRows,
 } from "./grading-predicates.mjs";
 
 /**
@@ -201,6 +203,27 @@ export function gradePhase({
       checks.fullMonthGate = evaluation.status === "pass";
       checks.noFxBlend = evaluation.gate.noExcludedLeak;
       if (!checks.fullMonthGate) failures.push(...evaluation.failures.map(f => `full-month gate: ${f}`));
+
+      // The EUR path was ungraded until 2026-08-13, so every run that lumped
+      // June's three EUR travel documents into one `Uncategorized` row passed
+      // this gate on that point in silence — observed in rounds 5, 11 and 12,
+      // never once reported as a failure.
+      //
+      // Read the failure message before blaming the model: the row is the
+      // deterministic pipeline's own output. CATEGORY_RULES
+      // (lib/docgraph/facts/contract.js) is Bulgarian + English by construction
+      // and has no Travel/Accommodation category at all, so classifyCategory()
+      // returns null for a German train ticket, a German hotel bill and a
+      // French airport café alike — verified by running it against all three.
+      // A model reporting `Uncategorized` there is relaying what Aperio told
+      // it. This check makes the gap visible; closing it means extending the
+      // taxonomy, not rewording SKILL.md.
+      const unresolved = unresolvedForeignCurrencyRows(queriedRows(allToolCalls), expectations.otherCurrencies);
+      checks.foreignCurrencyRowsCategorized = unresolved.length === 0;
+      for (const row of unresolved) {
+        const expected = expectations.otherCurrencies[row.currency]?.categories ?? [];
+        failures.push(`foreign-currency category: a ${row.currency} row was written as "${row.category}", which names none of the categories the corpus assigns to its ${row.currency} documents (${expected.join(", ") || "none declared"})`);
+      }
     }
   }
 

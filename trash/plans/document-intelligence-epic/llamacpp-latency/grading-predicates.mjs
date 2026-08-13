@@ -107,3 +107,103 @@ export function dbQueryReturnedRows(toolCalls) {
     return /"rows"\s*:\s*\[\s*[{[]/.test(evidence);
   });
 }
+
+/**
+ * Every row a db_query in these tool calls came back with, as objects.
+ *
+ * The driver returns row objects keyed by column name (see
+ * lib/db-connect/drivers/sqlite.js: `columns = Object.keys(rows[0])`), and the
+ * harness records the tool's `detail` payload verbatim — but capped at
+ * DETAIL_CAP=2000 chars by lib/agent/toolActivity.js, with a trailing "…". So
+ * JSON.parse succeeds on a typical aggregate result and fails on a wide one,
+ * and a grader that only did the former would go silently blind exactly on the
+ * runs with the most rows. The fallback salvages the complete row objects and
+ * drops only the one the cap cut in half.
+ */
+export function queriedRows(toolCalls) {
+  const rows = [];
+  for (const call of toolCalls ?? []) {
+    if (call.name !== "db_query") continue;
+    const detail = String(call.detail ?? "");
+    if (!detail) continue;
+    try {
+      const parsed = JSON.parse(detail);
+      if (Array.isArray(parsed?.rows)) { rows.push(...parsed.rows.filter(isPlainObject)); continue; }
+    } catch { /* capped mid-JSON — salvage below */ }
+    rows.push(...salvageRowObjects(detail));
+  }
+  return rows;
+}
+
+const isPlainObject = value => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+/** Complete `{...}` objects after the `"rows"` key, brace-matched so a nested
+ *  object cannot end the scan early and a truncated tail is simply skipped. */
+function salvageRowObjects(detail) {
+  const start = detail.indexOf('"rows"');
+  if (start === -1) return [];
+  const out = [];
+  let depth = 0, from = -1, inString = false, escaped = false;
+  for (let i = start; i < detail.length; i++) {
+    const ch = detail[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') { inString = true; continue; }
+    if (ch === "{") { if (depth === 0) from = i; depth++; continue; }
+    if (ch === "}" && depth > 0) {
+      depth--;
+      if (depth !== 0) continue;
+      try {
+        const parsed = JSON.parse(detail.slice(from, i + 1));
+        if (isPlainObject(parsed)) out.push(parsed);
+      } catch { /* not a row object */ }
+    }
+  }
+  return out;
+}
+
+/**
+ * Foreign-currency rows the run wrote whose category names nothing the corpus
+ * assigns to that currency's documents.
+ *
+ * Structural, not prose: this reads the row objects a db_query came back with,
+ * so it asks what the model actually persisted rather than how it worded a
+ * table. That matters here specifically — three of this gate's checks are
+ * substring tests over free prose and two produced run-invalidating false
+ * negatives in consecutive rounds (see tech-debt.md, "the pattern is the real
+ * finding"), so a fourth prose predicate was the wrong way to grade this.
+ *
+ * `expectedCategories` comes from the oracle (buildExpectations().otherCurrencies),
+ * and the test is containment rather than equality: the corpus assigns all three
+ * June EUR documents to "Travel", so `Travel-Other` and `Travel/Lodging` name it
+ * and pass, while `Uncategorized` — the deterministic pipeline's own bucket for
+ * a charge it could not classify (lib/docgraph/facts/aggregate.js) — does not.
+ *
+ * Vacuous when the run wrote no foreign-currency row and when a row carries no
+ * category-ish column: this reports what it can see, and inventing a verdict
+ * from an absent column is how the prose predicates above went wrong.
+ */
+export function unresolvedForeignCurrencyRows(rows, otherCurrencies = {}) {
+  const expected = new Map(Object.entries(otherCurrencies)
+    .map(([currency, entry]) => [currency.toUpperCase(), (entry?.categories ?? []).map(c => c.toLowerCase())]));
+  if (expected.size === 0) return [];
+
+  const unresolved = [];
+  for (const row of rows) {
+    const entries = Object.entries(row).filter(([, value]) => typeof value === "string");
+    const currency = entries.map(([, value]) => value.trim().toUpperCase()).find(value => expected.has(value));
+    if (!currency) continue;
+    const categoryEntry = entries.find(([key]) => /categ/i.test(key));
+    if (!categoryEntry) continue;
+    const category = categoryEntry[1].trim();
+    const names = expected.get(currency);
+    if (names.length === 0) continue;
+    if (names.some(name => category.toLowerCase().includes(name))) continue;
+    unresolved.push({ currency, category, row });
+  }
+  return unresolved;
+}
