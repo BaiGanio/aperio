@@ -104,6 +104,40 @@ housekeeping go in `A2D.md`, not here.
   resumed oscillating (40→38→40 across consecutive ~4s turns) — a different
   regime (post-timeout breakdown), not evidence against the mitigation in
   its intended steady-state use.
+  **Caught with timings, 2026-08-13 (forced-skill diagnostic run):** the
+  mechanism is no longer inferred from fingerprints alone. Turn 3's
+  `stream_end` usage reports `cache_n=12577` against `prompt_n=31067` —
+  only 40% reuse — and `prompt_ms=261791` (262 s of pure prefill at 118
+  tok/s) against `predicted_ms=41621` for 1,262 generated tokens. That turn
+  is exactly the boundary where the pin reset fired and the tool set went
+  `40→38` (`toolsHash 0ef511af95bc→5ba9030453ba`), while `sysHash` stayed
+  fixed at `3eb24a32c1eb` all run — so the schema-set change is isolated as
+  the cause, with the system prompt held constant by the forced skill. The
+  262 s prefill is what pushed the turn into the 600 s hard abort that
+  failed the gate, making this the first run where the cache gap is the
+  *proximate* cause of a gate failure rather than a latency annoyance.
+  **Attribution corrected, 2026-08-13 — the sticky pin is NOT what changes
+  the set.** The same run logs `[tools] turn=N … attached=40/74` on every
+  turn from 1 onward: the planner's resolved set never moves. The `40→38`
+  is applied after planning, by `omitPreExecutedTools`
+  (`lib/agent/index.js:716-728`), which filters the pre-executed doc tools
+  out of the final array — `preExecutedTools` is a fresh Set per turn,
+  populated only on turns where preflight auto-executes `doc_repos`/
+  `doc_manifest`/`doc_batch`. The correlation is exact: the two turns that
+  opened with a preflight `doc_batch` (turn 0 and turn 3) sent 38, every
+  other turn sent 40. So the withholding — deliberate, to stop the model
+  re-calling a tool already run for it — is itself the cache-buster on
+  llama.cpp, and a monotonic tool pin would not have fixed this run at all.
+  The earlier T-L4.3 38→40→38 reading attributed to the pin's carry-forward
+  should be re-checked against this mechanism before being trusted.
+  **Fixed 2026-08-13**: the omission is now skipped on llama.cpp —
+  `filterPreExecutedTools()` (extracted to `lib/agent/tool-profiles.js`, pure
+  and unit-tested) takes a `keepStable` flag that `lib/agent/index.js` sets
+  from `provider.name === "llamacpp"`, evaluated at call time so a mid-run
+  provider switch is honoured. Trades a possible redundant `doc_batch` (tens
+  of ms, dedup-cached) against the measured 262 s reprocess. 5 regression
+  tests; unit suite 2637 green, harness 32 green. **Not yet verified live** —
+  needs a run showing the fingerprint holding at 40 across a preflight turn.
 
 ---
 
@@ -193,9 +227,74 @@ housekeeping go in `A2D.md`, not here.
     turn of these runs (big docint block → nothing → reasoning-planning). That is a
     front-of-prompt change independent of the 38↔40 tool-count swing, and a second
     contributor to the cache-reuse gap logged above.
-  Not fixed — the fix is a design decision (sticky skills for a multi-turn workflow,
-  mirroring the existing tool-profile pin, vs. keyword patching vs. harness-side
-  forcing) and is the developer's call.
+  **Fixed 2026-08-13** — `computeStickySkills()` (`lib/agent/turn-planner.js`) carries
+  the most recent matched skills (max 2, most-recent-first) for `APERIO_SKILL_PIN_TURNS`
+  (default 4) follow-up turns while the flow keeps calling tools, ranked after the
+  current turn's own matches. Replaying the real provenance ladder through
+  `planTurnTools` now attaches `document-intelligence` on all five turns (was: turn 0
+  only). 5 regression tests; unit suite 2632 green, harness 32 green.
+- 2026-08-13 **Confirmed live: forcing the skill on every turn changes gemma4-E4B's
+  behavior on exactly the turns where it was previously absent.** Diagnostic run,
+  `DOCINT_FORCE_SKILLS=document-intelligence` (new env-gated flag, default off, sends
+  the same `data.forcedSkills` one-shot the UI Skills panel uses on every chat
+  message), same model/ceilings/ladder as every other T-L4 run this session:
+  - turn 1 (docint previously absent): `db_schema(expenses)` **before** querying,
+    then `db_query` using that schema's real column name — where round 3 queried
+    from recall and the re-re-run invented a table name.
+  - turn 2 (the zero-tool-call turn, failed identically in rounds 1/3 and the
+    re-re-run): **a real `db_execute`, not a prose plan.** First attempt emitted
+    malformed tool-call JSON (rows 2..N spilled out of `params` into a garbled
+    object key containing `<|"|>` template-escape tokens, which swallowed the `sql`
+    field → `\`sql\` is required`); it then **self-corrected unprompted** into a
+    genuine 13-tuple `VALUES (?,…),(?,…),…` with 13×7 flat params, real
+    `document_id`/`document_path` provenance, real categories, no fabricated hashes.
+    `insertedRealRows: true` — **the first time gemma4-E4B has ever written real rows
+    on this gate.**
+  - turn 3: `db_query` after the confirm returned **8 real rows**.
+  The four rounds of §5 wording were never the lever; skill absence was. Treat the
+  "prose has hit a ceiling" reading as withdrawn — it was never tested.
+  **What still failed is a different thing entirely**: turn 3 hit the 600s per-turn
+  hard abort with the query result already in hand (43,644 input / 1,262 output /
+  1,262 thinking, empty answer), so no total was ever narrated, and the known
+  empty-turn cascade followed (3 turns at ~4,000ms). `grading.status: "fail"`.
+
+---
+
+## Document Intelligence — harness grader scoping (#250)
+
+- 2026-08-13 **`followUpTurn = results.at(-1)` grades the wrong turn once a hard
+  timeout triggers the empty-turn cascade** (`document-intelligence-skill-harness.mjs:660`).
+  It is sound while the ladder stops on a satisfied turn — then the last turn *is* the
+  answering turn — but a per-turn timeout keeps the ladder escalating, so `.at(-1)`
+  becomes an empty ~4,000ms cascade turn with no tools and no answer. On the
+  2026-08-13 forced-skill run that made four checks false-negative:
+  `calledDbQueryAfterConfirm` and `dbQueryReturnedRealRows` were graded `false`
+  although turn 3 genuinely called `db_query` after the confirm and got 8 rows back,
+  and both prose checks are gated on `dbQueryReturnedRealRows` so they failed with
+  it. Same class as the `insertedRealRows` grader bug already fixed in this epic —
+  a check reading the wrong slice of the transcript, not a model failure. The
+  narration failure itself is real and would still fail the gate; only the
+  attribution is wrong. Fix direction: pick the last turn that has tool calls or a
+  non-empty answer (or the `computeProvenanceSuccess` turn), not the literal last.
+
+---
+
+## Document Intelligence — extraction accuracy (#250)
+
+- 2026-08-13 **Rows the model actually persisted on the forced-skill run are
+  partly wrong**, found by reading the turn-3 `db_query` result (8 rows). BGN:
+  Utilities 260.50 ✔, Fuel 215.60 ✔, Internet 29.99 ✔, Transport 50.00 ✔, but
+  **Groceries 87.45 against the corpus's 140.75** — short exactly 53.30, so at
+  least one grocery document's amount never made it into the INSERT. BGN total
+  would therefore narrate 643.54, not the reconciled 696.84. EUR is worse: a
+  **`Trade | EUR | 1266250`** row — a value three orders of magnitude past
+  anything in the corpus, almost certainly an account/reference number or a
+  statement identifier misparsed as an amount, under a category name that is not
+  one of the corpus's. The excluded Munich train receipt also leaked again as
+  `Transport | EUR | 49.90`. Distinct from every mechanism bug logged above: the
+  save/query machinery worked and wrote confidently wrong data. Not investigated
+  — needs the source rows traced back to their `document_path` (both are recorded
+  in the table, so this is directly checkable on a re-run).
 
 ---
 

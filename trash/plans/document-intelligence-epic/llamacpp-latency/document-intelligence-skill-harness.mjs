@@ -657,7 +657,23 @@ function gradePhase() {
 
   if (PHASE === "provenance") {
     const proposeTurn = results[0];
-    const followUpTurn = results.at(-1);
+    // The last turn that actually did something — not the literal last turn.
+    // `.at(-1)` is right while the ladder stops on a satisfied turn (then the
+    // last turn IS the answering turn), but a per-turn hard timeout keeps the
+    // ladder escalating into the known empty-turn cascade (~4,000ms turns, no
+    // tools, no answer, 0 tokens). Grading those graded nothing: on the
+    // 2026-08-13 forced-skill run it reported calledDbQueryAfterConfirm and
+    // dbQueryReturnedRealRows as false while turn 3 had genuinely called
+    // db_query after the confirm and got 8 rows back — and both prose checks
+    // are gated on dbQueryReturnedRealRows, so they failed with it. Same class
+    // as the insertedRealRows grader bug fixed earlier in this epic: a check
+    // reading the wrong slice of the transcript. Identical behavior on a
+    // clean run (the last turn has content, so it is still the one picked);
+    // falls back to the literal last turn when nothing has content at all,
+    // so the checks stay false rather than throwing.
+    const followUpTurn = [...results].reverse().find(
+      r => (r.toolSequence?.length ?? 0) > 0 || String(r.answerRaw ?? "").trim() !== "",
+    ) ?? results.at(-1);
     const allToolNames = results.flatMap(r => r.toolSequence);
     const allToolCalls = results.flatMap(r => r.toolCalls);
     checks.calledDbExecute = allToolNames.includes("db_execute");
