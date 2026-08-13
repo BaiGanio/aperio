@@ -148,7 +148,65 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
+## Skill matching — a workflow skill does not survive its own follow-up turns (#250)
+
+- 2026-08-13 **Root cause of the WS2 T-G2.3 turn-2 zero-tool-call failure, found
+  statically — the `document-intelligence` skill is NOT in the system prompt on any
+  follow-up turn of the provenance ladder.** Established without a live run, by
+  running the real matcher (`loadSkillIndex` + `matchSkills`, no server, no DB)
+  over the five literal ladder prompts:
+  - turn 0 (main prompt) → `document-intelligence` ✔
+  - turn 1 ("query it per category") → **no skill** (docint scores 4, the highest of
+    any skill, but `qualifies=false`)
+  - turn 2 ("finish saving them now… a single multi-row INSERT is fine" — the turn
+    that has now failed identically in rounds 1, 3 and the round-2 re-re-run) →
+    **`reasoning-planning` only** (score 2, kw 1); docint again scores 4,
+    `qualifies=false`
+  - turn 3 → no skill; turn 4 → `memory-protocol`
+  The gate is `scoreSkill`'s `qualifies = kwRaw ? matchedEntries.length > 0 : true`
+  (`lib/workers/skills/matching.js:118`): a skill that declares curated keywords is
+  dropped unless one of those literal phrases appears, no matter how high its
+  description-prose score. `document-intelligence`'s keyword list is entirely
+  first-turn discovery phrasing ("how much did I spend", "spend on utilities", …);
+  no follow-up vocabulary ("finish saving", "run the per-category SQL query", "the
+  rows", "INSERT", "extraction table") is in it. Skills are matched per turn from
+  the current message only and never carried forward — a deliberate fix for stale
+  skills attaching to unrelated follow-ups (`lib/agent/turn-planner.js:364-372`) —
+  and the harness never forces a skill (forcing only comes from `/skill` or the UI
+  Skills panel), so nothing re-attaches it. Consequences, all previously
+  misattributed to the model:
+  - **Every SKILL.md §5 wording iteration from rounds 1-3 was written into a
+    document that is not in context on the turn it targets.** "The bullet failed its
+    first live test" is not evidence about the wording; the bullet was absent.
+  - Turn 2's raw completion (recovered from `var/sessions/`, which survives the
+    SIGTERM the harness answers JSON does not) is a **verbatim instance of
+    `reasoning-planning`'s "Output Format" block** — `Problem:/Unknowns:/Approach:/
+    Plan:/Edge cases:` — ending "I will now propose the writes." The model followed
+    the only skill it was given, which asks for a plan as visible text; text with no
+    tool call ends the turn. Not prose hedging, not a tool-call-emission ceiling.
+  - The same holds for the §6 findings: Ornith-1.0-9B's undisclosed BGN+EUR blend
+    and its excluded-travel-receipt leak both happened on turn 2 — with §6 and the
+    exclusion guidance out of context. "Prose has a ceiling here" rests on a false
+    premise and should not be treated as evidence.
+  - Secondary effect: the injected skill block sits in the system prompt
+    (`lib/agent/index.js:295-309`), so the prompt prefix changes shape on **every**
+    turn of these runs (big docint block → nothing → reasoning-planning). That is a
+    front-of-prompt change independent of the 38↔40 tool-count swing, and a second
+    contributor to the cache-reuse gap logged above.
+  Not fixed — the fix is a design decision (sticky skills for a multi-turn workflow,
+  mirroring the existing tool-profile pin, vs. keyword patching vs. harness-side
+  forcing) and is the developer's call.
+
+---
+
 ## Document Intelligence — save/insert mechanics on gemma4 (#250)
+
+> **2026-08-13, read first:** the premise under most of this section is now in
+> doubt — see the skill-matching entry above. `document-intelligence` is absent
+> from the system prompt on every follow-up turn of the provenance ladder, so the
+> SKILL.md wording these entries call "unvalidated" or "failed" was never actually
+> in context when it was judged. Re-test before drawing conclusions from any
+> per-bullet verdict below.
 
 Gemma 4 E4B's own SKILL.md-adherence gaps in the propose→confirm write flow,
 found live on the 2026-08-13 T-L4.3 WS2 provenance run (harness-level grading
@@ -345,9 +403,39 @@ nuanced than "unvalidated" now.
   addition is exactly the mechanism that busts llama-server's prefix cache
   — though it is very unlikely to be the *only* cause of that gap (the
   38↔40 fingerprint swing at the turn-0→1 boundary predates this specific
-  trigger and needs its own explanation). **Not yet re-validated live** —
-  needs a fresh run to confirm both the SKILL.md wording and the
-  classifyProfiles fix actually change this run's outcome.
+  trigger and needs its own explanation). **Re-validated live same evening,
+  round 3 (below) — the SKILL.md bullet failed to change the outcome; the
+  classifyProfiles fix was not exercised (run killed before turn 2→3).**
+- 2026-08-13 **Round 3 re-run, same evening: turn 2's zero-tool-call failure
+  recurred immediately, on the very first live test of the bullet written to
+  fix it.** Command/ceilings identical to every T-L4 run this session. Turn 0:
+  `doc_batch` → `db_connections` (checked existing state first, the intended
+  effect of an earlier bullet) → `db_execute CREATE TABLE monthly_spending`,
+  confirmed, no INSERT — the ordinary mechanism-ladder shape, not the
+  zero-`db_execute` worst case from the run above. Turn 1: a real `db_query`
+  against the exact table/column names from its own turn-0 `CREATE TABLE`
+  (`SELECT category, currency, SUM(amount_normalized)... FROM
+  monthly_spending`), correctly returned near-empty (table still has no rows)
+  — the known "correct query, empty table" pattern, not a new bug. **Turn 2**
+  (the follow-up handing explicit "a single multi-row INSERT is fine"
+  permission — the exact turn the "describing a save is not doing it" bullet
+  above targets): **zero tool calls again**, 71,956ms of real generation
+  (44,270 input / 993 output / 610 thinking tokens — not a stall or empty
+  round-trip), and turn 3 immediately reverted to a fresh `doc_batch` read
+  instead of inserting — the identical shape as the failure the bullet was
+  written for, down to the exact next-turn regression. The developer's
+  standing rule this session (kill on the first turn that repeats a known
+  failure shape, don't let the ladder run out) was applied live: the run was
+  killed at this point, so the `classifyProfiles` shell-narrowing fix was
+  never exercised (no turn 2→3 tool-schema transition happened) and stays
+  unvalidated by this run. **This is real evidence the "describing a save is
+  not doing it" bullet does not change gemma4-E4B's behavior on this specific
+  turn** — prose repetition of a rule the model already isn't following is
+  unlikely to fix it on a fourth iteration either. Worth treating as a design
+  question next (e.g. whether the harness/skill can force a tool-call-shaped
+  response on this turn rather than allowing a pure-prose reply, or whether
+  this is better characterized as a generation-level tool-call-emission gap
+  than a prompt-adherence gap) rather than a fifth wording attempt.
 
 ---
 

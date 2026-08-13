@@ -114,6 +114,20 @@ const PROVENANCE_FOLLOW_UP_CAP = 8;
 const { name: PROVENANCE_LADDER_NAME, entries: PROVENANCE_LADDER_ENTRIES } =
   resolveLadder(process.env.DOCINT_PROVENANCE_LADDER);
 
+// DOCINT_FORCE_SKILLS=document-intelligence — diagnostic only, default off, so
+// every historical T-L4/T-G2.3 result stays comparable. Rides in as the same
+// `data.forcedSkills` one-shot the UI Skills panel uses (wsHandler.js), which
+// is consumed once per turn — so it must be sent on EVERY chat message, not
+// just the first. Exists because the 2026-08-13 root-cause finding showed
+// `document-intelligence` attaches only on turn 0 of the provenance ladder:
+// its curated keywords are all first-turn discovery phrasing, and follow-up
+// turns match `reasoning-planning` or nothing at all (see tech-debt.md,
+// "Skill matching — a workflow skill does not survive its own follow-up
+// turns"). Forcing it isolates "the skill's wording doesn't work" from "the
+// skill wasn't in context", which no prior run could distinguish.
+const FORCED_SKILLS = (process.env.DOCINT_FORCE_SKILLS ?? "")
+  .split(",").map(s => s.trim()).filter(Boolean);
+
 const PHASE_PROMPTS = {
   // T-G2.1 bare-routing. Anchored to June 2026 (not "last month") because the
   // T-R5 fixture is graded against June and real wall-clock time has moved past
@@ -340,7 +354,12 @@ function runTurn(ws, prompt, { approveInterrupts = false } = {}) {
       }
     };
     ws.on("message", onMessage);
-    ws.send(JSON.stringify({ type: "chat", text: prompt, turnId: randomUUID() }));
+    ws.send(JSON.stringify({
+      type: "chat",
+      text: prompt,
+      turnId: randomUUID(),
+      ...(FORCED_SKILLS.length ? { forcedSkills: FORCED_SKILLS } : {}),
+    }));
   });
 }
 
@@ -384,6 +403,7 @@ async function writeArtifact(extra = {}) {
     generatedAt: new Date().toISOString(),
     prompts: PHASE_PROMPTS[PHASE],
     ...(PHASE === "provenance" ? { provenanceLadder: PROVENANCE_LADDER_NAME } : {}),
+    ...(FORCED_SKILLS.length ? { forcedSkills: FORCED_SKILLS } : {}),
     results,
     ...extra,
   }, null, 2)}\n`);
