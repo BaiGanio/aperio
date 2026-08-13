@@ -1,0 +1,44 @@
+:root {
+  --stage: #080611;
+  --paper: #fbf9ff;
+  --panel: #efe9f8;
+  --ink: #201729;
+  --muted: #66566f;
+  --line: #cfc1da;
+  --line-strong: #574267;
+  --signal: #d83d91;
+  --signal-ink: #fff;
+  --link: #84306d;
+  --aurora-field: radial-gradient(ellipse at 20% 10%, #22d3eed8, transparent 30%), radial-gradient(ellipse at 75% 35%, #ec4899e8, transparent 38%), radial-gradient(ellipse at 40% 80%, #7c3aed, transparent 46%), #0f0b1e;
+  --hero-ring: #8d74bd88;
+  --mascot-filter: drop-shadow(0 8mm 12mm #ec489955);
+  --callout-bg: #f6e9f2;
+  --callout-border: #d86aa4;
+  --code-bg: #100c20;
+  --code-ink: #eee8ff;
+  --code-border: #6b4c87;
+  --lane-bg: #f3edf8;
+  --screen-shell: #0e0a1b;
+  --screen-label: #cfbce7;
+  --screen-shadow: 0 2mm 7mm #7c3aed30;
+  --diagram-bg: #fdfaff;
+  --table-head: #3d2452;
+  --table-head-ink: #fff;
+  --table-stripe: #f4eef8;
+  --guide-bg: linear-gradient(90deg, #211432, #3a1d4c);
+  --guide-border: #7c4e90;
+  --recovery-link: #f1a5d2;
+  --dial-radius: 50%;
+}
+.prototype-page::after { top: -35mm; right: -35mm; width: 105mm; height: 105mm; border-radius: 50%; background: radial-gradient(circle, #ec489932 0 2%, transparent 3% 14%, #7c3aed20 15% 16%, transparent 17% 28%, #22d3ee1d 29% 30%, transparent 31%); }
+.cover-page { color: #f5efff; background: radial-gradient(circle at 80% 0, #5b2471 0, transparent 35%), linear-gradient(150deg, #0e091a 5%, #211235 58%, #100b1c); }
+.cover-page .running-top, .cover-page .running-bottom, .cover-page .cover-copy > p:not(.eyebrow), .cover-page figcaption { color: #c9b9da; }
+.cover-page .running-top, .cover-page .running-bottom { border-color: #715886; }
+.cover-page h1 { color: #fff; text-shadow: 0 0 9mm #ec489955; }
+.cover-page .cover-actions a { color: #fff; }
+.cover-page .route-panel { border-color: #745587; background: #130c22cc; }
+.cover-page .route-panel a { border-color: #5d466c; background: #20122f; color: #fff; }
+.cover-page .route-panel small { color: #bda9ca; }
+.chapter-number { box-shadow: inset 0 0 0 1.8mm var(--paper), 0 0 5mm #ec489955; }
+.mascot-guide { color: #f5efff; }
+.mascot-guide .guide-label { color: #f4a7d4; }

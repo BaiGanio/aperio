@@ -1,0 +1,8 @@
+# Aperio Manual ownership roles. Repository enforcement is added by the release workflow.
+contracts manual/build owner
+editions manual/build owner
+generated generator owner + domain reviewer
+localization localization owner + manual/build owner
+assets asset owner + accessibility reviewer
+src/en chapter owner + domain reviewer
+release release maintainer

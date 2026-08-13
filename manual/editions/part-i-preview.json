@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "mode": "preview",
+  "title": "Aperio Manual: Part I review preview",
+  "product": {
+    "version": "0.68.0",
+    "tag": "v0.68.0",
+    "sha": "65d45c971c51c9c83a7d3faf34def61dd4d841e0"
+  },
+  "locale": "en",
+  "outputs": ["html", "a4", "letter"],
+  "identity": "NON-RELEASE",
+  "toolchainLock": "manual/toolchain/preview-native.json",
+  "releaseRevision": null,
+  "releaseChecksums": false,
+  "releaseFilenames": false
+}

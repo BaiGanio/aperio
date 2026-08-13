@@ -364,6 +364,36 @@ housekeeping go in `A2D.md`, not here.
   substring matching entirely, since the structural checks
   (`dbQueryReturnedRows`, `insertedRealRows`) carry the actual evidentiary
   weight and the prose checks only ask how the model narrated it.
+- 2026-08-13 **FIXED — both `fullMonthGate` multi-currency entries below.**
+  (`tests/fixtures/household-gen/harness-gate.mjs`) The rule tested whether a
+  total-cue line *named* two currencies; it now tests whether some figure on
+  that line carries no currency of its own (`untaggedMoneyTokens`), because a
+  blend is a figure that spans currencies, not a line that mentions two.
+  `912.44 BGN + 196.40 EUR` (two figures, one per currency) passes;
+  `893.24 across BGN and EUR` and `893.24 (696.84 BGN + 196.40 EUR)` (one
+  untagged figure, two currencies) still fail. Blending stays a failure even
+  when disclosed on the next line — the wrong number is still stated — so the
+  same-line `NON_BLEND_DISCLOSURE` escape is unchanged, and it still covers
+  prose that names currencies without tagging any figure. 3 tests added from
+  the verbatim round-10/11 strings; 23/23 in `harness-gate.test.mjs`.
+  Round 11 re-graded: the currency failure disappears, the Fuel double-count
+  and the grand total it poisoned remain, so its verdict is unchanged (fail on
+  one arithmetic defect rather than three failures). That re-grade is inferred,
+  not re-executed — the un-redacted answers artifact had already been
+  overwritten by the next run, and the harness redacts every numeral from its
+  stdout dump (`document-intelligence-skill-harness.mjs:592`) — but the diff
+  touches only `currencyBlendedTotalLines`, leaving `parseCategoryClaims` and
+  `parseGrandTotals` byte-identical.
+- 2026-08-13 **The harness's stdout dump cannot be re-graded, and its only
+  un-redacted artifact is single-slot.** Numbers are stripped from every
+  answer before printing (deliberately, to keep oracle-adjacent figures out of
+  logs), and the full text goes to one fixed `ANSWERS_PATH` that the next run
+  overwrites at startup. So a recorded run cannot be replayed through a later
+  grader — exactly the operation every grader fix in this section wants, since
+  each was written from one run's transcript and validated against it by hand.
+  Cheap fix: write the un-redacted artifact to a per-run path (timestamp or
+  run id) so transcripts accumulate, and add a replay entry point that grades
+  a saved transcript without booting anything.
 - 2026-08-13 **`fullMonthGate`'s multi-currency rule over-triggers — now
   OBSERVED, no longer hypothetical.** Round 11 failed on
   `"**Overall Combined Total:** **912.44 BGN + 196.40 EUR**"` with "combines
@@ -383,6 +413,69 @@ housekeeping go in `A2D.md`, not here.
   for. It also evaluates the *combined* text of all turns, so one turn's
   explicit disclosure does not protect another's phrasing. Decide whether
   "names both currencies separately" should satisfy it.
+
+---
+
+## Document-intelligence gate — gemma4-E4B model behaviour (#250)
+
+Four live runs of `DOCINT_PHASE=provenance` against
+`unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`, same command, same fixtures:
+round 9 clean (16/16 under the current grader), rounds 10-12 fail. **Four runs,
+one pass, four distinct failure modes — no two runs failed the same way.** The
+harness itself is settled (three-run KV/wall-clock verification, above), so
+these are the model, not the rig.
+
+- 2026-08-13 **Runaway reasoning: a turn spent its entire 900 s budget on
+  thinking tokens and emitted nothing.** Round 12 turn 2 logged
+  `wallMs=900004 output_tokens=4678 thinking_tokens=4678` — every token
+  produced in fifteen minutes was internal reasoning, with no answer and no
+  tool call — then fell into the known empty-turn cascade (four 4,011 ms turns,
+  0 tokens). This is what makes a run take 25 min instead of 15, and it is the
+  only failure mode here that no gate check names directly; it surfaces as
+  `withinPerTurnWallClockCeiling: false` plus "one or more turns did not
+  complete". New in round 12 — rounds 9-11 never did it, so its frequency is
+  1-in-4 and unmeasured.
+- 2026-08-13 **The write path silently produced nothing: `insertedRealRows:
+  false` on a run that proposed `db_execute` and had the confirm approved.**
+  Rows were never written, which is the *core* claim of T-G2.3. Alongside it,
+  the model emitted `db_execute` calls with the `sql` argument missing
+  (`` `sql` is required ``) three times in one run — malformed tool calls, not
+  a rejected proposal. Worth checking against `lib/tools/schemaCheck.js`'s
+  arg/schema mismatch ledger before assuming it is purely a model defect.
+- 2026-08-13 **The currency rule fails while present, explicit, and in
+  context — the strongest single result of the session.** Round 12's answer
+  contained `**Total Spending:** 893.24 (696.84 BGN + 196.40 EUR)`.
+  `skills/document-intelligence/SKILL.md:261` quotes that string
+  character-for-character as its worked counter-example, calls it "a failure,
+  not a courtesy", and instructs the model to re-read every line and delete it
+  before sending. The skill was pinned in the cached system prompt for the
+  whole flow (`skills=[document-intelligence]` logged every turn) and round 11
+  cited it by name. **This retires the standing "add an explicit
+  never-sum-across-currencies instruction to SKILL.md" lead**: the instruction
+  is already there in full, and re-wording it is not a live experiment. 2 of 4
+  runs blended anyway. If this is to be fixed, it needs a mechanism (a
+  post-generation check on the answer, or deriving the closing line from the
+  query result rather than from prose), not more prompt.
+- 2026-08-13 **Arithmetic double-count with no rule against it.** Round 11
+  attributed Fuel 431.20 against a true 215.60 — one of two June fuel receipts
+  counted twice, propagating into a 912.44 grand total (696.84 + 215.60).
+  The same expense appearing both as its own receipt and as a bank-statement
+  row is a known shape — `harness-gate.test.mjs` has a `doubled fuel` mutation
+  test for exactly it — but **SKILL.md contains no instruction against it**,
+  unlike the currency case. Unlike the entry above, this one has not yet been
+  tried in prompt, so a skill rule is still an untested option here.
+- 2026-08-13 **The EUR row lands as `Uncategorized`/`Travel-Other` (196.40 EUR)
+  while every BGN row is categorized.** A real extraction gap in the EUR path,
+  visible in round 11's own output table. Currently ungraded, so it fails
+  silently on every run.
+
+**What is not yet decided (the actual blocker on T-G2.3):** whether a model
+that passes 1-in-4 with four distinct failure modes clears this gate at all.
+The honest options are unchanged — raise the model, lower the gate to a stated
+pass-rate threshold, or fix the defects at their source — and no further runs
+resolve it; it is a judgment call, not a measurement. A planned 6-run
+measurement (3 baseline + 3 with a SKILL.md change) was cut after round 12,
+because the round-12 blend retired the premise of the second arm.
 
 ---
 

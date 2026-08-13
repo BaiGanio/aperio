@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "terms": [
+    { "id": "term.agent", "preferred": "agent", "avoid": ["bot"] },
+    { "id": "term.memory", "preferred": "memory", "avoid": ["note"] },
+    { "id": "term.recall", "preferred": "recall", "avoid": ["restore"] },
+    { "id": "term.portable-export", "preferred": "portable export", "avoid": ["full backup"] }
+  ]
+}
