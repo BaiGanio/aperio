@@ -11,6 +11,9 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Documentation
 
+- Updated all 25 non-English landing-page locales to describe Aperio's built-in
+  agent runtime alongside its shared MCP memory layer (issue #339).
+
 - Shortened the README to a quick installation and first-run guide; moved
   advanced configuration and developer references to `docs/advanced-guide.md`.
 
