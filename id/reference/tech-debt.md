@@ -499,6 +499,42 @@ housekeeping go in `A2D.md`, not here.
   both the grader and the replay's fallback. Still open, unchanged: whether
   grading should prefer the turn that *satisfied* the ladder over the last turn
   with content.
+- 2026-08-14 **FIXED — the fourth false failure of the prose-matching class: a
+  category stated as its components scored as "no figure attributed".**
+  Ornith-1.0-9B reported Electricity 142.50, Water 38.20, Heating 64.80 and
+  Waste 15.00 — which sum to 260.50 and are **character-for-character the
+  components the oracle's own `reconciliation` field lists for Utilities**
+  (`"142.50 + 38.20 + 64.80 + 15.00 = 260.50"`) — and `fullMonthGate` failed it
+  with `Utilities: expected 260.50, answer attributed no figure to this
+  category`. A more granular, fully correct answer scored as a miss.
+  Fixed as `statedAsComponents` in `tests/fixtures/household-gen/
+  harness-gate.mjs`, with `parseReconciliationComponents` reading the component
+  list off the oracle. Strict on five counts so it cannot rescue a wrong answer:
+  components come from the ORACLE (never inferred from the answer); every
+  component must be present, each matched to a distinct figure; a
+  single-component category is skipped (there the direct check is the right
+  test); only figures on lines naming no category count; and it applies only
+  when the answer attributed **no** figure to the category at all.
+  **The last two constraints exist because the first attempt was wrong**, and
+  the suite's own mutation tests caught it: the inline parenthetical in
+  `CORRECT_ANSWER` ("Utilities: 260.50 BGN (electricity 142.50, water 38.20,
+  …)") survives those tests' `.replace()`, so reading components off a line that
+  names the category let a correct breakdown launder a false headline figure —
+  reintroducing the "right number under the wrong label" false pass the gate was
+  built to catch. 6 tests added (30/30 in `harness-gate.test.mjs`), one of which
+  names that hazard directly rather than leaving it covered incidentally.
+  Verified retroactively via `replay-grading.mjs` on run 1's archived
+  transcript: exactly one check flipped (`fullMonthGate` false→true), one
+  failure resolved, **zero introduced**, T-G2.3 and T-L4 untouched.
+  **Caveat on the live evidence:** Ornith's passing run 2 reported
+  `Utilities 260.50` directly, so this predicate never fired on it. The fresh
+  evidence is the replay, not the passing run.
+  **The class is now at four** (round 8 markdown emphasis, round 9 SQL
+  vocabulary, round 11 currency phrasing, this). Every one was found by a run it
+  invalidated, and every fix has been reactive. The standing recommendation in
+  the pattern entry above — move category/provenance grading off substring
+  matching over prose, since `dbQueryReturnedRows`/`insertedRealRows` carry the
+  evidentiary weight — is now backed by four instances rather than two.
 - 2026-08-14 **FIXED — one `status` was reporting three different gates, and it
   made the model look four times worse than it was.** `gradePhase` ORed every
   provenance-phase check into a single pass/fail, so T-G2.3 (sql-provenance),

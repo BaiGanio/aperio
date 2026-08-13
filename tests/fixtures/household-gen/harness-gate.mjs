@@ -143,6 +143,75 @@ export function parseCategoryClaims(answer) {
   return claims;
 }
 
+/**
+ * The oracle's own component breakdown per category, parsed from its
+ * `reconciliation` strings ("142.50 + 38.20 + 64.80 + 15.00 = 260.50").
+ * Everything left of the "=" is the component list.
+ */
+export function parseReconciliationComponents(reconciliation = {}) {
+  const out = {};
+  for (const [category, expression] of Object.entries(reconciliation)) {
+    if (category === "monthly_total") continue;
+    const [lhs] = String(expression).split("=");
+    const parts = lhs.split("+").map(part => Number.parseFloat(part.trim())).filter(Number.isFinite);
+    if (parts.length > 1) out[category] = parts;
+  }
+  return out;
+}
+
+/**
+ * Figures on lines that name NO oracle category at all — the only figures free
+ * to be read as a component. This is where a finer-grained label like
+ * "Electricity" lands, since it is not one of the oracle's categories.
+ *
+ * Lines that name ANY category are excluded, including the category being
+ * tested. That is deliberate and load-bearing: the mutation tests write a wrong
+ * total onto a line that still carries a correct inline breakdown
+ * ("Utilities: 215.60 BGN (electricity 142.50, water 38.20, …)"), and reading
+ * components off that line would let a correct parenthetical rescue a false
+ * headline figure — reintroducing exactly the "right number under the wrong
+ * label" false pass this gate was built to catch.
+ */
+function componentCandidates(answer) {
+  const namesAnyCategory = line => Object.values(SYNONYMS)
+    .some(patterns => patterns.some(pattern => pattern.test(line)));
+  return String(answer).split(/\r?\n/)
+    .flatMap(line => (namesAnyCategory(line) ? [] : moneyTokens(line)));
+}
+
+/**
+ * Did the answer state this category as its components instead of by name?
+ *
+ * Reporting "Electricity 142.50 / Water 38.20 / Heating 64.80 / Waste 15.00" is
+ * a MORE granular correct answer than "Utilities 260.50", not a wrong one — and
+ * those four figures are exactly what the oracle's own reconciliation field
+ * lists for Utilities. Ornith-1.0-9B (2026-08-14) failed this gate for precisely
+ * that, the fourth false failure of this class in the T-G2 gate's history.
+ *
+ * Deliberately strict, so this cannot rescue a wrong answer:
+ * - the components come from the ORACLE, never inferred from the answer;
+ * - EVERY component must be present, each matched to a DISTINCT figure, so a
+ *   partial breakdown (Utilities minus the water bill) still fails;
+ * - a single-component category is not a decomposition at all and is skipped —
+ *   there the direct check is already the right test;
+ * - only figures on lines naming no category count (see componentCandidates);
+ * - and the caller applies this ONLY when the answer attributed no figure to
+ *   the category at all. An answer that states a total for a category is making
+ *   a claim about it, and a wrong claim must fail on its own terms rather than
+ *   be rescued by a breakdown printed alongside it.
+ */
+function statedAsComponents(answer, components = []) {
+  if (components.length < 2) return false;
+  const pool = componentCandidates(answer);
+  const used = new Set();
+  return components.every(component => {
+    const index = pool.findIndex((value, i) => !used.has(i) && Math.abs(value - component) < 0.005);
+    if (index === -1) return false;
+    used.add(index);
+    return true;
+  });
+}
+
 /** Figures the answer presents as a grand total (on a total-cue line). */
 export function parseGrandTotals(answer) {
   return String(answer)
@@ -181,12 +250,17 @@ export function evaluateAnswer({ answer = "", toolSequence = [], toolCalls = [],
   const categoryResults = {};
   for (const [category, expected] of Object.entries(expectations.categoryTotals)) {
     const found = claims.get(category) ?? [];
-    const ok = found.some(value => Math.abs(value - expected) < 0.005);
-    categoryResults[category] = { expected, found, ok };
+    const direct = found.some(value => Math.abs(value - expected) < 0.005);
+    // A category stated as its oracle-documented components is correct, just
+    // finer-grained than the oracle's own labels — see statedAsComponents.
+    const viaComponents = !direct && found.length === 0
+      && statedAsComponents(text, expectations.categoryComponents?.[category]);
+    const ok = direct || viaComponents;
+    categoryResults[category] = { expected, found, ok, ...(viaComponents ? { via: "components" } : {}) };
     if (!ok) {
       failures.push(found.length
         ? `${category}: expected ${expected.toFixed(2)}, answer attributed ${found.map(value => value.toFixed(2)).join("/")}`
-        : `${category}: expected ${expected.toFixed(2)}, answer attributed no figure to this category`);
+        : `${category}: expected ${expected.toFixed(2)}, answer attributed no figure to this category (and no complete component breakdown)`);
     }
   }
 
@@ -323,6 +397,7 @@ export function buildExpectations(oracle, period, { corpusRoot }) {
     period,
     corpusRoot,
     categoryTotals: data.category_totals_bgn,
+    categoryComponents: parseReconciliationComponents(data.reconciliation),
     monthlyTotal: data.monthly_total_bgn,
     otherCurrencies,
     signatures,

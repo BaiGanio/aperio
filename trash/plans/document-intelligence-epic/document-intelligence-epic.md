@@ -2,8 +2,23 @@
 
 **Issue:** [#250](https://github.com/BaiGanio/aperio/issues/250)  
 **Companion tests:** [`document-intelligence-epic-tests.md`](./document-intelligence-epic-tests.md)  
-**Status:** (2026-08-13, T-L4.2 run) **WS0-R, WS1 and WS3 closed; WS2 T-G2.3/T-G2.4 on
-Gemma 4 E4B re-run and genuinely FAILS again; WS4 not started.** The sticky tool-pin
+**Status:** (2026-08-14) **WS0-R, WS1 and WS3 closed; WS2 T-G2.3 + T-G2.4 + T-L4 all PASS on
+Ornith-1.0-9B — first clean local-model run of this gate; WS4 not started.** `status: pass`,
+`failures: []`, earned at turn 2 on the `named-mechanism` rung with
+`capabilityClaim: realistic-usage` (the strongest claim the harness awards), 520,205 ms total
+against a 2,400,000 ms budget. Every category matches the oracle, the grand total is exact
+(696.84 BGN), and the EUR travel receipts are held out and disclosed rather than blended.
+Three things made it reachable this session: the verdict was **split by gate** (one `status`
+had been ORing T-G2.3, T-G2.4 and T-L4 together, which is why four earlier E4B runs read as
+"1 pass in 4" when provenance itself held in three), a real **`db_execute` argument defect**
+was fixed (`8e54bf4c`), and a **fourth grader false-failure** was closed. Detail:
+`document-intelligence-ws2-tg23-open-issues.md`, 2026-08-14 section. **Not yet decided:**
+whether one clean run closes T-G2.3, and whether the gate is claimed for Ornith only or for
+the local hero model generally — gemma-4-12B and gemma-4-26B-A4B remain untested against the
+fixed code. Prior status below.
+
+**Prior status:** (2026-08-13, T-L4.2 run) **WS2 T-G2.3/T-G2.4 on
+Gemma 4 E4B re-run and genuinely FAILS again.** The sticky tool-pin
 (`6331e7a8`) and `db_execute` param-validation (`a23c010f`) fixes made a pass structurally
 reachable, but this run shows the model itself still doesn't complete the flow: it never
 issues a real `INSERT` (only `CREATE TABLE`, twice proposed in prose without a tool call

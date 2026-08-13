@@ -1,3 +1,51 @@
+## 2026-08-14 (later) — CLEAN PASS: Ornith-1.0-9B, all three gates, `failures: []`
+
+Second Ornith run, against the fixed grader and the fixed `db_execute` handler. **`status: pass`.**
+
+```
+T-G2.3: PASS   successTurn: 2 · successPromptTier: named-mechanism · capabilityClaim: realistic-usage
+T-G2.4: PASS   fullMonthGate ✓  noFxBlend ✓
+T-L4:   PASS   386,455 / 84,865 / 48,885 ms — total 520,205 of 2,400,000
+```
+
+This is materially better than the first Ornith run, not a re-roll of it:
+
+| | run 1 | run 2 |
+|---|---|---|
+| overall | fail | **pass** |
+| success turn / rung | 4 / `dictated-sql` | **2 / `named-mechanism`** |
+| capability claim | mechanism-conformance | **realistic-usage** |
+| turn 0 | 589,813 ms (over ceiling) | 386,455 ms |
+| total | 1,028,404 ms | 520,205 ms |
+| turns | 5 | 3 |
+
+The rung is the point. Run 1 reached provenance only after the ladder escalated to a rung that
+dictates the SQL; run 2 got there at turn 2 on a named-mechanism prompt — the same rung round 9's
+E4B pass earned, but with a correct answer behind it. Turn 0 also went straight to the
+`extraction` connection instead of trying read-only `aperio` first, which is most of the
+200-second saving.
+
+Verbatim answer: per-category table (Fuel 215.60 / Groceries 140.75 / Utilities 260.50 /
+Internet 29.99 / Transport 50.00), **Grand Total 696.84 BGN**, and the three EUR travel
+receipts named, excluded and disclosed rather than blended.
+
+**Two honest caveats.**
+- **The category-decomposition fix never fired on this run.** Run 2 reported `Utilities 260.50`
+  directly, so `statedAsComponents` was not exercised. The fresh evidence for that fix remains
+  the replay of run 1's transcript (exactly one check flipped, `fullMonthGate` false→true, zero
+  failures introduced). The two runs simply chose different category granularity.
+- **An ungraded false claim.** The answer says "10 rows inserted" and that the EUR receipts
+  "are saved separately" — but the run made exactly one INSERT, of 10 BGN rows. The EUR receipts
+  were described, never stored. No check covers this.
+
+**What this does and does not settle.** It settles that the flow is achievable end-to-end by a
+local model at the realistic-usage rung — the thing four E4B runs never demonstrated. It does
+not settle a pass *rate* (n=1 on the fixed code), nor whether the gate is claimed for Ornith or
+for the local hero model generally: gemma-4-12B and gemma-4-26B-A4B are both untested against
+the fixed code.
+
+---
+
 ## 2026-08-14 — the verdict was three gates in a trenchcoat; Ornith-1.0-9B PASSES T-G2.3
 
 Three things happened this session: the bundled verdict was **split by gate**, a real

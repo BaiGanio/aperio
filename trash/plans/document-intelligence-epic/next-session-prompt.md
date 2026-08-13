@@ -1,89 +1,112 @@
-Pick up WS2 of the document-intelligence epic (#250). The gate verdict is now **split by gate**
-(T-G2.3 / T-G2.4 / T-L4), and under that split **T-G2.3 is passing** — Ornith-1.0-9B cleared all
-seven mechanical checks on 2026-08-14. What is left is T-G2.4, a known grader false-failure, and
-a model-selection decision.
+WS2 of the document-intelligence epic (#250) has its **first clean pass**. Ornith-1.0-9B ran
+`DOCINT_PHASE=provenance` on 2026-08-14 and returned `status: pass`, `failures: []`, with all
+three gates green and the strongest capability claim the harness awards:
 
-**Verify before you build on any of this.** Read
-`trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md` (top
-section, 2026-08-14) and `id/reference/tech-debt.md` rather than trusting this summary. This
-epic has a history of confident handoff claims that turned out false — the previous version of
-this file told the next session to run a 6-run measurement that had already been cancelled, and
-to try a SKILL.md experiment that round 12 had already retired.
+```
+T-G2.3: PASS   successTurn: 2 · successPromptTier: named-mechanism · capabilityClaim: realistic-usage
+T-G2.4: PASS   fullMonthGate ✓  noFxBlend ✓
+T-L4:   PASS   386,455 / 84,865 / 48,885 ms — total 520,205 of 2,400,000
+```
+
+Your job is to decide what that pass buys, and to close WS2 or say precisely what it still needs.
+
+**Verify before building on this.** Read the code and the archived transcripts, not this summary.
+This epic has a history of confident handoffs that were false — a previous version of this file
+sent a session to run a measurement that had already been cancelled and to try an experiment that
+had already been retired. Everything below is checkable: `var/docint-runs/` holds the archived
+transcripts, and `replay-grading.mjs <artifact>` re-grades any of them without booting anything.
 
 ## Read first
 
-1. The 2026-08-14 section at the top of `document-intelligence-ws2-tg23-open-issues.md`.
-2. `id/reference/tech-debt.md` → "Document-intelligence harness — grader (#250)" (in particular
-   the *pattern* entry about lexical predicates) and "db_execute argument validation".
+1. The two 2026-08-14 sections at the top of `document-intelligence-ws2-tg23-open-issues.md`.
+2. `id/reference/tech-debt.md` → "Document-intelligence harness — grader (#250)", especially the
+   *pattern* entry: four false failures of the same prose-matching class, all found by runs they
+   invalidated.
 
-## What is settled, and should not be re-opened
+## What is settled — do not re-open
 
-- **The gate split.** `grading.mjs` tags every check and failure with its owning gate and
-  reports `grading.gates`. `status`/`failures` are byte-identical to before, so replay diffs
-  still work. 18/18 in `grading.test.mjs`.
-- **Rounds 10 and 11 were never provenance failures.** Round 10 failed T-G2.4 (currency blend),
-  round 11 an extraction double-count — both with every T-G2.3 check green. Only round 12's
-  missing INSERT was a genuine T-G2.3 failure.
-- **The `db_execute` argument defect is fixed** (three parts, see tech-debt). Do not re-litigate
-  removing `db_execute` from `DESTRUCTIVE_TOOLS`: it is two-phase confirm-gated and renders
-  connection, statement type, SQL and params to the user before executing, so it does not need
-  the JSON-repair refusal that protects direct-write tools.
-- **The KV-reuse and wall-clock infrastructure** (rounds 9-11, three clean runs).
-- **The SKILL.md never-sum-across-currencies lead** — retired by round 12, which blended anyway
-  with the skill's own counter-example pinned in the system prompt.
+- **The gate split.** `grading.mjs` tags every check and failure with its owning gate and reports
+  `grading.gates`; `status`/`failures` stay byte-identical so replay diffs still work. Rounds 10
+  and 11 were never provenance failures (currency blend, arithmetic double-count) — only round
+  12's missing INSERT was.
+- **The `db_execute` argument defect** (`8e54bf4c`), three parts: required `connection` on the
+  propose path with a pointed message; the lookup error reports the trimmed name; and
+  `db_execute` out of `DESTRUCTIVE_TOOLS` because it is two-phase confirm-gated and renders
+  connection, statement type, SQL and params for review before executing.
+- **The category-decomposition false failure**, fixed as `statedAsComponents`. Do not loosen its
+  last two constraints — the first attempt lacked them and the suite's mutation tests caught it
+  laundering a false headline figure with a correct parenthetical breakdown.
+- **The KV-reuse and wall-clock infrastructure** (rounds 9-11).
+- **The SKILL.md never-sum-across-currencies lead** — retired by round 12.
 
-## The immediate next job: fix the fourth false failure
+## The decision in front of you
 
-T-G2.4 failed Ornith's *correct* answer with:
+**Does one clean run close T-G2.3?** Arguments both ways, stated honestly:
+
+- *For:* the failure was never "the flow is impossible" — it was three separate claims ORed into
+  one number plus a tool-argument bug. With those fixed, a 9B local model completed the flow at
+  the realistic-usage rung with an exactly correct answer. The structural checks
+  (`insertedRealRows`, `dbQueryReturnedRealRows`) carry the evidentiary weight and both held.
+- *Against:* n=1 on the fixed code. Ornith's own run 1 passed T-G2.3 only at the weaker
+  `dictated-sql` rung, so run-to-run variance on the rung is real and observed. And the gate is
+  nominally about the **local hero model**, which is currently gemma-4-E4B, not Ornith.
+
+Three concrete options, in the order I'd weigh them:
+
+1. **Close T-G2.3 for Ornith, and re-point the hero model.** Honest and specific: the gate passes
+   on a named model, and `LLAMACPP_MODEL` moves to Ornith for document work. Requires deciding
+   Ornith is the hero model, which is a bigger call than this gate.
+2. **Ask for 2-3 consecutive passes before closing.** ~10 min per run now that total wall time is
+   520 s. Cheap, and it measures the rung variance that run 1 vs run 2 already exposed.
+3. **Run gemma-4-12B and gemma-4-26B-A4B against the fixed code first.** Neither has a valid
+   result: the 12B run was stopped at turn 3 against pre-fix code, and the 26B run was stopped
+   during turn 0. If either passes, the gate is a property of the harness fix rather than of one
+   model, which is a much stronger claim.
+
+The command (drop `LLAMACPP_MODEL` to whichever model):
 
 ```
-full-month gate: Utilities: expected 260.50, answer attributed no figure to this category
+DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
+  LLAMACPP_MODEL=protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M \
+  APERIO_HARNESS_TIMEOUT_MS=1800000 \
+  APERIO_HARNESS_WALLCLOCK_TOTAL_MS=2400000 APERIO_HARNESS_WALLCLOCK_PERTURN_MS=550000 \
+  APERIO_LOG_CACHE_FINGERPRINT=on \
+  node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
 ```
 
-The model reported Electricity 142.50 + Water 38.20 + Heating 64.80 + Waste 15.00 = 260.50 —
-exactly the components the oracle's own `reconciliation` field lists. The gate should accept a
-decomposition whose components sum to the expected category total.
-
-This is the **fourth** false failure of this class (markdown emphasis, SQL vocabulary, currency
-phrasing, now category granularity). Before adding a fifth reactive patch, consider the standing
-recommendation in tech-debt: move category/provenance grading off substring matching over prose
-entirely, since `dbQueryReturnedRows` and `insertedRealRows` carry the evidentiary weight.
-
-**A grader change costs nothing in comparability** — `replay-grading.mjs <artifact>` re-grades
-saved transcripts under a new grader and prints a diff against the grading each run recorded.
-Archived runs live in `var/docint-runs/` (gitignored). Replay Ornith's before and after.
-
-## Model selection — what the evidence supports
-
-| model | T-G2.3 | notes |
-|---|---|---|
-| Ornith-1.0-9B | **PASS** | perfect arithmetic (696.84 exact), both round-10/11 failure modes cleared; but `capabilityClaim: mechanism-conformance` (dictated-sql rung, turn 4) |
-| gemma4-E4B | 3 of 4 runs | round 9 passed at the stronger `named-mechanism` rung; round 12 failed genuinely |
-| gemma-4-12B | untested | run stopped at turn 3 against pre-fix code; turn 0 = 1,004,770 ms |
-| gemma-4-26B-A4B | see log | run started 2026-08-14 against the fixed code — read its result before assuming anything |
-
-The open judgment call is unchanged in shape but much narrower now: **is a `dictated-sql` /
-mechanism-conformance pass good enough for T-G2.3, or does the gate require the
-`named-mechanism` rung?** That is a decision about what the gate claims, not a measurement.
+Cached and offline-resolvable: `protoLabsAI/Ornith-1.0-9B-MTP-GGUF:Q4_K_M`,
+`unsloth/gemma-4-12B-it-qat-GGUF:Q4_K_XL`, `unsloth/gemma-4-26B-A4B-it-qat-GGUF:Q4_K_XL`,
+`unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`. The harness is self-isolating (own port, scratch DB,
+own llama-server, teardown in `finally`) — but if you kill it, that `finally` is skipped: check
+`pgrep -f llama-server` and remove the `/var/folders/**/aperio-document-intelligence-skill-*`
+directory belonging to your run, and nothing else.
 
 ## Known-open, none of them blockers
 
+- **The prose-predicate class is at four false failures.** Before pointing this gate at another
+  model, consider moving category grading off substring matching entirely rather than patching a
+  fifth time.
+- **Ornith claimed rows it never wrote.** Run 2's answer says "10 rows inserted" and that the EUR
+  receipts "are saved separately" — one INSERT of 10 BGN rows actually happened; the EUR receipts
+  were described, never stored. Ungraded by any check, and a candidate for a new one.
+- **Run 1 wrote a wrong figure to memory** (796.84, off by exactly 100.00) via an unprompted
+  `remember` while its graded SQL answer was exact. Ungraded, and it would outlive the session.
 - **`db_schema` on the reserved `extraction` name** replies "no connection named extraction"
   without mentioning that it self-provisions on the first confirmed write. Accurate but
-  incomplete; both models recovered, so it is not biting yet.
-- **Ornith wrote a wrong figure to memory** (796.84, off by exactly 100.00) at turn 0 while its
-  graded SQL answer was exact. Ungraded, and it would outlive the session.
-- **`checkArgs` still cannot report `connection`/`sql` as `missing_required` for `db_execute`**,
-  so `var/toolrepair/events.tsv` under-counts propose-path argument quality. Needs a per-tool
-  "required when proposing" overlay; not needed for correctness now that the handler speaks.
+  incomplete; every model so far recovered.
+- **`checkArgs` still cannot report `connection`/`sql` as `missing_required` for `db_execute`**
+  (they are `.optional()` for the confirm re-invoke), so `var/toolrepair/events.tsv` under-counts
+  propose-path argument quality. Needs a per-tool "required when proposing" overlay; not needed
+  for correctness now that the handler speaks.
+- **An aborted run leaves a zero-turn artifact** that becomes "newest", so a bare
+  `replay-grading.mjs` picks it and errors. Pass the path explicitly, or `--list`.
 - **Per-token prefill cost climbs with context depth** (7.71 → 20.4 ms/token). Never investigated.
 - **The `maxHistory` hysteresis cut has never been observed firing.**
 
 ## State of the worktree
 
-The split, the `db_execute` fix, both test suites and these docs are committed. Full scoped run
-at commit time: **2698 pass / 0 fail** (`tests/unit` + `tests/harness`), plus 52 in
-`tests/integration/handlers/database-confirm.test.js`.
+All of the above is committed on `master`. Full scoped run at commit time: **2666 unit + 32
+harness + 52 database-confirm + 30 harness-gate + 18 grading, 0 failures.**
 
 Check `git status` before assuming anything else in the tree is yours — this repository is
 routinely worked by concurrent sessions.

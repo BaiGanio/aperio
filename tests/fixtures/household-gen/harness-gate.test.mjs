@@ -297,3 +297,100 @@ Total: 961.09 BGN`,
   });
   assert.equal(result.status, "pass", result.failures.join("; "));
 });
+
+// --- a category stated as its oracle-documented components -------------------
+//
+// The fourth false failure of this gate's prose-matching class (after round 8's
+// markdown emphasis, round 9's SQL vocabulary and round 11's currency phrasing):
+// Ornith-1.0-9B reported the four utility bills individually instead of under
+// one "Utilities" line, and the gate scored a fully correct answer as a miss.
+
+// Ornith-1.0-9B's verbatim answer, 2026-08-14 run. Every figure is right and the
+// monthly total is exact; the only thing it does not do is use the oracle's own
+// coarse label for the four utility bills.
+const ORNITH_ANSWER = `The query returned 9 rows from the extraction table. Here's what it shows:
+
+**BGN household expenses (8 categories):**
+- Electricity: 142.50 BGN
+- Fuel: 215.60 BGN
+- Groceries: 140.75 BGN
+- Heating: 64.80 BGN
+- Internet: 29.99 BGN
+- Transport: 50.00 BGN
+- Waste: 15.00 BGN
+- Water: 38.20 BGN
+
+That's **696.84 BGN** total for household spending.
+
+**EUR travel expenses (1 category):**
+- Travel: 196.40 EUR`;
+
+test("the oracle's components come from its own reconciliation field", () => {
+  // "Utilities": "142.50 + 38.20 + 64.80 + 15.00 = 260.50"
+  assert.deepEqual(expectations.categoryComponents.Utilities, [142.50, 38.20, 64.80, 15.00]);
+  // A single-term reconciliation ("29.99 = 29.99") is not a decomposition, so
+  // the direct check stays the only test for it.
+  assert.equal(expectations.categoryComponents.Internet, undefined);
+  assert.equal(expectations.categoryComponents.monthly_total, undefined);
+});
+
+test("a category stated as its oracle-documented components passes", () => {
+  const result = run(ORNITH_ANSWER);
+  assert.equal(result.status, "pass", result.failures.join("; "));
+  assert.equal(result.detail.categories.Utilities.ok, true);
+  // Recorded as a decomposition rather than a direct hit, so a reader can tell
+  // which of the two the answer actually did.
+  assert.equal(result.detail.categories.Utilities.via, "components");
+  // A category the answer names directly is still matched directly.
+  assert.equal(result.detail.categories.Fuel.ok, true);
+  assert.equal(result.detail.categories.Fuel.via, undefined);
+});
+
+test("an incomplete breakdown still fails — every component must be present", () => {
+  // Drop the water bill: 142.50 + 64.80 + 15.00 = 222.30, not 260.50. A partial
+  // decomposition must not stand in for the total.
+  const result = run(ORNITH_ANSWER.replace("- Water: 38.20 BGN\n", ""));
+  assert.equal(result.status, "fail");
+  assert.equal(result.detail.categories.Utilities.ok, false);
+  assert.ok(result.failures.some(f => /Utilities: expected 260\.50/.test(f)));
+});
+
+test("a wrong component figure fails rather than being rounded into place", () => {
+  const result = run(ORNITH_ANSWER.replace("- Electricity: 142.50 BGN", "- Electricity: 152.50 BGN"));
+  assert.equal(result.detail.categories.Utilities.ok, false);
+});
+
+test("figures owned by another named category cannot be borrowed as components", () => {
+  // Every real utility line removed, so the only figures left on the page belong
+  // to categories the answer names (Fuel, Groceries, …). None may be consumed to
+  // satisfy Utilities.
+  const stripped = ORNITH_ANSWER
+    .replace("- Electricity: 142.50 BGN\n", "")
+    .replace("- Heating: 64.80 BGN\n", "")
+    .replace("- Waste: 15.00 BGN\n", "")
+    .replace("- Water: 38.20 BGN\n", "");
+  const result = run(stripped);
+  assert.equal(result.detail.categories.Utilities.ok, false);
+});
+
+test("the existing inline-breakdown phrasing keeps passing directly", () => {
+  // CORRECT_ANSWER writes "Utilities: 260.50 BGN (electricity 142.50, ...)" —
+  // the total AND its components on one line. That must stay a direct hit, not
+  // silently start reporting itself as a decomposition.
+  const result = run(CORRECT_ANSWER);
+  assert.equal(result.detail.categories.Utilities.ok, true);
+  assert.equal(result.detail.categories.Utilities.via, undefined);
+});
+
+test("a wrong headline figure is not rescued by a correct breakdown beside it", () => {
+  // The hazard the decomposition rule must never reintroduce. An answer that
+  // states a total for a category is making a claim about it; a correct
+  // parenthetical breakdown on the same line must not launder a false headline.
+  // (The two MUTATION tests above cover this incidentally — this names it.)
+  const result = run(CORRECT_ANSWER.replace(
+    "- Utilities: 260.50 BGN (electricity 142.50, water 38.20, heating 64.80, waste fee 15.00)",
+    "- Utilities: 999.99 BGN (electricity 142.50, water 38.20, heating 64.80, waste fee 15.00)",
+  ));
+  assert.equal(result.detail.categories.Utilities.ok, false);
+  assert.equal(result.status, "fail");
+});
