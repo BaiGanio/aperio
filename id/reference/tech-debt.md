@@ -77,6 +77,19 @@ housekeeping go in `A2D.md`, not here.
   than today's within-turn pin), or move the tools block to a position in the
   request the template renders after the stable conversation prefix (template-
   dependent, may not be controllable from the request side at all).
+  **Mitigated, not fixed, 2026-08-13**: `APERIO_TOOL_PIN_TURNS` default
+  raised 3→8 (`lib/agent/tool-profiles.js`'s `parsePinTurns`), so the reset
+  that busts the cache fires far less often in a typical conversation.
+  Growth is still bounded independently by `capToolsForWindow`'s own 20%
+  schema-token budget (and small-window tool-count cap), which apply every
+  turn regardless of the pin count — confirmed by reading the code, not
+  just inferred. The underlying mechanism (a periodic reset that changes the
+  schema set at all) is unchanged and will still bust the cache when it
+  fires; going with either of the two directions above (monotonic pin with
+  no timeout, or template-side tools-block relocation) was deliberately not
+  attempted this session — both are real design reversals to a heavily
+  P2-reviewed shared module (`lib/agent/turn-planner.js`), decided against
+  in favor of the lower-risk tunable change pending a live re-run.
 
 ---
 

@@ -77,6 +77,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`APERIO_TOOL_PIN_TURNS` default raised from 3 to 8**: on llama.cpp, the
+  multi-turn tool-schema pin now stays stable for more follow-up turns before
+  resetting, reducing how often a schema-set change busts llama-server's
+  prompt/KV-cache prefix reuse mid-conversation — the dominant cause of the
+  multi-minute turn latencies observed in the document-intelligence latency
+  investigation. Growth stays bounded by the existing schema-token budget.
+
 - **Cold-start extraction template proposals now select bounded, deterministic
   issuer/header keywords** (`lib/handlers/extraction/`): header terms are
   favored, field-label boilerplate is penalized, and repeated OCR noise is

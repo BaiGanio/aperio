@@ -413,24 +413,24 @@ describe("parsePinTurns (APERIO_TOOL_PIN_TURNS)", () => {
     assert.strictEqual(parsePinTurns("5"), 5);
   });
 
-  test("falls back to the default 3 when unset", () => {
-    assert.strictEqual(parsePinTurns(undefined), 3);
-    assert.strictEqual(parsePinTurns(""), 3);
+  test("falls back to the default 8 when unset", () => {
+    assert.strictEqual(parsePinTurns(undefined), 8);
+    assert.strictEqual(parsePinTurns(""), 8);
   });
 
-  test("falls back to the default 3 for a non-finite or negative value", () => {
-    assert.strictEqual(parsePinTurns("not-a-number"), 3);
-    assert.strictEqual(parsePinTurns("-1"), 3);
-    assert.strictEqual(parsePinTurns("NaN"), 3);
+  test("falls back to the default 8 for a non-finite or negative value", () => {
+    assert.strictEqual(parsePinTurns("not-a-number"), 8);
+    assert.strictEqual(parsePinTurns("-1"), 8);
+    assert.strictEqual(parsePinTurns("NaN"), 8);
   });
 
-  test("falls back to the default 3 for a fractional value (P2 review finding)", () => {
+  test("falls back to the default 8 for a fractional value (P2 review finding)", () => {
     // sinceLastToolUse advances one whole turn at a time; a fractional
     // TOOL_PIN_TURNS like 1.5 would silently pin 2 follow-up turns (both
     // 0 < 1.5 and 1 < 1.5 hold), not the value actually configured.
-    assert.strictEqual(parsePinTurns("1.5"), 3);
-    assert.strictEqual(parsePinTurns("0.5"), 3);
-    assert.strictEqual(parsePinTurns("2.99"), 3);
+    assert.strictEqual(parsePinTurns("1.5"), 8);
+    assert.strictEqual(parsePinTurns("0.5"), 8);
+    assert.strictEqual(parsePinTurns("2.99"), 8);
   });
 });
 
@@ -468,7 +468,7 @@ describe("TOOL_PIN_TURNS DB-hydration ordering (P2 review finding)", () => {
     delete process.env.APERIO_TOOL_PIN_TURNS;
     const mod = await cacheBustToolProfiles();
     await applyConfigToEnv(storeWith({ [configSettingKey("APERIO_TOOL_PIN_TURNS")]: "7" }));
-    assert.strictEqual(mod.TOOL_PIN_TURNS, 3, "a module already evaluated before hydration keeps its module-level constant frozen at the default forever, regardless of a later DB write");
+    assert.strictEqual(mod.TOOL_PIN_TURNS, 8, "a module already evaluated before hydration keeps its module-level constant frozen at the default forever, regardless of a later DB write");
   });
 });
 
