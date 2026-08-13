@@ -184,11 +184,17 @@ second time to "retry" a proposal.
   (`db_normalize_amount`) before they go in a numeric column. Keep the
   original source string in its own text column — templates and later
   extraction passes rely on the source string surviving unmodified.
-- `db_execute` allows exactly one statement per call, but a multi-row
-  `INSERT ... VALUES (...), (...), ...` is still one statement — write every
-  row for one logical save in a single `INSERT`, not one confirm per row.
-  Confirming a whole table's worth of rows one at a time wastes a
-  confirmation round-trip per row for no accuracy benefit.
+- **Never split one logical save into multiple single-row confirms, even if
+  you extracted the rows one document at a time.** `db_execute` allows
+  exactly one statement per call, but a multi-row
+  `INSERT ... VALUES (...), (...), ...` is still one statement — hold every
+  row for one save in memory until the batch is complete, then write it as a
+  single `INSERT`. This isn't just a wasted click: each confirm is a full
+  extra conversation turn, and on a local model an extra turn can force a
+  full prompt-cache reprocess (minutes, not seconds) rather than a marginal
+  cost — recorded live: a 12-row save issued as 12 separate confirms instead
+  of one. If a prompt explicitly says a multi-row `INSERT` is acceptable,
+  that is not permission to still do it per row.
 - Every value goes through `params`, never concatenated into `sql` — and the
   number of entries in `params` must match the number of placeholders in the
   statement. A mismatch is rejected when you propose it, with a count in the

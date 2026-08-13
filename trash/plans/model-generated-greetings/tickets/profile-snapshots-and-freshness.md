@@ -1,0 +1,16 @@
+---
+type: grilling
+status: open
+blocked_by: []
+claimed_by: null
+---
+
+# [W1.2] Specify ordered snapshot storage and freshness
+
+## Question
+
+What persistence and source-identity contract should represent the one global ordered list of atomic context snapshots, instantiate its curated defaults, estimate active-model budget use, detect changed/deleted/inaccessible sources without leaking content, and support explicit refresh or replacement across both database backends?
+
+## Resolution
+
+<!-- Include SQLite/Postgres lockstep implications and allowed-path behavior in the resolved design. -->

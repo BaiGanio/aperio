@@ -235,7 +235,7 @@ Comma-separated local model names that still need forced auto-recall (a behavior
 
 #### `APERIO_SMALL_WINDOW_TOKENS`
 
-number · tier 1 (Settings UI, restart to apply) · default: `8192` · advanced
+number · tier 1 (Settings UI, restart to apply) · default: `32768` · advanced
 
 Context windows at or below this token count are treated as small: the per-turn tool set is capped so re-sent tool schemas don't crowd out the result and reasoning the model needs. Larger windows are never touched.
 

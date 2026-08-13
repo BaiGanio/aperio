@@ -50,12 +50,6 @@ housekeeping go in `A2D.md`, not here.
 
 ## Tool profiles / schema budgeting
 
-- 2026-08-02 `SMALL_WINDOW_TOKENS` defaults to **32768** in code
-  (`lib/agent/tool-profiles.js:105`) but the registry documents **8192**
-  (`lib/config.js:224-226`), and registry defaults are never injected into
-  `process.env` (`lib/config.js:565-578`). The tool-count cap therefore fires on
-  far more models than the documentation implies. Found while auditing schema
-  budgeting for the Git co-pilot map (#345/#346).
 - 2026-08-02 `capToolsForWindow` **`break`s** on the first tool that overflows the
   `0.20 × contextWindow` budget rather than skipping it
   (`lib/agent/tool-profiles.js:125-134`), so an over-budget profile is truncated
@@ -133,11 +127,13 @@ Gemma 4 E4B's own SKILL.md-adherence gaps in the propose→confirm write flow,
 found live on the 2026-08-13 T-L4.3 WS2 provenance run (harness-level grading
 bugs from the same run are fixed, not listed here — see
 `trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`).
-Genuinely bigger than a one-session fix: each needs a SKILL.md wording
-iteration plus a fresh live gemma4 run to validate, and the three below
-likely interact (fixing the re-insert hallucination might also fix the
-per-row-INSERT habit if both stem from the model not trusting/checking its
-own prior state).
+**SKILL.md wording landed for all three 2026-08-13** (verify-existing-state
+bullet + strengthened per-row-INSERT bullet + query-columns-from-own-schema
+bullet, `skills/document-intelligence/SKILL.md` §5 and Gotchas). None of the
+three is validated yet — that needs a fresh live gemma4 T-L4 run; keep this
+entry until that run passes T-G2.3 clean. The three likely interact (fixing
+the re-insert hallucination might also fix the per-row-INSERT habit if both
+stem from the model not trusting/checking its own prior state).
 
 - 2026-08-13 **Hallucinated re-insertion on a second save attempt.** Told
   (follow-up prompt: "if the rows aren't in the table yet, finish saving them
@@ -154,14 +150,19 @@ own prior state).
   `Subscriptions`, the Berlin hotel as `Bills/Housing`) — the exact exclusion
   the fixture tests for. This is worse than a wasteful duplicate: it writes
   confabulated financial data into the user's real database as if genuine.
-  SKILL.md doesn't currently tell the model to verify existing state via
-  `db_query`/`db_schema` before a second save attempt.
+  SKILL.md §5 now tells the model to verify existing state via
+  `db_query`/`db_schema` before a second save attempt (landed 2026-08-13,
+  unvalidated).
 - 2026-08-13 **Per-row INSERT despite explicit multi-row guidance.** The same
   12-row batch above was issued as 12 separate single-row `db_execute`
   confirms, not the one multi-row `INSERT ... VALUES (...), (...), ...`
   SKILL.md §5 already explicitly requires — even though the follow-up prompt
   itself said "a single multi-row INSERT is fine — it's still one statement."
   Confirms this is a live, reproducible gap, not a stale/already-fixed one.
+  SKILL.md §5's bullet strengthened 2026-08-13 with the concrete cache-reprocess
+  cost of an extra turn (known since the same T-L4.3 run's cache-reuse
+  root-cause) as the "why," and an explicit "prompt permission is not license
+  to still do it per row" line — unvalidated.
 - 2026-08-13 **Wrong column name in the model's own follow-up query.** Turn 4
   ran `SELECT ... SUM(amount) ... FROM spending_june_2026`, but the model's
   own `CREATE TABLE` (confirmed two turns earlier, and re-confirmed via its
@@ -169,11 +170,11 @@ own prior state).
   `amount_normalized`, not `amount`. The failed query then ran into the
   600s per-turn hard timeout with no retry, cascading into two more turns of
   empty answers — the same "broken connection after hard timeout" pattern
-  documented from earlier runs. A cheap, well-scoped fix on its own (SKILL.md
-  could tell the model to always re-read its own `db_schema` result's exact
-  column names into the query, or the harness/agent loop could surface a
-  same-turn retry on a `no such column` error) — separated out because it's
-  independent of the two hallucination-flavored issues above.
+  documented from earlier runs. SKILL.md Gotchas now tells the model to
+  re-read its own `db_schema` result's exact column names into the query
+  rather than retyping from recall (landed 2026-08-13, unvalidated); a
+  same-turn retry on a `no such column` error in the harness/agent loop is
+  still not attempted.
 
 ---
 
