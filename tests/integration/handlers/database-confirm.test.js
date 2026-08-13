@@ -164,6 +164,50 @@ describe("db_query gating", () => {
   });
 });
 
+describe("db_execute argument validation", () => {
+  // `connection` and `sql` are both .optional() in the tool schema because the
+  // confirm step re-invokes db_execute with only `confirmation_token`. So
+  // checkArgs() can never report either as missing_required, and these handler
+  // messages are the only correction that reaches the model.
+  test("a missing connection names the param and says what to pass", async () => {
+    const res = await executeHandler(ctx, { sql: "INSERT INTO t (a) VALUES (1)" });
+    assert.ok(res.isError);
+    const text = textOf(res);
+    assert.match(text, /`connection` is required/i);
+    // The pointed part: which connection to use for document data, and how to
+    // discover the existing ones. Without this the model got only a lookup
+    // failure and retried the identical call.
+    assert.match(text, new RegExp(EXTRACTION_CONNECTION, "i"));
+    assert.match(text, /db_connections/i);
+  });
+
+  test("a missing connection is never reported as a connection named \"undefined\"", async () => {
+    // The old message interpolated the raw argument, so an absent connection
+    // came back as `no connection named "undefined"` — asserting the model
+    // named a connection when it named none. Two local models each burned a
+    // turn retrying against that message.
+    const text = textOf(await executeHandler(ctx, { sql: "INSERT INTO t (a) VALUES (1)" }));
+    assert.doesNotMatch(text, /named "undefined"/i);
+    assert.doesNotMatch(text, /named "null"/i);
+  });
+
+  test("a whitespace-only connection reports the looked-up name, not the raw arg", async () => {
+    const text = textOf(await executeHandler(ctx, { connection: "   ", sql: "INSERT INTO t (a) VALUES (1)" }));
+    assert.match(text, /`connection` is required/i);
+  });
+
+  test("an unknown connection still reports the trimmed name it looked up", async () => {
+    const text = textOf(await executeHandler(ctx, { connection: "  nope  ", sql: "INSERT INTO t (a) VALUES (1)" }));
+    assert.match(text, /no connection named "nope"/i);
+  });
+
+  test("a valid connection is unaffected by the new guard", async () => {
+    const res = await executeHandler(ctx, { connection: "rw", sql: "INSERT INTO t (a) VALUES (?)", params: [7] });
+    assert.ok(!res.isError);
+    assert.match(textOf(res), /Token:\s*db_[a-z0-9]+/);
+  });
+});
+
 describe("db_execute two-phase confirm", () => {
   test("propose returns a db_ token and does NOT write", async () => {
     const res = await executeHandler(ctx, { connection: "rw", sql: "INSERT INTO t (a) VALUES (?)", params: [99] });

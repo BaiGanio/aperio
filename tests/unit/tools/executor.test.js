@@ -890,6 +890,26 @@ describe("getDestructiveTools", () => {
     process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS = "only_this";
     assert.ok(getDestructiveTools().has("write_file"));
   });
+
+  test("db_execute is NOT a built-in — it is two-phase confirm-gated", () => {
+    // Membership means "a mangled argument can do damage nobody reviews first".
+    // db_execute's proposal renders connection, statement type, SQL and params
+    // to the user before anything runs, so it does not need the JSON-repair
+    // refusal that protects the direct-write tools — and its membership cost
+    // real accuracy (no arg repair, no schema hint, no in-turn replay of an
+    // identical failing call) on the tool WS2 depends on.
+    delete process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS;
+    assert.ok(!getDestructiveTools().has("db_execute"));
+    // The direct-write siblings stay in: extraction_template_delete executes
+    // immediately, with the repair refusal as its only protection.
+    assert.ok(getDestructiveTools().has("extraction_template_delete"));
+    assert.ok(getDestructiveTools().has("delete_file"));
+  });
+
+  test("a user can put db_execute back under the guard via config", () => {
+    process.env.APERIO_EXTRA_DESTRUCTIVE_TOOLS = "db_execute";
+    assert.ok(getDestructiveTools().has("db_execute"));
+  });
 });
 
 // =============================================================================

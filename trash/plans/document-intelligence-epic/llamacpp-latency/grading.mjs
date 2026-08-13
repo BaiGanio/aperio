@@ -54,6 +54,23 @@ export function gradePhase({
 } = {}) {
   const failures = [];
   const checks = {};
+  // Gate attribution (provenance phase). The harness runs ONE flow and ORs
+  // every check in it into a single `status`, which conflates three distinct
+  // claims from document-intelligence-epic-tests.md: T-G2.3 (sql-provenance —
+  // "aggregate comes from db_query"), T-G2.4 (no-fx-honesty) and T-L4 (the
+  // wall-clock ceilings). Rounds 10 and 11 both reported `fail` with every
+  // provenance check green — round 10 on a currency blend, round 11 on an
+  // arithmetic double-count, i.e. T-G2.4's claim and an extraction defect, not
+  // provenance. Read as one number, four runs looked like "1 pass in 4"; read
+  // per gate, T-G2.3 itself held in three of them. `failures` and `status` keep
+  // their exact previous content and order so replay diffs stay comparable —
+  // this only adds a second, finer view alongside them.
+  const gateFailures = new Map();
+  const fail = (gate, message) => {
+    failures.push(message);
+    if (!gateFailures.has(gate)) gateFailures.set(gate, []);
+    gateFailures.get(gate).push(message);
+  };
   // `answer.includes("")` is true for every string, so an unknown corpus root
   // would report a path leak on every single run. Treat "no root supplied" as
   // "nothing to leak": the harness always supplies one, so this only bites a
@@ -181,16 +198,23 @@ export function gradePhase({
     const maxTurnWallMs = Math.max(...results.map(r => r.wallMs));
     checks.withinTotalWallClockCeiling = totalWallMs <= wallClockTotalCeilingMs;
     checks.withinPerTurnWallClockCeiling = maxTurnWallMs <= wallClockPerTurnCeilingMs;
-    if (!checks.withinTotalWallClockCeiling) failures.push(`total wall time ${totalWallMs}ms exceeds the ${wallClockTotalCeilingMs}ms T-L4 ceiling`);
-    if (!checks.withinPerTurnWallClockCeiling) failures.push(`a single turn took ${maxTurnWallMs}ms, exceeding the ${wallClockPerTurnCeilingMs}ms T-L4 per-turn ceiling`);
-    if (!checks.calledDbExecute) failures.push("db_execute was never proposed — no writable-destination path exercised");
-    if (checks.calledDbExecute && !checks.interruptApproved) failures.push("db_execute was proposed but the confirm interrupt was never observed/approved");
-    if (!checks.insertedRealRows) failures.push("no confirmed db_execute INSERT with rowsAffected>0 was ever observed — rows were never actually written, regardless of what the answer claims");
-    if (!checks.calledDbQueryAfterConfirm) failures.push("follow-up turn did not call db_query for the SQL-derived total");
-    if (checks.calledDbQueryAfterConfirm && !checks.dbQueryReturnedRealRows) failures.push("follow-up turn's db_query returned zero rows — any total in the answer is not sourced from the database");
-    if (!checks.followUpCitesSql) failures.push("follow-up answer does not cite a genuine (non-empty) SQL query result as the source of the figure");
-    if (!checks.followUpNarratesDecimalTotal) failures.push("follow-up answer does not narrate an actual decimal total backed by a genuine query result");
-    if (!checks.completed) failures.push("one or more turns did not complete");
+    if (!checks.withinTotalWallClockCeiling) fail("T-L4", `total wall time ${totalWallMs}ms exceeds the ${wallClockTotalCeilingMs}ms T-L4 ceiling`);
+    if (!checks.withinPerTurnWallClockCeiling) fail("T-L4", `a single turn took ${maxTurnWallMs}ms, exceeding the ${wallClockPerTurnCeilingMs}ms T-L4 per-turn ceiling`);
+    if (!checks.calledDbExecute) fail("T-G2.3", "db_execute was never proposed — no writable-destination path exercised");
+    if (checks.calledDbExecute && !checks.interruptApproved) fail("T-G2.3", "db_execute was proposed but the confirm interrupt was never observed/approved");
+    if (!checks.insertedRealRows) fail("T-G2.3", "no confirmed db_execute INSERT with rowsAffected>0 was ever observed — rows were never actually written, regardless of what the answer claims");
+    if (!checks.calledDbQueryAfterConfirm) fail("T-G2.3", "follow-up turn did not call db_query for the SQL-derived total");
+    if (checks.calledDbQueryAfterConfirm && !checks.dbQueryReturnedRealRows) fail("T-G2.3", "follow-up turn's db_query returned zero rows — any total in the answer is not sourced from the database");
+    if (!checks.followUpCitesSql) fail("T-G2.3", "follow-up answer does not cite a genuine (non-empty) SQL query result as the source of the figure");
+    if (!checks.followUpNarratesDecimalTotal) fail("T-G2.3", "follow-up answer does not narrate an actual decimal total backed by a genuine query result");
+    // Attributed to T-L4, not to provenance: the observed shape of this failure
+    // is a turn that burns its whole per-turn budget (round 12 spent 900s
+    // emitting nothing but thinking tokens) and then falls into the empty-turn
+    // cascade — a latency/robustness defect, and it already travels with
+    // `withinPerTurnWallClockCeiling: false`. When an incomplete turn genuinely
+    // costs the flow its provenance, T-G2.3's own checks read the empty turn and
+    // fail on their own terms, so nothing is hidden by putting it here.
+    if (!checks.completed) fail("T-L4", "one or more turns did not complete");
 
     if (expectations) {
       const combinedAnswer = results.map(r => r.answerRaw).join("\n---\n");
@@ -202,7 +226,7 @@ export function gradePhase({
       });
       checks.fullMonthGate = evaluation.status === "pass";
       checks.noFxBlend = evaluation.gate.noExcludedLeak;
-      if (!checks.fullMonthGate) failures.push(...evaluation.failures.map(f => `full-month gate: ${f}`));
+      if (!checks.fullMonthGate) for (const f of evaluation.failures) fail("T-G2.4", `full-month gate: ${f}`);
 
       // The EUR path was ungraded until 2026-08-13, so every run that lumped
       // June's three EUR travel documents into one `Uncategorized` row passed
@@ -222,12 +246,72 @@ export function gradePhase({
       checks.foreignCurrencyRowsCategorized = unresolved.length === 0;
       for (const row of unresolved) {
         const expected = expectations.otherCurrencies[row.currency]?.categories ?? [];
-        failures.push(`foreign-currency category: a ${row.currency} row was written as "${row.category}", which names none of the categories the corpus assigns to its ${row.currency} documents (${expected.join(", ") || "none declared"})`);
+        fail("T-G2.4", `foreign-currency category: a ${row.currency} row was written as "${row.category}", which names none of the categories the corpus assigns to its ${row.currency} documents (${expected.join(", ") || "none declared"})`);
       }
     }
   }
 
-  return { status: failures.length === 0 ? "pass" : "fail", checks, failures };
+  const status = failures.length === 0 ? "pass" : "fail";
+  if (phase !== "provenance") return { status, checks, failures };
+  return { status, checks, failures, gates: buildGates(checks, gateFailures) };
+}
+
+// The three claims the provenance flow exercises at once, and which check
+// belongs to which. Only the boolean checks are listed: `provenanceLadder`,
+// `successTurn`, `successPromptTier` and `capabilityClaim` describe HOW a pass
+// was earned rather than whether it was, and ride along as T-G2.3 context.
+const PROVENANCE_GATES = [
+  {
+    id: "T-G2.3",
+    claim: "sql-provenance — the aggregate comes from a real db_query over rows the model actually wrote",
+    checks: [
+      "calledDbExecute", "interruptApproved", "insertedRealRows",
+      "calledDbQueryAfterConfirm", "dbQueryReturnedRealRows",
+      "followUpCitesSql", "followUpNarratesDecimalTotal",
+    ],
+    context: ["provenanceLadder", "successTurn", "successPromptTier", "capabilityClaim"],
+  },
+  {
+    id: "T-G2.4",
+    claim: "no-fx-honesty — mixed currencies are reported per currency, and the full-month figures match the oracle",
+    checks: ["fullMonthGate", "noFxBlend"],
+    context: [],
+  },
+  {
+    id: "T-L4",
+    claim: "wall-clock — every turn completes, inside the per-turn and total ceilings",
+    checks: ["withinTotalWallClockCeiling", "withinPerTurnWallClockCeiling", "completed"],
+    context: [],
+  },
+];
+
+// A gate whose checks were never evaluated reports "not-evaluated" rather than
+// "pass": T-G2.4 only runs when the caller supplied expectations, and an absent
+// oracle is not evidence of currency honesty.
+function buildGates(checks, gateFailures) {
+  const gates = {};
+  for (const gate of PROVENANCE_GATES) {
+    const own = {};
+    for (const name of gate.checks) if (name in checks) own[name] = checks[name];
+    const context = {};
+    for (const name of gate.context) if (name in checks) context[name] = checks[name];
+    const evaluated = Object.keys(own).length === gate.checks.length;
+    const gateFails = gateFailures.get(gate.id) ?? [];
+    // Belt and braces: a gate passes only when it recorded no failure AND every
+    // one of its own checks is true. The two are equivalent today, but the
+    // failure messages are conditional in places (the interruptApproved message
+    // is only pushed when db_execute was actually proposed), and a check that
+    // silently goes false without a message must not read as a pass.
+    const allTrue = Object.values(own).every(Boolean);
+    gates[gate.id] = {
+      status: !evaluated ? "not-evaluated" : gateFails.length === 0 && allTrue ? "pass" : "fail",
+      claim: gate.claim,
+      checks: own,
+      failures: gateFails,
+      ...(Object.keys(context).length ? { context } : {}),
+    };
+  }
+  return gates;
 }
 
 // T-G2.3's actual claim is that the model wrote real rows and then read them

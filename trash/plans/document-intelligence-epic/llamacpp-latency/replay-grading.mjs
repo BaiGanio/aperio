@@ -146,6 +146,7 @@ console.log(JSON.stringify({
   turns: results.length,
   ...(warnings.length ? { warnings } : {}),
   status: replayed.status,
+  ...(replayed.gates ? { gates: replayed.gates } : {}),
   checks: replayed.checks,
   failures: replayed.failures,
   diff: diffGrading(artifact.grading, replayed),

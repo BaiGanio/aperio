@@ -152,6 +152,73 @@ housekeeping go in `A2D.md`, not here.
 
 ---
 
+## db_execute argument validation — the repair harness is blind to its two real params (#250)
+
+- 2026-08-14 **`db_execute`'s `connection`/`sql` are `.optional()` in the schema,
+  so `schemaCheck.js` can never report them missing — the one tool where two
+  models have now failed exactly that way.** Chain, verified end to end:
+  1. `mcp/tools/database.js:97-101` marks both `.optional()` on purpose — the
+     server's confirm step re-invokes the tool with only `confirmation_token`,
+     so neither can be schema-required.
+  2. `checkArgs` (`lib/tools/schemaCheck.js:45-52`) derives `required` from that
+     schema. For `db_execute` it is empty, so `missing_required` cannot fire and
+     `hintFromIssues` can never emit its "required param \`connection\` is
+     missing — add it" correction — precisely the pointed hint that would fix
+     the call. The ledger confirms it empirically: **4 `missing_required` rows
+     in all of `var/toolrepair/events.tsv`, every one `index_folder`, zero
+     `db_execute`.**
+  3. The handler half-covers the gap. `validateExecutionArgs`
+     (`lib/handlers/database/databaseHandlers.js:306`) has a friendly
+     `` `sql` is required. `` — but **no equivalent for `connection`**. A missing
+     `connection` falls through to the generic lookup at line 349, which
+     interpolates the *raw* argument rather than the trimmed `wanted` from line
+     316, so the model is told `no connection named "undefined"`. That is
+     actively misleading: it asserts the model named a connection "undefined"
+     when it named none at all.
+  **Evidence, two models, same tool.** gemma-4-12B (2026-08-14 run) sent
+  `db_execute` with a well-formed `sql` and no `connection` three times
+  identically, having passed `connection: "extraction"` correctly to `db_schema`
+  one call earlier — it knew the param existed and dropped it on the next tool.
+  Round 12's gemma4-E4B sent `db_execute` with `sql` missing three times. Both
+  burned a turn; the 12B only recovered after calling `db_connections` and
+  re-deriving the argument shape for itself.
+  This is what `schemaCheck.js`'s own header calls the point of the exercise —
+  "open models look bad at tool calling mostly because the harness hands back
+  generic errors instead of pointed fixes" — failing on the tool that matters
+  most to WS2, because the propose/confirm dual-shape makes the schema unable to
+  express "required when proposing".
+  **FIXED 2026-08-14**, three parts:
+  1. `validateExecutionArgs` now requires `connection` on the propose path, with
+     a message that names the param, points at `extraction` for document data,
+     and names `db_connections` for discovery — because this message is the only
+     correction that reaches the model.
+  2. The lookup error interpolates `wanted` (the trimmed name actually looked up)
+     instead of the raw argument, so an absent or whitespace value can never
+     again be reported as a connection *named* "undefined".
+  3. **`db_execute` removed from `DESTRUCTIVE_TOOLS`** (`lib/tools/executor.js`).
+     Membership means "a mangled argument can do damage nobody reviews first",
+     and db_execute is two-phase confirm-gated: its proposal renders connection,
+     statement type, SQL and params to the user before anything runs, so every
+     field a repair could alter is human-reviewed. `mcp/tools/extraction.js:10`
+     already drew this exact line, calling `extraction_template_delete`
+     "protected only by DESTRUCTIVE_TOOLS' JSON-repair refusal ... not a
+     two-phase interrupt like db_execute". Membership was costing three things
+     on the tool WS2 depends on: JSON-arg repair, schema hints, and the in-turn
+     duplicate-call short-circuit (`findPriorToolResult`) — the last of which is
+     exactly the pathology observed, an identical failing call re-issued three
+     times in one turn. A user can restore the guard via
+     `APERIO_EXTRA_DESTRUCTIVE_TOOLS=db_execute`.
+  Tests: 5 in `tests/integration/handlers/database-confirm.test.js` (52 pass),
+  2 in `tests/unit/tools/executor.test.js` (121 pass); full `tests/unit` +
+  `tests/harness` 2698 pass / 0 fail.
+  **Still open:** `checkArgs` remains unable to report `connection`/`sql` as
+  `missing_required` for `db_execute`, so the ledger keeps under-counting this
+  class. Closing that needs a per-tool "required when proposing" overlay, which
+  is only worth building if the ledger is meant to measure propose-path
+  argument quality. Not needed for correctness now that the handler speaks.
+
+---
+
 ## llama.cpp KV reuse — the divergence is in the message array, not the prefix (#250)
 
 - 2026-08-13 **Found in T-G2.3 round 5, replacing the tool-schema theory above.**
@@ -364,17 +431,28 @@ housekeeping go in `A2D.md`, not here.
   substring matching entirely, since the structural checks
   (`dbQueryReturnedRows`, `insertedRealRows`) carry the actual evidentiary
   weight and the prose checks only ask how the model narrated it.
-- 2026-08-13 **FIXED — both `fullMonthGate` multi-currency entries below.**
-  (`tests/fixtures/household-gen/harness-gate.mjs`) The rule tested whether a
-  total-cue line *named* two currencies; it now tests whether some figure on
-  that line carries no currency of its own (`untaggedMoneyTokens`), because a
-  blend is a figure that spans currencies, not a line that mentions two.
+- 2026-08-13 **FIXED — `fullMonthGate`'s multi-currency rule produced false
+  failures on correct per-currency answers.** (`tests/fixtures/household-gen/
+  harness-gate.mjs`) Observed twice: round 11's
+  `"**Overall Combined Total:** **912.44 BGN + 196.40 EUR**"` and an earlier
+  `"...grand total across both currencies is **696.84 BGN** and **196.40 EUR**."`
+  were both failed as "combines multiple currencies into one figure without
+  disclosing that it isn't converting" — while each states two figures, one per
+  currency, and round 11's very next line read *"(Note: No FX conversion was
+  applied, as per the core principles of the `document-intelligence` skill.)"*
+  The disclosure the rule demanded was present and adjacent, and it fired anyway.
+  The rule tested whether a total-cue line *named* two currencies; it now tests
+  whether some figure on that line carries no currency of its own
+  (`untaggedMoneyTokens`), because a blend is a figure that spans currencies,
+  not a line that mentions two.
   `912.44 BGN + 196.40 EUR` (two figures, one per currency) passes;
   `893.24 across BGN and EUR` and `893.24 (696.84 BGN + 196.40 EUR)` (one
   untagged figure, two currencies) still fail. Blending stays a failure even
   when disclosed on the next line — the wrong number is still stated — so the
   same-line `NON_BLEND_DISCLOSURE` escape is unchanged, and it still covers
-  prose that names currencies without tagging any figure. 3 tests added from
+  prose that names currencies without tagging any figure. Deliberate and
+  unchanged: the gate reads the *combined* text of all turns, so one turn's
+  disclosure does not license another turn's blend. 3 tests added from
   the verbatim round-10/11 strings; 23/23 in `harness-gate.test.mjs`.
   Round 11 re-graded: the currency failure disappears, the Fuel double-count
   and the grand total it poisoned remain, so its verdict is unchanged (fail on
@@ -421,25 +499,33 @@ housekeeping go in `A2D.md`, not here.
   both the grader and the replay's fallback. Still open, unchanged: whether
   grading should prefer the turn that *satisfied* the ladder over the last turn
   with content.
-- 2026-08-13 **`fullMonthGate`'s multi-currency rule over-triggers — now
-  OBSERVED, no longer hypothetical.** Round 11 failed on
-  `"**Overall Combined Total:** **912.44 BGN + 196.40 EUR**"` with "combines
-  multiple currencies into one figure without disclosing that it isn't
-  converting" — but that line states two figures, one per currency, and the
-  very next line of the same answer reads *"(Note: No FX conversion was
-  applied, as per the core principles of the `document-intelligence` skill.)"*
-  The disclosure the rule demands was present and adjacent, and the rule still
-  fired. Did not change round 11's verdict (an independent arithmetic failure
-  was also present), so this is confirmed-but-not-yet-blocking. Fix alongside
-  the entry below.
-- 2026-08-13 **`fullMonthGate`'s multi-currency rule may over-trigger.** It
-  failed `"...grand total across both currencies is **696.84 BGN** and
-  **196.40 EUR**."` as "combines multiple currencies into one figure without
-  disclosing that it isn't converting", but that line states two figures, one
-  per currency — not the blended single figure (893.24) the rule was written
-  for. It also evaluates the *combined* text of all turns, so one turn's
-  explicit disclosure does not protect another's phrasing. Decide whether
-  "names both currencies separately" should satisfy it.
+- 2026-08-14 **FIXED — one `status` was reporting three different gates, and it
+  made the model look four times worse than it was.** `gradePhase` ORed every
+  provenance-phase check into a single pass/fail, so T-G2.3 (sql-provenance),
+  T-G2.4 (no-fx-honesty) and T-L4 (the wall-clock ceilings) were indistinguishable
+  in the verdict — three separate claims from `document-intelligence-epic-tests.md`
+  collapsed into one number. The cost was not cosmetic: rounds 10 and 11 were both
+  recorded as gate failures with **every provenance check green**, round 10 on a
+  currency blend (T-G2.4's claim) and round 11 on an arithmetic double-count (an
+  extraction defect). Read as one number, four runs looked like "1 pass in 4";
+  read per gate, T-G2.3 itself held in three of them, and only round 12's missing
+  INSERT was a genuine provenance failure.
+  Each check and each failure message is now tagged with the gate that owns it,
+  and `grading.gates` reports a per-gate verdict; the harness prints one
+  `HARNESS gate <id> PASS/FAIL` line per gate and `replay-grading.mjs` includes
+  the split. `completed` is attributed to T-L4, not to provenance — its observed
+  shape is a turn that burns its whole budget emitting nothing (round 12) and it
+  already travels with a blown per-turn ceiling. A gate with no oracle supplied
+  reports `not-evaluated`, never `pass`. The bundled `status` and the `failures`
+  array keep their exact previous content and order, so replay diffs against
+  older artifacts stay comparable — the split is purely additive. 7 tests added
+  (18/18 in `grading.test.mjs`), including round 10's verbatim
+  `893.24 across BGN and EUR` line graded against the real June oracle: T-G2.4
+  fail, T-G2.3 pass.
+  **What this does not settle**: T-G2.4 still fails on gemma4-E4B (2 of 4 runs
+  blended, with SKILL.md's counter-example in the pinned system prompt), and the
+  Fuel double-count is a real extraction defect. The split makes the epic's
+  remaining failures legible and separately closeable; it does not close them.
 
 ---
 

@@ -12,11 +12,13 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
 import { mkdtemp, mkdir, writeFile, readFile } from "node:fs/promises";
+import { readFileSync } from "node:fs";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gradePhase, insertedRealRows } from "./grading.mjs";
 import { resolveLadder } from "./provenance-ladder.mjs";
+import { buildExpectations } from "../../../../tests/fixtures/household-gen/harness-gate.mjs";
 
 const execFileAsync = promisify(execFile);
 const REPLAY = resolve("trash/plans/document-intelligence-epic/llamacpp-latency/replay-grading.mjs");
@@ -377,4 +379,128 @@ test("provenance: the check stays out of the way when no expectations are suppli
   });
   assert.equal(grading.status, "pass");
   assert.equal("foreignCurrencyRowsCategorized" in grading.checks, false);
+});
+
+// --- gate attribution -----------------------------------------------------
+//
+// The provenance flow exercises three separate claims at once (T-G2.3
+// sql-provenance, T-G2.4 no-fx-honesty, T-L4 wall clock) and the grader ORs
+// them into one `status`. These tests pin the finer view: a T-G2.4 or T-L4
+// failure must not read as a provenance failure, and vice versa.
+
+function gradeWithOracle(results, extra = {}) {
+  const oracle = JSON.parse(readFileSync(resolve("tests/fixtures/household-gen/ground-truth.json"), "utf8"));
+  return gradePhase({
+    phase: "provenance",
+    results,
+    expectations: buildExpectations(oracle, "2026-06", { corpusRoot: "/nowhere" }),
+    household: "/nowhere",
+    ladderName: "mechanism",
+    ladderEntries: resolveLadder("mechanism").entries,
+    log: silent,
+    ...extra,
+  });
+}
+
+test("gates: a clean transcript passes T-G2.3 and T-L4; T-G2.4 needs an oracle", () => {
+  const grading = gradePhase({
+    phase: "provenance",
+    results: passingProvenanceResults(),
+    ladderName: "mechanism",
+    ladderEntries: resolveLadder("mechanism").entries,
+    log: silent,
+  });
+  assert.equal(grading.gates["T-G2.3"].status, "pass");
+  assert.equal(grading.gates["T-L4"].status, "pass");
+  // No expectations supplied — an absent oracle is not evidence of currency
+  // honesty, so the gate must not claim a pass it never tested.
+  assert.equal(grading.gates["T-G2.4"].status, "not-evaluated");
+  assert.deepEqual(grading.gates["T-G2.3"].checks, {
+    calledDbExecute: true, interruptApproved: true, insertedRealRows: true,
+    calledDbQueryAfterConfirm: true, dbQueryReturnedRealRows: true,
+    followUpCitesSql: true, followUpNarratesDecimalTotal: true,
+  });
+  assert.equal(grading.gates["T-G2.3"].context.capabilityClaim, "realistic-usage");
+});
+
+test("gates: round 10's currency blend fails T-G2.4 with provenance intact", () => {
+  const results = passingProvenanceResults();
+  // Round 10's verbatim closing line. 696.84 BGN + 196.40 EUR = 893.24: Lev
+  // added to Euro, stated as one untagged figure.
+  results[1].answerRaw =
+    "Pulled from the `spending` table. This query resulted in 6 distinct groups, "
+    + "summing to a grand total of **893.24** across BGN and EUR.";
+  const grading = gradeWithOracle(results);
+
+  assert.equal(grading.status, "fail");
+  assert.equal(grading.gates["T-G2.4"].status, "fail");
+  // The whole point: the model wrote real rows, queried them back and cited the
+  // source. That claim held. It failed a different gate.
+  assert.equal(grading.gates["T-G2.3"].status, "pass");
+  assert.equal(grading.gates["T-L4"].status, "pass");
+  assert.ok(grading.gates["T-G2.4"].failures.every(f => f.startsWith("full-month gate:")));
+  assert.deepEqual(grading.gates["T-G2.3"].failures, []);
+});
+
+test("gates: a blown per-turn ceiling fails T-L4 only", () => {
+  const results = passingProvenanceResults();
+  results[0].wallMs = 900_000;
+  const grading = gradePhase({
+    phase: "provenance", results, ladderName: "mechanism",
+    wallClockPerTurnCeilingMs: 550_000, wallClockTotalCeilingMs: 2_400_000, log: silent,
+  });
+  assert.equal(grading.status, "fail");
+  assert.equal(grading.gates["T-L4"].status, "fail");
+  assert.equal(grading.gates["T-G2.3"].status, "pass");
+});
+
+test("gates: round 12's missing INSERT is a genuine T-G2.3 failure", () => {
+  const results = passingProvenanceResults();
+  // CREATE TABLE proposed and approved, but nothing ever written — the failure
+  // mode the gate exists to catch.
+  results[0].toolCalls[0].arguments.sql = "CREATE TABLE spending (category TEXT, amount REAL)";
+  results[0].answerRaw = "✅ Executed on extraction — {\"rowsAffected\": 0}";
+  const grading = gradePhase({ phase: "provenance", results, ladderName: "mechanism", log: silent });
+  assert.equal(grading.gates["T-G2.3"].status, "fail");
+  assert.equal(grading.gates["T-G2.3"].checks.insertedRealRows, false);
+  assert.ok(grading.gates["T-G2.3"].failures.some(f => f.includes("rows were never actually written")));
+  assert.equal(grading.gates["T-L4"].status, "pass");
+});
+
+test("gates: an incomplete turn is attributed to T-L4, not to provenance", () => {
+  // Round 12's runaway-reasoning shape: the answering turn is fine, a later
+  // turn burns its budget and emits nothing.
+  const results = [...passingProvenanceResults(), turn({ wallMs: 900_004, status: "timeout" })];
+  const grading = gradePhase({ phase: "provenance", results, ladderName: "mechanism", log: silent });
+  assert.equal(grading.checks.completed, false);
+  assert.equal(grading.gates["T-L4"].status, "fail");
+  assert.ok(grading.gates["T-L4"].failures.some(f => f.includes("did not complete")));
+  assert.equal(grading.gates["T-G2.3"].status, "pass");
+});
+
+test("gates: the split leaves status and failures byte-identical", () => {
+  // Replay diffs compare `status` and `failures`; the gate view is additive and
+  // must not renumber, reorder or reword either of them.
+  const results = passingProvenanceResults();
+  results[0].wallMs = 900_000;
+  results[1].answerRaw = "Pulled from the `spending` table. Grand total **893.24** across BGN and EUR.";
+  const grading = gradeWithOracle(results, { wallClockPerTurnCeilingMs: 550_000 });
+  assert.equal(grading.status, "fail");
+  // Wall-clock failures are pushed first, then provenance, then the gate ones —
+  // the original order, regardless of which gate owns each.
+  assert.ok(grading.failures[0].includes("T-L4 per-turn ceiling"));
+  assert.ok(grading.failures.at(-1).startsWith("full-month gate:"));
+  // Every failure lands in exactly one gate, and no failure is lost.
+  const fromGates = Object.values(grading.gates).flatMap(g => g.failures);
+  assert.equal(fromGates.length, grading.failures.length);
+  assert.deepEqual([...fromGates].sort(), [...grading.failures].sort());
+});
+
+test("gates: non-provenance phases report no gate split", () => {
+  const grading = gradePhase({
+    phase: "routing",
+    results: [turn({ toolSequence: ["doc_batch"], answerRaw: "Utilities: 260.50" })],
+    log: silent,
+  });
+  assert.equal(grading.gates, undefined);
 });

@@ -622,9 +622,18 @@ async function runModelPhase({ primary, secondary, dbPath }) {
     wallClockPerTurnCeilingMs: WALLCLOCK_PER_TURN_CEILING_MS,
   });
   await writeArtifact({ grading });
+  // Per-gate verdicts print before the bundled ones: `status` ORs three
+  // separate claims together (see grading.mjs), so on a fail it says only that
+  // something in the flow went wrong, not which gate owns it.
+  if (grading.gates) {
+    for (const [id, gate] of Object.entries(grading.gates)) {
+      console.error(`HARNESS gate ${id} ${gate.status.toUpperCase()}${gate.failures.length ? ` — ${gate.failures.length} failure(s)` : ""}`);
+    }
+  }
   console.log(JSON.stringify({
     phase: PHASE,
     status: grading.status,
+    ...(grading.gates ? { gates: grading.gates } : {}),
     checks: grading.checks,
     failures: grading.failures,
     results: results.map(({ answerRaw, ...rest }) => ({

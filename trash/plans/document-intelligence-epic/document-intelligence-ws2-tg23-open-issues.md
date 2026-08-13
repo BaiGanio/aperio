@@ -1,3 +1,103 @@
+## 2026-08-14 — the verdict was three gates in a trenchcoat; Ornith-1.0-9B PASSES T-G2.3
+
+Three things happened this session: the bundled verdict was **split by gate**, a real
+**`db_execute` argument defect** was found and fixed, and **Ornith-1.0-9B became the first
+local model to pass T-G2.3** on this harness with every mechanical check green.
+
+### The split — why "1 pass in 4" was the wrong number
+
+`gradePhase` ORed every provenance-phase check into a single `status`, collapsing three
+distinct claims from `document-intelligence-epic-tests.md`:
+
+| gate | claim | checks |
+|---|---|---|
+| **T-G2.3** | sql-provenance — the aggregate comes from a real `db_query` over rows the model wrote | `calledDbExecute`, `interruptApproved`, `insertedRealRows`, `calledDbQueryAfterConfirm`, `dbQueryReturnedRealRows`, `followUpCitesSql`, `followUpNarratesDecimalTotal` |
+| **T-G2.4** | no-fx-honesty + full-month accuracy | `fullMonthGate`, `noFxBlend` |
+| **T-L4** | wall clock | both ceilings, `completed` |
+
+Re-read against that split, rounds 10 and 11 were **not** provenance failures: round 10 failed
+on a currency blend (T-G2.4) and round 11 on an arithmetic double-count (extraction accuracy),
+both with every provenance check green. Only round 12's missing INSERT was a genuine T-G2.3
+failure. Four runs read as "1 pass in 4" as one number; per gate, **T-G2.3 held in three of
+them**. `status` and `failures` keep their exact previous content and order, so replay diffs
+against older artifacts stay comparable — the split is additive. 7 tests (18/18 in
+`grading.test.mjs`), including round 10's verbatim blend line graded against the real June
+oracle: T-G2.4 fail, T-G2.3 pass.
+
+### gemma-4-12B — stopped at turn 3, but it found a real bug
+
+`APERIO_HARNESS_TIMEOUT_MS=1800000`, otherwise the standard command. Turn 0 took
+**1,004,770 ms** (2.1× E4B), blowing the per-turn ceiling on its own. Then:
+
+> `db_execute {sql: "CREATE TABLE expenses (…)"}` → `no connection named "undefined"` — **three
+> times, identically**, having passed `connection: "extraction"` correctly to `db_schema` one
+> call earlier.
+
+Root-caused, and it is **not a model defect** — the full chain is in `id/reference/tech-debt.md`
+("db_execute argument validation"). In short: `connection`/`sql` are `.optional()` in the tool
+schema (the confirm step re-invokes with only `confirmation_token`), so `checkArgs` can never
+report them missing; `db_execute` was in `DESTRUCTIVE_TOOLS`, so hints were suppressed *and*
+the in-turn duplicate-call short-circuit that would have broken the spin was disabled; and the
+handler's error interpolated the raw argument, telling the model it had named a connection
+"undefined" when it had named none. Fixed three ways (required-`connection` check with a
+pointed message, `wanted` instead of the raw arg, `db_execute` out of `DESTRUCTIVE_TOOLS` since
+it is two-phase confirm-gated and renders every repairable field to the user before executing).
+The run was stopped at turn 3 at the developer's request; **it is not comparable** to the runs
+below, which ran against the fixed code.
+
+### Ornith-1.0-9B — T-G2.3 PASS
+
+**T-G2.3 PASS · T-G2.4 FAIL (false failure) · T-L4 FAIL.** Total 1,028,404 ms of 2,400,000;
+max turn 589,813 ms against the 550,000 ceiling (7% over, turn 0 only).
+
+| turn | ms | what happened |
+|---|---|---|
+| 0 | 589,813 | `doc_batch`; `db_schema extraction` (absent, expected); an unprompted `remember`; `db_execute` on **`aperio`** → read-only error; **corrected to `extraction` on the very next call** → CREATE approved |
+| 1 | 148,224 | multi-row `INSERT INTO june2026_expenses` → approved |
+| 2 | 46,584 | `db_query … GROUP BY currency, category` → 959 B of real rows |
+| 3 | 209,938 | `doc_batch` re-read + the same aggregate transposed |
+| 4 | 33,845 | the narrated answer |
+
+The answer is arithmetically perfect: **696.84 BGN** exact, every category right, EUR 196.40
+reported separately as `Travel`. It cleared both failure modes that sank rounds 10 and 11 —
+`GROUP BY currency, category` makes a blend structurally impossible, and it stated outright
+that *"the duplicate fuel receipt entry from the bank statement was … filtered out"*, which is
+round 11's exact defect. It also categorized the EUR row properly, closing the standing "EUR
+lands as `Uncategorized`/`Travel-Other`" gap.
+
+**Two caveats that keep this from being a clean win:**
+- `successTurn: 4`, `successPromptTier: dictated-sql`, `capabilityClaim: **mechanism-conformance**`
+  — the pass came only after the ladder escalated to a rung that dictates the SQL. Round 9's
+  E4B pass was `named-mechanism` at turn 2, a *stronger* rung. Ornith proves it can conform to
+  a dictated mechanism, not that it reaches provenance unprompted.
+- Turn 0's `remember` wrote **796.84 BGN** — wrong by exactly 100.00. It never reached the
+  graded answer (the SQL did), but a wrong figure was persisted to memory and would outlive
+  the session.
+
+### The category-decomposition false failure — the FOURTH of its class
+
+T-G2.4's only failure was:
+
+```
+full-month gate: Utilities: expected 260.50, answer attributed no figure to this category
+```
+
+Ornith reported Electricity 142.50, Water 38.20, Heating 64.80, Waste 15.00 — which sum to
+exactly 260.50, and are **character-for-character the components the oracle's own
+`reconciliation` field lists**: `"Utilities": "142.50 + 38.20 + 64.80 + 15.00 = 260.50"`. A
+more granular, fully correct answer scored as a miss.
+
+That is the fourth false failure of the same class in this gate (round 8 markdown emphasis,
+round 9 SQL vocabulary, round 11 currency phrasing, now category granularity) — and the third
+to be discovered by a run it invalidated. The pattern entry in `tech-debt.md` predicted exactly
+this: *"audit the remaining prose predicates against phrasings that are correct but
+unanticipated — or move provenance grading off substring matching entirely."* **Not yet fixed**
+— the fix (accept a decomposition whose components sum to the expected category total) is
+cheap, and unlike a code change it costs nothing in comparability, because
+`replay-grading.mjs` re-grades both archived transcripts retroactively.
+
+---
+
 ## gemma4-E4B, 2026-08-13 rounds 9-11 — infrastructure SETTLED across three runs; gate stays FAIL on model behaviour
 
 Logs in the session scratchpad (`round9.log`, `round10.log`, `round11.log`). Same command

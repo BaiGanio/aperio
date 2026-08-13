@@ -48,7 +48,27 @@ Versions follow [Semantic Versioning](https://semver.org/).
   Real per-provider reasoning-effort control is tracked separately as
   [#476](https://github.com/BaiGanio/aperio/issues/476).
 
+- **`db_execute` told models a connection was "named undefined" when they had
+  named none.** A proposal missing the `connection` argument fell through to the
+  connection lookup, whose error interpolated the raw argument — so the model was
+  told `no connection named "undefined"`, asserting it had named a connection it
+  had not. Two local models each burned a whole turn re-emitting the identical
+  malformed call against that message. The propose path now requires
+  `connection` explicitly and says what to pass (`extraction` for data extracted
+  from documents, `db_connections` to list what exists), and the lookup error
+  reports the name actually looked up rather than the raw argument.
+
 ### Changed
+
+- **`db_execute` is no longer treated as a "destructive" tool.** That
+  designation disables JSON-argument repair, schema-mismatch hints, and the
+  in-turn duplicate-call short-circuit — protections that exist for tools whose
+  mangled arguments can do damage before anyone sees them. `db_execute` is
+  two-phase confirm-gated: its proposal renders the connection, statement type,
+  SQL and parameters for review before anything executes, so every field a
+  repair could alter is seen by a human first. Removing it restores those three
+  recovery behaviours on the tool most exercised by document extraction. Set
+  `APERIO_EXTRA_DESTRUCTIVE_TOOLS=db_execute` to restore the previous handling.
 
 - **Multi-minute llama.cpp turns caused by the skill block moving between
   turns.** Matched skills were attached to the request's newest message, on the
