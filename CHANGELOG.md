@@ -9,6 +9,30 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- **A matched skill now survives its own follow-up turns.** Skill keywords
+  describe how a user opens a topic ("how much did I spend on utilities"), not
+  how they follow it up ("finish saving them now"), and matching runs on the
+  current message alone — so a multi-turn workflow lost its own instructions
+  after the first turn, and a generic process skill could take its place. The
+  most recent matched skills (at most two, most-recent-first) are now carried
+  for `APERIO_SKILL_PIN_TURNS` follow-up turns while the flow keeps calling
+  tools, ranked after whatever the current turn matches on its own. Ordinary
+  chat after a tool-using turn still drops them, so skills do not bleed across
+  unrelated topics. Set `APERIO_SKILL_PIN_TURNS=0` to restore per-turn
+  matching.
+
+- **Multi-minute llama.cpp turns after a document read.** When preflight
+  auto-ran a document lookup for a turn, those tools' schemas were withheld
+  from that same request — and because llama.cpp renders the tool block at the
+  front of the prompt, removing them invalidated the whole cached prefix and
+  forced a full reprocess of the conversation. Measured at 262 seconds of
+  prefill on a single turn of a real document-intelligence run, enough to blow
+  a 10-minute per-turn ceiling on its own. The tool array is now left stable on
+  llama.cpp; at worst the model re-requests a document read it already has,
+  which is served from the dedup cache.
+
 ### Documentation
 
 - Updated all 25 non-English landing-page locales to describe Aperio's built-in

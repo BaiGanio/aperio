@@ -251,6 +251,12 @@ number · tier 1 (Settings UI, restart to apply) · default: `8` · advanced
 
 After a turn whose assistant response calls a tool, keep the attached tool set stable (only ever adding, never dropping) for this many follow-up turns before re-classifying from scratch. Keeps llama.cpp's prompt/KV-cache prefix reusable across a multi-turn tool-using flow instead of invalidating it every turn.
 
+#### `APERIO_SKILL_PIN_TURNS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `4` · advanced
+
+Keep a matched skill attached for this many follow-up turns while the flow keeps using tools. Skill keywords describe how a user OPENS a topic ("how much did I spend..."), not how they follow it up ("finish saving them now"), so without this a multi-turn workflow loses its own instructions after the first turn. Set 0 to disable and match every turn independently.
+
 ### Tool-call safety
 
 Tools treated as destructive get strict handling: malformed JSON arguments are never auto-repaired (a 'fixed' string could silently corrupt a file or row) and a failed call returns a plain error instead of a coercion hint. The built-in list (write_file, edit_file, db_execute, run_shell, …) can't be weakened; you can only extend it.

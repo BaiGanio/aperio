@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadSkillIndex } from "../../../lib/workers/skills.js";
 import { planTurnTools } from "../../../lib/agent/turn-planner.js";
-import { capToolsForWindow, PREFLIGHT_TOOL_USE } from "../../../lib/agent/tool-profiles.js";
+import { capToolsForWindow, PREFLIGHT_TOOL_USE, SKILL_PIN_TURNS } from "../../../lib/agent/tool-profiles.js";
 
 let root, skillIndex;
 
@@ -675,5 +675,87 @@ describe("planTurnTools — vision flags", () => {
       turnNum: 1, skillIndex, shellAllowed: true, pendingForcedSkillNames: [], pendingSemanticSkillNames: [],
     });
     assert.strictEqual(result.hasInlineImage, true);
+  });
+});
+
+// Skill stickiness across a multi-turn workflow (#250, 2026-08-13). Found on
+// the WS2 T-G2.3 gate: curated skill keywords describe how a user OPENS a
+// topic, never how they follow it up, so `document-intelligence` attached to
+// turn 0 of the provenance ladder and to no turn after it — four rounds of
+// SKILL.md wording were edits to a document that was not in context on the
+// turn they targeted. The carry must not undo the original no-windowing fix
+// (a stale skill riding along on unrelated chat), hence the tool-use gate.
+describe("planTurnTools — skill stickiness across a tool-using flow", () => {
+  // "widget-helper" matches by direct name mention; the follow-ups below
+  // deliberately contain no skill vocabulary at all, exactly like the real
+  // ladder's "finish saving them now" / "give me the breakdown and total".
+  const openedFlow = [
+    { role: "user", content: "please use the widget helper on this" },
+    { role: "assistant", content: [{ type: "tool_use", name: "doc_batch", input: {}, id: "s1" }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "s1", content: "ok" }] },
+    { role: "assistant", content: "Read the documents." },
+  ];
+  const plan = (messages, userText, turnNum = 2) => planTurnTools(messages, userText, {
+    turnNum, skillIndex, shellAllowed: true, pendingForcedSkillNames: [], pendingSemanticSkillNames: [],
+  });
+
+  test("carries a matched skill into a follow-up turn that matches nothing itself", () => {
+    const messages = [...openedFlow, { role: "user", content: "finish saving them now" }];
+    const withoutCarry = plan([{ role: "user", content: "finish saving them now" }], "finish saving them now");
+    assert.ok(!withoutCarry.skills.some(s => s.name === "widget-helper"),
+      "guard: the follow-up text alone must not match the skill, or this test proves nothing");
+    assert.ok(plan(messages, "finish saving them now").skills.some(s => s.name === "widget-helper"));
+  });
+
+  test("does not carry when the flow never used a tool (the original stale-skill bug stays fixed)", () => {
+    const chatOnly = [
+      { role: "user", content: "please use the widget helper on this" },
+      { role: "assistant", content: "Sure, here's what I think." },
+      { role: "user", content: "hey, how are you?" },
+    ];
+    assert.ok(!plan(chatOnly, "hey, how are you?").skills.some(s => s.name === "widget-helper"));
+  });
+
+  // A generic process skill matching mid-flow must not evict the domain
+  // workflow that opened it — replaying the real provenance ladder showed
+  // `reasoning-planning` (which scores on the bare word "breakdown") doing
+  // exactly that to `document-intelligence` under a plain replace rule.
+  test("a workflow survives one interloper match, and a second topic evicts it", () => {
+    const interloper = [
+      { role: "user", content: "now run the forced only skill instead" },
+      { role: "assistant", content: [{ type: "tool_use", name: "db_query", input: {}, id: "s2" }] },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "s2", content: "ok" }] },
+      { role: "assistant", content: "Done." },
+    ];
+    const survives = plan([...openedFlow, ...interloper, { role: "user", content: "and the total?" }],
+      "and the total?", 3).skills.map(s => s.name);
+    assert.ok(survives.includes("forced-only-skill"), "the most recent match is carried");
+    assert.ok(survives.includes("widget-helper"), "the workflow that opened the flow is not evicted by one interloper");
+
+    const second = [
+      { role: "user", content: "use the always on skill for this part" },
+      { role: "assistant", content: [{ type: "tool_use", name: "db_query", input: {}, id: "s3" }] },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "s3", content: "ok" }] },
+      { role: "assistant", content: "Done." },
+    ];
+    const evicted = plan([...openedFlow, ...interloper, ...second, { role: "user", content: "and the total?" }],
+      "and the total?", 4).skills.map(s => s.name);
+    assert.ok(!evicted.includes("widget-helper"), "the oldest carried topic is evicted once two newer ones exist");
+  });
+
+  test("this turn's own match outranks a carried skill", () => {
+    const messages = [...openedFlow, { role: "user", content: "use the forced only skill now" }];
+    const names = plan(messages, "use the forced only skill now").skills.map(s => s.name);
+    assert.ok(names.indexOf("forced-only-skill") < names.indexOf("widget-helper"),
+      "a genuine pivot ranks ahead of the pinned flow's skill");
+  });
+
+  test("expires once the flow goes quiet for longer than the pin window", () => {
+    const quiet = Array.from({ length: SKILL_PIN_TURNS + 1 }, () => ([
+      { role: "user", content: "ok" },
+      { role: "assistant", content: "Sure." },
+    ])).flat();
+    const messages = [...openedFlow, ...quiet, { role: "user", content: "and now?" }];
+    assert.ok(!plan(messages, "and now?", 9).skills.some(s => s.name === "widget-helper"));
   });
 });
