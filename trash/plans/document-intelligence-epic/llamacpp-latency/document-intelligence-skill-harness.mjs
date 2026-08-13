@@ -210,7 +210,7 @@ async function indexCorpus(primary, secondary, dbPath) {
   process.env.SQLITE_PATH = dbPath;
   process.env.APERIO_CONFIG_PRECEDENCE = "env";
   process.env.APERIO_ALLOWED_PATHS_TO_READ = `${primary},${secondary}`;
-  const { SqliteStore } = await import("../../../db/sqlite.js");
+  const { SqliteStore } = await import("../../../../db/sqlite.js");
   const { indexRepo } = await import("../../../../lib/docgraph/indexer.js");
   const store = await SqliteStore.init();
   try {
