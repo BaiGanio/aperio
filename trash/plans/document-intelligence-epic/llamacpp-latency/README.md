@@ -1,5 +1,30 @@
 # Gemma capability harness
 
+## Re-grading a recorded run (no boot)
+
+Every run archives its un-redacted transcript to `var/docint-runs/` (gitignored,
+one file per run) in addition to the historical single-slot
+`document-intelligence-run-answers.json`. Grade a saved one through the current
+grader — no server, no scratch DB, no model:
+
+```bash
+node trash/plans/document-intelligence-epic/llamacpp-latency/replay-grading.mjs           # newest archived run
+node trash/plans/document-intelligence-epic/llamacpp-latency/replay-grading.mjs --list     # what's archived
+node trash/plans/document-intelligence-epic/llamacpp-latency/replay-grading.mjs <path.json>
+```
+
+The report ends with a `diff` against the grading the run recorded — status
+change, per-check before/after, failures resolved/introduced. That is the check
+to run after changing anything in `grading.mjs`, `grading-predicates.mjs`, or
+`tests/fixtures/household-gen/harness-gate.mjs`: it answers "does this fix flip
+that round?" by executing it instead of arguing it from a transcript. Artifacts
+written before this existed carry no `gradingInputs`, so the replay warns and
+falls back to defaults — the wall-clock checks in particular will not match.
+
+The grader itself lives in `grading.mjs` (pure, `node --test grading.test.mjs`);
+the harness only supplies its arguments.
+
+
 Use this fallback only after the hard end-to-end gate fails. The hard gate is
 `../document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs`; it
 exercises Aperio's real agent loop, tools, document corpus, confirmation flow,

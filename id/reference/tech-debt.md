@@ -394,6 +394,33 @@ housekeeping go in `A2D.md`, not here.
   Cheap fix: write the un-redacted artifact to a per-run path (timestamp or
   run id) so transcripts accumulate, and add a replay entry point that grades
   a saved transcript without booting anything.
+  **FIXED 2026-08-13.** Both halves landed. (a) `gradePhase()` moved out of the
+  harness into `llamacpp-latency/grading.mjs` as a pure function of its
+  arguments — same reason `grading-predicates.mjs` was extracted, one level up:
+  the harness's top-level `try` boots a server, a scratch DB and a llama-server,
+  so nothing could reach the grader without paying for a live run. Everything it
+  used to read from module scope (phase, corpus root, ceilings, ladder) is now
+  passed in, so a replay grades under the *recorded* run's conditions rather
+  than the replaying shell's env. (b) The harness still writes the historical
+  single-slot `ANSWERS_PATH` and additionally archives the identical
+  un-redacted payload to `var/docint-runs/<phase>-<runId>.json` (gitignored,
+  best-effort — an unwritable archive cannot fail a run). `gradingInputs`
+  (corpus root, oracle path, both wall-clock ceilings) is recorded alongside.
+  Replay: `node llamacpp-latency/replay-grading.mjs [artifact.json]` — no path
+  takes the newest archived run, `--list` enumerates them, and the output
+  includes a **diff against the grading the run itself recorded** (status
+  change, per-check before/after, failures resolved/introduced), which is
+  exactly the "does this fix flip that round?" question every entry in this
+  section had to argue by hand. Verified on a real recorded 7-turn run: with its
+  ceilings supplied, the replay reproduces the run's own grading with zero
+  changed checks and zero failure drift. 11 tests in `grading.test.mjs`.
+  Two things found by doing it: the harness's error path calls `writeArtifact`,
+  so **an aborted run used to destroy the previous run's only transcript** (the
+  archive now survives that), and an unknown corpus root made the path-leak
+  checks fire on every answer, since every string contains `""` — guarded in
+  both the grader and the replay's fallback. Still open, unchanged: whether
+  grading should prefer the turn that *satisfied* the ladder over the last turn
+  with content.
 - 2026-08-13 **`fullMonthGate`'s multi-currency rule over-triggers — now
   OBSERVED, no longer hypothetical.** Round 11 failed on
   `"**Overall Combined Total:** **912.44 BGN + 196.40 EUR**"` with "combines
