@@ -164,6 +164,15 @@ propose the statement, then stop; the user confirms and the server executes
 it. Never set `confirmation_token` yourself and never call `db_execute` a
 second time to "retry" a proposal.
 
+- **Before your first `db_query` or `db_execute` against `extraction` in a
+  conversation, confirm the connection/table actually exists** — call
+  `db_schema`, or recall your own already-confirmed `CREATE TABLE`, rather
+  than guessing a table name and querying it directly. Recorded live: asked
+  to "query it per category," a run issued a `SELECT` against a table name
+  it invented on the spot, before ever creating it — the query's own error
+  ("no connection named extraction") was the first and only signal the table
+  didn't exist. A `db_schema` check first surfaces the same fact without
+  spending a turn on a doomed query.
 - **Before a second or follow-up save attempt on a table you (or an earlier
   turn) already wrote to** — a prompt like "finish saving them," "did the
   rest go in?," or anything implying resumed/incomplete work — run
@@ -175,6 +184,15 @@ second time to "retry" a proposal.
   first time. Insert only the rows that are actually missing, using the same
   real per-document values already confirmed earlier in the conversation —
   not new ones you make up to fill the gap.
+- **Describing a save you're about to do is not the same as doing it — the
+  turn that says "I'll insert this now" must contain the `db_execute` call
+  itself, not just the sentence.** Recorded live: given explicit permission
+  ("a single multi-row INSERT is fine") on a table that already existed, a
+  turn produced only prose — no tool call at all — and the next turn
+  reverted to re-reading a source document instead of inserting. If you
+  notice yourself about to end a turn having only stated an intent to save,
+  call `db_execute` before ending the turn instead of stating the intent
+  again next turn.
 - Connection name is always `extraction` — it doesn't need to exist yet; it
   is provisioned automatically as the user's own writable SQLite database on
   first confirmed write. Never invent or ask for a different connection name.

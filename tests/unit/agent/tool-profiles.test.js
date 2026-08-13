@@ -82,6 +82,38 @@ describe("tool-profiles — extraction availability (Document Intelligence WS3, 
     assert.ok(!tools.has("extraction_apply"));
     assert.ok(!tools.has("extraction_template_propose"));
   });
+
+  test("bare 'run'/'execute'/'verify' alongside SQL/database intent does not add shell (2026-08-13 live finding)", () => {
+    // Recorded live during a document-intelligence WS2 provenance run: "run
+    // SELECT category, currency, SUM(amount) GROUP BY category, currency
+    // against the extraction table" matched the shell profile's bare \brun\b
+    // keyword, adding run_shell's schema to a plain SQL follow-up turn — this
+    // perturbed the tool-schema set turn to turn and defeated llama.cpp
+    // prompt-cache reuse (the same mechanism behind the open "Tool profiles /
+    // schema budgeting" cache-reuse tech debt). classifyProfiles now narrows
+    // `shell` for database-intent text the same way it already did for
+    // docGraph intent — only an unambiguous shell/QA signal keeps it.
+    for (const text of [
+      "run SELECT category, currency, SUM(amount) GROUP BY category, currency against the extraction table now and give me the resulting breakdown and total",
+      "execute the query against the extraction table",
+      "verify the total by querying the database",
+    ]) {
+      const profiles = classifyProfiles(text);
+      assert.ok(profiles.has("database"), `expected database intent for: "${text}"`);
+      assert.ok(!profiles.has("shell"), `unexpected shell profile for: "${text}"`);
+    }
+  });
+
+  test("an unambiguous shell/QA signal still keeps shell even alongside database intent", () => {
+    const profiles = classifyProfiles("run this SQL script from the terminal against the database");
+    assert.ok(profiles.has("database"));
+    assert.ok(profiles.has("shell"));
+  });
+
+  test("bare 'run'/'test'/'verify' with no database intent still triggers shell as before", () => {
+    const profiles = classifyProfiles("run the tests and verify they pass");
+    assert.ok(profiles.has("shell"));
+  });
 });
 
 describe("tool-profiles — read_docx availability (issue #125)", () => {

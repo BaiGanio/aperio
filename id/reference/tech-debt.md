@@ -299,6 +299,55 @@ nuanced than "unvalidated" now.
   given the ceiling already observed once, this needs a live re-run before
   trusting the new wording, more than the other three items in this
   section.**
+- 2026-08-13 **New, same-day re-re-run: gemma4-E4B failed all three of its
+  first turns and was stopped by the developer before completion** (not the
+  same run as the "Cross-model T-L4 run" above — a later, separate attempt
+  the same day, after the currency/travel-exclusion SKILL.md edits landed).
+  Turn 0 (main prompt, explicit "save the results so I can query them again
+  later") called **zero** `db_execute` — not even a `CREATE TABLE`, worse
+  than every prior mechanism-ladder run, which always attempted at least
+  table creation on turn 0. Turn 1 then issued a `db_query` against a table
+  name it invented on the spot, **before ever calling `db_schema` or
+  creating anything** — the query's own error ("no connection named
+  extraction") was the only thing that told the model nothing existed yet;
+  it then created the table (still no `INSERT`). Turn 2 — the exact turn
+  handed explicit "a single multi-row INSERT is fine" permission, the one
+  today's worked-example fix targets — produced **zero tool calls**, only
+  52 seconds of prose, and the next turn reverted to re-reading a source
+  document instead of inserting. Developer's verdict: three consecutive
+  turn failures is a clean fail; today's actual VALUES/params fix was never
+  exercised because the model never attempted an `INSERT` at all this run.
+  **SKILL.md gained two new §5 bullets same session**: verify
+  `db_schema`/a prior confirmed `CREATE TABLE` before the *first*
+  `db_query`/write in a conversation (not just before a *second* save
+  attempt, which the existing bullet already covered), and an explicit
+  "describing a save is not doing it — the turn must contain the
+  `db_execute` call itself" bullet. Both unvalidated — no re-run yet.
+  **A real code bug was also root-caused and fixed this session, not just a
+  SKILL.md gap**: turn 2→3's tool-schema fingerprint reverted 40→38, and the
+  `[tools] turn=N profiles=[...]` log showed turn 3 gaining an unexplained
+  `shell` profile — the same anomaly flagged as unexplained in T-L4.2 and
+  this morning's 26B-A4B run. Root cause: `classifyProfiles()`
+  (`lib/agent/tool-profiles.js`) matches a bare `\brun\b` for its `shell`
+  profile trigger, and follow-up 3's own scripted text ("run SELECT
+  category, currency, SUM(amount) GROUP BY category, currency against the
+  extraction table") contains "run" as ordinary SQL language, not a shell
+  request — docGraph intent already had a narrowing guard against this
+  exact false-positive class (line ~483), database intent did not. Fixed by
+  extending the same narrowing to database intent: `shell` is now dropped
+  for database-intent text unless a stronger, unambiguous shell/QA signal
+  (command/terminal/render/grep/libreoffice/soffice/pdftoppm/thumbnail/
+  pptx/slide/slides/presentation/powerpoint/deck/xlsx/spreadsheet) is also
+  present. 3 new regression tests added
+  (`tests/unit/agent/tool-profiles.test.js`); full unit suite (2627 tests)
+  green. This is a real, evidenced contributor to the broader "Tool
+  profiles / schema budgeting" cache-reuse gap above — a spurious profile
+  addition is exactly the mechanism that busts llama-server's prefix cache
+  — though it is very unlikely to be the *only* cause of that gap (the
+  38↔40 fingerprint swing at the turn-0→1 boundary predates this specific
+  trigger and needs its own explanation). **Not yet re-validated live** —
+  needs a fresh run to confirm both the SKILL.md wording and the
+  classifyProfiles fix actually change this run's outcome.
 
 ---
 
