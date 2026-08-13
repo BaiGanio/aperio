@@ -88,13 +88,13 @@
     "vmtest:windows": "bash vms/win/run.sh"
   },
   "dependencies": {
-    "@anthropic-ai/claude-agent-sdk": "^0.3.220",
+    "@anthropic-ai/claude-agent-sdk": "^0.3.229",
     "@anthropic-ai/sdk": "^0.115.0",
     "@google/generative-ai": "^0.24.1",
     "@huggingface/transformers": "^4.2.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "adm-zip": "^0.6.0",
-    "better-sqlite3": "^13.0.1",
+    "better-sqlite3": "^13.0.3",
     "chokidar": "^5.0.0",
     "d3": "7.9.0",
     "docx": "^9.7.1",
@@ -102,7 +102,7 @@
     "emphasize": "^7.0.0",
     "exceljs": "^4.4.0",
     "express": "^5.2.1",
-    "express-rate-limit": "^8.6.0",
+    "express-rate-limit": "^8.6.2",
     "fast-xml-parser": "^5.10.1",
     "gpt-tokenizer": "^3.4.0",
     "graphology": "^0.26.0",
@@ -110,10 +110,10 @@
     "helmet": "^8.3.0",
     "mammoth": "^1.12.0",
     "mssql": "^12.7.0",
-    "mysql2": "^3.23.1",
+    "mysql2": "^3.23.3",
     "open": "^11.0.0",
     "pdf-lib": "^1.17.1",
-    "pdfjs-dist": "^6.1.200",
+    "pdfjs-dist": "^6.2.108",
     "pg": "^8.22.0",
     "pptxgenjs": "^4.0.1",
     "sanitize-html": "^2.17.6",
@@ -124,11 +124,11 @@
     "web-tree-sitter": "^0.24.7",
     "winston": "^3.19.0",
     "winston-daily-rotate-file": "^5.0.0",
-    "ws": "^8.21.1",
+    "ws": "^8.21.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@playwright/test": "^1.62.0",
+    "@playwright/test": "^1.62.1",
     "c8": "^12.0.0"
   },
   "overrides": {

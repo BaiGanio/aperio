@@ -119,14 +119,18 @@ describe("planTurnTools — tool profile classification", () => {
 // follow-up turns, instead of re-classifying the bare 2-turn window from
 // scratch every turn — Step 1 measured that even a single added/removed tool
 // fully defeats llama-server's prompt/KV-cache prefix reuse. TOOL_PIN_TURNS
-// defaults to 3 (APERIO_TOOL_PIN_TURNS).
+// defaults to 8 (APERIO_TOOL_PIN_TURNS) — raised from 3 on 2026-08-13 once
+// the T-L4.3 gemma4 run root-caused this exact reset as the dominant cause
+// of the epic's multi-minute turn latencies (tech-debt.md "Tool profiles /
+// schema budgeting"); this fixture exercises the real default, not a
+// stand-in value, so it stays honest if the default changes again.
 describe("planTurnTools — pin-for-N-turns sticky tool-profile accumulation (T-L2.1)", () => {
   // A realistic growing conversation: turn 1 triggers docgraph and its
   // response actually calls a tool; turn 2 has no keyword of its own but
   // should still carry docgraph; turn 3 pivots to a genuinely new topic
-  // (database) without dropping docgraph; turns 4-6 have neither new
-  // keywords nor tool calls (a 1/2/3-turn gap, still inside the pin window);
-  // turn 7 is a 4-turn gap — past TOOL_PIN_TURNS — and must reset.
+  // (database) without dropping docgraph; turns 4-10 have neither new
+  // keywords nor tool calls (a 1..8-turn gap, still inside the pin window);
+  // turn 11 is a 9-turn gap — past TOOL_PIN_TURNS — and must reset.
   const transcript = [
     { role: "user", content: "search my documents for the invoice" },                        // turn 1
     { role: "assistant", content: [{ type: "tool_use", name: "doc_search", input: {}, id: "t1" }] },
@@ -144,10 +148,25 @@ describe("planTurnTools — pin-for-N-turns sticky tool-profile accumulation (T-
     { role: "user", content: "thanks" },                                                       // turn 4 — 2nd follow-up (still pinned)
     { role: "assistant", content: "You're welcome." },
 
-    { role: "user", content: "cool" },                                                         // turn 5 — 3rd follow-up (still pinned, boundary)
+    { role: "user", content: "cool" },                                                         // turn 5 — 3rd follow-up (still pinned)
     { role: "assistant", content: "Great." },
 
-    { role: "user", content: "nice" },                                                          // turn 6 — 4th follow-up: resets (TOOL_PIN_TURNS=3)
+    { role: "user", content: "nice" },                                                         // turn 6 — 4th follow-up (still pinned)
+    { role: "assistant", content: "Indeed." },
+
+    { role: "user", content: "ok" },                                                           // turn 7 — 5th follow-up (still pinned)
+    { role: "assistant", content: "Sure." },
+
+    { role: "user", content: "right" },                                                        // turn 8 — 6th follow-up (still pinned)
+    { role: "assistant", content: "Yep." },
+
+    { role: "user", content: "got it" },                                                       // turn 9 — 7th follow-up (still pinned)
+    { role: "assistant", content: "Great." },
+
+    { role: "user", content: "sure" },                                                         // turn 10 — 8th follow-up (still pinned, boundary)
+    { role: "assistant", content: "OK." },
+
+    { role: "user", content: "yep" },                                                          // turn 11 — 9th follow-up: resets (TOOL_PIN_TURNS=8)
     { role: "assistant", content: "Indeed." },
   ];
 
@@ -187,8 +206,8 @@ describe("planTurnTools — pin-for-N-turns sticky tool-profile accumulation (T-
   // not fall back to whatever was carried first (docgraph, from before the
   // pivot) — on a budget-capped llama.cpp model this is exactly the turn
   // where dropping db_query/db_execute would break the confirmation itself.
-  test("turns 4-5 (2nd and 3rd follow-ups) keep prioritizing the pivot (database) over the older carried profile (docgraph)", () => {
-    for (const turnNum of [4, 5]) {
+  test("turns 4-10 (2nd through 8th follow-ups) keep prioritizing the pivot (database) over the older carried profile (docgraph)", () => {
+    for (const turnNum of [4, 5, 6, 7, 8, 9, 10]) {
       const r = planAt(turnNum);
       assert.ok(r.names.has("doc_search"), `turn ${turnNum} still has docgraph`);
       assert.ok(r.names.has("db_query"), `turn ${turnNum} still has database`);
@@ -197,8 +216,8 @@ describe("planTurnTools — pin-for-N-turns sticky tool-profile accumulation (T-
     }
   });
 
-  test("turn 6 (the 4th follow-up) resets, dropping the stale accumulated profiles", () => {
-    const r = planAt(6);
+  test("turn 11 (the 9th follow-up) resets, dropping the stale accumulated profiles", () => {
+    const r = planAt(11);
     assert.ok(!r.names.has("doc_search"), "docgraph dropped once the pin window's exact turn count lapses");
     assert.ok(!r.names.has("db_query"), "database dropped once the pin window's exact turn count lapses");
   });

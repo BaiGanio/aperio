@@ -219,6 +219,20 @@ been authorized to apply.`);
   assert.equal(result.status, "pass", result.failures.join("; "));
 });
 
+test("denying a single combined total exists is not penalized (gemma4 2026-08-13 phrasing)", () => {
+  // Reproduces the T-L4.2 false-negative: the model's own honest disclosure —
+  // "Because your expenses span multiple currencies (BGN and EUR), there is
+  // no single grand total; the totals are provided per currency." — tags two
+  // currencies on a line matching the "grand total" cue, but it is denying a
+  // blended figure exists, not stating one. The old NON_BLEND_DISCLOSURE only
+  // recognized refusal phrasing ("not combining..."), not absence phrasing.
+  const result = run(`${CORRECT_ANSWER}
+
+Because your expenses span multiple currencies (BGN and EUR), there is no
+single grand total; the totals are provided per currency.`);
+  assert.equal(result.status, "pass", result.failures.join("; "));
+});
+
 test("naming an excluded item while explaining the exclusion is not a leak", () => {
   const result = run(CORRECT_ANSWER);
   assert.equal(result.gate.noExcludedLeak, true);

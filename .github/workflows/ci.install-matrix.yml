@@ -84,6 +84,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Upgrade npm for Visual Studio 2026 detection
+        shell: pwsh
+        run: |
+          # windows-latest now ships VS 2026 (internal version "18"). node-gyp
+          # < 12.1.0 doesn't recognize it and aborts every native rebuild
+          # (better-sqlite3 etc.) with "unknown version 'undefined'". Fixed
+          # upstream in node-gyp@12.1.0, bundled from npm@11.6.3.
+          # https://github.com/nodejs/node-gyp/issues/3282
+          npm install -g npm@11.6.3
+
       - name: Package and exercise the Windows launcher flow
         shell: pwsh
         run: |

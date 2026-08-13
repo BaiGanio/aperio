@@ -82,6 +82,38 @@ describe("tool-profiles — extraction availability (Document Intelligence WS3, 
     assert.ok(!tools.has("extraction_apply"));
     assert.ok(!tools.has("extraction_template_propose"));
   });
+
+  test("bare 'run'/'execute'/'verify' alongside SQL/database intent does not add shell (2026-08-13 live finding)", () => {
+    // Recorded live during a document-intelligence WS2 provenance run: "run
+    // SELECT category, currency, SUM(amount) GROUP BY category, currency
+    // against the extraction table" matched the shell profile's bare \brun\b
+    // keyword, adding run_shell's schema to a plain SQL follow-up turn — this
+    // perturbed the tool-schema set turn to turn and defeated llama.cpp
+    // prompt-cache reuse (the same mechanism behind the open "Tool profiles /
+    // schema budgeting" cache-reuse tech debt). classifyProfiles now narrows
+    // `shell` for database-intent text the same way it already did for
+    // docGraph intent — only an unambiguous shell/QA signal keeps it.
+    for (const text of [
+      "run SELECT category, currency, SUM(amount) GROUP BY category, currency against the extraction table now and give me the resulting breakdown and total",
+      "execute the query against the extraction table",
+      "verify the total by querying the database",
+    ]) {
+      const profiles = classifyProfiles(text);
+      assert.ok(profiles.has("database"), `expected database intent for: "${text}"`);
+      assert.ok(!profiles.has("shell"), `unexpected shell profile for: "${text}"`);
+    }
+  });
+
+  test("an unambiguous shell/QA signal still keeps shell even alongside database intent", () => {
+    const profiles = classifyProfiles("run this SQL script from the terminal against the database");
+    assert.ok(profiles.has("database"));
+    assert.ok(profiles.has("shell"));
+  });
+
+  test("bare 'run'/'test'/'verify' with no database intent still triggers shell as before", () => {
+    const profiles = classifyProfiles("run the tests and verify they pass");
+    assert.ok(profiles.has("shell"));
+  });
 });
 
 describe("tool-profiles — read_docx availability (issue #125)", () => {
@@ -413,24 +445,24 @@ describe("parsePinTurns (APERIO_TOOL_PIN_TURNS)", () => {
     assert.strictEqual(parsePinTurns("5"), 5);
   });
 
-  test("falls back to the default 3 when unset", () => {
-    assert.strictEqual(parsePinTurns(undefined), 3);
-    assert.strictEqual(parsePinTurns(""), 3);
+  test("falls back to the default 8 when unset", () => {
+    assert.strictEqual(parsePinTurns(undefined), 8);
+    assert.strictEqual(parsePinTurns(""), 8);
   });
 
-  test("falls back to the default 3 for a non-finite or negative value", () => {
-    assert.strictEqual(parsePinTurns("not-a-number"), 3);
-    assert.strictEqual(parsePinTurns("-1"), 3);
-    assert.strictEqual(parsePinTurns("NaN"), 3);
+  test("falls back to the default 8 for a non-finite or negative value", () => {
+    assert.strictEqual(parsePinTurns("not-a-number"), 8);
+    assert.strictEqual(parsePinTurns("-1"), 8);
+    assert.strictEqual(parsePinTurns("NaN"), 8);
   });
 
-  test("falls back to the default 3 for a fractional value (P2 review finding)", () => {
+  test("falls back to the default 8 for a fractional value (P2 review finding)", () => {
     // sinceLastToolUse advances one whole turn at a time; a fractional
     // TOOL_PIN_TURNS like 1.5 would silently pin 2 follow-up turns (both
     // 0 < 1.5 and 1 < 1.5 hold), not the value actually configured.
-    assert.strictEqual(parsePinTurns("1.5"), 3);
-    assert.strictEqual(parsePinTurns("0.5"), 3);
-    assert.strictEqual(parsePinTurns("2.99"), 3);
+    assert.strictEqual(parsePinTurns("1.5"), 8);
+    assert.strictEqual(parsePinTurns("0.5"), 8);
+    assert.strictEqual(parsePinTurns("2.99"), 8);
   });
 });
 
@@ -468,7 +500,7 @@ describe("TOOL_PIN_TURNS DB-hydration ordering (P2 review finding)", () => {
     delete process.env.APERIO_TOOL_PIN_TURNS;
     const mod = await cacheBustToolProfiles();
     await applyConfigToEnv(storeWith({ [configSettingKey("APERIO_TOOL_PIN_TURNS")]: "7" }));
-    assert.strictEqual(mod.TOOL_PIN_TURNS, 3, "a module already evaluated before hydration keeps its module-level constant frozen at the default forever, regardless of a later DB write");
+    assert.strictEqual(mod.TOOL_PIN_TURNS, 8, "a module already evaluated before hydration keeps its module-level constant frozen at the default forever, regardless of a later DB write");
   });
 });
 
