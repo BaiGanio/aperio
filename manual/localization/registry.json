@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "locales": [{
+    "id": "locale.en",
+    "tag": "en",
+    "source": true,
+    "direction": "ltr",
+    "collation": "en",
+    "fallback": "block",
+    "fontProfile": "preview-system-sans-mono-unlocked",
+    "releaseEligible": false
+  }]
+}

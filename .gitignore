@@ -437,3 +437,8 @@ FodyWeavers.xsd
 *.msm
 *.msp
 .git-commit-msg.txt
+# Aperio Manual generated and review output (never hand-edited)
+manual/generated/
+manual/dist/
+manual/.work/
+manual/preview-output/

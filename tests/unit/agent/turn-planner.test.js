@@ -13,7 +13,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadSkillIndex } from "../../../lib/workers/skills.js";
 import { planTurnTools } from "../../../lib/agent/turn-planner.js";
-import { capToolsForWindow, PREFLIGHT_TOOL_USE } from "../../../lib/agent/tool-profiles.js";
+import { capToolsForWindow, PREFLIGHT_TOOL_USE, SKILL_PIN_TURNS, SYNTHETIC_USER } from "../../../lib/agent/tool-profiles.js";
 
 let root, skillIndex;
 
@@ -675,5 +675,208 @@ describe("planTurnTools — vision flags", () => {
       turnNum: 1, skillIndex, shellAllowed: true, pendingForcedSkillNames: [], pendingSemanticSkillNames: [],
     });
     assert.strictEqual(result.hasInlineImage, true);
+  });
+});
+
+// Skill stickiness across a multi-turn workflow (#250, 2026-08-13). Found on
+// the WS2 T-G2.3 gate: curated skill keywords describe how a user OPENS a
+// topic, never how they follow it up, so `document-intelligence` attached to
+// turn 0 of the provenance ladder and to no turn after it — four rounds of
+// SKILL.md wording were edits to a document that was not in context on the
+// turn they targeted. The carry must not undo the original no-windowing fix
+// (a stale skill riding along on unrelated chat), hence the tool-use gate.
+describe("planTurnTools — skill stickiness across a tool-using flow", () => {
+  // "widget-helper" matches by direct name mention; the follow-ups below
+  // deliberately contain no skill vocabulary at all, exactly like the real
+  // ladder's "finish saving them now" / "give me the breakdown and total".
+  const openedFlow = [
+    { role: "user", content: "please use the widget helper on this" },
+    { role: "assistant", content: [{ type: "tool_use", name: "doc_batch", input: {}, id: "s1" }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "s1", content: "ok" }] },
+    { role: "assistant", content: "Read the documents." },
+  ];
+  const plan = (messages, userText, turnNum = 2) => planTurnTools(messages, userText, {
+    turnNum, skillIndex, shellAllowed: true, pendingForcedSkillNames: [], pendingSemanticSkillNames: [],
+  });
+
+  test("carries a matched skill into a follow-up turn that matches nothing itself", () => {
+    const messages = [...openedFlow, { role: "user", content: "finish saving them now" }];
+    const withoutCarry = plan([{ role: "user", content: "finish saving them now" }], "finish saving them now");
+    assert.ok(!withoutCarry.skills.some(s => s.name === "widget-helper"),
+      "guard: the follow-up text alone must not match the skill, or this test proves nothing");
+    assert.ok(plan(messages, "finish saving them now").skills.some(s => s.name === "widget-helper"));
+  });
+
+  test("does not carry when the flow never used a tool (the original stale-skill bug stays fixed)", () => {
+    const chatOnly = [
+      { role: "user", content: "please use the widget helper on this" },
+      { role: "assistant", content: "Sure, here's what I think." },
+      { role: "user", content: "hey, how are you?" },
+    ];
+    assert.ok(!plan(chatOnly, "hey, how are you?").skills.some(s => s.name === "widget-helper"));
+  });
+
+  // A generic process skill matching mid-flow must not evict the domain
+  // workflow that opened it — replaying the real provenance ladder showed
+  // `reasoning-planning` (which scores on the bare word "breakdown") doing
+  // exactly that to `document-intelligence` under a plain replace rule.
+  test("a workflow survives one interloper match, and a second topic evicts it", () => {
+    const interloper = [
+      { role: "user", content: "now run the forced only skill instead" },
+      { role: "assistant", content: [{ type: "tool_use", name: "db_query", input: {}, id: "s2" }] },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "s2", content: "ok" }] },
+      { role: "assistant", content: "Done." },
+    ];
+    const survives = plan([...openedFlow, ...interloper, { role: "user", content: "and the total?" }],
+      "and the total?", 3).skills.map(s => s.name);
+    assert.ok(survives.includes("forced-only-skill"), "the most recent match is carried");
+    assert.ok(survives.includes("widget-helper"), "the workflow that opened the flow is not evicted by one interloper");
+
+    const second = [
+      { role: "user", content: "use the always on skill for this part" },
+      { role: "assistant", content: [{ type: "tool_use", name: "db_query", input: {}, id: "s3" }] },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "s3", content: "ok" }] },
+      { role: "assistant", content: "Done." },
+    ];
+    const evicted = plan([...openedFlow, ...interloper, ...second, { role: "user", content: "and the total?" }],
+      "and the total?", 4).skills.map(s => s.name);
+    assert.ok(!evicted.includes("widget-helper"), "the oldest carried topic is evicted once two newer ones exist");
+  });
+
+  test("this turn's own match outranks a carried skill", () => {
+    const messages = [...openedFlow, { role: "user", content: "use the forced only skill now" }];
+    const names = plan(messages, "use the forced only skill now").skills.map(s => s.name);
+    assert.ok(names.indexOf("forced-only-skill") < names.indexOf("widget-helper"),
+      "a genuine pivot ranks ahead of the pinned flow's skill");
+  });
+
+  test("expires once the flow goes quiet for longer than the pin window", () => {
+    const quiet = Array.from({ length: SKILL_PIN_TURNS + 1 }, () => ([
+      { role: "user", content: "ok" },
+      { role: "assistant", content: "Sure." },
+    ])).flat();
+    const messages = [...openedFlow, ...quiet, { role: "user", content: "and now?" }];
+    assert.ok(!plan(messages, "and now?", 9).skills.some(s => s.name === "widget-helper"));
+  });
+});
+
+// The second half of the 2026-08-13 KV-reuse fix (#250). Skills live in the
+// cached system prompt, so the block only pays while it is BYTE-STABLE across
+// turns: on the round-6 verification run one extra skill matching at the turn
+// 1→2 boundary (sysBytes 46,134 → 52,810) diverged the prompt at byte 0,
+// reprocessed ~45k tokens and burned that turn's whole 600 s ceiling. The pin
+// freezes a live flow's resolved block; the caller (index.js's ensureTurn)
+// stores `skillPinNames` per conversation and feeds it back as
+// `pinnedSkillNames`.
+describe("planTurnTools — skill-block pin (byte-stable block across a live flow)", () => {
+  // Same shape as the stickiness suite above: an opening turn that matches
+  // widget-helper and calls a tool, so the pin window is live afterwards.
+  const openedFlow = [
+    { role: "user", content: "please use the widget helper on this" },
+    { role: "assistant", content: [{ type: "tool_use", name: "doc_batch", input: {}, id: "s1" }] },
+    { role: "user", content: [{ type: "tool_result", tool_use_id: "s1", content: "ok" }] },
+    { role: "assistant", content: "Read the documents." },
+  ];
+  // The interloper: a follow-up turn that matches a DIFFERENT skill by name,
+  // standing in for `reasoning-planning` scoring on the bare word "breakdown"
+  // mid-flow — the exact shape that moved the real block.
+  const pivotText = "use the forced only skill now";
+  const pivotFlow = [...openedFlow, { role: "user", content: pivotText }];
+  const plan = (messages, userText, opts = {}) => planTurnTools(messages, userText, {
+    turnNum: 2, skillIndex, shellAllowed: true,
+    pendingForcedSkillNames: [], pendingSemanticSkillNames: [], ...opts,
+  });
+
+  test("a mid-flow match does not change the block while the pin window is live (llama.cpp)", () => {
+    const unpinned = plan(pivotFlow, pivotText, { providerName: "llamacpp" });
+    assert.ok(unpinned.skills.some(s => s.name === "forced-only-skill"),
+      "guard: without a pinned block this turn's own match does attach, or this test proves nothing");
+
+    const pinned = plan(pivotFlow, pivotText, {
+      providerName: "llamacpp",
+      pinnedSkillNames: ["always-on-skill", "widget-helper"],
+    });
+    assert.equal(pinned.skillsPinned, true);
+    assert.deepEqual(pinned.skills.map(s => s.name), ["always-on-skill", "widget-helper"],
+      "the resolved block is the pinned one, verbatim and in order");
+    assert.deepEqual(pinned.skillPinNames, ["always-on-skill", "widget-helper"],
+      "and it is what gets stored for the next turn, unchanged");
+  });
+
+  test("feeding skillPinNames back yields a byte-identical block turn after turn", () => {
+    const contentOf = r => r.skills.map(s => s.content).join("\n---\n");
+    let pinnedSkillNames = [];
+    const blocks = [];
+    // Turn 0 resolves the block; turns 1-3 must reproduce it exactly, even
+    // though each of them matches something of its own.
+    for (const [messages, text] of [
+      [[...openedFlow.slice(0, 1)], "please use the widget helper on this"],
+      [pivotFlow, pivotText],
+      [[...pivotFlow, { role: "user", content: "and the total?" }], "and the total?"],
+      [[...pivotFlow, { role: "user", content: pivotText }], pivotText],
+    ]) {
+      const r = plan(messages, text, { providerName: "llamacpp", pinnedSkillNames });
+      pinnedSkillNames = r.skillPinNames;
+      blocks.push(contentOf(r));
+    }
+    assert.equal(new Set(blocks).size, 1, `the block must be byte-identical on every turn, got:\n${blocks.join("\n===\n")}`);
+  });
+
+  test("every other provider keeps per-turn matching (the pin is llama.cpp-only)", () => {
+    const r = plan(pivotFlow, pivotText, { pinnedSkillNames: ["always-on-skill", "widget-helper"] });
+    assert.equal(r.skillsPinned, false);
+    assert.ok(r.skills.some(s => s.name === "forced-only-skill"),
+      "a cloud provider's turn still attaches its own match");
+  });
+
+  test("the pin expires with the window, and the block re-resolves from scratch", () => {
+    const quiet = Array.from({ length: SKILL_PIN_TURNS + 1 }, () => ([
+      { role: "user", content: "ok" },
+      { role: "assistant", content: "Sure." },
+    ])).flat();
+    const messages = [...openedFlow, ...quiet, { role: "user", content: pivotText }];
+    const r = plan(messages, pivotText, {
+      turnNum: 9, providerName: "llamacpp", pinnedSkillNames: ["always-on-skill", "widget-helper"],
+    });
+    assert.equal(r.skillsPinned, false, "a flow that went quiet past the window is no longer pinned");
+    assert.ok(!r.skills.some(s => s.name === "widget-helper"), "the stale block is gone (anti-bleed)");
+    assert.ok(r.skills.some(s => s.name === "forced-only-skill"), "this turn's own match resolves normally");
+  });
+
+  test("a forced skill leads the block, is not itself pinned, and does not disturb the pinned rest", () => {
+    const followUp = [...openedFlow, { role: "user", content: "and the total?" }];
+    const r = plan(followUp, "and the total?", {
+      providerName: "llamacpp",
+      pendingForcedSkillNames: ["forced-only-skill"],
+      pinnedSkillNames: ["always-on-skill", "widget-helper"],
+    });
+    assert.equal(r.skills[0].name, "forced-only-skill", "explicit intent still leads the block");
+    assert.deepEqual(r.skills.slice(1).map(s => s.name), ["always-on-skill", "widget-helper"],
+      "the pinned block behind it is unchanged, so a constantly-forced run stays byte-stable");
+    assert.ok(!r.skillPinNames.includes("forced-only-skill"),
+      "a one-off /skill must not become a pinned passenger on the turns after it");
+  });
+
+  test("a synthetic turn mid-flow still sends the pinned block and never overwrites it", () => {
+    // Preflight injects synthetic messages mid-flow; the greeting is synthetic
+    // too. Neither has user text of its own, so both used to resolve to an
+    // empty block — dropping the whole ~23 KB skill body out of the cached
+    // system prompt for that request and diverging the prefix.
+    const synthetic = [...openedFlow, { role: "user", content: "", [SYNTHETIC_USER]: true }];
+    const r = plan(synthetic, "", {
+      providerName: "llamacpp", pinnedSkillNames: ["always-on-skill", "widget-helper"],
+    });
+    assert.equal(r.skillsPinned, true);
+    assert.deepEqual(r.skills.map(s => s.name), ["always-on-skill", "widget-helper"]);
+    assert.equal(r.skillPinNames, null, "and it must not write the pin the next real turn depends on");
+  });
+
+  test("a pinned name that has left the skill index drops the whole pin", () => {
+    const r = plan(pivotFlow, pivotText, {
+      providerName: "llamacpp",
+      pinnedSkillNames: ["widget-helper", "skill-deleted-since"],
+    });
+    assert.equal(r.skillsPinned, false, "a reloaded index re-resolves rather than replaying a stale name");
+    assert.ok(!r.skills.some(s => s.name === "skill-deleted-since"));
   });
 });

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "identity": "NON-RELEASE",
+  "assets": [
+    {
+      "id": "asset.preview.cover-mascot",
+      "source": "docs/assets/mascot/robot-aurora-1024.png",
+      "state": "standalone",
+      "necessity": "cover identity; nonessential to comprehension",
+      "provenance": "repository-approved-source",
+      "alternative": "informative alternative text in the preview",
+      "candidateEligible": false
+    },
+    {
+      "id": "asset.preview.guide-mascot",
+      "source": "docs/assets/mascot/head-64.webp",
+      "state": "standalone",
+      "necessity": "selective guide marker; decorative in context",
+      "provenance": "repository-approved-source",
+      "alternative": "empty alternative because adjacent guidance names the role",
+      "candidateEligible": false
+    },
+    {
+      "id": "asset.preview.settings-facsimile",
+      "source": "trash/plans/manual-visual-system-prototypes/assets/settings-screen.svg",
+      "state": "standalone",
+      "necessity": "demonstrates the approved facsimile treatment; no procedure depends on it",
+      "provenance": "approved-source-derived",
+      "alternative": "informative alternative text and numbered semantic key",
+      "candidateEligible": false
+    }
+  ],
+  "componentTreatment": {
+    "id": "asset.component.aperio-visual-system",
+    "state": "approved-integrated",
+    "semanticOwner": "manual.styles.visual-system",
+    "source": "manual/styles/visual-system.mjs",
+    "necessity": "canonical publication component treatment",
+    "rights": "repository-authored approved prototype sources, existing repository mascot assets, and repository-local prototype fonts; release rights lock remains incomplete",
+    "privacy": "no captured product or personal data",
+    "accessibility": "content complete without image, color, motion, hover, or network",
+    "roles": {
+      "nightReceiver": "cover and part opener",
+      "signalDesk": "ordinary interiors",
+      "fieldConsole": "checklists, matrices, and generated catalogs"
+    },
+    "approval": "prototype family approved at issue #395 comment 5279897079; corrected semantic Part I preview approved by the maintainer on 2026-08-13 for integration under #425",
+    "candidateEligible": true
+  }
+}

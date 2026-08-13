@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="$if(lang)$$lang$$else$en$endif$" data-system="$visual-system$">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="$description$">
+  <meta name="author" content="$for(author)$$author$$sep$, $endfor$">
+  <title>$title$ - $visual-system-label$ prototype</title>
+$for(css)$
+  <link rel="stylesheet" href="$css$">
+$endfor$
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <header class="prototype-banner">
+    <div><span class="prototype-badge">Standalone prototype</span><strong>$visual-system-label$</strong><span>Visual decision aid - not product documentation</span></div>
+    <nav aria-label="Prototype directions">
+      <a href="preview-signal-desk.html">Signal Desk</a>
+      <a href="preview-night-receiver.html">Night Receiver</a>
+      <a href="preview-field-console.html">Field Console</a>
+    </nav>
+  </header>
+  <main id="main-content">
+$body$
+  </main>
+</body>
+</html>
