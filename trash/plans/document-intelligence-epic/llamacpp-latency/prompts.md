@@ -1,14 +1,79 @@
 # Provenance harness prompts (T-G2.3/T-G2.4)
 
-Source: `document-intelligence-skill-harness.mjs`, `DOCINT_PHASE=provenance`. One
-opening prompt, then up to 6 escalating follow-ups sent only until the model
-produces an SQL-grounded answer with a narrated decimal total
-(`followUpSatisfied`) — so a clean run can end well before turn 6, and a
-struggling one uses all 7. Turn numbers below match the wall-time list quoted
-in the epic's run logs (`479034 / 320714 / 89484 / 326829 / 600005 / 4004 /
-4012 ms` for the 2026-08-13 T-L4.3 run).
+Source: `document-intelligence-skill-harness.mjs`, `DOCINT_PHASE=provenance`.
+Prompt text and tiers live in `provenance-ladder.mjs`, unit-tested by
+`provenance-ladder.test.mjs`. One opening prompt, then up to 6 escalating
+follow-ups sent only until the model produces an SQL-grounded answer with a
+narrated decimal total (`followUpSatisfied`) — so a clean run can end well
+before turn 6, and a struggling one uses all 7.
 
-## All prompts, in order
+## Two ladders — `DOCINT_PROVENANCE_LADDER=mechanism|natural`
+
+2026-08-13, developer critique while watching a live 3-model T-L4 run: the
+ladder below (now called **mechanism**) escalates from a semi-natural
+opening line to turns that dictate literal SQL syntax
+("`SELECT category, currency, SUM(amount) GROUP BY category, currency`") —
+not how a non-technical person talks to a personal memory assistant, at any
+rung, not just the openly-dictated ones (even the opening line's "save the
+results so I can **query** them again later" presupposes a DB mental model
+most users don't have). That escalation is deliberate — each rung only gets
+more explicit if the model hasn't complied yet, isolating "can't infer
+intent" from "can't execute the mechanism when told exactly how" — and it's
+exactly what surfaces real execution-mechanics bugs. But a pass earned only
+once the prompt has spelled out the SQL is a much weaker claim about
+real-world usefulness than a pass on an ask a normal person would actually
+say.
+
+Two ladders now exist side by side (`PROVENANCE_LADDERS` in
+`provenance-ladder.mjs`):
+
+- **`mechanism`** (default — unset `DOCINT_PROVENANCE_LADDER` behaves
+  exactly as before, so every historical T-L4 result stays comparable) — the
+  original escalation below, unchanged, for diagnosing execution-mechanics
+  defects.
+- **`natural`** — no "save/query/SUM/GROUP BY/SQL/database" vocabulary at
+  any rung. Escalates only in insistence ("I don't think I got numbers
+  yet"), never in technical specificity:
+  1. *(opening)* "Can you keep track of what I spent on documented bills and
+     receipts for June 2026, broken down by category, and tell me the
+     total?"
+  2. "What did I spend in each category, and altogether?"
+  3. "Please check the figures you kept earlier and give me the breakdown
+     and total."
+  4. "I don't think I got numbers yet — can you pull up what you saved and
+     tell me the breakdown and total?"
+  5. "Just check what's already saved and tell me the total — you don't
+     need to redo the math, just look it up."
+  6. "Please just tell me: what's the total, and how much per category,
+     based on what you already saved?"
+  7. "One more time — I just want the breakdown and total from what you
+     saved earlier, in plain words."
+
+Grading (`gradePhase()`'s provenance branch) now records, regardless of
+ladder: `successTurn` (the turn index that satisfied `followUpSatisfied`, or
+`null`), `successPromptTier` (`opening` / `named-mechanism` / `dictated-sql`
+on the mechanism ladder, always `natural` on the natural one), and
+`capabilityClaim` — `mechanism-conformance` when the successful turn was a
+`dictated-sql` rung, `realistic-usage` otherwise. **A mechanism-mode pass at
+escalation turn 3+ is mechanism-conformance, not realistic usage** — read
+`capabilityClaim` before trusting a `grading.status: "pass"` as evidence of
+real-world behavior. `provenanceLadder` (the ladder name) is also written to
+the run artifact for the record.
+
+Both ladders share the same mechanics grading (`insertedRealRows`,
+`dbQueryReturnedRealRows`, wall-clock ceilings, etc.) — only the prompt text
+and the tier/capability-claim metadata differ. A live model run against the
+natural ladder has not been done yet as of this writing — this redesign is
+statically/unit-test validated only (`node --test
+"trash/plans/document-intelligence-epic/llamacpp-latency/provenance-ladder.test.mjs"`
+plus a `--setup-only` dry run for both ladder values); a live run is a
+separate, deliberately deferred next step since it's expensive and stateful.
+
+## Mechanism ladder — all prompts, in order
+
+Turn numbers below match the wall-time list quoted in the epic's run logs
+(`479034 / 320714 / 89484 / 326829 / 600005 / 4004 / 4012 ms` for the
+2026-08-13 T-L4.3 run).
 
 - **Turn 0 (opening):** "Add up everything I spent on documented bills and
   receipts for June 2026, broken down by category. Save the results so I can

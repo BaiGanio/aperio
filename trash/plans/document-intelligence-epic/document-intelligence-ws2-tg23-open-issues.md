@@ -1,3 +1,263 @@
+## Methodology note, 2026-08-13 — provenance-harness prompts read as accountant-speak, not normal-user speech
+
+Raised by the developer while watching this session's live T-L4 runs
+(gemma4-E4B, gemma-4-26B-A4B, Ornith-1.0-9B) turn by turn. Short version:
+`prompts.md`'s scripted ladder for `DOCINT_PHASE=provenance` (T-G2.3) is not
+how a non-technical person talks to a personal memory assistant, at every
+rung — not just the openly-dictated SQL in turns 3-4, but turn 0's "save the
+results so I can **query** them again later" (presupposes a DB mental model
+most users don't have; a real ask names a spreadsheet or just says "keep
+track of") and turn 1's "(SUM grouped by category and currency)" (literal
+SQL pseudocode in parentheses — confirmed by the developer, who is
+technically literate, as "too much even for me").
+
+This is deliberate escalation-ladder design (each rung gets more explicit
+only if the model hasn't complied yet, to isolate "can't infer intent" from
+"can't execute the mechanism when told exactly how") and it's exactly what
+surfaced today's genuine execution-mechanics bugs — but it means a "pass" at
+turn 3-4 is a much weaker capability claim than a "pass" at turn 0-1, and
+today's `grading.status` doesn't distinguish them. **Every run write-up
+below from today onward states which turn a model succeeded or failed at,
+explicitly, for this reason** — not just the mechanical pass/fail.
+
+**Implemented and statically validated same day, per the developer's own
+redesign spec** — the tech-debt entry this originally spawned
+("provenance-harness prompt realism") is resolved and removed:
+`trash/plans/document-intelligence-epic/llamacpp-latency/provenance-ladder.mjs`
+now holds two ladders, selected via `DOCINT_PROVENANCE_LADDER=mechanism|
+natural` (default `mechanism`, so every historical T-L4 comparison stays
+valid): the original escalation (kept for diagnosing execution-mechanics
+defects) plus a new all-natural-language ladder (no "save/query/SUM/GROUP
+BY/SQL/database" vocabulary at any rung). Grading now records `successTurn`,
+`successPromptTier`, and `capabilityClaim` (`mechanism-conformance` vs.
+`realistic-usage`) so a "pass" no longer has to be manually re-derived from
+the transcript. 12 unit tests in `provenance-ladder.test.mjs` pass; both
+ladders were dry-run through `--setup-only` (fixture copy + index, no
+model/server) without error. **Not yet validated live against an actual
+model** — that's explicitly deferred (expensive, stateful); the natural
+ladder's real-world behavior on any target model is still an open question.
+
+**First live sample, 2026-08-13, gemma4-E4B, stopped early by the
+developer (turn 1 in progress, "there is no point at all"):**
+`DOCINT_PROVENANCE_LADDER=natural`, same command/ceilings as every other
+run this session. `HARNESS provenance ladder=natural` confirmed the
+selector worked. Turn 0 ("Can you keep track of what I spent... tell me the
+total?", wallMs=352,994) read documents once and answered — **no
+`db_execute` at all**, unlike every mechanism-ladder run, which always did
+at least a `CREATE TABLE` on turn 0 (that ladder's opening line explicitly
+says "save the results"). Turn 1 ("What did I spend in each category, and
+altogether?") triggered a second, redundant `doc_batch` re-read instead of
+reaching for persistence or querying, then continued generating for 5+
+minutes with no further tool call before being stopped. Schema fingerprint
+held flat at `33` (vs. mechanism's usual opening `38` — a smaller attached
+profile set, `file-edit` missing, since `classifyProfiles()` reads the
+prompt text itself and the natural prompt doesn't trigger it) across both
+turns, no swing observed in the two turns that ran.
+
+Too little data for a real verdict, but the one clear signal: **without an
+explicit "save"/"query" instruction, gemma4-E4B did not spontaneously reach
+for the persistence mechanism at all** — it re-read source material instead
+of saving or querying. Whether that's "the model correctly doesn't invent a
+DB when the user never asked for one" or "the model fails to recognize an
+implicit save/recall need" isn't resolved by this one truncated run. Left
+open rather than logged as tech debt — one aborted run isn't enough
+evidence either way; re-run to completion (or across more models) before
+drawing a conclusion.
+
+---
+
+## Cross-model T-L4 run, 2026-08-13 — E4B (stopped), gemma-4-26B-A4B (FAIL), Ornith-1.0-9B (FAIL, but closest to passing)
+
+**Command (all three, only `LLAMACPP_MODEL` varied):**
+```
+DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
+  LLAMACPP_MODEL=<model> \
+  APERIO_HARNESS_WALLCLOCK_TOTAL_MS=2400000 APERIO_HARNESS_WALLCLOCK_PERTURN_MS=550000 \
+  APERIO_LOG_CACHE_FINGERPRINT=on \
+  node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
+```
+Ceilings match T-L4.2/T-L4.3 for comparability. Run to validate two changes
+landed on `chore/docint-skill-correction-250-signed-by-claude-opus-5`: the
+three SKILL.md wording additions (`2f577594`, verify-before-second-save +
+strengthened per-row-INSERT bullet + query-own-schema-columns bullet) and
+`APERIO_TOOL_PIN_TURNS` default 3→8 (`294a9e56`). Read this section together
+with the methodology note above — turn 2 and earlier use natural-ish
+phrasing; turns 3+ dictate literal SQL and are a different, weaker kind of
+"pass" (none of today's runs reached turn 3+, so that distinction doesn't
+bite this time, but the finding stands for whoever reads a future run).
+
+### gemma4-E4B — stopped by the developer at turn 2, not graded
+
+Turn 0 (main prompt): `doc_batch` → `db_schema` (no `extraction` connection,
+expected cold) → `db_execute` `CREATE TABLE IF NOT EXISTS monthly_expenses`
+(confirmed), no INSERT. wallMs=460,559. Schema fingerprint held at `38`
+across both internal calls this turn.
+
+Turn 1 (follow-up 1, "query it per category"): ran a real `db_query`
+(`SELECT category, currency, SUM(normalized_amount) ... GROUP BY category,
+currency`) — correctly against the same `normalized_amount` column the
+turn-0 `CREATE TABLE` used (the Gotchas column-name-consistency guidance
+held here, for this one case). Table was still empty at this point (no
+INSERT had happened yet), so the query legitimately returned nothing
+substantive — this is the same "correct query, empty table" pattern as the
+2026-08-02 original run, not a new bug. wallMs=350,469. Schema fingerprint
+swung `38→40` right at the turn-0→1 boundary and held at `40` through this
+turn — no reversion, unlike T-L4.3's 38→40→38 oscillation (see cache-reuse
+note below).
+
+Turn 2 (follow-up 2, "finish saving them now... a single multi-row INSERT is
+fine"): **the model correctly attempted ONE multi-row `INSERT` each time —
+not 12 per-row confirms — but the statement was structurally malformed on
+all three attempts, and it never converged:**
+1. `params`: 65 flat values vs. a `VALUES (?,?,?,?,?,?,?)` clause expecting 7
+   — the SQL text had only one 7-placeholder tuple while `params` held ~9-10
+   rows flattened.
+2. Retry: `params` grew to 91 (added a `category` field, still 7 vs. one
+   tuple) — same shape of bug, more data, not fixed.
+3. Retry: `params` sent as a nested array of 13 seven-element tuples
+   (`[[...7 vals...], [...7 vals...], ...]`) — the driver reported "13 were
+   provided" against the still-unchanged single-tuple SQL, meaning the model
+   changed the params *shape* (flat→nested) without ever adding the missing
+   `VALUES (...), (...), ...` tuples to the SQL text itself.
+
+The developer stopped the run here (explicit instruction) before a 4th
+retry or a `grading.status` could be produced — **no formal pass/fail for
+this run.** This is a new, distinct gap from the three original SKILL.md-
+targeted gemma4 gaps (hallucination, per-row habit, wrong column name): the
+per-row-INSERT guidance visibly worked (it never fell back to one-confirm-
+per-row), but exposed a structural bug in matching a multi-row `VALUES`
+clause's placeholder count to a flattened `params` array — logged as new
+tech debt below.
+
+### gemma-4-26B-A4B — FAIL, never reached an INSERT
+
+Turn 0: same shape as E4B — `doc_batch` → `db_execute` `CREATE TABLE
+June_2026_Spending` (no `IF NOT EXISTS` guard, unlike E4B's and Ornith's
+turn 0), confirmed, no INSERT. wallMs=475,515 — comparable to E4B's 460,559.
+Schema fingerprint swung `38→40` at the same turn-0→1 boundary as every
+other run this session.
+
+Turn 1 (follow-up 1, "query it per category"): **hard-timed-out at
+600,047ms with zero tool calls and zero output tokens** — the model
+generated internally for the full 10-minute ceiling and produced nothing.
+This triggers the known "broken connection after hard timeout" cascade:
+turn 3 re-read a document (`doc_batch` on `waste-fee-22-jun.txt`, already
+read in turn 0) instead of progressing, and gained an unexplained `shell`
+tool profile mid-conversation (same anomaly flagged in the T-L4.2 writeup);
+turns 3–7 each completed in ~4,000ms with **0 input/output/thinking
+tokens** — completely empty round-trips, never recovering.
+
+`grading.status: "fail"`. `calledDbExecute: true` (the CREATE TABLE only),
+`insertedRealRows: false`, `dbQueryReturnedRealRows: false`,
+`withinPerTurnWallClockCeiling: false`, `noFxBlend: true` (no blend issue —
+it never got far enough to blend anything). Worse outcome than E4B's
+partial run: E4B at least attempted (if buggily) a real multi-row INSERT;
+26B-A4B never got past table creation before stalling into the timeout
+cascade. Cache fingerprint during the cascade oscillated `40→38→40` across
+consecutive fast empty turns — the instability the TOOL_PIN_TURNS mitigation
+targets is visibly still present once this failure mode kicks in, separate
+from the steady-state behavior seen before the timeout.
+
+### Ornith-1.0-9B — FAIL, but the closest any run got to a clean T-G2.3 pass
+
+Turn 0: `doc_batch` → `db_schema` (no connection, expected) → `db_execute`
+`CREATE TABLE IF NOT EXISTS june_2026_expenses` (uses the `IF NOT EXISTS`
+guard, like E4B). No INSERT. wallMs=416,746 — faster than both gemma runs.
+Schema fingerprint `38→40` at the same turn boundary as every other run.
+
+Turn 1 (follow-up 1, "query it per category"): the model recognized the
+table was still empty and **saved first instead of querying** — ran one
+genuine multi-row `INSERT INTO june_2026_expenses (...) VALUES (...), (...),
+...` covering all 13 rows in a single statement (`rowsAffected:13`,
+confirmed), with **no params/placeholder mismatch** — the exact bug E4B hit
+repeatedly on this same step did not occur here. No `db_query` this turn, so
+the turn's own raw answer was just the tool's confirm ack, not a narrated
+total — expected, since the prompt's ask ("query it") wasn't literally
+fulfilled this turn, but the model's implicit reasoning (save before you can
+query) was sound. wallMs=343,262.
+
+Turn 2 (follow-up 2, "finish saving them now... run the per-category SQL
+query"): ran a real `db_query`, got real non-empty rows back, and the final
+answer **narrates a markdown table built from the query result** — a
+genuine, provenance-backed answer:
+```
+| Currency | Category | Total |
+|----------|----------|-------|
+| BGN | Utilities | 260.50 |
+| BGN | Fuel | 215.60 |
+| BGN | Groceries | 140.75 |
+| BGN | Internet | 29.99 |
+| BGN | Transport | 50.00 |
+| EUR | Travel/Meals | 146.50 |
+| EUR | Transport | 49.90 |
+
+**Grand total: 893.24** (696.84 BGN + 196.40 EUR)
+```
+wallMs=54,935 (real `usage`: 47,764 input / 378 output / 148 thinking
+tokens) — the run finished here; `followUpSatisfied` stopped the escalation
+ladder at turn 2, never reaching turns 3+'s dictated-SQL phrasing. Per the
+methodology note above: **this is a turn-2 pass, on phrasing that names the
+mechanism but doesn't dictate literal SQL syntax** — a meaningfully stronger
+result than a turn-3+ pass would be.
+
+`grading.status: "fail"`, but 8 of 10 checks pass: `insertedRealRows`,
+`calledDbQueryAfterConfirm`, `dbQueryReturnedRealRows`, `followUpCitesSql`,
+`followUpNarratesDecimalTotal`, `completed`, both wallclock ceilings. The
+two real, deserved failures:
+1. **Undisclosed currency blend** — `**Grand total: 893.24** (696.84 BGN +
+   196.40 EUR)`, the exact pattern SKILL.md §6 exists to prevent. `noFxBlend`
+   correctly fails this.
+2. **EUR-travel-exclusion leak** — the fixture's explicitly-excluded Munich
+   train receipt (`train-berlin-munich-14-jun.txt`, 49.90 EUR) is counted as
+   legitimate spending, reported as `EUR | Transport | 49.90` in the table.
+   Smaller in scope than E4B's T-L4.3 reclassification of 2 of 3 excluded
+   receipts, but the same category of bug (an explicitly out-of-scope
+   document treated as in-scope spending).
+
+No hallucinated hashes, no invented categories, no per-row-INSERT habit, no
+column-name mismatch, no timeout — this run's actual mechanics were clean.
+The two failures are both about *scope/disclosure discipline* on an
+otherwise-correct provenance flow, not about the save/query mechanism
+itself.
+
+### Cache-reuse across all three models
+
+Every one of the three runs showed the **exact same shape**: tool-schema
+fingerprint count starts at `38`, swings to `40` right at the turn-0→turn-1
+boundary, and — in the two runs that reached a steady productive state
+(E4B through its turn 2 struggle, Ornith through completion) — **stays at
+`40` with no further reversion**, unlike T-L4.3's pre-fix 38→40→38
+oscillation across a 7-turn conversation. This is consistent with (not
+conclusive proof of) `APERIO_TOOL_PIN_TURNS=8` reducing how often the reset
+fires, since none of today's three runs completed enough natural turns to
+exceed an 8-turn pin window and force a second reset in the way T-L4.3 did.
+26B-A4B's post-timeout empty-turn cascade did show renewed `40→38→40`
+oscillation, but that's a different regime (rapid-fire ~4s turns after a
+hard-timeout-triggered breakdown), not the steady-state case the mitigation
+targets. **Not a full validation of the fix** — no run here exercised enough
+turns to test whether an 8-turn-later reset still occurs — but directionally
+consistent with the mitigation working as intended. Full detail logged in
+tech-debt.md.
+
+### Bottom line
+
+None of today's three runs produced a clean `grading.status: "pass"`.
+Ranked by how close each got to real T-G2.3 behavior: **Ornith-1.0-9B**
+completed the full save→query→narrate flow correctly and failed only on
+disclosure/scope discipline (turn 2, non-SQL-dictated phrasing) —
+genuinely the strongest result seen against this harness on any local model
+to date. **gemma4-E4B** showed the per-row-INSERT SKILL.md fix working
+behaviorally but hit a new structural INSERT-shape bug the developer chose
+to stop rather than let retry further — ungraded. **gemma-4-26B-A4B**
+regressed hardest: never reached an INSERT, and its turn-1 total silent
+non-response (zero tool calls, zero tokens, full 600s timeout) is a new
+failure mode not seen in prior E4B-only runs, worth flagging on its own —
+whether this is a 26B-A4B-specific issue (different chat template, different
+adapter routing) or a coincidence needs a repeat run to know, not attempted
+this session.
+
+---
+
 ## gemma4 run, 2026-08-13 T-L4.3 — cache-reuse root-caused; insertedRealRows grader bug found & fixed; three real gemma4 gaps found
 
 **Command:** same invocation as T-L4.2 below, plus `APERIO_LOG_CACHE_FINGERPRINT=on`

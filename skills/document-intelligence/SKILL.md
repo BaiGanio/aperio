@@ -200,6 +200,20 @@ second time to "retry" a proposal.
   statement. A mismatch is rejected when you propose it, with a count in the
   error; fix the array to match, don't work around the rejection by inlining
   the values into the SQL string.
+- **A multi-row `INSERT`'s `VALUES` clause needs one placeholder tuple per
+  row — `params` alone can't carry multiple rows through a single tuple.**
+  For N rows of a 7-column table: `VALUES (?,?,?,?,?,?,?), (?,?,?,?,?,?,?),
+  ...` repeated N times, comma-separated, with `params` as one flat array of
+  exactly N×7 values in the same row-then-column order as the tuples. If
+  `db_execute` rejects the proposal with an "expects X but Y were provided"
+  error on a multi-row insert, the fix is almost always to add more tuples to
+  the `VALUES` clause to match your row count — not to reshape `params`.
+  Recorded live: three straight retries on a 13-row save each changed
+  `params`'s shape (65 flat values → 91 flat values → a nested array of 13
+  seven-value tuples) while the SQL text kept exactly one 7-placeholder
+  tuple the whole time, so the mismatch never resolved. Count your rows,
+  write that many tuples, then build one flat `params` array of
+  rows × columns values — in that order, every time.
 - Automatic/repeated inserts for a recognized document shape are opt-in per
   template and still require the user's confirmation on each write; nothing
   here silently learns a template and writes without asking. See step 7.

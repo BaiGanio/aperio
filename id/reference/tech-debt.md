@@ -90,6 +90,20 @@ housekeeping go in `A2D.md`, not here.
   attempted this session — both are real design reversals to a heavily
   P2-reviewed shared module (`lib/agent/turn-planner.js`), decided against
   in favor of the lower-risk tunable change pending a live re-run.
+  **Directional live evidence, 2026-08-13 (not a full validation):** a
+  same-day 3-model re-run (gemma4-E4B, gemma-4-26B-A4B, Ornith-1.0-9B; see
+  "Cross-model T-L4 run" in the open-issues file) showed the identical
+  pattern in all three: fingerprint count starts at 38, swings to 40 once at
+  the turn-0→1 boundary, then **holds at 40 with no reversion** through
+  every steady-state productive turn — unlike T-L4.3's pre-fix 38→40→38
+  oscillation across 7 turns. None of the three runs reached enough natural
+  turns to exceed an 8-turn pin window and exercise a second reset, so this
+  does not prove the fix scales to longer conversations, but it is
+  consistent with fewer resets. Separately, once gemma-4-26B-A4B's turn-1
+  600s hard-timeout triggered its empty-turn cascade, the fingerprint
+  resumed oscillating (40→38→40 across consecutive ~4s turns) — a different
+  regime (post-timeout breakdown), not evidence against the mitigation in
+  its intended steady-state use.
 
 ---
 
@@ -142,11 +156,12 @@ bugs from the same run are fixed, not listed here — see
 `trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`).
 **SKILL.md wording landed for all three 2026-08-13** (verify-existing-state
 bullet + strengthened per-row-INSERT bullet + query-columns-from-own-schema
-bullet, `skills/document-intelligence/SKILL.md` §5 and Gotchas). None of the
-three is validated yet — that needs a fresh live gemma4 T-L4 run; keep this
-entry until that run passes T-G2.3 clean. The three likely interact (fixing
-the re-insert hallucination might also fix the per-row-INSERT habit if both
-stem from the model not trusting/checking its own prior state).
+bullet, `skills/document-intelligence/SKILL.md` §5 and Gotchas). **Re-run
+same day (see "Cross-model T-L4 run" in the open-issues file) — still not a
+clean T-G2.3 pass, but a partial re-validation on gemma4-E4B before the
+developer stopped that run at turn 2:** keep this entry until a run
+completes cleanly, but see per-bullet updates below — the picture is more
+nuanced than "unvalidated" now.
 
 - 2026-08-13 **Hallucinated re-insertion on a second save attempt.** Told
   (follow-up prompt: "if the rows aren't in the table yet, finish saving them
@@ -164,8 +179,13 @@ stem from the model not trusting/checking its own prior state).
   the fixture tests for. This is worse than a wasteful duplicate: it writes
   confabulated financial data into the user's real database as if genuine.
   SKILL.md §5 now tells the model to verify existing state via
-  `db_query`/`db_schema` before a second save attempt (landed 2026-08-13,
-  unvalidated).
+  `db_query`/`db_schema` before a second save attempt (landed 2026-08-13).
+  **Still unvalidated as of the same-day re-run**: that run's INSERT never
+  succeeded (see the params/VALUES-mismatch bullet below), so the model
+  never reached a *second* save attempt on already-populated data — the
+  specific scenario this bullet targets never got a chance to occur, pass or
+  fail. Needs a run where turn 2's INSERT actually lands before this can be
+  called validated either way.
 - 2026-08-13 **Per-row INSERT despite explicit multi-row guidance.** The same
   12-row batch above was issued as 12 separate single-row `db_execute`
   confirms, not the one multi-row `INSERT ... VALUES (...), (...), ...`
@@ -175,7 +195,22 @@ stem from the model not trusting/checking its own prior state).
   SKILL.md §5's bullet strengthened 2026-08-13 with the concrete cache-reprocess
   cost of an extra turn (known since the same T-L4.3 run's cache-reuse
   root-cause) as the "why," and an explicit "prompt permission is not license
-  to still do it per row" line — unvalidated.
+  to still do it per row" line. **Partially validated by the same-day
+  re-run, in a genuinely useful way**: on the exact same follow-up prompt
+  ("finish saving them now... a single multi-row INSERT is fine"), gemma4-E4B
+  correctly attempted **one** multi-row `INSERT` on all 3 retries — never
+  fell back to per-row confirms. But the statement itself was structurally
+  broken every time: a `VALUES (?,?,?,?,?,?,?)` clause with only one
+  7-placeholder tuple, while `params` held all rows flattened (65, then 91,
+  then a nested array of 13 seven-element tuples) — the model kept changing
+  the *params* shape without ever adding the missing `VALUES (...), (...),
+  ...` tuples to the *SQL text*. So the per-row habit this bullet targets
+  does look fixed; it just uncovered a different, new structural bug in
+  building a matching multi-row `VALUES`/`params` pair. New tech debt, not
+  covered by any existing SKILL.md wording — needs its own guidance (or a
+  worked example) on keeping tuple count in the SQL text and the flattened
+  params array in sync. Run was stopped by the developer mid-3rd-retry, so
+  it's unknown whether a 4th attempt would have self-corrected.
 - 2026-08-13 **Wrong column name in the model's own follow-up query.** Turn 4
   ran `SELECT ... SUM(amount) ... FROM spending_june_2026`, but the model's
   own `CREATE TABLE` (confirmed two turns earlier, and re-confirmed via its
@@ -185,9 +220,59 @@ stem from the model not trusting/checking its own prior state).
   empty answers — the same "broken connection after hard timeout" pattern
   documented from earlier runs. SKILL.md Gotchas now tells the model to
   re-read its own `db_schema` result's exact column names into the query
-  rather than retyping from recall (landed 2026-08-13, unvalidated); a
-  same-turn retry on a `no such column` error in the harness/agent loop is
-  still not attempted.
+  rather than retyping from recall (landed 2026-08-13). **Consistent with
+  the fix on the one case the same-day re-run exercised**: gemma4-E4B's
+  turn-1 `db_query` used `SUM(normalized_amount)`, matching the exact column
+  name from its own turn-0 `CREATE TABLE` — no mismatch this run. One data
+  point only, and not the scenario the original bug hit (that was a later
+  turn, after a `db_schema` re-confirm and a hard-timeout retry), so this
+  stays open rather than closing, but it's a genuine positive signal, not
+  silence.
+- 2026-08-13 **New: multi-row `INSERT` structural mismatch (gemma4-E4B),
+  found on the same-day re-run.** See the per-row-INSERT bullet above for
+  the full detail — logged here as its own line since it's a distinct root
+  cause (SQL-text/params-shape sync, not a per-row-vs-multi-row habit).
+  **SKILL.md worked example landed same day** (§5, after the
+  `params`-must-match-placeholder-count bullet): explains one `VALUES`
+  tuple per row, one flat `params` array of rows×columns, and states the
+  fix directly ("add tuples to `VALUES`, don't reshape `params`") against
+  the exact three-retry failure sequence from this run. **Unvalidated —
+  needs a live re-run reaching this same turn** before this line can be
+  removed.
+- 2026-08-13 **New: gemma-4-26B-A4B total non-engagement on turn 1** (a
+  different, larger model than the gemma4-E4B this section is otherwise
+  about — logged here since it's the same propose→confirm write flow).
+  Turn 0 completed normally (`CREATE TABLE`, no `IF NOT EXISTS` guard,
+  confirmed). Turn 1 (the same "query it per category" follow-up gemma4-E4B
+  answered normally) instead ran the full 600,047ms per-turn hard timeout
+  with **zero tool calls and zero output/thinking tokens** — no partial
+  answer, no attempted tool call, nothing. Triggered the known
+  "broken-connection-after-hard-timeout" cascade for the rest of the run
+  (empty ~4s turns, one stray re-read of an already-read document, an
+  unexplained `shell` tool-profile addition). Not seen on any gemma4-E4B run
+  to date. Unknown whether this is 26B-A4B-specific (different chat
+  template/adapter routing — this build uses `adapter="gemma"` same as E4B,
+  so the difference is more likely something about the larger model's own
+  behavior on this prompt) or a one-off fluke; needs a repeat run before
+  concluding either way. Not investigated further this session.
+- 2026-08-13 **New: Ornith-1.0-9B — clean save→query→narrate mechanics, but
+  an undisclosed currency blend and an excluded-document leak** (a different
+  model family from gemma4, logged here for the same reason as 26B-A4B
+  above). This run is the closest any local model has gotten to a clean
+  T-G2.3 pass: a genuine single multi-row `INSERT` (13 rows, no
+  params/VALUES mismatch — the exact bug gemma4-E4B hit), a real `db_query`
+  returning real rows, and a final answer that correctly narrates a table
+  built from the query result. Two real, deserved failures on top of that
+  clean mechanism: (1) an undisclosed blended total, `**Grand total:
+  893.24** (696.84 BGN + 196.40 EUR)` — the exact pattern SKILL.md §6 exists
+  to prevent; (2) the fixture's explicitly-excluded Munich train receipt
+  (49.90 EUR) counted as legitimate spending (`EUR | Transport | 49.90`) —
+  smaller in scope than gemma4-E4B's T-L4.3 reclassification of 2 of 3
+  excluded receipts, but the same category of bug. Neither of these is one
+  of the three original gemma4-targeted SKILL.md gaps; both are about
+  scope/disclosure discipline on an otherwise-working provenance flow, and
+  apply to §6 (no-blend) and the exclusion-handling guidance rather than §5
+  (save/insert mechanics). Not fixed this session.
 
 ---
 

@@ -53,6 +53,7 @@ import {
   evaluateAnswer,
   parseCategoryClaims,
 } from "../../../../tests/fixtures/household-gen/harness-gate.mjs";
+import { resolveLadder, computeProvenanceSuccess } from "./provenance-ladder.mjs";
 
 const HOUSEHOLD = process.env.HOUSEHOLD_ROOT ?? "/Users/lk/Projects/household";
 const ORACLE_PATH = resolve(process.env.ORACLE_PATH ?? "tests/fixtures/household-gen/ground-truth.json");
@@ -102,6 +103,16 @@ const EVALUATION_MODEL = process.env.DOCINT_EVALUATION_MODEL
     : EVALUATION_PROVIDER === "llamacpp" ? process.env.LLAMACPP_MODEL
     : "deepseek-v4-flash");
 const PROVENANCE_FOLLOW_UP_CAP = 8;
+// DOCINT_PROVENANCE_LADDER=mechanism|natural (default mechanism — so any run
+// without this set stays comparable to every historical T-L4 result). See
+// provenance-ladder.mjs for the full rationale: "mechanism" is the original
+// escalating-to-literal-SQL ladder, kept for diagnosing execution-mechanics
+// defects; "natural" is a parallel ladder that never uses SQL/database
+// vocabulary at any rung, for measuring realistic-usage behavior instead.
+// Resolved eagerly (before any expensive setup) so a typo'd value fails
+// loudly at start-up, not silently mid-run.
+const { name: PROVENANCE_LADDER_NAME, entries: PROVENANCE_LADDER_ENTRIES } =
+  resolveLadder(process.env.DOCINT_PROVENANCE_LADDER);
 
 const PHASE_PROMPTS = {
   // T-G2.1 bare-routing. Anchored to June 2026 (not "last month") because the
@@ -110,12 +121,13 @@ const PHASE_PROMPTS = {
   routing: ["How much did I pay for utilities in June 2026?"],
   // T-G2.2 convergence-and-coverage against the oversized nine-period corpus.
   coverage: ["What did I spend on utilities across all of 2026? Tell me what you found and what you couldn't cover."],
-  // T-G2.3/T-G2.4: full month, explicitly asked to be saved/queryable so the
-  // skill has a reason to reach for db_execute/db_query instead of reporting a
-  // one-shot figure.
-  provenance: [
-    "Add up everything I spent on documented bills and receipts for June 2026, broken down by category. Save the results so I can query them again later, and give me the total.",
-  ],
+  // T-G2.3/T-G2.4: full month, explicitly asked to be saved/queryable (or, on
+  // the natural ladder, just "kept track of") so the skill has a reason to
+  // reach for db_execute/db_query instead of reporting a one-shot figure.
+  // Only the ladder's opening rung lives here — the rest is consumed
+  // directly from PROVENANCE_LADDER_ENTRIES in runModelPhase, where the tier
+  // metadata is needed for grading.
+  provenance: [PROVENANCE_LADDER_ENTRIES[0].text],
 };
 
 let scratch = null;
@@ -371,6 +383,7 @@ async function writeArtifact(extra = {}) {
     timeoutMs: TIMEOUT_MS,
     generatedAt: new Date().toISOString(),
     prompts: PHASE_PROMPTS[PHASE],
+    ...(PHASE === "provenance" ? { provenanceLadder: PROVENANCE_LADDER_NAME } : {}),
     results,
     ...extra,
   }, null, 2)}\n`);
@@ -499,17 +512,14 @@ async function runModelPhase({ primary, secondary, dbPath }) {
   await writeArtifact();
 
   if (PHASE === "provenance") {
+    console.error(`HARNESS provenance ladder=${PROVENANCE_LADDER_NAME}`);
     // Capped, condition-driven follow-up loop (see runPromptSequence) — a
     // fixed 2-turn budget observed the model finish the confirmed write and
     // then run out of turns before narrating the SQL-derived total back.
-    const followUpPrompts = [
-      "Now give me the category breakdown and the grand total you just saved — query it per category (SUM grouped by category and currency), not from your own arithmetic.",
-      "If the rows aren't in the table yet, finish saving them now (a single multi-row INSERT is fine — it's still one statement), then run the per-category SQL query and give me the breakdown and total.",
-      "The rows should be saved by now — run SELECT category, currency, SUM(amount) GROUP BY category, currency against the extraction table now and give me the resulting breakdown and total.",
-      "Run the per-category SQL query against the extraction table now and state the breakdown and total it returns, in your own words.",
-      "You already ran that query earlier in this conversation — just restate its breakdown and total in your own words now, without calling any more tools.",
-      "Answer now, in plain prose: what is the category breakdown and grand total from the extraction table you already queried?",
-    ];
+    // Follow-ups come from the resolved ladder (mechanism or natural, see
+    // DOCINT_PROVENANCE_LADDER above) — index 0 is the opening turn already
+    // in PHASE_PROMPTS.provenance, so the follow-up list starts at index 1.
+    const followUpPrompts = PROVENANCE_LADDER_ENTRIES.slice(1).map(entry => entry.text);
     const followUpSatisfied = turns => {
       const last = turns.at(-1);
       if (!last || last.status !== "completed" || !last.toolSequence.includes("db_query")) return false;
@@ -648,6 +658,28 @@ function gradePhase() {
     checks.dbQueryReturnedRealRows = dbQueryReturnedRows(followUpTurn?.toolCalls);
     checks.followUpCitesSql = checks.dbQueryReturnedRealRows && /sql|query|db_query/i.test(followUpTurn?.answerRaw ?? "");
     checks.followUpNarratesDecimalTotal = checks.dbQueryReturnedRealRows && hasNarratedDecimalTotal(followUpTurn?.answerRaw);
+    // Which turn actually satisfied the escalation loop (mirrors
+    // followUpSatisfied's own stop condition — see provenance-ladder.mjs)
+    // and what tier of prompt got it there. A pass earned only once the
+    // ladder reached a "dictated-sql" rung is a much weaker claim than one
+    // earned on an early or natural-language rung; grading.status alone
+    // doesn't distinguish them, so this is recorded explicitly rather than
+    // left for a human to re-derive from the transcript every time.
+    const provenanceSuccess = computeProvenanceSuccess({
+      results,
+      ladderEntries: PROVENANCE_LADDER_ENTRIES,
+      dbQueryReturnedRows,
+      hasNarratedDecimalTotal,
+    });
+    checks.provenanceLadder = PROVENANCE_LADDER_NAME;
+    checks.successTurn = provenanceSuccess.successTurn;
+    checks.successPromptTier = provenanceSuccess.successPromptTier;
+    checks.capabilityClaim = provenanceSuccess.capabilityClaim;
+    if (checks.capabilityClaim === "mechanism-conformance") {
+      console.error(`HARNESS provenance success turn=${checks.successTurn} tier=${checks.successPromptTier} — mechanism-conformance, not realistic-usage`);
+    } else if (checks.capabilityClaim === "realistic-usage") {
+      console.error(`HARNESS provenance success turn=${checks.successTurn} tier=${checks.successPromptTier} — realistic-usage`);
+    }
     checks.completed = results.every(r => r.status === "completed");
     const totalWallMs = results.reduce((sum, r) => sum + r.wallMs, 0);
     const maxTurnWallMs = Math.max(...results.map(r => r.wallMs));
