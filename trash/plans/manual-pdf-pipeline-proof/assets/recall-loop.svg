@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" role="img" aria-labelledby="title description">
+  <title id="title">Aperio recall loop</title>
+  <desc id="description">Four connected stages show an agent storing a memory, Aperio indexing it, a later question, and Aperio returning the memory.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#52606d"/>
+    </marker>
+  </defs>
+  <rect width="960" height="260" rx="22" fill="#fbfaf6"/>
+  <g fill="none" stroke="#52606d" stroke-width="4" marker-end="url(#arrow)">
+    <path d="M205 130 H280"/>
+    <path d="M445 130 H520"/>
+    <path d="M685 130 H760"/>
+  </g>
+  <g font-family="DejaVu Sans, Arial, sans-serif" text-anchor="middle">
+    <g>
+      <rect x="35" y="65" width="170" height="130" rx="18" fill="#e6f3f5" stroke="#087e8b" stroke-width="4"/>
+      <text x="120" y="113" fill="#14213d" font-size="25" font-weight="700">1 · Store</text>
+      <text x="120" y="151" fill="#52606d" font-size="19">Agent sends a</text>
+      <text x="120" y="177" fill="#52606d" font-size="19">durable memory</text>
+    </g>
+    <g>
+      <rect x="280" y="65" width="165" height="130" rx="18" fill="#fff1e6" stroke="#c86316" stroke-width="4"/>
+      <text x="362" y="113" fill="#14213d" font-size="25" font-weight="700">2 · Index</text>
+      <text x="362" y="151" fill="#52606d" font-size="19">Aperio makes it</text>
+      <text x="362" y="177" fill="#52606d" font-size="19">retrievable</text>
+    </g>
+    <g>
+      <rect x="520" y="65" width="165" height="130" rx="18" fill="#e6f3f5" stroke="#087e8b" stroke-width="4"/>
+      <text x="602" y="113" fill="#14213d" font-size="25" font-weight="700">3 · Ask</text>
+      <text x="602" y="151" fill="#52606d" font-size="19">A later session</text>
+      <text x="602" y="177" fill="#52606d" font-size="19">needs context</text>
+    </g>
+    <g>
+      <rect x="760" y="65" width="165" height="130" rx="18" fill="#fff1e6" stroke="#c86316" stroke-width="4"/>
+      <text x="842" y="113" fill="#14213d" font-size="25" font-weight="700">4 · Recall</text>
+      <text x="842" y="151" fill="#52606d" font-size="19">Aperio returns</text>
+      <text x="842" y="177" fill="#52606d" font-size="19">the memory</text>
+    </g>
+  </g>
+</svg>
