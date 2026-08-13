@@ -47,12 +47,12 @@ flowchart LR
   T_TERMINAL --> T_SPEC
   T_SPEC --> DEST
 
-  click T_CONSENT "tickets/cloud-context-consent.md"
-  click T_PROFILE "tickets/profile-snapshots-and-freshness.md"
-  click T_RUNTIME "tickets/greeting-runtime-orchestration.md"
-  click T_WEB "tickets/web-profile-editor.md"
-  click T_TERMINAL "tickets/terminal-profile-editor.md"
-  click T_SPEC "tickets/specification-synthesis.md"
+  click T_CONSENT "tickets/w1.1-cloud-context-consent.md"
+  click T_PROFILE "tickets/w1.2-profile-snapshots-and-freshness.md"
+  click T_RUNTIME "tickets/w2.1-greeting-runtime-orchestration.md"
+  click T_WEB "tickets/w2.2-web-profile-editor.md"
+  click T_TERMINAL "tickets/w2.3-terminal-profile-editor.md"
+  click T_SPEC "tickets/w3.1-specification-synthesis.md"
 
   classDef frontier fill:#dff4df,stroke:#287a28,color:#173817;
   classDef blocked fill:#f1eee6,stroke:#8b8068,color:#3d382e;
@@ -62,8 +62,8 @@ flowchart LR
 
 ## Frontier
 
-- [[W1.1] Decide the cloud-context consent contract](tickets/cloud-context-consent.md)
-- [[W1.2] Specify ordered snapshot storage and freshness](tickets/profile-snapshots-and-freshness.md)
+- [[W1.1] Decide the cloud-context consent contract](tickets/w1.1-cloud-context-consent.md)
+- [[W1.2] Specify ordered snapshot storage and freshness](tickets/w1.2-profile-snapshots-and-freshness.md)
 
 ## Decisions so far
 
