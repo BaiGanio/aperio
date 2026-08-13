@@ -9,6 +9,57 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ## Unreleased
 
+### Fixed
+
+- **Multi-minute llama.cpp turns caused by the skill block moving between
+  turns.** Matched skills were attached to the request's newest message, on the
+  reasoning that the newest message is never a cache hit anyway. That holds
+  within a turn and fails across turns: this turn's newest message is the next
+  turn's cached prefix, so stripping the skill body back off it rewrote the
+  array at the first user message and forced a reprocess of everything after
+  it. A 22,937-byte skill moved this way capped KV reuse at the system prompt
+  and cost 250-300 seconds of prefill on affected turns. Skills now live in the
+  system prompt, and a flow's resolved block is pinned for the sticky window so
+  it stays byte-identical turn to turn. Measured on a document-intelligence
+  run: the turn 0→1 boundary went from 33,836 reprocessed tokens (306 s) to 845
+  (11.8 s), and three consecutive full runs now show every turn boundary as a
+  pure append with the prompt prefix intact. llama.cpp only; other providers
+  keep per-turn matching unchanged.
+
+- **The message-count cap cut the cached prefix on every tool hop.** The
+  `maxHistory` bound deletes from the front of the array — exactly the cached
+  prefix — and fired the moment the array passed the limit. A tool-using turn
+  grows by two messages per hop, so the cap took two back off on every hop and
+  the conversation was re-read each time, while token pressure sat far below
+  the trim threshold. Measured at 24,494 tokens (233 s) reprocessed on one hop
+  and 25,122 (240 s) on the next: 473 seconds of a single turn spent re-reading
+  content nothing had asked to drop. The cap now has hysteresis — the array
+  runs to `maxHistory + slack` and is cut back in one bite — so cuts are rare
+  and amortized instead of paid per hop. The bound itself is unchanged, and
+  token-pressure trimming (the actual context guard) is untouched.
+
+- **A matched skill now survives its own follow-up turns.** Skill keywords
+  describe how a user opens a topic ("how much did I spend on utilities"), not
+  how they follow it up ("finish saving them now"), and matching runs on the
+  current message alone — so a multi-turn workflow lost its own instructions
+  after the first turn, and a generic process skill could take its place. The
+  most recent matched skills (at most two, most-recent-first) are now carried
+  for `APERIO_SKILL_PIN_TURNS` follow-up turns while the flow keeps calling
+  tools, ranked after whatever the current turn matches on its own. Ordinary
+  chat after a tool-using turn still drops them, so skills do not bleed across
+  unrelated topics. Set `APERIO_SKILL_PIN_TURNS=0` to restore per-turn
+  matching.
+
+- **Multi-minute llama.cpp turns after a document read.** When preflight
+  auto-ran a document lookup for a turn, those tools' schemas were withheld
+  from that same request — and because llama.cpp renders the tool block at the
+  front of the prompt, removing them invalidated the whole cached prefix and
+  forced a full reprocess of the conversation. Measured at 262 seconds of
+  prefill on a single turn of a real document-intelligence run, enough to blow
+  a 10-minute per-turn ceiling on its own. The tool array is now left stable on
+  llama.cpp; at worst the model re-requests a document read it already has,
+  which is served from the dedup cache.
+
 ### Documentation
 
 - Updated all 25 non-English landing-page locales to describe Aperio's built-in

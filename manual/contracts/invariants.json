@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "precedence": ["release-identity", "executable-authority", "release-evidence", "generated-projection", "maintainer-explanation", "mutable-summary"],
+  "invariants": {
+    "oneSemanticTree": true,
+    "oneNormalizedFactDataset": true,
+    "oneBuildEntryPoint": "npm run manual:build",
+    "twoImmutablePins": true,
+    "releasePapers": ["a4", "letter"],
+    "previewMarker": "NON-RELEASE",
+    "previewMayPublish": false,
+    "generatedMayBeHandEdited": false,
+    "publicationRequiresSeparateHumanAction": true
+  }
+}

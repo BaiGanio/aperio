@@ -59,22 +59,56 @@ const CURRENCY_TAG = /\b(?:BGN|EUR|USD|GBP)\b|лв\.?|€|(?<![A-Za-z])\$|£/gi;
 // rather than a refusal.
 const NON_BLEND_DISCLOSURE = /not combin|not merging|kept separate|haven'?t (?:been asked|converted)|without (?:an?|)\s*(?:fx|exchange|conversion)|no (?:fx|exchange|conversion)|no single (?:grand )?total|no (?:combined|blended|merged) total/i;
 
+// Markdown emphasis, brackets and whitespace may sit between a figure and its
+// own currency tag ("**912.44** BGN", "196.40 EUR**"); letters and digits may
+// not, so "893.24 across BGN and EUR" never counts as tagged.
+const PAIR_GAP = "[\\s*_`~()\\[\\]]*";
+const CURRENCY_SRC = "(?:\\b(?:BGN|EUR|USD|GBP)\\b|лв\\.?|€|\\$|£)";
+
+/**
+ * Money tokens on a line that carry no currency tag of their own — the figures
+ * a reader cannot assign to one currency. "912.44 BGN + 196.40 EUR" has none;
+ * "893.24 (696.84 BGN + 196.40 EUR)" has one, and it is the blended figure.
+ */
+function untaggedMoneyTokens(line) {
+  const before = new RegExp(`${CURRENCY_SRC}${PAIR_GAP}$`, "i");
+  const after = new RegExp(`^${PAIR_GAP}${CURRENCY_SRC}`, "i");
+  return [...String(line).matchAll(MONEY)].filter(match => {
+    const start = match.index;
+    const end = start + match[0].length;
+    return !after.test(line.slice(end)) && !before.test(line.slice(0, start));
+  });
+}
+
 /**
  * A total-cue line that tags two or more distinct currencies is either an
- * honest refusal to blend them (allowed) or an undisclosed single figure
- * computed by adding amounts across currencies — exactly the "893.24 (696.84
- * BGN + 196.40 EUR)" pattern a hero-model run produced while a *separate*,
- * correct BGN-only total line also existed elsewhere in the same answer. A
- * permissive "does any total line match?" check credits the correct line and
- * never notices the extra, wrong one — this is the one place that must be
- * exclusive: any offending line fails the gate regardless of what else it says.
+ * honest per-currency report (allowed) or an undisclosed single figure computed
+ * by adding amounts across currencies — exactly the "893.24 (696.84 BGN +
+ * 196.40 EUR)" pattern a hero-model run produced while a *separate*, correct
+ * BGN-only total line also existed elsewhere in the same answer. A permissive
+ * "does any total line match?" check credits the correct line and never notices
+ * the extra, wrong one — this is the one place that must be exclusive: any
+ * offending line fails the gate regardless of what else it says.
+ *
+ * 2026-08-13: naming two currencies was the whole test, which made every
+ * per-currency total a failure. Round 11 failed
+ * `"**Overall Combined Total:** **912.44 BGN + 196.40 EUR**"` — two figures,
+ * one per currency, with "(Note: No FX conversion was applied…)" on the very
+ * next line — because the rule saw two currency tags and stopped looking. A
+ * blend is a *figure* that spans currencies, not a line that mentions two, so
+ * the line only fails when some figure on it carries no currency of its own.
+ * Blending stays a failure even when disclosed one line later: the wrong number
+ * is still stated. The same-line NON_BLEND_DISCLOSURE escape is kept for prose
+ * that names currencies without tagging a figure at all ("no single grand
+ * total; the totals are provided per currency").
  */
 function currencyBlendedTotalLines(text) {
   return text.split(/\r?\n/).filter(line => {
     if (!TOTAL_CUES.some(cue => cue.test(line))) return false;
     if (NON_BLEND_DISCLOSURE.test(line)) return false;
     const distinctCurrencies = new Set([...line.matchAll(CURRENCY_TAG)].map(m => m[0].toUpperCase().replace("ЛВ.", "BGN").replace("ЛВ", "BGN")));
-    return distinctCurrencies.size >= 2;
+    if (distinctCurrencies.size < 2) return false;
+    return untaggedMoneyTokens(line).length > 0;
   });
 }
 

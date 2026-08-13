@@ -1,3 +1,424 @@
+## gemma4-E4B, 2026-08-13 rounds 9-11 — infrastructure SETTLED across three runs; gate stays FAIL on model behaviour
+
+Logs in the session scratchpad (`round9.log`, `round10.log`, `round11.log`). Same command
+every time. **Rounds 10 and 11 changed no code relative to each other — they are pure
+sampling variance.** The headline: after round 9's grader fix the gate stopped measuring the
+harness and started measuring the model, and the model is inconsistent.
+
+| | round 9 | round 10 | round 11 |
+|---|---|---|---|
+| verdict | fail → **16/16 under the current grader** | fail | fail |
+| cause | `followUpCitesSql` (grader defect) | real FX blend (893.24) | real double-count (Fuel 431.20) |
+| cache boundaries | 6/6 pure append | 8/8 pure append | 9/9 pure append |
+| total wall ms | 583,345 | 980,973 | 1,033,743 (ceiling 2,400,000) |
+| max turn ms | 421,202 | 475,164 | 461,580 (ceiling 550,000) |
+| success turn / tier | 2 / named-mechanism | 3 / dictated-sql | 3 / dictated-sql |
+
+**The infrastructure is done, and this is now three-run evidence rather than one.** Every
+boundary of every run is `pure append -- prefix intact`, `sysHash` constant within each run
+(`dcaf35fe299b`, `0913c0…`, `483147…`), `toolsHash=0ef511af95bc` in all three, and both
+wall-clock ceilings passed nine times out of nine turns-under-ceiling. Round 8's single-run
+result was not a fluke. The req=1→2 "divergence" msgdiff reports in each run is the
+bootstrap warm-up (`noTools=1`, no skills, 21,578 B) handing off to the first real request
+(46,134 B) — flow start, not churn.
+
+**Round 9 — grader defect #2, fixed.** 15 of 16 checks passed; the only failure was
+`followUpCitesSql`, then `/sql|query|db_query/i` against the answer text. The model wrote
+*"the final grand total, pulled directly from the `spending_summary` database"* — naming the
+exact table it had CREATEd, INSERTed into and SELECTed from — and scored false for never
+uttering "sql" or "query". Same defect shape as round 8's markdown bug, one round later.
+Fixed as `citesQueryProvenance` in `grading-predicates.mjs`, widened to accept
+`database`/`table`, with `saved`/`stored`/`recorded` deliberately excluded (they describe the
+write, not the read). Safe because the predicate is only consumed ANDed with
+`dbQueryReturnedRows` for the same turn, so a real non-empty query is already proven before
+the lexical test runs. **Round 9's transcript scores 16/16 under the current predicate set.**
+
+**Round 10 — the grader was clean and the model blended currencies.** `followUpCitesSql` came
+back **true** on genuinely fresh prose (different table name — `spending_aggregation` — and a
+fenced SQL block, nothing like the string the predicate was written from), which is why the
+re-run was worth doing instead of accepting the re-grade. The sole failure was real:
+
+> "This query resulted in 6 distinct groups, summing to a grand total of **893.24** across BGN and EUR."
+
+696.84 + 196.40 = 893.24. Lev added to Euro. Exactly what `fullMonthGate` exists to catch,
+correctly caught. No predicate change warranted.
+
+**Round 11 — a real arithmetic error, plus confirmation of the `fullMonthGate` over-trigger.**
+Fuel was attributed **431.20** against a ground truth of **215.60** — precisely double, one of
+the two June fuel receipts counted twice — carrying into a grand total of **912.44** instead
+of 696.84 (the difference is exactly 215.60). That is a genuine extraction defect.
+
+Independently, the same run confirmed the over-trigger this file had listed as suspected. The
+gate failed `"**Overall Combined Total:** **912.44 BGN + 196.40 EUR**"` for combining
+currencies "without disclosing that it isn't converting", while the very next line of the same
+answer read *"(Note: No FX conversion was applied, as per the core principles of the
+`document-intelligence` skill.)"* The disclosure was present and adjacent. Now observed, not
+hypothetical; logged in `id/reference/tech-debt.md`. It did not change round 11's verdict.
+
+**A retired premise is no longer true.** "SKILL.md wording is settled — five rounds were spent
+editing a document that was not in context on the turn it targeted" was correct under the old
+architecture, where the skill block lived in a relocating tail message. It is false now: the
+block sits in the cached system prompt and is pinned for the flow, `skills=[document-intelligence]`
+is logged on every turn, and round 11's model **cited the skill by name** in its answer. Whether
+an explicit never-sum-across-currencies instruction now helps is an open, and newly testable,
+question.
+
+**Where this leaves T-G2.3.** Not closeable. One clean result in three, with two distinct
+failure modes (currency blending, arithmetic double-counting). The remaining question is no
+longer "is the harness right?" but "is gemma4-E4B good enough?", which wants a measured pass
+rate over more runs, not another fix.
+
+---
+
+## gemma4-E4B run, 2026-08-13 round 8 — BOTH KV fixes verified live, both wall-clock ceilings met; gate still FAIL, on a grader defect
+
+`/tmp/round8.log`, server log in the scratch runtime. Same command as runs B/C. **The
+latency work is done: every boundary of the flow is `pure append, prefix intact`, and this
+is the first run in the epic to satisfy both wall-clock ceilings.** The gate still reports
+`fail`, but the failing checks are downstream of a harness bug, not of model behaviour —
+see "The grader graded the wrong turn" below.
+
+**Cache: 13 requests, zero divergences.** `sysHash=dddde885d694` and `toolsHash=0ef511af95bc`
+identical on every request from req=2 to req=13. `msgdiff`:
+
+```
+req=3   msgs=8    pure append   req=8   msgs=26   pure append   <- run B DIVERGED here
+req=4   msgs=12   pure append   req=9   msgs=28   pure append
+req=5   msgs=14   pure append   req=10  msgs=30   pure append
+req=6   msgs=16   pure append   req=11  msgs=32   pure append
+req=7   msgs=18   pure append   req=12  msgs=34   pure append
+                                req=13  msgs=36   pure append
+```
+
+The `maxHistory` fix is what req=8 proves. At the identical point of the identical flow, run B
+read `msgs=20 bytes=121018 DIVERGES at index 2 (prefix kept: 2 msgs / 46333 bytes)` and then
+diverged again on each of the next two hops, at 233 s + 240 s. Here the array runs 20 → 26 →
+36 untouched. **Caveat on what that verifies:** the run peaked at 36 messages and never reached
+the new 41-message threshold, so this confirms *the cap no longer fires early*; the single
+amortized cut it is supposed to make at 41 was never exercised and remains unobserved live.
+
+**Wall clock — the gate's own latency checks, both true for the first time**
+(`withinTotalWallClockCeiling: true`, `withinPerTurnWallClockCeiling: true`):
+
+| turn | round 8 | run B | tools |
+|---|---|---|---|
+| 0 | 464,168 | 633,324 | `doc_batch`, `db_connections`, `db_execute` (CREATE, approved) |
+| 1 | 46,229 | 60,289 | `db_query` ×2 |
+| 2 | 199,365 | 26,620 | `db_execute` (INSERT, approved) |
+| 3 | 445,302 | 532,867 | `doc_batch`, `db_query` |
+| 4 | 57,495 | — | `db_query` |
+| 5 | 57,648 | — | — |
+| 6 | 31,276 | — | — |
+
+Total 1,301,483 ms of a 2,400,000 ms budget; max turn 464,168 of 550,000.
+
+**The one large prefill left is new content, not a re-read.** llama-server logs
+`398,091 ms / 23,694 tokens` inside turn 3 — but `msgdiff` calls req=8 a pure append of
+**+70,304 bytes** (≈ 23.7k tokens at 2.97 B/tok, matching the reprocess count almost exactly).
+That is turn 3's preflight `doc_batch` injection being read for the first time. The old defect
+had the opposite signature: byte count *falling* while `msgCount` pinned at 20. Note the
+per-token cost climbing with context depth — **7.71 → 13.5 → 16.8 → 20.4 ms/token** — which is
+why 23.7k new tokens deep in the conversation cost more than the cold 47k did. That curve, not
+KV reuse, is now the thing standing between this run and a fast turn 3.
+
+**Outcomes: the model did the work, and did it correctly at turn 3.**
+`calledDbExecute`, `interruptApproved`, `insertedRealRows` all **true** (round 6 had
+`insertedRealRows: false`). Turn 3 called `db_query`, got 6 real rows, and answered:
+
+> **Total in BGN:** 696.84 / **Total in EUR:** 196.40 — "As the documents contain expenses in
+> both Bulgarian Lev (BGN) and Euro (EUR), I have provided the totals separated by currency,
+> as no exchange rate was applied."
+
+Per-currency totals out of SQL, with the non-conversion disclosed. **The 893.24 blend did not
+recur.** (696.84 + 196.40 = 893.24 — the model had every opportunity and declined it.)
+
+**The grader graded the wrong turn, because a markdown artifact defeated the ladder's stop
+condition.** `hasNarratedDecimalTotal` (harness line 797) is:
+
+```js
+`(?:grand\\s+)?total(?:\\s+\\w+){0,5}\\s*(?:is|:|=|was)?\\s*${amount}`
+```
+
+Nothing between the `:` and the number may be anything but whitespace, so **`**` breaks it**
+— verified directly against the run's own text:
+
+```
+MATCH   "Total in BGN: 696.84"
+no      "**Total in BGN:** 696.84"      <- turn 3's actual line
+no      "...grand total ... is **696.84 BGN** and **196.40 EUR**."
+```
+
+`hasNarratedDecimalTotal` is false on *every one of the seven turns*, including the two that
+were plainly correct. Consequences cascade:
+1. `followUpSatisfied` never fired, so the ladder escalated past a correct turn-3 answer.
+2. The later rungs explicitly say **"without calling any more tools"** — so once escalation
+   passes that rung, the last content turn *cannot* contain a `db_query` by construction.
+3. Grading takes the last turn with content (turn 6, `ff6f0b15`), which therefore has no
+   `db_query` → `calledDbQueryAfterConfirm: false`, `dbQueryReturnedRealRows: false`, and both
+   prose checks are gated on the latter → false. Four of the six failures come from this.
+4. Freed from the ladder's stop condition, turns 4-6 restated the totals *without* turn 3's
+   disclosure, which is what trips `fullMonthGate`.
+
+So the ladder is escalating away from a correct answer and then grading the degraded restatement
+of it.
+
+**FIXED, same session.** The two predicates moved to `llamacpp-latency/grading-predicates.mjs`
+(the harness module runs a top-level `try`, so nothing inside it can be imported by a test) and
+the gap between cue and figure now admits markdown emphasis — `[\s*_`~]`, never letters or
+digits, so prose still cannot bridge a cue to an unrelated number. The cue also accepts the
+inflections models use (`totals`, `totaling`, `totalled`). 5 tests in
+`grading-predicates.test.mjs`, built from round 8's verbatim strings.
+
+**Replaying round 8's own transcript through the fixed predicate resolves every failure:**
+
+```
+turn 3  db_query=true  rows=true  narrated=true  => followUpSatisfied=true   <- ladder stops here
+```
+
+| check | as graded | re-graded at turn 3 |
+|---|---|---|
+| `calledDbQueryAfterConfirm` | false | **true** |
+| `dbQueryReturnedRealRows` | false | **true** |
+| `followUpCitesSql` | false | **true** |
+| `followUpNarratesDecimalTotal` | false | **true** |
+| `fullMonthGate` | fail | **pass** |
+
+`fullMonthGate` clears because it evaluates the *combined* text of all turns: stopping at turn 3
+means turns 4-6 — the undisclosed restatements — never happen. Re-verified by running the real
+`evaluateAnswer` over `results[0..3]` versus `results[0..6]`.
+
+**So round 8's transcript, graded correctly, passes every check.** Treat that as strong evidence
+rather than a pass on the board: the fix changes which prompts get sent, so a re-run re-rolls
+the model's sampling and is not guaranteed to reproduce turn for turn. The gate should be
+re-run, but it is now re-run against a grader that can score it.
+
+**The `fullMonthGate` complaint deserves a second look too, but it is at least deliberate.**
+It fires on `"...grand total across both currencies is **696.84 BGN** and **196.40 EUR**."`
+with "combines multiple currencies into one figure without disclosing that it isn't
+converting". That line states **two** figures, one per currency — it is not the blend the rule
+was written for (item (b) of the 2026-08-02 bottom-line list). The rule also evaluates the
+*combined* text of all turns, so turn 3's explicit disclosure does not protect turns 4-6.
+Worth deciding whether "names both currencies separately" should satisfy it.
+
+**One data-quality item, unrelated to any of the above:** the EUR row lands under category
+`Uncategorized` (196.40 EUR). Every BGN row is categorized. Not graded, but it is a real
+extraction gap in the EUR path.
+
+---
+
+## gemma4-E4B runs, 2026-08-13 round 7 — the skill pin verified live; a second cause found and fixed (runs A/B/C)
+
+Round 6 ended on "the placement is correct, the pin is missing". This round landed the pin:
+`computeStickySkills` became `computeSkillPin` (it now also reports whether the window is
+*active*), and while a llama.cpp flow's window is live it re-sends the block it already
+resolved — verbatim — instead of recomputing it, so a mid-flow interloper match can no longer
+move the cached prefix. `planTurnTools` takes `pinnedSkillNames` and returns
+`skillPinNames`/`skillsPinned`; `lib/agent/index.js` holds the per-conversation store in a
+WeakMap keyed on the conversation's own `messages` array (same scoping, same reason, as
+`turnCacheByMessages`). Bounds are all pre-existing machinery: llama.cpp only, only while the
+window is active, forced `/skill` skills prepended fresh and never pinned, pin dropped whole
+if a pinned name has left the index. Two gaps closed while wiring it — a synthetic turn
+(greeting, preflight injection) must still **send** the pinned block or it drops ~23 KB out of
+the prefix mid-flow, and must never **write** it, or it silently demotes a live flow's pin to
+the always-on skills. 2653 unit + 32 harness green.
+
+**Run A (600 s stuck-turn abort, the unchanged command): FAIL, and it did not test the
+boundary.** `grading.status: "fail"`, every substantive check false — turn 0 never reached
+`db_execute`. Turn 0 spent 363 s of its 600 s ceiling on the one genuinely cold prefill, then
+went chatty (per-item `db_normalize_amount` calls rather than the `db_execute` rounds 5-6
+reached) and hit the abort mid-generation with ~107 s of work behind it. Turns 1+ were all the
+4-second empty cascade, so **there was no turn 1 with content and no real boundary to
+measure.** The round-6 defect cannot be called fixed on this run.
+
+**What the cache did, over the whole run** — three prefills above 1,000 tokens, total:
+
+```
+362,724 ms /  47,152 tokens   <- turn 0, genuinely cold. Unavoidable.
+ 14,222 ms /   5,119 tokens
+  8,672 ms /   3,379 tokens
+```
+
+Rounds 5-6 had 250-306 s reprocesses at *turn boundaries*; this run has none, and every other
+request prefilled 58-72 tokens at ~1 s. Where the cache was exercised, it held. `sysHash`
+(`b92565c8b6cf`) was identical across req=2-14, and its release at req=15 (45,470 → 32,064 B)
+is the window correctly **expiring** after five tool-less cascade turns — `SKILL_PIN_TURNS=4`
+doing its job, not a regression.
+
+**The `maxHistory=20` cap rewrites the prefix mid-turn — and it is benign.** New this round,
+visible once the skill churn was out of the way: once the model-facing array reaches 20
+messages, each new tool pair shoves two off the front, so `msgdiff` reports `DIVERGES at index
+2 (prefix kept: 2 msgs / 46,333 bytes)` on *every* hop of a chatty turn (req=10, 12, 13, 14).
+This is what round 5 recorded as "turn 3 logged `msgCount=20` on all three of its requests —
+the array did not grow" and read as evidence of a rebuild; **that reading is retired.** The
+5,119- and 3,379-token prefills above are the entire cost of it: llama-server absorbs the
+front-deletion by shifting rather than reprocessing the ~25k tokens behind it. Tech-debt note,
+not a blocker. (Not token pressure either — no `context trimmed` line, and the run peaked far
+below the 75% threshold.)
+
+**That "benign" verdict was wrong — run B priced it at 473 s.** It looked cheap in run A only
+because run A never had a boundary with content on both sides: the cap's cuts all landed inside
+the empty cascade, where there was nothing behind the cut point to reprocess. See run B.
+
+**Run B (`/tmp/round7b.log`, `APERIO_HARNESS_TIMEOUT_MS=900000` so the ladder survives turn 0's
+~370 s cold prefill — grading ceilings untouched, `WALLCLOCK_PERTURN_MS=550000` still fails turn
+0 on latency): the skill pin verified live, and a second, independent cause exposed underneath
+it.**
+
+The pin does exactly what it was built to do. `sysHash=31cf0a146484` is identical on every
+request of the flow, and the boundary that killed round 6 is now free:
+
+| boundary | round 6 | round 7 run B |
+|---|---|---|
+| turn 0→1 | `DIVERGES at index 1`, 33,836 tok / 306 s | **pure append, prefix intact** — 2,752 tok / 38.6 s |
+| turn 1→2 (`sysBytes` 46,134 → 52,810 in round 6) | diverged at byte 0, 600 s abort, no tool call | **pure append, prefix intact** |
+
+Outcomes moved with it: turn 1 `wallMs` 359 s (round 5) → 104 s (round 6) → **60 s**; turn 2
+134 s → **27 s**; turn 3 narrated 1,051 output tokens where round 5 aborted before narrating.
+Two `db_execute` interrupts were approved, with INSERTs carrying real provenance params.
+
+**But boundary 2→3 was NOT a pure append**, and the skill block had nothing to do with it:
+
+```
+req=7   msgs=18  bytes=140875   pure append after req=6 (+4 msgs) -- prefix intact
+req=8   msgs=20  bytes=121018   DIVERGES at index 2  (prefix kept: 2 msgs / 46333 bytes)
+req=9   msgs=20  bytes=119548   DIVERGES at index 2  (prefix kept: 2 msgs / 46333 bytes)
+req=10  msgs=20  bytes=120622   DIVERGES at index 2  (prefix kept: 2 msgs / 46333 bytes)
+```
+
+`sysHash` and `toolsHash` hold across all of it; `msgCount` pins at 20 while `bytes` drops
+~20 KB. That is `createModelContextMiddleware`'s **`maxHistory = 20` count cap**, deleting from
+the front of the array — i.e. from the cached prefix — on every hop. Cost, straight out of
+llama-server's own log: **232,940 ms / 24,494 tokens, then 240,222 ms / 25,122 tokens on the
+very next hop**, 473 s of turn 3's 532,867 ms total. It fired under no token pressure at all
+(`trimByTokens`, the real guard, fires at 78,428 tokens; the run sat at ~30-50k).
+
+Run B was killed after turn 3 to free the machine, so it **wrote no answers artifact**. Its
+server log is preserved at `llamacpp-latency/server-log-latest.log`.
+
+**Fix (uncommitted at time of writing): hysteresis on the count cap.** The array may run to
+`maxHistory + historyCapSlack` (slack defaults to `maxHistory`, so 41 messages) and is then cut
+back to `maxHistory` in one bite. The bound is unchanged; only the schedule is, so cuts are rare
+and amortized rather than paid per hop. `historyCapSlack: 0` restores the old behavior and is
+what two new characterization tests pin. Full entry in `id/reference/tech-debt.md` →
+"llama.cpp KV reuse — the `maxHistory` count cap cut the cached prefix".
+
+**Run C (`/tmp/round7c.log`): the re-run with that fix, killed in turn 0's cold prefill on the
+developer's instruction. It proves nothing** — two requests captured, anchor
+`sysHash=c19f8d95d5ce`, one 5,119-token structural prefill (the preflight `doc_batch`
+injection, identical in all three runs). The `maxHistory` fix is unit-tested and **not yet
+verified live**; that is what round 8 is for.
+
+---
+
+## gemma4-E4B run, 2026-08-13 round 6 — latency root-caused and half-fixed; FAIL, and worse than round 5 on outcomes
+
+Two runs this round: a diagnostic (per-message `msgprint` added) and a verification run after
+the fix. Same command/ceilings as always.
+
+**The diagnostic named the cause in one boundary.** The matched skill body (~23 KB) was
+attached to the *current user message*; turn N's newest message is turn N+1's cached prefix,
+so it relocated every turn and capped KV reuse at system+tools. Evidence table and the code
+path in `id/reference/tech-debt.md` → "llama.cpp KV reuse". Preflight, the leading suspect
+going in, was **exonerated** — its `doc_manifest`/`doc_batch` results are byte-identical
+across the boundary.
+
+**The fix (skills → `promptParts`) works on its target:**
+
+| | baseline | fixed |
+|---|---|---|
+| turn 0→1 boundary | `DIVERGES at index 1`, −23,212 B | **pure append, prefix intact** |
+| turn 1 first call | 33,836 tokens / 306 s | **845 tokens / 11.8 s** |
+| turn 1 wall clock | 358,759 ms | **103,770 ms** |
+
+**And it still failed the gate, worse than round 5** (`insertedRealRows: false`,
+`calledDbQueryAfterConfirm: false`; round 5 had both true). Cause: at the **turn 1→2**
+boundary the matched skill *set* changed (`sysBytes` 46,134 → 52,810, one extra skill).
+With the block at index 0 that diverges at byte zero and reuses nothing — the old tail
+placement would at least have kept system+tools. Turn 2 burned all 600 s and emitted no
+tool call at all.
+
+| turn | wallMs | tools |
+|---|---|---|
+| 0 | 453,796 | `doc_batch`, `db_connections`, `db_execute` |
+| 1 | 103,770 | `db_schema`, `db_query`, `db_query` |
+| 2 | 600,006 | — (abort, nothing emitted) |
+| 3-6 | ~4,000 each | empty cascade |
+
+**Conclusion: the placement is right, the pin is missing.** It pays only while the skill block
+is byte-stable across turns, and `computeStickySkills` recomputes the set per turn. Next step
+is to pin the resolved block for the sticky window. Do not call the KV defect closed until a
+run shows *every* boundary of a flow as `pure append`.
+
+Note the wild `sysBytes` swings later in the log (62,455 → 42,215 → 29,591) are the
+post-timeout empty-turn cascade, not hops inside turn 2 — turn 2 issued one request.
+
+---
+
+## gemma4-E4B run, 2026-08-13 round 5 — FAIL, but two of three fixes verified and the cause of the third withdrawn
+
+Verification run for the three fixes committed as `cdfdc04c` + `ff6f0b15`. No
+`DOCINT_FORCE_SKILLS` (the round-4 diagnostic), mechanism ladder, same ceilings
+and command as every other T-L4 run this session. Clean exit, so
+`document-intelligence-run-answers.json` is the real artifact this time.
+
+**`grading.status: "fail"`.** Checks that flipped to true vs. round 4 in bold:
+
+```
+calledDbExecute            true     followUpCitesSql              false
+interruptApproved          true     followUpNarratesDecimalTotal  false
+insertedRealRows           true     withinPerTurnWallClockCeiling false
+calledDbQueryAfterConfirm  TRUE     fullMonthGate                 false
+dbQueryReturnedRealRows    TRUE     noFxBlend                     true
+```
+
+**Fix 1, skill stickiness — VERIFIED.** `sysHash=ce4d6ee8259b` on all 12
+requests across 7 turns; the skill never left the prompt, unforced. Turn 2 —
+the turn that produced `reasoning-planning`-shaped prose in rounds 1/3 and the
+re-re-run — emitted a real multi-row `db_execute` INSERT.
+
+**Fix 2, llama.cpp tool-array stability — VERIFIED AS BEHAVIOR, FALSIFIED AS A
+CACHE REMEDY.** `toolCount=40 / toolsHash=0ef511af95bc` on every request
+including both preflight `doc_batch` turns (0 and 3) that used to send 38. The
+cache collapsed anyway: 306 s, 253 s and 291 s of prefill on turns 1 and 3.
+Round 4's attribution of the 262 s prefill to preflight withholding is
+**withdrawn**. Reuse on every collapsed request lands at 14,210–14,430 tokens
+against `sysBytes+toolsBytes ≈ 14.4k` — reuse stops at the first conversation
+message, so the divergence is in the message array. Full evidence table and the
+next diagnostic in `id/reference/tech-debt.md`, "llama.cpp KV reuse — the
+divergence is in the message array, not the prefix".
+
+**Fix 3, harness grader scoping — VERIFIED, closed.** The run ended in the same
+600 s abort + empty-turn cascade, and the grader read turn 3 instead of the
+empty turn 6. Two checks correctly true that were false-negative in round 4; it
+turned no fail into a pass.
+
+**Turn by turn** (success turn: none — the ladder never got a narration out):
+
+| turn | wallMs | tools | outcome |
+|---|---|---|---|
+| 0 | 468,560 | `doc_batch`, `db_connections`, `db_execute` | CREATE TABLE, no INSERT (as always at this rung) |
+| 1 | 358,759 | `db_query` | correct query on its own schema; **full correct breakdown in prose**, then blew `fullMonthGate` |
+| 2 | 133,742 | `db_execute` | **6 real rows, BGN sums to 696.84 exactly** |
+| 3 | 600,010 | `doc_batch`, `db_schema`, `db_query` | 8 real rows back, **hard abort before narrating** |
+| 4-6 | ~4,000 each | — | empty cascade |
+
+**What actually failed the gate**, in order of how fixable each looks:
+1. **The 600 s abort on turn 3** — 544 s of that turn was pure prefill, from the
+   KV-reuse defect above. This is the third consecutive run ended by this abort,
+   and it is now the only thing standing between this model and a narration.
+2. **No narration** — a pure consequence of (1); the rows were in hand.
+3. **Currency blending, turn 1** — "The total amount across all indexed
+   documents for June 2026 is **893.24** (696.84 BGN + 196.40 EUR)". Genuinely
+   the model's error, and the only model-side accuracy failure in the run. Note
+   it *disclosed* the components, which is why `noFxBlend` passed; `fullMonthGate`
+   is the check earning its keep here.
+
+**Round 4's extraction-accuracy finding did not reproduce** — Groceries 140.75
+(not 87.45), no `Trade | EUR | 1266250` row, per-document citations in the turn-1
+prose. Do not carry that finding forward as established.
+
+---
+
 ## Methodology note, 2026-08-13 — provenance-harness prompts read as accountant-speak, not normal-user speech
 
 Raised by the developer while watching this session's live T-L4 runs

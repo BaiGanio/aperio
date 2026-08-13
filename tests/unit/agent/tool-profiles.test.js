@@ -10,7 +10,7 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 
-import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, CONFIRM_TOOLS, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, isDocumentAggregationIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools, parsePinTurns } from "../../../lib/agent/tool-profiles.js";
+import { classifyProfiles, TOOL_PROFILES, HOST_TOOL_PROFILES, CONFIRM_TOOLS, filterToolsForIntent, capToolsForWindow, capToolsForProvider, SMALL_WINDOW_TOKENS, SMALL_WINDOW_MAX_TOOLS, TOOL_SCHEMA_BUDGET_RATIO, isCapableModel, needsRecallScaffold, isDocRepoInventoryIntent, isDocumentAggregationIntent, computeSchemaTokenCosts, filterVisionTools, filterSelfMemoryTools, parsePinTurns, filterPreExecutedTools } from "../../../lib/agent/tool-profiles.js";
 import { CONFIRMABLE_TOOLS } from "../../../lib/helpers/confirmableTools.js";
 import { applyConfigToEnv, configSettingKey } from "../../../lib/config-resolver.js";
 
@@ -779,5 +779,41 @@ describe("filterSelfMemoryTools", () => {
     const names = new Set(["self_recall", "self_update", "self_wiki_write", "self_wiki_get", "recall"]);
     const result = filterSelfMemoryTools(names, { providerIsLocal: false });
     assert.deepStrictEqual([...result], ["recall"]);
+  });
+});
+
+// preflight auto-executes doc_manifest + doc_batch and their schemas were then
+// withheld from the very request they were pre-executed for. On llama.cpp that
+// is a 40→38 shift in a tools block the chat template renders at the front of
+// the prompt, which cost a measured 262s of prefill on the 2026-08-13 WS2
+// T-G2.3 gate and failed the run on the per-turn ceiling.
+describe("filterPreExecutedTools", () => {
+  const anthropic = [{ name: "doc_batch" }, { name: "doc_manifest" }, { name: "db_query" }];
+  const preExecuted = new Set(["doc_manifest", "doc_batch"]);
+
+  test("drops pre-executed tools for an ordinary provider", () => {
+    const result = filterPreExecutedTools(anthropic, "anthropic", preExecuted);
+    assert.deepStrictEqual(result.map(t => t.name), ["db_query"]);
+  });
+
+  test("keepStable returns the array untouched, preserving the cache prefix", () => {
+    const result = filterPreExecutedTools(anthropic, "anthropic", preExecuted, { keepStable: true });
+    assert.strictEqual(result, anthropic, "same reference — nothing rebuilt, nothing dropped");
+  });
+
+  test("an empty pre-executed set is a passthrough regardless of keepStable", () => {
+    assert.strictEqual(filterPreExecutedTools(anthropic, "anthropic", new Set()), anthropic);
+  });
+
+  test("unwraps the openai function shape", () => {
+    const openai = [{ function: { name: "doc_batch" } }, { function: { name: "db_query" } }];
+    const result = filterPreExecutedTools(openai, "openai", preExecuted);
+    assert.deepStrictEqual(result.map(t => t.function.name), ["db_query"]);
+  });
+
+  test("filters inside gemini functionDeclarations groups", () => {
+    const gemini = [{ functionDeclarations: [{ name: "doc_batch" }, { name: "db_query" }] }];
+    const result = filterPreExecutedTools(gemini, "gemini", preExecuted);
+    assert.deepStrictEqual(result[0].functionDeclarations.map(t => t.name), ["db_query"]);
   });
 });

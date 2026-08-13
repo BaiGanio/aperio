@@ -37,6 +37,9 @@ test("composes trimming, memory pointers, skills, and tool profiles in named ord
     emitter: { send: event => events.push(event) },
     logger,
     maxHistory: 3,
+    // Composition test: cut on the first message past the cap so the trimmed
+    // shape stays the subject. The cap's hysteresis has its own test.
+    historyCapSlack: 0,
     getMemoryPointers: () => ["MEMORY POINTER"],
     ensureTurn(receivedMessages, userText) {
       calls.push(["ensureTurn", receivedMessages.length, userText]);
@@ -78,11 +81,14 @@ test("composes trimming, memory pointers, skills, and tool profiles in named ord
     messages[4],
   ]);
   assert.equal(prepared.request.userText, "current request");
-  assert.deepEqual(prepared.request.promptParts, ["BASE", "MEMORY POINTER"]);
-  // Skill prompts attach to tailAppend (the request's newest content), not
-  // the cached system-prompt parts, so per-turn skill injection never busts
-  // the byte-stable prefix llama.cpp's KV cache relies on.
-  assert.deepEqual(prepared.request.tailAppend, ["SKILL PROMPT"]);
+  // Skill prompts attach to the cached system-prompt parts, not to
+  // tailAppend (the request's newest content). Attaching to the newest
+  // message looked cache-neutral within a turn but relocated the block on
+  // every turn boundary, which capped llama.cpp KV reuse at system+tools and
+  // forced a full reprocess (2026-08-13 T-G2.3 round-6 msgprint diagnostic).
+  assert.deepEqual(prepared.request.promptParts, ["BASE", "MEMORY POINTER", "SKILL PROMPT"]);
+  assert.deepEqual(prepared.request.skillPromptParts, ["SKILL PROMPT"]);
+  assert.deepEqual(prepared.request.tailAppend, []);
   assert.deepEqual(selected.request.tools, tools);
   assert.deepEqual(calls, [
     ["ensureTurn", 3, "current request"],
@@ -524,63 +530,60 @@ test("A4: no tailAppend contributors is a no-op", async () => {
   assert.equal(finalMessages, prepared.request.messages);
 });
 
-// ── WS-C: skill relocation ────────────────────────────────────────────────
-// getSkillPrompts' contribution now lands in tailAppend, targeted at the
-// turn's originating message (lastUser) rather than the array's last element
-// — required so it re-attaches at the same position on every hop, not just
-// hop 1 (see the WS-A landed finding under the plan's Architecture section).
+// ── WS-C: skill placement ─────────────────────────────────────────────────
+// getSkillPrompts' contribution lands in promptParts (the cached system
+// prompt), NOT in tailAppend. It used to ride tailAppend on the reasoning
+// that the newest message is never a cache hit anyway — true within a turn,
+// false across turns, because turn N's newest message is turn N+1's cached
+// prefix. The 2026-08-13 T-G2.3 round-6 msgprint diagnostic measured the
+// block relocating (index 1: 23,411B → 199B) on every boundary, capping
+// llama.cpp KV reuse at system+tools and forcing a 250-300s reprocess.
 
-test("C1: skill-injection stage contributes to tailAppend, not promptParts", async () => {
+test("C1: skill-injection stage contributes to promptParts, not tailAppend", async () => {
   const middleware = stubMiddleware({ getSkillPrompts: () => ["XLSX SKILL GUIDANCE"] });
   const prepared = await runBeforeModel(middleware, {
     messages: [{ role: "user", content: "please help me export this xlsx" }],
     promptParts: ["BASE"],
   });
-  assert.deepEqual(prepared.request.promptParts, ["BASE"]);
-  assert.deepEqual(prepared.request.tailAppend, ["XLSX SKILL GUIDANCE"]);
+  assert.deepEqual(prepared.request.promptParts, ["BASE", "XLSX SKILL GUIDANCE"]);
+  assert.deepEqual(prepared.request.skillPromptParts, ["XLSX SKILL GUIDANCE"]);
+  assert.deepEqual(prepared.request.tailAppend, []);
 });
 
-test("C1: skill tail re-attaches at the turn's originating message on every hop, not the array's last element", async () => {
+test("C1: the skill block stays in the system prompt on every hop and never enters the message array", async () => {
   const middleware = stubMiddleware({ getSkillPrompts: () => ["XLSX SKILL GUIDANCE"] });
 
-  // Hop 1 — first request of the turn: lastUser is messages.at(-1).
+  // Hop 1 — first request of the turn.
   const prepared1 = await runBeforeModel(middleware, {
     messages: [{ role: "user", content: "please help me export this xlsx" }],
+    promptParts: ["BASE"],
   });
   assert.equal(prepared1.request.isFirstHop, true);
-  const finalHop1 = appendTailToMessages(
-    prepared1.request.messages, prepared1.request.tailAppend, prepared1.request.lastUser,
-  );
-  assert.match(finalHop1.at(-1).content, /XLSX SKILL GUIDANCE/);
+  assert.deepEqual(prepared1.request.promptParts, ["BASE", "XLSX SKILL GUIDANCE"]);
 
-  // Hop 2 — same turn continues with a tool call/result appended after the
-  // user's message. The array's last element is now the tool result, but
-  // lastUser must still resolve to the originating user message (index 0),
-  // so the skill tail lands there instead of on the trailing tool result.
+  // Hop 2 — same turn continues with a tool call/result appended. The skill
+  // block must be byte-identical in the system prompt and must not have been
+  // spliced into any message: a splice is what moved across turn boundaries.
   const prepared2 = await runBeforeModel(middleware, {
     messages: [
       { role: "user", content: "please help me export this xlsx" },
       { role: "assistant", content: [{ type: "tool_use", id: "1", name: "read_file", input: {} }] },
       { role: "tool", tool_call_id: "1", content: "file contents" },
     ],
+    promptParts: ["BASE"],
   });
   assert.equal(prepared2.request.isFirstHop, false);
-  // Within this hop's own request graph, lastUser is the SAME object as the
-  // originating message inside `messages` (the runner's snapshot dedups
-  // shared references) — this is what appendTailToMessages' lastIndexOf
-  // lookup relies on to find the right position.
-  assert.equal(prepared2.request.lastUser, prepared2.request.messages[0]);
+  assert.deepEqual(prepared2.request.promptParts, ["BASE", "XLSX SKILL GUIDANCE"]);
 
-  const finalHop2 = appendTailToMessages(
+  const final = appendTailToMessages(
     prepared2.request.messages, prepared2.request.tailAppend, prepared2.request.lastUser,
   );
-  // Skill content lands on the originating user message (index 0)...
-  assert.match(finalHop2[0].content, /XLSX SKILL GUIDANCE/);
-  // ...not duplicated onto the new trailing tool-result message.
-  assert.equal(finalHop2.at(-1).content, "file contents");
+  // No message carries skill content — the array is untouched by skills.
+  assert.equal(final[0].content, "please help me export this xlsx");
+  assert.equal(final.at(-1).content, "file contents");
 });
 
-test("C2: an unrelated follow-up turn carries no skill tail (anti-bleed)", async () => {
+test("C2: an unrelated follow-up turn carries no skill block (anti-bleed)", async () => {
   let call = 0;
   const middleware = stubMiddleware({
     getSkillPrompts: () => (++call === 1 ? ["DEBUG SKILL GUIDANCE"] : []),
@@ -588,16 +591,19 @@ test("C2: an unrelated follow-up turn carries no skill tail (anti-bleed)", async
 
   const turn1 = await runBeforeModel(middleware, {
     messages: [{ role: "user", content: "why is this stack trace happening" }],
+    promptParts: ["BASE"],
   });
-  assert.deepEqual(turn1.request.tailAppend, ["DEBUG SKILL GUIDANCE"]);
+  assert.deepEqual(turn1.request.promptParts, ["BASE", "DEBUG SKILL GUIDANCE"]);
 
   const turn2 = await runBeforeModel(middleware, {
     messages: [{ role: "user", content: "hey, how are you?" }],
+    promptParts: ["BASE"],
   });
-  assert.deepEqual(turn2.request.tailAppend, []);
+  assert.deepEqual(turn2.request.promptParts, ["BASE"]);
+  assert.deepEqual(turn2.request.skillPromptParts, []);
 });
 
-test("C4: multimodal first message — skill tail lands in the text block, image blocks preserved", async () => {
+test("C4: multimodal first message — skills stay in the system prompt, message blocks untouched", async () => {
   const userMsg = {
     role: "user",
     content: [
@@ -606,17 +612,20 @@ test("C4: multimodal first message — skill tail lands in the text block, image
     ],
   };
   const middleware = stubMiddleware({ getSkillPrompts: () => ["IMAGE SKILL GUIDANCE"] });
-  const prepared = await runBeforeModel(middleware, { messages: [userMsg] });
+  const prepared = await runBeforeModel(middleware, {
+    messages: [userMsg],
+    promptParts: ["BASE"],
+  });
   const final = appendTailToMessages(
     prepared.request.messages, prepared.request.tailAppend, prepared.request.lastUser,
   );
 
+  assert.deepEqual(prepared.request.promptParts, ["BASE", "IMAGE SKILL GUIDANCE"]);
   const blocks = final.at(-1).content;
   assert.equal(blocks.length, 2);
   assert.equal(blocks[1].type, "image");
   assert.deepEqual(blocks[1], userMsg.content[1]);
-  assert.match(blocks[0].text, /describe and log this/);
-  assert.match(blocks[0].text, /IMAGE SKILL GUIDANCE/);
+  assert.equal(blocks[0].text, "describe and log this");
   // Original untouched.
   assert.doesNotMatch(userMsg.content[0].text, /IMAGE SKILL GUIDANCE/);
 });
@@ -656,6 +665,10 @@ test("onModelContextShed fires with historyCapped when the maxHistory cap sheds 
   const sheds = [];
   const middleware = stubMiddleware({
     maxHistory: 3,
+    // The cap's own hysteresis (maxHistory + slack) is exercised by its own
+    // test below; this one is about what happens WHEN it sheds, so it cuts on
+    // the first message past the cap.
+    historyCapSlack: 0,
     onModelContextShed: shed => sheds.push(shed),
   });
   const messages = [
@@ -677,6 +690,47 @@ test("onModelContextShed fires with historyCapped when the maxHistory cap sheds 
   assert.equal(sheds[0].historyCapped, true, "the cap is what shed content");
   assert.deepEqual(messages.map(m => m.content), ["oldest", "older", "previous", "recent", "current request"],
     "observer must not mutate the caller's history");
+});
+
+// The count cap deletes from the FRONT — the cached prefix — so every cut
+// costs llama.cpp a reprocess of everything behind the cut point. Cutting the
+// moment the array passes maxHistory made that the worst possible schedule: a
+// tool-using turn grows the array by 2 per hop and the cap took 2 back off
+// every hop. Measured 2026-08-13 on the T-G2.3 gate, at ~30-50k of a
+// 104,570-token window (i.e. no token pressure at all): 24,494 tokens / 233 s
+// reprocessed, then 25,122 / 240 s on the very next hop.
+test("the count cap runs on hysteresis: it holds past maxHistory, then cuts back in one bite", async () => {
+  const sheds = [];
+  const middleware = stubMiddleware({
+    maxHistory: 3,          // slack defaults to maxHistory, so the cap bites past 6
+    onModelContextShed: shed => sheds.push(shed),
+  });
+  const history = count => Array.from({ length: count }, (_, index) => ({
+    role: index % 2 ? "assistant" : "user",
+    content: `message ${index}`,
+  }));
+  const runAt = count => runBeforeModel(middleware, {
+    messages: history(count),
+    observedInputTokens: 0,
+    contextWindow: 100_000, // no token pressure — only the cap can shed
+  });
+
+  // Between maxHistory and maxHistory + slack the array is left ALONE. This is
+  // the window the old code cut on every hop, at full reprocess cost each time.
+  for (const count of [4, 5, 6]) {
+    const prepared = await runAt(count);
+    assert.equal(prepared.request.messages.length, count,
+      `${count} messages is past maxHistory but within slack — the prefix must not be cut`);
+  }
+  assert.deepEqual(sheds, [], "nothing shed while the array is inside the slack window");
+
+  // Past the slack it cuts back to maxHistory in one bite, keeping index 0.
+  const prepared = await runAt(7);
+  assert.equal(prepared.request.messages.length, 3, "cut back to maxHistory, not trimmed by one");
+  assert.equal(prepared.request.messages[0].content, "message 0", "the first message is still kept");
+  assert.equal(sheds.length, 1);
+  assert.equal(sheds[0].historyCapped, true);
+  assert.equal(sheds[0].dropped, 0, "this is the count cap, not the token-pressure trim");
 });
 
 test("onModelContextShed does not fire when nothing sheds (no token pressure, under the cap)", async () => {

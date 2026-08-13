@@ -233,6 +233,38 @@ single grand total; the totals are provided per currency.`);
   assert.equal(result.status, "pass", result.failures.join("; "));
 });
 
+test("a per-currency total line is not a blend (round 11 false failure)", () => {
+  // Verbatim from the 2026-08-13 round-11 transcript. Two figures, one tagged
+  // per currency, and the disclosure sits on the NEXT line — the old rule saw
+  // two currency tags on a total-cue line and failed it regardless.
+  const result = run(`${CORRECT_ANSWER}
+
+**Overall Combined Total:** **696.84 BGN + 196.40 EUR**
+(Note: No FX conversion was applied, as per the core principles of the
+\`document-intelligence\` skill.)`);
+  assert.equal(result.status, "pass", result.failures.join("; "));
+});
+
+test("a blended figure still fails when the disclosure is on the next line", () => {
+  // The complement of the test above: disclosing an FX-free policy does not
+  // excuse stating a figure that only exists by adding across currencies.
+  const result = run(`${CORRECT_ANSWER}
+
+Grand total: 893.24 (696.84 BGN + 196.40 EUR)
+(Note: No FX conversion was applied.)`);
+  assert.equal(result.status, "fail");
+  assert.ok(result.failures.some(failure => failure.includes("combines multiple currencies")), result.failures.join("; "));
+});
+
+test("a single untagged figure covering two named currencies is a blend (round 10)", () => {
+  // Round 10's verbatim failure: one figure, both currencies named as prose.
+  const result = run(`${CORRECT_ANSWER}
+
+This query resulted in 6 distinct groups, summing to a grand total of **893.24** across BGN and EUR.`);
+  assert.equal(result.status, "fail");
+  assert.ok(result.failures.some(failure => failure.includes("combines multiple currencies")), result.failures.join("; "));
+});
+
 test("naming an excluded item while explaining the exclusion is not a leak", () => {
   const result = run(CORRECT_ANSWER);
   assert.equal(result.gate.noExcludedLeak, true);

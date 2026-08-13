@@ -28,6 +28,9 @@
 
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import os from "node:os";
+import fs from "node:fs";
+import path from "node:path";
 import { z } from "zod";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
@@ -106,5 +109,64 @@ describe("ensureTurn's cache is scoped per conversation, not shared agent-wide (
     assert.ok(toolsB.includes("db_query"), "conversation B's own history must carry db_query forward, not A's cached plan");
     assert.ok(!toolsB.includes("doc_search"),
       "conversation B must not inherit conversation A's pinned tool just because both happened to reach turn 3 with identical text (the P1 bug this test guards against)");
+  });
+});
+
+// The skill-block pin (#250, 2026-08-13) stores each conversation's resolved
+// block and feeds it back on the next turn so llama.cpp sees a byte-identical
+// system prompt. It is per-conversation state on the SAME shared agent, so it
+// needs the same scoping guarantee as the turn cache above — and this is the
+// only test that exercises the store/feed-back wiring end to end (the unit
+// suite in turn-planner.test.js passes `pinnedSkillNames` in by hand).
+describe("the skill-block pin is per-conversation and holds the block byte-stable", () => {
+  function skillRoot() {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), "aperio-skill-pin-"));
+    for (const [name, body] of [["widget-helper", "WIDGET BODY"], ["planner-helper", "PLANNER BODY"]]) {
+      fs.mkdirSync(path.join(root, "skills", name), { recursive: true });
+      fs.writeFileSync(
+        path.join(root, "skills", name, "SKILL.md"),
+        ["---", `name: ${name}`, `description: ${name} skill`, "metadata:", "  load: on-demand", "---", "", body].join("\n"),
+        "utf8",
+      );
+    }
+    return root;
+  }
+
+  test("a live flow re-sends the same block, and another conversation is unaffected", async (t) => {
+    stubMcpTransport(t);
+    process.env.AI_PROVIDER = "llamacpp";
+    process.env.LLAMACPP_MODEL = "skill-pin-scope-test-model";
+    process.env.APERIO_CAPABLE_MODELS = "skill-pin-scope-test-model";
+    const root = skillRoot();
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+    const agent = await createAgent({ root, version: "1.0.0" });
+
+    // Conversation A, mutated in place exactly like wsHandler's own array.
+    const openText = "please use the widget helper on this";
+    const convoA = [{ role: "user", content: openText }];
+    const turn0 = agent.getSystemPrompt(openText, "en", "", convoA);
+    assert.match(turn0, /WIDGET BODY/, "the opening turn resolves its own skill normally");
+
+    // The flow calls a tool (arming the pin window), then a follow-up turn
+    // whose text matches a DIFFERENT skill — the round-6 turn 1→2 shape.
+    const pivotText = "now use the planner helper for the breakdown";
+    convoA.push(
+      { role: "assistant", content: [{ type: "tool_use", name: "doc_search", input: {}, id: "a1" }] },
+      { role: "user", content: [{ type: "tool_result", tool_use_id: "a1", content: "ok" }] },
+      { role: "assistant", content: "Found some documents." },
+      { role: "user", content: pivotText },
+    );
+    const turn1 = agent.getSystemPrompt(pivotText, "en", "", convoA);
+    // The whole system prompt, not just the block: a byte-identical system
+    // prompt across the boundary IS the property llama.cpp's KV cache reads
+    // (the run's `sysHash` holding constant).
+    assert.equal(turn1, turn0, "the system prompt must be byte-identical across the turn boundary");
+
+    // Conversation B: same current text, its own array, no flow behind it.
+    const convoB = [{ role: "user", content: pivotText }];
+    const blockB = agent.getSystemPrompt(pivotText, "en", "", convoB);
+    assert.match(blockB, /PLANNER BODY/, "an unrelated conversation resolves its own match");
+    assert.doesNotMatch(blockB, /WIDGET BODY/, "and never inherits another conversation's pinned block");
   });
 });
