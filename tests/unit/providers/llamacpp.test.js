@@ -455,14 +455,14 @@ describe("runLlamaCppLoop — successful response", () => {
     assert.match(bodies[1].messages[0].content, /do not call `wiki_write` again/i);
   });
 
-  // Regression for the 24 GB tier-exam failure (#282): matched skills
-  // inflate the request's newest message (tailAppend), not the system
-  // prompt; schema capping alone could not close the gap and the request was
-  // sent anyway,
-  // so llama.cpp answered 400 exceed_context_size_error. The preflight must
-  // fall back to the skill-free messages variant instead of sending a
-  // request it knows is doomed.
-  test("preflight falls back to the skill-free messages when over budget", async () => {
+  // Regression for the 24 GB tier-exam failure (#282): matched skills inflate
+  // the prompt past the served window; schema capping alone could not close
+  // the gap and the request was sent anyway, so llama.cpp answered 400
+  // exceed_context_size_error. The preflight must fall back to the skill-free
+  // variant instead of sending a request it knows is doomed. Since the
+  // round-6 KV-reuse fix skills live in the system prompt, so the fallback
+  // swaps the system prompt rather than re-splicing the message array.
+  test("preflight falls back to the skill-free system prompt when over budget", async () => {
     const bodies = [];
     mock.method(globalThis, "fetch", async (url, opts) => {
       const tag = String(url);
@@ -481,13 +481,13 @@ describe("runLlamaCppLoop — successful response", () => {
       return { ok: false, status: 404, text: async () => "Not found" };
     });
 
-    // Bloated tail: far past 90% of the 8192-token window. The skill-free
-    // messages variant (no tail block) fits.
+    // Bloated system prompt: far past 90% of the 8192-token window. The
+    // skill-free system prompt fits.
     const skillBloat = "skill guidance filler ".repeat(4000);
     const prepareModelContext = async () => ({
-      messages: [{ role: "user", content: `Run the syntax check\n\n${skillBloat}` }],
-      systemPrompt: "You are a helpful assistant.",
-      messagesNoSkills: [{ role: "user", content: "Run the syntax check" }],
+      messages: [{ role: "user", content: "Run the syntax check" }],
+      systemPrompt: `You are a helpful assistant.\n\n${skillBloat}`,
+      systemPromptNoSkills: "You are a helpful assistant.",
       tools: [],
     });
 
@@ -499,8 +499,8 @@ describe("runLlamaCppLoop — successful response", () => {
 
     assert.equal(result, "Done.");
     assert.equal(bodies.length, 1);
-    assert.doesNotMatch(bodies[0].messages.at(-1).content, /skill guidance filler/,
-      "the request must carry the skill-free messages");
+    assert.doesNotMatch(bodies[0].messages[0].content, /skill guidance filler/,
+      "the request must carry the skill-free system prompt");
     assert.ok(infoCalls.some(c => /dropped skill prompts/.test(String(c[0]))),
       "the fallback is logged");
   });

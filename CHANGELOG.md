@@ -11,6 +11,33 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Multi-minute llama.cpp turns caused by the skill block moving between
+  turns.** Matched skills were attached to the request's newest message, on the
+  reasoning that the newest message is never a cache hit anyway. That holds
+  within a turn and fails across turns: this turn's newest message is the next
+  turn's cached prefix, so stripping the skill body back off it rewrote the
+  array at the first user message and forced a reprocess of everything after
+  it. A 22,937-byte skill moved this way capped KV reuse at the system prompt
+  and cost 250-300 seconds of prefill on affected turns. Skills now live in the
+  system prompt, and a flow's resolved block is pinned for the sticky window so
+  it stays byte-identical turn to turn. Measured on a document-intelligence
+  run: the turn 0→1 boundary went from 33,836 reprocessed tokens (306 s) to 845
+  (11.8 s), and three consecutive full runs now show every turn boundary as a
+  pure append with the prompt prefix intact. llama.cpp only; other providers
+  keep per-turn matching unchanged.
+
+- **The message-count cap cut the cached prefix on every tool hop.** The
+  `maxHistory` bound deletes from the front of the array — exactly the cached
+  prefix — and fired the moment the array passed the limit. A tool-using turn
+  grows by two messages per hop, so the cap took two back off on every hop and
+  the conversation was re-read each time, while token pressure sat far below
+  the trim threshold. Measured at 24,494 tokens (233 s) reprocessed on one hop
+  and 25,122 (240 s) on the next: 473 seconds of a single turn spent re-reading
+  content nothing had asked to drop. The cap now has hysteresis — the array
+  runs to `maxHistory + slack` and is cut back in one bite — so cuts are rare
+  and amortized instead of paid per hop. The bound itself is unchanged, and
+  token-pressure trimming (the actual context guard) is untouched.
+
 - **A matched skill now survives its own follow-up turns.** Skill keywords
   describe how a user opens a topic ("how much did I spend on utilities"), not
   how they follow it up ("finish saving them now"), and matching runs on the

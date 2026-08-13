@@ -136,8 +136,253 @@ housekeeping go in `A2D.md`, not here.
   from `provider.name === "llamacpp"`, evaluated at call time so a mid-run
   provider switch is honoured. Trades a possible redundant `doc_batch` (tens
   of ms, dedup-cached) against the measured 262 s reprocess. 5 regression
-  tests; unit suite 2637 green, harness 32 green. **Not yet verified live** —
-  needs a run showing the fingerprint holding at 40 across a preflight turn.
+  tests; unit suite 2637 green, harness 32 green.
+  **Verified live 2026-08-13 (T-G2.3 round 5) — the fix does exactly what it
+  says, and it is NOT the cache mechanism.** The fingerprint held at
+  `toolCount=40 / toolsHash=0ef511af95bc` on *every* request of a 7-turn run,
+  including both preflight `doc_batch` turns (0 and 3) that previously sent 38,
+  with `sysHash=ce4d6ee8259b` equally constant. The cache collapsed anyway:
+  turn 1's first call reprocessed 33,836 tokens in 306 s, turn 3's two calls
+  30,220 (253 s) and 31,046 (291 s). So the round-4 attribution — "preflight
+  withholding was the real cause of the 262 s prefill" — is **withdrawn**: it
+  was a real schema-set change and is now correctly suppressed, but suppressing
+  it bought no reuse at all. See the new entry below for where the divergence
+  actually is. Keep the fix (a stable tool array is right on its own terms and
+  costs only a redundant dedup-cached `doc_batch`), but it closes nothing.
+
+---
+
+## llama.cpp KV reuse — the divergence is in the message array, not the prefix (#250)
+
+- 2026-08-13 **Found in T-G2.3 round 5, replacing the tool-schema theory above.**
+  With the system prompt and tool array both provably byte-stable all run
+  (`sysHash`/`toolsHash`/`toolCount` identical on all 12 requests), llama-server
+  still reprocessed near-everything at each turn boundary. The reuse figure is
+  the clue — it is not "some" reuse, it is **exactly the prefix and nothing
+  after it**:
+  | request | slot ctx | reprocessed | reused | prefill |
+  |---|---|---|---|---|
+  | t0 call 1 | 47,933 | 47,199 | — (cold) | 364 s |
+  | t0 call 2 | 3,955 | 3,356 | — | 8.6 s |
+  | t0 answer | 48,661 | **833** | 47,828 | 12.1 s |
+  | t1 call 1 | 48,266 | **33,836** | 14,430 | **306 s** |
+  | t1 call 2 | 48,967 | 148 | 48,819 | 2.1 s |
+  | t2 call 1 | 50,584 | 7,772 | 42,812 | 99 s |
+  | t3 call 1 | 44,430 | **30,220** | 14,210 | **253 s** |
+  | t3 call 2 | — | **31,046** | ~14.2k | **291 s** |
+  `sysBytes=22,693 + toolsBytes=34,877 = 57,570 bytes ≈ 14.4k tokens`, and the
+  reused count on every collapsed request is 14,210–14,430. **Reuse stops at
+  the first conversation message, every time.** Within a turn, appends reuse
+  almost perfectly (148–3,356 tokens); only turn boundaries collapse — except
+  turn 3, where consecutive calls collapsed too.
+  Context trimming is ruled out: `trimByTokens` fires at
+  `0.75 × 104,570 = 78,428` tokens and the run peaked at ~50k. Two live
+  corroborations that the message array is being rebuilt rather than appended:
+  (a) turn 3's preflight `doc_batch` returned **~10.2k tokens against turn 0's
+  ~15.1k** with a different candidate order (`bank-statement-jun` first vs
+  `internet-payment-12-jun`), and the slot context *shrank* 50,584 → 44,430
+  across that boundary; (b) turn 3 logged **`msgCount=20` on all three of its
+  requests** while a `db_schema` and a `db_query` call plus results went by —
+  the array did not grow across two tool round-trips.
+  **ROOT-CAUSED 2026-08-13 (round 6), and the preflight hypothesis was wrong.**
+  Added `msgprint` to the `LOG_CACHE_FINGERPRINT` path — a per-message
+  hash+length list, emitted from inside `makeLlamaCppRequest` so no request
+  path can bypass it (round 5 had a request that logged nothing). One run named
+  the message immediately. Across the turn 0→1 boundary:
+  ```
+  req=4 (turn 0, last)        req=5 (turn 1, first)
+  [0] system    22915B  ===   [0] system    22915B   identical
+  [1] user      23411B   ✗    [1] user        199B   -23,212B
+  [2] assistant   367B  ===   [2] assistant   367B   identical
+  [3] tool      11124B  ===   [3] tool      11124B   identical (doc_manifest)
+  [5] tool      57897B  ===   [5] tool      57897B   identical (doc_batch)
+                              [13] user     23403B   the block, relocated
+  ```
+  **The matched skill body rides the *current* user message.**
+  `lib/agent/model-context-middleware.js`'s skill-injection stage attached
+  `getSkillPrompts(turn)` to `tailAppend`, which `appendTailToMessages` splices
+  into `lastUser`. Its comment argued this was cache-neutral because "the newest
+  message is never a cache hit regardless of what it contains" — true within a
+  turn, false across turns, since turn N's newest message is turn N+1's cached
+  prefix. The block is 23,212 B (`SKILL.md` is 22,937 B plus separators) and the
+  turn 1→2 boundary repeats the signature exactly: index 13, −23,212 B. Preflight
+  is exonerated — its `doc_manifest` (11,124 B) and `doc_batch` (57,897 B)
+  results are byte-identical across the boundary, neither moved nor rebuilt.
+  Note this also invalidates round 5's inference that a constant `sysHash` proved
+  the skill was attached: `sysBytes` was 22,915 while `SKILL.md` alone is 22,937,
+  so the skill was never in the system prompt and `sysHash` was constant either
+  way. (Stickiness still works — turn 2's real INSERT and the ~23 KB block on both
+  the turn-0 and turn-1 user messages show it.)
+  **Fixed 2026-08-13**: skill prompts now go to `promptParts` (the cached system
+  prompt); the stage records `skillPromptParts` so `prepareModelContext` can build
+  a `systemPromptNoSkills`, and llama.cpp's small-context overflow fallback
+  (#282's `400 exceed_context_size_error` guard) swaps the system prompt instead
+  of re-splicing the message array — without that second half the guard would
+  have kept logging "dropped skill prompts" while dropping nothing. Trade-off:
+  the system prompt now changes when the matched skill *set* changes, which
+  `computeStickySkills` already makes rare, against the previous guaranteed
+  per-turn full reprocess. 2637 unit + 32 harness green; 5 characterization
+  tests rewritten to the new invariant. Analyzer for the msgprint output:
+  `trash/plans/document-intelligence-epic/llamacpp-latency/msgdiff.py`.
+  **Verified live 2026-08-13, and it is only half the fix.** On its target the
+  win is large and unambiguous — the turn 0→1 boundary became a `pure append,
+  prefix intact` and turn 1's first call went from **33,836 reprocessed tokens /
+  306 s to 845 / 11.8 s**, with turn 1's wall clock 358,769 ms → 103,770 ms.
+  But the run still failed the gate, worse than round 5 (`insertedRealRows:
+  false`): at the **turn 1→2 boundary the matched skill *set* changed**
+  (`sysBytes` 46,134 → 52,810, one extra skill), and because the block now sits
+  at index 0 that diverges the prompt at byte zero and reuses **nothing** —
+  where the old tail placement would still have kept system+tools (~14.4k
+  tokens). Turn 2 then had ~45k tokens to reprocess plus generation and burned
+  its whole 600 s ceiling without emitting a single tool call.
+  **So the placement is correct but incomplete: it pays only while the skill
+  block is byte-stable across turns, and `computeStickySkills` recomputes the
+  set per turn.** Net at that point: a large win when the set holds, a worse
+  loss when it moves.
+  **Second half landed 2026-08-13 (round 7) — the skill defect is FIXED.**
+  `computeStickySkills` became `computeSkillPin`, which also reports whether
+  the window is *active*; while a llama.cpp flow's window is live it re-sends
+  the block it already resolved, verbatim (`resolvePinnedSkills`), so a
+  mid-flow interloper match can no longer move the prefix. `planTurnTools`
+  takes `pinnedSkillNames` / returns `skillPinNames`+`skillsPinned`;
+  `lib/agent/index.js` stores it per conversation in a WeakMap keyed on the
+  `messages` array (same scoping, same reason, as `turnCacheByMessages`).
+  Bounds are pre-existing machinery: llama.cpp only, only while the window is
+  active, forced `/skill` skills prepended fresh and never pinned, pin dropped
+  whole if a pinned name has left the index. Two gaps closed while wiring it —
+  a synthetic turn (greeting, preflight) must still SEND the pinned block or it
+  drops ~23 KB out of the prefix mid-flow, and must never WRITE it, or it
+  demotes a live flow's pin to the always-on skills. Deliberate trade-off: a
+  genuine topic pivot inside a live llama.cpp tool flow waits up to
+  `SKILL_PIN_TURNS` turns (or a `/skill`) for its new skill.
+  Live evidence (gemma4-E4B, 900 s stuck-turn abort so the ladder survives
+  turn 0's ~370 s cold prefill): `sysHash` identical on every request of the
+  flow, boundaries 0→1 and 1→2 both `pure append, prefix intact` — 1→2 being
+  exactly where round 6 died — and per-turn wall clock 359 s → 60 s (turn 1)
+  and 134 s → 27 s (turn 2). Turn 3 narrated (1,051 output tokens) where
+  round 5 aborted before narrating.
+  **What remains is a DIFFERENT defect with the same symptom — see the
+  `maxHistory` entry below.** Do not read "reuse stops at the first
+  conversation message" as the skill defect returning.
+
+## llama.cpp KV reuse — the `maxHistory` count cap cut the cached prefix (#250)
+
+- 2026-08-13 **Found in T-G2.3 round 7, once the skill churn above stopped
+  masking it.** `createModelContextMiddleware`'s message-count cap
+  (`lib/agent/model-context-middleware.js`) kept `[raw[0], ...raw.slice(-19)]`
+  the moment the model-facing array passed 20 messages — i.e. it deleted from
+  the FRONT, which is exactly the cached prefix. Two things made that
+  expensive:
+  1. **It fired with no token pressure at all.** It is a message-COUNT bound;
+     `trimByTokens` is the real context guard and fires at
+     `0.75 × 104,570 = 78,428` tokens. The run sat at ~30-50k, so the cap was
+     paying a full reprocess to solve a problem nobody had.
+  2. **It fired on every hop.** A tool-using turn grows the array by 2
+     messages per hop, and the cap took 2 straight back off, so `msgCount`
+     oscillated 20↔21 and `msgdiff` reported `DIVERGES at index 2 (prefix
+     kept: 2 msgs / 46,333 bytes)` hop after hop. Measured cost at the turn
+     2→3 boundary: **24,494 tokens / 233 s, then 25,122 / 240 s on the very
+     next hop** — 473 s of a single turn spent re-reading content nothing had
+     asked to drop.
+  This also **retires round 5's reading** of the `msgCount=20`-on-every-request
+  signature ("the array did not grow across two tool round-trips → it is being
+  rebuilt"). It was not a rebuild; it was this cap.
+  **Fixed 2026-08-13** with hysteresis: the array may run to
+  `maxHistory + historyCapSlack` (slack defaults to `maxHistory`, so 41
+  messages) and is then cut back to `maxHistory` in ONE bite. The bound is
+  unchanged; only the schedule is, so cuts are rare and amortized instead of
+  paid per hop. `historyCapSlack: 0` restores the old cut-on-every-hop
+  behavior and is what the characterization tests for the shed path now pass.
+  Note the cut still deletes from the front, so when it does fire it still
+  costs a reprocess — a cheaper future option is dropping from a point that
+  preserves the prefix, or letting `trimByTokens` be the sole trimmer.
+  **Verified live 2026-08-13 (round 8).** At the identical request of the
+  identical flow where run B read `msgs=20 DIVERGES at index 2` and paid
+  233 s + 240 s on consecutive hops, round 8 reads `msgs=26 pure append`, and
+  the array went on to 36 messages with the prefix intact — 13 requests, zero
+  divergences, `sysHash` constant throughout. Both harness wall-clock ceilings
+  passed for the first time in the epic. **Still unobserved:** the run peaked
+  at 36 messages and never reached the new 41-message threshold, so the single
+  amortized cut the hysteresis is supposed to make has not been exercised live.
+
+---
+
+## Document-intelligence harness — grader (#250)
+
+- 2026-08-13 **`hasNarratedDecimalTotal` rejects markdown emphasis, and it
+  silently invalidates the whole provenance gate.**
+  (`trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs:797`)
+  The regex allows only `\s*` between the total cue and the figure, so
+  `**Total in BGN:** 696.84` fails where `Total in BGN: 696.84` passes —
+  and models emit the bold form by default. Verified against round 8's own
+  transcript: the predicate is false on **all seven turns**, including turn 3,
+  which called `db_query`, got 6 real rows, and stated correct per-currency
+  totals with the non-conversion explicitly disclosed.
+  The damage is not a single wrong check. `followUpSatisfied` uses this
+  predicate as the ladder's stop condition, so the ladder escalates *past* a
+  correct answer; later rungs instruct the model **"without calling any more
+  tools"**; grading then reads the last turn with content (`ff6f0b15`), which
+  by construction cannot contain a `db_query`. That forces
+  `calledDbQueryAfterConfirm` and `dbQueryReturnedRealRows` false, and both
+  prose checks are gated on the latter — four of round 8's six failures. The
+  freed-up extra turns also restate the totals without turn 3's disclosure,
+  which is what then trips `fullMonthGate`.
+  **FIXED 2026-08-13 (same session).** Both predicates extracted to
+  `llamacpp-latency/grading-predicates.mjs` so they can be unit-tested (the
+  harness module runs a top-level `try`, so importing it to reach them would
+  launch a full run); the cue-to-figure gap now admits markdown emphasis
+  (`[\s*_`~]`, never letters or digits) and the cue accepts `totals`/
+  `totaling`/`totalled`. 5 tests in `grading-predicates.test.mjs` built from
+  round 8's verbatim strings. Replaying round 8's transcript through the fix
+  stops the ladder at turn 3 and flips all four checks — plus `fullMonthGate`,
+  which passes once the undisclosed turns 4-6 never happen. Still open as a
+  design question: whether grading should prefer the turn that *satisfied* the
+  ladder over the last turn with content — with the predicate fixed they are
+  the same turn on a clean run, so this is now latent rather than active.
+- 2026-08-13 **`followUpCitesSql` required SQL jargon and rejected table
+  attribution — the second lexical false negative in two rounds.**
+  Round 9's re-run cleared 15 of 16 checks and failed only this one. The test
+  was `/sql|query|db_query/i` against the answer; gemma4 wrote *"the final
+  grand total, pulled directly from the `spending_summary` database"*, naming
+  the exact table it had CREATEd, INSERTed into and SELECTed from, and scored
+  false for never uttering "sql" or "query".
+  **FIXED 2026-08-13.** Extracted to `citesQueryProvenance` in
+  `grading-predicates.mjs`, widened to accept `database`/`table` alongside the
+  SQL vocabulary, with `saved`/`stored`/`recorded` deliberately excluded (they
+  describe the write, not the read, so they would admit an answer reciting
+  remembered figures — the 2026-08-02 gemma4 failure mode). Safe to widen
+  because the predicate is only ever consumed ANDed with `dbQueryReturnedRows`
+  for the same turn, so a real non-empty query is already proven before the
+  lexical test runs; it asks only whether the answer *told the user* the figure
+  came from stored data. 3 tests added from round 9's verbatim string.
+  **The pattern is the real finding**: three of this gate's checks are
+  substring tests over free prose, and two have now produced false negatives
+  that invalidated an entire run (round 8 markdown, round 9 vocabulary). Each
+  fix has been reactive and shaped by the run that exposed it. Before trusting
+  this gate on a new model, audit the remaining prose predicates against
+  phrasings that are correct but unanticipated — or move provenance grading off
+  substring matching entirely, since the structural checks
+  (`dbQueryReturnedRows`, `insertedRealRows`) carry the actual evidentiary
+  weight and the prose checks only ask how the model narrated it.
+- 2026-08-13 **`fullMonthGate`'s multi-currency rule over-triggers — now
+  OBSERVED, no longer hypothetical.** Round 11 failed on
+  `"**Overall Combined Total:** **912.44 BGN + 196.40 EUR**"` with "combines
+  multiple currencies into one figure without disclosing that it isn't
+  converting" — but that line states two figures, one per currency, and the
+  very next line of the same answer reads *"(Note: No FX conversion was
+  applied, as per the core principles of the `document-intelligence` skill.)"*
+  The disclosure the rule demands was present and adjacent, and the rule still
+  fired. Did not change round 11's verdict (an independent arithmetic failure
+  was also present), so this is confirmed-but-not-yet-blocking. Fix alongside
+  the entry below.
+- 2026-08-13 **`fullMonthGate`'s multi-currency rule may over-trigger.** It
+  failed `"...grand total across both currencies is **696.84 BGN** and
+  **196.40 EUR**."` as "combines multiple currencies into one figure without
+  disclosing that it isn't converting", but that line states two figures, one
+  per currency — not the blended single figure (893.24) the rule was written
+  for. It also evaluates the *combined* text of all turns, so one turn's
+  explicit disclosure does not protect another's phrasing. Decide whether
+  "names both currencies separately" should satisfy it.
 
 ---
 
@@ -257,6 +502,14 @@ housekeeping go in `A2D.md`, not here.
   hard abort with the query result already in hand (43,644 input / 1,262 output /
   1,262 thinking, empty answer), so no total was ever narrated, and the known
   empty-turn cascade followed (3 turns at ~4,000ms). `grading.status: "fail"`.
+- 2026-08-13 **Stickiness verified live, unforced (T-G2.3 round 5).** Same
+  ladder/model/ceilings, `DOCINT_FORCE_SKILLS` deliberately unset. `sysHash`
+  held at `ce4d6ee8259b` on all 12 requests across 7 turns — the skill block
+  never left the system prompt — and the behavioral consequence reproduced
+  without forcing: **turn 2 emitted a real multi-row `db_execute` INSERT, not a
+  prose plan**, `insertedRealRows: true`. That is the turn that produced
+  `reasoning-planning`-shaped prose in rounds 1, 3 and the round-2 re-re-run.
+  `computeStickySkills()` is doing its job; this entry is closed as a defect.
 
 ---
 
@@ -276,6 +529,12 @@ housekeeping go in `A2D.md`, not here.
   narration failure itself is real and would still fail the gate; only the
   attribution is wrong. Fix direction: pick the last turn that has tool calls or a
   non-empty answer (or the `computeProvenanceSuccess` turn), not the literal last.
+  **Fixed and verified live 2026-08-13 (round 5) — closed.** Round 5 ended in the
+  same 600 s abort + empty-turn cascade, and the grader now reads turn 3 (tools
+  present) instead of the empty turn 6: `calledDbQueryAfterConfirm: true` and
+  `dbQueryReturnedRealRows: true`, both graded `false` on the identical shape in
+  round 4. The two prose checks gated on them stay `false`, correctly — turn 3's
+  `answerRaw` is genuinely empty. Fix confirmed; it turned no fail into a pass.
 
 ---
 
@@ -295,6 +554,30 @@ housekeeping go in `A2D.md`, not here.
   save/query machinery worked and wrote confidently wrong data. Not investigated
   — needs the source rows traced back to their `document_path` (both are recorded
   in the table, so this is directly checkable on a re-run).
+- 2026-08-13 **Round 5, unforced: none of the above recurred, and the numbers
+  were exact.** Turn 2's INSERT wrote 6 aggregated rows — Fuel 215.60,
+  Groceries **140.75** (round 4: 87.45), Internet 29.99, Transport 50.00,
+  Utilities 260.50, all BGN, plus `Uncategorized EUR 196.40`. The BGN rows sum
+  to **696.84, the deterministic fact pipeline's reconciled figure to the
+  cent**. No `Trade | EUR | 1266250` row, no fabricated hashes. Turn 1's prose
+  (written before any INSERT existed) cited per-category source documents by
+  name — "Fuel receipt 09/06 and 25/06", "Internet payment 12/06". Whatever
+  round 4 measured, it was not a stable property of the model; one forced-skill
+  run was too thin a base for the "confidently wrong data" reading, and this
+  entry should not be treated as an established defect.
+  **One real accuracy defect does remain, a different one:** turn 1 closed with
+  "The total amount across all indexed documents for June 2026 is **893.24**
+  (696.84 BGN + 196.40 EUR)" — two currencies added into a single figure. It
+  disclosed the components, so `noFxBlend` passed, but `fullMonthGate` caught
+  it. That is the only genuine model-side accuracy failure in the run — and a
+  real negative result for the fix attempted on it: this is the same `893.24`
+  blend that `skills/document-intelligence/SKILL.md`'s currency rule was
+  extended to cover on 2026-08-13, and round 5 is the first run where that
+  wording was actually in context on the offending turn (stickiness held
+  `sysHash` constant through turn 1). It did not prevent the blend. Unlike the
+  §5 rounds, this wording has had a fair test and failed it; prefer a mechanism
+  (total per currency out of SQL, so no single figure exists to blend) over
+  another sentence.
 
 ---
 
@@ -582,6 +865,19 @@ nuanced than "unvalidated" now.
   driver rather than running. Fixing it would mean plumbing `engine` through
   `splitStatements()` and every `classify()` caller; deliberately not done for
   a case with no reachable consequence.
+
+---
+
+## Deployment — production Compose migration ownership
+
+- 2026-08-13 `docker/docker-compose.prod.yml` mounts `../db/migrations` into
+  Postgres' `/docker-entrypoint-initdb.d`, while `docker/docker-compose.yml`
+  explicitly says not to do this: raw initdb execution bypasses
+  `schema_migrations`, after which Aperio's migration runner can try to apply
+  `001_init.sql` again. The v0.68.0 manual therefore does not present the
+  production Compose file as a verified installation path. Reconcile the
+  production file with the migration runner, then prove first boot and restart
+  against an isolated empty volume before documenting support.
 
 ---
 

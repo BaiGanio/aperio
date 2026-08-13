@@ -110,12 +110,12 @@ function clearCalls(requestMock) {
 }
 
 describe("context trims invalidate the connection's doc_batch dedup cache (Step 3 review, round 7, P1)", () => {
-  test("the 20-message history cap (no token pressure) clears the dedup cache for the loop's docSessionId", async (t) => {
+  test("the message-count cap (no token pressure) clears the dedup cache for the loop's docSessionId", async (t) => {
     t.mock.method(globalThis, "fetch", makeFetchMock());
     const { agent, requestMock } = await makeLlamaCppAgent(t);
     const emitter = { send: t.mock.fn() };
 
-    const messages = Array.from({ length: 25 }, (_, index) => ({
+    const messages = Array.from({ length: 45 }, (_, index) => ({
       role: index % 2 ? "assistant" : "user",
       content: `message ${index}`,
     }));
@@ -148,7 +148,7 @@ describe("context trims invalidate the connection's doc_batch dedup cache (Step 
     const { agent, requestMock } = await makeLlamaCppAgent(t);
     const emitter = { send: t.mock.fn() };
 
-    const messages = Array.from({ length: 25 }, (_, index) => ({
+    const messages = Array.from({ length: 45 }, (_, index) => ({
       role: index % 2 ? "assistant" : "user",
       content: `message ${index}`,
     }));
@@ -163,11 +163,12 @@ describe("context trims invalidate the connection's doc_batch dedup cache (Step 
     const { agent, requestMock } = await makeLlamaCppAgent(t);
     const emitter = { send: t.mock.fn() };
 
-    // Both hops carry >maxHistory messages, so each hop's prepareModelContext
-    // sheds (20-message cap) and must invalidate the dedup cache — the old
+    // Both hops carry enough messages to cross the count cap's hysteresis
+    // threshold (maxHistory + slack = 40), so each hop's prepareModelContext
+    // sheds and must invalidate the dedup cache — the old
     // per-loop guard suppressed the second clear, leaving stale "already read"
     // entries for documents read after the first clear and shed by the second.
-    const messages = Array.from({ length: 25 }, (_, index) => ({
+    const messages = Array.from({ length: 45 }, (_, index) => ({
       role: index % 2 ? "assistant" : "user",
       content: `message ${index}`,
     }));

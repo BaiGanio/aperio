@@ -54,6 +54,7 @@ import {
   parseCategoryClaims,
 } from "../../../../tests/fixtures/household-gen/harness-gate.mjs";
 import { resolveLadder, computeProvenanceSuccess } from "./provenance-ladder.mjs";
+import { hasNarratedDecimalTotal, dbQueryReturnedRows, citesQueryProvenance } from "./grading-predicates.mjs";
 
 const HOUSEHOLD = process.env.HOUSEHOLD_ROOT ?? "/Users/lk/Projects/household";
 const ORACLE_PATH = resolve(process.env.ORACLE_PATH ?? "tests/fixtures/household-gen/ground-truth.json");
@@ -692,7 +693,7 @@ function gradePhase() {
     // admission (which mentions "query" and still states a decimal figure)
     // sails through both checks unfixed, exactly as it did on gemma4.
     checks.dbQueryReturnedRealRows = dbQueryReturnedRows(followUpTurn?.toolCalls);
-    checks.followUpCitesSql = checks.dbQueryReturnedRealRows && /sql|query|db_query/i.test(followUpTurn?.answerRaw ?? "");
+    checks.followUpCitesSql = checks.dbQueryReturnedRealRows && citesQueryProvenance(followUpTurn?.answerRaw);
     checks.followUpNarratesDecimalTotal = checks.dbQueryReturnedRealRows && hasNarratedDecimalTotal(followUpTurn?.answerRaw);
     // Which turn actually satisfied the escalation loop (mirrors
     // followUpSatisfied's own stop condition — see provenance-ladder.mjs)
@@ -782,21 +783,7 @@ function insertedRealRows(toolCalls, allAnswers = []) {
   return [...evidence.matchAll(/"rowsAffected"\s*:\s*(\d+)/g)].some(m => Number(m[1]) > 0);
 }
 
-function dbQueryReturnedRows(toolCalls) {
-  return (toolCalls ?? []).some(call => {
-    if (call.name !== "db_query") return false;
-    const evidence = `${call.summary ?? ""} ${call.detail ?? ""}`;
-    const rowCountMatch = evidence.match(/"rowCount"\s*:\s*(\d+)/);
-    if (rowCountMatch) return Number(rowCountMatch[1]) > 0;
-    // rowCount can fall outside the capped detail on a very wide result; a
-    // non-empty rows array is equally good evidence.
-    return /"rows"\s*:\s*\[\s*[{[]/.test(evidence);
-  });
-}
-
-function hasNarratedDecimalTotal(answer) {
-  const text = String(answer ?? "").trim();
-  if (!text || /^✅\s*Executed on/i.test(text)) return false;
-  const amount = "(?:BGN|EUR|USD|GBP|\\$|€|£)?\\s*\\d{1,3}(?:[ .]\\d{3})*[.,]\\d{2}";
-  return new RegExp(`(?:grand\\s+)?total(?:\\s+\\w+){0,5}\\s*(?:is|:|=|was)?\\s*${amount}|${amount}\\s*(?:BGN|EUR|USD|GBP)?\\s*(?:grand\\s+)?total`, "i").test(text);
-}
+// hasNarratedDecimalTotal and dbQueryReturnedRows moved to
+// ./grading-predicates.mjs (round 8) so they can be unit-tested — this module
+// runs a top-level `try` block, so importing it to reach them would launch a
+// full harness run. See grading-predicates.test.mjs.
