@@ -53,10 +53,12 @@ import {
   evaluateAnswer,
   parseCategoryClaims,
 } from "../../../../tests/fixtures/household-gen/harness-gate.mjs";
+import { resolveLadder, computeProvenanceSuccess } from "./provenance-ladder.mjs";
 
 const HOUSEHOLD = process.env.HOUSEHOLD_ROOT ?? "/Users/lk/Projects/household";
 const ORACLE_PATH = resolve(process.env.ORACLE_PATH ?? "tests/fixtures/household-gen/ground-truth.json");
 const ANSWERS_PATH = resolve("trash/plans/document-intelligence-epic/document-intelligence-run-answers.json");
+const SERVER_LOG_CAPTURE_PATH = resolve("trash/plans/document-intelligence-epic/llamacpp-latency/server-log-latest.log");
 const PHASE = process.env.DOCINT_PHASE ?? "routing"; // routing | coverage | provenance
 const SETUP_ONLY = process.argv.includes("--setup-only");
 const FIXTURE_SET = PHASE === "coverage" ? "multi-month" : "T-R5";
@@ -101,6 +103,16 @@ const EVALUATION_MODEL = process.env.DOCINT_EVALUATION_MODEL
     : EVALUATION_PROVIDER === "llamacpp" ? process.env.LLAMACPP_MODEL
     : "deepseek-v4-flash");
 const PROVENANCE_FOLLOW_UP_CAP = 8;
+// DOCINT_PROVENANCE_LADDER=mechanism|natural (default mechanism — so any run
+// without this set stays comparable to every historical T-L4 result). See
+// provenance-ladder.mjs for the full rationale: "mechanism" is the original
+// escalating-to-literal-SQL ladder, kept for diagnosing execution-mechanics
+// defects; "natural" is a parallel ladder that never uses SQL/database
+// vocabulary at any rung, for measuring realistic-usage behavior instead.
+// Resolved eagerly (before any expensive setup) so a typo'd value fails
+// loudly at start-up, not silently mid-run.
+const { name: PROVENANCE_LADDER_NAME, entries: PROVENANCE_LADDER_ENTRIES } =
+  resolveLadder(process.env.DOCINT_PROVENANCE_LADDER);
 
 const PHASE_PROMPTS = {
   // T-G2.1 bare-routing. Anchored to June 2026 (not "last month") because the
@@ -109,12 +121,13 @@ const PHASE_PROMPTS = {
   routing: ["How much did I pay for utilities in June 2026?"],
   // T-G2.2 convergence-and-coverage against the oversized nine-period corpus.
   coverage: ["What did I spend on utilities across all of 2026? Tell me what you found and what you couldn't cover."],
-  // T-G2.3/T-G2.4: full month, explicitly asked to be saved/queryable so the
-  // skill has a reason to reach for db_execute/db_query instead of reporting a
-  // one-shot figure.
-  provenance: [
-    "Add up everything I spent on documented bills and receipts for June 2026, broken down by category. Save the results so I can query them again later, and give me the total.",
-  ],
+  // T-G2.3/T-G2.4: full month, explicitly asked to be saved/queryable (or, on
+  // the natural ladder, just "kept track of") so the skill has a reason to
+  // reach for db_execute/db_query instead of reporting a one-shot figure.
+  // Only the ladder's opening rung lives here — the rest is consumed
+  // directly from PROVENANCE_LADDER_ENTRIES in runModelPhase, where the tier
+  // metadata is needed for grading.
+  provenance: [PROVENANCE_LADDER_ENTRIES[0].text],
 };
 
 let scratch = null;
@@ -210,7 +223,7 @@ async function indexCorpus(primary, secondary, dbPath) {
   process.env.SQLITE_PATH = dbPath;
   process.env.APERIO_CONFIG_PRECEDENCE = "env";
   process.env.APERIO_ALLOWED_PATHS_TO_READ = `${primary},${secondary}`;
-  const { SqliteStore } = await import("../../../db/sqlite.js");
+  const { SqliteStore } = await import("../../../../db/sqlite.js");
   const { indexRepo } = await import("../../../../lib/docgraph/indexer.js");
   const store = await SqliteStore.init();
   try {
@@ -370,6 +383,7 @@ async function writeArtifact(extra = {}) {
     timeoutMs: TIMEOUT_MS,
     generatedAt: new Date().toISOString(),
     prompts: PHASE_PROMPTS[PHASE],
+    ...(PHASE === "provenance" ? { provenanceLadder: PROVENANCE_LADDER_NAME } : {}),
     results,
     ...extra,
   }, null, 2)}\n`);
@@ -430,6 +444,23 @@ try {
   process.exitCode = 1;
 } finally {
   console.error("HARNESS cleanup");
+  // The isolated llama-server's own stdout/stderr (var/llamacpp/server.log
+  // under APERIO_LLAMACPP_RUNTIME_DIR — see startLlamaCpp.js's SERVER_LOG_PATH)
+  // carries the per-request "slot get_availabl"/"slot launch_slot_"/"slot
+  // print_timing" lines lib/helpers/promptCacheLog.js parses for real
+  // cache-reuse evidence (selection kind, sim_best, f_keep) — richer than the
+  // cache_n the OpenAI-shaped `timings` block alone exposes. Copy it out
+  // BEFORE gracefulShutdown: stopLlamaCpp() (startLlamaCpp.js line ~236)
+  // unlinks SERVER_LOG_PATH itself as part of normal shutdown bookkeeping, so
+  // capturing after that call silently copies nothing (confirmed empty-handed
+  // on the 2026-08-13 T-L4.3 run — the file was already gone by the time this
+  // ran after gracefulShutdown).
+  if (scratch) {
+    try {
+      await cp(join(scratch, "isolated-local-runtime", "server.log"), SERVER_LOG_CAPTURE_PATH);
+      console.error(`HARNESS captured llama-server log -> ${SERVER_LOG_CAPTURE_PATH}`);
+    } catch { /* e.g. non-llamacpp evaluation provider never wrote one */ }
+  }
   await gracefulShutdown?.().catch(() => {});
   try { app?.httpServer?.close?.(); } catch { /* already closed */ }
   if (scratch) {
@@ -481,17 +512,14 @@ async function runModelPhase({ primary, secondary, dbPath }) {
   await writeArtifact();
 
   if (PHASE === "provenance") {
+    console.error(`HARNESS provenance ladder=${PROVENANCE_LADDER_NAME}`);
     // Capped, condition-driven follow-up loop (see runPromptSequence) — a
     // fixed 2-turn budget observed the model finish the confirmed write and
     // then run out of turns before narrating the SQL-derived total back.
-    const followUpPrompts = [
-      "Now give me the category breakdown and the grand total you just saved — query it per category (SUM grouped by category and currency), not from your own arithmetic.",
-      "If the rows aren't in the table yet, finish saving them now (a single multi-row INSERT is fine — it's still one statement), then run the per-category SQL query and give me the breakdown and total.",
-      "The rows should be saved by now — run SELECT category, currency, SUM(amount) GROUP BY category, currency against the extraction table now and give me the resulting breakdown and total.",
-      "Run the per-category SQL query against the extraction table now and state the breakdown and total it returns, in your own words.",
-      "You already ran that query earlier in this conversation — just restate its breakdown and total in your own words now, without calling any more tools.",
-      "Answer now, in plain prose: what is the category breakdown and grand total from the extraction table you already queried?",
-    ];
+    // Follow-ups come from the resolved ladder (mechanism or natural, see
+    // DOCINT_PROVENANCE_LADDER above) — index 0 is the opening turn already
+    // in PHASE_PROMPTS.provenance, so the follow-up list starts at index 1.
+    const followUpPrompts = PROVENANCE_LADDER_ENTRIES.slice(1).map(entry => entry.text);
     const followUpSatisfied = turns => {
       const last = turns.at(-1);
       if (!last || last.status !== "completed" || !last.toolSequence.includes("db_query")) return false;
@@ -619,7 +647,7 @@ function gradePhase() {
     // "the writable-destination path exercised" just because db_execute was
     // called at all — something in this conversation must have actually
     // affected a row via an INSERT statement.
-    checks.insertedRealRows = insertedRealRows(allToolCalls);
+    checks.insertedRealRows = insertedRealRows(allToolCalls, results.map(r => String(r.answerRaw ?? "")));
     checks.calledDbQueryAfterConfirm = followUpTurn?.toolSequence.includes("db_query") ?? false;
     // Same reasoning as followUpSatisfied above: db_query being *called* proves
     // nothing about what it returned. Gate the two prose checks below on the
@@ -630,6 +658,28 @@ function gradePhase() {
     checks.dbQueryReturnedRealRows = dbQueryReturnedRows(followUpTurn?.toolCalls);
     checks.followUpCitesSql = checks.dbQueryReturnedRealRows && /sql|query|db_query/i.test(followUpTurn?.answerRaw ?? "");
     checks.followUpNarratesDecimalTotal = checks.dbQueryReturnedRealRows && hasNarratedDecimalTotal(followUpTurn?.answerRaw);
+    // Which turn actually satisfied the escalation loop (mirrors
+    // followUpSatisfied's own stop condition — see provenance-ladder.mjs)
+    // and what tier of prompt got it there. A pass earned only once the
+    // ladder reached a "dictated-sql" rung is a much weaker claim than one
+    // earned on an early or natural-language rung; grading.status alone
+    // doesn't distinguish them, so this is recorded explicitly rather than
+    // left for a human to re-derive from the transcript every time.
+    const provenanceSuccess = computeProvenanceSuccess({
+      results,
+      ladderEntries: PROVENANCE_LADDER_ENTRIES,
+      dbQueryReturnedRows,
+      hasNarratedDecimalTotal,
+    });
+    checks.provenanceLadder = PROVENANCE_LADDER_NAME;
+    checks.successTurn = provenanceSuccess.successTurn;
+    checks.successPromptTier = provenanceSuccess.successPromptTier;
+    checks.capabilityClaim = provenanceSuccess.capabilityClaim;
+    if (checks.capabilityClaim === "mechanism-conformance") {
+      console.error(`HARNESS provenance success turn=${checks.successTurn} tier=${checks.successPromptTier} — mechanism-conformance, not realistic-usage`);
+    } else if (checks.capabilityClaim === "realistic-usage") {
+      console.error(`HARNESS provenance success turn=${checks.successTurn} tier=${checks.successPromptTier} — realistic-usage`);
+    }
     checks.completed = results.every(r => r.status === "completed");
     const totalWallMs = results.reduce((sum, r) => sum + r.wallMs, 0);
     const maxTurnWallMs = Math.max(...results.map(r => r.wallMs));
@@ -671,15 +721,29 @@ function gradePhase() {
 // come back with data. The 2026-08-02 gemma4 run had a CREATE TABLE with
 // rowsAffected:0 and no INSERT ever attempted, then a db_query that correctly
 // returned zero rows — both checks below now catch exactly that.
-function insertedRealRows(toolCalls) {
-  return toolCalls.some(call => {
-    if (call.name !== "db_execute") return false;
-    const sql = String(call.arguments?.sql ?? "");
-    if (!/^\s*insert\b/i.test(sql)) return false;
-    const evidence = `${call.summary ?? ""} ${call.detail ?? ""}`;
-    const match = evidence.match(/"rowsAffected"\s*:\s*(\d+)/);
-    return match ? Number(match[1]) > 0 : false;
-  });
+// 2026-08-13 T-L4.2 cache-run: this originally scanned only toolCalls[].detail
+// for the confirmed rowsAffected — but the propose→confirm flow's SECOND
+// phase (the actual execution, after the WS interrupt is approved) is never
+// delivered as a paired `tool_result` event for the original db_execute
+// tool_start. It arrives as a plain "✅ Executed on <connection>… {rowsAffected:N,…}"
+// assistant message, often on a LATER turn than the one that proposed the
+// write — so toolCalls[].detail always shows the propose step's own
+// "Pending your confirmation" ack, never the real number, regardless of
+// whether the INSERT actually landed. This made the check structurally blind
+// to a genuine success, not just to the known CREATE-TABLE-only failure mode
+// it was written for. Scan every turn's own answer text too.
+function insertedRealRows(toolCalls, allAnswers = []) {
+  const hasInsertProposal = toolCalls.some(call =>
+    call.name === "db_execute" && /^\s*insert\b/i.test(String(call.arguments?.sql ?? "")));
+  if (!hasInsertProposal) return false;
+  const evidence = [
+    ...toolCalls.map(call => `${call.summary ?? ""} ${call.detail ?? ""}`),
+    ...allAnswers,
+  ].join(" ");
+  // matchAll, not match: a CREATE TABLE's own rowsAffected:0 ack can appear
+  // earlier in the concatenated evidence than a later INSERT's rowsAffected>0
+  // one — the first match alone would silently prefer the wrong one.
+  return [...evidence.matchAll(/"rowsAffected"\s*:\s*(\d+)/g)].some(m => Number(m[1]) > 0);
 }
 
 function dbQueryReturnedRows(toolCalls) {

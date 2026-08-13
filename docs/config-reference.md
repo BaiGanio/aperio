@@ -235,7 +235,7 @@ Comma-separated local model names that still need forced auto-recall (a behavior
 
 #### `APERIO_SMALL_WINDOW_TOKENS`
 
-number · tier 1 (Settings UI, restart to apply) · default: `8192` · advanced
+number · tier 1 (Settings UI, restart to apply) · default: `32768` · advanced
 
 Context windows at or below this token count are treated as small: the per-turn tool set is capped so re-sent tool schemas don't crowd out the result and reasoning the model needs. Larger windows are never touched.
 
@@ -247,7 +247,7 @@ Maximum tools attached per turn on a small-window model (see APERIO_SMALL_WINDOW
 
 #### `APERIO_TOOL_PIN_TURNS`
 
-number · tier 1 (Settings UI, restart to apply) · default: `3` · advanced
+number · tier 1 (Settings UI, restart to apply) · default: `8` · advanced
 
 After a turn whose assistant response calls a tool, keep the attached tool set stable (only ever adding, never dropping) for this many follow-up turns before re-classifying from scratch. Keeps llama.cpp's prompt/KV-cache prefix reusable across a multi-turn tool-using flow instead of invalidating it every turn.
 

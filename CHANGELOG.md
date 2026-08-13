@@ -77,6 +77,13 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **`APERIO_TOOL_PIN_TURNS` default raised from 3 to 8**: on llama.cpp, the
+  multi-turn tool-schema pin now stays stable for more follow-up turns before
+  resetting, reducing how often a schema-set change busts llama-server's
+  prompt/KV-cache prefix reuse mid-conversation — the dominant cause of the
+  multi-minute turn latencies observed in the document-intelligence latency
+  investigation. Growth stays bounded by the existing schema-token budget.
+
 - **Cold-start extraction template proposals now select bounded, deterministic
   issuer/header keywords** (`lib/handlers/extraction/`): header terms are
   favored, field-label boilerplate is penalized, and repeated OCR noise is
@@ -91,6 +98,23 @@ Versions follow [Semantic Versioning](https://semver.org/).
   restaurant receipts, and every credit note, from any total built on them.
 
 ### Fixed
+
+- **The `document-intelligence` skill now matches the shipped feature.** It was
+  written before the extraction-template surface landed and had drifted in four
+  ways: it never mentioned the eight `extraction_*` tools or the two contracts
+  that silently disable them (`extraction_apply`'s `sourceHash` must appear
+  among the confirmed `INSERT`'s bound parameters, and `extraction_log_record`
+  must be called afterwards with the `db_execute` confirmation token or
+  duplicate detection never fires); it never told the model to check
+  `rowsAffected` before reporting data as saved, so a confirmed `CREATE TABLE`
+  could be mistaken for a successful write and a total recited from memory
+  after an empty query; it said nothing about bound parameters having to match
+  the statement's placeholders; and its currency rule stopped short of the
+  closing summary line, which is exactly where an observed run added BGN and
+  EUR into a single "grand total". Also documents that a document ranked into
+  the manifest is a candidate, not a confirmed expense — recorded false
+  positives include a B2B freight invoice reported as household spending. The
+  skill's frontmatter is unchanged, so skill matching is unaffected.
 
 - **Terminal session resume now rebinds the active session identity** so
   post-resume turns, generated artifacts, summaries, and close/restart
