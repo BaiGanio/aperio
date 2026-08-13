@@ -11,7 +11,7 @@ Skills are loaded on demand. The `skills/` directory is a flat list; test files 
 `tool-integration`, `debugging-and-error-recovery`, `handoff`, `wayfinder`
 
 ### Code
-`coding-standards`, `coding-examples` (redirect to coding-standards),
+`coding-standards`,
 `code-review-and-quality`, `code-simplification`,
 `test-driven-development`, `security-and-hardening`, `codegraph`
 
@@ -23,7 +23,7 @@ Skills are loaded on demand. The `skills/` directory is a flat list; test files 
 `canvas-design`, `design-randomizer`, `frontend-design`, `theme-factory`, `webapp-testing`
 
 ### Meta
-`skill-creator`, `autotune`, `mcp-builder`, `prompt-optimizer`, `wiki`
+`skill-creator`, `autotune`, `prompt-optimizer`, `wiki`
 
 ## Portable agent rules
 
