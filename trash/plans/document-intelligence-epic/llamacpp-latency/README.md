@@ -42,3 +42,47 @@ scratch-only processes were terminated and their scratch directory removed.
 
 Conclusion: the 26B model is capable on the simple gate, but it does **not**
 meet the hard document-intelligence UX gate at the full-context configuration.
+
+## What's left (as of the 2026-08-13 T-L4.2 run)
+
+The original latency plan (`llamacpp-multiturn-latency.md`, deleted in
+`c7f64007` with Step 4 outstanding) proposed a wall-clock gate and a repeat
+run. Step 4 happened 2026-08-13; here's where it actually landed.
+
+**Ceilings used, and why:** `APERIO_HARNESS_WALLCLOCK_PERTURN_MS=550000`,
+`APERIO_HARNESS_WALLCLOCK_TOTAL_MS=2400000`, chosen from T-L4.1's own hardware
+numbers (max observed turn 461,830ms, observed total 1,920,086ms) with ~19%
+and ~25% headroom respectively — see the run entry in
+`../document-intelligence-ws2-tg23-open-issues.md` for the full reasoning.
+These are hardware-specific; re-derive them, don't reuse the numbers blindly,
+if this ever runs on different hardware.
+
+**Two problems, not one.** The 2026-08-13 run confirms the sticky tool-pin
+fix (`6331e7a8`) does not fully solve cache reuse:
+- The attached-schema count is **not** flat across a real conversation despite
+  the fix — it swung 15→40→40→20→35→35→35→20 across 7 scripted turns, as
+  `classifyProfiles()` keeps re-picking profiles from each turn's own message
+  content. The fix pins *within* a turn's tool-selection call but nothing
+  currently pins the profile set *across* turns for a live conversation.
+- More surprising: even in the one place the schema set **did** stay
+  identical (40/74 schemas, two consecutive internal model calls), llama-server
+  still reported `cache_n=0` — zero prefix reuse. Schema stability is
+  necessary but evidently not sufficient here. Not root-caused; the next
+  session chasing latency should instrument this specific case (a real
+  conversation, not the synthetic `llamacpp-cache-probe.mjs` sequence) to see
+  what else differs turn to turn — system-prompt content, tool-result
+  ordering, and timestamp-bearing context are the first things to rule out.
+
+**The save/insert-mechanics gap is now confirmed separate from latency.** The
+2026-08-13 run's real failure — the model proposes a save plan in prose and
+asks for chat-style confirmation instead of emitting the propose-write tool
+call, then only ever issues `CREATE TABLE` and never `INSERT` even when told
+explicitly a third time — happened on turns that completed well within
+budget (304-378s, under the 550s per-turn ceiling). This is not a latency
+symptom; it needs its own SKILL.md/prompting investigation, independent of
+whatever happens with the cache-reuse gap above.
+
+**Grader bug found the same run**, opposite direction from the three fixed
+2026-08-02 false-passes: the `noFxBlend`/`fullMonthGate` check false-flagged
+an honest, correctly-disclosed non-blended answer as a violation. Not fixed
+this session — see the run entry for detail.

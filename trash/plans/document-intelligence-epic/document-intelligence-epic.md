@@ -2,18 +2,25 @@
 
 **Issue:** [#250](https://github.com/BaiGanio/aperio/issues/250)  
 **Companion tests:** [`document-intelligence-epic-tests.md`](./document-intelligence-epic-tests.md)  
-**Status:** (2026-08-13) **WS0-R, WS1 and WS3 closed; WS2 blocked on one gate; WS4 not started.**
-The single open gate is T-G2.3/T-G2.4 on the local hero model — the small model must save
-its extracted rows and report the total back from a real `db_query`, without blending
-currencies. Everything the gate depends on has now shipped: the latency root cause (a
-per-turn tool-schema reshuffle defeating llama-server's KV-cache reuse) was fixed by the
-sticky tool-pin (`6331e7a8`, plus `f1377b1e` and the `doc_batch` dedup `2dc99e65`), and
-the `db_execute` bound-parameter bug that made a pass structurally unreachable was fixed
-in `a23c010f`. The remaining latency step (T-L4.2: a confirmation run with an informed
-wall-clock ceiling) has never been re-run since; its plan file was deleted in `c7f64007`,
-so only `llamacpp-latency/README.md` plus the three harnesses survive. **Next action:
-pick a wall-clock ceiling from the T-L4.1 hardware numbers, then re-run the provenance
-harness against Gemma 4 E4B.** Detail below and in `document-intelligence-epic-summary.md`.
+**Status:** (2026-08-13, T-L4.2 run) **WS0-R, WS1 and WS3 closed; WS2 T-G2.3/T-G2.4 on
+Gemma 4 E4B re-run and genuinely FAILS again; WS4 not started.** The sticky tool-pin
+(`6331e7a8`) and `db_execute` param-validation (`a23c010f`) fixes made a pass structurally
+reachable, but this run shows the model itself still doesn't complete the flow: it never
+issues a real `INSERT` (only `CREATE TABLE`, twice proposed in prose without a tool call
+before that), never reaches a `db_query`, and one turn hits the full 600s hard-abort while
+re-reading documents instead of progressing. The no-FX-blend behavior the 2026-08-13
+SKILL.md revision targets **is** working correctly this run (BGN/EUR kept honestly
+separate, explicitly disclosed) — the grader's own `noFxBlend` check false-flagged that
+correct disclosure as a violation, a new grader bug in the opposite direction from the
+2026-08-02 false-passes. Also newly observed: the tool-schema set does **not** stay pinned
+across the whole conversation (15→40→40→20→35→35→35→20 attached schemas turn to turn), and
+even where it *did* stay pinned, `cache_n` was still 0 — cache reuse did not occur even
+with a stable schema. Full turn-by-turn evidence, the exact wall-clock ceilings used and
+why, and the grader-bug detail: `document-intelligence-ws2-tg23-open-issues.md` (top
+section). **WS4/T-G6 does not start on this result.** Next action is unclear until someone
+decides whether to chase the save/insert-mechanics gap (a SKILL.md/prompting problem) or
+the cache-reuse gap that persists even with a pinned schema (a latency/harness problem) —
+they are now confirmed as two separate open issues, not one.
 Prior status (2026-08-02): **WS3 (persistent extraction templates) CLOSED, dual-backend-proven** — migrations, handlers, full 8-tool MCP surface, and a full end-to-end run against the real household-gen corpus all green on SQLite, after 5 review rounds closed 7 findings (dedup never wired in, keyword substring false positives, frozen confidence, unverified log-record trust, propose-token confirmation bypass, tools unreachable from the web agent, database not loaded alongside extraction intent). The Postgres gap flagged the same day is now closed: a real, isolated scratch Postgres reproduced all of T-G3.1/T-G4/T-G5/T-G5.2 with zero code changes needed. Detail: `document-intelligence-ws3-templates.md`. T-R5 re-confirmed PASSED on Gemma 4 E4B (second consecutive clean local-hero-model pass), WS0-R/WS1 stable on the local hero model. WS2 has a DeepSeek cloud provenance run: T-G2.3 passed, but T-G2.4 failed because EUR travel was saved and reported under spending categories. The Gemma hero-model gate has now been run twice (2026-08-02, same day, later session) after fixing 3 grading-harness false-pass bugs (`document-intelligence-ws2-tg23-open-issues.md`) — the fixed grader correctly reports `fail` both times, but the real blocker discovered is **latency, not a SKILL.md gap**: local multi-turn tool-using turns take 350-600+ seconds each because the per-turn tool-schema set changes turn-to-turn, defeating llama-server's own prompt/KV-cache reuse. Investigation + remediation plan written for a future session: `trash/plans/document-intelligence-epic/llamacpp-latency/`. WS2's T-G2.3/T-G2.4 stay open on Gemma pending that plan. Prior: (2026-08-01) Deterministic fact pipeline and period-aware retrieval landed (`2eb0e2b`); unit gate green (June + all nine periods reconcile); first T-R5 local-model pass on Gemma 4 E4B; WS1 (writable destination) implemented and tested same day — self-provisioning `extraction` connection behind the existing `db_execute` confirm boundary; T-G1.1–T-G1.4 all green (18 new tests, full suites 2404/2402 clean). Earlier: WS0-R implemented through retrieval/vision seams; first live T-R5 pass on deepseek-v4-pro (2026-07-26); local-model arithmetic failures recorded in the evidence log until the deterministic pipeline removed them.
 **Reset:** 2026-07-23
 

@@ -50,15 +50,26 @@ canonical evidence remains in `document-intelligence-epic.md`,
 ## Current truth / remaining work
 
 The product plumbing is largely complete. The open gate is the local hero-model
-workflow proof (WS2 T-G2.3/T-G2.4, later WS4/T-G6): Gemma E4B created a table
-but did not insert rows, then reported a remembered breakdown after an empty
-SQL query and blended BGN/EUR into one number. The original grader called this
-a pass; the corrected grader and transcript correctly call it a failure.
+workflow proof (WS2 T-G2.3/T-G2.4, later WS4/T-G6). Updated 2026-08-13 (T-L4.2
+run, after the sticky tool-pin and `db_execute` param-validation fixes made a
+pass structurally reachable): Gemma E4B still fails, but not the same way as
+2026-08-02. This time it never even attempts an `INSERT` — only a
+`CREATE TABLE` — and never reaches a `db_query` at all; one turn hit the full
+600s hard-abort while re-reading documents instead of progressing. The
+no-FX-blend behavior is now correct and honestly disclosed (BGN/EUR kept
+separate) — the grader's own check false-flagged that correct disclosure as a
+violation, a new bug worth fixing before trusting that check again. Also new:
+the tool-schema set does not stay pinned across the whole conversation despite
+the sticky-pin fix, and cache reuse failed even in the one place the schema
+*did* stay pinned — two separate open problems now, not one. Full detail:
+`document-intelligence-ws2-tg23-open-issues.md` (top section).
 
 DeepSeek `deepseek-v4-flash` completed the same provenance phase with a clean
 pass. That demonstrates the workflow can solve the problem, but it does not
-close the claim that the small local model solves it reliably. The next work is
-the llama.cpp multi-turn latency plan and a repeat of the corrected Gemma gate.
+close the claim that the small local model solves it reliably. WS4/T-G6 does
+not start until this gate passes; the next work is deciding whether to chase
+the save/insert-mechanics gap (prompting/SKILL.md) or the cache-reuse gap
+(latency/harness) first — they no longer have a shared root cause.
 
 ## Models used and what each proves
 

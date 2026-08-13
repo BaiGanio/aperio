@@ -1,3 +1,118 @@
+## gemma4 run, 2026-08-13 — T-L4.2, genuine FAIL, first real result since the cache/INSERT fixes
+
+**Command:**
+```
+DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
+  LLAMACPP_MODEL=unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL \
+  APERIO_HARNESS_WALLCLOCK_TOTAL_MS=2400000 APERIO_HARNESS_WALLCLOCK_PERTURN_MS=550000 \
+  node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
+```
+Ceilings chosen from T-L4.1's own numbers (461,830ms max observed turn,
+1,920,086ms observed total): per-turn 550,000ms (~19% headroom, still under
+the 600,000ms hard-abort so a "completed but too slow" turn stays
+distinguishable from a true hang), total 2,400,000ms (~25% headroom for the
+revised SKILL.md possibly needing an extra escalation turn). Two harness bugs
+found and fixed before this could even run: a broken relative import left
+over from the 2026-08-04 directory move (`b0842cb6`), and an unrelated
+`docker/Dockerfile` typo blocking Docker-smoke CI on every open PR
+(`ab2a7d2c`, unrelated to this gate but found while investigating CI state).
+
+**Verdict: FAIL, for real and specific reasons — read turn-by-turn, not
+`grading.status` alone (which correctly says `"fail"` here, but for an
+incomplete/partially wrong set of reasons — see the grader bug below).**
+
+Turn-by-turn (`document-intelligence-run-answers.json`, 7 scripted turns):
+
+1. **Turn 0** (main prompt): `doc_batch` only, 378s, cold `cache_n=0` (expected
+   — first turn). The model's own arithmetic is *correct and honest*: BGN
+   696.84 and EUR 196.40 reported **separately**, with an explicit disclosure
+   — *"Because your expenses span multiple currencies (BGN and EUR), there is
+   no single grand total; the totals are provided per currency."* It does
+   **not** call `db_execute` at all — it describes a save plan in prose and
+   asks *"Would you like me to proceed?"*, i.e. it treated the harness's
+   instruction as needing chat-style confirmation instead of emitting the
+   actual propose-write tool call.
+2. **Turn 1** (follow-up 1, "query it per category... not from your own
+   arithmetic"): still zero tool calls. Explains the data isn't saved yet,
+   and **changes its own plan** from turn 0's proposed 9 summary rows to 14
+   individual raw fact rows — again only in prose, again ending on a
+   confirmation question rather than a tool call. 351s, and `cache_n=0`
+   again — **notable: the tool-schema set was identical between this turn and
+   turn 0's second half (both 40/74 schemas, `[tools] turn=1` and `turn=2` in
+   the log), yet llama-server still reprocessed the entire prompt from
+   scratch.** Schema stability alone did not guarantee cache reuse here — see
+   the cache note below.
+3. **Turn 2** (follow-up 2, explicit: "finish saving them now... a single
+   multi-row INSERT is fine"): first and only `db_execute` call in the whole
+   run — but it is `CREATE TABLE IF NOT EXISTS category_summary (...)`, no
+   `INSERT`, `rowsAffected:0`. Despite being told explicitly, a third time,
+   to insert, the model still split table-creation and data-loading into
+   separate turns and never reached the second half. 304s.
+4. **Turn 3** (follow-up 3, "run SELECT... give me the resulting breakdown"):
+   called `doc_batch` again — re-reading documents instead of inserting or
+   querying — then ran the full 600,004ms hard abort
+   (`APERIO_HARNESS_TIMEOUT_MS`) without completing.
+5. **Turns 4-6** (follow-ups 4-6): ~4 seconds each, zero tool calls, empty
+   answers — the same "broken connection after a hard timeout" pattern
+   recorded in the 2026-08-02 run-1 history below. Once turn 3 hit the hard
+   abort, the session never produced real output again.
+
+**Checks against the four things this gate needed to see, explicitly:**
+1. Confirmed `db_execute` INSERT with `rowsAffected>0` — **never happened.**
+   Only a `CREATE TABLE`, `rowsAffected:0`.
+2. `db_query` returning real rows, narrated in the final answer — **never
+   happened.** The literal string `db_query` does not appear anywhere in the
+   transcript outside the grader's own failure-message text; the flow never
+   got that far.
+3. No BGN/EUR blended total-cue line — **actually satisfied.** Turn 0's
+   answer is honest and correctly separated; no turn anywhere states a
+   combined figure. The 2026-08-13 SKILL.md revision's no-blend guidance
+   *is* being followed on this run — the failure is entirely about the
+   save/insert/query mechanics, not currency-blend honesty.
+4. `cache_n`/attached-schema count flat from turn 2 on — **not held.** The
+   `[tools] turn=N` log shows the attached-schema count swinging
+   15→40→40→**20**→**35**→35→35→**20** across the conversation (profiles
+   dropping/regaining `docgraph`, `extraction`, `file-edit` and gaining an
+   unexplained `shell` mid-run), not the flat count the sticky-tool-pin fix
+   (`6331e7a8`) is supposed to produce. This directly reproduces the T-L1.1
+   probe's finding that any tool-set change forces a full cache miss, and
+   plausibly explains why turn 2 (304s) and turn 3 (600s, timed out) were the
+   slowest. **Separately and more surprisingly: even turn 1, where the schema
+   set *did* stay pinned at 40/74 across both internal model calls, still
+   showed `cache_n=0` — zero reuse despite a stable schema.** Schema
+   stability turned out to be necessary but not sufficient for cache reuse in
+   this run; something else in the request (possibly per-turn system-prompt
+   content, or how the growing tool-result history is rendered) is also
+   busting the prefix match. Not root-caused this session — flagging for
+   whoever picks up the latency thread next, since it changes the T-L4
+   remediation's expected payoff.
+
+**Grader bug found (opposite direction from the 2026-08-02 false-passes):**
+`grading.checks.fullMonthGate`/`noFxBlend` reports `false`, and the recorded
+failure text quotes turn 0's own honest disclosure — *"Because your expenses
+span multiple currencies (BGN and EUR), there is no single grand total; the
+totals are provided pe[r currency]"* — as if it were evidence of a blend. It
+is the opposite: this is the model correctly refusing to blend. This looks
+like a **false-negative** in `tests/fixtures/household-gen/harness-gate.mjs`'s
+`evaluateAnswer()`/`noExcludedLeak` path, most likely a substring/keyword
+match on "grand total" or similar firing without checking whether the
+matched line is *disclosing* non-conversion rather than performing it. Not
+investigated further this session (the real T-G2.3 failure — no INSERT, no
+query — is dispositive on its own and didn't need this check to fail the
+gate) but worth fixing before this grader is trusted on FX-blend again,
+mirroring the same "verify empirically, don't trust the mechanical check"
+lesson as the three 2026-08-02 bugs below.
+
+**Bottom line:** this is a genuine T-G2.3 failure — no persisted rows, no
+queried total — with a genuine but secondary contributing latency factor
+(unstable tool-schema set defeating cache reuse, compounding an underlying
+cache-reuse gap that schema stability alone doesn't close). It is **not** a
+regression in the no-FX-blend behavior, which the model got right this run.
+WS4/T-G6 should not start on this result; the save/insert-mechanics gap and
+the tool-schema volatility are both still open.
+
+---
+
 # WS2 T-G2.3 (SQL provenance) — passes on DeepSeek, genuinely FAILS on gemma4 (2026-08-02)
 
 **Context:** issue #250, WS2 (`skills/document-intelligence/SKILL.md`). T-G2.1
