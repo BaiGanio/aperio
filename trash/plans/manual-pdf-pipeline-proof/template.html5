@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="$if(lang)$$lang$$else$en$endif$">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="$description$">
+  <meta name="author" content="$for(author)$$author$$sep$, $endfor$">
+  <title>$title$</title>
+$for(css)$
+  <link rel="stylesheet" href="$css$">
+$endfor$
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <header class="title-block">
+    <p class="eyebrow">Pipeline proof · $date$</p>
+    <h1 class="document-title">$title$</h1>
+$if(subtitle)$
+    <p class="subtitle">$subtitle$</p>
+$endif$
+  </header>
+$if(toc)$
+  <nav id="$idprefix$TOC" class="toc" role="doc-toc" aria-label="Table of contents">
+    <h2 id="toc-title">Contents</h2>
+    $table-of-contents$
+  </nav>
+$endif$
+  <main id="main-content">
+$body$
+  </main>
+</body>
+</html>

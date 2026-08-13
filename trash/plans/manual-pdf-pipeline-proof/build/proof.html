@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A pipeline proof for a tagged,
+searchable, bookmarked, link-rich Aperio manual PDF.">
+  <meta name="author" content="Aperio maintainers">
+  <title>Aperio manual publishing proof</title>
+  <link rel="stylesheet" href="../styles/screen.css">
+  <link rel="stylesheet" href="../styles/print.css">
+</head>
+<body>
+  <a class="skip-link" href="#main-content">Skip to main content</a>
+  <header class="title-block">
+    <p class="eyebrow">Pipeline proof · 2026-08-13</p>
+    <h1 class="document-title">Aperio manual publishing proof</h1>
+    <p class="subtitle">One semantic source, accessible PDF and web</p>
+  </header>
+  <nav id="TOC" class="toc" role="doc-toc" aria-label="Table of contents">
+    <h2 id="toc-title">Contents</h2>
+    <ul>
+    <li><a href="#recall-path" id="toc-recall-path">Recall should be
+    part of the path</a>
+    <ul>
+    <li><a href="#first-recall" id="toc-first-recall">Start a first
+    recall</a>
+    <ul>
+    <li><a href="#minimal-config" id="toc-minimal-config">Minimal
+    configuration</a></li>
+    </ul></li>
+    <li><a href="#layer-ownership" id="toc-layer-ownership">Know what
+    each layer owns</a></li>
+    </ul></li>
+    <li><a href="#recover" id="toc-recover">Recover with evidence</a>
+    <ul>
+    <li><a href="#empty-recall" id="toc-empty-recall">Recover when
+    recall is empty</a></li>
+    <li><a href="#evidence-links" id="toc-evidence-links">Follow the
+    evidence</a>
+    <ul>
+    <li><a href="#acceptance" id="toc-acceptance">Acceptance
+    checks</a></li>
+    </ul></li>
+    </ul></li>
+    </ul>
+  </nav>
+  <main id="main-content">
+<section id="recall-path" class="level1">
+<h1>Recall should be part of the path</h1>
+<p>Aperio is a self-hosted memory layer for AI agents. This miniature
+manual is intentionally small, but it exercises the structures the full
+manual needs: navigable headings, a real list, a data table, a described
+figure, code, internal links, and an external reference.</p>
+<blockquote>
+<p><span class="lead-label">Proof target.</span> A reader can search and
+select this sentence, navigate by bookmarks or the table of contents,
+follow links, understand the reading order, and print the same source on
+A4 or Letter paper.</p>
+</blockquote>
+<section id="first-recall" class="level2">
+<h2>Start a first recall</h2>
+<p>Follow this ordered path:</p>
+<ol type="1">
+<li>Install Aperio for your platform.</li>
+<li>Connect an agent through MCP.</li>
+<li>Store one durable memory.</li>
+<li>Ask a later conversation to recall it.</li>
+</ol>
+<p>The result is successful when the later conversation retrieves the
+memory without the reader copying the original text into the prompt
+again. If that does not happen, jump to <a href="#empty-recall">Recover
+when recall is empty</a>.</p>
+<section id="minimal-config" class="level3">
+<h3>Minimal configuration</h3>
+<p>The smallest configuration keeps inference and storage local:</p>
+<pre class="dotenv"><code>AI_PROVIDER=llamacpp
+DB_BACKEND=sqlite
+EMBEDDING_PROVIDER=transformers</code></pre>
+<p>The variables are shown as a code block so syntax remains distinct
+from explanatory prose in both outputs.</p>
+</section>
+</section>
+<section id="layer-ownership" class="level2">
+<h2>Know what each layer owns</h2>
+<table id="tbl-ownership">
+<caption>The proof separates semantic ownership from presentation
+ownership.</caption>
+<colgroup>
+<col style="width: 33%" />
+<col style="width: 33%" />
+<col style="width: 33%" />
+</colgroup>
+<thead>
+<tr>
+<th style="text-align: left;">Layer</th>
+<th style="text-align: left;">Reader-facing responsibility</th>
+<th style="text-align: left;">Canonical evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align: left;">Structured source</td>
+<td style="text-align: left;">Meaning, order, labels, alternative text,
+and links</td>
+<td style="text-align: left;">Reviewed Markdown and metadata</td>
+</tr>
+<tr>
+<td style="text-align: left;">Semantic HTML</td>
+<td style="text-align: left;">Web artifact and accessibility-bearing
+intermediate</td>
+<td style="text-align: left;">Generated HTML inspection</td>
+</tr>
+<tr>
+<td style="text-align: left;">Print CSS</td>
+<td style="text-align: left;">Page geometry, running furniture, and
+break behavior</td>
+<td style="text-align: left;">A4 and Letter render checks</td>
+</tr>
+<tr>
+<td style="text-align: left;">PDF renderer</td>
+<td style="text-align: left;">Tags, outlines, annotations, fonts, and
+PDF metadata</td>
+<td style="text-align: left;">Structural and visual PDF checks</td>
+</tr>
+</tbody>
+</table>
+<figure id="fig-recall-loop">
+<img src="../assets/recall-loop.svg"
+alt="A four-step recall loop: an agent stores a memory, Aperio indexes it, a later conversation asks a related question, and Aperio returns the memory." />
+<figcaption aria-hidden="true">A four-step recall loop: an agent stores
+a memory, Aperio indexes it, a later conversation asks a related
+question, and Aperio returns the memory.</figcaption>
+</figure>
+<p>The diagram’s meaning is carried by its alternative text and caption,
+not by color alone. The same vector stays sharp in browser and print
+output.</p>
+</section>
+</section>
+<section id="recover" class="level1">
+<h1>Recover with evidence</h1>
+<section id="empty-recall" class="level2">
+<h2>Recover when recall is empty</h2>
+<p>Use the shortest diagnostic loop that can distinguish an indexing
+problem from a retrieval problem:</p>
+<ul>
+<li>Confirm the memory was accepted and has a stable identifier.</li>
+<li>Confirm embedding generation completed rather than remaining
+queued.</li>
+<li>Search with a distinctive phrase from the stored memory.</li>
+<li>Inspect the relevant troubleshooting entry before changing
+thresholds.</li>
+</ul>
+<p>Do not paste secrets into diagnostic output. Redact credentials and
+private memory content before sharing logs.</p>
+</section>
+<section id="evidence-links" class="level2">
+<h2>Follow the evidence</h2>
+<p>Use descriptive link text. The <a
+href="https://github.com/BaiGanio/aperio">Aperio repository</a> is the
+canonical project source, while the <a href="#recall-path">publishing
+proof target</a> returns to this document’s opening requirement.</p>
+<section id="acceptance" class="level3">
+<h3>Acceptance checks</h3>
+<p>The pipeline passes this prototype when all checks below are
+true:</p>
+<ul>
+<li>The HTML document declares English and contains one main
+landmark.</li>
+<li>Both PDFs report that they are tagged.</li>
+<li>Extracted text contains the proof-target sentence in reading
+order.</li>
+<li>PDF outlines include the first- and second-level headings.</li>
+<li>Internal destinations and external URL annotations exist.</li>
+<li>The A4 and Letter files report their intended physical page
+sizes.</li>
+<li>Rendered page images have no clipping, overlap, missing glyphs, or
+broken page furniture.</li>
+</ul>
+<p>Formal PDF/UA certification remains outside this prototype. A
+production release gate must add a specialist validator and
+assistive-technology spot checks before claiming conformance.</p>
+</section>
+</section>
+</section>
+  </main>
+</body>
+</html>
