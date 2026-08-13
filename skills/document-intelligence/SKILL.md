@@ -247,6 +247,15 @@ the summary line. When the user asks for "the total" and the documents span
 currencies, the honest answer is two totals plus one sentence saying why
 there is no single number.
 
+**Before you send the final answer, re-read every line for two amounts in
+different currencies added into one figure.** A "Grand total" line placed
+right after correct per-currency lines is the most common place this slips
+through — it reads as a helpful summary rather than a calculation, which is
+exactly why it's easy to add without noticing. If you find one, delete it;
+recorded live on a run that got every per-currency line right and still
+added `**Grand total: 893.24** (696.84 BGN + 196.40 EUR)` as a closing
+sentence.
+
 ### 7. Reusing a learned document shape (templates)
 
 When the work is *one document Aperio has seen the shape of before*, don't
@@ -302,6 +311,26 @@ template definition — already-extracted rows and log entries stay.
   category, satisfy yourself from its own body that it is the user's own
   spending, in the period asked about — tax notices, business invoices,
   blank templates, and quotes all read as money-shaped to a ranker.
+- **A hotel, taxi, train, bus, or airport-meal receipt tied to a trip away
+  from home is travel spending, not household spending — exclude it from
+  every category total regardless of currency, even though it genuinely is
+  the user's own money.** This is a different test than the one above: "is
+  this the user's own spending" isn't enough on its own, since a train
+  ticket the user paid for really is their spending. The signal is the
+  document *kind* (lodging/taxi/rail/bus/airport-meal framing) plus a
+  destination that doesn't match the user's home documents — a foreign city,
+  a foreign language, a passenger or guest name matching the user rather
+  than a household account holder. Don't confuse this with an ordinary
+  purchase that merely happens to be billed in a foreign currency (e.g. an
+  online order from a foreign merchant) — that IS legitimate spending and
+  belongs in its own per-currency total per §6, just never blended into the
+  home-currency figure. If you mention an excluded travel document at all,
+  say plainly that it's excluded and why. Recorded live: a run reported one
+  of three excluded EUR travel receipts as `EUR | Transport | 49.90` inside
+  a category-breakdown table, with no exclusion disclosure — on a run where
+  the more general "candidate, not a confirmed expense" bullet above already
+  existed and named this same failure shape without stopping it. Treat this
+  as a standing risk to re-check on every run, not a solved problem.
 - **`file_mtime` is not the document's date.** It's a filesystem timestamp.
   Use each document's own extracted `dates` (or read `text`) for anything
   date-sensitive.

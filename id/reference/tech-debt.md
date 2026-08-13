@@ -272,7 +272,33 @@ nuanced than "unvalidated" now.
   of the three original gemma4-targeted SKILL.md gaps; both are about
   scope/disclosure discipline on an otherwise-working provenance flow, and
   apply to §6 (no-blend) and the exclusion-handling guidance rather than §5
-  (save/insert mechanics). Not fixed this session.
+  (save/insert mechanics).
+  **Notable and worth flagging, not just fixing: both failures happened
+  against guidance that already named this exact scenario.** §6 already
+  contained this run's own numbers verbatim as a labeled anti-example
+  ("Overall Grand Total: 893.24 (696.84 BGN + 196.40 EUR) is a failure",
+  landed that same morning in `195f39cc`, before this run) — the numbers
+  match because the fixture corpus is deterministic, not because the
+  wording was written after seeing this run. The Gotchas section already
+  said "EUR travel receipts saved into `Transport`/`Dining` alongside
+  domestic BGN spending" was a recorded false positive. Wording this
+  specific still didn't stop Ornith from doing exactly that — real evidence
+  that prose alone has a ceiling here, not proof positive but a second
+  data point after gemma4-E4B's own gaps.
+  **SKILL.md landed this session (chore/docint-skill-correction... branch,
+  uncommitted as of this entry):** §6 gained an explicit pre-send self-check
+  imperative ("before you send the final answer, re-read every line for two
+  amounts in different currencies added into one figure") — a procedural
+  checklist framing rather than more explanation, since the explanation was
+  already maximal. Gotchas gained a new, separate bullet giving the actual
+  discriminating test for travel spending ("is this the user's own money"
+  isn't enough — a train ticket really is the user's money; the test is
+  document kind + away-from-home destination) and explicitly distinguishing
+  it from a legitimate foreign-currency purchase, which stays in its own
+  per-currency total per §6 rather than being excluded. **Unvalidated —
+  given the ceiling already observed once, this needs a live re-run before
+  trusting the new wording, more than the other three items in this
+  section.**
 
 ---
 
