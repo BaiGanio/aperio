@@ -501,7 +501,6 @@ describe("appendSummary()", () => {
     seedSession({ id: "summarised", summaries: [] });
 
     const messages = [
-      { role: "system", content: "internal greeting" },
       { role: "user", content: "Hello" },
       { role: "assistant", content: "Hi there!" },
       { role: "user", content: "How do I write tests?" },
@@ -516,7 +515,7 @@ describe("appendSummary()", () => {
     const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions/summarised.json")));
     assert.equal(saved.summaries.length, 1);
     assert.equal(saved.summaries[0].content, "The user asked about testing.");
-    assert.equal(saved.summaries[0].messageCount, 4); // messages.length - 1
+    assert.equal(saved.summaries[0].messageCount, 4); // no synthetic first message \u2014 nothing to exclude
     assert.ok(saved.summaries[0].generatedAt);
     // The full transcript is deliberately not persisted \u2014 it was dead weight.
     assert.equal(saved.summaries[0].transcript, undefined);
@@ -542,11 +541,10 @@ describe("appendSummary()", () => {
     assert.equal(saved.summaries.length, 2);
   });
 
-  test("messageCount excludes the internal greeting prompt", () => {
+  test("messageCount counts every message on a fresh (non-resumed) session", () => {
     seedSession({ id: "no-greeting-transcript", summaries: [] });
 
     const messages = [
-      { role: "system", content: "You are an AI assistant" },
       { role: "user", content: "Hello" },
       { role: "assistant", content: "Hi there!" },
     ];
@@ -557,6 +555,25 @@ describe("appendSummary()", () => {
     });
 
     const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions/no-greeting-transcript.json")));
+    assert.equal(saved.summaries[0].messageCount, 2);
+  });
+
+  test("messageCount excludes messages[0] when firstMessageSynthetic is true (resume/handoff seed)", () => {
+    seedSession({ id: "resumed-transcript", summaries: [] });
+
+    const messages = [
+      { role: "user", content: "[Resume context]" },
+      { role: "user", content: "Hello" },
+      { role: "assistant", content: "Hi there!" },
+    ];
+
+    sessions.appendSummary("resumed-transcript", {
+      content: "A greeting.",
+      messages,
+      firstMessageSynthetic: true,
+    });
+
+    const saved = JSON.parse(memFS.get(join(mockCwd, "var/sessions/resumed-transcript.json")));
     assert.equal(saved.summaries[0].messageCount, 2);
   });
 });

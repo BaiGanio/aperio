@@ -824,21 +824,6 @@ because the round-12 blend retired the premise of the second arm.
 
 ---
 
-## Terminal — session summaries
-
-- 2026-08-04 `appendSummary`'s `messageCount: messages.length - 1`
-  (`lib/helpers/sessions.js:454`) still hardcodes "drop index 0 as the
-  internal greeting", the same wrong assumption `finaliseSession` had until
-  today's fix — a fresh (never resumed/branched) session's summary undercounts
-  by one real message. Cosmetic only: `messageCount` just feeds the "N
-  messages" line in the session-summary UI (`public/scripts/sessions.js`,
-  `chat.js`). Not fixed here because `appendSummary`'s 3 call sites
-  (`lib/emitters/handlers/ws/summarize.js`, `lib/terminal/standalone.js` ×2)
-  would each need the same `firstMessageSynthetic` flag threaded in for a
-  display-only off-by-one.
-
----
-
 ## Document Intelligence — cold-start template proposals (#250)
 
 - 2026-08-02 **`inferTemplateProposal()`'s `match_keywords` heuristic is crude
