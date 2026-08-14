@@ -376,6 +376,13 @@ housekeeping go in `A2D.md`, not here.
 
 ## Document-intelligence harness — grader (#250)
 
+> **Paths moved 2026-08-14.** The grader now lives in `tests/docint/`
+> (`grading.mjs`, `grading-predicates.mjs`, `provenance-ladder.mjs`,
+> `write-claims.mjs`, `replay-grading.mjs`) and is run by `npm test` /
+> `npm run test:docint` — 82 tests that no CI run previously executed. Entries
+> below written before that date name the old `llamacpp-latency/…` paths;
+> `tests/fixtures/household-gen/harness-gate.mjs` did not move, only its test.
+
 - 2026-08-14 **FIXED — the T-L4 per-turn ceiling was a guess, and it was failing
   substantive passes.** (`llamacpp-latency/grading.mjs`) The 550,000 ms per-turn
   value was chosen before anyone had watched a turn run to completion on this
@@ -403,6 +410,37 @@ housekeeping go in `A2D.md`, not here.
   actually written. Squarely in T-G2.3's spirit: the gate exists to stop prose
   outrunning the database. gemma-4-12B showed the same family from the other
   side, querying `FROM expenses`, a table it had never created.
+  **FIXED 2026-08-14 (later session) — and it voids the Ornith pass.**
+  `tests/docint/write-claims.mjs`, wired into `gradePhase` as the T-G2.3 check
+  `noPhantomWriteClaims`. It compares the currencies an answer claims to have
+  written against the currency literals in the run's own confirmed INSERTs.
+  Built to avoid becoming the fifth false-failure of the prose-matching class,
+  so it is strict on five counts: currencies come from the ORACLE
+  (`expectations.excluded`) plus what was actually written, never from the
+  answer's prose; only PREDICATIVE storage verbs count ("are saved", "I stored
+  them", "written to"), so the adjectival "the saved records" is read as a read;
+  negated/modal/future claims are ignored; an anaphoric claim ("These are
+  saved") inherits its currency only from the nearest preceding sentence in the
+  same block naming exactly one, and anything ambiguous stays SILENT; and it
+  disarms entirely unless some other currency was written as a literal, so a
+  schema that never stores a currency code cannot produce a violation.
+  Validated by replay against all three archived transcripts, no boot:
+  **Ornith run 2 flips `pass → fail`** on exactly this check, with every other
+  T-G2.3 check still green and T-G2.4/T-L4 still passing (one failure
+  introduced, zero collateral); **gemma-4-26B-A4B's pass is unchanged** — a real
+  negative control, since its INSERT genuinely carried `EUR`×3 alongside
+  `BGN`×10; Ornith run 1 unchanged. 13 tests in `write-claims.test.js`, both
+  anchor cases verbatim from the two archived runs.
+  **Consequence for the epic, not just the harness:** the claim that
+  Ornith-1.0-9B was "the first local model to pass T-G2.3" no longer holds. The
+  surviving local pass is gemma-4-26B-A4B — but it was earned at
+  `successTurn: 4` on the `dictated-sql` rung, i.e. `capabilityClaim:
+  mechanism-conformance`, not realistic usage. **No local model has a
+  realistic-usage T-G2.3 pass.** WS4/T-G6 does not open on this.
+  Still open, deliberately not attempted here: the gemma-4-12B side of the
+  family (querying a table never created). It is a phantom READ rather than a
+  phantom write, needs different evidence (system/pre-existing tables have to be
+  excluded), and no current run is blocked on it.
 
 - 2026-08-13 **`hasNarratedDecimalTotal` rejects markdown emphasis, and it
   silently invalidates the whole provenance gate.**

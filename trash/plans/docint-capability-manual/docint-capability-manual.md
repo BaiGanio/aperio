@@ -39,16 +39,14 @@ provenance of the evidence is part of the evidence.
 ```mermaid
 graph TD
     subgraph Producers
-        H1[document-intelligence-red-harness.mjs<br/>T-R5 retrieval]
         H2[document-intelligence-skill-harness.mjs<br/>T-G2.1/2.2/2.3/2.4 + wall clock]
         H3[gemma-simple-capability-harness.mjs<br/>capability probe]
-        H4[llamacpp-cache-probe.mjs<br/>KV-cache reuse]
+        H5[replay-grading.mjs<br/>re-grades archived transcripts]
     end
 
-    H1 --> APP[appendRunRecord<br/>fixture-corpus guard]
-    H2 --> APP
+    H2 --> APP[appendRunRecord<br/>fixture-corpus guard]
     H3 --> APP
-    H4 --> APP
+    H5 --> APP
 
     APP --> L[(run-ledger.jsonl<br/>tracked, append-only)]
     EV[evidence files<br/>2026-07 → 2026-08] -. one-time backfill<br/>source: backfilled .-> L

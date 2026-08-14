@@ -13,9 +13,9 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   buildExpectations, evaluateAnswer, parseCategoryClaims, parseGrandTotals, parseMoney,
-} from "./harness-gate.mjs";
+} from "../fixtures/household-gen/harness-gate.mjs";
 
-const oracle = JSON.parse(await readFile(resolve(import.meta.dirname, "ground-truth.json"), "utf8"));
+const oracle = JSON.parse(await readFile(resolve(import.meta.dirname, "../fixtures/household-gen/ground-truth.json"), "utf8"));
 const CORPUS_ROOT = "/Users/lk/Projects/household";
 const expectations = buildExpectations(oracle, "2026-06", { corpusRoot: CORPUS_ROOT });
 

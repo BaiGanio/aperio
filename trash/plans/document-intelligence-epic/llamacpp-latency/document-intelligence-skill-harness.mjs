@@ -15,7 +15,8 @@
 // under the scratch runtime) and tears it down in the same finally block
 // that cleans up everything else — it never touches a shared/dev instance.
 //
-// Same isolation pattern as document-intelligence-red-harness.mjs (T-R5): scratch
+// Same isolation pattern as the retired T-R5 red harness (deleted 2026-08-14;
+// `git log -- trash/plans/document-intelligence-epic/document-intelligence-red-harness.mjs`): scratch
 // SQLite DB, non-default ports, a copied fixture set, oracle withheld, full
 // teardown. This script is new because the T-G2 gate needs different things per
 // phase (a bare-routing check, an oversized-corpus coverage check, and a
@@ -49,9 +50,9 @@ import { once } from "node:events";
 import net from "node:net";
 import { WebSocket } from "ws";
 import { buildExpectations } from "../../../../tests/fixtures/household-gen/harness-gate.mjs";
-import { resolveLadder } from "./provenance-ladder.mjs";
-import { hasNarratedDecimalTotal, dbQueryReturnedRows } from "./grading-predicates.mjs";
-import { gradePhase } from "./grading.mjs";
+import { resolveLadder } from "../../../../tests/docint/provenance-ladder.mjs";
+import { hasNarratedDecimalTotal, dbQueryReturnedRows } from "../../../../tests/docint/grading-predicates.mjs";
+import { gradePhase } from "../../../../tests/docint/grading.mjs";
 
 const HOUSEHOLD = process.env.HOUSEHOLD_ROOT ?? "/Users/lk/Projects/household";
 const ORACLE_PATH = resolve(process.env.ORACLE_PATH ?? "tests/fixtures/household-gen/ground-truth.json");

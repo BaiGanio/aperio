@@ -22,7 +22,7 @@
 
 import { readdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { buildExpectations } from "../../../../tests/fixtures/household-gen/harness-gate.mjs";
+import { buildExpectations } from "../fixtures/household-gen/harness-gate.mjs";
 import { resolveLadder } from "./provenance-ladder.mjs";
 import { gradePhase } from "./grading.mjs";
 

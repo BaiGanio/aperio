@@ -18,10 +18,10 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gradePhase, insertedRealRows } from "./grading.mjs";
 import { resolveLadder } from "./provenance-ladder.mjs";
-import { buildExpectations } from "../../../../tests/fixtures/household-gen/harness-gate.mjs";
+import { buildExpectations } from "../fixtures/household-gen/harness-gate.mjs";
 
 const execFileAsync = promisify(execFile);
-const REPLAY = resolve("trash/plans/document-intelligence-epic/llamacpp-latency/replay-grading.mjs");
+const REPLAY = resolve(import.meta.dirname, "replay-grading.mjs");
 
 const silent = () => {};
 
@@ -206,7 +206,7 @@ test("replay re-grades a saved transcript without booting anything", async () =>
     provenanceLadder: "mechanism",
     gradingInputs: {
       household: "/nowhere",
-      oraclePath: resolve("tests/fixtures/household-gen/ground-truth.json"),
+      oraclePath: resolve(import.meta.dirname, "../fixtures/household-gen/ground-truth.json"),
       wallClockTotalCeilingMs: null,
       wallClockPerTurnCeilingMs: 60_000,
     },
@@ -406,7 +406,7 @@ test("provenance: the check stays out of the way when no expectations are suppli
 // failure must not read as a provenance failure, and vice versa.
 
 function gradeWithOracle(results, extra = {}) {
-  const oracle = JSON.parse(readFileSync(resolve("tests/fixtures/household-gen/ground-truth.json"), "utf8"));
+  const oracle = JSON.parse(readFileSync(resolve(import.meta.dirname, "../fixtures/household-gen/ground-truth.json"), "utf8"));
   return gradePhase({
     phase: "provenance",
     results,
@@ -436,6 +436,10 @@ test("gates: a clean transcript passes T-G2.3 and T-L4; T-G2.4 needs an oracle",
     calledDbExecute: true, interruptApproved: true, insertedRealRows: true,
     calledDbQueryAfterConfirm: true, dbQueryReturnedRealRows: true,
     followUpCitesSql: true, followUpNarratesDecimalTotal: true,
+    // Evaluated with no oracle supplied: the phantom-write check falls back to
+    // the currencies the run itself wrote, so T-G2.3 stays a real verdict here
+    // rather than degrading to "not-evaluated" the way T-G2.4 must.
+    noPhantomWriteClaims: true,
   });
   assert.equal(grading.gates["T-G2.3"].context.capabilityClaim, "realistic-usage");
 });

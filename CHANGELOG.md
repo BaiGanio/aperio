@@ -60,6 +60,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **The document-intelligence grader now runs in CI, and it checks that a
+  model's write claims are true.** The grader lived in `trash/plans/` with 69
+  passing tests that no CI run executed; it now lives in `tests/docint/`
+  (`npm run test:docint`, and inside `npm test`). It also gained
+  `noPhantomWriteClaims`, a T-G2.3 check comparing the writes an answer
+  *claims* against the writes actually confirmed — `insertedRealRows` only ever
+  asked whether *some* INSERT landed, "regardless of what the answer claims".
+  Replayed against the archived transcripts, this withdraws a previously
+  recorded local-model gate pass: the run told the user its EUR receipts were
+  "saved separately" when its only INSERT carried none. Test-only change; no
+  product code affected.
+
 - **`db_execute` is no longer treated as a "destructive" tool.** That
   designation disables JSON-argument repair, schema-mismatch hints, and the
   in-turn duplicate-call short-circuit — protections that exist for tools whose

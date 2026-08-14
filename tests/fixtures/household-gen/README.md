@@ -31,7 +31,7 @@ node --test "tests/fixtures/household-gen/*.test.mjs"
 | `gen-oracle.mjs` | Writes `ground-truth.json` beside the generator (schema_version 3). |
 | `validate-oracle.mjs` | Re-derives every figure in integer minor units and checks it against the corpus. |
 | `harness-gate.mjs` | The T-R5 gate as pure functions: category-associated figures, failure signatures, exclusions, coverage. |
-| `harness-gate.test.mjs` | Mutation tests: each deliberate defect must fail for its own reason. |
+| `harness-gate.test.js` | Mutation tests: each deliberate defect must fail for its own reason. Lives in `tests/docint/` so `npm test` runs it. |
 | `generated-manifest.json` | What the last run wrote. The guard against overwriting hand-authored files. |
 
 ## Rules that are load-bearing

@@ -2,20 +2,23 @@
 
 **Issue:** [#250](https://github.com/BaiGanio/aperio/issues/250)  
 **Companion tests:** [`document-intelligence-epic-tests.md`](./document-intelligence-epic-tests.md)  
-**Status:** (2026-08-14) **WS0-R, WS1 and WS3 closed; WS2 T-G2.3 + T-G2.4 + T-L4 all PASS on
-Ornith-1.0-9B — first clean local-model run of this gate; WS4 not started.** `status: pass`,
-`failures: []`, earned at turn 2 on the `named-mechanism` rung with
-`capabilityClaim: realistic-usage` (the strongest claim the harness awards), 520,205 ms total
-against a 2,400,000 ms budget. Every category matches the oracle, the grand total is exact
-(696.84 BGN), and the EUR travel receipts are held out and disclosed rather than blended.
-Three things made it reachable this session: the verdict was **split by gate** (one `status`
-had been ORing T-G2.3, T-G2.4 and T-L4 together, which is why four earlier E4B runs read as
-"1 pass in 4" when provenance itself held in three), a real **`db_execute` argument defect**
-was fixed (`8e54bf4c`), and a **fourth grader false-failure** was closed. Detail:
-`document-intelligence-ws2-tg23-open-issues.md`, 2026-08-14 section. **Not yet decided:**
-whether one clean run closes T-G2.3, and whether the gate is claimed for Ornith only or for
-the local hero model generally — gemma-4-12B and gemma-4-26B-A4B remain untested against the
-fixed code. Prior status below.
+**Status:** (2026-08-14, later session) **WS0-R, WS1 and WS3 closed; WS2 T-G2.3 still OPEN;
+WS4 not started.** The Ornith-1.0-9B pass recorded earlier the same day **has been
+withdrawn.** A new T-G2.3 check — `noPhantomWriteClaims`, comparing the writes an answer
+*claims* against the writes that actually happened — flips that run `pass → fail`: it told
+the user the three EUR travel receipts "are saved separately" when its single INSERT carried
+`BGN`×10 and `EUR`×0. Every other T-G2.3 check stays green and T-G2.4/T-L4 still pass, so
+the failure is one fabricated write-claim, not a collapse of the run.
+
+**What survives:** gemma-4-26B-A4B has a clean pass on all three gates against the fixed
+code, and it holds under the new check — its INSERT genuinely carried `EUR`×3 alongside
+`BGN`×10. But it was earned at `successTurn: 4` on the `dictated-sql` rung, i.e.
+`capabilityClaim: mechanism-conformance`. **So no local model has a realistic-usage
+T-G2.3 pass:** Ornith reached the realistic rung but fabricated a write claim, and the 26B
+model only got there after the ladder dictated the SQL (and at 682,006 ms for its longest
+turn). WS4/T-G6 does not open on this. Detail:
+`document-intelligence-ws2-tg23-open-issues.md` and `id/reference/tech-debt.md`
+→ "Document-intelligence harness — grader". Prior status below.
 
 **Prior status:** (2026-08-13, T-L4.2 run) **WS2 T-G2.3/T-G2.4 on
 Gemma 4 E4B re-run and genuinely FAILS again.** The sticky tool-pin

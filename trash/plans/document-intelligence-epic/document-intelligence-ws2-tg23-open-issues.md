@@ -1,4 +1,41 @@
-## 2026-08-14 (later) — CLEAN PASS: Ornith-1.0-9B, all three gates, `failures: []`
+## 2026-08-14 (latest) — the phantom-write check lands, and it withdraws the Ornith pass
+
+The "ungraded false claim" flagged as a caveat in the run entry below is now a graded
+failure. `tests/docint/write-claims.mjs` compares the writes an answer *claims* against the
+writes that actually happened, wired into `gradePhase` as the T-G2.3 check
+`noPhantomWriteClaims`. Replayed against all three archived transcripts — no server, no
+model, no scratch DB:
+
+| Run | Before | After | Why |
+|---|---|---|---|
+| Ornith-1.0-9B run 2 | pass | **fail** | "These are saved separately" — INSERT was `BGN`×10, `EUR`×0 |
+| gemma-4-26B-A4B | pass | pass | its INSERT genuinely carried `EUR`×3 — real negative control |
+| Ornith-1.0-9B run 1 | fail | pass | unchanged by this check; flips on the two grader fixes already recorded below |
+
+One failure introduced, zero collateral: every other T-G2.3 check on Ornith run 2 stays
+green, and T-G2.4/T-L4 still pass. The failure message quotes the claim verbatim.
+
+**Where this leaves the gate.** Ornith reached the `named-mechanism` rung
+(`realistic-usage`) but fabricated a write claim. gemma-4-26B-A4B is clean under every
+check but earned it at `successTurn: 4` on `dictated-sql` — `mechanism-conformance`, with a
+682,006 ms longest turn. **No local model has a realistic-usage T-G2.3 pass.** WS4/T-G6
+stays shut.
+
+**On not becoming the fifth false-failure.** Four prose predicates on this gate have each
+produced a false failure that invalidated a live run, so this one was built strict: oracle-
+anchored currencies, predicative storage verbs only (the adjectival "the saved records" is a
+read), negated/modal claims ignored, anaphora resolved only when exactly one currency is
+in scope — otherwise silent — and the whole check disarms unless some other currency was
+written as a literal. 13 tests, both anchor cases verbatim from the two archived runs,
+including gemma-4-26B's phrasing as an explicit must-not-fire.
+
+**Still open** (the other half of the family): gemma-4-12B querying `FROM expenses`, a table
+it never created. That is a phantom *read*, needs different evidence, and nothing is blocked
+on it.
+
+---
+
+## 2026-08-14 (later) — CLEAN PASS: Ornith-1.0-9B, all three gates, `failures: []` — **WITHDRAWN, see above**
 
 Second Ornith run, against the fixed grader and the fixed `db_execute` handler. **`status: pass`.**
 
@@ -571,7 +608,7 @@ prose. Do not carry that finding forward as established.
 
 Raised by the developer while watching this session's live T-L4 runs
 (gemma4-E4B, gemma-4-26B-A4B, Ornith-1.0-9B) turn by turn. Short version:
-`prompts.md`'s scripted ladder for `DOCINT_PHASE=provenance` (T-G2.3) is not
+the scripted ladder (`tests/docint/provenance-ladder.mjs`) for `DOCINT_PHASE=provenance` (T-G2.3) is not
 how a non-technical person talks to a personal memory assistant, at every
 rung — not just the openly-dictated SQL in turns 3-4, but turn 0's "save the
 results so I can **query** them again later" (presupposes a DB mental model

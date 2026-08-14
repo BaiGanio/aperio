@@ -16,7 +16,8 @@
 // a replay grades under the recorded run's ceilings rather than the current
 // shell's.
 
-import { evaluateAnswer, parseCategoryClaims } from "../../../../tests/fixtures/household-gen/harness-gate.mjs";
+import { evaluateAnswer, parseCategoryClaims } from "../fixtures/household-gen/harness-gate.mjs";
+import { phantomWriteClaims } from "./write-claims.mjs";
 import { computeProvenanceSuccess } from "./provenance-ladder.mjs";
 import {
   hasNarratedDecimalTotal,
@@ -229,8 +230,34 @@ export function gradePhase({
     // fail on their own terms, so nothing is hidden by putting it here.
     if (!checks.completed) fail("T-L4", "one or more turns did not complete");
 
+    const combinedAnswer = results.map(r => r.answerRaw).join("\n---\n");
+
+    // `insertedRealRows` above asks only whether SOME confirmed INSERT landed —
+    // "regardless of what the answer claims", as its own failure message says.
+    // Nothing compared the writes an answer CLAIMS against the writes that
+    // happened, so an answer could tell the user rows were saved that never
+    // existed and still pass the gate. Ornith-1.0-9B's 2026-08-14 passing run
+    // did exactly that. Combined text and combined tool calls, so a claim in one
+    // turn is satisfied by a write in any turn.
+    //
+    // Deliberately OUTSIDE the `expectations` block below: this is a T-G2.3
+    // check, and it needs no oracle — `relevantCurrencies` falls back to the
+    // currencies the run itself wrote. Scoping it to the oracle would leave
+    // T-G2.3 reporting "not-evaluated" on every oracle-less transcript.
+    const phantom = phantomWriteClaims({
+      text: combinedAnswer,
+      toolCalls: allToolCalls,
+      expectations,
+    });
+    checks.noPhantomWriteClaims = phantom.length === 0;
+    for (const v of phantom) {
+      fail(
+        "T-G2.3",
+        `answer claims ${v.currency} rows were written but no confirmed INSERT carried a single ${v.currency} tuple: "${v.claim}"`,
+      );
+    }
+
     if (expectations) {
-      const combinedAnswer = results.map(r => r.answerRaw).join("\n---\n");
       const evaluation = evaluateAnswer({
         answer: combinedAnswer,
         toolSequence: allToolNames,
@@ -281,6 +308,7 @@ const PROVENANCE_GATES = [
       "calledDbExecute", "interruptApproved", "insertedRealRows",
       "calledDbQueryAfterConfirm", "dbQueryReturnedRealRows",
       "followUpCitesSql", "followUpNarratesDecimalTotal",
+      "noPhantomWriteClaims",
     ],
     context: ["provenanceLadder", "successTurn", "successPromptTier", "capabilityClaim"],
   },
