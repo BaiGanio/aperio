@@ -42,7 +42,7 @@
   "cg_mode_map":              "Žemėlapis",
   "nav_codegraph_title":      "Kodo grafikas",
   "nav_memories_title":       "Prisiminimai – ieškokite išsaugotų prisiminimų",
-  "nav_reasoning_title":      "Įjungti samprotavimą",
+  "nav_reasoning_title":      "Rodyti samprotavimą",
   "nav_reasoning_label":      "samprotavimus",
   "nav_reasoning_on":         "įjungta",
   "nav_reasoning_off":        "išjungta",

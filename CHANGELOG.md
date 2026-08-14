@@ -40,6 +40,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
   whole group. Observed against a recorded run where the same malformed
   statement was retried three times under a bare "`sql` is required".
 
+- **The reasoning toggle was labeled "Enable/Disable reasoning" but only ever
+  hid or showed the reasoning bubble in the browser** — it was never passed
+  into the agent or provider request, so switching it off did not stop a
+  model from thinking or save any latency/tokens. Relabeled to "Show/Hide
+  reasoning" (English and all 24 locales) to match what it actually does.
+  Real per-provider reasoning-effort control is tracked separately as
+  [#476](https://github.com/BaiGanio/aperio/issues/476).
+
+### Changed
+
 - **Multi-minute llama.cpp turns caused by the skill block moving between
   turns.** Matched skills were attached to the request's newest message, on the
   reasoning that the newest message is never a cache hit anyway. That holds

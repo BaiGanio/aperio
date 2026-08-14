@@ -42,7 +42,7 @@
   "cg_mode_map":              "Mapa",
   "nav_codegraph_title":      "Wykres kodu",
   "nav_memories_title":       "Wspomnienia — przeszukaj zapisane wspomnienia",
-  "nav_reasoning_title":      "Włącz rozumowanie",
+  "nav_reasoning_title":      "Pokaż rozumowanie",
   "nav_reasoning_label":      "rozumowanie",
   "nav_reasoning_on":         "tak",
   "nav_reasoning_off":        "nie",

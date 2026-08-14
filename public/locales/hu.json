@@ -42,7 +42,7 @@
   "cg_mode_map":              "Térkép",
   "nav_codegraph_title":      "Kódgrafikon",
   "nav_memories_title":       "Emlékek — kereshet a mentett emlékei között",
-  "nav_reasoning_title":      "Érvelés engedélyezése",
+  "nav_reasoning_title":      "Érvelés megjelenítése",
   "nav_reasoning_label":      "érvelés",
   "nav_reasoning_on":         "be",
   "nav_reasoning_off":        "ki",

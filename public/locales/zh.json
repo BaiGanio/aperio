@@ -42,7 +42,7 @@
     "cg_mode_map":              "图谱",
     "nav_codegraph_title":      "代码图谱",
     "nav_memories_title":       "记忆 — 搜索已保存的记忆",
-    "nav_reasoning_title":      "启用推理",
+    "nav_reasoning_title":      "显示推理",
     "nav_reasoning_label":      "推理",
     "nav_reasoning_on":         "开",
     "nav_reasoning_off":        "关",

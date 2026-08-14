@@ -117,7 +117,7 @@ function updateReasoningBtn() {
   const btn = document.getElementById("reasoningToggle");
   if (!btn) return;
   btn.classList.toggle("is-on", on);
-  btn.title = on ? "Disable reasoning" : "Enable reasoning";
+  btn.title = on ? "Hide reasoning" : "Show reasoning";
 }
 
 // Adopt a server value picked up at boot (localStorage already synced).

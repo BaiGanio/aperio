@@ -97,7 +97,7 @@ const TRANSLATIONS = {
     cg_mode_map: "Map",
     nav_codegraph_title:      "Code graph",
     nav_memories_title:       "Memories — search your saved memories",
-    nav_reasoning_title:      "Enable reasoning",
+    nav_reasoning_title:      "Show reasoning",
     nav_reasoning_label:      "reasoning",
     nav_reasoning_on:         "on",
     nav_reasoning_off:        "off",

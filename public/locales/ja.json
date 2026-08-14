@@ -42,7 +42,7 @@
     "cg_mode_map":              "マップ",
     "nav_codegraph_title":      "コードグラフ",
     "nav_memories_title":       "メモリー — 保存したメモリーを検索",
-    "nav_reasoning_title":      "推論を有効化",
+    "nav_reasoning_title":      "推論を表示",
     "nav_reasoning_label":      "推論",
     "nav_reasoning_on":         "オン",
     "nav_reasoning_off":        "オフ",

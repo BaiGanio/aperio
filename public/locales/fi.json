@@ -42,7 +42,7 @@
   "cg_mode_map":              "Kartta",
   "nav_codegraph_title":      "Koodikaavio",
   "nav_memories_title":       "Muistot — etsi tallennettuja muistojasi",
-  "nav_reasoning_title":      "Ota päättely käyttöön",
+  "nav_reasoning_title":      "Näytä päättely",
   "nav_reasoning_label":      "perustelut",
   "nav_reasoning_on":         "päällä",
   "nav_reasoning_off":        "pois",

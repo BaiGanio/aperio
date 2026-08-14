@@ -42,7 +42,7 @@
   "cg_mode_map":              "Χάρτης",
   "nav_codegraph_title":      "Γράφημα κώδικα",
   "nav_memories_title":       "Αναμνήσεις — αναζητήστε τις αποθηκευμένες αναμνήσεις σας",
-  "nav_reasoning_title":      "Ενεργοποίηση συλλογισμού",
+  "nav_reasoning_title":      "Εμφάνιση συλλογισμού",
   "nav_reasoning_label":      "συλλογιστική",
   "nav_reasoning_on":         "ενεργό",
   "nav_reasoning_off":        "ανενεργό",

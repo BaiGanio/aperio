@@ -42,7 +42,7 @@
   "cg_mode_map":              "Mappa",
   "nav_codegraph_title":      "Grafico del codice",
   "nav_memories_title":       "Ricordi: cerca i tuoi ricordi salvati",
-  "nav_reasoning_title":      "Attiva ragionamento",
+  "nav_reasoning_title":      "Mostra ragionamento",
   "nav_reasoning_label":      "ragionamento",
   "nav_reasoning_on":         "sì",
   "nav_reasoning_off":        "no",
