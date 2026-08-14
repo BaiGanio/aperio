@@ -2,7 +2,32 @@
 
 **Issue:** [#250](https://github.com/BaiGanio/aperio/issues/250)  
 **Companion tests:** [`document-intelligence-epic-tests.md`](./document-intelligence-epic-tests.md)  
-**Status:** (2026-08-14, later session) **WS0-R, WS1 and WS3 closed; WS2 T-G2.3 still OPEN;
+**Status:** (2026-08-14, closure session) **WS0-R, WS1 and WS3 closed; WS2 T-G2.3/T-G2.4
+closed; T-G2.5 (autotune) still open but not gating WS4; WS4 not started — unblocked.**
+Developer decision: T-G2.3 is accepted closed on a clean pass at the
+`mechanism-conformance` rung (ladder-dictated SQL, honest and arithmetically exact once
+executed), not the stricter `realistic-usage` rung the gate originally targeted (reaching
+provenance from a natural, non-SQL-dictated prompt — landed exactly once, 2026-08-14 earlier
+session, and was withdrawn for a fabricated write claim). Rationale: current small local
+models are not yet reliable enough to demonstrate `realistic-usage` repeatably and honestly;
+`mechanism-conformance` — correct, honest, SQL-provenance accounting once the mechanism is
+made explicit — is accepted as the present-day bar, revisited if a `realistic-usage` pass
+ever repeats cleanly. Qualifying evidence: a fourth Ornith-1.0-9B run, same isolated harness
+command, **`T-G2.3 PASS · T-G2.4 PASS · T-L4 PASS`, zero failures on any check** —
+arithmetically exact against the oracle (696.84 BGN across all 5 categories, EUR travel
+196.40 kept separate and disclosed), and `noPhantomWriteClaims` holds (a genuine 13-row
+INSERT backs every claim in the answer). `successTurn: 4`, `successPromptTier: dictated-sql`,
+`capabilityClaim: mechanism-conformance`; 942,961 ms total, longest turn 490,532 ms, both
+within ceiling. Four Ornith runs on record across the two 2026-08-14 sessions: fail; pass at
+`realistic-usage` (withdrawn); pass at `mechanism-conformance` with a dropped category; this
+clean pass. The detailed investigation log
+(`document-intelligence-ws2-tg23-open-issues.md`) is deleted on closure, along with its
+orphaned archived-transcript fixture
+(`document-intelligence-tg23-provenance-pass-2026-08-02.json`) — durable findings already
+live in `id/reference/tech-debt.md`; recover either with `git log -- <path>` if the raw
+session-by-session record is ever needed again. Prior status below.
+
+**Prior status:** (2026-08-14, later session) **WS0-R, WS1 and WS3 closed; WS2 T-G2.3 still OPEN;
 WS4 not started.** The Ornith-1.0-9B pass recorded earlier the same day **has been
 withdrawn.** A new T-G2.3 check — `noPhantomWriteClaims`, comparing the writes an answer
 *claims* against the writes that actually happened — flips that run `pass → fail`: it told
@@ -139,6 +164,8 @@ graph TD
   may configure the current model allowlist without changing product doctrine.
 - S1, S3, public pages, multi-model scorecards, real-bill drills, and demo v4 remain
   follow-ups gated on S2 passing.
+- T-G2.3 closure bar accepted at the `mechanism-conformance` rung, resolved 2026-08-14 —
+  see the deferred-decision entry below.
 
 ### Deferred decision — resolved 2026-08-01
 
@@ -161,6 +188,21 @@ The choice must be tested from a clean profile and must not weaken the read-only
 guarantee of the built-in database.
 
 </details>
+
+### Deferred decision — resolved 2026-08-14
+
+T-G2.3's closure bar is the `mechanism-conformance` rung of the provenance ladder
+(`tests/docint/provenance-ladder.mjs`) — a clean pass once the ladder has escalated to a
+prompt that dictates the SQL — not the stricter `realistic-usage` rung (provenance reached
+from a natural, non-SQL-dictated prompt). `realistic-usage` landed exactly once across every
+run this epic (Ornith-1.0-9B, 2026-08-14, turn 2) and was withdrawn the same day for a
+fabricated write claim; `mechanism-conformance` has now landed cleanly (Ornith-1.0-9B, fourth
+run, all three gates, zero failures). Current small local models are not yet reliably capable
+of the unaided version the gate originally targeted; accepting the aided-but-honest version is
+the developer's explicit call to unblock WS4 rather than block indefinitely on a capability
+this generation of small models doesn't reliably have. Revisit if a `realistic-usage` pass
+ever repeats cleanly, or when a materially more capable small local model becomes available to
+test.
 
 ## 5. Model recommendation
 
@@ -234,7 +276,9 @@ Each step references its detailed test group in
 9. **Create `skills/document-intelligence/SKILL.md`.** Teach discovery, manifest-first
    retrieval, bounded reads, coverage reporting, confirmed writes, and SQL aggregation.
    *Works when:* the bare P1 phrasing loads the skill and completes the verified flow
-   without folder hardcoding or mental arithmetic (T-G2.1–G2.4).
+   without folder hardcoding or mental arithmetic (T-G2.1–G2.4). ✅ T-G2.3 closed
+   2026-08-14 at the `mechanism-conformance` rung (accepted bar, see the deferred-decision
+   entry in §4); T-G2.4 closed the same run.
 
 10. **Autotune the skill.**
     *Works when:* trigger holdout meets or exceeds the prior baseline without stealing
@@ -319,4 +363,5 @@ Do not write these until implementation changes behavior and the developer confi
 | 2026-08-02 | WS2 T-G2.3/T-G2.4 (DeepSeek / `deepseek-v4-flash`, cloud) | **T-G2.3 PASS; T-G2.4 FAIL.** The isolated provenance harness completed: `db_execute` was proposed and approved, then a completed follow-up called `db_query` and narrated decimal totals from SQL. The full-month gate failed because EUR travel was inserted and reported as `Transport` (49.90 EUR) and `Dining` (18.50 EUR), an excluded-currency leak. This is cloud-provider evidence only; it does **not** pass or substitute for the Gemma hero-model gate. |
 | 2026-08-02 | WS3 (persistent extraction templates) — SQLite implementation complete | **All three steps (T-G3 migrations, T-G4 handlers, T-G5 MCP surface + T-G5.2 full e2e) done and SQLite-verified.** `extraction_templates`/`extraction_log` migrated in lockstep; template CRUD, Unicode-aware whole-word keyword matching, regex-first + LLM-fallback field extraction with a rolling per-template confidence score, and confirmed cold-start learning (reusing `createInterruptService`, no new interrupt machinery) all built and tested. 8 MCP tools registered and — after a 5-round code review — wired into `TOOL_PROFILES.extraction` (loaded alongside `docgraph`/`database` on the same aggregation-intent signal) so the feature is actually reachable from the web agent, not just the MCP child. T-G5.2 ran the full chain against the real household-gen corpus (`2026/June/heating-bill-15-jun.txt`): match → propose → confirm → apply → `db_execute` write → `extraction_log_record` → `generate_xlsx`, every value matching the oracle's `2026-06-utilities-heating` entry exactly in both the DB and the workbook. Review rounds fixed, in order: (1) dedup never wired into the exposed flow at all; (2) `matchTemplates` admitted substring false positives ("gas" inside "Vegas"); (3) template confidence frozen at its create-time 0; (4) `extraction_log_record` trusted an unconfirmed/unrelated write unconditionally — now requires and server-verifies a `db_execute_token` down to the actual INSERT and its bound params; (5) the propose flow's token bypassed the agent's real self-confirmation guard (`lib/agent/tool-hooks.js`) via a toolName/public-name mismatch and a missing token-prefix case; (6) the tools were entirely unreachable from `planTurnTools()` (MCP registration ≠ agent-visible); (7) `database` wasn't loaded alongside `extraction` intent, so the documented persist/dedup follow-up had no `db_execute` to run. One claimed finding (a handler-argument-binding P1) was investigated and found NOT reproducible — verified against the real `@modelcontextprotocol/sdk` type signature and by calling the registered handler directly before concluding it was a false positive; the suggested cleanup was still applied. 5123/5123 across the full project test suite after every round. **Known gap: Postgres branches are written to the same contract throughout but never live-verified** (no local/CI Postgres available this session) — the one open item before this workstream can be called fully done, not just SQLite-done. Full detail: `document-intelligence-ws3-templates.md`. |
 | 2026-08-02 | WS3 (persistent extraction templates) — Postgres verification closes the dual-backend gap | **T-G3.1/T-G4/T-G5/T-G5.2 all reproduced against a real, isolated scratch Postgres (`pgvector/pgvector:pg16`, disposable container, non-default port — the shared `docker/docker-compose.yml` volume turned out to predate this session and was left untouched) with zero code changes required.** 14 migrations apply cleanly and idempotently; all constraints (CHECK, FK ON DELETE SET NULL, UNIQUE→23505 mapping) verified equivalent to SQLite. Two new opt-in test files (`extractionHandlers.postgres.test.js`, 14 tests; `wsG5-2-e2e.postgres.test.js`, 10 tests against the real household-gen corpus), gated on `APERIO_E2E_POSTGRES_URL` per the existing `postgres-vec-meta.test.js`/contract-backends convention — all 24 passed first try. `tool-profile-coverage.test.js` reconfirmed green. Full suite: 5222/5222 clean on one run; two other runs each hit one unrelated, non-reproducing flake in the pre-existing `postgres-vec-meta.test.js` (#287 territory) under full-suite parallel load — investigated and attributed to local resource contention, not a WS3 regression, and left alone as out of this task's scope. WS3 is now closed on both backends. Full detail in the WS3 plan's own evidence log. |
-| 2026-08-02 | WS2 T-G2.3 grading-harness false-pass fixed (same day, later session); gemma4's real blocker turns out to be latency, not SKILL.md | **3 grading-harness bugs fixed** in `document-intelligence-skill-harness.mjs`/`harness-gate.mjs`: `followUpCitesSql`/`followUpNarratesDecimalTotal` now require the follow-up turn's own `db_query` to have genuinely returned rows (not just an honest admission the query came back empty, narrated alongside a decimal-shaped figure from memory); `grandTotalCorrect` is now exclusive, failing on any total-cue line that blends currencies into one figure even alongside a separate, correct total line elsewhere in the same answer; `followUpSatisfied`'s escalation loop no longer stops early on that same false signal. 19/19 harness-gate tests green (2 new mutation cases added), full project suite 5124/5124 green. Re-running the fixed harness against gemma4 **twice** confirms `grading.status: "fail"` both times for accurate reasons — no more false pass — but also surfaces that gemma4's actual blocker is **latency**, not skill guidance: run 1's turn 1 hit the full 600s timeout emitting a malformed pseudo-tool-call (`<execute_tool_call>...</execute_tool_call>`) instead of a real one; run 2 made genuine `db_execute`/`CREATE TABLE`/INSERT calls but each turn took 350-410s (turn 3: 39,498 input tokens → ~140-165 tok/s implied prefill, matching an identical calculation against the earlier DeepSeek/gemma4 pass's 41,479-input-token/367s turn), then turn 4 (just a `SELECT`) also hit the full 600s timeout — ~29 minutes total, never reaching a real queried total. Root-caused, against the actual code (not just timing inference), to `lib/agent/index.js`'s per-turn `planTurnTools()` re-classifying a different tool-schema subset on every turn, which defeats llama-server's default prefix/KV-cache reuse for the entire growing conversation whenever the tool set changes — compounded by `doc_batch` re-reading an already-read 55.9 KB document mid-conversation with no session-level dedup. Not a SKILL.md wording gap: no prompt change fixes a structural cache invalidation. Investigation + remediation plan written for a future session: `trash/plans/document-intelligence-epic/llamacpp-latency/README.md` (companion tests in the same folder) — flagged as a cross-cutting issue affecting any local multi-turn tool-using flow, not just document-intelligence. Full detail: `document-intelligence-ws2-tg23-open-issues.md`. |
+| 2026-08-02 | WS2 T-G2.3 grading-harness false-pass fixed (same day, later session); gemma4's real blocker turns out to be latency, not SKILL.md | **3 grading-harness bugs fixed** in `document-intelligence-skill-harness.mjs`/`harness-gate.mjs`: `followUpCitesSql`/`followUpNarratesDecimalTotal` now require the follow-up turn's own `db_query` to have genuinely returned rows (not just an honest admission the query came back empty, narrated alongside a decimal-shaped figure from memory); `grandTotalCorrect` is now exclusive, failing on any total-cue line that blends currencies into one figure even alongside a separate, correct total line elsewhere in the same answer; `followUpSatisfied`'s escalation loop no longer stops early on that same false signal. 19/19 harness-gate tests green (2 new mutation cases added), full project suite 5124/5124 green. Re-running the fixed harness against gemma4 **twice** confirms `grading.status: "fail"` both times for accurate reasons — no more false pass — but also surfaces that gemma4's actual blocker is **latency**, not skill guidance: run 1's turn 1 hit the full 600s timeout emitting a malformed pseudo-tool-call (`<execute_tool_call>...</execute_tool_call>`) instead of a real one; run 2 made genuine `db_execute`/`CREATE TABLE`/INSERT calls but each turn took 350-410s (turn 3: 39,498 input tokens → ~140-165 tok/s implied prefill, matching an identical calculation against the earlier DeepSeek/gemma4 pass's 41,479-input-token/367s turn), then turn 4 (just a `SELECT`) also hit the full 600s timeout — ~29 minutes total, never reaching a real queried total. Root-caused, against the actual code (not just timing inference), to `lib/agent/index.js`'s per-turn `planTurnTools()` re-classifying a different tool-schema subset on every turn, which defeats llama-server's default prefix/KV-cache reuse for the entire growing conversation whenever the tool set changes — compounded by `doc_batch` re-reading an already-read 55.9 KB document mid-conversation with no session-level dedup. Not a SKILL.md wording gap: no prompt change fixes a structural cache invalidation. Investigation + remediation plan written for a future session: `trash/plans/document-intelligence-epic/llamacpp-latency/README.md` (companion tests in the same folder) — flagged as a cross-cutting issue affecting any local multi-turn tool-using flow, not just document-intelligence. Full detail (deleted on closure 2026-08-14, recoverable via `git log`): `document-intelligence-ws2-tg23-open-issues.md`. |
+| 2026-08-14 | WS2 T-G2.3/T-G2.4 closure decision | **Accepted closed at the `mechanism-conformance` rung** (developer decision, see §4 deferred-decision entry). Qualifying run: fourth Ornith-1.0-9B run, `T-G2.3 PASS · T-G2.4 PASS · T-L4 PASS`, zero failures, 696.84 BGN exact, EUR travel honestly separated, `noPhantomWriteClaims` holds against a genuine 13-row INSERT. `successTurn: 4`, `dictated-sql`, `mechanism-conformance` — the `realistic-usage` rung has landed once (withdrawn) and was not required for closure. T-G2.5 (autotune) remains open, not gating WS4. Investigation log and its archived-transcript fixture deleted on closure (recoverable via `git log`); durable findings retained in `id/reference/tech-debt.md`. **WS4 unblocked.** |

@@ -973,6 +973,19 @@ because the round-12 blend retired the premise of the second arm.
   `dbQueryReturnedRealRows: true`, both graded `false` on the identical shape in
   round 4. The two prose checks gated on them stay `false`, correctly — turn 3's
   `answerRaw` is genuinely empty. Fix confirmed; it turned no fail into a pass.
+- 2026-08-14 **Cascade reproduced on a different model (gemma-4-26B-A4B), same
+  shape.** Turn 1 hit the full 600,000 ms per-turn hard-timeout with zero tool
+  calls (the model wrote the `INSERT` as markdown-fenced prose instead of
+  calling `db_execute`); every turn after that — 5 in a row — returned in
+  ~4,000 ms flat with an empty answer and empty tool sequence, the last one
+  logging `input_tokens=0 output_tokens=0 thinking_tokens=0`. Confirms the
+  cascade isn't E4B- or Ornith-specific. **Still not root-caused on the
+  mechanism side** — the grading-attribution bug above is fixed, but *why* the
+  WS session returns nothing at all on every turn following a client-side
+  timeout (does turn 1's server-side generation keep running after the harness
+  gives up and abandons it, corrupting state for turn 2?) remains an open
+  question. Worth a dedicated look before trusting any future per-turn-timeout
+  run's turns 2+ on this harness.
 
 ---
 
@@ -1030,8 +1043,9 @@ because the round-12 blend retired the premise of the second arm.
 
 Gemma 4 E4B's own SKILL.md-adherence gaps in the propose→confirm write flow,
 found live on the 2026-08-13 T-L4.3 WS2 provenance run (harness-level grading
-bugs from the same run are fixed, not listed here — see
-`trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`).
+bugs from the same run are fixed, not listed here — the raw session-by-session
+record lived in `document-intelligence-ws2-tg23-open-issues.md`, deleted
+2026-08-14 on T-G2.3's closure; recover with `git log -- trash/plans/document-intelligence-epic/document-intelligence-ws2-tg23-open-issues.md`).
 **SKILL.md wording landed for all three 2026-08-13** (verify-existing-state
 bullet + strengthened per-row-INSERT bullet + query-columns-from-own-schema
 bullet, `skills/document-intelligence/SKILL.md` §5 and Gotchas). **Re-run
