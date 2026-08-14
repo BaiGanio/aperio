@@ -376,6 +376,34 @@ housekeeping go in `A2D.md`, not here.
 
 ## Document-intelligence harness — grader (#250)
 
+- 2026-08-14 **FIXED — the T-L4 per-turn ceiling was a guess, and it was failing
+  substantive passes.** (`llamacpp-latency/grading.mjs`) The 550,000 ms per-turn
+  value was chosen before anyone had watched a turn run to completion on this
+  corpus, so it encoded an assumption about turn length rather than a
+  measurement of one. It failed exactly one run on its own — Ornith run 1,
+  whose T-G2.3 *and* T-G2.4 both passed and whose only `failures[]` entry was a
+  589,813 ms turn 0 — and it would have failed gemma-4-26B-A4B's clean pass too
+  (682,006 ms). **Demoted to a reported metric**: `withinPerTurnWallClockCeiling`
+  is still computed and now rides in T-L4's `context` alongside the raw
+  `maxTurnWallMs`/`totalWallMs`, but no longer contributes to `failures[]`. The
+  TOTAL ceiling stays a real gate — a run that never terminates is a genuine
+  failure — and a test pins that, so the demotion cannot quietly widen. Replay
+  of Ornith run 1 flips `fail → pass` with `failuresIntroduced: []`. Still open:
+  a per-turn ceiling *derived from observed times across models* would be worth
+  having; none exists, and reinstating the old number is not the way to get one.
+- 2026-08-14 **No check covers a model asserting writes it never made.**
+  Ornith's passing run 2 answered that the three EUR travel receipts "are saved
+  separately". Its single INSERT was 10 tuples, `BGN`×10, `EUR`×0, and the
+  turn-2 `GROUP BY category, currency` returned BGN-only — so no EUR row ever
+  existed. (Its "10 rows inserted" claim, by contrast, was true; the defect is
+  one fabricated write-claim, not a fabricated row count, and a check should
+  target exactly that.) `insertedRealRows` only asks whether *some* confirmed
+  INSERT landed — its own comment says "regardless of what the answer claims" —
+  so nothing compares the set of rows an answer says it saved against the set
+  actually written. Squarely in T-G2.3's spirit: the gate exists to stop prose
+  outrunning the database. gemma-4-12B showed the same family from the other
+  side, querying `FROM expenses`, a table it had never created.
+
 - 2026-08-13 **`hasNarratedDecimalTotal` rejects markdown emphasis, and it
   silently invalidates the whole provenance gate.**
   (`trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs:797`)

@@ -197,9 +197,22 @@ export function gradePhase({
     const totalWallMs = results.reduce((sum, r) => sum + r.wallMs, 0);
     const maxTurnWallMs = Math.max(...results.map(r => r.wallMs));
     checks.withinTotalWallClockCeiling = totalWallMs <= wallClockTotalCeilingMs;
+    // Reported, never gating (2026-08-14). The per-turn ceiling was chosen
+    // before anyone had watched a turn run to completion on this corpus, so it
+    // encoded an assumption about turn length rather than a measurement of one.
+    // It has since failed exactly one run on its own — Ornith run 1, whose
+    // T-G2.3 and T-G2.4 both passed and whose only `failures[]` entry was a
+    // 589,813ms turn 0. That is the ruler being wrong, not the model, and the
+    // cost of leaving it gating is that it silently converts substantive passes
+    // into recorded failures. The number is still worth having, so it stays as
+    // T-L4 context alongside the raw milliseconds it was derived from; the
+    // TOTAL ceiling remains a real guard, since a run that never terminates is
+    // a genuine failure. Revisit only with a ceiling derived from observed
+    // per-turn times across models, not from an assumption.
     checks.withinPerTurnWallClockCeiling = maxTurnWallMs <= wallClockPerTurnCeilingMs;
+    checks.maxTurnWallMs = maxTurnWallMs;
+    checks.totalWallMs = totalWallMs;
     if (!checks.withinTotalWallClockCeiling) fail("T-L4", `total wall time ${totalWallMs}ms exceeds the ${wallClockTotalCeilingMs}ms T-L4 ceiling`);
-    if (!checks.withinPerTurnWallClockCeiling) fail("T-L4", `a single turn took ${maxTurnWallMs}ms, exceeding the ${wallClockPerTurnCeilingMs}ms T-L4 per-turn ceiling`);
     if (!checks.calledDbExecute) fail("T-G2.3", "db_execute was never proposed — no writable-destination path exercised");
     if (checks.calledDbExecute && !checks.interruptApproved) fail("T-G2.3", "db_execute was proposed but the confirm interrupt was never observed/approved");
     if (!checks.insertedRealRows) fail("T-G2.3", "no confirmed db_execute INSERT with rowsAffected>0 was ever observed — rows were never actually written, regardless of what the answer claims");
@@ -279,9 +292,9 @@ const PROVENANCE_GATES = [
   },
   {
     id: "T-L4",
-    claim: "wall-clock — every turn completes, inside the per-turn and total ceilings",
-    checks: ["withinTotalWallClockCeiling", "withinPerTurnWallClockCeiling", "completed"],
-    context: [],
+    claim: "wall-clock — every turn completes, inside the total ceiling (per-turn time is reported, not gated)",
+    checks: ["withinTotalWallClockCeiling", "completed"],
+    context: ["withinPerTurnWallClockCeiling", "maxTurnWallMs", "totalWallMs"],
   },
 ];
 

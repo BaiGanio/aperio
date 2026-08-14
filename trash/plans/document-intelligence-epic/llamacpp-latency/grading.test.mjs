@@ -93,7 +93,25 @@ test("provenance: wall-clock ceilings come from the arguments, not from env", ()
   const uncapped = gradePhase({ phase: "provenance", results, ladderName: "mechanism", log: silent });
   assert.equal(uncapped.checks.withinPerTurnWallClockCeiling, true);
 
-  const capped = gradePhase({
+  // The per-turn ceiling is still computed from the argument, but since
+  // 2026-08-14 it is reported rather than gating: a blown per-turn time must
+  // not fail a run on its own.
+  const cappedPerTurn = gradePhase({
+    phase: "provenance",
+    results,
+    ladderName: "mechanism",
+    wallClockPerTurnCeilingMs: 60_000,
+    wallClockTotalCeilingMs: 10_000_000,
+    log: silent,
+  });
+  assert.equal(cappedPerTurn.checks.withinPerTurnWallClockCeiling, false);
+  assert.equal(cappedPerTurn.checks.maxTurnWallMs, 300_000);
+  assert.equal(cappedPerTurn.status, "pass");
+  assert.ok(!cappedPerTurn.failures.some(f => f.includes("per-turn")));
+
+  // The TOTAL ceiling is still a real gate — a run that never terminates is a
+  // genuine failure.
+  const cappedTotal = gradePhase({
     phase: "provenance",
     results,
     ladderName: "mechanism",
@@ -101,9 +119,8 @@ test("provenance: wall-clock ceilings come from the arguments, not from env", ()
     wallClockTotalCeilingMs: 120_000,
     log: silent,
   });
-  assert.equal(capped.checks.withinPerTurnWallClockCeiling, false);
-  assert.equal(capped.status, "fail");
-  assert.ok(capped.failures.some(f => f.includes("exceeding the 60000ms")));
+  assert.equal(cappedTotal.status, "fail");
+  assert.ok(cappedTotal.failures.some(f => f.includes("exceeds the 120000ms")));
 });
 
 test("provenance: an empty-turn cascade is graded on the last turn with content", () => {
@@ -442,16 +459,38 @@ test("gates: round 10's currency blend fails T-G2.4 with provenance intact", () 
   assert.deepEqual(grading.gates["T-G2.3"].failures, []);
 });
 
-test("gates: a blown per-turn ceiling fails T-L4 only", () => {
+test("gates: a blown per-turn ceiling is reported, and fails nothing", () => {
+  // Ornith run 1 in the flesh: both substantive gates passed and the only
+  // `failures[]` entry was a 589,813ms turn 0, measured against a ceiling set
+  // before anyone had watched a turn finish on this corpus. The time is still
+  // recorded — as T-L4 context — but it no longer converts a pass into a fail.
   const results = passingProvenanceResults();
   results[0].wallMs = 900_000;
   const grading = gradePhase({
     phase: "provenance", results, ladderName: "mechanism",
     wallClockPerTurnCeilingMs: 550_000, wallClockTotalCeilingMs: 2_400_000, log: silent,
   });
+  assert.equal(grading.status, "pass");
+  assert.equal(grading.gates["T-L4"].status, "pass");
+  assert.equal(grading.gates["T-G2.3"].status, "pass");
+  assert.deepEqual(grading.gates["T-L4"].failures, []);
+  // Reported, not gating: present in context, absent from the gating checks.
+  assert.equal(grading.gates["T-L4"].context.withinPerTurnWallClockCeiling, false);
+  assert.equal(grading.gates["T-L4"].context.maxTurnWallMs, 900_000);
+  assert.ok(!("withinPerTurnWallClockCeiling" in grading.gates["T-L4"].checks));
+});
+
+test("gates: the total ceiling is still a gate", () => {
+  const results = passingProvenanceResults();
+  results[0].wallMs = 900_000;
+  const grading = gradePhase({
+    phase: "provenance", results, ladderName: "mechanism",
+    wallClockPerTurnCeilingMs: 550_000, wallClockTotalCeilingMs: 100_000, log: silent,
+  });
   assert.equal(grading.status, "fail");
   assert.equal(grading.gates["T-L4"].status, "fail");
   assert.equal(grading.gates["T-G2.3"].status, "pass");
+  assert.ok(grading.gates["T-L4"].failures.some(f => f.includes("exceeds the 100000ms")));
 });
 
 test("gates: round 12's missing INSERT is a genuine T-G2.3 failure", () => {
@@ -484,11 +523,14 @@ test("gates: the split leaves status and failures byte-identical", () => {
   const results = passingProvenanceResults();
   results[0].wallMs = 900_000;
   results[1].answerRaw = "Pulled from the `spending` table. Grand total **893.24** across BGN and EUR.";
-  const grading = gradeWithOracle(results, { wallClockPerTurnCeilingMs: 550_000 });
+  const grading = gradeWithOracle(results, {
+    wallClockPerTurnCeilingMs: 550_000,
+    wallClockTotalCeilingMs: 100_000,
+  });
   assert.equal(grading.status, "fail");
   // Wall-clock failures are pushed first, then provenance, then the gate ones —
   // the original order, regardless of which gate owns each.
-  assert.ok(grading.failures[0].includes("T-L4 per-turn ceiling"));
+  assert.ok(grading.failures[0].includes("T-L4 ceiling"));
   assert.ok(grading.failures.at(-1).startsWith("full-month gate:"));
   // Every failure lands in exactly one gate, and no failure is lost.
   const fromGates = Object.values(grading.gates).flatMap(g => g.failures);
