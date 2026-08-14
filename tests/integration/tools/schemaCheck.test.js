@@ -117,6 +117,52 @@ describe("checkArgs", () => {
   });
 });
 
+describe("checkArgs — db_execute conditional-required overlay", () => {
+  // Mirrors the real db_execute schema: connection/sql are .optional() because
+  // the confirm re-invocation sends only confirmation_token.
+  const dbExecuteSchema = {
+    type: "object",
+    properties: {
+      connection: { type: "string" },
+      sql: { type: "string" },
+      params: { type: "array" },
+      confirmation_token: { type: "string" },
+    },
+    required: [],
+  };
+
+  test("propose call missing connection and sql is flagged missing_required", () => {
+    const issues = checkArgs({}, dbExecuteSchema, "db_execute");
+    assert.deepEqual(issues.map(i => i.kind).sort(), ["missing_required", "missing_required"]);
+    assert.deepEqual(issues.map(i => i.param).sort(), ["connection", "sql"]);
+  });
+
+  test("propose call missing only sql is flagged", () => {
+    const issues = checkArgs({ connection: "extraction" }, dbExecuteSchema, "db_execute");
+    assert.deepEqual(issues, [{ kind: "missing_required", param: "sql", expected: "string", received: "undefined" }]);
+  });
+
+  test("well-formed propose call produces no issues", () => {
+    const issues = checkArgs({ connection: "extraction", sql: "INSERT INTO t VALUES (?)", params: [1] }, dbExecuteSchema, "db_execute");
+    assert.deepEqual(issues, []);
+  });
+
+  test("confirm re-invocation (confirmation_token set) does not require connection/sql", () => {
+    const issues = checkArgs({ confirmation_token: "abc123" }, dbExecuteSchema, "db_execute");
+    assert.deepEqual(issues, []);
+  });
+
+  test("overlay only applies to db_execute, not other tools sharing the shape", () => {
+    const issues = checkArgs({}, dbExecuteSchema, "some_other_tool");
+    assert.deepEqual(issues, []);
+  });
+
+  test("overlay is a no-op when toolName is omitted", () => {
+    const issues = checkArgs({}, dbExecuteSchema);
+    assert.deepEqual(issues, []);
+  });
+});
+
 describe("hintFromIssues", () => {
   test("returns null for no issues", () => {
     assert.equal(hintFromIssues("read_file", []), null);
