@@ -397,8 +397,8 @@ const QUALIFYING_DOC_ROW = {
   text: QUALIFYING_TEXT,
 };
 const QUALIFYING_DEDUP_TAG = expectedDedupTag(QUALIFYING_ROOT_PATH, QUALIFYING_REL_PATH);
-const EXPECTED_TITLE = "bills/electricity-june-invoice summary — 2026-05";
-const EXPECTED_CONTENT = "bills/electricity-june-invoice summary — 2026-05: 142.50 BGN. Service period 2026-05";
+const EXPECTED_TITLE = "bills/electricity-june-invoice summary — 2026-06";
+const EXPECTED_CONTENT = "bills/electricity-june-invoice summary — 2026-06: 142.50 BGN. Issued 2026-06-03";
 const FAKE_EMBEDDING = [0.01, 0.02, 0.03];
 
 // A memory row that exactly matches what composeMemoryFromDoc would produce

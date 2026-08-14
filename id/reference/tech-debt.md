@@ -27,13 +27,6 @@ housekeeping go in `A2D.md`, not here.
 
 ## Docgraph — document facts (#250)
 
-- 2026-08-01 `composeMemoryFromDoc()` (`lib/docgraph/retrieval.js:400`) picks a
-  memory's period as **service period > invoice date > due date**, the opposite
-  of the corpus policy — a June-issued bill for May consumption is promoted as
-  "summary — 2026-05". Harmless while `DOCGRAPH_AUTO_MEMORY` is off; must be
-  re-pointed at `resolveAssignmentDate()` (`lib/docgraph/facts/contract.js`),
-  which now owns period assignment and gets this right, before the bridge is
-  ever enabled by default.
 - 2026-08-01 **Image-only receipts still contribute nothing.** PNG receipts
   yield `no_text` and are recovered only when a bank-statement row happens to
   cover them. All nine corpus months now reconcile exactly, but that is because

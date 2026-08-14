@@ -954,7 +954,7 @@ describe("composeMemoryFromDoc — docgraph → memory bridge (#314)", () => {
   });
 
   test("falls back to grand_total when amount_due is absent", () => {
-    const dates = [{ role: "service_period_start", raw: "01.05.2026", value: "2026-05-01", confidence: "high" }];
+    const dates = [{ role: "invoice_date", raw: "01.05.2026", value: "2026-05-01", confidence: "high" }];
     const amounts = [
       { value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "subtotal" },
       { value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "grand_total" },
@@ -978,10 +978,16 @@ describe("composeMemoryFromDoc — docgraph → memory bridge (#314)", () => {
     assert.equal(composeMemoryFromDoc(dates, amounts), null);
   });
 
-  // ── Period selection: service_period > invoice_date > due_date ──────
+  // ── Period selection: invoice/document date > due_date (last resort) ────
+  // service_period_start/end are never eligible — see resolveAssignmentDate()
+  // (facts/contract.js): every bill in this corpus covers the PREVIOUS
+  // month's consumption, so keying the period on the service period would
+  // slide every charge one month backwards (#314).
 
-  test("uses service_period_start as the period, appends due date as context", () => {
-    // May service period, June due date — the memory belongs to May, not June.
+  test("ignores service_period_start entirely — falls back to due_date when it's the only other date", () => {
+    // May service period, June due date. The service period is not a period
+    // signal here, and no invoice/document date exists, so the memory falls
+    // back to the due date (June) rather than being misclassified as May.
     const dates = [
       { role: "service_period_start", raw: "01.05.2026", value: "2026-05-01", confidence: "high" },
       { role: "service_period_end", raw: "31.05.2026", value: "2026-05-31", confidence: "high" },
@@ -989,9 +995,18 @@ describe("composeMemoryFromDoc — docgraph → memory bridge (#314)", () => {
     ];
     const amounts = [{ value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "grand_total" }];
     const mem = composeMemoryFromDoc(dates, amounts, { sha256: "sp", root_path: "/docs", rel_path: "bills/may-heating.txt" });
-    assert.match(mem.title, /may-heating summary — 2026-05/);
-    assert.match(mem.content, /Service period 2026-05/);
+    assert.match(mem.title, /may-heating summary — 2026-06/);
     assert.match(mem.content, /Due 2026-06-20/);
+    assert.doesNotMatch(mem.content, /Service period/);
+  });
+
+  test("returns null when only service_period dates exist (no eligible period date)", () => {
+    const dates = [
+      { role: "service_period_start", raw: "01.05.2026", value: "2026-05-01", confidence: "high" },
+      { role: "service_period_end", raw: "31.05.2026", value: "2026-05-31", confidence: "high" },
+    ];
+    const amounts = [{ value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "grand_total" }];
+    assert.equal(composeMemoryFromDoc(dates, amounts), null);
   });
 
   test("uses invoice_date as period when no service period exists", () => {
@@ -1015,11 +1030,36 @@ describe("composeMemoryFromDoc — docgraph → memory bridge (#314)", () => {
     assert.match(mem.content, /Due 2026-06-20/);
   });
 
-  test("skips ambiguous (value: null) dates and falls back to a valid one (#314)", () => {
-    // service_period_start has value: null (unparseable format), so the
-    // period must fall back to invoice_date instead of returning null.
+  test("prefers document_date over due_date, and labels it 'Issued' not 'Due'", () => {
+    // document_date is a generic issue-date header — same "issued" semantics
+    // as invoice_date, and it must still outrank the due_date last resort.
     const dates = [
-      { role: "service_period_start", raw: "03/06/2026", value: null, confidence: "high" },
+      { role: "document_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
+      { role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" },
+    ];
+    const amounts = [{ value: 29.99, currency: "BGN", raw: "29,99 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "docdate" });
+    assert.match(mem.title, /document summary — 2026-06/);
+    assert.match(mem.content, /Issued 2026-06-01/);
+    assert.match(mem.content, /Due 2026-06-20/);
+  });
+
+  test("prefers invoice_date over document_date when both exist", () => {
+    const dates = [
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
+      { role: "document_date", raw: "02.06.2026", value: "2026-06-02", confidence: "high" },
+    ];
+    const amounts = [{ value: 29.99, currency: "BGN", raw: "29,99 BGN", label: "amount_due" }];
+    const mem = composeMemoryFromDoc(dates, amounts, { sha256: "invvsdoc" });
+    assert.match(mem.content, /Issued 2026-06-01/);
+    assert.doesNotMatch(mem.content, /2026-06-02/);
+  });
+
+  test("skips ambiguous (value: null) dates and falls back to a valid one (#314)", () => {
+    // document_date has value: null (unparseable format), so the period must
+    // fall back to invoice_date instead of returning null.
+    const dates = [
+      { role: "document_date", raw: "03/06/2026", value: null, confidence: "high" },
       { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
     ];
     const amounts = [{ value: 100, currency: "BGN", raw: "100.00 BGN", label: "amount_due" }];
@@ -1136,13 +1176,13 @@ describe("composeMemoryFromDoc — docgraph → memory bridge (#314)", () => {
 
   test("composes full content with period context + separate due line", () => {
     const dates = [
-      { role: "service_period_start", raw: "01.05.2026", value: "2026-05-01", confidence: "high" },
+      { role: "invoice_date", raw: "01.06.2026", value: "2026-06-01", confidence: "high" },
       { role: "due_date", raw: "20.06.2026", value: "2026-06-20", confidence: "high" },
     ];
     const amounts = [{ value: 64.8, currency: "BGN", raw: "64,80 BGN", label: "grand_total" }];
     const mem = composeMemoryFromDoc(dates, amounts, { sha256: "x", title: "heating.pdf" });
     assert.equal(mem.content,
-      "heating summary — 2026-05: 64,80 BGN. Service period 2026-05. Due 2026-06-20");
+      "heating summary — 2026-06: 64,80 BGN. Issued 2026-06-01. Due 2026-06-20");
   });
 
   test("uses rel_path as fallback title when no title is provided", () => {
