@@ -268,6 +268,7 @@ async function indexCorpus(primary, secondary, dbPath) {
 // stream_end, then returns a merged event log so the gate can see both halves.
 function runTurn(ws, prompt, { approveInterrupts = false } = {}) {
   return new Promise((resolvePromise, reject) => {
+    const turnId = randomUUID();
     const events = [];
     const started = Date.now();
     const approvedIds = new Set();
@@ -354,7 +355,25 @@ function runTurn(ws, prompt, { approveInterrupts = false } = {}) {
         }
         if (pending.length && turnComplete) armGrace();
       }
-      if (message.type === "turn_complete") {
+      // A turn abandoned by TIMEOUT_MS above has its listener removed by
+      // finish() at the moment the client gives up, but the SERVER doesn't
+      // know that — it keeps running until turnLock aborts it, which happens
+      // only once the NEXT chat message arrives (see turnLock.js). That real,
+      // late turn_complete for the abandoned turn is still in flight on the
+      // same WS connection when the next runTurn() call's listener attaches,
+      // and — without this turnId check — gets misread as THIS turn's own
+      // completion the moment it arrives (often within milliseconds), firing
+      // armGrace()/finish() long before this turn's own request has even
+      // gotten a response. That single misattribution is self-perpetuating:
+      // this turn's still-in-flight request then gets cut off by the turn
+      // sent after it, producing its own late stray turn_complete for the
+      // NEXT call to misattribute — an unbounded cascade of turns that each
+      // "complete" in ~4s (pure armGrace padding) with zero real tokens.
+      // Root-caused 2026-08-14 against a live run (tech-debt.md, "harness
+      // grader scoping"): three prior sessions attributed this shape to
+      // model/cache/product defects before anyone checked whether the
+      // harness was reading its own turn's messages.
+      if (message.type === "turn_complete" && message.turnId === turnId) {
         turnComplete = true;
         // A db_execute proposal may still be in flight (the "interrupts" push
         // can arrive slightly after turn_complete) — give it a short grace
@@ -367,7 +386,7 @@ function runTurn(ws, prompt, { approveInterrupts = false } = {}) {
     ws.send(JSON.stringify({
       type: "chat",
       text: prompt,
-      turnId: randomUUID(),
+      turnId,
       ...(FORCED_SKILLS.length ? { forcedSkills: FORCED_SKILLS } : {}),
     }));
   });

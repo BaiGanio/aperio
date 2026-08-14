@@ -862,44 +862,6 @@ because the round-12 blend retired the premise of the second arm.
 
 ---
 
-## Document Intelligence — harness grader scoping (#250)
-
-- 2026-08-13 **`followUpTurn = results.at(-1)` grades the wrong turn once a hard
-  timeout triggers the empty-turn cascade** (`document-intelligence-skill-harness.mjs:660`).
-  It is sound while the ladder stops on a satisfied turn — then the last turn *is* the
-  answering turn — but a per-turn timeout keeps the ladder escalating, so `.at(-1)`
-  becomes an empty ~4,000ms cascade turn with no tools and no answer. On the
-  2026-08-13 forced-skill run that made four checks false-negative:
-  `calledDbQueryAfterConfirm` and `dbQueryReturnedRealRows` were graded `false`
-  although turn 3 genuinely called `db_query` after the confirm and got 8 rows back,
-  and both prose checks are gated on `dbQueryReturnedRealRows` so they failed with
-  it. Same class as the `insertedRealRows` grader bug already fixed in this epic —
-  a check reading the wrong slice of the transcript, not a model failure. The
-  narration failure itself is real and would still fail the gate; only the
-  attribution is wrong. Fix direction: pick the last turn that has tool calls or a
-  non-empty answer (or the `computeProvenanceSuccess` turn), not the literal last.
-  **Fixed and verified live 2026-08-13 (round 5) — closed.** Round 5 ended in the
-  same 600 s abort + empty-turn cascade, and the grader now reads turn 3 (tools
-  present) instead of the empty turn 6: `calledDbQueryAfterConfirm: true` and
-  `dbQueryReturnedRealRows: true`, both graded `false` on the identical shape in
-  round 4. The two prose checks gated on them stay `false`, correctly — turn 3's
-  `answerRaw` is genuinely empty. Fix confirmed; it turned no fail into a pass.
-- 2026-08-14 **Cascade reproduced on a different model (gemma-4-26B-A4B), same
-  shape.** Turn 1 hit the full 600,000 ms per-turn hard-timeout with zero tool
-  calls (the model wrote the `INSERT` as markdown-fenced prose instead of
-  calling `db_execute`); every turn after that — 5 in a row — returned in
-  ~4,000 ms flat with an empty answer and empty tool sequence, the last one
-  logging `input_tokens=0 output_tokens=0 thinking_tokens=0`. Confirms the
-  cascade isn't E4B- or Ornith-specific. **Still not root-caused on the
-  mechanism side** — the grading-attribution bug above is fixed, but *why* the
-  WS session returns nothing at all on every turn following a client-side
-  timeout (does turn 1's server-side generation keep running after the harness
-  gives up and abandons it, corrupting state for turn 2?) remains an open
-  question. Worth a dedicated look before trusting any future per-turn-timeout
-  run's turns 2+ on this harness.
-
----
-
 ## Document Intelligence — extraction accuracy (#250)
 
 - 2026-08-13 **Rows the model actually persisted on the forced-skill run are
