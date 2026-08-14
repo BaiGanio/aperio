@@ -719,9 +719,9 @@ Default 127.0.0.1 (loopback only — safe). Set 0.0.0.0 for LAN access only if y
 
 #### `IDLE_SHUTDOWN`
 
-select · tier 1 (Settings UI, restart to apply) · default: `auto` · options: `auto | on | off` · advanced
+select · tier 1 (Settings UI, restart to apply) · default: `off` · options: `auto | on | off` · advanced
 
-Idle auto-shutdown after the last browser tab closes. 'auto' = on only for the local llama.cpp provider; 'on' = always (the lite desktop launchers set this so a windowless/hidden server still self-stops on any provider); 'off' = never (for always-on server deployments).
+Idle auto-shutdown after the last browser tab closes. 'auto' = on only for the local llama.cpp provider; 'on' = always (the lite desktop launchers set this so a windowless/hidden server still self-stops on any provider); 'off' = never (for always-on server deployments). Defaulted off (was 'auto') pending #454: the watchdog's heartbeat can be starved by normal browser tab-throttling during a long, legitimately busy local-model turn, killing the server mid-generation — see that issue before re-enabling.
 
 #### `IDLE_TIMEOUT_SECONDS`
 

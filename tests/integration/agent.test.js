@@ -774,7 +774,12 @@ describe("deterministic document-index inventory", () => {
     const requestMessages = bodies[0]?.messages ?? [];
     assert.ok(requestMessages.some(message => message.role === "assistant" && message.tool_calls?.some(call => call.function?.name === "doc_repos")), "the provider sees the deterministic tool call");
     assert.ok(requestMessages.some(message => message.role === "tool" && message.content.includes('"folder":"/notes"')), "the provider receives the actual inventory result");
-    assert.ok(!bodies[0]?.tools?.some(tool => tool.function?.name === "doc_repos"), "the already-executed schema is withheld so the model cannot call it twice");
+    // llama.cpp renders the tools block at the very front of the prompt, so
+    // withholding a pre-executed schema mid-conversation would invalidate the
+    // whole KV cache prefix (measured 262s of prefill regression, WS2 T-G2.3
+    // gate, 2026-08-13) — filterPreExecutedTools' keepStable escape hatch
+    // keeps this provider's array stable instead. See tool-profiles.js.
+    assert.ok(bodies[0]?.tools?.some(tool => tool.function?.name === "doc_repos"), "llama.cpp keeps the schema to preserve KV-cache prefix stability, even though it was pre-executed");
   });
 });
 
