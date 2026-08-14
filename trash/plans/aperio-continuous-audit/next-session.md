@@ -1,4 +1,14 @@
-# Next Session — Run 2
+# Next Session — Run 3
+
+## Run 2 Status
+
+**OPEN — audit done, human triage pending.** 4 priority slices audited (A06, A17, A03, A13),
+6 findings confirmed (2 high-severity: secret redaction gap F-R2-01, GitHub webhook fully
+broken F-R2-05). Full detail: `aperio-continuous-audit-progress.md` Run 2 section (top of file),
+`audit/runs/run-002/findings.json`, `audit/runs/run-002/{A06,A17,A03,A13}/report.md`.
+
+**Before Run 3 starts:** triage the 6 Run 2 findings (duplicate/rejected/accepted-risk/
+documentation-only/planned/issue-filed) — see the progress file's Run 2 "Next action" section.
 
 ## Run 1 Status
 
@@ -19,15 +29,19 @@ Progress report at `trash/plans/aperio-continuous-audit/aperio-continuous-audit-
 - `audit/runs/run-001/journeys/contract-result.json` — contract verification (8 invariant groups, 55+ checks)
 - `audit/runs/run-001/A14/` — database parity evidence
 
-## What to do in Run 2
+## What to do in Run 3
 
-### Priority order (from closeout)
+### Priority order
 
-1. **A06 — Provider contract matrix.** 6 providers to verify: Anthropic, llama.cpp, DeepSeek, Gemini, Claude Code, Codex. Test shared contracts and provider-specific behavior.
-2. **A17 — Interrupt and cancellation semantics.** Touched by the CONFIRMABLE_TOOLS fix — verify interrupt lifecycle, confirm/decide paths, expiry.
-3. **A03 — HTTP trust boundary.** Security-critical: NetGuard, rate-limit, authGuard, TLS, CORS. Static audit followed by integration tests.
-4. **A13 — Memory, wiki, and embeddings.** Largest surface area. Vertext search, CRUD, cache, FTS5, sqlite-vec, Postgres pgvector — touched by the updateMemory fix.
-5. **Remaining slices** A01, A02, A04, A05, A07–A12, A15, A16, A18–A22, if budget permits.
+1. **Triage the 6 Run 2 findings first** (see Run 2 Status above) — don't start new audit slices with open findings sitting untriaged.
+2. **Remaining slices** A01, A02, A04, A05, A07–A12, A15, A16, A18–A22 (18 of 22), same risk-based prioritization approach used for Run 2's A06/A17/A03/A13 pick.
+
+### Run 2 priority order (done — kept for reference)
+
+1. ~~A06 — Provider contract matrix.~~ Done — 3 findings (F-R2-01, F-R2-02, F-R2-04 shared w/ A17).
+2. ~~A17 — Interrupt and cancellation semantics.~~ Done — 1 finding (F-R2-04, same root cause as A06's abort-latch gap).
+3. ~~A03 — HTTP trust boundary.~~ Done — 1 finding (F-R2-05, webhook fully broken).
+4. ~~A13 — Memory, wiki, and embeddings.~~ Done — 2 findings (F-R2-06, F-R2-07).
 
 ### Process improvements to apply
 

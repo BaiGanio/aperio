@@ -2,6 +2,86 @@
 
 _This is the reusable Run 1 template. Copy it for later runs; do not erase prior-run data._
 
+---
+
+## Run 2 — status: OPEN (4 slices audited, human triage pending)
+
+| Field | Value |
+|---|---|
+| Run number | 2 |
+| Status | 4/22 slices deep-audited (A06, A17, A03, A13); 18 remain deferred to Run 3 |
+| Started / completed | 2026-08-15 / in progress — audit passes done, triage not yet done |
+| Baseline commit | ba1c433f3625bea591183c3a9caedeca241704b3 |
+| Branch | master (clean tree at start and at audit time) |
+| Lead auditor | Claude Sonnet 5 (Claude Code) |
+| Previous run | Run 1 (closed 2026-07-24) |
+
+### What was done
+
+Followed Run 1's priority order exactly: A06 (providers), A17 (interrupts), A03 (HTTP trust boundary),
+A13 (memory/wiki/embeddings). Each slice already had a passing shallow "file existence" contract gate
+from Run 1 (`audit/runs/run-001/{slice}/contract-result.json`) — this run did the deep review those
+gates don't do: reading the actual logic, running existing focused tests, and hunting the "typical
+negative case" for each slice per the developer playbook's Section 6.2 table.
+
+**Process deviation from plan (recorded, not hidden):** the plan's 3-tier funnel (local llama.cpp
+reconnaissance → DeepSeek primary pass → precision adjudication) was not used. Instead, one Claude
+Sonnet 5 subagent per slice did reconnaissance + primary-lens audit (all 4 launched in parallel), and
+the orchestrator (Claude Sonnet 5, same model) did the falsification/verification pass in Section 6.3
+of the playbook by reading the actual source directly — not a second model, but an independent read
+with intent to contradict each candidate. This is a 2-pass single-model review, not the tiered
+multi-model funnel the plan describes. Every **confirmed** finding below was independently re-verified
+by direct file read (not just trusted from the subagent) before being promoted from candidate status.
+
+### Findings — 6 confirmed, 4 candidates not promoted
+
+Full register: `audit/runs/run-002/findings.json` (schema-validated, all 6 pass `validateFinding`).
+Slice reports: `audit/runs/run-002/{A06,A17,A03,A13}/report.md`.
+
+| ID | Slice | Severity | Confidence | Title | Issue |
+|---|---|---|---|---|---|
+| F-R2-01 | A06 | high | high | `redactMessages` never scrubs `tool_result.content` before cloud egress — secrets in tool output (shell/file/db output) reach Anthropic/DeepSeek/Gemini unredacted | [#470](https://github.com/BaiGanio/aperio/issues/470) |
+| F-R2-02 | A06 | medium | high | `claude-code.js`'s auto-fetched-context preamble bypasses redaction (codex.js's equivalent path doesn't) | [#473](https://github.com/BaiGanio/aperio/issues/473) |
+| F-R2-04 | A17, A06 | high | high | DeepSeek and llama.cpp provider loops can silently lose a Stop/socket-close signal across an async gap — a stray request/tool-call can fire after the user cancelled | [#472](https://github.com/BaiGanio/aperio/issues/472) |
+| F-R2-05 | A03 | high | high | GitHub webhook deliveries are blocked by `netGuard` before reaching their own HMAC check — the webhook feature is non-functional in every deployment | [#471](https://github.com/BaiGanio/aperio/issues/471) |
+| F-R2-06 | A13 | medium | high | Self-memory update leaves a stale, permanently-unrecoverable vector when re-embedding fails or is deferred (no retry/backfill path, unlike regular memories) | [#474](https://github.com/BaiGanio/aperio/issues/474) |
+| F-R2-07 | A13 | medium | medium | `APERIO_PROVIDER_LOCAL` fails open (defaults to local/enabled) for standalone `npm run mcp` — inverts self-memory's fail-closed privacy wall | [#475](https://github.com/BaiGanio/aperio/issues/475) |
+
+**Update 2026-08-15, same session:** all 6 findings filed as GitHub issues (linked above) at the
+developer's request, so a fresh session can pick them up. `status` in `findings.json` moved from
+`confirmed` to `planned` for all 6 — the human-triage step (duplicate/rejected/accepted-risk/
+documentation-only/planned/issue-filed) is effectively done via "issue filed." No code fixed yet.
+
+All 6 were confirmed by the orchestrator independently reading the affected source (not solely trusting
+the subagent's report); 3 of the 4 non-promoted candidates were left at the subagent's original
+confidence because the orchestrator's verification budget went to the higher-value findings above —
+see each slice report's "Candidates not independently re-verified" section.
+
+None of these findings regress an existing test — all affected test suites are green (provider suites,
+interrupt suites, route/netGuard/authGuard suites, memory/wiki/embedding suites all pass). These are
+uncaught gaps, not regressions.
+
+### What Run 2 has NOT done yet
+
+- **Human triage** — none of the 6 findings have a disposition (duplicate/rejected/accepted-risk/
+  documentation-only/planned/issue-filed) yet. That is the required next step before any remediation.
+- **18 remaining slices** (A01, A02, A04, A05, A07–A12, A15, A16, A18–A22) are still deferred, per the
+  "size scope realistically" lesson from Run 1's retrospective (this run picked the 4 priority slices,
+  not all 22).
+- **No production code was touched.** This run was audit-only, per the co-pilot contract.
+
+### Next action for Run 3 (or a remediation session on these 6 findings first)
+
+1. Human triage of F-R2-01 through F-R2-07 (see table above) — recommend starting with F-R2-01
+   (secret redaction gap) and F-R2-05 (webhook fully broken) given severity=high and confidence=high
+   on both, with independent verification already done.
+2. If remediation is approved, each finding's report names its regression-test location — write that
+   test first (red), then fix, matching the playbook's Section 8 handoff rule.
+3. Remaining scope for Run 3: A01, A02, A04, A05, A07–A12, A15, A16, A18–A22 (18 slices) — same
+   priority-order-by-risk approach Run 1's retrospective recommended.
+
+---
+
 ## 1. Run Identity
 
 | Field | Value |
