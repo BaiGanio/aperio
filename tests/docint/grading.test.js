@@ -335,7 +335,6 @@ test("the archived transcript keeps the figures the stdout dump redacts", async 
 // `Uncategorized` (or `Travel-Other`) with no check to notice.
 
 async function realExpectations() {
-  const { buildExpectations } = await import("../../../../tests/fixtures/household-gen/harness-gate.mjs");
   const oracle = JSON.parse(await readFile(resolve("tests/fixtures/household-gen/ground-truth.json"), "utf8"));
   return buildExpectations(oracle, "2026-06", { corpusRoot: "/tmp/corpus-root" });
 }
