@@ -543,6 +543,66 @@ describe("process — full stream lifecycle", () => {
 });
 
 // =============================================================================
+// process — idle stream timeout
+// =============================================================================
+
+describe("process — idle stream timeout", () => {
+  test("ends the stream gracefully and cancels the reader when reads stall past the idle timeout", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    const cancel = mock.fn(async () => {});
+    const response = {
+      body: {
+        getReader() {
+          return {
+            read() { return new Promise(() => {}); }, // a genuinely stuck connection never resolves
+            cancel,
+          };
+        },
+      },
+    };
+    const em = mockEmitter();
+    const h = new LlamaCppStreamHandler(response, em, noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const resultPromise = h.process();
+    t.mock.timers.tick(120_000);
+    const result = await resultPromise;
+
+    assert.match(h.streamError, /stalled/);
+    assert.equal(cancel.mock.calls.length, 1);
+    assert.equal(result.text, "");
+  });
+
+  test("does not fire the idle timeout when reads keep arriving (e.g. a long prefill's keep-alive pings)", async (t) => {
+    t.mock.timers.enable({ apis: ["setTimeout"] });
+    // Mirrors what llama-server actually does during a long prefill: a 3-byte
+    // SSE comment ping every ~30s, well under the 120s idle threshold, until
+    // the real token data arrives.
+    const chunks = [": \n\n", ": \n\n", ": \n\n", deltaContent("done"), doneMarker];
+    let idx = 0;
+    const response = {
+      body: {
+        getReader() {
+          return {
+            async read() {
+              if (idx >= chunks.length) return { done: true, value: undefined };
+              const raw = new TextEncoder().encode(chunks[idx++]);
+              t.mock.timers.tick(30_000); // advance less than the 120s idle threshold between reads
+              return { done: false, value: raw };
+            },
+          };
+        },
+      },
+    };
+    const h = new LlamaCppStreamHandler(response, mockEmitter(), noopAdapter(), mock.fn(), { name: "test-provider" });
+
+    const result = await h.process();
+
+    assert.equal(h.streamError, null);
+    assert.equal(result.text, "done");
+  });
+});
+
+// =============================================================================
 // constructor
 // =============================================================================
 

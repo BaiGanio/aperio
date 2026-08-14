@@ -48,6 +48,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
   Real per-provider reasoning-effort control is tracked separately as
   [#476](https://github.com/BaiGanio/aperio/issues/476).
 
+- **A stuck llama.cpp/Ollama connection could hang a turn forever.** The
+  streaming response reader had no deadline at all past the initial HTTP
+  headers — `LLAMACPP_FETCH_TIMEOUT_MS` only bounded time-to-first-byte, so a
+  server that stopped responding mid-stream (crashed slot, dead connection)
+  left the turn waiting indefinitely with no error and no retry. Verified live
+  against llama-server that a long prefill is not actually silent — it sends a
+  3-byte SSE keep-alive ping roughly every 30s until the first token — so a
+  per-read idle timeout (`LLAMACPP_STREAM_IDLE_TIMEOUT_MS`, default 120s) can
+  safely catch a genuinely dead connection without ever tripping during a
+  legitimate multi-minute prefill.
+
 - **`db_execute` told models a connection was "named undefined" when they had
   named none.** A proposal missing the `connection` argument fell through to the
   connection lookup, whose error interpolated the raw argument — so the model was

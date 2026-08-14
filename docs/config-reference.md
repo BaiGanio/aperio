@@ -578,6 +578,12 @@ number · tier 1 (Settings UI, restart to apply) · default: `300000` · advance
 
 llama.cpp generate request timeout.
 
+#### `LLAMACPP_STREAM_IDLE_TIMEOUT_MS`
+
+number · tier 1 (Settings UI, restart to apply) · default: `120000` · advanced
+
+Max time with zero bytes from a llama.cpp/Ollama streaming response before the turn is ended as stalled. Per-read, not per-turn — a long prefill still sends an SSE keep-alive ping well under this, so it does not fire during legitimate long generations.
+
 #### `LLAMACPP_HEALTH_TIMEOUT_MS`
 
 number · tier 1 (Settings UI, restart to apply) · default: `3000` · advanced
