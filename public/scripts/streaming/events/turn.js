@@ -49,6 +49,7 @@ onStreamEvent("reasoning_start", () => {
     reasoningBubble = null;
     reasoningText = "";
   }
+  // Display-only: the model still thinks either way, this just hides the bubble.
   if (localStorage.getItem("aperio-reasoning") === "false") return;
   removeThinking();
   removeToolIndicator();

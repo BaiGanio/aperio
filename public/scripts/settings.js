@@ -19,6 +19,9 @@
 
   // localStorage keys that mirror to the DB. Device-local view state
   // (aperio-sidebar, wiki-collapsed, language) is intentionally excluded.
+  // aperio-reasoning is display-only: it hides/shows the reasoning bubble in
+  // this UI. It is never sent to the agent or provider, so it does not turn
+  // off model thinking, latency, or token cost.
   const KEYS = ["aperio-theme", "aperio-font-scale", "aperio-tts", "aperio-voice-continuous", "aperio-reasoning", "aperio-busy-words", "aperio-ambient"];
 
   const appliers = new Map();
