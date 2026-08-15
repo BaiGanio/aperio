@@ -1,0 +1,23 @@
+@page {
+  size: Letter portrait;
+  margin: 18mm 17mm 20mm;
+
+  @top-left {
+    content: "APERIO · SETUP & CONFIGURATION";
+    color: #52606d;
+    font: 700 7.5pt "DejaVu Sans", Arial, sans-serif;
+    letter-spacing: 0.08em;
+  }
+
+  @bottom-right {
+    content: counter(page) " / " counter(pages);
+    color: #52606d;
+    font: 8pt "DejaVu Sans", Arial, sans-serif;
+  }
+}
+
+@page :first {
+  @top-left {
+    content: none;
+  }
+}
