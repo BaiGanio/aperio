@@ -1,0 +1,106 @@
+@font-face { font-family: "Aperio Display"; src: url("../../../../skills/canvas-design/canvas-fonts/BricolageGrotesque-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Aperio Sans"; src: url("../../../../skills/canvas-design/canvas-fonts/InstrumentSans-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+@font-face { font-family: "Aperio Sans"; src: url("../../../../skills/canvas-design/canvas-fonts/InstrumentSans-Bold.ttf") format("truetype"); font-weight: 700; font-display: swap; }
+@font-face { font-family: "Aperio Mono"; src: url("../../../../skills/canvas-design/canvas-fonts/DMMono-Regular.ttf") format("truetype"); font-weight: 400; font-display: swap; }
+
+:root {
+  --paper: #fbf9ff;
+  --panel: #efe9f8;
+  --ink: #201729;
+  --muted: #66566f;
+  --line: #cfc1da;
+  --line-strong: #574267;
+  --signal: #d83d91;
+  --signal-ink: #fff;
+  --link: #84306d;
+  --callout-bg: #f6e9f2;
+  --callout-border: #d86aa4;
+  --code-bg: #100c20;
+  --code-ink: #eee8ff;
+  --code-border: #6b4c87;
+  --table-head: #3d2452;
+  --table-head-ink: #fff;
+  --table-stripe: #f4eef8;
+  --display: "Aperio Display", "Arial Narrow", sans-serif;
+  --sans: "Aperio Sans", Arial, sans-serif;
+  --mono: "Aperio Mono", Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+html { background: #fff; color: var(--ink); font: 10.3pt/1.52 var(--sans); }
+body { box-sizing: border-box; max-width: none; margin: 0; padding: 0; background: #fff; }
+.skip-link { display: none; }
+
+.title-block { padding: 20mm 0 8mm; border-bottom: 1.2mm solid var(--signal); }
+.eyebrow { margin: 0 0 3mm; color: var(--signal); text-transform: uppercase; letter-spacing: .12em; font: 8pt var(--mono); }
+.document-title { max-width: 18ch; margin: 0; font-family: var(--display); font-size: 30pt; line-height: 1.04; color: var(--ink); }
+.subtitle { max-width: 34ch; margin: 4mm 0 0; color: var(--muted); font-size: 13pt; }
+
+.toc { break-after: page; padding-top: 10mm; }
+.toc h2 { margin-top: 0; color: var(--signal); font-family: var(--display); font-size: 16pt; break-before: avoid; }
+.toc a { color: var(--ink); text-decoration: none; }
+.toc a::after { content: leader(".") target-counter(attr(href), page); color: var(--muted); }
+.toc ul, .toc ol { padding-left: 0; list-style: none; margin: 0; }
+.toc li { margin-block: 2.6mm; font-size: 10pt; }
+
+main h1 { margin: 0 0 4mm; color: var(--ink); font-family: var(--display); font-size: 19pt; line-height: 1.08; break-before: page; break-after: avoid; }
+main h1 .kicker { display: block; margin-bottom: 2.5mm; color: var(--signal); text-transform: uppercase; letter-spacing: .12em; font: 8pt var(--mono); }
+h3 { margin: 7mm 0 2mm; color: var(--signal); font-family: var(--display); font-size: 12pt; break-after: avoid; }
+p, li { margin: 0 0 3mm; orphans: 3; widows: 3; }
+a { color: var(--link); }
+
+.promise { margin: 0 0 5mm; padding: 3mm 4mm; border-left: 1.4mm solid var(--signal); background: var(--panel); font-size: 11pt; font-weight: 700; color: var(--ink); }
+
+blockquote { position: relative; margin: 5mm 0; padding: 3mm 4mm 3mm 12mm; border: .35mm solid var(--callout-border); background: var(--callout-bg); break-inside: avoid; }
+blockquote::before { content: "i"; position: absolute; top: 3mm; left: 3.5mm; display: grid; place-items: center; width: 6mm; height: 6mm; border-radius: 50%; background: var(--signal); color: var(--signal-ink); font: 9pt var(--display); }
+blockquote p { margin: 0; }
+blockquote.snag { border-color: var(--line-strong); background: #fff; }
+blockquote.snag::before { content: "!"; background: var(--ink); }
+
+code { font-family: var(--mono); }
+pre { margin: 3mm 0 5mm; padding: 4mm 5mm; border: .35mm solid var(--code-border); background: var(--code-bg); color: var(--code-ink); font-size: 8.6pt; line-height: 1.5; white-space: pre-wrap; break-inside: avoid; }
+
+table { width: 100%; margin: 4mm 0; border-collapse: collapse; font-size: 8pt; break-inside: avoid; }
+thead { display: table-header-group; }
+th, td { padding: 2.4mm; border: .25mm solid var(--line); text-align: left; vertical-align: top; }
+th { background: var(--table-head); color: var(--table-head-ink); text-transform: uppercase; letter-spacing: .05em; font-size: 7pt; }
+tbody tr:nth-child(even) { background: var(--table-stripe); }
+
+ol.steps { margin: 4mm 0; padding-left: 0; list-style: none; counter-reset: step; }
+ol.steps > li { position: relative; margin: 0 0 4mm; padding: 1mm 0 1mm 11mm; counter-increment: step; }
+ol.steps > li::before { content: counter(step); position: absolute; left: 0; top: 0.5mm; display: grid; place-items: center; width: 7mm; height: 7mm; border-radius: 50%; border: .5mm solid var(--signal); color: var(--signal); font: 8pt var(--display); }
+
+.done-check { margin: 4mm 0; padding: 3mm 4mm; border: .35mm solid var(--line-strong); background: #fff; break-inside: avoid; }
+.done-check .label { display: block; margin-bottom: 1.5mm; color: var(--signal); text-transform: uppercase; letter-spacing: .1em; font: 7.5pt var(--mono); }
+
+.next-link { margin-top: 6mm; padding-top: 3mm; border-top: .3mm solid var(--line); font-size: 9.5pt; }
+.next-link .label { margin-right: 2mm; color: var(--muted); text-transform: uppercase; letter-spacing: .1em; font: 7.5pt var(--mono); }
+
+.ref-table caption { margin-bottom: 2mm; text-align: left; color: var(--muted); font-size: 8.5pt; }
+
+.note-box { margin: 4mm 0; padding: 3mm 4mm; border: .3mm solid var(--line); background: var(--panel); font-size: 8.5pt; }
+.note-box .label { display: block; margin-bottom: 1.5mm; color: var(--signal); text-transform: uppercase; letter-spacing: .1em; font: 7.5pt var(--mono); }
+.note-box ul { margin: 0; padding-left: 4mm; }
+.note-box li { margin-bottom: 1mm; }
+
+/* Cover page: fills the first printed page, illustrated with the mascot */
+.cover-page { display: flex; flex-direction: column; break-after: page; padding-top: 4mm; color: #f5efff; }
+.running-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10mm; padding-bottom: 2.4mm; border-bottom: .3mm solid #715886; color: #c9b9da; text-transform: uppercase; letter-spacing: .12em; font: 6.8pt var(--mono); }
+.running-top .signal-id { color: var(--signal); font-weight: 700; }
+.cover-page .cover-panel { position: relative; flex: 1; min-height: 200mm; max-height: 205mm; display: flex; flex-direction: column; justify-content: center; padding: 12mm; overflow: hidden; border: .45mm solid #574267; background: radial-gradient(ellipse at 80% 0%, #5b2471 0, transparent 40%), radial-gradient(ellipse at 20% 100%, #22d3ee33 0, transparent 45%), linear-gradient(150deg, #0e091a 5%, #211235 58%, #100b1c); }
+.cover-grid { position: relative; display: grid; grid-template-columns: 1.05fr .95fr; gap: 10mm; align-items: center; }
+.cover-copy .eyebrow { margin: 0 0 3mm; color: var(--signal); text-transform: uppercase; letter-spacing: .13em; font: 7.5pt var(--mono); }
+.cover-copy h1 { margin: 0 0 5mm; color: #fff; font-family: var(--display); font-size: 30pt; line-height: 1.03; text-shadow: 0 0 9mm #ec489955; }
+.cover-copy p:not(.eyebrow) { max-width: 42ch; margin: 0; color: #c9b9da; font-size: 11pt; }
+.cover-art { margin: 0; }
+.aurora-window { position: relative; display: grid; place-items: center; min-height: 82mm; padding: 4mm; border: .4mm solid #8d74bd55; }
+.aurora-window img { width: 80%; max-height: 82mm; object-fit: contain; filter: drop-shadow(0 6mm 9mm #ec489955); }
+.cover-art figcaption { margin-top: 2mm; color: #bda9ca; font-size: 7.6pt; line-height: 1.35; text-align: center; }
+
+.route-panel { position: relative; margin-top: 8mm; padding: 4mm; border: .4mm solid #745587; background: #130c22cc; }
+.route-panel .route-label { margin: 0 0 3mm; color: #f4a7d4; text-transform: uppercase; letter-spacing: .13em; font: 7.5pt var(--mono); }
+.route-panel ol { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3mm; margin: 0; padding: 0; list-style: none; }
+.route-panel a { display: grid; grid-template-columns: 9mm 1fr; min-height: 17mm; padding: 2.5mm; border: .3mm solid #5d466c; background: #20122f; color: #fff; text-decoration: none; }
+.route-panel a > span:first-child { grid-row: 1 / 3; color: var(--signal); font: 13pt var(--display); }
+.route-panel a strong { display: block; font: 9pt var(--display); }
+.route-panel a small { display: block; color: #bda9ca; font: 6.8pt var(--sans); }
