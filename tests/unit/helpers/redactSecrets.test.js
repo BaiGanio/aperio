@@ -77,6 +77,33 @@ describe("redactMessages", () => {
     assert.deepEqual(out[0].content[1], { type: "tool_result", tool_use_id: "x", is_error: false });
   });
 
+  test("scrubs a secret in a tool_result block's content field", () => {
+    const msgs = [{
+      role: "user",
+      content: [{ type: "tool_result", tool_use_id: "1", content: "api_key=sk-abc" + "d".repeat(20) }],
+    }];
+    const out = redactMessages(msgs);
+    assert.match(out[0].content[0].content, /\[REDACTED:(assigned-secret|api-key)\]/);
+    assert.doesNotMatch(out[0].content[0].content, /sk-abc/);
+  });
+
+  test("scrubs a secret inside a tool_result's nested content array (image bridge shape)", () => {
+    const msgs = [{
+      role: "user",
+      content: [{
+        type: "tool_result",
+        tool_use_id: "2",
+        content: [
+          { type: "text", text: "token ghp_" + "a".repeat(36) },
+          { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "not-a-secret" } },
+        ],
+      }],
+    }];
+    const out = redactMessages(msgs);
+    assert.equal(out[0].content[0].content[0].text, "token [REDACTED:github-token]");
+    assert.equal(out[0].content[0].content[1].source.data, "not-a-secret");
+  });
+
   test("does not mutate the input", () => {
     const msgs = [{ role: "user", content: "AKIAIOSFODNN7EXAMPLE" }];
     redactMessages(msgs);

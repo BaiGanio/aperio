@@ -25,24 +25,6 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
-## Security — secret redaction
-
-- 2026-08-15 **`redactMessages()` never scrubs `tool_result.content` before cloud
-  egress — secrets in tool output reach Anthropic/DeepSeek/Gemini unredacted.**
-  Continuous-audit finding F-R2-01 (run-002, severity high/confidence high,
-  status `planned`, still unfixed as of this date). `lib/helpers/redactSecrets.js:62-79`
-  only rewrites `block.text`; a `tool_result` block's payload lives at
-  `block.content` and passes through untouched. Confirmed live:
-  `redactMessages([{role:'user', content:[{type:'tool_result', tool_use_id:'1',
-  content:'api_key=sk-abc...123456'}]}])` returns the secret intact. Affects
-  `lib/agent/providers/anthropic.js:159`, `lib/agent/providers/deepseek.js:133`,
-  `lib/agent/providers/gemini.js:124-125`, `lib/helpers/completion.js:69`. Fix is
-  a redaction pass over `block.content` alongside `block.text`; regression test
-  belongs at `tests/unit/helpers/redactSecrets.test.js` (new case, asserts a
-  `tool_result` with an embedded secret comes back scrubbed). Note: the
-  git-history rewrite done the same day (issue #457) removed the *finding file*
-  naming this bug from `master`'s history — it did **not** fix the bug itself.
-
 ## Docgraph — document facts (#250)
 
 - 2026-08-01 **Image-only receipts still contribute nothing.** PNG receipts
