@@ -55,11 +55,17 @@ If you'd rather install from the source code instead of using the ready-made dow
 
 <p class="promise">After this page, Aperio has remembered one thing you told it — no extra apps or setup needed.</p>
 
-Aperio isn't just a memory store you plug other tools into — it's also its own AI you can talk to directly, right in the web app you just opened. That's the fastest way to see it work, before connecting anything else.
+Aperio isn't just a memory store you plug other tools into — it's also its own AI you can talk to directly, right in the web app you just opened. That's the fastest way to see it work, before connecting anything else. It works for any small fact you don't want to repeat — a coffee order, a Wi-Fi password, a phone number:
+
+<ul>
+<li><em>"Remember that my favorite coffee order is a flat white with oat milk."</em></li>
+<li><em>"Remember my Wi-Fi password: sunflower42."</em></li>
+<li><em>"Remember the vet's phone number: 555-0142."</em></li>
+</ul>
 
 <ol class="steps">
 <li>In the Aperio web app, open the chat panel.</li>
-<li>Tell it something small, harmless, and specific. For example: <em>"Remember that my favorite coffee order is a flat white with oat milk."</em></li>
+<li>Tell it something small, harmless, and specific — pick one of the examples above, or your own.</li>
 <li>Wait for it to confirm.</li>
 </ol>
 
@@ -77,7 +83,7 @@ Close the conversation from Part 2 completely. Start a new one. Ask a related qu
 
 <ol class="steps">
 <li>Start a completely new conversation in Aperio.</li>
-<li>Ask a related question without repeating what you told it. For example: <em>"What's my usual coffee order?"</em></li>
+<li>Ask a related question without repeating what you told it. Picked the coffee order in Part 2? Ask: <em>"What's my usual coffee order?"</em> Picked the Wi-Fi password instead? Ask: <em>"What's my Wi-Fi password?"</em></li>
 <li>Compare the answer to what you stored in Part 2.</li>
 </ol>
 
