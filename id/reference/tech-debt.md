@@ -25,6 +25,59 @@ housekeeping go in `A2D.md`, not here.
 
 <!-- Add topic sections below as they come up (e.g. ## Codegraph, ## Migrations, ## Providers). -->
 
+## Continuous-audit program — the mandated verify-first test suite was never built
+
+- 2026-08-15 **`aperio-continuous-audit-tests.md`'s T1–T9 test plan (dated 2026-07-12,
+  332 lines, the plan's own mandatory TDD companion) has no matching code anywhere in the
+  repo.** Its coverage map names concrete scripts to verify — `audit/scripts/inventory.js`,
+  `audit/scripts/schema.js` — and neither path exists, tracked or untracked
+  (`git log --all -- audit/` is empty). No `tests/**/*audit*` file exists either. The plan's
+  own opening line states the requirement directly: "each new drift gate must demonstrate
+  that it detects a deliberately mutated fixture or known baseline mismatch before it is
+  trusted." That demonstration was never built, for either run.
+  Both Run 1 and Run 2 nonetheless produced real output — `baseline.json`, `matrix.json`,
+  per-slice reports, `findings.json` — but it lives under `trash/audits/continuous-audit/
+  runs/{run-001,run-002}/`, not `audit/` as the plan and `next-session.md` describe, and
+  none of it was produced through code that the T1–T9 suite would have exercised.
+  Impact: every finding from both runs (including the 6 from Run 2, e.g. F-R2-01/F-R2-05,
+  already filed as issues #470–#475 per [[project_continuous_audit_run2]]) rests on
+  tooling and a repo-inventory process that was never verified against a deliberately
+  mutated fixture, contrary to the program's own stated bar.
+  **T1 built 2026-08-15.** `audit/scripts/inventory.js` is now a real, checked-in,
+  reproducible generator (git branch/commit/dirty-paths, Node/npm versions,
+  source/test file counts by area, the provider list read from `lib/config.js`'s
+  `AI_PROVIDER` options — not hardcoded, migration names/parity from both migration
+  dirs, locale codes, config-key count) replacing the model-typed `baseline.json` that
+  Run 1/Run 2 actually produced. `audit/tests/inventory.test.js` covers T1.1
+  (repeated inventory is byte-identical except `observed_at`) and a red/green proof:
+  verified live by stubbing `providerList()` to `["stub"]` — test failed with a clear
+  diff — then reverting — test passed again. This is the T1 subset only; T2–T9
+  (contract/drift gates, ledger schema, evidence packets, red-first baseline runner,
+  wave/journey/triage machinery) remain unbuilt. Run 3 should not start new slices
+  claiming "verified" beyond T1 — the baseline step is now real, the drift-gate and
+  finding-ledger steps still are not.
+  **Second bug found while wiring this in, caught by the developer running
+  `npm run test:audit:inventory` and getting "file not found":** `package.json`
+  already had `test:audit`, `test:audit:inventory`, `test:audit:schema` (and 5 more)
+  committed and pointing at `trash/audits/continuous-audit/tests/*.test.js` —
+  a path under `trash/*`, which `.gitignore` excludes entirely except
+  `trash/plans/`. So even if a past session had written those test files, git
+  would never have tracked them; the scripts were dead on arrival for anyone but
+  the session that typed them, on that session's own machine. Confirmed via
+  `git log --all --diff-filter=A --name-only` across full history: no commit ever
+  added a file at either that path or the original pre-rename `audit/tests/...`
+  path it was renamed from — the npm scripts were written before, and never
+  followed by, the files they point to.
+  **Fixed 2026-08-15**: the T1 test moved to `audit/tests/inventory.test.js`
+  (not gitignored) and the 3 scripts above repointed from `trash/audits/
+  continuous-audit/tests/` to `audit/tests/`. `npm run test:audit:inventory`
+  passes. The other 5 filenames in the `test:audit` composite (`schema`,
+  `manifest`, `database-contract`, `config-contract`, `routes-contract`,
+  `memory-contract`, `bootstrap-contract`) got the same path fix but still
+  don't exist — that's T2–T4 scope, not touched here.
+
+---
+
 ## Docgraph — document facts (#250)
 
 - 2026-08-01 **Image-only receipts still contribute nothing.** PNG receipts
