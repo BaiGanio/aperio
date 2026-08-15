@@ -54,6 +54,13 @@ and is meant to run on a machine you trust.
   and WebSocket transports. `APERIO_CSP=report` is available for rollout
   diagnostics, while `APERIO_CSP=off` is a temporary troubleshooting escape hatch.
 - **Secrets at rest** (`.env`, sessions, logs, handoffs) are written `0600`.
+- **Git history was rewritten on 2026-08-15** to remove an old `audit/` tree
+  (superseded findings, one of which named an unpatched bug with exact
+  file:line locations) plus stale build renders (`manual/preview-output`,
+  `output/pdf`) from `master`. New clones no longer receive these files. This
+  does **not** retroactively remove them from forks or clones made before that
+  date — if you cloned or forked `aperio` before 2026-08-15, treat any copy of
+  that history as still containing the old files.
 - **SQLite at-rest encryption** — when `APERIO_DB_ENCRYPT=1`, the SQLite database file is encrypted with AES-256-GCM. The decryption key is generated on first run and stored in the OS keychain (macOS Keychain, Linux libsecret, Windows DPAPI) — never on disk. The plaintext database only exists in a temporary location while the app is running; it is re-encrypted on shutdown. See [Database Encryption](#database-encryption) below.
 
 ### Database Encryption

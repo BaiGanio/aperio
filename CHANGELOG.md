@@ -23,6 +23,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
   dates stay two purchases — and ends with a check that costs nothing:
   reconcile per-category totals against `aggregate` before proposing the write.
 
+### Security
+
+- **Rewrote git history to remove a stale `audit/` tree and old build renders.**
+  `master`'s history on GitHub no longer contains `audit/` (superseded findings,
+  including one naming an unpatched issue by exact file:line), `manual/preview-output`,
+  or `output/pdf` — cutting a fresh clone from ~650 MB to ~62 MB. This is a
+  history rewrite: **anyone with an existing clone must re-clone** (`git pull`
+  will not work against the new history). Forks and clones made before this
+  change still hold the old files — the rewrite only stops new clones from
+  receiving them going forward. See `SECURITY.md`.
+
 ### Fixed
 
 - **A malformed tool call told the model what failed but never why.** When a
