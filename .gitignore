@@ -19,8 +19,8 @@ trash/*
 !trash/plans/**
 trash/plans/**/.DS_Store
 # Harness diagnostic artifact: rewritten from scratch on every run, never source truth.
-trash/plans/document-intelligence-epic/document-intelligence-run-answers.json
-trash/plans/document-intelligence-epic/llamacpp-latency/server-log-latest.log
+tests/docint/harness/document-intelligence-run-answers.json
+tests/docint/harness/server-log-latest.log
 A2D.md
 
 

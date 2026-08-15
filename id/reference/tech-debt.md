@@ -147,6 +147,12 @@ housekeeping go in `A2D.md`, not here.
 
 ## llama.cpp KV reuse — the divergence is in the message array, not the prefix (#250)
 
+> **Paths moved 2026-08-15.** `msgdiff.py` and
+> `document-intelligence-skill-harness.mjs` now live in `tests/docint/harness/`
+> — read on as shipped test tooling, not a plan (see [#455W1.9]). Entries below
+> written before that date name the old `trash/plans/document-intelligence-epic/
+> llamacpp-latency/…` paths.
+
 - 2026-08-13 **Found in T-G2.3 round 5, replacing the tool-schema theory above.**
   With the system prompt and tool array both provably byte-stable all run
   (`sysHash`/`toolsHash`/`toolCount` identical on all 12 requests), llama-server

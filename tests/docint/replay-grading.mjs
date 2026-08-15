@@ -2,7 +2,7 @@
 // no llama-server, no model call. Reads a run artifact written by
 // document-intelligence-skill-harness.mjs and runs the current grader over it.
 //
-//   node trash/plans/document-intelligence-epic/llamacpp-latency/replay-grading.mjs
+//   node tests/docint/replay-grading.mjs
 //   node .../replay-grading.mjs var/docint-runs/provenance-2026-08-13T...json
 //   node .../replay-grading.mjs --list
 //
@@ -27,7 +27,7 @@ import { resolveLadder } from "./provenance-ladder.mjs";
 import { gradePhase } from "./grading.mjs";
 
 const ARCHIVE_DIR = resolve(process.env.DOCINT_RUN_ARCHIVE_DIR ?? "var/docint-runs");
-const LATEST_PATH = resolve("trash/plans/document-intelligence-epic/document-intelligence-run-answers.json");
+const LATEST_PATH = resolve("tests/docint/harness/document-intelligence-run-answers.json");
 // The harness's own default. Artifacts written before gradingInputs existed
 // don't record the corpus root, and an EMPTY root is worse than a wrong one:
 // the leak checks ask whether the answer contains it, and every string

@@ -3,7 +3,7 @@
 // distinguish a model-capacity problem from a large multi-turn workflow issue.
 // It uses the same full served context Aperio calculates for the selected model,
 // its normal unbounded llama.cpp completion behavior, and a 300s request limit.
-// Usage: LLAMACPP_MODEL=unsloth/gemma-4-26B-A4B-it-qat-GGUF:Q4_K_XL node trash/plans/document-intelligence-epic/llamacpp-latency/gemma-simple-capability-harness.mjs
+// Usage: LLAMACPP_MODEL=unsloth/gemma-4-26B-A4B-it-qat-GGUF:Q4_K_XL node tests/docint/harness/gemma-simple-capability-harness.mjs
 import { spawn } from "node:child_process";
 import { randomInt } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";

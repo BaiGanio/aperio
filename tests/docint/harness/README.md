@@ -3,17 +3,19 @@
 Consolidated 2026-08-14. This replaces the old per-file notes and `prompts.md`
 (prompt text lives in the unit-tested ladder module now, so a second copy could
 only drift). Everything deleted here is recoverable with
-`git log -- <path>`.
+`git log -- <path>`. Moved here from `trash/plans/document-intelligence-epic/llamacpp-latency/`
+2026-08-15 — `tests/docint/grading.test.js` reads the skill harness's source as
+a characterization target, so it is shipped tooling, not a plan.
 
 ## What exists
 
 | Instrument | Where | Answers | State |
 |---|---|---|---|
-| **Skill harness** | `llamacpp-latency/document-intelligence-skill-harness.mjs` | The live gate. `DOCINT_PHASE=routing\|coverage\|provenance` → T-G2.1/2.2 and T-G2.3/T-G2.4/T-L4 | **The only open gate.** Boots an isolated server + scratch DB + its own llama-server |
+| **Skill harness** | `tests/docint/harness/document-intelligence-skill-harness.mjs` | The live gate. `DOCINT_PHASE=routing\|coverage\|provenance` → T-G2.1/2.2 and T-G2.3/T-G2.4/T-L4 | **The only open gate.** Boots an isolated server + scratch DB + its own llama-server |
 | **Grader** | `tests/docint/` | Given a transcript, did it pass — and which of the three gates | Pure, 82 tests, in `npm test` |
 | **Replay** | `tests/docint/replay-grading.mjs` | Does a grader change flip a recorded round? | Re-grades archived runs with no server, no model, no DB |
 | **Oracle gate** | `tests/fixtures/household-gen/harness-gate.mjs` | Do the answer's figures match the oracle, per category and currency | Lives with the corpus it grades; test in `tests/docint/` |
-| **Capability probe** | `llamacpp-latency/gemma-simple-capability-harness.mjs` | Can this model do four-question arithmetic at all? | Triage only, **after** a hard-gate failure |
+| **Capability probe** | `tests/docint/harness/gemma-simple-capability-harness.mjs` | Can this model do four-question arithmetic at all? | Triage only, **after** a hard-gate failure |
 | **Cache fingerprint** | `APERIO_LOG_CACHE_FINGERPRINT=on` + `msgdiff.py` | Where does the KV prefix break between turns? | Reads a real run's log; replaced the synthetic probe |
 
 Deleted 2026-08-14: `document-intelligence-red-harness.mjs` (T-R5, passed twice
@@ -48,14 +50,14 @@ workspace/database, chooses free loopback ports, and cleans up in `finally`.
 
 ```bash
 # WS2 routing, coverage, or provenance phase, default cloud pair (DeepSeek)
-DOCINT_PHASE=routing    node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
-DOCINT_PHASE=coverage   node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
-DOCINT_PHASE=provenance node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
+DOCINT_PHASE=routing    node tests/docint/harness/document-intelligence-skill-harness.mjs
+DOCINT_PHASE=coverage   node tests/docint/harness/document-intelligence-skill-harness.mjs
+DOCINT_PHASE=provenance node tests/docint/harness/document-intelligence-skill-harness.mjs
 
 # The gate that matters: a local model against the provenance phase
 DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
   LLAMACPP_MODEL=unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL \
-  node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
+  node tests/docint/harness/document-intelligence-skill-harness.mjs
 ```
 
 Useful overrides: `DOCINT_EVALUATION_PROVIDER=codex` with
@@ -82,7 +84,7 @@ average, logic implication) against an isolated llama-server.
 
 ```bash
 LLAMACPP_MODEL=unsloth/gemma-4-26B-A4B-it-qat-GGUF:Q4_K_XL \
-  node trash/plans/document-intelligence-epic/llamacpp-latency/gemma-simple-capability-harness.mjs
+  node tests/docint/harness/gemma-simple-capability-harness.mjs
 ```
 
 | Model | Full served / usable context | Result (2026-08-04) |

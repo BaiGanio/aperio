@@ -1,8 +1,8 @@
 // WS2 isolated harness for the T-G2 skill gate (issue #250).
 //
-//   DOCINT_PHASE=routing    node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
-//   DOCINT_PHASE=coverage   node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
-//   DOCINT_PHASE=provenance node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
+//   DOCINT_PHASE=routing    node tests/docint/harness/document-intelligence-skill-harness.mjs
+//   DOCINT_PHASE=coverage   node tests/docint/harness/document-intelligence-skill-harness.mjs
+//   DOCINT_PHASE=provenance node tests/docint/harness/document-intelligence-skill-harness.mjs
 //
 // Default evaluation provider/model is DeepSeek deepseek-v4-flash (see
 // EVALUATION_PROVIDER/EVALUATION_MODEL below); Codex gpt-5.6-terra is the
@@ -10,7 +10,7 @@
 // actual target model, not a cloud proxy for it — set both:
 //   DOCINT_PHASE=provenance DOCINT_EVALUATION_PROVIDER=llamacpp \
 //     LLAMACPP_MODEL=unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL \
-//     node trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs
+//     node tests/docint/harness/document-intelligence-skill-harness.mjs
 // This boots a fully isolated llama-server (own port, own preset/state dir
 // under the scratch runtime) and tears it down in the same finally block
 // that cleans up everything else — it never touches a shared/dev instance.
@@ -64,11 +64,11 @@ const ORACLE_PATH = resolve(process.env.ORACLE_PATH ?? "tests/fixtures/household
 // is why every grader fix in this epic was hand-validated against one run's
 // stdout instead of re-graded (tech-debt.md, "the harness's stdout dump cannot
 // be re-graded"). Replay with:
-//   node trash/plans/document-intelligence-epic/llamacpp-latency/replay-grading.mjs <path>
-const ANSWERS_PATH = resolve("trash/plans/document-intelligence-epic/document-intelligence-run-answers.json");
+//   node tests/docint/replay-grading.mjs <path>
+const ANSWERS_PATH = resolve("tests/docint/harness/document-intelligence-run-answers.json");
 const RUN_ID = `${new Date().toISOString().replace(/[:.]/g, "-")}-${process.pid}`;
 const RUN_ARCHIVE_DIR = resolve(process.env.DOCINT_RUN_ARCHIVE_DIR ?? "var/docint-runs");
-const SERVER_LOG_CAPTURE_PATH = resolve("trash/plans/document-intelligence-epic/llamacpp-latency/server-log-latest.log");
+const SERVER_LOG_CAPTURE_PATH = resolve("tests/docint/harness/server-log-latest.log");
 const PHASE = process.env.DOCINT_PHASE ?? "routing"; // routing | coverage | provenance
 const SETUP_ONLY = process.argv.includes("--setup-only");
 const FIXTURE_SET = PHASE === "coverage" ? "multi-month" : "T-R5";

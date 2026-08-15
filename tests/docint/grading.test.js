@@ -314,7 +314,7 @@ test("the archived transcript keeps the figures the stdout dump redacts", async 
   // Guards the reason the archive exists: the harness prints answers with every
   // numeral replaced by [number], so a saved run must not go through that path.
   const source = await readFile(
-    resolve("trash/plans/document-intelligence-epic/llamacpp-latency/document-intelligence-skill-harness.mjs"),
+    resolve("tests/docint/harness/document-intelligence-skill-harness.mjs"),
     "utf8",
   );
   const redaction = source.indexOf("[number]");
