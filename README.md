@@ -99,6 +99,12 @@ Read the [testing guide](id/reference/testing.md) and the
 [contributor/developer notes](docs/advanced-guide.md) before changing the
 runtime, database, configuration, or agent loop.
 
+The `id/` folder is where Aperio's own coding agents keep their working
+notes: reference docs, plus small "identity" files (`whoami.md`,
+`self-nature.md`, `characters/`) that shape how they behave. It is not
+user-facing — safe to ignore unless you're curious how the agents that
+build Aperio are set up.
+
 ## License
 
 [MIT](LICENSE)
