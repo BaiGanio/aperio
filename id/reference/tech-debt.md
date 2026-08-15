@@ -75,6 +75,88 @@ housekeeping go in `A2D.md`, not here.
   `manifest`, `database-contract`, `config-contract`, `routes-contract`,
   `memory-contract`, `bootstrap-contract`) got the same path fix but still
   don't exist — that's T2–T4 scope, not touched here.
+  **Bootstrap milestone complete 2026-08-15** (aperio-continuous-audit.md's
+  own "first implementation increment," Coverage Map row: T1.1, T3.1, T4.4,
+  T2.4, T5.1). Built and green (`npm run test:audit`, 53 tests / 10 suites,
+  all 7 `test:audit` filenames now real code, not dead script references):
+  - `audit/scripts/schema.js` (T3.1/T3.2) — finding/run record validation and
+    the finding-lifecycle transition graph from the plan's own stateDiagram.
+    Ledger *persistence* (T3.3 usage-cost accounting across many records, T6–T9
+    aggregation) is still unbuilt; this is schema validation only.
+  - `audit/scripts/manifest.js` (T4.2/T4.4) — the A14 evidence-packet builder.
+    Its own real output proved T4.2 rather than needing a synthetic fixture:
+    `db/sqlite/store.js` + `db/postgres/store.js` alone run to ~29K of the
+    30K-token ceiling, so the full A14 reference packet (62,840 tokens) is
+    honestly reported as over-ceiling, and the builder splits it into four
+    deterministic sub-slices by lifecycle/trust boundary (shared/migrations/
+    sqlite/postgres, 7–22K tokens each) exactly as Step 4 asks for an
+    oversized packet, rather than pretending A14 fits in one call.
+  - `audit/scripts/database-contract.js` (T2.4) — SqliteStore/PostgresStore
+    public-method-name parity via a class-body-declaration regex (not a
+    naive identifier scan — the first version matched SQL call sites like
+    `SUM(...)` and local closures like `tx()` before being tightened to
+    2-space-indent `name(...) {` declarations only). Reconciles today under
+    two reviewed exceptions (`refreshCache` sqlite-only, `seedBaseline`
+    postgres-only, both pre-existing and intentional).
+  - `audit/scripts/config-contract.js` (T2.5's unregistered-env-read case;
+    the registry/`.env.example` sync half of T2.5 is already `npm run
+    gen:env:check`, not reimplemented here) — static-scans `process.env.X`
+    reads in `lib/mcp/db/server.js/bootstrap.js` against `lib/config.js`'s
+    `CONFIG` registry, comment-stripped so the literal string
+    `` `process.env.X` `` inside this very file's own header comment doesn't
+    false-positive. **Found 2 real unregistered reads**, both intentional-
+    looking but never reviewed: `APERIO_LLAMACPP_RUNTIME_DIR`
+    (`lib/helpers/llamacpp/constants.js` — where the vendored llama.cpp
+    runtime/model cache lives; plausibly worth exposing in Settings) and
+    `APERIO_LOG_CACHE_FINGERPRINT` (`lib/agent/providers/llamacpp.js` — the
+    T-L4 diagnostic flag from the llamacpp-multiturn-latency work above).
+    Not fixed here (read-only audit); the gate's own test pins both by name
+    so registering either without updating the test is visible.
+  - `audit/scripts/routes-contract.js` (T2.2, scoped to this codebase's real
+    auth model — one global `createAuthGuard()` in front of all of `/api`,
+    not a per-route matrix, so the checkable drift is a route self-declaring
+    an exemption from it) — verified `lib/routes/api-github-webhook.js`'s
+    HMAC-signature exemption is both declared and actually implemented
+    (`timingSafeEqual` present); no other route file declares an exemption.
+  - `audit/scripts/memory-contract.js` (T2.3, scoped to the A13 memory/wiki
+    handler family) — parses `mcp/index.js`'s `createContext()` return shape
+    (`store`, `generateEmbedding`, `vectorEnabled`, `embeddingQueue`,
+    `providerIsLocal`) and checks every `ctx.field` / destructured
+    `const { a, b } = ctx` read in `lib/handlers/memory/*` and
+    `lib/handlers/wiki/*` against it. **Found 1 real gap**:
+    `lib/handlers/wiki/regenerate.js:200,242` reads `ctx.provider`, which
+    `createContext()` never supplies — `ctx?.provider?.name === "llamacpp"`
+    is therefore always `undefined === "llamacpp"` (false), so
+    `regenerateArticle`'s "reuse the already-running main provider when it's
+    llamacpp" branch is dead code; it always falls through to
+    `refreshRequestModel`'s own default `resolveProvider({name:"llamacpp"})`.
+    Cosmetic today (falls back to a working default) but a real dead branch.
+    Not fixed here.
+  - `audit/scripts/bootstrap-contract.js` (A01 domain: "every partial start
+    has an observable recovery path; shutdown releases all owned resources")
+    — two static checks. (a) Every `bootstrap.js` `STEPS[].id` that reaches
+    `setStep(id, 'running', …)` must also reach `setStep(id, 'error', …)`
+    somewhere. **Found 3 of 5 steps have no per-step error path**: `node`,
+    `deps`, and `engine` only ever reach `running`/`done`/`skipped` — only
+    `model` and `sqlite` call `setStep(id, 'error', …)`. `runBootstrap`'s
+    outer `try/catch` still emits a global `bootstrapEvents('error', …)` on
+    any rejection, so a failure isn't silent, but the specific step tile a
+    user is watching (e.g. "Node.js & npm") stays stuck at `running` forever
+    instead of showing which step actually broke. Not fixed here. (b)
+    `lib/server/shutdown.js`'s `createGracefulShutdown({...})` destructured
+    parameter list is checked against both its own function body (every
+    declared resource must be torn down, not just declared) and its real
+    call site in `lib/server.js` (declared params and passed keys must
+    match, or a drift would pass `undefined` and crash on first `.stop()`).
+    **This one reconciles clean today** — no finding, a genuinely verified
+    invariant, not just an unexercised gate.
+  Still open: T2.1 (provider matrix), the rest of T2.3 (general MCP tool-
+  registry completeness beyond the memory/wiki family), T6–T9 (waves,
+  journeys, triage, closeout) — none of this session's scope. The five new
+  findings above (2 config, 1 ctx, 2 bootstrap-step) are logged here per this
+  file's own convention, not yet pushed through T3's finding schema into an
+  actual ledger record or GitHub issue — Run 3 (or whoever triages next)
+  should do that rather than treat this paragraph as the finding of record.
 
 ---
 
