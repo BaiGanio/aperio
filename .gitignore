@@ -442,3 +442,6 @@ manual/generated/
 manual/dist/
 manual/.work/
 manual/preview-output/
+manual/topics/*/build/
+manual/topics/*/artifacts/
+manual/topics/*/tmp/
