@@ -33,18 +33,21 @@ jobs:
           fetch-depth: 0
 
       # Determine bump type and whether launcher binaries are requested.
-      # Convention: feat(launchers): or fix(launchers): opts into the binary path.
+      # Convention: feat:/fix: bump minor/patch, with an optional Conventional
+      # Commits scope — feat(x): / fix(x): — bumping the same way. A scope of
+      # exactly "launchers" additionally opts into the binary path.
       - name: Analyze Commit
         id: info
         run: |
           MSG=$(git log -1 --pretty=%s)
 
-          if   [[ "$MSG" =~ ^feat\(launchers\): ]]; then BUMP="minor"; WITH_LAUNCHERS="true"
-          elif [[ "$MSG" =~ ^fix\(launchers\):  ]]; then BUMP="patch"; WITH_LAUNCHERS="true"
-          elif [[ "$MSG" =~ ^feat:              ]]; then BUMP="minor"; WITH_LAUNCHERS="false"
-          elif [[ "$MSG" =~ ^fix:               ]]; then BUMP="patch"; WITH_LAUNCHERS="false"
-          else                                          BUMP="skip";  WITH_LAUNCHERS="false"
-          fi
+          case "$MSG" in
+            feat\(launchers\):*) BUMP="minor"; WITH_LAUNCHERS="true"  ;;
+            fix\(launchers\):*)  BUMP="patch"; WITH_LAUNCHERS="true"  ;;
+            feat:*|feat\(*\):*)  BUMP="minor"; WITH_LAUNCHERS="false" ;;
+            fix:*|fix\(*\):*)    BUMP="patch"; WITH_LAUNCHERS="false" ;;
+            *)                   BUMP="skip";  WITH_LAUNCHERS="false" ;;
+          esac
 
           echo "bump=$BUMP"                   >> "$GITHUB_OUTPUT"
           echo "with_launchers=$WITH_LAUNCHERS" >> "$GITHUB_OUTPUT"
