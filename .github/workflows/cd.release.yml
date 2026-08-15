@@ -80,11 +80,6 @@ jobs:
           NEW_V=$(node -p "require('./package.json').version")
           echo "new_v=$NEW_V" >> "$GITHUB_OUTPUT"
 
-      - name: Write version for landing page
-        if: steps.info.outputs.bump != 'skip'
-        run: |
-          sed -i "s/const version = '.*';/const version = '${{ steps.versioning.outputs.new_v }}';/" docs/scripts.js
-
       - name: Update CHANGELOG
         if: steps.info.outputs.bump != 'skip'
         env:
@@ -120,7 +115,7 @@ jobs:
           set -euo pipefail
           NEW_V="${{ steps.versioning.outputs.new_v }}"
 
-          git add package.json package-lock.json docs/scripts.js CHANGELOG.md
+          git add package.json package-lock.json CHANGELOG.md
           git commit -m "chore: release v$NEW_V [skip ci]"
 
           # MY_PAT is required — GITHUB_TOKEN pushes never trigger downstream workflows

@@ -2,9 +2,6 @@
 const root = document.documentElement;
 const btns = document.querySelectorAll('.theme-btn');
 const STORAGE_KEY = 'aperio-landing-theme';
-const version = '0.0.0'
-/* ── Version ── */
-/* document.getElementById('version-display').innerText = version;   */
 
 function setTheme(theme) {
 root.setAttribute('data-theme', theme);

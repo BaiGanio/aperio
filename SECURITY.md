@@ -25,9 +25,9 @@ Only the versions below actively receive security patches:
 
 | Version | Supported | Notes |
 |---------|-----------|-------|
-| 0.67.x   | ✅ Yes    | Current stable — fully supported |
+| 0.68.x   | ✅ Yes    | Current stable — fully supported |
 
-> **Recommendation:** Always use the latest `0.67.x` release for the most recent features and security fixes.
+> **Recommendation:** Always use the latest `0.68.x` release for the most recent features and security fixes.
 
 ---
 
