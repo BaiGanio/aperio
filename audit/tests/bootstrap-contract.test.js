@@ -45,11 +45,12 @@ setStep('x', 'done', 'ok');
     assert.strictEqual(greenResult.ok, true);
   });
 
-  test("current real state — bootstrap.js's node/deps/engine steps have no observable " +
-    "per-step error path today (model and sqlite do); logged in tech-debt.md, not fixed here", () => {
+  test("current real state — every bootstrap.js step has an observable per-step error path " +
+    "(fixed 2026-08-16; node/deps/engine previously had none, see git history and CHANGELOG.md)", () => {
     const result = checkStepErrorPaths();
     assert.deepStrictEqual(result.ids, ["deps", "engine", "model", "node", "sqlite"]);
-    assert.deepStrictEqual(result.missing, ["deps", "engine", "node"]);
+    assert.deepStrictEqual(result.missing, []);
+    assert.strictEqual(result.ok, true);
   });
 });
 
@@ -123,7 +124,8 @@ export function createGracefulShutdown({ watchdog, store }) {
 describe("audit/scripts/bootstrap-contract.js — combined", () => {
   test("checkBootstrapContract reflects both sub-gates", () => {
     const result = checkBootstrapContract();
-    assert.strictEqual(result.ok, false, "step-error-path gaps keep the combined gate red today");
+    assert.strictEqual(result.ok, true);
+    assert.strictEqual(result.stepErrorPaths.ok, true);
     assert.strictEqual(result.shutdownResourceParity.ok, true);
   });
 });

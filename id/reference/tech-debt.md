@@ -142,7 +142,13 @@ housekeeping go in `A2D.md`, not here.
     outer `try/catch` still emits a global `bootstrapEvents('error', …)` on
     any rejection, so a failure isn't silent, but the specific step tile a
     user is watching (e.g. "Node.js & npm") stays stuck at `running` forever
-    instead of showing which step actually broke. Not fixed here. (b)
+    instead of showing which step actually broke.
+    **Fixed 2026-08-16**: `checkNode`, `checkDeps`, and `checkLlamaCpp` each
+    wrapped in the same try/catch → `setStep(id, 'error', err.message)` →
+    rethrow pattern `checkLlamaCppModel`/`checkSqlite` already used. The audit
+    gate itself (`audit/scripts/bootstrap-contract.js`'s `checkStepErrorPaths`)
+    now reconciles clean — `missing: []` — and its test was updated from
+    pinning the broken state to asserting the fix. (b)
     `lib/server/shutdown.js`'s `createGracefulShutdown({...})` destructured
     parameter list is checked against both its own function body (every
     declared resource must be torn down, not just declared) and its real

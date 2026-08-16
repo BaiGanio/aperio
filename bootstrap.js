@@ -189,16 +189,21 @@ const installLlamaCppLinux = async () => {
 // Install if missing.
 const checkLlamaCpp = async () => {
   setStep('engine', 'running', 'Checking llama.cpp…');
-  const usingBundledEngine = ensureLlamaCppVendorOnPath();
-  if (isInstalled(llamaCppBinaryName())) {
-    setStep('engine', 'skipped', usingBundledEngine
-      ? `Bundled llama.cpp engine ready (official ggml-org release ${LLAMACPP_VER})`
-      : 'llama.cpp engine already available on PATH');
-    return;
+  try {
+    const usingBundledEngine = ensureLlamaCppVendorOnPath();
+    if (isInstalled(llamaCppBinaryName())) {
+      setStep('engine', 'skipped', usingBundledEngine
+        ? `Bundled llama.cpp engine ready (official ggml-org release ${LLAMACPP_VER})`
+        : 'llama.cpp engine already available on PATH');
+      return;
+    }
+    if (process.platform === 'darwin') await installLlamaCppMac();
+    else if (process.platform === 'win32') await installLlamaCppWin();
+    else await installLlamaCppLinux();
+  } catch (err) {
+    setStep('engine', 'error', err.message);
+    throw err;
   }
-  if (process.platform === 'darwin') await installLlamaCppMac();
-  else if (process.platform === 'win32') await installLlamaCppWin();
-  else await installLlamaCppLinux();
 };
 
 // ── Step implementations ──────────────────────────────────────────────────
@@ -207,34 +212,44 @@ const checkLlamaCpp = async () => {
 // so uninstall messaging can be honest about what it should leave behind.
 const checkNode = async () => {
   setStep('node', 'running', 'Checking Node.js…');
-  if (isInstalled('node')) {
-    const v = execSync('node -v', { encoding: 'utf8' }).trim();
-    setStep('node', 'skipped', `Already installed (${v})`);
-    return true;
-  }
-  setStep('node', 'running', 'Installing Node.js via nvm…');
-  const nmvDir = `${process.env.HOME}/.nvm`;
-  if (!existsSync(`${nmvDir}/nvm.sh`)) {
+  try {
+    if (isInstalled('node')) {
+      const v = execSync('node -v', { encoding: 'utf8' }).trim();
+      setStep('node', 'skipped', `Already installed (${v})`);
+      return true;
+    }
+    setStep('node', 'running', 'Installing Node.js via nvm…');
+    const nmvDir = `${process.env.HOME}/.nvm`;
+    if (!existsSync(`${nmvDir}/nvm.sh`)) {
+      await runSilently('sh', ['-c',
+        'curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | sh'
+      ]);
+    }
     await runSilently('sh', ['-c',
-      'curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.7/install.sh | sh'
+      `export NVM_DIR="${nmvDir}" && source "$NVM_DIR/nvm.sh" && nvm install --lts`
     ]);
+    setStep('node', 'done', 'Node.js installed');
+    return false;
+  } catch (err) {
+    setStep('node', 'error', err.message);
+    throw err;
   }
-  await runSilently('sh', ['-c',
-    `export NVM_DIR="${nmvDir}" && source "$NVM_DIR/nvm.sh" && nvm install --lts`
-  ]);
-  setStep('node', 'done', 'Node.js installed');
-  return false;
 };
 
 const checkDeps = async () => {
   setStep('deps', 'running', 'Checking node_modules…');
-  if (existsSync('./node_modules/.package-lock.json') || existsSync('./node_modules')) {
-    setStep('deps', 'skipped', 'Already installed');
-    return;
+  try {
+    if (existsSync('./node_modules/.package-lock.json') || existsSync('./node_modules')) {
+      setStep('deps', 'skipped', 'Already installed');
+      return;
+    }
+    setStep('deps', 'running', 'Running npm install…');
+    await runSilently('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
+    setStep('deps', 'done', 'Dependencies installed');
+  } catch (err) {
+    setStep('deps', 'error', err.message);
+    throw err;
   }
-  setStep('deps', 'running', 'Running npm install…');
-  await runSilently('npm', ['install', '--prefer-offline', '--no-audit', '--no-fund']);
-  setStep('deps', 'done', 'Dependencies installed');
 };
 
 // ── llama.cpp model acquisition ────────────────────────────────────────────

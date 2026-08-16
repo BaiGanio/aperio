@@ -36,6 +36,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A failed Node.js, dependency-install, or llama.cpp-engine setup step left
+  its own status tile stuck on "running" forever.** Only the model-download
+  and SQLite-bindings steps ever marked themselves `error` on failure; the
+  other three caught nothing locally, so a failure there was still reported
+  (the wizard's overall error event still fired), but the specific tile the
+  user was watching never showed which step actually broke. Each of the
+  three now follows the same catch → mark-error → rethrow pattern the other
+  two already used. Caught by this session's own bootstrap-contract audit
+  gate (`audit/scripts/bootstrap-contract.js`), which now reconciles clean.
+
 - **A document naming "café" was never categorized as Dining.** The Dining
   rule's `/\bcafé\b/i` pattern could never match the word "café" itself —
   `\b` treats accented letters as non-word characters, so the trailing
