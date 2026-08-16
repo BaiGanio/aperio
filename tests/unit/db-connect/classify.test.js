@@ -5,8 +5,10 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import {
   classify, splitStatements, isAllowedForQuery, isAllowedForExecute,
-  countPlaceholders, describeSqlitePlaceholders,
 } from "../../../lib/db-connect/classify.js";
+import {
+  countPlaceholders, describeSqlitePlaceholders,
+} from "../../../lib/db-connect/placeholders.js";
 
 const cls = (sql) => classify(sql).class;
 

@@ -60,6 +60,15 @@ describe("category classification", () => {
     assert.ok(result.runnersUp.includes("Groceries"));
   });
 
+  test("matches an accented word like 'café' as Dining (regression: \\b is ASCII-only)", () => {
+    // \bcafé\b previously could never match "café" itself — \b treats the
+    // accented "é" as a non-word character, so the trailing \b demanded a
+    // word character right after it, matching only "cafés" instead.
+    assert.equal(classifyCategory({ text: "Café du Terminal — receipt" }).category, "Dining");
+    assert.equal(classifyCategory({ text: "le café." }).category, "Dining");
+    assert.equal(classifyCategory({ text: "CAFÉ CENTRAL" }).category, "Dining");
+  });
+
   test("returns null rather than guessing when nothing matches", () => {
     assert.equal(classifyCategory({ text: "Notice of scheduled building maintenance" }).category, null);
     assert.equal(classifyCategory({}).category, null);

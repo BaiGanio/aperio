@@ -36,6 +36,14 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A document naming "café" was never categorized as Dining.** The Dining
+  rule's `/\bcafé\b/i` pattern could never match the word "café" itself —
+  `\b` treats accented letters as non-word characters, so the trailing
+  boundary demanded a word character right after the "é", matching only the
+  plural "cafés" instead. Fixed with a Unicode-aware lookahead so "café",
+  "Café du Terminal", and "CAFÉ" all resolve to Dining, same as the
+  unaccented spelling always did.
+
 - **Windows CI reported the whole test suite green while running zero tests.**
   `package.json`'s `test`/`test:ci` family built its file list with
   `$(find ... -print)` and set `NODE_ENV` via a `VAR=value cmd` prefix — both

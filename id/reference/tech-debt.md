@@ -806,16 +806,6 @@ these are the model, not the rig.
   riding along with a harness change. Until then this check fails any run whose
   model reports the EUR total from the pipeline's own bucket, and the failure
   message names the taxonomy rather than the model.
-- 2026-08-13 **`/\bcafé\b/i` in `CATEGORY_RULES`' Dining rule can never match
-  "café".** `é` is a non-word character, so the trailing `\b` demands a word
-  character *after* it: the pattern is false for `"Café du Terminal"`, `"café"`
-  and `"le café."`, and true only for `"cafés"` — the exact inverse of the
-  intent. Found while tracing the EUR categorisation above. Harmless today
-  because the unaccented `/\bcafe\b/i` sits beside it and catches the ASCII
-  spelling, so only accented text is affected; the fix is dropping the trailing
-  `\b` (or using `(?![\p{L}])` with the `u` flag). Worth checking the other
-  patterns for the same shape — `/\bбон №/i` and anything ending in a
-  non-ASCII letter are candidates.
 
 **What is not yet decided (the actual blocker on T-G2.3):** whether a model
 that passes 1-in-4 with four distinct failure modes clears this gate at all.
