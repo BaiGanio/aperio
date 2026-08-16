@@ -11,6 +11,15 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Landing page: the 75 flip-card prompt keys are now translated in all 25
+  non-English locales.** `tool_*_prompt`, `team_*`, and `flip_*` keys
+  (`docs/locales/*.json`) previously existed only in English and silently fell
+  back for every other language; a Bulgarian or German visitor flipping a card
+  saw an English prompt regardless of their selected locale. All 25 locale
+  files now carry translated values for these keys, verified against
+  `en.json`'s key set (0 missing, 376 keys per locale) and the existing
+  `locale-drift-sync` test suite.
+
 - **Document-intelligence: a rule against counting one payment twice.** The
   skill told the model how to read, aggregate and persist documents, but never
   that one economic event is often documented more than once — the same receipt
