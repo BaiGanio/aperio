@@ -80,15 +80,21 @@ test("Codecov refreshes complete coverage and test dashboards", async () => {
   assert.match(e2eWorkflow, /npm run test:e2e:real/);
   assert.match(e2eWorkflow, /timeout-minutes:\s*10/);
 
+  // Scripts resolve test files via scripts/run-tests.js (cross-platform JS
+  // directory walk), not a bash `$(find ... -name '*.test.js')` glob — that
+  // syntax silently resolved to zero files under npm's default Windows
+  // script-shell (cmd.exe), so CI reported a green run for zero tests
+  // executed (see A2D.md "CI / testing", 2026-08-14, fixed 2026-08-16).
   assert.match(pkg.scripts["test:ci"], /--reporter=lcov/);
-  assert.match(pkg.scripts["test:ci"], /find tests\/unit tests\/integration -name/);
+  assert.match(pkg.scripts["test:ci"], /run-tests\.js/);
+  assert.match(pkg.scripts["test:ci"], /tests\/unit tests\/integration/);
   assert.match(pkg.scripts["test:ci"], /ci-json\.js/);
   assert.match(pkg.scripts["test:ci"], /tests\/results\/test-results\.json/);
   assert.doesNotMatch(pkg.scripts["test:ci"], /unit-json\.js|integration-json\.js/);
-  assert.match(pkg.scripts["test:unit:ci"], /find tests\/unit -name/);
-  assert.match(pkg.scripts["test:integration:ci"], /find tests\/integration -name/);
-  assert.match(pkg.scripts["test:e2e:ci"], /find tests\/e2e -name/);
-  assert.doesNotMatch(pkg.scripts["test:e2e:ci"], /-not -name/);
+  assert.match(pkg.scripts["test:unit:ci"], /run-tests\.js.*tests\/unit$/);
+  assert.match(pkg.scripts["test:integration:ci"], /run-tests\.js.*tests\/integration$/);
+  assert.match(pkg.scripts["test:e2e:ci"], /run-tests\.js.*tests\/e2e$/);
+  assert.doesNotMatch(pkg.scripts["test:e2e:ci"], /real-app/);
   assert.match(pkg.scripts["test:e2e:ci"], /tests\/results\/e2e-results\.json/);
   assert.match(pkg.scripts["test:unit:ci"], /tests\/results\/unit-results\.json/);
   assert.match(pkg.scripts["test:integration:ci"], /tests\/results\/integration-results\.json/);

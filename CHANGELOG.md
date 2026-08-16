@@ -36,6 +36,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Windows CI reported the whole test suite green while running zero tests.**
+  `package.json`'s `test`/`test:ci` family built its file list with
+  `$(find ... -print)` and set `NODE_ENV` via a `VAR=value cmd` prefix — both
+  bash syntax that npm's default Windows script-shell (`cmd.exe`) cannot parse.
+  On Windows the glob resolved to nothing, `node --test` matched zero files,
+  and the step exited in ~1s reporting success instead of running the ~2-3 min,
+  5000+ test suite every other platform ran. A new `scripts/run-tests.js`
+  resolves the file list and sets `NODE_ENV` in plain JS instead, so the
+  scripts behave identically on every platform, and it now refuses to report
+  success when it finds zero test files.
+
 - **A malformed tool call told the model what failed but never why.** When a
   model's arguments arrive from a parse that lost sync, the argument *values*
   end up folded into a key name — so the real parameter is simply absent and the
