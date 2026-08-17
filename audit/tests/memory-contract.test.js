@@ -3,8 +3,7 @@
 // Verify-first proof for the MCP ctx coherence gate, scoped to the memory/
 // wiki handler family: a fixture handler reading a ctx field createContext()
 // never supplies fails and names both the file and the field, and today's
-// real handlers are checked — including one genuine gap this gate found
-// (logged in id/reference/tech-debt.md, not silently allowlisted here).
+// real handlers are asserted clean (no unsupplied ctx-field reads remain).
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
@@ -64,12 +63,10 @@ async function h1(ctx) {
     assert.deepStrictEqual(green, []);
   });
 
-  test("current real state — one genuine ctx-field gap exists today: lib/handlers/wiki/regenerate.js " +
-    "reads ctx.provider, which createContext() never supplies (logged in tech-debt.md, not fixed here)", () => {
+  test("current real state — no unsupplied ctx-field reads remain (lib/handlers/wiki/regenerate.js's " +
+    "dead ctx.provider branch was removed)", () => {
     const result = checkMemoryCtxContract();
-    assert.strictEqual(result.ok, false);
-    assert.deepStrictEqual(result.violations, [
-      { file: "lib/handlers/wiki/regenerate.js", field: "provider" },
-    ]);
+    assert.strictEqual(result.ok, true);
+    assert.deepStrictEqual(result.violations, []);
   });
 });
