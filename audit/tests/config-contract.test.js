@@ -2,8 +2,7 @@
 //
 // Verify-first proof for the config drift gate: an unregistered env read
 // fails with its location named, a reviewed/platform exception passes, and
-// today's real scan is asserted — including the two genuine gaps it found
-// (logged to id/reference/tech-debt.md, not silently swallowed here).
+// today's real scan is asserted clean (no unregistered reads).
 
 import { describe, test } from "node:test";
 import assert from "node:assert/strict";
@@ -57,13 +56,11 @@ const real = process.env.REAL_VAR;
     assert.strictEqual(redAgain.ok, false);
   });
 
-  test("current real state — two genuine unregistered reads exist today (logged in tech-debt.md, " +
-    "not silently allowlisted here)", () => {
+  test("current real state — no unregistered env reads remain (APERIO_LLAMACPP_RUNTIME_DIR and " +
+    "APERIO_LOG_CACHE_FINGERPRINT are now registered in lib/config.js)", () => {
     const result = checkConfigContract();
-    const keys = result.unregistered.map((u) => u.key).sort();
-    assert.deepStrictEqual(keys, ["APERIO_LLAMACPP_RUNTIME_DIR", "APERIO_LOG_CACHE_FINGERPRINT"]);
-    assert.ok(!("APERIO_LLAMACPP_RUNTIME_DIR" in REVIEWED_EXCEPTIONS));
-    assert.ok(!("APERIO_LOG_CACHE_FINGERPRINT" in REVIEWED_EXCEPTIONS));
+    assert.strictEqual(result.ok, true);
+    assert.deepStrictEqual(result.unregistered, []);
   });
 
   test("current real state — the documented OS/internal exceptions are all actually read somewhere " +

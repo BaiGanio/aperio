@@ -295,6 +295,12 @@ path · tier 0 (bootstrap — .env only) · default: `vendor/llamacpp`
 
 Private directory containing Aperio's pinned llama-server binary. Docker points this into its persistent runtime volume; normal installs keep it inside the app folder.
 
+#### `APERIO_LLAMACPP_RUNTIME_DIR`
+
+path · tier 0 (bootstrap — .env only) · default: `./var/llamacpp`
+
+Private root for the llama.cpp preset/state/log lifecycle, in place of the shared ./var/llamacpp every real Aperio process reads and writes. Used primarily by the test suite to isolate runs. Read at module-load time — set before importing lib/helpers/llamacpp/constants.js or its consumers, never after.
+
 #### `LLAMACPP_BASE_URL`
 
 text · tier 1 (Settings UI, restart to apply) · default: `http://127.0.0.1:8080` · advanced
@@ -627,6 +633,12 @@ Surface subprocess stderr that is hidden by default.
 boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
 
 Suppress the shared llama-server log file. Session-scoped logs are still controlled by the retention setting.
+
+#### `APERIO_LOG_CACHE_FINGERPRINT`
+
+boolean · tier 1 (Settings UI, restart to apply) · default: *(unset)* · advanced
+
+Diagnostic flag from the llamacpp-multiturn-latency investigation: logs a per-request KV-cache fingerprint (system/tools hash plus a per-message hash+length list) to check whether the outgoing prompt was byte-identical request to request. on to enable; off by default.
 
 ## 3 · EXTERNAL INTEGRATIONS — keys & endpoints
 

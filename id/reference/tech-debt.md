@@ -35,12 +35,6 @@ housekeeping go in `A2D.md`, not here.
   Still open: T2.1 (provider matrix), the rest of T2.3 (general MCP tool-registry
   completeness beyond the memory/wiki family), T3.3 (ledger persistence/usage-cost
   accounting), T6–T9 (waves, journeys, triage, closeout).
-  Two real findings remain open from `config-contract.js` (T2.5): unregistered
-  `process.env` reads never added to `lib/config.js`'s registry —
-  `APERIO_LLAMACPP_RUNTIME_DIR` (`lib/helpers/llamacpp/constants.js`, plausibly worth
-  exposing in Settings) and `APERIO_LOG_CACHE_FINGERPRINT`
-  (`lib/agent/providers/llamacpp.js`, the T-L4 diagnostic flag). The gate's own test
-  pins both by name so registering either without updating the test is visible.
 
 ---
 
