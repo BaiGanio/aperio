@@ -6,8 +6,10 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import crypto from "crypto";
-import { Router } from "express";
+import express, { Router } from "express";
 import { mountGithubWebhookRoutes } from "../../../lib/routes/api-github-webhook.js";
+import { createNetGuard, buildAllowedHosts } from "../../../lib/helpers/netGuard.js";
+import { createAuthGuard } from "../../../lib/helpers/authGuard.js";
 
 // ─── Invoke helper ────────────────────────────────────────────────────────────
 
@@ -117,5 +119,71 @@ describe("github webhook", () => {
     const res = await post({ ...ISSUE_EVENT, action: "labeled" });
     assert.equal(res.status, 204);
     assert.equal(upserts.length, 0);
+  });
+});
+
+// ─── Full middleware chain (netGuard → authGuard → route) ─────────────────────
+// F-R2-05: netGuard's X-Aperio-Client requirement previously blocked every real
+// GitHub webhook delivery before the route's own HMAC check ran, since GitHub
+// has no way to set that header. Runs a real HTTP request through the actual
+// chain server.js wires up, not just the isolated router.
+
+describe("github webhook — full middleware chain", () => {
+  let server, baseUrl, chainUpserts;
+
+  before(async () => {
+    process.env.GITHUB_WEBHOOK_SECRET = SECRET;
+    chainUpserts = [];
+    const store = {
+      async upsertIssue(row) { chainUpserts.push(row); },
+      async getSetting() { return null; },
+    };
+
+    const app = express();
+    app.use(createNetGuard({ allowedHosts: buildAllowedHosts("127.0.0.1") }));
+    app.use(createAuthGuard());
+    app.use(express.json({ limit: "256kb", verify: (req, _res, buf) => { req.rawBody = buf; } }));
+    const apiRouter = Router();
+    mountGithubWebhookRoutes(apiRouter, { store });
+    app.use("/api", apiRouter);
+
+    server = app.listen(0, "127.0.0.1");
+    await new Promise((resolve) => server.once("listening", resolve));
+    baseUrl = `http://127.0.0.1:${server.address().port}`;
+  });
+
+  after(async () => {
+    delete process.env.GITHUB_WEBHOOK_SECRET;
+    await new Promise((resolve) => server.close(resolve));
+  });
+
+  test("valid-HMAC delivery with no X-Aperio-Client header reaches and is accepted by the route", async () => {
+    const raw = JSON.stringify(ISSUE_EVENT);
+    const res = await fetch(`${baseUrl}/api/github/webhook`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-github-event": "issues",
+        "x-hub-signature-256": sign(raw),
+        // deliberately no X-Aperio-Client — GitHub can never send it
+      },
+      body: raw,
+    });
+    assert.equal(res.status, 204);
+    assert.equal(chainUpserts.length, 1);
+    assert.deepEqual(chainUpserts[0], {
+      repo: "octocat/hello", number: 7, title: "Hello", state: "open", updatedAt: "2026-06-10T00:00:00Z",
+    });
+  });
+
+  test("other state-changing /api/* routes still require X-Aperio-Client (exemption is scoped to the webhook path only)", async () => {
+    const res = await fetch(`${baseUrl}/api/some-other-route`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+    });
+    assert.equal(res.status, 403);
+    const body = await res.json();
+    assert.equal(body.error, "client_header_required");
   });
 });
