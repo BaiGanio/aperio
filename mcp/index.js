@@ -40,7 +40,7 @@ try {
  * The Context (ctx) should only contain "Services"—stateful objects
  * that tools need to interact with the outside world (DB, AI, etc.)
  */
-async function createContext(store, opts) {
+export async function createContext(store, opts) {
   let vectorEnabled = opts.vectorEnabled !== undefined ? opts.vectorEnabled : true;
 
   // Detects a provider/model/dim change before the queue is built — without
@@ -76,16 +76,34 @@ async function createContext(store, opts) {
 
   const embeddingFn = (text, inputType) => vectorEnabled ? generateEmbedding(text, inputType) : null;
   const embeddingQueue = createEmbeddingQueue({ store, generateEmbedding: embeddingFn });
+  // Separate queue for the self_memories table (issue F-R2-06) — it must not
+  // share `embeddingQueue` above: that queue's gate and its retry write both
+  // target the `memories` table (storeName + store.setEmbedding), so a
+  // self-memory id run through it would gate on the wrong store's signature
+  // and, on success, write nowhere a self-memory row could ever be found.
+  const selfEmbeddingQueue = createEmbeddingQueue({
+    store, generateEmbedding: embeddingFn, storeName: "self_memories",
+    setEmbedding: (id, embedding) => store.setSelfEmbedding(id, embedding),
+  });
 
   return {
     store,
     generateEmbedding: embeddingFn,
     vectorEnabled: () => vectorEnabled,
     embeddingQueue,
+    selfEmbeddingQueue,
     // PRIVACY-01: set by the agent when it spawns this process. When the active
     // provider is a cloud model this is false, and recall hides memories tagged
     // "local-only" so they never reach a third-party model.
-    providerIsLocal: process.env.APERIO_PROVIDER_LOCAL !== "0",
+    //
+    // Fails closed (F-R2-07): only an explicit "1" — set by
+    // lib/agent/mcp-connect.js's connectMcp() when the orchestrator spawns
+    // this process for a locally-detected provider, or by codex.js's explicit
+    // "0" — counts as local. A standalone `npm run mcp` deployment (no
+    // spawner to set the var at all, e.g. an external client like Claude
+    // Desktop or Cursor talking to Aperio directly) leaves it unset and must
+    // get the same self-memory wall a cloud provider gets, not the local one.
+    providerIsLocal: process.env.APERIO_PROVIDER_LOCAL === "1",
   };
 }
 

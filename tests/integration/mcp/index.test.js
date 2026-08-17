@@ -2,7 +2,7 @@
 // Tests for startServer() in mcp/index.js.
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { startServer } from "../../../mcp/index.js";
+import { startServer, createContext } from "../../../mcp/index.js";
 import os from "node:os";
 import path from "node:path";
 
@@ -186,6 +186,34 @@ describe("startServer — initialization", () => {
       /disabled/i,
       "DB Settings disabling the shell tool must actually disable it, not just update process.env after shell.js already froze SHELL_ENABLED"
     );
+  });
+});
+
+// =============================================================================
+// F-R2-07: providerIsLocal must fail closed (deny self-memory) when
+// APERIO_PROVIDER_LOCAL is unset — the standalone `npm run mcp` path (no
+// spawner to set the var, e.g. an external MCP client talking to Aperio
+// directly) previously fell through to `!== "0"`, which is true for unset.
+describe("createContext — providerIsLocal fail-closed default", () => {
+  test("defaults to false when APERIO_PROVIDER_LOCAL is unset", async () => {
+    await withEnv({ APERIO_PROVIDER_LOCAL: undefined }, async () => {
+      const ctx = await createContext(makeStore(), { vectorEnabled: false });
+      assert.equal(ctx.providerIsLocal, false);
+    });
+  });
+
+  test("is true only for an explicit \"1\" (the orchestrator-spawn path)", async () => {
+    await withEnv({ APERIO_PROVIDER_LOCAL: "1" }, async () => {
+      const ctx = await createContext(makeStore(), { vectorEnabled: false });
+      assert.equal(ctx.providerIsLocal, true);
+    });
+  });
+
+  test("stays false for an explicit \"0\" (codex.js's cloud path)", async () => {
+    await withEnv({ APERIO_PROVIDER_LOCAL: "0" }, async () => {
+      const ctx = await createContext(makeStore(), { vectorEnabled: false });
+      assert.equal(ctx.providerIsLocal, false);
+    });
   });
 });
 

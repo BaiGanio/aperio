@@ -122,6 +122,39 @@ describe("selfUpdateHandler", () => {
     const out = text(await selfUpdateHandler(makeCtx(), { id: "x" }));
     assert.ok(out.includes("No fields to update"));
   });
+
+  // F-R2-06: a failed re-embed on update used to leave the row's vector
+  // silently stale (unrecoverable — no scan finds a non-NULL-but-wrong
+  // vector) with no retry, unlike updateMemoryHandler's regular-memory path.
+  test("queues a retry via selfEmbeddingQueue when re-embedding fails", async () => {
+    let queued = null;
+    let receivedEmbedding = "not called";
+    const ctx = makeCtx({
+      updateSelf: async (id, input, embedding) => {
+        receivedEmbedding = embedding;
+        return { ...makeSelf(), ...input, id };
+      },
+    });
+    ctx.generateEmbedding = async () => null;
+    ctx.selfEmbeddingQueue = { enqueue: (id, text) => { queued = { id, text }; } };
+
+    const out = text(await selfUpdateHandler(ctx, { id: "bbbbbbbb-0000-0000-0000-000000000001", content: "New content" }));
+
+    assert.ok(!receivedEmbedding, "updateSelf must be called with a falsy embedding");
+    assert.ok(out.includes("✅ Updated self-memory"));
+    assert.ok(queued, "a retry should have been enqueued");
+    assert.equal(queued.id, "bbbbbbbb-0000-0000-0000-000000000001");
+  });
+
+  test("does not queue a retry when the embed succeeds", async () => {
+    let queued = false;
+    const ctx = makeCtx();
+    ctx.selfEmbeddingQueue = { enqueue: () => { queued = true; } };
+
+    await selfUpdateHandler(ctx, { id: "x", content: "New content" });
+
+    assert.equal(queued, false);
+  });
 });
 
 // ─── selfForgetHandler ────────────────────────────────────────────────────────
