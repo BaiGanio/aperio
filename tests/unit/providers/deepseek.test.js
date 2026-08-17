@@ -128,6 +128,42 @@ describe("runDeepSeekLoop — text response", () => {
 });
 
 // =============================================================================
+// runDeepSeekLoop — Stop/abort latch (F-R2-04)
+// =============================================================================
+describe("runDeepSeekLoop — Stop/abort latch (F-R2-04)", () => {
+  afterEach(() => { reset(); });
+
+  test("Stop pressed during prepareModelContext is not lost even after wsHandler nulls its abortController reference", async () => {
+    let requestCount = 0;
+    let currentController = null;
+    const getAbort = () => currentController;
+    const setAbort = (c) => { currentController = c; };
+
+    const prepareModelContext = mock.fn(async () => {
+      currentController.abort();
+      currentController = null;
+      return { messages: [{ role: "user", content: "hi" }], systemPrompt: "sys", tools: [] };
+    });
+    mock.method(globalThis, "fetch", async () => {
+      requestCount++;
+      return { ok: true, status: 200, body: sseStream([]), text: async () => "" };
+    });
+
+    const ctx = baseCtx({ prepareModelContext });
+    const messages = [{ role: "user", content: "Hello" }];
+    const emitter = { send: mock.fn() };
+
+    const result = await runDeepSeekLoop(messages, emitter, {}, getAbort, setAbort, ctx);
+
+    assert.equal(result, "");
+    assert.equal(requestCount, 0, "must never open a fetch request once Stop was observed during context prep");
+    const last = emitter.send.mock.calls[emitter.send.mock.calls.length - 1].arguments[0];
+    assert.equal(last.type, "stream_end");
+    assert.equal(last.text, "");
+  });
+});
+
+// =============================================================================
 // runDeepSeekLoop — error paths
 // =============================================================================
 describe("runDeepSeekLoop — error paths", () => {
