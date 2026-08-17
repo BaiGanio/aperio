@@ -574,19 +574,6 @@ nuanced than "unvalidated" now.
 
 ---
 
-## Deployment — production Compose migration ownership
-
-- 2026-08-13 `docker/docker-compose.prod.yml` mounts `../db/migrations` into
-  Postgres' `/docker-entrypoint-initdb.d`, while `docker/docker-compose.yml`
-  explicitly says not to do this: raw initdb execution bypasses
-  `schema_migrations`, after which Aperio's migration runner can try to apply
-  `001_init.sql` again. The v0.68.0 manual therefore does not present the
-  production Compose file as a verified installation path. Reconcile the
-  production file with the migration runner, then prove first boot and restart
-  against an isolated empty volume before documenting support.
-
----
-
 ## Intentional deferrals
 
 These are intentional deferrals. Do not "fix" them without discussion.

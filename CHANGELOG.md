@@ -63,6 +63,18 @@ Versions follow [Semantic Versioning](https://semver.org/).
   "Café du Terminal", and "CAFÉ" all resolve to Dining, same as the
   unaccented spelling always did.
 
+- **`docker/docker-compose.prod.yml` broke first boot against a fresh
+  database.** It mounted `../db/migrations` into Postgres' own
+  `/docker-entrypoint-initdb.d`, so a brand-new volume applied the schema
+  as raw, unbookkept SQL; the `aperio` service's own migration runner then
+  tried to reapply `001_core.sql` on its first request and failed with
+  "already exists". The mount is removed — the app already runs migrations
+  itself on startup (`db/postgres/store.js`'s `PostgresStore.init()`), the
+  same single source of truth the dev Compose file already relied on.
+  Verified live against a fresh, isolated volume: all 14 migrations apply
+  cleanly on first boot, and a container restart correctly reports nothing
+  pending.
+
 - **Windows CI reported the whole test suite green while running zero tests.**
   `package.json`'s `test`/`test:ci` family built its file list with
   `$(find ... -print)` and set `NODE_ENV` via a `VAR=value cmd` prefix — both

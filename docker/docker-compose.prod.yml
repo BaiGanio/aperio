@@ -10,7 +10,14 @@ services:
       - "127.0.0.1:8008:5432"
     volumes:
       - aperio_data:/var/lib/postgresql/data
-      - ../db/migrations:/docker-entrypoint-initdb.d
+      # NOTE: do NOT mount db/migrations into /docker-entrypoint-initdb.d.
+      # Postgres' initdb hook runs those files as raw SQL with no bookkeeping,
+      # which double-applies migrations and leaves schema_migrations empty —
+      # the aperio service then fails to boot when its own PostgresStore.init()
+      # (db/postgres/store.js) reruns 001_core.sql and hits "already exists".
+      # migrate.js is the single source of truth for schema; the aperio
+      # service below calls it automatically on startup, so no manual
+      # `npm run migrate` step is needed for this Compose file.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aperio} -d ${POSTGRES_DB:-aperio}"]
       interval: 10s
