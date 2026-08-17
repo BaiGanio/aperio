@@ -37,6 +37,8 @@ after(() => {
 
 // ─── Dynamic import of provider ───────────────────────────────────────────
 
+import { SYNTHETIC_USER } from "../../../../lib/agent/tool-profiles.js";
+
 let runClaudeCodeLoop;
 let TOOL_RESULT_NUDGE;
 let __setMockEvents;
@@ -305,6 +307,39 @@ describe("runClaudeCodeLoop — transcript & resumption", () => {
     await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
     assert.ok(infoCalls.some(a => a[0].includes("(new)")),
       "should log (new) for first turn");
+  });
+});
+
+// =============================================================================
+// runClaudeCodeLoop — auto-fetched preflight context redaction (F-R2-02)
+// =============================================================================
+describe("runClaudeCodeLoop — auto-fetched preflight context redaction (F-R2-02)", () => {
+  afterEach(() => { reset(); });
+
+  test("redacts secrets in preflight-shaped tool_result content before it reaches the SDK prompt", async () => {
+    const secret = "sk-ant-api03-abcdefghijklmnopqrstuvwxyz0123456789";
+    const messages = [
+      { role: "user", content: "What does this document say?" },
+      { role: "assistant", content: [{ type: "tool_use", id: "t1", name: "doc_batch", input: {} }] },
+      {
+        role: "user",
+        content: [{ type: "tool_result", tool_use_id: "t1", content: `Document contents: ${secret}` }],
+        [SYNTHETIC_USER]: true,
+      },
+    ];
+    const emitter = { send: mock.fn() };
+    const ctx = baseCtx();
+
+    await runClaudeCodeLoop(messages, emitter, {}, null, () => {}, ctx);
+
+    const { prompt } = __getLastQueryArgs();
+    const events = [];
+    for await (const ev of prompt) events.push(ev);
+    const content = events[0].message.content;
+    const text = typeof content === "string" ? content : content.find(b => b.type === "text")?.text ?? "";
+
+    assert.ok(!text.includes(secret), "secret must not reach the SDK prompt");
+    assert.ok(text.includes("[REDACTED:api-key]"), "redaction marker must be present in its place");
   });
 });
 
