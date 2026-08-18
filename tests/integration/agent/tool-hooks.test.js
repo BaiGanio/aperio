@@ -47,6 +47,7 @@ function makeHooks({ scratch = "/scratch", onDisk = [] } = {}) {
   const hooks = factory(emitter, Date.now());
   return {
     verifyFileClaims: hooks.verifyFileClaims,
+    verifyCurrencyClaims: hooks.verifyCurrencyClaims,
     surfaceArtifact: hooks.surfaceArtifact,
     flushDownloadCards: hooks.flushDownloadCards,
     events,
@@ -362,6 +363,51 @@ describe("verifyFileClaims() — hallucination guard", () => {
       hooks.events.find(event => event.type === "token" && /Correction/.test(event.text))?.text ?? "",
       /latest script revision was not executed|verification is stale/i,
     );
+  });
+});
+
+// SKILL.md §6 ("never blend, never convert") failed live twice against
+// gemma4-E4B and Ornith-1.0-9B — see id/reference/tech-debt.md, "Document
+// Intelligence — save/insert mechanics on gemma4". This is the deterministic
+// backstop: it flags a summary line that sums amounts across currencies
+// rather than relying on the model to catch its own blend.
+describe("verifyCurrencyClaims() — currency-blend guard", () => {
+  test("flags a total that sums two different currencies", () => {
+    const { verifyCurrencyClaims, events } = makeHooks();
+    verifyCurrencyClaims("**Total Spending:** 893.24 (696.84 BGN + 196.40 EUR)");
+    assert.equal(warned(events), true);
+  });
+
+  test("flags the recorded 'Grand total' regression verbatim", () => {
+    const { verifyCurrencyClaims, events } = makeHooks();
+    verifyCurrencyClaims(
+      "BGN: 696.84\nEUR: 196.40\n\n**Grand total: 893.24** (696.84 BGN + 196.40 EUR)",
+    );
+    assert.equal(warned(events), true);
+  });
+
+  test("does not flag correct, separate per-currency totals", () => {
+    const { verifyCurrencyClaims, events } = makeHooks();
+    verifyCurrencyClaims("Totals: 696.84 BGN and 196.40 EUR (reported separately, not converted).");
+    assert.equal(warned(events), false);
+  });
+
+  test("does not flag the same currency appearing twice", () => {
+    const { verifyCurrencyClaims, events } = makeHooks();
+    verifyCurrencyClaims("Fuel: 335.60 (215.60 BGN + 120.00 BGN)");
+    assert.equal(warned(events), false);
+  });
+
+  test("does not flag a parenthetical whose numbers don't actually sum to the total", () => {
+    const { verifyCurrencyClaims, events } = makeHooks();
+    verifyCurrencyClaims("Room 214 (2 EUR deposit + 1 USD fee)");
+    assert.equal(warned(events), false);
+  });
+
+  test("does not flag plain text with no parenthetical breakdown", () => {
+    const { verifyCurrencyClaims, events } = makeHooks();
+    verifyCurrencyClaims("You spent 893.24 across BGN and EUR documents this month.");
+    assert.equal(warned(events), false);
   });
 });
 

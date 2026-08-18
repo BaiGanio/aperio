@@ -11,6 +11,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Document-intelligence: a deterministic guard against blending currencies
+  in a final answer.** Rewording `SKILL.md`'s "never blend, never convert"
+  rule twice was measured, live, to not be enough — a model that got every
+  per-currency line right still added a "Grand total" summing BGN and EUR
+  into one number. `verifyCurrencyClaims()` now checks the model's own
+  final answer after the fact: when a parenthetical breakdown's amounts,
+  tagged with two or more different currency codes, arithmetically sum to
+  the number in front of it, it appends a correction telling the model (and
+  the user) to disregard that total — the same non-blocking pattern already
+  used for hallucinated file-deliverable claims.
+
 - **Landing page: the 75 flip-card prompt keys are now translated in all 25
   non-English locales.** `tool_*_prompt`, `team_*`, and `flip_*` keys
   (`docs/locales/*.json`) previously existed only in English and silently fell

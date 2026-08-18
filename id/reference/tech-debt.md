@@ -133,6 +133,20 @@ these are the model, not the rig.
   runs blended anyway. If this is to be fixed, it needs a mechanism (a
   post-generation check on the answer, or deriving the closing line from the
   query result rather than from prose), not more prompt.
+  **Mechanism built 2026-08-18**: `verifyCurrencyClaims()`
+  (`lib/agent/tool-hooks.js`, wired into `lib/agent/index.js` next to the
+  existing `verifyFileClaims` hallucination guard) is a deterministic
+  post-generation check — it never edits or blocks the model's own answer,
+  only appends a correction when a parenthetical breakdown's amounts, tagged
+  with two or more distinct currency codes, arithmetically sum to the leading
+  total (0.02 tolerance for decimal-string rounding). Matches both recorded
+  regressions verbatim (round 12's `893.24 (696.84 BGN + 196.40 EUR)` and
+  Ornith-1.0-9B's `**Grand total: 893.24** (696.84 BGN + 196.40 EUR)`), 60
+  unit tests in `tests/integration/agent/tool-hooks.test.js` (including
+  same-currency and non-matching-sum cases that must NOT fire), full unit +
+  integration + harness suites green. **Unvalidated live** — built and
+  tested against the recorded failure text, not yet re-run against a live
+  model turn.
 - 2026-08-13 **Arithmetic double-count.** Round 11 attributed Fuel 431.20
   against a true 215.60, propagating into a 912.44 grand total (696.84 +
   215.60). This was the one defect in the section that had **never** been
