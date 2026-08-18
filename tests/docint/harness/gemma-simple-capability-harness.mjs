@@ -9,8 +9,8 @@ import { randomInt } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { serveCtxFor } from "../../../../lib/helpers/llamacpp/sizing.js";
-import { resolveModelCacheDir } from "../../../../lib/helpers/modelCache.js";
+import { serveCtxFor } from "../../../lib/helpers/llamacpp/sizing.js";
+import { resolveModelCacheDir } from "../../../lib/helpers/modelCache.js";
 
 const model = process.env.LLAMACPP_MODEL || "unsloth/gemma-4-26B-A4B-it-qat-GGUF:Q4_K_XL";
 const port = randomInt(20_000, 60_000);

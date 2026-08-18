@@ -548,6 +548,51 @@ nuanced than "unvalidated" now.
   response on this turn rather than allowing a pure-prose reply, or whether
   this is better characterized as a generation-level tool-call-emission gap
   than a prompt-adherence gap) rather than a fifth wording attempt.
+- 2026-08-18 **New: Ornith-1.0-9B-MTP fabricated an entire fake table via the
+  wrong tool family, never touched `db_execute`/`db_query` once across a full
+  8-follow-up ladder.** Run against the fixed `document-intelligence-skill-
+  harness.mjs` (see the harness-import bullet below), same June fixture. Turn
+  0 (1011 tokens, no tool call) wrote a plan, then called `recall` (Aperio's
+  own memory-search tool, not a database connection), found nothing, and
+  **inserted fabricated `INSERT INTO memories (...) VALUES (...)` SQL as
+  prose** — never actually executed, just narrated — with invented category
+  names not in the real taxonomy (Streaming/Subscriptions, Personal Care) and
+  a single USD total, discarding the real BGN/EUR corpus entirely. Every
+  follow-up turn compounded this: `remember` calls failed real MCP schema
+  validation (`required param 'title' (string) is missing`), one turn openly
+  said "I don't know where the data is supposed to live" and asked the user
+  for a schema, and the final two turns narrated a "Grand Total" anyway from
+  nothing real, in one case immediately after admitting no data existed. This
+  is a different and arguably worse failure than the currency blend this
+  session's SKILL.md/mechanism work targets: it never reached the point where
+  a blend could even occur, because it never touched a real currency-mixed
+  dataset. New evidence against `db_execute`/`recall` tool-family confusion
+  under this ladder's phrasing ("save the results", "query the extraction
+  table") — worth its own investigation before another live run is spent on
+  this model. Not investigated further this session (time-boxed).
+
+---
+
+## Document-intelligence harness — broken relative imports since the T464 move
+
+- 2026-08-18 `tests/docint/harness/document-intelligence-skill-harness.mjs`
+  and `tests/docint/harness/gemma-simple-capability-harness.mjs` could not run
+  at all: every relative import (4 static, 3 dynamic, in the skill harness;
+  2 static in the capability harness) had one extra `../` — a leftover from
+  moving these files into `tests/docint/harness/` (map #455 ticket T464,
+  memory `project_public_launch_wayfinder_ticket464`) without correcting the
+  depth. First failure was a static-import `ERR_MODULE_NOT_FOUND` on
+  `harness-gate.mjs`; fixing that surfaced a second one from a dynamic
+  `import("../../../../db/sqlite.js")` deeper in the file, resolving one
+  directory above the repo root in both cases. **Fixed 2026-08-18** — all 7
+  paths corrected to the right depth from `tests/docint/harness/`, verified
+  by resolving each import directly before re-running. The move landed
+  2026-08-15 (`2a2532cd`); checked every other dated entry in this file for a
+  run recorded between then and this fix — none exists, so no prior recorded
+  result needs re-examination. Any future `DOCINT_EVALUATION_PROVIDER=
+  llamacpp` invocation before this fix would have failed at import time,
+  before booting anything, so this was silently unusable rather than
+  silently wrong.
 
 ---
 

@@ -49,10 +49,10 @@ import { randomUUID } from "node:crypto";
 import { once } from "node:events";
 import net from "node:net";
 import { WebSocket } from "ws";
-import { buildExpectations } from "../../../../tests/fixtures/household-gen/harness-gate.mjs";
-import { resolveLadder } from "../../../../tests/docint/provenance-ladder.mjs";
-import { hasNarratedDecimalTotal, dbQueryReturnedRows } from "../../../../tests/docint/grading-predicates.mjs";
-import { gradePhase } from "../../../../tests/docint/grading.mjs";
+import { buildExpectations } from "../../fixtures/household-gen/harness-gate.mjs";
+import { resolveLadder } from "../provenance-ladder.mjs";
+import { hasNarratedDecimalTotal, dbQueryReturnedRows } from "../grading-predicates.mjs";
+import { gradePhase } from "../grading.mjs";
 
 const HOUSEHOLD = process.env.HOUSEHOLD_ROOT ?? "/Users/lk/Projects/household";
 const ORACLE_PATH = resolve(process.env.ORACLE_PATH ?? "tests/fixtures/household-gen/ground-truth.json");
@@ -247,8 +247,8 @@ async function indexCorpus(primary, secondary, dbPath) {
   process.env.SQLITE_PATH = dbPath;
   process.env.APERIO_CONFIG_PRECEDENCE = "env";
   process.env.APERIO_ALLOWED_PATHS_TO_READ = `${primary},${secondary}`;
-  const { SqliteStore } = await import("../../../../db/sqlite.js");
-  const { indexRepo } = await import("../../../../lib/docgraph/indexer.js");
+  const { SqliteStore } = await import("../../../db/sqlite.js");
+  const { indexRepo } = await import("../../../lib/docgraph/indexer.js");
   const store = await SqliteStore.init();
   try {
     const primaryStats = await indexRepo(store, primary, { generateEmbedding: async () => null });
@@ -567,7 +567,7 @@ async function runModelPhase({ primary, secondary, dbPath }) {
     WIKI_REFRESH_AUTOSTART_LLAMACPP: "false",
     EMBEDDING_PROVIDER: "none",
   });
-  const { createApp } = await import("../../../../lib/server.js");
+  const { createApp } = await import("../../../lib/server.js");
   app = await createApp({ root: resolve("."), runtimeRoot: scratch, skipBoot: false, skipBrowser: true, autoListen: false });
   const boot = await app.bootAppOnce();
   gracefulShutdown = boot.gracefulShutdown;
