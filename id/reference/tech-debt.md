@@ -596,6 +596,36 @@ nuanced than "unvalidated" now.
 
 ---
 
+## Ornith tool-call leakage — angle-bracket shape unparsed
+
+- 2026-08-18 **Fixed.** `detectToolCallLeak()`'s generic `<tool_call>` pattern
+  (`lib/tools/executor.js`) correctly flagged Ornith-1.0-9B-MTP's leaked calls
+  and triggered the retry-with-thinking-suppressed path, but nothing actually
+  RECOVERED them — `extractBracketToolCall()` only knows the bbcode shape
+  (`[tool_call](name) [key]val[/key]`), and the JSON-object extractor in
+  `extractTextToolCall()` doesn't match this either. The real, live-observed
+  leak shape is angle-bracket, not bbcode:
+  `<tool_call> <function=db_schema> <parameter=connection> aperio </parameter>
+  </function> </tool_call>`. Recorded on the forced-`document-intelligence`-
+  skill re-run of the provenance harness (same session as the currency-blend
+  guard work below): the model correctly attempted `db_schema`, the leak fired,
+  the retry reproduced the identical unparseable text, and the turn fell back
+  to "I tried to use one of my tools but couldn't issue the call correctly" —
+  four times across the run, every attempt from turn 1 onward, and the model
+  never got another tool call to land for the rest of the ladder. **This, not
+  skill persistence or tool availability (both already confirmed present),
+  was the actual blocker to a clean provenance run for this model.** Fixed by
+  adding `extractAngleToolCall()` alongside `extractBracketToolCall()`, wired
+  into `extractTextToolCall()` the same way; handles the no-parameter case
+  (`<function=db_connections> </function>`, also observed live) and JSON-typed
+  parameter values. 7 new tests in `tests/unit/tools/executor.test.js`
+  (mirroring the existing bracket-shape coverage), full unit+integration
+  (5268 tests) and harness suites green. **Unvalidated live** — fixed and
+  unit-tested against the exact recorded leaked strings from this session's
+  run, not yet re-run against a fresh live turn.
+
+---
+
 ## Db-connect — extraction identity / managed lock
 
 - 2026-08-01 A v1-era extraction row whose connection string is edited BEFORE

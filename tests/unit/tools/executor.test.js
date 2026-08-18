@@ -2,7 +2,7 @@
 import { describe, test, mock, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import logger from "../../../lib/helpers/logger.js";
-import { extractTextToolCall, extractBracketToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../../lib/tools/executor.js";
+import { extractTextToolCall, extractBracketToolCall, extractAngleToolCall, detectToolCallLeak, recoverToolName, looksLikeSystemPromptEcho, ToolExecutor, DESTRUCTIVE_TOOLS, getDestructiveTools, findPriorToolResult } from "../../../lib/tools/executor.js";
 
 // =============================================================================
 // extractTextToolCall
@@ -298,6 +298,74 @@ describe("extractBracketToolCall", () => {
   test("captures trailing text after the call, stripping a Response: prefix", () => {
     const result = extractBracketToolCall("[tool_call](x) [a]1[/a] Response: done");
     assert.equal(result.trailing, "done");
+  });
+});
+
+// =============================================================================
+// extractAngleToolCall
+//
+// Ornith also leaks a SECOND shape, angle-bracket rather than bbcode:
+// "<tool_call> <function=name> <parameter=key> val </parameter> </function>
+// </tool_call>" — recorded verbatim from a live run
+// (id/reference/tech-debt.md, "Ornith tool-call leakage — angle-bracket shape
+// unparsed"). Neither extractBracketToolCall nor the JSON-object extractor in
+// extractTextToolCall recognized it, so it fell through to "I tried to use one
+// of my tools but couldn't issue the call correctly" every time, even after
+// the retry-with-thinking-suppressed path.
+// =============================================================================
+
+describe("extractAngleToolCall", () => {
+  test("returns null for empty or non-angle text", () => {
+    assert.equal(extractAngleToolCall(""), null);
+    assert.equal(extractAngleToolCall("I'll check the schema for you."), null);
+  });
+
+  test("parses the tool name and a single <parameter=key> value", () => {
+    const result = extractAngleToolCall(
+      "<tool_call> <function=db_schema> <parameter=connection> aperio </parameter> </function> </tool_call>",
+    );
+    assert.deepEqual(result, { name: "db_schema", input: { connection: "aperio" }, trailing: "" });
+  });
+
+  test("handles a no-parameter call", () => {
+    assert.deepEqual(
+      extractAngleToolCall("<tool_call> <function=db_connections> </function> </tool_call>"),
+      { name: "db_connections", input: {}, trailing: "" },
+    );
+  });
+
+  test("recovers the call even when prose precedes it", () => {
+    const result = extractAngleToolCall(
+      "I need to find the data first. Let me discover indexed documents, then save and query them. " +
+      "<tool_call> <function=db_schema> <parameter=connection> extraction </parameter> </function> </tool_call>",
+    );
+    assert.equal(result.name, "db_schema");
+    assert.deepEqual(result.input, { connection: "extraction" });
+  });
+
+  test("JSON-parses an array/object parameter value, keeps scalars as strings", () => {
+    const result = extractAngleToolCall(
+      '<tool_call> <function=remember> <parameter=content> blue </parameter> <parameter=tags> ["prefs","color"] </parameter> </function> </tool_call>',
+    );
+    assert.deepEqual(result.input, { content: "blue", tags: ["prefs", "color"] });
+  });
+
+  test("extractTextToolCall recovers the angle shape when the bracket/JSON forms don't match", () => {
+    const result = extractTextToolCall(
+      "<tool_call> <function=db_schema> <parameter=connection> aperio </parameter> </function> </tool_call>",
+      [],
+      ["db_schema"],
+    );
+    assert.deepEqual(result, { name: "db_schema", input: { connection: "aperio" }, trailing: "" });
+  });
+
+  test("extractTextToolCall respects the known-tool gate for the angle shape too", () => {
+    const result = extractTextToolCall(
+      "<tool_call> <function=made_up_tool> </function> </tool_call>",
+      [],
+      ["db_schema"],
+    );
+    assert.equal(result, null);
   });
 });
 

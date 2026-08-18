@@ -56,6 +56,16 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **A local model's tool call silently died with "I tried to use one of my
+  tools but couldn't issue the call correctly."** Ornith-1.0-9B-MTP leaks tool
+  calls as angle-bracket markup (`<tool_call> <function=db_schema>
+  <parameter=connection> aperio </parameter> </function> </tool_call>`) under
+  load. The leak was correctly detected and retried, but nothing could parse
+  that shape to recover it — every retry reproduced the same unparseable text
+  and the call was lost for good. `extractAngleToolCall()` now recovers it,
+  the same way an existing bbcode-shaped leak from the same model family
+  already was.
+
 - **Foreign-currency travel documents (a train ticket, a hotel bill, an
   airport receipt) had no category at all.** `CATEGORY_RULES`
   (`lib/docgraph/facts/contract.js`) covered Bulgarian and English household
