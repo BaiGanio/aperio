@@ -626,6 +626,39 @@ nuanced than "unvalidated" now.
 
 ---
 
+## Ornith-1.0-9B-MTP — same-call repetition loop, the real blocker after the two fixes above
+
+- 2026-08-18 With both the skill-persistence fix (`DOCINT_FORCE_SKILLS=
+  document-intelligence`, confirming a genuine code gap tracked separately —
+  see "Skill matching — a workflow skill does not survive its own follow-up
+  turns" — this session used the diagnostic override rather than the
+  underlying fix) and the angle-bracket leak recovery above both in place,
+  three consecutive turns of a fresh provenance run each fell into the same
+  shape: the model calls a tool once, gets a real result, then **re-issues
+  the identical call over and over** — `doc_manifest` **188 times** in turn 1
+  (12:45:58–12:54:50, every ~2.8s for nearly 9 minutes straight — the fast
+  text-interception retry cadence) and `db_schema` 13 then 9 times in turns 2
+  and 3 respectively (every ~40-45s, a full generation pass each time, not a
+  retry loop) — until the turn's own 600s hard timeout cut it off (turns 2
+  and 3 both timed out or were killed with the loop still running).
+  `findPriorToolResult`'s same-turn dedup
+  (`lib/tools/executor.js`) worked exactly as designed every time, correctly
+  reusing the prior result rather than re-executing — this is not a
+  duplicate-execution bug. The bug is upstream: **the model never registers
+  that it already has the answer and keeps asking again**, burning the
+  entire turn budget on a call it already made. Turn 3 was killed at this
+  point rather than let it repeat a fourth time (developer's standing rule);
+  the run's own db_execute was never reached. Not investigated further this
+  session — candidates worth checking before another attempt: whether the
+  tool RESULT text is actually landing in the model's own context on the
+  next generation step (a context-assembly gap would produce exactly this
+  "it doesn't know it already asked" symptom), whether this is a sampling/
+  repetition-penalty issue specific to `llama.cpp`'s `ornith` adapter path,
+  or whether it's dependent on `ctx-size 131072` specifically (this run's
+  KV cache size) rather than the model itself.
+
+---
+
 ## Db-connect — extraction identity / managed lock
 
 - 2026-08-01 A v1-era extraction row whose connection string is edited BEFORE
