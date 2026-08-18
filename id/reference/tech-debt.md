@@ -103,6 +103,12 @@ these are the model, not the rig.
   `withinPerTurnWallClockCeiling: false` plus "one or more turns did not
   complete". New in round 12 — rounds 9-11 never did it, so its frequency is
   1-in-4 and unmeasured.
+  **Re-examined 2026-08-18 (A2D follow-up on the 2026-08-14 harness fix):** the
+  four-turn cascade itself is explained by `runTurn()`'s pre-fix turn-id
+  mismatch, not by additional model failures — do not add a gate check for the
+  cascade shape itself. The one harness-independent defect here is turn 2
+  alone: 900s spent entirely on thinking tokens with zero output and no tool
+  call.
 - 2026-08-13 **The write path silently produced nothing: `insertedRealRows:
   false` on a run that proposed `db_execute` and had the confirm approved.**
   Rows were never written, which is the *core* claim of T-G2.3. Alongside it,
@@ -183,15 +189,6 @@ these are the model, not the rig.
   `unresolvedForeignCurrencyRows` in `grading-predicates.mjs`; 6 + 4 tests.
   Replaying the recorded round-12 run through it introduces no failure — that
   run's only `db_query` returned zero rows, so the check is correctly silent.
-  **Still open, and now the real item:** the taxonomy gap itself. A
-  document-intelligence product whose corpus spans seven destinations, seven
-  languages and four currencies cannot categorise any of the non-domestic
-  spending. Fixing it means adding a Travel/Accommodation category with
-  de/fr/en patterns to `CATEGORY_RULES` — product code that changes how real
-  users' documents are categorised, so it deserves its own review rather than
-  riding along with a harness change. Until then this check fails any run whose
-  model reports the EUR total from the pipeline's own bucket, and the failure
-  message names the taxonomy rather than the model.
 
 **What is not yet decided (the actual blocker on T-G2.3):** whether a model
 that passes 1-in-4 with four distinct failure modes clears this gate at all.
@@ -364,7 +361,10 @@ nuanced than "unvalidated" now.
   `amount_normalized`, not `amount`. The failed query then ran into the
   600s per-turn hard timeout with no retry, cascading into two more turns of
   empty answers — the same "broken connection after hard timeout" pattern
-  documented from earlier runs. SKILL.md Gotchas now tells the model to
+  documented from earlier runs (re-examined 2026-08-18: this cascade shape is
+  the pre-2026-08-14 harness turn-id bug, so the two empty follow-on turns are
+  not separate model evidence — the real defect is the wrong column name
+  alone). SKILL.md Gotchas now tells the model to
   re-read its own `db_schema` result's exact column names into the query
   rather than retyping from recall (landed 2026-08-13). **Consistent with
   the fix on the one case the same-day re-run exercised**: gemma4-E4B's
@@ -401,6 +401,16 @@ nuanced than "unvalidated" now.
   so the difference is more likely something about the larger model's own
   behavior on this prompt) or a one-off fluke; needs a repeat run before
   concluding either way. Not investigated further this session.
+  **Re-examined 2026-08-18:** the empty ~4s cascade turns and the stray
+  document re-read are explained by the pre-2026-08-14 harness turn-id bug,
+  not by 26B-A4B behavior — drop them from any future case for
+  model-specificity. The `shell` tool-profile addition was separately
+  root-caused and fixed the same session (`classifyProfiles()` bare-`\brun\b`
+  match, see the per-row-INSERT entry below) — likely the same mechanism
+  here too, since the follow-up prompt text is the same SQL-language "run"
+  trigger, though this specific run was not re-verified against the fix. The
+  one defect this bullet still stands on is turn 1's total non-engagement
+  itself: 600s, zero tool calls, zero tokens.
 - 2026-08-13 **New: Ornith-1.0-9B — clean save→query→narrate mechanics, but
   an undisclosed currency blend and an excluded-document leak** (a different
   model family from gemma4, logged here for the same reason as 26B-A4B

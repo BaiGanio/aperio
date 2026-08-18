@@ -45,6 +45,17 @@ Versions follow [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Foreign-currency travel documents (a train ticket, a hotel bill, an
+  airport receipt) had no category at all.** `CATEGORY_RULES`
+  (`lib/docgraph/facts/contract.js`) covered Bulgarian and English household
+  spending only, so a German train ticket, a German hotel bill and a French
+  airport receipt all fell into `Uncategorized` — one of them even mis-scored
+  as `Dining` on the word "café" alone. A new `Travel` category with English/
+  German/French patterns (ticket, flight, hotel/hôtel, Reise, Fahrkarte,
+  Flughafen, Unterkunft, voyage, aéroport) now resolves all three correctly,
+  without competing with the existing local-transit-card pattern under
+  `Transport`.
+
 - **A failed Node.js, dependency-install, or llama.cpp-engine setup step left
   its own status tile stuck on "running" forever.** Only the model-download
   and SQLite-bindings steps ever marked themselves `error` on failure; the

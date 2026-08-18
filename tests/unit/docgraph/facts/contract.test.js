@@ -69,6 +69,36 @@ describe("category classification", () => {
     assert.equal(classifyCategory({ text: "CAFÉ CENTRAL" }).category, "Dining");
   });
 
+  test("resolves foreign-language travel documents as Travel (regression: EUR docs used to land in Uncategorized)", () => {
+    // Real fixture text from tests/fixtures/household-gen's frozen June travel
+    // slice — a German train ticket, a German hotel bill, a French airport
+    // receipt. All three used to score 0 (or, for the café, wrongly tie into
+    // Dining) — see id/reference/tech-debt.md, "The EUR row lands as
+    // Uncategorized".
+    assert.equal(classifyCategory({
+      text: "BahnReise AG\nFahrkarte / Ticket\nReisedatum: 14.06.2026\nKategorie: Reise / Transport",
+      merchant: "BahnReise AG",
+    }).category, "Travel");
+    assert.equal(classifyCategory({
+      text: "Hotel Lindenhof Berlin\nZimmer: 214 (Einzelzimmer) Nächte: 1\nKategorie: Reise / Unterkunft",
+      merchant: "Hotel Lindenhof Berlin",
+    }).category, "Travel");
+    const cafeResult = classifyCategory({
+      text: "Café du Terminal\nAéroport de Paris-Roissy CDG, Terminal 2E\nCatégorie: Voyage / Restauration",
+      merchant: "Café du Terminal",
+    });
+    assert.equal(cafeResult.category, "Travel");
+    assert.ok(cafeResult.runnersUp.includes("Dining"));
+  });
+
+  test("a local transit top-up still resolves as Transport, not Travel", () => {
+    // Transport's own "travel card" pattern must keep winning this tie —
+    // Travel's patterns deliberately exclude the bare word "travel" so it
+    // never competes with a Sofia metro card top-up.
+    const result = classifyCategory({ text: "ГРАДСКИ ТРАНСПОРТ СОФИЯ\nзареждане на карта\ntravel card top-up" });
+    assert.equal(result.category, "Transport");
+  });
+
   test("returns null rather than guessing when nothing matches", () => {
     assert.equal(classifyCategory({ text: "Notice of scheduled building maintenance" }).category, null);
     assert.equal(classifyCategory({}).category, null);
