@@ -70,8 +70,7 @@ function fakeKill(result) {
 }
 
 const originalFetch = globalThis.fetch;
-const ENV_KEYS = ["LLAMACPP_MODEL", "LLAMACPP_VLM_MODEL", "LLAMACPP_VLM_MMPROJ", "LLAMACPP_SERVE_CTX", "LLAMACPP_CTX",
-  "LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"];
+const ENV_KEYS = ["LLAMACPP_MODEL", "LLAMACPP_VLM_MODEL", "LLAMACPP_VLM_MMPROJ", "LLAMACPP_SERVE_CTX", "LLAMACPP_CTX"];
 const savedEnv = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
 
 afterEach(() => {
@@ -149,14 +148,11 @@ describe("buildModelsPreset", () => {
     assert.match(ini, /^\[\*\]\njinja = true\nparallel = 1/);
   });
 
-  test("defaults to the curated main + VLM models", () => {
-    // The default main model is RAM-tiered. Pin the fixture to the >24 GB
-    // tier so this assertion does not change with the host running the tests.
+  test("defaults to the curated main model, no RAM tiering; omits the VLM bridge since it's natively vision-capable", () => {
     const ini = buildModelsPreset({}, { totalRamGB: 32 });
     assert.match(ini, /\[aperio-main\]/);
-    assert.match(ini, /hf-repo = unsloth\/Qwen3\.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL/);
-    assert.match(ini, /\[aperio-vlm\]/);
-    assert.match(ini, /hf-repo = ggml-org\/Qwen2\.5-VL-7B-Instruct-GGUF/);
+    assert.match(ini, /hf-repo = unsloth\/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/);
+    assert.doesNotMatch(ini, /\[aperio-vlm\]/, "the curated default is natively vision-capable, no VLM bridge needed");
   });
 
   test("LLAMACPP_MODEL / LLAMACPP_VLM_MODEL keep stable aliases and override hf-repo names", () => {
@@ -170,11 +166,11 @@ describe("buildModelsPreset", () => {
     assert.match(ini, /hf-repo = my-org\/my-vlm-GGUF/);
   });
 
-  test("tier overrides supplied to buildModelsPreset flow into the default model pick", () => {
+  test("LLAMACPP_MODEL supplied to buildModelsPreset flows into the default model pick", () => {
     const ini = buildModelsPreset({
-      LLAMACPP_MODEL_TIER_16: "custom/tier-model-GGUF:Q4_K_M",
+      LLAMACPP_MODEL: "custom/pinned-model-GGUF:Q4_K_M",
     }, { totalRamGB: 12, modelCacheDir: "/definitely/not/a/cache" });
-    assert.match(ini, /hf-repo = custom\/tier-model-GGUF:Q4_K_M/);
+    assert.match(ini, /hf-repo = custom\/pinned-model-GGUF:Q4_K_M/);
   });
 
   test("omits mmproj when LLAMACPP_VLM_MMPROJ is unset (llama-server auto-detects it)", () => {
@@ -183,7 +179,9 @@ describe("buildModelsPreset", () => {
   });
 
   test("emits mmproj on the VLM entry only when LLAMACPP_VLM_MMPROJ is set", () => {
-    const ini = buildModelsPreset({ LLAMACPP_VLM_MMPROJ: "mmproj-file.gguf" }, { totalRamGB: 32 });
+    // Non-vision main model needed so a VLM bridge section actually renders —
+    // the curated default is natively vision-capable and omits it.
+    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_VLM_MMPROJ: "mmproj-file.gguf" }, { totalRamGB: 32 });
     const mmprojMatches = ini.match(/mmproj = mmproj-file\.gguf/g);
     assert.equal(mmprojMatches?.length, 1, "mmproj should appear exactly once");
     const vlmHeaderIdx = ini.indexOf("[aperio-vlm]");
@@ -247,7 +245,7 @@ describe("buildModelsPreset", () => {
     // (maxContext 131072) — without the bridge ceiling, 512GB of RAM would
     // fit it right up near that, reproducing the two-large-models-resident
     // Metal OOM this test guards against.
-    const ini = buildModelsPreset({ LLAMACPP_VLM_MODEL: "my-org/custom-vlm-GGUF" }, { totalRamGB: 512 });
+    const ini = buildModelsPreset({ LLAMACPP_MODEL: DEFAULT_MODEL, LLAMACPP_VLM_MODEL: "my-org/custom-vlm-GGUF" }, { totalRamGB: 512 });
     const vlmSection = ini.slice(ini.indexOf("[aperio-vlm]"));
     assert.match(vlmSection, /ctx-size = 24576/);
   });
@@ -307,7 +305,7 @@ describe("buildModelsPreset — perf profiles", () => {
   test("balanced (default, no env var set): identical to pre-Phase-4 output", () => {
     const ini = buildModelsPreset({}, { totalRamGB: 64 });
     assert.doesNotMatch(ini, /models-max|flash-attn|cache-type|n-cpu-moe/);
-    assert.match(ini, /hf-repo = unsloth\/Qwen3\.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL/, "balanced uses the configured RAM-tier model");
+    assert.match(ini, /hf-repo = unsloth\/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/, "balanced uses the curated default model, not RAM-tiered");
   });
 
   test("fast-low-vram: emits models-max=1 and flash-attn in the global section", () => {
@@ -316,7 +314,9 @@ describe("buildModelsPreset — perf profiles", () => {
   });
 
   test("fast-low-vram: emits quantized KV cache flags on every model section", () => {
-    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 64 });
+    // Non-vision main model needed so a VLM bridge section actually renders —
+    // the curated default is natively vision-capable and omits it.
+    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: DEFAULT_MODEL }, { totalRamGB: 64 });
     const kMatches = ini.match(/cache-type-k = q8_0/g);
     const vMatches = ini.match(/cache-type-v = q8_0/g);
     assert.equal(kMatches?.length, 2, "both main + VLM sections should quantize the K cache");
@@ -334,8 +334,11 @@ describe("buildModelsPreset — perf profiles", () => {
     assert.match(mainSection, /cache-type-v = q8_0/, "Gemma 4 uses the compatible quantized V-cache");
   });
 
-  test("fast-low-vram: prefers the MoE model by default at 24GB RAM (below balanced's 48GB rung) and emits n-cpu-moe on it", () => {
-    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram" }, { totalRamGB: 24 });
+  test("fast-low-vram: emits n-cpu-moe when the selected model is MoE architecture", () => {
+    // Model choice is no longer RAM-tiered — an MoE model only shows up here
+    // when explicitly configured via LLAMACPP_MODEL.
+    const moeModel = "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL";
+    const ini = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "fast-low-vram", LLAMACPP_MODEL: moeModel }, { totalRamGB: 24 });
     assert.match(ini, /hf-repo = unsloth\/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL/);
     assert.match(ini, /n-cpu-moe = 999/);
     // Only one n-cpu-moe line: the VLM model (dense) must not get it.
@@ -420,17 +423,14 @@ describe("buildModelsPreset — perf profiles", () => {
 
   test("long-context: model pick is unchanged from balanced (only ctx sizing differs)", () => {
     const long = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context" }, { totalRamGB: 24 });
-    assert.match(long, /hf-repo = unsloth\/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL/, "long-context keeps the configured model, same as balanced");
+    assert.match(long, /hf-repo = unsloth\/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/, "long-context keeps the curated default model, same as balanced");
   });
 
-  test("quality: picks a bigger default model where the plain fixed default (used unchanged by balanced) would not", () => {
-    // balanced's own buildModelsPreset fallback is a fixed small model
-    // regardless of RAM (RAM-tiering normally happens once, at wizard time,
-    // via getRecommendedModel() writing LLAMACPP_MODEL into .env) — quality is
-    // the profile that reaches into that ladder itself, so it diverges from
-    // the fixed default at a RAM tier where the ladder recommends something bigger.
+  test("quality: uses the same curated default model as balanced — no RAM-tiered model swap", () => {
+    // Model choice is no longer RAM-tiered on any profile, including quality —
+    // one curated small model everyone gets by default.
     const quality = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality" }, { totalRamGB: 16 });
-    assert.match(quality, /hf-repo = unsloth\/Qwen3\.5-9B-GGUF:Q4_K_M/);
+    assert.match(quality, /hf-repo = unsloth\/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/);
     // Gemma 4 is natively vision-capable, so the preset omits the dedicated
     // VLM rather than putting two resident models into swap mode.
     assert.doesNotMatch(quality, /\[aperio-vlm\]/, "native-vision Gemma 4 does not need a dedicated VLM");
@@ -767,38 +767,31 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     assert.equal(getLlamaCppPid(), null, "the unmanaged PID is never adopted as owned");
   });
 
-  test("sizes LLAMACPP_SERVE_CTX for the configured tier model when LLAMACPP_MODEL is unset", async () => {
+  test("sizes LLAMACPP_SERVE_CTX for the curated default model when LLAMACPP_MODEL is unset", async () => {
     // Reset ownership so both sizing runs take the clean unowned-return branch.
     mockFetchSequence({ ok: false }, { ok: true });
     await ensureLlamaCpp(fakeSpawn(81001));
     await stopLlamaCpp(fakeKill(true), () => null);
     assert.equal(getLlamaCppPid(), null);
 
-    // A curated model with a distinctly small max context, so sizing for it
-    // differs from the (larger) registry-default tier on this host.
-    const TIER = "Qwen/Qwen2.5-3B-Instruct-GGUF:Q4_K_M";
+    const DEFAULT_MODEL = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
     delete process.env.LLAMACPP_MODEL;
-    // Pin every RAM tier to TIER so the choice is deterministic regardless of the
-    // test host's real RAM.
-    for (const k of ["LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"]) {
-      process.env[k] = TIER;
-    }
 
-    // Run A: LLAMACPP_MODEL unset → sizing must resolve the configured tier model.
+    // Run A: LLAMACPP_MODEL unset → sizing must resolve the curated default model.
     delete process.env.LLAMACPP_SERVE_CTX; delete process.env.LLAMACPP_CTX;
     globalThis.fetch = async () => ({ ok: true });
     await ensureLlamaCpp(fakeSpawn(81002), fakeKill(true));
-    const serveTier = parseInt(process.env.LLAMACPP_SERVE_CTX, 10);
+    const serveUnset = parseInt(process.env.LLAMACPP_SERVE_CTX, 10);
 
     // Run B: LLAMACPP_MODEL pinned to the SAME model explicitly → identical sizing.
     delete process.env.LLAMACPP_SERVE_CTX; delete process.env.LLAMACPP_CTX;
-    process.env.LLAMACPP_MODEL = TIER;
+    process.env.LLAMACPP_MODEL = DEFAULT_MODEL;
     await ensureLlamaCpp(fakeSpawn(81003), fakeKill(true));
     const servePinned = parseInt(process.env.LLAMACPP_SERVE_CTX, 10);
 
-    assert.ok(serveTier > 0, "a served window was computed");
-    assert.equal(serveTier, servePinned,
-      "an unset LLAMACPP_MODEL must size the served window for the configured tier model, exactly as pinning it would");
+    assert.ok(serveUnset > 0, "a served window was computed");
+    assert.equal(serveUnset, servePinned,
+      "an unset LLAMACPP_MODEL must size the served window for the curated default model, exactly as pinning it would");
   });
 
   test("returns without spawning when server is up but unowned (not our spawn, no stored PID)", async () => {

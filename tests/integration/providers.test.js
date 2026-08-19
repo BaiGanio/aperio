@@ -24,7 +24,7 @@ import {
   SLOW_GEN_TPS,
   machineCapacityPct,
   residentFootprintGB,
-  MODEL_TIER_DEFAULTS,
+  DEFAULT_LOCAL_MODEL,
   modelDisplayName,
   isSubscriptionProvider,
   providerDropsImages,
@@ -307,9 +307,9 @@ describe("resolveProvider — llamacpp", () => {
   test("resolves llamacpp with defaults", () => {
     const p = resolveProvider({ name: "llamacpp" });
     assert.equal(p.name, "llamacpp");
-    // When LLAMACPP_MODEL is unset the provider model must be the SAME RAM-tier
-    // model the preset serves, not a fixed Qwen — otherwise capability detection
-    // and alias routing (wiki refresh) key off a model the server never loaded.
+    // When LLAMACPP_MODEL is unset the provider model must be the SAME curated
+    // default model the preset serves — otherwise capability detection and
+    // alias routing (wiki refresh) key off a model the server never loaded.
     assert.equal(p.model, defaultLocalModel());
     assert.equal(p.requestModel, "aperio-main");
     assert.equal(p.baseURL, "http://127.0.0.1:8080/v1");
@@ -317,30 +317,12 @@ describe("resolveProvider — llamacpp", () => {
     assert.equal(typeof p.contextWindow, "number");
   });
 
-  test("provider model matches the configured tier when LLAMACPP_MODEL is unset", () => {
-    const saved = process.env.LLAMACPP_MODEL_TIER_32;
-    const savedModel = process.env.LLAMACPP_MODEL;
-    delete process.env.LLAMACPP_MODEL;
-    process.env.LLAMACPP_MODEL_TIER_32 = "custom/tier32-GGUF:Q4_K_M";
-    try {
-      // os.totalmem is mocked to 32 GB at module scope → top tier.
-      const p = resolveProvider({ name: "llamacpp" });
-      assert.equal(p.model, "custom/tier32-GGUF:Q4_K_M");
-      assert.equal(p.model, defaultLocalModel());
-    } finally {
-      if (saved === undefined) delete process.env.LLAMACPP_MODEL_TIER_32;
-      else process.env.LLAMACPP_MODEL_TIER_32 = saved;
-      if (savedModel === undefined) delete process.env.LLAMACPP_MODEL;
-      else process.env.LLAMACPP_MODEL = savedModel;
-    }
-  });
-
   test("model override wins over the default", () => {
     const p = resolveProvider({ name: "llamacpp", model: "unsloth/Qwen3.5-4B-GGUF" });
     assert.equal(p.model, "unsloth/Qwen3.5-4B-GGUF");
   });
 
-  test("LLAMACPP_MODEL env wins over the tier fallback", () => {
+  test("LLAMACPP_MODEL env wins over the curated default", () => {
     const saved = process.env.LLAMACPP_MODEL;
     process.env.LLAMACPP_MODEL = "explicit/pinned-GGUF:Q4_K_M";
     try {
@@ -353,18 +335,12 @@ describe("resolveProvider — llamacpp", () => {
 });
 
 describe("defaultLocalModel — shared LLAMACPP_MODEL fallback", () => {
-  test("returns the configured tier model (env wins over the registry default)", () => {
-    const env = { LLAMACPP_MODEL_TIER_16: "custom/tier16-GGUF:Q4_K_M" };
-    assert.equal(defaultLocalModel("balanced", { totalRamGB: 12 }, env), "custom/tier16-GGUF:Q4_K_M");
+  test("returns the LLAMACPP_MODEL env value when set", () => {
+    assert.equal(defaultLocalModel({ LLAMACPP_MODEL: "custom/tier16-GGUF:Q4_K_M" }), "custom/tier16-GGUF:Q4_K_M");
   });
 
   test("matches getRecommendedModel for the same inputs", () => {
-    for (const gb of [4, 12, 20, 40]) {
-      assert.equal(
-        defaultLocalModel("balanced", { totalRamGB: gb }),
-        getRecommendedModel("balanced", { totalRamGB: gb }),
-      );
-    }
+    assert.equal(defaultLocalModel(), getRecommendedModel());
   });
 });
 
@@ -454,57 +430,24 @@ describe("resolveKvCachePolicy", () => {
   });
 });
 
-describe("getRecommendedModel — configurable RAM tiers", () => {
-  const defaults = [
-    "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL",
-    "unsloth/Qwen3.5-9B-GGUF:Q4_K_M",
-    "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL",
-    "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL",
-  ];
-
-  test("maps RAM boundaries to the configured HF model string", () => {
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 8 }), defaults[0]);
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 12 }), defaults[1]);
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 16 }), defaults[1]);
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 20 }), defaults[2]);
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 24 }), defaults[2]);
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 40 }), "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL");
-  });
-
-  test("long-context uses the same model ladder as balanced (only ctx sizing differs)", () => {
-    for (const gb of [64, 32, 16, 4]) {
-      assert.equal(
-        getRecommendedModel("long-context", { totalRamGB: gb }),
-        getRecommendedModel("balanced", { totalRamGB: gb }),
-      );
+describe("getRecommendedModel — single fixed default, no RAM tiering", () => {
+  test("returns the curated default regardless of machine RAM", () => {
+    for (const gb of [4, 8, 16, 24, 32, 64]) {
+      // getRecommendedModel no longer takes hardware — same default every time.
+      assert.equal(getRecommendedModel(), DEFAULT_LOCAL_MODEL);
     }
   });
 
-  test("profiles do not change the configured model choice", () => {
-    for (const p of PERF_PROFILES) assert.equal(getRecommendedModel(p, { totalRamGB: 20 }), defaults[2]);
+  test("LLAMACPP_MODEL env wins over the curated default", () => {
+    assert.equal(getRecommendedModel({ LLAMACPP_MODEL: "custom/model-GGUF:Q4_K_M" }), "custom/model-GGUF:Q4_K_M");
   });
 
-  test("uses env overrides and treats RAM above 24 GB as the top tier", () => {
-    const env = { LLAMACPP_MODEL_TIER_16: "custom/model-GGUF:Q4_K_M" };
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 12 }, env), "custom/model-GGUF:Q4_K_M");
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 0 }, env), defaults[0]);
-    assert.equal(getRecommendedModel("balanced", { totalRamGB: 40 }, env), defaults[3]);
+  test("default comes from the config registry's LLAMACPP_MODEL entry", () => {
+    assert.equal(DEFAULT_LOCAL_MODEL, "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL");
   });
 
-  test("tier defaults come from the config registry", () => {
-    assert.deepEqual(MODEL_TIER_DEFAULTS, {
-      LLAMACPP_MODEL_TIER_8: defaults[0],
-      LLAMACPP_MODEL_TIER_16: defaults[1],
-      LLAMACPP_MODEL_TIER_24: defaults[2],
-      LLAMACPP_MODEL_TIER_32: defaults[3],
-    });
-  });
-
-  test("defaults profile to resolvePerfProfile() and hardware to the real host when omitted", (t) => {
-    // t.mock (not the bare module-level `mock`) auto-restores after this test,
-    // so it doesn't leak into other tests relying on the file's 32GB default.
-    t.mock.method(os, "totalmem", () => 64 * 1024 ** 3);
-    assert.equal(getRecommendedModel(), defaults[3]);
+  test("defaults to process.env when no env is passed", () => {
+    assert.equal(getRecommendedModel(), DEFAULT_LOCAL_MODEL);
   });
 });
 

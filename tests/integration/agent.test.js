@@ -148,28 +148,19 @@ describe("agent.js - core", () => {
 });
 
 // ---------------------------------------------------------------------------
-// RAM-based model selection
+// Model selection — single fixed default, no RAM tiering
 // ---------------------------------------------------------------------------
 
-describe("RAM-based model selection", () => {
-  test("selects the 32 GB tier for 48 GB+ RAM", () => {
-    mock.method(os, "totalmem", () => 64 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL");
+describe("model selection", () => {
+  test("returns the curated default regardless of machine RAM", () => {
+    for (const gb of [4, 16, 20, 64]) {
+      mock.method(os, "totalmem", () => gb * 1024 ** 3);
+      assert.strictEqual(getRecommendedModel(), "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL");
+    }
   });
 
-  test("selects the 24 GB tier for 17-24 GB RAM", () => {
-    mock.method(os, "totalmem", () => 20 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL");
-  });
-
-  test("selects the 16 GB tier for 9-16 GB RAM", () => {
-    mock.method(os, "totalmem", () => 16 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "unsloth/Qwen3.5-9B-GGUF:Q4_K_M");
-  });
-
-  test("selects the 8 GB tier for low RAM", () => {
-    mock.method(os, "totalmem", () => 4 * 1024 ** 3);
-    assert.strictEqual(getRecommendedModel(), "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL");
+  test("LLAMACPP_MODEL env wins over the curated default", () => {
+    assert.strictEqual(getRecommendedModel({ LLAMACPP_MODEL: "custom/pinned-GGUF" }), "custom/pinned-GGUF");
   });
 });
 

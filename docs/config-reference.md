@@ -313,30 +313,6 @@ text · tier 1 (Settings UI, restart to apply) · default: `unsloth/gemma-4-E2B-
 
 Hugging Face repo[:quant] for the main model (llama-server -hf format). Becomes the hf-repo of the router's `aperio-main` preset entry; requests send that stable alias as the `model` field (not the raw repo id, which would load a second, full-context copy).
 
-#### `LLAMACPP_MODEL_TIER_8`
-
-text · tier 1 (Settings UI, restart to apply) · default: `unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL` · advanced
-
-Recommended llama.cpp model for machines with up to 8 GB RAM (Hugging Face repo[:quant]).
-
-#### `LLAMACPP_MODEL_TIER_16`
-
-text · tier 1 (Settings UI, restart to apply) · default: `unsloth/Qwen3.5-9B-GGUF:Q4_K_M` · advanced
-
-Recommended llama.cpp model for machines with more than 8 GB and up to 16 GB RAM (Hugging Face repo[:quant]).
-
-#### `LLAMACPP_MODEL_TIER_24`
-
-text · tier 1 (Settings UI, restart to apply) · default: `unsloth/gemma-4-26B-A4B-it-GGUF:UD-Q4_K_XL` · advanced
-
-Recommended llama.cpp model for machines with more than 16 GB and up to 24 GB RAM (Hugging Face repo[:quant]).
-
-#### `LLAMACPP_MODEL_TIER_32`
-
-text · tier 1 (Settings UI, restart to apply) · default: `unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL` · advanced
-
-Recommended llama.cpp model for machines with more than 24 GB RAM (Hugging Face repo[:quant]).
-
 #### `LLAMACPP_VLM_MODEL`
 
 text · tier 1 (Settings UI, restart to apply) · default: `ggml-org/Qwen2.5-VL-7B-Instruct-GGUF` · advanced

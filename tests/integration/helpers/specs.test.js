@@ -34,7 +34,7 @@ function writeGguf(path) {
   writeFileSync(path, Buffer.concat([Buffer.from("GGUF"), u32(3), u64(0), u64(entries.length), ...entries, Buffer.alloc(4 * 1024 * 1024)]));
 }
 
-const ENV_KEYS = ["LLAMA_CACHE", "LLAMACPP_MODEL", "LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32", "APERIO_LOCAL_PERF_PROFILE"];
+const ENV_KEYS = ["LLAMA_CACHE", "LLAMACPP_MODEL", "APERIO_LOCAL_PERF_PROFILE"];
 const saved = Object.fromEntries(ENV_KEYS.map(k => [k, process.env[k]]));
 const roots = [];
 afterEach(() => {
@@ -45,14 +45,11 @@ afterEach(() => {
   }
 });
 
-// Point every RAM tier at `repoId` so getRecommendedModel() picks it regardless
-// of the test host's real RAM, and cache-root at `cache` so resolveModelFacts()
-// can inspect its GGUF.
-function useCustomTier(repoId, cache) {
+// Point LLAMACPP_MODEL at `repoId` so getRecommendedModel() picks it, and
+// cache-root at `cache` so resolveModelFacts() can inspect its GGUF.
+function useCustomModel(repoId, cache) {
   process.env.LLAMA_CACHE = cache;
-  for (const k of ["LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"]) {
-    process.env[k] = repoId;
-  }
+  process.env.LLAMACPP_MODEL = repoId;
 }
 
 // Build a Hugging Face snapshot cache holding one custom (non-catalog) GGUF.
@@ -69,13 +66,10 @@ function cacheWithModel(repoId) {
   return cache;
 }
 
-describe("getSpecs — custom / non-catalog tier model", () => {
-  test("uses an explicit first-install model instead of a larger RAM-tier recommendation", () => {
+describe("getSpecs — custom / non-catalog model", () => {
+  test("LLAMACPP_MODEL always wins over the curated default", () => {
     const model = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
     process.env.LLAMACPP_MODEL = model;
-    for (const k of ["LLAMACPP_MODEL_TIER_8", "LLAMACPP_MODEL_TIER_16", "LLAMACPP_MODEL_TIER_24", "LLAMACPP_MODEL_TIER_32"]) {
-      process.env[k] = "unsloth/Qwen3.6-35B-A3B-MTP-GGUF:UD-Q4_K_XL";
-    }
 
     assert.equal(getSpecs().recommendedModelHf, model);
   });
@@ -83,10 +77,10 @@ describe("getSpecs — custom / non-catalog tier model", () => {
   test("reports a real on-disk size for a cached custom model (resolveModelFacts, not factsForHf)", () => {
     const repoId = "org/Custom-GGUF:Q4_K_M";
     const cache = cacheWithModel(repoId);
-    useCustomTier(repoId, cache);
+    useCustomModel(repoId, cache);
 
     const specs = getSpecs();
-    assert.equal(specs.recommendedModelHf, repoId, "recommends the configured custom tier model");
+    assert.equal(specs.recommendedModelHf, repoId, "recommends the configured model");
     assert.equal(specs.cachedModels[0].repo, "org/Custom-GGUF");
     // factsForHf() alone returned null here (not in MODEL_FACTS) → modelSizeGB
     // was null and the disk check silently passed. resolveModelFacts() inspects
@@ -98,7 +92,7 @@ describe("getSpecs — custom / non-catalog tier model", () => {
   test("enoughDisk is computed from the resolved size, not defaulted true on a missing size", () => {
     const repoId = "org/Custom-GGUF:Q4_K_M";
     const cache = cacheWithModel(repoId);
-    useCustomTier(repoId, cache);
+    useCustomModel(repoId, cache);
 
     const specs = getSpecs();
     // diskGB is the real free space on the test host; whatever it is, enoughDisk
