@@ -58,7 +58,7 @@ Then set the values you need, for example:
 
 ```env
 AI_PROVIDER=llamacpp
-LLAMACPP_MODEL=unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL
+LLAMACPP_MODEL=unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL
 ```
 
 Cloud providers require their own API key. Postgres, cloud embeddings, code/doc

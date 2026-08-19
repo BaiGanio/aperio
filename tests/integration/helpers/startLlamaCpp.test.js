@@ -151,7 +151,7 @@ describe("buildModelsPreset", () => {
   test("defaults to the curated main model, no RAM tiering; omits the VLM bridge since it's natively vision-capable", () => {
     const ini = buildModelsPreset({}, { totalRamGB: 32 });
     assert.match(ini, /\[aperio-main\]/);
-    assert.match(ini, /hf-repo = unsloth\/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/);
+    assert.match(ini, /hf-repo = unsloth\/gemma-4-E4B-it-qat-GGUF:Q4_K_XL/);
     assert.doesNotMatch(ini, /\[aperio-vlm\]/, "the curated default is natively vision-capable, no VLM bridge needed");
   });
 
@@ -221,8 +221,8 @@ describe("buildModelsPreset", () => {
     for (const ctx of ctxLines) assert.ok(ctx <= 4096, `expected a small window on a 4GB machine, got ${ctx}`);
   });
 
-  test("the 8 GiB Gemma E2B tier receives enough context for Aperio's startup prompt", () => {
-    const model = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
+  test("the 8 GiB curated default (Gemma E4B) receives enough context for Aperio's startup prompt", () => {
+    const model = "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL";
     const noCache = { modelCacheDir: "/definitely/not/a/cache" };
     const atEightGiB = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.8 });
     const belowTier = buildModelsPreset({ LLAMACPP_MODEL: model }, { ...noCache, totalRamGB: 7.4 });
@@ -305,7 +305,7 @@ describe("buildModelsPreset — perf profiles", () => {
   test("balanced (default, no env var set): identical to pre-Phase-4 output", () => {
     const ini = buildModelsPreset({}, { totalRamGB: 64 });
     assert.doesNotMatch(ini, /models-max|flash-attn|cache-type|n-cpu-moe/);
-    assert.match(ini, /hf-repo = unsloth\/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/, "balanced uses the curated default model, not RAM-tiered");
+    assert.match(ini, /hf-repo = unsloth\/gemma-4-E4B-it-qat-GGUF:Q4_K_XL/, "balanced uses the curated default model, not RAM-tiered");
   });
 
   test("fast-low-vram: emits models-max=1 and flash-attn in the global section", () => {
@@ -423,14 +423,14 @@ describe("buildModelsPreset — perf profiles", () => {
 
   test("long-context: model pick is unchanged from balanced (only ctx sizing differs)", () => {
     const long = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "long-context" }, { totalRamGB: 24 });
-    assert.match(long, /hf-repo = unsloth\/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/, "long-context keeps the curated default model, same as balanced");
+    assert.match(long, /hf-repo = unsloth\/gemma-4-E4B-it-qat-GGUF:Q4_K_XL/, "long-context keeps the curated default model, same as balanced");
   });
 
   test("quality: uses the same curated default model as balanced — no RAM-tiered model swap", () => {
     // Model choice is no longer RAM-tiered on any profile, including quality —
     // one curated small model everyone gets by default.
     const quality = buildModelsPreset({ APERIO_LOCAL_PERF_PROFILE: "quality" }, { totalRamGB: 16 });
-    assert.match(quality, /hf-repo = unsloth\/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/);
+    assert.match(quality, /hf-repo = unsloth\/gemma-4-E4B-it-qat-GGUF:Q4_K_XL/);
     // Gemma 4 is natively vision-capable, so the preset omits the dedicated
     // VLM rather than putting two resident models into swap mode.
     assert.doesNotMatch(quality, /\[aperio-vlm\]/, "native-vision Gemma 4 does not need a dedicated VLM");
@@ -461,7 +461,10 @@ describe("buildModelsPreset — sizing parity with recommendContextLength", () =
     // parity holds regardless of the current default roster or whether the GGUF
     // is cached locally (gguf facts carry the reserveGB:4/0.15 override that a
     // curated-only entry does not). balanced profile => cacheScale 1, no ceiling.
-    const hf = MODEL_FACTS["gemma4:e4b-qat"].hf;
+    // Deliberately NOT the curated default (gemma4:e4b-qat) — that model gets a
+    // special agent-floor override in serveCtxFor (see sizing.js), which would
+    // break this parity check at small RAM sizes.
+    const hf = MODEL_FACTS["gemma4:e2b-qat"].hf;
     for (const totalRamGB of [4, 8, 16, 24, 48, 64]) {
       const facts = resolveModelFacts(hf, {});
       const ini = buildModelsPreset({ LLAMACPP_MODEL: hf }, { totalRamGB });
@@ -774,7 +777,7 @@ describe("ensureLlamaCpp — preset reconciliation", () => {
     await stopLlamaCpp(fakeKill(true), () => null);
     assert.equal(getLlamaCppPid(), null);
 
-    const DEFAULT_MODEL = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
+    const DEFAULT_MODEL = "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL";
     delete process.env.LLAMACPP_MODEL;
 
     // Run A: LLAMACPP_MODEL unset → sizing must resolve the curated default model.

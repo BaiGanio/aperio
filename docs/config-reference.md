@@ -309,7 +309,7 @@ llama-server chat API base URL.
 
 #### `LLAMACPP_MODEL`
 
-text · tier 1 (Settings UI, restart to apply) · default: `unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL`
+text · tier 1 (Settings UI, restart to apply) · default: `unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL`
 
 Hugging Face repo[:quant] for the main model (llama-server -hf format). Becomes the hf-repo of the router's `aperio-main` preset entry; requests send that stable alias as the `model` field (not the raw repo id, which would load a second, full-context copy).
 

@@ -365,7 +365,7 @@ document.getElementById("wizCloudGo").addEventListener("click", () => {
 // ── Local screen ───────────────────────────────────────────────────────────
 // llama.cpp is the only local engine. /api/setup/specs recommends a model
 // sized to this machine's RAM.
-const FALLBACK_MODEL_HF = "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL";
+const FALLBACK_MODEL_HF = "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL";
 let recommendedModel = null;
 let recommendedModelHf = null;
 let shouldPullLocalModel = false;

@@ -39,5 +39,5 @@ test("setup failure UI never invents model-download progress", () => {
 test("setup specs identify total memory and the model-cache filesystem", () => {
   assert.match(setupScript, /GiB/);
   assert.match(setupScript, /s\.diskPath/);
-  assert.match(setupScript, /gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL/);
+  assert.match(setupScript, /gemma-4-E4B-it-qat-GGUF:Q4_K_XL/);
 });

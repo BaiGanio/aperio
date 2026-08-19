@@ -155,7 +155,7 @@ describe("model selection", () => {
   test("returns the curated default regardless of machine RAM", () => {
     for (const gb of [4, 16, 20, 64]) {
       mock.method(os, "totalmem", () => gb * 1024 ** 3);
-      assert.strictEqual(getRecommendedModel(), "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL");
+      assert.strictEqual(getRecommendedModel(), "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL");
     }
   });
 

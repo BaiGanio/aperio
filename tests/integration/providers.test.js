@@ -443,7 +443,7 @@ describe("getRecommendedModel — single fixed default, no RAM tiering", () => {
   });
 
   test("default comes from the config registry's LLAMACPP_MODEL entry", () => {
-    assert.equal(DEFAULT_LOCAL_MODEL, "unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL");
+    assert.equal(DEFAULT_LOCAL_MODEL, "unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL");
   });
 
   test("defaults to process.env when no env is passed", () => {

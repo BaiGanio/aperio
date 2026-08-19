@@ -1044,7 +1044,7 @@ describe("printConfig", () => {
     delete process.env.LLAMACPP_CTX;
     delete process.env.LLAMACPP_SERVE_CTX;
     const output = await capture();
-    assert.ok(output.includes("unsloth/gemma-4-E2B-it-qat-GGUF:UD-Q4_K_XL"), "LLAMACPP_MODEL should fall back to the curated default");
+    assert.ok(output.includes("unsloth/gemma-4-E4B-it-qat-GGUF:Q4_K_XL"), "LLAMACPP_MODEL should fall back to the curated default");
   });
 });
 
